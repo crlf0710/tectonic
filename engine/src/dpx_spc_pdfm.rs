@@ -1,12 +1,16 @@
-#![allow(dead_code,
-         mutable_transmutes,
-         non_camel_case_types,
-         non_snake_case,
-         non_upper_case_globals,
-         unused_assignments,
-         unused_mut)]
+#![allow(
+    dead_code,
+    mutable_transmutes,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    unused_assignments,
+    unused_mut
+)]
 
 use crate::warn;
+use crate::HashMap;
+use std::ffi::{CStr, CString};
 
 extern crate libc;
 use super::dpx_pdfcolor::{
@@ -75,23 +79,6 @@ extern "C" {
     fn spc_warn(spe: *mut spc_env, fmt: *const i8, _: ...);
     #[no_mangle]
     static mut work_buffer: [i8; 0];
-    #[no_mangle]
-    fn ht_init_table(ht: *mut ht_table, hval_free_fn: hval_free_func);
-    #[no_mangle]
-    fn ht_clear_table(ht: *mut ht_table);
-    #[no_mangle]
-    fn ht_lookup_table(
-        ht: *mut ht_table,
-        key: *const libc::c_void,
-        keylen: i32,
-    ) -> *mut libc::c_void;
-    #[no_mangle]
-    fn ht_append_table(
-        ht: *mut ht_table,
-        key: *const libc::c_void,
-        keylen: i32,
-        value: *mut libc::c_void,
-    );
     #[no_mangle]
     fn parse_c_ident(pp: *mut *const i8, endptr: *const i8) -> *mut i8;
     /*  DVIPDFMx, an eXtended version of DVIPDFM by Mark A. Wicks.
@@ -363,7 +350,7 @@ pub struct spc_handler {
 pub struct spc_pdf_ {
     pub annot_dict: *mut pdf_obj,
     pub lowest_level: i32,
-    pub resourcemap: *mut ht_table,
+    pub resourcemap: *mut HashMap<CString, ht_entry>,
     pub cd: tounicode,
     /* quasi-hack to get the primary input */
     /* For to-UTF16-BE conversion :( */
@@ -376,22 +363,15 @@ pub struct tounicode {
     pub taintkeys: *mut pdf_obj,
     /* An array of PDF names. */
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct ht_table {
-    pub count: i32,
-    pub hval_free_fn: hval_free_func,
-    pub table: [*mut ht_entry; 503],
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
+
 pub struct ht_entry {
-    pub key: *mut i8,
-    pub keylen: i32,
     pub value: *mut libc::c_void,
-    pub next: *mut ht_entry,
 }
-pub type hval_free_func = Option<unsafe extern "C" fn(_: *mut libc::c_void) -> ()>;
+impl Drop for ht_entry {
+    fn drop(&mut self) {
+        unsafe { libc::free(self.value) };
+    }
+}
 
 use super::dpx_pdfdev::pdf_tmatrix;
 
@@ -571,7 +551,7 @@ static mut _pdf_stat: spc_pdf_ = {
     let mut init = spc_pdf_ {
         annot_dict: 0 as *const pdf_obj as *mut pdf_obj,
         lowest_level: 255i32,
-        resourcemap: 0 as *const ht_table as *mut ht_table,
+        resourcemap: std::ptr::null_mut(),
         cd: {
             let mut init = tounicode {
                 cmap_id: -1i32,
@@ -583,10 +563,6 @@ static mut _pdf_stat: spc_pdf_ = {
     };
     init
 };
-/* PLEASE REMOVE THIS */
-unsafe extern "C" fn hval_free(mut vp: *mut libc::c_void) {
-    free(vp); /* unused */
-}
 unsafe extern "C" fn addresource(
     mut sd: *mut spc_pdf_,
     mut ident: *const i8,
@@ -600,29 +576,22 @@ unsafe extern "C" fn addresource(
         as *mut resource_map;
     (*r).type_0 = 0i32;
     (*r).res_id = res_id;
-    ht_append_table(
-        (*sd).resourcemap,
-        ident as *const libc::c_void,
-        strlen(ident) as i32,
-        r as *mut libc::c_void,
+    (*(*sd).resourcemap).insert(
+        CString::new(CStr::from_ptr(ident).to_bytes_with_nul()).unwrap(),
+        ht_entry {
+            value: r as *mut libc::c_void,
+        },
     );
     spc_push_object(ident, pdf_ximage_get_reference(res_id));
     0i32
 }
 unsafe extern "C" fn findresource(mut sd: *mut spc_pdf_, mut ident: *const i8) -> i32 {
-    let mut r: *mut resource_map = 0 as *mut resource_map;
     if ident.is_null() {
         return -1i32;
     }
-    r = ht_lookup_table(
-        (*sd).resourcemap,
-        ident as *const libc::c_void,
-        strlen(ident) as i32,
-    ) as *mut resource_map;
-    if !r.is_null() {
-        (*r).res_id
-    } else {
-        -1i32
+    match (*(*sd).resourcemap).get(CStr::from_ptr(ident)) {
+        Some(x) => (*(x.value as *mut resource_map)).res_id,
+        None => -1,
     }
 }
 unsafe extern "C" fn spc_handler_pdfm__init(mut dp: *mut libc::c_void) -> i32 {
@@ -647,12 +616,10 @@ unsafe extern "C" fn spc_handler_pdfm__init(mut dp: *mut libc::c_void) -> i32 {
     let mut i: i32 = 0;
     (*sd).annot_dict = 0 as *mut pdf_obj;
     (*sd).lowest_level = 255i32;
-    (*sd).resourcemap =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<ht_table>() as u64) as u32) as *mut ht_table;
-    ht_init_table(
-        (*sd).resourcemap,
-        Some(hval_free as unsafe extern "C" fn(_: *mut libc::c_void) -> ()),
-    );
+    (*sd).resourcemap = {
+        let tab = Box::new(HashMap::new());
+        Box::leak(tab) as *mut _
+    };
     (*sd).cd.taintkeys = pdf_new_array();
     i = 0i32;
     while !default_taintkeys[i as usize].is_null() {
@@ -673,10 +640,9 @@ unsafe extern "C" fn spc_handler_pdfm__clean(mut dp: *mut libc::c_void) -> i32 {
     (*sd).lowest_level = 255i32;
     (*sd).annot_dict = 0 as *mut pdf_obj;
     if !(*sd).resourcemap.is_null() {
-        ht_clear_table((*sd).resourcemap);
-        free((*sd).resourcemap as *mut libc::c_void);
+        Box::from_raw((*sd).resourcemap);
+        (*sd).resourcemap = std::ptr::null_mut();
     }
-    (*sd).resourcemap = 0 as *mut ht_table;
     pdf_release_obj((*sd).cd.taintkeys);
     (*sd).cd.taintkeys = 0 as *mut pdf_obj;
     0i32
