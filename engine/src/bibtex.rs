@@ -5072,203 +5072,129 @@ unsafe extern "C" fn execute_fn(mut ex_fn_loc: hash_loc) {
     match *fn_type.offset(ex_fn_loc as isize) as i32 {
         0 => match *ilk_info.offset(ex_fn_loc as isize) {
             0 => {
-                {
-                    x_equals();
-                }
+                x_equals();
             }
             1 => {
-                {
-                    x_greater_than();
-                }
+                x_greater_than();
             }
             2 => {
-                {
-                    x_less_than();
-                }
+                x_less_than();
             }
             3 => {
-                {
-                    x_plus();
-                }
+                x_plus();
             }
             4 => {
-                {
-                    x_minus();
-                }
+                x_minus();
             }
             5 => {
-                {
-                    x_concatenate();
-                }
+                x_concatenate();
             }
             6 => {
-                {
-                    x_gets();
-                }
+                x_gets();
             }
             7 => {
-                {
-                    x_add_period();
-                }
+                x_add_period();
             }
             8 => {
-                {
-                    if !mess_with_entries {
-                        bst_cant_mess_with_entries_print();
-                    }
+                if !mess_with_entries {
+                    bst_cant_mess_with_entries_print();
                 }
             }
             9 => {
-                {
-                    x_change_case();
-                }
+                x_change_case();
             }
             10 => {
-                {
-                    x_chr_to_int();
-                }
+                x_chr_to_int();
             }
             11 => {
-                {
-                    x_cite();
-                }
+                x_cite();
             }
             12 => {
-                {
-                    x_duplicate();
-                }
+                x_duplicate();
             }
             13 => {
-                {
-                    x_empty();
-                }
+                x_empty();
             }
             14 => {
-                {
-                    x_format_name();
-                }
+                x_format_name();
             }
             15 => {
-                {
-                    pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
-                    pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
-                    pop_lit_stk(&mut pop_lit3, &mut pop_typ3);
-                    if pop_typ1 as i32 != 2i32 {
-                        print_wrong_stk_lit(pop_lit1, pop_typ1, 2i32 as stk_type);
-                    }
+                pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
+                pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
+                pop_lit_stk(&mut pop_lit3, &mut pop_typ3);
+                if pop_typ1 as i32 != 2i32 {
+                    print_wrong_stk_lit(pop_lit1, pop_typ1, 2i32 as stk_type);
                 }
             }
             16 => {
-                {
-                    x_int_to_chr();
-                }
+                x_int_to_chr();
             }
             17 => {
-                {
-                    x_int_to_str();
-                }
+                x_int_to_str();
             }
             18 => {
-                {
-                    x_missing();
-                }
+                x_missing();
             }
             19 => {
-                {
-                    output_bbl_line();
-                }
+                output_bbl_line();
             }
             20 => {
-                {
-                    x_num_names();
-                }
+                x_num_names();
             }
             21 => {
-                {
-                    pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
-                }
+                pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
             }
             22 => {
-                {
-                    x_preamble();
-                }
+                x_preamble();
             }
             23 => {
-                {
-                    x_purify();
-                }
+                x_purify();
             }
             24 => {
-                {
-                    x_quote();
-                }
+                x_quote();
             }
             25 => {}
             26 => {
-                {
-                    pop_whole_stack();
-                }
+                pop_whole_stack();
             }
             27 => {
-                {
-                    x_substring();
-                }
+                x_substring();
             }
             28 => {
-                {
-                    x_swap();
-                }
+                x_swap();
             }
             29 => {
-                {
-                    x_text_length();
-                }
+                x_text_length();
             }
             30 => {
-                {
-                    x_text_prefix();
-                }
+                x_text_prefix();
             }
             31 => {
-                {
-                    pop_top_and_print();
-                }
+                pop_top_and_print();
             }
             32 => {
-                {
-                    x_type();
-                }
+                x_type();
             }
             33 => {
-                {
-                    x_warning();
-                }
+                x_warning();
             }
             34 => {
-                {
-                    pop_lit_stk(&mut r_pop_lt1, &mut r_pop_tp1);
-                    pop_lit_stk(&mut r_pop_lt2, &mut r_pop_tp2);
-                    if r_pop_tp1 as i32 != 2i32 {
-                        print_wrong_stk_lit(r_pop_lt1, r_pop_tp1, 2i32 as stk_type);
-                    }
+                pop_lit_stk(&mut r_pop_lt1, &mut r_pop_tp1);
+                pop_lit_stk(&mut r_pop_lt2, &mut r_pop_tp2);
+                if r_pop_tp1 as i32 != 2i32 {
+                    print_wrong_stk_lit(r_pop_lt1, r_pop_tp1, 2i32 as stk_type);
                 }
             }
             35 => {
-                {
-                    x_width();
-                }
+                x_width();
             }
             36 => {
-                {
-                    x_write();
-                }
+                x_write();
             }
             _ => {
-                {
-                    puts_log(b"Unknown built-in function\x00" as *const u8 as *const i8);
-                    print_confusion();
-                    panic!();
-                }
+                puts_log(b"Unknown built-in function\x00" as *const u8 as *const i8);
+                print_confusion();
+                panic!();
             }
         },
         1 => {
