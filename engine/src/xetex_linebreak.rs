@@ -2191,35 +2191,6 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                                                                         11 => {
                                                                             current_block =
                                                                                 5935670669791948619;
-                                                                            match current_block
-                                                                                {
-                                                                                2529459302156174429
-                                                                                =>
-                                                                                {
-                                                                                    if (*mem.offset(s
-                                                                                                        as
-                                                                                                        isize)).b16.s0
-                                                                                           as
-                                                                                           i32
-                                                                                           >=
-                                                                                           4i32
-                                                                                       {
-                                                                                        current_block
-                                                                                            =
-                                                                                            16848571710846909653;
-                                                                                        break
-                                                                                            ;
-                                                                                    } else {
-                                                                                        current_block
-                                                                                            =
-                                                                                            8166967358843938227;
-                                                                                        break
-                                                                                            ;
-                                                                                    }
-                                                                                }
-                                                                                _
-                                                                                =>
-                                                                                {
                                                                                     if (*mem.offset(s
                                                                                                         as
                                                                                                         isize)).b16.s0
@@ -2234,7 +2205,6 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                                                                                         break
                                                                                             ;
                                                                                     }
-                                                                                }
                                                                             }
                                                                         }
                                                                         8 | 10 | 12 | 3 | 5 | 4 => {
@@ -2246,11 +2216,6 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                                                                         9 => {
                                                                             current_block =
                                                                                 2529459302156174429;
-                                                                            match current_block
-                                                                                {
-                                                                                2529459302156174429
-                                                                                =>
-                                                                                {
                                                                                     if (*mem.offset(s
                                                                                                         as
                                                                                                         isize)).b16.s0
@@ -2271,26 +2236,6 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                                                                                         break
                                                                                             ;
                                                                                     }
-                                                                                }
-                                                                                _
-                                                                                =>
-                                                                                {
-                                                                                    if (*mem.offset(s
-                                                                                                        as
-                                                                                                        isize)).b16.s0
-                                                                                           as
-                                                                                           i32
-                                                                                           !=
-                                                                                           0i32
-                                                                                       {
-                                                                                        current_block
-                                                                                            =
-                                                                                            16848571710846909653;
-                                                                                        break
-                                                                                            ;
-                                                                                    }
-                                                                                }
-                                                                            }
                                                                         }
                                                                         _ => {
                                                                             current_block =
