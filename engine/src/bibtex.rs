@@ -5064,7 +5064,6 @@ unsafe extern "C" fn x_write() {
     };
 }
 unsafe extern "C" fn execute_fn(mut ex_fn_loc: hash_loc) {
-    let mut current_block: u64;
     let mut r_pop_lt1: i32 = 0;
     let mut r_pop_lt2: i32 = 0;
     let mut r_pop_tp1: stk_type = 0;
@@ -5073,55 +5072,46 @@ unsafe extern "C" fn execute_fn(mut ex_fn_loc: hash_loc) {
     match *fn_type.offset(ex_fn_loc as isize) as i32 {
         0 => match *ilk_info.offset(ex_fn_loc as isize) {
             0 => {
-                current_block = 3427267834250323188;
                 {
                     x_equals();
                 }
             }
             1 => {
-                current_block = 8506478340253986099;
                 {
                     x_greater_than();
                 }
             }
             2 => {
-                current_block = 2992643050629887313;
                 {
                     x_less_than();
                 }
             }
             3 => {
-                current_block = 3333486971056105332;
                 {
                     x_plus();
                 }
             }
             4 => {
-                current_block = 9486769047678124609;
                 {
                     x_minus();
                 }
             }
             5 => {
-                current_block = 751934050883067221;
                 {
                     x_concatenate();
                 }
             }
             6 => {
-                current_block = 11311982278797531854;
                 {
                     x_gets();
                 }
             }
             7 => {
-                current_block = 17093842530523746;
                 {
                     x_add_period();
                 }
             }
             8 => {
-                current_block = 12003026128998772082;
                 {
                     if !mess_with_entries {
                         bst_cant_mess_with_entries_print();
@@ -5129,43 +5119,36 @@ unsafe extern "C" fn execute_fn(mut ex_fn_loc: hash_loc) {
                 }
             }
             9 => {
-                current_block = 11401095418043589429;
                 {
                     x_change_case();
                 }
             }
             10 => {
-                current_block = 14433305390625741996;
                 {
                     x_chr_to_int();
                 }
             }
             11 => {
-                current_block = 11821275415581843219;
                 {
                     x_cite();
                 }
             }
             12 => {
-                current_block = 2586387813362916675;
                 {
                     x_duplicate();
                 }
             }
             13 => {
-                current_block = 1299544639425101402;
                 {
                     x_empty();
                 }
             }
             14 => {
-                current_block = 12456603346645215998;
                 {
                     x_format_name();
                 }
             }
             15 => {
-                current_block = 7451931000317828687;
                 {
                     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
                     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
@@ -5176,110 +5159,92 @@ unsafe extern "C" fn execute_fn(mut ex_fn_loc: hash_loc) {
                 }
             }
             16 => {
-                current_block = 8655676648363273062;
                 {
                     x_int_to_chr();
                 }
             }
             17 => {
-                current_block = 4310494265205845711;
                 {
                     x_int_to_str();
                 }
             }
             18 => {
-                current_block = 18342201684529422979;
                 {
                     x_missing();
                 }
             }
             19 => {
-                current_block = 14095471398735929972;
                 {
                     output_bbl_line();
                 }
             }
             20 => {
-                current_block = 1788254067469565360;
                 {
                     x_num_names();
                 }
             }
             21 => {
-                current_block = 987738563414658848;
                 {
                     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
                 }
             }
             22 => {
-                current_block = 9872068022390718344;
                 {
                     x_preamble();
                 }
             }
             23 => {
-                current_block = 8468081085890054388;
                 {
                     x_purify();
                 }
             }
             24 => {
-                current_block = 17805198275128379845;
                 {
                     x_quote();
                 }
             }
             25 => {}
             26 => {
-                current_block = 12179545346928503758;
                 {
                     pop_whole_stack();
                 }
             }
             27 => {
-                current_block = 227719186661713671;
                 {
                     x_substring();
                 }
             }
             28 => {
-                current_block = 6386094465163296590;
                 {
                     x_swap();
                 }
             }
             29 => {
-                current_block = 7298725476856358922;
                 {
                     x_text_length();
                 }
             }
             30 => {
-                current_block = 14071960002833054982;
                 {
                     x_text_prefix();
                 }
             }
             31 => {
-                current_block = 8412464758337420148;
                 {
                     pop_top_and_print();
                 }
             }
             32 => {
-                current_block = 5003375028251918140;
                 {
                     x_type();
                 }
             }
             33 => {
-                current_block = 14559770770887801255;
                 {
                     x_warning();
                 }
             }
             34 => {
-                current_block = 9705665520141849625;
                 {
                     pop_lit_stk(&mut r_pop_lt1, &mut r_pop_tp1);
                     pop_lit_stk(&mut r_pop_lt2, &mut r_pop_tp2);
@@ -5289,19 +5254,16 @@ unsafe extern "C" fn execute_fn(mut ex_fn_loc: hash_loc) {
                 }
             }
             35 => {
-                current_block = 17353911828636475972;
                 {
                     x_width();
                 }
             }
             36 => {
-                current_block = 16007871220680826792;
                 {
                     x_write();
                 }
             }
             _ => {
-                current_block = 7817847338202672115;
                 {
                     puts_log(b"Unknown built-in function\x00" as *const u8 as *const i8);
                     print_confusion();
