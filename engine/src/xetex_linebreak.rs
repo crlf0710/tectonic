@@ -2205,7 +2205,7 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                                                                                         break
                                                                                             ;
                                                                                     }
-                                                                            }
+                                                                            
                                                                         }
                                                                         8 | 10 | 12 | 3 | 5 | 4 => {
                                                                             current_block
