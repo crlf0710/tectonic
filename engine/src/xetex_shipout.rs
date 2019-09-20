@@ -3103,39 +3103,19 @@ unsafe extern "C" fn movement(mut w: scaled_t, mut o: eight_bits) {
                 }
                 5 | 9 | 11 => {
                     current_block = 15378387224937501455;
-                    match current_block {
-                        15378387224937501455 => {
-                            if (*mem.offset((p + 2i32) as isize)).b32.s1 < dvi_gone {
-                                current_block = 18071914750955744041;
-                                break;
-                            }
-                            k = (*mem.offset((p + 2i32) as isize)).b32.s1 - dvi_offset;
-                            if k < 0i32 {
-                                k = k + 16384i32
-                            }
-                            *dvi_buf.offset(k as isize) =
-                                (*dvi_buf.offset(k as isize) as i32 + 10i32) as eight_bits;
-                            (*mem.offset(p as isize)).b32.s0 = 2i32;
-                            current_block = 8542251818650148540;
-                            break;
-                        }
-                        _ => {
-                            if (*mem.offset((p + 2i32) as isize)).b32.s1 < dvi_gone {
-                                current_block = 18071914750955744041;
-                                break;
-                            } else {
-                                k = (*mem.offset((p + 2i32) as isize)).b32.s1 - dvi_offset;
-                                if k < 0i32 {
-                                    k = k + 16384i32
-                                }
-                                *dvi_buf.offset(k as isize) =
-                                    (*dvi_buf.offset(k as isize) as i32 + 5i32) as eight_bits;
-                                (*mem.offset(p as isize)).b32.s0 = 1i32;
-                                current_block = 8542251818650148540;
-                                break;
-                            }
-                        }
+                    if (*mem.offset((p + 2i32) as isize)).b32.s1 < dvi_gone {
+                        current_block = 18071914750955744041;
+                        break;
                     }
+                    k = (*mem.offset((p + 2i32) as isize)).b32.s1 - dvi_offset;
+                    if k < 0i32 {
+                        k = k + 16384i32
+                    }
+                    *dvi_buf.offset(k as isize) =
+                        (*dvi_buf.offset(k as isize) as i32 + 10i32) as eight_bits;
+                    (*mem.offset(p as isize)).b32.s0 = 2i32;
+                    current_block = 8542251818650148540;
+                    break;
                 }
                 1 | 2 | 8 | 13 => {
                     current_block = 8542251818650148540;
@@ -3147,17 +3127,11 @@ unsafe extern "C" fn movement(mut w: scaled_t, mut o: eight_bits) {
             match mstate as i32 + (*mem.offset(p as isize)).b32.s0 {
                 1 => {
                     current_block = 8114521223357534250;
-                    match current_block {
-                        15905285856240674276 => mstate = 12i32 as small_number,
-                        _ => mstate = 6i32 as small_number,
-                    }
+                    mstate = 6i32 as small_number;
                 }
                 2 => {
                     current_block = 15905285856240674276;
-                    match current_block {
-                        15905285856240674276 => mstate = 12i32 as small_number,
-                        _ => mstate = 6i32 as small_number,
-                    }
+                    mstate = 12i32 as small_number;
                 }
                 8 | 13 => {
                     current_block = 18071914750955744041;
