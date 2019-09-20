@@ -7723,48 +7723,20 @@ pub unsafe extern "C" fn get_next() {
                 match cur_cmd as i32 {
                     1 => {
                         current_block = 17818108259648334471;
-                        match current_block {
-                            1132450443677887731 => {
-                                begin_token_list(
-                                    *param_stack
-                                        .offset((cur_input.limit + cur_chr - 1i32) as isize),
-                                    0_u16,
-                                );
-                                continue;
-                            }
-                            1336783539463924428 => align_state -= 1,
-                            _ => align_state += 1,
-                        }
+                        align_state += 1;
                     }
                     2 => {
                         current_block = 1336783539463924428;
-                        match current_block {
-                            1132450443677887731 => {
-                                begin_token_list(
-                                    *param_stack
-                                        .offset((cur_input.limit + cur_chr - 1i32) as isize),
-                                    0_u16,
-                                );
-                                continue;
-                            }
-                            1336783539463924428 => align_state -= 1,
-                            _ => align_state += 1,
-                        }
+                        align_state -= 1;
                     }
                     5 => {
                         current_block = 1132450443677887731;
-                        match current_block {
-                            1132450443677887731 => {
-                                begin_token_list(
-                                    *param_stack
-                                        .offset((cur_input.limit + cur_chr - 1i32) as isize),
-                                    0_u16,
-                                );
-                                continue;
-                            }
-                            1336783539463924428 => align_state -= 1,
-                            _ => align_state += 1,
-                        }
+                        begin_token_list(
+                            *param_stack
+                                .offset((cur_input.limit + cur_chr - 1i32) as isize),
+                            0_u16,
+                        );
+                        continue;
                     }
                     _ => {}
                 }
@@ -22051,272 +22023,49 @@ pub unsafe extern "C" fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t
                     }
                 }
                 8 => {
-                    current_block = 9310447521173000071;
-                    match current_block {
-                        5335814873276400744 => {
-                            confusion(b"vertbreak\x00" as *const u8 as *const i8);
-                        }
-                        15992561690600734426 => {
-                            active_width[1] = active_width[1]
-                                + prev_dp
-                                + (*mem.offset((p + 3i32) as isize)).b32.s1;
-                            prev_dp = (*mem.offset((p + 2i32) as isize)).b32.s1;
-                            current_block = 10249009913728301645;
-                        }
-                        17919980485942902313 => {
-                            if (*mem.offset(p as isize)).b32.s1 == -0xfffffffi32 {
-                                t = 12i32 as small_number
-                            } else {
-                                t = (*mem.offset((*mem.offset(p as isize)).b32.s1 as isize))
-                                    .b16
-                                    .s1 as small_number
-                            }
-                            if t as i32 == 10i32 {
-                                pi = 0i32;
-                                current_block = 9007357115414505193;
-                            } else {
-                                current_block = 11492179201936201469;
-                            }
-                        }
-                        9310447521173000071 => {
-                            if (*mem.offset(p as isize)).b16.s0 as i32 == 43i32
-                                || (*mem.offset(p as isize)).b16.s0 as i32 == 44i32
-                            {
-                                active_width[1] = active_width[1]
-                                    + prev_dp
-                                    + (*mem.offset((p + 3i32) as isize)).b32.s1;
-                                prev_dp = (*mem.offset((p + 2i32) as isize)).b32.s1
-                            }
-                            current_block = 10249009913728301645;
-                        }
-                        17538459923738996256 => {
-                            pi = (*mem.offset((p + 1i32) as isize)).b32.s1;
-                            current_block = 9007357115414505193;
-                        }
-                        _ => {
-                            if is_non_discardable_node(prev_p) {
-                                pi = 0i32;
-                                current_block = 9007357115414505193;
-                            } else {
-                                current_block = 11492179201936201469;
-                            }
-                        }
+                    if (*mem.offset(p as isize)).b16.s0 as i32 == 43i32
+                        || (*mem.offset(p as isize)).b16.s0 as i32 == 44i32
+                    {
+                        active_width[1] = active_width[1]
+                            + prev_dp
+                            + (*mem.offset((p + 3i32) as isize)).b32.s1;
+                        prev_dp = (*mem.offset((p + 2i32) as isize)).b32.s1
                     }
+                    current_block = 10249009913728301645;
                 }
                 10 => {
-                    current_block = 6855115734379556482;
-                    match current_block {
-                        5335814873276400744 => {
-                            confusion(b"vertbreak\x00" as *const u8 as *const i8);
-                        }
-                        15992561690600734426 => {
-                            active_width[1] = active_width[1]
-                                + prev_dp
-                                + (*mem.offset((p + 3i32) as isize)).b32.s1;
-                            prev_dp = (*mem.offset((p + 2i32) as isize)).b32.s1;
-                            current_block = 10249009913728301645;
-                        }
-                        17919980485942902313 => {
-                            if (*mem.offset(p as isize)).b32.s1 == -0xfffffffi32 {
-                                t = 12i32 as small_number
-                            } else {
-                                t = (*mem.offset((*mem.offset(p as isize)).b32.s1 as isize))
-                                    .b16
-                                    .s1 as small_number
-                            }
-                            if t as i32 == 10i32 {
-                                pi = 0i32;
-                                current_block = 9007357115414505193;
-                            } else {
-                                current_block = 11492179201936201469;
-                            }
-                        }
-                        9310447521173000071 => {
-                            if (*mem.offset(p as isize)).b16.s0 as i32 == 43i32
-                                || (*mem.offset(p as isize)).b16.s0 as i32 == 44i32
-                            {
-                                active_width[1] = active_width[1]
-                                    + prev_dp
-                                    + (*mem.offset((p + 3i32) as isize)).b32.s1;
-                                prev_dp = (*mem.offset((p + 2i32) as isize)).b32.s1
-                            }
-                            current_block = 10249009913728301645;
-                        }
-                        17538459923738996256 => {
-                            pi = (*mem.offset((p + 1i32) as isize)).b32.s1;
-                            current_block = 9007357115414505193;
-                        }
-                        _ => {
-                            if is_non_discardable_node(prev_p) {
-                                pi = 0i32;
-                                current_block = 9007357115414505193;
-                            } else {
-                                current_block = 11492179201936201469;
-                            }
-                        }
+                    if is_non_discardable_node(prev_p) {
+                        pi = 0i32;
+                        current_block = 9007357115414505193;
+                    } else {
+                        current_block = 11492179201936201469;
                     }
                 }
                 11 => {
-                    current_block = 17919980485942902313;
-                    match current_block {
-                        5335814873276400744 => {
-                            confusion(b"vertbreak\x00" as *const u8 as *const i8);
-                        }
-                        15992561690600734426 => {
-                            active_width[1] = active_width[1]
-                                + prev_dp
-                                + (*mem.offset((p + 3i32) as isize)).b32.s1;
-                            prev_dp = (*mem.offset((p + 2i32) as isize)).b32.s1;
-                            current_block = 10249009913728301645;
-                        }
-                        17919980485942902313 => {
-                            if (*mem.offset(p as isize)).b32.s1 == -0xfffffffi32 {
-                                t = 12i32 as small_number
-                            } else {
-                                t = (*mem.offset((*mem.offset(p as isize)).b32.s1 as isize))
-                                    .b16
-                                    .s1 as small_number
-                            }
-                            if t as i32 == 10i32 {
-                                pi = 0i32;
-                                current_block = 9007357115414505193;
-                            } else {
-                                current_block = 11492179201936201469;
-                            }
-                        }
-                        9310447521173000071 => {
-                            if (*mem.offset(p as isize)).b16.s0 as i32 == 43i32
-                                || (*mem.offset(p as isize)).b16.s0 as i32 == 44i32
-                            {
-                                active_width[1] = active_width[1]
-                                    + prev_dp
-                                    + (*mem.offset((p + 3i32) as isize)).b32.s1;
-                                prev_dp = (*mem.offset((p + 2i32) as isize)).b32.s1
-                            }
-                            current_block = 10249009913728301645;
-                        }
-                        17538459923738996256 => {
-                            pi = (*mem.offset((p + 1i32) as isize)).b32.s1;
-                            current_block = 9007357115414505193;
-                        }
-                        _ => {
-                            if is_non_discardable_node(prev_p) {
-                                pi = 0i32;
-                                current_block = 9007357115414505193;
-                            } else {
-                                current_block = 11492179201936201469;
-                            }
-                        }
+                    if (*mem.offset(p as isize)).b32.s1 == -0xfffffffi32 {
+                        t = 12i32 as small_number
+                    } else {
+                        t = (*mem.offset((*mem.offset(p as isize)).b32.s1 as isize))
+                            .b16
+                            .s1 as small_number
+                    }
+                    if t as i32 == 10i32 {
+                        pi = 0i32;
+                        current_block = 9007357115414505193;
+                    } else {
+                        current_block = 11492179201936201469;
                     }
                 }
                 12 => {
-                    current_block = 17538459923738996256;
-                    match current_block {
-                        5335814873276400744 => {
-                            confusion(b"vertbreak\x00" as *const u8 as *const i8);
-                        }
-                        15992561690600734426 => {
-                            active_width[1] = active_width[1]
-                                + prev_dp
-                                + (*mem.offset((p + 3i32) as isize)).b32.s1;
-                            prev_dp = (*mem.offset((p + 2i32) as isize)).b32.s1;
-                            current_block = 10249009913728301645;
-                        }
-                        17919980485942902313 => {
-                            if (*mem.offset(p as isize)).b32.s1 == -0xfffffffi32 {
-                                t = 12i32 as small_number
-                            } else {
-                                t = (*mem.offset((*mem.offset(p as isize)).b32.s1 as isize))
-                                    .b16
-                                    .s1 as small_number
-                            }
-                            if t as i32 == 10i32 {
-                                pi = 0i32;
-                                current_block = 9007357115414505193;
-                            } else {
-                                current_block = 11492179201936201469;
-                            }
-                        }
-                        9310447521173000071 => {
-                            if (*mem.offset(p as isize)).b16.s0 as i32 == 43i32
-                                || (*mem.offset(p as isize)).b16.s0 as i32 == 44i32
-                            {
-                                active_width[1] = active_width[1]
-                                    + prev_dp
-                                    + (*mem.offset((p + 3i32) as isize)).b32.s1;
-                                prev_dp = (*mem.offset((p + 2i32) as isize)).b32.s1
-                            }
-                            current_block = 10249009913728301645;
-                        }
-                        17538459923738996256 => {
-                            pi = (*mem.offset((p + 1i32) as isize)).b32.s1;
-                            current_block = 9007357115414505193;
-                        }
-                        _ => {
-                            if is_non_discardable_node(prev_p) {
-                                pi = 0i32;
-                                current_block = 9007357115414505193;
-                            } else {
-                                current_block = 11492179201936201469;
-                            }
-                        }
-                    }
+                    pi = (*mem.offset((p + 1i32) as isize)).b32.s1;
+                    current_block = 9007357115414505193;
                 }
                 4 | 3 => {
                     current_block = 10249009913728301645;
                 }
                 _ => {
                     current_block = 5335814873276400744;
-                    match current_block {
-                        5335814873276400744 => {
-                            confusion(b"vertbreak\x00" as *const u8 as *const i8);
-                        }
-                        15992561690600734426 => {
-                            active_width[1] = active_width[1]
-                                + prev_dp
-                                + (*mem.offset((p + 3i32) as isize)).b32.s1;
-                            prev_dp = (*mem.offset((p + 2i32) as isize)).b32.s1;
-                            current_block = 10249009913728301645;
-                        }
-                        17919980485942902313 => {
-                            if (*mem.offset(p as isize)).b32.s1 == -0xfffffffi32 {
-                                t = 12i32 as small_number
-                            } else {
-                                t = (*mem.offset((*mem.offset(p as isize)).b32.s1 as isize))
-                                    .b16
-                                    .s1 as small_number
-                            }
-                            if t as i32 == 10i32 {
-                                pi = 0i32;
-                                current_block = 9007357115414505193;
-                            } else {
-                                current_block = 11492179201936201469;
-                            }
-                        }
-                        9310447521173000071 => {
-                            if (*mem.offset(p as isize)).b16.s0 as i32 == 43i32
-                                || (*mem.offset(p as isize)).b16.s0 as i32 == 44i32
-                            {
-                                active_width[1] = active_width[1]
-                                    + prev_dp
-                                    + (*mem.offset((p + 3i32) as isize)).b32.s1;
-                                prev_dp = (*mem.offset((p + 2i32) as isize)).b32.s1
-                            }
-                            current_block = 10249009913728301645;
-                        }
-                        17538459923738996256 => {
-                            pi = (*mem.offset((p + 1i32) as isize)).b32.s1;
-                            current_block = 9007357115414505193;
-                        }
-                        _ => {
-                            if is_non_discardable_node(prev_p) {
-                                pi = 0i32;
-                                current_block = 9007357115414505193;
-                            } else {
-                                current_block = 11492179201936201469;
-                            }
-                        }
-                    }
+                    confusion(b"vertbreak\x00" as *const u8 as *const i8);
                 }
             }
         }
@@ -25307,634 +25056,104 @@ pub unsafe extern "C" fn just_copy(mut p: i32, mut h: i32, mut t: i32) {
         } else {
             match (*mem.offset(p as isize)).b16.s1 as i32 {
                 0 | 1 => {
-                    current_block_50 = 7135364128867075208;
-                    match current_block_50 {
-                        5077113127207464599 => {
-                            match (*mem.offset(p as isize)).b16.s0 as i32 {
-                                0 => {
-                                    r = get_node(3i32);
-                                    words = 3_u8
-                                }
-                                1 | 3 => {
-                                    r = get_node(2i32);
-                                    let ref mut fresh81 = (*mem.offset(
-                                        (*mem.offset((p + 1i32) as isize)).b32.s1 as isize,
-                                    ))
-                                    .b32
-                                    .s0;
-                                    *fresh81 += 1;
-                                    words = 2_u8
-                                }
-                                2 | 4 => {
-                                    r = get_node(2i32);
-                                    words = 2_u8
-                                }
-                                40 | 41 => {
-                                    words = (*mem.offset((p + 4i32) as isize)).b16.s3 as u8;
-                                    r = get_node(words as i32);
-                                    while words as i32 > 0i32 {
-                                        words = words.wrapping_sub(1);
-                                        *mem.offset((r + words as i32) as isize) =
-                                            *mem.offset((p + words as i32) as isize)
-                                    }
-                                    let ref mut fresh82 = (*mem.offset((r + 5i32) as isize)).ptr;
-                                    *fresh82 = 0 as *mut libc::c_void;
-                                    (*mem.offset((r + 4i32) as isize)).b16.s0 = 0_u16;
-                                    copy_native_glyph_info(p, r);
-                                }
-                                42 => {
-                                    r = get_node(5i32);
-                                    words = 5_u8
-                                }
-                                43 | 44 => {
-                                    words = (9i32 as u64).wrapping_add(
-                                        ((*mem.offset((p + 4i32) as isize)).b16.s1 as u64)
-                                            .wrapping_add(
-                                                ::std::mem::size_of::<memory_word>() as u64
-                                            )
-                                            .wrapping_sub(1i32 as u64)
-                                            .wrapping_div(
-                                                ::std::mem::size_of::<memory_word>() as u64
-                                            ),
-                                    ) as u8;
-                                    r = get_node(words as i32)
-                                }
-                                6 => r = get_node(2i32),
-                                _ => {
-                                    confusion(b"ext2\x00" as *const u8 as *const i8);
-                                }
-                            }
-                            current_block_50 = 2500484646272006982;
-                        }
-                        18284156207703802868 => {
-                            words = 3_u8;
-                            r = get_node(words as i32);
-                            current_block_50 = 2500484646272006982;
-                        }
-                        8323905195341448067 => {
-                            r = get_avail();
-                            *mem.offset(r as isize) = *mem.offset((p + 1i32) as isize);
-                            current_block_50 = 1668590571950580537;
-                        }
-                        699005844184593476 => {
-                            r = get_node(5i32);
-                            words = 5_u8;
-                            current_block_50 = 2500484646272006982;
-                        }
-                        7135364128867075208 => {
-                            r = get_node(8i32);
-                            (*mem.offset((r + 8i32 - 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 8i32 - 1i32) as isize)).b32.s1 =
-                                (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s1;
-                            *mem.offset((r + 6i32) as isize) = *mem.offset((p + 6i32) as isize);
-                            *mem.offset((r + 5i32) as isize) = *mem.offset((p + 5i32) as isize);
-                            words = 5_u8;
-                            (*mem.offset((r + 5i32) as isize)).b32.s1 = -0xfffffffi32;
-                            current_block_50 = 2500484646272006982;
-                        }
-                        _ => {
-                            r = get_node(3i32);
-                            let ref mut fresh80 = (*mem
-                                .offset((*mem.offset((p + 1i32) as isize)).b32.s0 as isize))
-                            .b32
-                            .s1;
-                            *fresh80 += 1;
-                            (*mem.offset((r + 3i32 - 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 3i32 - 1i32) as isize)).b32.s1 =
-                                (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1;
-                            (*mem.offset((r + 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 1i32) as isize)).b32.s1 = -0xfffffffi32;
-                            current_block_50 = 2500484646272006982;
-                        }
-                    }
+                    r = get_node(8i32);
+                    (*mem.offset((r + 8i32 - 1i32) as isize)).b32.s0 =
+                        (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s0;
+                    (*mem.offset((r + 8i32 - 1i32) as isize)).b32.s1 =
+                        (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s1;
+                    *mem.offset((r + 6i32) as isize) = *mem.offset((p + 6i32) as isize);
+                    *mem.offset((r + 5i32) as isize) = *mem.offset((p + 5i32) as isize);
+                    words = 5_u8;
+                    (*mem.offset((r + 5i32) as isize)).b32.s1 = -0xfffffffi32;
+                    current_block_50 = 2500484646272006982;
                 }
                 2 => {
-                    current_block_50 = 699005844184593476;
-                    match current_block_50 {
-                        5077113127207464599 => {
-                            match (*mem.offset(p as isize)).b16.s0 as i32 {
-                                0 => {
-                                    r = get_node(3i32);
-                                    words = 3_u8
-                                }
-                                1 | 3 => {
-                                    r = get_node(2i32);
-                                    let ref mut fresh81 = (*mem.offset(
-                                        (*mem.offset((p + 1i32) as isize)).b32.s1 as isize,
-                                    ))
-                                    .b32
-                                    .s0;
-                                    *fresh81 += 1;
-                                    words = 2_u8
-                                }
-                                2 | 4 => {
-                                    r = get_node(2i32);
-                                    words = 2_u8
-                                }
-                                40 | 41 => {
-                                    words = (*mem.offset((p + 4i32) as isize)).b16.s3 as u8;
-                                    r = get_node(words as i32);
-                                    while words as i32 > 0i32 {
-                                        words = words.wrapping_sub(1);
-                                        *mem.offset((r + words as i32) as isize) =
-                                            *mem.offset((p + words as i32) as isize)
-                                    }
-                                    let ref mut fresh82 = (*mem.offset((r + 5i32) as isize)).ptr;
-                                    *fresh82 = 0 as *mut libc::c_void;
-                                    (*mem.offset((r + 4i32) as isize)).b16.s0 = 0_u16;
-                                    copy_native_glyph_info(p, r);
-                                }
-                                42 => {
-                                    r = get_node(5i32);
-                                    words = 5_u8
-                                }
-                                43 | 44 => {
-                                    words = (9i32 as u64).wrapping_add(
-                                        ((*mem.offset((p + 4i32) as isize)).b16.s1 as u64)
-                                            .wrapping_add(
-                                                ::std::mem::size_of::<memory_word>() as u64
-                                            )
-                                            .wrapping_sub(1i32 as u64)
-                                            .wrapping_div(
-                                                ::std::mem::size_of::<memory_word>() as u64
-                                            ),
-                                    ) as u8;
-                                    r = get_node(words as i32)
-                                }
-                                6 => r = get_node(2i32),
-                                _ => {
-                                    confusion(b"ext2\x00" as *const u8 as *const i8);
-                                }
-                            }
-                            current_block_50 = 2500484646272006982;
-                        }
-                        18284156207703802868 => {
-                            words = 3_u8;
-                            r = get_node(words as i32);
-                            current_block_50 = 2500484646272006982;
-                        }
-                        8323905195341448067 => {
-                            r = get_avail();
-                            *mem.offset(r as isize) = *mem.offset((p + 1i32) as isize);
-                            current_block_50 = 1668590571950580537;
-                        }
-                        699005844184593476 => {
-                            r = get_node(5i32);
-                            words = 5_u8;
-                            current_block_50 = 2500484646272006982;
-                        }
-                        7135364128867075208 => {
-                            r = get_node(8i32);
-                            (*mem.offset((r + 8i32 - 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 8i32 - 1i32) as isize)).b32.s1 =
-                                (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s1;
-                            *mem.offset((r + 6i32) as isize) = *mem.offset((p + 6i32) as isize);
-                            *mem.offset((r + 5i32) as isize) = *mem.offset((p + 5i32) as isize);
-                            words = 5_u8;
-                            (*mem.offset((r + 5i32) as isize)).b32.s1 = -0xfffffffi32;
-                            current_block_50 = 2500484646272006982;
-                        }
-                        _ => {
-                            r = get_node(3i32);
-                            let ref mut fresh80 = (*mem
-                                .offset((*mem.offset((p + 1i32) as isize)).b32.s0 as isize))
-                            .b32
-                            .s1;
-                            *fresh80 += 1;
-                            (*mem.offset((r + 3i32 - 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 3i32 - 1i32) as isize)).b32.s1 =
-                                (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1;
-                            (*mem.offset((r + 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 1i32) as isize)).b32.s1 = -0xfffffffi32;
-                            current_block_50 = 2500484646272006982;
-                        }
-                    }
+                    r = get_node(5i32);
+                    words = 5_u8;
+                    current_block_50 = 2500484646272006982;
                 }
                 6 => {
-                    current_block_50 = 8323905195341448067;
-                    match current_block_50 {
-                        5077113127207464599 => {
-                            match (*mem.offset(p as isize)).b16.s0 as i32 {
-                                0 => {
-                                    r = get_node(3i32);
-                                    words = 3_u8
-                                }
-                                1 | 3 => {
-                                    r = get_node(2i32);
-                                    let ref mut fresh81 = (*mem.offset(
-                                        (*mem.offset((p + 1i32) as isize)).b32.s1 as isize,
-                                    ))
-                                    .b32
-                                    .s0;
-                                    *fresh81 += 1;
-                                    words = 2_u8
-                                }
-                                2 | 4 => {
-                                    r = get_node(2i32);
-                                    words = 2_u8
-                                }
-                                40 | 41 => {
-                                    words = (*mem.offset((p + 4i32) as isize)).b16.s3 as u8;
-                                    r = get_node(words as i32);
-                                    while words as i32 > 0i32 {
-                                        words = words.wrapping_sub(1);
-                                        *mem.offset((r + words as i32) as isize) =
-                                            *mem.offset((p + words as i32) as isize)
-                                    }
-                                    let ref mut fresh82 = (*mem.offset((r + 5i32) as isize)).ptr;
-                                    *fresh82 = 0 as *mut libc::c_void;
-                                    (*mem.offset((r + 4i32) as isize)).b16.s0 = 0_u16;
-                                    copy_native_glyph_info(p, r);
-                                }
-                                42 => {
-                                    r = get_node(5i32);
-                                    words = 5_u8
-                                }
-                                43 | 44 => {
-                                    words = (9i32 as u64).wrapping_add(
-                                        ((*mem.offset((p + 4i32) as isize)).b16.s1 as u64)
-                                            .wrapping_add(
-                                                ::std::mem::size_of::<memory_word>() as u64
-                                            )
-                                            .wrapping_sub(1i32 as u64)
-                                            .wrapping_div(
-                                                ::std::mem::size_of::<memory_word>() as u64
-                                            ),
-                                    ) as u8;
-                                    r = get_node(words as i32)
-                                }
-                                6 => r = get_node(2i32),
-                                _ => {
-                                    confusion(b"ext2\x00" as *const u8 as *const i8);
-                                }
-                            }
-                            current_block_50 = 2500484646272006982;
-                        }
-                        18284156207703802868 => {
-                            words = 3_u8;
-                            r = get_node(words as i32);
-                            current_block_50 = 2500484646272006982;
-                        }
-                        8323905195341448067 => {
-                            r = get_avail();
-                            *mem.offset(r as isize) = *mem.offset((p + 1i32) as isize);
-                            current_block_50 = 1668590571950580537;
-                        }
-                        699005844184593476 => {
-                            r = get_node(5i32);
-                            words = 5_u8;
-                            current_block_50 = 2500484646272006982;
-                        }
-                        7135364128867075208 => {
-                            r = get_node(8i32);
-                            (*mem.offset((r + 8i32 - 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 8i32 - 1i32) as isize)).b32.s1 =
-                                (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s1;
-                            *mem.offset((r + 6i32) as isize) = *mem.offset((p + 6i32) as isize);
-                            *mem.offset((r + 5i32) as isize) = *mem.offset((p + 5i32) as isize);
-                            words = 5_u8;
-                            (*mem.offset((r + 5i32) as isize)).b32.s1 = -0xfffffffi32;
-                            current_block_50 = 2500484646272006982;
-                        }
-                        _ => {
-                            r = get_node(3i32);
-                            let ref mut fresh80 = (*mem
-                                .offset((*mem.offset((p + 1i32) as isize)).b32.s0 as isize))
-                            .b32
-                            .s1;
-                            *fresh80 += 1;
-                            (*mem.offset((r + 3i32 - 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 3i32 - 1i32) as isize)).b32.s1 =
-                                (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1;
-                            (*mem.offset((r + 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 1i32) as isize)).b32.s1 = -0xfffffffi32;
-                            current_block_50 = 2500484646272006982;
-                        }
-                    }
+                    r = get_avail();
+                    *mem.offset(r as isize) = *mem.offset((p + 1i32) as isize);
+                    current_block_50 = 1668590571950580537;
                 }
                 11 | 9 => {
-                    current_block_50 = 18284156207703802868;
-                    match current_block_50 {
-                        5077113127207464599 => {
-                            match (*mem.offset(p as isize)).b16.s0 as i32 {
-                                0 => {
-                                    r = get_node(3i32);
-                                    words = 3_u8
-                                }
-                                1 | 3 => {
-                                    r = get_node(2i32);
-                                    let ref mut fresh81 = (*mem.offset(
-                                        (*mem.offset((p + 1i32) as isize)).b32.s1 as isize,
-                                    ))
-                                    .b32
-                                    .s0;
-                                    *fresh81 += 1;
-                                    words = 2_u8
-                                }
-                                2 | 4 => {
-                                    r = get_node(2i32);
-                                    words = 2_u8
-                                }
-                                40 | 41 => {
-                                    words = (*mem.offset((p + 4i32) as isize)).b16.s3 as u8;
-                                    r = get_node(words as i32);
-                                    while words as i32 > 0i32 {
-                                        words = words.wrapping_sub(1);
-                                        *mem.offset((r + words as i32) as isize) =
-                                            *mem.offset((p + words as i32) as isize)
-                                    }
-                                    let ref mut fresh82 = (*mem.offset((r + 5i32) as isize)).ptr;
-                                    *fresh82 = 0 as *mut libc::c_void;
-                                    (*mem.offset((r + 4i32) as isize)).b16.s0 = 0_u16;
-                                    copy_native_glyph_info(p, r);
-                                }
-                                42 => {
-                                    r = get_node(5i32);
-                                    words = 5_u8
-                                }
-                                43 | 44 => {
-                                    words = (9i32 as u64).wrapping_add(
-                                        ((*mem.offset((p + 4i32) as isize)).b16.s1 as u64)
-                                            .wrapping_add(
-                                                ::std::mem::size_of::<memory_word>() as u64
-                                            )
-                                            .wrapping_sub(1i32 as u64)
-                                            .wrapping_div(
-                                                ::std::mem::size_of::<memory_word>() as u64
-                                            ),
-                                    ) as u8;
-                                    r = get_node(words as i32)
-                                }
-                                6 => r = get_node(2i32),
-                                _ => {
-                                    confusion(b"ext2\x00" as *const u8 as *const i8);
-                                }
-                            }
-                            current_block_50 = 2500484646272006982;
-                        }
-                        18284156207703802868 => {
-                            words = 3_u8;
-                            r = get_node(words as i32);
-                            current_block_50 = 2500484646272006982;
-                        }
-                        8323905195341448067 => {
-                            r = get_avail();
-                            *mem.offset(r as isize) = *mem.offset((p + 1i32) as isize);
-                            current_block_50 = 1668590571950580537;
-                        }
-                        699005844184593476 => {
-                            r = get_node(5i32);
-                            words = 5_u8;
-                            current_block_50 = 2500484646272006982;
-                        }
-                        7135364128867075208 => {
-                            r = get_node(8i32);
-                            (*mem.offset((r + 8i32 - 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 8i32 - 1i32) as isize)).b32.s1 =
-                                (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s1;
-                            *mem.offset((r + 6i32) as isize) = *mem.offset((p + 6i32) as isize);
-                            *mem.offset((r + 5i32) as isize) = *mem.offset((p + 5i32) as isize);
-                            words = 5_u8;
-                            (*mem.offset((r + 5i32) as isize)).b32.s1 = -0xfffffffi32;
-                            current_block_50 = 2500484646272006982;
-                        }
-                        _ => {
-                            r = get_node(3i32);
-                            let ref mut fresh80 = (*mem
-                                .offset((*mem.offset((p + 1i32) as isize)).b32.s0 as isize))
-                            .b32
-                            .s1;
-                            *fresh80 += 1;
-                            (*mem.offset((r + 3i32 - 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 3i32 - 1i32) as isize)).b32.s1 =
-                                (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1;
-                            (*mem.offset((r + 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 1i32) as isize)).b32.s1 = -0xfffffffi32;
-                            current_block_50 = 2500484646272006982;
-                        }
-                    }
+                    words = 3_u8;
+                    r = get_node(words as i32);
+                    current_block_50 = 2500484646272006982;
                 }
                 10 => {
-                    current_block_50 = 9355676180447508579;
-                    match current_block_50 {
-                        5077113127207464599 => {
-                            match (*mem.offset(p as isize)).b16.s0 as i32 {
-                                0 => {
-                                    r = get_node(3i32);
-                                    words = 3_u8
-                                }
-                                1 | 3 => {
-                                    r = get_node(2i32);
-                                    let ref mut fresh81 = (*mem.offset(
-                                        (*mem.offset((p + 1i32) as isize)).b32.s1 as isize,
-                                    ))
-                                    .b32
-                                    .s0;
-                                    *fresh81 += 1;
-                                    words = 2_u8
-                                }
-                                2 | 4 => {
-                                    r = get_node(2i32);
-                                    words = 2_u8
-                                }
-                                40 | 41 => {
-                                    words = (*mem.offset((p + 4i32) as isize)).b16.s3 as u8;
-                                    r = get_node(words as i32);
-                                    while words as i32 > 0i32 {
-                                        words = words.wrapping_sub(1);
-                                        *mem.offset((r + words as i32) as isize) =
-                                            *mem.offset((p + words as i32) as isize)
-                                    }
-                                    let ref mut fresh82 = (*mem.offset((r + 5i32) as isize)).ptr;
-                                    *fresh82 = 0 as *mut libc::c_void;
-                                    (*mem.offset((r + 4i32) as isize)).b16.s0 = 0_u16;
-                                    copy_native_glyph_info(p, r);
-                                }
-                                42 => {
-                                    r = get_node(5i32);
-                                    words = 5_u8
-                                }
-                                43 | 44 => {
-                                    words = (9i32 as u64).wrapping_add(
-                                        ((*mem.offset((p + 4i32) as isize)).b16.s1 as u64)
-                                            .wrapping_add(
-                                                ::std::mem::size_of::<memory_word>() as u64
-                                            )
-                                            .wrapping_sub(1i32 as u64)
-                                            .wrapping_div(
-                                                ::std::mem::size_of::<memory_word>() as u64
-                                            ),
-                                    ) as u8;
-                                    r = get_node(words as i32)
-                                }
-                                6 => r = get_node(2i32),
-                                _ => {
-                                    confusion(b"ext2\x00" as *const u8 as *const i8);
-                                }
-                            }
-                            current_block_50 = 2500484646272006982;
-                        }
-                        18284156207703802868 => {
-                            words = 3_u8;
-                            r = get_node(words as i32);
-                            current_block_50 = 2500484646272006982;
-                        }
-                        8323905195341448067 => {
-                            r = get_avail();
-                            *mem.offset(r as isize) = *mem.offset((p + 1i32) as isize);
-                            current_block_50 = 1668590571950580537;
-                        }
-                        699005844184593476 => {
-                            r = get_node(5i32);
-                            words = 5_u8;
-                            current_block_50 = 2500484646272006982;
-                        }
-                        7135364128867075208 => {
-                            r = get_node(8i32);
-                            (*mem.offset((r + 8i32 - 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 8i32 - 1i32) as isize)).b32.s1 =
-                                (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s1;
-                            *mem.offset((r + 6i32) as isize) = *mem.offset((p + 6i32) as isize);
-                            *mem.offset((r + 5i32) as isize) = *mem.offset((p + 5i32) as isize);
-                            words = 5_u8;
-                            (*mem.offset((r + 5i32) as isize)).b32.s1 = -0xfffffffi32;
-                            current_block_50 = 2500484646272006982;
-                        }
-                        _ => {
-                            r = get_node(3i32);
-                            let ref mut fresh80 = (*mem
-                                .offset((*mem.offset((p + 1i32) as isize)).b32.s0 as isize))
-                            .b32
-                            .s1;
-                            *fresh80 += 1;
-                            (*mem.offset((r + 3i32 - 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 3i32 - 1i32) as isize)).b32.s1 =
-                                (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1;
-                            (*mem.offset((r + 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 1i32) as isize)).b32.s1 = -0xfffffffi32;
-                            current_block_50 = 2500484646272006982;
-                        }
-                    }
+                    r = get_node(3i32);
+                    let ref mut fresh80 = (*mem
+                        .offset((*mem.offset((p + 1i32) as isize)).b32.s0 as isize))
+                    .b32
+                    .s1;
+                    *fresh80 += 1;
+                    (*mem.offset((r + 3i32 - 1i32) as isize)).b32.s0 =
+                        (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0;
+                    (*mem.offset((r + 3i32 - 1i32) as isize)).b32.s1 =
+                        (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1;
+                    (*mem.offset((r + 1i32) as isize)).b32.s0 =
+                        (*mem.offset((p + 1i32) as isize)).b32.s0;
+                    (*mem.offset((r + 1i32) as isize)).b32.s1 = -0xfffffffi32;
+                    current_block_50 = 2500484646272006982;
                 }
                 8 => {
-                    current_block_50 = 5077113127207464599;
-                    match current_block_50 {
-                        5077113127207464599 => {
-                            match (*mem.offset(p as isize)).b16.s0 as i32 {
-                                0 => {
-                                    r = get_node(3i32);
-                                    words = 3_u8
-                                }
-                                1 | 3 => {
-                                    r = get_node(2i32);
-                                    let ref mut fresh81 = (*mem.offset(
-                                        (*mem.offset((p + 1i32) as isize)).b32.s1 as isize,
-                                    ))
-                                    .b32
-                                    .s0;
-                                    *fresh81 += 1;
-                                    words = 2_u8
-                                }
-                                2 | 4 => {
-                                    r = get_node(2i32);
-                                    words = 2_u8
-                                }
-                                40 | 41 => {
-                                    words = (*mem.offset((p + 4i32) as isize)).b16.s3 as u8;
-                                    r = get_node(words as i32);
-                                    while words as i32 > 0i32 {
-                                        words = words.wrapping_sub(1);
-                                        *mem.offset((r + words as i32) as isize) =
-                                            *mem.offset((p + words as i32) as isize)
-                                    }
-                                    let ref mut fresh82 = (*mem.offset((r + 5i32) as isize)).ptr;
-                                    *fresh82 = 0 as *mut libc::c_void;
-                                    (*mem.offset((r + 4i32) as isize)).b16.s0 = 0_u16;
-                                    copy_native_glyph_info(p, r);
-                                }
-                                42 => {
-                                    r = get_node(5i32);
-                                    words = 5_u8
-                                }
-                                43 | 44 => {
-                                    words = (9i32 as u64).wrapping_add(
-                                        ((*mem.offset((p + 4i32) as isize)).b16.s1 as u64)
-                                            .wrapping_add(
-                                                ::std::mem::size_of::<memory_word>() as u64
-                                            )
-                                            .wrapping_sub(1i32 as u64)
-                                            .wrapping_div(
-                                                ::std::mem::size_of::<memory_word>() as u64
-                                            ),
-                                    ) as u8;
-                                    r = get_node(words as i32)
-                                }
-                                6 => r = get_node(2i32),
-                                _ => {
-                                    confusion(b"ext2\x00" as *const u8 as *const i8);
-                                }
-                            }
-                            current_block_50 = 2500484646272006982;
-                        }
-                        18284156207703802868 => {
-                            words = 3_u8;
-                            r = get_node(words as i32);
-                            current_block_50 = 2500484646272006982;
-                        }
-                        8323905195341448067 => {
-                            r = get_avail();
-                            *mem.offset(r as isize) = *mem.offset((p + 1i32) as isize);
-                            current_block_50 = 1668590571950580537;
-                        }
-                        699005844184593476 => {
-                            r = get_node(5i32);
-                            words = 5_u8;
-                            current_block_50 = 2500484646272006982;
-                        }
-                        7135364128867075208 => {
-                            r = get_node(8i32);
-                            (*mem.offset((r + 8i32 - 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 8i32 - 1i32) as isize)).b32.s1 =
-                                (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s1;
-                            *mem.offset((r + 6i32) as isize) = *mem.offset((p + 6i32) as isize);
-                            *mem.offset((r + 5i32) as isize) = *mem.offset((p + 5i32) as isize);
-                            words = 5_u8;
-                            (*mem.offset((r + 5i32) as isize)).b32.s1 = -0xfffffffi32;
-                            current_block_50 = 2500484646272006982;
-                        }
-                        _ => {
+                    match (*mem.offset(p as isize)).b16.s0 as i32 {
+                        0 => {
                             r = get_node(3i32);
-                            let ref mut fresh80 = (*mem
-                                .offset((*mem.offset((p + 1i32) as isize)).b32.s0 as isize))
+                            words = 3_u8
+                        }
+                        1 | 3 => {
+                            r = get_node(2i32);
+                            let ref mut fresh81 = (*mem.offset(
+                                (*mem.offset((p + 1i32) as isize)).b32.s1 as isize,
+                            ))
                             .b32
-                            .s1;
-                            *fresh80 += 1;
-                            (*mem.offset((r + 3i32 - 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 3i32 - 1i32) as isize)).b32.s1 =
-                                (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1;
-                            (*mem.offset((r + 1i32) as isize)).b32.s0 =
-                                (*mem.offset((p + 1i32) as isize)).b32.s0;
-                            (*mem.offset((r + 1i32) as isize)).b32.s1 = -0xfffffffi32;
-                            current_block_50 = 2500484646272006982;
+                            .s0;
+                            *fresh81 += 1;
+                            words = 2_u8
+                        }
+                        2 | 4 => {
+                            r = get_node(2i32);
+                            words = 2_u8
+                        }
+                        40 | 41 => {
+                            words = (*mem.offset((p + 4i32) as isize)).b16.s3 as u8;
+                            r = get_node(words as i32);
+                            while words as i32 > 0i32 {
+                                words = words.wrapping_sub(1);
+                                *mem.offset((r + words as i32) as isize) =
+                                    *mem.offset((p + words as i32) as isize)
+                            }
+                            let ref mut fresh82 = (*mem.offset((r + 5i32) as isize)).ptr;
+                            *fresh82 = 0 as *mut libc::c_void;
+                            (*mem.offset((r + 4i32) as isize)).b16.s0 = 0_u16;
+                            copy_native_glyph_info(p, r);
+                        }
+                        42 => {
+                            r = get_node(5i32);
+                            words = 5_u8
+                        }
+                        43 | 44 => {
+                            words = (9i32 as u64).wrapping_add(
+                                ((*mem.offset((p + 4i32) as isize)).b16.s1 as u64)
+                                    .wrapping_add(
+                                        ::std::mem::size_of::<memory_word>() as u64
+                                    )
+                                    .wrapping_sub(1i32 as u64)
+                                    .wrapping_div(
+                                        ::std::mem::size_of::<memory_word>() as u64
+                                    ),
+                            ) as u8;
+                            r = get_node(words as i32)
+                        }
+                        6 => r = get_node(2i32),
+                        _ => {
+                            confusion(b"ext2\x00" as *const u8 as *const i8);
                         }
                     }
+                    current_block_50 = 2500484646272006982;
                 }
                 _ => {
                     current_block_50 = 17768496421797376910;
