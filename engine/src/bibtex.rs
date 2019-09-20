@@ -5098,6 +5098,10 @@ unsafe extern "C" fn execute_fn(mut ex_fn_loc: hash_loc) {
             8 => {
                 if !mess_with_entries {
                     bst_cant_mess_with_entries_print();
+                } else if *type_list.offset(cite_ptr as isize) == undefined {
+                    execute_fn(b_default);
+                } else if !(*type_list.offset(cite_ptr as isize) == 0i32) {
+                    execute_fn(*type_list.offset(cite_ptr as isize));
                 }
             }
             9 => {
@@ -5124,6 +5128,14 @@ unsafe extern "C" fn execute_fn(mut ex_fn_loc: hash_loc) {
                 pop_lit_stk(&mut pop_lit3, &mut pop_typ3);
                 if pop_typ1 as i32 != 2i32 {
                     print_wrong_stk_lit(pop_lit1, pop_typ1, 2i32 as stk_type);
+                } else if pop_typ2 as i32 != 2i32 {
+                    print_wrong_stk_lit(pop_lit2, pop_typ2, 2i32 as stk_type);
+                } else if pop_typ3 as i32 != 0i32 {
+                    print_wrong_stk_lit(pop_lit3, pop_typ3, 0i32 as stk_type);
+                } else if pop_lit3 > 0i32 {
+                    execute_fn(pop_lit2);
+                } else {
+                    execute_fn(pop_lit1);
                 }
             }
             16 => {
@@ -5183,6 +5195,22 @@ unsafe extern "C" fn execute_fn(mut ex_fn_loc: hash_loc) {
                 pop_lit_stk(&mut r_pop_lt2, &mut r_pop_tp2);
                 if r_pop_tp1 as i32 != 2i32 {
                     print_wrong_stk_lit(r_pop_lt1, r_pop_tp1, 2i32 as stk_type);
+                } else if r_pop_tp2 as i32 != 2i32 {
+                    print_wrong_stk_lit(r_pop_lt2, r_pop_tp2, 2i32 as stk_type);
+                } else {
+                    loop {
+                        execute_fn(r_pop_lt2);
+                        pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
+                        if pop_typ1 as i32 != 0i32 {
+                            print_wrong_stk_lit(pop_lit1, pop_typ1, 0i32 as stk_type);
+                            break;
+                        } else {
+                            if !(pop_lit1 > 0i32) {
+                                break;
+                            }
+                            execute_fn(r_pop_lt1);
+                        }
+                    }
                 }
             }
             35 => {
