@@ -5127,6 +5127,7 @@ unsafe extern "C" fn execute_fn(mut ex_fn_loc: hash_loc) {
                             if !mess_with_entries {
                                 bst_cant_mess_with_entries_print();
                             }
+                    }
                 }
                 9 => {
                     current_block = 11401095418043589429;
@@ -5173,6 +5174,7 @@ unsafe extern "C" fn execute_fn(mut ex_fn_loc: hash_loc) {
                             if pop_typ1 as i32 != 2i32 {
                                 print_wrong_stk_lit(pop_lit1, pop_typ1, 2i32 as stk_type);
                             }
+                    }
                 }
                 16 => {
                     current_block = 8655676648363273062;
@@ -5285,6 +5287,7 @@ unsafe extern "C" fn execute_fn(mut ex_fn_loc: hash_loc) {
                             if r_pop_tp1 as i32 != 2i32 {
                                 print_wrong_stk_lit(r_pop_lt1, r_pop_tp1, 2i32 as stk_type);
                             }
+                    }
                 }
                 35 => {
                     current_block = 17353911828636475972;
