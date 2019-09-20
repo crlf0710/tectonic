@@ -7732,8 +7732,7 @@ pub unsafe extern "C" fn get_next() {
                     5 => {
                         current_block = 1132450443677887731;
                         begin_token_list(
-                            *param_stack
-                                .offset((cur_input.limit + cur_chr - 1i32) as isize),
+                            *param_stack.offset((cur_input.limit + cur_chr - 1i32) as isize),
                             0_u16,
                         );
                         continue;
@@ -22026,9 +22025,8 @@ pub unsafe extern "C" fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t
                     if (*mem.offset(p as isize)).b16.s0 as i32 == 43i32
                         || (*mem.offset(p as isize)).b16.s0 as i32 == 44i32
                     {
-                        active_width[1] = active_width[1]
-                            + prev_dp
-                            + (*mem.offset((p + 3i32) as isize)).b32.s1;
+                        active_width[1] =
+                            active_width[1] + prev_dp + (*mem.offset((p + 3i32) as isize)).b32.s1;
                         prev_dp = (*mem.offset((p + 2i32) as isize)).b32.s1
                     }
                     current_block = 10249009913728301645;
@@ -25106,9 +25104,8 @@ pub unsafe extern "C" fn just_copy(mut p: i32, mut h: i32, mut t: i32) {
                         }
                         1 | 3 => {
                             r = get_node(2i32);
-                            let ref mut fresh81 = (*mem.offset(
-                                (*mem.offset((p + 1i32) as isize)).b32.s1 as isize,
-                            ))
+                            let ref mut fresh81 = (*mem
+                                .offset((*mem.offset((p + 1i32) as isize)).b32.s1 as isize))
                             .b32
                             .s0;
                             *fresh81 += 1;
@@ -25138,13 +25135,9 @@ pub unsafe extern "C" fn just_copy(mut p: i32, mut h: i32, mut t: i32) {
                         43 | 44 => {
                             words = (9i32 as u64).wrapping_add(
                                 ((*mem.offset((p + 4i32) as isize)).b16.s1 as u64)
-                                    .wrapping_add(
-                                        ::std::mem::size_of::<memory_word>() as u64
-                                    )
+                                    .wrapping_add(::std::mem::size_of::<memory_word>() as u64)
                                     .wrapping_sub(1i32 as u64)
-                                    .wrapping_div(
-                                        ::std::mem::size_of::<memory_word>() as u64
-                                    ),
+                                    .wrapping_div(::std::mem::size_of::<memory_word>() as u64),
                             ) as u8;
                             r = get_node(words as i32)
                         }
