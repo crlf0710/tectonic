@@ -60,6 +60,9 @@ default = ["serialization"]
 # just get rid of this feature:
 serialization = ["serde", "toml"]
 
+# developer feature to compile with the necessary flags for profiling tectonic.
+profile = ["tectonic_engine/profile"]
+
 # freetype-sys = "^0.4"
 # harfbuzz-sys = "^0.1"
 # libz-sys = "^1.0"

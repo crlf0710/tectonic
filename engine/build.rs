@@ -202,6 +202,23 @@ fn main() {
         ccfg.flag_if_supported(flag);
     }
 
+    let profile_target_requires_frame_pointer: bool = target_cfg!(not(any(
+        // Whitelist of platforms which do not require frame pointers.
+        all(target_os = "linux", target_arch = "x86_64"),
+        // Add more platforms here.
+    )));
+
+    const PROFILE_BUILD_ENABLED: bool = cfg!(feature = "profile");
+
+    let profile_config = |cfg: &mut cc::Build| {
+        if PROFILE_BUILD_ENABLED {
+            cfg.debug(true)
+                .force_frame_pointer(profile_target_requires_frame_pointer);
+        }
+    };
+
+    profile_config(&mut ccfg);
+
     ccfg.define("HAVE_ZLIB", "1")
         .define("HAVE_ZLIB_COMPRESS2", "1")
         .define("ZLIB_CONST", "1")
@@ -246,6 +263,8 @@ fn main() {
         .file("tectonic/stub_icu.c")
         .file("tectonic/stub_stdio.c")
         .include(".");
+
+    profile_config(&mut cppcfg);
 
     cppcfg
         .cpp(true)
