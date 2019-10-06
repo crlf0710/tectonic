@@ -884,6 +884,7 @@ pub unsafe extern "C" fn make_utf16_name() {
 }
 #[no_mangle]
 pub unsafe extern "C" fn open_or_close_in() {
+    use xetex_consts::*;
     let mut c: u8 = 0;
     let mut n: u8 = 0;
     let mut k: i32 = 0;
@@ -902,64 +903,8 @@ pub unsafe extern "C" fn open_or_close_in() {
             &mut *read_file.as_mut_ptr().offset(n as isize),
             TTInputFormat::TEX,
             b"rb\x00" as *const u8 as *const i8,
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 77i32) as isize,
-            ))
-            .b32
-            .s1,
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 78i32) as isize,
-            ))
-            .b32
-            .s1,
+            INTPAR(INT_PAR__xetex_default_input_mode),
+            INTPAR(INT_PAR__xetex_default_input_encoding),
         ) != 0
         {
             make_utf16_name();
