@@ -1083,14 +1083,15 @@ pub unsafe extern "C" fn CMap_cache_find(mut cmap_name: *const i8) -> i32 {
             return id;
         }
     }
-    let handle = ttstub_input_open(cmap_name, TTInputFormat::CMAP, 0i32);
-    if handle.is_null() {
+    let mut handle = ttstub_input_open(cmap_name, TTInputFormat::CMAP, 0i32);
+    if handle.is_none() {
         return -1i32;
     }
-    if CMap_parse_check_sig(handle) < 0i32 {
-        ttstub_input_close(handle);
+    if CMap_parse_check_sig(handle.as_mut()) < 0i32 {
+        ttstub_input_close(handle.unwrap());
         return -1i32;
     }
+    let handle = handle.unwrap();
     if __verbose != 0 {
         info!("(CMap:{}", CStr::from_ptr(cmap_name).display());
     }
@@ -1109,7 +1110,6 @@ pub unsafe extern "C" fn CMap_cache_find(mut cmap_name: *const i8) -> i32 {
     if CMap_parse(*(*__cache).cmaps.offset(id as isize), handle) < 0i32 {
         panic!("{}: Parsing CMap file failed.", "CMap",);
     }
-    ttstub_input_close(handle);
     if __verbose != 0 {
         info!(")");
     }

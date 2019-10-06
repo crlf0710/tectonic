@@ -57,7 +57,7 @@ use libc::{free, strncmp, strncpy, strtod};
 pub type __off_t = i64;
 pub type __off64_t = i64;
 pub type size_t = u64;
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 
 use super::dpx_pdfdev::{pdf_coord, pdf_tmatrix};
 
@@ -412,7 +412,7 @@ unsafe fn pdf_get_page_content(mut page: *mut pdf_obj) -> *mut pdf_obj {
 #[no_mangle]
 pub unsafe extern "C" fn pdf_include_page(
     mut ximage: *mut pdf_ximage,
-    mut handle: rust_input_handle_t,
+    handle: InputHandleWrapper,
     mut ident: *const i8,
     mut options: load_options,
 ) -> i32 {
@@ -842,7 +842,8 @@ static mut pdf_operators: [operator; 39] = [
         init
     },
 ];
-#[no_mangle]
+/* NOWHERE USED
+[no_mangle]
 pub unsafe extern "C" fn pdf_copy_clip(
     mut image_file: *mut libc::FILE,
     mut pageNo: i32,
@@ -860,7 +861,7 @@ pub unsafe extern "C" fn pdf_copy_clip(
     let mut M = pdf_tmatrix::new();
     let mut stack: [f64; 6] = [0.; 6];
     let mut pf: *mut pdf_file = 0 as *mut pdf_file;
-    pf = pdf_open(0 as *const i8, image_file as rust_input_handle_t);
+    pf = pdf_open(0 as *const i8, InputHandleWrapper::new(image_file as tectonic_bridge::rust_input_handle_t).unwrap()); // TODO: check
     if pf.is_null() {
         return -1i32;
     }
@@ -1205,3 +1206,4 @@ pub unsafe extern "C" fn pdf_copy_clip(
     pdf_close(pf);
     0i32
 }
+*/

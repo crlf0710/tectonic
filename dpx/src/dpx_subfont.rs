@@ -27,6 +27,8 @@
     unused_mut
 )]
 
+use std::io::{Seek, SeekFrom};
+
 use crate::streq_ptr;
 use crate::DisplayExt;
 use crate::{info, warn};
@@ -34,7 +36,7 @@ use std::ffi::CStr;
 
 use super::dpx_mem::{new, renew};
 use super::dpx_mfileio::tt_mfgets;
-use crate::{ttstub_input_close, ttstub_input_open, ttstub_input_seek};
+use crate::{ttstub_input_close, ttstub_input_open};
 use libc::{free, memcpy, strchr, strcmp, strcpy, strlen, strtol};
 
 pub type __ssize_t = i64;
@@ -43,7 +45,7 @@ pub type ssize_t = __ssize_t;
 
 use crate::TTInputFormat;
 
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 /* Don't forget fontmap reading now requires information
  * from SFD files. You must initialize at least sfd_file_
  * cache before starting loading of fontmaps.
@@ -110,14 +112,14 @@ static mut line_buf: [i8; 4096] = [0; 4096];
 unsafe fn readline(
     mut buf: *mut i8,
     mut buf_len: i32,
-    mut handle: *mut rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
 ) -> *mut i8 {
     let mut q: *mut i8 = 0 as *mut i8;
     let mut p: *mut i8 = buf;
     let mut n: i32 = 0i32;
     let mut c: i32 = 0i32;
     while buf_len - n > 0i32 && {
-        q = tt_mfgets(p, buf_len - n, handle as rust_input_handle_t);
+        q = tt_mfgets(p, buf_len - n, handle);
         !q.is_null()
     } {
         c += 1;
@@ -253,16 +255,16 @@ unsafe fn read_sfd_record(mut rec: *mut sfd_rec_, mut lbuf: *const i8) -> i32 {
     error
 }
 /* Scan for subfont IDs */
-unsafe fn scan_sfd_file(mut sfd: *mut sfd_file_, mut handle: *mut rust_input_handle_t) -> i32 {
+unsafe fn scan_sfd_file(mut sfd: *mut sfd_file_, handle: &mut InputHandleWrapper) -> i32 {
     let mut lpos: i32 = 0i32;
-    assert!(!sfd.is_null() && !handle.is_null());
+    assert!(!sfd.is_null());
     if verbose > 3i32 {
         info!(
             "\nsubfont>> Scanning SFD file \"{}\"...\n",
             CStr::from_ptr((*sfd).ident).display()
         );
     }
-    ttstub_input_seek(handle as rust_input_handle_t, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     (*sfd).num_subfonts = 0i32;
     (*sfd).max_subfonts = (*sfd).num_subfonts;
     loop {
@@ -351,13 +353,14 @@ unsafe fn find_sfd_file(mut sfd_name: *const i8) -> i32 {
                 as *mut i8;
         strcpy((*sfd).ident, sfd_name);
         let handle =
-            ttstub_input_open((*sfd).ident, TTInputFormat::SFD, 0i32) as *mut rust_input_handle_t;
-        if handle.is_null() {
+            ttstub_input_open((*sfd).ident, TTInputFormat::SFD, 0i32);
+        if handle.is_none() {
             clean_sfd_file_(sfd);
             return -1i32;
         }
-        let error = scan_sfd_file(sfd, handle);
-        ttstub_input_close(handle as rust_input_handle_t);
+        let mut handle = handle.unwrap();
+        let error = scan_sfd_file(sfd, &mut handle);
+        ttstub_input_close(handle);
         if error == 0 {
             let fresh2 = num_sfd_files;
             num_sfd_files = num_sfd_files + 1;
@@ -433,15 +436,16 @@ pub unsafe extern "C" fn sfd_load_record(
     }
     /* reopen */
     let handle =
-        ttstub_input_open((*sfd).ident, TTInputFormat::SFD, 0i32) as *mut rust_input_handle_t;
-    if handle.is_null() {
+        ttstub_input_open((*sfd).ident, TTInputFormat::SFD, 0i32);
+    if handle.is_none() {
         return -1i32;
         /* panic!("Could not open SFD file \"{}\"", sfd_name); */
     }
+    let mut handle = handle.unwrap();
     loop
     /* Seek to record for 'sub_name'. */
     {
-        let mut p = readline(line_buf.as_mut_ptr(), 4096i32, handle); /* empty line */
+        let mut p = readline(line_buf.as_mut_ptr(), 4096i32, &mut handle); /* empty line */
         if p.is_null() {
             break;
         }
@@ -499,7 +503,7 @@ pub unsafe extern "C" fn sfd_load_record(
         );
     }
     *(*sfd).rec_id.offset(i as isize) = rec_id;
-    ttstub_input_close(handle as rust_input_handle_t);
+    ttstub_input_close(handle);
     if verbose > 3i32 {
         if rec_id >= 0i32 {
             info!(" at id=\"{}\"", rec_id);

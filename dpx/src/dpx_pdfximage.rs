@@ -48,8 +48,10 @@ use crate::dpx_pdfobj::{
     pdf_obj, pdf_obj_typeof, pdf_ref_obj, pdf_release_obj, pdf_stream_dict, PdfObjType,
 };
 use crate::shims::sprintf;
-use crate::{ttstub_input_close, ttstub_input_open, ttstub_input_seek};
+use crate::{ttstub_input_close, ttstub_input_open};
 use libc::{free, memset, strcpy, strlen};
+
+use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
@@ -57,7 +59,7 @@ pub type ssize_t = __ssize_t;
 
 use crate::TTInputFormat;
 
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 
 use super::dpx_pdfdev::{pdf_coord, pdf_rect, pdf_tmatrix, transform_info};
 #[derive(Copy, Clone, Default)]
@@ -220,9 +222,9 @@ pub unsafe extern "C" fn pdf_close_images() {
     }
     _opts.cmdtmpl = mfree(_opts.cmdtmpl as *mut libc::c_void) as *mut i8;
 }
-unsafe fn source_image_type(mut handle: rust_input_handle_t) -> i32 {
+unsafe fn source_image_type(handle: &mut InputHandleWrapper) -> i32 {
     let mut format: i32 = -1i32;
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     /* Original check order: jpeg, jp2, png, bmp, pdf, ps */
     if check_for_jpeg(handle) != 0 {
         format = 1i32
@@ -238,14 +240,14 @@ unsafe fn source_image_type(mut handle: rust_input_handle_t) -> i32 {
         warn!("Tectonic was unable to detect an image\'s format");
         format = -1i32
     }
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     format
 }
 unsafe fn load_image(
     mut ident: *const i8,
     mut fullname: *const i8,
     mut format: i32,
-    mut handle: rust_input_handle_t,
+    mut handle: InputHandleWrapper,
     mut options: load_options,
 ) -> i32 {
     let mut current_block: u64;
@@ -285,12 +287,13 @@ unsafe fn load_image(
             if _opts.verbose != 0 {
                 info!("[JPEG]");
             }
-            if jpeg_include_image(I, handle) < 0i32 {
+            if jpeg_include_image(I, &mut handle) < 0i32 {
                 current_block = 15386155914718490365;
             } else {
                 (*I).subtype = 1i32;
                 current_block = 14945149239039849694;
             }
+            ttstub_input_close(handle);
         }
         7 => {
             if _opts.verbose != 0 {
@@ -299,6 +302,7 @@ unsafe fn load_image(
             /*if (jp2_include_image(I, fp) < 0)*/
             warn!("Tectonic: JP2 not yet supported");
             current_block = 15386155914718490365;
+            ttstub_input_close(handle);
         }
         2 => {
             /*I->subtype = PDF_XOBJECT_TYPE_IMAGE;
@@ -306,29 +310,31 @@ unsafe fn load_image(
             if _opts.verbose != 0 {
                 info!("[PNG]");
             }
-            if png_include_image(I, handle) < 0i32 {
+            if png_include_image(I, &mut handle) < 0i32 {
                 current_block = 15386155914718490365;
             } else {
                 (*I).subtype = 1i32;
                 current_block = 14945149239039849694;
             }
+            ttstub_input_close(handle);
         }
         6 => {
             if _opts.verbose != 0 {
                 info!("[BMP]");
             }
-            if bmp_include_image(I, handle) < 0i32 {
+            if bmp_include_image(I, &mut handle) < 0i32 {
                 current_block = 15386155914718490365;
             } else {
                 (*I).subtype = 1i32;
                 current_block = 14945149239039849694;
             }
+            ttstub_input_close(handle);
         }
         0 => {
             if _opts.verbose != 0 {
                 info!("[PDF]");
             }
-            let mut result: i32 = pdf_include_page(I, handle, fullname, options);
+            let mut result: i32 = pdf_include_page(I, handle.clone(), fullname, options);
             /* Tectonic: this used to try ps_include_page() */
             if result != 0i32 {
                 current_block = 15386155914718490365;
@@ -339,6 +345,7 @@ unsafe fn load_image(
                 (*I).subtype = 0i32;
                 current_block = 14945149239039849694;
             }
+            ttstub_input_close(handle);
         }
         5 => {
             if _opts.verbose != 0 {
@@ -347,12 +354,14 @@ unsafe fn load_image(
             warn!("sorry, PostScript images are not supported by Tectonic");
             warn!("for details, please see https://github.com/tectonic-typesetting/tectonic/issues/27");
             current_block = 15386155914718490365;
+            ttstub_input_close(handle);
         }
         _ => {
             if _opts.verbose != 0 {
                 info!("[UNKNOWN]");
             }
             current_block = 15386155914718490365;
+            ttstub_input_close(handle);
         }
     }
     match current_block {
@@ -395,7 +404,6 @@ pub unsafe extern "C" fn pdf_ximage_findresource(
     let mut ic: *mut ic_ = &mut _ic;
     let mut I: *mut pdf_ximage = 0 as *mut pdf_ximage;
     let mut format: i32 = 0;
-    let mut handle: rust_input_handle_t = 0 as *mut libc::c_void;
     /* "I don't understand why there is comparision against I->attr.dict here...
      * I->attr.dict and options.dict are simply pointers to PDF dictionaries."
      */
@@ -420,20 +428,20 @@ pub unsafe extern "C" fn pdf_ximage_findresource(
      *   strcpy(fullname, f);
      * } else { kpse_find_file() }
      */
-    handle = ttstub_input_open(ident, TTInputFormat::PICT, 0i32);
-    if handle.is_null() {
+    let handle = ttstub_input_open(ident, TTInputFormat::PICT, 0i32);
+    if handle.is_none() {
         warn!(
             "Error locating image file \"{}\"",
             CStr::from_ptr(ident).display(),
         );
         return -1i32;
     }
+    let mut handle = handle.unwrap();
     if _opts.verbose != 0 {
         info!("(Image:{}", CStr::from_ptr(ident).display());
     }
-    format = source_image_type(handle);
+    format = source_image_type(&mut handle);
     let id = load_image(ident, ident, format, handle, options);
-    ttstub_input_close(handle);
     if _opts.verbose != 0 {
         info!(")");
     }
@@ -916,8 +924,8 @@ pub unsafe extern "C" fn set_distiller_template(mut s: *mut i8) {
 pub unsafe extern "C" fn get_distiller_template() -> *mut i8 {
     _opts.cmdtmpl
 }
-unsafe fn check_for_ps(mut handle: rust_input_handle_t) -> i32 {
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+unsafe fn check_for_ps(handle: &mut InputHandleWrapper) -> i32 {
+    handle.seek(SeekFrom::Start(0)).unwrap();
     tt_mfgets(work_buffer.as_mut_ptr(), 1024i32, handle);
     if !strstartswith(
         work_buffer.as_mut_ptr(),

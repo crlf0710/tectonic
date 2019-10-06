@@ -60,7 +60,6 @@ use crate::dpx_pdfobj::{
     pdf_release_obj, pdf_stream_length,
 };
 use crate::shims::sprintf;
-use crate::ttstub_input_close;
 use libc::{free, memmove, memset, strcat, strcmp, strcpy, strlen, strncpy, strstr};
 
 pub type size_t = u64;
@@ -753,18 +752,15 @@ pub unsafe extern "C" fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
         pdf_add_dict((*font).fontdict, "DW", pdf_new_number(1000.0f64));
         return;
     }
-    let mut handle = dpx_open_truetype_file((*font).ident);
-    let sfont = if handle.is_null() {
-        handle = dpx_open_dfont_file((*font).ident);
-        if handle.is_null() {
-            panic!(
-                "Could not open TTF/dfont file: {}",
-                CStr::from_ptr((*font).ident).display()
-            );
-        }
+    let sfont = if let Some(handle) = dpx_open_truetype_file((*font).ident) {
+        sfnt_open(handle)
+    } else if let Some(handle) = dpx_open_dfont_file((*font).ident) {
         dfont_open(handle, (*(*font).options).index)
     } else {
-        sfnt_open(handle)
+        panic!(
+            "Could not open TTF/dfont file: {}",
+            CStr::from_ptr((*font).ident).display()
+        );
     };
     if sfont.is_null() {
         panic!(
@@ -1092,9 +1088,6 @@ pub unsafe extern "C" fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
     if CIDFont_get_embedding(font) == 0 {
         free(cidtogidmap as *mut libc::c_void);
         sfnt_close(sfont);
-        if !handle.is_null() {
-            ttstub_input_close(handle);
-        }
         return;
     }
     /* Create font file */
@@ -1111,9 +1104,6 @@ pub unsafe extern "C" fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
      */
     let fontfile = sfnt_create_FontFile_stream(sfont);
     sfnt_close(sfont);
-    if !handle.is_null() {
-        ttstub_input_close(handle);
-    }
     if fontfile.is_null() {
         panic!(
             "Could not created FontFile stream for \"{}\".",
@@ -1165,18 +1155,15 @@ pub unsafe extern "C" fn CIDFont_type2_open(
 ) -> i32 {
     let offset;
     assert!(!font.is_null() && !opt.is_null());
-    let mut handle = dpx_open_truetype_file(name);
-    let sfont = if handle.is_null() {
-        handle = dpx_open_dfont_file(name);
-        if handle.is_null() {
-            return -1i32;
-        }
+    
+    let sfont = if let Some(handle) = dpx_open_truetype_file(name) {
+        sfnt_open(handle)
+    } else if let Some(handle) = dpx_open_dfont_file(name) {
         dfont_open(handle, (*opt).index)
     } else {
-        sfnt_open(handle)
+        return -1i32;
     };
     if sfont.is_null() {
-        ttstub_input_close(handle);
         return -1i32;
     }
     match (*sfont).type_0 {
@@ -1193,9 +1180,6 @@ pub unsafe extern "C" fn CIDFont_type2_open(
         256 => offset = (*sfont).offset,
         _ => {
             sfnt_close(sfont);
-            if !handle.is_null() {
-                ttstub_input_close(handle);
-            }
             return -1i32;
         }
     }
@@ -1205,9 +1189,6 @@ pub unsafe extern "C" fn CIDFont_type2_open(
     /* Ignore TrueType Collection with CFF table. */
     if (*sfont).type_0 == 1i32 << 4i32 && sfnt_find_table_pos(sfont, b"CFF ") != 0 {
         sfnt_close(sfont);
-        if !handle.is_null() {
-            ttstub_input_close(handle);
-        }
         return -1i32;
     }
     /* MAC-ROMAN-EN-POSTSCRIPT or WIN-UNICODE-EN(US)-POSTSCRIPT */
@@ -1339,9 +1320,6 @@ pub unsafe extern "C" fn CIDFont_type2_open(
     pdf_add_dict((*font).descriptor, "FontName", pdf_copy_name(fontname));
     pdf_add_dict((*font).fontdict, "BaseFont", pdf_copy_name(fontname));
     sfnt_close(sfont);
-    if !handle.is_null() {
-        ttstub_input_close(handle);
-    }
     /*
      * Don't write fontdict here.
      * /Supplement in /CIDSystemInfo may change.

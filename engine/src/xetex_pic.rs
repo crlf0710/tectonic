@@ -33,7 +33,7 @@ use dpx::dpx_pdfobj::{pdf_close, pdf_file, pdf_obj, pdf_open, pdf_release_obj};
 use dpx::dpx_pngimage::{check_for_png, png_get_bbox};
 use libc::{free, memcpy, strlen};
 
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 pub type scaled_t = i32;
 pub type Fixed = scaled_t;
 pub type str_number = i32;
@@ -90,27 +90,23 @@ use dpx::dpx_pdfdev::pdf_tmatrix;
 
 #[no_mangle]
 pub unsafe extern "C" fn count_pdf_file_pages() -> i32 {
-    let mut pages: i32 = 0;
-    let mut handle: rust_input_handle_t = 0 as *mut libc::c_void;
-    let mut pf: *mut pdf_file = 0 as *mut pdf_file;
-    handle = ttstub_input_open(name_of_file, TTInputFormat::PICT, 0i32);
-    if handle.is_null() {
-        return 0i32;
+    let handle = ttstub_input_open(name_of_file, TTInputFormat::PICT, 0i32);
+    if handle.is_none() {
+        return 0;
     }
-    pf = pdf_open(name_of_file, handle);
+    let pf = pdf_open(name_of_file, handle.unwrap());
     if pf.is_null() {
         /* TODO: issue warning */
-        ttstub_input_close(handle);
-        return 0i32;
+        //ttstub_input_close(handle);
+        return 0;
     }
-    pages = pdf_doc_get_page_count(pf);
+    let pages = pdf_doc_get_page_count(pf);
     pdf_close(pf);
-    ttstub_input_close(handle);
     pages
 }
 unsafe extern "C" fn pdf_get_rect(
     mut filename: *mut i8,
-    mut handle: rust_input_handle_t,
+    handle: InputHandleWrapper,
     mut page_num: i32,
     mut pdf_box: i32,
     mut box_0: *mut real_rect,
@@ -182,7 +178,7 @@ unsafe extern "C" fn pdf_get_rect(
     0
 }
 unsafe extern "C" fn get_image_size_in_inches(
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
     mut width: *mut f32,
     mut height: *mut f32,
 ) -> i32 {
@@ -240,27 +236,27 @@ unsafe extern "C" fn find_pic_file(
     mut page: i32,
 ) -> i32 {
     let mut err: i32 = -1i32;
-    let mut handle: rust_input_handle_t = 0 as *mut libc::c_void;
-    handle = ttstub_input_open(name_of_file, TTInputFormat::PICT, 0i32);
+    let handle = ttstub_input_open(name_of_file, TTInputFormat::PICT, 0i32);
     (*bounds).ht = 0.0f64 as f32;
     (*bounds).wd = (*bounds).ht;
     (*bounds).y = (*bounds).wd;
     (*bounds).x = (*bounds).y;
-    if handle.is_null() {
+    if handle.is_none() {
         return 1i32;
     }
+    let mut handle = handle.unwrap();
     if pdfBoxType != 0i32 {
         /* if cmd was \XeTeXpdffile, use xpdflib to read it */
         err = pdf_get_rect(name_of_file, handle, page, pdfBoxType, bounds)
     } else {
-        err = get_image_size_in_inches(handle, &mut (*bounds).wd, &mut (*bounds).ht);
+        err = get_image_size_in_inches(&mut handle, &mut (*bounds).wd, &mut (*bounds).ht);
         (*bounds).wd = ((*bounds).wd as f64 * 72.27f64) as f32;
-        (*bounds).ht = ((*bounds).ht as f64 * 72.27f64) as f32
+        (*bounds).ht = ((*bounds).ht as f64 * 72.27f64) as f32;
+        ttstub_input_close(handle);
     }
     if err == 0i32 {
         *path = xstrdup(name_of_file)
     }
-    ttstub_input_close(handle);
     err
 }
 unsafe extern "C" fn transform_point(mut p: *mut real_point, mut t: *const transform_t) {

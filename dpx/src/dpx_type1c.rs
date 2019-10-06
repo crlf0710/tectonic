@@ -64,13 +64,14 @@ use crate::dpx_pdfobj::{
     pdf_release_obj, pdf_stream_dataptr, pdf_stream_dict, pdf_stream_length,
 };
 use crate::shims::sprintf;
-use crate::{ttstub_input_close, ttstub_input_read, ttstub_input_seek};
+use crate::{ttstub_input_read};
 use libc::{free, strcmp, strlen};
+
+use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
 pub type ssize_t = __ssize_t;
-use bridge::rust_input_handle_t;
 
 use super::dpx_cff::cff_index;
 pub type l_offset = u32;
@@ -142,11 +143,12 @@ pub unsafe extern "C" fn pdf_font_open_type1c(mut font: *mut pdf_font) -> i32 {
     assert!(!font.is_null());
     let ident = pdf_font_get_ident(font);
     let encoding_id = pdf_font_get_encoding(font);
-    let handle = dpx_open_opentype_file(ident) as *mut rust_input_handle_t;
-    if handle.is_null() {
+    let handle = dpx_open_opentype_file(ident);
+    if handle.is_none() {
         return -1i32;
     }
-    let sfont = sfnt_open(handle as rust_input_handle_t);
+    let handle = handle.unwrap();
+    let sfont = sfnt_open(handle);
     if sfont.is_null()
         || (*sfont).type_0 != 1i32 << 2i32
         || sfnt_read_table_directory(sfont, 0_u32) < 0i32
@@ -157,14 +159,13 @@ pub unsafe extern "C" fn pdf_font_open_type1c(mut font: *mut pdf_font) -> i32 {
     if offset < 1_u32 {
         panic!("No \"CFF \" table found; not a CFF/OpenType font (10)?");
     }
-    let cffont = cff_open((*sfont).handle, offset as i32, 0i32);
+    let cffont = cff_open((*sfont).handle.clone(), offset as i32, 0i32); // TODO: use link
     if cffont.is_null() {
         panic!("Could not read CFF font data");
     }
     if (*cffont).flag & 1i32 << 0i32 != 0 {
         cff_close(cffont);
         sfnt_close(sfont);
-        ttstub_input_close(handle as rust_input_handle_t);
         return -1i32;
     }
     let fontname = cff_get_name(&*cffont);
@@ -206,7 +207,6 @@ pub unsafe extern "C" fn pdf_font_open_type1c(mut font: *mut pdf_font) -> i32 {
         pdf_font_set_flags(font, 1i32 << 0i32);
     }
     sfnt_close(sfont);
-    ttstub_input_close(handle as rust_input_handle_t);
     0i32
 }
 unsafe extern "C" fn add_SimpleMetrics(
@@ -318,14 +318,15 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
     let fontdict = pdf_font_get_resource(font); /* Actually string object */
     let descriptor = pdf_font_get_descriptor(font);
     let encoding_id = pdf_font_get_encoding(font);
-    let handle = dpx_open_opentype_file(ident) as *mut rust_input_handle_t;
-    if handle.is_null() {
+    let handle = dpx_open_opentype_file(ident);
+    if handle.is_none() {
         panic!(
             "Could not open OpenType font: {}",
             CStr::from_ptr(ident).display(),
         );
     }
-    let sfont = sfnt_open(handle as rust_input_handle_t);
+    let mut handle = handle.unwrap();
+    let sfont = sfnt_open(handle);
     if sfont.is_null() {
         panic!(
             "Could not open OpenType font: {}",
@@ -344,7 +345,7 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
     } {
         panic!("Not a CFF/OpenType font (11)?");
     }
-    let cffont = cff_open(handle as rust_input_handle_t, offset, 0i32);
+    let cffont = cff_open((*sfont).handle.clone(), offset, 0i32); // TODO: use link
     if cffont.is_null() {
         panic!("Could not open CFF font.");
     }
@@ -433,19 +434,15 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
     /*
      * Charastrings.
      */
-    offset = cff_dict_get(
+    let offset = cff_dict_get(
         cffont.topdict,
         b"CharStrings\x00" as *const u8 as *const i8,
         0i32,
-    ) as i32;
-    ttstub_input_seek(
-        cffont.handle,
-        cffont.offset.wrapping_add(offset as u32) as ssize_t,
-        0i32,
-    );
+    ) as u64;
+    cffont.handle.as_mut().unwrap().seek(SeekFrom::Start(cffont.offset as u64 + offset)).unwrap();
     let cs_idx = cff_get_index_header(cffont);
     /* Offset is now absolute offset ... fixme */
-    offset = ttstub_input_seek(cffont.handle, 0i32 as ssize_t, 1i32) as i32;
+    let mut offset = cffont.handle.as_mut().unwrap().seek(SeekFrom::Current(0)).unwrap() as i32;
     let cs_count = (*cs_idx).count;
     if (cs_count as i32) < 2i32 {
         panic!("No valid charstring data found.");
@@ -516,14 +513,9 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
         panic!("Charstring too long: gid={}, {} bytes", 0, size);
     }
     *(*charstrings).offset.offset(0) = (charstring_len + 1i32) as l_offset;
-    ttstub_input_seek(
-        cffont.handle,
-        (offset as u32)
-            .wrapping_add(*(*cs_idx).offset.offset(0))
-            .wrapping_sub(1_u32) as ssize_t,
-        0i32,
-    );
-    ttstub_input_read(cffont.handle, data as *mut i8, size as size_t);
+    let handle = cffont.handle.as_mut().unwrap();
+    handle.seek(SeekFrom::Start(offset as u64 + *(*cs_idx).offset.offset(0) as u64 - 1)).unwrap();
+    ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t);
     charstring_len += cs_copy_charstring(
         (*charstrings).data.offset(charstring_len as isize),
         max_len - charstring_len,
@@ -627,14 +619,9 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
                     }
                     *(*charstrings).offset.offset(num_glyphs as isize) =
                         (charstring_len + 1i32) as l_offset;
-                    ttstub_input_seek(
-                        cffont.handle,
-                        (offset as u32)
-                            .wrapping_add(*(*cs_idx).offset.offset(gid_0 as isize))
-                            .wrapping_sub(1_u32) as ssize_t,
-                        0i32,
-                    );
-                    ttstub_input_read(cffont.handle, data as *mut i8, size as size_t);
+                    let handle = cffont.handle.as_mut().unwrap();
+                    handle.seek(SeekFrom::Start(offset as u64 + *(*cs_idx).offset.offset(gid_0 as isize) as u64 - 1)).unwrap();
+                    ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t);
                     charstring_len += cs_copy_charstring(
                         (*charstrings).data.offset(charstring_len as isize),
                         max_len - charstring_len,
@@ -889,7 +876,6 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
     /* Close font */
     cff_close(cffont);
     sfnt_close(sfont);
-    ttstub_input_close(handle as rust_input_handle_t);
     if verbose > 1i32 {
         info!("[{}/{} glyphs][{} bytes]", num_glyphs, cs_count, offset,);
     }

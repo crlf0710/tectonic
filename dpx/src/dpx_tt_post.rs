@@ -72,12 +72,13 @@ pub struct tt_post_table {
  * as directory separators. */
 /* offset from begenning of the post table */
 unsafe fn read_v2_post_names(mut post: *mut tt_post_table, mut sfont: *mut sfnt) -> i32 {
-    (*post).numberOfGlyphs = tt_get_unsigned_pair((*sfont).handle);
+    let handle = &mut (*sfont).handle;
+    (*post).numberOfGlyphs = tt_get_unsigned_pair(handle);
     let indices = new(((*post).numberOfGlyphs as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32) as *mut u16;
     let mut maxidx = 257_u16;
     for i in 0..(*post).numberOfGlyphs as i32 {
-        let mut idx = tt_get_unsigned_pair((*sfont).handle);
+        let mut idx = tt_get_unsigned_pair(handle);
         if idx as i32 >= 258i32 {
             if idx as i32 > maxidx as i32 {
                 maxidx = idx
@@ -110,14 +111,14 @@ unsafe fn read_v2_post_names(mut post: *mut tt_post_table, mut sfont: *mut sfnt)
             as u32) as *mut *mut i8;
         for i in 0..(*post).count as i32 {
             /* read Pascal strings */
-            let len = tt_get_unsigned_byte((*sfont).handle) as i32;
+            let len = tt_get_unsigned_byte(handle) as i32;
             if len > 0i32 {
                 let ref mut fresh0 = *(*post).names.offset(i as isize);
                 *fresh0 = new(((len + 1i32) as u32 as u64)
                     .wrapping_mul(::std::mem::size_of::<i8>() as u64)
                     as u32) as *mut i8;
                 ttstub_input_read(
-                    (*sfont).handle,
+                    handle.0.as_ptr(),
                     *(*post).names.offset(i as isize),
                     len as size_t,
                 );
@@ -158,15 +159,16 @@ pub unsafe extern "C" fn tt_read_post_table(mut sfont: *mut sfnt) -> *mut tt_pos
     sfnt_locate_table(sfont, b"post"); /* Fixed */
     let mut post = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_post_table>() as u64) as u32)
         as *mut tt_post_table; /* Fixed */
-    (*post).Version = tt_get_unsigned_quad((*sfont).handle); /* FWord */
-    (*post).italicAngle = tt_get_unsigned_quad((*sfont).handle); /* FWord */
-    (*post).underlinePosition = tt_get_signed_pair((*sfont).handle); /* wrong */
-    (*post).underlineThickness = tt_get_signed_pair((*sfont).handle);
-    (*post).isFixedPitch = tt_get_unsigned_quad((*sfont).handle);
-    (*post).minMemType42 = tt_get_unsigned_quad((*sfont).handle);
-    (*post).maxMemType42 = tt_get_unsigned_quad((*sfont).handle);
-    (*post).minMemType1 = tt_get_unsigned_quad((*sfont).handle);
-    (*post).maxMemType1 = tt_get_unsigned_quad((*sfont).handle);
+    let handle = &mut (*sfont).handle;
+    (*post).Version = tt_get_unsigned_quad(handle); /* FWord */
+    (*post).italicAngle = tt_get_unsigned_quad(handle); /* FWord */
+    (*post).underlinePosition = tt_get_signed_pair(handle); /* wrong */
+    (*post).underlineThickness = tt_get_signed_pair(handle);
+    (*post).isFixedPitch = tt_get_unsigned_quad(handle);
+    (*post).minMemType42 = tt_get_unsigned_quad(handle);
+    (*post).maxMemType42 = tt_get_unsigned_quad(handle);
+    (*post).minMemType1 = tt_get_unsigned_quad(handle);
+    (*post).maxMemType1 = tt_get_unsigned_quad(handle);
     (*post).numberOfGlyphs = 0_u16;
     (*post).glyphNamePtr = 0 as *mut *const i8;
     (*post).count = 0_u16;

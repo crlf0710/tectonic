@@ -28,6 +28,8 @@
     unused_mut
 )]
 
+use std::ffi::CString;
+
 use super::dpx_mem::new;
 use crate::mfree;
 use libc::{free, memcmp, memcpy};
@@ -537,7 +539,7 @@ pub unsafe extern "C" fn parse_c_string(mut pp: *mut *const i8, mut endptr: *con
     let mut q: *mut i8 = 0 as *mut i8;
     let mut p: *const i8 = *pp;
     let mut l: i32 = 0i32;
-    if p >= endptr || *p.offset(0) as i32 != '\"' as i32 {
+    if p >= endptr || *p.offset(0) as u8 != b'\"' {
         return 0 as *mut i8;
     }
     p = p.offset(1);
@@ -557,18 +559,18 @@ pub unsafe extern "C" fn parse_c_ident(mut pp: *mut *const i8, mut endptr: *cons
     let mut p: *const i8 = *pp;
     let mut n: i32 = 0;
     if p >= endptr
-        || !(*p as i32 == '_' as i32
-            || *p as i32 >= 'a' as i32 && *p as i32 <= 'z' as i32
-            || *p as i32 >= 'A' as i32 && *p as i32 <= 'Z' as i32)
+        || !(*p as u8 == b'_'
+            || *p as u8 >= b'a' && *p as u8 <= b'z'
+            || *p as u8 >= b'A' && *p as u8 <= b'Z')
     {
         return 0 as *mut i8;
     }
     n = 0i32;
     while p < endptr
         && (*p as i32 == '_' as i32
-            || *p as i32 >= 'a' as i32 && *p as i32 <= 'z' as i32
-            || *p as i32 >= 'A' as i32 && *p as i32 <= 'Z' as i32
-            || *p as i32 >= '0' as i32 && *p as i32 <= '9' as i32)
+            || *p as u8 >= b'a' && *p as u8 <= b'z'
+            || *p as u8 >= b'A' && *p as u8 <= b'Z'
+            || *p as u8 >= b'0' && *p as u8 <= b'9')
     {
         p = p.offset(1);
         n += 1
@@ -579,6 +581,28 @@ pub unsafe extern "C" fn parse_c_ident(mut pp: *mut *const i8, mut endptr: *cons
     *pp = p;
     q
 }
+pub fn parse_c_ident_rust(pp: &[u8]) -> Option<CString> {
+    if pp.len() == 0
+        || !(pp[0] == b'_'
+            || (b'a'..=b'z').contains(&pp[0])
+            || (b'A'..=b'Z').contains(&pp[0])
+        )
+    {
+        return None;
+    }
+    let mut n = 0;
+    for p in pp {
+        if !(*p == b'_'
+            || (b'a'..=b'z').contains(p)
+            || (b'A'..=b'Z').contains(p)
+            || (b'0'..=b'9').contains(p)) {
+                break;
+        }
+        n += 1;
+    }
+    Some(CString::new(&pp[..n]).unwrap())
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn parse_float_decimal(
     mut pp: *mut *const i8,
@@ -591,15 +615,15 @@ pub unsafe extern "C" fn parse_float_decimal(
     if p >= endptr {
         return 0 as *mut i8;
     }
-    if *p.offset(0) as i32 == '+' as i32 || *p.offset(0) as i32 == '-' as i32 {
+    if *p.offset(0) as u8 == b'+' || *p.offset(0) as u8 == b'-' {
         p = p.offset(1)
     }
     /* 1. .01 001 001E-001 */
     s = 0i32;
     n = 0i32;
     while p < endptr && s >= 0i32 {
-        match *p.offset(0) as i32 {
-            43 | 45 => {
+        match *p.offset(0) as u8 {
+            b'+' | b'-' => {
                 if s != 2i32 {
                     s = -1i32
                 } else {
@@ -607,7 +631,7 @@ pub unsafe extern "C" fn parse_float_decimal(
                     p = p.offset(1)
                 }
             }
-            46 => {
+            b'.' => {
                 if s > 0i32 {
                     s = -1i32
                 } else {
@@ -615,11 +639,11 @@ pub unsafe extern "C" fn parse_float_decimal(
                     p = p.offset(1)
                 }
             }
-            48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 => {
+            b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' => {
                 n += 1;
                 p = p.offset(1)
             }
-            69 | 101 => {
+            b'E' | b'e' => {
                 if n == 0i32 || s == 2i32 {
                     s = -1i32
                 } else {

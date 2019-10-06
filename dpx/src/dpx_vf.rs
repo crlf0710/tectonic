@@ -54,7 +54,7 @@ pub type ssize_t = __ssize_t;
 
 use crate::TTInputFormat;
 
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 pub type fixword = i32;
 pub type spt_t = i32;
 #[derive(Copy, Clone)]
@@ -105,7 +105,7 @@ pub unsafe extern "C" fn vf_reset_global_state() {
     max_vf_fonts = 0_u32;
     vf_fonts = 0 as *mut vf;
 }
-unsafe fn read_header(mut vf_handle: rust_input_handle_t, mut thisfont: i32) {
+unsafe fn read_header(vf_handle: &mut InputHandleWrapper, mut thisfont: i32) {
     if tt_get_unsigned_byte(vf_handle) as i32 != 247i32
         || tt_get_unsigned_byte(vf_handle) as i32 != 202i32
     {
@@ -161,7 +161,7 @@ unsafe fn resize_one_vf_font(mut a_vf: *mut vf, mut size: u32) {
     };
 }
 unsafe fn read_a_char_def(
-    mut vf_handle: rust_input_handle_t,
+    vf_handle: &mut InputHandleWrapper,
     mut thisfont: i32,
     mut pkt_len: u32,
     mut ch: u32,
@@ -174,7 +174,7 @@ unsafe fn read_a_char_def(
     if pkt_len > 0_u32 {
         let pkt = new((pkt_len as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
             as *mut u8;
-        if ttstub_input_read(vf_handle, pkt as *mut i8, pkt_len as size_t) != pkt_len as i64 {
+        if ttstub_input_read(vf_handle.0.as_ptr(), pkt as *mut i8, pkt_len as size_t) != pkt_len as i64 {
             panic!("VF file ended prematurely.");
         }
         let ref mut fresh2 = *(*vf_fonts.offset(thisfont as isize))
@@ -186,7 +186,7 @@ unsafe fn read_a_char_def(
         .pkt_len
         .offset(ch as isize) = pkt_len;
 }
-unsafe fn read_a_font_def(mut vf_handle: rust_input_handle_t, mut font_id: i32, mut thisfont: i32) {
+unsafe fn read_a_font_def(vf_handle: &mut InputHandleWrapper, mut font_id: i32, mut thisfont: i32) {
     if (*vf_fonts.offset(thisfont as isize)).num_dev_fonts
         >= (*vf_fonts.offset(thisfont as isize)).max_dev_fonts
     {
@@ -219,14 +219,14 @@ unsafe fn read_a_font_def(mut vf_handle: rust_input_handle_t, mut font_id: i32, 
     (*dev_font).directory = new(
         ((dir_length + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
     ) as *mut i8;
-    if ttstub_input_read(vf_handle, (*dev_font).directory, dir_length as size_t)
+    if ttstub_input_read(vf_handle.0.as_ptr(), (*dev_font).directory, dir_length as size_t)
         != dir_length as i64
     {
         panic!("directory read failed");
     }
     (*dev_font).name = new(((name_length + 1i32) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    if ttstub_input_read(vf_handle, (*dev_font).name, name_length as size_t) != name_length as i64 {
+    if ttstub_input_read(vf_handle.0.as_ptr(), (*dev_font).name, name_length as size_t) != name_length as i64 {
         panic!("directory read failed");
     }
     *(*dev_font).directory.offset(dir_length as isize) = 0_i8;
@@ -242,7 +242,7 @@ unsafe fn read_a_font_def(mut vf_handle: rust_input_handle_t, mut font_id: i32, 
         ),
     ) as i32;
 }
-unsafe fn process_vf_file(mut vf_handle: rust_input_handle_t, mut thisfont: i32) {
+unsafe fn process_vf_file(vf_handle: &mut InputHandleWrapper, mut thisfont: i32) {
     let mut eof: i32 = 0i32;
     while eof == 0 {
         let code = tt_get_unsigned_byte(vf_handle) as i32;
@@ -307,13 +307,13 @@ pub unsafe extern "C" fn vf_locate_font(mut tex_name: *const i8, mut ptsize: spt
     if i as u32 != num_vf_fonts {
         return i;
     }
-    let mut vf_handle = ttstub_input_open(tex_name, TTInputFormat::VF, 0i32);
-    if vf_handle.is_null() {
-        vf_handle = ttstub_input_open(tex_name, TTInputFormat::OVF, 0i32)
-    }
-    if vf_handle.is_null() {
+    let mut vf_handle = ttstub_input_open(tex_name, TTInputFormat::VF, 0i32).or_else(||
+        ttstub_input_open(tex_name, TTInputFormat::OVF, 0i32)
+    );
+    if vf_handle.is_none() {
         return -1i32;
     }
+    let mut vf_handle = vf_handle.unwrap();
     if verbose as i32 == 1i32 {
         let tex_name = CStr::from_ptr(tex_name);
         eprint!("(VF:{}", tex_name.display());
@@ -335,8 +335,8 @@ pub unsafe extern "C" fn vf_locate_font(mut tex_name: *const i8, mut ptsize: spt
     *fresh8 = 0 as *mut *mut u8;
     let ref mut fresh9 = (*vf_fonts.offset(thisfont as isize)).pkt_len;
     *fresh9 = 0 as *mut u32;
-    read_header(vf_handle, thisfont);
-    process_vf_file(vf_handle, thisfont);
+    read_header(&mut vf_handle, thisfont);
+    process_vf_file(&mut vf_handle, thisfont);
     if verbose != 0 {
         eprint!(")");
     }

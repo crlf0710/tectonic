@@ -18,6 +18,12 @@ use harfbuzz_sys::{hb_font_funcs_t, hb_destroy_func_t, hb_font_t, hb_codepoint_t
     hb_face_set_upem, hb_font_create, hb_face_destroy, hb_font_set_funcs,
     hb_font_set_scale, hb_font_set_ppem};
 
+use crate::{
+    ttstub_input_close, ttstub_input_get_size, ttstub_input_read, ttstub_input_getc, ttstub_input_open, 
+};
+
+use bridge::TTInputFormat;
+
 #[cfg(not(target_os = "macos"))]
 mod imp {}
 
@@ -48,22 +54,6 @@ extern "C" {
     /* The internal, C/C++ interface: */
     #[no_mangle]
     fn _tt_abort(format: *const libc::c_char, _: ...) -> !;
-    #[no_mangle]
-    fn ttstub_input_open(
-        path: *const libc::c_char,
-        format: tt_input_format_type,
-        is_gz: libc::c_int,
-    ) -> rust_input_handle_t;
-    #[no_mangle]
-    fn ttstub_input_get_size(handle: rust_input_handle_t) -> size_t;
-    #[no_mangle]
-    fn ttstub_input_read(
-        handle: rust_input_handle_t,
-        data: *mut libc::c_char,
-        len: size_t,
-    ) -> ssize_t;
-    #[no_mangle]
-    fn ttstub_input_close(handle: rust_input_handle_t) -> libc::c_int;
     /* tectonic/core-memory.h: basic dynamic memory helpers
        Copyright 2016-2018 the Tectonic Project
        Licensed under the MIT License.
@@ -781,34 +771,8 @@ pub type int32_t = i32;
 pub type uint16_t = u16;
 pub type uint32_t = u32;
 pub type ssize_t = isize;
-/* The weird enum values are historical and could be rationalized. But it is
- * good to write them explicitly since they must be kept in sync with
- * `src/engines/mod.rs`.
- */
-pub type tt_input_format_type = libc::c_uint;
-pub const TTIF_TECTONIC_PRIMARY: tt_input_format_type = 59;
-pub const TTIF_OPENTYPE: tt_input_format_type = 47;
-pub const TTIF_SFD: tt_input_format_type = 46;
-pub const TTIF_CMAP: tt_input_format_type = 45;
-pub const TTIF_ENC: tt_input_format_type = 44;
-pub const TTIF_MISCFONTS: tt_input_format_type = 41;
-pub const TTIF_BINARY: tt_input_format_type = 40;
-pub const TTIF_TRUETYPE: tt_input_format_type = 36;
-pub const TTIF_VF: tt_input_format_type = 33;
-pub const TTIF_TYPE1: tt_input_format_type = 32;
-pub const TTIF_TEX_PS_HEADER: tt_input_format_type = 30;
-pub const TTIF_TEX: tt_input_format_type = 26;
-pub const TTIF_PICT: tt_input_format_type = 25;
-pub const TTIF_OVF: tt_input_format_type = 23;
-pub const TTIF_OFM: tt_input_format_type = 20;
-pub const TTIF_FONTMAP: tt_input_format_type = 11;
-pub const TTIF_FORMAT: tt_input_format_type = 10;
-pub const TTIF_CNF: tt_input_format_type = 8;
-pub const TTIF_BST: tt_input_format_type = 7;
-pub const TTIF_BIB: tt_input_format_type = 6;
-pub const TTIF_AFM: tt_input_format_type = 4;
-pub const TTIF_TFM: tt_input_format_type = 3;
-pub type rust_input_handle_t = *mut libc::c_void;
+
+use bridge::InputHandleWrapper;
 pub type UChar32 = int32_t;
 /* quasi-hack to get the primary input */
 /* */
@@ -2302,22 +2266,19 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
         }
     }
     // Here we emulate some logic that was originally in find_native_font();
-    let mut handle: rust_input_handle_t = ttstub_input_open(pathname, TTIF_OPENTYPE, 0i32);
-    if handle.is_null() {
-        handle = ttstub_input_open(pathname, TTIF_TRUETYPE, 0i32)
-    }
-    if handle.is_null() {
-        handle = ttstub_input_open(pathname, TTIF_TYPE1, 0i32)
-    }
-    if handle.is_null() {
+    let mut handle = ttstub_input_open(pathname, TTInputFormat::OPENTYPE, 0)
+        .or_else(|| ttstub_input_open(pathname, TTInputFormat::TRUETYPE, 0))
+        .or_else(|| ttstub_input_open(pathname, TTInputFormat::TYPE1, 0));
+    if handle.is_none() {
         *status = 1i32;
         return;
     }
-    let mut sz: size_t = ttstub_input_get_size(handle);
+    let mut handle = handle.unwrap();
+    let mut sz = ttstub_input_get_size(&mut handle);
     (*self_0).m_backingData = xmalloc(sz as _) as *mut FT_Byte;
-    let mut r: ssize_t =
-        ttstub_input_read(handle, (*self_0).m_backingData as *mut libc::c_char, sz);
-    if r < 0 || r as size_t != sz {
+    let mut r =
+        ttstub_input_read(handle.0.as_ptr(), (*self_0).m_backingData as *mut libc::c_char, sz);
+    if r < 0 || r != sz as i64 {
         _tt_abort(b"failed to read font file\x00" as *const u8 as *const libc::c_char);
     }
     ttstub_input_close(handle);
@@ -2347,17 +2308,17 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
         {
             strcpy(p, b".afm\x00" as *const u8 as *const libc::c_char);
         }
-        let mut afm_handle: rust_input_handle_t = ttstub_input_open(afm, TTIF_AFM, 0i32);
+        let mut afm_handle = ttstub_input_open(afm, TTInputFormat::AFM, 0i32);
         free(afm as *mut libc::c_void);
-        if !afm_handle.is_null() {
-            sz = ttstub_input_get_size(afm_handle);
+        if let Some(mut afm_handle) = afm_handle {
+            sz = ttstub_input_get_size(&mut afm_handle);
             (*self_0).m_backingData2 = xmalloc(sz as _) as *mut FT_Byte;
             r = ttstub_input_read(
-                afm_handle,
+                afm_handle.0.as_ptr(),
                 (*self_0).m_backingData2 as *mut libc::c_char,
                 sz,
             );
-            if r < 0 || r as size_t != sz {
+            if r < 0 || r != sz as i64 {
                 _tt_abort(b"failed to read AFM file\x00" as *const u8 as *const libc::c_char);
             }
             ttstub_input_close(afm_handle);

@@ -25,6 +25,7 @@
     unused_mut
 )]
 
+use std::io::Read;
 use std::ffi::CStr;
 
 use crate::DisplayExt;
@@ -80,14 +81,12 @@ use crate::dpx_unicode::{
     UC_UTF16BE_encode_char, UC_UTF16BE_is_valid_string, UC_UTF8_decode_char,
     UC_UTF8_is_valid_string, UC_is_valid,
 };
-use crate::{ttstub_input_close, ttstub_input_open, ttstub_input_read};
+use crate::{ttstub_input_close, ttstub_input_open};
 use libc::{free, memcmp, strlen, strstr};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
 pub type ssize_t = __ssize_t;
-
-use bridge::rust_input_handle_t;
 
 use super::{spc_arg, spc_env};
 
@@ -1431,8 +1430,8 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                 return -1i32;
             }
             let handle =
-                ttstub_input_open(fullname, TTInputFormat::PICT, 0i32) as *mut rust_input_handle_t;
-            if handle.is_null() {
+                ttstub_input_open(fullname, TTInputFormat::PICT, 0i32);
+            if handle.is_none() {
                 spc_warn!(
                     spe,
                     "Could not open file: {}",
@@ -1443,14 +1442,11 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                 free(fullname as *mut libc::c_void);
                 return -1i32;
             }
+            let mut handle = handle.unwrap();
             fstream = pdf_new_stream(1i32 << 0i32);
             loop {
-                let nb_read = ttstub_input_read(
-                    handle as rust_input_handle_t,
-                    WORK_BUFFER.as_mut_ptr() as *mut i8,
-                    1024i32 as size_t,
-                );
-                if !(nb_read > 0i32 as i64) {
+                let nb_read = handle.read(&mut WORK_BUFFER[..]).unwrap();
+                if !(nb_read > 0) { // TODO: check
                     break;
                 }
                 pdf_add_stream(
@@ -1459,7 +1455,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                     nb_read as i32,
                 );
             }
-            ttstub_input_close(handle as rust_input_handle_t);
+            ttstub_input_close(handle);
             free(fullname as *mut libc::c_void);
         }
         0 => {

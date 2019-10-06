@@ -419,14 +419,15 @@ unsafe fn agl_load_listfile(mut filename: *const i8, mut is_predef: i32) -> i32 
         b".txt\x00" as *const u8 as *const i8,
         TTInputFormat::FONTMAP,
     );
-    if handle.is_null() {
+    if handle.is_none() {
         return -1i32;
     }
+    let mut handle = handle.unwrap();
     if verbose != 0 {
         info!("<AGL:{}", CStr::from_ptr(filename).display());
     }
     loop {
-        let mut p = tt_mfgets(wbuf.as_mut_ptr(), 1024i32, handle) as *const i8;
+        let mut p = tt_mfgets(wbuf.as_mut_ptr(), 1024i32, &mut handle) as *const i8;
         if p.is_null() {
             break;
         }

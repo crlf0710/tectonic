@@ -67,10 +67,7 @@ use crate::dpx_pdfobj::{
     PdfObjType,
 };
 use crate::shims::sprintf;
-use crate::ttstub_input_close;
 use libc::{atoi, free, memcpy, memmove, memset, strchr, strcpy, strlen, strncpy};
-
-use bridge::rust_input_handle_t;
 
 use super::dpx_sfnt::{put_big_endian, sfnt};
 
@@ -169,22 +166,18 @@ pub unsafe extern "C" fn pdf_font_open_truetype(mut font: *mut pdf_font) -> i32 
     let ident = pdf_font_get_ident(font); /* Must be embedded. */
     let index = pdf_font_get_index(font);
     assert!(!ident.is_null());
-    let mut handle = dpx_open_truetype_file(ident) as *mut rust_input_handle_t;
-    let sfont = if handle.is_null() {
-        handle = dpx_open_dfont_file(ident) as *mut rust_input_handle_t;
-        if handle.is_null() {
-            return -1i32;
-        }
-        dfont_open(handle as rust_input_handle_t, index)
+    let sfont = if let Some(handle) = dpx_open_truetype_file(ident) {
+        sfnt_open(handle)
+    } else if let Some(handle) = dpx_open_dfont_file(ident) {
+        dfont_open(handle, index)
     } else {
-        sfnt_open(handle as rust_input_handle_t)
+        return -1i32;
     };
     if sfont.is_null() {
         warn!(
             "Could not open TrueType font: {}",
             CStr::from_ptr(ident).display(),
         );
-        ttstub_input_close(handle as rust_input_handle_t);
         return -1i32;
     }
     let error = if (*sfont).type_0 == 1i32 << 4i32 {
@@ -198,7 +191,6 @@ pub unsafe extern "C" fn pdf_font_open_truetype(mut font: *mut pdf_font) -> i32 
     };
     if error != 0 {
         sfnt_close(sfont);
-        ttstub_input_close(handle as rust_input_handle_t);
         return -1i32;
         /* Silently */
     }
@@ -244,7 +236,6 @@ pub unsafe extern "C" fn pdf_font_open_truetype(mut font: *mut pdf_font) -> i32 
     let tmp = tt_get_fontdesc(sfont, &mut embedding, -1i32, 1i32, fontname.as_mut_ptr());
     if tmp.is_null() {
         sfnt_close(sfont);
-        ttstub_input_close(handle as rust_input_handle_t);
         panic!("Could not obtain necessary font info.");
     }
     assert!(pdf_obj_typeof(tmp) == PdfObjType::DICT);
@@ -271,7 +262,6 @@ pub unsafe extern "C" fn pdf_font_open_truetype(mut font: *mut pdf_font) -> i32 
         }
     }
     sfnt_close(sfont);
-    ttstub_input_close(handle as rust_input_handle_t);
     pdf_add_dict(fontdict, "Type", pdf_new_name("Font"));
     pdf_add_dict(fontdict, "Subtype", pdf_new_name("TrueType"));
     0i32
@@ -1056,21 +1046,17 @@ pub unsafe extern "C" fn pdf_font_load_truetype(mut font: *mut pdf_font) -> i32 
         return 0i32;
     }
     verbose = pdf_font_get_verbose();
-    let mut handle = dpx_open_truetype_file(ident) as *mut rust_input_handle_t;
-    let sfont = if handle.is_null() {
-        handle = dpx_open_dfont_file(ident) as *mut rust_input_handle_t;
-        if handle.is_null() {
-            panic!(
-                "Unable to open TrueType/dfont font file: {}",
-                CStr::from_ptr(ident).display(),
-            );
-        }
-        dfont_open(handle as rust_input_handle_t, index)
+    let sfont = if let Some(handle) = dpx_open_truetype_file(ident) {
+        sfnt_open(handle)
+    } else if let Some(handle) = dpx_open_dfont_file(ident) {
+        dfont_open(handle, index)
     } else {
-        sfnt_open(handle as rust_input_handle_t)
+        panic!(
+            "Unable to open TrueType/dfont font file: {}",
+            CStr::from_ptr(ident).display(),
+        );
     };
     if sfont.is_null() {
-        ttstub_input_close(handle as rust_input_handle_t);
         panic!(
             "Unable to open TrueType/dfont file: {}",
             CStr::from_ptr(ident).display(),
@@ -1081,7 +1067,6 @@ pub unsafe extern "C" fn pdf_font_load_truetype(mut font: *mut pdf_font) -> i32 
             && (*sfont).type_0 != 1i32 << 8i32
         {
             sfnt_close(sfont);
-            ttstub_input_close(handle as rust_input_handle_t);
             panic!(
                 "Font \"{}\" not a TrueType/dfont font?",
                 CStr::from_ptr(ident).display()
@@ -1099,7 +1084,6 @@ pub unsafe extern "C" fn pdf_font_load_truetype(mut font: *mut pdf_font) -> i32 
     };
     if error != 0 {
         sfnt_close(sfont);
-        ttstub_input_close(handle as rust_input_handle_t);
         panic!(
             "Reading SFND table dir failed for font-file=\"{}\"... Not a TrueType font?",
             CStr::from_ptr(ident).display()
@@ -1116,7 +1100,6 @@ pub unsafe extern "C" fn pdf_font_load_truetype(mut font: *mut pdf_font) -> i32 
     };
     if error != 0 {
         sfnt_close(sfont);
-        ttstub_input_close(handle as rust_input_handle_t);
         panic!(
             "Error occured while creating font subfont for \"{}\"",
             CStr::from_ptr(ident).display()
@@ -1130,7 +1113,6 @@ pub unsafe extern "C" fn pdf_font_load_truetype(mut font: *mut pdf_font) -> i32 
     for table in &required_table {
         if sfnt_require_table(sfont.as_mut().unwrap(), table).is_err() {
             sfnt_close(sfont);
-            ttstub_input_close(handle as rust_input_handle_t);
             panic!(
                 "Required TrueType table \"{}\" does not exist in font: {}",
                 table.name_str(),
@@ -1149,7 +1131,6 @@ pub unsafe extern "C" fn pdf_font_load_truetype(mut font: *mut pdf_font) -> i32 
         );
     }
     sfnt_close(sfont);
-    ttstub_input_close(handle as rust_input_handle_t);
     if verbose > 1i32 {
         info!("[{} bytes]", pdf_stream_length(fontfile));
     }

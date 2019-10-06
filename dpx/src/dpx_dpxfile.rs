@@ -27,13 +27,15 @@
     unused_mut
 )]
 
+use std::io::{Read, Seek, SeekFrom};
+
 use super::dpx_mem::{new, xstrdup};
 use super::dpx_numbers::{tt_get_unsigned_pair, tt_get_unsigned_quad};
 use crate::mfree;
-use crate::{ttstub_input_close, ttstub_input_open, ttstub_input_read, ttstub_input_seek};
+use crate::{ttstub_input_close, ttstub_input_open};
 #[cfg(not(target_env = "msvc"))]
 use libc::mkstemp;
-use libc::{close, free, getenv, memcmp, remove, strcat, strcpy, strlen, strncmp, strrchr};
+use libc::{close, free, getenv, remove, strcat, strcpy, strlen, strncmp, strrchr};
 #[cfg(target_env = "msvc")]
 extern "C" {
     #[link_name = "dpx_win32_mktemp_s"]
@@ -46,7 +48,7 @@ pub type ssize_t = __ssize_t;
 
 use crate::TTInputFormat;
 
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 /* quasi-hack to get the primary input */
 static mut verbose: i32 = 0i32;
 #[no_mangle]
@@ -55,7 +57,7 @@ pub static mut keep_cache: i32 = 0i32;
 pub unsafe extern "C" fn dpx_file_set_verbose(mut level: i32) {
     verbose = level;
 }
-static mut _sbuf: [i8; 128] = [0; 128];
+static mut _SBUF: [u8; 128] = [0; 128];
 /*
  * SFNT type sigs:
  *  `true' (0x74727565): TrueType (Mac)
@@ -64,88 +66,44 @@ static mut _sbuf: [i8; 128] = [0; 128];
  *  `OTTO': PostScript CFF font with OpenType wrapper
  *  `ttcf': TrueType Collection
  */
-unsafe fn check_stream_is_truetype(mut handle: rust_input_handle_t) -> bool {
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
-    let n = ttstub_input_read(handle, _sbuf.as_mut_ptr(), 4i32 as size_t) as i32;
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
-    if n != 4i32 {
+unsafe fn check_stream_is_truetype(handle: &mut InputHandleWrapper) -> bool {
+    handle.seek(SeekFrom::Start(0)).unwrap();
+    let n = handle.read(&mut _SBUF[..4]).unwrap();
+    handle.seek(SeekFrom::Start(0)).unwrap();
+    if n != 4 {
         return false;
     }
-    if memcmp(
-        _sbuf.as_mut_ptr() as *const libc::c_void,
-        b"true\x00" as *const u8 as *const i8 as *const libc::c_void,
-        4,
-    ) == 0
-        || memcmp(
-            _sbuf.as_mut_ptr() as *const libc::c_void,
-            b"\x00\x01\x00\x00\x00" as *const u8 as *const i8 as *const libc::c_void,
-            4,
-        ) == 0
-    {
+    if &_SBUF[..4] == b"true" || _SBUF[..4] == [0, 1, 0, 0] {
         /* This doesn't help... */
         return true;
     }
-    if memcmp(
-        _sbuf.as_mut_ptr() as *const libc::c_void,
-        b"ttcf\x00" as *const u8 as *const i8 as *const libc::c_void,
-        4,
-    ) == 0
-    {
-        return true;
-    }
-    false
+    &_SBUF[..4] == b"ttcf"
 }
 /* "OpenType" is only for ".otf" here */
-unsafe fn check_stream_is_opentype(mut handle: rust_input_handle_t) -> bool {
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
-    let n = ttstub_input_read(handle, _sbuf.as_mut_ptr(), 4i32 as size_t) as i32;
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
-    if n != 4i32 {
+unsafe fn check_stream_is_opentype(handle: &mut InputHandleWrapper) -> bool {
+    handle.seek(SeekFrom::Start(0)).unwrap();
+    let n = handle.read(&mut _SBUF[..4]).unwrap();
+    handle.seek(SeekFrom::Start(0)).unwrap();
+    if n != 4 {
         return false;
     }
-    if memcmp(
-        _sbuf.as_mut_ptr() as *const libc::c_void,
-        b"OTTO\x00" as *const u8 as *const i8 as *const libc::c_void,
-        4,
-    ) == 0
-    {
-        return true;
-    }
-    false
+    &_SBUF[..4] == b"OTTO"
 }
-unsafe fn check_stream_is_type1(mut handle: rust_input_handle_t) -> bool {
-    let mut p: *mut i8 = _sbuf.as_mut_ptr();
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
-    let n = ttstub_input_read(handle, p, 21i32 as size_t) as i32;
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
-    if n != 21i32 {
+unsafe fn check_stream_is_type1(handle: &mut InputHandleWrapper) -> bool {
+    let p = &_SBUF;
+    handle.seek(SeekFrom::Start(0)).unwrap();
+    let n = handle.read(&mut _SBUF[..21]).unwrap();
+    handle.seek(SeekFrom::Start(0)).unwrap();
+    if n != 21 {
         return false;
     }
-    if *p.offset(0) as i32 != 0x80i32 as i8 as i32
-        || (*p.offset(1) as i32) < 0i32
-        || *p.offset(1) as i32 > 3i32
-    {
+    if p[0] != 0x80 || p[1] < 0 || p[1] > 3 {
         return false;
     }
-    if memcmp(
-        p.offset(6) as *const libc::c_void,
-        b"%!PS-AdobeFont\x00" as *const u8 as *const i8 as *const libc::c_void,
-        14,
-    ) == 0
-        || memcmp(
-            p.offset(6) as *const libc::c_void,
-            b"%!FontType1\x00" as *const u8 as *const i8 as *const libc::c_void,
-            11,
-        ) == 0
-    {
+    if &p[6..20] == b"%!PS-"  || &p[6..17] == b"%!FontType1" {
         return true;
     }
-    if memcmp(
-        p.offset(6) as *const libc::c_void,
-        b"%!PS\x00" as *const u8 as *const i8 as *const libc::c_void,
-        4,
-    ) == 0
-    {
+    if &p[6..10] == b"%!PS" {
         /* This was #if-0'd out:
          * p[20] = '\0'; p += 6;
          * warn!("Ambiguous PostScript resource type: {}", (char *) p);
@@ -154,16 +112,13 @@ unsafe fn check_stream_is_type1(mut handle: rust_input_handle_t) -> bool {
     }
     false
 }
-unsafe fn check_stream_is_dfont(mut handle: rust_input_handle_t) -> bool {
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+unsafe fn check_stream_is_dfont(handle: &mut InputHandleWrapper) -> bool {
+    handle.seek(SeekFrom::Start(0)).unwrap();
     tt_get_unsigned_quad(handle);
-    let pos = tt_get_unsigned_quad(handle);
-    ttstub_input_seek(handle, pos.wrapping_add(0x18_u32) as ssize_t, 0i32);
-    ttstub_input_seek(
-        handle,
-        pos.wrapping_add(tt_get_unsigned_pair(handle) as u32) as ssize_t,
-        0i32,
-    );
+    let pos = tt_get_unsigned_quad(handle) as u64;
+    handle.seek(SeekFrom::Start(pos + 0x18)).unwrap();
+    let n = tt_get_unsigned_pair(handle) as u64;
+    handle.seek(SeekFrom::Start(pos + n)).unwrap();
     let n = tt_get_unsigned_pair(handle) as i32;
     for _ in 0..=n {
         if tt_get_unsigned_quad(handle) as u64 == 0x73666e74 {
@@ -192,7 +147,7 @@ pub unsafe extern "C" fn dpx_tt_open(
     mut filename: *const i8,
     mut suffix: *const i8,
     mut format: TTInputFormat,
-) -> rust_input_handle_t {
+) -> Option<InputHandleWrapper> {
     let q = ensuresuffix(filename, suffix);
     let handle = ttstub_input_open(q, format, 0i32);
     free(q as *mut libc::c_void);
@@ -205,45 +160,52 @@ pub unsafe extern "C" fn dpx_tt_open(
  *   dvipdfm  (text file)
  */
 #[no_mangle]
-pub unsafe extern "C" fn dpx_open_type1_file(mut filename: *const i8) -> rust_input_handle_t {
-    let handle = ttstub_input_open(filename, TTInputFormat::TYPE1, 0i32);
-    if handle.is_null() {
-        return 0 as *mut libc::c_void;
+pub unsafe extern "C" fn dpx_open_type1_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
+    match ttstub_input_open(filename, TTInputFormat::TYPE1, 0) {
+        Some(mut handle) => {
+            if !check_stream_is_type1(&mut handle) {
+                ttstub_input_close(handle);
+                None
+            } else {
+                Some(handle)
+            }
+        },
+        None => None,
     }
-    if !check_stream_is_type1(handle) {
-        ttstub_input_close(handle);
-        return 0 as *mut libc::c_void;
-    }
-    handle
 }
 #[no_mangle]
-pub unsafe extern "C" fn dpx_open_truetype_file(mut filename: *const i8) -> rust_input_handle_t {
-    let handle = ttstub_input_open(filename, TTInputFormat::TRUETYPE, 0i32);
-    if handle.is_null() {
-        return 0 as *mut libc::c_void;
+pub unsafe extern "C" fn dpx_open_truetype_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
+    match ttstub_input_open(filename, TTInputFormat::TRUETYPE, 0) {
+        Some(mut handle) => {
+            if !check_stream_is_truetype(&mut handle) {
+                ttstub_input_close(handle);
+                None
+            } else {
+                Some(handle)
+            }
+        },
+        None => None,
     }
-    if !check_stream_is_truetype(handle) {
-        ttstub_input_close(handle);
-        return 0 as *mut libc::c_void;
-    }
-    handle
 }
 #[no_mangle]
-pub unsafe extern "C" fn dpx_open_opentype_file(mut filename: *const i8) -> rust_input_handle_t {
+pub unsafe extern "C" fn dpx_open_opentype_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
     let q = ensuresuffix(filename, b".otf\x00" as *const u8 as *const i8);
     let handle = ttstub_input_open(q, TTInputFormat::OPENTYPE, 0i32);
     free(q as *mut libc::c_void);
-    if handle.is_null() {
-        return 0 as *mut libc::c_void;
+    match handle {
+        Some(mut handle) => {
+            if !check_stream_is_opentype(&mut handle) {
+                ttstub_input_close(handle);
+                None
+            } else {
+                Some(handle)
+            }
+        },
+        None => None,
     }
-    if !check_stream_is_opentype(handle) {
-        ttstub_input_close(handle);
-        return 0 as *mut libc::c_void;
-    }
-    handle
 }
 #[no_mangle]
-pub unsafe extern "C" fn dpx_open_dfont_file(mut filename: *const i8) -> rust_input_handle_t {
+pub unsafe extern "C" fn dpx_open_dfont_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
     let q;
     let mut len: i32 = strlen(filename) as i32;
     if len > 6i32
@@ -266,14 +228,17 @@ pub unsafe extern "C" fn dpx_open_dfont_file(mut filename: *const i8) -> rust_in
     }
     let handle = ttstub_input_open(q, TTInputFormat::TRUETYPE, 0i32);
     free(q as *mut libc::c_void);
-    if handle.is_null() {
-        return 0 as *mut libc::c_void;
+    match handle {
+        Some(mut handle) => {
+            if !check_stream_is_dfont(&mut handle) {
+                ttstub_input_close(handle);
+                None
+            } else {
+                Some(handle)
+            }
+        },
+        None => None,
     }
-    if !check_stream_is_dfont(handle) {
-        ttstub_input_close(handle);
-        return 0 as *mut libc::c_void;
-    }
-    handle
 }
 unsafe fn dpx_get_tmpdir() -> *mut i8 {
     let mut _tmpd: *const i8 = 0 as *const i8;
