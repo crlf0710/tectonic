@@ -153,6 +153,10 @@ pub unsafe fn LOCAL(n: placeholdertype) -> placeholdertype {
     (*(eqtb.offset((LOCAL_BASE + n) as isize))).b32.s1
 }
 
+pub unsafe fn LOCAL_set(n: placeholdertype, m: placeholdertype) {
+    (*(eqtb.offset((LOCAL_BASE + n) as isize))).b32.s1 = m
+}
+
 pub const TOKS_BASE: placeholdertype = (LOCAL_BASE + NUM_LOCALS);
 pub unsafe fn TOKS_REG(n: placeholdertype) -> placeholdertype {
     (*(eqtb.offset((TOKS_BASE + n) as isize))).b32.s1
@@ -181,25 +185,40 @@ pub const CAT_CODE_BASE: placeholdertype = (MATH_FONT_BASE + NUMBER_MATH_FONTS);
 pub unsafe fn CAT_CODE(n: placeholdertype) -> placeholdertype {
     (*(eqtb.offset((CAT_CODE_BASE + n) as isize))).b32.s1
 }
+pub unsafe fn CAT_CODE_set(n: placeholdertype, m: placeholdertype) {
+    (*(eqtb.offset((CAT_CODE_BASE + n) as isize))).b32.s1 = m;
+}
 
 pub const LC_CODE_BASE: placeholdertype = (CAT_CODE_BASE + NUMBER_USVS);
 pub unsafe fn LC_CODE(n: placeholdertype) -> placeholdertype {
     (*(eqtb.offset((LC_CODE_BASE + n) as isize))).b32.s1
+}
+pub unsafe fn LC_CODE_set(n: placeholdertype, m: placeholdertype) {
+    (*(eqtb.offset((LC_CODE_BASE + n) as isize))).b32.s1 = m
 }
 
 pub const UC_CODE_BASE: placeholdertype = (LC_CODE_BASE + NUMBER_USVS);
 pub unsafe fn UC_CODE(n: placeholdertype) -> placeholdertype {
     (*(eqtb.offset((UC_CODE_BASE + n) as isize))).b32.s1
 }
+pub unsafe fn UC_CODE_set(n: placeholdertype, m: placeholdertype) {
+    (*(eqtb.offset((UC_CODE_BASE + n) as isize))).b32.s1 = m
+}
 
 pub const SF_CODE_BASE: placeholdertype = (UC_CODE_BASE + NUMBER_USVS);
 pub unsafe fn SF_CODE(n: placeholdertype) -> placeholdertype {
     (*(eqtb.offset((SF_CODE_BASE + n) as isize))).b32.s1
 }
+pub unsafe fn SF_CODE_set(n: placeholdertype, m: placeholdertype) {
+    (*(eqtb.offset((SF_CODE_BASE + n) as isize))).b32.s1 = m
+}
 
 pub const MATH_CODE_BASE: placeholdertype = (SF_CODE_BASE + NUMBER_USVS);
 pub unsafe fn MATH_CODE(n: placeholdertype) -> placeholdertype {
     (*(eqtb.offset((MATH_CODE_BASE + n) as isize))).b32.s1
+}
+pub unsafe fn MATH_CODE_set(n: placeholdertype, m: placeholdertype) {
+    (*(eqtb.offset((MATH_CODE_BASE + n) as isize))).b32.s1 = m
 }
 
 pub const CHAR_SUB_CODE_BASE: placeholdertype = (MATH_CODE_BASE + NUMBER_USVS);
@@ -303,6 +322,10 @@ pub unsafe fn INTPAR(x: placeholdertype) -> placeholdertype {
     (*(eqtb.offset((INT_BASE + x) as isize))).b32.s1
 }
 
+pub unsafe fn INTPAR_set(x: placeholdertype, y: placeholdertype) {
+    (*(eqtb.offset((INT_BASE + x) as isize))).b32.s1 = y;
+}
+
 pub const COUNT_BASE: placeholdertype = (INT_BASE + INT_PARS);
 pub unsafe fn COUNT_REG(n: placeholdertype) -> placeholdertype {
     (*(eqtb.offset((COUNT_BASE + n) as isize))).b32.s1
@@ -311,6 +334,9 @@ pub unsafe fn COUNT_REG(n: placeholdertype) -> placeholdertype {
 pub const DEL_CODE_BASE: placeholdertype = (COUNT_BASE + NUMBER_REGS);
 pub unsafe fn DEL_CODE(n: placeholdertype) -> placeholdertype {
     (*(eqtb.offset((DEL_CODE_BASE + n) as isize))).b32.s1
+}
+pub unsafe fn DEL_CODE_set(n: placeholdertype, m: placeholdertype) {
+    (*(eqtb.offset((DEL_CODE_BASE + n) as isize))).b32.s1 = m
 }
 
 /* "region 6": current fullword dimensions like hsize */
@@ -515,137 +541,137 @@ pub const ABSORBING: placeholdertype = 5;
 
 /* commands */
 
-pub const ESCAPE: placeholdertype = 0;
+pub const ESCAPE: u16 = 0;
 /// = ESCAPE
-pub const RELAX: placeholdertype = 0;
-pub const LEFT_BRACE: placeholdertype = 1;
-pub const RIGHT_BRACE: placeholdertype = 2;
-pub const MATH_SHIFT: placeholdertype = 3;
-pub const TAB_MARK: placeholdertype = 4;
-pub const CAR_RET: placeholdertype = 5;
+pub const RELAX: u16 = 0;
+pub const LEFT_BRACE: u16 = 1;
+pub const RIGHT_BRACE: u16 = 2;
+pub const MATH_SHIFT: u16 = 3;
+pub const TAB_MARK: u16 = 4;
+pub const CAR_RET: u16 = 5;
 /// = CAR_RET
-pub const OUT_PARAM: placeholdertype = 5;
-pub const MAC_PARAM: placeholdertype = 6;
-pub const SUP_MARK: placeholdertype = 7;
-pub const SUB_MARK: placeholdertype = 8;
-pub const IGNORE: placeholdertype = 9;
+pub const OUT_PARAM: u16 = 5;
+pub const MAC_PARAM: u16 = 6;
+pub const SUP_MARK: u16 = 7;
+pub const SUB_MARK: u16 = 8;
+pub const IGNORE: u16 = 9;
 /// = IGNORE
-pub const ENDV: placeholdertype = 9;
-pub const SPACER: placeholdertype = 10;
-pub const LETTER: placeholdertype = 11;
-pub const OTHER_CHAR: placeholdertype = 12;
-pub const ACTIVE_CHAR: placeholdertype = 13;
+pub const ENDV: u16 = 9;
+pub const SPACER: u16 = 10;
+pub const LETTER: u16 = 11;
+pub const OTHER_CHAR: u16 = 12;
+pub const ACTIVE_CHAR: u16 = 13;
 /// = ACTIVE_CHAR
-pub const PAR_END: placeholdertype = 13;
+pub const PAR_END: u16 = 13;
 /// = ACTIVE_CHAR
-pub const MATCH: placeholdertype = 13;
-pub const COMMENT: placeholdertype = 14;
+pub const MATCH: u16 = 13;
+pub const COMMENT: u16 = 14;
 /// = COMMENT
-pub const END_MATCH: placeholdertype = 14;
+pub const END_MATCH: u16 = 14;
 /// = COMMENT
-pub const STOP: placeholdertype = 14;
-pub const INVALID_CHAR: placeholdertype = 15;
+pub const STOP: u16 = 14;
+pub const INVALID_CHAR: u16 = 15;
 /// = INVALID_CHAR
-pub const DELIM_NUM: placeholdertype = 15;
-pub const CHAR_NUM: placeholdertype = 16;
-pub const MATH_CHAR_NUM: placeholdertype = 17;
-pub const MARK: placeholdertype = 18;
-pub const XRAY: placeholdertype = 19;
-pub const MAKE_BOX: placeholdertype = 20;
-pub const HMOVE: placeholdertype = 21;
-pub const VMOVE: placeholdertype = 22;
-pub const UN_HBOX: placeholdertype = 23;
-pub const UN_VBOX: placeholdertype = 24;
-pub const REMOVE_ITEM: placeholdertype = 25;
-pub const HSKIP: placeholdertype = 26;
-pub const VSKIP: placeholdertype = 27;
-pub const MSKIP: placeholdertype = 28;
-pub const KERN: placeholdertype = 29;
-pub const MKERN: placeholdertype = 30;
-pub const LEADER_SHIP: placeholdertype = 31;
-pub const HALIGN: placeholdertype = 32;
-pub const VALIGN: placeholdertype = 33;
-pub const NO_ALIGN: placeholdertype = 34;
-pub const VRULE: placeholdertype = 35;
-pub const HRULE: placeholdertype = 36;
-pub const INSERT: placeholdertype = 37;
-pub const VADJUST: placeholdertype = 38;
-pub const IGNORE_SPACES: placeholdertype = 39;
-pub const AFTER_ASSIGNMENT: placeholdertype = 40;
-pub const AFTER_GROUP: placeholdertype = 41;
-pub const BREAK_PENALTY: placeholdertype = 42;
-pub const START_PAR: placeholdertype = 43;
-pub const ITAL_CORR: placeholdertype = 44;
-pub const ACCENT: placeholdertype = 45;
-pub const MATH_ACCENT: placeholdertype = 46;
-pub const DISCRETIONARY: placeholdertype = 47;
-pub const EQ_NO: placeholdertype = 48;
-pub const LEFT_RIGHT: placeholdertype = 49;
-pub const MATH_COMP: placeholdertype = 50;
-pub const LIMIT_SWITCH: placeholdertype = 51;
-pub const ABOVE: placeholdertype = 52;
-pub const MATH_STYLE: placeholdertype = 53;
-pub const MATH_CHOICE: placeholdertype = 54;
-pub const NON_SCRIPT: placeholdertype = 55;
-pub const VCENTER: placeholdertype = 56;
-pub const CASE_SHIFT: placeholdertype = 57;
-pub const MESSAGE: placeholdertype = 58;
-pub const EXTENSION: placeholdertype = 59;
-pub const IN_STREAM: placeholdertype = 60;
-pub const BEGIN_GROUP: placeholdertype = 61;
-pub const END_GROUP: placeholdertype = 62;
-pub const OMIT: placeholdertype = 63;
-pub const EX_SPACE: placeholdertype = 64;
-pub const NO_BOUNDARY: placeholdertype = 65;
-pub const RADICAL: placeholdertype = 66;
-pub const END_CS_NAME: placeholdertype = 67;
-pub const CHAR_GIVEN: placeholdertype = 68;
-pub const MIN_INTERNAL: placeholdertype = 68;
-pub const MATH_GIVEN: placeholdertype = 69;
-pub const XETEX_MATH_GIVEN: placeholdertype = 70;
-pub const LAST_ITEM: placeholdertype = 71;
-pub const MAX_NON_PREFIXED_COMMAND: placeholdertype = 71;
-pub const TOKS_REGISTER: placeholdertype = 72;
-pub const ASSIGN_TOKS: placeholdertype = 73;
-pub const ASSIGN_INT: placeholdertype = 74;
-pub const ASSIGN_DIMEN: placeholdertype = 75;
-pub const ASSIGN_GLUE: placeholdertype = 76;
-pub const ASSIGN_MU_GLUE: placeholdertype = 77;
-pub const ASSIGN_FONT_DIMEN: placeholdertype = 78;
-pub const ASSIGN_FONT_INT: placeholdertype = 79;
-pub const SET_AUX: placeholdertype = 80;
-pub const SET_PREV_GRAF: placeholdertype = 81;
-pub const SET_PAGE_DIMEN: placeholdertype = 82;
-pub const SET_PAGE_INT: placeholdertype = 83;
-pub const SET_BOX_DIMEN: placeholdertype = 84;
-pub const SET_SHAPE: placeholdertype = 85;
-pub const DEF_CODE: placeholdertype = 86;
-pub const XETEX_DEF_CODE: placeholdertype = 87;
-pub const DEF_FAMILY: placeholdertype = 88;
-pub const SET_FONT: placeholdertype = 89;
-pub const DEF_FONT: placeholdertype = 90;
-pub const MAX_INTERNAL: placeholdertype = 91;
-pub const REGISTER: placeholdertype = 91;
-pub const ADVANCE: placeholdertype = 92;
-pub const MULTIPLY: placeholdertype = 93;
-pub const DIVIDE: placeholdertype = 94;
-pub const PREFIX: placeholdertype = 95;
-pub const LET: placeholdertype = 96;
-pub const SHORTHAND_DEF: placeholdertype = 97;
-pub const READ_TO_CS: placeholdertype = 98;
-pub const DEF: placeholdertype = 99;
-pub const SET_BOX: placeholdertype = 100;
-pub const HYPH_DATA: placeholdertype = 101;
-pub const SET_INTERACTION: placeholdertype = 102;
-pub const EXPAND_AFTER: placeholdertype = 104;
-pub const NO_EXPAND: placeholdertype = 105;
-pub const INPUT: placeholdertype = 106;
-pub const IF_TEST: placeholdertype = 107;
-pub const FI_OR_ELSE: placeholdertype = 108;
-pub const CS_NAME: placeholdertype = 109;
-pub const CONVERT: placeholdertype = 110;
-pub const THE: placeholdertype = 111;
-pub const TOP_BOT_MARK: placeholdertype = 112;
+pub const DELIM_NUM: u16 = 15;
+pub const CHAR_NUM: u16 = 16;
+pub const MATH_CHAR_NUM: u16 = 17;
+pub const MARK: u16 = 18;
+pub const XRAY: u16 = 19;
+pub const MAKE_BOX: u16 = 20;
+pub const HMOVE: u16 = 21;
+pub const VMOVE: u16 = 22;
+pub const UN_HBOX: u16 = 23;
+pub const UN_VBOX: u16 = 24;
+pub const REMOVE_ITEM: u16 = 25;
+pub const HSKIP: u16 = 26;
+pub const VSKIP: u16 = 27;
+pub const MSKIP: u16 = 28;
+pub const KERN: u16 = 29;
+pub const MKERN: u16 = 30;
+pub const LEADER_SHIP: u16 = 31;
+pub const HALIGN: u16 = 32;
+pub const VALIGN: u16 = 33;
+pub const NO_ALIGN: u16 = 34;
+pub const VRULE: u16 = 35;
+pub const HRULE: u16 = 36;
+pub const INSERT: u16 = 37;
+pub const VADJUST: u16 = 38;
+pub const IGNORE_SPACES: u16 = 39;
+pub const AFTER_ASSIGNMENT: u16 = 40;
+pub const AFTER_GROUP: u16 = 41;
+pub const BREAK_PENALTY: u16 = 42;
+pub const START_PAR: u16 = 43;
+pub const ITAL_CORR: u16 = 44;
+pub const ACCENT: u16 = 45;
+pub const MATH_ACCENT: u16 = 46;
+pub const DISCRETIONARY: u16 = 47;
+pub const EQ_NO: u16 = 48;
+pub const LEFT_RIGHT: u16 = 49;
+pub const MATH_COMP: u16 = 50;
+pub const LIMIT_SWITCH: u16 = 51;
+pub const ABOVE: u16 = 52;
+pub const MATH_STYLE: u16 = 53;
+pub const MATH_CHOICE: u16 = 54;
+pub const NON_SCRIPT: u16 = 55;
+pub const VCENTER: u16 = 56;
+pub const CASE_SHIFT: u16 = 57;
+pub const MESSAGE: u16 = 58;
+pub const EXTENSION: u16 = 59;
+pub const IN_STREAM: u16 = 60;
+pub const BEGIN_GROUP: u16 = 61;
+pub const END_GROUP: u16 = 62;
+pub const OMIT: u16 = 63;
+pub const EX_SPACE: u16 = 64;
+pub const NO_BOUNDARY: u16 = 65;
+pub const RADICAL: u16 = 66;
+pub const END_CS_NAME: u16 = 67;
+pub const CHAR_GIVEN: u16 = 68;
+pub const MIN_INTERNAL: u16 = 68;
+pub const MATH_GIVEN: u16 = 69;
+pub const XETEX_MATH_GIVEN: u16 = 70;
+pub const LAST_ITEM: u16 = 71;
+pub const MAX_NON_PREFIXED_COMMAND: u16 = 71;
+pub const TOKS_REGISTER: u16 = 72;
+pub const ASSIGN_TOKS: u16 = 73;
+pub const ASSIGN_INT: u16 = 74;
+pub const ASSIGN_DIMEN: u16 = 75;
+pub const ASSIGN_GLUE: u16 = 76;
+pub const ASSIGN_MU_GLUE: u16 = 77;
+pub const ASSIGN_FONT_DIMEN: u16 = 78;
+pub const ASSIGN_FONT_INT: u16 = 79;
+pub const SET_AUX: u16 = 80;
+pub const SET_PREV_GRAF: u16 = 81;
+pub const SET_PAGE_DIMEN: u16 = 82;
+pub const SET_PAGE_INT: u16 = 83;
+pub const SET_BOX_DIMEN: u16 = 84;
+pub const SET_SHAPE: u16 = 85;
+pub const DEF_CODE: u16 = 86;
+pub const XETEX_DEF_CODE: u16 = 87;
+pub const DEF_FAMILY: u16 = 88;
+pub const SET_FONT: u16 = 89;
+pub const DEF_FONT: u16 = 90;
+pub const MAX_INTERNAL: u16 = 91;
+pub const REGISTER: u16 = 91;
+pub const ADVANCE: u16 = 92;
+pub const MULTIPLY: u16 = 93;
+pub const DIVIDE: u16 = 94;
+pub const PREFIX: u16 = 95;
+pub const LET: u16 = 96;
+pub const SHORTHAND_DEF: u16 = 97;
+pub const READ_TO_CS: u16 = 98;
+pub const DEF: u16 = 99;
+pub const SET_BOX: u16 = 100;
+pub const HYPH_DATA: u16 = 101;
+pub const SET_INTERACTION: u16 = 102;
+pub const EXPAND_AFTER: u16 = 104;
+pub const NO_EXPAND: u16 = 105;
+pub const INPUT: u16 = 106;
+pub const IF_TEST: u16 = 107;
+pub const FI_OR_ELSE: u16 = 108;
+pub const CS_NAME: u16 = 109;
+pub const CONVERT: u16 = 110;
+pub const THE: u16 = 111;
+pub const TOP_BOT_MARK: u16 = 112;
 
 /* args to SET_BOX_DIMEN */
 pub const WIDTH_OFFSET: placeholdertype = 1;
