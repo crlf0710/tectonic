@@ -27,7 +27,7 @@ use std::ffi::CStr;
 
 use super::{spc_arg, spc_env, SpcHandler};
 use crate::dpx_dpxutil::parse_c_ident;
-use crate::dpx_pdfparse::skip_white;
+use crate::dpx_pdfparse::{skip_white, skip_white_slice};
 use crate::spc_warn;
 use libc::{free, memcmp, strlen};
 
@@ -48,21 +48,9 @@ const DVIPDFMX_HANDLERS: [SpcHandler; 1] = [SpcHandler {
     exec: Some(spc_handler_null),
 }];
 
-#[no_mangle]
-pub unsafe extern "C" fn spc_dvipdfmx_check_special(mut buf: *const i8, mut len: i32) -> bool {
-    let mut p = buf;
-    let endptr = p.offset(len as isize);
-    skip_white(&mut p, endptr);
-    if p.offset(strlen(b"dvipdfmx:\x00" as *const u8 as *const i8) as isize) <= endptr
-        && memcmp(
-            p as *const libc::c_void,
-            b"dvipdfmx:\x00" as *const u8 as *const i8 as *const libc::c_void,
-            strlen(b"dvipdfmx:\x00" as *const u8 as *const i8),
-        ) == 0
-    {
-        return true;
-    }
-    false
+pub fn spc_dvipdfmx_check_special(buf: &[u8]) -> bool {
+    let buf = skip_white_slice(buf);
+    buf.starts_with(b"dvipdfmx:")
 }
 #[no_mangle]
 pub unsafe extern "C" fn spc_dvipdfmx_setup_handler(

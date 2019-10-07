@@ -34,7 +34,7 @@ use std::ffi::CStr;
 use super::{spc_arg, spc_env};
 use crate::spc_warn;
 
-use crate::dpx_dpxutil::{parse_c_ident, parse_c_string, parse_float_decimal};
+use crate::dpx_dpxutil::{parse_c_ident, parse_c_ident_rust, parse_c_string, parse_float_decimal};
 use crate::dpx_mem::renew;
 use crate::dpx_pdfcolor::pdf_color_get_current;
 use crate::dpx_pdfdev::pdf_dev_scale;
@@ -862,40 +862,24 @@ const TPIC_HANDLERS: [SpcHandler; 13] = [
         exec: Some(spc_handler_tpic_tx),
     },
 ];
-#[no_mangle]
-pub unsafe extern "C" fn spc_tpic_check_special(mut buf: *const i8, mut len: i32) -> bool {
-    let mut istpic: bool = false;
-    let mut hasnsp: bool = false;
-    let mut p = buf;
-    let endptr = p.offset(len as isize);
-    skip_blank(&mut p, endptr);
-    if p.offset(strlen(b"tpic:\x00" as *const u8 as *const i8) as isize) < endptr
-        && memcmp(
-            p as *const libc::c_void,
-            b"tpic:\x00" as *const u8 as *const i8 as *const libc::c_void,
-            strlen(b"tpic:\x00" as *const u8 as *const i8),
-        ) == 0
-    {
-        p = p.offset(strlen(b"tpic:\x00" as *const u8 as *const i8) as isize);
-        hasnsp = true
+pub fn spc_tpic_check_special(buf: &[u8]) -> bool {
+    let mut buf = crate::skip_blank(buf);
+    let hasnsp = buf.starts_with(b"tpic:");
+    if hasnsp {
+        buf = &buf[b"tpic:".len()..];
     }
-    let q = parse_c_ident(&mut p, endptr);
-    if q.is_null() {
-        istpic = false
-    } else if !q.is_null()
-        && hasnsp as i32 != 0
-        && streq_ptr(q, b"__setopt__\x00" as *const u8 as *const i8) as i32 != 0
-    {
-        istpic = true;
-        free(q as *mut libc::c_void);
-    } else {
-        for handler in TPIC_HANDLERS.iter() {
-            if CStr::from_ptr(q).to_bytes() == handler.key {
-                istpic = true;
-                break;
+    let mut istpic = false;
+    if let Some(q) = parse_c_ident_rust(buf) {
+        if hasnsp && q.to_bytes() == b"__setopt__" {
+            istpic = true;
+        } else {
+            for handler in TPIC_HANDLERS.iter() {
+                if q.to_bytes() == handler.key {
+                    istpic = true;
+                    break;
+                }
             }
         }
-        free(q as *mut libc::c_void);
     }
     istpic
 }

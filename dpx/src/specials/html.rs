@@ -935,24 +935,16 @@ pub unsafe extern "C" fn spc_html_at_end_document() -> i32 {
     spc_handler_html__clean(0 as *mut spc_env, sd as *mut libc::c_void)
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn spc_html_check_special(mut buffer: *const i8, mut size: i32) -> bool {
-    let mut p = buffer;
-    let endptr = p.offset(size as isize);
-    while p < endptr && libc::isspace(*p as _) != 0 {
-        p = p.offset(1)
+pub fn spc_html_check_special(buf: &[u8]) -> bool {
+    let mut i = 0;
+    for &p in buf {
+        if crate::isblank(p as _) == 0 {
+            break;
+        }
+        i += 1;
     }
-    size = endptr.wrapping_offset_from(p) as i64 as i32;
-    if size as usize >= strlen(b"html:\x00" as *const u8 as *const i8)
-        && memcmp(
-            p as *const libc::c_void,
-            b"html:\x00" as *const u8 as *const i8 as *const libc::c_void,
-            strlen(b"html:\x00" as *const u8 as *const i8),
-        ) == 0
-    {
-        return true;
-    }
-    false
+    let buf = &buf[i..];
+    buf.starts_with(b"html:")
 }
 
 #[no_mangle]

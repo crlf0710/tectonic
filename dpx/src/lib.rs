@@ -22,7 +22,7 @@ macro_rules! info(
         use std::io::Write;
         if !(unsafe{_dpx_quietness} > 0) {
             _dpx_ensure_output_handle();
-            write!(_dpx_message_handle.as_mut().unwrap(), $($arg)*).unwrap();
+            write!(unsafe { _dpx_message_handle.as_mut().unwrap() }, $($arg)*).unwrap();
             unsafe{_last_message_type = DPX_MESG_INFO;}
         }
     }};
@@ -90,6 +90,17 @@ fn isblank(c: libc::c_int) -> libc::c_int {
     (c == ' ' as _ || c == '\t' as _) as _
 }
 
+fn skip_blank(buf: &[u8]) -> &[u8] {
+    let mut i = 0;
+    for &p in buf {
+        if !(p & !0x7f == 0 && isblank(p as _) != 0) {
+            break;
+        }
+        i += 1;
+    }
+    &buf[i..]
+}
+
 #[inline]
 unsafe fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8 {
     let length = libc::strlen(prefix);
@@ -133,6 +144,13 @@ impl FromLEByteSlice for u16 {
 }
 pub trait FromBEByteSlice {
     fn from_be_byte_slice(b: &[u8]) -> Self;
+}
+impl FromBEByteSlice for i32 {
+    fn from_be_byte_slice(b: &[u8]) -> Self {
+        let mut dst: [u8; 4] = unsafe { MaybeUninit::uninit().assume_init() };
+        dst.copy_from_slice(b);
+        i32::from_be_bytes(dst)
+    }
 }
 impl FromBEByteSlice for u32 {
     fn from_be_byte_slice(b: &[u8]) -> Self {

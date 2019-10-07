@@ -44,7 +44,7 @@ use super::dpx_mem::{new, renew};
 use super::dpx_numbers::{sqxfw, tt_skip_bytes};
 use super::dpx_tfm::tfm_open;
 use crate::{ttstub_input_close, ttstub_input_open, ttstub_input_read};
-use libc::{free, memcmp, memcpy, strcpy, strlen};
+use libc::{free, strcpy, strlen};
 
 pub type __off_t = i64;
 pub type __off64_t = i64;
@@ -488,35 +488,27 @@ unsafe fn vf_fnt(mut font_id: i32, mut vf_font: i32) {
 /* identical to do_xxx in dvi.c */
 unsafe fn vf_xxx(mut len: i32, mut start: *mut *mut u8, mut end: *mut u8) {
     if *start <= end.offset(-(len as isize)) {
-        let mut buffer: *mut u8 = new(((len + 1i32) as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<u8>() as u64)
-            as u32) as *mut u8;
-        memcpy(
-            buffer as *mut libc::c_void,
-            *start as *const libc::c_void,
-            len as _,
-        );
-        *buffer.offset(len as isize) = '\u{0}' as i32 as u8;
-        let mut p: *mut u8 = buffer;
-        while p < buffer.offset(len as isize) && *p as i32 == ' ' as i32 {
-            p = p.offset(1)
+        let mut buffer = Vec::with_capacity(len as usize);
+        for i in 0..len {
+            buffer.push(*(*start).offset(i as isize))
+        }
+        let mut i = 0;
+        for &p in &buffer {
+            if p != b' ' {
+                break;
+            }
+            i += 1;
         }
         /*
          * Warning message from virtual font.
          */
-        if memcmp(
-            p as *mut i8 as *const libc::c_void,
-            b"Warning:\x00" as *const u8 as *const i8 as *const libc::c_void,
-            8,
-        ) == 0
-        {
+        if buffer[i..].starts_with(b"Warning:") {
             if verbose != 0 {
-                warn!("VF:{}", CStr::from_ptr(p.offset(8) as *mut i8).display());
+                warn!("VF:{}", buffer[i+8..].display());
             }
         } else {
-            dvi_do_special(buffer as *const libc::c_void, len);
+            dvi_do_special(buffer.as_slice());
         }
-        free(buffer as *mut libc::c_void);
     } else {
         panic!("Premature end of DVI byte stream in VF font.");
     }

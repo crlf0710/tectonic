@@ -61,7 +61,7 @@ use super::dpx_pdfnames::{
     pdf_delete_name_tree, pdf_names_add_object, pdf_names_close_object, pdf_names_lookup_object,
     pdf_names_lookup_reference, pdf_new_name_tree,
 };
-use super::dpx_pdfparse::{dump, skip_white};
+use super::dpx_pdfparse::{dump, dump_slice, skip_white};
 use super::specials::dvips::{
     spc_dvips_at_begin_document, spc_dvips_at_begin_page, spc_dvips_at_end_document,
     spc_dvips_at_end_page, spc_dvips_check_special, spc_dvips_setup_handler,
@@ -105,7 +105,7 @@ pub struct Special {
     pub eodhk_func: Option<unsafe extern "C" fn() -> i32>,
     pub bophk_func: Option<unsafe extern "C" fn() -> i32>,
     pub eophk_func: Option<unsafe extern "C" fn() -> i32>,
-    pub check_func: unsafe extern "C" fn(_: *const i8, _: i32) -> bool,
+    pub check_func: fn(_: &[u8]) -> bool,
     pub setup_func:
         unsafe extern "C" fn(_: *mut SpcHandler, _: *mut spc_env, _: *mut spc_arg) -> i32,
 }
@@ -532,12 +532,12 @@ unsafe fn print_error(mut name: *const i8, mut spe: *mut spc_env, mut ap: *mut s
 /* PDF parser shouldn't depend on this...
  */
 pub unsafe extern "C" fn spc_exec_special(
-    mut buffer: *const i8,
-    mut size: i32,
+    buffer: &[u8],
     mut x_user: f64,
     mut y_user: f64,
     mut mag: f64,
 ) -> i32 {
+    let size = buffer.len();
     let mut error: i32 = -1i32;
     let mut spe: spc_env = spc_env {
         x_user: 0.,
@@ -555,14 +555,14 @@ pub unsafe extern "C" fn spc_exec_special(
         key: &[],
         exec: None,
     };
-    if VERBOSE > 3i32 {
-        dump(buffer, buffer.offset(size as isize));
+    if VERBOSE > 3 {
+        dump_slice(buffer);
     }
     init_special(
         &mut special,
         &mut spe,
         &mut args,
-        buffer,
+        buffer.as_ptr() as *const i8,
         size as u32,
         x_user,
         y_user,
@@ -570,7 +570,7 @@ pub unsafe extern "C" fn spc_exec_special(
     );
 
     for spc in &KNOWN_SPECIALS {
-        let found = (spc.check_func)(buffer, size);
+        let found = (spc.check_func)(buffer);
         if found {
             error = (spc.setup_func)(&mut special, &mut spe, &mut args);
             if error == 0 {
