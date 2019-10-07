@@ -151,6 +151,7 @@ mod core_memory {
 
 mod bibtex;
 mod xetex_aatfont;
+mod xetex_consts;
 mod xetex_engine_interface;
 mod xetex_errors;
 mod xetex_ext;
