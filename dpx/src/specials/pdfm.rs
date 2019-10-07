@@ -74,7 +74,7 @@ use crate::dpx_pdfobj::{
 };
 use crate::dpx_pdfparse::{
     parse_ident, parse_opt_ident, parse_pdf_dict, parse_pdf_object, parse_pdf_tainted_dict,
-    parse_val_ident, skip_white,
+    parse_val_ident, skip_white, skip_white_slice,
 };
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
 use crate::dpx_unicode::{
@@ -2145,21 +2145,9 @@ const PDFM_HANDLERS: [SpcHandler; 80] = [
         exec: Some(spc_handler_pdfm_do_nothing),
     },
 ];
-#[no_mangle]
-pub unsafe extern "C" fn spc_pdfm_check_special(mut buf: *const i8, mut len: i32) -> bool {
-    let mut p = buf;
-    let endptr = p.offset(len as isize);
-    skip_white(&mut p, endptr);
-    if p.offset(strlen(b"pdf:\x00" as *const u8 as *const i8) as isize) <= endptr
-        && memcmp(
-            p as *const libc::c_void,
-            b"pdf:\x00" as *const u8 as *const i8 as *const libc::c_void,
-            strlen(b"pdf:\x00" as *const u8 as *const i8),
-        ) == 0
-    {
-        return true;
-    }
-    false
+pub fn spc_pdfm_check_special(buf: &[u8]) -> bool {
+    let buf = skip_white_slice(buf);
+    buf.starts_with(b"pdf:")
 }
 #[no_mangle]
 pub unsafe extern "C" fn spc_pdfm_setup_handler(

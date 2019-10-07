@@ -68,6 +68,15 @@ pub unsafe extern "C" fn dump(mut start: *const i8, mut end: *const i8) {
     }
     info!("<--\n");
 }
+pub fn dump_slice(buf: &[u8]) {
+    info!("\nCurrent input buffer is -->");
+    if buf.len() > 50 {
+        info!("{}...", buf[..50].display());
+    } else {
+        info!("{}", buf.display());
+    }
+    info!("<--\n");
+}
 #[no_mangle]
 pub unsafe extern "C" fn pdfparse_skip_line(mut start: *mut *const i8, mut end: *const i8) {
     while *start < end && **start as i32 != '\n' as i32 && **start as i32 != '\r' as i32 {
@@ -108,6 +117,50 @@ pub unsafe extern "C" fn skip_white(mut start: *mut *const i8, mut end: *const i
             *start = (*start).offset(1)
         }
     }
+}
+pub fn pdfparse_skip_line_slice(buf: &[u8]) -> &[u8] {
+    let mut i = 0;
+    while i < buf.len() && buf[i] != b'\n' && buf[i] != b'\r' {
+        i += 1;
+    }
+    /* The carriage return (CR; \r; 0x0D) and line feed (LF; \n; 0x0A)
+     * characters, also called newline characters, are treated as
+     * end-of-line (EOL) markers. The combination of a carriage return
+     * followed immediately by a line feed is treated as one EOL marker.
+     */
+    if i < buf.len() && buf[i] == b'\r' {
+        i += 1;
+    }
+    if i < buf.len() && buf[i] == b'\n' {
+        i += 1;
+    };
+    &buf[i..]
+}
+pub fn skip_white_slice(buf: &[u8]) -> &[u8] {
+    /*
+     * The null (NUL; 0x00) character is a white-space character in PDF spec
+     * but isspace(0x00) returns FALSE; on the other hand, the vertical tab
+     * (VT; 0x0B) character is not a white-space character in PDF spec but
+     * isspace(0x0B) returns TRUE.
+     */
+    let mut i = 0;
+    while i < buf.len()
+        && (buf[i] == b' '
+            || buf[i] == b'\t'
+            || buf[i] == '\u{c}' as u8
+            || buf[i] == b'\r'
+            || buf[i] == b'\n'
+            || buf[i] == 0
+            || buf[i] == b'%')
+    {
+        i += if buf[i] == b'%' {
+            let b = pdfparse_skip_line_slice(&buf[i..]);
+            b.len()
+        } else {
+            1
+        }
+    }
+    &buf[i..]
 }
 unsafe fn parsed_string(mut start: *const i8, mut end: *const i8) -> *mut i8 {
     let mut result: *mut i8 = 0 as *mut i8;

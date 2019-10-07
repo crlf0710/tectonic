@@ -25,7 +25,7 @@
 
 use super::util::spc_util_read_colorspec;
 use super::{spc_arg, spc_env, SpcHandler};
-use crate::dpx_dpxutil::parse_c_ident;
+use crate::dpx_dpxutil::{parse_c_ident, parse_c_ident_rust};
 use crate::dpx_pdfcolor::{pdf_color_clear_stack, pdf_color_pop, pdf_color_push, pdf_color_set};
 use crate::dpx_pdfdoc::pdf_doc_set_bgcolor;
 use crate::spc_warn;
@@ -87,24 +87,14 @@ unsafe fn skip_blank(mut pp: *mut *const i8, mut endptr: *const i8) {
     }
     *pp = p;
 }
-#[no_mangle]
-pub unsafe extern "C" fn spc_color_check_special(mut buf: *const i8, mut len: i32) -> bool {
-    let mut r: bool = false;
-    let mut p = buf;
-    let endptr = p.offset(len as isize);
-    skip_blank(&mut p, endptr);
-    let q = parse_c_ident(&mut p, endptr);
-    if q.is_null() {
-        return false;
+
+pub fn spc_color_check_special(buf: &[u8]) -> bool {
+    let buf = crate::skip_blank(buf);
+    if let Some(q) = parse_c_ident_rust(buf) {
+        q.to_bytes() == b"color" || q.to_bytes() == b"background"
     } else {
-        if streq_ptr(q, b"color\x00" as *const u8 as *const i8) {
-            r = true
-        } else if streq_ptr(q, b"background\x00" as *const u8 as *const i8) {
-            r = true
-        }
+        false
     }
-    free(q as *mut libc::c_void);
-    r
 }
 #[no_mangle]
 pub unsafe extern "C" fn spc_color_setup_handler(

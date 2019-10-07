@@ -47,7 +47,7 @@ use crate::dpx_pdfdev::{pdf_dev_put_image, pdf_tmatrix, transform_info, transfor
 use crate::dpx_pdfdraw::{
     pdf_dev_current_depth, pdf_dev_grestore, pdf_dev_grestore_to, pdf_dev_gsave,
 };
-use crate::dpx_pdfparse::skip_white;
+use crate::dpx_pdfparse::{skip_white, skip_white_slice};
 use crate::spc_warn;
 use libc::{free, memcpy, strlen, strncpy};
 
@@ -424,19 +424,13 @@ pub unsafe extern "C" fn spc_dvips_at_end_page() -> i32 {
     mps_eop_cleanup();
     0i32
 }
-#[no_mangle]
-pub unsafe extern "C" fn spc_dvips_check_special(mut buf: *const i8, mut len: i32) -> bool {
-    let mut p = buf;
-    let endptr = p.offset(len as isize);
-    skip_white(&mut p, endptr);
-    if p >= endptr {
+pub fn spc_dvips_check_special(buf: &[u8]) -> bool {
+    let buf = skip_white_slice(buf);
+    if buf.is_empty() {
         return false;
     }
-    len = endptr.wrapping_offset_from(p) as i64 as i32;
     for handler in DVIPS_HANDLERS.iter() {
-        if len as usize >= handler.key.len()
-            && CStr::from_ptr(p).to_bytes().starts_with(handler.key)
-        {
+        if buf.starts_with(handler.key) {
             return true;
         }
     }

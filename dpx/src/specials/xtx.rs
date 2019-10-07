@@ -45,7 +45,7 @@ use crate::dpx_pdfdraw::{
     pdf_dev_concat, pdf_dev_get_fixed_point, pdf_dev_grestore, pdf_dev_gsave,
     pdf_dev_set_fixed_point,
 };
-use crate::dpx_pdfparse::{parse_ident, parse_val_ident, skip_white};
+use crate::dpx_pdfparse::{parse_ident, parse_val_ident, skip_white, skip_white_slice};
 use crate::shims::sprintf;
 use crate::spc_warn;
 use libc::{free, memcmp, strlen, strncmp, strncpy};
@@ -466,21 +466,9 @@ const XTX_HANDLERS: [SpcHandler; 21] = [
         exec: Some(spc_handler_xtx_clipoverlay),
     },
 ];
-#[no_mangle]
-pub unsafe extern "C" fn spc_xtx_check_special(mut buf: *const i8, mut len: i32) -> bool {
-    let mut p = buf;
-    let endptr = p.offset(len as isize);
-    skip_white(&mut p, endptr);
-    if p.offset(strlen(b"x:\x00" as *const u8 as *const i8) as isize) <= endptr
-        && memcmp(
-            p as *const libc::c_void,
-            b"x:\x00" as *const u8 as *const i8 as *const libc::c_void,
-            strlen(b"x:\x00" as *const u8 as *const i8),
-        ) == 0
-    {
-        return true;
-    }
-    false
+pub fn spc_xtx_check_special(buf: &[u8]) -> bool {
+    let buf = skip_white_slice(buf);
+    buf.starts_with(b"x:")
 }
 #[no_mangle]
 pub unsafe extern "C" fn spc_xtx_setup_handler(
