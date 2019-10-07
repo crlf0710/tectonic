@@ -11,7 +11,6 @@
 use std::io::Write;
 
 use crate::core_memory::{xmalloc, xrealloc};
-use crate::stub_stdio::snprintf;
 use crate::{
     ttstub_input_close, ttstub_input_getc, ttstub_input_open, ttstub_output_close,
     ttstub_output_open, ttstub_output_open_stdout, ttstub_output_putc,
@@ -61,6 +60,24 @@ pub type pds_len = u8;
 pub type pds_type = *const i8;
 pub type blt_in_range = i32;
 
+const hash_base: i32 = 1;
+const quote_next_fn: i32 = hash_base - 1;
+const BUF_SIZE: i32 = 20000;
+const min_print_line: i32 = 3;
+const max_print_line: i32 = 79;
+const aux_stack_size: i32 = 20;
+const MAX_BIB_FILES: i32 = 20;
+const POOL_SIZE: i32 = 65000;
+const MAX_STRINGS: i32 = 35307;
+const MAX_CITES: i32 = 750;
+const WIZ_FN_SPACE: i32 = 3000;
+const SINGLE_FN_SPACE: i32 = 100;
+const ENT_STR_SIZE: i32 = 250;
+const GLOB_STR_SIZE: i32 = 20000;
+const MAX_GLOB_STRS: i32 = 10;
+const MAX_FIELDS: i32 = 17250;
+const LIT_STK_SIZE: i32 = 100;
+
 unsafe extern "C" fn peekable_open(
     mut path: *const i8,
     mut format: TTInputFormat,
@@ -101,11 +118,6 @@ unsafe extern "C" fn peekable_getc(mut peekable: *mut peekable_input_t) -> i32 {
     rv
 }
 unsafe extern "C" fn peekable_ungetc(mut peekable: *mut peekable_input_t, mut c: i32) {
-    /*last_lex */
-    /*last_fn_class */
-    /*last_ilk */
-    /*last_lit_type */
-    /*longest_pds */
     /* TODO: assert c != EOF */
     (*peekable).peek_char = c;
 }
@@ -594,7 +606,7 @@ unsafe extern "C" fn aux_err_print() {
     print_skipping_whatever_remains();
     log!("command\n");
 }
-unsafe extern "C" fn aux_err_illegal_another_print(mut cmd_num: i32) {
+unsafe extern "C" fn aux_err_illegal_another_print(cmd_num: i32) {
     log!("Illegal, another \\bib");
     match cmd_num {
         0 => {
@@ -713,7 +725,7 @@ unsafe extern "C" fn unknwn_function_class_confusion() {
     print_confusion();
     panic!();
 }
-unsafe extern "C" fn print_fn_class(mut fn_loc_0: hash_loc) {
+unsafe extern "C" fn print_fn_class(fn_loc_0: hash_loc) {
     match *fn_type.offset(fn_loc_0 as isize) as i32 {
         0 => {
             log!("built-in");
@@ -1234,11 +1246,9 @@ unsafe extern "C" fn str_lookup(
         p = *hash_next.offset(p as isize)
     }
 }
-unsafe extern "C" fn pre_define(mut pds: pds_type, mut len: pds_len, mut ilk: str_ilk) {
-    let mut i: pds_len = 0;
-    let mut for_end: i32 = 0;
-    i = 1i32 as pds_len;
-    for_end = len as i32;
+unsafe extern "C" fn pre_define(pds: pds_type, len: pds_len, ilk: str_ilk) {
+    let mut i: pds_len = 1;
+    let for_end = len as i32;
     if i as i32 <= for_end {
         loop {
             *buffer.offset(i as isize) = *pds.offset((i as i32 - 1i32) as isize) as u8;
@@ -1478,10 +1488,10 @@ unsafe extern "C" fn quick_sort(mut left_end: cite_number, mut right_end: cite_n
     };
 }
 unsafe extern "C" fn build_in(
-    mut pds: pds_type,
-    mut len: pds_len,
-    mut fn_hash_loc: *mut hash_loc,
-    mut blt_in_num: blt_in_range,
+    pds: pds_type,
+    len: pds_len,
+    fn_hash_loc: &mut hash_loc,
+    blt_in_num: blt_in_range,
 ) {
     pre_define(pds, len, 11i32 as str_ilk);
     *fn_hash_loc = pre_def_loc;
@@ -1489,149 +1499,53 @@ unsafe extern "C" fn build_in(
     *ilk_info.offset(*fn_hash_loc as isize) = blt_in_num;
 }
 unsafe extern "C" fn pre_def_certain_strings() {
-    pre_define(
-        b".aux        \x00" as *const u8 as *const i8,
-        4i32 as pds_len,
-        7i32 as str_ilk,
-    );
+    pre_define(b".aux        \x00" as *const u8 as *const i8, 4, 7);
     s_aux_extension = *hash_text.offset(pre_def_loc as isize);
-    pre_define(
-        b".bbl        \x00" as *const u8 as *const i8,
-        4i32 as pds_len,
-        7i32 as str_ilk,
-    );
+    pre_define(b".bbl        \x00" as *const u8 as *const i8, 4, 7);
     s_bbl_extension = *hash_text.offset(pre_def_loc as isize);
-    pre_define(
-        b".blg        \x00" as *const u8 as *const i8,
-        4i32 as pds_len,
-        7i32 as str_ilk,
-    );
+    pre_define(b".blg        \x00" as *const u8 as *const i8, 4, 7);
     s_log_extension = *hash_text.offset(pre_def_loc as isize);
-    pre_define(
-        b".bst        \x00" as *const u8 as *const i8,
-        4i32 as pds_len,
-        7i32 as str_ilk,
-    );
+    pre_define(b".bst        \x00" as *const u8 as *const i8, 4, 7);
     s_bst_extension = *hash_text.offset(pre_def_loc as isize);
-    pre_define(
-        b".bib        \x00" as *const u8 as *const i8,
-        4i32 as pds_len,
-        7i32 as str_ilk,
-    );
+    pre_define(b".bib        \x00" as *const u8 as *const i8, 4, 7);
     s_bib_extension = *hash_text.offset(pre_def_loc as isize);
-    pre_define(
-        b"texinputs:  \x00" as *const u8 as *const i8,
-        10i32 as pds_len,
-        8i32 as str_ilk,
-    );
+    pre_define(b"texinputs:  \x00" as *const u8 as *const i8, 10, 8);
     s_bst_area = *hash_text.offset(pre_def_loc as isize);
-    pre_define(
-        b"texbib:     \x00" as *const u8 as *const i8,
-        7i32 as pds_len,
-        8i32 as str_ilk,
-    );
+    pre_define(b"texbib:     \x00" as *const u8 as *const i8, 7, 8);
     s_bib_area = *hash_text.offset(pre_def_loc as isize);
-    pre_define(
-        b"\\citation   \x00" as *const u8 as *const i8,
-        9i32 as pds_len,
-        2i32 as str_ilk,
-    );
+    pre_define(b"\\citation   \x00" as *const u8 as *const i8, 9, 2);
     *ilk_info.offset(pre_def_loc as isize) = 2i32;
-    pre_define(
-        b"\\bibdata    \x00" as *const u8 as *const i8,
-        8i32 as pds_len,
-        2i32 as str_ilk,
-    );
+    pre_define(b"\\bibdata    \x00" as *const u8 as *const i8, 8, 2);
     *ilk_info.offset(pre_def_loc as isize) = 0i32;
-    pre_define(
-        b"\\bibstyle   \x00" as *const u8 as *const i8,
-        9i32 as pds_len,
-        2i32 as str_ilk,
-    );
+    pre_define(b"\\bibstyle   \x00" as *const u8 as *const i8, 9, 2);
     *ilk_info.offset(pre_def_loc as isize) = 1i32;
-    pre_define(
-        b"\\@input     \x00" as *const u8 as *const i8,
-        7i32 as pds_len,
-        2i32 as str_ilk,
-    );
+    pre_define(b"\\@input     \x00" as *const u8 as *const i8, 7, 2);
     *ilk_info.offset(pre_def_loc as isize) = 3i32;
-    pre_define(
-        b"entry       \x00" as *const u8 as *const i8,
-        5i32 as pds_len,
-        4i32 as str_ilk,
-    );
+    pre_define(b"entry       \x00" as *const u8 as *const i8, 5, 4);
     *ilk_info.offset(pre_def_loc as isize) = 0i32;
-    pre_define(
-        b"execute     \x00" as *const u8 as *const i8,
-        7i32 as pds_len,
-        4i32 as str_ilk,
-    );
+    pre_define(b"execute     \x00" as *const u8 as *const i8, 7, 4);
     *ilk_info.offset(pre_def_loc as isize) = 1i32;
-    pre_define(
-        b"function    \x00" as *const u8 as *const i8,
-        8i32 as pds_len,
-        4i32 as str_ilk,
-    );
+    pre_define(b"function    \x00" as *const u8 as *const i8, 8, 4);
     *ilk_info.offset(pre_def_loc as isize) = 2i32;
-    pre_define(
-        b"integers    \x00" as *const u8 as *const i8,
-        8i32 as pds_len,
-        4i32 as str_ilk,
-    );
+    pre_define(b"integers    \x00" as *const u8 as *const i8, 8, 4);
     *ilk_info.offset(pre_def_loc as isize) = 3i32;
-    pre_define(
-        b"iterate     \x00" as *const u8 as *const i8,
-        7i32 as pds_len,
-        4i32 as str_ilk,
-    );
+    pre_define(b"iterate     \x00" as *const u8 as *const i8, 7, 4);
     *ilk_info.offset(pre_def_loc as isize) = 4i32;
-    pre_define(
-        b"macro       \x00" as *const u8 as *const i8,
-        5i32 as pds_len,
-        4i32 as str_ilk,
-    );
+    pre_define(b"macro       \x00" as *const u8 as *const i8, 5, 4);
     *ilk_info.offset(pre_def_loc as isize) = 5i32;
-    pre_define(
-        b"read        \x00" as *const u8 as *const i8,
-        4i32 as pds_len,
-        4i32 as str_ilk,
-    );
+    pre_define(b"read        \x00" as *const u8 as *const i8, 4, 4);
     *ilk_info.offset(pre_def_loc as isize) = 6i32;
-    pre_define(
-        b"reverse     \x00" as *const u8 as *const i8,
-        7i32 as pds_len,
-        4i32 as str_ilk,
-    );
+    pre_define(b"reverse     \x00" as *const u8 as *const i8, 7, 4);
     *ilk_info.offset(pre_def_loc as isize) = 7i32;
-    pre_define(
-        b"sort        \x00" as *const u8 as *const i8,
-        4i32 as pds_len,
-        4i32 as str_ilk,
-    );
+    pre_define(b"sort        \x00" as *const u8 as *const i8, 4, 4);
     *ilk_info.offset(pre_def_loc as isize) = 8i32;
-    pre_define(
-        b"strings     \x00" as *const u8 as *const i8,
-        7i32 as pds_len,
-        4i32 as str_ilk,
-    );
+    pre_define(b"strings     \x00" as *const u8 as *const i8, 7, 4);
     *ilk_info.offset(pre_def_loc as isize) = 9i32;
-    pre_define(
-        b"comment     \x00" as *const u8 as *const i8,
-        7i32 as pds_len,
-        12i32 as str_ilk,
-    );
+    pre_define(b"comment     \x00" as *const u8 as *const i8, 7, 12);
     *ilk_info.offset(pre_def_loc as isize) = 0i32;
-    pre_define(
-        b"preamble    \x00" as *const u8 as *const i8,
-        8i32 as pds_len,
-        12i32 as str_ilk,
-    );
+    pre_define(b"preamble    \x00" as *const u8 as *const i8, 8, 12);
     *ilk_info.offset(pre_def_loc as isize) = 1i32;
-    pre_define(
-        b"string      \x00" as *const u8 as *const i8,
-        6i32 as pds_len,
-        12i32 as str_ilk,
-    );
+    pre_define(b"string      \x00" as *const u8 as *const i8, 6, 12);
     *ilk_info.offset(pre_def_loc as isize) = 2i32;
     build_in(
         b"=           \x00" as *const u8 as *const i8,
@@ -2141,14 +2055,13 @@ unsafe extern "C" fn skip_illegal_stuff_after_token_print() {
     skip_token_print();
 }
 unsafe extern "C" fn scan_fn_def(mut fn_hash_loc: hash_loc) {
-    let mut current_block: u64;
     let mut singl_function: *mut hash_ptr2 = 0 as *mut hash_ptr2;
     let mut single_fn_space: i32 = 0;
     let mut single_ptr: fn_def_loc = 0;
     let mut copy_ptr: fn_def_loc = 0;
     let mut end_of_num: buf_pointer = 0;
     let mut impl_fn_loc: hash_loc = 0;
-    single_fn_space = 100i32;
+    single_fn_space = SINGLE_FN_SPACE;
     singl_function = xmalloc(
         ((single_fn_space + 1i32) as u64).wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
     ) as *mut hash_ptr2;
@@ -2156,138 +2069,104 @@ unsafe extern "C" fn scan_fn_def(mut fn_hash_loc: hash_loc) {
         eat_bst_print();
         log!("function");
         bst_err_print_and_look_for_blank_line();
-    } else {
-        single_ptr = 0i32;
-        loop {
-            if !(*buffer.offset(buf_ptr2 as isize) as i32 != 125i32) {
-                current_block = 355541881813056170;
-                break;
-            }
+        return exit(singl_function);
+    }
+    single_ptr = 0;
+    loop {
+        if !(*buffer.offset(buf_ptr2 as isize) as i32 != 125) {
             /*right_brace */
-            match *buffer.offset(buf_ptr2 as isize) as i32 {
-                35 => {
-                    buf_ptr2 = buf_ptr2 + 1i32; /*int_literal */
-                    if !scan_integer() {
-                        log!("Illegal integer in integer literal"); /*str_literal */
-                        skip_token_print(); /*194: */
-                    } else {
-                        literal_loc = str_lookup(
-                            buffer,
-                            buf_ptr1,
-                            buf_ptr2 - buf_ptr1,
-                            1i32 as str_ilk,
-                            true,
-                        ); /*single_quote */
-                        if !hash_found {
-                            *fn_type.offset(literal_loc as isize) = 2i32 as fn_class; /*wiz_defined */
-                            *ilk_info.offset(literal_loc as isize) = token_value
-                        }
-                        if buf_ptr2 < last
-                            && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 != 1i32
-                            && *buffer.offset(buf_ptr2 as isize) as i32 != 125i32
-                            && *buffer.offset(buf_ptr2 as isize) as i32 != 37i32
-                        {
-                            skip_illegal_stuff_after_token_print();
-                        } else {
-                            *singl_function.offset(single_ptr as isize) = literal_loc;
-                            if single_ptr == single_fn_space {
-                                singl_function = xrealloc(
-                                    singl_function as *mut libc::c_void,
-                                    ((single_fn_space + 100i32 + 1i32) as u64)
-                                        .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
-                                )
-                                    as *mut hash_ptr2;
-                                single_fn_space = single_fn_space + 100i32
-                            }
-                            single_ptr = single_ptr + 1i32
-                        }
-                    }
+            break;
+        }
+        match *buffer.offset(buf_ptr2 as isize) as i32 {
+            35 => {
+                buf_ptr2 = buf_ptr2 + 1;
+                if !scan_integer() {
+                    log!("Illegal integer in integer literal");
+                    skip_token_print();
+                    lab25(singl_function);
+                    continue;
                 }
-                34 => {
-                    buf_ptr2 = buf_ptr2 + 1i32;
-                    if !scan1(34i32 as u8) {
-                        log!("No `\"\' to end string literal");
-                        skip_token_print();
-                    } else {
-                        literal_loc = str_lookup(
-                            buffer,
-                            buf_ptr1,
-                            buf_ptr2 - buf_ptr1,
-                            0i32 as str_ilk,
-                            true,
-                        );
-                        *fn_type.offset(literal_loc as isize) = 3i32 as fn_class;
-                        buf_ptr2 = buf_ptr2 + 1i32;
-                        if buf_ptr2 < last
-                            && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 != 1i32
-                            && *buffer.offset(buf_ptr2 as isize) as i32 != 125i32
-                            && *buffer.offset(buf_ptr2 as isize) as i32 != 37i32
-                        {
-                            skip_illegal_stuff_after_token_print();
-                        } else {
-                            *singl_function.offset(single_ptr as isize) = literal_loc;
-                            if single_ptr == single_fn_space {
-                                singl_function = xrealloc(
-                                    singl_function as *mut libc::c_void,
-                                    ((single_fn_space + 100i32 + 1i32) as u64)
-                                        .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
-                                )
-                                    as *mut hash_ptr2;
-                                single_fn_space = single_fn_space + 100i32
-                            }
-                            single_ptr = single_ptr + 1i32
-                        }
-                    }
+                literal_loc =
+                    str_lookup(buffer, buf_ptr1, buf_ptr2 - buf_ptr1, 1i32 as str_ilk, true); /*integer_ilk */
+                if !hash_found {
+                    *fn_type.offset(literal_loc as isize) = 2; /*int literal */
+                    *ilk_info.offset(literal_loc as isize) = token_value
                 }
-                39 => {
-                    buf_ptr2 = buf_ptr2 + 1i32;
-                    scan2_white(125i32 as u8, 37i32 as u8);
-                    lower_case(buffer, buf_ptr1, buf_ptr2 - buf_ptr1);
-                    fn_loc = str_lookup(
-                        buffer,
-                        buf_ptr1,
-                        buf_ptr2 - buf_ptr1,
-                        11i32 as str_ilk,
-                        false,
-                    );
-                    if !hash_found {
-                        skp_token_unknown_function_print();
-                    } else if fn_loc == wiz_loc {
-                        print_recursion_illegal();
-                    } else {
-                        *singl_function.offset(single_ptr as isize) = 1i32 - 1i32;
-                        if single_ptr == single_fn_space {
-                            singl_function = xrealloc(
-                                singl_function as *mut libc::c_void,
-                                ((single_fn_space + 100i32 + 1i32) as u64)
-                                    .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
-                            ) as *mut hash_ptr2;
-                            single_fn_space = single_fn_space + 100i32
-                        }
-                        single_ptr = single_ptr + 1i32;
-                        *singl_function.offset(single_ptr as isize) = fn_loc;
-                        if single_ptr == single_fn_space {
-                            singl_function = xrealloc(
-                                singl_function as *mut libc::c_void,
-                                ((single_fn_space + 100i32 + 1i32) as u64)
-                                    .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
-                            ) as *mut hash_ptr2;
-                            single_fn_space = single_fn_space + 100i32
-                        }
-                        single_ptr = single_ptr + 1i32
-                    }
+                if buf_ptr2 < last
+                    && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 != 1
+                    && *buffer.offset(buf_ptr2 as isize) as i32 != 125
+                    && *buffer.offset(buf_ptr2 as isize) as i32 != 37
+                {
+                    skip_illegal_stuff_after_token_print();
+                    lab25(singl_function);
+                    continue;
                 }
-                123 => {
-                    *ex_buf.offset(0) = 39i32 as u8;
-                    int_to_ASCII(impl_fn_num, ex_buf, 1i32, &mut end_of_num);
-                    impl_fn_loc = str_lookup(ex_buf, 0i32, end_of_num, 11i32 as str_ilk, true);
-                    if hash_found {
-                        log!("Already encountered implicit function");
-                        print_confusion();
-                        panic!();
-                    }
-                    impl_fn_num = impl_fn_num + 1i32;
-                    *fn_type.offset(impl_fn_loc as isize) = 1i32 as fn_class;
+                *singl_function.offset(single_ptr as isize) = literal_loc;
+                if single_ptr == single_fn_space {
+                    singl_function = xrealloc(
+                        singl_function as *mut libc::c_void,
+                        ((single_fn_space + 100i32 + 1i32) as u64)
+                            .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+                    ) as *mut hash_ptr2;
+                    single_fn_space = single_fn_space + 100i32
+                }
+                single_ptr = single_ptr + 1
+            }
+            34 => {
+                buf_ptr2 = buf_ptr2 + 1;
+                if !scan1(34) {
+                    log!("No `\"\' to end string literal");
+                    skip_token_print();
+                    lab25(singl_function);
+                    continue;
+                }
+
+                literal_loc =
+                    str_lookup(buffer, buf_ptr1, buf_ptr2 - buf_ptr1, 0i32 as str_ilk, true);
+
+                *fn_type.offset(literal_loc as isize) = 3 /*str_literal */;
+                buf_ptr2 = buf_ptr2 + 1;
+                if buf_ptr2 < last
+                    && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 != 1i32
+                    && *buffer.offset(buf_ptr2 as isize) as i32 != 125i32
+                    && *buffer.offset(buf_ptr2 as isize) as i32 != 37i32
+                {
+                    skip_illegal_stuff_after_token_print();
+                    lab25(singl_function);
+                    continue;
+                }
+                *singl_function.offset(single_ptr as isize) = literal_loc;
+                if single_ptr == single_fn_space {
+                    singl_function = xrealloc(
+                        singl_function as *mut libc::c_void,
+                        ((single_fn_space + 100i32 + 1i32) as u64)
+                            .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+                    ) as *mut hash_ptr2;
+                    single_fn_space = single_fn_space + 100i32
+                }
+                single_ptr = single_ptr + 1
+            }
+            39 => {
+                buf_ptr2 = buf_ptr2 + 1;
+                scan2_white(125 /*right_brace */, 37 /*comment */);
+                lower_case(buffer, buf_ptr1, buf_ptr2 - buf_ptr1);
+                fn_loc = str_lookup(
+                    buffer,
+                    buf_ptr1,
+                    buf_ptr2 - buf_ptr1,
+                    11, /*bst_fn_ilk */
+                    false,
+                );
+                if !hash_found {
+                    skp_token_unknown_function_print();
+                    lab25(singl_function);
+                    continue;
+                } else if fn_loc == wiz_loc {
+                    /*194: */
+                    print_recursion_illegal();
+                    lab25(singl_function);
+                    continue;
+                } else {
                     *singl_function.offset(single_ptr as isize) = 1i32 - 1i32;
                     if single_ptr == single_fn_space {
                         singl_function = xrealloc(
@@ -2297,8 +2176,8 @@ unsafe extern "C" fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                         ) as *mut hash_ptr2;
                         single_fn_space = single_fn_space + 100i32
                     }
-                    single_ptr = single_ptr + 1i32;
-                    *singl_function.offset(single_ptr as isize) = impl_fn_loc;
+                    single_ptr = single_ptr + 1;
+                    *singl_function.offset(single_ptr as isize) = fn_loc;
                     if single_ptr == single_fn_space {
                         singl_function = xrealloc(
                             singl_function as *mut libc::c_void,
@@ -2307,52 +2186,21 @@ unsafe extern "C" fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                         ) as *mut hash_ptr2;
                         single_fn_space = single_fn_space + 100i32
                     }
-                    single_ptr = single_ptr + 1i32;
-                    buf_ptr2 = buf_ptr2 + 1i32;
-                    scan_fn_def(impl_fn_loc);
-                }
-                _ => {
-                    scan2_white(125i32 as u8, 37i32 as u8);
-                    lower_case(buffer, buf_ptr1, buf_ptr2 - buf_ptr1);
-                    fn_loc = str_lookup(
-                        buffer,
-                        buf_ptr1,
-                        buf_ptr2 - buf_ptr1,
-                        11i32 as str_ilk,
-                        false,
-                    );
-                    if !hash_found {
-                        skp_token_unknown_function_print();
-                    } else if fn_loc == wiz_loc {
-                        print_recursion_illegal();
-                    } else {
-                        *singl_function.offset(single_ptr as isize) = fn_loc;
-                        if single_ptr == single_fn_space {
-                            singl_function = xrealloc(
-                                singl_function as *mut libc::c_void,
-                                ((single_fn_space + 100i32 + 1i32) as u64)
-                                    .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
-                            ) as *mut hash_ptr2;
-                            single_fn_space = single_fn_space + 100i32
-                        }
-                        single_ptr = single_ptr + 1i32
-                    }
+                    single_ptr = single_ptr + 1
                 }
             }
-            /*next_token */
-            if eat_bst_white_space() {
-                continue; /*space */
-            }
-            eat_bst_print();
-            log!("function");
-            bst_err_print_and_look_for_blank_line();
-            current_block = 623752384954289075;
-            break;
-        }
-        match current_block {
-            623752384954289075 => {}
-            _ => {
-                *singl_function.offset(single_ptr as isize) = end_of_def;
+            123 => {
+                *ex_buf.offset(0) = 39 /*single_quote */;
+                int_to_ASCII(impl_fn_num, ex_buf, 1, &mut end_of_num);
+                impl_fn_loc = str_lookup(ex_buf, 0, end_of_num, 11 /*bst_fn_ilk */, true);
+                if hash_found {
+                    log!("Already encountered implicit function");
+                    print_confusion();
+                    panic!();
+                }
+                impl_fn_num = impl_fn_num + 1;
+                *fn_type.offset(impl_fn_loc as isize) = 1 /*wis_defined */;
+                *singl_function.offset(single_ptr as isize) = quote_next_fn;
                 if single_ptr == single_fn_space {
                     singl_function = xrealloc(
                         singl_function as *mut libc::c_void,
@@ -2361,28 +2209,97 @@ unsafe extern "C" fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                     ) as *mut hash_ptr2;
                     single_fn_space = single_fn_space + 100i32
                 }
-                single_ptr = single_ptr + 1i32;
-                while single_ptr + wiz_def_ptr > wiz_fn_space {
-                    wiz_functions = xrealloc(
-                        wiz_functions as *mut libc::c_void,
-                        ((wiz_fn_space + 3000i32 + 1i32) as u64)
+                single_ptr = single_ptr + 1;
+
+                *singl_function.offset(single_ptr as isize) = impl_fn_loc;
+                if single_ptr == single_fn_space {
+                    singl_function = xrealloc(
+                        singl_function as *mut libc::c_void,
+                        ((single_fn_space + 100i32 + 1i32) as u64)
                             .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
                     ) as *mut hash_ptr2;
-                    wiz_fn_space = wiz_fn_space + 3000i32
+                    single_fn_space = single_fn_space + 100i32
                 }
-                *ilk_info.offset(fn_hash_loc as isize) = wiz_def_ptr;
-                copy_ptr = 0i32;
-                while copy_ptr < single_ptr {
-                    *wiz_functions.offset(wiz_def_ptr as isize) =
-                        *singl_function.offset(copy_ptr as isize);
-                    copy_ptr = copy_ptr + 1i32;
-                    wiz_def_ptr = wiz_def_ptr + 1i32
+                single_ptr = single_ptr + 1;
+
+                buf_ptr2 = buf_ptr2 + 1;
+                scan_fn_def(impl_fn_loc);
+            }
+            _ => {
+                scan2_white(125 /*right_brace */, 37 /*comment */);
+                lower_case(buffer, buf_ptr1, buf_ptr2 - buf_ptr1);
+                fn_loc = str_lookup(
+                    buffer,
+                    buf_ptr1,
+                    buf_ptr2 - buf_ptr1,
+                    11, /*bst_fn_ilk */
+                    false,
+                );
+                if !hash_found {
+                    skp_token_unknown_function_print();
+                    lab25(singl_function);
+                    continue;
+                } else if fn_loc == wiz_loc {
+                    print_recursion_illegal();
+                    lab25(singl_function);
+                    continue;
+                } else {
+                    *singl_function.offset(single_ptr as isize) = fn_loc;
+                    if single_ptr == single_fn_space {
+                        singl_function = xrealloc(
+                            singl_function as *mut libc::c_void,
+                            ((single_fn_space + 100i32 + 1i32) as u64)
+                                .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+                        ) as *mut hash_ptr2;
+                        single_fn_space = single_fn_space + 100i32
+                    }
+                    single_ptr = single_ptr + 1
                 }
-                buf_ptr2 = buf_ptr2 + 1i32
             }
         }
+        unsafe fn lab25(singl_function: *mut i32) {
+            /*next_token */
+            if !eat_bst_white_space() {
+                eat_bst_print();
+                log!("function");
+                bst_err_print_and_look_for_blank_line();
+                return exit(singl_function);
+            }
+        }
+        lab25(singl_function);
+        continue;
     }
-    free(singl_function as *mut libc::c_void);
+    *singl_function.offset(single_ptr as isize) = end_of_def;
+    if single_ptr == single_fn_space {
+        singl_function = xrealloc(
+            singl_function as *mut libc::c_void,
+            ((single_fn_space + 100i32 + 1i32) as u64)
+                .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+        ) as *mut hash_ptr2;
+        single_fn_space = single_fn_space + 100i32
+    }
+    single_ptr = single_ptr + 1i32;
+    while single_ptr + wiz_def_ptr > wiz_fn_space {
+        wiz_functions = xrealloc(
+            wiz_functions as *mut libc::c_void,
+            ((wiz_fn_space + 3000i32 + 1i32) as u64)
+                .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+        ) as *mut hash_ptr2;
+        wiz_fn_space = wiz_fn_space + 3000i32
+    }
+    *ilk_info.offset(fn_hash_loc as isize) = wiz_def_ptr;
+    copy_ptr = 0i32;
+    while copy_ptr < single_ptr {
+        *wiz_functions.offset(wiz_def_ptr as isize) = *singl_function.offset(copy_ptr as isize);
+        copy_ptr = copy_ptr + 1i32;
+        wiz_def_ptr = wiz_def_ptr + 1i32
+    }
+    buf_ptr2 = buf_ptr2 + 1i32;
+
+    unsafe fn exit(singl_function: *mut i32) {
+        free(singl_function as *mut libc::c_void);
+    }
+    exit(singl_function);
 }
 unsafe extern "C" fn eat_bib_white_space() -> bool {
     while !scan_white_space() {
@@ -5476,16 +5393,16 @@ unsafe extern "C" fn aux_bib_style_command() {
 }
 unsafe extern "C" fn aux_citation_command() {
     citation_seen = true;
-    while *buffer.offset(buf_ptr2 as isize) as i32 != 125i32 {
-        let mut current_block_56: u64;
-        /*right_brace */
-        buf_ptr2 = buf_ptr2 + 1i32;
-        if !scan2_white(125i32 as u8, 44i32 as u8) {
+    'lab23: while *buffer.offset(buf_ptr2 as isize) as i32 != 125
+    /*right_brace */
+    {
+        buf_ptr2 = buf_ptr2 + 1;
+        if !scan2_white(125 /*right_brace */, 44 /*comma */) {
             aux_err_no_right_brace_print();
             aux_err_print();
             return;
         }
-        if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 1i32 {
+        if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 1 {
             /*white_space */
             aux_err_white_space_in_argument_print();
             aux_err_print();
@@ -5507,63 +5424,55 @@ unsafe extern "C" fn aux_citation_command() {
                     all_entries = true;
                     all_marker = cite_ptr
                 }
-                current_block_56 = 10930818133215224067;
-            } else {
-                current_block_56 = 15925075030174552612;
+                continue 'lab23;
+            }
+        }
+        tmp_ptr = buf_ptr1;
+        while tmp_ptr < buf_ptr2 {
+            *ex_buf.offset(tmp_ptr as isize) = *buffer.offset(tmp_ptr as isize);
+            tmp_ptr = tmp_ptr + 1i32
+        }
+        lower_case(ex_buf, buf_ptr1, buf_ptr2 - buf_ptr1);
+        lc_cite_loc = str_lookup(
+            ex_buf,
+            buf_ptr1,
+            buf_ptr2 - buf_ptr1,
+            10i32 as str_ilk,
+            true,
+        );
+        if hash_found {
+            /*136: */
+            dummy_loc = str_lookup(
+                buffer,
+                buf_ptr1,
+                buf_ptr2 - buf_ptr1,
+                9i32 as str_ilk,
+                false,
+            );
+            if !hash_found {
+                log!("Case mismatch error between cite keys ");
+                print_a_token();
+                log!(" and ");
+                print_a_pool_str(*cite_list.offset(
+                    *ilk_info.offset(*ilk_info.offset(lc_cite_loc as isize) as isize) as isize,
+                ));
+                putc_log('\n' as i32);
+                aux_err_print();
+                return;
             }
         } else {
-            current_block_56 = 15925075030174552612;
-        }
-        match current_block_56 {
-            15925075030174552612 => {
-                tmp_ptr = buf_ptr1;
-                while tmp_ptr < buf_ptr2 {
-                    *ex_buf.offset(tmp_ptr as isize) = *buffer.offset(tmp_ptr as isize);
-                    tmp_ptr = tmp_ptr + 1i32
-                }
-                lower_case(ex_buf, buf_ptr1, buf_ptr2 - buf_ptr1);
-                lc_cite_loc = str_lookup(
-                    ex_buf,
-                    buf_ptr1,
-                    buf_ptr2 - buf_ptr1,
-                    10i32 as str_ilk,
-                    true,
-                );
-                if hash_found {
-                    dummy_loc = str_lookup(
-                        buffer,
-                        buf_ptr1,
-                        buf_ptr2 - buf_ptr1,
-                        9i32 as str_ilk,
-                        false,
-                    );
-                    if !hash_found {
-                        log!("Case mismatch error between cite keys ");
-                        print_a_token();
-                        log!(" and ");
-                        print_a_pool_str(*cite_list.offset(
-                            *ilk_info.offset(*ilk_info.offset(lc_cite_loc as isize) as isize)
-                                as isize,
-                        ));
-                        putc_log('\n' as i32);
-                        aux_err_print();
-                        return;
-                    }
-                } else {
-                    cite_loc =
-                        str_lookup(buffer, buf_ptr1, buf_ptr2 - buf_ptr1, 9i32 as str_ilk, true);
-                    if hash_found {
-                        hash_cite_confusion();
-                    }
-                    check_cite_overflow(cite_ptr);
-                    *cite_list.offset(cite_ptr as isize) = *hash_text.offset(cite_loc as isize);
-                    *ilk_info.offset(cite_loc as isize) = cite_ptr;
-                    *ilk_info.offset(lc_cite_loc as isize) = cite_loc;
-                    cite_ptr = cite_ptr + 1i32
-                }
+            /*137: */
+            cite_loc = str_lookup(buffer, buf_ptr1, buf_ptr2 - buf_ptr1, 9i32 as str_ilk, true);
+            if hash_found {
+                hash_cite_confusion();
             }
-            _ => {}
+            check_cite_overflow(cite_ptr);
+            *cite_list.offset(cite_ptr as isize) = *hash_text.offset(cite_loc as isize);
+            *ilk_info.offset(cite_loc as isize) = cite_ptr;
+            *ilk_info.offset(lc_cite_loc as isize) = cite_loc;
+            cite_ptr = cite_ptr + 1i32
         }
+        continue 'lab23; /*next_cite */
     }
 }
 unsafe extern "C" fn aux_input_command() {
@@ -7425,14 +7334,14 @@ unsafe extern "C" fn initialize(mut aux_file_name: *const i8) -> i32 {
 */
 #[no_mangle]
 pub unsafe extern "C" fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
-    pool_size = 65000 as i32;
-    buf_size = 20000i32;
-    max_bib_files = 20i32;
-    max_glob_strs = 10i32;
-    max_fields = 17250i32;
-    max_cites = 750i32;
-    wiz_fn_space = 3000i32;
-    lit_stk_size = 100i32;
+    pool_size = POOL_SIZE;
+    buf_size = BUF_SIZE;
+    max_bib_files = MAX_BIB_FILES;
+    max_glob_strs = MAX_GLOB_STRS;
+    max_fields = MAX_FIELDS;
+    max_cites = MAX_CITES;
+    wiz_fn_space = WIZ_FN_SPACE;
+    lit_stk_size = LIT_STK_SIZE;
     standard_output = ttstub_output_open_stdout();
     if standard_output.is_none() {
         return TTHistory::FATAL_ERROR;
