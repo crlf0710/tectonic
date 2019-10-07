@@ -124,6 +124,16 @@ impl From<u8> for Selector {
     }
 }
 
+/// Magic constant, origin unclear
+const sup_max_strings: i32 = 2097151;
+const sup_hash_extra: i32 = sup_max_strings;
+/// "TTNC" in ASCII
+const FORMAT_HEADER_MAGIC: i32 = 0x54544E43;
+const FORMAT_FOOTER_MAGIC: i32 = 0x0000029A;
+const sup_pool_size: i32 = 40000000;
+/// magic constant, origin unclear
+const sup_font_mem_size: i32 = 147483647;
+const TRIE_OP_SIZE: i32 = 35111;
 /*18: */
 pub type UTF16_code = u16;
 pub type UTF8_code = u8;
@@ -3836,12 +3846,15 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut x: i32 = 0;
-    let mut fmt_in: rust_input_handle_t = 0 as *mut libc::c_void;
+    let mut fmt_in: rust_input_handle_t = std::ptr::null_mut();
+
     j = cur_input.loc;
+
     /* This is where a first line starting with "&" used to
      * trigger code that would change the format file. */
-    pack_buffered_name((format_default_length - 4i32) as small_number, 1i32, 0i32);
-    fmt_in = ttstub_input_open(name_of_file, TTInputFormat::FORMAT, 0i32);
+
+    pack_buffered_name((format_default_length - 4) as small_number, 1, 0);
+    fmt_in = ttstub_input_open(name_of_file, TTInputFormat::FORMAT, 0);
     if fmt_in.is_null() {
         _tt_abort(
             b"cannot open the format file \"%s\"\x00" as *const u8 as *const i8,
@@ -3858,6 +3871,9 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         free(mem as *mut libc::c_void);
         mem = 0 as *mut memory_word
     }
+    fn bad_fmt() -> ! {
+        panic!("fatal format file error");
+    };
     /* start reading the header */
     do_undump(
         &mut x as *mut i32 as *mut i8,
@@ -3865,2751 +3881,1116 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         1i32 as size_t,
         fmt_in,
     );
-    if !(x != 0x54544e43i32) {
+    if x != FORMAT_HEADER_MAGIC {
+        bad_fmt();
+    }
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x != FORMAT_SERIAL {
+        _tt_abort(
+            b"format file \"%s\" is of the wrong version: expected %d, found %d\x00" as *const u8
+                as *const i8,
+            name_of_file,
+            FORMAT_SERIAL,
+            x,
+        );
+    }
+    /* hash table parameters */
+    do_undump(
+        &mut hash_high as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if hash_high < 0 || hash_high > sup_hash_extra {
+        bad_fmt();
+    }
+    if hash_extra < hash_high {
+        hash_extra = hash_high
+    }
+    eqtb_top = EQTB_SIZE + hash_extra;
+    if hash_extra == 0i32 {
+        hash_top = UNDEFINED_CONTROL_SEQUENCE;
+    } else {
+        hash_top = eqtb_top
+    }
+    yhash = xmalloc(
+        ((1i32 + hash_top - 514i32 + 1i32) as u64)
+            .wrapping_mul(::std::mem::size_of::<b32x2>() as u64),
+    ) as *mut b32x2;
+    hash = yhash.offset(-514);
+    (*hash.offset((1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32) as isize)).s0 = 0i32;
+    (*hash.offset((1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32) as isize)).s1 = 0i32;
+    x = 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 1i32;
+    while x <= hash_top {
+        *hash.offset(x as isize) = *hash.offset(HASH_BASE as isize);
+        x += 1
+    }
+    eqtb = xmalloc(
+        ((eqtb_top + 1i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<memory_word>() as u64),
+    ) as *mut memory_word;
+    (*eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize)).b16.s1 = UNDEFINED_CS as _;
+    (*eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize)).b32.s1 = TEX_NULL as _;
+    (*eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize)).b16.s0 = LEVEL_ZERO as _;
+    x = EQTB_SIZE + 1;
+    while x <= eqtb_top {
+        *eqtb.offset(x as isize) = *eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize);
+        x += 1
+    }
+    max_reg_num = 32767i32;
+    max_reg_help_line =
+        b"A register number must be between 0 and 32767.\x00" as *const u8 as *const i8;
+    /* "memory locations" */
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x != MEM_TOP {
+        bad_fmt();
+    }
+    cur_list.head = CONTRIB_HEAD;
+    cur_list.tail = CONTRIB_HEAD;
+    page_tail = PAGE_HEAD;
+    mem = xmalloc(
+        ((4999999i32 + 1i32 + 1i32) as u64)
+            .wrapping_mul(::std::mem::size_of::<memory_word>() as u64),
+    ) as *mut memory_word;
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x != EQTB_SIZE {
+        bad_fmt();
+    }
+
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x != HASH_PRIME {
+        bad_fmt();
+    }
+
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x != HYPH_PRIME {
+        bad_fmt();
+    }
+
+    /* string pool */
+
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < 0 {
+        bad_fmt();
+    }
+    if x as i64 > sup_pool_size as i64 - pool_free as i64 {
+        panic!("must increase string_pool_size");
+    }
+    pool_ptr = x;
+    if pool_size < pool_ptr + pool_free {
+        pool_size = pool_ptr + pool_free
+    }
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < 0 {
+        bad_fmt();
+    }
+    if x as i64 > sup_max_strings as i64 - strings_free as i64 {
+        panic!("must increase sup_strings");
+    }
+    str_ptr = x;
+
+    if max_strings < str_ptr + strings_free {
+        max_strings = str_ptr + strings_free
+    }
+
+    str_start = xmalloc(
+        ((max_strings + 1i32) as u64).wrapping_mul(::std::mem::size_of::<pool_pointer>() as u64),
+    ) as *mut pool_pointer;
+    let mut i: i32 = 0;
+    do_undump(
+        &mut *str_start.offset(0) as *mut pool_pointer as *mut i8,
+        ::std::mem::size_of::<pool_pointer>() as u64,
+        (str_ptr - 65536i32 + 1i32) as size_t,
+        fmt_in,
+    );
+    i = 0i32;
+    while i < str_ptr - 65536i32 + 1i32 {
+        if *(&mut *str_start.offset(0) as *mut pool_pointer).offset(i as isize) < 0i32
+            || *(&mut *str_start.offset(0) as *mut pool_pointer).offset(i as isize) > pool_ptr
+        {
+            panic!(
+                "item {} (={}) of .fmt array at {:x} <{} or >{}",
+                i,
+                *(&mut *str_start.offset(0) as *mut pool_pointer).offset(i as isize) as uintptr_t,
+                &mut *str_start.offset(0) as *mut pool_pointer as uintptr_t,
+                0i32 as uintptr_t,
+                pool_ptr as uintptr_t
+            );
+        }
+        i += 1
+    }
+    str_pool = xmalloc(
+        ((pool_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<packed_UTF16_code>() as u64),
+    ) as *mut packed_UTF16_code;
+    do_undump(
+        &mut *str_pool.offset(0) as *mut packed_UTF16_code as *mut i8,
+        ::std::mem::size_of::<packed_UTF16_code>() as u64,
+        pool_ptr as size_t,
+        fmt_in,
+    );
+    init_str_ptr = str_ptr;
+    init_pool_ptr = pool_ptr;
+    /* "By sorting the list of available spaces in the variable-size portion
+     * of |mem|, we are usually able to get by without having to dump very
+     * much of the dynamic memory." */
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < 1019 || x > MEM_TOP - HI_MEM_STAT_USAGE {
+        bad_fmt();
+    } else {
+        lo_mem_max = x;
+    }
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < 20 || x > lo_mem_max {
+        bad_fmt();
+    } else {
+        rover = x;
+    }
+    k = INT_VAL;
+    loop {
+        if !(k <= INTER_CHAR_VAL) {
+            break;
+        }
         do_undump(
             &mut x as *mut i32 as *mut i8,
             ::std::mem::size_of::<i32>() as u64,
             1i32 as size_t,
             fmt_in,
         );
-        if x != 28i32 {
-            _tt_abort(
-                b"format file \"%s\" is of the wrong version: expected %d, found %d\x00"
-                    as *const u8 as *const i8,
-                name_of_file,
-                28i32,
-                x,
-            );
+        if x < TEX_NULL || x > lo_mem_max {
+            bad_fmt();
+        } else {
+            sa_root[k as usize] = x;
         }
-        /* hash table parameters */
+        k += 1
+    }
+    p = 0i32;
+    q = rover;
+    loop {
         do_undump(
-            &mut hash_high as *mut i32 as *mut i8,
+            &mut *mem.offset(p as isize) as *mut memory_word as *mut i8,
+            ::std::mem::size_of::<memory_word>() as u64,
+            (q + 2i32 - p) as size_t,
+            fmt_in,
+        );
+        p = q + (*mem.offset(q as isize)).b32.s0;
+        if p > lo_mem_max
+            || q >= (*mem.offset((q + 1i32) as isize)).b32.s1
+                && (*mem.offset((q + 1i32) as isize)).b32.s1 != rover
+        {
+            bad_fmt();
+        }
+        q = (*mem.offset((q + 1i32) as isize)).b32.s1;
+        if !(q != rover) {
+            break;
+        }
+    }
+    do_undump(
+        &mut *mem.offset(p as isize) as *mut memory_word as *mut i8,
+        ::std::mem::size_of::<memory_word>() as u64,
+        (lo_mem_max + 1i32 - p) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < lo_mem_max + 1 || x > PRE_ADJUST_HEAD {
+        bad_fmt();
+    } else {
+        hi_mem_min = x;
+    }
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < MIN_HALFWORD || x > MEM_TOP {
+        bad_fmt();
+    } else {
+        avail = x;
+    }
+
+    mem_end = MEM_TOP;
+
+    do_undump(
+        &mut *mem.offset(hi_mem_min as isize) as *mut memory_word as *mut i8,
+        ::std::mem::size_of::<memory_word>() as u64,
+        (mem_end + 1i32 - hi_mem_min) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut var_used as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut dyn_used as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    /* equivalents table / primitives
+     *
+     * "The table of equivalents usually contains repeated information, so we
+     * dump it in compressed form: The sequence of $n + 2$ values
+     * $(n, x_1, \ldots, x_n, m)$ in the format file represents $n + m$ consecutive
+     * entries of |eqtb|, with |m| extra copies of $x_n$, namely
+     * $(x_1, \ldots, x_n, x_n, \ldots, x_n)$"
+     */
+    k = ACTIVE_BASE;
+    loop {
+        do_undump(
+            &mut x as *mut i32 as *mut i8,
             ::std::mem::size_of::<i32>() as u64,
             1i32 as size_t,
             fmt_in,
         );
-        if !(hash_high < 0i32 || hash_high as i64 > 2097151) {
-            if hash_extra < hash_high {
-                hash_extra = hash_high
-            }
-            eqtb_top = EQTB_SIZE + hash_extra;
-            if hash_extra == 0i32 {
-                hash_top = UNDEFINED_CONTROL_SEQUENCE;
-            } else {
-                hash_top = eqtb_top
-            }
-            yhash = xmalloc(
-                ((1i32 + hash_top - 514i32 + 1i32) as u64)
-                    .wrapping_mul(::std::mem::size_of::<b32x2>() as u64),
-            ) as *mut b32x2;
-            hash = yhash.offset(-514);
-            (*hash.offset((1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32) as isize))
-                .s0 = 0i32;
-            (*hash.offset((1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32) as isize))
-                .s1 = 0i32;
-            x = 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 1i32;
-            while x <= hash_top {
-                *hash.offset(x as isize) = *hash.offset(HASH_BASE as isize);
-                x += 1
-            }
-            eqtb = xmalloc(
-                ((eqtb_top + 1i32 + 1i32) as u64)
-                    .wrapping_mul(::std::mem::size_of::<memory_word>() as u64),
-            ) as *mut memory_word;
-            (*eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize)).b16.s1 = UNDEFINED_CS as _;
-            (*eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize)).b32.s1 = TEX_NULL as _;
-            (*eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize)).b16.s0 = LEVEL_ZERO as _;
-            x = EQTB_SIZE + 1;
-            while x <= eqtb_top {
-                *eqtb.offset(x as isize) = *eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize);
-                x += 1
-            }
-            max_reg_num = 32767i32;
-            max_reg_help_line =
-                b"A register number must be between 0 and 32767.\x00" as *const u8 as *const i8;
-            /* "memory locations" */
-            do_undump(
-                &mut x as *mut i32 as *mut i8,
-                ::std::mem::size_of::<i32>() as u64,
-                1i32 as size_t,
-                fmt_in,
-            );
-            if !(x != MEM_TOP) {
-                cur_list.head = CONTRIB_HEAD;
-                cur_list.tail = CONTRIB_HEAD;
-                page_tail = PAGE_HEAD;
-                mem = xmalloc(
-                    ((4999999i32 + 1i32 + 1i32) as u64)
-                        .wrapping_mul(::std::mem::size_of::<memory_word>() as u64),
-                ) as *mut memory_word;
-                do_undump(
-                    &mut x as *mut i32 as *mut i8,
-                    ::std::mem::size_of::<i32>() as u64,
-                    1i32 as size_t,
-                    fmt_in,
-                );
-                if !(x != EQTB_SIZE) {
-                    do_undump(
-                        &mut x as *mut i32 as *mut i8,
-                        ::std::mem::size_of::<i32>() as u64,
-                        1i32 as size_t,
-                        fmt_in,
-                    );
-                    if !(x != 8501i32) {
-                        do_undump(
-                            &mut x as *mut i32 as *mut i8,
-                            ::std::mem::size_of::<i32>() as u64,
-                            1i32 as size_t,
-                            fmt_in,
-                        );
-                        if !(x != 607i32) {
-                            /* string pool */
-                            do_undump(
-                                &mut x as *mut i32 as *mut i8,
-                                ::std::mem::size_of::<i32>() as u64,
-                                1i32 as size_t,
-                                fmt_in,
-                            ); /*:1345 */
-                            if !(x < 0i32) {
-                                if x as i64 > 40000000 - pool_free as i64 {
-                                    panic!("must increase string_pool_size");
-                                }
-                                pool_ptr = x;
-                                if pool_size < pool_ptr + pool_free {
-                                    pool_size = pool_ptr + pool_free
-                                }
-                                do_undump(
-                                    &mut x as *mut i32 as *mut i8,
-                                    ::std::mem::size_of::<i32>() as u64,
-                                    1i32 as size_t,
-                                    fmt_in,
-                                );
-                                if !(x < 0i32) {
-                                    if x as i64 > 2097151 - strings_free as i64 {
-                                        panic!("must increase sup_strings");
-                                    }
-                                    str_ptr = x;
-                                    if max_strings < str_ptr + strings_free {
-                                        max_strings = str_ptr + strings_free
-                                    }
-                                    str_start =
-                                        xmalloc(((max_strings + 1i32) as u64).wrapping_mul(
-                                            ::std::mem::size_of::<pool_pointer>() as u64,
-                                        ))
-                                            as *mut pool_pointer;
-                                    let mut i: i32 = 0;
-                                    do_undump(
-                                        &mut *str_start.offset(0) as *mut pool_pointer as *mut i8,
-                                        ::std::mem::size_of::<pool_pointer>() as u64,
-                                        (str_ptr - 65536i32 + 1i32) as size_t,
-                                        fmt_in,
-                                    );
-                                    i = 0i32;
-                                    while i < str_ptr - 65536i32 + 1i32 {
-                                        if *(&mut *str_start.offset(0) as *mut pool_pointer)
-                                            .offset(i as isize)
-                                            < 0i32
-                                            || *(&mut *str_start.offset(0) as *mut pool_pointer)
-                                                .offset(i as isize)
-                                                > pool_ptr
-                                        {
-                                            panic!(
-                                                "item {} (={}) of .fmt array at {:x} <{} or >{}",
-                                                i,
-                                                *(&mut *str_start.offset(0) as *mut pool_pointer)
-                                                    .offset(i as isize)
-                                                    as uintptr_t,
-                                                &mut *str_start.offset(0) as *mut pool_pointer
-                                                    as uintptr_t,
-                                                0i32 as uintptr_t,
-                                                pool_ptr as uintptr_t
-                                            );
-                                        }
-                                        i += 1
-                                    }
-                                    str_pool = xmalloc(((pool_size + 1i32) as u64).wrapping_mul(
-                                        ::std::mem::size_of::<packed_UTF16_code>() as u64,
-                                    ))
-                                        as *mut packed_UTF16_code;
-                                    do_undump(
-                                        &mut *str_pool.offset(0) as *mut packed_UTF16_code
-                                            as *mut i8,
-                                        ::std::mem::size_of::<packed_UTF16_code>() as u64,
-                                        pool_ptr as size_t,
-                                        fmt_in,
-                                    );
-                                    init_str_ptr = str_ptr;
-                                    init_pool_ptr = pool_ptr;
-                                    /* "By sorting the list of available spaces in the variable-size portion
-                                     * of |mem|, we are usually able to get by without having to dump very
-                                     * much of the dynamic memory." */
-                                    do_undump(
-                                        &mut x as *mut i32 as *mut i8,
-                                        ::std::mem::size_of::<i32>() as u64,
-                                        1i32 as size_t,
-                                        fmt_in,
-                                    );
-                                    if !(x < 1019i32 || x > 4999999i32 - 15i32) {
-                                        lo_mem_max = x;
-                                        do_undump(
-                                            &mut x as *mut i32 as *mut i8,
-                                            ::std::mem::size_of::<i32>() as u64,
-                                            1i32 as size_t,
-                                            fmt_in,
-                                        );
-                                        if !(x < 20i32 || x > lo_mem_max) {
-                                            rover = x;
-                                            k = 0i32;
-                                            loop {
-                                                if !(k <= 6i32) {
-                                                    current_block = 1209030638129645089;
-                                                    break;
-                                                }
-                                                do_undump(
-                                                    &mut x as *mut i32 as *mut i8,
-                                                    ::std::mem::size_of::<i32>() as u64,
-                                                    1i32 as size_t,
-                                                    fmt_in,
-                                                );
-                                                if x < TEX_NULL || x > lo_mem_max {
-                                                    current_block = 6442379788293543199;
-                                                    break;
-                                                }
-                                                sa_root[k as usize] = x;
-                                                k += 1
-                                            }
-                                            match current_block {
-                                                6442379788293543199 => {}
-                                                _ => {
-                                                    p = 0i32;
-                                                    q = rover;
-                                                    loop {
-                                                        do_undump(
-                                                            &mut *mem.offset(p as isize)
-                                                                as *mut memory_word
-                                                                as *mut i8,
-                                                            ::std::mem::size_of::<memory_word>()
-                                                                as u64,
-                                                            (q + 2i32 - p) as size_t,
-                                                            fmt_in,
-                                                        );
-                                                        p = q + (*mem.offset(q as isize)).b32.s0;
-                                                        if p > lo_mem_max
-                                                            || q >= (*mem
-                                                                .offset((q + 1i32) as isize))
-                                                            .b32
-                                                            .s1 && (*mem
-                                                                .offset((q + 1i32) as isize))
-                                                            .b32
-                                                            .s1 != rover
-                                                        {
-                                                            current_block = 6442379788293543199;
-                                                            break;
-                                                        }
-                                                        q = (*mem.offset((q + 1i32) as isize))
-                                                            .b32
-                                                            .s1;
-                                                        if !(q != rover) {
-                                                            current_block = 17395932908762866334;
-                                                            break;
-                                                        }
-                                                    }
-                                                    match current_block {
-                                                        6442379788293543199 => {}
-                                                        _ => {
-                                                            do_undump(
-                                                                &mut *mem.offset(p as isize)
-                                                                    as *mut memory_word
-                                                                    as *mut i8,
-                                                                ::std::mem::size_of::<memory_word>()
-                                                                    as u64,
-                                                                (lo_mem_max + 1i32 - p) as size_t,
-                                                                fmt_in,
-                                                            );
-                                                            do_undump(
-                                                                &mut x as *mut i32 as *mut i8,
-                                                                ::std::mem::size_of::<i32>() as u64,
-                                                                1i32 as size_t,
-                                                                fmt_in,
-                                                            );
-                                                            if !(x < lo_mem_max + 1i32
-                                                                || x > 4999999i32 - 14i32)
-                                                            {
-                                                                hi_mem_min = x;
-                                                                do_undump(
-                                                                    &mut x as *mut i32 as *mut i8,
-                                                                    ::std::mem::size_of::<i32>()
-                                                                        as u64,
-                                                                    1i32 as size_t,
-                                                                    fmt_in,
-                                                                );
-                                                                if !(x < TEX_NULL || x > 4999999i32)
-                                                                {
-                                                                    avail = x;
-                                                                    mem_end = 4999999i32;
-                                                                    do_undump(
-                                                                        &mut *mem.offset(
-                                                                            hi_mem_min as isize,
-                                                                        )
-                                                                            as *mut memory_word
-                                                                            as *mut i8,
-                                                                        ::std::mem::size_of::<
-                                                                            memory_word,
-                                                                        >(
-                                                                        )
-                                                                            as u64,
-                                                                        (mem_end + 1i32
-                                                                            - hi_mem_min)
-                                                                            as size_t,
-                                                                        fmt_in,
-                                                                    );
-                                                                    do_undump(
-                                                                        &mut var_used as *mut i32
-                                                                            as *mut i8,
-                                                                        ::std::mem::size_of::<i32>()
-                                                                            as u64,
-                                                                        1i32 as size_t,
-                                                                        fmt_in,
-                                                                    );
-                                                                    do_undump(
-                                                                        &mut dyn_used as *mut i32
-                                                                            as *mut i8,
-                                                                        ::std::mem::size_of::<i32>()
-                                                                            as u64,
-                                                                        1i32 as size_t,
-                                                                        fmt_in,
-                                                                    );
-                                                                    /* equivalents table / primitives
-                                                                     *
-                                                                     * "The table of equivalents usually contains repeated information, so we
-                                                                     * dump it in compressed form: The sequence of $n + 2$ values
-                                                                     * $(n, x_1, \ldots, x_n, m)$ in the format file represents $n + m$ consecutive
-                                                                     * entries of |eqtb|, with |m| extra copies of $x_n$, namely
-                                                                     * $(x_1, \ldots, x_n, x_n, \ldots, x_n)$"
-                                                                     */
-                                                                    k = 1i32;
-                                                                    loop {
-                                                                        do_undump(
-                                                                            &mut x as *mut i32
-                                                                                as *mut i8,
-                                                                            ::std::mem::size_of::<i32>(
-                                                                            )
-                                                                                as u64,
-                                                                            1i32 as size_t,
-                                                                            fmt_in,
-                                                                        );
-                                                                        if x < 1i32
-                                                                            || k + x
-                                                                                > 1i32
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + 1i32
-                                                                                    + 15000i32
-                                                                                    + 12i32
-                                                                                    + 9000i32
-                                                                                    + 1i32
-                                                                                    + 1i32
-                                                                                    + 19i32
-                                                                                    + 256i32
-                                                                                    + 256i32
-                                                                                    + 13i32
-                                                                                    + 256i32
-                                                                                    + 4i32
-                                                                                    + 256i32
-                                                                                    + 1i32
-                                                                                    + 3i32 * 256i32
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + 85i32
-                                                                                    + 256i32
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + 23i32
-                                                                                    + 256i32
-                                                                                    - 1i32
-                                                                                    + 1i32
-                                                                        {
-                                                                            current_block =
-                                                                                6442379788293543199;
-                                                                            break;
-                                                                        }
-                                                                        do_undump(
-                                                                            &mut *eqtb
-                                                                                .offset(k as isize)
-                                                                                as *mut memory_word
-                                                                                as *mut i8,
-                                                                            ::std::mem::size_of::<
-                                                                                memory_word,
-                                                                            >(
-                                                                            )
-                                                                                as u64,
-                                                                            x as size_t,
-                                                                            fmt_in,
-                                                                        );
-                                                                        k = k + x;
-                                                                        do_undump(
-                                                                            &mut x as *mut i32
-                                                                                as *mut i8,
-                                                                            ::std::mem::size_of::<i32>(
-                                                                            )
-                                                                                as u64,
-                                                                            1i32 as size_t,
-                                                                            fmt_in,
-                                                                        );
-                                                                        if x < 0i32
-                                                                            || k + x
-                                                                                > 1i32
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + 1i32
-                                                                                    + 15000i32
-                                                                                    + 12i32
-                                                                                    + 9000i32
-                                                                                    + 1i32
-                                                                                    + 1i32
-                                                                                    + 19i32
-                                                                                    + 256i32
-                                                                                    + 256i32
-                                                                                    + 13i32
-                                                                                    + 256i32
-                                                                                    + 4i32
-                                                                                    + 256i32
-                                                                                    + 1i32
-                                                                                    + 3i32 * 256i32
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + 85i32
-                                                                                    + 256i32
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + 23i32
-                                                                                    + 256i32
-                                                                                    - 1i32
-                                                                                    + 1i32
-                                                                        {
-                                                                            current_block =
-                                                                                6442379788293543199;
-                                                                            break;
-                                                                        }
-                                                                        j = k;
-                                                                        while j <= k + x - 1i32 {
-                                                                            *eqtb.offset(
-                                                                                j as isize,
-                                                                            ) = *eqtb.offset(
-                                                                                (k - 1i32) as isize,
-                                                                            );
-                                                                            j += 1
-                                                                        }
-                                                                        k = k + x;
-                                                                        if !(k
-                                                                            <= 1i32
-                                                                                + (0x10ffffi32
-                                                                                    + 1i32)
-                                                                                + (0x10ffffi32
-                                                                                    + 1i32)
-                                                                                + 1i32
-                                                                                + 15000i32
-                                                                                + 12i32
-                                                                                + 9000i32
-                                                                                + 1i32
-                                                                                + 1i32
-                                                                                + 19i32
-                                                                                + 256i32
-                                                                                + 256i32
-                                                                                + 13i32
-                                                                                + 256i32
-                                                                                + 4i32
-                                                                                + 256i32
-                                                                                + 1i32
-                                                                                + 3i32 * 256i32
-                                                                                + (0x10ffffi32
-                                                                                    + 1i32)
-                                                                                + (0x10ffffi32
-                                                                                    + 1i32)
-                                                                                + (0x10ffffi32
-                                                                                    + 1i32)
-                                                                                + (0x10ffffi32
-                                                                                    + 1i32)
-                                                                                + (0x10ffffi32
-                                                                                    + 1i32)
-                                                                                + (0x10ffffi32
-                                                                                    + 1i32)
-                                                                                + 85i32
-                                                                                + 256i32
-                                                                                + (0x10ffffi32
-                                                                                    + 1i32)
-                                                                                + 23i32
-                                                                                + 256i32
-                                                                                - 1i32)
-                                                                        {
-                                                                            current_block
-                                                                                =
-                                                                                10041771570435381152;
-                                                                            break;
-                                                                        }
-                                                                    }
-                                                                    match current_block {
-                                                                        6442379788293543199 => {}
-                                                                        _ => {
-                                                                            if hash_high > 0i32 {
-                                                                                do_undump(&mut *eqtb.offset((1i32
-                                                                                                                 +
-                                                                                                                 (0x10ffffi32
-                                                                                                                      +
-                                                                                                                      1i32)
-                                                                                                                 +
-                                                                                                                 (0x10ffffi32
-                                                                                                                      +
-                                                                                                                      1i32)
-                                                                                                                 +
-                                                                                                                 1i32
-                                                                                                                 +
-                                                                                                                 15000i32
-                                                                                                                 +
-                                                                                                                 12i32
-                                                                                                                 +
-                                                                                                                 9000i32
-                                                                                                                 +
-                                                                                                                 1i32
-                                                                                                                 +
-                                                                                                                 1i32
-                                                                                                                 +
-                                                                                                                 19i32
-                                                                                                                 +
-                                                                                                                 256i32
-                                                                                                                 +
-                                                                                                                 256i32
-                                                                                                                 +
-                                                                                                                 13i32
-                                                                                                                 +
-                                                                                                                 256i32
-                                                                                                                 +
-                                                                                                                 4i32
-                                                                                                                 +
-                                                                                                                 256i32
-                                                                                                                 +
-                                                                                                                 1i32
-                                                                                                                 +
-                                                                                                                 3i32
-                                                                                                                     *
-                                                                                                                     256i32
-                                                                                                                 +
-                                                                                                                 (0x10ffffi32
-                                                                                                                      +
-                                                                                                                      1i32)
-                                                                                                                 +
-                                                                                                                 (0x10ffffi32
-                                                                                                                      +
-                                                                                                                      1i32)
-                                                                                                                 +
-                                                                                                                 (0x10ffffi32
-                                                                                                                      +
-                                                                                                                      1i32)
-                                                                                                                 +
-                                                                                                                 (0x10ffffi32
-                                                                                                                      +
-                                                                                                                      1i32)
-                                                                                                                 +
-                                                                                                                 (0x10ffffi32
-                                                                                                                      +
-                                                                                                                      1i32)
-                                                                                                                 +
-                                                                                                                 (0x10ffffi32
-                                                                                                                      +
-                                                                                                                      1i32)
-                                                                                                                 +
-                                                                                                                 85i32
-                                                                                                                 +
-                                                                                                                 256i32
-                                                                                                                 +
-                                                                                                                 (0x10ffffi32
-                                                                                                                      +
-                                                                                                                      1i32)
-                                                                                                                 +
-                                                                                                                 23i32
-                                                                                                                 +
-                                                                                                                 256i32
-                                                                                                                 -
-                                                                                                                 1i32
-                                                                                                                 +
-                                                                                                                 1i32)
-                                                                                                                as
-                                                                                                                isize)
-                                                                                              as
-                                                                                              *mut memory_word
-                                                                                              as
-                                                                                              *mut i8,
-                                                                                          ::std::mem::size_of::<memory_word>()
-                                                                                              as
-                                                                                              u64,
-                                                                                          hash_high
-                                                                                              as
-                                                                                              size_t,
-                                                                                          fmt_in);
-                                                                            }
-                                                                            do_undump(
-                                                                                &mut x as *mut i32
-                                                                                    as *mut i8,
-                                                                                ::std::mem::size_of::<
-                                                                                    i32,
-                                                                                >(
-                                                                                )
-                                                                                    as u64,
-                                                                                1i32 as size_t,
-                                                                                fmt_in,
-                                                                            );
-                                                                            if !(x < 1i32
-                                                                                + (0x10ffffi32
-                                                                                    + 1i32)
-                                                                                + (0x10ffffi32
-                                                                                    + 1i32)
-                                                                                + 1i32
-                                                                                || x > hash_top)
-                                                                            {
-                                                                                par_loc = x;
-                                                                                par_token =
-                                                                                    0x1ffffffi32
-                                                                                        + par_loc;
-                                                                                do_undump(&mut x
-                                                                                              as
-                                                                                              *mut i32
-                                                                                              as
-                                                                                              *mut i8,
-                                                                                          ::std::mem::size_of::<i32>()
-                                                                                              as
-                                                                                              u64,
-                                                                                          1i32
-                                                                                              as
-                                                                                              size_t,
-                                                                                          fmt_in);
-                                                                                if !(x < 1i32
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + (0x10ffffi32
-                                                                                        + 1i32)
-                                                                                    + 1i32
-                                                                                    || x > hash_top)
-                                                                                {
-                                                                                    write_loc = x;
-                                                                                    /* control sequence names
-                                                                                     *
-                                                                                     * "A different scheme is used to compress the hash table, since its lower
-                                                                                     * region is usually sparse. When |text(p) != 0| for |p <= hash_used|, we
-                                                                                     * output two words, |p| and |hash[p]|. The hash table is, of course,
-                                                                                     * densely packed for |p >= hash_used|, so the remaining entries are
-                                                                                     * output in a block."
-                                                                                     */
-                                                                                    p = 0i32;
-                                                                                    while p
-                                                                                        <= 500i32
-                                                                                    {
-                                                                                        do_undump(&mut *prim.as_mut_ptr().offset(p
-                                                                                                                                     as
-                                                                                                                                     isize)
-                                                                                                      as
-                                                                                                      *mut b32x2
-                                                                                                      as
-                                                                                                      *mut i8,
-                                                                                                  ::std::mem::size_of::<b32x2>()
-                                                                                                      as
-                                                                                                      u64,
-                                                                                                  1i32
-                                                                                                      as
-                                                                                                      size_t,
-                                                                                                  fmt_in);
-                                                                                        p += 1
-                                                                                    }
-                                                                                    p = 0i32;
-                                                                                    while p
-                                                                                        <= 500i32
-                                                                                    {
-                                                                                        do_undump(&mut *prim_eqtb.as_mut_ptr().offset(p
-                                                                                                                                          as
-                                                                                                                                          isize)
-                                                                                                      as
-                                                                                                      *mut memory_word
-                                                                                                      as
-                                                                                                      *mut i8,
-                                                                                                  ::std::mem::size_of::<memory_word>()
-                                                                                                      as
-                                                                                                      u64,
-                                                                                                  1i32
-                                                                                                      as
-                                                                                                      size_t,
-                                                                                                  fmt_in);
-                                                                                        p += 1
-                                                                                    }
-                                                                                    do_undump(&mut x
-                                                                                                  as
-                                                                                                  *mut i32
-                                                                                                  as
-                                                                                                  *mut i8,
-                                                                                              ::std::mem::size_of::<i32>()
-                                                                                                  as
-                                                                                                  u64,
-                                                                                              1i32
-                                                                                                  as
-                                                                                                  size_t,
-                                                                                              fmt_in);
-                                                                                    if !(x
-                                                                                             <
-                                                                                             1i32
-                                                                                                 +
-                                                                                                 (0x10ffffi32
-                                                                                                      +
-                                                                                                      1i32)
-                                                                                                 +
-                                                                                                 (0x10ffffi32
-                                                                                                      +
-                                                                                                      1i32)
-                                                                                                 +
-                                                                                                 1i32
-                                                                                             ||
-                                                                                             x
-                                                                                                 >
-                                                                                                 1i32
-                                                                                                     +
-                                                                                                     (0x10ffffi32
-                                                                                                          +
-                                                                                                          1i32)
-                                                                                                     +
-                                                                                                     (0x10ffffi32
-                                                                                                          +
-                                                                                                          1i32)
-                                                                                                     +
-                                                                                                     1i32
-                                                                                                     +
-                                                                                                     15000i32)
-                                                                                       {
-                                                                                        hash_used
-                                                                                            =
-                                                                                            x;
-                                                                                        p
-                                                                                            =
-                                                                                            1i32
-                                                                                                +
-                                                                                                (0x10ffffi32
-                                                                                                     +
-                                                                                                     1i32)
-                                                                                                +
-                                                                                                (0x10ffffi32
-                                                                                                     +
-                                                                                                     1i32)
-                                                                                                +
-                                                                                                1i32
-                                                                                                -
-                                                                                                1i32;
-                                                                                        loop 
-                                                                                             {
-                                                                                            do_undump(&mut x
-                                                                                                          as
-                                                                                                          *mut i32
-                                                                                                          as
-                                                                                                          *mut i8,
-                                                                                                      ::std::mem::size_of::<i32>()
-                                                                                                          as
-                                                                                                          u64,
-                                                                                                      1i32
-                                                                                                          as
-                                                                                                          size_t,
-                                                                                                      fmt_in);
-                                                                                            if x
-                                                                                                   <
-                                                                                                   p
-                                                                                                       +
-                                                                                                       1i32
-                                                                                                   ||
-                                                                                                   x
-                                                                                                       >
-                                                                                                       hash_used
-                                                                                               {
-                                                                                                current_block
-                                                                                                    =
-                                                                                                    6442379788293543199;
-                                                                                                break
-                                                                                                    ;
-                                                                                            }
-                                                                                            p
-                                                                                                =
-                                                                                                x;
-                                                                                            do_undump(&mut *hash.offset(p
-                                                                                                                            as
-                                                                                                                            isize)
-                                                                                                          as
-                                                                                                          *mut b32x2
-                                                                                                          as
-                                                                                                          *mut i8,
-                                                                                                      ::std::mem::size_of::<b32x2>()
-                                                                                                          as
-                                                                                                          u64,
-                                                                                                      1i32
-                                                                                                          as
-                                                                                                          size_t,
-                                                                                                      fmt_in);
-                                                                                            if !(p
-                                                                                                     !=
-                                                                                                     hash_used)
-                                                                                               {
-                                                                                                current_block
-                                                                                                    =
-                                                                                                    2473505634946569239;
-                                                                                                break
-                                                                                                    ;
-                                                                                            }
-                                                                                        }
-                                                                                        match current_block
-                                                                                            {
-                                                                                            6442379788293543199
-                                                                                            =>
-                                                                                            {
-                                                                                            }
-                                                                                            _
-                                                                                            =>
-                                                                                            {
-                                                                                                do_undump(&mut *hash.offset((hash_used
-                                                                                                                                 +
-                                                                                                                                 1i32)
-                                                                                                                                as
-                                                                                                                                isize)
-                                                                                                              as
-                                                                                                              *mut b32x2
-                                                                                                              as
-                                                                                                              *mut i8,
-                                                                                                          ::std::mem::size_of::<b32x2>()
-                                                                                                              as
-                                                                                                              u64,
-                                                                                                          (1i32
-                                                                                                               +
-                                                                                                               (0x10ffffi32
-                                                                                                                    +
-                                                                                                                    1i32)
-                                                                                                               +
-                                                                                                               (0x10ffffi32
-                                                                                                                    +
-                                                                                                                    1i32)
-                                                                                                               +
-                                                                                                               1i32
-                                                                                                               +
-                                                                                                               15000i32
-                                                                                                               +
-                                                                                                               12i32
-                                                                                                               +
-                                                                                                               9000i32
-                                                                                                               +
-                                                                                                               1i32
-                                                                                                               -
-                                                                                                               1i32
-                                                                                                               -
-                                                                                                               hash_used)
-                                                                                                              as
-                                                                                                              size_t,
-                                                                                                          fmt_in);
-                                                                                                if hash_high
-                                                                                                       >
-                                                                                                       0i32
-                                                                                                   {
-                                                                                                    do_undump(&mut *hash.offset((1i32
-                                                                                                                                     +
-                                                                                                                                     (0x10ffffi32
-                                                                                                                                          +
-                                                                                                                                          1i32)
-                                                                                                                                     +
-                                                                                                                                     (0x10ffffi32
-                                                                                                                                          +
-                                                                                                                                          1i32)
-                                                                                                                                     +
-                                                                                                                                     1i32
-                                                                                                                                     +
-                                                                                                                                     15000i32
-                                                                                                                                     +
-                                                                                                                                     12i32
-                                                                                                                                     +
-                                                                                                                                     9000i32
-                                                                                                                                     +
-                                                                                                                                     1i32
-                                                                                                                                     +
-                                                                                                                                     1i32
-                                                                                                                                     +
-                                                                                                                                     19i32
-                                                                                                                                     +
-                                                                                                                                     256i32
-                                                                                                                                     +
-                                                                                                                                     256i32
-                                                                                                                                     +
-                                                                                                                                     13i32
-                                                                                                                                     +
-                                                                                                                                     256i32
-                                                                                                                                     +
-                                                                                                                                     4i32
-                                                                                                                                     +
-                                                                                                                                     256i32
-                                                                                                                                     +
-                                                                                                                                     1i32
-                                                                                                                                     +
-                                                                                                                                     3i32
-                                                                                                                                         *
-                                                                                                                                         256i32
-                                                                                                                                     +
-                                                                                                                                     (0x10ffffi32
-                                                                                                                                          +
-                                                                                                                                          1i32)
-                                                                                                                                     +
-                                                                                                                                     (0x10ffffi32
-                                                                                                                                          +
-                                                                                                                                          1i32)
-                                                                                                                                     +
-                                                                                                                                     (0x10ffffi32
-                                                                                                                                          +
-                                                                                                                                          1i32)
-                                                                                                                                     +
-                                                                                                                                     (0x10ffffi32
-                                                                                                                                          +
-                                                                                                                                          1i32)
-                                                                                                                                     +
-                                                                                                                                     (0x10ffffi32
-                                                                                                                                          +
-                                                                                                                                          1i32)
-                                                                                                                                     +
-                                                                                                                                     (0x10ffffi32
-                                                                                                                                          +
-                                                                                                                                          1i32)
-                                                                                                                                     +
-                                                                                                                                     85i32
-                                                                                                                                     +
-                                                                                                                                     256i32
-                                                                                                                                     +
-                                                                                                                                     (0x10ffffi32
-                                                                                                                                          +
-                                                                                                                                          1i32)
-                                                                                                                                     +
-                                                                                                                                     23i32
-                                                                                                                                     +
-                                                                                                                                     256i32
-                                                                                                                                     -
-                                                                                                                                     1i32
-                                                                                                                                     +
-                                                                                                                                     1i32)
-                                                                                                                                    as
-                                                                                                                                    isize)
-                                                                                                                  as
-                                                                                                                  *mut b32x2
-                                                                                                                  as
-                                                                                                                  *mut i8,
-                                                                                                              ::std::mem::size_of::<b32x2>()
-                                                                                                                  as
-                                                                                                                  u64,
-                                                                                                              hash_high
-                                                                                                                  as
-                                                                                                                  size_t,
-                                                                                                              fmt_in);
-                                                                                                }
-                                                                                                do_undump(&mut cs_count
-                                                                                                              as
-                                                                                                              *mut i32
-                                                                                                              as
-                                                                                                              *mut i8,
-                                                                                                          ::std::mem::size_of::<i32>()
-                                                                                                              as
-                                                                                                              u64,
-                                                                                                          1i32
-                                                                                                              as
-                                                                                                              size_t,
-                                                                                                          fmt_in);
-                                                                                                /* font info */
-                                                                                                do_undump(&mut x
-                                                                                                              as
-                                                                                                              *mut i32
-                                                                                                              as
-                                                                                                              *mut i8,
-                                                                                                          ::std::mem::size_of::<i32>()
-                                                                                                              as
-                                                                                                              u64,
-                                                                                                          1i32
-                                                                                                              as
-                                                                                                              size_t,
-                                                                                                          fmt_in);
-                                                                                                if !(x
-                                                                                                         <
-                                                                                                         7i32)
-                                                                                                   {
-                                                                                                    if x
-                                                                                                           as
-                                                                                                           i64
-                                                                                                           >
-                                                                                                           147483647
-                                                                                                       {
-                                                                                                        panic!("must increase font_mem_size");
-                                                                                                    }
-                                                                                                    fmem_ptr
-                                                                                                        =
-                                                                                                        x;
-                                                                                                    if fmem_ptr
-                                                                                                           >
-                                                                                                           font_mem_size
-                                                                                                       {
-                                                                                                        font_mem_size
-                                                                                                            =
-                                                                                                            fmem_ptr
-                                                                                                    }
-                                                                                                    font_info
-                                                                                                        =
-                                                                                                        xmalloc(((font_mem_size
-                                                                                                                      +
-                                                                                                                      1i32)
-                                                                                                                     as
-                                                                                                                     u64).wrapping_mul(::std::mem::size_of::<memory_word>()
-                                                                                                                                                     as
-                                                                                                                                                     u64))
-                                                                                                            as
-                                                                                                            *mut memory_word;
-                                                                                                    do_undump(&mut *font_info.offset(0)
-                                                                                                                  as
-                                                                                                                  *mut memory_word
-                                                                                                                  as
-                                                                                                                  *mut i8,
-                                                                                                              ::std::mem::size_of::<memory_word>()
-                                                                                                                  as
-                                                                                                                  u64,
-                                                                                                              fmem_ptr
-                                                                                                                  as
-                                                                                                                  size_t,
-                                                                                                              fmt_in);
-                                                                                                    do_undump(&mut x
-                                                                                                                  as
-                                                                                                                  *mut i32
-                                                                                                                  as
-                                                                                                                  *mut i8,
-                                                                                                              ::std::mem::size_of::<i32>()
-                                                                                                                  as
-                                                                                                                  u64,
-                                                                                                              1i32
-                                                                                                                  as
-                                                                                                                  size_t,
-                                                                                                              fmt_in);
-                                                                                                    if !(x
-                                                                                                             <
-                                                                                                             0i32)
-                                                                                                       {
-                                                                                                        if x
-                                                                                                               >
-                                                                                                               0i32
-                                                                                                                   +
-                                                                                                                   9000i32
-                                                                                                           {
-                                                                                                            panic!("must increase font_max");
-                                                                                                        }
-                                                                                                        font_ptr
-                                                                                                            =
-                                                                                                            x;
-                                                                                                        font_mapping
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<*mut libc::c_void>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut *mut libc::c_void;
-                                                                                                        font_layout_engine
-                                                                                                            =
-                                                                                                            xcalloc((font_max
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                        as
-                                                                                                                        size_t,
-                                                                                                                    ::std::mem::size_of::<*mut libc::c_void>()
-                                                                                                                        as
-                                                                                                                        u64)
-                                                                                                                as
-                                                                                                                *mut *mut libc::c_void;
-                                                                                                        font_flags
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<i8>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut i8;
-                                                                                                        font_letter_space
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<scaled_t>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut scaled_t;
-                                                                                                        font_check
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<b16x4>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut b16x4;
-                                                                                                        font_size
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<scaled_t>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut scaled_t;
-                                                                                                        font_dsize
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<scaled_t>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut scaled_t;
-                                                                                                        font_params
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<font_index>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut font_index;
-                                                                                                        font_name
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<str_number>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut str_number;
-                                                                                                        font_area
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<str_number>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut str_number;
-                                                                                                        font_bc
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<UTF16_code>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut UTF16_code;
-                                                                                                        font_ec
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<UTF16_code>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut UTF16_code;
-                                                                                                        font_glue
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<i32>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut i32;
-                                                                                                        hyphen_char
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<i32>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut i32;
-                                                                                                        skew_char
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<i32>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut i32;
-                                                                                                        bchar_label
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<font_index>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut font_index;
-                                                                                                        font_bchar
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<nine_bits>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut nine_bits;
-                                                                                                        font_false_bchar
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<nine_bits>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut nine_bits;
-                                                                                                        char_base
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<i32>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut i32;
-                                                                                                        width_base
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<i32>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut i32;
-                                                                                                        height_base
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<i32>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut i32;
-                                                                                                        depth_base
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<i32>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut i32;
-                                                                                                        italic_base
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<i32>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut i32;
-                                                                                                        lig_kern_base
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<i32>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut i32;
-                                                                                                        kern_base
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<i32>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut i32;
-                                                                                                        exten_base
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<i32>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut i32;
-                                                                                                        param_base
-                                                                                                            =
-                                                                                                            xmalloc(((font_max
-                                                                                                                          +
-                                                                                                                          1i32)
-                                                                                                                         as
-                                                                                                                         u64).wrapping_mul(::std::mem::size_of::<i32>()
-                                                                                                                                                         as
-                                                                                                                                                         u64))
-                                                                                                                as
-                                                                                                                *mut i32;
-                                                                                                        k
-                                                                                                            =
-                                                                                                            0i32;
-                                                                                                        while k
-                                                                                                                  <=
-                                                                                                                  font_ptr
-                                                                                                              {
-                                                                                                            let ref mut fresh16 =
-                                                                                                                *font_mapping.offset(k
-                                                                                                                                         as
-                                                                                                                                         isize);
-                                                                                                            *fresh16
-                                                                                                                =
-                                                                                                                0
-                                                                                                                    as
-                                                                                                                    *mut libc::c_void;
-                                                                                                            k
-                                                                                                                +=
-                                                                                                                1
-                                                                                                        }
-                                                                                                        do_undump(&mut *font_check.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut b16x4
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<b16x4>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        do_undump(&mut *font_size.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut scaled_t
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<scaled_t>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        do_undump(&mut *font_dsize.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut scaled_t
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<scaled_t>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        let mut i_0:
-                                                                                                                i32 =
-                                                                                                            0;
-                                                                                                        do_undump(&mut *font_params.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut font_index
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<font_index>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        i_0
-                                                                                                            =
-                                                                                                            0i32;
-                                                                                                        while i_0
-                                                                                                                  <
-                                                                                                                  font_ptr
-                                                                                                                      +
-                                                                                                                      1i32
-                                                                                                              {
-                                                                                                            if *(&mut *font_params.offset(0)
-                                                                                                                     as
-                                                                                                                     *mut font_index).offset(i_0
-                                                                                                                                                 as
-                                                                                                                                                 isize)
-                                                                                                                   <
-                                                                                                                   TEX_NULL
-                                                                                                                   ||
-                                                                                                                   *(&mut *font_params.offset(0)
-                                                                                                                         as
-                                                                                                                         *mut font_index).offset(i_0
-                                                                                                                                                     as
-                                                                                                                                                     isize)
-                                                                                                                       >
-                                                                                                                       0x3fffffffi32
-                                                                                                               {
-                                                                                                                panic!("item {} (={}) of .fmt array at {:x} <{} or >{}",
-                                                                                                                          i_0,
-                                                                                                                          *(&mut *font_params.offset(0)
-                                                                                                                                as
-                                                                                                                                *mut font_index).offset(i_0
-                                                                                                                                                            as
-                                                                                                                                                            isize)
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          &mut *font_params.offset(0)
-                                                                                                                              as
-                                                                                                                              *mut font_index
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          TEX_NULL
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          0x3fffffffi32
-                                                                                                                              as
-                                                                                                                              uintptr_t);
-                                                                                                            }
-                                                                                                            i_0
-                                                                                                                +=
-                                                                                                                1
-                                                                                                        }
-                                                                                                        do_undump(&mut *hyphen_char.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut i32
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        do_undump(&mut *skew_char.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut i32
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        let mut i_1:
-                                                                                                                i32 =
-                                                                                                            0;
-                                                                                                        do_undump(&mut *font_name.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut str_number
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<str_number>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        i_1
-                                                                                                            =
-                                                                                                            0i32;
-                                                                                                        while i_1
-                                                                                                                  <
-                                                                                                                  font_ptr
-                                                                                                                      +
-                                                                                                                      1i32
-                                                                                                              {
-                                                                                                            if *(&mut *font_name.offset(0)
-                                                                                                                     as
-                                                                                                                     *mut str_number).offset(i_1
-                                                                                                                                                 as
-                                                                                                                                                 isize)
-                                                                                                                   >
-                                                                                                                   str_ptr
-                                                                                                               {
-                                                                                                                panic!("Item {} (={}) of .fmt array at {:x} >{}",
-                                                                                                                          i_1,
-                                                                                                                          *(&mut *font_name.offset(0)
-                                                                                                                                as
-                                                                                                                                *mut str_number).offset(i_1
-                                                                                                                                                            as
-                                                                                                                                                            isize)
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          &mut *font_name.offset(0)
-                                                                                                                              as
-                                                                                                                              *mut str_number
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          str_ptr
-                                                                                                                              as
-                                                                                                                              uintptr_t);
-                                                                                                            }
-                                                                                                            i_1
-                                                                                                                +=
-                                                                                                                1
-                                                                                                        }
-                                                                                                        let mut i_2:
-                                                                                                                i32 =
-                                                                                                            0;
-                                                                                                        do_undump(&mut *font_area.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut str_number
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<str_number>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        i_2
-                                                                                                            =
-                                                                                                            0i32;
-                                                                                                        while i_2
-                                                                                                                  <
-                                                                                                                  font_ptr
-                                                                                                                      +
-                                                                                                                      1i32
-                                                                                                              {
-                                                                                                            if *(&mut *font_area.offset(0)
-                                                                                                                     as
-                                                                                                                     *mut str_number).offset(i_2
-                                                                                                                                                 as
-                                                                                                                                                 isize)
-                                                                                                                   >
-                                                                                                                   str_ptr
-                                                                                                               {
-                                                                                                                panic!("Item {} (={}) of .fmt array at {:x} >{}",
-                                                                                                                          i_2,
-                                                                                                                          *(&mut *font_area.offset(0)
-                                                                                                                                as
-                                                                                                                                *mut str_number).offset(i_2
-                                                                                                                                                            as
-                                                                                                                                                            isize)
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          &mut *font_area.offset(0)
-                                                                                                                              as
-                                                                                                                              *mut str_number
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          str_ptr
-                                                                                                                              as
-                                                                                                                              uintptr_t);
-                                                                                                            }
-                                                                                                            i_2
-                                                                                                                +=
-                                                                                                                1
-                                                                                                        }
-                                                                                                        do_undump(&mut *font_bc.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut UTF16_code
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<UTF16_code>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        do_undump(&mut *font_ec.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut UTF16_code
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<UTF16_code>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        do_undump(&mut *char_base.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut i32
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        do_undump(&mut *width_base.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut i32
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        do_undump(&mut *height_base.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut i32
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        do_undump(&mut *depth_base.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut i32
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        do_undump(&mut *italic_base.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut i32
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        do_undump(&mut *lig_kern_base.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut i32
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        do_undump(&mut *kern_base.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut i32
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        do_undump(&mut *exten_base.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut i32
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        do_undump(&mut *param_base.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut i32
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        let mut i_3:
-                                                                                                                i32 =
-                                                                                                            0;
-                                                                                                        do_undump(&mut *font_glue.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut i32
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        i_3
-                                                                                                            =
-                                                                                                            0i32;
-                                                                                                        while i_3
-                                                                                                                  <
-                                                                                                                  font_ptr
-                                                                                                                      +
-                                                                                                                      1i32
-                                                                                                              {
-                                                                                                            if *(&mut *font_glue.offset(0)
-                                                                                                                     as
-                                                                                                                     *mut i32).offset(i_3
-                                                                                                                                              as
-                                                                                                                                              isize)
-                                                                                                                   <
-                                                                                                                   TEX_NULL
-                                                                                                                   ||
-                                                                                                                   *(&mut *font_glue.offset(0)
-                                                                                                                         as
-                                                                                                                         *mut i32).offset(i_3
-                                                                                                                                                  as
-                                                                                                                                                  isize)
-                                                                                                                       >
-                                                                                                                       lo_mem_max
-                                                                                                               {
-                                                                                                                panic!("item {} (={}) of .fmt array at {:x} <{} or >{}",
-                                                                                                                          i_3,
-                                                                                                                          *(&mut *font_glue.offset(0)
-                                                                                                                                as
-                                                                                                                                *mut i32).offset(i_3
-                                                                                                                                                         as
-                                                                                                                                                         isize)
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          &mut *font_glue.offset(0)
-                                                                                                                              as
-                                                                                                                              *mut i32
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          TEX_NULL
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          lo_mem_max
-                                                                                                                              as
-                                                                                                                              uintptr_t);
-                                                                                                            }
-                                                                                                            i_3
-                                                                                                                +=
-                                                                                                                1
-                                                                                                        }
-                                                                                                        let mut i_4:
-                                                                                                                i32 =
-                                                                                                            0;
-                                                                                                        do_undump(&mut *bchar_label.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut font_index
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<font_index>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        i_4
-                                                                                                            =
-                                                                                                            0i32;
-                                                                                                        while i_4
-                                                                                                                  <
-                                                                                                                  font_ptr
-                                                                                                                      +
-                                                                                                                      1i32
-                                                                                                              {
-                                                                                                            if *(&mut *bchar_label.offset(0)
-                                                                                                                     as
-                                                                                                                     *mut font_index).offset(i_4
-                                                                                                                                                 as
-                                                                                                                                                 isize)
-                                                                                                                   <
-                                                                                                                   0i32
-                                                                                                                   ||
-                                                                                                                   *(&mut *bchar_label.offset(0)
-                                                                                                                         as
-                                                                                                                         *mut font_index).offset(i_4
-                                                                                                                                                     as
-                                                                                                                                                     isize)
-                                                                                                                       >
-                                                                                                                       fmem_ptr
-                                                                                                                           -
-                                                                                                                           1i32
-                                                                                                               {
-                                                                                                                panic!("item {} (={}) of .fmt array at {:x} <{} or >{}",
-                                                                                                                          i_4,
-                                                                                                                          *(&mut *bchar_label.offset(0)
-                                                                                                                                as
-                                                                                                                                *mut font_index).offset(i_4
-                                                                                                                                                            as
-                                                                                                                                                            isize)
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          &mut *bchar_label.offset(0)
-                                                                                                                              as
-                                                                                                                              *mut font_index
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          0i32
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          (fmem_ptr
-                                                                                                                               as
-                                                                                                                               uintptr_t).wrapping_sub(1i32
-                                                                                                                                                           as
-                                                                                                                                                           u64));
-                                                                                                            }
-                                                                                                            i_4
-                                                                                                                +=
-                                                                                                                1
-                                                                                                        }
-                                                                                                        let mut i_5:
-                                                                                                                i32 =
-                                                                                                            0;
-                                                                                                        do_undump(&mut *font_bchar.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut nine_bits
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<nine_bits>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        i_5
-                                                                                                            =
-                                                                                                            0i32;
-                                                                                                        while i_5
-                                                                                                                  <
-                                                                                                                  font_ptr
-                                                                                                                      +
-                                                                                                                      1i32
-                                                                                                              {
-                                                                                                            if *(&mut *font_bchar.offset(0)
-                                                                                                                     as
-                                                                                                                     *mut nine_bits).offset(i_5
-                                                                                                                                                as
-                                                                                                                                                isize)
-                                                                                                                   <
-                                                                                                                   0i32
-                                                                                                                   ||
-                                                                                                                   *(&mut *font_bchar.offset(0)
-                                                                                                                         as
-                                                                                                                         *mut nine_bits).offset(i_5
-                                                                                                                                                    as
-                                                                                                                                                    isize)
-                                                                                                                       >
-                                                                                                                       65536i32
-                                                                                                               {
-                                                                                                                panic!("item {} (={}) of .fmt array at {:x} <{} or >{}",
-                                                                                                                          i_5,
-                                                                                                                          *(&mut *font_bchar.offset(0)
-                                                                                                                                as
-                                                                                                                                *mut nine_bits).offset(i_5
-                                                                                                                                                           as
-                                                                                                                                                           isize)
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          &mut *font_bchar.offset(0)
-                                                                                                                              as
-                                                                                                                              *mut nine_bits
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          0i32
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          65536i32
-                                                                                                                              as
-                                                                                                                              uintptr_t);
-                                                                                                            }
-                                                                                                            i_5
-                                                                                                                +=
-                                                                                                                1
-                                                                                                        }
-                                                                                                        let mut i_6:
-                                                                                                                i32 =
-                                                                                                            0;
-                                                                                                        do_undump(&mut *font_false_bchar.offset(0)
-                                                                                                                      as
-                                                                                                                      *mut nine_bits
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<nine_bits>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  (font_ptr
-                                                                                                                       +
-                                                                                                                       1i32)
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        i_6
-                                                                                                            =
-                                                                                                            0i32;
-                                                                                                        while i_6
-                                                                                                                  <
-                                                                                                                  font_ptr
-                                                                                                                      +
-                                                                                                                      1i32
-                                                                                                              {
-                                                                                                            if *(&mut *font_false_bchar.offset(0)
-                                                                                                                     as
-                                                                                                                     *mut nine_bits).offset(i_6
-                                                                                                                                                as
-                                                                                                                                                isize)
-                                                                                                                   <
-                                                                                                                   0i32
-                                                                                                                   ||
-                                                                                                                   *(&mut *font_false_bchar.offset(0)
-                                                                                                                         as
-                                                                                                                         *mut nine_bits).offset(i_6
-                                                                                                                                                    as
-                                                                                                                                                    isize)
-                                                                                                                       >
-                                                                                                                       65536i32
-                                                                                                               {
-                                                                                                                panic!("item {} (={}) of .fmt array at {:x} <{} or >{}",
-                                                                                                                          i_6,
-                                                                                                                          *(&mut *font_false_bchar.offset(0)
-                                                                                                                                as
-                                                                                                                                *mut nine_bits).offset(i_6
-                                                                                                                                                           as
-                                                                                                                                                           isize)
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          &mut *font_false_bchar.offset(0)
-                                                                                                                              as
-                                                                                                                              *mut nine_bits
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          0i32
-                                                                                                                              as
-                                                                                                                              uintptr_t,
-                                                                                                                          65536i32
-                                                                                                                              as
-                                                                                                                              uintptr_t);
-                                                                                                            }
-                                                                                                            i_6
-                                                                                                                +=
-                                                                                                                1
-                                                                                                        }
-                                                                                                        /* hyphenations */
-                                                                                                        do_undump(&mut x
-                                                                                                                      as
-                                                                                                                      *mut i32
-                                                                                                                      as
-                                                                                                                      *mut i8,
-                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                      as
-                                                                                                                      u64,
-                                                                                                                  1i32
-                                                                                                                      as
-                                                                                                                      size_t,
-                                                                                                                  fmt_in);
-                                                                                                        if !(x
-                                                                                                                 <
-                                                                                                                 0i32)
-                                                                                                           {
-                                                                                                            if x
-                                                                                                                   >
-                                                                                                                   hyph_size
-                                                                                                               {
-                                                                                                                panic!("must increase hyph_size");
-                                                                                                            }
-                                                                                                            hyph_count
-                                                                                                                =
-                                                                                                                x;
-                                                                                                            do_undump(&mut x
-                                                                                                                          as
-                                                                                                                          *mut i32
-                                                                                                                          as
-                                                                                                                          *mut i8,
-                                                                                                                      ::std::mem::size_of::<i32>()
-                                                                                                                          as
-                                                                                                                          u64,
-                                                                                                                      1i32
-                                                                                                                          as
-                                                                                                                          size_t,
-                                                                                                                      fmt_in);
-                                                                                                            if !(x
-                                                                                                                     <
-                                                                                                                     607i32)
-                                                                                                               {
-                                                                                                                if x
-                                                                                                                       >
-                                                                                                                       hyph_size
-                                                                                                                   {
-                                                                                                                    panic!("must increase hyph_size");
-                                                                                                                }
-                                                                                                                hyph_next
-                                                                                                                    =
-                                                                                                                    x;
-                                                                                                                j
-                                                                                                                    =
-                                                                                                                    0i32;
-                                                                                                                k
-                                                                                                                    =
-                                                                                                                    1i32;
-                                                                                                                loop 
-                                                                                                                     {
-                                                                                                                    if !(k
-                                                                                                                             <=
-                                                                                                                             hyph_count)
-                                                                                                                       {
-                                                                                                                        current_block
-                                                                                                                            =
-                                                                                                                            5183402691674069415;
-                                                                                                                        break
-                                                                                                                            ;
-                                                                                                                    }
-                                                                                                                    do_undump(&mut j
-                                                                                                                                  as
-                                                                                                                                  *mut i32
-                                                                                                                                  as
-                                                                                                                                  *mut i8,
-                                                                                                                              ::std::mem::size_of::<i32>()
-                                                                                                                                  as
-                                                                                                                                  u64,
-                                                                                                                              1i32
-                                                                                                                                  as
-                                                                                                                                  size_t,
-                                                                                                                              fmt_in);
-                                                                                                                    if j
-                                                                                                                           <
-                                                                                                                           0i32
-                                                                                                                       {
-                                                                                                                        current_block
-                                                                                                                            =
-                                                                                                                            6442379788293543199;
-                                                                                                                        break
-                                                                                                                            ;
-                                                                                                                    }
-                                                                                                                    if j
-                                                                                                                           as
-                                                                                                                           i64
-                                                                                                                           >
-                                                                                                                           65535
-                                                                                                                       {
-                                                                                                                        hyph_next
-                                                                                                                            =
-                                                                                                                            (j
-                                                                                                                                 as
-                                                                                                                                 i64
-                                                                                                                                 /
-                                                                                                                                 65536)
-                                                                                                                                as
-                                                                                                                                i32;
-                                                                                                                        j
-                                                                                                                            =
-                                                                                                                            (j
-                                                                                                                                 as
-                                                                                                                                 i64
-                                                                                                                                 -
-                                                                                                                                 hyph_next
-                                                                                                                                     as
-                                                                                                                                     i64
-                                                                                                                                     *
-                                                                                                                                     65536)
-                                                                                                                                as
-                                                                                                                                i32
-                                                                                                                    } else {
-                                                                                                                        hyph_next
-                                                                                                                            =
-                                                                                                                            0i32
-                                                                                                                    }
-                                                                                                                    if j
-                                                                                                                           >=
-                                                                                                                           hyph_size
-                                                                                                                           ||
-                                                                                                                           hyph_next
-                                                                                                                               >
-                                                                                                                               hyph_size
-                                                                                                                       {
-                                                                                                                        current_block
-                                                                                                                            =
-                                                                                                                            6442379788293543199;
-                                                                                                                        break
-                                                                                                                            ;
-                                                                                                                    }
-                                                                                                                    *hyph_link.offset(j
-                                                                                                                                          as
-                                                                                                                                          isize)
-                                                                                                                        =
-                                                                                                                        hyph_next
-                                                                                                                            as
-                                                                                                                            hyph_pointer;
-                                                                                                                    do_undump(&mut x
-                                                                                                                                  as
-                                                                                                                                  *mut i32
-                                                                                                                                  as
-                                                                                                                                  *mut i8,
-                                                                                                                              ::std::mem::size_of::<i32>()
-                                                                                                                                  as
-                                                                                                                                  u64,
-                                                                                                                              1i32
-                                                                                                                                  as
-                                                                                                                                  size_t,
-                                                                                                                              fmt_in);
-                                                                                                                    if x
-                                                                                                                           <
-                                                                                                                           0i32
-                                                                                                                           ||
-                                                                                                                           x
-                                                                                                                               >
-                                                                                                                               str_ptr
-                                                                                                                       {
-                                                                                                                        current_block
-                                                                                                                            =
-                                                                                                                            6442379788293543199;
-                                                                                                                        break
-                                                                                                                            ;
-                                                                                                                    }
-                                                                                                                    *hyph_word.offset(j
-                                                                                                                                          as
-                                                                                                                                          isize)
-                                                                                                                        =
-                                                                                                                        x;
-                                                                                                                    do_undump(&mut x
-                                                                                                                                  as
-                                                                                                                                  *mut i32
-                                                                                                                                  as
-                                                                                                                                  *mut i8,
-                                                                                                                              ::std::mem::size_of::<i32>()
-                                                                                                                                  as
-                                                                                                                                  u64,
-                                                                                                                              1i32
-                                                                                                                                  as
-                                                                                                                                  size_t,
-                                                                                                                              fmt_in);
-                                                                                                                    if x
-                                                                                                                           <
-                                                                                                                           TEX_NULL
-                                                                                                                           ||
-                                                                                                                           x
-                                                                                                                               >
-                                                                                                                               0x3fffffffi32
-                                                                                                                       {
-                                                                                                                        current_block
-                                                                                                                            =
-                                                                                                                            6442379788293543199;
-                                                                                                                        break
-                                                                                                                            ;
-                                                                                                                    }
-                                                                                                                    *hyph_list.offset(j
-                                                                                                                                          as
-                                                                                                                                          isize)
-                                                                                                                        =
-                                                                                                                        x;
-                                                                                                                    k
-                                                                                                                        +=
-                                                                                                                        1
-                                                                                                                }
-                                                                                                                match current_block
-                                                                                                                    {
-                                                                                                                    6442379788293543199
-                                                                                                                    =>
-                                                                                                                    {
-                                                                                                                    }
-                                                                                                                    _
-                                                                                                                    =>
-                                                                                                                    {
-                                                                                                                        j
-                                                                                                                            +=
-                                                                                                                            1;
-                                                                                                                        if j
-                                                                                                                               <
-                                                                                                                               607i32
-                                                                                                                           {
-                                                                                                                            j
-                                                                                                                                =
-                                                                                                                                607i32
-                                                                                                                        }
-                                                                                                                        hyph_next
-                                                                                                                            =
-                                                                                                                            j;
-                                                                                                                        if hyph_next
-                                                                                                                               >=
-                                                                                                                               hyph_size
-                                                                                                                           {
-                                                                                                                            hyph_next
-                                                                                                                                =
-                                                                                                                                607i32
-                                                                                                                        } else if hyph_next
-                                                                                                                                      >=
-                                                                                                                                      607i32
-                                                                                                                         {
-                                                                                                                            hyph_next
-                                                                                                                                +=
-                                                                                                                                1
-                                                                                                                        }
-                                                                                                                        do_undump(&mut x
-                                                                                                                                      as
-                                                                                                                                      *mut i32
-                                                                                                                                      as
-                                                                                                                                      *mut i8,
-                                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                                      as
-                                                                                                                                      u64,
-                                                                                                                                  1i32
-                                                                                                                                      as
-                                                                                                                                      size_t,
-                                                                                                                                  fmt_in);
-                                                                                                                        if !(x
-                                                                                                                                 <
-                                                                                                                                 0i32)
-                                                                                                                           {
-                                                                                                                            if x
-                                                                                                                                   >
-                                                                                                                                   trie_size
-                                                                                                                               {
-                                                                                                                                panic!("must increase trie_size");
-                                                                                                                            }
-                                                                                                                            j
-                                                                                                                                =
-                                                                                                                                x;
-                                                                                                                            trie_max
-                                                                                                                                =
-                                                                                                                                j;
-                                                                                                                            do_undump(&mut x
-                                                                                                                                          as
-                                                                                                                                          *mut i32
-                                                                                                                                          as
-                                                                                                                                          *mut i8,
-                                                                                                                                      ::std::mem::size_of::<i32>()
-                                                                                                                                          as
-                                                                                                                                          u64,
-                                                                                                                                      1i32
-                                                                                                                                          as
-                                                                                                                                          size_t,
-                                                                                                                                      fmt_in);
-                                                                                                                            if !(x
-                                                                                                                                     <
-                                                                                                                                     0i32
-                                                                                                                                     ||
-                                                                                                                                     x
-                                                                                                                                         >
-                                                                                                                                         j)
-                                                                                                                               {
-                                                                                                                                hyph_start
-                                                                                                                                    =
-                                                                                                                                    x;
-                                                                                                                                if trie_trl.is_null()
-                                                                                                                                   {
-                                                                                                                                    trie_trl
-                                                                                                                                        =
-                                                                                                                                        xmalloc(((j
-                                                                                                                                                      +
-                                                                                                                                                      1i32
-                                                                                                                                                      +
-                                                                                                                                                      1i32)
-                                                                                                                                                     as
-                                                                                                                                                     u64).wrapping_mul(::std::mem::size_of::<trie_pointer>()
-                                                                                                                                                                                     as
-                                                                                                                                                                                     u64))
-                                                                                                                                            as
-                                                                                                                                            *mut trie_pointer
-                                                                                                                                }
-                                                                                                                                do_undump(&mut *trie_trl.offset(0)
-                                                                                                                                              as
-                                                                                                                                              *mut trie_pointer
-                                                                                                                                              as
-                                                                                                                                              *mut i8,
-                                                                                                                                          ::std::mem::size_of::<trie_pointer>()
-                                                                                                                                              as
-                                                                                                                                              u64,
-                                                                                                                                          (j
-                                                                                                                                               +
-                                                                                                                                               1i32)
-                                                                                                                                              as
-                                                                                                                                              size_t,
-                                                                                                                                          fmt_in);
-                                                                                                                                if trie_tro.is_null()
-                                                                                                                                   {
-                                                                                                                                    trie_tro
-                                                                                                                                        =
-                                                                                                                                        xmalloc(((j
-                                                                                                                                                      +
-                                                                                                                                                      1i32
-                                                                                                                                                      +
-                                                                                                                                                      1i32)
-                                                                                                                                                     as
-                                                                                                                                                     u64).wrapping_mul(::std::mem::size_of::<trie_pointer>()
-                                                                                                                                                                                     as
-                                                                                                                                                                                     u64))
-                                                                                                                                            as
-                                                                                                                                            *mut trie_pointer
-                                                                                                                                }
-                                                                                                                                do_undump(&mut *trie_tro.offset(0)
-                                                                                                                                              as
-                                                                                                                                              *mut trie_pointer
-                                                                                                                                              as
-                                                                                                                                              *mut i8,
-                                                                                                                                          ::std::mem::size_of::<trie_pointer>()
-                                                                                                                                              as
-                                                                                                                                              u64,
-                                                                                                                                          (j
-                                                                                                                                               +
-                                                                                                                                               1i32)
-                                                                                                                                              as
-                                                                                                                                              size_t,
-                                                                                                                                          fmt_in);
-                                                                                                                                if trie_trc.is_null()
-                                                                                                                                   {
-                                                                                                                                    trie_trc
-                                                                                                                                        =
-                                                                                                                                        xmalloc(((j
-                                                                                                                                                      +
-                                                                                                                                                      1i32
-                                                                                                                                                      +
-                                                                                                                                                      1i32)
-                                                                                                                                                     as
-                                                                                                                                                     u64).wrapping_mul(::std::mem::size_of::<u16>()
-                                                                                                                                                                                     as
-                                                                                                                                                                                     u64))
-                                                                                                                                            as
-                                                                                                                                            *mut u16
-                                                                                                                                }
-                                                                                                                                do_undump(&mut *trie_trc.offset(0)
-                                                                                                                                              as
-                                                                                                                                              *mut u16
-                                                                                                                                              as
-                                                                                                                                              *mut i8,
-                                                                                                                                          ::std::mem::size_of::<u16>()
-                                                                                                                                              as
-                                                                                                                                              u64,
-                                                                                                                                          (j
-                                                                                                                                               +
-                                                                                                                                               1i32)
-                                                                                                                                              as
-                                                                                                                                              size_t,
-                                                                                                                                          fmt_in);
-                                                                                                                                do_undump(&mut max_hyph_char
-                                                                                                                                              as
-                                                                                                                                              *mut i32
-                                                                                                                                              as
-                                                                                                                                              *mut i8,
-                                                                                                                                          ::std::mem::size_of::<i32>()
-                                                                                                                                              as
-                                                                                                                                              u64,
-                                                                                                                                          1i32
-                                                                                                                                              as
-                                                                                                                                              size_t,
-                                                                                                                                          fmt_in);
-                                                                                                                                do_undump(&mut x
-                                                                                                                                              as
-                                                                                                                                              *mut i32
-                                                                                                                                              as
-                                                                                                                                              *mut i8,
-                                                                                                                                          ::std::mem::size_of::<i32>()
-                                                                                                                                              as
-                                                                                                                                              u64,
-                                                                                                                                          1i32
-                                                                                                                                              as
-                                                                                                                                              size_t,
-                                                                                                                                          fmt_in);
-                                                                                                                                if !(x
-                                                                                                                                         <
-                                                                                                                                         0i32)
-                                                                                                                                   {
-                                                                                                                                    if x
-                                                                                                                                           as
-                                                                                                                                           i64
-                                                                                                                                           >
-                                                                                                                                           35111
-                                                                                                                                       {
-                                                                                                                                        panic!("must increase TRIE_OP_SIZE");
-                                                                                                                                    }
-                                                                                                                                    j
-                                                                                                                                        =
-                                                                                                                                        x;
-                                                                                                                                    trie_op_ptr
-                                                                                                                                        =
-                                                                                                                                        j;
-                                                                                                                                    do_undump(&mut *hyf_distance.as_mut_ptr().offset(1)
-                                                                                                                                                  as
-                                                                                                                                                  *mut small_number
-                                                                                                                                                  as
-                                                                                                                                                  *mut i8,
-                                                                                                                                              ::std::mem::size_of::<small_number>()
-                                                                                                                                                  as
-                                                                                                                                                  u64,
-                                                                                                                                              j
-                                                                                                                                                  as
-                                                                                                                                                  size_t,
-                                                                                                                                              fmt_in);
-                                                                                                                                    do_undump(&mut *hyf_num.as_mut_ptr().offset(1)
-                                                                                                                                                  as
-                                                                                                                                                  *mut small_number
-                                                                                                                                                  as
-                                                                                                                                                  *mut i8,
-                                                                                                                                              ::std::mem::size_of::<small_number>()
-                                                                                                                                                  as
-                                                                                                                                                  u64,
-                                                                                                                                              j
-                                                                                                                                                  as
-                                                                                                                                                  size_t,
-                                                                                                                                              fmt_in);
-                                                                                                                                    let mut i_7:
-                                                                                                                                            i32 =
-                                                                                                                                        0;
-                                                                                                                                    do_undump(&mut *hyf_next.as_mut_ptr().offset(1)
-                                                                                                                                                  as
-                                                                                                                                                  *mut trie_opcode
-                                                                                                                                                  as
-                                                                                                                                                  *mut i8,
-                                                                                                                                              ::std::mem::size_of::<trie_opcode>()
-                                                                                                                                                  as
-                                                                                                                                                  u64,
-                                                                                                                                              j
-                                                                                                                                                  as
-                                                                                                                                                  size_t,
-                                                                                                                                              fmt_in);
-                                                                                                                                    i_7
-                                                                                                                                        =
-                                                                                                                                        0i32;
-                                                                                                                                    while i_7
-                                                                                                                                              <
-                                                                                                                                              j
-                                                                                                                                          {
-                                                                                                                                        if *(&mut *hyf_next.as_mut_ptr().offset(1)
-                                                                                                                                                 as
-                                                                                                                                                 *mut trie_opcode).offset(i_7
-                                                                                                                                                                              as
-                                                                                                                                                                              isize)
-                                                                                                                                               as
-                                                                                                                                               i64
-                                                                                                                                               >
-                                                                                                                                               65535
-                                                                                                                                           {
-                                                                                                                                            panic!("Item {} (={}) of .fmt array at {:x} >{}",
-                                                                                                                                                      i_7,
-                                                                                                                                                      *(&mut *hyf_next.as_mut_ptr().offset(1)
-                                                                                                                                                            as
-                                                                                                                                                            *mut trie_opcode).offset(i_7
-                                                                                                                                                                                         as
-                                                                                                                                                                                         isize)
-                                                                                                                                                          as
-                                                                                                                                                          uintptr_t,
-                                                                                                                                                      &mut *hyf_next.as_mut_ptr().offset(1)
-                                                                                                                                                          as
-                                                                                                                                                          *mut trie_opcode
-                                                                                                                                                          as
-                                                                                                                                                          uintptr_t,
-                                                                                                                                                      65535
-                                                                                                                                                          as
-                                                                                                                                                          uintptr_t);
-                                                                                                                                        }
-                                                                                                                                        i_7
-                                                                                                                                            +=
-                                                                                                                                            1
-                                                                                                                                    }
-                                                                                                                                    k
-                                                                                                                                        =
-                                                                                                                                        0i32;
-                                                                                                                                    while k
-                                                                                                                                              <=
-                                                                                                                                              255i32
-                                                                                                                                          {
-                                                                                                                                        trie_used[k
-                                                                                                                                                      as
-                                                                                                                                                      usize]
-                                                                                                                                            =
-                                                                                                                                            0i32
-                                                                                                                                                as
-                                                                                                                                                trie_opcode;
-                                                                                                                                        k
-                                                                                                                                            +=
-                                                                                                                                            1
-                                                                                                                                    }
-                                                                                                                                    k
-                                                                                                                                        =
-                                                                                                                                        255i32
-                                                                                                                                            +
-                                                                                                                                            1i32;
-                                                                                                                                    loop 
-                                                                                                                                         {
-                                                                                                                                        if !(j
-                                                                                                                                                 >
-                                                                                                                                                 0i32)
-                                                                                                                                           {
-                                                                                                                                            current_block
-                                                                                                                                                =
-                                                                                                                                                2455569213248551296;
-                                                                                                                                            break
-                                                                                                                                                ;
-                                                                                                                                        }
-                                                                                                                                        do_undump(&mut x
-                                                                                                                                                      as
-                                                                                                                                                      *mut i32
-                                                                                                                                                      as
-                                                                                                                                                      *mut i8,
-                                                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                                                      as
-                                                                                                                                                      u64,
-                                                                                                                                                  1i32
-                                                                                                                                                      as
-                                                                                                                                                      size_t,
-                                                                                                                                                  fmt_in);
-                                                                                                                                        if x
-                                                                                                                                               <
-                                                                                                                                               0i32
-                                                                                                                                               ||
-                                                                                                                                               x
-                                                                                                                                                   >
-                                                                                                                                                   k
-                                                                                                                                                       -
-                                                                                                                                                       1i32
-                                                                                                                                           {
-                                                                                                                                            current_block
-                                                                                                                                                =
-                                                                                                                                                6442379788293543199;
-                                                                                                                                            break
-                                                                                                                                                ;
-                                                                                                                                        }
-                                                                                                                                        k
-                                                                                                                                            =
-                                                                                                                                            x;
-                                                                                                                                        do_undump(&mut x
-                                                                                                                                                      as
-                                                                                                                                                      *mut i32
-                                                                                                                                                      as
-                                                                                                                                                      *mut i8,
-                                                                                                                                                  ::std::mem::size_of::<i32>()
-                                                                                                                                                      as
-                                                                                                                                                      u64,
-                                                                                                                                                  1i32
-                                                                                                                                                      as
-                                                                                                                                                      size_t,
-                                                                                                                                                  fmt_in);
-                                                                                                                                        if x
-                                                                                                                                               <
-                                                                                                                                               1i32
-                                                                                                                                               ||
-                                                                                                                                               x
-                                                                                                                                                   >
-                                                                                                                                                   j
-                                                                                                                                           {
-                                                                                                                                            current_block
-                                                                                                                                                =
-                                                                                                                                                6442379788293543199;
-                                                                                                                                            break
-                                                                                                                                                ;
-                                                                                                                                        }
-                                                                                                                                        trie_used[k
-                                                                                                                                                      as
-                                                                                                                                                      usize]
-                                                                                                                                            =
-                                                                                                                                            x
-                                                                                                                                                as
-                                                                                                                                                trie_opcode;
-                                                                                                                                        j
-                                                                                                                                            =
-                                                                                                                                            j
-                                                                                                                                                -
-                                                                                                                                                x;
-                                                                                                                                        op_start[k
-                                                                                                                                                     as
-                                                                                                                                                     usize]
-                                                                                                                                            =
-                                                                                                                                            j
-                                                                                                                                    }
-                                                                                                                                    match current_block
-                                                                                                                                        {
-                                                                                                                                        6442379788293543199
-                                                                                                                                        =>
-                                                                                                                                        {
-                                                                                                                                        }
-                                                                                                                                        _
-                                                                                                                                        =>
-                                                                                                                                        {
-                                                                                                                                            trie_not_ready
-                                                                                                                                                =
-                                                                                                                                                0i32
-                                                                                                                                                    !=
-                                                                                                                                                    0;
-                                                                                                                                            /* trailer */
-                                                                                                                                            do_undump(&mut x
-                                                                                                                                                          as
-                                                                                                                                                          *mut i32
-                                                                                                                                                          as
-                                                                                                                                                          *mut i8,
-                                                                                                                                                      ::std::mem::size_of::<i32>()
-                                                                                                                                                          as
-                                                                                                                                                          u64,
-                                                                                                                                                      1i32
-                                                                                                                                                          as
-                                                                                                                                                          size_t,
-                                                                                                                                                      fmt_in);
-                                                                                                                                            if !(x
-                                                                                                                                                     !=
-                                                                                                                                                     0x29ai32)
-                                                                                                                                               {
-                                                                                                                                                ttstub_input_close(fmt_in);
-                                                                                                                                                return 1i32
-                                                                                                                                                           !=
-                                                                                                                                                           0
-                                                                                                                                            }
-                                                                                                                                        }
-                                                                                                                                    }
-                                                                                                                                }
-                                                                                                                            }
-                                                                                                                        }
-                                                                                                                    }
-                                                                                                                }
-                                                                                                            }
-                                                                                                        }
-                                                                                                    }
-                                                                                                }
-                                                                                            }
-                                                                                        }
-                                                                                    }
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        if x < 1 || k + x > EQTB_SIZE + 1 {
+            bad_fmt();
+        }
+
+        do_undump(
+            &mut *eqtb.offset(k as isize) as *mut memory_word as *mut i8,
+            ::std::mem::size_of::<memory_word>() as u64,
+            x as size_t,
+            fmt_in,
+        );
+        k = k + x;
+
+        do_undump(
+            &mut x as *mut i32 as *mut i8,
+            ::std::mem::size_of::<i32>() as u64,
+            1i32 as size_t,
+            fmt_in,
+        );
+        if x < 0i32 || k + x > EQTB_SIZE + 1 {
+            bad_fmt();
+        }
+
+        j = k;
+        while j <= k + x - 1 {
+            *eqtb.offset(j as isize) = *eqtb.offset((k - 1) as isize);
+            j += 1
+        }
+        k = k + x;
+        if !(k <= EQTB_SIZE) {
+            break;
         }
     }
-    panic!("fatal format file error");
+    if hash_high > 0i32 {
+        do_undump(
+            &mut *eqtb.offset(EQTB_SIZE as isize + 1) as *mut memory_word as *mut i8,
+            ::std::mem::size_of::<memory_word>() as u64,
+            hash_high as size_t,
+            fmt_in,
+        );
+    }
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < HASH_BASE || x > hash_top {
+        bad_fmt();
+    } else {
+        par_loc = x;
+    }
+    par_token = CS_TOKEN_FLAG + par_loc;
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < HASH_BASE || x > hash_top {
+        bad_fmt();
+    } else {
+        write_loc = x;
+    }
+
+    /* control sequence names
+     *
+     * "A different scheme is used to compress the hash table, since its lower
+     * region is usually sparse. When |text(p) != 0| for |p <= hash_used|, we
+     * output two words, |p| and |hash[p]|. The hash table is, of course,
+     * densely packed for |p >= hash_used|, so the remaining entries are
+     * output in a block."
+     */
+
+    p = 0i32;
+    while p <= 500i32 {
+        do_undump(
+            &mut *prim.as_mut_ptr().offset(p as isize) as *mut b32x2 as *mut i8,
+            ::std::mem::size_of::<b32x2>() as u64,
+            1i32 as size_t,
+            fmt_in,
+        );
+        p += 1
+    }
+    p = 0i32;
+    while p <= 500i32 {
+        do_undump(
+            &mut *prim_eqtb.as_mut_ptr().offset(p as isize) as *mut memory_word as *mut i8,
+            ::std::mem::size_of::<memory_word>() as u64,
+            1i32 as size_t,
+            fmt_in,
+        );
+        p += 1
+    }
+
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < HASH_BASE || x > FROZEN_CONTROL_SEQUENCE {
+        bad_fmt();
+    } else {
+        hash_used = x;
+    }
+    p = HASH_BASE - 1;
+    loop {
+        do_undump(
+            &mut x as *mut i32 as *mut i8,
+            ::std::mem::size_of::<i32>() as u64,
+            1i32 as size_t,
+            fmt_in,
+        );
+        if x < p + 1 || x > hash_used {
+            bad_fmt();
+        } else {
+            p = x;
+        }
+        do_undump(
+            &mut *hash.offset(p as isize) as *mut b32x2 as *mut i8,
+            ::std::mem::size_of::<b32x2>() as u64,
+            1i32 as size_t,
+            fmt_in,
+        );
+        if !(p != hash_used) {
+            break;
+        }
+    }
+    do_undump(
+        &mut *hash.offset((hash_used + 1i32) as isize) as *mut b32x2 as *mut i8,
+        ::std::mem::size_of::<b32x2>() as u64,
+        (1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            - 1i32
+            - hash_used) as size_t,
+        fmt_in,
+    );
+    if hash_high > 0i32 {
+        do_undump(
+            &mut *hash.offset(EQTB_SIZE as isize + 1) as *mut b32x2 as *mut i8,
+            ::std::mem::size_of::<b32x2>() as u64,
+            hash_high as size_t,
+            fmt_in,
+        );
+    }
+    do_undump(
+        &mut cs_count as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+
+    /* font info */
+
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < 7 {
+        bad_fmt();
+    }
+    if x > sup_font_mem_size {
+        panic!("must increase font_mem_size");
+    }
+
+    fmem_ptr = x;
+    if fmem_ptr > font_mem_size {
+        font_mem_size = fmem_ptr
+    }
+    font_info = xmalloc(
+        ((font_mem_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<memory_word>() as u64),
+    ) as *mut memory_word;
+    do_undump(
+        &mut *font_info.offset(0) as *mut memory_word as *mut i8,
+        ::std::mem::size_of::<memory_word>() as u64,
+        fmem_ptr as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < FONT_BASE {
+        bad_fmt();
+    }
+    if x > FONT_BASE + MAX_FONT_MAX {
+        panic!("must increase font_max");
+    }
+
+    font_ptr = x;
+    font_mapping = xmalloc(
+        ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut libc::c_void>() as u64),
+    ) as *mut *mut libc::c_void;
+    font_layout_engine = xcalloc(
+        (font_max + 1i32) as size_t,
+        ::std::mem::size_of::<*mut libc::c_void>() as u64,
+    ) as *mut *mut libc::c_void;
+    font_flags =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64))
+            as *mut i8;
+    font_letter_space =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<scaled_t>() as u64))
+            as *mut scaled_t;
+    font_check =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<b16x4>() as u64))
+            as *mut b16x4;
+    font_size =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<scaled_t>() as u64))
+            as *mut scaled_t;
+    font_dsize =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<scaled_t>() as u64))
+            as *mut scaled_t;
+    font_params = xmalloc(
+        ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<font_index>() as u64),
+    ) as *mut font_index;
+    font_name = xmalloc(
+        ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+    ) as *mut str_number;
+    font_area = xmalloc(
+        ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+    ) as *mut str_number;
+    font_bc = xmalloc(
+        ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64),
+    ) as *mut UTF16_code;
+    font_ec = xmalloc(
+        ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64),
+    ) as *mut UTF16_code;
+    font_glue =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
+            as *mut i32;
+    hyphen_char =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
+            as *mut i32;
+    skew_char =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
+            as *mut i32;
+    bchar_label = xmalloc(
+        ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<font_index>() as u64),
+    ) as *mut font_index;
+    font_bchar =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<nine_bits>() as u64))
+            as *mut nine_bits;
+    font_false_bchar =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<nine_bits>() as u64))
+            as *mut nine_bits;
+    char_base =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
+            as *mut i32;
+    width_base =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
+            as *mut i32;
+    height_base =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
+            as *mut i32;
+    depth_base =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
+            as *mut i32;
+    italic_base =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
+            as *mut i32;
+    lig_kern_base =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
+            as *mut i32;
+    kern_base =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
+            as *mut i32;
+    exten_base =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
+            as *mut i32;
+    param_base =
+        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
+            as *mut i32;
+    k = 0i32;
+    while k <= font_ptr {
+        let ref mut fresh16 = *font_mapping.offset(k as isize);
+        *fresh16 = 0 as *mut libc::c_void;
+        k += 1
+    }
+    do_undump(
+        &mut *font_check.offset(0) as *mut b16x4 as *mut i8,
+        ::std::mem::size_of::<b16x4>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut *font_size.offset(0) as *mut scaled_t as *mut i8,
+        ::std::mem::size_of::<scaled_t>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut *font_dsize.offset(0) as *mut scaled_t as *mut i8,
+        ::std::mem::size_of::<scaled_t>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    let mut i_0: i32 = 0;
+    do_undump(
+        &mut *font_params.offset(0) as *mut font_index as *mut i8,
+        ::std::mem::size_of::<font_index>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    i_0 = 0i32;
+    while i_0 < font_ptr + 1i32 {
+        if *(&mut *font_params.offset(0) as *mut font_index).offset(i_0 as isize) < TEX_NULL
+            || *(&mut *font_params.offset(0) as *mut font_index).offset(i_0 as isize)
+                > 0x3fffffffi32
+        {
+            panic!(
+                "item {} (={}) of .fmt array at {:x} <{} or >{}",
+                i_0,
+                *(&mut *font_params.offset(0) as *mut font_index).offset(i_0 as isize) as uintptr_t,
+                &mut *font_params.offset(0) as *mut font_index as uintptr_t,
+                TEX_NULL as uintptr_t,
+                0x3fffffffi32 as uintptr_t
+            );
+        }
+        i_0 += 1
+    }
+    do_undump(
+        &mut *hyphen_char.offset(0) as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut *skew_char.offset(0) as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    let mut i_1: i32 = 0;
+    do_undump(
+        &mut *font_name.offset(0) as *mut str_number as *mut i8,
+        ::std::mem::size_of::<str_number>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    i_1 = 0i32;
+    while i_1 < font_ptr + 1i32 {
+        if *(&mut *font_name.offset(0) as *mut str_number).offset(i_1 as isize) > str_ptr {
+            panic!(
+                "Item {} (={}) of .fmt array at {:x} >{}",
+                i_1,
+                *(&mut *font_name.offset(0) as *mut str_number).offset(i_1 as isize) as uintptr_t,
+                &mut *font_name.offset(0) as *mut str_number as uintptr_t,
+                str_ptr as uintptr_t
+            );
+        }
+        i_1 += 1
+    }
+    let mut i_2: i32 = 0;
+    do_undump(
+        &mut *font_area.offset(0) as *mut str_number as *mut i8,
+        ::std::mem::size_of::<str_number>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    i_2 = 0i32;
+    while i_2 < font_ptr + 1i32 {
+        if *(&mut *font_area.offset(0) as *mut str_number).offset(i_2 as isize) > str_ptr {
+            panic!(
+                "Item {} (={}) of .fmt array at {:x} >{}",
+                i_2,
+                *(&mut *font_area.offset(0) as *mut str_number).offset(i_2 as isize) as uintptr_t,
+                &mut *font_area.offset(0) as *mut str_number as uintptr_t,
+                str_ptr as uintptr_t
+            );
+        }
+        i_2 += 1
+    }
+    do_undump(
+        &mut *font_bc.offset(0) as *mut UTF16_code as *mut i8,
+        ::std::mem::size_of::<UTF16_code>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut *font_ec.offset(0) as *mut UTF16_code as *mut i8,
+        ::std::mem::size_of::<UTF16_code>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut *char_base.offset(0) as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut *width_base.offset(0) as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut *height_base.offset(0) as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut *depth_base.offset(0) as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut *italic_base.offset(0) as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut *lig_kern_base.offset(0) as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut *kern_base.offset(0) as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut *exten_base.offset(0) as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut *param_base.offset(0) as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    let mut i_3: i32 = 0;
+    do_undump(
+        &mut *font_glue.offset(0) as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    i_3 = 0i32;
+    while i_3 < font_ptr + 1i32 {
+        if *(&mut *font_glue.offset(0) as *mut i32).offset(i_3 as isize) < TEX_NULL
+            || *(&mut *font_glue.offset(0) as *mut i32).offset(i_3 as isize) > lo_mem_max
+        {
+            panic!(
+                "item {} (={}) of .fmt array at {:x} <{} or >{}",
+                i_3,
+                *(&mut *font_glue.offset(0) as *mut i32).offset(i_3 as isize) as uintptr_t,
+                &mut *font_glue.offset(0) as *mut i32 as uintptr_t,
+                TEX_NULL as uintptr_t,
+                lo_mem_max as uintptr_t
+            );
+        }
+        i_3 += 1
+    }
+    let mut i_4: i32 = 0;
+    do_undump(
+        &mut *bchar_label.offset(0) as *mut font_index as *mut i8,
+        ::std::mem::size_of::<font_index>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    i_4 = 0i32;
+    while i_4 < font_ptr + 1i32 {
+        if *(&mut *bchar_label.offset(0) as *mut font_index).offset(i_4 as isize) < 0i32
+            || *(&mut *bchar_label.offset(0) as *mut font_index).offset(i_4 as isize)
+                > fmem_ptr - 1i32
+        {
+            panic!(
+                "item {} (={}) of .fmt array at {:x} <{} or >{}",
+                i_4,
+                *(&mut *bchar_label.offset(0) as *mut font_index).offset(i_4 as isize) as uintptr_t,
+                &mut *bchar_label.offset(0) as *mut font_index as uintptr_t,
+                0i32 as uintptr_t,
+                (fmem_ptr as uintptr_t).wrapping_sub(1i32 as u64)
+            );
+        }
+        i_4 += 1
+    }
+    let mut i_5: i32 = 0;
+    do_undump(
+        &mut *font_bchar.offset(0) as *mut nine_bits as *mut i8,
+        ::std::mem::size_of::<nine_bits>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    i_5 = 0i32;
+    while i_5 < font_ptr + 1i32 {
+        if *(&mut *font_bchar.offset(0) as *mut nine_bits).offset(i_5 as isize) < 0i32
+            || *(&mut *font_bchar.offset(0) as *mut nine_bits).offset(i_5 as isize) > 65536i32
+        {
+            panic!(
+                "item {} (={}) of .fmt array at {:x} <{} or >{}",
+                i_5,
+                *(&mut *font_bchar.offset(0) as *mut nine_bits).offset(i_5 as isize) as uintptr_t,
+                &mut *font_bchar.offset(0) as *mut nine_bits as uintptr_t,
+                0i32 as uintptr_t,
+                65536i32 as uintptr_t
+            );
+        }
+        i_5 += 1
+    }
+    let mut i_6: i32 = 0;
+    do_undump(
+        &mut *font_false_bchar.offset(0) as *mut nine_bits as *mut i8,
+        ::std::mem::size_of::<nine_bits>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_in,
+    );
+    i_6 = 0i32;
+    while i_6 < font_ptr + 1i32 {
+        if *(&mut *font_false_bchar.offset(0) as *mut nine_bits).offset(i_6 as isize) < 0i32
+            || *(&mut *font_false_bchar.offset(0) as *mut nine_bits).offset(i_6 as isize) > 65536i32
+        {
+            panic!(
+                "item {} (={}) of .fmt array at {:x} <{} or >{}",
+                i_6,
+                *(&mut *font_false_bchar.offset(0) as *mut nine_bits).offset(i_6 as isize)
+                    as uintptr_t,
+                &mut *font_false_bchar.offset(0) as *mut nine_bits as uintptr_t,
+                0i32 as uintptr_t,
+                65536i32 as uintptr_t
+            );
+        }
+        i_6 += 1
+    }
+
+    /* hyphenations */
+
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < 0 {
+        bad_fmt();
+    }
+
+    if x > hyph_size {
+        panic!("must increase hyph_size");
+    }
+    hyph_count = x;
+
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < HYPH_PRIME {
+        bad_fmt();
+    }
+    if x > hyph_size {
+        panic!("must increase hyph_size");
+    }
+    hyph_next = x;
+
+    j = 0;
+
+    for _k in 1..=hyph_count {
+        do_undump(
+            &mut j as *mut i32 as *mut i8,
+            ::std::mem::size_of::<i32>() as u64,
+            1i32 as size_t,
+            fmt_in,
+        );
+        if j < 0i32 {
+            bad_fmt();
+        }
+        if j > 65535 {
+            hyph_next = (j as i64 / 65536) as i32;
+            j = (j as i64 - hyph_next as i64 * 65536) as i32
+        } else {
+            hyph_next = 0
+        }
+        if j >= hyph_size || hyph_next > hyph_size {
+            bad_fmt();
+        }
+        *hyph_link.offset(j as isize) = hyph_next as hyph_pointer;
+        do_undump(
+            &mut x as *mut i32 as *mut i8,
+            ::std::mem::size_of::<i32>() as u64,
+            1i32 as size_t,
+            fmt_in,
+        );
+        if x < 0 || x > str_ptr {
+            bad_fmt();
+        } else {
+            *hyph_word.offset(j as isize) = x;
+        }
+        do_undump(
+            &mut x as *mut i32 as *mut i8,
+            ::std::mem::size_of::<i32>() as u64,
+            1i32 as size_t,
+            fmt_in,
+        );
+        if x < MIN_HALFWORD || x > MAX_HALFWORD {
+            bad_fmt();
+        } else {
+            *hyph_list.offset(j as isize) = x;
+        }
+    }
+    j += 1;
+    if j < HYPH_PRIME {
+        j = HYPH_PRIME
+    }
+
+    hyph_next = j;
+    if hyph_next >= hyph_size {
+        hyph_next = HYPH_PRIME
+    } else if hyph_next >= HYPH_PRIME {
+        hyph_next += 1
+    }
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < 0 {
+        bad_fmt();
+    }
+    if x > trie_size {
+        panic!("must increase trie_size");
+    }
+
+    j = x;
+    trie_max = j;
+
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < 0 || x > j {
+        bad_fmt();
+    } else {
+        hyph_start = x;
+    }
+
+    if trie_trl.is_null() {
+        trie_trl = xmalloc(
+            ((j + 1i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<trie_pointer>() as u64),
+        ) as *mut trie_pointer
+    }
+    do_undump(
+        &mut *trie_trl.offset(0) as *mut trie_pointer as *mut i8,
+        ::std::mem::size_of::<trie_pointer>() as u64,
+        (j + 1i32) as size_t,
+        fmt_in,
+    );
+    if trie_tro.is_null() {
+        trie_tro = xmalloc(
+            ((j + 1i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<trie_pointer>() as u64),
+        ) as *mut trie_pointer
+    }
+    do_undump(
+        &mut *trie_tro.offset(0) as *mut trie_pointer as *mut i8,
+        ::std::mem::size_of::<trie_pointer>() as u64,
+        (j + 1i32) as size_t,
+        fmt_in,
+    );
+    if trie_trc.is_null() {
+        trie_trc =
+            xmalloc(((j + 1i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64))
+                as *mut u16
+    }
+    do_undump(
+        &mut *trie_trc.offset(0) as *mut u16 as *mut i8,
+        ::std::mem::size_of::<u16>() as u64,
+        (j + 1i32) as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut max_hyph_char as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x < 0 {
+        bad_fmt();
+    }
+    if x > TRIE_OP_SIZE {
+        panic!("must increase TRIE_OP_SIZE");
+    }
+
+    j = x;
+    trie_op_ptr = j;
+
+    do_undump(
+        &mut *hyf_distance.as_mut_ptr().offset(1) as *mut small_number as *mut i8,
+        ::std::mem::size_of::<small_number>() as u64,
+        j as size_t,
+        fmt_in,
+    );
+    do_undump(
+        &mut *hyf_num.as_mut_ptr().offset(1) as *mut small_number as *mut i8,
+        ::std::mem::size_of::<small_number>() as u64,
+        j as size_t,
+        fmt_in,
+    );
+    let mut i_7: i32 = 0;
+    do_undump(
+        &mut *hyf_next.as_mut_ptr().offset(1) as *mut trie_opcode as *mut i8,
+        ::std::mem::size_of::<trie_opcode>() as u64,
+        j as size_t,
+        fmt_in,
+    );
+    i_7 = 0i32;
+    while i_7 < j {
+        if *(&mut *hyf_next.as_mut_ptr().offset(1) as *mut trie_opcode).offset(i_7 as isize) as i64
+            > 65535
+        {
+            panic!(
+                "Item {} (={}) of .fmt array at {:x} >{}",
+                i_7,
+                *(&mut *hyf_next.as_mut_ptr().offset(1) as *mut trie_opcode).offset(i_7 as isize)
+                    as uintptr_t,
+                &mut *hyf_next.as_mut_ptr().offset(1) as *mut trie_opcode as uintptr_t,
+                65535 as uintptr_t
+            );
+        }
+        i_7 += 1
+    }
+    for k in 0..=BIGGEST_LANG {
+        trie_used[k as usize] = 0;
+    }
+    k = BIGGEST_LANG + 1;
+    loop {
+        if !(j > 0) {
+            break;
+        }
+        do_undump(
+            &mut x as *mut i32 as *mut i8,
+            ::std::mem::size_of::<i32>() as u64,
+            1i32 as size_t,
+            fmt_in,
+        );
+        if x < 0i32 || x > k - 1i32 {
+            bad_fmt();
+        } else {
+            k = x;
+        }
+        do_undump(
+            &mut x as *mut i32 as *mut i8,
+            ::std::mem::size_of::<i32>() as u64,
+            1i32 as size_t,
+            fmt_in,
+        );
+        if x < 1 || x > j {
+            bad_fmt();
+        }
+        trie_used[k as usize] = x as trie_opcode;
+        j = j - x;
+        op_start[k as usize] = j
+    }
+    trie_not_ready = false;
+
+    /* trailer */
+
+    do_undump(
+        &mut x as *mut i32 as *mut i8,
+        ::std::mem::size_of::<i32>() as u64,
+        1i32 as size_t,
+        fmt_in,
+    );
+    if x != FORMAT_FOOTER_MAGIC {
+        bad_fmt();
+    }
+
+    ttstub_input_close(fmt_in);
+    return true;
 }
+
 unsafe extern "C" fn final_cleanup() {
     let mut c: small_number = 0;
     c = cur_chr as small_number;
