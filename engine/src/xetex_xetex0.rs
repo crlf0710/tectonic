@@ -16540,7 +16540,6 @@ pub unsafe extern "C" fn read_font_info(
     mut aire: str_number,
     mut s: scaled_t,
 ) -> internal_font_number {
-    let mut current_block: u64;
     let mut k: font_index = 0;
     let mut name_too_long: bool = false;
     let mut file_opened: bool = false;
@@ -16575,44 +16574,18 @@ pub unsafe extern "C" fn read_font_info(
     let mut alpha: i32 = 0;
     let mut beta: u8 = 0;
     let mut tfm_file: rust_input_handle_t = 0 as *mut libc::c_void;
-    g = 0i32;
+
+    g = FONT_BASE;
+
     file_opened = false;
     pack_file_name(nom, aire, cur_ext);
-    if (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 79i32) as isize,
-    ))
-    .b32
-    .s1 > 0i32
-    {
+
+    if INTPAR(INT_PAR__xetex_tracing_fonts) > 0 {
         begin_diagnostic();
         print_nl_cstr(b"Requested font \"\x00" as *const u8 as *const i8);
         print_c_string(name_of_file);
         print('\"' as i32);
-        if s < 0i32 {
+        if s < 0 {
             print_cstr(b" scaled \x00" as *const u8 as *const i8);
             print_int(-s);
         } else {
@@ -16622,2080 +16595,549 @@ pub unsafe extern "C" fn read_font_info(
         }
         end_diagnostic(false);
     }
+
     if quoted_filename {
         g = load_native_font(u, nom, aire, s);
-        if g != 0i32 {
-            current_block = 15405907992539268277;
+        if g != FONT_BASE {
+            return done(file_opened, tfm_file, g);
+        }
+    }
+
+    name_too_long = length(nom) > 255i32 || length(aire) > 255i32;
+    if name_too_long {
+        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+    }
+    pack_file_name(nom, aire, (65536 + 1i32 as i64) as str_number);
+    check_for_tfm_font_mapping();
+
+    tfm_file = tt_xetex_open_input(TTInputFormat::TFM);
+    if tfm_file.is_null() {
+        if !quoted_filename {
+            g = load_native_font(u, nom, aire, s);
+            if g != FONT_BASE {
+                return done(file_opened, tfm_file, g);
+            }
+        }
+        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+    }
+
+    file_opened = true; /*:582*/
+
+    /* We are a bit cavalier about EOF-checking since we can't very
+     * conveniently implement feof() in the Rust layer, and it only ever is
+     * used in this one place. */
+
+    macro_rules! READFIFTEEN (
+        ($x:expr) => {
+            $x = ttstub_input_getc(tfm_file);
+            if $x > 127 || $x == libc::EOF {
+                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            }
+            $x *= 256;
+            $x += ttstub_input_getc(tfm_file);
+
+        };
+    );
+
+    READFIFTEEN!(lf);
+    READFIFTEEN!(lh);
+    READFIFTEEN!(bc);
+    READFIFTEEN!(ec);
+
+    if bc > ec + 1 || ec > 255 {
+        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+    }
+    if bc > 255 {
+        bc = 1;
+        ec = 0
+    }
+
+    READFIFTEEN!(nw);
+    READFIFTEEN!(nh);
+    READFIFTEEN!(nd);
+    READFIFTEEN!(ni);
+    READFIFTEEN!(nl);
+    READFIFTEEN!(nk);
+    READFIFTEEN!(ne);
+    READFIFTEEN!(np);
+
+    if lf != 6 + lh + (ec - bc + 1) + nw + nh + nd + ni + nl + nk + ne + np {
+        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+    } else if nw == 0 || nh == 0 || nd == 0 || ni == 0 {
+        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+    }
+
+    lf = lf - 6 - lh;
+    if np < 7 {
+        lf = lf + 7 - np
+    }
+    assert!(
+        !(font_ptr == font_max || fmem_ptr + lf > font_mem_size),
+        "not enough memory to load another font"
+    );
+
+    f = font_ptr + 1;
+    *char_base.offset(f as isize) = fmem_ptr - bc;
+    *width_base.offset(f as isize) = *char_base.offset(f as isize) + ec + 1;
+    *height_base.offset(f as isize) = *width_base.offset(f as isize) + nw;
+    *depth_base.offset(f as isize) = *height_base.offset(f as isize) + nh;
+    *italic_base.offset(f as isize) = *depth_base.offset(f as isize) + nd;
+    *lig_kern_base.offset(f as isize) = *italic_base.offset(f as isize) + ni;
+    *kern_base.offset(f as isize) = *lig_kern_base.offset(f as isize) + nl - 256 * 128;
+    *exten_base.offset(f as isize) = *kern_base.offset(f as isize) + 256 * 128 + nk;
+    *param_base.offset(f as isize) = *exten_base.offset(f as isize) + ne;
+    if lh < 2 {
+        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+    }
+    a = ttstub_input_getc(tfm_file);
+    qw.s3 = a as u16;
+    b = ttstub_input_getc(tfm_file);
+    qw.s2 = b as u16;
+    c = ttstub_input_getc(tfm_file);
+    qw.s1 = c as u16;
+    d = ttstub_input_getc(tfm_file);
+    qw.s0 = d as u16;
+    if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
+        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+    }
+    *font_check.offset(f as isize) = qw;
+
+    READFIFTEEN!(z);
+    z = z * 256 + ttstub_input_getc(tfm_file);
+    z = z * 16 + ttstub_input_getc(tfm_file) / 16;
+    if z < 65536 {
+        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+    }
+    while lh > 2 {
+        ttstub_input_getc(tfm_file);
+        ttstub_input_getc(tfm_file);
+        ttstub_input_getc(tfm_file);
+        ttstub_input_getc(tfm_file);
+        lh -= 1
+    }
+    *font_dsize.offset(f as isize) = z;
+    if s != -1000 {
+        if s >= 0 {
+            z = s
         } else {
-            current_block = 13550086250199790493;
+            z = xn_over_d(z, -s, 1000)
         }
-    } else {
-        current_block = 13550086250199790493;
     }
-    match current_block {
-        13550086250199790493 => {
-            name_too_long = length(nom) > 255i32 || length(aire) > 255i32;
-            if name_too_long {
-                current_block = 9519785463931849731;
-            } else {
-                pack_file_name(nom, aire, (65536 + 1i32 as i64) as str_number);
-                check_for_tfm_font_mapping();
-                tfm_file = tt_xetex_open_input(TTInputFormat::TFM);
-                if tfm_file.is_null() {
-                    if !quoted_filename {
-                        g = load_native_font(u, nom, aire, s);
-                        if g != 0i32 {
-                            current_block = 15405907992539268277;
-                        } else {
-                            current_block = 9519785463931849731;
-                        }
-                    } else {
-                        current_block = 9519785463931849731;
-                    }
-                } else {
-                    file_opened = true;
-                    /* We are a bit cavalier about EOF-checking since we can't very
-                     * conveniently implement feof() in the Rust layer, and it only ever is
-                     * used in this one place. */
-                    lf = ttstub_input_getc(tfm_file);
-                    if lf > 127i32 || lf == -1i32 {
-                        current_block = 9519785463931849731;
-                    } else {
-                        lf *= 256i32;
-                        lf += ttstub_input_getc(tfm_file);
-                        lh = ttstub_input_getc(tfm_file);
-                        if lh > 127i32 || lh == -1i32 {
-                            current_block = 9519785463931849731;
-                        } else {
-                            lh *= 256i32;
-                            lh += ttstub_input_getc(tfm_file);
-                            bc = ttstub_input_getc(tfm_file);
-                            if bc > 127i32 || bc == -1i32 {
-                                current_block = 9519785463931849731;
-                            } else {
-                                bc *= 256i32;
-                                bc += ttstub_input_getc(tfm_file);
-                                ec = ttstub_input_getc(tfm_file);
-                                if ec > 127i32 || ec == -1i32 {
-                                    current_block = 9519785463931849731;
-                                } else {
-                                    ec *= 256i32;
-                                    ec += ttstub_input_getc(tfm_file);
-                                    if bc > ec + 1i32 || ec > 255i32 {
-                                        current_block = 9519785463931849731;
-                                    } else {
-                                        if bc > 255i32 {
-                                            bc = 1i32;
-                                            ec = 0i32
-                                        }
-                                        nw = ttstub_input_getc(tfm_file);
-                                        if nw > 127i32 || nw == -1i32 {
-                                            current_block = 9519785463931849731;
-                                        } else {
-                                            nw *= 256i32;
-                                            nw += ttstub_input_getc(tfm_file);
-                                            nh = ttstub_input_getc(tfm_file);
-                                            if nh > 127i32 || nh == -1i32 {
-                                                current_block = 9519785463931849731;
-                                            } else {
-                                                nh *= 256i32;
-                                                nh += ttstub_input_getc(tfm_file);
-                                                nd = ttstub_input_getc(tfm_file);
-                                                if nd > 127i32 || nd == -1i32 {
-                                                    current_block = 9519785463931849731;
-                                                } else {
-                                                    nd *= 256i32;
-                                                    nd += ttstub_input_getc(tfm_file);
-                                                    ni = ttstub_input_getc(tfm_file);
-                                                    if ni > 127i32 || ni == -1i32 {
-                                                        current_block = 9519785463931849731;
-                                                    } else {
-                                                        ni *= 256i32;
-                                                        ni += ttstub_input_getc(tfm_file);
-                                                        nl = ttstub_input_getc(tfm_file);
-                                                        if nl > 127i32 || nl == -1i32 {
-                                                            current_block = 9519785463931849731;
-                                                        } else {
-                                                            nl *= 256i32;
-                                                            nl += ttstub_input_getc(tfm_file);
-                                                            nk = ttstub_input_getc(tfm_file);
-                                                            if nk > 127i32 || nk == -1i32 {
-                                                                current_block = 9519785463931849731;
-                                                            } else {
-                                                                nk *= 256i32;
-                                                                nk += ttstub_input_getc(tfm_file);
-                                                                ne = ttstub_input_getc(tfm_file);
-                                                                if ne > 127i32 || ne == -1i32 {
-                                                                    current_block =
-                                                                        9519785463931849731;
-                                                                } else {
-                                                                    ne *= 256i32;
-                                                                    ne +=
-                                                                        ttstub_input_getc(tfm_file);
-                                                                    np =
-                                                                        ttstub_input_getc(tfm_file);
-                                                                    if np > 127i32 || np == -1i32 {
-                                                                        current_block =
-                                                                            9519785463931849731;
-                                                                    } else {
-                                                                        np *= 256i32;
-                                                                        np += ttstub_input_getc(
-                                                                            tfm_file,
-                                                                        );
-                                                                        if lf
-                                                                            != 6i32
-                                                                                + lh
-                                                                                + (ec - bc + 1i32)
-                                                                                + nw
-                                                                                + nh
-                                                                                + nd
-                                                                                + ni
-                                                                                + nl
-                                                                                + nk
-                                                                                + ne
-                                                                                + np
-                                                                        {
-                                                                            current_block =
-                                                                                9519785463931849731;
-                                                                        } else if nw == 0i32
-                                                                            || nh == 0i32
-                                                                            || nd == 0i32
-                                                                            || ni == 0i32
-                                                                        {
-                                                                            current_block =
-                                                                                9519785463931849731;
-                                                                        } else {
-                                                                            lf = lf - 6i32 - lh;
-                                                                            if np < 7i32 {
-                                                                                lf = lf + 7i32 - np
-                                                                            }
-                                                                            assert!(!(font_ptr == font_max
-                                                                                || fmem_ptr + lf
-                                                                                    > font_mem_size), "not enough memory to load another font");
-                                                                            f = font_ptr + 1i32;
-                                                                            *char_base.offset(
-                                                                                f as isize,
-                                                                            ) = fmem_ptr - bc;
-                                                                            *width_base.offset(
-                                                                                f as isize,
-                                                                            ) = *char_base
-                                                                                .offset(f as isize)
-                                                                                + ec
-                                                                                + 1i32;
-                                                                            *height_base.offset(
-                                                                                f as isize,
-                                                                            ) = *width_base
-                                                                                .offset(f as isize)
-                                                                                + nw;
-                                                                            *depth_base.offset(
-                                                                                f as isize,
-                                                                            ) = *height_base
-                                                                                .offset(f as isize)
-                                                                                + nh;
-                                                                            *italic_base.offset(
-                                                                                f as isize,
-                                                                            ) = *depth_base
-                                                                                .offset(f as isize)
-                                                                                + nd;
-                                                                            *lig_kern_base
-                                                                                .offset(
-                                                                                    f as isize,
-                                                                                ) = *italic_base
-                                                                                .offset(f as isize)
-                                                                                + ni;
-                                                                            *kern_base.offset(
-                                                                                f as isize,
-                                                                            ) = *lig_kern_base
-                                                                                .offset(f as isize)
-                                                                                + nl
-                                                                                - 256i32 * 128i32;
-                                                                            *exten_base.offset(
-                                                                                f as isize,
-                                                                            ) = *kern_base
-                                                                                .offset(f as isize)
-                                                                                + 256i32 * 128i32
-                                                                                + nk;
-                                                                            *param_base.offset(
-                                                                                f as isize,
-                                                                            ) = *exten_base
-                                                                                .offset(f as isize)
-                                                                                + ne;
-                                                                            if lh < 2i32 {
-                                                                                current_block
-                                                                                    =
-                                                                                    9519785463931849731;
-                                                                            } else {
-                                                                                a
-                                                                                    =
-                                                                                    ttstub_input_getc(tfm_file);
-                                                                                qw.s3 = a as u16;
-                                                                                b
-                                                                                    =
-                                                                                    ttstub_input_getc(tfm_file);
-                                                                                qw.s2 = b as u16;
-                                                                                c
-                                                                                    =
-                                                                                    ttstub_input_getc(tfm_file);
-                                                                                qw.s1 = c as u16;
-                                                                                d
-                                                                                    =
-                                                                                    ttstub_input_getc(tfm_file);
-                                                                                qw.s0 = d as u16;
-                                                                                if a == -1i32
-                                                                                    || b == -1i32
-                                                                                    || c == -1i32
-                                                                                    || d == -1i32
-                                                                                {
-                                                                                    current_block
-                                                                                        =
-                                                                                        9519785463931849731;
-                                                                                } else {
-                                                                                    *font_check
-                                                                                        .offset(
-                                                                                        f as isize,
-                                                                                    ) = qw;
-                                                                                    z
-                                                                                        =
-                                                                                        ttstub_input_getc(tfm_file);
-                                                                                    if z > 127i32
-                                                                                        || z
-                                                                                            == -1i32
-                                                                                    {
-                                                                                        current_block
-                                                                                            =
-                                                                                            9519785463931849731;
-                                                                                    } else {
-                                                                                        z *= 256i32;
-                                                                                        z
-                                                                                            +=
-                                                                                            ttstub_input_getc(tfm_file);
-                                                                                        z
-                                                                                            =
-                                                                                            z
-                                                                                                *
-                                                                                                256i32
-                                                                                                +
-                                                                                                ttstub_input_getc(tfm_file);
-                                                                                        z
-                                                                                            =
-                                                                                            z
-                                                                                                *
-                                                                                                16i32
-                                                                                                +
-                                                                                                ttstub_input_getc(tfm_file)
-                                                                                                    /
-                                                                                                    16i32;
-                                                                                        if (z
-                                                                                            as i64)
-                                                                                            < 65536
-                                                                                        {
-                                                                                            current_block
-                                                                                                =
-                                                                                                9519785463931849731;
-                                                                                        } else {
-                                                                                            while lh
-                                                                                                      >
-                                                                                                      2i32
-                                                                                                  {
-                                                                                                ttstub_input_getc(tfm_file);
-                                                                                                ttstub_input_getc(tfm_file);
-                                                                                                ttstub_input_getc(tfm_file);
-                                                                                                ttstub_input_getc(tfm_file);
-                                                                                                lh
-                                                                                                    -=
-                                                                                                    1
-                                                                                            }
-                                                                                            *font_dsize.offset(f
-                                                                                                                   as
-                                                                                                                   isize)
-                                                                                                =
-                                                                                                z;
-                                                                                            if s
-                                                                                                   !=
-                                                                                                   -1000i32
-                                                                                               {
-                                                                                                if s
-                                                                                                       >=
-                                                                                                       0i32
-                                                                                                   {
-                                                                                                    z
-                                                                                                        =
-                                                                                                        s
-                                                                                                } else {
-                                                                                                    z
-                                                                                                        =
-                                                                                                        xn_over_d(z,
-                                                                                                                  -s,
-                                                                                                                  1000i32)
-                                                                                                }
-                                                                                            }
-                                                                                            *font_size.offset(f
-                                                                                                                  as
-                                                                                                                  isize)
-                                                                                                =
-                                                                                                z;
-                                                                                            k
-                                                                                                =
-                                                                                                fmem_ptr;
-                                                                                            loop {
-                                                                                                if !(k
-                                                                                                         <=
-                                                                                                         *width_base.offset(f
-                                                                                                                                as
-                                                                                                                                isize)
-                                                                                                             -
-                                                                                                             1i32)
-                                                                                                   {
-                                                                                                    current_block
-                                                                                                        =
-                                                                                                        10517665100358322178;
-                                                                                                    break
-                                                                                                        ;
-                                                                                                }
-                                                                                                a
-                                                                                                    =
-                                                                                                    ttstub_input_getc(tfm_file);
-                                                                                                qw.s3
-                                                                                                    =
-                                                                                                    a
-                                                                                                        as
-                                                                                                        u16;
-                                                                                                b
-                                                                                                    =
-                                                                                                    ttstub_input_getc(tfm_file);
-                                                                                                qw.s2
-                                                                                                    =
-                                                                                                    b
-                                                                                                        as
-                                                                                                        u16;
-                                                                                                c
-                                                                                                    =
-                                                                                                    ttstub_input_getc(tfm_file);
-                                                                                                qw.s1
-                                                                                                    =
-                                                                                                    c
-                                                                                                        as
-                                                                                                        u16;
-                                                                                                d
-                                                                                                    =
-                                                                                                    ttstub_input_getc(tfm_file);
-                                                                                                qw.s0
-                                                                                                    =
-                                                                                                    d
-                                                                                                        as
-                                                                                                        u16;
-                                                                                                if a
-                                                                                                       ==
-                                                                                                       -1i32
-                                                                                                       ||
-                                                                                                       b
-                                                                                                           ==
-                                                                                                           -1i32
-                                                                                                       ||
-                                                                                                       c
-                                                                                                           ==
-                                                                                                           -1i32
-                                                                                                       ||
-                                                                                                       d
-                                                                                                           ==
-                                                                                                           -1i32
-                                                                                                   {
-                                                                                                    current_block
-                                                                                                        =
-                                                                                                        9519785463931849731;
-                                                                                                    break
-                                                                                                        ;
-                                                                                                }
-                                                                                                (*font_info.offset(k
-                                                                                                                       as
-                                                                                                                       isize)).b16
-                                                                                                    =
-                                                                                                    qw;
-                                                                                                if a
-                                                                                                       >=
-                                                                                                       nw
-                                                                                                       ||
-                                                                                                       b
-                                                                                                           /
-                                                                                                           16i32
-                                                                                                           >=
-                                                                                                           nh
-                                                                                                       ||
-                                                                                                       b
-                                                                                                           %
-                                                                                                           16i32
-                                                                                                           >=
-                                                                                                           nd
-                                                                                                       ||
-                                                                                                       c
-                                                                                                           /
-                                                                                                           4i32
-                                                                                                           >=
-                                                                                                           ni
-                                                                                                   {
-                                                                                                    current_block
-                                                                                                        =
-                                                                                                        9519785463931849731;
-                                                                                                    break
-                                                                                                        ;
-                                                                                                }
-                                                                                                match c
-                                                                                                          %
-                                                                                                          4i32
-                                                                                                    {
-                                                                                                    1
-                                                                                                    =>
-                                                                                                    {
-                                                                                                        if d
-                                                                                                               >=
-                                                                                                               nl
-                                                                                                           {
-                                                                                                            current_block
-                                                                                                                =
-                                                                                                                9519785463931849731;
-                                                                                                            break
-                                                                                                                ;
-                                                                                                        }
-                                                                                                    }
-                                                                                                    3
-                                                                                                    =>
-                                                                                                    {
-                                                                                                        if d
-                                                                                                               >=
-                                                                                                               ne
-                                                                                                           {
-                                                                                                            current_block
-                                                                                                                =
-                                                                                                                9519785463931849731;
-                                                                                                            break
-                                                                                                                ;
-                                                                                                        }
-                                                                                                    }
-                                                                                                    2
-                                                                                                    =>
-                                                                                                    {
-                                                                                                        if d
-                                                                                                               <
-                                                                                                               bc
-                                                                                                               ||
-                                                                                                               d
-                                                                                                                   >
-                                                                                                                   ec
-                                                                                                           {
-                                                                                                            current_block
-                                                                                                                =
-                                                                                                                9519785463931849731;
-                                                                                                            break
-                                                                                                                ;
-                                                                                                        }
-                                                                                                        loop
-                                                                                                             {
-                                                                                                            if !(d
-                                                                                                                     <
-                                                                                                                     k
-                                                                                                                         +
-                                                                                                                         bc
-                                                                                                                         -
-                                                                                                                         fmem_ptr)
-                                                                                                               {
-                                                                                                                current_block
-                                                                                                                    =
-                                                                                                                    6644752249785531703;
-                                                                                                                break
-                                                                                                                    ;
-                                                                                                            }
-                                                                                                            qw
-                                                                                                                =
-                                                                                                                (*font_info.offset((*char_base.offset(f
-                                                                                                                                                          as
-                                                                                                                                                          isize)
-                                                                                                                                        +
-                                                                                                                                        d)
-                                                                                                                                       as
-                                                                                                                                       isize)).b16;
-                                                                                                            if qw.s1
-                                                                                                                   as
-                                                                                                                   i32
-                                                                                                                   %
-                                                                                                                   4i32
-                                                                                                                   !=
-                                                                                                                   2i32
-                                                                                                               {
-                                                                                                                current_block
-                                                                                                                    =
-                                                                                                                    5832582820025303349;
-                                                                                                                break
-                                                                                                                    ;
-                                                                                                            }
-                                                                                                            d
-                                                                                                                =
-                                                                                                                qw.s0
-                                                                                                                    as
-                                                                                                                    i32
-                                                                                                        }
-                                                                                                        match current_block
-                                                                                                            {
-                                                                                                            5832582820025303349
-                                                                                                            =>
-                                                                                                            {
-                                                                                                            }
-                                                                                                            _
-                                                                                                            =>
-                                                                                                            {
-                                                                                                                if d
-                                                                                                                       ==
-                                                                                                                       k
-                                                                                                                           +
-                                                                                                                           bc
-                                                                                                                           -
-                                                                                                                           fmem_ptr
-                                                                                                                   {
-                                                                                                                    current_block
-                                                                                                                        =
-                                                                                                                        9519785463931849731;
-                                                                                                                    break
-                                                                                                                        ;
-                                                                                                                }
-                                                                                                            }
-                                                                                                        }
-                                                                                                    }
-                                                                                                    _
-                                                                                                    =>
-                                                                                                    {
-                                                                                                    }
-                                                                                                }
-                                                                                                k
-                                                                                                    +=
-                                                                                                    1
-                                                                                            }
-                                                                                            match current_block
-                                                                                                {
-                                                                                                9519785463931849731
-                                                                                                =>
-                                                                                                {
-                                                                                                }
-                                                                                                _
-                                                                                                =>
-                                                                                                {
-                                                                                                    alpha
-                                                                                                        =
-                                                                                                        16i32;
-                                                                                                    while z
-                                                                                                              >=
-                                                                                                              0x800000i32
-                                                                                                          {
-                                                                                                        z
-                                                                                                            =
-                                                                                                            z
-                                                                                                                /
-                                                                                                                2i32;
-                                                                                                        alpha
-                                                                                                            =
-                                                                                                            alpha
-                                                                                                                +
-                                                                                                                alpha
-                                                                                                    }
-                                                                                                    beta
-                                                                                                        =
-                                                                                                        (256i32
-                                                                                                             /
-                                                                                                             alpha)
-                                                                                                            as
-                                                                                                            u8;
-                                                                                                    alpha
-                                                                                                        =
-                                                                                                        alpha
-                                                                                                            *
-                                                                                                            z;
-                                                                                                    k
-                                                                                                        =
-                                                                                                        *width_base.offset(f
-                                                                                                                               as
-                                                                                                                               isize);
-                                                                                                    loop
-                                                                                                         {
-                                                                                                        if !(k
-                                                                                                                 <=
-                                                                                                                 *lig_kern_base.offset(f
-                                                                                                                                           as
-                                                                                                                                           isize)
-                                                                                                                     -
-                                                                                                                     1i32)
-                                                                                                           {
-                                                                                                            current_block
-                                                                                                                =
-                                                                                                                5127850565928544452;
-                                                                                                            break
-                                                                                                                ;
-                                                                                                        }
-                                                                                                        a
-                                                                                                            =
-                                                                                                            ttstub_input_getc(tfm_file);
-                                                                                                        b
-                                                                                                            =
-                                                                                                            ttstub_input_getc(tfm_file);
-                                                                                                        c
-                                                                                                            =
-                                                                                                            ttstub_input_getc(tfm_file);
-                                                                                                        d
-                                                                                                            =
-                                                                                                            ttstub_input_getc(tfm_file);
-                                                                                                        if a
-                                                                                                               ==
-                                                                                                               -1i32
-                                                                                                               ||
-                                                                                                               b
-                                                                                                                   ==
-                                                                                                                   -1i32
-                                                                                                               ||
-                                                                                                               c
-                                                                                                                   ==
-                                                                                                                   -1i32
-                                                                                                               ||
-                                                                                                               d
-                                                                                                                   ==
-                                                                                                                   -1i32
-                                                                                                           {
-                                                                                                            current_block
-                                                                                                                =
-                                                                                                                9519785463931849731;
-                                                                                                            break
-                                                                                                                ;
-                                                                                                        }
-                                                                                                        sw
-                                                                                                            =
-                                                                                                            ((d
-                                                                                                                  *
-                                                                                                                  z
-                                                                                                                  /
-                                                                                                                  256i32
-                                                                                                                  +
-                                                                                                                  c
-                                                                                                                      *
-                                                                                                                      z)
-                                                                                                                 /
-                                                                                                                 256i32
-                                                                                                                 +
-                                                                                                                 b
-                                                                                                                     *
-                                                                                                                     z)
-                                                                                                                /
-                                                                                                                beta
-                                                                                                                    as
-                                                                                                                    i32;
-                                                                                                        if a
-                                                                                                               ==
-                                                                                                               0i32
-                                                                                                           {
-                                                                                                            (*font_info.offset(k
-                                                                                                                                   as
-                                                                                                                                   isize)).b32.s1
-                                                                                                                =
-                                                                                                                sw
-                                                                                                        } else {
-                                                                                                            if !(a
-                                                                                                                     ==
-                                                                                                                     255i32)
-                                                                                                               {
-                                                                                                                current_block
-                                                                                                                    =
-                                                                                                                    9519785463931849731;
-                                                                                                                break
-                                                                                                                    ;
-                                                                                                            }
-                                                                                                            (*font_info.offset(k
-                                                                                                                                   as
-                                                                                                                                   isize)).b32.s1
-                                                                                                                =
-                                                                                                                sw
-                                                                                                                    -
-                                                                                                                    alpha
-                                                                                                        }
-                                                                                                        k
-                                                                                                            +=
-                                                                                                            1
-                                                                                                    }
-                                                                                                    match current_block
-                                                                                                        {
-                                                                                                        9519785463931849731
-                                                                                                        =>
-                                                                                                        {
-                                                                                                        }
-                                                                                                        _
-                                                                                                        =>
-                                                                                                        {
-                                                                                                            if (*font_info.offset(*width_base.offset(f
-                                                                                                                                                         as
-                                                                                                                                                         isize)
-                                                                                                                                      as
-                                                                                                                                      isize)).b32.s1
-                                                                                                                   !=
-                                                                                                                   0i32
-                                                                                                               {
-                                                                                                                current_block
-                                                                                                                    =
-                                                                                                                    9519785463931849731;
-                                                                                                            } else if (*font_info.offset(*height_base.offset(f
-                                                                                                                                                                 as
-                                                                                                                                                                 isize)
-                                                                                                                                             as
-                                                                                                                                             isize)).b32.s1
-                                                                                                                          !=
-                                                                                                                          0i32
-                                                                                                             {
-                                                                                                                current_block
-                                                                                                                    =
-                                                                                                                    9519785463931849731;
-                                                                                                            } else if (*font_info.offset(*depth_base.offset(f
-                                                                                                                                                                as
-                                                                                                                                                                isize)
-                                                                                                                                             as
-                                                                                                                                             isize)).b32.s1
-                                                                                                                          !=
-                                                                                                                          0i32
-                                                                                                             {
-                                                                                                                current_block
-                                                                                                                    =
-                                                                                                                    9519785463931849731;
-                                                                                                            } else if (*font_info.offset(*italic_base.offset(f
-                                                                                                                                                                 as
-                                                                                                                                                                 isize)
-                                                                                                                                             as
-                                                                                                                                             isize)).b32.s1
-                                                                                                                          !=
-                                                                                                                          0i32
-                                                                                                             {
-                                                                                                                current_block
-                                                                                                                    =
-                                                                                                                    9519785463931849731;
-                                                                                                            } else {
-                                                                                                                bch_label
-                                                                                                                    =
-                                                                                                                    32767i32;
-                                                                                                                bchar_0
-                                                                                                                    =
-                                                                                                                    256i32
-                                                                                                                        as
-                                                                                                                        i16;
-                                                                                                                if nl
-                                                                                                                       >
-                                                                                                                       0i32
-                                                                                                                   {
-                                                                                                                    k
-                                                                                                                        =
-                                                                                                                        *lig_kern_base.offset(f
-                                                                                                                                                  as
-                                                                                                                                                  isize);
-                                                                                                                    loop
-                                                                                                                         {
-                                                                                                                        if !(k
-                                                                                                                                 <=
-                                                                                                                                 *kern_base.offset(f
-                                                                                                                                                       as
-                                                                                                                                                       isize)
-                                                                                                                                     +
-                                                                                                                                     256i32
-                                                                                                                                         *
-                                                                                                                                         128i32
-                                                                                                                                     -
-                                                                                                                                     1i32)
-                                                                                                                           {
-                                                                                                                            current_block
-                                                                                                                                =
-                                                                                                                                8038949400865391589;
-                                                                                                                            break
-                                                                                                                                ;
-                                                                                                                        }
-                                                                                                                        a
-                                                                                                                            =
-                                                                                                                            ttstub_input_getc(tfm_file);
-                                                                                                                        qw.s3
-                                                                                                                            =
-                                                                                                                            a
-                                                                                                                                as
-                                                                                                                                u16;
-                                                                                                                        b
-                                                                                                                            =
-                                                                                                                            ttstub_input_getc(tfm_file);
-                                                                                                                        qw.s2
-                                                                                                                            =
-                                                                                                                            b
-                                                                                                                                as
-                                                                                                                                u16;
-                                                                                                                        c
-                                                                                                                            =
-                                                                                                                            ttstub_input_getc(tfm_file);
-                                                                                                                        qw.s1
-                                                                                                                            =
-                                                                                                                            c
-                                                                                                                                as
-                                                                                                                                u16;
-                                                                                                                        d
-                                                                                                                            =
-                                                                                                                            ttstub_input_getc(tfm_file);
-                                                                                                                        qw.s0
-                                                                                                                            =
-                                                                                                                            d
-                                                                                                                                as
-                                                                                                                                u16;
-                                                                                                                        if a
-                                                                                                                               ==
-                                                                                                                               -1i32
-                                                                                                                               ||
-                                                                                                                               b
-                                                                                                                                   ==
-                                                                                                                                   -1i32
-                                                                                                                               ||
-                                                                                                                               c
-                                                                                                                                   ==
-                                                                                                                                   -1i32
-                                                                                                                               ||
-                                                                                                                               d
-                                                                                                                                   ==
-                                                                                                                                   -1i32
-                                                                                                                           {
-                                                                                                                            current_block
-                                                                                                                                =
-                                                                                                                                9519785463931849731;
-                                                                                                                            break
-                                                                                                                                ;
-                                                                                                                        }
-                                                                                                                        (*font_info.offset(k
-                                                                                                                                               as
-                                                                                                                                               isize)).b16
-                                                                                                                            =
-                                                                                                                            qw;
-                                                                                                                        if a
-                                                                                                                               >
-                                                                                                                               128i32
-                                                                                                                           {
-                                                                                                                            if 256i32
-                                                                                                                                   *
-                                                                                                                                   c
-                                                                                                                                   +
-                                                                                                                                   d
-                                                                                                                                   >=
-                                                                                                                                   nl
-                                                                                                                               {
-                                                                                                                                current_block
-                                                                                                                                    =
-                                                                                                                                    9519785463931849731;
-                                                                                                                                break
-                                                                                                                                    ;
-                                                                                                                            }
-                                                                                                                            if a
-                                                                                                                                   ==
-                                                                                                                                   255i32
-                                                                                                                                   &&
-                                                                                                                                   k
-                                                                                                                                       ==
-                                                                                                                                       *lig_kern_base.offset(f
-                                                                                                                                                                 as
-                                                                                                                                                                 isize)
-                                                                                                                               {
-                                                                                                                                bchar_0
-                                                                                                                                    =
-                                                                                                                                    b
-                                                                                                                                        as
-                                                                                                                                        i16
-                                                                                                                            }
-                                                                                                                        } else {
-                                                                                                                            if b
-                                                                                                                                   !=
-                                                                                                                                   bchar_0
-                                                                                                                                       as
-                                                                                                                                       i32
-                                                                                                                               {
-                                                                                                                                if b
-                                                                                                                                       <
-                                                                                                                                       bc
-                                                                                                                                       ||
-                                                                                                                                       b
-                                                                                                                                           >
-                                                                                                                                           ec
-                                                                                                                                   {
-                                                                                                                                    current_block
-                                                                                                                                        =
-                                                                                                                                        9519785463931849731;
-                                                                                                                                    break
-                                                                                                                                        ;
-                                                                                                                                }
-                                                                                                                                qw
-                                                                                                                                    =
-                                                                                                                                    (*font_info.offset((*char_base.offset(f
-                                                                                                                                                                              as
-                                                                                                                                                                              isize)
-                                                                                                                                                            +
-                                                                                                                                                            b)
-                                                                                                                                                           as
-                                                                                                                                                           isize)).b16;
-                                                                                                                                if !(qw.s3
-                                                                                                                                         as
-                                                                                                                                         i32
-                                                                                                                                         >
-                                                                                                                                         0i32)
-                                                                                                                                   {
-                                                                                                                                    current_block
-                                                                                                                                        =
-                                                                                                                                        9519785463931849731;
-                                                                                                                                    break
-                                                                                                                                        ;
-                                                                                                                                }
-                                                                                                                            }
-                                                                                                                            if c
-                                                                                                                                   <
-                                                                                                                                   128i32
-                                                                                                                               {
-                                                                                                                                if d
-                                                                                                                                       <
-                                                                                                                                       bc
-                                                                                                                                       ||
-                                                                                                                                       d
-                                                                                                                                           >
-                                                                                                                                           ec
-                                                                                                                                   {
-                                                                                                                                    current_block
-                                                                                                                                        =
-                                                                                                                                        9519785463931849731;
-                                                                                                                                    break
-                                                                                                                                        ;
-                                                                                                                                }
-                                                                                                                                qw
-                                                                                                                                    =
-                                                                                                                                    (*font_info.offset((*char_base.offset(f
-                                                                                                                                                                              as
-                                                                                                                                                                              isize)
-                                                                                                                                                            +
-                                                                                                                                                            d)
-                                                                                                                                                           as
-                                                                                                                                                           isize)).b16;
-                                                                                                                                if !(qw.s3
-                                                                                                                                         as
-                                                                                                                                         i32
-                                                                                                                                         >
-                                                                                                                                         0i32)
-                                                                                                                                   {
-                                                                                                                                    current_block
-                                                                                                                                        =
-                                                                                                                                        9519785463931849731;
-                                                                                                                                    break
-                                                                                                                                        ;
-                                                                                                                                }
-                                                                                                                            } else if 256i32
-                                                                                                                                          *
-                                                                                                                                          (c
-                                                                                                                                               -
-                                                                                                                                               128i32)
-                                                                                                                                          +
-                                                                                                                                          d
-                                                                                                                                          >=
-                                                                                                                                          nk
-                                                                                                                             {
-                                                                                                                                current_block
-                                                                                                                                    =
-                                                                                                                                    9519785463931849731;
-                                                                                                                                break
-                                                                                                                                    ;
-                                                                                                                            }
-                                                                                                                            if a
-                                                                                                                                   <
-                                                                                                                                   128i32
-                                                                                                                                   &&
-                                                                                                                                   k
-                                                                                                                                       -
-                                                                                                                                       *lig_kern_base.offset(f
-                                                                                                                                                                 as
-                                                                                                                                                                 isize)
-                                                                                                                                       +
-                                                                                                                                       a
-                                                                                                                                       +
-                                                                                                                                       1i32
-                                                                                                                                       >=
-                                                                                                                                       nl
-                                                                                                                               {
-                                                                                                                                current_block
-                                                                                                                                    =
-                                                                                                                                    9519785463931849731;
-                                                                                                                                break
-                                                                                                                                    ;
-                                                                                                                            }
-                                                                                                                        }
-                                                                                                                        k
-                                                                                                                            +=
-                                                                                                                            1
-                                                                                                                    }
-                                                                                                                    match current_block
-                                                                                                                        {
-                                                                                                                        9519785463931849731
-                                                                                                                        =>
-                                                                                                                        {
-                                                                                                                        }
-                                                                                                                        _
-                                                                                                                        =>
-                                                                                                                        {
-                                                                                                                            if a
-                                                                                                                                   ==
-                                                                                                                                   255i32
-                                                                                                                               {
-                                                                                                                                bch_label
-                                                                                                                                    =
-                                                                                                                                    256i32
-                                                                                                                                        *
-                                                                                                                                        c
-                                                                                                                                        +
-                                                                                                                                        d
-                                                                                                                            }
-                                                                                                                            current_block
-                                                                                                                                =
-                                                                                                                                2311897482351547615;
-                                                                                                                        }
-                                                                                                                    }
-                                                                                                                } else {
-                                                                                                                    current_block
-                                                                                                                        =
-                                                                                                                        2311897482351547615;
-                                                                                                                }
-                                                                                                                match current_block
-                                                                                                                    {
-                                                                                                                    9519785463931849731
-                                                                                                                    =>
-                                                                                                                    {
-                                                                                                                    }
-                                                                                                                    _
-                                                                                                                    =>
-                                                                                                                    {
-                                                                                                                        k
-                                                                                                                            =
-                                                                                                                            *kern_base.offset(f
-                                                                                                                                                  as
-                                                                                                                                                  isize)
-                                                                                                                                +
-                                                                                                                                256i32
-                                                                                                                                    *
-                                                                                                                                    128i32;
-                                                                                                                        loop
-                                                                                                                             {
-                                                                                                                            if !(k
-                                                                                                                                     <=
-                                                                                                                                     *exten_base.offset(f
-                                                                                                                                                            as
-                                                                                                                                                            isize)
-                                                                                                                                         -
-                                                                                                                                         1i32)
-                                                                                                                               {
-                                                                                                                                current_block
-                                                                                                                                    =
-                                                                                                                                    17034918949615525785;
-                                                                                                                                break
-                                                                                                                                    ;
-                                                                                                                            }
-                                                                                                                            a
-                                                                                                                                =
-                                                                                                                                ttstub_input_getc(tfm_file);
-                                                                                                                            b
-                                                                                                                                =
-                                                                                                                                ttstub_input_getc(tfm_file);
-                                                                                                                            c
-                                                                                                                                =
-                                                                                                                                ttstub_input_getc(tfm_file);
-                                                                                                                            d
-                                                                                                                                =
-                                                                                                                                ttstub_input_getc(tfm_file);
-                                                                                                                            if a
-                                                                                                                                   ==
-                                                                                                                                   -1i32
-                                                                                                                                   ||
-                                                                                                                                   b
-                                                                                                                                       ==
-                                                                                                                                       -1i32
-                                                                                                                                   ||
-                                                                                                                                   c
-                                                                                                                                       ==
-                                                                                                                                       -1i32
-                                                                                                                                   ||
-                                                                                                                                   d
-                                                                                                                                       ==
-                                                                                                                                       -1i32
-                                                                                                                               {
-                                                                                                                                current_block
-                                                                                                                                    =
-                                                                                                                                    9519785463931849731;
-                                                                                                                                break
-                                                                                                                                    ;
-                                                                                                                            }
-                                                                                                                            sw
-                                                                                                                                =
-                                                                                                                                ((d
-                                                                                                                                      *
-                                                                                                                                      z
-                                                                                                                                      /
-                                                                                                                                      256i32
-                                                                                                                                      +
-                                                                                                                                      c
-                                                                                                                                          *
-                                                                                                                                          z)
-                                                                                                                                     /
-                                                                                                                                     256i32
-                                                                                                                                     +
-                                                                                                                                     b
-                                                                                                                                         *
-                                                                                                                                         z)
-                                                                                                                                    /
-                                                                                                                                    beta
-                                                                                                                                        as
-                                                                                                                                        i32;
-                                                                                                                            if a
-                                                                                                                                   ==
-                                                                                                                                   0i32
-                                                                                                                               {
-                                                                                                                                (*font_info.offset(k
-                                                                                                                                                       as
-                                                                                                                                                       isize)).b32.s1
-                                                                                                                                    =
-                                                                                                                                    sw
-                                                                                                                            } else {
-                                                                                                                                if !(a
-                                                                                                                                         ==
-                                                                                                                                         255i32)
-                                                                                                                                   {
-                                                                                                                                    current_block
-                                                                                                                                        =
-                                                                                                                                        9519785463931849731;
-                                                                                                                                    break
-                                                                                                                                        ;
-                                                                                                                                }
-                                                                                                                                (*font_info.offset(k
-                                                                                                                                                       as
-                                                                                                                                                       isize)).b32.s1
-                                                                                                                                    =
-                                                                                                                                    sw
-                                                                                                                                        -
-                                                                                                                                        alpha
-                                                                                                                            }
-                                                                                                                            k
-                                                                                                                                +=
-                                                                                                                                1
-                                                                                                                        }
-                                                                                                                        match current_block
-                                                                                                                            {
-                                                                                                                            9519785463931849731
-                                                                                                                            =>
-                                                                                                                            {
-                                                                                                                            }
-                                                                                                                            _
-                                                                                                                            =>
-                                                                                                                            {
-                                                                                                                                k
-                                                                                                                                    =
-                                                                                                                                    *exten_base.offset(f
-                                                                                                                                                           as
-                                                                                                                                                           isize);
-                                                                                                                                loop
-                                                                                                                                     {
-                                                                                                                                    if !(k
-                                                                                                                                             <=
-                                                                                                                                             *param_base.offset(f
-                                                                                                                                                                    as
-                                                                                                                                                                    isize)
-                                                                                                                                                 -
-                                                                                                                                                 1i32)
-                                                                                                                                       {
-                                                                                                                                        current_block
-                                                                                                                                            =
-                                                                                                                                            7906414799753328446;
-                                                                                                                                        break
-                                                                                                                                            ;
-                                                                                                                                    }
-                                                                                                                                    a
-                                                                                                                                        =
-                                                                                                                                        ttstub_input_getc(tfm_file);
-                                                                                                                                    qw.s3
-                                                                                                                                        =
-                                                                                                                                        a
-                                                                                                                                            as
-                                                                                                                                            u16;
-                                                                                                                                    b
-                                                                                                                                        =
-                                                                                                                                        ttstub_input_getc(tfm_file);
-                                                                                                                                    qw.s2
-                                                                                                                                        =
-                                                                                                                                        b
-                                                                                                                                            as
-                                                                                                                                            u16;
-                                                                                                                                    c
-                                                                                                                                        =
-                                                                                                                                        ttstub_input_getc(tfm_file);
-                                                                                                                                    qw.s1
-                                                                                                                                        =
-                                                                                                                                        c
-                                                                                                                                            as
-                                                                                                                                            u16;
-                                                                                                                                    d
-                                                                                                                                        =
-                                                                                                                                        ttstub_input_getc(tfm_file);
-                                                                                                                                    qw.s0
-                                                                                                                                        =
-                                                                                                                                        d
-                                                                                                                                            as
-                                                                                                                                            u16;
-                                                                                                                                    if a
-                                                                                                                                           ==
-                                                                                                                                           -1i32
-                                                                                                                                           ||
-                                                                                                                                           b
-                                                                                                                                               ==
-                                                                                                                                               -1i32
-                                                                                                                                           ||
-                                                                                                                                           c
-                                                                                                                                               ==
-                                                                                                                                               -1i32
-                                                                                                                                           ||
-                                                                                                                                           d
-                                                                                                                                               ==
-                                                                                                                                               -1i32
-                                                                                                                                       {
-                                                                                                                                        current_block
-                                                                                                                                            =
-                                                                                                                                            9519785463931849731;
-                                                                                                                                        break
-                                                                                                                                            ;
-                                                                                                                                    }
-                                                                                                                                    (*font_info.offset(k
-                                                                                                                                                           as
-                                                                                                                                                           isize)).b16
-                                                                                                                                        =
-                                                                                                                                        qw;
-                                                                                                                                    if a
-                                                                                                                                           !=
-                                                                                                                                           0i32
-                                                                                                                                       {
-                                                                                                                                        if a
-                                                                                                                                               <
-                                                                                                                                               bc
-                                                                                                                                               ||
-                                                                                                                                               a
-                                                                                                                                                   >
-                                                                                                                                                   ec
-                                                                                                                                           {
-                                                                                                                                            current_block
-                                                                                                                                                =
-                                                                                                                                                9519785463931849731;
-                                                                                                                                            break
-                                                                                                                                                ;
-                                                                                                                                        }
-                                                                                                                                        qw
-                                                                                                                                            =
-                                                                                                                                            (*font_info.offset((*char_base.offset(f
-                                                                                                                                                                                      as
-                                                                                                                                                                                      isize)
-                                                                                                                                                                    +
-                                                                                                                                                                    a)
-                                                                                                                                                                   as
-                                                                                                                                                                   isize)).b16;
-                                                                                                                                        if !(qw.s3
-                                                                                                                                                 as
-                                                                                                                                                 i32
-                                                                                                                                                 >
-                                                                                                                                                 0i32)
-                                                                                                                                           {
-                                                                                                                                            current_block
-                                                                                                                                                =
-                                                                                                                                                9519785463931849731;
-                                                                                                                                            break
-                                                                                                                                                ;
-                                                                                                                                        }
-                                                                                                                                    }
-                                                                                                                                    if b
-                                                                                                                                           !=
-                                                                                                                                           0i32
-                                                                                                                                       {
-                                                                                                                                        if b
-                                                                                                                                               <
-                                                                                                                                               bc
-                                                                                                                                               ||
-                                                                                                                                               b
-                                                                                                                                                   >
-                                                                                                                                                   ec
-                                                                                                                                           {
-                                                                                                                                            current_block
-                                                                                                                                                =
-                                                                                                                                                9519785463931849731;
-                                                                                                                                            break
-                                                                                                                                                ;
-                                                                                                                                        }
-                                                                                                                                        qw
-                                                                                                                                            =
-                                                                                                                                            (*font_info.offset((*char_base.offset(f
-                                                                                                                                                                                      as
-                                                                                                                                                                                      isize)
-                                                                                                                                                                    +
-                                                                                                                                                                    b)
-                                                                                                                                                                   as
-                                                                                                                                                                   isize)).b16;
-                                                                                                                                        if !(qw.s3
-                                                                                                                                                 as
-                                                                                                                                                 i32
-                                                                                                                                                 >
-                                                                                                                                                 0i32)
-                                                                                                                                           {
-                                                                                                                                            current_block
-                                                                                                                                                =
-                                                                                                                                                9519785463931849731;
-                                                                                                                                            break
-                                                                                                                                                ;
-                                                                                                                                        }
-                                                                                                                                    }
-                                                                                                                                    if c
-                                                                                                                                           !=
-                                                                                                                                           0i32
-                                                                                                                                       {
-                                                                                                                                        if c
-                                                                                                                                               <
-                                                                                                                                               bc
-                                                                                                                                               ||
-                                                                                                                                               c
-                                                                                                                                                   >
-                                                                                                                                                   ec
-                                                                                                                                           {
-                                                                                                                                            current_block
-                                                                                                                                                =
-                                                                                                                                                9519785463931849731;
-                                                                                                                                            break
-                                                                                                                                                ;
-                                                                                                                                        }
-                                                                                                                                        qw
-                                                                                                                                            =
-                                                                                                                                            (*font_info.offset((*char_base.offset(f
-                                                                                                                                                                                      as
-                                                                                                                                                                                      isize)
-                                                                                                                                                                    +
-                                                                                                                                                                    c)
-                                                                                                                                                                   as
-                                                                                                                                                                   isize)).b16;
-                                                                                                                                        if !(qw.s3
-                                                                                                                                                 as
-                                                                                                                                                 i32
-                                                                                                                                                 >
-                                                                                                                                                 0i32)
-                                                                                                                                           {
-                                                                                                                                            current_block
-                                                                                                                                                =
-                                                                                                                                                9519785463931849731;
-                                                                                                                                            break
-                                                                                                                                                ;
-                                                                                                                                        }
-                                                                                                                                    }
-                                                                                                                                    if d
-                                                                                                                                           <
-                                                                                                                                           bc
-                                                                                                                                           ||
-                                                                                                                                           d
-                                                                                                                                               >
-                                                                                                                                               ec
-                                                                                                                                       {
-                                                                                                                                        current_block
-                                                                                                                                            =
-                                                                                                                                            9519785463931849731;
-                                                                                                                                        break
-                                                                                                                                            ;
-                                                                                                                                    }
-                                                                                                                                    qw
-                                                                                                                                        =
-                                                                                                                                        (*font_info.offset((*char_base.offset(f
-                                                                                                                                                                                  as
-                                                                                                                                                                                  isize)
-                                                                                                                                                                +
-                                                                                                                                                                d)
-                                                                                                                                                               as
-                                                                                                                                                               isize)).b16;
-                                                                                                                                    if !(qw.s3
-                                                                                                                                             as
-                                                                                                                                             i32
-                                                                                                                                             >
-                                                                                                                                             0i32)
-                                                                                                                                       {
-                                                                                                                                        current_block
-                                                                                                                                            =
-                                                                                                                                            9519785463931849731;
-                                                                                                                                        break
-                                                                                                                                            ;
-                                                                                                                                    }
-                                                                                                                                    k
-                                                                                                                                        +=
-                                                                                                                                        1
-                                                                                                                                }
-                                                                                                                                match current_block
-                                                                                                                                    {
-                                                                                                                                    9519785463931849731
-                                                                                                                                    =>
-                                                                                                                                    {
-                                                                                                                                    }
-                                                                                                                                    _
-                                                                                                                                    =>
-                                                                                                                                    {
-                                                                                                                                        k
-                                                                                                                                            =
-                                                                                                                                            1i32;
-                                                                                                                                        loop
-                                                                                                                                             {
-                                                                                                                                            if !(k
-                                                                                                                                                     <=
-                                                                                                                                                     np)
-                                                                                                                                               {
-                                                                                                                                                current_block
-                                                                                                                                                    =
-                                                                                                                                                    12244237646329523438;
-                                                                                                                                                break
-                                                                                                                                                    ;
-                                                                                                                                            }
-                                                                                                                                            if k
-                                                                                                                                                   ==
-                                                                                                                                                   1i32
-                                                                                                                                               {
-                                                                                                                                                sw
-                                                                                                                                                    =
-                                                                                                                                                    ttstub_input_getc(tfm_file);
-                                                                                                                                                if sw
-                                                                                                                                                       ==
-                                                                                                                                                       -1i32
-                                                                                                                                                   {
-                                                                                                                                                    current_block
-                                                                                                                                                        =
-                                                                                                                                                        9519785463931849731;
-                                                                                                                                                    break
-                                                                                                                                                        ;
-                                                                                                                                                }
-                                                                                                                                                if sw
-                                                                                                                                                       >
-                                                                                                                                                       127i32
-                                                                                                                                                   {
-                                                                                                                                                    sw
-                                                                                                                                                        =
-                                                                                                                                                        sw
-                                                                                                                                                            -
-                                                                                                                                                            256i32
-                                                                                                                                                }
-                                                                                                                                                sw
-                                                                                                                                                    =
-                                                                                                                                                    sw
-                                                                                                                                                        *
-                                                                                                                                                        256i32
-                                                                                                                                                        +
-                                                                                                                                                        ttstub_input_getc(tfm_file);
-                                                                                                                                                sw
-                                                                                                                                                    =
-                                                                                                                                                    sw
-                                                                                                                                                        *
-                                                                                                                                                        256i32
-                                                                                                                                                        +
-                                                                                                                                                        ttstub_input_getc(tfm_file);
-                                                                                                                                                (*font_info.offset(*param_base.offset(f
-                                                                                                                                                                                          as
-                                                                                                                                                                                          isize)
-                                                                                                                                                                       as
-                                                                                                                                                                       isize)).b32.s1
-                                                                                                                                                    =
-                                                                                                                                                    sw
-                                                                                                                                                        *
-                                                                                                                                                        16i32
-                                                                                                                                                        +
-                                                                                                                                                        ttstub_input_getc(tfm_file)
-                                                                                                                                                            /
-                                                                                                                                                            16i32
-                                                                                                                                            } else {
-                                                                                                                                                a
-                                                                                                                                                    =
-                                                                                                                                                    ttstub_input_getc(tfm_file);
-                                                                                                                                                b
-                                                                                                                                                    =
-                                                                                                                                                    ttstub_input_getc(tfm_file);
-                                                                                                                                                c
-                                                                                                                                                    =
-                                                                                                                                                    ttstub_input_getc(tfm_file);
-                                                                                                                                                d
-                                                                                                                                                    =
-                                                                                                                                                    ttstub_input_getc(tfm_file);
-                                                                                                                                                if a
-                                                                                                                                                       ==
-                                                                                                                                                       -1i32
-                                                                                                                                                       ||
-                                                                                                                                                       b
-                                                                                                                                                           ==
-                                                                                                                                                           -1i32
-                                                                                                                                                       ||
-                                                                                                                                                       c
-                                                                                                                                                           ==
-                                                                                                                                                           -1i32
-                                                                                                                                                       ||
-                                                                                                                                                       d
-                                                                                                                                                           ==
-                                                                                                                                                           -1i32
-                                                                                                                                                   {
-                                                                                                                                                    current_block
-                                                                                                                                                        =
-                                                                                                                                                        9519785463931849731;
-                                                                                                                                                    break
-                                                                                                                                                        ;
-                                                                                                                                                }
-                                                                                                                                                sw
-                                                                                                                                                    =
-                                                                                                                                                    ((d
-                                                                                                                                                          *
-                                                                                                                                                          z
-                                                                                                                                                          /
-                                                                                                                                                          256i32
-                                                                                                                                                          +
-                                                                                                                                                          c
-                                                                                                                                                              *
-                                                                                                                                                              z)
-                                                                                                                                                         /
-                                                                                                                                                         256i32
-                                                                                                                                                         +
-                                                                                                                                                         b
-                                                                                                                                                             *
-                                                                                                                                                             z)
-                                                                                                                                                        /
-                                                                                                                                                        beta
-                                                                                                                                                            as
-                                                                                                                                                            i32;
-                                                                                                                                                if a
-                                                                                                                                                       ==
-                                                                                                                                                       0i32
-                                                                                                                                                   {
-                                                                                                                                                    (*font_info.offset((*param_base.offset(f
-                                                                                                                                                                                               as
-                                                                                                                                                                                               isize)
-                                                                                                                                                                            +
-                                                                                                                                                                            k
-                                                                                                                                                                            -
-                                                                                                                                                                            1i32)
-                                                                                                                                                                           as
-                                                                                                                                                                           isize)).b32.s1
-                                                                                                                                                        =
-                                                                                                                                                        sw
-                                                                                                                                                } else {
-                                                                                                                                                    if !(a
-                                                                                                                                                             ==
-                                                                                                                                                             255i32)
-                                                                                                                                                       {
-                                                                                                                                                        current_block
-                                                                                                                                                            =
-                                                                                                                                                            9519785463931849731;
-                                                                                                                                                        break
-                                                                                                                                                            ;
-                                                                                                                                                    }
-                                                                                                                                                    (*font_info.offset((*param_base.offset(f
-                                                                                                                                                                                               as
-                                                                                                                                                                                               isize)
-                                                                                                                                                                            +
-                                                                                                                                                                            k
-                                                                                                                                                                            -
-                                                                                                                                                                            1i32)
-                                                                                                                                                                           as
-                                                                                                                                                                           isize)).b32.s1
-                                                                                                                                                        =
-                                                                                                                                                        sw
-                                                                                                                                                            -
-                                                                                                                                                            alpha
-                                                                                                                                                }
-                                                                                                                                            }
-                                                                                                                                            k
-                                                                                                                                                +=
-                                                                                                                                                1
-                                                                                                                                        }
-                                                                                                                                        match current_block
-                                                                                                                                            {
-                                                                                                                                            9519785463931849731
-                                                                                                                                            =>
-                                                                                                                                            {
-                                                                                                                                            }
-                                                                                                                                            _
-                                                                                                                                            =>
-                                                                                                                                            {
-                                                                                                                                                k
-                                                                                                                                                    =
-                                                                                                                                                    np
-                                                                                                                                                        +
-                                                                                                                                                        1i32;
-                                                                                                                                                while k
-                                                                                                                                                          <=
-                                                                                                                                                          7i32
-                                                                                                                                                      {
-                                                                                                                                                    (*font_info.offset((*param_base.offset(f
-                                                                                                                                                                                               as
-                                                                                                                                                                                               isize)
-                                                                                                                                                                            +
-                                                                                                                                                                            k
-                                                                                                                                                                            -
-                                                                                                                                                                            1i32)
-                                                                                                                                                                           as
-                                                                                                                                                                           isize)).b32.s1
-                                                                                                                                                        =
-                                                                                                                                                        0i32;
-                                                                                                                                                    k
-                                                                                                                                                        +=
-                                                                                                                                                        1
-                                                                                                                                                }
-                                                                                                                                                if np
-                                                                                                                                                       >=
-                                                                                                                                                       7i32
-                                                                                                                                                   {
-                                                                                                                                                    *font_params.offset(f
-                                                                                                                                                                            as
-                                                                                                                                                                            isize)
-                                                                                                                                                        =
-                                                                                                                                                        np
-                                                                                                                                                } else {
-                                                                                                                                                    *font_params.offset(f
-                                                                                                                                                                            as
-                                                                                                                                                                            isize)
-                                                                                                                                                        =
-                                                                                                                                                        7i32
-                                                                                                                                                }
-                                                                                                                                                *hyphen_char.offset(f
-                                                                                                                                                                        as
-                                                                                                                                                                        isize)
-                                                                                                                                                    =
-                                                                                                                                                    (*eqtb.offset((1i32
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       1i32
-                                                                                                                                                                       +
-                                                                                                                                                                       15000i32
-                                                                                                                                                                       +
-                                                                                                                                                                       12i32
-                                                                                                                                                                       +
-                                                                                                                                                                       9000i32
-                                                                                                                                                                       +
-                                                                                                                                                                       1i32
-                                                                                                                                                                       +
-                                                                                                                                                                       1i32
-                                                                                                                                                                       +
-                                                                                                                                                                       19i32
-                                                                                                                                                                       +
-                                                                                                                                                                       256i32
-                                                                                                                                                                       +
-                                                                                                                                                                       256i32
-                                                                                                                                                                       +
-                                                                                                                                                                       13i32
-                                                                                                                                                                       +
-                                                                                                                                                                       256i32
-                                                                                                                                                                       +
-                                                                                                                                                                       4i32
-                                                                                                                                                                       +
-                                                                                                                                                                       256i32
-                                                                                                                                                                       +
-                                                                                                                                                                       1i32
-                                                                                                                                                                       +
-                                                                                                                                                                       3i32
-                                                                                                                                                                           *
-                                                                                                                                                                           256i32
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       46i32)
-                                                                                                                                                                      as
-                                                                                                                                                                      isize)).b32.s1;
-                                                                                                                                                *skew_char.offset(f
-                                                                                                                                                                      as
-                                                                                                                                                                      isize)
-                                                                                                                                                    =
-                                                                                                                                                    (*eqtb.offset((1i32
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       1i32
-                                                                                                                                                                       +
-                                                                                                                                                                       15000i32
-                                                                                                                                                                       +
-                                                                                                                                                                       12i32
-                                                                                                                                                                       +
-                                                                                                                                                                       9000i32
-                                                                                                                                                                       +
-                                                                                                                                                                       1i32
-                                                                                                                                                                       +
-                                                                                                                                                                       1i32
-                                                                                                                                                                       +
-                                                                                                                                                                       19i32
-                                                                                                                                                                       +
-                                                                                                                                                                       256i32
-                                                                                                                                                                       +
-                                                                                                                                                                       256i32
-                                                                                                                                                                       +
-                                                                                                                                                                       13i32
-                                                                                                                                                                       +
-                                                                                                                                                                       256i32
-                                                                                                                                                                       +
-                                                                                                                                                                       4i32
-                                                                                                                                                                       +
-                                                                                                                                                                       256i32
-                                                                                                                                                                       +
-                                                                                                                                                                       1i32
-                                                                                                                                                                       +
-                                                                                                                                                                       3i32
-                                                                                                                                                                           *
-                                                                                                                                                                           256i32
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       (0x10ffffi32
-                                                                                                                                                                            +
-                                                                                                                                                                            1i32)
-                                                                                                                                                                       +
-                                                                                                                                                                       47i32)
-                                                                                                                                                                      as
-                                                                                                                                                                      isize)).b32.s1;
-                                                                                                                                                if bch_label
-                                                                                                                                                       <
-                                                                                                                                                       nl
-                                                                                                                                                   {
-                                                                                                                                                    *bchar_label.offset(f
-                                                                                                                                                                            as
-                                                                                                                                                                            isize)
-                                                                                                                                                        =
-                                                                                                                                                        bch_label
-                                                                                                                                                            +
-                                                                                                                                                            *lig_kern_base.offset(f
-                                                                                                                                                                                      as
-                                                                                                                                                                                      isize)
-                                                                                                                                                } else {
-                                                                                                                                                    *bchar_label.offset(f
-                                                                                                                                                                            as
-                                                                                                                                                                            isize)
-                                                                                                                                                        =
-                                                                                                                                                        0i32
-                                                                                                                                                }
-                                                                                                                                                *font_bchar.offset(f
-                                                                                                                                                                       as
-                                                                                                                                                                       isize)
-                                                                                                                                                    =
-                                                                                                                                                    bchar_0
-                                                                                                                                                        as
-                                                                                                                                                        nine_bits;
-                                                                                                                                                *font_false_bchar.offset(f
-                                                                                                                                                                             as
-                                                                                                                                                                             isize)
-                                                                                                                                                    =
-                                                                                                                                                    bchar_0
-                                                                                                                                                        as
-                                                                                                                                                        nine_bits;
-                                                                                                                                                if bchar_0
-                                                                                                                                                       as
-                                                                                                                                                       i32
-                                                                                                                                                       <=
-                                                                                                                                                       ec
-                                                                                                                                                   {
-                                                                                                                                                    if bchar_0
-                                                                                                                                                           as
-                                                                                                                                                           i32
-                                                                                                                                                           >=
-                                                                                                                                                           bc
-                                                                                                                                                       {
-                                                                                                                                                        qw
-                                                                                                                                                            =
-                                                                                                                                                            (*font_info.offset((*char_base.offset(f
-                                                                                                                                                                                                      as
-                                                                                                                                                                                                      isize)
-                                                                                                                                                                                    +
-                                                                                                                                                                                    bchar_0
-                                                                                                                                                                                        as
-                                                                                                                                                                                        i32)
-                                                                                                                                                                                   as
-                                                                                                                                                                                   isize)).b16;
-                                                                                                                                                        if qw.s3
-                                                                                                                                                               as
-                                                                                                                                                               i32
-                                                                                                                                                               >
-                                                                                                                                                               0i32
-                                                                                                                                                           {
-                                                                                                                                                            *font_false_bchar.offset(f
-                                                                                                                                                                                         as
-                                                                                                                                                                                         isize)
-                                                                                                                                                                =
-                                                                                                                                                                65536i32
-                                                                                                                                                        }
-                                                                                                                                                    }
-                                                                                                                                                }
-                                                                                                                                                *font_name.offset(f
-                                                                                                                                                                      as
-                                                                                                                                                                      isize)
-                                                                                                                                                    =
-                                                                                                                                                    nom;
-                                                                                                                                                *font_area.offset(f
-                                                                                                                                                                      as
-                                                                                                                                                                      isize)
-                                                                                                                                                    =
-                                                                                                                                                    aire;
-                                                                                                                                                *font_bc.offset(f
-                                                                                                                                                                    as
-                                                                                                                                                                    isize)
-                                                                                                                                                    =
-                                                                                                                                                    bc
-                                                                                                                                                        as
-                                                                                                                                                        UTF16_code;
-                                                                                                                                                *font_ec.offset(f
-                                                                                                                                                                    as
-                                                                                                                                                                    isize)
-                                                                                                                                                    =
-                                                                                                                                                    ec
-                                                                                                                                                        as
-                                                                                                                                                        UTF16_code;
-                                                                                                                                                *font_glue.offset(f
-                                                                                                                                                                      as
-                                                                                                                                                                      isize)
-                                                                                                                                                    =
-                                                                                                                                                    TEX_NULL;
-                                                                                                                                                let ref mut fresh66 =
-                                                                                                                                                    *param_base.offset(f
-                                                                                                                                                                           as
-                                                                                                                                                                           isize);
-                                                                                                                                                *fresh66
-                                                                                                                                                    -=
-                                                                                                                                                    1;
-                                                                                                                                                fmem_ptr
-                                                                                                                                                    =
-                                                                                                                                                    fmem_ptr
-                                                                                                                                                        +
-                                                                                                                                                        lf;
-                                                                                                                                                font_ptr
-                                                                                                                                                    =
-                                                                                                                                                    f;
-                                                                                                                                                g
-                                                                                                                                                    =
-                                                                                                                                                    f;
-                                                                                                                                                let ref mut fresh67 =
-                                                                                                                                                    *font_mapping.offset(f
-                                                                                                                                                                             as
-                                                                                                                                                                             isize);
-                                                                                                                                                *fresh67
-                                                                                                                                                    =
-                                                                                                                                                    load_tfm_font_mapping();
-                                                                                                                                                current_block
-                                                                                                                                                    =
-                                                                                                                                                    15405907992539268277;
-                                                                                                                                            }
-                                                                                                                                        }
-                                                                                                                                    }
-                                                                                                                                }
-                                                                                                                            }
-                                                                                                                        }
-                                                                                                                    }
-                                                                                                                }
-                                                                                                            }
-                                                                                                        }
-                                                                                                    }
-                                                                                                }
-                                                                                            }
-                                                                                        }
-                                                                                    }
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+    *font_size.offset(f as isize) = z;
+
+    k = fmem_ptr;
+    loop {
+        if !(k <= *width_base.offset(f as isize) - 1i32) {
+            break;
+        }
+        a = ttstub_input_getc(tfm_file);
+        qw.s3 = a as u16;
+        b = ttstub_input_getc(tfm_file);
+        qw.s2 = b as u16;
+        c = ttstub_input_getc(tfm_file);
+        qw.s1 = c as u16;
+        d = ttstub_input_getc(tfm_file);
+        qw.s0 = d as u16;
+        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
+            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        }
+        (*font_info.offset(k as isize)).b16 = qw;
+
+        if a >= nw || b / 16 >= nh || b % 16 >= nd || c / 4 >= ni {
+            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        }
+
+        match c % 4 {
+            1 => {
+                if d >= nl {
+                    return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
                 }
             }
-            match current_block {
-                15405907992539268277 => {}
-                _ => {
-                    if (*eqtb.offset(
-                        (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 67i32) as isize,
-                    ))
-                    .b32
-                    .s1 == 0i32
-                    {
-                        /* NOTE: must preserve this path to keep passing the TRIP tests */
-                        if file_line_error_style_p != 0 {
-                            print_file_line(); /*:673 */
-                        } else {
-                            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
-                        }
-                        print_cstr(b"Font \x00" as *const u8 as *const i8);
-                        sprint_cs(u);
-                        print_char('=' as i32);
-                        if file_name_quote_char as i32 != 0i32 {
-                            print_char(file_name_quote_char as i32);
-                        }
-                        print_file_name(nom, aire, cur_ext);
-                        if file_name_quote_char as i32 != 0i32 {
-                            print_char(file_name_quote_char as i32);
-                        }
-                        if s >= 0i32 {
-                            print_cstr(b" at \x00" as *const u8 as *const i8);
-                            print_scaled(s);
-                            print_cstr(b"pt\x00" as *const u8 as *const i8);
-                        } else if s != -1000i32 {
-                            print_cstr(b" scaled \x00" as *const u8 as *const i8);
-                            print_int(-s);
-                        }
-                        if file_opened {
-                            print_cstr(
-                                b" not loadable: Bad metric (TFM) file\x00" as *const u8
-                                    as *const i8,
-                            );
-                        } else if name_too_long {
-                            print_cstr(
-                                b" not loadable: Metric (TFM) file name too long\x00" as *const u8
-                                    as *const i8,
-                            );
-                        } else {
-                            print_cstr(
-                                b" not loadable: Metric (TFM) file or installed font not found\x00"
-                                    as *const u8 as *const i8,
-                            );
-                        }
-                        help_ptr = 5_u8;
-                        help_line[4] = b"I wasn\'t able to read the size data for this font,\x00"
-                            as *const u8 as *const i8;
-                        help_line[3] = b"so I will ignore the font specification.\x00" as *const u8
-                            as *const i8;
-                        help_line[2] = b"[Wizards can fix TFM files using TFtoPL/PLtoTF.]\x00"
-                            as *const u8 as *const i8;
-                        help_line[1] = b"You might try inserting a different font spec;\x00"
-                            as *const u8 as *const i8;
-                        help_line[0] =
-                            b"e.g., type `I\\font<same font id>=<substitute font name>\'.\x00"
-                                as *const u8 as *const i8;
-                        error();
-                    }
+            3 => {
+                if d >= ne {
+                    return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
                 }
             }
+            2 => {
+                if d < bc || d > ec {
+                    return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                }
+                loop {
+                    if !(d < k + bc - fmem_ptr) {
+                        break;
+                    }
+                    qw = (*font_info.offset((*char_base.offset(f as isize) + d) as isize)).b16;
+                    if qw.s1 as i32 % 4 != LIST_TAG {
+                        break;
+                    }
+                    d = qw.s0 as i32
+                }
+                if d == k + bc - fmem_ptr {
+                    return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                }
+            }
+            _ => {}
         }
-        _ => {}
+        k += 1
     }
-    if file_opened {
-        ttstub_input_close(tfm_file);
+
+    alpha = 16;
+    while z >= 0x800000 {
+        z = z / 2;
+        alpha = alpha + alpha
     }
-    if (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 79i32) as isize,
-    ))
-    .b32
-    .s1 > 0i32
+    beta = (256 / alpha) as u8;
+    alpha = alpha * z;
+
+    for k in *width_base.offset(f as isize)..=*lig_kern_base.offset(f as isize) - 1 {
+        a = ttstub_input_getc(tfm_file);
+        b = ttstub_input_getc(tfm_file);
+        c = ttstub_input_getc(tfm_file);
+        d = ttstub_input_getc(tfm_file);
+        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
+            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        }
+        sw = ((d * z / 256 + c * z) / 256 + b * z) / beta as i32;
+
+        if a == 0 {
+            (*font_info.offset(k as isize)).b32.s1 = sw
+        } else if a == 255 {
+            (*font_info.offset(k as isize)).b32.s1 = sw - alpha
+        } else {
+            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        }
+    }
+
+    if (*font_info.offset(*width_base.offset(f as isize) as isize))
+        .b32
+        .s1
+        != 0
     {
-        if g == 0i32 {
-            begin_diagnostic();
-            print_nl_cstr(b" -> font not found, using \"nullfont\"\x00" as *const u8 as *const i8);
-            end_diagnostic(false);
-        } else if file_opened {
-            begin_diagnostic();
-            print_nl_cstr(b" -> \x00" as *const u8 as *const i8);
-            print_c_string(name_of_file);
-            end_diagnostic(false);
+        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+    }
+    if (*font_info.offset(*height_base.offset(f as isize) as isize))
+        .b32
+        .s1
+        != 0
+    {
+        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+    }
+    if (*font_info.offset(*depth_base.offset(f as isize) as isize))
+        .b32
+        .s1
+        != 0
+    {
+        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+    }
+    if (*font_info.offset(*italic_base.offset(f as isize) as isize))
+        .b32
+        .s1
+        != 0
+    {
+        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+    }
+
+    bch_label = 32767;
+    bchar_0 = 256;
+    if nl > 0 {
+        for k in *lig_kern_base.offset(f as isize)..=*kern_base.offset(f as isize) + 256 * 128 - 1 {
+            a = ttstub_input_getc(tfm_file);
+            qw.s3 = a as u16;
+            b = ttstub_input_getc(tfm_file);
+            qw.s2 = b as u16;
+            c = ttstub_input_getc(tfm_file);
+            qw.s1 = c as u16;
+            d = ttstub_input_getc(tfm_file);
+            qw.s0 = d as u16;
+            if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
+                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            }
+            (*font_info.offset(k as isize)).b16 = qw;
+
+            if a > 128 {
+                if 256 * c + d >= nl {
+                    return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                }
+                if a == 255 && k == *lig_kern_base.offset(f as isize) {
+                    bchar_0 = b as i16
+                }
+            } else {
+                if b != bchar_0 as i32 {
+                    if b < bc || b > ec {
+                        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                    }
+
+                    qw = (*font_info.offset((*char_base.offset(f as isize) + b) as isize)).b16;
+                    if !(qw.s3 > 0) {
+                        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                    }
+                }
+
+                if c < 128 {
+                    if d < bc || d > ec {
+                        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                    }
+                    qw = (*font_info.offset((*char_base.offset(f as isize) + d) as isize)).b16;
+                    if !(qw.s3 > 0) {
+                        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                    }
+                } else if 256 * (c - 128) + d >= nk {
+                    return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                }
+                if a < 128 && k - *lig_kern_base.offset(f as isize) + a + 1i32 >= nl {
+                    return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                }
+            }
+        }
+        if a == 255 {
+            bch_label = 256 * c + d
         }
     }
-    g
+
+    for k in *kern_base.offset(f as isize) + 256 * 128..=*exten_base.offset(f as isize) - 1 {
+        a = ttstub_input_getc(tfm_file);
+        b = ttstub_input_getc(tfm_file);
+        c = ttstub_input_getc(tfm_file);
+        d = ttstub_input_getc(tfm_file);
+        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
+            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        }
+        sw = ((d * z / 256i32 + c * z) / 256i32 + b * z) / beta as i32;
+        if a == 0 {
+            (*font_info.offset(k as isize)).b32.s1 = sw
+        } else if a == 255 {
+            (*font_info.offset(k as isize)).b32.s1 = sw - alpha
+        } else {
+            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        }
+    }
+
+    for k in *exten_base.offset(f as isize)..=*param_base.offset(f as isize) - 1 {
+        a = ttstub_input_getc(tfm_file);
+        qw.s3 = a as u16;
+        b = ttstub_input_getc(tfm_file);
+        qw.s2 = b as u16;
+        c = ttstub_input_getc(tfm_file);
+        qw.s1 = c as u16;
+        d = ttstub_input_getc(tfm_file);
+        qw.s0 = d as u16;
+        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
+            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        }
+        (*font_info.offset(k as isize)).b16 = qw;
+
+        if a != 0 {
+            if a < bc || a > ec {
+                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            }
+            qw = (*font_info.offset((*char_base.offset(f as isize) + a) as isize)).b16;
+            if !(qw.s3 as i32 > 0i32) {
+                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            }
+        }
+
+        if b != 0 {
+            if b < bc || b > ec {
+                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            }
+            qw = (*font_info.offset((*char_base.offset(f as isize) + b) as isize)).b16;
+            if !(qw.s3 > 0) {
+                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            }
+        }
+
+        if c != 0 {
+            if c < bc || c > ec {
+                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            }
+            qw = (*font_info.offset((*char_base.offset(f as isize) + c) as isize)).b16;
+            if !(qw.s3 > 0) {
+                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            }
+        }
+
+        if d < bc || d > ec {
+            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        }
+        qw = (*font_info.offset((*char_base.offset(f as isize) + d) as isize)).b16;
+        if !(qw.s3 > 0) {
+            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        }
+    }
+
+    for k in 1..=np {
+        if k == 1 {
+            sw = ttstub_input_getc(tfm_file);
+            if sw == libc::EOF {
+                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            }
+            if sw > 127 {
+                sw = sw - 256
+            }
+
+            sw = sw * 256 + ttstub_input_getc(tfm_file);
+            sw = sw * 256 + ttstub_input_getc(tfm_file);
+            (*font_info.offset(*param_base.offset(f as isize) as isize))
+                .b32
+                .s1 = sw * 16 + ttstub_input_getc(tfm_file) / 16
+        } else {
+            a = ttstub_input_getc(tfm_file);
+            b = ttstub_input_getc(tfm_file);
+            c = ttstub_input_getc(tfm_file);
+            d = ttstub_input_getc(tfm_file);
+            if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
+                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            }
+            sw = ((d * z / 256i32 + c * z) / 256i32 + b * z) / beta as i32;
+            if a == 0 {
+                (*font_info.offset((*param_base.offset(f as isize) + k - 1i32) as isize))
+                    .b32
+                    .s1 = sw
+            } else if a == 255 {
+                (*font_info.offset((*param_base.offset(f as isize) + k - 1i32) as isize))
+                    .b32
+                    .s1 = sw - alpha
+            } else {
+                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            }
+        }
+    }
+
+    for k in np + 1..=7 {
+        (*font_info.offset((*param_base.offset(f as isize) + k - 1i32) as isize))
+            .b32
+            .s1 = 0;
+    }
+
+    if np >= 7 {
+        *font_params.offset(f as isize) = np
+    } else {
+        *font_params.offset(f as isize) = 7
+    }
+
+    *hyphen_char.offset(f as isize) = INTPAR(INT_PAR__default_hyphen_char);
+    *skew_char.offset(f as isize) = INTPAR(INT_PAR__default_skew_char);
+    if bch_label < nl {
+        *bchar_label.offset(f as isize) = bch_label + *lig_kern_base.offset(f as isize)
+    } else {
+        *bchar_label.offset(f as isize) = NON_ADDRESS;
+    }
+    *font_bchar.offset(f as isize) = bchar_0 as _;
+    *font_false_bchar.offset(f as isize) = bchar_0 as nine_bits;
+
+    if bchar_0 as i32 <= ec {
+        if bchar_0 as i32 >= bc {
+            qw = (*font_info.offset((*char_base.offset(f as isize) + bchar_0 as i32) as isize)).b16;
+            if qw.s3 as i32 > 0i32 {
+                *font_false_bchar.offset(f as isize) = 65536i32
+            }
+        }
+    }
+
+    *font_name.offset(f as isize) = nom;
+    *font_area.offset(f as isize) = aire;
+    *font_bc.offset(f as isize) = bc as UTF16_code;
+    *font_ec.offset(f as isize) = ec as UTF16_code;
+    *font_glue.offset(f as isize) = TEX_NULL;
+    let ref mut fresh66 = *param_base.offset(f as isize);
+    *fresh66 -= 1;
+    fmem_ptr = fmem_ptr + lf;
+    font_ptr = f;
+    g = f;
+    let ref mut fresh67 = *font_mapping.offset(f as isize);
+    *fresh67 = load_tfm_font_mapping();
+
+    return done(file_opened, tfm_file, g);
+
+    /// Called on error
+    unsafe fn bad_tfm(
+        file_opened: bool,
+        tfm_file: rust_input_handle_t,
+        g: i32,
+        u: i32,
+        nom: i32,
+        aire: i32,
+        s: i32,
+        name_too_long: bool,
+    ) -> i32 {
+        if INTPAR(INT_PAR__suppress_fontnotfound_error) == 0 {
+            /* NOTE: must preserve this path to keep passing the TRIP tests */
+            if file_line_error_style_p != 0 {
+                print_file_line();
+            } else {
+                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            }
+            print_cstr(b"Font \x00" as *const u8 as *const i8);
+            sprint_cs(u);
+            print_char('=' as i32);
+            if file_name_quote_char as i32 != 0i32 {
+                print_char(file_name_quote_char as i32);
+            }
+            print_file_name(nom, aire, cur_ext);
+            if file_name_quote_char as i32 != 0i32 {
+                print_char(file_name_quote_char as i32);
+            }
+            if s >= 0 {
+                print_cstr(b" at \x00" as *const u8 as *const i8);
+                print_scaled(s);
+                print_cstr(b"pt\x00" as *const u8 as *const i8);
+            } else if s != -1000 {
+                print_cstr(b" scaled \x00" as *const u8 as *const i8);
+                print_int(-s);
+            }
+            if file_opened {
+                print_cstr(b" not loadable: Bad metric (TFM) file\x00" as *const u8 as *const i8);
+            } else if name_too_long {
+                print_cstr(
+                    b" not loadable: Metric (TFM) file name too long\x00" as *const u8 as *const i8,
+                );
+            } else {
+                print_cstr(
+                    b" not loadable: Metric (TFM) file or installed font not found\x00" as *const u8
+                        as *const i8,
+                );
+            }
+            help_ptr = 5_u8;
+            help_line[4] = b"I wasn\'t able to read the size data for this font,\x00" as *const u8
+                as *const i8;
+            help_line[3] =
+                b"so I will ignore the font specification.\x00" as *const u8 as *const i8;
+            help_line[2] =
+                b"[Wizards can fix TFM files using TFtoPL/PLtoTF.]\x00" as *const u8 as *const i8;
+            help_line[1] =
+                b"You might try inserting a different font spec;\x00" as *const u8 as *const i8;
+            help_line[0] = b"e.g., type `I\\font<same font id>=<substitute font name>\'.\x00"
+                as *const u8 as *const i8;
+            error();
+        }
+        return done(file_opened, tfm_file, g);
+    }
+    // unreachable
+    // return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+
+    unsafe fn done(file_opened: bool, tfm_file: rust_input_handle_t, g: i32) -> i32 {
+        if file_opened {
+            ttstub_input_close(tfm_file);
+        }
+
+        if INTPAR(INT_PAR__xetex_tracing_fonts) > 0 {
+            if g == FONT_BASE {
+                begin_diagnostic();
+                print_nl_cstr(
+                    b" -> font not found, using \"nullfont\"\x00" as *const u8 as *const i8,
+                );
+                end_diagnostic(false);
+            } else if file_opened {
+                begin_diagnostic();
+                print_nl_cstr(b" -> \x00" as *const u8 as *const i8);
+                print_c_string(name_of_file);
+                end_diagnostic(false);
+            }
+        }
+        g
+    }
+    // unreachable
+    // return done(file_opened, tfm_file, g);
 }
 #[no_mangle]
 pub unsafe extern "C" fn new_character(mut f: internal_font_number, mut c: UTF16_code) -> i32 {
