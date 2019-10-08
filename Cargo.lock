@@ -157,10 +157,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 
 [[package]]
-name = "cfg_support"
-version = "0.0.1"
-
-[[package]]
 name = "chrono"
 version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1803,6 +1799,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "tectonic_cfg_support"
+version = "0.0.1"
+
+[[package]]
 name = "tectonic_dvipdfmx"
 version = "0.0.1-dev"
 dependencies = [
@@ -1828,7 +1828,6 @@ version = "0.0.1-dev"
 dependencies = [
  "bitflags",
  "cc",
- "cfg_support",
  "chrono",
  "core-foundation 0.9.1",
  "core-graphics 0.22.1",
@@ -1848,6 +1847,7 @@ dependencies = [
  "sha2",
  "tectonic_bibtex",
  "tectonic_bridge",
+ "tectonic_cfg_support",
  "tectonic_dvipdfmx",
  "vcpkg",
  "yeslogic-fontconfig-sys",
