@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 
@@ -33,7 +32,7 @@ use super::dpx_numbers::tt_get_unsigned_byte;
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_new_array, pdf_new_name, pdf_new_number,
-    pdf_new_stream, pdf_new_string, pdf_obj, pdf_release_obj, pdf_stream_dict,
+    pdf_new_stream, pdf_new_string, pdf_release_obj, pdf_stream_dict,
     pdf_stream_set_predictor,
 };
 use crate::warn;
@@ -96,7 +95,6 @@ pub unsafe extern "C" fn bmp_get_bbox(
     mut xdensity: *mut f64,
     mut ydensity: *mut f64,
 ) -> i32 {
-    let mut r: i32 = 0;
     let mut hdr: hdr_info = {
         let mut init = hdr_info {
             offset: 0_u32,
@@ -112,7 +110,7 @@ pub unsafe extern "C" fn bmp_get_bbox(
         init
     };
     handle.seek(SeekFrom::Start(0)).unwrap();
-    r = read_header(handle, &mut hdr);
+    let r = read_header(handle, &mut hdr);
     *width = hdr.width;
     *height = (if hdr.height < 0i32 {
         -hdr.height
@@ -127,9 +125,6 @@ pub unsafe extern "C" fn bmp_include_image(
     mut ximage: *mut pdf_ximage,
     handle: &mut InputHandleWrapper,
 ) -> i32 {
-    let mut stream: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut stream_dict: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut colorspace: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut info = ximage_info::default();
     let mut hdr: hdr_info = {
         let mut init = hdr_info {
@@ -145,12 +140,9 @@ pub unsafe extern "C" fn bmp_include_image(
         };
         init
     };
-    let mut num_palette: i32 = 0;
-    let mut flip: i32 = 0;
+    let num_palette;
     pdf_ximage_init_image_info(&mut info);
-    colorspace = 0 as *mut pdf_obj;
-    stream_dict = colorspace;
-    stream = stream_dict;
+    let colorspace;
     handle.seek(SeekFrom::Start(0)).unwrap();
     if read_header(handle, &mut hdr) < 0i32 {
         return -1i32;
@@ -158,12 +150,12 @@ pub unsafe extern "C" fn bmp_include_image(
     get_density(&mut info.xdensity, &mut info.ydensity, &mut hdr);
     info.width = hdr.width as i32;
     info.height = hdr.height;
-    if info.height < 0i32 {
+    let flip = if info.height < 0i32 {
         info.height = -info.height;
-        flip = 0i32
+        0
     } else {
-        flip = 1i32
-    }
+        1
+    };
     if (hdr.bit_count as i32) < 24i32 {
         if hdr.bit_count as i32 != 1i32
             && hdr.bit_count as i32 != 4i32
@@ -199,14 +191,12 @@ pub unsafe extern "C" fn bmp_include_image(
         return -1i32;
     }
     /* Start reading raster data */
-    stream = pdf_new_stream(1i32 << 0i32);
-    stream_dict = pdf_stream_dict(stream);
+    let stream = pdf_new_stream(1i32 << 0i32);
+    let stream_dict = pdf_stream_dict(stream);
     /* Color space: Indexed or DeviceRGB */
     if (hdr.bit_count as i32) < 24i32 {
-        let mut lookup: *mut pdf_obj = 0 as *mut pdf_obj;
-        let mut palette: *mut u8 = 0 as *mut u8;
         let mut bgrq: [u8; 4] = [0; 4];
-        palette = new(((num_palette * 3i32 + 1i32) as u32 as u64)
+        let palette = new(((num_palette * 3i32 + 1i32) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
         for i in 0..num_palette {
             if ttstub_input_read(handle.0.as_ptr(), bgrq.as_mut_ptr() as *mut i8, hdr.psize as size_t)
@@ -221,7 +211,7 @@ pub unsafe extern "C" fn bmp_include_image(
             *palette.offset((3i32 * i + 1i32) as isize) = bgrq[1];
             *palette.offset((3i32 * i + 2i32) as isize) = bgrq[0];
         }
-        lookup = pdf_new_string(
+        let lookup = pdf_new_string(
             palette as *const libc::c_void,
             (num_palette * 3i32) as size_t,
         );
@@ -236,27 +226,22 @@ pub unsafe extern "C" fn bmp_include_image(
     }
     pdf_add_dict(stream_dict, "ColorSpace", colorspace);
     /* Raster data of BMP is four-byte aligned. */
-    let mut rowbytes: i32 = 0;
-    let mut n: i32 = 0;
-    let mut p: *mut u8 = 0 as *mut u8;
-    let mut stream_data_ptr: *mut u8 = 0 as *mut u8;
-    rowbytes = (info.width * hdr.bit_count as i32 + 7i32) / 8i32;
+    let stream_data_ptr;
+    let mut rowbytes = (info.width * hdr.bit_count as i32 + 7i32) / 8i32;
     handle.seek(SeekFrom::Start(hdr.offset as u64)).unwrap();
     if hdr.compression == 0i32 {
-        let mut dib_rowbytes: i32 = 0;
-        let mut padding: i32 = 0;
-        padding = if rowbytes % 4i32 != 0 {
+        let padding = if rowbytes % 4i32 != 0 {
             4i32 - rowbytes % 4i32
         } else {
             0i32
         };
-        dib_rowbytes = rowbytes + padding;
+        let dib_rowbytes = rowbytes + padding;
         stream_data_ptr = new(((rowbytes * info.height + padding) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
             as *mut u8;
-        n = 0i32;
+        let mut n = 0i32;
         while n < info.height {
-            p = stream_data_ptr.offset((n * rowbytes) as isize);
+            let p = stream_data_ptr.offset((n * rowbytes) as isize);
             if ttstub_input_read(handle.0.as_ptr(), p as *mut i8, dib_rowbytes as size_t)
                 != dib_rowbytes as i64
             {
@@ -297,19 +282,18 @@ pub unsafe extern "C" fn bmp_include_image(
     }
     /* gbr --> rgb */
     if hdr.bit_count as i32 == 24i32 {
-        n = 0i32;
+        let mut n = 0i32;
         while n < info.width * info.height * 3i32 {
-            let mut g: u8 = 0;
-            g = *stream_data_ptr.offset(n as isize);
+            let g = *stream_data_ptr.offset(n as isize);
             *stream_data_ptr.offset(n as isize) = *stream_data_ptr.offset((n + 2i32) as isize);
             *stream_data_ptr.offset((n + 2i32) as isize) = g;
             n += 3i32
         }
     }
     if flip != 0 {
-        n = info.height - 1i32;
+        let mut n = info.height - 1i32;
         while n >= 0i32 {
-            p = stream_data_ptr.offset((n * rowbytes) as isize);
+            let p = stream_data_ptr.offset((n * rowbytes) as isize);
             pdf_add_stream(stream, p as *const libc::c_void, rowbytes);
             n -= 1
         }
@@ -425,31 +409,22 @@ unsafe fn read_raster_rle8(
     handle: &mut InputHandleWrapper,
 ) -> i32 {
     let mut count: i32 = 0i32;
-    let mut p: *mut u8 = 0 as *mut u8;
-    let mut b0: u8 = 0;
-    let mut b1: u8 = 0;
-    let mut h: i32 = 0;
-    let mut v: i32 = 0;
-    let mut rowbytes: i32 = 0;
-    let mut eol: i32 = 0;
-    let mut eoi: i32 = 0;
-    p = data_ptr;
-    rowbytes = width;
+    let rowbytes = width;
     memset(
         data_ptr as *mut libc::c_void,
         0i32,
         (rowbytes * height) as _,
     );
-    v = 0i32;
-    eoi = 0i32;
+    let mut v = 0;
+    let mut eoi = 0i32;
     while v < height && eoi == 0 {
-        h = 0i32;
-        eol = 0i32;
+        let mut h = 0;
+        let mut eol = 0i32;
         while h < width && eol == 0 {
-            b0 = tt_get_unsigned_byte(handle);
-            b1 = tt_get_unsigned_byte(handle);
+            let mut b0 = tt_get_unsigned_byte(handle);
+            let mut b1 = tt_get_unsigned_byte(handle);
             count += 2i32;
-            p = data_ptr.offset((v * rowbytes) as isize).offset(h as isize);
+            let mut p = data_ptr.offset((v * rowbytes) as isize).offset(h as isize);
             if b0 as i32 == 0i32 {
                 match b1 as i32 {
                     0 => {
@@ -492,8 +467,8 @@ unsafe fn read_raster_rle8(
         }
         /* next row ... */
         if eol == 0 && eoi == 0 {
-            b0 = tt_get_unsigned_byte(handle);
-            b1 = tt_get_unsigned_byte(handle);
+            let b0 = tt_get_unsigned_byte(handle);
+            let b1 = tt_get_unsigned_byte(handle);
             if b0 as i32 != 0i32 {
                 warn!("RLE decode failed...");
                 return -1i32;
@@ -517,34 +492,22 @@ unsafe fn read_raster_rle4(
     handle: &mut InputHandleWrapper,
 ) -> i32 {
     let mut count: i32 = 0i32;
-    let mut p: *mut u8 = 0 as *mut u8;
-    let mut b0: u8 = 0;
-    let mut b1: u8 = 0;
-    let mut b: u8 = 0;
-    let mut h: i32 = 0;
-    let mut v: i32 = 0;
-    let mut rowbytes: i32 = 0;
-    let mut eol: i32 = 0;
-    let mut eoi: i32 = 0;
-    let mut i: i32 = 0;
-    let mut nbytes: i32 = 0;
-    p = data_ptr;
-    rowbytes = (width + 1i32) / 2i32;
+    let rowbytes = (width + 1i32) / 2i32;
     memset(
         data_ptr as *mut libc::c_void,
         0i32,
         (rowbytes * height) as _,
     );
-    v = 0i32;
-    eoi = 0i32;
+    let mut v = 0i32;
+    let mut eoi = 0i32;
     while v < height && eoi == 0 {
-        h = 0i32;
-        eol = 0i32;
+        let mut h = 0i32;
+        let mut eol = 0i32;
         while h < width && eol == 0 {
-            b0 = tt_get_unsigned_byte(handle);
-            b1 = tt_get_unsigned_byte(handle);
+            let mut b0 = tt_get_unsigned_byte(handle);
+            let mut b1 = tt_get_unsigned_byte(handle);
             count += 2i32;
-            p = data_ptr
+            let mut p = data_ptr
                 .offset((v * rowbytes) as isize)
                 .offset((h / 2i32) as isize);
             if b0 as i32 == 0i32 {
@@ -568,17 +531,15 @@ unsafe fn read_raster_rle4(
                             warn!("RLE decode failed...");
                             return -1i32;
                         }
-                        nbytes = (b1 as i32 + 1i32) / 2i32;
+                        let nbytes = (b1 as i32 + 1i32) / 2i32;
                         if h % 2i32 != 0 {
                             /* starting at hi-nib */
-                            i = 0i32;
-                            while i < nbytes {
-                                b = tt_get_unsigned_byte(handle);
+                            for _ in 0..nbytes {
+                                let b = tt_get_unsigned_byte(handle);
                                 let fresh0 = p;
                                 p = p.offset(1);
                                 *fresh0 = (*fresh0 as i32 | b as i32 >> 4i32 & 0xfi32) as u8;
                                 *p = ((b as i32) << 4i32 & 0xf0i32) as u8;
-                                i += 1
                             }
                         } else if ttstub_input_read(handle.0.as_ptr(), p as *mut i8, nbytes as size_t)
                             != nbytes as i64
@@ -606,7 +567,7 @@ unsafe fn read_raster_rle4(
                     b0 = b0.wrapping_sub(1);
                     h += 1
                 }
-                nbytes = (b0 as i32 + 1i32) / 2i32;
+                let nbytes = (b0 as i32 + 1i32) / 2i32;
                 memset(p as *mut libc::c_void, b1 as i32, nbytes as _);
                 h += b0 as i32;
                 if h % 2i32 != 0 {
@@ -617,8 +578,8 @@ unsafe fn read_raster_rle4(
         }
         /* next row ... */
         if eol == 0 && eoi == 0 {
-            b0 = tt_get_unsigned_byte(handle);
-            b1 = tt_get_unsigned_byte(handle);
+            let b0 = tt_get_unsigned_byte(handle);
+            let b1 = tt_get_unsigned_byte(handle);
             if b0 as i32 != 0i32 {
                 warn!("No EOL/EOI marker. RLE decode failed...");
                 return -1i32;

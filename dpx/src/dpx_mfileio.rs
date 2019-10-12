@@ -24,7 +24,6 @@
          non_camel_case_types,
          non_snake_case,
          non_upper_case_globals,
-         unused_assignments,
          unused_mut)]
 
 use crate::{ttstub_input_getc, ttstub_input_ungetc};
@@ -60,9 +59,8 @@ unsafe fn tell_position(mut file: *mut FILE) -> i32 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn file_size(mut file: *mut FILE) -> i32 {
-    let mut size: i32 = 0;
     seek_end(file);
-    size = tell_position(file);
+    let mut size = tell_position(file);
     rewind(file);
     size
 }

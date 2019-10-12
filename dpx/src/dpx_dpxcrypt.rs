@@ -25,7 +25,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 
@@ -243,7 +242,6 @@ unsafe fn do_encrypt_stream(
     let mut i: i32 = (*ctx).idx_i; /* and seems to be faster than mod */
     let mut j: i32 = (*ctx).idx_j;
     let mut sbox: *mut u8 = (*ctx).sbox.as_mut_ptr();
-    let mut t: i32 = 0;
     loop {
         let fresh40 = len;
         len = len.wrapping_sub(1);
@@ -254,7 +252,7 @@ unsafe fn do_encrypt_stream(
         i = i & 255i32;
         j += *sbox.offset(i as isize) as i32;
         j &= 255i32;
-        t = *sbox.offset(i as isize) as i32;
+        let t = *sbox.offset(i as isize) as i32;
         *sbox.offset(i as isize) = *sbox.offset(j as isize);
         *sbox.offset(j as isize) = t as u8;
         let fresh41 = inbuf;
@@ -292,9 +290,8 @@ unsafe fn do_arcfour_setkey(mut ctx: *mut ARC4_CONTEXT, mut key: *const u8, mut 
     }
     let mut j = 0;
     for i in j..256 {
-        let mut t: i32 = 0;
         j = (j + (*ctx).sbox[i] as usize + karr[i] as usize) % 256;
-        t = (*ctx).sbox[i] as i32;
+        let t = (*ctx).sbox[i] as i32;
         (*ctx).sbox[i] = (*ctx).sbox[j];
         (*ctx).sbox[j] = t as u8;
     }
@@ -318,16 +315,12 @@ pub unsafe extern "C" fn AES_ecb_encrypt(
     mut cipher: *mut *mut u8,
     mut cipher_len: *mut size_t,
 ) {
-    let mut ctx: *mut AES_CONTEXT = 0 as *mut AES_CONTEXT;
     let mut aes: AES_CONTEXT = AES_CONTEXT {
         nrounds: 0,
         rk: [0; 60],
         iv: [0; 16],
     };
-    let mut inptr: *const u8 = 0 as *const u8;
-    let mut outptr: *mut u8 = 0 as *mut u8;
-    let mut len: size_t = 0;
-    ctx = &mut aes;
+    let ctx = &mut aes;
     *cipher_len = plain_len;
     *cipher =
         new((*cipher_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
@@ -337,14 +330,14 @@ pub unsafe extern "C" fn AES_ecb_encrypt(
         key,
         key_len.wrapping_mul(8i32 as u64) as i32,
     );
-    inptr = plain;
-    outptr = *cipher;
-    len = plain_len;
+    let mut inptr = plain;
+    let mut outptr = *cipher;
+    let mut len = plain_len;
     while len >= 16i32 as u64 {
         rijndaelEncrypt((*ctx).rk.as_mut_ptr(), (*ctx).nrounds, inptr, outptr);
         inptr = inptr.offset(16);
         outptr = outptr.offset(16);
-        len = (len as u64).wrapping_sub(16i32 as u64) as size_t as size_t
+        len -= 16;
     }
     if len > 0i32 as u64 {
         let mut block: [u8; 16] = [0; 16];
@@ -359,8 +352,6 @@ pub unsafe extern "C" fn AES_ecb_encrypt(
             block.as_mut_ptr() as *const u8,
             outptr,
         );
-        inptr = inptr.offset(len as isize);
-        outptr = outptr.offset(16)
     };
 }
 /* libgcrypt arcfour */
@@ -376,18 +367,13 @@ pub unsafe extern "C" fn AES_cbc_encrypt_tectonic(
     mut cipher: *mut *mut u8,
     mut cipher_len: *mut size_t,
 ) {
-    let mut ctx: *mut AES_CONTEXT = 0 as *mut AES_CONTEXT;
     let mut aes: AES_CONTEXT = AES_CONTEXT {
         nrounds: 0,
         rk: [0; 60],
         iv: [0; 16],
     };
-    let mut inptr: *const u8 = 0 as *const u8;
-    let mut outptr: *mut u8 = 0 as *mut u8;
     let mut block: [u8; 16] = [0; 16];
-    let mut len: size_t = 0;
-    let mut padbytes: i32 = 0;
-    ctx = &mut aes;
+    let ctx = &mut aes;
     if !iv.is_null() {
         memcpy(
             (*ctx).iv.as_mut_ptr() as *mut libc::c_void,
@@ -404,7 +390,7 @@ pub unsafe extern "C" fn AES_cbc_encrypt_tectonic(
      * filled with 0x10. It occurs when size of the input data is multiple
      * of 16.
      */
-    padbytes = (if padding != 0 {
+    let padbytes = (if padding != 0 {
         (16i32 as u64).wrapping_sub(plain_len.wrapping_rem(16i32 as u64))
     } else if plain_len.wrapping_rem(16i32 as u64) != 0 {
         (16i32 as u64).wrapping_sub(plain_len.wrapping_rem(16i32 as u64))
@@ -423,8 +409,8 @@ pub unsafe extern "C" fn AES_cbc_encrypt_tectonic(
         key,
         key_len.wrapping_mul(8i32 as u64) as i32,
     );
-    inptr = plain;
-    outptr = *cipher;
+    let mut inptr = plain;
+    let mut outptr = *cipher;
     if iv.is_null() {
         memcpy(
             outptr as *mut libc::c_void,
@@ -433,7 +419,7 @@ pub unsafe extern "C" fn AES_cbc_encrypt_tectonic(
         );
         outptr = outptr.offset(16)
     }
-    len = plain_len;
+    let mut len = plain_len;
     while len >= 16i32 as u64 {
         for i in 0..16i32 as u64 {
             block[i as usize] =
@@ -452,7 +438,7 @@ pub unsafe extern "C" fn AES_cbc_encrypt_tectonic(
         );
         inptr = inptr.offset(16);
         outptr = outptr.offset(16);
-        len = (len as u64).wrapping_sub(16i32 as u64) as size_t as size_t
+        len -= 16;
     }
     if len > 0i32 as u64 || padding != 0 {
         for i in 0..len {
@@ -473,8 +459,6 @@ pub unsafe extern "C" fn AES_cbc_encrypt_tectonic(
             outptr as *const libc::c_void,
             16,
         );
-        inptr = inptr.offset(16);
-        outptr = outptr.offset(16)
     };
 }
 /* The following section contains a Rijndael encryption implementation
@@ -1794,7 +1778,6 @@ static mut rcon: [u32; 10] = [
  */
 unsafe fn rijndaelSetupEncrypt(mut rk: *mut u32, mut key: *const u8, mut keybits: i32) -> i32 {
     let mut i: u32 = 0_u32;
-    let mut temp: u32 = 0;
     *rk.offset(0) = (*key.offset(0) as u32) << 24i32
         ^ (*key.offset(1) as u32) << 16i32
         ^ (*key.offset(2) as u32) << 8i32
@@ -1813,7 +1796,7 @@ unsafe fn rijndaelSetupEncrypt(mut rk: *mut u32, mut key: *const u8, mut keybits
         ^ *key.offset(12).offset(3) as u32;
     if keybits == 128i32 {
         loop {
-            temp = *rk.offset(3);
+            let temp = *rk.offset(3);
             *rk.offset(4) = *rk.offset(0)
                 ^ Te4[(temp >> 16i32 & 0xff_u32) as usize] & 0xff000000u32
                 ^ Te4[(temp >> 8i32 & 0xff_u32) as usize] & 0xff0000_u32
@@ -1840,7 +1823,7 @@ unsafe fn rijndaelSetupEncrypt(mut rk: *mut u32, mut key: *const u8, mut keybits
         ^ *key.offset(20).offset(3) as u32;
     if keybits == 192i32 {
         loop {
-            temp = *rk.offset(5);
+            let temp = *rk.offset(5);
             *rk.offset(6) = *rk.offset(0)
                 ^ Te4[(temp >> 16i32 & 0xff_u32) as usize] & 0xff000000u32
                 ^ Te4[(temp >> 8i32 & 0xff_u32) as usize] & 0xff0000_u32
@@ -1869,7 +1852,7 @@ unsafe fn rijndaelSetupEncrypt(mut rk: *mut u32, mut key: *const u8, mut keybits
         ^ *key.offset(28).offset(3) as u32;
     if keybits == 256i32 {
         loop {
-            temp = *rk.offset(7);
+            let temp = *rk.offset(7);
             *rk.offset(8) = *rk.offset(0)
                 ^ Te4[(temp >> 16i32 & 0xff_u32) as usize] & 0xff000000u32
                 ^ Te4[(temp >> 8i32 & 0xff_u32) as usize] & 0xff0000_u32
@@ -1883,7 +1866,7 @@ unsafe fn rijndaelSetupEncrypt(mut rk: *mut u32, mut key: *const u8, mut keybits
             if i == 7_u32 {
                 return 14i32;
             }
-            temp = *rk.offset(11);
+            let temp = *rk.offset(11);
             *rk.offset(12) = *rk.offset(4)
                 ^ Te4[(temp >> 24i32) as usize] & 0xff000000u32
                 ^ Te4[(temp >> 16i32 & 0xff_u32) as usize] & 0xff0000_u32
@@ -1903,56 +1886,48 @@ unsafe fn rijndaelEncrypt(
     mut plaintext: *const u8,
     mut ciphertext: *mut u8,
 ) {
-    let mut s0: u32 = 0;
-    let mut s1: u32 = 0;
-    let mut s2: u32 = 0;
-    let mut s3: u32 = 0;
-    let mut t0: u32 = 0;
-    let mut t1: u32 = 0;
-    let mut t2: u32 = 0;
-    let mut t3: u32 = 0;
     /* ?FULL_UNROLL */
     /*
      * map byte array block to cipher state
      * and add initial round key:
      */
-    s0 = (*plaintext.offset(0) as u32) << 24i32
+    let mut s0 = (*plaintext.offset(0) as u32) << 24i32
         ^ (*plaintext.offset(1) as u32) << 16i32
         ^ (*plaintext.offset(2) as u32) << 8i32
         ^ *plaintext.offset(3) as u32
         ^ *rk.offset(0);
-    s1 = (*plaintext.offset(4).offset(0) as u32) << 24i32
+    let mut s1 = (*plaintext.offset(4).offset(0) as u32) << 24i32
         ^ (*plaintext.offset(4).offset(1) as u32) << 16i32
         ^ (*plaintext.offset(4).offset(2) as u32) << 8i32
         ^ *plaintext.offset(4).offset(3) as u32
         ^ *rk.offset(1);
-    s2 = (*plaintext.offset(8).offset(0) as u32) << 24i32
+    let mut s2 = (*plaintext.offset(8).offset(0) as u32) << 24i32
         ^ (*plaintext.offset(8).offset(1) as u32) << 16i32
         ^ (*plaintext.offset(8).offset(2) as u32) << 8i32
         ^ *plaintext.offset(8).offset(3) as u32
         ^ *rk.offset(2);
-    s3 = (*plaintext.offset(12).offset(0) as u32) << 24i32
+    let mut s3 = (*plaintext.offset(12).offset(0) as u32) << 24i32
         ^ (*plaintext.offset(12).offset(1) as u32) << 16i32
         ^ (*plaintext.offset(12).offset(2) as u32) << 8i32
         ^ *plaintext.offset(12).offset(3) as u32
         ^ *rk.offset(3);
     /* round 1: */
-    t0 = Te0[(s0 >> 24i32) as usize]
+    let mut t0 = Te0[(s0 >> 24i32) as usize]
         ^ Te1[(s1 >> 16i32 & 0xff_u32) as usize]
         ^ Te2[(s2 >> 8i32 & 0xff_u32) as usize]
         ^ Te3[(s3 & 0xff_u32) as usize]
         ^ *rk.offset(4);
-    t1 = Te0[(s1 >> 24i32) as usize]
+    let mut t1 = Te0[(s1 >> 24i32) as usize]
         ^ Te1[(s2 >> 16i32 & 0xff_u32) as usize]
         ^ Te2[(s3 >> 8i32 & 0xff_u32) as usize]
         ^ Te3[(s0 & 0xff_u32) as usize]
         ^ *rk.offset(5);
-    t2 = Te0[(s2 >> 24i32) as usize]
+    let mut t2 = Te0[(s2 >> 24i32) as usize]
         ^ Te1[(s3 >> 16i32 & 0xff_u32) as usize]
         ^ Te2[(s0 >> 8i32 & 0xff_u32) as usize]
         ^ Te3[(s1 & 0xff_u32) as usize]
         ^ *rk.offset(6);
-    t3 = Te0[(s3 >> 24i32) as usize]
+    let mut t3 = Te0[(s3 >> 24i32) as usize]
         ^ Te1[(s0 >> 16i32 & 0xff_u32) as usize]
         ^ Te2[(s1 >> 8i32 & 0xff_u32) as usize]
         ^ Te3[(s2 & 0xff_u32) as usize]

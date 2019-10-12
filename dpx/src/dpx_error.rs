@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 
@@ -62,8 +61,7 @@ unsafe extern "C" fn _dpx_print_to_stdout(
     mut argp: ::std::ffi::VaList,
     mut warn: bool,
 ) {
-    let mut n: i32 = 0;
-    n = vsnprintf(
+    let mut n = vsnprintf(
         _dpx_message_buf.as_mut_ptr() as *mut i8,
         ::std::mem::size_of::<[i8; 1024]>() as u64,
         fmt,

@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 
@@ -223,23 +222,22 @@ pub unsafe extern "C" fn pdf_close_images() {
     _opts.cmdtmpl = mfree(_opts.cmdtmpl as *mut libc::c_void) as *mut i8;
 }
 unsafe fn source_image_type(handle: &mut InputHandleWrapper) -> i32 {
-    let mut format: i32 = -1i32;
     handle.seek(SeekFrom::Start(0)).unwrap();
     /* Original check order: jpeg, jp2, png, bmp, pdf, ps */
-    if check_for_jpeg(handle) != 0 {
-        format = 1i32
+    let format = if check_for_jpeg(handle) != 0 {
+        1
     } else if check_for_png(handle) != 0 {
-        format = 2i32
+        2
     } else if check_for_bmp(handle) != 0 {
-        format = 6i32
+        6
     } else if check_for_pdf(handle) != 0 {
-        format = 0i32
+        0
     } else if check_for_ps(handle) != 0 {
-        format = 5i32
+        5
     } else {
         warn!("Tectonic was unable to detect an image\'s format");
-        format = -1i32
-    }
+        -1
+    };
     handle.seek(SeekFrom::Start(0)).unwrap();
     format
 }
@@ -252,9 +250,7 @@ unsafe fn load_image(
 ) -> i32 {
     let mut current_block: u64;
     let mut ic: *mut ic_ = &mut _ic;
-    let mut id: i32 = -1i32;
-    let mut I: *mut pdf_ximage = 0 as *mut pdf_ximage;
-    id = (*ic).count;
+    let id = (*ic).count;
     if (*ic).count >= (*ic).capacity {
         (*ic).capacity += 16i32;
         (*ic).ximages = renew(
@@ -263,7 +259,7 @@ unsafe fn load_image(
                 as u32,
         ) as *mut pdf_ximage
     }
-    I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
+    let I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
     pdf_init_ximage_struct(I);
     if !ident.is_null() {
         (*I).ident =
@@ -401,13 +397,11 @@ pub unsafe extern "C" fn pdf_ximage_findresource(
     mut options: load_options,
 ) -> i32 {
     let mut ic: *mut ic_ = &mut _ic;
-    let mut I: *mut pdf_ximage = 0 as *mut pdf_ximage;
-    let mut format: i32 = 0;
     /* "I don't understand why there is comparision against I->attr.dict here...
      * I->attr.dict and options.dict are simply pointers to PDF dictionaries."
      */
     for id in 0..(*ic).count {
-        I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
+        let I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
         if !(*I).ident.is_null() && streq_ptr(ident, (*I).ident) as i32 != 0 {
             if (*I).attr.page_no == options.page_no
                 && (*I).attr.dict == options.dict
@@ -439,7 +433,7 @@ pub unsafe extern "C" fn pdf_ximage_findresource(
     if _opts.verbose != 0 {
         info!("(Image:{}", CStr::from_ptr(ident).display());
     }
-    format = source_image_type(&mut handle);
+    let format = source_image_type(&mut handle);
     let id = load_image(ident, ident, format, handle, options);
     if _opts.verbose != 0 {
         info!(")");
@@ -527,7 +521,6 @@ pub unsafe extern "C" fn pdf_ximage_set_image(
     image_info: &mut ximage_info,
     mut resource: *mut pdf_obj,
 ) {
-    let mut dict: *mut pdf_obj = 0 as *mut pdf_obj;
     let info = image_info;
     if !(!resource.is_null() && pdf_obj_typeof(resource) == PdfObjType::STREAM) {
         panic!("Image XObject must be of stream type.");
@@ -538,7 +531,7 @@ pub unsafe extern "C" fn pdf_ximage_set_image(
     (*I).attr.xdensity = info.xdensity;
     (*I).attr.ydensity = info.ydensity;
     (*I).reference = pdf_ref_obj(resource);
-    dict = pdf_stream_dict(resource);
+    let dict = pdf_stream_dict(resource);
     pdf_add_dict(dict, "Type", pdf_new_name("XObject"));
     pdf_add_dict(dict, "Subtype", pdf_new_name("Image"));
     pdf_add_dict(dict, "Width", pdf_new_number((*info).width as f64));
@@ -591,11 +584,10 @@ pub unsafe extern "C" fn pdf_ximage_get_page(mut I: *mut pdf_ximage) -> i32 {
 #[no_mangle]
 pub unsafe extern "C" fn pdf_ximage_get_reference(mut id: i32) -> *mut pdf_obj {
     let mut ic: *mut ic_ = &mut _ic;
-    let mut I: *mut pdf_ximage = 0 as *mut pdf_ximage;
     if id < 0i32 || id >= (*ic).count {
         panic!("Invalid XObject ID: {}", id);
     }
-    I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
+    let I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
     if (*I).reference.is_null() {
         (*I).reference = pdf_ref_obj((*I).resource)
     }
@@ -616,9 +608,7 @@ pub unsafe extern "C" fn pdf_ximage_defineresource(
     mut resource: *mut pdf_obj,
 ) -> i32 {
     let mut ic: *mut ic_ = &mut _ic;
-    let mut id: i32 = 0;
-    let mut I: *mut pdf_ximage = 0 as *mut pdf_ximage;
-    id = (*ic).count;
+    let id = (*ic).count;
     if (*ic).count >= (*ic).capacity {
         (*ic).capacity += 16i32;
         (*ic).ximages = renew(
@@ -627,7 +617,7 @@ pub unsafe extern "C" fn pdf_ximage_defineresource(
                 as u32,
         ) as *mut pdf_ximage
     }
-    I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
+    let I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
     pdf_init_ximage_struct(I);
     if !ident.is_null() {
         (*I).ident =
@@ -659,21 +649,19 @@ pub unsafe extern "C" fn pdf_ximage_defineresource(
 #[no_mangle]
 pub unsafe extern "C" fn pdf_ximage_get_resname(mut id: i32) -> *mut i8 {
     let mut ic: *mut ic_ = &mut _ic;
-    let mut I: *mut pdf_ximage = 0 as *mut pdf_ximage;
     if id < 0i32 || id >= (*ic).count {
         panic!("Invalid XObject ID: {}", id);
     }
-    I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
+    let I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
     (*I).res_name.as_mut_ptr()
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_ximage_get_subtype(mut id: i32) -> i32 {
     let mut ic: *mut ic_ = &mut _ic;
-    let mut I: *mut pdf_ximage = 0 as *mut pdf_ximage;
     if id < 0i32 || id >= (*ic).count {
         panic!("Invalid XObject ID: {}", id);
     }
-    I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
+    let I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
     (*I).subtype
 }
 /* from spc_pdfm.c */
@@ -690,11 +678,10 @@ pub unsafe extern "C" fn pdf_ximage_set_attr(
     mut ury: f64,
 ) {
     let mut ic: *mut ic_ = &mut _ic;
-    let mut I: *mut pdf_ximage = 0 as *mut pdf_ximage;
     if id < 0i32 || id >= (*ic).count {
         panic!("Invalid XObject ID: {}", id);
     }
-    I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
+    let I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
     (*I).attr.width = width;
     (*I).attr.height = height;
     (*I).attr.xdensity = xdensity;
@@ -710,15 +697,14 @@ pub unsafe extern "C" fn pdf_ximage_set_attr(
  * This part contains incompatibile behaviour than dvipdfm!
  */
 unsafe fn scale_to_fit_I(T: &mut pdf_tmatrix, p: &mut transform_info, mut I: *mut pdf_ximage) {
-    let mut s_x: f64 = 0.;
-    let mut s_y: f64 = 0.;
-    let mut d_x: f64 = 0.;
-    let mut d_y: f64 = 0.;
-    let mut wd0: f64 = 0.;
-    let mut ht0: f64 = 0.;
-    let mut dp: f64 = 0.;
-    let mut xscale: f64 = 0.;
-    let mut yscale: f64 = 0.;
+    let s_x;
+    let s_y;
+    let d_x;
+    let d_y;
+    let mut wd0;
+    let mut ht0;
+    let xscale;
+    let yscale;
     if p.flags & 1i32 << 0i32 != 0 {
         wd0 = p.bbox.urx - p.bbox.llx;
         ht0 = p.bbox.ury - p.bbox.lly;
@@ -742,23 +728,23 @@ unsafe fn scale_to_fit_I(T: &mut pdf_tmatrix, p: &mut transform_info, mut I: *mu
         warn!("Image height=0.0!");
         ht0 = 1.0f64
     }
-    if p.flags & 1i32 << 1i32 != 0 && p.flags & 1i32 << 2i32 != 0 {
+    let dp = if p.flags & 1i32 << 1i32 != 0 && p.flags & 1i32 << 2i32 != 0 {
         s_x = p.width * xscale;
         s_y = (p.height + p.depth) * yscale;
-        dp = p.depth * yscale
+        p.depth * yscale
     } else if p.flags & 1i32 << 1i32 != 0 {
         s_x = p.width * xscale;
         s_y = s_x * ((*I).attr.height as f64 / (*I).attr.width as f64);
-        dp = 0.0f64
+        0.
     } else if p.flags & 1i32 << 2i32 != 0 {
         s_y = (p.height + p.depth) * yscale;
         s_x = s_y * ((*I).attr.width as f64 / (*I).attr.height as f64);
-        dp = p.depth * yscale
+        p.depth * yscale
     } else {
         s_x = wd0;
         s_y = ht0;
-        dp = 0.0f64
-    }
+        0.
+    };
     T.a = s_x;
     T.c = 0.0f64;
     T.b = 0.0f64;
@@ -767,13 +753,12 @@ unsafe fn scale_to_fit_I(T: &mut pdf_tmatrix, p: &mut transform_info, mut I: *mu
     T.f = d_y * s_y / yscale - dp;
 }
 unsafe fn scale_to_fit_F(T: &mut pdf_tmatrix, p: &mut transform_info, mut I: *mut pdf_ximage) {
-    let mut s_x: f64 = 0.;
-    let mut s_y: f64 = 0.;
-    let mut d_x: f64 = 0.;
-    let mut d_y: f64 = 0.;
-    let mut wd0: f64 = 0.;
-    let mut ht0: f64 = 0.;
-    let mut dp: f64 = 0.;
+    let s_x;
+    let s_y;
+    let d_x;
+    let d_y;
+    let mut wd0;
+    let mut ht0;
     if p.flags & 1i32 << 0i32 != 0 {
         wd0 = p.bbox.urx - p.bbox.llx;
         ht0 = p.bbox.ury - p.bbox.lly;
@@ -793,23 +778,23 @@ unsafe fn scale_to_fit_F(T: &mut pdf_tmatrix, p: &mut transform_info, mut I: *mu
         warn!("Image height=0.0!");
         ht0 = 1.0f64
     }
-    if p.flags & 1i32 << 1i32 != 0 && p.flags & 1i32 << 2i32 != 0 {
+    let dp = if p.flags & 1i32 << 1i32 != 0 && p.flags & 1i32 << 2i32 != 0 {
         s_x = p.width / wd0;
         s_y = (p.height + p.depth) / ht0;
-        dp = p.depth
+        p.depth
     } else if p.flags & 1i32 << 1i32 != 0 {
         s_x = p.width / wd0;
         s_y = s_x;
-        dp = 0.0f64
+        0.
     } else if p.flags & 1i32 << 2i32 != 0 {
         s_y = (p.height + p.depth) / ht0;
         s_x = s_y;
-        dp = p.depth
+        p.depth
     } else {
         s_y = 1.0f64;
         s_x = s_y;
-        dp = 0.0f64
-    }
+        0.
+    };
     T.a = s_x;
     T.c = 0.0f64;
     T.b = 0.0f64;
@@ -827,11 +812,10 @@ pub unsafe extern "C" fn pdf_ximage_scale_image(
 ) -> i32
 /* argument from specials */ {
     let mut ic: *mut ic_ = &mut _ic;
-    let mut I: *mut pdf_ximage = 0 as *mut pdf_ximage;
     if id < 0i32 || id >= (*ic).count {
         panic!("Invalid XObject ID: {}", id);
     }
-    I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
+    let I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
     M.a = 1.;
     M.b = 0.;
     M.c = 0.;

@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 
@@ -44,7 +43,7 @@ use super::dpx_pdfdraw::{
 use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_array_length, pdf_boolean_value, pdf_close, pdf_concat_stream,
-    pdf_deref_obj, pdf_file, pdf_file_get_catalog, /*pdf_file_get_trailer, */pdf_file_get_version,
+    pdf_deref_obj, pdf_file_get_catalog, /*pdf_file_get_trailer, */pdf_file_get_version,
     pdf_get_array, pdf_get_version, pdf_import_object, pdf_lookup_dict, pdf_new_array,
     /*pdf_new_dict, */pdf_new_name, pdf_new_number, pdf_new_stream,/* pdf_number_value, */pdf_obj,
     pdf_obj_typeof, pdf_open, pdf_release_obj,/* pdf_stream_dataptr,*/ pdf_stream_dict,
@@ -417,14 +416,11 @@ pub unsafe extern "C" fn pdf_include_page(
     mut options: load_options,
 ) -> i32 {
     let mut current_block: u64;
-    let mut pf: *mut pdf_file = 0 as *mut pdf_file;
     let mut info = xform_info::default();
     let mut contents: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut catalog: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut page: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut resources: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut markinfo: *mut pdf_obj = 0 as *mut pdf_obj;
-    pf = pdf_open(ident, handle);
+    let pf = pdf_open(ident, handle);
     if pf.is_null() {
         return -1i32;
     }
@@ -438,7 +434,7 @@ pub unsafe extern "C" fn pdf_include_page(
     if options.page_no == 0i32 {
         options.page_no = 1i32
     }
-    page = pdf_doc_get_page(
+    let mut page = pdf_doc_get_page(
         pf,
         options.page_no,
         options.bbox_type,
@@ -447,7 +443,7 @@ pub unsafe extern "C" fn pdf_include_page(
         &mut resources,
     );
     if !page.is_null() {
-        catalog = pdf_file_get_catalog(pf);
+        let catalog = pdf_file_get_catalog(pf);
         markinfo = pdf_deref_obj(pdf_lookup_dict(catalog, "MarkInfo"));
         if !markinfo.is_null() {
             let mut tmp: *mut pdf_obj = pdf_deref_obj(pdf_lookup_dict(markinfo, "Marked"));
@@ -492,10 +488,9 @@ pub unsafe extern "C" fn pdf_include_page(
                     /*
                      * Concatenate all content streams.
                      */
-                    let mut idx: i32 = 0;
                     let mut len: i32 = pdf_array_length(contents) as i32;
                     content_new = pdf_new_stream(1i32 << 0i32);
-                    idx = 0i32;
+                    let mut idx = 0;
                     loop {
                         if !(idx < len) {
                             current_block = 2480299350034459858;
@@ -527,20 +522,17 @@ pub unsafe extern "C" fn pdf_include_page(
                         /*
                          * Add entries to contents stream dictionary.
                          */
-                        let mut contents_dict: *mut pdf_obj = 0 as *mut pdf_obj;
-                        let mut bbox: *mut pdf_obj = 0 as *mut pdf_obj;
-                        let mut matrix: *mut pdf_obj = 0 as *mut pdf_obj;
-                        contents_dict = pdf_stream_dict(contents);
+                        let contents_dict = pdf_stream_dict(contents);
                         pdf_add_dict(contents_dict, "Type", pdf_new_name("XObject"));
                         pdf_add_dict(contents_dict, "Subtype", pdf_new_name("Form"));
                         pdf_add_dict(contents_dict, "FormType", pdf_new_number(1.0f64));
-                        bbox = pdf_new_array();
+                        let bbox = pdf_new_array();
                         pdf_add_array(bbox, pdf_new_number(info.bbox.llx));
                         pdf_add_array(bbox, pdf_new_number(info.bbox.lly));
                         pdf_add_array(bbox, pdf_new_number(info.bbox.urx));
                         pdf_add_array(bbox, pdf_new_number(info.bbox.ury));
                         pdf_add_dict(contents_dict, "BBox", bbox);
-                        matrix = pdf_new_array();
+                        let matrix = pdf_new_array();
                         pdf_add_array(matrix, pdf_new_number(info.matrix.a));
                         pdf_add_array(matrix, pdf_new_number(info.matrix.b));
                         pdf_add_array(matrix, pdf_new_number(info.matrix.c));

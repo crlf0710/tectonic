@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 
@@ -105,8 +104,7 @@ fn pdf_coord__equal(p1: &pdf_coord, p2: &pdf_coord) -> bool {
 }
 
 unsafe fn inversematrix(mut W: &mut pdf_tmatrix, mut M: &pdf_tmatrix) -> i32 {
-    let mut det: f64 = 0.;
-    det = M.a * M.d - M.b * M.c;
+    let det = M.a * M.d - M.b * M.c;
     if det.abs() < 2.5e-16f64 {
         warn!("Inverting matrix with zero determinant...");
         return -1i32;
@@ -134,8 +132,7 @@ extern "C" fn pdf_coord__dtransform(p: &mut pdf_coord, M: &pdf_tmatrix) -> i32 {
 }
 unsafe fn pdf_coord__idtransform(p: &mut pdf_coord, M: &pdf_tmatrix) -> i32 {
     let mut W = pdf_tmatrix::new();
-    let mut error: i32 = 0;
-    error = inversematrix(&mut W, M);
+    let error = inversematrix(&mut W, M);
     if error != 0 {
         return error;
     }
@@ -147,8 +144,7 @@ unsafe fn pdf_coord__idtransform(p: &mut pdf_coord, M: &pdf_tmatrix) -> i32 {
 #[no_mangle]
 pub unsafe extern "C" fn pdf_invertmatrix(M: &mut pdf_tmatrix) {
     let mut W = pdf_tmatrix::new();
-    let mut det: f64 = 0.;
-    det = M.a * M.d - M.b * M.c;
+    let det = M.a * M.d - M.b * M.c;
     if det.abs() < 2.5e-16f64 {
         warn!("Inverting matrix with zero determinant...");
         W.a = 1.0f64;
@@ -351,14 +347,7 @@ unsafe fn pdf_path__elliptarc(
     mut a_d: i32,
 ) -> i32
 /* arc orientation        */ {
-    let mut b: f64 = 0.; /* number of segments */
-    let mut b_x: f64 = 0.;
-    let mut b_y: f64 = 0.;
-    let mut d_a: f64 = 0.;
-    let mut q: f64 = 0.;
     let mut T = pdf_tmatrix::new();
-    let mut n_c: i32 = 0;
-    let mut i: i32 = 0;
     let mut error: i32 = 0i32;
     if r_x.abs() < 2.5e-16f64 || r_y.abs() < 2.5e-16f64 {
         return -1i32;
@@ -372,8 +361,8 @@ unsafe fn pdf_path__elliptarc(
             a_0 -= 360.0f64
         }
     }
-    d_a = a_1 - a_0;
-    n_c = 1i32;
+    let mut d_a = a_1 - a_0;
+    let mut n_c = 1;
     while d_a.abs() > 90.0f64 * n_c as f64 {
         n_c += 1
     }
@@ -382,7 +371,7 @@ unsafe fn pdf_path__elliptarc(
         return -1i32;
     }
     a_0 *= core::f64::consts::PI / 180.;
-    a_1 *= core::f64::consts::PI / 180.;
+    //a_1 *= core::f64::consts::PI / 180.; TODO: check
     d_a *= core::f64::consts::PI / 180.;
     xar *= core::f64::consts::PI / 180.;
     let (s, c) = xar.sin_cos();
@@ -393,9 +382,9 @@ unsafe fn pdf_path__elliptarc(
     T.e = 0.;
     T.f = 0.;
     /* A parameter that controls cb-curve (off-curve) points */
-    b = 4.0f64 * (1.0f64 - (0.5f64 * d_a).cos()) / (3.0f64 * (0.5f64 * d_a).sin());
-    b_x = r_x * b;
-    b_y = r_y * b;
+    let b = 4.0f64 * (1.0f64 - (0.5f64 * d_a).cos()) / (3.0f64 * (0.5f64 * d_a).sin()); /* number of segments */
+    let b_x = r_x * b;
+    let b_y = r_y * b;
     let (s, c) = a_0.sin_cos();
     let mut p0 = pdf_coord::new(r_x * c, r_y * s);
     pdf_coord__transform(&mut p0, &mut T);
@@ -407,9 +396,9 @@ unsafe fn pdf_path__elliptarc(
         pdf_path__lineto(pa, cp, &mut p0);
         /* add line seg */
     }
-    i = 0i32;
+    let mut i = 0;
     while error == 0 && i < n_c {
-        q = a_0 + i as f64 * d_a;
+        let q = a_0 + i as f64 * d_a;
         let (s, c) = q.sin_cos();
         let e0 = pdf_coord::new(c, s);
         let (s, c) = (q + d_a).sin_cos();
@@ -536,11 +525,8 @@ unsafe fn INVERTIBLE_MATRIX(M: &pdf_tmatrix) -> i32 {
 unsafe fn pdf_dev__rectshape(r: &pdf_rect, M: Option<&pdf_tmatrix>, opchr: u8) -> i32 {
     let buf = &mut fmt_buf;
     let mut len = 0;
-    let mut isclip: i32 = 0i32;
-    let mut wd: f64 = 0.;
-    let mut ht: f64 = 0.;
     assert!(b"fFsSbBW ".contains(&(opchr as u8)));
-    isclip = if opchr == b'W' || opchr == b' ' {
+    let isclip = if opchr == b'W' || opchr == b' ' {
         1i32
     } else {
         0i32
@@ -575,8 +561,8 @@ unsafe fn pdf_dev__rectshape(r: &pdf_rect, M: Option<&pdf_tmatrix>, opchr: u8) -
     buf[len] = b'n';
     len += 1;
     let p = pdf_coord::new(r.llx, r.lly);
-    wd = r.urx - r.llx;
-    ht = r.ury - r.lly;
+    let wd = r.urx - r.llx;
+    let ht = r.ury - r.lly;
     buf[len] = b' ';
     len += 1;
     len += pdf_sprint_coord(&mut buf[len..], &p);
@@ -617,7 +603,6 @@ unsafe fn pdf_dev__flushpath(
     let mut b_len = 1024; /* op: re */
     let mut r = pdf_rect::new(); /* op: m l c v y h */
     let mut len = 0_usize;
-    let mut isrect: i32 = 0;
     assert!(b"fFsSbBW ".contains(&opchr));
     let isclip = if opchr == b'W' { true } else { false };
     if
@@ -627,7 +612,7 @@ unsafe fn pdf_dev__flushpath(
     }
     path_added = 0i32;
     graphics_mode();
-    isrect = pdf_path__isarect(pa, ignore_rule);
+    let isrect = pdf_path__isarect(pa, ignore_rule);
     if isrect != 0 {
         let pe = &pa.path[0];
         let pe1 = &pa.path[2];
@@ -1069,12 +1054,11 @@ pub unsafe extern "C" fn pdf_dev_flushpath(mut p_op: u8, mut fill_rule: i32) -> 
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.top();
     let cpa = &mut gs.path;
-    let mut error: i32 = 0i32;
     /* last arg 'ignore_rule' is only for single object
      * that can be converted to a rect where fill rule
      * is inessential.
      */
-    error = pdf_dev__flushpath(cpa, p_op, fill_rule, 1i32);
+    let error = pdf_dev__flushpath(cpa, p_op, fill_rule, 1i32);
     cpa.path.clear();
     gs.flags &= !(1i32 << 0i32);
     error

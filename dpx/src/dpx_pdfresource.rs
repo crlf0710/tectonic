@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 
@@ -182,8 +181,7 @@ pub unsafe extern "C" fn pdf_close_resources() {
     for i in 0..(::std::mem::size_of::<[C2RustUnnamed; 9]>() as u64)
         .wrapping_div(::std::mem::size_of::<C2RustUnnamed>() as u64)
     {
-        let mut rc: *mut res_cache = 0 as *mut res_cache;
-        rc = &mut *resources.as_mut_ptr().offset(i as isize) as *mut res_cache;
+        let rc = &mut *resources.as_mut_ptr().offset(i as isize) as *mut res_cache;
         for j in 0..(*rc).count {
             pdf_flush_resource(&mut *(*rc).resources.offset(j as isize));
             pdf_clean_resource(&mut *(*rc).resources.offset(j as isize));
@@ -211,23 +209,20 @@ pub unsafe extern "C" fn pdf_defineresource(
     mut object: *mut pdf_obj,
     mut flags: i32,
 ) -> i32 {
-    let mut res_id: i32 = 0;
-    let mut rc: *mut res_cache = 0 as *mut res_cache;
-    let mut cat_id: i32 = 0;
-    let mut res: *mut pdf_res = 0 as *mut pdf_res;
+    let mut res_id;
     assert!(!category.is_null() && !object.is_null());
-    cat_id = get_category(category);
+    let cat_id = get_category(category);
     if cat_id < 0i32 {
         panic!(
             "Unknown resource category: {}",
             CStr::from_ptr(category).display(),
         );
     }
-    rc = &mut *resources.as_mut_ptr().offset(cat_id as isize) as *mut res_cache;
+    let rc = &mut *resources.as_mut_ptr().offset(cat_id as isize) as *mut res_cache;
     if !resname.is_null() {
         res_id = 0i32;
         while res_id < (*rc).count {
-            res = &mut *(*rc).resources.offset(res_id as isize) as *mut pdf_res;
+            let res = &mut *(*rc).resources.offset(res_id as isize) as *mut pdf_res;
             if streq_ptr(resname, (*res).ident) {
                 warn!(
                     "Resource {} (category: {}) already defined...",
@@ -258,7 +253,7 @@ pub unsafe extern "C" fn pdf_defineresource(
                     as u32,
             ) as *mut pdf_res
         }
-        res = &mut *(*rc).resources.offset(res_id as isize) as *mut pdf_res;
+        let res = &mut *(*rc).resources.offset(res_id as isize) as *mut pdf_res;
         pdf_init_resource(res);
         if !resname.is_null() && *resname.offset(0) as i32 != '\u{0}' as i32 {
             (*res).ident = new(
@@ -280,20 +275,17 @@ pub unsafe extern "C" fn pdf_defineresource(
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_findresource(mut category: *const i8, mut resname: *const i8) -> i32 {
-    let mut res: *mut pdf_res = 0 as *mut pdf_res;
-    let mut cat_id: i32 = 0;
-    let mut rc: *mut res_cache = 0 as *mut res_cache;
     assert!(!resname.is_null() && !category.is_null());
-    cat_id = get_category(category);
+    let cat_id = get_category(category);
     if cat_id < 0i32 {
         panic!(
             "Unknown resource category: {}",
             CStr::from_ptr(category).display(),
         );
     }
-    rc = &mut *resources.as_mut_ptr().offset(cat_id as isize) as *mut res_cache;
+    let rc = &mut *resources.as_mut_ptr().offset(cat_id as isize) as *mut res_cache;
     for res_id in 0..(*rc).count {
-        res = &mut *(*rc).resources.offset(res_id as isize) as *mut pdf_res;
+        let res = &mut *(*rc).resources.offset(res_id as isize) as *mut pdf_res;
         if streq_ptr(resname, (*res).ident) {
             return cat_id << 16i32 | res_id;
         }
@@ -302,12 +294,8 @@ pub unsafe extern "C" fn pdf_findresource(mut category: *const i8, mut resname: 
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_get_resource_reference(mut rc_id: i32) -> *mut pdf_obj {
-    let mut cat_id: i32 = 0;
-    let mut res_id: i32 = 0;
-    let mut rc: *mut res_cache = 0 as *mut res_cache;
-    let mut res: *mut pdf_res = 0 as *mut pdf_res;
-    cat_id = rc_id >> 16i32 & 0xffffi32;
-    res_id = rc_id & 0xffffi32;
+    let cat_id = rc_id >> 16i32 & 0xffffi32;
+    let res_id = rc_id & 0xffffi32;
     if cat_id < 0i32
         || cat_id as u64
             >= (::std::mem::size_of::<[C2RustUnnamed; 9]>() as u64)
@@ -315,11 +303,11 @@ pub unsafe extern "C" fn pdf_get_resource_reference(mut rc_id: i32) -> *mut pdf_
     {
         panic!("Invalid category ID: {}", cat_id);
     }
-    rc = &mut *resources.as_mut_ptr().offset(cat_id as isize) as *mut res_cache;
+    let rc = &mut *resources.as_mut_ptr().offset(cat_id as isize) as *mut res_cache;
     if res_id < 0i32 || res_id >= (*rc).count {
         panic!("Invalid resource ID: {}", res_id);
     }
-    res = &mut *(*rc).resources.offset(res_id as isize) as *mut pdf_res;
+    let res = &mut *(*rc).resources.offset(res_id as isize) as *mut pdf_res;
     if (*res).reference.is_null() {
         if (*res).object.is_null() {
             panic!("Undefined object...");

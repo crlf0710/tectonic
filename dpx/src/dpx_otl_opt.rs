@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 
@@ -80,8 +79,7 @@ unsafe fn match_expr(mut expr: *mut bt_node, mut key: *const i8) -> i32 {
     retval
 }
 unsafe fn bt_new_tree() -> *mut bt_node {
-    let mut expr: *mut bt_node = 0 as *mut bt_node;
-    expr =
+    let expr =
         new((1_u64).wrapping_mul(::std::mem::size_of::<bt_node>() as u64) as u32) as *mut bt_node;
     (*expr).flag = 0i32;
     (*expr).left = 0 as *mut bt_node;
@@ -101,13 +99,11 @@ unsafe fn bt_release_tree(mut tree: *mut bt_node) {
     };
 }
 unsafe fn parse_expr(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut bt_node {
-    let mut root: *mut bt_node = 0 as *mut bt_node;
-    let mut curr: *mut bt_node = 0 as *mut bt_node;
     if *pp >= endptr {
         return 0 as *mut bt_node;
     }
-    curr = bt_new_tree();
-    root = curr;
+    let mut curr = bt_new_tree();
+    let mut root = curr;
     while *pp < endptr {
         match **pp as i32 {
             33 => {
@@ -121,8 +117,7 @@ unsafe fn parse_expr(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut bt_n
             40 => {
                 *pp = (*pp).offset(1);
                 if *pp < endptr {
-                    let mut expr: *mut bt_node = 0 as *mut bt_node;
-                    expr = parse_expr(pp, endptr);
+                    let expr = parse_expr(pp, endptr);
                     if expr.is_null() {
                         warn!("Syntax error: {}\n", CStr::from_ptr(*pp).display());
                         return 0 as *mut bt_node;
@@ -153,8 +148,7 @@ unsafe fn parse_expr(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut bt_n
                     bt_release_tree(root);
                     return 0 as *mut bt_node;
                 } else {
-                    let mut tmp: *mut bt_node = 0 as *mut bt_node;
-                    tmp = bt_new_tree();
+                    let tmp = bt_new_tree();
                     (*tmp).left = root;
                     curr = bt_new_tree();
                     (*tmp).right = curr;
@@ -205,8 +199,7 @@ unsafe fn parse_expr(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut bt_n
 }
 #[no_mangle]
 pub unsafe extern "C" fn otl_new_opt() -> *mut otl_opt {
-    let mut opt: *mut otl_opt = 0 as *mut otl_opt;
-    opt = new((1_u64).wrapping_mul(::std::mem::size_of::<otl_opt>() as u64) as u32) as *mut otl_opt;
+    let opt = new((1_u64).wrapping_mul(::std::mem::size_of::<otl_opt>() as u64) as u32) as *mut otl_opt;
     (*opt).rule = 0 as *mut bt_node;
     opt as *mut otl_opt
 }
@@ -220,12 +213,10 @@ pub unsafe extern "C" fn otl_release_opt(mut opt: *mut otl_opt) {
 }
 #[no_mangle]
 pub unsafe extern "C" fn otl_parse_optstring(mut opt: *mut otl_opt, mut optstr: *const i8) -> i32 {
-    let mut p: *const i8 = 0 as *const i8;
-    let mut endptr: *const i8 = 0 as *const i8;
     assert!(!opt.is_null());
     if !optstr.is_null() {
-        p = optstr;
-        endptr = p.offset(strlen(optstr) as isize);
+        let mut p = optstr as *const i8;
+        let endptr = p.offset(strlen(optstr) as isize);
         (*opt).rule = parse_expr(&mut p, endptr)
     }
     0i32

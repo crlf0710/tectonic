@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 
@@ -49,7 +48,7 @@ use super::dpx_pkfont::{pdf_font_load_pkfont, pdf_font_open_pkfont, PKFont_set_d
 use super::dpx_truetype::{pdf_font_load_truetype, pdf_font_open_truetype};
 use super::dpx_tt_cmap::{otf_cmap_set_verbose, otf_load_Unicode_CMap};
 use super::dpx_type0::{
-    Type0Font, Type0Font_cache_close, Type0Font_cache_find, Type0Font_cache_get,
+    Type0Font_cache_close, Type0Font_cache_find, Type0Font_cache_get,
     Type0Font_cache_init, Type0Font_get_resource, Type0Font_get_usedchars, Type0Font_get_wmode,
     Type0Font_set_verbose,
 };
@@ -94,7 +93,6 @@ pub struct C2RustUnnamed_0 {
     pub capacity: i32,
     pub fonts: *mut pdf_font,
 }
-use super::dpx_cmap::CMap;
 
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -176,7 +174,6 @@ pub unsafe extern "C" fn pdf_font_set_deterministic_unique_tags(mut value: i32) 
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_font_make_uniqueTag(mut tag: *mut i8) {
-    let mut ch: i8 = 0;
     if unique_tags_deterministic != 0 {
         snprintf(
             tag,
@@ -202,7 +199,7 @@ pub unsafe extern "C" fn pdf_font_make_uniqueTag(mut tag: *mut i8) {
         unique_tag_state = 0i32
     }
     for i in 0..6 {
-        ch = (rand() % 26i32) as i8;
+        let ch = (rand() % 26i32) as i8;
         *tag.offset(i as isize) = (ch as i32 + 'A' as i32) as i8;
     }
     *tag.offset(6) = '\u{0}' as i32 as i8;
@@ -226,8 +223,6 @@ unsafe fn pdf_init_font_struct(mut font: *mut pdf_font) {
     (*font).flags = 0i32;
 }
 unsafe fn pdf_flush_font(mut font: *mut pdf_font) {
-    let mut fontname: *mut i8 = 0 as *mut i8;
-    let mut uniqueTag: *mut i8 = 0 as *mut i8;
     if font.is_null() {
         return;
     }
@@ -253,12 +248,12 @@ unsafe fn pdf_flush_font(mut font: *mut pdf_font) {
                         CStr::from_ptr((*font).ident).display()
                     );
                 }
-                fontname = new(((7usize)
+                let fontname = new(((7usize)
                     .wrapping_add(strlen((*font).fontname))
                     .wrapping_add(1))
                 .wrapping_mul(::std::mem::size_of::<i8>()) as _)
                     as *mut i8;
-                uniqueTag = pdf_font_get_uniqueTag(font);
+                let uniqueTag = pdf_font_get_uniqueTag(font);
                 sprintf(
                     fontname,
                     b"%6s+%s\x00" as *const u8 as *const i8,
@@ -331,14 +326,12 @@ pub unsafe extern "C" fn pdf_init_fonts() {
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_get_font_reference(mut font_id: i32) -> *mut pdf_obj {
-    let mut font: *mut pdf_font = 0 as *mut pdf_font;
     if font_id < 0i32 || font_id >= font_cache.count {
         panic!("Invalid font ID: {}", font_id);
     }
-    font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
+    let font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
     if (*font).subtype == 4i32 {
-        let mut t0font: *mut Type0Font = 0 as *mut Type0Font;
-        t0font = Type0Font_cache_get((*font).font_id);
+        let t0font = Type0Font_cache_get((*font).font_id);
         return Type0Font_get_resource(t0font);
     } else {
         if (*font).reference.is_null() {
@@ -349,14 +342,12 @@ pub unsafe extern "C" fn pdf_get_font_reference(mut font_id: i32) -> *mut pdf_ob
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_get_font_usedchars(mut font_id: i32) -> *mut i8 {
-    let mut font: *mut pdf_font = 0 as *mut pdf_font;
     if font_id < 0i32 || font_id >= font_cache.count {
         panic!("Invalid font ID: {}", font_id);
     }
-    font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
+    let font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
     if (*font).subtype == 4i32 {
-        let mut t0font: *mut Type0Font = 0 as *mut Type0Font;
-        t0font = Type0Font_cache_get((*font).font_id);
+        let t0font = Type0Font_cache_get((*font).font_id);
         return Type0Font_get_usedchars(t0font);
     } else {
         if (*font).usedchars.is_null() {
@@ -373,14 +364,12 @@ pub unsafe extern "C" fn pdf_get_font_usedchars(mut font_id: i32) -> *mut i8 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_get_font_wmode(mut font_id: i32) -> i32 {
-    let mut font: *mut pdf_font = 0 as *mut pdf_font;
     if font_id < 0i32 || font_id >= font_cache.count {
         panic!("Invalid font ID: {}", font_id);
     }
-    font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
+    let font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
     if (*font).subtype == 4i32 {
-        let mut t0font: *mut Type0Font = 0 as *mut Type0Font;
-        t0font = Type0Font_cache_get((*font).font_id);
+        let t0font = Type0Font_cache_get((*font).font_id);
         return Type0Font_get_wmode(t0font);
     } else {
         return 0i32;
@@ -388,20 +377,18 @@ pub unsafe extern "C" fn pdf_get_font_wmode(mut font_id: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_get_font_subtype(mut font_id: i32) -> i32 {
-    let mut font: *mut pdf_font = 0 as *mut pdf_font;
     if font_id < 0i32 || font_id >= font_cache.count {
         panic!("Invalid font ID: {}", font_id);
     }
-    font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
+    let font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
     (*font).subtype
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_get_font_encoding(mut font_id: i32) -> i32 {
-    let mut font: *mut pdf_font = 0 as *mut pdf_font;
     if font_id < 0i32 || font_id >= font_cache.count {
         panic!("Invalid font ID: {}", font_id);
     }
-    font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
+    let font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
     (*font).encoding_id
 }
 /* The rule for ToUnicode creation is:
@@ -413,10 +400,7 @@ pub unsafe extern "C" fn pdf_get_font_encoding(mut font_id: i32) -> i32 {
  *  names and AGL file.
  */
 unsafe fn try_load_ToUnicode_CMap(mut font: *mut pdf_font) -> i32 {
-    let mut fontdict: *mut pdf_obj = 0 as *mut pdf_obj; /* Be sure fontmap is still alive here */
-    let mut tounicode: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut cmap_name: *const i8 = 0 as *const i8;
-    let mut mrec: *mut fontmap_rec = 0 as *mut fontmap_rec;
+    /* Be sure fontmap is still alive here */
     assert!(!font.is_null());
     /* We are using different encoding for Type0 font.
      * This feature is unavailable for them.
@@ -425,14 +409,14 @@ unsafe fn try_load_ToUnicode_CMap(mut font: *mut pdf_font) -> i32 {
         return 0i32;
     } /* _FIXME_ */
     assert!(!(*font).map_name.is_null());
-    mrec = pdf_lookup_fontmap_record((*font).map_name);
-    if !mrec.is_null() && !(*mrec).opt.tounicode.is_null() {
-        cmap_name = (*mrec).opt.tounicode
+    let mrec = pdf_lookup_fontmap_record((*font).map_name);
+    let cmap_name = if !mrec.is_null() && !(*mrec).opt.tounicode.is_null() {
+        (*mrec).opt.tounicode
     } else {
-        cmap_name = (*font).map_name
-    }
-    fontdict = pdf_font_get_resource(font);
-    tounicode = pdf_load_ToUnicode_stream(cmap_name);
+        (*font).map_name
+    };
+    let fontdict = pdf_font_get_resource(font);
+    let tounicode = pdf_load_ToUnicode_stream(cmap_name);
     if tounicode.is_null() && (!mrec.is_null() && !(*mrec).opt.tounicode.is_null()) {
         warn!(
             "Failed to read ToUnicode mapping \"{}\"...",
@@ -459,11 +443,9 @@ unsafe fn try_load_ToUnicode_CMap(mut font: *mut pdf_font) -> i32 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_close_fonts() {
-    let mut font_id: i32 = 0;
-    font_id = 0i32;
+    let mut font_id = 0;
     while font_id < font_cache.count {
-        let mut font: *mut pdf_font = 0 as *mut pdf_font;
-        font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
+        let font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
         if __verbose != 0 {
             if (*font).subtype != 4i32 {
                 info!("({}", CStr::from_ptr(pdf_font_get_ident(font)).display(),);
@@ -538,7 +520,7 @@ pub unsafe extern "C" fn pdf_close_fonts() {
         font_id += 1
     }
     pdf_encoding_complete();
-    font_id = 0i32;
+    let mut font_id = 0;
     while font_id < font_cache.count {
         let mut font_0: *mut pdf_font =
             &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
@@ -591,16 +573,14 @@ pub unsafe extern "C" fn pdf_font_findresource(
     mut font_scale: f64,
     mut mrec: *mut fontmap_rec,
 ) -> i32 {
-    let mut font_id: i32 = -1i32;
-    let mut font: *mut pdf_font = 0 as *mut pdf_font;
+    let mut font_id;
     let mut encoding_id: i32 = -1i32;
     let mut cmap_id: i32 = -1i32;
-    let mut fontname: *const i8 = 0 as *const i8;
     /*
      * Get appropriate info from map file. (PK fonts at two different
      * point sizes would be looked up twice unecessarily.)
      */
-    fontname = if !mrec.is_null() {
+    let fontname = if !mrec.is_null() {
         (*mrec).font_name as *const i8
     } else {
         tex_name
@@ -611,12 +591,9 @@ pub unsafe extern "C" fn pdf_font_findresource(
         {
             cmap_id = CMap_cache_find((*mrec).enc_name);
             if cmap_id >= 0i32 {
-                let mut cmap: *mut CMap = 0 as *mut CMap;
-                let mut cmap_type: i32 = 0;
-                let mut minbytes: i32 = 0;
-                cmap = CMap_cache_get(cmap_id);
-                cmap_type = CMap_get_type(cmap);
-                minbytes = CMap_get_profile(cmap, 0i32);
+                let cmap = CMap_cache_get(cmap_id);
+                let cmap_type = CMap_get_type(cmap);
+                let minbytes = CMap_get_profile(cmap, 0i32);
                 /*
                  * Check for output encoding.
                  */
@@ -682,15 +659,14 @@ pub unsafe extern "C" fn pdf_font_findresource(
         /*
          * Composite Font
          */
-        let mut type0_id: i32 = 0;
         let mut found: i32 = 0i32;
-        type0_id = Type0Font_cache_find((*mrec).font_name, cmap_id, &mut (*mrec).opt);
+        let type0_id = Type0Font_cache_find((*mrec).font_name, cmap_id, &mut (*mrec).opt);
         if type0_id < 0i32 {
             return -1i32;
         }
         font_id = 0i32;
         while font_id < font_cache.count {
-            font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
+            let font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
             if (*font).subtype == 4i32
                 && (*font).font_id == type0_id
                 && (*font).encoding_id == cmap_id
@@ -721,7 +697,7 @@ pub unsafe extern "C" fn pdf_font_findresource(
                         as u32,
                 ) as *mut pdf_font
             }
-            font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
+            let font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
             pdf_init_font_struct(font);
             (*font).font_id = type0_id;
             (*font).subtype = 4i32;
@@ -751,7 +727,7 @@ pub unsafe extern "C" fn pdf_font_findresource(
         let mut found_0: i32 = 0i32;
         font_id = 0i32;
         while font_id < font_cache.count {
-            font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
+            let font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
             match (*font).subtype {
                 0 | 1 | 3 => {
                     /* fontname here is font file name.
@@ -811,7 +787,7 @@ pub unsafe extern "C" fn pdf_font_findresource(
                         as u32,
                 ) as *mut pdf_font
             }
-            font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
+            let font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
             pdf_init_font_struct(font);
             (*font).point_size = font_scale;
             (*font).encoding_id = encoding_id;
