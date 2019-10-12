@@ -4163,7 +4163,6 @@ pub unsafe extern "C" fn pdf_open(
     mut ident: *const i8,
     mut handle: InputHandleWrapper,
 ) -> *mut pdf_file {
-    let mut current_block: u64;
     let mut pf: *mut pdf_file = 0 as *mut pdf_file;
     assert!(!pdf_files.is_null());
     if !ident.is_null() {

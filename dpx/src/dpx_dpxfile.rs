@@ -97,7 +97,7 @@ unsafe fn check_stream_is_type1(handle: &mut InputHandleWrapper) -> bool {
     if n != 21 {
         return false;
     }
-    if p[0] != 0x80 || p[1] < 0 || p[1] > 3 {
+    if p[0] != 0x80 || p[1] >= 0x80 || p[1] > 3 {
         return false;
     }
     if &p[6..20] == b"%!PS-"  || &p[6..17] == b"%!FontType1" {
