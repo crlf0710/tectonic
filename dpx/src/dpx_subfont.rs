@@ -40,8 +40,6 @@ use crate::{ttstub_input_close, ttstub_input_open};
 use libc::{free, memcpy, strchr, strcmp, strcpy, strlen, strtol};
 
 pub type __ssize_t = i64;
-pub type size_t = u64;
-pub type ssize_t = __ssize_t;
 
 use crate::TTInputFormat;
 

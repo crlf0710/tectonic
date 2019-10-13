@@ -43,8 +43,6 @@ extern "C" {
 }
 
 pub type __ssize_t = i64;
-pub type size_t = u64;
-pub type ssize_t = __ssize_t;
 
 use crate::TTInputFormat;
 

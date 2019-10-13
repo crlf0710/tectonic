@@ -92,7 +92,6 @@ use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
-pub type ssize_t = __ssize_t;
 
 use super::dpx_cid::{cid_opt, CIDFont, CIDSysInfo};
 
@@ -108,7 +107,6 @@ use super::dpx_cff::cff_fdselect;
 use super::dpx_cff::cff_range3;
 use super::dpx_tt_table::tt_longMetrics;
 use super::dpx_tt_table::tt_vhea_table;
-pub type Fixed = u32;
 
 use super::dpx_cff::cff_dict;
 use super::dpx_cff::cff_font;
@@ -119,12 +117,8 @@ pub struct CIDType0Info {
     pub cffont: *mut cff_font,
 }
 use super::dpx_tt_table::{tt_head_table, tt_maxp_table};
-/* 16.16-bit signed fixed-point number */
-pub type FWord = i16;
 /* Acoid conflict with CHAR ... from <winnt.h>.  */
 /* Data Types as described in Apple's TTRefMan */
-
-pub type uFWord = u16;
 
 pub type CID = u16;
 

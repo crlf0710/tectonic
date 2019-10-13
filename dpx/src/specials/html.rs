@@ -56,8 +56,6 @@ use crate::spc_warn;
 use crate::streq_ptr;
 use libc::{atof, free, memcmp, memcpy, strcat, strcmp, strcpy, strlen};
 
-pub type size_t = u64;
-
 use super::{spc_arg, spc_env};
 
 use super::SpcHandler;

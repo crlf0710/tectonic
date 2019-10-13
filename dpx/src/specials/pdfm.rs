@@ -86,7 +86,6 @@ use libc::{free, memcmp, strlen, strstr};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
-pub type ssize_t = __ssize_t;
 
 use super::{spc_arg, spc_env};
 
@@ -112,10 +111,7 @@ pub struct tounicode {
 
 use crate::dpx_dpxutil::ht_table;
 
-pub type hval_free_func = Option<unsafe extern "C" fn(_: *mut libc::c_void) -> ()>;
-
 use crate::dpx_fontmap::fontmap_rec;
-pub use crate::dpx_pdfcolor::PdfColor;
 
 use crate::dpx_pdfximage::load_options;
 

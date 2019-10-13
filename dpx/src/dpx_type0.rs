@@ -50,7 +50,6 @@ use crate::shims::sprintf;
 use crate::streq_ptr;
 use libc::{free, memset, strcpy, strlen};
 
-pub type size_t = u64;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Type0Font {

@@ -55,10 +55,7 @@ use libz_sys as libz;
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
-pub type ssize_t = __ssize_t;
 use bridge::{InputHandleWrapper, OutputHandleWrapper};
-
-pub type hval_free_func = Option<unsafe extern "C" fn(_: *mut libc::c_void) -> ()>;
 
 use super::dpx_dpxutil::ht_table;
 #[derive(Copy, Clone)]

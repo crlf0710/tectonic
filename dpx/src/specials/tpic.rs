@@ -56,8 +56,6 @@ use crate::dpx_pdfparse::parse_val_ident;
 use crate::shims::sprintf;
 use libc::{atof, free, memcmp, strlen};
 
-pub type size_t = u64;
-
 use super::SpcHandler;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -77,8 +75,6 @@ pub struct spc_tpic_ {
 }
 
 use crate::dpx_pdfdev::pdf_coord;
-
-pub use crate::dpx_pdfcolor::PdfColor;
 
 use crate::dpx_pdfdev::pdf_tmatrix;
 

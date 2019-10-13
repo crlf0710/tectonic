@@ -51,7 +51,6 @@ use crate::dpx_pdfobj::{
 };
 use libc::{free, memcpy, memset, strcat, strchr, strcmp, strcpy, strlen, strncmp, strtoul};
 
-pub type size_t = u64;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct CIDSysInfo {
@@ -107,8 +106,6 @@ pub struct FontCache {
     pub fonts: *mut *mut CIDFont,
 }
 use super::dpx_cff::cff_charsets;
-
-pub type s_SID = u16;
 /* PLEASE SEND INFORMATION ON FONTS
  *
  * Those fonts are only for fixed-pitch glyphs (full-, half-, third-,

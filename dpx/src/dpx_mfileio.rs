@@ -31,7 +31,6 @@ use crate::{ttstub_input_getc, ttstub_input_ungetc};
 use libc::{fseek, ftell, rewind, FILE};
 pub type __off_t = i64;
 pub type __off64_t = i64;
-pub type size_t = u64;
 use bridge::InputHandleWrapper;
 unsafe fn os_error() {
     panic!("io:  An OS command failed that should not have.\n");

@@ -55,12 +55,7 @@ use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 pub type png_byte = u8;
 pub type png_infopp = *mut *mut png_info;
 pub type png_const_charp = *const i8;
-pub type png_structp = *mut png_struct;
 pub type png_uint_16 = libc::c_ushort;
-pub type png_structpp = *mut *mut png_struct;
-pub type png_const_structrp = *const png_struct;
-pub type png_inforp = *mut png_info;
-pub type png_structrp = *mut png_struct;
 pub type png_bytep = *mut png_byte;
 pub type png_uint_32 = libc::c_uint;
 #[no_mangle]

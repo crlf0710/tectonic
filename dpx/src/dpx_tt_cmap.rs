@@ -72,13 +72,6 @@ use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
-pub type ssize_t = __ssize_t;
-/* Acoid conflict with CHAR ... from <winnt.h>.  */
-/* Data Types as described in Apple's TTRefMan */
-pub type Fixed = u32;
-/* 16.16-bit signed fixed-point number */
-pub type FWord = i16;
-
 use super::dpx_sfnt::sfnt;
 
 #[derive(Copy, Clone)]
@@ -94,51 +87,9 @@ pub struct tt_cmap {
 use super::dpx_cid::CIDSysInfo;
 
 use super::dpx_cff::cff_font;
-/* CFF Data Types */
-/* SID SID number */
-/* offset(0) */
-/* size offset(0) */
-/* 1-byte unsigned number */
-/* 2-byte unsigned number */
-/* 1-byte unsigned number specifies the size
-of an Offset field or fields, range 1-4 */
-/* 1, 2, 3, or 4-byte offset */
-pub type s_SID = u16;
-/* 2-byte string identifier  */
-/* number of objects stored in INDEX */
-/* Offset array element size, 1-4    */
-/* Offset array, count + 1 offsets   */
-/* Object data                       */
-/* format major version (starting at 1) */
-/* format minor version (starting at 0) */
-/* Header size (bytes)                  */
-/* Absolute offset (0) size             */
-/* Dictionary */
-/* encoded data value (as u8 or u16) */
-/* opname                                 */
-/* number of values                        */
-/* values                                  */
-/* Encoding, Charset and FDSelect */
-/* SID or CID, or u8 for Encoding  */
-/* no. of remaining gids/codes in this range */
-/* SID or CID (u16)      */
-/* u16-version of range1 */
 
 use super::dpx_tt_post::tt_post_table;
 
-/* Mapping types, MAP_IS_NAME is not supported. */
-/* Lookup flags */
-/* DEBUG */
-/* Codespacerange */
-/* Dimension of this codespacerange */
-/* Lower bounds of valid input code */
-/* Upper bounds of valid input code */
-/* 2 for CID, variable for Code..  */
-/* CID (as 16-bit BE), Code ...    */
-/* Next Subtbl for LOOKUP_CONTINUE */
-/* CID, Code... MEM_ALLOC_SIZE bytes  */
-/* Previous mapData data segment      */
-/* Position of next free data segment */
 use super::dpx_cmap::CMap;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -211,7 +162,6 @@ pub struct SubHeader {
 pub struct cmap0 {
     pub glyphIndexArray: [u8; 256],
 }
-pub type CID = u16;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct cmap_plat_enc_rec {

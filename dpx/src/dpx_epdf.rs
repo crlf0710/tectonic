@@ -55,7 +55,6 @@ use libc::{free, strncmp, strncpy, strtod};
 */
 pub type __off_t = i64;
 pub type __off64_t = i64;
-pub type size_t = u64;
 use bridge::InputHandleWrapper;
 
 //use super::dpx_pdfdev::{pdf_coord, pdf_tmatrix};

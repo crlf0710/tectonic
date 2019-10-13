@@ -40,7 +40,6 @@ use libc::{fread, rewind, FILE};
 
 pub type __off_t = i64;
 pub type __off64_t = i64;
-pub type size_t = u64;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 /* Label */

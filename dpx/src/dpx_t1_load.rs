@@ -49,7 +49,6 @@ use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
-pub type ssize_t = __ssize_t;
 use bridge::InputHandleWrapper;
 
 /* CFF Data Types */
@@ -73,7 +72,6 @@ use super::dpx_cff::cff_encoding;
 use super::dpx_cff::cff_fdselect;
 
 use super::dpx_cff::cff_font;
-pub type pst_type = i32;
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.

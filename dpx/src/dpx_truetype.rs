@@ -72,8 +72,6 @@ use super::dpx_sfnt::{put_big_endian, sfnt};
 
 use super::dpx_tt_post::tt_post_table;
 
-pub type FWord = i16;
-pub type Fixed = u32;
 use super::dpx_tt_cmap::tt_cmap;
 
 pub use sfnt_table_info::SfntTableInfo;

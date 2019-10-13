@@ -94,7 +94,6 @@ pub struct SpcHandler {
 }
 
 use super::dpx_dpxutil::ht_table;
-pub type hval_free_func = Option<unsafe extern "C" fn(_: *mut libc::c_void) -> ()>;
 
 use super::dpx_pdfdev::pdf_coord;
 

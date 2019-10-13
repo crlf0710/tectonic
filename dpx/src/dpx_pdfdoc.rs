@@ -101,7 +101,6 @@ pub struct pdf_form {
 
 use super::dpx_dpxutil::ht_entry;
 use super::dpx_dpxutil::ht_table;
-pub type hval_free_func = Option<unsafe extern "C" fn(_: *mut libc::c_void) -> ()>;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct pdf_article {

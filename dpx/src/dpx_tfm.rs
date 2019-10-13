@@ -46,9 +46,7 @@ use std::io::{Seek, SeekFrom};
 
 pub type __off_t = i64;
 pub type __ssize_t = i64;
-pub type size_t = u64;
 pub type off_t = __off_t;
-pub type ssize_t = __ssize_t;
 
 use crate::TTInputFormat;
 
