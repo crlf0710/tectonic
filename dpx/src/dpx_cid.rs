@@ -46,8 +46,8 @@ use super::dpx_cidtype2::{
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
     pdf_add_dict, pdf_copy_name, pdf_file, pdf_get_version, pdf_link_obj, pdf_lookup_dict,
-    pdf_name_value, pdf_new_name, pdf_number_value, pdf_obj, pdf_obj_typeof, pdf_ref_obj,
-    pdf_release_obj, pdf_remove_dict, pdf_string_value, PdfObjType,
+    pdf_name_value, pdf_new_name, pdf_number_value, pdf_obj, pdf_ref_obj,
+    pdf_release_obj, pdf_remove_dict, pdf_string_value,
 };
 use libc::{free, memcpy, memset, strcat, strchr, strcmp, strcpy, strlen, strncmp, strtoul};
 
@@ -945,7 +945,7 @@ unsafe fn CIDFont_base_open(
     (*font).fontname = fontname;
     (*font).flags |= 1i32 << 0i32;
     let tmp = pdf_lookup_dict(fontdict, "CIDSystemInfo")
-        .filter(|tmp| pdf_obj_typeof(*tmp) == PdfObjType::DICT)
+        .filter(|&tmp| (*tmp).is_dict())
         .unwrap();
     let registry = pdf_string_value(pdf_lookup_dict(tmp, "Registry").unwrap()) as *mut i8;
     let ordering = pdf_string_value(pdf_lookup_dict(tmp, "Ordering").unwrap()) as *mut i8;
@@ -981,7 +981,7 @@ unsafe fn CIDFont_base_open(
     strcpy((*(*font).csi).ordering, ordering);
     (*(*font).csi).supplement = supplement;
     let tmp = pdf_lookup_dict(fontdict, "Subtype")
-        .filter(|tmp| pdf_obj_typeof(*tmp) == PdfObjType::NAME)
+        .filter(|&tmp| (*tmp).is_name())
         .unwrap();
     let typ = pdf_name_value(&*tmp).to_string_lossy();
     if typ == "CIDFontType0" {

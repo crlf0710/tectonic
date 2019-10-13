@@ -50,7 +50,7 @@ use crate::dpx_pdfdraw::{
 use crate::dpx_pdfobj::{
     pdf_add_dict, pdf_foreach_dict, pdf_get_version, pdf_lookup_dict, pdf_name_value,
     pdf_new_boolean, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_string, pdf_obj,
-    pdf_obj_typeof, pdf_ref_obj, pdf_release_obj, pdf_string_value, PdfObjType,
+    pdf_ref_obj, pdf_release_obj, pdf_string_value,
 };
 use crate::dpx_pdfparse::parse_val_ident;
 use crate::shims::sprintf;
@@ -128,7 +128,7 @@ unsafe fn check_resourcestatus(category: &str, mut resname: &str) -> i32 {
         return 0i32;
     }
     if let Some(dict2) = pdf_lookup_dict(dict1, category) {
-        if pdf_obj_typeof(dict2) == PdfObjType::DICT && pdf_lookup_dict(dict2, resname).is_some() {
+        if (*dict2).is_dict() && pdf_lookup_dict(dict2, resname).is_some() {
             return 1i32;
         }
     }
@@ -760,7 +760,7 @@ unsafe extern "C" fn tpic_filter_getopts(
     assert!(!kp.is_null() && !vp.is_null() && !tp.is_null());
     let k = pdf_name_value(&*kp).to_string_lossy();
     if k == "fill-mode" {
-        if pdf_obj_typeof(vp) != PdfObjType::STRING {
+        if !(*vp).is_string() {
             warn!("Invalid value for TPIC option fill-mode...");
             error = -1i32
         } else {

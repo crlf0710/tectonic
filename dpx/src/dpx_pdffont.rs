@@ -56,7 +56,7 @@ use super::dpx_type1::{pdf_font_load_type1, pdf_font_open_type1};
 use super::dpx_type1c::{pdf_font_load_type1c, pdf_font_open_type1c};
 use crate::dpx_pdfobj::{
     pdf_add_dict, pdf_copy_name, pdf_link_obj, pdf_lookup_dict, pdf_new_dict, pdf_new_name,
-    pdf_obj, pdf_obj_typeof, pdf_ref_obj, pdf_release_obj, pdf_stream_length, PdfObjType,
+    pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length,
 };
 use crate::mfree;
 use crate::shims::{snprintf, sprintf};
@@ -423,7 +423,7 @@ unsafe fn try_load_ToUnicode_CMap(mut font: *mut pdf_font) -> i32 {
             CStr::from_ptr((*mrec).opt.tounicode).display(),
         );
     } else if !tounicode.is_null() {
-        if pdf_obj_typeof(tounicode) != PdfObjType::STREAM {
+        if !(*tounicode).is_stream() {
             panic!("Object returned by pdf_load_ToUnicode_stream() not stream object! (This must be bug)");
         } else {
             if pdf_stream_length(tounicode) > 0i32 {
@@ -533,7 +533,7 @@ pub unsafe extern "C" fn pdf_close_fonts() {
                 pdf_add_dict(
                     (*font_0).resource,
                     "Encoding",
-                    if !enc_obj.is_null() && pdf_obj_typeof(enc_obj) == PdfObjType::NAME {
+                    if !enc_obj.is_null() && (*enc_obj).is_name() {
                         pdf_link_obj(enc_obj)
                     } else {
                         pdf_ref_obj(enc_obj)

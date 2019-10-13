@@ -49,7 +49,7 @@ use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_link_obj, pdf_lookup_dict, pdf_new_array, pdf_new_boolean,
     pdf_new_dict, pdf_new_name, pdf_new_null, pdf_new_number, pdf_new_string, pdf_obj,
-    pdf_obj_typeof, pdf_ref_obj, pdf_release_obj, pdf_string_value, PdfObjType,
+    pdf_ref_obj, pdf_release_obj, pdf_string_value,
 };
 use crate::mfree;
 use crate::spc_warn;
@@ -385,7 +385,7 @@ unsafe fn html_open_dest(
 ) -> i32 {
     let mut cp = pdf_coord::new((*spe).x_user, (*spe).y_user);
     pdf_dev_transform(&mut cp, None);
-    let page_ref = pdf_doc_get_reference(b"@THISPAGE\x00" as *const u8 as *const i8);
+    let page_ref = pdf_doc_get_reference("@THISPAGE");
     assert!(!page_ref.is_null());
     let array = pdf_new_array();
     pdf_add_array(array, page_ref);
@@ -563,7 +563,7 @@ unsafe fn check_resourcestatus(category: &str, mut resname: &str) -> i32 {
         return 0i32;
     }
     if let Some(dict2) = pdf_lookup_dict(dict1, category) {
-        if pdf_obj_typeof(dict2) == PdfObjType::DICT && pdf_lookup_dict(dict2, resname).is_some() {
+        if (*dict2).is_dict() && pdf_lookup_dict(dict2, resname).is_some() {
             return 1i32;
         }
     }

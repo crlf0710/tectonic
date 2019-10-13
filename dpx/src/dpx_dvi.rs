@@ -80,7 +80,7 @@ use super::dpx_tt_table::{
 };
 use super::dpx_vf::{vf_close_all_fonts, vf_locate_font, vf_set_char, vf_set_verbose};
 use crate::dpx_pdfobj::{
-    pdf_number_value, pdf_obj_typeof, pdf_release_obj, pdf_string_value, PdfObjType,
+    pdf_number_value, pdf_release_obj, pdf_string_value,
 };
 use crate::dpx_truetype::sfnt_table_info;
 use crate::shims::sprintf;
@@ -2483,7 +2483,7 @@ unsafe fn scan_special(
                 } else if streq_ptr(kp_0, b"length\x00" as *const u8 as *const i8) {
                     let obj = parse_pdf_number(&mut p, endptr);
                     if !obj.is_null()
-                        && (!obj.is_null() && pdf_obj_typeof(obj) == PdfObjType::NUMBER)
+                        && (!obj.is_null() && (*obj).is_number())
                     {
                         *key_bits = pdf_number_value(obj) as u32 as i32
                     } else {
@@ -2493,7 +2493,7 @@ unsafe fn scan_special(
                 } else if streq_ptr(kp_0, b"perm\x00" as *const u8 as *const i8) {
                     let obj = parse_pdf_number(&mut p, endptr);
                     if !obj.is_null()
-                        && (!obj.is_null() && pdf_obj_typeof(obj) == PdfObjType::NUMBER)
+                        && (!obj.is_null() && (*obj).is_number())
                     {
                         *permission = pdf_number_value(obj) as u32 as i32
                     } else {

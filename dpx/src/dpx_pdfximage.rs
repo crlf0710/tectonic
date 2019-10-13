@@ -44,7 +44,7 @@ use super::dpx_pngimage::{check_for_png, png_include_image};
 use crate::dpx_epdf::pdf_include_page;
 use crate::dpx_pdfobj::{
     check_for_pdf, pdf_add_dict, pdf_link_obj, pdf_merge_dict, pdf_new_name, pdf_new_number,
-    pdf_obj, pdf_obj_typeof, pdf_ref_obj, pdf_release_obj, pdf_stream_dict, PdfObjType,
+    pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_dict,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
@@ -522,7 +522,7 @@ pub unsafe extern "C" fn pdf_ximage_set_image(
     mut resource: *mut pdf_obj,
 ) {
     let info = image_info;
-    if !(!resource.is_null() && pdf_obj_typeof(resource) == PdfObjType::STREAM) {
+    if !(!resource.is_null() && (*resource).is_stream()) {
         panic!("Image XObject must be of stream type.");
     }
     (*I).subtype = 1i32;

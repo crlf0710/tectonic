@@ -304,7 +304,7 @@ unsafe extern "C" fn safeputresdict(
     let dict = pdf_lookup_dict(dp as *mut pdf_obj, key.to_bytes());
     if (*vp).is_indirect() {
         pdf_add_dict(dp as *mut pdf_obj, key.to_bytes(), pdf_link_obj(vp));
-    } else if pdf_obj_typeof(vp) == PdfObjType::DICT {
+    } else if (*vp).is_dict() {
         if let Some(dict) = dict {
             pdf_foreach_dict(
                 vp,
@@ -366,7 +366,7 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
     }
     match pdf_obj_typeof(obj1) {
         PdfObjType::DICT => {
-            if pdf_obj_typeof(obj2) != PdfObjType::DICT {
+            if !(*obj2).is_dict() {
                 spc_warn!(
                     spe,
                     "Inconsistent object type for \"put\" (expecting DICT): {}",
@@ -391,9 +391,9 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
             }
         }
         PdfObjType::STREAM => {
-            if pdf_obj_typeof(obj2) == PdfObjType::DICT {
+            if (*obj2).is_dict() {
                 pdf_merge_dict(pdf_stream_dict(obj1), obj2);
-            } else if pdf_obj_typeof(obj2) == PdfObjType::STREAM {
+            } else if (*obj2).is_stream() {
                 spc_warn!(
                     spe,
                     "\"put\" operation not supported for STREAM <- STREAM: {}",
@@ -539,11 +539,11 @@ unsafe extern "C" fn needreencode(
 ) -> i32 {
     let mut r: i32 = 0i32;
     assert!(!cd.is_null() && !(*cd).taintkeys.is_null());
-    assert!(pdf_obj_typeof(kp) == PdfObjType::NAME);
-    assert!(pdf_obj_typeof(vp) == PdfObjType::STRING);
+    assert!((*kp).is_name());
+    assert!((*vp).is_string());
     for i in 0..pdf_array_length((*cd).taintkeys) {
         let tk = pdf_get_array((*cd).taintkeys, i as i32);
-        assert!(!tk.is_null() && pdf_obj_typeof(tk) == PdfObjType::NAME);
+        assert!(!tk.is_null() && (*tk).is_name());
         if pdf_name_value(&*kp) == pdf_name_value(&*tk) {
             r = 1i32;
             break;
@@ -570,7 +570,7 @@ unsafe extern "C" fn modstrings(
 ) -> i32 {
     let mut r: i32 = 0i32;
     let mut cd: *mut tounicode = dp as *mut tounicode;
-    assert!(pdf_obj_typeof(kp) == PdfObjType::NAME);
+    assert!((*kp).is_name());
     match pdf_obj_typeof(vp) {
         PdfObjType::STRING => {
             if !cd.is_null() && (*cd).cmap_id >= 0i32 && !(*cd).taintkeys.is_null() {
@@ -684,7 +684,7 @@ unsafe fn spc_handler_pdfm_annot(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         free(ident as *mut libc::c_void);
         return -1i32;
     } else {
-        if !(!annot_dict.is_null() && pdf_obj_typeof(annot_dict) == PdfObjType::DICT) {
+        if !(!annot_dict.is_null() && (*annot_dict).is_dict()) {
             spc_warn!(spe, "Invalid type: not dictionary object.");
             free(ident as *mut libc::c_void);
             pdf_release_obj(annot_dict);
@@ -736,7 +736,7 @@ unsafe fn spc_handler_pdfm_bann(mut spe: *mut spc_env, mut args: *mut spc_arg) -
         spc_warn!(spe, "Ignoring annotation with invalid dictionary.");
         return -1i32;
     } else {
-        if !(!(*sd).annot_dict.is_null() && pdf_obj_typeof((*sd).annot_dict) == PdfObjType::DICT) {
+        if !(!(*sd).annot_dict.is_null() && (*(*sd).annot_dict).is_dict()) {
             spc_warn!(spe, "Invalid type: not a dictionary object.");
             pdf_release_obj((*sd).annot_dict);
             (*sd).annot_dict = 0 as *mut pdf_obj;
@@ -856,7 +856,7 @@ unsafe fn spc_handler_pdfm_outline(mut spe: *mut spc_env, mut args: *mut spc_arg
         spc_warn!(spe, "Missing number for outline item depth.");
         return -1i32;
     } else {
-        if !(!tmp.is_null() && pdf_obj_typeof(tmp) == PdfObjType::NUMBER) {
+        if !(!tmp.is_null() && (*tmp).is_number()) {
             pdf_release_obj(tmp);
             spc_warn!(spe, "Expecting number for outline item depth.");
             return -1i32;
@@ -1045,7 +1045,7 @@ unsafe fn spc_handler_pdfm_image(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         free(ident as *mut libc::c_void);
         return -1i32;
     } else {
-        if !(!fspec.is_null() && pdf_obj_typeof(fspec) == PdfObjType::STRING) {
+        if !(!fspec.is_null() && (*fspec).is_string()) {
             spc_warn!(spe, "Missing filename string for pdf:image.");
             pdf_release_obj(fspec);
             free(ident as *mut libc::c_void);
@@ -1084,7 +1084,7 @@ unsafe fn spc_handler_pdfm_dest(mut spe: *mut spc_env, mut args: *mut spc_arg) -
         );
         return -1i32;
     } else {
-        if !(!name.is_null() && pdf_obj_typeof(name) == PdfObjType::STRING) {
+        if !(!name.is_null() && (*name).is_string()) {
             spc_warn!(
                 spe,
                 "PDF string expected for destination name but invalid type."
@@ -1099,7 +1099,7 @@ unsafe fn spc_handler_pdfm_dest(mut spe: *mut spc_env, mut args: *mut spc_arg) -
         pdf_release_obj(name);
         return -1i32;
     } else {
-        if !(!array.is_null() && pdf_obj_typeof(array) == PdfObjType::ARRAY) {
+        if !(!array.is_null() && (*array).is_array()) {
             spc_warn!(spe, "Destination not specified as an array object!");
             pdf_release_obj(name);
             pdf_release_obj(array);
@@ -1121,7 +1121,7 @@ unsafe fn spc_handler_pdfm_names(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         spc_warn!(spe, "PDF name expected but not found.");
         return -1i32;
     } else {
-        if !(!category.is_null() && pdf_obj_typeof(category) == PdfObjType::NAME) {
+        if !(!category.is_null() && (*category).is_name()) {
             spc_warn!(spe, "PDF name expected but not found.");
             pdf_release_obj(category);
             return -1i32;
@@ -1133,7 +1133,7 @@ unsafe fn spc_handler_pdfm_names(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         pdf_release_obj(category);
         return -1i32;
     } else {
-        if !tmp.is_null() && pdf_obj_typeof(tmp) == PdfObjType::ARRAY {
+        if !tmp.is_null() && (*tmp).is_array() {
             let size = pdf_array_length(tmp) as i32;
             if size % 2i32 != 0i32 {
                 spc_warn!(spe, "Array size not multiple of 2 for pdf:names.");
@@ -1144,7 +1144,7 @@ unsafe fn spc_handler_pdfm_names(mut spe: *mut spc_env, mut args: *mut spc_arg) 
             for i in 0..(size / 2) {
                 let key = pdf_get_array(tmp, 2i32 * i);
                 let value = pdf_get_array(tmp, 2i32 * i + 1i32);
-                if !(!key.is_null() && pdf_obj_typeof(key) == PdfObjType::STRING) {
+                if !(!key.is_null() && (*key).is_string()) {
                     spc_warn!(spe, "Name tree key must be string.");
                     pdf_release_obj(category);
                     pdf_release_obj(tmp);
@@ -1165,7 +1165,7 @@ unsafe fn spc_handler_pdfm_names(mut spe: *mut spc_env, mut args: *mut spc_arg) 
                 }
             }
             pdf_release_obj(tmp);
-        } else if !tmp.is_null() && pdf_obj_typeof(tmp) == PdfObjType::STRING {
+        } else if !tmp.is_null() && (*tmp).is_string() {
             let key = tmp;
             let value = parse_pdf_object(&mut (*args).curptr, (*args).endptr, 0 as *mut pdf_file);
             if value.is_null() {
@@ -1204,7 +1204,7 @@ unsafe fn spc_handler_pdfm_docinfo(mut spe: *mut spc_env, mut args: *mut spc_arg
         spc_warn!(spe, "Dictionary object expected but not found.");
         return -1i32;
     }
-    let docinfo = pdf_doc_get_dictionary(b"Info\x00" as *const u8 as *const i8);
+    let docinfo = pdf_doc_get_dictionary("Info");
     pdf_merge_dict(docinfo, dict);
     pdf_release_obj(dict);
     0i32
@@ -1216,7 +1216,7 @@ unsafe fn spc_handler_pdfm_docview(mut spe: *mut spc_env, mut args: *mut spc_arg
         spc_warn!(spe, "Dictionary object expected but not found.");
         return -1i32;
     }
-    let catalog = pdf_doc_get_dictionary(b"Catalog\x00" as *const u8 as *const i8);
+    let catalog = pdf_doc_get_dictionary("Catalog");
     /* Avoid overriding whole ViewerPreferences */
     let pref_old = pdf_lookup_dict(catalog, "ViewerPreferences"); /* Close all? */
     let pref_add = pdf_lookup_dict(dict, "ViewerPreferences");
@@ -1402,7 +1402,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
         free(ident as *mut libc::c_void);
         return -1i32;
     } else {
-        if !(!tmp.is_null() && pdf_obj_typeof(tmp) == PdfObjType::STRING) {
+        if !(!tmp.is_null() && (*tmp).is_string()) {
             spc_warn!(spe, "Invalid type of input string for pdf:(f)stream.");
             pdf_release_obj(tmp);
             free(ident as *mut libc::c_void);
@@ -1594,7 +1594,7 @@ unsafe fn spc_handler_pdfm_eform(mut _spe: *mut spc_env, mut args: *mut spc_arg)
     skip_white(&mut (*args).curptr, (*args).endptr);
     if (*args).curptr < (*args).endptr {
         attrib = parse_pdf_dict(&mut (*args).curptr, (*args).endptr, 0 as *mut pdf_file);
-        if !attrib.is_null() && !(!attrib.is_null() && pdf_obj_typeof(attrib) == PdfObjType::DICT) {
+        if !attrib.is_null() && !(!attrib.is_null() && (*attrib).is_dict()) {
             pdf_release_obj(attrib);
             attrib = 0 as *mut pdf_obj
         }

@@ -63,8 +63,7 @@ use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_po
 use super::dpx_tt_table::tt_get_ps_fontname;
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_array_length, pdf_merge_dict, pdf_new_array, pdf_new_name,
-    pdf_new_number, pdf_obj, pdf_obj_typeof, pdf_ref_obj, pdf_release_obj, pdf_stream_length,
-    PdfObjType,
+    pdf_new_number, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length,
 };
 use crate::shims::sprintf;
 use libc::{atoi, free, memcpy, memmove, memset, strchr, strcpy, strlen, strncpy};
@@ -238,7 +237,7 @@ pub unsafe extern "C" fn pdf_font_open_truetype(mut font: *mut pdf_font) -> i32 
         sfnt_close(sfont);
         panic!("Could not obtain necessary font info.");
     }
-    assert!(pdf_obj_typeof(tmp) == PdfObjType::DICT);
+    assert!((*tmp).is_dict());
     pdf_merge_dict(descriptor, tmp);
     pdf_release_obj(tmp);
     if embedding == 0 {

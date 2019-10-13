@@ -862,7 +862,7 @@ pub unsafe extern "C" fn pdf_encrypt_obj() -> *mut pdf_obj {
     }
     if p.R > 5i32 {
         let mut catalog: *mut pdf_obj =
-            pdf_doc_get_dictionary(b"Catalog\x00" as *const u8 as *const i8);
+            pdf_doc_get_dictionary("Catalog");
         let mut ext: *mut pdf_obj = pdf_new_dict();
         let mut adbe: *mut pdf_obj = pdf_new_dict();
         pdf_add_dict(adbe, "BaseVersion", pdf_new_name("1.7"));
