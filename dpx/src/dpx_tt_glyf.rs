@@ -39,8 +39,10 @@ use super::dpx_tt_table::{
 };
 use crate::dpx_truetype::sfnt_table_info;
 use crate::qsort;
-use crate::{ttstub_input_read, ttstub_input_seek};
+use crate::{ttstub_input_read};
 use libc::{free, memcpy, memset};
+
+use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
@@ -217,7 +219,7 @@ pub unsafe extern "C" fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_gl
     let vmtx;
     /* temp */
     assert!(!g.is_null());
-    if sfont.is_null() || (*sfont).handle.is_null() {
+    if sfont.is_null() {
         panic!("File not opened.");
     }
     if (*sfont).type_0 != 1i32 << 0i32
@@ -275,11 +277,11 @@ pub unsafe extern "C" fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_gl
     if (*head).indexToLocFormat as i32 == 0i32 {
         for i in 0..=(*maxp).numGlyphs as i32 {
             *location.offset(i as isize) =
-                (2_u32).wrapping_mul(tt_get_unsigned_pair((*sfont).handle) as u32);
+                (2_u32).wrapping_mul(tt_get_unsigned_pair(&mut (*sfont).handle) as u32);
         }
     } else if (*head).indexToLocFormat as i32 == 1i32 {
         for i in 0..=(*maxp).numGlyphs as i32 {
-            *location.offset(i as isize) = tt_get_unsigned_quad((*sfont).handle);
+            *location.offset(i as isize) = tt_get_unsigned_quad(&mut (*sfont).handle);
         }
     } else {
         panic!("Unknown IndexToLocFormat.");
@@ -342,16 +344,17 @@ pub unsafe extern "C" fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_gl
             let ref mut fresh5 = (*(*g).gd.offset(i as isize)).data;
             *fresh5 = p;
             let endptr = p.offset(len as isize);
-            ttstub_input_seek((*sfont).handle, offset.wrapping_add(loc) as ssize_t, 0i32);
-            let number_of_contours = tt_get_signed_pair((*sfont).handle);
+            let handle = &mut (*sfont).handle;
+            handle.seek(SeekFrom::Start(offset as u64 + loc as u64)).unwrap();
+            let number_of_contours = tt_get_signed_pair(handle);
             p = p.offset(
                 put_big_endian(p as *mut libc::c_void, number_of_contours as i32, 2i32) as isize,
             );
             /* BoundingBox: FWord x 4 */
-            (*(*g).gd.offset(i as isize)).llx = tt_get_signed_pair((*sfont).handle);
-            (*(*g).gd.offset(i as isize)).lly = tt_get_signed_pair((*sfont).handle);
-            (*(*g).gd.offset(i as isize)).urx = tt_get_signed_pair((*sfont).handle);
-            (*(*g).gd.offset(i as isize)).ury = tt_get_signed_pair((*sfont).handle);
+            (*(*g).gd.offset(i as isize)).llx = tt_get_signed_pair(handle);
+            (*(*g).gd.offset(i as isize)).lly = tt_get_signed_pair(handle);
+            (*(*g).gd.offset(i as isize)).urx = tt_get_signed_pair(handle);
+            (*(*g).gd.offset(i as isize)).ury = tt_get_signed_pair(handle);
             /* _FIXME_ */
             if vmtx.is_null() {
                 /* vertOriginY == sTypeAscender */
@@ -382,7 +385,7 @@ pub unsafe extern "C" fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_gl
             ) as isize);
             /* Read evrything else. */
             ttstub_input_read(
-                (*sfont).handle,
+                (*sfont).handle.0.as_ptr(),
                 p as *mut i8,
                 len.wrapping_sub(10_u32) as size_t,
             );
@@ -648,7 +651,7 @@ pub unsafe extern "C" fn tt_get_metrics(mut sfont: *mut sfnt, mut g: *mut tt_gly
     let vmtx;
     /* temp */
     assert!(!g.is_null());
-    if sfont.is_null() || (*sfont).handle.is_null() {
+    if sfont.is_null() {
         panic!("File not opened.");
     }
     if (*sfont).type_0 != 1i32 << 0i32
@@ -701,11 +704,11 @@ pub unsafe extern "C" fn tt_get_metrics(mut sfont: *mut sfnt, mut g: *mut tt_gly
     if (*head).indexToLocFormat as i32 == 0i32 {
         for i in 0..=(*maxp).numGlyphs as u32 {
             *location.offset(i as isize) =
-                (2_u32).wrapping_mul(tt_get_unsigned_pair((*sfont).handle) as u32);
+                (2_u32).wrapping_mul(tt_get_unsigned_pair(&mut (*sfont).handle) as u32);
         }
     } else if (*head).indexToLocFormat as i32 == 1i32 {
         for i in 0..=(*maxp).numGlyphs as u32 {
-            *location.offset(i as isize) = tt_get_unsigned_quad((*sfont).handle);
+            *location.offset(i as isize) = tt_get_unsigned_quad(&mut (*sfont).handle);
         }
     } else {
         panic!("Unknown IndexToLocFormat.");
@@ -752,13 +755,14 @@ pub unsafe extern "C" fn tt_get_metrics(mut sfont: *mut sfnt, mut g: *mut tt_gly
             if len < 10_u32 {
                 panic!("Invalid TrueType glyph data (gid {}).", gid);
             }
-            ttstub_input_seek((*sfont).handle, offset.wrapping_add(loc) as ssize_t, 0i32);
-            tt_get_signed_pair((*sfont).handle);
+            let handle = &mut (*sfont).handle;
+            handle.seek(SeekFrom::Start(offset as u64 + loc as u64)).unwrap();
+            tt_get_signed_pair(handle);
             /* BoundingBox: FWord x 4 */
-            (*(*g).gd.offset(i as isize)).llx = tt_get_signed_pair((*sfont).handle);
-            (*(*g).gd.offset(i as isize)).lly = tt_get_signed_pair((*sfont).handle);
-            (*(*g).gd.offset(i as isize)).urx = tt_get_signed_pair((*sfont).handle);
-            (*(*g).gd.offset(i as isize)).ury = tt_get_signed_pair((*sfont).handle);
+            (*(*g).gd.offset(i as isize)).llx = tt_get_signed_pair(handle);
+            (*(*g).gd.offset(i as isize)).lly = tt_get_signed_pair(handle);
+            (*(*g).gd.offset(i as isize)).urx = tt_get_signed_pair(handle);
+            (*(*g).gd.offset(i as isize)).ury = tt_get_signed_pair(handle);
             /* _FIXME_ */
             if vmtx.is_null() {
                 /* vertOriginY == sTypeAscender */

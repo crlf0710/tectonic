@@ -30,36 +30,36 @@
 
 use crate::warn;
 
-use super::dpx_mem::xmalloc;
-use super::dpx_pdfdoc::pdf_doc_add_page_content;
+//use super::dpx_mem::xmalloc;
+//use super::dpx_pdfdoc::pdf_doc_add_page_content;
 use super::dpx_pdfdoc::pdf_doc_get_page;
-use super::dpx_pdfdraw::{
+/*use super::dpx_pdfdraw::{
     pdf_dev_closepath, pdf_dev_curveto, pdf_dev_flushpath, pdf_dev_lineto, pdf_dev_rectadd,
     pdf_dev_vcurveto, pdf_dev_ycurveto,
 };
 use super::dpx_pdfdraw::{
     pdf_dev_currentmatrix, pdf_dev_moveto, pdf_dev_transform, pdf_invertmatrix,
-};
-use super::dpx_pdfparse::skip_white;
+};*/
+//use super::dpx_pdfparse::skip_white;
 use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_array_length, pdf_boolean_value, pdf_close, pdf_concat_stream,
-    pdf_deref_obj, pdf_file, pdf_file_get_catalog, pdf_file_get_trailer, pdf_file_get_version,
+    pdf_deref_obj, pdf_file, pdf_file_get_catalog, /*pdf_file_get_trailer, */pdf_file_get_version,
     pdf_get_array, pdf_get_version, pdf_import_object, pdf_lookup_dict, pdf_new_array,
-    pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_number_value, pdf_obj,
-    pdf_obj_typeof, pdf_open, pdf_release_obj, pdf_stream_dataptr, pdf_stream_dict,
-    pdf_stream_length, PdfObjType,
+    /*pdf_new_dict, */pdf_new_name, pdf_new_number, pdf_new_stream,/* pdf_number_value, */pdf_obj,
+    pdf_obj_typeof, pdf_open, pdf_release_obj,/* pdf_stream_dataptr,*/ pdf_stream_dict,
+   /* pdf_stream_length, */PdfObjType,
 };
-use crate::dpx_pdfparse::{parse_ident, parse_pdf_array};
+/*use crate::dpx_pdfparse::{parse_ident, parse_pdf_array};
 use crate::streq_ptr;
 use libc::{free, strncmp, strncpy, strtod};
-
+*/
 pub type __off_t = i64;
 pub type __off64_t = i64;
 pub type size_t = u64;
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 
-use super::dpx_pdfdev::{pdf_coord, pdf_tmatrix};
+//use super::dpx_pdfdev::{pdf_coord, pdf_tmatrix};
 
 use crate::dpx_pdfximage::{load_options, pdf_ximage, xform_info};
 pub const OP_CURVETO2: C2RustUnnamed_0 = 15;
@@ -151,7 +151,7 @@ pub const OP_UNKNOWN: C2RustUnnamed_0 = 16;
  * The number of degrees by which the page should be rotated clockwise when
  * displayed or printed. The value must be a multiple of 90. Default value: 0.
  */
-unsafe fn rect_equal(mut rect1: *mut pdf_obj, mut rect2: *mut pdf_obj) -> i32 {
+/*unsafe fn rect_equal(mut rect1: *mut pdf_obj, mut rect2: *mut pdf_obj) -> i32 {
     if rect1.is_null() || rect2.is_null() {
         return 0i32;
     }
@@ -161,8 +161,8 @@ unsafe fn rect_equal(mut rect1: *mut pdf_obj, mut rect2: *mut pdf_obj) -> i32 {
         }
     }
     1i32
-}
-unsafe fn pdf_get_page_obj(
+}*/
+/*unsafe fn pdf_get_page_obj(
     mut pf: *mut pdf_file,
     mut page_no: i32,
     mut ret_bbox: *mut *mut pdf_obj,
@@ -407,12 +407,12 @@ unsafe fn pdf_get_page_content(mut page: *mut pdf_obj) -> *mut pdf_obj {
         contents = content_new
     }
     contents
-}
+}*/
 /* ximage here is the result. DONT USE IT FOR PASSING OPTIONS! */
 #[no_mangle]
 pub unsafe extern "C" fn pdf_include_page(
     mut ximage: *mut pdf_ximage,
-    mut handle: rust_input_handle_t,
+    mut handle: InputHandleWrapper,
     mut ident: *const i8,
     mut options: load_options,
 ) -> i32 {
@@ -567,7 +567,7 @@ pub unsafe extern "C" fn pdf_include_page(
     pdf_close(pf);
     -1i32
 }
-static mut pdf_operators: [operator; 39] = [
+/*static mut pdf_operators: [operator; 39] = [
     {
         let mut init = operator {
             token: b"SCN\x00" as *const u8 as *const i8,
@@ -841,8 +841,9 @@ static mut pdf_operators: [operator; 39] = [
         };
         init
     },
-];
-#[no_mangle]
+];*/
+/* NOWHERE USED
+[no_mangle]
 pub unsafe extern "C" fn pdf_copy_clip(
     mut image_file: *mut libc::FILE,
     mut pageNo: i32,
@@ -860,7 +861,7 @@ pub unsafe extern "C" fn pdf_copy_clip(
     let mut M = pdf_tmatrix::new();
     let mut stack: [f64; 6] = [0.; 6];
     let mut pf: *mut pdf_file = 0 as *mut pdf_file;
-    pf = pdf_open(0 as *const i8, image_file as rust_input_handle_t);
+    pf = pdf_open(0 as *const i8, InputHandleWrapper::new(image_file as tectonic_bridge::rust_input_handle_t).unwrap()); // TODO: check
     if pf.is_null() {
         return -1i32;
     }
@@ -1205,3 +1206,4 @@ pub unsafe extern "C" fn pdf_copy_clip(
     pdf_close(pf);
     0i32
 }
+*/

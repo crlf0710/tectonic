@@ -53,7 +53,6 @@ pub type ssize_t = __ssize_t;
 
 use crate::TTInputFormat;
 
-use bridge::rust_input_handle_t;
 /* quasi-hack to get the primary input */
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -494,7 +493,6 @@ unsafe fn parse_block(
 unsafe fn otl_read_conf(mut conf_name: *const i8) -> *mut pdf_obj {
     let mut rule: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut gclass: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut handle: *mut rust_input_handle_t = 0 as *mut rust_input_handle_t;
     let mut filename: *mut i8 = 0 as *mut i8;
     let mut wbuf: *mut i8 = 0 as *mut i8;
     let mut p: *mut i8 = 0 as *mut i8;
@@ -508,12 +506,13 @@ unsafe fn otl_read_conf(mut conf_name: *const i8) -> *mut pdf_obj {
     .wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
     strcpy(filename, conf_name);
     strcat(filename, b".otl\x00" as *const u8 as *const i8);
-    handle = ttstub_input_open(filename, TTInputFormat::CNF, 0i32) as *mut rust_input_handle_t;
-    if handle.is_null() {
+    let handle = ttstub_input_open(filename, TTInputFormat::CNF, 0i32);
+    if handle.is_none() {
         free(filename as *mut libc::c_void);
         return 0 as *mut pdf_obj;
     }
-    size = ttstub_input_get_size(handle as rust_input_handle_t) as i32;
+    let mut handle = handle.unwrap();
+    size = ttstub_input_get_size(&mut handle) as i32;
     if verbose > 0i32 {
         info!("\n");
         info!(
@@ -532,9 +531,9 @@ unsafe fn otl_read_conf(mut conf_name: *const i8) -> *mut pdf_obj {
     p = wbuf;
     endptr = p.offset(size as isize);
     while size > 0i32 && p < endptr {
-        len = ttstub_input_read(handle as rust_input_handle_t, p, size as size_t) as i32;
+        len = ttstub_input_read(handle.0.as_ptr(), p, size as size_t) as i32;
         if len < 0i32 {
-            ttstub_input_close(handle as rust_input_handle_t);
+            ttstub_input_close(handle);
             panic!(
                 "error reading OTL configuration file \"{}\"",
                 CStr::from_ptr(filename).display()
@@ -543,7 +542,7 @@ unsafe fn otl_read_conf(mut conf_name: *const i8) -> *mut pdf_obj {
         p = p.offset(len as isize);
         size -= len
     }
-    ttstub_input_close(handle as rust_input_handle_t);
+    ttstub_input_close(handle);
     pp = wbuf;
     gclass = pdf_new_dict();
     rule = parse_block(gclass, &mut pp, endptr);

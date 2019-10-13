@@ -41,13 +41,15 @@ use crate::dpx_pdfobj::{
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_stream_dict, pdf_stream_set_predictor,
 };
-use crate::{ttstub_input_read, ttstub_input_seek};
+use crate::{ttstub_input_read};
 use libc::free;
+
+use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
 pub type ssize_t = __ssize_t;
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 
@@ -63,11 +65,11 @@ pub type png_structrp = *mut png_struct;
 pub type png_bytep = *mut png_byte;
 pub type png_uint_32 = libc::c_uint;
 #[no_mangle]
-pub unsafe extern "C" fn check_for_png(mut handle: rust_input_handle_t) -> i32 {
+pub unsafe extern "C" fn check_for_png(handle: &mut InputHandleWrapper) -> i32 {
     let mut sigbytes: [u8; 8] = [0; 8];
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     if ttstub_input_read(
-        handle,
+        handle.0.as_ptr(),
         sigbytes.as_mut_ptr() as *mut i8,
         ::std::mem::size_of::<[u8; 8]>() as u64,
     ) as u64
@@ -91,7 +93,7 @@ unsafe extern "C" fn _png_warning_callback(
 }
 unsafe extern "C" fn _png_read(mut png_ptr: *mut png_struct, mut outbytes: *mut u8, mut n: usize) {
     let mut png = png_ptr.as_ref().unwrap();
-    let mut handle: rust_input_handle_t = png_get_io_ptr(png);
+    let mut handle = png_get_io_ptr(png) as tectonic_bridge::rust_input_handle_t;
     let r = ttstub_input_read(handle, outbytes as *mut i8, n.try_into().unwrap());
     if r < 0i32 as ssize_t || r as size_t != n.try_into().unwrap() {
         panic!("error reading PNG");
@@ -100,7 +102,7 @@ unsafe extern "C" fn _png_read(mut png_ptr: *mut png_struct, mut outbytes: *mut 
 #[no_mangle]
 pub unsafe extern "C" fn png_include_image(
     mut ximage: *mut pdf_ximage,
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
 ) -> i32 {
     let mut info = ximage_info::default();
     /* Libpng stuff */
@@ -110,7 +112,7 @@ pub unsafe extern "C" fn png_include_image(
     let mut intent = 0 as *mut pdf_obj;
     let mut mask = intent;
     let mut colorspace = mask;
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
 
     let png = if let Some(png) = png_create_read_struct(
         b"1.6.37\x00" as *const u8 as *const i8,
@@ -141,7 +143,7 @@ pub unsafe extern "C" fn png_include_image(
     /* ignore possibly incorrect CMF bytes */
     png_set_option(png, 2i32, 3i32);
     /* Rust-backed IO */
-    png_set_read_fn(png, handle, Some(_png_read));
+    png_set_read_fn(png, handle.0.as_ptr(), Some(_png_read));
     /* NOTE: could use png_set_sig_bytes() to tell libpng if we started at non-zero file offset */
     /* Read PNG info-header and get some info. */
     png_read_info(png, png_info);
@@ -1170,13 +1172,13 @@ unsafe fn read_image_data(
 }
 #[no_mangle]
 pub unsafe extern "C" fn png_get_bbox(
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
     mut width: *mut u32,
     mut height: *mut u32,
     mut xdensity: *mut f64,
     mut ydensity: *mut f64,
 ) -> libc::c_int {
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     let mut png = png_create_read_struct(
         b"1.6.37\x00" as *const u8 as *const i8,
         0 as *mut libc::c_void,
@@ -1204,7 +1206,7 @@ pub unsafe extern "C" fn png_get_bbox(
     let png_info = png_info.unwrap();
 
     /* Rust-backed IO */
-    png_set_read_fn(png, handle, Some(_png_read));
+    png_set_read_fn(png, handle.0.as_ptr(), Some(_png_read));
     /* NOTE: could use png_set_sig_bytes() to tell libpng if we started at non-zero file offset */
     /* Read PNG info-header and get some info. */
     png_read_info(png, png_info);

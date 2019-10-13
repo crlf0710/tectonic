@@ -60,8 +60,6 @@ pub type size_t = u64;
 pub type ssize_t = __ssize_t;
 
 use crate::TTInputFormat;
-
-use bridge::rust_input_handle_t;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct pdf_encoding {
@@ -260,7 +258,6 @@ unsafe fn make_encoding_differences(
     differences
 }
 unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
-    let mut handle: rust_input_handle_t = 0 as *mut libc::c_void;
     let mut enc_name: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut encoding_array: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut wbuf_0: *mut i8 = 0 as *mut i8;
@@ -275,20 +272,21 @@ unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
     if verbose != 0 {
         info!("(Encoding:{}", CStr::from_ptr(filename).display());
     }
-    handle = dpx_tt_open(
+    let handle = dpx_tt_open(
         filename,
         b".enc\x00" as *const u8 as *const i8,
         TTInputFormat::ENC,
     );
-    if handle.is_null() {
+    if handle.is_none() {
         return -1i32;
     }
-    fsize = ttstub_input_get_size(handle) as i32;
+    let mut handle = handle.unwrap();
+    fsize = ttstub_input_get_size(&mut handle) as i32;
     wbuf_0 =
         new(((fsize + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
             as *mut i8;
     *wbuf_0.offset(fsize as isize) = '\u{0}' as i32 as i8;
-    if ttstub_input_read(handle, wbuf_0, fsize as size_t) != fsize as i64 {
+    if ttstub_input_read(handle.0.as_ptr(), wbuf_0, fsize as size_t) != fsize as i64 {
         panic!("error reading {}", CStr::from_ptr(filename).display());
     }
     ttstub_input_close(handle);
@@ -727,18 +725,18 @@ pub unsafe extern "C" fn pdf_create_ToUnicode_CMap(
 pub unsafe extern "C" fn pdf_load_ToUnicode_stream(mut ident: *const i8) -> *mut pdf_obj {
     let mut stream: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut cmap: *mut CMap = 0 as *mut CMap;
-    let mut handle: rust_input_handle_t = 0 as *mut libc::c_void;
     if ident.is_null() {
         return 0 as *mut pdf_obj;
     }
-    handle = ttstub_input_open(ident, TTInputFormat::CMAP, 0i32);
-    if handle.is_null() {
+    let mut handle = ttstub_input_open(ident, TTInputFormat::CMAP, 0i32);
+    if handle.is_none() {
         return 0 as *mut pdf_obj;
     }
-    if CMap_parse_check_sig(handle) < 0i32 {
-        ttstub_input_close(handle);
+    if CMap_parse_check_sig(handle.as_mut()) < 0i32 {
+        ttstub_input_close(handle.unwrap());
         return 0 as *mut pdf_obj;
     }
+    let mut handle = handle.unwrap();
     cmap = CMap_new();
     if CMap_parse(cmap, handle) < 0i32 {
         warn!(
@@ -758,7 +756,6 @@ pub unsafe extern "C" fn pdf_load_ToUnicode_stream(mut ident: *const i8) -> *mut
         }
     }
     CMap_release(cmap);
-    ttstub_input_close(handle);
     stream
 }
 static mut MacRomanEncoding: [*const i8; 256] = [

@@ -37,13 +37,15 @@ use crate::dpx_pdfobj::{
     pdf_stream_set_predictor,
 };
 use crate::warn;
-use crate::{ttstub_input_read, ttstub_input_seek};
+use crate::{ttstub_input_read};
 use libc::{free, memset};
+
+use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
 pub type ssize_t = __ssize_t;
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 #[derive(Copy, Clone)]
@@ -60,14 +62,11 @@ pub struct hdr_info {
     pub y_pix_per_meter: u32,
 }
 #[no_mangle]
-pub unsafe extern "C" fn check_for_bmp(mut handle: rust_input_handle_t) -> i32 {
+pub unsafe extern "C" fn check_for_bmp(handle: &mut InputHandleWrapper) -> i32 {
     let mut sigbytes: [u8; 2] = [0; 2];
-    if handle.is_null() {
-        return 0i32;
-    }
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     if ttstub_input_read(
-        handle,
+        handle.0.as_ptr(),
         sigbytes.as_mut_ptr() as *mut i8,
         ::std::mem::size_of::<[u8; 2]>() as u64,
     ) as u64
@@ -91,7 +90,7 @@ unsafe fn get_density(mut xdensity: *mut f64, mut ydensity: *mut f64, mut hdr: *
 }
 #[no_mangle]
 pub unsafe extern "C" fn bmp_get_bbox(
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
     mut width: *mut u32,
     mut height: *mut u32,
     mut xdensity: *mut f64,
@@ -112,7 +111,7 @@ pub unsafe extern "C" fn bmp_get_bbox(
         };
         init
     };
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     r = read_header(handle, &mut hdr);
     *width = hdr.width;
     *height = (if hdr.height < 0i32 {
@@ -126,7 +125,7 @@ pub unsafe extern "C" fn bmp_get_bbox(
 #[no_mangle]
 pub unsafe extern "C" fn bmp_include_image(
     mut ximage: *mut pdf_ximage,
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
 ) -> i32 {
     let mut stream: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut stream_dict: *mut pdf_obj = 0 as *mut pdf_obj;
@@ -152,7 +151,7 @@ pub unsafe extern "C" fn bmp_include_image(
     colorspace = 0 as *mut pdf_obj;
     stream_dict = colorspace;
     stream = stream_dict;
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     if read_header(handle, &mut hdr) < 0i32 {
         return -1i32;
     }
@@ -210,7 +209,7 @@ pub unsafe extern "C" fn bmp_include_image(
         palette = new(((num_palette * 3i32 + 1i32) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
         for i in 0..num_palette {
-            if ttstub_input_read(handle, bgrq.as_mut_ptr() as *mut i8, hdr.psize as size_t)
+            if ttstub_input_read(handle.0.as_ptr(), bgrq.as_mut_ptr() as *mut i8, hdr.psize as size_t)
                 != hdr.psize as i64
             {
                 warn!("Reading file failed...");
@@ -242,7 +241,7 @@ pub unsafe extern "C" fn bmp_include_image(
     let mut p: *mut u8 = 0 as *mut u8;
     let mut stream_data_ptr: *mut u8 = 0 as *mut u8;
     rowbytes = (info.width * hdr.bit_count as i32 + 7i32) / 8i32;
-    ttstub_input_seek(handle, hdr.offset as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(hdr.offset as u64)).unwrap();
     if hdr.compression == 0i32 {
         let mut dib_rowbytes: i32 = 0;
         let mut padding: i32 = 0;
@@ -258,7 +257,7 @@ pub unsafe extern "C" fn bmp_include_image(
         n = 0i32;
         while n < info.height {
             p = stream_data_ptr.offset((n * rowbytes) as isize);
-            if ttstub_input_read(handle, p as *mut i8, dib_rowbytes as size_t)
+            if ttstub_input_read(handle.0.as_ptr(), p as *mut i8, dib_rowbytes as size_t)
                 != dib_rowbytes as i64
             {
                 warn!("Reading BMP raster data failed...");
@@ -337,10 +336,10 @@ pub unsafe extern "C" fn bmp_include_image(
 }
 
 use crate::FromLEByteSlice;
-unsafe fn read_header(mut handle: rust_input_handle_t, hdr: &mut hdr_info) -> i32 {
+unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> i32 {
     let mut buf: [u8; 142] = [0; 142];
     let p = &mut buf;
-    if ttstub_input_read(handle, p.as_mut_ptr() as *mut i8, (14i32 + 4i32) as size_t)
+    if ttstub_input_read(handle.0.as_ptr(), p.as_mut_ptr() as *mut i8, (14i32 + 4i32) as size_t)
         != (14i32 + 4i32) as i64
     {
         warn!("Could not read BMP file header...");
@@ -364,7 +363,7 @@ unsafe fn read_header(mut handle: rust_input_handle_t, hdr: &mut hdr_info) -> i3
     hdr.hsize = u32::from_le_byte_slice(&p[..4]); /* undefined. FIXME */
     let p = &mut p[4..]; /* undefined. FIXME */
     if ttstub_input_read(
-        handle,
+        handle.0.as_ptr(),
         p.as_mut_ptr() as *mut i8,
         hdr.hsize.wrapping_sub(4_u32) as size_t,
     ) != hdr.hsize.wrapping_sub(4_u32) as i64
@@ -423,7 +422,7 @@ unsafe fn read_raster_rle8(
     mut data_ptr: *mut u8,
     mut width: i32,
     mut height: i32,
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
 ) -> i32 {
     let mut count: i32 = 0i32;
     let mut p: *mut u8 = 0 as *mut u8;
@@ -472,7 +471,7 @@ unsafe fn read_raster_rle8(
                             warn!("RLE decode failed...");
                             return -1i32;
                         }
-                        if ttstub_input_read(handle, p as *mut i8, b1 as size_t) != b1 as i64 {
+                        if ttstub_input_read(handle.0.as_ptr(), p as *mut i8, b1 as size_t) != b1 as i64 {
                             return -1i32;
                         }
                         count += b1 as i32;
@@ -515,7 +514,7 @@ unsafe fn read_raster_rle4(
     mut data_ptr: *mut u8,
     mut width: i32,
     mut height: i32,
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
 ) -> i32 {
     let mut count: i32 = 0i32;
     let mut p: *mut u8 = 0 as *mut u8;
@@ -581,7 +580,7 @@ unsafe fn read_raster_rle4(
                                 *p = ((b as i32) << 4i32 & 0xf0i32) as u8;
                                 i += 1
                             }
-                        } else if ttstub_input_read(handle, p as *mut i8, nbytes as size_t)
+                        } else if ttstub_input_read(handle.0.as_ptr(), p as *mut i8, nbytes as size_t)
                             != nbytes as i64
                         {
                             return -1i32;

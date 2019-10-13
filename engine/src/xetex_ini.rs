@@ -60,7 +60,7 @@ pub type ssize_t = __ssize_t;
 
 use crate::{TTHistory, TTInputFormat};
 
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 use bridge::OutputHandleWrapper;
 /* quasi-hack to get the primary input */
 /* tectonic/xetex-core.h: core XeTeX types and #includes.
@@ -1285,9 +1285,9 @@ unsafe extern "C" fn do_undump(
     mut p: *mut i8,
     mut item_size: size_t,
     mut nitems: size_t,
-    mut in_file: rust_input_handle_t,
+    in_file: &mut InputHandleWrapper,
 ) {
-    let mut r: ssize_t = ttstub_input_read(in_file, p, item_size.wrapping_mul(nitems));
+    let mut r: ssize_t = ttstub_input_read(in_file.0.as_ptr(), p, item_size.wrapping_mul(nitems));
     if r < 0i32 as i64 || r as size_t != item_size.wrapping_mul(nitems) {
         _tt_abort(
             b"could not undump %zu %zu-byte item(s) from %s\x00" as *const u8 as *const i8,
@@ -3846,7 +3846,6 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut x: i32 = 0;
-    let mut fmt_in: rust_input_handle_t = std::ptr::null_mut();
 
     j = cur_input.loc;
 
@@ -3854,13 +3853,15 @@ unsafe extern "C" fn load_fmt_file() -> bool {
      * trigger code that would change the format file. */
 
     pack_buffered_name((format_default_length - 4) as small_number, 1, 0);
-    fmt_in = ttstub_input_open(name_of_file, TTInputFormat::FORMAT, 0);
-    if fmt_in.is_null() {
+    let fmt_in_owner = ttstub_input_open(name_of_file, TTInputFormat::FORMAT, 0);
+    if fmt_in_owner.is_none() {
         _tt_abort(
             b"cannot open the format file \"%s\"\x00" as *const u8 as *const i8,
             name_of_file,
         );
     }
+    let mut fmt_in_owner = fmt_in_owner.unwrap();
+    let fmt_in = &mut fmt_in_owner;
     cur_input.loc = j;
     if in_initex_mode {
         free(font_info as *mut libc::c_void);
@@ -4987,7 +4988,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         bad_fmt();
     }
 
-    ttstub_input_close(fmt_in);
+    ttstub_input_close(fmt_in_owner);
     return true;
 }
 
@@ -5091,7 +5092,7 @@ unsafe extern "C" fn final_cleanup() {
 }
 /* Engine initialization */
 static mut stdin_ufile: UFILE = UFILE {
-    handle: 0 as *const libc::c_void as *mut libc::c_void,
+    handle: None,
     savedChar: 0,
     skipNextLF: 0,
     encodingMode: 0,
@@ -5099,7 +5100,7 @@ static mut stdin_ufile: UFILE = UFILE {
 };
 unsafe extern "C" fn init_io() {
     /* This is largely vestigial at this point */
-    stdin_ufile.handle = 0 as *mut libc::c_void;
+    stdin_ufile.handle = None;
     stdin_ufile.savedChar = -1i32 as i64;
     stdin_ufile.skipNextLF = 0_i16;
     stdin_ufile.encodingMode = 1_i16;

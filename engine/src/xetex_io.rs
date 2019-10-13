@@ -27,15 +27,16 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::print_c_string;
 use crate::{
     ttstub_input_close, ttstub_input_getc, ttstub_input_open, ttstub_input_open_primary,
-    ttstub_input_seek, ttstub_input_ungetc,
+    ttstub_input_ungetc,
 };
 use libc::{free, strlen};
+use std::io::{Seek, SeekFrom};
 
 use crate::*;
 
 use crate::TTInputFormat;
 
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 pub type UErrorCode = i32;
 pub const U_ERROR_LIMIT: UErrorCode = 66818;
 pub const U_PLUGIN_ERROR_LIMIT: UErrorCode = 66818;
@@ -216,10 +217,9 @@ pub type UTF16_code = u16;
 pub type UnicodeScalar = i32;
 pub type str_number = i32;
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct UFILE {
-    pub handle: rust_input_handle_t,
+    pub handle: Option<InputHandleWrapper>,
     pub savedChar: i64,
     pub skipNextLF: i16,
     pub encodingMode: i16,
@@ -233,15 +233,14 @@ pub struct UFILE {
 #[no_mangle]
 pub static mut name_of_input_file: *mut i8 = 0 as *const i8 as *mut i8;
 #[no_mangle]
-pub unsafe extern "C" fn tt_xetex_open_input(mut filefmt: TTInputFormat) -> rust_input_handle_t {
-    let mut handle: rust_input_handle_t = 0 as *mut libc::c_void;
-    if filefmt == TTInputFormat::TECTONIC_PRIMARY {
-        handle = ttstub_input_open_primary()
+pub unsafe extern "C" fn tt_xetex_open_input(mut filefmt: TTInputFormat) -> Option<InputHandleWrapper> {
+    let handle = if filefmt == TTInputFormat::TECTONIC_PRIMARY {
+        ttstub_input_open_primary()
     } else {
-        handle = ttstub_input_open(name_of_file, filefmt as TTInputFormat, 0i32)
-    }
-    if handle.is_null() {
-        return 0 as *mut libc::c_void;
+        ttstub_input_open(name_of_file, filefmt as TTInputFormat, 0)
+    };
+    if handle.is_none() {
+        return None;
     }
     name_length = strlen(name_of_file) as i32;
     free(name_of_input_file as *mut libc::c_void);
@@ -316,11 +315,10 @@ pub unsafe extern "C" fn u_open_in(
     mut mode: i32,
     mut encodingData: i32,
 ) -> i32 {
-    let mut handle: rust_input_handle_t = 0 as *mut libc::c_void;
     let mut B1: i32 = 0;
     let mut B2: i32 = 0;
-    handle = tt_xetex_open_input(filefmt);
-    if handle.is_null() {
+    let handle = tt_xetex_open_input(filefmt);
+    if handle.is_none() {
         return 0i32;
     }
     *f = xmalloc(::std::mem::size_of::<UFILE>() as u64) as *mut UFILE;
@@ -331,26 +329,27 @@ pub unsafe extern "C" fn u_open_in(
     (**f).handle = handle;
     if mode == 0i32 {
         /* sniff encoding form */
-        B1 = ttstub_input_getc((**f).handle);
-        B2 = ttstub_input_getc((**f).handle);
+        let handle =  (**f).handle.as_mut().unwrap();
+        B1 = ttstub_input_getc(handle);
+        B2 = ttstub_input_getc(handle);
         if B1 == 0xfei32 && B2 == 0xffi32 {
             mode = 2i32
         } else if B2 == 0xfei32 && B1 == 0xffi32 {
             mode = 3i32
         } else if B1 == 0i32 && B2 != 0i32 {
             mode = 2i32;
-            ttstub_input_seek((**f).handle, 0i32 as ssize_t, 0i32);
+            handle.seek(SeekFrom::Start(0)).unwrap();
         } else if B2 == 0i32 && B1 != 0i32 {
             mode = 3i32;
-            ttstub_input_seek((**f).handle, 0i32 as ssize_t, 0i32);
+            handle.seek(SeekFrom::Start(0)).unwrap();
         } else if B1 == 0xefi32 && B2 == 0xbbi32 {
-            let mut B3: i32 = ttstub_input_getc((**f).handle);
+            let mut B3: i32 = ttstub_input_getc(handle);
             if B3 == 0xbfi32 {
                 mode = 1i32
             }
         }
         if mode == 0i32 {
-            ttstub_input_seek((**f).handle, 0i32 as ssize_t, 0i32);
+            handle.seek(SeekFrom::Start(0)).unwrap();
             mode = 1i32
         }
     }
@@ -421,7 +420,7 @@ pub unsafe extern "C" fn input_line(mut f: *mut UFILE) -> i32 {
     let mut i: i32 = 0;
     let mut tmpLen: i32 = 0;
     let mut norm: i32 = get_input_normalization_state();
-    if (*f).handle.is_null() {
+    if (*f).handle.is_none() {
         /* NULL 'handle' means this: */
         panic!("reads from synthetic \"terminal\" file #0 should never happen");
     }
@@ -435,11 +434,12 @@ pub unsafe extern "C" fn input_line(mut f: *mut UFILE) -> i32 {
             byteBuffer = xmalloc((buf_size + 1i32) as size_t) as *mut i8
         }
         /* Recognize either LF or CR as a line terminator; skip initial LF if prev line ended with CR.  */
-        i = ttstub_input_getc((*f).handle);
+        let handle = (*f).handle.as_mut().unwrap();
+        i = ttstub_input_getc(handle);
         if (*f).skipNextLF != 0 {
             (*f).skipNextLF = 0_i16;
             if i == '\n' as i32 {
-                i = ttstub_input_getc((*f).handle)
+                i = ttstub_input_getc(handle)
             }
         }
         if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
@@ -450,7 +450,7 @@ pub unsafe extern "C" fn input_line(mut f: *mut UFILE) -> i32 {
         if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
             while bytesRead < buf_size as u32
                 && {
-                    i = ttstub_input_getc((*f).handle);
+                    i = ttstub_input_getc(handle);
                     i != -1i32
                 }
                 && i != '\n' as i32
@@ -615,11 +615,11 @@ pub unsafe extern "C" fn input_line(mut f: *mut UFILE) -> i32 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn u_close(mut f: *mut UFILE) {
-    if f.is_null() || (*f).handle.is_null() {
+    if f.is_null() || (*f).handle.is_none() {
         /* NULL handle is stdin/terminal file. Shouldn't happen but meh. */
         return;
     }
-    ttstub_input_close((*f).handle);
+    ttstub_input_close((*f).handle.take().unwrap());
     if (*f).encodingMode as i32 == 5i32 && !(*f).conversionData.is_null() {
         icu::ucnv_close((*f).conversionData as *mut icu::UConverter);
     }
@@ -635,16 +635,17 @@ pub unsafe extern "C" fn get_uni_c(mut f: *mut UFILE) -> i32 {
         (*f).savedChar = -1i32 as i64;
         return rval;
     }
+    let handle = (*f).handle.as_mut().unwrap();
     match (*f).encodingMode as i32 {
         1 => {
-            rval = ttstub_input_getc((*f).handle);
+            rval = ttstub_input_getc(handle);
             c = rval;
             if rval != -1i32 {
                 let mut extraBytes: u16 = bytesFromUTF8[rval as usize] as u16;
                 match extraBytes as i32 {
                     3 => {
                         /* note: code falls through cases! */
-                        c = ttstub_input_getc((*f).handle);
+                        c = ttstub_input_getc(handle);
                         if c < 0x80i32 || c >= 0xc0i32 {
                             current_block = 4870039662467851697;
                         } else {
@@ -668,7 +669,7 @@ pub unsafe extern "C" fn get_uni_c(mut f: *mut UFILE) -> i32 {
                 }
                 match current_block {
                     11439173586221378108 => {
-                        c = ttstub_input_getc((*f).handle);
+                        c = ttstub_input_getc(handle);
                         if c < 0x80i32 || c >= 0xc0i32 {
                             current_block = 4870039662467851697;
                         } else {
@@ -681,7 +682,7 @@ pub unsafe extern "C" fn get_uni_c(mut f: *mut UFILE) -> i32 {
                 }
                 match current_block {
                     223857376187897572 => {
-                        c = ttstub_input_getc((*f).handle);
+                        c = ttstub_input_getc(handle);
                         if c < 0x80i32 || c >= 0xc0i32 {
                             current_block = 4870039662467851697;
                         } else {
@@ -704,7 +705,7 @@ pub unsafe extern "C" fn get_uni_c(mut f: *mut UFILE) -> i32 {
                     }
                     4870039662467851697 => {
                         if c != -1i32 {
-                            ttstub_input_ungetc((*f).handle, c);
+                            ttstub_input_ungetc(handle, c);
                         }
                         current_block = 8891683451182524030;
                     }
@@ -720,14 +721,14 @@ pub unsafe extern "C" fn get_uni_c(mut f: *mut UFILE) -> i32 {
             }
         }
         2 => {
-            rval = ttstub_input_getc((*f).handle);
+            rval = ttstub_input_getc(handle);
             if rval != -1i32 {
                 rval <<= 8i32;
-                rval += ttstub_input_getc((*f).handle);
+                rval += ttstub_input_getc(handle);
                 if rval >= 0xd800i32 && rval <= 0xdbffi32 {
-                    let mut lo: i32 = ttstub_input_getc((*f).handle);
+                    let mut lo: i32 = ttstub_input_getc(handle);
                     lo <<= 8i32;
-                    lo += ttstub_input_getc((*f).handle);
+                    lo += ttstub_input_getc(handle);
                     if lo >= 0xdc00i32 && lo <= 0xdfffi32 {
                         rval = 0x10000i32 + (rval - 0xd800i32) * 0x400i32 + (lo - 0xdc00i32)
                     } else {
@@ -740,12 +741,12 @@ pub unsafe extern "C" fn get_uni_c(mut f: *mut UFILE) -> i32 {
             }
         }
         3 => {
-            rval = ttstub_input_getc((*f).handle);
+            rval = ttstub_input_getc(handle);
             if rval != -1i32 {
-                rval += ttstub_input_getc((*f).handle) << 8i32;
+                rval += ttstub_input_getc(handle) << 8i32;
                 if rval >= 0xd800i32 && rval <= 0xdbffi32 {
-                    let mut lo_0: i32 = ttstub_input_getc((*f).handle);
-                    lo_0 += ttstub_input_getc((*f).handle) << 8i32;
+                    let mut lo_0: i32 = ttstub_input_getc(handle);
+                    lo_0 += ttstub_input_getc(handle) << 8i32;
                     if lo_0 >= 0xdc00i32 && lo_0 <= 0xdfffi32 {
                         rval = 0x10000i32 + (rval - 0xd800i32) * 0x400i32 + (lo_0 - 0xdc00i32)
                     } else {
@@ -757,7 +758,7 @@ pub unsafe extern "C" fn get_uni_c(mut f: *mut UFILE) -> i32 {
                 }
             }
         }
-        4 => rval = ttstub_input_getc((*f).handle),
+        4 => rval = ttstub_input_getc(handle),
         _ => {
             panic!(
                 "internal error; file input mode={}",

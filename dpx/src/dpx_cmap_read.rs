@@ -27,6 +27,9 @@
     unused_mut
 )]
 
+use std::io::{Seek, SeekFrom};
+use tectonic_bridge::ttstub_input_close;
+
 use crate::strstartswith;
 use crate::warn;
 
@@ -42,13 +45,13 @@ use super::dpx_pst_obj::pst_obj;
 use super::dpx_pst_obj::{
     pst_data_ptr, pst_getIV, pst_getSV, pst_length_of, pst_release_obj, pst_type_of,
 };
-use crate::{ttstub_input_get_size, ttstub_input_read, ttstub_input_seek};
+use crate::{ttstub_input_get_size, ttstub_input_read};
 use libc::{free, memcmp, memcpy, memmove, strcmp, strlen, strstr};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
 pub type ssize_t = __ssize_t;
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 
 use super::dpx_cid::CIDSysInfo;
 /* Mapping types, MAP_IS_NAME is not supported. */
@@ -59,20 +62,19 @@ use super::dpx_cid::CIDSysInfo;
 use super::dpx_cmap::CMap;
 
 pub type CID = u16;
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct ifreader {
     pub cursor: *mut u8,
     pub endptr: *mut u8,
     pub buf: *mut u8,
     pub max: size_t,
-    pub handle: rust_input_handle_t,
+    pub handle: InputHandleWrapper,
     pub unread: size_t,
 }
 pub type pst_type = i32;
 static mut __verbose: i32 = 0i32;
 unsafe fn ifreader_create(
-    mut handle: rust_input_handle_t,
+    handle: InputHandleWrapper,
     mut size: size_t,
     mut bufsize: size_t,
 ) -> *mut ifreader {
@@ -90,6 +92,7 @@ unsafe fn ifreader_create(
 }
 unsafe fn ifreader_destroy(mut reader: *mut ifreader) {
     assert!(!reader.is_null());
+    ttstub_input_close((*reader).handle.clone()); // TODO: use drop
     free((*reader).buf as *mut libc::c_void);
     free(reader as *mut libc::c_void);
 }
@@ -121,7 +124,7 @@ unsafe fn ifreader_read(mut reader: *mut ifreader, mut size: size_t) -> size_t {
         );
         (*reader).cursor = (*reader).buf;
         (*reader).endptr = (*reader).buf.offset(bytesrem as isize);
-        if ttstub_input_read((*reader).handle, (*reader).endptr as *mut i8, bytesread) as u64
+        if ttstub_input_read((*reader).handle.0.as_ptr(), (*reader).endptr as *mut i8, bytesread) as u64
             != bytesread
         {
             panic!("Reading file failed.");
@@ -674,14 +677,15 @@ unsafe fn do_cidsysteminfo(mut cmap: *mut CMap, mut input: *mut ifreader) -> i32
     error
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_parse_check_sig(mut handle: rust_input_handle_t) -> i32 {
+pub unsafe extern "C" fn CMap_parse_check_sig(handle: Option<&mut InputHandleWrapper>) -> i32 {
     let mut result: i32 = -1i32;
     let mut sig: [i8; 65] = [0; 65];
-    if handle.is_null() {
+    if handle.is_none() {
         return -1i32;
     }
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
-    if ttstub_input_read(handle, sig.as_mut_ptr(), 64i32 as size_t) != 64i32 as i64 {
+    let mut handle = handle.unwrap();
+    handle.seek(SeekFrom::Start(0)).unwrap();
+    if ttstub_input_read(handle.0.as_ptr(), sig.as_mut_ptr(), 64i32 as size_t) != 64i32 as i64 {
         result = -1i32
     } else {
         sig[64] = 0_i8;
@@ -696,17 +700,18 @@ pub unsafe extern "C" fn CMap_parse_check_sig(mut handle: rust_input_handle_t) -
             result = 0i32
         }
     }
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     result
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_parse(mut cmap: *mut CMap, mut handle: rust_input_handle_t) -> i32 {
+pub unsafe extern "C" fn CMap_parse(mut cmap: *mut CMap, mut handle: InputHandleWrapper) -> i32 {
     let mut status: i32 = 0i32;
     let mut tmpint: i32 = -1i32;
-    assert!(!cmap.is_null() && !handle.is_null());
+    assert!(!cmap.is_null());
+    let size = ttstub_input_get_size(&mut handle);
     let input = ifreader_create(
         handle,
-        ttstub_input_get_size(handle),
+        size,
         (4096i32 - 1i32) as size_t,
     );
     while status >= 0i32 {

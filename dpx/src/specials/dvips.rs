@@ -52,8 +52,6 @@ use crate::spc_warn;
 use libc::{free, memcpy, strlen, strncpy};
 
 pub type size_t = u64;
-
-use bridge::rust_input_handle_t;
 /* quasi-hack to get the primary input */
 
 use super::SpcHandler;
@@ -83,8 +81,8 @@ unsafe fn spc_handler_ps_header(mut spe: *mut spc_env, mut args: *mut spc_arg) -
     );
     *pro.offset((*args).endptr.wrapping_offset_from((*args).curptr) as i64 as isize) = 0_i8;
     let ps_header =
-        ttstub_input_open(pro, TTInputFormat::TEX_PS_HEADER, 0i32) as *mut rust_input_handle_t;
-    if ps_header.is_null() {
+        ttstub_input_open(pro, TTInputFormat::TEX_PS_HEADER, 0i32);
+    if ps_header.is_none() {
         spc_warn!(
             spe,
             "PS header {} not found.",
@@ -93,7 +91,8 @@ unsafe fn spc_handler_ps_header(mut spe: *mut spc_env, mut args: *mut spc_arg) -
         free(pro as *mut libc::c_void);
         return -1i32;
     }
-    ttstub_input_close(ps_header as rust_input_handle_t);
+    let ps_header = ps_header.unwrap();
+    ttstub_input_close(ps_header);
     if NUM_PS_HEADERS & 0xfi32 == 0 {
         PS_HEADERS = xrealloc(
             PS_HEADERS as *mut libc::c_void,

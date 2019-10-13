@@ -39,8 +39,10 @@ use std::ffi::CStr;
 
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::tt_skip_bytes;
-use crate::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub_input_seek};
+use crate::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open};
 use libc::{free, strcat, strcmp, strcpy, strlen, strrchr};
+
+use std::io::{Seek, SeekFrom};
 
 pub type __off_t = i64;
 pub type __ssize_t = i64;
@@ -50,7 +52,7 @@ pub type ssize_t = __ssize_t;
 
 use crate::TTInputFormat;
 
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 pub type fixword = i32;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -261,7 +263,7 @@ pub unsafe extern "C" fn tfm_set_verbose(mut level: i32) {
 unsafe fn fread_fwords(
     mut words: *mut fixword,
     mut nmemb: u32,
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
 ) -> i32 {
     for i in 0..nmemb {
         *words.offset(i as isize) = tt_get_signed_quad(handle);
@@ -271,7 +273,7 @@ unsafe fn fread_fwords(
 unsafe fn fread_uquads(
     mut quads: *mut u32,
     mut nmemb: u32,
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
 ) -> i32 {
     for i in 0..nmemb {
         *quads.offset(i as isize) = tt_get_unsigned_quad(handle);
@@ -324,7 +326,7 @@ unsafe fn tfm_check_size(mut tfm: *mut tfm_font, mut tfm_file_size: off_t) {
     };
 }
 unsafe fn tfm_get_sizes(
-    mut tfm_handle: rust_input_handle_t,
+    tfm_handle: &mut InputHandleWrapper,
     mut tfm_file_size: off_t,
     mut tfm: *mut tfm_font,
 ) {
@@ -424,7 +426,7 @@ unsafe fn ofm_check_size_one(mut tfm: *mut tfm_font, mut ofm_file_size: off_t) {
     };
 }
 unsafe fn ofm_get_sizes(
-    mut ofm_handle: rust_input_handle_t,
+    ofm_handle: &mut InputHandleWrapper,
     mut ofm_file_size: off_t,
     mut tfm: *mut tfm_font,
 ) {
@@ -518,16 +520,12 @@ unsafe fn ofm_get_sizes(
             b"OFM\x00" as *const u8 as *const i8,
             b"npc\x00" as *const u8 as *const i8,
         );
-        ttstub_input_seek(
-            ofm_handle,
-            4i32 as i64 * (*tfm).nco.wrapping_sub((*tfm).wlenheader) as off_t,
-            0i32,
-        );
+        ofm_handle.seek(SeekFrom::Start(4 * ((*tfm).nco - (*tfm).wlenheader) as u64)).unwrap();
     } else {
         panic!("can\'t handle OFM files with level > 1");
     };
 }
-unsafe fn ofm_do_char_info_zero(mut ofm_handle: rust_input_handle_t, mut tfm: *mut tfm_font) {
+unsafe fn ofm_do_char_info_zero(ofm_handle: &mut InputHandleWrapper, mut tfm: *mut tfm_font) {
     let mut num_chars = (*tfm).ec.wrapping_sub((*tfm).bc).wrapping_add(1_u32);
     if num_chars != 0_u32 {
         (*tfm).width_index = new((num_chars as u64)
@@ -548,7 +546,7 @@ unsafe fn ofm_do_char_info_zero(mut ofm_handle: rust_input_handle_t, mut tfm: *m
         }
     };
 }
-unsafe fn ofm_do_char_info_one(mut ofm_handle: rust_input_handle_t, mut tfm: *mut tfm_font) {
+unsafe fn ofm_do_char_info_one(ofm_handle: &mut InputHandleWrapper, mut tfm: *mut tfm_font) {
     let num_char_infos = (*tfm)
         .ncw
         .wrapping_div((3_u32).wrapping_add((*tfm).npc.wrapping_div(2_u32)));
@@ -628,7 +626,7 @@ unsafe fn ofm_unpack_arrays(mut fm: *mut font_metric, mut tfm: *mut tfm_font, mu
 }
 unsafe fn read_ofm(
     mut fm: *mut font_metric,
-    mut ofm_handle: rust_input_handle_t,
+    ofm_handle: &mut InputHandleWrapper,
     mut ofm_file_size: off_t,
 ) {
     let mut tfm: tfm_font = tfm_font {
@@ -705,7 +703,7 @@ unsafe fn read_ofm(
 }
 unsafe fn read_tfm(
     mut fm: *mut font_metric,
-    mut tfm_handle: rust_input_handle_t,
+    tfm_handle: &mut InputHandleWrapper,
     mut tfm_file_size: off_t,
 ) {
     let mut tfm: tfm_font = tfm_font {
@@ -779,7 +777,7 @@ unsafe fn read_tfm(
 }
 #[no_mangle]
 pub unsafe extern "C" fn tfm_open(mut tfm_name: *const i8, mut must_exist: i32) -> i32 {
-    let mut tfm_handle: rust_input_handle_t = 0 as *mut libc::c_void;
+    let mut tfm_handle = None;
     let mut format: i32 = 1i32;
     let ofm_name;
     for i in 0..numfms {
@@ -821,22 +819,22 @@ pub unsafe extern "C" fn tfm_open(mut tfm_name: *const i8, mut must_exist: i32) 
     }
     if !ofm_name.is_null() && {
         tfm_handle = ttstub_input_open(ofm_name, TTInputFormat::OFM, 0i32);
-        !tfm_handle.is_null()
+        tfm_handle.is_some()
     } {
         format = 2i32
     } else {
         tfm_handle = ttstub_input_open(tfm_name, TTInputFormat::TFM, 0i32);
-        if !tfm_handle.is_null() {
+        if tfm_handle.is_some() {
             format = 1i32
         } else {
             tfm_handle = ttstub_input_open(tfm_name, TTInputFormat::OFM, 0i32);
-            if !tfm_handle.is_null() {
+            if tfm_handle.is_some() {
                 format = 2i32
             }
         }
     }
     free(ofm_name as *mut libc::c_void);
-    if tfm_handle.is_null() {
+    if tfm_handle.is_none() {
         if must_exist != 0 {
             panic!(
                 "Unable to find TFM file \"{}\".",
@@ -845,6 +843,7 @@ pub unsafe extern "C" fn tfm_open(mut tfm_name: *const i8, mut must_exist: i32) 
         }
         return -1i32;
     }
+    let mut tfm_handle = tfm_handle.unwrap();
     if verbose != 0 {
         if format == 1i32 {
             info!("(TFM:{}", CStr::from_ptr(tfm_name).display());
@@ -852,7 +851,7 @@ pub unsafe extern "C" fn tfm_open(mut tfm_name: *const i8, mut must_exist: i32) 
             info!("(OFM:{}", CStr::from_ptr(tfm_name).display());
         }
     }
-    let tfm_file_size = ttstub_input_get_size(tfm_handle) as off_t;
+    let tfm_file_size = ttstub_input_get_size(&mut tfm_handle) as off_t;
     if tfm_file_size as u64 > 0x1ffffffffu64 {
         panic!("TFM/OFM file size exceeds 33-bit");
     }
@@ -862,9 +861,9 @@ pub unsafe extern "C" fn tfm_open(mut tfm_name: *const i8, mut must_exist: i32) 
     fms_need(numfms.wrapping_add(1_u32));
     fm_init(fms.offset(numfms as isize));
     if format == 2i32 {
-        read_ofm(&mut *fms.offset(numfms as isize), tfm_handle, tfm_file_size);
+        read_ofm(&mut *fms.offset(numfms as isize), &mut tfm_handle, tfm_file_size);
     } else {
-        read_tfm(&mut *fms.offset(numfms as isize), tfm_handle, tfm_file_size);
+        read_tfm(&mut *fms.offset(numfms as isize), &mut tfm_handle, tfm_file_size);
     }
     ttstub_input_close(tfm_handle);
     let ref mut fresh0 = (*fms.offset(numfms as isize)).tex_name;
@@ -1006,14 +1005,14 @@ pub unsafe extern "C" fn tfm_get_design_size(mut font_id: i32) -> f64 {
 /* From TFM header */
 #[no_mangle]
 pub unsafe extern "C" fn tfm_exists(mut tfm_name: *const i8) -> bool {
-    let handle = ttstub_input_open(tfm_name, TTInputFormat::OFM, 0i32) as *mut rust_input_handle_t;
-    if !handle.is_null() {
-        ttstub_input_close(handle as rust_input_handle_t);
+    let handle = ttstub_input_open(tfm_name, TTInputFormat::OFM, 0);
+    if let Some(handle) = handle {
+        ttstub_input_close(handle);
         return true;
     }
-    let handle = ttstub_input_open(tfm_name, TTInputFormat::TFM, 0i32) as *mut rust_input_handle_t;
-    if !handle.is_null() {
-        ttstub_input_close(handle as rust_input_handle_t);
+    let handle = ttstub_input_open(tfm_name, TTInputFormat::TFM, 0);
+    if let Some(handle) = handle {
+        ttstub_input_close(handle);
         return true;
     }
     false

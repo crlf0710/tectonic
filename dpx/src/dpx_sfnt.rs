@@ -27,6 +27,8 @@
     unused_mut
 )]
 
+use tectonic_bridge::ttstub_input_close;
+
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::{tt_get_unsigned_pair, tt_get_unsigned_quad};
 use crate::dpx_pdfobj::{
@@ -35,13 +37,15 @@ use crate::dpx_pdfobj::{
 };
 use crate::dpx_truetype::SfntTableInfo;
 use crate::mfree;
-use crate::{ttstub_input_read, ttstub_input_seek};
+use crate::{ttstub_input_read};
 use libc::{free, memcpy};
+
+use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
 pub type ssize_t = __ssize_t;
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct sfnt_table {
@@ -63,22 +67,19 @@ pub struct sfnt_table_directory {
     pub flags: *mut i8,
     pub tables: *mut sfnt_table,
 }
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct sfnt {
     pub type_0: i32,
     pub directory: *mut sfnt_table_directory,
-    pub handle: rust_input_handle_t,
+    pub handle: InputHandleWrapper,
     pub offset: u32,
 }
 #[no_mangle]
-pub unsafe extern "C" fn sfnt_open(mut handle: rust_input_handle_t) -> *mut sfnt {
-    assert!(!handle.is_null());
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32); /* mbz */
+pub unsafe extern "C" fn sfnt_open(mut handle: InputHandleWrapper) -> *mut sfnt {
+    handle.seek(SeekFrom::Start(0)).unwrap(); /* mbz */
     let sfont =
         new((1_u32 as u64).wrapping_mul(::std::mem::size_of::<sfnt>() as u64) as u32) as *mut sfnt; /* typefaces position */
-    (*sfont).handle = handle;
-    let type_0 = tt_get_unsigned_quad((*sfont).handle); /* resource id */
+    let type_0 = tt_get_unsigned_quad(&mut handle); /* resource id */
     if type_0 as u64 == 0x10000 || type_0 as u64 == 0x74727565 {
         (*sfont).type_0 = 1i32 << 0i32
     } else if type_0 as u64 == 0x10000 {
@@ -88,36 +89,31 @@ pub unsafe extern "C" fn sfnt_open(mut handle: rust_input_handle_t) -> *mut sfnt
     } else if type_0 as u64 == 0x74746366 {
         (*sfont).type_0 = 1i32 << 4i32
     }
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
+    (*sfont).handle = handle;
     (*sfont).directory = 0 as *mut sfnt_table_directory;
     (*sfont).offset = 0u64 as u32;
     sfont
 }
 #[no_mangle]
-pub unsafe extern "C" fn dfont_open(mut handle: rust_input_handle_t, mut index: i32) -> *mut sfnt {
+pub unsafe extern "C" fn dfont_open(mut handle: InputHandleWrapper, mut index: i32) -> *mut sfnt {
     let mut types_pos: u32 = 0;
     let mut res_pos: u32 = 0;
     let mut types_num: u16 = 0;
-    assert!(!handle.is_null());
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     let sfont =
         new((1_u32 as u64).wrapping_mul(::std::mem::size_of::<sfnt>() as u64) as u32) as *mut sfnt;
-    (*sfont).handle = handle;
-    let rdata_pos = tt_get_unsigned_quad((*sfont).handle);
-    let map_pos = tt_get_unsigned_quad((*sfont).handle);
-    ttstub_input_seek(
-        (*sfont).handle,
-        map_pos.wrapping_add(0x18_u32) as ssize_t,
-        0i32,
-    );
-    let tags_pos = map_pos.wrapping_add(tt_get_unsigned_pair((*sfont).handle) as u32);
-    ttstub_input_seek((*sfont).handle, tags_pos as ssize_t, 0i32);
-    let tags_num = tt_get_unsigned_pair((*sfont).handle);
+    let rdata_pos = tt_get_unsigned_quad(&mut handle);
+    let map_pos = tt_get_unsigned_quad(&mut handle);
+    handle.seek(SeekFrom::Start((map_pos + 0x18) as u64)).unwrap();
+    let tags_pos = map_pos.wrapping_add(tt_get_unsigned_pair(&mut handle) as u32);
+    handle.seek(SeekFrom::Start(tags_pos as u64)).unwrap();
+    let tags_num = tt_get_unsigned_pair(&mut handle);
     let mut i = 0;
     while i as i32 <= tags_num as i32 {
-        let tag = tt_get_unsigned_quad((*sfont).handle);
-        types_num = tt_get_unsigned_pair((*sfont).handle);
-        types_pos = tags_pos.wrapping_add(tt_get_unsigned_pair((*sfont).handle) as u32);
+        let tag = tt_get_unsigned_quad(&mut handle);
+        types_num = tt_get_unsigned_pair(&mut handle);
+        types_pos = tags_pos.wrapping_add(tt_get_unsigned_pair(&mut handle) as u32);
         if tag as u64 == 0x73666e74 {
             break;
         }
@@ -125,22 +121,24 @@ pub unsafe extern "C" fn dfont_open(mut handle: rust_input_handle_t, mut index: 
     }
     if i as i32 > tags_num as i32 {
         free(sfont as *mut libc::c_void);
+        ttstub_input_close(handle);
         return 0 as *mut sfnt;
     }
-    ttstub_input_seek((*sfont).handle, types_pos as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(types_pos as u64)).unwrap();
     if index > types_num as i32 {
         panic!("Invalid index {} for dfont.", index);
     }
     for i in 0..=types_num as i32 {
-        tt_get_unsigned_pair((*sfont).handle);
-        tt_get_unsigned_pair((*sfont).handle);
-        res_pos = tt_get_unsigned_quad((*sfont).handle);
-        tt_get_unsigned_quad((*sfont).handle);
+        tt_get_unsigned_pair(&mut handle);
+        tt_get_unsigned_pair(&mut handle);
+        res_pos = tt_get_unsigned_quad(&mut handle);
+        tt_get_unsigned_quad(&mut handle);
         if i as i32 == index {
             break;
         }
     }
-    ttstub_input_seek((*sfont).handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
+    (*sfont).handle = handle;
     (*sfont).type_0 = 1i32 << 8i32;
     (*sfont).directory = 0 as *mut sfnt_table_directory;
     (*sfont).offset = (res_pos as u64 & 0xffffff)
@@ -163,6 +161,7 @@ unsafe fn release_directory(mut td: *mut sfnt_table_directory) {
 #[no_mangle]
 pub unsafe extern "C" fn sfnt_close(mut sfont: *mut sfnt) {
     if !sfont.is_null() {
+        ttstub_input_close((*sfont).handle.clone()); // TODO: use drop
         if !(*sfont).directory.is_null() {
             release_directory((*sfont).directory);
         }
@@ -284,7 +283,7 @@ pub unsafe extern "C" fn sfnt_locate_table(mut sfont: *mut sfnt, tag: &[u8; 4]) 
     if offset == 0_u32 {
         panic!("sfnt: table not found...");
     }
-    ttstub_input_seek((*sfont).handle, offset as ssize_t, 0i32);
+    (*sfont).handle.seek(SeekFrom::Start(offset as u64)).unwrap();
     offset
 }
 #[no_mangle]
@@ -296,14 +295,14 @@ pub unsafe extern "C" fn sfnt_read_table_directory(mut sfont: *mut sfnt, mut off
     let td = new(
         (1_u32 as u64).wrapping_mul(::std::mem::size_of::<sfnt_table_directory>() as u64) as u32,
     ) as *mut sfnt_table_directory;
+    let handle = &mut (*sfont).handle;
     (*sfont).directory = td;
-    assert!(!(*sfont).handle.is_null());
-    ttstub_input_seek((*sfont).handle, offset as ssize_t, 0i32);
-    (*td).version = tt_get_unsigned_quad((*sfont).handle);
-    (*td).num_tables = tt_get_unsigned_pair((*sfont).handle);
-    (*td).search_range = tt_get_unsigned_pair((*sfont).handle);
-    (*td).entry_selector = tt_get_unsigned_pair((*sfont).handle);
-    (*td).range_shift = tt_get_unsigned_pair((*sfont).handle);
+    handle.seek(SeekFrom::Start(offset as u64)).unwrap();
+    (*td).version = tt_get_unsigned_quad(handle);
+    (*td).num_tables = tt_get_unsigned_pair(handle);
+    (*td).search_range = tt_get_unsigned_pair(handle);
+    (*td).entry_selector = tt_get_unsigned_pair(handle);
+    (*td).range_shift = tt_get_unsigned_pair(handle);
     (*td).flags = new(
         ((*td).num_tables as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
     ) as *mut i8;
@@ -311,12 +310,12 @@ pub unsafe extern "C" fn sfnt_read_table_directory(mut sfont: *mut sfnt, mut off
         .wrapping_mul(::std::mem::size_of::<sfnt_table>() as u64) as u32)
         as *mut sfnt_table;
     for i in 0..(*td).num_tables as u32 {
-        let u_tag = tt_get_unsigned_quad((*sfont).handle);
+        let u_tag = tt_get_unsigned_quad(handle);
         convert_tag(&mut (*(*td).tables.offset(i as isize)).tag, u_tag);
-        (*(*td).tables.offset(i as isize)).check_sum = tt_get_unsigned_quad((*sfont).handle);
+        (*(*td).tables.offset(i as isize)).check_sum = tt_get_unsigned_quad(handle);
         (*(*td).tables.offset(i as isize)).offset =
-            tt_get_unsigned_quad((*sfont).handle).wrapping_add((*sfont).offset);
-        (*(*td).tables.offset(i as isize)).length = tt_get_unsigned_quad((*sfont).handle);
+            tt_get_unsigned_quad(handle).wrapping_add((*sfont).offset);
+        (*(*td).tables.offset(i as isize)).length = tt_get_unsigned_quad(handle);
         let ref mut fresh1 = (*(*td).tables.offset(i as isize)).data;
         *fresh1 = 0 as *mut i8;
         //fprintf(stderr, "[%4s:%x]", td->tables[i].tag, td->tables[i].offset);
@@ -434,19 +433,15 @@ pub unsafe extern "C" fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *m
                 offset += length
             }
             if (*(*td).tables.offset(i as isize)).data.is_null() {
-                if (*sfont).handle.is_null() {
+                /*if (*sfont).handle.is_null() {
                     pdf_release_obj(stream);
                     panic!("Font file not opened or already closed...");
-                }
+                }*/
                 length = (*(*td).tables.offset(i as isize)).length as i32;
-                ttstub_input_seek(
-                    (*sfont).handle,
-                    (*(*td).tables.offset(i as isize)).offset as ssize_t,
-                    0i32,
-                );
+                (*sfont).handle.seek(SeekFrom::Start((*(*td).tables.offset(i as isize)).offset as u64)).unwrap();
                 while length > 0i32 {
                     let nb_read = ttstub_input_read(
-                        (*sfont).handle,
+                        (*sfont).handle.0.as_ptr(),
                         wbuf.as_mut_ptr() as *mut i8,
                         (if length < 1024i32 { length } else { 1024i32 }) as size_t,
                     ) as i32;

@@ -33,7 +33,7 @@ use libc::{fseek, ftell, rewind, FILE};
 pub type __off_t = i64;
 pub type __off64_t = i64;
 pub type size_t = u64;
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 unsafe fn os_error() {
     panic!("io:  An OS command failed that should not have.\n");
 }
@@ -76,7 +76,7 @@ pub static mut work_buffer_u8: [u8; 1024] = [0; 1024];
 pub unsafe extern "C" fn tt_mfgets(
     mut buffer: *mut i8,
     mut length: i32,
-    mut file: rust_input_handle_t,
+    file: &mut InputHandleWrapper,
 ) -> *mut i8 {
     let mut ch: i32 = 0i32;
     let mut i: i32 = 0i32;

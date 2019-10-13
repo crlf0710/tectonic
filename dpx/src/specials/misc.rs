@@ -92,7 +92,7 @@ unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg)
     ti.width *= 72.0f64 / 72.27f64;
     ti.height *= 72.0f64 / 72.27f64;
     let handle = ttstub_input_open(filename.as_mut_ptr(), TTInputFormat::PICT, 0i32);
-    if handle.is_null() {
+    if handle.is_none() {
         spc_warn!(
             spe,
             "Could not open image file: {}",
@@ -100,9 +100,10 @@ unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg)
         );
         return -1i32;
     }
+    let mut handle = handle.unwrap();
     ti.flags |= 1i32 << 1i32 | 1i32 << 2i32;
     loop {
-        let mut p: *const i8 = tt_mfgets(buf.as_mut_ptr(), 512i32, handle);
+        let mut p: *const i8 = tt_mfgets(buf.as_mut_ptr(), 512i32, &mut handle);
         if p.is_null() {
             break;
         }

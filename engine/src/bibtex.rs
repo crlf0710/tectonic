@@ -24,17 +24,15 @@ use crate::TTHistory;
 
 use crate::TTInputFormat;
 
-use bridge::rust_input_handle_t;
-use bridge::OutputHandleWrapper;
+use bridge::{InputHandleWrapper, OutputHandleWrapper};
 
 pub type str_number = i32;
 /*22: */
 pub type pool_pointer = i32;
-pub type bib_number = i32;
-#[derive(Copy, Clone)]
-#[repr(C)]
+pub type bib_number = usize;
+
 pub struct peekable_input_t {
-    pub handle: rust_input_handle_t,
+    pub handle: InputHandleWrapper,
     pub peek_char: i32,
     pub saw_eof: bool,
 }
@@ -66,7 +64,7 @@ const BUF_SIZE: i32 = 20000;
 const min_print_line: i32 = 3;
 const max_print_line: i32 = 79;
 const aux_stack_size: i32 = 20;
-const MAX_BIB_FILES: i32 = 20;
+const MAX_BIBFILES: usize = 20;
 const POOL_SIZE: i32 = 65000;
 const MAX_STRINGS: i32 = 35307;
 const MAX_CITES: i32 = 750;
@@ -81,54 +79,49 @@ const LIT_STK_SIZE: i32 = 100;
 unsafe extern "C" fn peekable_open(
     mut path: *const i8,
     mut format: TTInputFormat,
-) -> *mut peekable_input_t {
-    let mut handle: rust_input_handle_t = 0 as *mut libc::c_void;
-    let mut peekable: *mut peekable_input_t = 0 as *mut peekable_input_t;
-    handle = ttstub_input_open(path, format, 0i32);
-    if handle.is_null() {
-        return 0 as *mut peekable_input_t;
-    }
-    peekable = xmalloc((1i32 as u64).wrapping_mul(::std::mem::size_of::<peekable_input_t>() as u64))
-        as *mut peekable_input_t;
-    (*peekable).handle = handle;
-    (*peekable).peek_char = -1i32;
-    (*peekable).saw_eof = false;
-    peekable
+) -> Option<peekable_input_t> {
+    ttstub_input_open(path, format, 0i32).map(|handle| {
+        peekable_input_t {
+            handle,
+            peek_char: -1,
+            saw_eof: false,
+        }
+    })
 }
-unsafe extern "C" fn peekable_close(mut peekable: *mut peekable_input_t) -> i32 {
+unsafe extern "C" fn peekable_close(peekable: Option<peekable_input_t>) -> i32 {
     let mut rv: i32 = 0;
-    if peekable.is_null() {
-        return 0i32;
+    if let Some(peekable_input_t { handle, .. }) = peekable {
+        ttstub_input_close(handle)
+    } else {
+        return 0;
     }
-    rv = ttstub_input_close((*peekable).handle);
-    free(peekable as *mut libc::c_void);
-    rv
 }
-unsafe extern "C" fn peekable_getc(mut peekable: *mut peekable_input_t) -> i32 {
+unsafe extern "C" fn peekable_getc(peekable: &mut peekable_input_t) -> i32 {
     let mut rv: i32 = 0;
-    if (*peekable).peek_char != -1i32 {
-        rv = (*peekable).peek_char;
-        (*peekable).peek_char = -1i32;
+    if peekable.peek_char != -1i32 {
+        rv = peekable.peek_char;
+        peekable.peek_char = -1i32;
         return rv;
     }
-    rv = ttstub_input_getc((*peekable).handle);
+    rv = ttstub_input_getc(&mut peekable.handle);
     if rv == -1i32 {
-        (*peekable).saw_eof = true
+        peekable.saw_eof = true
     }
     rv
 }
-unsafe extern "C" fn peekable_ungetc(mut peekable: *mut peekable_input_t, mut c: i32) {
+unsafe extern "C" fn peekable_ungetc(peekable: &mut peekable_input_t, mut c: i32) {
     /* TODO: assert c != EOF */
-    (*peekable).peek_char = c;
+    peekable.peek_char = c;
 }
 /* eofeoln.c, adapted for Rusty I/O */
-unsafe extern "C" fn tectonic_eof(mut peekable: *mut peekable_input_t) -> bool {
+unsafe extern "C" fn tectonic_eof(peekable: Option<&mut peekable_input_t>) -> bool {
     /* Check for EOF following Pascal semantics. */
     let mut c: i32 = 0;
-    if peekable.is_null() {
+    if peekable.is_none() {
         return true;
     }
-    if (*peekable).saw_eof {
+    let peekable = peekable.unwrap();
+    if peekable.saw_eof {
         return true;
     }
     c = peekable_getc(peekable);
@@ -138,9 +131,9 @@ unsafe extern "C" fn tectonic_eof(mut peekable: *mut peekable_input_t) -> bool {
     peekable_ungetc(peekable, c);
     false
 }
-unsafe extern "C" fn eoln(mut peekable: *mut peekable_input_t) -> bool {
+unsafe extern "C" fn eoln(peekable: &mut peekable_input_t) -> bool {
     let mut c: i32 = 0;
-    if (*peekable).saw_eof {
+    if peekable.saw_eof {
         return true;
     }
     c = peekable_getc(peekable);
@@ -151,7 +144,7 @@ unsafe extern "C" fn eoln(mut peekable: *mut peekable_input_t) -> bool {
 }
 static mut standard_output: Option<OutputHandleWrapper> = None;
 static mut pool_size: i32 = 0;
-static mut max_bib_files: i32 = 0;
+static mut MAX_BIB_FILES: usize = 0;
 static mut max_cites: i32 = 0;
 static mut wiz_fn_space: i32 = 0;
 static mut ent_str_size: i32 = 0;
@@ -212,8 +205,10 @@ static mut buf_ptr2: buf_pointer = 0;
 static mut scan_result: u8 = 0;
 static mut token_value: i32 = 0;
 static mut aux_name_length: i32 = 0;
-static mut aux_file: [*mut peekable_input_t; 21] =
-    [0 as *const peekable_input_t as *mut peekable_input_t; 21];
+static mut aux_file: [Option<peekable_input_t>; 21] = [
+    None, None, None, None, None, None, None, None, None, None, None,
+    None, None, None, None, None, None, None, None, None, None
+];
 static mut aux_list: [str_number; 21] = [0; 21];
 static mut aux_ptr: aux_number = 0;
 static mut aux_ln_stack: [i32; 21] = [0; 21];
@@ -224,11 +219,10 @@ static mut bib_list: *mut str_number = 0 as *const str_number as *mut str_number
 static mut bib_ptr: bib_number = 0;
 static mut num_bib_files: bib_number = 0;
 static mut bib_seen: bool = false;
-static mut bib_file: *mut *mut peekable_input_t =
-    0 as *const *mut peekable_input_t as *mut *mut peekable_input_t;
+static mut bib_file: Vec<Option<peekable_input_t>> = Vec::new();
 static mut bst_seen: bool = false;
 static mut bst_str: str_number = 0;
-static mut bst_file: *mut peekable_input_t = 0 as *const peekable_input_t as *mut peekable_input_t;
+static mut bst_file: Option<peekable_input_t> = None;
 static mut cite_list: *mut str_number = 0 as *const str_number as *mut str_number;
 static mut cite_ptr: cite_number = 0;
 static mut entry_cite_ptr: cite_number = 0;
@@ -473,11 +467,12 @@ unsafe extern "C" fn buffer_overflow() {
     ) as *mut u8;
     buf_size = buf_size + 20000i32;
 }
-unsafe extern "C" fn input_ln(mut peekable: *mut peekable_input_t) -> bool {
+unsafe extern "C" fn input_ln(peekable: &mut Option<peekable_input_t>) -> bool {
     last = 0i32;
-    if tectonic_eof(peekable) {
+    if tectonic_eof(peekable.as_mut()) {
         return false;
     }
+    let peekable = peekable.as_mut().unwrap();
     while !eoln(peekable) {
         if last >= buf_size {
             buffer_overflow();
@@ -705,10 +700,10 @@ unsafe extern "C" fn bst_err_print_and_look_for_blank_line() {
     bst_ln_num_print();
     print_bad_input_line();
     while last != 0i32 {
-        if !input_ln(bst_file) {
+        if !input_ln(&mut bst_file) {
             panic!();
         } else {
-            bst_line_num = bst_line_num + 1i32
+            bst_line_num += 1;
         }
     }
     buf_ptr2 = last;
@@ -1784,7 +1779,7 @@ unsafe extern "C" fn pre_def_certain_strings() {
     s_default = *hash_text.offset(pre_def_loc as isize);
     *fn_type.offset(pre_def_loc as isize) = 3i32 as fn_class;
     b_default = b_skip;
-    preamble_ptr = 0i32;
+    preamble_ptr = 0;
     pre_define(
         b"i           \x00" as *const u8 as *const i8,
         1i32 as pds_len,
@@ -2022,7 +2017,7 @@ unsafe extern "C" fn eat_bst_white_space() -> bool {
                 return true;
             }
         }
-        if !input_ln(bst_file) {
+        if !input_ln(&mut bst_file) {
             return false;
         }
         bst_line_num = bst_line_num + 1i32;
@@ -2303,7 +2298,7 @@ unsafe extern "C" fn scan_fn_def(mut fn_hash_loc: hash_loc) {
 }
 unsafe extern "C" fn eat_bib_white_space() -> bool {
     while !scan_white_space() {
-        if !input_ln(*bib_file.offset(bib_ptr as isize)) {
+        if !input_ln(&mut bib_file[bib_ptr]) {
             return false;
         }
         bib_line_num = bib_line_num + 1i32;
@@ -2320,7 +2315,7 @@ unsafe extern "C" fn compress_bib_white() -> bool {
         ex_buf_ptr = ex_buf_ptr + 1i32
     }
     while !scan_white_space() {
-        if !input_ln(*bib_file.offset(bib_ptr as isize)) {
+        if !input_ln(&mut bib_file[bib_ptr]) {
             eat_bib_print();
             return false;
         }
@@ -2684,7 +2679,7 @@ unsafe extern "C" fn scan_and_store_the_field_value_and_eat_white() -> bool {
                 1 => {
                     *s_preamble.offset(preamble_ptr as isize) =
                         *hash_text.offset(field_val_loc as isize);
-                    preamble_ptr = preamble_ptr + 1i32
+                    preamble_ptr += 1;
                 }
                 2 => {
                     *ilk_info.offset(cur_macro_loc as isize) =
@@ -4494,10 +4489,10 @@ unsafe extern "C" fn x_num_names() {
 }
 unsafe extern "C" fn x_preamble() {
     ex_buf_length = 0i32;
-    preamble_ptr = 0i32;
+    preamble_ptr = 0;
     while preamble_ptr < num_preamble_strings {
         add_buf_pool(*s_preamble.offset(preamble_ptr as isize));
-        preamble_ptr = preamble_ptr + 1i32
+        preamble_ptr += 1;
     }
     add_pool_buf_and_push();
 }
@@ -5236,7 +5231,7 @@ unsafe extern "C" fn get_the_top_level_aux_file_name(mut aux_file_name: *const i
     /* this code used to auto-add the .aux extension if needed; we don't */
     aux_ptr = 0i32; // preserve pascal-style string semantics
     aux_file[aux_ptr as usize] = peekable_open(name_of_file as *mut i8, TTInputFormat::TEX);
-    if aux_file[aux_ptr as usize].is_null() {
+    if aux_file[aux_ptr as usize].is_none() {
         sam_wrong_file_name_print();
         return 1i32;
     }
@@ -5298,23 +5293,23 @@ unsafe extern "C" fn aux_bib_data_command() {
             aux_err_print();
             return;
         }
-        if bib_ptr == max_bib_files {
+        if bib_ptr == MAX_BIB_FILES {
             bib_list = xrealloc(
                 bib_list as *mut libc::c_void,
-                ((max_bib_files + 20i32 + 1i32) as u64)
+                ((MAX_BIB_FILES + 20 + 1) as u64)
                     .wrapping_mul(::std::mem::size_of::<str_number>() as u64),
             ) as *mut str_number;
-            bib_file = xrealloc(
+            /*bib_file = xrealloc(
                 bib_file as *mut libc::c_void,
-                ((max_bib_files + 20i32 + 1i32) as u64)
+                ((MAX_BIB_FILES + 20 + 1) as u64)
                     .wrapping_mul(::std::mem::size_of::<*mut peekable_input_t>() as u64),
-            ) as *mut *mut peekable_input_t;
+            ) as *mut *mut peekable_input_t;*/
             s_preamble = xrealloc(
                 s_preamble as *mut libc::c_void,
-                ((max_bib_files + 20i32 + 1i32) as u64)
+                ((MAX_BIB_FILES + 20 + 1) as u64)
                     .wrapping_mul(::std::mem::size_of::<str_number>() as u64),
             ) as *mut str_number;
-            max_bib_files = max_bib_files + 20i32
+            MAX_BIB_FILES += 20;
         }
         *bib_list.offset(bib_ptr as isize) = *hash_text.offset(str_lookup(
             buffer,
@@ -5330,15 +5325,15 @@ unsafe extern "C" fn aux_bib_data_command() {
             return;
         }
         start_name(*bib_list.offset(bib_ptr as isize));
-        let ref mut fresh9 = *bib_file.offset(bib_ptr as isize);
-        *fresh9 = peekable_open(name_of_file as *mut i8, TTInputFormat::BIB);
-        if (*fresh9).is_null() {
+        bib_file.push(peekable_open(name_of_file as *mut i8, TTInputFormat::BIB));
+        if bib_file[bib_ptr].is_none() {
             log!("I couldn\'t open database file ");
             print_bib_name();
             aux_err_print();
             return;
         }
-        bib_ptr = bib_ptr + 1i32
+        bib_ptr += 1;
+        assert!(bib_file.len() == bib_ptr);
     }
 }
 unsafe extern "C" fn aux_bib_style_command() {
@@ -5376,7 +5371,7 @@ unsafe extern "C" fn aux_bib_style_command() {
     }
     start_name(bst_str);
     bst_file = peekable_open(name_of_file as *mut i8, TTInputFormat::BST);
-    if bst_file.is_null() {
+    if bst_file.is_none() {
         log!("I couldn\'t open style file ");
         print_bst_name();
         bst_str = 0i32;
@@ -5541,10 +5536,10 @@ unsafe extern "C" fn aux_input_command() {
     name_ptr = name_length;
     *name_of_file.offset(name_ptr as isize) = 0i32 as u8;
     aux_file[aux_ptr as usize] = peekable_open(name_of_file as *mut i8, TTInputFormat::TEX);
-    if aux_file[aux_ptr as usize].is_null() {
+    if aux_file[aux_ptr as usize].is_none() {
         log!("I couldn\'t open auxiliary file ");
         print_aux_name();
-        aux_ptr = aux_ptr - 1i32;
+        aux_ptr -= 1;
         aux_err_print();
         return;
     }
@@ -5553,8 +5548,7 @@ unsafe extern "C" fn aux_input_command() {
     aux_ln_stack[aux_ptr as usize] = 0i32;
 }
 unsafe extern "C" fn pop_the_aux_stack() -> i32 {
-    peekable_close(aux_file[aux_ptr as usize]);
-    aux_file[aux_ptr as usize] = 0 as *mut peekable_input_t;
+    peekable_close(aux_file[aux_ptr as usize].take());
     if aux_ptr == 0i32 {
         return 1i32;
     }
@@ -5611,7 +5605,7 @@ unsafe extern "C" fn last_check_for_aux_errors() {
         aux_end1_err_print();
         log!("\\bibdata command");
         aux_end2_err_print();
-    } else if num_bib_files == 0i32 {
+    } else if num_bib_files == 0 {
         aux_end1_err_print();
         log!("database files");
         aux_end2_err_print();
@@ -5620,7 +5614,7 @@ unsafe extern "C" fn last_check_for_aux_errors() {
         aux_end1_err_print();
         log!("\\bibstyle command");
         aux_end2_err_print();
-    } else if bst_str == 0i32 {
+    } else if bst_str == 0 {
         aux_end1_err_print();
         log!("style file");
         aux_end2_err_print();
@@ -6188,10 +6182,10 @@ unsafe extern "C" fn get_bib_command_or_entry_and_process() {
     let mut current_block: u64;
     at_bib_command = false;
     while !scan1(64i32 as u8) {
-        if !input_ln(*bib_file.offset(bib_ptr as isize)) {
+        if !input_ln(&mut bib_file[bib_ptr]) {
             return;
         }
-        bib_line_num = bib_line_num + 1i32;
+        bib_line_num += 1;
         buf_ptr2 = 0i32
     }
     if *buffer.offset(buf_ptr2 as isize) as i32 != 64i32 {
@@ -6200,7 +6194,7 @@ unsafe extern "C" fn get_bib_command_or_entry_and_process() {
         print_confusion();
         panic!();
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1;
     if !eat_bib_white_space() {
         eat_bib_print();
         return;
@@ -6227,23 +6221,23 @@ unsafe extern "C" fn get_bib_command_or_entry_and_process() {
         match command_num {
             0 => return,
             1 => {
-                if preamble_ptr == max_bib_files {
+                if preamble_ptr == MAX_BIB_FILES {
                     bib_list = xrealloc(
                         bib_list as *mut libc::c_void,
-                        ((max_bib_files + 20i32 + 1i32) as u64)
+                        ((MAX_BIB_FILES + 20 + 1) as u64)
                             .wrapping_mul(::std::mem::size_of::<str_number>() as u64),
                     ) as *mut str_number;
-                    bib_file = xrealloc(
+                    /*bib_file = xrealloc(
                         bib_file as *mut libc::c_void,
-                        ((max_bib_files + 20i32 + 1i32) as u64)
+                        ((MAX_BIB_FILES + 20 + 1) as u64)
                             .wrapping_mul(::std::mem::size_of::<*mut peekable_input_t>() as u64),
-                    ) as *mut *mut peekable_input_t;
+                    ) as *mut *mut peekable_input_t;*/
                     s_preamble = xrealloc(
                         s_preamble as *mut libc::c_void,
-                        ((max_bib_files + 20i32 + 1i32) as u64)
+                        ((MAX_BIB_FILES + 20 + 1) as u64)
                             .wrapping_mul(::std::mem::size_of::<str_number>() as u64),
                     ) as *mut str_number;
-                    max_bib_files = max_bib_files + 20i32
+                    MAX_BIB_FILES += 20;
                 }
                 if !eat_bib_white_space() {
                     eat_bib_print();
@@ -6636,10 +6630,10 @@ unsafe extern "C" fn bst_read_command() {
         /*any_value */
     }
     read_performed = true;
-    bib_ptr = 0i32;
+    bib_ptr = 0;
     while bib_ptr < num_bib_files {
         if verbose != 0 {
-            log!("Database file #{}: ", bib_ptr + 1,);
+            log!("Database file #{}: ", bib_ptr + 1);
             print_bib_name();
         } else {
             write!(
@@ -6650,15 +6644,13 @@ unsafe extern "C" fn bst_read_command() {
             .unwrap();
             log_pr_bib_name();
         }
-        bib_line_num = 0i32;
+        bib_line_num = 0;
         buf_ptr2 = last;
-        while !tectonic_eof(*bib_file.offset(bib_ptr as isize)) {
+        while !tectonic_eof(bib_file[bib_ptr].as_mut()) {
             get_bib_command_or_entry_and_process();
         }
-        peekable_close(*bib_file.offset(bib_ptr as isize));
-        let ref mut fresh10 = *bib_file.offset(bib_ptr as isize);
-        *fresh10 = 0 as *mut peekable_input_t;
-        bib_ptr = bib_ptr + 1i32
+        peekable_close(bib_file[bib_ptr].take());
+        bib_ptr += 1;
     }
     reading_completed = true;
     num_cites = cite_ptr;
@@ -7300,7 +7292,7 @@ unsafe extern "C" fn initialize(mut aux_file_name: *const i8) -> i32 {
     pool_ptr = 0i32;
     str_ptr = 1i32;
     *str_start.offset(str_ptr as isize) = pool_ptr;
-    bib_ptr = 0i32;
+    bib_ptr = 0;
     bib_seen = false;
     bst_str = 0i32;
     bst_seen = false;
@@ -7336,7 +7328,7 @@ unsafe extern "C" fn initialize(mut aux_file_name: *const i8) -> i32 {
 pub unsafe extern "C" fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
     pool_size = POOL_SIZE;
     buf_size = BUF_SIZE;
-    max_bib_files = MAX_BIB_FILES;
+    MAX_BIB_FILES = MAX_BIBFILES;
     max_glob_strs = MAX_GLOB_STRS;
     max_fields = MAX_FIELDS;
     max_cites = MAX_CITES;
@@ -7349,12 +7341,9 @@ pub unsafe extern "C" fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory 
     setup_params();
     entry_ints = 0 as *mut i32;
     entry_strs = 0 as *mut u8;
-    bib_file = xmalloc(
-        ((max_bib_files + 1i32) as u64)
-            .wrapping_mul(::std::mem::size_of::<*mut peekable_input_t>() as u64),
-    ) as *mut *mut peekable_input_t;
+    bib_file = Vec::with_capacity(MAX_BIB_FILES + 1);
     bib_list = xmalloc(
-        ((max_bib_files + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+        ((MAX_BIB_FILES + 1) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
     ) as *mut str_number;
     wiz_functions = xmalloc(
         ((wiz_fn_space + 1i32) as u64).wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
@@ -7363,7 +7352,7 @@ pub unsafe extern "C" fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory 
         ((max_fields + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
     ) as *mut str_number;
     s_preamble = xmalloc(
-        ((max_bib_files + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+        ((MAX_BIB_FILES + 1) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
     ) as *mut str_number;
     str_pool = xmalloc(((pool_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64))
         as *mut u8;
@@ -7459,7 +7448,7 @@ pub unsafe extern "C" fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory 
         }
         loop {
             aux_ln_stack[aux_ptr as usize] += 1;
-            if !input_ln(aux_file[aux_ptr as usize]) {
+            if !input_ln(&mut aux_file[aux_ptr as usize]) {
                 if pop_the_aux_stack() != 0 {
                     break;
                 }
@@ -7480,8 +7469,7 @@ pub unsafe extern "C" fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory 
                 }
             });
             panic::set_hook(prev_hook);
-            peekable_close(bst_file);
-            bst_file = 0 as *mut peekable_input_t
+            peekable_close(bst_file.take());
         }
         ttstub_output_close(bbl_file.take().unwrap());
     });

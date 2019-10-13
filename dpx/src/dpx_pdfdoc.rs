@@ -80,8 +80,6 @@ pub type size_t = u64;
 
 use crate::TTInputFormat;
 
-use bridge::rust_input_handle_t;
-
 pub use super::dpx_pdfcolor::PdfColor;
 
 use super::dpx_pdfdev::{pdf_rect, pdf_tmatrix};
@@ -237,7 +235,6 @@ pub unsafe extern "C" fn pdf_doc_enable_manual_thumbnails() {
 unsafe fn read_thumbnail(mut thumb_filename: *const i8) -> *mut pdf_obj {
     let mut image_ref: *mut pdf_obj = 0 as *mut pdf_obj; /* Maybe reference */
     let mut xobj_id: i32 = 0;
-    let mut handle: *mut rust_input_handle_t = 0 as *mut rust_input_handle_t;
     let mut options: load_options = {
         let mut init = load_options {
             page_no: 1i32,
@@ -246,26 +243,27 @@ unsafe fn read_thumbnail(mut thumb_filename: *const i8) -> *mut pdf_obj {
         };
         init
     };
-    handle =
-        ttstub_input_open(thumb_filename, TTInputFormat::PICT, 0i32) as *mut rust_input_handle_t;
-    if handle.is_null() {
+    let handle =
+        ttstub_input_open(thumb_filename, TTInputFormat::PICT, 0i32);
+    if handle.is_none() {
         warn!(
             "Could not open thumbnail file \"{}\"",
             CStr::from_ptr(thumb_filename).display()
         );
         return 0 as *mut pdf_obj;
     }
-    if check_for_png(handle as rust_input_handle_t) == 0
-        && check_for_jpeg(handle as rust_input_handle_t) == 0
+    let mut handle = handle.unwrap();
+    if check_for_png(&mut handle) == 0
+        && check_for_jpeg(&mut handle) == 0
     {
         warn!(
             "Thumbnail \"{}\" not a png/jpeg file!",
             CStr::from_ptr(thumb_filename).display()
         );
-        ttstub_input_close(handle as rust_input_handle_t);
+        ttstub_input_close(handle);
         return 0 as *mut pdf_obj;
     }
-    ttstub_input_close(handle as rust_input_handle_t);
+    ttstub_input_close(handle);
     xobj_id = pdf_ximage_findresource(thumb_filename, options);
     if xobj_id < 0i32 {
         warn!(

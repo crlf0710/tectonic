@@ -38,7 +38,8 @@ use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_new_array, pdf_new_dict, pdf_new_name, pdf_new_number,
     pdf_new_string, pdf_obj,
 };
-use crate::ttstub_input_seek;
+
+use std::io::{Seek, SeekFrom};
 use libc::{free, memcpy};
 
 pub type __ssize_t = i64;
@@ -56,21 +57,22 @@ pub unsafe extern "C" fn tt_aux_set_verbose(mut level: i32) {
 }
 #[no_mangle]
 pub unsafe extern "C" fn ttc_read_offset(mut sfont: *mut sfnt, mut ttc_idx: i32) -> u32 {
-    if sfont.is_null() || (*sfont).handle.is_null() {
+    if sfont.is_null() {
         panic!("file not opened");
     }
     if (*sfont).type_0 != 1i32 << 4i32 {
         panic!("ttc_read_offset(): invalid font type");
     }
-    ttstub_input_seek((*sfont).handle, 4i32 as ssize_t, 0i32);
+    let handle = &mut (*sfont).handle;
+    handle.seek(SeekFrom::Start(4)).unwrap();
     /* version = */
-    tt_get_unsigned_quad((*sfont).handle);
-    let num_dirs = tt_get_unsigned_quad((*sfont).handle);
+    tt_get_unsigned_quad(handle);
+    let num_dirs = tt_get_unsigned_quad(handle);
     if ttc_idx < 0i32 || ttc_idx as u32 > num_dirs.wrapping_sub(1_u32) {
         panic!("Invalid TTC index number");
     }
-    ttstub_input_seek((*sfont).handle, (12i32 + ttc_idx * 4i32) as ssize_t, 0i32);
-    tt_get_unsigned_quad((*sfont).handle)
+    handle.seek(SeekFrom::Start((12 + ttc_idx * 4)  as u64)).unwrap();
+    tt_get_unsigned_quad(handle)
 }
 /* flag declared in dvipdfmx.c */
 /* TTC (TrueType Collection) */

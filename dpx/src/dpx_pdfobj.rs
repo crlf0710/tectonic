@@ -29,7 +29,7 @@
 )]
 
 use std::ffi::CString;
-use std::io::Write;
+use std::io::{Seek, SeekFrom, Write};
 
 use crate::dpx_pdfparse::{parse_number, parse_pdf_dict, parse_pdf_object, parse_unsigned};
 use crate::mfree;
@@ -45,7 +45,7 @@ use super::dpx_pdfencrypt::{pdf_enc_set_generation, pdf_enc_set_label, pdf_encry
 use super::dpx_pdfparse::skip_white;
 use crate::shims::{sprintf, sscanf};
 use crate::{
-    ttstub_input_get_size, ttstub_input_getc, ttstub_input_read, ttstub_input_seek,
+    ttstub_input_get_size, ttstub_input_getc, ttstub_input_read,
     ttstub_input_ungetc, ttstub_output_close, ttstub_output_open, ttstub_output_open_stdout,
     ttstub_output_putc,
 };
@@ -57,8 +57,7 @@ use libz_sys as libz;
 pub type __ssize_t = i64;
 pub type size_t = u64;
 pub type ssize_t = __ssize_t;
-use bridge::rust_input_handle_t;
-use bridge::OutputHandleWrapper;
+use bridge::{InputHandleWrapper, OutputHandleWrapper};
 
 pub type hval_free_func = Option<unsafe extern "C" fn(_: *mut libc::c_void) -> ()>;
 
@@ -136,10 +135,9 @@ impl pdf_obj {
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct pdf_file {
-    pub handle: rust_input_handle_t,
+    pub handle: InputHandleWrapper,
     pub trailer: *mut pdf_obj,
     pub xref_table: *mut xref_entry,
     pub catalog: *mut pdf_obj,
@@ -3097,7 +3095,7 @@ pub unsafe extern "C" fn pdf_release_obj(mut object: *mut pdf_obj) {
  * null-terminated string. Returns -1 for when EOF is already reached, and -2
  * if buffer has no enough space.
  */
-unsafe fn tt_mfreadln(mut buf: *mut i8, mut size: i32, mut handle: rust_input_handle_t) -> i32 {
+unsafe fn tt_mfreadln(mut buf: *mut i8, mut size: i32, handle: &mut InputHandleWrapper) -> i32 {
     let mut c: i32 = 0;
     let mut len: i32 = 0i32;
     loop {
@@ -3126,32 +3124,34 @@ unsafe fn tt_mfreadln(mut buf: *mut i8, mut size: i32, mut handle: rust_input_ha
     }
     len
 }
-unsafe fn backup_line(mut handle: rust_input_handle_t) -> i32 {
+unsafe fn backup_line(handle: &mut InputHandleWrapper) -> i32 {
     let mut ch: i32 = -1i32;
     /* Note: this code should work even if \r\n is eol. It could fail on a
      * machine where \n is eol and there is a \r in the stream --- Highly
      * unlikely in the last few bytes where this is likely to be used.
      */
-    if ttstub_input_seek(handle, 0i32 as ssize_t, 1i32) > 1i32 as u64 {
-        loop {
-            ttstub_input_seek(handle, -2i32 as ssize_t, 1i32);
-            if !(ttstub_input_seek(handle, 0i32 as ssize_t, 1i32) > 0i32 as u64
-                && {
-                    ch = ttstub_input_getc(handle);
-                    ch >= 0i32
+    match handle.seek(SeekFrom::Current(0)) {
+        Ok(pos) if pos > 1 => {
+            loop {
+                let pos = handle.seek(SeekFrom::Current(-2));
+                match pos {
+                    Ok(pos) if (
+                        pos > 0
+                        && { ch = ttstub_input_getc(handle); ch >= 0i32 }
+                        && (ch != '\n' as i32 && ch != '\r' as i32)
+                    ) => {},
+                _ => break,
                 }
-                && (ch != '\n' as i32 && ch != '\r' as i32))
-            {
-                break;
             }
-        }
+        },
+        _ => {},
     }
     if ch < 0i32 {
         return 0i32;
     }
     1i32
 }
-unsafe fn find_xref(mut handle: rust_input_handle_t, mut file_size: i32) -> i32 {
+unsafe fn find_xref(handle: &mut InputHandleWrapper, mut file_size: i32) -> i32 {
     let mut xref_pos: i32 = 0i32;
     let mut len: i32 = 0;
     let mut tries: i32 = 10i32;
@@ -3159,22 +3159,14 @@ unsafe fn find_xref(mut handle: rust_input_handle_t, mut file_size: i32) -> i32 
     let mut end: *const i8 = 0 as *const i8;
     let mut number: *mut i8 = 0 as *mut i8;
     loop {
-        let mut currentpos: i32 = 0;
-        let mut n: i32 = 0;
         if backup_line(handle) == 0 {
             tries = 0i32;
             break;
         } else {
-            currentpos = ttstub_input_seek(handle, 0i32 as ssize_t, 1i32) as i32;
-            n = (if strlen(b"startxref\x00" as *const u8 as *const i8)
-                < (file_size - currentpos) as _
-            {
-                strlen(b"startxref\x00" as *const u8 as *const i8)
-            } else {
-                (file_size - currentpos) as _
-            }) as i32;
-            ttstub_input_read(handle, work_buffer.as_mut_ptr(), n as size_t);
-            ttstub_input_seek(handle, currentpos as ssize_t, 0i32);
+            let currentpos = handle.seek(SeekFrom::Current(0)).unwrap() as i32;
+            let n = core::cmp::min(strlen(b"startxref\x00" as *const u8 as *const i8) as i32, file_size - currentpos);
+            ttstub_input_read(handle.0.as_ptr(), work_buffer.as_mut_ptr(), n as size_t);
+            handle.seek(SeekFrom::Start(currentpos as u64)).unwrap();
             tries -= 1;
             if !(tries > 0i32
                 && strstartswith(
@@ -3212,20 +3204,19 @@ unsafe fn find_xref(mut handle: rust_input_handle_t, mut file_size: i32) -> i32 
  */
 unsafe fn parse_trailer(mut pf: *mut pdf_file) -> *mut pdf_obj {
     let mut result: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut cur_pos: i32 = 0;
     let mut nmax: i32 = 0;
     let mut nread: i32 = 0;
     /*
      * Fill work_buffer and hope trailer fits. This should
      * be made a bit more robust sometime.
      */
-    cur_pos = ttstub_input_seek((*pf).handle, 0i32 as ssize_t, 1i32) as i32;
+    let cur_pos = (*pf).handle.seek(SeekFrom::Current(0)).unwrap() as i32;
     nmax = if (*pf).file_size - cur_pos < 1024i32 {
         (*pf).file_size - cur_pos
     } else {
         1024i32
     };
-    nread = ttstub_input_read((*pf).handle, work_buffer.as_mut_ptr(), nmax as size_t) as i32;
+    nread = ttstub_input_read((*pf).handle.0.as_ptr(), work_buffer.as_mut_ptr(), nmax as size_t) as i32;
     //nread = InputHandleWrapper((*pf).handle).read(&mut work_buffer[..nmax]);
     if nread == 0i32
         || strstartswith(
@@ -3309,8 +3300,8 @@ unsafe fn pdf_read_object(
     buffer = new(
         ((length + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32,
     ) as *mut i8;
-    ttstub_input_seek((*pf).handle, offset as ssize_t, 0i32);
-    ttstub_input_read((*pf).handle, buffer, length as size_t);
+    (*pf).handle.seek(SeekFrom::Start(offset as u64)).unwrap();
+    ttstub_input_read((*pf).handle.0.as_ptr(), buffer, length as size_t);
     p = buffer;
     endptr = p.offset(length as isize);
     /* Check for obj_num and obj_gen */
@@ -3639,8 +3630,8 @@ unsafe fn parse_xref_table(mut pf: *mut pdf_file, mut xref_pos: i32) -> i32 {
      * This routine reads one xref segment. It may be called multiple times
      * on the same file.  xref tables sometimes come in pieces.
      */
-    ttstub_input_seek((*pf).handle, xref_pos as ssize_t, 0i32);
-    len = tt_mfreadln(buf.as_mut_ptr(), 255i32, (*pf).handle);
+    (*pf).handle.seek(SeekFrom::Start(xref_pos as u64)).unwrap();
+    len = tt_mfreadln(buf.as_mut_ptr(), 255i32, &mut (*pf).handle);
     /* We should have already checked that "startxref" section exists. So, EOF
      * here (len = -1) is impossible. We don't treat too long line case
      * seriously.
@@ -3671,14 +3662,13 @@ unsafe fn parse_xref_table(mut pf: *mut pdf_file, mut xref_pos: i32) -> i32 {
     /* Next line in file has first item and size of table */
     {
         let mut flag: i8 = 0;
-        let mut current_pos: u32 = 0;
         let mut i: i32 = 0;
         let mut first: u32 = 0;
         let mut size: u32 = 0;
         let mut offset: u32 = 0;
         let mut obj_gen: u32 = 0;
-        current_pos = ttstub_input_seek((*pf).handle, 0i32 as ssize_t, 1i32) as u32;
-        len = tt_mfreadln(buf.as_mut_ptr(), 255i32, (*pf).handle);
+        let mut current_pos = (*pf).handle.seek(SeekFrom::Current(0)).unwrap();
+        len = tt_mfreadln(buf.as_mut_ptr(), 255i32, &mut (*pf).handle);
         if !(len == 0i32) {
             if len < 0i32 {
                 warn!("Reading a line failed in xref table.");
@@ -3695,10 +3685,8 @@ unsafe fn parse_xref_table(mut pf: *mut pdf_file, mut xref_pos: i32) -> i32 {
                      * might have started to read the trailer dictionary and
                      * parse_trailer would fail.
                      */
-                    current_pos = (current_pos as i64
-                        + p.wrapping_offset_from(buf.as_mut_ptr()) as i64)
-                        as u32; /* Jump to the beginning of "trailer" keyword. */
-                    ttstub_input_seek((*pf).handle, current_pos as ssize_t, 0i32);
+                    current_pos += p.wrapping_offset_from(buf.as_mut_ptr()) as u64; /* Jump to the beginning of "trailer" keyword. */
+                    (*pf).handle.seek(SeekFrom::Start(current_pos)).unwrap();
                     break;
                 } else {
                     /* Line containing something other than white-space characters found.
@@ -3749,7 +3737,7 @@ unsafe fn parse_xref_table(mut pf: *mut pdf_file, mut xref_pos: i32) -> i32 {
                          * More than one "white-spaces" allowed, can be ended with a comment,
                          * and so on.
                          */
-                        len = tt_mfreadln(buf.as_mut_ptr(), 255i32, (*pf).handle);
+                        len = tt_mfreadln(buf.as_mut_ptr(), 255i32, &mut (*pf).handle);
                         if !(len == 0i32) {
                             if len < 0i32 {
                                 warn!("Something went wrong while reading xref subsection...");
@@ -4037,7 +4025,7 @@ unsafe fn read_xref(mut pf: *mut pdf_file) -> *mut pdf_obj {
     let mut trailer: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut main_trailer: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut xref_pos: i32 = 0;
-    xref_pos = find_xref((*pf).handle, (*pf).file_size);
+    xref_pos = find_xref(&mut (*pf).handle, (*pf).file_size);
     if xref_pos == 0 {
         current_block = 13794981049891343809;
     } else {
@@ -4112,25 +4100,25 @@ unsafe fn read_xref(mut pf: *mut pdf_file) -> *mut pdf_obj {
     }
 }
 static mut pdf_files: *mut ht_table = 0 as *const ht_table as *mut ht_table;
-unsafe fn pdf_file_new(mut handle: rust_input_handle_t) -> *mut pdf_file {
-    let mut pf: *mut pdf_file = 0 as *mut pdf_file;
-    assert!(!handle.is_null());
-    pf =
+unsafe fn pdf_file_new(mut handle: InputHandleWrapper) -> *mut pdf_file {
+    let pf =
         new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_file>() as u64) as u32) as *mut pdf_file;
+    let file_size = ttstub_input_get_size(&mut handle) as i32;
+    handle.seek(SeekFrom::End(0)).unwrap();
     (*pf).handle = handle;
     (*pf).trailer = 0 as *mut pdf_obj;
     (*pf).xref_table = 0 as *mut xref_entry;
     (*pf).catalog = 0 as *mut pdf_obj;
     (*pf).num_obj = 0i32;
     (*pf).version = 0_u32;
-    (*pf).file_size = ttstub_input_get_size(handle) as i32;
-    ttstub_input_seek(handle, 0i32 as ssize_t, 2i32);
+    (*pf).file_size = file_size;
     pf
 }
 unsafe extern "C" fn pdf_file_free(mut pf: *mut pdf_file) {
     if pf.is_null() {
         return;
     }
+    //tectonic_bridge::ttstub_input_close((*pf).handle.clone()); // TODO: use drop
     for i in 0..(*pf).num_obj {
         pdf_release_obj((*(*pf).xref_table.offset(i as isize)).direct);
         pdf_release_obj((*(*pf).xref_table.offset(i as isize)).indirect);
@@ -4169,12 +4157,12 @@ pub unsafe extern "C" fn pdf_file_get_catalog(mut pf: *mut pdf_file) -> *mut pdf
     assert!(!pf.is_null());
     (*pf).catalog
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn pdf_open(
     mut ident: *const i8,
-    mut handle: rust_input_handle_t,
+    mut handle: InputHandleWrapper,
 ) -> *mut pdf_file {
-    let mut current_block: u64;
     let mut pf: *mut pdf_file = 0 as *mut pdf_file;
     assert!(!pdf_files.is_null());
     if !ident.is_null() {
@@ -4189,7 +4177,7 @@ pub unsafe extern "C" fn pdf_open(
     } else {
         let mut new_version: *mut pdf_obj = 0 as *mut pdf_obj;
         let mut version: u32 = 0_u32;
-        let mut r: i32 = parse_pdf_version(handle, &mut version);
+        let mut r: i32 = parse_pdf_version(&mut handle, &mut version);
         if r < 0i32 || version < 1_u32 || version > pdf_version {
             warn!("pdf_open: Not a PDF 1.[1-{}] file.", pdf_version,);
             /*
@@ -4202,69 +4190,55 @@ pub unsafe extern "C" fn pdf_open(
         (*pf).version = version;
         (*pf).trailer = read_xref(pf);
         if (*pf).trailer.is_null() {
-            current_block = 14455231216035570027;
-        } else if pdf_lookup_dict((*pf).trailer, "Encrypt").is_some() {
+            return error(pf);
+        }
+        if pdf_lookup_dict((*pf).trailer, "Encrypt").is_some() {
             warn!("PDF document is encrypted.");
-            current_block = 14455231216035570027;
-        } else {
-            (*pf).catalog = pdf_deref_obj(pdf_lookup_dict((*pf).trailer, "Root"));
-            if !(!(*pf).catalog.is_null() && pdf_obj_typeof((*pf).catalog) == PdfObjType::DICT) {
-                warn!("Cannot read PDF document catalog. Broken PDF file?");
-                current_block = 14455231216035570027;
-            } else {
-                new_version = pdf_deref_obj(pdf_lookup_dict((*pf).catalog, "Version"));
-                if !new_version.is_null() {
-                    let mut minor: u32 = 0;
-                    if !(!new_version.is_null() && pdf_obj_typeof(new_version) == PdfObjType::NAME)
-                        || sscanf(
-                            pdf_name_value(&*new_version).as_ptr(),
-                            b"1.%u\x00" as *const u8 as *const i8,
-                            &mut minor as *mut u32,
-                        ) != 1i32
-                    {
-                        pdf_release_obj(new_version);
-                        warn!("Illegal Version entry in document catalog. Broken PDF file?");
-                        current_block = 14455231216035570027;
-                    } else {
-                        if (*pf).version < minor {
-                            (*pf).version = minor
-                        }
-                        pdf_release_obj(new_version);
-                        current_block = 15345278821338558188;
-                    }
-                } else {
-                    current_block = 15345278821338558188;
-                }
-                match current_block {
-                    14455231216035570027 => {}
-                    _ => {
-                        if !ident.is_null() {
-                            ht_append_table(
-                                pdf_files,
-                                ident as *const libc::c_void,
-                                strlen(ident) as i32,
-                                pf as *mut libc::c_void,
-                            );
-                        }
-                        current_block = 8693738493027456495;
-                    }
-                }
-            }
+            return error(pf);
         }
-        match current_block {
-            8693738493027456495 => {}
-            _ => {
-                pdf_file_free(pf);
-                return 0 as *mut pdf_file;
-            }
+        (*pf).catalog = pdf_deref_obj(pdf_lookup_dict((*pf).trailer, "Root"));
+        if !(!(*pf).catalog.is_null() && pdf_obj_typeof((*pf).catalog) == PdfObjType::DICT) {
+            warn!("Cannot read PDF document catalog. Broken PDF file?");
+            return error(pf);
         }
+        new_version = pdf_deref_obj(pdf_lookup_dict((*pf).catalog, "Version"));
+        if !new_version.is_null() {
+            let mut minor: u32 = 0;
+            if !(!new_version.is_null() && pdf_obj_typeof(new_version) == PdfObjType::NAME)
+                || sscanf(
+                    pdf_name_value(&*new_version).as_ptr(),
+                    b"1.%u\x00" as *const u8 as *const i8,
+                    &mut minor as *mut u32,
+                ) != 1i32
+            {
+                pdf_release_obj(new_version);
+                warn!("Illegal Version entry in document catalog. Broken PDF file?");
+                return error(pf);
+            }
+            if (*pf).version < minor {
+                (*pf).version = minor
+            }
+            pdf_release_obj(new_version);
+        }
+        if !ident.is_null() {
+            ht_append_table(
+                pdf_files,
+                ident as *const libc::c_void,
+                strlen(ident) as i32,
+                pf as *mut libc::c_void,
+            );
+        }
+    }
+    unsafe fn error(pf: *mut pdf_file) -> *mut pdf_file {
+        pdf_file_free(pf);
+        return 0 as *mut pdf_file;
     }
     pf
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_close(mut pf: *mut pdf_file) {
     if !pf.is_null() {
-        (*pf).handle = 0 as *mut libc::c_void
+        tectonic_bridge::ttstub_input_close((*pf).handle.clone()); // TODO: use drop
     };
 }
 #[no_mangle]
@@ -4274,14 +4248,14 @@ pub unsafe extern "C" fn pdf_files_close() {
     free(pdf_files as *mut libc::c_void);
 }
 /* Internal static routines */
-unsafe fn parse_pdf_version(mut handle: rust_input_handle_t, mut ret_version: *mut u32) -> i32 {
+unsafe fn parse_pdf_version(handle: &mut InputHandleWrapper, mut ret_version: *mut u32) -> i32 {
     let mut buffer: [i8; 10] = *::std::mem::transmute::<&[u8; 10], &mut [i8; 10]>(
         b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
     );
     let mut minor: u32 = 0;
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     if ttstub_input_read(
-        handle,
+        handle.0.as_ptr(),
         buffer.as_mut_ptr(),
         (::std::mem::size_of::<[i8; 10]>() as u64).wrapping_sub(1i32 as u64),
     ) as u64
@@ -4301,7 +4275,7 @@ unsafe fn parse_pdf_version(mut handle: rust_input_handle_t, mut ret_version: *m
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn check_for_pdf(mut handle: rust_input_handle_t) -> i32 {
+pub unsafe extern "C" fn check_for_pdf(handle: &mut InputHandleWrapper) -> i32 {
     let mut r: i32 = 0;
     let mut version: u32 = 0;
     r = parse_pdf_version(handle, &mut version);

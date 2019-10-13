@@ -42,13 +42,15 @@ use super::dpx_pst_obj::pst_obj;
 use super::dpx_pst_obj::{
     pst_data_ptr, pst_getIV, pst_getRV, pst_getSV, pst_release_obj, pst_type_of,
 };
-use crate::{ttstub_input_getc, ttstub_input_read, ttstub_input_seek};
+use crate::{ttstub_input_getc, ttstub_input_read};
 use libc::{free, memcmp, memcpy, memmove, memset, strcmp, strcpy, strlen};
+
+use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
 pub type ssize_t = __ssize_t;
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 
 /* CFF Data Types */
 /* SID SID number */
@@ -2046,9 +2048,9 @@ unsafe fn parse_part1(
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn is_pfb(mut handle: rust_input_handle_t) -> bool {
+pub unsafe extern "C" fn is_pfb(handle: &mut InputHandleWrapper) -> bool {
     let mut sig: [u8; 15] = [0; 15];
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     let mut ch = ttstub_input_getc(handle);
     if ch != 128i32
         || {
@@ -2102,7 +2104,7 @@ pub unsafe extern "C" fn is_pfb(mut handle: rust_input_handle_t) -> bool {
     false
 }
 unsafe fn get_pfb_segment(
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
     mut expected_type: i32,
     mut length: *mut i32,
 ) -> *mut u8 {
@@ -2118,7 +2120,7 @@ unsafe fn get_pfb_segment(
         }
         let ch = ttstub_input_getc(handle);
         if ch < 0i32 || ch != expected_type {
-            ttstub_input_seek(handle, -2i32 as ssize_t, 1i32);
+            handle.seek(SeekFrom::Current(-2)).unwrap();
             break;
         } else {
             let mut slen = 0;
@@ -2137,7 +2139,7 @@ unsafe fn get_pfb_segment(
             ) as *mut u8;
             while slen > 0i32 {
                 let rlen = ttstub_input_read(
-                    handle,
+                    handle.0.as_ptr(),
                     (buffer as *mut i8).offset(bytesread as isize),
                     slen as size_t,
                 ) as i32;
@@ -2172,13 +2174,13 @@ pub unsafe extern "C" fn t1_get_standard_glyph(mut code: i32) -> *const i8 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn t1_get_fontname(
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
     mut fontname: *mut i8,
 ) -> i32 {
     let mut length: i32 = 0;
     let mut key: *mut i8 = 0 as *mut i8;
     let mut fn_found: i32 = 0i32;
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     let buffer = get_pfb_segment(handle, 1i32, &mut length);
     if buffer.is_null() || length == 0i32 {
         panic!("Reading PFB (ASCII part) file failed.");
@@ -2215,7 +2217,7 @@ pub unsafe extern "C" fn t1_get_fontname(
     0i32
 }
 unsafe fn init_cff_font(cff: &mut cff_font) {
-    cff.handle = 0 as *mut libc::c_void;
+    cff.handle = None;
     cff.filter = 0;
     cff.fontname = 0 as *mut i8;
     cff.index = 0;
@@ -2251,10 +2253,10 @@ unsafe fn init_cff_font(cff: &mut cff_font) {
 pub unsafe extern "C" fn t1_load_font(
     mut enc_vec: *mut *mut i8,
     mut mode: i32,
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
 ) -> *mut cff_font {
     let mut length: i32 = 0;
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     /* ASCII section */
     let buffer = get_pfb_segment(handle, 1i32, &mut length);
     if buffer.is_null() || length == 0i32 {

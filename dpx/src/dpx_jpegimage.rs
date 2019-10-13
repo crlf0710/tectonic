@@ -44,13 +44,15 @@ use crate::dpx_pdfobj::{
     pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_dataptr,
     pdf_stream_dict, pdf_stream_length,
 };
-use crate::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_read, ttstub_input_seek};
+use crate::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_read};
 use libc::{free, memcmp, memset};
+
+use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
 pub type ssize_t = __ssize_t;
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 pub const JM_SOI: JPEG_marker = 216;
@@ -158,10 +160,10 @@ pub struct JPEG_APPn_JFIF {
    Licensed under the MIT License.
 */
 #[no_mangle]
-pub unsafe extern "C" fn check_for_jpeg(mut handle: rust_input_handle_t) -> i32 {
+pub unsafe extern "C" fn check_for_jpeg(handle: &mut InputHandleWrapper) -> i32 {
     let mut jpeg_sig: [u8; 2] = [0; 2];
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
-    if ttstub_input_read(handle, jpeg_sig.as_mut_ptr() as *mut i8, 2i32 as size_t) != 2i32 as i64 {
+    handle.seek(SeekFrom::Start(0)).unwrap();
+    if ttstub_input_read(handle.0.as_ptr(), jpeg_sig.as_mut_ptr() as *mut i8, 2i32 as size_t) != 2i32 as i64 {
         return 0i32;
     } else {
         if jpeg_sig[0] as i32 != 0xffi32 || jpeg_sig[1] as i32 != JM_SOI as i32 {
@@ -173,7 +175,7 @@ pub unsafe extern "C" fn check_for_jpeg(mut handle: rust_input_handle_t) -> i32 
 #[no_mangle]
 pub unsafe extern "C" fn jpeg_include_image(
     mut ximage: *mut pdf_ximage,
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
 ) -> i32 {
     let mut stream: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut stream_dict: *mut pdf_obj = 0 as *mut pdf_obj;
@@ -195,7 +197,7 @@ pub unsafe extern "C" fn jpeg_include_image(
     };
     if check_for_jpeg(handle) == 0 {
         warn!("{}: Not a JPEG file?", "JPEG");
-        ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+        handle.seek(SeekFrom::Start(0)).unwrap();
         return -1i32;
     }
     /* File position is 2 here... */
@@ -455,7 +457,7 @@ unsafe fn JPEG_get_XMP(mut j_info: *mut JPEG_info) -> *mut pdf_obj {
     }
     XMP_stream
 }
-unsafe fn JPEG_get_marker(mut handle: rust_input_handle_t) -> JPEG_marker {
+unsafe fn JPEG_get_marker(handle: &mut InputHandleWrapper) -> JPEG_marker {
     let mut c: i32 = 0;
     c = ttstub_input_getc(handle);
     if c != 255i32 {
@@ -495,7 +497,7 @@ unsafe fn add_APPn_marker(
     (*j_info).num_appn += 1i32;
     n
 }
-unsafe fn read_APP14_Adobe(mut j_info: *mut JPEG_info, mut handle: rust_input_handle_t) -> u16 {
+unsafe fn read_APP14_Adobe(mut j_info: *mut JPEG_info, handle: &mut InputHandleWrapper) -> u16 {
     let mut app_data: *mut JPEG_APPn_Adobe = 0 as *mut JPEG_APPn_Adobe;
     app_data = new((1_u64).wrapping_mul(::std::mem::size_of::<JPEG_APPn_Adobe>() as u64) as u32)
         as *mut JPEG_APPn_Adobe;
@@ -532,7 +534,7 @@ unsafe fn read_exif_bytes(mut pp: *mut *mut u8, mut n: i32, mut endian: i32) -> 
 }
 unsafe fn read_APP1_Exif(
     mut info: *mut JPEG_info,
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
     mut length: size_t,
 ) -> size_t {
     let mut current_block: u64;
@@ -559,7 +561,7 @@ unsafe fn read_APP1_Exif(
     let mut exifydpi: f64 = 0.0f64;
     let mut r: ssize_t = 0;
     buffer = xmalloc(length) as *mut u8;
-    r = ttstub_input_read(handle, buffer as *mut i8, length);
+    r = ttstub_input_read(handle.0.as_ptr(), buffer as *mut i8, length);
     if !(r < 0i32 as i64 || r as size_t != length) {
         p = buffer;
         endptr = buffer.offset(length as isize);
@@ -747,7 +749,7 @@ unsafe fn read_APP1_Exif(
     free(buffer as *mut libc::c_void);
     length
 }
-unsafe fn read_APP0_JFIF(mut j_info: *mut JPEG_info, mut handle: rust_input_handle_t) -> size_t {
+unsafe fn read_APP0_JFIF(j_info: *mut JPEG_info, handle: &mut InputHandleWrapper) -> size_t {
     let mut app_data: *mut JPEG_APPn_JFIF = 0 as *mut JPEG_APPn_JFIF;
     let mut thumb_data_len: size_t = 0;
     app_data = new((1_u64).wrapping_mul(::std::mem::size_of::<JPEG_APPn_JFIF>() as u64) as u32)
@@ -764,7 +766,7 @@ unsafe fn read_APP0_JFIF(mut j_info: *mut JPEG_info, mut handle: rust_input_hand
         (*app_data).thumbnail = new((thumb_data_len as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64)
             as u32) as *mut u8;
-        ttstub_input_read(handle, (*app_data).thumbnail as *mut i8, thumb_data_len);
+        ttstub_input_read(handle.0.as_ptr(), (*app_data).thumbnail as *mut i8, thumb_data_len);
     } else {
         (*app_data).thumbnail = 0 as *mut u8
     }
@@ -792,7 +794,7 @@ unsafe fn read_APP0_JFIF(mut j_info: *mut JPEG_info, mut handle: rust_input_hand
     }
     (9i32 as u64).wrapping_add(thumb_data_len)
 }
-unsafe fn read_APP0_JFXX(mut handle: rust_input_handle_t, mut length: size_t) -> size_t {
+unsafe fn read_APP0_JFXX(handle: &mut InputHandleWrapper, mut length: size_t) -> size_t {
     tt_get_unsigned_byte(handle);
     /* Extension Code:
      *
@@ -800,13 +802,13 @@ unsafe fn read_APP0_JFXX(mut handle: rust_input_handle_t, mut length: size_t) ->
      * 0x11: Thumbnail stored using 1 byte/pixel
      * 0x13: Thumbnail stored using 3 bytes/pixel
      */
-    ttstub_input_seek(handle, length.wrapping_sub(1i32 as u64) as ssize_t, 1i32); /* Thunbnail image */
+    handle.seek(SeekFrom::Current(length as i64 - 1)).unwrap(); /* Thunbnail image */
     /* Ignore */
     return length; /* Starting at 1 */
 }
 unsafe fn read_APP1_XMP(
     mut j_info: *mut JPEG_info,
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
     mut length: size_t,
 ) -> size_t {
     let mut app_data: *mut JPEG_APPn_XMP = 0 as *mut JPEG_APPn_XMP;
@@ -816,7 +818,7 @@ unsafe fn read_APP1_XMP(
     (*app_data).packet = new(
         ((*app_data).length as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32
     ) as *mut u8;
-    ttstub_input_read(handle, (*app_data).packet as *mut i8, (*app_data).length);
+    ttstub_input_read(handle.0.as_ptr(), (*app_data).packet as *mut i8, (*app_data).length);
     add_APPn_marker(
         j_info,
         JM_APP1,
@@ -827,7 +829,7 @@ unsafe fn read_APP1_XMP(
 }
 unsafe fn read_APP2_ICC(
     mut j_info: *mut JPEG_info,
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
     mut length: size_t,
 ) -> size_t {
     let mut app_data: *mut JPEG_APPn_ICC = 0 as *mut JPEG_APPn_ICC;
@@ -839,7 +841,7 @@ unsafe fn read_APP2_ICC(
     (*app_data).chunk = new(
         ((*app_data).length as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32
     ) as *mut u8;
-    ttstub_input_read(handle, (*app_data).chunk as *mut i8, (*app_data).length);
+    ttstub_input_read(handle.0.as_ptr(), (*app_data).chunk as *mut i8, (*app_data).length);
     add_APPn_marker(
         j_info,
         JM_APP2,
@@ -851,13 +853,13 @@ unsafe fn read_APP2_ICC(
 unsafe fn JPEG_copy_stream(
     mut j_info: *mut JPEG_info,
     mut stream: *mut pdf_obj,
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
 ) -> i32 {
     let mut marker: JPEG_marker = 0 as JPEG_marker;
     let mut length: i32 = 0;
     let mut found_SOFn: i32 = 0;
     let mut count: i32 = 0;
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     count = 0i32;
     found_SOFn = 0i32;
     while found_SOFn == 0 && count < 1024i32 && {
@@ -889,7 +891,7 @@ unsafe fn JPEG_copy_stream(
                     );
                     while length > 0i32 {
                         let mut nb_read: i32 = ttstub_input_read(
-                            handle,
+                            handle.0.as_ptr(),
                             work_buffer.as_mut_ptr(),
                             (if length < 1024i32 { length } else { 1024i32 }) as size_t,
                         ) as i32;
@@ -909,7 +911,7 @@ unsafe fn JPEG_copy_stream(
                         & 1i32 << 7i32 - count % 8i32
                         != 0
                     {
-                        ttstub_input_seek(handle, length as ssize_t, 1i32);
+                        handle.seek(SeekFrom::Current(length as i64)).unwrap();
                     } else {
                         *work_buffer.as_mut_ptr().offset(0) = 0xffi32 as i8;
                         *work_buffer.as_mut_ptr().offset(1) = marker as i8;
@@ -923,7 +925,7 @@ unsafe fn JPEG_copy_stream(
                         );
                         while length > 0i32 {
                             let mut nb_read_0: i32 = ttstub_input_read(
-                                handle,
+                                handle.0.as_ptr(),
                                 work_buffer.as_mut_ptr(),
                                 (if length < 1024i32 { length } else { 1024i32 }) as size_t,
                             ) as i32;
@@ -943,10 +945,10 @@ unsafe fn JPEG_copy_stream(
         count += 1
     }
     let mut total_size: size_t = ttstub_input_get_size(handle);
-    let mut pos: size_t = ttstub_input_seek(handle, 0i32 as ssize_t, 1i32);
+    let mut pos = handle.seek(SeekFrom::Current(0)).unwrap();
     loop {
         length = ttstub_input_read(
-            handle,
+            handle.0.as_ptr(),
             work_buffer.as_mut_ptr(),
             if (1024i32 as u64) < total_size.wrapping_sub(pos) {
                 1024i32 as u64
@@ -970,12 +972,12 @@ unsafe fn JPEG_copy_stream(
         -1i32
     }
 }
-unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, mut handle: rust_input_handle_t) -> i32 {
+unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWrapper) -> i32 {
     let mut marker: JPEG_marker = 0 as JPEG_marker;
     let mut found_SOFn: i32 = 0;
     let mut count: i32 = 0;
     let mut app_sig: [i8; 128] = [0; 128];
-    ttstub_input_seek(handle, 0i32 as ssize_t, 0i32);
+    handle.seek(SeekFrom::Start(0)).unwrap();
     count = 0i32;
     found_SOFn = 0i32;
     while found_SOFn == 0 && {
@@ -996,7 +998,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, mut handle: rust_input_hand
                 }
                 224 => {
                     if length > 5i32 {
-                        if ttstub_input_read(handle, app_sig.as_mut_ptr(), 5i32 as size_t)
+                        if ttstub_input_read(handle.0.as_ptr(), app_sig.as_mut_ptr(), 5i32 as size_t)
                             != 5i32 as i64
                         {
                             return -1i32;
@@ -1022,11 +1024,11 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, mut handle: rust_input_hand
                                 as i32 as i32
                         }
                     }
-                    ttstub_input_seek(handle, length as ssize_t, 1i32);
+                    handle.seek(SeekFrom::Current(length as i64)).unwrap();
                 }
                 225 => {
                     if length > 5i32 {
-                        if ttstub_input_read(handle, app_sig.as_mut_ptr(), 5i32 as size_t)
+                        if ttstub_input_read(handle.0.as_ptr(), app_sig.as_mut_ptr(), 5i32 as size_t)
                             != 5i32 as i64
                         {
                             return -1i32;
@@ -1051,7 +1053,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, mut handle: rust_input_hand
                         ) == 0
                             && length > 24i32
                         {
-                            if ttstub_input_read(handle, app_sig.as_mut_ptr(), 24i32 as size_t)
+                            if ttstub_input_read(handle.0.as_ptr(), app_sig.as_mut_ptr(), 24i32 as size_t)
                                 != 24i32 as i64
                             {
                                 return -1i32;
@@ -1079,11 +1081,11 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, mut handle: rust_input_hand
                             }
                         }
                     }
-                    ttstub_input_seek(handle, length as ssize_t, 1i32);
+                    handle.seek(SeekFrom::Current(length as i64)).unwrap();
                 }
                 226 => {
                     if length >= 14i32 {
-                        if ttstub_input_read(handle, app_sig.as_mut_ptr(), 12i32 as size_t)
+                        if ttstub_input_read(handle.0.as_ptr(), app_sig.as_mut_ptr(), 12i32 as size_t)
                             != 12i32 as i64
                         {
                             return -1i32;
@@ -1109,11 +1111,11 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, mut handle: rust_input_hand
                             }
                         }
                     }
-                    ttstub_input_seek(handle, length as ssize_t, 1i32);
+                    handle.seek(SeekFrom::Current(length as i64)).unwrap();
                 }
                 238 => {
                     if length > 5i32 {
-                        if ttstub_input_read(handle, app_sig.as_mut_ptr(), 5i32 as size_t)
+                        if ttstub_input_read(handle.0.as_ptr(), app_sig.as_mut_ptr(), 5i32 as size_t)
                             != 5i32 as i64
                         {
                             return -1i32;
@@ -1134,10 +1136,10 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, mut handle: rust_input_hand
                                     as i8
                         }
                     }
-                    ttstub_input_seek(handle, length as ssize_t, 1i32);
+                    handle.seek(SeekFrom::Current(length as i64)).unwrap();
                 }
                 _ => {
-                    ttstub_input_seek(handle, length as ssize_t, 1i32);
+                    handle.seek(SeekFrom::Current(length as i64)).unwrap();
                     if marker as u32 >= JM_APP0 as i32 as u32
                         && marker as u32 <= JM_APP15 as i32 as u32
                     {
@@ -1169,7 +1171,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, mut handle: rust_input_hand
 }
 #[no_mangle]
 pub unsafe extern "C" fn jpeg_get_bbox(
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
     mut width: *mut u32,
     mut height: *mut u32,
     mut xdensity: *mut f64,

@@ -142,11 +142,12 @@ pub unsafe extern "C" fn pdf_font_open_type1(mut font: *mut pdf_font) -> i32 {
         /* NOTE: skipping qcheck_filetype() call in dpx_find_type1_file but we
          * call is_pfb() in just a second anyway.
          */
-        if handle.is_null() {
+        if handle.is_none() {
             return -1i32;
         }
+        let mut handle = handle.unwrap();
         memset(fontname.as_mut_ptr() as *mut libc::c_void, 0i32, 127 + 1);
-        if !is_pfb(handle) || t1_get_fontname(handle, fontname.as_mut_ptr()) < 0i32 {
+        if !is_pfb(&mut handle) || t1_get_fontname(&mut handle, fontname.as_mut_ptr()) < 0i32 {
             panic!(
                 "Failed to read Type 1 font \"{}\".",
                 CStr::from_ptr(ident).display(),
@@ -687,12 +688,13 @@ pub unsafe extern "C" fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
         panic!("Type1: Unexpected error.");
     }
     let handle = ttstub_input_open(ident, TTInputFormat::TYPE1, 0i32);
-    if handle.is_null() {
+    if handle.is_none() {
         panic!(
             "Type1: Could not open Type1 font: {}",
             CStr::from_ptr(ident).display(),
         );
     }
+    let mut handle = handle.unwrap();
     if encoding_id >= 0i32 {
         enc_vec = 0 as *mut *mut i8
     } else {
@@ -703,7 +705,7 @@ pub unsafe extern "C" fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
             *fresh0 = 0 as *mut i8;
         }
     }
-    let cffont = t1_load_font(enc_vec, 0i32, handle);
+    let cffont = t1_load_font(enc_vec, 0i32, &mut handle);
     if cffont.is_null() {
         panic!(
             "Could not load Type 1 font: {}",

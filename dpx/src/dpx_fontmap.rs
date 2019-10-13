@@ -55,7 +55,7 @@ pub type size_t = u64;
 
 use crate::TTInputFormat;
 
-use bridge::rust_input_handle_t;
+use bridge::InputHandleWrapper;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct fontmap_opt {
@@ -260,11 +260,11 @@ unsafe fn fill_in_defaults(mut mrec: *mut fontmap_rec, mut tex_name: *const i8) 
 unsafe fn tt_readline(
     mut buf: *mut i8,
     mut buf_len: i32,
-    mut handle: rust_input_handle_t,
+    handle: &mut InputHandleWrapper,
 ) -> *mut i8 {
     let mut p: *mut i8 = 0 as *mut i8;
     let mut q: *mut i8 = 0 as *mut i8;
-    assert!(!buf.is_null() && buf_len > 0i32 && !handle.is_null());
+    assert!(!buf.is_null() && buf_len > 0i32);
     p = tt_mfgets(buf, buf_len, handle);
     if p.is_null() {
         return 0 as *mut i8;
@@ -1201,7 +1201,6 @@ pub unsafe extern "C" fn is_pdfm_mapline(mut mline: *const i8) -> i32
 #[no_mangle]
 pub unsafe extern "C" fn pdf_load_fontmap_file(mut filename: *const i8, mut mode: i32) -> i32 {
     let mut mrec: *mut fontmap_rec = 0 as *mut fontmap_rec;
-    let mut handle: rust_input_handle_t = 0 as *mut libc::c_void;
     let mut p: *const i8 = 0 as *const i8;
     let mut endptr: *const i8 = 0 as *const i8;
     let mut llen: i32 = 0;
@@ -1213,20 +1212,21 @@ pub unsafe extern "C" fn pdf_load_fontmap_file(mut filename: *const i8, mut mode
     if verbose != 0 {
         info!("<FONTMAP:");
     }
-    handle = dpx_tt_open(
+    let handle = dpx_tt_open(
         filename,
         b".map\x00" as *const u8 as *const i8,
         TTInputFormat::FONTMAP,
     );
-    if handle.is_null() {
+    if handle.is_none() {
         warn!(
             "Couldn\'t open font map file \"{}\".",
             CStr::from_ptr(filename).display()
         );
         return -1i32;
     }
+    let mut handle = handle.unwrap();
     while error == 0 && {
-        p = tt_readline(work_buffer.as_mut_ptr(), 1024i32, handle);
+        p = tt_readline(work_buffer.as_mut_ptr(), 1024i32, &mut handle);
         !p.is_null()
     } {
         let mut m: i32 = 0;

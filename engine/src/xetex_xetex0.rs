@@ -107,6 +107,7 @@ use bridge::_tt_abort;
 use bridge::rust_input_handle_t;
 use libc::{free, memcpy, strcat, strcpy, strlen};
 
+use bridge::InputHandleWrapper;
 pub type scaled_t = i32;
 pub type CFDictionaryRef = *mut libc::c_void;
 
@@ -16542,7 +16543,6 @@ pub unsafe extern "C" fn read_font_info(
 ) -> internal_font_number {
     let mut k: font_index = 0;
     let mut name_too_long: bool = false;
-    let mut file_opened: bool = false;
     let mut lf: i32 = 0;
     let mut lh: i32 = 0;
     let mut bc: i32 = 0;
@@ -16573,11 +16573,9 @@ pub unsafe extern "C" fn read_font_info(
     let mut z: scaled_t = 0;
     let mut alpha: i32 = 0;
     let mut beta: u8 = 0;
-    let mut tfm_file: rust_input_handle_t = 0 as *mut libc::c_void;
 
     g = FONT_BASE;
 
-    file_opened = false;
     pack_file_name(nom, aire, cur_ext);
 
     if INTPAR(INT_PAR__xetex_tracing_fonts) > 0 {
@@ -16599,29 +16597,29 @@ pub unsafe extern "C" fn read_font_info(
     if quoted_filename {
         g = load_native_font(u, nom, aire, s);
         if g != FONT_BASE {
-            return done(file_opened, tfm_file, g);
+            return done(None, g);
         }
     }
 
     name_too_long = length(nom) > 255i32 || length(aire) > 255i32;
     if name_too_long {
-        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        return bad_tfm(None, g, u, nom, aire, s, name_too_long);
     }
     pack_file_name(nom, aire, (65536 + 1i32 as i64) as str_number);
     check_for_tfm_font_mapping();
 
-    tfm_file = tt_xetex_open_input(TTInputFormat::TFM);
-    if tfm_file.is_null() {
+    let mut tfm_file_owner = tt_xetex_open_input(TTInputFormat::TFM);
+    if tfm_file_owner.is_none() {
         if !quoted_filename {
             g = load_native_font(u, nom, aire, s);
             if g != FONT_BASE {
-                return done(file_opened, tfm_file, g);
+                return done(None, g);
             }
         }
-        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        return bad_tfm(None, g, u, nom, aire, s, name_too_long);
     }
 
-    file_opened = true; /*:582*/
+    let tfm_file = tfm_file_owner.as_mut().unwrap();
 
     /* We are a bit cavalier about EOF-checking since we can't very
      * conveniently implement feof() in the Rust layer, and it only ever is
@@ -16631,7 +16629,7 @@ pub unsafe extern "C" fn read_font_info(
         ($x:expr) => {
             $x = ttstub_input_getc(tfm_file);
             if $x > 127 || $x == libc::EOF {
-                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
             $x *= 256;
             $x += ttstub_input_getc(tfm_file);
@@ -16645,7 +16643,7 @@ pub unsafe extern "C" fn read_font_info(
     READFIFTEEN!(ec);
 
     if bc > ec + 1 || ec > 255 {
-        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
     if bc > 255 {
         bc = 1;
@@ -16662,9 +16660,9 @@ pub unsafe extern "C" fn read_font_info(
     READFIFTEEN!(np);
 
     if lf != 6 + lh + (ec - bc + 1) + nw + nh + nd + ni + nl + nk + ne + np {
-        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     } else if nw == 0 || nh == 0 || nd == 0 || ni == 0 {
-        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
 
     lf = lf - 6 - lh;
@@ -16687,7 +16685,7 @@ pub unsafe extern "C" fn read_font_info(
     *exten_base.offset(f as isize) = *kern_base.offset(f as isize) + 256 * 128 + nk;
     *param_base.offset(f as isize) = *exten_base.offset(f as isize) + ne;
     if lh < 2 {
-        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
     a = ttstub_input_getc(tfm_file);
     qw.s3 = a as u16;
@@ -16698,7 +16696,7 @@ pub unsafe extern "C" fn read_font_info(
     d = ttstub_input_getc(tfm_file);
     qw.s0 = d as u16;
     if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
     *font_check.offset(f as isize) = qw;
 
@@ -16706,7 +16704,7 @@ pub unsafe extern "C" fn read_font_info(
     z = z * 256 + ttstub_input_getc(tfm_file);
     z = z * 16 + ttstub_input_getc(tfm_file) / 16;
     if z < 65536 {
-        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
     while lh > 2 {
         ttstub_input_getc(tfm_file);
@@ -16739,28 +16737,28 @@ pub unsafe extern "C" fn read_font_info(
         d = ttstub_input_getc(tfm_file);
         qw.s0 = d as u16;
         if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
         (*font_info.offset(k as isize)).b16 = qw;
 
         if a >= nw || b / 16 >= nh || b % 16 >= nd || c / 4 >= ni {
-            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
 
         match c % 4 {
             1 => {
                 if d >= nl {
-                    return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                    return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                 }
             }
             3 => {
                 if d >= ne {
-                    return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                    return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                 }
             }
             2 => {
                 if d < bc || d > ec {
-                    return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                    return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                 }
                 loop {
                     if !(d < k + bc - fmem_ptr) {
@@ -16773,7 +16771,7 @@ pub unsafe extern "C" fn read_font_info(
                     d = qw.s0 as i32
                 }
                 if d == k + bc - fmem_ptr {
-                    return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                    return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                 }
             }
             _ => {}
@@ -16795,7 +16793,7 @@ pub unsafe extern "C" fn read_font_info(
         c = ttstub_input_getc(tfm_file);
         d = ttstub_input_getc(tfm_file);
         if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
         sw = ((d * z / 256 + c * z) / 256 + b * z) / beta as i32;
 
@@ -16804,7 +16802,7 @@ pub unsafe extern "C" fn read_font_info(
         } else if a == 255 {
             (*font_info.offset(k as isize)).b32.s1 = sw - alpha
         } else {
-            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
     }
 
@@ -16813,28 +16811,28 @@ pub unsafe extern "C" fn read_font_info(
         .s1
         != 0
     {
-        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
     if (*font_info.offset(*height_base.offset(f as isize) as isize))
         .b32
         .s1
         != 0
     {
-        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
     if (*font_info.offset(*depth_base.offset(f as isize) as isize))
         .b32
         .s1
         != 0
     {
-        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
     if (*font_info.offset(*italic_base.offset(f as isize) as isize))
         .b32
         .s1
         != 0
     {
-        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
 
     bch_label = 32767;
@@ -16850,13 +16848,13 @@ pub unsafe extern "C" fn read_font_info(
             d = ttstub_input_getc(tfm_file);
             qw.s0 = d as u16;
             if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
             (*font_info.offset(k as isize)).b16 = qw;
 
             if a > 128 {
                 if 256 * c + d >= nl {
-                    return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                    return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                 }
                 if a == 255 && k == *lig_kern_base.offset(f as isize) {
                     bchar_0 = b as i16
@@ -16864,28 +16862,28 @@ pub unsafe extern "C" fn read_font_info(
             } else {
                 if b != bchar_0 as i32 {
                     if b < bc || b > ec {
-                        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
 
                     qw = (*font_info.offset((*char_base.offset(f as isize) + b) as isize)).b16;
                     if !(qw.s3 > 0) {
-                        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
                 }
 
                 if c < 128 {
                     if d < bc || d > ec {
-                        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
                     qw = (*font_info.offset((*char_base.offset(f as isize) + d) as isize)).b16;
                     if !(qw.s3 > 0) {
-                        return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
                 } else if 256 * (c - 128) + d >= nk {
-                    return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                    return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                 }
                 if a < 128 && k - *lig_kern_base.offset(f as isize) + a + 1i32 >= nl {
-                    return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                    return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                 }
             }
         }
@@ -16900,7 +16898,7 @@ pub unsafe extern "C" fn read_font_info(
         c = ttstub_input_getc(tfm_file);
         d = ttstub_input_getc(tfm_file);
         if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
         sw = ((d * z / 256i32 + c * z) / 256i32 + b * z) / beta as i32;
         if a == 0 {
@@ -16908,7 +16906,7 @@ pub unsafe extern "C" fn read_font_info(
         } else if a == 255 {
             (*font_info.offset(k as isize)).b32.s1 = sw - alpha
         } else {
-            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
     }
 
@@ -16922,46 +16920,46 @@ pub unsafe extern "C" fn read_font_info(
         d = ttstub_input_getc(tfm_file);
         qw.s0 = d as u16;
         if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
         (*font_info.offset(k as isize)).b16 = qw;
 
         if a != 0 {
             if a < bc || a > ec {
-                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
             qw = (*font_info.offset((*char_base.offset(f as isize) + a) as isize)).b16;
             if !(qw.s3 as i32 > 0i32) {
-                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
         }
 
         if b != 0 {
             if b < bc || b > ec {
-                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
             qw = (*font_info.offset((*char_base.offset(f as isize) + b) as isize)).b16;
             if !(qw.s3 > 0) {
-                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
         }
 
         if c != 0 {
             if c < bc || c > ec {
-                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
             qw = (*font_info.offset((*char_base.offset(f as isize) + c) as isize)).b16;
             if !(qw.s3 > 0) {
-                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
         }
 
         if d < bc || d > ec {
-            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
         qw = (*font_info.offset((*char_base.offset(f as isize) + d) as isize)).b16;
         if !(qw.s3 > 0) {
-            return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
     }
 
@@ -16969,7 +16967,7 @@ pub unsafe extern "C" fn read_font_info(
         if k == 1 {
             sw = ttstub_input_getc(tfm_file);
             if sw == libc::EOF {
-                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
             if sw > 127 {
                 sw = sw - 256
@@ -16986,7 +16984,7 @@ pub unsafe extern "C" fn read_font_info(
             c = ttstub_input_getc(tfm_file);
             d = ttstub_input_getc(tfm_file);
             if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
             sw = ((d * z / 256i32 + c * z) / 256i32 + b * z) / beta as i32;
             if a == 0 {
@@ -16998,7 +16996,7 @@ pub unsafe extern "C" fn read_font_info(
                     .b32
                     .s1 = sw - alpha
             } else {
-                return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
         }
     }
@@ -17047,12 +17045,11 @@ pub unsafe extern "C" fn read_font_info(
     let ref mut fresh67 = *font_mapping.offset(f as isize);
     *fresh67 = load_tfm_font_mapping();
 
-    return done(file_opened, tfm_file, g);
+    return done(tfm_file_owner, g);
 
     /// Called on error
     unsafe fn bad_tfm(
-        file_opened: bool,
-        tfm_file: rust_input_handle_t,
+        tfm_file: Option<InputHandleWrapper>,
         g: i32,
         u: i32,
         nom: i32,
@@ -17085,7 +17082,7 @@ pub unsafe extern "C" fn read_font_info(
                 print_cstr(b" scaled \x00" as *const u8 as *const i8);
                 print_int(-s);
             }
-            if file_opened {
+            if tfm_file.is_some() {
                 print_cstr(b" not loadable: Bad metric (TFM) file\x00" as *const u8 as *const i8);
             } else if name_too_long {
                 print_cstr(
@@ -17110,14 +17107,15 @@ pub unsafe extern "C" fn read_font_info(
                 as *const u8 as *const i8;
             error();
         }
-        return done(file_opened, tfm_file, g);
+        return done(tfm_file, g);
     }
     // unreachable
-    // return bad_tfm(file_opened, tfm_file, g, u, nom, aire, s, name_too_long);
+    // return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
 
-    unsafe fn done(file_opened: bool, tfm_file: rust_input_handle_t, g: i32) -> i32 {
-        if file_opened {
-            ttstub_input_close(tfm_file);
+    unsafe fn done(tfm_file: Option<InputHandleWrapper>, g: i32) -> i32 {
+        let file_opened = tfm_file.is_some();
+        if let Some(handle) = tfm_file {
+            ttstub_input_close(handle);
         }
 
         if INTPAR(INT_PAR__xetex_tracing_fonts) > 0 {
@@ -17137,7 +17135,7 @@ pub unsafe extern "C" fn read_font_info(
         g
     }
     // unreachable
-    // return done(file_opened, tfm_file, g);
+    // return done(tfm_file_owner, g);
 }
 #[no_mangle]
 pub unsafe extern "C" fn new_character(mut f: internal_font_number, mut c: UTF16_code) -> i32 {
