@@ -334,7 +334,7 @@ unsafe fn load_image(
             if _opts.verbose != 0 {
                 info!("[PDF]");
             }
-            let mut result: i32 = pdf_include_page(I, handle.clone(), fullname, options);
+            let mut result: i32 = pdf_include_page(I, handle, fullname, options);
             /* Tectonic: this used to try ps_include_page() */
             if result != 0i32 {
                 current_block = 15386155914718490365;
@@ -345,7 +345,6 @@ unsafe fn load_image(
                 (*I).subtype = 0i32;
                 current_block = 14945149239039849694;
             }
-            ttstub_input_close(handle);
         }
         5 => {
             if _opts.verbose != 0 {

@@ -412,7 +412,7 @@ unsafe fn pdf_get_page_content(mut page: *mut pdf_obj) -> *mut pdf_obj {
 #[no_mangle]
 pub unsafe extern "C" fn pdf_include_page(
     mut ximage: *mut pdf_ximage,
-    handle: InputHandleWrapper,
+    mut handle: InputHandleWrapper,
     mut ident: *const i8,
     mut options: load_options,
 ) -> i32 {
