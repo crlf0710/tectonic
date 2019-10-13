@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 
@@ -130,9 +129,7 @@ pub unsafe extern "C" fn ht_init_table(mut ht: *mut ht_table, mut hval_free_fn: 
 pub unsafe extern "C" fn ht_clear_table(mut ht: *mut ht_table) {
     assert!(!ht.is_null());
     for i in 0..503 {
-        let mut hent: *mut ht_entry = 0 as *mut ht_entry;
-        let mut next: *mut ht_entry = 0 as *mut ht_entry;
-        hent = (*ht).table[i];
+        let mut hent = (*ht).table[i];
         while !hent.is_null() {
             if !(*hent).value.is_null() && (*ht).hval_free_fn.is_some() {
                 (*ht).hval_free_fn.expect("non-null function pointer")((*hent).value);
@@ -142,7 +139,7 @@ pub unsafe extern "C" fn ht_clear_table(mut ht: *mut ht_table) {
                 free((*hent).key as *mut libc::c_void);
             }
             (*hent).key = 0 as *mut i8;
-            next = (*hent).next;
+            let next = (*hent).next;
             free(hent as *mut libc::c_void);
             hent = next
         }
@@ -171,11 +168,9 @@ pub unsafe extern "C" fn ht_lookup_table(
     mut key: *const libc::c_void,
     mut keylen: i32,
 ) -> *mut libc::c_void {
-    let mut hent: *mut ht_entry = 0 as *mut ht_entry;
-    let mut hkey: u32 = 0;
     assert!(!ht.is_null() && !key.is_null());
-    hkey = get_hash(key, keylen);
-    hent = (*ht).table[hkey as usize];
+    let mut hkey = get_hash(key, keylen);
+    let mut hent = (*ht).table[hkey as usize];
     while !hent.is_null() {
         if (*hent).keylen == keylen
             && memcmp((*hent).key as *const libc::c_void, key, keylen as _) == 0
@@ -193,13 +188,10 @@ pub unsafe extern "C" fn ht_remove_table(
     mut keylen: i32,
 ) -> i32
 /* returns 1 if the element was found and removed and 0 otherwise */ {
-    let mut hent: *mut ht_entry = 0 as *mut ht_entry;
-    let mut prev: *mut ht_entry = 0 as *mut ht_entry;
-    let mut hkey: u32 = 0;
     assert!(!ht.is_null() && !key.is_null());
-    hkey = get_hash(key, keylen);
-    hent = (*ht).table[hkey as usize];
-    prev = 0 as *mut ht_entry;
+    let mut hkey = get_hash(key, keylen) as usize;
+    let mut hent = (*ht).table[hkey];
+    let mut prev = 0 as *mut ht_entry;
     while !hent.is_null() {
         if (*hent).keylen == keylen
             && memcmp((*hent).key as *const libc::c_void, key, keylen as _) == 0
@@ -219,7 +211,7 @@ pub unsafe extern "C" fn ht_remove_table(
         if !prev.is_null() {
             (*prev).next = (*hent).next
         } else {
-            (*ht).table[hkey as usize] = (*hent).next
+            (*ht).table[hkey] = (*hent).next
         }
         free(hent as *mut libc::c_void);
         (*ht).count -= 1;
@@ -236,13 +228,10 @@ pub unsafe extern "C" fn ht_insert_table(
     mut keylen: i32,
     mut value: *mut libc::c_void,
 ) {
-    let mut hent: *mut ht_entry = 0 as *mut ht_entry;
-    let mut prev: *mut ht_entry = 0 as *mut ht_entry;
-    let mut hkey: u32 = 0;
     assert!(!ht.is_null() && !key.is_null());
-    hkey = get_hash(key, keylen);
-    hent = (*ht).table[hkey as usize];
-    prev = 0 as *mut ht_entry;
+    let mut hkey = get_hash(key, keylen) as usize;
+    let mut hent = (*ht).table[hkey];
+    let mut prev = 0 as *mut ht_entry;
     while !hent.is_null() {
         if (*hent).keylen == keylen
             && memcmp((*hent).key as *const libc::c_void, key, keylen as _) == 0
@@ -268,7 +257,7 @@ pub unsafe extern "C" fn ht_insert_table(
         if !prev.is_null() {
             (*prev).next = hent
         } else {
-            (*ht).table[hkey as usize] = hent
+            (*ht).table[hkey] = hent
         }
         (*ht).count += 1
     };
@@ -280,15 +269,13 @@ pub unsafe extern "C" fn ht_append_table(
     mut keylen: i32,
     mut value: *mut libc::c_void,
 ) {
-    let mut hent: *mut ht_entry = 0 as *mut ht_entry;
     let mut last: *mut ht_entry = 0 as *mut ht_entry;
-    let mut hkey: u32 = 0;
-    hkey = get_hash(key, keylen);
-    hent = (*ht).table[hkey as usize];
+    let mut hkey = get_hash(key, keylen) as usize;
+    let mut hent = (*ht).table[hkey];
     if hent.is_null() {
         hent = new((1_u64).wrapping_mul(::std::mem::size_of::<ht_entry>() as u64) as u32)
             as *mut ht_entry;
-        (*ht).table[hkey as usize] = hent
+        (*ht).table[hkey] = hent
     } else {
         while !hent.is_null() {
             last = hent;
@@ -330,8 +317,7 @@ pub unsafe extern "C" fn ht_clear_iter(mut iter: *mut ht_iter) {
 }
 #[no_mangle]
 pub unsafe extern "C" fn ht_iter_getkey(mut iter: *mut ht_iter, mut keylen: *mut i32) -> *mut i8 {
-    let mut hent: *mut ht_entry = 0 as *mut ht_entry;
-    hent = (*iter).curr as *mut ht_entry;
+    let hent = (*iter).curr as *mut ht_entry;
     if !iter.is_null() && !hent.is_null() {
         *keylen = (*hent).keylen;
         return (*hent).key;
@@ -342,8 +328,7 @@ pub unsafe extern "C" fn ht_iter_getkey(mut iter: *mut ht_iter, mut keylen: *mut
 }
 #[no_mangle]
 pub unsafe extern "C" fn ht_iter_getval(mut iter: *mut ht_iter) -> *mut libc::c_void {
-    let mut hent: *mut ht_entry = 0 as *mut ht_entry;
-    hent = (*iter).curr as *mut ht_entry;
+    let hent = (*iter).curr as *mut ht_entry;
     if !iter.is_null() && !hent.is_null() {
         return (*hent).value;
     } else {
@@ -352,11 +337,9 @@ pub unsafe extern "C" fn ht_iter_getval(mut iter: *mut ht_iter) -> *mut libc::c_
 }
 #[no_mangle]
 pub unsafe extern "C" fn ht_iter_next(mut iter: *mut ht_iter) -> i32 {
-    let mut hent: *mut ht_entry = 0 as *mut ht_entry;
-    let mut ht: *mut ht_table = 0 as *mut ht_table;
     assert!(!iter.is_null());
-    ht = (*iter).hash;
-    hent = (*iter).curr as *mut ht_entry;
+    let ht = (*iter).hash;
+    let mut hent = (*iter).curr as *mut ht_entry;
     hent = (*hent).next;
     while hent.is_null() && {
         (*iter).index += 1;
@@ -420,10 +403,9 @@ unsafe fn read_c_escchar(mut r: *mut i8, mut pp: *mut *const i8, mut endptr: *co
             l = 0i32
         }
         48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 => {
-            let mut i: i32 = 0;
             c = 0i32;
-            i = 0i32;
-            while i < 3i32
+            let mut i = 0;
+            while i < 3
                 && p < endptr
                 && *p.offset(0) as i32 >= '0' as i32
                 && *p.offset(0) as i32 <= '7' as i32
@@ -434,9 +416,8 @@ unsafe fn read_c_escchar(mut r: *mut i8, mut pp: *mut *const i8, mut endptr: *co
             }
         }
         120 => {
-            let mut i_0: i32 = 0;
             c = 0i32;
-            i_0 = 0i32;
+            let mut i_0 = 0;
             p = p.offset(1);
             while i_0 < 2i32 && p < endptr && libc::isxdigit(*p.offset(0) as _) != 0 {
                 c = (c << 4i32)
@@ -474,11 +455,9 @@ unsafe fn read_c_litstrc(
     mut pp: *mut *const i8,
     mut endptr: *const i8,
 ) -> i32 {
-    let mut p: *const i8 = 0 as *const i8;
-    let mut l: i32 = 0i32;
     let mut s: i32 = -1i32;
-    l = 0i32;
-    p = *pp;
+    let mut l = 0i32;
+    let mut p = *pp;
     while s == -1i32 && p < endptr {
         match *p.offset(0) as i32 {
             34 => {
@@ -538,26 +517,23 @@ unsafe fn read_c_litstrc(
 pub unsafe extern "C" fn parse_c_string(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut i8 {
     let mut q: *mut i8 = 0 as *mut i8;
     let mut p: *const i8 = *pp;
-    let mut l: i32 = 0i32;
     if p >= endptr || *p.offset(0) as u8 != b'\"' {
         return 0 as *mut i8;
     }
     p = p.offset(1);
-    l = read_c_litstrc(0 as *mut i8, 0i32, &mut p, endptr);
+    let mut l = read_c_litstrc(0 as *mut i8, 0i32, &mut p, endptr);
     if l >= 0i32 {
         q = new(((l + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
             as *mut i8;
         p = (*pp).offset(1);
-        l = read_c_litstrc(q, l + 1i32, &mut p, endptr)
+        read_c_litstrc(q, l + 1i32, &mut p, endptr);
     }
     *pp = p;
     q
 }
 #[no_mangle]
 pub unsafe extern "C" fn parse_c_ident(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut i8 {
-    let mut q: *mut i8 = 0 as *mut i8;
     let mut p: *const i8 = *pp;
-    let mut n: i32 = 0;
     if p >= endptr
         || !(*p as u8 == b'_'
             || *p as u8 >= b'a' && *p as u8 <= b'z'
@@ -565,7 +541,7 @@ pub unsafe extern "C" fn parse_c_ident(mut pp: *mut *const i8, mut endptr: *cons
     {
         return 0 as *mut i8;
     }
-    n = 0i32;
+    let mut n = 0i32;
     while p < endptr
         && (*p as i32 == '_' as i32
             || *p as u8 >= b'a' && *p as u8 <= b'z'
@@ -575,7 +551,7 @@ pub unsafe extern "C" fn parse_c_ident(mut pp: *mut *const i8, mut endptr: *cons
         p = p.offset(1);
         n += 1
     }
-    q = new((n + 1).wrapping_mul(::std::mem::size_of::<i8>() as _) as _) as *mut i8;
+    let mut q = new((n + 1).wrapping_mul(::std::mem::size_of::<i8>() as _) as _) as *mut i8;
     memcpy(q as *mut libc::c_void, *pp as *const libc::c_void, n as _);
     *q.offset(n as isize) = '\u{0}' as i32 as i8;
     *pp = p;
@@ -610,8 +586,6 @@ pub unsafe extern "C" fn parse_float_decimal(
 ) -> *mut i8 {
     let mut q: *mut i8 = 0 as *mut i8;
     let mut p: *const i8 = *pp;
-    let mut s: i32 = 0i32;
-    let mut n: i32 = 0i32;
     if p >= endptr {
         return 0 as *mut i8;
     }
@@ -619,8 +593,8 @@ pub unsafe extern "C" fn parse_float_decimal(
         p = p.offset(1)
     }
     /* 1. .01 001 001E-001 */
-    s = 0i32;
-    n = 0i32;
+    let mut s = 0i32;
+    let mut n = 0i32;
     while p < endptr && s >= 0i32 {
         match *p.offset(0) as u8 {
             b'+' | b'-' => {

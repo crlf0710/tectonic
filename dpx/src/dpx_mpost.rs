@@ -81,7 +81,6 @@ pub type fixword = i32;
 
 pub type spt_t = i32;
 
-use super::dpx_fontmap::fontmap_rec;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct mp_font {
@@ -1910,11 +1909,8 @@ static mut font_stack: [mp_font; 256] = [
 static mut currentfont: i32 = -1i32;
 static mut mp_cmode: i32 = 0i32;
 unsafe fn mp_setfont(mut font_name: *const i8, mut pt_size: f64) -> i32 {
-    let mut name: *const i8 = font_name;
-    let mut font: *mut mp_font = 0 as *mut mp_font;
     let mut subfont_id: i32 = -1i32;
-    let mut mrec: *mut fontmap_rec = 0 as *mut fontmap_rec;
-    font = if currentfont < 0i32 {
+    let mut font = if currentfont < 0i32 {
         0 as *mut mp_font
     } else {
         &mut *font_stack.as_mut_ptr().offset(currentfont as isize) as *mut mp_font
@@ -1929,7 +1925,7 @@ unsafe fn mp_setfont(mut font_name: *const i8, mut pt_size: f64) -> i32 {
         (*font).font_name = 0 as *mut i8;
         currentfont = 0i32
     }
-    mrec = pdf_lookup_fontmap_record(font_name);
+    let mrec = pdf_lookup_fontmap_record(font_name);
     if !mrec.is_null()
         && !(*mrec).charmap.sfd_name.is_null()
         && !(*mrec).charmap.subfont_id.is_null()
@@ -1937,11 +1933,11 @@ unsafe fn mp_setfont(mut font_name: *const i8, mut pt_size: f64) -> i32 {
         subfont_id = sfd_load_record((*mrec).charmap.sfd_name, (*mrec).charmap.subfont_id)
     }
     /* See comments in dvi_locate_font() in dvi.c. */
-    if !mrec.is_null() && !(*mrec).map_name.is_null() {
-        name = (*mrec).map_name
+    let name = if !mrec.is_null() && !(*mrec).map_name.is_null() {
+        (*mrec).map_name
     } else {
-        name = font_name
-    } /* Need not exist in MP mode */
+        font_name
+    }; /* Need not exist in MP mode */
     free((*font).font_name as *mut libc::c_void);
     (*font).font_name =
         new((strlen(font_name).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
@@ -1960,8 +1956,6 @@ unsafe fn mp_setfont(mut font_name: *const i8, mut pt_size: f64) -> i32 {
     0i32
 }
 unsafe fn save_font() {
-    let mut current: *mut mp_font = 0 as *mut mp_font;
-    let mut next: *mut mp_font = 0 as *mut mp_font;
     if currentfont < 0i32 {
         font_stack[0].font_name = new((strlen(b"Courier\x00" as *const u8 as *const i8)
             .wrapping_add(1))
@@ -1978,8 +1972,8 @@ unsafe fn save_font() {
     }
     let fresh0 = currentfont;
     currentfont = currentfont + 1;
-    current = &mut *font_stack.as_mut_ptr().offset(fresh0 as isize) as *mut mp_font;
-    next = &mut *font_stack.as_mut_ptr().offset(currentfont as isize) as *mut mp_font;
+    let current = &mut *font_stack.as_mut_ptr().offset(fresh0 as isize) as *mut mp_font;
+    let next = &mut *font_stack.as_mut_ptr().offset(currentfont as isize) as *mut mp_font;
     (*next).font_name = new((strlen((*current).font_name).wrapping_add(1))
         .wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
     strcpy((*next).font_name, (*current).font_name);
@@ -1988,8 +1982,7 @@ unsafe fn save_font() {
     (*next).tfm_id = (*current).tfm_id;
 }
 unsafe fn restore_font() {
-    let mut current: *mut mp_font = 0 as *mut mp_font;
-    current = if currentfont < 0i32 {
+    let current = if currentfont < 0i32 {
         0 as *mut mp_font
     } else {
         &mut *font_stack.as_mut_ptr().offset(currentfont as isize) as *mut mp_font
@@ -2008,8 +2001,7 @@ unsafe fn clear_fonts() {
     }
 }
 unsafe fn is_fontname(mut token: *const i8) -> bool {
-    let mut mrec: *mut fontmap_rec = 0 as *mut fontmap_rec;
-    mrec = pdf_lookup_fontmap_record(token);
+    let mrec = pdf_lookup_fontmap_record(token);
     if !mrec.is_null() {
         return true;
     }
@@ -2021,9 +2013,7 @@ pub unsafe extern "C" fn mps_scan_bbox(
     mut endptr: *const i8,
     bbox: &mut pdf_rect,
 ) -> i32 {
-    let mut number: *mut i8 = 0 as *mut i8;
     let mut values: [f64; 4] = [0.; 4];
-    let mut i: i32 = 0;
     /* skip_white() skips lines starting '%'... */
     while *pp < endptr && libc::isspace(**pp as _) != 0 {
         *pp = (*pp).offset(1)
@@ -2034,10 +2024,10 @@ pub unsafe extern "C" fn mps_scan_bbox(
             && !strstartswith(*pp, b"%%BoundingBox:\x00" as *const u8 as *const i8).is_null()
         {
             *pp = (*pp).offset(14);
-            i = 0i32;
+            let mut i = 0;
             while i < 4i32 {
                 skip_white(pp, endptr);
-                number = parse_number(pp, endptr);
+                let number = parse_number(pp, endptr);
                 if number.is_null() {
                     break;
                 }
@@ -2076,8 +2066,7 @@ pub unsafe extern "C" fn mps_scan_bbox(
 }
 unsafe fn skip_prolog(mut start: *mut *const i8, mut end: *const i8) {
     let mut found_prolog: i32 = 0i32;
-    let mut save: *const i8 = 0 as *const i8;
-    save = *start;
+    let save = *start;
     while *start < end {
         if **start as i32 != '%' as i32 {
             skip_white(start, end);
@@ -2656,19 +2645,17 @@ unsafe fn get_opcode(mut token: *const i8) -> i32 {
 static mut stack: [*mut pdf_obj; 1024] = [0 as *const pdf_obj as *mut pdf_obj; 1024];
 static mut top_stack: u32 = 0_u32;
 unsafe fn do_exch() -> i32 {
-    let mut tmp: *mut pdf_obj = 0 as *mut pdf_obj;
     if top_stack < 2_u32 {
         return -1i32;
     }
-    tmp = stack[top_stack.wrapping_sub(1_u32) as usize];
+    let tmp = stack[top_stack.wrapping_sub(1_u32) as usize];
     stack[top_stack.wrapping_sub(1_u32) as usize] = stack[top_stack.wrapping_sub(2_u32) as usize];
     stack[top_stack.wrapping_sub(2_u32) as usize] = tmp;
     0i32
 }
 unsafe fn do_clear() -> i32 {
-    let mut tmp: *mut pdf_obj = 0 as *mut pdf_obj;
     while top_stack > 0_u32 {
-        tmp = if top_stack > 0_u32 {
+        let mut tmp = if top_stack > 0_u32 {
             top_stack = top_stack.wrapping_sub(1);
             stack[top_stack as usize]
         } else {
@@ -2679,14 +2666,13 @@ unsafe fn do_clear() -> i32 {
     0i32
 }
 unsafe fn pop_get_numbers(mut values: *mut f64, mut count: i32) -> i32 {
-    let mut tmp: *mut pdf_obj = 0 as *mut pdf_obj;
     loop {
         let fresh1 = count;
         count = count - 1;
         if !(fresh1 > 0i32) {
             break;
         }
-        tmp = if top_stack > 0_u32 {
+        let tmp = if top_stack > 0_u32 {
             top_stack = top_stack.wrapping_sub(1);
             stack[top_stack as usize]
         } else {
@@ -2710,14 +2696,13 @@ unsafe fn cvr_array(mut array: *mut pdf_obj, mut values: *mut f64, mut count: i3
     if !(!array.is_null() && (*array).is_array()) {
         warn!("mpost: Not an array!");
     } else {
-        let mut tmp: *mut pdf_obj = 0 as *mut pdf_obj;
         loop {
             let fresh2 = count;
             count = count - 1;
             if !(fresh2 > 0i32) {
                 break;
             }
-            tmp = pdf_get_array(array, count);
+            let tmp = pdf_get_array(array, count);
             if !(!tmp.is_null() && (*tmp).is_number()) {
                 warn!("mpost: Not a number!");
                 break;
@@ -2751,9 +2736,7 @@ unsafe fn is_fontdict(mut dict: *mut pdf_obj) -> bool {
 }
 unsafe fn do_findfont() -> i32 {
     let mut error: i32 = 0i32;
-    let mut font_dict: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut font_name: *mut pdf_obj = 0 as *mut pdf_obj;
-    font_name = if top_stack > 0_u32 {
+    let font_name = if top_stack > 0_u32 {
         top_stack = top_stack.wrapping_sub(1);
         stack[top_stack as usize]
     } else {
@@ -2769,7 +2752,7 @@ unsafe fn do_findfont() -> i32 {
              * The reason for this is that we cannot locate PK font without
              * font scale.
              */
-            font_dict = pdf_new_dict();
+            let font_dict = pdf_new_dict();
             pdf_add_dict(font_dict, "Type", pdf_new_name("Font"));
             if !font_name.is_null() && (*font_name).is_string() {
                 pdf_add_dict(
@@ -2798,14 +2781,12 @@ unsafe fn do_findfont() -> i32 {
     error
 }
 unsafe fn do_scalefont() -> i32 {
-    let mut error: i32 = 0i32;
-    let mut font_dict: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut scale: f64 = 0.;
-    error = pop_get_numbers(&mut scale, 1i32);
+    let mut error = pop_get_numbers(&mut scale, 1i32);
     if error != 0 {
         return error;
     }
-    font_dict = if top_stack > 0_u32 {
+    let font_dict = if top_stack > 0_u32 {
         top_stack = top_stack.wrapping_sub(1);
         stack[top_stack as usize]
     } else {
@@ -2831,33 +2812,30 @@ unsafe fn do_scalefont() -> i32 {
     error
 }
 unsafe fn do_setfont() -> i32 {
-    let mut error: i32 = 0i32;
-    let mut font_dict: *mut pdf_obj = 0 as *mut pdf_obj;
-    font_dict = if top_stack > 0_u32 {
+    let font_dict = if top_stack > 0_u32 {
         top_stack = top_stack.wrapping_sub(1);
         stack[top_stack as usize]
     } else {
         0 as *mut pdf_obj
     };
-    if !is_fontdict(font_dict) {
-        error = 1i32
+    let error = if !is_fontdict(font_dict) {
+        1
     } else {
         /* Subfont support prevent us from managing
          * font in a single place...
          */
         let font_name = pdf_name_value(&*pdf_lookup_dict(font_dict, "FontName").unwrap());
         let font_scale = pdf_number_value(pdf_lookup_dict(font_dict, "FontScale").unwrap());
-        error = mp_setfont(font_name.as_ptr(), font_scale)
-    }
+        mp_setfont(font_name.as_ptr(), font_scale)
+    };
     pdf_release_obj(font_dict);
     error
 }
 /* Push dummy font dict onto PS stack */
 unsafe fn do_currentfont() -> i32 {
     let mut error: i32 = 0i32; /* Should not be error... */
-    let mut font: *mut mp_font = 0 as *mut mp_font; /* Should not be error... */
-    let mut font_dict: *mut pdf_obj = 0 as *mut pdf_obj;
-    font = if currentfont < 0i32 {
+    /* Should not be error... */
+    let font = if currentfont < 0i32 {
         0 as *mut mp_font
     } else {
         &mut *font_stack.as_mut_ptr().offset(currentfont as isize) as *mut mp_font
@@ -2866,7 +2844,7 @@ unsafe fn do_currentfont() -> i32 {
         warn!("Currentfont undefined...");
         return 1i32;
     } else {
-        font_dict = pdf_new_dict();
+        let font_dict = pdf_new_dict();
         pdf_add_dict(font_dict, "Type", pdf_new_name("Font"));
         pdf_add_dict(font_dict, "FontName", pdf_copy_name((*font).font_name));
         pdf_add_dict(font_dict, "FontScale", pdf_new_number((*font).pt_size));
@@ -2883,13 +2861,8 @@ unsafe fn do_currentfont() -> i32 {
     error
 }
 unsafe fn do_show() -> i32 {
-    let mut font: *mut mp_font = 0 as *mut mp_font;
     let mut cp = pdf_coord::zero();
-    let mut text_str: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut length: i32 = 0;
-    let mut strptr: *mut u8 = 0 as *mut u8;
-    let mut text_width: f64 = 0.;
-    font = if currentfont < 0i32 {
+    let font = if currentfont < 0i32 {
         0 as *mut mp_font
     } else {
         &mut *font_stack.as_mut_ptr().offset(currentfont as isize) as *mut mp_font
@@ -2899,7 +2872,7 @@ unsafe fn do_show() -> i32 {
         return 1i32;
     }
     pdf_dev_currentpoint(&mut cp);
-    text_str = if top_stack > 0_u32 {
+    let text_str = if top_stack > 0_u32 {
         top_stack = top_stack.wrapping_sub(1);
         stack[top_stack as usize]
     } else {
@@ -2914,8 +2887,8 @@ unsafe fn do_show() -> i32 {
         pdf_release_obj(text_str);
         return 1i32;
     }
-    strptr = pdf_string_value(text_str) as *mut u8;
-    length = pdf_string_length(text_str) as i32;
+    let strptr = pdf_string_value(text_str) as *mut u8;
+    let length = pdf_string_length(text_str) as i32;
     if (*font).tfm_id < 0i32 {
         warn!(
             "mpost: TFM not found for \"{}\".",
@@ -2923,15 +2896,13 @@ unsafe fn do_show() -> i32 {
         );
         warn!("mpost: Text width not calculated...");
     }
-    text_width = 0.0f64;
+    let mut text_width = 0_f64;
     if (*font).subfont_id >= 0i32 {
-        let mut uch: u16 = 0;
-        let mut ustr: *mut u8 = 0 as *mut u8;
-        ustr = new(
+        let ustr = new(
             ((length * 2i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
         ) as *mut u8;
         for i in 0..length {
-            uch = lookup_sfd_record((*font).subfont_id, *strptr.offset(i as isize));
+            let uch = lookup_sfd_record((*font).subfont_id, *strptr.offset(i as isize));
             *ustr.offset((2i32 * i) as isize) = (uch as i32 >> 8i32) as u8;
             *ustr.offset((2i32 * i + 1i32) as isize) = (uch as i32 & 0xffi32) as u8;
             if (*font).tfm_id >= 0i32 {
@@ -2975,13 +2946,9 @@ unsafe fn do_show() -> i32 {
     0i32
 }
 unsafe fn do_mpost_bind_def(mut ps_code: *const i8, mut x_user: f64, mut y_user: f64) -> i32 {
-    let mut error: i32 = 0i32;
-    let mut start: *const i8 = 0 as *const i8;
-    let mut end: *const i8 = 0 as *const i8;
-    start = ps_code;
-    end = start.offset(strlen(start) as isize);
-    error = mp_parse_body(&mut start, end, x_user, y_user);
-    error
+    let mut start = ps_code;
+    let end = start.offset(strlen(start) as isize);
+    mp_parse_body(&mut start, end, x_user, y_user)
 }
 unsafe fn do_texfig_operator(mut opcode: i32, mut x_user: f64, mut y_user: f64) -> i32 {
     static mut fig_p: transform_info = transform_info::new();
@@ -2994,10 +2961,9 @@ unsafe fn do_texfig_operator(mut opcode: i32, mut x_user: f64, mut y_user: f64) 
         1002 => {
             error = pop_get_numbers(values.as_mut_ptr(), 6i32);
             if error == 0 {
-                let mut dvi2pts: f64 = 0.;
                 let mut resname: [i8; 256] = [0; 256];
                 transform_info_clear(&mut fig_p);
-                dvi2pts = 1.0f64 / dev_unit_dviunit();
+                let dvi2pts = 1.0f64 / dev_unit_dviunit();
                 fig_p.width = values[0] * dvi2pts;
                 fig_p.height = values[1] * dvi2pts;
                 fig_p.bbox.llx = values[2] * dvi2pts;
@@ -3048,12 +3014,11 @@ unsafe fn ps_dev_CTM(M: &mut pdf_tmatrix) -> i32 {
  */
 unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) -> i32 {
     let mut error: i32 = 0i32;
-    let mut opcode: i32 = 0i32;
     let mut values: [f64; 12] = [0.; 12];
     let mut tmp: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut matrix = pdf_tmatrix::new();
     let mut cp = pdf_coord::zero();
-    opcode = get_opcode(token);
+    let opcode = get_opcode(token);
     let mut current_block_294: u64;
     match opcode {
         1 => {
@@ -3311,13 +3276,10 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
         61 => {
             error = pop_get_numbers(values.as_mut_ptr(), 1i32);
             if error == 0 {
-                let mut pattern: *mut pdf_obj = 0 as *mut pdf_obj;
-                let mut dash: *mut pdf_obj = 0 as *mut pdf_obj;
                 let mut num_dashes = 0_usize;
                 let mut dash_values: [f64; 16] = [0.; 16];
-                let mut offset: f64 = 0.;
-                offset = values[0];
-                pattern = if top_stack > 0_u32 {
+                let offset = values[0];
+                let pattern = if top_stack > 0_u32 {
                     top_stack = top_stack.wrapping_sub(1);
                     stack[top_stack as usize]
                 } else {
@@ -3335,7 +3297,7 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
                     } else {
                         let mut i = 0;
                         while i < num_dashes && error == 0 {
-                            dash = pdf_get_array(pattern, i as i32);
+                            let dash = pdf_get_array(pattern, i as i32);
                             if !(!dash.is_null() && (*dash).is_number()) {
                                 error = 1i32
                             } else {
@@ -3685,7 +3647,6 @@ unsafe fn mp_parse_body(
     mut x_user: f64,
     mut y_user: f64,
 ) -> i32 {
-    let mut token: *mut i8 = 0 as *mut i8;
     let mut obj: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut error: i32 = 0i32;
     skip_white(start, end);
@@ -3696,9 +3657,8 @@ unsafe fn mp_parse_body(
                     || **start as i32 == '-' as i32
                     || **start as i32 == '.' as i32)
         {
-            let mut value: f64 = 0.;
             let mut next: *mut i8 = 0 as *mut i8;
-            value = strtod(*start, &mut next);
+            let value = strtod(*start, &mut next);
             if next < end as *mut i8
                 && strchr(b"<([{/%\x00" as *const u8 as *const i8, *next as i32).is_null()
                 && libc::isspace(*next as _) == 0
@@ -3777,7 +3737,7 @@ unsafe fn mp_parse_body(
                 break;
             }
         } else {
-            token = parse_ident(start, end);
+            let token = parse_ident(start, end);
             if token.is_null() {
                 error = 1i32
             } else {
@@ -3805,24 +3765,21 @@ pub unsafe extern "C" fn mps_exec_inline(
     mut x_user: f64,
     mut y_user: f64,
 ) -> i32 {
-    let mut error: i32 = 0;
-    let mut dirmode: i32 = 0;
-    let mut autorotate: i32 = 0;
     /* Compatibility for dvipsk. */
-    dirmode = pdf_dev_get_dirmode();
+    let dirmode = pdf_dev_get_dirmode();
     if dirmode != 0 {
         mp_cmode = 2i32
     } else {
         mp_cmode = 1i32
     }
-    autorotate = pdf_dev_get_param(1i32);
+    let autorotate = pdf_dev_get_param(1i32);
     pdf_dev_set_param(1i32, 0i32);
     //pdf_color_push(); /* ... */
     /* Comment in dvipdfm:
      * Remember that x_user and y_user are off by 0.02 %
      */
     pdf_dev_moveto(x_user, y_user);
-    error = mp_parse_body(p, endptr, x_user, y_user);
+    let error = mp_parse_body(p, endptr, x_user, y_user);
     //pdf_color_pop(); /* ... */
     pdf_dev_set_param(1i32, autorotate);
     pdf_dev_set_dirmode(dirmode);
@@ -3830,20 +3787,15 @@ pub unsafe extern "C" fn mps_exec_inline(
 }
 #[no_mangle]
 pub unsafe extern "C" fn mps_do_page(mut image_file: *mut FILE) -> i32 {
-    let mut error: i32 = 0i32; /* scale, xorig, yorig */
+    /* scale, xorig, yorig */
     let mut bbox = pdf_rect::new();
-    let mut buffer: *mut i8 = 0 as *mut i8;
-    let mut start: *const i8 = 0 as *const i8;
-    let mut end: *const i8 = 0 as *const i8;
-    let mut size: i32 = 0;
-    let mut dir_mode: i32 = 0;
     rewind(image_file);
-    size = file_size(image_file);
+    let size = file_size(image_file);
     if size == 0i32 {
         warn!("Can\'t read any byte in the MPS file.");
         return -1i32;
     }
-    buffer =
+    let mut buffer =
         new(((size + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
             as *mut i8;
     fread(
@@ -3853,9 +3805,9 @@ pub unsafe extern "C" fn mps_do_page(mut image_file: *mut FILE) -> i32 {
         image_file,
     );
     *buffer.offset(size as isize) = 0_i8;
-    start = buffer;
-    end = buffer.offset(size as isize);
-    error = mps_scan_bbox(&mut start, end, &mut bbox);
+    let mut start = buffer as *const i8;
+    let end = buffer.offset(size as isize);
+    let mut error = mps_scan_bbox(&mut start, end, &mut bbox);
     if error != 0 {
         warn!("Error occured while scanning MetaPost file headers: Could not find BoundingBox.");
         free(buffer as *mut libc::c_void);
@@ -3864,10 +3816,10 @@ pub unsafe extern "C" fn mps_do_page(mut image_file: *mut FILE) -> i32 {
     mp_cmode = 0i32;
     pdf_doc_begin_page(1.0f64, -Xorigin, -Yorigin);
     pdf_doc_set_mediabox(pdf_doc_current_page_number() as u32, &bbox);
-    dir_mode = pdf_dev_get_dirmode();
+    let dir_mode = pdf_dev_get_dirmode();
     pdf_dev_set_param(1i32, 0i32);
     skip_prolog(&mut start, end);
-    error = mp_parse_body(&mut start, end, 0.0f64, 0.0f64);
+    let mut error = mp_parse_body(&mut start, end, 0.0f64, 0.0f64);
     if error != 0 {
         warn!("Errors occured while interpreting MetaPost file.");
     }

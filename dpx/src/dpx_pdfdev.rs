@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 
@@ -253,7 +252,6 @@ pub struct DevParam {
     pub autorotate: i32,
     pub colormode: i32,
 }
-use super::dpx_cmap::CMap;
 /* Mapping types, MAP_IS_NAME is not supported. */
 /* Lookup flags */
 /* DEBUG */
@@ -305,19 +303,17 @@ static mut ten_pow_inv: [f64; 10] = [
     0.000000001f64,
 ];
 unsafe fn p_itoa(mut value: i32, mut buf: *mut i8) -> u32 {
-    let mut sign: u32 = 0;
-    let mut ndigits: u32 = 0;
     let mut p: *mut i8 = buf;
-    if value < 0i32 {
+    let mut sign = if value < 0i32 {
         let fresh0 = p;
         p = p.offset(1);
         *fresh0 = '-' as i32 as i8;
         value = -value;
-        sign = 1_u32
+        1
     } else {
-        sign = 0_u32
-    }
-    ndigits = 0_u32;
+        0
+    };
+    let mut ndigits = 0_u32;
     loop
     /* Generate at least one digit in reverse order */
     {
@@ -350,21 +346,18 @@ unsafe fn p_dtoa(mut value: f64, mut prec: i32, buf: &mut [u8]) -> usize {
         1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000,
     ];
     let mut i: f64 = 0.;
-    let mut f: f64 = 0.;
-    let mut g: i32 = 0;
     let mut c = buf.as_mut_ptr();
-    let mut n: i32 = 0;
-    if value < 0i32 as f64 {
+    let mut n = if value < 0i32 as f64 {
         value = -value;
         let fresh2 = c;
         c = c.offset(1);
         *fresh2 = b'-';
-        n = 1
+        1
     } else {
-        n = 0
-    }
-    f = modf(value, &mut i);
-    g = (f * p[prec as usize] as f64 + 0.5f64) as i32;
+        0
+    };
+    let f = modf(value, &mut i);
+    let mut g = (f * p[prec as usize] as f64 + 0.5f64) as i32;
     if g == p[prec as usize] {
         g = 0i32;
         i += 1i32 as f64
@@ -404,12 +397,10 @@ unsafe fn p_dtoa(mut value: f64, mut prec: i32, buf: &mut [u8]) -> usize {
     n as usize
 }
 unsafe fn dev_sprint_bp(buf: &mut [u8], mut value: spt_t, mut error: *mut spt_t) -> usize {
-    let mut value_in_bp: f64 = 0.;
-    let mut error_in_bp: f64 = 0.;
     let mut prec: i32 = dev_unit.precision;
-    value_in_bp = value as f64 * dev_unit.dvi2pts;
+    let value_in_bp = value as f64 * dev_unit.dvi2pts;
     if !error.is_null() {
-        error_in_bp = value_in_bp
+        let error_in_bp = value_in_bp
             - (value_in_bp / ten_pow_inv[prec as usize] + 0.5f64).floor()
                 * ten_pow_inv[prec as usize];
         *error = (error_in_bp / dev_unit.dvi2pts).round() as spt_t
@@ -450,8 +441,7 @@ pub unsafe extern "C" fn pdf_sprint_matrix(buf: &mut [u8], M: &pdf_tmatrix) -> u
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_sprint_rect(buf: &mut [u8], rect: &pdf_rect) -> usize {
-    let mut len = 0_usize;
-    len = p_dtoa(rect.llx, dev_unit.precision, buf);
+    let mut len = p_dtoa(rect.llx, dev_unit.precision, buf);
     buf[len] = b' ';
     len += 1;
     len += p_dtoa(rect.lly, dev_unit.precision, &mut buf[len..]);
@@ -466,8 +456,7 @@ pub unsafe extern "C" fn pdf_sprint_rect(buf: &mut [u8], rect: &pdf_rect) -> usi
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_sprint_coord(buf: &mut [u8], p: &pdf_coord) -> usize {
-    let mut len = 0_usize;
-    len = p_dtoa(p.x, dev_unit.precision, buf);
+    let mut len = p_dtoa(p.x, dev_unit.precision, buf);
     buf[len] = b' ';
     len += 1;
     len += p_dtoa(p.y, dev_unit.precision, &mut buf[len..]);
@@ -476,15 +465,13 @@ pub unsafe extern "C" fn pdf_sprint_coord(buf: &mut [u8], p: &pdf_coord) -> usiz
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_sprint_length(buf: &mut [u8], value: f64) -> usize {
-    let mut len = 0_usize;
-    len = p_dtoa(value, dev_unit.precision, buf);
+    let len = p_dtoa(value, dev_unit.precision, buf);
     buf[len] = 0;
     len
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_sprint_number(buf: &mut [u8], mut value: f64) -> usize {
-    let mut len = 0_usize;
-    len = p_dtoa(value, 8, buf);
+    let len = p_dtoa(value, 8, buf);
     buf[len] = 0;
     len
 }
@@ -678,15 +665,11 @@ unsafe fn start_string(
     mut extend: f64,
     mut rotate: TextWMode,
 ) {
-    let mut delx: spt_t = 0;
-    let mut dely: spt_t = 0;
     let mut error_delx: spt_t = 0i32;
     let mut error_dely: spt_t = 0i32;
-    let mut desired_delx: spt_t = 0;
-    let mut desired_dely: spt_t = 0;
     let mut len = 0_usize;
-    delx = xpos - text_state.ref_x;
-    dely = ypos - text_state.ref_y;
+    let delx = xpos - text_state.ref_x;
+    let dely = ypos - text_state.ref_y;
     /*
      * Precompensating for line transformation matrix.
      *
@@ -731,8 +714,8 @@ unsafe fn start_string(
              * d_user =  d x I_vh = d x  |        |
              *                           | 1   s/e|
              */
-            desired_delx = dely;
-            desired_dely = (-(delx as f64 - dely as f64 * slant) / extend) as spt_t;
+            let desired_delx = dely;
+            let desired_dely = (-(delx as f64 - dely as f64 * slant) / extend) as spt_t;
             /* error_del is in device space
              *
              *               | 0  1|
@@ -759,8 +742,8 @@ unsafe fn start_string(
              * d_user = d x I_hv = d x |       |
              *                         |-1/e  0|
              */
-            desired_delx = (-(dely as f64 + delx as f64 * slant) / extend) as spt_t;
-            desired_dely = delx;
+            let desired_delx = (-(dely as f64 + delx as f64 * slant) / extend) as spt_t;
+            let desired_dely = delx;
             /*
              * e = (e_user_y, -e_user_x)
              */
@@ -780,8 +763,8 @@ unsafe fn start_string(
              * d_user = d x I_hh = d x |         |
              *                         |-s/e    1|
              */
-            desired_delx = ((delx as f64 - dely as f64 * slant) / extend) as spt_t;
-            desired_dely = dely;
+            let desired_delx = ((delx as f64 - dely as f64 * slant) / extend) as spt_t;
+            let desired_dely = dely;
             let fresh22 = len;
             len = len + 1;
             format_buffer[fresh22 as usize] = b' ';
@@ -797,8 +780,8 @@ unsafe fn start_string(
              * d_user = d x I_vv = d x |       |
              *                         | 0  1/e|
              */
-            desired_delx = delx;
-            desired_dely = ((dely as f64 + delx as f64 * slant) / extend) as spt_t;
+            let desired_delx = delx;
+            let desired_dely = ((dely as f64 + delx as f64 * slant) / extend) as spt_t;
             let fresh24 = len;
             len = len + 1;
             format_buffer[fresh24 as usize] = b' ';
@@ -815,8 +798,8 @@ unsafe fn start_string(
              * d_user = d x -I_hv = d x |        |
              *                          | 1/e   0|
              */
-            desired_delx = -((-(dely as f64 + delx as f64 * slant) / extend) as spt_t);
-            desired_dely = -delx;
+            let desired_delx = -((-(dely as f64 + delx as f64 * slant) / extend) as spt_t);
+            let desired_dely = -delx;
             let fresh26 = len;
             len = len + 1;
             format_buffer[fresh26 as usize] = b' ';
@@ -834,8 +817,8 @@ unsafe fn start_string(
              * d_user = d x -I_vv = d x |       |
              *                          | 0 -1/e|
              */
-            desired_delx = -delx; /* op: */
-            desired_dely = -(((dely as f64 + delx as f64 * slant) / extend) as spt_t);
+            let desired_delx = -delx; /* op: */
+            let desired_dely = -(((dely as f64 + delx as f64 * slant) / extend) as spt_t);
             let fresh28 = len;
             len = len + 1;
             format_buffer[fresh28 as usize] = b' ';
@@ -911,18 +894,15 @@ unsafe fn string_mode(
  * really a character in that font.
  */
 unsafe fn dev_set_font(mut font_id: i32) -> i32 {
-    let mut font: *mut dev_font = 0 as *mut dev_font;
-    let mut real_font: *mut dev_font = 0 as *mut dev_font;
-    let mut font_scale: f64 = 0.;
     /* text_mode() must come before text_state.is_mb is changed. */
     text_mode(); /* Caller should check font_id. */
-    font = &mut *dev_fonts.offset(font_id as isize) as *mut dev_font; /* space not necessary. */
+    let font = &mut *dev_fonts.offset(font_id as isize) as *mut dev_font; /* space not necessary. */
     assert!(!font.is_null());
-    if (*font).real_font_index >= 0i32 {
-        real_font = &mut *dev_fonts.offset((*font).real_font_index as isize) as *mut dev_font
+    let real_font = if (*font).real_font_index >= 0i32 {
+        &mut *dev_fonts.offset((*font).real_font_index as isize) as *mut dev_font
     } else {
-        real_font = font
-    }
+        font
+    };
     text_state.is_mb = if (*font).format == 3i32 { 1i32 } else { 0i32 };
     let vert_font = if (*font).wmode != 0 { 1 } else { 0 };
     let vert_dir = if dev_param.autorotate != 0 {
@@ -952,7 +932,7 @@ unsafe fn dev_set_font(mut font_id: i32) -> i32 {
         );
         (*real_font).used_on_this_page = 1i32
     }
-    font_scale = (*font).sptsize as f64 * dev_unit.dvi2pts;
+    let font_scale = (*font).sptsize as f64 * dev_unit.dvi2pts;
     let mut len = sprintf(
         format_buffer.as_mut_ptr() as *mut i8,
         b" /%s\x00" as *const u8 as *const i8,
@@ -1004,8 +984,7 @@ unsafe fn dev_set_font(mut font_id: i32) -> i32 {
  */
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_get_font_wmode(mut font_id: i32) -> i32 {
-    let mut font: *mut dev_font = 0 as *mut dev_font;
-    font = &mut *dev_fonts.offset(font_id as isize) as *mut dev_font;
+    let font = &mut *dev_fonts.offset(font_id as isize) as *mut dev_font;
     if !font.is_null() {
         return (*font).wmode;
     }
@@ -1019,21 +998,17 @@ unsafe fn handle_multibyte_string(
     mut str_len: *mut size_t,
     mut ctype: i32,
 ) -> i32 {
-    let mut p: *const u8 = 0 as *const u8;
-    let mut i: size_t = 0;
-    let mut length: size_t = 0;
-    p = *str_ptr;
-    length = *str_len;
+    let mut p = *str_ptr;
+    let mut length = *str_len;
     if ctype == -1i32 && !(*font).cff_charsets.is_null() {
         /* freetype glyph indexes */
         /* Convert freetype glyph indexes to CID. */
         let mut inbuf: *const u8 = p;
         let mut outbuf: *mut u8 = sbuf0.as_mut_ptr();
         for _ in (0..length).step_by(2) {
-            let mut gid: u32 = 0;
             let fresh34 = inbuf;
             inbuf = inbuf.offset(1);
-            gid = ((*fresh34 as i32) << 8i32) as u32;
+            let mut gid = ((*fresh34 as i32) << 8i32) as u32;
             let fresh35 = inbuf;
             inbuf = inbuf.offset(1);
             gid = gid.wrapping_add(*fresh35 as u32);
@@ -1071,11 +1046,10 @@ unsafe fn handle_multibyte_string(
                 warn!("Too long string...");
                 return -1i32;
             }
-            i = 0i32 as size_t;
+            let mut i = 0i32 as size_t;
             while i < length {
                 sbuf1[len as usize] = (*font).ucs_group as u8;
                 if *p.offset(i as isize) as i32 & 0xf8i32 == 0xd8i32 {
-                    let mut c: i32 = 0;
                     /* Check for valid surrogate pair.  */
                     if *p.offset(i as isize) as i32 & 0xfci32 != 0xd8i32
                         || i.wrapping_add(2i32 as u64) >= length
@@ -1089,7 +1063,7 @@ unsafe fn handle_multibyte_string(
                         );
                         return -1i32;
                     }
-                    c = ((*p.offset(i as isize) as i32 & 0x3i32) << 10i32
+                    let c = ((*p.offset(i as isize) as i32 & 0x3i32) << 10i32
                         | (*p.offset(i.wrapping_add(1i32 as u64) as isize) as i32) << 2i32
                         | *p.offset(i.wrapping_add(2i32 as u64) as isize) as i32 & 0x3i32)
                         + 0x100i32;
@@ -1130,16 +1104,11 @@ unsafe fn handle_multibyte_string(
      * TODO: A character decomposed to multiple characters.
      */
     if ctype != -1i32 && (*font).enc_id >= 0i32 {
-        let mut inbuf_0: *const u8 = 0 as *const u8;
-        let mut outbuf_0: *mut u8 = 0 as *mut u8;
-        let mut inbytesleft: size_t = 0;
-        let mut outbytesleft: size_t = 0;
-        let mut cmap: *mut CMap = 0 as *mut CMap;
-        cmap = CMap_cache_get((*font).enc_id);
-        inbuf_0 = p;
-        outbuf_0 = sbuf0.as_mut_ptr();
-        inbytesleft = length;
-        outbytesleft = 4096i32 as size_t;
+        let cmap = CMap_cache_get((*font).enc_id);
+        let mut inbuf_0 = p;
+        let mut outbuf_0 = sbuf0.as_mut_ptr();
+        let mut inbytesleft = length;
+        let mut outbytesleft = 4096i32 as size_t;
         CMap_decode(
             cmap,
             &mut inbuf_0,
@@ -1213,23 +1182,15 @@ pub unsafe extern "C" fn pdf_dev_set_string(
     mut font_id: i32,
     mut ctype: i32,
 ) {
-    let mut font: *mut dev_font = 0 as *mut dev_font; /* Pointer to the reencoded string. */
-    let mut real_font: *mut dev_font = 0 as *mut dev_font;
-    let mut str_ptr: *const u8 = 0 as *const u8;
-    let mut length: size_t = 0;
+    /* Pointer to the reencoded string. */
     let mut len: size_t = 0i32 as size_t;
-    let mut kern: spt_t = 0;
-    let mut delh: spt_t = 0;
-    let mut delv: spt_t = 0;
-    let mut text_xorigin: spt_t = 0;
-    let mut text_yorigin: spt_t = 0;
     if font_id < 0i32 || font_id >= num_dev_fonts {
         panic!("Invalid font: {} ({})", font_id, num_dev_fonts);
     }
     if font_id != text_state.font_id {
         dev_set_font(font_id);
     }
-    font = if text_state.font_id < 0i32 {
+    let mut font = if text_state.font_id < 0i32 {
         0 as *mut dev_font
     } else {
         &mut *dev_fonts.offset(text_state.font_id as isize) as *mut dev_font
@@ -1237,15 +1198,15 @@ pub unsafe extern "C" fn pdf_dev_set_string(
     if font.is_null() {
         panic!("Currentfont not set.");
     }
-    if (*font).real_font_index >= 0i32 {
-        real_font = &mut *dev_fonts.offset((*font).real_font_index as isize) as *mut dev_font
+    let real_font = if (*font).real_font_index >= 0i32 {
+        &mut *dev_fonts.offset((*font).real_font_index as isize) as *mut dev_font
     } else {
-        real_font = font
-    }
-    text_xorigin = text_state.ref_x;
-    text_yorigin = text_state.ref_y;
-    str_ptr = instr_ptr as *const u8;
-    length = instr_len;
+        font
+    };
+    let text_xorigin = text_state.ref_x;
+    let text_yorigin = text_state.ref_y;
+    let mut str_ptr = instr_ptr as *const u8;
+    let mut length = instr_len;
     if (*font).format == 3i32 {
         if handle_multibyte_string(font, &mut str_ptr, &mut length, ctype) < 0i32 {
             panic!("Error in converting input string...");
@@ -1286,19 +1247,19 @@ pub unsafe extern "C" fn pdf_dev_set_string(
      * Is accuracy really a matter? Character widths are always rounded to integer
      * (in 1000 units per em) but dvipdfmx does not take into account of this...
      */
-    if text_state.dir_mode == 0i32 {
+    let (delh, delv) = if text_state.dir_mode == 0i32 {
         /* Left-to-right */
-        delh = text_xorigin + text_state.offset - xpos;
-        delv = ypos - text_yorigin
+        (text_xorigin + text_state.offset - xpos,
+        ypos - text_yorigin)
     } else if text_state.dir_mode == 1i32 {
         /* Top-to-bottom */
-        delh = ypos - text_yorigin + text_state.offset;
-        delv = xpos - text_xorigin
+        (ypos - text_yorigin + text_state.offset,
+        xpos - text_xorigin)
     } else {
         /* Bottom-to-top */
-        delh = ypos + text_yorigin + text_state.offset;
-        delv = xpos + text_xorigin
-    }
+        (ypos + text_yorigin + text_state.offset,
+        xpos + text_xorigin)
+    };
     /* White-space more than 3em is not considered as a part of single text.
      * So we will break string mode in that case.
      * Dvipdfmx spend most of time processing strings with kern = 0 (but far
@@ -1307,15 +1268,15 @@ pub unsafe extern "C" fn pdf_dev_set_string(
      * More text compression may be possible by replacing kern with space char
      * when -kern is equal to space char width.
      */
-    if text_state.force_reset != 0
+    let kern = if text_state.force_reset != 0
         || (delv as i64).abs() > dev_unit.min_bp_val as i64
         || (delh as i64).abs() > (3.0f64 * (*font).extend * (*font).sptsize as f64) as spt_t as i64
     {
         text_mode();
-        kern = 0i32
+        0
     } else {
-        kern = (1000.0f64 / (*font).extend * delh as f64 / (*font).sptsize as f64) as spt_t
-    }
+        (1000.0f64 / (*font).extend * delh as f64 / (*font).sptsize as f64) as spt_t
+    };
     /* Inaccucary introduced by rounding of character width appears within
      * single text block. There are point_size/1000 rounding error per character.
      * If you really care about accuracy, you should compensate this here too.
@@ -1368,10 +1329,8 @@ pub unsafe extern "C" fn pdf_dev_set_string(
             panic!("Buffer overflow...");
         }
         for i in 0..length {
-            let mut first: i32 = 0;
-            let mut second: i32 = 0;
-            first = *str_ptr.offset(i as isize) as i32 >> 4i32 & 0xfi32;
-            second = *str_ptr.offset(i as isize) as i32 & 0xfi32;
+            let mut first = *str_ptr.offset(i as isize) as i32 >> 4i32 & 0xfi32;
+            let mut second = *str_ptr.offset(i as isize) as i32 & 0xfi32;
             let fresh41 = len;
             len = len.wrapping_add(1);
             format_buffer[fresh41 as usize] = (if first >= 10i32 {
@@ -1553,16 +1512,14 @@ unsafe fn print_fontmap(mut font_name: *const i8, mut mrec: *mut fontmap_rec) {
  */
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_locate_font(mut font_name: *const i8, mut ptsize: spt_t) -> i32 {
-    let mut i: i32 = 0; /* found a dev_font that matches the request */
-    let mut mrec: *mut fontmap_rec = 0 as *mut fontmap_rec;
-    let mut font: *mut dev_font = 0 as *mut dev_font;
+    /* found a dev_font that matches the request */
     if font_name.is_null() {
         return -1i32;
     }
     if ptsize == 0i32 {
         panic!("pdf_dev_locate_font() called with the zero ptsize.");
     }
-    i = 0i32;
+    let mut i = 0;
     while i < num_dev_fonts {
         if streq_ptr(font_name, (*dev_fonts.offset(i as isize)).tex_name) {
             if ptsize == (*dev_fonts.offset(i as isize)).sptsize {
@@ -1587,9 +1544,9 @@ pub unsafe extern "C" fn pdf_dev_locate_font(mut font_name: *const i8, mut ptsiz
                 as u32,
         ) as *mut dev_font
     }
-    font = &mut *dev_fonts.offset(num_dev_fonts as isize) as *mut dev_font;
+    let font = &mut *dev_fonts.offset(num_dev_fonts as isize) as *mut dev_font;
     /* New font */
-    mrec = pdf_lookup_fontmap_record(font_name);
+    let mrec = pdf_lookup_fontmap_record(font_name);
     if verbose > 1i32 {
         print_fontmap(font_name, mrec);
     }
@@ -1674,8 +1631,7 @@ unsafe fn dev_sprint_line(
     mut p1_y: spt_t,
 ) -> usize {
     let mut len = 0_usize;
-    let mut w: f64 = 0.;
-    w = width as f64 * dev_unit.dvi2pts;
+    let w = width as f64 * dev_unit.dvi2pts;
     len += p_dtoa(
         w,
         if dev_unit.precision + 1i32 < 8i32 {
@@ -1723,7 +1679,6 @@ pub unsafe extern "C" fn pdf_dev_set_rule(
     mut height: spt_t,
 ) {
     let mut len = 0_usize;
-    let mut width_in_bp: f64 = 0.;
     if num_dev_coords > 0i32 {
         xpos -= ((*dev_coords.offset((num_dev_coords - 1i32) as isize)).x / dev_unit.dvi2pts)
             .round() as spt_t;
@@ -1741,7 +1696,7 @@ pub unsafe extern "C" fn pdf_dev_set_rule(
     len = len + 1;
     format_buffer[fresh61 as usize] = b' ';
     /* Don't use too thick line. */
-    width_in_bp = (if width < height { width } else { height }) as f64 * dev_unit.dvi2pts;
+    let width_in_bp = (if width < height { width } else { height }) as f64 * dev_unit.dvi2pts;
     if width_in_bp < 0.0f64 || width_in_bp > 5.0f64 {
         let mut rect = pdf_rect::new();
         rect.llx = dev_unit.dvi2pts * xpos as f64;
@@ -1815,18 +1770,12 @@ pub unsafe extern "C" fn pdf_dev_set_rect(
     mut height: spt_t,
     mut depth: spt_t,
 ) {
-    let mut dev_x: f64 = 0.; /* currentmatrix */
-    let mut dev_y: f64 = 0.; /* 0 for B&W */
     let mut p0 = pdf_coord::zero();
     let mut p1 = pdf_coord::zero();
     let mut p2 = pdf_coord::zero();
     let mut p3 = pdf_coord::zero();
-    let mut min_x: f64 = 0.;
-    let mut min_y: f64 = 0.;
-    let mut max_x: f64 = 0.;
-    let mut max_y: f64 = 0.;
-    dev_x = x_user as f64 * dev_unit.dvi2pts;
-    dev_y = y_user as f64 * dev_unit.dvi2pts;
+    let dev_x = x_user as f64 * dev_unit.dvi2pts; /* currentmatrix */
+    let dev_y = y_user as f64 * dev_unit.dvi2pts; /* 0 for B&W */
     if text_state.dir_mode != 0 {
         p0.x = dev_x - dev_unit.dvi2pts * depth as f64;
         p0.y = dev_y - dev_unit.dvi2pts * width as f64;
@@ -1850,16 +1799,16 @@ pub unsafe extern "C" fn pdf_dev_set_rect(
     pdf_dev_transform(&mut p1, None);
     pdf_dev_transform(&mut p2, None);
     pdf_dev_transform(&mut p3, None);
-    min_x = if p0.x < p1.x { p0.x } else { p1.x };
+    let mut min_x = if p0.x < p1.x { p0.x } else { p1.x };
     min_x = if min_x < p2.x { min_x } else { p2.x };
     min_x = if min_x < p3.x { min_x } else { p3.x };
-    max_x = if p0.x > p1.x { p0.x } else { p1.x };
+    let mut max_x = if p0.x > p1.x { p0.x } else { p1.x };
     max_x = if max_x > p2.x { max_x } else { p2.x };
     max_x = if max_x > p3.x { max_x } else { p3.x };
-    min_y = if p0.y < p1.y { p0.y } else { p1.y };
+    let mut min_y = if p0.y < p1.y { p0.y } else { p1.y };
     min_y = if min_y < p2.y { min_y } else { p2.y };
     min_y = if min_y < p3.y { min_y } else { p3.y };
-    max_y = if p0.y > p1.y { p0.y } else { p1.y };
+    let mut max_y = if p0.y > p1.y { p0.y } else { p1.y };
     max_y = if max_y > p2.y { max_y } else { p2.y };
     max_y = if max_y > p3.y { max_y } else { p3.y };
     rect.llx = min_x;
@@ -1873,8 +1822,7 @@ pub unsafe extern "C" fn pdf_dev_get_dirmode() -> i32 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_set_dirmode(mut text_dir: i32) {
-    let mut font: *mut dev_font = 0 as *mut dev_font;
-    font = if text_state.font_id < 0i32 {
+    let font = if text_state.font_id < 0i32 {
         0 as *mut dev_font
     } else {
         &mut *dev_fonts.offset(text_state.font_id as isize) as *mut dev_font
@@ -1897,8 +1845,7 @@ pub unsafe extern "C" fn pdf_dev_set_dirmode(mut text_dir: i32) {
     text_state.dir_mode = text_dir;
 }
 unsafe fn dev_set_param_autorotate(mut auto_rotate: i32) {
-    let mut font: *mut dev_font = 0 as *mut dev_font;
-    font = if text_state.font_id < 0i32 {
+    let font = if text_state.font_id < 0i32 {
         0 as *mut dev_font
     } else {
         &mut *dev_fonts.offset(text_state.font_id as isize) as *mut dev_font
@@ -1922,15 +1869,13 @@ unsafe fn dev_set_param_autorotate(mut auto_rotate: i32) {
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_get_param(mut param_type: i32) -> i32 {
-    let mut value: i32 = 0i32;
     match param_type {
-        1 => value = dev_param.autorotate,
-        2 => value = dev_param.colormode,
+        1 => dev_param.autorotate,
+        2 => dev_param.colormode,
         _ => {
             panic!("Unknown device parameter: {}", param_type);
         }
     }
-    value
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_set_param(mut param_type: i32, mut value: i32) {
@@ -1951,7 +1896,6 @@ pub unsafe extern "C" fn pdf_dev_put_image(
     mut ref_x: f64,
     mut ref_y: f64,
 ) -> i32 {
-    let mut res_name: *mut i8 = 0 as *mut i8;
     let mut M = pdf_tmatrix::new();
     let mut M1 = pdf_tmatrix::new();
     let mut r = pdf_rect::new();
@@ -1969,11 +1913,10 @@ pub unsafe extern "C" fn pdf_dev_put_image(
     M.f += ref_y;
     /* Just rotate by -90, but not tested yet. Any problem if M has scaling? */
     if dev_param.autorotate != 0 && text_state.dir_mode != 0 {
-        let mut tmp: f64 = 0.;
-        tmp = -M.a;
+        let tmp = -M.a;
         M.a = M.b;
         M.b = tmp;
-        tmp = -M.c;
+        let tmp = -M.c;
         M.c = M.d;
         M.d = tmp
     }
@@ -1999,7 +1942,7 @@ pub unsafe extern "C" fn pdf_dev_put_image(
     if p.flags & 1i32 << 3i32 != 0 {
         pdf_dev_rectclip(r.llx, r.lly, r.urx - r.llx, r.ury - r.lly); /* op: Do */
     }
-    res_name = pdf_ximage_get_resname(id);
+    let res_name = pdf_ximage_get_resname(id);
     let len = sprintf(
         work_buffer.as_mut_ptr() as *mut i8,
         b" /%s Do\x00" as *const u8 as *const i8,
@@ -2084,7 +2027,6 @@ pub unsafe extern "C" fn transform_info_clear(info: &mut transform_info) {
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count: i32) {
-    let mut len: i32 = 0;
     let mut pdf_doc_enc = 1_usize;
     /* check whether we can use PDFDocEncoding for this string
     (we punt on the 0x80..0xA0 range that does not directly correspond to unicode)  */
@@ -2100,7 +2042,7 @@ pub unsafe extern "C" fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut co
         }
     }
     graphics_mode();
-    len = sprintf(
+    let mut len = sprintf(
         work_buffer.as_mut_ptr() as *mut i8,
         b"\n/Span<</ActualText(\x00" as *const u8 as *const i8,
     );

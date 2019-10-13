@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 
@@ -50,7 +49,7 @@ use crate::{info, warn};
 use std::ffi::CStr;
 
 use super::dpx_cid::CIDFont_set_flags;
-use super::dpx_dpxconf::{paper, paperinfo};
+use super::dpx_dpxconf::paperinfo;
 use super::dpx_dpxfile::{dpx_delete_old_cache, dpx_file_set_verbose};
 use super::dpx_dpxutil::{parse_c_ident, parse_float_decimal};
 use super::dpx_error::shut_up;
@@ -116,9 +115,7 @@ pub static mut always_embed: i32 = 0i32;
 /* always embed fonts, regardless of licensing flags */
 /* XXX: there are four quasi-redundant versions of this; grp for K_UNIT__PT */
 unsafe fn read_length(mut vp: *mut f64, mut pp: *mut *const i8, mut endptr: *const i8) -> i32 {
-    let mut q: *mut i8 = 0 as *mut i8;
     let mut p: *const i8 = *pp;
-    let mut v: f64 = 0.;
     let mut u: f64 = 1.0f64;
     let mut _ukeys: [*const i8; 10] = [
         b"pt\x00" as *const u8 as *const i8,
@@ -132,18 +129,17 @@ unsafe fn read_length(mut vp: *mut f64, mut pp: *mut *const i8, mut endptr: *con
         b"sp\x00" as *const u8 as *const i8,
         0 as *const i8,
     ];
-    let mut k: i32 = 0;
     let mut error: i32 = 0i32;
-    q = parse_float_decimal(&mut p, endptr);
+    let q = parse_float_decimal(&mut p, endptr);
     if q.is_null() {
         *vp = 0.0f64;
         *pp = p;
         return -1i32;
     }
-    v = atof(q);
+    let v = atof(q);
     free(q as *mut libc::c_void);
     skip_white(&mut p, endptr);
-    q = parse_c_ident(&mut p, endptr);
+    let mut q = parse_c_ident(&mut p, endptr);
     if !q.is_null() {
         let mut qq: *mut i8 = q;
         if strlen(q) >= strlen(b"true\x00" as *const u8 as *const i8)
@@ -163,7 +159,7 @@ unsafe fn read_length(mut vp: *mut f64, mut pp: *mut *const i8, mut endptr: *con
             qq = q
         }
         if !q.is_null() {
-            k = 0i32;
+            let mut k = 0;
             while !_ukeys[k as usize].is_null() && strcmp(_ukeys[k as usize], q) != 0 {
                 k += 1
             }
@@ -193,9 +189,8 @@ unsafe fn read_length(mut vp: *mut f64, mut pp: *mut *const i8, mut endptr: *con
     error
 }
 unsafe fn select_paper(mut paperspec: *const i8) {
-    let mut pi: *const paper = 0 as *const paper;
     let mut error: i32 = 0i32;
-    pi = paperinfo(paperspec);
+    let pi = paperinfo(paperspec);
     if !pi.is_null()
         && !(if !pi.is_null() && !(*pi).name.is_null() {
             (*pi).name
@@ -216,17 +211,15 @@ unsafe fn select_paper(mut paperspec: *const i8) {
         }
     } else {
         let mut p: *const i8 = paperspec;
-        let mut endptr: *const i8 = 0 as *const i8;
-        let mut comma: *const i8 = 0 as *const i8;
-        comma = strchr(p, ',' as i32);
-        endptr = p.offset(strlen(p) as isize);
+        let comma = strchr(p, ',' as i32);
+        let endptr = p.offset(strlen(p) as isize);
         if comma.is_null() {
             panic!(
                 "Unrecognized paper format: {}",
                 CStr::from_ptr(paperspec).display()
             );
         }
-        error = read_length(&mut paper_width, &mut p, comma);
+        read_length(&mut paper_width, &mut p, comma); // TODO: check error
         p = comma.offset(1);
         error = read_length(&mut paper_height, &mut p, endptr)
     }
@@ -247,7 +240,6 @@ unsafe fn select_pages(
     let mut page_ranges: *mut PageRange = 0 as *mut PageRange;
     let mut num_page_ranges: u32 = 0_u32;
     let mut max_page_ranges: u32 = 0_u32;
-    let mut q: *mut i8 = 0 as *mut i8;
     let mut p: *const i8 = pagespec;
     while *p as i32 != '\u{0}' as i32 {
         /* Enlarge page range table if necessary */
@@ -264,7 +256,7 @@ unsafe fn select_pages(
         while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
             p = p.offset(1)
         }
-        q = parse_unsigned(&mut p, p.offset(strlen(p) as isize));
+        let q = parse_unsigned(&mut p, p.offset(strlen(p) as isize));
         if !q.is_null() {
             /* '-' is allowed here */
             (*page_ranges.offset(num_page_ranges as isize)).first = atoi(q) - 1i32; /* Root node */
@@ -282,7 +274,7 @@ unsafe fn select_pages(
             }
             (*page_ranges.offset(num_page_ranges as isize)).last = -1i32;
             if *p != 0 {
-                q = parse_unsigned(&mut p, p.offset(strlen(p) as isize));
+                let q = parse_unsigned(&mut p, p.offset(strlen(p) as isize));
                 if !q.is_null() {
                     (*page_ranges.offset(num_page_ranges as isize)).last = atoi(q) - 1i32;
                     free(q as *mut libc::c_void);
@@ -321,55 +313,42 @@ unsafe fn system_default() {
     };
 }
 unsafe fn do_dvi_pages(mut page_ranges: *mut PageRange, mut num_page_ranges: u32) {
-    let mut page_no: i32 = 0;
-    let mut step: i32 = 0;
-    let mut page_count: u32 = 0;
-    let mut i: u32 = 0;
-    let mut page_width: f64 = 0.;
-    let mut page_height: f64 = 0.;
-    let mut init_paper_width: f64 = 0.;
-    let mut init_paper_height: f64 = 0.;
     let mut mediabox = pdf_rect::new();
     spc_exec_at_begin_document();
-    page_width = paper_width;
-    init_paper_width = page_width;
-    page_height = paper_height;
-    init_paper_height = page_height;
-    page_count = 0_u32;
+    let mut page_width = paper_width;
+    let init_paper_width = page_width;
+    let mut page_height = paper_height;
+    let init_paper_height = page_height;
+    let mut page_count = 0;
     mediabox.llx = 0.0f64;
     mediabox.lly = 0.0f64;
     mediabox.urx = paper_width;
     mediabox.ury = paper_height;
     pdf_doc_set_mediabox(0_u32, &mediabox);
-    i = 0_u32;
+    let mut i = 0;
     while i < num_page_ranges && dvi_npages() != 0 {
         if (*page_ranges.offset(i as isize)).last < 0i32 {
             let ref mut fresh0 = (*page_ranges.offset(i as isize)).last;
             *fresh0 = (*fresh0 as u32).wrapping_add(dvi_npages()) as i32 as i32
         }
-        step = if (*page_ranges.offset(i as isize)).first <= (*page_ranges.offset(i as isize)).last
+        let step = if (*page_ranges.offset(i as isize)).first <= (*page_ranges.offset(i as isize)).last
         {
             1i32
         } else {
             -1i32
         };
-        page_no = (*page_ranges.offset(i as isize)).first;
+        let mut page_no = (*page_ranges.offset(i as isize)).first;
         while dvi_npages() != 0 {
             if (page_no as u32) < dvi_npages() {
-                let mut w: f64 = 0.;
-                let mut h: f64 = 0.;
-                let mut xo: f64 = 0.;
-                let mut yo: f64 = 0.;
-                let mut lm: i32 = 0;
-                info!("[{}", page_no + 1i32);
+                info!("[{}", page_no + 1);
                 /* Users want to change page size even after page is started! */
                 page_width = paper_width;
                 page_height = paper_height;
-                w = page_width;
-                h = page_height;
-                lm = landscape_mode;
-                xo = x_offset;
-                yo = y_offset;
+                let mut w = page_width;
+                let mut h = page_height;
+                let mut lm = landscape_mode;
+                let mut xo = x_offset;
+                let mut yo = y_offset;
                 dvi_scan_specials(
                     page_no,
                     &mut w,
@@ -438,7 +417,6 @@ pub unsafe extern "C" fn dvipdfmx_main(
     mut verbose: u32,
 ) -> i32 {
     let mut enable_object_stream: bool = true; /* This must come before parsing options... */
-    let mut dvi2pts: f64 = 0.;
     let mut num_page_ranges: u32 = 0_u32;
     let mut page_ranges: *mut PageRange = 0 as *mut PageRange;
     assert!(!pdf_filename.is_null());
@@ -524,7 +502,7 @@ pub unsafe extern "C" fn dvipdfmx_main(
     let mut owner_pw: [i8; 127] = [0; 127];
     let mut user_pw: [i8; 127] = [0; 127];
     /* Dependency between DVI and PDF side is rather complicated... */
-    dvi2pts = dvi_init(dvi_filename, mag);
+    let dvi2pts = dvi_init(dvi_filename, mag);
     if dvi2pts == 0.0f64 {
         panic!("dvi_init() failed!");
     }

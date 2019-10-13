@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 use libpng_sys::ffi::*;
@@ -107,8 +106,6 @@ pub unsafe extern "C" fn png_include_image(
     let mut info = ximage_info::default();
     /* Libpng stuff */
     pdf_ximage_init_image_info(&mut info);
-    let mut stream = 0 as *mut pdf_obj;
-    let mut stream_dict = 0 as *mut pdf_obj;
     let mut intent = 0 as *mut pdf_obj;
     let mut mask = intent;
     let mut colorspace = mask;
@@ -197,8 +194,8 @@ pub unsafe extern "C" fn png_include_image(
     if yppm > 0_u32 {
         info.ydensity = 72.0f64 / 0.0254f64 / yppm as f64
     }
-    stream = pdf_new_stream(1i32 << 0i32);
-    stream_dict = pdf_stream_dict(stream);
+    let stream = pdf_new_stream(1i32 << 0i32);
+    let stream_dict = pdf_stream_dict(stream);
     let stream_data_ptr = new((rowbytes.wrapping_mul(height) as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
         as u32) as *mut png_byte;
@@ -314,9 +311,8 @@ pub unsafe extern "C" fn png_include_image(
      */
     if pdf_get_version() >= 4i32 as libc::c_uint {
         let mut text_ptr = 0 as *mut png_text;
-        let mut num_text: libc::c_int = 0;
         let mut have_XMP: libc::c_int = 0i32;
-        num_text = png_get_text(png, png_info, &mut text_ptr, &mut 0);
+        let num_text = png_get_text(png, png_info, &mut text_ptr, &mut 0);
         for i in 0..num_text {
             if libc::memcmp(
                 (*text_ptr.offset(i as isize)).key as *const libc::c_void,
@@ -408,7 +404,7 @@ pub unsafe extern "C" fn png_include_image(
  * be represented with Soft-Mask.
  */
 unsafe fn check_transparency(mut png: &mut png_struct, mut info: &mut png_info) -> libc::c_int {
-    let mut trans_type: libc::c_int = 0;
+    let mut trans_type;
     let mut trans_values = 0 as *mut png_color_16;
     let mut trans: png_bytep = 0 as *mut png_byte;
     let mut num_trans: i32 = 0;
@@ -863,7 +859,6 @@ unsafe fn make_param_Cal(
  *
  */
 unsafe fn create_cspace_Indexed(mut png: &mut png_struct, mut info: &mut png_info) -> *mut pdf_obj {
-    let mut base: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut plte = 0 as *mut png_color;
     let mut num_plte: libc::c_int = 0;
     if png_get_valid(png, info, 0x8u32) == 0
@@ -875,13 +870,13 @@ unsafe fn create_cspace_Indexed(mut png: &mut png_struct, mut info: &mut png_inf
     /* Order is important. */
     let colorspace = pdf_new_array();
     pdf_add_array(colorspace, pdf_new_name("Indexed"));
-    if png_get_valid(png, info, 0x1000u32) != 0 {
-        base = create_cspace_ICCBased(png, info)
+    let mut base = if png_get_valid(png, info, 0x1000u32) != 0 {
+        create_cspace_ICCBased(png, info)
     } else if png_get_valid(png, info, 0x800u32) != 0 {
-        base = create_cspace_sRGB(png, info)
+        create_cspace_sRGB(png, info)
     } else {
-        base = create_cspace_CalRGB(png, info)
-    }
+        create_cspace_CalRGB(png, info)
+    };
     if base.is_null() {
         base = pdf_new_name("DeviceRGB")
     }

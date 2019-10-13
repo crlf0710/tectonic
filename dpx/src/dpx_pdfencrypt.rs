@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 
@@ -167,8 +166,7 @@ pub unsafe fn pdf_enc_compute_id_string(dviname: Option<&[u8]>, mut pdfname: Opt
     p.ID = md5.result().into();
 }
 unsafe fn passwd_padding(mut src: *const i8, mut dst: *mut u8) {
-    let mut len: i32 = 0;
-    len = (if 32 < strlen(src) { 32 } else { strlen(src) }) as i32;
+    let len = (if 32 < strlen(src) { 32 } else { strlen(src) }) as i32;
     memcpy(
         dst as *mut libc::c_void,
         src as *const libc::c_void,
@@ -335,8 +333,6 @@ unsafe fn compute_hash_V5(
 {
     let mut sha = Sha256::new();
     let mut K: [u8; 64] = [0; 64];
-    let mut K_len: size_t = 0;
-    let mut nround: i32 = 0;
     sha.input(from_raw_parts(passwd as *const u8, strlen(passwd)));
     sha.input(from_raw_parts(salt, 8));
     if !user_key.is_null() {
@@ -350,21 +346,18 @@ unsafe fn compute_hash_V5(
     for (K_item, hash_item) in K.iter_mut().zip(hash.iter()) {
         *K_item = *hash_item;
     }
-    K_len = 32i32 as size_t;
-    nround = 1i32;
+    let mut K_len = 32i32 as size_t;
+    let mut nround = 1;
     loop
     /* Initial K count as nround 0. */
     {
         let mut K1: [u8; 256] = [0; 256];
-        let mut Kr: *mut u8 = 0 as *mut u8;
         let mut E: *mut u8 = 0 as *mut u8;
-        let mut K1_len: size_t = 0;
         let mut E_len: size_t = 0;
-        let mut c: i32 = 0;
         let mut E_mod3: i32 = 0i32;
-        K1_len = strlen(passwd)
+        let K1_len = strlen(passwd)
             .wrapping_add(K_len as _)
-            .wrapping_add(if !user_key.is_null() { 48 } else { 0 }) as _;
+            .wrapping_add(if !user_key.is_null() { 48 } else { 0 }) as u64;
         assert!(K1_len < 240i32 as u64);
         memcpy(
             K1.as_mut_ptr() as *mut libc::c_void,
@@ -385,7 +378,7 @@ unsafe fn compute_hash_V5(
                 48,
             );
         }
-        Kr = new((K1_len.wrapping_mul(64i32 as u64) as u32 as u64)
+        let Kr = new((K1_len.wrapping_mul(64i32 as u64) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
         for i in 0..64 {
             memcpy(
@@ -436,7 +429,7 @@ unsafe fn compute_hash_V5(
             }
             _ => {}
         }
-        c = *E.offset(E_len.wrapping_sub(1i32 as u64) as isize) as i32;
+        let c = *E.offset(E_len.wrapping_sub(1i32 as u64) as isize) as i32;
         free(E as *mut libc::c_void);
         if nround >= 64i32 && c <= nround - 32i32 {
             break;
@@ -452,11 +445,10 @@ unsafe fn compute_hash_V5(
 unsafe fn compute_owner_password_V5(p: &mut pdf_sec, mut oplain: *const i8) {
     let mut vsalt: [u8; 8] = random();
     let mut ksalt: [u8; 8] = random();
-    let mut hash: [u8; 32] = [0; 32];
     let mut OE: *mut u8 = 0 as *mut u8;
     let mut iv: [u8; 16] = [0; 16];
     let mut OE_len: size_t = 0;
-    hash = compute_hash_V5(oplain, vsalt.as_mut_ptr(), p.U.as_mut_ptr(), p.R);
+    let mut hash = compute_hash_V5(oplain, vsalt.as_mut_ptr(), p.U.as_mut_ptr(), p.R);
     memcpy(
         p.O.as_mut_ptr() as *mut libc::c_void,
         hash.as_mut_ptr() as *const libc::c_void,
@@ -472,7 +464,7 @@ unsafe fn compute_owner_password_V5(p: &mut pdf_sec, mut oplain: *const i8) {
         ksalt.as_mut_ptr() as *const libc::c_void,
         8,
     );
-    hash = compute_hash_V5(oplain, ksalt.as_mut_ptr(), p.U.as_mut_ptr(), p.R);
+    let mut hash = compute_hash_V5(oplain, ksalt.as_mut_ptr(), p.U.as_mut_ptr(), p.R);
     memset(iv.as_mut_ptr() as *mut libc::c_void, 0i32, 16);
     AES_cbc_encrypt_tectonic(
         hash.as_mut_ptr(),
@@ -494,11 +486,10 @@ unsafe fn compute_owner_password_V5(p: &mut pdf_sec, mut oplain: *const i8) {
 unsafe fn compute_user_password_V5(p: &mut pdf_sec, mut uplain: *const i8) {
     let mut vsalt: [u8; 8] = random();
     let mut ksalt: [u8; 8] = random();
-    let mut hash: [u8; 32] = [0; 32];
     let mut UE: *mut u8 = 0 as *mut u8;
     let mut iv: [u8; 16] = [0; 16];
     let mut UE_len: size_t = 0;
-    hash = compute_hash_V5(uplain, vsalt.as_mut_ptr(), 0 as *const u8, p.R);
+    let mut hash = compute_hash_V5(uplain, vsalt.as_mut_ptr(), 0 as *const u8, p.R);
     memcpy(
         p.U.as_mut_ptr() as *mut libc::c_void,
         hash.as_mut_ptr() as *const libc::c_void,
@@ -514,7 +505,7 @@ unsafe fn compute_user_password_V5(p: &mut pdf_sec, mut uplain: *const i8) {
         ksalt.as_mut_ptr() as *const libc::c_void,
         8,
     );
-    hash = compute_hash_V5(uplain, ksalt.as_mut_ptr(), 0 as *const u8, p.R);
+    let mut hash = compute_hash_V5(uplain, ksalt.as_mut_ptr(), 0 as *const u8, p.R);
     memset(iv.as_mut_ptr() as *mut libc::c_void, 0i32, 16);
     AES_cbc_encrypt_tectonic(
         hash.as_mut_ptr(),
@@ -552,10 +543,8 @@ unsafe fn stringprep_profile(
     mut _profile: *const i8,
     mut _flags: Stringprep_profile_flags,
 ) -> i32 {
-    let mut p: *const i8 = 0 as *const i8;
-    let mut endptr: *const i8 = 0 as *const i8;
-    p = input;
-    endptr = p.offset(strlen(p) as isize);
+    let mut p = input;
+    let endptr = p.offset(strlen(p) as isize);
     while p < endptr {
         let mut ucv: i32 = UC_UTF8_decode_char(
             &mut p as *mut *const i8 as *mut *const u8,
@@ -774,8 +763,7 @@ pub unsafe extern "C" fn pdf_encrypt_data(
 #[no_mangle]
 pub unsafe extern "C" fn pdf_encrypt_obj() -> *mut pdf_obj {
     let p = &mut sec_data;
-    let mut doc_encrypt: *mut pdf_obj = 0 as *mut pdf_obj;
-    doc_encrypt = pdf_new_dict();
+    let mut doc_encrypt = pdf_new_dict();
     pdf_add_dict(doc_encrypt, "Filter", pdf_new_name("Standard"));
     pdf_add_dict(doc_encrypt, "V", pdf_new_number(p.V as f64));
     pdf_add_dict(
@@ -784,10 +772,8 @@ pub unsafe extern "C" fn pdf_encrypt_obj() -> *mut pdf_obj {
         pdf_new_number((p.key_size * 8i32) as f64),
     );
     if p.V >= 4i32 {
-        let mut CF: *mut pdf_obj = 0 as *mut pdf_obj;
-        let mut StdCF: *mut pdf_obj = 0 as *mut pdf_obj;
-        CF = pdf_new_dict();
-        StdCF = pdf_new_dict();
+        let CF = pdf_new_dict();
+        let StdCF = pdf_new_dict();
         pdf_add_dict(
             StdCF,
             "CFM",

@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 
@@ -71,20 +70,16 @@ pub struct named_object {
 }
 unsafe fn printable_key(mut key: *const i8, mut keylen: i32) -> *mut i8 {
     static mut pkey: [i8; 36] = [0; 36];
-    let mut i: i32 = 0;
-    let mut len: i32 = 0;
-    let mut hi: u8 = 0;
-    let mut lo: u8 = 0;
-    i = 0i32;
-    len = 0i32;
+    let mut i = 0i32;
+    let mut len = 0i32;
     while i < keylen && len < 32i32 {
         if libc::isprint(*key.offset(i as isize) as _) != 0 {
             let fresh0 = len;
             len = len + 1;
             pkey[fresh0 as usize] = *key.offset(i as isize)
         } else {
-            hi = (*key.offset(i as isize) as i32 >> 4i32 & 0xffi32) as u8;
-            lo = (*key.offset(i as isize) as i32 & 0xffi32) as u8;
+            let hi = (*key.offset(i as isize) as i32 >> 4i32 & 0xffi32) as u8;
+            let lo = (*key.offset(i as isize) as i32 & 0xffi32) as u8;
             let fresh1 = len;
             len = len + 1;
             pkey[fresh1 as usize] = '#' as i32 as i8;
@@ -110,8 +105,7 @@ unsafe fn printable_key(mut key: *const i8, mut keylen: i32) -> *mut i8 {
 }
 #[inline]
 unsafe extern "C" fn hval_free(mut hval: *mut libc::c_void) {
-    let mut value: *mut obj_data = 0 as *mut obj_data;
-    value = hval as *mut obj_data;
+    let value = hval as *mut obj_data;
     if !(*value).object.is_null() {
         pdf_release_obj((*value).object);
         (*value).object = 0 as *mut pdf_obj
@@ -120,8 +114,7 @@ unsafe extern "C" fn hval_free(mut hval: *mut libc::c_void) {
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_new_name_tree() -> *mut ht_table {
-    let mut names: *mut ht_table = 0 as *mut ht_table;
-    names =
+    let names =
         new((1_u64).wrapping_mul(::std::mem::size_of::<ht_table>() as u64) as u32) as *mut ht_table;
     ht_init_table(
         names,
@@ -137,11 +130,9 @@ unsafe fn check_objects_defined(mut ht_tab: *mut ht_table) {
     };
     if ht_set_iter(ht_tab, &mut iter) >= 0i32 {
         loop {
-            let mut key: *mut i8 = 0 as *mut i8;
             let mut keylen: i32 = 0;
-            let mut value: *mut obj_data = 0 as *mut obj_data;
-            key = ht_iter_getkey(&mut iter, &mut keylen);
-            value = ht_iter_getval(&mut iter) as *mut obj_data;
+            let key = ht_iter_getkey(&mut iter, &mut keylen);
+            let value = ht_iter_getval(&mut iter) as *mut obj_data;
             assert!(!(*value).object.is_null());
             if !(*value).object.is_null()
                 && pdf_obj_typeof((*value).object) == PdfObjType::UNDEFINED
@@ -173,13 +164,12 @@ pub unsafe extern "C" fn pdf_names_add_object(
     mut keylen: i32,
     mut object: *mut pdf_obj,
 ) -> i32 {
-    let mut value: *mut obj_data = 0 as *mut obj_data;
     assert!(!names.is_null() && !object.is_null());
     if key.is_null() || keylen < 1i32 {
         warn!("Null string used for name tree key.");
         return -1i32;
     }
-    value = ht_lookup_table(names, key, keylen) as *mut obj_data;
+    let mut value = ht_lookup_table(names, key, keylen) as *mut obj_data;
     if value.is_null() {
         value = new((1_u64).wrapping_mul(::std::mem::size_of::<obj_data>() as u64) as u32)
             as *mut obj_data;
@@ -212,10 +202,9 @@ pub unsafe extern "C" fn pdf_names_lookup_reference(
     mut key: *const libc::c_void,
     mut keylen: i32,
 ) -> *mut pdf_obj {
-    let mut value: *mut obj_data = 0 as *mut obj_data;
-    let mut object: *mut pdf_obj = 0 as *mut pdf_obj;
+    let object;
     assert!(!names.is_null());
-    value = ht_lookup_table(names, key, keylen) as *mut obj_data;
+    let value = ht_lookup_table(names, key, keylen) as *mut obj_data;
     if !value.is_null() {
         object = (*value).object;
         assert!(!object.is_null());
@@ -235,9 +224,8 @@ pub unsafe extern "C" fn pdf_names_lookup_object(
     mut key: *const libc::c_void,
     mut keylen: i32,
 ) -> *mut pdf_obj {
-    let mut value: *mut obj_data = 0 as *mut obj_data;
     assert!(!names.is_null());
-    value = ht_lookup_table(names, key, keylen) as *mut obj_data;
+    let value = ht_lookup_table(names, key, keylen) as *mut obj_data;
     if value.is_null()
         || !(*value).object.is_null() && pdf_obj_typeof((*value).object) == PdfObjType::UNDEFINED
     {
@@ -252,9 +240,8 @@ pub unsafe extern "C" fn pdf_names_close_object(
     mut key: *const libc::c_void,
     mut keylen: i32,
 ) -> i32 {
-    let mut value: *mut obj_data = 0 as *mut obj_data;
     assert!(!names.is_null());
-    value = ht_lookup_table(names, key, keylen) as *mut obj_data;
+    let value = ht_lookup_table(names, key, keylen) as *mut obj_data;
     if value.is_null()
         || !(*value).object.is_null() && pdf_obj_typeof((*value).object) == PdfObjType::UNDEFINED
     {
@@ -277,18 +264,15 @@ pub unsafe extern "C" fn pdf_names_close_object(
 }
 #[inline]
 unsafe extern "C" fn cmp_key(mut d1: *const libc::c_void, mut d2: *const libc::c_void) -> i32 {
-    let mut sd1: *const named_object = 0 as *const named_object;
-    let mut sd2: *const named_object = 0 as *const named_object;
-    let mut keylen: i32 = 0;
-    let mut cmp: i32 = 0;
-    sd1 = d1 as *const named_object;
-    sd2 = d2 as *const named_object;
+    let mut cmp;
+    let sd1 = d1 as *const named_object;
+    let sd2 = d2 as *const named_object;
     if (*sd1).key.is_null() {
         cmp = -1i32
     } else if (*sd2).key.is_null() {
         cmp = 1i32
     } else {
-        keylen = if (*sd1).keylen < (*sd2).keylen {
+        let keylen = if (*sd1).keylen < (*sd2).keylen {
             (*sd1).keylen
         } else {
             (*sd2).keylen
@@ -309,8 +293,7 @@ unsafe fn build_name_tree(
     mut num_leaves: i32,
     mut is_root: i32,
 ) -> *mut pdf_obj {
-    let mut result: *mut pdf_obj = 0 as *mut pdf_obj;
-    result = pdf_new_dict();
+    let result = pdf_new_dict();
     /*
      * According to PDF Refrence, Third Edition (p.101-102), a name tree
      * always has exactly one root node, which contains a SINGLE entry:
@@ -321,10 +304,8 @@ unsafe fn build_name_tree(
      * containing a Limits entry and a Names entry.
      */
     if is_root == 0 {
-        let mut last: *mut named_object = 0 as *mut named_object;
-        let mut limits: *mut pdf_obj = 0 as *mut pdf_obj;
-        limits = pdf_new_array();
-        last = &mut *first.offset((num_leaves - 1i32) as isize) as *mut named_object;
+        let mut limits = pdf_new_array();
+        let mut last = &mut *first.offset((num_leaves - 1i32) as isize) as *mut named_object;
         pdf_add_array(
             limits,
             pdf_new_string(
@@ -339,12 +320,10 @@ unsafe fn build_name_tree(
         pdf_add_dict(result, "Limits", limits);
     }
     if num_leaves > 0i32 && num_leaves <= 2i32 * 4i32 {
-        let mut names: *mut pdf_obj = 0 as *mut pdf_obj;
         /* Create leaf nodes. */
-        names = pdf_new_array();
+        let mut names = pdf_new_array();
         for i in 0..num_leaves {
-            let mut cur: *mut named_object = 0 as *mut named_object;
-            cur = &mut *first.offset(i as isize) as *mut named_object;
+            let cur = &mut *first.offset(i as isize) as *mut named_object;
             pdf_add_array(
                 names,
                 pdf_new_string((*cur).key as *const libc::c_void, (*cur).keylen as size_t),
@@ -368,16 +347,12 @@ unsafe fn build_name_tree(
         }
         pdf_add_dict(result, "Names", names);
     } else if num_leaves > 0i32 {
-        let mut kids: *mut pdf_obj = 0 as *mut pdf_obj;
         /* Intermediate node */
-        kids = pdf_new_array();
+        let kids = pdf_new_array();
         for i in 0..4 {
-            let mut subtree: *mut pdf_obj = 0 as *mut pdf_obj;
-            let mut start: i32 = 0;
-            let mut end: i32 = 0;
-            start = i * num_leaves / 4i32;
-            end = (i + 1i32) * num_leaves / 4i32;
-            subtree = build_name_tree(&mut *first.offset(start as isize), end - start, 0i32);
+            let start = i * num_leaves / 4i32;
+            let end = (i + 1i32) * num_leaves / 4i32;
+            let subtree = build_name_tree(&mut *first.offset(start as isize), end - start, 0i32);
             pdf_add_array(kids, pdf_ref_obj(subtree));
             pdf_release_obj(subtree);
         }
@@ -390,25 +365,21 @@ unsafe fn flat_table(
     mut num_entries: *mut i32,
     mut filter: *mut ht_table,
 ) -> *mut named_object {
-    let mut objects: *mut named_object = 0 as *mut named_object;
     let mut iter: ht_iter = ht_iter {
         index: 0,
         curr: 0 as *mut libc::c_void,
         hash: 0 as *mut ht_table,
     };
-    let mut count: i32 = 0;
     assert!(!ht_tab.is_null());
-    objects = new(((*ht_tab).count as u32 as u64)
+    let mut objects = new(((*ht_tab).count as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<named_object>() as u64) as u32)
         as *mut named_object;
-    count = 0i32;
+    let mut count = 0i32;
     if ht_set_iter(ht_tab, &mut iter) >= 0i32 {
         let mut current_block_19: u64;
         loop {
-            let mut key: *mut i8 = 0 as *mut i8;
             let mut keylen: i32 = 0;
-            let mut value: *mut obj_data = 0 as *mut obj_data;
-            key = ht_iter_getkey(&mut iter, &mut keylen);
+            let mut key = ht_iter_getkey(&mut iter, &mut keylen);
             if !filter.is_null() {
                 let mut new_obj: *mut pdf_obj =
                     ht_lookup_table(filter, key as *const libc::c_void, keylen) as *mut pdf_obj;
@@ -424,7 +395,7 @@ unsafe fn flat_table(
             }
             match current_block_19 {
                 12800627514080957624 => {
-                    value = ht_iter_getval(&mut iter) as *mut obj_data;
+                    let value = ht_iter_getval(&mut iter) as *mut obj_data;
                     assert!(!(*value).object.is_null());
                     if !(*value).object.is_null()
                         && pdf_obj_typeof((*value).object) == PdfObjType::UNDEFINED
@@ -471,9 +442,8 @@ pub unsafe extern "C" fn pdf_names_create_tree(
     mut count: *mut i32,
     mut filter: *mut ht_table,
 ) -> *mut pdf_obj {
-    let mut name_tree: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut flat: *mut named_object = 0 as *mut named_object;
-    flat = flat_table(names, count, filter);
+    let name_tree;
+    let flat = flat_table(names, count, filter);
     if flat.is_null() {
         name_tree = 0 as *mut pdf_obj
     } else {

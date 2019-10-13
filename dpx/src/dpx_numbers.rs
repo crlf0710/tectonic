@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
     unused_mut
 )]
 
@@ -40,8 +39,7 @@ use bridge::InputHandleWrapper;
 pub type fixword = i32;
 #[no_mangle]
 pub unsafe extern "C" fn get_unsigned_byte(mut file: *mut FILE) -> u8 {
-    let mut ch: i32 = 0;
-    ch = fgetc(file);
+    let ch = fgetc(file);
     if ch < 0i32 {
         panic!("File ended prematurely\n");
     }
@@ -60,8 +58,7 @@ pub unsafe extern "C" fn skip_bytes(mut n: u32, mut file: *mut FILE) {
 }
 #[no_mangle]
 pub unsafe extern "C" fn get_signed_byte(mut file: *mut FILE) -> i8 {
-    let mut byte: i32 = 0;
-    byte = get_unsigned_byte(file) as i32;
+    let mut byte = get_unsigned_byte(file) as i32;
     if byte >= 0x80i32 {
         byte -= 0x100i32
     }
@@ -79,7 +76,6 @@ pub unsafe extern "C" fn sget_unsigned_pair(mut s: *mut u8) -> u16 {
     s = s.offset(1);
     let mut pair: u16 = *fresh1 as u16;
     let fresh2 = s;
-    s = s.offset(1);
     pair = ((pair as i32) << 8i32 | *fresh2 as i32) as u16;
     pair
 }
@@ -177,22 +173,6 @@ pub unsafe extern "C" fn get_positive_quad(
 #[no_mangle]
 pub unsafe extern "C" fn sqxfw(mut sq: i32, mut fw: fixword) -> i32 {
     let mut sign: i32 = 1i32;
-    let mut a: u32 = 0;
-    let mut b: u32 = 0;
-    let mut c: u32 = 0;
-    let mut d: u32 = 0;
-    let mut ad: u32 = 0;
-    let mut bd: u32 = 0;
-    let mut bc: u32 = 0;
-    let mut ac: u32 = 0;
-    let mut e: u32 = 0;
-    let mut f: u32 = 0;
-    let mut g: u32 = 0;
-    let mut h: u32 = 0;
-    let mut i: u32 = 0;
-    let mut j: u32 = 0;
-    let mut k: u32 = 0;
-    let mut result: i32 = 0;
     /* Make positive. */
     if sq < 0i32 {
         sign = -sign; /* 1<<3 is for rounding */
@@ -202,22 +182,22 @@ pub unsafe extern "C" fn sqxfw(mut sq: i32, mut fw: fixword) -> i32 {
         sign = -sign;
         fw = -fw
     }
-    a = sq as u32 >> 16i32;
-    b = sq as u32 & 0xffffu32;
-    c = fw as u32 >> 16i32;
-    d = fw as u32 & 0xffffu32;
-    ad = a.wrapping_mul(d);
-    bd = b.wrapping_mul(d);
-    bc = b.wrapping_mul(c);
-    ac = a.wrapping_mul(c);
-    e = bd >> 16i32;
-    f = ad >> 16i32;
-    g = ad & 0xffffu32;
-    h = bc >> 16i32;
-    i = bc & 0xffffu32;
-    j = ac >> 16i32;
-    k = ac & 0xffffu32;
-    result = (e
+    let a = sq as u32 >> 16i32;
+    let b = sq as u32 & 0xffffu32;
+    let c = fw as u32 >> 16i32;
+    let d = fw as u32 & 0xffffu32;
+    let ad = a.wrapping_mul(d);
+    let bd = b.wrapping_mul(d);
+    let bc = b.wrapping_mul(c);
+    let ac = a.wrapping_mul(c);
+    let e = bd >> 16i32;
+    let f = ad >> 16i32;
+    let g = ad & 0xffffu32;
+    let h = bc >> 16i32;
+    let i = bc & 0xffffu32;
+    let j = ac >> 16i32;
+    let k = ac & 0xffffu32;
+    let mut result = (e
         .wrapping_add(g)
         .wrapping_add(i)
         .wrapping_add((1i32 << 3i32) as u32)
@@ -244,8 +224,7 @@ pub unsafe extern "C" fn tt_skip_bytes(mut n: u32, handle: &mut InputHandleWrapp
 }
 #[no_mangle]
 pub unsafe extern "C" fn tt_get_unsigned_byte(handle: &mut InputHandleWrapper) -> u8 {
-    let mut ch: i32 = 0;
-    ch = ttstub_input_getc(handle);
+    let ch = ttstub_input_getc(handle);
     if ch < 0i32 {
         panic!("File ended prematurely\n");
     }
@@ -253,8 +232,7 @@ pub unsafe extern "C" fn tt_get_unsigned_byte(handle: &mut InputHandleWrapper) -
 }
 #[no_mangle]
 pub unsafe extern "C" fn tt_get_signed_byte(handle: &mut InputHandleWrapper) -> i8 {
-    let mut byte: i32 = 0;
-    byte = tt_get_unsigned_byte(handle) as i32;
+    let mut byte = tt_get_unsigned_byte(handle) as i32;
     if byte >= 0x80i32 {
         byte -= 0x100i32
     }
