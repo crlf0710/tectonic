@@ -25,7 +25,7 @@
 
 use super::util::spc_util_read_colorspec;
 use super::{spc_arg, spc_env, SpcHandler};
-use crate::dpx_dpxutil::{parse_c_ident, parse_c_ident_rust};
+use crate::dpx_dpxutil::{parse_c_ident, ParseCIdent};
 use crate::dpx_pdfcolor::{pdf_color_clear_stack, pdf_color_pop, pdf_color_push, pdf_color_set};
 use crate::dpx_pdfdoc::pdf_doc_set_bgcolor;
 use crate::spc_warn;
@@ -89,8 +89,8 @@ unsafe fn skip_blank(mut pp: *mut *const i8, mut endptr: *const i8) {
 }
 
 pub fn spc_color_check_special(buf: &[u8]) -> bool {
-    let buf = crate::skip_blank(buf);
-    if let Some(q) = parse_c_ident_rust(buf) {
+    let mut buf = crate::skip_blank(buf);
+    if let Some(q) = buf.parse_c_ident() {
         q.to_bytes() == b"color" || q.to_bytes() == b"background"
     } else {
         false

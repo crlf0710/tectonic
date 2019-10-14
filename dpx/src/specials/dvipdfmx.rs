@@ -27,7 +27,7 @@ use std::ffi::CStr;
 
 use super::{spc_arg, spc_env, SpcHandler};
 use crate::dpx_dpxutil::parse_c_ident;
-use crate::dpx_pdfparse::{skip_white, skip_white_slice};
+use crate::dpx_pdfparse::{skip_white, SkipWhite};
 use crate::spc_warn;
 use libc::{free, memcmp, strlen};
 
@@ -48,8 +48,8 @@ const DVIPDFMX_HANDLERS: [SpcHandler; 1] = [SpcHandler {
     exec: Some(spc_handler_null),
 }];
 
-pub fn spc_dvipdfmx_check_special(buf: &[u8]) -> bool {
-    let buf = skip_white_slice(buf);
+pub fn spc_dvipdfmx_check_special(mut buf: &[u8]) -> bool {
+    buf.skip_white();
     buf.starts_with(b"dvipdfmx:")
 }
 #[no_mangle]

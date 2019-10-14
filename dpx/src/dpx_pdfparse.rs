@@ -118,49 +118,46 @@ pub unsafe extern "C" fn skip_white(mut start: *mut *const i8, mut end: *const i
         }
     }
 }
-pub fn pdfparse_skip_line_slice(buf: &[u8]) -> &[u8] {
-    let mut i = 0;
-    while i < buf.len() && buf[i] != b'\n' && buf[i] != b'\r' {
-        i += 1;
-    }
-    /* The carriage return (CR; \r; 0x0D) and line feed (LF; \n; 0x0A)
-     * characters, also called newline characters, are treated as
-     * end-of-line (EOL) markers. The combination of a carriage return
-     * followed immediately by a line feed is treated as one EOL marker.
-     */
-    if i < buf.len() && buf[i] == b'\r' {
-        i += 1;
-    }
-    if i < buf.len() && buf[i] == b'\n' {
-        i += 1;
-    };
-    &buf[i..]
+pub trait SkipWhite {
+    fn skip_white(&mut self);
+    fn skip_line(&mut self);
 }
-pub fn skip_white_slice(buf: &[u8]) -> &[u8] {
-    /*
-     * The null (NUL; 0x00) character is a white-space character in PDF spec
-     * but isspace(0x00) returns FALSE; on the other hand, the vertical tab
-     * (VT; 0x0B) character is not a white-space character in PDF spec but
-     * isspace(0x0B) returns TRUE.
-     */
-    let mut i = 0;
-    while i < buf.len()
-        && (buf[i] == b' '
-            || buf[i] == b'\t'
-            || buf[i] == '\u{c}' as u8
-            || buf[i] == b'\r'
-            || buf[i] == b'\n'
-            || buf[i] == 0
-            || buf[i] == b'%')
-    {
-        i += if buf[i] == b'%' {
-            let b = pdfparse_skip_line_slice(&buf[i..]);
-            b.len()
-        } else {
-            1
+impl SkipWhite for &[u8] {
+    fn skip_white(&mut self) {
+        /*
+         * The null (NUL; 0x00) character is a white-space character in PDF spec
+         * but isspace(0x00) returns FALSE; on the other hand, the vertical tab
+         * (VT; 0x0B) character is not a white-space character in PDF spec but
+         * isspace(0x0B) returns TRUE.
+         */
+        while !self.is_empty()
+            && (b" \t\r\n%".contains(&self[0])
+                || self[0] == '\u{c}' as u8
+                || self[0] == 0)
+        {
+            if self[0] == b'%' {
+                self.skip_line();
+            } else {
+                *self = &self[1..]
+            }
         }
     }
-    &buf[i..]
+    fn skip_line(&mut self) {
+        while !self.is_empty() && self[0] != b'\n' && self[0] != b'\r' {
+            *self = &self[1..]
+        }
+        /* The carriage return (CR; \r; 0x0D) and line feed (LF; \n; 0x0A)
+         * characters, also called newline characters, are treated as
+         * end-of-line (EOL) markers. The combination of a carriage return
+         * followed immediately by a line feed is treated as one EOL marker.
+         */
+        if !self.is_empty() && self[0] == b'\r' {
+            *self = &self[1..]
+        }
+        if !self.is_empty() && self[0] == b'\n' {
+            *self = &self[1..]
+        };
+    }
 }
 unsafe fn parsed_string(mut start: *const i8, mut end: *const i8) -> *mut i8 {
     let mut result: *mut i8 = 0 as *mut i8;
@@ -249,6 +246,7 @@ pub unsafe extern "C" fn parse_opt_ident(mut start: *mut *const i8, mut end: *co
     }
     0 as *mut i8
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn parse_pdf_number(
     mut pp: *mut *const i8,
@@ -324,6 +322,73 @@ pub unsafe extern "C" fn parse_pdf_number(
     }
     *pp = p;
     pdf_new_number(sign as f64 * v)
+}
+
+
+pub unsafe trait ParsePdfNumber {
+    fn parse_pdf_number(&mut self) -> Option<*mut pdf_obj>;
+}
+
+unsafe impl ParsePdfNumber for &[u8] {
+    fn parse_pdf_number(&mut self) -> Option<*mut pdf_obj> {
+        let mut v = 0_f64;
+        let mut nddigits = 0;
+        let mut sign = 1;
+        let mut has_dot = false;
+        let mut p = *self;
+        p.skip_white();
+        if p.is_empty()
+            || unsafe { libc::isdigit(p[0] as _) } == 0
+                && !(b".+-".contains(&p[0]))
+        {
+            warn!("Could not find a numeric object.");
+            return None;
+        }
+        if p[0] == b'-' {
+            if p.len() <= 1 {
+                warn!("Could not find a numeric object.");
+                return None;
+            }
+            sign = -1;
+            p = &p[1..];
+        } else if p[0] as i32 == '+' as i32 {
+            if p.len() <= 1 {
+                warn!("Could not find a numeric object.");
+                return None;
+            }
+            sign = 1;
+            p = &p[1..];
+        }
+        while !p.is_empty()
+            && !(
+                b" \t\r\n()/<>[]%".contains(&p[0])
+                || p[0] == '\u{c}' as u8
+                || p[0] == 0)
+        {
+            if p[0] == b'.' {
+                if has_dot {
+                    /* Two dots */
+                    warn!("Could not find a numeric object.");
+                    return None;
+                } else {
+                    has_dot = true
+                }
+            } else if unsafe { libc::isdigit(p[0] as _) } != 0 {
+                if has_dot {
+                    v += (p[0] - b'0') as f64 / (10_f64).powf((nddigits + 1) as f64);
+                    nddigits += 1
+                } else {
+                    v = v * 10. + p[0] as f64 - b'0' as f64
+                }
+            } else {
+                warn!("Could not find a numeric object.");
+                return None;
+            }
+            p = &p[1..];
+        }
+        *self = p;
+        unsafe { Some(pdf_new_number(sign as f64 * v)) }
+    }
 }
 /*
  * PDF Name:
@@ -716,6 +781,222 @@ pub unsafe extern "C" fn parse_pdf_string(
     }
     warn!("Could not find a string object.");
     0 as *mut pdf_obj
+}
+pub unsafe trait ParsePdfString {
+    fn parse_pdf_string(&mut self) -> Option<*mut pdf_obj>;
+}
+
+unsafe impl ParsePdfString for &[u8] {
+    fn parse_pdf_string(&mut self) -> Option<*mut pdf_obj> {
+        /*
+         * PDF Literal String
+         */
+        fn ps_getescc(pp: &mut &[u8]) -> i32 {
+            let mut ch; /* backslash assumed. */
+            let mut p = &(*pp)[1..];
+            match p[0] {
+                110 => {
+                    ch = '\n' as i32;
+                    p = &p[1..];
+                }
+                114 => {
+                    ch = '\r' as i32;
+                    p = &p[1..];
+                }
+                116 => {
+                    ch = '\t' as i32;
+                    p = &p[1..];
+                }
+                98 => {
+                    ch = '\u{8}' as i32;
+                    p = &p[1..];
+                }
+                102 => {
+                    ch = '\u{c}' as i32;
+                    p = &p[1..];
+                }
+                10 => {
+                    /*
+                     * An end-of-line marker preceded by a backslash must be ignored.
+                     */
+                    ch = -1;
+                    p = &p[1..];
+                }
+                13 => {
+                    ch = -1;
+                    p = &p[1..];
+                    if !p.is_empty() && p[0] == b'\n' {
+                        p = &p[1..];
+                    }
+                }
+                _ => {
+                    if p[0] == b'\\'
+                        || p[0] == b'('
+                        || p[0] == b')'
+                    {
+                        ch = p[0] as i32;
+                        p = &p[1..];
+                    } else if p[0] >= b'0' && p[0] <= b'7' {
+                        ch = 0i32;
+                        /* Ignore overflow. */
+                        let mut i = 0;
+                        while i < 3
+                            && !p.is_empty()
+                            && (p[0] >= b'0' && p[0] <= b'7')
+                        {
+                            ch = (ch << 3) + (p[0] as i32 - '0' as i32);
+                            p = &p[1..];
+                            i += 1;
+                        }
+                        ch = ch & 0xff
+                    } else {
+                        /* Don't forget isodigit() is a macro. */
+                        ch = p[0] as i32; /* Ignore only backslash. */
+                        p = &p[1..];
+                    }
+                }
+            }
+            *pp = p;
+            ch
+        }
+        unsafe fn parse_pdf_literal_string(pp: &mut &[u8]) -> Option<*mut pdf_obj> {
+            let mut op_count: i32 = 0i32;
+            let mut len = 0;
+            let mut p = *pp;
+            p.skip_white();
+            if p.is_empty() || p[0] != b'(' {
+                return None;
+            }
+            p = &p[1..];
+            /* The carriage return (CR, 0x0d) and line feed (LF, 0x0a) characters,
+             * also called newline characters, are treated as end-of-line (EOL)
+             * markers. The combination of a carriage return followed immediately
+             * by a line feed is treated as one EOL marker.
+             * [PDF Reference, 6th ed., version 1.7, p. 50] */
+            /* If an end-of-line marker appears within a literal string
+             * without a preceding backslash, the result is equivalent to
+             * \n (regardless of whether the end-of-line marker was
+             * a carriage return, a line feed, or both).
+             * [PDF Reference, 6th ed., version 1.7, p. 55] */
+            while !p.is_empty() {
+                let mut ch = p[0] as i32;
+                if ch == ')' as i32 && op_count < 1 {
+                    break;
+                }
+                if parser_state.tainted != 0 {
+                    if p.len() > 1 && ch & 0x80 != 0 {
+                        if len + 2 >= 65535 {
+                            warn!("PDF string length too long. (limit: {})", 65535);
+                            return None;
+                        }
+                        sbuf[len] = p[0] as i8;
+                        len += 1;
+                        sbuf[len] = p[1] as i8;
+                        len += 1;
+                        p = &p[2..];
+                        continue;
+                    }
+                }
+                /* !PDF_PARSE_STRICT */
+                if len + 1 >= 65535 {
+                    warn!("PDF string length too long. (limit: {})", 65535);
+                    return None;
+                }
+                match ch {
+                    92 => {
+                        ch = ps_getescc(&mut p);
+                        if ch >= 0i32 {
+                            sbuf[len] = (ch & 0xff) as i8;
+                            len += 1;
+                        }
+                    }
+                    13 => {
+                        p = &p[1..];
+                        if !p.is_empty() && p[0] == b'\n' {
+                            p = &p[1..];
+                        }
+                        sbuf[len] = '\n' as i8;
+                        len += 1;
+                    }
+                    _ => {
+                        if ch == '(' as i32 {
+                            op_count += 1
+                        } else if ch == ')' as i32 {
+                            op_count -= 1
+                        }
+                        sbuf[len] = ch as i8;
+                        len += 1;
+                        p = &p[1..]
+                    }
+                }
+            }
+            if op_count > 0i32 || p.is_empty() || p[0] != b')' {
+                warn!("Unbalanced parens/truncated PDF literal string.");
+                return None;
+            }
+            *pp = &p[1..];
+            Some(pdf_new_string(sbuf.as_mut_ptr() as *const libc::c_void, len as size_t))
+        }
+
+        /*
+         * PDF Hex String
+         */
+        unsafe fn parse_pdf_hex_string(pp: &mut &[u8]) -> Option<*mut pdf_obj> {
+            let mut p = *pp;
+            p.skip_white();
+            if p.is_empty() || p[0] != b'<' {
+                return None;
+            }
+            p = &p[1..];
+            let mut len = 0;
+            /*
+             * PDF Reference does not describe how to treat invalid char.
+             * Zero is appended if final hex digit is missing.
+             */
+            while !p.is_empty() && p[0] != b'>' && len < 65535 {
+                p.skip_white();
+                if p.is_empty() || p[0] == b'>' {
+                    break;
+                }
+                let mut ch = xtoi(p[0] as _) << 4i32;
+                p = &p[1..];
+                p.skip_white();
+                if !p.is_empty() && p[0] != b'>' {
+                    ch += xtoi(p[0] as _);
+                    p = &p[1..]
+                }
+                sbuf[len] = (ch & 0xffi32) as i8;
+                len += 1;
+            }
+            if p.is_empty() {
+                warn!("Premature end of input hex string.");
+                return None;
+            } else {
+                if p[0] != b'>' {
+                    warn!("PDF string length too long. (limit: {})", 65535i32);
+                    return None;
+                }
+            }
+            *pp = &p[1..];
+            Some(pdf_new_string(sbuf.as_mut_ptr() as *const libc::c_void, len as size_t))
+        }
+
+        self.skip_white();
+        if self.len() >= 2 {
+            if self[0] == b'(' {
+                return unsafe { parse_pdf_literal_string(self) };
+            } else {
+                if self[0] == b'<'
+                    && (self[1] == b'>'
+                        || unsafe { libc::isxdigit(self[1] as _) } != 0)
+                {
+                    return unsafe { parse_pdf_hex_string(self) };
+                }
+            }
+        }
+        warn!("Could not find a string object.");
+        None
+    }
 }
 #[no_mangle]
 pub unsafe extern "C" fn parse_pdf_tainted_dict(

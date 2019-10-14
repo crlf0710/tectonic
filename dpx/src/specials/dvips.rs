@@ -47,7 +47,7 @@ use crate::dpx_pdfdev::{pdf_dev_put_image, TMatrix, transform_info, transform_in
 use crate::dpx_pdfdraw::{
     pdf_dev_current_depth, pdf_dev_grestore, pdf_dev_grestore_to, pdf_dev_gsave,
 };
-use crate::dpx_pdfparse::{skip_white, skip_white_slice};
+use crate::dpx_pdfparse::{skip_white, SkipWhite};
 use crate::spc_warn;
 use libc::{free, memcpy, strlen, strncpy};
 
@@ -424,8 +424,8 @@ pub unsafe extern "C" fn spc_dvips_at_end_page() -> i32 {
     mps_eop_cleanup();
     0i32
 }
-pub fn spc_dvips_check_special(buf: &[u8]) -> bool {
-    let buf = skip_white_slice(buf);
+pub fn spc_dvips_check_special(mut buf: &[u8]) -> bool {
+    buf.skip_white();
     if buf.is_empty() {
         return false;
     }

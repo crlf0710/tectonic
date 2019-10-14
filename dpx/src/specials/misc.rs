@@ -27,7 +27,7 @@ use crate::dpx_mfileio::tt_mfgets;
 use crate::dpx_mpost::mps_scan_bbox;
 use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear};
 use crate::dpx_pdfobj::pdf_obj;
-use crate::dpx_pdfparse::{skip_white, skip_white_slice};
+use crate::dpx_pdfparse::{skip_white, SkipWhite};
 use crate::dpx_pdfximage::pdf_ximage_findresource;
 use crate::shims::sscanf;
 use crate::spc_warn;
@@ -155,8 +155,8 @@ const MISC_HANDLERS: [SpcHandler; 6] = [
     },
 ];
 
-pub fn spc_misc_check_special(buf: &[u8]) -> bool {
-    let buf = skip_white_slice(buf);
+pub fn spc_misc_check_special(mut buf: &[u8]) -> bool {
+    buf.skip_white();
     for handler in MISC_HANDLERS.iter() {
         if buf.starts_with(handler.key) {
             return true;

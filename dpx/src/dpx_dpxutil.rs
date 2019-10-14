@@ -557,26 +557,33 @@ pub unsafe extern "C" fn parse_c_ident(mut pp: *mut *const i8, mut endptr: *cons
     *pp = p;
     q
 }
-pub fn parse_c_ident_rust(pp: &[u8]) -> Option<CString> {
-    if pp.len() == 0
-        || !(pp[0] == b'_'
-            || (b'a'..=b'z').contains(&pp[0])
-            || (b'A'..=b'Z').contains(&pp[0])
-        )
-    {
-        return None;
-    }
-    let mut n = 0;
-    for p in pp {
-        if !(*p == b'_'
-            || (b'a'..=b'z').contains(p)
-            || (b'A'..=b'Z').contains(p)
-            || (b'0'..=b'9').contains(p)) {
-                break;
+pub trait ParseCIdent {
+    fn parse_c_ident(&mut self) -> Option<CString>;
+}
+impl ParseCIdent for &[u8] {
+    fn parse_c_ident(&mut self) -> Option<CString> {
+        if self.len() == 0
+            || !(self[0] == b'_'
+                || (b'a'..=b'z').contains(&self[0])
+                || (b'A'..=b'Z').contains(&self[0])
+            )
+        {
+            return None;
         }
-        n += 1;
+        let mut n = 0;
+        for p in *self {
+            if !(*p == b'_'
+                || (b'a'..=b'z').contains(p)
+                || (b'A'..=b'Z').contains(p)
+                || (b'0'..=b'9').contains(p)) {
+                    break;
+            }
+            n += 1;
+        }
+        let s = Some(CString::new(&self[..n]).unwrap());
+        *self = &self[n..];
+        s
     }
-    Some(CString::new(&pp[..n]).unwrap())
 }
 
 #[no_mangle]
@@ -637,4 +644,64 @@ pub unsafe extern "C" fn parse_float_decimal(
     }
     *pp = p;
     q
+}
+
+pub trait ParseFloatDecimal {
+    fn parse_float_decimal(&mut self) -> Option<CString>;
+}
+
+impl ParseFloatDecimal for &[u8] {
+    fn parse_float_decimal(&mut self) -> Option<CString> {
+        let len = self.len();
+        let mut q = None;
+        let mut p = *self;
+        if p.is_empty() {
+            return None;
+        }
+        if p[0] == b'+' || p[0] == b'-' {
+            p = &p[1..];
+        }
+        /* 1. .01 001 001E-001 */
+        let mut s = 0;
+        let mut n = 0;
+        while !p.is_empty() && s >= 0 {
+            match p[0] {
+                b'+' | b'-' => {
+                    if s != 2 {
+                        s = -1;
+                    } else {
+                        s = 3;
+                        p = &p[1..];
+                    }
+                }
+                b'.' => {
+                    if s > 0 {
+                        s = -1;
+                    } else {
+                        s = 1;
+                        p = &p[1..];
+                    }
+                }
+                b'0'..=b'9' => {
+                    n += 1;
+                    p = &p[1..];
+                }
+                b'E' | b'e' => {
+                    if n == 0 || s == 2 {
+                        s = -1;
+                    } else {
+                        s = 2;
+                        p = &p[1..];
+                    }
+                }
+                _ => { s = -1; },
+            }
+        }
+        if n != 0 {
+            n = len - p.len();
+            q = Some(CString::new(&self[..n]).unwrap());
+        }
+        *self = p;
+        q
+    }
 }

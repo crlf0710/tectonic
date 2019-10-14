@@ -34,7 +34,7 @@ use std::ffi::CStr;
 use super::{spc_arg, spc_env};
 use crate::spc_warn;
 
-use crate::dpx_dpxutil::{parse_c_ident, parse_c_ident_rust, parse_c_string, parse_float_decimal};
+use crate::dpx_dpxutil::{parse_c_ident, ParseCIdent, parse_c_string, parse_float_decimal};
 use crate::dpx_mem::renew;
 use crate::dpx_pdfcolor::pdf_color_get_current;
 use crate::dpx_pdfdev::pdf_dev_scale;
@@ -869,7 +869,7 @@ pub fn spc_tpic_check_special(buf: &[u8]) -> bool {
         buf = &buf[b"tpic:".len()..];
     }
     let mut istpic = false;
-    if let Some(q) = parse_c_ident_rust(buf) {
+    if let Some(q) = buf.parse_c_ident() {
         if hasnsp && q.to_bytes() == b"__setopt__" {
             istpic = true;
         } else {

@@ -45,7 +45,7 @@ use crate::dpx_pdfdraw::{
     pdf_dev_concat, pdf_dev_get_fixed_point, pdf_dev_grestore, pdf_dev_gsave,
     pdf_dev_set_fixed_point,
 };
-use crate::dpx_pdfparse::{parse_ident, parse_val_ident, skip_white, skip_white_slice};
+use crate::dpx_pdfparse::{parse_ident, parse_val_ident, skip_white, SkipWhite};
 use crate::shims::sprintf;
 use crate::spc_warn;
 use libc::{free, memcmp, strlen, strncmp, strncpy};
@@ -466,8 +466,8 @@ const XTX_HANDLERS: [SpcHandler; 21] = [
         exec: Some(spc_handler_xtx_clipoverlay),
     },
 ];
-pub fn spc_xtx_check_special(buf: &[u8]) -> bool {
-    let buf = skip_white_slice(buf);
+pub fn spc_xtx_check_special(mut buf: &[u8]) -> bool {
+    buf.skip_white();
     buf.starts_with(b"x:")
 }
 #[no_mangle]

@@ -66,7 +66,7 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_array_length, pdf_copy_name, pdf_file,
+    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_array_length, pdf_new_name, pdf_file,
     pdf_foreach_dict, pdf_get_array, pdf_link_obj, pdf_lookup_dict, pdf_merge_dict, pdf_name_value,
     pdf_new_array, pdf_new_dict, pdf_new_stream, pdf_number_value, pdf_obj, pdf_obj_typeof,
     pdf_release_obj, pdf_remove_dict, pdf_set_string, pdf_stream_dict, pdf_string_length,
@@ -74,7 +74,7 @@ use crate::dpx_pdfobj::{
 };
 use crate::dpx_pdfparse::{
     parse_ident, parse_opt_ident, parse_pdf_dict, parse_pdf_object, parse_pdf_tainted_dict,
-    parse_val_ident, skip_white, skip_white_slice,
+    parse_val_ident, skip_white, SkipWhite,
 };
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
 use crate::dpx_unicode::{
@@ -194,19 +194,18 @@ unsafe fn spc_handler_pdfm__init(mut dp: *mut libc::c_void) -> i32 {
     /* The folllowing dictionary entry keys are considered as keys for
      * text strings. Be sure that string object is NOT always a text string.
      */
-    static mut DEFAULT_TAINTKEYS: [*const i8; 12] = [
-        b"Title\x00" as *const u8 as *const i8,
-        b"Author\x00" as *const u8 as *const i8,
-        b"Subject\x00" as *const u8 as *const i8,
-        b"Keywords\x00" as *const u8 as *const i8,
-        b"Creator\x00" as *const u8 as *const i8,
-        b"Producer\x00" as *const u8 as *const i8,
-        b"Contents\x00" as *const u8 as *const i8,
-        b"Subj\x00" as *const u8 as *const i8,
-        b"TU\x00" as *const u8 as *const i8,
-        b"T\x00" as *const u8 as *const i8,
-        b"TM\x00" as *const u8 as *const i8,
-        0 as *const i8,
+    const DEFAULT_TAINTKEYS: [&str; 11] = [
+        "Title",
+        "Author",
+        "Subject",
+        "Keywords",
+        "Creator",
+        "Producer",
+        "Contents",
+        "Subj",
+        "TU",
+        "T",
+        "TM",
     ];
     (*sd).annot_dict = 0 as *mut pdf_obj;
     (*sd).lowest_level = 255i32;
@@ -217,10 +216,8 @@ unsafe fn spc_handler_pdfm__init(mut dp: *mut libc::c_void) -> i32 {
         Some(hval_free as unsafe extern "C" fn(_: *mut libc::c_void) -> ()),
     );
     (*sd).cd.taintkeys = pdf_new_array();
-    let mut i = 0;
-    while !DEFAULT_TAINTKEYS[i].is_null() {
-        pdf_add_array((*sd).cd.taintkeys, pdf_copy_name(DEFAULT_TAINTKEYS[i]));
-        i += 1
+    for &key in &DEFAULT_TAINTKEYS {
+        pdf_add_array((*sd).cd.taintkeys, pdf_new_name(key));
     }
     0i32
 }
@@ -2132,8 +2129,8 @@ const PDFM_HANDLERS: [SpcHandler; 80] = [
         exec: Some(spc_handler_pdfm_do_nothing),
     },
 ];
-pub fn spc_pdfm_check_special(buf: &[u8]) -> bool {
-    let buf = skip_white_slice(buf);
+pub fn spc_pdfm_check_special(mut buf: &[u8]) -> bool {
+    buf.skip_white();
     buf.starts_with(b"pdf:")
 }
 #[no_mangle]
