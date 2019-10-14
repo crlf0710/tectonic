@@ -27,7 +27,7 @@
     unused_mut
 )]
 
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 
 use super::dpx_mem::new;
 use crate::mfree;
@@ -60,21 +60,21 @@ pub struct ht_iter {
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
 */
-#[no_mangle]
-pub unsafe extern "C" fn xtoi(mut c: i8) -> i32 {
-    if c as i32 >= '0' as i32 && c as i32 <= '9' as i32 {
-        return c as i32 - '0' as i32;
+
+pub fn xtoi(mut c: i8) -> i32 {
+    let c = c as u8;
+    if c >= b'0' && c <= b'9' {
+        return (c - b'0') as i32;
     }
-    if c as i32 >= 'A' as i32 && c as i32 <= 'F' as i32 {
-        return c as i32 - 'A' as i32 + 10i32;
+    if c >= b'A' && c <= b'F' {
+        return (c - b'A' + 10) as i32;
     }
-    if c as i32 >= 'a' as i32 && c as i32 <= 'f' as i32 {
-        return c as i32 - 'a' as i32 + 10i32;
+    if c >= b'a' && c <= b'f' {
+        return (c - b'a' + 10) as i32;
     }
-    -1i32
+    -1
 }
-#[no_mangle]
-pub unsafe extern "C" fn min4(mut x1: f64, mut x2: f64, mut x3: f64, mut x4: f64) -> f64 {
+pub fn min4(mut x1: f64, mut x2: f64, mut x3: f64, mut x4: f64) -> f64 {
     let mut v: f64 = x1;
     if x2 < v {
         v = x2
@@ -87,8 +87,7 @@ pub unsafe extern "C" fn min4(mut x1: f64, mut x2: f64, mut x3: f64, mut x4: f64
     }
     v
 }
-#[no_mangle]
-pub unsafe extern "C" fn max4(mut x1: f64, mut x2: f64, mut x3: f64, mut x4: f64) -> f64 {
+pub fn max4(mut x1: f64, mut x2: f64, mut x3: f64, mut x4: f64) -> f64 {
     let mut v: f64 = x1;
     if x2 > v {
         v = x2
@@ -531,6 +530,182 @@ pub unsafe extern "C" fn parse_c_string(mut pp: *mut *const i8, mut endptr: *con
     *pp = p;
     q
 }
+
+pub trait ParseCString {
+    fn parse_c_string(&mut self) -> Option<CString>;
+}
+
+impl ParseCString for &[u8] {
+    fn parse_c_string(&mut self) -> Option<CString> {
+        unsafe fn read_c_escchar(pp: &mut &[u8]) -> (i32, u8) {
+            let mut c = 0i32;
+            let mut l = 1;
+            let mut p = *pp;
+            match p[0] {
+                b'a' => {
+                    c = '\u{7}' as i32;
+                    p = &p[1..];
+                }
+                b'b' => {
+                    c = '\u{8}' as i32;
+                    p = &p[1..];
+                }
+                b'f' => {
+                    c = '\u{c}' as i32;
+                    p = &p[1..];
+                }
+                b'n' => {
+                    c = '\n' as i32;
+                    p = &p[1..];
+                }
+                b'r' => {
+                    c = '\r' as i32;
+                    p = &p[1..];
+                }
+                b't' => {
+                    c = '\t' as i32;
+                    p = &p[1..];
+                }
+                b'v' => {
+                    c = '\u{b}' as i32;
+                    p = &p[1..];
+                }
+                b'\\' | b'?' | b'\'' | b'\"' => {
+                    c = p[0] as i32;
+                    p = &p[1..];
+                }
+                b'\n' => {
+                    l = 0;
+                    p = &p[1..];
+                }
+                b'\r' => {
+                    p = &p[1..];
+                    if !p.is_empty() && p[0] == b'\n' {
+                        p = &p[1..];
+                    }
+                    l = 0;
+                }
+                b'0'..=b'7' => {
+                    c = 0;
+                    let mut i = 0;
+                    while i < 3
+                        && !p.is_empty()
+                        && p[0] >= b'0'
+                        && p[0] <= b'7'
+                    {
+                        c = (c << 3) + (p[0] as i32 - b'0' as i32);
+                        i += 1;
+                        p = &p[1..];
+                    }
+                }
+                b'x' => {
+                    c = 0;
+                    let mut i_0 = 0;
+                    p = &p[1..];
+                    while i_0 < 2 && !p.is_empty() && libc::isxdigit(p[0] as _) != 0 {
+                        c = (c << 4)
+                            + (if libc::isdigit(p[0] as _) != 0 {
+                                (p[0] - b'0') as i32
+                            } else {
+                                (if libc::islower(p[0] as _) != 0 {
+                                    (p[0] - b'a' + 10) as i32
+                                } else {
+                                    (p[0] - b'A' + 10) as i32
+                                })
+                            });
+                        i_0 += 1;
+                        p = &p[1..];
+                    }
+                }
+                _ => {
+                    warn!(
+                        "Unknown escape char sequence: \\{}",
+                        char::from(p[0]),
+                    );
+                    l = 0;
+                    p = &p[1..];
+                }
+            }
+            *pp = p;
+            (l, c as u8)
+        }
+        
+        const C_QUOTE: u8 = b'"';
+        const C_ESCAPE: u8 = b'\\';
+        unsafe fn read_c_litstrc(
+            q: &mut Option<Vec<u8>>,
+            mut len: i32,
+            pp: &mut &[u8],
+        ) -> i32 {
+            let mut s = -1i32;
+            let mut l = 0;
+            let mut p = *pp;
+            while s == -1 && !p.is_empty() {
+                match p[0] {
+                    C_QUOTE => {
+                        s = 0;
+                        p = &p[1..];
+                    }
+                    C_ESCAPE => {
+                        if q.is_some() && l == len {
+                            s = -3
+                        } else {
+                            p = &p[1..];
+                            let (size, r) = read_c_escchar(&mut p);
+                            l += size;
+                            if let Some(v) = q.as_mut() {
+                                v[l as usize] = r;
+                            }
+                        }
+                    }
+                    b'\n' | b'\r' => s = -2,
+                    _ => {
+                        if q.is_some() && l == len {
+                            s = -3
+                        } else {
+                            if let Some(v) = q.as_mut() {
+                                v[l as usize] = p[0];
+                            }
+                            l += 1;
+                            p = &p[1..];
+                        }
+                    }
+                }
+            }
+            if s == 0 {
+                if q.is_some() && l == len {
+                    s = -3
+                } else if let Some(v) = q.as_mut() {
+                    v[l as usize] = '\u{0}' as u8;
+                    l += 1;
+                }
+            }
+            *pp = p;
+            if s == 0 {
+                l
+            } else {
+                s
+            }
+        }
+
+        let mut q = None;
+        let mut p = *self;
+        if p.is_empty() || p[0] != b'\"' {
+            return None;
+        }
+        p = &p[1..];
+        let mut l = unsafe { read_c_litstrc(&mut None, 0i32, &mut p) };
+        if l >= 0 {
+            let mut v = Some(vec![0u8; l as usize + 1]);
+            p = &(*self)[1..];
+            unsafe { read_c_litstrc(&mut v, l + 1, &mut p); }
+            q = Some(CStr::from_bytes_with_nul(v.unwrap().as_slice()).unwrap().to_owned());
+        }
+        *self = p;
+        q
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn parse_c_ident(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut i8 {
     let mut p: *const i8 = *pp;

@@ -455,9 +455,9 @@ pub unsafe extern "C" fn dvipdfmx_main(
     font_dpi = 600i32;
     pdfdecimaldigits = 5i32;
     image_cache_life = -2i32;
-    pdf_load_fontmap_file(b"pdftex.map\x00" as *const u8 as *const i8, '+' as i32);
-    pdf_load_fontmap_file(b"kanjix.map\x00" as *const u8 as *const i8, '+' as i32);
-    pdf_load_fontmap_file(b"ckx.map\x00" as *const u8 as *const i8, '+' as i32);
+    pdf_load_fontmap_file(CStr::from_bytes_with_nul(b"pdftex.map\x00").unwrap(), '+' as i32);
+    pdf_load_fontmap_file(CStr::from_bytes_with_nul(b"kanjix.map\x00").unwrap(), '+' as i32);
+    pdf_load_fontmap_file(CStr::from_bytes_with_nul(b"ckx.map\x00").unwrap(), '+' as i32);
     if !pagespec.is_null() {
         select_pages(pagespec, &mut page_ranges, &mut num_page_ranges);
     }

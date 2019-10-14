@@ -2127,72 +2127,68 @@ pub unsafe extern "C" fn dvi_vf_finish() {
  * length value must be divided by current magnification.
  */
 /* XXX: there are four quasi-redundant versions of this; grp for K_UNIT__PT */
-unsafe fn read_length(
-    mut mag: f64,
-    mut pp: &mut &[u8],
-) -> Result<f64, ()> {
-    let mut p = *pp; /* inverse magnify */
-    let mut u: f64 = 1.0f64;
-    const _UKEYS: [&[u8]; 9] = [
-        b"pt",
-        b"in",
-        b"cm",
-        b"mm",
-        b"bp",
-        b"pc",
-        b"dd",
-        b"cc",
-        b"sp",
-    ];
-    let mut error: i32 = 0i32;
-    let q = p.parse_float_decimal();
-    if q.is_none() {
-        *pp = p;
-        return Err(());
-    }
-    let v = atof(q.unwrap().as_ptr());
-    p.skip_white();
-    if let Some(q) = p.parse_c_ident() {
-        let mut bytes = q.to_bytes();
-        if bytes.starts_with(b"true") {
-            u /= if mag != 0.0f64 { mag } else { 1.0f64 };
-            bytes = &bytes[b"true".len()..];
+pub trait ReadLength {
+    fn read_length(&mut self, mag: f64) -> Result<f64, ()>;
+    fn read_length_no_mag(&mut self) -> Result<f64, ()>;
+}
+impl ReadLength for &[u8] {
+    fn read_length(&mut self, mag: f64) -> Result<f64, ()> {
+        let mut p = *self; /* inverse magnify */
+        let mut u: f64 = 1.0f64;
+        let mut error: i32 = 0i32;
+        let q = p.parse_float_decimal();
+        if q.is_none() {
+            *self = p;
+            return Err(());
         }
-        let q = if bytes.is_empty() {
-            /* "true" was a separate word from the units */
-            p.skip_white();
-            p.parse_c_ident()
-        } else {
-            Some(CString::new(bytes).unwrap())
-        };
-        if let Some(ident) = q {
-            match _UKEYS.iter().position(|&x| x == ident.to_bytes()) {
-                Some(0) => u *= 72. / 72.27,
-                Some(1) => u *= 72.,
-                Some(2) => u *= 72. / 2.54,
-                Some(3) => u *= 72. / 25.4,
-                Some(4) => u *= 1.,
-                Some(5) => u *= 12. * 72. / 72.27,
-                Some(6) => u *= 1238. / 1157. * 72. / 72.27,
-                Some(7) => u *= 12. * 1238. / 1157. * 72. / 72.27,
-                Some(8) => u *= 72. / (72.27 * 65536.),
-                _ => {
-                    warn!("Unknown unit of measure: {}", ident.display(),);
-                    error = -1i32
-                }
+        let v = unsafe { atof(q.unwrap().as_ptr()) };
+        p.skip_white();
+        if let Some(q) = p.parse_c_ident() {
+            let mut bytes = q.to_bytes();
+            if bytes.starts_with(b"true") {
+                u /= if mag != 0.0f64 { mag } else { 1.0f64 };
+                bytes = &bytes[b"true".len()..];
             }
+            let q = if bytes.is_empty() {
+                /* "true" was a separate word from the units */
+                p.skip_white();
+                p.parse_c_ident()
+            } else {
+                Some(CString::new(bytes).unwrap())
+            };
+            if let Some(ident) = q {
+                match ident.to_bytes() {
+                    b"pt" => u *= 72. / 72.27,
+                    b"in" => u *= 72.,
+                    b"cm" => u *= 72. / 2.54,
+                    b"mm" => u *= 72. / 25.4,
+                    b"bp" => u *= 1.,
+                    b"pc" => u *= 12. * 72. / 72.27,
+                    b"dd" => u *= 1238. / 1157. * 72. / 72.27,
+                    b"cc" => u *= 12. * 1238. / 1157. * 72. / 72.27,
+                    b"sp" => u *= 72. / (72.27 * 65536.),
+                    _ => {
+                        warn!("Unknown unit of measure: {}", ident.display(),);
+                        error = -1i32
+                    }
+                }
+            } else {
+                warn!("Missing unit of measure after \"true\"");
+                error = -1i32
+            }
+        }
+        *self = p;
+        if error == 0 {
+            Ok( v * u )
         } else {
-            warn!("Missing unit of measure after \"true\"");
-            error = -1i32
+            Err(())
         }
     }
-    *pp = p;
-    if error == 0 {
-        Ok( v * u )
-    } else {
-        Err(())
+    fn read_length_no_mag(&mut self) -> Result<f64, ()> {
+        self.read_length(1.)
     }
 }
+
 unsafe fn scan_special(
     mut wd: *mut f64,
     mut ht: *mut f64,
@@ -2254,28 +2250,28 @@ unsafe fn scan_special(
                     buf.skip_white();
                     match kp.to_bytes() {
                         b"width" => {
-                            if let Ok(tmp) = read_length(dvi_tell_mag(), &mut buf) {
+                            if let Ok(tmp) = buf.read_length(dvi_tell_mag()) {
                                 *wd = tmp * dvi_tell_mag()
                             } else {
                                 error = -1;
                             }
                         },
                         b"height" => {
-                            if let Ok(tmp) = read_length(dvi_tell_mag(), &mut buf) {
+                            if let Ok(tmp) = buf.read_length(dvi_tell_mag()) {
                                 *ht = tmp * dvi_tell_mag()
                             } else {
                                 error = -1;
                             }
                         },
                         b"xoffset" => {
-                            if let Ok(tmp) = read_length(dvi_tell_mag(), &mut buf) {
+                            if let Ok(tmp) = buf.read_length(dvi_tell_mag()) {
                                 *xo = tmp * dvi_tell_mag()
                             } else {
                                 error = -1;
                             }
                         },
                         b"yoffset" => {
-                            if let Ok(tmp) = read_length(dvi_tell_mag(), &mut buf) {
+                            if let Ok(tmp) = buf.read_length(dvi_tell_mag()) {
                                 *yo = tmp * dvi_tell_mag()
                             } else {
                                 error = -1;
@@ -2306,13 +2302,13 @@ unsafe fn scan_special(
                 buf = &buf[1..];
                 buf.skip_white();
             }
-            if let Ok(tmp) = read_length(1., &mut buf) {
+            if let Ok(tmp) = buf.read_length(1.) {
                 buf.skip_white();
                 if !buf.is_empty() && buf[0] == b',' {
                     buf = &buf[1..];
                     buf.skip_white();
                 }
-                if let Ok(tmp1) = read_length(1., &mut buf) {
+                if let Ok(tmp1) = buf.read_length(1.) {
                     *wd = tmp;
                     *ht = tmp1;
                     buf.skip_white();

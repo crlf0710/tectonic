@@ -27,14 +27,14 @@ use crate::dpx_mfileio::tt_mfgets;
 use crate::dpx_mpost::mps_scan_bbox;
 use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear};
 use crate::dpx_pdfobj::pdf_obj;
-use crate::dpx_pdfparse::{skip_white, SkipWhite};
+use crate::dpx_pdfparse::SkipWhite;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
 use crate::shims::sscanf;
 use crate::spc_warn;
 use crate::DisplayExt;
 use crate::TTInputFormat;
 use crate::{ttstub_input_close, ttstub_input_open};
-use libc::{memcpy, strlen};
+use libc::{strlen};
 use std::ffi::CStr;
 
 use super::{spc_arg, spc_env};
@@ -55,9 +55,9 @@ unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg)
         init
     };
     let mut filename: [i8; 256] = [0; 256];
-    let mut buf: [i8; 512] = [0; 512];
+    let mut buf: [u8; 512] = [0; 512];
     assert!(!spe.is_null() && !ap.is_null());
-    if (*ap).curptr >= (*ap).endptr {
+    if (*ap).cur.is_empty() {
         spc_warn!(
             spe,
             "No width/height/filename given for postscriptbox special."
@@ -65,18 +65,14 @@ unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg)
         return -1i32;
     }
     /* input is not NULL terminated */
-    let len = (*ap).endptr.wrapping_offset_from((*ap).curptr) as i64 as i32;
-    let len = if 511i32 < len { 511i32 } else { len };
-    memcpy(
-        buf.as_mut_ptr() as *mut libc::c_void,
-        (*ap).curptr as *const libc::c_void,
-        len as _,
-    );
-    buf[len as usize] = '\u{0}' as i32 as i8;
+    let len = (*ap).cur.len();
+    let len = if 511 < len { 511 } else { len };
+    buf[..len].copy_from_slice(&(*ap).cur[..len]);
+    buf[len] = 0;
     transform_info_clear(&mut ti);
-    spc_warn!(spe, "{}", CStr::from_ptr(buf.as_mut_ptr()).display());
+    spc_warn!(spe, "{}", CStr::from_bytes_with_nul(&buf[..]).unwrap().display());
     if sscanf(
-        buf.as_mut_ptr(),
+        buf.as_mut_ptr() as *mut i8,
         b"{%lfpt}{%lfpt}{%255[^}]}\x00" as *const u8 as *const i8,
         &mut ti.width as *mut f64,
         &mut ti.height as *mut f64,
@@ -86,7 +82,7 @@ unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg)
         spc_warn!(spe, "Syntax error in postscriptbox special?");
         return -1i32;
     }
-    (*ap).curptr = (*ap).endptr;
+    (*ap).cur = &[];
     ti.width *= 72.0f64 / 72.27f64;
     ti.height *= 72.0f64 / 72.27f64;
     let handle = ttstub_input_open(filename.as_mut_ptr(), TTInputFormat::PICT, 0i32);
@@ -101,7 +97,7 @@ unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg)
     let mut handle = handle.unwrap();
     ti.flags |= 1i32 << 1i32 | 1i32 << 2i32;
     loop {
-        let mut p: *const i8 = tt_mfgets(buf.as_mut_ptr(), 512i32, &mut handle);
+        let mut p: *const i8 = tt_mfgets(buf.as_mut_ptr() as *mut i8, 512, &mut handle);
         if p.is_null() {
             break;
         }
@@ -125,7 +121,7 @@ unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg)
     0i32
 }
 unsafe fn spc_handler_null(mut _spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
-    (*args).curptr = (*args).endptr;
+    (*args).cur = &[];
     0i32
 }
 const MISC_HANDLERS: [SpcHandler; 6] = [
@@ -171,21 +167,26 @@ pub unsafe extern "C" fn spc_misc_setup_handler(
     mut args: *mut spc_arg,
 ) -> i32 {
     assert!(!handle.is_null() && !spe.is_null() && !args.is_null());
-    skip_white(&mut (*args).curptr, (*args).endptr);
-    let key = (*args).curptr;
-    while (*args).curptr < (*args).endptr && libc::isalpha(*(*args).curptr.offset(0) as _) != 0 {
-        (*args).curptr = (*args).curptr.offset(1)
+    (*args).cur.skip_white();
+    let key = (*args).cur;
+    let mut keylen = 0;
+    for &c in (*args).cur {
+        if libc::isalpha(c as _) != 0 {
+            break;
+        }
+        keylen += 1;
     }
-    if (*args).curptr < (*args).endptr && *(*args).curptr.offset(0) as i32 == ':' as i32 {
-        (*args).curptr = (*args).curptr.offset(1)
+    (*args).cur = &(*args).cur[keylen..];
+    if !(*args).cur.is_empty() && (*args).cur[0] == b':' {
+        (*args).cur = &(*args).cur[1..];
+        keylen += 1;
     }
-    let keylen = (*args).curptr.wrapping_offset_from(key) as usize;
     if keylen < 1 {
         return -1i32;
     }
     for handler in MISC_HANDLERS.iter() {
-        if keylen == handler.key.len() && &CStr::from_ptr(key).to_bytes()[..keylen] == handler.key {
-            skip_white(&mut (*args).curptr, (*args).endptr);
+        if keylen == handler.key.len() && &key[..keylen] == handler.key {
+            (*args).cur.skip_white();
             (*args).command = Some(handler.key);
             (*handle).key = b"???:";
             (*handle).exec = handler.exec;

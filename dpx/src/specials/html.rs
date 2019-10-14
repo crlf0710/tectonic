@@ -51,10 +51,8 @@ use crate::dpx_pdfobj::{
     pdf_new_dict, pdf_new_name, pdf_new_null, pdf_new_number, pdf_new_string, pdf_obj,
     pdf_ref_obj, pdf_release_obj, pdf_string_value,
 };
-use crate::mfree;
 use crate::spc_warn;
-use crate::streq_ptr;
-use libc::{atof, free, memcmp, memcpy, strcat, strcmp, strcpy, strlen};
+use libc::{atof, free, strcat, strcmp, strcpy, strlen};
 
 use super::{spc_arg, spc_env};
 
@@ -100,171 +98,137 @@ static mut _HTML_STATE: spc_html_ = {
 };
 /* ENABLE_HTML_SVG_TRANSFORM */
 unsafe fn parse_key_val(
-    mut pp: *mut *const i8,
-    mut endptr: *const i8,
-    mut kp: *mut *mut i8,
-    mut vp: *mut *mut i8,
-) -> i32 {
+    pp: &mut &[u8],
+) -> Result<(CString, CString), ()> {
     let mut error: i32 = 0i32;
     let mut p = *pp; /* include trailing NULL here!!! */
-    while p < endptr && libc::isspace(*p as _) != 0 {
-        p = p.offset(1)
+    while !p.is_empty() && libc::isspace(p[0] as _) != 0 {
+        p = &p[1..];
     }
-    let mut v = 0 as *mut i8; /* Should be checked somewhere else */
+    let mut v = None; /* Should be checked somewhere else */
     let mut q = p; /* skip '="' */
                    
-    let mut n = 0i32; /* Assume this is URL */
-    while p < endptr
-        && (*p as i32 >= 'a' as i32 && *p as i32 <= 'z' as i32
-            || *p as i32 >= 'A' as i32 && *p as i32 <= 'Z' as i32
-            || *p as i32 >= '0' as i32 && *p as i32 <= '9' as i32
-            || *p as i32 == '-' as i32
-            || *p as i32 == ':' as i32)
-    {
+    let mut n = 0; /* Assume this is URL */
+    while !p.is_empty()
+        && ((b'a'..=b'z').contains(&p[0])
+            || (b'A'..=b'Z').contains(&p[0])
+            || (b'0'..=b'9').contains(&p[0])
+            || p[0] == b'-'
+            || p[0] == b':') {
         n += 1;
-        p = p.offset(1)
+        p = &p[1..];
     }
-    if n == 0i32 {
-        *vp = 0 as *mut i8;
-        *kp = *vp;
-        return -1i32;
+    if n == 0 {
+        return Err(());
     }
-    let mut k =
-        new(((n + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-            as *mut i8; /* we may want to add '/' */
-    memcpy(k as *mut libc::c_void, q as *const libc::c_void, n as _);
-    *k.offset(n as isize) = '\u{0}' as i32 as i8;
-    if p.offset(2) >= endptr
-        || *p.offset(0) as i32 != '=' as i32
-        || *p.offset(1) as i32 != '\"' as i32 && *p.offset(1) as i32 != '\'' as i32
-    {
-        k = mfree(k as *mut libc::c_void) as *mut i8;
+    let mut k = Some(CString::new(&q[..n]).unwrap());
+    if p.len() <= 2
+        || p[0] != b'='
+        || p[1] != b'\"' && p[1] != b'\'' {
+        k = None;
         *pp = p;
-        error = -1i32
+        error = -1
     } else {
-        let mut qchr: i8 = *p.offset(1);
-        p = p.offset(2);
+        let mut qchr = p[1];
+        p = &p[2..];
         q = p;
-        n = 0i32;
-        while p < endptr && *p as i32 != qchr as i32 {
-            p = p.offset(1);
+        let mut n = 0;
+        while !p.is_empty() && p[0] != qchr {
+            p = &p[1..];
             n += 1
         }
-        if p == endptr || *p as i32 != qchr as i32 {
-            error = -1i32
+        if p.is_empty() || p[0] != qchr {
+            error = -1
         } else {
-            v = new(
-                ((n + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32,
-            ) as *mut i8;
-            memcpy(v as *mut libc::c_void, q as *const libc::c_void, n as _);
-            *v.offset(n as isize) = '\u{0}' as i32 as i8;
-            p = p.offset(1)
+            v = Some(CString::new(&q[..n]).unwrap());
+            p = &p[1..];
         }
     }
-    *kp = k;
-    *vp = v;
     *pp = p;
-    error
+    if error == -1 {
+        Err(())
+    } else {
+        Ok((k.unwrap(), v.unwrap()))
+    }
 }
 
 unsafe fn read_html_tag(
-    mut name: *mut i8,
+    name: &mut [u8],
     mut attr: *mut pdf_obj,
-    mut type_0: *mut i32,
-    mut pp: *mut *const i8,
-    mut endptr: *const i8,
+    type_0: &mut i32,
+    pp: &mut &[u8],
 ) -> i32 {
-    let mut p: *const i8 = *pp;
+    let mut p = *pp;
     let mut error: i32 = 0i32;
-    while p < endptr && libc::isspace(*p as _) != 0 {
-        p = p.offset(1)
+    while !p.is_empty() && libc::isspace(p[0] as _) != 0 {
+        p = &p[1..];
     }
-    if p >= endptr || *p as i32 != '<' as i32 {
-        return -1i32;
+    if p.is_empty() || p[0] != b'<' {
+        return -1;
     }
-    *type_0 = 1i32;
-    p = p.offset(1);
-    while p < endptr && libc::isspace(*p as _) != 0 {
-        p = p.offset(1)
+    *type_0 = 1;
+    p = &p[1..];
+    while !p.is_empty() && libc::isspace(p[0] as _) != 0 {
+        p = &p[1..];
     }
-    if p < endptr && *p as i32 == '/' as i32 {
-        *type_0 = 2i32;
-        p = p.offset(1);
-        while p < endptr && libc::isspace(*p as _) != 0 {
-            p = p.offset(1)
+    if !p.is_empty() && p[0] == b'/' {
+        *type_0 = 2;
+        p = &p[1..];
+        while !p.is_empty() && libc::isspace(p[0] as _) != 0 {
+            p = &p[1..];
         }
     }
-    let mut n = 0i32;
-    while p < endptr
-        && n < 127i32
-        && !(*p as i32 == '>' as i32 || *p as i32 == '/' as i32 || libc::isspace(*p as _) != 0)
+    let mut n = 0;
+    while !p.is_empty()
+        && n < 127
+        && !(p[0] == b'>' || p[0] == b'/' || libc::isspace(p[0] as _) != 0)
     {
-        *name.offset(n as isize) = *p;
+        name[n] = p[0];
         n += 1;
-        p = p.offset(1)
+        p = &p[1..];
     }
-    *name.offset(n as isize) = '\u{0}' as i32 as i8;
-    if n == 0i32
-        || p == endptr
-        || !(*p as i32 == '>' as i32 || *p as i32 == '/' as i32 || libc::isspace(*p as _) != 0)
+    name[n] = 0_u8;
+    if n == 0
+        || p.is_empty()
+        || !(p[0] == b'>' || p[0] == b'/' || libc::isspace(p[0] as _) != 0)
     {
         *pp = p;
-        return -1i32;
+        return -1;
     }
-    while p < endptr && libc::isspace(*p as _) != 0 {
-        p = p.offset(1)
+    while !p.is_empty() && libc::isspace(p[0] as _) != 0 {
+        p = &p[1..];
     }
-    while p < endptr && error == 0 && *p as i32 != '/' as i32 && *p as i32 != '>' as i32 {
-        let mut kp: *mut i8 = 0 as *mut i8;
-        let mut vp: *mut i8 = 0 as *mut i8;
-        error = parse_key_val(&mut p, endptr, &mut kp, &mut vp);
-        if error == 0 {
-            if !kp.is_null() {
-                let mut _p: *mut i8 = kp;
-                while *_p as i32 != 0i32 {
-                    if *_p as i32 >= 'A' as i32 && *_p as i32 <= 'Z' as i32 {
-                        *_p = (*_p as i32 - 'A' as i32 + 'a' as i32) as i8
-                    }
-                    _p = _p.offset(1)
-                }
-            }
+    while !p.is_empty() && error == 0 && p[0] != b'/' && p[0] != b'>' {
+        if let Ok((kp, vp)) = parse_key_val(&mut p) {
             pdf_add_dict(
                 attr,
-                CStr::from_ptr(kp).to_bytes(),
-                pdf_new_string(vp as *const libc::c_void, strlen(vp).wrapping_add(1) as _),
+                kp.to_bytes().to_ascii_lowercase(),
+                pdf_new_string(vp.as_ptr() as *const libc::c_void, (vp.to_bytes().len() + 1) as _),
             );
-            free(kp as *mut libc::c_void);
-            free(vp as *mut libc::c_void);
+        } else {
+            error = -1;
         }
-        while p < endptr && libc::isspace(*p as _) != 0 {
-            p = p.offset(1)
+        while !p.is_empty() && libc::isspace(p[0] as _) != 0 {
+            p = &p[1..];
         }
     }
     if error != 0 {
         *pp = p;
         return error;
     }
-    if p < endptr && *p as i32 == '/' as i32 {
-        *type_0 = 1i32;
-        p = p.offset(1);
-        while p < endptr && libc::isspace(*p as _) != 0 {
-            p = p.offset(1)
+    if !p.is_empty() && p[0] == b'/' {
+        *type_0 = 1;
+        p = &p[1..];
+        while !p.is_empty() && libc::isspace(p[0] as _) != 0 {
+            p = &p[1..];
         }
     }
-    if p == endptr || *p as i32 != '>' as i32 {
+    if p.is_empty() || p[0] != b'>' {
         *pp = p;
-        return -1i32;
+        return -1;
     }
-    p = p.offset(1);
-    if !name.is_null() {
-        let mut _p_0: *mut i8 = name;
-        while *_p_0 as i32 != 0i32 {
-            if *_p_0 as i32 >= 'A' as i32 && *_p_0 as i32 <= 'Z' as i32 {
-                *_p_0 = (*_p_0 as i32 - 'A' as i32 + 'a' as i32) as i8
-            }
-            _p_0 = _p_0.offset(1)
-        }
-    }
+    p = &p[1..];
+    name[..n].make_ascii_lowercase();
     *pp = p;
     0i32
 }
@@ -725,50 +689,54 @@ unsafe fn spc_html__img_empty(mut spe: *mut spc_env, mut attr: *mut pdf_obj) -> 
 /* ENABLE_HTML_IMG_SUPPORT */
 unsafe fn spc_handler_html_default(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i32 {
     let mut sd: *mut spc_html_ = &mut _HTML_STATE; /* treat "open" same as "empty" */
-    let mut name: [i8; 128] = [0; 128]; /* treat "open" same as "empty" */
+    let mut name: [u8; 128] = [0; 128]; /* treat "open" same as "empty" */
     let mut type_0: i32 = 1i32;
-    if (*ap).curptr >= (*ap).endptr {
+    if (*ap).cur.is_empty() {
         return 0i32;
     }
     let attr = pdf_new_dict();
     let mut error = read_html_tag(
-        name.as_mut_ptr(),
+        &mut name[..],
         attr,
         &mut type_0,
-        &mut (*ap).curptr,
-        (*ap).endptr,
+        &mut (*ap).cur,
     );
     if error != 0 {
         pdf_release_obj(attr);
         return error;
     }
-    if streq_ptr(name.as_mut_ptr(), b"a\x00" as *const u8 as *const i8) {
-        match type_0 {
-            1 => error = spc_html__anchor_open(spe, attr, sd),
-            2 => error = spc_html__anchor_close(spe, sd),
-            _ => {
-                spc_warn!(spe, "Empty html anchor tag???");
-                error = -1i32
+    match CStr::from_bytes_with_nul(&name[..]).unwrap().to_bytes() {
+        b"a" => {
+            match type_0 {
+                1 => error = spc_html__anchor_open(spe, attr, sd),
+                2 => error = spc_html__anchor_close(spe, sd),
+                _ => {
+                    spc_warn!(spe, "Empty html anchor tag???");
+                    error = -1
+                }
             }
-        }
-    } else if streq_ptr(name.as_mut_ptr(), b"base\x00" as *const u8 as *const i8) {
-        if type_0 == 2i32 {
-            spc_warn!(spe, "Close tag for \"base\"???");
-            error = -1i32
-        } else {
-            error = spc_html__base_empty(spe, attr, sd)
-        }
-    } else if streq_ptr(name.as_mut_ptr(), b"img\x00" as *const u8 as *const i8) {
-        if type_0 == 2i32 {
-            spc_warn!(spe, "Close tag for \"img\"???");
-            error = -1i32
-        } else {
-            error = spc_html__img_empty(spe, attr)
-        }
+        },
+        b"base" => {
+            if type_0 == 2 {
+                spc_warn!(spe, "Close tag for \"base\"???");
+                error = -1
+            } else {
+                error = spc_html__base_empty(spe, attr, sd)
+            }
+        },
+        b"img" => {
+            if type_0 == 2 {
+                spc_warn!(spe, "Close tag for \"img\"???");
+                error = -1
+            } else {
+                error = spc_html__img_empty(spe, attr)
+            }
+        },
+        _ => {}
     }
     pdf_release_obj(attr);
-    while (*ap).curptr < (*ap).endptr && libc::isspace(*(*ap).curptr.offset(0) as _) != 0 {
-        (*ap).curptr = (*ap).curptr.offset(1)
+    while !(*ap).cur.is_empty() && libc::isspace((*ap).cur[0] as _) != 0 {
+        (*ap).cur = &(*ap).cur[1..];
     }
     error
 }
@@ -954,29 +922,18 @@ pub unsafe extern "C" fn spc_html_setup_handler(
     mut ap: *mut spc_arg,
 ) -> i32 {
     assert!(!sph.is_null() && !spe.is_null() && !ap.is_null());
-    while (*ap).curptr < (*ap).endptr && libc::isspace(*(*ap).curptr.offset(0) as _) != 0 {
-        (*ap).curptr = (*ap).curptr.offset(1)
+    while !(*ap).cur.is_empty() && libc::isspace((*ap).cur[0] as _) != 0 {
+        (*ap).cur = &(*ap).cur[1..];
     }
-    if (*ap)
-        .curptr
-        .offset(strlen(b"html:\x00" as *const u8 as *const i8) as isize)
-        > (*ap).endptr
-        || memcmp(
-            (*ap).curptr as *const libc::c_void,
-            b"html:\x00" as *const u8 as *const i8 as *const libc::c_void,
-            strlen(b"html:\x00" as *const u8 as *const i8),
-        ) != 0
-    {
+    if !(*ap).cur.starts_with(b"html:") {
         return -1i32;
     }
     (*ap).command = Some(b"");
     (*sph).key = b"html:";
     (*sph).exec = Some(spc_handler_html_default);
-    (*ap).curptr = (*ap)
-        .curptr
-        .offset(strlen(b"html:\x00" as *const u8 as *const i8) as isize);
-    while (*ap).curptr < (*ap).endptr && libc::isspace(*(*ap).curptr.offset(0) as _) != 0 {
-        (*ap).curptr = (*ap).curptr.offset(1)
+    (*ap).cur = &(*ap).cur[b"html:".len()..];
+    while !(*ap).cur.is_empty() && libc::isspace((*ap).cur[0] as _) != 0 {
+        (*ap).cur = &(*ap).cur[1..];
     }
     0i32
 }

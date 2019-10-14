@@ -29,7 +29,7 @@ use crate::DisplayExt;
 use std::ffi::CStr;
 
 use super::util::{spc_util_read_colorspec, spc_util_read_numbers};
-use crate::dpx_dpxutil::parse_c_ident;
+use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_fontmap::{
     is_pdfm_mapline, pdf_append_fontmap_record, pdf_clear_fontmap_record, pdf_init_fontmap_record,
     pdf_insert_fontmap_record, pdf_load_fontmap_file, pdf_read_fontmap_line,
@@ -39,16 +39,16 @@ use crate::dpx_mem::{new, xrealloc};
 use crate::dpx_mfileio::work_buffer_u8 as WORK_BUFFER;
 use crate::dpx_pdfdev::{pdf_dev_reset_color, pdf_dev_reset_fonts};
 use crate::dpx_pdfdoc::{
-    pdf_doc_add_page_content, pdf_doc_add_page_content_ptr, pdf_doc_set_bgcolor,
+    pdf_doc_add_page_content, pdf_doc_set_bgcolor,
 };
 use crate::dpx_pdfdraw::{
     pdf_dev_concat, pdf_dev_get_fixed_point, pdf_dev_grestore, pdf_dev_gsave,
     pdf_dev_set_fixed_point,
 };
-use crate::dpx_pdfparse::{parse_ident, parse_val_ident, skip_white, SkipWhite};
+use crate::dpx_pdfparse::{ParseIdent, SkipWhite};
 use crate::shims::sprintf;
 use crate::spc_warn;
-use libc::{free, memcmp, strlen, strncmp, strncpy};
+use libc::{free};
 
 use super::{spc_arg, spc_env};
 
@@ -95,7 +95,7 @@ unsafe fn spc_handler_xtx_scale(mut spe: *mut spc_env, mut args: *mut spc_arg) -
     if spc_util_read_numbers(&mut *values.as_mut_ptr().offset(0), 2i32, args) < 2i32 {
         return -1i32;
     }
-    (*args).curptr = (*args).endptr;
+    (*args).cur = &[];
     return spc_handler_xtx_do_transform(
         (*spe).x_user,
         (*spe).y_user,
@@ -128,7 +128,7 @@ unsafe fn spc_handler_xtx_bscale(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     }
     (*SCALE_FACTORS.offset(SCALE_FACTOR_COUNT as isize)).x = 1i32 as f64 / values[0];
     (*SCALE_FACTORS.offset(SCALE_FACTOR_COUNT as isize)).y = 1i32 as f64 / values[1];
-    (*args).curptr = (*args).endptr;
+    (*args).cur = &[];
     return spc_handler_xtx_do_transform(
         (*spe).x_user,
         (*spe).y_user,
@@ -144,7 +144,7 @@ unsafe fn spc_handler_xtx_escale(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     let fresh0 = SCALE_FACTOR_COUNT;
     SCALE_FACTOR_COUNT = SCALE_FACTOR_COUNT - 1;
     let mut factor: Coord = *SCALE_FACTORS.offset(fresh0 as isize);
-    (*args).curptr = (*args).endptr;
+    (*args).cur = &[];
     return spc_handler_xtx_do_transform(
         (*spe).x_user,
         (*spe).y_user,
@@ -161,7 +161,7 @@ unsafe fn spc_handler_xtx_rotate(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     if spc_util_read_numbers(&mut value, 1i32, args) < 1i32 {
         return -1i32;
     }
-    (*args).curptr = (*args).endptr;
+    (*args).cur = &[];
     let (s, c) = (value * core::f64::consts::PI / 180.).sin_cos();
     spc_handler_xtx_do_transform(
         (*spe).x_user,
@@ -212,47 +212,37 @@ unsafe fn spc_handler_xtx_backgroundcolor(mut spe: *mut spc_env, mut args: *mut 
 /* FIXME: xdv2pdf's x:fontmapline and x:fontmapfile may have slightly different syntax/semantics */
 unsafe fn spc_handler_xtx_fontmapline(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i32 {
     let mut error: i32 = 0i32;
-    static mut BUFFER: [i8; 1024] = [0; 1024];
-    skip_white(&mut (*ap).curptr, (*ap).endptr);
-    if (*ap).curptr >= (*ap).endptr {
+    static mut BUFFER: [u8; 1024] = [0; 1024];
+    (*ap).cur.skip_white();
+    if (*ap).cur.is_empty() {
         spc_warn!(spe, "Empty fontmapline special?");
         return -1i32;
     }
-    let opchr = *(*ap).curptr.offset(0);
-    if opchr as i32 == '-' as i32 || opchr as i32 == '+' as i32 {
-        (*ap).curptr = (*ap).curptr.offset(1)
+    let opchr = (*ap).cur[0];
+    if opchr == b'-' || opchr == b'+' {
+        (*ap).cur = &(*ap).cur[1..];
     }
-    skip_white(&mut (*ap).curptr, (*ap).endptr);
+    (*ap).cur.skip_white();
     match opchr as i32 {
         45 => {
-            let map_name = parse_ident(&mut (*ap).curptr, (*ap).endptr);
-            if !map_name.is_null() {
-                pdf_remove_fontmap_record(map_name);
-                free(map_name as *mut libc::c_void);
+            if let Some(map_name) = (*ap).cur.parse_ident() {
+                pdf_remove_fontmap_record(map_name.as_ptr());
             } else {
                 spc_warn!(spe, "Invalid fontmap line: Missing TFM name.");
                 error = -1i32
             }
         }
         _ => {
-            let mut p = (*ap).curptr;
-            let mut q = BUFFER.as_mut_ptr();
-            while p < (*ap).endptr {
-                let fresh1 = p;
-                p = p.offset(1);
-                let fresh2 = q;
-                q = q.offset(1);
-                *fresh2 = *fresh1
-            }
-            *q = '\u{0}' as i32 as i8;
+            BUFFER[..(*ap).cur.len()].copy_from_slice((*ap).cur);
+            BUFFER[(*ap).cur.len()] = 0;
             let mrec = new((1_u64).wrapping_mul(::std::mem::size_of::<fontmap_rec>() as u64) as u32)
                 as *mut fontmap_rec;
             pdf_init_fontmap_record(mrec);
             error = pdf_read_fontmap_line(
                 mrec,
-                BUFFER.as_mut_ptr(),
-                (*ap).endptr.wrapping_offset_from((*ap).curptr) as i64 as i32,
-                is_pdfm_mapline(BUFFER.as_mut_ptr()),
+                BUFFER.as_mut_ptr() as *mut i8,
+                (*ap).cur.len() as i32,
+                is_pdfm_mapline(BUFFER.as_mut_ptr() as *mut i8),
             );
             if error != 0 {
                 spc_warn!(spe, "Invalid fontmap line.");
@@ -266,70 +256,56 @@ unsafe fn spc_handler_xtx_fontmapline(mut spe: *mut spc_env, mut ap: *mut spc_ar
         }
     }
     if error == 0 {
-        (*ap).curptr = (*ap).endptr
+        (*ap).cur = &[];
     }
     0i32
 }
 unsafe fn spc_handler_xtx_fontmapfile(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
-    skip_white(&mut (*args).curptr, (*args).endptr);
-    if (*args).curptr >= (*args).endptr {
+    (*args).cur.skip_white();
+    if (*args).cur.is_empty() {
         return 0i32;
     }
-    let mode = match *(*args).curptr.offset(0) as i32 {
+    let mode = match (*args).cur[0] as i32 {
         45 => {
-            (*args).curptr = (*args).curptr.offset(1);
+            (*args).cur = &(*args).cur[1..];
             '-' as i32
         }
         43 => {
-            (*args).curptr = (*args).curptr.offset(1);
+            (*args).cur = &(*args).cur[1..];
             '+' as i32
         }
         _ => 0,
     };
-    let mapfile = parse_val_ident(&mut (*args).curptr, (*args).endptr);
-    if mapfile.is_null() {
+    if let Some(mapfile) = (*args).cur.parse_val_ident() {
+        pdf_load_fontmap_file(mapfile.as_c_str(), mode)
+    } else {
         spc_warn!(spe, "No fontmap file specified.");
         -1
-    } else {
-        pdf_load_fontmap_file(mapfile, mode)
     }
 }
-static mut OVERLAY_NAME: [i8; 256] = [0; 256];
+static mut OVERLAY_NAME: [u8; 256] = [0; 256];
 unsafe fn spc_handler_xtx_initoverlay(mut _spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
-    skip_white(&mut (*args).curptr, (*args).endptr);
-    if (*args).curptr >= (*args).endptr {
+    (*args).cur.skip_white();
+    if (*args).cur.is_empty() {
         return -1i32;
     }
-    strncpy(
-        OVERLAY_NAME.as_mut_ptr(),
-        (*args).curptr,
-        (*args).endptr.wrapping_offset_from((*args).curptr) as _,
-    );
-    OVERLAY_NAME[(*args).endptr.wrapping_offset_from((*args).curptr) as i64 as usize] = 0_i8;
-    (*args).curptr = (*args).endptr;
+    OVERLAY_NAME[..(*args).cur.len()].copy_from_slice((*args).cur);
+    OVERLAY_NAME[(*args).cur.len()] = 0;
+    (*args).cur = &[];
     0i32
 }
 unsafe fn spc_handler_xtx_clipoverlay(mut _spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
-    skip_white(&mut (*args).curptr, (*args).endptr);
-    if (*args).curptr >= (*args).endptr {
+    (*args).cur.skip_white();
+    if (*args).cur.is_empty() {
         return -1i32;
     }
     pdf_dev_grestore();
     pdf_dev_gsave();
-    if strncmp(
-        OVERLAY_NAME.as_mut_ptr(),
-        (*args).curptr,
-        strlen(OVERLAY_NAME.as_mut_ptr()),
-    ) != 0i32
-        && strncmp(
-            b"all\x00" as *const u8 as *const i8,
-            (*args).curptr,
-            strlen(b"all\x00" as *const u8 as *const i8),
-        ) != 0i32
-    {
+    if (*args).cur != CStr::from_bytes_with_nul(&OVERLAY_NAME).unwrap().to_bytes()
+        && (*args).cur != b"all" {
         pdf_doc_add_page_content(b" 0 0 m W n");
     }
-    (*args).curptr = (*args).endptr;
+    (*args).cur = &[];
     0i32
 }
 unsafe fn spc_handler_xtx_renderingmode(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
@@ -351,15 +327,12 @@ unsafe fn spc_handler_xtx_renderingmode(mut spe: *mut spc_env, mut args: *mut sp
             .unwrap()
             .to_bytes(),
     );
-    skip_white(&mut (*args).curptr, (*args).endptr);
-    if (*args).curptr < (*args).endptr {
+    (*args).cur.skip_white();
+    if !(*args).cur.is_empty() {
         pdf_doc_add_page_content(b" ");
-        pdf_doc_add_page_content_ptr(
-            (*args).curptr,
-            (*args).endptr.wrapping_offset_from((*args).curptr) as i64 as u32,
-        );
+        pdf_doc_add_page_content((*args).cur);
     }
-    (*args).curptr = (*args).endptr;
+    (*args).cur = &[];
     0i32
 }
 unsafe fn spc_handler_xtx_unsupportedcolor(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
@@ -368,7 +341,7 @@ unsafe fn spc_handler_xtx_unsupportedcolor(mut spe: *mut spc_env, mut args: *mut
         "xetex-style \\special{{x:{}}} is not supported by this driver;\nupdate document or driver to use \\special{{color}} instead.",
         (*args).command.unwrap().display(),
     );
-    (*args).curptr = (*args).endptr;
+    (*args).cur = &[];
     0i32
 }
 unsafe fn spc_handler_xtx_unsupported(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
@@ -377,7 +350,7 @@ unsafe fn spc_handler_xtx_unsupported(mut spe: *mut spc_env, mut args: *mut spc_
         "xetex-style \\special{{x:{}}} is not supported by this driver.",
         (*args).command.unwrap().display(),
     );
-    (*args).curptr = (*args).endptr;
+    (*args).cur = &[];
     0i32
 }
 const XTX_HANDLERS: [SpcHandler; 21] = [
@@ -478,37 +451,24 @@ pub unsafe extern "C" fn spc_xtx_setup_handler(
 ) -> i32 {
     let mut error: i32 = -1i32;
     assert!(!sph.is_null() && !spe.is_null() && !ap.is_null());
-    skip_white(&mut (*ap).curptr, (*ap).endptr);
-    if (*ap)
-        .curptr
-        .offset(strlen(b"x:\x00" as *const u8 as *const i8) as isize)
-        >= (*ap).endptr
-        || memcmp(
-            (*ap).curptr as *const libc::c_void,
-            b"x:\x00" as *const u8 as *const i8 as *const libc::c_void,
-            strlen(b"x:\x00" as *const u8 as *const i8),
-        ) != 0
-    {
+    (*ap).cur.skip_white();
+    if !(*ap).cur.starts_with(b"x:") {
         spc_warn!(spe, "Not x: special???");
         return -1i32;
     }
-    (*ap).curptr = (*ap)
-        .curptr
-        .offset(strlen(b"x:\x00" as *const u8 as *const i8) as isize);
-    skip_white(&mut (*ap).curptr, (*ap).endptr);
-    let q = parse_c_ident(&mut (*ap).curptr, (*ap).endptr);
-    if !q.is_null() {
+    (*ap).cur = &(*ap).cur[b"x:".len()..];
+    (*ap).cur.skip_white();
+    if let Some(q) = (*ap).cur.parse_c_ident() {
         for handler in XTX_HANDLERS.iter() {
-            if CStr::from_ptr(q).to_bytes() == handler.key {
+            if q.to_bytes() == handler.key {
                 (*ap).command = Some(handler.key);
                 (*sph).key = b"x:";
                 (*sph).exec = handler.exec;
-                skip_white(&mut (*ap).curptr, (*ap).endptr);
+                (*ap).cur.skip_white();
                 error = 0i32;
                 break;
             }
         }
-        free(q as *mut libc::c_void);
     }
     error
 }

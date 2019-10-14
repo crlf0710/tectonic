@@ -30,7 +30,7 @@
 use crate::strstartswith;
 use crate::DisplayExt;
 use crate::{info, warn};
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 
 use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
@@ -131,9 +131,7 @@ impl SkipWhite for &[u8] {
          * isspace(0x0B) returns TRUE.
          */
         while !self.is_empty()
-            && (b" \t\r\n%".contains(&self[0])
-                || self[0] == '\u{c}' as u8
-                || self[0] == 0)
+            && ([b' ', b'\t', b'\r', b'\n', b'%', '\u{c}' as u8, 0].contains(&self[0]))
         {
             if self[0] == b'%' {
                 self.skip_line();
@@ -174,6 +172,13 @@ unsafe fn parsed_string(mut start: *const i8, mut end: *const i8) -> *mut i8 {
         *result.offset(len as isize) = '\u{0}' as i32 as i8
     }
     result
+}
+fn parsed_string_slice(buf: &[u8]) -> Option<CString> {
+    if !buf.is_empty() {
+        Some(CString::new(buf).unwrap())
+    } else {
+        None
+    }
 }
 #[no_mangle]
 pub unsafe extern "C" fn parse_number(mut start: *mut *const i8, mut end: *const i8) -> *mut i8 {
@@ -226,16 +231,26 @@ unsafe fn parse_gen_ident(
     *start = p;
     ident
 }
+fn parse_gen_ident_slice(
+    mut buf: &mut &[u8],
+    mut valid_chars: &[u8],
+) -> Option<CString> {
+    /* No skip_white(start, end)? */
+    let mut i = 0;
+    for p in *buf {
+        if !valid_chars.contains(p) {
+            break;
+        }
+        i += 1;
+    }
+    let ident = parsed_string_slice(&buf[..i]);
+    *buf = &buf[i..];
+    ident
+}
 #[no_mangle]
 pub unsafe extern "C" fn parse_ident(mut start: *mut *const i8, mut end: *const i8) -> *mut i8 {
     const VALID_CHARS: &[u8] =
         b"!\"#$&\'*+,-.0123456789:;=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\\^_`abcdefghijklmnopqrstuvwxyz|~";
-    parse_gen_ident(start, end, VALID_CHARS)
-}
-#[no_mangle]
-pub unsafe extern "C" fn parse_val_ident(mut start: *mut *const i8, mut end: *const i8) -> *mut i8 {
-    const VALID_CHARS: &[u8] =
-        b"!\"#$&\'*+,-./0123456789:;?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\\^_`abcdefghijklmnopqrstuvwxyz|~";
     parse_gen_ident(start, end, VALID_CHARS)
 }
 #[no_mangle]
@@ -245,6 +260,32 @@ pub unsafe extern "C" fn parse_opt_ident(mut start: *mut *const i8, mut end: *co
         return parse_ident(start, end);
     }
     0 as *mut i8
+}
+pub trait ParseIdent {
+    fn parse_ident(&mut self) -> Option<CString>;
+    fn parse_val_ident(&mut self) -> Option<CString>;
+    fn parse_opt_ident(&mut self) -> Option<CString>;
+}
+
+impl ParseIdent for &[u8] {
+    fn parse_ident(&mut self) -> Option<CString> {
+        const VALID_CHARS: &[u8] =
+            b"!\"#$&\'*+,-.0123456789:;=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\\^_`abcdefghijklmnopqrstuvwxyz|~";
+        parse_gen_ident_slice(self, VALID_CHARS)
+    }
+    fn parse_val_ident(&mut self) -> Option<CString> {
+        const VALID_CHARS: &[u8] =
+            b"!\"#$&\'*+,-./0123456789:;?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\\^_`abcdefghijklmnopqrstuvwxyz|~";
+        parse_gen_ident_slice(self, VALID_CHARS)
+    }
+    fn parse_opt_ident(&mut self) -> Option<CString> {
+        if !self.is_empty() && self[0] == b'@' {
+            *self = &self[1..];
+            self.parse_ident()
+        } else {
+            None
+        }
+    }
 }
 
 #[no_mangle]
@@ -325,11 +366,11 @@ pub unsafe extern "C" fn parse_pdf_number(
 }
 
 
-pub unsafe trait ParsePdfNumber {
+pub trait ParsePdfNumber {
     fn parse_pdf_number(&mut self) -> Option<*mut pdf_obj>;
 }
 
-unsafe impl ParsePdfNumber for &[u8] {
+impl ParsePdfNumber for &[u8] {
     fn parse_pdf_number(&mut self) -> Option<*mut pdf_obj> {
         let mut v = 0_f64;
         let mut nddigits = 0;
@@ -360,10 +401,7 @@ unsafe impl ParsePdfNumber for &[u8] {
             p = &p[1..];
         }
         while !p.is_empty()
-            && !(
-                b" \t\r\n()/<>[]%".contains(&p[0])
-                || p[0] == '\u{c}' as u8
-                || p[0] == 0)
+            && !([b' ', b'\t', b'\r', b'\n', b'(', b')', b'/', b'<', b'>', b'[', b']', b'%', '\u{c}' as u8, 0].contains(&p[0]))
         {
             if p[0] == b'.' {
                 if has_dot {
@@ -782,11 +820,11 @@ pub unsafe extern "C" fn parse_pdf_string(
     warn!("Could not find a string object.");
     0 as *mut pdf_obj
 }
-pub unsafe trait ParsePdfString {
+pub trait ParsePdfString {
     fn parse_pdf_string(&mut self) -> Option<*mut pdf_obj>;
 }
 
-unsafe impl ParsePdfString for &[u8] {
+impl ParsePdfString for &[u8] {
     fn parse_pdf_string(&mut self) -> Option<*mut pdf_obj> {
         /*
          * PDF Literal String
@@ -1059,6 +1097,21 @@ pub unsafe extern "C" fn parse_pdf_dict(
     *pp = p.offset(2);
     result
 }
+
+pub trait ParsePdfDict { // TODO: rework
+    fn parse_pdf_dict(&mut self, pf: *mut pdf_file) -> *mut pdf_obj;
+}
+
+impl ParsePdfDict for &[u8] {
+    fn parse_pdf_dict(&mut self, pf: *mut pdf_file) -> *mut pdf_obj {
+    unsafe {   let mut curptr = (*self).as_ptr() as *const i8;
+        let endptr = curptr.offset(self.len() as isize);
+        let o = parse_pdf_dict(&mut curptr, endptr, pf);
+        *self = &self[self.len()-(endptr.wrapping_offset_from(curptr)) as usize..];
+        o}
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn parse_pdf_array(
     mut pp: *mut *const i8,
@@ -1337,4 +1390,18 @@ pub unsafe extern "C" fn parse_pdf_object(
         }
     }
     result
+}
+
+pub trait ParsePdfObj { // TODO: rework
+    fn parse_pdf_object(&mut self, pf: *mut pdf_file) -> *mut pdf_obj;
+}
+
+impl ParsePdfObj for &[u8] {
+    fn parse_pdf_object(&mut self, pf: *mut pdf_file) -> *mut pdf_obj {
+    unsafe{    let mut curptr = (*self).as_ptr() as *const i8;
+        let endptr = curptr.offset(self.len() as isize);
+        let o = parse_pdf_object(&mut curptr, endptr, pf);
+        *self = &self[self.len()-(endptr.wrapping_offset_from(curptr)) as usize..];
+        o}
+    }
 }

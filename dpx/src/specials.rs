@@ -61,7 +61,7 @@ use super::dpx_pdfnames::{
     pdf_delete_name_tree, pdf_names_add_object, pdf_names_close_object, pdf_names_lookup_object,
     pdf_names_lookup_reference, pdf_new_name_tree,
 };
-use super::dpx_pdfparse::{dump, dump_slice, skip_white};
+use super::dpx_pdfparse::{dump_slice, SkipWhite};
 use super::specials::dvips::{
     spc_dvips_at_begin_document, spc_dvips_at_begin_page, spc_dvips_at_end_document,
     spc_dvips_at_end_page, spc_dvips_check_special, spc_dvips_setup_handler,
@@ -80,10 +80,9 @@ pub struct spc_env {
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct spc_arg {
-    pub curptr: *const i8,
-    pub endptr: *const i8,
-    pub base: *const i8,
+pub struct spc_arg<'a> {
+    pub cur: &'a [u8],
+    pub base: &'a [u8],
     pub command: Option<&'static [u8]>,
 }
 #[derive(Copy, Clone)]
@@ -292,38 +291,36 @@ pub unsafe extern "C" fn spc_clear_objects() {
 }
 unsafe fn spc_handler_unknown(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     assert!(!spe.is_null() && !args.is_null());
-    (*args).curptr = (*args).endptr;
+    (*args).cur = &[];
     -1i32
 }
-unsafe fn init_special(
+unsafe fn init_special<'a, 'b>(
     mut special: &mut SpcHandler,
     mut spe: &mut spc_env,
-    mut args: &mut spc_arg,
-    mut p: *const i8,
-    mut size: u32,
+    mut args: &'a mut spc_arg<'b>,
+    mut buf: &'b [u8],
     mut x_user: f64,
     mut y_user: f64,
     mut mag: f64,
-) {
+) where 'b: 'a {
     special.key = &[];
     special.exec = Some(spc_handler_unknown);
     spe.x_user = x_user;
     spe.y_user = y_user;
     spe.mag = mag;
     spe.pg = pdf_doc_current_page_number();
-    args.curptr = p;
-    args.endptr = (*args).curptr.offset(size as isize);
-    args.base = (*args).curptr;
+    args.cur = buf;
+    args.base = buf;
     args.command = None;
 }
 unsafe fn check_garbage(mut args: &mut spc_arg) {
-    if args.curptr >= args.endptr {
+    if args.cur.is_empty() {
         return;
     }
-    skip_white(&mut args.curptr, args.endptr);
-    if args.curptr < args.endptr {
+    args.cur.skip_white();
+    if !args.cur.is_empty() {
         warn!("Unparsed material at end of special ignored.");
-        dump((*args).curptr, (*args).endptr);
+        dump_slice((*args).cur);
     };
 }
 const KNOWN_SPECIALS: [Special; 8] = [
@@ -443,7 +440,7 @@ pub unsafe extern "C" fn spc_exec_at_end_document() -> i32 {
     error
 }
 unsafe fn print_error(mut name: *const i8, mut spe: *mut spc_env, mut ap: *mut spc_arg) {
-    let mut ebuf: [i8; 64] = [0; 64];
+    let mut ebuf: [u8; 64] = [0; 64];
     let mut pg: i32 = (*spe).pg;
     let mut c = Coord::new((*spe).x_user, (*spe).y_user);
     pdf_dev_transform(&mut c, None);
@@ -458,73 +455,73 @@ unsafe fn print_error(mut name: *const i8, mut spe: *mut spc_env, mut ap: *mut s
             pg, c.x, c.y,
         );
     }
-    let mut i = 0i32;
-    let mut p = (*ap).base;
-    while i < 63i32 && p < (*ap).endptr {
-        if libc::isprint(*p as _) != 0 {
-            let fresh0 = i;
-            i = i + 1;
-            ebuf[fresh0 as usize] = *p
+    let mut i = 0;
+    for &b in (*ap).base {
+        if i >= 63 {
+            break;
+        }
+        if libc::isprint(b as _) != 0 {
+            ebuf[i] = b;
+            i += 1;
         } else {
-            if !(i + 4i32 < 63i32) {
+            if !(i + 4 < 63) {
                 break;
             }
             i += sprintf(
-                ebuf.as_mut_ptr().offset(i as isize),
+                ebuf.as_mut_ptr().offset(i as isize) as *mut i8,
                 b"\\x%02x\x00" as *const u8 as *const i8,
-                *p as u8 as i32,
-            )
+                b as i32,
+            ) as usize;
         }
-        p = p.offset(1)
     }
-    ebuf[i as usize] = '\u{0}' as i32 as i8;
-    if (*ap).curptr < (*ap).endptr {
+    ebuf[i] = 0;
+    if !(*ap).cur.is_empty() {
         loop {
             let fresh1 = i;
             i = i - 1;
-            if !(fresh1 > 60i32) {
+            if !(fresh1 > 60) {
                 break;
             }
-            ebuf[i as usize] = '.' as i32 as i8
+            ebuf[i] = b'.';
         }
     }
-    warn!(">> xxx \"{}\"", CStr::from_ptr(ebuf.as_mut_ptr()).display());
-    if (*ap).curptr < (*ap).endptr {
-        i = 0i32;
-        p = (*ap).curptr;
-        while i < 63i32 && p < (*ap).endptr {
-            if libc::isprint(*p as _) != 0 {
-                let fresh2 = i;
-                i = i + 1;
-                ebuf[fresh2 as usize] = *p
+    warn!(">> xxx \"{}\"", CStr::from_ptr(ebuf.as_ptr() as *const i8).display());
+    if !(*ap).cur.is_empty() {
+        i = 0;
+        for &b in (*ap).cur {
+            if i >= 63 {
+                break;
+            }
+            if libc::isprint(b as _) != 0 {
+                ebuf[i] = b;
+                i += 1;
             } else {
-                if !(i + 4i32 < 63i32) {
+                if !(i + 4 < 63) {
                     break;
                 }
                 i += sprintf(
-                    ebuf.as_mut_ptr().offset(i as isize),
+                    ebuf.as_mut_ptr().offset(i as isize) as *mut i8,
                     b"\\x%02x\x00" as *const u8 as *const i8,
-                    *p as u8 as i32,
-                )
+                    b as i32,
+                ) as usize;
             }
-            p = p.offset(1)
         }
-        ebuf[i as usize] = '\u{0}' as i32 as i8;
-        if (*ap).curptr < (*ap).endptr {
+        ebuf[i] = 0;
+        if !(*ap).cur.is_empty() {
             loop {
                 let fresh3 = i;
                 i = i - 1;
-                if !(fresh3 > 60i32) {
+                if !(fresh3 > 60) {
                     break;
                 }
-                ebuf[i as usize] = '.' as i32 as i8
+                ebuf[i] = b'.' as u8
             }
         }
         warn!(
             ">> Reading special command stopped around >>{}<<",
-            CStr::from_ptr(ebuf.as_mut_ptr()).display()
+            CStr::from_ptr(ebuf.as_ptr() as *const i8).display()
         );
-        (*ap).curptr = (*ap).endptr
+        (*ap).cur = &[];
     };
 }
 /* current page in PDF */
@@ -537,7 +534,6 @@ pub unsafe extern "C" fn spc_exec_special(
     mut y_user: f64,
     mut mag: f64,
 ) -> i32 {
-    let size = buffer.len();
     let mut error: i32 = -1i32;
     let mut spe: spc_env = spc_env {
         x_user: 0.,
@@ -546,9 +542,8 @@ pub unsafe extern "C" fn spc_exec_special(
         pg: 0,
     };
     let mut args: spc_arg = spc_arg {
-        curptr: 0 as *const i8,
-        endptr: 0 as *const i8,
-        base: 0 as *const i8,
+        cur: &[],
+        base: &[],
         command: None,
     };
     let mut special = SpcHandler {
@@ -562,8 +557,7 @@ pub unsafe extern "C" fn spc_exec_special(
         &mut special,
         &mut spe,
         &mut args,
-        buffer.as_ptr() as *const i8,
-        size as u32,
+        buffer,
         x_user,
         y_user,
         mag,

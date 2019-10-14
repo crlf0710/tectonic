@@ -2462,24 +2462,6 @@ pub unsafe fn pdf_doc_add_page_content(buffer: &[u8]) {
     };
 }
 
-pub unsafe fn pdf_doc_add_page_content_ptr(buffer: *const i8, len: u32) {
-    let p = &mut pdoc;
-    if !p.pending_forms.is_null() {
-        pdf_add_stream(
-            (*p.pending_forms).form.contents,
-            buffer as *const libc::c_void,
-            len as i32,
-        );
-    } else {
-        let currentpage =
-            &mut *p.pages.entries.offset(p.pages.num_entries as isize) as *mut pdf_page;
-        pdf_add_stream(
-            (*currentpage).contents,
-            buffer as *const libc::c_void,
-            len as i32,
-        );
-    };
-}
 static mut doccreator: *mut i8 = 0 as *const i8 as *mut i8;
 /* Ugh */
 #[no_mangle]

@@ -23,14 +23,13 @@
     unused_mut
 )]
 
+use crate::SkipBlank;
 use super::util::spc_util_read_colorspec;
 use super::{spc_arg, spc_env, SpcHandler};
-use crate::dpx_dpxutil::{parse_c_ident, ParseCIdent};
+use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_pdfcolor::{pdf_color_clear_stack, pdf_color_pop, pdf_color_push, pdf_color_set};
 use crate::dpx_pdfdoc::pdf_doc_set_bgcolor;
 use crate::spc_warn;
-use crate::streq_ptr;
-use libc::free;
 
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -80,16 +79,9 @@ unsafe fn spc_handler_background(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         -1
     }
 }
-unsafe fn skip_blank(mut pp: *mut *const i8, mut endptr: *const i8) {
-    let mut p: *const i8 = *pp;
-    while p < endptr && (*p as i32 & !0x7fi32 == 0i32 && crate::isblank(*p as _) != 0) {
-        p = p.offset(1)
-    }
-    *pp = p;
-}
 
-pub fn spc_color_check_special(buf: &[u8]) -> bool {
-    let mut buf = crate::skip_blank(buf);
+pub fn spc_color_check_special(mut buf: &[u8]) -> bool {
+    buf.skip_blank();
     if let Some(q) = buf.parse_c_ident() {
         q.to_bytes() == b"color" || q.to_bytes() == b"background"
     } else {
@@ -103,43 +95,46 @@ pub unsafe extern "C" fn spc_color_setup_handler(
     mut ap: *mut spc_arg,
 ) -> i32 {
     assert!(!sph.is_null() && !spe.is_null() && !ap.is_null());
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    let q = parse_c_ident(&mut (*ap).curptr, (*ap).endptr);
-    if q.is_null() {
+    (*ap).cur.skip_blank();
+    let q = (*ap).cur.parse_c_ident();
+    if q.is_none() {
         return -1i32;
     }
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    if streq_ptr(q, b"background\x00" as *const u8 as *const i8) {
-        (*ap).command = Some(b"background");
-        (*sph).exec = Some(spc_handler_background);
-        free(q as *mut libc::c_void);
-    } else if streq_ptr(q, b"color\x00" as *const u8 as *const i8) {
-        /* color */
-        free(q as *mut libc::c_void); /* cmyk, rgb, ... */
-        let mut p = (*ap).curptr;
-        let q = parse_c_ident(&mut p, (*ap).endptr);
-        if q.is_null() {
-            return -1i32;
-        } else {
-            if streq_ptr(q, b"push\x00" as *const u8 as *const i8) {
-                (*ap).command = Some(b"push");
-                (*sph).exec = Some(spc_handler_color_push);
-                (*ap).curptr = p
-            } else if streq_ptr(q, b"pop\x00" as *const u8 as *const i8) {
-                (*ap).command = Some(b"pop");
-                (*sph).exec = Some(spc_handler_color_pop);
-                (*ap).curptr = p
+    (*ap).cur.skip_blank();
+    match q.unwrap().to_bytes() {
+        b"background" => {
+            (*ap).command = Some(b"background");
+            (*sph).exec = Some(spc_handler_background);
+        },
+        b"color" => {
+            /* color */ /* cmyk, rgb, ... */
+            let mut p = &(*ap).cur[..];
+            if let Some(q) = p.parse_c_ident() {
+                match q.to_bytes() {
+                    b"push" => {
+                        (*ap).command = Some(b"push");
+                        (*sph).exec = Some(spc_handler_color_push);
+                        (*ap).cur = p
+                    },
+                    b"pop" => {
+                        (*ap).command = Some(b"pop");
+                        (*sph).exec = Some(spc_handler_color_pop);
+                        (*ap).cur = p
+                    },
+                    _ => {
+                        (*ap).command = Some(b"");
+                        (*sph).exec = Some(spc_handler_color_default)
+                    }
+                }
             } else {
-                (*ap).command = Some(b"");
-                (*sph).exec = Some(spc_handler_color_default)
+                return -1i32;
             }
+        },
+        _ => {
+            spc_warn!(spe, "Not color/background special?");
+            return -1i32;
         }
-        free(q as *mut libc::c_void);
-    } else {
-        spc_warn!(spe, "Not color/background special?");
-        free(q as *mut libc::c_void);
-        return -1i32;
     }
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
+    (*ap).cur.skip_blank();
     0i32
 }

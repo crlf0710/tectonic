@@ -1152,25 +1152,24 @@ pub unsafe extern "C" fn is_pdfm_mapline(mut mline: *const i8) -> i32
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_load_fontmap_file(mut filename: *const i8, mut mode: i32) -> i32 {
+pub unsafe extern "C" fn pdf_load_fontmap_file(filename: &CStr, mut mode: i32) -> i32 {
     let mut p: *const i8 = 0 as *const i8;
     let mut lpos: i32 = 0i32;
     let mut error: i32 = 0i32;
     let mut format: i32 = 0i32;
-    assert!(!filename.is_null());
     assert!(!fontmap.is_null());
     if verbose != 0 {
         info!("<FONTMAP:");
     }
     let handle = dpx_tt_open(
-        filename,
+        filename.as_ptr(),
         b".map\x00" as *const u8 as *const i8,
         TTInputFormat::FONTMAP,
     );
     if handle.is_none() {
         warn!(
             "Couldn\'t open font map file \"{}\".",
-            CStr::from_ptr(filename).display()
+            filename.display()
         );
         return -1i32;
     }
@@ -1192,7 +1191,7 @@ pub unsafe extern "C" fn pdf_load_fontmap_file(mut filename: *const i8, mut mode
             warn!(
                 "Found a mismatched fontmap line {} from {}.",
                 lpos,
-                CStr::from_ptr(filename).display(),
+                filename.display(),
             );
             warn!(
                 "-- Ignore the current input buffer: {}",
@@ -1209,7 +1208,7 @@ pub unsafe extern "C" fn pdf_load_fontmap_file(mut filename: *const i8, mut mode
                 warn!(
                     "Invalid map record in fontmap line {} from {}.",
                     lpos,
-                    CStr::from_ptr(filename).display(),
+                    filename.display(),
                 );
                 warn!(
                     "-- Ignore the current input buffer: {}",
