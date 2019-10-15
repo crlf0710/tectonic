@@ -2220,6 +2220,7 @@ unsafe fn scan_special(
                 if !buf.is_empty() && buf[0] == b':' {
                     buf = &buf[1..];
                     buf.skip_white();
+                    q = buf.parse_c_ident();
                     ns_pdf = 1;
                 }
             },
@@ -2228,6 +2229,7 @@ unsafe fn scan_special(
                 if !buf.is_empty() && buf[0] == b':' {
                     buf = &buf[1..];
                     buf.skip_white();
+                    q = buf.parse_c_ident();
                 }
             },
             b"dvipdfmx" => {
@@ -2235,6 +2237,7 @@ unsafe fn scan_special(
                 if !buf.is_empty() && buf[0] == b':' {
                     buf = &buf[1..];
                     buf.skip_white();
+                    q = buf.parse_c_ident();
                     ns_dvipdfmx = 1
                 }
             },
