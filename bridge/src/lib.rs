@@ -224,6 +224,15 @@ pub unsafe extern "C" fn ttstub_issue_warning(mut format: *const i8, mut args: .
         error_buf.as_mut_ptr(),
     );
 }
+pub unsafe fn ttstub_issue_warning_slice(buf: &[u8]) {
+    (*tectonic_global_bridge)
+        .issue_warning
+        .expect("non-null function pointer")(
+        (*tectonic_global_bridge).context,
+        buf.as_ptr() as *const i8,
+    );
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn ttstub_issue_error(mut format: *const i8, mut args: ...) {
     let mut ap: ::std::ffi::VaListImpl;

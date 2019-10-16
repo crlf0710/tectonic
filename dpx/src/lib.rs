@@ -38,7 +38,10 @@ macro_rules! spc_warn(
 
 #[macro_export]
 macro_rules! warn(
-    ($($arg:tt)*) => {{
+    ($fmt:literal) => {
+        warn!($fmt,)
+    };
+    ($fmt:literal, $($arg:tt)*) => {{
         use crate::dpx_error::{
             _dpx_ensure_output_handle,
             _dpx_message_handle,
@@ -54,8 +57,9 @@ macro_rules! warn(
             if unsafe{_last_message_type as u32 == DPX_MESG_INFO as u32} {
                 writeln!(handle).unwrap();
             }
-            write!(handle, "warning: ").unwrap();
-            writeln!(handle, $($arg)*).unwrap();
+            writeln!(handle, concat!("warning: ", $fmt), $($arg)*).unwrap();
+            let mut v = format!(concat!($fmt, "\x00"), $($arg)*);
+            unsafe{crate::ttstub_issue_warning_slice(v.as_bytes());}
             unsafe{_last_message_type = DPX_MESG_WARN;}
         }
     }};
