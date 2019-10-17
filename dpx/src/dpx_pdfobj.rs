@@ -4079,7 +4079,7 @@ pub unsafe extern "C" fn pdf_open(
 #[no_mangle]
 pub unsafe extern "C" fn pdf_close(mut pf: *mut pdf_file) {
     if !pf.is_null() {
-        tectonic_bridge::ttstub_input_close((*pf).handle.clone()); // TODO: use drop
+        //tectonic_bridge::ttstub_input_close((*pf).handle.clone()); // TODO: use drop
     };
 }
 #[no_mangle]
