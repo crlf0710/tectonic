@@ -85,7 +85,7 @@ use crate::dpx_pdfobj::{
 };
 use crate::dpx_truetype::sfnt_table_info;
 use crate::shims::sprintf;
-use crate::{ttstub_input_close, ttstub_input_read};
+use crate::{ttstub_input_read};
 use libc::{free, memmove, memset, strcat, strcmp, strcpy, strlen, strstr};
 
 use std::io::{Seek, SeekFrom};
@@ -114,9 +114,9 @@ use super::dpx_cff::cff_dict;
 use super::dpx_cff::cff_font;
 
 #[repr(C)]
-pub struct CIDType0Info {
+pub struct CIDType0Info<'a> {
     pub sfont: *mut sfnt,
-    pub cffont: *mut cff_font,
+    pub cffont: *mut cff_font<'a>,
 }
 use super::dpx_tt_table::{tt_head_table, tt_maxp_table};
 /* 16.16-bit signed fixed-point number */
@@ -656,7 +656,7 @@ unsafe fn CIDFont_type0_try_open(
         CIDFontInfo_close(info);
         return Err(CidOpenError::NO_CFF_TABLE);
     }
-    (*info).cffont = cff_open((*(*info).sfont).handle.clone(), offset as i32, 0i32); // TODO: use link
+    (*info).cffont = cff_open(&mut (*(*info).sfont).handle, offset as i32, 0i32); // TODO: use link
     if (*info).cffont.is_null() {
         return Err(CidOpenError::CANNOT_OPEN_CFF_FONT);
     }
@@ -989,7 +989,7 @@ pub unsafe extern "C" fn CIDFont_type0_open(
             sfnt_close(sfont);
             return -1i32;
         }
-        cffont = cff_open((*sfont).handle.clone(), offset as i32, 0i32); // TODO: use link
+        cffont = cff_open(&mut (*sfont).handle, offset as i32, 0i32); // TODO: use link
         if cffont.is_null() {
             panic!("Cannot read CFF font data");
         }
@@ -1009,13 +1009,11 @@ pub unsafe extern "C" fn CIDFont_type0_open(
         if handle.is_none() {
             return -1i32;
         }
-    let mut handle = handle.unwrap();
-        cffont = t1_load_font(0 as *mut *mut i8, 1i32, &mut handle);
+        let mut handle = handle.unwrap();
+        cffont = t1_load_font(0 as *mut *mut i8, 1i32, handle);
         if cffont.is_null() {
-            ttstub_input_close(handle);
             return -1i32;
         }
-        ttstub_input_close(handle);
     }
     let csi = new((1_u64).wrapping_mul(::std::mem::size_of::<CIDSysInfo>() as u64) as u32)
         as *mut CIDSysInfo;
@@ -1593,8 +1591,7 @@ pub unsafe extern "C" fn t1_load_UnicodeCMap(
         return -1i32;
     }
     let mut handle = handle.unwrap();
-    let cffont = t1_load_font(0 as *mut *mut i8, 1i32, &mut handle);
-    ttstub_input_close(handle);
+    let cffont = t1_load_font(0 as *mut *mut i8, 1i32, handle);
     if cffont.is_null() {
         return -1i32;
     }
@@ -2020,12 +2017,11 @@ pub unsafe extern "C" fn CIDFont_type0_t1dofont(mut font: *mut CIDFont) {
         panic!("Type1: Could not open Type1 font.");
     }
     let mut handle = handle.unwrap();
-    let cffont = t1_load_font(0 as *mut *mut i8, 0i32, &mut handle);
+    let cffont = t1_load_font(0 as *mut *mut i8, 0i32, handle);
     if cffont.is_null() {
         panic!("Could not read Type 1 font...");
     }
     let cffont = &mut *cffont;
-    ttstub_input_close(handle);
     if (*font).fontname.is_null() {
         panic!("Fontname undefined...");
     }

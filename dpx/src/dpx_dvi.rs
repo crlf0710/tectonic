@@ -138,7 +138,7 @@ pub struct font_def {
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct loaded_font {
+pub struct loaded_font<'a> {
     pub type_0: i32,
     pub font_id: i32,
     pub subfont_id: i32,
@@ -150,7 +150,7 @@ pub struct loaded_font {
     pub ascent: i32,
     pub descent: i32,
     pub unitsPerEm: u32,
-    pub cffont: *mut cff_font,
+    pub cffont: *mut cff_font<'a>,
     pub numGlyphs: u32,
     pub layout_dir: i32,
     pub extend: f32,
@@ -1126,7 +1126,7 @@ unsafe fn dvi_locate_native_font(
             0i32,
             (256usize).wrapping_mul(::std::mem::size_of::<*mut i8>()),
         );
-        let cffont = t1_load_font(enc_vec.as_mut_ptr(), 0i32, &mut handle);
+        let cffont = t1_load_font(enc_vec.as_mut_ptr(), 0i32, handle);
         if cffont.is_null() {
             panic!(
                 "Failed to read Type 1 font \"{}\".",
@@ -1152,7 +1152,6 @@ unsafe fn dvi_locate_native_font(
         }
         (*loaded_fonts.offset(cur_id as isize)).unitsPerEm = 1000_u32;
         (*loaded_fonts.offset(cur_id as isize)).numGlyphs = (*cffont).num_glyphs as u32;
-        ttstub_input_close(handle);
     } else {
         let sfont = if is_dfont != 0 {
             dfont_open(handle, index as i32)

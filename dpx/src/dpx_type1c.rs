@@ -159,7 +159,7 @@ pub unsafe extern "C" fn pdf_font_open_type1c(mut font: *mut pdf_font) -> i32 {
     if offset < 1_u32 {
         panic!("No \"CFF \" table found; not a CFF/OpenType font (10)?");
     }
-    let cffont = cff_open((*sfont).handle.clone(), offset as i32, 0i32); // TODO: use link
+    let cffont = cff_open(&mut (*sfont).handle, offset as i32, 0i32); // TODO: use link
     if cffont.is_null() {
         panic!("Could not read CFF font data");
     }
@@ -345,7 +345,7 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
     } {
         panic!("Not a CFF/OpenType font (11)?");
     }
-    let cffont = cff_open((*sfont).handle.clone(), offset, 0i32); // TODO: use link
+    let cffont = cff_open(&mut (*sfont).handle, offset, 0i32); // TODO: use link
     if cffont.is_null() {
         panic!("Could not open CFF font.");
     }
