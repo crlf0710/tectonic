@@ -61,8 +61,7 @@ pub struct ht_iter {
    Licensed under the MIT License.
 */
 
-pub fn xtoi(mut c: i8) -> i32 {
-    let c = c as u8;
+pub fn xtoi(c: u8) -> i32 {
     if c >= b'0' && c <= b'9' {
         return (c - b'0') as i32;
     }

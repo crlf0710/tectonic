@@ -63,7 +63,7 @@ use super::dpx_pdfdev::{
 use super::dpx_pdfdoc::{
     pdf_doc_begin_page, pdf_doc_break_annot, pdf_doc_end_page, pdf_doc_expand_box,
 };
-use super::dpx_pdfparse::{dump_slice, SkipWhite, ParsePdfNumber, ParsePdfString};
+use super::dpx_pdfparse::{dump_slice, SkipWhite, ParsePdfObj};
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record, subfont_set_verbose};
 use super::dpx_t1_char::t1char_get_metrics;
 use super::dpx_t1_load::t1_load_font;

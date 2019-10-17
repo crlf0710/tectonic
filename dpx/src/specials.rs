@@ -33,7 +33,7 @@ pub mod xtx;
 
 use crate::warn;
 use crate::DisplayExt;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 
 use self::color::{spc_color_check_special, spc_color_setup_handler};
 use self::dvipdfmx::{spc_dvipdfmx_check_special, spc_dvipdfmx_setup_handler};
@@ -172,39 +172,31 @@ unsafe fn ispageref(mut key: *const i8) -> i32 {
     }
     1i32
 }
-/*
- * The following routine returns copies, not the original object.
- */
-pub unsafe extern "C" fn spc_lookup_reference(mut key: *const i8) -> *mut pdf_obj {
+
+pub unsafe fn spc_lookup_reference(mut key: &CString) -> Option<*mut pdf_obj> {
     assert!(!NAMED_OBJECTS.is_null());
-    if key.is_null() {
-        return 0 as *mut pdf_obj;
-    }
-    let mut k = 0;
-    while !_RKEYS[k].is_null() && strcmp(key, _RKEYS[k]) != 0 {
-        k += 1
-    }
-    let value = match k {
-        0 => {
+    let value = match key.to_bytes() {
+        b"xpos" => {
             /* xpos and ypos must be position in device space here. */
             let mut cp = Coord::new(dvi_dev_xpos(), 0.);
             pdf_dev_transform(&mut cp, None);
             pdf_new_number((cp.x / 0.01 + 0.5).floor() * 0.01)
         }
-        1 => {
+        b"ypos" => {
             let mut cp = Coord::new(0., dvi_dev_ypos());
             pdf_dev_transform(&mut cp, None);
             pdf_new_number((cp.y / 0.01 + 0.5).floor() * 0.01)
         }
-        2 => pdf_doc_get_reference("@THISPAGE"),
-        3 => pdf_doc_get_reference("@PREVPAGE"),
-        4 => pdf_doc_get_reference("@NEXTPAGE"),
-        6 => pdf_ref_obj(pdf_doc_get_dictionary("Pages")),
-        7 => pdf_ref_obj(pdf_doc_get_dictionary("Names")),
-        5 => pdf_ref_obj(pdf_doc_current_page_resources()),
-        8 => pdf_ref_obj(pdf_doc_get_dictionary("Catalog")),
-        9 => pdf_ref_obj(pdf_doc_get_dictionary("Info")),
+        b"thispage" => pdf_doc_get_reference("@THISPAGE"),
+        b"prevpage" => pdf_doc_get_reference("@PREVPAGE"),
+        b"nextpage" => pdf_doc_get_reference("@NEXTPAGE"),
+        b"pages" => pdf_ref_obj(pdf_doc_get_dictionary("Pages")),
+        b"names" => pdf_ref_obj(pdf_doc_get_dictionary("Names")),
+        b"resources" => pdf_ref_obj(pdf_doc_current_page_resources()),
+        b"catalog" => pdf_ref_obj(pdf_doc_get_dictionary("Catalog")),
+        b"docinfo" => pdf_ref_obj(pdf_doc_get_dictionary("Info")),
         _ => {
+            let key = key.as_ptr();
             if ispageref(key) != 0 {
                 pdf_doc_ref_page(atoi(key.offset(4)) as u32)
             } else {
@@ -219,10 +211,14 @@ pub unsafe extern "C" fn spc_lookup_reference(mut key: *const i8) -> *mut pdf_ob
     if value.is_null() {
         panic!(
             "Object reference {} not exist.",
-            CStr::from_ptr(key).display(),
+            key.display(),
         );
     }
-    value
+    if value.is_null() {
+        None
+    } else {
+        Some(value)
+    }
 }
 pub unsafe extern "C" fn spc_lookup_object(mut key: *const i8) -> *mut pdf_obj {
     assert!(!NAMED_OBJECTS.is_null());
