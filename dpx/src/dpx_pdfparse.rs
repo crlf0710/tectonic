@@ -311,11 +311,7 @@ pub unsafe extern "C" fn parse_pdf_name(
     let mut b = std::slice::from_raw_parts(*pp as *const i8 as *const u8, endptr.wrapping_offset_from(*pp) as usize);
     let obj = b.parse_pdf_name();
     *pp = b.as_ptr() as *const i8;
-    if let Some(o) = obj {
-        o
-    } else {
-        0 as *mut pdf_obj
-    }
+    obj.unwrap_or(0 as *mut pdf_obj)
 }
 
 #[no_mangle]
@@ -326,11 +322,7 @@ pub unsafe extern "C" fn parse_pdf_string(
     let mut b = std::slice::from_raw_parts(*pp as *const i8 as *const u8, endptr.wrapping_offset_from(*pp) as usize);
     let obj = b.parse_pdf_string();
     *pp = b.as_ptr() as *const i8;
-    if let Some(o) = obj {
-        o
-    } else {
-        0 as *mut pdf_obj
-    }
+    obj.unwrap_or(0 as *mut pdf_obj)
 }
 
 #[no_mangle]
@@ -342,11 +334,7 @@ pub unsafe extern "C" fn parse_pdf_dict(
     let mut b = std::slice::from_raw_parts(*pp as *const i8 as *const u8, endptr.wrapping_offset_from(*pp) as usize);
     let obj = b.parse_pdf_dict(pf);
     *pp = b.as_ptr() as *const i8;
-    if let Some(o) = obj {
-        o
-    } else {
-        0 as *mut pdf_obj
-    }
+    obj.unwrap_or(0 as *mut pdf_obj)
 }
 
 #[no_mangle]
@@ -358,11 +346,7 @@ pub unsafe extern "C" fn parse_pdf_array(
     let mut b = std::slice::from_raw_parts(*pp as *const i8 as *const u8, endptr.wrapping_offset_from(*pp) as usize);
     let obj = b.parse_pdf_array(pf);
     *pp = b.as_ptr() as *const i8;
-    if let Some(o) = obj {
-        o
-    } else {
-        0 as *mut pdf_obj
-    }
+    obj.unwrap_or(0 as *mut pdf_obj)
 }
     /* !PDF_PARSE_STRICT */
 unsafe fn try_pdf_reference(

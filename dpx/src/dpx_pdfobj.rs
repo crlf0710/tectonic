@@ -27,10 +27,11 @@
     unused_mut
 )]
 
+use crate::DisplayExt;
 use std::ffi::CString;
-use std::io::{Seek, SeekFrom, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 
-use crate::dpx_pdfparse::{parse_number, parse_pdf_dict, parse_pdf_object, parse_unsigned};
+use crate::dpx_pdfparse::{parse_number, parse_pdf_object, parse_unsigned, SkipWhite, ParsePdfObj};
 use crate::mfree;
 use crate::strstartswith;
 use crate::{info, warn};
@@ -38,7 +39,7 @@ use std::ffi::CStr;
 
 use super::dpx_dpxutil::{ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table};
 use super::dpx_mem::{new, renew};
-use super::dpx_mfileio::{tt_mfgets, work_buffer};
+use super::dpx_mfileio::{tt_mfgets, work_buffer, work_buffer_u8 as WORK_BUFFER};
 use super::dpx_pdfdev::pdf_sprint_number;
 use super::dpx_pdfencrypt::{pdf_enc_set_generation, pdf_enc_set_label, pdf_encrypt_data};
 use super::dpx_pdfparse::skip_white;
@@ -3095,38 +3096,31 @@ unsafe fn find_xref(handle: &mut InputHandleWrapper, mut file_size: i32) -> i32 
  * This routine must be called with the file pointer located
  * at the start of the trailer.
  */
-unsafe fn parse_trailer(mut pf: *mut pdf_file) -> *mut pdf_obj {
+unsafe fn parse_trailer(mut pf: *mut pdf_file) -> Option<*mut pdf_obj> {
     /*
      * Fill work_buffer and hope trailer fits. This should
      * be made a bit more robust sometime.
      */
     let cur_pos = (*pf).handle.seek(SeekFrom::Current(0)).unwrap() as i32;
-    let nmax = if (*pf).file_size - cur_pos < 1024i32 {
+    let nmax = if (*pf).file_size - cur_pos < 1024 {
         (*pf).file_size - cur_pos
     } else {
-        1024i32
-    };
-    let nread = ttstub_input_read((*pf).handle.0.as_ptr(), work_buffer.as_mut_ptr(), nmax as size_t) as i32;
-    //nread = InputHandleWrapper((*pf).handle).read(&mut work_buffer[..nmax]);
-    if nread == 0i32
-        || strstartswith(
-            work_buffer.as_mut_ptr(),
-            b"trailer\x00" as *const u8 as *const i8,
-        )
-        .is_null()
+        1024
+    } as usize;
+    let nread = (*pf).handle.read(&mut WORK_BUFFER[..nmax]).ok();
+    if nread.is_none() || nread == Some(0) || !WORK_BUFFER.starts_with(b"trailer")
     {
         warn!("No trailer.  Are you sure this is a PDF file?");
         warn!(
             "buffer:\n->{}<-\n",
-            CStr::from_ptr(work_buffer.as_mut_ptr()).to_string_lossy(),
+            WORK_BUFFER.display(),
         );
-        0 as *mut pdf_obj
+        None
     } else {
-        let mut p: *const i8 = work_buffer
-            .as_mut_ptr()
-            .offset(strlen(b"trailer\x00" as *const u8 as *const i8) as isize);
-        skip_white(&mut p, work_buffer.as_mut_ptr().offset(nread as isize));
-        parse_pdf_dict(&mut p, work_buffer.as_mut_ptr().offset(nread as isize), pf)
+        let nread = nread.unwrap();
+        let mut p = &WORK_BUFFER[b"trailer".len()..nread];
+        p.skip_white();
+        p.parse_pdf_dict(pf)
     }
 }
 /*
@@ -3876,7 +3870,7 @@ unsafe fn read_xref(mut pf: *mut pdf_file) -> *mut pdf_obj {
                     let mut res: i32 = parse_xref_table(pf, xref_pos);
                     if res > 0i32 {
                         /* cross-reference table */
-                        trailer = parse_trailer(pf);
+                        trailer = parse_trailer(pf).unwrap_or(0 as *mut pdf_obj);
                         if trailer.is_null() {
                             current_block = 13794981049891343809;
                             continue;

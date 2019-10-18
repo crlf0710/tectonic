@@ -283,10 +283,8 @@ unsafe fn get_and_buffer_unsigned_pair(handle: &mut InputHandleWrapper) -> u32 {
 }
 unsafe fn get_and_buffer_bytes(handle: &mut InputHandleWrapper, mut count: u32) {
     DVI_PAGE_BUFFER.resize_with(DVI_PAGE_BUF_INDEX+count as usize, Default::default);
-    match handle.read(&mut DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..]) {
-        Ok(n) if n == count as usize => {},
-        _ => panic!("File ended prematurely\n"),
-    }
+    handle.read_exact(&mut DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..])
+        .expect("File ended prematurely\n");
     DVI_PAGE_BUF_INDEX += count as usize;
 }
 /* functions to fetch values from DVI_PAGE_BUFFER */
@@ -671,10 +669,7 @@ unsafe fn get_comment() {
     let handle = dvi_handle.as_mut().unwrap();
     handle.seek(SeekFrom::Start(14)).unwrap();
     let length = tt_get_unsigned_byte(handle) as usize;
-    match handle.read(&mut DVI_INFO.comment[..length]) {
-        Ok(n) if n == length => {},
-        _ => panic!(invalid_signature),
-    }
+    handle.read_exact(&mut DVI_INFO.comment[..length]).expect(invalid_signature);
     DVI_INFO.comment[length as usize] = '\u{0}' as u8;
     if verbose != 0 {
         info!(
@@ -2512,10 +2507,8 @@ pub unsafe extern "C" fn dvi_scan_specials(
                 _ => {}
             }
             DVI_PAGE_BUFFER.resize_with(DVI_PAGE_BUF_INDEX + size as usize, Default::default);
-            match handle.read(&mut DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..DVI_PAGE_BUF_INDEX+size as usize]) {
-                Ok(n) if n == size as usize => {},
-                _ => panic!("Reading DVI file failed!"),
-            }
+            handle.read(&mut DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..DVI_PAGE_BUF_INDEX+size as usize])
+                .expect("Reading DVI file failed!");
             if scan_special(
                 page_width,
                 page_height,

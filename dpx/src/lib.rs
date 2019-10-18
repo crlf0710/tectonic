@@ -82,7 +82,10 @@ impl<'a> DisplayExt for &'a std::ffi::CStr {
 impl<'a> DisplayExt for &'a [u8] {
     type Adapter = std::borrow::Cow<'a, str>;
     fn display(self) -> Self::Adapter {
-        String::from_utf8_lossy(self)
+        String::from_utf8_lossy(match self.iter().position(|&x| x == 0) {
+            Some(n) => &self[..n],
+            None => self,
+        })
     }
 }
 
