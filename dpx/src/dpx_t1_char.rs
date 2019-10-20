@@ -29,7 +29,6 @@
 
 use super::dpx_mem::new;
 use crate::mfree;
-use crate::qsort;
 use crate::warn;
 use libc::{free, memcpy, memset};
 

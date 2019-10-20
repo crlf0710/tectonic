@@ -38,7 +38,6 @@ use super::dpx_tt_table::{
     tt_read_vhea_table,
 };
 use crate::dpx_truetype::sfnt_table_info;
-use crate::qsort;
 use crate::{ttstub_input_read};
 use libc::{free, memcpy, memset};
 

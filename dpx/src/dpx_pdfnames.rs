@@ -37,13 +37,12 @@ use super::dpx_dpxutil::{
     ht_iter_next, ht_lookup_table, ht_set_iter,
 };
 use super::dpx_mem::{new, renew};
-use super::qsort;
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_link_obj, pdf_new_array, pdf_new_dict, pdf_new_null,
     pdf_new_string, pdf_new_undefined, pdf_obj, pdf_obj_typeof, pdf_ref_obj, pdf_release_obj,
     pdf_string_length, pdf_string_value, pdf_transfer_label, PdfObjType,
 };
-use libc::{free, memcmp};
+use libc::free;
 
 pub type size_t = u64;
 pub type __compar_fn_t =
