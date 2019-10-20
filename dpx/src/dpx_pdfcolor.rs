@@ -302,13 +302,11 @@ pub unsafe extern "C" fn pdf_color_set_verbose(mut level: i32) {
     VERBOSE = level;
 }
 
-/*static mut COLOR_STACK: ColorStack = ColorStack {
+static mut COLOR_STACK: ColorStack =ColorStack {
     current: 0,
-    stroke: unsafe { core::mem::zeroed() },//[pdf_color::new(); 128],
-    fill: unsafe { core::mem::zeroed() },//[pdf_color::new(); 128],
-};*/
-static mut COLOR_STACK: ColorStack =
-    unsafe { std::mem::transmute([0u8; std::mem::size_of::<ColorStack>()]) };
+    stroke: [BLACK; 128],
+    fill: [BLACK; 128],
+};
 
 #[no_mangle]
 pub unsafe extern "C" fn pdf_color_clear_stack() {
