@@ -41,9 +41,9 @@ use super::dpx_mem::new;
 use super::dpx_mfileio::file_size;
 use super::dpx_pdfcolor::PdfColor;
 use super::dpx_pdfdev::{
-    dev_unit_dviunit, graphics_mode, pdf_coord, pdf_dev_get_dirmode, pdf_dev_get_font_wmode,
+    dev_unit_dviunit, graphics_mode, Coord, pdf_dev_get_dirmode, pdf_dev_get_font_wmode,
     pdf_dev_get_param, pdf_dev_locate_font, pdf_dev_put_image, pdf_dev_set_dirmode,
-    pdf_dev_set_param, pdf_dev_set_string, pdf_rect, pdf_tmatrix, transform_info,
+    pdf_dev_set_param, pdf_dev_set_string, Rect, TMatrix, transform_info,
     transform_info_clear,
 };
 use super::dpx_pdfdoc::{
@@ -2010,7 +2010,7 @@ unsafe fn is_fontname(mut token: *const i8) -> bool {
 pub unsafe extern "C" fn mps_scan_bbox(
     mut pp: *mut *const i8,
     mut endptr: *const i8,
-    bbox: &mut pdf_rect,
+    bbox: &mut Rect,
 ) -> i32 {
     let mut values: [f64; 4] = [0.; 4];
     /* skip_white() skips lines starting '%'... */
@@ -2039,17 +2039,16 @@ pub unsafe extern "C" fn mps_scan_bbox(
             } else {
                 /* The new xetex.def and dvipdfmx.def require bbox->llx = bbox->lly = 0.  */
                 if translate_origin != 0 {
-                    bbox.llx = 0i32 as f64;
-                    bbox.lly = 0i32 as f64;
-                    bbox.urx = values[2] - values[0];
-                    bbox.ury = values[3] - values[1];
+                    bbox.ll = Coord::zero();
+                    bbox.ur.x = values[2] - values[0];
+                    bbox.ur.y = values[3] - values[1];
                     Xorigin = values[0];
                     Yorigin = values[1]
                 } else {
-                    bbox.llx = values[0];
-                    bbox.lly = values[1];
-                    bbox.urx = values[2];
-                    bbox.ury = values[3];
+                    bbox.ll.x = values[0];
+                    bbox.ll.y = values[1];
+                    bbox.ur.x = values[2];
+                    bbox.ur.y = values[3];
                     Xorigin = 0.0f64;
                     Yorigin = 0.0f64
                 }
@@ -2860,7 +2859,7 @@ unsafe fn do_currentfont() -> i32 {
     error
 }
 unsafe fn do_show() -> i32 {
-    let mut cp = pdf_coord::zero();
+    let mut cp = Coord::zero();
     let font = if currentfont < 0i32 {
         0 as *mut mp_font
     } else {
@@ -2965,10 +2964,10 @@ unsafe fn do_texfig_operator(mut opcode: i32, mut x_user: f64, mut y_user: f64) 
                 let dvi2pts = 1.0f64 / dev_unit_dviunit();
                 fig_p.width = values[0] * dvi2pts;
                 fig_p.height = values[1] * dvi2pts;
-                fig_p.bbox.llx = values[2] * dvi2pts;
-                fig_p.bbox.lly = -values[3] * dvi2pts;
-                fig_p.bbox.urx = values[4] * dvi2pts;
-                fig_p.bbox.ury = -values[5] * dvi2pts;
+                fig_p.bbox.ll.x = values[2] * dvi2pts;
+                fig_p.bbox.ll.y = -values[3] * dvi2pts;
+                fig_p.bbox.ur.x = values[4] * dvi2pts;
+                fig_p.bbox.ur.y = -values[5] * dvi2pts;
                 fig_p.flags |= 1i32 << 0i32;
                 sprintf(
                     resname.as_mut_ptr(),
@@ -2977,8 +2976,8 @@ unsafe fn do_texfig_operator(mut opcode: i32, mut x_user: f64, mut y_user: f64) 
                 );
                 xobj_id = pdf_doc_begin_grabbing(
                     resname.as_mut_ptr(),
-                    fig_p.bbox.llx,
-                    fig_p.bbox.ury,
+                    fig_p.bbox.ll.x,
+                    fig_p.bbox.ur.y,
                     &mut fig_p.bbox,
                 );
                 in_tfig = 1i32;
@@ -2997,7 +2996,7 @@ unsafe fn do_texfig_operator(mut opcode: i32, mut x_user: f64, mut y_user: f64) 
     }
     error
 }
-unsafe fn ps_dev_CTM(M: &mut pdf_tmatrix) -> i32 {
+unsafe fn ps_dev_CTM(M: &mut TMatrix) -> i32 {
     pdf_dev_currentmatrix(M);
     M.a *= 1000.;
     M.b *= 1000.;
@@ -3015,8 +3014,8 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
     let mut error: i32 = 0i32;
     let mut values: [f64; 12] = [0.; 12];
     let mut tmp: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut matrix = pdf_tmatrix::new();
-    let mut cp = pdf_coord::zero();
+    let mut matrix = TMatrix::new();
+    let mut cp = Coord::zero();
     let opcode = get_opcode(token);
     let mut current_block_294: u64;
     match opcode {
@@ -3787,7 +3786,7 @@ pub unsafe extern "C" fn mps_exec_inline(
 #[no_mangle]
 pub unsafe extern "C" fn mps_do_page(mut image_file: *mut FILE) -> i32 {
     /* scale, xorig, yorig */
-    let mut bbox = pdf_rect::new();
+    let mut bbox = Rect::zero();
     rewind(image_file);
     let size = file_size(image_file);
     if size == 0i32 {

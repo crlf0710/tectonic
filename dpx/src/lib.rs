@@ -215,9 +215,3 @@ pub mod specials;
 
 pub use crate::dpx_dvipdfmx::dvipdfmx_main;
 
-extern "C" {
-    #[no_mangle]
-    fn strtoll(_: *const i8, _: *mut *mut i8, _: i32) -> libc::c_longlong;
-    #[no_mangle]
-    fn modf(_: f64, _: *mut f64) -> f64;
-}

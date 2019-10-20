@@ -42,12 +42,12 @@ use super::dpx_jpegimage::check_for_jpeg;
 use super::dpx_mem::{new, renew};
 use super::dpx_pdfcolor::{pdf_close_colors, pdf_color_set_verbose, pdf_init_colors, WHITE};
 use super::dpx_pdfdev::{
-    pdf_dev_bop, pdf_dev_eop, pdf_dev_get_coord, pdf_dev_get_param, pdf_dev_reset_color,
+    Coord, pdf_dev_bop, pdf_dev_eop, pdf_dev_get_coord, pdf_dev_get_param, pdf_dev_reset_color,
     pdf_dev_reset_fonts,
 };
 use super::dpx_pdfdraw::{
     pdf_dev_current_depth, pdf_dev_grestore, pdf_dev_grestore_to, pdf_dev_gsave,
-    pdf_dev_pop_gstate, pdf_dev_push_gstate, pdf_dev_rectfill, pdf_dev_set_color,
+    pdf_dev_pop_gstate, pdf_dev_push_gstate, pdf_dev_set_color,
 };
 use super::dpx_pdfencrypt::{pdf_enc_id_array, pdf_encrypt_obj};
 use super::dpx_pdffont::{
@@ -81,7 +81,7 @@ use crate::TTInputFormat;
 
 pub use super::dpx_pdfcolor::PdfColor;
 
-use super::dpx_pdfdev::{pdf_rect, pdf_tmatrix};
+use super::dpx_pdfdev::{Rect, TMatrix};
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct form_list_node {
@@ -93,8 +93,8 @@ pub struct form_list_node {
 #[repr(C)]
 pub struct pdf_form {
     pub ident: *mut i8,
-    pub matrix: pdf_tmatrix,
-    pub cropbox: pdf_rect,
+    pub matrix: TMatrix,
+    pub cropbox: Rect,
     pub resources: *mut pdf_obj,
     pub contents: *mut pdf_obj,
 }
@@ -115,7 +115,7 @@ pub struct pdf_article {
 pub struct pdf_bead {
     pub id: *mut i8,
     pub page_no: i32,
-    pub rect: pdf_rect,
+    pub rect: Rect,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -134,7 +134,7 @@ pub struct pdf_page {
     pub flags: i32,
     pub ref_x: f64,
     pub ref_y: f64,
-    pub cropbox: pdf_rect,
+    pub cropbox: Rect,
     pub resources: *mut pdf_obj,
     pub background: *mut pdf_obj,
     pub contents: *mut pdf_obj,
@@ -185,7 +185,7 @@ pub struct C2RustUnnamed_1 {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct C2RustUnnamed_2 {
-    pub mediabox: pdf_rect,
+    pub mediabox: Rect,
     pub bop: *mut pdf_obj,
     pub eop: *mut pdf_obj,
     pub num_entries: u32,
@@ -211,7 +211,7 @@ pub struct C2RustUnnamed_4 {
     pub dirty: i32,
     pub broken: i32,
     pub annot_dict: *mut pdf_obj,
-    pub rect: pdf_rect,
+    pub rect: Rect,
 }
 /* quasi-hack to get the primary input */
 /* tectonic/core-strutils.h: miscellaneous C string utilities
@@ -289,7 +289,7 @@ static mut pdoc: pdf_doc = pdf_doc {
     },
     info: 0 as *const pdf_obj as *mut pdf_obj,
     pages: C2RustUnnamed_2 {
-        mediabox: pdf_rect::new(),
+        mediabox: Rect::zero(),
         bop: 0 as *const pdf_obj as *mut pdf_obj,
         eop: 0 as *const pdf_obj as *mut pdf_obj,
         num_entries: 0,
@@ -621,19 +621,19 @@ unsafe fn doc_flush_page(
         let mediabox = pdf_new_array();
         pdf_add_array(
             mediabox,
-            pdf_new_number(((*page).cropbox.llx / 0.01f64 + 0.5f64).floor() * 0.01f64),
+            pdf_new_number(((*page).cropbox.ll.x / 0.01 + 0.5).floor() * 0.01),
         );
         pdf_add_array(
             mediabox,
-            pdf_new_number(((*page).cropbox.lly / 0.01f64 + 0.5f64).floor() * 0.01f64),
+            pdf_new_number(((*page).cropbox.ll.y / 0.01 + 0.5).floor() * 0.01),
         );
         pdf_add_array(
             mediabox,
-            pdf_new_number(((*page).cropbox.urx / 0.01f64 + 0.5f64).floor() * 0.01f64),
+            pdf_new_number(((*page).cropbox.ur.x / 0.01 + 0.5).floor() * 0.01),
         );
         pdf_add_array(
             mediabox,
-            pdf_new_number(((*page).cropbox.ury / 0.01f64 + 0.5f64).floor() * 0.01f64),
+            pdf_new_number(((*page).cropbox.ur.y / 0.01 + 0.5).floor() * 0.01),
         );
         pdf_add_dict((*page).page_obj, "MediaBox", mediabox);
     }
@@ -760,10 +760,7 @@ unsafe fn pdf_doc_init_page_tree(mut p: *mut pdf_doc, mut media_width: f64, mut 
     (*p).pages.entries = 0 as *mut pdf_page;
     (*p).pages.bop = 0 as *mut pdf_obj;
     (*p).pages.eop = 0 as *mut pdf_obj;
-    (*p).pages.mediabox.llx = 0.0f64;
-    (*p).pages.mediabox.lly = 0.0f64;
-    (*p).pages.mediabox.urx = media_width;
-    (*p).pages.mediabox.ury = media_height;
+    (*p).pages.mediabox = Rect::new((0., 0.), (media_width, media_height));
 }
 unsafe fn pdf_doc_close_page_tree(mut p: *mut pdf_doc) {
     /*
@@ -830,19 +827,19 @@ unsafe fn pdf_doc_close_page_tree(mut p: *mut pdf_doc) {
     let mediabox = pdf_new_array();
     pdf_add_array(
         mediabox,
-        pdf_new_number(((*p).pages.mediabox.llx / 0.01f64 + 0.5f64).floor() * 0.01f64),
+        pdf_new_number(((*p).pages.mediabox.ll.x / 0.01 + 0.5).floor() * 0.01),
     );
     pdf_add_array(
         mediabox,
-        pdf_new_number(((*p).pages.mediabox.lly / 0.01f64 + 0.5f64).floor() * 0.01f64),
+        pdf_new_number(((*p).pages.mediabox.ll.y / 0.01 + 0.5).floor() * 0.01),
     );
     pdf_add_array(
         mediabox,
-        pdf_new_number(((*p).pages.mediabox.urx / 0.01f64 + 0.5f64).floor() * 0.01f64),
+        pdf_new_number(((*p).pages.mediabox.ur.x / 0.01 + 0.5).floor() * 0.01),
     );
     pdf_add_array(
         mediabox,
-        pdf_new_number(((*p).pages.mediabox.ury / 0.01f64 + 0.5f64).floor() * 0.01f64),
+        pdf_new_number(((*p).pages.mediabox.ur.y / 0.01 + 0.5).floor() * 0.01),
     );
     pdf_add_dict((*p).root.pages, "MediaBox", mediabox);
     pdf_add_dict((*p).root.dict, "Pages", pdf_ref_obj((*p).root.pages));
@@ -927,8 +924,8 @@ pub unsafe extern "C" fn pdf_doc_get_page(
     mut pf: *mut pdf_file,
     mut page_no: i32,
     mut options: i32,
-    bbox: &mut pdf_rect,
-    matrix: &mut pdf_tmatrix,
+    bbox: &mut Rect,
+    matrix: &mut TMatrix,
     mut resources_p: *mut *mut pdf_obj,
 ) -> *mut pdf_obj
 /* returned values */ {
@@ -1179,10 +1176,10 @@ pub unsafe extern "C" fn pdf_doc_get_page(
                                     } else {
                                         let x = pdf_number_value(tmp_1);
                                         match i_0 {
-                                            0 => bbox.llx = x,
-                                            1 => bbox.lly = x,
-                                            2 => bbox.urx = x,
-                                            3 => bbox.ury = x,
+                                            0 => bbox.ll.x = x,
+                                            1 => bbox.ll.y = x,
+                                            2 => bbox.ur.x = x,
+                                            3 => bbox.ur.y = x,
                                             _ => {}
                                         }
                                         pdf_release_obj(tmp_1);
@@ -1214,23 +1211,23 @@ pub unsafe extern "C" fn pdf_doc_get_page(
                                                     let x_0 = pdf_number_value(tmp_2);
                                                     match i_0 {
                                                         0 => {
-                                                            if bbox.llx < x_0 {
-                                                                bbox.llx = x_0
+                                                            if bbox.ll.x < x_0 {
+                                                                bbox.ll.x = x_0
                                                             }
                                                         }
                                                         1 => {
-                                                            if bbox.lly < x_0 {
-                                                                bbox.lly = x_0
+                                                            if bbox.ll.y < x_0 {
+                                                                bbox.ll.y = x_0
                                                             }
                                                         }
                                                         2 => {
-                                                            if bbox.urx > x_0 {
-                                                                bbox.urx = x_0
+                                                            if bbox.ur.x > x_0 {
+                                                                bbox.ur.x = x_0
                                                             }
                                                         }
                                                         3 => {
-                                                            if bbox.ury > x_0 {
-                                                                bbox.ury = x_0
+                                                            if bbox.ur.y > x_0 {
+                                                                bbox.ur.y = x_0
                                                             }
                                                         }
                                                         _ => {}
@@ -1274,24 +1271,24 @@ pub unsafe extern "C" fn pdf_doc_get_page(
                                                                     matrix.a = matrix.d;
                                                                     matrix.b = -1i32 as f64;
                                                                     matrix.c = 1i32 as f64;
-                                                                    matrix.e = bbox.llx - bbox.lly;
-                                                                    matrix.f = bbox.lly + bbox.urx
+                                                                    matrix.e = bbox.ll.x - bbox.ll.y;
+                                                                    matrix.f = bbox.ll.y + bbox.ur.x
                                                                 }
                                                                 180 => {
                                                                     matrix.d = -1i32 as f64;
                                                                     matrix.a = matrix.d;
                                                                     matrix.c = 0i32 as f64;
                                                                     matrix.b = matrix.c;
-                                                                    matrix.e = bbox.llx + bbox.urx;
-                                                                    matrix.f = bbox.lly + bbox.ury
+                                                                    matrix.e = bbox.ll.x + bbox.ur.x;
+                                                                    matrix.f = bbox.ll.y + bbox.ur.y
                                                                 }
                                                                 270 => {
                                                                     matrix.d = 0i32 as f64;
                                                                     matrix.a = matrix.d;
                                                                     matrix.b = 1i32 as f64;
                                                                     matrix.c = -1i32 as f64;
-                                                                    matrix.e = bbox.llx + bbox.ury;
-                                                                    matrix.f = bbox.lly - bbox.llx
+                                                                    matrix.e = bbox.ll.x + bbox.ur.y;
+                                                                    matrix.f = bbox.ll.y - bbox.ll.x
                                                                 }
                                                                 _ => {}
                                                             }
@@ -1854,64 +1851,60 @@ unsafe fn pdf_doc_close_names(mut p: *mut pdf_doc) {
 #[no_mangle]
 pub unsafe extern "C" fn pdf_doc_add_annot(
     mut page_no: u32,
-    rect: &pdf_rect,
+    rect: &Rect,
     mut annot_dict: *mut pdf_obj,
     mut new_annot: i32,
 ) {
     let mut p: *mut pdf_doc = &mut pdoc;
     let mut annot_grow: f64 = (*p).opt.annot_grow;
-    let mut xpos: f64 = 0.;
-    let mut ypos: f64 = 0.;
-    let mut annbox = pdf_rect::new();
+    let mut annbox = Rect::zero();
     let page = doc_get_page_entry(p, page_no);
     if (*page).annots.is_null() {
         (*page).annots = pdf_new_array()
     }
-    let mut mediabox = pdf_rect::new();
+    let mut mediabox = Rect::zero();
     pdf_doc_get_mediabox(page_no, &mut mediabox);
-    pdf_dev_get_coord(&mut xpos, &mut ypos);
-    annbox.llx = rect.llx - xpos;
-    annbox.lly = rect.lly - ypos;
-    annbox.urx = rect.urx - xpos;
-    annbox.ury = rect.ury - ypos;
-    if annbox.llx < mediabox.llx
-        || annbox.urx > mediabox.urx
-        || annbox.lly < mediabox.lly
-        || annbox.ury > mediabox.ury
+    let pos = pdf_dev_get_coord();
+    annbox.ll = rect.ll - pos;
+    annbox.ur = rect.ur - pos;
+    if annbox.ll.x < mediabox.ll.x
+        || annbox.ur.x > mediabox.ur.x
+        || annbox.ll.y < mediabox.ll.y
+        || annbox.ur.y > mediabox.ur.y
     {
         warn!("Annotation out of page boundary.");
         warn!(
-            "Current page\'s MediaBox: [{} {} {} {}]",
-            mediabox.llx, mediabox.lly, mediabox.urx, mediabox.ury,
+            "Current page\'s MediaBox: {}",
+            mediabox,
         );
         warn!(
-            "Annotation: [{} {} {} {}]",
-            annbox.llx, annbox.lly, annbox.urx, annbox.ury,
+            "Annotation: {}",
+            annbox,
         );
         warn!("Maybe incorrect paper size specified.");
     }
-    if annbox.llx > annbox.urx || annbox.lly > annbox.ury {
+    if annbox.ll.x > annbox.ur.x || annbox.ll.y > annbox.ur.y {
         warn!(
-            "Rectangle with negative width/height: [{} {} {} {}]",
-            annbox.llx, annbox.lly, annbox.urx, annbox.ury,
+            "Rectangle with negative width/height: {}",
+            annbox,
         );
     }
     let rect_array = pdf_new_array();
     pdf_add_array(
         rect_array,
-        pdf_new_number(((annbox.llx - annot_grow) / 0.001f64 + 0.5f64).floor() * 0.001f64),
+        pdf_new_number(((annbox.ll.x - annot_grow) / 0.001 + 0.5).floor() * 0.001),
     );
     pdf_add_array(
         rect_array,
-        pdf_new_number(((annbox.lly - annot_grow) / 0.001f64 + 0.5f64).floor() * 0.001f64),
+        pdf_new_number(((annbox.ll.y - annot_grow) / 0.001 + 0.5).floor() * 0.001),
     );
     pdf_add_array(
         rect_array,
-        pdf_new_number(((annbox.urx + annot_grow) / 0.001f64 + 0.5f64).floor() * 0.001f64),
+        pdf_new_number(((annbox.ur.x + annot_grow) / 0.001 + 0.5).floor() * 0.001),
     );
     pdf_add_array(
         rect_array,
-        pdf_new_number(((annbox.ury + annot_grow) / 0.001f64 + 0.5f64).floor() * 0.001f64),
+        pdf_new_number(((annbox.ur.y + annot_grow) / 0.001 + 0.5).floor() * 0.001),
     );
     pdf_add_dict(annot_dict, "Rect", rect_array);
     pdf_add_array((*page).annots, pdf_ref_obj(annot_dict));
@@ -1974,7 +1967,7 @@ pub unsafe extern "C" fn pdf_doc_add_bead(
     mut article_id: *const i8,
     mut bead_id: &[u8],
     mut page_no: i32,
-    rect: &pdf_rect,
+    rect: &Rect,
 ) {
     let mut p: *mut pdf_doc = &mut pdoc;
     if article_id.is_null() {
@@ -2017,10 +2010,7 @@ pub unsafe extern "C" fn pdf_doc_add_bead(
         }
         (*article).num_beads = (*article).num_beads.wrapping_add(1)
     }
-    (*bead).rect.llx = rect.llx;
-    (*bead).rect.lly = rect.lly;
-    (*bead).rect.urx = rect.urx;
-    (*bead).rect.ury = rect.ury;
+    (*bead).rect = *rect;
     (*bead).page_no = page_no;
 }
 unsafe fn make_article(
@@ -2078,19 +2068,19 @@ unsafe fn make_article(
             let rect = pdf_new_array();
             pdf_add_array(
                 rect,
-                pdf_new_number(((*bead).rect.llx / 0.01f64 + 0.5f64).floor() * 0.01f64),
+                pdf_new_number(((*bead).rect.ll.x / 0.01 + 0.5).floor() * 0.01),
             );
             pdf_add_array(
                 rect,
-                pdf_new_number(((*bead).rect.lly / 0.01f64 + 0.5f64).floor() * 0.01f64),
+                pdf_new_number(((*bead).rect.ll.y / 0.01 + 0.5).floor() * 0.01),
             );
             pdf_add_array(
                 rect,
-                pdf_new_number(((*bead).rect.urx / 0.01f64 + 0.5f64).floor() * 0.01f64),
+                pdf_new_number(((*bead).rect.ur.x / 0.01 + 0.5).floor() * 0.01),
             );
             pdf_add_array(
                 rect,
-                pdf_new_number(((*bead).rect.ury / 0.01f64 + 0.5f64).floor() * 0.01f64),
+                pdf_new_number(((*bead).rect.ur.y / 0.01 + 0.5).floor() * 0.01),
             );
             pdf_add_dict(last, "R", rect);
             pdf_add_array((*page).beads, pdf_ref_obj(last));
@@ -2161,41 +2151,26 @@ unsafe fn pdf_doc_close_articles(mut p: *mut pdf_doc) {
 }
 /* page_no = 0 for root page tree node. */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_doc_set_mediabox(mut page_no: u32, mediabox: &pdf_rect) {
+pub unsafe extern "C" fn pdf_doc_set_mediabox(mut page_no: u32, mediabox: &Rect) {
     let mut p: *mut pdf_doc = &mut pdoc;
     if page_no == 0_u32 {
-        (*p).pages.mediabox.llx = mediabox.llx;
-        (*p).pages.mediabox.lly = mediabox.lly;
-        (*p).pages.mediabox.urx = mediabox.urx;
-        (*p).pages.mediabox.ury = mediabox.ury
+        (*p).pages.mediabox = *mediabox;
     } else {
         let page = doc_get_page_entry(p, page_no);
-        (*page).cropbox.llx = mediabox.llx;
-        (*page).cropbox.lly = mediabox.lly;
-        (*page).cropbox.urx = mediabox.urx;
-        (*page).cropbox.ury = mediabox.ury;
+        (*page).cropbox = *mediabox;
         (*page).flags |= 1i32 << 0i32
     };
 }
-unsafe fn pdf_doc_get_mediabox(mut page_no: u32, mediabox: &mut pdf_rect) {
+unsafe fn pdf_doc_get_mediabox(mut page_no: u32, mediabox: &mut Rect) {
     let mut p: *mut pdf_doc = &mut pdoc;
     if page_no == 0_u32 {
-        mediabox.llx = (*p).pages.mediabox.llx;
-        mediabox.lly = (*p).pages.mediabox.lly;
-        mediabox.urx = (*p).pages.mediabox.urx;
-        mediabox.ury = (*p).pages.mediabox.ury
+        *mediabox = (*p).pages.mediabox;
     } else {
         let page = doc_get_page_entry(p, page_no);
         if (*page).flags & 1i32 << 0i32 != 0 {
-            mediabox.llx = (*page).cropbox.llx;
-            mediabox.lly = (*page).cropbox.lly;
-            mediabox.urx = (*page).cropbox.urx;
-            mediabox.ury = (*page).cropbox.ury
+            *mediabox = (*page).cropbox;
         } else {
-            mediabox.llx = (*p).pages.mediabox.llx;
-            mediabox.lly = (*p).pages.mediabox.lly;
-            mediabox.urx = (*p).pages.mediabox.urx;
-            mediabox.ury = (*p).pages.mediabox.ury
+            *mediabox = (*p).pages.mediabox;
         }
     };
 }
@@ -2427,7 +2402,7 @@ pub unsafe extern "C" fn pdf_doc_set_bgcolor(color: Option<&PdfColor>) {
     };
 }
 unsafe fn doc_fill_page_background(p: &mut pdf_doc) {
-    let mut r = pdf_rect::new();
+    let mut r = Rect::zero();
     let cm = pdf_dev_get_param(2i32);
     if cm == 0 || bgcolor.is_white() {
         return;
@@ -2441,14 +2416,14 @@ unsafe fn doc_fill_page_background(p: &mut pdf_doc) {
     currentpage.contents = currentpage.background;
     pdf_dev_gsave();
     pdf_dev_set_color(&bgcolor, 0x20, 0);
-    pdf_dev_rectfill(r.llx, r.lly, r.urx - r.llx, r.ury - r.lly);
+    r.fill();
     pdf_dev_grestore();
     currentpage.contents = saved_content;
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_doc_begin_page(mut scale: f64, mut x_origin: f64, mut y_origin: f64) {
     let p = &mut pdoc;
-    let mut M = pdf_tmatrix {
+    let mut M = TMatrix {
         a: scale,
         b: 0.,
         c: 0.,
@@ -2609,8 +2584,8 @@ pub unsafe extern "C" fn pdf_close_document() {
  */
 unsafe fn pdf_doc_make_xform(
     mut xform: *mut pdf_obj,
-    bbox: &mut pdf_rect,
-    matrix: Option<&pdf_tmatrix>,
+    bbox: &mut Rect,
+    matrix: Option<&TMatrix>,
     mut resources: *mut pdf_obj,
     mut attrib: *mut pdf_obj,
 ) {
@@ -2621,19 +2596,19 @@ unsafe fn pdf_doc_make_xform(
     let tmp = pdf_new_array();
     pdf_add_array(
         tmp,
-        pdf_new_number((bbox.llx / 0.001f64 + 0.5f64).floor() * 0.001f64),
+        pdf_new_number((bbox.ll.x / 0.001 + 0.5).floor() * 0.001),
     );
     pdf_add_array(
         tmp,
-        pdf_new_number((bbox.lly / 0.001f64 + 0.5f64).floor() * 0.001f64),
+        pdf_new_number((bbox.ll.y / 0.001 + 0.5).floor() * 0.001),
     );
     pdf_add_array(
         tmp,
-        pdf_new_number((bbox.urx / 0.001f64 + 0.5f64).floor() * 0.001f64),
+        pdf_new_number((bbox.ur.x / 0.001 + 0.5).floor() * 0.001),
     );
     pdf_add_array(
         tmp,
-        pdf_new_number((bbox.ury / 0.001f64 + 0.5f64).floor() * 0.001f64),
+        pdf_new_number((bbox.ur.y / 0.001 + 0.5).floor() * 0.001),
     );
     pdf_add_dict(xform_dict, "BBox", tmp);
     if let Some(matrix) = matrix {
@@ -2679,7 +2654,7 @@ pub unsafe extern "C" fn pdf_doc_begin_grabbing(
     mut ident: *const i8,
     mut ref_x: f64,
     mut ref_y: f64,
-    cropbox: &pdf_rect,
+    cropbox: &Rect,
 ) -> i32 {
     let mut p: *mut pdf_doc = &mut pdoc;
     let mut info = Box::new(xform_info::default());
@@ -2701,10 +2676,9 @@ pub unsafe extern "C" fn pdf_doc_begin_grabbing(
     form.matrix.d = 1.;
     form.matrix.e = -ref_x;
     form.matrix.f = -ref_y;
-    form.cropbox.llx = ref_x + cropbox.llx;
-    form.cropbox.lly = ref_y + cropbox.lly;
-    form.cropbox.urx = ref_x + cropbox.urx;
-    form.cropbox.ury = ref_y + cropbox.ury;
+    let ref_xy = Coord::new(ref_x, ref_y);
+    form.cropbox.ll = ref_xy + cropbox.ll;
+    form.cropbox.ur = ref_xy + cropbox.ur;
     form.contents = pdf_new_stream(1i32 << 0i32);
     form.resources = pdf_new_dict();
     pdf_ximage_init_form_info(&mut info);
@@ -2714,10 +2688,7 @@ pub unsafe extern "C" fn pdf_doc_begin_grabbing(
     info.matrix.d = 1.0f64;
     info.matrix.e = -ref_x;
     info.matrix.f = -ref_y;
-    info.bbox.llx = cropbox.llx;
-    info.bbox.lly = cropbox.lly;
-    info.bbox.urx = cropbox.urx;
-    info.bbox.ury = cropbox.ury;
+    info.bbox = *cropbox;
     /* Use reference since content itself isn't available yet. */
     let xobj_id = pdf_ximage_defineresource(ident, XInfo::Form(info), pdf_ref_obj((*form).contents));
     (*p).pending_forms = fnode;
@@ -2771,15 +2742,15 @@ static mut breaking_state: C2RustUnnamed_4 = {
         dirty: 0i32,
         broken: 0i32,
         annot_dict: 0 as *const pdf_obj as *mut pdf_obj,
-        rect: pdf_rect::new(),
+        rect: Rect::zero(),
     };
     init
 };
 unsafe fn reset_box() {
-    breaking_state.rect.lly = ::std::f64::INFINITY;
-    breaking_state.rect.llx = breaking_state.rect.lly;
-    breaking_state.rect.ury = -::std::f64::INFINITY;
-    breaking_state.rect.urx = breaking_state.rect.ury;
+    breaking_state.rect = Rect::new(
+        (core::f64::INFINITY, core::f64::INFINITY),
+        (core::f64::NEG_INFINITY, core::f64::NEG_INFINITY)
+    );
     breaking_state.dirty = 0i32;
 }
 #[no_mangle]
@@ -2824,26 +2795,10 @@ pub unsafe extern "C" fn pdf_doc_break_annot() {
 /* Annotation */
 /* Annotation with auto- clip and line (or page) break */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_doc_expand_box(rect: &pdf_rect) {
-    breaking_state.rect.llx = if breaking_state.rect.llx < rect.llx {
-        breaking_state.rect.llx
-    } else {
-        rect.llx
-    };
-    breaking_state.rect.lly = if breaking_state.rect.lly < rect.lly {
-        breaking_state.rect.lly
-    } else {
-        rect.lly
-    };
-    breaking_state.rect.urx = if breaking_state.rect.urx > rect.urx {
-        breaking_state.rect.urx
-    } else {
-        rect.urx
-    };
-    breaking_state.rect.ury = if breaking_state.rect.ury > rect.ury {
-        breaking_state.rect.ury
-    } else {
-        rect.ury
-    };
-    breaking_state.dirty = 1i32;
+pub unsafe extern "C" fn pdf_doc_expand_box(rect: &Rect) {
+    breaking_state.rect.ll.x = breaking_state.rect.ll.x.min(rect.ll.x);
+    breaking_state.rect.ll.y = breaking_state.rect.ll.y.min(rect.ll.y);
+    breaking_state.rect.ur.x = breaking_state.rect.ur.x.max(rect.ur.x);
+    breaking_state.rect.ur.y = breaking_state.rect.ur.y.max(rect.ur.y);
+    breaking_state.dirty = 1;
 }

@@ -69,14 +69,14 @@ pub struct spc_tpic_ {
     pub pen_size: f64,
     pub fill_shape: bool,
     pub fill_color: f64,
-    pub points: *mut pdf_coord,
+    pub points: *mut Coord,
     pub num_points: i32,
     pub max_points: i32,
 }
 
-use crate::dpx_pdfdev::pdf_coord;
+use crate::dpx_pdfdev::Coord;
 
-use crate::dpx_pdfdev::pdf_tmatrix;
+use crate::dpx_pdfdev::TMatrix;
 
 /* tectonic/core-memory.h: basic dynamic memory helpers
    Copyright 2016-2018 the Tectonic Project
@@ -94,7 +94,7 @@ static mut _TPIC_STATE: spc_tpic_ = spc_tpic_ {
     pen_size: 0.,
     fill_shape: false,
     fill_color: 0.,
-    points: 0 as *const pdf_coord as *mut pdf_coord,
+    points: 0 as *const Coord as *mut Coord,
     num_points: 0,
     max_points: 0,
 };
@@ -102,7 +102,7 @@ static mut _TPIC_STATE: spc_tpic_ = spc_tpic_ {
  * since we always draw isolated graphics.
  */
 unsafe fn tpic__clear(mut tp: *mut spc_tpic_) {
-    (*tp).points = mfree((*tp).points as *mut libc::c_void) as *mut pdf_coord;
+    (*tp).points = mfree((*tp).points as *mut libc::c_void) as *mut Coord;
     (*tp).num_points = 0i32;
     (*tp).max_points = 0i32;
     (*tp).fill_shape = false;
@@ -193,13 +193,13 @@ unsafe fn set_fillstyle(mut g: f64, mut a: f64, mut f_ais: i32) -> i32 {
 }
 unsafe fn set_styles(
     mut tp: *mut spc_tpic_,
-    mut c: *const pdf_coord,
+    mut c: *const Coord,
     mut f_fs: bool,
     mut f_vp: bool,
     mut pn: f64,
     mut da: f64,
 ) {
-    let mut M = pdf_tmatrix {
+    let mut M = TMatrix {
         a: 1.,
         b: 0.,
         c: 0.,
@@ -238,7 +238,7 @@ unsafe fn showpath(mut f_vp: bool, mut f_fs: bool)
 }
 unsafe fn tpic__polyline(
     mut tp: *mut spc_tpic_,
-    mut c: *const pdf_coord,
+    mut c: *const Coord,
     mut f_vp: bool,
     mut da: f64,
 ) -> i32 {
@@ -297,7 +297,7 @@ unsafe fn tpic__polyline(
  */
 unsafe fn tpic__spline(
     mut tp: *mut spc_tpic_,
-    mut c: *const pdf_coord,
+    mut c: *const Coord,
     mut f_vp: bool,
     mut da: f64,
 ) -> i32 {
@@ -354,7 +354,7 @@ unsafe fn tpic__spline(
 }
 unsafe fn tpic__arc(
     mut tp: *mut spc_tpic_,
-    mut c: *const pdf_coord,
+    mut c: *const Coord,
     mut f_vp: bool,
     mut da: f64,
     mut v: *mut f64,
@@ -397,9 +397,9 @@ unsafe fn tpic__arc(
     tpic__clear(tp);
     0i32
 }
-unsafe fn spc_currentpoint(mut spe: *mut spc_env, mut pg: *mut i32) -> pdf_coord {
+unsafe fn spc_currentpoint(mut spe: *mut spc_env, mut pg: *mut i32) -> Coord {
     *pg = 0;
-    pdf_coord::new((*spe).x_user, (*spe).y_user)
+    Coord::new((*spe).x_user, (*spe).y_user)
 }
 unsafe fn spc_handler_tpic_pn(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i32
 /* , void *dp) */ {
@@ -441,9 +441,9 @@ unsafe fn spc_handler_tpic_pa(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
         (*tp).max_points += 256i32;
         (*tp).points = renew(
             (*tp).points as *mut libc::c_void,
-            ((*tp).max_points as u32 as u64).wrapping_mul(::std::mem::size_of::<pdf_coord>() as u64)
+            ((*tp).max_points as u32 as u64).wrapping_mul(::std::mem::size_of::<Coord>() as u64)
                 as u32,
-        ) as *mut pdf_coord
+        ) as *mut Coord
     }
     (*(*tp).points.offset((*tp).num_points as isize)).x = v[0] * (0.072f64 / pdf_dev_scale());
     (*(*tp).points.offset((*tp).num_points as isize)).y = v[1] * (0.072f64 / pdf_dev_scale());
@@ -643,7 +643,7 @@ unsafe fn spc_handler_tpic__init(mut spe: *mut spc_env, mut dp: *mut libc::c_voi
     (*tp).pen_size = 1.0f64;
     (*tp).fill_shape = false;
     (*tp).fill_color = 0.0f64;
-    (*tp).points = 0 as *mut pdf_coord;
+    (*tp).points = 0 as *mut Coord;
     (*tp).num_points = 0i32;
     (*tp).max_points = 0i32;
     if (*tp).mode.fill != 0i32 && pdf_get_version() < 4_u32 {

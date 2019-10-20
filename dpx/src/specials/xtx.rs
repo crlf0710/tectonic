@@ -55,9 +55,9 @@ use super::{spc_arg, spc_env};
 use super::SpcHandler;
 use crate::dpx_fontmap::fontmap_rec;
 
-use crate::dpx_pdfdev::pdf_coord;
+use crate::dpx_pdfdev::Coord;
 
-use crate::dpx_pdfdev::pdf_tmatrix;
+use crate::dpx_pdfdev::TMatrix;
 
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -77,7 +77,7 @@ pub unsafe fn spc_handler_xtx_do_transform(
     mut e: f64,
     mut f: f64,
 ) -> i32 {
-    let mut M = pdf_tmatrix::new();
+    let mut M = TMatrix::new();
     /* Create transformation matrix */
     M.a = a;
     M.b = b;
@@ -108,7 +108,7 @@ unsafe fn spc_handler_xtx_scale(mut spe: *mut spc_env, mut args: *mut spc_arg) -
     );
 }
 /* Scaling without gsave/grestore. */
-static mut SCALE_FACTORS: *mut pdf_coord = 0 as *const pdf_coord as *mut pdf_coord;
+static mut SCALE_FACTORS: *mut Coord = 0 as *const Coord as *mut Coord;
 static mut SCALE_FACTOR_COUNT: i32 = -1i32;
 unsafe fn spc_handler_xtx_bscale(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut values: [f64; 2] = [0.; 2];
@@ -117,8 +117,8 @@ unsafe fn spc_handler_xtx_bscale(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         SCALE_FACTORS = xrealloc(
             SCALE_FACTORS as *mut libc::c_void,
             ((SCALE_FACTOR_COUNT + 16i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<pdf_coord>() as u64),
-        ) as *mut pdf_coord
+                .wrapping_mul(::std::mem::size_of::<Coord>() as u64),
+        ) as *mut Coord
     }
     if spc_util_read_numbers(&mut *values.as_mut_ptr().offset(0), 2i32, args) < 2i32 {
         return -1i32;
@@ -143,7 +143,7 @@ unsafe fn spc_handler_xtx_bscale(mut spe: *mut spc_env, mut args: *mut spc_arg) 
 unsafe fn spc_handler_xtx_escale(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let fresh0 = SCALE_FACTOR_COUNT;
     SCALE_FACTOR_COUNT = SCALE_FACTOR_COUNT - 1;
-    let mut factor: pdf_coord = *SCALE_FACTORS.offset(fresh0 as isize);
+    let mut factor: Coord = *SCALE_FACTORS.offset(fresh0 as isize);
     (*args).curptr = (*args).endptr;
     return spc_handler_xtx_do_transform(
         (*spe).x_user,

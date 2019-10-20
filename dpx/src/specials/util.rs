@@ -28,7 +28,7 @@
 use super::{spc_arg, spc_env};
 use crate::dpx_dpxutil::{parse_c_ident, parse_float_decimal};
 use crate::dpx_pdfcolor::PdfColor;
-use crate::dpx_pdfdev::{pdf_tmatrix, transform_info};
+use crate::dpx_pdfdev::{Rect, TMatrix, transform_info};
 use crate::dpx_pdfparse::skip_white;
 use crate::mfree;
 use crate::shims::strcasecmp;
@@ -403,7 +403,7 @@ unsafe fn spc_util_read_length(
  * order: scaling, rotate, displacement.
  */
 extern "C" fn make_transmatrix(
-    M: &mut pdf_tmatrix,
+    M: &mut TMatrix,
     mut xoffset: f64,
     mut yoffset: f64,
     mut xscale: f64,
@@ -524,19 +524,19 @@ unsafe fn spc_read_dimtrns_dvips(
                     5 => yscale = atof(vp) / 100.0f64,
                     6 => rotate = 3.14159265358979323846f64 * atof(vp) / 180.0f64,
                     8 => {
-                        t.bbox.llx = atof(vp);
+                        t.bbox.ll.x = atof(vp);
                         t.flags |= 1i32 << 0i32
                     }
                     9 => {
-                        t.bbox.lly = atof(vp);
+                        t.bbox.ll.y = atof(vp);
                         t.flags |= 1i32 << 0i32
                     }
                     10 => {
-                        t.bbox.urx = atof(vp);
+                        t.bbox.ur.x = atof(vp);
                         t.flags |= 1i32 << 0i32
                     }
                     11 => {
-                        t.bbox.ury = atof(vp);
+                        t.bbox.ur.y = atof(vp);
                         t.flags |= 1i32 << 0i32
                     }
                     12 => {
@@ -661,10 +661,7 @@ unsafe fn spc_read_dimtrns_pdfm(
                 if spc_util_read_numbers(v.as_mut_ptr(), 4i32, ap) != 4i32 {
                     error = -1i32
                 } else {
-                    p.bbox.llx = v[0];
-                    p.bbox.lly = v[1];
-                    p.bbox.urx = v[2];
-                    p.bbox.ury = v[3];
+                    p.bbox = Rect::new((v[0], v[1]), (v[2], v[3]));
                     p.flags |= 1i32 << 0i32
                 }
             }
@@ -864,10 +861,7 @@ pub unsafe extern "C" fn spc_util_read_blahblah(
                 if spc_util_read_numbers(v.as_mut_ptr(), 4i32, ap) != 4i32 {
                     error = -1i32
                 } else {
-                    p.bbox.llx = v[0];
-                    p.bbox.lly = v[1];
-                    p.bbox.urx = v[2];
-                    p.bbox.ury = v[3];
+                    p.bbox = Rect::new((v[0], v[1]), (v[2], v[3]));
                     p.flags |= 1i32 << 0i32
                 }
             }

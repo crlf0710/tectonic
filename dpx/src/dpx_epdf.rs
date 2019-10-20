@@ -57,7 +57,7 @@ pub type __off_t = i64;
 pub type __off64_t = i64;
 use bridge::InputHandleWrapper;
 
-//use super::dpx_pdfdev::{pdf_coord, pdf_tmatrix};
+//use super::dpx_pdfdev::{Coord, TMatrix};
 
 use crate::dpx_pdfximage::{load_options, pdf_ximage, xform_info};
 pub const OP_CURVETO2: C2RustUnnamed_0 = 15;
@@ -526,10 +526,10 @@ pub unsafe extern "C" fn pdf_include_page(
                         pdf_add_dict(contents_dict, "Subtype", pdf_new_name("Form"));
                         pdf_add_dict(contents_dict, "FormType", pdf_new_number(1.0f64));
                         let bbox = pdf_new_array();
-                        pdf_add_array(bbox, pdf_new_number(info.bbox.llx));
-                        pdf_add_array(bbox, pdf_new_number(info.bbox.lly));
-                        pdf_add_array(bbox, pdf_new_number(info.bbox.urx));
-                        pdf_add_array(bbox, pdf_new_number(info.bbox.ury));
+                        pdf_add_array(bbox, pdf_new_number(info.bbox.ll.x));
+                        pdf_add_array(bbox, pdf_new_number(info.bbox.ll.y));
+                        pdf_add_array(bbox, pdf_new_number(info.bbox.ur.x));
+                        pdf_add_array(bbox, pdf_new_number(info.bbox.ur.y));
                         pdf_add_dict(contents_dict, "BBox", bbox);
                         let matrix = pdf_new_array();
                         pdf_add_array(matrix, pdf_new_number(info.matrix.a));
@@ -849,7 +849,7 @@ pub unsafe extern "C" fn pdf_copy_clip(
     let mut end_path: *const i8 = 0 as *const i8;
     let mut save_path: *mut i8 = 0 as *mut i8;
     let mut temp: *mut i8 = 0 as *mut i8;
-    let mut M = pdf_tmatrix::new();
+    let mut M = TMatrix::new();
     let mut stack: [f64; 6] = [0.; 6];
     let mut pf: *mut pdf_file = 0 as *mut pdf_file;
     pf = pdf_open(0 as *const i8, InputHandleWrapper::new(image_file as tectonic_bridge::rust_input_handle_t).unwrap()); // TODO: check
@@ -933,11 +933,11 @@ pub unsafe extern "C" fn pdf_copy_clip(
             }
         } else {
             let mut j: u32 = 0;
-            let mut T = pdf_tmatrix::new();
-            let mut p0 = pdf_coord::zero();
-            let mut p1 = pdf_coord::zero();
-            let mut p2 = pdf_coord::zero();
-            let mut p3 = pdf_coord::zero();
+            let mut T = TMatrix::new();
+            let mut p0 = Coord::zero();
+            let mut p1 = Coord::zero();
+            let mut p2 = Coord::zero();
+            let mut p3 = Coord::zero();
             token = parse_ident(&mut clip_path, end_path);
             j = 0_u32;
             while (j as u64)
@@ -1037,7 +1037,7 @@ pub unsafe extern "C" fn pdf_copy_clip(
                     top = top - 1;
                     p0.x = stack[fresh9 as usize];
                     if M.b == 0i32 as f64 && M.c == 0i32 as f64 {
-                        let mut M0 = pdf_tmatrix {
+                        let mut M0 = TMatrix {
                             a: M.a,
                             b: M.b,
                             c: M.c,

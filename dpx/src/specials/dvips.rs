@@ -43,7 +43,7 @@ use crate::{ttstub_input_close, ttstub_input_open};
 use super::util::spc_util_read_dimtrns;
 use crate::dpx_mem::{new, xmalloc, xrealloc};
 use crate::dpx_mpost::{mps_eop_cleanup, mps_exec_inline, mps_stack_depth};
-use crate::dpx_pdfdev::{pdf_dev_put_image, pdf_tmatrix, transform_info, transform_info_clear};
+use crate::dpx_pdfdev::{pdf_dev_put_image, TMatrix, transform_info, transform_info_clear};
 use crate::dpx_pdfdraw::{
     pdf_dev_current_depth, pdf_dev_grestore, pdf_dev_grestore_to, pdf_dev_gsave,
 };
@@ -318,7 +318,7 @@ unsafe fn spc_handler_ps_default(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     pdf_dev_gsave();
     let st_depth = mps_stack_depth();
     let gs_depth = pdf_dev_current_depth();
-    let mut M = pdf_tmatrix::new();
+    let mut M = TMatrix::new();
     M.d = 1.0f64;
     M.a = M.d;
     M.c = 0.0f64;

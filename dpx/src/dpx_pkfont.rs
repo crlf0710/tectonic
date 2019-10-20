@@ -57,7 +57,7 @@ use crate::dpx_numbers::{
 pub type __off_t = i64;
 pub type __off64_t = i64;
 pub type size_t = u64;
-use super::dpx_pdfdev::pdf_rect;
+use super::dpx_pdfdev::Rect;
 use libc::FILE;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -585,7 +585,6 @@ unsafe fn create_pk_CharProc_stream(
 #[no_mangle]
 pub unsafe extern "C" fn pdf_font_load_pkfont(mut font: *mut pdf_font) -> i32 {
     let mut widths: [f64; 256] = [0.; 256];
-    let mut bbox = pdf_rect::new();
     let mut charavail: [i8; 256] = [0; 256];
     /* ENABLE_GLYPHENC */
     if !pdf_font_is_in_use(font) {
@@ -618,10 +617,10 @@ pub unsafe extern "C" fn pdf_font_load_pkfont(mut font: *mut pdf_font) -> i32 {
      * rendering in several viewers.
      */
     let pix2charu = 72.0f64 * 1000.0f64 / base_dpi as f64 / point_size; /* A command byte */
-    bbox.lly = ::std::f64::INFINITY;
-    bbox.llx = bbox.lly;
-    bbox.ury = -::std::f64::INFINITY;
-    bbox.urx = bbox.ury;
+    let mut bbox = Rect::new(
+        (core::f64::INFINITY, core::f64::INFINITY),
+        (core::f64::NEG_INFINITY, core::f64::NEG_INFINITY)
+    );
     loop {
         let opcode = fgetc(fp);
         if !(opcode >= 0i32 && opcode != 245i32) {
@@ -665,26 +664,10 @@ pub unsafe extern "C" fn pdf_font_load_pkfont(mut font: *mut pdf_font) -> i32 {
                         * 0.1f64;
                 widths[(pkh.chrcode & 0xffi32) as usize] = charwidth;
                 /* Update font BBox info */
-                bbox.llx = if bbox.llx < -pkh.bm_hoff as f64 {
-                    bbox.llx
-                } else {
-                    -pkh.bm_hoff as f64
-                };
-                bbox.lly = if bbox.lly < pkh.bm_voff as f64 - pkh.bm_ht as f64 {
-                    bbox.lly
-                } else {
-                    pkh.bm_voff as f64 - pkh.bm_ht as f64
-                };
-                bbox.urx = if bbox.urx > pkh.bm_wd as f64 - pkh.bm_hoff as f64 {
-                    bbox.urx
-                } else {
-                    pkh.bm_wd as f64 - pkh.bm_hoff as f64
-                };
-                bbox.ury = if bbox.ury > pkh.bm_voff as f64 {
-                    bbox.ury
-                } else {
-                    pkh.bm_voff as f64
-                };
+                bbox.ll.x = bbox.ll.x.min(-pkh.bm_hoff as f64);
+                bbox.ll.y = bbox.ll.y.min(pkh.bm_voff as f64 - pkh.bm_ht as f64);
+                bbox.ur.x = bbox.ur.x.max(pkh.bm_wd as f64 - pkh.bm_hoff as f64);
+                bbox.ur.y = bbox.ur.y.max(pkh.bm_voff as f64);
                 let pkt_ptr = new((pkh.pkt_len as u64)
                     .wrapping_mul(::std::mem::size_of::<u8>() as u64)
                     as u32) as *mut u8;
@@ -843,10 +826,10 @@ pub unsafe extern "C" fn pdf_font_load_pkfont(mut font: *mut pdf_font) -> i32 {
     /* FontBBox: Accurate value is important.
      */
     let tmp_array = pdf_new_array();
-    pdf_add_array(tmp_array, pdf_new_number(bbox.llx));
-    pdf_add_array(tmp_array, pdf_new_number(bbox.lly));
-    pdf_add_array(tmp_array, pdf_new_number(bbox.urx));
-    pdf_add_array(tmp_array, pdf_new_number(bbox.ury));
+    pdf_add_array(tmp_array, pdf_new_number(bbox.ll.x));
+    pdf_add_array(tmp_array, pdf_new_number(bbox.ll.y));
+    pdf_add_array(tmp_array, pdf_new_number(bbox.ur.x));
+    pdf_add_array(tmp_array, pdf_new_number(bbox.ur.y));
     pdf_add_dict(fontdict, "FontBBox", tmp_array);
     /* Widths:
      *  Indirect reference preffered. (See PDF Reference)
