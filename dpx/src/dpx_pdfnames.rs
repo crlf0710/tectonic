@@ -263,30 +263,20 @@ pub unsafe extern "C" fn pdf_names_close_object(
     0i32
 }
 #[inline]
-unsafe extern "C" fn cmp_key(mut d1: *const libc::c_void, mut d2: *const libc::c_void) -> i32 {
-    let mut cmp;
-    let sd1 = d1 as *const named_object;
-    let sd2 = d2 as *const named_object;
-    if (*sd1).key.is_null() {
-        cmp = -1i32
-    } else if (*sd2).key.is_null() {
-        cmp = 1i32
+fn cmp_key(sd1: &named_object, sd2: &named_object) -> ::core::cmp::Ordering {
+    use ::core::cmp::Ordering;
+    use ::core::slice;
+    if sd1.key.is_null() {
+        Ordering::Less
+    } else if sd2.key.is_null() {
+        Ordering::Greater
     } else {
-        let keylen = if (*sd1).keylen < (*sd2).keylen {
-            (*sd1).keylen
-        } else {
-            (*sd2).keylen
-        };
-        cmp = memcmp(
-            (*sd1).key as *const libc::c_void,
-            (*sd2).key as *const libc::c_void,
-            keylen as _,
-        );
-        if cmp == 0 {
-            cmp = (*sd1).keylen - (*sd2).keylen
+        unsafe {
+            let key1 = slice::from_raw_parts(sd1.key, sd1.keylen as usize);
+            let key2 = slice::from_raw_parts(sd2.key, sd2.keylen as usize);
+            key1.cmp(key2)
         }
     }
-    cmp
 }
 unsafe fn build_name_tree(
     mut first: *mut named_object,
@@ -447,15 +437,10 @@ pub unsafe extern "C" fn pdf_names_create_tree(
     if flat.is_null() {
         name_tree = 0 as *mut pdf_obj
     } else {
-        qsort(
-            flat as *mut libc::c_void,
-            *count as size_t,
-            ::std::mem::size_of::<named_object>() as u64,
-            Some(
-                cmp_key
-                    as unsafe extern "C" fn(_: *const libc::c_void, _: *const libc::c_void) -> i32,
-            ),
-        );
+        ::core::slice::from_raw_parts_mut(
+            flat,
+            *count as usize,
+        ).sort_unstable_by(cmp_key);
         name_tree = build_name_tree(flat, *count, 1i32);
         free(flat as *mut libc::c_void);
     }
