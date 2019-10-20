@@ -458,14 +458,10 @@ pub unsafe extern "C" fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_gl
         }
     }
     free(w_stat as *mut libc::c_void);
-    qsort(
-        (*g).gd as *mut libc::c_void,
-        (*g).num_glyphs as size_t,
-        ::std::mem::size_of::<tt_glyph_desc>() as u64,
-        Some(
-            glyf_cmp as unsafe extern "C" fn(_: *const libc::c_void, _: *const libc::c_void) -> i32,
-        ),
-    );
+    ::core::slice::from_raw_parts_mut(
+        (*g).gd,
+        (*g).num_glyphs as usize
+    ).sort_unstable_by_key(|sv| sv.gid);
     let mut glyf_table_size = 0u64 as u32;
     let mut num_hm_known = 0;
     let last_advw = (*(*g).gd.offset(((*g).num_glyphs as i32 - 1i32) as isize)).advw;
