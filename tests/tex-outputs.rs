@@ -15,7 +15,7 @@ use tectonic::{TexEngine, XdvipdfmxEngine};
 
 #[path = "util/mod.rs"]
 mod util;
-use crate::util::{ensure_plain_format, test_path, ExpectedInfo};
+use crate::util::{ensure_plain_format, test_path, ExpectedInfo, OutputSnapshotChecker, OutputEncoding};
 
 struct TestCase {
     stem: String,
@@ -63,6 +63,118 @@ impl TestCase {
 
     fn expect_msg(&mut self, msg: &str) -> &mut Self {
         self.expect(Err(ErrorKind::Msg(msg.to_owned()).into()))
+    }
+
+    fn snap(&mut self) {
+        util::set_test_root();
+        let expect_xdv = self.expected_result.is_ok();
+
+        let mut p = test_path(&[]);
+
+        // IoProvider for the format file; with magic to generate the format
+        // on-the-fly if needed.
+        let mut fmt =
+            SingleInputFileIo::new(&ensure_plain_format().expect("couldn't write format file"));
+
+        // Set up some useful paths, and the IoProvider for the primary input file.
+        p.push("snapshots");
+        p.push(&self.stem);
+        p.set_extension("tex");
+        let texname = p.file_name().unwrap().to_str().unwrap().to_owned();
+        let mut tex = FilesystemPrimaryInputIo::new(&p);
+
+        p.set_extension("xdv");
+        let xdvname = p.file_name().unwrap().to_str().unwrap().to_owned();
+
+        p.set_extension("pdf");
+        let pdfname = p.file_name().unwrap().to_str().unwrap().to_owned();
+
+        // MemoryIo layer that will accept the outputs.
+        let mut mem = MemoryIo::new(true);
+
+        // We only need the assets when running xdvipdfmx, but due to how
+        // ownership works with IoStacks, it's easier to just unconditionally
+        // add this layer.
+        let mut assets = FilesystemIo::new(&test_path(&["assets"]), false, false, HashSet::new());
+
+        // Run the engine(s)!
+        let res = {
+            let mut io_list: Vec<&mut dyn IoProvider> =
+                vec![&mut mem, &mut tex, &mut fmt, &mut assets];
+            for io in &mut self.extra_io {
+                io_list.push(&mut **io);
+            }
+            let mut io = IoStack::new(io_list);
+
+            let mut events = NoopIoEventBackend::new();
+            let mut status = NoopStatusBackend::new();
+
+            let tex_res =
+                TexEngine::new().process(&mut io, &mut events, &mut status, "plain.fmt", &texname);
+
+            if self.check_pdf && tex_res.definitely_same(&Ok(TexResult::Spotless)) {
+                // While the xdv and log output is deterministic without setting
+                // SOURCE_DATE_EPOCH, xdvipdfmx uses the current date in various places.
+                env::set_var("SOURCE_DATE_EPOCH", "1456304492"); // TODO: default to deterministic behaviour
+
+                XdvipdfmxEngine::new()
+                    .with_compression(false)
+                    .with_deterministic_tags(true)
+                    .process(&mut io, &mut events, &mut status, &xdvname, &pdfname)
+                    .unwrap();
+            }
+
+            tex_res
+        };
+
+        // Check that outputs match expectations.
+
+        let files = mem.files.borrow();
+        let p = &mut p;
+
+        use OutputEncoding::*;
+
+        let mut snap = |ext: &str, enc: OutputEncoding| {
+            let checker = OutputSnapshotChecker::new(p, ext, enc);
+            let (name, string) = checker.snapshot(&files);
+            insta::assert_snapshot!(name, string);
+        };
+
+        snap("log", OutputEncoding::Utf8);
+
+        if !res.definitely_same(&self.expected_result) {
+            panic!(format!(
+                "expected TeX result {:?}, got {:?}",
+                self.expected_result, res
+            ));
+        }
+
+        if expect_xdv {
+            snap("xdv", OutputEncoding::Binary);
+        }
+
+        if self.check_synctex {
+            snap("synctex.gz", OutputEncoding::Binary);
+        }
+
+        if self.check_pdf {
+            snap("pdf", OutputEncoding::Binary);
+            // we now write out a .preview.pdf file so you can visually check the PDF
+            // in addition to seeing a hexdump
+
+            use std::fs::File;
+            use std::io::prelude::*;
+
+            let mut path = test_path(&["snapshots"]);
+            path.push(&self.stem);
+            path.set_extension("pdf");
+            let name = path.file_name().unwrap();
+            let buf = files.get(name).unwrap();
+
+            path.set_extension("preview.pdf");
+            let mut file = File::create(&path).unwrap();
+            file.write_all(buf);
+        }
     }
 
     fn go(&mut self) {
@@ -258,4 +370,14 @@ fn tectoniccodatokens_ok() {
 #[test]
 fn the_letter_a() {
     TestCase::new("the_letter_a").check_pdf(true).go()
+}
+
+mod snapshots {
+    use super::TestCase;
+    #[test]
+    fn bmp_images() {
+        TestCase::new("bmp_images")
+            .check_pdf(true)
+            .snap()
+    }
 }

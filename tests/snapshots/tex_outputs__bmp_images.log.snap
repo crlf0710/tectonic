@@ -1,0 +1,8 @@
+---
+source: tests/tex-outputs.rs
+expression: string
+---
+**
+(bmp_images.tex [1] )
+Output written on bmp_images.xdv (1 page, 436 bytes).
+

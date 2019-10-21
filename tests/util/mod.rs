@@ -211,3 +211,74 @@ impl ExpectedInfo {
         }
     }
 }
+
+pub enum OutputEncoding {
+    Binary,
+    Utf8,
+}
+
+pub struct OutputSnapshotChecker {
+    name: OsString,
+    encoding: OutputEncoding,
+    gzipped: bool,
+}
+
+impl OutputSnapshotChecker {
+    fn create(path: &impl AsRef<Path>, encoding: OutputEncoding) -> Self{
+        let path = path.as_ref();
+        let name = path
+            .file_name()
+            .unwrap_or_else(|| panic!("couldn't get file name of {:?}", path))
+            .to_owned();
+        OutputSnapshotChecker {
+            name,
+            encoding,
+            gzipped: false
+        }
+    }
+
+    pub fn new(pbase: &mut PathBuf, ext: &str, enc: OutputEncoding) -> Self {
+        pbase.set_extension(ext);
+        OutputSnapshotChecker::create(pbase, enc)
+    }
+
+    pub fn new_gz(pbase: &mut PathBuf, ext: &str, enc: OutputEncoding) -> Self {
+        let mut neu = OutputSnapshotChecker::new(pbase, ext, enc);
+        neu.gzipped = true;
+        neu
+    }
+
+    fn get_snapshot_string(&self, observed: &[u8]) -> String {
+        match self.encoding {
+            OutputEncoding::Utf8 => {
+                let st = String::from_utf8(observed.to_vec()).unwrap();
+                st
+            }
+            OutputEncoding::Binary => {
+                let hex = pretty_hex::pretty_hex(&observed);
+                hex
+            }
+        }
+    }
+
+    pub fn snapshot<'a>(&'a self, files: &HashMap<OsString, Vec<u8>>) -> (&'a str, String) {
+        let name = self.name.to_str().unwrap();
+        let string = if !self.gzipped {
+            if let Some(data) = files.get(&self.name) {
+                self.get_snapshot_string(data)
+            } else {
+                panic!(
+                    "{:?} not in {:?}",
+                    self.name,
+                    files.keys().collect::<Vec<_>>()
+                )
+            }
+        } else {
+            let mut buf = Vec::new();
+            let mut dec = GzDecoder::new(&files.get(&self.name).unwrap()[..]);
+            dec.read_to_end(&mut buf).unwrap();
+            self.get_snapshot_string(&buf)
+        };
+        (name, string)
+    }
+}
