@@ -29,9 +29,9 @@
 
 use super::dpx_mem::new;
 use crate::mfree;
-use crate::qsort;
 use crate::warn;
 use libc::{free, memcpy, memset};
+use std::cmp::Ordering;
 
 pub type size_t = u64;
 
@@ -173,24 +173,17 @@ static mut ps_arg_stack: [f64; 194] = [0.; 194];
  *  Convert ghost hint to edge hint, Counter control for hstem3/vstem3.
  */
 #[inline]
-unsafe extern "C" fn stem_compare(mut v1: *const libc::c_void, mut v2: *const libc::c_void) -> i32 {
-    let mut cmp;
-    let s1 = v1 as *const t1_stem;
-    let s2 = v2 as *const t1_stem;
-    if (*s1).dir == (*s2).dir {
-        if (*s1).pos == (*s2).pos {
-            if (*s1).del == (*s2).del {
-                cmp = 0i32
-            } else {
-                cmp = if (*s1).del < (*s2).del { -1i32 } else { 1i32 }
-            }
-        } else {
-            cmp = if (*s1).pos < (*s2).pos { -1i32 } else { 1i32 }
-        }
+fn stem_compare(s1: &t1_stem, s2: &t1_stem) -> Ordering {
+    // the order of comparing : dir, pos, del
+    if s1.dir == s2.dir {
+        s1.pos
+            .partial_cmp(&s2.pos).unwrap()
+            .then_with(||s1.del.partial_cmp(&s2.del).unwrap())
+    } else if s1.dir == 0 {
+        Ordering::Less
     } else {
-        cmp = if (*s1).dir == 0i32 { -1i32 } else { 1i32 }
+        Ordering::Greater
     }
-    cmp
 }
 unsafe fn get_stem(mut cd: *mut t1_chardesc, mut stem_id: i32) -> i32 {
     let mut i = 0;
@@ -1939,15 +1932,7 @@ pub unsafe extern "C" fn t1char_convert_charstring(
         warn!("Stack not empty. ({}, {})", cs_stack_top, ps_stack_top,);
     }
     do_postproc(cd);
-    qsort(
-        (*cd).stems.as_mut_ptr() as *mut libc::c_void,
-        (*cd).num_stems as size_t,
-        ::std::mem::size_of::<t1_stem>() as u64,
-        Some(
-            stem_compare
-                as unsafe extern "C" fn(_: *const libc::c_void, _: *const libc::c_void) -> i32,
-        ),
-    );
+    cd.stems[..cd.num_stems as usize].sort_unstable_by(stem_compare);
     let length = t1char_encode_charpath(
         cd,
         default_width,

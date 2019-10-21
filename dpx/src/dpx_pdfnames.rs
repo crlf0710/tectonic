@@ -31,19 +31,20 @@ use crate::mfree;
 use crate::warn;
 use crate::DisplayExt;
 use std::ffi::CStr;
+use std::slice;
+use std::cmp::Ordering;
 
 use super::dpx_dpxutil::{
     ht_append_table, ht_clear_iter, ht_clear_table, ht_init_table, ht_iter_getkey, ht_iter_getval,
     ht_iter_next, ht_lookup_table, ht_set_iter,
 };
 use super::dpx_mem::{new, renew};
-use super::qsort;
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_link_obj, pdf_new_array, pdf_new_dict, pdf_new_null,
     pdf_new_string, pdf_new_undefined, pdf_obj, pdf_obj_typeof, pdf_ref_obj, pdf_release_obj,
     pdf_string_length, pdf_string_value, pdf_transfer_label, PdfObjType,
 };
-use libc::{free, memcmp};
+use libc::free;
 
 pub type size_t = u64;
 pub type __compar_fn_t =
@@ -263,30 +264,18 @@ pub unsafe extern "C" fn pdf_names_close_object(
     0i32
 }
 #[inline]
-unsafe extern "C" fn cmp_key(mut d1: *const libc::c_void, mut d2: *const libc::c_void) -> i32 {
-    let mut cmp;
-    let sd1 = d1 as *const named_object;
-    let sd2 = d2 as *const named_object;
-    if (*sd1).key.is_null() {
-        cmp = -1i32
-    } else if (*sd2).key.is_null() {
-        cmp = 1i32
+fn cmp_key(sd1: &named_object, sd2: &named_object) -> Ordering {
+    if sd1.key.is_null() {
+        Ordering::Less
+    } else if sd2.key.is_null() {
+        Ordering::Greater
     } else {
-        let keylen = if (*sd1).keylen < (*sd2).keylen {
-            (*sd1).keylen
-        } else {
-            (*sd2).keylen
-        };
-        cmp = memcmp(
-            (*sd1).key as *const libc::c_void,
-            (*sd2).key as *const libc::c_void,
-            keylen as _,
-        );
-        if cmp == 0 {
-            cmp = (*sd1).keylen - (*sd2).keylen
+        unsafe {
+            let key1 = slice::from_raw_parts(sd1.key, sd1.keylen as usize);
+            let key2 = slice::from_raw_parts(sd2.key, sd2.keylen as usize);
+            key1.cmp(key2)
         }
     }
-    cmp
 }
 unsafe fn build_name_tree(
     mut first: *mut named_object,
@@ -447,15 +436,10 @@ pub unsafe extern "C" fn pdf_names_create_tree(
     if flat.is_null() {
         name_tree = 0 as *mut pdf_obj
     } else {
-        qsort(
-            flat as *mut libc::c_void,
-            *count as size_t,
-            ::std::mem::size_of::<named_object>() as u64,
-            Some(
-                cmp_key
-                    as unsafe extern "C" fn(_: *const libc::c_void, _: *const libc::c_void) -> i32,
-            ),
-        );
+        slice::from_raw_parts_mut(
+            flat,
+            *count as usize,
+        ).sort_unstable_by(cmp_key);
         name_tree = build_name_tree(flat, *count, 1i32);
         free(flat as *mut libc::c_void);
     }
