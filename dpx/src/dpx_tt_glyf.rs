@@ -42,6 +42,7 @@ use crate::{ttstub_input_read};
 use libc::{free, memcpy, memset};
 
 use std::io::{Seek, SeekFrom};
+use std::slice;
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
@@ -457,7 +458,7 @@ pub unsafe extern "C" fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_gl
         }
     }
     free(w_stat as *mut libc::c_void);
-    ::core::slice::from_raw_parts_mut(
+    slice::from_raw_parts_mut(
         (*g).gd,
         (*g).num_glyphs as usize
     ).sort_unstable_by_key(|sv| sv.gid);

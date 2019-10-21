@@ -31,6 +31,8 @@ use crate::mfree;
 use crate::warn;
 use crate::DisplayExt;
 use std::ffi::CStr;
+use std::slice;
+use std::cmp::Ordering;
 
 use super::dpx_dpxutil::{
     ht_append_table, ht_clear_iter, ht_clear_table, ht_init_table, ht_iter_getkey, ht_iter_getval,
@@ -262,9 +264,7 @@ pub unsafe extern "C" fn pdf_names_close_object(
     0i32
 }
 #[inline]
-fn cmp_key(sd1: &named_object, sd2: &named_object) -> ::core::cmp::Ordering {
-    use ::core::cmp::Ordering;
-    use ::core::slice;
+fn cmp_key(sd1: &named_object, sd2: &named_object) -> Ordering {
     if sd1.key.is_null() {
         Ordering::Less
     } else if sd2.key.is_null() {
@@ -436,7 +436,7 @@ pub unsafe extern "C" fn pdf_names_create_tree(
     if flat.is_null() {
         name_tree = 0 as *mut pdf_obj
     } else {
-        ::core::slice::from_raw_parts_mut(
+        slice::from_raw_parts_mut(
             flat,
             *count as usize,
         ).sort_unstable_by(cmp_key);

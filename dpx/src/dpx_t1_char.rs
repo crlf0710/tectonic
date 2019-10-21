@@ -31,6 +31,7 @@ use super::dpx_mem::new;
 use crate::mfree;
 use crate::warn;
 use libc::{free, memcpy, memset};
+use std::cmp::Ordering;
 
 pub type size_t = u64;
 
@@ -172,14 +173,13 @@ static mut ps_arg_stack: [f64; 194] = [0.; 194];
  *  Convert ghost hint to edge hint, Counter control for hstem3/vstem3.
  */
 #[inline]
-fn stem_compare(s1: &t1_stem, s2: &t1_stem) -> ::core::cmp::Ordering {
-    use ::core::cmp::Ordering;
+fn stem_compare(s1: &t1_stem, s2: &t1_stem) -> Ordering {
     // the order of comparing : dir, pos, del
-    if (*s1).dir == (*s2).dir {
-        (*s1).pos
-            .partial_cmp(&(*s2).pos).unwrap()
-            .then_with(||(*s1).del.partial_cmp(&(*s2).del).unwrap())
-    } else if (*s1).dir == 0 {
+    if s1.dir == s2.dir {
+        s1.pos
+            .partial_cmp(&s2.pos).unwrap()
+            .then_with(||s1.del.partial_cmp(&s2.del).unwrap())
+    } else if s1.dir == 0 {
         Ordering::Less
     } else {
         Ordering::Greater
@@ -1932,7 +1932,7 @@ pub unsafe extern "C" fn t1char_convert_charstring(
         warn!("Stack not empty. ({}, {})", cs_stack_top, ps_stack_top,);
     }
     do_postproc(cd);
-    (*cd).stems[..(*cd).num_stems as usize].sort_unstable_by(stem_compare);
+    cd.stems[..cd.num_stems as usize].sort_unstable_by(stem_compare);
     let length = t1char_encode_charpath(
         cd,
         default_width,
