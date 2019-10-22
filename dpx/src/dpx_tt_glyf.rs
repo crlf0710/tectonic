@@ -201,18 +201,7 @@ pub unsafe extern "C" fn tt_build_finish(mut g: *mut tt_glyphs) {
         free(g as *mut libc::c_void);
     };
 }
-#[inline]
-unsafe extern "C" fn glyf_cmp(mut v1: *const libc::c_void, mut v2: *const libc::c_void) -> i32 {
-    let sv1 = v1 as *const tt_glyph_desc;
-    let sv2 = v2 as *const tt_glyph_desc;
-    if (*sv1).gid as i32 == (*sv2).gid as i32 {
-        0
-    } else if ((*sv1).gid as i32) < (*sv2).gid as i32 {
-        -1
-    } else {
-        1
-    }
-}
+
 #[no_mangle]
 pub unsafe extern "C" fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
     /* some information available from other TrueType table */
