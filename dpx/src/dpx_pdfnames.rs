@@ -339,50 +339,39 @@ unsafe fn flat_table(
         as *mut named_object;
     let mut count = 0i32;
     if ht_set_iter(ht_tab, &mut iter) >= 0i32 {
-        let mut current_block_19: u64;
         loop {
             let mut keylen: i32 = 0;
             let mut key = ht_iter_getkey(&mut iter, &mut keylen);
+
             if !filter.is_null() {
                 let mut new_obj: *mut pdf_obj =
                     ht_lookup_table(filter, key as *const libc::c_void, keylen) as *mut pdf_obj;
                 if new_obj.is_null() {
-                    current_block_19 = 15240798224410183470;
-                } else {
-                    key = pdf_string_value(new_obj) as *mut i8;
-                    keylen = pdf_string_length(new_obj) as i32;
-                    current_block_19 = 12800627514080957624;
+                    continue;
                 }
-            } else {
-                current_block_19 = 12800627514080957624;
+                key = pdf_string_value(new_obj) as *mut i8;
+                keylen = pdf_string_length(new_obj) as i32;
+            } 
+            
+            let value = ht_iter_getval(&mut iter) as *mut obj_data;
+            assert!(!(*value).object.is_null());
+            if pdf_obj_typeof((*value).object) == PdfObjType::UNDEFINED {
+                warn!(
+                    "Object @{}\" not defined. Replaced by null.",
+                    printable_key(key, keylen),
+                );
+                let obj = &mut *objects.offset(count as isize);
+                obj.key = key;
+                obj.keylen = keylen;
+                obj.value = pdf_new_null();
+            } else if !(*value).object.is_null() {
+                let obj = &mut *objects.offset(count as isize);
+                obj.key = key;
+                obj.keylen = keylen;
+                obj.value = pdf_link_obj((*value).object);
             }
-            match current_block_19 {
-                12800627514080957624 => {
-                    let value = ht_iter_getval(&mut iter) as *mut obj_data;
-                    assert!(!(*value).object.is_null());
-                    if !(*value).object.is_null()
-                        && pdf_obj_typeof((*value).object) == PdfObjType::UNDEFINED
-                    {
-                        warn!(
-                            "Object @{}\" not defined. Replaced by null.",
-                            printable_key(key, keylen),
-                        );
-                        let ref mut fresh4 = (*objects.offset(count as isize)).key;
-                        *fresh4 = key;
-                        (*objects.offset(count as isize)).keylen = keylen;
-                        let ref mut fresh5 = (*objects.offset(count as isize)).value;
-                        *fresh5 = pdf_new_null()
-                    } else if !(*value).object.is_null() {
-                        let ref mut fresh6 = (*objects.offset(count as isize)).key;
-                        *fresh6 = key;
-                        (*objects.offset(count as isize)).keylen = keylen;
-                        let ref mut fresh7 = (*objects.offset(count as isize)).value;
-                        *fresh7 = pdf_link_obj((*value).object)
-                    }
-                    count += 1
-                }
-                _ => {}
-            }
+            count += 1;
+                
             if !(ht_iter_next(&mut iter) >= 0i32) {
                 break;
             }
