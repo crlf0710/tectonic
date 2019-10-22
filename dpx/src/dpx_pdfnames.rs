@@ -73,9 +73,9 @@ unsafe fn printable_key(key: *const i8, keylen: i32) -> String {
     let mut printable = String::with_capacity(bytes.len() * 2);
     for &b in bytes.iter() {
         if b.is_ascii_graphic() {
-            write!(&mut printable, "{}", b as char);
+            write!(&mut printable, "{}", b as char).expect("Failed to write String");
         } else {
-            write!(&mut printable, "#{:02X}", b);
+            write!(&mut printable, "#{:02X}", b).expect("Failed to write String");
         }
     }
     printable
