@@ -907,7 +907,6 @@ pub unsafe extern "C" fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
     let cstring = cff_new_index((*cffont.cstrings).count);
     (*cstring).data = 0 as *mut u8;
     *(*cstring).offset.offset(0) = 1i32 as l_offset;
-    let mut current_block_150: u64;
     /* The num_glyphs increases if "seac" operators are used. */
     let mut gid_0 = 0_u16;
     while (gid_0 as i32) < num_glyphs as i32 {
@@ -959,13 +958,13 @@ pub unsafe extern "C" fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
                     "Accent char \"{}\" not found. Invalid use of \"seac\" operator.",
                     CStr::from_ptr(achar_name).display(),
                 );
-                current_block_150 = 1069630499025798221;
+                continue;
             } else if bchar_gid < 0i32 {
                 warn!(
                     "Base char \"{}\" not found. Invalid use of \"seac\" operator.",
                     CStr::from_ptr(bchar_name).display(),
                 );
-                current_block_150 = 1069630499025798221;
+                continue;
             } else {
                 let mut i = 0;
                 while i < num_glyphs as i32 {
@@ -1009,16 +1008,10 @@ pub unsafe extern "C" fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
                         cff_get_seac_sid(cffont, bchar_name) as s_SID;
                     (*charset).num_entries = ((*charset).num_entries as i32 + 1i32) as u16
                 }
-                current_block_150 = 17100064147490331435;
             }
-        } else {
-            current_block_150 = 17100064147490331435;
         }
-        match current_block_150 {
-            17100064147490331435 => *widths.offset(gid_0 as isize) = gm.wx,
-            _ => {}
-        }
-        gid_0 = gid_0.wrapping_add(1)
+        *widths.offset(gid_0 as isize) = gm.wx;
+        gid_0 = gid_0.wrapping_add(1);
     }
     (*cstring).count = num_glyphs;
     cff_release_index(*cffont.subrs.offset(0));
