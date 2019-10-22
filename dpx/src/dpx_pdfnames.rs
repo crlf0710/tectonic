@@ -29,10 +29,9 @@
 
 use crate::mfree;
 use crate::warn;
-use crate::DisplayExt;
-use std::ffi::CStr;
 use std::slice;
 use std::cmp::Ordering;
+use std::fmt::Write;
 
 use super::dpx_dpxutil::{
     ht_append_table, ht_clear_iter, ht_clear_table, ht_init_table, ht_iter_getkey, ht_iter_getval,
@@ -69,40 +68,17 @@ pub struct named_object {
     pub keylen: i32,
     pub value: *mut pdf_obj,
 }
-unsafe fn printable_key(mut key: *const i8, mut keylen: i32) -> *mut i8 {
-    static mut pkey: [i8; 36] = [0; 36];
-    let mut i = 0i32;
-    let mut len = 0i32;
-    while i < keylen && len < 32i32 {
-        if libc::isprint(*key.offset(i as isize) as _) != 0 {
-            let fresh0 = len;
-            len = len + 1;
-            pkey[fresh0 as usize] = *key.offset(i as isize)
+unsafe fn printable_key(key: *const i8, keylen: i32) -> String {
+    let bytes = slice::from_raw_parts(key as *const u8, keylen as usize);
+    let mut printable = String::with_capacity(bytes.len() * 2);
+    for &b in bytes.iter() {
+        if b.is_ascii_graphic() {
+            write!(&mut printable, "{}", b as char).expect("Failed to write String");
         } else {
-            let hi = (*key.offset(i as isize) as i32 >> 4i32 & 0xffi32) as u8;
-            let lo = (*key.offset(i as isize) as i32 & 0xffi32) as u8;
-            let fresh1 = len;
-            len = len + 1;
-            pkey[fresh1 as usize] = '#' as i32 as i8;
-            let fresh2 = len;
-            len = len + 1;
-            pkey[fresh2 as usize] = (if (hi as i32) < 10i32 {
-                hi as i32 + '0' as i32
-            } else {
-                hi as i32 - 10i32 + 'A' as i32
-            }) as i8;
-            let fresh3 = len;
-            len = len + 1;
-            pkey[fresh3 as usize] = (if (lo as i32) < 10i32 {
-                lo as i32 + '0' as i32
-            } else {
-                lo as i32 - 10i32 + 'A' as i32
-            }) as i8
+            write!(&mut printable, "#{:02X}", b).expect("Failed to write String");
         }
-        i += 1
     }
-    pkey[len as usize] = '\u{0}' as i32 as i8;
-    pkey.as_mut_ptr()
+    printable
 }
 #[inline]
 unsafe extern "C" fn hval_free(mut hval: *mut libc::c_void) {
@@ -141,7 +117,7 @@ unsafe fn check_objects_defined(mut ht_tab: *mut ht_table) {
                 pdf_names_add_object(ht_tab, key as *const libc::c_void, keylen, pdf_new_null());
                 warn!(
                     "Object @{} used, but not defined. Replaced by null.",
-                    CStr::from_ptr(printable_key(key, keylen)).display(),
+                    printable_key(key, keylen),
                 );
             }
             if !(ht_iter_next(&mut iter) >= 0i32) {
@@ -186,7 +162,7 @@ pub unsafe extern "C" fn pdf_names_add_object(
         } else {
             warn!(
                 "Object @{} already defined.",
-                CStr::from_ptr(printable_key(key as *const i8, keylen)).display(),
+                printable_key(key as *const i8, keylen),
             );
             pdf_release_obj(object);
             return -1i32;
@@ -248,7 +224,7 @@ pub unsafe extern "C" fn pdf_names_close_object(
     {
         warn!(
             "Cannot close undefined object @{}.",
-            CStr::from_ptr(printable_key(key as *const i8, keylen)).display(),
+            printable_key(key as *const i8, keylen),
         );
         return -1i32;
     }
@@ -256,7 +232,7 @@ pub unsafe extern "C" fn pdf_names_close_object(
     if (*value).closed != 0 {
         warn!(
             "Object @{} already closed.",
-            CStr::from_ptr(printable_key(key as *const i8, keylen)).display(),
+            printable_key(key as *const i8, keylen),
         );
         return -1i32;
     }
@@ -324,7 +300,7 @@ unsafe fn build_name_tree(
                 PdfObjType::OBJ_INVALID => {
                     panic!(
                         "Invalid object...: {}",
-                        CStr::from_ptr(printable_key((*cur).key, (*cur).keylen)).display(),
+                        printable_key((*cur).key, (*cur).keylen),
                     );
                 }
                 _ => {
@@ -391,7 +367,7 @@ unsafe fn flat_table(
                     {
                         warn!(
                             "Object @{}\" not defined. Replaced by null.",
-                            CStr::from_ptr(printable_key(key, keylen)).display(),
+                            printable_key(key, keylen),
                         );
                         let ref mut fresh4 = (*objects.offset(count as isize)).key;
                         *fresh4 = key;
