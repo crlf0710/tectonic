@@ -30,7 +30,7 @@
 use crate::mfree;
 use crate::warn;
 
-use super::dpx_mem::{new, renew, xmalloc};
+use super::dpx_mem::{new, renew};
 use super::dpx_mfileio::work_buffer;
 use super::dpx_numbers::{tt_get_unsigned_byte, tt_get_unsigned_pair};
 use super::dpx_pdfcolor::{
@@ -514,8 +514,7 @@ unsafe fn read_APP1_Exif(
     handle: &mut InputHandleWrapper,
     mut length: size_t,
 ) -> size_t {
-    let mut current_block: u64;
-    let mut bigendian: i8 = 0;
+    let mut bigendian: i8;
     let mut type_0;
     let mut value;
     let mut num: i32 = 0i32;
@@ -526,189 +525,183 @@ unsafe fn read_APP1_Exif(
     let mut xres_ms: u32 = 0_u32;
     let mut yres_ms: u32 = 0_u32;
     let mut res_unit_ms: f64 = 0.0f64;
-    let buffer = xmalloc(length) as *mut u8;
+    let mut buffer_box: Box<[u8]> = Box::new_uninit_slice(length as usize).assume_init(); // auto destruct
+    let buffer = buffer_box.as_mut_ptr();
     let r = ttstub_input_read(handle.0.as_ptr(), buffer as *mut i8, length);
-    if !(r < 0i32 as i64 || r as size_t != length) {
-        let mut p = buffer;
-        let endptr = buffer.offset(length as isize);
-        while p < buffer.offset(length as isize) && *p as i32 == 0i32 {
-            p = p.offset(1)
-        }
-        if !(p.offset(8) >= endptr) {
-            let tiff_header = p;
-            if *p as i32 == 'M' as i32 && *p.offset(1) as i32 == 'M' as i32 {
-                bigendian = 0_i8;
-                current_block = 1109700713171191020;
-            } else if *p as i32 == 'I' as i32 && *p.offset(1) as i32 == 'I' as i32 {
-                bigendian = 1_i8;
-                current_block = 1109700713171191020;
-            } else {
-                warn!("JPEG: Invalid value in Exif TIFF header.");
-                current_block = 10568945602212496329;
+    if r < 0 || r as size_t != length {
+        return length;
+    }
+
+    let mut p = buffer;
+    let endptr = buffer.offset(length as isize);
+    while p < buffer.offset(length as isize) && *p == 0 {
+        p = p.offset(1)
+    }
+    if !(p.offset(8) >= endptr) {
+        return length;
+    }
+
+    let tiff_header = p;
+    if *p as i32 == 'M' as i32 && *p.offset(1) as i32 == 'M' as i32 {
+        bigendian = 0_i8;
+    } else if *p as i32 == 'I' as i32 && *p.offset(1) as i32 == 'I' as i32 {
+        bigendian = 1_i8;
+    } else {
+        warn!("JPEG: Invalid value in Exif TIFF header.");
+        return length;
+    }
+
+    p = p.offset(2);
+    let mut i = read_exif_bytes(&mut p, 2i32, bigendian as i32);
+    if i != 42 {
+        warn!("JPEG: Invalid value in Exif TIFF header.");
+        return length;
+    }
+
+    i = read_exif_bytes(&mut p, 4i32, bigendian as i32);
+    p = tiff_header.offset(i as isize);
+    let mut num_fields = read_exif_bytes(&mut p, 2i32, bigendian as i32);
+    while num_fields > 0 {
+        num_fields -= num_fields - 1;
+
+        let tag = read_exif_bytes(&mut p, 2, bigendian as i32);
+        type_0 = read_exif_bytes(&mut p, 2, bigendian as i32);
+        let count = read_exif_bytes(&mut p, 4, bigendian as i32);
+        match type_0 {
+            1 => {
+                value = *p as i32;
+                p = p.offset(4)
             }
-            match current_block {
-                10568945602212496329 => {}
-                _ => {
-                    p = p.offset(2);
-                    let mut i = read_exif_bytes(&mut p, 2i32, bigendian as i32);
-                    if i != 42i32 {
-                        warn!("JPEG: Invalid value in Exif TIFF header.");
+            3 => {
+                value = read_exif_bytes(&mut p, 2, bigendian as i32);
+                p = p.offset(2)
+            }
+            4 | 9 => {
+                value = read_exif_bytes(&mut p, 4, bigendian as i32)
+            },
+            5 | 10 => {
+                value = read_exif_bytes(&mut p, 4, bigendian as i32);
+                let mut rp = tiff_header.offset(value as isize);
+                num = read_exif_bytes(&mut rp, 4, bigendian as i32);
+                den = read_exif_bytes(&mut rp, 4, bigendian as i32)
+            }
+            7 => {
+                value = *p as i32;
+                p = p.offset(4);
+            }
+            2 | _ => {
+                value = 0;
+                p = p.offset(4)
+            }
+        }
+        match tag {
+            282 => {
+                if den != 0 {
+                    xres = (num / den) as f64
+                }
+            }
+            283 => {
+                if den != 0 {
+                    yres = (num / den) as f64
+                }
+            }
+            296 => {
+                match value {
+                    2 => {
+                        /* inch */
+                        res_unit = 1.0f64
+                    }
+                    3 => {
+                        /* cm */
+                        res_unit = 2.54f64
+                    }
+                    _ => {}
+                }
+            }
+            20752 => {
+                /* PixelUnit */
+                if type_0 != 1i32 || count != 1i32 {
+                    warn!(
+                        "{}: Invalid data for ResolutionUnit in Exif chunk.",
+                        "JPEG",
+                    );
+                    return length;
+                } else {
+                    value = read_exif_bytes(&mut p, 1, bigendian as i32);
+                    p = p.offset(3);
+                    if value == 1 {
+                        res_unit_ms = 0.0254f64; /* Unit is meter */
                     } else {
-                        i = read_exif_bytes(&mut p, 4i32, bigendian as i32);
-                        p = tiff_header.offset(i as isize);
-                        let mut num_fields = read_exif_bytes(&mut p, 2i32, bigendian as i32);
-                        loop {
-                            let fresh1 = num_fields;
-                            num_fields = num_fields - 1;
-                            if !(fresh1 > 0i32) {
-                                current_block = 576355610076403033;
-                                break;
-                            }
-                            let tag = read_exif_bytes(&mut p, 2i32, bigendian as i32);
-                            type_0 = read_exif_bytes(&mut p, 2i32, bigendian as i32);
-                            let count = read_exif_bytes(&mut p, 4i32, bigendian as i32);
-                            match type_0 {
-                                1 => {
-                                    let fresh2 = p;
-                                    p = p.offset(1);
-                                    value = *fresh2 as i32;
-                                    p = p.offset(3)
-                                }
-                                3 => {
-                                    value = read_exif_bytes(&mut p, 2i32, bigendian as i32);
-                                    p = p.offset(2)
-                                }
-                                4 | 9 => value = read_exif_bytes(&mut p, 4i32, bigendian as i32),
-                                5 | 10 => {
-                                    value = read_exif_bytes(&mut p, 4i32, bigendian as i32);
-                                    let mut rp = tiff_header.offset(value as isize);
-                                    num = read_exif_bytes(&mut rp, 4i32, bigendian as i32);
-                                    den = read_exif_bytes(&mut rp, 4i32, bigendian as i32)
-                                }
-                                7 => {
-                                    let fresh3 = p;
-                                    p = p.offset(1);
-                                    value = *fresh3 as i32;
-                                    p = p.offset(3)
-                                }
-                                2 | _ => {
-                                    value = 0i32;
-                                    p = p.offset(4)
-                                }
-                            }
-                            match tag {
-                                282 => {
-                                    if den != 0i32 {
-                                        xres = (num / den) as f64
-                                    }
-                                    continue;
-                                }
-                                283 => {
-                                    if den != 0i32 {
-                                        yres = (num / den) as f64
-                                    }
-                                    continue;
-                                }
-                                296 => {
-                                    match value {
-                                        2 => {
-                                            /* inch */
-                                            res_unit = 1.0f64
-                                        }
-                                        3 => {
-                                            /* cm */
-                                            res_unit = 2.54f64
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                                20752 => {}
-                                20753 => {
-                                    /* PixelPerUnitX */
-                                    if type_0 != 4i32 || count != 1i32 {
-                                        warn!(
-                                            "{}: Invalid data for PixelPerUnitX in Exif chunk.",
-                                            "JPEG",
-                                        );
-                                        current_block = 10568945602212496329;
-                                        break;
-                                    } else {
-                                        value = read_exif_bytes(&mut p, 4i32, bigendian as i32);
-                                        xres_ms = value as u32;
-                                        continue;
-                                    }
-                                }
-                                20754 => {
-                                    /* PixelPerUnitY */
-                                    if type_0 != 4i32 || count != 1i32 {
-                                        warn!(
-                                            "{}: Invalid data for PixelPerUnitY in Exif chunk.",
-                                            "JPEG",
-                                        );
-                                        current_block = 10568945602212496329;
-                                        break;
-                                    } else {
-                                        value = read_exif_bytes(&mut p, 4i32, bigendian as i32);
-                                        yres_ms = value as u32;
-                                        continue;
-                                    }
-                                }
-                                _ => {
-                                    continue;
-                                }
-                            }
-                            /* PixelUnit */
-                            if type_0 != 1i32 || count != 1i32 {
-                                warn!("{}: Invalid data for ResolutionUnit in Exif chunk.", "JPEG",); /* Unit is meter */
-                                current_block = 10568945602212496329;
-                                break;
-                            } else {
-                                value = read_exif_bytes(&mut p, 1i32, bigendian as i32);
-                                p = p.offset(3);
-                                if value == 1i32 {
-                                    res_unit_ms = 0.0254f64
-                                } else {
-                                    res_unit_ms = 0.0f64
-                                }
-                            }
-                        }
-                        match current_block {
-                            10568945602212496329 => {}
-                            _ => {
-                                /* Calculate Exif resolution, if given. */
-                                let (exifxdpi, exifydpi) = if xres > 0.0f64 && yres > 0.0f64 {
-                                    (xres * res_unit, yres * res_unit)
-                                } else if xres_ms > 0_u32 && yres_ms > 0_u32 && res_unit_ms > 0.0f64
-                                {
-                                    (xres_ms as f64 * res_unit_ms, yres_ms as f64 * res_unit_ms)
-                                } else {
-                                    (72. * res_unit, 72. * res_unit)
-                                };
-                                /* Do not overwrite if already specified in JFIF */
-                                if (*info).xdpi < 0.1f64 && (*info).ydpi < 0.1f64 {
-                                    (*info).xdpi = exifxdpi;
-                                    (*info).ydpi = exifydpi
-                                } else {
-                                    let mut xxx1: f64 = (exifxdpi + 0.5f64).floor();
-                                    let mut xxx2: f64 = ((*info).xdpi + 0.5f64).floor();
-                                    let mut yyy1: f64 = (exifydpi + 0.5f64).floor();
-                                    let mut yyy2: f64 = ((*info).ydpi + 0.5f64).floor();
-                                    if xxx1 != xxx2 || yyy1 != yyy2 {
-                                        warn!("JPEG: Inconsistent resolution may have been specified in Exif and JFIF: {}x{} - {}x{}",
-                                                    xres * res_unit,
-                                                    yres * res_unit,
-                                                    (*info).xdpi,
-                                                    (*info).ydpi);
-                                    }
-                                }
-                            }
-                        }
+                        res_unit_ms = 0.0f64;
                     }
                 }
             }
+            20753 => {
+                /* PixelPerUnitX */
+                if type_0 != 4 || count != 1 {
+                    warn!(
+                        "{}: Invalid data for PixelPerUnitX in Exif chunk.",
+                        "JPEG",
+                    );
+                    return length;
+                } else {
+                    value = read_exif_bytes(&mut p, 4, bigendian as i32);
+                    xres_ms = value as u32;
+                }
+            }
+            20754 => {
+                /* PixelPerUnitY */
+                if type_0 != 4 || count != 1 {
+                    warn!(
+                        "{}: Invalid data for PixelPerUnitY in Exif chunk.",
+                        "JPEG",
+                    );
+                    return length;
+                } else {
+                    value = read_exif_bytes(&mut p, 4, bigendian as i32);
+                    yres_ms = value as u32;
+                }
+            }
+            _ => {}
         }
     }
-    free(buffer as *mut libc::c_void);
+
+    /* Calculate Exif resolution, if given. */
+
+    let exifxdpi;
+    let exifydpi;
+    if xres > 0.0 && yres > 0.0 {
+        exifxdpi = xres * res_unit;
+        exifydpi = yres * res_unit;
+    } else if xres_ms > 0 && yres_ms > 0 && res_unit_ms > 0.0 {
+        exifxdpi = xres_ms as f64 * res_unit_ms;
+        exifydpi = yres_ms as f64 * res_unit_ms;
+    } else {
+        exifxdpi = 72.0 * res_unit;
+        exifydpi = 72.0 * res_unit;
+    };
+
+    /* Do not overwrite if already specified in JFIF */
+
+    if (*info).xdpi < 0.1 && (*info).ydpi < 0.1 {
+        (*info).xdpi = exifxdpi;
+        (*info).ydpi = exifydpi;
+    } else {
+        let xxx1: f64 = (exifxdpi + 0.5).floor();
+        let xxx2: f64 = ((*info).xdpi + 0.5).floor();
+        let yyy1: f64 = (exifydpi + 0.5).floor();
+        let yyy2: f64 = ((*info).ydpi + 0.5).floor();
+        if xxx1 != xxx2 || yyy1 != yyy2 {
+            warn!(
+                "JPEG: Inconsistent resolution may have been specified in Exif and JFIF: {}x{} - {}x{}",
+                xres * res_unit,
+                yres * res_unit,
+                (*info).xdpi,
+                (*info).ydpi,
+            );
+        }
+    }
+
     length
 }
 unsafe fn read_APP0_JFIF(j_info: *mut JPEG_info, handle: &mut InputHandleWrapper) -> size_t {
