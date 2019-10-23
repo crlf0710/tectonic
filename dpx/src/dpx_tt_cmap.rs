@@ -726,7 +726,7 @@ unsafe fn handle_CIDFont(
     if (num_glyphs as i32) < 1i32 {
         panic!("No glyph contained in this font...");
     }
-    let cffont = cff_open((*sfont).handle.clone(), offset, 0i32); /* CID... */ // TODO: use link
+    let cffont = cff_open(&mut (*sfont).handle, offset, 0i32); /* CID... */ // TODO: use link
     if cffont.is_null() {
         panic!("Could not open CFF font...");
     }
@@ -966,7 +966,7 @@ unsafe fn handle_subst_glyphs(
     }
     count
 }
-unsafe fn prepare_CIDFont_from_sfnt<'a>(mut sfont: *mut sfnt) -> Option<&'a mut cff_font> {
+unsafe fn prepare_CIDFont_from_sfnt<'a>(sfont: &'a mut sfnt) -> Option<&'a mut cff_font> {
     let mut offset: u32 = 0_u32;
     if (*sfont).type_0 != 1i32 << 2i32 || sfnt_read_table_directory(sfont, 0_u32) < 0i32 || {
         offset = sfnt_find_table_pos(sfont, b"CFF ");
@@ -974,7 +974,7 @@ unsafe fn prepare_CIDFont_from_sfnt<'a>(mut sfont: *mut sfnt) -> Option<&'a mut 
     } {
         return None;
     }
-    let cffont = cff_open((*sfont).handle.clone(), offset as i32, 0i32); // TODO: use link
+    let cffont = cff_open(&mut (*sfont).handle, offset as i32, 0i32); // TODO: use link
     if cffont.is_null() {
         return None;
     }
@@ -1093,7 +1093,7 @@ unsafe fn create_ToUnicode_cmap(
     mut code_to_cid_cmap: *mut CMap,
 ) -> *mut pdf_obj {
     let mut count: u16 = 0_u16;
-    let mut cffont = prepare_CIDFont_from_sfnt(sfont);
+    let mut cffont = prepare_CIDFont_from_sfnt(&mut *sfont);
     let mut is_cidfont = if let Some(cffont) = &cffont {
         cffont.flag & 1i32 << 0i32 != 0
     } else {

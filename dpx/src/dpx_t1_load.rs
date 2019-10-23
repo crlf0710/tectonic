@@ -2248,15 +2248,15 @@ unsafe fn init_cff_font(cff: &mut cff_font) {
     cff._string = cff_new_index(0);
 }
 #[no_mangle]
-pub unsafe extern "C" fn t1_load_font(
+pub unsafe extern "C" fn t1_load_font<'a>(
     mut enc_vec: *mut *mut i8,
     mut mode: i32,
-    handle: &mut InputHandleWrapper,
-) -> *mut cff_font {
+    mut handle: InputHandleWrapper,
+) -> *mut cff_font<'a> {
     let mut length: i32 = 0;
     handle.seek(SeekFrom::Start(0)).unwrap();
     /* ASCII section */
-    let buffer = get_pfb_segment(handle, 1i32, &mut length);
+    let buffer = get_pfb_segment(&mut handle, 1i32, &mut length);
     if buffer.is_null() || length == 0i32 {
         panic!("Reading PFB (ASCII part) file failed.");
     }
@@ -2272,7 +2272,7 @@ pub unsafe extern "C" fn t1_load_font(
     }
     free(buffer as *mut libc::c_void);
     /* Binary section */
-    let buffer = get_pfb_segment(handle, 2i32, &mut length);
+    let buffer = get_pfb_segment(&mut handle, 2i32, &mut length);
     if buffer.is_null() || length == 0i32 {
         cff_close(cff);
         free(buffer as *mut libc::c_void);
@@ -2290,5 +2290,6 @@ pub unsafe extern "C" fn t1_load_font(
     /* Remaining section ignored. */
     free(buffer as *mut libc::c_void);
     cff_update_string(&mut *cff);
+    bridge::ttstub_input_close(handle);
     cff
 }

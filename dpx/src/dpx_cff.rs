@@ -269,7 +269,7 @@ pub union C2RustUnnamed_1 {
     pub ranges: *mut cff_range3,
 }
 #[repr(C)]
-pub struct cff_font {
+pub struct cff_font<'a> {
     pub fontname: *mut i8,
     pub header: cff_header,
     pub name: *mut cff_index,
@@ -288,7 +288,7 @@ pub struct cff_font {
     pub num_glyphs: u16,
     pub num_fds: u8,
     pub _string: *mut cff_index,
-    pub handle: Option<InputHandleWrapper>,
+    pub handle: Option<&'a mut InputHandleWrapper>,
     pub filter: i32,
     pub index: i32,
     pub flag: i32,
@@ -712,11 +712,11 @@ unsafe fn get_unsigned(handle: &mut InputHandleWrapper, mut n: i32) -> u32 {
  * Read Header, Name INDEX, Top DICT INDEX, and String INDEX.
  */
 #[no_mangle]
-pub unsafe extern "C" fn cff_open(
-    handle: InputHandleWrapper,
+pub unsafe extern "C" fn cff_open<'a>(
+    handle: &'a mut InputHandleWrapper,
     mut offset: i32,
     mut n: i32,
-) -> *mut cff_font {
+) -> *mut cff_font<'a> where {
     let cff =
         new((1_u64).wrapping_mul(::std::mem::size_of::<cff_font>() as u64) as u32) as *mut cff_font;
     (*cff).fontname = 0 as *mut i8;

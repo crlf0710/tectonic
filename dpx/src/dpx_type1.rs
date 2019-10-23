@@ -705,7 +705,7 @@ pub unsafe extern "C" fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
             *fresh0 = 0 as *mut i8;
         }
     }
-    let cffont = t1_load_font(enc_vec, 0i32, &mut handle);
+    let cffont = t1_load_font(enc_vec, 0i32, handle);
     if cffont.is_null() {
         panic!(
             "Could not load Type 1 font: {}",
@@ -713,7 +713,6 @@ pub unsafe extern "C" fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
         );
     }
     let cffont = &mut *cffont;
-    ttstub_input_close(handle);
     let fullname =
         new((strlen(fontname).wrapping_add(8)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
             as *mut i8;
