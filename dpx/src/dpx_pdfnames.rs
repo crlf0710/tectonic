@@ -49,8 +49,6 @@ pub type size_t = u64;
 pub type __compar_fn_t =
     Option<unsafe extern "C" fn(_: *const libc::c_void, _: *const libc::c_void) -> i32>;
 
-pub type hval_free_func = Option<unsafe extern "C" fn(_: *mut libc::c_void) -> ()>;
-
 use super::dpx_dpxutil::ht_iter;
 use super::dpx_dpxutil::ht_table;
 /* Hash */

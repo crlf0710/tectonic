@@ -40,7 +40,6 @@ use crate::stub_errno as errno;
 use crate::warn;
 use libc::{free, memset, strcmp, strtod};
 
-pub type l_offset = u32;
 pub type s_SID = u16;
 /* CFF Data Types */
 /* SID SID number */

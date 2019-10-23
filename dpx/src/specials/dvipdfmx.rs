@@ -31,8 +31,6 @@ use crate::dpx_pdfparse::skip_white;
 use crate::spc_warn;
 use libc::{free, memcmp, strlen};
 
-pub type size_t = u64;
-
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.

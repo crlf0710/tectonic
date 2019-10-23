@@ -50,8 +50,6 @@ use crate::shims::sprintf;
 use crate::spc_warn;
 use libc::{free, memcmp, strlen, strncmp, strncpy};
 
-pub type size_t = u64;
-
 use super::{spc_arg, spc_env};
 
 use super::SpcHandler;
@@ -60,8 +58,6 @@ use crate::dpx_fontmap::fontmap_rec;
 use crate::dpx_pdfdev::pdf_coord;
 
 use crate::dpx_pdfdev::pdf_tmatrix;
-
-pub use crate::dpx_pdfcolor::PdfColor;
 
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project

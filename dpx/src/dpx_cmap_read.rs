@@ -50,7 +50,6 @@ use libc::{free, memcmp, memcpy, memmove, strcmp, strlen, strstr};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
-pub type ssize_t = __ssize_t;
 use bridge::InputHandleWrapper;
 
 use super::dpx_cid::CIDSysInfo;
@@ -71,7 +70,6 @@ pub struct ifreader {
     pub handle: InputHandleWrapper,
     pub unread: size_t,
 }
-pub type pst_type = i32;
 static mut __verbose: i32 = 0i32;
 unsafe fn ifreader_create(
     handle: InputHandleWrapper,

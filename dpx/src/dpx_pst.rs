@@ -35,8 +35,6 @@ use super::dpx_pst_obj::{
 };
 use libc::memcpy;
 
-pub type pst_type = i32;
-
 unsafe fn pst_parse_any(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut pst_obj {
     let mut cur: *mut u8 = *inbuf;
     while cur < inbufend

@@ -32,7 +32,6 @@ use std::io::Write;
 use crate::{ttstub_issue_warning, ttstub_output_open_stdout};
 use bridge::vsnprintf;
 
-pub type size_t = u64;
 use bridge::OutputHandleWrapper;
 pub type message_type_t = _message_type;
 pub type _message_type = u32;

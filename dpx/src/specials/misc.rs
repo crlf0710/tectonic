@@ -37,8 +37,6 @@ use crate::{ttstub_input_close, ttstub_input_open};
 use libc::{memcpy, strlen};
 use std::ffi::CStr;
 
-pub type size_t = u64;
-
 use super::{spc_arg, spc_env};
 
 use super::SpcHandler;

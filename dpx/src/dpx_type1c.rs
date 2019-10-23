@@ -71,7 +71,6 @@ use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
-pub type ssize_t = __ssize_t;
 
 use super::dpx_cff::cff_index;
 pub type l_offset = u32;

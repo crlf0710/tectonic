@@ -41,8 +41,6 @@ use crate::ttstub_input_close;
 use libc::{free, memcpy, strchr, strlen, strtol};
 
 pub type __ssize_t = i64;
-pub type size_t = u64;
-pub type ssize_t = __ssize_t;
 
 use crate::TTInputFormat;
 
@@ -58,7 +56,6 @@ pub struct agl_name {
 }
 use super::dpx_dpxutil::ht_entry;
 use super::dpx_dpxutil::ht_table;
-pub type hval_free_func = Option<unsafe extern "C" fn(_: *mut libc::c_void) -> ()>;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct C2RustUnnamed_0 {

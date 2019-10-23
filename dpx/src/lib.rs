@@ -86,12 +86,12 @@ impl<'a> DisplayExt for &'a [u8] {
     }
 }
 
-pub(crate) fn isblank(c: libc::c_int) -> libc::c_int {
+fn isblank(c: libc::c_int) -> libc::c_int {
     (c == ' ' as _ || c == '\t' as _) as _
 }
 
 #[inline]
-pub(crate) unsafe fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8 {
+unsafe fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8 {
     let length = libc::strlen(prefix);
     if libc::strncmp(s, prefix, length) == 0i32 {
         return s.offset(length as isize);
@@ -100,7 +100,7 @@ pub(crate) unsafe fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8
 }
 
 #[inline]
-pub(crate) unsafe fn streq_ptr(s1: *const i8, s2: *const i8) -> bool {
+unsafe fn streq_ptr(s1: *const i8, s2: *const i8) -> bool {
     if !s1.is_null() && !s2.is_null() {
         return libc::strcmp(s1, s2) == 0i32;
     }
@@ -108,7 +108,7 @@ pub(crate) unsafe fn streq_ptr(s1: *const i8, s2: *const i8) -> bool {
 }
 
 #[inline]
-pub(crate) unsafe fn mfree(ptr: *mut libc::c_void) -> *mut libc::c_void {
+unsafe fn mfree(ptr: *mut libc::c_void) -> *mut libc::c_void {
     libc::free(ptr);
     std::ptr::null_mut()
 }

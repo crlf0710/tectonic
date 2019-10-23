@@ -38,7 +38,7 @@ use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_copy_name, pdf_deref_obj, pdf_file,
     pdf_lookup_dict, pdf_merge_dict, pdf_name_value, pdf_new_array, pdf_new_boolean, pdf_new_dict,
     pdf_new_indirect, pdf_new_null, pdf_new_number, pdf_new_stream, pdf_new_string,
-    pdf_number_value, pdf_obj, pdf_obj_typeof, pdf_release_obj, pdf_stream_dict, PdfObjType,
+    pdf_number_value, pdf_obj, pdf_release_obj, pdf_stream_dict,
 };
 use crate::specials::spc_lookup_reference;
 use libc::{free, memcmp, memcpy};
@@ -786,7 +786,7 @@ unsafe fn parse_pdf_stream(
     /* Stream length */
     if let Some(tmp) = pdf_lookup_dict(dict, "Length") {
         let tmp2 = pdf_deref_obj(Some(tmp));
-        if pdf_obj_typeof(tmp2) != PdfObjType::NUMBER {
+        if !(*tmp2).is_number() {
             stream_length = -1i32
         } else {
             stream_length = pdf_number_value(tmp2) as i32

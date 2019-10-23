@@ -44,8 +44,6 @@ use libc::{free, memset};
 use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
-pub type size_t = u64;
-pub type ssize_t = __ssize_t;
 pub type Fixed = u32;
 
 use super::dpx_sfnt::sfnt;

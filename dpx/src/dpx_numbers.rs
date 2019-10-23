@@ -34,7 +34,6 @@ use std::ffi::CStr;
 
 pub type __off_t = i64;
 pub type __off64_t = i64;
-pub type size_t = u64;
 use bridge::InputHandleWrapper;
 pub type fixword = i32;
 #[no_mangle]

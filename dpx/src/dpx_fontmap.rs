@@ -50,8 +50,6 @@ use libc::{
     strtoul,
 };
 
-pub type size_t = u64;
-
 use crate::TTInputFormat;
 
 use bridge::InputHandleWrapper;
@@ -89,7 +87,6 @@ pub struct C2RustUnnamed_0 {
 }
 
 use super::dpx_dpxutil::ht_table;
-pub type hval_free_func = Option<unsafe extern "C" fn(_: *mut libc::c_void) -> ()>;
 /* quasi-hack to get the primary input */
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project

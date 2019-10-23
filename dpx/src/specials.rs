@@ -94,7 +94,6 @@ pub struct SpcHandler {
 }
 
 use super::dpx_dpxutil::ht_table;
-pub type hval_free_func = Option<unsafe extern "C" fn(_: *mut libc::c_void) -> ()>;
 
 use super::dpx_pdfdev::pdf_coord;
 
@@ -198,22 +197,14 @@ pub unsafe extern "C" fn spc_lookup_reference(mut key: *const i8) -> *mut pdf_ob
             pdf_dev_transform(&mut cp, None);
             pdf_new_number((cp.y / 0.01 + 0.5).floor() * 0.01)
         }
-        2 => pdf_doc_get_reference(b"@THISPAGE\x00" as *const u8 as *const i8),
-        3 => pdf_doc_get_reference(b"@PREVPAGE\x00" as *const u8 as *const i8),
-        4 => pdf_doc_get_reference(b"@NEXTPAGE\x00" as *const u8 as *const i8),
-        6 => pdf_ref_obj(pdf_doc_get_dictionary(
-            b"Pages\x00" as *const u8 as *const i8,
-        )),
-        7 => pdf_ref_obj(pdf_doc_get_dictionary(
-            b"Names\x00" as *const u8 as *const i8,
-        )),
+        2 => pdf_doc_get_reference("@THISPAGE"),
+        3 => pdf_doc_get_reference("@PREVPAGE"),
+        4 => pdf_doc_get_reference("@NEXTPAGE"),
+        6 => pdf_ref_obj(pdf_doc_get_dictionary("Pages")),
+        7 => pdf_ref_obj(pdf_doc_get_dictionary("Names")),
         5 => pdf_ref_obj(pdf_doc_current_page_resources()),
-        8 => pdf_ref_obj(pdf_doc_get_dictionary(
-            b"Catalog\x00" as *const u8 as *const i8,
-        )),
-        9 => pdf_ref_obj(pdf_doc_get_dictionary(
-            b"Info\x00" as *const u8 as *const i8,
-        )),
+        8 => pdf_ref_obj(pdf_doc_get_dictionary("Catalog")),
+        9 => pdf_ref_obj(pdf_doc_get_dictionary("Info")),
         _ => {
             if ispageref(key) != 0 {
                 pdf_doc_ref_page(atoi(key.offset(4)) as u32)
@@ -255,12 +246,12 @@ pub unsafe extern "C" fn spc_lookup_object(mut key: *const i8) -> *mut pdf_obj {
             pdf_dev_transform(&mut cp, None);
             value = pdf_new_number((cp.y / 0.01f64 + 0.5f64).floor() * 0.01f64)
         }
-        2 => value = pdf_doc_get_dictionary(b"@THISPAGE\x00" as *const u8 as *const i8),
-        6 => value = pdf_doc_get_dictionary(b"Pages\x00" as *const u8 as *const i8),
-        7 => value = pdf_doc_get_dictionary(b"Names\x00" as *const u8 as *const i8),
+        2 => value = pdf_doc_get_dictionary("@THISPAGE"),
+        6 => value = pdf_doc_get_dictionary("Pages"),
+        7 => value = pdf_doc_get_dictionary("Names"),
         5 => value = pdf_doc_current_page_resources(),
-        8 => value = pdf_doc_get_dictionary(b"Catalog\x00" as *const u8 as *const i8),
-        9 => value = pdf_doc_get_dictionary(b"Info\x00" as *const u8 as *const i8),
+        8 => value = pdf_doc_get_dictionary("Catalog"),
+        9 => value = pdf_doc_get_dictionary("Info"),
         _ => {
             value = pdf_names_lookup_object(
                 NAMED_OBJECTS,
