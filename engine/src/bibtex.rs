@@ -792,7 +792,7 @@ unsafe fn already_seen_function_print(mut seen_fn_loc: hash_loc) {
     bst_err_print_and_look_for_blank_line();
 }
 unsafe fn bib_ln_num_print() {
-    log!("--line {} of file", bib_line_num);
+    log!("--line {} of file ", bib_line_num);
     print_bib_name();
 }
 unsafe fn bib_err_print() {
