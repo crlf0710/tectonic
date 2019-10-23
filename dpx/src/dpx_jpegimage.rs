@@ -525,7 +525,7 @@ unsafe fn read_APP1_Exif(
     let mut xres_ms: u32 = 0_u32;
     let mut yres_ms: u32 = 0_u32;
     let mut res_unit_ms: f64 = 0.0f64;
-    let mut buffer_box: Box<[u8]> = Box::new_uninit_slice(length as usize).assume_init(); // auto destruct
+    let mut buffer_box: Box<[u8]> = vec![0u8; length as usize].into_boxed_slice(); // auto destruct
     let buffer = buffer_box.as_mut_ptr();
     let r = ttstub_input_read(handle.0.as_ptr(), buffer as *mut i8, length);
     if r < 0 || r as size_t != length {
