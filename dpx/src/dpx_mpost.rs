@@ -3017,7 +3017,6 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
     let mut matrix = TMatrix::new();
     let mut cp = Coord::zero();
     let opcode = get_opcode(token);
-    let mut current_block_294: u64;
     match opcode {
         1 => {
             /*
@@ -3395,9 +3394,7 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
             if !tmp.is_null() && (*tmp).is_array() {
                 error = cvr_array(tmp, values.as_mut_ptr(), 6i32);
                 tmp = 0 as *mut pdf_obj;
-                if error != 0 {
-                    current_block_294 = 9125367800366194000;
-                } else {
+                if error == 0 {
                     matrix.a = values[0];
                     matrix.b = values[1];
                     matrix.c = values[2];
@@ -3411,53 +3408,47 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
                         0 as *mut pdf_obj
                     };
                     has_matrix = 1i32;
-                    current_block_294 = 15375688482130298215;
                 }
-            } else {
-                current_block_294 = 15375688482130298215;
-            }
-            match current_block_294 {
-                9125367800366194000 => {}
-                _ => {
+            } 
+            if error == 0 {
+                if !(!tmp.is_null() && (*tmp).is_number()) {
+                    error = 1i32
+                } else {
+                    cp.y = pdf_number_value(tmp);
+                    pdf_release_obj(tmp);
+                    tmp = if top_stack > 0_u32 {
+                        top_stack = top_stack.wrapping_sub(1);
+                        stack[top_stack as usize]
+                    } else {
+                        0 as *mut pdf_obj
+                    };
                     if !(!tmp.is_null() && (*tmp).is_number()) {
                         error = 1i32
                     } else {
-                        cp.y = pdf_number_value(tmp);
+                        cp.x = pdf_number_value(tmp);
                         pdf_release_obj(tmp);
-                        tmp = if top_stack > 0_u32 {
-                            top_stack = top_stack.wrapping_sub(1);
-                            stack[top_stack as usize]
-                        } else {
-                            0 as *mut pdf_obj
-                        };
-                        if !(!tmp.is_null() && (*tmp).is_number()) {
-                            error = 1i32
-                        } else {
-                            cp.x = pdf_number_value(tmp);
-                            pdf_release_obj(tmp);
-                            if has_matrix == 0 {
-                                ps_dev_CTM(&mut matrix);
-                                /* Here, we need real PostScript CTM */
-                            } /* This does pdf_release_obj() */
-                            pdf_dev_dtransform(&mut cp, Some(&mut matrix));
+                        if has_matrix == 0 {
+                            ps_dev_CTM(&mut matrix);
+                            /* Here, we need real PostScript CTM */
+                        } /* This does pdf_release_obj() */
+                        pdf_dev_dtransform(&mut cp, Some(&mut matrix));
+                        if top_stack < 1024_u32 {
+                            let fresh14 = top_stack;
+                            top_stack = top_stack.wrapping_add(1);
+                            stack[fresh14 as usize] = pdf_new_number(cp.x);
                             if top_stack < 1024_u32 {
-                                let fresh14 = top_stack;
+                                let fresh15 = top_stack;
                                 top_stack = top_stack.wrapping_add(1);
-                                stack[fresh14 as usize] = pdf_new_number(cp.x);
-                                if top_stack < 1024_u32 {
-                                    let fresh15 = top_stack;
-                                    top_stack = top_stack.wrapping_add(1);
-                                    stack[fresh15 as usize] = pdf_new_number(cp.y)
-                                } else {
-                                    warn!("PS stack overflow including MetaPost file or inline PS code");
-                                    error = 1i32
-                                }
+                                stack[fresh15 as usize] = pdf_new_number(cp.y)
                             } else {
-                                warn!(
-                                    "PS stack overflow including MetaPost file or inline PS code"
-                                );
+                                warn!("PS stack overflow including MetaPost file or inline PS code");
                                 error = 1i32
                             }
+                        } else {
+                            warn!(
+                                "PS stack overflow including MetaPost file or inline PS code"
+                            );
+                            error = 1i32
                         }
                     }
                 }
@@ -3474,9 +3465,7 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
             if !tmp.is_null() && (*tmp).is_array() {
                 error = cvr_array(tmp, values.as_mut_ptr(), 6i32);
                 tmp = 0 as *mut pdf_obj;
-                if error != 0 {
-                    current_block_294 = 9125367800366194000;
-                } else {
+                if error == 0 {
                     matrix.a = values[0];
                     matrix.b = values[1];
                     matrix.c = values[2];
@@ -3490,53 +3479,47 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
                         0 as *mut pdf_obj
                     };
                     has_matrix_0 = 1i32;
-                    current_block_294 = 9910899284672532069;
                 }
-            } else {
-                current_block_294 = 9910899284672532069;
-            }
-            match current_block_294 {
-                9125367800366194000 => {}
-                _ => {
+            } 
+            if error == 0 {
+                if !(!tmp.is_null() && (*tmp).is_number()) {
+                    error = 1i32
+                } else {
+                    cp.y = pdf_number_value(tmp);
+                    pdf_release_obj(tmp);
+                    tmp = if top_stack > 0_u32 {
+                        top_stack = top_stack.wrapping_sub(1);
+                        stack[top_stack as usize]
+                    } else {
+                        0 as *mut pdf_obj
+                    };
                     if !(!tmp.is_null() && (*tmp).is_number()) {
                         error = 1i32
                     } else {
-                        cp.y = pdf_number_value(tmp);
+                        cp.x = pdf_number_value(tmp);
                         pdf_release_obj(tmp);
-                        tmp = if top_stack > 0_u32 {
-                            top_stack = top_stack.wrapping_sub(1);
-                            stack[top_stack as usize]
-                        } else {
-                            0 as *mut pdf_obj
-                        };
-                        if !(!tmp.is_null() && (*tmp).is_number()) {
-                            error = 1i32
-                        } else {
-                            cp.x = pdf_number_value(tmp);
-                            pdf_release_obj(tmp);
-                            if has_matrix_0 == 0 {
-                                ps_dev_CTM(&mut matrix);
-                                /* Here, we need real PostScript CTM */
-                            }
-                            pdf_dev_idtransform(&mut cp, Some(&matrix));
+                        if has_matrix_0 == 0 {
+                            ps_dev_CTM(&mut matrix);
+                            /* Here, we need real PostScript CTM */
+                        }
+                        pdf_dev_idtransform(&mut cp, Some(&matrix));
+                        if top_stack < 1024_u32 {
+                            let fresh16 = top_stack;
+                            top_stack = top_stack.wrapping_add(1);
+                            stack[fresh16 as usize] = pdf_new_number(cp.x);
                             if top_stack < 1024_u32 {
-                                let fresh16 = top_stack;
+                                let fresh17 = top_stack;
                                 top_stack = top_stack.wrapping_add(1);
-                                stack[fresh16 as usize] = pdf_new_number(cp.x);
-                                if top_stack < 1024_u32 {
-                                    let fresh17 = top_stack;
-                                    top_stack = top_stack.wrapping_add(1);
-                                    stack[fresh17 as usize] = pdf_new_number(cp.y)
-                                } else {
-                                    warn!("PS stack overflow including MetaPost file or inline PS code");
-                                    error = 1i32
-                                }
+                                stack[fresh17 as usize] = pdf_new_number(cp.y)
                             } else {
-                                warn!(
-                                    "PS stack overflow including MetaPost file or inline PS code"
-                                );
+                                warn!("PS stack overflow including MetaPost file or inline PS code");
                                 error = 1i32
                             }
+                        } else {
+                            warn!(
+                                "PS stack overflow including MetaPost file or inline PS code"
+                            );
+                            error = 1i32
                         }
                     }
                 }
