@@ -938,7 +938,7 @@ pub unsafe extern "C" fn spc_html_at_end_document() -> i32 {
 pub fn spc_html_check_special(buf: &[u8]) -> bool {
     let mut i = 0;
     for &p in buf {
-        if crate::isblank(p as _) == 0 {
+        if unsafe{ libc::isspace(p as _) == 0 } {
             break;
         }
         i += 1;
