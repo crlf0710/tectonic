@@ -1218,40 +1218,25 @@ unsafe fn create_ToUnicode_cmap(
     stream
 }
 static mut cmap_plat_encs: [cmap_plat_enc_rec; 5] = [
-    {
-        let mut init = cmap_plat_enc_rec {
-            platform: 3_i16,
-            encoding: 10_i16,
-        };
-        init
+    cmap_plat_enc_rec {
+        platform: 3,
+        encoding: 10,
     },
-    {
-        let mut init = cmap_plat_enc_rec {
-            platform: 0_i16,
-            encoding: 3_i16,
-        };
-        init
+    cmap_plat_enc_rec {
+        platform: 0,
+        encoding: 3,
     },
-    {
-        let mut init = cmap_plat_enc_rec {
-            platform: 0_i16,
-            encoding: 0_i16,
-        };
-        init
+    cmap_plat_enc_rec {
+        platform: 0,
+        encoding: 0,
     },
-    {
-        let mut init = cmap_plat_enc_rec {
-            platform: 3_i16,
-            encoding: 1_i16,
-        };
-        init
+    cmap_plat_enc_rec {
+        platform: 3,
+        encoding: 1,
     },
-    {
-        let mut init = cmap_plat_enc_rec {
-            platform: 0_i16,
-            encoding: 1_i16,
-        };
-        init
+    cmap_plat_enc_rec {
+        platform: 0,
+        encoding: 1,
     },
 ];
 #[no_mangle]
