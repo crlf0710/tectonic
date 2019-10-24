@@ -108,1803 +108,26 @@ pub struct operators {
  */
 static mut Xorigin: f64 = 0.;
 static mut Yorigin: f64 = 0.;
-static mut font_stack: [mp_font; 256] = [
-    {
-        let mut init = mp_font {
-            font_name: 0 as *const i8 as *mut i8,
-            font_id: -1i32,
-            tfm_id: -1i32,
-            subfont_id: -1i32,
-            pt_size: 0i32 as f64,
-        }; /* No currentfont */
-        init
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-    mp_font {
-        font_name: 0 as *const i8 as *mut i8,
-        font_id: 0,
-        tfm_id: 0,
-        subfont_id: 0,
-        pt_size: 0.,
-    },
-];
+static mut font_stack: [mp_font; 256] = {
+    let mut init: [mp_font; 256] = [
+        mp_font {
+            font_name: std::ptr::null_mut(),
+            font_id: 0,
+            tfm_id: 0,
+            subfont_id: 0,
+            pt_size: 0.0,
+        }; 
+        256
+    ];
+    init[0] = mp_font {
+        font_name: std::ptr::null_mut(),
+        font_id: -1,
+        tfm_id: -1,
+        subfont_id: -1,
+        pt_size: 0.0,
+    }; /* No currentfont */
+    init
+};
 static mut currentfont: i32 = -1i32;
 static mut mp_cmode: i32 = 0i32;
 unsafe fn mp_setfont(mut font_name: *const i8, mut pt_size: f64) -> i32 {
@@ -2089,539 +312,311 @@ unsafe fn skip_prolog(mut start: *mut *const i8, mut end: *const i8) {
     };
 }
 static mut ps_operators: [operators; 48] = [
-    {
-        let mut init = operators {
-            token: b"add\x00" as *const u8 as *const i8,
-            opcode: 1i32,
-        };
-        init
+    operators {
+        token: b"add\x00" as *const u8 as *const i8,
+        opcode: 1,
     },
-    {
-        let mut init = operators {
-            token: b"mul\x00" as *const u8 as *const i8,
-            opcode: 3i32,
-        };
-        init
+    operators {
+        token: b"mul\x00" as *const u8 as *const i8,
+        opcode: 3,
     },
-    {
-        let mut init = operators {
-            token: b"div\x00" as *const u8 as *const i8,
-            opcode: 4i32,
-        };
-        init
+    operators {
+        token: b"div\x00" as *const u8 as *const i8,
+        opcode: 4,
     },
-    {
-        let mut init = operators {
-            token: b"neg\x00" as *const u8 as *const i8,
-            opcode: 5i32,
-        };
-        init
+    operators {
+        token: b"neg\x00" as *const u8 as *const i8,
+        opcode: 5,
     },
-    {
-        let mut init = operators {
-            token: b"sub\x00" as *const u8 as *const i8,
-            opcode: 2i32,
-        };
-        init
+    operators {
+        token: b"sub\x00" as *const u8 as *const i8,
+        opcode: 2,
     },
-    {
-        let mut init = operators {
-            token: b"truncate\x00" as *const u8 as *const i8,
-            opcode: 6i32,
-        };
-        init
+    operators {
+        token: b"truncate\x00" as *const u8 as *const i8,
+        opcode: 6,
     },
-    {
-        let mut init = operators {
-            token: b"clear\x00" as *const u8 as *const i8,
-            opcode: 10i32,
-        };
-        init
+    operators {
+        token: b"clear\x00" as *const u8 as *const i8,
+        opcode: 10,
     },
-    {
-        let mut init = operators {
-            token: b"exch\x00" as *const u8 as *const i8,
-            opcode: 11i32,
-        };
-        init
+    operators {
+        token: b"exch\x00" as *const u8 as *const i8,
+        opcode: 11,
     },
-    {
-        let mut init = operators {
-            token: b"pop\x00" as *const u8 as *const i8,
-            opcode: 12i32,
-        };
-        init
+    operators {
+        token: b"pop\x00" as *const u8 as *const i8,
+        opcode: 12,
     },
-    {
-        let mut init = operators {
-            token: b"clip\x00" as *const u8 as *const i8,
-            opcode: 44i32,
-        };
-        init
+    operators {
+        token: b"clip\x00" as *const u8 as *const i8,
+        opcode: 44,
     },
-    {
-        let mut init = operators {
-            token: b"eoclip\x00" as *const u8 as *const i8,
-            opcode: 45i32,
-        };
-        init
+    operators {
+        token: b"eoclip\x00" as *const u8 as *const i8,
+        opcode: 45,
     },
-    {
-        let mut init = operators {
-            token: b"closepath\x00" as *const u8 as *const i8,
-            opcode: 32i32,
-        };
-        init
+    operators {
+        token: b"closepath\x00" as *const u8 as *const i8,
+        opcode: 32,
     },
-    {
-        let mut init = operators {
-            token: b"concat\x00" as *const u8 as *const i8,
-            opcode: 52i32,
-        };
-        init
+    operators {
+        token: b"concat\x00" as *const u8 as *const i8,
+        opcode: 52,
     },
-    {
-        let mut init = operators {
-            token: b"newpath\x00" as *const u8 as *const i8,
-            opcode: 31i32,
-        };
-        init
+    operators {
+        token: b"newpath\x00" as *const u8 as *const i8,
+        opcode: 31,
     },
-    {
-        let mut init = operators {
-            token: b"moveto\x00" as *const u8 as *const i8,
-            opcode: 33i32,
-        };
-        init
+    operators {
+        token: b"moveto\x00" as *const u8 as *const i8,
+        opcode: 33,
     },
-    {
-        let mut init = operators {
-            token: b"rmoveto\x00" as *const u8 as *const i8,
-            opcode: 34i32,
-        };
-        init
+    operators {
+        token: b"rmoveto\x00" as *const u8 as *const i8,
+        opcode: 34,
     },
-    {
-        let mut init = operators {
-            token: b"lineto\x00" as *const u8 as *const i8,
-            opcode: 37i32,
-        };
-        init
+    operators {
+        token: b"lineto\x00" as *const u8 as *const i8,
+        opcode: 37,
     },
-    {
-        let mut init = operators {
-            token: b"rlineto\x00" as *const u8 as *const i8,
-            opcode: 38i32,
-        };
-        init
+    operators {
+        token: b"rlineto\x00" as *const u8 as *const i8,
+        opcode: 38,
     },
-    {
-        let mut init = operators {
-            token: b"curveto\x00" as *const u8 as *const i8,
-            opcode: 35i32,
-        };
-        init
+    operators {
+        token: b"curveto\x00" as *const u8 as *const i8,
+        opcode: 35,
     },
-    {
-        let mut init = operators {
-            token: b"rcurveto\x00" as *const u8 as *const i8,
-            opcode: 36i32,
-        };
-        init
+    operators {
+        token: b"rcurveto\x00" as *const u8 as *const i8,
+        opcode: 36,
     },
-    {
-        let mut init = operators {
-            token: b"arc\x00" as *const u8 as *const i8,
-            opcode: 39i32,
-        };
-        init
+    operators {
+        token: b"arc\x00" as *const u8 as *const i8,
+        opcode: 39,
     },
-    {
-        let mut init = operators {
-            token: b"arcn\x00" as *const u8 as *const i8,
-            opcode: 40i32,
-        };
-        init
+    operators {
+        token: b"arcn\x00" as *const u8 as *const i8,
+        opcode: 40,
     },
-    {
-        let mut init = operators {
-            token: b"stroke\x00" as *const u8 as *const i8,
-            opcode: 42i32,
-        };
-        init
+    operators {
+        token: b"stroke\x00" as *const u8 as *const i8,
+        opcode: 42,
     },
-    {
-        let mut init = operators {
-            token: b"fill\x00" as *const u8 as *const i8,
-            opcode: 41i32,
-        };
-        init
+    operators {
+        token: b"fill\x00" as *const u8 as *const i8,
+        opcode: 41,
     },
-    {
-        let mut init = operators {
-            token: b"show\x00" as *const u8 as *const i8,
-            opcode: 43i32,
-        };
-        init
+    operators {
+        token: b"show\x00" as *const u8 as *const i8,
+        opcode: 43,
     },
-    {
-        let mut init = operators {
-            token: b"showpage\x00" as *const u8 as *const i8,
-            opcode: 49i32,
-        };
-        init
+    operators {
+        token: b"showpage\x00" as *const u8 as *const i8,
+        opcode: 49,
     },
-    {
-        let mut init = operators {
-            token: b"gsave\x00" as *const u8 as *const i8,
-            opcode: 50i32,
-        };
-        init
+    operators {
+        token: b"gsave\x00" as *const u8 as *const i8,
+        opcode: 50,
     },
-    {
-        let mut init = operators {
-            token: b"grestore\x00" as *const u8 as *const i8,
-            opcode: 51i32,
-        };
-        init
+    operators {
+        token: b"grestore\x00" as *const u8 as *const i8,
+        opcode: 51,
     },
-    {
-        let mut init = operators {
-            token: b"translate\x00" as *const u8 as *const i8,
-            opcode: 54i32,
-        };
-        init
+    operators {
+        token: b"translate\x00" as *const u8 as *const i8,
+        opcode: 54,
     },
-    {
-        let mut init = operators {
-            token: b"rotate\x00" as *const u8 as *const i8,
-            opcode: 55i32,
-        };
-        init
+    operators {
+        token: b"rotate\x00" as *const u8 as *const i8,
+        opcode: 55,
     },
-    {
-        let mut init = operators {
-            token: b"scale\x00" as *const u8 as *const i8,
-            opcode: 53i32,
-        };
-        init
+    operators {
+        token: b"scale\x00" as *const u8 as *const i8,
+        opcode: 53,
     },
-    {
-        let mut init = operators {
-            token: b"setlinecap\x00" as *const u8 as *const i8,
-            opcode: 62i32,
-        };
-        init
+    operators {
+        token: b"setlinecap\x00" as *const u8 as *const i8,
+        opcode: 62,
     },
-    {
-        let mut init = operators {
-            token: b"setlinejoin\x00" as *const u8 as *const i8,
-            opcode: 63i32,
-        };
-        init
+    operators {
+        token: b"setlinejoin\x00" as *const u8 as *const i8,
+        opcode: 63,
     },
-    {
-        let mut init = operators {
-            token: b"setlinewidth\x00" as *const u8 as *const i8,
-            opcode: 60i32,
-        };
-        init
+    operators {
+        token: b"setlinewidth\x00" as *const u8 as *const i8,
+        opcode: 60,
     },
-    {
-        let mut init = operators {
-            token: b"setmiterlimit\x00" as *const u8 as *const i8,
-            opcode: 64i32,
-        };
-        init
+    operators {
+        token: b"setmiterlimit\x00" as *const u8 as *const i8,
+        opcode: 64,
     },
-    {
-        let mut init = operators {
-            token: b"setdash\x00" as *const u8 as *const i8,
-            opcode: 61i32,
-        };
-        init
+    operators {
+        token: b"setdash\x00" as *const u8 as *const i8,
+        opcode: 61,
     },
-    {
-        let mut init = operators {
-            token: b"setgray\x00" as *const u8 as *const i8,
-            opcode: 70i32,
-        };
-        init
+    operators {
+        token: b"setgray\x00" as *const u8 as *const i8,
+        opcode: 70,
     },
-    {
-        let mut init = operators {
-            token: b"setrgbcolor\x00" as *const u8 as *const i8,
-            opcode: 71i32,
-        };
-        init
+    operators {
+        token: b"setrgbcolor\x00" as *const u8 as *const i8,
+        opcode: 71,
     },
-    {
-        let mut init = operators {
-            token: b"setcmykcolor\x00" as *const u8 as *const i8,
-            opcode: 72i32,
-        };
-        init
+    operators {
+        token: b"setcmykcolor\x00" as *const u8 as *const i8,
+        opcode: 72,
     },
-    {
-        let mut init = operators {
-            token: b"currentpoint\x00" as *const u8 as *const i8,
-            opcode: 80i32,
-        };
-        init
+    operators {
+        token: b"currentpoint\x00" as *const u8 as *const i8,
+        opcode: 80,
     },
-    {
-        let mut init = operators {
-            token: b"dtransform\x00" as *const u8 as *const i8,
-            opcode: 82i32,
-        };
-        init
+    operators {
+        token: b"dtransform\x00" as *const u8 as *const i8,
+        opcode: 82,
     },
-    {
-        let mut init = operators {
-            token: b"idtransform\x00" as *const u8 as *const i8,
-            opcode: 81i32,
-        };
-        init
+    operators {
+        token: b"idtransform\x00" as *const u8 as *const i8,
+        opcode: 81,
     },
-    {
-        let mut init = operators {
-            token: b"findfont\x00" as *const u8 as *const i8,
-            opcode: 201i32,
-        };
-        init
+    operators {
+        token: b"findfont\x00" as *const u8 as *const i8,
+        opcode: 201,
     },
-    {
-        let mut init = operators {
-            token: b"scalefont\x00" as *const u8 as *const i8,
-            opcode: 202i32,
-        };
-        init
+    operators {
+        token: b"scalefont\x00" as *const u8 as *const i8,
+        opcode: 202,
     },
-    {
-        let mut init = operators {
-            token: b"setfont\x00" as *const u8 as *const i8,
-            opcode: 203i32,
-        };
-        init
+    operators {
+        token: b"setfont\x00" as *const u8 as *const i8,
+        opcode: 203,
     },
-    {
-        let mut init = operators {
-            token: b"currentfont\x00" as *const u8 as *const i8,
-            opcode: 204i32,
-        };
-        init
+    operators {
+        token: b"currentfont\x00" as *const u8 as *const i8,
+        opcode: 204,
     },
-    {
-        let mut init = operators {
-            token: b"stringwidth\x00" as *const u8 as *const i8,
-            opcode: 210i32,
-        };
-        init
+    operators {
+        token: b"stringwidth\x00" as *const u8 as *const i8,
+        opcode: 210,
     },
-    {
-        let mut init = operators {
-            token: b"def\x00" as *const u8 as *const i8,
-            opcode: 999i32,
-        };
-        init
+    operators {
+        token: b"def\x00" as *const u8 as *const i8,
+        opcode: 999,
     },
 ];
 static mut mps_operators: [operators; 28] = [
-    {
-        let mut init = operators {
-            token: b"fshow\x00" as *const u8 as *const i8,
-            opcode: 1001i32,
-        };
-        init
+    operators {
+        token: b"fshow\x00" as *const u8 as *const i8,
+        opcode: 1001,
     },
-    {
-        let mut init = operators {
-            token: b"startTexFig\x00" as *const u8 as *const i8,
-            opcode: 1002i32,
-        };
-        init
+    operators {
+        token: b"startTexFig\x00" as *const u8 as *const i8,
+        opcode: 1002,
     },
-    {
-        let mut init = operators {
-            token: b"endTexFig\x00" as *const u8 as *const i8,
-            opcode: 1003i32,
-        };
-        init
+    operators {
+        token: b"endTexFig\x00" as *const u8 as *const i8,
+        opcode: 1003,
     },
-    {
-        let mut init = operators {
-            token: b"hlw\x00" as *const u8 as *const i8,
-            opcode: 1004i32,
-        };
-        init
+    operators {
+        token: b"hlw\x00" as *const u8 as *const i8,
+        opcode: 1004,
     },
-    {
-        let mut init = operators {
-            token: b"vlw\x00" as *const u8 as *const i8,
-            opcode: 1005i32,
-        };
-        init
+    operators {
+        token: b"vlw\x00" as *const u8 as *const i8,
+        opcode: 1005,
     },
-    {
-        let mut init = operators {
-            token: b"l\x00" as *const u8 as *const i8,
-            opcode: 37i32,
-        };
-        init
+    operators {
+        token: b"l\x00" as *const u8 as *const i8,
+        opcode: 37,
     },
-    {
-        let mut init = operators {
-            token: b"r\x00" as *const u8 as *const i8,
-            opcode: 38i32,
-        };
-        init
+    operators {
+        token: b"r\x00" as *const u8 as *const i8,
+        opcode: 38,
     },
-    {
-        let mut init = operators {
-            token: b"c\x00" as *const u8 as *const i8,
-            opcode: 35i32,
-        };
-        init
+    operators {
+        token: b"c\x00" as *const u8 as *const i8,
+        opcode: 35,
     },
-    {
-        let mut init = operators {
-            token: b"m\x00" as *const u8 as *const i8,
-            opcode: 33i32,
-        };
-        init
+    operators {
+        token: b"m\x00" as *const u8 as *const i8,
+        opcode: 33,
     },
-    {
-        let mut init = operators {
-            token: b"p\x00" as *const u8 as *const i8,
-            opcode: 32i32,
-        };
-        init
+    operators {
+        token: b"p\x00" as *const u8 as *const i8,
+        opcode: 32,
     },
-    {
-        let mut init = operators {
-            token: b"n\x00" as *const u8 as *const i8,
-            opcode: 31i32,
-        };
-        init
+    operators {
+        token: b"n\x00" as *const u8 as *const i8,
+        opcode: 31,
     },
-    {
-        let mut init = operators {
-            token: b"C\x00" as *const u8 as *const i8,
-            opcode: 72i32,
-        };
-        init
+    operators {
+        token: b"C\x00" as *const u8 as *const i8,
+        opcode: 72,
     },
-    {
-        let mut init = operators {
-            token: b"G\x00" as *const u8 as *const i8,
-            opcode: 70i32,
-        };
-        init
+    operators {
+        token: b"G\x00" as *const u8 as *const i8,
+        opcode: 70,
     },
-    {
-        let mut init = operators {
-            token: b"R\x00" as *const u8 as *const i8,
-            opcode: 71i32,
-        };
-        init
+    operators {
+        token: b"R\x00" as *const u8 as *const i8,
+        opcode: 71,
     },
-    {
-        let mut init = operators {
-            token: b"lj\x00" as *const u8 as *const i8,
-            opcode: 63i32,
-        };
-        init
+    operators {
+        token: b"lj\x00" as *const u8 as *const i8,
+        opcode: 63,
     },
-    {
-        let mut init = operators {
-            token: b"ml\x00" as *const u8 as *const i8,
-            opcode: 64i32,
-        };
-        init
+    operators {
+        token: b"ml\x00" as *const u8 as *const i8,
+        opcode: 64,
     },
-    {
-        let mut init = operators {
-            token: b"lc\x00" as *const u8 as *const i8,
-            opcode: 62i32,
-        };
-        init
+    operators {
+        token: b"lc\x00" as *const u8 as *const i8,
+        opcode: 62,
     },
-    {
-        let mut init = operators {
-            token: b"S\x00" as *const u8 as *const i8,
-            opcode: 42i32,
-        };
-        init
+    operators {
+        token: b"S\x00" as *const u8 as *const i8,
+        opcode: 42,
     },
-    {
-        let mut init = operators {
-            token: b"F\x00" as *const u8 as *const i8,
-            opcode: 41i32,
-        };
-        init
+    operators {
+        token: b"F\x00" as *const u8 as *const i8,
+        opcode: 41,
     },
-    {
-        let mut init = operators {
-            token: b"q\x00" as *const u8 as *const i8,
-            opcode: 50i32,
-        };
-        init
+    operators {
+        token: b"q\x00" as *const u8 as *const i8,
+        opcode: 50,
     },
-    {
-        let mut init = operators {
-            token: b"Q\x00" as *const u8 as *const i8,
-            opcode: 51i32,
-        };
-        init
+    operators {
+        token: b"Q\x00" as *const u8 as *const i8,
+        opcode: 51,
     },
-    {
-        let mut init = operators {
-            token: b"s\x00" as *const u8 as *const i8,
-            opcode: 53i32,
-        };
-        init
+    operators {
+        token: b"s\x00" as *const u8 as *const i8,
+        opcode: 53,
     },
-    {
-        let mut init = operators {
-            token: b"t\x00" as *const u8 as *const i8,
-            opcode: 52i32,
-        };
-        init
+    operators {
+        token: b"t\x00" as *const u8 as *const i8,
+        opcode: 52,
     },
-    {
-        let mut init = operators {
-            token: b"sd\x00" as *const u8 as *const i8,
-            opcode: 61i32,
-        };
-        init
+    operators {
+        token: b"sd\x00" as *const u8 as *const i8,
+        opcode: 61,
     },
-    {
-        let mut init = operators {
-            token: b"rd\x00" as *const u8 as *const i8,
-            opcode: 1006i32,
-        };
-        init
+    operators {
+        token: b"rd\x00" as *const u8 as *const i8,
+        opcode: 1006,
     },
-    {
-        let mut init = operators {
-            token: b"P\x00" as *const u8 as *const i8,
-            opcode: 49i32,
-        };
-        init
+    operators {
+        token: b"P\x00" as *const u8 as *const i8,
+        opcode: 49,
     },
-    {
-        let mut init = operators {
-            token: b"B\x00" as *const u8 as *const i8,
-            opcode: 1007i32,
-        };
-        init
+    operators {
+        token: b"B\x00" as *const u8 as *const i8,
+        opcode: 1007,
     },
-    {
-        let mut init = operators {
-            token: b"W\x00" as *const u8 as *const i8,
-            opcode: 44i32,
-        };
-        init
+    operators {
+        token: b"W\x00" as *const u8 as *const i8,
+        opcode: 44,
     },
 ];
 unsafe fn get_opcode(mut token: *const i8) -> i32 {
