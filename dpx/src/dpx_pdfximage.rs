@@ -132,24 +132,18 @@ pub struct ic_ {
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-static mut _opts: opt_ = {
-    let mut init = opt_ {
-        verbose: 0i32,
-        cmdtmpl: 0 as *const i8 as *mut i8,
-    };
-    init
+static mut _opts: opt_ = opt_ {
+    verbose: 0i32,
+    cmdtmpl: 0 as *const i8 as *mut i8,
 };
 #[no_mangle]
 pub unsafe extern "C" fn pdf_ximage_set_verbose(mut level: i32) {
     _opts.verbose = level;
 }
-static mut _ic: ic_ = {
-    let mut init = ic_ {
-        count: 0i32,
-        capacity: 0i32,
-        ximages: 0 as *const pdf_ximage as *mut pdf_ximage,
-    };
-    init
+static mut _ic: ic_ = ic_ {
+    count: 0i32,
+    capacity: 0i32,
+    ximages: 0 as *const pdf_ximage as *mut pdf_ximage,
 };
 unsafe fn pdf_init_ximage_struct(mut I: *mut pdf_ximage) {
     (*I).ident = 0 as *mut i8;

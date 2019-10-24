@@ -209,17 +209,14 @@ static mut linear: i8 = 0_i8;
 static mut page_loc: *mut u32 = 0 as *const u32 as *mut u32;
 static mut num_pages: u32 = 0_u32;
 static mut dvi_file_size: u32 = 0_u32;
-static mut DVI_INFO: dvi_header = {
-    let mut init = dvi_header {
-        unit_num: 25400000_u32,
-        unit_den: 473628672_u32,
-        mag: 1000_u32,
-        media_width: 0_u32,
-        media_height: 0_u32,
-        stackdepth: 0_u32,
-        comment: [0; 257],
-    };
-    init
+static mut DVI_INFO: dvi_header = dvi_header {
+    unit_num: 25400000_u32,
+    unit_den: 473628672_u32,
+    mag: 1000_u32,
+    media_width: 0_u32,
+    media_height: 0_u32,
+    stackdepth: 0_u32,
+    comment: [0; 257],
 };
 static mut dev_origin_x: f64 = 72.0f64;
 static mut dev_origin_y: f64 = 770.0f64;

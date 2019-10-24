@@ -2766,14 +2766,11 @@ pub unsafe extern "C" fn pdf_doc_end_grabbing(mut attrib: *mut pdf_obj) {
     pdf_dev_reset_color(0i32);
     free(fnode as *mut libc::c_void);
 }
-static mut breaking_state: C2RustUnnamed_4 = {
-    let mut init = C2RustUnnamed_4 {
-        dirty: 0i32,
-        broken: 0i32,
-        annot_dict: 0 as *const pdf_obj as *mut pdf_obj,
-        rect: pdf_rect::new(),
-    };
-    init
+static mut breaking_state: C2RustUnnamed_4 = C2RustUnnamed_4 {
+    dirty: 0i32,
+    broken: 0i32,
+    annot_dict: 0 as *const pdf_obj as *mut pdf_obj,
+    rect: pdf_rect::new(),
 };
 unsafe fn reset_box() {
     breaking_state.rect.lly = ::std::f64::INFINITY;

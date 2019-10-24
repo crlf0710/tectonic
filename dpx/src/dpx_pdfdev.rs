@@ -273,13 +273,10 @@ pub unsafe extern "C" fn pdf_dev_set_verbose(mut level: i32) {
 pub unsafe extern "C" fn pdf_dev_scale() -> f64 {
     1.0f64
 }
-static mut dev_unit: DevUnit = {
-    let mut init = DevUnit {
-        dvi2pts: 0.0f64,
-        min_bp_val: 658i32,
-        precision: 2i32,
-    };
-    init
+static mut dev_unit: DevUnit = DevUnit {
+    dvi2pts: 0.0f64,
+    min_bp_val: 658i32,
+    precision: 2i32,
 };
 #[no_mangle]
 pub unsafe extern "C" fn dev_unit_dviunit() -> f64 {
@@ -473,12 +470,9 @@ pub unsafe extern "C" fn pdf_sprint_number(buf: &mut [u8], mut value: f64) -> us
     buf[len] = 0;
     len
 }
-static mut dev_param: DevParam = {
-    let mut init = DevParam {
-        autorotate: 1i32,
-        colormode: 1i32,
-    };
-    init
+static mut dev_param: DevParam = DevParam {
+    autorotate: 1i32,
+    colormode: 1i32,
 };
 static mut motion_state: MotionState = MotionState::GRAPHICS_MODE;
 static mut format_buffer: [u8; 4096] = [0; 4096];

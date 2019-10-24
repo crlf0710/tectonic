@@ -133,21 +133,18 @@ use crate::dpx_pdfdev::pdf_coord;
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-static mut _PDF_STAT: spc_pdf_ = {
-    let mut init = spc_pdf_ {
-        annot_dict: 0 as *const pdf_obj as *mut pdf_obj,
-        lowest_level: 255i32,
-        resourcemap: 0 as *const ht_table as *mut ht_table,
-        cd: {
-            let mut init = tounicode {
-                cmap_id: -1i32,
-                unescape_backslash: 0i32,
-                taintkeys: 0 as *const pdf_obj as *mut pdf_obj,
-            };
-            init
-        },
-    };
-    init
+static mut _PDF_STAT: spc_pdf_ = spc_pdf_ {
+    annot_dict: 0 as *const pdf_obj as *mut pdf_obj,
+    lowest_level: 255i32,
+    resourcemap: 0 as *const ht_table as *mut ht_table,
+    cd: {
+        let mut init = tounicode {
+            cmap_id: -1i32,
+            unescape_backslash: 0i32,
+            taintkeys: 0 as *const pdf_obj as *mut pdf_obj,
+        };
+        init
+    },
 };
 /* PLEASE REMOVE THIS */
 unsafe extern "C" fn hval_free(mut vp: *mut libc::c_void) {

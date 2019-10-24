@@ -1045,13 +1045,10 @@ pub unsafe extern "C" fn iccp_load_profile(
     cspc_id = pdf_colorspace_defineresource(ident, 4i32, cdata, resource);
     cspc_id
 }
-static mut CSPC_CACHE: CspcCache = {
-    let mut init = CspcCache {
-        count: 0_u32,
-        capacity: 0_u32,
-        colorspaces: 0 as *const pdf_colorspace as *mut pdf_colorspace,
-    };
-    init
+static mut CSPC_CACHE: CspcCache = CspcCache {
+    count: 0_u32,
+    capacity: 0_u32,
+    colorspaces: 0 as *const pdf_colorspace as *mut pdf_colorspace,
 };
 unsafe fn pdf_colorspace_findresource(
     mut ident: *const i8,

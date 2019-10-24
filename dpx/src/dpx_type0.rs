@@ -301,13 +301,10 @@ pub unsafe extern "C" fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mu
     }
     pdf_link_obj((*font).indirect)
 }
-static mut __cache: font_cache = {
-    let mut init = font_cache {
-        count: 0i32,
-        capacity: 0i32,
-        fonts: 0 as *const Type0Font as *mut Type0Font,
-    };
-    init
+static mut __cache: font_cache = font_cache {
+    count: 0i32,
+    capacity: 0i32,
+    fonts: 0 as *const Type0Font as *mut Type0Font,
 };
 #[no_mangle]
 pub unsafe extern "C" fn Type0Font_cache_init() {

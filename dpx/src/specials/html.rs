@@ -86,17 +86,11 @@ use crate::dpx_pdfdev::pdf_coord;
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-static mut _HTML_STATE: spc_html_ = {
-    let mut init = spc_html_ {
-        opts: {
-            let mut init = C2RustUnnamed_0 { extensions: 0i32 };
-            init
-        },
-        link_dict: 0 as *const pdf_obj as *mut pdf_obj,
-        baseurl: 0 as *const i8 as *mut i8,
-        pending_type: -1i32,
-    };
-    init
+static mut _HTML_STATE: spc_html_ = spc_html_ {
+    opts: C2RustUnnamed_0 { extensions: 0 },
+    link_dict: 0 as *const pdf_obj as *mut pdf_obj,
+    baseurl: 0 as *const i8 as *mut i8,
+    pending_type: -1,
 };
 /* ENABLE_HTML_SVG_TRANSFORM */
 unsafe fn parse_key_val(

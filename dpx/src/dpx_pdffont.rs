@@ -303,13 +303,10 @@ unsafe fn pdf_clean_font_struct(mut font: *mut pdf_font) {
         (*font).usedchars = 0 as *mut i8
     };
 }
-static mut font_cache: C2RustUnnamed_0 = {
-    let mut init = C2RustUnnamed_0 {
-        count: 0i32,
-        capacity: 0i32,
-        fonts: 0 as *const pdf_font as *mut pdf_font,
-    };
-    init
+static mut font_cache: C2RustUnnamed_0 = C2RustUnnamed_0 {
+    count: 0i32,
+    capacity: 0i32,
+    fonts: 0 as *const pdf_font as *mut pdf_font,
 };
 #[no_mangle]
 pub unsafe extern "C" fn pdf_init_fonts() {
