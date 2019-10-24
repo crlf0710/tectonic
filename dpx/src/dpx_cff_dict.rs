@@ -94,432 +94,249 @@ pub unsafe extern "C" fn cff_release_dict(mut dict: *mut cff_dict) {
 static mut stack_top: i32 = 0i32;
 static mut arg_stack: [f64; 64] = [0.; 64];
 static mut dict_operator: [C2RustUnnamed_2; 61] = [
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"version\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 3i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"version\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 3i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"Notice\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 3i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"Notice\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 3i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"FullName\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 3i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"FullName\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 3i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"FamilyName\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 3i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"FamilyName\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 3i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"Weight\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 3i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"Weight\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 3i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"FontBBox\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 4i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"FontBBox\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 4i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"BlueValues\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 5i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"BlueValues\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 5i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"OtherBlues\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 5i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"OtherBlues\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 5i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"FamilyBlues\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 5i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"FamilyBlues\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 5i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"FamilyOtherBlues\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 5i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"FamilyOtherBlues\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 5i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"StdHW\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"StdHW\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"StdVW\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"StdVW\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: 0 as *const i8,
-            argtype: -1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: 0 as *const i8,
+        argtype: -1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"UniqueID\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"UniqueID\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"XUID\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 4i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"XUID\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 4i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"charset\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 7i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"charset\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 7i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"Encoding\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 7i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"Encoding\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 7i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"CharStrings\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 7i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"CharStrings\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 7i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"Private\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 8i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"Private\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 8i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"Subrs\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 7i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"Subrs\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 7i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"defaultWidthX\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"defaultWidthX\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"nominalWidthX\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"nominalWidthX\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"Copyright\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 3i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"Copyright\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 3i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"IsFixedPitch\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 2i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"IsFixedPitch\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 2i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"ItalicAngle\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"ItalicAngle\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"UnderlinePosition\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"UnderlinePosition\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"UnderlineThickness\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"UnderlineThickness\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"PaintType\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"PaintType\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"CharstringType\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"CharstringType\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"FontMatrix\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 4i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"FontMatrix\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 4i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"StrokeWidth\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"StrokeWidth\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"BlueScale\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"BlueScale\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"BlueShift\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"BlueShift\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"BlueFuzz\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"BlueFuzz\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"StemSnapH\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 5i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"StemSnapH\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 5i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"StemSnapV\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 5i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"StemSnapV\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 5i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"ForceBold\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 2i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"ForceBold\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 2i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: 0 as *const i8,
-            argtype: -1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: 0 as *const i8,
+        argtype: -1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: 0 as *const i8,
-            argtype: -1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: 0 as *const i8,
+        argtype: -1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"LanguageGroup\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"LanguageGroup\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"ExpansionFactor\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"ExpansionFactor\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"InitialRandomSeed\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"InitialRandomSeed\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"SyntheticBase\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"SyntheticBase\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"PostScript\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 3i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"PostScript\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 3i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"BaseFontName\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 3i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"BaseFontName\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 3i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"BaseFontBlend\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 5i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"BaseFontBlend\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 5i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: 0 as *const i8,
-            argtype: -1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: 0 as *const i8,
+        argtype: -1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: 0 as *const i8,
-            argtype: -1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: 0 as *const i8,
+        argtype: -1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: 0 as *const i8,
-            argtype: -1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: 0 as *const i8,
+        argtype: -1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: 0 as *const i8,
-            argtype: -1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: 0 as *const i8,
+        argtype: -1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: 0 as *const i8,
-            argtype: -1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: 0 as *const i8,
+        argtype: -1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: 0 as *const i8,
-            argtype: -1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: 0 as *const i8,
+        argtype: -1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"ROS\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 6i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"ROS\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 6i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"CIDFontVersion\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"CIDFontVersion\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"CIDFontRevision\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"CIDFontRevision\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"CIDFontType\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"CIDFontType\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"CIDCount\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"CIDCount\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"UIDBase\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 0i32 | 1i32 << 1i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"UIDBase\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"FDArray\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 7i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"FDArray\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 7i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"FDSelect\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 7i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"FDSelect\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 7i32,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
-            opname: b"FontName\x00" as *const u8 as *const i8,
-            argtype: 1i32 << 3i32,
-        };
-        init
+    C2RustUnnamed_2 {
+        opname: b"FontName\x00" as *const u8 as *const i8,
+        argtype: 1i32 << 3i32,
     },
 ];
 /* Parse DICT data */
