@@ -101,6 +101,7 @@ fn ROTATE_TEXT(m: TextWMode) -> bool {
 pub type spt_t = i32;
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
+/// Transform coordinate matrix
 pub struct TMatrix {
     pub a: f64,
     pub b: f64,
@@ -110,6 +111,7 @@ pub struct TMatrix {
     pub f: f64,
 }
 impl TMatrix {
+    /// Zero initialized transform matrix
     pub const fn new() -> Self {
         Self {
             a: 0.,
@@ -120,6 +122,7 @@ impl TMatrix {
             f: 0.,
         }
     }
+    /// Identity transform matrix
     pub const fn identity() -> Self {
         Self {
             a: 1.,
@@ -133,17 +136,22 @@ impl TMatrix {
 }
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
+/// Represents rectangle and TeX bbox in document
 pub struct Rect {
+    /// Lower left coorditate of rectangle
     pub ll: Coord,
+    /// Upper right coorditate of rectangle
     pub ur: Coord,
 }
 impl Rect {
+    /// Zero initialized rectangle
     pub const fn zero() -> Self {
         Self {
             ll: Coord {x: 0., y: 0.},
             ur: Coord {x: 0., y: 0.},
         }
     }
+    /// Create new rectangle from lower left and upper right coorditate
     pub const fn new(ll: (f64, f64), ur: (f64, f64)) -> Self {
         Self {
             ll: Coord {x: ll.0, y: ll.1},
@@ -186,6 +194,7 @@ impl std::fmt::Display for Rect {
 
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
+/// Coordinate (point) in TeX document
 pub struct Coord {
     pub x: f64,
     pub y: f64,
