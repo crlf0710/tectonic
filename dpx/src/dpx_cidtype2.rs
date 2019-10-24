@@ -202,159 +202,126 @@ unsafe fn validate_name(mut fontname: *mut i8, mut len: i32) {
     };
 }
 static mut known_encodings: [C2RustUnnamed_3; 11] = [
-    {
-        let mut init = C2RustUnnamed_3 {
-            platform: 3_u16,
-            encoding: 10_u16,
-            pdfnames: [
-                b"UCSms-UCS4\x00" as *const u8 as *const i8,
-                b"UCSms-UCS2\x00" as *const u8 as *const i8,
-                b"UCS4\x00" as *const u8 as *const i8,
-                b"UCS2\x00" as *const u8 as *const i8,
-                0 as *const i8,
-            ],
-        };
-        init
+    C2RustUnnamed_3 {
+        platform: 3_u16,
+        encoding: 10_u16,
+        pdfnames: [
+            b"UCSms-UCS4\x00" as *const u8 as *const i8,
+            b"UCSms-UCS2\x00" as *const u8 as *const i8,
+            b"UCS4\x00" as *const u8 as *const i8,
+            b"UCS2\x00" as *const u8 as *const i8,
+            0 as *const i8,
+        ],
     },
-    {
-        let mut init = C2RustUnnamed_3 {
-            platform: 3_u16,
-            encoding: 1_u16,
-            pdfnames: [
-                b"UCSms-UCS4\x00" as *const u8 as *const i8,
-                b"UCSms-UCS2\x00" as *const u8 as *const i8,
-                b"UCS4\x00" as *const u8 as *const i8,
-                b"UCS2\x00" as *const u8 as *const i8,
-                0 as *const i8,
-            ],
-        };
-        init
+    C2RustUnnamed_3 {
+        platform: 3_u16,
+        encoding: 1_u16,
+        pdfnames: [
+            b"UCSms-UCS4\x00" as *const u8 as *const i8,
+            b"UCSms-UCS2\x00" as *const u8 as *const i8,
+            b"UCS4\x00" as *const u8 as *const i8,
+            b"UCS2\x00" as *const u8 as *const i8,
+            0 as *const i8,
+        ],
     },
-    {
-        let mut init = C2RustUnnamed_3 {
-            platform: 3_u16,
-            encoding: 2_u16,
-            pdfnames: [
-                b"90ms-RKSJ\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-            ],
-        };
-        init
+    C2RustUnnamed_3 {
+        platform: 3_u16,
+        encoding: 2_u16,
+        pdfnames: [
+            b"90ms-RKSJ\x00" as *const u8 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+        ],
     },
-    {
-        let mut init = C2RustUnnamed_3 {
-            platform: 3_u16,
-            encoding: 3_u16,
-            pdfnames: [
-                b"GBK-EUC\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-            ],
-        };
-        init
+    C2RustUnnamed_3 {
+        platform: 3_u16,
+        encoding: 3_u16,
+        pdfnames: [
+            b"GBK-EUC\x00" as *const u8 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+        ],
     },
-    {
-        let mut init = C2RustUnnamed_3 {
-            platform: 3_u16,
-            encoding: 4_u16,
-            pdfnames: [
-                b"ETen-B5\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-            ],
-        };
-        init
+    C2RustUnnamed_3 {
+        platform: 3_u16,
+        encoding: 4_u16,
+        pdfnames: [
+            b"ETen-B5\x00" as *const u8 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+        ],
     },
-    {
-        let mut init = C2RustUnnamed_3 {
-            platform: 3_u16,
-            encoding: 5_u16,
-            pdfnames: [
-                b"KSCms-UHC\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-            ],
-        };
-        init
+    C2RustUnnamed_3 {
+        platform: 3_u16,
+        encoding: 5_u16,
+        pdfnames: [
+            b"KSCms-UHC\x00" as *const u8 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+        ],
     },
-    {
-        let mut init = C2RustUnnamed_3 {
-            platform: 1_u16,
-            encoding: 1_u16,
-            pdfnames: [
-                b"90pv-RKSJ\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-            ],
-        };
-        init
+    C2RustUnnamed_3 {
+        platform: 1_u16,
+        encoding: 1_u16,
+        pdfnames: [
+            b"90pv-RKSJ\x00" as *const u8 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+        ],
     },
-    {
-        let mut init = C2RustUnnamed_3 {
-            platform: 1_u16,
-            encoding: 2_u16,
-            pdfnames: [
-                b"B5pc\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-            ],
-        };
-        init
+    C2RustUnnamed_3 {
+        platform: 1_u16,
+        encoding: 2_u16,
+        pdfnames: [
+            b"B5pc\x00" as *const u8 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+        ],
     },
-    {
-        let mut init = C2RustUnnamed_3 {
-            platform: 1_u16,
-            encoding: 25_u16,
-            pdfnames: [
-                b"GBpc-EUC\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-            ],
-        };
-        init
+    C2RustUnnamed_3 {
+        platform: 1_u16,
+        encoding: 25_u16,
+        pdfnames: [
+            b"GBpc-EUC\x00" as *const u8 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+        ],
     },
-    {
-        let mut init = C2RustUnnamed_3 {
-            platform: 1_u16,
-            encoding: 3_u16,
-            pdfnames: [
-                b"KSCpc-EUC\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-            ],
-        };
-        init
+    C2RustUnnamed_3 {
+        platform: 1_u16,
+        encoding: 3_u16,
+        pdfnames: [
+            b"KSCpc-EUC\x00" as *const u8 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+        ],
     },
-    {
-        let mut init = C2RustUnnamed_3 {
-            platform: 0_u16,
-            encoding: 0_u16,
-            pdfnames: [
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-            ],
-        };
-        init
+    C2RustUnnamed_3 {
+        platform: 0_u16,
+        encoding: 0_u16,
+        pdfnames: [
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+            0 as *const i8,
+        ],
     },
 ];
 unsafe fn find_tocode_cmap(mut reg: *const i8, mut ord: *const i8, mut select: i32) -> *mut CMap {
@@ -572,75 +539,45 @@ unsafe fn add_TTCIDVMetrics(
  */
 unsafe fn fix_CJK_symbols(mut code: u16) -> u16 {
     static mut CJK_Uni_symbols: [C2RustUnnamed_2; 10] = [
-        {
-            let mut init = C2RustUnnamed_2 {
-                alt1: 0x2014_u16,
-                alt2: 0x2015_u16,
-            };
-            init
+        C2RustUnnamed_2 {
+            alt1: 0x2014,
+            alt2: 0x2015,
         },
-        {
-            let mut init = C2RustUnnamed_2 {
-                alt1: 0x2016_u16,
-                alt2: 0x2225_u16,
-            };
-            init
+        C2RustUnnamed_2 {
+            alt1: 0x2016,
+            alt2: 0x2225,
         },
-        {
-            let mut init = C2RustUnnamed_2 {
-                alt1: 0x203e_u16,
-                alt2: 0xffe3_u16,
-            };
-            init
+        C2RustUnnamed_2 {
+            alt1: 0x203e,
+            alt2: 0xffe3,
         },
-        {
-            let mut init = C2RustUnnamed_2 {
-                alt1: 0x2026_u16,
-                alt2: 0x22ef_u16,
-            };
-            init
+        C2RustUnnamed_2 {
+            alt1: 0x2026,
+            alt2: 0x22ef,
         },
-        {
-            let mut init = C2RustUnnamed_2 {
-                alt1: 0x2212_u16,
-                alt2: 0xff0d_u16,
-            };
-            init
+        C2RustUnnamed_2 {
+            alt1: 0x2212,
+            alt2: 0xff0d,
         },
-        {
-            let mut init = C2RustUnnamed_2 {
-                alt1: 0x301c_u16,
-                alt2: 0xff5e_u16,
-            };
-            init
+        C2RustUnnamed_2 {
+            alt1: 0x301c,
+            alt2: 0xff5e,
         },
-        {
-            let mut init = C2RustUnnamed_2 {
-                alt1: 0xffe0_u16,
-                alt2: 0xa2_u16,
-            };
-            init
+        C2RustUnnamed_2 {
+            alt1: 0xffe0,
+            alt2: 0xa2,
         },
-        {
-            let mut init = C2RustUnnamed_2 {
-                alt1: 0xffe1_u16,
-                alt2: 0xa3_u16,
-            };
-            init
+        C2RustUnnamed_2 {
+            alt1: 0xffe1,
+            alt2: 0xa3,
         },
-        {
-            let mut init = C2RustUnnamed_2 {
-                alt1: 0xffe2_u16,
-                alt2: 0xac_u16,
-            };
-            init
+        C2RustUnnamed_2 {
+            alt1: 0xffe2,
+            alt2: 0xac,
         },
-        {
-            let mut init = C2RustUnnamed_2 {
-                alt1: 0xffff_u16,
-                alt2: 0xffff_u16,
-            };
-            init
+        C2RustUnnamed_2 {
+            alt1: 0xffff,
+            alt2: 0xffff,
         },
     ];
     let mut alt_code = code;
