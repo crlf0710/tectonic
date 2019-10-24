@@ -42,7 +42,7 @@ use super::dpx_pdfdoc::pdf_doc_expand_box;
 use super::dpx_pdfdoc::{pdf_doc_add_page_content, pdf_doc_add_page_resource};
 use super::dpx_pdfdraw::{
     pdf_dev_clear_gstates, pdf_dev_current_depth, pdf_dev_grestore, pdf_dev_grestore_to,
-    pdf_dev_gsave, pdf_dev_init_gstates, pdf_dev_rectclip,
+    pdf_dev_gsave, pdf_dev_init_gstates,
 };
 use super::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_set_color, pdf_dev_transform};
 use super::dpx_pdffont::{
@@ -52,7 +52,6 @@ use super::dpx_pdffont::{
 use super::dpx_pdfximage::{
     pdf_ximage_get_reference, pdf_ximage_get_resname, pdf_ximage_scale_image,
 };
-use super::modf;
 use crate::dpx_pdfobj::{pdf_link_obj, pdf_obj, pdf_release_obj, pdfobj_escape_str};
 use crate::shims::sprintf;
 use crate::streq_ptr;
@@ -102,7 +101,8 @@ fn ROTATE_TEXT(m: TextWMode) -> bool {
 pub type spt_t = i32;
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
-pub struct pdf_tmatrix {
+/// Transform coordinate matrix
+pub struct TMatrix {
     pub a: f64,
     pub b: f64,
     pub c: f64,
@@ -110,7 +110,8 @@ pub struct pdf_tmatrix {
     pub e: f64,
     pub f: f64,
 }
-impl pdf_tmatrix {
+impl TMatrix {
+    /// Zero initialized transform matrix
     pub const fn new() -> Self {
         Self {
             a: 0.,
@@ -121,6 +122,7 @@ impl pdf_tmatrix {
             f: 0.,
         }
     }
+    /// Identity transform matrix
     pub const fn identity() -> Self {
         Self {
             a: 1.,
@@ -134,34 +136,106 @@ impl pdf_tmatrix {
 }
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
-pub struct pdf_rect {
-    pub llx: f64,
-    pub lly: f64,
-    pub urx: f64,
-    pub ury: f64,
+/// Represents rectangle and TeX bbox in document
+pub struct Rect {
+    /// Lower left coorditate of rectangle
+    pub ll: Coord,
+    /// Upper right coorditate of rectangle
+    pub ur: Coord,
 }
-impl pdf_rect {
-    pub const fn new() -> Self {
+impl Rect {
+    /// Zero initialized rectangle
+    pub const fn zero() -> Self {
         Self {
-            llx: 0.,
-            lly: 0.,
-            urx: 0.,
-            ury: 0.,
+            ll: Coord {x: 0., y: 0.},
+            ur: Coord {x: 0., y: 0.},
+        }
+    }
+    /// Create new rectangle from lower left and upper right coorditate
+    pub const fn new(ll: (f64, f64), ur: (f64, f64)) -> Self {
+        Self {
+            ll: Coord {x: ll.0, y: ll.1},
+            ur: Coord {x: ur.0, y: ur.1},
+        }
+    }
+    pub fn width(&self) -> f64 {
+        self.ur.x - self.ll.x
+    }
+    pub fn height(&self) -> f64 {
+        self.ur.y - self.ll.y
+    }
+    pub fn lower_left(&self) -> Coord {
+        self.ll
+    }
+    pub fn upper_right(&self) -> Coord {
+        self.ur
+    }
+    pub fn lower_right(&self) -> Coord {
+        Coord::new(self.ur.x, self.ll.y)
+    }
+    pub fn upper_left(&self) -> Coord {
+        Coord::new(self.ll.x, self.ur.y)
+    }
+}
+impl From<(Coord, Coord)> for Rect {
+    fn from(c: (Coord, Coord)) -> Self {
+        Self {
+            ll: c.0,
+            ur: c.1,
         }
     }
 }
+
+impl std::fmt::Display for Rect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}, {}, {}, {}]", self.ll.x, self.ll.y, self.ur.x, self.ur.y)
+    }
+}
+
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
-pub struct pdf_coord {
+/// Coordinate (point) in TeX document
+pub struct Coord {
     pub x: f64,
     pub y: f64,
 }
-impl pdf_coord {
+impl Coord {
     pub const fn new(x: f64, y: f64) -> Self {
         Self { x, y }
     }
     pub const fn zero() -> Self {
         Self { x: 0., y: 0. }
+    }
+    pub fn scale(self, factor: f64) -> Self {
+        Self { x: self.x*factor, y: self.y*factor }
+    }
+    pub fn equal(&self, other: &Coord) -> bool {
+        ((self.x - other.x).abs() < 1e-7) && ((self.y - other.y).abs() < 1e-7)
+    }
+}
+
+impl core::ops::Add for Coord {
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        Self { x: self.x + other.x, y: self.y + other.y }
+    }
+}
+
+impl core::ops::Sub for Coord {
+    type Output = Self;
+    fn sub(self, other: Self) -> Self {
+        Self { x: self.x - other.x, y: self.y - other.y }
+    }
+}
+
+impl core::ops::AddAssign for Coord {
+    fn add_assign(&mut self, other: Self) {
+        *self = *self + other
+    }
+}
+impl core::ops::SubAssign for Coord {
+    fn sub_assign(&mut self, other: Self) {
+        *self = *self - other
     }
 }
 
@@ -171,8 +245,8 @@ pub struct transform_info {
     pub width: f64,
     pub height: f64,
     pub depth: f64,
-    pub matrix: pdf_tmatrix,
-    pub bbox: pdf_rect,
+    pub matrix: TMatrix,
+    pub bbox: Rect,
     pub flags: i32,
 }
 impl transform_info {
@@ -181,8 +255,8 @@ impl transform_info {
             width: 0.,
             height: 0.,
             depth: 0.,
-            matrix: pdf_tmatrix::new(),
-            bbox: pdf_rect::new(),
+            matrix: TMatrix::new(),
+            bbox: Rect::zero(),
             flags: 0,
         }
     }
@@ -339,59 +413,51 @@ unsafe fn p_itoa(mut value: i32, mut buf: *mut i8) -> u32 {
 /* NOTE: Acrobat 5 and prior uses 16.16 fixed point representation for
  * real numbers.
  */
-unsafe fn p_dtoa(mut value: f64, mut prec: i32, buf: &mut [u8]) -> usize {
+fn p_dtoa(mut value: f64, mut prec: i32, buf: &mut [u8]) -> usize {
     let p: [i32; 10] = [
         1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000,
     ];
-    let mut i: f64 = 0.;
-    let mut c = buf.as_mut_ptr();
-    let mut n = if value < 0i32 as f64 {
+    let mut n = if value < 0. {
         value = -value;
-        let fresh2 = c;
-        c = c.offset(1);
-        *fresh2 = b'-';
+        buf[0] = b'-';
         1
     } else {
         0
     };
-    let f = modf(value, &mut i);
-    let mut g = (f * p[prec as usize] as f64 + 0.5f64) as i32;
+    let f = value.fract();
+    let mut i = value.trunc();
+    let mut g = (f * p[prec as usize] as f64 + 0.5) as i32;
     if g == p[prec as usize] {
-        g = 0i32;
-        i += 1i32 as f64
+        g = 0;
+        i += 1.
     }
     if i != 0. {
-        let mut m: i32 = sprintf(c as *mut i8, b"%.0f\x00" as *const u8 as *const i8, i);
-        c = c.offset(m as isize);
+        let fv = format!("{:.0}", i);
+        let m = fv.as_bytes().len();
+        buf[n..n+m].copy_from_slice(&fv.as_bytes());
         n += m
     } else if g == 0i32 {
-        c = buf.as_mut_ptr();
-        *c = b'0';
-        n = 1
+        buf[0] = b'0';
+        n = 1;
     }
     if g != 0 {
         let mut j: i32 = prec;
-        let fresh3 = c;
-        c = c.offset(1);
-        *fresh3 = b'.';
+        buf[n] = b'.';
         loop {
             let fresh4 = j;
             j = j - 1;
             if !(fresh4 != 0) {
                 break;
             }
-            *c.offset(j as isize) = (g % 10 + '0' as i32) as u8;
+            buf[n+1+j as usize] = (g % 10) as u8 + b'0';
             g /= 10
         }
-        c = c.offset((prec - 1) as isize);
-        n += 1 + prec;
-        while *c == b'0' {
-            c = c.offset(-1);
+        n += 1 + prec as usize;
+        while buf[n-1] == b'0' {
             n -= 1
         }
     }
-    c = c.offset(1);
-    *c = 0;
+    buf[n] = 0;
     n as usize
 }
 unsafe fn dev_sprint_bp(buf: &mut [u8], mut value: spt_t, mut error: *mut spt_t) -> usize {
@@ -406,15 +472,15 @@ unsafe fn dev_sprint_bp(buf: &mut [u8], mut value: spt_t, mut error: *mut spt_t)
     p_dtoa(value_in_bp, prec, buf)
 }
 /* They are affected by precision (set at device initialization). */
-#[no_mangle]
-pub unsafe extern "C" fn pdf_sprint_matrix(buf: &mut [u8], M: &pdf_tmatrix) -> usize {
-    let mut prec2: i32 = if dev_unit.precision + 2i32 < 8i32 {
-        dev_unit.precision + 2i32
+pub fn pdf_sprint_matrix(buf: &mut [u8], M: &TMatrix) -> usize {
+    let precision = unsafe { dev_unit.precision };
+    let mut prec2: i32 = if precision + 2 < 8i32 {
+        precision + 2
     } else {
         8i32
     }; /* xxx_sprint_xxx NULL terminates strings. */
-    let mut prec0: i32 = if dev_unit.precision > 2i32 {
-        dev_unit.precision
+    let mut prec0: i32 = if precision > 2i32 {
+        precision
     } else {
         2i32
     }; /* xxx_sprint_xxx NULL terminates strings. */
@@ -437,38 +503,36 @@ pub unsafe extern "C" fn pdf_sprint_matrix(buf: &mut [u8], M: &pdf_tmatrix) -> u
     buf[len] = b'\x00';
     len
 }
-#[no_mangle]
-pub unsafe extern "C" fn pdf_sprint_rect(buf: &mut [u8], rect: &pdf_rect) -> usize {
-    let mut len = p_dtoa(rect.llx, dev_unit.precision, buf);
+pub fn pdf_sprint_rect(buf: &mut [u8], rect: &Rect) -> usize {
+    let precision = unsafe { dev_unit.precision };
+    let mut len = p_dtoa(rect.ll.x, precision, buf);
     buf[len] = b' ';
     len += 1;
-    len += p_dtoa(rect.lly, dev_unit.precision, &mut buf[len..]);
+    len += p_dtoa(rect.ll.y, precision, &mut buf[len..]);
     buf[len] = b' ';
     len += 1;
-    len += p_dtoa(rect.urx, dev_unit.precision, &mut buf[len..]);
+    len += p_dtoa(rect.ur.x, precision, &mut buf[len..]);
     buf[len] = b' ';
     len += 1;
-    len += p_dtoa(rect.ury, dev_unit.precision, &mut buf[len..]);
+    len += p_dtoa(rect.ur.y, precision, &mut buf[len..]);
     buf[len] = 0;
     len
 }
-#[no_mangle]
-pub unsafe extern "C" fn pdf_sprint_coord(buf: &mut [u8], p: &pdf_coord) -> usize {
-    let mut len = p_dtoa(p.x, dev_unit.precision, buf);
+pub fn pdf_sprint_coord(buf: &mut [u8], p: &Coord) -> usize {
+    let precision = unsafe { dev_unit.precision };
+    let mut len = p_dtoa(p.x, precision, buf);
     buf[len] = b' ';
     len += 1;
-    len += p_dtoa(p.y, dev_unit.precision, &mut buf[len..]);
+    len += p_dtoa(p.y, precision, &mut buf[len..]);
     buf[len] = 0;
     len
 }
-#[no_mangle]
-pub unsafe extern "C" fn pdf_sprint_length(buf: &mut [u8], value: f64) -> usize {
-    let len = p_dtoa(value, dev_unit.precision, buf);
+pub fn pdf_sprint_length(buf: &mut [u8], value: f64) -> usize {
+    let len = p_dtoa(value, unsafe{ dev_unit.precision }, buf);
     buf[len] = 0;
     len
 }
-#[no_mangle]
-pub unsafe extern "C" fn pdf_sprint_number(buf: &mut [u8], mut value: f64) -> usize {
+pub fn pdf_sprint_number(buf: &mut [u8], mut value: f64) -> usize {
     let len = p_dtoa(value, 8, buf);
     buf[len] = 0;
     len
@@ -510,7 +574,7 @@ unsafe fn dev_set_text_matrix(
     mut extend: f64,
     mut rotate: TextWMode,
 ) {
-    let mut tm = pdf_tmatrix::new();
+    let mut tm = TMatrix::new();
     let mut len = 0;
     /* slant is negated for vertical font so that right-side
      * is always lower. */
@@ -1125,18 +1189,16 @@ unsafe fn handle_multibyte_string(
     *str_len = length;
     0i32
 }
-static mut dev_coords: *mut pdf_coord = 0 as *const pdf_coord as *mut pdf_coord;
+static mut dev_coords: *mut Coord = 0 as *const Coord as *mut Coord;
 static mut num_dev_coords: i32 = 0i32;
 static mut max_dev_coords: i32 = 0i32;
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_get_coord(mut xpos: *mut f64, mut ypos: *mut f64) {
+pub unsafe extern "C" fn pdf_dev_get_coord() -> Coord {
     if num_dev_coords > 0i32 {
-        *xpos = (*dev_coords.offset((num_dev_coords - 1i32) as isize)).x;
-        *ypos = (*dev_coords.offset((num_dev_coords - 1i32) as isize)).y
+        (*dev_coords.offset((num_dev_coords - 1i32) as isize))
     } else {
-        *ypos = 0.0f64;
-        *xpos = *ypos
-    };
+        Coord::zero()
+    }
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_push_coord(mut xpos: f64, mut ypos: f64) {
@@ -1144,9 +1206,9 @@ pub unsafe extern "C" fn pdf_dev_push_coord(mut xpos: f64, mut ypos: f64) {
         max_dev_coords += 4i32;
         dev_coords = renew(
             dev_coords as *mut libc::c_void,
-            (max_dev_coords as u32 as u64).wrapping_mul(::std::mem::size_of::<pdf_coord>() as u64)
+            (max_dev_coords as u32 as u64).wrapping_mul(::std::mem::size_of::<Coord>() as u64)
                 as u32,
-        ) as *mut pdf_coord
+        ) as *mut Coord
     }
     (*dev_coords.offset(num_dev_coords as isize)).x = xpos;
     (*dev_coords.offset(num_dev_coords as isize)).y = ypos;
@@ -1389,7 +1451,7 @@ pub unsafe extern "C" fn pdf_init_device(
     dev_fonts = 0 as *mut dev_font;
     max_dev_coords = 0i32;
     num_dev_coords = max_dev_coords;
-    dev_coords = 0 as *mut pdf_coord;
+    dev_coords = 0 as *mut Coord;
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_close_device() {
@@ -1435,7 +1497,7 @@ pub unsafe extern "C" fn pdf_dev_reset_color(mut force: i32) {
     pdf_dev_set_color(fc, 0x20, force);
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_bop(M: &pdf_tmatrix) {
+pub unsafe extern "C" fn pdf_dev_bop(M: &TMatrix) {
     graphics_mode();
     text_state.force_reset = 0i32;
     pdf_dev_gsave();
@@ -1696,11 +1758,11 @@ pub unsafe extern "C" fn pdf_dev_set_rule(
     /* Don't use too thick line. */
     let width_in_bp = (if width < height { width } else { height }) as f64 * dev_unit.dvi2pts;
     if width_in_bp < 0.0f64 || width_in_bp > 5.0f64 {
-        let mut rect = pdf_rect::new();
-        rect.llx = dev_unit.dvi2pts * xpos as f64;
-        rect.lly = dev_unit.dvi2pts * ypos as f64;
-        rect.urx = dev_unit.dvi2pts * width as f64;
-        rect.ury = dev_unit.dvi2pts * height as f64;
+        let mut rect = Rect::zero();
+        rect.ll.x = dev_unit.dvi2pts * xpos as f64;
+        rect.ll.y = dev_unit.dvi2pts * ypos as f64;
+        rect.ur.x = dev_unit.dvi2pts * width as f64;
+        rect.ur.y = dev_unit.dvi2pts * height as f64;
         len += pdf_sprint_rect(&mut format_buffer[len..], &rect);
         let fresh62 = len;
         len = len + 1;
@@ -1761,17 +1823,17 @@ pub unsafe extern "C" fn pdf_dev_set_rule(
 /* Rectangle in device space coordinate. */
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_set_rect(
-    rect: &mut pdf_rect,
+    rect: &mut Rect,
     mut x_user: spt_t,
     mut y_user: spt_t,
     mut width: spt_t,
     mut height: spt_t,
     mut depth: spt_t,
 ) {
-    let mut p0 = pdf_coord::zero();
-    let mut p1 = pdf_coord::zero();
-    let mut p2 = pdf_coord::zero();
-    let mut p3 = pdf_coord::zero();
+    let mut p0 = Coord::zero();
+    let mut p1 = Coord::zero();
+    let mut p2 = Coord::zero();
+    let mut p3 = Coord::zero();
     let dev_x = x_user as f64 * dev_unit.dvi2pts; /* currentmatrix */
     let dev_y = y_user as f64 * dev_unit.dvi2pts; /* 0 for B&W */
     if text_state.dir_mode != 0 {
@@ -1797,22 +1859,14 @@ pub unsafe extern "C" fn pdf_dev_set_rect(
     pdf_dev_transform(&mut p1, None);
     pdf_dev_transform(&mut p2, None);
     pdf_dev_transform(&mut p3, None);
-    let mut min_x = if p0.x < p1.x { p0.x } else { p1.x };
-    min_x = if min_x < p2.x { min_x } else { p2.x };
-    min_x = if min_x < p3.x { min_x } else { p3.x };
-    let mut max_x = if p0.x > p1.x { p0.x } else { p1.x };
-    max_x = if max_x > p2.x { max_x } else { p2.x };
-    max_x = if max_x > p3.x { max_x } else { p3.x };
-    let mut min_y = if p0.y < p1.y { p0.y } else { p1.y };
-    min_y = if min_y < p2.y { min_y } else { p2.y };
-    min_y = if min_y < p3.y { min_y } else { p3.y };
-    let mut max_y = if p0.y > p1.y { p0.y } else { p1.y };
-    max_y = if max_y > p2.y { max_y } else { p2.y };
-    max_y = if max_y > p3.y { max_y } else { p3.y };
-    rect.llx = min_x;
-    rect.lly = min_y;
-    rect.urx = max_x;
-    rect.ury = max_y;
+    let min_x = p0.x.min(p1.x).min(p2.x).min(p3.x);
+    let max_x = p0.x.max(p1.x).max(p2.x).max(p3.x);
+    let min_y = p0.y.min(p1.y).min(p2.y).min(p3.y);
+    let max_y = p0.y.max(p1.y).max(p2.y).max(p3.y);
+    rect.ll.x = min_x;
+    rect.ll.y = min_y;
+    rect.ur.x = max_x;
+    rect.ur.y = max_y;
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_get_dirmode() -> i32 {
@@ -1894,9 +1948,9 @@ pub unsafe extern "C" fn pdf_dev_put_image(
     mut ref_x: f64,
     mut ref_y: f64,
 ) -> i32 {
-    let mut M = pdf_tmatrix::new();
-    let mut M1 = pdf_tmatrix::new();
-    let mut r = pdf_rect::new();
+    let mut M = TMatrix::new();
+    let mut M1 = TMatrix::new();
+    let mut r = Rect::zero();
     if num_dev_coords > 0i32 {
         ref_x -= (*dev_coords.offset((num_dev_coords - 1i32) as isize)).x;
         ref_y -= (*dev_coords.offset((num_dev_coords - 1i32) as isize)).y
@@ -1938,7 +1992,7 @@ pub unsafe extern "C" fn pdf_dev_put_image(
     pdf_dev_concat(&mut M);
     /* Clip */
     if p.flags & 1i32 << 3i32 != 0 {
-        pdf_dev_rectclip(r.llx, r.lly, r.urx - r.llx, r.ury - r.lly); /* op: Do */
+        r.clip(); /* op: Do */
     }
     let res_name = pdf_ximage_get_resname(id);
     let len = sprintf(
@@ -1950,54 +2004,40 @@ pub unsafe extern "C" fn pdf_dev_put_image(
     pdf_dev_grestore();
     pdf_doc_add_page_resource("XObject", res_name, pdf_ximage_get_reference(id));
     if dvi_is_tracking_boxes() {
-        let mut P = pdf_tmatrix::new();
-        let mut rect = pdf_rect::new();
-        let mut corner: [pdf_coord; 4] = [pdf_coord::zero(); 4];
+        let mut rect = Rect::zero();
+        let mut corner: [Coord; 4] = [Coord::zero(); 4];
         pdf_dev_set_rect(
             &mut rect,
-            (65536i32 as f64 * ref_x) as spt_t,
-            (65536i32 as f64 * ref_y) as spt_t,
-            (65536i32 as f64 * (r.urx - r.llx)) as spt_t,
-            (65536i32 as f64 * (r.ury - r.lly)) as spt_t,
+            (65536. * ref_x) as spt_t,
+            (65536. * ref_y) as spt_t,
+            (65536. * r.width()) as spt_t,
+            (65536. * r.height()) as spt_t,
             0i32,
         );
-        corner[0].x = rect.llx;
-        corner[0].y = rect.lly;
-        corner[1].x = rect.llx;
-        corner[1].y = rect.ury;
-        corner[2].x = rect.urx;
-        corner[2].y = rect.ury;
-        corner[3].x = rect.urx;
-        corner[3].y = rect.lly;
-        P.a = p.matrix.a;
-        P.b = p.matrix.b;
-        P.c = p.matrix.c;
-        P.d = p.matrix.d;
-        P.e = p.matrix.e;
-        P.f = p.matrix.f;
-        for i in 0..4 {
-            corner[i].x -= rect.llx;
-            corner[i].y -= rect.lly;
-            pdf_dev_transform(&mut *corner.as_mut_ptr().offset(i as isize), Some(&P));
-            corner[i].x += rect.llx;
-            corner[i].y += rect.lly;
+        corner[0] = rect.lower_left();
+        corner[1] = rect.upper_left();
+        corner[2] = rect.upper_right();
+        corner[3] = rect.lower_right();
+        let P = p.matrix;
+        for c in corner.iter_mut() {
+            *c -= rect.ll;
+            pdf_dev_transform(c, Some(&P));
+            *c += rect.ll;
         }
-        rect.llx = corner[0].x;
-        rect.lly = corner[0].y;
-        rect.urx = corner[0].x;
-        rect.ury = corner[0].y;
-        for i in 0..4 {
-            if corner[i].x < rect.llx {
-                rect.llx = corner[i].x
+        rect.ll = corner[0];
+        rect.ur = corner[0];
+        for c in corner.iter() {
+            if c.x < rect.ll.x {
+                rect.ll.x = c.x
             }
-            if corner[i].x > rect.urx {
-                rect.urx = corner[i].x
+            if c.x > rect.ur.x {
+                rect.ur.x = c.x
             }
-            if corner[i].y < rect.lly {
-                rect.lly = corner[i].y
+            if c.y < rect.ll.y {
+                rect.ll.y = c.y
             }
-            if corner[i].y > rect.ury {
-                rect.ury = corner[i].y
+            if c.y > rect.ur.y {
+                rect.ur.y = c.y
             }
         }
         pdf_doc_expand_box(&mut rect);
@@ -2010,17 +2050,9 @@ pub unsafe extern "C" fn transform_info_clear(info: &mut transform_info) {
     info.width = 0.;
     info.height = 0.;
     info.depth = 0.;
-    info.bbox.llx = 0.;
-    info.bbox.lly = 0.;
-    info.bbox.urx = 0.;
-    info.bbox.ury = 0.;
+    info.bbox = Rect::zero();
     /* Transformation matrix */
-    info.matrix.a = 1.;
-    info.matrix.b = 0.;
-    info.matrix.c = 0.;
-    info.matrix.d = 1.;
-    info.matrix.e = 0.;
-    info.matrix.f = 0.;
+    info.matrix = TMatrix::identity();
     info.flags = 0;
 }
 #[no_mangle]

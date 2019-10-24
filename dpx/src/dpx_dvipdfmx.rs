@@ -32,6 +32,7 @@ use super::dpx_dvi::{
     dvi_scan_specials, dvi_set_verbose,
 };
 use super::dpx_pdfdev::{
+    Rect, Coord,
     pdf_close_device, pdf_dev_reset_global_state, pdf_dev_set_verbose, pdf_init_device,
 };
 use super::dpx_pdfdoc::pdf_doc_set_mediabox;
@@ -77,7 +78,6 @@ pub struct page_range {
     pub first: i32,
     pub last: i32,
 }
-use super::dpx_pdfdev::pdf_rect;
 #[no_mangle]
 pub static mut is_xdv: i32 = 0i32;
 #[no_mangle]
@@ -313,17 +313,15 @@ unsafe fn system_default() {
     };
 }
 unsafe fn do_dvi_pages(mut page_ranges: *mut PageRange, mut num_page_ranges: u32) {
-    let mut mediabox = pdf_rect::new();
+    let mut mediabox = Rect::zero();
     spc_exec_at_begin_document();
     let mut page_width = paper_width;
     let init_paper_width = page_width;
     let mut page_height = paper_height;
     let init_paper_height = page_height;
     let mut page_count = 0;
-    mediabox.llx = 0.0f64;
-    mediabox.lly = 0.0f64;
-    mediabox.urx = paper_width;
-    mediabox.ury = paper_height;
+    mediabox.ll = Coord::zero();
+    mediabox.ur = Coord::new(paper_width, paper_height);
     pdf_doc_set_mediabox(0_u32, &mediabox);
     let mut i = 0;
     while i < num_page_ranges && dvi_npages() != 0 {
@@ -379,10 +377,7 @@ unsafe fn do_dvi_pages(mut page_ranges: *mut PageRange, mut num_page_ranges: u32
                     y_offset = yo
                 }
                 if page_width != init_paper_width || page_height != init_paper_height {
-                    mediabox.llx = 0.0f64;
-                    mediabox.lly = 0.0f64;
-                    mediabox.urx = page_width;
-                    mediabox.ury = page_height;
+                    mediabox = Rect::new((0., 0.), (page_width, page_height));
                     pdf_doc_set_mediabox(page_count + 1, &mediabox);
                 }
                 dvi_do_page(page_height, x_offset, y_offset);

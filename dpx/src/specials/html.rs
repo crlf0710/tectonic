@@ -39,13 +39,13 @@ use super::{spc_begin_annot, spc_end_annot};
 use crate::dpx_dpxutil::{parse_c_ident, parse_float_decimal};
 use crate::dpx_mem::new;
 use crate::dpx_pdfdev::{
-    graphics_mode, pdf_rect, pdf_tmatrix, transform_info, transform_info_clear,
+    graphics_mode, Rect, TMatrix, transform_info, transform_info_clear,
 };
 use crate::dpx_pdfdoc::{
     pdf_doc_add_names, pdf_doc_add_page_content, pdf_doc_add_page_resource,
     pdf_doc_current_page_resources, pdf_doc_get_reference,
 };
-use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
+use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_link_obj, pdf_lookup_dict, pdf_new_array, pdf_new_boolean,
     pdf_new_dict, pdf_new_name, pdf_new_null, pdf_new_number, pdf_new_string, pdf_obj,
@@ -77,7 +77,7 @@ pub struct C2RustUnnamed_0 {
 
 use crate::dpx_pdfximage::load_options;
 
-use crate::dpx_pdfdev::pdf_coord;
+use crate::dpx_pdfdev::Coord;
 
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -381,7 +381,7 @@ unsafe fn html_open_dest(
     mut name: *const i8,
     mut sd: *mut spc_html_,
 ) -> i32 {
-    let mut cp = pdf_coord::new((*spe).x_user, (*spe).y_user);
+    let mut cp = Coord::new((*spe).x_user, (*spe).y_user);
     pdf_dev_transform(&mut cp, None);
     let page_ref = pdf_doc_get_reference("@THISPAGE");
     assert!(!page_ref.is_null());
@@ -581,8 +581,8 @@ unsafe fn spc_html__img_empty(mut spe: *mut spc_env, mut attr: *mut pdf_obj) -> 
     let mut error: i32 = 0i32;
     let mut alpha: f64 = 1.0f64;
     /* ENABLE_HTML_SVG_OPACITY */
-    let mut M1 = pdf_tmatrix::new();
-    let mut M: pdf_tmatrix = pdf_tmatrix {
+    let mut M1 = TMatrix::new();
+    let mut M: TMatrix = TMatrix {
         a: 1.,
         b: 0.,
         c: 0.,
@@ -624,7 +624,7 @@ unsafe fn spc_html__img_empty(mut spe: *mut spc_env, mut attr: *mut pdf_obj) -> 
     /* ENABLE_HTML_SVG_OPCAITY */
     if let Some(obj) = pdf_lookup_dict(attr, "svg:transform") {
         let mut p: *const i8 = pdf_string_value(obj) as *const i8;
-        let mut N = pdf_tmatrix::new();
+        let mut N = TMatrix::new();
         while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
             p = p.offset(1)
         }
@@ -678,7 +678,7 @@ unsafe fn spc_html__img_empty(mut spe: *mut spc_env, mut attr: *mut pdf_obj) -> 
         ); /* op: gs */
         error = -1i32
     } else {
-        let mut r = pdf_rect::new();
+        let mut r = Rect::zero();
         graphics_mode();
         pdf_dev_gsave();
         let mut a: i32 = (100.0f64 * alpha).round() as i32;
@@ -711,7 +711,7 @@ unsafe fn spc_html__img_empty(mut spe: *mut spc_env, mut attr: *mut pdf_obj) -> 
         M.e += M1.e * _tmp_a_0 + M1.f * _tmp_c_0;
         M.f += M1.e * _tmp_b_0 + M1.f * _tmp_d_0;
         pdf_dev_concat(&mut M);
-        pdf_dev_rectclip(r.llx, r.lly, r.urx - r.llx, r.ury - r.lly);
+        r.clip();
         let res_name = pdf_ximage_get_resname(id);
         pdf_doc_add_page_content(b" /");
         pdf_doc_add_page_content(CStr::from_ptr(res_name).to_bytes());
@@ -774,7 +774,7 @@ unsafe fn spc_handler_html_default(mut spe: *mut spc_env, mut ap: *mut spc_arg) 
 }
 /* translate wsp* '(' wsp* number (comma-wsp number)? wsp* ')' */
 unsafe fn cvt_a_to_tmatrix(
-    M: &mut pdf_tmatrix,
+    M: &mut TMatrix,
     mut ptr: *const i8,
     mut nextptr: *mut *const i8,
 ) -> i32 {

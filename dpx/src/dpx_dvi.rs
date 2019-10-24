@@ -101,7 +101,7 @@ pub type fixword = i32;
 /* quasi-hack to get the primary input */
 
 pub type spt_t = i32;
-use super::dpx_pdfdev::pdf_rect;
+use super::dpx_pdfdev::Rect;
 /*
  * The section below this line deals with the actual processing of the
  * dvi file.
@@ -1331,7 +1331,7 @@ pub unsafe extern "C" fn dvi_set(mut ch: i32) {
                 );
             }
             if dvi_is_tracking_boxes() {
-                let mut rect = pdf_rect::new();
+                let mut rect = Rect::zero();
                 let mut height = tfm_get_fw_height((*font).tfm_id, ch);
                 let mut depth = tfm_get_fw_depth((*font).tfm_id, ch);
                 height = sqxfw((*font).size, height);
@@ -1418,7 +1418,7 @@ pub unsafe extern "C" fn dvi_put(mut ch: i32) {
                 );
             }
             if dvi_is_tracking_boxes() {
-                let mut rect = pdf_rect::new();
+                let mut rect = Rect::zero();
                 let mut height = tfm_get_fw_height((*font).tfm_id, ch);
                 let mut depth = tfm_get_fw_depth((*font).tfm_id, ch);
                 height = sqxfw((*font).size, height);
@@ -1822,7 +1822,7 @@ unsafe fn do_glyphs(mut do_actual_text: i32) {
                 ((*font).size as f64 * advance as f64 / (*font).unitsPerEm as f64) as spt_t;
             glyph_width = (glyph_width as f32 * (*font).extend) as spt_t;
             if dvi_is_tracking_boxes() {
-                let mut rect = pdf_rect::new();
+                let mut rect = Rect::zero();
                 let height = ((*font).size as f64 * ascent / (*font).unitsPerEm as f64) as spt_t;
                 let depth = ((*font).size as f64 * -descent / (*font).unitsPerEm as f64) as spt_t;
                 pdf_dev_set_rect(

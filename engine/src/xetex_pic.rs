@@ -62,7 +62,7 @@ pub struct real_rect {
     pub wd: f32,
     pub ht: f32,
 }
-use dpx::dpx_pdfdev::{pdf_coord, pdf_rect};
+use dpx::dpx_pdfdev::{Coord, Rect};
 
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
@@ -86,7 +86,7 @@ use dpx::dpx_pdfdev::{pdf_coord, pdf_rect};
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
 
-use dpx::dpx_pdfdev::pdf_tmatrix;
+use dpx::dpx_pdfdev::TMatrix;
 
 #[no_mangle]
 pub unsafe extern "C" fn count_pdf_file_pages() -> i32 {
@@ -115,8 +115,8 @@ unsafe extern "C" fn pdf_get_rect(
     let mut dpx_options: i32 = 0;
     let mut pf: *mut pdf_file = 0 as *mut pdf_file;
     let mut page: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut bbox = pdf_rect::new();
-    let mut matrix = pdf_tmatrix::new();
+    let mut bbox = Rect::zero();
+    let mut matrix = TMatrix::new();
     pf = pdf_open(filename, handle);
     if pf.is_null() {
         /* TODO: issue warning */
@@ -159,22 +159,22 @@ unsafe extern "C" fn pdf_get_rect(
     /* Image's attribute "bbox" here is affected by /Rotate entry of included
      * PDF page.
      */
-    let mut p1 = pdf_coord::new(bbox.llx, bbox.lly);
+    let mut p1 = bbox.ll;
     pdf_dev_transform(&mut p1, Some(&matrix));
-    let mut p2 = pdf_coord::new(bbox.urx, bbox.lly);
+    let mut p2 = Coord::new(bbox.ur.x, bbox.ll.y);
     pdf_dev_transform(&mut p2, Some(&matrix));
-    let mut p3 = pdf_coord::new(bbox.urx, bbox.ury);
+    let mut p3 = bbox.ur;
     pdf_dev_transform(&mut p3, Some(&matrix));
-    let mut p4 = pdf_coord::new(bbox.llx, bbox.ury);
+    let mut p4 = Coord::new(bbox.ll.x, bbox.ur.y);
     pdf_dev_transform(&mut p4, Some(&matrix));
-    bbox.llx = min4(p1.x, p2.x, p3.x, p4.x);
-    bbox.lly = min4(p1.y, p2.y, p3.y, p4.y);
-    bbox.urx = max4(p1.x, p2.x, p3.x, p4.x);
-    bbox.ury = max4(p1.y, p2.y, p3.y, p4.y);
-    (*box_0).x = (72.27f64 / 72i32 as f64 * bbox.llx) as f32;
-    (*box_0).y = (72.27f64 / 72i32 as f64 * bbox.lly) as f32;
-    (*box_0).wd = (72.27f64 / 72i32 as f64 * (bbox.urx - bbox.llx)) as f32;
-    (*box_0).ht = (72.27f64 / 72i32 as f64 * (bbox.ury - bbox.lly)) as f32;
+    bbox.ll.x = min4(p1.x, p2.x, p3.x, p4.x);
+    bbox.ll.y = min4(p1.y, p2.y, p3.y, p4.y);
+    bbox.ur.x = max4(p1.x, p2.x, p3.x, p4.x);
+    bbox.ur.y = max4(p1.y, p2.y, p3.y, p4.y);
+    (*box_0).x = (72.27 / 72. * bbox.ll.x) as f32;
+    (*box_0).y = (72.27 / 72. * bbox.ll.y) as f32;
+    (*box_0).wd = (72.27 / 72. * (bbox.ur.x - bbox.ll.x)) as f32;
+    (*box_0).ht = (72.27 / 72. * (bbox.ur.y - bbox.ll.y)) as f32;
     0
 }
 unsafe extern "C" fn get_image_size_in_inches(
