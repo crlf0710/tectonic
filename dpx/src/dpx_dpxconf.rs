@@ -40,181 +40,115 @@ pub struct paper {
 }
 #[no_mangle]
 pub static mut paperspecs: [paper; 22] = [
-    {
-        let mut init = paper {
-            name: b"letter\x00" as *const u8 as *const i8,
-            pswidth: 612.00f64,
-            psheight: 792.00f64,
-        };
-        init
+    paper {
+        name: b"letter\x00" as *const u8 as *const i8,
+        pswidth: 612.00,
+        psheight: 792.00,
     },
-    {
-        let mut init = paper {
-            name: b"legal\x00" as *const u8 as *const i8,
-            pswidth: 612.00f64,
-            psheight: 1008.00f64,
-        };
-        init
+    paper {
+        name: b"legal\x00" as *const u8 as *const i8,
+        pswidth: 612.00,
+        psheight: 1008.00,
     },
-    {
-        let mut init = paper {
-            name: b"ledger\x00" as *const u8 as *const i8,
-            pswidth: 1224.00f64,
-            psheight: 792.00f64,
-        };
-        init
+    paper {
+        name: b"ledger\x00" as *const u8 as *const i8,
+        pswidth: 1224.00,
+        psheight: 792.00,
     },
-    {
-        let mut init = paper {
-            name: b"tabloid\x00" as *const u8 as *const i8,
-            pswidth: 792.00f64,
-            psheight: 1224.00f64,
-        };
-        init
+    paper {
+        name: b"tabloid\x00" as *const u8 as *const i8,
+        pswidth: 792.00,
+        psheight: 1224.00,
     },
-    {
-        let mut init = paper {
-            name: b"a6\x00" as *const u8 as *const i8,
-            pswidth: 297.638f64,
-            psheight: 419.528f64,
-        };
-        init
+    paper {
+        name: b"a6\x00" as *const u8 as *const i8,
+        pswidth: 297.638,
+        psheight: 419.528,
     },
-    {
-        let mut init = paper {
-            name: b"a5\x00" as *const u8 as *const i8,
-            pswidth: 419.528f64,
-            psheight: 595.276f64,
-        };
-        init
+    paper {
+        name: b"a5\x00" as *const u8 as *const i8,
+        pswidth: 419.528,
+        psheight: 595.276,
     },
-    {
-        let mut init = paper {
-            name: b"a4\x00" as *const u8 as *const i8,
-            pswidth: 595.276f64,
-            psheight: 841.890f64,
-        };
-        init
+    paper {
+        name: b"a4\x00" as *const u8 as *const i8,
+        pswidth: 595.276,
+        psheight: 841.890,
     },
-    {
-        let mut init = paper {
-            name: b"a3\x00" as *const u8 as *const i8,
-            pswidth: 841.890f64,
-            psheight: 1190.550f64,
-        };
-        init
+    paper {
+        name: b"a3\x00" as *const u8 as *const i8,
+        pswidth: 841.890,
+        psheight: 1190.550,
     },
-    {
-        let mut init = paper {
-            name: b"b6\x00" as *const u8 as *const i8,
-            pswidth: 364.25f64,
-            psheight: 515.91f64,
-        };
-        init
+    paper {
+        name: b"b6\x00" as *const u8 as *const i8,
+        pswidth: 364.25,
+        psheight: 515.91,
     },
-    {
-        let mut init = paper {
-            name: b"b5\x00" as *const u8 as *const i8,
-            pswidth: 515.91f64,
-            psheight: 728.50f64,
-        };
-        init
+    paper {
+        name: b"b5\x00" as *const u8 as *const i8,
+        pswidth: 515.91,
+        psheight: 728.50,
     },
-    {
-        let mut init = paper {
-            name: b"b4\x00" as *const u8 as *const i8,
-            pswidth: 728.50f64,
-            psheight: 1031.81f64,
-        };
-        init
+    paper {
+        name: b"b4\x00" as *const u8 as *const i8,
+        pswidth: 728.50,
+        psheight: 1031.81,
     },
-    {
-        let mut init = paper {
-            name: b"b3\x00" as *const u8 as *const i8,
-            pswidth: 1031.81f64,
-            psheight: 1457.00f64,
-        };
-        init
+    paper {
+        name: b"b3\x00" as *const u8 as *const i8,
+        pswidth: 1031.81,
+        psheight: 1457.00,
     },
-    {
-        let mut init = paper {
-            name: b"b5var\x00" as *const u8 as *const i8,
-            pswidth: 515.91f64,
-            psheight: 651.97f64,
-        };
-        init
+    paper {
+        name: b"b5var\x00" as *const u8 as *const i8,
+        pswidth: 515.91,
+        psheight: 651.97,
     },
-    {
-        let mut init = paper {
-            name: b"jisb6\x00" as *const u8 as *const i8,
-            pswidth: 364.25f64,
-            psheight: 515.91f64,
-        };
-        init
+    paper {
+        name: b"jisb6\x00" as *const u8 as *const i8,
+        pswidth: 364.25,
+        psheight: 515.91,
     },
-    {
-        let mut init = paper {
-            name: b"jisb5\x00" as *const u8 as *const i8,
-            pswidth: 515.91f64,
-            psheight: 728.50f64,
-        };
-        init
+    paper {
+        name: b"jisb5\x00" as *const u8 as *const i8,
+        pswidth: 515.91,
+        psheight: 728.50,
     },
-    {
-        let mut init = paper {
-            name: b"jisb4\x00" as *const u8 as *const i8,
-            pswidth: 728.50f64,
-            psheight: 1031.81f64,
-        };
-        init
+    paper {
+        name: b"jisb4\x00" as *const u8 as *const i8,
+        pswidth: 728.50,
+        psheight: 1031.81,
     },
-    {
-        let mut init = paper {
-            name: b"jisb3\x00" as *const u8 as *const i8,
-            pswidth: 1031.81f64,
-            psheight: 1457.00f64,
-        };
-        init
+    paper {
+        name: b"jisb3\x00" as *const u8 as *const i8,
+        pswidth: 1031.81,
+        psheight: 1457.00,
     },
-    {
-        let mut init = paper {
-            name: b"isob6\x00" as *const u8 as *const i8,
-            pswidth: 354.331f64,
-            psheight: 498.898f64,
-        };
-        init
+    paper {
+        name: b"isob6\x00" as *const u8 as *const i8,
+        pswidth: 354.331,
+        psheight: 498.898,
     },
-    {
-        let mut init = paper {
-            name: b"isob5\x00" as *const u8 as *const i8,
-            pswidth: 498.898f64,
-            psheight: 708.661f64,
-        };
-        init
+    paper {
+        name: b"isob5\x00" as *const u8 as *const i8,
+        pswidth: 498.898,
+        psheight: 708.661,
     },
-    {
-        let mut init = paper {
-            name: b"isob4\x00" as *const u8 as *const i8,
-            pswidth: 708.661f64,
-            psheight: 1000.630f64,
-        };
-        init
+    paper {
+        name: b"isob4\x00" as *const u8 as *const i8,
+        pswidth: 708.661,
+        psheight: 1000.630,
     },
-    {
-        let mut init = paper {
-            name: b"isob3\x00" as *const u8 as *const i8,
-            pswidth: 1000.630f64,
-            psheight: 1417.320f64,
-        };
-        init
+    paper {
+        name: b"isob3\x00" as *const u8 as *const i8,
+        pswidth: 1000.630,
+        psheight: 1417.320,
     },
-    {
-        let mut init = paper {
-            name: 0 as *const i8,
-            pswidth: 0i32 as f64,
-            psheight: 0i32 as f64,
-        };
-        init
+    paper {
+        name: 0 as *const i8,
+        pswidth: 0.0,
+        psheight: 0.0,
     },
 ];
 #[no_mangle]
