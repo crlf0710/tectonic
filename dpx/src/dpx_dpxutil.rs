@@ -73,32 +73,6 @@ pub fn xtoi(c: u8) -> i32 {
     }
     -1
 }
-pub fn min4(mut x1: f64, mut x2: f64, mut x3: f64, mut x4: f64) -> f64 {
-    let mut v: f64 = x1;
-    if x2 < v {
-        v = x2
-    }
-    if x3 < v {
-        v = x3
-    }
-    if x4 < v {
-        v = x4
-    }
-    v
-}
-pub fn max4(mut x1: f64, mut x2: f64, mut x3: f64, mut x4: f64) -> f64 {
-    let mut v: f64 = x1;
-    if x2 > v {
-        v = x2
-    }
-    if x3 > v {
-        v = x3
-    }
-    if x4 > v {
-        v = x4
-    }
-    v
-}
 #[no_mangle]
 pub unsafe extern "C" fn skip_white_spaces(mut s: *mut *mut u8, mut endptr: *mut u8) {
     while *s < endptr {

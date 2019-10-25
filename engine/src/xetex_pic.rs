@@ -25,7 +25,6 @@ use crate::xetex_xetex0::{
 use crate::TTInputFormat;
 use crate::{ttstub_input_close, ttstub_input_open};
 use dpx::dpx_bmpimage::{bmp_get_bbox, check_for_bmp};
-use dpx::dpx_dpxutil::{max4, min4};
 use dpx::dpx_jpegimage::{check_for_jpeg, jpeg_get_bbox};
 use dpx::dpx_pdfdoc::{pdf_doc_get_page, pdf_doc_get_page_count};
 use dpx::dpx_pdfdraw::pdf_dev_transform;
@@ -167,10 +166,10 @@ unsafe extern "C" fn pdf_get_rect(
     pdf_dev_transform(&mut p3, Some(&matrix));
     let mut p4 = Coord::new(bbox.ll.x, bbox.ur.y);
     pdf_dev_transform(&mut p4, Some(&matrix));
-    bbox.ll.x = min4(p1.x, p2.x, p3.x, p4.x);
-    bbox.ll.y = min4(p1.y, p2.y, p3.y, p4.y);
-    bbox.ur.x = max4(p1.x, p2.x, p3.x, p4.x);
-    bbox.ur.y = max4(p1.y, p2.y, p3.y, p4.y);
+    bbox.ll.x = p1.x.min(p2.x).min(p3.x).min(p4.x);
+    bbox.ll.y = p1.y.min(p2.y).min(p3.y).min(p4.y);
+    bbox.ur.x = p1.x.max(p2.x).max(p3.x).max(p4.x);
+    bbox.ur.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
     (*box_0).x = (72.27 / 72. * bbox.ll.x) as f32;
     (*box_0).y = (72.27 / 72. * bbox.ll.y) as f32;
     (*box_0).wd = (72.27 / 72. * (bbox.ur.x - bbox.ll.x)) as f32;
