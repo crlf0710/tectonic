@@ -2607,7 +2607,7 @@ unsafe extern "C" fn filter_decoded(
                 }
             } else if parms.bits_per_component == 16i32 {
                 while p.offset(length as isize) < endptr {
-                    for i in 0..length {
+                    for i in (0..length).step_by(2) {
                         let mut b: libc::c_int = i - bytes_per_pixel;
                         let mut hi: i8 = (if b >= 0i32 {
                             *buf.offset(b as isize) as libc::c_int
