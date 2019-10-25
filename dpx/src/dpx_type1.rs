@@ -909,7 +909,8 @@ pub unsafe extern "C" fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
     *(*cstring).offset.offset(0) = 1i32 as l_offset;
     let mut current_block_150: u64;
     /* The num_glyphs increases if "seac" operators are used. */
-    for gid_0 in 0..num_glyphs as i32 {
+    let mut gid_0 = 0_u16;
+    while (gid_0 as i32) < num_glyphs as i32 {
         if offset + 65536i32 >= dstlen_max {
             dstlen_max += 65536i32 * 2i32;
             (*cstring).data = renew(
@@ -1017,6 +1018,7 @@ pub unsafe extern "C" fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
             17100064147490331435 => *widths.offset(gid_0 as isize) = gm.wx,
             _ => {}
         }
+        gid_0 = gid_0.wrapping_add(1)
     }
     (*cstring).count = num_glyphs;
     cff_release_index(*cffont.subrs.offset(0));
