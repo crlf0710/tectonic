@@ -560,7 +560,7 @@ pub fn agl_name_is_unicode(glyphname: &[u8]) -> bool {
          * Check if the 4th character is uppercase hexadecimal digit.
          * "union" should not be treated as Unicode glyph name.
          */
-        if c.is_ascii_digit() || c >= b'A' && c <= b'F' {
+        if c.is_ascii_digit() || (b'A'..=b'F').contains(&c) {
             return true;
         } else {
             return false;
@@ -568,7 +568,7 @@ pub fn agl_name_is_unicode(glyphname: &[u8]) -> bool {
     } else {
         if len <= 7 && len >= 5 && glyphname[0] == b'u' {
             for c in &glyphname[1..(len - 1)] {
-                if !c.is_ascii_digit() && (*c < b'A' || *c > b'F') {
+                if !c.is_ascii_digit() && !(b'A'..=b'F').contains(c) {
                     return false;
                 }
             }
@@ -593,7 +593,7 @@ pub unsafe extern "C" fn agl_name_convert_unicode(mut glyphname: *const i8) -> i
     };
     let mut ucv = 0;
     while *p as i32 != '\u{0}' as i32 && *p as i32 != '.' as i32 {
-        if libc::isdigit(*p as _) == 0 && ((*p as i32) < 'A' as i32 || *p as i32 > 'F' as i32) {
+        if !(*p as u8).is_ascii_digit() && ((*p as i32) < 'A' as i32 || *p as i32 > 'F' as i32) {
             warn!(
                 "Invalid char {} in Unicode glyph name {}.",
                 char::from(*p as u8),
@@ -602,7 +602,7 @@ pub unsafe extern "C" fn agl_name_convert_unicode(mut glyphname: *const i8) -> i
             return -1i32;
         }
         ucv <<= 4i32;
-        ucv += if libc::isdigit(*p as _) != 0 {
+        ucv += if (*p as u8).is_ascii_digit() {
             *p as i32 - '0' as i32
         } else {
             *p as i32 - 'A' as i32 + 10i32
@@ -622,12 +622,12 @@ pub unsafe extern "C" fn agl_name_convert_unicode(mut glyphname: *const i8) -> i
 
 fn xtol(mut buf: &[u8]) -> i32 {
     let mut v: i32 = 0i32;
-    for &b in buf {
+    for b in buf {
         v <<= 4;
         if b.is_ascii_digit() {
-            v += (b - b'0') as i32;
-        } else if b >= b'A' && b <= b'F' {
-            v += (b - b'A' + 10) as i32;
+            v += (*b - b'0') as i32;
+        } else if (b'A'..=b'F').contains(b) {
+            v += (*b - b'A' + 10) as i32;
         } else {
             return -1;
         }

@@ -194,12 +194,12 @@ pub unsafe extern "C" fn parse_number(mut start: *mut *const i8, mut end: *const
     if p < end && (*p as i32 == '+' as i32 || *p as i32 == '-' as i32) {
         p = p.offset(1)
     }
-    while p < end && libc::isdigit(*p as _) != 0 {
+    while p < end && (*p as u8).is_ascii_digit() {
         p = p.offset(1)
     }
     if p < end && *p as i32 == '.' as i32 {
         p = p.offset(1);
-        while p < end && libc::isdigit(*p as _) != 0 {
+        while p < end && (*p as u8).is_ascii_digit() {
             p = p.offset(1)
         }
     }
@@ -212,7 +212,7 @@ pub unsafe extern "C" fn parse_unsigned(mut start: *mut *const i8, mut end: *con
     skip_white(start, end);
     let mut p = *start;
     while p < end {
-        if libc::isdigit(*p as _) == 0 {
+        if !(*p as u8).is_ascii_digit() {
             break;
         }
         p = p.offset(1)
@@ -373,24 +373,24 @@ unsafe fn try_pdf_reference(
     let mut gen: u16 = 0_u16;
     assert!(!pf.is_null());
     p.skip_white();
-    if p.len() < 5 || libc::isdigit(p[0] as _) == 0 {
+    if p.len() < 5 || !p[0].is_ascii_digit() {
         return None;
     }
     while !is_space(&p[0])
     {
-        if p.is_empty() || libc::isdigit(p[0] as _) == 0 {
+        if p.is_empty() || !p[0].is_ascii_digit() {
             return None;
         }
         id = id*10 + (p[0] as u32 - '0' as u32);
         p = &p[1..];
     }
     p.skip_white();
-    if p.is_empty() || libc::isdigit(p[0] as _) == 0 {
+    if p.is_empty() || !p[0].is_ascii_digit() {
         return None;
     }
     while !is_space(&(p[0]))
     {
-        if p.is_empty() || libc::isdigit(p[0] as _) == 0 {
+        if p.is_empty() || !p[0].is_ascii_digit() {
             return None;
         }
         gen = (gen as i32 * 10 + (p[0] as i32 - '0' as i32)) as u16;
@@ -858,7 +858,7 @@ impl ParsePdfObj for &[u8] {
             } else {
                 if self[0] == b'<'
                     && (self[1] == b'>'
-                        || unsafe { libc::isxdigit(self[1] as _) } != 0)
+                        || self[1].is_ascii_hexdigit())
                 {
                     return unsafe { self.parse_pdf_hex_string() };
                 }
@@ -912,7 +912,7 @@ impl ParsePdfObj for &[u8] {
                     *pp = &[];
                     return -1;
                 }
-                if libc::isxdigit(p[1] as _) == 0 || libc::isxdigit(p[2] as _) == 0 {
+                if p[1].is_ascii_hexdigit() || p[2].is_ascii_hexdigit() {
                     *pp = &(*pp)[3..];
                     return -1;
                 }
@@ -966,7 +966,7 @@ impl ParsePdfObj for &[u8] {
         let mut p = *self;
         p.skip_white();
         if p.is_empty()
-            || unsafe { libc::isdigit(p[0] as _) } == 0
+            || !p[0].is_ascii_digit()
                 && !(b".+-".contains(&p[0]))
         {
             warn!("Could not find a numeric object.");
@@ -998,7 +998,7 @@ impl ParsePdfObj for &[u8] {
                 } else {
                     has_dot = true
                 }
-            } else if unsafe { libc::isdigit(p[0] as _) } != 0 {
+            } else if p[0].is_ascii_digit() {
                 if has_dot {
                     v += (p[0] - b'0') as f64 / (10_f64).powf((nddigits + 1) as f64);
                     nddigits += 1

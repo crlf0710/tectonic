@@ -62,13 +62,13 @@ pub struct ht_iter {
 */
 
 pub fn xtoi(c: u8) -> i32 {
-    if c >= b'0' && c <= b'9' {
+    if c.is_ascii_digit() {
         return (c - b'0') as i32;
     }
-    if c >= b'A' && c <= b'F' {
+    if (b'A'..=b'F').contains(&c) {
         return (c - b'A' + 10) as i32;
     }
-    if c >= b'a' && c <= b'f' {
+    if (b'a'..=b'f').contains(&c) {
         return (c - b'a' + 10) as i32;
     }
     -1
@@ -391,12 +391,12 @@ unsafe fn read_c_escchar(mut r: *mut i8, mut pp: *mut *const i8, mut endptr: *co
             c = 0i32;
             let mut i_0 = 0;
             p = p.offset(1);
-            while i_0 < 2i32 && p < endptr && libc::isxdigit(*p.offset(0) as _) != 0 {
+            while i_0 < 2i32 && p < endptr && (*p.offset(0) as u8).is_ascii_hexdigit() {
                 c = (c << 4i32)
-                    + (if libc::isdigit(*p.offset(0) as _) != 0 {
+                    + (if (*p.offset(0) as u8).is_ascii_digit() {
                         *p.offset(0) as i32 - '0' as i32
                     } else {
-                        (if libc::islower(*p.offset(0) as _) != 0 {
+                        (if (*p.offset(0) as u8).is_ascii_lowercase() {
                             *p.offset(0) as i32 - 'a' as i32 + 10i32
                         } else {
                             *p.offset(0) as i32 - 'A' as i32 + 10i32
@@ -510,7 +510,7 @@ pub trait ParseCString {
 
 impl ParseCString for &[u8] {
     fn parse_c_string(&mut self) -> Option<CString> {
-        unsafe fn read_c_escchar(pp: &mut &[u8]) -> (i32, u8) {
+        fn read_c_escchar(pp: &mut &[u8]) -> (i32, u8) {
             let mut c = 0i32;
             let mut l = 1;
             let mut p = *pp;
@@ -575,12 +575,12 @@ impl ParseCString for &[u8] {
                     c = 0;
                     let mut i_0 = 0;
                     p = &p[1..];
-                    while i_0 < 2 && !p.is_empty() && libc::isxdigit(p[0] as _) != 0 {
+                    while i_0 < 2 && !p.is_empty() && p[0].is_ascii_hexdigit() {
                         c = (c << 4)
-                            + (if libc::isdigit(p[0] as _) != 0 {
+                            + (if p[0].is_ascii_digit() {
                                 (p[0] - b'0') as i32
                             } else {
-                                (if libc::islower(p[0] as _) != 0 {
+                                (if p[0].is_ascii_lowercase() {
                                     (p[0] - b'a' + 10) as i32
                                 } else {
                                     (p[0] - b'A' + 10) as i32
@@ -605,7 +605,7 @@ impl ParseCString for &[u8] {
         
         const C_QUOTE: u8 = b'"';
         const C_ESCAPE: u8 = b'\\';
-        unsafe fn read_c_litstrc(
+        fn read_c_litstrc(
             q: &mut Option<Vec<u8>>,
             mut len: i32,
             pp: &mut &[u8],
@@ -667,11 +667,11 @@ impl ParseCString for &[u8] {
             return None;
         }
         p = &p[1..];
-        let mut l = unsafe { read_c_litstrc(&mut None, 0i32, &mut p) };
+        let mut l = read_c_litstrc(&mut None, 0i32, &mut p);
         if l >= 0 {
             let mut v = Some(vec![0u8; l as usize + 1]);
             p = &(*self)[1..];
-            unsafe { read_c_litstrc(&mut v, l + 1, &mut p); }
+            read_c_litstrc(&mut v, l + 1, &mut p);
             q = Some(CStr::from_bytes_with_nul(v.unwrap().as_slice()).unwrap().to_owned());
         }
         *self = p;
@@ -712,8 +712,7 @@ impl ParseCIdent for &[u8] {
     fn parse_c_ident(&mut self) -> Option<CString> {
         if self.len() == 0
             || !(self[0] == b'_'
-                || (b'a'..=b'z').contains(&self[0])
-                || (b'A'..=b'Z').contains(&self[0])
+                || self[0].is_ascii_alphabetic()
             )
         {
             return None;
@@ -721,9 +720,7 @@ impl ParseCIdent for &[u8] {
         let mut n = 0;
         for p in *self {
             if !(*p == b'_'
-                || (b'a'..=b'z').contains(p)
-                || (b'A'..=b'Z').contains(p)
-                || (b'0'..=b'9').contains(p)) {
+                || p.is_ascii_alphanumeric()) {
                     break;
             }
             n += 1;

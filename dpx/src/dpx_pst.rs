@@ -117,7 +117,7 @@ pub unsafe extern "C" fn pst_get_token(
             if c as i32 == '<' as i32 {
                 obj = pst_new_mark();
                 *inbuf = (*inbuf).offset(2)
-            } else if libc::isxdigit(c as _) != 0 {
+            } else if (c as u8).is_ascii_hexdigit() {
                 obj = pst_parse_string(inbuf, inbufend)
             } else if c as i32 == '~' as i32 {
                 /* ASCII85 */
@@ -153,7 +153,7 @@ pub unsafe extern "C" fn pst_get_token(
                 obj = pst_parse_null(inbuf, inbufend)
             } else if c as i32 == '+' as i32
                 || c as i32 == '-' as i32
-                || libc::isdigit(c as _) != 0
+                || (c as u8).is_ascii_digit()
                 || c as i32 == '.' as i32
             {
                 obj = pst_parse_number(inbuf, inbufend)

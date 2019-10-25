@@ -171,7 +171,7 @@ pub unsafe extern "C" fn spc_misc_setup_handler(
     let key = (*args).cur;
     let mut keylen = 0;
     for &c in (*args).cur {
-        if libc::isalpha(c as _) != 0 {
+        if (c as u8).is_ascii_alphabetic() {
             break;
         }
         keylen += 1;

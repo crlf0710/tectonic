@@ -110,9 +110,7 @@ unsafe fn parse_key_val(
                    
     let mut n = 0; /* Assume this is URL */
     while !p.is_empty()
-        && ((b'a'..=b'z').contains(&p[0])
-            || (b'A'..=b'Z').contains(&p[0])
-            || (b'0'..=b'9').contains(&p[0])
+        && (p[0].is_ascii_alphanumeric()
             || p[0] == b'-'
             || p[0] == b':') {
         n += 1;

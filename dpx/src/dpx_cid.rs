@@ -1276,7 +1276,7 @@ unsafe fn get_cidsysinfo(
             );
         }
         q = q.offset(1);
-        if libc::isdigit(*q.offset(0) as _) == 0 {
+        if !(*q.offset(0) as u8).is_ascii_digit() {
             panic!(
                 "{}: String can\'t be converted to REGISTRY-ORDERING-SUPPLEMENT: {}",
                 "CIDFont",

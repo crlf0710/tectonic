@@ -1374,7 +1374,7 @@ unsafe fn strip_options(mut map_name: *const i8, mut opt: *mut fontmap_opt) -> *
     (*opt).index = 0i32;
     (*opt).style = 0i32;
     (*opt).flags = 0i32;
-    if *p as i32 == ':' as i32 && libc::isdigit(*p.offset(1) as _) != 0 {
+    if *p as i32 == ':' as i32 && (*p.offset(1) as u8).is_ascii_digit() {
         (*opt).index = strtoul(p.offset(1), &mut next, 10i32) as i32;
         if *next as i32 == ':' as i32 {
             p = next.offset(1)

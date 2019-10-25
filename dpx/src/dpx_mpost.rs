@@ -3649,7 +3649,7 @@ unsafe fn mp_parse_body(
     let mut error: i32 = 0i32;
     skip_white(start, end);
     while *start < end && error == 0 {
-        if libc::isdigit(**start as _) != 0
+        if (**start as u8).is_ascii_digit()
             || *start < end.offset(-1)
                 && (**start as i32 == '+' as i32
                     || **start as i32 == '-' as i32

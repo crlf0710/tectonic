@@ -419,7 +419,7 @@ pub unsafe extern "C" fn spc_dvips_setup_handler(
     assert!(!handle.is_null() && !spe.is_null() && !args.is_null());
     (*args).cur.skip_white();
     let key = (*args).cur;
-    while !(*args).cur.is_empty() && libc::isalpha((*args).cur[0] as _) != 0 {
+    while !(*args).cur.is_empty() && ((*args).cur[0] as u8).is_ascii_alphabetic() {
         (*args).cur = &(*args).cur[1..];
     }
     /* Test for "ps:". The "ps::" special is subsumed under this case.  */
