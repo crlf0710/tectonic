@@ -185,17 +185,7 @@ pub unsafe extern "C" fn pdf_font_make_uniqueTag(mut tag: *mut i8) {
         return;
     }
     if unique_tag_state != 0 {
-        let current_time = match get_unique_time_if_given() {
-            Some(x) => x,
-            None => SystemTime::now(),
-        };
-
-        let seconds_since_epoch = current_time
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap_or_else(|x| x.duration())
-            .as_secs();
-
-        srand(seconds_since_epoch as _);
+        srand(0);
         unique_tag_state = 0i32
     }
     for i in 0..6 {

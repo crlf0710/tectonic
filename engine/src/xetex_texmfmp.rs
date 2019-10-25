@@ -16,6 +16,8 @@ use crate::xetex_stringpool::make_string;
 use crate::{ttstub_get_data_md5, ttstub_get_file_md5};
 use libc::{free, strlen};
 
+use std::env;
+
 pub type size_t = u64;
 pub type str_number = i32;
 pub type packed_UTF16_code = u16;
@@ -33,7 +35,16 @@ static mut last_lineno: i32 = 0;
 pub fn get_date_and_time() -> (i32, i32, i32, i32) {
     use chrono::prelude::*;
 
-    let tm = Local::now();
+    let tm = match env::var("SOURCE_DATE_EPOCH").ok() {
+        Some(s) => {
+            let epoch = u64::from_str_radix(&s, 10).expect("invalid build date (not a number)");
+            std::time::SystemTime::UNIX_EPOCH
+                .checked_add(std::time::Duration::from_secs(epoch))
+                .expect("time overflow")
+                .into()
+        }
+        None => Local::now(),
+    };
 
     let year = tm.year();
     let month = tm.month();
