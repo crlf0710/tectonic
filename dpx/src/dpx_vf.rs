@@ -354,46 +354,16 @@ unsafe fn unsigned_byte(mut start: *mut *mut u8, mut end: *mut u8) -> i32 {
 unsafe fn get_pkt_signed_num(mut start: *mut *mut u8, mut end: *mut u8, mut num: u8) -> i32 {
     let mut val;
     if end.wrapping_offset_from(*start) as i64 > num as i64 {
-        let fresh11 = *start;
+        val = **start as i32;
         *start = (*start).offset(1);
-        val = *fresh11 as i32;
         if val > 0x7fi32 {
             val -= 0x100i32
         }
-        let mut current_block_5: u64;
-        match num as i32 {
-            3 => {
-                let fresh12 = *start;
+        if 1 <= num && num <=3 {
+            for _ in 0..num {
+                val = (val << 8) | **start as i32;
                 *start = (*start).offset(1);
-                val = val << 8i32 | *fresh12 as i32;
-                current_block_5 = 9698575669066167445;
             }
-            2 => {
-                current_block_5 = 9698575669066167445;
-            }
-            1 => {
-                current_block_5 = 18113473374131038547;
-            }
-            _ => {
-                current_block_5 = 13183875560443969876;
-            }
-        }
-        match current_block_5 {
-            9698575669066167445 => {
-                let fresh13 = *start;
-                *start = (*start).offset(1);
-                val = val << 8i32 | *fresh13 as i32;
-                current_block_5 = 18113473374131038547;
-            }
-            _ => {}
-        }
-        match current_block_5 {
-            18113473374131038547 => {
-                let fresh14 = *start;
-                *start = (*start).offset(1);
-                val = val << 8i32 | *fresh14 as i32
-            }
-            _ => {}
         }
     } else {
         panic!("Premature end of DVI byte stream in VF font\n");
@@ -403,44 +373,29 @@ unsafe fn get_pkt_signed_num(mut start: *mut *mut u8, mut end: *mut u8, mut num:
 unsafe fn get_pkt_unsigned_num(mut start: *mut *mut u8, mut end: *mut u8, mut num: u8) -> i32 {
     let mut val;
     if end.wrapping_offset_from(*start) as i64 > num as i64 {
-        let fresh15 = *start;
+        val = **start as i32;
         *start = (*start).offset(1);
-        val = *fresh15 as i32;
-        let mut current_block_5: u64;
         match num as i32 {
             3 => {
                 if val > 0x7fi32 {
                     val -= 0x100i32
                 }
-                let fresh16 = *start;
+                val = (val << 8) | **start as i32;
                 *start = (*start).offset(1);
-                val = val << 8i32 | *fresh16 as i32;
-                current_block_5 = 5559910912116893431;
+                val = (val << 8) | **start as i32;
+                *start = (*start).offset(1);
+                val = (val << 8) | **start as i32;
+                *start = (*start).offset(1);
             }
             2 => {
-                current_block_5 = 5559910912116893431;
+                val = (val << 8) | **start as i32;
+                *start = (*start).offset(1);
+                val = (val << 8) | **start as i32;
+                *start = (*start).offset(1);
             }
             1 => {
-                current_block_5 = 15700427407090132107;
-            }
-            _ => {
-                current_block_5 = 13183875560443969876;
-            }
-        }
-        match current_block_5 {
-            5559910912116893431 => {
-                let fresh17 = *start;
+                val = (val << 8) | **start as i32;
                 *start = (*start).offset(1);
-                val = val << 8i32 | *fresh17 as i32;
-                current_block_5 = 15700427407090132107;
-            }
-            _ => {}
-        }
-        match current_block_5 {
-            15700427407090132107 => {
-                let fresh18 = *start;
-                *start = (*start).offset(1);
-                val = val << 8i32 | *fresh18 as i32
             }
             _ => {}
         }

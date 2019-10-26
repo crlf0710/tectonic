@@ -242,7 +242,6 @@ unsafe fn load_image(
     mut handle: InputHandleWrapper,
     mut options: load_options,
 ) -> i32 {
-    let mut current_block: u64;
     let mut ic: *mut ic_ = &mut _ic;
     let id = (*ic).count;
     if (*ic).count >= (*ic).capacity {
@@ -277,13 +276,15 @@ unsafe fn load_image(
             if _opts.verbose != 0 {
                 info!("[JPEG]");
             }
-            if jpeg_include_image(I, &mut handle) < 0i32 {
-                current_block = 15386155914718490365;
-            } else {
-                (*I).subtype = 1i32;
-                current_block = 14945149239039849694;
+            if jpeg_include_image(I, &mut handle) < 0 {
+                pdf_clean_ximage_struct(I);
+                return -1;
             }
+
+            (*I).subtype = 1;
             ttstub_input_close(handle);
+            // FIXME: `ttstub_input_close` is not used in this place in
+            // https://github.com/tectonic-typesetting/tectonic/blob/e4b884ceeeeda2808289d034480f27008a678746/tectonic/dpx-pdfximage.c#L254
         }
         7 => {
             if _opts.verbose != 0 {
@@ -291,33 +292,31 @@ unsafe fn load_image(
             }
             /*if (jp2_include_image(I, fp) < 0)*/
             warn!("Tectonic: JP2 not yet supported");
-            current_block = 15386155914718490365;
             ttstub_input_close(handle);
-        }
-        2 => {
+            pdf_clean_ximage_struct(I);
+            return -1;
             /*I->subtype = PDF_XOBJECT_TYPE_IMAGE;
             break;*/
+        }
+        2 => {
             if _opts.verbose != 0 {
                 info!("[PNG]");
             }
-            if png_include_image(I, &mut handle) < 0i32 {
-                current_block = 15386155914718490365;
-            } else {
-                (*I).subtype = 1i32;
-                current_block = 14945149239039849694;
-            }
+            if png_include_image(I, &mut handle) < 0 {
+                pdf_clean_ximage_struct(I);
+                return -1;
+            } 
             ttstub_input_close(handle);
         }
         6 => {
             if _opts.verbose != 0 {
                 info!("[BMP]");
             }
-            if bmp_include_image(I, &mut handle) < 0i32 {
-                current_block = 15386155914718490365;
-            } else {
-                (*I).subtype = 1i32;
-                current_block = 14945149239039849694;
+            if bmp_include_image(I, &mut handle) < 0 {
+                pdf_clean_ximage_struct(I);
+                return -1;
             }
+            (*I).subtype = 1;
             ttstub_input_close(handle);
         }
         0 => {
@@ -326,16 +325,15 @@ unsafe fn load_image(
             }
             let mut result: i32 = pdf_include_page(I, handle.clone(), fullname, options);
             /* Tectonic: this used to try ps_include_page() */
-            if result != 0i32 {
-                current_block = 15386155914718490365;
-            } else {
-                if _opts.verbose != 0 {
-                    info!(",Page:{}", (*I).attr.page_no);
-                }
-                (*I).subtype = 0i32;
-                current_block = 14945149239039849694;
+            if result != 0{
+                pdf_clean_ximage_struct(I);
+                return -1;
+            }
+            if _opts.verbose != 0 {
+                info!(",Page:{}", (*I).attr.page_no);
             }
             ttstub_input_close(handle);
+            (*I).subtype = 0;
         }
         5 => {
             if _opts.verbose != 0 {
@@ -343,48 +341,42 @@ unsafe fn load_image(
             }
             warn!("sorry, PostScript images are not supported by Tectonic");
             warn!("for details, please see https://github.com/tectonic-typesetting/tectonic/issues/27");
-            current_block = 15386155914718490365;
             ttstub_input_close(handle);
+            pdf_clean_ximage_struct(I);
+            return -1;
         }
         _ => {
             if _opts.verbose != 0 {
                 info!("[UNKNOWN]");
             }
-            current_block = 15386155914718490365;
+            /* Tectonic: this used to try ps_include_page() */
             ttstub_input_close(handle);
+            pdf_clean_ximage_struct(I);
+            return -1;
         }
     }
-    match current_block {
-        15386155914718490365 =>
-        /* Tectonic: this used to try ps_include_page() */
-        {
-            pdf_clean_ximage_struct(I);
-            return -1i32;
+
+    match (*I).subtype {
+        1 => {
+            sprintf(
+                (*I).res_name.as_mut_ptr(),
+                b"Im%d\x00" as *const u8 as *const i8,
+                id,
+            );
+        }
+        0 => {
+            sprintf(
+                (*I).res_name.as_mut_ptr(),
+                b"Fm%d\x00" as *const u8 as *const i8,
+                id,
+            );
         }
         _ => {
-            match (*I).subtype {
-                1 => {
-                    sprintf(
-                        (*I).res_name.as_mut_ptr(),
-                        b"Im%d\x00" as *const u8 as *const i8,
-                        id,
-                    );
-                }
-                0 => {
-                    sprintf(
-                        (*I).res_name.as_mut_ptr(),
-                        b"Fm%d\x00" as *const u8 as *const i8,
-                        id,
-                    );
-                }
-                _ => {
-                    panic!("Unknown XObject subtype: {}", (*I).subtype);
-                }
-            }
-            (*ic).count += 1;
-            return id;
+            panic!("Unknown XObject subtype: {}", (*I).subtype);
         }
-    };
+    }
+    (*ic).count += 1;
+    id
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_ximage_findresource(

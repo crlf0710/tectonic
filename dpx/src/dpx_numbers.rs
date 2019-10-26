@@ -119,34 +119,22 @@ pub unsafe extern "C" fn get_unsigned_quad(mut file: *mut FILE) -> u32 {
 #[no_mangle]
 pub unsafe extern "C" fn get_unsigned_num(mut file: *mut FILE, mut num: u8) -> u32 {
     let mut val = get_unsigned_byte(file) as u32;
-    let mut current_block_4: u64;
-    match num as i32 {
+    match num {
         3 => {
             if val > 0x7f_u32 {
-                val = (val as u32).wrapping_sub(0x100_u32) as u32
+                val = val.wrapping_sub(0x100_u32);
             }
-            val = val << 8i32 | get_unsigned_byte(file) as u32;
-            current_block_4 = 10942825333195857913;
+            val = (val << 8) | get_unsigned_byte(file) as u32;
+            val = (val << 8) | get_unsigned_byte(file) as u32;
+            val = (val << 8) | get_unsigned_byte(file) as u32;
         }
         2 => {
-            current_block_4 = 10942825333195857913;
+            val = (val << 8) | get_unsigned_byte(file) as u32;
+            val = (val << 8) | get_unsigned_byte(file) as u32;
         }
         1 => {
-            current_block_4 = 17819358871496454702;
+            val = (val << 8) | get_unsigned_byte(file) as u32;
         }
-        _ => {
-            current_block_4 = 7815301370352969686;
-        }
-    }
-    match current_block_4 {
-        10942825333195857913 => {
-            val = val << 8i32 | get_unsigned_byte(file) as u32;
-            current_block_4 = 17819358871496454702;
-        }
-        _ => {}
-    }
-    match current_block_4 {
-        17819358871496454702 => val = val << 8i32 | get_unsigned_byte(file) as u32,
         _ => {}
     }
     val
@@ -268,39 +256,21 @@ pub unsafe extern "C" fn tt_get_signed_quad(handle: &mut InputHandleWrapper) -> 
 #[no_mangle]
 pub unsafe extern "C" fn tt_get_unsigned_num(handle: &mut InputHandleWrapper, mut num: u8) -> u32 {
     let mut val: u32 = tt_get_unsigned_byte(handle) as u32;
-    let mut current_block_4: u64;
-    match num as i32 {
+    match num {
         3 => {
             if val > 0x7f_u32 {
-                val = (val as u32).wrapping_sub(0x100_u32) as u32 as u32
+                val = val.wrapping_sub(0x100_u32);
             }
-            val = val << 8i32 | tt_get_unsigned_byte(handle) as u32;
-            current_block_4 = 13589375657124263157;
+            val = (val << 8) | tt_get_unsigned_byte(handle) as u32;
+            val = (val << 8) | tt_get_unsigned_byte(handle) as u32;
+            val = (val << 8) | tt_get_unsigned_byte(handle) as u32;
         }
         2 => {
-            current_block_4 = 13589375657124263157;
+            val = (val << 8) | tt_get_unsigned_byte(handle) as u32;
+            val = (val << 8) | tt_get_unsigned_byte(handle) as u32;
         }
         1 => {
-            current_block_4 = 17178013025578009494;
-        }
-        _ => {
-            current_block_4 = 7815301370352969686;
-        }
-    }
-    match current_block_4 {
-        13589375657124263157 =>
-        /* fall through */
-        {
-            val = val << 8i32 | tt_get_unsigned_byte(handle) as u32;
-            current_block_4 = 17178013025578009494;
-        }
-        _ => {}
-    }
-    match current_block_4 {
-        17178013025578009494 =>
-        /* fall through */
-        {
-            val = val << 8i32 | tt_get_unsigned_byte(handle) as u32
+            val = (val << 8) | tt_get_unsigned_byte(handle) as u32;
         }
         _ => {}
     }

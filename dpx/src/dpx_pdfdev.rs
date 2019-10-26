@@ -691,32 +691,21 @@ unsafe fn text_mode() {
 }
 #[no_mangle]
 pub unsafe extern "C" fn graphics_mode() {
-    let mut current_block_3: u64;
     match motion_state {
-        MotionState::STRING_MODE => {
-            pdf_doc_add_page_content(if text_state.is_mb != 0 {
-                b">]TJ"
-            } else {
-                b")]TJ"
-            });
-            current_block_3 = 13064676843759196241;
-        }
-        MotionState::TEXT_MODE => {
-            current_block_3 = 13064676843759196241;
-        }
-        MotionState::GRAPHICS_MODE => {
-            current_block_3 = 11875828834189669668;
-        }
-    }
-    match current_block_3 {
-        13064676843759196241 =>
-        /* continue */
-        {
+        MotionState::GRAPHICS_MODE => {}
+        MotionState::STRING_MODE|MotionState::TEXT_MODE => {
+            if let MotionState::STRING_MODE = motion_state {
+                pdf_doc_add_page_content(if text_state.is_mb != 0 {
+                    b">]TJ"
+                } else {
+                    b")]TJ"
+                });
+            }
+            
             pdf_doc_add_page_content(b" ET"); /* op: ET */
             text_state.force_reset = 0i32;
             text_state.font_id = -1i32
         }
-        _ => {}
     }
     motion_state = MotionState::GRAPHICS_MODE;
 }
@@ -915,23 +904,12 @@ unsafe fn string_mode(
     mut extend: f64,
     mut rotate: TextWMode,
 ) {
-    let mut current_block_7: u64;
     match motion_state {
-        MotionState::GRAPHICS_MODE => {
-            reset_text_state();
-            current_block_7 = 1909977495246269370;
-        }
-        MotionState::TEXT_MODE => {
-            current_block_7 = 1909977495246269370;
-        }
-        MotionState::STRING_MODE => {
-            current_block_7 = 3640593987805443782;
-        }
-    }
-    match current_block_7 {
-        1909977495246269370 =>
-        /* continue */
-        {
+        MotionState::GRAPHICS_MODE|MotionState::TEXT_MODE => {
+            if let MotionState::GRAPHICS_MODE = motion_state {
+                reset_text_state();
+            }
+            
             if text_state.force_reset != 0 {
                 dev_set_text_matrix(xpos, ypos, slant, extend, rotate); /* op: */
                 pdf_doc_add_page_content(if text_state.is_mb != 0 { b"[<" } else { b"[(" });
@@ -940,7 +918,7 @@ unsafe fn string_mode(
                 start_string(xpos, ypos, slant, extend, rotate);
             }
         }
-        _ => {}
+        MotionState::STRING_MODE => {}
     }
     motion_state = MotionState::STRING_MODE;
 }
