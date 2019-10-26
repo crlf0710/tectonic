@@ -30,7 +30,7 @@ use crate::streq_ptr;
 use crate::warn;
 use crate::DisplayExt;
 use crate::SkipBlank;
-use std::ffi::CStr;
+use std::ffi::{CString, CStr};
 
 use super::{spc_arg, spc_env};
 use crate::spc_warn;
@@ -54,7 +54,6 @@ use crate::dpx_pdfobj::{
     pdf_ref_obj, pdf_release_obj, pdf_string_value,
 };
 use crate::dpx_pdfparse::ParseIdent;
-use crate::shims::sprintf;
 use libc::{atof};
 
 use super::SpcHandler;
@@ -140,20 +139,12 @@ unsafe fn set_linestyle(mut pn: f64, mut da: f64) -> i32 {
     0i32
 }
 unsafe fn set_fillstyle(mut g: f64, mut a: f64, mut f_ais: i32) -> i32 {
-    let mut resname: [u8; 32] = [0; 32];
     if a > 0.0f64 {
         let alp = (100. * a).round() as i32;
-        sprintf(
-            resname.as_mut_ptr() as *mut i8,
-            b"_Tps_a%03d_\x00" as *const u8 as *const i8,
-            alp,
-        );
+        let resname = format!("_Tps_a{:03}_", alp);
         if check_resourcestatus(
             "ExtGState",
-            CStr::from_bytes_with_nul(&resname)
-                .unwrap()
-                .to_str()
-                .unwrap(),
+            &resname,
         ) == 0
         {
             let dict = create_xgstate(
@@ -162,18 +153,13 @@ unsafe fn set_fillstyle(mut g: f64, mut a: f64, mut f_ais: i32) -> i32 {
             );
             pdf_doc_add_page_resource(
                 "ExtGState",
-                resname.as_ptr() as *const i8,
+                CString::new(resname.as_bytes()).unwrap().as_ptr() as *const i8,
                 pdf_ref_obj(dict),
             );
             pdf_release_obj(dict);
         }
-        let mut buf: [u8; 38] = [0; 38];
-        let len = sprintf(
-            buf.as_mut_ptr() as *mut i8,
-            b" /%s gs\x00" as *const u8 as *const i8,
-            resname.as_ptr() as *const i8,
-        ) as usize;
-        pdf_doc_add_page_content(&buf[..len]);
+        let buf = format!(" /{} gs", resname);
+        pdf_doc_add_page_content(buf.as_bytes());
         /* op: gs */
     } /* get stroking and fill colors */
     let (_sc, fc) = pdf_color_get_current();

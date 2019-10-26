@@ -70,7 +70,7 @@ unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg)
     buf[..len].copy_from_slice(&(*ap).cur[..len]);
     buf[len] = 0;
     transform_info_clear(&mut ti);
-    spc_warn!(spe, "{}", CStr::from_bytes_with_nul(&buf[..]).unwrap().display());
+    spc_warn!(spe, "{}", &buf[..len].display());
     if sscanf(
         buf.as_mut_ptr() as *mut i8,
         b"{%lfpt}{%lfpt}{%255[^}]}\x00" as *const u8 as *const i8,

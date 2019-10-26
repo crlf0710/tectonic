@@ -672,7 +672,9 @@ impl ParseCString for &[u8] {
             let mut v = Some(vec![0u8; l as usize + 1]);
             p = &(*self)[1..];
             read_c_litstrc(&mut v, l + 1, &mut p);
-            q = Some(CStr::from_bytes_with_nul(v.unwrap().as_slice()).unwrap().to_owned());
+            let v = v.unwrap();
+            let pos = v.iter().position(|&x| x == 0).unwrap();
+            q = Some(CStr::from_bytes_with_nul(&v[..pos+1]).unwrap().to_owned());
         }
         *self = p;
         q

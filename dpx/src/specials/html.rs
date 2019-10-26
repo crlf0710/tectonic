@@ -151,18 +151,17 @@ unsafe fn parse_key_val(
 }
 
 unsafe fn read_html_tag(
-    name: &mut [u8],
     mut attr: *mut pdf_obj,
     type_0: &mut i32,
     pp: &mut &[u8],
-) -> i32 {
+) -> Result<Vec<u8>, ()> {
     let mut p = *pp;
     let mut error: i32 = 0i32;
     while !p.is_empty() && libc::isspace(p[0] as _) != 0 {
         p = &p[1..];
     }
     if p.is_empty() || p[0] != b'<' {
-        return -1;
+        return Err(());
     }
     *type_0 = 1;
     p = &p[1..];
@@ -176,22 +175,22 @@ unsafe fn read_html_tag(
             p = &p[1..];
         }
     }
+    let mut name = Vec::with_capacity(p.len().min(127));
     let mut n = 0;
     while !p.is_empty()
         && n < 127
         && !(p[0] == b'>' || p[0] == b'/' || libc::isspace(p[0] as _) != 0)
     {
-        name[n] = p[0];
+        name.push(p[0]);
         n += 1;
         p = &p[1..];
     }
-    name[n] = 0_u8;
     if n == 0
         || p.is_empty()
         || !(p[0] == b'>' || p[0] == b'/' || libc::isspace(p[0] as _) != 0)
     {
         *pp = p;
-        return -1;
+        return Err(());
     }
     while !p.is_empty() && libc::isspace(p[0] as _) != 0 {
         p = &p[1..];
@@ -212,7 +211,7 @@ unsafe fn read_html_tag(
     }
     if error != 0 {
         *pp = p;
-        return error;
+        return Err(());
     }
     if !p.is_empty() && p[0] == b'/' {
         *type_0 = 1;
@@ -223,12 +222,12 @@ unsafe fn read_html_tag(
     }
     if p.is_empty() || p[0] != b'>' {
         *pp = p;
-        return -1;
+        return Err(());
     }
     p = &p[1..];
-    name[..n].make_ascii_lowercase();
+    name.make_ascii_lowercase();
     *pp = p;
-    0i32
+    Ok(name)
 }
 
 unsafe fn spc_handler_html__init(mut dp: *mut libc::c_void) -> i32 {
@@ -687,51 +686,50 @@ unsafe fn spc_html__img_empty(mut spe: *mut spc_env, mut attr: *mut pdf_obj) -> 
 /* ENABLE_HTML_IMG_SUPPORT */
 unsafe fn spc_handler_html_default(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i32 {
     let mut sd: *mut spc_html_ = &mut _HTML_STATE; /* treat "open" same as "empty" */
-    let mut name: [u8; 128] = [0; 128]; /* treat "open" same as "empty" */
+    /* treat "open" same as "empty" */
     let mut type_0: i32 = 1i32;
     if (*ap).cur.is_empty() {
         return 0i32;
     }
     let attr = pdf_new_dict();
-    let mut error = read_html_tag(
-        &mut name[..],
+    let name = read_html_tag(
         attr,
         &mut type_0,
         &mut (*ap).cur,
     );
-    if error != 0 {
+    if name.is_err() {
         pdf_release_obj(attr);
-        return error;
+        return -1;
     }
-    match CStr::from_bytes_with_nul(&name[..]).unwrap().to_bytes() {
+    let error = match name.unwrap().as_slice() {
         b"a" => {
             match type_0 {
-                1 => error = spc_html__anchor_open(spe, attr, sd),
-                2 => error = spc_html__anchor_close(spe, sd),
+                1 => spc_html__anchor_open(spe, attr, sd),
+                2 => spc_html__anchor_close(spe, sd),
                 _ => {
                     spc_warn!(spe, "Empty html anchor tag???");
-                    error = -1
+                    -1
                 }
             }
         },
         b"base" => {
             if type_0 == 2 {
                 spc_warn!(spe, "Close tag for \"base\"???");
-                error = -1
+                -1
             } else {
-                error = spc_html__base_empty(spe, attr, sd)
+                spc_html__base_empty(spe, attr, sd)
             }
         },
         b"img" => {
             if type_0 == 2 {
                 spc_warn!(spe, "Close tag for \"img\"???");
-                error = -1
+                -1
             } else {
-                error = spc_html__img_empty(spe, attr)
+                spc_html__img_empty(spe, attr)
             }
         },
-        _ => {}
-    }
+        _ => { 0 }
+    };
     pdf_release_obj(attr);
     while !(*ap).cur.is_empty() && libc::isspace((*ap).cur[0] as _) != 0 {
         (*ap).cur = &(*ap).cur[1..];

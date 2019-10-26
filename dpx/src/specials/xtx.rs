@@ -301,7 +301,8 @@ unsafe fn spc_handler_xtx_clipoverlay(mut _spe: *mut spc_env, mut args: *mut spc
     }
     pdf_dev_grestore();
     pdf_dev_gsave();
-    if (*args).cur != CStr::from_bytes_with_nul(&OVERLAY_NAME).unwrap().to_bytes()
+    let pos = OVERLAY_NAME.iter().position(|&x| x == 0).unwrap();
+    if (*args).cur != &OVERLAY_NAME[..pos]
         && (*args).cur != b"all" {
         pdf_doc_add_page_content(b" 0 0 m W n");
     }
@@ -322,10 +323,9 @@ unsafe fn spc_handler_xtx_renderingmode(mut spe: *mut spc_env, mut args: *mut sp
         b" %d Tr\x00" as *const u8 as *const i8,
         value as i32,
     );
+    let pos = WORK_BUFFER.iter().position(|&x| x == 0).unwrap();
     pdf_doc_add_page_content(
-        CStr::from_bytes_with_nul(&WORK_BUFFER[..])
-            .unwrap()
-            .to_bytes(),
+        &WORK_BUFFER[..pos]
     );
     (*args).cur.skip_white();
     if !(*args).cur.is_empty() {
