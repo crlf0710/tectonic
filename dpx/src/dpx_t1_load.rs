@@ -43,7 +43,7 @@ use super::dpx_pst_obj::{
     pst_data_ptr, pst_getIV, pst_getRV, pst_getSV, pst_release_obj, pst_type_of,
 };
 use crate::{ttstub_input_getc, ttstub_input_read};
-use libc::{free, memcmp, memcpy, memmove, memset, strcmp, strcpy, strlen};
+use libc::{free, memcpy, memmove, memset, strcmp, strcpy, strlen};
 
 use std::io::{Seek, SeekFrom};
 
@@ -2047,7 +2047,7 @@ unsafe fn parse_part1(
 }
 #[no_mangle]
 pub unsafe extern "C" fn is_pfb(handle: &mut InputHandleWrapper) -> bool {
-    let mut sig: [u8; 15] = [0; 15];
+    let mut sig: [u8; 14] = [0; 14];
     handle.seek(SeekFrom::Start(0)).unwrap();
     let mut ch = ttstub_input_getc(handle);
     if ch != 128i32
@@ -2072,29 +2072,14 @@ pub unsafe extern "C" fn is_pfb(handle: &mut InputHandleWrapper) -> bool {
         }
         sig[i] = ch as u8;
     }
-    if memcmp(
-        sig.as_mut_ptr() as *const libc::c_void,
-        b"%!PS-AdobeFont\x00" as *const u8 as *const i8 as *const libc::c_void,
-        14,
-    ) == 0
-        || memcmp(
-            sig.as_mut_ptr() as *const libc::c_void,
-            b"%!FontType1\x00" as *const u8 as *const i8 as *const libc::c_void,
-            11,
-        ) == 0
+    if &sig[..] == b"%!PS-AdobeFont" || &sig[..11] == b"%!FontType1"
     {
         return true;
     }
-    if memcmp(
-        sig.as_mut_ptr() as *const libc::c_void,
-        b"%!PS\x00" as *const u8 as *const i8 as *const libc::c_void,
-        4,
-    ) == 0
-    {
-        sig[14] = 0;
+    if &sig[..4] == b"%!PS" {
         warn!(
             "Ambiguous PostScript resource type: {}",
-            CStr::from_bytes_with_nul(&sig[..]).unwrap().display(),
+            &sig[..].display(),
         );
         return true;
     }

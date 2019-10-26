@@ -25,47 +25,38 @@
     unused_mut
 )]
 
+use crate::SkipBlank;
 use super::{spc_arg, spc_env};
-use crate::dpx_dpxutil::{parse_c_ident, parse_float_decimal};
+use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use crate::dpx_pdfcolor::PdfColor;
 use crate::dpx_pdfdev::{Rect, TMatrix, transform_info};
-use crate::dpx_pdfparse::skip_white;
-use crate::mfree;
-use crate::shims::strcasecmp;
+use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
-use crate::streq_ptr;
 use crate::DisplayExt;
-use libc::{atof, free, memcmp, strcmp, strlen};
-use std::ffi::CStr;
+use libc::{atof};
+use std::ffi::CString;
 
 /* tectonic/core-memory.h: basic dynamic memory helpers
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
 */
-unsafe fn skip_blank(mut pp: *mut *const i8, mut endptr: *const i8) {
-    let mut p: *const i8 = *pp; /* 360 / 60 */
-    while p < endptr && (*p as i32 & !0x7fi32 == 0i32 && crate::isblank(*p as _) != 0) {
-        p = p.offset(1)
-    }
-    *pp = p;
-}
+
 #[no_mangle]
 pub unsafe extern "C" fn spc_util_read_numbers(
     mut values: *mut f64,
     mut num_values: i32,
     mut args: *mut spc_arg,
 ) -> i32 {
-    skip_blank(&mut (*args).curptr, (*args).endptr);
+    (*args).cur.skip_blank();
     let mut count = 0;
-    while count < num_values && (*args).curptr < (*args).endptr {
-        let q = parse_float_decimal(&mut (*args).curptr, (*args).endptr);
-        if q.is_null() {
+    while count < num_values && !(*args).cur.is_empty() {
+        if let Some(q) = (*args).cur.parse_float_decimal() {
+            *values.offset(count as isize) = atof(q.as_ptr());
+            (*args).cur.skip_blank();
+            count += 1
+        } else {
             break;
         }
-        *values.offset(count as isize) = atof(q);
-        free(q as *mut libc::c_void);
-        skip_blank(&mut (*args).curptr, (*args).endptr);
-        count += 1
     }
     count
 }
@@ -127,98 +118,103 @@ unsafe fn spc_read_color_color(
 ) -> Result<PdfColor, ()> {
     let mut cv: [f64; 4] = [0.; 4];
     let mut result: Result<PdfColor, ()>;
-    let mut q = parse_c_ident(&mut (*ap).curptr, (*ap).endptr);
-    if q.is_null() {
+    if let Some(q) = (*ap).cur.parse_c_ident() {
+        (*ap).cur.skip_blank();
+        match q.to_bytes() {
+            b"rgb" => {
+                /* Handle rgb color */
+                let nc = spc_util_read_numbers(cv.as_mut_ptr(), 3i32, ap);
+                if nc != 3i32 {
+                    spc_warn!(spe, "Invalid value for RGB color specification.");
+                    result = Err(())
+                } else {
+                    result = PdfColor::from_rgb(cv[0], cv[1], cv[2]).map_err(|err| err.warn())
+                }
+            },
+            b"cmyk" => {
+                /* Handle cmyk color */
+                let nc = spc_util_read_numbers(cv.as_mut_ptr(), 4i32, ap);
+                if nc != 4i32 {
+                    spc_warn!(spe, "Invalid value for CMYK color specification.");
+                    result = Err(())
+                } else {
+                    result = PdfColor::from_cmyk(cv[0], cv[1], cv[2], cv[3]).map_err(|err| err.warn())
+                }
+            },
+            b"gray" => {
+                /* Handle gray */
+                let nc = spc_util_read_numbers(cv.as_mut_ptr(), 1i32, ap);
+                if nc != 1i32 {
+                    spc_warn!(spe, "Invalid value for gray color specification.");
+                    result = Err(())
+                } else {
+                    result = PdfColor::from_gray(cv[0]).map_err(|err| err.warn())
+                }
+            },
+            b"spot" => {
+                /* Handle spot colors */
+                if let Some(color_name) = (*ap).cur.parse_c_ident() { /* Must be a "named" color */
+                    (*ap).cur.skip_blank();
+                    let nc = spc_util_read_numbers(cv.as_mut_ptr(), 1, ap);
+                    if nc != 1 {
+                        spc_warn!(spe, "Invalid value for spot color specification.");
+                        result = Err(());
+                    } else {
+                        result = PdfColor::from_spot(color_name, cv[0])
+                            .map_err(|err| err.warn())
+                    }
+                } else {
+                    spc_warn!(spe, "No valid spot color name specified?");
+                    return Err(());
+                }
+            },
+            b"hsb" => {
+                let nc = spc_util_read_numbers(cv.as_mut_ptr(), 3i32, ap);
+                if nc != 3i32 {
+                    spc_warn!(spe, "Invalid value for HSB color specification.");
+                    result = Err(());
+                } else {
+                    let color = rgb_color_from_hsv(cv[0], cv[1], cv[2]);
+                    if let &PdfColor::Rgb(r, g, b) = &color {
+                        spc_warn!(
+                            spe,
+                            "HSB color converted to RGB: hsb: <{}, {}, {}> ==> rgb: <{}, {}, {}>",
+                            cv[0],
+                            cv[1],
+                            cv[2],
+                            r,
+                            g,
+                            b
+                        );
+                    } else {
+                        unreachable!();
+                    }
+                    result = Ok(color);
+                }
+            },
+            _ => {
+                result = if let Ok(name) = q.to_str() {
+                    if let Some(color) = pdf_color_namedcolor(name) {
+                        Ok(color)
+                    } else {
+                        Err(())
+                    }
+                } else {
+                    Err(())
+                };
+                if result.is_err() {
+                    spc_warn!(
+                        spe,
+                        "Unrecognized color name: {}",
+                        q.display(),
+                    );
+                }
+            }
+        }
+    } else {
         spc_warn!(spe, "No valid color specified?");
         return Err(());
     }
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    if streq_ptr(q, b"rgb\x00" as *const u8 as *const i8) {
-        /* Handle rgb color */
-        let nc = spc_util_read_numbers(cv.as_mut_ptr(), 3i32, ap);
-        if nc != 3i32 {
-            spc_warn!(spe, "Invalid value for RGB color specification.");
-            result = Err(())
-        } else {
-            result = PdfColor::from_rgb(cv[0], cv[1], cv[2]).map_err(|err| err.warn())
-        }
-    } else if streq_ptr(q, b"cmyk\x00" as *const u8 as *const i8) {
-        /* Handle cmyk color */
-        let nc = spc_util_read_numbers(cv.as_mut_ptr(), 4i32, ap);
-        if nc != 4i32 {
-            spc_warn!(spe, "Invalid value for CMYK color specification.");
-            result = Err(())
-        } else {
-            result = PdfColor::from_cmyk(cv[0], cv[1], cv[2], cv[3]).map_err(|err| err.warn())
-        }
-    } else if streq_ptr(q, b"gray\x00" as *const u8 as *const i8) {
-        /* Handle gray */
-        let nc = spc_util_read_numbers(cv.as_mut_ptr(), 1i32, ap);
-        if nc != 1i32 {
-            spc_warn!(spe, "Invalid value for gray color specification.");
-            result = Err(())
-        } else {
-            result = PdfColor::from_gray(cv[0]).map_err(|err| err.warn())
-        }
-    } else if streq_ptr(q, b"spot\x00" as *const u8 as *const i8) {
-        /* Handle spot colors */
-        let mut color_name: *mut i8 = parse_c_ident(&mut (*ap).curptr, (*ap).endptr); /* Must be a "named" color */
-        if color_name.is_null() {
-            spc_warn!(spe, "No valid spot color name specified?");
-            return Err(());
-        }
-        skip_blank(&mut (*ap).curptr, (*ap).endptr);
-        let nc = spc_util_read_numbers(cv.as_mut_ptr(), 1i32, ap);
-        if nc != 1i32 {
-            spc_warn!(spe, "Invalid value for spot color specification.");
-            result = Err(());
-            free(color_name as *mut libc::c_void);
-        } else {
-            result = PdfColor::from_spot(CStr::from_ptr(color_name).to_owned(), cv[0])
-                .map_err(|err| err.warn())
-        }
-    } else if streq_ptr(q, b"hsb\x00" as *const u8 as *const i8) {
-        let nc = spc_util_read_numbers(cv.as_mut_ptr(), 3i32, ap);
-        if nc != 3i32 {
-            spc_warn!(spe, "Invalid value for HSB color specification.");
-            result = Err(());
-        } else {
-            let color = rgb_color_from_hsv(cv[0], cv[1], cv[2]);
-            if let &PdfColor::Rgb(r, g, b) = &color {
-                spc_warn!(
-                    spe,
-                    "HSB color converted to RGB: hsb: <{}, {}, {}> ==> rgb: <{}, {}, {}>",
-                    cv[0],
-                    cv[1],
-                    cv[2],
-                    r,
-                    g,
-                    b
-                );
-            } else {
-                unreachable!();
-            }
-            result = Ok(color);
-        }
-    } else {
-        result = if let Ok(name) = CStr::from_ptr(q).to_str() {
-            if let Some(color) = pdf_color_namedcolor(name) {
-                Ok(color)
-            } else {
-                Err(())
-            }
-        } else {
-            Err(())
-        };
-        if result.is_err() {
-            spc_warn!(
-                spe,
-                "Unrecognized color name: {}",
-                CStr::from_ptr(q).display(),
-            );
-        }
-    }
-    free(q as *mut libc::c_void);
     result
 }
 /* Argument for this is PDF_Number or PDF_Array.
@@ -230,10 +226,10 @@ unsafe fn spc_read_color_color(
 unsafe fn spc_read_color_pdf(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> Result<PdfColor, ()> {
     let mut cv: [f64; 4] = [0.; 4]; /* at most four */
     let mut isarry: bool = false;
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    if *(*ap).curptr.offset(0) as i32 == '[' as i32 {
-        (*ap).curptr = (*ap).curptr.offset(1);
-        skip_blank(&mut (*ap).curptr, (*ap).endptr);
+    (*ap).cur.skip_blank();
+    if (*ap).cur[0] == b'[' {
+        (*ap).cur = &(*ap).cur[1..];
+        (*ap).cur.skip_blank();
         isarry = true
     }
     let nc = spc_util_read_numbers(cv.as_mut_ptr(), 4i32, ap);
@@ -243,34 +239,33 @@ unsafe fn spc_read_color_pdf(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> Res
         4 => PdfColor::from_cmyk(cv[0], cv[1], cv[2], cv[3]).map_err(|err| err.warn()),
         _ => {
             /* Try to read the color names defined in dvipsname.def */
-            let q = parse_c_ident(&mut (*ap).curptr, (*ap).endptr);
-            if q.is_null() {
+            if let Some(q) = (*ap).cur.parse_c_ident() {
+                let mut result = q
+                    .to_str()
+                    .ok()
+                    .and_then(|name| pdf_color_namedcolor(name))
+                    .ok_or(());
+                if result.is_err() {
+                    spc_warn!(
+                        spe,
+                        "Unrecognized color name: {}, keep the current color",
+                        q.display(),
+                    );
+                }
+                result
+            } else {
                 spc_warn!(spe, "No valid color specified?");
                 return Err(());
             }
-            let mut result = CStr::from_ptr(q)
-                .to_str()
-                .ok()
-                .and_then(|name| pdf_color_namedcolor(name))
-                .ok_or(());
-            if result.is_err() {
-                spc_warn!(
-                    spe,
-                    "Unrecognized color name: {}, keep the current color",
-                    CStr::from_ptr(q).display(),
-                );
-            }
-            free(q as *mut libc::c_void);
-            result
         }
     };
     if isarry {
-        skip_blank(&mut (*ap).curptr, (*ap).endptr);
-        if (*ap).curptr >= (*ap).endptr || *(*ap).curptr.offset(0) as i32 != ']' as i32 {
+        (*ap).cur.skip_blank();
+        if (*ap).cur.is_empty() || (*ap).cur[0] != b']' {
             spc_warn!(spe, "Unbalanced \'[\' and \']\' in color specification.");
             result = Err(())
         } else {
-            (*ap).curptr = (*ap).curptr.offset(1)
+            (*ap).cur = &(*ap).cur[1..];
         }
     }
     result
@@ -283,8 +278,8 @@ pub unsafe extern "C" fn spc_util_read_colorspec(
     mut syntax: bool,
 ) -> Result<PdfColor, ()> {
     assert!(!spe.is_null() && !ap.is_null());
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    if (*ap).curptr >= (*ap).endptr {
+    (*ap).cur.skip_blank();
+    if (*ap).cur.is_empty() {
         Err(())
     } else if syntax {
         spc_read_color_color(spe, ap)
@@ -299,8 +294,8 @@ pub unsafe extern "C" fn spc_util_read_pdfcolor(
     defaultcolor: Option<&PdfColor>,
 ) -> Result<PdfColor, ()> {
     assert!(!spe.is_null() && !ap.is_null());
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    if (*ap).curptr >= (*ap).endptr {
+    (*ap).cur.skip_blank();
+    if (*ap).cur.is_empty() {
         Err(())
     } else if let Some(c) = spc_read_color_pdf(spe, ap)
         .ok()
@@ -311,92 +306,65 @@ pub unsafe extern "C" fn spc_util_read_pdfcolor(
         Err(())
     }
 }
-/* This need to allow 'true' prefix for unit and
- * length value must be divided by current magnification.
- */
-/* XXX: there are four quasi-redundant versions of this; grp for K_UNIT__PT */
-unsafe fn spc_util_read_length(
-    mut spe: *mut spc_env,
-    mut vp: *mut f64,
-    mut ap: *mut spc_arg,
-) -> i32 {
-    let mut u: f64 = 1.0f64;
-    let mut ukeys: [*const i8; 10] = [
-        b"pt\x00" as *const u8 as *const i8,
-        b"in\x00" as *const u8 as *const i8,
-        b"cm\x00" as *const u8 as *const i8,
-        b"mm\x00" as *const u8 as *const i8,
-        b"bp\x00" as *const u8 as *const i8,
-        b"pc\x00" as *const u8 as *const i8,
-        b"dd\x00" as *const u8 as *const i8,
-        b"cc\x00" as *const u8 as *const i8,
-        b"sp\x00" as *const u8 as *const i8,
-        0 as *const i8,
-    ];
-    let mut error: i32 = 0i32;
-    let q = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr); /* inverse magnify */
-    if q.is_null() {
-        return -1i32;
-    }
-    let v = atof(q);
-    free(q as *mut libc::c_void);
-    skip_white(&mut (*ap).curptr, (*ap).endptr);
-    let mut q = parse_c_ident(&mut (*ap).curptr, (*ap).endptr);
-    if !q.is_null() {
-        let mut qq: *mut i8 = q;
-        if strlen(q) >= strlen(b"true\x00" as *const u8 as *const i8)
-            && memcmp(
-                q as *const libc::c_void,
-                b"true\x00" as *const u8 as *const i8 as *const libc::c_void,
-                strlen(b"true\x00" as *const u8 as *const i8),
-            ) == 0
-        {
-            u /= if (*spe).mag != 0.0f64 {
-                (*spe).mag
-            } else {
-                1.0f64
-            };
-            q = q.offset(strlen(b"true\x00" as *const u8 as *const i8) as isize);
-            if *q == 0 {
-                free(qq as *mut libc::c_void);
-                skip_white(&mut (*ap).curptr, (*ap).endptr);
-                q = parse_c_ident(&mut (*ap).curptr, (*ap).endptr);
-                qq = q
-            }
-        }
-        if !q.is_null() {
-            let mut k = 0;
-            while !ukeys[k].is_null() && strcmp(ukeys[k], q) != 0 {
-                k += 1
-            }
-            match k {
-                0 => u *= 72.0f64 / 72.27f64,
-                1 => u *= 72.0f64,
-                2 => u *= 72.0f64 / 2.54f64,
-                3 => u *= 72.0f64 / 25.4f64,
-                4 => u *= 1.0f64,
-                5 => u *= 12.0f64 * 72.0f64 / 72.27f64,
-                6 => u *= 1238.0f64 / 1157.0f64 * 72.0f64 / 72.27f64,
-                7 => u *= 12.0f64 * 1238.0f64 / 1157.0f64 * 72.0f64 / 72.27f64,
-                8 => u *= 72.0f64 / (72.27f64 * 65536i32 as f64),
-                _ => {
-                    spc_warn!(
-                        spe,
-                        "Unknown unit of measure: {}",
-                        CStr::from_ptr(q).display(),
-                    );
-                    error = -1i32
-                }
-            }
-            free(qq as *mut libc::c_void);
-        } else {
-            spc_warn!(spe, "Missing unit of measure after \"true\"");
-            error = -1i32
-        }
-    }
-    *vp = v * u;
-    error
+
+pub trait ReadLengthSpc {
+    fn read_length(&mut self, spe: &spc_env) -> Result<f64, ()>;
 }
+impl ReadLengthSpc for &[u8] {
+    fn read_length(&mut self, spe: &spc_env) -> Result<f64, ()> {
+        let mut p = *self; /* inverse magnify */
+        let mut u: f64 = 1.0f64;
+        let mut error: i32 = 0i32;
+        let q = p.parse_float_decimal();
+        if q.is_none() {
+            *self = p;
+            return Err(());
+        }
+        let v = unsafe { atof(q.unwrap().as_ptr()) };
+        p.skip_white();
+        if let Some(q) = p.parse_c_ident() {
+            let mut bytes = q.to_bytes();
+            if bytes.starts_with(b"true") {
+                u /= if spe.mag != 0.0f64 { spe.mag } else { 1.0f64 };
+                bytes = &bytes[b"true".len()..];
+            }
+            let q = if bytes.is_empty() { // TODO: check
+                /* "true" was a separate word from the units */
+                p.skip_white();
+                p.parse_c_ident()
+            } else {
+                Some(CString::new(bytes).unwrap())
+            };
+            if let Some(ident) = q {
+                match ident.to_bytes() {
+                    b"pt" => u *= 72. / 72.27,
+                    b"in" => u *= 72.,
+                    b"cm" => u *= 72. / 2.54,
+                    b"mm" => u *= 72. / 25.4,
+                    b"bp" => u *= 1.,
+                    b"pc" => u *= 12. * 72. / 72.27,
+                    b"dd" => u *= 1238. / 1157. * 72. / 72.27,
+                    b"cc" => u *= 12. * 1238. / 1157. * 72. / 72.27,
+                    b"sp" => u *= 72. / (72.27 * 65536.),
+                    _ => {
+                        spc_warn!(spe, "Unknown unit of measure: {}", ident.display(),);
+                        error = -1i32
+                    }
+                }
+            } else {
+                spc_warn!(spe, "Missing unit of measure after \"true\"");
+                error = -1i32
+            }
+        }
+        *self = p;
+        if error == 0 {
+            Ok( v * u )
+        } else {
+            Err(())
+        }
+    }
+}
+
 /*
  * Compute a transformation matrix
  * transformations are applied in the following
@@ -423,22 +391,21 @@ unsafe fn spc_read_dimtrns_dvips(
     t: &mut transform_info,
     mut ap: *mut spc_arg,
 ) -> i32 {
-    const _DTKEYS: [*const i8; 15] = [
-        b"hoffset\x00" as *const u8 as *const i8,
-        b"voffset\x00" as *const u8 as *const i8,
-        b"hsize\x00" as *const u8 as *const i8,
-        b"vsize\x00" as *const u8 as *const i8,
-        b"hscale\x00" as *const u8 as *const i8,
-        b"vscale\x00" as *const u8 as *const i8,
-        b"angle\x00" as *const u8 as *const i8,
-        b"clip\x00" as *const u8 as *const i8,
-        b"llx\x00" as *const u8 as *const i8,
-        b"lly\x00" as *const u8 as *const i8,
-        b"urx\x00" as *const u8 as *const i8,
-        b"ury\x00" as *const u8 as *const i8,
-        b"rwi\x00" as *const u8 as *const i8,
-        b"rhi\x00" as *const u8 as *const i8,
-        0 as *const i8,
+    const _DTKEYS: [&[u8]; 14] = [
+        b"hoffset",
+        b"voffset",
+        b"hsize",
+        b"vsize",
+        b"hscale",
+        b"vscale",
+        b"angle",
+        b"clip",
+        b"llx",
+        b"lly",
+        b"urx",
+        b"ury",
+        b"rwi",
+        b"rhi",
     ];
     let mut error: i32 = 0i32;
     let mut rotate = 0.0f64;
@@ -446,112 +413,115 @@ unsafe fn spc_read_dimtrns_dvips(
     let mut xoffset = yoffset;
     let mut yscale = 1.0f64;
     let mut xscale = yscale;
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    while error == 0 && (*ap).curptr < (*ap).endptr {
-        let kp = parse_c_ident(&mut (*ap).curptr, (*ap).endptr);
-        if kp.is_null() {
-            break;
-        }
-        let mut k = 0;
-        while !_DTKEYS[k].is_null() && strcmp(kp, _DTKEYS[k]) != 0 {
-            k += 1
-        }
-        if _DTKEYS[k as usize].is_null() {
-            spc_warn!(
-                spe,
-                "Unrecognized dimension/transformation key: {}",
-                CStr::from_ptr(kp).display(),
-            );
-            error = -1i32;
-            free(kp as *mut libc::c_void);
-            break;
-        } else {
-            skip_blank(&mut (*ap).curptr, (*ap).endptr);
-            if k == 7 {
-                t.flags |= 1i32 << 3i32;
-                free(kp as *mut libc::c_void);
-            /* not key-value */
-            } else {
-                if (*ap).curptr < (*ap).endptr && *(*ap).curptr.offset(0) as i32 == '=' as i32 {
-                    (*ap).curptr = (*ap).curptr.offset(1);
-                    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-                }
-                let mut vp;
-                if *(*ap).curptr.offset(0) as i32 == '\'' as i32
-                    || *(*ap).curptr.offset(0) as i32 == '\"' as i32
-                {
-                    let mut qchr: i8 = *(*ap).curptr.offset(0);
-                    (*ap).curptr = (*ap).curptr.offset(1);
-                    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-                    vp = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-                    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-                    if !vp.is_null() && qchr as i32 != *(*ap).curptr.offset(0) as i32 {
-                        spc_warn!(
-                            spe,
-                            "Syntax error in dimension/transformation specification."
-                        );
-                        error = -1i32;
-                        vp = mfree(vp as *mut libc::c_void) as *mut i8
-                    }
-                    (*ap).curptr = (*ap).curptr.offset(1)
-                } else {
-                    vp = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr)
-                }
-                if error == 0 && vp.is_null() {
-                    spc_warn!(
-                        spe,
-                        "Missing value for dimension/transformation: {}",
-                        CStr::from_ptr(kp).display(),
-                    );
-                    error = -1i32
-                }
-                free(kp as *mut libc::c_void);
-                if vp.is_null() || error != 0 {
+    (*ap).cur.skip_blank();
+    while error == 0 && !(*ap).cur.is_empty() {
+        if let Some(kp) = (*ap).cur.parse_c_ident() {
+            let mut k = 0;
+            for &key in &_DTKEYS {
+                if kp.to_bytes() == key {
                     break;
                 }
-                match k {
-                    0 => xoffset = atof(vp),
-                    1 => yoffset = atof(vp),
-                    2 => {
-                        t.width = atof(vp);
-                        t.flags |= 1i32 << 1i32
-                    }
-                    3 => {
-                        t.height = atof(vp);
-                        t.flags |= 1i32 << 2i32
-                    }
-                    4 => xscale = atof(vp) / 100.0f64,
-                    5 => yscale = atof(vp) / 100.0f64,
-                    6 => rotate = 3.14159265358979323846f64 * atof(vp) / 180.0f64,
-                    8 => {
-                        t.bbox.ll.x = atof(vp);
-                        t.flags |= 1i32 << 0i32
-                    }
-                    9 => {
-                        t.bbox.ll.y = atof(vp);
-                        t.flags |= 1i32 << 0i32
-                    }
-                    10 => {
-                        t.bbox.ur.x = atof(vp);
-                        t.flags |= 1i32 << 0i32
-                    }
-                    11 => {
-                        t.bbox.ur.y = atof(vp);
-                        t.flags |= 1i32 << 0i32
-                    }
-                    12 => {
-                        t.width = atof(vp) / 10.0f64;
-                        t.flags |= 1i32 << 1i32
-                    }
-                    13 => {
-                        t.height = atof(vp) / 10.0f64;
-                        t.flags |= 1i32 << 2i32
-                    }
-                    _ => {}
-                }
-                skip_blank(&mut (*ap).curptr, (*ap).endptr);
-                free(vp as *mut libc::c_void);
+                k += 1;
             }
+            if k == 14 {
+                spc_warn!(
+                    spe,
+                    "Unrecognized dimension/transformation key: {}",
+                    kp.display(),
+                );
+                error = -1i32;
+                break;
+            } else {
+                (*ap).cur.skip_blank();
+                if k == 7 {
+                    t.flags |= 1i32 << 3i32;
+                /* not key-value */
+                } else {
+                    if !(*ap).cur.is_empty() && (*ap).cur[0] == b'=' {
+                        (*ap).cur = &(*ap).cur[1..];
+                        (*ap).cur.skip_blank();
+                    }
+                    let vp = if (*ap).cur[0] == b'\''
+                        || (*ap).cur[0] == b'\"' {
+                        let mut qchr = (*ap).cur[0];
+                        (*ap).cur = &(*ap).cur[1..];
+                        (*ap).cur.skip_blank();
+                        let mut vp = (*ap).cur.parse_float_decimal();
+                        (*ap).cur.skip_blank();
+                        if vp.is_some() && qchr != (*ap).cur[0] {
+                            spc_warn!(
+                                spe,
+                                "Syntax error in dimension/transformation specification."
+                            );
+                            error = -1i32;
+                            vp = None;
+                        }
+                        (*ap).cur = &(*ap).cur[1..];
+                        vp
+                    } else {
+                        (*ap).cur.parse_float_decimal()
+                    };
+                    if error == 0 && vp.is_none() {
+                        spc_warn!(
+                            spe,
+                            "Missing value for dimension/transformation: {}",
+                            kp.display(),
+                        );
+                        error = -1i32
+                    }
+                    if error != 0 {
+                        break;
+                    }
+                    if let Some(vp) = vp {
+                        let vp = vp.as_ptr();
+                        match k {
+                            0 => xoffset = atof(vp),
+                            1 => yoffset = atof(vp),
+                            2 => {
+                                t.width = atof(vp);
+                                t.flags |= 1i32 << 1i32
+                            }
+                            3 => {
+                                t.height = atof(vp);
+                                t.flags |= 1i32 << 2i32
+                            }
+                            4 => xscale = atof(vp) / 100.0f64,
+                            5 => yscale = atof(vp) / 100.0f64,
+                            6 => rotate = 3.14159265358979323846f64 * atof(vp) / 180.0f64,
+                            8 => {
+                                t.bbox.ll.x = atof(vp);
+                                t.flags |= 1i32 << 0i32
+                            }
+                            9 => {
+                                t.bbox.ll.y = atof(vp);
+                                t.flags |= 1i32 << 0i32
+                            }
+                            10 => {
+                                t.bbox.ur.x = atof(vp);
+                                t.flags |= 1i32 << 0i32
+                            }
+                            11 => {
+                                t.bbox.ur.y = atof(vp);
+                                t.flags |= 1i32 << 0i32
+                            }
+                            12 => {
+                                t.width = atof(vp) / 10.0f64;
+                                t.flags |= 1i32 << 1i32
+                            }
+                            13 => {
+                                t.height = atof(vp) / 10.0f64;
+                                t.flags |= 1i32 << 2i32
+                            }
+                            _ => {}
+                        }
+                        (*ap).cur.skip_blank();
+                    } else {
+                        break;
+                    }
+                }
+            }
+        } else {
+            break;
         }
     }
     make_transmatrix(&mut t.matrix, xoffset, yoffset, xscale, yscale, rotate);
@@ -566,20 +536,6 @@ unsafe fn spc_read_dimtrns_pdfm(
     p: &mut transform_info,
     mut ap: *mut spc_arg,
 ) -> i32 {
-    const _DTKEYS: [*const i8; 12] = [
-        b"width\x00" as *const u8 as *const i8,
-        b"height\x00" as *const u8 as *const i8,
-        b"depth\x00" as *const u8 as *const i8,
-        b"scale\x00" as *const u8 as *const i8,
-        b"xscale\x00" as *const u8 as *const i8,
-        b"yscale\x00" as *const u8 as *const i8,
-        b"rotate\x00" as *const u8 as *const i8,
-        b"bbox\x00" as *const u8 as *const i8,
-        b"matrix\x00" as *const u8 as *const i8,
-        b"clip\x00" as *const u8 as *const i8,
-        b"hide\x00" as *const u8 as *const i8,
-        0 as *const i8,
-    ];
     let mut error: i32 = 0i32;
     let mut has_matrix = 0i32;
     let mut has_rotate = has_matrix;
@@ -591,120 +547,117 @@ unsafe fn spc_read_dimtrns_pdfm(
     let mut rotate = 0.0f64;
     p.flags |= 1i32 << 3i32;
     p.flags &= !(1i32 << 4i32);
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    while error == 0 && (*ap).curptr < (*ap).endptr {
-        let kp = parse_c_ident(&mut (*ap).curptr, (*ap).endptr);
-        if kp.is_null() {
+    (*ap).cur.skip_blank();
+    while error == 0 && !(*ap).cur.is_empty() {
+        if let Some(kp) = (*ap).cur.parse_c_ident() {
+            (*ap).cur.skip_blank();
+            match kp.to_bytes() {
+                b"width" => {
+                    if let Ok(width) = (*ap).cur.read_length(&*spe) {
+                        p.width = width;
+                    } else {
+                        error = -1;
+                    }
+                    p.flags |= 1i32 << 1i32
+                }
+                b"height" => {
+                    if let Ok(height) = (*ap).cur.read_length(&*spe) {
+                        p.height = height;
+                    } else {
+                        error = -1;
+                    }
+                    p.flags |= 1i32 << 2i32
+                }
+                b"depth" => {
+                    if let Ok(depth) = (*ap).cur.read_length(&*spe) {
+                        p.depth = depth;
+                    } else {
+                        error = -1;
+                    }
+                    p.flags |= 1i32 << 2i32
+                }
+                b"scale" => {
+                    if let Some(vp) = (*ap).cur.parse_float_decimal() {
+                        yscale = atof(vp.as_ptr());
+                        xscale = yscale;
+                        has_scale = 1i32;
+                    } else {
+                        error = -1i32
+                    }
+                }
+                b"xscale" => {
+                    if let Some(vp) = (*ap).cur.parse_float_decimal() {
+                        xscale = atof(vp.as_ptr());
+                        has_xscale = 1i32;
+                    } else {
+                        error = -1i32
+                    }
+                }
+                b"yscale" => {
+                    if let Some(vp) = (*ap).cur.parse_float_decimal() {
+                        yscale = atof(vp.as_ptr());
+                        has_yscale = 1i32;
+                    } else {
+                        error = -1i32
+                    }
+                }
+                b"rotate" => {
+                    if let Some(vp) = (*ap).cur.parse_float_decimal() {
+                        rotate = 3.14159265358979323846f64 * atof(vp.as_ptr()) / 180.0f64;
+                        has_rotate = 1i32;
+                    } else {
+                        error = -1i32
+                    }
+                }
+                b"bbox" => {
+                    let mut v: [f64; 4] = [0.; 4];
+                    if spc_util_read_numbers(v.as_mut_ptr(), 4i32, ap) != 4i32 {
+                        error = -1i32
+                    } else {
+                        p.bbox = Rect::new((v[0], v[1]), (v[2], v[3]));
+                        p.flags |= 1i32 << 0i32
+                    }
+                }
+                b"matrix" => {
+                    let mut v_0: [f64; 6] = [0.; 6];
+                    if spc_util_read_numbers(v_0.as_mut_ptr(), 6i32, ap) != 6i32 {
+                        error = -1i32
+                    } else {
+                        p.matrix.a = v_0[0];
+                        p.matrix.b = v_0[1];
+                        p.matrix.c = v_0[2];
+                        p.matrix.d = v_0[3];
+                        p.matrix.e = v_0[4];
+                        p.matrix.f = v_0[5];
+                        has_matrix = 1i32
+                    }
+                }
+                b"clip" => {
+                    if let Some(vp) = (*ap).cur.parse_float_decimal() {
+                        if atof(vp.as_ptr()) != 0. {
+                            p.flags |= 1i32 << 3i32
+                        } else {
+                            p.flags &= !(1i32 << 3i32)
+                        }
+                    } else {
+                        error = -1i32
+                    }
+                }
+                b"hide" => p.flags |= 1i32 << 4i32,
+                _ => error = -1i32,
+            }
+            if error != 0 {
+                spc_warn!(
+                    spe,
+                    "Unrecognized key or invalid value for dimension/transformation: {}",
+                    kp.display(),
+                );
+            } else {
+                (*ap).cur.skip_blank();
+            }
+        } else {
             break;
         }
-        skip_blank(&mut (*ap).curptr, (*ap).endptr);
-        let mut k = 0;
-        while !_DTKEYS[k].is_null() && strcmp(_DTKEYS[k], kp) != 0 {
-            k += 1
-        }
-        match k {
-            0 => {
-                error = spc_util_read_length(spe, &mut p.width, ap);
-                p.flags |= 1i32 << 1i32
-            }
-            1 => {
-                error = spc_util_read_length(spe, &mut p.height, ap);
-                p.flags |= 1i32 << 2i32
-            }
-            2 => {
-                error = spc_util_read_length(spe, &mut p.depth, ap);
-                p.flags |= 1i32 << 2i32
-            }
-            3 => {
-                let vp = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-                if vp.is_null() {
-                    error = -1i32
-                } else {
-                    yscale = atof(vp);
-                    xscale = yscale;
-                    has_scale = 1i32;
-                    free(vp as *mut libc::c_void);
-                }
-            }
-            4 => {
-                let vp = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-                if vp.is_null() {
-                    error = -1i32
-                } else {
-                    xscale = atof(vp);
-                    has_xscale = 1i32;
-                    free(vp as *mut libc::c_void);
-                }
-            }
-            5 => {
-                let vp = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-                if vp.is_null() {
-                    error = -1i32
-                } else {
-                    yscale = atof(vp);
-                    has_yscale = 1i32;
-                    free(vp as *mut libc::c_void);
-                }
-            }
-            6 => {
-                let vp = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-                if vp.is_null() {
-                    error = -1i32
-                } else {
-                    rotate = 3.14159265358979323846f64 * atof(vp) / 180.0f64;
-                    has_rotate = 1i32;
-                    free(vp as *mut libc::c_void);
-                }
-            }
-            7 => {
-                let mut v: [f64; 4] = [0.; 4];
-                if spc_util_read_numbers(v.as_mut_ptr(), 4i32, ap) != 4i32 {
-                    error = -1i32
-                } else {
-                    p.bbox = Rect::new((v[0], v[1]), (v[2], v[3]));
-                    p.flags |= 1i32 << 0i32
-                }
-            }
-            8 => {
-                let mut v_0: [f64; 6] = [0.; 6];
-                if spc_util_read_numbers(v_0.as_mut_ptr(), 6i32, ap) != 6i32 {
-                    error = -1i32
-                } else {
-                    p.matrix.a = v_0[0];
-                    p.matrix.b = v_0[1];
-                    p.matrix.c = v_0[2];
-                    p.matrix.d = v_0[3];
-                    p.matrix.e = v_0[4];
-                    p.matrix.f = v_0[5];
-                    has_matrix = 1i32
-                }
-            }
-            9 => {
-                let vp = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-                if vp.is_null() {
-                    error = -1i32
-                } else {
-                    if atof(vp) != 0. {
-                        p.flags |= 1i32 << 3i32
-                    } else {
-                        p.flags &= !(1i32 << 3i32)
-                    }
-                    free(vp as *mut libc::c_void);
-                }
-            }
-            10 => p.flags |= 1i32 << 4i32,
-            _ => error = -1i32,
-        }
-        if error != 0 {
-            spc_warn!(
-                spe,
-                "Unrecognized key or invalid value for dimension/transformation: {}",
-                CStr::from_ptr(kp).display(),
-            );
-        } else {
-            skip_blank(&mut (*ap).curptr, (*ap).endptr);
-        }
-        free(kp as *mut libc::c_void);
     }
     if error == 0 {
         /* Check consistency */
@@ -764,22 +717,6 @@ pub unsafe extern "C" fn spc_util_read_blahblah(
     mut bbox_type: *mut i32,
     mut ap: *mut spc_arg,
 ) -> i32 {
-    const _DTKEYS: [*const i8; 14] = [
-        b"width\x00" as *const u8 as *const i8,
-        b"height\x00" as *const u8 as *const i8,
-        b"depth\x00" as *const u8 as *const i8,
-        b"scale\x00" as *const u8 as *const i8,
-        b"xscale\x00" as *const u8 as *const i8,
-        b"yscale\x00" as *const u8 as *const i8,
-        b"rotate\x00" as *const u8 as *const i8,
-        b"bbox\x00" as *const u8 as *const i8,
-        b"matrix\x00" as *const u8 as *const i8,
-        b"clip\x00" as *const u8 as *const i8,
-        b"hide\x00" as *const u8 as *const i8,
-        b"page\x00" as *const u8 as *const i8,
-        b"pagebox\x00" as *const u8 as *const i8,
-        0 as *const i8,
-    ];
     let mut error: i32 = 0i32;
     let mut has_matrix = 0i32; /* default: do clipping */
     let mut has_rotate = has_matrix;
@@ -791,149 +728,141 @@ pub unsafe extern "C" fn spc_util_read_blahblah(
     let mut rotate = 0.0f64;
     p.flags |= 1i32 << 3i32;
     p.flags &= !(1i32 << 4i32);
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    while error == 0 && (*ap).curptr < (*ap).endptr {
-        let kp = parse_c_ident(&mut (*ap).curptr, (*ap).endptr);
-        if kp.is_null() {
+    (*ap).cur.skip_blank();
+    while error == 0 && !(*ap).cur.is_empty() {
+        if let Some(kp) = (*ap).cur.parse_c_ident() {
+            (*ap).cur.skip_blank();
+            match kp.to_bytes() {
+                b"width" => {
+                    if let Ok(width) = (*ap).cur.read_length(&*spe) {
+                        p.width = width;
+                    } else {
+                        error = -1;
+                    }
+                    p.flags |= 1i32 << 1i32
+                }
+                b"height" => {
+                    if let Ok(height) = (*ap).cur.read_length(&*spe) {
+                        p.height = height;
+                    } else {
+                        error = -1;
+                    }
+                    p.flags |= 1i32 << 2i32
+                }
+                b"depth" => {
+                    if let Ok(depth) = (*ap).cur.read_length(&*spe) {
+                        p.depth = depth;
+                    } else {
+                        error = -1;
+                    }
+                    p.flags |= 1i32 << 2i32
+                }
+                b"scale" => {
+                    if let Some(vp) = (*ap).cur.parse_float_decimal() {
+                        yscale = atof(vp.as_ptr());
+                        xscale = yscale;
+                        has_scale = 1i32;
+                    } else {
+                        error = -1i32
+                    }
+                }
+                b"xscale" => {
+                    if let Some(vp) = (*ap).cur.parse_float_decimal() {
+                        xscale = atof(vp.as_ptr());
+                        has_xscale = 1i32;
+                    } else {
+                        error = -1i32
+                    }
+                }
+                b"yscale" => {
+                    if let Some(vp) = (*ap).cur.parse_float_decimal() {
+                        yscale = atof(vp.as_ptr());
+                        has_yscale = 1i32;
+                    } else {
+                        error = -1i32
+                    }
+                }
+                b"rotate" => {
+                    if let Some(vp) = (*ap).cur.parse_float_decimal() {
+                        rotate = 3.14159265358979323846f64 * atof(vp.as_ptr()) / 180.0f64;
+                        has_rotate = 1i32;
+                    } else {
+                        error = -1i32
+                    }
+                }
+                b"bbox" => {
+                    let mut v: [f64; 4] = [0.; 4];
+                    if spc_util_read_numbers(v.as_mut_ptr(), 4i32, ap) != 4i32 {
+                        error = -1i32
+                    } else {
+                        p.bbox = Rect::new((v[0], v[1]), (v[2], v[3]));
+                        p.flags |= 1i32 << 0i32
+                    }
+                }
+                b"matrix" => {
+                    let mut v_0: [f64; 6] = [0.; 6];
+                    if spc_util_read_numbers(v_0.as_mut_ptr(), 6i32, ap) != 6i32 {
+                        error = -1i32
+                    } else {
+                        p.matrix.a = v_0[0];
+                        p.matrix.b = v_0[1];
+                        p.matrix.c = v_0[2];
+                        p.matrix.d = v_0[3];
+                        p.matrix.e = v_0[4];
+                        p.matrix.f = v_0[5];
+                        has_matrix = 1i32
+                    }
+                }
+                b"clip" => {
+                    if let Some(vp) = (*ap).cur.parse_float_decimal() {
+                        if atof(vp.as_ptr()) != 0. {
+                            p.flags |= 1 << 3
+                        } else {
+                            p.flags &= !(1 << 3)
+                        }
+                    } else {
+                        error = -1i32
+                    }
+                }
+                b"page" => {
+                    let mut page: f64 = 0.;
+                    if !page_no.is_null() && spc_util_read_numbers(&mut page, 1i32, ap) == 1i32 {
+                        *page_no = page as i32
+                    } else {
+                        error = -1i32
+                    }
+                }
+                b"hide" => p.flags |= 1i32 << 4i32,
+                b"pagebox" => {
+                    if let Some(q) = (*ap).cur.parse_c_ident() {
+                        if !bbox_type.is_null() {
+                            match q.to_bytes().to_ascii_lowercase().as_slice() {
+                                b"cropbox" => *bbox_type = 1,
+                                b"mediabox" => *bbox_type = 2,
+                                b"artbox" => *bbox_type = 3,
+                                b"trimbox" => *bbox_type = 4,
+                                b"bleedbox" => *bbox_type = 5,
+                                _ => {},
+                            }
+                        }
+                    } else if !bbox_type.is_null() {
+                        *bbox_type = 0i32
+                    }
+                }
+                _ => error = -1i32,
+            }
+            if error != 0 {
+                spc_warn!(
+                    spe,
+                    "Unrecognized key or invalid value for dimension/transformation: {}",
+                    kp.display(),
+                );
+            } else {
+                (*ap).cur.skip_blank();
+            }
+        } else {
             break;
         }
-        skip_blank(&mut (*ap).curptr, (*ap).endptr);
-        let mut k = 0;
-        while !_DTKEYS[k].is_null() && strcmp(_DTKEYS[k], kp) != 0 {
-            k += 1
-        }
-        match k {
-            0 => {
-                error = spc_util_read_length(spe, &mut p.width, ap);
-                p.flags |= 1i32 << 1i32
-            }
-            1 => {
-                error = spc_util_read_length(spe, &mut p.height, ap);
-                p.flags |= 1i32 << 2i32
-            }
-            2 => {
-                error = spc_util_read_length(spe, &mut p.depth, ap);
-                p.flags |= 1i32 << 2i32
-            }
-            3 => {
-                let vp = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-                if vp.is_null() {
-                    error = -1i32
-                } else {
-                    yscale = atof(vp);
-                    xscale = yscale;
-                    has_scale = 1i32;
-                    free(vp as *mut libc::c_void);
-                }
-            }
-            4 => {
-                let vp = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-                if vp.is_null() {
-                    error = -1i32
-                } else {
-                    xscale = atof(vp);
-                    has_xscale = 1i32;
-                    free(vp as *mut libc::c_void);
-                }
-            }
-            5 => {
-                let vp = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-                if vp.is_null() {
-                    error = -1i32
-                } else {
-                    yscale = atof(vp);
-                    has_yscale = 1i32;
-                    free(vp as *mut libc::c_void);
-                }
-            }
-            6 => {
-                let vp = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-                if vp.is_null() {
-                    error = -1i32
-                } else {
-                    rotate = 3.14159265358979323846f64 * atof(vp) / 180.0f64;
-                    has_rotate = 1i32;
-                    free(vp as *mut libc::c_void);
-                }
-            }
-            7 => {
-                let mut v: [f64; 4] = [0.; 4];
-                if spc_util_read_numbers(v.as_mut_ptr(), 4i32, ap) != 4i32 {
-                    error = -1i32
-                } else {
-                    p.bbox = Rect::new((v[0], v[1]), (v[2], v[3]));
-                    p.flags |= 1i32 << 0i32
-                }
-            }
-            8 => {
-                let mut v_0: [f64; 6] = [0.; 6];
-                if spc_util_read_numbers(v_0.as_mut_ptr(), 6i32, ap) != 6i32 {
-                    error = -1i32
-                } else {
-                    p.matrix.a = v_0[0];
-                    p.matrix.b = v_0[1];
-                    p.matrix.c = v_0[2];
-                    p.matrix.d = v_0[3];
-                    p.matrix.e = v_0[4];
-                    p.matrix.f = v_0[5];
-                    has_matrix = 1i32
-                }
-            }
-            9 => {
-                let vp = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-                if vp.is_null() {
-                    error = -1i32
-                } else {
-                    if atof(vp) != 0. {
-                        p.flags |= 1i32 << 3i32
-                    } else {
-                        p.flags &= !(1i32 << 3i32)
-                    }
-                    free(vp as *mut libc::c_void);
-                }
-            }
-            11 => {
-                let mut page: f64 = 0.;
-                if !page_no.is_null() && spc_util_read_numbers(&mut page, 1i32, ap) == 1i32 {
-                    *page_no = page as i32
-                } else {
-                    error = -1i32
-                }
-            }
-            10 => p.flags |= 1i32 << 4i32,
-            12 => {
-                let q = parse_c_ident(&mut (*ap).curptr, (*ap).endptr);
-                if !q.is_null() {
-                    if !bbox_type.is_null() {
-                        if strcasecmp(q, b"cropbox\x00" as *const u8 as *const i8) == 0i32 {
-                            *bbox_type = 1i32
-                        } else if strcasecmp(q, b"mediabox\x00" as *const u8 as *const i8) == 0i32 {
-                            *bbox_type = 2i32
-                        } else if strcasecmp(q, b"artbox\x00" as *const u8 as *const i8) == 0i32 {
-                            *bbox_type = 3i32
-                        } else if strcasecmp(q, b"trimbox\x00" as *const u8 as *const i8) == 0i32 {
-                            *bbox_type = 4i32
-                        } else if strcasecmp(q, b"bleedbox\x00" as *const u8 as *const i8) == 0i32 {
-                            *bbox_type = 5i32
-                        }
-                    }
-                    free(q as *mut libc::c_void);
-                } else if !bbox_type.is_null() {
-                    *bbox_type = 0i32
-                }
-            }
-            _ => error = -1i32,
-        }
-        if error != 0 {
-            spc_warn!(
-                spe,
-                "Unrecognized key or invalid value for dimension/transformation: {}",
-                CStr::from_ptr(kp).display(),
-            );
-        } else {
-            skip_blank(&mut (*ap).curptr, (*ap).endptr);
-        }
-        free(kp as *mut libc::c_void);
     }
     if error == 0 {
         /* Check consistency */

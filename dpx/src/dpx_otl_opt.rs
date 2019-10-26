@@ -174,8 +174,7 @@ unsafe fn parse_expr(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut bt_n
                     for i in 0..4 {
                         if **pp as i32 == ' ' as i32
                             || **pp as i32 == '?' as i32
-                            || libc::isalpha(**pp as _) != 0
-                            || libc::isdigit(**pp as _) != 0
+                            || (**pp as u8).is_ascii_alphanumeric()
                         {
                             (*curr).data[i as usize] = **pp
                         } else if **pp as i32 == '_' as i32 {

@@ -32,14 +32,13 @@ use std::io::{Read, Seek, SeekFrom};
 
 use crate::FromBEByteSlice;
 use crate::DisplayExt;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 
 use super::dpx_sfnt::{
     dfont_open, sfnt_close, sfnt_find_table_pos, sfnt_locate_table, sfnt_open,
     sfnt_read_table_directory,
 };
 use crate::mfree;
-use crate::streq_ptr;
 use crate::warn;
 use crate::size_t;
 
@@ -48,7 +47,7 @@ use super::dpx_cff_dict::{cff_dict_get, cff_dict_known};
 use super::dpx_dpxfile::{
     dpx_open_dfont_file, dpx_open_opentype_file, dpx_open_truetype_file, dpx_open_type1_file,
 };
-use super::dpx_dpxutil::{parse_c_ident, parse_float_decimal};
+use super::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use super::dpx_dvipdfmx::{is_xdv, landscape_mode, paper_height, paper_width};
 use super::dpx_fontmap::{pdf_insert_native_fontmap_record, pdf_lookup_fontmap_record};
 use super::dpx_mem::{new, renew, xmalloc};
@@ -64,9 +63,7 @@ use super::dpx_pdfdev::{
 use super::dpx_pdfdoc::{
     pdf_doc_begin_page, pdf_doc_break_annot, pdf_doc_end_page, pdf_doc_expand_box,
 };
-use super::dpx_pdfparse::dump_slice;
-use super::dpx_pdfparse::skip_white;
-use super::dpx_pdfparse::{parse_pdf_number, parse_pdf_string};
+use super::dpx_pdfparse::{dump_slice, SkipWhite, ParsePdfObj};
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record, subfont_set_verbose};
 use super::dpx_t1_char::t1char_get_metrics;
 use super::dpx_t1_load::t1_load_font;
@@ -92,7 +89,7 @@ use crate::{
     ttstub_input_read, ttstub_input_ungetc,
 };
 
-use libc::{atof, free, memcmp, memset, strlen, strncpy, strtol};
+use libc::{atof, free, memset, strlen, strncpy, strtol};
 
 use crate::TTInputFormat;
 
@@ -2130,81 +2127,68 @@ pub unsafe extern "C" fn dvi_vf_finish() {
  * length value must be divided by current magnification.
  */
 /* XXX: there are four quasi-redundant versions of this; grp for K_UNIT__PT */
-unsafe fn read_length(
-    mut vp: *mut f64,
-    mut mag: f64,
-    mut pp: *mut *const i8,
-    mut endptr: *const i8,
-) -> i32 {
-    let mut p: *const i8 = *pp; /* inverse magnify */
-    let mut u: f64 = 1.0f64;
-    const _UKEYS: [&[u8]; 9] = [
-        b"pt",
-        b"in",
-        b"cm",
-        b"mm",
-        b"bp",
-        b"pc",
-        b"dd",
-        b"cc",
-        b"sp",
-    ];
-    let mut error: i32 = 0i32;
-    let q = parse_float_decimal(&mut p, endptr);
-    if q.is_null() {
-        *vp = 0.0f64;
-        *pp = p;
-        return -1i32;
-    }
-    let v = atof(q);
-    free(q as *mut libc::c_void);
-    skip_white(&mut p, endptr);
-    let mut q = parse_c_ident(&mut p, endptr);
-    if !q.is_null() {
-        let mut qq: *mut i8 = q;
-        if strlen(q) >= strlen(b"true\x00" as *const u8 as *const i8)
-            && memcmp(
-                q as *const libc::c_void,
-                b"true\x00" as *const u8 as *const i8 as *const libc::c_void,
-                strlen(b"true\x00" as *const u8 as *const i8),
-            ) == 0
-        {
-            u /= if mag != 0.0f64 { mag } else { 1.0f64 };
-            q = q.offset(strlen(b"true\x00" as *const u8 as *const i8) as isize)
-        }
-        if strlen(q) == 0 {
-            /* "true" was a separate word from the units */
-            free(qq as *mut libc::c_void);
-            skip_white(&mut p, endptr);
-            q = parse_c_ident(&mut p, endptr);
-            qq = q
-        }
-        if !q.is_null() {
-            match _UKEYS.iter().position(|&x| x == CStr::from_ptr(q).to_bytes()) {
-                Some(0) => u *= 72. / 72.27,
-                Some(1) => u *= 72.,
-                Some(2) => u *= 72. / 2.54,
-                Some(3) => u *= 72. / 25.4,
-                Some(4) => u *= 1.,
-                Some(5) => u *= 12. * 72. / 72.27,
-                Some(6) => u *= 1238. / 1157. * 72. / 72.27,
-                Some(7) => u *= 12. * 1238. / 1157. * 72. / 72.27,
-                Some(8) => u *= 72. / (72.27 * 65536.),
-                _ => {
-                    warn!("Unknown unit of measure: {}", CStr::from_ptr(q).display(),);
-                    error = -1i32
-                }
-            }
-            free(qq as *mut libc::c_void);
-        } else {
-            warn!("Missing unit of measure after \"true\"");
-            error = -1i32
-        }
-    }
-    *vp = v * u;
-    *pp = p;
-    error
+pub trait ReadLength {
+    fn read_length(&mut self, mag: f64) -> Result<f64, ()>;
+    fn read_length_no_mag(&mut self) -> Result<f64, ()>;
 }
+impl ReadLength for &[u8] {
+    fn read_length(&mut self, mag: f64) -> Result<f64, ()> {
+        let mut p = *self; /* inverse magnify */
+        let mut u: f64 = 1.0f64;
+        let mut error: i32 = 0i32;
+        let q = p.parse_float_decimal();
+        if q.is_none() {
+            *self = p;
+            return Err(());
+        }
+        let v = unsafe { atof(q.unwrap().as_ptr()) };
+        p.skip_white();
+        if let Some(q) = p.parse_c_ident() {
+            let mut bytes = q.to_bytes();
+            if bytes.starts_with(b"true") {
+                u /= if mag != 0.0f64 { mag } else { 1.0f64 };
+                bytes = &bytes[b"true".len()..];
+            }
+            let q = if bytes.is_empty() {
+                /* "true" was a separate word from the units */
+                p.skip_white();
+                p.parse_c_ident()
+            } else {
+                Some(CString::new(bytes).unwrap())
+            };
+            if let Some(ident) = q {
+                match ident.to_bytes() {
+                    b"pt" => u *= 72. / 72.27,
+                    b"in" => u *= 72.,
+                    b"cm" => u *= 72. / 2.54,
+                    b"mm" => u *= 72. / 25.4,
+                    b"bp" => u *= 1.,
+                    b"pc" => u *= 12. * 72. / 72.27,
+                    b"dd" => u *= 1238. / 1157. * 72. / 72.27,
+                    b"cc" => u *= 12. * 1238. / 1157. * 72. / 72.27,
+                    b"sp" => u *= 72. / (72.27 * 65536.),
+                    _ => {
+                        warn!("Unknown unit of measure: {}", ident.display(),);
+                        error = -1i32
+                    }
+                }
+            } else {
+                warn!("Missing unit of measure after \"true\"");
+                error = -1i32
+            }
+        }
+        *self = p;
+        if error == 0 {
+            Ok( v * u )
+        } else {
+            Err(())
+        }
+    }
+    fn read_length_no_mag(&mut self) -> Result<f64, ()> {
+        self.read_length(1.)
+    }
+}
+
 unsafe fn scan_special(
     mut wd: *mut f64,
     mut ht: *mut f64,
@@ -2220,113 +2204,123 @@ unsafe fn scan_special(
     mut user_pw: *mut i8,
     mut buf: &[u8],
 ) -> i32 {
-    let size = buf.len() as u32;
-    let mut p = buf.as_ptr() as *const i8;
     let mut ns_pdf: i32 = 0i32;
     let mut ns_dvipdfmx: i32 = 0i32;
     let mut error: i32 = 0i32;
-    let mut tmp: f64 = 0.;
-    let endptr = p.offset(size as isize);
-    skip_white(&mut p, endptr);
-    let mut q = parse_c_ident(&mut p, endptr);
-    if streq_ptr(q, b"pdf\x00" as *const u8 as *const i8) {
-        skip_white(&mut p, endptr);
-        if p < endptr && *p as i32 == ':' as i32 {
-            p = p.offset(1);
-            skip_white(&mut p, endptr);
-            free(q as *mut libc::c_void);
-            q = parse_c_ident(&mut p, endptr);
-            ns_pdf = 1i32
-        }
-    } else if streq_ptr(q, b"x\x00" as *const u8 as *const i8) {
-        skip_white(&mut p, endptr);
-        if p < endptr && *p as i32 == ':' as i32 {
-            p = p.offset(1);
-            skip_white(&mut p, endptr);
-            free(q as *mut libc::c_void);
-            q = parse_c_ident(&mut p, endptr)
-        }
-    } else if streq_ptr(q, b"dvipdfmx\x00" as *const u8 as *const i8) {
-        skip_white(&mut p, endptr);
-        if p < endptr && *p as i32 == ':' as i32 {
-            p = p.offset(1);
-            skip_white(&mut p, endptr);
-            free(q as *mut libc::c_void);
-            q = parse_c_ident(&mut p, endptr);
-            ns_dvipdfmx = 1i32
+    buf.skip_white();
+    let mut q = buf.parse_c_ident();
+    if let Some(ident) = q.as_ref() {
+        match ident.to_bytes() {
+            b"pdf" => {
+                buf.skip_white();
+                if !buf.is_empty() && buf[0] == b':' {
+                    buf = &buf[1..];
+                    buf.skip_white();
+                    q = buf.parse_c_ident();
+                    ns_pdf = 1;
+                }
+            },
+            b"x" => {
+                buf.skip_white();
+                if !buf.is_empty() && buf[0] == b':' {
+                    buf = &buf[1..];
+                    buf.skip_white();
+                    q = buf.parse_c_ident();
+                }
+            },
+            b"dvipdfmx" => {
+                buf.skip_white();
+                if !buf.is_empty() && buf[0] == b':' {
+                    buf = &buf[1..];
+                    buf.skip_white();
+                    q = buf.parse_c_ident();
+                    ns_dvipdfmx = 1
+                }
+            },
+            _ => {},
         }
     }
-    skip_white(&mut p, endptr);
-    if !q.is_null() {
-        if streq_ptr(q, b"landscape\x00" as *const u8 as *const i8) {
-            *lm = 1i32
-        } else if ns_pdf != 0 && streq_ptr(q, b"pagesize\x00" as *const u8 as *const i8) as i32 != 0
-        {
-            while error == 0 && p < endptr {
-                let mut kp: *mut i8 = parse_c_ident(&mut p, endptr);
-                if kp.is_null() {
+    buf.skip_white();
+    if let Some(q) = q {
+        if q.to_bytes() == b"landscape" {
+            *lm = 1
+        } else if ns_pdf != 0 && q.to_bytes() == b"pagesize" {
+            while error == 0 && !buf.is_empty() {
+                if let Some(kp) = buf.parse_c_ident() {
+                    buf.skip_white();
+                    match kp.to_bytes() {
+                        b"width" => {
+                            if let Ok(tmp) = buf.read_length(dvi_tell_mag()) {
+                                *wd = tmp * dvi_tell_mag()
+                            } else {
+                                error = -1;
+                            }
+                        },
+                        b"height" => {
+                            if let Ok(tmp) = buf.read_length(dvi_tell_mag()) {
+                                *ht = tmp * dvi_tell_mag()
+                            } else {
+                                error = -1;
+                            }
+                        },
+                        b"xoffset" => {
+                            if let Ok(tmp) = buf.read_length(dvi_tell_mag()) {
+                                *xo = tmp * dvi_tell_mag()
+                            } else {
+                                error = -1;
+                            }
+                        },
+                        b"yoffset" => {
+                            if let Ok(tmp) = buf.read_length(dvi_tell_mag()) {
+                                *yo = tmp * dvi_tell_mag()
+                            } else {
+                                error = -1;
+                            }
+                        },
+                        b"default" => {
+                            *wd = paper_width;
+                            *ht = paper_height;
+                            *lm = landscape_mode;
+                            *yo = 72.0f64;
+                            *xo = *yo
+                        },
+                        _ => {},
+                    }
+                    buf.skip_white();
+                } else {
                     break;
                 }
-                skip_white(&mut p, endptr);
-                if streq_ptr(kp, b"width\x00" as *const u8 as *const i8) {
-                    error = read_length(&mut tmp, dvi_tell_mag(), &mut p, endptr);
-                    if error == 0 {
-                        *wd = tmp * dvi_tell_mag()
-                    }
-                } else if streq_ptr(kp, b"height\x00" as *const u8 as *const i8) {
-                    error = read_length(&mut tmp, dvi_tell_mag(), &mut p, endptr);
-                    if error == 0 {
-                        *ht = tmp * dvi_tell_mag()
-                    }
-                } else if streq_ptr(kp, b"xoffset\x00" as *const u8 as *const i8) {
-                    error = read_length(&mut tmp, dvi_tell_mag(), &mut p, endptr);
-                    if error == 0 {
-                        *xo = tmp * dvi_tell_mag()
-                    }
-                } else if streq_ptr(kp, b"yoffset\x00" as *const u8 as *const i8) {
-                    error = read_length(&mut tmp, dvi_tell_mag(), &mut p, endptr);
-                    if error == 0 {
-                        *yo = tmp * dvi_tell_mag()
-                    }
-                } else if streq_ptr(kp, b"default\x00" as *const u8 as *const i8) {
-                    *wd = paper_width;
-                    *ht = paper_height;
-                    *lm = landscape_mode;
-                    *yo = 72.0f64;
-                    *xo = *yo
+            }
+        } else if q.to_bytes() == b"papersize" {
+            let mut qchr = 0_u8;
+            if buf[0] == b'=' {
+                buf = &buf[1..];
+            }
+            buf.skip_white();
+            if !buf.is_empty() && (buf[0] == b'\'' || buf[0] == b'\"') {
+                qchr = buf[0];
+                buf = &buf[1..];
+                buf.skip_white();
+            }
+            if let Ok(tmp) = buf.read_length(1.) {
+                buf.skip_white();
+                if !buf.is_empty() && buf[0] == b',' {
+                    buf = &buf[1..];
+                    buf.skip_white();
                 }
-                free(kp as *mut libc::c_void);
-                skip_white(&mut p, endptr);
-            }
-        } else if streq_ptr(q, b"papersize\x00" as *const u8 as *const i8) {
-            let mut qchr: i8 = 0_i8;
-            if *p as i32 == '=' as i32 {
-                p = p.offset(1)
-            }
-            skip_white(&mut p, endptr);
-            if p < endptr && (*p as i32 == '\'' as i32 || *p as i32 == '\"' as i32) {
-                qchr = *p;
-                p = p.offset(1);
-                skip_white(&mut p, endptr);
-            }
-            error = read_length(&mut tmp, 1.0f64, &mut p, endptr);
-            if error == 0 {
-                let mut tmp1: f64 = 0.;
-                skip_white(&mut p, endptr);
-                if p < endptr && *p as i32 == ',' as i32 {
-                    p = p.offset(1);
-                    skip_white(&mut p, endptr);
-                }
-                error = read_length(&mut tmp1, 1.0f64, &mut p, endptr);
-                if error == 0 {
+                if let Ok(tmp1) = buf.read_length(1.) {
                     *wd = tmp;
                     *ht = tmp1;
-                    skip_white(&mut p, endptr);
+                    buf.skip_white();
+                } else {
+                    error = -1;
                 }
+            } else {
+                error = -1;
             }
-            if error == 0 && qchr as i32 != 0 {
+            if error == 0 && qchr != 0 {
                 /* Check if properly quoted */
-                if p >= endptr || *p as i32 != qchr as i32 {
+                if buf.is_empty() || buf[0] != qchr {
                     error = -1i32
                 }
             }
@@ -2336,95 +2330,94 @@ unsafe fn scan_special(
             }
         } else if !minorversion.is_null()
             && ns_pdf != 0
-            && streq_ptr(q, b"minorversion\x00" as *const u8 as *const i8) as i32 != 0
+            && q.to_bytes() == b"minorversion"
         {
-            if *p as i32 == '=' as i32 {
-                p = p.offset(1)
+            if buf[0] == b'=' {
+                buf = &buf[1..];
             }
-            skip_white(&mut p, endptr);
-            let kv = parse_float_decimal(&mut p, endptr);
-            if !kv.is_null() {
-                *minorversion = strtol(kv, 0 as *mut *mut i8, 10i32) as i32;
-                free(kv as *mut libc::c_void);
+            buf.skip_white();
+            if let Some(kv) = buf.parse_float_decimal() {
+                *minorversion = strtol(kv.as_ptr(), 0 as *mut *mut i8, 10i32) as i32;
             }
         } else if !majorversion.is_null()
             && ns_pdf != 0
-            && streq_ptr(q, b"majorversion\x00" as *const u8 as *const i8) as i32 != 0
+            && q.to_bytes() == b"majorversion"
         {
-            if *p as i32 == '=' as i32 {
-                p = p.offset(1)
+            if buf[0] == b'=' {
+                buf = &buf[1..];
             }
-            skip_white(&mut p, endptr);
-            let kv_0 = parse_float_decimal(&mut p, endptr);
-            if !kv_0.is_null() {
-                *majorversion = strtol(kv_0, 0 as *mut *mut i8, 10i32) as i32;
-                free(kv_0 as *mut libc::c_void);
+            buf.skip_white();
+            if let Some(kv_0) = buf.parse_float_decimal() {
+                *majorversion = strtol(kv_0.as_ptr(), 0 as *mut *mut i8, 10) as i32;
             }
         } else if ns_pdf != 0
-            && streq_ptr(q, b"encrypt\x00" as *const u8 as *const i8) as i32 != 0
+            && q.to_bytes() == b"encrypt"
             && !do_enc.is_null()
         {
             *do_enc = 1i32;
             *user_pw = 0_i8;
             *owner_pw = *user_pw;
-            while error == 0 && p < endptr {
-                let mut kp_0: *mut i8 = parse_c_ident(&mut p, endptr);
-                if kp_0.is_null() {
+            while error == 0 && !buf.is_empty() {
+                if let Some(kp) = buf.parse_c_ident() {
+                    buf.skip_white();
+                    match kp.to_bytes() {
+                        b"ownerpw" => {
+                            if let Some(obj) = buf.parse_pdf_string() {
+                                if !pdf_string_value(obj).is_null() {
+                                    strncpy(owner_pw, pdf_string_value(obj) as *const i8, 127);
+                                }
+                                pdf_release_obj(obj);
+                            } else {
+                                error = -1i32
+                            }
+                        },
+                        b"userpw" => {
+                            if let Some(obj) = buf.parse_pdf_string() {
+                                if !pdf_string_value(obj).is_null() {
+                                    strncpy(user_pw, pdf_string_value(obj) as *const i8, 127);
+                                }
+                                pdf_release_obj(obj);
+                            } else {
+                                error = -1i32
+                            }
+                        },
+                        b"length" => {
+                            if let Some(obj) = buf.parse_pdf_number() {
+                                if (*obj).is_number() {
+                                    *key_bits = pdf_number_value(obj) as u32 as i32
+                                } else {
+                                    error = -1i32
+                                }
+                                pdf_release_obj(obj);
+                            } else {
+                                error = -1i32
+                            }
+                        },
+                        b"perm" => {
+                            if let Some(obj) = buf.parse_pdf_number() {
+                                if (*obj).is_number() {
+                                    *permission = pdf_number_value(obj) as u32 as i32
+                                } else {
+                                    error = -1i32
+                                }
+                                pdf_release_obj(obj);
+                            } else {
+                                error = -1i32
+                            }
+                        },
+                        _ => {
+                            error = -1i32
+                        }
+                    }
+                    buf.skip_white();
+                } else {
                     break;
                 }
-                skip_white(&mut p, endptr);
-                if streq_ptr(kp_0, b"ownerpw\x00" as *const u8 as *const i8) {
-                    let obj = parse_pdf_string(&mut p, endptr);
-                    if !obj.is_null() {
-                        if !pdf_string_value(obj).is_null() {
-                            strncpy(owner_pw, pdf_string_value(obj) as *const i8, 127);
-                        }
-                        pdf_release_obj(obj);
-                    } else {
-                        error = -1i32
-                    }
-                } else if streq_ptr(kp_0, b"userpw\x00" as *const u8 as *const i8) {
-                    let obj = parse_pdf_string(&mut p, endptr);
-                    if !obj.is_null() {
-                        if !pdf_string_value(obj).is_null() {
-                            strncpy(user_pw, pdf_string_value(obj) as *const i8, 127);
-                        }
-                        pdf_release_obj(obj);
-                    } else {
-                        error = -1i32
-                    }
-                } else if streq_ptr(kp_0, b"length\x00" as *const u8 as *const i8) {
-                    let obj = parse_pdf_number(&mut p, endptr);
-                    if !obj.is_null()
-                        && (!obj.is_null() && (*obj).is_number())
-                    {
-                        *key_bits = pdf_number_value(obj) as u32 as i32
-                    } else {
-                        error = -1i32
-                    }
-                    pdf_release_obj(obj);
-                } else if streq_ptr(kp_0, b"perm\x00" as *const u8 as *const i8) {
-                    let obj = parse_pdf_number(&mut p, endptr);
-                    if !obj.is_null()
-                        && (!obj.is_null() && (*obj).is_number())
-                    {
-                        *permission = pdf_number_value(obj) as u32 as i32
-                    } else {
-                        error = -1i32
-                    }
-                    pdf_release_obj(obj);
-                } else {
-                    error = -1i32
-                }
-                free(kp_0 as *mut libc::c_void);
-                skip_white(&mut p, endptr);
             }
-        } else if ns_dvipdfmx != 0
-            && streq_ptr(q, b"config\x00" as *const u8 as *const i8) as i32 != 0
+        } else if ns_dvipdfmx != 0 && q.to_bytes() == b"config"
         {
             warn!("Tectonic does not support `config\' special. Ignored.");
         }
-        free(q as *mut libc::c_void);
     }
     error
 }

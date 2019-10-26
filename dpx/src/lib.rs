@@ -90,15 +90,22 @@ fn isblank(c: libc::c_int) -> libc::c_int {
     (c == ' ' as _ || c == '\t' as _) as _
 }
 
-fn skip_blank(buf: &[u8]) -> &[u8] {
-    let mut i = 0;
-    for &p in buf {
-        if !(p & !0x7f == 0 && isblank(p as _) != 0) {
-            break;
+
+trait SkipBlank {
+    fn skip_blank(&mut self);
+}
+
+impl SkipBlank for &[u8] {
+    fn skip_blank(&mut self) {
+        let mut i = 0;
+        for &p in *self {
+            if !(p & !0x7f == 0 && crate::isblank(p as _) != 0) {
+                break;
+            }
+            i += 1;
         }
-        i += 1;
+        *self = &self[i..];
     }
-    &buf[i..]
 }
 
 #[inline]

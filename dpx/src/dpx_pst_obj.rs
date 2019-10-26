@@ -596,12 +596,12 @@ unsafe fn pst_name_release(mut obj: *mut pst_name) {
     free(obj as *mut libc::c_void);
 }
 unsafe fn getxpair(mut s: *mut *mut u8) -> i32 {
-    let hi = xtoi(**s as i8);
+    let hi = xtoi(**s);
     if hi < 0i32 {
         return hi;
     }
     *s = (*s).offset(1);
-    let lo = xtoi(**s as i8);
+    let lo = xtoi(**s);
     if lo < 0i32 {
         return lo;
     }
@@ -913,7 +913,7 @@ unsafe fn pst_string_parse_hex(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -
         }
         let fresh8 = cur;
         cur = cur.offset(1);
-        let mut hi = xtoi(*fresh8 as i8);
+        let mut hi = xtoi(*fresh8);
         if hi < 0i32 {
             warn!(
                 "Invalid char for hex string <{:x}> treated as <0>.",
@@ -929,7 +929,7 @@ unsafe fn pst_string_parse_hex(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -
         let mut lo = if cur < inbufend {
             let fresh9 = cur;
             cur = cur.offset(1);
-            xtoi(*fresh9 as i8)
+            xtoi(*fresh9)
         } else {
             0i32
         };

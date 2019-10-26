@@ -29,12 +29,13 @@ use crate::mfree;
 use crate::streq_ptr;
 use crate::warn;
 use crate::DisplayExt;
-use std::ffi::CStr;
+use crate::SkipBlank;
+use std::ffi::{CString, CStr};
 
 use super::{spc_arg, spc_env};
 use crate::spc_warn;
 
-use crate::dpx_dpxutil::{parse_c_ident, parse_c_ident_rust, parse_c_string, parse_float_decimal};
+use crate::dpx_dpxutil::{ParseCIdent, ParseCString, ParseFloatDecimal};
 use crate::dpx_mem::renew;
 use crate::dpx_pdfcolor::pdf_color_get_current;
 use crate::dpx_pdfdev::pdf_dev_scale;
@@ -52,9 +53,8 @@ use crate::dpx_pdfobj::{
     pdf_new_boolean, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_string, pdf_obj,
     pdf_ref_obj, pdf_release_obj, pdf_string_value,
 };
-use crate::dpx_pdfparse::parse_val_ident;
-use crate::shims::sprintf;
-use libc::{atof, free, memcmp, strlen};
+use crate::dpx_pdfparse::ParseIdent;
+use libc::{atof};
 
 use super::SpcHandler;
 #[derive(Copy, Clone)]
@@ -78,17 +78,6 @@ use crate::dpx_pdfdev::Coord;
 
 use crate::dpx_pdfdev::TMatrix;
 
-/* tectonic/core-memory.h: basic dynamic memory helpers
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
-unsafe fn skip_blank(mut pp: *mut *const i8, mut endptr: *const i8) {
-    let mut p: *const i8 = *pp;
-    while p < endptr && (*p as i32 & !0x7fi32 == 0i32 && crate::isblank(*p as _) != 0) {
-        p = p.offset(1)
-    }
-    *pp = p;
-}
 static mut _TPIC_STATE: spc_tpic_ = spc_tpic_ {
     mode: C2RustUnnamed_0 { fill: 0 },
     pen_size: 0.,
@@ -150,20 +139,12 @@ unsafe fn set_linestyle(mut pn: f64, mut da: f64) -> i32 {
     0i32
 }
 unsafe fn set_fillstyle(mut g: f64, mut a: f64, mut f_ais: i32) -> i32 {
-    let mut resname: [u8; 32] = [0; 32];
     if a > 0.0f64 {
         let alp = (100. * a).round() as i32;
-        sprintf(
-            resname.as_mut_ptr() as *mut i8,
-            b"_Tps_a%03d_\x00" as *const u8 as *const i8,
-            alp,
-        );
+        let resname = format!("_Tps_a{:03}_", alp);
         if check_resourcestatus(
             "ExtGState",
-            CStr::from_bytes_with_nul(&resname)
-                .unwrap()
-                .to_str()
-                .unwrap(),
+            &resname,
         ) == 0
         {
             let dict = create_xgstate(
@@ -172,18 +153,13 @@ unsafe fn set_fillstyle(mut g: f64, mut a: f64, mut f_ais: i32) -> i32 {
             );
             pdf_doc_add_page_resource(
                 "ExtGState",
-                resname.as_ptr() as *const i8,
+                CString::new(resname.as_bytes()).unwrap().as_ptr() as *const i8,
                 pdf_ref_obj(dict),
             );
             pdf_release_obj(dict);
         }
-        let mut buf: [u8; 38] = [0; 38];
-        let len = sprintf(
-            buf.as_mut_ptr() as *mut i8,
-            b" /%s gs\x00" as *const u8 as *const i8,
-            resname.as_ptr() as *const i8,
-        ) as usize;
-        pdf_doc_add_page_content(&buf[..len]);
+        let buf = format!(" /{} gs", resname);
+        pdf_doc_add_page_content(buf.as_bytes());
         /* op: gs */
     } /* get stroking and fill colors */
     let (_sc, fc) = pdf_color_get_current();
@@ -405,33 +381,31 @@ unsafe fn spc_handler_tpic_pn(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
 /* , void *dp) */ {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     assert!(!spe.is_null() && !ap.is_null() && !tp.is_null());
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    let q = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-    if q.is_null() {
+    (*ap).cur.skip_blank();
+    if let Some(q) = (*ap).cur.parse_float_decimal() {
+        (*tp).pen_size = atof(q.as_ptr()) * (0.072f64 / pdf_dev_scale());
+        0
+    } else {
         spc_warn!(spe, "Invalid pen size specified?");
-        return -1i32;
+        -1
     }
-    (*tp).pen_size = atof(q) * (0.072f64 / pdf_dev_scale());
-    free(q as *mut libc::c_void);
-    0i32
 }
 unsafe fn spc_handler_tpic_pa(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i32
 /* , void *dp) */ {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     let mut v: [f64; 2] = [0.; 2];
     assert!(!spe.is_null() && !ap.is_null() && !tp.is_null());
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
+    (*ap).cur.skip_blank();
     let mut i = 0;
-    while i < 2 && (*ap).curptr < (*ap).endptr {
-        let q = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-        if q.is_null() {
+    while i < 2 && !(*ap).cur.is_empty() {
+        if let Some(q) = (*ap).cur.parse_float_decimal() {
+            v[i] = atof(q.as_ptr());
+            (*ap).cur.skip_blank();
+            i += 1;
+        } else {
             spc_warn!(spe, "Missing numbers for TPIC \"pa\" command.");
-            return -1i32;
+            return -1;
         }
-        v[i] = atof(q);
-        free(q as *mut libc::c_void);
-        skip_blank(&mut (*ap).curptr, (*ap).endptr);
-        i += 1
     }
     if i != 2 {
         spc_warn!(spe, "Invalid arg for TPIC \"pa\" command.");
@@ -480,11 +454,9 @@ unsafe fn spc_handler_tpic_da(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
     let mut da: f64 = 0.;
     let mut pg: i32 = 0;
     assert!(!spe.is_null() && !ap.is_null() && !tp.is_null());
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    let q = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-    if !q.is_null() {
-        da = atof(q);
-        free(q as *mut libc::c_void);
+    (*ap).cur.skip_blank();
+    if let Some(q) = (*ap).cur.parse_float_decimal() {
+        da = atof(q.as_ptr());
     }
     if (*tp).num_points <= 1i32 {
         spc_warn!(spe, "Too few points (< 2) for polyline path.");
@@ -499,11 +471,9 @@ unsafe fn spc_handler_tpic_dt(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
     let mut da: f64 = 0.0f64;
     let mut pg: i32 = 0;
     assert!(!spe.is_null() && !ap.is_null() && !tp.is_null());
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    let q = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-    if !q.is_null() {
-        da = -atof(q);
-        free(q as *mut libc::c_void);
+    (*ap).cur.skip_blank();
+    if let Some(q) = (*ap).cur.parse_float_decimal() {
+        da = -atof(q.as_ptr());
     }
     if (*tp).num_points <= 1i32 {
         spc_warn!(spe, "Too few points (< 2) for polyline path.");
@@ -518,11 +488,9 @@ unsafe fn spc_handler_tpic_sp(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
     let mut da: f64 = 0.0f64;
     let mut pg: i32 = 0;
     assert!(!spe.is_null() && !ap.is_null() && !tp.is_null());
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    let q = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-    if !q.is_null() {
-        da = atof(q);
-        free(q as *mut libc::c_void);
+    (*ap).cur.skip_blank();
+    if let Some(q) = (*ap).cur.parse_float_decimal() {
+        da = atof(q.as_ptr());
     }
     if (*tp).num_points <= 2i32 {
         spc_warn!(spe, "Too few points (< 3) for spline path.");
@@ -537,18 +505,17 @@ unsafe fn spc_handler_tpic_ar(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
     let mut v: [f64; 6] = [0.; 6];
     let mut pg: i32 = 0;
     assert!(!spe.is_null() && !ap.is_null() && !tp.is_null());
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
+    (*ap).cur.skip_blank();
     let mut i = 0;
-    while i < 6 && (*ap).curptr < (*ap).endptr {
-        let q = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-        if q.is_null() {
+    while i < 6 && !(*ap).cur.is_empty() {
+        if let Some(q) = (*ap).cur.parse_float_decimal() {
+            v[i] = atof(q.as_ptr());
+            (*ap).cur.skip_blank();
+            i += 1;
+        } else {
             spc_warn!(spe, "Invalid args. in TPIC \"ar\" command.");
             return -1i32;
         }
-        v[i] = atof(q);
-        free(q as *mut libc::c_void);
-        skip_blank(&mut (*ap).curptr, (*ap).endptr);
-        i += 1
     }
     if i != 6 {
         spc_warn!(spe, "Invalid arg for TPIC \"ar\" command.");
@@ -569,18 +536,17 @@ unsafe fn spc_handler_tpic_ia(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
     let mut v: [f64; 6] = [0.; 6];
     let mut pg: i32 = 0;
     assert!(!spe.is_null() && !ap.is_null() && !tp.is_null());
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
+    (*ap).cur.skip_blank();
     let mut i = 0;
-    while i < 6 && (*ap).curptr < (*ap).endptr {
-        let q = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-        if q.is_null() {
+    while i < 6 && !(*ap).cur.is_empty() {
+        if let Some(q) = (*ap).cur.parse_float_decimal() {
+            v[i] = atof(q.as_ptr());
+            (*ap).cur.skip_blank();
+            i += 1;
+        } else {
             spc_warn!(spe, "Invalid args. in TPIC \"ia\" command.");
             return -1i32;
         }
-        v[i] = atof(q);
-        free(q as *mut libc::c_void);
-        skip_blank(&mut (*ap).curptr, (*ap).endptr);
-        i += 1
     }
     if i != 6 {
         spc_warn!(spe, "Invalid arg for TPIC \"ia\" command.");
@@ -601,16 +567,14 @@ unsafe fn spc_handler_tpic_sh(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
     assert!(!spe.is_null() && !ap.is_null() && !tp.is_null());
     (*tp).fill_shape = true;
     (*tp).fill_color = 0.5f64;
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    let q = parse_float_decimal(&mut (*ap).curptr, (*ap).endptr);
-    if !q.is_null() {
-        let mut g: f64 = atof(q);
-        free(q as *mut libc::c_void);
-        if g >= 0.0f64 && g <= 1.0f64 {
+    (*ap).cur.skip_blank();
+    if let Some(q) = (*ap).cur.parse_float_decimal() {
+        let g: f64 = atof(q.as_ptr());
+        if g >= 0. && g <= 1. {
             (*tp).fill_color = g
         } else {
             warn!("Invalid fill color specified: {}\n", g);
-            return -1i32;
+            return -1;
         }
     }
     0i32
@@ -704,40 +668,36 @@ pub unsafe extern "C" fn spc_tpic_at_end_document() -> i32 {
 unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
     let mut error: i32 = 0i32;
     let mut dict = pdf_new_dict();
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    while error == 0 && (*ap).curptr < (*ap).endptr {
-        let kp = parse_val_ident(&mut (*ap).curptr, (*ap).endptr);
-        if kp.is_null() {
-            break;
-        }
-        skip_blank(&mut (*ap).curptr, (*ap).endptr);
-        if (*ap).curptr < (*ap).endptr && *(*ap).curptr.offset(0) as i32 == '=' as i32 {
-            (*ap).curptr = (*ap).curptr.offset(1);
-            skip_blank(&mut (*ap).curptr, (*ap).endptr);
-            if (*ap).curptr == (*ap).endptr {
-                free(kp as *mut libc::c_void);
-                error = -1i32;
-                break;
-            } else {
-                let vp = parse_c_string(&mut (*ap).curptr, (*ap).endptr);
-                if vp.is_null() {
-                    error = -1i32
+    (*ap).cur.skip_blank();
+    while error == 0 && !(*ap).cur.is_empty() {
+        if let Some(kp) = (*ap).cur.parse_val_ident() {
+            (*ap).cur.skip_blank();
+            if !(*ap).cur.is_empty() && (*ap).cur[0] == b'=' {
+                (*ap).cur = &(*ap).cur[1..];
+                (*ap).cur.skip_blank();
+                if (*ap).cur.is_empty() {
+                    error = -1i32;
+                    break;
                 } else {
-                    pdf_add_dict(
-                        dict,
-                        CStr::from_ptr(kp).to_bytes(),
-                        pdf_new_string(vp as *const libc::c_void, strlen(vp).wrapping_add(1) as _),
-                    );
-                    free(vp as *mut libc::c_void);
+                    if let Some(vp) = (*ap).cur.parse_c_string() {
+                        pdf_add_dict(
+                            dict,
+                            kp.to_bytes(),
+                            pdf_new_string(vp.as_ptr() as *const libc::c_void, (vp.to_bytes().len() + 1) as _),
+                        );
+                    } else {
+                        error = -1;
+                    }
                 }
+            } else {
+                /* Treated as 'flag' */
+                pdf_add_dict(dict, kp.to_bytes(), pdf_new_boolean(1_i8));
+            }
+            if error == 0 {
+                (*ap).cur.skip_blank();
             }
         } else {
-            /* Treated as 'flag' */
-            pdf_add_dict(dict, CStr::from_ptr(kp).to_bytes(), pdf_new_boolean(1_i8));
-        }
-        free(kp as *mut libc::c_void);
-        if error == 0 {
-            skip_blank(&mut (*ap).curptr, (*ap).endptr);
+            break;
         }
     }
     if error != 0 {
@@ -862,14 +822,14 @@ const TPIC_HANDLERS: [SpcHandler; 13] = [
         exec: Some(spc_handler_tpic_tx),
     },
 ];
-pub fn spc_tpic_check_special(buf: &[u8]) -> bool {
-    let mut buf = crate::skip_blank(buf);
+pub fn spc_tpic_check_special(mut buf: &[u8]) -> bool {
+    buf.skip_blank();
     let hasnsp = buf.starts_with(b"tpic:");
     if hasnsp {
         buf = &buf[b"tpic:".len()..];
     }
     let mut istpic = false;
-    if let Some(q) = parse_c_ident_rust(buf) {
+    if let Some(q) = buf.parse_c_ident() {
         if hasnsp && q.to_bytes() == b"__setopt__" {
             istpic = true;
         } else {
@@ -892,47 +852,32 @@ pub unsafe extern "C" fn spc_tpic_setup_handler(
     let mut hasnsp: i32 = 0i32;
     let mut error: i32 = -1i32;
     assert!(!sph.is_null() && !spe.is_null() && !ap.is_null());
-    skip_blank(&mut (*ap).curptr, (*ap).endptr);
-    if (*ap)
-        .curptr
-        .offset(strlen(b"tpic:\x00" as *const u8 as *const i8) as isize)
-        < (*ap).endptr
-        && memcmp(
-            (*ap).curptr as *const libc::c_void,
-            b"tpic:\x00" as *const u8 as *const i8 as *const libc::c_void,
-            strlen(b"tpic:\x00" as *const u8 as *const i8),
-        ) == 0
-    {
-        (*ap).curptr = (*ap)
-            .curptr
-            .offset(strlen(b"tpic:\x00" as *const u8 as *const i8) as isize);
-        hasnsp = 1i32
+    (*ap).cur.skip_blank();
+    if (*ap).cur.starts_with(b"tpic:") {
+        (*ap).cur = &(*ap).cur[b"tpic:".len()..];
+        hasnsp = 1;
     }
-    let q = parse_c_ident(&mut (*ap).curptr, (*ap).endptr);
-    if q.is_null() {
-        error = -1i32
-    } else if !q.is_null()
-        && hasnsp != 0
-        && streq_ptr(q, b"__setopt__\x00" as *const u8 as *const i8) as i32 != 0
-    {
-        (*ap).command = Some(b"__setopt__");
-        (*sph).key = b"tpic:";
-        (*sph).exec = Some(spc_handler_tpic__setopts);
-        skip_blank(&mut (*ap).curptr, (*ap).endptr);
-        error = 0i32;
-        free(q as *mut libc::c_void);
-    } else {
-        for handler in TPIC_HANDLERS.iter() {
-            if CStr::from_ptr(q).to_bytes() == handler.key {
-                (*ap).command = Some(handler.key);
-                (*sph).key = b"tpic:";
-                (*sph).exec = handler.exec;
-                skip_blank(&mut (*ap).curptr, (*ap).endptr);
-                error = 0i32;
-                break;
+    if let Some(q) = (*ap).cur.parse_c_ident() {
+        if hasnsp != 0 && q.to_bytes() == b"__setopt__" {
+            (*ap).command = Some(b"__setopt__");
+            (*sph).key = b"tpic:";
+            (*sph).exec = Some(spc_handler_tpic__setopts);
+            (*ap).cur.skip_blank();
+            error = 0i32;
+        } else {
+            for handler in TPIC_HANDLERS.iter() {
+                if q.to_bytes() == handler.key {
+                    (*ap).command = Some(handler.key);
+                    (*sph).key = b"tpic:";
+                    (*sph).exec = handler.exec;
+                    (*ap).cur.skip_blank();
+                    error = 0i32;
+                    break;
+                }
             }
         }
-        free(q as *mut libc::c_void);
+    } else {
+        error = -1;
     }
     error
 }

@@ -3649,7 +3649,7 @@ unsafe fn mp_parse_body(
     let mut error: i32 = 0i32;
     skip_white(start, end);
     while *start < end && error == 0 {
-        if libc::isdigit(**start as _) != 0
+        if (**start as u8).is_ascii_digit()
             || *start < end.offset(-1)
                 && (**start as i32 == '+' as i32
                     || **start as i32 == '-' as i32
@@ -3758,8 +3758,7 @@ pub unsafe extern "C" fn mps_stack_depth() -> i32 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn mps_exec_inline(
-    mut p: *mut *const i8,
-    mut endptr: *const i8,
+    pp: &mut &[u8],
     mut x_user: f64,
     mut y_user: f64,
 ) -> i32 {
@@ -3777,7 +3776,12 @@ pub unsafe extern "C" fn mps_exec_inline(
      * Remember that x_user and y_user are off by 0.02 %
      */
     pdf_dev_moveto(x_user, y_user);
-    let error = mp_parse_body(p, endptr, x_user, y_user);
+
+    let mut p = (*pp).as_ptr() as *const i8;
+    let endptr = p.offset(pp.len() as isize);
+    let error = mp_parse_body(&mut p, endptr, x_user, y_user);
+    *pp = &pp[pp.len()-(endptr.wrapping_offset_from(p)) as usize..];
+
     //pdf_color_pop(); /* ... */
     pdf_dev_set_param(1i32, autorotate);
     pdf_dev_set_dirmode(dirmode);

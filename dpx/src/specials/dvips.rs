@@ -26,10 +26,9 @@
 )]
 
 use crate::DisplayExt;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 
 use crate::mfree;
-use crate::strstartswith;
 use crate::warn;
 
 use super::{spc_arg, spc_env};
@@ -41,15 +40,15 @@ use crate::dpx_pdfximage::pdf_ximage_findresource;
 use crate::{ttstub_input_close, ttstub_input_open};
 
 use super::util::spc_util_read_dimtrns;
-use crate::dpx_mem::{new, xmalloc, xrealloc};
+use crate::dpx_mem::{xmalloc, xrealloc};
 use crate::dpx_mpost::{mps_eop_cleanup, mps_exec_inline, mps_stack_depth};
 use crate::dpx_pdfdev::{pdf_dev_put_image, TMatrix, transform_info, transform_info_clear};
 use crate::dpx_pdfdraw::{
     pdf_dev_current_depth, pdf_dev_grestore, pdf_dev_grestore_to, pdf_dev_gsave,
 };
-use crate::dpx_pdfparse::{skip_white, skip_white_slice};
+use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
-use libc::{free, memcpy, strlen, strncpy};
+use libc::{free, strncpy};
 
 pub type size_t = u64;
 /* quasi-hack to get the primary input */
@@ -64,22 +63,21 @@ static mut POSITION_SET: i32 = 0i32;
 static mut PS_HEADERS: *mut *mut i8 = 0 as *const *mut i8 as *mut *mut i8;
 static mut NUM_PS_HEADERS: i32 = 0i32;
 unsafe fn spc_handler_ps_header(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
-    skip_white(&mut (*args).curptr, (*args).endptr);
-    if (*args).curptr.offset(1) >= (*args).endptr || *(*args).curptr.offset(0) as i32 != '=' as i32
-    {
+    (*args).cur.skip_white();
+    if (*args).cur.len() <= 1 || (*args).cur[0] != b'=' {
         spc_warn!(spe, "No filename specified for PSfile special.");
         return -1i32;
     }
-    (*args).curptr = (*args).curptr.offset(1);
+    (*args).cur = &(*args).cur[1..];
     let pro = xmalloc(
-        ((*args).endptr.wrapping_offset_from((*args).curptr) as i64 + 1i32 as i64) as size_t,
+        ((*args).cur.len() as i64 + 1i32 as i64) as size_t,
     ) as *mut i8;
     strncpy(
         pro,
-        (*args).curptr,
-        (*args).endptr.wrapping_offset_from((*args).curptr) as _,
+        (*args).cur.as_ptr() as *mut i8,
+        (*args).cur.len() as _,
     );
-    *pro.offset((*args).endptr.wrapping_offset_from((*args).curptr) as i64 as isize) = 0_i8;
+    *pro.offset((*args).cur.len() as isize) = 0_i8;
     let ps_header =
         ttstub_input_open(pro, TTInputFormat::TEX_PS_HEADER, 0i32);
     if ps_header.is_none() {
@@ -103,43 +101,39 @@ unsafe fn spc_handler_ps_header(mut spe: *mut spc_env, mut args: *mut spc_arg) -
     NUM_PS_HEADERS = NUM_PS_HEADERS + 1;
     let ref mut fresh1 = *PS_HEADERS.offset(fresh0 as isize);
     *fresh1 = pro;
-    (*args).curptr = (*args).endptr;
+    (*args).cur = &[];
     0i32
 }
-unsafe fn parse_filename(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut i8 {
-    let mut p: *const i8 = *pp;
+unsafe fn parse_filename(pp: &mut &[u8]) -> Option<CString> {
+    let mut p = *pp;
     let mut qchar;
-    if p.is_null() || p >= endptr {
-        return 0 as *mut i8;
+    if p.is_empty() {
+        return None;
     } else {
-        if *p as i32 == '\"' as i32 || *p as i32 == '\'' as i32 {
-            let fresh2 = p;
-            p = p.offset(1);
-            qchar = *fresh2
+        if p[0] == b'\"' || p[0] == b'\'' {
+            qchar = p[0];
+            p = &p[1..];
         } else {
-            qchar = ' ' as i32 as i8
+            qchar = b' ';
         }
     }
-    let mut n = 0i32;
+    let mut n = 0;
     let q = p;
-    while p < endptr && *p as i32 != qchar as i32 {
+    while !p.is_empty() && p[0] != qchar {
         /* nothing */
         n += 1;
-        p = p.offset(1)
+        p = &p[1..];
     }
-    if qchar as i32 != ' ' as i32 {
-        if *p as i32 != qchar as i32 {
-            return 0 as *mut i8;
+    if qchar != b' ' {
+        if p[0] != qchar {
+            return None;
         }
-        p = p.offset(1)
+        p = &p[1..];
     }
-    if q.is_null() || n == 0i32 {
-        return 0 as *mut i8;
+    if q.is_empty() || n == 0 {
+        return None;
     }
-    let r = new(((n + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-        as *mut i8;
-    memcpy(r as *mut libc::c_void, q as *const libc::c_void, n as _);
-    *r.offset(n as isize) = '\u{0}' as i32 as i8;
+    let r = Some(CString::new(&q[..n]).unwrap());
     *pp = p;
     r
 }
@@ -155,36 +149,32 @@ unsafe fn spc_handler_ps_file(mut spe: *mut spc_env, mut args: *mut spc_arg) -> 
         init
     };
     assert!(!spe.is_null() && !args.is_null());
-    skip_white(&mut (*args).curptr, (*args).endptr);
-    if (*args).curptr.offset(1) >= (*args).endptr || *(*args).curptr.offset(0) as i32 != '=' as i32
-    {
+    (*args).cur.skip_white();
+    if (*args).cur.len() <= 1 || (*args).cur[0] != b'=' {
         spc_warn!(spe, "No filename specified for PSfile special.");
-        return -1i32;
+        return -1;
     }
-    (*args).curptr = (*args).curptr.offset(1);
-    let filename = parse_filename(&mut (*args).curptr, (*args).endptr);
-    if filename.is_null() {
+    (*args).cur = &(*args).cur[1..];
+    if let Some(filename) = parse_filename(&mut (*args).cur) {
+        transform_info_clear(&mut ti);
+        if spc_util_read_dimtrns(spe, &mut ti, args, 1i32) < 0i32 {
+            return -1;
+        }
+        let form_id = pdf_ximage_findresource(filename.as_ptr(), options);
+        if form_id < 0i32 {
+            spc_warn!(
+                spe,
+                "Failed to read image file: {}",
+                filename.display(),
+            );
+            return -1i32;
+        }
+        pdf_dev_put_image(form_id, &mut ti, (*spe).x_user, (*spe).y_user);
+        0i32
+    } else {
         spc_warn!(spe, "No filename specified for PSfile special.");
-        return -1i32;
+        -1
     }
-    transform_info_clear(&mut ti);
-    if spc_util_read_dimtrns(spe, &mut ti, args, 1i32) < 0i32 {
-        free(filename as *mut libc::c_void);
-        return -1i32;
-    }
-    let form_id = pdf_ximage_findresource(filename, options);
-    if form_id < 0i32 {
-        spc_warn!(
-            spe,
-            "Failed to read image file: {}",
-            CStr::from_ptr(filename).display(),
-        );
-        free(filename as *mut libc::c_void);
-        return -1i32;
-    }
-    free(filename as *mut libc::c_void);
-    pdf_dev_put_image(form_id, &mut ti, (*spe).x_user, (*spe).y_user);
-    0i32
 }
 /* This isn't correct implementation but dvipdfm supports... */
 unsafe fn spc_handler_ps_plotfile(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
@@ -200,66 +190,51 @@ unsafe fn spc_handler_ps_plotfile(mut spe: *mut spc_env, mut args: *mut spc_arg)
     };
     assert!(!spe.is_null() && !args.is_null());
     spc_warn!(spe, "\"ps: plotfile\" found (not properly implemented)");
-    skip_white(&mut (*args).curptr, (*args).endptr);
-    let filename = parse_filename(&mut (*args).curptr, (*args).endptr);
-    if filename.is_null() {
+    (*args).cur.skip_white();
+    if let Some(filename) = parse_filename(&mut (*args).cur) {
+        let form_id = pdf_ximage_findresource(filename.as_ptr(), options);
+        if form_id < 0i32 {
+            spc_warn!(
+                spe,
+                "Could not open PS file: {}",
+                filename.display(),
+            );
+            error = -1i32
+        } else {
+            transform_info_clear(&mut p);
+            p.matrix.d = -1.0f64;
+            pdf_dev_put_image(form_id, &mut p, 0i32 as f64, 0i32 as f64);
+        }
+        error
+    } else {
         spc_warn!(spe, "Expecting filename but not found...");
         return -1i32;
     }
-    let form_id = pdf_ximage_findresource(filename, options);
-    if form_id < 0i32 {
-        spc_warn!(
-            spe,
-            "Could not open PS file: {}",
-            CStr::from_ptr(filename).display(),
-        );
-        error = -1i32
-    } else {
-        transform_info_clear(&mut p);
-        p.matrix.d = -1.0f64;
-        pdf_dev_put_image(form_id, &mut p, 0i32 as f64, 0i32 as f64);
-    }
-    free(filename as *mut libc::c_void);
-    error
 }
 unsafe fn spc_handler_ps_literal(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut error: i32 = 0i32;
     let x_user;
     let y_user;
-    assert!(!spe.is_null() && !args.is_null() && (*args).curptr <= (*args).endptr);
-    if (*args)
-        .curptr
-        .offset(strlen(b":[begin]\x00" as *const u8 as *const i8) as isize)
-        <= (*args).endptr
-        && !strstartswith((*args).curptr, b":[begin]\x00" as *const u8 as *const i8).is_null()
-    {
+    assert!(!spe.is_null() && !args.is_null() && !(*args).cur.is_empty());
+    if (*args).cur.starts_with(b":[begin]") {
         BLOCK_PENDING += 1;
         POSITION_SET = 1i32;
         PENDING_X = (*spe).x_user;
         x_user = PENDING_X;
         PENDING_Y = (*spe).y_user;
         y_user = PENDING_Y;
-        (*args).curptr = (*args)
-            .curptr
-            .offset(strlen(b":[begin]\x00" as *const u8 as *const i8) as isize)
-    } else if (*args)
-        .curptr
-        .offset(strlen(b":[end]\x00" as *const u8 as *const i8) as isize)
-        <= (*args).endptr
-        && !strstartswith((*args).curptr, b":[end]\x00" as *const u8 as *const i8).is_null()
-    {
-        if BLOCK_PENDING <= 0i32 {
+        (*args).cur = &(*args).cur[b":[begin]".len()..];
+    } else if (*args).cur.starts_with(b":[end]") {
+        if BLOCK_PENDING <= 0 {
             spc_warn!(spe, "No corresponding ::[begin] found.");
-            return -1i32;
+            return -1;
         }
         BLOCK_PENDING -= 1;
-        POSITION_SET = 0i32;
+        POSITION_SET = 0;
         x_user = PENDING_X;
         y_user = PENDING_Y;
-        (*args).curptr = (*args)
-            .curptr
-            .offset(strlen(b":[end]\x00" as *const u8 as *const i8) as isize)
-    } else if (*args).curptr < (*args).endptr && *(*args).curptr.offset(0) as i32 == ':' as i32 {
+        (*args).cur = &(*args).cur[b":[end]".len()..];
+    } else if !(*args).cur.is_empty() && (*args).cur[0] == b':' {
         x_user = if POSITION_SET != 0 {
             PENDING_X
         } else {
@@ -270,19 +245,19 @@ unsafe fn spc_handler_ps_literal(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         } else {
             (*spe).y_user
         };
-        (*args).curptr = (*args).curptr.offset(1)
+        (*args).cur = &(*args).cur[1..];
     } else {
-        POSITION_SET = 1i32;
+        POSITION_SET = 1;
         PENDING_X = (*spe).x_user;
         x_user = PENDING_X;
         PENDING_Y = (*spe).y_user;
         y_user = PENDING_Y
     }
-    skip_white(&mut (*args).curptr, (*args).endptr);
-    if (*args).curptr < (*args).endptr {
+    (*args).cur.skip_white();
+    if !(*args).cur.is_empty() {
         let st_depth = mps_stack_depth();
         let gs_depth = pdf_dev_current_depth();
-        error = mps_exec_inline(&mut (*args).curptr, (*args).endptr, x_user, y_user);
+        error = mps_exec_inline(&mut (*args).cur, x_user, y_user);
         if error != 0 {
             spc_warn!(
                 spe,
@@ -305,12 +280,12 @@ unsafe fn spc_handler_ps_literal(mut spe: *mut spc_env, mut args: *mut spc_arg) 
 }
 unsafe fn spc_handler_ps_trickscmd(mut _spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     warn!("PSTricks commands are disallowed in Tectonic");
-    (*args).curptr = (*args).endptr;
+    (*args).cur = &[];
     -1i32
 }
 unsafe fn spc_handler_ps_tricksobj(mut _spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     warn!("PSTricks commands are disallowed in Tectonic");
-    (*args).curptr = (*args).endptr;
+    (*args).cur = &[];
     -1i32
 }
 unsafe fn spc_handler_ps_default(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
@@ -327,8 +302,7 @@ unsafe fn spc_handler_ps_default(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     M.f = (*spe).y_user;
     pdf_dev_concat(&mut M);
     let error = mps_exec_inline(
-        &mut (*args).curptr,
-        (*args).endptr,
+        &mut (*args).cur,
         (*spe).x_user,
         (*spe).y_user,
     );
@@ -424,8 +398,8 @@ pub unsafe extern "C" fn spc_dvips_at_end_page() -> i32 {
     mps_eop_cleanup();
     0i32
 }
-pub fn spc_dvips_check_special(buf: &[u8]) -> bool {
-    let buf = skip_white_slice(buf);
+pub fn spc_dvips_check_special(mut buf: &[u8]) -> bool {
+    buf.skip_white();
     if buf.is_empty() {
         return false;
     }
@@ -443,38 +417,28 @@ pub unsafe extern "C" fn spc_dvips_setup_handler(
     mut args: *mut spc_arg,
 ) -> i32 {
     assert!(!handle.is_null() && !spe.is_null() && !args.is_null());
-    skip_white(&mut (*args).curptr, (*args).endptr);
-    let key = (*args).curptr;
-    while (*args).curptr < (*args).endptr && libc::isalpha(*(*args).curptr.offset(0) as _) != 0 {
-        (*args).curptr = (*args).curptr.offset(1)
+    (*args).cur.skip_white();
+    let key = (*args).cur;
+    while !(*args).cur.is_empty() && ((*args).cur[0] as u8).is_ascii_alphabetic() {
+        (*args).cur = &(*args).cur[1..];
     }
     /* Test for "ps:". The "ps::" special is subsumed under this case.  */
-    if (*args).curptr < (*args).endptr && *(*args).curptr.offset(0) as i32 == ':' as i32 {
-        (*args).curptr = (*args).curptr.offset(1);
-        if (*args)
-            .curptr
-            .offset(strlen(b" plotfile \x00" as *const u8 as *const i8) as isize)
-            <= (*args).endptr
-            && !strstartswith((*args).curptr, b" plotfile \x00" as *const u8 as *const i8).is_null()
-        {
-            (*args).curptr = (*args)
-                .curptr
-                .offset(strlen(b" plotfile \x00" as *const u8 as *const i8) as isize)
+    if !(*args).cur.is_empty() && (*args).cur[0] == b':' {
+        (*args).cur = &(*args).cur[1..];
+        if (*args).cur.starts_with(b" plotfile ") {
+            (*args).cur = &(*args).cur[b" plotfile ".len()..];
         }
-    } else if (*args).curptr.offset(1) < (*args).endptr
-        && *(*args).curptr.offset(0) as i32 == '\"' as i32
-        && *(*args).curptr.offset(1) as i32 == ' ' as i32
-    {
-        (*args).curptr = (*args).curptr.offset(2)
+    } else if (*args).cur.len() > 1 && (*args).cur[0] == b'\"' && (*args).cur[1] == b' ' {
+        (*args).cur = &(*args).cur[2..];
     }
-    let keylen = (*args).curptr.wrapping_offset_from(key) as usize;
+    let keylen = key.len() - (*args).cur.len();
     if keylen < 1 {
         spc_warn!(spe, "Not ps: special???");
         return -1i32;
     }
     for handler in DVIPS_HANDLERS.iter() {
-        if keylen == handler.key.len() && &CStr::from_ptr(key).to_bytes()[..keylen] == handler.key {
-            skip_white(&mut (*args).curptr, (*args).endptr);
+        if keylen == handler.key.len() && &key[..keylen] == handler.key {
+            (*args).cur.skip_white();
             (*args).command = Some(handler.key);
             (*handle).key = b"ps:";
             (*handle).exec = handler.exec;
