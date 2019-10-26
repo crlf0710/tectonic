@@ -26,7 +26,6 @@
 )]
 
 use crate::DisplayExt;
-use std::ffi::CStr;
 
 use super::util::{spc_util_read_colorspec, spc_util_read_numbers};
 use crate::dpx_dpxutil::ParseCIdent;

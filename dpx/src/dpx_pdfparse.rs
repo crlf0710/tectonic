@@ -912,7 +912,7 @@ impl ParsePdfObj for &[u8] {
                     *pp = &[];
                     return -1;
                 }
-                if p[1].is_ascii_hexdigit() || p[2].is_ascii_hexdigit() {
+                if !p[1].is_ascii_hexdigit() || !p[2].is_ascii_hexdigit() {
                     *pp = &(*pp)[3..];
                     return -1;
                 }
