@@ -347,6 +347,9 @@ unsafe fn flat_table(
                 let mut new_obj: *mut pdf_obj =
                     ht_lookup_table(filter, key as *const libc::c_void, keylen) as *mut pdf_obj;
                 if new_obj.is_null() {
+                    if !(ht_iter_next(&mut iter) >= 0) {
+                        break;
+                    }
                     continue;
                 }
                 key = pdf_string_value(new_obj) as *mut i8;
