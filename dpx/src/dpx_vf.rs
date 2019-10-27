@@ -43,6 +43,7 @@ use super::dpx_dvi::{
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::{sqxfw, tt_skip_bytes};
 use super::dpx_tfm::tfm_open;
+use super::dpx_dvicodes::*;
 use crate::{ttstub_input_close, ttstub_input_open, ttstub_input_read};
 use libc::{free, strcpy, strlen};
 
@@ -50,6 +51,8 @@ pub type __off_t = i64;
 pub type __off64_t = i64;
 pub type __ssize_t = i64;
 pub type size_t = u64;
+
+const VF_ID: u8 = 202;
 
 use crate::TTInputFormat;
 
@@ -105,8 +108,8 @@ pub unsafe extern "C" fn vf_reset_global_state() {
     vf_fonts = 0 as *mut vf;
 }
 unsafe fn read_header(vf_handle: &mut InputHandleWrapper, mut thisfont: i32) {
-    if tt_get_unsigned_byte(vf_handle) as i32 != 247i32
-        || tt_get_unsigned_byte(vf_handle) as i32 != 202i32
+    if tt_get_unsigned_byte(vf_handle) != PRE
+        || tt_get_unsigned_byte(vf_handle) != VF_ID
     {
         eprintln!("VF file may be corrupt");
         return;
@@ -242,42 +245,43 @@ unsafe fn read_a_font_def(vf_handle: &mut InputHandleWrapper, mut font_id: i32, 
     ) as i32;
 }
 unsafe fn process_vf_file(vf_handle: &mut InputHandleWrapper, mut thisfont: i32) {
-    let mut eof: i32 = 0i32;
-    while eof == 0 {
-        let code = tt_get_unsigned_byte(vf_handle) as i32;
+    let mut eof = false;
+    while !eof {
+        let code = tt_get_unsigned_byte(vf_handle);
         match code {
-            243 | 244 | 245 | 246 => {
-                let font_id = tt_get_unsigned_num(vf_handle, (code - 243i32) as u8);
+            FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
+                let font_id = tt_get_unsigned_num(vf_handle, code - 243);
                 read_a_font_def(vf_handle, font_id as i32, thisfont);
             }
-            _ => {
-                if code < 242i32 {
-                    /* For a short packet, code is the pkt_len */
-                    let mut ch: u32 = tt_get_unsigned_byte(vf_handle) as u32;
-                    /* Skip over TFM width since we already know it */
-                    tt_skip_bytes(3_u32, vf_handle);
-                    read_a_char_def(vf_handle, thisfont, code as u32, ch);
-                } else if code == 242i32 {
-                    let mut pkt_len: u32 = tt_get_positive_quad(
-                        vf_handle,
-                        b"VF\x00" as *const u8 as *const i8,
-                        b"pkt_len\x00" as *const u8 as *const i8,
-                    );
-                    let mut ch_0: u32 = tt_get_unsigned_quad(vf_handle);
-                    /* Skip over TFM width since we already know it */
-                    tt_skip_bytes(4_u32, vf_handle);
-                    if ch_0 < 0x1000000u32 {
-                        read_a_char_def(vf_handle, thisfont, pkt_len, ch_0);
-                    } else {
-                        eprintln!("char={}", ch_0);
-                        panic!("Long character (>24 bits) in VF file.\nI can\'t handle long characters!\n");
-                    }
-                } else if code == 248i32 {
-                    eof = 1i32
+            242 => {
+                let pkt_len: u32 = tt_get_positive_quad(
+                    vf_handle,
+                    b"VF\x00" as *const u8 as *const i8,
+                    b"pkt_len\x00" as *const u8 as *const i8,
+                );
+                let ch: u32 = tt_get_unsigned_quad(vf_handle);
+                /* Skip over TFM width since we already know it */
+                tt_skip_bytes(4, vf_handle);
+                if ch < 0x1000000 {
+                    read_a_char_def(vf_handle, thisfont, pkt_len, ch);
                 } else {
-                    eprintln!("Quitting on code={}", code);
-                    eof = 1i32
+                    eprintln!("char={}", ch);
+                    panic!("Long character (>24 bits) in VF file.\nI can\'t handle long characters!\n");
                 }
+            } 
+            POST => {
+                eof = true;
+            }
+            _  if code < 242 =>  {
+                /* For a short packet, code is the pkt_len */
+                let mut ch: u32 = tt_get_unsigned_byte(vf_handle) as u32;
+                /* Skip over TFM width since we already know it */
+                tt_skip_bytes(3, vf_handle);
+                read_a_char_def(vf_handle, thisfont, code as u32, ch);
+            } 
+            _ => {
+                eprintln!("Quitting on code={}", code);
+                eof = true
             }
         }
     }
