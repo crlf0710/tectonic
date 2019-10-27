@@ -1772,19 +1772,19 @@ unsafe fn do_glyphs(mut do_actual_text: i32) {
 }
 unsafe fn check_postamble() {
     let handle = dvi_handle.as_mut().unwrap();
-    tt_skip_bytes(28_u32, handle);
+    tt_skip_bytes(28, handle);
     loop {
-        let code = tt_get_unsigned_byte(handle) as i32;
-        if !(code != 249i32) {
+        let code = tt_get_unsigned_byte(handle) as u8;
+        if code == POST_POST {
             break;
         }
         match code {
-            243 | 244 | 245 | 246 => {
-                tt_skip_bytes((code + 1i32 - 243i32) as u32, handle);
+            FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
+                tt_skip_bytes((code + 1 - FNT_DEF1) as u32, handle);
                 skip_fntdef();
             }
-            252 => {
-                tt_skip_bytes(4_u32, handle);
+            XDV_NATIVE_FONT_DEF => {
+                tt_skip_bytes(4, handle);
                 skip_native_font_def();
             }
             _ => {
@@ -1792,21 +1792,22 @@ unsafe fn check_postamble() {
             }
         }
     }
-    tt_skip_bytes(4_u32, handle);
+    tt_skip_bytes(4, handle);
     post_id_byte = tt_get_unsigned_byte(handle) as i32;
-    if !(post_id_byte == 2i32
-        || post_id_byte == 3i32
-        || post_id_byte == 7i32
-        || post_id_byte == 6i32)
+    let post_id_byte_0 = post_id_byte as u8;
+    if !(post_id_byte_0 == DVI_ID
+        || post_id_byte_0 == DVIV_ID
+        || post_id_byte_0 == XDV_ID
+        || post_id_byte_0 == XDV_ID_OLD)
     {
-        info!("DVI ID = {}\n", post_id_byte);
+        info!("DVI ID = {}\n", post_id_byte_0);
         panic!(invalid_signature);
     }
     check_id_bytes();
-    if has_ptex != 0 && post_id_byte != 3i32 {
-        panic!("Saw opcode {} in DVI file not for Ascii pTeX", 255i32,);
+    if has_ptex != 0 && post_id_byte_0 != DVIV_ID {
+        panic!("Saw opcode {} in DVI file not for Ascii pTeX", PTEXDIR);
     }
-    num_pages = 0_u32;
+    num_pages = 0;
     /* force loop to terminate */
 }
 /* Most of the work of actually interpreting
