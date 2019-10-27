@@ -193,6 +193,7 @@ pub mod dpx_dpxcrypt;
 pub mod dpx_dpxfile;
 pub mod dpx_dpxutil;
 pub mod dpx_dvi;
+pub mod dpx_dvicodes;
 pub mod dpx_dvipdfmx;
 pub mod dpx_epdf;
 pub mod dpx_error;
