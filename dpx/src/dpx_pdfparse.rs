@@ -303,68 +303,8 @@ const PDF_STRING_LEN_MAX: usize = 65535;
 
 const STRING_BUFFER_SIZE: usize = PDF_STRING_LEN_MAX+1;
 static mut sbuf: [i8; PDF_STRING_LEN_MAX+1] = [0; PDF_STRING_LEN_MAX+1];
-#[no_mangle]
-pub unsafe extern "C" fn parse_pdf_name(
-    mut pp: *mut *const i8,
-    mut endptr: *const i8,
-) -> *mut pdf_obj {
-    let mut b = std::slice::from_raw_parts(*pp as *const i8 as *const u8, endptr.wrapping_offset_from(*pp) as usize);
-    let obj = b.parse_pdf_name();
-    *pp = b.as_ptr() as *const i8;
-    if let Some(o) = obj {
-        o
-    } else {
-        0 as *mut pdf_obj
-    }
-}
 
-#[no_mangle]
-pub unsafe extern "C" fn parse_pdf_string(
-    mut pp: *mut *const i8,
-    mut endptr: *const i8,
-) -> *mut pdf_obj {
-    let mut b = std::slice::from_raw_parts(*pp as *const i8 as *const u8, endptr.wrapping_offset_from(*pp) as usize);
-    let obj = b.parse_pdf_string();
-    *pp = b.as_ptr() as *const i8;
-    if let Some(o) = obj {
-        o
-    } else {
-        0 as *mut pdf_obj
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn parse_pdf_dict(
-    mut pp: *mut *const i8,
-    mut endptr: *const i8,
-    mut pf: *mut pdf_file,
-) -> *mut pdf_obj {
-    let mut b = std::slice::from_raw_parts(*pp as *const i8 as *const u8, endptr.wrapping_offset_from(*pp) as usize);
-    let obj = b.parse_pdf_dict(pf);
-    *pp = b.as_ptr() as *const i8;
-    if let Some(o) = obj {
-        o
-    } else {
-        0 as *mut pdf_obj
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn parse_pdf_array(
-    mut pp: *mut *const i8,
-    mut endptr: *const i8,
-    mut pf: *mut pdf_file,
-) -> *mut pdf_obj {
-    let mut b = std::slice::from_raw_parts(*pp as *const i8 as *const u8, endptr.wrapping_offset_from(*pp) as usize);
-    let obj = b.parse_pdf_array(pf);
-    *pp = b.as_ptr() as *const i8;
-    if let Some(o) = obj {
-        o
-    } else {
-        0 as *mut pdf_obj
-    }
-}
-    /* !PDF_PARSE_STRICT */
+/* !PDF_PARSE_STRICT */
 unsafe fn try_pdf_reference(
     mut p: &[u8],
     pf: *mut pdf_file,
@@ -566,7 +506,7 @@ impl ParsePdfObj for &[u8] {
         let stream_dict = unsafe { pdf_stream_dict(result) };
         unsafe { pdf_merge_dict(stream_dict, dict); }
         unsafe { pdf_add_stream(result, p.as_ptr() as *const libc::c_void, stream_length); }
-        p = &p[stream_length as usize..];
+        p = &p[(stream_length as usize)..];
         /* Check "endsteam" */
         /* It is recommended that there be an end-of-line marker
          * after the data and before endstream; this marker is not included

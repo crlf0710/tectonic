@@ -27,6 +27,7 @@
     unused_mut
 )]
 
+use std::io::Read;
 use crate::info;
 use crate::DisplayExt;
 use std::ffi::CStr;
@@ -41,17 +42,16 @@ use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_mem::{new, renew};
-use super::dpx_pdfparse::skip_white;
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_copy_name, pdf_file, pdf_get_array, pdf_get_version,
     pdf_link_obj, pdf_name_value, pdf_new_array, pdf_new_dict, pdf_new_number, pdf_obj,
     pdf_release_obj,
 };
-use crate::dpx_pdfparse::{parse_pdf_array, parse_pdf_name, pdfparse_skip_line};
+use crate::dpx_pdfparse::{ParsePdfObj, SkipWhite};
 use crate::mfree;
 use crate::shims::sprintf;
 use crate::streq_ptr;
-use crate::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub_input_read};
+use crate::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open};
 use libc::{free, memset, strcmp, strcpy, strlen};
 
 pub type __ssize_t = i64;
@@ -253,7 +253,6 @@ unsafe fn make_encoding_differences(
     differences
 }
 unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
-    let mut enc_name: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut enc_vec: [*const i8; 256] = [0 as *const i8; 256];
     if filename.is_null() {
         return -1i32;
@@ -270,40 +269,37 @@ unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
         return -1i32;
     }
     let mut handle = handle.unwrap();
-    let fsize = ttstub_input_get_size(&mut handle) as i32;
-    let wbuf_0 =
-        new(((fsize + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-            as *mut i8;
-    *wbuf_0.offset(fsize as isize) = '\u{0}' as i32 as i8;
-    if ttstub_input_read(handle.0.as_ptr(), wbuf_0, fsize as size_t) != fsize as i64 {
-        panic!("error reading {}", CStr::from_ptr(filename).display());
-    }
+    let fsize = ttstub_input_get_size(&mut handle) as usize;
+    let mut wbuf_0 = vec![0_u8; fsize];
+    handle.read(&mut wbuf_0[..])
+        .expect(&format!("error reading {}", CStr::from_ptr(filename).display()));
     ttstub_input_close(handle);
-    let mut p = wbuf_0 as *const i8;
-    let endptr = wbuf_0.offset(fsize as isize);
-    skip_white(&mut p, endptr);
+    let mut p = &wbuf_0[..fsize];
+    p.skip_white();
     /*
      * Skip comment lines.
      */
-    while p < endptr && *p.offset(0) as i32 == '%' as i32 {
-        pdfparse_skip_line(&mut p, endptr);
-        skip_white(&mut p, endptr);
+    while !p.is_empty() && p[0] == b'%' {
+        p.skip_line();
+        p.skip_white();
     }
-    if *p.offset(0) as i32 == '/' as i32 {
-        enc_name = parse_pdf_name(&mut p, endptr)
-    }
-    skip_white(&mut p, endptr);
-    let encoding_array = parse_pdf_array(&mut p, endptr, 0 as *mut pdf_file);
-    free(wbuf_0 as *mut libc::c_void);
-    if encoding_array.is_null() {
-        pdf_release_obj(enc_name);
+    let enc_name = if p[0] == b'/' {
+        p.parse_pdf_name()
+    } else {
+        None
+    };
+    p.skip_white();
+    let encoding_array = p.parse_pdf_array(0 as *mut pdf_file);
+    if encoding_array.is_none() {
+        pdf_release_obj(enc_name.unwrap_or(0 as *mut pdf_obj));
         return -1i32;
     }
+    let encoding_array = encoding_array.unwrap();
     for code in 0..256 {
         enc_vec[code as usize] = pdf_name_value(&*pdf_get_array(encoding_array, code)).as_ptr();
     }
     let enc_id = pdf_encoding_new_encoding(
-        if !enc_name.is_null() {
+        if let Some(enc_name) = enc_name {
             pdf_name_value(&*enc_name).as_ptr()
         } else {
             0 as *mut i8
@@ -313,7 +309,7 @@ unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
         0 as *const i8,
         0i32,
     );
-    if !enc_name.is_null() {
+    if let Some(enc_name) = enc_name {
         if verbose as i32 > 1i32 {
             info!("[{:?}]", pdf_name_value(&*enc_name).display());
         }

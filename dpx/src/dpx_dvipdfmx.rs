@@ -29,7 +29,7 @@
 
 use super::dpx_dvi::{
     dvi_close, dvi_comment, dvi_do_page, dvi_init, dvi_npages, dvi_reset_global_state,
-    dvi_scan_specials, dvi_set_verbose,
+    dvi_scan_specials, dvi_set_verbose, ReadLength,
 };
 use super::dpx_pdfdev::{
     Rect, Coord,
@@ -42,17 +42,15 @@ use super::dpx_pdfdoc::{
 use super::dpx_pdffont::{
     pdf_font_reset_unique_tag_state, pdf_font_set_deterministic_unique_tags, pdf_font_set_dpi,
 };
-use super::dpx_pdfparse::skip_white;
 use super::dpx_tt_aux::tt_aux_set_verbose;
 use crate::dpx_pdfparse::parse_unsigned;
 use crate::DisplayExt;
-use crate::{info, warn};
+use crate::info;
 use std::ffi::CStr;
 
 use super::dpx_cid::CIDFont_set_flags;
-use super::dpx_dpxconf::paperinfo;
+use super::dpx_dpxconf::{paperinfo, defaultpapername, systempapername};
 use super::dpx_dpxfile::{dpx_delete_old_cache, dpx_file_set_verbose};
-use super::dpx_dpxutil::{parse_c_ident, parse_float_decimal};
 use super::dpx_error::shut_up;
 use super::dpx_fontmap::{
     pdf_close_fontmaps, pdf_fontmap_set_verbose, pdf_init_fontmaps, pdf_load_fontmap_file,
@@ -68,7 +66,7 @@ use super::dpx_vf::vf_reset_global_state;
 use crate::specials::{
     spc_exec_at_begin_document, spc_exec_at_end_document, tpic::tpic_set_fill_mode,
 };
-use libc::{atof, atoi, free, memcmp, strchr, strcmp, strlen};
+use libc::{atoi, free, strlen};
 use std::slice::from_raw_parts;
 
 pub type PageRange = page_range;
@@ -112,121 +110,27 @@ static mut y_offset: f64 = 72.0f64;
 pub static mut landscape_mode: i32 = 0i32;
 #[no_mangle]
 pub static mut always_embed: i32 = 0i32;
-/* always embed fonts, regardless of licensing flags */
-/* XXX: there are four quasi-redundant versions of this; grp for K_UNIT__PT */
-unsafe fn read_length(mut vp: *mut f64, mut pp: *mut *const i8, mut endptr: *const i8) -> i32 {
-    let mut p: *const i8 = *pp;
-    let mut u: f64 = 1.0f64;
-    let mut _ukeys: [*const i8; 10] = [
-        b"pt\x00" as *const u8 as *const i8,
-        b"in\x00" as *const u8 as *const i8,
-        b"cm\x00" as *const u8 as *const i8,
-        b"mm\x00" as *const u8 as *const i8,
-        b"bp\x00" as *const u8 as *const i8,
-        b"pc\x00" as *const u8 as *const i8,
-        b"dd\x00" as *const u8 as *const i8,
-        b"cc\x00" as *const u8 as *const i8,
-        b"sp\x00" as *const u8 as *const i8,
-        0 as *const i8,
-    ];
+unsafe fn select_paper(paperspec: &[u8]) {
     let mut error: i32 = 0i32;
-    let q = parse_float_decimal(&mut p, endptr);
-    if q.is_null() {
-        *vp = 0.0f64;
-        *pp = p;
-        return -1i32;
-    }
-    let v = atof(q);
-    free(q as *mut libc::c_void);
-    skip_white(&mut p, endptr);
-    let mut q = parse_c_ident(&mut p, endptr);
-    if !q.is_null() {
-        let mut qq: *mut i8 = q;
-        if strlen(q) >= strlen(b"true\x00" as *const u8 as *const i8)
-            && memcmp(
-                q as *const libc::c_void,
-                b"true\x00" as *const u8 as *const i8 as *const libc::c_void,
-                strlen(b"true\x00" as *const u8 as *const i8),
-            ) == 0
-        {
-            q = q.offset(strlen(b"true\x00" as *const u8 as *const i8) as isize)
-            /* just skip "true" */
-        }
-        if strlen(q) == 0 {
-            free(qq as *mut libc::c_void);
-            skip_white(&mut p, endptr);
-            q = parse_c_ident(&mut p, endptr);
-            qq = q
-        }
-        if !q.is_null() {
-            let mut k = 0;
-            while !_ukeys[k as usize].is_null() && strcmp(_ukeys[k as usize], q) != 0 {
-                k += 1
-            }
-            match k {
-                0 => u *= 72.0f64 / 72.27f64,
-                1 => u *= 72.0f64,
-                2 => u *= 72.0f64 / 2.54f64,
-                3 => u *= 72.0f64 / 25.4f64,
-                4 => u *= 1.0f64,
-                5 => u *= 12.0f64 * 72.0f64 / 72.27f64,
-                6 => u *= 1238.0f64 / 1157.0f64 * 72.0f64 / 72.27f64,
-                7 => u *= 12.0f64 * 1238.0f64 / 1157.0f64 * 72.0f64 / 72.27f64,
-                8 => u *= 72.0f64 / (72.27f64 * 65536i32 as f64),
-                _ => {
-                    warn!("Unknown unit of measure: {}", CStr::from_ptr(q).display(),);
-                    error = -1i32
-                }
-            }
-            free(qq as *mut libc::c_void);
-        } else {
-            warn!("Missing unit of measure after \"true\"");
-            error = -1i32
-        }
-    }
-    *vp = v * u;
-    *pp = p;
-    error
-}
-unsafe fn select_paper(mut paperspec: *const i8) {
-    let mut error: i32 = 0i32;
-    let pi = paperinfo(paperspec);
-    if !pi.is_null()
-        && !(if !pi.is_null() && !(*pi).name.is_null() {
-            (*pi).name
-        } else {
-            0 as *const i8
-        })
-        .is_null()
-    {
-        paper_width = if !pi.is_null() && !(*pi).name.is_null() {
-            (*pi).pswidth
-        } else {
-            0.0f64
-        };
-        paper_height = if !pi.is_null() && !(*pi).name.is_null() {
-            (*pi).psheight
-        } else {
-            0.0f64
-        }
+    paper_width = 0.;
+    paper_height = 0.;
+    if let Some(pi) = paperinfo(paperspec) {
+        paper_width = (*pi).pswidth;
+        paper_height = (*pi).psheight;
     } else {
-        let mut p: *const i8 = paperspec;
-        let comma = strchr(p, ',' as i32);
-        let endptr = p.offset(strlen(p) as isize);
-        if comma.is_null() {
-            panic!(
-                "Unrecognized paper format: {}",
-                CStr::from_ptr(paperspec).display()
-            );
+        let comma = paperspec.iter().position(|&x| x == b',')
+            .expect(&format!("Unrecognized paper format: {}", paperspec.display()));
+        if let (Ok(width), Ok(height)) = ((&paperspec[..comma]).read_length_no_mag(), (&paperspec[comma+1..]).read_length_no_mag()) {
+            paper_width = width;
+            paper_height = height;
+        } else {
+            error = -1;
         }
-        read_length(&mut paper_width, &mut p, comma); // TODO: check error
-        p = comma.offset(1);
-        error = read_length(&mut paper_height, &mut p, endptr)
     }
-    if error != 0 || paper_width <= 0.0f64 || paper_height <= 0.0f64 {
+    if error != 0 || paper_width <= 0. || paper_height <= 0. {
         panic!(
             "Invalid paper size: {} ({:.2}x{:.2}",
-            CStr::from_ptr(paperspec).display(),
+            paperspec.display(),
             paper_width,
             paper_height,
         );
@@ -306,10 +210,10 @@ unsafe fn select_pages(
     *ret_num_page_ranges = num_page_ranges;
 }
 unsafe fn system_default() {
-    if !(b"a4\x00" as *const u8 as *const i8).is_null() {
-        select_paper(b"a4\x00" as *const u8 as *const i8);
-    } else if !(b"a4\x00" as *const u8 as *const i8).is_null() {
-        select_paper(b"a4\x00" as *const u8 as *const i8);
+    if !systempapername().is_empty() {
+        select_paper(systempapername());
+    } else if !defaultpapername().is_empty() {
+        select_paper(defaultpapername());
     };
 }
 unsafe fn do_dvi_pages(mut page_ranges: *mut PageRange, mut num_page_ranges: u32) {
@@ -447,7 +351,7 @@ pub unsafe extern "C" fn dvipdfmx_main(
      * arguments, so we emulate the default TeXLive config file by copying those
      * code bits. */
     pdf_set_version(5_u32); /* last page */
-    select_paper(b"letter\x00" as *const u8 as *const i8);
+    select_paper(b"letter");
     annot_grow = 0i32 as f64;
     bookmark_open = 0i32;
     key_bits = 40i32;

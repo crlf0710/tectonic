@@ -30,7 +30,7 @@
 use crate::DisplayExt;
 use std::ffi::CStr;
 
-use crate::dpx_pdfparse::parse_pdf_dict;
+use crate::dpx_pdfparse::ParsePdfObj;
 use crate::mfree;
 use crate::{info, warn};
 use crate::{streq_ptr, strstartswith};
@@ -932,13 +932,10 @@ unsafe fn CIDFont_base_open(
         }
         _ => {}
     }
-    let mut start = cid_basefont[idx].fontdict;
-    let end = start.offset(strlen(start) as isize);
-    let fontdict = parse_pdf_dict(&mut start, end, 0 as *mut pdf_file);
-    let mut start = cid_basefont[idx].descriptor;
-    let end = start.offset(strlen(start) as isize);
-    let descriptor = parse_pdf_dict(&mut start, end, 0 as *mut pdf_file);
-    assert!(!fontdict.is_null() && !descriptor.is_null());
+    let mut start = CStr::from_ptr(cid_basefont[idx].fontdict).to_bytes();
+    let fontdict = start.parse_pdf_dict(0 as *mut pdf_file).unwrap();
+    let mut start = CStr::from_ptr(cid_basefont[idx].descriptor).to_bytes();
+    let descriptor = start.parse_pdf_dict(0 as *mut pdf_file).unwrap();
     (*font).fontname = fontname;
     (*font).flags |= 1i32 << 0i32;
     let tmp = pdf_lookup_dict(fontdict, "CIDSystemInfo")
