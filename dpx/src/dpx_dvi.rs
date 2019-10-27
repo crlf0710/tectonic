@@ -2423,59 +2423,40 @@ pub unsafe extern "C" fn dvi_scan_specials(
     }
     loop {
         let opcode = get_and_buffer_unsigned_byte(handle) as u8;
-        if !(opcode as i32 != 140i32) {
+        if opcode == EOP {
             break;
         }
-        if opcode as i32 <= 127i32 || opcode as i32 >= 171i32 && opcode as i32 <= 234i32 {
+        if opcode <= SET_CHAR_127 || opcode >= FNT_NUM_0 && opcode <= FNT_NUM_63 {
             continue;
         }
-        if opcode as i32 == 239i32
-            || opcode as i32 == 240i32
-            || opcode as i32 == 241i32
-            || opcode as i32 == 242i32
+        if opcode == XXX1
+            || opcode == XXX2
+            || opcode == XXX3
+            || opcode == XXX4
         {
             let mut size: u32 = get_and_buffer_unsigned_byte(handle) as u32;
-            let mut current_block_14: u64;
-            match opcode as i32 {
-                242 => {
-                    size = size
-                        .wrapping_mul(0x100u32)
-                        .wrapping_add(get_and_buffer_unsigned_byte(handle) as u32);
-                    if size > 0x7fff_u32 {
+            match opcode {
+                XXX4 => {
+                    size = (size << 8) | (get_and_buffer_unsigned_byte(handle) as u32);
+                    if size > 0x7fff {
                         warn!(
                             "Unsigned number starting with {:x} exceeds 0x7fffffff",
                             size,
                         );
                     }
-                    current_block_14 = 2922806634731202080;
+                    size = (size << 8) | (get_and_buffer_unsigned_byte(handle) as u32);
+                    size = (size << 8) | (get_and_buffer_unsigned_byte(handle) as u32);
                 }
-                241 => {
-                    current_block_14 = 2922806634731202080;
+                XXX3 => {
+                    size = (size << 8) | (get_and_buffer_unsigned_byte(handle) as u32);
+                    size = (size << 8) | (get_and_buffer_unsigned_byte(handle) as u32);
                 }
-                240 => {
-                    current_block_14 = 7135116673376365024;
-                }
-                _ => {
-                    current_block_14 = 26972500619410423;
-                }
-            }
-            match current_block_14 {
-                2922806634731202080 => {
-                    size = size
-                        .wrapping_mul(0x100u32)
-                        .wrapping_add(get_and_buffer_unsigned_byte(handle) as u32);
-                    current_block_14 = 7135116673376365024;
+                XXX2 => {
+                    size = (size << 8) | (get_and_buffer_unsigned_byte(handle) as u32);
                 }
                 _ => {}
             }
-            match current_block_14 {
-                7135116673376365024 => {
-                    size = size
-                        .wrapping_mul(0x100u32)
-                        .wrapping_add(get_and_buffer_unsigned_byte(handle) as u32)
-                }
-                _ => {}
-            }
+
             DVI_PAGE_BUFFER.resize_with(DVI_PAGE_BUF_INDEX + size as usize, Default::default);
             handle.read(&mut DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..DVI_PAGE_BUF_INDEX+size as usize])
                 .expect("Reading DVI file failed!");
@@ -2502,92 +2483,67 @@ pub unsafe extern "C" fn dvi_scan_specials(
             }
             DVI_PAGE_BUF_INDEX += size as usize;
         } else {
-            let mut current_block_50: u64;
             /* Skipping... */
-            match opcode as i32 {
-                139 => {
-                    get_and_buffer_bytes(handle, 44_u32); /* width */
-                    current_block_50 = 6033931424626438518; /* glyph count */
+            match opcode {
+                BOP => {
+                    get_and_buffer_bytes(handle, 44);
                 }
-                138 | 141 | 142 | 147 | 152 | 161 | 166 => {
-                    current_block_50 = 6033931424626438518; /* 2 bytes ID + 8 bytes x,y-location per glyph */
+                NOP | PUSH | POP | W0 | X0 | Y0 | Z0 => {}
+                SET1 | PUT1 | RIGHT1 | DOWN1 | W1 | X1 | Y1 | Z1 | FNT1 => {
+                    get_and_buffer_bytes(handle, 1);
                 }
-                128 | 133 | 143 | 157 | 148 | 153 | 162 | 167 | 235 => {
-                    get_and_buffer_bytes(handle, 1_u32); /* utf16 code unit count */
-                    current_block_50 = 6033931424626438518; /* 2 bytes per code unit */
+                SET2 | PUT2 | RIGHT2 | DOWN2 | W2 | X2 | Y2 | Z2 | FNT2 => {
+                    get_and_buffer_bytes(handle, 2); /* width */
                 }
-                129 | 134 | 144 | 158 | 149 | 154 | 163 | 168 | 236 => {
-                    get_and_buffer_bytes(handle, 2_u32); /* width */
-                    current_block_50 = 6033931424626438518; /* glyph count */
+                SET3 | PUT3 | RIGHT3 | DOWN3 | W3 | X3 | Y3 | Z3 | FNT3 => {
+                    get_and_buffer_bytes(handle, 3);
                 }
-                130 | 135 | 145 | 159 | 150 | 155 | 164 | 169 | 237 => {
-                    get_and_buffer_bytes(handle, 3_u32); /* 2 bytes ID + 8 bytes x,y-location per glyph */
-                    current_block_50 = 6033931424626438518;
+                SET4 | PUT4 | RIGHT4 | DOWN4 | W4 | X4 | Y4 | Z4 | FNT4 => {
+                    get_and_buffer_bytes(handle, 4);
                 }
-                131 | 136 | 146 | 160 | 151 | 156 | 165 | 170 | 238 => {
-                    get_and_buffer_bytes(handle, 4_u32);
-                    current_block_50 = 6033931424626438518;
-                }
-                132 | 137 => {
+                SET_RULE | PUT_RULE => {
                     get_and_buffer_bytes(handle, 8_u32);
-                    current_block_50 = 6033931424626438518;
                 }
-                243 | 244 | 245 | 246 => {
-                    do_fntdef(tt_get_unsigned_num(
-                        handle,
-                        (opcode as i32 - 243i32) as u8,
-                    ));
-                    current_block_50 = 6033931424626438518;
+                FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
+                    do_fntdef(tt_get_unsigned_num(handle, opcode - FNT_DEF1));
                 }
-                253 => {
+                XDV_GLYPHS => {
                     need_XeTeX(opcode as i32);
-                    get_and_buffer_bytes(handle, 4_u32);
-                    let len = get_and_buffer_unsigned_pair(handle);
-                    get_and_buffer_bytes(handle, len.wrapping_mul(10_u32));
-                    current_block_50 = 6033931424626438518;
+                    get_and_buffer_bytes(handle, 4);                    /* width */
+                    let len = get_and_buffer_unsigned_pair(handle);     /* glyph count */
+                    get_and_buffer_bytes(handle, len.wrapping_mul(10)); /* 2 bytes ID + 8 bytes x,y-location per glyph */
                 }
-                254 => {
+                XDV_TEXT_AND_GLYPHS => {
                     need_XeTeX(opcode as i32);
-                    let len = get_and_buffer_unsigned_pair(handle);
-                    get_and_buffer_bytes(handle, len.wrapping_mul(2_u32));
-                    get_and_buffer_bytes(handle, 4_u32);
-                    let len = get_and_buffer_unsigned_pair(handle);
-                    get_and_buffer_bytes(handle, len.wrapping_mul(10_u32));
-                    current_block_50 = 6033931424626438518;
+                    let len = get_and_buffer_unsigned_pair(handle);     /* utf16 code unit count */
+                    get_and_buffer_bytes(handle, len.wrapping_mul(2));  /* 2 bytes per code unit */
+                    get_and_buffer_bytes(handle, 4);                    /* width */
+                    let len = get_and_buffer_unsigned_pair(handle);     /* glyph count */
+                    get_and_buffer_bytes(handle, len.wrapping_mul(10)); /* 2 bytes ID + 8 bytes x,y-location per glyph */
                 }
-                252 => {
+                XDV_NATIVE_FONT_DEF => {
                     need_XeTeX(opcode as i32);
                     do_native_font_def(tt_get_signed_quad(handle));
-                    current_block_50 = 6033931424626438518;
                 }
-                250 | 251 => {
+                BEGIN_REFLECT | END_REFLECT => {
                     need_XeTeX(opcode as i32);
-                    current_block_50 = 6033931424626438518;
                 }
-                255 => {
+                PTEXDIR => {
                     need_pTeX(opcode as i32);
-                    get_and_buffer_bytes(handle, 1_u32);
-                    current_block_50 = 6033931424626438518;
+                    get_and_buffer_bytes(handle, 1);
                 }
-                248 => {
-                    if linear as i32 != 0 && DVI_PAGE_BUF_INDEX == 1 {
+                POST => {
+                    if linear != 0 && DVI_PAGE_BUF_INDEX == 1 {
                         /* this is actually an indication that we've reached the end of the input */
                         return;
                     }
-                    current_block_50 = 1349400641705233371;
-                }
-                _ => {
-                    current_block_50 = 1349400641705233371;
-                }
-            }
-            match current_block_50 {
-                1349400641705233371 =>
-                /* else fall through to error case */
-                /* case PRE: case POST_POST: and others */
-                {
+                    /* else fall through to error case */
                     panic!("Unexpected opcode {}", opcode as i32);
                 }
-                _ => {}
+                _ => {
+                    /* case PRE: case POST_POST: and others */
+                    panic!("Unexpected opcode {}", opcode as i32);
+                }
             }
         }
     }
