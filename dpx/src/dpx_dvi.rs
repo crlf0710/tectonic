@@ -88,6 +88,7 @@ use crate::{
     ttstub_input_close, ttstub_input_get_size, ttstub_input_getc, ttstub_input_open,
     ttstub_input_read, ttstub_input_ungetc,
 };
+use crate::dpx_dvicodes::*;
 
 use libc::{atof, free, memset, strlen, strncpy, strtol};
 
@@ -1824,196 +1825,165 @@ pub unsafe extern "C" fn dvi_do_page(
     /* DVI coordinate */
     dev_origin_x = hmargin;
     dev_origin_y = page_paper_height - vmargin;
-    dvi_stack_depth = 0i32;
+    dvi_stack_depth = 0;
     loop {
         let opcode = get_buffered_unsigned_byte();
-        if opcode as i32 <= 127i32 {
+        if opcode <= SET_CHAR_127 {
             dvi_set(opcode as i32);
-        } else if opcode as i32 >= 171i32 && opcode as i32 <= 234i32 {
-            do_fnt((opcode as i32 - 171i32) as u32);
-        } else {
-            let mut current_block_59: u64;
-            match opcode as i32 {
-                128 | 129 | 130 => {
-                    dvi_set(get_buffered_unsigned_num((opcode as i32 - 128i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                131 => {
-                    panic!("Multibyte (>24 bits) character not supported!");
-                }
-                132 => {
-                    do_setrule();
-                    current_block_59 = 6471821049853688503;
-                }
-                133 | 134 | 135 => {
-                    dvi_put(get_buffered_unsigned_num((opcode as i32 - 133i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                136 => {
-                    panic!("Multibyte (>24 bits) character not supported!");
-                }
-                137 => {
-                    do_putrule();
-                    current_block_59 = 6471821049853688503;
-                }
-                139 => {
-                    do_bop();
-                    current_block_59 = 6471821049853688503;
-                }
-                140 => {
-                    do_eop();
-                    if linear != 0 {
-                        let handle = dvi_handle.as_mut().unwrap();
-                        let opcode = tt_get_unsigned_byte(handle);
-                        if opcode as i32 == 248i32 {
-                            check_postamble();
-                        } else {
-                            ttstub_input_ungetc(handle, opcode as i32);
-                        }
-                    }
-                    return;
-                }
-                141 => {
-                    dvi_push();
-                    if lr_mode >= 2i32 {
-                        lr_width_push();
-                    }
-                    /* If we are here, we have an opcode that is something
-                     * other than SET_CHAR.
-                     */
-                    /* The following line needs to go here instead of in
-                     * dvi_push() since logical structure of document is
-                     * oblivous to virtual fonts. For example the last line on a
-                     * page could be at stack level 3 and the page footer should
-                     * be at stack level 3.  However, if the page footer contains
-                     * virtual fonts (or other nested constructions), it could
-                     * fool the link breaker into thinking it was a continuation
-                     * of the link */
-                    dvi_mark_depth();
-                    current_block_59 = 6471821049853688503;
-                }
-                142 => {
-                    dpx_dvi_pop();
-                    if lr_mode >= 2i32 {
-                        lr_width_pop();
-                    }
-                    /* Above explanation holds for following line too */
-                    dvi_mark_depth();
-                    current_block_59 = 6471821049853688503;
-                }
-                143 | 144 | 145 | 146 => {
-                    dvi_right(get_buffered_signed_num((opcode as i32 - 143i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                147 => {
-                    dvi_w0();
-                    current_block_59 = 6471821049853688503;
-                }
-                148 | 149 | 150 | 151 => {
-                    dvi_w(get_buffered_signed_num((opcode as i32 - 148i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                152 => {
-                    dvi_x0();
-                    current_block_59 = 6471821049853688503;
-                }
-                153 | 154 | 155 | 156 => {
-                    dvi_x(get_buffered_signed_num((opcode as i32 - 153i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                157 | 158 | 159 | 160 => {
-                    dvi_down(get_buffered_signed_num((opcode as i32 - 157i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                161 => {
-                    dvi_y0();
-                    current_block_59 = 6471821049853688503;
-                }
-                162 | 163 | 164 | 165 => {
-                    dvi_y(get_buffered_signed_num((opcode as i32 - 162i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                166 => {
-                    dvi_z0();
-                    current_block_59 = 6471821049853688503;
-                }
-                167 | 168 | 169 | 170 => {
-                    dvi_z(get_buffered_signed_num((opcode as i32 - 167i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                235 | 236 | 237 | 238 => {
-                    do_fnt(get_buffered_unsigned_num((opcode as i32 - 235i32) as u8) as u32);
-                    current_block_59 = 6471821049853688503;
-                }
-                239 | 240 | 241 | 242 => {
-                    /* Specials */
-                    let mut size: i32 = get_buffered_unsigned_num((opcode as i32 - 239i32) as u8);
-                    if size < 0i32 {
-                        warn!("DVI: Special with {} bytes???", size);
+            continue;
+        }
+
+        /* If we are here, we have an opcode that is something
+         * other than SET_CHAR.
+         */
+        if opcode >= FNT_NUM_0 && opcode <= FNT_NUM_63 {
+            do_fnt((opcode - FNT_NUM_0) as u32);
+            continue;
+        } 
+
+        match opcode {
+            SET1 | SET2 | SET3 => {
+                dvi_set(get_buffered_unsigned_num(opcode - SET1));
+            }
+            SET4 => {
+                panic!("Multibyte (>24 bits) character not supported!");
+            }
+            SET_RULE => {
+                do_setrule();
+            }
+            PUT1 | PUT2 | PUT3 => {
+                dvi_put(get_buffered_unsigned_num(opcode - PUT1));
+            }
+            PUT4 => {
+                panic!("Multibyte (>24 bits) character not supported!");
+            }
+            PUT_RULE => {
+                do_putrule();
+            }
+            NOP => {}
+            BOP => {
+                do_bop();
+            }
+            EOP => {
+                do_eop();
+                if linear != 0 {
+                    let handle = dvi_handle.as_mut().unwrap();
+                    let opcode = tt_get_unsigned_byte(handle);
+                    if opcode == POST {
+                        check_postamble();
                     } else {
-                        do_xxx(size);
+                        ttstub_input_ungetc(handle, opcode as i32);
                     }
-                    current_block_59 = 6471821049853688503;
                 }
-                138 | 243 | 244 | 245 | 246 => {
-                    current_block_59 = 6471821049853688503;
+                return;
+            }
+            PUSH => {
+                dvi_push();
+                if lr_mode >= 2 {
+                    lr_width_push();
                 }
-                255 => {
-                    /* pTeX extension */
-                    need_pTeX(opcode as i32);
-                    do_dir();
-                    current_block_59 = 6471821049853688503;
+                /* The following line needs to go here instead of in
+                 * dvi_push() since logical structure of document is
+                 * oblivous to virtual fonts. For example the last line on a
+                 * page could be at stack level 3 and the page footer should
+                 * be at stack level 3.  However, if the page footer contains
+                 * virtual fonts (or other nested constructions), it could
+                 * fool the link breaker into thinking it was a continuation
+                 * of the link */
+                dvi_mark_depth();
+            }
+            POP => {
+                dpx_dvi_pop();
+                if lr_mode >= 2 {
+                    lr_width_pop();
                 }
-                253 => {
-                    /* XeTeX extensions */
-                    need_XeTeX(opcode as i32);
-                    do_glyphs(0i32);
-                    current_block_59 = 6471821049853688503;
-                }
-                254 => {
-                    need_XeTeX(opcode as i32);
-                    do_glyphs(1i32);
-                    current_block_59 = 6471821049853688503;
-                }
-                252 => {
-                    /* should not occur - processed during pre-scanning */
-                    need_XeTeX(opcode as i32);
-                    current_block_59 = 6471821049853688503;
-                }
-                250 => {
-                    need_XeTeX(opcode as i32);
-                    dvi_begin_reflect();
-                    current_block_59 = 6471821049853688503;
-                }
-                251 => {
-                    need_XeTeX(opcode as i32);
-                    dvi_end_reflect();
-                    current_block_59 = 6471821049853688503;
-                }
-                248 => {
-                    if linear as i32 != 0 && processing_page == 0 {
-                        /* for linear processing, this means there are no more pages */
-                        num_pages = 0_u32; /* force loop to terminate */
-                        return;
-                    }
-                    current_block_59 = 17253953464124104480;
-                }
-                247 | 249 => {
-                    current_block_59 = 17253953464124104480;
-                }
-                _ => {
-                    panic!("Unexpected opcode or DVI file ended prematurely");
+                /* Above explanation holds for following line too */
+                dvi_mark_depth();
+            }
+            RIGHT1 | RIGHT2 | RIGHT3 | RIGHT4 => {
+                dvi_right(get_buffered_signed_num(opcode - RIGHT1));
+            }
+            W0 => {
+                dvi_w0();
+            }
+            W1 | W2 | W3 | W4 => {
+                dvi_w(get_buffered_signed_num(opcode - W1));
+            }
+            X0 => {
+                dvi_x0();
+            }
+            X1 | X2 | X3 | X4 => {
+                dvi_x(get_buffered_signed_num(opcode - X1));
+            }
+            DOWN1 | DOWN2 | DOWN3 | DOWN4 => {
+                dvi_down(get_buffered_signed_num(opcode - DOWN1));
+            }
+            Y0 => {
+                dvi_y0();
+            }
+            Y1 | Y2 | Y3 | Y4 => {
+                dvi_y(get_buffered_signed_num(opcode - Y1));
+            }
+            Z0 => {
+                dvi_z0();
+            }
+            Z1 | Z2 | Z3 | Z4 => {
+                dvi_z(get_buffered_signed_num(opcode - Z1));
+            }
+            FNT1 | FNT2 | FNT3 | FNT4 => {
+                do_fnt(get_buffered_unsigned_num(opcode - FNT1) as u32);
+            }
+                /* Specials */
+            XXX1 | XXX2 | XXX3 | XXX4 => {
+                let size: i32 = get_buffered_unsigned_num(opcode - XXX1);
+                if size < 0 {
+                    warn!("DVI: Special with {} bytes???", size);
+                } else {
+                    do_xxx(size);
                 }
             }
-            match current_block_59 {
-                17253953464124104480 =>
-                /* else fall through to error case */
-                {
-                    panic!("Unexpected preamble or postamble in dvi file");
+            /* These should not occur - processed during pre-scanning */
+            FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {}
+            PTEXDIR => {
+                /* pTeX extension */
+                need_pTeX(opcode as i32);
+                do_dir();
+            }
+            XDV_GLYPHS => {
+                /* XeTeX extensions */
+                need_XeTeX(opcode as i32);
+                do_glyphs(0);
+            }
+            XDV_TEXT_AND_GLYPHS => {
+                need_XeTeX(opcode as i32);
+                do_glyphs(1);
+            }
+            XDV_NATIVE_FONT_DEF => {
+                /* should not occur - processed during pre-scanning */
+                need_XeTeX(opcode as i32);
+            }
+            BEGIN_REFLECT => {
+                need_XeTeX(opcode as i32);
+                dvi_begin_reflect();
+            }
+            END_REFLECT => {
+                need_XeTeX(opcode as i32);
+                dvi_end_reflect();
+            }
+            POST => {
+                if linear != 0 && processing_page == 0 {
+                    /* for linear processing, this means there are no more pages */
+                    num_pages = 0; /* force loop to terminate */
+                    return;
                 }
-                _ =>
-                    /* These should not occur - processed during pre-scanning */
-                    {}
+                /* else fall through to error case */
+                panic!("Unexpected preamble or postamble in dvi file");
+            }
+            PRE | POST_POST => {
+                panic!("Unexpected preamble or postamble in dvi file");
+            }
+            _ => {
+                panic!("Unexpected opcode or DVI file ended prematurely");
             }
         }
     }
