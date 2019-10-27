@@ -628,16 +628,16 @@ unsafe fn get_dvi_fonts(mut post_location: i32) {
     let handle = dvi_handle.as_mut().unwrap();
     handle.seek(SeekFrom::Start(post_location as u64 + 29)).unwrap();
     loop {
-        let code = tt_get_unsigned_byte(handle) as i32;
-        if !(code != 249i32) {
+        let code = tt_get_unsigned_byte(handle);
+        if code == POST_POST {
             break;
         }
         match code {
-            243 | 244 | 245 | 246 => {
-                read_font_record(tt_get_unsigned_num(handle, (code - 243) as u8));
+            FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
+                read_font_record(tt_get_unsigned_num(handle, code - FNT_DEF1));
             }
-            252 => {
-                need_XeTeX(code);
+            XDV_NATIVE_FONT_DEF => {
+                need_XeTeX(code as i32);
                 read_native_font_record(tt_get_signed_quad(handle) as u32);
             }
             _ => {
@@ -646,21 +646,20 @@ unsafe fn get_dvi_fonts(mut post_location: i32) {
             }
         }
     }
-    if verbose > 2i32 {
+    if verbose > 2 {
         info!("\n");
         info!("DVI file font info\n");
         for i in 0..num_def_fonts {
+            let font = &*def_fonts.offset(i as isize);
             info!(
                 "TeX Font: {:10} loaded at ID={:5}, ",
-                CStr::from_ptr((*def_fonts.offset(i as isize)).font_name).display(),
-                (*def_fonts.offset(i as isize)).tex_id,
+                CStr::from_ptr(font.font_name).display(),
+                font.tex_id,
             );
             info!(
                 "size={:5.2}pt (scaled {:4.1}%)",
-                (*def_fonts.offset(i as isize)).point_size as f64 * dvi2pts,
-                100.0f64
-                    * ((*def_fonts.offset(i as isize)).point_size as f64
-                        / (*def_fonts.offset(i as isize)).design_size as f64),
+                font.point_size as f64 * dvi2pts,
+                100.0 * (font.point_size as f64 / font.design_size as f64),
             );
             info!("\n");
         }
