@@ -408,7 +408,7 @@ unsafe fn pop_get_numbers(mut values: *mut f64, mut count: i32) -> i32 {
                 pdf_release_obj(tmp);
                 break;
             } else {
-                *values.offset(count as isize) = pdf_number_value(tmp);
+                *values.offset(count as isize) = pdf_number_value(&*tmp);
                 pdf_release_obj(tmp);
             }
         } else {
@@ -428,12 +428,12 @@ unsafe fn cvr_array(mut array: *mut pdf_obj, mut values: *mut f64, mut count: i3
             if !(fresh2 > 0i32) {
                 break;
             }
-            let tmp = pdf_get_array(array, count);
+            let tmp = pdf_get_array(&mut *array, count);
             if !(!tmp.is_null() && (*tmp).is_number()) {
                 warn!("mpost: Not a number!");
                 break;
             } else {
-                *values.offset(count as isize) = pdf_number_value(tmp)
+                *values.offset(count as isize) = pdf_number_value(&*tmp)
             }
         }
     }
@@ -444,7 +444,7 @@ unsafe fn is_fontdict(mut dict: *mut pdf_obj) -> bool {
     if !(!dict.is_null() && (*dict).is_dict()) {
         return false;
     }
-    let tmp = pdf_lookup_dict(dict, "Type").filter(|&tmp| {
+    let tmp = pdf_lookup_dict(&mut *dict, "Type").filter(|&tmp| {
         (*tmp).is_name()
             && pdf_name_value(&*tmp).to_string_lossy() == "Font"
     });
@@ -452,12 +452,12 @@ unsafe fn is_fontdict(mut dict: *mut pdf_obj) -> bool {
         return false;
     }
     let tmp =
-        pdf_lookup_dict(dict, "FontName").filter(|&tmp| (*tmp).is_name());
+        pdf_lookup_dict(&mut *dict, "FontName").filter(|&tmp| (*tmp).is_name());
     if tmp.is_none() {
         return false;
     }
     let tmp =
-        pdf_lookup_dict(dict, "FontScale").filter(|&tmp| (*tmp).is_number());
+        pdf_lookup_dict(&mut *dict, "FontScale").filter(|&tmp| (*tmp).is_number());
     tmp.is_some()
 }
 unsafe fn do_findfont() -> i32 {
@@ -469,18 +469,18 @@ unsafe fn do_findfont() -> i32 {
              * font scale.
              */
             let font_dict = pdf_new_dict();
-            pdf_add_dict(font_dict, "Type", pdf_new_name("Font"));
+            pdf_add_dict(&mut *font_dict, "Type", pdf_new_name("Font"));
             if (*font_name).is_string() {
                 pdf_add_dict(
-                    font_dict,
+                    &mut *font_dict,
                     "FontName",
-                    pdf_copy_name(pdf_string_value(font_name) as *const i8),
+                    pdf_copy_name(pdf_string_value(&*font_name) as *const i8),
                 );
                 pdf_release_obj(font_name);
             } else {
-                pdf_add_dict(font_dict, "FontName", font_name);
+                pdf_add_dict(&mut *font_dict, "FontName", font_name);
             }
-            pdf_add_dict(font_dict, "FontScale", pdf_new_number(1.0f64));
+            pdf_add_dict(&mut *font_dict, "FontScale", pdf_new_number(1.0f64));
             if STACK.push_checked(font_dict).is_err() {
                 pdf_release_obj(font_dict);
                 error = 1i32
@@ -501,8 +501,8 @@ unsafe fn do_scalefont() -> i32 {
     }
     if let Some(font_dict) = STACK.pop() {
         if is_fontdict(font_dict) {
-            let font_scale = pdf_lookup_dict(font_dict, "FontScale").unwrap();
-            pdf_set_number(font_scale, pdf_number_value(font_scale) * scale);
+            let font_scale = pdf_lookup_dict(&mut *font_dict, "FontScale").unwrap();
+            pdf_set_number(&mut *font_scale, pdf_number_value(&*font_scale) * scale);
             if STACK.push_checked(font_dict).is_err() {
                 pdf_release_obj(font_dict);
                 error = 1i32
@@ -523,8 +523,8 @@ unsafe fn do_setfont() -> i32 {
             /* Subfont support prevent us from managing
              * font in a single place...
              */
-            let font_name = pdf_name_value(&*pdf_lookup_dict(font_dict, "FontName").unwrap());
-            let font_scale = pdf_number_value(pdf_lookup_dict(font_dict, "FontScale").unwrap());
+            let font_name = pdf_name_value(&*pdf_lookup_dict(&mut *font_dict, "FontName").unwrap());
+            let font_scale = pdf_number_value(&*pdf_lookup_dict(&mut *font_dict, "FontScale").unwrap());
             mp_setfont(font_name, font_scale)
         };
         pdf_release_obj(font_dict);
@@ -547,9 +547,9 @@ unsafe fn do_currentfont() -> i32 {
         return 1i32;
     } else {
         let font_dict = pdf_new_dict();
-        pdf_add_dict(font_dict, "Type", pdf_new_name("Font"));
-        pdf_add_dict(font_dict, "FontName", pdf_new_name((*font).font_name.to_bytes()));
-        pdf_add_dict(font_dict, "FontScale", pdf_new_number((*font).pt_size));
+        pdf_add_dict(&mut *font_dict, "Type", pdf_new_name("Font"));
+        pdf_add_dict(&mut *font_dict, "FontName", pdf_new_name((*font).font_name.to_bytes()));
+        pdf_add_dict(&mut *font_dict, "FontScale", pdf_new_number((*font).pt_size));
         if STACK.len() < 1024 {
             STACK.push(font_dict)
         } else {
@@ -586,8 +586,8 @@ unsafe fn do_show() -> i32 {
         pdf_release_obj(text_str);
         return 1i32;
     }
-    let strptr = pdf_string_value(text_str) as *mut u8;
-    let length = pdf_string_length(text_str) as i32;
+    let strptr = pdf_string_value(&*text_str) as *mut u8;
+    let length = pdf_string_length(&*text_str) as i32;
     if (*font).tfm_id < 0i32 {
         warn!(
             "mpost: TFM not found for \"{}\".",
@@ -944,7 +944,7 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                         pdf_release_obj(pattern);
                         error = 1
                     } else {
-                        num_dashes = pdf_array_length(pattern) as usize;
+                        num_dashes = pdf_array_length(&*pattern) as usize;
                         if num_dashes > 16 {
                             warn!("Too many dashes...");
                             pdf_release_obj(pattern);
@@ -952,11 +952,11 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                         } else {
                             let mut i = 0;
                             while i < num_dashes && error == 0 {
-                                let dash = pdf_get_array(pattern, i as i32);
+                                let dash = pdf_get_array(&mut *pattern, i as i32);
                                 if !(!dash.is_null() && (*dash).is_number()) {
                                     error = 1i32
                                 } else {
-                                    dash_values[i as usize] = pdf_number_value(dash)
+                                    dash_values[i as usize] = pdf_number_value(&*dash)
                                 }
                                 i += 1
                             }
@@ -1057,10 +1057,10 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
             }
             if error == 0 {
                 if let Some(tmp) = tmp.filter(|&o| (*o).is_number()) {
-                    cp.y = pdf_number_value(tmp);
+                    cp.y = pdf_number_value(&*tmp);
                     pdf_release_obj(tmp);
                     if let Some(tmp) = STACK.pop().filter(|&o| (*o).is_number()) {
-                        cp.x = pdf_number_value(tmp);
+                        cp.x = pdf_number_value(&*tmp);
                         pdf_release_obj(tmp);
                         if has_matrix == 0 {
                             ps_dev_CTM(&mut matrix);
@@ -1104,10 +1104,10 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
             } 
             if error == 0 {
                 if let Some(tmp) = tmp.filter(|&o| (*o).is_number()) {
-                    cp.y = pdf_number_value(tmp);
+                    cp.y = pdf_number_value(&*tmp);
                     pdf_release_obj(tmp);
                     if let Some(tmp) = STACK.pop().filter(|&o| (*o).is_number()) {
-                        cp.x = pdf_number_value(tmp);
+                        cp.x = pdf_number_value(&*tmp);
                         pdf_release_obj(tmp);
                         if has_matrix_0 == 0 {
                             ps_dev_CTM(&mut matrix);

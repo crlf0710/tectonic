@@ -270,17 +270,17 @@ unsafe fn build_name_tree(
         let mut limits = pdf_new_array();
         let mut last = &mut *first.offset((num_leaves - 1i32) as isize) as *mut named_object;
         pdf_add_array(
-            limits,
+            &mut *limits,
             pdf_new_string(
                 (*first).key as *const libc::c_void,
                 (*first).keylen as size_t,
             ),
         );
         pdf_add_array(
-            limits,
+            &mut *limits,
             pdf_new_string((*last).key as *const libc::c_void, (*last).keylen as size_t),
         );
-        pdf_add_dict(result, "Limits", limits);
+        pdf_add_dict(&mut *result, "Limits", limits);
     }
     if num_leaves > 0i32 && num_leaves <= 2i32 * 4i32 {
         /* Create leaf nodes. */
@@ -288,12 +288,12 @@ unsafe fn build_name_tree(
         for i in 0..num_leaves {
             let cur = &mut *first.offset(i as isize) as *mut named_object;
             pdf_add_array(
-                names,
+                &mut *names,
                 pdf_new_string((*cur).key as *const libc::c_void, (*cur).keylen as size_t),
             );
             match pdf_obj_typeof((*cur).value) {
                 PdfObjType::ARRAY | PdfObjType::DICT | PdfObjType::STREAM | PdfObjType::STRING => {
-                    pdf_add_array(names, pdf_ref_obj((*cur).value));
+                    pdf_add_array(&mut *names, pdf_ref_obj((*cur).value));
                 }
                 PdfObjType::OBJ_INVALID => {
                     panic!(
@@ -302,13 +302,13 @@ unsafe fn build_name_tree(
                     );
                 }
                 _ => {
-                    pdf_add_array(names, pdf_link_obj((*cur).value));
+                    pdf_add_array(&mut *names, pdf_link_obj((*cur).value));
                 }
             }
             pdf_release_obj((*cur).value);
             (*cur).value = 0 as *mut pdf_obj;
         }
-        pdf_add_dict(result, "Names", names);
+        pdf_add_dict(&mut *result, "Names", names);
     } else if num_leaves > 0i32 {
         /* Intermediate node */
         let kids = pdf_new_array();
@@ -316,10 +316,10 @@ unsafe fn build_name_tree(
             let start = i * num_leaves / 4i32;
             let end = (i + 1i32) * num_leaves / 4i32;
             let subtree = build_name_tree(&mut *first.offset(start as isize), end - start, 0i32);
-            pdf_add_array(kids, pdf_ref_obj(subtree));
+            pdf_add_array(&mut *kids, pdf_ref_obj(subtree));
             pdf_release_obj(subtree);
         }
-        pdf_add_dict(result, "Kids", kids);
+        pdf_add_dict(&mut *result, "Kids", kids);
     }
     result
 }
@@ -352,8 +352,8 @@ unsafe fn flat_table(
                     }
                     continue;
                 }
-                key = pdf_string_value(new_obj) as *mut i8;
-                keylen = pdf_string_length(new_obj) as i32;
+                key = pdf_string_value(&*new_obj) as *mut i8;
+                keylen = pdf_string_length(&*new_obj) as i32;
             } 
             
             let value = ht_iter_getval(&mut iter) as *mut obj_data;

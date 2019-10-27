@@ -220,13 +220,13 @@ unsafe fn pdf_flush_font(mut font: *mut pdf_font) {
         if (*font).subtype != 2i32 {
             if pdf_font_get_flag(font, 1i32 << 0i32) != 0 {
                 pdf_add_dict(
-                    (*font).resource,
+                    &mut *(*font).resource,
                     "BaseFont",
                     pdf_copy_name((*font).fontname),
                 );
                 if !(*font).descriptor.is_null() {
                     pdf_add_dict(
-                        (*font).descriptor,
+                        &mut *(*font).descriptor,
                         "FontName",
                         pdf_copy_name((*font).fontname),
                     );
@@ -250,15 +250,15 @@ unsafe fn pdf_flush_font(mut font: *mut pdf_font) {
                     uniqueTag,
                     (*font).fontname,
                 );
-                pdf_add_dict((*font).resource, "BaseFont", pdf_copy_name(fontname));
+                pdf_add_dict(&mut *(*font).resource, "BaseFont", pdf_copy_name(fontname));
                 if !(*font).descriptor.is_null() {
-                    pdf_add_dict((*font).descriptor, "FontName", pdf_copy_name(fontname));
+                    pdf_add_dict(&mut *(*font).descriptor, "FontName", pdf_copy_name(fontname));
                 }
                 free(fontname as *mut libc::c_void);
             }
             if !(*font).descriptor.is_null() {
                 pdf_add_dict(
-                    (*font).resource,
+                    &mut *(*font).resource,
                     "FontDescriptor",
                     pdf_ref_obj((*font).descriptor),
                 );
@@ -325,7 +325,7 @@ pub unsafe extern "C" fn pdf_get_font_reference(mut font_id: i32) -> *mut pdf_ob
         return Type0Font_get_resource(t0font);
     } else {
         if (*font).reference.is_null() {
-            (*font).reference = pdf_ref_obj(pdf_font_get_resource(font))
+            (*font).reference = pdf_ref_obj(pdf_font_get_resource(&mut *font))
         }
     }
     pdf_link_obj((*font).reference)
@@ -405,7 +405,7 @@ unsafe fn try_load_ToUnicode_CMap(mut font: *mut pdf_font) -> i32 {
     } else {
         (*font).map_name
     };
-    let fontdict = pdf_font_get_resource(font);
+    let fontdict = pdf_font_get_resource(&mut *font);
     let tounicode = pdf_load_ToUnicode_stream(cmap_name);
     if tounicode.is_null() && (!mrec.is_null() && !(*mrec).opt.tounicode.is_null()) {
         warn!(
@@ -416,7 +416,7 @@ unsafe fn try_load_ToUnicode_CMap(mut font: *mut pdf_font) -> i32 {
         if !(*tounicode).is_stream() {
             panic!("Object returned by pdf_load_ToUnicode_stream() not stream object! (This must be bug)");
         } else {
-            if pdf_stream_length(tounicode) > 0i32 {
+            if pdf_stream_length(&*tounicode) > 0i32 {
                 pdf_add_dict(fontdict, "ToUnicode", pdf_ref_obj(tounicode));
                 if __verbose != 0 {
                     info!(
@@ -521,7 +521,7 @@ pub unsafe extern "C" fn pdf_close_fonts() {
             as direct objects, but this is purely a matter of taste. */
             if !enc_obj.is_null() {
                 pdf_add_dict(
-                    (*font_0).resource,
+                    &mut *(*font_0).resource,
                     "Encoding",
                     if !enc_obj.is_null() && (*enc_obj).is_name() {
                         pdf_link_obj(enc_obj)
@@ -530,17 +530,17 @@ pub unsafe extern "C" fn pdf_close_fonts() {
                     },
                 );
             }
-            if pdf_lookup_dict((*font_0).resource, "ToUnicode").is_none() && {
+            if pdf_lookup_dict(&mut *(*font_0).resource, "ToUnicode").is_none() && {
                 tounicode = pdf_encoding_get_tounicode((*font_0).encoding_id);
                 !tounicode.is_null()
             } {
-                pdf_add_dict((*font_0).resource, "ToUnicode", pdf_ref_obj(tounicode));
+                pdf_add_dict(&mut *(*font_0).resource, "ToUnicode", pdf_ref_obj(tounicode));
             }
         } else if (*font_0).subtype == 3i32 {
             /* encoding_id < 0 means MacRoman here (but not really)
              * We use MacRoman as "default" encoding. */
             pdf_add_dict(
-                (*font_0).resource,
+                &mut *(*font_0).resource,
                 "Encoding",
                 pdf_new_name("MacRomanEncoding"),
             ); /* After encoding */
@@ -863,32 +863,31 @@ pub unsafe extern "C" fn pdf_font_get_fontname(mut font: *mut pdf_font) -> *mut 
     (*font).fontname
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_get_resource(mut font: *mut pdf_font) -> *mut pdf_obj {
-    assert!(!font.is_null());
+pub unsafe extern "C" fn pdf_font_get_resource(font: &mut pdf_font) -> &mut pdf_obj {
     if (*font).resource.is_null() {
         (*font).resource = pdf_new_dict();
-        pdf_add_dict((*font).resource, "Type", pdf_new_name("Font"));
+        pdf_add_dict(&mut *(*font).resource, "Type", pdf_new_name("Font"));
         match (*font).subtype {
             0 | 1 => {
-                pdf_add_dict((*font).resource, "Subtype", pdf_new_name("Type1"));
+                pdf_add_dict(&mut *(*font).resource, "Subtype", pdf_new_name("Type1"));
             }
             2 => {
-                pdf_add_dict((*font).resource, "Subtype", pdf_new_name("Type3"));
+                pdf_add_dict(&mut *(*font).resource, "Subtype", pdf_new_name("Type3"));
             }
             3 => {
-                pdf_add_dict((*font).resource, "Subtype", pdf_new_name("TrueType"));
+                pdf_add_dict(&mut *(*font).resource, "Subtype", pdf_new_name("TrueType"));
             }
-            _ => {}
+            _ => unreachable!()
         }
     }
-    (*font).resource
+    &mut *(*font).resource
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_font_get_descriptor(mut font: *mut pdf_font) -> *mut pdf_obj {
     assert!(!font.is_null());
     if (*font).descriptor.is_null() {
         (*font).descriptor = pdf_new_dict();
-        pdf_add_dict((*font).descriptor, "Type", pdf_new_name("FontDescriptor"));
+        pdf_add_dict(&mut *(*font).descriptor, "Type", pdf_new_name("FontDescriptor"));
     }
     (*font).descriptor
 }

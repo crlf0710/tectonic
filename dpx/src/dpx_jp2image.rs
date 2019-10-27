@@ -342,7 +342,7 @@ pub unsafe extern "C" fn jp2_include_image(mut ximage: *mut pdf_ximage, mut fp: 
         return -1i32;
     }
     let stream = pdf_new_stream(0i32);
-    let stream_dict = pdf_stream_dict(stream);
+    let stream_dict = pdf_stream_dict(&mut *stream);
     pdf_add_dict(stream_dict, "Filter", pdf_new_name("JPXDecode"));
     if smask != 0 {
         pdf_add_dict(stream_dict, "SMaskInData", pdf_new_number(1i32 as f64));
@@ -360,7 +360,7 @@ pub unsafe extern "C" fn jp2_include_image(mut ximage: *mut pdf_ximage, mut fp: 
             break;
         }
         pdf_add_stream(
-            stream,
+            &mut *stream,
             work_buffer.as_mut_ptr() as *const libc::c_void,
             nb_read,
         );

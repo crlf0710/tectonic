@@ -2358,8 +2358,8 @@ unsafe fn scan_special(
                     match kp.to_bytes() {
                         b"ownerpw" => {
                             if let Some(obj) = buf.parse_pdf_string() {
-                                if !pdf_string_value(obj).is_null() {
-                                    strncpy(owner_pw, pdf_string_value(obj) as *const i8, 127);
+                                if !pdf_string_value(&*obj).is_null() {
+                                    strncpy(owner_pw, pdf_string_value(&*obj) as *const i8, 127);
                                 }
                                 pdf_release_obj(obj);
                             } else {
@@ -2368,8 +2368,8 @@ unsafe fn scan_special(
                         },
                         b"userpw" => {
                             if let Some(obj) = buf.parse_pdf_string() {
-                                if !pdf_string_value(obj).is_null() {
-                                    strncpy(user_pw, pdf_string_value(obj) as *const i8, 127);
+                                if !pdf_string_value(&*obj).is_null() {
+                                    strncpy(user_pw, pdf_string_value(&*obj) as *const i8, 127);
                                 }
                                 pdf_release_obj(obj);
                             } else {
@@ -2379,7 +2379,7 @@ unsafe fn scan_special(
                         b"length" => {
                             if let Some(obj) = buf.parse_pdf_number() {
                                 if (*obj).is_number() {
-                                    *key_bits = pdf_number_value(obj) as u32 as i32
+                                    *key_bits = pdf_number_value(&*obj) as u32 as i32
                                 } else {
                                     error = -1i32
                                 }
@@ -2391,7 +2391,7 @@ unsafe fn scan_special(
                         b"perm" => {
                             if let Some(obj) = buf.parse_pdf_number() {
                                 if (*obj).is_number() {
-                                    *permission = pdf_number_value(obj) as u32 as i32
+                                    *permission = pdf_number_value(&*obj) as u32 as i32
                                 } else {
                                     error = -1i32
                                 }

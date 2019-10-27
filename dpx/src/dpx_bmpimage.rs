@@ -191,7 +191,7 @@ pub unsafe extern "C" fn bmp_include_image(
     }
     /* Start reading raster data */
     let stream = pdf_new_stream(1i32 << 0i32);
-    let stream_dict = pdf_stream_dict(stream);
+    let stream_dict = pdf_stream_dict(&mut *stream);
     /* Color space: Indexed or DeviceRGB */
     if (hdr.bit_count as i32) < 24i32 {
         let mut bgrq: [u8; 4] = [0; 4];
@@ -216,10 +216,10 @@ pub unsafe extern "C" fn bmp_include_image(
         );
         free(palette as *mut libc::c_void);
         colorspace = pdf_new_array();
-        pdf_add_array(colorspace, pdf_new_name("Indexed"));
-        pdf_add_array(colorspace, pdf_new_name("DeviceRGB"));
-        pdf_add_array(colorspace, pdf_new_number((num_palette - 1i32) as f64));
-        pdf_add_array(colorspace, lookup);
+        pdf_add_array(&mut *colorspace, pdf_new_name("Indexed"));
+        pdf_add_array(&mut *colorspace, pdf_new_name("DeviceRGB"));
+        pdf_add_array(&mut *colorspace, pdf_new_number((num_palette - 1i32) as f64));
+        pdf_add_array(&mut *colorspace, lookup);
     } else {
         colorspace = pdf_new_name("DeviceRGB")
     }
@@ -293,12 +293,12 @@ pub unsafe extern "C" fn bmp_include_image(
         let mut n = info.height - 1i32;
         while n >= 0i32 {
             let p = stream_data_ptr.offset((n * rowbytes) as isize);
-            pdf_add_stream(stream, p as *const libc::c_void, rowbytes);
+            pdf_add_stream(&mut *stream, p as *const libc::c_void, rowbytes);
             n -= 1
         }
     } else {
         pdf_add_stream(
-            stream,
+            &mut *stream,
             stream_data_ptr as *const libc::c_void,
             rowbytes * info.height,
         );
