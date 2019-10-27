@@ -391,57 +391,57 @@ unsafe fn find_post() -> i32 {
     dvi_file_size = dvi_size as u32;
     handle.seek(SeekFrom::End(0)).unwrap();
     let mut current = dvi_size as i32;
-    let ch = loop
+    let ch: u8 = loop
     /* Scan backwards through PADDING */
     {
         current -= 1;
         handle.seek(SeekFrom::Start(current as u64)).unwrap();
-        let ch = ttstub_input_getc(handle);
-        if !(ch == 223i32 && current > 0i32) {
+        let ch = ttstub_input_getc(handle) as u8;
+        if !(ch == PADDING && current > 0) {
             break ch;
         }
     };
     /* file_position now points to last non padding character or
      * beginning of file */
-    if dvi_file_size.wrapping_sub(current as u32) < 4_u32
-        || current == 0i32
-        || !(ch == 2i32 || ch == 3i32 || ch == 7i32 || ch == 6i32)
+    if dvi_file_size.wrapping_sub(current as u32) < 4
+        || current == 0
+        || !(ch == DVI_ID || ch == DVIV_ID || ch == XDV_ID || ch == XDV_ID_OLD)
     {
         info!("DVI ID = {}\n", ch);
         panic!(invalid_signature);
     }
-    post_id_byte = ch;
-    is_xdv = (ch == 7i32 || ch == 6i32) as i32;
-    is_ptex = (ch == 3i32) as i32;
+    post_id_byte = ch as i32;
+    is_xdv = (ch == XDV_ID || ch == XDV_ID_OLD) as i32;
+    is_ptex = (ch == DVIV_ID) as i32;
     /* Make sure post_post is really there */
-    current = current - 5i32;
+    current -= 5;
     handle.seek(SeekFrom::Start(current as u64)).unwrap();
-    let ch = ttstub_input_getc(handle);
-    if ch != 249i32 {
+    let ch = ttstub_input_getc(handle) as u8;
+    if ch != POST_POST {
         info!("Found {} where post_post opcode should be\n", ch);
         panic!(invalid_signature);
     }
     current = tt_get_signed_quad(handle);
     handle.seek(SeekFrom::Start(current as u64)).unwrap();
-    let ch = ttstub_input_getc(handle);
-    if ch != 248i32 {
+    let ch = ttstub_input_getc(handle) as u8;
+    if ch != POST {
         info!("Found {} where post_post opcode should be\n", ch);
         panic!(invalid_signature);
     }
     /* Finally check the ID byte in the preamble */
     /* An Ascii pTeX DVI file has id_byte DVI_ID in the preamble but DVIV_ID in the postamble. */
     handle.seek(SeekFrom::Start(0)).unwrap();
-    let ch = tt_get_unsigned_byte(handle) as i32;
-    if ch != 247i32 {
+    let ch = tt_get_unsigned_byte(handle);
+    if ch != PRE {
         info!("Found {} where PRE was expected\n", ch);
         panic!(invalid_signature);
     }
-    let ch = tt_get_unsigned_byte(handle) as i32;
-    if !(ch == 2i32 || ch == 7i32 || ch == 6i32) {
+    let ch = tt_get_unsigned_byte(handle);
+    if !(ch == DVI_ID || ch == XDV_ID || ch == XDV_ID_OLD) {
         info!("DVI ID = {}\n", ch);
         panic!(invalid_signature);
     }
-    pre_id_byte = ch;
+    pre_id_byte = ch as i32;
     check_id_bytes();
     current
 }
