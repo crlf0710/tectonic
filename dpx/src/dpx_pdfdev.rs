@@ -1584,7 +1584,7 @@ pub unsafe extern "C" fn pdf_dev_locate_font(mut font_name: *const i8, mut ptsiz
     }
     let font = &mut *dev_fonts.offset(num_dev_fonts as isize) as *mut dev_font;
     /* New font */
-    let mrec = pdf_lookup_fontmap_record(font_name);
+    let mrec = pdf_lookup_fontmap_record(CStr::from_ptr(font_name).to_bytes());
     if verbose > 1i32 {
         print_fontmap(font_name, mrec);
     }

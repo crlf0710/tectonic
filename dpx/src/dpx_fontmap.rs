@@ -1296,13 +1296,13 @@ pub unsafe extern "C" fn pdf_insert_native_fontmap_record(
     ret
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_lookup_fontmap_record(mut tfm_name: *const i8) -> *mut fontmap_rec {
+pub unsafe extern "C" fn pdf_lookup_fontmap_record(tfm_name: &[u8]) -> *mut fontmap_rec {
     let mut mrec: *mut fontmap_rec = 0 as *mut fontmap_rec;
-    if !fontmap.is_null() && !tfm_name.is_null() {
+    if !fontmap.is_null() && !tfm_name.is_empty() {
         mrec = ht_lookup_table(
             fontmap,
-            tfm_name as *const libc::c_void,
-            strlen(tfm_name) as i32,
+            tfm_name.as_ptr() as *const libc::c_void,
+            tfm_name.len() as i32,
         ) as *mut fontmap_rec
     }
     mrec

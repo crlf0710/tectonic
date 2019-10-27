@@ -399,7 +399,7 @@ unsafe fn try_load_ToUnicode_CMap(mut font: *mut pdf_font) -> i32 {
         return 0i32;
     } /* _FIXME_ */
     assert!(!(*font).map_name.is_null());
-    let mrec = pdf_lookup_fontmap_record((*font).map_name);
+    let mrec = pdf_lookup_fontmap_record(CStr::from_ptr((*font).map_name).to_bytes());
     let cmap_name = if !mrec.is_null() && !(*mrec).opt.tounicode.is_null() {
         (*mrec).opt.tounicode
     } else {
