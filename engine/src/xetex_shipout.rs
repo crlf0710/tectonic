@@ -185,10 +185,9 @@ pub unsafe extern "C" fn deinitialize_shipout_variables() {
     dvi_buf = 0 as *mut u8;
 }
 #[inline]
-unsafe extern "C" fn dvi_out(mut c: u8) {
-    let fresh1 = dvi_ptr;
-    dvi_ptr = dvi_ptr + 1;
-    *dvi_buf.offset(fresh1 as isize) = c;
+unsafe extern "C" fn dvi_out(c: u8) {
+    *dvi_buf.offset(dvi_ptr as isize) = c;
+    dvi_ptr += 1;
     if dvi_ptr == dvi_limit {
         dvi_swap();
     };
