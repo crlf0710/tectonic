@@ -2181,6 +2181,7 @@ unsafe fn get_objstm_data(objstm: &pdf_obj) -> *mut i32 {
     }
     (*(objstm.data as *mut pdf_stream)).objstm_data
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn pdf_add_stream(
     stream: *mut pdf_obj,
@@ -2204,66 +2205,56 @@ pub unsafe extern "C" fn pdf_add_stream(
     }
     let payload = std::slice::from_raw_parts(stream_data as *const u8, length as usize);
     let data = (*stream).data as *mut pdf_stream;
-    (*data).stream.extend_from_slice(payload);
+    // We only want this pointer until the end of the function, it's fine
+    let data = unsafe { &mut *data as &mut pdf_stream };
+    data.append(payload)
+}
+
+unsafe fn with_stream<T>(obj: *mut pdf_obj, f: impl FnOnce(&mut pdf_stream) -> T + 'static) -> T {
+    if obj.is_null() || !(*obj).is_stream() {
+        panic!(
+            "typecheck: Invalid object type: {} {}",
+            if !obj.is_null() {
+                (*obj).typ
+            } else {
+                -1i32
+            },
+            7i32,
+        );
+    }
+    let data = (*obj).data as *mut pdf_stream;
+    // We only want this pointer until the end of the function.
+    // It's fine because FnOnce and T: 'static cannot hold a reference to it.
+    
+    let data = unsafe { &mut *data as &mut pdf_stream };
+    f(data)
+}
+
+impl pdf_stream {
+    fn append(&mut self, slice: &[u8]) {
+        self.stream.extend_from_slice(slice);
+    }
 }
 
 #[no_mangle]
-#[cfg(feature = "libz-sys")]
 pub unsafe extern "C" fn pdf_add_stream_flate(
     mut dst: *mut pdf_obj,
     mut data: *const libc::c_void,
     mut len: libc::c_int,
 ) -> libc::c_int {
-    const WBUF_SIZE: usize = 4096;
-    let mut z: libz::z_stream = std::mem::zeroed();
-    let mut wbuf: [libz::Bytef; WBUF_SIZE] = [0; WBUF_SIZE];
-    // FIXME: Bug in libpng-sys
-    // z.zalloc = null_mut();
-    // z.zfree = null_mut();
-    z.opaque = 0 as libz::voidpf;
-    z.next_in = data as *mut libz::Bytef;
-    z.avail_in = len as libz::uInt;
-    z.next_out = wbuf.as_mut_ptr();
-    z.avail_out = WBUF_SIZE as libz::uInt;
-    if libz::inflateInit_(
-        &mut z,
-        b"1.2.11\x00" as *const u8 as *const i8,
-        ::std::mem::size_of::<libz::z_stream>() as u64 as libc::c_int,
-    ) != 0i32
-    {
-        warn!("inflateInit() failed.");
-        return -1i32;
-    }
-    loop {
-        let status = libz::inflate(&mut z, 0i32);
-        assert!(z.avail_out <= WBUF_SIZE as u32);
-        if status == 1i32 /* Z_STREAM_END */ {
-            break;
-        }
-        if status != 0i32 {
-            warn!("inflate() failed. Broken PDF file?");
-            libz::inflateEnd(&mut z);
-            return -1i32;
-        }
-        if z.avail_out == 0 {
-            pdf_add_stream(dst, wbuf.as_mut_ptr() as *const libc::c_void, WBUF_SIZE as i32);
-            z.next_out = wbuf.as_mut_ptr();
-            z.avail_out = WBUF_SIZE as libz::uInt
+    use flate2::bufread::ZlibDecoder;
+    let origin = std::slice::from_raw_parts(data as *const u8, len as usize);
+    let mut z = ZlibDecoder::new(origin);
+    let result = with_stream(dst, move |stream| {
+        z.read_to_end(&mut stream.stream)
+    });
+    match result {
+        Ok(_read_bytes) => return 0,
+        Err(io_err) => {
+            warn!("inflate() failed. Broken PDF file? {:?}", io_err);
+            return -1
         }
     }
-    if (WBUF_SIZE as u32) - z.avail_out > 0 {
-        pdf_add_stream(
-            dst,
-            wbuf.as_mut_ptr() as *const libc::c_void,
-            (WBUF_SIZE - z.avail_out as usize) as libc::c_int,
-        );
-    }
-
-    return if libz::inflateEnd(&mut z) == 0i32 {
-        0i32
-    } else {
-        -1i32
-    };
 }
 
 #[cfg(feature = "libz-sys")]
