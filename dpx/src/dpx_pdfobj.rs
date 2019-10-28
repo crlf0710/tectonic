@@ -3318,7 +3318,6 @@ unsafe fn pdf_get_object(
     mut obj_num: u32,
     mut obj_gen: u16,
 ) -> *mut pdf_obj {
-    let mut current_block: u64;
     if !(obj_num > 0_u32
         && obj_num < (*pf).num_obj as u32
         && ((*(*pf).xref_table.offset(obj_num as isize)).typ as i32 == 1i32
@@ -3335,28 +3334,27 @@ unsafe fn pdf_get_object(
     if !result.is_null() {
         return pdf_link_obj(result);
     }
+    let mut result = None;
     if (*(*pf).xref_table.offset(obj_num as isize)).typ as i32 == 1i32 {
         /* type == 1 */
         let offset = (*(*pf).xref_table.offset(obj_num as isize)).field2;
         let limit = next_object_offset(pf, obj_num);
-        result = pdf_read_object(obj_num, obj_gen, pf, offset as i32, limit)
+        result = Some(pdf_read_object(obj_num, obj_gen, pf, offset as i32, limit))
     } else {
         /* type == 2 */
         let mut objstm_num: u32 = (*(*pf).xref_table.offset(obj_num as isize)).field2;
         let mut index: u16 = (*(*pf).xref_table.offset(obj_num as isize)).field3;
         let mut objstm: *mut pdf_obj = 0 as *mut pdf_obj;
-        if objstm_num >= (*pf).num_obj as u32
-            || (*(*pf).xref_table.offset(objstm_num as isize)).typ as i32 != 1i32
-            || {
+        if !(objstm_num >= (*pf).num_obj as u32)
+            && (*(*pf).xref_table.offset(objstm_num as isize)).typ as i32 == 1i32
+            && {
                 objstm = (*(*pf).xref_table.offset(objstm_num as isize)).direct;
-                !(!objstm.is_null() || {
+                (!objstm.is_null() || {
                     objstm = read_objstm(pf, objstm_num);
                     !objstm.is_null()
                 })
             }
         {
-            current_block = 17536737673648832705;
-        } else {
             let mut data = get_objstm_data(&*objstm);
             let fresh25 = data;
             data = data.offset(1);
@@ -3364,37 +3362,29 @@ unsafe fn pdf_get_object(
             let fresh26 = data;
             data = data.offset(1);
             let first = *fresh26;
-            if index as i32 >= n || *data.offset((2i32 * index as i32) as isize) as u32 != obj_num {
-                current_block = 17536737673648832705;
-            } else {
+            if !(index as i32 >= n) && *data.offset((2i32 * index as i32) as isize) as u32 == obj_num {
                 assert!((*objstm).is_stream());
-                let objstm_slice = & (*(*((*objstm).data as *mut pdf_stream)).stream);
+                let objstm_slice = &(*(*((*objstm).data as *mut pdf_stream)).stream);
 
                 let length = pdf_stream_length(objstm);
                 let pdfobj_start = first + *data.offset(2*index as isize+1);
                 let pdfobj_end = if index as i32 == n - 1 { length } else { first + *data.offset(2*index as isize+3) };
+
                 let mut pdfobj_slice = &objstm_slice[pdfobj_start as usize..pdfobj_end as usize];
-                let result_ = pdfobj_slice.parse_pdf_object(pf);
-                if result_.is_none() {
-                    current_block = 17536737673648832705;
-                } else {
-                    result = result_.unwrap();
-                    current_block = 13472856163611868459;
-                }
-            }
-        }
-        match current_block {
-            13472856163611868459 => {}
-            _ => {
-                warn!("Could not read object from object stream.");
-                return pdf_new_null();
+                result = pdfobj_slice.parse_pdf_object(pf);
             }
         }
     }
-    /* Make sure the caller doesn't free this object */
-    let ref mut fresh27 = (*(*pf).xref_table.offset(obj_num as isize)).direct;
-    *fresh27 = pdf_link_obj(result);
-    result
+
+    if let Some(result) = result {
+        /* Make sure the caller doesn't free this object */
+        let ref mut fresh27 = (*(*pf).xref_table.offset(obj_num as isize)).direct;
+        *fresh27 = pdf_link_obj(result);
+        result
+    }else{
+        warn!("Could not read object from object stream.");
+        pdf_new_null()
+    }
 }
 unsafe fn pdf_new_ref(mut object: *mut pdf_obj) -> *mut pdf_obj {
     if (*object).label == 0_u32 {
