@@ -2600,64 +2600,26 @@ unsafe fn filter_decoded(
     free(buf as *mut libc::c_void);
     error
 }
-#[cfg(feature = "libz-sys")]
+
 unsafe fn pdf_add_stream_flate_filtered(
     mut dst: *mut pdf_obj,
     mut data: *const libc::c_void,
     mut len: libc::c_int,
     parms: &mut decode_parms,
 ) -> libc::c_int {
-    let mut z: libz::z_stream = std::mem::zeroed();
-    let mut wbuf: [libz::Bytef; 4096] = [0; 4096];
-    // FIXME: Bug in libpng-sys
-    // z.zalloc = null_mut();
-    // z.zfree = null_mut();
-    z.opaque = 0 as libz::voidpf;
-    z.next_in = data as *mut libz::Bytef;
-    z.avail_in = len as libz::uInt;
-    z.next_out = wbuf.as_mut_ptr();
-    z.avail_out = 4096i32 as libz::uInt;
-    if libz::inflateInit_(
-        &mut z,
-        b"1.2.11\x00" as *const u8 as *const i8,
-        ::std::mem::size_of::<libz::z_stream>() as u64 as libc::c_int,
-    ) != 0i32
-    {
-        warn!("inflateInit() failed.");
-        return -1i32;
-    }
     let tmp = pdf_new_stream(0i32);
-    loop {
-        let status = libz::inflate(&mut z, 0i32);
-        if status == 1i32 {
-            break;
-        }
-        if status != 0i32 {
-            warn!("inflate() failed. Broken PDF file?");
-            libz::inflateEnd(&mut z);
-            return -1i32;
-        }
-        if z.avail_out == 0i32 as libc::c_uint {
-            pdf_add_stream(tmp, wbuf.as_mut_ptr() as *const libc::c_void, 4096i32);
-            z.next_out = wbuf.as_mut_ptr();
-            z.avail_out = 4096i32 as libz::uInt
-        }
-    }
-    if (4096i32 as libc::c_uint).wrapping_sub(z.avail_out) > 0i32 as libc::c_uint {
-        pdf_add_stream(
-            tmp,
-            wbuf.as_mut_ptr() as *const libc::c_void,
-            (4096i32 as libc::c_uint).wrapping_sub(z.avail_out) as libc::c_int,
-        );
+    if pdf_add_stream_flate(tmp, data, len) != 0 {
+        return -1;
     }
     let error = filter_decoded(dst, pdf_stream_dataptr(tmp), pdf_stream_length(tmp), parms);
     pdf_release_obj(tmp);
-    if error == 0 && libz::inflateEnd(&mut z) == 0i32 {
+    if error == 0 {
         0i32
     } else {
         -1i32
     }
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) -> i32 {
     let mut error: i32 = 0i32;
