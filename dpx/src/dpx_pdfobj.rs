@@ -180,14 +180,12 @@ pub struct pdf_dict {
     pub value: *mut pdf_obj,
     pub next: *mut pdf_dict,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub struct pdf_stream {
     pub dict: *mut pdf_obj,
-    pub stream: *mut u8,
+    pub stream: Vec<u8>,
     pub objstm_data: *mut i32,
-    pub stream_length: u32,
-    pub max_length: u32,
     pub _flags: i32,
     pub decodeparms: decode_parms,
 }
@@ -1484,7 +1482,7 @@ where
 #[no_mangle]
 pub unsafe extern "C" fn pdf_new_stream(mut flags: i32) -> *mut pdf_obj {
     let result = pdf_new_obj(PdfObjType::STREAM);
-    let data = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_stream>() as u64) as u32)
+    let data = new(::std::mem::size_of::<pdf_stream>() as u32)
         as *mut pdf_stream;
     /*
      * Although we are using an arbitrary pdf_object here, it must have
@@ -1493,9 +1491,8 @@ pub unsafe extern "C" fn pdf_new_stream(mut flags: i32) -> *mut pdf_obj {
      */
     (*data).dict = pdf_new_dict();
     (*data)._flags = flags;
-    (*data).stream = 0 as *mut u8;
-    (*data).stream_length = 0_u32;
-    (*data).max_length = 0_u32;
+    let uninit_stream = std::mem::replace(&mut (*data).stream, Vec::new());
+    std::mem::forget(uninit_stream); // TODO: this is ugly
     (*data).objstm_data = 0 as *mut i32;
     (*data).decodeparms.predictor = 2i32;
     (*data).decodeparms.columns = 0i32;
@@ -1505,6 +1502,7 @@ pub unsafe extern "C" fn pdf_new_stream(mut flags: i32) -> *mut pdf_obj {
     (*result).flags |= 1i32 << 0i32;
     result
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn pdf_stream_set_predictor(
     mut stream: *mut pdf_obj,
@@ -1915,15 +1913,13 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
      * Always work from a copy of the stream. All filters read from
      * "filtered" and leave their result in "filtered".
      */
-    let mut filtered = new(
-        ((*stream).stream_length as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
-    ) as *mut u8;
+    let mut filtered = new((*stream).stream.len() as u32) as *mut u8;
     libc::memcpy(
         filtered as *mut libc::c_void,
-        (*stream).stream as *const libc::c_void,
-        (*stream).stream_length as usize,
+        (*stream).stream.as_ptr() as *const libc::c_void,
+        (*stream).stream.len(),
     );
-    let mut filtered_length = (*stream).stream_length;
+    let mut filtered_length = (*stream).stream.len() as u32;
     /* PDF/A requires Metadata to be not filtered. */
     if pdf_lookup_dict((*stream).dict, "Type")
         .filter(|typ| "Metadata" == pdf_name_value(&**typ).to_string_lossy())
@@ -1934,7 +1930,7 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
     /* Apply compression filter if requested */
     #[cfg(feature = "libz-sys")]
     {
-        if (*stream).stream_length > 0i32 as libc::c_uint
+        if (*stream).stream.len() > 0
             && (*stream)._flags & 1i32 << 0i32 != 0
             && compression_level as libc::c_int > 0i32
         {
@@ -1947,9 +1943,9 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
                     (*stream).decodeparms.colors * (*stream).decodeparms.bits_per_component;
                 let mut len: i32 = ((*stream).decodeparms.columns * bits_per_pixel + 7i32) / 8i32;
                 let mut rows: i32 =
-                    (*stream).stream_length.wrapping_div(len as libc::c_uint) as i32;
+                    ((*stream).stream.len() as i32) / len;
                 let mut filtered2: *mut libc::c_uchar = 0 as *mut libc::c_uchar;
-                let mut length2: i32 = (*stream).stream_length as i32;
+                let mut length2: i32 = (*stream).stream.len() as i32;
                 let parms = filter_create_predictor_dict(
                     (*stream).decodeparms.predictor,
                     (*stream).decodeparms.columns,
@@ -2096,12 +2092,11 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
     pdf_out(handle, b"\n");
     pdf_out(handle, b"endstream");
 }
-unsafe fn release_stream(mut stream: *mut pdf_stream) {
-    pdf_release_obj((*stream).dict);
-    (*stream).dict = 0 as *mut pdf_obj;
-    (*stream).stream = mfree((*stream).stream as *mut libc::c_void) as *mut u8;
-    (*stream).objstm_data = mfree((*stream).objstm_data as *mut libc::c_void) as *mut i32;
-    free(stream as *mut libc::c_void);
+unsafe fn release_stream(mut streamptr: *mut pdf_stream) {
+    let pdf_stream { dict, objstm_data, .. } = *streamptr;
+    pdf_release_obj(dict);
+    mfree(objstm_data as *mut libc::c_void);
+    free(streamptr as *mut libc::c_void);
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_stream_dict(mut stream: *mut pdf_obj) -> *mut pdf_obj {
@@ -2135,8 +2130,9 @@ pub unsafe extern "C" fn pdf_stream_dataptr(mut stream: *mut pdf_obj) -> *const 
         );
     }
     let data = (*stream).data as *mut pdf_stream;
-    (*data).stream as *const libc::c_void
+    (*data).stream.as_ptr() as *const libc::c_void
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn pdf_stream_length(mut stream: *mut pdf_obj) -> i32 {
     if stream.is_null() || !(*stream).is_stream() {
@@ -2152,7 +2148,7 @@ pub unsafe extern "C" fn pdf_stream_length(mut stream: *mut pdf_obj) -> i32 {
         );
     }
     let data = (*stream).data as *mut pdf_stream;
-    (*data).stream_length as i32
+    (*data).stream.len() as i32
 }
 unsafe fn set_objstm_data(mut objstm: *mut pdf_obj, mut data: *mut i32) {
     if objstm.is_null() || !(*objstm).is_stream() {
@@ -2181,9 +2177,9 @@ unsafe fn get_objstm_data(objstm: &pdf_obj) -> *mut i32 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_add_stream(
-    mut stream: *mut pdf_obj,
-    mut stream_data: *const libc::c_void,
-    mut length: i32,
+    stream: *mut pdf_obj,
+    stream_data: *const libc::c_void,
+    length: i32,
 ) {
     if stream.is_null() || !(*stream).is_stream() {
         panic!(
@@ -2200,23 +2196,11 @@ pub unsafe extern "C" fn pdf_add_stream(
     if length < 1i32 {
         return;
     }
+    let payload = std::slice::from_raw_parts(stream_data as *const u8, length as usize);
     let data = (*stream).data as *mut pdf_stream;
-    if (*data).stream_length.wrapping_add(length as u32) > (*data).max_length {
-        (*data).max_length = (*data)
-            .max_length
-            .wrapping_add((length as u32).wrapping_add(4096u32));
-        (*data).stream = renew(
-            (*data).stream as *mut libc::c_void,
-            ((*data).max_length as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
-        ) as *mut u8
-    }
-    libc::memcpy(
-        (*data).stream.offset((*data).stream_length as isize) as *mut libc::c_void,
-        stream_data,
-        length as usize,
-    );
-    (*data).stream_length = (*data).stream_length.wrapping_add(length as u32);
+    (*data).stream.extend_from_slice(payload);
 }
+
 #[no_mangle]
 #[cfg(feature = "libz-sys")]
 pub unsafe extern "C" fn pdf_add_stream_flate(
@@ -2224,8 +2208,9 @@ pub unsafe extern "C" fn pdf_add_stream_flate(
     mut data: *const libc::c_void,
     mut len: libc::c_int,
 ) -> libc::c_int {
+    const WBUF_SIZE: usize = 4096;
     let mut z: libz::z_stream = std::mem::zeroed();
-    let mut wbuf: [libz::Bytef; 4096] = [0; 4096];
+    let mut wbuf: [libz::Bytef; WBUF_SIZE] = [0; WBUF_SIZE];
     // FIXME: Bug in libpng-sys
     // z.zalloc = null_mut();
     // z.zfree = null_mut();
@@ -2233,7 +2218,7 @@ pub unsafe extern "C" fn pdf_add_stream_flate(
     z.next_in = data as *mut libz::Bytef;
     z.avail_in = len as libz::uInt;
     z.next_out = wbuf.as_mut_ptr();
-    z.avail_out = 4096i32 as libz::uInt;
+    z.avail_out = WBUF_SIZE as libz::uInt;
     if libz::inflateInit_(
         &mut z,
         b"1.2.11\x00" as *const u8 as *const i8,
@@ -2245,7 +2230,8 @@ pub unsafe extern "C" fn pdf_add_stream_flate(
     }
     loop {
         let status = libz::inflate(&mut z, 0i32);
-        if status == 1i32 {
+        assert!(z.avail_out <= WBUF_SIZE as u32);
+        if status == 1i32 /* Z_STREAM_END */ {
             break;
         }
         if status != 0i32 {
@@ -2253,19 +2239,20 @@ pub unsafe extern "C" fn pdf_add_stream_flate(
             libz::inflateEnd(&mut z);
             return -1i32;
         }
-        if z.avail_out == 0i32 as libc::c_uint {
-            pdf_add_stream(dst, wbuf.as_mut_ptr() as *const libc::c_void, 4096i32);
+        if z.avail_out == 0 {
+            pdf_add_stream(dst, wbuf.as_mut_ptr() as *const libc::c_void, WBUF_SIZE as i32);
             z.next_out = wbuf.as_mut_ptr();
-            z.avail_out = 4096i32 as libz::uInt
+            z.avail_out = WBUF_SIZE as libz::uInt
         }
     }
-    if (4096i32 as libc::c_uint).wrapping_sub(z.avail_out) > 0i32 as libc::c_uint {
+    if (WBUF_SIZE as u32) - z.avail_out > 0 {
         pdf_add_stream(
             dst,
             wbuf.as_mut_ptr() as *const libc::c_void,
-            (4096i32 as libc::c_uint).wrapping_sub(z.avail_out) as libc::c_int,
+            (WBUF_SIZE - z.avail_out as usize) as libc::c_int,
         );
     }
+
     return if libz::inflateEnd(&mut z) == 0i32 {
         0i32
     } else {
@@ -2866,12 +2853,8 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
     let mut pos: i32 = *data.offset(0);
     let stream = (*objstm).data as *mut pdf_stream;
     /* Precede stream data by offset table */
-    let old_buf = (*stream).stream;
-    let old_length = (*stream).stream_length;
     /* Reserve 22 bytes for each entry (two 10 digit numbers plus two spaces) */
-    (*stream).stream = new((old_length.wrapping_add((22i32 * pos) as u32) as u64)
-        .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
-    (*stream).stream_length = 0_u32;
+    let old_buf = std::mem::replace(&mut (*stream).stream, Vec::with_capacity(22 * pos as usize));
     let mut i: i32 = 2i32 * pos;
     let mut val: *mut i32 = data.offset(2);
     loop {
@@ -2899,10 +2882,9 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
     pdf_add_dict(
         dict,
         "First",
-        pdf_new_number((*stream).stream_length as f64),
+        pdf_new_number((*stream).stream.len() as f64),
     );
-    pdf_add_stream(objstm, old_buf as *const libc::c_void, old_length as i32);
-    free(old_buf as *mut libc::c_void);
+    pdf_add_stream(objstm, old_buf.as_ptr() as *const libc::c_void, old_buf.len() as i32);
     pdf_release_obj(objstm);
 }
 #[no_mangle]
@@ -3379,21 +3361,18 @@ unsafe fn pdf_get_object(
             if index as i32 >= n || *data.offset((2i32 * index as i32) as isize) as u32 != obj_num {
                 current_block = 17536737673648832705;
             } else {
+                assert!((*objstm).is_stream());
+                let objstm_slice = & (*(*((*objstm).data as *mut pdf_stream)).stream);
+
                 let length = pdf_stream_length(objstm);
-                let mut p = (pdf_stream_dataptr(objstm) as *const i8)
-                    .offset(first as isize)
-                    .offset(*data.offset((2i32 * index as i32 + 1i32) as isize) as isize);
-                let q = p.offset(
-                    (if index as i32 == n - 1i32 {
-                        length
-                    } else {
-                        first + *data.offset((2i32 * index as i32 + 3i32) as isize)
-                    }) as isize,
-                );
-                result = parse_pdf_object(&mut p, q, pf);
-                if result.is_null() {
+                let pdfobj_start = first + *data.offset(2*index as isize+1);
+                let pdfobj_end = if index as i32 == n - 1 { length } else { first + *data.offset(2*index as isize+3) };
+                let mut pdfobj_slice = &objstm_slice[pdfobj_start as usize..pdfobj_end as usize];
+                let result_ = pdfobj_slice.parse_pdf_object(pf);
+                if result_.is_none() {
                     current_block = 17536737673648832705;
                 } else {
+                    result = result_.unwrap();
                     current_block = 13472856163611868459;
                 }
             }
