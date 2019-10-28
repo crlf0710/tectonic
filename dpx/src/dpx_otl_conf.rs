@@ -27,7 +27,7 @@
     non_upper_case_globals,
     unused_mut
 )]
-
+/*
 use crate::DisplayExt;
 use std::ffi::CStr;
 
@@ -38,8 +38,8 @@ use super::dpx_dpxutil::parse_c_ident;
 use super::dpx_mem::new;
 use super::dpx_pdfparse::skip_white;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_array_length, pdf_copy_name, pdf_get_array, pdf_link_obj,
-    pdf_lookup_dict, pdf_new_array, pdf_new_dict, pdf_new_null, pdf_new_number, pdf_new_string,
+    pdf_add_array, pdf_add_dict, pdf_array_length, pdf_copy_name, pdf_link_obj,
+    pdf_new_array, pdf_new_dict, pdf_new_null, pdf_new_number, pdf_new_string,
     pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string_value,
 };
 use crate::streq_ptr;
@@ -51,7 +51,7 @@ pub type size_t = u64;
 pub type ssize_t = __ssize_t;
 
 use crate::TTInputFormat;
-
+*/
 /* quasi-hack to get the primary input */
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -61,11 +61,11 @@ use crate::TTInputFormat;
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 static mut verbose: i32 = 0i32;
-#[no_mangle]
+/*#[no_mangle]
 pub unsafe extern "C" fn otl_conf_set_verbose(mut level: i32) {
     verbose = level;
-}
-unsafe fn parse_uc_coverage(
+}*/
+/*unsafe fn parse_uc_coverage(
     mut gclass: *mut pdf_obj,
     mut pp: *mut *const i8,
     mut endptr: *const i8,
@@ -472,8 +472,8 @@ unsafe fn parse_block(
         *pp = (*pp).offset(1)
     }
     rule
-}
-unsafe fn otl_read_conf(mut conf_name: *const i8) -> *mut pdf_obj {
+}*/
+/*unsafe fn otl_read_conf(mut conf_name: *const i8) -> *mut pdf_obj {
     let mut filename = new((strlen(conf_name)
         .wrapping_add(strlen(b".otl\x00" as *const u8 as *const i8))
         .wrapping_add(1))
@@ -542,13 +542,13 @@ pub unsafe extern "C" fn otl_conf_get_script(mut conf: *mut pdf_obj) -> *mut i8 
 #[no_mangle]
 pub unsafe extern "C" fn otl_conf_get_language(mut conf: *mut pdf_obj) -> *mut i8 {
     assert!(!conf.is_null());
-    let language = pdf_lookup_dict(&mut *conf, "language").unwrap_or(0 as *mut pdf_obj);
-    pdf_string_value(&*language) as *mut i8
+    let language = pdf_dict_get(&*conf, "language").unwrap_or(0 as *mut pdf_obj);
+    pdf_string_value(language) as *mut i8
 }
 #[no_mangle]
 pub unsafe extern "C" fn otl_conf_get_rule(mut conf: *mut pdf_obj) -> *mut pdf_obj {
     assert!(!conf.is_null());
-    pdf_lookup_dict(&mut *conf, "rule").unwrap_or(0 as *mut pdf_obj)
+    pdf_dict_get_mut(&mut *conf, "rule").unwrap_or(0 as *mut pdf_obj)
 }
 #[no_mangle]
 pub unsafe extern "C" fn otl_conf_find_opt(
@@ -556,8 +556,8 @@ pub unsafe extern "C" fn otl_conf_find_opt(
     mut opt_tag: *const i8,
 ) -> *mut pdf_obj {
     assert!(!conf.is_null());
-    if let Some(options) = pdf_lookup_dict(&mut *conf, "option").filter(|_| !opt_tag.is_null()) {
-        pdf_lookup_dict(&mut *options, CStr::from_ptr(opt_tag).to_bytes()).unwrap_or(0 as *mut pdf_obj)
+    if let Some(options) = pdf_dict_get_mut(&mut *conf, "option").filter(|_| !opt_tag.is_null()) {
+        pdf_dict_get_mut(&mut *options, CStr::from_ptr(opt_tag).to_bytes()).unwrap_or(0 as *mut pdf_obj)
     } else {
         0 as *mut pdf_obj
     }
@@ -574,4 +574,4 @@ pub unsafe extern "C" fn otl_init_conf() {
 pub unsafe extern "C" fn otl_close_conf() {
     pdf_release_obj(otl_confs);
     otl_confs = 0 as *mut pdf_obj;
-}
+}*/

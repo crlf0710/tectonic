@@ -61,7 +61,7 @@ use super::dpx_pdfparse::dump_slice;
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record};
 use super::dpx_tfm::{tfm_exists, tfm_get_width, tfm_open, tfm_string_width};
 use crate::dpx_pdfobj::{
-    pdf_add_dict, pdf_array_length, pdf_copy_name, pdf_file, pdf_get_array, pdf_lookup_dict,
+    pdf_add_dict, pdf_array_length, pdf_copy_name, pdf_file,
     pdf_name_value, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_number_value, pdf_obj,
     pdf_release_obj, pdf_set_number, pdf_string_length, pdf_string_value,
 };
@@ -428,23 +428,23 @@ unsafe fn cvr_array(mut array: *mut pdf_obj, mut values: *mut f64, mut count: i3
             if !(fresh2 > 0i32) {
                 break;
             }
-            let tmp = pdf_get_array(&mut *array, count);
-            if !(!tmp.is_null() && (*tmp).is_number()) {
+            let tmp = (*array).as_array().get(count).unwrap();
+            if !tmp.is_number() {
                 warn!("mpost: Not a number!");
                 break;
             } else {
-                *values.offset(count as isize) = pdf_number_value(&*tmp)
+                *values.offset(count as isize) = pdf_number_value(tmp)
             }
         }
     }
     pdf_release_obj(array);
     count + 1i32
 }
-unsafe fn is_fontdict(mut dict: *mut pdf_obj) -> bool {
-    if !(!dict.is_null() && (*dict).is_dict()) {
+unsafe fn is_fontdict(dict: &pdf_obj) -> bool {
+    if !dict.is_dict() {
         return false;
     }
-    let tmp = pdf_lookup_dict(&mut *dict, "Type").filter(|&tmp| {
+    let tmp = dict.as_dict().get("Type").filter(|&tmp| {
         (*tmp).is_name()
             && pdf_name_value(&*tmp).to_string_lossy() == "Font"
     });
@@ -452,13 +452,11 @@ unsafe fn is_fontdict(mut dict: *mut pdf_obj) -> bool {
         return false;
     }
     let tmp =
-        pdf_lookup_dict(&mut *dict, "FontName").filter(|&tmp| (*tmp).is_name());
+        dict.as_dict().get("FontName").filter(|&tmp| (*tmp).is_name());
     if tmp.is_none() {
         return false;
     }
-    let tmp =
-        pdf_lookup_dict(&mut *dict, "FontScale").filter(|&tmp| (*tmp).is_number());
-    tmp.is_some()
+    dict.as_dict().get("FontScale").filter(|&tmp| (*tmp).is_number()).is_some()
 }
 unsafe fn do_findfont() -> i32 {
     let mut error: i32 = 0i32;
@@ -500,9 +498,10 @@ unsafe fn do_scalefont() -> i32 {
         return error;
     }
     if let Some(font_dict) = STACK.pop() {
-        if is_fontdict(font_dict) {
-            let font_scale = pdf_lookup_dict(&mut *font_dict, "FontScale").unwrap();
-            pdf_set_number(&mut *font_scale, pdf_number_value(&*font_scale) * scale);
+        if is_fontdict(&*font_dict) {
+            let font_scale = (*font_dict).as_dict_mut().get_mut("FontScale").unwrap();
+            let val = pdf_number_value(&*font_scale) * scale;
+            pdf_set_number(&mut *font_scale, val);
             if STACK.push_checked(font_dict).is_err() {
                 pdf_release_obj(font_dict);
                 error = 1i32
@@ -517,14 +516,14 @@ unsafe fn do_scalefont() -> i32 {
 }
 unsafe fn do_setfont() -> i32 {
     if let Some(font_dict) = STACK.pop() {
-        let error = if !is_fontdict(font_dict) {
+        let error = if !is_fontdict(&*font_dict) {
             1
         } else {
             /* Subfont support prevent us from managing
              * font in a single place...
              */
-            let font_name = pdf_name_value(&*pdf_lookup_dict(&mut *font_dict, "FontName").unwrap());
-            let font_scale = pdf_number_value(&*pdf_lookup_dict(&mut *font_dict, "FontScale").unwrap());
+            let font_name = pdf_name_value((*font_dict).as_dict().get("FontName").unwrap());
+            let font_scale = pdf_number_value((*font_dict).as_dict().get("FontScale").unwrap());
             mp_setfont(font_name, font_scale)
         };
         pdf_release_obj(font_dict);
@@ -952,11 +951,11 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                         } else {
                             let mut i = 0;
                             while i < num_dashes && error == 0 {
-                                let dash = pdf_get_array(&mut *pattern, i as i32);
-                                if !(!dash.is_null() && (*dash).is_number()) {
+                                let dash = (*pattern).as_array().get(i as i32).unwrap();
+                                if !dash.is_number() {
                                     error = 1i32
                                 } else {
-                                    dash_values[i as usize] = pdf_number_value(&*dash)
+                                    dash_values[i as usize] = pdf_number_value(dash)
                                 }
                                 i += 1
                             }

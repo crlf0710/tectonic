@@ -49,7 +49,7 @@ use crate::dpx_pdfdraw::{
     pdf_dev_setmiterlimit,
 };
 use crate::dpx_pdfobj::{
-    pdf_add_dict, pdf_foreach_dict, pdf_get_version, pdf_lookup_dict, pdf_name_value,
+    pdf_add_dict, pdf_foreach_dict, pdf_get_version, pdf_name_value,
     pdf_new_boolean, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_string, pdf_obj,
     pdf_ref_obj, pdf_release_obj, pdf_string_value,
 };
@@ -112,8 +112,8 @@ unsafe fn check_resourcestatus(category: &str, mut resname: &str) -> i32 {
     if dict1.is_null() {
         return 0i32;
     }
-    if let Some(dict2) = pdf_lookup_dict(&mut *dict1, category) {
-        if (*dict2).is_dict() && pdf_lookup_dict(&mut *dict2, resname).is_some() {
+    if let Some(dict2) = (*dict1).as_dict().get(category) {
+        if dict2.is_dict() && dict2.as_dict().has(resname) {
             return 1i32;
         }
     }

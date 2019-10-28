@@ -44,9 +44,9 @@ use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_array_length, pdf_boolean_value, pdf_close, pdf_concat_stream,
     pdf_deref_obj, pdf_file_get_catalog, /*pdf_file_get_trailer, */pdf_file_get_version,
-    pdf_get_array, pdf_get_version, pdf_import_object, pdf_lookup_dict, pdf_new_array,
+    pdf_get_version, pdf_import_object, pdf_new_array,
     /*pdf_new_dict, */pdf_new_name, pdf_new_number, pdf_new_stream,/* pdf_number_value, */pdf_obj,
-    /*pdf_obj_typeof, */pdf_open, pdf_release_obj,/* pdf_stream_dataptr,*/ pdf_stream_dict,
+    /*pdf_obj_typeof, */pdf_open, pdf_release_obj,/* pdf_stream_dataptr,*/
    /* pdf_stream_length, PdfObjType,*/ STREAM_COMPRESS,
 };
 /*use crate::dpx_pdfparse::{parse_ident, parse_pdf_array};
@@ -459,9 +459,9 @@ pub unsafe extern "C" fn pdf_include_page(
     }
 
     let catalog = pdf_file_get_catalog(pf);
-    markinfo = pdf_deref_obj(pdf_lookup_dict(&mut *catalog, "MarkInfo"));
+    markinfo = pdf_deref_obj((*catalog).as_dict_mut().get_mut("MarkInfo"));
     if !markinfo.is_null() {
-        let mut tmp: *mut pdf_obj = pdf_deref_obj(pdf_lookup_dict(&mut *markinfo, "Marked"));
+        let mut tmp: *mut pdf_obj = pdf_deref_obj((*markinfo).as_dict_mut().get_mut("Marked"));
         pdf_release_obj(markinfo);
         if tmp.is_null() || !(*tmp).is_boolean() {
             pdf_release_obj(tmp);
@@ -473,7 +473,7 @@ pub unsafe extern "C" fn pdf_include_page(
         pdf_release_obj(tmp);
     }
 
-    contents = pdf_deref_obj(pdf_lookup_dict(&mut *page, "Contents"));
+    contents = pdf_deref_obj((*page).as_dict_mut().get_mut("Contents"));
     pdf_release_obj(page);
     /*
      * Handle page content stream.
@@ -499,7 +499,7 @@ pub unsafe extern "C" fn pdf_include_page(
         content_new = pdf_new_stream(STREAM_COMPRESS);
         for idx in 0..len {
             let mut content_seg: *mut pdf_obj =
-                pdf_deref_obj(Some(pdf_get_array(&mut *contents, idx)));
+                pdf_deref_obj((*contents).as_array_mut().get_mut(idx));
             if content_seg.is_null()
             || !(*content_seg).is_stream()
             || pdf_concat_stream(content_new, content_seg) < 0
@@ -522,7 +522,7 @@ pub unsafe extern "C" fn pdf_include_page(
     /*
      * Add entries to contents stream dictionary.
      */
-    let contents_dict = pdf_stream_dict(&mut *contents);
+    let contents_dict = (*contents).as_stream_mut().get_dict_mut();
     pdf_add_dict(contents_dict, "Type", pdf_new_name("XObject"));
     pdf_add_dict(contents_dict, "Subtype", pdf_new_name("Form"));
     pdf_add_dict(contents_dict, "FormType", pdf_new_number(1.0f64));
