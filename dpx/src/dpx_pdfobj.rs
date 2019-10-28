@@ -1489,15 +1489,20 @@ pub unsafe extern "C" fn pdf_new_stream(mut flags: i32) -> *mut pdf_obj {
      * type=PDF_DICT and cannot be an indirect reference.  This will be
      * checked by the output routine.
      */
-    (*data).dict = pdf_new_dict();
-    (*data)._flags = flags;
-    let uninit_stream = std::mem::replace(&mut (*data).stream, Vec::new());
-    std::mem::forget(uninit_stream); // TODO: this is ugly
-    (*data).objstm_data = 0 as *mut i32;
-    (*data).decodeparms.predictor = 2i32;
-    (*data).decodeparms.columns = 0i32;
-    (*data).decodeparms.bits_per_component = 0i32;
-    (*data).decodeparms.colors = 0i32;
+     // overwrite `data` to avoid dropping uninitialized memory.
+     std::ptr::write(data, pdf_stream {
+        dict: pdf_new_dict(),
+        _flags: flags,
+        decodeparms: decode_parms {
+            predictor: 2i32,
+            columns: 0i32,
+            bits_per_component: 0i32,
+            colors: 0i32,
+         },
+         objstm_data: 0 as *mut i32,
+         stream: Vec::new(),
+     });
+
     (*result).data = data as *mut libc::c_void;
     (*result).flags |= 1i32 << 0i32;
     result
@@ -2095,9 +2100,10 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
 unsafe fn release_stream(mut streamptr: *mut pdf_stream) {
     let pdf_stream { dict, objstm_data, .. } = *streamptr;
     pdf_release_obj(dict);
-    mfree(objstm_data as *mut libc::c_void);
+    free(objstm_data as *mut libc::c_void);
     free(streamptr as *mut libc::c_void);
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn pdf_stream_dict(mut stream: *mut pdf_obj) -> *mut pdf_obj {
     if stream.is_null() || !(*stream).is_stream() {
