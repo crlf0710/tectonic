@@ -32,7 +32,7 @@ use crate::DisplayExt;
 use std::ffi::{CStr, CString};
 
 use crate::warn;
-use crate::{streq_ptr, strstartswith};
+use crate::strstartswith;
 
 use super::dpx_dvipdfmx::translate_origin;
 use super::dpx_fontmap::pdf_lookup_fontmap_record;
@@ -88,12 +88,16 @@ pub struct mp_font {
     pub subfont_id: i32,
     pub pt_size: f64,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct operators {
-    pub token: *const i8,
+struct operators {
+    pub token: &'static [u8],
     pub opcode: i32,
 }
+impl operators {
+    const fn new(token: &'static [u8], opcode: i32) -> Self {
+        Self { token, opcode }
+    }
+}
+
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
@@ -119,7 +123,7 @@ unsafe fn mp_setfont(mut font_name: &CStr, mut pt_size: f64) -> i32 {
             return 0;
         }
     }
-    let mrec = pdf_lookup_fontmap_record(font_name.as_ptr());
+    let mrec = pdf_lookup_fontmap_record(font_name.to_bytes());
     if !mrec.is_null()
         && !(*mrec).charmap.sfd_name.is_null()
         && !(*mrec).charmap.subfont_id.is_null()
@@ -174,7 +178,7 @@ unsafe fn restore_font() {
 unsafe fn clear_fonts() {
     font_stack = vec![];
 }
-unsafe fn is_fontname(mut token: *const i8) -> bool {
+unsafe fn is_fontname(token: &[u8]) -> bool {
     let mrec = pdf_lookup_fontmap_record(token);
     if !mrec.is_null() {
         return true;
@@ -263,376 +267,153 @@ pub unsafe extern "C" fn mps_scan_bbox(
     };
 }*/
 static mut ps_operators: [operators; 48] = [
-    operators {
-        token: b"add\x00" as *const u8 as *const i8,
-        opcode: 1i32,
-    },
-    operators {
-        token: b"mul\x00" as *const u8 as *const i8,
-        opcode: 3i32,
-    },
-    operators {
-        token: b"div\x00" as *const u8 as *const i8,
-        opcode: 4i32,
-    },
-    operators {
-        token: b"neg\x00" as *const u8 as *const i8,
-        opcode: 5i32,
-    },
-    operators {
-        token: b"sub\x00" as *const u8 as *const i8,
-        opcode: 2i32,
-    },
-    operators {
-        token: b"truncate\x00" as *const u8 as *const i8,
-        opcode: 6i32,
-    },
-    operators {
-        token: b"clear\x00" as *const u8 as *const i8,
-        opcode: 10i32,
-    },
-    operators {
-        token: b"exch\x00" as *const u8 as *const i8,
-        opcode: 11i32,
-    },
-    operators {
-        token: b"pop\x00" as *const u8 as *const i8,
-        opcode: 12i32,
-    },
-    operators {
-        token: b"clip\x00" as *const u8 as *const i8,
-        opcode: 44i32,
-    },
-    operators {
-        token: b"eoclip\x00" as *const u8 as *const i8,
-        opcode: 45i32,
-    },
-    operators {
-        token: b"closepath\x00" as *const u8 as *const i8,
-        opcode: 32i32,
-    },
-    operators {
-        token: b"concat\x00" as *const u8 as *const i8,
-        opcode: 52i32,
-    },
-    operators {
-        token: b"newpath\x00" as *const u8 as *const i8,
-        opcode: 31i32,
-    },
-    operators {
-        token: b"moveto\x00" as *const u8 as *const i8,
-        opcode: 33i32,
-    },
-    operators {
-        token: b"rmoveto\x00" as *const u8 as *const i8,
-        opcode: 34i32,
-    },
-    operators {
-        token: b"lineto\x00" as *const u8 as *const i8,
-        opcode: 37i32,
-    },
-    operators {
-        token: b"rlineto\x00" as *const u8 as *const i8,
-        opcode: 38i32,
-    },
-    operators {
-        token: b"curveto\x00" as *const u8 as *const i8,
-        opcode: 35i32,
-    },
-    operators {
-        token: b"rcurveto\x00" as *const u8 as *const i8,
-        opcode: 36i32,
-    },
-    operators {
-        token: b"arc\x00" as *const u8 as *const i8,
-        opcode: 39i32,
-    },
-    operators {
-        token: b"arcn\x00" as *const u8 as *const i8,
-        opcode: 40i32,
-    },
-    operators {
-        token: b"stroke\x00" as *const u8 as *const i8,
-        opcode: 42i32,
-    },
-    operators {
-        token: b"fill\x00" as *const u8 as *const i8,
-        opcode: 41i32,
-    },
-    operators {
-        token: b"show\x00" as *const u8 as *const i8,
-        opcode: 43i32,
-    },
-    operators {
-        token: b"showpage\x00" as *const u8 as *const i8,
-        opcode: 49i32,
-    },
-    operators {
-        token: b"gsave\x00" as *const u8 as *const i8,
-        opcode: 50i32,
-    },
-    operators {
-        token: b"grestore\x00" as *const u8 as *const i8,
-        opcode: 51i32,
-    },
-    operators {
-        token: b"translate\x00" as *const u8 as *const i8,
-        opcode: 54i32,
-    },
-    operators {
-        token: b"rotate\x00" as *const u8 as *const i8,
-        opcode: 55i32,
-    },
-    operators {
-        token: b"scale\x00" as *const u8 as *const i8,
-        opcode: 53i32,
-    },
-    operators {
-        token: b"setlinecap\x00" as *const u8 as *const i8,
-        opcode: 62i32,
-    },
-    operators {
-        token: b"setlinejoin\x00" as *const u8 as *const i8,
-        opcode: 63i32,
-    },
-    operators {
-        token: b"setlinewidth\x00" as *const u8 as *const i8,
-        opcode: 60i32,
-    },
-    operators {
-        token: b"setmiterlimit\x00" as *const u8 as *const i8,
-        opcode: 64i32,
-    },
-    operators {
-        token: b"setdash\x00" as *const u8 as *const i8,
-        opcode: 61i32,
-    },
-    operators {
-        token: b"setgray\x00" as *const u8 as *const i8,
-        opcode: 70i32,
-    },
-    operators {
-        token: b"setrgbcolor\x00" as *const u8 as *const i8,
-        opcode: 71i32,
-    },
-    operators {
-        token: b"setcmykcolor\x00" as *const u8 as *const i8,
-        opcode: 72i32,
-    },
-    operators {
-        token: b"currentpoint\x00" as *const u8 as *const i8,
-        opcode: 80i32,
-    },
-    operators {
-        token: b"dtransform\x00" as *const u8 as *const i8,
-        opcode: 82i32,
-    },
-    operators {
-        token: b"idtransform\x00" as *const u8 as *const i8,
-        opcode: 81i32,
-    },
-    operators {
-        token: b"findfont\x00" as *const u8 as *const i8,
-        opcode: 201i32,
-    },
-    operators {
-        token: b"scalefont\x00" as *const u8 as *const i8,
-        opcode: 202i32,
-    },
-    operators {
-        token: b"setfont\x00" as *const u8 as *const i8,
-        opcode: 203i32,
-    },
-    operators {
-        token: b"currentfont\x00" as *const u8 as *const i8,
-        opcode: 204i32,
-    },
-    operators {
-        token: b"stringwidth\x00" as *const u8 as *const i8,
-        opcode: 210i32,
-    },
-    operators {
-        token: b"def\x00" as *const u8 as *const i8,
-        opcode: 999i32,
-    },
+    operators::new(b"add", 1),
+    operators::new(b"mul", 3),
+    operators::new(b"div", 4),
+    operators::new(b"neg", 5),
+    operators::new(b"sub", 2),
+    operators::new(b"truncate", 6),
+    operators::new(b"clear", 10),
+    operators::new(b"exch", 11),
+    operators::new(b"pop", 12),
+    operators::new(b"clip", 44),
+    operators::new(b"eoclip", 45),
+    operators::new(b"closepath", 32),
+    operators::new(b"concat", 52),
+    operators::new(b"newpath", 31),
+    operators::new(b"moveto", 33),
+    operators::new(b"rmoveto", 34),
+    operators::new(b"lineto", 37),
+    operators::new(b"rlineto", 38),
+    operators::new(b"curveto", 35),
+    operators::new(b"rcurveto", 36),
+    operators::new(b"arc", 39),
+    operators::new(b"arcn", 40),
+    operators::new(b"stroke", 42),
+    operators::new(b"fill", 41),
+    operators::new(b"show", 43),
+    operators::new(b"showpage", 49),
+    operators::new(b"gsave", 50),
+    operators::new(b"grestore", 51),
+    operators::new(b"translate", 54),
+    operators::new(b"rotate", 55),
+    operators::new(b"scale", 53),
+    operators::new(b"setlinecap", 62),
+    operators::new(b"setlinejoin", 63),
+    operators::new(b"setlinewidth", 60),
+    operators::new(b"setmiterlimit", 64),
+    operators::new(b"setdash", 61),
+    operators::new(b"setgray", 70),
+    operators::new(b"setrgbcolor", 71),
+    operators::new(b"setcmykcolor", 72),
+    operators::new(b"currentpoint", 80),
+    operators::new(b"dtransform", 82),
+    operators::new(b"idtransform", 81),
+    operators::new(b"findfont", 201),
+    operators::new(b"scalefont", 202),
+    operators::new(b"setfont", 203),
+    operators::new(b"currentfont", 204),
+    operators::new(b"stringwidth", 210),
+    operators::new(b"def", 999),
 ];
 static mut mps_operators: [operators; 28] = [
-    operators {
-        token: b"fshow\x00" as *const u8 as *const i8,
-        opcode: 1001i32,
-    },
-    operators {
-        token: b"startTexFig\x00" as *const u8 as *const i8,
-        opcode: 1002i32,
-    },
-    operators {
-        token: b"endTexFig\x00" as *const u8 as *const i8,
-        opcode: 1003i32,
-    },
-    operators {
-        token: b"hlw\x00" as *const u8 as *const i8,
-        opcode: 1004i32,
-    },
-    operators {
-        token: b"vlw\x00" as *const u8 as *const i8,
-        opcode: 1005i32,
-    },
-    operators {
-        token: b"l\x00" as *const u8 as *const i8,
-        opcode: 37i32,
-    },
-    operators {
-        token: b"r\x00" as *const u8 as *const i8,
-        opcode: 38i32,
-    },
-    operators {
-        token: b"c\x00" as *const u8 as *const i8,
-        opcode: 35i32,
-    },
-    operators {
-        token: b"m\x00" as *const u8 as *const i8,
-        opcode: 33i32,
-    },
-    operators {
-        token: b"p\x00" as *const u8 as *const i8,
-        opcode: 32i32,
-    },
-    operators {
-        token: b"n\x00" as *const u8 as *const i8,
-        opcode: 31i32,
-    },
-    operators {
-        token: b"C\x00" as *const u8 as *const i8,
-        opcode: 72i32,
-    },
-    operators {
-        token: b"G\x00" as *const u8 as *const i8,
-        opcode: 70i32,
-    },
-    operators {
-        token: b"R\x00" as *const u8 as *const i8,
-        opcode: 71i32,
-    },
-    operators {
-        token: b"lj\x00" as *const u8 as *const i8,
-        opcode: 63i32,
-    },
-    operators {
-        token: b"ml\x00" as *const u8 as *const i8,
-        opcode: 64i32,
-    },
-    operators {
-        token: b"lc\x00" as *const u8 as *const i8,
-        opcode: 62i32,
-    },
-    operators {
-        token: b"S\x00" as *const u8 as *const i8,
-        opcode: 42i32,
-    },
-    operators {
-        token: b"F\x00" as *const u8 as *const i8,
-        opcode: 41i32,
-    },
-    operators {
-        token: b"q\x00" as *const u8 as *const i8,
-        opcode: 50i32,
-    },
-    operators {
-        token: b"Q\x00" as *const u8 as *const i8,
-        opcode: 51i32,
-    },
-    operators {
-        token: b"s\x00" as *const u8 as *const i8,
-        opcode: 53i32,
-    },
-    operators {
-        token: b"t\x00" as *const u8 as *const i8,
-        opcode: 52i32,
-    },
-    operators {
-        token: b"sd\x00" as *const u8 as *const i8,
-        opcode: 61i32,
-    },
-    operators {
-        token: b"rd\x00" as *const u8 as *const i8,
-        opcode: 1006i32,
-    },
-    operators {
-        token: b"P\x00" as *const u8 as *const i8,
-        opcode: 49i32,
-    },
-    operators {
-        token: b"B\x00" as *const u8 as *const i8,
-        opcode: 1007i32,
-    },
-    operators {
-        token: b"W\x00" as *const u8 as *const i8,
-        opcode: 44i32,
-    },
+    operators::new(b"fshow", 1001),
+    operators::new(b"startTexFig", 1002),
+    operators::new(b"endTexFig", 1003),
+    operators::new(b"hlw", 1004),
+    operators::new(b"vlw", 1005),
+    operators::new(b"l", 37),
+    operators::new(b"r", 38),
+    operators::new(b"c", 35),
+    operators::new(b"m", 33),
+    operators::new(b"p", 32),
+    operators::new(b"n", 31),
+    operators::new(b"C", 72),
+    operators::new(b"G", 70),
+    operators::new(b"R", 71),
+    operators::new(b"lj", 63),
+    operators::new(b"ml", 64),
+    operators::new(b"lc", 62),
+    operators::new(b"S", 42),
+    operators::new(b"F", 41),
+    operators::new(b"q", 50),
+    operators::new(b"Q", 51),
+    operators::new(b"s", 53),
+    operators::new(b"t", 52),
+    operators::new(b"sd", 61),
+    operators::new(b"rd", 1006),
+    operators::new(b"P", 49),
+    operators::new(b"B", 1007),
+    operators::new(b"W", 44),
 ];
-unsafe fn get_opcode(mut token: *const i8) -> i32 {
-    for i in 0..(::std::mem::size_of::<[operators; 48]>() as u64)
-        .wrapping_div(::std::mem::size_of::<operators>() as u64) as usize
-    {
-        if streq_ptr(token, ps_operators[i].token) {
-            return ps_operators[i].opcode;
+unsafe fn get_opcode(token: &[u8]) -> i32 {
+    for op in ps_operators.iter() {
+        if token == op.token {
+            return op.opcode;
         }
     }
-    for i in 0..(::std::mem::size_of::<[operators; 28]>() as u64)
-        .wrapping_div(::std::mem::size_of::<operators>() as u64) as usize
-    {
-        if streq_ptr(token, mps_operators[i].token) {
-            return mps_operators[i].opcode;
+    for op in mps_operators.iter() {
+        if token == op.token {
+            return op.opcode;
         }
     }
     -1i32
 }
-static mut stack: [*mut pdf_obj; 1024] = [0 as *const pdf_obj as *mut pdf_obj; 1024];
-static mut top_stack: u32 = 0_u32;
+static mut STACK: Vec<*mut pdf_obj> = Vec::new();
+trait PushChecked {
+    type Val;
+    fn push_checked(&mut self, val: Self::Val) -> Result<(), ()>;
+}
+impl PushChecked for Vec<*mut pdf_obj> {
+    type Val = *mut pdf_obj;
+    fn push_checked(&mut self, val: Self::Val) -> Result<(), ()> {
+        if self.len() < 1024 {
+            self.push(val);
+            Ok(())
+        } else {
+            warn!("PS stack overflow including MetaPost file or inline PS code");
+            Err(())
+        }
+    }
+}
+
 unsafe fn do_exch() -> i32 {
-    if top_stack < 2_u32 {
+    let len = STACK.len();
+    if len < 2 {
         return -1i32;
     }
-    let tmp = stack[top_stack.wrapping_sub(1_u32) as usize];
-    stack[top_stack.wrapping_sub(1_u32) as usize] = stack[top_stack.wrapping_sub(2_u32) as usize];
-    stack[top_stack.wrapping_sub(2_u32) as usize] = tmp;
+    let tmp = STACK[len - 1];
+    STACK[len - 1] = STACK[len - 2];
+    STACK[len - 2] = tmp;
     0i32
 }
 unsafe fn do_clear() -> i32 {
-    while top_stack > 0_u32 {
-        let mut tmp = if top_stack > 0_u32 {
-            top_stack = top_stack.wrapping_sub(1);
-            stack[top_stack as usize]
-        } else {
-            0 as *mut pdf_obj
-        };
-        pdf_release_obj(tmp);
+    while !STACK.is_empty() {
+        if let Some(tmp) = STACK.pop() {
+            pdf_release_obj(tmp);
+        }
     }
     0i32
 }
 unsafe fn pop_get_numbers(mut values: *mut f64, mut count: i32) -> i32 {
     loop {
         let fresh1 = count;
-        count = count - 1;
+        count -= 1;
         if !(fresh1 > 0i32) {
             break;
         }
-        let tmp = if top_stack > 0_u32 {
-            top_stack = top_stack.wrapping_sub(1);
-            stack[top_stack as usize]
+        if let Some(tmp) = STACK.pop() {
+            if !(*tmp).is_number() {
+                warn!("mpost: Not a number!");
+                pdf_release_obj(tmp);
+                break;
+            } else {
+                *values.offset(count as isize) = pdf_number_value(tmp);
+                pdf_release_obj(tmp);
+            }
         } else {
-            0 as *mut pdf_obj
-        };
-        if tmp.is_null() {
             warn!("mpost: Stack underflow.");
             break;
-        } else if !(!tmp.is_null() && (*tmp).is_number()) {
-            warn!("mpost: Not a number!");
-            pdf_release_obj(tmp);
-            break;
-        } else {
-            *values.offset(count as isize) = pdf_number_value(tmp);
-            pdf_release_obj(tmp);
         }
     }
     count + 1i32
@@ -681,25 +462,15 @@ unsafe fn is_fontdict(mut dict: *mut pdf_obj) -> bool {
 }
 unsafe fn do_findfont() -> i32 {
     let mut error: i32 = 0i32;
-    let font_name = if top_stack > 0_u32 {
-        top_stack = top_stack.wrapping_sub(1);
-        stack[top_stack as usize]
-    } else {
-        0 as *mut pdf_obj
-    };
-    if font_name.is_null() {
-        return 1i32;
-    } else {
-        if !font_name.is_null() && (*font_name).is_string()
-            || !font_name.is_null() && (*font_name).is_name()
-        {
+    if let Some(font_name) = STACK.pop() {
+        if (*font_name).is_string() || (*font_name).is_name() {
             /* Do not check the existence...
              * The reason for this is that we cannot locate PK font without
              * font scale.
              */
             let font_dict = pdf_new_dict();
             pdf_add_dict(font_dict, "Type", pdf_new_name("Font"));
-            if !font_name.is_null() && (*font_name).is_string() {
+            if (*font_name).is_string() {
                 pdf_add_dict(
                     font_dict,
                     "FontName",
@@ -710,18 +481,15 @@ unsafe fn do_findfont() -> i32 {
                 pdf_add_dict(font_dict, "FontName", font_name);
             }
             pdf_add_dict(font_dict, "FontScale", pdf_new_number(1.0f64));
-            if top_stack < 1024_u32 {
-                let fresh3 = top_stack;
-                top_stack = top_stack.wrapping_add(1);
-                stack[fresh3 as usize] = font_dict
-            } else {
-                warn!("PS stack overflow including MetaPost file or inline PS code");
+            if STACK.push_checked(font_dict).is_err() {
                 pdf_release_obj(font_dict);
                 error = 1i32
             }
         } else {
             error = 1i32
         }
+    } else {
+        return 1i32;
     }
     error
 }
@@ -731,52 +499,41 @@ unsafe fn do_scalefont() -> i32 {
     if error != 0 {
         return error;
     }
-    let font_dict = if top_stack > 0_u32 {
-        top_stack = top_stack.wrapping_sub(1);
-        stack[top_stack as usize]
-    } else {
-        0 as *mut pdf_obj
-    };
-    if font_dict.is_null() {
-        error = 1i32
-    } else if is_fontdict(font_dict) {
-        let font_scale = pdf_lookup_dict(font_dict, "FontScale").unwrap();
-        pdf_set_number(font_scale, pdf_number_value(font_scale) * scale);
-        if top_stack < 1024_u32 {
-            let fresh4 = top_stack;
-            top_stack = top_stack.wrapping_add(1);
-            stack[fresh4 as usize] = font_dict
+    if let Some(font_dict) = STACK.pop() {
+        if is_fontdict(font_dict) {
+            let font_scale = pdf_lookup_dict(font_dict, "FontScale").unwrap();
+            pdf_set_number(font_scale, pdf_number_value(font_scale) * scale);
+            if STACK.push_checked(font_dict).is_err() {
+                pdf_release_obj(font_dict);
+                error = 1i32
+            }
         } else {
-            warn!("PS stack overflow including MetaPost file or inline PS code");
-            pdf_release_obj(font_dict);
             error = 1i32
         }
+        error
     } else {
-        error = 1i32
+        1
     }
-    error
 }
 unsafe fn do_setfont() -> i32 {
-    let font_dict = if top_stack > 0_u32 {
-        top_stack = top_stack.wrapping_sub(1);
-        stack[top_stack as usize]
+    if let Some(font_dict) = STACK.pop() {
+        let error = if !is_fontdict(font_dict) {
+            1
+        } else {
+            /* Subfont support prevent us from managing
+             * font in a single place...
+             */
+            let font_name = pdf_name_value(&*pdf_lookup_dict(font_dict, "FontName").unwrap());
+            let font_scale = pdf_number_value(pdf_lookup_dict(font_dict, "FontScale").unwrap());
+            mp_setfont(font_name, font_scale)
+        };
+        pdf_release_obj(font_dict);
+        error
     } else {
-        0 as *mut pdf_obj
-    };
-    let error = if !is_fontdict(font_dict) {
         1
-    } else {
-        /* Subfont support prevent us from managing
-         * font in a single place...
-         */
-        let font_name = pdf_name_value(&*pdf_lookup_dict(font_dict, "FontName").unwrap());
-        let font_scale = pdf_number_value(pdf_lookup_dict(font_dict, "FontScale").unwrap());
-        mp_setfont(font_name, font_scale)
-    };
-    pdf_release_obj(font_dict);
-    error
+    }
 }
-/* Push dummy font dict onto PS stack */
+/* Push dummy font dict onto PS STACK */
 unsafe fn do_currentfont() -> i32 {
     let mut error: i32 = 0i32; /* Should not be error... */
     /* Should not be error... */
@@ -793,10 +550,8 @@ unsafe fn do_currentfont() -> i32 {
         pdf_add_dict(font_dict, "Type", pdf_new_name("Font"));
         pdf_add_dict(font_dict, "FontName", pdf_new_name((*font).font_name.to_bytes()));
         pdf_add_dict(font_dict, "FontScale", pdf_new_number((*font).pt_size));
-        if top_stack < 1024_u32 {
-            let fresh5 = top_stack;
-            top_stack = top_stack.wrapping_add(1);
-            stack[fresh5 as usize] = font_dict
+        if STACK.len() < 1024 {
+            STACK.push(font_dict)
         } else {
             warn!("PS stack overflow...");
             pdf_release_obj(font_dict);
@@ -817,13 +572,12 @@ unsafe fn do_show() -> i32 {
         return 1i32;
     }
     pdf_dev_currentpoint(&mut cp);
-    let text_str = if top_stack > 0_u32 {
-        top_stack = top_stack.wrapping_sub(1);
-        stack[top_stack as usize]
-    } else {
-        0 as *mut pdf_obj
-    };
-    if !(!text_str.is_null() && (*text_str).is_string()) {
+    let text_str = STACK.pop();
+    if text_str.is_none() {
+        return 1i32;
+    }
+    let text_str = text_str.unwrap();
+    if !(*text_str).is_string() {
         pdf_release_obj(text_str);
         return 1i32;
     }
@@ -956,10 +710,10 @@ unsafe fn ps_dev_CTM(M: &mut TMatrix) -> i32 {
  * Again, the only piece that needs x_user and y_user is
  * that piece dealing with texfig.
  */
-unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) -> i32 {
+unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
     let mut error: i32 = 0i32;
     let mut values: [f64; 12] = [0.; 12];
-    let mut tmp: *mut pdf_obj = 0 as *mut pdf_obj;
+    let mut tmp = None;
     let mut matrix = TMatrix::new();
     let mut cp = Coord::zero();
     let opcode = get_opcode(token);
@@ -970,12 +724,7 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
              */
             error = pop_get_numbers(values.as_mut_ptr(), 2i32);
             if error == 0 {
-                if top_stack < 1024_u32 {
-                    let fresh6 = top_stack;
-                    top_stack = top_stack.wrapping_add(1);
-                    stack[fresh6 as usize] = pdf_new_number(values[0] + values[1])
-                } else {
-                    warn!("PS stack overflow including MetaPost file or inline PS code");
+                if STACK.push_checked(pdf_new_number(values[0] + values[1])).is_err() {
                     error = 1i32
                 }
             }
@@ -983,12 +732,7 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
         3 => {
             error = pop_get_numbers(values.as_mut_ptr(), 2i32);
             if error == 0 {
-                if top_stack < 1024_u32 {
-                    let fresh7 = top_stack;
-                    top_stack = top_stack.wrapping_add(1);
-                    stack[fresh7 as usize] = pdf_new_number(values[0] * values[1])
-                } else {
-                    warn!("PS stack overflow including MetaPost file or inline PS code");
+                if STACK.push_checked(pdf_new_number(values[0] * values[1])).is_err() {
                     error = 1i32
                 }
             }
@@ -996,12 +740,7 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
         5 => {
             error = pop_get_numbers(values.as_mut_ptr(), 1i32);
             if error == 0 {
-                if top_stack < 1024_u32 {
-                    let fresh8 = top_stack;
-                    top_stack = top_stack.wrapping_add(1);
-                    stack[fresh8 as usize] = pdf_new_number(-values[0])
-                } else {
-                    warn!("PS stack overflow including MetaPost file or inline PS code");
+                if STACK.push_checked(pdf_new_number(-values[0])).is_err() {
                     error = 1i32
                 }
             }
@@ -1009,12 +748,7 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
         2 => {
             error = pop_get_numbers(values.as_mut_ptr(), 2i32);
             if error == 0 {
-                if top_stack < 1024_u32 {
-                    let fresh9 = top_stack;
-                    top_stack = top_stack.wrapping_add(1);
-                    stack[fresh9 as usize] = pdf_new_number(values[0] - values[1])
-                } else {
-                    warn!("PS stack overflow including MetaPost file or inline PS code");
+                if STACK.push_checked(pdf_new_number(values[0] - values[1])).is_err() {
                     error = 1i32
                 }
             }
@@ -1022,12 +756,7 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
         4 => {
             error = pop_get_numbers(values.as_mut_ptr(), 2i32);
             if error == 0 {
-                if top_stack < 1024_u32 {
-                    let fresh10 = top_stack;
-                    top_stack = top_stack.wrapping_add(1);
-                    stack[fresh10 as usize] = pdf_new_number(values[0] / values[1])
-                } else {
-                    warn!("PS stack overflow including MetaPost file or inline PS code");
+                if STACK.push_checked(pdf_new_number(values[0] / values[1])).is_err() {
                     error = 1i32
                 }
             }
@@ -1036,32 +765,25 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
             /* Round toward zero. */
             error = pop_get_numbers(values.as_mut_ptr(), 1i32);
             if error == 0 {
-                if top_stack < 1024_u32 {
-                    let fresh11 = top_stack;
-                    top_stack = top_stack.wrapping_add(1);
-                    stack[fresh11 as usize] = pdf_new_number(if values[0] > 0i32 as f64 {
+                if STACK.push_checked(pdf_new_number(
+                    if values[0] > 0. {
                         values[0].floor()
                     } else {
                         values[0].ceil()
-                    })
-                } else {
-                    warn!("PS stack overflow including MetaPost file or inline PS code");
-                    error = 1i32
+                    }
+                )).is_err() {
+                    error = 1;
                 }
             }
         }
         10 => {
-            /* Stack operation */
+            /* STACK operation */
             error = do_clear()
         }
         12 => {
-            tmp = if top_stack > 0_u32 {
-                top_stack = top_stack.wrapping_sub(1);
-                stack[top_stack as usize]
-            } else {
-                0 as *mut pdf_obj
-            };
-            pdf_release_obj(tmp);
+            if let Some(tmp) = STACK.pop() {
+                pdf_release_obj(tmp);
+            }
         }
         11 => error = do_exch(),
         33 => {
@@ -1140,14 +862,9 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
             restore_font();
         }
         52 => {
-            tmp = if top_stack > 0_u32 {
-                top_stack = top_stack.wrapping_sub(1);
-                stack[top_stack as usize]
-            } else {
-                0 as *mut pdf_obj
-            };
-            error = cvr_array(tmp, values.as_mut_ptr(), 6i32);
-            tmp = 0 as *mut pdf_obj;
+            tmp = STACK.pop();
+            error = cvr_array(tmp.unwrap(), values.as_mut_ptr(), 6i32); // TODO: check
+            tmp = None;
             if error != 0 {
                 warn!("Missing array before \"concat\".");
             } else {
@@ -1222,37 +939,35 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
                 let mut num_dashes = 0_usize;
                 let mut dash_values: [f64; 16] = [0.; 16];
                 let offset = values[0];
-                let pattern = if top_stack > 0_u32 {
-                    top_stack = top_stack.wrapping_sub(1);
-                    stack[top_stack as usize]
-                } else {
-                    0 as *mut pdf_obj
-                };
-                if !(!pattern.is_null() && (*pattern).is_array()) {
-                    pdf_release_obj(pattern);
-                    error = 1i32
-                } else {
-                    num_dashes = pdf_array_length(pattern) as usize;
-                    if num_dashes > 16 {
-                        warn!("Too many dashes...");
+                if let Some(pattern) = STACK.pop() {
+                    if !(*pattern).is_array() {
                         pdf_release_obj(pattern);
-                        error = 1i32
+                        error = 1
                     } else {
-                        let mut i = 0;
-                        while i < num_dashes && error == 0 {
-                            let dash = pdf_get_array(pattern, i as i32);
-                            if !(!dash.is_null() && (*dash).is_number()) {
-                                error = 1i32
-                            } else {
-                                dash_values[i as usize] = pdf_number_value(dash)
+                        num_dashes = pdf_array_length(pattern) as usize;
+                        if num_dashes > 16 {
+                            warn!("Too many dashes...");
+                            pdf_release_obj(pattern);
+                            error = 1i32
+                        } else {
+                            let mut i = 0;
+                            while i < num_dashes && error == 0 {
+                                let dash = pdf_get_array(pattern, i as i32);
+                                if !(!dash.is_null() && (*dash).is_number()) {
+                                    error = 1i32
+                                } else {
+                                    dash_values[i as usize] = pdf_number_value(dash)
+                                }
+                                i += 1
                             }
-                            i += 1
-                        }
-                        pdf_release_obj(pattern);
-                        if error == 0 {
-                            error = pdf_dev_setdash(&dash_values[..num_dashes], offset)
+                            pdf_release_obj(pattern);
+                            if error == 0 {
+                                error = pdf_dev_setdash(&dash_values[..num_dashes], offset)
+                            }
                         }
                     }
+                } else {
+                    error = 1;
                 }
             }
         }
@@ -1311,66 +1026,40 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
         80 => {
             error = pdf_dev_currentpoint(&mut cp);
             if error == 0 {
-                if top_stack < 1024_u32 {
-                    let fresh12 = top_stack;
-                    top_stack = top_stack.wrapping_add(1);
-                    stack[fresh12 as usize] = pdf_new_number(cp.x);
-                    if top_stack < 1024_u32 {
-                        let fresh13 = top_stack;
-                        top_stack = top_stack.wrapping_add(1);
-                        stack[fresh13 as usize] = pdf_new_number(cp.y)
-                    } else {
-                        warn!("PS stack overflow including MetaPost file or inline PS code");
+                if STACK.push_checked(pdf_new_number(cp.x)).is_ok() {
+                    if STACK.push_checked(pdf_new_number(cp.y)).is_err() {
                         error = 1i32
                     }
                 } else {
-                    warn!("PS stack overflow including MetaPost file or inline PS code");
                     error = 1i32
                 }
             }
         }
         82 => {
             let mut has_matrix: i32 = 0i32;
-            tmp = if top_stack > 0_u32 {
-                top_stack = top_stack.wrapping_sub(1);
-                stack[top_stack as usize]
-            } else {
-                0 as *mut pdf_obj
-            };
-            if !tmp.is_null() && (*tmp).is_array() {
-                error = cvr_array(tmp, values.as_mut_ptr(), 6i32);
-                tmp = 0 as *mut pdf_obj;
-                if error == 0 {
-                    matrix.a = values[0];
-                    matrix.b = values[1];
-                    matrix.c = values[2];
-                    matrix.d = values[3];
-                    matrix.e = values[4];
-                    matrix.f = values[5];
-                    tmp = if top_stack > 0_u32 {
-                        top_stack = top_stack.wrapping_sub(1);
-                        stack[top_stack as usize]
-                    } else {
-                        0 as *mut pdf_obj
-                    };
-                    has_matrix = 1i32;
-                }
-            } 
-            if error == 0 {
-                if !(!tmp.is_null() && (*tmp).is_number()) {
-                    error = 1i32
+            if let Some(tmp2) = STACK.pop() {
+                if (*tmp2).is_array() {
+                    error = cvr_array(tmp2, values.as_mut_ptr(), 6i32);
+                    tmp = None;
+                    if error == 0 {
+                        matrix.a = values[0];
+                        matrix.b = values[1];
+                        matrix.c = values[2];
+                        matrix.d = values[3];
+                        matrix.e = values[4];
+                        matrix.f = values[5];
+                        tmp = STACK.pop();
+                        has_matrix = 1i32;
+                    }
                 } else {
+                    tmp = Some(tmp2);
+                }
+            }
+            if error == 0 {
+                if let Some(tmp) = tmp.filter(|&o| (*o).is_number()) {
                     cp.y = pdf_number_value(tmp);
                     pdf_release_obj(tmp);
-                    tmp = if top_stack > 0_u32 {
-                        top_stack = top_stack.wrapping_sub(1);
-                        stack[top_stack as usize]
-                    } else {
-                        0 as *mut pdf_obj
-                    };
-                    if !(!tmp.is_null() && (*tmp).is_number()) {
-                        error = 1i32
-                    } else {
+                    if let Some(tmp) = STACK.pop().filter(|&o| (*o).is_number()) {
                         cp.x = pdf_number_value(tmp);
                         pdf_release_obj(tmp);
                         if has_matrix == 0 {
@@ -1378,70 +1067,46 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
                             /* Here, we need real PostScript CTM */
                         } /* This does pdf_release_obj() */
                         pdf_dev_dtransform(&mut cp, Some(&mut matrix));
-                        if top_stack < 1024_u32 {
-                            let fresh14 = top_stack;
-                            top_stack = top_stack.wrapping_add(1);
-                            stack[fresh14 as usize] = pdf_new_number(cp.x);
-                            if top_stack < 1024_u32 {
-                                let fresh15 = top_stack;
-                                top_stack = top_stack.wrapping_add(1);
-                                stack[fresh15 as usize] = pdf_new_number(cp.y)
-                            } else {
-                                warn!("PS stack overflow including MetaPost file or inline PS code");
+                        if STACK.push_checked(pdf_new_number(cp.x)).is_ok() {
+                            if STACK.push_checked(pdf_new_number(cp.y)).is_err() {
                                 error = 1i32
                             }
                         } else {
-                            warn!(
-                                "PS stack overflow including MetaPost file or inline PS code"
-                            );
                             error = 1i32
                         }
+                    } else {
+                        error = 1i32
                     }
+                } else {
+                    error = 1i32
                 }
             }
         }
         81 => {
             let mut has_matrix_0: i32 = 0i32;
-            tmp = if top_stack > 0_u32 {
-                top_stack = top_stack.wrapping_sub(1);
-                stack[top_stack as usize]
-            } else {
-                0 as *mut pdf_obj
-            };
-            if !tmp.is_null() && (*tmp).is_array() {
-                error = cvr_array(tmp, values.as_mut_ptr(), 6i32);
-                tmp = 0 as *mut pdf_obj;
-                if error == 0 {
-                    matrix.a = values[0];
-                    matrix.b = values[1];
-                    matrix.c = values[2];
-                    matrix.d = values[3];
-                    matrix.e = values[4];
-                    matrix.f = values[5];
-                    tmp = if top_stack > 0_u32 {
-                        top_stack = top_stack.wrapping_sub(1);
-                        stack[top_stack as usize]
-                    } else {
-                        0 as *mut pdf_obj
-                    };
-                    has_matrix_0 = 1i32;
+            if let Some(tmp2) = STACK.pop() {
+                if (*tmp2).is_array() {
+                    error = cvr_array(tmp2, values.as_mut_ptr(), 6i32);
+                    tmp = None;
+                    if error == 0 {
+                        matrix.a = values[0];
+                        matrix.b = values[1];
+                        matrix.c = values[2];
+                        matrix.d = values[3];
+                        matrix.e = values[4];
+                        matrix.f = values[5];
+                        tmp = STACK.pop();
+                        has_matrix_0 = 1i32;
+                    }
+                } else {
+                    tmp = Some(tmp2);
                 }
             } 
             if error == 0 {
-                if !(!tmp.is_null() && (*tmp).is_number()) {
-                    error = 1i32
-                } else {
+                if let Some(tmp) = tmp.filter(|&o| (*o).is_number()) {
                     cp.y = pdf_number_value(tmp);
                     pdf_release_obj(tmp);
-                    tmp = if top_stack > 0_u32 {
-                        top_stack = top_stack.wrapping_sub(1);
-                        stack[top_stack as usize]
-                    } else {
-                        0 as *mut pdf_obj
-                    };
-                    if !(!tmp.is_null() && (*tmp).is_number()) {
-                        error = 1i32
-                    } else {
+                    if let Some(tmp) = STACK.pop().filter(|&o| (*o).is_number()) {
                         cp.x = pdf_number_value(tmp);
                         pdf_release_obj(tmp);
                         if has_matrix_0 == 0 {
@@ -1449,25 +1114,18 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
                             /* Here, we need real PostScript CTM */
                         }
                         pdf_dev_idtransform(&mut cp, Some(&matrix));
-                        if top_stack < 1024_u32 {
-                            let fresh16 = top_stack;
-                            top_stack = top_stack.wrapping_add(1);
-                            stack[fresh16 as usize] = pdf_new_number(cp.x);
-                            if top_stack < 1024_u32 {
-                                let fresh17 = top_stack;
-                                top_stack = top_stack.wrapping_add(1);
-                                stack[fresh17 as usize] = pdf_new_number(cp.y)
-                            } else {
-                                warn!("PS stack overflow including MetaPost file or inline PS code");
+                        if STACK.push_checked(pdf_new_number(cp.x)).is_ok() {
+                            if STACK.push_checked(pdf_new_number(cp.y)).is_err() {
                                 error = 1i32
                             }
                         } else {
-                            warn!(
-                                "PS stack overflow including MetaPost file or inline PS code"
-                            );
                             error = 1i32
                         }
+                    } else {
+                        error = 1;
                     }
+                } else {
+                    error = 1;
                 }
             }
         }
@@ -1517,31 +1175,16 @@ unsafe fn do_operator(mut token: *const i8, mut x_user: f64, mut y_user: f64) ->
             )
         }
         999 => {
-            tmp = if top_stack > 0_u32 {
-                top_stack = top_stack.wrapping_sub(1);
-                stack[top_stack as usize]
-            } else {
-                0 as *mut pdf_obj
-            };
-            tmp = if top_stack > 0_u32 {
-                top_stack = top_stack.wrapping_sub(1);
-                stack[top_stack as usize]
-            } else {
-                0 as *mut pdf_obj
-            }
+            STACK.pop();
+            STACK.pop();
         }
         _ => {
             if is_fontname(token) {
-                if top_stack < 1024_u32 {
-                    let fresh18 = top_stack;
-                    top_stack = top_stack.wrapping_add(1);
-                    stack[fresh18 as usize] = pdf_copy_name(token)
-                } else {
-                    warn!("PS stack overflow including MetaPost file or inline PS code");
+                if STACK.push_checked(pdf_new_name(token)).is_err() {
                     error = 1i32
                 }
             } else {
-                warn!("Unknown token \"{}\"", CStr::from_ptr(token).display());
+                warn!("Unknown token \"{}\"", token.display());
                 error = 1i32
             }
         }
@@ -1593,12 +1236,9 @@ unsafe fn mp_parse_body(
                 warn!("Unkown PostScript operator.");
                 dump_slice(&start[..pos]);
                 error = 1i32
-            } else if top_stack < 1024_u32 {
-                stack[top_stack as usize] = pdf_new_number(value);
-                top_stack += 1;
+            } else if STACK.push_checked(pdf_new_number(value)).is_ok() {
                 *start = &start[pos..];
             } else {
-                warn!("PS stack overflow including MetaPost file or inline PS code");
                 error = 1i32;
                 break;
             }
@@ -1609,11 +1249,7 @@ unsafe fn mp_parse_body(
         } else if start[0] == b'[' &&
             start.parse_pdf_array(0 as *mut pdf_file).map(|o| {obj = o; ()}).is_some()
         {
-            if top_stack < 1024 {
-                stack[top_stack as usize] = obj;
-                top_stack += 1;
-            } else {
-                warn!("PS stack overflow including MetaPost file or inline PS code");
+            if STACK.push_checked(obj).is_err() {
                 error = 1i32;
                 break;
             }
@@ -1622,37 +1258,25 @@ unsafe fn mp_parse_body(
             && (start[0] == b'<' && start[1] == b'<')
             && start.parse_pdf_dict(0 as *mut pdf_file).map(|o| {obj = o; ()}).is_some()
         {
-            if top_stack < 1024 {
-                stack[top_stack as usize] = obj;
-                top_stack += 1;
-            } else {
-                warn!("PS stack overflow including MetaPost file or inline PS code");
+            if STACK.push_checked(obj).is_err() {
                 error = 1i32;
                 break;
             }
         } else if (start[0] == b'(' || start[0] == b'<') && 
             start.parse_pdf_string().map(|o| {obj = o; ()}).is_some() {
-            if top_stack < 1024 {
-                stack[top_stack as usize] = obj;
-                top_stack += 1;
-            } else {
-                warn!("PS stack overflow including MetaPost file or inline PS code");
+            if STACK.push_checked(obj).is_err() {
                 error = 1i32;
                 break;
             }
         } else if start[0] == b'/' && 
             start.parse_pdf_name().map(|o| {obj = o; ()}).is_some() {
-            if top_stack < 1024 {
-                stack[top_stack as usize] = obj;
-                top_stack += 1;
-            } else {
-                warn!("PS stack overflow including MetaPost file or inline PS code");
+            if STACK.push_checked(obj).is_err() {
                 error = 1i32;
                 break;
             }
         } else {
             if let Some(token) = start.parse_ident() {
-                error = do_operator(token.as_ptr(), x_user, y_user);
+                error = do_operator(token.to_bytes(), x_user, y_user);
             } else {
                 error = 1i32
             }
@@ -1668,7 +1292,7 @@ pub unsafe extern "C" fn mps_eop_cleanup() {
 }
 #[no_mangle]
 pub unsafe extern "C" fn mps_stack_depth() -> i32 {
-    top_stack as i32
+    STACK.len() as i32
 }
 #[no_mangle]
 pub unsafe extern "C" fn mps_exec_inline(

@@ -803,7 +803,7 @@ pub unsafe extern "C" fn dvi_locate_font(mut tfm_name: *const i8, mut ptsize: sp
     let fresh16 = num_loaded_fonts;
     num_loaded_fonts = num_loaded_fonts.wrapping_add(1);
     let cur_id = fresh16;
-    let mrec = pdf_lookup_fontmap_record(tfm_name);
+    let mrec = pdf_lookup_fontmap_record(CStr::from_ptr(tfm_name).to_bytes());
     /* Load subfont mapping table */
     if !mrec.is_null()
         && !(*mrec).charmap.sfd_name.is_null()
@@ -849,7 +849,7 @@ pub unsafe extern "C" fn dvi_locate_font(mut tfm_name: *const i8, mut ptsize: sp
             return cur_id;
         }
     } else if subfont_id >= 0i32 && !(*mrec).map_name.is_null() {
-        let mut mrec1: *mut fontmap_rec = pdf_lookup_fontmap_record((*mrec).map_name);
+        let mut mrec1: *mut fontmap_rec = pdf_lookup_fontmap_record(CStr::from_ptr((*mrec).map_name).to_bytes());
         /* Sorry, I don't understand this well... Please fix.
          * The purpose of this seems to be:
          *
@@ -904,7 +904,7 @@ pub unsafe extern "C" fn dvi_locate_font(mut tfm_name: *const i8, mut ptsize: sp
         );
         if !mrec.is_null() && !(*mrec).map_name.is_null() {
             /* has map_name */
-            let mut mrec1_0: *mut fontmap_rec = pdf_lookup_fontmap_record((*mrec).map_name); // CHECK this is enough
+            let mut mrec1_0: *mut fontmap_rec = pdf_lookup_fontmap_record(CStr::from_ptr((*mrec).map_name).to_bytes()); // CHECK this is enough
             warn!(">> This font is mapped to an intermediate 16-bit font \"{}\" with SFD charmap=<{},{}>,",
                         CStr::from_ptr((*mrec).map_name).display(), CStr::from_ptr((*mrec).charmap.sfd_name).display(),
                         CStr::from_ptr((*mrec).charmap.subfont_id).display()
@@ -1008,7 +1008,7 @@ unsafe fn dvi_locate_native_font(
         slant,
         embolden,
     );
-    let mut mrec = pdf_lookup_fontmap_record(fontmap_key);
+    let mut mrec = pdf_lookup_fontmap_record(CStr::from_ptr(fontmap_key).to_bytes());
     if mrec.is_null() {
         mrec =
             pdf_insert_native_fontmap_record(filename, index, layout_dir, extend, slant, embolden);

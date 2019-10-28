@@ -35,7 +35,7 @@ use crate::mfree;
 use crate::streq_ptr;
 use crate::DisplayExt;
 use crate::{info, warn};
-use std::ffi::CStr;
+use std::ffi::{CString, CStr};
 
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::tt_skip_bytes;
@@ -1002,13 +1002,17 @@ pub unsafe extern "C" fn tfm_get_design_size(mut font_id: i32) -> f64 {
 }
 /* From TFM header */
 #[no_mangle]
-pub unsafe extern "C" fn tfm_exists(mut tfm_name: *const i8) -> bool {
-    let handle = ttstub_input_open(tfm_name, TTInputFormat::OFM, 0);
+pub unsafe extern "C" fn tfm_exists(tfm_name: &[u8]) -> bool {
+    if tfm_name.is_empty() {
+        return false;
+    }
+    let tfm_name = CString::new(tfm_name).unwrap();
+    let handle = ttstub_input_open(tfm_name.as_ptr(), TTInputFormat::OFM, 0);
     if let Some(handle) = handle {
         ttstub_input_close(handle);
         return true;
     }
-    let handle = ttstub_input_open(tfm_name, TTInputFormat::TFM, 0);
+    let handle = ttstub_input_open(tfm_name.as_ptr(), TTInputFormat::TFM, 0);
     if let Some(handle) = handle {
         ttstub_input_close(handle);
         return true;
