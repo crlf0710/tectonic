@@ -15,7 +15,7 @@ sha2 = "0.8.0"
 rand = "0.7.2"
 chrono = "0.4.9"
 # to ensure binaries are not different, we link to libz-sys
-flate2 = { version = "1.0.12", default-features = false, features = ["zlib"] }
+flate2 = "1.0.12"
 
 [build-dependencies]
 cc = "^1.0"

@@ -35,7 +35,7 @@ crate-type = ["rlib"]
 app_dirs2 = "^2"
 structopt = "0.3"
 error-chain = "^0.12"
-flate2 = { version = "^1.0", default-features = false, features = ["zlib"] }
+flate2 = "1.0.12"
 fs2 = "^0.4"
 headers = "^0.2"
 lazy_static = "^1.4"
