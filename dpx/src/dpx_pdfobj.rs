@@ -38,7 +38,7 @@ use crate::{info, warn};
 use std::ffi::CStr;
 
 use super::dpx_dpxutil::{ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table};
-use super::dpx_mem::{new, renew};
+use super::dpx_mem::{new, renew, renew_zeroed};
 use super::dpx_mfileio::{tt_mfgets, work_buffer, work_buffer_u8 as WORK_BUFFER};
 use super::dpx_pdfdev::pdf_sprint_number;
 use super::dpx_pdfencrypt::{pdf_enc_set_generation, pdf_enc_set_label, pdf_encrypt_data};
@@ -2202,12 +2202,14 @@ pub unsafe extern "C" fn pdf_add_stream(
     }
     let data = (*stream).data as *mut pdf_stream;
     if (*data).stream_length.wrapping_add(length as u32) > (*data).max_length {
+        let old_max = (*data).max_length;
         (*data).max_length = (*data)
             .max_length
             .wrapping_add((length as u32).wrapping_add(4096u32));
-        (*data).stream = renew(
-            (*data).stream as *mut libc::c_void,
-            ((*data).max_length as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
+        (*data).stream = renew_zeroed(
+            (*data).stream,
+            old_max as usize,
+            (*data).max_length as usize,
         ) as *mut u8
     }
     libc::memcpy(
@@ -2259,11 +2261,11 @@ pub unsafe extern "C" fn pdf_add_stream_flate(
             z.avail_out = 4096i32 as libz::uInt
         }
     }
-    if (4096i32 as libc::c_uint).wrapping_sub(z.avail_out) > 0i32 as libc::c_uint {
+    if (z.avail_out as i32) < 4096 {
         pdf_add_stream(
             dst,
             wbuf.as_mut_ptr() as *const libc::c_void,
-            (4096i32 as libc::c_uint).wrapping_sub(z.avail_out) as libc::c_int,
+            4096u32.saturating_sub(z.avail_out) as i32,
         );
     }
     return if libz::inflateEnd(&mut z) == 0i32 {

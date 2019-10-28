@@ -54,6 +54,26 @@ pub unsafe extern "C" fn renew(mut mem: *mut libc::c_void, mut size: u32) -> *mu
     };
 }
 
+use std::ptr;
+
+#[no_mangle]
+pub unsafe fn renew_zeroed(mut mem: *mut u8, old_size: usize, mut size: usize) -> *mut libc::c_void {
+    if size != 0 {
+        let mut result: *mut libc::c_void = realloc(mem as *mut libc::c_void, size as _);
+        if result.is_null() {
+            panic!("Out of memory - asked for {} bytes\n", size);
+        }
+        if size > old_size {
+            ptr::write_bytes(result.offset(old_size as isize), 0u8, size - old_size);
+        }
+        return result;
+    } else {
+        /* realloc may not return NULL if size == 0 */
+        free(mem as *mut libc::c_void);
+        return ptr::null_mut()
+    };
+}
+
 extern "C" {
     #[no_mangle]
     pub fn xstrdup(s: *const i8) -> *mut i8;
