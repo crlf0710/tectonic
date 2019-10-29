@@ -87,7 +87,7 @@ impl pdf_path {
         for pe in self.path.iter_mut() {
             if pe.typ != PeType::TERMINATE {
                 for n in (0..pe.typ.n_pts()).rev() {
-                    pe.p[n].transform(M);
+                    pe.p[n].transform(M).unwrap();
                 }
             }
         }
@@ -257,7 +257,7 @@ impl pdf_path {
         let b_y = r_y * b;
         let (s, c) = a_0.sin_cos();
         let mut p0 = Coord::new(r_x * c, r_y * s);
-        p0.transform(&T);
+        p0.transform(&T).unwrap();
         p0 += ca;
         if self.path.is_empty() {
             self.moveto(cp, p0);
@@ -283,10 +283,10 @@ impl pdf_path {
             let mut p3 = Coord::new(r_x * e1.x, r_y * e1.y);
             let mut p1 = Coord::new(-b_x * e0.y, b_y * e0.x);
             let mut p2 = Coord::new(b_x * e1.y, -b_y * e1.x);
-            p0.transform(&T);
-            p1.transform(&T);
-            p2.transform(&T);
-            p3.transform(&T);
+            p0.transform(&T).unwrap();
+            p1.transform(&T).unwrap();
+            p2.transform(&T).unwrap();
+            p3.transform(&T).unwrap();
             p0 += ca;
             p3 += ca;
             p1 += p0;
@@ -905,7 +905,7 @@ pub unsafe extern "C" fn pdf_dev_concat(M: &TMatrix) -> i32 {
     }
     let W = M.inverse().unwrap();
     cpa.transform(&W);
-    cpt.transform(&W);
+    cpt.transform(&W).unwrap();
     0i32
 }
 /*
@@ -1163,31 +1163,31 @@ pub unsafe extern "C" fn pdf_dev_closepath() -> i32 {
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_dtransform(p: &mut Coord, mut M: Option<&TMatrix>) {
     if let Some(m) = M {
-        p.dtransform(m);
+        p.dtransform(m).unwrap();
     } else {
         let gss = unsafe { &gs_stack };
         let gs = gss.last().unwrap();
-        p.dtransform(&gs.matrix);
+        p.dtransform(&gs.matrix).unwrap();
     }
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_idtransform(p: &mut Coord, M: Option<&TMatrix>) {
     if let Some(m) = M {
-        p.idtransform(m);
+        p.idtransform(m).unwrap();
     } else {
         let gss = unsafe { &gs_stack };
         let gs = gss.last().unwrap();
-        p.idtransform(&gs.matrix);
+        p.idtransform(&gs.matrix).unwrap();
     }
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_transform(p: &mut Coord, M: Option<&TMatrix>) {
     if let Some(m) = M {
-        p.transform(m);
+        p.transform(m).unwrap();
     } else {
         let gss = unsafe { &gs_stack };
         let gs = gss.last().unwrap();
-        p.transform(&gs.matrix);
+        p.transform(&gs.matrix).unwrap();
     }
 }
 #[no_mangle]

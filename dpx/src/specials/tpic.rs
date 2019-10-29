@@ -100,11 +100,11 @@ unsafe fn tpic__clear(mut tp: *mut spc_tpic_) {
 unsafe fn create_xgstate(mut a: f64, mut f_ais: i32) -> *mut pdf_obj
 /* alpha is shape */ {
     let dict = pdf_new_dict(); /* dash pattern */
-    pdf_add_dict(dict, "Type", pdf_new_name("ExtGState"));
+    pdf_add_dict(&mut *dict, "Type", pdf_new_name("ExtGState"));
     if f_ais != 0 {
-        pdf_add_dict(dict, "AIS", pdf_new_boolean(1_i8));
+        pdf_add_dict(&mut *dict, "AIS", pdf_new_boolean(1_i8));
     }
-    pdf_add_dict(dict, "ca", pdf_new_number(a));
+    pdf_add_dict(&mut *dict, "ca", pdf_new_number(a));
     dict
 }
 unsafe fn check_resourcestatus(category: &str, mut resname: &str) -> i32 {
@@ -112,8 +112,8 @@ unsafe fn check_resourcestatus(category: &str, mut resname: &str) -> i32 {
     if dict1.is_null() {
         return 0i32;
     }
-    if let Some(dict2) = pdf_lookup_dict(dict1, category) {
-        if (*dict2).is_dict() && pdf_lookup_dict(dict2, resname).is_some() {
+    if let Some(dict2) = pdf_lookup_dict(&mut *dict1, category) {
+        if (*dict2).is_dict() && pdf_lookup_dict(&mut *dict2, resname).is_some() {
             return 1i32;
         }
     }
@@ -681,7 +681,7 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
                 } else {
                     if let Some(vp) = (*ap).cur.parse_c_string() {
                         pdf_add_dict(
-                            dict,
+                            &mut *dict,
                             kp.to_bytes(),
                             pdf_new_string(vp.as_ptr() as *const libc::c_void, (vp.to_bytes().len() + 1) as _),
                         );
@@ -691,7 +691,7 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
                 }
             } else {
                 /* Treated as 'flag' */
-                pdf_add_dict(dict, kp.to_bytes(), pdf_new_boolean(1_i8));
+                pdf_add_dict(&mut *dict, kp.to_bytes(), pdf_new_boolean(1_i8));
             }
             if error == 0 {
                 (*ap).cur.skip_blank();
@@ -720,7 +720,7 @@ unsafe extern "C" fn tpic_filter_getopts(
             warn!("Invalid value for TPIC option fill-mode...");
             error = -1i32
         } else {
-            let v = pdf_string_value(vp) as *mut i8;
+            let v = pdf_string_value(&*vp) as *mut i8;
             if streq_ptr(v, b"shape\x00" as *const u8 as *const i8) {
                 (*tp).mode.fill = 2i32
             } else if streq_ptr(v, b"opacity\x00" as *const u8 as *const i8) {
@@ -748,7 +748,7 @@ unsafe fn spc_handler_tpic__setopts(mut spe: *mut spc_env, mut ap: *mut spc_arg)
         return -1i32;
     }
     let error = pdf_foreach_dict(
-        dict,
+        &mut *dict,
         Some(
             tpic_filter_getopts
                 as unsafe extern "C" fn(

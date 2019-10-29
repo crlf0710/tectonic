@@ -97,7 +97,7 @@ pub unsafe extern "C" fn tt_get_fontdesc(
         return 0 as *mut pdf_obj;
     }
     let descriptor = pdf_new_dict();
-    pdf_add_dict(descriptor, "Type", pdf_new_name("FontDescriptor"));
+    pdf_add_dict(&mut *descriptor, "Type", pdf_new_name("FontDescriptor"));
     if *embed != 0 && !os2.is_null() {
         /*
           License:
@@ -144,7 +144,7 @@ pub unsafe extern "C" fn tt_get_fontdesc(
     }
     if !os2.is_null() {
         pdf_add_dict(
-            descriptor,
+            &mut *descriptor,
             "Ascent",
             pdf_new_number(
                 (1000.0f64 * (*os2).sTypoAscender as i32 as f64
@@ -156,7 +156,7 @@ pub unsafe extern "C" fn tt_get_fontdesc(
             ),
         );
         pdf_add_dict(
-            descriptor,
+            &mut *descriptor,
             "Descent",
             pdf_new_number(
                 (1000.0f64 * (*os2).sTypoDescender as i32 as f64
@@ -173,10 +173,10 @@ pub unsafe extern "C" fn tt_get_fontdesc(
                 * ((*os2).usWeightClass as i32 as f64 / 65.0f64)
                 + 50i32 as f64) as i32
         } /* arbitrary */
-        pdf_add_dict(descriptor, "StemV", pdf_new_number(stemv as f64));
+        pdf_add_dict(&mut *descriptor, "StemV", pdf_new_number(stemv as f64));
         if (*os2).version as i32 == 0x2i32 {
             pdf_add_dict(
-                descriptor,
+                &mut *descriptor,
                 "CapHeight",
                 pdf_new_number(
                     (1000.0f64 * (*os2).sCapHeight as i32 as f64
@@ -189,7 +189,7 @@ pub unsafe extern "C" fn tt_get_fontdesc(
             );
             /* optional */
             pdf_add_dict(
-                descriptor,
+                &mut *descriptor,
                 "XHeight",
                 pdf_new_number(
                     (1000.0f64 * (*os2).sxHeight as i32 as f64
@@ -202,7 +202,7 @@ pub unsafe extern "C" fn tt_get_fontdesc(
             );
         } else {
             pdf_add_dict(
-                descriptor,
+                &mut *descriptor,
                 "CapHeight",
                 pdf_new_number(
                     (1000.0f64 * (*os2).sTypoAscender as i32 as f64
@@ -217,7 +217,7 @@ pub unsafe extern "C" fn tt_get_fontdesc(
         /* optional */
         if (*os2).xAvgCharWidth as i32 != 0i32 {
             pdf_add_dict(
-                descriptor,
+                &mut *descriptor,
                 "AvgWidth",
                 pdf_new_number(
                     (1000.0f64 * (*os2).xAvgCharWidth as i32 as f64
@@ -233,7 +233,7 @@ pub unsafe extern "C" fn tt_get_fontdesc(
     /* BoundingBox (array) */
     let bbox = pdf_new_array();
     pdf_add_array(
-        bbox,
+        &mut *bbox,
         pdf_new_number(
             (1000.0f64 * (*head).xMin as i32 as f64
                 / (*head).unitsPerEm as i32 as f64
@@ -244,7 +244,7 @@ pub unsafe extern "C" fn tt_get_fontdesc(
         ),
     );
     pdf_add_array(
-        bbox,
+        &mut *bbox,
         pdf_new_number(
             (1000.0f64 * (*head).yMin as i32 as f64
                 / (*head).unitsPerEm as i32 as f64
@@ -255,7 +255,7 @@ pub unsafe extern "C" fn tt_get_fontdesc(
         ),
     );
     pdf_add_array(
-        bbox,
+        &mut *bbox,
         pdf_new_number(
             (1000.0f64 * (*head).xMax as i32 as f64
                 / (*head).unitsPerEm as i32 as f64
@@ -266,7 +266,7 @@ pub unsafe extern "C" fn tt_get_fontdesc(
         ),
     );
     pdf_add_array(
-        bbox,
+        &mut *bbox,
         pdf_new_number(
             (1000.0f64 * (*head).yMax as i32 as f64
                 / (*head).unitsPerEm as i32 as f64
@@ -276,10 +276,10 @@ pub unsafe extern "C" fn tt_get_fontdesc(
                 * 1i32 as f64,
         ),
     );
-    pdf_add_dict(descriptor, "FontBBox", bbox);
+    pdf_add_dict(&mut *descriptor, "FontBBox", bbox);
     /* post */
     pdf_add_dict(
-        descriptor,
+        &mut *descriptor,
         "ItalicAngle",
         pdf_new_number(
             ((*post).italicAngle as i64 % 0x10000) as f64 / 0x10000i64 as f64
@@ -309,7 +309,7 @@ pub unsafe extern "C" fn tt_get_fontdesc(
             flag |= 1i32 << 0i32
         }
     }
-    pdf_add_dict(descriptor, "Flags", pdf_new_number(flag as f64));
+    pdf_add_dict(&mut *descriptor, "Flags", pdf_new_number(flag as f64));
     /* insert panose if you want */
     if type_0 == 0i32 && !os2.is_null() {
         /* cid-keyed font - add panose */
@@ -322,11 +322,11 @@ pub unsafe extern "C" fn tt_get_fontdesc(
         );
         let styledict = pdf_new_dict();
         pdf_add_dict(
-            styledict,
+            &mut *styledict,
             "Panose",
             pdf_new_string(panose.as_mut_ptr() as *const libc::c_void, 12i32 as size_t),
         );
-        pdf_add_dict(descriptor, "Style", styledict);
+        pdf_add_dict(&mut *descriptor, "Style", styledict);
     }
     free(head as *mut libc::c_void);
     free(os2 as *mut libc::c_void);

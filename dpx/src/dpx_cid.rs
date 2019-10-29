@@ -938,12 +938,12 @@ unsafe fn CIDFont_base_open(
     let descriptor = start.parse_pdf_dict(0 as *mut pdf_file).unwrap();
     (*font).fontname = fontname;
     (*font).flags |= 1i32 << 0i32;
-    let tmp = pdf_lookup_dict(fontdict, "CIDSystemInfo")
+    let tmp = pdf_lookup_dict(&mut *fontdict, "CIDSystemInfo")
         .filter(|&tmp| (*tmp).is_dict())
         .unwrap();
-    let registry = pdf_string_value(pdf_lookup_dict(tmp, "Registry").unwrap()) as *mut i8;
-    let ordering = pdf_string_value(pdf_lookup_dict(tmp, "Ordering").unwrap()) as *mut i8;
-    let supplement = pdf_number_value(pdf_lookup_dict(tmp, "Supplement").unwrap()) as i32;
+    let registry = pdf_string_value(&*pdf_lookup_dict(&mut *tmp, "Registry").unwrap()) as *mut i8;
+    let ordering = pdf_string_value(&*pdf_lookup_dict(&mut *tmp, "Ordering").unwrap()) as *mut i8;
+    let supplement = pdf_number_value(&*pdf_lookup_dict(&mut *tmp, "Supplement").unwrap()) as i32;
     if !cmap_csi.is_null() {
         /* NULL for accept any */
         if strcmp(registry, (*cmap_csi).registry) != 0
@@ -974,7 +974,7 @@ unsafe fn CIDFont_base_open(
     strcpy((*(*font).csi).registry, registry);
     strcpy((*(*font).csi).ordering, ordering);
     (*(*font).csi).supplement = supplement;
-    let tmp = pdf_lookup_dict(fontdict, "Subtype")
+    let tmp = pdf_lookup_dict(&mut *fontdict, "Subtype")
         .filter(|&tmp| (*tmp).is_name())
         .unwrap();
     let typ = pdf_name_value(&*tmp).to_string_lossy();
@@ -986,17 +986,17 @@ unsafe fn CIDFont_base_open(
         panic!("Unknown CIDFontType \"{}\"", typ);
     }
     if cidoptflags & 1i32 << 1i32 != 0 {
-        if pdf_lookup_dict(fontdict, "W").is_some() {
-            pdf_remove_dict(fontdict, "W");
+        if pdf_lookup_dict(&mut *fontdict, "W").is_some() {
+            pdf_remove_dict(&mut *fontdict, "W");
         }
-        if pdf_lookup_dict(fontdict, "W2").is_some() {
-            pdf_remove_dict(fontdict, "W2");
+        if pdf_lookup_dict(&mut *fontdict, "W2").is_some() {
+            pdf_remove_dict(&mut *fontdict, "W2");
         }
     }
-    pdf_add_dict(fontdict, "Type", pdf_new_name("Font"));
-    pdf_add_dict(fontdict, "BaseFont", pdf_copy_name(fontname));
-    pdf_add_dict(descriptor, "Type", pdf_new_name("FontDescriptor"));
-    pdf_add_dict(descriptor, "FontName", pdf_copy_name(fontname));
+    pdf_add_dict(&mut *fontdict, "Type", pdf_new_name("Font"));
+    pdf_add_dict(&mut *fontdict, "BaseFont", pdf_copy_name(fontname));
+    pdf_add_dict(&mut *descriptor, "Type", pdf_new_name("FontDescriptor"));
+    pdf_add_dict(&mut *descriptor, "FontName", pdf_copy_name(fontname));
     (*font).fontdict = fontdict;
     (*font).descriptor = descriptor;
     (*opt).embed = 0i32;

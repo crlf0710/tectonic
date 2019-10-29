@@ -190,7 +190,7 @@ pub unsafe extern "C" fn png_include_image(
         info.ydensity = 72.0f64 / 0.0254f64 / yppm as f64
     }
     let stream = pdf_new_stream(1i32 << 0i32);
-    let stream_dict = pdf_stream_dict(stream);
+    let stream_dict = pdf_stream_dict(&mut *stream);
     let stream_data_ptr = new((rowbytes.wrapping_mul(height) as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
         as u32) as *mut png_byte;
@@ -277,7 +277,7 @@ pub unsafe extern "C" fn png_include_image(
     }
     pdf_add_dict(stream_dict, "ColorSpace", colorspace);
     pdf_add_stream(
-        stream,
+        &mut *stream,
         stream_data_ptr as *const libc::c_void,
         rowbytes.wrapping_mul(height) as i32,
     );
@@ -336,11 +336,11 @@ pub unsafe extern "C" fn png_include_image(
                      * and scan for that.
                      */
                     let XMP_stream = pdf_new_stream(1i32 << 0i32);
-                    let XMP_stream_dict = pdf_stream_dict(XMP_stream);
+                    let XMP_stream_dict = pdf_stream_dict(&mut *XMP_stream);
                     pdf_add_dict(XMP_stream_dict, "Type", pdf_new_name("Metadata"));
                     pdf_add_dict(XMP_stream_dict, "Subtype", pdf_new_name("XML"));
                     pdf_add_stream(
-                        XMP_stream,
+                        &mut *XMP_stream,
                         (*text_ptr.offset(i as isize)).text as *const libc::c_void,
                         (*text_ptr.offset(i as isize)).itxt_length as i32,
                     );
@@ -543,14 +543,14 @@ unsafe fn create_cspace_sRGB(mut png: &png_struct, mut info: &png_info) -> *mut 
     let colorspace = pdf_new_array();
     match color_type as i32 {
         2 | 6 | 3 => {
-            pdf_add_array(colorspace, pdf_new_name("CalRGB"));
+            pdf_add_array(&mut *colorspace, pdf_new_name("CalRGB"));
         }
         0 | 4 => {
-            pdf_add_array(colorspace, pdf_new_name("CalGray"));
+            pdf_add_array(&mut *colorspace, pdf_new_name("CalGray"));
         }
         _ => {}
     }
-    pdf_add_array(colorspace, cal_param);
+    pdf_add_array(&mut *colorspace, cal_param);
     colorspace
 }
 /* ICCBased:
@@ -658,8 +658,8 @@ unsafe fn create_cspace_CalRGB(
         return 0 as *mut pdf_obj;
     }
     let colorspace = pdf_new_array();
-    pdf_add_array(colorspace, pdf_new_name("CalRGB"));
-    pdf_add_array(colorspace, cal_param);
+    pdf_add_array(&mut *colorspace, pdf_new_name("CalRGB"));
+    pdf_add_array(&mut *colorspace, cal_param);
     colorspace
 }
 unsafe fn create_cspace_CalGray(mut png: &mut png_struct, mut info: &mut png_info) -> *mut pdf_obj {
@@ -706,8 +706,8 @@ unsafe fn create_cspace_CalGray(mut png: &mut png_struct, mut info: &mut png_inf
         return 0 as *mut pdf_obj;
     }
     let colorspace = pdf_new_array();
-    pdf_add_array(colorspace, pdf_new_name("CalGray"));
-    pdf_add_array(colorspace, cal_param);
+    pdf_add_array(&mut *colorspace, pdf_new_name("CalGray"));
+    pdf_add_array(&mut *colorspace, cal_param);
     colorspace
 }
 unsafe fn make_param_Cal(
@@ -767,77 +767,77 @@ unsafe fn make_param_Cal(
     /* White point is always required. */
     let white_point = pdf_new_array();
     pdf_add_array(
-        white_point,
+        &mut *white_point,
         pdf_new_number((Xw / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
     );
     pdf_add_array(
-        white_point,
+        &mut *white_point,
         pdf_new_number((Yw / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
     );
     pdf_add_array(
-        white_point,
+        &mut *white_point,
         pdf_new_number((Zw / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
     );
-    pdf_add_dict(cal_param, "WhitePoint", white_point);
+    pdf_add_dict(&mut *cal_param, "WhitePoint", white_point);
     /* Matrix - default: Identity */
     if color_type as i32 & 2i32 != 0 {
         if G != 1.0f64 {
             let dev_gamma = pdf_new_array(); /* Gray */
             pdf_add_array(
-                dev_gamma,
+                &mut *dev_gamma,
                 pdf_new_number((G / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
             );
             pdf_add_array(
-                dev_gamma,
+                &mut *dev_gamma,
                 pdf_new_number((G / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
             );
             pdf_add_array(
-                dev_gamma,
+                &mut *dev_gamma,
                 pdf_new_number((G / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
             );
-            pdf_add_dict(cal_param, "Gamma", dev_gamma);
+            pdf_add_dict(&mut *cal_param, "Gamma", dev_gamma);
         }
         let matrix = pdf_new_array();
         pdf_add_array(
-            matrix,
+            &mut *matrix,
             pdf_new_number((Xr / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
         pdf_add_array(
-            matrix,
+            &mut *matrix,
             pdf_new_number((Yr / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
         pdf_add_array(
-            matrix,
+            &mut *matrix,
             pdf_new_number((Zr / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
         pdf_add_array(
-            matrix,
+            &mut *matrix,
             pdf_new_number((Xg / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
         pdf_add_array(
-            matrix,
+            &mut *matrix,
             pdf_new_number((Yg / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
         pdf_add_array(
-            matrix,
+            &mut *matrix,
             pdf_new_number((Zg / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
         pdf_add_array(
-            matrix,
+            &mut *matrix,
             pdf_new_number((Xb / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
         pdf_add_array(
-            matrix,
+            &mut *matrix,
             pdf_new_number((Yb / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
         pdf_add_array(
-            matrix,
+            &mut *matrix,
             pdf_new_number((Zb / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
-        pdf_add_dict(cal_param, "Matrix", matrix);
+        pdf_add_dict(&mut *cal_param, "Matrix", matrix);
     } else if G != 1.0f64 {
         pdf_add_dict(
-            cal_param,
+            &mut *cal_param,
             "Gamma",
             pdf_new_number((G / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
@@ -864,7 +864,7 @@ unsafe fn create_cspace_Indexed(mut png: &mut png_struct, mut info: &mut png_inf
     }
     /* Order is important. */
     let colorspace = pdf_new_array();
-    pdf_add_array(colorspace, pdf_new_name("Indexed"));
+    pdf_add_array(&mut *colorspace, pdf_new_name("Indexed"));
     let mut base = if png_get_valid(png, info, 0x1000u32) != 0 {
         create_cspace_ICCBased(png, info)
     } else if png_get_valid(png, info, 0x800u32) != 0 {
@@ -875,8 +875,8 @@ unsafe fn create_cspace_Indexed(mut png: &mut png_struct, mut info: &mut png_inf
     if base.is_null() {
         base = pdf_new_name("DeviceRGB")
     }
-    pdf_add_array(colorspace, base);
-    pdf_add_array(colorspace, pdf_new_number((num_plte - 1i32) as f64));
+    pdf_add_array(&mut *colorspace, base);
+    pdf_add_array(&mut *colorspace, pdf_new_number((num_plte - 1i32) as f64));
     let data_ptr = new(((num_plte * 3i32) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
         as *mut png_byte;
@@ -887,7 +887,7 @@ unsafe fn create_cspace_Indexed(mut png: &mut png_struct, mut info: &mut png_inf
     }
     let lookup = pdf_new_string(data_ptr as *const libc::c_void, (num_plte * 3i32) as size_t);
     free(data_ptr as *mut libc::c_void);
-    pdf_add_array(colorspace, lookup);
+    pdf_add_array(&mut *colorspace, lookup);
     colorspace
 }
 /* Color-Key Mask */
@@ -913,24 +913,24 @@ unsafe fn create_ckey_mask(mut png: &png_struct_def, mut png_info: &mut png_info
         3 => {
             for i in 0..num_trans {
                 if *trans.offset(i as isize) as i32 == 0i32 {
-                    pdf_add_array(colorkeys, pdf_new_number(i as f64));
-                    pdf_add_array(colorkeys, pdf_new_number(i as f64));
+                    pdf_add_array(&mut *colorkeys, pdf_new_number(i as f64));
+                    pdf_add_array(&mut *colorkeys, pdf_new_number(i as f64));
                 } else if *trans.offset(i as isize) as i32 != 0xffi32 {
                     warn!("{}: You found a bug in pngimage.c.", "PNG");
                 }
             }
         }
         2 => {
-            pdf_add_array(colorkeys, pdf_new_number((*colors).red as f64));
-            pdf_add_array(colorkeys, pdf_new_number((*colors).red as f64));
-            pdf_add_array(colorkeys, pdf_new_number((*colors).green as f64));
-            pdf_add_array(colorkeys, pdf_new_number((*colors).green as f64));
-            pdf_add_array(colorkeys, pdf_new_number((*colors).blue as f64));
-            pdf_add_array(colorkeys, pdf_new_number((*colors).blue as f64));
+            pdf_add_array(&mut *colorkeys, pdf_new_number((*colors).red as f64));
+            pdf_add_array(&mut *colorkeys, pdf_new_number((*colors).red as f64));
+            pdf_add_array(&mut *colorkeys, pdf_new_number((*colors).green as f64));
+            pdf_add_array(&mut *colorkeys, pdf_new_number((*colors).green as f64));
+            pdf_add_array(&mut *colorkeys, pdf_new_number((*colors).blue as f64));
+            pdf_add_array(&mut *colorkeys, pdf_new_number((*colors).blue as f64));
         }
         0 => {
-            pdf_add_array(colorkeys, pdf_new_number((*colors).gray as f64));
-            pdf_add_array(colorkeys, pdf_new_number((*colors).gray as f64));
+            pdf_add_array(&mut *colorkeys, pdf_new_number((*colors).gray as f64));
+            pdf_add_array(&mut *colorkeys, pdf_new_number((*colors).gray as f64));
         }
         _ => {
             warn!("{}: You found a bug in pngimage.c.", "PNG");
@@ -985,16 +985,16 @@ unsafe fn create_soft_mask(
         return 0 as *mut pdf_obj;
     }
     let smask = pdf_new_stream(1i32 << 0i32);
-    let dict = pdf_stream_dict(smask);
+    let dict = pdf_stream_dict(&mut *smask);
     let smask_data_ptr = new((width.wrapping_mul(height) as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
         as *mut png_byte;
-    pdf_add_dict(dict, "Type", pdf_new_name("XObject"));
-    pdf_add_dict(dict, "Subtype", pdf_new_name("Image"));
-    pdf_add_dict(dict, "Width", pdf_new_number(width as f64));
-    pdf_add_dict(dict, "Height", pdf_new_number(height as f64));
-    pdf_add_dict(dict, "ColorSpace", pdf_new_name("DeviceGray"));
-    pdf_add_dict(dict, "BitsPerComponent", pdf_new_number(8i32 as f64));
+    pdf_add_dict(&mut *dict, "Type", pdf_new_name("XObject"));
+    pdf_add_dict(&mut *dict, "Subtype", pdf_new_name("Image"));
+    pdf_add_dict(&mut *dict, "Width", pdf_new_number(width as f64));
+    pdf_add_dict(&mut *dict, "Height", pdf_new_number(height as f64));
+    pdf_add_dict(&mut *dict, "ColorSpace", pdf_new_name("DeviceGray"));
+    pdf_add_dict(&mut *dict, "BitsPerComponent", pdf_new_number(8i32 as f64));
     for i in 0..width.wrapping_mul(height) {
         let mut idx: png_byte = *image_data_ptr.offset(i as isize);
         *smask_data_ptr.offset(i as isize) = (if (idx as i32) < num_trans {
@@ -1004,7 +1004,7 @@ unsafe fn create_soft_mask(
         }) as png_byte;
     }
     pdf_add_stream(
-        smask,
+        &mut *smask,
         smask_data_ptr as *mut i8 as *const libc::c_void,
         width.wrapping_mul(height) as i32,
     );
@@ -1048,7 +1048,7 @@ unsafe fn strip_soft_mask(
         }
     }
     let smask = pdf_new_stream(1i32 << 0i32);
-    let dict = pdf_stream_dict(smask);
+    let dict = pdf_stream_dict(&mut *smask);
     pdf_add_dict(dict, "Type", pdf_new_name("XObject"));
     pdf_add_dict(dict, "Subtype", pdf_new_name("Image"));
     pdf_add_dict(dict, "Width", pdf_new_number(width as f64));
@@ -1134,7 +1134,7 @@ unsafe fn strip_soft_mask(
         }
     }
     pdf_add_stream(
-        smask,
+        &mut *smask,
         smask_data_ptr as *const libc::c_void,
         ((bpc as i32 / 8i32) as u32)
             .wrapping_mul(width)

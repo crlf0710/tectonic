@@ -125,11 +125,11 @@ unsafe fn create_encoding_resource(
         (*encoding).is_used.as_mut_ptr(),
     );
     if !differences.is_null() {
-        let mut resource: *mut pdf_obj = pdf_new_dict();
+        let mut resource = pdf_new_dict();
         if !baseenc.is_null() {
-            pdf_add_dict(resource, "BaseEncoding", pdf_link_obj((*baseenc).resource));
+            pdf_add_dict(&mut *resource, "BaseEncoding", pdf_link_obj((*baseenc).resource));
         }
-        pdf_add_dict(resource, "Differences", differences);
+        pdf_add_dict(&mut *resource, "Differences", differences);
         return resource;
     } else {
         /* Fix a bug with the MinionPro package using MnSymbol fonts
@@ -233,9 +233,9 @@ unsafe fn make_encoding_differences(
              * Difference found.
              */
             if skipping != 0 {
-                pdf_add_array(differences, pdf_new_number(code as f64));
+                pdf_add_array(&mut *differences, pdf_new_number(code as f64));
             }
-            pdf_add_array(differences, pdf_copy_name(*enc_vec.offset(code as isize)));
+            pdf_add_array(&mut *differences, pdf_copy_name(*enc_vec.offset(code as isize)));
             skipping = 0i32;
             count += 1
         } else {
@@ -296,7 +296,7 @@ unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
     }
     let encoding_array = encoding_array.unwrap();
     for code in 0..256 {
-        enc_vec[code as usize] = pdf_name_value(&*pdf_get_array(encoding_array, code)).as_ptr();
+        enc_vec[code as usize] = pdf_name_value(&*pdf_get_array(&mut *encoding_array, code)).as_ptr();
     }
     let enc_id = pdf_encoding_new_encoding(
         if let Some(enc_name) = enc_name {

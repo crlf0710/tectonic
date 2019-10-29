@@ -764,10 +764,10 @@ pub unsafe extern "C" fn pdf_encrypt_data(
 pub unsafe extern "C" fn pdf_encrypt_obj() -> *mut pdf_obj {
     let p = &mut sec_data;
     let mut doc_encrypt = pdf_new_dict();
-    pdf_add_dict(doc_encrypt, "Filter", pdf_new_name("Standard"));
-    pdf_add_dict(doc_encrypt, "V", pdf_new_number(p.V as f64));
+    pdf_add_dict(&mut *doc_encrypt, "Filter", pdf_new_name("Standard"));
+    pdf_add_dict(&mut *doc_encrypt, "V", pdf_new_number(p.V as f64));
     pdf_add_dict(
-        doc_encrypt,
+        &mut *doc_encrypt,
         "Length",
         pdf_new_number((p.key_size * 8i32) as f64),
     );
@@ -775,53 +775,53 @@ pub unsafe extern "C" fn pdf_encrypt_obj() -> *mut pdf_obj {
         let CF = pdf_new_dict();
         let StdCF = pdf_new_dict();
         pdf_add_dict(
-            StdCF,
+            &mut *StdCF,
             "CFM",
             pdf_new_name(if p.V == 4i32 { "AESV2" } else { "AESV3" }),
         );
-        pdf_add_dict(StdCF, "AuthEvent", pdf_new_name("DocOpen"));
-        pdf_add_dict(StdCF, "Length", pdf_new_number(p.key_size as f64));
-        pdf_add_dict(CF, "StdCF", StdCF);
-        pdf_add_dict(doc_encrypt, "CF", CF);
-        pdf_add_dict(doc_encrypt, "StmF", pdf_new_name("StdCF"));
-        pdf_add_dict(doc_encrypt, "StrF", pdf_new_name("StdCF"));
+        pdf_add_dict(&mut *StdCF, "AuthEvent", pdf_new_name("DocOpen"));
+        pdf_add_dict(&mut *StdCF, "Length", pdf_new_number(p.key_size as f64));
+        pdf_add_dict(&mut *CF, "StdCF", StdCF);
+        pdf_add_dict(&mut *doc_encrypt, "CF", CF);
+        pdf_add_dict(&mut *doc_encrypt, "StmF", pdf_new_name("StdCF"));
+        pdf_add_dict(&mut *doc_encrypt, "StrF", pdf_new_name("StdCF"));
     }
-    pdf_add_dict(doc_encrypt, "R", pdf_new_number(p.R as f64));
+    pdf_add_dict(&mut *doc_encrypt, "R", pdf_new_number(p.R as f64));
     if p.V < 5i32 {
         pdf_add_dict(
-            doc_encrypt,
+            &mut *doc_encrypt,
             "O",
             pdf_new_string(p.O.as_mut_ptr() as *const libc::c_void, 32i32 as size_t),
         );
         pdf_add_dict(
-            doc_encrypt,
+            &mut *doc_encrypt,
             "U",
             pdf_new_string(p.U.as_mut_ptr() as *const libc::c_void, 32i32 as size_t),
         );
     } else if p.V == 5i32 {
         pdf_add_dict(
-            doc_encrypt,
+            &mut *doc_encrypt,
             "O",
             pdf_new_string(p.O.as_mut_ptr() as *const libc::c_void, 48i32 as size_t),
         );
         pdf_add_dict(
-            doc_encrypt,
+            &mut *doc_encrypt,
             "U",
             pdf_new_string(p.U.as_mut_ptr() as *const libc::c_void, 48i32 as size_t),
         );
     }
-    pdf_add_dict(doc_encrypt, "P", pdf_new_number(p.P as f64));
+    pdf_add_dict(&mut *doc_encrypt, "P", pdf_new_number(p.P as f64));
     if p.V == 5i32 {
         let mut perms: [u8; 16] = [0; 16];
         let mut cipher: *mut u8 = 0 as *mut u8;
         let mut cipher_len: size_t = 0i32 as size_t;
         pdf_add_dict(
-            doc_encrypt,
+            &mut *doc_encrypt,
             "OE",
             pdf_new_string(p.OE.as_mut_ptr() as *const libc::c_void, 32i32 as size_t),
         );
         pdf_add_dict(
-            doc_encrypt,
+            &mut *doc_encrypt,
             "UE",
             pdf_new_string(p.UE.as_mut_ptr() as *const libc::c_void, 32i32 as size_t),
         );
@@ -854,7 +854,7 @@ pub unsafe extern "C" fn pdf_encrypt_obj() -> *mut pdf_obj {
             &mut cipher_len,
         );
         pdf_add_dict(
-            doc_encrypt,
+            &mut *doc_encrypt,
             "Perms",
             pdf_new_string(cipher as *const libc::c_void, cipher_len),
         );
@@ -863,16 +863,16 @@ pub unsafe extern "C" fn pdf_encrypt_obj() -> *mut pdf_obj {
     if p.R > 5i32 {
         let mut catalog: *mut pdf_obj =
             pdf_doc_get_dictionary("Catalog");
-        let mut ext: *mut pdf_obj = pdf_new_dict();
-        let mut adbe: *mut pdf_obj = pdf_new_dict();
-        pdf_add_dict(adbe, "BaseVersion", pdf_new_name("1.7"));
+        let mut ext = pdf_new_dict();
+        let mut adbe = pdf_new_dict();
+        pdf_add_dict(&mut *adbe, "BaseVersion", pdf_new_name("1.7"));
         pdf_add_dict(
-            adbe,
+            &mut *adbe,
             "ExtensionLevel",
             pdf_new_number((if p.R == 5i32 { 3i32 } else { 8i32 }) as f64),
         );
-        pdf_add_dict(ext, "ADBE", adbe);
-        pdf_add_dict(catalog, "Extensions", ext);
+        pdf_add_dict(&mut *ext, "ADBE", adbe);
+        pdf_add_dict(&mut *catalog, "Extensions", ext);
     }
     doc_encrypt
 }
@@ -881,11 +881,11 @@ pub unsafe extern "C" fn pdf_enc_id_array() -> *mut pdf_obj {
     let p = &mut sec_data;
     let mut id: *mut pdf_obj = pdf_new_array();
     pdf_add_array(
-        id,
+        &mut *id,
         pdf_new_string(p.ID.as_mut_ptr() as *const libc::c_void, 16i32 as size_t),
     );
     pdf_add_array(
-        id,
+        &mut *id,
         pdf_new_string(p.ID.as_mut_ptr() as *const libc::c_void, 16i32 as size_t),
     );
     id

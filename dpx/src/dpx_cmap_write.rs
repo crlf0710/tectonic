@@ -222,18 +222,18 @@ unsafe fn write_map(
                 count,
             );
             pdf_add_stream(
-                stream,
+                &mut *stream,
                 fmt_buf.as_mut_ptr() as *const libc::c_void,
                 strlen(fmt_buf.as_mut_ptr()) as i32,
             );
             pdf_add_stream(
-                stream,
+                &mut *stream,
                 (*wbuf).buf as *const libc::c_void,
                 (*wbuf).curptr.wrapping_offset_from((*wbuf).buf) as i64 as i32,
             );
             (*wbuf).curptr = (*wbuf).buf;
             pdf_add_stream(
-                stream,
+                &mut *stream,
                 b"endbfchar\n\x00" as *const u8 as *const i8 as *const libc::c_void,
                 strlen(b"endbfchar\n\x00" as *const u8 as *const i8) as i32,
             );
@@ -250,18 +250,18 @@ unsafe fn write_map(
                 count,
             );
             pdf_add_stream(
-                stream,
+                &mut *stream,
                 fmt_buf_0.as_mut_ptr() as *const libc::c_void,
                 strlen(fmt_buf_0.as_mut_ptr()) as i32,
             );
             pdf_add_stream(
-                stream,
+                &mut *stream,
                 (*wbuf).buf as *const libc::c_void,
                 (*wbuf).curptr.wrapping_offset_from((*wbuf).buf) as i64 as i32,
             );
             (*wbuf).curptr = (*wbuf).buf;
             pdf_add_stream(
-                stream,
+                &mut *stream,
                 b"endbfchar\n\x00" as *const u8 as *const i8 as *const libc::c_void,
                 strlen(b"endbfchar\n\x00" as *const u8 as *const i8) as i32,
             );
@@ -273,7 +273,7 @@ unsafe fn write_map(
             num_blocks,
         );
         pdf_add_stream(
-            stream,
+            &mut *stream,
             fmt_buf_0.as_mut_ptr() as *const libc::c_void,
             strlen(fmt_buf_0.as_mut_ptr()) as i32,
         );
@@ -335,13 +335,13 @@ unsafe fn write_map(
             *fresh14 = '\n' as i32 as i8;
         }
         pdf_add_stream(
-            stream,
+            &mut *stream,
             (*wbuf).buf as *const libc::c_void,
             (*wbuf).curptr.wrapping_offset_from((*wbuf).buf) as i64 as i32,
         );
         (*wbuf).curptr = (*wbuf).buf;
         pdf_add_stream(
-            stream,
+            &mut *stream,
             b"endbfrange\n\x00" as *const u8 as *const i8 as *const libc::c_void,
             strlen(b"endbfrange\n\x00" as *const u8 as *const i8) as i32,
         );
@@ -363,7 +363,7 @@ pub unsafe extern "C" fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj
         return 0 as *mut pdf_obj;
     }
     let stream = pdf_new_stream(1i32 << 0i32);
-    let stream_dict = pdf_stream_dict(stream);
+    let stream_dict = pdf_stream_dict(&mut *stream);
     let mut csi = CMap_get_CIDSysInfo(cmap);
     if csi.is_null() {
         csi = if (*cmap).type_0 != 2i32 {
@@ -375,7 +375,7 @@ pub unsafe extern "C" fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj
     if (*cmap).type_0 != 2i32 {
         let csi_dict = pdf_new_dict();
         pdf_add_dict(
-            csi_dict,
+            &mut *csi_dict,
             "Registry",
             pdf_new_string(
                 (*csi).registry as *const libc::c_void,
@@ -383,7 +383,7 @@ pub unsafe extern "C" fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj
             ),
         );
         pdf_add_dict(
-            csi_dict,
+            &mut *csi_dict,
             "Ordering",
             pdf_new_string(
                 (*csi).ordering as *const libc::c_void,
@@ -391,7 +391,7 @@ pub unsafe extern "C" fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj
             ),
         );
         pdf_add_dict(
-            csi_dict,
+            &mut *csi_dict,
             "Supplement",
             pdf_new_number((*csi).supplement as f64),
         );
@@ -431,7 +431,7 @@ pub unsafe extern "C" fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj
         .offset(16);
     /* Start CMap */
     pdf_add_stream(
-        stream,
+        &mut *stream,
         b"/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n\x00" as *const u8
             as *const i8 as *const libc::c_void,
         strlen(
@@ -465,7 +465,7 @@ pub unsafe extern "C" fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj
         (*csi).supplement,
     ) as isize);
     pdf_add_stream(
-        stream,
+        &mut *stream,
         wbuf.buf as *const libc::c_void,
         wbuf.curptr.wrapping_offset_from(wbuf.buf) as i64 as i32,
     );
@@ -512,13 +512,13 @@ pub unsafe extern "C" fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj
         *fresh20 = '\n' as i32 as i8;
     }
     pdf_add_stream(
-        stream,
+        &mut *stream,
         wbuf.buf as *const libc::c_void,
         wbuf.curptr.wrapping_offset_from(wbuf.buf) as i64 as i32,
     );
     wbuf.curptr = wbuf.buf;
     pdf_add_stream(
-        stream,
+        &mut *stream,
         b"endcodespacerange\n\x00" as *const u8 as *const i8 as *const libc::c_void,
         strlen(b"endcodespacerange\n\x00" as *const u8 as *const i8) as i32,
     );
@@ -544,17 +544,17 @@ pub unsafe extern "C" fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj
                 count,
             );
             pdf_add_stream(
-                stream,
+                &mut *stream,
                 fmt_buf.as_mut_ptr() as *const libc::c_void,
                 strlen(fmt_buf.as_mut_ptr()) as i32,
             );
             pdf_add_stream(
-                stream,
+                &mut *stream,
                 wbuf.buf as *const libc::c_void,
                 wbuf.curptr.wrapping_offset_from(wbuf.buf) as i64 as i32,
             );
             pdf_add_stream(
-                stream,
+                &mut *stream,
                 b"endbfchar\n\x00" as *const u8 as *const i8 as *const libc::c_void,
                 strlen(b"endbfchar\n\x00" as *const u8 as *const i8) as i32,
             );
@@ -563,7 +563,7 @@ pub unsafe extern "C" fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj
     }
     /* End CMap */
     pdf_add_stream(
-        stream,
+        &mut *stream,
         b"endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n\x00" as *const u8
             as *const i8 as *const libc::c_void,
         strlen(

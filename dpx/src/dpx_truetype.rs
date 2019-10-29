@@ -195,10 +195,10 @@ pub unsafe extern "C" fn pdf_font_open_truetype(mut font: *mut pdf_font) -> i32 
      * because pdf_font_get_resource() always makes a dictionary.
      */
     let encoding_id = pdf_font_get_encoding(font);
-    let fontdict = pdf_font_get_resource(font);
+    let fontdict = pdf_font_get_resource(&mut *font);
     let descriptor = pdf_font_get_descriptor(font);
     /* ENABLE_NOEMBED */
-    assert!(!fontdict.is_null() && !descriptor.is_null());
+    assert!(!descriptor.is_null());
     let mut fontname: [i8; 256] = [0; 256];
     memset(fontname.as_mut_ptr() as *mut libc::c_void, 0i32, 256);
     let mut length = tt_get_ps_fontname(sfont, fontname.as_mut_ptr(), 255_u16) as i32;
@@ -236,7 +236,7 @@ pub unsafe extern "C" fn pdf_font_open_truetype(mut font: *mut pdf_font) -> i32 
         panic!("Could not obtain necessary font info.");
     }
     assert!((*tmp).is_dict());
-    pdf_merge_dict(descriptor, tmp);
+    pdf_merge_dict(&mut *descriptor, &*tmp);
     pdf_release_obj(tmp);
     if embedding == 0 {
         if encoding_id >= 0i32 && pdf_encoding_is_predefined(encoding_id) == 0 {
@@ -282,7 +282,7 @@ const required_table: [SfntTableInfo; 12] = {
 };
 
 unsafe fn do_widths(mut font: *mut pdf_font, mut widths: *mut f64) {
-    let fontdict = pdf_font_get_resource(font);
+    let fontdict = pdf_font_get_resource(&mut *font);
     let usedchars = pdf_font_get_usedchars(font);
     let tmparray = pdf_new_array();
     let mut firstchar = 255i32;
@@ -312,14 +312,14 @@ unsafe fn do_widths(mut font: *mut pdf_font, mut widths: *mut f64) {
                 1000. * tfm_get_width(tfm_id, code)
             };
             pdf_add_array(
-                tmparray,
+                &mut *tmparray,
                 pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64),
             );
         } else {
-            pdf_add_array(tmparray, pdf_new_number(0.0f64));
+            pdf_add_array(&mut *tmparray, pdf_new_number(0.0f64));
         }
     }
-    if pdf_array_length(tmparray) > 0_u32 {
+    if pdf_array_length(&*tmparray) > 0_u32 {
         pdf_add_dict(fontdict, "Widths", pdf_ref_obj(tmparray));
     }
     pdf_release_obj(tmparray);
@@ -1129,9 +1129,9 @@ pub unsafe extern "C" fn pdf_font_load_truetype(mut font: *mut pdf_font) -> i32 
     }
     sfnt_close(sfont);
     if verbose > 1i32 {
-        info!("[{} bytes]", pdf_stream_length(fontfile));
+        info!("[{} bytes]", pdf_stream_length(&*fontfile));
     }
-    pdf_add_dict(descriptor, "FontFile2", pdf_ref_obj(fontfile));
+    pdf_add_dict(&mut *descriptor, "FontFile2", pdf_ref_obj(fontfile));
     pdf_release_obj(fontfile);
     0i32
 }

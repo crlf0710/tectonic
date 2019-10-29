@@ -479,12 +479,12 @@ impl ParsePdfObj for &[u8] {
             p = &p[2..];
         }
         /* Stream length */
-        if let Some(tmp) = unsafe { pdf_lookup_dict(dict, "Length") } {
+        if let Some(tmp) = unsafe { pdf_lookup_dict(&mut *dict, "Length") } {
             let tmp2 = unsafe { pdf_deref_obj(Some(tmp)) };
             if unsafe { !(*tmp2).is_number() } {
                 stream_length = -1
             } else {
-                stream_length = unsafe { pdf_number_value(tmp2) as i32 }
+                stream_length = unsafe { pdf_number_value(&*tmp2) as i32 }
             }
             unsafe { pdf_release_obj(tmp2); }
         } else {
@@ -497,15 +497,15 @@ impl ParsePdfObj for &[u8] {
          * If Filter is not aselflied, set STREAM_COMPRESS flag.
          * Should we use filter for ASCIIHexEncode/ASCII85Encode-ed streams?
          */
-        let mut filters = unsafe { pdf_lookup_dict(dict, "Filter") };
+        let mut filters = unsafe { pdf_lookup_dict(&mut *dict, "Filter") };
         let result = if filters.is_none() && stream_length > 10 {
             unsafe { pdf_new_stream(1 << 0) }
         } else {
             unsafe { pdf_new_stream(0) }
         };
-        let stream_dict = unsafe { pdf_stream_dict(result) };
-        unsafe { pdf_merge_dict(stream_dict, dict); }
-        unsafe { pdf_add_stream(result, p.as_ptr() as *const libc::c_void, stream_length); }
+        let stream_dict = unsafe { pdf_stream_dict(&mut *result) };
+        unsafe { pdf_merge_dict(stream_dict, &*dict); }
+        unsafe { pdf_add_stream(&mut *result, p.as_ptr() as *const libc::c_void, stream_length); }
         p = &p[(stream_length as usize)..];
         /* Check "endsteam" */
         /* It is recommended that there be an end-of-line marker
@@ -538,7 +538,7 @@ impl ParsePdfObj for &[u8] {
         p.skip_white();
         while !p.is_empty() && p[0] != b']' {
             if let Some(elem) = p.parse_pdf_object(pf) {
-                unsafe { pdf_add_array(result, elem); }
+                unsafe { pdf_add_array(&mut *result, elem); }
                 p.skip_white();
             } else {
                 unsafe { pdf_release_obj(result); }
@@ -575,7 +575,7 @@ impl ParsePdfObj for &[u8] {
             if let Some(key) = p.parse_pdf_name() {
                 p.skip_white();
                 if let Some(value) = p.parse_pdf_object(pf) {
-                    unsafe{ pdf_add_dict(result, pdf_name_value(&*key).to_bytes(), value); }
+                    unsafe{ pdf_add_dict(&mut *result, pdf_name_value(&*key).to_bytes(), value); }
                     p.skip_white();
                 } else {
                     unsafe{ pdf_release_obj(key);

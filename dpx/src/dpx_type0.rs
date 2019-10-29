@@ -192,7 +192,7 @@ unsafe fn add_ToUnicode(mut font: *mut Type0Font) {
                 /* This should work */
                 tounicode = pdf_new_name("Identity-H")
             }
-            pdf_add_dict((*font).fontdict, "ToUnicode", tounicode);
+            pdf_add_dict(&mut *(*font).fontdict, "ToUnicode", tounicode);
             return;
         }
     }
@@ -240,7 +240,7 @@ unsafe fn add_ToUnicode(mut font: *mut Type0Font) {
         free(cmap_base as *mut libc::c_void);
     }
     if !tounicode.is_null() {
-        pdf_add_dict((*font).fontdict, "ToUnicode", tounicode);
+        pdf_add_dict(&mut *(*font).fontdict, "ToUnicode", tounicode);
     } else {
         warn!(
             "Failed to load ToUnicode CMap for font \"{}\"",
@@ -254,13 +254,13 @@ pub unsafe extern "C" fn Type0Font_set_ToUnicode(
     mut cmap_ref: *mut pdf_obj,
 ) {
     assert!(!font.is_null());
-    pdf_add_dict((*font).fontdict, "ToUnicode", cmap_ref);
+    pdf_add_dict(&mut *(*font).fontdict, "ToUnicode", cmap_ref);
 }
 unsafe fn Type0Font_dofont(mut font: *mut Type0Font) {
     if font.is_null() || (*font).indirect.is_null() {
         return;
     }
-    if pdf_lookup_dict((*font).fontdict, "ToUnicode").is_none() {
+    if pdf_lookup_dict(&mut *(*font).fontdict, "ToUnicode").is_none() {
         /* FIXME */
         add_ToUnicode(font);
     };
@@ -295,8 +295,8 @@ pub unsafe extern "C" fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mu
      */
     if (*font).indirect.is_null() {
         let array = pdf_new_array();
-        pdf_add_array(array, CIDFont_get_resource((*font).descendant));
-        pdf_add_dict((*font).fontdict, "DescendantFonts", array);
+        pdf_add_array(&mut *array, CIDFont_get_resource((*font).descendant));
+        pdf_add_dict(&mut *(*font).fontdict, "DescendantFonts", array);
         (*font).indirect = pdf_ref_obj((*font).fontdict)
     }
     pdf_link_obj((*font).indirect)
@@ -411,8 +411,8 @@ pub unsafe extern "C" fn Type0Font_cache_find(
      * Now we start font dictionary.
      */
     (*font).fontdict = pdf_new_dict();
-    pdf_add_dict((*font).fontdict, "Type", pdf_new_name("Font"));
-    pdf_add_dict((*font).fontdict, "Subtype", pdf_new_name("Type0"));
+    pdf_add_dict(&mut *(*font).fontdict, "Type", pdf_new_name("Font"));
+    pdf_add_dict(&mut *(*font).fontdict, "Subtype", pdf_new_name("Type0"));
     /*
      * Type0 font does not have FontDescriptor because it is not a simple font.
      * Instead, DescendantFonts appears here.
@@ -464,7 +464,7 @@ pub unsafe extern "C" fn Type0Font_cache_find(
                 (*font).encoding,
             );
             pdf_add_dict(
-                (*font).fontdict,
+                &mut *(*font).fontdict,
                 "BaseFont",
                 pdf_copy_name((*font).fontname),
             );
@@ -486,7 +486,7 @@ pub unsafe extern "C" fn Type0Font_cache_find(
              *
              *  Use different used_chars for H and V.
              */
-            pdf_add_dict((*font).fontdict, "BaseFont", pdf_copy_name(fontname));
+            pdf_add_dict(&mut *(*font).fontdict, "BaseFont", pdf_copy_name(fontname));
             (*font).used_chars = new_used_chars2()
         }
         _ => {
@@ -494,7 +494,7 @@ pub unsafe extern "C" fn Type0Font_cache_find(
         }
     }
     pdf_add_dict(
-        (*font).fontdict,
+        &mut *(*font).fontdict,
         "Encoding",
         pdf_copy_name((*font).encoding),
     );
@@ -530,7 +530,7 @@ pub unsafe extern "C" fn Type0Font_cache_close() {
 /* ******************************* COMPAT ********************************/
 unsafe fn create_dummy_CMap() -> *mut pdf_obj {
     let mut buf: [i8; 32] = [0; 32];
-    let stream = pdf_new_stream(1i32 << 0i32);
+    let stream = &mut *pdf_new_stream(1i32 << 0i32);
     pdf_add_stream(stream,
                    b"%!PS-Adobe-3.0 Resource-CMap\n%%DocumentNeededResources: ProcSet (CIDInit)\n%%IncludeResource: ProcSet (CIDInit)\n%%BeginResource: CMap (Adobe-Identity-UCS2)\n%%Title: (Adobe-Identity-UCS2 Adobe UCS2 0)\n%%Version: 1.0\n%%Copyright:\n%% ---\n%%EndComments\n\n\x00"
                        as *const u8 as *const i8 as

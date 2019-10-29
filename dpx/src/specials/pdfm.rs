@@ -215,7 +215,7 @@ unsafe fn spc_handler_pdfm__init(mut dp: *mut libc::c_void) -> i32 {
     );
     (*sd).cd.taintkeys = pdf_new_array();
     for &key in &DEFAULT_TAINTKEYS {
-        pdf_add_array((*sd).cd.taintkeys, pdf_new_name(key));
+        pdf_add_array(&mut *(*sd).cd.taintkeys, pdf_new_name(key));
     }
     0i32
 }
@@ -275,13 +275,13 @@ unsafe extern "C" fn safeputresdent(
 ) -> i32 {
     assert!(!kp.is_null() && !vp.is_null() && !dp.is_null());
     let key = pdf_name_value(&*kp);
-    if pdf_lookup_dict(dp as *mut pdf_obj, key.to_bytes()).is_some() {
+    if pdf_lookup_dict(&mut *(dp as *mut pdf_obj), key.to_bytes()).is_some() {
         warn!(
             "Object \"{}\" already defined in dict! (ignored)",
             key.display()
         );
     } else {
-        pdf_add_dict(dp as *mut pdf_obj, key.to_bytes(), pdf_link_obj(vp));
+        pdf_add_dict(&mut *(dp as *mut pdf_obj), key.to_bytes(), pdf_link_obj(vp));
     }
     0i32
 }
@@ -292,13 +292,13 @@ unsafe extern "C" fn safeputresdict(
 ) -> i32 {
     assert!(!kp.is_null() && !vp.is_null() && !dp.is_null());
     let key = pdf_name_value(&*kp);
-    let dict = pdf_lookup_dict(dp as *mut pdf_obj, key.to_bytes());
+    let dict = pdf_lookup_dict(&mut *(dp as *mut pdf_obj), key.to_bytes());
     if (*vp).is_indirect() {
-        pdf_add_dict(dp as *mut pdf_obj, key.to_bytes(), pdf_link_obj(vp));
+        pdf_add_dict(&mut *(dp as *mut pdf_obj), key.to_bytes(), pdf_link_obj(vp));
     } else if (*vp).is_dict() {
         if let Some(dict) = dict {
             pdf_foreach_dict(
-                vp,
+                &mut *vp,
                 Some(
                     safeputresdent
                         as unsafe extern "C" fn(
@@ -310,7 +310,7 @@ unsafe extern "C" fn safeputresdict(
                 dict as *mut libc::c_void,
             );
         } else {
-            pdf_add_dict(dp as *mut pdf_obj, key.to_bytes(), pdf_link_obj(vp));
+            pdf_add_dict(&mut *(dp as *mut pdf_obj), key.to_bytes(), pdf_link_obj(vp));
         }
     } else {
         warn!(
@@ -366,7 +366,7 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
                 error = -1i32
             } else if ident.to_bytes() == b"resources" {
                 error = pdf_foreach_dict(
-                    obj2,
+                    &mut *obj2,
                     Some(
                         safeputresdict
                             as unsafe extern "C" fn(
@@ -378,12 +378,12 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
                     obj1 as *mut libc::c_void,
                 )
             } else {
-                pdf_merge_dict(obj1, obj2);
+                pdf_merge_dict(&mut *obj1, &*obj2);
             }
         }
         PdfObjType::STREAM => {
             if (*obj2).is_dict() {
-                pdf_merge_dict(pdf_stream_dict(obj1), obj2);
+                pdf_merge_dict(pdf_stream_dict(&mut *obj1), &*obj2);
             } else if (*obj2).is_stream() {
                 spc_warn!(
                     spe,
@@ -402,11 +402,11 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
         }
         PdfObjType::ARRAY => {
             /* dvipdfm */
-            pdf_add_array(obj1, pdf_link_obj(obj2));
+            pdf_add_array(&mut *obj1, pdf_link_obj(obj2));
             while !(*ap).cur.is_empty() {
                 if let Some(mut obj3) =
                     (*ap).cur.parse_pdf_object(0 as *mut pdf_file) {
-                    pdf_add_array(obj1, obj3);
+                    pdf_add_array(&mut *obj1, obj3);
                     (*ap).cur.skip_white();
                 } else {
                     break;
@@ -434,8 +434,8 @@ unsafe extern "C" fn reencodestring(mut cmap: *mut CMap, mut instring: *mut pdf_
     if cmap.is_null() || instring.is_null() {
         return 0i32;
     }
-    let mut inbufleft = pdf_string_length(instring) as size_t;
-    let mut inbufcur = pdf_string_value(instring) as *const u8;
+    let mut inbufleft = pdf_string_length(&*instring) as size_t;
+    let mut inbufcur = pdf_string_value(&*instring) as *const u8;
     wbuf[0] = 0xfe_u8;
     wbuf[1] = 0xff_u8;
     let mut obufcur = wbuf.as_mut_ptr().offset(2);
@@ -451,7 +451,7 @@ unsafe extern "C" fn reencodestring(mut cmap: *mut CMap, mut instring: *mut pdf_
         return -1i32;
     }
     pdf_set_string(
-        instring,
+        &mut *instring,
         wbuf.as_mut_ptr(),
         (4096i32 as u64).wrapping_sub(obufleft),
     );
@@ -464,8 +464,8 @@ unsafe extern "C" fn maybe_reencode_utf8(mut instring: *mut pdf_obj) -> i32 {
     if instring.is_null() {
         return 0i32;
     }
-    let inlen = pdf_string_length(instring) as i32;
-    let inbuf = pdf_string_value(instring) as *mut u8;
+    let inlen = pdf_string_length(&*instring) as i32;
+    let inbuf = pdf_string_value(&*instring) as *mut u8;
     /* check if the input string is strictly ASCII */
     cp = inbuf; /* no need to reencode ASCII strings */
     while cp < inbuf.offset(inlen as isize) as *const u8 {
@@ -511,7 +511,7 @@ unsafe extern "C" fn maybe_reencode_utf8(mut instring: *mut pdf_obj) -> i32 {
         }
     }
     pdf_set_string(
-        instring,
+        &mut *instring,
         wbuf.as_mut_ptr(),
         op.wrapping_offset_from(wbuf.as_mut_ptr()) as i64 as size_t,
     );
@@ -531,8 +531,8 @@ unsafe extern "C" fn needreencode(
     assert!(!cd.is_null() && !(*cd).taintkeys.is_null());
     assert!((*kp).is_name());
     assert!((*vp).is_string());
-    for i in 0..pdf_array_length((*cd).taintkeys) {
-        let tk = pdf_get_array((*cd).taintkeys, i as i32);
+    for i in 0..pdf_array_length(&*(*cd).taintkeys) {
+        let tk = pdf_get_array(&mut *(*cd).taintkeys, i as i32);
         assert!(!tk.is_null() && (*tk).is_name());
         if pdf_name_value(&*kp) == pdf_name_value(&*tk) {
             r = 1i32;
@@ -541,9 +541,9 @@ unsafe extern "C" fn needreencode(
     }
     if r != 0 {
         /* Check UTF-16BE BOM. */
-        if pdf_string_length(vp) >= 2_u32
+        if pdf_string_length(&*vp) >= 2_u32
             && memcmp(
-                pdf_string_value(vp),
+                pdf_string_value(&*vp),
                 b"\xfe\xff\x00" as *const u8 as *const i8 as *const libc::c_void,
                 2,
             ) == 0
@@ -584,7 +584,7 @@ unsafe extern "C" fn modstrings(
         }
         PdfObjType::DICT => {
             r = pdf_foreach_dict(
-                vp,
+                &mut *vp,
                 Some(
                     modstrings
                         as unsafe extern "C" fn(
@@ -598,7 +598,7 @@ unsafe extern "C" fn modstrings(
         }
         PdfObjType::STREAM => {
             r = pdf_foreach_dict(
-                pdf_stream_dict(vp),
+                pdf_stream_dict(&mut *vp),
                 Some(
                     modstrings
                         as unsafe extern "C" fn(
@@ -633,7 +633,7 @@ impl ParsePdfDictU for &[u8] {
         };
         if let Some(d) = dict {
             unsafe { pdf_foreach_dict(
-                d,
+                &mut *d,
                 Some(
                     modstrings
                         as unsafe extern "C" fn(
@@ -845,7 +845,7 @@ unsafe fn spc_handler_pdfm_outline(mut spe: *mut spc_env, mut args: *mut spc_arg
             spc_warn!(spe, "Expecting number for outline item depth.");
             return -1i32;
         }
-        let level = pdf_number_value(tmp) as i32;
+        let level = pdf_number_value(&*tmp) as i32;
         pdf_release_obj(tmp);
         level
     } else {
@@ -966,7 +966,7 @@ unsafe fn spc_handler_pdfm_bead(mut spe: *mut spc_env, mut args: *mut spc_arg) -
     /* Does this article exist yet */
     let article = spc_lookup_object(article_name.as_ptr());
     if !article.is_null() {
-        pdf_merge_dict(article, article_info);
+        pdf_merge_dict(&mut *article, &*article_info);
         pdf_release_obj(article_info);
     } else {
         pdf_doc_begin_article(article_name.as_ptr(), pdf_link_obj(article_info));
@@ -1040,7 +1040,7 @@ unsafe fn spc_handler_pdfm_image(mut spe: *mut spc_env, mut args: *mut spc_arg) 
             0 as *mut pdf_obj
         };
     }
-    let xobj_id = pdf_ximage_findresource(pdf_string_value(fspec) as *const i8, options);
+    let xobj_id = pdf_ximage_findresource(pdf_string_value(&*fspec) as *const i8, options);
     if xobj_id < 0i32 {
         spc_warn!(spe, "Could not find image resource...");
         pdf_release_obj(fspec);
@@ -1084,8 +1084,8 @@ unsafe fn spc_handler_pdfm_dest(mut spe: *mut spc_env, mut args: *mut spc_arg) -
         }
         pdf_doc_add_names(
             b"Dests\x00" as *const u8 as *const i8,
-            pdf_string_value(name),
-            pdf_string_length(name) as i32,
+            pdf_string_value(&*name),
+            pdf_string_length(&*name) as i32,
             array,
         );
     } else {
@@ -1110,7 +1110,7 @@ unsafe fn spc_handler_pdfm_names(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     }
     if let Some(tmp) = (*args).cur.parse_pdf_object(0 as *mut pdf_file) {
         if (*tmp).is_array() {
-            let size = pdf_array_length(tmp) as i32;
+            let size = pdf_array_length(&*tmp) as i32;
             if size % 2i32 != 0i32 {
                 spc_warn!(spe, "Array size not multiple of 2 for pdf:names.");
                 pdf_release_obj(category);
@@ -1118,8 +1118,8 @@ unsafe fn spc_handler_pdfm_names(mut spe: *mut spc_env, mut args: *mut spc_arg) 
                 return -1i32;
             }
             for i in 0..(size / 2) {
-                let key = pdf_get_array(tmp, 2i32 * i);
-                let value = pdf_get_array(tmp, 2i32 * i + 1i32);
+                let key = pdf_get_array(&mut *tmp, 2i32 * i);
+                let value = pdf_get_array(&mut *tmp, 2i32 * i + 1i32);
                 if !(!key.is_null() && (*key).is_string()) {
                     spc_warn!(spe, "Name tree key must be string.");
                     pdf_release_obj(category);
@@ -1128,8 +1128,8 @@ unsafe fn spc_handler_pdfm_names(mut spe: *mut spc_env, mut args: *mut spc_arg) 
                 } else {
                     if pdf_doc_add_names(
                         pdf_name_value(&*category).as_ptr() as *mut i8,
-                        pdf_string_value(key),
-                        pdf_string_length(key) as i32,
+                        pdf_string_value(&*key),
+                        pdf_string_length(&*key) as i32,
                         pdf_link_obj(value),
                     ) < 0i32
                     {
@@ -1146,8 +1146,8 @@ unsafe fn spc_handler_pdfm_names(mut spe: *mut spc_env, mut args: *mut spc_arg) 
             if let Some(value) = (*args).cur.parse_pdf_object(0 as *mut pdf_file) {
                 if pdf_doc_add_names(
                     pdf_name_value(&*category).as_ptr() as *mut i8,
-                    pdf_string_value(key),
-                    pdf_string_length(key) as i32,
+                    pdf_string_value(&*key),
+                    pdf_string_length(&*key) as i32,
                     value,
                 ) < 0i32
                 {
@@ -1181,7 +1181,7 @@ unsafe fn spc_handler_pdfm_docinfo(mut spe: *mut spc_env, mut args: *mut spc_arg
     let mut sd: *mut spc_pdf_ = &mut _PDF_STAT;
     if let Some(dict) = (*args).cur.parse_pdf_dict_with_tounicode(&mut (*sd).cd) {
         let docinfo = pdf_doc_get_dictionary("Info");
-        pdf_merge_dict(docinfo, dict);
+        pdf_merge_dict(&mut *docinfo, &*dict);
         pdf_release_obj(dict);
         0
     } else {
@@ -1194,13 +1194,13 @@ unsafe fn spc_handler_pdfm_docview(mut spe: *mut spc_env, mut args: *mut spc_arg
     if let Some(dict) = (*args).cur.parse_pdf_dict_with_tounicode(&mut (*sd).cd) {
         let catalog = pdf_doc_get_dictionary("Catalog");
         /* Avoid overriding whole ViewerPreferences */
-        let pref_old = pdf_lookup_dict(catalog, "ViewerPreferences"); /* Close all? */
-        let pref_add = pdf_lookup_dict(dict, "ViewerPreferences");
+        let pref_old = pdf_lookup_dict(&mut *catalog, "ViewerPreferences"); /* Close all? */
+        let pref_add = pdf_lookup_dict(&mut *dict, "ViewerPreferences");
         if let (Some(pref_old), Some(pref_add)) = (pref_old, pref_add) {
-            pdf_merge_dict(pref_old, pref_add);
-            pdf_remove_dict(dict, "ViewerPreferences");
+            pdf_merge_dict(&mut *pref_old, &*pref_add);
+            pdf_remove_dict(&mut *dict, "ViewerPreferences");
         }
-        pdf_merge_dict(catalog, dict);
+        pdf_merge_dict(&mut *catalog, &*dict);
         pdf_release_obj(dict);
         0
     } else {
@@ -1368,7 +1368,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
         pdf_release_obj(tmp);
         return -1i32;
     }
-    let instring = pdf_string_value(tmp) as *mut i8;
+    let instring = pdf_string_value(&*tmp) as *mut i8;
     match type_0 {
         1 => {
             if instring.is_null() {
@@ -1406,7 +1406,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                     break;
                 }
                 pdf_add_stream(
-                    fstream,
+                    &mut *fstream,
                     WORK_BUFFER.as_mut_ptr() as *const libc::c_void,
                     nb_read as i32,
                 );
@@ -1418,7 +1418,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
             fstream = pdf_new_stream(1i32 << 0i32);
             if !instring.is_null() {
                 pdf_add_stream(
-                    fstream,
+                    &mut *fstream,
                     instring as *const libc::c_void,
                     strlen(instring) as i32,
                 );
@@ -1437,14 +1437,14 @@ unsafe fn spc_handler_pdfm_stream_with_type(
      */
     (*args).cur.skip_white();
     if (*args).cur[0] == b'<' {
-        let stream_dict = pdf_stream_dict(fstream);
+        let stream_dict = pdf_stream_dict(&mut *fstream);
         if let Some(tmp) = (*args).cur.parse_pdf_dict(0 as *mut pdf_file) {
-            if pdf_lookup_dict(tmp, "Length").is_some() {
-                pdf_remove_dict(tmp, "Length");
-            } else if pdf_lookup_dict(tmp, "Filter").is_some() {
-                pdf_remove_dict(tmp, "Filter");
+            if pdf_lookup_dict(&mut *tmp, "Length").is_some() {
+                pdf_remove_dict(&mut *tmp, "Length");
+            } else if pdf_lookup_dict(&mut *tmp, "Filter").is_some() {
+                pdf_remove_dict(&mut *tmp, "Filter");
             }
-            pdf_merge_dict(stream_dict, tmp);
+            pdf_merge_dict(stream_dict, &*tmp);
             pdf_release_obj(tmp);
         } else {
             spc_warn!(spe, "Parsing dictionary failed.");

@@ -1032,15 +1032,15 @@ pub unsafe extern "C" fn iccp_load_profile(
     }
     let resource = pdf_new_array();
     let stream = pdf_new_stream(1i32 << 0i32);
-    pdf_add_array(resource, pdf_new_name("ICCBased"));
-    pdf_add_array(resource, pdf_ref_obj(stream));
-    let stream_dict = pdf_stream_dict(stream);
+    pdf_add_array(&mut *resource, pdf_new_name("ICCBased"));
+    pdf_add_array(&mut *resource, pdf_ref_obj(stream));
+    let stream_dict = pdf_stream_dict(&mut *stream);
     pdf_add_dict(
         stream_dict,
         "N",
         pdf_new_number(get_num_components_iccbased(cdata) as f64),
     );
-    pdf_add_stream(stream, profile, proflen);
+    pdf_add_stream(&mut *stream, profile, proflen);
     pdf_release_obj(stream);
     cspc_id = pdf_colorspace_defineresource(ident, 4i32, cdata, resource);
     cspc_id

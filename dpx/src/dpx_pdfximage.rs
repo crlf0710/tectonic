@@ -510,7 +510,7 @@ pub unsafe extern "C" fn pdf_ximage_set_image(
     (*I).attr.xdensity = info.xdensity;
     (*I).attr.ydensity = info.ydensity;
     (*I).reference = pdf_ref_obj(resource);
-    let dict = pdf_stream_dict(resource);
+    let dict = pdf_stream_dict(&mut *resource);
     pdf_add_dict(dict, "Type", pdf_new_name("XObject"));
     pdf_add_dict(dict, "Subtype", pdf_new_name("Image"));
     pdf_add_dict(dict, "Width", pdf_new_number((*info).width as f64));
@@ -524,7 +524,7 @@ pub unsafe extern "C" fn pdf_ximage_set_image(
         ); /* Caller don't know we are using reference. */
     }
     if !(*I).attr.dict.is_null() {
-        pdf_merge_dict(dict, (*I).attr.dict);
+        pdf_merge_dict(dict, &*(*I).attr.dict);
     }
     pdf_release_obj(resource);
     (*I).resource = 0 as *mut pdf_obj;

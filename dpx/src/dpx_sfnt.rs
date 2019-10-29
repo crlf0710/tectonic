@@ -389,7 +389,7 @@ pub unsafe extern "C" fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *m
         (*td).num_kept_tables as i32 * 16i32 - sr,
         2i32,
     );
-    pdf_add_stream(stream, wbuf.as_mut_ptr() as *const libc::c_void, 12i32);
+    pdf_add_stream(&mut *stream, wbuf.as_mut_ptr() as *const libc::c_void, 12i32);
     /*
      * Compute start of actual tables (after headers).
      */
@@ -418,7 +418,7 @@ pub unsafe extern "C" fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *m
                 (*(*td).tables.offset(i as isize)).length as i32,
                 4i32,
             );
-            pdf_add_stream(stream, wbuf.as_mut_ptr() as *const libc::c_void, 16i32);
+            pdf_add_stream(&mut *stream, wbuf.as_mut_ptr() as *const libc::c_void, 16i32);
             offset = (offset as u32).wrapping_add((*(*td).tables.offset(i as isize)).length) as i32
                 as i32
         }
@@ -428,7 +428,7 @@ pub unsafe extern "C" fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *m
         if *(*td).flags.offset(i as isize) as i32 & 1i32 << 0i32 != 0 {
             if offset % 4i32 != 0i32 {
                 length = 4i32 - offset % 4i32;
-                pdf_add_stream(stream, padbytes.as_mut_ptr() as *const libc::c_void, length);
+                pdf_add_stream(&mut *stream, padbytes.as_mut_ptr() as *const libc::c_void, length);
                 offset += length
             }
             if (*(*td).tables.offset(i as isize)).data.is_null() {
@@ -450,7 +450,7 @@ pub unsafe extern "C" fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *m
                     } else {
                         if nb_read > 0i32 {
                             pdf_add_stream(
-                                stream,
+                                &mut *stream,
                                 wbuf.as_mut_ptr() as *const libc::c_void,
                                 nb_read,
                             );
@@ -460,7 +460,7 @@ pub unsafe extern "C" fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *m
                 }
             } else {
                 pdf_add_stream(
-                    stream,
+                    &mut *stream,
                     (*(*td).tables.offset(i as isize)).data as *const libc::c_void,
                     (*(*td).tables.offset(i as isize)).length as i32,
                 );
@@ -473,7 +473,7 @@ pub unsafe extern "C" fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *m
                 as i32
         }
     }
-    let stream_dict = pdf_stream_dict(stream);
+    let stream_dict = pdf_stream_dict(&mut *stream);
     pdf_add_dict(stream_dict, "Length1", pdf_new_number(offset as f64));
     stream
 }

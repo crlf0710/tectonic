@@ -199,7 +199,7 @@ pub unsafe extern "C" fn pdf_font_open_type1c(mut font: *mut pdf_font) -> i32 {
     if tmp.is_null() {
         panic!("Could not obtain neccesary font info from OpenType table.");
     }
-    pdf_merge_dict(descriptor, tmp);
+    pdf_merge_dict(&mut *descriptor, &*tmp);
     pdf_release_obj(tmp);
     if embedding == 0 {
         /* tt_get_fontdesc may have changed this */
@@ -216,7 +216,7 @@ unsafe extern "C" fn add_SimpleMetrics(
 ) {
     let mut firstchar;
     let mut lastchar;
-    let fontdict = pdf_font_get_resource(font);
+    let fontdict = pdf_font_get_resource(&mut *font);
     let usedchars = pdf_font_get_usedchars(font);
     /* The widhts array in the font dictionary must be given relative
      * to the default scaling of 1000:1, not relative to the scaling
@@ -238,7 +238,7 @@ unsafe extern "C" fn add_SimpleMetrics(
         /* This should be error. */
         lastchar = 0i32;
         firstchar = lastchar;
-        pdf_add_array(tmp_array, pdf_new_number(0.0f64));
+        pdf_add_array(&mut *tmp_array, pdf_new_number(0.0f64));
     } else {
         firstchar = 255i32;
         lastchar = 0i32;
@@ -278,16 +278,16 @@ unsafe extern "C" fn add_SimpleMetrics(
                         );
                     }
                     pdf_add_array(
-                        tmp_array,
+                        &mut *tmp_array,
                         pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64),
                     );
                 }
             } else {
-                pdf_add_array(tmp_array, pdf_new_number(0.0f64));
+                pdf_add_array(&mut *tmp_array, pdf_new_number(0.0f64));
             }
         }
     }
-    if pdf_array_length(tmp_array) > 0_u32 {
+    if pdf_array_length(&*tmp_array) > 0_u32 {
         pdf_add_dict(fontdict, "Widths", pdf_ref_obj(tmp_array));
     }
     pdf_release_obj(tmp_array);
@@ -314,7 +314,7 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
     if usedchars.is_null() || fontname.is_null() || ident.is_null() {
         panic!("Unexpected error....");
     }
-    let fontdict = pdf_font_get_resource(font); /* Actually string object */
+    let fontdict = pdf_font_get_resource(&mut *font); /* Actually string object */
     let descriptor = pdf_font_get_descriptor(font);
     let encoding_id = pdf_font_get_encoding(font);
     let handle = dpx_open_opentype_file(ident);
@@ -467,7 +467,7 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
             b"StdVW\x00" as *const u8 as *const i8,
             0i32,
         );
-        pdf_add_dict(descriptor, "StemV", pdf_new_number(stemv));
+        pdf_add_dict(&mut *descriptor, "StemV", pdf_new_number(stemv));
     }
     /*
      * Widths
@@ -587,12 +587,12 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
                     *usedchars.offset(code as isize) = 0_i8
                 } else {
                     pdf_add_stream(
-                        pdfcharset,
+                        &mut *pdfcharset,
                         b"/\x00" as *const u8 as *const i8 as *const libc::c_void,
                         1i32,
                     );
                     pdf_add_stream(
-                        pdfcharset,
+                        &mut *pdfcharset,
                         *enc_vec.offset(code as isize) as *const libc::c_void,
                         strlen(*enc_vec.offset(code as isize)) as i32,
                     );
@@ -882,11 +882,11 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
      * CharSet
      */
     pdf_add_dict(
-        descriptor,
+        &mut *descriptor,
         "CharSet",
         pdf_new_string(
-            pdf_stream_dataptr(pdfcharset),
-            pdf_stream_length(pdfcharset) as size_t,
+            pdf_stream_dataptr(&*pdfcharset),
+            pdf_stream_length(&*pdfcharset) as size_t,
         ),
     );
     pdf_release_obj(pdfcharset);
@@ -894,11 +894,11 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
      * Write PDF FontFile data.
      */
     let fontfile = pdf_new_stream(1i32 << 0i32);
-    let stream_dict = pdf_stream_dict(fontfile);
-    pdf_add_dict(descriptor, "FontFile3", pdf_ref_obj(fontfile));
+    let stream_dict = pdf_stream_dict(&mut *fontfile);
+    pdf_add_dict(&mut *descriptor, "FontFile3", pdf_ref_obj(fontfile));
     pdf_add_dict(stream_dict, "Subtype", pdf_new_name("Type1C"));
     pdf_add_stream(
-        fontfile,
+        &mut *fontfile,
         stream_data.as_mut_ptr() as *mut libc::c_void,
         offset as i32,
     );
