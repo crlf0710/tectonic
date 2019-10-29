@@ -36,6 +36,8 @@ use crate::mfree;
 use crate::strstartswith;
 use crate::{info, warn};
 use std::ffi::CStr;
+use std::mem;
+use std::ptr;
 
 use super::dpx_dpxutil::{ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table};
 use super::dpx_mem::{new, renew};
@@ -974,10 +976,11 @@ where
     let data = new(::std::mem::size_of::<pdf_name>() as u32) as *mut pdf_name;
     (*result).data = data as *mut libc::c_void;
     let name = CString::new(name).unwrap();
-    if name.to_bytes().len() != 0 {
+    if name.as_bytes().len() != 0 {
         (*data).name = name.into_raw();
     } else {
-        (*data).name = 0 as *mut i8
+        drop(name);
+        (*data).name = ptr::null_mut();
     }
     (*result).data = data as *mut libc::c_void;
     result
@@ -988,8 +991,9 @@ pub unsafe fn pdf_copy_name(name: *const i8) -> *mut pdf_obj {
     let data = new(::std::mem::size_of::<pdf_name>() as u32) as *mut pdf_name;
     (*result).data = data as *mut libc::c_void;
     let length = strlen(name);
-    let name = CStr::from_ptr(name).to_owned();
     if length != 0 {
+        let slice = std::slice::from_raw_parts(name as *const u8, length as _);
+        let name = CString::new(slice).unwrap();
         (*data).name = name.into_raw();
     } else {
         (*data).name = 0 as *mut i8
@@ -1053,12 +1057,11 @@ pub unsafe extern "C" fn pdf_name_value<'a>(object: &'a pdf_obj) -> &'a CStr {
 #[no_mangle]
 pub unsafe extern "C" fn pdf_new_array() -> *mut pdf_obj {
     let result = pdf_new_obj(PdfObjType::ARRAY);
-    let data = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_array>() as u64) as u32)
-        as *mut pdf_array;
-    (*data).values = vec![];
-    (*result).data = data as *mut libc::c_void;
+    let data = Box::<pdf_array>::new(pdf_array { values: vec![], });
+    (*result).data = Box::into_raw(data) as *mut libc::c_void;
     result
 }
+
 unsafe fn write_array(mut array: *mut pdf_array, handle: &mut OutputHandleWrapper) {
     pdf_out_char(handle, b'[');
     if !(*array).values.is_empty() {
@@ -1097,12 +1100,20 @@ pub unsafe extern "C" fn pdf_array_length(array: &pdf_obj) -> u32 {
     let mut data = array.data as *mut pdf_array;
     (*data).values.len() as u32
 }
-unsafe fn release_array(data: &mut pdf_array) {
-    while let Some(val) = (*data).values.pop() {
-        pdf_release_obj(val);
+
+impl Drop for pdf_array {
+    fn drop(&mut self) {
+        let mut values = &mut self.values;
+        for val in values.drain(..) {
+            unsafe { pdf_release_obj(val); }
+        }
     }
-    free(data as *mut pdf_array as *mut libc::c_void);
 }
+
+unsafe fn release_array(data: *mut pdf_array) {
+    let _ = Box::from_raw(data);
+}
+
 /*
  * The name pdf_add_array is misleading. It behaves differently than
  * pdf_add_dict(). This should be pdf_push_array().
@@ -1282,15 +1293,7 @@ where
 #[no_mangle]
 pub unsafe extern "C" fn pdf_new_stream(mut flags: i32) -> *mut pdf_obj {
     let result = pdf_new_obj(PdfObjType::STREAM);
-    let data = new(::std::mem::size_of::<pdf_stream>() as u32)
-        as *mut pdf_stream;
-    /*
-     * Although we are using an arbitrary pdf_object here, it must have
-     * type=PDF_DICT and cannot be an indirect reference.  This will be
-     * checked by the output routine.
-     */
-     // overwrite `data` to avoid dropping uninitialized memory.
-     std::ptr::write(data, pdf_stream {
+    let data = Box::new(pdf_stream {
         dict: pdf_new_dict(),
         _flags: flags,
         decodeparms: decode_parms {
@@ -1301,9 +1304,13 @@ pub unsafe extern "C" fn pdf_new_stream(mut flags: i32) -> *mut pdf_obj {
          },
          objstm_data: 0 as *mut i32,
          stream: Vec::new(),
-     });
-
-    (*result).data = data as *mut libc::c_void;
+    });
+    /*
+     * Although we are using an arbitrary pdf_object here, it must have
+     * type=PDF_DICT and cannot be an indirect reference.  This will be
+     * checked by the output routine.
+     */
+    (*result).data = Box::into_raw(data) as *mut libc::c_void;
     (*result).flags |= 1i32 << 0i32;
     result
 }
@@ -1897,11 +1904,30 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
     pdf_out(handle, b"\n");
     pdf_out(handle, b"endstream");
 }
-unsafe fn release_stream(mut streamptr: *mut pdf_stream) {
-    let pdf_stream { dict, objstm_data, .. } = *streamptr;
-    pdf_release_obj(dict);
-    free(objstm_data as *mut libc::c_void);
-    free(streamptr as *mut libc::c_void);
+
+impl Drop for pdf_stream {
+    fn drop(&mut self) {
+        let pdf_stream {
+            dict,
+            ref mut stream,
+            objstm_data,
+            _flags: _,
+            decodeparms: _,
+        } = *self;
+        unsafe {
+            pdf_release_obj(dict);
+        }
+        if !objstm_data.is_null() {
+            unsafe {
+                free(objstm_data as *mut libc::c_void);
+            }
+        }
+        let _ = mem::replace(stream, Vec::new());
+    }
+}
+
+unsafe fn release_stream(streamptr: *mut pdf_stream) {
+    let _ = Box::from_raw(streamptr);
 }
 
 #[no_mangle]
@@ -1934,7 +1960,7 @@ unsafe fn get_objstm_data(objstm: &pdf_obj) -> *mut i32 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_add_stream(
-    stream: *mut pdf_obj,
+    stream: &mut pdf_obj,
     stream_data: *const libc::c_void,
     length: i32,
 ) {
@@ -1986,7 +2012,7 @@ pub unsafe extern "C" fn pdf_add_stream_flate(
             return -1i32;
         }
         if z.avail_out == 0 {
-            pdf_add_stream(dst, wbuf.as_mut_ptr() as *const libc::c_void, WBUF_SIZE as i32);
+            pdf_add_stream(&mut *dst, wbuf.as_mut_ptr() as *const libc::c_void, WBUF_SIZE as i32);
             z.next_out = wbuf.as_mut_ptr();
             z.avail_out = WBUF_SIZE as libz::uInt
         }
@@ -2616,7 +2642,7 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
         "First",
         pdf_new_number((*stream).stream.len() as f64),
     );
-    pdf_add_stream(objstm, old_buf.as_ptr() as *const libc::c_void, old_buf.len() as i32);
+    pdf_add_stream(&mut *objstm, old_buf.as_ptr() as *const libc::c_void, old_buf.len() as i32);
     pdf_release_obj(objstm);
 }
 #[no_mangle]
@@ -2684,7 +2710,7 @@ pub unsafe extern "C" fn pdf_release_obj(mut object: *mut pdf_obj) {
                 release_name((*object).data as *mut pdf_name);
             }
             PdfObjType::ARRAY => {
-                release_array(&mut *((*object).data as *mut pdf_array));
+                release_array((*object).data as *mut pdf_array);
             }
             PdfObjType::DICT => {
                 release_dict((*object).data as *mut pdf_dict);
@@ -3092,7 +3118,7 @@ unsafe fn pdf_get_object(
                 assert!((*objstm).is_stream());
                 let objstm_slice = &(*(*((*objstm).data as *mut pdf_stream)).stream);
 
-                let length = pdf_stream_length(objstm);
+                let length = pdf_stream_length(&*objstm);
                 let pdfobj_start = first + *data.offset(2*index as isize+1);
                 let pdfobj_end = if index as i32 == n - 1 { length } else { first + *data.offset(2*index as isize+3) };
 
