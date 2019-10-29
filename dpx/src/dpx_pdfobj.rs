@@ -2126,206 +2126,128 @@ unsafe fn filter_decoded(
     let mut length: i32 = (parms.columns * bits_per_pixel + 7i32) / 8i32;
     let mut len_usize = length as usize;
     let mut error = 0i32;
-    let mut prev = vec![0u8; length as usize];
-    let mut buf = vec![0u8; length as usize];
-    let mut current_block_77: u64;
-    match parms.predictor {
-        1 => {
-            /* No prediction */
-            dst_stream.append(&src_stream.stream);
-            return error;
+    if parms.predictor < 10 {
+        let mut prev = vec![0u8; length as usize];
+        let mut buf = vec![0u8; length as usize];
+        match parms.predictor {
+            1 => {
+                /* No prediction */
+                dst_stream.append(&src_stream.stream);
+                return error;
+            }
+            2 => {
+                let bytes_per_pixel = bytes_per_pixel as usize;
+                /* TIFF Predictor 2 */
+                if parms.bits_per_component == 8i32 {
+                    let mut chunks = src_stream.stream.chunks_exact(len_usize);
+                    while let Some(p) = chunks.next() {
+                        for i in 0..len_usize {
+                            let mut pixel_value: i32 = if i >= bytes_per_pixel {
+                                buf[(i - bytes_per_pixel) as usize] as i32
+                            } else {
+                                0i32
+                            };
+                            buf[i] = ((p[i] as i32) + pixel_value & 0xff) as u8;
+                        }
+                        dst_stream.append(&buf[..len_usize]);
+                    }
+                    assert!(chunks.remainder().is_empty());
+                } else if parms.bits_per_component == 16i32 {
+                    let mut chunks = src_stream.stream.chunks_exact(len_usize);
+                    while let Some(p) = chunks.next() {
+                        for i in (0..length).step_by(2) {
+                            let b = (i - (bytes_per_pixel as i32)) as i32;
+                            let hi = if b >= 0 { buf[b as usize] as i32 } else { 0i32 };
+                            let lo = if b >= 0 { buf[(b as usize) + 1] as i32 } else { 0i32 };
+                            let pv_0 = hi << 8 | lo;
+                            let i = i as usize;
+                            let cv = (p[i] as i32) << 8 | p[i+1] as i32;
+                            let c = pv_0 + cv;
+                            buf[i] = (c >> 8) as u8;
+                            buf[i+1] = (c & 0xff) as u8;
+                        }
+                        dst_stream.append(&buf[..len_usize]);
+                    }
+                    assert!(chunks.remainder().is_empty());
+                } else {
+                    let mut chunks = src_stream.stream.chunks_exact(len_usize);
+                    while let Some(p) = chunks.next() {
+                        if error != 0 {
+                            break;
+                        }
+                        error = filter_row_TIFF2(buf.as_mut_ptr(), p.as_ptr(), parms);
+                        if error == 0 {
+                            dst_stream.append(&buf[..(length as usize)]);
+                        }
+                    }
+                    assert!(chunks.remainder().is_empty());
+                }
+                return error;
+            }
+            _ => {
+                warn!("Unknown Predictor type value :{}", parms.predictor,);
+                error = -1i32;
+                return error;
+            }
         }
-        2 => {
-            let bytes_per_pixel = bytes_per_pixel as usize;
-            /* TIFF Predictor 2 */
-            if parms.bits_per_component == 8i32 {
-                let mut chunks = src_stream.stream.chunks_exact(len_usize);
-                while let Some(p) = chunks.next() {
-                    for i in 0..len_usize {
-                        let mut pixel_value: i32 = if i >= bytes_per_pixel {
-                            buf[(i - bytes_per_pixel) as usize] as i32
-                        } else {
-                            0i32
-                        };
-                        buf[i] = ((p[i] as i32) + pixel_value & 0xff) as u8;
-                    }
-                    dst_stream.append(&buf[..len_usize]);
-                }
-                assert!(chunks.remainder().is_empty());
-            } else if parms.bits_per_component == 16i32 {
-                let mut chunks = src_stream.stream.chunks_exact(len_usize);
-                while let Some(p) = chunks.next() {
-                    for i in (0..length).step_by(2) {
-                        let b = (i - (bytes_per_pixel as i32)) as i32;
-                        let hi = if b >= 0 { buf[b as usize] as i32 } else { 0i32 };
-                        let lo = if b >= 0 { buf[(b as usize) + 1] as i32 } else { 0i32 };
-                        let pv_0 = hi << 8 | lo;
-                        let i = i as usize;
-                        let cv = (p[i] as i32) << 8 | p[i+1] as i32;
-                        let c = pv_0 + cv;
-                        buf[i] = (c >> 8) as u8;
-                        buf[i+1] = (c & 0xff) as u8;
-                    }
-                    dst_stream.append(&buf[..len_usize]);
-                }
-                assert!(chunks.remainder().is_empty());
-            } else {
-                let mut chunks = src_stream.stream.chunks_exact(len_usize);
+    } else {
+        let mut prev = vec![0u8; len_usize];
+        let mut current = vec![0u8; len_usize];
+        match parms.predictor {
+            // PNG can improve its compression ratios by applying filters to each scanline of the image.
+            // FlateDecode incorporates these filtering methods.
+            10 | // PNG None
+            11 | // PNG Sub on all rows
+            12 | // PNG UP on all rows
+            13 | // PNG Average on all rows
+            14 | // PNG Paeth on all rows
+            15   // PNG Optimun: each scanline encodes the filter type in its first byte.
+                 // The prediction algorithm can change from line to line
+            => {
+                let mut typ = (parms.predictor - 10) as u8;
+                let mut rowlen = len_usize + 1;
+                let mut chunks = src_stream.stream.chunks_exact(rowlen);
+                let bytes_per_pixel = bytes_per_pixel as usize;
                 while let Some(p) = chunks.next() {
                     if error != 0 {
                         break;
                     }
-                    error = filter_row_TIFF2(buf.as_mut_ptr(), p.as_ptr(), parms);
+                    if parms.predictor != 15 && p[0] != typ {
+                        warn!(
+                            "Mismatched Predictor type in data stream: predictor said {:?}, but line had {:?}",
+                            PngFilterType::from_u8(typ),
+                            PngFilterType::from_u8(p[0])
+                        );
+                        error = -1i32;
+                    }
+                    if let Some(filter) = PngFilterType::from_u8(p[0]) {
+                        current[..rowlen].copy_from_slice(p);
+                        if let Err(unf_err) = png_unfilter_scanline(filter, bytes_per_pixel, &prev[1..rowlen], &mut current[1..rowlen]) {
+                            warn!("unfiltering PNG scanline failed: {}", unf_err);
+                            error = -1;
+                        }
+                        prev[..rowlen].copy_from_slice(&current[..rowlen]);
+                    } else {
+                        warn!("Unknown PNG predictor type: {}", p[0],);
+                        error = -1;
+                    }
                     if error == 0 {
-                        dst_stream.append(&buf[..(length as usize)]);
-                    }
-                }
-                assert!(chunks.remainder().is_empty());
-            }
-            return error;
-        }
-        10 => {
-            /* PNG None */
-            current_block_77 = 18089190442011260268;
-        }
-        11 => {
-            current_block_77 = 18089190442011260268;
-        }
-        12 => {
-            current_block_77 = 15842817987810867823;
-        }
-        13 => {
-            current_block_77 = 6139367728676434155;
-        }
-        14 | 15 => {
-            current_block_77 = 6912830033131235815;
-        }
-        _ => {
-            warn!("Unknown Predictor type value :{}", parms.predictor,);
-            error = -1i32;
-            return error;
-        }
-    }
-    match current_block_77 {
-        18089190442011260268 =>
-        /* PNG Sub on all rows */
-        {
-            current_block_77 = 15842817987810867823;
-        }
-        _ => {}
-    }
-    match current_block_77 {
-        15842817987810867823 =>
-        /* PNG UP on all rows */
-        {
-            current_block_77 = 6139367728676434155;
-        }
-        _ => {}
-    }
-    match current_block_77 {
-        6139367728676434155 =>
-        /* PNG Average on all rows */
-        {
-            current_block_77 = 6912830033131235815;
-        }
-        _ => {}
-    }
-    match current_block_77 {
-        6912830033131235815 =>
-        /* PNG Paeth on all rows */
-        /* PNG optimun: prediction algorithm can change from line to line. */
-        {
-            let mut typ = parms.predictor - 10i32;
-            let mut chunks = src_stream.stream.chunks_exact(len_usize);
-            let bytes_per_pixel = bytes_per_pixel as usize;
-            while let Some(mut p) = chunks.next() {
-                if error != 0 {
-                    break;
-                }
-                if parms.predictor == 15i32 {
-                    typ = p[0] as i32;
-                } else if (p[0] as i32) != typ {
-                    warn!("Mismatched Predictor type in data stream.",);
-                    error = -1i32;
-                }
-                p = &p[1..];
-                match typ {
-                    0 => {
-                        /* Do nothing just skip first byte */
-                        buf[..len_usize].copy_from_slice(&p[..len_usize]);
-                    }
-                    1 => {
-                        /* above */
-                        for i in 0..len_usize {
-                            let mut pv_1 = if i >= bytes_per_pixel {
-                                buf[i - bytes_per_pixel] as i32
-                            } else {
-                                0i32
-                            }; /* upper left */
-                            buf[i] = (p[i] as i32 + pv_1 & 0xff) as u8; /* highly inefficient */
-                        }
-                    }
-                    2 => {
-                        for i in 0..len_usize {
-                            buf[i] = ((p[i] as i32 + prev[i] as i32) & 0xff) as u8;
-                        }
-                    }
-                    3 => {
-                        for i in 0..len_usize {
-                            let up = prev[i] as i32;
-                            let left = if i >= bytes_per_pixel {
-                                buf[i - bytes_per_pixel] as i32
-                            } else {
-                                0i32
-                            };
-                            let tmp = (up + left) / 2;
-                            // XXX: the following line does nothing, was in original
-                            let tmp = (tmp as f64).floor() as i32;
-                            buf[i] = (p[i] as i32 + tmp & 0xff) as u8;
-                        }
-                    }
-                    4 => {
-                        for i in 0..len_usize {
-                            let a = if i >= bytes_per_pixel {
-                                buf[i - bytes_per_pixel] as i32
-                            } else {
-                                0i32
-                            };
-                            let b_0 = prev[i] as i32;
-                            let c_0 = if i >= bytes_per_pixel {
-                                prev[i - bytes_per_pixel] as i32
-                            } else {
-                                0i32
-                            };
-                            let q = a + b_0 - c_0;
-                            let mut qa = q - a;
-                            let mut qb = q - b_0;
-                            let mut qc = q - c_0;
-                            qa = if qa < 0 { -qa } else { qa };
-                            qb = if qb < 0 { -qb } else { qb };
-                            qc = if qc < 0 { -qc } else { qc };
-                            if qa <= qb && qa <= qc {
-                                buf[i] = (p[i] as i32 + a & 0xff) as u8;
-                            } else if qb <= qc {
-                                buf[i] = (p[i] as i32 + b_0 & 0xff) as u8;
-                            } else {
-                                buf[i] = (p[i] as i32 + c_0 & 0xff) as u8;
-                            }
-                        }
-                    }
-                    _ => {
-                        warn!("Unknown PNG predictor type: {}", typ,);
-                        error = -1i32
+                        dst_stream.append(&current[1..rowlen]);
                     }
                 }
                 if error == 0 {
-                    dst_stream.append(&buf[..len_usize]);
-                    prev[..len_usize].copy_from_slice(&buf[..len_usize]);
+                    if !chunks.remainder().is_empty() {
+                        warn!("remaining scanlines in PNG stream decoding");
+                        error = -1;
+                    }
                 }
             }
-            assert!(chunks.remainder().is_empty());
+            _ => {
+                warn!("Unknown Predictor type value: {}", parms.predictor,);
+                error = -1i32;
+                return error;
+            }
         }
-        _ => {}
     }
     error
 }
@@ -3969,4 +3891,143 @@ pub unsafe extern "C" fn pdf_obj_reset_global_state() {
     pdf_output_file_position = 0;
     pdf_output_line_position = 0;
     compression_saved = 0i32;
+}
+
+use self::png_crate_filter::{FilterType as PngFilterType, unfilter as png_unfilter_scanline, filter as png_filter_scanline};
+
+/// The png crate doesn't export these, but we need them to implement the FlateDecode parameters
+/// Each function does
+/// MIT / Apache-2.0 dual-licenced.
+mod png_crate_filter {
+
+    // Snipped
+    pub use png::FilterType;
+
+    fn filter_paeth(a: u8, b: u8, c: u8) -> u8 {
+        let ia = a as i16;
+        let ib = b as i16;
+        let ic = c as i16;
+
+        let p = ia + ib - ic;
+
+        let pa = (p - ia).abs();
+        let pb = (p - ib).abs();
+        let pc = (p - ic).abs();
+
+        if pa <= pb && pa <= pc {
+            a
+        } else if pb <= pc {
+            b
+        } else {
+            c
+        }
+    }
+
+    pub fn unfilter(filter: FilterType, bpp: usize, previous: &[u8], current: &mut [u8]) -> std::result::Result<(), &'static str> {
+        use self::FilterType::*;
+        assert!(bpp > 0);
+        let len = current.len();
+
+        match filter {
+            NoFilter => Ok(()),
+            Sub => {
+                for i in bpp..len {
+                    current[i] = current[i].wrapping_add(
+                        current[i - bpp]
+                    );
+                }
+                Ok(())
+            }
+            Up => {
+                if previous.len() < len {
+                    Err("Filtering failed: not enough data in previous row")
+                } else {
+                    for i in 0..len {
+                        current[i] = current[i].wrapping_add(
+                            previous[i]
+                        );
+                    }
+                    Ok(())
+                }
+            }
+            Avg => {
+                if previous.len() < len {
+                    Err("Filtering failed:  not enough data in previous row")
+                } else if bpp > len {
+                    Err("Filtering failed: bytes per pixel is greater than length of row")
+                } else {
+                    for i in 0..bpp {
+                        current[i] = current[i].wrapping_add(
+                            previous[i] / 2
+                        );
+                    }
+
+                    for i in bpp..len {
+                        current[i] = current[i].wrapping_add(
+                            ((current[i - bpp] as i16 + previous[i] as i16) / 2) as u8
+                        );
+                    }
+                    Ok(())
+                }
+            }
+            Paeth => {
+                if previous.len() < len {
+                    Err("Filtering failed: not enough data in previous row")
+                } else if bpp > len {
+                    Err("Filtering failed: bytes per pixel is greater than length of row")
+                } else {
+                    for i in 0..bpp {
+                        current[i] = current[i].wrapping_add(
+                            filter_paeth(0, previous[i], 0)
+                        );
+                    }
+
+                    for i in bpp..len {
+                        current[i] = current[i].wrapping_add(
+                            filter_paeth(current[i - bpp], previous[i], previous[i - bpp])
+                        );
+                    }
+                    Ok(())
+                }
+            }
+        }
+    }
+
+    pub fn filter(method: FilterType, bpp: usize, previous: &[u8], current: &mut [u8]) {
+        use self::FilterType::*;
+        assert!(bpp > 0);
+        let len  = current.len();
+
+        match method {
+            NoFilter => (),
+            Sub      => {
+                for i in (bpp..len).rev() {
+                    current[i] = current[i].wrapping_sub(current[i - bpp]);
+                }
+            }
+            Up       => {
+                for i in 0..len {
+                    current[i] = current[i].wrapping_sub(previous[i]);
+                }
+            }
+            Avg  => {
+                for i in (bpp..len).rev() {
+                    current[i] = current[i].wrapping_sub(current[i - bpp].wrapping_add(previous[i]) / 2);
+                }
+
+                for i in 0..bpp {
+                    current[i] = current[i].wrapping_sub(previous[i] / 2);
+                }
+            }
+            Paeth    => {
+                for i in (bpp..len).rev() {
+                    current[i] = current[i].wrapping_sub(filter_paeth(current[i - bpp], previous[i], previous[i - bpp]));
+                }
+
+                for i in 0..bpp {
+                    current[i] = current[i].wrapping_sub(filter_paeth(0, previous[i], 0));
+                }
+            }
+        }
+    }
 }
