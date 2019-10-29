@@ -1989,7 +1989,7 @@ pub unsafe extern "C" fn pdf_add_stream(stream: &mut pdf_obj, stream_data: *cons
 #[cfg(feature = "libz-sys")]
 pub unsafe extern "C" fn pdf_add_stream_flate(
     dst_stream: &mut PdfStream,
-    slice: &mut [u8],
+    slice: &[u8],
 ) -> libc::c_int {
     const WBUF_SIZE: usize = 4096;
     let mut z: libz::z_stream = std::mem::zeroed();
@@ -1998,7 +1998,7 @@ pub unsafe extern "C" fn pdf_add_stream_flate(
     // z.zalloc = null_mut();
     // z.zfree = null_mut();
     z.opaque = 0 as libz::voidpf;
-    z.next_in = slice.as_mut_ptr() as *mut libz::Bytef;
+    z.next_in = slice.as_ptr() as *mut libz::Bytef;
     z.avail_in = slice.len() as libz::uInt;
     z.next_out = wbuf.as_mut_ptr();
     z.avail_out = WBUF_SIZE as libz::uInt;
@@ -2385,19 +2385,19 @@ unsafe fn filter_decoded(
 }
 #[cfg(feature = "libz-sys")]
 unsafe fn pdf_add_stream_flate_filtered(
-    mut dst: *mut pdf_obj,
-    mut data: *const libc::c_void,
-    mut len: libc::c_int,
+    dst_stream: &mut PdfStream,
+    slice: &[u8],
     parms: &mut decode_parms,
 ) -> libc::c_int {
+    const WBUF_SIZE: usize = 4096;
     let mut z: libz::z_stream = std::mem::zeroed();
-    let mut wbuf: [libz::Bytef; 4096] = [0; 4096];
+    let mut wbuf: [libz::Bytef; WBUF_SIZE] = [0; WBUF_SIZE];
     // FIXME: Bug in libpng-sys
     // z.zalloc = null_mut();
     // z.zfree = null_mut();
     z.opaque = 0 as libz::voidpf;
-    z.next_in = data as *mut libz::Bytef;
-    z.avail_in = len as libz::uInt;
+    z.next_in = slice.as_ptr() as *mut libz::Bytef;
+    z.avail_in = slice.len() as libz::uInt;
     z.next_out = wbuf.as_mut_ptr();
     z.avail_out = 4096i32 as libz::uInt;
     if libz::inflateInit_(
@@ -2410,6 +2410,7 @@ unsafe fn pdf_add_stream_flate_filtered(
         return -1i32;
     }
     let tmp = pdf_new_stream(0i32);
+    let tmp_stream = tmp.get_stream_mut();
     loop {
         let status = libz::inflate(&mut z, 0i32);
         if status == 1i32 {
@@ -2421,18 +2422,16 @@ unsafe fn pdf_add_stream_flate_filtered(
             return -1i32;
         }
         if z.avail_out == 0i32 as libc::c_uint {
-            pdf_add_stream(&mut *tmp, wbuf.as_mut_ptr() as *const libc::c_void, 4096i32);
+            tmp_stream.append(&wbuf[..]);
             z.next_out = wbuf.as_mut_ptr();
-            z.avail_out = 4096i32 as libz::uInt
+            z.avail_out = WBUF_SIZE as libz::uInt
         }
     }
-    if (4096i32 as libc::c_uint).wrapping_sub(z.avail_out) > 0i32 as libc::c_uint {
-        pdf_add_stream(
-            &mut *tmp,
-            wbuf.as_mut_ptr() as *const libc::c_void,
-            (4096i32 as libc::c_uint).wrapping_sub(z.avail_out) as libc::c_int,
-        );
+    if (WBUF_SIZE as u32) > z.avail_out {
+        let remain = &wbuf[..(WBUF_SIZE - (z.avail_out as usize))];
+        tmp_stream.append(remain);
     }
+    drop(tmp_stream);
     let error = filter_decoded(dst, pdf_stream_dataptr(&*tmp), pdf_stream_length(&*tmp), parms);
     pdf_release_obj(tmp);
     if error == 0 && libz::inflateEnd(&mut z) == 0i32 {
@@ -2501,12 +2500,11 @@ pub unsafe extern "C" fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut 
                     if have_parms != 0 {
                         error = pdf_add_stream_flate_filtered(
                             dst,
-                            stream.stream.as_mut_ptr() as *const u8 as *const libc::c_void,
-                            stream.stream.len() as i32,
+                            &stream.stream,
                             &mut parms,
                         );
                     } else {
-                        error = pdf_add_stream_flate(dst_stream, &mut stream.stream);
+                        error = pdf_add_stream_flate(dst_stream, &stream.stream);
                     }
                 } else {
                     warn!("DecodeFilter \"{}\" not supported.", filter_name,);
