@@ -19,22 +19,17 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
-#![allow(
-    unused_mut
-)]
+#![allow(unused_mut)]
 
 use crate::dpx_mfileio::tt_mfgets;
 use crate::dpx_mpost::mps_scan_bbox;
 use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear};
 use crate::dpx_pdfparse::SkipWhite;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
-use crate::shims::sscanf;
 use crate::spc_warn;
-use crate::DisplayExt;
 use crate::TTInputFormat;
 use crate::{ttstub_input_close, ttstub_input_open};
-use libc::{strlen};
-use std::ffi::CStr;
+use libc::strlen;
 use std::ptr;
 
 use super::{spc_arg, spc_env};
@@ -42,6 +37,25 @@ use super::{spc_arg, spc_env};
 use super::SpcHandler;
 
 use crate::dpx_pdfximage::load_options;
+
+fn parse_postscriptbox_special(buf: &str) -> Result<(f64, f64, String), ()> {
+    let mut parts = Vec::new();
+    for elem in buf.split("}") {
+        if !elem.starts_with("{") {
+            return Err(());
+        }
+        parts.push(&elem[1..]);
+    }
+
+    if parts.len() != 3 {
+        return Err(());
+    }
+
+    let width = parts[0].parse::<f64>().map_err(|_| ())?;
+    let height = parts[1].parse::<f64>().map_err(|_| ())?;
+    let filename = parts[2];
+    Ok((width, height, filename.to_string()))
+}
 
 /* quasi-hack to get the primary input */
 unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i32 {
@@ -51,7 +65,6 @@ unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg)
             bbox_type: 0i32,
             dict: ptr::null_mut(),
         };
-    let mut filename: [i8; 256] = [0; 256];
     let mut buf: [u8; 512] = [0; 512];
     assert!(!spe.is_null() && !ap.is_null());
     if (*ap).cur.is_empty() {
@@ -67,34 +80,33 @@ unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg)
     buf[..len].copy_from_slice(&(*ap).cur[..len]);
     buf[len] = 0;
     transform_info_clear(&mut ti);
-    spc_warn!(spe, "{}", &buf[..len].display());
-    if sscanf(
-        buf.as_mut_ptr() as *mut i8,
-        b"{%lfpt}{%lfpt}{%255[^}]}\x00" as *const u8 as *const i8,
-        &mut ti.width as *mut f64,
-        &mut ti.height as *mut f64,
-        filename.as_mut_ptr(),
-    ) != 3i32
-    {
+
+    let command = std::str::from_utf8(&buf).expect("non-utf8 postscriptbox special");
+
+    spc_warn!(spe, "{}", command);
+
+    let filename;
+    if let Ok((width, height, _filename)) = parse_postscriptbox_special(command) {
+        ti.width = width;
+        ti.height = height;
+        filename = _filename;
+    } else {
         spc_warn!(spe, "Syntax error in postscriptbox special?");
         return -1i32;
     }
+
     (*ap).cur = &[];
     ti.width *= 72.0f64 / 72.27f64;
     ti.height *= 72.0f64 / 72.27f64;
-    let handle = ttstub_input_open(filename.as_mut_ptr(), TTInputFormat::PICT, 0i32);
+    let handle = ttstub_input_open(filename.as_ptr() as *const i8, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
-        spc_warn!(
-            spe,
-            "Could not open image file: {}",
-            CStr::from_ptr(filename.as_mut_ptr()).display(),
-        );
+        spc_warn!(spe, "Could not open image file: {}", filename,);
         return -1i32;
     }
     let mut handle = handle.unwrap();
     ti.flags |= 1i32 << 1i32 | 1i32 << 2i32;
     loop {
-        let mut p: *const i8 = tt_mfgets(buf.as_mut_ptr() as *mut i8, 512, &mut handle);
+        let mut p: *const i8 = tt_mfgets(buf.as_ptr() as *mut i8, 512, &mut handle);
         if p.is_null() {
             break;
         }
@@ -105,13 +117,9 @@ unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg)
         break;
     }
     ttstub_input_close(handle);
-    let form_id = pdf_ximage_findresource(filename.as_mut_ptr(), options);
+    let form_id = pdf_ximage_findresource(filename.as_ptr() as *const i8, options);
     if form_id < 0i32 {
-        spc_warn!(
-            spe,
-            "Failed to load image file: {}",
-            CStr::from_ptr(filename.as_mut_ptr()).display(),
-        );
+        spc_warn!(spe, "Failed to load image file: {}", filename,);
         return -1i32;
     }
     pdf_dev_put_image(form_id, &mut ti, (*spe).x_user, (*spe).y_user);

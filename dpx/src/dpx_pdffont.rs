@@ -49,9 +49,8 @@ use super::dpx_pkfont::{pdf_font_load_pkfont, pdf_font_open_pkfont, PKFont_set_d
 use super::dpx_truetype::{pdf_font_load_truetype, pdf_font_open_truetype};
 use super::dpx_tt_cmap::{otf_cmap_set_verbose, otf_load_Unicode_CMap};
 use super::dpx_type0::{
-    Type0Font_cache_close, Type0Font_cache_find, Type0Font_cache_get,
-    Type0Font_cache_init, Type0Font_get_resource, Type0Font_get_usedchars, Type0Font_get_wmode,
-    Type0Font_set_verbose,
+    Type0Font_cache_close, Type0Font_cache_find, Type0Font_cache_get, Type0Font_cache_init,
+    Type0Font_get_resource, Type0Font_get_usedchars, Type0Font_get_wmode, Type0Font_set_verbose,
 };
 use super::dpx_type1::{pdf_font_load_type1, pdf_font_open_type1};
 use super::dpx_type1c::{pdf_font_load_type1c, pdf_font_open_type1c};
@@ -60,7 +59,7 @@ use crate::dpx_pdfobj::{
     pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length,
 };
 use crate::mfree;
-use crate::shims::{snprintf, sprintf};
+use crate::shims::sprintf;
 use crate::streq_ptr;
 use crate::{info, warn};
 use libc::{free, memset, rand, srand, strcpy, strlen, strstr};
@@ -176,12 +175,8 @@ pub unsafe fn pdf_font_set_deterministic_unique_tags(mut value: i32) {
 
 pub unsafe fn pdf_font_make_uniqueTag(mut tag: *mut i8) {
     if unique_tags_deterministic != 0 {
-        snprintf(
-            tag,
-            7,
-            b"%06d\x00" as *const u8 as *const i8,
-            unique_tag_state,
-        );
+        let tag_str = format!("{:06}", unique_tag_state);
+        std::ptr::copy_nonoverlapping(tag_str.as_bytes().as_ptr(), tag as *mut u8, 6);
         unique_tag_state += 1;
         return;
     }
