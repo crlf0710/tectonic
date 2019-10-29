@@ -973,6 +973,7 @@ unsafe fn release_string(mut data: *mut pdf_string) {
     (*data).string = mfree((*data).string as *mut libc::c_void) as *mut u8;
     free(data as *mut libc::c_void);
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn pdf_set_string(
     object: &mut pdf_obj,
@@ -1000,39 +1001,41 @@ pub unsafe extern "C" fn pdf_set_string(
         (*data).string = 0 as *mut u8
     };
 }
+
 /* Name does *not* include the /. */
-pub unsafe fn pdf_new_name<K>(name: K) -> PdfObjRef
+pub fn pdf_new_name<K>(name: K) -> PdfObjRef
 where
     K: Into<Vec<u8>>,
 {
-    let result = pdf_new_obj(PdfObjType::NAME);
-    let data = new(::std::mem::size_of::<pdf_name>() as u32) as *mut pdf_name;
-    (*result).data = data as *mut libc::c_void;
-    let name = CString::new(name).unwrap();
-    if name.as_bytes().len() != 0 {
-        (*data).name = name.into_raw();
-    } else {
-        drop(name);
-        (*data).name = ptr::null_mut();
-    }
-    (*result).data = data as *mut libc::c_void;
-    result
+    safe_new_obj(PdfObjType::NAME, |object| {
+        let name = CString::new(name).unwrap();
+        let name = if name.as_bytes().len() > 0 {
+            name.into_raw()
+        } else {
+            ptr::null_mut()
+        };
+        let data = Box::new(pdf_name {
+            name,
+        });
+        object.data = Box::into_raw(data) as *mut libc::c_void;
+    })
 }
 
 pub unsafe fn pdf_copy_name(name: *const i8) -> PdfObjRef {
-    let result = pdf_new_obj(PdfObjType::NAME);
-    let data = new(::std::mem::size_of::<pdf_name>() as u32) as *mut pdf_name;
-    (*result).data = data as *mut libc::c_void;
-    let length = strlen(name);
-    if length != 0 {
-        let slice = std::slice::from_raw_parts(name as *const u8, length as _);
-        let name = CString::new(slice).unwrap();
-        (*data).name = name.into_raw();
-    } else {
-        (*data).name = 0 as *mut i8
-    }
-    (*result).data = data as *mut libc::c_void;
-    result
+    safe_new_obj(PdfObjType::NAME, |object| {
+        let length = strlen(name);
+        let name = if length != 0 {
+            let slice = std::slice::from_raw_parts(name as *const u8, length as _);
+            let name = CString::new(slice).unwrap();
+            name.into_raw()
+        } else {
+            ptr::null_mut()
+        };
+        let data = Box::new(pdf_name {
+            name,
+        });
+        object.data = Box::into_raw(data) as *mut libc::c_void;
+    })
 }
 
 unsafe fn write_name(mut name: *mut pdf_name, handle: &mut OutputHandleWrapper) {
@@ -1071,12 +1074,14 @@ unsafe fn write_name(mut name: *mut pdf_name, handle: &mut OutputHandleWrapper) 
         }
     }
 }
-unsafe fn release_name(mut data: *mut pdf_name) {
-    if !(*data).name.is_null() {
+
+unsafe fn release_name(data: *mut pdf_name) {
+    let boxed = Box::from_raw(data);
+    if !boxed.name.is_null() {
         let _ = CString::from_raw((*data).name);
     }
-    free(data as *mut libc::c_void);
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn pdf_name_value<'a>(object: &'a pdf_obj) -> &'a CStr {
     assert!(object.is_name());
