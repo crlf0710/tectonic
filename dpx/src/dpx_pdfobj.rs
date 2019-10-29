@@ -638,15 +638,15 @@ unsafe fn pdf_out_white(handle: &mut OutputHandleWrapper) {
     };
 }
 unsafe fn pdf_new_obj(typ: PdfObjType) -> *mut pdf_obj {
-    let result =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_obj>() as u64) as u32) as *mut pdf_obj;
-    (*result).typ = typ as i32;
-    (*result).data = 0 as *mut libc::c_void;
-    (*result).label = 0_u32;
-    (*result).generation = 0_u16;
-    (*result).refcount = 1_u32;
-    (*result).flags = 0i32;
-    result
+    let boxed = Box::new(pdf_obj {
+        typ: typ as i32,
+        data: ptr::null_mut(),
+        label: 0,
+        generation: 0,
+        refcount: 1,
+        flags: 0i32,
+    });
+    Box::into_raw(boxed)
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_obj_typeof(object: *mut pdf_obj) -> PdfObjType {
@@ -2414,91 +2414,97 @@ unsafe fn pdf_add_stream_flate_filtered(
     }
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) -> i32 {
-    let mut error: i32 = 0i32;
-    if !(!dst.is_null() && (*dst).is_stream())
-        || !(!src.is_null() && (*src).is_stream())
-    {
-        panic!("Invalid type.");
+impl PdfStream {
+    unsafe fn concat(&mut self, src: &mut Self) -> i32 {
+        let mut error: i32 = 0i32;
+        let src_dict = src.get_dict_mut();
+        let mut filter = pdf_lookup_dict(src_dict, "Filter").unwrap_or(ptr::null_mut());
+        if filter.is_null() {
+            self.append(&src.stream);
+        } else {
+            #[cfg(feature = "libz-sys")]
+            {
+                let mut parms = decode_parms {
+                    predictor: 0,
+                    colors: 0,
+                    bits_per_component: 0,
+                    columns: 0,
+                };
+                let mut have_parms: libc::c_int = 0i32;
+                if pdf_lookup_dict(src_dict, "DecodeParms").is_some() {
+                    /* Dictionary or array */
+                    let mut tmp = pdf_deref_obj(pdf_lookup_dict(src_dict, "DecodeParms"));
+                    if !tmp.is_null() && (*tmp).is_array() {
+                        if pdf_array_length(&*tmp) > 1i32 as libc::c_uint {
+                            warn!("Unexpected size for DecodeParms array.");
+                            return -1i32;
+                        }
+                        tmp = pdf_deref_obj(Some(pdf_get_array(&mut *tmp, 0i32)))
+                    }
+                    if !(!tmp.is_null() && (*tmp).is_dict()) {
+                        warn!("PDF dict expected for DecodeParms...");
+                        return -1i32;
+                    }
+                    error = get_decode_parms(&mut parms, &mut *tmp);
+                    if error != 0 {
+                        panic!("Invalid value(s) in DecodeParms dictionary.");
+                    }
+                    have_parms = 1i32
+                }
+                if !filter.is_null() && (*filter).is_array() {
+                    if pdf_array_length(&*filter) > 1i32 as libc::c_uint {
+                        warn!("Multiple DecodeFilter not supported.");
+                        return -1i32;
+                    }
+                    filter = pdf_get_array(&mut *filter, 0i32)
+                }
+                if !filter.is_null() && (*filter).is_name() {
+                    let filter_name = pdf_name_value(&*filter).to_string_lossy();
+                    if filter_name == "FlateDecode" {
+                        if have_parms != 0 {
+                            error = pdf_add_stream_flate_filtered(
+                                self,
+                                &src.stream,
+                                &mut parms,
+                            );
+                        } else {
+                            error = pdf_add_stream_flate(self, &src.stream);
+                        }
+                    } else {
+                        warn!("DecodeFilter \"{}\" not supported.", filter_name,);
+                        error = -1i32
+                    }
+                } else {
+                    panic!("Broken PDF file?");
+                }
+            }
+        }
+        /* HAVE_ZLIB */
+        error
     }
+}
+
+pub unsafe fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) -> i32 {
     let dst = &mut *dst;
     let dst_stream = dst.get_stream_mut();
     let src = &mut *src;
-    let stream = src.get_stream_mut();
-    let stream_dict = stream.get_dict_mut();
-    let mut filter = pdf_lookup_dict(stream_dict, "Filter").unwrap_or(0 as *mut pdf_obj);
-    if filter.is_null() {
-        dst_stream.append(&stream.stream);
-    } else {
-        #[cfg(feature = "libz-sys")]
-        {
-            let mut parms = decode_parms {
-                predictor: 0,
-                colors: 0,
-                bits_per_component: 0,
-                columns: 0,
-            };
-            let mut have_parms: libc::c_int = 0i32;
-            if pdf_lookup_dict(stream_dict, "DecodeParms").is_some() {
-                /* Dictionary or array */
-                let mut tmp = pdf_deref_obj(pdf_lookup_dict(stream_dict, "DecodeParms"));
-                if !tmp.is_null() && (*tmp).is_array() {
-                    if pdf_array_length(&*tmp) > 1i32 as libc::c_uint {
-                        warn!("Unexpected size for DecodeParms array.");
-                        return -1i32;
-                    }
-                    tmp = pdf_deref_obj(Some(pdf_get_array(&mut *tmp, 0i32)))
-                }
-                if !(!tmp.is_null() && (*tmp).is_dict()) {
-                    warn!("PDF dict expected for DecodeParms...");
-                    return -1i32;
-                }
-                error = get_decode_parms(&mut parms, &mut *tmp);
-                if error != 0 {
-                    panic!("Invalid value(s) in DecodeParms dictionary.");
-                }
-                have_parms = 1i32
-            }
-            if !filter.is_null() && (*filter).is_array() {
-                if pdf_array_length(&*filter) > 1i32 as libc::c_uint {
-                    warn!("Multiple DecodeFilter not supported.");
-                    return -1i32;
-                }
-                filter = pdf_get_array(&mut *filter, 0i32)
-            }
-            if !filter.is_null() && (*filter).is_name() {
-                let filter_name = pdf_name_value(&*filter).to_string_lossy();
-                if filter_name == "FlateDecode" {
-                    if have_parms != 0 {
-                        error = pdf_add_stream_flate_filtered(
-                            dst_stream,
-                            &stream.stream,
-                            &mut parms,
-                        );
-                    } else {
-                        error = pdf_add_stream_flate(dst_stream, &stream.stream);
-                    }
-                } else {
-                    warn!("DecodeFilter \"{}\" not supported.", filter_name,);
-                    error = -1i32
-                }
-            } else {
-                panic!("Broken PDF file?");
-            }
-        }
-    }
-    /* HAVE_ZLIB */
-    error
+    let src_stream = src.get_stream_mut();
+    dst_stream.concat(src_stream)
 }
+
 unsafe fn pdf_stream_uncompress(src: &mut pdf_obj) -> *mut pdf_obj {
     let mut dst = pdf_new_stream(0i32);
-    assert!(src.is_stream());
-    pdf_merge_dict(pdf_stream_dict(&mut *dst), pdf_stream_dict(src));
-    pdf_remove_dict(pdf_stream_dict(&mut *dst), "Length");
-    pdf_concat_stream(dst, src);
+    let dst_obj = &mut *dst;
+    let dst_stream = dst_obj.get_stream_mut();
+    let src_stream = src.get_stream_mut();
+    let dst_dict = dst_stream.get_dict_mut();
+    let src_dict = src_stream.get_dict_mut();
+    pdf_merge_dict(dst_dict, src_dict);
+    pdf_remove_dict(dst_dict, "Length");
+    dst_stream.concat(src_stream);
     dst
 }
+
 unsafe fn pdf_write_obj(mut object: *mut pdf_obj, handle: &mut OutputHandleWrapper) {
     if object.is_null() {
         write_null(handle);
@@ -2542,30 +2548,32 @@ unsafe fn pdf_write_obj(mut object: *mut pdf_obj, handle: &mut OutputHandleWrapp
         _ => {}
     };
 }
+
 /* Write the object to the file */
-unsafe fn pdf_flush_obj(mut object: *mut pdf_obj, handle: &mut OutputHandleWrapper) {
+unsafe fn pdf_flush_obj(object: &mut pdf_obj, handle: &mut OutputHandleWrapper) {
     /*
      * Record file position
      */
     add_xref_entry(
-        (*object).label,
+        object.label,
         1_u8,
         pdf_output_file_position as u32,
-        (*object).generation,
+        object.generation,
     );
     let length = sprintf(
         format_buffer.as_mut_ptr() as *mut i8,
         b"%u %hu obj\n\x00" as *const u8 as *const i8,
-        (*object).label,
-        (*object).generation as i32,
+        object.label,
+        object.generation as i32,
     ) as usize;
-    enc_mode = doc_enc_mode as i32 != 0 && (*object).flags & 1i32 << 1i32 == 0;
-    pdf_enc_set_label((*object).label);
-    pdf_enc_set_generation((*object).generation as u32);
+    enc_mode = doc_enc_mode as i32 != 0 && object.flags & 1i32 << 1i32 == 0;
+    pdf_enc_set_label(object.label);
+    pdf_enc_set_generation(object.generation as u32);
     pdf_out(handle, &format_buffer[..length]);
-    pdf_write_obj(object, handle);
+    pdf_write_obj(object as *mut pdf_obj, handle);
     pdf_out(handle, b"\nendobj\n");
 }
+
 unsafe fn pdf_add_objstm(objstm: &mut pdf_obj, object: &mut pdf_obj) -> i32 {
     assert!(objstm.is_stream());
     let data = get_objstm_data(objstm);
@@ -2652,18 +2660,20 @@ pub unsafe extern "C" fn pdf_release_obj(mut object: *mut pdf_obj) {
     }
     (*object).refcount -= 1;
     if (*object).refcount == 0_u32 {
+        // We will let this drop
+        let mut boxed = Box::from_raw(object);
         /*
          * Nothing is using this object so it's okay to remove it.
          * Nonzero "label" means object needs to be written before it's destroyed.
          */
-        if (*object).label != 0 && pdf_output_handle.is_some() {
+        if boxed.label != 0 && pdf_output_handle.is_some() {
             if do_objstm == 0
-                || (*object).flags & 1i32 << 0i32 != 0
-                || doc_enc_mode as i32 != 0 && (*object).flags & 1i32 << 1i32 != 0
-                || (*object).generation as i32 != 0
+                || boxed.flags & 1i32 << 0i32 != 0
+                || doc_enc_mode as i32 != 0 && boxed.flags & 1i32 << 1i32 != 0
+                || boxed.generation as i32 != 0
             {
                 let handle = pdf_output_handle.as_mut().unwrap();
-                pdf_flush_obj(object, handle);
+                pdf_flush_obj(&mut boxed, handle);
             } else {
                 if current_objstm.is_null() {
                     let mut data: *mut i32 = new(((2i32 * 200i32 + 2i32) as u32 as u64)
@@ -2676,43 +2686,42 @@ pub unsafe extern "C" fn pdf_release_obj(mut object: *mut pdf_obj) {
                     set_objstm_data(&mut *current_objstm, data);
                     pdf_label_obj(current_objstm);
                 }
-                if pdf_add_objstm(&mut *current_objstm, &mut *object) == 200i32 {
+                if pdf_add_objstm(&mut *current_objstm, &mut boxed) == 200i32 {
                     release_objstm(current_objstm);
                     current_objstm = 0 as *mut pdf_obj
                 }
             }
         }
-        match PdfObjType::from((*object).typ) {
+        match PdfObjType::from(boxed.typ) {
             PdfObjType::BOOLEAN => {
-                release_boolean((*object).data as *mut pdf_obj);
+                release_boolean(boxed.data as *mut pdf_obj);
             }
             PdfObjType::NUMBER => {
-                release_number((*object).data as *mut pdf_number);
+                release_number(boxed.data as *mut pdf_number);
             }
             PdfObjType::STRING => {
-                release_string((*object).data as *mut pdf_string);
+                release_string(boxed.data as *mut pdf_string);
             }
             PdfObjType::NAME => {
-                release_name((*object).data as *mut pdf_name);
+                release_name(boxed.data as *mut pdf_name);
             }
             PdfObjType::ARRAY => {
-                let _ = Box::from_raw((*object).data as *mut PdfArray);
+                let _ = Box::from_raw(boxed.data as *mut PdfArray);
             }
             PdfObjType::DICT => {
-                release_dict((*object).data as *mut pdf_dict);
+                release_dict(boxed.data as *mut pdf_dict);
             }
             PdfObjType::STREAM => {
-                let _ = Box::from_raw((*object).data as *mut PdfStream);
+                let _ = Box::from_raw(boxed.data as *mut PdfStream);
             }
             PdfObjType::INDIRECT => {
-                release_indirect((*object).data as *mut pdf_indirect);
+                release_indirect(boxed.data as *mut pdf_indirect);
             }
             PdfObjType::NULL | _ => {}
         }
         /* This might help detect freeing already freed objects */
-        (*object).typ = -1i32;
-        (*object).data = 0 as *mut libc::c_void;
-        free(object as *mut libc::c_void);
+        boxed.typ = -1i32;
+        boxed.data = ptr::null_mut();
     };
 }
 /* PDF reading starts around here */
@@ -2955,6 +2964,7 @@ unsafe fn pdf_read_object(
     free(buffer as *mut libc::c_void);
     result
 }
+
 unsafe fn read_objstm(mut pf: *mut pdf_file, mut num: u32) -> *mut pdf_obj {
     let mut current_block: u64;
     let mut offset: u32 = (*(*pf).xref_table.offset(num as isize)).field2;
