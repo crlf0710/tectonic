@@ -37,7 +37,7 @@ use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_new_name, pdf_deref_obj, pdf_file,
     pdf_lookup_dict, pdf_merge_dict, pdf_name_value, pdf_new_array, pdf_new_boolean, pdf_new_dict,
     pdf_new_indirect, pdf_new_null, pdf_new_number, pdf_new_stream, pdf_new_string,
-    pdf_number_value, pdf_obj, pdf_release_obj, pdf_stream_dict,
+    pdf_number_value, pdf_obj, pdf_release_obj, pdf_stream_dict, STREAM_COMPRESS,
 };
 use crate::specials::spc_lookup_reference;
 use libc::{memcpy};
@@ -499,7 +499,7 @@ impl ParsePdfObj for &[u8] {
          */
         let mut filters = unsafe { pdf_lookup_dict(&mut *dict, "Filter") };
         let result = if filters.is_none() && stream_length > 10 {
-            unsafe { pdf_new_stream(1 << 0) }
+            unsafe { pdf_new_stream(STREAM_COMPRESS) }
         } else {
             unsafe { pdf_new_stream(0) }
         };

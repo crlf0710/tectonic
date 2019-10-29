@@ -38,7 +38,7 @@ use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_get_version, pdf_new_array, pdf_new_dict,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_dict, pdf_stream_set_predictor,
+    pdf_release_obj, pdf_stream_dict, pdf_stream_set_predictor, STREAM_COMPRESS,
 };
 use crate::{ttstub_input_read};
 use libc::free;
@@ -189,7 +189,7 @@ pub unsafe extern "C" fn png_include_image(
     if yppm > 0_u32 {
         info.ydensity = 72.0f64 / 0.0254f64 / yppm as f64
     }
-    let stream = pdf_new_stream(1i32 << 0i32);
+    let stream = pdf_new_stream(STREAM_COMPRESS);
     let stream_dict = pdf_stream_dict(&mut *stream);
     let stream_data_ptr = new((rowbytes.wrapping_mul(height) as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
@@ -335,7 +335,7 @@ pub unsafe extern "C" fn png_include_image(
                      * application programs that only want PDF document global XMP metadata
                      * and scan for that.
                      */
-                    let XMP_stream = pdf_new_stream(1i32 << 0i32);
+                    let XMP_stream = pdf_new_stream(STREAM_COMPRESS);
                     let XMP_stream_dict = pdf_stream_dict(&mut *XMP_stream);
                     pdf_add_dict(XMP_stream_dict, "Type", pdf_new_name("Metadata"));
                     pdf_add_dict(XMP_stream_dict, "Subtype", pdf_new_name("XML"));
@@ -984,7 +984,7 @@ unsafe fn create_soft_mask(
         );
         return 0 as *mut pdf_obj;
     }
-    let smask = pdf_new_stream(1i32 << 0i32);
+    let smask = pdf_new_stream(STREAM_COMPRESS);
     let dict = pdf_stream_dict(&mut *smask);
     let smask_data_ptr = new((width.wrapping_mul(height) as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
@@ -1047,7 +1047,7 @@ unsafe fn strip_soft_mask(
             return 0 as *mut pdf_obj;
         }
     }
-    let smask = pdf_new_stream(1i32 << 0i32);
+    let smask = pdf_new_stream(STREAM_COMPRESS);
     let dict = pdf_stream_dict(&mut *smask);
     pdf_add_dict(dict, "Type", pdf_new_name("XObject"));
     pdf_add_dict(dict, "Subtype", pdf_new_name("Image"));

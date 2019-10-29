@@ -33,7 +33,7 @@ use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_new_array, pdf_new_name, pdf_new_number,
     pdf_new_stream, pdf_new_string, pdf_release_obj, pdf_stream_dict,
-    pdf_stream_set_predictor,
+    pdf_stream_set_predictor, STREAM_COMPRESS,
 };
 use crate::warn;
 use crate::{ttstub_input_read};
@@ -190,7 +190,7 @@ pub unsafe extern "C" fn bmp_include_image(
         return -1i32;
     }
     /* Start reading raster data */
-    let stream = pdf_new_stream(1i32 << 0i32);
+    let stream = pdf_new_stream(STREAM_COMPRESS);
     let stream_dict = pdf_stream_dict(&mut *stream);
     /* Color space: Indexed or DeviceRGB */
     if (hdr.bit_count as i32) < 24i32 {

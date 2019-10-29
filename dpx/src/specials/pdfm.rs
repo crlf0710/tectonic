@@ -68,7 +68,7 @@ use crate::dpx_pdfobj::{
     pdf_foreach_dict, pdf_get_array, pdf_link_obj, pdf_lookup_dict, pdf_merge_dict, pdf_name_value,
     pdf_new_array, pdf_new_dict, pdf_new_stream, pdf_number_value, pdf_obj, pdf_obj_typeof,
     pdf_release_obj, pdf_remove_dict, pdf_set_string, pdf_stream_dict, pdf_string_length,
-    pdf_string_value, PdfObjType,
+    pdf_string_value, PdfObjType, STREAM_COMPRESS,
 };
 use crate::dpx_pdfparse::{
     ParseIdent, ParsePdfObj, SkipWhite,
@@ -1399,7 +1399,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                 return -1i32;
             }
             let mut handle = handle.unwrap();
-            fstream = pdf_new_stream(1i32 << 0i32);
+            fstream = pdf_new_stream(STREAM_COMPRESS);
             loop {
                 let nb_read = handle.read(&mut WORK_BUFFER[..]).unwrap();
                 if !(nb_read > 0) { // TODO: check
@@ -1415,7 +1415,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
             free(fullname as *mut libc::c_void);
         }
         0 => {
-            fstream = pdf_new_stream(1i32 << 0i32);
+            fstream = pdf_new_stream(STREAM_COMPRESS);
             if !instring.is_null() {
                 pdf_add_stream(
                     &mut *fstream,

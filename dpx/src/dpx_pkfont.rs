@@ -44,7 +44,7 @@ use super::dpx_pdffont::{
 use super::dpx_tfm::{tfm_get_design_size, tfm_open};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_copy_name, pdf_new_array, pdf_new_dict,
-    pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use libc::{fclose, fgetc, fopen, fread, free, memset};
@@ -487,7 +487,7 @@ unsafe fn create_pk_CharProc_stream(
     let lly = ((*pkh).bm_voff as u32).wrapping_sub((*pkh).bm_ht) as i32;
     let urx = (*pkh).bm_wd.wrapping_sub((*pkh).bm_hoff as u32) as i32;
     let ury = (*pkh).bm_voff;
-    let stream = pdf_new_stream(1i32 << 0i32); /* charproc */
+    let stream = pdf_new_stream(STREAM_COMPRESS); /* charproc */
     /*
      * The following line is a "metric" for the PDF reader:
      *

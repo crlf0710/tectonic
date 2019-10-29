@@ -47,7 +47,7 @@ use crate::dpx_pdfobj::{
     pdf_get_array, pdf_get_version, pdf_import_object, pdf_lookup_dict, pdf_new_array,
     /*pdf_new_dict, */pdf_new_name, pdf_new_number, pdf_new_stream,/* pdf_number_value, */pdf_obj,
     /*pdf_obj_typeof, */pdf_open, pdf_release_obj,/* pdf_stream_dataptr,*/ pdf_stream_dict,
-   /* pdf_stream_length, PdfObjType,*/
+   /* pdf_stream_length, PdfObjType,*/ STREAM_COMPRESS,
 };
 /*use crate::dpx_pdfparse::{parse_ident, parse_pdf_array};
 use crate::streq_ptr;
@@ -496,7 +496,7 @@ pub unsafe extern "C" fn pdf_include_page(
          * Concatenate all content streams.
          */
         let mut len: i32 = pdf_array_length(&*contents) as i32;
-        content_new = pdf_new_stream(1i32 << 0i32);
+        content_new = pdf_new_stream(STREAM_COMPRESS);
         for idx in 0..len {
             let mut content_seg: *mut pdf_obj =
                 pdf_deref_obj(Some(pdf_get_array(&mut *contents, idx)));
