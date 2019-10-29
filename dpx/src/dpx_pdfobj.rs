@@ -160,15 +160,15 @@ impl pdf_obj {
         PdfObjType::from(self.typ) == PdfObjType::DICT
     }
 
-    pub fn get_dict_mut(&self) -> &mut pdf_dict {
+    pub fn get_dict_mut(&self) -> &mut PdfDict {
         assert!(self.is_dict());
-        let data = self.data as *mut pdf_dict;
+        let data = self.data as *mut PdfDict;
         unsafe { &mut *data }
     }
 
-    pub fn get_dict(&self) -> &pdf_dict {
+    pub fn get_dict(&self) -> &PdfDict {
         assert!(self.is_dict());
-        let data = self.data as *const pdf_dict;
+        let data = self.data as *const PdfDict;
         unsafe { &*data }
     }
 
@@ -226,11 +226,11 @@ use indexmap::IndexMap;
 
 #[derive(Clone)]
 #[repr(C)]
-pub struct pdf_dict {
+pub struct PdfDict {
     inner: IndexMap<PdfName, PdfObjRef>,
 }
 
-impl pdf_dict {
+impl PdfDict {
     fn foreach_dict<F>(&mut self, f: F, pdata: *mut libc::c_void) -> i32
     where
         F : Fn(&PdfName, PdfObjRef, *mut libc::c_void) -> i32
@@ -474,7 +474,7 @@ unsafe fn dump_trailer_dict() {
     let handle = pdf_output_handle.as_mut().unwrap();
     pdf_out(handle, b"trailer\n");
     enc_mode = false;
-    write_dict(&*((*trailer_dict).data as *mut pdf_dict), handle);
+    write_dict(&*((*trailer_dict).data as *mut PdfDict), handle);
     pdf_release_obj(trailer_dict);
     pdf_out_char(handle, b'\n');
 }
@@ -1171,7 +1171,7 @@ fn pdf_unshift_array(array: &mut pdf_obj, mut object: PdfObjRef) {
     array.get_array_mut().values.insert(0, object);
 }
 
-unsafe fn write_dict(dict: &pdf_dict, handle: &mut OutputHandleWrapper) {
+unsafe fn write_dict(dict: &PdfDict, handle: &mut OutputHandleWrapper) {
     pdf_out(handle, b"<<");
     for (k, &v) in dict.inner.iter() {
         write_name(k, handle);
@@ -1185,14 +1185,14 @@ unsafe fn write_dict(dict: &pdf_dict, handle: &mut OutputHandleWrapper) {
 
 pub fn pdf_new_dict() -> PdfObjRef {
     safe_new_obj(PdfObjType::DICT, |object| {
-        let boxed = Box::new(pdf_dict {
+        let boxed = Box::new(PdfDict {
             inner: IndexMap::new(),
         });
         object.data = Box::into_raw(boxed) as *mut libc::c_void;
     })
 }
 
-unsafe fn release_dict(mut data: *mut pdf_dict) {
+unsafe fn release_dict(mut data: *mut PdfDict) {
     let mut boxed = Box::from_raw(data);
     for (_k, v) in boxed.inner.drain(..) {
         unsafe {
@@ -1287,7 +1287,7 @@ impl PdfStream {
         PdfStream {
             /*
              * Although we are using an arbitrary pdf_object here, it must have
-             * type=PDF_DICT and cannot be an indirect reference.  This will be
+             * type=PdfDict and cannot be an indirect reference.  This will be
              * checked by the output routine.
              */
             dict: pdf_new_dict(),
@@ -2505,7 +2505,7 @@ unsafe fn pdf_write_obj(mut object: PdfObjRef, handle: &mut OutputHandleWrapper)
             write_array((*object).data as *mut PdfArray, handle);
         }
         PdfObjType::DICT => {
-            write_dict(&*((*object).data as *mut pdf_dict), handle);
+            write_dict(&*((*object).data as *mut PdfDict), handle);
         }
         PdfObjType::STREAM => {
             write_stream((*object).data as *mut PdfStream, handle);
@@ -2681,7 +2681,7 @@ pub unsafe extern "C" fn pdf_release_obj(mut object: PdfObjRef) {
                 let _ = Box::from_raw(boxed.data as *mut PdfArray);
             }
             PdfObjType::DICT => {
-                release_dict(boxed.data as *mut pdf_dict);
+                release_dict(boxed.data as *mut PdfDict);
             }
             PdfObjType::STREAM => {
                 let _ = Box::from_raw(boxed.data as *mut PdfStream);
