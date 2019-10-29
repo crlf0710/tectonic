@@ -58,7 +58,7 @@ use crate::TTInputFormat;
 
 use bridge::InputHandleWrapper;
 
-use super::dpx_pdfdev::{Coord, Rect, TMatrix, transform_info};
+use super::dpx_pdfdev::{transform_info, Coord, Rect, TMatrix};
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub struct ximage_info {
@@ -219,7 +219,7 @@ unsafe fn source_image_type(handle: &mut InputHandleWrapper) -> i32 {
         2
     } else if check_for_bmp(handle) != 0 {
         6
-    } else if check_for_pdf(handle) != 0 {
+    } else if check_for_pdf(handle) != false {
         0
     } else if check_for_ps(handle) != 0 {
         5
@@ -300,7 +300,7 @@ unsafe fn load_image(
             if png_include_image(I, &mut handle) < 0 {
                 pdf_clean_ximage_struct(I);
                 return -1;
-            } 
+            }
             ttstub_input_close(handle);
         }
         6 => {
@@ -320,7 +320,7 @@ unsafe fn load_image(
             }
             let mut result: i32 = pdf_include_page(I, handle.clone(), fullname, options);
             /* Tectonic: this used to try ps_include_page() */
-            if result != 0{
+            if result != 0 {
                 pdf_clean_ximage_struct(I);
                 return -1;
             }

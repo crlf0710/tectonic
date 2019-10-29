@@ -31,7 +31,7 @@ use crate::DisplayExt;
 use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom, Write};
 
-use crate::dpx_pdfparse::{parse_number, parse_pdf_object, parse_unsigned, SkipWhite, ParsePdfObj};
+use crate::dpx_pdfparse::{parse_number, parse_pdf_object, parse_unsigned, ParsePdfObj, SkipWhite};
 use crate::mfree;
 use crate::strstartswith;
 use crate::{info, warn};
@@ -44,11 +44,10 @@ use super::dpx_mfileio::{tt_mfgets, work_buffer, work_buffer_u8 as WORK_BUFFER};
 use super::dpx_pdfdev::pdf_sprint_number;
 use super::dpx_pdfencrypt::{pdf_enc_set_generation, pdf_enc_set_label, pdf_encrypt_data};
 use super::dpx_pdfparse::skip_white;
-use crate::shims::{sprintf, sscanf};
+use crate::shims::sprintf;
 use crate::{
-    ttstub_input_get_size, ttstub_input_getc, ttstub_input_read,
-    ttstub_input_ungetc, ttstub_output_close, ttstub_output_open, ttstub_output_open_stdout,
-    ttstub_output_putc,
+    ttstub_input_get_size, ttstub_input_getc, ttstub_input_read, ttstub_input_ungetc,
+    ttstub_output_close, ttstub_output_open, ttstub_output_open_stdout, ttstub_output_putc,
 };
 use bridge::_tt_abort;
 use libc::{atof, atoi, free, memcmp, memset, strlen, strtoul};
@@ -3787,10 +3786,9 @@ pub unsafe fn pdf_open(
     if !pf.is_null() {
         (*pf).handle = handle
     } else {
-        let mut version: u32 = 0_u32;
-        let mut r: i32 = parse_pdf_version(&mut handle, &mut version);
-        if r < 0i32 || version < 1_u32 || version > pdf_version {
-            warn!("pdf_open: Not a PDF 1.[1-{}] file.", pdf_version,);
+        let version = parse_pdf_version(&mut handle).unwrap_or(0);
+        if version < 1 || version > pdf_version {
+            warn!("pdf_open: Not a PDF 1.[1-{}] file.", pdf_version);
             /*
               Try to embed the PDF image, even if the PDF version is newer than
               the setting.
@@ -3815,13 +3813,16 @@ pub unsafe fn pdf_open(
         let new_version = pdf_deref_obj((*(*pf).catalog).as_dict_mut().get_mut("Version"));
         if !new_version.is_null() {
             let mut minor: u32 = 0;
-            if !(!new_version.is_null() && (*new_version).is_name())
-                || sscanf(
-                    pdf_name_value(&*new_version).as_ptr(),
-                    b"1.%u\x00" as *const u8 as *const i8,
-                    &mut minor as *mut u32,
-                ) != 1i32
-            {
+            if (&*new_version).is_name() {
+                let new_version_str = pdf_name_value(&*new_version).to_bytes();
+                if new_version_str.starts_with(b"1.") {
+                    minor = std::str::from_utf8(&new_version_str[2..])
+                        .unwrap_or("")
+                        .parse::<u32>()
+                        .unwrap_or(0)
+                }
+            }
+            if minor == 0 {
                 pdf_release_obj(new_version);
                 warn!("Illegal Version entry in document catalog. Broken PDF file?");
                 return error(pf);
@@ -3858,50 +3859,48 @@ pub unsafe fn pdf_files_close() {
     ht_clear_table(pdf_files);
     free(pdf_files as *mut libc::c_void);
 }
-/* Internal static routines */
-unsafe fn parse_pdf_version(handle: &mut InputHandleWrapper, mut ret_version: *mut u32) -> i32 {
-    let mut buffer: [i8; 10] = *::std::mem::transmute::<&[u8; 10], &mut [i8; 10]>(
-        b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-    );
-    let mut minor: u32 = 0;
+
+fn parse_pdf_version(handle: &mut InputHandleWrapper) -> Result<u32, ()> {
     handle.seek(SeekFrom::Start(0)).unwrap();
-    if ttstub_input_read(
-        handle.0.as_ptr(),
-        buffer.as_mut_ptr(),
-        (::std::mem::size_of::<[i8; 10]>() as u64).wrapping_sub(1i32 as u64),
-    ) as u64
-        != (::std::mem::size_of::<[i8; 10]>() as u64).wrapping_sub(1i32 as u64)
-    {
-        return -1i32;
+
+    let mut buffer_ = [0u8; 32];
+    handle.read_exact(&mut buffer_).map_err(|_| ())?;
+
+    let line = buffer_
+        .split(|&c| c == b'\r' || c == b'\n')
+        .next()
+        .ok_or(())?;
+
+    let buffer = std::str::from_utf8(line)
+        .map_err(|_| ())?
+        .trim_end()
+        .to_string();
+
+    if !buffer.starts_with("%PDF-1.") {
+        return Err(());
     }
-    if sscanf(
-        buffer.as_mut_ptr(),
-        b"%%PDF-1.%u\x00" as *const u8 as *const i8,
-        &mut minor as *mut u32,
-    ) != 1i32
-    {
-        return -1i32;
-    }
-    *ret_version = minor;
-    0i32
+
+    buffer["%PDF-1.".len()..].parse::<u32>().map_err(|_| ())
 }
 
-pub unsafe fn check_for_pdf(handle: &mut InputHandleWrapper) -> i32 {
-    let mut version: u32 = 0;
-    let r = parse_pdf_version(handle, &mut version);
-    if r < 0i32 {
-        /* not a PDF file */
-        return 0i32;
+#[no_mangle]
+pub unsafe extern "C" fn check_for_pdf(handle: &mut InputHandleWrapper) -> bool {
+    match parse_pdf_version(handle) {
+        Ok(version) => {
+            if version <= pdf_version {
+                true
+            } else {
+                warn!(
+                    "Version of PDF file (1.{}) is newer than version limit specification.",
+                    version
+                );
+                true
+            }
+        }
+        Err(_) => false,
     }
-    if version <= pdf_version {
-        return 1i32;
-    }
-    warn!(
-        "Version of PDF file (1.{}) is newer than version limit specification.",
-        version
-    );
-    1i32
 }
+
 #[inline]
 unsafe fn import_dict(
     mut key: *mut pdf_obj,
