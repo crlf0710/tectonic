@@ -2143,83 +2143,72 @@ unsafe fn filter_row_TIFF2(
  */
 #[cfg(feature = "libz-sys")]
 unsafe fn filter_decoded(
-    mut dst: *mut pdf_obj,
-    mut src: *const libc::c_void,
-    mut srclen: libc::c_int,
+    dst_stream: &mut PdfStream,
+    src_stream: &PdfStream,
     parms: &mut decode_parms,
 ) -> libc::c_int {
-    let mut p: *const libc::c_uchar = src as *const libc::c_uchar; /* Just copy */
-    let mut endptr: *const libc::c_uchar = p.offset(srclen as isize);
-    let mut bits_per_pixel: libc::c_int = parms.colors * parms.bits_per_component;
-    let mut bytes_per_pixel: libc::c_int = (bits_per_pixel + 7i32) / 8i32;
-    let mut length: libc::c_int = (parms.columns * bits_per_pixel + 7i32) / 8i32;
-    let mut error: libc::c_int = 0i32;
-    let prev = new(
-        (length as u32 as u64).wrapping_mul(::std::mem::size_of::<libc::c_uchar>() as u64) as u32,
-    ) as *mut libc::c_uchar;
-    let buf = new(
-        (length as u32 as u64).wrapping_mul(::std::mem::size_of::<libc::c_uchar>() as u64) as u32,
-    ) as *mut libc::c_uchar;
-    memset(prev as *mut libc::c_void, 0i32, length as _);
+    let mut bits_per_pixel: i32 = parms.colors * parms.bits_per_component;
+    let mut bytes_per_pixel: i32 = (bits_per_pixel + 7i32) / 8i32;
+    let mut length: i32 = (parms.columns * bits_per_pixel + 7i32) / 8i32;
+    let mut len_usize = length as usize;
+    let mut error = 0i32;
+    let mut prev = vec![0u8; length as usize];
+    let mut buf = vec![0u8; length as usize];
     let mut current_block_77: u64;
     match parms.predictor {
         1 => {
             /* No prediction */
-            pdf_add_stream(&mut *dst, src, srclen);
-            current_block_77 = 6040267449472925966;
+            dst_stream.append(&src_stream.stream);
+            return error;
         }
         2 => {
+            let bytes_per_pixel = bytes_per_pixel as usize;
             /* TIFF Predictor 2 */
             if parms.bits_per_component == 8i32 {
-                while p.offset(length as isize) < endptr {
-                    /* Same as PNG Sub */
-                    /* bits per component 1, 2, 4 */
-                    for i in 0..length {
-                        let mut pv: libc::c_int = if i - bytes_per_pixel >= 0i32 {
-                            *buf.offset((i - bytes_per_pixel) as isize) as libc::c_int
+                let mut chunks = src_stream.stream.chunks_exact(len_usize);
+                while let Some(p) = chunks.next() {
+                    for i in 0..len_usize {
+                        let mut pixel_value: i32 = if i >= bytes_per_pixel {
+                            buf[(i - bytes_per_pixel) as usize] as i32
                         } else {
                             0i32
                         };
-                        *buf.offset(i as isize) =
-                            (*p.offset(i as isize) as libc::c_int + pv & 0xffi32) as libc::c_uchar;
+                        buf[i] = ((p[i] as i32) + pixel_value & 0xff) as u8;
                     }
-                    pdf_add_stream(&mut *dst, buf as *const libc::c_void, length);
-                    p = p.offset(length as isize)
+                    dst_stream.append(&buf[..len_usize]);
                 }
+                assert!(chunks.remainder().is_empty());
             } else if parms.bits_per_component == 16i32 {
-                while p.offset(length as isize) < endptr {
+                let mut chunks = src_stream.stream.chunks_exact(len_usize);
+                while let Some(p) = chunks.next() {
                     for i in (0..length).step_by(2) {
-                        let mut b: libc::c_int = i - bytes_per_pixel;
-                        let mut hi: i8 = (if b >= 0i32 {
-                            *buf.offset(b as isize) as libc::c_int
-                        } else {
-                            0i32
-                        }) as i8;
-                        let mut lo: i8 = (if b >= 0i32 {
-                            *buf.offset((b + 1i32) as isize) as libc::c_int
-                        } else {
-                            0i32
-                        }) as i8;
-                        let mut pv_0: libc::c_int = (hi as libc::c_int) << 8i32 | lo as libc::c_int;
-                        let mut cv: libc::c_int = (*p.offset(i as isize) as libc::c_int) << 8i32
-                            | *p.offset((i + 1i32) as isize) as libc::c_int;
-                        let mut c: libc::c_int = pv_0 + cv;
-                        *buf.offset(i as isize) = (c >> 8i32) as libc::c_uchar;
-                        *buf.offset((i + 1i32) as isize) = (c & 0xffi32) as libc::c_uchar;
+                        let b = (i - (bytes_per_pixel as i32)) as i32;
+                        let hi = if b >= 0 { buf[b as usize] as i32 } else { 0i32 };
+                        let lo = if b >= 0 { buf[(b as usize) + 1] as i32 } else { 0i32 };
+                        let pv_0 = hi << 8 | lo;
+                        let i = i as usize;
+                        let cv = (p[i] as i32) << 8 | p[i+1] as i32;
+                        let c = pv_0 + cv;
+                        buf[i] = (c >> 8) as u8;
+                        buf[i+1] = (c & 0xff) as u8;
                     }
-                    pdf_add_stream(&mut *dst, buf as *const libc::c_void, length);
-                    p = p.offset(length as isize)
+                    dst_stream.append(&buf[..len_usize]);
                 }
+                assert!(chunks.remainder().is_empty());
             } else {
-                while error == 0 && p.offset(length as isize) < endptr {
-                    error = filter_row_TIFF2(buf, p, parms);
+                let mut chunks = src_stream.stream.chunks_exact(len_usize);
+                while let Some(p) = chunks.next() {
+                    if error != 0 {
+                        break;
+                    }
+                    error = filter_row_TIFF2(buf.as_mut_ptr(), p.as_ptr(), parms);
                     if error == 0 {
-                        pdf_add_stream(&mut *dst, buf as *const libc::c_void, length);
-                        p = p.offset(length as isize)
+                        dst_stream.append(&buf[..(length as usize)]);
                     }
                 }
+                assert!(chunks.remainder().is_empty());
             }
-            current_block_77 = 6040267449472925966;
+            return error;
         }
         10 => {
             /* PNG None */
@@ -2240,7 +2229,7 @@ unsafe fn filter_decoded(
         _ => {
             warn!("Unknown Predictor type value :{}", parms.predictor,);
             error = -1i32;
-            current_block_77 = 6040267449472925966;
+            return error;
         }
     }
     match current_block_77 {
@@ -2272,92 +2261,81 @@ unsafe fn filter_decoded(
         /* PNG Paeth on all rows */
         /* PNG optimun: prediction algorithm can change from line to line. */
         {
-            let mut typ: libc::c_int = parms.predictor - 10i32;
-            while error == 0 && p.offset(length as isize) < endptr {
-                if parms.predictor == 15i32 {
-                    typ = *p as libc::c_int
-                } else if *p as libc::c_int != typ {
-                    warn!("Mismatched Predictor type in data stream.",);
-                    error = -1i32
+            let mut typ = parms.predictor - 10i32;
+            let mut chunks = src_stream.stream.chunks_exact(len_usize);
+            let bytes_per_pixel = bytes_per_pixel as usize;
+            while let Some(mut p) = chunks.next() {
+                if error != 0 {
+                    break;
                 }
-                p = p.offset(1);
+                if parms.predictor == 15i32 {
+                    typ = p[0] as i32;
+                } else if (p[0] as i32) != typ {
+                    warn!("Mismatched Predictor type in data stream.",);
+                    error = -1i32;
+                }
+                p = &p[1..];
                 match typ {
                     0 => {
                         /* Do nothing just skip first byte */
-                        libc::memcpy(
-                            buf as *mut libc::c_void,
-                            p as *const libc::c_void,
-                            length as usize,
-                        ); /* left */
+                        buf[..len_usize].copy_from_slice(&p[..len_usize]);
                     }
                     1 => {
                         /* above */
-                        for i in 0..length {
-                            let mut pv_1: libc::c_int = if i - bytes_per_pixel >= 0i32 {
-                                *buf.offset((i - bytes_per_pixel) as isize) as libc::c_int
+                        for i in 0..len_usize {
+                            let mut pv_1 = if i >= bytes_per_pixel {
+                                buf[i - bytes_per_pixel] as i32
                             } else {
                                 0i32
                             }; /* upper left */
-                            *buf.offset(i as isize) = (*p.offset(i as isize) as libc::c_int + pv_1
-                                & 0xffi32)
-                                as libc::c_uchar; /* highly inefficient */
+                            buf[i] = (p[i] as i32 + pv_1 & 0xff) as u8; /* highly inefficient */
                         }
                     }
                     2 => {
-                        for i in 0..length {
-                            *buf.offset(i as isize) = (*p.offset(i as isize) as libc::c_int
-                                + *prev.offset(i as isize) as libc::c_int
-                                & 0xffi32)
-                                as libc::c_uchar;
+                        for i in 0..len_usize {
+                            buf[i] = ((p[i] as i32 + prev[i] as i32) & 0xff) as u8;
                         }
                     }
                     3 => {
-                        for i in 0..length {
-                            let mut up: libc::c_int = *prev.offset(i as isize) as libc::c_int;
-                            let mut left: libc::c_int = if i - bytes_per_pixel >= 0i32 {
-                                *buf.offset((i - bytes_per_pixel) as isize) as libc::c_int
+                        for i in 0..len_usize {
+                            let up = prev[i] as i32;
+                            let left = if i >= bytes_per_pixel {
+                                buf[i - bytes_per_pixel] as i32
                             } else {
                                 0i32
                             };
-                            let mut tmp: libc::c_int =
-                                (((up + left) / 2i32) as f64).floor() as libc::c_int;
-                            *buf.offset(i as isize) = (*p.offset(i as isize) as libc::c_int + tmp
-                                & 0xffi32)
-                                as libc::c_uchar;
+                            let tmp = (up + left) / 2;
+                            // XXX: the following line does nothing, was in original
+                            let tmp = (tmp as f64).floor() as i32;
+                            buf[i] = (p[i] as i32 + tmp & 0xff) as u8;
                         }
                     }
                     4 => {
-                        for i in 0..length {
-                            let mut a: libc::c_int = if i - bytes_per_pixel >= 0i32 {
-                                *buf.offset((i - bytes_per_pixel) as isize) as libc::c_int
+                        for i in 0..len_usize {
+                            let a = if i >= bytes_per_pixel {
+                                buf[i - bytes_per_pixel] as i32
                             } else {
                                 0i32
                             };
-                            let mut b_0: libc::c_int = *prev.offset(i as isize) as libc::c_int;
-                            let mut c_0: libc::c_int = if i - bytes_per_pixel >= 0i32 {
-                                *prev.offset((i - bytes_per_pixel) as isize) as libc::c_int
+                            let b_0 = prev[i] as i32;
+                            let c_0 = if i >= bytes_per_pixel {
+                                prev[i - bytes_per_pixel] as i32
                             } else {
                                 0i32
                             };
-                            let mut q: libc::c_int = a + b_0 - c_0;
-                            let mut qa: libc::c_int = q - a;
-                            let mut qb: libc::c_int = q - b_0;
-                            let mut qc: libc::c_int = q - c_0;
-                            qa = if qa < 0i32 { -qa } else { qa };
-                            qb = if qb < 0i32 { -qb } else { qb };
-                            qc = if qc < 0i32 { -qc } else { qc };
+                            let q = a + b_0 - c_0;
+                            let mut qa = q - a;
+                            let mut qb = q - b_0;
+                            let mut qc = q - c_0;
+                            qa = if qa < 0 { -qa } else { qa };
+                            qb = if qb < 0 { -qb } else { qb };
+                            qc = if qc < 0 { -qc } else { qc };
                             if qa <= qb && qa <= qc {
-                                *buf.offset(i as isize) = (*p.offset(i as isize) as libc::c_int + a
-                                    & 0xffi32)
-                                    as libc::c_uchar
+                                buf[i] = (p[i] as i32 + a & 0xff) as u8;
                             } else if qb <= qc {
-                                *buf.offset(i as isize) =
-                                    (*p.offset(i as isize) as libc::c_int + b_0 & 0xffi32)
-                                        as libc::c_uchar
+                                buf[i] = (p[i] as i32 + b_0 & 0xff) as u8;
                             } else {
-                                *buf.offset(i as isize) =
-                                    (*p.offset(i as isize) as libc::c_int + c_0 & 0xffi32)
-                                        as libc::c_uchar
+                                buf[i] = (p[i] as i32 + c_0 & 0xff) as u8;
                             }
                         }
                     }
@@ -2367,22 +2345,17 @@ unsafe fn filter_decoded(
                     }
                 }
                 if error == 0 {
-                    pdf_add_stream(&mut *dst, buf as *const libc::c_void, length);
-                    libc::memcpy(
-                        prev as *mut libc::c_void,
-                        buf as *const libc::c_void,
-                        length as usize,
-                    );
-                    p = p.offset(length as isize)
+                    dst_stream.append(&buf[..len_usize]);
+                    prev[..len_usize].copy_from_slice(&buf[..len_usize]);
                 }
             }
+            assert!(chunks.remainder().is_empty());
         }
         _ => {}
     }
-    free(prev as *mut libc::c_void);
-    free(buf as *mut libc::c_void);
     error
 }
+
 #[cfg(feature = "libz-sys")]
 unsafe fn pdf_add_stream_flate_filtered(
     dst_stream: &mut PdfStream,
@@ -2410,7 +2383,7 @@ unsafe fn pdf_add_stream_flate_filtered(
         return -1i32;
     }
     let tmp = pdf_new_stream(0i32);
-    let tmp_stream = tmp.get_stream_mut();
+    let tmp_stream = (&mut *tmp).get_stream_mut();
     loop {
         let status = libz::inflate(&mut z, 0i32);
         if status == 1i32 {
@@ -2431,8 +2404,8 @@ unsafe fn pdf_add_stream_flate_filtered(
         let remain = &wbuf[..(WBUF_SIZE - (z.avail_out as usize))];
         tmp_stream.append(remain);
     }
+    let error = filter_decoded(dst_stream, tmp_stream, parms);
     drop(tmp_stream);
-    let error = filter_decoded(dst, pdf_stream_dataptr(&*tmp), pdf_stream_length(&*tmp), parms);
     pdf_release_obj(tmp);
     if error == 0 && libz::inflateEnd(&mut z) == 0i32 {
         0i32
@@ -2440,6 +2413,7 @@ unsafe fn pdf_add_stream_flate_filtered(
         -1i32
     }
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) -> i32 {
     let mut error: i32 = 0i32;
@@ -2452,8 +2426,7 @@ pub unsafe extern "C" fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut 
     let dst_stream = dst.get_stream_mut();
     let src = &mut *src;
     let stream = src.get_stream_mut();
-    let dict = stream.get_dict_mut();
-    let mut stream_dict = stream.get_dict_mut();
+    let stream_dict = stream.get_dict_mut();
     let mut filter = pdf_lookup_dict(stream_dict, "Filter").unwrap_or(0 as *mut pdf_obj);
     if filter.is_null() {
         dst_stream.append(&stream.stream);
@@ -2499,7 +2472,7 @@ pub unsafe extern "C" fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut 
                 if filter_name == "FlateDecode" {
                     if have_parms != 0 {
                         error = pdf_add_stream_flate_filtered(
-                            dst,
+                            dst_stream,
                             &stream.stream,
                             &mut parms,
                         );
