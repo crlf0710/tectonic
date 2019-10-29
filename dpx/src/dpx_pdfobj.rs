@@ -64,6 +64,7 @@ use super::dpx_dpxutil::ht_table;
 /// This should first SPLIT -- into `&mut pdf_obj` and Rc<pdf_obj>
 /// Then it should be removed
 pub type PdfObjRef = *mut pdf_obj;
+pub type PdfObjRefStorage = PdfObjRef;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -642,8 +643,9 @@ unsafe fn pdf_out_white(handle: &mut OutputHandleWrapper) {
         pdf_out_char(handle, b' ');
     };
 }
-unsafe fn pdf_new_obj(typ: PdfObjType) -> PdfObjRef {
-    let boxed = Box::new(pdf_obj {
+
+fn safe_new_obj(typ: PdfObjType, f: impl FnOnce(&mut pdf_obj) -> ()) -> PdfObjRef {
+    let mut boxed = Box::new(pdf_obj {
         typ: typ as i32,
         data: ptr::null_mut(),
         label: 0,
@@ -651,8 +653,14 @@ unsafe fn pdf_new_obj(typ: PdfObjType) -> PdfObjRef {
         refcount: 1,
         flags: 0i32,
     });
+    f(&mut boxed);
     Box::into_raw(boxed)
 }
+
+fn pdf_new_obj(typ: PdfObjType) -> PdfObjRef {
+    safe_new_obj(typ, |_| {})
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn pdf_obj_typeof(object: PdfObjRef) -> PdfObjType {
     if (*object).typ <= 0i32 || (*object).typ > 10i32 {
@@ -1080,12 +1088,11 @@ pub unsafe extern "C" fn pdf_name_value<'a>(object: &'a pdf_obj) -> &'a CStr {
  * We do not have pdf_name_length() since '\0' is not allowed
  * in PDF name object.
  */
-#[no_mangle]
-pub unsafe extern "C" fn pdf_new_array() -> PdfObjRef {
-    let result = pdf_new_obj(PdfObjType::ARRAY);
-    let data = Box::new(PdfArray::default());
-    (*result).data = Box::into_raw(data) as *mut libc::c_void;
-    result
+pub fn pdf_new_array() -> PdfObjRef {
+    safe_new_obj(PdfObjType::ARRAY, |object| {
+        let data = Box::new(PdfArray::default());
+        object.data = Box::into_raw(data) as *mut libc::c_void;
+    })
 }
 
 unsafe fn write_array(mut array: *mut PdfArray, handle: &mut OutputHandleWrapper) {
@@ -1165,30 +1172,34 @@ unsafe fn write_dict(mut dict: *mut pdf_dict, handle: &mut OutputHandleWrapper) 
     pdf_out(handle, b">>");
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn pdf_new_dict() -> PdfObjRef {
-    let result = pdf_new_obj(PdfObjType::DICT);
-    let data =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_dict>() as u64) as u32) as *mut pdf_dict;
-    (*data).key = 0 as PdfObjRef;
-    (*data).value = 0 as PdfObjRef;
-    (*data).next = 0 as *mut pdf_dict;
-    (*result).data = data as *mut libc::c_void;
-    result
+pub fn pdf_new_dict() -> PdfObjRef {
+    safe_new_obj(PdfObjType::DICT, |object| {
+        let boxed = Box::new(pdf_dict {
+            key: 0 as PdfObjRef,
+            value: 0 as PdfObjRef,
+            next: 0 as *mut pdf_dict,
+        });
+        object.data = Box::into_raw(boxed) as *mut libc::c_void;
+    })
 }
 
 unsafe fn release_dict(mut data: *mut pdf_dict) {
-    while !data.is_null() && !(*data).key.is_null() {
-        pdf_release_obj((*data).key);
-        pdf_release_obj((*data).value);
-        (*data).key = 0 as PdfObjRef;
-        (*data).value = 0 as PdfObjRef;
-        let next = (*data).next;
-        free(data as *mut libc::c_void);
-        data = next
+    if data.is_null() {
+        return;
     }
-    free(data as *mut libc::c_void);
+    let mut data = Box::from_raw(data);
+    while !data.key.is_null() {
+        pdf_release_obj(data.key);
+        pdf_release_obj(data.value);
+        data.key = 0 as PdfObjRef;
+        data.value = 0 as PdfObjRef;
+        if data.next.is_null() {
+            break;
+        }
+        data = Box::from_raw(data.next);
+    }
 }
+
 /* Array is ended by a node with NULL this pointer */
 /* pdf_add_dict returns 0 if the key is new and non-zero otherwise */
 pub unsafe fn pdf_add_dict<K>(dict: &mut pdf_obj, key: K, mut value: PdfObjRef) -> i32
@@ -1316,7 +1327,7 @@ where
 }
 
 impl PdfStream {
-    unsafe fn new(flags: i32) -> Self {
+    fn new(flags: i32) -> Self {
         PdfStream {
             /*
              * Although we are using an arbitrary pdf_object here, it must have
@@ -1337,13 +1348,12 @@ impl PdfStream {
     }
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn pdf_new_stream(flags: i32) -> PdfObjRef {
-    let result = pdf_new_obj(PdfObjType::STREAM);
-    let data = Box::new(PdfStream::new(flags));
-    (*result).data = Box::into_raw(data) as *mut libc::c_void;
-    (*result).flags |= 1i32 << 0i32;
-    result
+pub fn pdf_new_stream(flags: i32) -> PdfObjRef {
+    safe_new_obj(PdfObjType::STREAM, |object| {
+        let data = Box::new(PdfStream::new(flags));
+        object.data = Box::into_raw(data) as *mut libc::c_void;
+        object.flags |= 1i32 << 0i32;
+    })
 }
 
 #[no_mangle]
