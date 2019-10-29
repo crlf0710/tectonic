@@ -138,6 +138,11 @@ impl pdf_obj {
         let data = self.data as *const PdfArray;
         unsafe { &*data }
     }
+    pub fn get_name(&self) -> &PdfName {
+        assert!(self.is_name());
+        let data = self.data as *const PdfName;
+        unsafe { &*data }
+    }
     pub fn get_stream_mut(&mut self) -> &mut PdfStream {
         assert!(self.is_stream());
         let data = self.data as *mut PdfStream;
@@ -226,10 +231,10 @@ pub struct decode_parms {
     pub bits_per_component: i32,
     pub columns: i32,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub struct PdfName {
-    name: *mut i8,
+    name: CString,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -1009,40 +1014,24 @@ where
 {
     safe_new_obj(PdfObjType::NAME, |object| {
         let name = CString::new(name).unwrap();
-        let name = if name.as_bytes().len() > 0 {
-            name.into_raw()
-        } else {
-            ptr::null_mut()
-        };
         let data = Box::new(PdfName { name });
         object.data = Box::into_raw(data) as *mut libc::c_void;
     })
 }
 
 pub unsafe fn pdf_copy_name(name: *const i8) -> PdfObjRef {
-    safe_new_obj(PdfObjType::NAME, |object| {
-        let length = strlen(name);
-        let name = if length != 0 {
-            let slice = std::slice::from_raw_parts(name as *const u8, length as _);
-            let name = CString::new(slice).unwrap();
-            name.into_raw()
-        } else {
-            ptr::null_mut()
-        };
-        let data = Box::new(PdfName {
-            name,
-        });
-        object.data = Box::into_raw(data) as *mut libc::c_void;
-    })
+    let length = strlen(name);
+    let slice = std::slice::from_raw_parts(name as *const u8, length as _);
+    pdf_new_name(slice)
 }
 
-unsafe fn write_name(mut name: *mut PdfName, handle: &mut OutputHandleWrapper) {
-    let s = (*name).name;
-    let length = (if !(*name).name.is_null() {
-        strlen((*name).name)
-    } else {
-        0
-    }) as i32;
+unsafe fn release_name(data: *mut PdfName) {
+    let _ = Box::from_raw(data);
+}
+
+unsafe fn write_name(name: *mut PdfName, handle: &mut OutputHandleWrapper) {
+    let name = &mut *name;
+    let cstr = name.name.as_c_str();
     /*
      * From PDF Reference, 3rd ed., p.33:
      *
@@ -1055,36 +1044,20 @@ unsafe fn write_name(mut name: *mut PdfName, handle: &mut OutputHandleWrapper) {
      *  whose codes are outside the range 33 (!) to 126 (~).
      */
     pdf_out_char(handle, b'/');
-    for i in 0..length as isize {
-        if (*s.offset(i) as u8) < b'!'
-            || (*s.offset(i) as u8) > b'~'
-            || b"#()/<>[]{}%".contains(&(*s.offset(i) as u8))
-        {
-            /*     ^ "space" is here. */
+    for &byte in cstr.to_bytes() {
+        if byte < b'!' || byte > b'~' || b"#()/<>[]{}%".contains(&byte) {
             pdf_out_char(handle, b'#');
-            pdf_out_char(
-                handle,
-                xchar[(*s.offset(i) as i32 >> 4 & 0xf) as usize] as u8,
-            );
-            pdf_out_char(handle, xchar[(*s.offset(i) as i32 & 0xf) as usize] as u8);
+            pdf_out_char(handle, xchar[((byte as i32) >> 4 & 0xf) as usize] as u8);
+            pdf_out_char(handle, xchar[(byte as i32 & 0xf) as usize] as u8);
         } else {
-            pdf_out_char(handle, *s.offset(i) as u8);
+            pdf_out_char(handle, byte);
         }
-    }
-}
-
-unsafe fn release_name(data: *mut PdfName) {
-    let boxed = Box::from_raw(data);
-    if !boxed.name.is_null() {
-        let _ = CString::from_raw((*data).name);
     }
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn pdf_name_value<'a>(object: &'a pdf_obj) -> &'a CStr {
-    assert!(object.is_name());
-    let data = object.data as *mut PdfName;
-    CStr::from_ptr((*data).name)
+    object.get_name().name.as_c_str()
 }
 
 /*
@@ -1314,8 +1287,7 @@ where
     let mut data_p = &mut dict.data as *mut *mut libc::c_void as *mut libc::c_void as *mut *mut pdf_dict;
     while !(*data).key.is_null() {
         if !(*data).key.is_null()
-            && (CStr::from_ptr((*((*(*data).key).data as *mut PdfName)).name).to_bytes()
-                == name.as_ref())
+            && ((*((*(*data).key).data as *mut PdfName)).name.to_bytes() == name.as_ref())
         {
             pdf_release_obj((*data).key);
             pdf_release_obj((*data).value);
