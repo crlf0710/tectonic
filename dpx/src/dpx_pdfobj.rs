@@ -228,8 +228,8 @@ pub struct decode_parms {
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct pdf_name {
-    pub name: *mut i8,
+pub struct PdfName {
+    name: *mut i8,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -1014,9 +1014,7 @@ where
         } else {
             ptr::null_mut()
         };
-        let data = Box::new(pdf_name {
-            name,
-        });
+        let data = Box::new(PdfName { name });
         object.data = Box::into_raw(data) as *mut libc::c_void;
     })
 }
@@ -1031,14 +1029,14 @@ pub unsafe fn pdf_copy_name(name: *const i8) -> PdfObjRef {
         } else {
             ptr::null_mut()
         };
-        let data = Box::new(pdf_name {
+        let data = Box::new(PdfName {
             name,
         });
         object.data = Box::into_raw(data) as *mut libc::c_void;
     })
 }
 
-unsafe fn write_name(mut name: *mut pdf_name, handle: &mut OutputHandleWrapper) {
+unsafe fn write_name(mut name: *mut PdfName, handle: &mut OutputHandleWrapper) {
     let s = (*name).name;
     let length = (if !(*name).name.is_null() {
         strlen((*name).name)
@@ -1075,7 +1073,7 @@ unsafe fn write_name(mut name: *mut pdf_name, handle: &mut OutputHandleWrapper) 
     }
 }
 
-unsafe fn release_name(data: *mut pdf_name) {
+unsafe fn release_name(data: *mut PdfName) {
     let boxed = Box::from_raw(data);
     if !boxed.name.is_null() {
         let _ = CString::from_raw((*data).name);
@@ -1085,7 +1083,7 @@ unsafe fn release_name(data: *mut pdf_name) {
 #[no_mangle]
 pub unsafe extern "C" fn pdf_name_value<'a>(object: &'a pdf_obj) -> &'a CStr {
     assert!(object.is_name());
-    let data = object.data as *mut pdf_name;
+    let data = object.data as *mut PdfName;
     CStr::from_ptr((*data).name)
 }
 
@@ -1316,7 +1314,7 @@ where
     let mut data_p = &mut dict.data as *mut *mut libc::c_void as *mut libc::c_void as *mut *mut pdf_dict;
     while !(*data).key.is_null() {
         if !(*data).key.is_null()
-            && (CStr::from_ptr((*((*(*data).key).data as *mut pdf_name)).name).to_bytes()
+            && (CStr::from_ptr((*((*(*data).key).data as *mut PdfName)).name).to_bytes()
                 == name.as_ref())
         {
             pdf_release_obj((*data).key);
@@ -2548,7 +2546,7 @@ unsafe fn pdf_write_obj(mut object: PdfObjRef, handle: &mut OutputHandleWrapper)
             write_string((*object).data as *mut pdf_string, handle);
         }
         PdfObjType::NAME => {
-            write_name((*object).data as *mut pdf_name, handle);
+            write_name((*object).data as *mut PdfName, handle);
         }
         PdfObjType::ARRAY => {
             write_array((*object).data as *mut PdfArray, handle);
@@ -2724,7 +2722,7 @@ pub unsafe extern "C" fn pdf_release_obj(mut object: PdfObjRef) {
                 release_string(boxed.data as *mut pdf_string);
             }
             PdfObjType::NAME => {
-                release_name(boxed.data as *mut pdf_name);
+                release_name(boxed.data as *mut PdfName);
             }
             PdfObjType::ARRAY => {
                 let _ = Box::from_raw(boxed.data as *mut PdfArray);
