@@ -31,6 +31,7 @@ use std::ffi::{CStr, CString};
 use crate::DisplayExt;
 use crate::TTInputFormat;
 use crate::{spc_warn, warn};
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::util::{spc_util_read_blahblah, spc_util_read_dimtrns, spc_util_read_pdfcolor};
 use super::{
@@ -90,7 +91,7 @@ use super::SpcHandler;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct spc_pdf_ {
-    pub annot_dict: *mut pdf_obj,
+    pub annot_dict: PdfObjRef,
     pub lowest_level: i32,
     pub resourcemap: *mut ht_table,
     pub cd: tounicode,
@@ -102,7 +103,7 @@ pub struct spc_pdf_ {
 pub struct tounicode {
     pub cmap_id: i32,
     pub unescape_backslash: i32,
-    pub taintkeys: *mut pdf_obj,
+    pub taintkeys: PdfObjRef,
     /* An array of PDF names. */
 }
 
@@ -132,14 +133,14 @@ use crate::dpx_pdfdev::Coord;
  * as directory separators. */
 static mut _PDF_STAT: spc_pdf_ = {
     let mut init = spc_pdf_ {
-        annot_dict: 0 as *const pdf_obj as *mut pdf_obj,
+        annot_dict: 0 as *const pdf_obj as PdfObjRef,
         lowest_level: 255i32,
         resourcemap: 0 as *const ht_table as *mut ht_table,
         cd: {
             let mut init = tounicode {
                 cmap_id: -1i32,
                 unescape_backslash: 0i32,
-                taintkeys: 0 as *const pdf_obj as *mut pdf_obj,
+                taintkeys: 0 as *const pdf_obj as PdfObjRef,
             };
             init
         },
@@ -205,7 +206,7 @@ unsafe fn spc_handler_pdfm__init(mut dp: *mut libc::c_void) -> i32 {
         "T",
         "TM",
     ];
-    (*sd).annot_dict = 0 as *mut pdf_obj;
+    (*sd).annot_dict = 0 as PdfObjRef;
     (*sd).lowest_level = 255i32;
     (*sd).resourcemap =
         new((1_u64).wrapping_mul(::std::mem::size_of::<ht_table>() as u64) as u32) as *mut ht_table;
@@ -226,14 +227,14 @@ unsafe fn spc_handler_pdfm__clean(mut dp: *mut libc::c_void) -> i32 {
         pdf_release_obj((*sd).annot_dict);
     }
     (*sd).lowest_level = 255i32;
-    (*sd).annot_dict = 0 as *mut pdf_obj;
+    (*sd).annot_dict = 0 as PdfObjRef;
     if !(*sd).resourcemap.is_null() {
         ht_clear_table((*sd).resourcemap);
         free((*sd).resourcemap as *mut libc::c_void);
     }
     (*sd).resourcemap = 0 as *mut ht_table;
     pdf_release_obj((*sd).cd.taintkeys);
-    (*sd).cd.taintkeys = 0 as *mut pdf_obj;
+    (*sd).cd.taintkeys = 0 as PdfObjRef;
     0i32
 }
 #[no_mangle]
@@ -269,32 +270,32 @@ unsafe fn spc_handler_pdfm_eop(mut _spe: *mut spc_env, mut args: *mut spc_arg) -
 }
 /* Why should we have this kind of things? */
 unsafe extern "C" fn safeputresdent(
-    mut kp: *mut pdf_obj,
-    mut vp: *mut pdf_obj,
+    mut kp: PdfObjRef,
+    mut vp: PdfObjRef,
     mut dp: *mut libc::c_void,
 ) -> i32 {
     assert!(!kp.is_null() && !vp.is_null() && !dp.is_null());
     let key = pdf_name_value(&*kp);
-    if pdf_lookup_dict(&mut *(dp as *mut pdf_obj), key.to_bytes()).is_some() {
+    if pdf_lookup_dict(&mut *(dp as PdfObjRef), key.to_bytes()).is_some() {
         warn!(
             "Object \"{}\" already defined in dict! (ignored)",
             key.display()
         );
     } else {
-        pdf_add_dict(&mut *(dp as *mut pdf_obj), key.to_bytes(), pdf_link_obj(vp));
+        pdf_add_dict(&mut *(dp as PdfObjRef), key.to_bytes(), pdf_link_obj(vp));
     }
     0i32
 }
 unsafe extern "C" fn safeputresdict(
-    mut kp: *mut pdf_obj,
-    mut vp: *mut pdf_obj,
+    mut kp: PdfObjRef,
+    mut vp: PdfObjRef,
     mut dp: *mut libc::c_void,
 ) -> i32 {
     assert!(!kp.is_null() && !vp.is_null() && !dp.is_null());
     let key = pdf_name_value(&*kp);
-    let dict = pdf_lookup_dict(&mut *(dp as *mut pdf_obj), key.to_bytes());
+    let dict = pdf_lookup_dict(&mut *(dp as PdfObjRef), key.to_bytes());
     if (*vp).is_indirect() {
-        pdf_add_dict(&mut *(dp as *mut pdf_obj), key.to_bytes(), pdf_link_obj(vp));
+        pdf_add_dict(&mut *(dp as PdfObjRef), key.to_bytes(), pdf_link_obj(vp));
     } else if (*vp).is_dict() {
         if let Some(dict) = dict {
             pdf_foreach_dict(
@@ -302,15 +303,15 @@ unsafe extern "C" fn safeputresdict(
                 Some(
                     safeputresdent
                         as unsafe extern "C" fn(
-                            _: *mut pdf_obj,
-                            _: *mut pdf_obj,
+                            _: PdfObjRef,
+                            _: PdfObjRef,
                             _: *mut libc::c_void,
                         ) -> i32,
                 ),
                 dict as *mut libc::c_void,
             );
         } else {
-            pdf_add_dict(&mut *(dp as *mut pdf_obj), key.to_bytes(), pdf_link_obj(vp));
+            pdf_add_dict(&mut *(dp as PdfObjRef), key.to_bytes(), pdf_link_obj(vp));
         }
     } else {
         warn!(
@@ -370,8 +371,8 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
                     Some(
                         safeputresdict
                             as unsafe extern "C" fn(
-                                _: *mut pdf_obj,
-                                _: *mut pdf_obj,
+                                _: PdfObjRef,
+                                _: PdfObjRef,
                                 _: *mut libc::c_void,
                             ) -> i32,
                     ),
@@ -429,7 +430,7 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
  * This feature is provided for convenience. TeX can't do
  * input encoding conversion.
  */
-unsafe extern "C" fn reencodestring(mut cmap: *mut CMap, mut instring: *mut pdf_obj) -> i32 {
+unsafe extern "C" fn reencodestring(mut cmap: *mut CMap, mut instring: PdfObjRef) -> i32 {
     let mut wbuf: [u8; 4096] = [0; 4096];
     if cmap.is_null() || instring.is_null() {
         return 0i32;
@@ -457,7 +458,7 @@ unsafe extern "C" fn reencodestring(mut cmap: *mut CMap, mut instring: *mut pdf_
     );
     0i32
 }
-unsafe extern "C" fn maybe_reencode_utf8(mut instring: *mut pdf_obj) -> i32 {
+unsafe extern "C" fn maybe_reencode_utf8(mut instring: PdfObjRef) -> i32 {
     let mut non_ascii: i32 = 0i32;
     let mut cp: *const u8;
     let mut wbuf: [u8; 4096] = [0; 4096];
@@ -523,8 +524,8 @@ unsafe extern "C" fn maybe_reencode_utf8(mut instring: *mut pdf_obj) -> i32 {
  * additional dictionary entries which is considered as a text string.
  */
 unsafe extern "C" fn needreencode(
-    mut kp: *mut pdf_obj,
-    mut vp: *mut pdf_obj,
+    mut kp: PdfObjRef,
+    mut vp: PdfObjRef,
     mut cd: *mut tounicode,
 ) -> i32 {
     let mut r: i32 = 0i32;
@@ -554,8 +555,8 @@ unsafe extern "C" fn needreencode(
     r
 }
 unsafe extern "C" fn modstrings(
-    mut kp: *mut pdf_obj,
-    mut vp: *mut pdf_obj,
+    mut kp: PdfObjRef,
+    mut vp: PdfObjRef,
     mut dp: *mut libc::c_void,
 ) -> i32 {
     let mut r: i32 = 0i32;
@@ -588,8 +589,8 @@ unsafe extern "C" fn modstrings(
                 Some(
                     modstrings
                         as unsafe extern "C" fn(
-                            _: *mut pdf_obj,
-                            _: *mut pdf_obj,
+                            _: PdfObjRef,
+                            _: PdfObjRef,
                             _: *mut libc::c_void,
                         ) -> i32,
                 ),
@@ -602,8 +603,8 @@ unsafe extern "C" fn modstrings(
                 Some(
                     modstrings
                         as unsafe extern "C" fn(
-                            _: *mut pdf_obj,
-                            _: *mut pdf_obj,
+                            _: PdfObjRef,
+                            _: PdfObjRef,
                             _: *mut libc::c_void,
                         ) -> i32,
                 ),
@@ -616,11 +617,11 @@ unsafe extern "C" fn modstrings(
 }
 
 pub trait ParsePdfDictU {
-    fn parse_pdf_dict_with_tounicode(&mut self, cd: *mut tounicode) -> Option<*mut pdf_obj>;
+    fn parse_pdf_dict_with_tounicode(&mut self, cd: *mut tounicode) -> Option<PdfObjRef>;
 }
 
 impl ParsePdfDictU for &[u8] {
-    fn parse_pdf_dict_with_tounicode(&mut self, cd: *mut tounicode) -> Option<*mut pdf_obj> {
+    fn parse_pdf_dict_with_tounicode(&mut self, cd: *mut tounicode) -> Option<PdfObjRef> {
         /* disable this test for XDV files, as we do UTF8 reencoding with no cmap */
         if unsafe { is_xdv == 0 && (*cd).cmap_id < 0i32 } {
             return self.parse_pdf_dict(0 as *mut pdf_file);
@@ -637,8 +638,8 @@ impl ParsePdfDictU for &[u8] {
                 Some(
                     modstrings
                         as unsafe extern "C" fn(
-                            _: *mut pdf_obj,
-                            _: *mut pdf_obj,
+                            _: PdfObjRef,
+                            _: PdfObjRef,
                             _: *mut libc::c_void,
                         ) -> i32,
                 ),
@@ -723,11 +724,11 @@ unsafe fn spc_handler_pdfm_bann(mut spe: *mut spc_env, mut args: *mut spc_arg) -
         if !(*(*sd).annot_dict).is_dict() {
             spc_warn!(spe, "Invalid type: not a dictionary object.");
             pdf_release_obj((*sd).annot_dict);
-            (*sd).annot_dict = 0 as *mut pdf_obj;
+            (*sd).annot_dict = 0 as PdfObjRef;
             return -1i32;
         }
     } else {
-        (*sd).annot_dict = 0 as *mut pdf_obj;
+        (*sd).annot_dict = 0 as PdfObjRef;
         spc_warn!(spe, "Ignoring annotation with invalid dictionary.");
         return -1i32;
     }
@@ -741,7 +742,7 @@ unsafe fn spc_handler_pdfm_eann(mut spe: *mut spc_env, mut _args: *mut spc_arg) 
     }
     let error = spc_end_annot(spe);
     pdf_release_obj((*sd).annot_dict);
-    (*sd).annot_dict = 0 as *mut pdf_obj;
+    (*sd).annot_dict = 0 as PdfObjRef;
     error
 }
 /* Color:.... */
@@ -984,7 +985,7 @@ unsafe fn spc_handler_pdfm_image(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         let mut init = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
-            dict: 0 as *mut pdf_obj,
+            dict: 0 as PdfObjRef,
         };
         init
     };
@@ -1037,7 +1038,7 @@ unsafe fn spc_handler_pdfm_image(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         options.dict = if let Some(obj) = (*args).cur.parse_pdf_object(0 as *mut pdf_file) {
             obj
         } else {
-            0 as *mut pdf_obj
+            0 as PdfObjRef
         };
     }
     let xobj_id = pdf_ximage_findresource(pdf_string_value(&*fspec) as *const i8, options);
@@ -1531,22 +1532,22 @@ unsafe fn spc_handler_pdfm_bform(mut spe: *mut spc_env, mut args: *mut spc_arg) 
  * Please use pdf:put @resources (before pdf:exobj) instead.
  */
 unsafe fn spc_handler_pdfm_eform(mut _spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
-    let mut attrib: *mut pdf_obj = 0 as *mut pdf_obj;
+    let mut attrib: PdfObjRef = 0 as PdfObjRef;
     (*args).cur.skip_white();
     let attrib = if !(*args).cur.is_empty() {
         if let Some(attrib) = (*args).cur.parse_pdf_dict(0 as *mut pdf_file) {
             if !(*attrib).is_dict() {
                 pdf_release_obj(attrib);
-                0 as *mut pdf_obj
+                0 as PdfObjRef
             } else {
                 attrib
             }
         } else {
             pdf_release_obj(attrib);
-            0 as *mut pdf_obj
+            0 as PdfObjRef
         }
     } else {
-        0 as *mut pdf_obj
+        0 as PdfObjRef
     };
     pdf_doc_end_grabbing(attrib);
     0i32
@@ -1580,7 +1581,7 @@ unsafe fn spc_handler_pdfm_uxobj(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         let mut init = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
-            dict: 0 as *mut pdf_obj,
+            dict: 0 as PdfObjRef,
         };
         init
     };

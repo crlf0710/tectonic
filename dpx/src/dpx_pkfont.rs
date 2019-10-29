@@ -30,6 +30,7 @@
 use crate::warn;
 use crate::DisplayExt;
 use std::ffi::CStr;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::dpx_mem::new;
 use super::dpx_mfileio::work_buffer_u8 as work_buffer;
@@ -239,11 +240,11 @@ unsafe fn pk_packed_num(mut np: *mut u32, mut dyn_f: i32, mut dp: *mut u8, mut p
     *np = i;
     nmbr
 }
-unsafe fn send_out(mut rowptr: *mut u8, mut rowbytes: u32, mut stream: *mut pdf_obj) {
+unsafe fn send_out(mut rowptr: *mut u8, mut rowbytes: u32, mut stream: PdfObjRef) {
     pdf_add_stream(&mut *stream, rowptr as *mut libc::c_void, rowbytes as i32);
 }
 unsafe fn pk_decode_packed(
-    mut stream: *mut pdf_obj,
+    mut stream: PdfObjRef,
     mut wd: u32,
     mut ht: u32,
     mut dyn_f: i32,
@@ -347,7 +348,7 @@ unsafe fn pk_decode_packed(
     0i32
 }
 unsafe fn pk_decode_bitmap(
-    mut stream: *mut pdf_obj,
+    mut stream: PdfObjRef,
     mut wd: u32,
     mut ht: u32,
     mut dyn_f: i32,
@@ -482,7 +483,7 @@ unsafe fn create_pk_CharProc_stream(
     mut chrwid: f64,
     mut pkt_ptr: *mut u8,
     mut pkt_len: u32,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     let llx = -(*pkh).bm_hoff;
     let lly = ((*pkh).bm_voff as u32).wrapping_sub((*pkh).bm_ht) as i32;
     let urx = (*pkh).bm_wd.wrapping_sub((*pkh).bm_hoff as u32) as i32;

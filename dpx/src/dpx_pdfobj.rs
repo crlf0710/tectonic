@@ -60,6 +60,11 @@ pub type size_t = u64;
 use bridge::{InputHandleWrapper, OutputHandleWrapper};
 
 use super::dpx_dpxutil::ht_table;
+
+/// This should first SPLIT -- into `&mut pdf_obj` and Rc<pdf_obj>
+/// Then it should be removed
+pub type PdfObjRef = *mut pdf_obj;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct pdf_obj {
@@ -158,9 +163,9 @@ impl pdf_obj {
 #[repr(C)]
 pub struct pdf_file {
     pub handle: InputHandleWrapper,
-    pub trailer: *mut pdf_obj,
+    pub trailer: PdfObjRef,
     pub xref_table: *mut xref_entry,
-    pub catalog: *mut pdf_obj,
+    pub catalog: PdfObjRef,
     pub num_obj: i32,
     pub file_size: i32,
     pub version: u32,
@@ -193,20 +198,20 @@ pub struct xref_entry {
     pub typ: u8,
     pub field2: u32,
     pub field3: u16,
-    pub direct: *mut pdf_obj,
-    pub indirect: *mut pdf_obj,
+    pub direct: PdfObjRef,
+    pub indirect: PdfObjRef,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct pdf_dict {
-    pub key: *mut pdf_obj,
-    pub value: *mut pdf_obj,
+    pub key: PdfObjRef,
+    pub value: PdfObjRef,
     pub next: *mut pdf_dict,
 }
 #[derive(Clone)]
 #[repr(C)]
 pub struct PdfStream {
-    pub dict: *mut pdf_obj,
+    pub dict: PdfObjRef,
     pub stream: Vec<u8>,
     pub objstm_data: *mut i32,
     pub _flags: i32,
@@ -229,13 +234,13 @@ pub struct pdf_name {
 #[repr(C)]
 pub struct pdf_indirect {
     pub pf: *mut pdf_file,
-    pub obj: *mut pdf_obj,
+    pub obj: PdfObjRef,
     pub label: u32,
     pub generation: u16,
 }
 #[derive(Clone, Default)]
 pub struct PdfArray {
-    pub values: Vec<*mut pdf_obj>,
+    pub values: Vec<PdfObjRef>,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -269,12 +274,12 @@ static mut output_xref: *mut xref_entry = 0 as *const xref_entry as *mut xref_en
 static mut pdf_max_ind_objects: u32 = 0;
 static mut next_label: u32 = 0;
 static mut startxref: u32 = 0;
-static mut output_stream: *mut pdf_obj = 0 as *const pdf_obj as *mut pdf_obj;
+static mut output_stream: PdfObjRef = 0 as *const pdf_obj as PdfObjRef;
 /* the limit is only 100 for linearized PDF */
 static mut enc_mode: bool = false;
 static mut doc_enc_mode: bool = false;
-static mut trailer_dict: *mut pdf_obj = 0 as *const pdf_obj as *mut pdf_obj;
-static mut xref_stream: *mut pdf_obj = 0 as *const pdf_obj as *mut pdf_obj;
+static mut trailer_dict: PdfObjRef = 0 as *const pdf_obj as PdfObjRef;
+static mut xref_stream: PdfObjRef = 0 as *const pdf_obj as PdfObjRef;
 static mut verbose: i32 = 0i32;
 static mut compression_level: i8 = 9_i8;
 static mut compression_use_predictor: i8 = 1_i8;
@@ -318,7 +323,7 @@ pub unsafe extern "C" fn pdf_obj_get_verbose() -> i32 {
 pub unsafe extern "C" fn pdf_obj_set_verbose(mut level: i32) {
     verbose = level;
 }
-static mut current_objstm: *mut pdf_obj = 0 as *const pdf_obj as *mut pdf_obj;
+static mut current_objstm: PdfObjRef = 0 as *const pdf_obj as PdfObjRef;
 static mut do_objstm: i32 = 0;
 unsafe fn add_xref_entry(mut label: u32, mut typ: u8, mut field2: u32, mut field3: u16) {
     if label >= pdf_max_ind_objects {
@@ -336,9 +341,9 @@ unsafe fn add_xref_entry(mut label: u32, mut typ: u8, mut field2: u32, mut field
     (*output_xref.offset(label as isize)).field2 = field2;
     (*output_xref.offset(label as isize)).field3 = field3;
     let ref mut fresh0 = (*output_xref.offset(label as isize)).direct;
-    *fresh0 = 0 as *mut pdf_obj;
+    *fresh0 = 0 as PdfObjRef;
     let ref mut fresh1 = (*output_xref.offset(label as isize)).indirect;
-    *fresh1 = 0 as *mut pdf_obj;
+    *fresh1 = 0 as PdfObjRef;
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_out_init(
@@ -362,11 +367,11 @@ pub unsafe extern "C" fn pdf_out_init(
             do_objstm = 0i32
         }
     } else {
-        xref_stream = 0 as *mut pdf_obj;
+        xref_stream = 0 as PdfObjRef;
         trailer_dict = pdf_new_dict();
         do_objstm = 0i32
     }
-    output_stream = 0 as *mut pdf_obj;
+    output_stream = 0 as PdfObjRef;
     if filename.is_null() {
         panic!("stdout PDF output not supported");
     }
@@ -488,7 +493,7 @@ pub unsafe extern "C" fn pdf_out_flush() {
         /* Flush current object stream */
         if !current_objstm.is_null() {
             release_objstm(current_objstm);
-            current_objstm = 0 as *mut pdf_obj
+            current_objstm = 0 as PdfObjRef
         }
         /*
          * Label xref stream - we need the number of correct objects
@@ -544,7 +549,7 @@ pub unsafe extern "C" fn pdf_error_cleanup() {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_set_root(mut object: *mut pdf_obj) {
+pub unsafe extern "C" fn pdf_set_root(mut object: PdfObjRef) {
     if pdf_add_dict(&mut *trailer_dict, "Root", pdf_ref_obj(object)) != 0 {
         panic!("Root object already set!");
     }
@@ -558,19 +563,19 @@ pub unsafe extern "C" fn pdf_set_root(mut object: *mut pdf_obj) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_set_info(mut object: *mut pdf_obj) {
+pub unsafe extern "C" fn pdf_set_info(mut object: PdfObjRef) {
     if pdf_add_dict(&mut *trailer_dict, "Info", pdf_ref_obj(object)) != 0 {
         panic!("Info object already set!");
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_set_id(mut id: *mut pdf_obj) {
+pub unsafe extern "C" fn pdf_set_id(mut id: PdfObjRef) {
     if pdf_add_dict(&mut *trailer_dict, "ID", id) != 0 {
         panic!("ID already set!");
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_set_encrypt(mut encrypt: *mut pdf_obj) {
+pub unsafe extern "C" fn pdf_set_encrypt(mut encrypt: PdfObjRef) {
     if pdf_add_dict(&mut *trailer_dict, "Encrypt", pdf_ref_obj(encrypt)) != 0 {
         panic!("Encrypt object already set!");
     }
@@ -637,7 +642,7 @@ unsafe fn pdf_out_white(handle: &mut OutputHandleWrapper) {
         pdf_out_char(handle, b' ');
     };
 }
-unsafe fn pdf_new_obj(typ: PdfObjType) -> *mut pdf_obj {
+unsafe fn pdf_new_obj(typ: PdfObjType) -> PdfObjRef {
     let boxed = Box::new(pdf_obj {
         typ: typ as i32,
         data: ptr::null_mut(),
@@ -649,14 +654,14 @@ unsafe fn pdf_new_obj(typ: PdfObjType) -> *mut pdf_obj {
     Box::into_raw(boxed)
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_obj_typeof(object: *mut pdf_obj) -> PdfObjType {
+pub unsafe extern "C" fn pdf_obj_typeof(object: PdfObjRef) -> PdfObjType {
     if (*object).typ <= 0i32 || (*object).typ > 10i32 {
         PdfObjType::OBJ_INVALID
     } else {
         PdfObjType::from((*object).typ)
     }
 }
-unsafe fn pdf_label_obj(mut object: *mut pdf_obj) {
+unsafe fn pdf_label_obj(mut object: PdfObjRef) {
     if object.is_null() || (*object).typ <= 0i32 || (*object).typ > 10i32 {
         panic!("pdf_label_obj(): passed invalid object.");
     }
@@ -675,7 +680,7 @@ unsafe fn pdf_label_obj(mut object: *mut pdf_obj) {
  * The object dst must not yet have been labeled.
  */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_transfer_label(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) {
+pub unsafe extern "C" fn pdf_transfer_label(mut dst: PdfObjRef, mut src: PdfObjRef) {
     assert!(!dst.is_null() && (*dst).label == 0 && !src.is_null());
     (*dst).label = (*src).label;
     (*dst).generation = (*src).generation;
@@ -687,7 +692,7 @@ pub unsafe extern "C" fn pdf_transfer_label(mut dst: *mut pdf_obj, mut src: *mut
  * fear that somebody else will free it.
  */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_link_obj(mut object: *mut pdf_obj) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_link_obj(mut object: PdfObjRef) -> PdfObjRef {
     if object.is_null() || (*object).typ <= 0i32 || (*object).typ > 10i32 {
         panic!("pdf_link_obj(): passed invalid object.");
     }
@@ -695,7 +700,7 @@ pub unsafe extern "C" fn pdf_link_obj(mut object: *mut pdf_obj) -> *mut pdf_obj 
     object
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_ref_obj(mut object: *mut pdf_obj) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_ref_obj(mut object: PdfObjRef) -> PdfObjRef {
     if object.is_null() || (*object).typ <= 0i32 || (*object).typ > 10i32 {
         panic!("pdf_ref_obj(): passed invalid object.");
     }
@@ -727,13 +732,13 @@ unsafe fn write_indirect(mut indirect: *mut pdf_indirect, handle: &mut OutputHan
  * for objects which are referenced before they are defined.
  */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_new_undefined() -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_new_undefined() -> PdfObjRef {
     let result = pdf_new_obj(PdfObjType::UNDEFINED);
     (*result).data = 0 as *mut libc::c_void;
     result
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_new_null() -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_new_null() -> PdfObjRef {
     let result = pdf_new_obj(PdfObjType::NULL);
     (*result).data = 0 as *mut libc::c_void;
     result
@@ -742,7 +747,7 @@ unsafe fn write_null(handle: &mut OutputHandleWrapper) {
     pdf_out(handle, b"null");
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_new_boolean(mut value: i8) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_new_boolean(mut value: i8) -> PdfObjRef {
     let result = pdf_new_obj(PdfObjType::BOOLEAN);
     let data = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_boolean>() as u64) as u32)
         as *mut pdf_boolean;
@@ -750,7 +755,7 @@ pub unsafe extern "C" fn pdf_new_boolean(mut value: i8) -> *mut pdf_obj {
     (*result).data = data as *mut libc::c_void;
     result
 }
-unsafe fn release_boolean(mut data: *mut pdf_obj) {
+unsafe fn release_boolean(mut data: PdfObjRef) {
     free(data as *mut libc::c_void);
 }
 unsafe fn write_boolean(mut data: *mut pdf_boolean, handle: &mut OutputHandleWrapper) {
@@ -767,7 +772,7 @@ pub unsafe extern "C" fn pdf_boolean_value(object: &pdf_obj) -> i8 {
     (*data).value
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_new_number(mut value: f64) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_new_number(mut value: f64) -> PdfObjRef {
     let result = pdf_new_obj(PdfObjType::NUMBER);
     let data = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_number>() as u64) as u32)
         as *mut pdf_number;
@@ -798,7 +803,7 @@ pub unsafe extern "C" fn pdf_number_value(object: &pdf_obj) -> f64 {
 pub unsafe extern "C" fn pdf_new_string(
     mut str: *const libc::c_void,
     mut length: size_t,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     assert!(!str.is_null());
     let result = pdf_new_obj(PdfObjType::STRING);
     let data = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_string>() as u64) as u32)
@@ -988,7 +993,7 @@ pub unsafe extern "C" fn pdf_set_string(
     };
 }
 /* Name does *not* include the /. */
-pub unsafe fn pdf_new_name<K>(name: K) -> *mut pdf_obj
+pub unsafe fn pdf_new_name<K>(name: K) -> PdfObjRef
 where
     K: Into<Vec<u8>>,
 {
@@ -1006,7 +1011,7 @@ where
     result
 }
 
-pub unsafe fn pdf_copy_name(name: *const i8) -> *mut pdf_obj {
+pub unsafe fn pdf_copy_name(name: *const i8) -> PdfObjRef {
     let result = pdf_new_obj(PdfObjType::NAME);
     let data = new(::std::mem::size_of::<pdf_name>() as u32) as *mut pdf_name;
     (*result).data = data as *mut libc::c_void;
@@ -1076,7 +1081,7 @@ pub unsafe extern "C" fn pdf_name_value<'a>(object: &'a pdf_obj) -> &'a CStr {
  * in PDF name object.
  */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_new_array() -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_new_array() -> PdfObjRef {
     let result = pdf_new_obj(PdfObjType::ARRAY);
     let data = Box::new(PdfArray::default());
     (*result).data = Box::into_raw(data) as *mut libc::c_void;
@@ -1107,7 +1112,7 @@ impl PdfArray {
     pub fn len(&self) -> u32 {
         self.values.len() as u32
     }
-    pub fn get(&self, idx: i32) -> *mut pdf_obj {
+    pub fn get(&self, idx: i32) -> PdfObjRef {
         let len = self.values.len();
         if idx < 0 {
             self.values[len - (idx.abs() as usize)]
@@ -1128,7 +1133,7 @@ impl Drop for PdfArray {
     }
 }
 
-pub fn pdf_get_array(array: &mut pdf_obj, idx: i32) -> *mut pdf_obj {
+pub fn pdf_get_array(array: &mut pdf_obj, idx: i32) -> PdfObjRef {
     array.get_array().get(idx)
 }
 
@@ -1138,12 +1143,12 @@ pub fn pdf_array_length(array: &pdf_obj) -> u32 {
 
 /// The name pdf_add_array is misleading. It behaves differently than
 /// pdf_add_dict(). It should be called pdf_push_array
-pub fn pdf_add_array(array: &mut pdf_obj, mut object: *mut pdf_obj) {
+pub fn pdf_add_array(array: &mut pdf_obj, mut object: PdfObjRef) {
     array.get_array_mut().values.push(object);
 }
 
 /* Prepend an object to an array */
-fn pdf_unshift_array(array: &mut pdf_obj, mut object: *mut pdf_obj) {
+fn pdf_unshift_array(array: &mut pdf_obj, mut object: PdfObjRef) {
     array.get_array_mut().values.insert(0, object);
 }
 
@@ -1161,12 +1166,12 @@ unsafe fn write_dict(mut dict: *mut pdf_dict, handle: &mut OutputHandleWrapper) 
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn pdf_new_dict() -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_new_dict() -> PdfObjRef {
     let result = pdf_new_obj(PdfObjType::DICT);
     let data =
         new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_dict>() as u64) as u32) as *mut pdf_dict;
-    (*data).key = 0 as *mut pdf_obj;
-    (*data).value = 0 as *mut pdf_obj;
+    (*data).key = 0 as PdfObjRef;
+    (*data).value = 0 as PdfObjRef;
     (*data).next = 0 as *mut pdf_dict;
     (*result).data = data as *mut libc::c_void;
     result
@@ -1176,8 +1181,8 @@ unsafe fn release_dict(mut data: *mut pdf_dict) {
     while !data.is_null() && !(*data).key.is_null() {
         pdf_release_obj((*data).key);
         pdf_release_obj((*data).value);
-        (*data).key = 0 as *mut pdf_obj;
-        (*data).value = 0 as *mut pdf_obj;
+        (*data).key = 0 as PdfObjRef;
+        (*data).value = 0 as PdfObjRef;
         let next = (*data).next;
         free(data as *mut libc::c_void);
         data = next
@@ -1186,7 +1191,7 @@ unsafe fn release_dict(mut data: *mut pdf_dict) {
 }
 /* Array is ended by a node with NULL this pointer */
 /* pdf_add_dict returns 0 if the key is new and non-zero otherwise */
-pub unsafe fn pdf_add_dict<K>(dict: &mut pdf_obj, key: K, mut value: *mut pdf_obj) -> i32
+pub unsafe fn pdf_add_dict<K>(dict: &mut pdf_obj, key: K, mut value: PdfObjRef) -> i32
 where
     K: Into<Vec<u8>> + AsRef<[u8]>,
 {
@@ -1213,8 +1218,8 @@ where
      */
     let new_node =
         new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_dict>() as u64) as u32) as *mut pdf_dict;
-    (*new_node).key = 0 as *mut pdf_obj;
-    (*new_node).value = 0 as *mut pdf_obj;
+    (*new_node).key = 0 as PdfObjRef;
+    (*new_node).value = 0 as PdfObjRef;
     (*new_node).next = 0 as *mut pdf_dict;
     (*data).next = new_node;
     (*data).key = name;
@@ -1241,7 +1246,7 @@ pub unsafe extern "C" fn pdf_merge_dict(dict1: &mut pdf_obj, dict2: &pdf_obj) {
 pub unsafe extern "C" fn pdf_foreach_dict(
     dict: &mut pdf_obj,
     mut proc_0: Option<
-        unsafe extern "C" fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
+        unsafe extern "C" fn(_: PdfObjRef, _: PdfObjRef, _: *mut libc::c_void) -> i32,
     >,
     mut pdata: *mut libc::c_void,
 ) -> i32 {
@@ -1256,7 +1261,7 @@ pub unsafe extern "C" fn pdf_foreach_dict(
     error
 }
 
-pub unsafe fn pdf_lookup_dict<K>(dict: &mut pdf_obj, name: K) -> Option<*mut pdf_obj>
+pub unsafe fn pdf_lookup_dict<K>(dict: &mut pdf_obj, name: K) -> Option<PdfObjRef>
 where
     K: AsRef<[u8]>,
 {
@@ -1272,7 +1277,7 @@ where
 }
 /* Returns array of dictionary keys */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dict_keys(dict: &pdf_obj) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_dict_keys(dict: &pdf_obj) -> PdfObjRef {
     assert!(dict.is_dict());
     let keys = pdf_new_array();
     let mut data = dict.data as *const pdf_dict;
@@ -1333,7 +1338,7 @@ impl PdfStream {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn pdf_new_stream(flags: i32) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_new_stream(flags: i32) -> PdfObjRef {
     let result = pdf_new_obj(PdfObjType::STREAM);
     let data = Box::new(PdfStream::new(flags));
     (*result).data = Box::into_raw(data) as *mut libc::c_void;
@@ -1343,7 +1348,7 @@ pub unsafe extern "C" fn pdf_new_stream(flags: i32) -> *mut pdf_obj {
 
 #[no_mangle]
 pub unsafe extern "C" fn pdf_stream_set_predictor(
-    mut stream: *mut pdf_obj,
+    mut stream: PdfObjRef,
     mut predictor: i32,
     mut columns: i32,
     mut bpc: i32,
@@ -1738,7 +1743,7 @@ unsafe fn filter_create_predictor_dict(
     mut columns: i32,
     mut bpc: libc::c_int,
     mut colors: libc::c_int,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     let parms = pdf_new_dict();
     pdf_add_dict(&mut *parms, "BitsPerComponent", pdf_new_number(bpc as f64));
     pdf_add_dict(&mut *parms, "Colors", pdf_new_number(colors as f64));
@@ -1835,7 +1840,7 @@ unsafe fn write_stream(mut stream: *mut PdfStream, handle: &mut OutputHandleWrap
             let buffer = new((buffer_length as u32 as u64)
                 .wrapping_mul(::std::mem::size_of::<libc::c_uchar>() as u64)
                 as u32) as *mut libc::c_uchar;
-            let mut filter_name: *mut pdf_obj = pdf_new_name("FlateDecode");
+            let mut filter_name: PdfObjRef = pdf_new_name("FlateDecode");
             if let Some(filters) = filters {
                 /*
                  * FlateDecode is the first filter to be applied to the stream.
@@ -2484,7 +2489,7 @@ impl PdfStream {
     }
 }
 
-pub unsafe fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) -> i32 {
+pub unsafe fn pdf_concat_stream(mut dst: PdfObjRef, mut src: PdfObjRef) -> i32 {
     let dst = &mut *dst;
     let dst_stream = dst.get_stream_mut();
     let src = &mut *src;
@@ -2492,7 +2497,7 @@ pub unsafe fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) ->
     dst_stream.concat(src_stream)
 }
 
-unsafe fn pdf_stream_uncompress(src: &mut pdf_obj) -> *mut pdf_obj {
+unsafe fn pdf_stream_uncompress(src: &mut pdf_obj) -> PdfObjRef {
     let mut dst = pdf_new_stream(0i32);
     let dst_obj = &mut *dst;
     let dst_stream = dst_obj.get_stream_mut();
@@ -2505,7 +2510,7 @@ unsafe fn pdf_stream_uncompress(src: &mut pdf_obj) -> *mut pdf_obj {
     dst
 }
 
-unsafe fn pdf_write_obj(mut object: *mut pdf_obj, handle: &mut OutputHandleWrapper) {
+unsafe fn pdf_write_obj(mut object: PdfObjRef, handle: &mut OutputHandleWrapper) {
     if object.is_null() {
         write_null(handle);
         return;
@@ -2570,7 +2575,7 @@ unsafe fn pdf_flush_obj(object: &mut pdf_obj, handle: &mut OutputHandleWrapper) 
     pdf_enc_set_label(object.label);
     pdf_enc_set_generation(object.generation as u32);
     pdf_out(handle, &format_buffer[..length]);
-    pdf_write_obj(object as *mut pdf_obj, handle);
+    pdf_write_obj(object as PdfObjRef, handle);
     pdf_out(handle, b"\nendobj\n");
 }
 
@@ -2584,16 +2589,16 @@ unsafe fn pdf_add_objstm(objstm: &mut pdf_obj, object: &mut pdf_obj) -> i32 {
     *data.offset((2i32 * pos + 1i32) as isize) = pdf_stream_length(objstm);
     add_xref_entry(object.label, 2_u8, objstm.label, (pos - 1i32) as u16);
     /* redirect output into objstm */
-    output_stream = objstm as *mut pdf_obj;
+    output_stream = objstm as PdfObjRef;
     enc_mode = false;
     let handle = pdf_output_handle.as_mut().unwrap();
     pdf_write_obj(object, handle);
     pdf_out_char(handle, b'\n');
-    output_stream = 0 as *mut pdf_obj;
+    output_stream = 0 as PdfObjRef;
     pos
 }
 
-unsafe fn release_objstm(objstm_ptr: *mut pdf_obj) {
+unsafe fn release_objstm(objstm_ptr: PdfObjRef) {
     let objstm = &mut *objstm_ptr;
     let mut data: *mut i32 = get_objstm_data(&*objstm);
     let mut pos: i32 = *data.offset(0);
@@ -2637,10 +2642,11 @@ unsafe fn release_objstm(objstm_ptr: *mut pdf_obj) {
         );
         stream.append(&old_buf);
     }
-    pdf_release_obj(objstm as *mut pdf_obj);
+    pdf_release_obj(objstm as PdfObjRef);
 }
+
 #[no_mangle]
-pub unsafe extern "C" fn pdf_release_obj(mut object: *mut pdf_obj) {
+pub unsafe extern "C" fn pdf_release_obj(mut object: PdfObjRef) {
     if object.is_null() {
         return;
     }
@@ -2688,13 +2694,13 @@ pub unsafe extern "C" fn pdf_release_obj(mut object: *mut pdf_obj) {
                 }
                 if pdf_add_objstm(&mut *current_objstm, &mut boxed) == 200i32 {
                     release_objstm(current_objstm);
-                    current_objstm = 0 as *mut pdf_obj
+                    current_objstm = 0 as PdfObjRef
                 }
             }
         }
         match PdfObjType::from(boxed.typ) {
             PdfObjType::BOOLEAN => {
-                release_boolean(boxed.data as *mut pdf_obj);
+                release_boolean(boxed.data as PdfObjRef);
             }
             PdfObjType::NUMBER => {
                 release_number(boxed.data as *mut pdf_number);
@@ -2831,7 +2837,7 @@ unsafe fn find_xref(handle: &mut InputHandleWrapper, mut file_size: i32) -> i32 
  * This routine must be called with the file pointer located
  * at the start of the trailer.
  */
-unsafe fn parse_trailer(mut pf: *mut pdf_file) -> Option<*mut pdf_obj> {
+unsafe fn parse_trailer(mut pf: *mut pdf_file) -> Option<PdfObjRef> {
     /*
      * Fill work_buffer and hope trailer fits. This should
      * be made a bit more robust sometime.
@@ -2885,11 +2891,11 @@ pub unsafe extern "C" fn pdf_new_indirect(
     mut pf: *mut pdf_file,
     mut obj_num: u32,
     mut obj_gen: u16,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     let indirect = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_indirect>() as u64) as u32)
         as *mut pdf_indirect;
     (*indirect).pf = pf;
-    (*indirect).obj = 0 as *mut pdf_obj;
+    (*indirect).obj = 0 as PdfObjRef;
     (*indirect).label = obj_num;
     (*indirect).generation = obj_gen;
     let result = pdf_new_obj(PdfObjType::INDIRECT);
@@ -2902,10 +2908,10 @@ unsafe fn pdf_read_object(
     mut pf: *mut pdf_file,
     mut offset: i32,
     mut limit: i32,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     let length = limit - offset;
     if length <= 0i32 {
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     let mut buffer = new(
         ((length + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32,
@@ -2920,7 +2926,7 @@ unsafe fn pdf_read_object(
     let sp = parse_unsigned(&mut q, endptr);
     if sp.is_null() {
         free(buffer as *mut libc::c_void);
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     let n = strtoul(sp, 0 as *mut *mut i8, 10i32) as u32;
     free(sp as *mut libc::c_void);
@@ -2928,13 +2934,13 @@ unsafe fn pdf_read_object(
     let sp = parse_unsigned(&mut q, endptr);
     if sp.is_null() {
         free(buffer as *mut libc::c_void);
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     let g = strtoul(sp, 0 as *mut *mut i8, 10i32) as u32;
     free(sp as *mut libc::c_void);
     if obj_num != 0 && (n != obj_num || g != obj_gen as u32) {
         free(buffer as *mut libc::c_void);
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     p = q;
     skip_white(&mut p, endptr);
@@ -2946,7 +2952,7 @@ unsafe fn pdf_read_object(
     {
         warn!("Didn\'t find \"obj\".");
         free(buffer as *mut libc::c_void);
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     p = p.offset(strlen(b"obj\x00" as *const u8 as *const i8) as isize);
     let mut result = parse_pdf_object(&mut p, endptr, pf);
@@ -2959,13 +2965,13 @@ unsafe fn pdf_read_object(
     {
         warn!("Didn\'t find \"endobj\".");
         pdf_release_obj(result);
-        result = 0 as *mut pdf_obj
+        result = 0 as PdfObjRef
     }
     free(buffer as *mut libc::c_void);
     result
 }
 
-unsafe fn read_objstm(mut pf: *mut pdf_file, mut num: u32) -> *mut pdf_obj {
+unsafe fn read_objstm(mut pf: *mut pdf_file, mut num: u32) -> PdfObjRef {
     let mut current_block: u64;
     let mut offset: u32 = (*(*pf).xref_table.offset(num as isize)).field2;
     let mut gen: u16 = (*(*pf).xref_table.offset(num as isize)).field3;
@@ -2974,12 +2980,12 @@ unsafe fn read_objstm(mut pf: *mut pdf_file, mut num: u32) -> *mut pdf_obj {
     let mut q: *mut i8 = 0 as *mut i8;
     let mut objstm = pdf_read_object(num, gen, pf, offset as i32, limit);
     if !objstm.is_null() && (*objstm).is_stream() {
-        let mut tmp: *mut pdf_obj = pdf_stream_uncompress(&mut *objstm);
+        let mut tmp: PdfObjRef = pdf_stream_uncompress(&mut *objstm);
         if !tmp.is_null() {
             pdf_release_obj(objstm);
             objstm = tmp;
             let dict = pdf_stream_dict(&mut *objstm);
-            let typ = pdf_lookup_dict(dict, "Type").unwrap_or(0 as *mut pdf_obj);
+            let typ = pdf_lookup_dict(dict, "Type").unwrap_or(0 as PdfObjRef);
             if !(!(!typ.is_null() && (*typ).is_name())
                 || pdf_name_value(&*typ).to_string_lossy() != "ObjStm")
             {
@@ -3055,7 +3061,7 @@ unsafe fn read_objstm(mut pf: *mut pdf_file, mut num: u32) -> *mut pdf_obj {
     warn!("Cannot parse object stream.");
     free(data as *mut libc::c_void);
     pdf_release_obj(objstm);
-    0 as *mut pdf_obj
+    0 as PdfObjRef
 }
 /* Label without corresponding object definition are replaced by the
  * null object, as required by the PDF spec. This is important to parse
@@ -3065,7 +3071,7 @@ unsafe fn pdf_get_object(
     mut pf: *mut pdf_file,
     mut obj_num: u32,
     mut obj_gen: u16,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     if !(obj_num > 0_u32
         && obj_num < (*pf).num_obj as u32
         && ((*(*pf).xref_table.offset(obj_num as isize)).typ as i32 == 1i32
@@ -3092,7 +3098,7 @@ unsafe fn pdf_get_object(
         /* type == 2 */
         let mut objstm_num: u32 = (*(*pf).xref_table.offset(obj_num as isize)).field2;
         let mut index: u16 = (*(*pf).xref_table.offset(obj_num as isize)).field3;
-        let mut objstm: *mut pdf_obj = 0 as *mut pdf_obj;
+        let mut objstm: PdfObjRef = 0 as PdfObjRef;
         if !(objstm_num >= (*pf).num_obj as u32)
             && (*(*pf).xref_table.offset(objstm_num as isize)).typ as i32 == 1i32
             && {
@@ -3134,7 +3140,7 @@ unsafe fn pdf_get_object(
         pdf_new_null()
     }
 }
-unsafe fn pdf_new_ref(mut object: *mut pdf_obj) -> *mut pdf_obj {
+unsafe fn pdf_new_ref(mut object: PdfObjRef) -> PdfObjRef {
     if (*object).label == 0_u32 {
         pdf_label_obj(object);
     }
@@ -3146,9 +3152,9 @@ unsafe fn pdf_new_ref(mut object: *mut pdf_obj) -> *mut pdf_obj {
 /* pdf_deref_obj always returns a link instead of the original   */
 /* It never return the null object, but the NULL pointer instead */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_deref_obj(obj: Option<*mut pdf_obj>) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_deref_obj(obj: Option<PdfObjRef>) -> PdfObjRef {
     let mut count = 30;
-    let mut obj = obj.unwrap_or(0 as *mut pdf_obj);
+    let mut obj = obj.unwrap_or(0 as PdfObjRef);
     if !obj.is_null() {
         obj = pdf_link_obj(obj)
     }
@@ -3163,7 +3169,7 @@ pub unsafe extern "C" fn pdf_deref_obj(obj: Option<*mut pdf_obj>) -> *mut pdf_ob
             pdf_release_obj(obj);
             obj = pdf_get_object(pf, obj_num, obj_gen)
         } else {
-            let mut next_obj: *mut pdf_obj = (*((*obj).data as *mut pdf_indirect)).obj;
+            let mut next_obj: PdfObjRef = (*((*obj).data as *mut pdf_indirect)).obj;
             if next_obj.is_null() {
                 panic!("Undefined object reference");
             }
@@ -3176,7 +3182,7 @@ pub unsafe extern "C" fn pdf_deref_obj(obj: Option<*mut pdf_obj>) -> *mut pdf_ob
     }
     if !obj.is_null() && pdf_obj_typeof(obj) == PdfObjType::NULL {
         pdf_release_obj(obj);
-        0 as *mut pdf_obj
+        0 as PdfObjRef
     } else {
         obj
     }
@@ -3188,9 +3194,9 @@ unsafe fn extend_xref(mut pf: *mut pdf_file, mut new_size: i32) {
     ) as *mut xref_entry;
     for i in ((*pf).num_obj as u32)..new_size as u32 {
         let ref mut fresh29 = (*(*pf).xref_table.offset(i as isize)).direct;
-        *fresh29 = 0 as *mut pdf_obj;
+        *fresh29 = 0 as PdfObjRef;
         let ref mut fresh30 = (*(*pf).xref_table.offset(i as isize)).indirect;
-        *fresh30 = 0 as *mut pdf_obj;
+        *fresh30 = 0 as PdfObjRef;
         (*(*pf).xref_table.offset(i as isize)).typ = 0_u8;
         (*(*pf).xref_table.offset(i as isize)).field3 = 0_u16;
         (*(*pf).xref_table.offset(i as isize)).field2 = 0i64 as u32;
@@ -3457,14 +3463,14 @@ unsafe fn parse_xrefstm_subsec(
 unsafe fn parse_xref_stream(
     mut pf: *mut pdf_file,
     mut xref_pos: i32,
-    mut trailer: *mut *mut pdf_obj,
+    mut trailer: *mut PdfObjRef,
 ) -> i32 {
     let mut current_block: u64;
     let mut W: [i32; 3] = [0; 3];
     let mut wsum: i32 = 0i32;
     let mut xrefstm = pdf_read_object(0_u32, 0_u16, pf, xref_pos, (*pf).file_size);
     if !xrefstm.is_null() && (*xrefstm).is_stream() {
-        let mut tmp: *mut pdf_obj = pdf_stream_uncompress(&mut *xrefstm);
+        let mut tmp: PdfObjRef = pdf_stream_uncompress(&mut *xrefstm);
         if !tmp.is_null() {
             pdf_release_obj(xrefstm);
             xrefstm = tmp;
@@ -3474,7 +3480,7 @@ unsafe fn parse_xref_stream(
             {
                 let size = pdf_number_value(&*size_obj) as u32;
                 let mut length = pdf_stream_length(&*xrefstm);
-                let W_obj = pdf_lookup_dict(&mut **trailer, "W").unwrap_or(0 as *mut pdf_obj);
+                let W_obj = pdf_lookup_dict(&mut **trailer, "W").unwrap_or(0 as PdfObjRef);
                 if !(!(!W_obj.is_null() && (*W_obj).is_array())
                     || pdf_array_length(&*W_obj) != 3_u32)
                 {
@@ -3484,7 +3490,7 @@ unsafe fn parse_xref_stream(
                             current_block = 12147880666119273379;
                             break;
                         }
-                        let mut tmp_0: *mut pdf_obj = pdf_get_array(&mut *W_obj, i);
+                        let mut tmp_0: PdfObjRef = pdf_get_array(&mut *W_obj, i);
                         if !(!tmp_0.is_null() && (*tmp_0).is_number()) {
                             current_block = 5131529843719913080;
                             break;
@@ -3513,7 +3519,7 @@ unsafe fn parse_xref_stream(
                                         }
                                         let fresh34 = i;
                                         i = i + 1;
-                                        let mut first: *mut pdf_obj =
+                                        let mut first: PdfObjRef =
                                             pdf_get_array(&mut *index_obj, fresh34);
                                         let fresh35 = i;
                                         i = i + 1;
@@ -3571,15 +3577,15 @@ unsafe fn parse_xref_stream(
     pdf_release_obj(xrefstm);
     if !(*trailer).is_null() {
         pdf_release_obj(*trailer);
-        *trailer = 0 as *mut pdf_obj
+        *trailer = 0 as PdfObjRef
     }
     0i32
 }
 /* TODO: parse Version entry */
-unsafe fn read_xref(mut pf: *mut pdf_file) -> *mut pdf_obj {
+unsafe fn read_xref(mut pf: *mut pdf_file) -> PdfObjRef {
     let mut current_block: u64;
-    let mut trailer: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut main_trailer: *mut pdf_obj = 0 as *mut pdf_obj;
+    let mut trailer: PdfObjRef = 0 as PdfObjRef;
+    let mut main_trailer: PdfObjRef = 0 as PdfObjRef;
     let mut xref_pos = find_xref(&mut (*pf).handle, (*pf).file_size);
     if xref_pos == 0 {
         current_block = 13794981049891343809;
@@ -3593,7 +3599,7 @@ unsafe fn read_xref(mut pf: *mut pdf_file) -> *mut pdf_obj {
                     let mut res: i32 = parse_xref_table(pf, xref_pos);
                     if res > 0i32 {
                         /* cross-reference table */
-                        trailer = parse_trailer(pf).unwrap_or(0 as *mut pdf_obj);
+                        trailer = parse_trailer(pf).unwrap_or(0 as PdfObjRef);
                         if trailer.is_null() {
                             current_block = 13794981049891343809;
                             continue;
@@ -3602,7 +3608,7 @@ unsafe fn read_xref(mut pf: *mut pdf_file) -> *mut pdf_obj {
                             main_trailer = pdf_link_obj(trailer)
                         }
                         if let Some(xrefstm) = pdf_lookup_dict(&mut *trailer, "XRefStm") {
-                            let mut new_trailer: *mut pdf_obj = 0 as *mut pdf_obj;
+                            let mut new_trailer: PdfObjRef = 0 as PdfObjRef;
                             if !xrefstm.is_null()
                                 && (*xrefstm).is_number()
                                 && parse_xref_stream(
@@ -3649,7 +3655,7 @@ unsafe fn read_xref(mut pf: *mut pdf_file) -> *mut pdf_obj {
                 warn!("Error while parsing PDF file.");
                 pdf_release_obj(trailer);
                 pdf_release_obj(main_trailer);
-                return 0 as *mut pdf_obj;
+                return 0 as PdfObjRef;
             }
         }
     }
@@ -3661,9 +3667,9 @@ unsafe fn pdf_file_new(mut handle: InputHandleWrapper) -> *mut pdf_file {
     let file_size = ttstub_input_get_size(&mut handle) as i32;
     handle.seek(SeekFrom::End(0)).unwrap();
     (*pf).handle = handle;
-    (*pf).trailer = 0 as *mut pdf_obj;
+    (*pf).trailer = 0 as PdfObjRef;
     (*pf).xref_table = 0 as *mut xref_entry;
-    (*pf).catalog = 0 as *mut pdf_obj;
+    (*pf).catalog = 0 as PdfObjRef;
     (*pf).num_obj = 0i32;
     (*pf).version = 0_u32;
     (*pf).file_size = file_size;
@@ -3703,12 +3709,12 @@ pub unsafe extern "C" fn pdf_file_get_version(mut pf: *mut pdf_file) -> u32 {
     (*pf).version
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_file_get_trailer(mut pf: *mut pdf_file) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_file_get_trailer(mut pf: *mut pdf_file) -> PdfObjRef {
     assert!(!pf.is_null());
     pdf_link_obj((*pf).trailer)
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_file_get_catalog(mut pf: *mut pdf_file) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_file_get_catalog(mut pf: *mut pdf_file) -> PdfObjRef {
     assert!(!pf.is_null());
     (*pf).catalog
 }
@@ -3847,11 +3853,11 @@ pub unsafe extern "C" fn check_for_pdf(handle: &mut InputHandleWrapper) -> i32 {
 }
 #[inline]
 unsafe extern "C" fn import_dict(
-    mut key: *mut pdf_obj,
-    mut value: *mut pdf_obj,
+    mut key: PdfObjRef,
+    mut value: PdfObjRef,
     mut pdata: *mut libc::c_void,
 ) -> i32 {
-    let copy = pdata as *mut pdf_obj;
+    let copy = pdata as PdfObjRef;
     let tmp = pdf_import_object(value);
     if tmp.is_null() {
         return -1i32;
@@ -3870,7 +3876,7 @@ static mut loop_marker: pdf_obj = {
     };
     init
 };
-unsafe fn pdf_import_indirect(mut object: *mut pdf_obj) -> *mut pdf_obj {
+unsafe fn pdf_import_indirect(mut object: PdfObjRef) -> PdfObjRef {
     let mut pf: *mut pdf_file = (*((*object).data as *mut pdf_indirect)).pf;
     let mut obj_num: u32 = (*((*object).data as *mut pdf_indirect)).label;
     let mut obj_gen: u16 = (*((*object).data as *mut pdf_indirect)).generation;
@@ -3886,7 +3892,7 @@ unsafe fn pdf_import_indirect(mut object: *mut pdf_obj) -> *mut pdf_obj {
     }
     let mut ref_0 = (*(*pf).xref_table.offset(obj_num as isize)).indirect;
     if !ref_0.is_null() {
-        if ref_0 == &mut loop_marker as *mut pdf_obj {
+        if ref_0 == &mut loop_marker as PdfObjRef {
             panic!("Loop in object hierarchy detected. Broken PDF file?");
         }
         return pdf_link_obj(ref_0);
@@ -3894,7 +3900,7 @@ unsafe fn pdf_import_indirect(mut object: *mut pdf_obj) -> *mut pdf_obj {
         let obj = pdf_get_object(pf, obj_num, obj_gen);
         if obj.is_null() {
             warn!("Could not read object: {} {}", obj_num, obj_gen as i32,);
-            return 0 as *mut pdf_obj;
+            return 0 as PdfObjRef;
         }
         /* We mark the reference to be able to detect loops */
         let ref mut fresh36 = (*(*pf).xref_table.offset(obj_num as isize)).indirect;
@@ -3916,7 +3922,7 @@ unsafe fn pdf_import_indirect(mut object: *mut pdf_obj) -> *mut pdf_obj {
  * are imported several times.
  */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_import_object(mut object: *mut pdf_obj) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_import_object(mut object: PdfObjRef) -> PdfObjRef {
     let imported;
     match pdf_obj_typeof(object) {
         PdfObjType::INDIRECT => {
@@ -3929,7 +3935,7 @@ pub unsafe extern "C" fn pdf_import_object(mut object: *mut pdf_obj) -> *mut pdf
         PdfObjType::STREAM => {
             let tmp = pdf_import_object(pdf_stream_dict(&mut *object));
             if tmp.is_null() {
-                return 0 as *mut pdf_obj;
+                return 0 as PdfObjRef;
             }
             imported = pdf_new_stream(0i32);
             let stream_dict = pdf_stream_dict(&mut *imported);
@@ -3948,8 +3954,8 @@ pub unsafe extern "C" fn pdf_import_object(mut object: *mut pdf_obj) -> *mut pdf
                 Some(
                     import_dict
                         as unsafe extern "C" fn(
-                            _: *mut pdf_obj,
-                            _: *mut pdf_obj,
+                            _: PdfObjRef,
+                            _: PdfObjRef,
                             _: *mut libc::c_void,
                         ) -> i32,
                 ),
@@ -3957,7 +3963,7 @@ pub unsafe extern "C" fn pdf_import_object(mut object: *mut pdf_obj) -> *mut pdf
             ) < 0i32
             {
                 pdf_release_obj(imported);
-                return 0 as *mut pdf_obj;
+                return 0 as PdfObjRef;
             }
         }
         PdfObjType::ARRAY => {
@@ -3966,7 +3972,7 @@ pub unsafe extern "C" fn pdf_import_object(mut object: *mut pdf_obj) -> *mut pdf
                 let tmp = pdf_import_object(pdf_get_array(&mut *object, i as i32));
                 if tmp.is_null() {
                     pdf_release_obj(imported);
-                    return 0 as *mut pdf_obj;
+                    return 0 as PdfObjRef;
                 }
                 pdf_add_array(&mut *imported, tmp);
             }
@@ -3978,8 +3984,8 @@ pub unsafe extern "C" fn pdf_import_object(mut object: *mut pdf_obj) -> *mut pdf
 /* returns 0 if indirect references point to the same object */
 #[no_mangle]
 pub unsafe extern "C" fn pdf_compare_reference(
-    mut ref1: *mut pdf_obj,
-    mut ref2: *mut pdf_obj,
+    mut ref1: PdfObjRef,
+    mut ref2: PdfObjRef,
 ) -> i32 {
     assert!(!ref1.is_null() && (*ref1).is_indirect() && (!ref2.is_null() && (*ref2).is_indirect()));
     let data1 = (*ref1).data as *mut pdf_indirect;

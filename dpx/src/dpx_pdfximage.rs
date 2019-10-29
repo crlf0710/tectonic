@@ -32,6 +32,7 @@ use crate::DisplayExt;
 use crate::{info, warn};
 use crate::{streq_ptr, strstartswith};
 use std::ffi::CStr;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::dpx_bmpimage::{bmp_include_image, check_for_bmp};
 use super::dpx_dpxfile::{dpx_delete_temp_file, keep_cache};
@@ -82,7 +83,7 @@ pub struct xform_info {
 pub struct load_options {
     pub page_no: i32,
     pub bbox_type: i32,
-    pub dict: *mut pdf_obj,
+    pub dict: PdfObjRef,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -92,8 +93,8 @@ pub struct pdf_ximage {
     pub subtype: i32,
     pub attr: attr_,
     pub filename: *mut i8,
-    pub reference: *mut pdf_obj,
-    pub resource: *mut pdf_obj,
+    pub reference: PdfObjRef,
+    pub resource: PdfObjRef,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -106,7 +107,7 @@ pub struct attr_ {
     pub page_no: i32,
     pub page_count: i32,
     pub bbox_type: i32,
-    pub dict: *mut pdf_obj,
+    pub dict: PdfObjRef,
     pub tempfile: i8,
 }
 /* quasi-hack to get the primary input */
@@ -155,8 +156,8 @@ unsafe fn pdf_init_ximage_struct(mut I: *mut pdf_ximage) {
     (*I).filename = 0 as *mut i8;
     (*I).subtype = -1i32;
     memset((*I).res_name.as_mut_ptr() as *mut libc::c_void, 0i32, 16);
-    (*I).reference = 0 as *mut pdf_obj;
-    (*I).resource = 0 as *mut pdf_obj;
+    (*I).reference = 0 as PdfObjRef;
+    (*I).resource = 0 as PdfObjRef;
     (*I).attr.height = 0i32;
     (*I).attr.width = (*I).attr.height;
     (*I).attr.ydensity = 1.0f64;
@@ -165,7 +166,7 @@ unsafe fn pdf_init_ximage_struct(mut I: *mut pdf_ximage) {
     (*I).attr.page_no = 1i32;
     (*I).attr.page_count = 1i32;
     (*I).attr.bbox_type = 0i32;
-    (*I).attr.dict = 0 as *mut pdf_obj;
+    (*I).attr.dict = 0 as PdfObjRef;
     (*I).attr.tempfile = 0_i8;
 }
 unsafe fn pdf_clean_ximage_struct(mut I: *mut pdf_ximage) {
@@ -498,7 +499,7 @@ pub extern "C" fn pdf_ximage_init_image_info(info: &mut ximage_info) {
 pub unsafe extern "C" fn pdf_ximage_set_image(
     mut I: *mut pdf_ximage,
     image_info: &mut ximage_info,
-    mut resource: *mut pdf_obj,
+    mut resource: PdfObjRef,
 ) {
     let info = image_info;
     if !(!resource.is_null() && (*resource).is_stream()) {
@@ -527,13 +528,13 @@ pub unsafe extern "C" fn pdf_ximage_set_image(
         pdf_merge_dict(dict, &*(*I).attr.dict);
     }
     pdf_release_obj(resource);
-    (*I).resource = 0 as *mut pdf_obj;
+    (*I).resource = 0 as PdfObjRef;
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_ximage_set_form(
     mut I: *mut pdf_ximage,
     form_info: &mut xform_info,
-    mut resource: *mut pdf_obj,
+    mut resource: PdfObjRef,
 ) {
     let info = form_info;
     (*I).subtype = 0i32;
@@ -554,14 +555,14 @@ pub unsafe extern "C" fn pdf_ximage_set_form(
     (*I).attr.bbox.ur.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
     (*I).reference = pdf_ref_obj(resource);
     pdf_release_obj(resource);
-    (*I).resource = 0 as *mut pdf_obj;
+    (*I).resource = 0 as PdfObjRef;
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_ximage_get_page(mut I: *mut pdf_ximage) -> i32 {
     (*I).attr.page_no
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_ximage_get_reference(mut id: i32) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_ximage_get_reference(mut id: i32) -> PdfObjRef {
     let mut ic: *mut ic_ = &mut _ic;
     if id < 0i32 || id >= (*ic).count {
         panic!("Invalid XObject ID: {}", id);
@@ -584,7 +585,7 @@ pub enum XInfo {
 pub unsafe extern "C" fn pdf_ximage_defineresource(
     mut ident: *const i8,
     info: XInfo,
-    mut resource: *mut pdf_obj,
+    mut resource: PdfObjRef,
 ) -> i32 {
     let mut ic: *mut ic_ = &mut _ic;
     let id = (*ic).count;

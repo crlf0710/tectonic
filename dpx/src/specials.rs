@@ -34,6 +34,7 @@ pub mod xtx;
 use crate::warn;
 use crate::DisplayExt;
 use std::ffi::{CStr, CString};
+use crate::dpx_pdfobj::PdfObjRef;
 
 use self::color::{spc_color_check_special, spc_color_setup_handler};
 use self::dvipdfmx::{spc_dvipdfmx_check_special, spc_dvipdfmx_setup_handler};
@@ -115,7 +116,7 @@ pub unsafe fn spc_set_verbose(mut level: i32) {
 /* This is currently just to make other spc_xxx to not directly
  * call dvi_xxx.
  */
-pub unsafe extern "C" fn spc_begin_annot(mut _spe: *mut spc_env, mut dict: *mut pdf_obj) -> i32 {
+pub unsafe extern "C" fn spc_begin_annot(mut _spe: *mut spc_env, mut dict: PdfObjRef) -> i32 {
     pdf_doc_begin_annot(dict); /* Tell dvi interpreter to handle line-break. */
     dvi_tag_depth();
     0i32
@@ -173,7 +174,7 @@ unsafe fn ispageref(mut key: *const i8) -> i32 {
     1i32
 }
 
-pub unsafe fn spc_lookup_reference(mut key: &CString) -> Option<*mut pdf_obj> {
+pub unsafe fn spc_lookup_reference(mut key: &CString) -> Option<PdfObjRef> {
     assert!(!NAMED_OBJECTS.is_null());
     let value = match key.to_bytes() {
         b"xpos" => {
@@ -220,10 +221,10 @@ pub unsafe fn spc_lookup_reference(mut key: &CString) -> Option<*mut pdf_obj> {
         Some(value)
     }
 }
-pub unsafe extern "C" fn spc_lookup_object(mut key: *const i8) -> *mut pdf_obj {
+pub unsafe extern "C" fn spc_lookup_object(mut key: *const i8) -> PdfObjRef {
     assert!(!NAMED_OBJECTS.is_null());
     if key.is_null() {
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     let mut k = 0i32;
     while !_RKEYS[k as usize].is_null() && strcmp(key, _RKEYS[k as usize]) != 0 {
@@ -262,7 +263,7 @@ pub unsafe extern "C" fn spc_lookup_object(mut key: *const i8) -> *mut pdf_obj {
     */
     return value; /* _FIXME_ */
 }
-pub unsafe extern "C" fn spc_push_object(mut key: *const i8, mut value: *mut pdf_obj) {
+pub unsafe extern "C" fn spc_push_object(mut key: *const i8, mut value: PdfObjRef) {
     assert!(!NAMED_OBJECTS.is_null());
     if key.is_null() || value.is_null() {
         return;

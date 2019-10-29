@@ -31,6 +31,7 @@ use crate::streq_ptr;
 use crate::warn;
 use crate::DisplayExt;
 use std::ffi::CStr;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj};
@@ -44,8 +45,8 @@ pub struct pdf_res {
     pub flags: i32,
     pub category: i32,
     pub cdata: *mut libc::c_void,
-    pub object: *mut pdf_obj,
-    pub reference: *mut pdf_obj,
+    pub object: PdfObjRef,
+    pub reference: PdfObjRef,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -143,15 +144,15 @@ unsafe fn pdf_init_resource(mut res: *mut pdf_res) {
     (*res).category = -1i32;
     (*res).flags = 0i32;
     (*res).cdata = 0 as *mut libc::c_void;
-    (*res).object = 0 as *mut pdf_obj;
-    (*res).reference = 0 as *mut pdf_obj;
+    (*res).object = 0 as PdfObjRef;
+    (*res).reference = 0 as PdfObjRef;
 }
 unsafe fn pdf_flush_resource(mut res: *mut pdf_res) {
     if !res.is_null() {
         pdf_release_obj((*res).reference);
         pdf_release_obj((*res).object);
-        (*res).reference = 0 as *mut pdf_obj;
-        (*res).object = 0 as *mut pdf_obj
+        (*res).reference = 0 as PdfObjRef;
+        (*res).object = 0 as PdfObjRef
     };
 }
 unsafe fn pdf_clean_resource(mut res: *mut pdf_res) {
@@ -206,7 +207,7 @@ unsafe fn get_category(mut category: *const i8) -> i32 {
 pub unsafe extern "C" fn pdf_defineresource(
     mut category: *const i8,
     mut resname: *const i8,
-    mut object: *mut pdf_obj,
+    mut object: PdfObjRef,
     mut flags: i32,
 ) -> i32 {
     let mut res_id;
@@ -293,7 +294,7 @@ pub unsafe extern "C" fn pdf_findresource(mut category: *const i8, mut resname: 
     -1i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_get_resource_reference(mut rc_id: i32) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_get_resource_reference(mut rc_id: i32) -> PdfObjRef {
     let cat_id = rc_id >> 16i32 & 0xffffi32;
     let res_id = rc_id & 0xffffi32;
     if cat_id < 0i32

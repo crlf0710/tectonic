@@ -27,6 +27,7 @@
     unused_mut
 )]
 
+use crate::dpx_pdfobj::PdfObjRef;
 use crate::DisplayExt;
 use std::ffi::CStr;
 
@@ -82,7 +83,7 @@ pub unsafe extern "C" fn tt_get_fontdesc(
     mut stemv: i32,
     mut type_0: i32,
     mut fontname: *const i8,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     let mut flag: i32 = 1i32 << 2i32;
     if sfont.is_null() {
         panic!("font file not opened");
@@ -94,7 +95,7 @@ pub unsafe extern "C" fn tt_get_fontdesc(
     if post.is_null() {
         free(os2 as *mut libc::c_void);
         free(head as *mut libc::c_void);
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     let descriptor = pdf_new_dict();
     pdf_add_dict(&mut *descriptor, "Type", pdf_new_name("FontDescriptor"));

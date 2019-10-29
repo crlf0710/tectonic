@@ -30,6 +30,7 @@
 use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CString;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
@@ -308,7 +309,7 @@ static mut sbuf: [i8; PDF_STRING_LEN_MAX+1] = [0; PDF_STRING_LEN_MAX+1];
 unsafe fn try_pdf_reference(
     mut p: &[u8],
     pf: *mut pdf_file,
-) -> Option<(*mut pdf_obj, &[u8])> {
+) -> Option<(PdfObjRef, &[u8])> {
     let mut id: u32 = 0_u32;
     let mut gen: u16 = 0_u16;
     assert!(!pf.is_null());
@@ -356,35 +357,35 @@ pub unsafe extern "C" fn parse_pdf_object(
     mut pp: *mut *const i8,
     mut endptr: *const i8,
     mut pf: *mut pdf_file,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     let mut b = std::slice::from_raw_parts(*pp as *const i8 as *const u8, endptr.wrapping_offset_from(*pp) as usize);
     let obj = b.parse_pdf_object(pf);
     *pp = b.as_ptr() as *const i8;
     if let Some(o) = obj {
         o
     } else {
-        0 as *mut pdf_obj
+        0 as PdfObjRef
     }
 }
 
 pub trait ParsePdfObj {
-    fn parse_pdf_object(&mut self, pf: *mut pdf_file) -> Option<*mut pdf_obj>;
-    fn parse_pdf_reference(&mut self) -> Option<*mut pdf_obj>;
-    fn parse_pdf_stream(&mut self, dict: *mut pdf_obj) -> Option<*mut pdf_obj>;
-    fn parse_pdf_array(&mut self, pf: *mut pdf_file) -> Option<*mut pdf_obj>;
-    fn parse_pdf_tainted_dict(&mut self) -> Option<*mut pdf_obj>;
-    fn parse_pdf_dict(&mut self, pf: *mut pdf_file) -> Option<*mut pdf_obj>;
-    fn parse_pdf_literal_string(&mut self) -> Option<*mut pdf_obj>;
-    fn parse_pdf_hex_string(&mut self) -> Option<*mut pdf_obj>;
-    fn parse_pdf_string(&mut self) -> Option<*mut pdf_obj>;
-    fn parse_pdf_null(&mut self) -> Option<*mut pdf_obj>;
-    fn parse_pdf_boolean(&mut self) -> Option<*mut pdf_obj>;
-    fn parse_pdf_name(&mut self) -> Option<*mut pdf_obj>;
-    fn parse_pdf_number(&mut self) -> Option<*mut pdf_obj>;
+    fn parse_pdf_object(&mut self, pf: *mut pdf_file) -> Option<PdfObjRef>;
+    fn parse_pdf_reference(&mut self) -> Option<PdfObjRef>;
+    fn parse_pdf_stream(&mut self, dict: PdfObjRef) -> Option<PdfObjRef>;
+    fn parse_pdf_array(&mut self, pf: *mut pdf_file) -> Option<PdfObjRef>;
+    fn parse_pdf_tainted_dict(&mut self) -> Option<PdfObjRef>;
+    fn parse_pdf_dict(&mut self, pf: *mut pdf_file) -> Option<PdfObjRef>;
+    fn parse_pdf_literal_string(&mut self) -> Option<PdfObjRef>;
+    fn parse_pdf_hex_string(&mut self) -> Option<PdfObjRef>;
+    fn parse_pdf_string(&mut self) -> Option<PdfObjRef>;
+    fn parse_pdf_null(&mut self) -> Option<PdfObjRef>;
+    fn parse_pdf_boolean(&mut self) -> Option<PdfObjRef>;
+    fn parse_pdf_name(&mut self) -> Option<PdfObjRef>;
+    fn parse_pdf_number(&mut self) -> Option<PdfObjRef>;
 }
 
 impl ParsePdfObj for &[u8] {
-    fn parse_pdf_object(&mut self, pf: *mut pdf_file) -> Option<*mut pdf_obj> {
+    fn parse_pdf_object(&mut self, pf: *mut pdf_file) -> Option<PdfObjRef> {
         let mut result;
         self.skip_white();
         if self.is_empty() {
@@ -437,7 +438,7 @@ impl ParsePdfObj for &[u8] {
         }
         result
     }
-    fn parse_pdf_reference(&mut self) -> Option<*mut pdf_obj> {
+    fn parse_pdf_reference(&mut self) -> Option<PdfObjRef> {
         let result;
         let save2 = *self; // TODO: check
         self.skip_white();
@@ -459,7 +460,7 @@ impl ParsePdfObj for &[u8] {
         }
         result
     }
-    fn parse_pdf_stream(&mut self, dict: *mut pdf_obj) -> Option<*mut pdf_obj> {
+    fn parse_pdf_stream(&mut self, dict: PdfObjRef) -> Option<PdfObjRef> {
         let stream_length;
         let mut p = *self;
         p.skip_white();
@@ -526,7 +527,7 @@ impl ParsePdfObj for &[u8] {
         *self = p;
         Some(result)
     }
-    fn parse_pdf_array(&mut self, pf: *mut pdf_file) -> Option<*mut pdf_obj> {
+    fn parse_pdf_array(&mut self, pf: *mut pdf_file) -> Option<PdfObjRef> {
         let mut p = *self;
         p.skip_white();
         if p.len() < 2 || p[0] != b'[' {
@@ -554,13 +555,13 @@ impl ParsePdfObj for &[u8] {
         *self = &p[1..];
         Some(result)
     }
-    fn parse_pdf_tainted_dict(&mut self) -> Option<*mut pdf_obj> {
+    fn parse_pdf_tainted_dict(&mut self) -> Option<PdfObjRef> {
         unsafe { parser_state.tainted = 1; }
         let result = self.parse_pdf_dict(0 as *mut pdf_file);
         unsafe { parser_state.tainted = 0; }
         result
     }
-    fn parse_pdf_dict(&mut self, pf: *mut pdf_file) -> Option<*mut pdf_obj> {
+    fn parse_pdf_dict(&mut self, pf: *mut pdf_file) -> Option<PdfObjRef> {
         let mut p = *self;
         p.skip_white();
         /* At least four letter <<>>. */
@@ -597,7 +598,7 @@ impl ParsePdfObj for &[u8] {
         *self = &p[2..];
         Some(result)
     }
-    fn parse_pdf_literal_string(&mut self) -> Option<*mut pdf_obj> {
+    fn parse_pdf_literal_string(&mut self) -> Option<PdfObjRef> {
         /*
          * PDF Literal String
          */
@@ -750,7 +751,7 @@ impl ParsePdfObj for &[u8] {
     /*
      * PDF Hex String
      */
-    fn parse_pdf_hex_string(&mut self) -> Option<*mut pdf_obj> {
+    fn parse_pdf_hex_string(&mut self) -> Option<PdfObjRef> {
         let mut p = *self;
         p.skip_white();
         if p.is_empty() || p[0] != b'<' {
@@ -789,7 +790,7 @@ impl ParsePdfObj for &[u8] {
         *self = &p[1..];
         unsafe{ Some(pdf_new_string(sbuf.as_mut_ptr() as *const libc::c_void, len as size_t)) }
     }
-    fn parse_pdf_string(&mut self) -> Option<*mut pdf_obj> {
+    fn parse_pdf_string(&mut self) -> Option<PdfObjRef> {
 
         self.skip_white();
         if self.len() >= 2 {
@@ -807,7 +808,7 @@ impl ParsePdfObj for &[u8] {
         warn!("Could not find a string object.");
         None
     }
-    fn parse_pdf_null(&mut self) -> Option<*mut pdf_obj> {
+    fn parse_pdf_null(&mut self) -> Option<PdfObjRef> {
         self.skip_white();
         if (*self).len() < 4 {
             warn!("Not a null object.");
@@ -825,7 +826,7 @@ impl ParsePdfObj for &[u8] {
             None
         }
     }
-    fn parse_pdf_boolean(&mut self) -> Option<*mut pdf_obj> {
+    fn parse_pdf_boolean(&mut self) -> Option<PdfObjRef> {
         self.skip_white();
         if self.starts_with(b"true") {
             if (*self).len() == 4 || istokensep(&self[4]) {
@@ -843,7 +844,7 @@ impl ParsePdfObj for &[u8] {
         warn!("Not a boolean object.");
         None
     }
-    fn parse_pdf_name(&mut self) -> Option<*mut pdf_obj> {
+    fn parse_pdf_name(&mut self) -> Option<PdfObjRef> {
         unsafe fn pn_getc(pp: &mut &[u8]) -> i32 {
             let mut ch;
             let mut p = *pp;
@@ -898,7 +899,7 @@ impl ParsePdfObj for &[u8] {
         }
         unsafe { Some(pdf_new_name(name)) }
     }
-    fn parse_pdf_number(&mut self) -> Option<*mut pdf_obj> {
+    fn parse_pdf_number(&mut self) -> Option<PdfObjRef> {
         let mut v = 0_f64;
         let mut nddigits = 0;
         let mut sign = 1;

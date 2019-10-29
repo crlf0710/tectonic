@@ -28,6 +28,7 @@ unused_mut
 use crate::dpx_error::dpx_warning;
 use crate::DisplayExt;
 use std::ffi::{CStr, CString};
+use crate::dpx_pdfobj::PdfObjRef;
 
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_transform};
 use crate::dpx_pdfximage::{
@@ -62,7 +63,7 @@ use super::SpcHandler;
 #[repr(C)]
 pub struct spc_html_ {
     pub opts: C2RustUnnamed_0,
-    pub link_dict: *mut pdf_obj,
+    pub link_dict: PdfObjRef,
     pub baseurl: *mut i8,
     pub pending_type: i32,
 }
@@ -90,7 +91,7 @@ static mut _HTML_STATE: spc_html_ = {
             let mut init = C2RustUnnamed_0 { extensions: 0i32 };
             init
         },
-        link_dict: 0 as *const pdf_obj as *mut pdf_obj,
+        link_dict: 0 as *const pdf_obj as PdfObjRef,
         baseurl: 0 as *const i8 as *mut i8,
         pending_type: -1i32,
     };
@@ -151,7 +152,7 @@ unsafe fn parse_key_val(
 }
 
 unsafe fn read_html_tag(
-    mut attr: *mut pdf_obj,
+    mut attr: PdfObjRef,
     type_0: &mut i32,
     pp: &mut &[u8],
 ) -> Result<Vec<u8>, ()> {
@@ -232,7 +233,7 @@ unsafe fn read_html_tag(
 
 unsafe fn spc_handler_html__init(mut dp: *mut libc::c_void) -> i32 {
     let mut sd: *mut spc_html_ = dp as *mut spc_html_;
-    (*sd).link_dict = 0 as *mut pdf_obj;
+    (*sd).link_dict = 0 as PdfObjRef;
     (*sd).baseurl = 0 as *mut i8;
     (*sd).pending_type = -1i32;
     0i32
@@ -247,7 +248,7 @@ unsafe fn spc_handler_html__clean(mut spe: *mut spc_env, mut dp: *mut libc::c_vo
     pdf_release_obj((*sd).link_dict);
     (*sd).pending_type = -1i32;
     (*sd).baseurl = 0 as *mut i8;
-    (*sd).link_dict = 0 as *mut pdf_obj;
+    (*sd).link_dict = 0 as PdfObjRef;
     0i32
 }
 
@@ -320,7 +321,7 @@ unsafe fn html_open_link(
             ),
         ); /* Otherwise must be bug */
     } else {
-        let mut action: *mut pdf_obj = pdf_new_dict();
+        let mut action: PdfObjRef = pdf_new_dict();
         pdf_add_dict(&mut *action, "Type", pdf_new_name("Action"));
         pdf_add_dict(&mut *action, "S", pdf_new_name("URI"));
         pdf_add_dict(
@@ -371,7 +372,7 @@ unsafe fn html_open_dest(
 
 unsafe fn spc_html__anchor_open(
     mut spe: *mut spc_env,
-    mut attr: *mut pdf_obj,
+    mut attr: PdfObjRef,
     mut sd: *mut spc_html_,
 ) -> i32 {
     if (*sd).pending_type >= 0i32 || !(*sd).link_dict.is_null() {
@@ -407,7 +408,7 @@ unsafe fn spc_html__anchor_close(mut spe: *mut spc_env, mut sd: *mut spc_html_) 
             if !(*sd).link_dict.is_null() {
                 spc_end_annot(spe);
                 pdf_release_obj((*sd).link_dict);
-                (*sd).link_dict = 0 as *mut pdf_obj;
+                (*sd).link_dict = 0 as PdfObjRef;
                 (*sd).pending_type = -1i32
             } else {
                 spc_warn!(spe, "Closing html anchor (link) without starting!");
@@ -425,7 +426,7 @@ unsafe fn spc_html__anchor_close(mut spe: *mut spc_env, mut sd: *mut spc_html_) 
 
 unsafe fn spc_html__base_empty(
     mut spe: *mut spc_env,
-    mut attr: *mut pdf_obj,
+    mut attr: PdfObjRef,
     mut sd: *mut spc_html_,
 ) -> i32 {
     let href = pdf_lookup_dict(&mut *attr, "href");
@@ -506,7 +507,7 @@ unsafe fn atopt(mut a: *const i8) -> f64 {
     v * u
 }
 /* Replicated from spc_tpic */
-unsafe fn create_xgstate(mut a: f64, mut f_ais: i32) -> *mut pdf_obj
+unsafe fn create_xgstate(mut a: f64, mut f_ais: i32) -> PdfObjRef
 /* alpha is shape */ {
     let dict = pdf_new_dict();
     pdf_add_dict(&mut *dict, "Type", pdf_new_name("ExtGState"));
@@ -535,7 +536,7 @@ unsafe fn spc_html__img_empty(mut spe: *mut spc_env, attr: &mut pdf_obj) -> i32 
         let mut init = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
-            dict: 0 as *mut pdf_obj,
+            dict: 0 as PdfObjRef,
         };
         init
     };

@@ -34,8 +34,9 @@ use crate::spc_warn;
 use crate::DisplayExt;
 use crate::TTInputFormat;
 use crate::{ttstub_input_close, ttstub_input_open};
-use libc::{strlen};
+use libc::strlen;
 use std::ffi::CStr;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::{spc_arg, spc_env};
 
@@ -50,7 +51,7 @@ unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg)
         let mut init = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
-            dict: 0 as *mut pdf_obj,
+            dict: 0 as PdfObjRef,
         };
         init
     };

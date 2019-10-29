@@ -29,6 +29,7 @@
 
 use crate::DisplayExt;
 use std::ffi::CStr;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use crate::dpx_pdfparse::ParsePdfObj;
 use crate::mfree;
@@ -69,9 +70,9 @@ pub struct CIDFont {
     pub parent: [i32; 2],
     pub csi: *mut CIDSysInfo,
     pub options: *mut cid_opt,
-    pub indirect: *mut pdf_obj,
-    pub fontdict: *mut pdf_obj,
-    pub descriptor: *mut pdf_obj,
+    pub indirect: PdfObjRef,
+    pub fontdict: PdfObjRef,
+    pub descriptor: PdfObjRef,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -411,20 +412,20 @@ unsafe fn CIDFont_new() -> *mut CIDFont {
     /*
      * PDF Font Resource
      */
-    (*font).indirect = 0 as *mut pdf_obj;
-    (*font).fontdict = 0 as *mut pdf_obj;
-    (*font).descriptor = 0 as *mut pdf_obj;
+    (*font).indirect = 0 as PdfObjRef;
+    (*font).fontdict = 0 as PdfObjRef;
+    (*font).descriptor = 0 as PdfObjRef;
     font
 }
 /* It does write PDF objects. */
 unsafe fn CIDFont_flush(mut font: *mut CIDFont) {
     if !font.is_null() {
         pdf_release_obj((*font).indirect);
-        (*font).indirect = 0 as *mut pdf_obj;
+        (*font).indirect = 0 as PdfObjRef;
         pdf_release_obj((*font).fontdict);
-        (*font).fontdict = 0 as *mut pdf_obj;
+        (*font).fontdict = 0 as PdfObjRef;
         pdf_release_obj((*font).descriptor);
-        (*font).descriptor = 0 as *mut pdf_obj
+        (*font).descriptor = 0 as PdfObjRef
     };
 }
 unsafe fn CIDFont_release(mut font: *mut CIDFont) {
@@ -498,7 +499,7 @@ pub unsafe extern "C" fn CIDFont_get_parent_id(mut font: *mut CIDFont, mut wmode
     (*font).parent[wmode as usize]
 }
 #[no_mangle]
-pub unsafe extern "C" fn CIDFont_get_resource(mut font: *mut CIDFont) -> *mut pdf_obj {
+pub unsafe extern "C" fn CIDFont_get_resource(mut font: *mut CIDFont) -> PdfObjRef {
     assert!(!font.is_null());
     if (*font).indirect.is_null() {
         (*font).indirect = pdf_ref_obj((*font).fontdict)

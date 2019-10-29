@@ -29,6 +29,7 @@
 
 use crate::DisplayExt;
 use std::ffi::CStr;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::dpx_sfnt::{
     dfont_open, sfnt_close, sfnt_create_FontFile_stream, sfnt_find_table_pos, sfnt_open,
@@ -416,7 +417,7 @@ unsafe fn find_tocode_cmap(mut reg: *const i8, mut ord: *const i8, mut select: i
  * Mostly same as add_CID[HV]Metrics in cidtype0.c.
  */
 unsafe fn add_TTCIDHMetrics(
-    mut fontdict: *mut pdf_obj,
+    mut fontdict: PdfObjRef,
     mut g: *mut tt_glyphs,
     mut used_chars: *mut i8,
     mut cidtogidmap: *mut u8,
@@ -424,7 +425,7 @@ unsafe fn add_TTCIDHMetrics(
 ) {
     let mut start: i32 = 0i32;
     let mut prev: i32 = 0i32;
-    let mut an_array: *mut pdf_obj = 0 as *mut pdf_obj;
+    let mut an_array: PdfObjRef = 0 as PdfObjRef;
     let mut empty: i32 = 1i32;
     let w_array = pdf_new_array();
     let dw = if (*g).dw as i32 != 0i32 && (*g).dw as i32 <= (*g).emsize as i32 {
@@ -459,7 +460,7 @@ unsafe fn add_TTCIDHMetrics(
                     if !an_array.is_null() {
                         pdf_add_array(&mut *w_array, pdf_new_number(start as f64));
                         pdf_add_array(&mut *w_array, an_array);
-                        an_array = 0 as *mut pdf_obj;
+                        an_array = 0 as PdfObjRef;
                         empty = 0i32
                     }
                 } else {
@@ -467,7 +468,7 @@ unsafe fn add_TTCIDHMetrics(
                         if !an_array.is_null() {
                             pdf_add_array(&mut *w_array, pdf_new_number(start as f64));
                             pdf_add_array(&mut *w_array, an_array);
-                            an_array = 0 as *mut pdf_obj;
+                            an_array = 0 as PdfObjRef;
                             empty = 0i32
                         }
                     }
@@ -493,7 +494,7 @@ unsafe fn add_TTCIDHMetrics(
     pdf_release_obj(w_array);
 }
 unsafe fn add_TTCIDVMetrics(
-    mut fontdict: *mut pdf_obj,
+    mut fontdict: PdfObjRef,
     mut g: *mut tt_glyphs,
     mut used_chars: *mut i8,
     mut last_cid: u16,

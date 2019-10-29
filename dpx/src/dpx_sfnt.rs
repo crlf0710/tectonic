@@ -28,6 +28,7 @@
 )]
 
 use tectonic_bridge::ttstub_input_close;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::{tt_get_unsigned_pair, tt_get_unsigned_quad};
@@ -366,7 +367,7 @@ static mut padbytes: [u8; 4] = [0; 4];
 /* get_***_*** from numbers.h */
 /* table directory */
 #[no_mangle]
-pub unsafe extern "C" fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj {
+pub unsafe extern "C" fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> PdfObjRef {
     let mut length;
     assert!(!sfont.is_null() && !(*sfont).directory.is_null());
     let stream = pdf_new_stream(1i32 << 0i32);

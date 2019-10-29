@@ -30,6 +30,7 @@
 use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::dpx_cff::cff_charsets_lookup_cid;
 use super::dpx_cmap::{CMap_cache_get, CMap_decode};
@@ -271,7 +272,7 @@ pub struct dev_font {
     pub font_id: i32,
     pub enc_id: i32,
     pub real_font_index: i32,
-    pub resource: *mut pdf_obj,
+    pub resource: PdfObjRef,
     pub used_chars: *mut i8,
     pub format: i32,
     pub wmode: i32,
@@ -1440,7 +1441,7 @@ pub unsafe extern "C" fn pdf_close_device() {
             let ref mut fresh43 = (*dev_fonts.offset(i as isize)).tex_name;
             *fresh43 = 0 as *mut i8;
             let ref mut fresh44 = (*dev_fonts.offset(i as isize)).resource;
-            *fresh44 = 0 as *mut pdf_obj;
+            *fresh44 = 0 as PdfObjRef;
             let ref mut fresh45 = (*dev_fonts.offset(i as isize)).cff_charsets;
             *fresh45 = 0 as *mut cff_charsets;
         }
@@ -1624,7 +1625,7 @@ pub unsafe extern "C" fn pdf_dev_locate_font(mut font_name: *const i8, mut ptsiz
     }
     (*font).wmode = pdf_get_font_wmode((*font).font_id);
     (*font).enc_id = pdf_get_font_encoding((*font).font_id);
-    (*font).resource = 0 as *mut pdf_obj;
+    (*font).resource = 0 as PdfObjRef;
     (*font).used_chars = 0 as *mut i8;
     (*font).extend = 1.0f64;
     (*font).slant = 0.0f64;

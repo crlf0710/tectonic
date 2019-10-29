@@ -29,6 +29,7 @@
 
 use crate::warn;
 
+use crate::dpx_pdfobj::PdfObjRef;
 use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{CMap_get_CIDSysInfo, CMap_is_valid};
 use super::dpx_mem::new;
@@ -129,7 +130,7 @@ unsafe fn write_map(
     mut codestr: *mut u8,
     mut depth: size_t,
     mut wbuf: *mut sbuf,
-    mut stream: *mut pdf_obj,
+    mut stream: PdfObjRef,
 ) -> i32 {
     /* Must be greater than 1 */
     let mut blocks: [C2RustUnnamed_1; 129] = [C2RustUnnamed_1 { start: 0, count: 0 }; 129];
@@ -349,7 +350,7 @@ unsafe fn write_map(
     count as i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj {
+pub unsafe extern "C" fn CMap_create_stream(mut cmap: *mut CMap) -> PdfObjRef {
     let mut wbuf: sbuf = sbuf {
         buf: 0 as *mut i8,
         curptr: 0 as *mut i8,
@@ -357,10 +358,10 @@ pub unsafe extern "C" fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj
     };
     if cmap.is_null() || !CMap_is_valid(cmap) {
         warn!("Invalid CMap");
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     if (*cmap).type_0 == 0i32 {
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     let stream = pdf_new_stream(1i32 << 0i32);
     let stream_dict = pdf_stream_dict(&mut *stream);

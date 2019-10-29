@@ -27,6 +27,7 @@
     unused_mut
 )]
 
+use crate::dpx_pdfobj::PdfObjRef;
 use super::dpx_sfnt::{
     dfont_open, sfnt_close, sfnt_create_FontFile_stream, sfnt_open, sfnt_read_table_directory,
     sfnt_require_table, sfnt_set_table,
@@ -1033,7 +1034,7 @@ unsafe fn do_custom_encoding(
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_font_load_truetype(mut font: *mut pdf_font) -> i32 {
-    let mut descriptor: *mut pdf_obj = pdf_font_get_descriptor(font);
+    let mut descriptor: PdfObjRef = pdf_font_get_descriptor(font);
     let mut ident: *mut i8 = pdf_font_get_ident(font);
     let mut encoding_id: i32 = pdf_font_get_encoding(font);
     let mut usedchars: *mut i8 = pdf_font_get_usedchars(font);

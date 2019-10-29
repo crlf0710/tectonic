@@ -30,6 +30,7 @@
 
 use crate::DisplayExt;
 use std::ffi::CStr;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use crate::info;
 
@@ -66,13 +67,13 @@ pub unsafe extern "C" fn otl_conf_set_verbose(mut level: i32) {
     verbose = level;
 }
 unsafe fn parse_uc_coverage(
-    mut gclass: *mut pdf_obj,
+    mut gclass: PdfObjRef,
     mut pp: *mut *const i8,
     mut endptr: *const i8,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     let mut ucv: i32 = 0i32;
     if (*pp).offset(1) >= endptr {
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     if **pp as i32 == '[' as i32 {
         *pp = (*pp).offset(1)
@@ -148,8 +149,8 @@ unsafe fn parse_uc_coverage(
     coverage
 }
 unsafe fn add_rule(
-    mut rule: *mut pdf_obj,
-    mut gclass: *mut pdf_obj,
+    mut rule: PdfObjRef,
+    mut gclass: PdfObjRef,
     mut first: *mut i8,
     mut second: *mut i8,
     mut suffix: *mut i8,
@@ -269,17 +270,17 @@ unsafe fn add_rule(
     pdf_add_array(&mut *rule, glyph2);
 }
 unsafe fn parse_substrule(
-    mut gclass: *mut pdf_obj,
+    mut gclass: PdfObjRef,
     mut pp: *mut *const i8,
     mut endptr: *const i8,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     skip_white(pp, endptr);
     if *pp < endptr && **pp as i32 == '{' as i32 {
         *pp = (*pp).offset(1)
     }
     skip_white(pp, endptr);
     if *pp >= endptr {
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     let substrule = pdf_new_array();
     while *pp < endptr && **pp as i32 != '}' as i32 {
@@ -350,17 +351,17 @@ unsafe fn parse_substrule(
     substrule
 }
 unsafe fn parse_block(
-    mut gclass: *mut pdf_obj,
+    mut gclass: PdfObjRef,
     mut pp: *mut *const i8,
     mut endptr: *const i8,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     skip_white(pp, endptr);
     if *pp < endptr && **pp as i32 == '{' as i32 {
         *pp = (*pp).offset(1)
     }
     skip_white(pp, endptr);
     if *pp >= endptr {
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     let rule = pdf_new_dict();
     while *pp < endptr && **pp as i32 != '}' as i32 {
@@ -473,7 +474,7 @@ unsafe fn parse_block(
     }
     rule
 }
-unsafe fn otl_read_conf(mut conf_name: *const i8) -> *mut pdf_obj {
+unsafe fn otl_read_conf(mut conf_name: *const i8) -> PdfObjRef {
     let mut filename = new((strlen(conf_name)
         .wrapping_add(strlen(b".otl\x00" as *const u8 as *const i8))
         .wrapping_add(1))
@@ -483,7 +484,7 @@ unsafe fn otl_read_conf(mut conf_name: *const i8) -> *mut pdf_obj {
     let handle = ttstub_input_open(filename, TTInputFormat::CNF, 0i32);
     if handle.is_none() {
         free(filename as *mut libc::c_void);
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     let mut handle = handle.unwrap();
     let mut size = ttstub_input_get_size(&mut handle) as i32;
@@ -498,7 +499,7 @@ unsafe fn otl_read_conf(mut conf_name: *const i8) -> *mut pdf_obj {
     }
     free(filename as *mut libc::c_void);
     if size < 1i32 {
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     let mut wbuf = new((size as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
         as *mut i8;
@@ -524,42 +525,42 @@ unsafe fn otl_read_conf(mut conf_name: *const i8) -> *mut pdf_obj {
     free(wbuf as *mut libc::c_void);
     rule
 }
-static mut otl_confs: *mut pdf_obj = 0 as *const pdf_obj as *mut pdf_obj;
+static mut otl_confs: PdfObjRef = 0 as *const pdf_obj as PdfObjRef;
 #[no_mangle]
-pub unsafe extern "C" fn otl_find_conf(mut _conf_name: *const i8) -> *mut pdf_obj {
-    let mut _rule: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut _script: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut _language: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut _options: *mut pdf_obj = 0 as *mut pdf_obj;
-    0 as *mut pdf_obj
+pub unsafe extern "C" fn otl_find_conf(mut _conf_name: *const i8) -> PdfObjRef {
+    let mut _rule: PdfObjRef = 0 as PdfObjRef;
+    let mut _script: PdfObjRef = 0 as PdfObjRef;
+    let mut _language: PdfObjRef = 0 as PdfObjRef;
+    let mut _options: PdfObjRef = 0 as PdfObjRef;
+    0 as PdfObjRef
 }
 #[no_mangle]
-pub unsafe extern "C" fn otl_conf_get_script(mut conf: *mut pdf_obj) -> *mut i8 {
+pub unsafe extern "C" fn otl_conf_get_script(mut conf: PdfObjRef) -> *mut i8 {
     assert!(!conf.is_null());
-    let script = pdf_lookup_dict(&mut *conf, "script").unwrap_or(0 as *mut pdf_obj);
+    let script = pdf_lookup_dict(&mut *conf, "script").unwrap_or(0 as PdfObjRef);
     pdf_string_value(&*script) as *mut i8
 }
 #[no_mangle]
-pub unsafe extern "C" fn otl_conf_get_language(mut conf: *mut pdf_obj) -> *mut i8 {
+pub unsafe extern "C" fn otl_conf_get_language(mut conf: PdfObjRef) -> *mut i8 {
     assert!(!conf.is_null());
-    let language = pdf_lookup_dict(&mut *conf, "language").unwrap_or(0 as *mut pdf_obj);
+    let language = pdf_lookup_dict(&mut *conf, "language").unwrap_or(0 as PdfObjRef);
     pdf_string_value(&*language) as *mut i8
 }
 #[no_mangle]
-pub unsafe extern "C" fn otl_conf_get_rule(mut conf: *mut pdf_obj) -> *mut pdf_obj {
+pub unsafe extern "C" fn otl_conf_get_rule(mut conf: PdfObjRef) -> PdfObjRef {
     assert!(!conf.is_null());
-    pdf_lookup_dict(&mut *conf, "rule").unwrap_or(0 as *mut pdf_obj)
+    pdf_lookup_dict(&mut *conf, "rule").unwrap_or(0 as PdfObjRef)
 }
 #[no_mangle]
 pub unsafe extern "C" fn otl_conf_find_opt(
-    mut conf: *mut pdf_obj,
+    mut conf: PdfObjRef,
     mut opt_tag: *const i8,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     assert!(!conf.is_null());
     if let Some(options) = pdf_lookup_dict(&mut *conf, "option").filter(|_| !opt_tag.is_null()) {
-        pdf_lookup_dict(&mut *options, CStr::from_ptr(opt_tag).to_bytes()).unwrap_or(0 as *mut pdf_obj)
+        pdf_lookup_dict(&mut *options, CStr::from_ptr(opt_tag).to_bytes()).unwrap_or(0 as PdfObjRef)
     } else {
-        0 as *mut pdf_obj
+        0 as PdfObjRef
     }
 }
 #[no_mangle]
@@ -573,5 +574,5 @@ pub unsafe extern "C" fn otl_init_conf() {
 #[no_mangle]
 pub unsafe extern "C" fn otl_close_conf() {
     pdf_release_obj(otl_confs);
-    otl_confs = 0 as *mut pdf_obj;
+    otl_confs = 0 as PdfObjRef;
 }

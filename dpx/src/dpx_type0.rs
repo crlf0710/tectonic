@@ -27,6 +27,7 @@
     unused_mut
 )]
 
+use crate::dpx_pdfobj::PdfObjRef;
 use crate::DisplayExt;
 use std::ffi::CStr;
 
@@ -60,9 +61,9 @@ pub struct Type0Font {
     pub flags: i32,
     pub wmode: i32,
     pub cmap_id: i32,
-    pub indirect: *mut pdf_obj,
-    pub fontdict: *mut pdf_obj,
-    pub descriptor: *mut pdf_obj,
+    pub indirect: PdfObjRef,
+    pub fontdict: PdfObjRef,
+    pub descriptor: PdfObjRef,
     /* _TYPE0_H_ */
 }
 use super::dpx_fontmap::fontmap_opt;
@@ -90,9 +91,9 @@ unsafe fn new_used_chars2() -> *mut i8 {
 unsafe fn Type0Font_init_font_struct(mut font: *mut Type0Font) {
     assert!(!font.is_null());
     (*font).fontname = 0 as *mut i8;
-    (*font).fontdict = 0 as *mut pdf_obj;
-    (*font).indirect = 0 as *mut pdf_obj;
-    (*font).descriptor = 0 as *mut pdf_obj;
+    (*font).fontdict = 0 as PdfObjRef;
+    (*font).indirect = 0 as PdfObjRef;
+    (*font).descriptor = 0 as PdfObjRef;
     (*font).encoding = 0 as *mut i8;
     (*font).used_chars = 0 as *mut i8;
     (*font).descendant = 0 as *mut CIDFont;
@@ -116,16 +117,16 @@ unsafe fn Type0Font_clean(mut font: *mut Type0Font) {
         }
         free((*font).encoding as *mut libc::c_void);
         free((*font).fontname as *mut libc::c_void);
-        (*font).fontdict = 0 as *mut pdf_obj;
-        (*font).indirect = 0 as *mut pdf_obj;
-        (*font).descriptor = 0 as *mut pdf_obj;
+        (*font).fontdict = 0 as PdfObjRef;
+        (*font).indirect = 0 as PdfObjRef;
+        (*font).descriptor = 0 as PdfObjRef;
         (*font).used_chars = 0 as *mut i8;
         (*font).encoding = 0 as *mut i8;
         (*font).fontname = 0 as *mut i8
     };
 }
 /* PLEASE FIX THIS */
-unsafe fn Type0Font_create_ToUnicode_stream(mut font: *mut Type0Font) -> *mut pdf_obj {
+unsafe fn Type0Font_create_ToUnicode_stream(mut font: *mut Type0Font) -> PdfObjRef {
     let mut cidfont: *mut CIDFont = (*font).descendant;
     otf_create_ToUnicode_stream(
         CIDFont_get_ident(cidfont),
@@ -139,7 +140,7 @@ unsafe fn Type0Font_create_ToUnicode_stream(mut font: *mut Type0Font) -> *mut pd
 unsafe fn Type0Font_try_load_ToUnicode_stream(
     mut font: *mut Type0Font,
     mut cmap_base: *mut i8,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     let mut cmap_name: *mut i8 = new((strlen(cmap_base)
         .wrapping_add(strlen(b"-UTF-16\x00" as *const u8 as *const i8))
         as u32 as u64)
@@ -251,7 +252,7 @@ unsafe fn add_ToUnicode(mut font: *mut Type0Font) {
 #[no_mangle]
 pub unsafe extern "C" fn Type0Font_set_ToUnicode(
     mut font: *mut Type0Font,
-    mut cmap_ref: *mut pdf_obj,
+    mut cmap_ref: PdfObjRef,
 ) {
     assert!(!font.is_null());
     pdf_add_dict(&mut *(*font).fontdict, "ToUnicode", cmap_ref);
@@ -268,13 +269,13 @@ unsafe fn Type0Font_dofont(mut font: *mut Type0Font) {
 unsafe fn Type0Font_flush(mut font: *mut Type0Font) {
     if !font.is_null() {
         pdf_release_obj((*font).fontdict);
-        (*font).fontdict = 0 as *mut pdf_obj;
+        (*font).fontdict = 0 as PdfObjRef;
         pdf_release_obj((*font).indirect);
-        (*font).indirect = 0 as *mut pdf_obj;
+        (*font).indirect = 0 as PdfObjRef;
         if !(*font).descriptor.is_null() {
             panic!("{}: FontDescriptor unexpected for Type0 font.", "Type0",);
         }
-        (*font).descriptor = 0 as *mut pdf_obj
+        (*font).descriptor = 0 as PdfObjRef
     };
 }
 #[no_mangle]
@@ -288,7 +289,7 @@ pub unsafe extern "C" fn Type0Font_get_usedchars(mut font: *mut Type0Font) -> *m
     (*font).used_chars
 }
 #[no_mangle]
-pub unsafe extern "C" fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mut pdf_obj {
+pub unsafe extern "C" fn Type0Font_get_resource(mut font: *mut Type0Font) -> PdfObjRef {
     assert!(!font.is_null());
     /*
      * This looks somewhat strange.
@@ -528,7 +529,7 @@ pub unsafe extern "C" fn Type0Font_cache_close() {
     __cache.capacity = 0i32;
 }
 /* ******************************* COMPAT ********************************/
-unsafe fn create_dummy_CMap() -> *mut pdf_obj {
+unsafe fn create_dummy_CMap() -> PdfObjRef {
     let mut buf: [i8; 32] = [0; 32];
     let stream = &mut *pdf_new_stream(1i32 << 0i32);
     pdf_add_stream(stream,
@@ -624,7 +625,7 @@ unsafe fn create_dummy_CMap() -> *mut pdf_obj {
                        i32);
     stream
 }
-unsafe fn pdf_read_ToUnicode_file(mut cmap_name: *const i8) -> *mut pdf_obj {
+unsafe fn pdf_read_ToUnicode_file(mut cmap_name: *const i8) -> PdfObjRef {
     assert!(!cmap_name.is_null());
     let mut res_id = pdf_findresource(b"CMap\x00" as *const u8 as *const i8, cmap_name);
     if res_id < 0i32 {
@@ -646,7 +647,7 @@ unsafe fn pdf_read_ToUnicode_file(mut cmap_name: *const i8) -> *mut pdf_obj {
         }
     }
     if res_id < 0i32 {
-        0 as *mut pdf_obj
+        0 as PdfObjRef
     } else {
         pdf_get_resource_reference(res_id)
     }

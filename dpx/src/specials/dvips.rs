@@ -27,6 +27,7 @@
 
 use crate::DisplayExt;
 use std::ffi::{CStr, CString};
+use crate::dpx_pdfobj::PdfObjRef;
 
 use crate::mfree;
 use crate::warn;
@@ -144,7 +145,7 @@ unsafe fn spc_handler_ps_file(mut spe: *mut spc_env, mut args: *mut spc_arg) -> 
         let mut init = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
-            dict: 0 as *mut pdf_obj,
+            dict: 0 as PdfObjRef,
         };
         init
     };
@@ -184,7 +185,7 @@ unsafe fn spc_handler_ps_plotfile(mut spe: *mut spc_env, mut args: *mut spc_arg)
         let mut init = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
-            dict: 0 as *mut pdf_obj,
+            dict: 0 as PdfObjRef,
         };
         init
     };

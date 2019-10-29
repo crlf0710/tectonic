@@ -27,6 +27,7 @@
     unused_mut
 )]
 
+use crate::dpx_pdfobj::PdfObjRef;
 use crate::warn;
 
 //use super::dpx_mem::xmalloc;
@@ -149,7 +150,7 @@ pub const OP_UNKNOWN: C2RustUnnamed_0 = 16;
  * The number of degrees by which the page should be rotated clockwise when
  * displayed or printed. The value must be a multiple of 90. Default value: 0.
  */
-/*unsafe fn rect_equal(mut rect1: *mut pdf_obj, mut rect2: *mut pdf_obj) -> i32 {
+/*unsafe fn rect_equal(mut rect1: PdfObjRef, mut rect2: PdfObjRef) -> i32 {
     if rect1.is_null() || rect2.is_null() {
         return 0i32;
     }
@@ -163,33 +164,33 @@ pub const OP_UNKNOWN: C2RustUnnamed_0 = 16;
 /*unsafe fn pdf_get_page_obj(
     mut pf: *mut pdf_file,
     mut page_no: i32,
-    mut ret_bbox: *mut *mut pdf_obj,
-    mut ret_resources: *mut *mut pdf_obj,
-) -> *mut pdf_obj {
-    let mut page_tree: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut bbox: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut resources: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut rotate: *mut pdf_obj = 0 as *mut pdf_obj;
+    mut ret_bbox: *mut PdfObjRef,
+    mut ret_resources: *mut PdfObjRef,
+) -> PdfObjRef {
+    let mut page_tree: PdfObjRef = 0 as PdfObjRef;
+    let mut bbox: PdfObjRef = 0 as PdfObjRef;
+    let mut resources: PdfObjRef = 0 as PdfObjRef;
+    let mut rotate: PdfObjRef = 0 as PdfObjRef;
     let mut page_idx: i32 = 0;
     /*
      * Get Page Tree.
      */
-    page_tree = 0 as *mut pdf_obj;
-    let mut trailer: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut catalog: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut markinfo: *mut pdf_obj = 0 as *mut pdf_obj;
+    page_tree = 0 as PdfObjRef;
+    let mut trailer: PdfObjRef = 0 as PdfObjRef;
+    let mut catalog: PdfObjRef = 0 as PdfObjRef;
+    let mut markinfo: PdfObjRef = 0 as PdfObjRef;
     trailer = pdf_file_get_trailer(pf);
     if pdf_lookup_dict(trailer, "Encrypt").is_some() {
         warn!("This PDF document is encrypted.");
         pdf_release_obj(trailer);
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     catalog = pdf_deref_obj(pdf_lookup_dict(trailer, "Root"));
     if !(!catalog.is_null() && pdf_obj_typeof(catalog) == PdfObjType::DICT) {
         warn!("Can\'t read document catalog.");
         pdf_release_obj(trailer);
         pdf_release_obj(catalog);
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     pdf_release_obj(trailer);
     markinfo = pdf_deref_obj(pdf_lookup_dict(catalog, "MarkInfo"));
@@ -206,7 +207,7 @@ pub const OP_UNKNOWN: C2RustUnnamed_0 = 16;
     pdf_release_obj(catalog);
     if page_tree.is_null() {
         warn!("Page tree not found.");
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     /*
      * Negative page numbers are counted from the back.
@@ -216,15 +217,15 @@ pub const OP_UNKNOWN: C2RustUnnamed_0 = 16;
     if page_idx < 0i32 || page_idx >= count {
         warn!("Page {} does not exist.", page_no);
         pdf_release_obj(page_tree);
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     page_no = page_idx + 1i32;
     /*
      * Seek correct page. Get Media/Crop Box.
      * Media box and resources can be inherited.
      */
-    let mut kids: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut crop_box: *mut pdf_obj = 0 as *mut pdf_obj;
+    let mut kids: PdfObjRef = 0 as PdfObjRef;
+    let mut crop_box: PdfObjRef = 0 as PdfObjRef;
     let tmp = pdf_lookup_dict(page_tree, "Resources");
     if tmp.is_some() {
         pdf_deref_obj(tmp)
@@ -315,7 +316,7 @@ pub const OP_UNKNOWN: C2RustUnnamed_0 = 16;
             pdf_release_obj(rotate);
             pdf_release_obj(resources);
             pdf_release_obj(page_tree);
-            return 0 as *mut pdf_obj;
+            return 0 as PdfObjRef;
         }
     }
     if !crop_box.is_null() {
@@ -327,11 +328,11 @@ pub const OP_UNKNOWN: C2RustUnnamed_0 = 16;
         pdf_release_obj(page_tree);
         pdf_release_obj(resources);
         pdf_release_obj(rotate);
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     if !rotate.is_null() {
         pdf_release_obj(rotate);
-        rotate = 0 as *mut pdf_obj
+        rotate = 0 as PdfObjRef
     }
     if !ret_bbox.is_null() {
         *ret_bbox = bbox
@@ -341,12 +342,12 @@ pub const OP_UNKNOWN: C2RustUnnamed_0 = 16;
     }
     page_tree
 }
-unsafe fn pdf_get_page_content(mut page: *mut pdf_obj) -> *mut pdf_obj {
-    let mut contents: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut content_new: *mut pdf_obj = 0 as *mut pdf_obj;
+unsafe fn pdf_get_page_content(mut page: PdfObjRef) -> PdfObjRef {
+    let mut contents: PdfObjRef = 0 as PdfObjRef;
+    let mut content_new: PdfObjRef = 0 as PdfObjRef;
     contents = pdf_deref_obj(pdf_lookup_dict(page, "Contents"));
     if contents.is_null() {
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     if pdf_obj_typeof(contents) == PdfObjType::NULL {
         /* empty page */
@@ -357,7 +358,7 @@ unsafe fn pdf_get_page_content(mut page: *mut pdf_obj) -> *mut pdf_obj {
         /*
          * Concatenate all content streams.
          */
-        let mut content_seg: *mut pdf_obj = 0 as *mut pdf_obj;
+        let mut content_seg: PdfObjRef = 0 as PdfObjRef;
         let mut idx: i32 = 0i32;
         content_new = pdf_new_stream(1i32 << 0i32);
         loop {
@@ -371,14 +372,14 @@ unsafe fn pdf_get_page_content(mut page: *mut pdf_obj) -> *mut pdf_obj {
                     pdf_release_obj(content_seg);
                     pdf_release_obj(content_new);
                     pdf_release_obj(contents);
-                    return 0 as *mut pdf_obj;
+                    return 0 as PdfObjRef;
                 } else {
                     if pdf_concat_stream(content_new, content_seg) < 0i32 {
                         warn!("Could not handle content stream with multiple segments.");
                         pdf_release_obj(content_seg);
                         pdf_release_obj(content_new);
                         pdf_release_obj(contents);
-                        return 0 as *mut pdf_obj;
+                        return 0 as PdfObjRef;
                     }
                 }
             }
@@ -391,7 +392,7 @@ unsafe fn pdf_get_page_content(mut page: *mut pdf_obj) -> *mut pdf_obj {
         if !(!contents.is_null() && pdf_obj_typeof(contents) == PdfObjType::STREAM) {
             warn!("Page content not a stream object. Broken PDF file?");
             pdf_release_obj(contents);
-            return 0 as *mut pdf_obj;
+            return 0 as PdfObjRef;
         }
         /* Flate the contents if necessary. */
         content_new = pdf_new_stream(1i32 << 0i32);
@@ -399,7 +400,7 @@ unsafe fn pdf_get_page_content(mut page: *mut pdf_obj) -> *mut pdf_obj {
             warn!("Could not handle a content stream.");
             pdf_release_obj(contents);
             pdf_release_obj(content_new);
-            return 0 as *mut pdf_obj;
+            return 0 as PdfObjRef;
         }
         pdf_release_obj(contents);
         contents = content_new
@@ -415,9 +416,9 @@ pub unsafe extern "C" fn pdf_include_page(
     mut options: load_options,
 ) -> i32 {
     let mut info = xform_info::default();
-    let mut contents: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut resources: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut markinfo: *mut pdf_obj = 0 as *mut pdf_obj;
+    let mut contents: PdfObjRef = 0 as PdfObjRef;
+    let mut resources: PdfObjRef = 0 as PdfObjRef;
+    let mut markinfo: PdfObjRef = 0 as PdfObjRef;
     let pf = pdf_open(ident, handle);
     if pf.is_null() {
         return -1;
@@ -461,7 +462,7 @@ pub unsafe extern "C" fn pdf_include_page(
     let catalog = pdf_file_get_catalog(pf);
     markinfo = pdf_deref_obj(pdf_lookup_dict(&mut *catalog, "MarkInfo"));
     if !markinfo.is_null() {
-        let mut tmp: *mut pdf_obj = pdf_deref_obj(pdf_lookup_dict(&mut *markinfo, "Marked"));
+        let mut tmp: PdfObjRef = pdf_deref_obj(pdf_lookup_dict(&mut *markinfo, "Marked"));
         pdf_release_obj(markinfo);
         if tmp.is_null() || !(*tmp).is_boolean() {
             pdf_release_obj(tmp);
@@ -478,7 +479,7 @@ pub unsafe extern "C" fn pdf_include_page(
     /*
      * Handle page content stream.
      */
-    let mut content_new: *mut pdf_obj;
+    let mut content_new: PdfObjRef;
     if contents.is_null() {
         /*
          * Empty page
@@ -498,7 +499,7 @@ pub unsafe extern "C" fn pdf_include_page(
         let mut len: i32 = pdf_array_length(&*contents) as i32;
         content_new = pdf_new_stream(1i32 << 0i32);
         for idx in 0..len {
-            let mut content_seg: *mut pdf_obj =
+            let mut content_seg: PdfObjRef =
                 pdf_deref_obj(Some(pdf_get_array(&mut *contents, idx)));
             if content_seg.is_null()
             || !(*content_seg).is_stream()
@@ -832,8 +833,8 @@ pub unsafe extern "C" fn pdf_copy_clip(
     mut x_user: f64,
     mut y_user: f64,
 ) -> i32 {
-    let mut page_tree: *mut pdf_obj = 0 as *mut pdf_obj; /* silence uninitialized warning */
-    let mut contents: *mut pdf_obj = 0 as *mut pdf_obj;
+    let mut page_tree: PdfObjRef = 0 as PdfObjRef; /* silence uninitialized warning */
+    let mut contents: PdfObjRef = 0 as PdfObjRef;
     let mut depth: i32 = 0i32;
     let mut top: i32 = -1i32;
     let mut clip_path: *const i8 = 0 as *const i8;
@@ -851,7 +852,7 @@ pub unsafe extern "C" fn pdf_copy_clip(
     pdf_invertmatrix(&mut M);
     M.e += x_user;
     M.f += y_user;
-    page_tree = pdf_get_page_obj(pf, pageNo, 0 as *mut *mut pdf_obj, 0 as *mut *mut pdf_obj);
+    page_tree = pdf_get_page_obj(pf, pageNo, 0 as *mut PdfObjRef, 0 as *mut PdfObjRef);
     if page_tree.is_null() {
         pdf_close(pf);
         return -1i32;

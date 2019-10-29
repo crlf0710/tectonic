@@ -22,6 +22,7 @@
 #![allow(non_snake_case, unused_mut)]
 
 use crate::DisplayExt;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::sget_unsigned_pair;
@@ -216,8 +217,8 @@ impl PdfColor {
 pub struct pdf_colorspace {
     pub ident: *mut i8,
     pub subtype: i32,
-    pub resource: *mut pdf_obj,
-    pub reference: *mut pdf_obj,
+    pub resource: PdfObjRef,
+    pub reference: PdfObjRef,
     pub cdata: *mut iccbased_cdata,
 }
 #[allow(non_camel_case_types)]
@@ -520,9 +521,9 @@ pub unsafe extern "C" fn iccp_check_colorspace(
 pub unsafe extern "C" fn iccp_get_rendering_intent(
     mut profile: *const libc::c_void,
     mut proflen: i32,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     if profile.is_null() || proflen < 128i32 {
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     let mut p = profile as *const u8;
     let intent = (*p.offset(64) as i32) << 24i32
@@ -539,7 +540,7 @@ pub unsafe extern "C" fn iccp_get_rendering_intent(
                 "Invalid rendering intent type: {}",
                 intent >> 16i32 & 0xffi32
             );
-            0 as *mut pdf_obj
+            0 as PdfObjRef
         }
     }
 }
@@ -1086,16 +1087,16 @@ unsafe fn pdf_colorspace_findresource(
 unsafe fn pdf_init_colorspace_struct(colorspace: &mut pdf_colorspace) {
     colorspace.ident = 0 as *mut i8;
     colorspace.subtype = 0i32;
-    colorspace.resource = 0 as *mut pdf_obj;
-    colorspace.reference = 0 as *mut pdf_obj;
+    colorspace.resource = 0 as PdfObjRef;
+    colorspace.reference = 0 as PdfObjRef;
     colorspace.cdata = 0 as *mut iccbased_cdata;
 }
 unsafe fn pdf_clean_colorspace_struct(colorspace: &mut pdf_colorspace) {
     free(colorspace.ident as *mut libc::c_void);
     pdf_release_obj(colorspace.resource);
     pdf_release_obj(colorspace.reference);
-    colorspace.resource = 0 as *mut pdf_obj;
-    colorspace.reference = 0 as *mut pdf_obj;
+    colorspace.resource = 0 as PdfObjRef;
+    colorspace.reference = 0 as PdfObjRef;
     if !colorspace.cdata.is_null() {
         match colorspace.subtype {
             4 => {
@@ -1110,15 +1111,15 @@ unsafe fn pdf_clean_colorspace_struct(colorspace: &mut pdf_colorspace) {
 unsafe fn pdf_flush_colorspace(colorspace: &mut pdf_colorspace) {
     pdf_release_obj(colorspace.resource);
     pdf_release_obj(colorspace.reference);
-    colorspace.resource = 0 as *mut pdf_obj;
-    colorspace.reference = 0 as *mut pdf_obj;
+    colorspace.resource = 0 as PdfObjRef;
+    colorspace.reference = 0 as PdfObjRef;
 }
 /* **************************** COLOR SPACE *****************************/
 unsafe fn pdf_colorspace_defineresource(
     mut ident: *const i8,
     mut subtype: i32,
     cdata: &mut iccbased_cdata,
-    mut resource: *mut pdf_obj,
+    mut resource: PdfObjRef,
 ) -> i32 {
     if CSPC_CACHE.count >= CSPC_CACHE.capacity {
         CSPC_CACHE.capacity = CSPC_CACHE.capacity.wrapping_add(16_u32);
@@ -1162,13 +1163,13 @@ unsafe fn pdf_colorspace_defineresource(
     cspc_id
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_get_colorspace_reference(mut cspc_id: i32) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_get_colorspace_reference(mut cspc_id: i32) -> PdfObjRef {
     let mut colorspace =
         &mut *CSPC_CACHE.colorspaces.offset(cspc_id as isize) as *mut pdf_colorspace;
     if (*colorspace).reference.is_null() {
         (*colorspace).reference = pdf_ref_obj((*colorspace).resource);
         pdf_release_obj((*colorspace).resource);
-        (*colorspace).resource = 0 as *mut pdf_obj
+        (*colorspace).resource = 0 as PdfObjRef
     }
     pdf_link_obj((*colorspace).reference)
 }

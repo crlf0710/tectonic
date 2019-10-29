@@ -27,6 +27,7 @@
     unused_mut
 )]
 
+use crate::dpx_pdfobj::PdfObjRef;
 use super::dpx_sfnt::{
     dfont_open, sfnt_close, sfnt_find_table_pos, sfnt_locate_table, sfnt_open,
     sfnt_read_table_directory,
@@ -1091,7 +1092,7 @@ unsafe fn create_ToUnicode_cmap(
     mut used_chars: *const i8,
     mut sfont: *mut sfnt,
     mut code_to_cid_cmap: *mut CMap,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     let mut count: u16 = 0_u16;
     let mut cffont = prepare_CIDFont_from_sfnt(&mut *sfont);
     let mut is_cidfont = if let Some(cffont) = &cffont {
@@ -1207,7 +1208,7 @@ unsafe fn create_ToUnicode_cmap(
             ) as i32) as u16
     }
     let stream = if (count as i32) < 1i32 {
-        0 as *mut pdf_obj
+        0 as PdfObjRef
     } else {
         CMap_create_stream(cmap)
     };
@@ -1260,8 +1261,8 @@ pub unsafe extern "C" fn otf_create_ToUnicode_stream(
     mut ttc_index: i32,
     mut used_chars: *const i8,
     mut cmap_id: i32,
-) -> *mut pdf_obj {
-    let mut cmap_obj: *mut pdf_obj = 0 as *mut pdf_obj;
+) -> PdfObjRef {
+    let mut cmap_obj: PdfObjRef = 0 as PdfObjRef;
     let mut ttcmap: *mut tt_cmap = 0 as *mut tt_cmap;
     let offset;
     /* replace slash in map name with dash to make the output cmap name valid,
@@ -1309,7 +1310,7 @@ pub unsafe extern "C" fn otf_create_ToUnicode_stream(
         dfont_open(handle, ttc_index)
     } else {
         free(cmap_name as *mut libc::c_void);
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     };
     if sfont.is_null() {
         panic!(
@@ -1389,7 +1390,7 @@ pub unsafe extern "C" fn otf_create_ToUnicode_stream(
         );
         pdf_get_resource_reference(res_id)
     } else {
-        0 as *mut pdf_obj
+        0 as PdfObjRef
     };
     free(cmap_name as *mut libc::c_void);
     sfnt_close(sfont);

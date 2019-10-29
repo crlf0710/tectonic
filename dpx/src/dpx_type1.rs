@@ -32,6 +32,7 @@ use crate::streq_ptr;
 use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::dpx_cff::{
     cff_add_string, cff_close, cff_get_seac_sid, cff_glyph_lookup, cff_index_size, cff_new_index,
@@ -514,7 +515,7 @@ unsafe fn add_metrics(
 unsafe fn write_fontfile(
     mut font: *mut pdf_font,
     cffont: &cff_font,
-    mut pdfcharset: *mut pdf_obj,
+    mut pdfcharset: PdfObjRef,
 ) -> i32 {
     let mut wbuf: [u8; 1024] = [0; 1024];
     let descriptor = pdf_font_get_descriptor(font);

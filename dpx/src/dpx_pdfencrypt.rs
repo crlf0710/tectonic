@@ -28,6 +28,7 @@
 )]
 
 use std::slice::from_raw_parts;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::dpx_dpxcrypt::ARC4_CONTEXT;
 use super::dpx_dpxcrypt::{AES_cbc_encrypt_tectonic, AES_ecb_encrypt, ARC4_set_key, ARC4};
@@ -761,7 +762,7 @@ pub unsafe extern "C" fn pdf_encrypt_data(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_encrypt_obj() -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_encrypt_obj() -> PdfObjRef {
     let p = &mut sec_data;
     let mut doc_encrypt = pdf_new_dict();
     pdf_add_dict(&mut *doc_encrypt, "Filter", pdf_new_name("Standard"));
@@ -861,7 +862,7 @@ pub unsafe extern "C" fn pdf_encrypt_obj() -> *mut pdf_obj {
         free(cipher as *mut libc::c_void);
     }
     if p.R > 5i32 {
-        let mut catalog: *mut pdf_obj =
+        let mut catalog: PdfObjRef =
             pdf_doc_get_dictionary("Catalog");
         let mut ext = pdf_new_dict();
         let mut adbe = pdf_new_dict();
@@ -877,9 +878,9 @@ pub unsafe extern "C" fn pdf_encrypt_obj() -> *mut pdf_obj {
     doc_encrypt
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_enc_id_array() -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_enc_id_array() -> PdfObjRef {
     let p = &mut sec_data;
-    let mut id: *mut pdf_obj = pdf_new_array();
+    let mut id: PdfObjRef = pdf_new_array();
     pdf_add_array(
         &mut *id,
         pdf_new_string(p.ID.as_mut_ptr() as *const libc::c_void, 16i32 as size_t),

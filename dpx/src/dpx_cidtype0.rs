@@ -29,6 +29,7 @@
 
 use crate::DisplayExt;
 use std::ffi::CStr;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::dpx_sfnt::{
     sfnt_close, sfnt_find_table_pos, sfnt_locate_table, sfnt_open, sfnt_read_table_directory,
@@ -165,14 +166,14 @@ pub unsafe extern "C" fn CIDFont_type0_set_flags(mut flags: i32) {
  * PDF Reference 3rd. ed., p.340, "Glyph Metrics in CID Fonts".
  */
 unsafe fn add_CIDHMetrics(
-    mut fontdict: *mut pdf_obj,
+    mut fontdict: PdfObjRef,
     mut CIDToGIDMap: *mut u8,
     mut last_cid: u16,
     mut maxp: *mut tt_maxp_table,
     mut head: *mut tt_head_table,
     mut hmtx: *mut tt_longMetrics,
 ) {
-    let mut an_array: *mut pdf_obj = 0 as *mut pdf_obj;
+    let mut an_array: PdfObjRef = 0 as PdfObjRef;
     let mut start: i32 = 0i32;
     let mut prev: i32 = 0i32;
     let mut empty: i32 = 1i32;
@@ -205,14 +206,14 @@ unsafe fn add_CIDHMetrics(
                 if !an_array.is_null() {
                     pdf_add_array(&mut *w_array, pdf_new_number(start as f64));
                     pdf_add_array(&mut *w_array, an_array);
-                    an_array = 0 as *mut pdf_obj;
+                    an_array = 0 as PdfObjRef;
                     empty = 0i32
                 }
             } else {
                 if cid != prev + 1i32 && !an_array.is_null() {
                     pdf_add_array(&mut *w_array, pdf_new_number(start as f64));
                     pdf_add_array(&mut *w_array, an_array);
-                    an_array = 0 as *mut pdf_obj;
+                    an_array = 0 as PdfObjRef;
                     empty = 0i32
                 }
                 if an_array.is_null() {
@@ -242,7 +243,7 @@ unsafe fn add_CIDHMetrics(
 }
 unsafe fn add_CIDVMetrics(
     mut sfont: *mut sfnt,
-    mut fontdict: *mut pdf_obj,
+    mut fontdict: PdfObjRef,
     mut CIDToGIDMap: *mut u8,
     mut last_cid: u16,
     mut maxp: *mut tt_maxp_table,
@@ -376,7 +377,7 @@ unsafe fn add_CIDVMetrics(
 }
 unsafe fn add_CIDMetrics(
     mut sfont: *mut sfnt,
-    mut fontdict: *mut pdf_obj,
+    mut fontdict: PdfObjRef,
     mut CIDToGIDMap: *mut u8,
     mut last_cid: u16,
     mut need_vmetrics: i32,
@@ -1147,7 +1148,7 @@ pub unsafe extern "C" fn CIDFont_type0_open(
     }
     pdf_add_dict(&mut *(*font).descriptor, "FontName", pdf_copy_name(fontname));
     pdf_add_dict(&mut *(*font).fontdict, "BaseFont", pdf_copy_name(fontname));
-    let mut csi_dict: *mut pdf_obj = pdf_new_dict();
+    let mut csi_dict: PdfObjRef = pdf_new_dict();
     pdf_add_dict(
         &mut *csi_dict,
         "Registry",
@@ -1609,13 +1610,13 @@ unsafe fn create_ToUnicode_stream(
     cffont: &cff_font,
     mut font_name: *const i8,
     mut used_glyphs: *const i8,
-) -> *mut pdf_obj {
-    let mut stream: *mut pdf_obj = 0 as *mut pdf_obj;
+) -> PdfObjRef {
+    let mut stream: PdfObjRef = 0 as PdfObjRef;
     let mut wbuf: [u8; 1024] = [0; 1024];
     static mut range_min: [u8; 2] = [0; 2];
     static mut range_max: [u8; 2] = [0xff, 0xff];
     if font_name.is_null() || used_glyphs.is_null() {
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     let cmap = CMap_new();
     let cmap_name = new((strlen(font_name)

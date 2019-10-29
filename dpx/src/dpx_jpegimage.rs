@@ -29,6 +29,7 @@
 
 use crate::mfree;
 use crate::warn;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::dpx_mem::{new, renew};
 use super::dpx_mfileio::work_buffer;
@@ -228,11 +229,11 @@ pub unsafe extern "C" fn jpeg_include_image(
         }
     }
     /* Check embedded ICC Profile */
-    let mut colorspace = 0 as *mut pdf_obj;
+    let mut colorspace = 0 as PdfObjRef;
     if j_info.flags & 1i32 << 2i32 != 0 {
         let icc_stream = JPEG_get_iccp(&mut j_info);
         if icc_stream.is_null() {
-            colorspace = 0 as *mut pdf_obj
+            colorspace = 0 as PdfObjRef
         } else {
             let icc_stream = &*icc_stream;
             if iccp_check_colorspace(
@@ -241,7 +242,7 @@ pub unsafe extern "C" fn jpeg_include_image(
                 pdf_stream_length(icc_stream),
             ) < 0i32
             {
-                colorspace = 0 as *mut pdf_obj
+                colorspace = 0 as PdfObjRef
             } else {
                 let cspc_id = iccp_load_profile(
                     0 as *const i8,
@@ -249,7 +250,7 @@ pub unsafe extern "C" fn jpeg_include_image(
                     pdf_stream_length(icc_stream),
                 );
                 if cspc_id < 0i32 {
-                    colorspace = 0 as *mut pdf_obj
+                    colorspace = 0 as PdfObjRef
                 } else {
                     colorspace = pdf_get_colorspace_reference(cspc_id);
                     let intent = iccp_get_rendering_intent(
@@ -261,7 +262,7 @@ pub unsafe extern "C" fn jpeg_include_image(
                     }
                 }
             }
-            pdf_release_obj(icc_stream as *const pdf_obj as *mut pdf_obj);
+            pdf_release_obj(icc_stream as *const pdf_obj as PdfObjRef);
         }
     }
     /* No ICC or invalid ICC profile. */
@@ -372,7 +373,7 @@ unsafe fn JPEG_info_clear(mut j_info: *mut JPEG_info) {
     (*j_info).max_appn = 0i32;
     (*j_info).flags = 0i32;
 }
-unsafe fn JPEG_get_iccp(mut j_info: *mut JPEG_info) -> *mut pdf_obj {
+unsafe fn JPEG_get_iccp(mut j_info: *mut JPEG_info) -> PdfObjRef {
     let mut prev_id: i32 = 0i32;
     let mut num_icc_seg: i32 = -1i32;
     let mut icc_stream = pdf_new_stream(1i32 << 0i32);
@@ -395,7 +396,7 @@ unsafe fn JPEG_get_iccp(mut j_info: *mut JPEG_info) -> *mut pdf_obj {
                     (*icc).num_chunks as i32,
                 );
                 pdf_release_obj(icc_stream);
-                icc_stream = 0 as *mut pdf_obj;
+                icc_stream = 0 as PdfObjRef;
                 break;
             }
             pdf_add_stream(
@@ -409,7 +410,7 @@ unsafe fn JPEG_get_iccp(mut j_info: *mut JPEG_info) -> *mut pdf_obj {
     }
     icc_stream
 }
-unsafe fn JPEG_get_XMP(mut j_info: *mut JPEG_info) -> *mut pdf_obj {
+unsafe fn JPEG_get_XMP(mut j_info: *mut JPEG_info) -> PdfObjRef {
     let mut count: i32 = 0i32;
     /* I don't know if XMP Metadata should be compressed here.*/
     let XMP_stream = pdf_new_stream(1i32 << 0i32);
@@ -804,7 +805,7 @@ unsafe fn read_APP2_ICC(
 }
 unsafe fn JPEG_copy_stream(
     mut j_info: *mut JPEG_info,
-    mut stream: *mut pdf_obj,
+    mut stream: PdfObjRef,
     handle: &mut InputHandleWrapper,
 ) -> i32 {
     let mut marker: JPEG_marker = 0 as JPEG_marker;

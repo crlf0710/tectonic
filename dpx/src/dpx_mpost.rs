@@ -28,6 +28,7 @@
     unused_mut
 )]
 
+use crate::dpx_pdfobj::PdfObjRef;
 use crate::DisplayExt;
 use std::ffi::{CStr, CString};
 
@@ -359,13 +360,13 @@ unsafe fn get_opcode(token: &[u8]) -> i32 {
     }
     -1i32
 }
-static mut STACK: Vec<*mut pdf_obj> = Vec::new();
+static mut STACK: Vec<PdfObjRef> = Vec::new();
 trait PushChecked {
     type Val;
     fn push_checked(&mut self, val: Self::Val) -> Result<(), ()>;
 }
-impl PushChecked for Vec<*mut pdf_obj> {
-    type Val = *mut pdf_obj;
+impl PushChecked for Vec<PdfObjRef> {
+    type Val = PdfObjRef;
     fn push_checked(&mut self, val: Self::Val) -> Result<(), ()> {
         if self.len() < 1024 {
             self.push(val);
@@ -418,7 +419,7 @@ unsafe fn pop_get_numbers(mut values: *mut f64, mut count: i32) -> i32 {
     }
     count + 1i32
 }
-unsafe fn cvr_array(mut array: *mut pdf_obj, mut values: *mut f64, mut count: i32) -> i32 {
+unsafe fn cvr_array(mut array: PdfObjRef, mut values: *mut f64, mut count: i32) -> i32 {
     if !(!array.is_null() && (*array).is_array()) {
         warn!("mpost: Not an array!");
     } else {
@@ -440,7 +441,7 @@ unsafe fn cvr_array(mut array: *mut pdf_obj, mut values: *mut f64, mut count: i3
     pdf_release_obj(array);
     count + 1i32
 }
-unsafe fn is_fontdict(mut dict: *mut pdf_obj) -> bool {
+unsafe fn is_fontdict(mut dict: PdfObjRef) -> bool {
     if !(!dict.is_null() && (*dict).is_dict()) {
         return false;
     }
@@ -688,7 +689,7 @@ unsafe fn do_texfig_operator(mut opcode: i32, mut x_user: f64, mut y_user: f64) 
             if in_tfig == 0 {
                 panic!("endTexFig without valid startTexFig!.");
             }
-            pdf_doc_end_grabbing(0 as *mut pdf_obj);
+            pdf_doc_end_grabbing(0 as PdfObjRef);
             pdf_dev_put_image(xobj_id, &mut fig_p, x_user, y_user);
             in_tfig = 0i32
         }
@@ -1216,7 +1217,7 @@ unsafe fn mp_parse_body(
     mut x_user: f64,
     mut y_user: f64,
 ) -> i32 {
-    let mut obj = 0 as *mut pdf_obj;
+    let mut obj = 0 as PdfObjRef;
     let mut error: i32 = 0i32;
     start.skip_white();
     while !start.is_empty() && error == 0 {

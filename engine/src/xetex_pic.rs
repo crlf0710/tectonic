@@ -8,6 +8,7 @@
     unused_mut
 )]
 
+use dpx::dpx_pdfobj::PdfObjRef;
 use crate::core_memory::xstrdup;
 use crate::xetex_errors::error;
 use crate::xetex_ext::{D2Fix, Fix2D};
@@ -113,7 +114,7 @@ unsafe extern "C" fn pdf_get_rect(
     let mut pages: i32 = 0;
     let mut dpx_options: i32 = 0;
     let mut pf: *mut pdf_file = 0 as *mut pdf_file;
-    let mut page: *mut pdf_obj = 0 as *mut pdf_obj;
+    let mut page: PdfObjRef = 0 as PdfObjRef;
     let mut bbox = Rect::zero();
     let mut matrix = TMatrix::new();
     pf = pdf_open(filename, handle);
@@ -147,7 +148,7 @@ unsafe extern "C" fn pdf_get_rect(
         dpx_options,
         &mut bbox,
         &mut matrix,
-        0 as *mut *mut pdf_obj,
+        0 as *mut PdfObjRef,
     );
     pdf_close(pf);
     if page.is_null() {

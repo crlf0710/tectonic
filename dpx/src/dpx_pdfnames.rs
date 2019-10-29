@@ -32,6 +32,7 @@ use crate::warn;
 use std::slice;
 use std::cmp::Ordering;
 use std::fmt::Write;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::dpx_dpxutil::{
     ht_append_table, ht_clear_iter, ht_clear_table, ht_init_table, ht_iter_getkey, ht_iter_getval,
@@ -55,7 +56,7 @@ use super::dpx_dpxutil::ht_table;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct obj_data {
-    pub object: *mut pdf_obj,
+    pub object: PdfObjRef,
     pub closed: i32,
     /* 1 if object is closed */
 }
@@ -64,7 +65,7 @@ pub struct obj_data {
 pub struct named_object {
     pub key: *mut i8,
     pub keylen: i32,
-    pub value: *mut pdf_obj,
+    pub value: PdfObjRef,
 }
 unsafe fn printable_key(key: *const i8, keylen: i32) -> String {
     let bytes = slice::from_raw_parts(key as *const u8, keylen as usize);
@@ -83,7 +84,7 @@ unsafe extern "C" fn hval_free(mut hval: *mut libc::c_void) {
     let value = hval as *mut obj_data;
     if !(*value).object.is_null() {
         pdf_release_obj((*value).object);
-        (*value).object = 0 as *mut pdf_obj
+        (*value).object = 0 as PdfObjRef
     }
     free(value as *mut libc::c_void);
 }
@@ -137,7 +138,7 @@ pub unsafe extern "C" fn pdf_names_add_object(
     mut names: *mut ht_table,
     mut key: *const libc::c_void,
     mut keylen: i32,
-    mut object: *mut pdf_obj,
+    mut object: PdfObjRef,
 ) -> i32 {
     assert!(!names.is_null() && !object.is_null());
     if key.is_null() || keylen < 1i32 {
@@ -176,7 +177,7 @@ pub unsafe extern "C" fn pdf_names_lookup_reference(
     mut names: *mut ht_table,
     mut key: *const libc::c_void,
     mut keylen: i32,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     let object;
     assert!(!names.is_null());
     let value = ht_lookup_table(names, key, keylen) as *mut obj_data;
@@ -198,13 +199,13 @@ pub unsafe extern "C" fn pdf_names_lookup_object(
     mut names: *mut ht_table,
     mut key: *const libc::c_void,
     mut keylen: i32,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     assert!(!names.is_null());
     let value = ht_lookup_table(names, key, keylen) as *mut obj_data;
     if value.is_null()
         || !(*value).object.is_null() && pdf_obj_typeof((*value).object) == PdfObjType::UNDEFINED
     {
-        return 0 as *mut pdf_obj;
+        return 0 as PdfObjRef;
     }
     assert!(!(*value).object.is_null());
     (*value).object
@@ -255,7 +256,7 @@ unsafe fn build_name_tree(
     mut first: *mut named_object,
     mut num_leaves: i32,
     mut is_root: i32,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     let result = pdf_new_dict();
     /*
      * According to PDF Refrence, Third Edition (p.101-102), a name tree
@@ -306,7 +307,7 @@ unsafe fn build_name_tree(
                 }
             }
             pdf_release_obj((*cur).value);
-            (*cur).value = 0 as *mut pdf_obj;
+            (*cur).value = 0 as PdfObjRef;
         }
         pdf_add_dict(&mut *result, "Names", names);
     } else if num_leaves > 0i32 {
@@ -344,8 +345,8 @@ unsafe fn flat_table(
             let mut key = ht_iter_getkey(&mut iter, &mut keylen);
 
             if !filter.is_null() {
-                let mut new_obj: *mut pdf_obj =
-                    ht_lookup_table(filter, key as *const libc::c_void, keylen) as *mut pdf_obj;
+                let mut new_obj: PdfObjRef =
+                    ht_lookup_table(filter, key as *const libc::c_void, keylen) as PdfObjRef;
                 if new_obj.is_null() {
                     if !(ht_iter_next(&mut iter) >= 0) {
                         break;
@@ -396,11 +397,11 @@ pub unsafe extern "C" fn pdf_names_create_tree(
     mut names: *mut ht_table,
     mut count: *mut i32,
     mut filter: *mut ht_table,
-) -> *mut pdf_obj {
+) -> PdfObjRef {
     let name_tree;
     let flat = flat_table(names, count, filter);
     if flat.is_null() {
-        name_tree = 0 as *mut pdf_obj
+        name_tree = 0 as PdfObjRef
     } else {
         slice::from_raw_parts_mut(
             flat,

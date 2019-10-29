@@ -29,6 +29,7 @@
 
 use crate::DisplayExt;
 use std::ffi::CStr;
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::dpx_agl::{agl_close_map, agl_init_map, agl_set_verbose};
 use super::dpx_cid::CIDFont_set_verbose;
@@ -77,9 +78,9 @@ pub struct pdf_font {
     pub index: i32,
     pub fontname: *mut i8,
     pub uniqueID: [i8; 7],
-    pub reference: *mut pdf_obj,
-    pub resource: *mut pdf_obj,
-    pub descriptor: *mut pdf_obj,
+    pub reference: PdfObjRef,
+    pub resource: PdfObjRef,
+    pub descriptor: PdfObjRef,
     pub usedchars: *mut i8,
     pub flags: i32,
     pub point_size: f64,
@@ -204,9 +205,9 @@ unsafe fn pdf_init_font_struct(mut font: *mut pdf_font) {
     memset((*font).uniqueID.as_mut_ptr() as *mut libc::c_void, 0i32, 7);
     (*font).index = 0i32;
     (*font).encoding_id = -1i32;
-    (*font).reference = 0 as *mut pdf_obj;
-    (*font).resource = 0 as *mut pdf_obj;
-    (*font).descriptor = 0 as *mut pdf_obj;
+    (*font).reference = 0 as PdfObjRef;
+    (*font).resource = 0 as PdfObjRef;
+    (*font).descriptor = 0 as PdfObjRef;
     (*font).point_size = 0i32 as f64;
     (*font).design_size = 0i32 as f64;
     (*font).usedchars = 0 as *mut i8;
@@ -268,9 +269,9 @@ unsafe fn pdf_flush_font(mut font: *mut pdf_font) {
     pdf_release_obj((*font).resource);
     pdf_release_obj((*font).descriptor);
     pdf_release_obj((*font).reference);
-    (*font).reference = 0 as *mut pdf_obj;
-    (*font).resource = 0 as *mut pdf_obj;
-    (*font).descriptor = 0 as *mut pdf_obj;
+    (*font).reference = 0 as PdfObjRef;
+    (*font).resource = 0 as PdfObjRef;
+    (*font).descriptor = 0 as PdfObjRef;
 }
 unsafe fn pdf_clean_font_struct(mut font: *mut pdf_font) {
     if !font.is_null() {
@@ -315,7 +316,7 @@ pub unsafe extern "C" fn pdf_init_fonts() {
         as *mut pdf_font;
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_get_font_reference(mut font_id: i32) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_get_font_reference(mut font_id: i32) -> PdfObjRef {
     if font_id < 0i32 || font_id >= font_cache.count {
         panic!("Invalid font ID: {}", font_id);
     }
@@ -515,8 +516,8 @@ pub unsafe extern "C" fn pdf_close_fonts() {
         let mut font_0: *mut pdf_font =
             &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
         if (*font_0).encoding_id >= 0i32 && (*font_0).subtype != 4i32 {
-            let mut enc_obj: *mut pdf_obj = pdf_get_encoding_obj((*font_0).encoding_id);
-            let mut tounicode: *mut pdf_obj = 0 as *mut pdf_obj;
+            let mut enc_obj: PdfObjRef = pdf_get_encoding_obj((*font_0).encoding_id);
+            let mut tounicode: PdfObjRef = 0 as PdfObjRef;
             /* Predefined encodings (and those simplified to them) are embedded
             as direct objects, but this is purely a matter of taste. */
             if !enc_obj.is_null() {
@@ -883,7 +884,7 @@ pub unsafe extern "C" fn pdf_font_get_resource(font: &mut pdf_font) -> &mut pdf_
     &mut *(*font).resource
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_get_descriptor(mut font: *mut pdf_font) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_font_get_descriptor(mut font: *mut pdf_font) -> PdfObjRef {
     assert!(!font.is_null());
     if (*font).descriptor.is_null() {
         (*font).descriptor = pdf_new_dict();

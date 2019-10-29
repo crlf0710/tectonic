@@ -31,6 +31,7 @@ use crate::warn;
 use crate::DisplayExt;
 use crate::SkipBlank;
 use std::ffi::{CString, CStr};
+use crate::dpx_pdfobj::PdfObjRef;
 
 use super::{spc_arg, spc_env};
 use crate::spc_warn;
@@ -97,7 +98,7 @@ unsafe fn tpic__clear(mut tp: *mut spc_tpic_) {
     (*tp).fill_shape = false;
     (*tp).fill_color = 0.0f64;
 }
-unsafe fn create_xgstate(mut a: f64, mut f_ais: i32) -> *mut pdf_obj
+unsafe fn create_xgstate(mut a: f64, mut f_ais: i32) -> PdfObjRef
 /* alpha is shape */ {
     let dict = pdf_new_dict(); /* dash pattern */
     pdf_add_dict(&mut *dict, "Type", pdf_new_name("ExtGState"));
@@ -665,7 +666,7 @@ pub unsafe extern "C" fn spc_tpic_at_end_document() -> i32 {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     spc_handler_tpic__clean(0 as *mut spc_env, tp as *mut libc::c_void)
 }
-unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
+unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> PdfObjRef {
     let mut error: i32 = 0i32;
     let mut dict = pdf_new_dict();
     (*ap).cur.skip_blank();
@@ -702,13 +703,13 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
     }
     if error != 0 {
         pdf_release_obj(dict);
-        dict = 0 as *mut pdf_obj
+        dict = 0 as PdfObjRef
     }
     dict
 }
 unsafe extern "C" fn tpic_filter_getopts(
-    mut kp: *mut pdf_obj,
-    mut vp: *mut pdf_obj,
+    mut kp: PdfObjRef,
+    mut vp: PdfObjRef,
     mut dp: *mut libc::c_void,
 ) -> i32 {
     let mut tp: *mut spc_tpic_ = dp as *mut spc_tpic_;
@@ -752,8 +753,8 @@ unsafe fn spc_handler_tpic__setopts(mut spe: *mut spc_env, mut ap: *mut spc_arg)
         Some(
             tpic_filter_getopts
                 as unsafe extern "C" fn(
-                    _: *mut pdf_obj,
-                    _: *mut pdf_obj,
+                    _: PdfObjRef,
+                    _: PdfObjRef,
                     _: *mut libc::c_void,
                 ) -> i32,
         ),
