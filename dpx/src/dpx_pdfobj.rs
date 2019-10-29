@@ -1267,6 +1267,9 @@ pub unsafe extern "C" fn pdf_dict_keys(dict: &pdf_obj) -> PdfObjRef {
     let keys = pdf_new_array();
     let array = (&mut *keys).get_array_mut();
     for (k, v) in dict.inner.iter() {
+        /* We duplicate name object rather than linking keys.
+         * If we forget to free keys, broken PDF is generated.
+         */
         array.values.push(pdf_new_name(k.name.as_bytes()))
     }
     keys
