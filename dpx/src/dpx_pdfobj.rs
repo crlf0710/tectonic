@@ -1907,22 +1907,13 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
 
 impl Drop for pdf_stream {
     fn drop(&mut self) {
-        let pdf_stream {
-            dict,
-            ref mut stream,
-            objstm_data,
-            _flags: _,
-            decodeparms: _,
-        } = *self;
+        let pdf_stream { dict, objstm_data, .. } = *self;
         unsafe {
             pdf_release_obj(dict);
-        }
-        if !objstm_data.is_null() {
-            unsafe {
+            if !objstm_data.is_null() {
                 free(objstm_data as *mut libc::c_void);
             }
         }
-        let _ = mem::replace(stream, Vec::new());
     }
 }
 
