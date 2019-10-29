@@ -1055,8 +1055,7 @@ unsafe fn write_name(name: *mut PdfName, handle: &mut OutputHandleWrapper) {
     }
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn pdf_name_value<'a>(object: &'a pdf_obj) -> &'a CStr {
+pub fn pdf_name_value<'a>(object: &'a pdf_obj) -> &'a CStr {
     object.get_name().name.as_c_str()
 }
 
@@ -1203,16 +1202,17 @@ where
      * We didn't find the key. We build a new "end" node and add
      * the new key just before the end
      */
-    let new_node =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_dict>() as u64) as u32) as *mut pdf_dict;
-    (*new_node).key = 0 as PdfObjRef;
-    (*new_node).value = 0 as PdfObjRef;
-    (*new_node).next = 0 as *mut pdf_dict;
-    (*data).next = new_node;
+    let new_node = Box::new(pdf_dict {
+        key: 0 as PdfObjRef,
+        value: 0 as PdfObjRef,
+        next: 0 as *mut pdf_dict,
+    });
+    (*data).next = Box::into_raw(new_node);
     (*data).key = name;
     (*data).value = value;
     0i32
 }
+
 /* pdf_merge_dict makes a link for each item in dict2 before stealing it */
 #[no_mangle]
 pub unsafe extern "C" fn pdf_merge_dict(dict1: &mut pdf_obj, dict2: &pdf_obj) {
