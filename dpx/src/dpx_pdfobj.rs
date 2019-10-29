@@ -36,7 +36,6 @@ use crate::mfree;
 use crate::strstartswith;
 use crate::{info, warn};
 use std::ffi::CStr;
-use std::mem;
 use std::ptr;
 
 use super::dpx_dpxutil::{ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table};
@@ -123,6 +122,28 @@ impl pdf_obj {
     pub fn is_array(&self) -> bool {
         PdfObjType::from(self.typ) == PdfObjType::ARRAY
     }
+    pub fn get_array_mut(&mut self) -> &mut PdfArray {
+        assert!(self.is_array());
+        let data = self.data as *mut PdfArray;
+        unsafe { &mut *data }
+    }
+    pub fn get_array(&self) -> &PdfArray {
+        assert!(self.is_array());
+        let data = self.data as *const PdfArray;
+        unsafe { &*data }
+    }
+    pub fn get_stream_mut(&mut self) -> &mut PdfStream {
+        assert!(self.is_stream());
+        let data = self.data as *mut PdfStream;
+        unsafe { &mut *data }
+    }
+
+    pub fn get_stream(&self) -> &PdfStream {
+        assert!(self.is_stream());
+        let data = self.data as *const PdfStream;
+        unsafe { &*data }
+    }
+
     pub fn is_dict(&self) -> bool {
         PdfObjType::from(self.typ) == PdfObjType::DICT
     }
@@ -184,7 +205,7 @@ pub struct pdf_dict {
 }
 #[derive(Clone)]
 #[repr(C)]
-pub struct pdf_stream {
+pub struct PdfStream {
     pub dict: *mut pdf_obj,
     pub stream: Vec<u8>,
     pub objstm_data: *mut i32,
@@ -212,9 +233,8 @@ pub struct pdf_indirect {
     pub label: u32,
     pub generation: u16,
 }
-#[derive(Clone)]
-#[repr(C)]
-pub struct pdf_array {
+#[derive(Clone, Default)]
+pub struct PdfArray {
     pub values: Vec<*mut pdf_obj>,
 }
 #[derive(Copy, Clone)]
@@ -1050,6 +1070,7 @@ pub unsafe extern "C" fn pdf_name_value<'a>(object: &'a pdf_obj) -> &'a CStr {
     let data = object.data as *mut pdf_name;
     CStr::from_ptr((*data).name)
 }
+
 /*
  * We do not have pdf_name_length() since '\0' is not allowed
  * in PDF name object.
@@ -1057,12 +1078,12 @@ pub unsafe extern "C" fn pdf_name_value<'a>(object: &'a pdf_obj) -> &'a CStr {
 #[no_mangle]
 pub unsafe extern "C" fn pdf_new_array() -> *mut pdf_obj {
     let result = pdf_new_obj(PdfObjType::ARRAY);
-    let data = Box::<pdf_array>::new(pdf_array { values: vec![], });
+    let data = Box::new(PdfArray::default());
     (*result).data = Box::into_raw(data) as *mut libc::c_void;
     result
 }
 
-unsafe fn write_array(mut array: *mut pdf_array, handle: &mut OutputHandleWrapper) {
+unsafe fn write_array(mut array: *mut PdfArray, handle: &mut OutputHandleWrapper) {
     pdf_out_char(handle, b'[');
     if !(*array).values.is_empty() {
         let mut type1: i32 = 10i32;
@@ -1081,27 +1102,24 @@ unsafe fn write_array(mut array: *mut pdf_array, handle: &mut OutputHandleWrappe
     }
     pdf_out_char(handle, b']');
 }
-#[no_mangle]
-pub unsafe extern "C" fn pdf_get_array(array: &mut pdf_obj, mut idx: i32) -> *mut pdf_obj {
-    assert!(array.is_array());
-    let mut data = array.data as *mut pdf_array;
-    let len = (*data).values.len();
-    if idx < 0 {
-        (*data).values[len - (idx.abs() as usize)]
-    } else if (idx as usize) < len {
-        (*data).values[idx as usize]
-    } else {
-        0 as *mut pdf_obj
+
+impl PdfArray {
+    pub fn len(&self) -> u32 {
+        self.values.len() as u32
+    }
+    pub fn get(&self, idx: i32) -> *mut pdf_obj {
+        let len = self.values.len();
+        if idx < 0 {
+            self.values[len - (idx.abs() as usize)]
+        } else if (idx as usize) < len {
+            self.values[idx as usize]
+        } else {
+            ptr::null_mut()
+        }
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn pdf_array_length(array: &pdf_obj) -> u32 {
-    assert!((*array).is_array());
-    let mut data = array.data as *mut pdf_array;
-    (*data).values.len() as u32
-}
 
-impl Drop for pdf_array {
+impl Drop for PdfArray {
     fn drop(&mut self) {
         let mut values = &mut self.values;
         for val in values.drain(..) {
@@ -1110,26 +1128,25 @@ impl Drop for pdf_array {
     }
 }
 
-unsafe fn release_array(data: *mut pdf_array) {
-    let _ = Box::from_raw(data);
+pub fn pdf_get_array(array: &mut pdf_obj, idx: i32) -> *mut pdf_obj {
+    array.get_array().get(idx)
 }
 
-/*
- * The name pdf_add_array is misleading. It behaves differently than
- * pdf_add_dict(). This should be pdf_push_array().
- */
-#[no_mangle]
-pub unsafe extern "C" fn pdf_add_array(array: &mut pdf_obj, mut object: *mut pdf_obj) {
-    assert!(array.is_array());
-    let mut data = array.data as *mut pdf_array;
-    (*data).values.push(object);
+pub fn pdf_array_length(array: &pdf_obj) -> u32 {
+    array.get_array().values.len() as u32
 }
+
+/// The name pdf_add_array is misleading. It behaves differently than
+/// pdf_add_dict(). It should be called pdf_push_array
+pub fn pdf_add_array(array: &mut pdf_obj, mut object: *mut pdf_obj) {
+    array.get_array_mut().values.push(object);
+}
+
 /* Prepend an object to an array */
-unsafe fn pdf_unshift_array(array: &mut pdf_obj, mut object: *mut pdf_obj) {
-    assert!(array.is_array());
-    let mut data = array.data as *mut pdf_array;
-    (*data).values.insert(0, object);
+fn pdf_unshift_array(array: &mut pdf_obj, mut object: *mut pdf_obj) {
+    array.get_array_mut().values.insert(0, object);
 }
+
 unsafe fn write_dict(mut dict: *mut pdf_dict, handle: &mut OutputHandleWrapper) {
     pdf_out(handle, b"<<");
     while !(*dict).key.is_null() {
@@ -1142,6 +1159,7 @@ unsafe fn write_dict(mut dict: *mut pdf_dict, handle: &mut OutputHandleWrapper) 
     }
     pdf_out(handle, b">>");
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn pdf_new_dict() -> *mut pdf_obj {
     let result = pdf_new_obj(PdfObjType::DICT);
@@ -1153,6 +1171,7 @@ pub unsafe extern "C" fn pdf_new_dict() -> *mut pdf_obj {
     (*result).data = data as *mut libc::c_void;
     result
 }
+
 unsafe fn release_dict(mut data: *mut pdf_dict) {
     while !data.is_null() && !(*data).key.is_null() {
         pdf_release_obj((*data).key);
@@ -1290,26 +1309,33 @@ where
         }
     }
 }
+
+impl PdfStream {
+    unsafe fn new(flags: i32) -> Self {
+        PdfStream {
+            /*
+             * Although we are using an arbitrary pdf_object here, it must have
+             * type=PDF_DICT and cannot be an indirect reference.  This will be
+             * checked by the output routine.
+             */
+            dict: pdf_new_dict(),
+            _flags: flags,
+            decodeparms: decode_parms {
+                predictor: 2i32,
+                columns: 0i32,
+                bits_per_component: 0i32,
+                colors: 0i32,
+            },
+            objstm_data: 0 as *mut i32,
+            stream: Vec::new(),
+        }
+    }
+}
+
 #[no_mangle]
-pub unsafe extern "C" fn pdf_new_stream(mut flags: i32) -> *mut pdf_obj {
+pub unsafe extern "C" fn pdf_new_stream(flags: i32) -> *mut pdf_obj {
     let result = pdf_new_obj(PdfObjType::STREAM);
-    let data = Box::new(pdf_stream {
-        dict: pdf_new_dict(),
-        _flags: flags,
-        decodeparms: decode_parms {
-            predictor: 2i32,
-            columns: 0i32,
-            bits_per_component: 0i32,
-            colors: 0i32,
-         },
-         objstm_data: 0 as *mut i32,
-         stream: Vec::new(),
-    });
-    /*
-     * Although we are using an arbitrary pdf_object here, it must have
-     * type=PDF_DICT and cannot be an indirect reference.  This will be
-     * checked by the output routine.
-     */
+    let data = Box::new(PdfStream::new(flags));
     (*result).data = Box::into_raw(data) as *mut libc::c_void;
     (*result).flags |= 1i32 << 0i32;
     result
@@ -1330,7 +1356,7 @@ pub unsafe extern "C" fn pdf_stream_set_predictor(
             return;
         }
     }
-    let data = (*stream).data as *mut pdf_stream;
+    let data = (*stream).data as *mut PdfStream;
     (*data).decodeparms.predictor = predictor;
     (*data).decodeparms.columns = columns;
     (*data).decodeparms.bits_per_component = bpc;
@@ -1720,7 +1746,7 @@ unsafe fn filter_create_predictor_dict(
     pdf_add_dict(&mut *parms, "Predictor", pdf_new_number(predictor as f64));
     return parms;
 }
-unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWrapper) {
+unsafe fn write_stream(mut stream: *mut PdfStream, handle: &mut OutputHandleWrapper) {
     /*
      * Always work from a copy of the stream. All filters read from
      * "filtered" and leave their result in "filtered".
@@ -1814,7 +1840,7 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
                 /*
                  * FlateDecode is the first filter to be applied to the stream.
                  */
-                pdf_unshift_array(&mut *filters, filter_name);
+                (&mut *filters).get_array_mut().values.push(filter_name);
             } else {
                 /*
                  * Adding the filter as a name instead of a one-element array
@@ -1905,9 +1931,9 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
     pdf_out(handle, b"endstream");
 }
 
-impl Drop for pdf_stream {
+impl Drop for PdfStream {
     fn drop(&mut self) {
-        let pdf_stream { dict, objstm_data, .. } = *self;
+        let PdfStream { dict, objstm_data, .. } = *self;
         unsafe {
             pdf_release_obj(dict);
             if !objstm_data.is_null() {
@@ -1917,59 +1943,53 @@ impl Drop for pdf_stream {
     }
 }
 
-unsafe fn release_stream(streamptr: *mut pdf_stream) {
-    let _ = Box::from_raw(streamptr);
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn pdf_stream_dict(stream: &mut pdf_obj) -> &mut pdf_obj {
-    assert!(stream.is_stream());
-    let data = stream.data as *mut pdf_stream;
-    &mut *(*data).dict
-}
-#[no_mangle]
-pub unsafe extern "C" fn pdf_stream_dataptr(stream: &pdf_obj) -> *const libc::c_void {
-    assert!(stream.is_stream());
-    let data = (*stream).data as *mut pdf_stream;
-    (*data).stream.as_ptr() as *const libc::c_void
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn pdf_stream_length(stream: &pdf_obj) -> i32 {
-    assert!((*stream).is_stream());
-    let data = (*stream).data as *mut pdf_stream;
-    (*data).stream.len() as i32
-}
-unsafe fn set_objstm_data(objstm: &mut pdf_obj, mut data: *mut i32) {
-    assert!(objstm.is_stream());
-    let ref mut fresh14 = (*(objstm.data as *mut pdf_stream)).objstm_data;
-    *fresh14 = data;
-}
-unsafe fn get_objstm_data(objstm: &pdf_obj) -> *mut i32 {
-    assert!(objstm.is_stream());
-    (*(objstm.data as *mut pdf_stream)).objstm_data
-}
-#[no_mangle]
-pub unsafe extern "C" fn pdf_add_stream(
-    stream: &mut pdf_obj,
-    stream_data: *const libc::c_void,
-    length: i32,
-) {
-    assert!(stream.is_stream());
-    if length < 1i32 {
-        return;
+impl PdfStream {
+    unsafe fn get_dict_mut(&mut self) -> &mut pdf_obj {
+        &mut *self.dict
     }
-    let payload = std::slice::from_raw_parts(stream_data as *const u8, length as usize);
-    let data = (*stream).data as *mut pdf_stream;
-    (*data).stream.extend_from_slice(payload);
+}
+
+pub unsafe fn pdf_stream_dict(stream: &mut pdf_obj) -> &mut pdf_obj {
+    stream.get_stream_mut().get_dict_mut()
+}
+
+pub fn pdf_stream_dataptr(stream: &pdf_obj) -> *const libc::c_void {
+    stream.get_stream().stream.as_ptr() as *const libc::c_void
+}
+
+pub fn pdf_stream_length(stream: &pdf_obj) -> i32 {
+    stream.get_stream().stream.len() as i32
+}
+
+unsafe fn set_objstm_data(objstm: &mut pdf_obj, data: *mut i32) {
+    let stream = objstm.get_stream_mut();
+    stream.objstm_data = data;
+}
+
+unsafe fn get_objstm_data(objstm: &pdf_obj) -> *mut i32 {
+    objstm.get_stream().objstm_data
+}
+
+impl PdfStream {
+    fn append(&mut self, slice: &[u8]) {
+        self.stream.extend_from_slice(slice);
+    }
+    unsafe fn append_data_ptr(&mut self, stream_data: *const libc::c_void, length: i32) {
+        let payload = std::slice::from_raw_parts(stream_data as *const u8, length as usize);
+        self.append(payload)
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn pdf_add_stream(stream: &mut pdf_obj, stream_data: *const libc::c_void, length: i32) {
+    stream.get_stream_mut().append_data_ptr(stream_data, length);
 }
 
 #[no_mangle]
 #[cfg(feature = "libz-sys")]
 pub unsafe extern "C" fn pdf_add_stream_flate(
-    mut dst: *mut pdf_obj,
-    mut data: *const libc::c_void,
-    mut len: libc::c_int,
+    dst_stream: &mut PdfStream,
+    slice: &mut [u8],
 ) -> libc::c_int {
     const WBUF_SIZE: usize = 4096;
     let mut z: libz::z_stream = std::mem::zeroed();
@@ -1978,8 +1998,8 @@ pub unsafe extern "C" fn pdf_add_stream_flate(
     // z.zalloc = null_mut();
     // z.zfree = null_mut();
     z.opaque = 0 as libz::voidpf;
-    z.next_in = data as *mut libz::Bytef;
-    z.avail_in = len as libz::uInt;
+    z.next_in = slice.as_mut_ptr() as *mut libz::Bytef;
+    z.avail_in = slice.len() as libz::uInt;
     z.next_out = wbuf.as_mut_ptr();
     z.avail_out = WBUF_SIZE as libz::uInt;
     if libz::inflateInit_(
@@ -2003,17 +2023,14 @@ pub unsafe extern "C" fn pdf_add_stream_flate(
             return -1i32;
         }
         if z.avail_out == 0 {
-            pdf_add_stream(&mut *dst, wbuf.as_mut_ptr() as *const libc::c_void, WBUF_SIZE as i32);
+            dst_stream.append(&wbuf[..]);
             z.next_out = wbuf.as_mut_ptr();
             z.avail_out = WBUF_SIZE as libz::uInt
         }
     }
-    if (WBUF_SIZE as u32) - z.avail_out > 0 {
-        pdf_add_stream(
-            &mut *dst,
-            wbuf.as_mut_ptr() as *const libc::c_void,
-            (WBUF_SIZE - z.avail_out as usize) as libc::c_int,
-        );
+    if (WBUF_SIZE as u32) > z.avail_out {
+        let remain = &wbuf[..(WBUF_SIZE - (z.avail_out as usize))];
+        dst_stream.append(remain);
     }
 
     return if libz::inflateEnd(&mut z) == 0i32 {
@@ -2432,12 +2449,15 @@ pub unsafe extern "C" fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut 
     {
         panic!("Invalid type.");
     }
-    let mut stream_data = pdf_stream_dataptr(&*src) as *const i8;
-    let mut stream_length = pdf_stream_length(&*src);
-    let mut stream_dict = pdf_stream_dict(&mut *src);
+    let dst = &mut *dst;
+    let dst_stream = dst.get_stream_mut();
+    let src = &mut *src;
+    let stream = src.get_stream_mut();
+    let dict = stream.get_dict_mut();
+    let mut stream_dict = stream.get_dict_mut();
     let mut filter = pdf_lookup_dict(stream_dict, "Filter").unwrap_or(0 as *mut pdf_obj);
     if filter.is_null() {
-        pdf_add_stream(&mut *dst, stream_data as *const libc::c_void, stream_length);
+        dst_stream.append(&stream.stream);
     } else {
         #[cfg(feature = "libz-sys")]
         {
@@ -2481,16 +2501,12 @@ pub unsafe extern "C" fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut 
                     if have_parms != 0 {
                         error = pdf_add_stream_flate_filtered(
                             dst,
-                            stream_data as *const libc::c_void,
-                            stream_length,
+                            stream.stream.as_mut_ptr() as *const u8 as *const libc::c_void,
+                            stream.stream.len() as i32,
                             &mut parms,
-                        )
+                        );
                     } else {
-                        error = pdf_add_stream_flate(
-                            dst,
-                            stream_data as *const libc::c_void,
-                            stream_length,
-                        )
+                        error = pdf_add_stream_flate(dst_stream, &mut stream.stream);
                     }
                 } else {
                     warn!("DecodeFilter \"{}\" not supported.", filter_name,);
@@ -2538,13 +2554,13 @@ unsafe fn pdf_write_obj(mut object: *mut pdf_obj, handle: &mut OutputHandleWrapp
             write_name((*object).data as *mut pdf_name, handle);
         }
         PdfObjType::ARRAY => {
-            write_array((*object).data as *mut pdf_array, handle);
+            write_array((*object).data as *mut PdfArray, handle);
         }
         PdfObjType::DICT => {
             write_dict((*object).data as *mut pdf_dict, handle);
         }
         PdfObjType::STREAM => {
-            write_stream((*object).data as *mut pdf_stream, handle);
+            write_stream((*object).data as *mut PdfStream, handle);
         }
         PdfObjType::NULL => {
             write_null(handle);
@@ -2597,13 +2613,17 @@ unsafe fn pdf_add_objstm(objstm: &mut pdf_obj, object: &mut pdf_obj) -> i32 {
     output_stream = 0 as *mut pdf_obj;
     pos
 }
-unsafe fn release_objstm(objstm: *mut pdf_obj) {
+
+unsafe fn release_objstm(objstm_ptr: *mut pdf_obj) {
+    let objstm = &mut *objstm_ptr;
     let mut data: *mut i32 = get_objstm_data(&*objstm);
     let mut pos: i32 = *data.offset(0);
-    let stream = (*objstm).data as *mut pdf_stream;
     /* Precede stream data by offset table */
     /* Reserve 22 bytes for each entry (two 10 digit numbers plus two spaces) */
-    let old_buf = std::mem::replace(&mut (*stream).stream, Vec::with_capacity(22 * pos as usize));
+    let old_buf = {
+        let stream = objstm.get_stream_mut();
+        std::mem::replace(&mut stream.stream, Vec::with_capacity(22 * pos as usize))
+    };
     let mut i: i32 = 2i32 * pos;
     let mut val: *mut i32 = data.offset(2);
     loop {
@@ -2620,21 +2640,25 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
             *fresh17,
         );
         pdf_add_stream(
-            &mut *objstm,
+            objstm,
             format_buffer.as_mut_ptr() as *const libc::c_void,
             length,
         );
     }
-    let dict = pdf_stream_dict(&mut *objstm);
-    pdf_add_dict(dict, "Type", pdf_new_name("ObjStm"));
-    pdf_add_dict(dict, "N", pdf_new_number(pos as f64));
-    pdf_add_dict(
-        dict,
-        "First",
-        pdf_new_number((*stream).stream.len() as f64),
-    );
-    pdf_add_stream(&mut *objstm, old_buf.as_ptr() as *const libc::c_void, old_buf.len() as i32);
-    pdf_release_obj(objstm);
+    {
+        let stream = objstm.get_stream_mut();
+        let len = stream.stream.len();
+        let dict = stream.get_dict_mut();
+        pdf_add_dict(dict, "Type", pdf_new_name("ObjStm"));
+        pdf_add_dict(dict, "N", pdf_new_number(pos as f64));
+        pdf_add_dict(
+            dict,
+            "First",
+            pdf_new_number(len as f64),
+        );
+        stream.append(&old_buf);
+    }
+    pdf_release_obj(objstm as *mut pdf_obj);
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_release_obj(mut object: *mut pdf_obj) {
@@ -2701,13 +2725,13 @@ pub unsafe extern "C" fn pdf_release_obj(mut object: *mut pdf_obj) {
                 release_name((*object).data as *mut pdf_name);
             }
             PdfObjType::ARRAY => {
-                release_array((*object).data as *mut pdf_array);
+                let _ = Box::from_raw((*object).data as *mut PdfArray);
             }
             PdfObjType::DICT => {
                 release_dict((*object).data as *mut pdf_dict);
             }
             PdfObjType::STREAM => {
-                release_stream((*object).data as *mut pdf_stream);
+                let _ = Box::from_raw((*object).data as *mut PdfStream);
             }
             PdfObjType::INDIRECT => {
                 release_indirect((*object).data as *mut pdf_indirect);
@@ -3107,7 +3131,7 @@ unsafe fn pdf_get_object(
             let first = *fresh26;
             if !(index as i32 >= n) && *data.offset((2i32 * index as i32) as isize) as u32 == obj_num {
                 assert!((*objstm).is_stream());
-                let objstm_slice = &(*(*((*objstm).data as *mut pdf_stream)).stream);
+                let objstm_slice = &(*(*((*objstm).data as *mut PdfStream)).stream);
 
                 let length = pdf_stream_length(&*objstm);
                 let pdfobj_start = first + *data.offset(2*index as isize+1);
