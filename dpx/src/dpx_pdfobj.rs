@@ -222,12 +222,12 @@ pub struct xref_entry {
     pub indirect: PdfObjRef,
 }
 
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 #[derive(Clone)]
 #[repr(C)]
 pub struct pdf_dict {
-    inner: HashMap<PdfName, PdfObjRef>,
+    inner: IndexMap<PdfName, PdfObjRef>,
 }
 
 impl pdf_dict {
@@ -1186,7 +1186,7 @@ unsafe fn write_dict(dict: &pdf_dict, handle: &mut OutputHandleWrapper) {
 pub fn pdf_new_dict() -> PdfObjRef {
     safe_new_obj(PdfObjType::DICT, |object| {
         let boxed = Box::new(pdf_dict {
-            inner: HashMap::new(),
+            inner: IndexMap::new(),
         });
         object.data = Box::into_raw(boxed) as *mut libc::c_void;
     })
@@ -1194,7 +1194,7 @@ pub fn pdf_new_dict() -> PdfObjRef {
 
 unsafe fn release_dict(mut data: *mut pdf_dict) {
     let mut boxed = Box::from_raw(data);
-    for (_k, v) in boxed.inner.drain() {
+    for (_k, v) in boxed.inner.drain(..) {
         unsafe {
             pdf_release_obj(v);
         }
