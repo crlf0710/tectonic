@@ -61,7 +61,7 @@ use super::dpx_tt_aux::tt_get_fontdesc;
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_array_length, pdf_lookup_dict, pdf_merge_dict,
     pdf_new_array, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_dataptr, pdf_stream_dict, pdf_stream_length,
+    pdf_release_obj, pdf_stream_dataptr, pdf_stream_dict, pdf_stream_length, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_read};
@@ -893,7 +893,7 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
     /*
      * Write PDF FontFile data.
      */
-    let fontfile = pdf_new_stream(1i32 << 0i32);
+    let fontfile = pdf_new_stream(STREAM_COMPRESS);
     let stream_dict = pdf_stream_dict(&mut *fontfile);
     pdf_add_dict(&mut *descriptor, "FontFile3", pdf_ref_obj(fontfile));
     pdf_add_dict(stream_dict, "Subtype", pdf_new_name("Type1C"));

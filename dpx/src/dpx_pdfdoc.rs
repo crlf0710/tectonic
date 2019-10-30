@@ -69,7 +69,7 @@ use crate::dpx_pdfobj::{
     pdf_new_stream, pdf_new_string, pdf_number_value, pdf_obj, pdf_obj_typeof, pdf_out_flush,
     pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id,
     pdf_set_info, pdf_set_root, pdf_stream_dict, pdf_stream_length, pdf_string_length,
-    pdf_string_value, PdfObjType,
+    pdf_string_value, PdfObjType, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
@@ -435,7 +435,7 @@ pub unsafe extern "C" fn pdf_doc_set_bop_content(mut content: *const i8, mut len
         (*p).pages.bop = 0 as *mut pdf_obj
     }
     if length > 0_u32 {
-        (*p).pages.bop = pdf_new_stream(1i32 << 0i32);
+        (*p).pages.bop = pdf_new_stream(STREAM_COMPRESS);
         pdf_add_stream(
             &mut *(*p).pages.bop,
             content as *const libc::c_void,
@@ -453,7 +453,7 @@ pub unsafe extern "C" fn pdf_doc_set_eop_content(mut content: *const i8, mut len
         (*p).pages.eop = 0 as *mut pdf_obj
     }
     if length > 0_u32 {
-        (*p).pages.eop = pdf_new_stream(1i32 << 0i32);
+        (*p).pages.eop = pdf_new_stream(STREAM_COMPRESS);
         pdf_add_stream(
             &mut *(*p).pages.eop,
             content as *const libc::c_void,
@@ -2284,7 +2284,7 @@ unsafe fn pdf_doc_new_page(mut p: *mut pdf_doc) {
         (*currentpage).page_ref = pdf_ref_obj((*currentpage).page_obj)
     }
     (*currentpage).background = 0 as *mut pdf_obj;
-    (*currentpage).contents = pdf_new_stream(1i32 << 0i32);
+    (*currentpage).contents = pdf_new_stream(STREAM_COMPRESS);
     (*currentpage).resources = pdf_new_dict();
     (*currentpage).annots = 0 as *mut pdf_obj;
     (*currentpage).beads = 0 as *mut pdf_obj;
@@ -2410,7 +2410,7 @@ unsafe fn doc_fill_page_background(p: &mut pdf_doc) {
     pdf_doc_get_mediabox(pdf_doc_current_page_number() as u32, &mut r);
     let currentpage = &mut *p.pages.entries.offset(p.pages.num_entries as isize);
     if currentpage.background.is_null() {
-        currentpage.background = pdf_new_stream(1i32 << 0i32)
+        currentpage.background = pdf_new_stream(STREAM_COMPRESS)
     }
     let saved_content = currentpage.contents;
     currentpage.contents = currentpage.background;
@@ -2661,7 +2661,7 @@ pub unsafe extern "C" fn pdf_doc_begin_grabbing(
     let ref_xy = Coord::new(ref_x, ref_y);
     form.cropbox.ll = ref_xy + cropbox.ll;
     form.cropbox.ur = ref_xy + cropbox.ur;
-    form.contents = pdf_new_stream(1i32 << 0i32);
+    form.contents = pdf_new_stream(STREAM_COMPRESS);
     form.resources = pdf_new_dict();
     pdf_ximage_init_form_info(&mut info);
     info.matrix.a = 1.0f64;

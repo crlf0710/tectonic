@@ -57,7 +57,7 @@ use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_copy_name, pdf_new_array, pdf_new_dict,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_length,
+    pdf_release_obj, pdf_stream_length, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use libc::{free, memmove, memset, strcat, strcmp, strcpy, strlen, strncpy, strstr};
@@ -1118,7 +1118,7 @@ pub unsafe extern "C" fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
     /*
      * CIDSet
      */
-    let cidset = pdf_new_stream(1i32 << 0i32);
+    let cidset = pdf_new_stream(STREAM_COMPRESS);
     pdf_add_stream(
         &mut *cidset,
         used_chars as *const libc::c_void,
@@ -1135,7 +1135,7 @@ pub unsafe extern "C" fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
     if cidtogidmap.is_null() {
         pdf_add_dict(&mut *(*font).fontdict, "CIDToGIDMap", pdf_new_name("Identity"));
     } else {
-        let c2gmstream = pdf_new_stream(1i32 << 0i32);
+        let c2gmstream = pdf_new_stream(STREAM_COMPRESS);
         pdf_add_stream(
             &mut *c2gmstream,
             cidtogidmap as *const libc::c_void,

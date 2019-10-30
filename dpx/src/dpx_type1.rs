@@ -55,7 +55,7 @@ use super::dpx_tfm::{tfm_get_width, tfm_open};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_array_length, pdf_lookup_dict, pdf_new_array,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_dataptr, pdf_stream_dict, pdf_stream_length,
+    pdf_release_obj, pdf_stream_dataptr, pdf_stream_dict, pdf_stream_length, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
@@ -649,7 +649,7 @@ unsafe fn write_fontfile(
     topdict.pack(&mut stream_data[topdict_offset..topdict_offset + len]);
     /* Copyright and Trademark Notice ommited. */
     /* Flush Font File */
-    let fontfile = pdf_new_stream(1i32 << 0i32);
+    let fontfile = pdf_new_stream(STREAM_COMPRESS);
     let stream_dict = pdf_stream_dict(&mut *fontfile);
     pdf_add_dict(&mut *descriptor, "FontFile3", pdf_ref_obj(fontfile));
     pdf_add_dict(stream_dict, "Subtype", pdf_new_name("Type1C"));

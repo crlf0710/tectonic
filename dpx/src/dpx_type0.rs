@@ -44,7 +44,7 @@ use super::dpx_tt_cmap::otf_create_ToUnicode_stream;
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_copy_name, pdf_get_version, pdf_link_obj,
     pdf_lookup_dict, pdf_new_array, pdf_new_dict, pdf_new_name, pdf_new_stream, pdf_obj,
-    pdf_ref_obj, pdf_release_obj,
+    pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::streq_ptr;
@@ -530,7 +530,7 @@ pub unsafe extern "C" fn Type0Font_cache_close() {
 /* ******************************* COMPAT ********************************/
 unsafe fn create_dummy_CMap() -> *mut pdf_obj {
     let mut buf: [i8; 32] = [0; 32];
-    let stream = &mut *pdf_new_stream(1i32 << 0i32);
+    let stream = &mut *pdf_new_stream(STREAM_COMPRESS);
     pdf_add_stream(stream,
                    b"%!PS-Adobe-3.0 Resource-CMap\n%%DocumentNeededResources: ProcSet (CIDInit)\n%%IncludeResource: ProcSet (CIDInit)\n%%BeginResource: CMap (Adobe-Identity-UCS2)\n%%Title: (Adobe-Identity-UCS2 Adobe UCS2 0)\n%%Version: 1.0\n%%Copyright:\n%% ---\n%%EndComments\n\n\x00"
                        as *const u8 as *const i8 as

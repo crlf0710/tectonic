@@ -60,6 +60,16 @@ pub type __ssize_t = i64;
 pub type size_t = u64;
 use bridge::{InputHandleWrapper, OutputHandleWrapper};
 
+pub const STREAM_COMPRESS: i32 = (1 << 0);
+pub const STREAM_USE_PREDICTOR: i32 = (1 << 1);
+
+/// Objects with this flag will not be put into an object stream.
+/// For instance, all stream objects have this flag set.
+const OBJ_NO_OBJSTM: i32 = (1 << 0);
+/// Objects with this flag will not be encrypted.
+/// This implies OBJ_NO_OBJSTM if encryption is turned on.
+const OBJ_NO_ENCRYPT: i32 = (1 << 1);
+
 use super::dpx_dpxutil::ht_table;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -332,8 +342,8 @@ pub unsafe extern "C" fn pdf_out_init(
     next_label = 1_u32;
     if pdf_version >= 5_u32 {
         if enable_object_stream {
-            xref_stream = pdf_new_stream(1i32 << 0i32);
-            (*xref_stream).flags |= 1i32 << 1i32;
+            xref_stream = pdf_new_stream(STREAM_COMPRESS);
+            (*xref_stream).flags |= OBJ_NO_ENCRYPT;
             trailer_dict = pdf_stream_dict(&mut *xref_stream);
             pdf_add_dict(&mut *trailer_dict, "Type", pdf_new_name("XRef"));
             do_objstm = 1i32
@@ -534,7 +544,7 @@ pub unsafe extern "C" fn pdf_set_root(mut object: *mut pdf_obj) {
      * a document catalog may contain strings, which should be encrypted.
      */
     if doc_enc_mode {
-        (*object).flags |= 1i32 << 0i32
+        (*object).flags |= OBJ_NO_OBJSTM;
     };
 }
 #[no_mangle]
@@ -554,7 +564,7 @@ pub unsafe extern "C" fn pdf_set_encrypt(mut encrypt: *mut pdf_obj) {
     if pdf_add_dict(&mut *trailer_dict, "Encrypt", pdf_ref_obj(encrypt)) != 0 {
         panic!("Encrypt object already set!");
     }
-    (*encrypt).flags |= 1i32 << 1i32;
+    (*encrypt).flags |= OBJ_NO_ENCRYPT;
 }
 unsafe fn pdf_out_char(handle: &mut OutputHandleWrapper, mut c: u8) {
     if !output_stream.is_null() && handle == pdf_output_handle.as_mut().unwrap() {
@@ -1311,7 +1321,7 @@ pub unsafe extern "C" fn pdf_new_stream(mut flags: i32) -> *mut pdf_obj {
      * checked by the output routine.
      */
     (*result).data = Box::into_raw(data) as *mut libc::c_void;
-    (*result).flags |= 1i32 << 0i32;
+    (*result).flags |= OBJ_NO_OBJSTM;
     result
 }
 
@@ -1335,7 +1345,7 @@ pub unsafe extern "C" fn pdf_stream_set_predictor(
     (*data).decodeparms.columns = columns;
     (*data).decodeparms.bits_per_component = bpc;
     (*data).decodeparms.colors = colors;
-    (*data)._flags |= 1i32 << 1i32;
+    (*data)._flags |= STREAM_USE_PREDICTOR;
 }
 /* Adaptive PNG filter
  * We use the "minimum sum of absolute differences" heuristic approach
@@ -1737,18 +1747,18 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
         .filter(|typ| "Metadata" == pdf_name_value(&**typ).to_string_lossy())
         .is_some()
     {
-        (*stream)._flags &= !(1i32 << 0i32)
+        (*stream)._flags &= !STREAM_COMPRESS;
     }
     /* Apply compression filter if requested */
     #[cfg(feature = "libz-sys")]
     {
         if (*stream).stream.len() > 0
-            && (*stream)._flags & 1i32 << 0i32 != 0
+            && (*stream)._flags & STREAM_COMPRESS != 0
             && compression_level as libc::c_int > 0i32
         {
             /* First apply predictor filter if requested. */
             if compression_use_predictor as libc::c_int != 0
-                && (*stream)._flags & 1i32 << 1i32 != 0
+                && (*stream)._flags & STREAM_USE_PREDICTOR != 0
                 && pdf_lookup_dict(&mut *(*stream).dict, "DecodeParms").is_none()
             {
                 let mut bits_per_pixel: libc::c_int =
@@ -2572,7 +2582,7 @@ unsafe fn pdf_flush_obj(mut object: *mut pdf_obj, handle: &mut OutputHandleWrapp
         (*object).label,
         (*object).generation as i32,
     ) as usize;
-    enc_mode = doc_enc_mode as i32 != 0 && (*object).flags & 1i32 << 1i32 == 0;
+    enc_mode = doc_enc_mode as i32 != 0 && (*object).flags & OBJ_NO_ENCRYPT == 0;
     pdf_enc_set_label((*object).label);
     pdf_enc_set_generation((*object).generation as u32);
     pdf_out(handle, &format_buffer[..length]);
@@ -2663,8 +2673,8 @@ pub unsafe extern "C" fn pdf_release_obj(mut object: *mut pdf_obj) {
          */
         if (*object).label != 0 && pdf_output_handle.is_some() {
             if do_objstm == 0
-                || (*object).flags & 1i32 << 0i32 != 0
-                || doc_enc_mode as i32 != 0 && (*object).flags & 1i32 << 1i32 != 0
+                || (*object).flags & OBJ_NO_OBJSTM != 0
+                || doc_enc_mode as i32 != 0 && (*object).flags & OBJ_NO_ENCRYPT != 0
                 || (*object).generation as i32 != 0
             {
                 let handle = pdf_output_handle.as_mut().unwrap();
@@ -2677,7 +2687,7 @@ pub unsafe extern "C" fn pdf_release_obj(mut object: *mut pdf_obj) {
                     let ref mut fresh18 = *data.offset(1);
                     *fresh18 = 0i32;
                     *data.offset(0) = *fresh18;
-                    current_objstm = pdf_new_stream(1i32 << 0i32);
+                    current_objstm = pdf_new_stream(STREAM_COMPRESS);
                     set_objstm_data(&mut *current_objstm, data);
                     pdf_label_obj(current_objstm);
                 }

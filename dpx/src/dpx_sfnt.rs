@@ -33,7 +33,7 @@ use super::dpx_mem::{new, renew};
 use super::dpx_numbers::{tt_get_unsigned_pair, tt_get_unsigned_quad};
 use crate::dpx_pdfobj::{
     pdf_add_dict, pdf_add_stream, pdf_new_number, pdf_new_stream, pdf_obj, pdf_release_obj,
-    pdf_stream_dict,
+    pdf_stream_dict, STREAM_COMPRESS,
 };
 use crate::dpx_truetype::SfntTableInfo;
 use crate::mfree;
@@ -369,7 +369,7 @@ static mut padbytes: [u8; 4] = [0; 4];
 pub unsafe extern "C" fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj {
     let mut length;
     assert!(!sfont.is_null() && !(*sfont).directory.is_null());
-    let stream = pdf_new_stream(1i32 << 0i32);
+    let stream = pdf_new_stream(STREAM_COMPRESS);
     let td = (*sfont).directory;
     /* Header */
     let mut p = wbuf.as_mut_ptr() as *mut i8;
