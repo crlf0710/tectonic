@@ -2193,8 +2193,9 @@ unsafe fn filter_decoded(
             }
         }
     } else {
-        let mut prev = vec![0u8; len_usize];
-        let mut current = vec![0u8; len_usize];
+        let mut rowlen = len_usize + 1;
+        let mut prev = vec![0u8; rowlen];
+        let mut current = vec![0u8; rowlen];
         match parms.predictor {
             // PNG can improve its compression ratios by applying filters to each scanline of the image.
             // FlateDecode incorporates these filtering methods.
@@ -2207,7 +2208,6 @@ unsafe fn filter_decoded(
                  // The prediction algorithm can change from line to line
             => {
                 let mut typ = (parms.predictor - 10) as u8;
-                let mut rowlen = len_usize + 1;
                 let mut chunks = src_stream.stream.chunks_exact(rowlen);
                 let bytes_per_pixel = bytes_per_pixel as usize;
                 while let Some(p) = chunks.next() {
