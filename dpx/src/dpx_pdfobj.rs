@@ -1247,10 +1247,12 @@ pub unsafe extern "C" fn pdf_foreach_dict(
 ) -> i32 {
     let proc = proc_0.expect("non-null function pointer");
     let dict = dict.get_dict_mut();
-    let mut make_key_ptr = |key: &PdfName| safe_new_obj(PdfObjType::NAME, |object| {
-        object.data = Box::into_raw(Box::new(key.clone())) as *mut libc::c_void;
-    });
-    dict.foreach_dict(|k, v, pdata| proc(make_key_ptr(k), v, pdata), pdata)
+    dict.foreach_dict(|k, v, pdata| {
+        let tmp_key_ptr = pdf_new_name(k.name.as_bytes());
+        let e = proc(tmp_key_ptr, v, pdata);
+        pdf_release_obj(tmp_key_ptr);
+        e
+    }, pdata)
 }
 
 pub unsafe fn pdf_lookup_dict<K>(dict: &mut pdf_obj, name: K) -> Option<PdfObjRef>
