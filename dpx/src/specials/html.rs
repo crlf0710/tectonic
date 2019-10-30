@@ -25,7 +25,6 @@ non_snake_case,
 unused_mut
 )]
 
-use crate::dpx_error::dpx_warning;
 use crate::DisplayExt;
 use std::ffi::{CStr, CString};
 
@@ -36,7 +35,7 @@ use crate::dpx_pdfximage::{
 };
 
 use super::{spc_begin_annot, spc_end_annot};
-use crate::dpx_dpxutil::{parse_c_ident, parse_float_decimal};
+use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use crate::dpx_mem::new;
 use crate::dpx_pdfdev::{
     graphics_mode, Rect, TMatrix, transform_info, transform_info_clear,
@@ -52,7 +51,7 @@ use crate::dpx_pdfobj::{
     pdf_ref_obj, pdf_release_obj, pdf_string_value,
 };
 use crate::spc_warn;
-use libc::{atof, free, strcat, strcmp, strcpy, strlen};
+use libc::{atof, free, strcat, strcpy, strlen};
 
 use super::{spc_arg, spc_env};
 
@@ -447,55 +446,35 @@ unsafe fn spc_html__base_empty(
  * Please think about placement of images.
  */
 /* XXX: there are four quasi-redundant versions of this; grp for K_UNIT__PT */
-unsafe fn atopt(mut a: *const i8) -> f64 {
-    let mut p: *const i8 = a;
-    let mut u: f64 = 1.0f64;
-    let mut _ukeys: [*const i8; 11] = [
-        b"pt\x00" as *const u8 as *const i8,
-        b"in\x00" as *const u8 as *const i8,
-        b"cm\x00" as *const u8 as *const i8,
-        b"mm\x00" as *const u8 as *const i8,
-        b"bp\x00" as *const u8 as *const i8,
-        b"pc\x00" as *const u8 as *const i8,
-        b"dd\x00" as *const u8 as *const i8,
-        b"cc\x00" as *const u8 as *const i8,
-        b"sp\x00" as *const u8 as *const i8,
-        b"px\x00" as *const u8 as *const i8,
-        0 as *const i8,
-    ];
-    let q = parse_float_decimal(&mut p, p.offset(strlen(p) as isize));
-    if q.is_null() {
-        dpx_warning(
-            b"Invalid length value: %s (%c)\x00" as *const u8 as *const i8,
-            a,
-            *p as i32,
+unsafe fn atopt(a: &[u8]) -> f64 {
+    let mut p = a;
+    let mut u = 1.0f64;
+    let q = p.parse_float_decimal();
+    if q.is_none() {
+        warn!(
+            "Invalid length value: {} ({})",
+            a.display(),
+            char::from(p[0]),
         );
         return 0.0f64;
     }
-    let v = atof(q);
-    free(q as *mut libc::c_void);
-    let q = parse_c_ident(&mut p, p.offset(strlen(p) as isize));
-    if !q.is_null() {
-        let mut k = 0;
-        while !_ukeys[k].is_null() && strcmp(_ukeys[k], q) != 0 {
-            k += 1
-        }
-        match k {
-            0 => u *= 72.0f64 / 72.27f64,
-            1 => u *= 72.0f64,
-            2 => u *= 72.0f64 / 2.54f64,
-            3 => u *= 72.0f64 / 25.4f64,
-            4 => u *= 1.0f64,
-            5 => u *= 12.0f64 * 72.0f64 / 72.27f64,
-            6 => u *= 1238.0f64 / 1157.0f64 * 72.0f64 / 72.27f64,
-            7 => u *= 12.0f64 * 1238.0f64 / 1157.0f64 * 72.0f64 / 72.27f64,
-            8 => u *= 72.0f64 / (72.27f64 * 65536i32 as f64),
-            9 => u *= 1.0f64,
+    let v = atof(q.unwrap().as_ptr());
+    if let Some(q) = p.parse_c_ident() {
+        match q.to_bytes() {
+            b"pt" => u *= 72.0f64 / 72.27f64,
+            b"in" => u *= 72.0f64,
+            b"cm" => u *= 72.0f64 / 2.54f64,
+            b"mm" => u *= 72.0f64 / 25.4f64,
+            b"bp" => u *= 1.0f64,
+            b"pc" => u *= 12.0f64 * 72.0f64 / 72.27f64,
+            b"dd" => u *= 1238.0f64 / 1157.0f64 * 72.0f64 / 72.27f64,
+            b"cc" => u *= 12.0f64 * 1238.0f64 / 1157.0f64 * 72.0f64 / 72.27f64,
+            b"sp" => u *= 72.0f64 / (72.27f64 * 65536i32 as f64),
+            b"px" => u *= 1.0f64,
             _ => {
-                warn!("Unknown unit of measure: {}", CStr::from_ptr(q).display(),);
+                warn!("Unknown unit of measure: {}", q.display());
             }
         }
-        free(q as *mut libc::c_void);
     }
     v * u
 }
@@ -555,11 +534,11 @@ unsafe fn spc_html__img_empty(mut spe: *mut spc_env, attr: &pdf_obj) -> i32 {
     let src = src.unwrap();
     transform_info_clear(&mut ti);
     if let Some(obj) = attr.as_dict().get("width") {
-        ti.width = atopt(pdf_string_value(obj) as *const i8);
+        ti.width = atopt(CStr::from_ptr(pdf_string_value(obj) as *const i8).to_bytes());
         ti.flags |= 1i32 << 1i32
     }
     if let Some(obj) = attr.as_dict().get("height") {
-        ti.height = atopt(pdf_string_value(obj) as *const i8);
+        ti.height = atopt(CStr::from_ptr(pdf_string_value(obj) as *const i8).to_bytes());
         ti.flags |= 1i32 << 2i32
     }
     if let Some(obj) = attr.as_dict().get("svg:opacity") {
@@ -587,7 +566,11 @@ unsafe fn spc_html__img_empty(mut spe: *mut spc_env, attr: &pdf_obj) -> i32 {
             N.d = 1.;
             N.e = 0.;
             N.f = 0.;
-            error = cvt_a_to_tmatrix(&mut N, p, &mut p);
+            if let Ok(nextptr) = cvt_a_to_tmatrix(&mut N, CStr::from_ptr(p).to_bytes()) {
+                p = nextptr.as_ptr() as *const i8;
+            } else {
+                error = -1;
+            }
             if error == 0 {
                 N.f = -N.f;
                 let mut _tmp_a: f64 = 0.;
@@ -728,76 +711,60 @@ unsafe fn spc_handler_html_default(mut spe: *mut spc_env, mut ap: *mut spc_arg) 
     error
 }
 /* translate wsp* '(' wsp* number (comma-wsp number)? wsp* ')' */
-unsafe fn cvt_a_to_tmatrix(
+unsafe fn cvt_a_to_tmatrix<'a>(
     M: &mut TMatrix,
-    mut ptr: *const i8,
-    mut nextptr: *mut *const i8,
-) -> i32 {
-    let mut p: *const i8 = ptr;
+    buf: &'a [u8],
+) -> Result<&'a [u8], ()> {
+    let mut p = buf;
     let mut v: [f64; 6] = [0.; 6];
-    static mut _TKEYS: [*const i8; 7] = [
-        b"matrix\x00" as *const u8 as *const i8,
-        b"translate\x00" as *const u8 as *const i8,
-        b"scale\x00" as *const u8 as *const i8,
-        b"rotate\x00" as *const u8 as *const i8,
-        b"skewX\x00" as *const u8 as *const i8,
-        b"skewY\x00" as *const u8 as *const i8,
-        0 as *const i8,
-    ];
-    while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
-        p = p.offset(1)
+    while p[0] != 0 && libc::isspace(p[0] as _) != 0 {
+        p = &p[1..];
     }
-    let q = parse_c_ident(&mut p, p.offset(strlen(p) as isize));
-    if q.is_null() {
-        return -1i32;
+    let q = p.parse_c_ident();
+    if q.is_none() {
+        return Err(());
     }
     /* parsed transformation key */
-    let mut k = 0;
-    while !_TKEYS[k].is_null() && strcmp(q, _TKEYS[k]) != 0 {
-        k += 1
-    }
-    free(q as *mut libc::c_void);
     /* handle args */
-    while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
-        p = p.offset(1)
+    while p[0] != 0 && libc::isspace(p[0] as _) != 0 {
+        p = &p[1..];
     }
-    if *p as i32 != '(' as i32 || *p.offset(1) as i32 == 0i32 {
-        return -1i32;
+    if p[0] != b'(' || p[1] == 0 {
+        return Err(());
     }
-    p = p.offset(1);
-    while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
-        p = p.offset(1)
+    p = &p[1..];
+    while p[0] != 0 && libc::isspace(p[0] as _) != 0 {
+        p = &p[1..];
     }
     let mut n = 0;
-    while n < 6 && *p as i32 != 0 && *p as i32 != ')' as i32 {
-        let q = parse_float_decimal(&mut p, p.offset(strlen(p) as isize));
-        if q.is_null() {
+    while n < 6 && p[0] != 0 && p[0] != b')' {
+        if let Some(q2) = p.parse_float_decimal() {
+            v[n] = atof(q2.as_ptr());
+            if p[0] == b',' {
+                p = &p[1..];
+            }
+            while p[0] != 0 && libc::isspace(p[0] as _) != 0 {
+                p = &p[1..];
+            }
+            if p[0] == b',' {
+                p = &p[1..];
+                while p[0] != 0 && libc::isspace(p[0] as _) != 0 {
+                    p = &p[1..];
+                }
+            }
+            n += 1;
+        } else {
             break;
         }
-        v[n] = atof(q);
-        if *p as i32 == ',' as i32 {
-            p = p.offset(1)
-        }
-        while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
-            p = p.offset(1)
-        }
-        if *p as i32 == ',' as i32 {
-            p = p.offset(1);
-            while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
-                p = p.offset(1)
-            }
-        }
-        free(q as *mut libc::c_void);
-        n += 1
     }
-    if *p as i32 != ')' as i32 {
-        return -1;
+    if p[0] != b')' {
+        return Err(());
     }
-    p = p.offset(1);
-    match k {
-        0 => {
+    p = &p[1..];
+    match q.unwrap().to_bytes() {
+        b"matrix" => {
             if n != 6 {
-                return -1;
+                return Err(());
             }
             M.a = v[0];
             M.c = v[1];
@@ -806,9 +773,9 @@ unsafe fn cvt_a_to_tmatrix(
             M.e = v[4];
             M.f = v[5]
         }
-        1 => {
+        b"translate" => {
             if n != 1 && n != 2 {
-                return -1;
+                return Err(());
             }
             M.d = 1.;
             M.a = M.d;
@@ -817,9 +784,9 @@ unsafe fn cvt_a_to_tmatrix(
             M.e = v[0];
             M.f = if n == 2 { v[1] } else { 0. }
         }
-        2 => {
+        b"scale" => {
             if n != 1 && n != 2 {
-                return -1;
+                return Err(());
             }
             M.a = v[0];
             M.d = if n == 2 { v[1] } else { v[0] };
@@ -828,9 +795,9 @@ unsafe fn cvt_a_to_tmatrix(
             M.f = 0.;
             M.e = M.f
         }
-        3 => {
+        b"rotate" => {
             if n != 1 && n != 3 {
-                return -1;
+                return Err(());
             }
             let (s, c) = (v[0] * core::f64::consts::PI / 180.).sin_cos();
             M.a = c;
@@ -840,18 +807,18 @@ unsafe fn cvt_a_to_tmatrix(
             M.e = if n == 3 { v[1] } else { 0. };
             M.f = if n == 3 { v[2] } else { 0. }
         }
-        4 => {
+        b"skewX" => {
             if n != 1 {
-                return -1;
+                return Err(());
             }
             M.d = 1.;
             M.a = M.d;
             M.c = 0.;
             M.b = (v[0] * core::f64::consts::PI / 180.).tan()
         }
-        5 => {
+        b"skewY" => {
             if n != 1 {
-                return -1;
+                return Err(());
             }
             M.d = 1.;
             M.a = M.d;
@@ -860,10 +827,7 @@ unsafe fn cvt_a_to_tmatrix(
         }
         _ => {}
     }
-    if !nextptr.is_null() {
-        *nextptr = p
-    }
-    0i32
+    Ok(p)
 }
 /* ENABLE_HTML_SVG_TRANSFORM */
 #[no_mangle]

@@ -204,7 +204,6 @@ pub mod dpx_mem;
 pub mod dpx_mfileio;
 pub mod dpx_mpost;
 pub mod dpx_numbers;
-pub mod dpx_otl_conf;
 pub mod dpx_otl_opt;
 pub mod dpx_pdfcolor;
 pub mod dpx_pdfdev;
