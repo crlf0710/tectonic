@@ -245,15 +245,14 @@ unsafe fn read_a_font_def(vf_handle: &mut InputHandleWrapper, mut font_id: i32, 
     ) as i32;
 }
 unsafe fn process_vf_file(vf_handle: &mut InputHandleWrapper, mut thisfont: i32) {
-    let mut eof = false;
-    while !eof {
+    loop {
         let code = tt_get_unsigned_byte(vf_handle);
         match code {
             FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
-                let font_id = tt_get_unsigned_num(vf_handle, code - 243);
+                let font_id = tt_get_unsigned_num(vf_handle, code - FNT_DEF1);
                 read_a_font_def(vf_handle, font_id as i32, thisfont);
             }
-            242 => {
+            XXX4 => {
                 let pkt_len: u32 = tt_get_positive_quad(
                     vf_handle,
                     b"VF\x00" as *const u8 as *const i8,
@@ -270,18 +269,18 @@ unsafe fn process_vf_file(vf_handle: &mut InputHandleWrapper, mut thisfont: i32)
                 }
             } 
             POST => {
-                eof = true;
+                break;
             }
-            _  if code < 242 =>  {
+            _  if code < XXX4 =>  {
                 /* For a short packet, code is the pkt_len */
-                let mut ch: u32 = tt_get_unsigned_byte(vf_handle) as u32;
+                let ch = tt_get_unsigned_byte(vf_handle) as u32;
                 /* Skip over TFM width since we already know it */
                 tt_skip_bytes(3, vf_handle);
                 read_a_char_def(vf_handle, thisfont, code as u32, ch);
             } 
             _ => {
                 eprintln!("Quitting on code={}", code);
-                eof = true
+                break;
             }
         }
     }
