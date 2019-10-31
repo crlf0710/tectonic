@@ -1218,41 +1218,26 @@ unsafe fn create_ToUnicode_cmap(
     stream
 }
 static mut cmap_plat_encs: [cmap_plat_enc_rec; 5] = [
-    {
-        let mut init = cmap_plat_enc_rec {
+    cmap_plat_enc_rec {
             platform: 3_i16,
             encoding: 10_i16,
-        };
-        init
-    },
-    {
-        let mut init = cmap_plat_enc_rec {
+        },
+    cmap_plat_enc_rec {
             platform: 0_i16,
             encoding: 3_i16,
-        };
-        init
-    },
-    {
-        let mut init = cmap_plat_enc_rec {
+        },
+    cmap_plat_enc_rec {
             platform: 0_i16,
             encoding: 0_i16,
-        };
-        init
-    },
-    {
-        let mut init = cmap_plat_enc_rec {
+        },
+    cmap_plat_enc_rec {
             platform: 3_i16,
             encoding: 1_i16,
-        };
-        init
-    },
-    {
-        let mut init = cmap_plat_enc_rec {
+        },
+    cmap_plat_enc_rec {
             platform: 0_i16,
             encoding: 1_i16,
-        };
-        init
-    },
+        },
 ];
 #[no_mangle]
 pub unsafe extern "C" fn otf_create_ToUnicode_stream(
@@ -1467,14 +1452,11 @@ pub unsafe extern "C" fn otf_load_Unicode_CMap(
     let cmap_name;
     let mut gsub_vert;
     let gsub_list;
-    let mut csi: CIDSysInfo = {
-        let mut init = CIDSysInfo {
+    let mut csi: CIDSysInfo = CIDSysInfo {
             registry: 0 as *mut i8,
             ordering: 0 as *mut i8,
             supplement: 0i32,
         };
-        init
-    };
     let mut GIDToCIDMap: *mut u8 = 0 as *mut u8;
     if map_name.is_null() {
         return -1i32;

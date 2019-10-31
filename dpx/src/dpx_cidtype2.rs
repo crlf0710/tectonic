@@ -202,8 +202,7 @@ unsafe fn validate_name(mut fontname: *mut i8, mut len: i32) {
     };
 }
 static mut known_encodings: [C2RustUnnamed_3; 11] = [
-    {
-        let mut init = C2RustUnnamed_3 {
+    C2RustUnnamed_3 {
             platform: 3_u16,
             encoding: 10_u16,
             pdfnames: [
@@ -213,11 +212,8 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
                 b"UCS2\x00" as *const u8 as *const i8,
                 0 as *const i8,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             platform: 3_u16,
             encoding: 1_u16,
             pdfnames: [
@@ -227,11 +223,8 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
                 b"UCS2\x00" as *const u8 as *const i8,
                 0 as *const i8,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             platform: 3_u16,
             encoding: 2_u16,
             pdfnames: [
@@ -241,11 +234,8 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
                 0 as *const i8,
                 0 as *const i8,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             platform: 3_u16,
             encoding: 3_u16,
             pdfnames: [
@@ -255,11 +245,8 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
                 0 as *const i8,
                 0 as *const i8,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             platform: 3_u16,
             encoding: 4_u16,
             pdfnames: [
@@ -269,11 +256,8 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
                 0 as *const i8,
                 0 as *const i8,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             platform: 3_u16,
             encoding: 5_u16,
             pdfnames: [
@@ -283,11 +267,8 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
                 0 as *const i8,
                 0 as *const i8,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             platform: 1_u16,
             encoding: 1_u16,
             pdfnames: [
@@ -297,11 +278,8 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
                 0 as *const i8,
                 0 as *const i8,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             platform: 1_u16,
             encoding: 2_u16,
             pdfnames: [
@@ -311,11 +289,8 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
                 0 as *const i8,
                 0 as *const i8,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             platform: 1_u16,
             encoding: 25_u16,
             pdfnames: [
@@ -325,11 +300,8 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
                 0 as *const i8,
                 0 as *const i8,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             platform: 1_u16,
             encoding: 3_u16,
             pdfnames: [
@@ -339,11 +311,8 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
                 0 as *const i8,
                 0 as *const i8,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             platform: 0_u16,
             encoding: 0_u16,
             pdfnames: [
@@ -353,9 +322,7 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
                 0 as *const i8,
                 0 as *const i8,
             ],
-        };
-        init
-    },
+        },
 ];
 unsafe fn find_tocode_cmap(mut reg: *const i8, mut ord: *const i8, mut select: i32) -> *mut CMap {
     let mut cmap_id: i32 = -1i32;
@@ -572,76 +539,46 @@ unsafe fn add_TTCIDVMetrics(
  */
 unsafe fn fix_CJK_symbols(mut code: u16) -> u16 {
     static mut CJK_Uni_symbols: [C2RustUnnamed_2; 10] = [
-        {
-            let mut init = C2RustUnnamed_2 {
+        C2RustUnnamed_2 {
                 alt1: 0x2014_u16,
                 alt2: 0x2015_u16,
-            };
-            init
-        },
-        {
-            let mut init = C2RustUnnamed_2 {
+            },
+        C2RustUnnamed_2 {
                 alt1: 0x2016_u16,
                 alt2: 0x2225_u16,
-            };
-            init
-        },
-        {
-            let mut init = C2RustUnnamed_2 {
+            },
+        C2RustUnnamed_2 {
                 alt1: 0x203e_u16,
                 alt2: 0xffe3_u16,
-            };
-            init
-        },
-        {
-            let mut init = C2RustUnnamed_2 {
+            },
+        C2RustUnnamed_2 {
                 alt1: 0x2026_u16,
                 alt2: 0x22ef_u16,
-            };
-            init
-        },
-        {
-            let mut init = C2RustUnnamed_2 {
+            },
+        C2RustUnnamed_2 {
                 alt1: 0x2212_u16,
                 alt2: 0xff0d_u16,
-            };
-            init
-        },
-        {
-            let mut init = C2RustUnnamed_2 {
+            },
+        C2RustUnnamed_2 {
                 alt1: 0x301c_u16,
                 alt2: 0xff5e_u16,
-            };
-            init
-        },
-        {
-            let mut init = C2RustUnnamed_2 {
+            },
+        C2RustUnnamed_2 {
                 alt1: 0xffe0_u16,
                 alt2: 0xa2_u16,
-            };
-            init
-        },
-        {
-            let mut init = C2RustUnnamed_2 {
+            },
+        C2RustUnnamed_2 {
                 alt1: 0xffe1_u16,
                 alt2: 0xa3_u16,
-            };
-            init
-        },
-        {
-            let mut init = C2RustUnnamed_2 {
+            },
+        C2RustUnnamed_2 {
                 alt1: 0xffe2_u16,
                 alt2: 0xac_u16,
-            };
-            init
-        },
-        {
-            let mut init = C2RustUnnamed_2 {
+            },
+        C2RustUnnamed_2 {
                 alt1: 0xffff_u16,
                 alt2: 0xffff_u16,
-            };
-            init
-        },
+            },
     ];
     let mut alt_code = code;
     for i in 0..(::std::mem::size_of::<[C2RustUnnamed_2; 10]>() as u64)

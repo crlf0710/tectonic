@@ -154,236 +154,152 @@ pub struct C2RustUnnamed_3 {
    Licensed under the MIT License.
 */
 static mut CIDFont_stdcc_def: [C2RustUnnamed_0; 7] = [
-    {
-        let mut init = C2RustUnnamed_0 {
+    C2RustUnnamed_0 {
             registry: b"Adobe\x00" as *const u8 as *const i8,
             ordering: b"UCS\x00" as *const u8 as *const i8,
             supplement: [
                 -1i32, -1i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0, 0, 0, 0, 0, 0, 0, 0,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_0 {
+        },
+    C2RustUnnamed_0 {
             registry: b"Adobe\x00" as *const u8 as *const i8,
             ordering: b"GB1\x00" as *const u8 as *const i8,
             supplement: [
                 -1i32, -1i32, 0i32, 2i32, 4i32, 4i32, 4i32, 4i32, 0, 0, 0, 0, 0, 0, 0, 0,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_0 {
+        },
+    C2RustUnnamed_0 {
             registry: b"Adobe\x00" as *const u8 as *const i8,
             ordering: b"CNS1\x00" as *const u8 as *const i8,
             supplement: [
                 -1i32, -1i32, 0i32, 0i32, 3i32, 4i32, 4i32, 4i32, 0, 0, 0, 0, 0, 0, 0, 0,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_0 {
+        },
+    C2RustUnnamed_0 {
             registry: b"Adobe\x00" as *const u8 as *const i8,
             ordering: b"Japan1\x00" as *const u8 as *const i8,
             supplement: [
                 -1i32, -1i32, 2i32, 2i32, 4i32, 5i32, 6i32, 6i32, 0, 0, 0, 0, 0, 0, 0, 0,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_0 {
+        },
+    C2RustUnnamed_0 {
             registry: b"Adobe\x00" as *const u8 as *const i8,
             ordering: b"Korea1\x00" as *const u8 as *const i8,
             supplement: [
                 -1i32, -1i32, 1i32, 1i32, 2i32, 2i32, 2i32, 2i32, 0, 0, 0, 0, 0, 0, 0, 0,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_0 {
+        },
+    C2RustUnnamed_0 {
             registry: b"Adobe\x00" as *const u8 as *const i8,
             ordering: b"Identity\x00" as *const u8 as *const i8,
             supplement: [
                 -1i32, -1i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0, 0, 0, 0, 0, 0, 0, 0,
             ],
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_0 {
+        },
+    C2RustUnnamed_0 {
             registry: 0 as *const i8,
             ordering: 0 as *const i8,
             supplement: [
                 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0, 0, 0, 0, 0, 0, 0, 0,
             ],
-        };
-        init
-    },
+        },
 ];
 static mut registry_Adobe: [i8; 6] = [65, 100, 111, 98, 101, 0];
 static mut ordering_Identity: [i8; 9] = [73, 100, 101, 110, 116, 105, 116, 121, 0];
 static mut ordering_UCS: [i8; 4] = [85, 67, 83, 0];
 #[no_mangle]
 pub static mut CSI_IDENTITY: CIDSysInfo = unsafe {
-    {
-        let mut init = CIDSysInfo {
+    CIDSysInfo {
             registry: registry_Adobe.as_ptr() as *mut _,
             ordering: ordering_Identity.as_ptr() as *mut _,
             supplement: 0i32,
-        };
-        init
-    }
+        }
 };
 #[no_mangle]
 pub static mut CSI_UNICODE: CIDSysInfo = unsafe {
-    {
-        let mut init = CIDSysInfo {
+    CIDSysInfo {
             registry: registry_Adobe.as_ptr() as *mut _,
             ordering: ordering_UCS.as_ptr() as *mut _,
             supplement: 0i32,
-        };
-        init
-    }
+        }
 };
 static mut CIDFont_stdcc_alias: [C2RustUnnamed_3; 19] = [
-    {
-        let mut init = C2RustUnnamed_3 {
+    C2RustUnnamed_3 {
             name: b"AU\x00" as *const u8 as *const i8,
             index: 0i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"AG1\x00" as *const u8 as *const i8,
             index: 1i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"AC1\x00" as *const u8 as *const i8,
             index: 2i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"AJ1\x00" as *const u8 as *const i8,
             index: 3i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"AK1\x00" as *const u8 as *const i8,
             index: 4i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"AI\x00" as *const u8 as *const i8,
             index: 5i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"UCS\x00" as *const u8 as *const i8,
             index: 0i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"GB1\x00" as *const u8 as *const i8,
             index: 1i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"CNS1\x00" as *const u8 as *const i8,
             index: 2i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"Japan1\x00" as *const u8 as *const i8,
             index: 3i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"Korea1\x00" as *const u8 as *const i8,
             index: 4i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"Identity\x00" as *const u8 as *const i8,
             index: 5i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"U\x00" as *const u8 as *const i8,
             index: 0i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"G\x00" as *const u8 as *const i8,
             index: 1i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"C\x00" as *const u8 as *const i8,
             index: 2i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"J\x00" as *const u8 as *const i8,
             index: 3i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"K\x00" as *const u8 as *const i8,
             index: 4i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: b"I\x00" as *const u8 as *const i8,
             index: 5i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed_3 {
+        },
+    C2RustUnnamed_3 {
             name: 0 as *const i8,
             index: 0i32,
-        };
-        init
-    },
+        },
 ];
 static mut __verbose: i32 = 0i32;
 static mut cidoptflags: i32 = 0i32;
@@ -615,9 +531,7 @@ pub unsafe extern "C" fn CIDFont_is_BaseFont(mut font: *mut CIDFont) -> bool {
     (*font).flags & 1i32 << 0i32 != 0
 }
 static mut cid_basefont: [C2RustUnnamed_2; 21] = [
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"Ryumin-Light\x00" as *const u8 as
                                      *const i8,
                              fontdict:
@@ -625,12 +539,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /CapHeight 709 /Ascent 723 /Descent -241 /StemV 69 /FontBBox [-170 -331 1024 903] /ItalicAngle 0 /Flags 6 /Style << /Panose <010502020300000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"GothicBBB-Medium\x00" as *const u8 as
                                      *const i8,
                              fontdict:
@@ -638,12 +549,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /CapHeight 737 /Ascent 752 /Descent -271 /StemV 99 /FontBBox [-174 -268 1001 944] /ItalicAngle 0 /Flags 4 /Style << /Panose <0801020b0500000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"MHei-Medium-Acro\x00" as *const u8 as
                                      *const i8,
                              fontdict:
@@ -651,12 +559,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 752 /CapHeight 737 /Descent -271 /StemV 58 /FontBBox [-45 -250 1015 887] /ItalicAngle 0 /Flags 4 /XHeight 553 /Style << /Panose <000001000600000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"MSung-Light-Acro\x00" as *const u8 as
                                      *const i8,
                              fontdict:
@@ -664,12 +569,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 752 /CapHeight 737 /Descent -271 /StemV 58 /FontBBox [-160 -249 1015 888] /ItalicAngle 0 /Flags 6 /XHeight 553 /Style << /Panose <000000000400000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"STSong-Light-Acro\x00" as *const u8 as
                                      *const i8,
                              fontdict:
@@ -677,12 +579,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 752 /CapHeight 737 /Descent -271 /StemV 58 /FontBBox [-25 -254 1000 880] /ItalicAngle 0 /Flags 6 /XHeight 599 /Style << /Panose <000000000400000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"STHeiti-Regular-Acro\x00" as *const u8 as
                                      *const i8,
                              fontdict:
@@ -690,12 +589,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 752 /CapHeight 737 /Descent -271 /StemV 58 /FontBBox [-34 -250 1000 882] /ItalicAngle 0 /Flags 4 /XHeight 599 /Style << /Panose <000001000600000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"HeiseiKakuGo-W5-Acro\x00" as *const u8 as
                                      *const i8,
                              fontdict:
@@ -703,12 +599,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 752 /CapHeight 737 /Descent -221 /StemV 114 /FontBBox [-92 -250 1010 922] /ItalicAngle 0 /Flags 4 /XHeight 553 /Style << /Panose <0801020b0600000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"HeiseiMin-W3-Acro\x00" as *const u8 as
                                      *const i8,
                              fontdict:
@@ -716,12 +609,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 723 /CapHeight 709 /Descent -241 /StemV 69 /FontBBox [-123 -257 1001 910] /ItalicAngle 0 /Flags 6 /XHeight 450 /Style << /Panose <010502020400000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"HYGoThic-Medium-Acro\x00" as *const u8 as
                                      *const i8,
                              fontdict:
@@ -729,12 +619,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 752 /CapHeight 737 /Descent -271 /StemV 58 /FontBBox [-6 -145 1003 880] /ItalicAngle 0 /Flags 4 /XHeight 553 /Style << /Panose <000001000600000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"HYSMyeongJo-Medium-Acro\x00" as *const u8
                                      as *const i8,
                              fontdict:
@@ -742,12 +629,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 752 /CapHeight 737 /Descent -271 /StemV 58 /FontBBox [-0 -148 1001 880] /ItalicAngle 0 /Flags 6 /XHeight 553 /Style << /Panose <000000000600000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"MSungStd-Light-Acro\x00" as *const u8 as
                                      *const i8,
                              fontdict:
@@ -755,12 +639,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 880 /CapHeight 662 /Descent -120 /StemV 54 /FontBBox [-160 -249 1015 1071] /ItalicAngle 0 /Flags 6 /Style << /Panose <000000000400000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"STSongStd-Light-Acro\x00" as *const u8 as
                                      *const i8,
                              fontdict:
@@ -768,12 +649,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 880 /CapHeight 626 /Descent -120 /StemV 44 /FontBBox [-134 -254 1001 905] /ItalicAngle 0 /Flags 6 /Style << /Panose <000000000400000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"HYSMyeongJoStd-Medium-Acro\x00" as
                                      *const u8 as *const i8,
                              fontdict:
@@ -781,12 +659,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 880 /CapHeight 720 /Descent -120 /StemV 60 /FontBBox [-28 -148 1001 880] /ItalicAngle 0 /Flags 6 /Style << /Panose <000000000600000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"AdobeMingStd-Light-Acro\x00" as *const u8
                                      as *const i8,
                              fontdict:
@@ -794,12 +669,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 880 /Descent -120 /StemV 48 /CapHeight 731 /FontBBox [-38 -121 1002 918] /ItalicAngle 0 /Flags 6 /XHeight 466 /Style << /Panose <000002020300000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"AdobeSongStd-Light-Acro\x00" as *const u8
                                      as *const i8,
                              fontdict:
@@ -807,12 +679,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 880 /Descent -120 /StemV 66 /CapHeight 626 /FontBBox [-134 -254 1001 905] /ItalicAngle 0 /Flags 6 /XHeight 416 /Style << /Panose <000002020300000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"KozMinPro-Regular-Acro\x00" as *const u8 as
                                      *const i8,
                              fontdict:
@@ -820,12 +689,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 880 /Descent -120 /StemV 86 /CapHeight 740 /FontBBox [-195 -272 1110 1075] /ItalicAngle 0 /Flags 6 /XHeight 502 /Style << /Panose <000002020400000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"KozGoPro-Medium-Acro\x00" as *const u8 as
                                      *const i8,
                              fontdict:
@@ -833,12 +699,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 880 /Descent -120 /StemV 99 /CapHeight 763 /FontBBox [-149 -374 1254 1008] /ItalicAngle 0 /Flags 4 /XHeight 549 /Style << /Panose <0000020b0700000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"AdobeMyungjoStd-Medium-Acro\x00" as
                                      *const u8 as *const i8,
                              fontdict:
@@ -846,12 +709,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 880 /Descent -120 /StemV 99 /CapHeight 719 /FontBBox [-28 -148 1001 880] /ItalicAngle 0 /Flags 6 /XHeight 478 /Style << /Panose <000002020600000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"KozMinProVI-Regular\x00" as *const u8 as
                                      *const i8,
                              fontdict:
@@ -859,12 +719,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 880 /Descent -120 /StemV 86 /CapHeight 742 /FontBBox [-437 -340 1144 1317] /ItalicAngle 0 /Flags 6 /XHeight 503 /Style <<   /Panose <000002020400000000000000> >>      >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init =
-             C2RustUnnamed_2{fontname:
+    C2RustUnnamed_2{fontname:
                                  b"AdobeHeitiStd-Regular\x00" as *const u8 as
                                      *const i8,
                              fontdict:
@@ -872,17 +729,13 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
                              descriptor:
                                  b"<< /Ascent 880 /Descent -120 /StemV 66 /CapHeight 626 /FontBBox [-134 -254 1001 905] /ItalicAngle 0 /Flags 6 /XHeight 416 /Style << /Panose <000002020300000000000000> >> >>\x00"
-                                     as *const u8 as *const i8,};
-        init
+                                     as *const u8 as *const i8,
     },
-    {
-        let mut init = C2RustUnnamed_2 {
+    C2RustUnnamed_2 {
             fontname: 0 as *const i8,
             fontdict: 0 as *const i8,
             descriptor: 0 as *const i8,
-        };
-        init
-    },
+        },
 ];
 unsafe fn CIDFont_base_open(
     mut font: *mut CIDFont,

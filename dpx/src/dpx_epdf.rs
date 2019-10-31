@@ -550,279 +550,162 @@ pub unsafe extern "C" fn pdf_include_page(
     0
 }
 /*static mut pdf_operators: [operator; 39] = [
-    {
-        let mut init = operator {
+    operator {
             token: b"SCN\x00" as *const u8 as *const i8,
             opcode: OP_SETCOLOR as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"b*\x00" as *const u8 as *const i8,
             opcode: OP_CLOSEandCLIP as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"B*\x00" as *const u8 as *const i8,
             opcode: OP_CLIP as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"cm\x00" as *const u8 as *const i8,
             opcode: OP_CONCATMATRIX as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"CS\x00" as *const u8 as *const i8,
             opcode: OP_SETCOLORSPACE as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"f*\x00" as *const u8 as *const i8,
             opcode: 0i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"gs\x00" as *const u8 as *const i8,
             opcode: -1i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"re\x00" as *const u8 as *const i8,
             opcode: OP_RECTANGLE as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"rg\x00" as *const u8 as *const i8,
             opcode: -3i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"RG\x00" as *const u8 as *const i8,
             opcode: -3i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"sc\x00" as *const u8 as *const i8,
             opcode: OP_SETCOLOR as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"SC\x00" as *const u8 as *const i8,
             opcode: OP_SETCOLOR as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"W*\x00" as *const u8 as *const i8,
             opcode: OP_CLIP as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"b\x00" as *const u8 as *const i8,
             opcode: OP_CLOSEandCLIP as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"B\x00" as *const u8 as *const i8,
             opcode: OP_CLIP as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"c\x00" as *const u8 as *const i8,
             opcode: OP_CURVETO as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"d\x00" as *const u8 as *const i8,
             opcode: -2i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"f\x00" as *const u8 as *const i8,
             opcode: 0i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"F\x00" as *const u8 as *const i8,
             opcode: 0i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"g\x00" as *const u8 as *const i8,
             opcode: -1i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"G\x00" as *const u8 as *const i8,
             opcode: -1i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"h\x00" as *const u8 as *const i8,
             opcode: OP_CLOSEPATH as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"i\x00" as *const u8 as *const i8,
             opcode: -1i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"j\x00" as *const u8 as *const i8,
             opcode: -1i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"J\x00" as *const u8 as *const i8,
             opcode: -1i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"k\x00" as *const u8 as *const i8,
             opcode: -4i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"K\x00" as *const u8 as *const i8,
             opcode: -4i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"l\x00" as *const u8 as *const i8,
             opcode: OP_LINETO as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"m\x00" as *const u8 as *const i8,
             opcode: OP_MOVETO as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"M\x00" as *const u8 as *const i8,
             opcode: -1i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"n\x00" as *const u8 as *const i8,
             opcode: OP_NOOP as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"q\x00" as *const u8 as *const i8,
             opcode: OP_GSAVE as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"Q\x00" as *const u8 as *const i8,
             opcode: OP_GRESTORE as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"s\x00" as *const u8 as *const i8,
             opcode: OP_CLOSEandCLIP as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"S\x00" as *const u8 as *const i8,
             opcode: OP_CLIP as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"v\x00" as *const u8 as *const i8,
             opcode: OP_CURVETO1 as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"w\x00" as *const u8 as *const i8,
             opcode: -1i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"W\x00" as *const u8 as *const i8,
             opcode: OP_CLIP as i32,
-        };
-        init
-    },
-    {
-        let mut init = operator {
+        },
+    operator {
             token: b"y\x00" as *const u8 as *const i8,
             opcode: OP_CURVETO2 as i32,
-        };
-        init
-    },
+        },
 ];*/
 /* NOWHERE USED
 [no_mangle]

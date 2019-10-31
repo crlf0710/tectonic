@@ -231,14 +231,11 @@ pub unsafe extern "C" fn pdf_doc_enable_manual_thumbnails() {
     // warn!("Manual thumbnail is not supported without the libpng library.");
 }
 unsafe fn read_thumbnail(mut thumb_filename: *const i8) -> *mut pdf_obj {
-    let mut options: load_options = {
-        let mut init = load_options {
+    let mut options: load_options = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
             dict: 0 as *mut pdf_obj,
         };
-        init
-    };
     let handle =
         ttstub_input_open(thumb_filename, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
@@ -2720,15 +2717,12 @@ pub unsafe extern "C" fn pdf_doc_end_grabbing(mut attrib: *mut pdf_obj) {
     pdf_dev_reset_color(0i32);
     free(fnode as *mut libc::c_void);
 }
-static mut breaking_state: C2RustUnnamed_4 = {
-    let mut init = C2RustUnnamed_4 {
+static mut breaking_state: C2RustUnnamed_4 = C2RustUnnamed_4 {
         dirty: 0i32,
         broken: 0i32,
         annot_dict: 0 as *const pdf_obj as *mut pdf_obj,
         rect: Rect::zero(),
     };
-    init
-};
 unsafe fn reset_box() {
     breaking_state.rect = Rect::new(
         (core::f64::INFINITY, core::f64::INFINITY),

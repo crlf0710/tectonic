@@ -321,14 +321,11 @@ unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
     }
     enc_id
 }
-static mut enc_cache: C2RustUnnamed = {
-    let mut init = C2RustUnnamed {
+static mut enc_cache: C2RustUnnamed = C2RustUnnamed {
         count: 0i32,
         capacity: 0i32,
         encodings: 0 as *const pdf_encoding as *mut pdf_encoding,
     };
-    init
-};
 #[no_mangle]
 pub unsafe extern "C" fn pdf_init_encodings() {
     enc_cache.count = 0i32;

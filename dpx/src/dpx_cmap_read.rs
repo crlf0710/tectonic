@@ -523,14 +523,11 @@ unsafe fn do_cidchar(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i
     check_next_token(input, b"endcidchar\x00" as *const u8 as *const i8)
 }
 unsafe fn do_cidsysteminfo(mut cmap: *mut CMap, mut input: *mut ifreader) -> i32 {
-    let mut csi: CIDSysInfo = {
-        let mut init = CIDSysInfo {
+    let mut csi: CIDSysInfo = CIDSysInfo {
             registry: 0 as *mut i8,
             ordering: 0 as *mut i8,
             supplement: -1i32,
         };
-        init
-    };
     let mut simpledict: i32 = 0i32;
     let mut error: i32 = 0i32;
     ifreader_read(input, (127i32 * 2i32) as size_t);
