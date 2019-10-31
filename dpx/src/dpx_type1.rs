@@ -377,7 +377,7 @@ unsafe fn get_font_attr(mut font: *mut pdf_font, cffont: &cff_font) {
         flags |= 1i32 << 0i32
     }
     let fontname = pdf_font_get_fontname(font);
-    let descriptor = pdf_font_get_descriptor(font);
+    let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
     if !fontname.is_null() && strstr(fontname, b"Sans\x00" as *const u8 as *const i8).is_null() {
         flags |= 1i32 << 1i32
     }
@@ -385,12 +385,12 @@ unsafe fn get_font_attr(mut font: *mut pdf_font, cffont: &cff_font) {
         flags |= 1i32 << 17i32
     }
     flags |= 1i32 << 2i32;
-    (*descriptor).as_dict_mut().set("CapHeight", pdf_new_number(capheight));
-    (*descriptor).as_dict_mut().set("Ascent", pdf_new_number(ascent));
-    (*descriptor).as_dict_mut().set("Descent", pdf_new_number(descent));
-    (*descriptor).as_dict_mut().set("ItalicAngle", pdf_new_number(italicangle));
-    (*descriptor).as_dict_mut().set("StemV", pdf_new_number(stemv));
-    (*descriptor).as_dict_mut().set("Flags", pdf_new_number(flags as f64));
+    descriptor.set("CapHeight", pdf_new_number(capheight));
+    descriptor.set("Ascent", pdf_new_number(ascent));
+    descriptor.set("Descent", pdf_new_number(descent));
+    descriptor.set("ItalicAngle", pdf_new_number(italicangle));
+    descriptor.set("StemV", pdf_new_number(stemv));
+    descriptor.set("Flags", flags as f64);
 }
 unsafe fn add_metrics(
     mut font: *mut pdf_font,
@@ -401,7 +401,7 @@ unsafe fn add_metrics(
 ) {
     let mut firstchar;
     let mut lastchar;
-    let fontdict = pdf_font_get_resource(&mut *font);
+    let fontdict = pdf_font_get_resource(&mut *font).as_dict_mut();
     let descriptor = pdf_font_get_descriptor(font);
     let usedchars = pdf_font_get_usedchars(font);
     /*
@@ -506,11 +506,11 @@ unsafe fn add_metrics(
         }
     }
     if pdf_array_length(&*tmp_array) > 0_u32 {
-        fontdict.as_dict_mut().set("Widths", pdf_ref_obj(tmp_array));
+        fontdict.set("Widths", pdf_ref_obj(tmp_array));
     }
     pdf_release_obj(tmp_array);
-    fontdict.as_dict_mut().set("FirstChar", pdf_new_number(firstchar as f64));
-    fontdict.as_dict_mut().set("LastChar", pdf_new_number(lastchar as f64));
+    fontdict.set("FirstChar", pdf_new_number(firstchar as f64));
+    fontdict.set("LastChar", pdf_new_number(lastchar as f64));
 }
 unsafe fn write_fontfile(
     mut font: *mut pdf_font,
@@ -518,7 +518,7 @@ unsafe fn write_fontfile(
     mut pdfcharset: *mut pdf_obj,
 ) -> i32 {
     let mut wbuf: [u8; 1024] = [0; 1024];
-    let descriptor = pdf_font_get_descriptor(font);
+    let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
     let mut topdict = CffIndex::new(1);
 
     /*
@@ -652,7 +652,7 @@ unsafe fn write_fontfile(
     /* Flush Font File */
     let fontfile = pdf_new_stream(STREAM_COMPRESS);
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
-    (*descriptor).as_dict_mut().set("FontFile3", pdf_ref_obj(fontfile));
+    descriptor.set("FontFile3", pdf_ref_obj(fontfile));
     stream_dict.set("Subtype", pdf_new_name("Type1C"));
     pdf_add_stream(
         &mut *fontfile,
@@ -660,7 +660,7 @@ unsafe fn write_fontfile(
         offset as i32,
     );
     pdf_release_obj(fontfile);
-    (*descriptor).as_dict_mut().set(
+    descriptor.set(
         "CharSet",
         pdf_new_string(
             pdf_stream_dataptr(&*pdfcharset),
@@ -678,7 +678,7 @@ pub unsafe fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
     }
     let verbose = pdf_font_get_verbose();
     let encoding_id = pdf_font_get_encoding(font);
-    let fontdict = pdf_font_get_resource(&mut *font); /* Actually string object */
+    let fontdict = pdf_font_get_resource(&mut *font).as_dict_mut(); /* Actually string object */
     pdf_font_get_descriptor(font);
     let usedchars = pdf_font_get_usedchars(font);
     let ident = pdf_font_get_ident(font);
@@ -727,10 +727,10 @@ pub unsafe fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
         enc_vec = pdf_encoding_get_encoding(encoding_id)
     } else {
         /* Create enc_vec and ToUnicode CMap for built-in encoding. */
-        if !fontdict.as_dict().has("ToUnicode") {
+        if !fontdict.has("ToUnicode") {
             let tounicode = pdf_create_ToUnicode_CMap(fullname, enc_vec, usedchars);
             if !tounicode.is_null() {
-                fontdict.as_dict_mut().set("ToUnicode", pdf_ref_obj(tounicode));
+                fontdict.set("ToUnicode", pdf_ref_obj(tounicode));
                 pdf_release_obj(tounicode);
             }
         }

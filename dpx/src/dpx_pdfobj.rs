@@ -272,6 +272,31 @@ pub struct pdf_string {
 pub struct pdf_number {
     pub value: f64,
 }
+
+// Must be replaced with std::convert::From
+pub trait IntoObj {
+    fn into_obj(self) -> *mut pdf_obj;
+}
+impl IntoObj for *mut pdf_obj {
+    #[inline(always)]
+    fn into_obj(self) -> Self {
+        self
+    }
+}
+
+impl IntoObj for f64 {
+    #[inline(always)]
+    fn into_obj(self) -> *mut pdf_obj {
+        unsafe { pdf_new_number(self) }
+    }
+}
+impl IntoObj for &[u8] {
+    #[inline(always)]
+    fn into_obj(self) -> *mut pdf_obj {
+        unsafe { pdf_new_name(self) }
+    }
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct pdf_boolean {
@@ -1210,10 +1235,12 @@ unsafe fn release_dict(mut data: *mut pdf_dict) {
 impl pdf_dict {
     /* Array is ended by a node with NULL this pointer */
     /* pdf_add_dict returns 0 if the key is new and non-zero otherwise */
-    pub unsafe fn set<K>(&mut self, key: K, mut value: *mut pdf_obj) -> i32
+    pub unsafe fn set<K, V>(&mut self, key: K, value: V) -> i32
     where
         K: Into<Vec<u8>> + AsRef<[u8]>,
+        V: IntoObj,
     {
+        let value = value.into_obj();
         /* It seems that NULL is sometimes used for null object... */
         if !value.is_null() && (value.is_null() || (*value).typ <= 0i32 || (*value).typ > 10i32) {
             panic!("pdf_add_dict(): Passed invalid value");

@@ -270,13 +270,14 @@ unsafe fn safeputresdent(
 ) -> i32 {
     assert!(!kp.is_null() && !vp.is_null() && !dp.is_null());
     let key = pdf_name_value(&*kp);
-    if (*(dp as *mut pdf_obj)).as_dict().has(key.to_bytes()) {
+    let dict_ref = (*(dp as *mut pdf_obj)).as_dict_mut();
+    if dict_ref.has(key.to_bytes()) {
         warn!(
             "Object \"{}\" already defined in dict! (ignored)",
             key.display()
         );
     } else {
-        (*(dp as *mut pdf_obj)).as_dict_mut().set(key.to_bytes(), pdf_link_obj(vp));
+        dict_ref.set(key.to_bytes(), pdf_link_obj(vp));
     }
     0i32
 }
@@ -287,9 +288,10 @@ unsafe fn safeputresdict(
 ) -> i32 {
     assert!(!kp.is_null() && !vp.is_null() && !dp.is_null());
     let key = pdf_name_value(&*kp);
-    let dict = (*(dp as *mut pdf_obj)).as_dict_mut().get_mut(key.to_bytes());
+    let dict_ref = (*(dp as *mut pdf_obj)).as_dict_mut();
+    let dict = dict_ref.get_mut(key.to_bytes());
     if (*vp).is_indirect() {
-        (*(dp as *mut pdf_obj)).as_dict_mut().set(key.to_bytes(), pdf_link_obj(vp));
+        dict_ref.set(key.to_bytes(), pdf_link_obj(vp));
     } else if (*vp).is_dict() {
         if let Some(dict) = dict {
             pdf_foreach_dict(
@@ -305,7 +307,7 @@ unsafe fn safeputresdict(
                 dict as *mut pdf_obj as *mut libc::c_void,
             );
         } else {
-            (*(dp as *mut pdf_obj)).as_dict_mut().set(key.to_bytes(), pdf_link_obj(vp));
+            dict_ref.set(key.to_bytes(), pdf_link_obj(vp));
         }
     } else {
         warn!(

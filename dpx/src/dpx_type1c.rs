@@ -216,7 +216,7 @@ unsafe fn add_SimpleMetrics(
 ) {
     let mut firstchar;
     let mut lastchar;
-    let fontdict = pdf_font_get_resource(&mut *font);
+    let fontdict = pdf_font_get_resource(&mut *font).as_dict_mut();
     let usedchars = pdf_font_get_usedchars(font);
     /* The widhts array in the font dictionary must be given relative
      * to the default scaling of 1000:1, not relative to the scaling
@@ -288,11 +288,11 @@ unsafe fn add_SimpleMetrics(
         }
     }
     if pdf_array_length(&*tmp_array) > 0_u32 {
-        fontdict.as_dict_mut().set("Widths", pdf_ref_obj(tmp_array));
+        fontdict.set("Widths", pdf_ref_obj(tmp_array));
     }
     pdf_release_obj(tmp_array);
-    fontdict.as_dict_mut().set("FirstChar", pdf_new_number(firstchar as f64));
-    fontdict.as_dict_mut().set("LastChar", pdf_new_number(lastchar as f64));
+    fontdict.set("FirstChar", pdf_new_number(firstchar as f64));
+    fontdict.set("LastChar", pdf_new_number(lastchar as f64));
 }
 
 pub unsafe fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
@@ -314,8 +314,8 @@ pub unsafe fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
     if usedchars.is_null() || fontname.is_null() || ident.is_null() {
         panic!("Unexpected error....");
     }
-    let fontdict = pdf_font_get_resource(&mut *font); /* Actually string object */
-    let descriptor = pdf_font_get_descriptor(font);
+    let fontdict = pdf_font_get_resource(&mut *font).as_dict_mut(); /* Actually string object */
+    let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
     let encoding_id = pdf_font_get_encoding(font);
     let handle = dpx_open_opentype_file(ident);
     if handle.is_none() {
@@ -400,10 +400,10 @@ pub unsafe fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
                 *fresh1 = ptr::null_mut()
             }
         }
-        if !fontdict.as_dict().has("ToUnicode") {
+        if !fontdict.has("ToUnicode") {
             let tounicode = pdf_create_ToUnicode_CMap(fullname, enc_vec, usedchars);
             if !tounicode.is_null() {
-                fontdict.as_dict_mut().set("ToUnicode", pdf_ref_obj(tounicode));
+                fontdict.set("ToUnicode", pdf_ref_obj(tounicode));
                 pdf_release_obj(tounicode);
             }
         }
@@ -467,7 +467,7 @@ pub unsafe fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
             b"StdVW\x00" as *const u8 as *const i8,
             0i32,
         );
-        (*descriptor).as_dict_mut().set("StemV", pdf_new_number(stemv));
+        descriptor.set("StemV", pdf_new_number(stemv));
     }
     /*
      * Widths
@@ -877,7 +877,7 @@ pub unsafe fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
     /*
      * CharSet
      */
-    (*descriptor).as_dict_mut().set(
+    descriptor.set(
         "CharSet",
         pdf_new_string(
             pdf_stream_dataptr(&*pdfcharset),
@@ -890,7 +890,7 @@ pub unsafe fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
      */
     let fontfile = pdf_new_stream(STREAM_COMPRESS);
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
-    (*descriptor).as_dict_mut().set("FontFile3", pdf_ref_obj(fontfile));
+    descriptor.set("FontFile3", pdf_ref_obj(fontfile));
     stream_dict.set("Subtype", pdf_new_name("Type1C"));
     pdf_add_stream(
         &mut *fontfile,
