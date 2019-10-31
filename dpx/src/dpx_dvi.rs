@@ -88,6 +88,7 @@ use crate::{
     ttstub_input_close, ttstub_input_get_size, ttstub_input_getc, ttstub_input_open,
     ttstub_input_read, ttstub_input_ungetc,
 };
+use crate::dpx_dvicodes::*;
 
 use libc::{atof, free, memset, strlen, strncpy, strtol};
 
@@ -390,57 +391,57 @@ unsafe fn find_post() -> i32 {
     dvi_file_size = dvi_size as u32;
     handle.seek(SeekFrom::End(0)).unwrap();
     let mut current = dvi_size as i32;
-    let ch = loop
+    let ch: u8 = loop
     /* Scan backwards through PADDING */
     {
         current -= 1;
         handle.seek(SeekFrom::Start(current as u64)).unwrap();
-        let ch = ttstub_input_getc(handle);
-        if !(ch == 223i32 && current > 0i32) {
+        let ch = ttstub_input_getc(handle) as u8;
+        if !(ch == PADDING && current > 0) {
             break ch;
         }
     };
     /* file_position now points to last non padding character or
      * beginning of file */
-    if dvi_file_size.wrapping_sub(current as u32) < 4_u32
-        || current == 0i32
-        || !(ch == 2i32 || ch == 3i32 || ch == 7i32 || ch == 6i32)
+    if dvi_file_size.wrapping_sub(current as u32) < 4
+        || current == 0
+        || !(ch == DVI_ID || ch == DVIV_ID || ch == XDV_ID || ch == XDV_ID_OLD)
     {
         info!("DVI ID = {}\n", ch);
         panic!(invalid_signature);
     }
-    post_id_byte = ch;
-    is_xdv = (ch == 7i32 || ch == 6i32) as i32;
-    is_ptex = (ch == 3i32) as i32;
+    post_id_byte = ch as i32;
+    is_xdv = (ch == XDV_ID || ch == XDV_ID_OLD) as i32;
+    is_ptex = (ch == DVIV_ID) as i32;
     /* Make sure post_post is really there */
-    current = current - 5i32;
+    current -= 5;
     handle.seek(SeekFrom::Start(current as u64)).unwrap();
-    let ch = ttstub_input_getc(handle);
-    if ch != 249i32 {
+    let ch = ttstub_input_getc(handle) as u8;
+    if ch != POST_POST {
         info!("Found {} where post_post opcode should be\n", ch);
         panic!(invalid_signature);
     }
     current = tt_get_signed_quad(handle);
     handle.seek(SeekFrom::Start(current as u64)).unwrap();
-    let ch = ttstub_input_getc(handle);
-    if ch != 248i32 {
+    let ch = ttstub_input_getc(handle) as u8;
+    if ch != POST {
         info!("Found {} where post_post opcode should be\n", ch);
         panic!(invalid_signature);
     }
     /* Finally check the ID byte in the preamble */
     /* An Ascii pTeX DVI file has id_byte DVI_ID in the preamble but DVIV_ID in the postamble. */
     handle.seek(SeekFrom::Start(0)).unwrap();
-    let ch = tt_get_unsigned_byte(handle) as i32;
-    if ch != 247i32 {
+    let ch = tt_get_unsigned_byte(handle);
+    if ch != PRE {
         info!("Found {} where PRE was expected\n", ch);
         panic!(invalid_signature);
     }
-    let ch = tt_get_unsigned_byte(handle) as i32;
-    if !(ch == 2i32 || ch == 7i32 || ch == 6i32) {
+    let ch = tt_get_unsigned_byte(handle);
+    if !(ch == DVI_ID || ch == XDV_ID || ch == XDV_ID_OLD) {
         info!("DVI ID = {}\n", ch);
         panic!(invalid_signature);
     }
-    pre_id_byte = ch;
+    pre_id_byte = ch as i32;
     check_id_bytes();
     current
 }
@@ -627,16 +628,16 @@ unsafe fn get_dvi_fonts(mut post_location: i32) {
     let handle = dvi_handle.as_mut().unwrap();
     handle.seek(SeekFrom::Start(post_location as u64 + 29)).unwrap();
     loop {
-        let code = tt_get_unsigned_byte(handle) as i32;
-        if !(code != 249i32) {
+        let code = tt_get_unsigned_byte(handle);
+        if code == POST_POST {
             break;
         }
         match code {
-            243 | 244 | 245 | 246 => {
-                read_font_record(tt_get_unsigned_num(handle, (code - 243) as u8));
+            FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
+                read_font_record(tt_get_unsigned_num(handle, code - FNT_DEF1));
             }
-            252 => {
-                need_XeTeX(code);
+            XDV_NATIVE_FONT_DEF => {
+                need_XeTeX(code as i32);
                 read_native_font_record(tt_get_signed_quad(handle) as u32);
             }
             _ => {
@@ -645,21 +646,20 @@ unsafe fn get_dvi_fonts(mut post_location: i32) {
             }
         }
     }
-    if verbose > 2i32 {
+    if verbose > 2 {
         info!("\n");
         info!("DVI file font info\n");
         for i in 0..num_def_fonts {
+            let font = &*def_fonts.offset(i as isize);
             info!(
                 "TeX Font: {:10} loaded at ID={:5}, ",
-                CStr::from_ptr((*def_fonts.offset(i as isize)).font_name).display(),
-                (*def_fonts.offset(i as isize)).tex_id,
+                CStr::from_ptr(font.font_name).display(),
+                font.tex_id,
             );
             info!(
                 "size={:5.2}pt (scaled {:4.1}%)",
-                (*def_fonts.offset(i as isize)).point_size as f64 * dvi2pts,
-                100.0f64
-                    * ((*def_fonts.offset(i as isize)).point_size as f64
-                        / (*def_fonts.offset(i as isize)).design_size as f64),
+                font.point_size as f64 * dvi2pts,
+                100.0 * (font.point_size as f64 / font.design_size as f64),
             );
             info!("\n");
         }
@@ -1772,19 +1772,19 @@ unsafe fn do_glyphs(mut do_actual_text: i32) {
 }
 unsafe fn check_postamble() {
     let handle = dvi_handle.as_mut().unwrap();
-    tt_skip_bytes(28_u32, handle);
+    tt_skip_bytes(28, handle);
     loop {
-        let code = tt_get_unsigned_byte(handle) as i32;
-        if !(code != 249i32) {
+        let code = tt_get_unsigned_byte(handle) as u8;
+        if code == POST_POST {
             break;
         }
         match code {
-            243 | 244 | 245 | 246 => {
-                tt_skip_bytes((code + 1i32 - 243i32) as u32, handle);
+            FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
+                tt_skip_bytes((code + 1 - FNT_DEF1) as u32, handle);
                 skip_fntdef();
             }
-            252 => {
-                tt_skip_bytes(4_u32, handle);
+            XDV_NATIVE_FONT_DEF => {
+                tt_skip_bytes(4, handle);
                 skip_native_font_def();
             }
             _ => {
@@ -1792,21 +1792,22 @@ unsafe fn check_postamble() {
             }
         }
     }
-    tt_skip_bytes(4_u32, handle);
+    tt_skip_bytes(4, handle);
     post_id_byte = tt_get_unsigned_byte(handle) as i32;
-    if !(post_id_byte == 2i32
-        || post_id_byte == 3i32
-        || post_id_byte == 7i32
-        || post_id_byte == 6i32)
+    let post_id_byte_0 = post_id_byte as u8;
+    if !(post_id_byte_0 == DVI_ID
+        || post_id_byte_0 == DVIV_ID
+        || post_id_byte_0 == XDV_ID
+        || post_id_byte_0 == XDV_ID_OLD)
     {
-        info!("DVI ID = {}\n", post_id_byte);
+        info!("DVI ID = {}\n", post_id_byte_0);
         panic!(invalid_signature);
     }
     check_id_bytes();
-    if has_ptex != 0 && post_id_byte != 3i32 {
-        panic!("Saw opcode {} in DVI file not for Ascii pTeX", 255i32,);
+    if has_ptex != 0 && post_id_byte_0 != DVIV_ID {
+        panic!("Saw opcode {} in DVI file not for Ascii pTeX", PTEXDIR);
     }
-    num_pages = 0_u32;
+    num_pages = 0;
     /* force loop to terminate */
 }
 /* Most of the work of actually interpreting
@@ -1824,196 +1825,165 @@ pub unsafe extern "C" fn dvi_do_page(
     /* DVI coordinate */
     dev_origin_x = hmargin;
     dev_origin_y = page_paper_height - vmargin;
-    dvi_stack_depth = 0i32;
+    dvi_stack_depth = 0;
     loop {
         let opcode = get_buffered_unsigned_byte();
-        if opcode as i32 <= 127i32 {
+        if opcode <= SET_CHAR_127 {
             dvi_set(opcode as i32);
-        } else if opcode as i32 >= 171i32 && opcode as i32 <= 234i32 {
-            do_fnt((opcode as i32 - 171i32) as u32);
-        } else {
-            let mut current_block_59: u64;
-            match opcode as i32 {
-                128 | 129 | 130 => {
-                    dvi_set(get_buffered_unsigned_num((opcode as i32 - 128i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                131 => {
-                    panic!("Multibyte (>24 bits) character not supported!");
-                }
-                132 => {
-                    do_setrule();
-                    current_block_59 = 6471821049853688503;
-                }
-                133 | 134 | 135 => {
-                    dvi_put(get_buffered_unsigned_num((opcode as i32 - 133i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                136 => {
-                    panic!("Multibyte (>24 bits) character not supported!");
-                }
-                137 => {
-                    do_putrule();
-                    current_block_59 = 6471821049853688503;
-                }
-                139 => {
-                    do_bop();
-                    current_block_59 = 6471821049853688503;
-                }
-                140 => {
-                    do_eop();
-                    if linear != 0 {
-                        let handle = dvi_handle.as_mut().unwrap();
-                        let opcode = tt_get_unsigned_byte(handle);
-                        if opcode as i32 == 248i32 {
-                            check_postamble();
-                        } else {
-                            ttstub_input_ungetc(handle, opcode as i32);
-                        }
-                    }
-                    return;
-                }
-                141 => {
-                    dvi_push();
-                    if lr_mode >= 2i32 {
-                        lr_width_push();
-                    }
-                    /* If we are here, we have an opcode that is something
-                     * other than SET_CHAR.
-                     */
-                    /* The following line needs to go here instead of in
-                     * dvi_push() since logical structure of document is
-                     * oblivous to virtual fonts. For example the last line on a
-                     * page could be at stack level 3 and the page footer should
-                     * be at stack level 3.  However, if the page footer contains
-                     * virtual fonts (or other nested constructions), it could
-                     * fool the link breaker into thinking it was a continuation
-                     * of the link */
-                    dvi_mark_depth();
-                    current_block_59 = 6471821049853688503;
-                }
-                142 => {
-                    dpx_dvi_pop();
-                    if lr_mode >= 2i32 {
-                        lr_width_pop();
-                    }
-                    /* Above explanation holds for following line too */
-                    dvi_mark_depth();
-                    current_block_59 = 6471821049853688503;
-                }
-                143 | 144 | 145 | 146 => {
-                    dvi_right(get_buffered_signed_num((opcode as i32 - 143i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                147 => {
-                    dvi_w0();
-                    current_block_59 = 6471821049853688503;
-                }
-                148 | 149 | 150 | 151 => {
-                    dvi_w(get_buffered_signed_num((opcode as i32 - 148i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                152 => {
-                    dvi_x0();
-                    current_block_59 = 6471821049853688503;
-                }
-                153 | 154 | 155 | 156 => {
-                    dvi_x(get_buffered_signed_num((opcode as i32 - 153i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                157 | 158 | 159 | 160 => {
-                    dvi_down(get_buffered_signed_num((opcode as i32 - 157i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                161 => {
-                    dvi_y0();
-                    current_block_59 = 6471821049853688503;
-                }
-                162 | 163 | 164 | 165 => {
-                    dvi_y(get_buffered_signed_num((opcode as i32 - 162i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                166 => {
-                    dvi_z0();
-                    current_block_59 = 6471821049853688503;
-                }
-                167 | 168 | 169 | 170 => {
-                    dvi_z(get_buffered_signed_num((opcode as i32 - 167i32) as u8));
-                    current_block_59 = 6471821049853688503;
-                }
-                235 | 236 | 237 | 238 => {
-                    do_fnt(get_buffered_unsigned_num((opcode as i32 - 235i32) as u8) as u32);
-                    current_block_59 = 6471821049853688503;
-                }
-                239 | 240 | 241 | 242 => {
-                    /* Specials */
-                    let mut size: i32 = get_buffered_unsigned_num((opcode as i32 - 239i32) as u8);
-                    if size < 0i32 {
-                        warn!("DVI: Special with {} bytes???", size);
+            continue;
+        }
+
+        /* If we are here, we have an opcode that is something
+         * other than SET_CHAR.
+         */
+        if opcode >= FNT_NUM_0 && opcode <= FNT_NUM_63 {
+            do_fnt((opcode - FNT_NUM_0) as u32);
+            continue;
+        } 
+
+        match opcode {
+            SET1 | SET2 | SET3 => {
+                dvi_set(get_buffered_unsigned_num(opcode - SET1));
+            }
+            SET4 => {
+                panic!("Multibyte (>24 bits) character not supported!");
+            }
+            SET_RULE => {
+                do_setrule();
+            }
+            PUT1 | PUT2 | PUT3 => {
+                dvi_put(get_buffered_unsigned_num(opcode - PUT1));
+            }
+            PUT4 => {
+                panic!("Multibyte (>24 bits) character not supported!");
+            }
+            PUT_RULE => {
+                do_putrule();
+            }
+            NOP => {}
+            BOP => {
+                do_bop();
+            }
+            EOP => {
+                do_eop();
+                if linear != 0 {
+                    let handle = dvi_handle.as_mut().unwrap();
+                    let opcode = tt_get_unsigned_byte(handle);
+                    if opcode == POST {
+                        check_postamble();
                     } else {
-                        do_xxx(size);
+                        ttstub_input_ungetc(handle, opcode as i32);
                     }
-                    current_block_59 = 6471821049853688503;
                 }
-                138 | 243 | 244 | 245 | 246 => {
-                    current_block_59 = 6471821049853688503;
+                return;
+            }
+            PUSH => {
+                dvi_push();
+                if lr_mode >= 2 {
+                    lr_width_push();
                 }
-                255 => {
-                    /* pTeX extension */
-                    need_pTeX(opcode as i32);
-                    do_dir();
-                    current_block_59 = 6471821049853688503;
+                /* The following line needs to go here instead of in
+                 * dvi_push() since logical structure of document is
+                 * oblivous to virtual fonts. For example the last line on a
+                 * page could be at stack level 3 and the page footer should
+                 * be at stack level 3.  However, if the page footer contains
+                 * virtual fonts (or other nested constructions), it could
+                 * fool the link breaker into thinking it was a continuation
+                 * of the link */
+                dvi_mark_depth();
+            }
+            POP => {
+                dpx_dvi_pop();
+                if lr_mode >= 2 {
+                    lr_width_pop();
                 }
-                253 => {
-                    /* XeTeX extensions */
-                    need_XeTeX(opcode as i32);
-                    do_glyphs(0i32);
-                    current_block_59 = 6471821049853688503;
-                }
-                254 => {
-                    need_XeTeX(opcode as i32);
-                    do_glyphs(1i32);
-                    current_block_59 = 6471821049853688503;
-                }
-                252 => {
-                    /* should not occur - processed during pre-scanning */
-                    need_XeTeX(opcode as i32);
-                    current_block_59 = 6471821049853688503;
-                }
-                250 => {
-                    need_XeTeX(opcode as i32);
-                    dvi_begin_reflect();
-                    current_block_59 = 6471821049853688503;
-                }
-                251 => {
-                    need_XeTeX(opcode as i32);
-                    dvi_end_reflect();
-                    current_block_59 = 6471821049853688503;
-                }
-                248 => {
-                    if linear as i32 != 0 && processing_page == 0 {
-                        /* for linear processing, this means there are no more pages */
-                        num_pages = 0_u32; /* force loop to terminate */
-                        return;
-                    }
-                    current_block_59 = 17253953464124104480;
-                }
-                247 | 249 => {
-                    current_block_59 = 17253953464124104480;
-                }
-                _ => {
-                    panic!("Unexpected opcode or DVI file ended prematurely");
+                /* Above explanation holds for following line too */
+                dvi_mark_depth();
+            }
+            RIGHT1 | RIGHT2 | RIGHT3 | RIGHT4 => {
+                dvi_right(get_buffered_signed_num(opcode - RIGHT1));
+            }
+            W0 => {
+                dvi_w0();
+            }
+            W1 | W2 | W3 | W4 => {
+                dvi_w(get_buffered_signed_num(opcode - W1));
+            }
+            X0 => {
+                dvi_x0();
+            }
+            X1 | X2 | X3 | X4 => {
+                dvi_x(get_buffered_signed_num(opcode - X1));
+            }
+            DOWN1 | DOWN2 | DOWN3 | DOWN4 => {
+                dvi_down(get_buffered_signed_num(opcode - DOWN1));
+            }
+            Y0 => {
+                dvi_y0();
+            }
+            Y1 | Y2 | Y3 | Y4 => {
+                dvi_y(get_buffered_signed_num(opcode - Y1));
+            }
+            Z0 => {
+                dvi_z0();
+            }
+            Z1 | Z2 | Z3 | Z4 => {
+                dvi_z(get_buffered_signed_num(opcode - Z1));
+            }
+            FNT1 | FNT2 | FNT3 | FNT4 => {
+                do_fnt(get_buffered_unsigned_num(opcode - FNT1) as u32);
+            }
+                /* Specials */
+            XXX1 | XXX2 | XXX3 | XXX4 => {
+                let size: i32 = get_buffered_unsigned_num(opcode - XXX1);
+                if size < 0 {
+                    warn!("DVI: Special with {} bytes???", size);
+                } else {
+                    do_xxx(size);
                 }
             }
-            match current_block_59 {
-                17253953464124104480 =>
-                /* else fall through to error case */
-                {
-                    panic!("Unexpected preamble or postamble in dvi file");
+            /* These should not occur - processed during pre-scanning */
+            FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {}
+            PTEXDIR => {
+                /* pTeX extension */
+                need_pTeX(opcode as i32);
+                do_dir();
+            }
+            XDV_GLYPHS => {
+                /* XeTeX extensions */
+                need_XeTeX(opcode as i32);
+                do_glyphs(0);
+            }
+            XDV_TEXT_AND_GLYPHS => {
+                need_XeTeX(opcode as i32);
+                do_glyphs(1);
+            }
+            XDV_NATIVE_FONT_DEF => {
+                /* should not occur - processed during pre-scanning */
+                need_XeTeX(opcode as i32);
+            }
+            BEGIN_REFLECT => {
+                need_XeTeX(opcode as i32);
+                dvi_begin_reflect();
+            }
+            END_REFLECT => {
+                need_XeTeX(opcode as i32);
+                dvi_end_reflect();
+            }
+            POST => {
+                if linear != 0 && processing_page == 0 {
+                    /* for linear processing, this means there are no more pages */
+                    num_pages = 0; /* force loop to terminate */
+                    return;
                 }
-                _ =>
-                    /* These should not occur - processed during pre-scanning */
-                    {}
+                /* else fall through to error case */
+                panic!("Unexpected preamble or postamble in dvi file");
+            }
+            PRE | POST_POST => {
+                panic!("Unexpected preamble or postamble in dvi file");
+            }
+            _ => {
+                panic!("Unexpected opcode or DVI file ended prematurely");
             }
         }
     }
@@ -2453,59 +2423,40 @@ pub unsafe extern "C" fn dvi_scan_specials(
     }
     loop {
         let opcode = get_and_buffer_unsigned_byte(handle) as u8;
-        if !(opcode as i32 != 140i32) {
+        if opcode == EOP {
             break;
         }
-        if opcode as i32 <= 127i32 || opcode as i32 >= 171i32 && opcode as i32 <= 234i32 {
+        if opcode <= SET_CHAR_127 || opcode >= FNT_NUM_0 && opcode <= FNT_NUM_63 {
             continue;
         }
-        if opcode as i32 == 239i32
-            || opcode as i32 == 240i32
-            || opcode as i32 == 241i32
-            || opcode as i32 == 242i32
+        if opcode == XXX1
+            || opcode == XXX2
+            || opcode == XXX3
+            || opcode == XXX4
         {
             let mut size: u32 = get_and_buffer_unsigned_byte(handle) as u32;
-            let mut current_block_14: u64;
-            match opcode as i32 {
-                242 => {
-                    size = size
-                        .wrapping_mul(0x100u32)
-                        .wrapping_add(get_and_buffer_unsigned_byte(handle) as u32);
-                    if size > 0x7fff_u32 {
+            match opcode {
+                XXX4 => {
+                    size = (size << 8) | (get_and_buffer_unsigned_byte(handle) as u32);
+                    if size > 0x7fff {
                         warn!(
                             "Unsigned number starting with {:x} exceeds 0x7fffffff",
                             size,
                         );
                     }
-                    current_block_14 = 2922806634731202080;
+                    size = (size << 8) | (get_and_buffer_unsigned_byte(handle) as u32);
+                    size = (size << 8) | (get_and_buffer_unsigned_byte(handle) as u32);
                 }
-                241 => {
-                    current_block_14 = 2922806634731202080;
+                XXX3 => {
+                    size = (size << 8) | (get_and_buffer_unsigned_byte(handle) as u32);
+                    size = (size << 8) | (get_and_buffer_unsigned_byte(handle) as u32);
                 }
-                240 => {
-                    current_block_14 = 7135116673376365024;
-                }
-                _ => {
-                    current_block_14 = 26972500619410423;
-                }
-            }
-            match current_block_14 {
-                2922806634731202080 => {
-                    size = size
-                        .wrapping_mul(0x100u32)
-                        .wrapping_add(get_and_buffer_unsigned_byte(handle) as u32);
-                    current_block_14 = 7135116673376365024;
+                XXX2 => {
+                    size = (size << 8) | (get_and_buffer_unsigned_byte(handle) as u32);
                 }
                 _ => {}
             }
-            match current_block_14 {
-                7135116673376365024 => {
-                    size = size
-                        .wrapping_mul(0x100u32)
-                        .wrapping_add(get_and_buffer_unsigned_byte(handle) as u32)
-                }
-                _ => {}
-            }
+
             DVI_PAGE_BUFFER.resize_with(DVI_PAGE_BUF_INDEX + size as usize, Default::default);
             handle.read(&mut DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..DVI_PAGE_BUF_INDEX+size as usize])
                 .expect("Reading DVI file failed!");
@@ -2532,92 +2483,67 @@ pub unsafe extern "C" fn dvi_scan_specials(
             }
             DVI_PAGE_BUF_INDEX += size as usize;
         } else {
-            let mut current_block_50: u64;
             /* Skipping... */
-            match opcode as i32 {
-                139 => {
-                    get_and_buffer_bytes(handle, 44_u32); /* width */
-                    current_block_50 = 6033931424626438518; /* glyph count */
+            match opcode {
+                BOP => {
+                    get_and_buffer_bytes(handle, 44);
                 }
-                138 | 141 | 142 | 147 | 152 | 161 | 166 => {
-                    current_block_50 = 6033931424626438518; /* 2 bytes ID + 8 bytes x,y-location per glyph */
+                NOP | PUSH | POP | W0 | X0 | Y0 | Z0 => {}
+                SET1 | PUT1 | RIGHT1 | DOWN1 | W1 | X1 | Y1 | Z1 | FNT1 => {
+                    get_and_buffer_bytes(handle, 1);
                 }
-                128 | 133 | 143 | 157 | 148 | 153 | 162 | 167 | 235 => {
-                    get_and_buffer_bytes(handle, 1_u32); /* utf16 code unit count */
-                    current_block_50 = 6033931424626438518; /* 2 bytes per code unit */
+                SET2 | PUT2 | RIGHT2 | DOWN2 | W2 | X2 | Y2 | Z2 | FNT2 => {
+                    get_and_buffer_bytes(handle, 2); /* width */
                 }
-                129 | 134 | 144 | 158 | 149 | 154 | 163 | 168 | 236 => {
-                    get_and_buffer_bytes(handle, 2_u32); /* width */
-                    current_block_50 = 6033931424626438518; /* glyph count */
+                SET3 | PUT3 | RIGHT3 | DOWN3 | W3 | X3 | Y3 | Z3 | FNT3 => {
+                    get_and_buffer_bytes(handle, 3);
                 }
-                130 | 135 | 145 | 159 | 150 | 155 | 164 | 169 | 237 => {
-                    get_and_buffer_bytes(handle, 3_u32); /* 2 bytes ID + 8 bytes x,y-location per glyph */
-                    current_block_50 = 6033931424626438518;
+                SET4 | PUT4 | RIGHT4 | DOWN4 | W4 | X4 | Y4 | Z4 | FNT4 => {
+                    get_and_buffer_bytes(handle, 4);
                 }
-                131 | 136 | 146 | 160 | 151 | 156 | 165 | 170 | 238 => {
-                    get_and_buffer_bytes(handle, 4_u32);
-                    current_block_50 = 6033931424626438518;
-                }
-                132 | 137 => {
+                SET_RULE | PUT_RULE => {
                     get_and_buffer_bytes(handle, 8_u32);
-                    current_block_50 = 6033931424626438518;
                 }
-                243 | 244 | 245 | 246 => {
-                    do_fntdef(tt_get_unsigned_num(
-                        handle,
-                        (opcode as i32 - 243i32) as u8,
-                    ));
-                    current_block_50 = 6033931424626438518;
+                FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
+                    do_fntdef(tt_get_unsigned_num(handle, opcode - FNT_DEF1));
                 }
-                253 => {
+                XDV_GLYPHS => {
                     need_XeTeX(opcode as i32);
-                    get_and_buffer_bytes(handle, 4_u32);
-                    let len = get_and_buffer_unsigned_pair(handle);
-                    get_and_buffer_bytes(handle, len.wrapping_mul(10_u32));
-                    current_block_50 = 6033931424626438518;
+                    get_and_buffer_bytes(handle, 4);                    /* width */
+                    let len = get_and_buffer_unsigned_pair(handle);     /* glyph count */
+                    get_and_buffer_bytes(handle, len.wrapping_mul(10)); /* 2 bytes ID + 8 bytes x,y-location per glyph */
                 }
-                254 => {
+                XDV_TEXT_AND_GLYPHS => {
                     need_XeTeX(opcode as i32);
-                    let len = get_and_buffer_unsigned_pair(handle);
-                    get_and_buffer_bytes(handle, len.wrapping_mul(2_u32));
-                    get_and_buffer_bytes(handle, 4_u32);
-                    let len = get_and_buffer_unsigned_pair(handle);
-                    get_and_buffer_bytes(handle, len.wrapping_mul(10_u32));
-                    current_block_50 = 6033931424626438518;
+                    let len = get_and_buffer_unsigned_pair(handle);     /* utf16 code unit count */
+                    get_and_buffer_bytes(handle, len.wrapping_mul(2));  /* 2 bytes per code unit */
+                    get_and_buffer_bytes(handle, 4);                    /* width */
+                    let len = get_and_buffer_unsigned_pair(handle);     /* glyph count */
+                    get_and_buffer_bytes(handle, len.wrapping_mul(10)); /* 2 bytes ID + 8 bytes x,y-location per glyph */
                 }
-                252 => {
+                XDV_NATIVE_FONT_DEF => {
                     need_XeTeX(opcode as i32);
                     do_native_font_def(tt_get_signed_quad(handle));
-                    current_block_50 = 6033931424626438518;
                 }
-                250 | 251 => {
+                BEGIN_REFLECT | END_REFLECT => {
                     need_XeTeX(opcode as i32);
-                    current_block_50 = 6033931424626438518;
                 }
-                255 => {
+                PTEXDIR => {
                     need_pTeX(opcode as i32);
-                    get_and_buffer_bytes(handle, 1_u32);
-                    current_block_50 = 6033931424626438518;
+                    get_and_buffer_bytes(handle, 1);
                 }
-                248 => {
-                    if linear as i32 != 0 && DVI_PAGE_BUF_INDEX == 1 {
+                POST => {
+                    if linear != 0 && DVI_PAGE_BUF_INDEX == 1 {
                         /* this is actually an indication that we've reached the end of the input */
                         return;
                     }
-                    current_block_50 = 1349400641705233371;
-                }
-                _ => {
-                    current_block_50 = 1349400641705233371;
-                }
-            }
-            match current_block_50 {
-                1349400641705233371 =>
-                /* else fall through to error case */
-                /* case PRE: case POST_POST: and others */
-                {
+                    /* else fall through to error case */
                     panic!("Unexpected opcode {}", opcode as i32);
                 }
-                _ => {}
+                _ => {
+                    /* case PRE: case POST_POST: and others */
+                    panic!("Unexpected opcode {}", opcode as i32);
+                }
             }
         }
     }

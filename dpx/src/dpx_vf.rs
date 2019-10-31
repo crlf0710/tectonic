@@ -43,6 +43,7 @@ use super::dpx_dvi::{
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::{sqxfw, tt_skip_bytes};
 use super::dpx_tfm::tfm_open;
+use super::dpx_dvicodes::*;
 use crate::{ttstub_input_close, ttstub_input_open, ttstub_input_read};
 use libc::{free, strcpy, strlen};
 
@@ -50,6 +51,8 @@ pub type __off_t = i64;
 pub type __off64_t = i64;
 pub type __ssize_t = i64;
 pub type size_t = u64;
+
+const VF_ID: u8 = 202;
 
 use crate::TTInputFormat;
 
@@ -105,8 +108,8 @@ pub unsafe extern "C" fn vf_reset_global_state() {
     vf_fonts = 0 as *mut vf;
 }
 unsafe fn read_header(vf_handle: &mut InputHandleWrapper, mut thisfont: i32) {
-    if tt_get_unsigned_byte(vf_handle) as i32 != 247i32
-        || tt_get_unsigned_byte(vf_handle) as i32 != 202i32
+    if tt_get_unsigned_byte(vf_handle) != PRE
+        || tt_get_unsigned_byte(vf_handle) != VF_ID
     {
         eprintln!("VF file may be corrupt");
         return;
@@ -242,42 +245,42 @@ unsafe fn read_a_font_def(vf_handle: &mut InputHandleWrapper, mut font_id: i32, 
     ) as i32;
 }
 unsafe fn process_vf_file(vf_handle: &mut InputHandleWrapper, mut thisfont: i32) {
-    let mut eof: i32 = 0i32;
-    while eof == 0 {
-        let code = tt_get_unsigned_byte(vf_handle) as i32;
+    loop {
+        let code = tt_get_unsigned_byte(vf_handle);
         match code {
-            243 | 244 | 245 | 246 => {
-                let font_id = tt_get_unsigned_num(vf_handle, (code - 243i32) as u8);
+            FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
+                let font_id = tt_get_unsigned_num(vf_handle, code - FNT_DEF1);
                 read_a_font_def(vf_handle, font_id as i32, thisfont);
             }
-            _ => {
-                if code < 242i32 {
-                    /* For a short packet, code is the pkt_len */
-                    let mut ch: u32 = tt_get_unsigned_byte(vf_handle) as u32;
-                    /* Skip over TFM width since we already know it */
-                    tt_skip_bytes(3_u32, vf_handle);
-                    read_a_char_def(vf_handle, thisfont, code as u32, ch);
-                } else if code == 242i32 {
-                    let mut pkt_len: u32 = tt_get_positive_quad(
-                        vf_handle,
-                        b"VF\x00" as *const u8 as *const i8,
-                        b"pkt_len\x00" as *const u8 as *const i8,
-                    );
-                    let mut ch_0: u32 = tt_get_unsigned_quad(vf_handle);
-                    /* Skip over TFM width since we already know it */
-                    tt_skip_bytes(4_u32, vf_handle);
-                    if ch_0 < 0x1000000u32 {
-                        read_a_char_def(vf_handle, thisfont, pkt_len, ch_0);
-                    } else {
-                        eprintln!("char={}", ch_0);
-                        panic!("Long character (>24 bits) in VF file.\nI can\'t handle long characters!\n");
-                    }
-                } else if code == 248i32 {
-                    eof = 1i32
+            XXX4 => {
+                let pkt_len: u32 = tt_get_positive_quad(
+                    vf_handle,
+                    b"VF\x00" as *const u8 as *const i8,
+                    b"pkt_len\x00" as *const u8 as *const i8,
+                );
+                let ch: u32 = tt_get_unsigned_quad(vf_handle);
+                /* Skip over TFM width since we already know it */
+                tt_skip_bytes(4, vf_handle);
+                if ch < 0x1000000 {
+                    read_a_char_def(vf_handle, thisfont, pkt_len, ch);
                 } else {
-                    eprintln!("Quitting on code={}", code);
-                    eof = 1i32
+                    eprintln!("char={}", ch);
+                    panic!("Long character (>24 bits) in VF file.\nI can\'t handle long characters!\n");
                 }
+            } 
+            POST => {
+                break;
+            }
+            _  if code < XXX4 =>  {
+                /* For a short packet, code is the pkt_len */
+                let ch = tt_get_unsigned_byte(vf_handle) as u32;
+                /* Skip over TFM width since we already know it */
+                tt_skip_bytes(3, vf_handle);
+                read_a_char_def(vf_handle, thisfont, code as u32, ch);
+            } 
+            _ => {
+                eprintln!("Quitting on code={}", code);
+                break;
             }
         }
     }
@@ -477,8 +480,8 @@ pub unsafe extern "C" fn vf_set_char(mut ch: i32, mut vf_font: i32) {
     if (vf_font as u32) < num_vf_fonts {
         /* Initialize to the first font or -1 if undefined */
         let ptsize = (*vf_fonts.offset(vf_font as isize)).ptsize;
-        if (*vf_fonts.offset(vf_font as isize)).num_dev_fonts > 0_u32 {
-            default_font = (*(*vf_fonts.offset(vf_font as isize)).dev_fonts.offset(0)).dev_id
+        if (*vf_fonts.offset(vf_font as isize)).num_dev_fonts > 0 {
+            default_font = (*(*vf_fonts.offset(vf_font as isize)).dev_fonts).dev_id
         }
         dvi_vf_init(default_font);
         if ch as u32 >= (*vf_fonts.offset(vf_font as isize)).num_chars || {
@@ -499,116 +502,103 @@ pub unsafe extern "C" fn vf_set_char(mut ch: i32, mut vf_font: i32) {
             )
         }
         while !start.is_null() && start < end {
-            let fresh19 = start;
+            let opcode = *start;
             start = start.offset(1);
-            let opcode = *fresh19;
-            match opcode as i32 {
-                128 | 129 | 130 => {
-                    dvi_set(get_pkt_unsigned_num(
-                        &mut start,
-                        end,
-                        (opcode as i32 - 128i32) as u8,
-                    ));
+            match opcode {
+                SET1 | SET2 | SET3 => {
+                    dvi_set(get_pkt_unsigned_num(&mut start, end, opcode - SET1));
                 }
-                131 => {
+                SET4 => {
                     panic!("Multibyte (>24 bits) character in VF packet.\nI can\'t handle this!");
                 }
-                132 => {
+                SET_RULE => {
                     vf_setrule(&mut start, end, ptsize);
                 }
-                133 | 134 | 135 => {
-                    dvi_put(get_pkt_unsigned_num(
-                        &mut start,
-                        end,
-                        (opcode as i32 - 133i32) as u8,
-                    ));
+                PUT1 | PUT2 | PUT3 => {
+                    dvi_put(get_pkt_unsigned_num(&mut start, end, opcode - PUT1));
                 }
-                136 => {
+                PUT4 => {
                     panic!("Multibyte (>24 bits) character in VF packet.\nI can\'t handle this!");
                 }
-                137 => {
+                PUT_RULE => {
                     vf_putrule(&mut start, end, ptsize);
                 }
-                138 => {}
-                141 => {
+                NOP => {}
+                PUSH => {
                     dvi_push();
                 }
-                142 => {
+                POP => {
                     dpx_dvi_pop();
                 }
-                143 | 144 | 145 | 146 => {
+                RIGHT1 | RIGHT2 | RIGHT3 | RIGHT4 => {
                     dvi_right(sqxfw(
                         ptsize,
-                        get_pkt_signed_num(&mut start, end, (opcode as i32 - 143i32) as u8),
+                        get_pkt_signed_num(&mut start, end, opcode - RIGHT1)
                     ));
                 }
-                147 => {
+                W0 => {
                     dvi_w0();
                 }
-                148 | 149 | 150 | 151 => {
+                W1 | W2 | W3 | W4 => {
                     dvi_w(sqxfw(
                         ptsize,
-                        get_pkt_signed_num(&mut start, end, (opcode as i32 - 148i32) as u8),
+                        get_pkt_signed_num(&mut start, end, opcode - W1),
                     ));
                 }
-                152 => {
+                X0 => {
                     dvi_x0();
                 }
-                153 | 154 | 155 | 156 => {
+                X1 | X2 | X3 | X4 => {
                     dvi_x(sqxfw(
                         ptsize,
-                        get_pkt_signed_num(&mut start, end, (opcode as i32 - 153i32) as u8),
+                        get_pkt_signed_num(&mut start, end, opcode - X1),
                     ));
                 }
-                157 | 158 | 159 | 160 => {
+                DOWN1 | DOWN2 | DOWN3 | DOWN4 => {
                     dvi_down(sqxfw(
                         ptsize,
-                        get_pkt_signed_num(&mut start, end, (opcode as i32 - 157i32) as u8),
+                        get_pkt_signed_num(&mut start, end, opcode - DOWN1),
                     ));
                 }
-                161 => {
+                Y0 => {
                     dvi_y0();
                 }
-                162 | 163 | 164 | 165 => {
+                Y1 | Y2 | Y3 | Y4 => {
                     dvi_y(sqxfw(
                         ptsize,
-                        get_pkt_signed_num(&mut start, end, (opcode as i32 - 162i32) as u8),
+                        get_pkt_signed_num(&mut start, end, opcode - Y1),
                     ));
                 }
-                166 => {
+                Z0 => {
                     dvi_z0();
                 }
-                167 | 168 | 169 | 170 => {
+                Z1 | Z2 | Z3 | Z4 => {
                     dvi_z(sqxfw(
                         ptsize,
-                        get_pkt_signed_num(&mut start, end, (opcode as i32 - 167i32) as u8),
+                        get_pkt_signed_num(&mut start, end, opcode - Z1),
                     ));
                 }
-                235 | 236 | 237 | 238 => {
-                    vf_fnt(
-                        get_pkt_signed_num(&mut start, end, (opcode as i32 - 235i32) as u8),
-                        vf_font,
-                    );
+                FNT1 | FNT2 | FNT3 | FNT4 => {
+                    vf_fnt(get_pkt_signed_num(&mut start, end, opcode - FNT1), vf_font);
                 }
-                239 | 240 | 241 | 242 => {
-                    let mut len: i32 =
-                        get_pkt_unsigned_num(&mut start, end, (opcode as i32 - 239i32) as u8);
-                    if len < 0i32 {
+                XXX1 | XXX2 | XXX3 | XXX4 => {
+                    let len = get_pkt_unsigned_num(&mut start, end, opcode - XXX1);
+                    if len < 0 {
                         warn!("VF: Special with {} bytes???", len);
                     } else {
                         vf_xxx(len, &mut start, end);
                     }
                 }
-                255 => {
+                PTEXDIR => {
                     dvi_dirchg(unsigned_byte(&mut start, end) as u8);
                 }
                 _ => {
-                    if opcode as i32 <= 127i32 {
+                    if opcode <= SET_CHAR_127 {
                         dvi_set(opcode as i32);
-                    } else if opcode as i32 >= 171i32 && opcode as i32 <= 234i32 {
-                        vf_fnt(opcode as i32 - 171i32, vf_font);
+                    } else if opcode >= FNT_NUM_0 && opcode <= FNT_NUM_63 {
+                        vf_fnt((opcode - FNT_NUM_0) as i32, vf_font);
                     } else {
-                        eprintln!("Unexpected opcode: {}", opcode as i32);
+                        eprintln!("Unexpected opcode: {}", opcode);
                         panic!("Unexpected opcode in vf file\n");
                     }
                 }
