@@ -3917,8 +3917,7 @@ unsafe extern "C" fn import_dict(
     pdf_add_dict(&mut *copy, pdf_name_value(&*key).to_bytes(), tmp); // TODO: check
     0i32
 }
-static mut loop_marker: pdf_obj = {
-    let mut init = pdf_obj {
+static mut loop_marker: pdf_obj = pdf_obj {
         typ: 0i32,
         label: 0_u32,
         generation: 0_u16,
@@ -3926,8 +3925,6 @@ static mut loop_marker: pdf_obj = {
         flags: 0i32,
         data: 0 as *const libc::c_void as *mut libc::c_void,
     };
-    init
-};
 unsafe fn pdf_import_indirect(mut object: *mut pdf_obj) -> *mut pdf_obj {
     let mut pf: *mut pdf_file = (*((*object).data as *mut pdf_indirect)).pf;
     let mut obj_num: u32 = (*((*object).data as *mut pdf_indirect)).label;

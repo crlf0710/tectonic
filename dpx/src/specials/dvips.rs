@@ -140,14 +140,11 @@ unsafe fn parse_filename(pp: &mut &[u8]) -> Option<CString> {
 /* =filename ... */
 unsafe fn spc_handler_ps_file(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut ti = transform_info::new();
-    let mut options: load_options = {
-        let mut init = load_options {
+    let mut options: load_options = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
             dict: 0 as *mut pdf_obj,
         };
-        init
-    };
     assert!(!spe.is_null() && !args.is_null());
     (*args).cur.skip_white();
     if (*args).cur.len() <= 1 || (*args).cur[0] != b'=' {
@@ -180,14 +177,11 @@ unsafe fn spc_handler_ps_file(mut spe: *mut spc_env, mut args: *mut spc_arg) -> 
 unsafe fn spc_handler_ps_plotfile(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut error: i32 = 0i32; /* xscale = 1.0, yscale = -1.0 */
     let mut p = transform_info::new();
-    let mut options: load_options = {
-        let mut init = load_options {
+    let mut options: load_options = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
             dict: 0 as *mut pdf_obj,
         };
-        init
-    };
     assert!(!spe.is_null() && !args.is_null());
     spc_warn!(spe, "\"ps: plotfile\" found (not properly implemented)");
     (*args).cur.skip_white();

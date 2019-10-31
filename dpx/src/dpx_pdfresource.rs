@@ -68,69 +68,42 @@ pub struct C2RustUnnamed {
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 static mut pdf_resource_categories: [C2RustUnnamed; 9] = [
-    {
-        let mut init = C2RustUnnamed {
+    C2RustUnnamed {
             name: b"Font\x00" as *const u8 as *const i8,
             cat_id: 0i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed {
+        },
+    C2RustUnnamed {
             name: b"CIDFont\x00" as *const u8 as *const i8,
             cat_id: 1i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed {
+        },
+    C2RustUnnamed {
             name: b"Encoding\x00" as *const u8 as *const i8,
             cat_id: 2i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed {
+        },
+    C2RustUnnamed {
             name: b"CMap\x00" as *const u8 as *const i8,
             cat_id: 3i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed {
+        },
+    C2RustUnnamed {
             name: b"XObject\x00" as *const u8 as *const i8,
             cat_id: 4i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed {
+        },
+    C2RustUnnamed {
             name: b"ColorSpace\x00" as *const u8 as *const i8,
             cat_id: 5i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed {
+        },
+    C2RustUnnamed {
             name: b"Shading\x00" as *const u8 as *const i8,
             cat_id: 6i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed {
+        },
+    C2RustUnnamed {
             name: b"Pattern\x00" as *const u8 as *const i8,
             cat_id: 7i32,
-        };
-        init
-    },
-    {
-        let mut init = C2RustUnnamed {
+        },
+    C2RustUnnamed {
             name: b"ExtGState\x00" as *const u8 as *const i8,
             cat_id: 8i32,
-        };
-        init
-    },
+        },
 ];
 static mut resources: [res_cache; 9] = [res_cache {
     count: 0,

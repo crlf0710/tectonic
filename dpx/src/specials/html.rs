@@ -84,18 +84,12 @@ use crate::dpx_pdfdev::Coord;
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-static mut _HTML_STATE: spc_html_ = {
-    let mut init = spc_html_ {
-        opts: {
-            let mut init = C2RustUnnamed_0 { extensions: 0i32 };
-            init
-        },
+static mut _HTML_STATE: spc_html_ = spc_html_ {
+        opts: C2RustUnnamed_0 { extensions: 0i32 },
         link_dict: 0 as *const pdf_obj as *mut pdf_obj,
         baseurl: 0 as *const i8 as *mut i8,
         pending_type: -1i32,
     };
-    init
-};
 /* ENABLE_HTML_SVG_TRANSFORM */
 unsafe fn parse_key_val(
     pp: &mut &[u8],
@@ -531,14 +525,11 @@ unsafe fn check_resourcestatus(category: &str, mut resname: &str) -> i32 {
 /* ENABLE_HTML_SVG_OPACITY */
 unsafe fn spc_html__img_empty(mut spe: *mut spc_env, attr: &pdf_obj) -> i32 {
     let mut ti = transform_info::new();
-    let mut options: load_options = {
-        let mut init = load_options {
+    let mut options: load_options = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
             dict: 0 as *mut pdf_obj,
         };
-        init
-    };
     let mut error: i32 = 0i32;
     let mut alpha: f64 = 1.0f64;
     /* ENABLE_HTML_SVG_OPACITY */

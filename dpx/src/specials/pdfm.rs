@@ -130,22 +130,16 @@ use crate::dpx_pdfdev::Coord;
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-static mut _PDF_STAT: spc_pdf_ = {
-    let mut init = spc_pdf_ {
+static mut _PDF_STAT: spc_pdf_ = spc_pdf_ {
         annot_dict: 0 as *const pdf_obj as *mut pdf_obj,
         lowest_level: 255i32,
         resourcemap: 0 as *const ht_table as *mut ht_table,
-        cd: {
-            let mut init = tounicode {
+        cd: tounicode {
                 cmap_id: -1i32,
                 unescape_backslash: 0i32,
                 taintkeys: 0 as *const pdf_obj as *mut pdf_obj,
-            };
-            init
-        },
+            },
     };
-    init
-};
 /* PLEASE REMOVE THIS */
 unsafe extern "C" fn hval_free(mut vp: *mut libc::c_void) {
     free(vp); /* unused */
@@ -980,14 +974,11 @@ unsafe fn spc_handler_pdfm_image(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     let mut sd: *mut spc_pdf_ = &mut _PDF_STAT;
     let mut ident = None;
     let mut ti = transform_info::new();
-    let mut options: load_options = {
-        let mut init = load_options {
+    let mut options: load_options = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
             dict: 0 as *mut pdf_obj,
         };
-        init
-    };
     (*args).cur.skip_white();
     if (*args).cur[0] == b'@' {
         ident = (*args).cur.parse_opt_ident();
@@ -1576,14 +1567,11 @@ unsafe fn spc_handler_pdfm_eform(mut _spe: *mut spc_env, mut args: *mut spc_arg)
 unsafe fn spc_handler_pdfm_uxobj(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut sd: *mut spc_pdf_ = &mut _PDF_STAT;
     let mut ti = transform_info::new();
-    let mut options: load_options = {
-        let mut init = load_options {
+    let mut options: load_options = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
             dict: 0 as *mut pdf_obj,
         };
-        init
-    };
     (*args).cur.skip_white();
     if let Some(ident) = (*args).cur.parse_opt_ident() {
         transform_info_clear(&mut ti);

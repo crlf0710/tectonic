@@ -94,8 +94,7 @@ pub unsafe extern "C" fn bmp_get_bbox(
     mut xdensity: *mut f64,
     mut ydensity: *mut f64,
 ) -> i32 {
-    let mut hdr: hdr_info = {
-        let mut init = hdr_info {
+    let mut hdr: hdr_info = hdr_info {
             offset: 0_u32,
             hsize: 0_u32,
             width: 0_u32,
@@ -106,8 +105,6 @@ pub unsafe extern "C" fn bmp_get_bbox(
             x_pix_per_meter: 0_u32,
             y_pix_per_meter: 0_u32,
         };
-        init
-    };
     handle.seek(SeekFrom::Start(0)).unwrap();
     let r = read_header(handle, &mut hdr);
     *width = hdr.width;
@@ -125,8 +122,7 @@ pub unsafe extern "C" fn bmp_include_image(
     handle: &mut InputHandleWrapper,
 ) -> i32 {
     let mut info = ximage_info::default();
-    let mut hdr: hdr_info = {
-        let mut init = hdr_info {
+    let mut hdr: hdr_info = hdr_info {
             offset: 0_u32,
             hsize: 0_u32,
             width: 0_u32,
@@ -137,8 +133,6 @@ pub unsafe extern "C" fn bmp_include_image(
             x_pix_per_meter: 0_u32,
             y_pix_per_meter: 0_u32,
         };
-        init
-    };
     let num_palette;
     pdf_ximage_init_image_info(&mut info);
     let colorspace;
