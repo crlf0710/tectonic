@@ -37,7 +37,7 @@ use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_get_version, pdf_new_array, pdf_new_dict,
+    pdf_add_array, pdf_add_stream, pdf_get_version, pdf_new_array, pdf_new_dict,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_stream_set_predictor, STREAM_COMPRESS,
 };
@@ -199,7 +199,7 @@ pub unsafe fn png_include_image(
     /* Non-NULL intent means there is valid sRGB chunk. */
     intent = get_rendering_intent(png, png_info);
     if !intent.is_null() {
-        pdf_add_dict(stream_dict, "Intent", intent);
+        stream_dict.as_dict_mut().set("Intent", intent);
     }
     match color_type as i32 {
         3 => {
@@ -276,7 +276,7 @@ pub unsafe fn png_include_image(
             warn!("{}: Unknown PNG colortype {}.", "PNG", color_type as i32,);
         }
     }
-    pdf_add_dict(stream_dict, "ColorSpace", colorspace);
+    stream_dict.as_dict_mut().set("ColorSpace", colorspace);
     pdf_add_stream(
         &mut *stream,
         stream_data_ptr as *const libc::c_void,
@@ -285,12 +285,12 @@ pub unsafe fn png_include_image(
     free(stream_data_ptr as *mut libc::c_void);
     if !mask.is_null() {
         if trans_type == 1i32 {
-            pdf_add_dict(stream_dict, "Mask", mask);
+            stream_dict.as_dict_mut().set("Mask", mask);
         } else if trans_type == 2i32 {
             if info.bits_per_component >= 8i32 && info.width > 64i32 {
                 pdf_stream_set_predictor(mask, 2i32, info.width, info.bits_per_component, 1i32);
             }
-            pdf_add_dict(stream_dict, "SMask", pdf_ref_obj(mask));
+            stream_dict.as_dict_mut().set("SMask", pdf_ref_obj(mask));
             pdf_release_obj(mask);
         } else {
             warn!("{}: Unknown transparency type...???", "PNG");
@@ -338,14 +338,14 @@ pub unsafe fn png_include_image(
                      */
                     let XMP_stream = pdf_new_stream(STREAM_COMPRESS);
                     let XMP_stream_dict = (*XMP_stream).as_stream_mut().get_dict_mut();
-                    pdf_add_dict(XMP_stream_dict, "Type", pdf_new_name("Metadata"));
-                    pdf_add_dict(XMP_stream_dict, "Subtype", pdf_new_name("XML"));
+                    XMP_stream_dict.as_dict_mut().set("Type", pdf_new_name("Metadata"));
+                    XMP_stream_dict.as_dict_mut().set("Subtype", pdf_new_name("XML"));
                     pdf_add_stream(
                         &mut *XMP_stream,
                         (*text_ptr.offset(i as isize)).text as *const libc::c_void,
                         (*text_ptr.offset(i as isize)).itxt_length as i32,
                     );
-                    pdf_add_dict(stream_dict, "Metadata", pdf_ref_obj(XMP_stream));
+                    stream_dict.as_dict_mut().set("Metadata", pdf_ref_obj(XMP_stream));
                     pdf_release_obj(XMP_stream);
                     have_XMP = 1i32
                 }
@@ -779,7 +779,7 @@ unsafe fn make_param_Cal(
         &mut *white_point,
         pdf_new_number((Zw / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
     );
-    pdf_add_dict(&mut *cal_param, "WhitePoint", white_point);
+    (*cal_param).as_dict_mut().set("WhitePoint", white_point);
     /* Matrix - default: Identity */
     if color_type as i32 & 2i32 != 0 {
         if G != 1.0f64 {
@@ -796,7 +796,7 @@ unsafe fn make_param_Cal(
                 &mut *dev_gamma,
                 pdf_new_number((G / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
             );
-            pdf_add_dict(&mut *cal_param, "Gamma", dev_gamma);
+            (*cal_param).as_dict_mut().set("Gamma", dev_gamma);
         }
         let matrix = pdf_new_array();
         pdf_add_array(
@@ -835,10 +835,9 @@ unsafe fn make_param_Cal(
             &mut *matrix,
             pdf_new_number((Zb / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
-        pdf_add_dict(&mut *cal_param, "Matrix", matrix);
+        (*cal_param).as_dict_mut().set("Matrix", matrix);
     } else if G != 1.0f64 {
-        pdf_add_dict(
-            &mut *cal_param,
+        (*cal_param).as_dict_mut().set(
             "Gamma",
             pdf_new_number((G / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
@@ -990,12 +989,12 @@ unsafe fn create_soft_mask(
     let smask_data_ptr = new((width.wrapping_mul(height) as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
         as *mut png_byte;
-    pdf_add_dict(dict, "Type", pdf_new_name("XObject"));
-    pdf_add_dict(dict, "Subtype", pdf_new_name("Image"));
-    pdf_add_dict(dict, "Width", pdf_new_number(width as f64));
-    pdf_add_dict(dict, "Height", pdf_new_number(height as f64));
-    pdf_add_dict(dict, "ColorSpace", pdf_new_name("DeviceGray"));
-    pdf_add_dict(dict, "BitsPerComponent", pdf_new_number(8i32 as f64));
+    dict.as_dict_mut().set("Type", pdf_new_name("XObject"));
+    dict.as_dict_mut().set("Subtype", pdf_new_name("Image"));
+    dict.as_dict_mut().set("Width", pdf_new_number(width as f64));
+    dict.as_dict_mut().set("Height", pdf_new_number(height as f64));
+    dict.as_dict_mut().set("ColorSpace", pdf_new_name("DeviceGray"));
+    dict.as_dict_mut().set("BitsPerComponent", pdf_new_number(8i32 as f64));
     for i in 0..width.wrapping_mul(height) {
         let mut idx: png_byte = *image_data_ptr.offset(i as isize);
         *smask_data_ptr.offset(i as isize) = (if (idx as i32) < num_trans {
@@ -1050,12 +1049,12 @@ unsafe fn strip_soft_mask(
     }
     let smask = pdf_new_stream(STREAM_COMPRESS);
     let dict = (*smask).as_stream_mut().get_dict_mut();
-    pdf_add_dict(dict, "Type", pdf_new_name("XObject"));
-    pdf_add_dict(dict, "Subtype", pdf_new_name("Image"));
-    pdf_add_dict(dict, "Width", pdf_new_number(width as f64));
-    pdf_add_dict(dict, "Height", pdf_new_number(height as f64));
-    pdf_add_dict(dict, "ColorSpace", pdf_new_name("DeviceGray"));
-    pdf_add_dict(dict, "BitsPerComponent", pdf_new_number(bpc as f64));
+    dict.as_dict_mut().set("Type", pdf_new_name("XObject"));
+    dict.as_dict_mut().set("Subtype", pdf_new_name("Image"));
+    dict.as_dict_mut().set("Width", pdf_new_number(width as f64));
+    dict.as_dict_mut().set("Height", pdf_new_number(height as f64));
+    dict.as_dict_mut().set("ColorSpace", pdf_new_name("DeviceGray"));
+    dict.as_dict_mut().set("BitsPerComponent", pdf_new_number(bpc as f64));
     let mut smask_data_ptr = new((((bpc as i32 / 8i32) as u32)
         .wrapping_mul(width)
         .wrapping_mul(height) as u64)

@@ -63,7 +63,7 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::tt_get_ps_fontname;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_array_length, pdf_merge_dict, pdf_new_array, pdf_new_name,
+    pdf_add_array, pdf_array_length, pdf_merge_dict, pdf_new_array, pdf_new_name,
     pdf_new_number, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length,
 };
 use crate::shims::sprintf;
@@ -260,8 +260,8 @@ pub unsafe fn pdf_font_open_truetype(mut font: *mut pdf_font) -> i32 {
         }
     }
     sfnt_close(sfont);
-    pdf_add_dict(fontdict, "Type", pdf_new_name("Font"));
-    pdf_add_dict(fontdict, "Subtype", pdf_new_name("TrueType"));
+    fontdict.as_dict_mut().set("Type", pdf_new_name("Font"));
+    fontdict.as_dict_mut().set("Subtype", pdf_new_name("TrueType"));
     0i32
 }
 const required_table: [SfntTableInfo; 12] = {
@@ -321,11 +321,11 @@ unsafe fn do_widths(mut font: *mut pdf_font, mut widths: *mut f64) {
         }
     }
     if pdf_array_length(&*tmparray) > 0_u32 {
-        pdf_add_dict(fontdict, "Widths", pdf_ref_obj(tmparray));
+        fontdict.as_dict_mut().set("Widths", pdf_ref_obj(tmparray));
     }
     pdf_release_obj(tmparray);
-    pdf_add_dict(fontdict, "FirstChar", pdf_new_number(firstchar as f64));
-    pdf_add_dict(fontdict, "LastChar", pdf_new_number(lastchar as f64));
+    fontdict.as_dict_mut().set("FirstChar", pdf_new_number(firstchar as f64));
+    fontdict.as_dict_mut().set("LastChar", pdf_new_number(lastchar as f64));
 }
 static mut verbose: i32 = 0i32;
 /*
@@ -1132,7 +1132,7 @@ pub unsafe fn pdf_font_load_truetype(mut font: *mut pdf_font) -> i32 {
     if verbose > 1i32 {
         info!("[{} bytes]", pdf_stream_length(&*fontfile));
     }
-    pdf_add_dict(&mut *descriptor, "FontFile2", pdf_ref_obj(fontfile));
+    (*descriptor).as_dict_mut().set("FontFile2", pdf_ref_obj(fontfile));
     pdf_release_obj(fontfile);
     0i32
 }

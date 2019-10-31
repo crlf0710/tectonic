@@ -27,7 +27,7 @@ use super::dpx_mem::{new, renew};
 use super::dpx_numbers::sget_unsigned_pair;
 use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_get_version, pdf_link_obj, pdf_new_array,
+    pdf_add_array, pdf_add_stream, pdf_get_version, pdf_link_obj, pdf_new_array,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj, pdf_release_obj,
     STREAM_COMPRESS,
 };
@@ -1036,8 +1036,7 @@ pub unsafe fn iccp_load_profile(
     pdf_add_array(&mut *resource, pdf_new_name("ICCBased"));
     pdf_add_array(&mut *resource, pdf_ref_obj(stream));
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
-    pdf_add_dict(
-        stream_dict,
+    stream_dict.as_dict_mut().set(
         "N",
         pdf_new_number(get_num_components_iccbased(cdata) as f64),
     );

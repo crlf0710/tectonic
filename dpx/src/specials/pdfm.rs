@@ -67,7 +67,7 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_array_length, pdf_new_name,
+    pdf_add_array, pdf_add_stream, pdf_array_length, pdf_new_name,
     pdf_foreach_dict, pdf_link_obj, pdf_merge_dict, pdf_name_value,
     pdf_new_array, pdf_new_dict, pdf_new_stream, pdf_number_value, pdf_obj, pdf_obj_typeof,
     pdf_release_obj, pdf_remove_dict, pdf_set_string, pdf_string_length,
@@ -276,7 +276,7 @@ unsafe fn safeputresdent(
             key.display()
         );
     } else {
-        pdf_add_dict(&mut *(dp as *mut pdf_obj), key.to_bytes(), pdf_link_obj(vp));
+        (*(dp as *mut pdf_obj)).as_dict_mut().set(key.to_bytes(), pdf_link_obj(vp));
     }
     0i32
 }
@@ -289,7 +289,7 @@ unsafe fn safeputresdict(
     let key = pdf_name_value(&*kp);
     let dict = (*(dp as *mut pdf_obj)).as_dict_mut().get_mut(key.to_bytes());
     if (*vp).is_indirect() {
-        pdf_add_dict(&mut *(dp as *mut pdf_obj), key.to_bytes(), pdf_link_obj(vp));
+        (*(dp as *mut pdf_obj)).as_dict_mut().set(key.to_bytes(), pdf_link_obj(vp));
     } else if (*vp).is_dict() {
         if let Some(dict) = dict {
             pdf_foreach_dict(
@@ -305,7 +305,7 @@ unsafe fn safeputresdict(
                 dict as *mut pdf_obj as *mut libc::c_void,
             );
         } else {
-            pdf_add_dict(&mut *(dp as *mut pdf_obj), key.to_bytes(), pdf_link_obj(vp));
+            (*(dp as *mut pdf_obj)).as_dict_mut().set(key.to_bytes(), pdf_link_obj(vp));
         }
     } else {
         warn!(

@@ -54,7 +54,7 @@ use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
 use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load_font};
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_add_stream_str, pdf_array_length, pdf_new_array,
+    pdf_add_array, pdf_add_stream, pdf_add_stream_str, pdf_array_length, pdf_new_array,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS,
 };
@@ -385,12 +385,12 @@ unsafe fn get_font_attr(mut font: *mut pdf_font, cffont: &cff_font) {
         flags |= 1i32 << 17i32
     }
     flags |= 1i32 << 2i32;
-    pdf_add_dict(&mut *descriptor, "CapHeight", pdf_new_number(capheight));
-    pdf_add_dict(&mut *descriptor, "Ascent", pdf_new_number(ascent));
-    pdf_add_dict(&mut *descriptor, "Descent", pdf_new_number(descent));
-    pdf_add_dict(&mut *descriptor, "ItalicAngle", pdf_new_number(italicangle));
-    pdf_add_dict(&mut *descriptor, "StemV", pdf_new_number(stemv));
-    pdf_add_dict(&mut *descriptor, "Flags", pdf_new_number(flags as f64));
+    (*descriptor).as_dict_mut().set("CapHeight", pdf_new_number(capheight));
+    (*descriptor).as_dict_mut().set("Ascent", pdf_new_number(ascent));
+    (*descriptor).as_dict_mut().set("Descent", pdf_new_number(descent));
+    (*descriptor).as_dict_mut().set("ItalicAngle", pdf_new_number(italicangle));
+    (*descriptor).as_dict_mut().set("StemV", pdf_new_number(stemv));
+    (*descriptor).as_dict_mut().set("Flags", pdf_new_number(flags as f64));
 }
 unsafe fn add_metrics(
     mut font: *mut pdf_font,
@@ -436,7 +436,7 @@ unsafe fn add_metrics(
             pdf_new_number((val / 1.0f64 + 0.5f64).floor() * 1.0f64),
         );
     }
-    pdf_add_dict(&mut *descriptor, "FontBBox", tmp_array);
+    (*descriptor).as_dict_mut().set("FontBBox", tmp_array);
     let tmp_array = pdf_new_array();
     if num_glyphs <= 1i32 {
         /* This must be an error. */
@@ -506,11 +506,11 @@ unsafe fn add_metrics(
         }
     }
     if pdf_array_length(&*tmp_array) > 0_u32 {
-        pdf_add_dict(fontdict, "Widths", pdf_ref_obj(tmp_array));
+        fontdict.as_dict_mut().set("Widths", pdf_ref_obj(tmp_array));
     }
     pdf_release_obj(tmp_array);
-    pdf_add_dict(fontdict, "FirstChar", pdf_new_number(firstchar as f64));
-    pdf_add_dict(fontdict, "LastChar", pdf_new_number(lastchar as f64));
+    fontdict.as_dict_mut().set("FirstChar", pdf_new_number(firstchar as f64));
+    fontdict.as_dict_mut().set("LastChar", pdf_new_number(lastchar as f64));
 }
 unsafe fn write_fontfile(
     mut font: *mut pdf_font,
@@ -652,16 +652,15 @@ unsafe fn write_fontfile(
     /* Flush Font File */
     let fontfile = pdf_new_stream(STREAM_COMPRESS);
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
-    pdf_add_dict(&mut *descriptor, "FontFile3", pdf_ref_obj(fontfile));
-    pdf_add_dict(stream_dict, "Subtype", pdf_new_name("Type1C"));
+    (*descriptor).as_dict_mut().set("FontFile3", pdf_ref_obj(fontfile));
+    stream_dict.as_dict_mut().set("Subtype", pdf_new_name("Type1C"));
     pdf_add_stream(
         &mut *fontfile,
         stream_data.as_ptr() as *mut libc::c_void,
         offset as i32,
     );
     pdf_release_obj(fontfile);
-    pdf_add_dict(
-        &mut *descriptor,
+    (*descriptor).as_dict_mut().set(
         "CharSet",
         pdf_new_string(
             pdf_stream_dataptr(&*pdfcharset),
@@ -728,10 +727,10 @@ pub unsafe fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
         enc_vec = pdf_encoding_get_encoding(encoding_id)
     } else {
         /* Create enc_vec and ToUnicode CMap for built-in encoding. */
-        if !(*fontdict).as_dict().has("ToUnicode") {
+        if !fontdict.as_dict().has("ToUnicode") {
             let tounicode = pdf_create_ToUnicode_CMap(fullname, enc_vec, usedchars);
             if !tounicode.is_null() {
-                pdf_add_dict(fontdict, "ToUnicode", pdf_ref_obj(tounicode));
+                fontdict.as_dict_mut().set("ToUnicode", pdf_ref_obj(tounicode));
                 pdf_release_obj(tounicode);
             }
         }

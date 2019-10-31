@@ -32,7 +32,7 @@ use tectonic_bridge::ttstub_input_close;
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::{tt_get_unsigned_pair, tt_get_unsigned_quad};
 use crate::dpx_pdfobj::{
-    pdf_add_dict, pdf_add_stream, pdf_new_number, pdf_new_stream, pdf_obj, pdf_release_obj,
+    pdf_add_stream, pdf_new_number, pdf_new_stream, pdf_obj, pdf_release_obj,
     STREAM_COMPRESS,
 };
 use crate::dpx_truetype::SfntTableInfo;
@@ -475,6 +475,6 @@ pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj 
         }
     }
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
-    pdf_add_dict(stream_dict, "Length1", pdf_new_number(offset as f64));
+    stream_dict.as_dict_mut().set("Length1", pdf_new_number(offset as f64));
     stream
 }

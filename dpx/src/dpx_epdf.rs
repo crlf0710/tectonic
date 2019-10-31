@@ -34,7 +34,7 @@ use crate::warn;
 use super::dpx_pdfdoc::pdf_doc_get_page;
 use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_array_length, pdf_boolean_value, pdf_close, pdf_concat_stream,
+    pdf_add_array, pdf_array_length, pdf_boolean_value, pdf_close, pdf_concat_stream,
     pdf_deref_obj, pdf_file_get_catalog, pdf_file_get_version,
     pdf_get_version, pdf_import_object, pdf_new_array,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj,
@@ -182,15 +182,15 @@ pub unsafe fn pdf_include_page(
          * Add entries to contents stream dictionary.
          */
         let contents_dict = (*contents).as_stream_mut().get_dict_mut();
-        pdf_add_dict(contents_dict, "Type", pdf_new_name("XObject"));
-        pdf_add_dict(contents_dict, "Subtype", pdf_new_name("Form"));
-        pdf_add_dict(contents_dict, "FormType", pdf_new_number(1.0f64));
-        let bbox = pdf_new_array();
+        contents_dict.as_dict_mut().set("Type", pdf_new_name("XObject"));
+        contents_dict.as_dict_mut().set("Subtype", pdf_new_name("Form"));
+        contents_dict.as_dict_mut().set("FormType", pdf_new_number(1.0f64));
+       let bbox = pdf_new_array();
         pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.min.x));
         pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.min.y));
         pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.max.x));
         pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.max.y));
-        pdf_add_dict(contents_dict, "BBox", bbox);
+        contents_dict.as_dict_mut().set("BBox", bbox);
         let matrix = pdf_new_array();
         pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m11));
         pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m12));
@@ -198,8 +198,8 @@ pub unsafe fn pdf_include_page(
         pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m22));
         pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m31));
         pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m32));
-        pdf_add_dict(contents_dict, "Matrix", matrix);
-        pdf_add_dict(contents_dict, "Resources", pdf_import_object(resources));
+        contents_dict.as_dict_mut().set("Matrix", matrix);
+        contents_dict.as_dict_mut().set("Resources", pdf_import_object(resources));
         pdf_release_obj(resources);
 
         pdf_close(pf);
@@ -212,3 +212,4 @@ pub unsafe fn pdf_include_page(
         return -1;
     }
 }
+

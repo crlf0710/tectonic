@@ -31,7 +31,7 @@ use super::dpx_mem::new;
 use super::dpx_numbers::tt_get_unsigned_byte;
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_new_array, pdf_new_name, pdf_new_number,
+    pdf_add_array, pdf_add_stream, pdf_new_array, pdf_new_name, pdf_new_number,
     pdf_new_stream, pdf_new_string, pdf_release_obj,
     pdf_stream_set_predictor, STREAM_COMPRESS,
 };
@@ -217,7 +217,7 @@ pub unsafe fn bmp_include_image(
     } else {
         colorspace = pdf_new_name("DeviceRGB")
     }
-    pdf_add_dict(stream_dict, "ColorSpace", colorspace);
+    stream_dict.as_dict_mut().set("ColorSpace", colorspace);
     /* Raster data of BMP is four-byte aligned. */
     let stream_data_ptr;
     let mut rowbytes = (info.width * hdr.bit_count as i32 + 7i32) / 8i32;

@@ -372,7 +372,7 @@ pub unsafe fn pdf_out_init(
             xref_stream = pdf_new_stream(STREAM_COMPRESS);
             (*xref_stream).flags |= OBJ_NO_ENCRYPT;
             trailer_dict = (*xref_stream).as_stream_mut().get_dict_mut();
-            pdf_add_dict(&mut *trailer_dict, "Type", pdf_new_name("XRef"));
+            (*trailer_dict).as_dict_mut().set("Type", pdf_new_name("XRef"));
             do_objstm = 1i32
         } else {
             trailer_dict = pdf_new_dict();
@@ -472,7 +472,7 @@ unsafe fn dump_xref_stream() {
     pdf_add_array(&mut *w, pdf_new_number(1i32 as f64));
     pdf_add_array(&mut *w, pdf_new_number(poslen as f64));
     pdf_add_array(&mut *w, pdf_new_number(2i32 as f64));
-    pdf_add_dict(&mut *trailer_dict, "W", w);
+    (*trailer_dict).as_dict_mut().set("W", w);
     /* We need the xref entry for the xref stream right now */
     add_xref_entry(next_label - 1, 1_u8, startxref, 0_u16);
     for i in 0..next_label {
@@ -517,7 +517,7 @@ pub unsafe fn pdf_out_flush() {
         }
         /* Record where this xref is for trailer */
         startxref = pdf_output_file_position as u32;
-        pdf_add_dict(&mut *trailer_dict, "Size", pdf_new_number(next_label as f64));
+        (*trailer_dict).as_dict_mut().set("Size", pdf_new_number(next_label as f64));
         if !xref_stream.is_null() {
             dump_xref_stream();
         } else {
@@ -562,7 +562,7 @@ pub unsafe fn pdf_error_cleanup() {
 }
 
 pub unsafe fn pdf_set_root(mut object: *mut pdf_obj) {
-    if pdf_add_dict(&mut *trailer_dict, "Root", pdf_ref_obj(object)) != 0 {
+    if (*trailer_dict).as_dict_mut().set("Root", pdf_ref_obj(object)) != 0 {
         panic!("Root object already set!");
     }
     /* Adobe Readers don't like a document catalog inside an encrypted
@@ -574,21 +574,18 @@ pub unsafe fn pdf_set_root(mut object: *mut pdf_obj) {
         (*object).flags |= OBJ_NO_OBJSTM;
     };
 }
-
 pub unsafe fn pdf_set_info(mut object: *mut pdf_obj) {
-    if pdf_add_dict(&mut *trailer_dict, "Info", pdf_ref_obj(object)) != 0 {
+    if (*trailer_dict).as_dict_mut().set("Info", pdf_ref_obj(object)) != 0 {
         panic!("Info object already set!");
     };
 }
-
 pub unsafe fn pdf_set_id(mut id: *mut pdf_obj) {
-    if pdf_add_dict(&mut *trailer_dict, "ID", id) != 0 {
+    if (*trailer_dict).as_dict_mut().set("ID", id) != 0 {
         panic!("ID already set!");
     };
 }
-
 pub unsafe fn pdf_set_encrypt(mut encrypt: *mut pdf_obj) {
-    if pdf_add_dict(&mut *trailer_dict, "Encrypt", pdf_ref_obj(encrypt)) != 0 {
+    if (*trailer_dict).as_dict_mut().set("Encrypt", pdf_ref_obj(encrypt)) != 0 {
         panic!("Encrypt object already set!");
     }
     (*encrypt).flags |= OBJ_NO_ENCRYPT;
@@ -1210,43 +1207,45 @@ unsafe fn release_dict(mut data: *mut pdf_dict) {
     }
     free(data as *mut libc::c_void);
 }
-/* Array is ended by a node with NULL this pointer */
-/* pdf_add_dict returns 0 if the key is new and non-zero otherwise */
-pub unsafe fn pdf_add_dict<K>(dict: &mut pdf_obj, key: K, mut value: *mut pdf_obj) -> i32
-where
-    K: Into<Vec<u8>> + AsRef<[u8]>,
-{
-    assert!(dict.is_dict());
-    /* It seems that NULL is sometimes used for null object... */
-    if !value.is_null() && (value.is_null() || (*value).typ <= 0i32 || (*value).typ > 10i32) {
-        panic!("pdf_add_dict(): Passed invalid value");
-    }
-    /* If this key already exists, simply replace the value */
-    let mut data = &mut *(dict.data as *mut pdf_dict);
-    while !data.key.is_null() {
-        if key.as_ref() == pdf_name_value(&*data.key).to_bytes() {
-            /* Release the old value */
-            pdf_release_obj(data.value);
-            data.value = value;
-            return 1i32;
+impl pdf_dict {
+    /* Array is ended by a node with NULL this pointer */
+    /* pdf_add_dict returns 0 if the key is new and non-zero otherwise */
+    pub unsafe fn set<K>(&mut self, key: K, mut value: *mut pdf_obj) -> i32
+    where
+        K: Into<Vec<u8>> + AsRef<[u8]>,
+    {
+        /* It seems that NULL is sometimes used for null object... */
+        if !value.is_null() && (value.is_null() || (*value).typ <= 0i32 || (*value).typ > 10i32) {
+            panic!("pdf_add_dict(): Passed invalid value");
         }
-        data = &mut *data.next
+        /* If this key already exists, simply replace the value */
+        let mut data = self;
+        while !data.key.is_null() {
+            if key.as_ref() == pdf_name_value(&*data.key).to_bytes() {
+                /* Release the old value */
+                pdf_release_obj(data.value);
+                data.value = value;
+                return 1i32;
+            }
+            data = &mut *data.next
+        }
+        let name = pdf_new_name(key);
+        /*
+         * We didn't find the key. We build a new "end" node and add
+         * the new key just before the end
+         */
+        let new_node =
+            new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_dict>() as u64) as u32) as *mut pdf_dict;
+        (*new_node).key = ptr::null_mut();
+        (*new_node).value = ptr::null_mut();
+        (*new_node).next = ptr::null_mut();
+        data.next = new_node;
+        data.key = name;
+        data.value = value;
+        0i32
     }
-    let name = pdf_new_name(key);
-    /*
-     * We didn't find the key. We build a new "end" node and add
-     * the new key just before the end
-     */
-    let new_node =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_dict>() as u64) as u32) as *mut pdf_dict;
-    (*new_node).key = ptr::null_mut();
-    (*new_node).value = ptr::null_mut();
-    (*new_node).next = ptr::null_mut();
-    data.next = new_node;
-    data.key = name;
-    data.value = value;
-    0i32
 }
+
 /* pdf_merge_dict makes a link for each item in dict2 before stealing it */
 
 pub unsafe fn pdf_merge_dict(dict1: &mut pdf_obj, dict2: &pdf_obj) {
@@ -1254,8 +1253,7 @@ pub unsafe fn pdf_merge_dict(dict1: &mut pdf_obj, dict2: &pdf_obj) {
     assert!(dict2.is_dict());
     let mut data = dict2.data as *const pdf_dict;
     while !(*data).key.is_null() {
-        pdf_add_dict(
-            dict1,
+        dict1.as_dict_mut().set(
             //pdf_link_obj((*data).key),
             pdf_name_value(&*(*data).key).to_bytes(),
             pdf_link_obj((*data).value),
@@ -1771,10 +1769,10 @@ unsafe fn filter_create_predictor_dict(
     mut colors: libc::c_int,
 ) -> *mut pdf_obj {
     let parms = pdf_new_dict();
-    pdf_add_dict(&mut *parms, "BitsPerComponent", pdf_new_number(bpc as f64));
-    pdf_add_dict(&mut *parms, "Colors", pdf_new_number(colors as f64));
-    pdf_add_dict(&mut *parms, "Columns", pdf_new_number(columns as f64));
-    pdf_add_dict(&mut *parms, "Predictor", pdf_new_number(predictor as f64));
+    (*parms).as_dict_mut().set("BitsPerComponent", pdf_new_number(bpc as f64));
+    (*parms).as_dict_mut().set("Colors", pdf_new_number(colors as f64));
+    (*parms).as_dict_mut().set("Columns", pdf_new_number(columns as f64));
+    (*parms).as_dict_mut().set("Predictor", pdf_new_number(predictor as f64));
     return parms;
 }
 unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWrapper) {
@@ -1855,7 +1853,7 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
                     free(filtered as *mut libc::c_void);
                     filtered = filtered2;
                     filtered_length = length2 as libc::c_uint;
-                    pdf_add_dict(&mut *(*stream).dict, "DecodeParms", parms);
+                    (*(*stream).dict).as_dict_mut().set("DecodeParms", parms);
                 }
             }
             let filters = (*(*stream).dict).as_dict_mut().get_mut("Filter");
@@ -1879,7 +1877,7 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
                  * is crucial because otherwise Adobe Reader cannot read the
                  * cross-reference stream any more, cf. the PDF v1.5 Errata.
                  */
-                pdf_add_dict(&mut *(*stream).dict, "Filter", filter_name);
+                (*(*stream).dict).as_dict_mut().set("Filter", filter_name);
             }
 
             #[cfg(not(feature = "legacy-libz"))]
@@ -1936,8 +1934,7 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
         filtered = cipher;
         filtered_length = cipher_len as u32
     }
-    pdf_add_dict(
-        &mut *(*stream).dict,
+    (*(*stream).dict).as_dict_mut().set(
         "Length",
         pdf_new_number(filtered_length as f64),
     );
@@ -2697,11 +2694,9 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
         );
     }
     let dict = (*objstm).as_stream_mut().get_dict_mut();
-    pdf_add_dict(dict, "Type", pdf_new_name("ObjStm"));
-    pdf_add_dict(dict, "N", pdf_new_number(pos as f64));
-    pdf_add_dict(
-        dict,
-        "First",
+    dict.as_dict_mut().set("Type", pdf_new_name("ObjStm"));
+    dict.as_dict_mut().set("N", pdf_new_number(pos as f64));
+    dict.as_dict_mut().set("First",
         pdf_new_number((*stream).stream.len() as f64),
     );
     pdf_add_stream(&mut *objstm, old_buf.as_ptr() as *const libc::c_void, old_buf.len() as i32);
@@ -3921,12 +3916,12 @@ unsafe fn import_dict(
     mut value: *mut pdf_obj,
     mut pdata: *mut libc::c_void,
 ) -> i32 {
-    let copy = pdata as *mut pdf_obj;
+    let copy = &mut *(pdata as *mut pdf_obj);
     let tmp = pdf_import_object(value);
     if tmp.is_null() {
         return -1i32;
     }
-    pdf_add_dict(&mut *copy, pdf_name_value(&*key).to_bytes(), tmp); // TODO: check
+    copy.as_dict_mut().set(pdf_name_value(&*key).to_bytes(), tmp); // TODO: check
     0i32
 }
 static mut loop_marker: pdf_obj = pdf_obj {

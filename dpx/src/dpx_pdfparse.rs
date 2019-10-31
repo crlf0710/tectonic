@@ -35,7 +35,7 @@ use std::ptr;
 use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_new_name, pdf_deref_obj, pdf_file,
+    pdf_add_array, pdf_add_stream, pdf_new_name, pdf_deref_obj, pdf_file,
     pdf_merge_dict, pdf_name_value, pdf_new_array, pdf_new_boolean, pdf_new_dict,
     pdf_new_indirect, pdf_new_null, pdf_new_number, pdf_new_stream, pdf_new_string,
     pdf_number_value, pdf_obj, pdf_release_obj, STREAM_COMPRESS,
@@ -575,7 +575,7 @@ impl ParsePdfObj for &[u8] {
             if let Some(key) = p.parse_pdf_name() {
                 p.skip_white();
                 if let Some(value) = p.parse_pdf_object(pf) {
-                    unsafe{ pdf_add_dict(&mut *result, pdf_name_value(&*key).to_bytes(), value); }
+                    unsafe{ (*result).as_dict_mut().set(pdf_name_value(&*key).to_bytes(), value); }
                     p.skip_white();
                 } else {
                     unsafe{ pdf_release_obj(key);

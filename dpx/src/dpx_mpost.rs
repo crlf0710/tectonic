@@ -62,7 +62,7 @@ use super::dpx_pdfparse::dump_slice;
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record};
 use super::dpx_tfm::{tfm_exists, tfm_get_width, tfm_open, tfm_string_width};
 use crate::dpx_pdfobj::{
-    pdf_add_dict, pdf_array_length, pdf_copy_name,
+    pdf_array_length, pdf_copy_name,
     pdf_name_value, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_number_value, pdf_obj,
     pdf_release_obj, pdf_set_number, pdf_string_length, pdf_string_value,
 };
@@ -522,18 +522,17 @@ unsafe fn do_findfont() -> i32 {
              * font scale.
              */
             let font_dict = pdf_new_dict();
-            pdf_add_dict(&mut *font_dict, "Type", pdf_new_name("Font"));
+            (*font_dict).as_dict_mut().set("Type", pdf_new_name("Font"));
             if (*font_name).is_string() {
-                pdf_add_dict(
-                    &mut *font_dict,
+                (*font_dict).as_dict_mut().set(
                     "FontName",
                     pdf_copy_name(pdf_string_value(&*font_name) as *const i8),
                 );
                 pdf_release_obj(font_name);
             } else {
-                pdf_add_dict(&mut *font_dict, "FontName", font_name);
+                (*font_dict).as_dict_mut().set("FontName", font_name);
             }
-            pdf_add_dict(&mut *font_dict, "FontScale", pdf_new_number(1.0f64));
+            (*font_dict).as_dict_mut().set("FontScale", pdf_new_number(1.0f64));
             if STACK.push_checked(font_dict).is_err() {
                 pdf_release_obj(font_dict);
                 error = 1i32
@@ -601,9 +600,9 @@ unsafe fn do_currentfont() -> i32 {
         return 1i32;
     } else {
         let font_dict = pdf_new_dict();
-        pdf_add_dict(&mut *font_dict, "Type", pdf_new_name("Font"));
-        pdf_add_dict(&mut *font_dict, "FontName", pdf_new_name((*font).font_name.to_bytes()));
-        pdf_add_dict(&mut *font_dict, "FontScale", pdf_new_number((*font).pt_size));
+        (*font_dict).as_dict_mut().set("Type", pdf_new_name("Font"));
+        (*font_dict).as_dict_mut().set("FontName", pdf_new_name((*font).font_name.to_bytes()));
+        (*font_dict).as_dict_mut().set("FontScale", pdf_new_number((*font).pt_size));
         if STACK.len() < 1024 {
             STACK.push(font_dict)
         } else {

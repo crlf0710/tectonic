@@ -43,7 +43,7 @@ use super::dpx_pdfencoding::pdf_load_ToUnicode_stream;
 use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resource_reference};
 use super::dpx_tt_cmap::otf_create_ToUnicode_stream;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_add_stream_str, pdf_copy_name, pdf_get_version, pdf_link_obj,
+    pdf_add_array, pdf_add_stream, pdf_add_stream_str, pdf_copy_name, pdf_get_version, pdf_link_obj,
     pdf_new_array, pdf_new_dict, pdf_new_name, pdf_new_stream, pdf_obj,
     pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
 };
@@ -192,7 +192,7 @@ unsafe fn add_ToUnicode(mut font: *mut Type0Font) {
                 /* This should work */
                 tounicode = pdf_new_name("Identity-H")
             }
-            pdf_add_dict(&mut *(*font).fontdict, "ToUnicode", tounicode);
+            (*(*font).fontdict).as_dict_mut().set("ToUnicode", tounicode);
             return;
         }
     }
@@ -240,7 +240,7 @@ unsafe fn add_ToUnicode(mut font: *mut Type0Font) {
         free(cmap_base as *mut libc::c_void);
     }
     if !tounicode.is_null() {
-        pdf_add_dict(&mut *(*font).fontdict, "ToUnicode", tounicode);
+        (*(*font).fontdict).as_dict_mut().set("ToUnicode", tounicode);
     } else {
         warn!(
             "Failed to load ToUnicode CMap for font \"{}\"",
@@ -254,7 +254,7 @@ pub unsafe fn Type0Font_set_ToUnicode(
     mut cmap_ref: *mut pdf_obj,
 ) {
     assert!(!font.is_null());
-    pdf_add_dict(&mut *(*font).fontdict, "ToUnicode", cmap_ref);
+    (*(*font).fontdict).as_dict_mut().set("ToUnicode", cmap_ref);
 }
 unsafe fn Type0Font_dofont(mut font: *mut Type0Font) {
     if font.is_null() || (*font).indirect.is_null() {
@@ -296,7 +296,7 @@ pub unsafe fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mut pdf_obj {
     if (*font).indirect.is_null() {
         let array = pdf_new_array();
         pdf_add_array(&mut *array, CIDFont_get_resource((*font).descendant));
-        pdf_add_dict(&mut *(*font).fontdict, "DescendantFonts", array);
+        (*(*font).fontdict).as_dict_mut().set("DescendantFonts", array);
         (*font).indirect = pdf_ref_obj((*font).fontdict)
     }
     pdf_link_obj((*font).indirect)
@@ -408,8 +408,8 @@ pub unsafe fn Type0Font_cache_find(
      * Now we start font dictionary.
      */
     (*font).fontdict = pdf_new_dict();
-    pdf_add_dict(&mut *(*font).fontdict, "Type", pdf_new_name("Font"));
-    pdf_add_dict(&mut *(*font).fontdict, "Subtype", pdf_new_name("Type0"));
+    (*(*font).fontdict).as_dict_mut().set("Type", pdf_new_name("Font"));
+    (*(*font).fontdict).as_dict_mut().set("Subtype", pdf_new_name("Type0"));
     /*
      * Type0 font does not have FontDescriptor because it is not a simple font.
      * Instead, DescendantFonts appears here.
@@ -460,8 +460,7 @@ pub unsafe fn Type0Font_cache_find(
                 fontname,
                 (*font).encoding,
             );
-            pdf_add_dict(
-                &mut *(*font).fontdict,
+            (*(*font).fontdict).as_dict_mut().set(
                 "BaseFont",
                 pdf_copy_name((*font).fontname),
             );
@@ -483,15 +482,14 @@ pub unsafe fn Type0Font_cache_find(
              *
              *  Use different used_chars for H and V.
              */
-            pdf_add_dict(&mut *(*font).fontdict, "BaseFont", pdf_copy_name(fontname));
+            (*(*font).fontdict).as_dict_mut().set("BaseFont", pdf_copy_name(fontname));
             (*font).used_chars = new_used_chars2()
         }
         _ => {
             panic!("Unrecognized CIDFont Type");
         }
     }
-    pdf_add_dict(
-        &mut *(*font).fontdict,
+    (*(*font).fontdict).as_dict_mut().set(
         "Encoding",
         pdf_copy_name((*font).encoding),
     );

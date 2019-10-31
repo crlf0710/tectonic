@@ -44,7 +44,7 @@ use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_copy_name, pdf_get_version,
+    pdf_add_array, pdf_copy_name, pdf_get_version,
     pdf_link_obj, pdf_name_value, pdf_new_array, pdf_new_dict, pdf_new_number, pdf_obj,
     pdf_release_obj,
 };
@@ -127,9 +127,9 @@ unsafe fn create_encoding_resource(
     if !differences.is_null() {
         let mut resource = pdf_new_dict();
         if !baseenc.is_null() {
-            pdf_add_dict(&mut *resource, "BaseEncoding", pdf_link_obj((*baseenc).resource));
+            (*resource).as_dict_mut().set("BaseEncoding", pdf_link_obj((*baseenc).resource));
         }
-        pdf_add_dict(&mut *resource, "Differences", differences);
+        (*resource).as_dict_mut().set("Differences", differences);
         return resource;
     } else {
         /* Fix a bug with the MinionPro package using MnSymbol fonts

@@ -40,7 +40,7 @@ use super::dpx_dpxutil::{
 };
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_link_obj, pdf_new_array, pdf_new_dict, pdf_new_null,
+    pdf_add_array, pdf_link_obj, pdf_new_array, pdf_new_dict, pdf_new_null,
     pdf_new_string, pdf_new_undefined, pdf_obj, pdf_obj_typeof, pdf_ref_obj, pdf_release_obj,
     pdf_string_length, pdf_string_value, pdf_transfer_label, PdfObjType,
 };
@@ -281,7 +281,7 @@ unsafe fn build_name_tree(
             &mut *limits,
             pdf_new_string((*last).key as *const libc::c_void, (*last).keylen as size_t),
         );
-        pdf_add_dict(&mut *result, "Limits", limits);
+        (*result).as_dict_mut().set("Limits", limits);
     }
     if num_leaves > 0i32 && num_leaves <= 2i32 * 4i32 {
         /* Create leaf nodes. */
@@ -309,7 +309,7 @@ unsafe fn build_name_tree(
             pdf_release_obj((*cur).value);
             (*cur).value = ptr::null_mut();
         }
-        pdf_add_dict(&mut *result, "Names", names);
+        (*result).as_dict_mut().set("Names", names);
     } else if num_leaves > 0i32 {
         /* Intermediate node */
         let kids = pdf_new_array();
@@ -320,7 +320,7 @@ unsafe fn build_name_tree(
             pdf_add_array(&mut *kids, pdf_ref_obj(subtree));
             pdf_release_obj(subtree);
         }
-        pdf_add_dict(&mut *result, "Kids", kids);
+        (*result).as_dict_mut().set("Kids", kids);
     }
     result
 }
