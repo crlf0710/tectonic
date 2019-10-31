@@ -36,7 +36,7 @@ use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_stream, pdf_new_name, pdf_deref_obj, pdf_file,
-    pdf_merge_dict, pdf_name_value, pdf_new_array, pdf_new_boolean, pdf_new_dict,
+    pdf_name_value, pdf_new_array, pdf_new_boolean, pdf_new_dict,
     pdf_new_indirect, pdf_new_null, pdf_new_number, pdf_new_stream, pdf_new_string,
     pdf_number_value, pdf_obj, pdf_release_obj, STREAM_COMPRESS,
 };
@@ -504,7 +504,7 @@ impl ParsePdfObj for &[u8] {
             unsafe { pdf_new_stream(0) }
         };
         let stream_dict = unsafe { (*result).as_stream_mut().get_dict_mut() };
-        unsafe { pdf_merge_dict(stream_dict, &*dict); }
+        unsafe { stream_dict.as_dict_mut().merge((*dict).as_dict()); }
         unsafe { pdf_add_stream(&mut *result, p.as_ptr() as *const libc::c_void, stream_length); }
         p = &p[(stream_length as usize)..];
         /* Check "endsteam" */

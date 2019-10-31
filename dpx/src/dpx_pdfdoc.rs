@@ -68,7 +68,7 @@ use super::dpx_pngimage::check_for_png;
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_stream, pdf_add_stream_str, pdf_array_length, pdf_compare_reference,
     pdf_deref_obj, pdf_file, pdf_file_get_catalog, pdf_link_obj,
-    pdf_merge_dict, pdf_name_value, pdf_new_array, pdf_new_dict, pdf_new_name, pdf_new_number,
+    pdf_name_value, pdf_new_array, pdf_new_dict, pdf_new_name, pdf_new_number,
     pdf_new_stream, pdf_new_string, pdf_number_value, pdf_obj, pdf_obj_typeof, pdf_out_flush,
     pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id,
     pdf_set_info, pdf_set_root, pdf_stream_length, pdf_string_length,
@@ -339,7 +339,7 @@ unsafe fn pdf_doc_close_catalog(mut p: *mut pdf_doc) {
                 pdf_ref_obj((*p).root.viewerpref),
             );
         } else if let Some(tmp) = tmp.filter(|&tmp| (*tmp).is_dict()) {
-            pdf_merge_dict(&mut *(*p).root.viewerpref, &*tmp);
+            (*(*p).root.viewerpref).as_dict_mut().merge((*tmp).as_dict());
             (*(*p).root.dict).as_dict_mut().set(
                 "ViewerPreferences",
                 pdf_ref_obj((*p).root.viewerpref),
@@ -801,7 +801,7 @@ unsafe fn pdf_doc_close_page_tree(mut p: *mut pdf_doc) {
         (*p).pages.num_entries as i32,
         ptr::null_mut(),
     );
-    pdf_merge_dict(&mut *(*p).root.pages, &*page_tree_root);
+    (*(*p).root.pages).as_dict_mut().merge((*page_tree_root).as_dict());
     pdf_release_obj(page_tree_root);
     /* They must be after build_page_tree() */
     if !(*p).pages.bop.is_null() {
@@ -1780,7 +1780,7 @@ unsafe fn pdf_doc_close_names(mut p: *mut pdf_doc) {
         if tmp.is_none() {
             (*(*p).root.dict).as_dict_mut().set("Names", pdf_ref_obj((*p).root.names));
         } else if let Some(tmp) = tmp.filter(|&tmp| (*tmp).is_dict()) {
-            pdf_merge_dict(&mut *(*p).root.names, &*tmp);
+            (*(*p).root.names).as_dict_mut().merge((*tmp).as_dict());
             (*(*p).root.dict).as_dict_mut().set("Names", pdf_ref_obj((*p).root.names));
         } else {
             /* What should I do? */
@@ -2554,7 +2554,7 @@ unsafe fn pdf_doc_make_xform(
         xform_dict.as_dict_mut().set("Matrix", tmp);
     }
     if !attrib.is_null() {
-        pdf_merge_dict(xform_dict, &*attrib);
+        xform_dict.as_dict_mut().merge((*attrib).as_dict());
     }
     xform_dict.as_dict_mut().set("Resources", resources);
 }
@@ -2678,7 +2678,7 @@ pub unsafe fn pdf_doc_break_annot() {
     if breaking_state.dirty != 0 {
         /* Copy dict */
         let mut annot_dict = pdf_new_dict();
-        pdf_merge_dict(&mut *annot_dict, &*breaking_state.annot_dict);
+        (*annot_dict).as_dict_mut().merge((*breaking_state.annot_dict).as_dict());
         pdf_doc_add_annot(
             pdf_doc_current_page_number() as u32,
             &mut breaking_state.rect,

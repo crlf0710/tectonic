@@ -60,7 +60,7 @@ use super::dpx_pdffont::{
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_stream, pdf_add_stream_str, pdf_array_length, pdf_merge_dict,
+    pdf_add_array, pdf_add_stream, pdf_add_stream_str, pdf_array_length,
     pdf_new_array, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_ref_obj,
     pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS,
 };
@@ -199,7 +199,7 @@ pub unsafe fn pdf_font_open_type1c(mut font: *mut pdf_font) -> i32 {
     if tmp.is_null() {
         panic!("Could not obtain neccesary font info from OpenType table.");
     }
-    pdf_merge_dict(&mut *descriptor, &*tmp);
+    (*descriptor).as_dict_mut().merge((*tmp).as_dict());
     pdf_release_obj(tmp);
     if embedding == 0 {
         /* tt_get_fontdesc may have changed this */

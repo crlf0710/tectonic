@@ -63,7 +63,7 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::tt_get_ps_fontname;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_array_length, pdf_merge_dict, pdf_new_array, pdf_new_name,
+    pdf_add_array, pdf_array_length, pdf_new_array, pdf_new_name,
     pdf_new_number, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length,
 };
 use crate::shims::sprintf;
@@ -237,7 +237,7 @@ pub unsafe fn pdf_font_open_truetype(mut font: *mut pdf_font) -> i32 {
         panic!("Could not obtain necessary font info.");
     }
     assert!((*tmp).is_dict());
-    pdf_merge_dict(&mut *descriptor, &*tmp);
+    (*descriptor).as_dict_mut().merge((*tmp).as_dict());
     pdf_release_obj(tmp);
     if embedding == 0 {
         if encoding_id >= 0i32 && pdf_encoding_is_predefined(encoding_id) == 0 {

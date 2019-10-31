@@ -68,7 +68,7 @@ use crate::dpx_pdfdoc::{
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_stream, pdf_array_length, pdf_new_name,
-    pdf_foreach_dict, pdf_link_obj, pdf_merge_dict, pdf_name_value,
+    pdf_foreach_dict, pdf_link_obj, pdf_name_value,
     pdf_new_array, pdf_new_dict, pdf_new_stream, pdf_number_value, pdf_obj, pdf_obj_typeof,
     pdf_release_obj, pdf_remove_dict, pdf_set_string, pdf_string_length,
     pdf_string_value, PdfObjType, STREAM_COMPRESS,
@@ -373,12 +373,12 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
                     obj1 as *mut libc::c_void,
                 )
             } else {
-                pdf_merge_dict(&mut *obj1, &*obj2);
+                (*obj1).as_dict_mut().merge((*obj2).as_dict());
             }
         }
         PdfObjType::STREAM => {
             if (*obj2).is_dict() {
-                pdf_merge_dict((*obj1).as_stream_mut().get_dict_mut(), &*obj2);
+                (*obj1).as_stream_mut().get_dict_mut().as_dict_mut().merge((*obj2).as_dict());
             } else if (*obj2).is_stream() {
                 spc_warn!(
                     spe,
@@ -958,7 +958,7 @@ unsafe fn spc_handler_pdfm_bead(mut spe: *mut spc_env, mut args: *mut spc_arg) -
     /* Does this article exist yet */
     let article = spc_lookup_object(article_name.as_ptr());
     if !article.is_null() {
-        pdf_merge_dict(&mut *article, &*article_info);
+        (*article).as_dict_mut().merge((*article_info).as_dict());
         pdf_release_obj(article_info);
     } else {
         pdf_doc_begin_article(article_name.as_ptr(), pdf_link_obj(article_info));
@@ -1170,7 +1170,7 @@ unsafe fn spc_handler_pdfm_docinfo(mut spe: *mut spc_env, mut args: *mut spc_arg
     let mut sd: *mut spc_pdf_ = &mut _PDF_STAT;
     if let Some(dict) = (*args).cur.parse_pdf_dict_with_tounicode(&mut (*sd).cd) {
         let docinfo = pdf_doc_get_dictionary("Info");
-        pdf_merge_dict(&mut *docinfo, &*dict);
+        (*docinfo).as_dict_mut().merge((*dict).as_dict());
         pdf_release_obj(dict);
         0
     } else {
@@ -1186,10 +1186,10 @@ unsafe fn spc_handler_pdfm_docview(mut spe: *mut spc_env, mut args: *mut spc_arg
         let pref_old = (*catalog).as_dict_mut().get_mut("ViewerPreferences"); /* Close all? */
         let pref_add = (*dict).as_dict().get("ViewerPreferences");
         if let (Some(pref_old), Some(pref_add)) = (pref_old, pref_add) {
-            pdf_merge_dict(&mut *pref_old, &*pref_add);
+            (*pref_old).as_dict_mut().merge((*pref_add).as_dict());
             pdf_remove_dict(&mut *dict, "ViewerPreferences");
         }
-        pdf_merge_dict(&mut *catalog, &*dict);
+        (*catalog).as_dict_mut().merge((*dict).as_dict());
         pdf_release_obj(dict);
         0
     } else {
@@ -1418,7 +1418,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
             } else if (*tmp).as_dict().has("Filter") {
                 pdf_remove_dict(&mut *tmp, "Filter");
             }
-            pdf_merge_dict(stream_dict, &*tmp);
+            stream_dict.as_dict_mut().merge((*tmp).as_dict());
             pdf_release_obj(tmp);
         } else {
             spc_warn!(spe, "Parsing dictionary failed.");

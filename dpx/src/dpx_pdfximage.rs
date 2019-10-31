@@ -45,7 +45,7 @@ use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pngimage::{check_for_png, png_include_image};
 use crate::dpx_epdf::pdf_include_page;
 use crate::dpx_pdfobj::{
-    check_for_pdf, pdf_link_obj, pdf_merge_dict, pdf_new_name, pdf_new_number,
+    check_for_pdf, pdf_link_obj, pdf_new_name, pdf_new_number,
     pdf_obj, pdf_ref_obj, pdf_release_obj,
 };
 use crate::shims::sprintf;
@@ -534,7 +534,7 @@ pub unsafe fn pdf_ximage_set_image(
         ); /* Caller don't know we are using reference. */
     }
     if !(*I).attr.dict.is_null() {
-        pdf_merge_dict(dict, &*(*I).attr.dict);
+        dict.as_dict_mut().merge((*(*I).attr.dict).as_dict());
     }
     pdf_release_obj(resource);
     (*I).resource = ptr::null_mut();

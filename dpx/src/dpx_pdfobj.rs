@@ -1244,25 +1244,22 @@ impl pdf_dict {
         data.value = value;
         0i32
     }
-}
-
-/* pdf_merge_dict makes a link for each item in dict2 before stealing it */
-
-pub unsafe fn pdf_merge_dict(dict1: &mut pdf_obj, dict2: &pdf_obj) {
-    assert!(dict1.is_dict());
-    assert!(dict2.is_dict());
-    let mut data = dict2.data as *const pdf_dict;
-    while !(*data).key.is_null() {
-        dict1.as_dict_mut().set(
-            //pdf_link_obj((*data).key),
-            pdf_name_value(&*(*data).key).to_bytes(),
-            pdf_link_obj((*data).value),
-        );
-        data = (*data).next
+    /* pdf_merge_dict makes a link for each item in dict2 before stealing it */
+    pub unsafe fn merge(&mut self, dict2: &Self) {
+        let mut data = dict2;
+        while !(*data).key.is_null() {
+            self.set(
+                //pdf_link_obj((*data).key),
+                pdf_name_value(&*(*data).key).to_bytes(),
+                pdf_link_obj((*data).value),
+            );
+            data = &*(*data).next
+        }
     }
 }
 
-pub unsafe fn pdf_foreach_dict(
+#[no_mangle]
+pub unsafe extern "C" fn pdf_foreach_dict(
     dict: &mut pdf_obj,
     mut proc_0: Option<
         unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
@@ -2575,7 +2572,7 @@ pub unsafe fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) ->
 unsafe fn pdf_stream_uncompress(src: &mut pdf_obj) -> *mut pdf_obj {
     let mut dst = pdf_new_stream(0i32);
     assert!(src.is_stream());
-    pdf_merge_dict((*dst).as_stream_mut().get_dict_mut(), src.as_stream().get_dict());
+    (*dst).as_stream_mut().get_dict_mut().as_dict_mut().merge(src.as_stream().get_dict().as_dict());
     pdf_remove_dict((*dst).as_stream_mut().get_dict_mut(), "Length");
     pdf_concat_stream(dst, src);
     dst
@@ -3995,7 +3992,7 @@ pub unsafe fn pdf_import_object(mut object: *mut pdf_obj) -> *mut pdf_obj {
             }
             imported = pdf_new_stream(0i32);
             let stream_dict = (*imported).as_stream_mut().get_dict_mut();
-            pdf_merge_dict(stream_dict, &*tmp);
+            stream_dict.as_dict_mut().merge((*tmp).as_dict());
             pdf_release_obj(tmp);
             pdf_add_stream(
                 &mut *imported,
