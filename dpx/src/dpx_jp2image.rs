@@ -342,9 +342,9 @@ pub unsafe fn jp2_include_image(mut ximage: *mut pdf_ximage, mut fp: *mut FILE) 
     }
     let stream = pdf_new_stream(0i32);
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
-    stream_dict.as_dict_mut().set("Filter", pdf_new_name("JPXDecode"));
+    stream_dict.set("Filter", pdf_new_name("JPXDecode"));
     if smask != 0 {
-        stream_dict.as_dict_mut().set("SMaskInData", pdf_new_number(1i32 as f64));
+        stream_dict.set("SMaskInData", pdf_new_number(1i32 as f64));
     }
     /* Read whole file */
     rewind(fp);

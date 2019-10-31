@@ -1036,7 +1036,7 @@ pub unsafe fn iccp_load_profile(
     pdf_add_array(&mut *resource, pdf_new_name("ICCBased"));
     pdf_add_array(&mut *resource, pdf_ref_obj(stream));
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
-    stream_dict.as_dict_mut().set(
+    stream_dict.set(
         "N",
         pdf_new_number(get_num_components_iccbased(cdata) as f64),
     );

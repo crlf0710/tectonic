@@ -217,7 +217,7 @@ pub unsafe fn bmp_include_image(
     } else {
         colorspace = pdf_new_name("DeviceRGB")
     }
-    stream_dict.as_dict_mut().set("ColorSpace", colorspace);
+    stream_dict.set("ColorSpace", colorspace);
     /* Raster data of BMP is four-byte aligned. */
     let stream_data_ptr;
     let mut rowbytes = (info.width * hdr.bit_count as i32 + 7i32) / 8i32;

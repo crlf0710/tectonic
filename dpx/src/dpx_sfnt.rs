@@ -475,6 +475,6 @@ pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj 
         }
     }
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
-    stream_dict.as_dict_mut().set("Length1", pdf_new_number(offset as f64));
+    stream_dict.set("Length1", pdf_new_number(offset as f64));
     stream
 }

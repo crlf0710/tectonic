@@ -2504,9 +2504,9 @@ unsafe fn pdf_doc_make_xform(
     mut attrib: *mut pdf_obj,
 ) {
     let xform_dict = (*xform).as_stream_mut().get_dict_mut();
-    xform_dict.as_dict_mut().set("Type", pdf_new_name("XObject"));
-    xform_dict.as_dict_mut().set("Subtype", pdf_new_name("Form"));
-    xform_dict.as_dict_mut().set("FormType", pdf_new_number(1.0f64));
+    xform_dict.set("Type", pdf_new_name("XObject"));
+    xform_dict.set("Subtype", pdf_new_name("Form"));
+    xform_dict.set("FormType", pdf_new_number(1.0f64));
     let tmp = pdf_new_array();
     pdf_add_array(
         &mut *tmp,
@@ -2524,7 +2524,7 @@ unsafe fn pdf_doc_make_xform(
         &mut *tmp,
         pdf_new_number((bbox.max.y / 0.001 + 0.5).floor() * 0.001),
     );
-    xform_dict.as_dict_mut().set("BBox", tmp);
+    xform_dict.set("BBox", tmp);
     if let Some(matrix) = matrix {
         let tmp = pdf_new_array();
         pdf_add_array(
@@ -2551,12 +2551,12 @@ unsafe fn pdf_doc_make_xform(
             &mut *tmp,
             pdf_new_number((matrix.m32 / 0.001 + 0.5).floor() * 0.001),
         );
-        xform_dict.as_dict_mut().set("Matrix", tmp);
+        xform_dict.set("Matrix", tmp);
     }
     if !attrib.is_null() {
-        xform_dict.as_dict_mut().merge((*attrib).as_dict());
+        xform_dict.merge((*attrib).as_dict());
     }
-    xform_dict.as_dict_mut().set("Resources", resources);
+    xform_dict.set("Resources", resources);
 }
 /*
  * begin_form_xobj creates an xobject with its "origin" at

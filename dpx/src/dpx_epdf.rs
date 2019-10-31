@@ -182,15 +182,15 @@ pub unsafe fn pdf_include_page(
          * Add entries to contents stream dictionary.
          */
         let contents_dict = (*contents).as_stream_mut().get_dict_mut();
-        contents_dict.as_dict_mut().set("Type", pdf_new_name("XObject"));
-        contents_dict.as_dict_mut().set("Subtype", pdf_new_name("Form"));
-        contents_dict.as_dict_mut().set("FormType", pdf_new_number(1.0f64));
-       let bbox = pdf_new_array();
+        contents_dict.set("Type", pdf_new_name("XObject"));
+        contents_dict.set("Subtype", pdf_new_name("Form"));
+        contents_dict.set("FormType", pdf_new_number(1.0f64));
+        let bbox = pdf_new_array();
         pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.min.x));
         pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.min.y));
         pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.max.x));
         pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.max.y));
-        contents_dict.as_dict_mut().set("BBox", bbox);
+        contents_dict.set("BBox", bbox);
         let matrix = pdf_new_array();
         pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m11));
         pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m12));
@@ -198,8 +198,8 @@ pub unsafe fn pdf_include_page(
         pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m22));
         pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m31));
         pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m32));
-        contents_dict.as_dict_mut().set("Matrix", matrix);
-        contents_dict.as_dict_mut().set("Resources", pdf_import_object(resources));
+        contents_dict.set("Matrix", matrix);
+        contents_dict.set("Resources", pdf_import_object(resources));
         pdf_release_obj(resources);
 
         pdf_close(pf);

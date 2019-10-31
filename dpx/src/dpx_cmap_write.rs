@@ -368,11 +368,11 @@ pub unsafe fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj {
             "Supplement",
             pdf_new_number((*csi).supplement as f64),
         );
-        stream_dict.as_dict_mut().set("Type", pdf_new_name("CMap"));
-        stream_dict.as_dict_mut().set("CMapName", pdf_copy_name((*cmap).name));
-        stream_dict.as_dict_mut().set("CIDSystemInfo", csi_dict);
+        stream_dict.set("Type", pdf_new_name("CMap"));
+        stream_dict.set("CMapName", pdf_copy_name((*cmap).name));
+        stream_dict.set("CIDSystemInfo", csi_dict);
         if (*cmap).wmode != 0i32 {
-            stream_dict.as_dict_mut().set("WMode", pdf_new_number((*cmap).wmode as f64));
+            stream_dict.set("WMode", pdf_new_number((*cmap).wmode as f64));
         }
     }
     /* TODO:

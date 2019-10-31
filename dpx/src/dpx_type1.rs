@@ -653,7 +653,7 @@ unsafe fn write_fontfile(
     let fontfile = pdf_new_stream(STREAM_COMPRESS);
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
     (*descriptor).as_dict_mut().set("FontFile3", pdf_ref_obj(fontfile));
-    stream_dict.as_dict_mut().set("Subtype", pdf_new_name("Type1C"));
+    stream_dict.set("Subtype", pdf_new_name("Type1C"));
     pdf_add_stream(
         &mut *fontfile,
         stream_data.as_ptr() as *mut libc::c_void,

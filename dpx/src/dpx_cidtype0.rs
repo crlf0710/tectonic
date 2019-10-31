@@ -540,7 +540,7 @@ unsafe fn write_fontfile(mut font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     let fontfile = pdf_new_stream(STREAM_COMPRESS);
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
     (*(*font).descriptor).as_dict_mut().set("FontFile3", pdf_ref_obj(fontfile));
-    stream_dict.as_dict_mut().set("Subtype", pdf_new_name("CIDFontType0C"));
+    stream_dict.set("Subtype", pdf_new_name("CIDFontType0C"));
     pdf_add_stream(
         &mut *fontfile,
         dest.as_mut_ptr() as *const libc::c_void,

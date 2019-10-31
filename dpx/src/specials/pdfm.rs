@@ -378,7 +378,7 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
         }
         PdfObjType::STREAM => {
             if (*obj2).is_dict() {
-                (*obj1).as_stream_mut().get_dict_mut().as_dict_mut().merge((*obj2).as_dict());
+                (*obj1).as_stream_mut().get_dict_mut().merge((*obj2).as_dict());
             } else if (*obj2).is_stream() {
                 spc_warn!(
                     spe,
@@ -593,7 +593,7 @@ unsafe fn modstrings(
         }
         PdfObjType::STREAM => {
             r = pdf_foreach_dict(
-                (*vp).as_stream_mut().get_dict_mut(),
+                (*vp).as_stream_mut().get_dict_obj(),
                 Some(
                     modstrings
                         as unsafe fn(
@@ -1418,7 +1418,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
             } else if (*tmp).as_dict().has("Filter") {
                 pdf_remove_dict(&mut *tmp, "Filter");
             }
-            stream_dict.as_dict_mut().merge((*tmp).as_dict());
+            stream_dict.merge((*tmp).as_dict());
             pdf_release_obj(tmp);
         } else {
             spc_warn!(spe, "Parsing dictionary failed.");

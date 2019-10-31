@@ -504,7 +504,7 @@ impl ParsePdfObj for &[u8] {
             unsafe { pdf_new_stream(0) }
         };
         let stream_dict = unsafe { (*result).as_stream_mut().get_dict_mut() };
-        unsafe { stream_dict.as_dict_mut().merge((*dict).as_dict()); }
+        unsafe { stream_dict.merge((*dict).as_dict()); }
         unsafe { pdf_add_stream(&mut *result, p.as_ptr() as *const libc::c_void, stream_length); }
         p = &p[(stream_length as usize)..];
         /* Check "endsteam" */

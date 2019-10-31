@@ -199,7 +199,7 @@ pub unsafe fn png_include_image(
     /* Non-NULL intent means there is valid sRGB chunk. */
     intent = get_rendering_intent(png, png_info);
     if !intent.is_null() {
-        stream_dict.as_dict_mut().set("Intent", intent);
+        stream_dict.set("Intent", intent);
     }
     match color_type as i32 {
         3 => {
@@ -276,7 +276,7 @@ pub unsafe fn png_include_image(
             warn!("{}: Unknown PNG colortype {}.", "PNG", color_type as i32,);
         }
     }
-    stream_dict.as_dict_mut().set("ColorSpace", colorspace);
+    stream_dict.set("ColorSpace", colorspace);
     pdf_add_stream(
         &mut *stream,
         stream_data_ptr as *const libc::c_void,
@@ -285,12 +285,12 @@ pub unsafe fn png_include_image(
     free(stream_data_ptr as *mut libc::c_void);
     if !mask.is_null() {
         if trans_type == 1i32 {
-            stream_dict.as_dict_mut().set("Mask", mask);
+            stream_dict.set("Mask", mask);
         } else if trans_type == 2i32 {
             if info.bits_per_component >= 8i32 && info.width > 64i32 {
                 pdf_stream_set_predictor(mask, 2i32, info.width, info.bits_per_component, 1i32);
             }
-            stream_dict.as_dict_mut().set("SMask", pdf_ref_obj(mask));
+            stream_dict.set("SMask", pdf_ref_obj(mask));
             pdf_release_obj(mask);
         } else {
             warn!("{}: Unknown transparency type...???", "PNG");
@@ -338,14 +338,14 @@ pub unsafe fn png_include_image(
                      */
                     let XMP_stream = pdf_new_stream(STREAM_COMPRESS);
                     let XMP_stream_dict = (*XMP_stream).as_stream_mut().get_dict_mut();
-                    XMP_stream_dict.as_dict_mut().set("Type", pdf_new_name("Metadata"));
-                    XMP_stream_dict.as_dict_mut().set("Subtype", pdf_new_name("XML"));
+                    XMP_stream_dict.set("Type", pdf_new_name("Metadata"));
+                    XMP_stream_dict.set("Subtype", pdf_new_name("XML"));
                     pdf_add_stream(
                         &mut *XMP_stream,
                         (*text_ptr.offset(i as isize)).text as *const libc::c_void,
                         (*text_ptr.offset(i as isize)).itxt_length as i32,
                     );
-                    stream_dict.as_dict_mut().set("Metadata", pdf_ref_obj(XMP_stream));
+                    stream_dict.set("Metadata", pdf_ref_obj(XMP_stream));
                     pdf_release_obj(XMP_stream);
                     have_XMP = 1i32
                 }
@@ -989,12 +989,12 @@ unsafe fn create_soft_mask(
     let smask_data_ptr = new((width.wrapping_mul(height) as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
         as *mut png_byte;
-    dict.as_dict_mut().set("Type", pdf_new_name("XObject"));
-    dict.as_dict_mut().set("Subtype", pdf_new_name("Image"));
-    dict.as_dict_mut().set("Width", pdf_new_number(width as f64));
-    dict.as_dict_mut().set("Height", pdf_new_number(height as f64));
-    dict.as_dict_mut().set("ColorSpace", pdf_new_name("DeviceGray"));
-    dict.as_dict_mut().set("BitsPerComponent", pdf_new_number(8i32 as f64));
+    dict.set("Type", pdf_new_name("XObject"));
+    dict.set("Subtype", pdf_new_name("Image"));
+    dict.set("Width", pdf_new_number(width as f64));
+    dict.set("Height", pdf_new_number(height as f64));
+    dict.set("ColorSpace", pdf_new_name("DeviceGray"));
+    dict.set("BitsPerComponent", pdf_new_number(8i32 as f64));
     for i in 0..width.wrapping_mul(height) {
         let mut idx: png_byte = *image_data_ptr.offset(i as isize);
         *smask_data_ptr.offset(i as isize) = (if (idx as i32) < num_trans {
@@ -1049,12 +1049,12 @@ unsafe fn strip_soft_mask(
     }
     let smask = pdf_new_stream(STREAM_COMPRESS);
     let dict = (*smask).as_stream_mut().get_dict_mut();
-    dict.as_dict_mut().set("Type", pdf_new_name("XObject"));
-    dict.as_dict_mut().set("Subtype", pdf_new_name("Image"));
-    dict.as_dict_mut().set("Width", pdf_new_number(width as f64));
-    dict.as_dict_mut().set("Height", pdf_new_number(height as f64));
-    dict.as_dict_mut().set("ColorSpace", pdf_new_name("DeviceGray"));
-    dict.as_dict_mut().set("BitsPerComponent", pdf_new_number(bpc as f64));
+    dict.set("Type", pdf_new_name("XObject"));
+    dict.set("Subtype", pdf_new_name("Image"));
+    dict.set("Width", pdf_new_number(width as f64));
+    dict.set("Height", pdf_new_number(height as f64));
+    dict.set("ColorSpace", pdf_new_name("DeviceGray"));
+    dict.set("BitsPerComponent", pdf_new_number(bpc as f64));
     let mut smask_data_ptr = new((((bpc as i32 / 8i32) as u32)
         .wrapping_mul(width)
         .wrapping_mul(height) as u64)

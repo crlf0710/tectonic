@@ -371,7 +371,7 @@ pub unsafe fn pdf_out_init(
         if enable_object_stream {
             xref_stream = pdf_new_stream(STREAM_COMPRESS);
             (*xref_stream).flags |= OBJ_NO_ENCRYPT;
-            trailer_dict = (*xref_stream).as_stream_mut().get_dict_mut();
+            trailer_dict = (*xref_stream).as_stream_mut().get_dict_obj();
             (*trailer_dict).as_dict_mut().set("Type", pdf_new_name("XRef"));
             do_objstm = 1i32
         } else {
@@ -1974,11 +1974,14 @@ unsafe fn release_stream(streamptr: *mut pdf_stream) {
 }
 
 impl pdf_stream {
-    pub unsafe fn get_dict(&self) -> &pdf_obj {
-        &*self.dict
+    pub fn get_dict(&self) -> &pdf_dict {
+        unsafe { (*self.dict).as_dict() }
     }
-    pub unsafe fn get_dict_mut(&mut self) -> &mut pdf_obj {
-        &mut *self.dict
+    pub fn get_dict_mut(&mut self) -> &mut pdf_dict {
+        unsafe { (*self.dict).as_dict_mut() }
+    }
+    pub unsafe fn get_dict_obj(&mut self) -> &mut pdf_obj {
+        &mut (*self.dict)
     }
 }
 
@@ -2500,7 +2503,7 @@ pub unsafe fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) ->
     let mut stream_data = pdf_stream_dataptr(&*src) as *const i8;
     let mut stream_length = pdf_stream_length(&*src);
     let mut stream_dict = (*src).as_stream_mut().get_dict_mut();
-    if let Some(mut filter) = stream_dict.as_dict().get("Filter") {
+    if let Some(mut filter) = stream_dict.get("Filter") {
         let mut filter = &filter.clone(); // TODO: check
         #[cfg(feature = "libz-sys")]
         {
@@ -2511,9 +2514,9 @@ pub unsafe fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) ->
                 columns: 0,
             };
             let mut have_parms: libc::c_int = 0i32;
-            if stream_dict.as_dict().has("DecodeParms") {
+            if stream_dict.has("DecodeParms") {
                 /* Dictionary or array */
-                let mut tmp = pdf_deref_obj(stream_dict.as_dict_mut().get_mut("DecodeParms"));
+                let mut tmp = pdf_deref_obj(stream_dict.get_mut("DecodeParms"));
                 if !tmp.is_null() && (*tmp).is_array() {
                     if pdf_array_length(&*tmp) > 1i32 as libc::c_uint {
                         warn!("Unexpected size for DecodeParms array.");
@@ -2572,8 +2575,8 @@ pub unsafe fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) ->
 unsafe fn pdf_stream_uncompress(src: &mut pdf_obj) -> *mut pdf_obj {
     let mut dst = pdf_new_stream(0i32);
     assert!(src.is_stream());
-    (*dst).as_stream_mut().get_dict_mut().as_dict_mut().merge(src.as_stream().get_dict().as_dict());
-    pdf_remove_dict((*dst).as_stream_mut().get_dict_mut(), "Length");
+    (*dst).as_stream_mut().get_dict_mut().merge(src.as_stream().get_dict());
+    pdf_remove_dict((*dst).as_stream_mut().get_dict_obj(), "Length");
     pdf_concat_stream(dst, src);
     dst
 }
@@ -2691,9 +2694,9 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
         );
     }
     let dict = (*objstm).as_stream_mut().get_dict_mut();
-    dict.as_dict_mut().set("Type", pdf_new_name("ObjStm"));
-    dict.as_dict_mut().set("N", pdf_new_number(pos as f64));
-    dict.as_dict_mut().set("First",
+    dict.set("Type", pdf_new_name("ObjStm"));
+    dict.set("N", pdf_new_number(pos as f64));
+    dict.set("First",
         pdf_new_number((*stream).stream.len() as f64),
     );
     pdf_add_stream(&mut *objstm, old_buf.as_ptr() as *const libc::c_void, old_buf.len() as i32);
@@ -3037,14 +3040,14 @@ unsafe fn read_objstm(mut pf: *mut pdf_file, mut num: u32) -> *mut pdf_obj {
             pdf_release_obj(objstm);
             objstm = tmp;
             let dict = (*objstm).as_stream().get_dict();
-            let typ = dict.as_dict().get("Type").unwrap();
+            let typ = dict.get("Type").unwrap();
             if !(!typ.is_name() || pdf_name_value(typ).to_bytes() != b"ObjStm")
             {
-                if let Some(n_obj) = dict.as_dict().get("N")
+                if let Some(n_obj) = dict.get("N")
                     .filter(|&no| (*no).is_number())
                 {
                     let n = pdf_number_value(n_obj) as i32;
-                    if let Some(first_obj) = dict.as_dict().get("First")
+                    if let Some(first_obj) = dict.get("First")
                         .filter(|&fo| (*fo).is_number())
                     {
                         let first = pdf_number_value(first_obj) as i32;
@@ -3528,7 +3531,7 @@ unsafe fn parse_xref_stream(
         if !tmp.is_null() {
             pdf_release_obj(xrefstm);
             xrefstm = tmp;
-            *trailer = pdf_link_obj((*xrefstm).as_stream_mut().get_dict_mut());
+            *trailer = pdf_link_obj((*xrefstm).as_stream_mut().get_dict_obj());
             if let Some(size_obj) = (**trailer).as_dict().get("Size")
                 .filter(|&so| (*so).is_number())
             {
@@ -3986,13 +3989,13 @@ pub unsafe fn pdf_import_object(mut object: *mut pdf_obj) -> *mut pdf_obj {
             }
         }
         PdfObjType::STREAM => {
-            let tmp = pdf_import_object((*object).as_stream_mut().get_dict_mut());
+            let tmp = pdf_import_object((*object).as_stream_mut().get_dict_obj());
             if tmp.is_null() {
                 return ptr::null_mut();
             }
             imported = pdf_new_stream(0i32);
             let stream_dict = (*imported).as_stream_mut().get_dict_mut();
-            stream_dict.as_dict_mut().merge((*tmp).as_dict());
+            stream_dict.merge((*tmp).as_dict());
             pdf_release_obj(tmp);
             pdf_add_stream(
                 &mut *imported,

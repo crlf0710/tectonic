@@ -219,12 +219,12 @@ pub unsafe fn jpeg_include_image(
     /* JPEG image use DCTDecode. */
     let stream = pdf_new_stream(0i32);
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
-    stream_dict.as_dict_mut().set("Filter", pdf_new_name("DCTDecode"));
+    stream_dict.set("Filter", pdf_new_name("DCTDecode"));
     /* XMP Metadata */
     if pdf_get_version() >= 4_u32 {
         if j_info.flags & 1i32 << 4i32 != 0 {
             let XMP_stream = JPEG_get_XMP(&mut j_info);
-            stream_dict.as_dict_mut().set("Metadata", pdf_ref_obj(XMP_stream));
+            stream_dict.set("Metadata", pdf_ref_obj(XMP_stream));
             pdf_release_obj(XMP_stream);
         }
     }
@@ -258,7 +258,7 @@ pub unsafe fn jpeg_include_image(
                         pdf_stream_length(icc_stream),
                     );
                     if !intent.is_null() {
-                        stream_dict.as_dict_mut().set("Intent", intent);
+                        stream_dict.set("Intent", intent);
                     }
                 }
             }
@@ -274,7 +274,7 @@ pub unsafe fn jpeg_include_image(
             _ => {}
         }
     }
-    stream_dict.as_dict_mut().set("ColorSpace", colorspace);
+    stream_dict.set("ColorSpace", colorspace);
     if j_info.flags & 1i32 << 1i32 != 0 && j_info.num_components as i32 == 4i32 {
         warn!("Adobe CMYK JPEG: Inverted color assumed.");
         let decode = pdf_new_array();
@@ -282,7 +282,7 @@ pub unsafe fn jpeg_include_image(
             pdf_add_array(&mut *decode, pdf_new_number(1.0f64));
             pdf_add_array(&mut *decode, pdf_new_number(0.0f64));
         }
-        stream_dict.as_dict_mut().set("Decode", decode);
+        stream_dict.set("Decode", decode);
     }
     /* Copy file */
     JPEG_copy_stream(&mut j_info, stream, handle);
@@ -415,8 +415,8 @@ unsafe fn JPEG_get_XMP(mut j_info: *mut JPEG_info) -> *mut pdf_obj {
     /* I don't know if XMP Metadata should be compressed here.*/
     let XMP_stream = pdf_new_stream(STREAM_COMPRESS);
     let stream_dict = (*XMP_stream).as_stream_mut().get_dict_mut();
-    stream_dict.as_dict_mut().set("Type", pdf_new_name("Metadata"));
-    stream_dict.as_dict_mut().set("Subtype", pdf_new_name("XML"));
+    stream_dict.set("Type", pdf_new_name("Metadata"));
+    stream_dict.set("Subtype", pdf_new_name("XML"));
     for i in 0..(*j_info).num_appn {
         /* Not sure for the case of multiple segments */
         if !((*(*j_info).appn.offset(i as isize)).marker as u32 != JM_APP1 as i32 as u32

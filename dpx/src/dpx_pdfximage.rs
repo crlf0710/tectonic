@@ -522,19 +522,19 @@ pub unsafe fn pdf_ximage_set_image(
     (*I).attr.ydensity = info.ydensity;
     (*I).reference = pdf_ref_obj(resource);
     let dict = (*resource).as_stream_mut().get_dict_mut();
-    dict.as_dict_mut().set("Type", pdf_new_name("XObject"));
-    dict.as_dict_mut().set("Subtype", pdf_new_name("Image"));
-    dict.as_dict_mut().set("Width", pdf_new_number((*info).width as f64));
-    dict.as_dict_mut().set("Height", pdf_new_number((*info).height as f64));
+    dict.set("Type", pdf_new_name("XObject"));
+    dict.set("Subtype", pdf_new_name("Image"));
+    dict.set("Width", pdf_new_number((*info).width as f64));
+    dict.set("Height", pdf_new_number((*info).height as f64));
     if (*info).bits_per_component > 0i32 {
         /* Ignored for JPXDecode filter. FIXME */
-        dict.as_dict_mut().set(
+        dict.set(
             "BitsPerComponent",
             pdf_new_number((*info).bits_per_component as f64),
         ); /* Caller don't know we are using reference. */
     }
     if !(*I).attr.dict.is_null() {
-        dict.as_dict_mut().merge((*(*I).attr.dict).as_dict());
+        dict.merge((*(*I).attr.dict).as_dict());
     }
     pdf_release_obj(resource);
     (*I).resource = ptr::null_mut();
