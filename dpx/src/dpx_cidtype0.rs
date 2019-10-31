@@ -81,7 +81,7 @@ use super::dpx_type0::{
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_array_length, pdf_copy_name, pdf_new_array,
     pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj,
-    pdf_ref_obj, pdf_release_obj, pdf_stream_dict, STREAM_COMPRESS,
+    pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
 };
 use crate::dpx_truetype::sfnt_table_info;
 use crate::shims::sprintf;
@@ -540,7 +540,7 @@ unsafe fn write_fontfile(mut font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
      * FontFile
      */
     let fontfile = pdf_new_stream(STREAM_COMPRESS);
-    let stream_dict = pdf_stream_dict(&mut *fontfile);
+    let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
     pdf_add_dict(&mut *(*font).descriptor, "FontFile3", pdf_ref_obj(fontfile));
     pdf_add_dict(stream_dict, "Subtype", pdf_new_name("CIDFontType0C"));
     pdf_add_stream(
@@ -1988,7 +1988,7 @@ unsafe fn add_metrics(
         }
     }
     pdf_add_dict(&mut *(*font).fontdict, "DW", pdf_new_number(default_width));
-    if pdf_array_length(&*tmp) > 0_u32 {
+    if pdf_array_length(&*tmp) > 0 {
         pdf_add_dict(&mut *(*font).fontdict, "W", pdf_ref_obj(tmp));
     }
     pdf_release_obj(tmp);

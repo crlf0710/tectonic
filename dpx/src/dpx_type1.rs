@@ -53,9 +53,9 @@ use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
 use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load_font};
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_array_length, pdf_lookup_dict, pdf_new_array,
+    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_array_length, pdf_new_array,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_dataptr, pdf_stream_dict, pdf_stream_length, STREAM_COMPRESS,
+    pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
@@ -650,7 +650,7 @@ unsafe fn write_fontfile(
     /* Copyright and Trademark Notice ommited. */
     /* Flush Font File */
     let fontfile = pdf_new_stream(STREAM_COMPRESS);
-    let stream_dict = pdf_stream_dict(&mut *fontfile);
+    let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
     pdf_add_dict(&mut *descriptor, "FontFile3", pdf_ref_obj(fontfile));
     pdf_add_dict(stream_dict, "Subtype", pdf_new_name("Type1C"));
     pdf_add_stream(
@@ -727,7 +727,7 @@ pub unsafe extern "C" fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
         enc_vec = pdf_encoding_get_encoding(encoding_id)
     } else {
         /* Create enc_vec and ToUnicode CMap for built-in encoding. */
-        if pdf_lookup_dict(fontdict, "ToUnicode").is_none() {
+        if !(*fontdict).as_dict().has("ToUnicode") {
             let tounicode = pdf_create_ToUnicode_CMap(fullname, enc_vec, usedchars);
             if !tounicode.is_null() {
                 pdf_add_dict(fontdict, "ToUnicode", pdf_ref_obj(tounicode));

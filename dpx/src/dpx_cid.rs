@@ -45,7 +45,7 @@ use super::dpx_cidtype2::{
 };
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_add_dict, pdf_copy_name, pdf_file, pdf_get_version, pdf_link_obj, pdf_lookup_dict,
+    pdf_add_dict, pdf_copy_name, pdf_file, pdf_get_version, pdf_link_obj,
     pdf_name_value, pdf_new_name, pdf_number_value, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_remove_dict, pdf_string_value,
 };
@@ -938,12 +938,12 @@ unsafe fn CIDFont_base_open(
     let descriptor = start.parse_pdf_dict(0 as *mut pdf_file).unwrap();
     (*font).fontname = fontname;
     (*font).flags |= 1i32 << 0i32;
-    let tmp = pdf_lookup_dict(&mut *fontdict, "CIDSystemInfo")
+    let tmp = (*fontdict).as_dict().get("CIDSystemInfo")
         .filter(|&tmp| (*tmp).is_dict())
         .unwrap();
-    let registry = pdf_string_value(&*pdf_lookup_dict(&mut *tmp, "Registry").unwrap()) as *mut i8;
-    let ordering = pdf_string_value(&*pdf_lookup_dict(&mut *tmp, "Ordering").unwrap()) as *mut i8;
-    let supplement = pdf_number_value(&*pdf_lookup_dict(&mut *tmp, "Supplement").unwrap()) as i32;
+    let registry = pdf_string_value(tmp.as_dict().get("Registry").unwrap()) as *mut i8;
+    let ordering = pdf_string_value(tmp.as_dict().get("Ordering").unwrap()) as *mut i8;
+    let supplement = pdf_number_value(tmp.as_dict().get("Supplement").unwrap()) as i32;
     if !cmap_csi.is_null() {
         /* NULL for accept any */
         if strcmp(registry, (*cmap_csi).registry) != 0
@@ -974,7 +974,7 @@ unsafe fn CIDFont_base_open(
     strcpy((*(*font).csi).registry, registry);
     strcpy((*(*font).csi).ordering, ordering);
     (*(*font).csi).supplement = supplement;
-    let tmp = pdf_lookup_dict(&mut *fontdict, "Subtype")
+    let tmp = (*fontdict).as_dict().get("Subtype")
         .filter(|&tmp| (*tmp).is_name())
         .unwrap();
     let typ = pdf_name_value(&*tmp).to_string_lossy();
@@ -986,10 +986,10 @@ unsafe fn CIDFont_base_open(
         panic!("Unknown CIDFontType \"{}\"", typ);
     }
     if cidoptflags & 1i32 << 1i32 != 0 {
-        if pdf_lookup_dict(&mut *fontdict, "W").is_some() {
+        if (*fontdict).as_dict().has("W") {
             pdf_remove_dict(&mut *fontdict, "W");
         }
-        if pdf_lookup_dict(&mut *fontdict, "W2").is_some() {
+        if (*fontdict).as_dict().has("W2") {
             pdf_remove_dict(&mut *fontdict, "W2");
         }
     }

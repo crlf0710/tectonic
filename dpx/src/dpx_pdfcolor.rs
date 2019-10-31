@@ -29,7 +29,7 @@ use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_get_version, pdf_link_obj, pdf_new_array,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_stream_dict, STREAM_COMPRESS,
+    STREAM_COMPRESS,
 };
 use crate::mfree;
 use crate::shims::sprintf;
@@ -1034,7 +1034,7 @@ pub unsafe extern "C" fn iccp_load_profile(
     let stream = pdf_new_stream(STREAM_COMPRESS);
     pdf_add_array(&mut *resource, pdf_new_name("ICCBased"));
     pdf_add_array(&mut *resource, pdf_ref_obj(stream));
-    let stream_dict = pdf_stream_dict(&mut *stream);
+    let stream_dict = (*stream).as_stream_mut().get_dict_mut();
     pdf_add_dict(
         stream_dict,
         "N",

@@ -38,7 +38,7 @@ use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_get_version, pdf_new_array, pdf_new_dict,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_dict, pdf_stream_set_predictor, STREAM_COMPRESS,
+    pdf_release_obj, pdf_stream_set_predictor, STREAM_COMPRESS,
 };
 use crate::{ttstub_input_read};
 use libc::free;
@@ -190,7 +190,7 @@ pub unsafe extern "C" fn png_include_image(
         info.ydensity = 72.0f64 / 0.0254f64 / yppm as f64
     }
     let stream = pdf_new_stream(STREAM_COMPRESS);
-    let stream_dict = pdf_stream_dict(&mut *stream);
+    let stream_dict = (*stream).as_stream_mut().get_dict_mut();
     let stream_data_ptr = new((rowbytes.wrapping_mul(height) as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
         as u32) as *mut png_byte;
@@ -336,7 +336,7 @@ pub unsafe extern "C" fn png_include_image(
                      * and scan for that.
                      */
                     let XMP_stream = pdf_new_stream(STREAM_COMPRESS);
-                    let XMP_stream_dict = pdf_stream_dict(&mut *XMP_stream);
+                    let XMP_stream_dict = (*XMP_stream).as_stream_mut().get_dict_mut();
                     pdf_add_dict(XMP_stream_dict, "Type", pdf_new_name("Metadata"));
                     pdf_add_dict(XMP_stream_dict, "Subtype", pdf_new_name("XML"));
                     pdf_add_stream(
@@ -985,16 +985,16 @@ unsafe fn create_soft_mask(
         return 0 as *mut pdf_obj;
     }
     let smask = pdf_new_stream(STREAM_COMPRESS);
-    let dict = pdf_stream_dict(&mut *smask);
+    let dict = (*smask).as_stream_mut().get_dict_mut();
     let smask_data_ptr = new((width.wrapping_mul(height) as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
         as *mut png_byte;
-    pdf_add_dict(&mut *dict, "Type", pdf_new_name("XObject"));
-    pdf_add_dict(&mut *dict, "Subtype", pdf_new_name("Image"));
-    pdf_add_dict(&mut *dict, "Width", pdf_new_number(width as f64));
-    pdf_add_dict(&mut *dict, "Height", pdf_new_number(height as f64));
-    pdf_add_dict(&mut *dict, "ColorSpace", pdf_new_name("DeviceGray"));
-    pdf_add_dict(&mut *dict, "BitsPerComponent", pdf_new_number(8i32 as f64));
+    pdf_add_dict(dict, "Type", pdf_new_name("XObject"));
+    pdf_add_dict(dict, "Subtype", pdf_new_name("Image"));
+    pdf_add_dict(dict, "Width", pdf_new_number(width as f64));
+    pdf_add_dict(dict, "Height", pdf_new_number(height as f64));
+    pdf_add_dict(dict, "ColorSpace", pdf_new_name("DeviceGray"));
+    pdf_add_dict(dict, "BitsPerComponent", pdf_new_number(8i32 as f64));
     for i in 0..width.wrapping_mul(height) {
         let mut idx: png_byte = *image_data_ptr.offset(i as isize);
         *smask_data_ptr.offset(i as isize) = (if (idx as i32) < num_trans {
@@ -1048,7 +1048,7 @@ unsafe fn strip_soft_mask(
         }
     }
     let smask = pdf_new_stream(STREAM_COMPRESS);
-    let dict = pdf_stream_dict(&mut *smask);
+    let dict = (*smask).as_stream_mut().get_dict_mut();
     pdf_add_dict(dict, "Type", pdf_new_name("XObject"));
     pdf_add_dict(dict, "Subtype", pdf_new_name("Image"));
     pdf_add_dict(dict, "Width", pdf_new_number(width as f64));

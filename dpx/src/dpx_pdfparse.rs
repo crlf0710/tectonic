@@ -35,9 +35,9 @@ use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_new_name, pdf_deref_obj, pdf_file,
-    pdf_lookup_dict, pdf_merge_dict, pdf_name_value, pdf_new_array, pdf_new_boolean, pdf_new_dict,
+    pdf_merge_dict, pdf_name_value, pdf_new_array, pdf_new_boolean, pdf_new_dict,
     pdf_new_indirect, pdf_new_null, pdf_new_number, pdf_new_stream, pdf_new_string,
-    pdf_number_value, pdf_obj, pdf_release_obj, pdf_stream_dict, STREAM_COMPRESS,
+    pdf_number_value, pdf_obj, pdf_release_obj, STREAM_COMPRESS,
 };
 use crate::specials::spc_lookup_reference;
 use libc::{memcpy};
@@ -479,7 +479,7 @@ impl ParsePdfObj for &[u8] {
             p = &p[2..];
         }
         /* Stream length */
-        if let Some(tmp) = unsafe { pdf_lookup_dict(&mut *dict, "Length") } {
+        if let Some(tmp) = unsafe { (*dict).as_dict_mut().get_mut("Length") } {
             let tmp2 = unsafe { pdf_deref_obj(Some(tmp)) };
             if unsafe { !(*tmp2).is_number() } {
                 stream_length = -1
@@ -497,13 +497,12 @@ impl ParsePdfObj for &[u8] {
          * If Filter is not aselflied, set STREAM_COMPRESS flag.
          * Should we use filter for ASCIIHexEncode/ASCII85Encode-ed streams?
          */
-        let mut filters = unsafe { pdf_lookup_dict(&mut *dict, "Filter") };
-        let result = if filters.is_none() && stream_length > 10 {
+        let result = if unsafe { !(*dict).as_dict().has("Filter") } && stream_length > 10 {
             unsafe { pdf_new_stream(STREAM_COMPRESS) }
         } else {
             unsafe { pdf_new_stream(0) }
         };
-        let stream_dict = unsafe { pdf_stream_dict(&mut *result) };
+        let stream_dict = unsafe { (*result).as_stream_mut().get_dict_mut() };
         unsafe { pdf_merge_dict(stream_dict, &*dict); }
         unsafe { pdf_add_stream(&mut *result, p.as_ptr() as *const libc::c_void, stream_length); }
         p = &p[(stream_length as usize)..];

@@ -43,7 +43,7 @@ use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resou
 use super::dpx_tt_cmap::otf_create_ToUnicode_stream;
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_copy_name, pdf_get_version, pdf_link_obj,
-    pdf_lookup_dict, pdf_new_array, pdf_new_dict, pdf_new_name, pdf_new_stream, pdf_obj,
+    pdf_new_array, pdf_new_dict, pdf_new_name, pdf_new_stream, pdf_obj,
     pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
@@ -260,7 +260,7 @@ unsafe fn Type0Font_dofont(mut font: *mut Type0Font) {
     if font.is_null() || (*font).indirect.is_null() {
         return;
     }
-    if pdf_lookup_dict(&mut *(*font).fontdict, "ToUnicode").is_none() {
+    if !(*(*font).fontdict).as_dict().has("ToUnicode") {
         /* FIXME */
         add_ToUnicode(font);
     };

@@ -43,7 +43,7 @@ use super::dpx_pngimage::{check_for_png, png_include_image};
 use crate::dpx_epdf::pdf_include_page;
 use crate::dpx_pdfobj::{
     check_for_pdf, pdf_add_dict, pdf_link_obj, pdf_merge_dict, pdf_new_name, pdf_new_number,
-    pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_dict,
+    pdf_obj, pdf_ref_obj, pdf_release_obj,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
@@ -510,7 +510,7 @@ pub unsafe extern "C" fn pdf_ximage_set_image(
     (*I).attr.xdensity = info.xdensity;
     (*I).attr.ydensity = info.ydensity;
     (*I).reference = pdf_ref_obj(resource);
-    let dict = pdf_stream_dict(&mut *resource);
+    let dict = (*resource).as_stream_mut().get_dict_mut();
     pdf_add_dict(dict, "Type", pdf_new_name("XObject"));
     pdf_add_dict(dict, "Subtype", pdf_new_name("Image"));
     pdf_add_dict(dict, "Width", pdf_new_number((*info).width as f64));

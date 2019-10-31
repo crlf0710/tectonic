@@ -41,7 +41,7 @@ use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_get_version, pdf_new_array, pdf_new_name,
     pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_dataptr,
-    pdf_stream_dict, pdf_stream_length, STREAM_COMPRESS,
+    pdf_stream_length, STREAM_COMPRESS,
 };
 use crate::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_read};
 use libc::{free, memcmp, memset};
@@ -217,7 +217,7 @@ pub unsafe extern "C" fn jpeg_include_image(
     };
     /* JPEG image use DCTDecode. */
     let stream = pdf_new_stream(0i32);
-    let stream_dict = pdf_stream_dict(&mut *stream);
+    let stream_dict = (*stream).as_stream_mut().get_dict_mut();
     pdf_add_dict(stream_dict, "Filter", pdf_new_name("DCTDecode"));
     /* XMP Metadata */
     if pdf_get_version() >= 4_u32 {
@@ -413,7 +413,7 @@ unsafe fn JPEG_get_XMP(mut j_info: *mut JPEG_info) -> *mut pdf_obj {
     let mut count: i32 = 0i32;
     /* I don't know if XMP Metadata should be compressed here.*/
     let XMP_stream = pdf_new_stream(STREAM_COMPRESS);
-    let stream_dict = pdf_stream_dict(&mut *XMP_stream);
+    let stream_dict = (*XMP_stream).as_stream_mut().get_dict_mut();
     pdf_add_dict(stream_dict, "Type", pdf_new_name("Metadata"));
     pdf_add_dict(stream_dict, "Subtype", pdf_new_name("XML"));
     for i in 0..(*j_info).num_appn {
