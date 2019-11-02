@@ -161,8 +161,7 @@ use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
 use super::{
-    XeTeXFontMgr, XeTeXFontMgrFamily, XeTeXFontMgrFont, XeTeXFontMgrNameCollection,
-    XeTeXFontMgrOpSizeRec,
+    XeTeXFontMgr, XeTeXFontMgrFont, XeTeXFontMgrNameCollection,
 };
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
@@ -745,7 +744,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_terminate(mut self_0: *mut XeTeXFontMgr
 }
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
-    mut self_0: *const XeTeXFontMgr,
+    mut _self_0: *const XeTeXFontMgr,
     mut font: PlatformFontRef,
 ) -> *mut libc::c_char {
     let mut s: *mut FcChar8 = 0 as *mut FcChar8;

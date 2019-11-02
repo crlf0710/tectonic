@@ -3830,7 +3830,7 @@ unsafe extern "C" fn store_fmt_file() {
     INTPAR_set(INT_PAR__tracing_stats, 0);
     ttstub_output_close(fmt_out_owner);
 }
-unsafe extern "C" fn pack_buffered_name(mut n: small_number, mut a: i32, mut b: i32) {
+unsafe extern "C" fn pack_buffered_name(mut _n: small_number, mut _a: i32, mut _b: i32) {
     free(name_of_file as *mut libc::c_void);
     name_of_file = xmalloc(
         ((format_default_length + 1i32 + 1i32) as u64)
@@ -3840,7 +3840,7 @@ unsafe extern "C" fn pack_buffered_name(mut n: small_number, mut a: i32, mut b: 
     name_length = strlen(name_of_file) as i32;
 }
 unsafe extern "C" fn load_fmt_file() -> bool {
-    let mut current_block: u64;
+    let mut _current_block: u64;
     let mut j: i32 = 0;
     let mut k: i32 = 0;
     let mut p: i32 = 0;

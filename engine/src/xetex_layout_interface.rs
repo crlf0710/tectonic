@@ -259,10 +259,10 @@ extern "C" {
 }
 
 pub mod collection_types {
-    use super::size_t;
-    use super::{GlyphBBox, GlyphId, PlatformFontRef, XeTeXFontMgrFamily, XeTeXFontMgrFont};
-    use core::ptr::NonNull;
-    use std::collections::{BTreeMap, LinkedList, VecDeque};
+    
+    
+    
+    use std::collections::{BTreeMap, VecDeque};
     use std::ffi::CStr;
     use std::ffi::CString;
 
@@ -306,7 +306,6 @@ pub mod collection_types {
         key: *const libc::c_char,
         val: V,
     ) {
-        use std::ffi::CStr;
         let key = CStr::from_ptr(key);
         match (*self_0).get_mut(key) {
             Some(v) => {
@@ -482,7 +481,7 @@ pub struct XeTeXFontInst_Mac {
     pub m_fontRef: CTFontRef,
 }
 
-use crate::xetex_font_manager::{XeTeXFontMgr, XeTeXFontMgrFamily, XeTeXFontMgrFont};
+use crate::xetex_font_manager::{XeTeXFontMgr};
 
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
@@ -1431,10 +1430,10 @@ pub unsafe extern "C" fn deleteLayoutEngine(mut engine: XeTeXLayoutEngine) {
     XeTeXLayoutEngine_delete(engine);
 }
 unsafe extern "C" fn _decompose_compat(
-    mut ufuncs: *mut hb_unicode_funcs_t,
-    mut u: hb_codepoint_t,
-    mut decomposed: *mut hb_codepoint_t,
-    mut user_data: *mut libc::c_void,
+    mut _ufuncs: *mut hb_unicode_funcs_t,
+    mut _u: hb_codepoint_t,
+    mut _decomposed: *mut hb_codepoint_t,
+    mut _user_data: *mut libc::c_void,
 ) -> libc::c_uint {
     return 0i32 as libc::c_uint;
 }

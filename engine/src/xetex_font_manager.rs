@@ -27,6 +27,7 @@ use crate::xetex_layout_interface::__CTFontDescriptor;
 use harfbuzz_sys::{hb_font_t, hb_face_t, hb_font_get_face, hb_ot_layout_get_size_params};
 use freetype::freetype_sys;
 
+#[allow(improper_ctypes)]
 extern "C" {
     pub type XeTeXFont_rec;
     #[no_mangle]
@@ -449,7 +450,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Destroy() {
 }
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_getReqEngine(
-    mut self_0: *const XeTeXFontMgr,
+    mut _self_0: *const XeTeXFontMgr,
 ) -> libc::c_char {
     // return the requested rendering technology for the most recent findFont
     // or 0 if no specific technology was requested
@@ -457,7 +458,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_getReqEngine(
 }
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_setReqEngine(
-    mut self_0: *const XeTeXFontMgr,
+    mut _self_0: *const XeTeXFontMgr,
     mut reqEngine: libc::c_char,
 ) {
     XeTeXFontMgr_sReqEngine = reqEngine;
@@ -555,7 +556,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_findFont(
             let family_ptr = family_ptr.as_ptr();
             // look for a family member with the "regular" bit set in OS/2
             let mut regFonts: libc::c_int = 0i32;
-            for (k, v) in (*(*family_ptr).styles).iter() {
+            for (_k, v) in (*(*family_ptr).styles).iter() {
                 if v.as_ref().isReg {
                     if regFonts == 0i32 {
                         font = v.as_ptr();
@@ -941,7 +942,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_getFullName(
 }
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_weightAndWidthDiff(
-    mut self_0: *const XeTeXFontMgr,
+    mut _self_0: *const XeTeXFontMgr,
     mut a: *const XeTeXFontMgrFont,
     mut b: *const XeTeXFontMgrFont,
 ) -> libc::c_int {
@@ -964,7 +965,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_weightAndWidthDiff(
 }
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_styleDiff(
-    mut self_0: *const XeTeXFontMgr,
+    mut _self_0: *const XeTeXFontMgr,
     mut a: *const XeTeXFontMgrFont,
     mut wt: libc::c_int,
     mut wd: libc::c_int,
@@ -1001,7 +1002,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_bestMatchFromFamily(
 }
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_getOpSize(
-    mut self_0: *mut XeTeXFontMgr,
+    mut _self_0: *mut XeTeXFontMgr,
     mut font: XeTeXFont,
 ) -> *mut XeTeXFontMgrOpSizeRec {
     let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font as *mut XeTeXFontInst);
@@ -1100,7 +1101,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
 // append a name but only if it's not already in the list
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_appendToList(
-    mut self_0: *mut XeTeXFontMgr,
+    mut _self_0: *mut XeTeXFontMgr,
     mut list: *mut CppStdListOfString,
     mut str: *const libc::c_char,
 ) {
@@ -1121,7 +1122,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_appendToList(
 // prepend a name, removing it from later in the list if present
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_prependToList(
-    mut self_0: *mut XeTeXFontMgr,
+    mut _self_0: *mut XeTeXFontMgr,
     mut list: *mut CppStdListOfString,
     mut str: *const libc::c_char,
 ) {
@@ -1251,7 +1252,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_addToMaps(
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_base_terminate(mut self_0: *mut XeTeXFontMgr) {}
+pub unsafe extern "C" fn XeTeXFontMgr_base_terminate(mut _self_0: *mut XeTeXFontMgr) {}
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_base_ctor(mut self_0: *mut XeTeXFontMgr) {
     (*self_0).m_subdtor = None; /*abstract*/
