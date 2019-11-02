@@ -5,7 +5,6 @@
          non_upper_case_globals,
          unused_assignments,
          unused_mut)]
-#![feature(const_raw_ptr_to_usize_cast, extern_types)]
 
 use crate::core_memory::xmalloc;
 use harfbuzz_sys::{hb_font_funcs_t, hb_destroy_func_t, hb_font_t, hb_codepoint_t,
@@ -19,7 +18,7 @@ use harfbuzz_sys::{hb_font_funcs_t, hb_destroy_func_t, hb_font_t, hb_codepoint_t
     hb_font_set_scale, hb_font_set_ppem};
 
 use crate::{
-    ttstub_input_close, ttstub_input_get_size, ttstub_input_read, ttstub_input_getc, ttstub_input_open, 
+    ttstub_input_close, ttstub_input_get_size, ttstub_input_read, ttstub_input_open, 
 };
 
 use bridge::TTInputFormat;
@@ -772,7 +771,7 @@ pub type uint16_t = u16;
 pub type uint32_t = u32;
 pub type ssize_t = isize;
 
-use bridge::InputHandleWrapper;
+
 pub type UChar32 = int32_t;
 /* quasi-hack to get the primary input */
 /* */
@@ -1995,10 +1994,10 @@ unsafe extern "C" fn _get_glyph_v_advance(
 }
 unsafe extern "C" fn _get_glyph_h_origin(
     mut _hbf: *mut hb_font_t,
-    mut font_data: *mut libc::c_void,
-    mut gid: hb_codepoint_t,
-    mut x: *mut hb_position_t,
-    mut y: *mut hb_position_t,
+    mut _font_data: *mut libc::c_void,
+    mut _gid: hb_codepoint_t,
+    mut _x: *mut hb_position_t,
+    mut _y: *mut hb_position_t,
     mut _p: *mut libc::c_void,
 ) -> hb_bool_t {
     // horizontal origin is (0, 0)
@@ -2006,10 +2005,10 @@ unsafe extern "C" fn _get_glyph_h_origin(
 }
 unsafe extern "C" fn _get_glyph_v_origin(
     mut _hbf: *mut hb_font_t,
-    mut font_data: *mut libc::c_void,
-    mut gid: hb_codepoint_t,
-    mut x: *mut hb_position_t,
-    mut y: *mut hb_position_t,
+    mut _font_data: *mut libc::c_void,
+    mut _gid: hb_codepoint_t,
+    mut _x: *mut hb_position_t,
+    mut _y: *mut hb_position_t,
     mut _p: *mut libc::c_void,
 ) -> hb_bool_t {
     // vertical origin is (0, 0) for now
@@ -2042,9 +2041,9 @@ unsafe extern "C" fn _get_glyph_h_kerning(
 }
 unsafe extern "C" fn _get_glyph_v_kerning(
     mut _hbf: *mut hb_font_t,
-    mut font_data: *mut libc::c_void,
-    mut gid1: hb_codepoint_t,
-    mut gid2: hb_codepoint_t,
+    mut _font_data: *mut libc::c_void,
+    mut _gid1: hb_codepoint_t,
+    mut _gid2: hb_codepoint_t,
     mut _p: *mut libc::c_void,
 ) -> hb_position_t {
     /* FreeType does not support vertical kerning */

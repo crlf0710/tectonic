@@ -7,15 +7,12 @@
          non_upper_case_globals,
          unused_assignments,
          unused_mut)]
-#![feature(const_raw_ptr_to_usize_cast,
-           extern_types,
-           ptr_wrapping_offset_from)]
 
 use crate::stub_icu as icu;
 use crate::xetex_layout_interface::collection_types::*;
-use std::ffi::CString;
-use std::ptr::NonNull;
 
+
+#[allow(improper_ctypes)]
 extern "C" {
     pub type _FcPattern;
     pub type _FcConfig;
@@ -1533,8 +1530,7 @@ use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
 use super::{
-    XeTeXFontMgr, XeTeXFontMgrFamily, XeTeXFontMgrFont, XeTeXFontMgrNameCollection,
-    XeTeXFontMgrOpSizeRec,
+    XeTeXFontMgr, XeTeXFontMgrFont, XeTeXFontMgrNameCollection,
 };
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
@@ -2212,7 +2208,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_terminate(mut self_0: *mut XeTeXFontMgr
 }
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
-    mut self_0: *const XeTeXFontMgr,
+    mut _self_0: *const XeTeXFontMgr,
     mut font: PlatformFontRef,
 ) -> *mut libc::c_char {
     let mut s: *mut FcChar8 = 0 as *mut FcChar8;
