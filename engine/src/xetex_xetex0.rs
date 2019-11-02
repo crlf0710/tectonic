@@ -104,7 +104,7 @@ use crate::{
 };
 use crate::{TTHistory, TTInputFormat};
 use bridge::_tt_abort;
-use bridge::rust_input_handle_t;
+
 use libc::{free, memcpy, strcat, strcpy, strlen};
 
 use bridge::InputHandleWrapper;
@@ -9469,7 +9469,7 @@ pub unsafe extern "C" fn get_x_or_protected() {
 }
 #[no_mangle]
 pub unsafe extern "C" fn effective_char(
-    mut err_p: bool,
+    mut _err_p: bool,
     mut f: internal_font_number,
     mut c: u16,
 ) -> i32 {
@@ -17279,7 +17279,7 @@ pub unsafe extern "C" fn char_pw(mut p: i32, mut side: small_number) -> scaled_t
 #[no_mangle]
 pub unsafe extern "C" fn new_margin_kern(
     mut w: scaled_t,
-    mut p: i32,
+    mut _p: i32,
     mut side: small_number,
 ) -> i32 {
     let mut k: i32 = 0;

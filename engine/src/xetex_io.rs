@@ -13,7 +13,7 @@ use crate::stub_errno as errno;
 use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_ini::{
-    buf_size, buffer, cur_area, cur_chr, cur_ext, cur_name, cur_val, eqtb, first, last,
+    buf_size, buffer, cur_area, cur_chr, cur_ext, cur_name, cur_val, first, last,
     max_buf_stack, name_in_progress, name_length, name_length16, name_of_file, name_of_file16,
     read_file, read_open, stop_at_space,
 };
@@ -311,7 +311,7 @@ pub unsafe extern "C" fn set_input_file_encoding(
 pub unsafe extern "C" fn u_open_in(
     mut f: *mut *mut UFILE,
     mut filefmt: TTInputFormat,
-    mut fopen_mode: *const i8,
+    mut _fopen_mode: *const i8,
     mut mode: i32,
     mut encodingData: i32,
 ) -> i32 {
