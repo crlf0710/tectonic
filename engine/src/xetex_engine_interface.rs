@@ -47,8 +47,8 @@ pub unsafe extern "C" fn tt_xetex_set_int_variable(mut var_name: *mut i8, mut va
 }
 #[no_mangle]
 pub unsafe extern "C" fn tt_xetex_set_string_variable(
-    mut var_name: *mut i8,
-    mut value: *mut i8,
+    mut _var_name: *mut i8,
+    mut _value: *mut i8,
 ) -> i32 {
     /* Currently unused; see Git history for how we used to set output_comment */
     1

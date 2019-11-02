@@ -89,7 +89,7 @@ unsafe extern "C" fn peekable_open(
     })
 }
 unsafe extern "C" fn peekable_close(peekable: Option<peekable_input_t>) -> i32 {
-    let mut rv: i32 = 0;
+    let mut _rv: i32 = 0;
     if let Some(peekable_input_t { handle, .. }) = peekable {
         ttstub_input_close(handle)
     } else {
