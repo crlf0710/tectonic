@@ -487,7 +487,7 @@ unsafe fn spc_read_dimtrns_dvips(
                             }
                             4 => xscale = atof(vp) / 100.0f64,
                             5 => yscale = atof(vp) / 100.0f64,
-                            6 => rotate = 3.14159265358979323846f64 * atof(vp) / 180.0f64,
+                            6 => rotate = std::f64::consts::PI * atof(vp) / 180.0f64,
                             8 => {
                                 t.bbox.ll.x = atof(vp);
                                 t.flags |= 1i32 << 0i32
