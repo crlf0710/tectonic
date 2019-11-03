@@ -31,16 +31,8 @@ use std::io::{Read, Seek, SeekFrom};
 
 use super::dpx_mem::{new, xstrdup};
 use super::dpx_numbers::{tt_get_unsigned_pair, tt_get_unsigned_quad};
-use crate::mfree;
 use crate::{ttstub_input_close, ttstub_input_open};
-#[cfg(not(target_env = "msvc"))]
-use libc::mkstemp;
-use libc::{close, free, getenv, remove, strcat, strcpy, strlen, strncmp, strrchr};
-#[cfg(target_env = "msvc")]
-extern "C" {
-    #[link_name = "dpx_win32_mktemp_s"]
-    fn mktemp_s(template: *mut libc::c_char, size: libc::size_t) -> libc::c_int;
-}
+use libc::{free, remove, strcat, strcpy, strlen, strncmp, strrchr};
 
 pub type __ssize_t = i64;
 
@@ -48,13 +40,10 @@ use crate::TTInputFormat;
 
 use bridge::InputHandleWrapper;
 /* quasi-hack to get the primary input */
-static mut verbose: i32 = 0i32;
+
 #[no_mangle]
 pub static mut keep_cache: i32 = 0i32;
-#[no_mangle]
-pub unsafe extern "C" fn dpx_file_set_verbose(mut level: i32) {
-    verbose = level;
-}
+
 static mut _SBUF: [u8; 128] = [0; 128];
 /*
  * SFNT type sigs:
@@ -238,53 +227,7 @@ pub unsafe extern "C" fn dpx_open_dfont_file(mut filename: *const i8) -> Option<
         None => None,
     }
 }
-unsafe fn dpx_get_tmpdir() -> *mut i8 {
-    let mut _tmpd: *const i8 = 0 as *const i8;
-    _tmpd = getenv(b"TMPDIR\x00" as *const u8 as *const i8);
-    if _tmpd.is_null() {
-        _tmpd = b"/tmp\x00" as *const u8 as *const i8
-    }
-    let ret = xstrdup(_tmpd);
-    let mut i = strlen(ret) as u64;
-    while i > 1i32 as u64 && *ret.offset(i.wrapping_sub(1i32 as u64) as isize) as i32 == '/' as i32
-    {
-        *ret.offset(i.wrapping_sub(1i32 as u64) as isize) = '\u{0}' as i32 as i8;
-        i -= 1;
-    }
-    ret
-}
-#[no_mangle]
-pub unsafe extern "C" fn dpx_create_temp_file() -> *mut i8 {
-    #[cfg(not(target_env = "msvc"))]
-    const TEMPLATE: &[u8] = b"/dvipdfmx.XXXXXX\x00";
-    #[cfg(target_env = "msvc")]
-    const TEMPLATE: &[u8] = b"\\dvipdfmx.XXXXXX\x00";
-    let tmpdir = dpx_get_tmpdir();
-    let n = strlen(tmpdir)
-        .wrapping_add(strlen(TEMPLATE.as_ptr() as *const u8 as *const i8))
-        .wrapping_add(1) as u64;
-    let mut tmp =
-        new((n as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    strcpy(tmp, tmpdir);
-    free(tmpdir as *mut libc::c_void);
-    strcat(tmp, TEMPLATE.as_ptr() as *const u8 as *const i8);
-    #[cfg(not(target_env = "msvc"))]
-    {
-        let mut _fd: i32 = mkstemp(tmp);
-        if _fd != -1i32 {
-            close(_fd);
-        } else {
-            tmp = mfree(tmp as *mut libc::c_void) as *mut i8
-        }
-    }
-    #[cfg(target_env = "msvc")]
-    {
-        if mktemp_s(tmp, n as _) != 0 {
-            tmp = mfree(tmp as *mut libc::c_void) as *mut i8;
-        }
-    }
-    tmp
-}
+
 #[no_mangle]
 pub unsafe extern "C" fn dpx_delete_old_cache(mut life: i32) {
     /* This used to delete files in tmpdir, but that code was ripped out since
