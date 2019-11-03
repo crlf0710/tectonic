@@ -524,13 +524,13 @@ unsafe fn read_font_record(mut tex_id: u32) {
     tt_get_unsigned_quad(handle);
     let point_size = tt_get_positive_quad(
         handle,
-        b"DVI\x00" as *const u8 as *const i8,
-        b"point_size\x00" as *const u8 as *const i8,
+        "DVI",
+        "point_size",
     );
     let design_size = tt_get_positive_quad(
         handle,
-        b"DVI\x00" as *const u8 as *const i8,
-        b"design_size\x00" as *const u8 as *const i8,
+        "DVI",
+        "design_size",
     );
     let dir_length = tt_get_unsigned_byte(handle) as i32;
     let name_length = tt_get_unsigned_byte(handle) as i32;
@@ -574,8 +574,8 @@ unsafe fn read_native_font_record(mut tex_id: u32) {
     let handle = dvi_handle.as_mut().unwrap();
     let point_size = tt_get_positive_quad(
         handle,
-        b"DVI\x00" as *const u8 as *const i8,
-        b"point_size\x00" as *const u8 as *const i8,
+        "DVI",
+        "point_size",
     );
     let flags = tt_get_unsigned_pair(handle) as u32;
     let len = tt_get_unsigned_byte(handle) as i32;
@@ -588,8 +588,8 @@ unsafe fn read_native_font_record(mut tex_id: u32) {
     *font_name.offset(len as isize) = '\u{0}' as i32 as i8;
     let index = tt_get_positive_quad(
         handle,
-        b"DVI\x00" as *const u8 as *const i8,
-        b"index\x00" as *const u8 as *const i8,
+        "DVI",
+        "index",
     );
     (*def_fonts.offset(num_def_fonts as isize)).tex_id = tex_id;
     let ref mut fresh15 = (*def_fonts.offset(num_def_fonts as isize)).font_name;

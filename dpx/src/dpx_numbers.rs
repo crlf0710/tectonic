@@ -289,15 +289,15 @@ pub unsafe extern "C" fn tt_get_unsigned_num(handle: &mut InputHandleWrapper, mu
 #[no_mangle]
 pub unsafe extern "C" fn tt_get_positive_quad(
     handle: &mut InputHandleWrapper,
-    mut type_0: *const i8,
-    mut name: *const i8,
+    type_0: &str,
+    name: &str,
 ) -> u32 {
     let mut val: i32 = tt_get_signed_quad(handle);
     if val < 0i32 {
         panic!(
             "Bad {}: negative {}: {}",
-            CStr::from_ptr(type_0).display(),
-            CStr::from_ptr(name).display(),
+            type_0,
+            name,
             val,
         );
     }

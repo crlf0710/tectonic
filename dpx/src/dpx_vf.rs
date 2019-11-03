@@ -120,8 +120,8 @@ unsafe fn read_header(vf_handle: &mut InputHandleWrapper, mut thisfont: i32) {
     tt_skip_bytes(4_u32, vf_handle);
     (*vf_fonts.offset(thisfont as isize)).design_size = tt_get_positive_quad(
         vf_handle,
-        b"VF\x00" as *const u8 as *const i8,
-        b"design_size\x00" as *const u8 as *const i8,
+        "VF",
+        "design_size",
     );
 }
 unsafe fn resize_vf_fonts(mut size: i32) {
@@ -208,13 +208,13 @@ unsafe fn read_a_font_def(vf_handle: &mut InputHandleWrapper, mut font_id: i32, 
     (*dev_font).checksum = tt_get_unsigned_quad(vf_handle);
     (*dev_font).size = tt_get_positive_quad(
         vf_handle,
-        b"VF\x00" as *const u8 as *const i8,
-        b"font_size\x00" as *const u8 as *const i8,
+        "VF",
+        "font_size",
     );
     (*dev_font).design_size = tt_get_positive_quad(
         vf_handle,
-        b"VF\x00" as *const u8 as *const i8,
-        b"font_design_size\x00" as *const u8 as *const i8,
+        "VF",
+        "font_design_size",
     );
     let dir_length = tt_get_unsigned_byte(vf_handle) as i32;
     let name_length = tt_get_unsigned_byte(vf_handle) as i32;
@@ -255,8 +255,8 @@ unsafe fn process_vf_file(vf_handle: &mut InputHandleWrapper, mut thisfont: i32)
             XXX4 => {
                 let pkt_len: u32 = tt_get_positive_quad(
                     vf_handle,
-                    b"VF\x00" as *const u8 as *const i8,
-                    b"pkt_len\x00" as *const u8 as *const i8,
+                    "VF",
+                    "pkt_len",
                 );
                 let ch: u32 = tt_get_unsigned_quad(vf_handle);
                 /* Skip over TFM width since we already know it */
