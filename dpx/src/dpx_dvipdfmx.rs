@@ -50,7 +50,7 @@ use std::ffi::CStr;
 
 use super::dpx_cid::CIDFont_set_flags;
 use super::dpx_dpxconf::{paperinfo, defaultpapername, systempapername};
-use super::dpx_dpxfile::{dpx_delete_old_cache, dpx_file_set_verbose};
+use super::dpx_dpxfile::dpx_delete_old_cache;
 use super::dpx_error::shut_up;
 use super::dpx_fontmap::{
     pdf_close_fontmaps, pdf_fontmap_set_verbose, pdf_init_fontmaps, pdf_load_fontmap_file,
@@ -322,7 +322,6 @@ pub unsafe extern "C" fn dvipdfmx_main(
         pdf_enc_set_verbose(verbose as i32);
         pdf_obj_set_verbose(verbose as i32);
         pdf_fontmap_set_verbose(verbose as i32);
-        dpx_file_set_verbose(verbose as i32);
         tt_aux_set_verbose(verbose as i32);
     }
     pdf_set_compression(if compress as i32 != 0 { 9i32 } else { 0i32 });
