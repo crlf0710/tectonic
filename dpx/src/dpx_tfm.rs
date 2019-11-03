@@ -431,71 +431,71 @@ unsafe fn ofm_get_sizes(
     (*tfm).level = tt_get_signed_quad(ofm_handle);
     (*tfm).wlenfile = tt_get_positive_quad(
         ofm_handle,
-        b"OFM\x00" as *const u8 as *const i8,
-        b"wlenfile\x00" as *const u8 as *const i8,
+        "OFM",
+        "wlenfile",
     );
     (*tfm).wlenheader = tt_get_positive_quad(
         ofm_handle,
-        b"OFM\x00" as *const u8 as *const i8,
-        b"wlenheader\x00" as *const u8 as *const i8,
+        "OFM",
+        "wlenheader",
     );
     (*tfm).bc = tt_get_positive_quad(
         ofm_handle,
-        b"OFM\x00" as *const u8 as *const i8,
-        b"bc\x00" as *const u8 as *const i8,
+        "OFM",
+        "bc",
     );
     (*tfm).ec = tt_get_positive_quad(
         ofm_handle,
-        b"OFM\x00" as *const u8 as *const i8,
-        b"ec\x00" as *const u8 as *const i8,
+        "OFM",
+        "ec",
     );
     if (*tfm).ec < (*tfm).bc {
         panic!("OFM file error: ec({}) < bc({}) ???", (*tfm).ec, (*tfm).bc);
     }
     (*tfm).nwidths = tt_get_positive_quad(
         ofm_handle,
-        b"OFM\x00" as *const u8 as *const i8,
-        b"nwidths\x00" as *const u8 as *const i8,
+        "OFM",
+        "nwidths",
     );
     (*tfm).nheights = tt_get_positive_quad(
         ofm_handle,
-        b"OFM\x00" as *const u8 as *const i8,
-        b"nheights\x00" as *const u8 as *const i8,
+        "OFM",
+        "nheights",
     );
     (*tfm).ndepths = tt_get_positive_quad(
         ofm_handle,
-        b"OFM\x00" as *const u8 as *const i8,
-        b"ndepths\x00" as *const u8 as *const i8,
+        "OFM",
+        "ndepths",
     );
     (*tfm).nitcor = tt_get_positive_quad(
         ofm_handle,
-        b"OFM\x00" as *const u8 as *const i8,
-        b"nitcor\x00" as *const u8 as *const i8,
+        "OFM",
+        "nitcor",
     );
     (*tfm).nlig = tt_get_positive_quad(
         ofm_handle,
-        b"OFM\x00" as *const u8 as *const i8,
-        b"nlig\x00" as *const u8 as *const i8,
+        "OFM",
+        "nlig",
     );
     (*tfm).nkern = tt_get_positive_quad(
         ofm_handle,
-        b"OFM\x00" as *const u8 as *const i8,
-        b"nkern\x00" as *const u8 as *const i8,
+        "OFM",
+        "nkern",
     );
     (*tfm).nextens = tt_get_positive_quad(
         ofm_handle,
-        b"OFM\x00" as *const u8 as *const i8,
-        b"nextens\x00" as *const u8 as *const i8,
+        "OFM",
+        "nextens",
     );
     (*tfm).nfonparm = tt_get_positive_quad(
         ofm_handle,
-        b"OFM\x00" as *const u8 as *const i8,
-        b"nfonparm\x00" as *const u8 as *const i8,
+        "OFM",
+        "nfonparm",
     );
     (*tfm).fontdir = tt_get_positive_quad(
         ofm_handle,
-        b"OFM\x00" as *const u8 as *const i8,
-        b"fontdir\x00" as *const u8 as *const i8,
+        "OFM",
+        "fontdir",
     );
     if (*tfm).fontdir != 0 {
         warn!("I may be interpreting a font direction incorrectly.");
@@ -505,18 +505,18 @@ unsafe fn ofm_get_sizes(
     } else if (*tfm).level == 1i32 {
         (*tfm).nco = tt_get_positive_quad(
             ofm_handle,
-            b"OFM\x00" as *const u8 as *const i8,
-            b"nco\x00" as *const u8 as *const i8,
+            "OFM",
+            "nco",
         );
         (*tfm).ncw = tt_get_positive_quad(
             ofm_handle,
-            b"OFM\x00" as *const u8 as *const i8,
-            b"nco\x00" as *const u8 as *const i8,
+            "OFM",
+            "nco",
         );
         (*tfm).npc = tt_get_positive_quad(
             ofm_handle,
-            b"OFM\x00" as *const u8 as *const i8,
-            b"npc\x00" as *const u8 as *const i8,
+            "OFM",
+            "npc",
         );
         ofm_handle.seek(SeekFrom::Start(4 * ((*tfm).nco - (*tfm).wlenheader) as u64)).unwrap();
     } else {
