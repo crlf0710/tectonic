@@ -55,7 +55,6 @@ use super::dpx_error::shut_up;
 use super::dpx_fontmap::{
     pdf_close_fontmaps, pdf_fontmap_set_verbose, pdf_init_fontmaps, pdf_load_fontmap_file,
 };
-use super::dpx_mem::{new, renew};
 use super::dpx_pdfencrypt::{pdf_enc_compute_id_string, pdf_enc_set_passwd, pdf_enc_set_verbose};
 use super::dpx_pdfobj::{
     pdf_files_close, pdf_files_init, pdf_get_version, pdf_obj_reset_global_state,
@@ -137,35 +136,24 @@ unsafe fn select_paper(paperspec: &[u8]) {
     };
 }
 unsafe fn select_pages(
-    mut pagespec: *const i8,
-    mut ret_page_ranges: *mut *mut PageRange,
-    mut ret_num_page_ranges: *mut u32,
+    pagespec: *const i8,
+    page_ranges: &mut Vec<PageRange>,
 ) {
-    let mut page_ranges: *mut PageRange = 0 as *mut PageRange;
-    let mut num_page_ranges: u32 = 0_u32;
-    let mut max_page_ranges: u32 = 0_u32;
     let mut p: *const i8 = pagespec;
     while *p as i32 != '\u{0}' as i32 {
-        /* Enlarge page range table if necessary */
-        if num_page_ranges >= max_page_ranges {
-            max_page_ranges = max_page_ranges.wrapping_add(4_u32); /* Can't be signed. */
-            page_ranges = renew(
-                page_ranges as *mut libc::c_void,
-                (max_page_ranges as u64).wrapping_mul(::std::mem::size_of::<PageRange>() as u64)
-                    as u32,
-            ) as *mut PageRange
-        }
-        (*page_ranges.offset(num_page_ranges as isize)).first = 0i32;
-        (*page_ranges.offset(num_page_ranges as isize)).last = 0i32;
+        let mut page_range = PageRange {
+            first: 0,
+            last: 0,
+        };
+        
         while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
             p = p.offset(1)
         }
         let q = parse_unsigned(&mut p, p.offset(strlen(p) as isize));
         if !q.is_null() {
             /* '-' is allowed here */
-            (*page_ranges.offset(num_page_ranges as isize)).first = atoi(q) - 1i32; /* Root node */
-            (*page_ranges.offset(num_page_ranges as isize)).last =
-                (*page_ranges.offset(num_page_ranges as isize)).first;
+            page_range.first = atoi(q) - 1i32; /* Root node */
+            page_range.last = page_range.first;
             free(q as *mut libc::c_void);
         }
         while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
@@ -176,11 +164,11 @@ unsafe fn select_pages(
             while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
                 p = p.offset(1)
             }
-            (*page_ranges.offset(num_page_ranges as isize)).last = -1i32;
+            page_range.last = -1i32;
             if *p != 0 {
                 let q = parse_unsigned(&mut p, p.offset(strlen(p) as isize));
                 if !q.is_null() {
-                    (*page_ranges.offset(num_page_ranges as isize)).last = atoi(q) - 1i32;
+                    page_range.last = atoi(q) - 1i32;
                     free(q as *mut libc::c_void);
                 }
                 while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
@@ -188,10 +176,9 @@ unsafe fn select_pages(
                 }
             }
         } else {
-            (*page_ranges.offset(num_page_ranges as isize)).last =
-                (*page_ranges.offset(num_page_ranges as isize)).first
+            page_range.last = page_range.first;
         }
-        num_page_ranges = num_page_ranges.wrapping_add(1);
+        page_ranges.push(page_range);
         if *p as i32 == ',' as i32 {
             p = p.offset(1)
         } else {
@@ -206,9 +193,8 @@ unsafe fn select_pages(
             }
         }
     }
-    *ret_page_ranges = page_ranges;
-    *ret_num_page_ranges = num_page_ranges;
 }
+
 unsafe fn system_default() {
     if !systempapername().is_empty() {
         select_paper(systempapername());
@@ -216,7 +202,8 @@ unsafe fn system_default() {
         select_paper(defaultpapername());
     };
 }
-unsafe fn do_dvi_pages(mut page_ranges: *mut PageRange, mut num_page_ranges: u32) {
+
+unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
     let mut mediabox = Rect::zero();
     spc_exec_at_begin_document();
     let mut page_width = paper_width;
@@ -228,18 +215,17 @@ unsafe fn do_dvi_pages(mut page_ranges: *mut PageRange, mut num_page_ranges: u32
     mediabox.ur = Coord::new(paper_width, paper_height);
     pdf_doc_set_mediabox(0_u32, &mediabox);
     let mut i = 0;
-    while i < num_page_ranges && dvi_npages() != 0 {
-        if (*page_ranges.offset(i as isize)).last < 0i32 {
-            let ref mut fresh0 = (*page_ranges.offset(i as isize)).last;
-            *fresh0 = (*fresh0 as u32).wrapping_add(dvi_npages()) as i32 as i32
+    while i < page_ranges.len() && dvi_npages() != 0 {
+        if page_ranges[i].last < 0i32 {
+            page_ranges[i].last += dvi_npages() as i32;
         }
-        let step = if (*page_ranges.offset(i as isize)).first <= (*page_ranges.offset(i as isize)).last
+        let step = if page_ranges[i].first <= page_ranges[i].last
         {
             1i32
         } else {
             -1i32
         };
-        let mut page_no = (*page_ranges.offset(i as isize)).first;
+        let mut page_no = page_ranges[i].first;
         while dvi_npages() != 0 {
             if (page_no as u32) < dvi_npages() {
                 info!("[{}", page_no + 1);
@@ -288,10 +274,10 @@ unsafe fn do_dvi_pages(mut page_ranges: *mut PageRange, mut num_page_ranges: u32
                 page_count = page_count + 1;
                 info!("]");
             }
-            if step > 0i32 && page_no >= (*page_ranges.offset(i as isize)).last {
+            if step > 0i32 && page_no >= page_ranges[i].last {
                 break;
             }
-            if step < 0i32 && page_no <= (*page_ranges.offset(i as isize)).last {
+            if step < 0i32 && page_no <= page_ranges[i].last {
                 break;
             }
             page_no += step
@@ -303,6 +289,7 @@ unsafe fn do_dvi_pages(mut page_ranges: *mut PageRange, mut num_page_ranges: u32
     }
     spc_exec_at_end_document();
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn dvipdfmx_main(
     mut pdf_filename: *const i8,
@@ -316,8 +303,7 @@ pub unsafe extern "C" fn dvipdfmx_main(
     mut verbose: u32,
 ) -> i32 {
     let mut enable_object_stream: bool = true; /* This must come before parsing options... */
-    let mut num_page_ranges: u32 = 0_u32;
-    let mut page_ranges: *mut PageRange = 0 as *mut PageRange;
+    let mut page_ranges = Vec::new();
     assert!(!pdf_filename.is_null());
     assert!(!dvi_filename.is_null());
     translate_origin = translate as i32;
@@ -363,16 +349,13 @@ pub unsafe extern "C" fn dvipdfmx_main(
     pdf_load_fontmap_file(CStr::from_bytes_with_nul(b"kanjix.map\x00").unwrap(), '+' as i32);
     pdf_load_fontmap_file(CStr::from_bytes_with_nul(b"ckx.map\x00").unwrap(), '+' as i32);
     if !pagespec.is_null() {
-        select_pages(pagespec, &mut page_ranges, &mut num_page_ranges);
+        select_pages(pagespec, &mut page_ranges);
     }
-    if page_ranges.is_null() {
-        page_ranges = new((1_u64).wrapping_mul(::std::mem::size_of::<PageRange>() as u64) as u32)
-            as *mut PageRange
-    }
-    if num_page_ranges == 0_u32 {
-        (*page_ranges.offset(0)).first = 0i32;
-        (*page_ranges.offset(0)).last = -1i32;
-        num_page_ranges = 1_u32
+    if page_ranges.is_empty() {
+        page_ranges.push(PageRange {
+            first: 0,
+            last: -1
+        });
     }
     /*kpse_init_prog("", font_dpi, NULL, NULL);
     kpse_set_program_enabled(kpse_pk_format, true, kpse_src_texmf_cnf);*/
@@ -479,7 +462,7 @@ pub unsafe extern "C" fn dvipdfmx_main(
     if opt_flags & 1i32 << 5i32 != 0 {
         pdf_set_use_predictor(0i32);
     }
-    do_dvi_pages(page_ranges, num_page_ranges);
+    do_dvi_pages(page_ranges);
     pdf_files_close();
     /* Order of close... */
     pdf_close_device();
@@ -488,6 +471,5 @@ pub unsafe extern "C" fn dvipdfmx_main(
     pdf_close_fontmaps();
     dvi_close();
     info!("\n");
-    free(page_ranges as *mut libc::c_void);
     0i32
 }
