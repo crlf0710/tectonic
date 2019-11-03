@@ -25,7 +25,6 @@
     unused_mut
 )]
 
-use crate::mfree;
 use crate::streq_ptr;
 use crate::warn;
 use crate::DisplayExt;
@@ -36,7 +35,6 @@ use super::{spc_arg, spc_env};
 use crate::spc_warn;
 
 use crate::dpx_dpxutil::{ParseCIdent, ParseCString, ParseFloatDecimal};
-use crate::dpx_mem::renew;
 use crate::dpx_pdfcolor::pdf_color_get_current;
 use crate::dpx_pdfdev::pdf_dev_scale;
 use crate::dpx_pdfdoc::{
@@ -62,16 +60,13 @@ use super::SpcHandler;
 pub struct C2RustUnnamed_0 {
     pub fill: i32,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub struct spc_tpic_ {
     pub mode: C2RustUnnamed_0,
     pub pen_size: f64,
     pub fill_shape: bool,
     pub fill_color: f64,
-    pub points: *mut Coord,
-    pub num_points: i32,
-    pub max_points: i32,
+    pub points: Vec<Coord>,
 }
 
 use crate::dpx_pdfdev::Coord;
@@ -83,17 +78,13 @@ static mut _TPIC_STATE: spc_tpic_ = spc_tpic_ {
     pen_size: 0.,
     fill_shape: false,
     fill_color: 0.,
-    points: 0 as *const Coord as *mut Coord,
-    num_points: 0,
-    max_points: 0,
+    points: Vec::new(),
 };
 /* We use pdf_doc_add_page_content() here
  * since we always draw isolated graphics.
  */
-unsafe fn tpic__clear(mut tp: *mut spc_tpic_) {
-    (*tp).points = mfree((*tp).points as *mut libc::c_void) as *mut Coord;
-    (*tp).num_points = 0i32;
-    (*tp).max_points = 0i32;
+unsafe fn tpic__clear(tp: *mut spc_tpic_) {
+    (*tp).points.clear();
     (*tp).fill_shape = false;
     (*tp).fill_color = 0.0f64;
 }
@@ -151,9 +142,10 @@ unsafe fn set_fillstyle(mut g: f64, mut a: f64, mut f_ais: i32) -> i32 {
                 (0.01f64 * alp as f64 / 0.01f64 + 0.5f64).floor() * 0.01f64,
                 f_ais,
             );
+            let s = CString::new(resname.as_bytes()).unwrap();
             pdf_doc_add_page_resource(
                 "ExtGState",
-                CString::new(resname.as_bytes()).unwrap().as_ptr() as *const i8,
+                s.as_ptr() as *const i8,
                 pdf_ref_obj(dict),
             );
             pdf_release_obj(dict);
@@ -226,10 +218,10 @@ unsafe fn tpic__polyline(
      * path (a path without path-painting operator applied)?
      */
     /* Shading is applied only to closed path. */
-    f_fs = if (*(*tp).points.offset(0)).x
-        == (*(*tp).points.offset(((*tp).num_points - 1i32) as isize)).x
-        && (*(*tp).points.offset(0)).y
-            == (*(*tp).points.offset(((*tp).num_points - 1i32) as isize)).y
+    f_fs = if (*tp).points[0].x
+        == (*tp).points[(*tp).points.len() - 1].x
+        && (*tp).points[0].y
+            == (*tp).points[(*tp).points.len() - 1].y
     {
         f_fs as i32
     } else {
@@ -239,11 +231,11 @@ unsafe fn tpic__polyline(
     if f_vp as i32 != 0 || f_fs as i32 != 0 {
         pdf_dev_gsave();
         set_styles(tp, c, f_fs, f_vp, pn, da);
-        pdf_dev_moveto((*(*tp).points.offset(0)).x, (*(*tp).points.offset(0)).y);
-        for i in 0..(*tp).num_points {
+        pdf_dev_moveto((*tp).points[0].x, (*tp).points[0].y);
+        for pt in &(*tp).points {
             pdf_dev_lineto(
-                (*(*tp).points.offset(i as isize)).x,
-                (*(*tp).points.offset(i as isize)).y,
+                pt.x,
+                pt.y,
             );
         }
         showpath(f_vp, f_fs);
@@ -281,10 +273,10 @@ unsafe fn tpic__spline(
     let mut pn: f64 = (*tp).pen_size;
     let mut f_fs: bool = (*tp).fill_shape;
     let mut error: i32 = 0i32;
-    f_fs = if (*(*tp).points.offset(0)).x
-        == (*(*tp).points.offset(((*tp).num_points - 1i32) as isize)).x
-        && (*(*tp).points.offset(0)).y
-            == (*(*tp).points.offset(((*tp).num_points - 1i32) as isize)).y
+    f_fs = if (*tp).points[0].x
+        == (*tp).points[(*tp).points.len()-1].x
+        && (*tp).points[0].y
+            == (*tp).points[(*tp).points.len()-1].y
     {
         f_fs as i32
     } else {
@@ -294,33 +286,33 @@ unsafe fn tpic__spline(
     if f_vp as i32 != 0 || f_fs as i32 != 0 {
         pdf_dev_gsave();
         set_styles(tp, c, f_fs, f_vp, pn, da);
-        pdf_dev_moveto((*(*tp).points.offset(0)).x, (*(*tp).points.offset(0)).y);
-        v[0] = 0.5f64 * ((*(*tp).points.offset(0)).x + (*(*tp).points.offset(1)).x);
-        v[1] = 0.5f64 * ((*(*tp).points.offset(0)).y + (*(*tp).points.offset(1)).y);
+        pdf_dev_moveto((*tp).points[0].x, (*tp).points[0].y);
+        v[0] = 0.5f64 * ((*tp).points[0].x + (*tp).points[1].x);
+        v[1] = 0.5f64 * ((*tp).points[0].y + (*tp).points[1].y);
         pdf_dev_lineto(v[0], v[1]);
         let mut i = 1;
-        while i < (*tp).num_points - 1i32 {
+        while i < (*tp).points.len() - 1 {
             /* B-spline control points */
             v[0] = 0.5f64
-                * ((*(*tp).points.offset((i - 1i32) as isize)).x
-                    + (*(*tp).points.offset(i as isize)).x);
+                * ((*tp).points[i-1].x
+                    + (*tp).points[i].x);
             v[1] = 0.5f64
-                * ((*(*tp).points.offset((i - 1i32) as isize)).y
-                    + (*(*tp).points.offset(i as isize)).y);
-            v[2] = (*(*tp).points.offset(i as isize)).x;
-            v[3] = (*(*tp).points.offset(i as isize)).y;
+                * ((*tp).points[i-1].y
+                    + (*tp).points[i].y);
+            v[2] = (*tp).points[i].x;
+            v[3] = (*tp).points[i].y;
             v[4] = 0.5f64
-                * ((*(*tp).points.offset(i as isize)).x
-                    + (*(*tp).points.offset((i + 1i32) as isize)).x);
+                * ((*tp).points[i].x
+                    + (*tp).points[i+1].x);
             v[5] = 0.5f64
-                * ((*(*tp).points.offset(i as isize)).y
-                    + (*(*tp).points.offset((i + 1i32) as isize)).y);
+                * ((*tp).points[i].y
+                    + (*tp).points[i+1].y);
             pdf_dev_bspline(v[0], v[1], v[2], v[3], v[4], v[5]);
             i += 1
         }
         pdf_dev_lineto(
-            (*(*tp).points.offset(i as isize)).x,
-            (*(*tp).points.offset(i as isize)).y,
+            (*tp).points[i].x,
+            (*tp).points[i].y,
         );
         showpath(f_vp, f_fs);
         pdf_dev_grestore();
@@ -411,17 +403,10 @@ unsafe fn spc_handler_tpic_pa(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
         spc_warn!(spe, "Invalid arg for TPIC \"pa\" command.");
         return -1i32;
     }
-    if (*tp).num_points >= (*tp).max_points {
-        (*tp).max_points += 256i32;
-        (*tp).points = renew(
-            (*tp).points as *mut libc::c_void,
-            ((*tp).max_points as u32 as u64).wrapping_mul(::std::mem::size_of::<Coord>() as u64)
-                as u32,
-        ) as *mut Coord
-    }
-    (*(*tp).points.offset((*tp).num_points as isize)).x = v[0] * (0.072f64 / pdf_dev_scale());
-    (*(*tp).points.offset((*tp).num_points as isize)).y = v[1] * (0.072f64 / pdf_dev_scale());
-    (*tp).num_points += 1i32;
+    (*tp).points.push(Coord {
+        x: v[0] * (0.072f64 / pdf_dev_scale()),
+        y: v[1] * (0.072f64 / pdf_dev_scale()),
+    });
     0i32
 }
 unsafe fn spc_handler_tpic_fp(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i32
@@ -429,7 +414,7 @@ unsafe fn spc_handler_tpic_fp(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     let mut pg: i32 = 0;
     assert!(!spe.is_null() && !ap.is_null() && !tp.is_null());
-    if (*tp).num_points <= 1i32 {
+    if (*tp).points.len() < 2 {
         spc_warn!(spe, "Too few points (< 2) for polyline path.");
         return -1i32;
     }
@@ -441,7 +426,7 @@ unsafe fn spc_handler_tpic_ip(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     let mut pg: i32 = 0;
     assert!(!spe.is_null() && !ap.is_null() && !tp.is_null());
-    if (*tp).num_points <= 1i32 {
+    if (*tp).points.len() < 2 {
         spc_warn!(spe, "Too few points (< 2) for polyline path.");
         return -1i32;
     }
@@ -458,7 +443,7 @@ unsafe fn spc_handler_tpic_da(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
     if let Some(q) = (*ap).cur.parse_float_decimal() {
         da = atof(q.as_ptr());
     }
-    if (*tp).num_points <= 1i32 {
+    if (*tp).points.len() < 2 {
         spc_warn!(spe, "Too few points (< 2) for polyline path.");
         return -1i32;
     }
@@ -475,7 +460,7 @@ unsafe fn spc_handler_tpic_dt(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
     if let Some(q) = (*ap).cur.parse_float_decimal() {
         da = -atof(q.as_ptr());
     }
-    if (*tp).num_points <= 1i32 {
+    if (*tp).points.len() < 2 {
         spc_warn!(spe, "Too few points (< 2) for polyline path.");
         return -1i32;
     }
@@ -492,7 +477,7 @@ unsafe fn spc_handler_tpic_sp(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
     if let Some(q) = (*ap).cur.parse_float_decimal() {
         da = atof(q.as_ptr());
     }
-    if (*tp).num_points <= 2i32 {
+    if (*tp).points.len() < 3 {
         spc_warn!(spe, "Too few points (< 3) for spline path.");
         return -1i32;
     }
@@ -525,8 +510,8 @@ unsafe fn spc_handler_tpic_ar(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
     v[1] *= 0.072f64 / pdf_dev_scale();
     v[2] *= 0.072f64 / pdf_dev_scale();
     v[3] *= 0.072f64 / pdf_dev_scale();
-    v[4] *= 180.0f64 / 3.14159265358979323846f64;
-    v[5] *= 180.0f64 / 3.14159265358979323846f64;
+    v[4] *= 180.0f64 / std::f64::consts::PI;
+    v[5] *= 180.0f64 / std::f64::consts::PI;
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__arc(tp, &mut cp, true, 0.0f64, v.as_mut_ptr())
 }
@@ -556,8 +541,8 @@ unsafe fn spc_handler_tpic_ia(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
     v[1] *= 0.072f64 / pdf_dev_scale();
     v[2] *= 0.072f64 / pdf_dev_scale();
     v[3] *= 0.072f64 / pdf_dev_scale();
-    v[4] *= 180.0f64 / 3.14159265358979323846f64;
-    v[5] *= 180.0f64 / 3.14159265358979323846f64;
+    v[4] *= 180.0f64 / std::f64::consts::PI;
+    v[5] *= 180.0f64 / std::f64::consts::PI;
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__arc(tp, &mut cp, false, 0.0f64, v.as_mut_ptr())
 }
@@ -607,9 +592,7 @@ unsafe fn spc_handler_tpic__init(mut spe: *mut spc_env, mut dp: *mut libc::c_voi
     (*tp).pen_size = 1.0f64;
     (*tp).fill_shape = false;
     (*tp).fill_color = 0.0f64;
-    (*tp).points = 0 as *mut Coord;
-    (*tp).num_points = 0i32;
-    (*tp).max_points = 0i32;
+    (*tp).points = Vec::new();
     if (*tp).mode.fill != 0i32 && pdf_get_version() < 4_u32 {
         spc_warn!(spe, "Tpic shading support requires PDF version 1.4.");
         (*tp).mode.fill = 0i32
@@ -625,7 +608,7 @@ unsafe fn spc_handler_tpic__bophook(mut dp: *mut libc::c_void) -> i32 {
 unsafe fn spc_handler_tpic__eophook(mut spe: *mut spc_env, mut dp: *mut libc::c_void) -> i32 {
     let mut tp: *mut spc_tpic_ = dp as *mut spc_tpic_;
     assert!(!tp.is_null());
-    if (*tp).num_points > 0i32 {
+    if !(*tp).points.is_empty() {
         spc_warn!(spe, "Unflushed tpic path at end of the page.");
     }
     tpic__clear(tp);
@@ -634,7 +617,7 @@ unsafe fn spc_handler_tpic__eophook(mut spe: *mut spc_env, mut dp: *mut libc::c_
 unsafe fn spc_handler_tpic__clean(mut spe: *mut spc_env, mut dp: *mut libc::c_void) -> i32 {
     let mut tp: *mut spc_tpic_ = dp as *mut spc_tpic_;
     assert!(!tp.is_null());
-    if (*tp).num_points > 0i32 {
+    if !(*tp).points.is_empty() {
         spc_warn!(spe, "Unflushed tpic path at end of the document.");
     }
     tpic__clear(tp);
