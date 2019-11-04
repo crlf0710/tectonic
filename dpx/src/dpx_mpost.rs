@@ -37,7 +37,6 @@ use crate::strstartswith;
 use super::dpx_dvipdfmx::translate_origin;
 use super::dpx_fontmap::pdf_lookup_fontmap_record;
 use super::dpx_mem::new;
-//use super::dpx_mfileio::file_size;
 use super::dpx_pdfcolor::PdfColor;
 use super::dpx_pdfdev::{
     dev_unit_dviunit, graphics_mode, Coord, pdf_dev_get_dirmode, pdf_dev_get_font_wmode,
@@ -46,8 +45,7 @@ use super::dpx_pdfdev::{
     transform_info_clear,
 };
 use super::dpx_pdfdoc::{
-    pdf_doc_begin_grabbing, /*pdf_doc_begin_page, pdf_doc_current_page_number,*/ pdf_doc_end_grabbing,
-    /*pdf_doc_end_page, pdf_doc_set_mediabox,*/
+    pdf_doc_begin_grabbing, pdf_doc_end_grabbing,
 };
 use super::dpx_pdfdraw::{
     pdf_dev_arc, pdf_dev_arcn, pdf_dev_clip, pdf_dev_closepath, pdf_dev_concat,
@@ -70,12 +68,11 @@ use crate::dpx_pdfparse::{
     pdfparse_skip_line, skip_white, SkipWhite, ParseIdent, ParsePdfObj,
 };
 use crate::shims::sprintf;
-use libc::{atof, /*fread, */free, /*rewind, */ strtod};
+use libc::{atof, free, strtod};
 
 pub type __off_t = i64;
 pub type __off64_t = i64;
 pub type size_t = u64;
-//use libc::FILE;
 
 pub type spt_t = i32;
 
@@ -241,31 +238,6 @@ pub unsafe extern "C" fn mps_scan_bbox(
     }
     -1i32
 }
-/*unsafe fn skip_prolog(mut start: *mut *const i8, mut end: *const i8) {
-    let mut found_prolog: i32 = 0i32;
-    let save = *start;
-    while *start < end {
-        if **start as i32 != '%' as i32 {
-            skip_white(start, end);
-        }
-        if *start >= end {
-            break;
-        }
-        if !strstartswith(*start, b"%%EndProlog\x00" as *const u8 as *const i8).is_null() {
-            found_prolog = 1i32;
-            pdfparse_skip_line(start, end);
-            break;
-        } else if !strstartswith(*start, b"%%Page:\x00" as *const u8 as *const i8).is_null() {
-            pdfparse_skip_line(start, end);
-            break;
-        } else {
-            pdfparse_skip_line(start, end);
-        }
-    }
-    if found_prolog == 0 {
-        *start = save
-    };
-}*/
 static mut ps_operators: [operators; 48] = [
     operators::new(b"add", 1),
     operators::new(b"mul", 3),
@@ -1321,55 +1293,3 @@ pub unsafe extern "C" fn mps_exec_inline(
     pdf_dev_set_dirmode(dirmode);
     error
 }
-/*#[no_mangle]
-pub unsafe extern "C" fn mps_do_page(mut image_file: *mut FILE) -> i32 {
-    /* scale, xorig, yorig */
-    let mut bbox = Rect::zero();
-    rewind(image_file);
-    let size = file_size(image_file);
-    if size == 0i32 {
-        warn!("Can\'t read any byte in the MPS file.");
-        return -1i32;
-    }
-    let mut buffer =
-        new(((size + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-            as *mut i8;
-    fread(
-        buffer as *mut libc::c_void,
-        ::std::mem::size_of::<i8>(),
-        size as _,
-        image_file,
-    );
-    *buffer.offset(size as isize) = 0_i8;
-    let mut start = buffer as *const i8;
-    let end = buffer.offset(size as isize);
-    let mut error = mps_scan_bbox(&mut start, end, &mut bbox);
-    if error != 0 {
-        warn!("Error occured while scanning MetaPost file headers: Could not find BoundingBox.");
-        free(buffer as *mut libc::c_void);
-        return -1i32;
-    }
-    mp_cmode = 0i32;
-    pdf_doc_begin_page(1.0f64, -Xorigin, -Yorigin);
-    pdf_doc_set_mediabox(pdf_doc_current_page_number() as u32, &bbox);
-    let dir_mode = pdf_dev_get_dirmode();
-    pdf_dev_set_param(1i32, 0i32);
-    skip_prolog(&mut start, end);
-    let mut error = mp_parse_body(&mut start, end, 0.0f64, 0.0f64);
-    if error != 0 {
-        warn!("Errors occured while interpreting MetaPost file.");
-    }
-    pdf_dev_set_param(1i32, 1i32);
-    pdf_dev_set_dirmode(dir_mode);
-    pdf_doc_end_page();
-    free(buffer as *mut libc::c_void);
-    /*
-     * The reason why we don't return XObject itself is
-     * PDF inclusion may not be made so.
-     */
-    if error != 0 {
-        -1i32
-    } else {
-        0i32
-    }
-}*/

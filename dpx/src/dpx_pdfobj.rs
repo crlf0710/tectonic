@@ -36,7 +36,6 @@ use crate::mfree;
 use crate::strstartswith;
 use crate::{info, warn};
 use std::ffi::CStr;
-use std::mem;
 use std::ptr;
 
 use super::dpx_dpxutil::{ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table};

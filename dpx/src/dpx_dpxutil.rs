@@ -681,32 +681,6 @@ impl ParseCString for &[u8] {
     }
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn parse_c_ident(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut i8 {
-    let mut p: *const i8 = *pp;
-    if p >= endptr
-        || !(*p as u8 == b'_'
-            || *p as u8 >= b'a' && *p as u8 <= b'z'
-            || *p as u8 >= b'A' && *p as u8 <= b'Z')
-    {
-        return 0 as *mut i8;
-    }
-    let mut n = 0i32;
-    while p < endptr
-        && (*p as i32 == '_' as i32
-            || *p as u8 >= b'a' && *p as u8 <= b'z'
-            || *p as u8 >= b'A' && *p as u8 <= b'Z'
-            || *p as u8 >= b'0' && *p as u8 <= b'9')
-    {
-        p = p.offset(1);
-        n += 1
-    }
-    let mut q = new((n + 1).wrapping_mul(::std::mem::size_of::<i8>() as _) as _) as *mut i8;
-    memcpy(q as *mut libc::c_void, *pp as *const libc::c_void, n as _);
-    *q.offset(n as isize) = '\u{0}' as i32 as i8;
-    *pp = p;
-    q
-}
 pub trait ParseCIdent {
     fn parse_c_ident(&mut self) -> Option<CString>;
 }
