@@ -2035,7 +2035,7 @@ pub unsafe fn pdf_add_stream_flate(
     const WBUF_SIZE: usize = 4096;
     let mut z: libz::z_stream = std::mem::zeroed();
     let mut wbuf: [libz::Bytef; WBUF_SIZE] = [0; WBUF_SIZE];
-    // FIXME: Bug in libpng-sys
+    // FIXME: Bug in libz-sys
     // z.zalloc = null_mut();
     // z.zfree = null_mut();
     z.opaque = 0 as libz::voidpf;
@@ -2435,10 +2435,10 @@ unsafe fn pdf_add_stream_flate_filtered(
     parms: &mut decode_parms,
 ) -> libc::c_int {
     let mut z: libz::z_stream = std::mem::zeroed();
-    let mut wbuf: [libz::Bytef; 4096] = [0; 4096];
-    // FIXME: Bug in libpng-sys
+    // FIXME: Bug in libz-sys
     // z.zalloc = null_mut();
     // z.zfree = null_mut();
+    let mut wbuf: [libz::Bytef; 4096] = [0; 4096];
     z.opaque = 0 as libz::voidpf;
     z.next_in = data as *mut libz::Bytef;
     z.avail_in = len as libz::uInt;
