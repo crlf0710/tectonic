@@ -21,7 +21,7 @@ use crate::xetex_aatfont::cf_prelude::{
     CTFontRef,
 };
 use crate::xetex_aatfont::getFileNameFromCTFont;
-use crate::xetex_font_info::{XeTeXFontInst_base_ctor, XeTeXFontInst_initialize};
+use crate::xetex_font_info::XeTeXFontInst_initialize;
 
 extern crate libc;
 extern "C" {
@@ -1320,12 +1320,7 @@ pub unsafe fn XeTeXFontInst_Mac_initialize(
         let mut pathname: *mut libc::c_char = 0 as *mut libc::c_char;
         let mut index: u32 = 0;
         pathname = getFileNameFromCTFont((*self_0).m_fontRef, &mut index);
-        XeTeXFontInst_initialize(
-            &mut (*self_0).super_,
-            pathname,
-            index as libc::c_int,
-            status,
-        );
+        (*self_0).super_.init(pathname, index as libc::c_int, status);
     } else {
         *status = 1i32;
         CFRelease((*self_0).m_descriptor as CFTypeRef);
@@ -1339,13 +1334,7 @@ pub unsafe fn XeTeXFontInst_Mac_ctor(
     mut pointSize: libc::c_float,
     mut status: *mut libc::c_int,
 ) {
-    XeTeXFontInst_base_ctor(
-        &mut (*self_0).super_,
-        0 as *const libc::c_char,
-        0i32,
-        pointSize,
-        status,
-    );
+    (*self_0).super_ = XeTeXFontInst::new(std::ptr::null(), 0, pointSize, status);
     (*self_0).super_.m_subdtor =
         Some(XeTeXFontInst_Mac_dtor as unsafe fn(_: *mut XeTeXFontInst) -> ());
     (*self_0).m_descriptor = descriptor;
