@@ -4040,7 +4040,6 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         ((max_strings + 1i32) as u64).wrapping_mul(::std::mem::size_of::<pool_pointer>() as u64),
     ) as *mut pool_pointer;
     let mut i: i32 = 0;
-    // Failing here
     do_undump(
         &mut *str_start.offset(0) as *mut pool_pointer as *mut i8,
         ::std::mem::size_of::<pool_pointer>() as u64,

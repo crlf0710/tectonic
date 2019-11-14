@@ -16588,7 +16588,6 @@ pub unsafe extern "C" fn read_font_info(
     g = FONT_BASE;
 
     pack_file_name(name, area, cur_ext);
-    // println!("{:?}", CStr::from_ptr(name_of_file));
 
     if INTPAR(INT_PAR__xetex_tracing_fonts) > 0 {
         begin_diagnostic();
