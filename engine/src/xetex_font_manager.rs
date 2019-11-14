@@ -403,7 +403,7 @@ pub(self) unsafe fn XeTeXFontMgr_delete(mut self_0: *mut XeTeXFontMgr) {
 #[no_mangle]
 pub unsafe fn XeTeXFontMgr_findFont(
     mut self_0: *mut XeTeXFontMgr,
-    mut name: *const libc::c_char,
+    mut name: &CStr,
     mut variant: Option<&mut String>,
     mut ptSize: libc::c_double,
 ) -> PlatformFontRef {
@@ -422,7 +422,7 @@ pub unsafe fn XeTeXFontMgr_findFont(
     // ptSize is in TeX points, or negative for 'scaled' factor
     // "variant" string will be shortened (in-place) by removal of /B and /I if present
     let mut nameStr = CString::default();
-    CppStdString_assign_from_const_char_ptr(&mut nameStr, name);
+    CppStdString_assign_from_const_char_ptr(&mut nameStr, name.as_ptr());
     let mut font: *mut XeTeXFontMgrFont = 0 as *mut XeTeXFontMgrFont;
     let mut dsize: libc::c_int = 100i32;
     loaded_font_design_size = 655360i64 as Fixed;

@@ -24,6 +24,7 @@ use crate::xetex_font_info::XeTeXFontInst;
 use crate::xetex_font_info::XeTeXFontInst_Mac_create;
 use crate::xetex_font_manager::{PlatformFontRef, XeTeXFontMgr, XeTeXFontMgrFamily, XeTeXFontMgrFont};
 use std::ffi::CStr;
+use std::ptr;
 
 pub type Fixed = i32;
 
@@ -1605,7 +1606,11 @@ unsafe fn XeTeXFontInst_getFilename(
     mut index: *mut uint32_t,
 ) -> *const libc::c_char {
     *index = (*self_0).m_index;
-    return (*self_0).m_filename;
+    if let Some(f) = (*self_0).m_filename.as_ref() {
+        f.as_ptr()
+    } else {
+        ptr::null()
+    }
 }
 #[no_mangle]
 pub unsafe fn getGlyphBBoxCache() -> *mut CppStdMap<u32, GlyphBBox> {
@@ -1730,7 +1735,7 @@ pub unsafe fn createFont(mut fontRef: PlatformFontRef, mut pointSize: Fixed) -> 
             &mut index,
         );
         font = XeTeXFontInst_create(
-            pathname as *const libc::c_char,
+            CStr::from_ptr(pathname as *const libc::c_char),
             index,
             Fix2D(pointSize) as f32,
             &mut status,
@@ -1751,9 +1756,9 @@ pub unsafe fn createFont(mut fontRef: PlatformFontRef, mut pointSize: Fixed) -> 
 
 #[no_mangle]
 pub unsafe fn createFontFromFile(
-    mut filename: *const libc::c_char,
-    mut index: libc::c_int,
-    mut pointSize: Fixed,
+    filename: &CStr,
+    index: libc::c_int,
+    pointSize: Fixed,
 ) -> PlatformFontRef {
     let mut status: libc::c_int = 0i32;
     let mut font: *mut XeTeXFontInst =
@@ -1771,7 +1776,7 @@ pub unsafe fn setFontLayoutDir(mut font: PlatformFontRef, mut vertical: libc::c_
 
 #[no_mangle]
 pub unsafe fn findFontByName(
-    mut name: *const libc::c_char,
+    mut name: &CStr,
     mut var: Option<&mut String>,
     mut size: f64,
 ) -> PlatformFontRef {
@@ -2694,7 +2699,7 @@ pub unsafe fn getGlyphBounds(
     let font_info = &*((*engine).font);
 
     // TODO: xetex_font_info uses u16 (why??????), but glyph IDs should be u32
-    std::ptr::write(bbox, font_info.get_glyph_bounds(glyphID as u16));
+    ptr::write(bbox, font_info.get_glyph_bounds(glyphID as u16));
 
     if (*engine).extend as f64 != 0.0f64 {
         (*bbox).xMin *= (*engine).extend;

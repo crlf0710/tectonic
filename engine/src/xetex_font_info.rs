@@ -21,6 +21,7 @@ use freetype::freetype::{
     FT_UInt, FT_ULong, FT_Vector,
 };
 use freetype::tt_os2::TT_OS2;
+use std::ffi::{CStr, CString};
 
 use freetype_missing::*;
 
@@ -267,7 +268,8 @@ pub struct XeTeXFontInst {
     pub m_xHeight: libc::c_float,
     pub m_italicAngle: libc::c_float,
     pub m_vertical: bool,
-    pub m_filename: *mut libc::c_char,
+    // So it can be freed properly by the awkward C++ subclasses (by setting to None)
+    pub m_filename: Option<CString>,
     pub m_index: uint32_t,
     pub m_ftFace: FT_Face,
     pub m_afm_backing_data: Vec<u8>,
@@ -337,7 +339,7 @@ static mut hbFontFuncs: *mut hb_font_funcs_t = ptr::null_mut();
 
 impl XeTeXFontInst {
     pub unsafe fn new(
-        mut pathname: *const libc::c_char,
+        mut pathname: Option<&CStr>,
         mut index: libc::c_int,
         mut pointSize: libc::c_float,
         mut status: *mut libc::c_int,
@@ -351,7 +353,7 @@ impl XeTeXFontInst {
             m_xHeight: 0.0,
             m_italicAngle: 0.0,
             m_vertical: false,
-            m_filename: std::ptr::null_mut(),
+            m_filename: None,
             m_index: 0,
             m_ftFace: std::ptr::null_mut(),
             m_afm_backing_data: Vec::new(),
@@ -359,8 +361,8 @@ impl XeTeXFontInst {
             m_subdtor: None,
             fk_font: None,
         };
-        if !pathname.is_null() {
-            if let Err(e) = neu.init(pathname, index) {
+        if let Some(path) = pathname {
+            if let Err(e) = neu.init(path, index) {
                 *status = e;
             }
         }
@@ -368,7 +370,7 @@ impl XeTeXFontInst {
     }
     pub unsafe fn init(
         &mut self,
-        mut pathname: *const libc::c_char,
+        pathname: &CStr,
         mut index: libc::c_int,
     ) -> Result<(), i32> {
         XeTeXFontInst_initialize(self, pathname, index)
@@ -396,7 +398,7 @@ impl XeTeXFontInst {
 
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontInst_create(
-    mut pathname: *const libc::c_char,
+    mut pathname: &CStr,
     mut index: libc::c_int,
     mut pointSize: libc::c_float,
     mut status: *mut libc::c_int,
@@ -405,7 +407,7 @@ pub unsafe extern "C" fn XeTeXFontInst_create(
         malloc(::std::mem::size_of::<XeTeXFontInst>() as libc::c_ulong) as *mut XeTeXFontInst;
     std::ptr::write(
         self_0,
-        XeTeXFontInst::new(pathname, index, pointSize, status),
+        XeTeXFontInst::new(Some(pathname), index, pointSize, status),
     );
     self_0
 }
@@ -426,7 +428,7 @@ pub unsafe extern "C" fn XeTeXFontInst_delete(mut self_0: *mut XeTeXFontInst) {
     (*self_0).m_afm_backing_data = Vec::new();
     // Also drops the underlying FreeType font, so we don't have to FT_Done_Face ourselves
     (*self_0).fk_font = None;
-    free((*self_0).m_filename as *mut libc::c_void);
+    (*self_0).m_filename = None;
     free(self_0 as *mut libc::c_void);
 }
 
@@ -747,31 +749,26 @@ unsafe extern "C" fn _get_table(
 
 #[no_mangle]
 pub unsafe fn XeTeXFontInst_initialize(
-    mut self_0: &mut XeTeXFontInst,
-    mut pathname: *const libc::c_char,
-    mut index: libc::c_int,
+    self_0: &mut XeTeXFontInst,
+    pathname: &CStr,
+    index: libc::c_int,
 ) -> Result<(), i32> {
     let mut postTable: *mut TT_Postscript = 0 as *mut TT_Postscript;
     let mut os2Table: *mut TT_OS2 = 0 as *mut TT_OS2;
     let mut error: FT_Error = 0;
     let mut hbFace: *mut hb_face_t = 0 as *mut hb_face_t;
     // Here we emulate some logic that was originally in find_native_font();
-    let mut handle = ttstub_input_open(pathname, TTInputFormat::OPENTYPE, 0)
-        .or_else(|| ttstub_input_open(pathname, TTInputFormat::TRUETYPE, 0))
-        .or_else(|| ttstub_input_open(pathname, TTInputFormat::TYPE1, 0))
+    let mut handle = ttstub_input_open(pathname.as_ptr(), TTInputFormat::OPENTYPE, 0)
+        .or_else(|| ttstub_input_open(pathname.as_ptr(), TTInputFormat::TRUETYPE, 0))
+        .or_else(|| ttstub_input_open(pathname.as_ptr(), TTInputFormat::TYPE1, 0))
         .ok_or(1)?;
 
-    use std::ffi::CStr;
     use std::io::prelude::*;
-    use std::path::PathBuf;
-    use std::sync::Arc;
-    let pathname_str = CStr::from_ptr(pathname).to_str().map_err(|_| 1)?;
-    let pathbuf = PathBuf::from(pathname_str);
     let mut bytes = Vec::new();
-    handle.seek(std::io::SeekFrom::Start(0));
     handle.read_to_end(&mut bytes).unwrap();
     let len = bytes.len();
 
+    use std::sync::Arc;
     let fk_handle = Handle::Memory {
         bytes: Arc::new(bytes),
         font_index: index as u32,
@@ -779,10 +776,12 @@ pub unsafe fn XeTeXFontInst_initialize(
     let fk_font = match fk_handle.load() {
         Ok(loaded) => loaded,
         Err(e) => panic!(
-            "font-kit: Couldn't load Handle for {}, got error {:?}",
-            pathname_str, e
+            "font-kit: Couldn't load Handle for {:?}, got error {:?}",
+            pathname, e
         ),
     };
+
+    self_0.m_filename = Some(pathname.to_owned());
 
     let ft_face = fk_font.native_font();
 
@@ -806,7 +805,7 @@ pub unsafe fn XeTeXFontInst_initialize(
         // to try to find metrics for this font. Thanks to the existence of
         // FT_Attach_Stream we can emulate this behavior while going through
         // the Rust I/O layer.
-        let mut afm: *mut libc::c_char = xstrdup(xbasename(pathname));
+        let mut afm: *mut libc::c_char = xstrdup(xbasename(pathname.as_ptr()));
         let mut p: *mut libc::c_char = strrchr(afm, '.' as i32);
         if !p.is_null()
             && strlen(p) == 4i32 as libc::c_ulong
@@ -839,7 +838,6 @@ pub unsafe fn XeTeXFontInst_initialize(
             FT_Attach_Stream(self_0.m_ftFace, &mut open_args);
         }
     }
-    self_0.m_filename = xstrdup(pathname);
     self_0.m_index = index as uint32_t;
     self_0.m_unitsPerEM = (*self_0.m_ftFace).units_per_EM;
     self_0.m_ascent =

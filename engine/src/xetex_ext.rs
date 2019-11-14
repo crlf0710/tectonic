@@ -1029,6 +1029,7 @@ unsafe extern "C" fn splitFontName(
 }
 
 struct SplitName {
+    tex_internal: bool,
     name: CString,
     /// Easier: you get starts_with().
     var: Option<String>,
@@ -1047,7 +1048,8 @@ impl SplitName {
 
         let full_str = CStr::from_ptr(name);
         let full_bytes = full_str.to_bytes();
-        let name_string = CString::new(&full_bytes[..var.wrapping_offset_from(name) as usize]).unwrap();
+        let start_index = if full_bytes[0] == b'[' { 1 } else { 0 };
+        let name_string = CString::new(&full_bytes[start_index..var.wrapping_offset_from(name) as usize]).unwrap();
 
         let mut var_out = None;
         let mut feat_out = None;
@@ -1064,6 +1066,7 @@ impl SplitName {
         }
 
         SplitName {
+            tex_internal: start_index == 1,
             name: name_string,
             // XXX: could fail
             var: var_out.map(|v| v.into_string().unwrap()),
@@ -1085,7 +1088,7 @@ pub unsafe extern "C" fn find_native_font(
     let mut font: PlatformFontRef = 0 as PlatformFontRef;
 
     let mut name: *mut i8 = uname;
-    let SplitName { name, mut var, feat, index } = SplitName::from_packed_name(name);
+    let SplitName { tex_internal, name, mut var, feat, index } = SplitName::from_packed_name(name);
     let feat_cstr: Option<&CStr> = feat.as_ref().map(|x| x.as_ref());
 
     loaded_font_mapping = 0 as *mut libc::c_void;
@@ -1093,9 +1096,9 @@ pub unsafe extern "C" fn find_native_font(
     loaded_font_letter_space = 0i32;
 
     // check for "[filename]" form, don't search maps in this case
-    if name.as_bytes().iter().nth(0) == Some(&b'[') {
+    if tex_internal {
         if scaled_size < 0i32 {
-            font = createFontFromFile(name.as_ptr().offset(1), index, 655360i64 as Fixed);
+            font = createFontFromFile(&name, index, 655360i64 as Fixed);
             if !font.is_null() {
                 let mut dsize: Fixed = D2Fix(getDesignSize(font));
                 if scaled_size == -1000i32 {
@@ -1106,7 +1109,7 @@ pub unsafe extern "C" fn find_native_font(
                 deleteFont(font);
             }
         }
-        font = createFontFromFile(name.as_ptr().offset(1), index, scaled_size);
+        font = createFontFromFile(&name, index, scaled_size);
         if !font.is_null() {
             loaded_font_design_size = D2Fix(getDesignSize(font));
             /* This is duplicated in XeTeXFontMgr::findFont! */
@@ -1128,12 +1131,12 @@ pub unsafe extern "C" fn find_native_font(
                 begin_diagnostic();
                 print_nl(' ' as i32);
                 print_c_string(b"-> \x00" as *const u8 as *const i8);
-                print_c_string(name.as_ptr().offset(1));
+                print_c_string(name.as_ptr());
                 end_diagnostic(0i32 != 0);
             }
         }
     } else {
-        fontRef = findFontByName(name.as_ptr(), var.as_mut(), Fix2D(scaled_size));
+        fontRef = findFontByName(&name, var.as_mut(), Fix2D(scaled_size));
         if !fontRef.is_null() {
             /* update name_of_file to the full name of the font, for error messages during font loading */
             let mut fullName: *const i8 = getFullName(fontRef);
