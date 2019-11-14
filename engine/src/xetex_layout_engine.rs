@@ -41,13 +41,6 @@ pub struct FloatPoint {
     pub y: f32,
 }
 
-#[cfg(not(target_os = "macos"))]
-extern "C" {
-    pub type _FcPattern;
-}
-#[cfg(not(target_os = "macos"))]
-pub type FcPattern = _FcPattern;
-
 pub type scaled_t = i32;
 
 

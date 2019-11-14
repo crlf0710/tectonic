@@ -13,7 +13,7 @@ use super::PlatformFontRef;
 use crate::stub_icu as icu;
 use crate::xetex_layout_engine::collection_types::*;
 use std::ffi::CString;
-use std::ptr::NonNull;
+use std::ptr::{self, NonNull};
 
 use freetype::freetype::{
     FT_Done_Face, FT_Face, FT_GlyphSlot, FT_Init_FreeType, FT_Library, FT_New_Face, FT_SubGlyph,
@@ -782,7 +782,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
     {
         return names;
     }
-    let mut face: FT_Face = 0 as *mut FT_FaceRec_;
+    let mut face: FT_Face = ptr::null_mut();
     if FT_New_Face(gFreeTypeLibrary, pathname, index as FT_Long, &mut face) != 0i32 {
         return names;
     }
