@@ -1743,8 +1743,8 @@ pub struct XeTeXFontInst {
     pub m_filename: *mut libc::c_char,
     pub m_index: uint32_t,
     pub m_ftFace: FT_Face,
-    pub m_backingData: *mut FT_Byte,
-    pub m_backingData2: *mut FT_Byte,
+    pub m_backingData: Vec<u8>,
+    pub m_backingData2: Vec<u8>,
     pub m_hbFont: *mut hb_font_t,
     pub m_subdtor: Option<unsafe fn(_: *mut XeTeXFontInst) -> ()>,
     pub fk_font: Option<Font>,
@@ -1904,8 +1904,8 @@ impl XeTeXFontInst {
             m_filename: std::ptr::null_mut(),
             m_index: 0,
             m_ftFace: std::ptr::null_mut(), 
-            m_backingData: std::ptr::null_mut(),
-            m_backingData2: std::ptr::null_mut(),
+            m_backingData: Vec::new(),
+            m_backingData2: Vec::new(),
             m_hbFont: std::ptr::null_mut(),
             m_subdtor: None,
             fk_font: None,
@@ -1952,8 +1952,9 @@ pub unsafe extern "C" fn XeTeXFontInst_delete(mut self_0: *mut XeTeXFontInst) {
         (*self_0).m_ftFace = 0 as FT_Face
     }
     hb_font_destroy((*self_0).m_hbFont);
-    free((*self_0).m_backingData as *mut libc::c_void);
-    free((*self_0).m_backingData2 as *mut libc::c_void);
+    // Writing to these drops the allocated ones
+    (*self_0).m_backingData = Vec::new();
+    (*self_0).m_backingData2 = Vec::new();
     free((*self_0).m_filename as *mut libc::c_void);
     free(self_0 as *mut libc::c_void);
 }
@@ -2314,10 +2315,13 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
     use std::ffi::CStr;
     let pathname_str = CStr::from_ptr(pathname).to_str().map_err(|_| 1)?;
     let pathbuf = PathBuf::from(pathname_str);
-    let mut bytes = Vec::with_capacity(2000);
-    assert_eq!(bytes.len(), 0);
+    let mut bytes = Vec::new();
     handle.seek(std::io::SeekFrom::Start(0));
     handle.read_to_end(&mut bytes).unwrap();
+    let len = bytes.len();
+
+    self_0.m_backingData = bytes.clone();
+
     let fk_handle = Handle::Memory {
         bytes: Arc::new(bytes),
         font_index: index as u32,
@@ -2326,28 +2330,33 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
         panic!("font-kit: Couldn't load Handle for {}, got error {:?}", pathname_str, e);
         1
     })?;
+
+    let ft_face = fk_font.native_font();
+
+    // https://www.freetype.org/freetype2/docs/reference/ft2-base_interface.html#ft_face_flag_xxx
+    const FT_FACE_FLAG_SCALABLE: FT_Long = 1 << 0;
+
+    if (*ft_face).face_flags & FT_FACE_FLAG_SCALABLE == 0 {
+        // Not an outline font
+        return Err(1);
+    }
+
     self_0.fk_font = Some(fk_font);
 
-    let mut sz = ttstub_input_get_size(&mut handle);
-    (*self_0).m_backingData = xmalloc(sz as _) as *mut FT_Byte;
-    let mut r =
-        ttstub_input_read_exact(handle.0.as_ptr(), (*self_0).m_backingData as *mut libc::c_char, sz);
-    if r < 0 || r != sz as i64 {
-        panic!("failed to read font file");
-    }
     ttstub_input_close(handle);
+
     error = FT_New_Memory_Face(
         gFreeTypeLibrary,
-        (*self_0).m_backingData,
-        sz as FT_Long,
+        self_0.m_backingData.as_ptr(),
+        len as FT_Long,
         index as FT_Long,
-        &mut (*self_0).m_ftFace,
+        &mut self_0.m_ftFace,
     );
-    if (*(*self_0).m_ftFace).face_flags & 1 << 0i32 == 0 {
-        return Err(1);;
+    if (*self_0.m_ftFace).face_flags & 1 << 0i32 == 0 {
+        return Err(1);
     }
     /* for non-sfnt-packaged fonts (presumably Type 1), see if there is an AFM file we can attach */
-    if index == 0i32 && (*(*self_0).m_ftFace).face_flags & 1 << 3i32 == 0 {
+    if index == 0i32 && (*self_0.m_ftFace).face_flags & 1 << 3i32 == 0 {
         // Tectonic: this code used to use kpse_find_file and FT_Attach_File
         // to try to find metrics for this font. Thanks to the existence of
         // FT_Attach_Stream we can emulate this behavior while going through
@@ -2364,16 +2373,8 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
         let mut afm_handle = ttstub_input_open(afm, TTInputFormat::AFM, 0i32);
         free(afm as *mut libc::c_void);
         if let Some(mut afm_handle) = afm_handle {
-            sz = ttstub_input_get_size(&mut afm_handle);
-            (*self_0).m_backingData2 = xmalloc(sz as _) as *mut FT_Byte;
-            r = ttstub_input_read_exact(
-                afm_handle.0.as_ptr(),
-                (*self_0).m_backingData2 as *mut libc::c_char,
-                sz,
-            );
-            if r < 0 || r != sz as i64 {
-                panic!("failed to read AFM file");
-            }
+            self_0.m_backingData2.clear();
+            afm_handle.read_to_end(&mut self_0.m_backingData2).unwrap();
             ttstub_input_close(afm_handle);
             let mut open_args: FT_Open_Args = FT_Open_Args {
                 flags: 0,
@@ -2386,27 +2387,27 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
                 params: 0 as *mut FT_Parameter,
             };
             open_args.flags = 0x1i32 as FT_UInt;
-            open_args.memory_base = (*self_0).m_backingData2;
-            open_args.memory_size = sz as FT_Long;
-            FT_Attach_Stream((*self_0).m_ftFace, &mut open_args);
+            open_args.memory_base = self_0.m_backingData2.as_mut_ptr();
+            open_args.memory_size = self_0.m_backingData2.len() as FT_Long;
+            FT_Attach_Stream(self_0.m_ftFace, &mut open_args);
         }
     }
-    (*self_0).m_filename = xstrdup(pathname);
-    (*self_0).m_index = index as uint32_t;
-    (*self_0).m_unitsPerEM = (*(*self_0).m_ftFace).units_per_EM;
-    (*self_0).m_ascent =
-        XeTeXFontInst_unitsToPoints(self_0, (*(*self_0).m_ftFace).ascender as libc::c_float);
-    (*self_0).m_descent =
-        XeTeXFontInst_unitsToPoints(self_0, (*(*self_0).m_ftFace).descender as libc::c_float);
+    self_0.m_filename = xstrdup(pathname);
+    self_0.m_index = index as uint32_t;
+    self_0.m_unitsPerEM = (*self_0.m_ftFace).units_per_EM;
+    self_0.m_ascent =
+        XeTeXFontInst_unitsToPoints(self_0, (*self_0.m_ftFace).ascender as libc::c_float);
+    self_0.m_descent =
+        XeTeXFontInst_unitsToPoints(self_0, (*self_0.m_ftFace).descender as libc::c_float);
     postTable = XeTeXFontInst_getFontTableFT(self_0, FT_SFNT_POST) as *mut TT_Postscript;
     if !postTable.is_null() {
-        (*self_0).m_italicAngle = Fix2D((*postTable).italicAngle as Fixed) as libc::c_float
+        self_0.m_italicAngle = Fix2D((*postTable).italicAngle as Fixed) as libc::c_float
     }
     os2Table = XeTeXFontInst_getFontTableFT(self_0, FT_SFNT_OS2) as *mut TT_OS2;
     if !os2Table.is_null() {
-        (*self_0).m_capHeight =
+        self_0.m_capHeight =
             XeTeXFontInst_unitsToPoints(self_0, (*os2Table).sCapHeight as libc::c_float);
-        (*self_0).m_xHeight =
+        self_0.m_xHeight =
             XeTeXFontInst_unitsToPoints(self_0, (*os2Table).sxHeight as libc::c_float)
     }
     // Set up HarfBuzz font
@@ -2419,30 +2420,30 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
                     _: *mut libc::c_void,
                 ) -> *mut hb_blob_t,
         ),
-        (*self_0).m_ftFace as *mut libc::c_void,
+        self_0.m_ftFace as *mut libc::c_void,
         None,
     );
     hb_face_set_index(hbFace, index as libc::c_uint);
-    hb_face_set_upem(hbFace, (*self_0).m_unitsPerEM as libc::c_uint);
-    (*self_0).m_hbFont = hb_font_create(hbFace);
+    hb_face_set_upem(hbFace, self_0.m_unitsPerEM as libc::c_uint);
+    self_0.m_hbFont = hb_font_create(hbFace);
     hb_face_destroy(hbFace);
     if hbFontFuncs.is_null() {
         hbFontFuncs = _get_font_funcs()
     }
     hb_font_set_funcs(
-        (*self_0).m_hbFont,
+        self_0.m_hbFont,
         hbFontFuncs,
-        (*self_0).m_ftFace as *mut libc::c_void,
+        self_0.m_ftFace as *mut libc::c_void,
         None,
     );
     hb_font_set_scale(
-        (*self_0).m_hbFont,
-        (*self_0).m_unitsPerEM as libc::c_int,
-        (*self_0).m_unitsPerEM as libc::c_int,
+        self_0.m_hbFont,
+        self_0.m_unitsPerEM as libc::c_int,
+        self_0.m_unitsPerEM as libc::c_int,
     );
     // We don’t want device tables adjustments
     hb_font_set_ppem(
-        (*self_0).m_hbFont,
+        self_0.m_hbFont,
         0i32 as libc::c_uint,
         0i32 as libc::c_uint,
     );
