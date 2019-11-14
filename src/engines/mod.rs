@@ -421,7 +421,12 @@ impl<'a, I: 'a + IoProvider> ExecutionState<'a, I> {
         rhandle.try_seek(pos)
     }
 
-    fn input_read(&mut self, handle: *mut InputHandle, buf: &mut [u8]) -> Result<()> {
+    fn input_read(&mut self, handle: *mut InputHandle, buf: &mut [u8]) -> Result<usize> {
+        let rhandle: &mut InputHandle = unsafe { &mut *handle };
+        rhandle.read(buf).map_err(Error::from)
+    }
+
+    fn input_read_exact(&mut self, handle: *mut InputHandle, buf: &mut [u8]) -> Result<()> {
         let rhandle: &mut InputHandle = unsafe { &mut *handle };
         rhandle.read_exact(buf).map_err(Error::from)
     }
@@ -770,6 +775,25 @@ extern "C" fn input_read<'a, I: 'a + IoProvider>(
     let rdata = unsafe { slice::from_raw_parts_mut(data, len) };
 
     match es.input_read(rhandle, rdata) {
+        Ok(len_read) => len_read as isize,
+        Err(e) => {
+            tt_warning!(es.status, "read failed"; e);
+            -1
+        }
+    }
+}
+
+extern "C" fn input_read_exact<'a, I: 'a + IoProvider>(
+    es: *mut ExecutionState<'a, I>,
+    handle: *mut libc::c_void,
+    data: *mut u8,
+    len: libc::size_t,
+) -> libc::ssize_t {
+    let es = unsafe { &mut *es };
+    let rhandle = handle as *mut InputHandle;
+    let rdata = unsafe { slice::from_raw_parts_mut(data, len) };
+
+    match es.input_read_exact(rhandle, rdata) {
         Ok(_) => len as isize,
         Err(e) => {
             tt_warning!(es.status, "{}-byte read failed", len; e);
@@ -823,6 +847,7 @@ impl TectonicBridgeApi {
                 input_get_size: transmute(input_get_size::<'a, I> as *const libc::c_void),
                 input_seek: transmute(input_seek::<'a, I> as *const libc::c_void),
                 input_read: transmute(input_read::<'a, I> as *const libc::c_void),
+                input_read_exact: transmute(input_read_exact::<'a, I> as *const libc::c_void),
                 input_getc: transmute(input_getc::<'a, I> as *const libc::c_void),
                 input_ungetc: transmute(input_ungetc::<'a, I> as *const libc::c_void),
                 input_close: transmute(input_close::<'a, I> as *const libc::c_void),

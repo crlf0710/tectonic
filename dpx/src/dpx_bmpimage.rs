@@ -36,7 +36,7 @@ use crate::dpx_pdfobj::{
     pdf_stream_set_predictor, STREAM_COMPRESS,
 };
 use crate::warn;
-use crate::{ttstub_input_read};
+use crate::{ttstub_input_read_exact};
 use libc::{free, memset};
 
 use std::io::{Seek, SeekFrom};
@@ -63,7 +63,7 @@ pub struct hdr_info {
 pub unsafe extern "C" fn check_for_bmp(handle: &mut InputHandleWrapper) -> i32 {
     let mut sigbytes: [u8; 2] = [0; 2];
     handle.seek(SeekFrom::Start(0)).unwrap();
-    if ttstub_input_read(
+    if ttstub_input_read_exact(
         handle.0.as_ptr(),
         sigbytes.as_mut_ptr() as *mut i8,
         ::std::mem::size_of::<[u8; 2]>() as u64,
@@ -192,7 +192,7 @@ pub unsafe extern "C" fn bmp_include_image(
         let palette = new(((num_palette * 3i32 + 1i32) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
         for i in 0..num_palette {
-            if ttstub_input_read(handle.0.as_ptr(), bgrq.as_mut_ptr() as *mut i8, hdr.psize as size_t)
+            if ttstub_input_read_exact(handle.0.as_ptr(), bgrq.as_mut_ptr() as *mut i8, hdr.psize as size_t)
                 != hdr.psize as i64
             {
                 warn!("Reading file failed...");
@@ -235,7 +235,7 @@ pub unsafe extern "C" fn bmp_include_image(
         let mut n = 0i32;
         while n < info.height {
             let p = stream_data_ptr.offset((n * rowbytes) as isize);
-            if ttstub_input_read(handle.0.as_ptr(), p as *mut i8, dib_rowbytes as size_t)
+            if ttstub_input_read_exact(handle.0.as_ptr(), p as *mut i8, dib_rowbytes as size_t)
                 != dib_rowbytes as i64
             {
                 warn!("Reading BMP raster data failed...");
@@ -316,7 +316,7 @@ use crate::FromLEByteSlice;
 unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> i32 {
     let mut buf: [u8; 142] = [0; 142];
     let p = &mut buf;
-    if ttstub_input_read(handle.0.as_ptr(), p.as_mut_ptr() as *mut i8, (14i32 + 4i32) as size_t)
+    if ttstub_input_read_exact(handle.0.as_ptr(), p.as_mut_ptr() as *mut i8, (14i32 + 4i32) as size_t)
         != (14i32 + 4i32) as i64
     {
         warn!("Could not read BMP file header...");
@@ -339,7 +339,7 @@ unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> i3
     /* info header */
     hdr.hsize = u32::from_le_byte_slice(&p[..4]); /* undefined. FIXME */
     let p = &mut p[4..]; /* undefined. FIXME */
-    if ttstub_input_read(
+    if ttstub_input_read_exact(
         handle.0.as_ptr(),
         p.as_mut_ptr() as *mut i8,
         hdr.hsize.wrapping_sub(4_u32) as size_t,
@@ -439,7 +439,7 @@ unsafe fn read_raster_rle8(
                             warn!("RLE decode failed...");
                             return -1i32;
                         }
-                        if ttstub_input_read(handle.0.as_ptr(), p as *mut i8, b1 as size_t) != b1 as i64 {
+                        if ttstub_input_read_exact(handle.0.as_ptr(), p as *mut i8, b1 as size_t) != b1 as i64 {
                             return -1i32;
                         }
                         count += b1 as i32;
@@ -534,7 +534,7 @@ unsafe fn read_raster_rle4(
                                 *fresh0 = (*fresh0 as i32 | b as i32 >> 4i32 & 0xfi32) as u8;
                                 *p = ((b as i32) << 4i32 & 0xf0i32) as u8;
                             }
-                        } else if ttstub_input_read(handle.0.as_ptr(), p as *mut i8, nbytes as size_t)
+                        } else if ttstub_input_read_exact(handle.0.as_ptr(), p as *mut i8, nbytes as size_t)
                             != nbytes as i64
                         {
                             return -1i32;

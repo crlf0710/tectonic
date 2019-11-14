@@ -18,7 +18,7 @@ use harfbuzz_sys::{hb_font_funcs_t, hb_destroy_func_t, hb_font_t, hb_codepoint_t
     hb_font_set_scale, hb_font_set_ppem};
 
 use crate::{
-    ttstub_input_close, ttstub_input_get_size, ttstub_input_read, ttstub_input_getc, ttstub_input_open, 
+    ttstub_input_close, ttstub_input_get_size, ttstub_input_read_exact, ttstub_input_getc, ttstub_input_open, 
 };
 
 use bridge::TTInputFormat;
@@ -2331,7 +2331,7 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
     let mut sz = ttstub_input_get_size(&mut handle);
     (*self_0).m_backingData = xmalloc(sz as _) as *mut FT_Byte;
     let mut r =
-        ttstub_input_read(handle.0.as_ptr(), (*self_0).m_backingData as *mut libc::c_char, sz);
+        ttstub_input_read_exact(handle.0.as_ptr(), (*self_0).m_backingData as *mut libc::c_char, sz);
     if r < 0 || r != sz as i64 {
         panic!("failed to read font file");
     }
@@ -2366,7 +2366,7 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
         if let Some(mut afm_handle) = afm_handle {
             sz = ttstub_input_get_size(&mut afm_handle);
             (*self_0).m_backingData2 = xmalloc(sz as _) as *mut FT_Byte;
-            r = ttstub_input_read(
+            r = ttstub_input_read_exact(
                 afm_handle.0.as_ptr(),
                 (*self_0).m_backingData2 as *mut libc::c_char,
                 sz,

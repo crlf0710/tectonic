@@ -86,7 +86,7 @@ use crate::specials::{
 };
 use crate::{
     ttstub_input_close, ttstub_input_get_size, ttstub_input_getc, ttstub_input_open,
-    ttstub_input_read, ttstub_input_ungetc,
+    ttstub_input_read_exact, ttstub_input_ungetc,
 };
 use crate::dpx_dvicodes::*;
 
@@ -537,14 +537,14 @@ unsafe fn read_font_record(mut tex_id: u32) {
     let directory = new(
         ((dir_length + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
     ) as *mut i8;
-    if ttstub_input_read(handle.0.as_ptr(), directory, dir_length as size_t) != dir_length as i64 {
+    if ttstub_input_read_exact(handle.0.as_ptr(), directory, dir_length as size_t) != dir_length as i64 {
         panic!(invalid_signature);
     }
     *directory.offset(dir_length as isize) = '\u{0}' as i32 as i8;
     free(directory as *mut libc::c_void);
     let font_name = new(((name_length + 1i32) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    if ttstub_input_read(handle.0.as_ptr(), font_name, name_length as size_t) != name_length as i64 {
+    if ttstub_input_read_exact(handle.0.as_ptr(), font_name, name_length as size_t) != name_length as i64 {
         panic!(invalid_signature);
     }
     *font_name.offset(name_length as isize) = '\u{0}' as i32 as i8;
@@ -582,7 +582,7 @@ unsafe fn read_native_font_record(mut tex_id: u32) {
     let font_name =
         new(((len + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
             as *mut i8;
-    if ttstub_input_read(handle.0.as_ptr(), font_name, len as size_t) != len as i64 {
+    if ttstub_input_read_exact(handle.0.as_ptr(), font_name, len as size_t) != len as i64 {
         panic!(invalid_signature);
     }
     *font_name.offset(len as isize) = '\u{0}' as i32 as i8;

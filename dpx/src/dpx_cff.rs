@@ -33,7 +33,7 @@ use crate::warn;
 use super::dpx_cff_dict::{cff_dict_get, cff_dict_known, cff_dict_unpack, cff_release_dict};
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::{tt_get_unsigned_byte, tt_get_unsigned_pair};
-use crate::{ttstub_input_read};
+use crate::{ttstub_input_read_exact};
 use libc::{free, memcmp, memcpy, memmove, memset, strlen};
 
 use std::io::{Seek, SeekFrom};
@@ -1041,7 +1041,7 @@ pub unsafe extern "C" fn cff_get_index(cff: &mut cff_font) -> *mut cff_index {
                 as *mut u8;
         let mut offset = 0;
         while length > 0i32 {
-            let nb_read = ttstub_input_read(
+            let nb_read = ttstub_input_read_exact(
                 handle.0.as_ptr(),
                 ((*idx).data as *mut i8).offset(offset as isize),
                 length as size_t,
@@ -2277,7 +2277,7 @@ pub unsafe extern "C" fn cff_read_private(cff: &mut cff_font) -> i32 {
                 let data = new(
                     (size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
                 ) as *mut u8;
-                if ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t) != size as i64 {
+                if ttstub_input_read_exact(handle.0.as_ptr(), data as *mut i8, size as size_t) != size as i64 {
                     panic!("reading file failed");
                 }
                 let ref mut fresh53 = *cff.private.offset(i as isize);
@@ -2305,7 +2305,7 @@ pub unsafe extern "C" fn cff_read_private(cff: &mut cff_font) -> i32 {
             let data =
                 new((size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
                     as *mut u8;
-            if ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t) != size as i64 {
+            if ttstub_input_read_exact(handle.0.as_ptr(), data as *mut i8, size as size_t) != size as i64 {
                 panic!("reading file failed");
             }
             let ref mut fresh55 = *cff.private.offset(0);

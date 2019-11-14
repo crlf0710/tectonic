@@ -45,7 +45,7 @@ use super::dpx_pst_obj::pst_obj;
 use super::dpx_pst_obj::{
     pst_data_ptr, pst_getIV, pst_getSV, pst_length_of, pst_release_obj, pst_type_of,
 };
-use crate::{ttstub_input_get_size, ttstub_input_read};
+use crate::{ttstub_input_get_size, ttstub_input_read_exact};
 use libc::{free, memcmp, memcpy, memmove, strcmp, strlen, strstr};
 
 pub type __ssize_t = i64;
@@ -122,7 +122,7 @@ unsafe fn ifreader_read(mut reader: *mut ifreader, mut size: size_t) -> size_t {
         );
         (*reader).cursor = (*reader).buf;
         (*reader).endptr = (*reader).buf.offset(bytesrem as isize);
-        if ttstub_input_read((*reader).handle.0.as_ptr(), (*reader).endptr as *mut i8, bytesread) as u64
+        if ttstub_input_read_exact((*reader).handle.0.as_ptr(), (*reader).endptr as *mut i8, bytesread) as u64
             != bytesread
         {
             panic!("Reading file failed.");
@@ -680,7 +680,7 @@ pub unsafe extern "C" fn CMap_parse_check_sig(handle: Option<&mut InputHandleWra
     }
     let mut handle = handle.unwrap();
     handle.seek(SeekFrom::Start(0)).unwrap();
-    if ttstub_input_read(handle.0.as_ptr(), sig.as_mut_ptr(), 64i32 as size_t) != 64i32 as i64 {
+    if ttstub_input_read_exact(handle.0.as_ptr(), sig.as_mut_ptr(), 64i32 as size_t) != 64i32 as i64 {
         result = -1i32
     } else {
         sig[64] = 0_i8;

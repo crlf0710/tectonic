@@ -12,7 +12,7 @@ use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_xetexd::print_c_string;
 use crate::{streq_ptr, strstartswith};
-use crate::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub_input_read};
+use crate::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub_input_read_exact};
 use libc::free;
 
 #[cfg(target_os = "macos")]
@@ -330,7 +330,7 @@ unsafe extern "C" fn load_mapping_file(
     if let Some(mut map) = ttstub_input_open(buffer, TTInputFormat::MISCFONTS, 0i32) {
         let mut mappingSize: size_t = ttstub_input_get_size(&mut map);
         let mut mapping: *mut u8 = xmalloc(mappingSize) as *mut u8;
-        let mut r: ssize_t = ttstub_input_read(map.0.as_ptr(), mapping as *mut i8, mappingSize);
+        let mut r: ssize_t = ttstub_input_read_exact(map.0.as_ptr(), mapping as *mut i8, mappingSize);
         if r < 0i32 as i64 || r as size_t != mappingSize {
             _tt_abort(
                 b"could not read mapping file \"%s\"\x00" as *const u8 as *const i8,

@@ -42,7 +42,7 @@ use super::dpx_pst_obj::pst_obj;
 use super::dpx_pst_obj::{
     pst_data_ptr, pst_getIV, pst_getRV, pst_getSV, pst_release_obj, pst_type_of,
 };
-use crate::{ttstub_input_getc, ttstub_input_read};
+use crate::{ttstub_input_getc, ttstub_input_read_exact};
 use libc::{free, memcpy, memmove, memset, strcmp, strcpy, strlen};
 
 use std::io::{Seek, SeekFrom};
@@ -2121,7 +2121,7 @@ unsafe fn get_pfb_segment(
                     as u32,
             ) as *mut u8;
             while slen > 0i32 {
-                let rlen = ttstub_input_read(
+                let rlen = ttstub_input_read_exact(
                     handle.0.as_ptr(),
                     (buffer as *mut i8).offset(bytesread as isize),
                     slen as size_t,

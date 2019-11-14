@@ -35,7 +35,7 @@ use crate::streq_ptr;
 use crate::warn;
 
 use super::dpx_mem::{new, xstrdup};
-use crate::ttstub_input_read;
+use crate::ttstub_input_read_exact;
 use libc::free;
 
 pub type __ssize_t = i64;
@@ -116,7 +116,7 @@ unsafe fn read_v2_post_names(mut post: *mut tt_post_table, mut sfont: *mut sfnt)
                 *fresh0 = new(((len + 1i32) as u32 as u64)
                     .wrapping_mul(::std::mem::size_of::<i8>() as u64)
                     as u32) as *mut i8;
-                ttstub_input_read(
+                ttstub_input_read_exact(
                     handle.0.as_ptr(),
                     *(*post).names.offset(i as isize),
                     len as size_t,

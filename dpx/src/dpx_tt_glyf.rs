@@ -38,7 +38,7 @@ use super::dpx_tt_table::{
     tt_read_vhea_table,
 };
 use crate::dpx_truetype::sfnt_table_info;
-use crate::{ttstub_input_read};
+use crate::{ttstub_input_read_exact};
 use libc::{free, memcpy, memset};
 
 use std::io::{Seek, SeekFrom};
@@ -369,7 +369,7 @@ pub unsafe extern "C" fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_gl
                 2i32,
             ) as isize);
             /* Read evrything else. */
-            ttstub_input_read(
+            ttstub_input_read_exact(
                 (*sfont).handle.0.as_ptr(),
                 p as *mut i8,
                 len.wrapping_sub(10_u32) as size_t,

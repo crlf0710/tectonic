@@ -60,6 +60,13 @@ impl Read for InputHandleWrapper {
             Ok(ttstub_input_read(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len() as u64) as usize)
         }
     }
+
+    fn read_exact(&mut self, buf: &mut [u8]) -> Result<()> {
+        unsafe {
+            let _ssize = ttstub_input_read_exact(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len() as u64);
+            Ok(())
+        }
+    }
 }
 
 impl Seek for InputHandleWrapper {
@@ -134,6 +141,14 @@ pub struct tt_bridge_api_t {
         ) -> size_t,
     >,
     pub input_read: Option<
+        unsafe extern "C" fn(
+            _: *mut libc::c_void,
+            _: rust_input_handle_t,
+            _: *mut i8,
+            _: size_t,
+        ) -> ssize_t,
+    >,
+    pub input_read_exact: Option<
         unsafe extern "C" fn(
             _: *mut libc::c_void,
             _: rust_input_handle_t,
@@ -371,6 +386,7 @@ pub unsafe extern "C" fn ttstub_input_seek(
     }
     rv
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn ttstub_input_read(
     mut handle: rust_input_handle_t,
@@ -383,18 +399,34 @@ pub unsafe extern "C" fn ttstub_input_read(
         (*tectonic_global_bridge).context, handle, data, len
     )
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn ttstub_input_read_exact(
+    mut handle: rust_input_handle_t,
+    mut data: *mut i8,
+    mut len: size_t,
+) -> ssize_t {
+    (*tectonic_global_bridge)
+        .input_read_exact
+        .expect("non-null function pointer")(
+        (*tectonic_global_bridge).context, handle, data, len
+    )
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn ttstub_input_getc(handle: &mut InputHandleWrapper) -> i32 {
     (*tectonic_global_bridge)
         .input_getc
         .expect("non-null function pointer")((*tectonic_global_bridge).context, handle.0.as_ptr())
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn ttstub_input_ungetc(handle: &mut InputHandleWrapper, mut ch: i32) -> i32 {
     (*tectonic_global_bridge)
         .input_ungetc
         .expect("non-null function pointer")((*tectonic_global_bridge).context, handle.0.as_ptr(), ch)
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn ttstub_input_close(mut handle: InputHandleWrapper) -> i32 {
     if (*tectonic_global_bridge)

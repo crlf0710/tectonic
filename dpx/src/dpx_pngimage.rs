@@ -40,7 +40,7 @@ use crate::dpx_pdfobj::{
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_stream_set_predictor, STREAM_COMPRESS,
 };
-use crate::{ttstub_input_read};
+use crate::{ttstub_input_read_exact};
 use libc::free;
 
 use std::io::{Seek, SeekFrom};
@@ -62,7 +62,7 @@ pub type png_uint_32 = libc::c_uint;
 pub unsafe extern "C" fn check_for_png(handle: &mut InputHandleWrapper) -> i32 {
     let mut sigbytes: [u8; 8] = [0; 8];
     handle.seek(SeekFrom::Start(0)).unwrap();
-    if ttstub_input_read(
+    if ttstub_input_read_exact(
         handle.0.as_ptr(),
         sigbytes.as_mut_ptr() as *mut i8,
         ::std::mem::size_of::<[u8; 8]>() as u64,
@@ -88,7 +88,7 @@ unsafe extern "C" fn _png_warning_callback(
 unsafe extern "C" fn _png_read(mut png_ptr: *mut png_struct, mut outbytes: *mut u8, mut n: usize) {
     let mut png = png_ptr.as_ref().unwrap();
     let mut handle = png_get_io_ptr(png) as tectonic_bridge::rust_input_handle_t;
-    let r = ttstub_input_read(handle, outbytes as *mut i8, n.try_into().unwrap());
+    let r = ttstub_input_read_exact(handle, outbytes as *mut i8, n.try_into().unwrap());
     if r < 0i32 as ssize_t || r as size_t != n.try_into().unwrap() {
         panic!("error reading PNG");
     };

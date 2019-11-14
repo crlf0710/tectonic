@@ -35,7 +35,7 @@ use crate::warn;
 use super::dpx_mem::new;
 use super::dpx_sfnt::{sfnt_find_table_len, sfnt_find_table_pos, sfnt_locate_table};
 use crate::dpx_truetype::sfnt_table_info;
-use crate::{ttstub_input_read};
+use crate::{ttstub_input_read_exact};
 
 use std::io::{Seek, SeekFrom};
 
@@ -654,7 +654,7 @@ unsafe fn tt_get_name(
                 length = (destlen as i32 - 1i32) as u16
             }
             handle.seek(SeekFrom::Start(name_offset as u64 + string_offset as u64 + offset as u64)).unwrap();
-            ttstub_input_read(
+            ttstub_input_read_exact(
                 handle.0.as_ptr(),
                 dest as *mut u8 as *mut i8,
                 length as size_t,

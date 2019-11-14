@@ -64,7 +64,7 @@ use crate::dpx_pdfobj::{
     pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
-use crate::{ttstub_input_read};
+use crate::{ttstub_input_read_exact};
 use libc::{free, strcmp, strlen};
 
 use std::io::{Seek, SeekFrom};
@@ -514,7 +514,7 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
     *(*charstrings).offset.offset(0) = (charstring_len + 1i32) as l_offset;
     let handle = cffont.handle.as_mut().unwrap();
     handle.seek(SeekFrom::Start(offset as u64 + *(*cs_idx).offset.offset(0) as u64 - 1)).unwrap();
-    ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t);
+    ttstub_input_read_exact(handle.0.as_ptr(), data as *mut i8, size as size_t);
     charstring_len += cs_copy_charstring(
         (*charstrings).data.offset(charstring_len as isize),
         max_len - charstring_len,
@@ -620,7 +620,7 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
                         (charstring_len + 1i32) as l_offset;
                     let handle = cffont.handle.as_mut().unwrap();
                     handle.seek(SeekFrom::Start(offset as u64 + *(*cs_idx).offset.offset(gid_0 as isize) as u64 - 1)).unwrap();
-                    ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t);
+                    ttstub_input_read_exact(handle.0.as_ptr(), data as *mut i8, size as size_t);
                     charstring_len += cs_copy_charstring(
                         (*charstrings).data.offset(charstring_len as isize),
                         max_len - charstring_len,

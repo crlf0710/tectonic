@@ -85,7 +85,7 @@ use crate::dpx_pdfobj::{
 };
 use crate::dpx_truetype::sfnt_table_info;
 use crate::shims::sprintf;
-use crate::{ttstub_input_read};
+use crate::{ttstub_input_read_exact};
 use libc::{free, memmove, memset, strcat, strcmp, strcpy, strlen, strstr};
 
 use std::io::{Seek, SeekFrom};
@@ -849,7 +849,7 @@ pub unsafe extern "C" fn CIDFont_type0_dofont(mut font: *mut CIDFont) {
             *(*charstrings).offset.offset(gid as isize) = (charstring_len + 1i32) as l_offset;
             let handle = cffont.handle.as_mut().unwrap();
             handle.seek(SeekFrom::Start(offset as u64 + *(*idx).offset.offset(gid_org as isize) as u64 - 1)).unwrap();
-            ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t);
+            ttstub_input_read_exact(handle.0.as_ptr(), data as *mut i8, size as size_t);
             let fd = cff_fdselect_lookup(cffont, gid_org) as i32;
             charstring_len += cs_copy_charstring(
                 (*charstrings).data.offset(charstring_len as isize),
@@ -1395,7 +1395,7 @@ pub unsafe extern "C" fn CIDFont_type0_t1cdofont(mut font: *mut CIDFont) {
             *(*charstrings).offset.offset(gid as isize) = (charstring_len + 1i32) as l_offset;
             let handle = cffont.handle.as_mut().unwrap();
             handle.seek(SeekFrom::Start(offset as u64 + *(*idx).offset.offset(cid as isize) as u64 - 1 )).unwrap();
-            ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t);
+            ttstub_input_read_exact(handle.0.as_ptr(), data as *mut i8, size as size_t);
             charstring_len += cs_copy_charstring(
                 (*charstrings).data.offset(charstring_len as isize),
                 max_len - charstring_len,

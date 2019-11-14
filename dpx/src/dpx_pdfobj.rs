@@ -46,7 +46,7 @@ use super::dpx_pdfencrypt::{pdf_enc_set_generation, pdf_enc_set_label, pdf_encry
 use super::dpx_pdfparse::skip_white;
 use crate::shims::{sprintf, sscanf};
 use crate::{
-    ttstub_input_get_size, ttstub_input_getc, ttstub_input_read,
+    ttstub_input_get_size, ttstub_input_getc, ttstub_input_read_exact,
     ttstub_input_ungetc, ttstub_output_close, ttstub_output_open, ttstub_output_open_stdout,
     ttstub_output_putc,
 };
@@ -2851,7 +2851,7 @@ unsafe fn find_xref(handle: &mut InputHandleWrapper, mut file_size: i32) -> i32 
         } else {
             let currentpos = handle.seek(SeekFrom::Current(0)).unwrap() as i32;
             let n = core::cmp::min(strlen(b"startxref\x00" as *const u8 as *const i8) as i32, file_size - currentpos);
-            ttstub_input_read(handle.0.as_ptr(), work_buffer.as_mut_ptr(), n as size_t);
+            ttstub_input_read_exact(handle.0.as_ptr(), work_buffer.as_mut_ptr(), n as size_t);
             handle.seek(SeekFrom::Start(currentpos as u64)).unwrap();
             tries -= 1;
             if !(tries > 0i32
@@ -2968,7 +2968,7 @@ unsafe fn pdf_read_object(
         ((length + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32,
     ) as *mut i8;
     (*pf).handle.seek(SeekFrom::Start(offset as u64)).unwrap();
-    ttstub_input_read((*pf).handle.0.as_ptr(), buffer, length as size_t);
+    ttstub_input_read_exact((*pf).handle.0.as_ptr(), buffer, length as size_t);
     let mut p = buffer as *const i8;
     let mut endptr = p.offset(length as isize);
     /* Check for obj_num and obj_gen */
@@ -3865,7 +3865,7 @@ unsafe fn parse_pdf_version(handle: &mut InputHandleWrapper, mut ret_version: *m
     );
     let mut minor: u32 = 0;
     handle.seek(SeekFrom::Start(0)).unwrap();
-    if ttstub_input_read(
+    if ttstub_input_read_exact(
         handle.0.as_ptr(),
         buffer.as_mut_ptr(),
         (::std::mem::size_of::<[i8; 10]>() as u64).wrapping_sub(1i32 as u64),

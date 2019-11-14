@@ -42,7 +42,7 @@ use crate::xetex_xetex0::{
     show_save_groups, start_input, trap_zero_glue,
 };
 use crate::{
-    ttstub_input_close, ttstub_input_open, ttstub_input_read, ttstub_output_close,
+    ttstub_input_close, ttstub_input_open, ttstub_input_read_exact, ttstub_output_close,
     ttstub_output_open, ttstub_output_open_stdout,
 };
 use bridge::_tt_abort;
@@ -1280,6 +1280,7 @@ unsafe extern "C" fn do_dump(
     get used again.  */
     swap_items(p, nitems, item_size);
 }
+
 /* Here is the dual of the writing routine.  */
 unsafe extern "C" fn do_undump(
     mut p: *mut i8,
@@ -1287,7 +1288,7 @@ unsafe extern "C" fn do_undump(
     mut nitems: size_t,
     in_file: &mut InputHandleWrapper,
 ) {
-    let mut r: ssize_t = ttstub_input_read(in_file.0.as_ptr(), p, item_size.wrapping_mul(nitems));
+    let mut r: ssize_t = ttstub_input_read_exact(in_file.0.as_ptr(), p, item_size.wrapping_mul(nitems));
     if r < 0i32 as i64 || r as size_t != item_size.wrapping_mul(nitems) {
         _tt_abort(
             b"could not undump %zu %zu-byte item(s) from %s\x00" as *const u8 as *const i8,
@@ -1298,6 +1299,7 @@ unsafe extern "C" fn do_undump(
     }
     swap_items(p, nitems, item_size);
 }
+
 /*:134*/
 /*135: */
 unsafe extern "C" fn sort_avail() {
@@ -4032,6 +4034,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         ((max_strings + 1i32) as u64).wrapping_mul(::std::mem::size_of::<pool_pointer>() as u64),
     ) as *mut pool_pointer;
     let mut i: i32 = 0;
+    // Failing here
     do_undump(
         &mut *str_start.offset(0) as *mut pool_pointer as *mut i8,
         ::std::mem::size_of::<pool_pointer>() as u64,

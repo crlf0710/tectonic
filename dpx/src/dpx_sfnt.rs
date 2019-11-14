@@ -37,7 +37,7 @@ use crate::dpx_pdfobj::{
 };
 use crate::dpx_truetype::SfntTableInfo;
 use crate::mfree;
-use crate::{ttstub_input_read};
+use crate::{ttstub_input_read_exact};
 use libc::{free, memcpy};
 
 use std::io::{Seek, SeekFrom};
@@ -439,7 +439,7 @@ pub unsafe extern "C" fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *m
                 length = (*(*td).tables.offset(i as isize)).length as i32;
                 (*sfont).handle.seek(SeekFrom::Start((*(*td).tables.offset(i as isize)).offset as u64)).unwrap();
                 while length > 0i32 {
-                    let nb_read = ttstub_input_read(
+                    let nb_read = ttstub_input_read_exact(
                         (*sfont).handle.0.as_ptr(),
                         wbuf.as_mut_ptr() as *mut i8,
                         (if length < 1024i32 { length } else { 1024i32 }) as size_t,

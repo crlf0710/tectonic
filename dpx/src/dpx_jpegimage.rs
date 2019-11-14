@@ -43,7 +43,7 @@ use crate::dpx_pdfobj::{
     pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_dataptr,
     pdf_stream_length, STREAM_COMPRESS,
 };
-use crate::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_read};
+use crate::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_read_exact};
 use libc::{free, memcmp, memset};
 
 use std::io::{Seek, SeekFrom};
@@ -161,7 +161,7 @@ pub struct JPEG_APPn_JFIF {
 pub unsafe extern "C" fn check_for_jpeg(handle: &mut InputHandleWrapper) -> i32 {
     let mut jpeg_sig: [u8; 2] = [0; 2];
     handle.seek(SeekFrom::Start(0)).unwrap();
-    if ttstub_input_read(handle.0.as_ptr(), jpeg_sig.as_mut_ptr() as *mut i8, 2i32 as size_t) != 2i32 as i64 {
+    if ttstub_input_read_exact(handle.0.as_ptr(), jpeg_sig.as_mut_ptr() as *mut i8, 2i32 as size_t) != 2i32 as i64 {
         return 0i32;
     } else {
         if jpeg_sig[0] as i32 != 0xffi32 || jpeg_sig[1] as i32 != JM_SOI as i32 {
@@ -528,7 +528,7 @@ unsafe fn read_APP1_Exif(
     let mut res_unit_ms: f64 = 0.0f64;
     let mut buffer_box: Box<[u8]> = vec![0u8; length as usize].into_boxed_slice(); // auto destruct
     let buffer = buffer_box.as_mut_ptr();
-    let r = ttstub_input_read(handle.0.as_ptr(), buffer as *mut i8, length);
+    let r = ttstub_input_read_exact(handle.0.as_ptr(), buffer as *mut i8, length);
     if r < 0 || r as size_t != length {
         return length;
     }
@@ -720,7 +720,7 @@ unsafe fn read_APP0_JFIF(j_info: *mut JPEG_info, handle: &mut InputHandleWrapper
         (*app_data).thumbnail = new((thumb_data_len as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64)
             as u32) as *mut u8;
-        ttstub_input_read(handle.0.as_ptr(), (*app_data).thumbnail as *mut i8, thumb_data_len);
+        ttstub_input_read_exact(handle.0.as_ptr(), (*app_data).thumbnail as *mut i8, thumb_data_len);
     } else {
         (*app_data).thumbnail = 0 as *mut u8
     }
@@ -771,7 +771,7 @@ unsafe fn read_APP1_XMP(
     (*app_data).packet = new(
         ((*app_data).length as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32
     ) as *mut u8;
-    ttstub_input_read(handle.0.as_ptr(), (*app_data).packet as *mut i8, (*app_data).length);
+    ttstub_input_read_exact(handle.0.as_ptr(), (*app_data).packet as *mut i8, (*app_data).length);
     add_APPn_marker(
         j_info,
         JM_APP1,
@@ -793,7 +793,7 @@ unsafe fn read_APP2_ICC(
     (*app_data).chunk = new(
         ((*app_data).length as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32
     ) as *mut u8;
-    ttstub_input_read(handle.0.as_ptr(), (*app_data).chunk as *mut i8, (*app_data).length);
+    ttstub_input_read_exact(handle.0.as_ptr(), (*app_data).chunk as *mut i8, (*app_data).length);
     add_APPn_marker(
         j_info,
         JM_APP2,
@@ -839,7 +839,7 @@ unsafe fn JPEG_copy_stream(
                         4i32,
                     );
                     while length > 0i32 {
-                        let mut nb_read: i32 = ttstub_input_read(
+                        let mut nb_read: i32 = ttstub_input_read_exact(
                             handle.0.as_ptr(),
                             work_buffer.as_mut_ptr(),
                             (if length < 1024i32 { length } else { 1024i32 }) as size_t,
@@ -873,7 +873,7 @@ unsafe fn JPEG_copy_stream(
                             4i32,
                         );
                         while length > 0i32 {
-                            let mut nb_read_0: i32 = ttstub_input_read(
+                            let mut nb_read_0: i32 = ttstub_input_read_exact(
                                 handle.0.as_ptr(),
                                 work_buffer.as_mut_ptr(),
                                 (if length < 1024i32 { length } else { 1024i32 }) as size_t,
@@ -896,7 +896,7 @@ unsafe fn JPEG_copy_stream(
     let mut total_size: size_t = ttstub_input_get_size(handle);
     let mut pos = handle.seek(SeekFrom::Current(0)).unwrap();
     loop {
-        let length = ttstub_input_read(
+        let length = ttstub_input_read_exact(
             handle.0.as_ptr(),
             work_buffer.as_mut_ptr(),
             if (1024i32 as u64) < total_size.wrapping_sub(pos) {
@@ -945,7 +945,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                 }
                 224 => {
                     if length > 5i32 {
-                        if ttstub_input_read(handle.0.as_ptr(), app_sig.as_mut_ptr(), 5i32 as size_t)
+                        if ttstub_input_read_exact(handle.0.as_ptr(), app_sig.as_mut_ptr(), 5i32 as size_t)
                             != 5i32 as i64
                         {
                             return -1i32;
@@ -975,7 +975,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                 }
                 225 => {
                     if length > 5i32 {
-                        if ttstub_input_read(handle.0.as_ptr(), app_sig.as_mut_ptr(), 5i32 as size_t)
+                        if ttstub_input_read_exact(handle.0.as_ptr(), app_sig.as_mut_ptr(), 5i32 as size_t)
                             != 5i32 as i64
                         {
                             return -1i32;
@@ -1000,7 +1000,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                         ) == 0
                             && length > 24i32
                         {
-                            if ttstub_input_read(handle.0.as_ptr(), app_sig.as_mut_ptr(), 24i32 as size_t)
+                            if ttstub_input_read_exact(handle.0.as_ptr(), app_sig.as_mut_ptr(), 24i32 as size_t)
                                 != 24i32 as i64
                             {
                                 return -1i32;
@@ -1032,7 +1032,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                 }
                 226 => {
                     if length >= 14i32 {
-                        if ttstub_input_read(handle.0.as_ptr(), app_sig.as_mut_ptr(), 12i32 as size_t)
+                        if ttstub_input_read_exact(handle.0.as_ptr(), app_sig.as_mut_ptr(), 12i32 as size_t)
                             != 12i32 as i64
                         {
                             return -1i32;
@@ -1062,7 +1062,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                 }
                 238 => {
                     if length > 5i32 {
-                        if ttstub_input_read(handle.0.as_ptr(), app_sig.as_mut_ptr(), 5i32 as size_t)
+                        if ttstub_input_read_exact(handle.0.as_ptr(), app_sig.as_mut_ptr(), 5i32 as size_t)
                             != 5i32 as i64
                         {
                             return -1i32;
