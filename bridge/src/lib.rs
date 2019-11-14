@@ -89,11 +89,7 @@ impl Seek for InputHandleWrapper {
         };
         unsafe {
             let sought = ttstub_input_seek(self.0.as_ptr(), offset, whence);
-            if sought < 0 {
-                Err(io::Error::new(ErrorKind::Other, anyhow::anyhow!("Unknown -1 error code from across the bridge when seeking input handle")))
-            } else {
-                Ok(sought as u64)
-            }
+            Ok(sought as u64)
         }
     }
 }
