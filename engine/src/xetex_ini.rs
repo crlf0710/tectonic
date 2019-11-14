@@ -409,8 +409,14 @@ pub use super::xetex_io::UFILE;
    Licensed under the MIT License.
 */
 /* All the following variables are declared in xetex-xetexd.h */
+
+
+/// The XeTeX sources don't contain much in the way of documentation for eqtb.
+/// This file does a better job:
+/// https://fossies.org/windows/misc/w32tex-src.tar.xz/qtx/texk/web2c/luatexdir/tex/equivalents.c
 #[no_mangle]
 pub static mut eqtb: *mut memory_word = 0 as *const memory_word as *mut memory_word;
+
 #[no_mangle]
 pub static mut bad: i32 = 0;
 #[no_mangle]

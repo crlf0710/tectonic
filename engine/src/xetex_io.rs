@@ -232,6 +232,10 @@ pub struct UFILE {
 */
 #[no_mangle]
 pub static mut name_of_input_file: *mut i8 = 0 as *const i8 as *mut i8;
+
+/// Opens a file called called `name_of_file`, and sets `name_of_input_file`.
+///
+/// `name_of_file` is a static set by scan_file_name() and pack_file_name() called in sequence.
 #[no_mangle]
 pub unsafe extern "C" fn tt_xetex_open_input(mut filefmt: TTInputFormat) -> Option<InputHandleWrapper> {
     let handle = if filefmt == TTInputFormat::TECTONIC_PRIMARY {
@@ -247,6 +251,7 @@ pub unsafe extern "C" fn tt_xetex_open_input(mut filefmt: TTInputFormat) -> Opti
     name_of_input_file = xstrdup(name_of_file);
     handle
 }
+
 /* tables/values used in UTF-8 interpretation -
 code is based on ConvertUTF.[ch] sample code
 published by the Unicode consortium */
