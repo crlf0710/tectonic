@@ -43,6 +43,10 @@ pub struct FloatPoint {
 
 pub type scaled_t = i32;
 
+// https://www.freetype.org/freetype2/docs/reference/ft2-basic_types.html#ft_make_tag
+pub const fn ft_make_tag(buf: &[u8; 4]) -> u32 {
+    (buf[0] as u32) << 24 | (buf[1] as u32) << 16 | (buf[2] as u32) << 8 | buf[3] as u32
+}
 
 extern "C" {
     /* *************************************************************************
@@ -1703,6 +1707,7 @@ pub unsafe fn terminate_font_manager() {
 pub unsafe fn destroy_font_manager() {
     XeTeXFontMgr_Destroy();
 }
+
 #[no_mangle]
 pub unsafe fn createFont(mut fontRef: PlatformFontRef, mut pointSize: Fixed) -> PlatformFontRef {
     let mut status: libc::c_int = 0i32;
@@ -1733,6 +1738,7 @@ pub unsafe fn createFont(mut fontRef: PlatformFontRef, mut pointSize: Fixed) -> 
     #[cfg(target_os = "macos")]
     {
         let mac_font = XeTeXFontInst_Mac_create(fontRef, Fix2D(pointSize) as f32, &mut status);
+        // XXX: this only works because free() uses addresses only, and super_ is the first field.
         font = &mut (*mac_font).super_;
     }
     if status != 0i32 {
@@ -1761,6 +1767,7 @@ pub unsafe fn createFontFromFile(
 pub unsafe fn setFontLayoutDir(mut font: PlatformFontRef, mut vertical: libc::c_int) {
     XeTeXFontInst_setLayoutDirVertical(font as *mut XeTeXFontInst, vertical != 0i32);
 }
+
 #[no_mangle]
 pub unsafe fn findFontByName(
     mut name: *const libc::c_char,
@@ -1769,10 +1776,13 @@ pub unsafe fn findFontByName(
 ) -> PlatformFontRef {
     return XeTeXFontMgr_findFont(XeTeXFontMgr_GetFontManager(), name, var, size);
 }
+
+/// TODO: don't use a static for this dumb little thing.
 #[no_mangle]
 pub unsafe fn getReqEngine() -> libc::c_char {
     return XeTeXFontMgr_getReqEngine(XeTeXFontMgr_GetFontManager());
 }
+
 #[no_mangle]
 pub unsafe fn setReqEngine(mut reqEngine: libc::c_char) {
     XeTeXFontMgr_setReqEngine(XeTeXFontMgr_GetFontManager(), reqEngine);
@@ -1800,10 +1810,12 @@ pub unsafe fn getFontRef(mut engine: XeTeXLayoutEngine) -> PlatformFontRef {
 pub unsafe fn deleteFont(mut font: PlatformFontRef) {
     XeTeXFontInst_delete(font as *mut XeTeXFontInst);
 }
+
 #[no_mangle]
 pub unsafe fn getFontTablePtr(mut font: PlatformFontRef, mut tableTag: uint32_t) -> *mut libc::c_void {
     return XeTeXFontInst_getFontTable(font as *mut XeTeXFontInst, tableTag);
 }
+
 #[no_mangle]
 pub unsafe fn getSlant(mut font: PlatformFontRef) -> Fixed {
     let mut italAngle: f32 = XeTeXFontInst_getItalicAngle(font as *mut XeTeXFontInst);
@@ -1823,10 +1835,7 @@ unsafe fn getLargerScriptListTable(
     let mut scriptListPos: *mut hb_tag_t = 0 as *mut hb_tag_t;
     let mut scriptCountSub: libc::c_uint = hb_ot_layout_table_get_script_tags(
         face,
-        ('G' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 24i32
-            | ('S' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 16i32
-            | ('U' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 8i32
-            | 'B' as i32 as uint32_t & 0xffi32 as libc::c_uint,
+        ft_make_tag(b"GSUB"),
         0i32 as libc::c_uint,
         0 as *mut libc::c_uint,
         0 as *mut hb_tag_t,
@@ -1837,20 +1846,14 @@ unsafe fn getLargerScriptListTable(
     ) as *mut hb_tag_t;
     hb_ot_layout_table_get_script_tags(
         face,
-        ('G' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 24i32
-            | ('S' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 16i32
-            | ('U' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 8i32
-            | 'B' as i32 as uint32_t & 0xffi32 as libc::c_uint,
+        ft_make_tag(b"GSUB"),
         0i32 as libc::c_uint,
         &mut scriptCountSub,
         scriptListSub,
     );
     let mut scriptCountPos: libc::c_uint = hb_ot_layout_table_get_script_tags(
         face,
-        ('G' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 24i32
-            | ('P' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 16i32
-            | ('O' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 8i32
-            | 'S' as i32 as uint32_t & 0xffi32 as libc::c_uint,
+        ft_make_tag(b"GPOS"),
         0i32 as libc::c_uint,
         0 as *mut libc::c_uint,
         0 as *mut hb_tag_t,
@@ -1861,10 +1864,7 @@ unsafe fn getLargerScriptListTable(
     ) as *mut hb_tag_t;
     hb_ot_layout_table_get_script_tags(
         face,
-        ('G' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 24i32
-            | ('S' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 16i32
-            | ('U' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 8i32
-            | 'B' as i32 as uint32_t & 0xffi32 as libc::c_uint,
+        ft_make_tag(b"GSUB"),
         0i32 as libc::c_uint,
         &mut scriptCountPos,
         scriptListPos,
@@ -1911,10 +1911,7 @@ pub unsafe fn countLanguages(mut font: PlatformFontRef, mut script: hb_tag_t) ->
             if *scriptList.offset(i as isize) == script {
                 rval = rval.wrapping_add(hb_ot_layout_script_get_language_tags(
                     face,
-                    ('G' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 24i32
-                        | ('S' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 16i32
-                        | ('U' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 8i32
-                        | 'B' as i32 as uint32_t & 0xffi32 as libc::c_uint,
+                    ft_make_tag(b"GSUB"),
                     i,
                     0i32 as libc::c_uint,
                     0 as *mut libc::c_uint,
@@ -1922,10 +1919,7 @@ pub unsafe fn countLanguages(mut font: PlatformFontRef, mut script: hb_tag_t) ->
                 ));
                 rval = rval.wrapping_add(hb_ot_layout_script_get_language_tags(
                     face,
-                    ('G' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 24i32
-                        | ('P' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 16i32
-                        | ('O' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 8i32
-                        | 'S' as i32 as uint32_t & 0xffi32 as libc::c_uint,
+                    ft_make_tag(b"GPOS"),
                     i,
                     0i32 as libc::c_uint,
                     0 as *mut libc::c_uint,
@@ -1959,10 +1953,7 @@ pub unsafe fn getIndLanguage(
                 let mut langList: *mut hb_tag_t = 0 as *mut hb_tag_t;
                 langCount = hb_ot_layout_script_get_language_tags(
                     face,
-                    ('G' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 24i32
-                        | ('S' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 16i32
-                        | ('U' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 8i32
-                        | 'B' as i32 as uint32_t & 0xffi32 as libc::c_uint,
+                    ft_make_tag(b"GSUB"),
                     i,
                     0i32 as libc::c_uint,
                     0 as *mut libc::c_uint,
@@ -1974,10 +1965,7 @@ pub unsafe fn getIndLanguage(
                 ) as *mut hb_tag_t;
                 hb_ot_layout_script_get_language_tags(
                     face,
-                    ('G' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 24i32
-                        | ('S' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 16i32
-                        | ('U' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 8i32
-                        | 'B' as i32 as uint32_t & 0xffi32 as libc::c_uint,
+                    ft_make_tag(b"GSUB"),
                     i,
                     0i32 as libc::c_uint,
                     &mut langCount,
@@ -1990,10 +1978,7 @@ pub unsafe fn getIndLanguage(
                     free(langList as *mut libc::c_void);
                     langCount = hb_ot_layout_script_get_language_tags(
                         face,
-                        ('G' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 24i32
-                            | ('P' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 16i32
-                            | ('O' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 8i32
-                            | 'S' as i32 as uint32_t & 0xffi32 as libc::c_uint,
+                        ft_make_tag(b"GPOS"),
                         i,
                         0i32 as libc::c_uint,
                         0 as *mut libc::c_uint,
@@ -2005,10 +1990,7 @@ pub unsafe fn getIndLanguage(
                     ) as *mut hb_tag_t;
                     hb_ot_layout_script_get_language_tags(
                         face,
-                        ('G' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 24i32
-                            | ('P' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 16i32
-                            | ('O' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 8i32
-                            | 'S' as i32 as uint32_t & 0xffi32 as libc::c_uint,
+                        ft_make_tag(b"GPOS"),
                         i,
                         0i32 as libc::c_uint,
                         &mut langCount,
@@ -2041,15 +2023,9 @@ pub unsafe fn countFeatures(
         let mut scriptIndex: libc::c_uint = 0;
         let mut langIndex: libc::c_uint = 0i32 as libc::c_uint;
         let mut tableTag: hb_tag_t = if i == 0i32 {
-            ('G' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 24i32
-                | ('S' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 16i32
-                | ('U' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 8i32
-                | 'B' as i32 as uint32_t & 0xffi32 as libc::c_uint
+            ft_make_tag(b"GSUB")
         } else {
-            ('G' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 24i32
-                | ('P' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 16i32
-                | ('O' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 8i32
-                | 'S' as i32 as uint32_t & 0xffi32 as libc::c_uint
+            ft_make_tag(b"GPOS")
         };
         if hb_ot_layout_table_find_script(face, tableTag, script, &mut scriptIndex) != 0 {
             if hb_ot_layout_script_find_language(
@@ -2092,15 +2068,9 @@ pub unsafe fn getIndFeature(
         let mut scriptIndex: libc::c_uint = 0;
         let mut langIndex: libc::c_uint = 0i32 as libc::c_uint;
         let mut tableTag: hb_tag_t = if i == 0i32 {
-            ('G' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 24i32
-                | ('S' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 16i32
-                | ('U' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 8i32
-                | 'B' as i32 as uint32_t & 0xffi32 as libc::c_uint
+            ft_make_tag(b"GSUB")
         } else {
-            ('G' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 24i32
-                | ('P' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 16i32
-                | ('O' as i32 as uint32_t & 0xffi32 as libc::c_uint) << 8i32
-                | 'S' as i32 as uint32_t & 0xffi32 as libc::c_uint
+            ft_make_tag(b"GPOS")
         };
         if hb_ot_layout_table_find_script(face, tableTag, script, &mut scriptIndex) != 0 {
             if hb_ot_layout_script_find_language(
