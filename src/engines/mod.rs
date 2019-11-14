@@ -511,7 +511,7 @@ use tectonic_engine::{
 
 // Entry points for the C/C++ API functions.
 
-extern "C" fn issue_warning<'a, I: 'a + IoProvider>(
+fn issue_warning<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     text: *const libc::c_char,
 ) {
@@ -521,7 +521,7 @@ extern "C" fn issue_warning<'a, I: 'a + IoProvider>(
     tt_warning!(es.status, "{}", rtext.to_string_lossy());
 }
 
-extern "C" fn issue_error<'a, I: 'a + IoProvider>(
+fn issue_error<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     text: *const libc::c_char,
 ) {
@@ -531,7 +531,7 @@ extern "C" fn issue_error<'a, I: 'a + IoProvider>(
     tt_error!(es.status, "{}", rtext.to_string_lossy());
 }
 
-extern "C" fn get_file_md5<'a, I: 'a + IoProvider>(
+fn get_file_md5<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     path: *const libc::c_char,
     digest: *mut u8,
@@ -547,7 +547,7 @@ extern "C" fn get_file_md5<'a, I: 'a + IoProvider>(
     }
 }
 
-extern "C" fn get_data_md5<'a, I: 'a + IoProvider>(
+fn get_data_md5<'a, I: 'a + IoProvider>(
     _es: *mut ExecutionState<'a, I>,
     data: *const u8,
     len: libc::size_t,
@@ -565,7 +565,7 @@ extern "C" fn get_data_md5<'a, I: 'a + IoProvider>(
     0
 }
 
-extern "C" fn output_open<'a, I: 'a + IoProvider>(
+fn output_open<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     name: *const libc::c_char,
     is_gz: libc::c_int,
@@ -577,7 +577,7 @@ extern "C" fn output_open<'a, I: 'a + IoProvider>(
     es.output_open(&rname, ris_gz) as *const _
 }
 
-extern "C" fn output_open_stdout<'a, I: 'a + IoProvider>(
+fn output_open_stdout<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
 ) -> *const libc::c_void {
     let es = unsafe { &mut *es };
@@ -585,7 +585,7 @@ extern "C" fn output_open_stdout<'a, I: 'a + IoProvider>(
     es.output_open_stdout() as *const _
 }
 
-extern "C" fn output_putc<'a, I: 'a + IoProvider>(
+fn output_putc<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     handle: *mut libc::c_void,
     c: libc::c_int,
@@ -601,7 +601,7 @@ extern "C" fn output_putc<'a, I: 'a + IoProvider>(
     }
 }
 
-extern "C" fn output_write<'a, I: 'a + IoProvider>(
+fn output_write<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     handle: *mut libc::c_void,
     data: *const u8,
@@ -620,7 +620,7 @@ extern "C" fn output_write<'a, I: 'a + IoProvider>(
     }
 }
 
-extern "C" fn output_flush<'a, I: 'a + IoProvider>(
+fn output_flush<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     handle: *mut libc::c_void,
 ) -> libc::c_int {
@@ -634,7 +634,7 @@ extern "C" fn output_flush<'a, I: 'a + IoProvider>(
     }
 }
 
-extern "C" fn output_close<'a, I: 'a + IoProvider>(
+fn output_close<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     handle: *mut libc::c_void,
 ) -> libc::c_int {
@@ -653,7 +653,7 @@ extern "C" fn output_close<'a, I: 'a + IoProvider>(
     }
 }
 
-extern "C" fn input_open<'a, I: 'a + IoProvider>(
+fn input_open<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     name: *const libc::c_char,
     format: libc::c_int,
@@ -670,7 +670,7 @@ extern "C" fn input_open<'a, I: 'a + IoProvider>(
     }
 }
 
-extern "C" fn input_open_primary<'a, I: 'a + IoProvider>(
+fn input_open_primary<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
 ) -> *const libc::c_void {
     let es = unsafe { &mut *es };
@@ -678,7 +678,7 @@ extern "C" fn input_open_primary<'a, I: 'a + IoProvider>(
     es.input_open_primary() as *const _
 }
 
-extern "C" fn input_get_size<'a, I: 'a + IoProvider>(
+fn input_get_size<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     handle: *mut libc::c_void,
 ) -> libc::size_t {
@@ -688,7 +688,7 @@ extern "C" fn input_get_size<'a, I: 'a + IoProvider>(
     es.input_get_size(rhandle)
 }
 
-extern "C" fn input_seek<'a, I: 'a + IoProvider>(
+fn input_seek<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     handle: *mut libc::c_void,
     offset: libc::ssize_t,
@@ -725,7 +725,7 @@ extern "C" fn input_seek<'a, I: 'a + IoProvider>(
     }
 }
 
-extern "C" fn input_getc<'a, I: 'a + IoProvider>(
+fn input_getc<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     handle: *mut libc::c_void,
 ) -> libc::c_int {
@@ -747,7 +747,7 @@ extern "C" fn input_getc<'a, I: 'a + IoProvider>(
     }
 }
 
-extern "C" fn input_ungetc<'a, I: 'a + IoProvider>(
+fn input_ungetc<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     handle: *mut libc::c_void,
     ch: libc::c_int,
@@ -764,7 +764,7 @@ extern "C" fn input_ungetc<'a, I: 'a + IoProvider>(
     }
 }
 
-extern "C" fn input_read<'a, I: 'a + IoProvider>(
+fn input_read<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     handle: *mut libc::c_void,
     data: *mut u8,
@@ -783,7 +783,7 @@ extern "C" fn input_read<'a, I: 'a + IoProvider>(
     }
 }
 
-extern "C" fn input_read_exact<'a, I: 'a + IoProvider>(
+fn input_read_exact<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     handle: *mut libc::c_void,
     data: *mut u8,
@@ -802,7 +802,7 @@ extern "C" fn input_read_exact<'a, I: 'a + IoProvider>(
     }
 }
 
-extern "C" fn input_close<'a, I: 'a + IoProvider>(
+fn input_close<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     handle: *mut libc::c_void,
 ) -> libc::c_int {

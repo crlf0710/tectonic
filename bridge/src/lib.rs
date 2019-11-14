@@ -104,22 +104,22 @@ impl InputHandleWrapper {
 #[repr(C)]
 pub struct tt_bridge_api_t {
     pub context: *mut libc::c_void,
-    pub issue_warning: Option<unsafe extern "C" fn(_: *mut libc::c_void, _: *const i8) -> ()>,
-    pub issue_error: Option<unsafe extern "C" fn(_: *mut libc::c_void, _: *const i8) -> ()>,
+    pub issue_warning: Option<unsafe fn(_: *mut libc::c_void, _: *const i8) -> ()>,
+    pub issue_error: Option<unsafe fn(_: *mut libc::c_void, _: *const i8) -> ()>,
     pub get_file_md5:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: *const i8, _: *mut i8) -> i32>,
+        Option<unsafe fn(_: *mut libc::c_void, _: *const i8, _: *mut i8) -> i32>,
     pub get_data_md5: Option<
-        unsafe extern "C" fn(_: *mut libc::c_void, _: *const i8, _: size_t, _: *mut i8) -> i32,
+        unsafe fn(_: *mut libc::c_void, _: *const i8, _: size_t, _: *mut i8) -> i32,
     >,
     pub output_open: Option<
-        unsafe extern "C" fn(_: *mut libc::c_void, _: *const i8, _: i32) -> rust_output_handle_t,
+        unsafe fn(_: *mut libc::c_void, _: *const i8, _: i32) -> rust_output_handle_t,
     >,
     pub output_open_stdout:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void) -> rust_output_handle_t>,
+        Option<unsafe fn(_: *mut libc::c_void) -> rust_output_handle_t>,
     pub output_putc:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: rust_output_handle_t, _: i32) -> i32>,
+        Option<unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t, _: i32) -> i32>,
     pub output_write: Option<
-        unsafe extern "C" fn(
+        unsafe fn(
             _: *mut libc::c_void,
             _: rust_output_handle_t,
             _: *const i8,
@@ -127,11 +127,11 @@ pub struct tt_bridge_api_t {
         ) -> size_t,
     >,
     pub output_flush:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: rust_output_handle_t) -> i32>,
+        Option<unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t) -> i32>,
     pub output_close:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: rust_output_handle_t) -> i32>,
+        Option<unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t) -> i32>,
     pub input_open: Option<
-        unsafe extern "C" fn(
+        unsafe fn(
             _: *mut libc::c_void,
             _: *const i8,
             _: TTInputFormat,
@@ -139,11 +139,11 @@ pub struct tt_bridge_api_t {
         ) -> rust_input_handle_t,
     >,
     pub input_open_primary:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void) -> rust_input_handle_t>,
+        Option<unsafe fn(_: *mut libc::c_void) -> rust_input_handle_t>,
     pub input_get_size:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: rust_input_handle_t) -> size_t>,
+        Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> size_t>,
     pub input_seek: Option<
-        unsafe extern "C" fn(
+        unsafe fn(
             _: *mut libc::c_void,
             _: rust_input_handle_t,
             _: ssize_t,
@@ -152,7 +152,7 @@ pub struct tt_bridge_api_t {
         ) -> size_t,
     >,
     pub input_read: Option<
-        unsafe extern "C" fn(
+        unsafe fn(
             _: *mut libc::c_void,
             _: rust_input_handle_t,
             _: *mut i8,
@@ -160,7 +160,7 @@ pub struct tt_bridge_api_t {
         ) -> ssize_t,
     >,
     pub input_read_exact: Option<
-        unsafe extern "C" fn(
+        unsafe fn(
             _: *mut libc::c_void,
             _: rust_input_handle_t,
             _: *mut i8,
@@ -168,11 +168,11 @@ pub struct tt_bridge_api_t {
         ) -> ssize_t,
     >,
     pub input_getc:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
+        Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
     pub input_ungetc:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: rust_input_handle_t, _: i32) -> i32>,
+        Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t, _: i32) -> i32>,
     pub input_close:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
+        Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
 }
 
 #[repr(C)]
@@ -187,8 +187,11 @@ pub enum TTHistory {
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum TTInputFormat {
+    /// TeX Font Metric
     TFM = 3,
+    /// Adobe Font Metric
     AFM = 4,
+    /// BibTeX
     BIB = 6,
     BST = 7,
     CNF = 8,

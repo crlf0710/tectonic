@@ -76,7 +76,7 @@ const MAX_GLOB_STRS: i32 = 10;
 const MAX_FIELDS: i32 = 17250;
 const LIT_STK_SIZE: i32 = 100;
 
-unsafe extern "C" fn peekable_open(
+unsafe fn peekable_open(
     mut path: *const i8,
     mut format: TTInputFormat,
 ) -> Option<peekable_input_t> {
@@ -88,7 +88,7 @@ unsafe extern "C" fn peekable_open(
         }
     })
 }
-unsafe extern "C" fn peekable_close(peekable: Option<peekable_input_t>) -> i32 {
+unsafe fn peekable_close(peekable: Option<peekable_input_t>) -> i32 {
     let mut rv: i32 = 0;
     if let Some(peekable_input_t { handle, .. }) = peekable {
         ttstub_input_close(handle)
@@ -96,7 +96,7 @@ unsafe extern "C" fn peekable_close(peekable: Option<peekable_input_t>) -> i32 {
         return 0;
     }
 }
-unsafe extern "C" fn peekable_getc(peekable: &mut peekable_input_t) -> i32 {
+unsafe fn peekable_getc(peekable: &mut peekable_input_t) -> i32 {
     let mut rv: i32 = 0;
     if peekable.peek_char != -1i32 {
         rv = peekable.peek_char;
@@ -109,12 +109,12 @@ unsafe extern "C" fn peekable_getc(peekable: &mut peekable_input_t) -> i32 {
     }
     rv
 }
-unsafe extern "C" fn peekable_ungetc(peekable: &mut peekable_input_t, mut c: i32) {
+unsafe fn peekable_ungetc(peekable: &mut peekable_input_t, mut c: i32) {
     /* TODO: assert c != EOF */
     peekable.peek_char = c;
 }
 /* eofeoln.c, adapted for Rusty I/O */
-unsafe extern "C" fn tectonic_eof(peekable: Option<&mut peekable_input_t>) -> bool {
+unsafe fn tectonic_eof(peekable: Option<&mut peekable_input_t>) -> bool {
     /* Check for EOF following Pascal semantics. */
     let mut c: i32 = 0;
     if peekable.is_none() {
@@ -131,7 +131,7 @@ unsafe extern "C" fn tectonic_eof(peekable: Option<&mut peekable_input_t>) -> bo
     peekable_ungetc(peekable, c);
     false
 }
-unsafe extern "C" fn eoln(peekable: &mut peekable_input_t) -> bool {
+unsafe fn eoln(peekable: &mut peekable_input_t) -> bool {
     let mut c: i32 = 0;
     if peekable.saw_eof {
         return true;
@@ -398,7 +398,7 @@ static mut min_crossrefs: i32 = 0;
 /*:473*/
 /*12: *//*3: */
 
-unsafe extern "C" fn putc_log(c: i32) {
+unsafe fn putc_log(c: i32) {
     ttstub_output_putc(log_file.as_mut().unwrap(), c); /* note: global! */
     ttstub_output_putc(standard_output.as_mut().unwrap(), c);
 }
@@ -411,7 +411,7 @@ macro_rules! log {
     }}
 }
 
-unsafe extern "C" fn mark_warning() {
+unsafe fn mark_warning() {
     if history == TTHistory::WARNING_ISSUED {
         err_count += 1
     } else if history == TTHistory::SPOTLESS {
@@ -419,7 +419,7 @@ unsafe extern "C" fn mark_warning() {
         err_count = 1i32
     };
 }
-unsafe extern "C" fn mark_error() {
+unsafe fn mark_error() {
     if (history as i32) < (TTHistory::ERROR_ISSUED as i32) {
         history = TTHistory::ERROR_ISSUED;
         err_count = 1i32
@@ -427,19 +427,19 @@ unsafe extern "C" fn mark_error() {
         err_count += 1
     };
 }
-unsafe extern "C" fn mark_fatal() {
+unsafe fn mark_fatal() {
     history = TTHistory::FATAL_ERROR;
 }
-unsafe extern "C" fn print_overflow() {
+unsafe fn print_overflow() {
     log!("Sorry---you\'ve exceeded BibTeX\'s ");
     mark_fatal();
 }
-unsafe extern "C" fn print_confusion() {
+unsafe fn print_confusion() {
     log!("---this can\'t happen\n");
     log!("*Please notify the BibTeX maintainer*\n");
     mark_fatal();
 }
-unsafe extern "C" fn buffer_overflow() {
+unsafe fn buffer_overflow() {
     buffer = xrealloc(
         buffer as *mut libc::c_void,
         ((buf_size + 20000i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64),
@@ -467,7 +467,7 @@ unsafe extern "C" fn buffer_overflow() {
     ) as *mut u8;
     buf_size = buf_size + 20000i32;
 }
-unsafe extern "C" fn input_ln(peekable: &mut Option<peekable_input_t>) -> bool {
+unsafe fn input_ln(peekable: &mut Option<peekable_input_t>) -> bool {
     last = 0i32;
     if tectonic_eof(peekable.as_mut()) {
         return false;
@@ -490,7 +490,7 @@ unsafe extern "C" fn input_ln(peekable: &mut Option<peekable_input_t>) -> bool {
     }
     true
 }
-unsafe extern "C" fn out_pool_str(handle: &mut OutputHandleWrapper, mut s: str_number) {
+unsafe fn out_pool_str(handle: &mut OutputHandleWrapper, mut s: str_number) {
     let mut i: pool_pointer = 0;
     if s < 0i32 || s >= str_ptr + 3i32 || s >= max_strings {
         log!("Illegal string number:{}", s);
@@ -503,11 +503,11 @@ unsafe extern "C" fn out_pool_str(handle: &mut OutputHandleWrapper, mut s: str_n
         i += 1
     }
 }
-unsafe extern "C" fn print_a_pool_str(mut s: str_number) {
+unsafe fn print_a_pool_str(mut s: str_number) {
     out_pool_str(standard_output.as_mut().unwrap(), s);
     out_pool_str(log_file.as_mut().unwrap(), s);
 }
-unsafe extern "C" fn pool_overflow() {
+unsafe fn pool_overflow() {
     str_pool = xrealloc(
         str_pool as *mut libc::c_void,
         ((pool_size as i64 + 65000 + 1i32 as i64) as u64)
@@ -515,16 +515,16 @@ unsafe extern "C" fn pool_overflow() {
     ) as *mut u8;
     pool_size = (pool_size as i64 + 65000) as i32;
 }
-unsafe extern "C" fn out_token(handle: &mut OutputHandleWrapper) {
+unsafe fn out_token(handle: &mut OutputHandleWrapper) {
     for i in buf_ptr1..buf_ptr2 {
         ttstub_output_putc(handle, *buffer.offset(i as isize) as i32);
     }
 }
-unsafe extern "C" fn print_a_token() {
+unsafe fn print_a_token() {
     out_token(standard_output.as_mut().unwrap());
     out_token(log_file.as_mut().unwrap());
 }
-unsafe extern "C" fn print_bad_input_line() {
+unsafe fn print_bad_input_line() {
     let mut bf_ptr: buf_pointer = 0;
     log!(" : ");
     bf_ptr = 0i32;
@@ -570,10 +570,10 @@ unsafe extern "C" fn print_bad_input_line() {
     }
     mark_error();
 }
-unsafe extern "C" fn print_skipping_whatever_remains() {
+unsafe fn print_skipping_whatever_remains() {
     log!("I\'m skipping whatever remains of this ");
 }
-unsafe extern "C" fn sam_wrong_file_name_print() {
+unsafe fn sam_wrong_file_name_print() {
     let mut output = standard_output.as_mut().unwrap();
     write!(output, "I couldn\'t open file name `").unwrap();
     name_ptr = 0i32;
@@ -585,23 +585,23 @@ unsafe extern "C" fn sam_wrong_file_name_print() {
     ttstub_output_putc(output, '\'' as i32);
     ttstub_output_putc(output, '\n' as i32);
 }
-unsafe extern "C" fn print_aux_name() {
+unsafe fn print_aux_name() {
     print_a_pool_str(aux_list[aux_ptr as usize]);
     putc_log('\n' as i32);
 }
-unsafe extern "C" fn log_pr_aux_name() {
+unsafe fn log_pr_aux_name() {
     let lg = log_file.as_mut().unwrap();
     out_pool_str(lg, aux_list[aux_ptr as usize]);
     ttstub_output_putc(lg, '\n' as i32);
 }
-unsafe extern "C" fn aux_err_print() {
+unsafe fn aux_err_print() {
     log!("---line {} of file ", aux_ln_stack[aux_ptr as usize]);
     print_aux_name();
     print_bad_input_line();
     print_skipping_whatever_remains();
     log!("command\n");
 }
-unsafe extern "C" fn aux_err_illegal_another_print(cmd_num: i32) {
+unsafe fn aux_err_illegal_another_print(cmd_num: i32) {
     log!("Illegal, another \\bib");
     match cmd_num {
         0 => {
@@ -618,43 +618,43 @@ unsafe extern "C" fn aux_err_illegal_another_print(cmd_num: i32) {
     }
     log!(" command");
 }
-unsafe extern "C" fn aux_err_no_right_brace_print() {
+unsafe fn aux_err_no_right_brace_print() {
     log!("No \"}}\"");
 }
-unsafe extern "C" fn aux_err_stuff_after_right_brace_print() {
+unsafe fn aux_err_stuff_after_right_brace_print() {
     log!("Stuff after \"}}\"");
 }
-unsafe extern "C" fn aux_err_white_space_in_argument_print() {
+unsafe fn aux_err_white_space_in_argument_print() {
     log!("White space in argument");
 }
-unsafe extern "C" fn print_bib_name() {
+unsafe fn print_bib_name() {
     print_a_pool_str(*bib_list.offset(bib_ptr as isize));
     print_a_pool_str(s_bib_extension);
     putc_log('\n' as i32);
 }
-unsafe extern "C" fn log_pr_bib_name() {
+unsafe fn log_pr_bib_name() {
     let lg = log_file.as_mut().unwrap();
     out_pool_str(lg, *bib_list.offset(bib_ptr as isize));
     out_pool_str(lg, s_bib_extension);
     ttstub_output_putc(lg, '\n' as i32);
 }
-unsafe extern "C" fn print_bst_name() {
+unsafe fn print_bst_name() {
     print_a_pool_str(bst_str);
     print_a_pool_str(s_bst_extension);
     putc_log('\n' as i32);
 }
-unsafe extern "C" fn log_pr_bst_name() {
+unsafe fn log_pr_bst_name() {
     let lg = log_file.as_mut().unwrap();
     out_pool_str(lg, bst_str);
     out_pool_str(lg, s_bst_extension);
     ttstub_output_putc(lg, '\n' as i32);
 }
-unsafe extern "C" fn hash_cite_confusion() {
+unsafe fn hash_cite_confusion() {
     log!("Cite hash error");
     print_confusion();
     panic!();
 }
-unsafe extern "C" fn check_cite_overflow(mut last_cite: cite_number) {
+unsafe fn check_cite_overflow(mut last_cite: cite_number) {
     if last_cite == max_cites {
         cite_list = xrealloc(
             cite_list as *mut libc::c_void,
@@ -683,19 +683,19 @@ unsafe extern "C" fn check_cite_overflow(mut last_cite: cite_number) {
         }
     };
 }
-unsafe extern "C" fn aux_end1_err_print() {
+unsafe fn aux_end1_err_print() {
     log!("I found no ");
 }
-unsafe extern "C" fn aux_end2_err_print() {
+unsafe fn aux_end2_err_print() {
     log!("---while reading file ");
     print_aux_name();
     mark_error();
 }
-unsafe extern "C" fn bst_ln_num_print() {
+unsafe fn bst_ln_num_print() {
     log!("--line {} of file ", bst_line_num);
     print_bst_name();
 }
-unsafe extern "C" fn bst_err_print_and_look_for_blank_line() {
+unsafe fn bst_err_print_and_look_for_blank_line() {
     putc_log('-' as i32);
     bst_ln_num_print();
     print_bad_input_line();
@@ -708,19 +708,19 @@ unsafe extern "C" fn bst_err_print_and_look_for_blank_line() {
     }
     buf_ptr2 = last;
 }
-unsafe extern "C" fn bst_warn_print() {
+unsafe fn bst_warn_print() {
     bst_ln_num_print();
     mark_warning();
 }
-unsafe extern "C" fn eat_bst_print() {
+unsafe fn eat_bst_print() {
     log!("Illegal end of style file in command: ");
 }
-unsafe extern "C" fn unknwn_function_class_confusion() {
+unsafe fn unknwn_function_class_confusion() {
     log!("Unknown function class");
     print_confusion();
     panic!();
 }
-unsafe extern "C" fn print_fn_class(fn_loc_0: hash_loc) {
+unsafe fn print_fn_class(fn_loc_0: hash_loc) {
     match *fn_type.offset(fn_loc_0 as isize) as i32 {
         0 => {
             log!("built-in");
@@ -756,12 +756,12 @@ unsafe extern "C" fn print_fn_class(fn_loc_0: hash_loc) {
 }
 /*:159*/
 /*160: */
-unsafe extern "C" fn id_scanning_confusion() {
+unsafe fn id_scanning_confusion() {
     log!("Identifier scanning error");
     print_confusion();
     panic!();
 }
-unsafe extern "C" fn bst_id_print() {
+unsafe fn bst_id_print() {
     if scan_result as i32 == 0i32 {
         /*id_null */
         log!(
@@ -778,24 +778,24 @@ unsafe extern "C" fn bst_id_print() {
         id_scanning_confusion();
     };
 }
-unsafe extern "C" fn bst_left_brace_print() {
+unsafe fn bst_left_brace_print() {
     log!("\"{{\" is missing in command: ");
 }
-unsafe extern "C" fn bst_right_brace_print() {
+unsafe fn bst_right_brace_print() {
     log!("\"}}\" is missing in command: ");
 }
-unsafe extern "C" fn already_seen_function_print(mut seen_fn_loc: hash_loc) {
+unsafe fn already_seen_function_print(mut seen_fn_loc: hash_loc) {
     print_a_pool_str(*hash_text.offset(seen_fn_loc as isize));
     log!(" is already a type \"");
     print_fn_class(seen_fn_loc);
     log!("\" function name\n");
     bst_err_print_and_look_for_blank_line();
 }
-unsafe extern "C" fn bib_ln_num_print() {
+unsafe fn bib_ln_num_print() {
     log!("--line {} of file", bib_line_num);
     print_bib_name();
 }
-unsafe extern "C" fn bib_err_print() {
+unsafe fn bib_err_print() {
     putc_log('-' as i32);
     bib_ln_num_print();
     print_bad_input_line();
@@ -806,11 +806,11 @@ unsafe extern "C" fn bib_err_print() {
         log!("entry\n");
     };
 }
-unsafe extern "C" fn bib_warn_print() {
+unsafe fn bib_warn_print() {
     bib_ln_num_print();
     mark_warning();
 }
-unsafe extern "C" fn check_field_overflow(mut total_fields: i32) {
+unsafe fn check_field_overflow(mut total_fields: i32) {
     let mut f_ptr: field_loc = 0;
     let mut start_fields: field_loc = 0;
     if total_fields > max_fields {
@@ -837,11 +837,11 @@ unsafe extern "C" fn check_field_overflow(mut total_fields: i32) {
         }
     };
 }
-unsafe extern "C" fn eat_bib_print() {
+unsafe fn eat_bib_print() {
     log!("Illegal end of database file");
     bib_err_print();
 }
-unsafe extern "C" fn bib_one_of_two_print(mut char1: u8, mut char2: u8) {
+unsafe fn bib_one_of_two_print(mut char1: u8, mut char2: u8) {
     log!(
         "I was expecting a `{}' or a `{}'",
         char1 as char,
@@ -849,24 +849,24 @@ unsafe extern "C" fn bib_one_of_two_print(mut char1: u8, mut char2: u8) {
     );
     bib_err_print();
 }
-unsafe extern "C" fn bib_equals_sign_print() {
+unsafe fn bib_equals_sign_print() {
     log!("I was expecting an \"=\"");
     bib_err_print();
 }
-unsafe extern "C" fn bib_unbalanced_braces_print() {
+unsafe fn bib_unbalanced_braces_print() {
     log!("Unbalanced braces");
     bib_err_print();
 }
-unsafe extern "C" fn bib_field_too_long_print() {
+unsafe fn bib_field_too_long_print() {
     log!("Your field is more than {} characters", buf_size);
     bib_err_print();
 }
-unsafe extern "C" fn macro_warn_print() {
+unsafe fn macro_warn_print() {
     log!("Warning--string name \"");
     print_a_token();
     log!("\" is ");
 }
-unsafe extern "C" fn bib_id_print() {
+unsafe fn bib_id_print() {
     if scan_result as i32 == 0i32 {
         /*id_null */
         log!("You\'re missing ");
@@ -880,17 +880,17 @@ unsafe extern "C" fn bib_id_print() {
         id_scanning_confusion();
     };
 }
-unsafe extern "C" fn bib_cmd_confusion() {
+unsafe fn bib_cmd_confusion() {
     log!("Unknown database-file command");
     print_confusion();
     panic!();
 }
-unsafe extern "C" fn cite_key_disappeared_confusion() {
+unsafe fn cite_key_disappeared_confusion() {
     log!("A cite key disappeared");
     print_confusion();
     panic!();
 }
-unsafe extern "C" fn bad_cross_reference_print(mut s: str_number) {
+unsafe fn bad_cross_reference_print(mut s: str_number) {
     log!("--entry \"");
     print_a_pool_str(*cite_list.offset(cite_ptr as isize));
     putc_log('\"' as i32);
@@ -898,20 +898,20 @@ unsafe extern "C" fn bad_cross_reference_print(mut s: str_number) {
     log!("refers to entry \"");
     print_a_pool_str(s);
 }
-unsafe extern "C" fn nonexistent_cross_reference_error() {
+unsafe fn nonexistent_cross_reference_error() {
     log!("A bad cross reference-");
     bad_cross_reference_print(*field_info.offset(field_ptr as isize));
     log!("\", which doesn\'t exist\n");
     mark_error();
 }
-unsafe extern "C" fn print_missing_entry(mut s: str_number) {
+unsafe fn print_missing_entry(mut s: str_number) {
     log!("Warning--I didn\'t find a database entry for \"");
     print_a_pool_str(s);
     putc_log('\"' as i32);
     putc_log('\n' as i32);
     mark_warning();
 }
-unsafe extern "C" fn bst_ex_warn_print() {
+unsafe fn bst_ex_warn_print() {
     if mess_with_entries {
         log!(" for entry ");
         print_a_pool_str(*cite_list.offset(cite_ptr as isize));
@@ -921,7 +921,7 @@ unsafe extern "C" fn bst_ex_warn_print() {
     bst_ln_num_print();
     mark_error();
 }
-unsafe extern "C" fn bst_mild_ex_warn_print() {
+unsafe fn bst_mild_ex_warn_print() {
     if mess_with_entries {
         log!(" for entry ");
         print_a_pool_str(*cite_list.offset(cite_ptr as isize));
@@ -930,21 +930,21 @@ unsafe extern "C" fn bst_mild_ex_warn_print() {
     log!("while executing");
     bst_warn_print();
 }
-unsafe extern "C" fn bst_cant_mess_with_entries_print() {
+unsafe fn bst_cant_mess_with_entries_print() {
     log!("You can\'t mess with entries here");
     bst_ex_warn_print();
 }
-unsafe extern "C" fn illegl_literal_confusion() {
+unsafe fn illegl_literal_confusion() {
     log!("Illegal literal type");
     print_confusion();
     panic!();
 }
-unsafe extern "C" fn unknwn_literal_confusion() {
+unsafe fn unknwn_literal_confusion() {
     log!("Unknown literal type");
     print_confusion();
     panic!();
 }
-unsafe extern "C" fn print_stk_lit(mut stk_lt: i32, mut stk_tp: stk_type) {
+unsafe fn print_stk_lit(mut stk_lt: i32, mut stk_tp: stk_type) {
     match stk_tp as i32 {
         0 => {
             log!("{} is an integer literal", stk_lt);
@@ -972,7 +972,7 @@ unsafe extern "C" fn print_stk_lit(mut stk_lt: i32, mut stk_tp: stk_type) {
         }
     };
 }
-unsafe extern "C" fn print_lit(mut stk_lt: i32, mut stk_tp: stk_type) {
+unsafe fn print_lit(mut stk_lt: i32, mut stk_tp: stk_type) {
     match stk_tp as i32 {
         0 => {
             log!("{}\n", stk_lt);
@@ -997,7 +997,7 @@ unsafe extern "C" fn print_lit(mut stk_lt: i32, mut stk_tp: stk_type) {
         }
     };
 }
-unsafe extern "C" fn output_bbl_line() {
+unsafe fn output_bbl_line() {
     let bbl = bbl_file.as_mut().unwrap();
     if out_buf_length != 0i32 {
         while out_buf_length > 0i32 {
@@ -1022,26 +1022,26 @@ unsafe extern "C" fn output_bbl_line() {
     bbl_line_num += 1;
     out_buf_length = 0i32;
 }
-unsafe extern "C" fn bst_1print_string_size_exceeded() {
+unsafe fn bst_1print_string_size_exceeded() {
     log!("Warning--you\'ve exceeded ");
 }
-unsafe extern "C" fn bst_2print_string_size_exceeded() {
+unsafe fn bst_2print_string_size_exceeded() {
     log!("-string-size,");
     bst_mild_ex_warn_print();
     log!("*Please notify the bibstyle designer*\n");
 }
-unsafe extern "C" fn braces_unbalanced_complaint(mut pop_lit_var: str_number) {
+unsafe fn braces_unbalanced_complaint(mut pop_lit_var: str_number) {
     log!("Warning--\"");
     print_a_pool_str(pop_lit_var);
     log!("\" isn\'t a brace-balanced string");
     bst_mild_ex_warn_print();
 }
-unsafe extern "C" fn case_conversion_confusion() {
+unsafe fn case_conversion_confusion() {
     log!("Unknown type of case conversion");
     print_confusion();
     panic!();
 }
-unsafe extern "C" fn start_name(mut file_name: str_number) {
+unsafe fn start_name(mut file_name: str_number) {
     let mut p_ptr: pool_pointer = 0;
     free(name_of_file as *mut libc::c_void);
     name_of_file = xmalloc(
@@ -1061,7 +1061,7 @@ unsafe extern "C" fn start_name(mut file_name: str_number) {
         *str_start.offset((file_name + 1i32) as isize) - *str_start.offset(file_name as isize);
     *name_of_file.offset(name_length as isize) = 0i32 as u8;
 }
-unsafe extern "C" fn add_extension(mut ext: str_number) {
+unsafe fn add_extension(mut ext: str_number) {
     let mut p_ptr: pool_pointer = 0;
     name_ptr = name_length;
     p_ptr = *str_start.offset(ext as isize);
@@ -1073,7 +1073,7 @@ unsafe extern "C" fn add_extension(mut ext: str_number) {
     name_length += *str_start.offset((ext + 1i32) as isize) - *str_start.offset(ext as isize);
     *name_of_file.offset(name_length as isize) = 0i32 as u8;
 }
-unsafe extern "C" fn make_string() -> str_number {
+unsafe fn make_string() -> str_number {
     if str_ptr == max_strings {
         print_overflow();
         log!("number of strings {}\n", max_strings);
@@ -1083,7 +1083,7 @@ unsafe extern "C" fn make_string() -> str_number {
     *str_start.offset(str_ptr as isize) = pool_ptr;
     str_ptr - 1i32
 }
-unsafe extern "C" fn str_eq_buf(
+unsafe fn str_eq_buf(
     mut s: str_number,
     mut buf: buf_type,
     mut bf_ptr: buf_pointer,
@@ -1105,7 +1105,7 @@ unsafe extern "C" fn str_eq_buf(
     }
     true
 }
-unsafe extern "C" fn str_eq_str(mut s1: str_number, mut s2: str_number) -> bool {
+unsafe fn str_eq_str(mut s1: str_number, mut s2: str_number) -> bool {
     if *str_start.offset((s1 + 1i32) as isize) - *str_start.offset(s1 as isize)
         != *str_start.offset((s2 + 1i32) as isize) - *str_start.offset(s2 as isize)
     {
@@ -1122,7 +1122,7 @@ unsafe extern "C" fn str_eq_str(mut s1: str_number, mut s2: str_number) -> bool 
     }
     true
 }
-unsafe extern "C" fn lower_case(mut buf: buf_type, mut bf_ptr: buf_pointer, mut len: buf_pointer) {
+unsafe fn lower_case(mut buf: buf_type, mut bf_ptr: buf_pointer, mut len: buf_pointer) {
     let mut i: buf_pointer = 0;
     if len > 0i32 {
         let mut for_end: i32 = 0;
@@ -1144,7 +1144,7 @@ unsafe extern "C" fn lower_case(mut buf: buf_type, mut bf_ptr: buf_pointer, mut 
         }
     };
 }
-unsafe extern "C" fn upper_case(mut buf: buf_type, mut bf_ptr: buf_pointer, mut len: buf_pointer) {
+unsafe fn upper_case(mut buf: buf_type, mut bf_ptr: buf_pointer, mut len: buf_pointer) {
     let mut i: buf_pointer = 0;
     if len > 0i32 {
         let mut for_end: i32 = 0;
@@ -1166,7 +1166,7 @@ unsafe extern "C" fn upper_case(mut buf: buf_type, mut bf_ptr: buf_pointer, mut 
         }
     };
 }
-unsafe extern "C" fn str_lookup(
+unsafe fn str_lookup(
     mut buf: buf_type,
     mut j: buf_pointer,
     mut l: buf_pointer,
@@ -1241,7 +1241,7 @@ unsafe extern "C" fn str_lookup(
         p = *hash_next.offset(p as isize)
     }
 }
-unsafe extern "C" fn pre_define(pds: pds_type, len: pds_len, ilk: str_ilk) {
+unsafe fn pre_define(pds: pds_type, len: pds_len, ilk: str_ilk) {
     let mut i: pds_len = 1;
     let for_end = len as i32;
     if i as i32 <= for_end {
@@ -1256,7 +1256,7 @@ unsafe extern "C" fn pre_define(pds: pds_type, len: pds_len, ilk: str_ilk) {
     }
     pre_def_loc = str_lookup(buffer, 1i32, len as buf_pointer, ilk, true);
 }
-unsafe extern "C" fn int_to_ASCII(
+unsafe fn int_to_ASCII(
     mut the_int: i32,
     mut int_buf: buf_type,
     mut int_begin: buf_pointer,
@@ -1297,7 +1297,7 @@ unsafe extern "C" fn int_to_ASCII(
         int_xptr = int_xptr + 1i32
     }
 }
-unsafe extern "C" fn add_database_cite(mut new_cite: *mut cite_number) {
+unsafe fn add_database_cite(mut new_cite: *mut cite_number) {
     check_cite_overflow(*new_cite);
     check_field_overflow(num_fields * (*new_cite + 1i32));
     *cite_list.offset(*new_cite as isize) = *hash_text.offset(cite_loc as isize);
@@ -1305,7 +1305,7 @@ unsafe extern "C" fn add_database_cite(mut new_cite: *mut cite_number) {
     *ilk_info.offset(lc_cite_loc as isize) = cite_loc;
     *new_cite = *new_cite + 1i32;
 }
-unsafe extern "C" fn find_cite_locs_for_this_cite_key(mut cite_str: str_number) -> bool {
+unsafe fn find_cite_locs_for_this_cite_key(mut cite_str: str_number) -> bool {
     ex_buf_ptr = 0i32;
     tmp_ptr = *str_start.offset(cite_str as isize);
     tmp_end_ptr = *str_start.offset((cite_str + 1i32) as isize);
@@ -1336,13 +1336,13 @@ unsafe extern "C" fn find_cite_locs_for_this_cite_key(mut cite_str: str_number) 
     );
     hash_found
 }
-unsafe extern "C" fn swap(mut swap1: cite_number, mut swap2: cite_number) {
+unsafe fn swap(mut swap1: cite_number, mut swap2: cite_number) {
     let mut innocent_bystander: cite_number = 0;
     innocent_bystander = *cite_info.offset(swap2 as isize);
     *cite_info.offset(swap2 as isize) = *cite_info.offset(swap1 as isize);
     *cite_info.offset(swap1 as isize) = innocent_bystander;
 }
-unsafe extern "C" fn less_than(mut arg1: cite_number, mut arg2: cite_number) -> bool {
+unsafe fn less_than(mut arg1: cite_number, mut arg2: cite_number) -> bool {
     let mut char_ptr: i32 = 0;
     let mut ptr1: str_ent_loc = 0;
     let mut ptr2: str_ent_loc = 0;
@@ -1387,7 +1387,7 @@ unsafe extern "C" fn less_than(mut arg1: cite_number, mut arg2: cite_number) -> 
         char_ptr = char_ptr + 1i32
     }
 }
-unsafe extern "C" fn quick_sort(mut left_end: cite_number, mut right_end: cite_number) {
+unsafe fn quick_sort(mut left_end: cite_number, mut right_end: cite_number) {
     let mut left: cite_number = 0;
     let mut right: cite_number = 0;
     let mut insert_ptr: cite_number = 0;
@@ -1482,7 +1482,7 @@ unsafe extern "C" fn quick_sort(mut left_end: cite_number, mut right_end: cite_n
         quick_sort(left, right_end); /*int_global_var */
     };
 }
-unsafe extern "C" fn build_in(
+unsafe fn build_in(
     pds: pds_type,
     len: pds_len,
     fn_hash_loc: &mut hash_loc,
@@ -1493,7 +1493,7 @@ unsafe extern "C" fn build_in(
     *fn_type.offset(*fn_hash_loc as isize) = 0i32 as fn_class;
     *ilk_info.offset(*fn_hash_loc as isize) = blt_in_num;
 }
-unsafe extern "C" fn pre_def_certain_strings() {
+unsafe fn pre_def_certain_strings() {
     pre_define(b".aux        \x00" as *const u8 as *const i8, 4, 7);
     s_aux_extension = *hash_text.offset(pre_def_loc as isize);
     pre_define(b".bbl        \x00" as *const u8 as *const i8, 4, 7);
@@ -1892,14 +1892,14 @@ unsafe extern "C" fn pre_def_certain_strings() {
     *fn_type.offset(pre_def_loc as isize) = 7i32 as fn_class;
     *ilk_info.offset(pre_def_loc as isize) = glob_str_size;
 }
-unsafe extern "C" fn scan1(mut char1: u8) -> bool {
+unsafe fn scan1(mut char1: u8) -> bool {
     buf_ptr1 = buf_ptr2;
     while buf_ptr2 < last && *buffer.offset(buf_ptr2 as isize) as i32 != char1 as i32 {
         buf_ptr2 = buf_ptr2 + 1i32
     }
     buf_ptr2 < last
 }
-unsafe extern "C" fn scan1_white(mut char1: u8) -> bool {
+unsafe fn scan1_white(mut char1: u8) -> bool {
     buf_ptr1 = buf_ptr2;
     while buf_ptr2 < last
         && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 != 1i32
@@ -1909,7 +1909,7 @@ unsafe extern "C" fn scan1_white(mut char1: u8) -> bool {
     }
     buf_ptr2 < last
 }
-unsafe extern "C" fn scan2(mut char1: u8, mut char2: u8) -> bool {
+unsafe fn scan2(mut char1: u8, mut char2: u8) -> bool {
     buf_ptr1 = buf_ptr2;
     while buf_ptr2 < last
         && *buffer.offset(buf_ptr2 as isize) as i32 != char1 as i32
@@ -1919,7 +1919,7 @@ unsafe extern "C" fn scan2(mut char1: u8, mut char2: u8) -> bool {
     }
     buf_ptr2 < last
 }
-unsafe extern "C" fn scan2_white(mut char1: u8, mut char2: u8) -> bool {
+unsafe fn scan2_white(mut char1: u8, mut char2: u8) -> bool {
     buf_ptr1 = buf_ptr2;
     while buf_ptr2 < last
         && *buffer.offset(buf_ptr2 as isize) as i32 != char1 as i32
@@ -1930,7 +1930,7 @@ unsafe extern "C" fn scan2_white(mut char1: u8, mut char2: u8) -> bool {
     }
     buf_ptr2 < last
 }
-unsafe extern "C" fn scan3(mut char1: u8, mut char2: u8, mut char3: u8) -> bool {
+unsafe fn scan3(mut char1: u8, mut char2: u8, mut char3: u8) -> bool {
     buf_ptr1 = buf_ptr2;
     while buf_ptr2 < last
         && *buffer.offset(buf_ptr2 as isize) as i32 != char1 as i32
@@ -1941,14 +1941,14 @@ unsafe extern "C" fn scan3(mut char1: u8, mut char2: u8, mut char3: u8) -> bool 
     }
     buf_ptr2 < last
 }
-unsafe extern "C" fn scan_alpha() -> bool {
+unsafe fn scan_alpha() -> bool {
     buf_ptr1 = buf_ptr2;
     while buf_ptr2 < last && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 2i32 {
         buf_ptr2 = buf_ptr2 + 1i32
     }
     buf_ptr2 - buf_ptr1 != 0i32
 }
-unsafe extern "C" fn scan_identifier(mut char1: u8, mut char2: u8, mut char3: u8) {
+unsafe fn scan_identifier(mut char1: u8, mut char2: u8, mut char3: u8) {
     buf_ptr1 = buf_ptr2;
     if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 != 3i32 {
         /*numeric */
@@ -1974,7 +1974,7 @@ unsafe extern "C" fn scan_identifier(mut char1: u8, mut char2: u8, mut char3: u8
     }; /*specified_char_adjacent */
     /*other_char_adjacent */
 }
-unsafe extern "C" fn scan_nonneg_integer() -> bool {
+unsafe fn scan_nonneg_integer() -> bool {
     buf_ptr1 = buf_ptr2;
     token_value = 0i32;
     while buf_ptr2 < last && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 3i32 {
@@ -1983,7 +1983,7 @@ unsafe extern "C" fn scan_nonneg_integer() -> bool {
     }
     buf_ptr2 - buf_ptr1 != 0i32
 }
-unsafe extern "C" fn scan_integer() -> bool {
+unsafe fn scan_integer() -> bool {
     let mut sign_length: u8 = 0;
     buf_ptr1 = buf_ptr2;
     if *buffer.offset(buf_ptr2 as isize) as i32 == 45i32 {
@@ -2003,13 +2003,13 @@ unsafe extern "C" fn scan_integer() -> bool {
     }
     buf_ptr2 - buf_ptr1 != sign_length as i32
 }
-unsafe extern "C" fn scan_white_space() -> bool {
+unsafe fn scan_white_space() -> bool {
     while buf_ptr2 < last && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 1i32 {
         buf_ptr2 = buf_ptr2 + 1i32
     }
     buf_ptr2 < last
 }
-unsafe extern "C" fn eat_bst_white_space() -> bool {
+unsafe fn eat_bst_white_space() -> bool {
     loop {
         if scan_white_space() {
             if *buffer.offset(buf_ptr2 as isize) as i32 != 37i32 {
@@ -2024,32 +2024,32 @@ unsafe extern "C" fn eat_bst_white_space() -> bool {
         buf_ptr2 = 0i32
     }
 }
-unsafe extern "C" fn skip_token_print() {
+unsafe fn skip_token_print() {
     putc_log('-' as i32);
     bst_ln_num_print();
     mark_error();
     scan2_white(125i32 as u8, 37i32 as u8);
 }
-unsafe extern "C" fn print_recursion_illegal() {
+unsafe fn print_recursion_illegal() {
     log!("Curse you, wizard, before you recurse me:\n");
     log!("function ");
     print_a_token();
     log!(" is illegal in its own definition\n");
     skip_token_print();
 }
-unsafe extern "C" fn skp_token_unknown_function_print() {
+unsafe fn skp_token_unknown_function_print() {
     print_a_token();
     log!(" is an unknown function");
     skip_token_print();
 }
-unsafe extern "C" fn skip_illegal_stuff_after_token_print() {
+unsafe fn skip_illegal_stuff_after_token_print() {
     log!(
         "\"{}\" can't follow a literal",
         *buffer.offset(buf_ptr2 as isize) as char
     );
     skip_token_print();
 }
-unsafe extern "C" fn scan_fn_def(mut fn_hash_loc: hash_loc) {
+unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
     let mut singl_function: *mut hash_ptr2 = 0 as *mut hash_ptr2;
     let mut single_fn_space: i32 = 0;
     let mut single_ptr: fn_def_loc = 0;
@@ -2296,7 +2296,7 @@ unsafe extern "C" fn scan_fn_def(mut fn_hash_loc: hash_loc) {
     }
     exit(singl_function);
 }
-unsafe extern "C" fn eat_bib_white_space() -> bool {
+unsafe fn eat_bib_white_space() -> bool {
     while !scan_white_space() {
         if !input_ln(&mut bib_file[bib_ptr]) {
             return false;
@@ -2306,7 +2306,7 @@ unsafe extern "C" fn eat_bib_white_space() -> bool {
     }
     true
 }
-unsafe extern "C" fn compress_bib_white() -> bool {
+unsafe fn compress_bib_white() -> bool {
     if ex_buf_ptr == buf_size {
         bib_field_too_long_print();
         return false;
@@ -2324,7 +2324,7 @@ unsafe extern "C" fn compress_bib_white() -> bool {
     }
     true
 }
-unsafe extern "C" fn scan_balanced_braces() -> bool {
+unsafe fn scan_balanced_braces() -> bool {
     buf_ptr2 = buf_ptr2 + 1i32;
     if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 1i32 || buf_ptr2 == last {
         if !compress_bib_white() {
@@ -2506,7 +2506,7 @@ unsafe extern "C" fn scan_balanced_braces() -> bool {
     buf_ptr2 = buf_ptr2 + 1i32;
     true
 }
-unsafe extern "C" fn scan_a_field_token_and_eat_white() -> bool {
+unsafe fn scan_a_field_token_and_eat_white() -> bool {
     match *buffer.offset(buf_ptr2 as isize) as i32 {
         123 => {
             right_str_delim = 125i32 as u8;
@@ -2634,7 +2634,7 @@ unsafe extern "C" fn scan_a_field_token_and_eat_white() -> bool {
     }
     true
 }
-unsafe extern "C" fn scan_and_store_the_field_value_and_eat_white() -> bool {
+unsafe fn scan_and_store_the_field_value_and_eat_white() -> bool {
     ex_buf_ptr = 0i32;
     if !scan_a_field_token_and_eat_white() {
         return false;
@@ -2748,19 +2748,19 @@ unsafe extern "C" fn scan_and_store_the_field_value_and_eat_white() -> bool {
     }
     true
 }
-unsafe extern "C" fn decr_brace_level(mut pop_lit_var: str_number) {
+unsafe fn decr_brace_level(mut pop_lit_var: str_number) {
     if brace_level == 0i32 {
         braces_unbalanced_complaint(pop_lit_var);
     } else {
         brace_level = brace_level - 1i32
     };
 }
-unsafe extern "C" fn check_brace_level(mut pop_lit_var: str_number) {
+unsafe fn check_brace_level(mut pop_lit_var: str_number) {
     if brace_level > 0i32 {
         braces_unbalanced_complaint(pop_lit_var);
     };
 }
-unsafe extern "C" fn name_scan_for_and(mut pop_lit_var: str_number) {
+unsafe fn name_scan_for_and(mut pop_lit_var: str_number) {
     brace_level = 0i32;
     preceding_white = false;
     and_found = false;
@@ -2825,7 +2825,7 @@ unsafe extern "C" fn name_scan_for_and(mut pop_lit_var: str_number) {
     }
     check_brace_level(pop_lit_var);
 }
-unsafe extern "C" fn von_token_found() -> bool {
+unsafe fn von_token_found() -> bool {
     nm_brace_level = 0i32;
     while name_bf_ptr < name_bf_xptr {
         if *sv_buffer.offset(name_bf_ptr as isize) as i32 >= 'A' as i32
@@ -2918,7 +2918,7 @@ unsafe extern "C" fn von_token_found() -> bool {
     }
     false
 }
-unsafe extern "C" fn von_name_ends_and_last_name_starts_stuff() {
+unsafe fn von_name_ends_and_last_name_starts_stuff() {
     von_end = last_end - 1i32;
     while von_end > von_start {
         name_bf_ptr = *name_tok.offset((von_end - 1i32) as isize);
@@ -2929,7 +2929,7 @@ unsafe extern "C" fn von_name_ends_and_last_name_starts_stuff() {
         von_end = von_end - 1i32
     }
 }
-unsafe extern "C" fn skip_stuff_at_sp_brace_level_greater_than_one() {
+unsafe fn skip_stuff_at_sp_brace_level_greater_than_one() {
     while sp_brace_level > 1i32 && sp_ptr < sp_end {
         if *str_pool.offset(sp_ptr as isize) as i32 == 125i32 {
             /*right_brace */
@@ -2941,13 +2941,13 @@ unsafe extern "C" fn skip_stuff_at_sp_brace_level_greater_than_one() {
         sp_ptr = sp_ptr + 1i32
     }
 }
-unsafe extern "C" fn brace_lvl_one_letters_complaint() {
+unsafe fn brace_lvl_one_letters_complaint() {
     log!("The format string \"");
     print_a_pool_str(pop_lit1);
     log!("\" has an illegal brace-level-1 letter");
     bst_ex_warn_print();
 }
-unsafe extern "C" fn enough_text_chars(mut enough_chars: buf_pointer) -> bool {
+unsafe fn enough_text_chars(mut enough_chars: buf_pointer) -> bool {
     num_text_chars = 0i32;
     ex_buf_yptr = ex_buf_xptr;
     while ex_buf_yptr < ex_buf_ptr && num_text_chars < enough_chars {
@@ -2979,7 +2979,7 @@ unsafe extern "C" fn enough_text_chars(mut enough_chars: buf_pointer) -> bool {
     }
     num_text_chars >= enough_chars
 }
-unsafe extern "C" fn figure_out_the_formatted_name() {
+unsafe fn figure_out_the_formatted_name() {
     ex_buf_ptr = 0i32;
     sp_brace_level = 0i32;
     sp_ptr = *str_start.offset(pop_lit1 as isize);
@@ -3294,7 +3294,7 @@ unsafe extern "C" fn figure_out_the_formatted_name() {
     }
     ex_buf_length = ex_buf_ptr;
 }
-unsafe extern "C" fn push_lit_stk(mut push_lt: i32, mut push_type: stk_type) {
+unsafe fn push_lit_stk(mut push_lt: i32, mut push_type: stk_type) {
     *lit_stack.offset(lit_stk_ptr as isize) = push_lt;
     *lit_stk_type.offset(lit_stk_ptr as isize) = push_type;
     if lit_stk_ptr == lit_stk_size {
@@ -3312,7 +3312,7 @@ unsafe extern "C" fn push_lit_stk(mut push_lt: i32, mut push_type: stk_type) {
     }
     lit_stk_ptr = lit_stk_ptr + 1i32;
 }
-unsafe extern "C" fn pop_lit_stk(mut pop_lit: *mut i32, mut pop_type: *mut stk_type) {
+unsafe fn pop_lit_stk(mut pop_lit: *mut i32, mut pop_type: *mut stk_type) {
     if lit_stk_ptr == 0i32 {
         log!("You can\'t pop an empty literal stack");
         bst_ex_warn_print();
@@ -3336,7 +3336,7 @@ unsafe extern "C" fn pop_lit_stk(mut pop_lit: *mut i32, mut pop_type: *mut stk_t
         }
     };
 }
-unsafe extern "C" fn print_wrong_stk_lit(
+unsafe fn print_wrong_stk_lit(
     mut stk_lt: i32,
     mut stk_tp1: stk_type,
     mut stk_tp2: stk_type,
@@ -3364,7 +3364,7 @@ unsafe extern "C" fn print_wrong_stk_lit(
         bst_ex_warn_print();
     };
 }
-unsafe extern "C" fn pop_top_and_print() {
+unsafe fn pop_top_and_print() {
     let mut stk_lt: i32 = 0;
     let mut stk_tp: stk_type = 0;
     pop_lit_stk(&mut stk_lt, &mut stk_tp);
@@ -3375,16 +3375,16 @@ unsafe extern "C" fn pop_top_and_print() {
         print_lit(stk_lt, stk_tp);
     };
 }
-unsafe extern "C" fn pop_whole_stack() {
+unsafe fn pop_whole_stack() {
     while lit_stk_ptr > 0i32 {
         pop_top_and_print();
     }
 }
-unsafe extern "C" fn init_command_execution() {
+unsafe fn init_command_execution() {
     lit_stk_ptr = 0i32;
     cmd_str_ptr = str_ptr;
 }
-unsafe extern "C" fn check_command_execution() {
+unsafe fn check_command_execution() {
     if lit_stk_ptr != 0i32 {
         log!("ptr={}, stack=\n", lit_stk_ptr);
         pop_whole_stack();
@@ -3397,7 +3397,7 @@ unsafe extern "C" fn check_command_execution() {
         panic!();
     };
 }
-unsafe extern "C" fn add_pool_buf_and_push() {
+unsafe fn add_pool_buf_and_push() {
     while pool_ptr + ex_buf_length > pool_size {
         pool_overflow();
     }
@@ -3409,7 +3409,7 @@ unsafe extern "C" fn add_pool_buf_and_push() {
     }
     push_lit_stk(make_string(), 1i32 as stk_type);
 }
-unsafe extern "C" fn add_buf_pool(mut p_str: str_number) {
+unsafe fn add_buf_pool(mut p_str: str_number) {
     p_ptr1 = *str_start.offset(p_str as isize);
     p_ptr2 = *str_start.offset((p_str + 1i32) as isize);
     if ex_buf_length + (p_ptr2 - p_ptr1) > buf_size {
@@ -3423,7 +3423,7 @@ unsafe extern "C" fn add_buf_pool(mut p_str: str_number) {
     }
     ex_buf_length = ex_buf_ptr;
 }
-unsafe extern "C" fn add_out_pool(mut p_str: str_number) {
+unsafe fn add_out_pool(mut p_str: str_number) {
     let mut break_ptr: buf_pointer = 0;
     let mut end_ptr: buf_pointer = 0;
     let mut break_pt_found: bool = false;
@@ -3496,7 +3496,7 @@ unsafe extern "C" fn add_out_pool(mut p_str: str_number) {
         }
     }
 }
-unsafe extern "C" fn x_equals() {
+unsafe fn x_equals() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     if pop_typ1 as i32 != pop_typ2 as i32 {
@@ -3530,7 +3530,7 @@ unsafe extern "C" fn x_equals() {
         push_lit_stk(0i32, 0i32 as stk_type);
     };
 }
-unsafe extern "C" fn x_greater_than() {
+unsafe fn x_greater_than() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     if pop_typ1 as i32 != 0i32 {
@@ -3547,7 +3547,7 @@ unsafe extern "C" fn x_greater_than() {
         push_lit_stk(0i32, 0i32 as stk_type);
     };
 }
-unsafe extern "C" fn x_less_than() {
+unsafe fn x_less_than() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     if pop_typ1 as i32 != 0i32 {
@@ -3564,7 +3564,7 @@ unsafe extern "C" fn x_less_than() {
         push_lit_stk(0i32, 0i32 as stk_type);
     };
 }
-unsafe extern "C" fn x_plus() {
+unsafe fn x_plus() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     if pop_typ1 as i32 != 0i32 {
@@ -3579,7 +3579,7 @@ unsafe extern "C" fn x_plus() {
         push_lit_stk(pop_lit2 + pop_lit1, 0i32 as stk_type);
     };
 }
-unsafe extern "C" fn x_minus() {
+unsafe fn x_minus() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     if pop_typ1 as i32 != 0i32 {
@@ -3594,7 +3594,7 @@ unsafe extern "C" fn x_minus() {
         push_lit_stk(pop_lit2 - pop_lit1, 0i32 as stk_type);
     };
 }
-unsafe extern "C" fn x_concatenate() {
+unsafe fn x_concatenate() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     if pop_typ1 as i32 != 1i32 {
@@ -3706,7 +3706,7 @@ unsafe extern "C" fn x_concatenate() {
         push_lit_stk(make_string(), 1i32 as stk_type);
     };
 }
-unsafe extern "C" fn x_gets() {
+unsafe fn x_gets() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     if pop_typ1 as i32 != 2i32 {
@@ -3806,7 +3806,7 @@ unsafe extern "C" fn x_gets() {
         }
     };
 }
-unsafe extern "C" fn x_add_period() {
+unsafe fn x_add_period() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 as i32 != 1i32 {
         /*stk_str */
@@ -3865,7 +3865,7 @@ unsafe extern "C" fn x_add_period() {
         }
     };
 }
-unsafe extern "C" fn x_change_case() {
+unsafe fn x_change_case() {
     let mut current_block: u64;
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
@@ -4111,7 +4111,7 @@ unsafe extern "C" fn x_change_case() {
         add_pool_buf_and_push();
     };
 }
-unsafe extern "C" fn x_chr_to_int() {
+unsafe fn x_chr_to_int() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 as i32 != 1i32 {
         /*stk_str */
@@ -4132,14 +4132,14 @@ unsafe extern "C" fn x_chr_to_int() {
         );
     };
 }
-unsafe extern "C" fn x_cite() {
+unsafe fn x_cite() {
     if !mess_with_entries {
         bst_cant_mess_with_entries_print();
     } else {
         push_lit_stk(*cite_list.offset(cite_ptr as isize), 1i32 as stk_type);
     };
 }
-unsafe extern "C" fn x_duplicate() {
+unsafe fn x_duplicate() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 as i32 != 1i32 {
         /*stk_str */
@@ -4172,7 +4172,7 @@ unsafe extern "C" fn x_duplicate() {
         }
     };
 }
-unsafe extern "C" fn x_empty() {
+unsafe fn x_empty() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     match pop_typ1 as i32 {
         1 => {
@@ -4202,7 +4202,7 @@ unsafe extern "C" fn x_empty() {
         }
     };
 }
-unsafe extern "C" fn x_format_name() {
+unsafe fn x_format_name() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     pop_lit_stk(&mut pop_lit3, &mut pop_typ3);
@@ -4420,7 +4420,7 @@ unsafe extern "C" fn x_format_name() {
         add_pool_buf_and_push();
     };
 }
-unsafe extern "C" fn x_int_to_chr() {
+unsafe fn x_int_to_chr() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 as i32 != 0i32 {
         /*stk_int */
@@ -4439,7 +4439,7 @@ unsafe extern "C" fn x_int_to_chr() {
         push_lit_stk(make_string(), 1i32 as stk_type);
     };
 }
-unsafe extern "C" fn x_int_to_str() {
+unsafe fn x_int_to_str() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 as i32 != 0i32 {
         /*stk_int */
@@ -4450,7 +4450,7 @@ unsafe extern "C" fn x_int_to_str() {
         add_pool_buf_and_push();
     };
 }
-unsafe extern "C" fn x_missing() {
+unsafe fn x_missing() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if !mess_with_entries {
         bst_cant_mess_with_entries_print();
@@ -4469,7 +4469,7 @@ unsafe extern "C" fn x_missing() {
         push_lit_stk(0i32, 0i32 as stk_type);
     };
 }
-unsafe extern "C" fn x_num_names() {
+unsafe fn x_num_names() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 as i32 != 1i32 {
         /*stk_str */
@@ -4487,7 +4487,7 @@ unsafe extern "C" fn x_num_names() {
         push_lit_stk(num_names, 0i32 as stk_type);
     };
 }
-unsafe extern "C" fn x_preamble() {
+unsafe fn x_preamble() {
     ex_buf_length = 0i32;
     preamble_ptr = 0;
     while preamble_ptr < num_preamble_strings {
@@ -4496,7 +4496,7 @@ unsafe extern "C" fn x_preamble() {
     }
     add_pool_buf_and_push();
 }
-unsafe extern "C" fn x_purify() {
+unsafe fn x_purify() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 as i32 != 1i32 {
         /*stk_str */
@@ -4605,7 +4605,7 @@ unsafe extern "C" fn x_purify() {
         add_pool_buf_and_push();
     };
 }
-unsafe extern "C" fn x_quote() {
+unsafe fn x_quote() {
     while pool_ptr + 1i32 > pool_size {
         pool_overflow();
     }
@@ -4613,7 +4613,7 @@ unsafe extern "C" fn x_quote() {
     pool_ptr = pool_ptr + 1i32;
     push_lit_stk(make_string(), 1i32 as stk_type);
 }
-unsafe extern "C" fn x_substring() {
+unsafe fn x_substring() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     pop_lit_stk(&mut pop_lit3, &mut pop_typ3);
@@ -4681,7 +4681,7 @@ unsafe extern "C" fn x_substring() {
         }
     };
 }
-unsafe extern "C" fn x_swap() {
+unsafe fn x_swap() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     if pop_typ1 as i32 != 1i32 || pop_lit1 < cmd_str_ptr {
@@ -4710,7 +4710,7 @@ unsafe extern "C" fn x_swap() {
         add_pool_buf_and_push();
     };
 }
-unsafe extern "C" fn x_text_length() {
+unsafe fn x_text_length() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 as i32 != 1i32 {
         /*stk_str */
@@ -4755,7 +4755,7 @@ unsafe extern "C" fn x_text_length() {
         push_lit_stk(num_text_chars, 0i32 as stk_type);
     };
 }
-unsafe extern "C" fn x_text_prefix() {
+unsafe fn x_text_prefix() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     if pop_typ1 as i32 != 0i32 {
@@ -4827,7 +4827,7 @@ unsafe extern "C" fn x_text_prefix() {
         push_lit_stk(make_string(), 1i32 as stk_type);
     };
 }
-unsafe extern "C" fn x_type() {
+unsafe fn x_type() {
     if !mess_with_entries {
         bst_cant_mess_with_entries_print();
     } else if *type_list.offset(cite_ptr as isize) == undefined
@@ -4841,7 +4841,7 @@ unsafe extern "C" fn x_type() {
         );
     };
 }
-unsafe extern "C" fn x_warning() {
+unsafe fn x_warning() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 as i32 != 1i32 {
         /*stk_str */
@@ -4852,7 +4852,7 @@ unsafe extern "C" fn x_warning() {
         mark_warning();
     };
 }
-unsafe extern "C" fn x_width() {
+unsafe fn x_width() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 as i32 != 1i32 {
         /*stk_str */
@@ -4952,7 +4952,7 @@ unsafe extern "C" fn x_width() {
         push_lit_stk(string_width, 0i32 as stk_type);
     };
 }
-unsafe extern "C" fn x_write() {
+unsafe fn x_write() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 as i32 != 1i32 {
         /*stk_str */
@@ -4961,7 +4961,7 @@ unsafe extern "C" fn x_write() {
         add_out_pool(pop_lit1);
     };
 }
-unsafe extern "C" fn execute_fn(mut ex_fn_loc: hash_loc) {
+unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
     let mut r_pop_lt1: i32 = 0;
     let mut r_pop_lt2: i32 = 0;
     let mut r_pop_tp1: stk_type = 0;
@@ -5217,7 +5217,7 @@ unsafe extern "C" fn execute_fn(mut ex_fn_loc: hash_loc) {
         }
     };
 }
-unsafe extern "C" fn get_the_top_level_aux_file_name(mut aux_file_name: *const i8) -> i32 {
+unsafe fn get_the_top_level_aux_file_name(mut aux_file_name: *const i8) -> i32 {
     name_of_file = xmalloc(
         strlen(aux_file_name)
             .wrapping_add(1)
@@ -5267,7 +5267,7 @@ unsafe extern "C" fn get_the_top_level_aux_file_name(mut aux_file_name: *const i
     aux_ln_stack[aux_ptr as usize] = 0i32;
     0i32
 }
-unsafe extern "C" fn aux_bib_data_command() {
+unsafe fn aux_bib_data_command() {
     if bib_seen {
         aux_err_illegal_another_print(0i32);
         aux_err_print();
@@ -5336,7 +5336,7 @@ unsafe extern "C" fn aux_bib_data_command() {
         assert!(bib_file.len() == bib_ptr);
     }
 }
-unsafe extern "C" fn aux_bib_style_command() {
+unsafe fn aux_bib_style_command() {
     if bst_seen {
         aux_err_illegal_another_print(1i32);
         aux_err_print();
@@ -5386,7 +5386,7 @@ unsafe extern "C" fn aux_bib_style_command() {
         log_pr_bst_name();
     };
 }
-unsafe extern "C" fn aux_citation_command() {
+unsafe fn aux_citation_command() {
     citation_seen = true;
     'lab23: while *buffer.offset(buf_ptr2 as isize) as i32 != 125
     /*right_brace */
@@ -5470,7 +5470,7 @@ unsafe extern "C" fn aux_citation_command() {
         continue 'lab23; /*next_cite */
     }
 }
-unsafe extern "C" fn aux_input_command() {
+unsafe fn aux_input_command() {
     let mut aux_extension_ok: bool = false;
     buf_ptr2 = buf_ptr2 + 1i32;
     if !scan1_white(125i32 as u8) {
@@ -5547,7 +5547,7 @@ unsafe extern "C" fn aux_input_command() {
     print_aux_name();
     aux_ln_stack[aux_ptr as usize] = 0i32;
 }
-unsafe extern "C" fn pop_the_aux_stack() -> i32 {
+unsafe fn pop_the_aux_stack() -> i32 {
     peekable_close(aux_file[aux_ptr as usize].take());
     if aux_ptr == 0i32 {
         return 1i32;
@@ -5555,7 +5555,7 @@ unsafe extern "C" fn pop_the_aux_stack() -> i32 {
     aux_ptr -= 1;
     0i32
 }
-unsafe extern "C" fn get_aux_command_and_process() {
+unsafe fn get_aux_command_and_process() {
     buf_ptr2 = 0i32;
     if !scan1(123i32 as u8) {
         return;
@@ -5589,7 +5589,7 @@ unsafe extern "C" fn get_aux_command_and_process() {
         }
     };
 }
-unsafe extern "C" fn last_check_for_aux_errors() {
+unsafe fn last_check_for_aux_errors() {
     num_cites = cite_ptr;
     num_bib_files = bib_ptr;
     if !citation_seen {
@@ -5620,7 +5620,7 @@ unsafe extern "C" fn last_check_for_aux_errors() {
         aux_end2_err_print();
     };
 }
-unsafe extern "C" fn bst_entry_command() {
+unsafe fn bst_entry_command() {
     if entry_seen {
         log!("Illegal, another entry command");
         bst_err_print_and_look_for_blank_line();
@@ -5791,7 +5791,7 @@ unsafe extern "C" fn bst_entry_command() {
     }
     buf_ptr2 = buf_ptr2 + 1i32;
 }
-unsafe extern "C" fn bad_argument_token() -> bool {
+unsafe fn bad_argument_token() -> bool {
     lower_case(buffer, buf_ptr1, buf_ptr2 - buf_ptr1);
     fn_loc = str_lookup(
         buffer,
@@ -5818,7 +5818,7 @@ unsafe extern "C" fn bad_argument_token() -> bool {
     }
     false
 }
-unsafe extern "C" fn bst_execute_command() {
+unsafe fn bst_execute_command() {
     if !read_seen {
         log!("Illegal, execute command before read command");
         bst_err_print_and_look_for_blank_line();
@@ -5874,7 +5874,7 @@ unsafe extern "C" fn bst_execute_command() {
     execute_fn(fn_loc);
     check_command_execution();
 }
-unsafe extern "C" fn bst_function_command() {
+unsafe fn bst_function_command() {
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("function");
@@ -5949,7 +5949,7 @@ unsafe extern "C" fn bst_function_command() {
     buf_ptr2 = buf_ptr2 + 1i32;
     scan_fn_def(wiz_loc);
 }
-unsafe extern "C" fn bst_integers_command() {
+unsafe fn bst_integers_command() {
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("integers");
@@ -6003,7 +6003,7 @@ unsafe extern "C" fn bst_integers_command() {
     }
     buf_ptr2 = buf_ptr2 + 1i32;
 }
-unsafe extern "C" fn bst_iterate_command() {
+unsafe fn bst_iterate_command() {
     if !read_seen {
         log!("Illegal, iterate command before read command");
         bst_err_print_and_look_for_blank_line();
@@ -6064,7 +6064,7 @@ unsafe extern "C" fn bst_iterate_command() {
         sort_cite_ptr = sort_cite_ptr + 1i32
     }
 }
-unsafe extern "C" fn bst_macro_command() {
+unsafe fn bst_macro_command() {
     if read_seen {
         log!("Illegal, macro command after read command");
         bst_err_print_and_look_for_blank_line();
@@ -6178,7 +6178,7 @@ unsafe extern "C" fn bst_macro_command() {
     }
     buf_ptr2 = buf_ptr2 + 1i32;
 }
-unsafe extern "C" fn get_bib_command_or_entry_and_process() {
+unsafe fn get_bib_command_or_entry_and_process() {
     let mut current_block: u64;
     at_bib_command = false;
     while !scan1(64i32 as u8) {
@@ -6584,7 +6584,7 @@ unsafe extern "C" fn get_bib_command_or_entry_and_process() {
     }
     buf_ptr2 = buf_ptr2 + 1i32;
 }
-unsafe extern "C" fn bst_read_command() {
+unsafe fn bst_read_command() {
     if read_seen {
         log!("Illegal, another read command");
         bst_err_print_and_look_for_blank_line();
@@ -6815,7 +6815,7 @@ unsafe extern "C" fn bst_read_command() {
         tmp_ptr = tmp_ptr + 1i32
     }
 }
-unsafe extern "C" fn bst_reverse_command() {
+unsafe fn bst_reverse_command() {
     if !read_seen {
         log!("Illegal, reverse command before read command");
         bst_err_print_and_look_for_blank_line();
@@ -6881,7 +6881,7 @@ unsafe extern "C" fn bst_reverse_command() {
         }
     };
 }
-unsafe extern "C" fn bst_sort_command() {
+unsafe fn bst_sort_command() {
     if !read_seen {
         log!("Illegal, sort command before read command");
         bst_err_print_and_look_for_blank_line();
@@ -6891,7 +6891,7 @@ unsafe extern "C" fn bst_sort_command() {
         quick_sort(0i32, num_cites - 1i32);
     };
 }
-unsafe extern "C" fn bst_strings_command() {
+unsafe fn bst_strings_command() {
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("strings");
@@ -6970,7 +6970,7 @@ unsafe extern "C" fn bst_strings_command() {
     }
     buf_ptr2 += 1;
 }
-unsafe extern "C" fn get_bst_command_and_process() {
+unsafe fn get_bst_command_and_process() {
     if !scan_alpha() {
         log!(
             "\"{}\" can't start a style-file command",
@@ -7031,7 +7031,7 @@ unsafe extern "C" fn get_bst_command_and_process() {
         }
     };
 }
-unsafe extern "C" fn setup_params() {
+unsafe fn setup_params() {
     ent_str_size = 250i32;
     glob_str_size = 20000i32;
     max_strings = 35307i32;
@@ -7044,7 +7044,7 @@ unsafe extern "C" fn setup_params() {
     end_of_def = hash_max + 1i32; /*illegal */
     undefined = hash_max + 1i32; /*illegal */
 }
-unsafe extern "C" fn compute_hash_prime() {
+unsafe fn compute_hash_prime() {
     let mut hash_want: i32 = 0; /*white_space */
     let mut k: i32 = 0; /*white_space */
     let mut j: i32 = 0; /*white_space */
@@ -7089,7 +7089,7 @@ unsafe extern "C" fn compute_hash_prime() {
         *hash_next.offset(k as isize) = hash_prime
     }
 }
-unsafe extern "C" fn initialize(mut aux_file_name: *const i8) -> i32 {
+unsafe fn initialize(mut aux_file_name: *const i8) -> i32 {
     let mut i: i32 = 0;
     let mut k: hash_loc = 0;
     bad = 0i32;
@@ -7325,7 +7325,7 @@ unsafe extern "C" fn initialize(mut aux_file_name: *const i8) -> i32 {
    Licensed under the MIT License.
 */
 #[no_mangle]
-pub unsafe extern "C" fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
+pub unsafe fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
     pool_size = POOL_SIZE;
     buf_size = BUF_SIZE;
     MAX_BIB_FILES = MAX_BIBFILES;

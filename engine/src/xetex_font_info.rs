@@ -10,6 +10,7 @@
 
 use std::ptr;
 
+use font_kit::handle::Handle;
 use freetype::freetype::{
     FT_Attach_Stream, FT_BBox, FT_Byte, FT_Encoding, FT_Error, FT_Face,
     FT_Face_GetCharVariantIndex, FT_Fixed, FT_Generic, FT_Generic_Finalizer, FT_Get_Char_Index,
@@ -744,16 +745,8 @@ unsafe extern "C" fn _get_table(
     return blob;
 }
 
-use font_kit::family_name::FamilyName;
-use font_kit::handle::Handle;
-use font_kit::hinting::HintingOptions;
-use font_kit::loader::FontTransform;
-use font_kit::properties::Properties;
-use font_kit::source::Source;
-use font_kit::source::SystemSource;
-
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_initialize(
+pub unsafe fn XeTeXFontInst_initialize(
     mut self_0: &mut XeTeXFontInst,
     mut pathname: *const libc::c_char,
     mut index: libc::c_int,
@@ -783,13 +776,13 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
         bytes: Arc::new(bytes),
         font_index: index as u32,
     };
-    let fk_font = fk_handle.load().map_err(|e| {
-        panic!(
+    let fk_font = match fk_handle.load() {
+        Ok(loaded) => loaded,
+        Err(e) => panic!(
             "font-kit: Couldn't load Handle for {}, got error {:?}",
             pathname_str, e
-        );
-        1
-    })?;
+        ),
+    };
 
     let ft_face = fk_font.native_font();
 
@@ -902,14 +895,14 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_setLayoutDirVertical(
+pub unsafe fn XeTeXFontInst_setLayoutDirVertical(
     mut self_0: *mut XeTeXFontInst,
     mut vertical: bool,
 ) {
     (*self_0).m_vertical = vertical;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getFontTable(
+pub unsafe fn XeTeXFontInst_getFontTable(
     mut self_0: *const XeTeXFontInst,
     mut tag: OTTag,
 ) -> *mut libc::c_void {
@@ -943,7 +936,7 @@ pub unsafe extern "C" fn XeTeXFontInst_getFontTable(
     return table;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getFontTableFT(
+pub unsafe fn XeTeXFontInst_getFontTableFT(
     mut self_0: *const XeTeXFontInst,
     mut tag: FT_Sfnt_Tag,
 ) -> *mut libc::c_void {
@@ -951,18 +944,18 @@ pub unsafe extern "C" fn XeTeXFontInst_getFontTableFT(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_mapCharToGlyph(
+pub unsafe fn XeTeXFontInst_mapCharToGlyph(
     mut self_0: *const XeTeXFontInst,
     mut ch: UChar32,
 ) -> GlyphID {
     return FT_Get_Char_Index((*self_0).m_ftFace, ch as FT_ULong) as GlyphID;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getNumGlyphs(mut self_0: *const XeTeXFontInst) -> uint16_t {
+pub unsafe fn XeTeXFontInst_getNumGlyphs(mut self_0: *const XeTeXFontInst) -> uint16_t {
     return (*(*self_0).m_ftFace).num_glyphs as uint16_t;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getGlyphWidth(
+pub unsafe fn XeTeXFontInst_getGlyphWidth(
     mut self_0: *mut XeTeXFontInst,
     mut gid: GlyphID,
 ) -> libc::c_float {
@@ -972,7 +965,7 @@ pub unsafe extern "C" fn XeTeXFontInst_getGlyphWidth(
     );
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getGlyphHeightDepth(
+pub unsafe fn XeTeXFontInst_getGlyphHeightDepth(
     mut self_0: *mut XeTeXFontInst,
     mut gid: GlyphID,
     mut ht: *mut libc::c_float,
@@ -1019,7 +1012,7 @@ use or other dealings in this Software without prior written
 authorization from the copyright holders.
 */
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getGlyphSidebearings(
+pub unsafe fn XeTeXFontInst_getGlyphSidebearings(
     mut self_0: *mut XeTeXFontInst,
     mut gid: GlyphID,
     mut lsb: *mut libc::c_float,
@@ -1038,7 +1031,7 @@ pub unsafe extern "C" fn XeTeXFontInst_getGlyphSidebearings(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getGlyphItalCorr(
+pub unsafe fn XeTeXFontInst_getGlyphItalCorr(
     mut self_0: *mut XeTeXFontInst,
     mut gid: GlyphID,
 ) -> libc::c_float {
@@ -1052,14 +1045,14 @@ pub unsafe extern "C" fn XeTeXFontInst_getGlyphItalCorr(
     return rval;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_mapGlyphToIndex(
+pub unsafe fn XeTeXFontInst_mapGlyphToIndex(
     mut self_0: *const XeTeXFontInst,
     mut glyphName: *const libc::c_char,
 ) -> GlyphID {
     return FT_Get_Name_Index((*self_0).m_ftFace, glyphName as *mut libc::c_char) as GlyphID;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getGlyphName(
+pub unsafe fn XeTeXFontInst_getGlyphName(
     mut self_0: *mut XeTeXFontInst,
     mut gid: GlyphID,
     mut nameLen: *mut libc::c_int,
@@ -1080,12 +1073,12 @@ pub unsafe extern "C" fn XeTeXFontInst_getGlyphName(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getFirstCharCode(mut self_0: *mut XeTeXFontInst) -> UChar32 {
+pub unsafe fn XeTeXFontInst_getFirstCharCode(mut self_0: *mut XeTeXFontInst) -> UChar32 {
     let mut gindex: FT_UInt = 0;
     return FT_Get_First_Char((*self_0).m_ftFace, &mut gindex) as UChar32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getLastCharCode(mut self_0: *mut XeTeXFontInst) -> UChar32 {
+pub unsafe fn XeTeXFontInst_getLastCharCode(mut self_0: *mut XeTeXFontInst) -> UChar32 {
     let mut gindex: FT_UInt = 0;
     let mut ch: UChar32 = FT_Get_First_Char((*self_0).m_ftFace, &mut gindex) as UChar32;
     let mut prev: UChar32 = ch;
@@ -1098,13 +1091,13 @@ pub unsafe extern "C" fn XeTeXFontInst_getLastCharCode(mut self_0: *mut XeTeXFon
 
 #[no_mangle]
 //#[inline]
-pub unsafe extern "C" fn XeTeXFontInst_getHbFont(self_0: *const XeTeXFontInst) -> *mut hb_font_t {
+pub unsafe fn XeTeXFontInst_getHbFont(self_0: *const XeTeXFontInst) -> *mut hb_font_t {
     (*self_0).m_hbFont
 }
 
 #[no_mangle]
 //#[inline]
-pub unsafe extern "C" fn XeTeXFontInst_unitsToPoints(
+pub unsafe fn XeTeXFontInst_unitsToPoints(
     self_0: *const XeTeXFontInst,
     units: libc::c_float,
 ) -> libc::c_float {
@@ -1114,7 +1107,7 @@ pub unsafe extern "C" fn XeTeXFontInst_unitsToPoints(
 
 #[no_mangle]
 //#[inline]
-pub unsafe extern "C" fn XeTeXFontInst_pointsToUnits(
+pub unsafe fn XeTeXFontInst_pointsToUnits(
     self_0: *const XeTeXFontInst,
     points: libc::c_float,
 ) -> libc::c_float {
