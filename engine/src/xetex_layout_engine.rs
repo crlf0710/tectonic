@@ -23,6 +23,7 @@ use crate::xetex_font_info::XeTeXFontInst;
 #[cfg(target_os = "macos")]
 use crate::xetex_font_info::XeTeXFontInst_Mac_create;
 use crate::xetex_font_manager::{PlatformFontRef, XeTeXFontMgr, XeTeXFontMgrFamily, XeTeXFontMgrFont};
+use std::ffi::CStr;
 
 pub type Fixed = i32;
 
@@ -1771,7 +1772,7 @@ pub unsafe fn setFontLayoutDir(mut font: PlatformFontRef, mut vertical: libc::c_
 #[no_mangle]
 pub unsafe fn findFontByName(
     mut name: *const libc::c_char,
-    mut var: *mut libc::c_char,
+    mut var: Option<&mut String>,
     mut size: f64,
 ) -> PlatformFontRef {
     return XeTeXFontMgr_findFont(XeTeXFontMgr_GetFontManager(), name, var, size);

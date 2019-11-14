@@ -20,6 +20,7 @@ use core_foundation::url::CFURL;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::ptr;
+use std::ffi::CStr;
 
 pub mod cf_prelude {
     pub use core_foundation::{
@@ -1125,7 +1126,7 @@ unsafe fn getLastResort() -> CFStringRef {
 pub unsafe fn loadAATfont(
     mut descriptor: CTFontDescriptorRef,
     mut scaled_size: int32_t,
-    mut cp1: *const libc::c_char,
+    mut cp1: Option<&CStr>,
 ) -> *mut libc::c_void {
     let mut current_block: u64;
     let mut font: CTFontRef = 0 as CTFontRef;
@@ -1167,7 +1168,7 @@ pub unsafe fn loadAATfont(
         &kCFTypeDictionaryKeyCallBacks,
         &kCFTypeDictionaryValueCallBacks,
     );
-    if !cp1.is_null() {
+    if let Some(mut cp1) = cp1.map(|x| x.as_ptr()) {
         let mut features: CFArrayRef = CTFontCopyFeatures(font);
         let mut featureSettings: CFMutableArrayRef =
             CFArrayCreateMutable(0 as CFAllocatorRef, 0i32 as CFIndex, &kCFTypeArrayCallBacks);

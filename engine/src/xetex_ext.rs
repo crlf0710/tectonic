@@ -13,7 +13,10 @@ use crate::stub_teckit as teckit;
 use crate::xetex_xetexd::print_c_string;
 use crate::{streq_ptr, strstartswith};
 use crate::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub_input_read_exact};
-use libc::free;
+use libc::{free, strncat};
+use std::ffi::{CString, CStr};
+use std::ptr;
+use crate::xetex_layout_engine::ft_make_tag;
 
 #[cfg(target_os = "macos")]
 use super::xetex_aatfont as aat;
@@ -671,21 +674,19 @@ unsafe extern "C" fn loadOTfont(
     mut fontRef: PlatformFontRef,
     mut font: PlatformFontRef,
     mut scaled_size: Fixed,
-    mut cp1: *mut i8,
+    mut cp1: Option<&CStr>,
 ) -> *mut libc::c_void {
     let mut current_block: u64;
     let mut engine: XeTeXLayoutEngine = 0 as XeTeXLayoutEngine;
-    let mut script: hb_tag_t = (0_u32 & 0xff_u32) << 24i32
-        | (0_u32 & 0xff_u32) << 16i32
-        | (0_u32 & 0xff_u32) << 8i32
-        | 0_u32 & 0xff_u32;
+    // ft_make_tag also works for harfbuzz tags.
+    let mut script: hb_tag_t = ft_make_tag(&[0,0,0,0]);
     let mut language: *mut i8 = 0 as *mut i8;
     let mut features: *mut hb_feature_t = 0 as *mut hb_feature_t;
     let mut shapers: *mut *mut i8 = 0 as *mut *mut i8;
     let mut nFeatures: i32 = 0i32;
     let mut nShapers: i32 = 0i32;
-    let mut cp2: *mut i8 = 0 as *mut i8;
-    let mut cp3: *const i8 = 0 as *const i8;
+    let mut cp2: *const i8 = ptr::null();
+    let mut cp3: *const i8 = ptr::null();
     let mut tag: hb_tag_t = 0;
     let mut rgbValue: u32 = 0xff_u32;
     let mut extend: f32 = 1.0f64 as f32;
@@ -732,7 +733,7 @@ unsafe extern "C" fn loadOTfont(
         }
     }
     /* scan the feature string (if any) */
-    if !cp1.is_null() {
+    if let Some(mut cp1) = cp1.map(|x| x.as_ptr()) {
         while *cp1 != 0 {
             if *cp1 as i32 == ':' as i32 || *cp1 as i32 == ';' as i32 || *cp1 as i32 == ',' as i32 {
                 cp1 = cp1.offset(1)
@@ -1026,53 +1027,75 @@ unsafe extern "C" fn splitFontName(
         *var = *feat
     };
 }
+
+struct SplitName {
+    name: CString,
+    /// Easier: you get starts_with().
+    var: Option<String>,
+    feat: Option<CString>,
+    index: i32,
+}
+
+impl SplitName {
+    unsafe fn from_packed_name(name: *mut i8) -> Self {
+        let mut var: *mut i8 = ptr::null_mut();
+        let mut feat: *mut i8 = ptr::null_mut();
+        let mut end: *mut i8 = ptr::null_mut();
+        let mut index = 0i32;
+
+        splitFontName(name, &mut var, &mut feat, &mut end, &mut index);
+
+        let full_str = CStr::from_ptr(name);
+        let full_bytes = full_str.to_bytes();
+        let name_string = CString::new(&full_bytes[..var.wrapping_offset_from(name) as usize]).unwrap();
+
+        let mut var_out = None;
+        let mut feat_out = None;
+
+        if feat > var {
+            let from = var.wrapping_offset_from(name) as usize + 1;
+            let to = from + feat.wrapping_offset_from(var) as usize - 1;
+            var_out = Some(CString::new(&full_bytes[from..to]).unwrap());
+        }
+        if end > feat {
+            let from = feat.wrapping_offset_from(name) as usize + 1;
+            let to = from + end.wrapping_offset_from(feat) as usize - 1;
+            feat_out = Some(CString::new(&full_bytes[from..to]).unwrap());
+        }
+
+        SplitName {
+            name: name_string,
+            // XXX: could fail
+            var: var_out.map(|v| v.into_string().unwrap()),
+            feat: feat_out,
+            index,
+        }
+    }
+}
+
+/// scaled_size here is in TeX points, or is a negative integer for 'scaled_t'
 #[no_mangle]
 pub unsafe extern "C" fn find_native_font(
     mut uname: *mut i8,
     mut scaled_size: i32,
 ) -> *mut libc::c_void
-/* scaled_size here is in TeX points, or is a negative integer for 'scaled_t' */ {
+{
     let mut rval: *mut libc::c_void = 0 as *mut libc::c_void;
-    let mut nameString: *mut i8 = 0 as *mut i8;
-    let mut var: *mut i8 = 0 as *mut i8;
-    let mut feat: *mut i8 = 0 as *mut i8;
-    let mut end: *mut i8 = 0 as *mut i8;
-    let mut name: *mut i8 = uname;
-    let mut varString: *mut i8 = 0 as *mut i8;
-    let mut featString: *mut i8 = 0 as *mut i8;
     let mut fontRef: PlatformFontRef = 0 as PlatformFontRef;
     let mut font: PlatformFontRef = 0 as PlatformFontRef;
-    let mut index: i32 = 0i32;
+
+    let mut name: *mut i8 = uname;
+    let SplitName { name, mut var, feat, index } = SplitName::from_packed_name(name);
+    let feat_cstr: Option<&CStr> = feat.as_ref().map(|x| x.as_ref());
+
     loaded_font_mapping = 0 as *mut libc::c_void;
     loaded_font_flags = 0_i8;
     loaded_font_letter_space = 0i32;
-    splitFontName(name, &mut var, &mut feat, &mut end, &mut index);
-    nameString =
-        xmalloc((var.wrapping_offset_from(name) as i64 + 1i32 as i64) as size_t) as *mut i8;
-    strncpy(nameString, name, var.wrapping_offset_from(name) as usize);
-    *nameString.offset(var.wrapping_offset_from(name) as i64 as isize) = 0_i8;
-    if feat > var {
-        varString = xmalloc(feat.wrapping_offset_from(var) as i64 as size_t) as *mut i8;
-        strncpy(
-            varString,
-            var.offset(1),
-            (feat.wrapping_offset_from(var) as i64 - 1i32 as i64) as usize,
-        );
-        *varString.offset((feat.wrapping_offset_from(var) as i64 - 1i32 as i64) as isize) = 0_i8
-    }
-    if end > feat {
-        featString = xmalloc(end.wrapping_offset_from(feat) as i64 as size_t) as *mut i8;
-        strncpy(
-            featString,
-            feat.offset(1),
-            (end.wrapping_offset_from(feat) as i64 - 1i32 as i64) as usize,
-        );
-        *featString.offset((end.wrapping_offset_from(feat) as i64 - 1i32 as i64) as isize) = 0_i8
-    }
+
     // check for "[filename]" form, don't search maps in this case
-    if *nameString.offset(0) as i32 == '[' as i32 {
+    if name.as_bytes().iter().nth(0) == Some(&b'[') {
         if scaled_size < 0i32 {
-            font = createFontFromFile(nameString.offset(1), index, 655360i64 as Fixed);
+            font = createFontFromFile(name.as_ptr().offset(1), index, 655360i64 as Fixed);
             if !font.is_null() {
                 let mut dsize: Fixed = D2Fix(getDesignSize(font));
                 if scaled_size == -1000i32 {
@@ -1083,24 +1106,21 @@ pub unsafe extern "C" fn find_native_font(
                 deleteFont(font);
             }
         }
-        font = createFontFromFile(nameString.offset(1), index, scaled_size);
+        font = createFontFromFile(name.as_ptr().offset(1), index, scaled_size);
         if !font.is_null() {
             loaded_font_design_size = D2Fix(getDesignSize(font));
             /* This is duplicated in XeTeXFontMgr::findFont! */
             setReqEngine(0_i8);
-            if !varString.is_null() {
-                if !strstartswith(varString, b"/AAT\x00" as *const u8 as *const i8).is_null() {
+            if let Some(var) = var {
+                if var.starts_with("/AAT") {
                     setReqEngine('A' as i32 as i8);
-                } else if !strstartswith(varString, b"/OT\x00" as *const u8 as *const i8).is_null()
-                    || !strstartswith(varString, b"/ICU\x00" as *const u8 as *const i8).is_null()
-                {
+                } else if var.starts_with("/OT") || var.starts_with("/ICU") {
                     setReqEngine('O' as i32 as i8);
-                } else if !strstartswith(varString, b"/GR\x00" as *const u8 as *const i8).is_null()
-                {
+                } else if var.starts_with("/GR") {
                     setReqEngine('G' as i32 as i8);
                 }
             }
-            rval = loadOTfont(0 as PlatformFontRef, font, scaled_size, featString);
+            rval = loadOTfont(0 as PlatformFontRef, font, scaled_size, feat_cstr);
             if rval.is_null() {
                 deleteFont(font);
             }
@@ -1108,23 +1128,21 @@ pub unsafe extern "C" fn find_native_font(
                 begin_diagnostic();
                 print_nl(' ' as i32);
                 print_c_string(b"-> \x00" as *const u8 as *const i8);
-                print_c_string(nameString.offset(1));
+                print_c_string(name.as_ptr().offset(1));
                 end_diagnostic(0i32 != 0);
             }
         }
     } else {
-        fontRef = findFontByName(nameString, varString, Fix2D(scaled_size));
+        fontRef = findFontByName(name.as_ptr(), var.as_mut(), Fix2D(scaled_size));
         if !fontRef.is_null() {
             /* update name_of_file to the full name of the font, for error messages during font loading */
             let mut fullName: *const i8 = getFullName(fontRef);
             name_length = strlen(fullName) as i32;
-            if !featString.is_null() {
-                name_length =
-                    (name_length as usize).wrapping_add(strlen(featString).wrapping_add(1)) as _
+            if let Some(feat) = &feat {
+                name_length = ((name_length as usize) + feat.as_bytes().len() + 1) as _;
             }
-            if !varString.is_null() {
-                name_length =
-                    (name_length as usize).wrapping_add(strlen(varString).wrapping_add(1)) as _
+            if let Some(var) = &var {
+                name_length = ((name_length as usize) + var.as_bytes().len() + 1) as _;
             }
             free(name_of_file as *mut libc::c_void);
             name_of_file = xmalloc((name_length + 1i32) as size_t) as *mut i8;
@@ -1145,7 +1163,7 @@ pub unsafe extern "C" fn find_native_font(
             if !font.is_null() {
                 #[cfg(not(target_os = "macos"))]
                 {
-                    rval = loadOTfont(fontRef, font, scaled_size, featString);
+                    rval = loadOTfont(fontRef, font, scaled_size, feat_cstr);
                     if rval.is_null() {
                         deleteFont(font);
                     }
@@ -1154,35 +1172,21 @@ pub unsafe extern "C" fn find_native_font(
                 {
                     /* decide whether to use AAT or OpenType rendering with this font */
                     if getReqEngine() as libc::c_int == 'A' as i32 {
-                        rval = aat::loadAATfont(fontRef, scaled_size, featString);
+                        rval = aat::loadAATfont(fontRef, scaled_size, feat_cstr);
                         if rval.is_null() {
                             deleteFont(font);
                         }
                     } else {
                         if getReqEngine() as libc::c_int == 'O' as i32
                             || getReqEngine() as libc::c_int == 'G' as i32
-                            || !getFontTablePtr(
-                                font,
-                                ('G' as i32 as u32 & 0xffi32 as libc::c_uint) << 24i32
-                                    | ('S' as i32 as u32 & 0xffi32 as libc::c_uint) << 16i32
-                                    | ('U' as i32 as u32 & 0xffi32 as libc::c_uint) << 8i32
-                                    | 'B' as i32 as u32 & 0xffi32 as libc::c_uint,
-                            )
-                            .is_null()
-                            || !getFontTablePtr(
-                                font,
-                                ('G' as i32 as u32 & 0xffi32 as libc::c_uint) << 24i32
-                                    | ('P' as i32 as u32 & 0xffi32 as libc::c_uint) << 16i32
-                                    | ('O' as i32 as u32 & 0xffi32 as libc::c_uint) << 8i32
-                                    | 'S' as i32 as u32 & 0xffi32 as libc::c_uint,
-                            )
-                            .is_null()
+                            || !getFontTablePtr(font, ft_make_tag(b"GSUB")).is_null()
+                            || !getFontTablePtr(font, ft_make_tag(b"GPOS")).is_null()
                         {
-                            rval = loadOTfont(fontRef, font, scaled_size, featString)
+                            rval = loadOTfont(fontRef, font, scaled_size, feat_cstr)
                         }
                         /* loadOTfont failed or the above check was false */
                         if rval.is_null() {
-                            rval = aat::loadAATfont(fontRef, scaled_size, featString)
+                            rval = aat::loadAATfont(fontRef, scaled_size, feat_cstr)
                         }
                         if rval.is_null() {
                             deleteFont(font);
@@ -1191,22 +1195,24 @@ pub unsafe extern "C" fn find_native_font(
                 }
             }
             /* append the style and feature strings, so that \show\fontID will give a full result */
-            if !varString.is_null() && *varString as i32 != 0i32 {
-                strcat(name_of_file, b"/\x00" as *const u8 as *const i8);
-                strcat(name_of_file, varString);
+            if let Some(var) = var {
+                if !var.as_bytes().is_empty() {
+                    strcat(name_of_file, b"/\x00" as *const u8 as *const i8);
+                    strncat(name_of_file, var.as_ptr() as *const i8, var.len());
+                }
             }
-            if !featString.is_null() && *featString as i32 != 0i32 {
-                strcat(name_of_file, b":\x00" as *const u8 as *const i8);
-                strcat(name_of_file, featString);
+            if let Some(feat) = feat {
+                if !feat.as_bytes().is_empty() {
+                    strcat(name_of_file, b":\x00" as *const u8 as *const i8);
+                    strcat(name_of_file, feat.as_ptr());
+                }
             }
             name_length = strlen(name_of_file) as i32
         }
     }
-    free(varString as *mut libc::c_void);
-    free(featString as *mut libc::c_void);
-    free(nameString as *mut libc::c_void);
     rval
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn release_font_engine(mut engine: *mut libc::c_void, mut type_flag: i32) {
     match type_flag as u32 {
@@ -1220,6 +1226,7 @@ pub unsafe extern "C" fn release_font_engine(mut engine: *mut libc::c_void, mut 
         _ => {}
     }
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn ot_get_font_metrics(
     mut pEngine: *mut libc::c_void,
@@ -1265,6 +1272,7 @@ pub unsafe extern "C" fn ot_get_font_metrics(
         }
     };
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn ot_font_get(mut what: i32, mut pEngine: *mut libc::c_void) -> i32 {
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
