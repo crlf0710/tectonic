@@ -39,8 +39,13 @@ use super::SpcHandler;
 use crate::dpx_pdfximage::load_options;
 
 fn parse_postscriptbox_special(buf: &str) -> Result<(f64, f64, String), ()> {
+    // TODO: port this to nom?
     let mut parts = Vec::new();
     for elem in buf.split("}") {
+        if elem == "" {
+            // "{a}{b}".split("}") is ["{a", "{b", ""]
+            continue;
+        }
         if !elem.starts_with("{") {
             return Err(());
         }

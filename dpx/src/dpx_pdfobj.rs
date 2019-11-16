@@ -3826,17 +3826,20 @@ pub unsafe fn pdf_open(
             let mut minor: u32 = 0;
             if (&*new_version).is_name() {
                 let new_version_str = pdf_name_value(&*new_version).to_bytes();
-                if new_version_str.starts_with(b"1.") {
-                    minor = std::str::from_utf8(&new_version_str[2..])
-                        .unwrap_or("")
-                        .parse::<u32>()
-                        .unwrap_or(0)
+                let minor_num_str =
+                    if new_version_str.starts_with(b"1.") {
+                        std::str::from_utf8(&new_version_str[2..])
+                            .unwrap_or("")
+                    } else {
+                        ""
+                    };
+                if let Ok(minor_) = minor_num_str.parse::<u32>() {
+                    minor = minor_;
+                } else {
+                    pdf_release_obj(new_version);
+                    warn!("Illegal Version entry in document catalog. Broken PDF file?");
+                    return error(pf);
                 }
-            }
-            if minor == 0 {
-                pdf_release_obj(new_version);
-                warn!("Illegal Version entry in document catalog. Broken PDF file?");
-                return error(pf);
             }
             if (*pf).version < minor {
                 (*pf).version = minor
