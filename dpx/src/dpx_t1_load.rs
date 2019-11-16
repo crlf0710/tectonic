@@ -69,8 +69,6 @@ use super::dpx_cff::cff_index;
 use super::dpx_cff::cff_dict;
 /* Encoding, Charset and FDSelect */
 use super::dpx_cff::cff_charsets;
-use super::dpx_cff::cff_encoding;
-use super::dpx_cff::cff_fdselect;
 
 use super::dpx_cff::cff_font;
 /* tectonic/core-strutils.h: miscellaneous C string utilities

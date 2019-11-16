@@ -51,7 +51,7 @@ use super::dpx_tt_glyf::{
     tt_add_glyph, tt_build_finish, tt_build_init, tt_build_tables, tt_get_index, tt_get_metrics,
 };
 use super::dpx_tt_gsub::{
-    otl_gsub, otl_gsub_add_feat, otl_gsub_apply, otl_gsub_new, otl_gsub_release, otl_gsub_select,
+    otl_gsub_add_feat, otl_gsub_apply, otl_gsub_new, otl_gsub_release, otl_gsub_select,
 };
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};

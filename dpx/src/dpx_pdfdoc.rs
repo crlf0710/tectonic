@@ -100,7 +100,6 @@ pub struct pdf_form {
     pub contents: *mut pdf_obj,
 }
 
-use super::dpx_dpxutil::ht_entry;
 use super::dpx_dpxutil::ht_table;
 #[derive(Copy, Clone)]
 #[repr(C)]

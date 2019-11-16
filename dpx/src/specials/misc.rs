@@ -26,7 +26,6 @@
 use crate::dpx_mfileio::tt_mfgets;
 use crate::dpx_mpost::mps_scan_bbox;
 use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear};
-use crate::dpx_pdfobj::pdf_obj;
 use crate::dpx_pdfparse::SkipWhite;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
 use crate::shims::sscanf;
