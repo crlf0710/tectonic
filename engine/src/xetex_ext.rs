@@ -676,6 +676,7 @@ unsafe extern "C" fn loadOTfont(
     mut font: *mut XeTeXFontInst,
     mut scaled_size: Fixed,
     mut cp1: Option<&CStr>,
+    mut reqEngine: char,
 ) -> *mut libc::c_void {
     let mut current_block: u64;
     let mut engine: XeTeXLayoutEngine = 0 as XeTeXLayoutEngine;
@@ -695,24 +696,23 @@ unsafe extern "C" fn loadOTfont(
     let mut embolden: f32 = 0.0f64 as f32;
     let mut letterspace: f32 = 0.0f64 as f32;
     let mut i: i32 = 0;
-    let mut reqEngine: i8 = getReqEngine();
-    if reqEngine as i32 == 'O' as i32 || reqEngine as i32 == 'G' as i32 {
+    if reqEngine == 'O' || reqEngine == 'G' {
         shapers = xrealloc(
             shapers as *mut libc::c_void,
             ((nShapers + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64),
         ) as *mut *mut i8;
-        if reqEngine as i32 == 'O' as i32 {
+        if reqEngine == 'O' {
             static mut ot_const: [i8; 3] = [111, 116, 0];
             let ref mut fresh8 = *shapers.offset(nShapers as isize);
             *fresh8 = ot_const.as_mut_ptr()
-        } else if reqEngine as i32 == 'G' as i32 {
+        } else if reqEngine == 'G' {
             static mut graphite2_const: [i8; 10] = [103, 114, 97, 112, 104, 105, 116, 101, 50, 0];
             let ref mut fresh9 = *shapers.offset(nShapers as isize);
             *fresh9 = graphite2_const.as_mut_ptr()
         }
         nShapers += 1
     }
-    if reqEngine as i32 == 'G' as i32 {
+    if reqEngine == 'G' {
         let mut tmpShapers: [*mut i8; 1] = [*shapers.offset(0)];
         /* create a default engine so we can query the font for Graphite features;
          * because of font caching, it's cheap to discard this and create the real one later */
@@ -728,6 +728,7 @@ unsafe extern "C" fn loadOTfont(
             extend,
             slant,
             embolden,
+            reqEngine
         );
         if engine.is_null() {
             return 0 as *mut libc::c_void;
@@ -818,7 +819,7 @@ unsafe extern "C" fn loadOTfont(
                         } else if i == -1i32 {
                             current_block = 10622493848381539643;
                         } else {
-                            if reqEngine as i32 == 'G' as i32 {
+                            if reqEngine == 'G' {
                                 let mut value: i32 = 0i32;
                                 if readFeatureNumber(cp1, cp2, &mut tag, &mut value) as i32 != 0
                                     || findGraphiteFeature(engine, cp1, cp2, &mut tag, &mut value)
@@ -962,7 +963,7 @@ unsafe extern "C" fn loadOTfont(
     }
     engine = createLayoutEngine(
         fontRef, font, script, language, features, nFeatures, shapers, rgbValue, extend, slant,
-        embolden,
+        embolden, reqEngine
     );
     if engine.is_null() {
         // only free these if creation failed, otherwise the engine now owns them
@@ -1096,6 +1097,10 @@ pub unsafe extern "C" fn find_native_font(
     loaded_font_flags = 0_i8;
     loaded_font_letter_space = 0i32;
 
+    /// the requested rendering technology for the most recent findFont
+    /// or 0 if no specific technology was requested
+    let mut reqEngine = '\x00';
+
     // check for "[filename]" form, don't search maps in this case
     if tex_internal {
         if scaled_size < 0i32 {
@@ -1114,17 +1119,16 @@ pub unsafe extern "C" fn find_native_font(
         if !font.is_null() {
             loaded_font_design_size = D2Fix(getDesignSize(font));
             /* This is duplicated in XeTeXFontMgr::findFont! */
-            setReqEngine(0_i8);
             if let Some(var) = var {
                 if var.starts_with("/AAT") {
-                    setReqEngine('A' as i32 as i8);
+                    reqEngine = 'A';
                 } else if var.starts_with("/OT") || var.starts_with("/ICU") {
-                    setReqEngine('O' as i32 as i8);
+                    reqEngine = 'O';
                 } else if var.starts_with("/GR") {
-                    setReqEngine('G' as i32 as i8);
+                    reqEngine = 'G';
                 }
             }
-            rval = loadOTfont(0 as PlatformFontRef, font, scaled_size, feat_cstr);
+            rval = loadOTfont(0 as PlatformFontRef, font, scaled_size, feat_cstr, reqEngine);
             if rval.is_null() {
                 deleteFont(font);
             }
@@ -1137,7 +1141,7 @@ pub unsafe extern "C" fn find_native_font(
             }
         }
     } else {
-        fontRef = findFontByName(&name, var.as_mut(), Fix2D(scaled_size));
+        fontRef = findFontByName(&name, var.as_mut(), Fix2D(scaled_size), &mut reqEngine);
         if !fontRef.is_null() {
             /* update name_of_file to the full name of the font, for error messages during font loading */
             let mut fullName: *const i8 = getFullName(fontRef);
@@ -1167,7 +1171,7 @@ pub unsafe extern "C" fn find_native_font(
             if !font.is_null() {
                 #[cfg(not(target_os = "macos"))]
                 {
-                    rval = loadOTfont(fontRef, font, scaled_size, feat_cstr);
+                    rval = loadOTfont(fontRef, font, scaled_size, feat_cstr, reqEngine);
                     if rval.is_null() {
                         deleteFont(font);
                     }
@@ -1175,18 +1179,18 @@ pub unsafe extern "C" fn find_native_font(
                 #[cfg(target_os = "macos")]
                 {
                     /* decide whether to use AAT or OpenType rendering with this font */
-                    if getReqEngine() as libc::c_int == 'A' as i32 {
+                    if reqEngine == 'A' {
                         rval = aat::loadAATfont(fontRef, scaled_size, feat_cstr);
                         if rval.is_null() {
                             deleteFont(font);
                         }
                     } else {
-                        if getReqEngine() as libc::c_int == 'O' as i32
-                            || getReqEngine() as libc::c_int == 'G' as i32
+                        if reqEngine == 'O'
+                            || reqEngine == 'G'
                             || !getFontTablePtr(font, ft_make_tag(b"GSUB")).is_null()
                             || !getFontTablePtr(font, ft_make_tag(b"GPOS")).is_null()
                         {
-                            rval = loadOTfont(fontRef, font, scaled_size, feat_cstr)
+                            rval = loadOTfont(fontRef, font, scaled_size, feat_cstr, reqEngine)
                         }
                         /* loadOTfont failed or the above check was false */
                         if rval.is_null() {

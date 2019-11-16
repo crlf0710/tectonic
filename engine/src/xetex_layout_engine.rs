@@ -201,7 +201,6 @@ use crate::xetex_ext::{D2Fix, Fix2D};
 use crate::xetex_font_manager::{
     XeTeXFontMgr_Destroy, XeTeXFontMgr_GetFontManager, XeTeXFontMgr_Terminate,
     XeTeXFontMgr_findFont, XeTeXFontMgr_getDesignSize, XeTeXFontMgr_getFullName,
-    XeTeXFontMgr_getReqEngine, XeTeXFontMgr_setReqEngine,
 };
 
 // use crate::xetex_font_info::{XeTeXFontInst_unitsToPoints, XeTeXFontInst_mapGlyphToIndex, XeTeXFontInst_getGlyphName, XeTeXFontInst_getLastCharCode, XeTeXFontInst_getFirstCharCode, XeTeXFontInst_delete, XeTeXFontInst_create, XeTeXFontInst_setLayoutDirVertical, XeTeXFontInst_mapCharToGlyph, XeTeXFontInst_getFontTable, XeTeXFontInst_getGlyphSidebearings, XeTeXFontInst_getGlyphHeightDepth};
@@ -632,20 +631,12 @@ pub unsafe fn findFontByName(
     mut name: &CStr,
     mut var: Option<&mut String>,
     mut size: f64,
+    reqEngine: &mut char,
 ) -> PlatformFontRef {
-    return XeTeXFontMgr_findFont(XeTeXFontMgr_GetFontManager(), name, var, size);
+    return XeTeXFontMgr_findFont(XeTeXFontMgr_GetFontManager(), name, var, size, reqEngine);
 }
 
-/// TODO: don't use a static for this dumb little thing.
-#[no_mangle]
-pub unsafe fn getReqEngine() -> libc::c_char {
-    return XeTeXFontMgr_getReqEngine(XeTeXFontMgr_GetFontManager());
-}
 
-#[no_mangle]
-pub unsafe fn setReqEngine(mut reqEngine: libc::c_char) {
-    XeTeXFontMgr_setReqEngine(XeTeXFontMgr_GetFontManager(), reqEngine);
-}
 #[no_mangle]
 pub unsafe fn getFullName(mut fontRef: PlatformFontRef) -> *const libc::c_char {
     return XeTeXFontMgr_getFullName(XeTeXFontMgr_GetFontManager(), fontRef);
@@ -1246,6 +1237,7 @@ pub unsafe fn createLayoutEngine(
     mut extend: f32,
     mut slant: f32,
     mut embolden: f32,
+    reqEngine: char,
 ) -> XeTeXLayoutEngine {
     let mut result: XeTeXLayoutEngine = XeTeXLayoutEngine_create();
     (*result).fontRef = fontRef;
@@ -1263,7 +1255,7 @@ pub unsafe fn createLayoutEngine(
     // For Graphite fonts treat the language as BCP 47 tag, for OpenType we
     // treat it as a OT language tag for backward compatibility with pre-0.9999
     // XeTeX.
-    if getReqEngine() as libc::c_int == 'G' as i32 {
+    if reqEngine == 'G' {
         (*result).language = hb_language_from_string(language, -1i32)
     } else {
         (*result).language = hb_ot_tag_to_language(hb_tag_from_string(language, -1i32))

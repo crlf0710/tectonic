@@ -321,8 +321,6 @@ authorization from the copyright holders.
 #[no_mangle]
 pub static mut XeTeXFontMgr_sFontManager: *mut XeTeXFontMgr =
     0 as *const XeTeXFontMgr as *mut XeTeXFontMgr;
-#[no_mangle]
-pub static mut XeTeXFontMgr_sReqEngine: libc::c_char = 0i32 as libc::c_char;
 /* use our own fmax function because it seems to be missing on certain platforms
 (solaris2.9, at least) */
 #[inline]
@@ -370,19 +368,7 @@ pub unsafe fn XeTeXFontMgr_Destroy() {
         XeTeXFontMgr_sFontManager = 0 as *mut XeTeXFontMgr
     };
 }
-#[no_mangle]
-pub unsafe fn XeTeXFontMgr_getReqEngine(mut self_0: *const XeTeXFontMgr) -> libc::c_char {
-    // return the requested rendering technology for the most recent findFont
-    // or 0 if no specific technology was requested
-    return XeTeXFontMgr_sReqEngine;
-}
-#[no_mangle]
-pub unsafe fn XeTeXFontMgr_setReqEngine(
-    mut self_0: *const XeTeXFontMgr,
-    mut reqEngine: libc::c_char,
-) {
-    XeTeXFontMgr_sReqEngine = reqEngine;
-}
+
 // above are singleton operation.
 // /////////////
 
@@ -407,6 +393,7 @@ pub unsafe fn XeTeXFontMgr_findFont(
     mut name: &CStr,
     mut variant: Option<&mut String>,
     mut ptSize: libc::c_double,
+    reqEngine: &mut char,
 ) -> PlatformFontRef {
     // 1st arg is name as specified by user (C string, UTF-8)
     // 2nd is /B/I/AAT/OT/ICU/GR/S=## qualifiers
@@ -527,7 +514,7 @@ pub unsafe fn XeTeXFontMgr_findFont(
     let mut parent: *mut XeTeXFontMgrFamily = (*font).parent;
     // if there are variant requests, try to apply them
     // and delete B, I, and S=... codes from the string, just retain /engine option
-    XeTeXFontMgr_sReqEngine = 0i32 as libc::c_char;
+    *reqEngine = '\x00';
     let mut reqBold: bool = 0i32 != 0;
     let mut reqItal: bool = 0i32 != 0;
     if let Some(variant_string) = variant {
@@ -535,7 +522,7 @@ pub unsafe fn XeTeXFontMgr_findFont(
         let mut slice = &variant_string[..];
         while !slice.is_empty() {
             if slice.starts_with("AAT") {
-                XeTeXFontMgr_sReqEngine = 'A' as i32 as libc::c_char;
+                *reqEngine = 'A';
                 slice = &slice[3..];
                 if !varString.is_empty() && varString.chars().last() != Some('/') {
                     varString.push('/');
@@ -543,21 +530,21 @@ pub unsafe fn XeTeXFontMgr_findFont(
                 varString.push_str("AAT");
             } else if slice.starts_with("ICU") {
                 // for backword compatability
-                XeTeXFontMgr_sReqEngine = 'O' as i32 as libc::c_char;
+                *reqEngine = 'O';
                 slice = &slice[3..];
                 if !varString.is_empty() && varString.chars().last() != Some('/') {
                     varString.push('/');
                 }
                 varString.push_str("OT");
             } else if slice.starts_with("OT") {
-                XeTeXFontMgr_sReqEngine = 'O' as i32 as libc::c_char;
+                *reqEngine = 'O';
                 slice = &slice[2..];
                 if !varString.is_empty() && varString.chars().last() != Some('/') {
                     varString.push('/');
                 }
                 varString.push_str("OT");
             } else if slice.starts_with("GR") {
-                XeTeXFontMgr_sReqEngine = 'G' as i32 as libc::c_char;
+                *reqEngine = 'G';
                 slice = &slice[2..];
                 if !varString.is_empty() && varString.chars().last() != Some('/') {
                     varString.push('/');
