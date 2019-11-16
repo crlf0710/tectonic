@@ -80,8 +80,6 @@ pub struct tt_glyphs {
     pub used_slot: *mut u8,
 }
 
-use super::dpx_tt_table::tt_longMetrics;
-
 unsafe fn find_empty_slot(mut g: *mut tt_glyphs) -> u16 {
     assert!(!g.is_null());
     let mut gid = 0_u16;

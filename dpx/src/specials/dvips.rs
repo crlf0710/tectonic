@@ -36,7 +36,6 @@ use super::{spc_arg, spc_env};
 use crate::TTInputFormat;
 
 use crate::dpx_pdfdraw::pdf_dev_concat;
-use crate::dpx_pdfobj::pdf_obj;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
 use crate::{ttstub_input_close, ttstub_input_open};
 

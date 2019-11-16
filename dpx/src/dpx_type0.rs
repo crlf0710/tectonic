@@ -68,7 +68,6 @@ pub struct Type0Font {
 }
 use super::dpx_fontmap::fontmap_opt;
 
-use super::dpx_cid::CIDSysInfo;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct font_cache {

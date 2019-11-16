@@ -44,7 +44,7 @@ use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_copy_name, pdf_file, pdf_get_version,
+    pdf_add_array, pdf_add_dict, pdf_copy_name, pdf_get_version,
     pdf_link_obj, pdf_name_value, pdf_new_array, pdf_new_dict, pdf_new_number, pdf_obj,
     pdf_release_obj,
 };

@@ -60,7 +60,7 @@ use super::dpx_pdfparse::dump_slice;
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record};
 use super::dpx_tfm::{tfm_exists, tfm_get_width, tfm_open, tfm_string_width};
 use crate::dpx_pdfobj::{
-    pdf_add_dict, pdf_array_length, pdf_copy_name, pdf_file,
+    pdf_add_dict, pdf_array_length, pdf_copy_name,
     pdf_name_value, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_number_value, pdf_obj,
     pdf_release_obj, pdf_set_number, pdf_string_length, pdf_string_value,
 };
