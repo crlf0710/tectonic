@@ -32,6 +32,7 @@ use crate::warn;
 use std::slice;
 use std::cmp::Ordering;
 use std::fmt::Write;
+use std::ptr;
 
 use super::dpx_dpxutil::{
     ht_append_table, ht_clear_iter, ht_clear_table, ht_init_table, ht_iter_getkey, ht_iter_getval,
@@ -83,7 +84,7 @@ unsafe extern "C" fn hval_free(mut hval: *mut libc::c_void) {
     let value = hval as *mut obj_data;
     if !(*value).object.is_null() {
         pdf_release_obj((*value).object);
-        (*value).object = 0 as *mut pdf_obj
+        (*value).object = ptr::null_mut()
     }
     free(value as *mut libc::c_void);
 }
@@ -100,8 +101,8 @@ pub unsafe extern "C" fn pdf_new_name_tree() -> *mut ht_table {
 unsafe fn check_objects_defined(mut ht_tab: *mut ht_table) {
     let mut iter: ht_iter = ht_iter {
         index: 0,
-        curr: 0 as *mut libc::c_void,
-        hash: 0 as *mut ht_table,
+        curr: ptr::null_mut(),
+        hash: ptr::null_mut(),
     };
     if ht_set_iter(ht_tab, &mut iter) >= 0i32 {
         loop {
@@ -204,7 +205,7 @@ pub unsafe extern "C" fn pdf_names_lookup_object(
     if value.is_null()
         || !(*value).object.is_null() && pdf_obj_typeof((*value).object) == PdfObjType::UNDEFINED
     {
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     assert!(!(*value).object.is_null());
     (*value).object
@@ -306,7 +307,7 @@ unsafe fn build_name_tree(
                 }
             }
             pdf_release_obj((*cur).value);
-            (*cur).value = 0 as *mut pdf_obj;
+            (*cur).value = ptr::null_mut();
         }
         pdf_add_dict(&mut *result, "Names", names);
     } else if num_leaves > 0i32 {
@@ -330,8 +331,8 @@ unsafe fn flat_table(
 ) -> *mut named_object {
     let mut iter: ht_iter = ht_iter {
         index: 0,
-        curr: 0 as *mut libc::c_void,
-        hash: 0 as *mut ht_table,
+        curr: ptr::null_mut(),
+        hash: ptr::null_mut(),
     };
     assert!(!ht_tab.is_null());
     let mut objects = new(((*ht_tab).count as u32 as u64)
@@ -400,7 +401,7 @@ pub unsafe extern "C" fn pdf_names_create_tree(
     let name_tree;
     let flat = flat_table(names, count, filter);
     if flat.is_null() {
-        name_tree = 0 as *mut pdf_obj
+        name_tree = ptr::null_mut()
     } else {
         slice::from_raw_parts_mut(
             flat,

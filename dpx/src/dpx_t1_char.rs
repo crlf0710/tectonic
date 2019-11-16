@@ -32,6 +32,7 @@ use crate::mfree;
 use crate::warn;
 use libc::{free, memcpy, memset};
 use std::cmp::Ordering;
+use std::ptr;
 
 pub type size_t = u64;
 
@@ -256,7 +257,7 @@ unsafe fn add_charpath(
         new((1_u64).wrapping_mul(::std::mem::size_of::<t1_cpath>() as u64) as u32) as *mut t1_cpath;
     (*p).type_0 = type_0;
     (*p).num_args = argn;
-    (*p).next = 0 as *mut t1_cpath;
+    (*p).next = ptr::null_mut();
     loop {
         let fresh1 = argn;
         argn = argn - 1;
@@ -295,7 +296,7 @@ unsafe fn init_charpath(mut cd: *mut t1_chardesc) {
     (*cd).bbox.urx = (*cd).bbox.ury;
     (*cd).bbox.lly = (*cd).bbox.urx;
     (*cd).bbox.llx = (*cd).bbox.lly;
-    (*cd).lastpath = 0 as *mut t1_cpath;
+    (*cd).lastpath = ptr::null_mut();
     (*cd).charpath = (*cd).lastpath;
 }
 unsafe fn release_charpath(mut cd: *mut t1_chardesc) {
@@ -306,7 +307,7 @@ unsafe fn release_charpath(mut cd: *mut t1_chardesc) {
         free(curr as *mut libc::c_void);
         curr = next
     }
-    (*cd).lastpath = 0 as *mut t1_cpath;
+    (*cd).lastpath = ptr::null_mut();
     (*cd).charpath = (*cd).lastpath;
 }
 /*
@@ -582,7 +583,7 @@ unsafe fn do_othersubr0(mut cd: *mut t1_chardesc) {
     ps_stack_top -= 1;
     (*flex).args[12] = ps_arg_stack[ps_stack_top as usize];
     (*flex).num_args = 13i32;
-    (*flex).next = 0 as *mut t1_cpath;
+    (*flex).next = ptr::null_mut();
     (*cd).lastpath = flex;
     phase = 2i32;
 }
@@ -1174,7 +1175,7 @@ unsafe fn do_postproc(mut cd: *mut t1_chardesc) {
     (*cd).bbox.ury = -100000.0f64;
     (*cd).bbox.urx = (*cd).bbox.ury;
     let mut cur = (*cd).charpath;
-    let mut prev = 0 as *mut t1_cpath;
+    let mut prev = ptr::null_mut::<t1_cpath>();
     let mut y = 0.0f64;
     let mut x = y;
     while !cur.is_null() {
@@ -1581,8 +1582,8 @@ pub unsafe extern "C" fn t1char_get_metrics(
             pos: 0.,
             del: 0.,
         }; 96],
-        charpath: 0 as *mut t1_cpath,
-        lastpath: 0 as *mut t1_cpath,
+        charpath: ptr::null_mut(),
+        lastpath: ptr::null_mut(),
     };
     let cd = &mut t1char;
     init_charpath(cd);
@@ -1917,8 +1918,8 @@ pub unsafe extern "C" fn t1char_convert_charstring(
             pos: 0.,
             del: 0.,
         }; 96],
-        charpath: 0 as *mut t1_cpath,
-        lastpath: 0 as *mut t1_cpath,
+        charpath: ptr::null_mut(),
+        lastpath: ptr::null_mut(),
     };
     let cd = &mut t1char;
     init_charpath(cd);

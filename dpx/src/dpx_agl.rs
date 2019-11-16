@@ -30,6 +30,7 @@
 use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::{CStr, CString};
+use std::ptr;
 
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_dpxutil::{ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table};
@@ -79,10 +80,10 @@ pub unsafe extern "C" fn agl_set_verbose(mut level: i32) {
 unsafe fn agl_new_name() -> *mut agl_name {
     let agln =
         new((1_u64).wrapping_mul(::std::mem::size_of::<agl_name>() as u64) as u32) as *mut agl_name;
-    (*agln).name = 0 as *mut i8;
-    (*agln).suffix = 0 as *mut i8;
+    (*agln).name = ptr::null_mut();
+    (*agln).suffix = ptr::null_mut();
     (*agln).n_components = 0i32;
-    (*agln).alternate = 0 as *mut agl_name;
+    (*agln).alternate = ptr::null_mut();
     (*agln).is_predef = 0i32;
     agln
 }
@@ -93,7 +94,7 @@ unsafe fn agl_release_name(mut agln: *mut agl_name) {
         if !(*agln).suffix.is_null() {
             let _ = CString::from_raw((*agln).suffix);
         }
-        (*agln).name = 0 as *mut i8;
+        (*agln).name = ptr::null_mut();
         free(agln as *mut libc::c_void);
         agln = next
     }
@@ -335,7 +336,7 @@ unsafe fn agl_guess_name(glyphname: &[u8]) -> Option<usize> {
 }
 unsafe fn agl_normalized_name(glyphname: &[u8]) -> *mut agl_name {
     if glyphname.is_empty() {
-        return 0 as *mut agl_name;
+        return ptr::null_mut();
     }
     let agln = agl_new_name();
     if let Some(n) = glyphname.iter().position(|&x| x == b'.') {
@@ -535,7 +536,7 @@ unsafe fn agl_load_listfile(mut filename: *const i8, mut is_predef: i32) -> i32 
 #[no_mangle]
 pub unsafe extern "C" fn agl_lookup_list(mut glyphname: *const i8) -> *mut agl_name {
     if glyphname.is_null() {
-        return 0 as *mut agl_name;
+        return ptr::null_mut();
     }
     ht_lookup_table(
         &mut aglmap,

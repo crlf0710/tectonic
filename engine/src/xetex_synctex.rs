@@ -244,8 +244,8 @@ static mut synctex_suffix_gz: *const i8 = b".gz\x00" as *const u8 as *const i8;
  *  information for page i alone.
  */
 unsafe extern "C" fn synctex_dot_open() -> bool {
-    let mut tmp: *mut i8 = 0 as *mut i8;
-    let mut the_name: *mut i8 = 0 as *mut i8;
+    let mut tmp: *mut i8 = ptr::null_mut();
+    let mut the_name: *mut i8 = ptr::null_mut();
     if synctex_ctxt.flags.contains(Flags::OFF)
         || (*eqtb.offset(
             (1i32

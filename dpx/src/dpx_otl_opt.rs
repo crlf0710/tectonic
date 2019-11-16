@@ -30,6 +30,7 @@
 use crate::warn;
 use crate::DisplayExt;
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_mem::new;
 use libc::{free, memcpy, memset, strlen};
@@ -82,8 +83,8 @@ unsafe fn bt_new_tree() -> *mut bt_node {
     let expr =
         new((1_u64).wrapping_mul(::std::mem::size_of::<bt_node>() as u64) as u32) as *mut bt_node;
     (*expr).flag = 0i32;
-    (*expr).left = 0 as *mut bt_node;
-    (*expr).right = 0 as *mut bt_node;
+    (*expr).left = ptr::null_mut();
+    (*expr).right = ptr::null_mut();
     memset((*expr).data.as_mut_ptr() as *mut libc::c_void, 0i32, 4);
     expr
 }
@@ -100,7 +101,7 @@ unsafe fn bt_release_tree(mut tree: *mut bt_node) {
 }
 unsafe fn parse_expr(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut bt_node {
     if *pp >= endptr {
-        return 0 as *mut bt_node;
+        return ptr::null_mut();
     }
     let mut curr = bt_new_tree();
     let mut root = curr;
@@ -120,11 +121,11 @@ unsafe fn parse_expr(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut bt_n
                     let expr = parse_expr(pp, endptr);
                     if expr.is_null() {
                         warn!("Syntax error: {}\n", CStr::from_ptr(*pp).display());
-                        return 0 as *mut bt_node;
+                        return ptr::null_mut();
                     }
                     if **pp as i32 != ')' as i32 {
                         warn!("Syntax error: Unbalanced ()\n");
-                        return 0 as *mut bt_node;
+                        return ptr::null_mut();
                     }
                     (*curr).left = (*expr).left;
                     (*curr).right = (*expr).right;
@@ -137,7 +138,7 @@ unsafe fn parse_expr(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut bt_n
                 } else {
                     warn!("Syntax error: Unbalanced ()\n");
                     bt_release_tree(root);
-                    return 0 as *mut bt_node;
+                    return ptr::null_mut();
                 }
                 *pp = (*pp).offset(1)
             }
@@ -146,7 +147,7 @@ unsafe fn parse_expr(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut bt_n
                 if *pp >= endptr {
                     warn!("Syntax error: {}\n", CStr::from_ptr(*pp).display());
                     bt_release_tree(root);
-                    return 0 as *mut bt_node;
+                    return ptr::null_mut();
                 } else {
                     let tmp = bt_new_tree();
                     (*tmp).left = root;
@@ -182,14 +183,14 @@ unsafe fn parse_expr(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut bt_n
                         } else {
                             warn!("Invalid char in tag: {}\n", char::from(**pp as u8),);
                             bt_release_tree(root);
-                            return 0 as *mut bt_node;
+                            return ptr::null_mut();
                         }
                         *pp = (*pp).offset(1);
                     }
                 } else {
                     warn!("Syntax error: {}\n", CStr::from_ptr(*pp).display());
                     bt_release_tree(root);
-                    return 0 as *mut bt_node;
+                    return ptr::null_mut();
                 }
             }
         }
@@ -199,7 +200,7 @@ unsafe fn parse_expr(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut bt_n
 #[no_mangle]
 pub unsafe extern "C" fn otl_new_opt() -> *mut otl_opt {
     let opt = new((1_u64).wrapping_mul(::std::mem::size_of::<otl_opt>() as u64) as u32) as *mut otl_opt;
-    (*opt).rule = 0 as *mut bt_node;
+    (*opt).rule = ptr::null_mut();
     opt as *mut otl_opt
 }
 #[no_mangle]
@@ -207,7 +208,7 @@ pub unsafe extern "C" fn otl_release_opt(mut opt: *mut otl_opt) {
     if !(*opt).rule.is_null() {
         bt_release_tree((*opt).rule);
     }
-    (*opt).rule = 0 as *mut bt_node;
+    (*opt).rule = ptr::null_mut();
     free(opt as *mut libc::c_void);
 }
 #[no_mangle]

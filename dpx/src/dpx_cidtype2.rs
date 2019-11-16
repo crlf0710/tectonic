@@ -331,7 +331,7 @@ unsafe fn find_tocode_cmap(mut reg: *const i8, mut ord: *const i8, mut select: i
         panic!("Character set unknown.");
     }
     if streq_ptr(ord, b"UCS\x00" as *const u8 as *const i8) as i32 != 0 && select <= 1i32 {
-        return 0 as *mut CMap;
+        return ptr::null_mut();
     }
     let mut i = 0;
     while cmap_id < 0i32 && i < 5i32 {
@@ -392,7 +392,7 @@ unsafe fn add_TTCIDHMetrics(
 ) {
     let mut start: i32 = 0i32;
     let mut prev: i32 = 0i32;
-    let mut an_array: *mut pdf_obj = 0 as *mut pdf_obj;
+    let mut an_array: *mut pdf_obj = ptr::null_mut();
     let mut empty: i32 = 1i32;
     let w_array = pdf_new_array();
     let dw = if (*g).dw as i32 != 0i32 && (*g).dw as i32 <= (*g).emsize as i32 {
@@ -427,7 +427,7 @@ unsafe fn add_TTCIDHMetrics(
                     if !an_array.is_null() {
                         pdf_add_array(&mut *w_array, pdf_new_number(start as f64));
                         pdf_add_array(&mut *w_array, an_array);
-                        an_array = 0 as *mut pdf_obj;
+                        an_array = ptr::null_mut();
                         empty = 0i32
                     }
                 } else {
@@ -435,7 +435,7 @@ unsafe fn add_TTCIDHMetrics(
                         if !an_array.is_null() {
                             pdf_add_array(&mut *w_array, pdf_new_number(start as f64));
                             pdf_add_array(&mut *w_array, an_array);
-                            an_array = 0 as *mut pdf_obj;
+                            an_array = ptr::null_mut();
                             empty = 0i32
                         }
                     }
@@ -644,7 +644,7 @@ unsafe fn cid_to_code(mut cmap: *mut CMap, mut cid: CID) -> i32 {
 #[no_mangle]
 pub unsafe extern "C" fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
     let mut cmap;
-    let mut ttcmap: *mut tt_cmap = 0 as *mut tt_cmap;
+    let mut ttcmap: *mut tt_cmap = ptr::null_mut();
     let offset;
     let mut i: i32 = 0;
     let mut unicode_cmap: i32 = 0i32;
@@ -761,8 +761,8 @@ pub unsafe extern "C" fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
      * Select TrueType cmap table, find ToCode CMap for each TrueType encodings.
      */
     if glyph_ordering != 0 {
-        ttcmap = 0 as *mut tt_cmap;
-        cmap = 0 as *mut CMap
+        ttcmap = ptr::null_mut();
+        cmap = ptr::null_mut()
     } else {
         /*
          * This part contains a bug. It may choose SJIS encoding TrueType cmap
@@ -804,7 +804,7 @@ pub unsafe extern "C" fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
     let glyphs = tt_build_init();
     let mut last_cid = 0i32 as CID;
     let mut num_glyphs = 1_u16;
-    let mut v_used_chars = 0 as *mut i8;
+    let mut v_used_chars = ptr::null_mut();
     let mut h_used_chars = v_used_chars;
     let mut used_chars = h_used_chars;
     let mut parent;
@@ -861,7 +861,7 @@ pub unsafe extern "C" fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
     if last_cid as u32 >= 0xffffu32 {
         panic!("CID count > 65535");
     }
-    let mut cidtogidmap = 0 as *mut u8;
+    let mut cidtogidmap = ptr::null_mut();
     /* !NO_GHOSTSCRIPT_BUG */
     /*
      * Map CIDs to GIDs.
@@ -918,14 +918,14 @@ pub unsafe extern "C" fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
          * Require `vrt2' or `vert'.
          */
         if glyph_ordering != 0 {
-            gsub_list = 0 as *mut otl_gsub
+            gsub_list = ptr::null_mut()
         } else {
             gsub_list = otl_gsub_new();
             if otl_gsub_add_feat(gsub_list, b"*", b"*", b"vrt2", sfont) < 0i32 {
                 if otl_gsub_add_feat(gsub_list, b"*", b"*", b"vert", sfont) < 0i32 {
                     warn!("GSUB feature vrt2/vert not found.");
                     otl_gsub_release(gsub_list);
-                    gsub_list = 0 as *mut otl_gsub
+                    gsub_list = ptr::null_mut()
                 } else {
                     otl_gsub_select(gsub_list, b"*", b"*", b"vert");
                 }

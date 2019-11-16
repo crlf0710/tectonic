@@ -27,6 +27,8 @@
     unused_mut
 )]
 
+use std::ptr;
+
 use crate::warn;
 
 use super::dpx_pdfdoc::pdf_doc_get_page;
@@ -80,9 +82,9 @@ pub unsafe extern "C" fn pdf_include_page(
     mut options: load_options,
 ) -> i32 {
     let mut info = xform_info::default();
-    let mut contents: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut resources: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut markinfo: *mut pdf_obj = 0 as *mut pdf_obj;
+    let mut contents: *mut pdf_obj = ptr::null_mut();
+    let mut resources: *mut pdf_obj = ptr::null_mut();
+    let mut markinfo: *mut pdf_obj = ptr::null_mut();
     let pf = pdf_open(ident, handle);
     if pf.is_null() {
         return -1;
@@ -214,4 +216,3 @@ pub unsafe extern "C" fn pdf_include_page(
 
     0
 }
-

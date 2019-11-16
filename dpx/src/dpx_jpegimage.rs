@@ -47,6 +47,7 @@ use crate::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_read};
 use libc::{free, memcmp, memset};
 
 use std::io::{Seek, SeekFrom};
+use std::ptr;
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
@@ -186,7 +187,7 @@ pub unsafe extern "C" fn jpeg_include_image(
         flags: 0,
         num_appn: 0,
         max_appn: 0,
-        appn: 0 as *mut JPEG_ext,
+        appn: ptr::null_mut(),
         skipbits: [0; 129],
     };
     if check_for_jpeg(handle) == 0 {
@@ -228,11 +229,11 @@ pub unsafe extern "C" fn jpeg_include_image(
         }
     }
     /* Check embedded ICC Profile */
-    let mut colorspace = 0 as *mut pdf_obj;
+    let mut colorspace = ptr::null_mut();
     if j_info.flags & 1i32 << 2i32 != 0 {
         let icc_stream = JPEG_get_iccp(&mut j_info);
         if icc_stream.is_null() {
-            colorspace = 0 as *mut pdf_obj
+            colorspace = ptr::null_mut()
         } else {
             let icc_stream = &*icc_stream;
             if iccp_check_colorspace(
@@ -241,7 +242,7 @@ pub unsafe extern "C" fn jpeg_include_image(
                 pdf_stream_length(icc_stream),
             ) < 0i32
             {
-                colorspace = 0 as *mut pdf_obj
+                colorspace = ptr::null_mut()
             } else {
                 let cspc_id = iccp_load_profile(
                     std::ptr::null(),
@@ -249,7 +250,7 @@ pub unsafe extern "C" fn jpeg_include_image(
                     pdf_stream_length(icc_stream),
                 );
                 if cspc_id < 0i32 {
-                    colorspace = 0 as *mut pdf_obj
+                    colorspace = ptr::null_mut()
                 } else {
                     colorspace = pdf_get_colorspace_reference(cspc_id);
                     let intent = iccp_get_rendering_intent(
@@ -323,7 +324,7 @@ unsafe fn JPEG_info_init(mut j_info: *mut JPEG_info) {
     (*j_info).flags = 0i32;
     (*j_info).num_appn = 0i32;
     (*j_info).max_appn = 0i32;
-    (*j_info).appn = 0 as *mut JPEG_ext;
+    (*j_info).appn = ptr::null_mut();
     memset(
         (*j_info).skipbits.as_mut_ptr() as *mut libc::c_void,
         0i32,
@@ -367,7 +368,7 @@ unsafe fn JPEG_info_clear(mut j_info: *mut JPEG_info) {
         }
         free((*j_info).appn as *mut libc::c_void);
     }
-    (*j_info).appn = 0 as *mut JPEG_ext;
+    (*j_info).appn = ptr::null_mut();
     (*j_info).num_appn = 0i32;
     (*j_info).max_appn = 0i32;
     (*j_info).flags = 0i32;
@@ -395,7 +396,7 @@ unsafe fn JPEG_get_iccp(mut j_info: *mut JPEG_info) -> *mut pdf_obj {
                     (*icc).num_chunks as i32,
                 );
                 pdf_release_obj(icc_stream);
-                icc_stream = 0 as *mut pdf_obj;
+                icc_stream = ptr::null_mut();
                 break;
             }
             pdf_add_stream(
@@ -722,7 +723,7 @@ unsafe fn read_APP0_JFIF(j_info: *mut JPEG_info, handle: &mut InputHandleWrapper
             as u32) as *mut u8;
         ttstub_input_read(handle.0.as_ptr(), (*app_data).thumbnail as *mut i8, thumb_data_len);
     } else {
-        (*app_data).thumbnail = 0 as *mut u8
+        (*app_data).thumbnail = ptr::null_mut()
     }
     add_APPn_marker(
         j_info,
@@ -1134,7 +1135,7 @@ pub unsafe extern "C" fn jpeg_get_bbox(
         flags: 0,
         num_appn: 0,
         max_appn: 0,
-        appn: 0 as *mut JPEG_ext,
+        appn: ptr::null_mut(),
         skipbits: [0; 129],
     };
     JPEG_info_init(&mut j_info);

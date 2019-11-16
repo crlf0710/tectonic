@@ -28,6 +28,7 @@
 )]
 
 use libc::{free, malloc, realloc};
+use std::ptr;
 
 pub type size_t = u64;
 
@@ -50,7 +51,7 @@ pub unsafe extern "C" fn renew(mut mem: *mut libc::c_void, mut size: u32) -> *mu
     } else {
         /* realloc may not return NULL if size == 0 */
         free(mem);
-        return 0 as *mut libc::c_void;
+        return ptr::null_mut();
     };
 }
 

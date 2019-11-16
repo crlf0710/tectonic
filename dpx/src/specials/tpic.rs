@@ -30,6 +30,7 @@ use crate::warn;
 use crate::DisplayExt;
 use crate::SkipBlank;
 use std::ffi::{CString, CStr};
+use std::ptr;
 
 use super::{spc_arg, spc_env};
 use crate::spc_warn;
@@ -636,17 +637,17 @@ pub unsafe extern "C" fn spc_tpic_at_begin_page() -> i32 {
 #[no_mangle]
 pub unsafe extern "C" fn spc_tpic_at_end_page() -> i32 {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
-    spc_handler_tpic__eophook(0 as *mut spc_env, tp as *mut libc::c_void)
+    spc_handler_tpic__eophook(ptr::null_mut(), tp as *mut libc::c_void)
 }
 #[no_mangle]
 pub unsafe extern "C" fn spc_tpic_at_begin_document() -> i32 {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
-    spc_handler_tpic__init(0 as *mut spc_env, tp as *mut libc::c_void)
+    spc_handler_tpic__init(ptr::null_mut(), tp as *mut libc::c_void)
 }
 #[no_mangle]
 pub unsafe extern "C" fn spc_tpic_at_end_document() -> i32 {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
-    spc_handler_tpic__clean(0 as *mut spc_env, tp as *mut libc::c_void)
+    spc_handler_tpic__clean(ptr::null_mut(), tp as *mut libc::c_void)
 }
 unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
     let mut error: i32 = 0i32;
@@ -685,7 +686,7 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
     }
     if error != 0 {
         pdf_release_obj(dict);
-        dict = 0 as *mut pdf_obj
+        dict = ptr::null_mut()
     }
     dict
 }
