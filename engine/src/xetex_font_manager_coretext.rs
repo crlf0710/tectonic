@@ -467,7 +467,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_appendNameToList(
         XeTeXFontMgr_appendToList(self_0, nameList, msg_send![name, UTF8String]);
         CFRelease(name as CFTypeRef);
     }
-    let mut language: CFStringRef = 0 as *const __CFString;
+    let mut language: CFStringRef = ptr::null();
     let name = CTFontCopyLocalizedName(font, nameKey, &mut language);
     let name: *const NSString = name.cast();
     if !name.is_null() {
@@ -492,7 +492,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_readNames(
         CppStdString_assign_from_const_char_ptr((*names).m_psName, msg_send![psName, UTF8String]);
         CFRelease(psName as CFTypeRef);
         let mut font: CTFontRef =
-            CTFontCreateWithFontDescriptor(fontRef, 0.0f64, 0 as *const CGAffineTransform);
+            CTFontCreateWithFontDescriptor(fontRef, 0.0f64, ptr::null());
         XeTeXFontMgr_Mac_appendNameToList(self_0, font, (*names).m_fullNames, kCTFontFullNameKey);
         XeTeXFontMgr_Mac_appendNameToList(
             self_0,
@@ -659,7 +659,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_getPlatformFontDesc(
 ) -> *mut libc::c_char {
     let mut path: *mut libc::c_char = 0 as *mut libc::c_char;
     let mut ctFont: CTFontRef =
-        CTFontCreateWithFontDescriptor(descriptor, 0.0f64, 0 as *const CGAffineTransform);
+        CTFontCreateWithFontDescriptor(descriptor, 0.0f64, ptr::null());
     if !ctFont.is_null() {
         let mut url: CFURLRef = 0 as CFURLRef;
         url = CTFontCopyAttribute(ctFont, kCTFontURLAttribute) as CFURLRef;

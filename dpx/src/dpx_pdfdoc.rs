@@ -32,6 +32,7 @@ use crate::streq_ptr;
 use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::{CStr, CString};
+use std::ptr;
 
 use super::dpx_dpxutil::{
     ht_append_table, ht_clear_iter, ht_clear_table, ht_init_table, ht_iter_getkey, ht_iter_next,
@@ -223,7 +224,7 @@ pub struct C2RustUnnamed_4 {
  * as directory separators. */
 static mut verbose: i32 = 0i32;
 static mut manual_thumb_enabled: i8 = 0_i8;
-static mut thumb_basename: *mut i8 = 0 as *const i8 as *mut i8;
+static mut thumb_basename: *mut i8 = ptr::null_mut();
 #[no_mangle]
 pub unsafe extern "C" fn pdf_doc_enable_manual_thumbnails() {
     manual_thumb_enabled = 1_i8;
@@ -277,44 +278,44 @@ pub unsafe extern "C" fn pdf_doc_set_verbose(mut level: i32) {
 }
 static mut pdoc: pdf_doc = pdf_doc {
     root: C2RustUnnamed_3 {
-        dict: 0 as *const pdf_obj as *mut pdf_obj,
-        viewerpref: 0 as *const pdf_obj as *mut pdf_obj,
-        pagelabels: 0 as *const pdf_obj as *mut pdf_obj,
-        pages: 0 as *const pdf_obj as *mut pdf_obj,
-        names: 0 as *const pdf_obj as *mut pdf_obj,
-        threads: 0 as *const pdf_obj as *mut pdf_obj,
+        dict: ptr::null_mut(),
+        viewerpref: ptr::null_mut(),
+        pagelabels: ptr::null_mut(),
+        pages: ptr::null_mut(),
+        names: ptr::null_mut(),
+        threads: ptr::null_mut(),
     },
-    info: 0 as *const pdf_obj as *mut pdf_obj,
+    info: ptr::null_mut(),
     pages: C2RustUnnamed_2 {
         mediabox: Rect::zero(),
-        bop: 0 as *const pdf_obj as *mut pdf_obj,
-        eop: 0 as *const pdf_obj as *mut pdf_obj,
+        bop: ptr::null_mut(),
+        eop: ptr::null_mut(),
         num_entries: 0,
         max_entries: 0,
-        entries: 0 as *const pdf_page as *mut pdf_page,
+        entries: ptr::null_mut(),
     },
     outlines: C2RustUnnamed_1 {
-        first: 0 as *const pdf_olitem as *mut pdf_olitem,
-        current: 0 as *const pdf_olitem as *mut pdf_olitem,
+        first: ptr::null_mut(),
+        current: ptr::null_mut(),
         current_depth: 0,
     },
     articles: C2RustUnnamed_0 {
         num_entries: 0,
         max_entries: 0,
-        entries: 0 as *const pdf_article as *mut pdf_article,
+        entries: ptr::null_mut(),
     },
-    names: 0 as *const name_dict as *mut name_dict,
+    names: ptr::null_mut(),
     check_gotos: 0,
     gotos: ht_table {
         count: 0,
         hval_free_fn: None,
-        table: [0 as *const ht_entry as *mut ht_entry; 503],
+        table: [ptr::null_mut(); 503],
     },
     opt: C2RustUnnamed {
         outline_open_depth: 0,
         annot_grow: 0.,
     },
-    pending_forms: 0 as *const form_list_node as *mut form_list_node,
+    pending_forms: ptr::null_mut(),
 };
 unsafe fn pdf_doc_init_catalog(mut p: *mut pdf_doc) {
     (*p).root.viewerpref = 0 as *mut pdf_obj;
@@ -1582,7 +1583,7 @@ unsafe fn pdf_doc_init_names(mut p: *mut pdf_doc, mut check_gotos: i32) {
             .wrapping_div(::std::mem::size_of::<*const i8>() as u64) as isize,
     ))
     .category;
-    *fresh15 = 0 as *const i8;
+    *fresh15 = ptr::null();
     let ref mut fresh16 = (*(*p).names.offset(
         (::std::mem::size_of::<[*const i8; 10]>() as u64)
             .wrapping_div(::std::mem::size_of::<*const i8>() as u64) as isize,
@@ -2460,7 +2461,7 @@ pub unsafe fn pdf_doc_add_page_content(buffer: &[u8]) {
     };
 }
 
-static mut doccreator: *mut i8 = 0 as *const i8 as *mut i8;
+static mut doccreator: *mut i8 = ptr::null_mut();
 /* Ugh */
 #[no_mangle]
 pub unsafe extern "C" fn pdf_open_document(
@@ -2720,7 +2721,7 @@ pub unsafe extern "C" fn pdf_doc_end_grabbing(mut attrib: *mut pdf_obj) {
 static mut breaking_state: C2RustUnnamed_4 = C2RustUnnamed_4 {
         dirty: 0i32,
         broken: 0i32,
-        annot_dict: 0 as *const pdf_obj as *mut pdf_obj,
+        annot_dict: ptr::null_mut(),
         rect: Rect::zero(),
     };
 unsafe fn reset_box() {

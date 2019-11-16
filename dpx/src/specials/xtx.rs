@@ -107,7 +107,7 @@ unsafe fn spc_handler_xtx_scale(mut spe: *mut spc_env, mut args: *mut spc_arg) -
     );
 }
 /* Scaling without gsave/grestore. */
-static mut SCALE_FACTORS: *mut Coord = 0 as *const Coord as *mut Coord;
+static mut SCALE_FACTORS: *mut Coord = std::ptr::null_mut();
 static mut SCALE_FACTOR_COUNT: i32 = -1i32;
 unsafe fn spc_handler_xtx_bscale(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut values: [f64; 2] = [0.; 2];

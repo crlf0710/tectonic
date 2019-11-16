@@ -767,7 +767,7 @@ unsafe fn fontmap_parse_mapdef_dps(
     }
     0i32
 }
-static mut fontmap: *mut ht_table = 0 as *const ht_table as *mut ht_table;
+static mut fontmap: *mut ht_table = std::ptr::null_mut();
 unsafe fn chop_sfd_name(mut tex_name: *const i8, mut sfd_name: *mut *mut i8) -> *mut i8 {
     *sfd_name = 0 as *mut i8;
     let mut p = strchr(tex_name, '@' as i32);
@@ -1153,7 +1153,7 @@ pub unsafe extern "C" fn is_pdfm_mapline(mut mline: *const i8) -> i32
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_load_fontmap_file(filename: &CStr, mut mode: i32) -> i32 {
-    let mut p: *const i8 = 0 as *const i8;
+    let mut p: *const i8 = std::ptr::null();
     let mut lpos: i32 = 0i32;
     let mut error: i32 = 0i32;
     let mut format: i32 = 0i32;

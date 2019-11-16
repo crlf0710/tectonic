@@ -28,6 +28,7 @@
 )]
 
 use std::slice::from_raw_parts;
+use std::ptr;
 
 use super::dpx_dpxcrypt::ARC4_CONTEXT;
 use super::dpx_dpxcrypt::{AES_cbc_encrypt_tectonic, AES_ecb_encrypt, ARC4_set_key, ARC4};
@@ -489,7 +490,7 @@ unsafe fn compute_user_password_V5(p: &mut pdf_sec, mut uplain: *const i8) {
     let mut UE: *mut u8 = 0 as *mut u8;
     let mut iv: [u8; 16] = [0; 16];
     let mut UE_len: size_t = 0;
-    let mut hash = compute_hash_V5(uplain, vsalt.as_mut_ptr(), 0 as *const u8, p.R);
+    let mut hash = compute_hash_V5(uplain, vsalt.as_mut_ptr(), ptr::null(), p.R);
     memcpy(
         p.U.as_mut_ptr() as *mut libc::c_void,
         hash.as_mut_ptr() as *const libc::c_void,
@@ -505,7 +506,7 @@ unsafe fn compute_user_password_V5(p: &mut pdf_sec, mut uplain: *const i8) {
         ksalt.as_mut_ptr() as *const libc::c_void,
         8,
     );
-    let mut hash = compute_hash_V5(uplain, ksalt.as_mut_ptr(), 0 as *const u8, p.R);
+    let mut hash = compute_hash_V5(uplain, ksalt.as_mut_ptr(), ptr::null(), p.R);
     memset(iv.as_mut_ptr() as *mut libc::c_void, 0i32, 16);
     AES_cbc_encrypt_tectonic(
         hash.as_mut_ptr(),
@@ -735,7 +736,7 @@ pub unsafe extern "C" fn pdf_encrypt_data(
                 } else {
                     p.key_size + 5i32
                 }) as size_t,
-                0 as *const u8,
+                ptr::null(),
                 1i32,
                 plain,
                 plain_len,
@@ -747,7 +748,7 @@ pub unsafe extern "C" fn pdf_encrypt_data(
             AES_cbc_encrypt_tectonic(
                 p.key.as_mut_ptr(),
                 p.key_size as size_t,
-                0 as *const u8,
+                ptr::null(),
                 1i32,
                 plain,
                 plain_len,

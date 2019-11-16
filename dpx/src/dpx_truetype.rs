@@ -35,6 +35,7 @@ use crate::streq_ptr;
 use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_agl::{
     agl_chop_suffix, agl_lookup_list, agl_name_convert_unicode, agl_name_is_unicode,
@@ -704,7 +705,7 @@ unsafe fn findcomposite(
         {
             error = composeglyph(gids.as_mut_ptr(), n_comp, suffix, gm, gid)
         } else {
-            error = composeglyph(gids.as_mut_ptr(), n_comp, 0 as *const i8, gm, gid);
+            error = composeglyph(gids.as_mut_ptr(), n_comp, ptr::null(), gm, gid);
             if error == 0 && !suffix.is_null() {
                 /* a_b_c.vert */
                 error = selectglyph(*gid, suffix, gm, gid)
@@ -753,7 +754,7 @@ unsafe fn findparanoiac(
             error = composeuchar(
                 (*agln).unicodes.as_mut_ptr(),
                 (*agln).n_components,
-                0 as *const i8,
+                ptr::null(),
                 gm,
                 &mut idx,
             );

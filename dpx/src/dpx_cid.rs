@@ -29,6 +29,7 @@
 
 use crate::DisplayExt;
 use std::ffi::CStr;
+use std::ptr;
 
 use crate::dpx_pdfparse::ParsePdfObj;
 use crate::mfree;
@@ -197,8 +198,8 @@ static mut CIDFont_stdcc_def: [C2RustUnnamed_0; 7] = [
             ],
         },
     C2RustUnnamed_0 {
-            registry: 0 as *const i8,
-            ordering: 0 as *const i8,
+            registry: ptr::null(),
+            ordering: ptr::null(),
             supplement: [
                 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0, 0, 0, 0, 0, 0, 0, 0,
             ],
@@ -297,7 +298,7 @@ static mut CIDFont_stdcc_alias: [C2RustUnnamed_3; 19] = [
             index: 5i32,
         },
     C2RustUnnamed_3 {
-            name: 0 as *const i8,
+            name: ptr::null(),
             index: 0i32,
         },
 ];
@@ -732,9 +733,9 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
                                      as *const u8 as *const i8,
     },
     C2RustUnnamed_2 {
-            fontname: 0 as *const i8,
-            fontdict: 0 as *const i8,
-            descriptor: 0 as *const i8,
+            fontname: ptr::null(),
+            fontdict: ptr::null(),
+            descriptor: ptr::null(),
         },
 ];
 unsafe fn CIDFont_base_open(
@@ -855,7 +856,7 @@ unsafe fn CIDFont_base_open(
     (*opt).embed = 0i32;
     0i32
 }
-static mut __cache: *mut FontCache = 0 as *const FontCache as *mut FontCache;
+static mut __cache: *mut FontCache = ptr::null_mut();
 unsafe fn CIDFont_cache_init() {
     if !__cache.is_null() {
         panic!("{}: Already initialized.", "CIDFont",);

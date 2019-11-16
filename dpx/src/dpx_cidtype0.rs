@@ -29,6 +29,7 @@
 
 use crate::DisplayExt;
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_sfnt::{
     sfnt_close, sfnt_find_table_pos, sfnt_locate_table, sfnt_open, sfnt_read_table_directory,
@@ -1695,20 +1696,20 @@ unsafe fn get_font_attr(mut font: *mut CIDFont, cffont: &cff_font) {
         b"P\x00" as *const u8 as *const i8,
         b"Pi\x00" as *const u8 as *const i8,
         b"Rho\x00" as *const u8 as *const i8,
-        0 as *const i8,
+        ptr::null(),
     ];
     static mut L_d: [*const i8; 5] = [
         b"p\x00" as *const u8 as *const i8,
         b"q\x00" as *const u8 as *const i8,
         b"mu\x00" as *const u8 as *const i8,
         b"eta\x00" as *const u8 as *const i8,
-        0 as *const i8,
+        ptr::null(),
     ];
     static mut L_a: [*const i8; 4] = [
         b"b\x00" as *const u8 as *const i8,
         b"h\x00" as *const u8 as *const i8,
         b"lambda\x00" as *const u8 as *const i8,
-        0 as *const i8,
+        ptr::null(),
     ];
     let mut gm = t1_ginfo::new();
     let mut defaultwidth = 500.0f64;
