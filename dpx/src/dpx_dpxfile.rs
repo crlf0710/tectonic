@@ -41,7 +41,7 @@ use crate::TTInputFormat;
 use bridge::InputHandleWrapper;
 /* quasi-hack to get the primary input */
 
-#[no_mangle]
+
 pub static mut keep_cache: i32 = 0i32;
 
 static mut _SBUF: [u8; 128] = [0; 128];
@@ -129,7 +129,7 @@ unsafe fn ensuresuffix(mut basename: *const i8, mut sfx: *const i8) -> *mut i8 {
 }
 /* tmp freed here */
 /* Tectonic-enabled I/O alternatives */
-#[no_mangle]
+
 pub unsafe fn dpx_tt_open(
     mut filename: *const i8,
     mut suffix: *const i8,
@@ -146,7 +146,7 @@ pub unsafe fn dpx_tt_open(
  *   ttf2tfm  (text file)
  *   dvipdfm  (text file)
  */
-#[no_mangle]
+
 pub unsafe fn dpx_open_type1_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
     match ttstub_input_open(filename, TTInputFormat::TYPE1, 0) {
         Some(mut handle) => {
@@ -160,7 +160,7 @@ pub unsafe fn dpx_open_type1_file(mut filename: *const i8) -> Option<InputHandle
         None => None,
     }
 }
-#[no_mangle]
+
 pub unsafe fn dpx_open_truetype_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
     match ttstub_input_open(filename, TTInputFormat::TRUETYPE, 0) {
         Some(mut handle) => {
@@ -174,7 +174,7 @@ pub unsafe fn dpx_open_truetype_file(mut filename: *const i8) -> Option<InputHan
         None => None,
     }
 }
-#[no_mangle]
+
 pub unsafe fn dpx_open_opentype_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
     let q = ensuresuffix(filename, b".otf\x00" as *const u8 as *const i8);
     let handle = ttstub_input_open(q, TTInputFormat::OPENTYPE, 0i32);
@@ -191,7 +191,7 @@ pub unsafe fn dpx_open_opentype_file(mut filename: *const i8) -> Option<InputHan
         None => None,
     }
 }
-#[no_mangle]
+
 pub unsafe fn dpx_open_dfont_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
     let q;
     let mut len: i32 = strlen(filename) as i32;
@@ -228,7 +228,7 @@ pub unsafe fn dpx_open_dfont_file(mut filename: *const i8) -> Option<InputHandle
     }
 }
 
-#[no_mangle]
+
 pub unsafe fn dpx_delete_old_cache(mut life: i32) {
     /* This used to delete files in tmpdir, but that code was ripped out since
      * it would have been annoying to port to Windows. */
@@ -236,7 +236,7 @@ pub unsafe fn dpx_delete_old_cache(mut life: i32) {
         keep_cache = -1i32
     };
 }
-#[no_mangle]
+
 pub unsafe fn dpx_delete_temp_file(mut tmp: *mut i8, mut force: i32) {
     if tmp.is_null() {
         return;
@@ -253,7 +253,7 @@ pub unsafe fn dpx_delete_temp_file(mut tmp: *mut i8, mut force: i32) {
  * This should be system dependent. (MiKTeX may want something different)
  * Please modify as appropriate (see also pdfximage.c and dvipdfmx.c).
  */
-#[no_mangle]
+
 pub unsafe fn dpx_file_apply_filter(
     mut _cmdtmpl: *const i8,
     mut _input: *const i8,

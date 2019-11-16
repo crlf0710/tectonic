@@ -211,7 +211,7 @@ pub struct clt_langsys_table {
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 static mut verbose: i32 = 0i32;
-#[no_mangle]
+
 pub unsafe fn otl_gsub_set_verbose(mut level: i32) {
     verbose = level;
 }
@@ -1151,7 +1151,7 @@ unsafe fn otl_gsub_apply_ligature(
     }
     -1i32
 }
-#[no_mangle]
+
 pub unsafe fn otl_gsub_new() -> *mut otl_gsub {
     let gsub_list =
         new((1_u64).wrapping_mul(::std::mem::size_of::<otl_gsub>() as u64) as u32) as *mut otl_gsub;
@@ -1169,7 +1169,7 @@ unsafe fn clear_chain(mut gsub_list: *mut otl_gsub) {
     }
     (*gsub_list).first = ptr::null_mut();
 }
-#[no_mangle]
+
 pub unsafe fn otl_gsub_add_feat(
     mut gsub_list: *mut otl_gsub,
     mut script: &[u8],
@@ -1260,7 +1260,7 @@ fn scan_otl_tag(mut otl_tags: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>), ()> 
     };
     Ok((script, language, feature))
 }
-#[no_mangle]
+
 pub unsafe fn otl_gsub_release(mut gsub_list: *mut otl_gsub) {
     if gsub_list.is_null() {
         return;
@@ -1292,7 +1292,7 @@ pub unsafe fn otl_gsub_release(mut gsub_list: *mut otl_gsub) {
     clear_chain(gsub_list);
     free(gsub_list as *mut libc::c_void);
 }
-#[no_mangle]
+
 pub unsafe fn otl_gsub_apply(mut gsub_list: *mut otl_gsub, mut gid: *mut u16) -> i32 {
     let mut retval: i32 = -1i32;
     if gsub_list.is_null() || gid.is_null() {
@@ -1314,7 +1314,7 @@ pub unsafe fn otl_gsub_apply(mut gsub_list: *mut otl_gsub, mut gid: *mut u16) ->
     }
     retval
 }
-#[no_mangle]
+
 pub unsafe fn otl_gsub_apply_alt(
     mut gsub_list: *mut otl_gsub,
     mut alt_idx: u16,
@@ -1340,7 +1340,7 @@ pub unsafe fn otl_gsub_apply_alt(
     }
     retval
 }
-#[no_mangle]
+
 pub unsafe fn otl_gsub_apply_lig(
     mut gsub_list: *mut otl_gsub,
     mut gid_in: *mut u16,
@@ -1384,7 +1384,7 @@ unsafe fn gsub_find(
     }
     -1i32
 }
-#[no_mangle]
+
 pub unsafe fn otl_gsub_select(
     mut gsub_list: *mut otl_gsub,
     mut script: &[u8],
@@ -1394,7 +1394,7 @@ pub unsafe fn otl_gsub_select(
     (*gsub_list).select = gsub_find(gsub_list, script, language, feature);
     (*gsub_list).select
 }
-#[no_mangle]
+
 pub unsafe fn otl_gsub_set_chain(
     mut gsub_list: *mut otl_gsub,
     mut otl_tags: *const i8,
@@ -1424,7 +1424,7 @@ pub unsafe fn otl_gsub_set_chain(
     }
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn otl_gsub_add_feat_list(
     mut gsub_list: *mut otl_gsub,
     mut otl_tags: *const i8,
@@ -1446,7 +1446,7 @@ pub unsafe fn otl_gsub_add_feat_list(
 }
 /* LookupType for GSUB */
 /* Handle a list of OTL features */
-#[no_mangle]
+
 pub unsafe fn otl_gsub_apply_chain(
     mut gsub_list: *mut otl_gsub,
     mut gid: *mut u16,

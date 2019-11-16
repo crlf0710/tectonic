@@ -39,7 +39,7 @@ pub const DPX_MESG_WARN: _message_type = 1;
 pub const DPX_MESG_INFO: _message_type = 0;
 pub static mut _last_message_type: message_type_t = DPX_MESG_INFO;
 pub static mut _dpx_quietness: i32 = 0i32;
-#[no_mangle]
+
 pub unsafe fn shut_up(mut quietness: i32) {
     _dpx_quietness = quietness;
 }
@@ -86,7 +86,7 @@ unsafe fn _dpx_print_to_stdout(
         .unwrap();
 }
 
-#[no_mangle]
+
 pub unsafe extern "C" fn dpx_warning(mut fmt: *const i8, mut args: ...) {
     let mut argp: ::std::ffi::VaListImpl;
     if _dpx_quietness > 1i32 {

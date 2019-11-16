@@ -624,27 +624,27 @@ unsafe fn spc_handler_tpic__clean(mut spe: *mut spc_env, mut dp: *mut libc::c_vo
     tpic__clear(tp);
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn tpic_set_fill_mode(mut mode: i32) {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     (*tp).mode.fill = mode;
 }
-#[no_mangle]
+
 pub unsafe fn spc_tpic_at_begin_page() -> i32 {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     spc_handler_tpic__bophook(tp as *mut libc::c_void)
 }
-#[no_mangle]
+
 pub unsafe fn spc_tpic_at_end_page() -> i32 {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     spc_handler_tpic__eophook(ptr::null_mut(), tp as *mut libc::c_void)
 }
-#[no_mangle]
+
 pub unsafe fn spc_tpic_at_begin_document() -> i32 {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     spc_handler_tpic__init(ptr::null_mut(), tp as *mut libc::c_void)
 }
-#[no_mangle]
+
 pub unsafe fn spc_tpic_at_end_document() -> i32 {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     spc_handler_tpic__clean(ptr::null_mut(), tp as *mut libc::c_void)
@@ -827,7 +827,7 @@ pub fn spc_tpic_check_special(mut buf: &[u8]) -> bool {
     }
     istpic
 }
-#[no_mangle]
+
 pub unsafe fn spc_tpic_setup_handler(
     mut sph: *mut SpcHandler,
     mut spe: *mut spc_env,

@@ -27,11 +27,11 @@
          unused_mut)]
 
 pub type size_t = u64;
-#[no_mangle]
+
 pub unsafe fn UC_is_valid(mut ucv: i32) -> bool {
     !(ucv < 0i32 || ucv as i64 > 0x10ffff || ucv as i64 >= 0xd800 && ucv as i64 <= 0xdfff)
 }
-#[no_mangle]
+
 pub unsafe fn UC_UTF16BE_is_valid_string(
     mut p: *const u8,
     mut endptr: *const u8,
@@ -47,7 +47,7 @@ pub unsafe fn UC_UTF16BE_is_valid_string(
     }
     true
 }
-#[no_mangle]
+
 pub unsafe fn UC_UTF8_is_valid_string(mut p: *const u8, mut endptr: *const u8) -> bool {
     if p.offset(1) >= endptr {
         return false;
@@ -60,7 +60,7 @@ pub unsafe fn UC_UTF8_is_valid_string(mut p: *const u8, mut endptr: *const u8) -
     }
     true
 }
-#[no_mangle]
+
 pub unsafe fn UC_UTF16BE_decode_char(
     mut pp: *mut *const u8,
     mut endptr: *const u8,
@@ -89,7 +89,7 @@ pub unsafe fn UC_UTF16BE_decode_char(
     *pp = p;
     ucv
 }
-#[no_mangle]
+
 pub unsafe fn UC_UTF16BE_encode_char(
     mut ucv: i32,
     mut pp: *mut *mut u8,
@@ -126,7 +126,7 @@ pub unsafe fn UC_UTF16BE_encode_char(
     *pp = (*pp).offset(count as isize);
     count as size_t
 }
-#[no_mangle]
+
 pub unsafe fn UC_UTF8_decode_char(mut pp: *mut *const u8, mut endptr: *const u8) -> i32 {
     let mut p: *const u8 = *pp;
     let fresh0 = p;
@@ -172,7 +172,7 @@ pub unsafe fn UC_UTF8_decode_char(mut pp: *mut *const u8, mut endptr: *const u8)
     *pp = p;
     ucv
 }
-#[no_mangle]
+
 pub unsafe fn UC_UTF8_encode_char(
     mut ucv: i32,
     mut pp: *mut *mut u8,

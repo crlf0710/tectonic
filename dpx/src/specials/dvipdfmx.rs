@@ -49,7 +49,7 @@ pub fn spc_dvipdfmx_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
     buf.starts_with(b"dvipdfmx:")
 }
-#[no_mangle]
+
 pub unsafe fn spc_dvipdfmx_setup_handler(
     mut sph: *mut SpcHandler,
     mut spe: *mut spc_env,

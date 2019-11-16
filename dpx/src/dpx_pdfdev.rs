@@ -339,12 +339,12 @@ use super::dpx_fontmap::fontmap_rec;
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 static mut verbose: i32 = 0i32;
-#[no_mangle]
+
 pub unsafe fn pdf_dev_set_verbose(mut level: i32) {
     verbose = level;
 }
 /* Not working yet... */
-#[no_mangle]
+
 pub unsafe fn pdf_dev_scale() -> f64 {
     1.0f64
 }
@@ -353,7 +353,7 @@ static mut dev_unit: DevUnit = DevUnit {
         min_bp_val: 658i32,
         precision: 2i32,
     };
-#[no_mangle]
+
 pub unsafe fn dev_unit_dviunit() -> f64 {
     1.0f64 / dev_unit.dvi2pts
 }
@@ -684,7 +684,7 @@ unsafe fn text_mode() {
     motion_state = MotionState::TEXT_MODE;
     text_state.offset = 0i32;
 }
-#[no_mangle]
+
 pub unsafe fn graphics_mode() {
     match motion_state {
         MotionState::GRAPHICS_MODE => {}
@@ -1017,7 +1017,7 @@ unsafe fn dev_set_font(mut font_id: i32) -> i32 {
 }
 /* Access text state parameters.
  */
-#[no_mangle]
+
 pub unsafe fn pdf_dev_get_font_wmode(mut font_id: i32) -> i32 {
     let font = &mut *dev_fonts.offset(font_id as isize) as *mut dev_font;
     if !font.is_null() {
@@ -1165,7 +1165,7 @@ unsafe fn handle_multibyte_string(
 static mut dev_coords: *mut Coord = std::ptr::null_mut();
 static mut num_dev_coords: i32 = 0i32;
 static mut max_dev_coords: i32 = 0i32;
-#[no_mangle]
+
 pub unsafe fn pdf_dev_get_coord() -> Coord {
     if num_dev_coords > 0i32 {
         (*dev_coords.offset((num_dev_coords - 1i32) as isize))
@@ -1173,7 +1173,7 @@ pub unsafe fn pdf_dev_get_coord() -> Coord {
         Coord::zero()
     }
 }
-#[no_mangle]
+
 pub unsafe fn pdf_dev_push_coord(mut xpos: f64, mut ypos: f64) {
     if num_dev_coords >= max_dev_coords {
         max_dev_coords += 4i32;
@@ -1187,7 +1187,7 @@ pub unsafe fn pdf_dev_push_coord(mut xpos: f64, mut ypos: f64) {
     (*dev_coords.offset(num_dev_coords as isize)).y = ypos;
     num_dev_coords += 1;
 }
-#[no_mangle]
+
 pub unsafe fn pdf_dev_pop_coord() {
     if num_dev_coords > 0i32 {
         num_dev_coords -= 1
@@ -1205,7 +1205,7 @@ pub unsafe fn pdf_dev_pop_coord() {
  * -->
  * selectfont(font_name, point_size) and show_string(pos, string)
  */
-#[no_mangle]
+
 pub unsafe fn pdf_dev_set_string(
     mut xpos: spt_t,
     mut ypos: spt_t,
@@ -1391,7 +1391,7 @@ pub unsafe fn pdf_dev_set_string(
     pdf_doc_add_page_content(&format_buffer[..len as usize]); /* op: */
     text_state.offset += width;
 }
-#[no_mangle]
+
 pub unsafe fn pdf_init_device(
     mut dvi2pts: f64,
     mut precision: i32,
@@ -1426,7 +1426,7 @@ pub unsafe fn pdf_init_device(
     num_dev_coords = max_dev_coords;
     dev_coords = ptr::null_mut();
 }
-#[no_mangle]
+
 pub unsafe fn pdf_close_device() {
     if !dev_fonts.is_null() {
         for i in 0..num_dev_fonts {
@@ -1449,7 +1449,7 @@ pub unsafe fn pdf_close_device() {
  * BOP and EOP manipulate some of the same data structures
  * as the font stuff.
  */
-#[no_mangle]
+
 pub unsafe fn pdf_dev_reset_fonts(mut newpage: i32) {
     for i in 0..num_dev_fonts {
         (*dev_fonts.offset(i as isize)).used_on_this_page = 0i32;
@@ -1463,13 +1463,13 @@ pub unsafe fn pdf_dev_reset_fonts(mut newpage: i32) {
     }
     text_state.is_mb = 0i32;
 }
-#[no_mangle]
+
 pub unsafe fn pdf_dev_reset_color(mut force: i32) {
     let (sc, fc) = pdf_color_get_current();
     pdf_dev_set_color(sc, 0, force);
     pdf_dev_set_color(fc, 0x20, force);
 }
-#[no_mangle]
+
 pub unsafe fn pdf_dev_bop(M: &TMatrix) {
     graphics_mode();
     text_state.force_reset = 0i32;
@@ -1478,7 +1478,7 @@ pub unsafe fn pdf_dev_bop(M: &TMatrix) {
     pdf_dev_reset_fonts(1i32);
     pdf_dev_reset_color(0i32);
 }
-#[no_mangle]
+
 pub unsafe fn pdf_dev_eop() {
     graphics_mode();
     let depth = pdf_dev_current_depth();
@@ -1543,7 +1543,7 @@ unsafe fn print_fontmap(mut font_name: *const i8, mut mrec: *mut fontmap_rec) {
  * short_name, resource and used_chars between multiple instances
  * of the same font at different sizes.
  */
-#[no_mangle]
+
 pub unsafe fn pdf_dev_locate_font(mut font_name: *const i8, mut ptsize: spt_t) -> i32 {
     /* found a dev_font that matches the request */
     if font_name.is_null() {
@@ -1704,7 +1704,7 @@ unsafe fn dev_sprint_line(
     len += 1;
     len
 }
-#[no_mangle]
+
 pub unsafe fn pdf_dev_set_rule(
     mut xpos: spt_t,
     mut ypos: spt_t,
@@ -1794,7 +1794,7 @@ pub unsafe fn pdf_dev_set_rule(
     /* op: q re f Q */
 }
 /* Rectangle in device space coordinate. */
-#[no_mangle]
+
 pub unsafe fn pdf_dev_set_rect(
     rect: &mut Rect,
     mut x_user: spt_t,
@@ -1841,11 +1841,11 @@ pub unsafe fn pdf_dev_set_rect(
     rect.ur.x = max_x;
     rect.ur.y = max_y;
 }
-#[no_mangle]
+
 pub unsafe fn pdf_dev_get_dirmode() -> i32 {
     text_state.dir_mode
 }
-#[no_mangle]
+
 pub unsafe fn pdf_dev_set_dirmode(mut text_dir: i32) {
     let font = if text_state.font_id < 0i32 {
         ptr::null_mut()
@@ -1892,7 +1892,7 @@ unsafe fn dev_set_param_autorotate(mut auto_rotate: i32) {
     text_state.matrix.rotate = text_rotate;
     dev_param.autorotate = auto_rotate;
 }
-#[no_mangle]
+
 pub unsafe fn pdf_dev_get_param(mut param_type: i32) -> i32 {
     match param_type {
         1 => dev_param.autorotate,
@@ -1902,7 +1902,7 @@ pub unsafe fn pdf_dev_get_param(mut param_type: i32) -> i32 {
         }
     }
 }
-#[no_mangle]
+
 pub unsafe fn pdf_dev_set_param(mut param_type: i32, mut value: i32) {
     match param_type {
         1 => {
@@ -1914,7 +1914,7 @@ pub unsafe fn pdf_dev_set_param(mut param_type: i32, mut value: i32) {
         }
     };
 }
-#[no_mangle]
+
 pub unsafe fn pdf_dev_put_image(
     mut id: i32,
     p: &mut transform_info,
@@ -2017,7 +2017,7 @@ pub unsafe fn pdf_dev_put_image(
     }
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn transform_info_clear(info: &mut transform_info) {
     /* Physical dimensions */
     info.width = 0.;
@@ -2028,7 +2028,7 @@ pub unsafe fn transform_info_clear(info: &mut transform_info) {
     info.matrix = TMatrix::identity();
     info.flags = 0;
 }
-#[no_mangle]
+
 pub unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count: i32) {
     let mut pdf_doc_enc = 1_usize;
     /* check whether we can use PDFDocEncoding for this string
@@ -2147,7 +2147,7 @@ pub unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count: i32) {
  * begin_text (BT in PDF) and end_text (ET), but instead we have graphics_mode()
  * to terminate text section. pdf_dev_flushpath() and others call this.
  */
-#[no_mangle]
+
 pub unsafe fn pdf_dev_end_actualtext() {
     graphics_mode();
     pdf_doc_add_page_content(b" EMC");
@@ -2163,7 +2163,7 @@ pub unsafe fn pdf_dev_end_actualtext() {
  */
 /* transform matrix */
 /* user_bbox */
-#[no_mangle]
+
 pub unsafe fn pdf_dev_reset_global_state() {
     dev_fonts = ptr::null_mut();
     num_dev_fonts = 0i32;

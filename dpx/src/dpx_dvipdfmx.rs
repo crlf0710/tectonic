@@ -76,9 +76,9 @@ pub struct page_range {
     pub first: i32,
     pub last: i32,
 }
-#[no_mangle]
+
 pub static mut is_xdv: i32 = 0i32;
-#[no_mangle]
+
 pub static mut translate_origin: i32 = 0i32;
 static mut ignore_colors: i8 = 0_i8;
 static mut annot_grow: f64 = 0.0f64;
@@ -100,15 +100,15 @@ static mut do_encryption: i32 = 0i32;
 static mut key_bits: i32 = 40i32;
 static mut permission: i32 = 0x3ci32;
 /* Page device */
-#[no_mangle]
+
 pub static mut paper_width: f64 = 595.0f64;
-#[no_mangle]
+
 pub static mut paper_height: f64 = 842.0f64;
 static mut x_offset: f64 = 72.0f64;
 static mut y_offset: f64 = 72.0f64;
-#[no_mangle]
+
 pub static mut landscape_mode: i32 = 0i32;
-#[no_mangle]
+
 pub static mut always_embed: i32 = 0i32;
 unsafe fn select_paper(paperspec: &[u8]) {
     let mut error: i32 = 0i32;
@@ -291,7 +291,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
     spc_exec_at_end_document();
 }
 
-#[no_mangle]
+
 pub unsafe fn dvipdfmx_main(
     mut pdf_filename: *const i8,
     mut dvi_filename: *const i8,
