@@ -51,7 +51,7 @@ use super::dpx_dpxfile::{
 use super::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use super::dpx_dvipdfmx::{is_xdv, landscape_mode, paper_height, paper_width};
 use super::dpx_fontmap::{pdf_insert_native_fontmap_record, pdf_lookup_fontmap_record};
-use super::dpx_mem::{new, renew, xmalloc};
+use super::dpx_mem::{new, renew};
 use super::dpx_numbers::{
     sqxfw, tt_get_positive_quad, tt_get_signed_quad, tt_get_unsigned_byte, tt_get_unsigned_num,
     tt_get_unsigned_pair, tt_get_unsigned_quad, tt_skip_bytes,
@@ -81,7 +81,6 @@ use crate::dpx_pdfobj::{
     pdf_number_value, pdf_release_obj, pdf_string_value,
 };
 use crate::dpx_truetype::sfnt_table_info;
-use crate::shims::sprintf;
 use crate::specials::{
     spc_exec_at_begin_page, spc_exec_at_end_page, spc_exec_special, spc_set_verbose,
 };
@@ -91,7 +90,7 @@ use crate::{
 };
 use crate::dpx_dvicodes::*;
 
-use libc::{atof, free, memset, strlen, strncpy, strtol};
+use libc::{atof, free, memset, strncpy, strtol};
 
 use crate::TTInputFormat;
 
@@ -991,11 +990,9 @@ unsafe fn dvi_locate_native_font(
     let fresh17 = num_loaded_fonts;
     num_loaded_fonts = num_loaded_fonts.wrapping_add(1);
     let cur_id = fresh17 as i32;
-    let fontmap_key = xmalloc(strlen(filename).wrapping_add(40) as _) as *mut i8;
-    sprintf(
-        fontmap_key,
-        b"%s/%u/%c/%d/%d/%d\x00" as *const u8 as *const i8,
-        filename,
+    let fontmap_key = format!(
+        "{}/{}/{}/{}/{}/{}",
+        CStr::from_ptr(filename).display(),
         index,
         if layout_dir == 0i32 {
             'H' as i32
@@ -1006,7 +1003,7 @@ unsafe fn dvi_locate_native_font(
         slant,
         embolden,
     );
-    let mut mrec = pdf_lookup_fontmap_record(CStr::from_ptr(fontmap_key).to_bytes());
+    let mut mrec = pdf_lookup_fontmap_record(fontmap_key.as_bytes());
     if mrec.is_null() {
         mrec =
             pdf_insert_native_fontmap_record(filename, index, layout_dir, extend, slant, embolden);
@@ -1022,10 +1019,9 @@ unsafe fn dvi_locate_native_font(
         0i32,
         ::std::mem::size_of::<loaded_font>(),
     );
-    (*loaded_fonts.offset(cur_id as isize)).font_id = pdf_dev_locate_font(fontmap_key, ptsize);
+    (*loaded_fonts.offset(cur_id as isize)).font_id = pdf_dev_locate_font(fontmap_key.as_bytes().as_ptr() as *const i8, ptsize);
     (*loaded_fonts.offset(cur_id as isize)).size = ptsize;
     (*loaded_fonts.offset(cur_id as isize)).type_0 = 4i32;
-    free(fontmap_key as *mut libc::c_void);
     if is_type1 != 0 {
         let mut enc_vec: [*mut i8; 256] = [ptr::null_mut(); 256];
         /*if (!is_pfb(fp))

@@ -29,7 +29,6 @@ use crate::DisplayExt;
 use std::ffi::{CStr, CString};
 use std::ptr;
 
-use crate::mfree;
 use crate::warn;
 
 use super::{spc_arg, spc_env};
@@ -40,7 +39,7 @@ use crate::dpx_pdfximage::pdf_ximage_findresource;
 use crate::{ttstub_input_close, ttstub_input_open};
 
 use super::util::spc_util_read_dimtrns;
-use crate::dpx_mem::{xmalloc, xrealloc};
+use crate::dpx_mem::xmalloc;
 use crate::dpx_mpost::{mps_eop_cleanup, mps_exec_inline, mps_stack_depth};
 use crate::dpx_pdfdev::{pdf_dev_put_image, TMatrix, transform_info, transform_info_clear};
 use crate::dpx_pdfdraw::{
@@ -60,8 +59,8 @@ static mut BLOCK_PENDING: i32 = 0i32;
 static mut PENDING_X: f64 = 0.0f64;
 static mut PENDING_Y: f64 = 0.0f64;
 static mut POSITION_SET: i32 = 0i32;
-static mut PS_HEADERS: *mut *mut i8 = 0 as *const *mut i8 as *mut *mut i8;
-static mut NUM_PS_HEADERS: i32 = 0i32;
+static mut PS_HEADERS: Vec<*mut i8> = Vec::new();
+
 unsafe fn spc_handler_ps_header(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     (*args).cur.skip_white();
     if (*args).cur.len() <= 1 || (*args).cur[0] != b'=' {
@@ -91,16 +90,7 @@ unsafe fn spc_handler_ps_header(mut spe: *mut spc_env, mut args: *mut spc_arg) -
     }
     let ps_header = ps_header.unwrap();
     ttstub_input_close(ps_header);
-    if NUM_PS_HEADERS & 0xfi32 == 0 {
-        PS_HEADERS = xrealloc(
-            PS_HEADERS as *mut libc::c_void,
-            (::std::mem::size_of::<*mut i8>() as u64).wrapping_mul((NUM_PS_HEADERS + 16i32) as u64),
-        ) as *mut *mut i8
-    }
-    let fresh0 = NUM_PS_HEADERS;
-    NUM_PS_HEADERS = NUM_PS_HEADERS + 1;
-    let ref mut fresh1 = *PS_HEADERS.offset(fresh0 as isize);
-    *fresh1 = pro;
+    PS_HEADERS.push(pro);
     (*args).cur = &[];
     0i32
 }
@@ -370,14 +360,11 @@ pub unsafe fn spc_dvips_at_begin_document() -> i32 {
 }
 
 pub unsafe fn spc_dvips_at_end_document() -> i32 {
-    if !PS_HEADERS.is_null() {
-        while NUM_PS_HEADERS > 0i32 {
-            NUM_PS_HEADERS -= 1;
-            free(*PS_HEADERS.offset(NUM_PS_HEADERS as isize) as *mut libc::c_void);
-        }
-        PS_HEADERS = mfree(PS_HEADERS as *mut libc::c_void) as *mut *mut i8
+    for &elem in &PS_HEADERS {
+        free(elem as *mut libc::c_void);
     }
-    0i32
+    PS_HEADERS.clear();
+    0
 }
 
 pub unsafe fn spc_dvips_at_begin_page() -> i32 {
