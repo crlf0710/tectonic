@@ -60,7 +60,7 @@ pub type png_uint_16 = libc::c_ushort;
 pub type png_bytep = *mut png_byte;
 pub type png_uint_32 = libc::c_uint;
 #[no_mangle]
-pub unsafe extern "C" fn check_for_png(handle: &mut InputHandleWrapper) -> i32 {
+pub unsafe fn check_for_png(handle: &mut InputHandleWrapper) -> i32 {
     let mut sigbytes: [u8; 8] = [0; 8];
     handle.seek(SeekFrom::Start(0)).unwrap();
     if ttstub_input_read(
@@ -95,7 +95,7 @@ unsafe extern "C" fn _png_read(mut png_ptr: *mut png_struct, mut outbytes: *mut 
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn png_include_image(
+pub unsafe fn png_include_image(
     mut ximage: *mut pdf_ximage,
     handle: &mut InputHandleWrapper,
 ) -> i32 {
@@ -1162,7 +1162,7 @@ unsafe fn read_image_data(
     free(rows_p as *mut libc::c_void);
 }
 #[no_mangle]
-pub unsafe extern "C" fn png_get_bbox(
+pub unsafe fn png_get_bbox(
     handle: &mut InputHandleWrapper,
     mut width: *mut u32,
     mut height: *mut u32,

@@ -96,14 +96,14 @@ pub struct font_def {
  * as directory separators. */
 static mut verbose: u8 = 0_u8;
 #[no_mangle]
-pub unsafe extern "C" fn vf_set_verbose(mut level: i32) {
+pub unsafe fn vf_set_verbose(mut level: i32) {
     verbose = level as u8;
 }
 static mut vf_fonts: *mut vf = std::ptr::null_mut();
 static mut num_vf_fonts: u32 = 0_u32;
 static mut max_vf_fonts: u32 = 0_u32;
 #[no_mangle]
-pub unsafe extern "C" fn vf_reset_global_state() {
+pub unsafe fn vf_reset_global_state() {
     num_vf_fonts = 0_u32;
     max_vf_fonts = 0_u32;
     vf_fonts = ptr::null_mut();
@@ -296,7 +296,7 @@ the PDF file will never repeat a physical font name */
 /* Note: This code needs to be able to recurse */
 /* Global variables such as num_vf_fonts require careful attention */
 #[no_mangle]
-pub unsafe extern "C" fn vf_locate_font(mut tex_name: *const i8, mut ptsize: spt_t) -> i32 {
+pub unsafe fn vf_locate_font(mut tex_name: *const i8, mut ptsize: spt_t) -> i32 {
     /* Has this name and ptsize already been loaded as a VF? */
     let mut i = 0;
     while (i as u32) < num_vf_fonts {
@@ -474,7 +474,7 @@ unsafe fn vf_xxx(mut len: i32, mut start: *mut *mut u8, mut end: *mut u8) {
     *start = (*start).offset(len as isize);
 }
 #[no_mangle]
-pub unsafe extern "C" fn vf_set_char(mut ch: i32, mut vf_font: i32) {
+pub unsafe fn vf_set_char(mut ch: i32, mut vf_font: i32) {
     let mut start: *mut u8 = ptr::null_mut();
     let end;
     let mut default_font: i32 = -1i32;
@@ -612,7 +612,7 @@ pub unsafe extern "C" fn vf_set_char(mut ch: i32, mut vf_font: i32) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn vf_close_all_fonts() {
+pub unsafe fn vf_close_all_fonts() {
     for i in 0..num_vf_fonts {
         /* Release the packet for each character */
         if !(*vf_fonts.offset(i as isize)).ch_pkt.is_null() {

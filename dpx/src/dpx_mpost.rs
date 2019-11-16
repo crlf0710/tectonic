@@ -257,7 +257,7 @@ unsafe fn is_fontname(token: &[u8]) -> bool {
     tfm_exists(token)
 }
 #[no_mangle]
-pub unsafe extern "C" fn mps_scan_bbox(
+pub unsafe fn mps_scan_bbox(
     mut pp: *mut *const i8,
     mut endptr: *const i8,
     bbox: &mut Rect,
@@ -1331,16 +1331,16 @@ unsafe fn mp_parse_body(
     error
 }
 #[no_mangle]
-pub unsafe extern "C" fn mps_eop_cleanup() {
+pub unsafe fn mps_eop_cleanup() {
     clear_fonts();
     do_clear();
 }
 #[no_mangle]
-pub unsafe extern "C" fn mps_stack_depth() -> i32 {
+pub unsafe fn mps_stack_depth() -> i32 {
     STACK.len() as i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn mps_exec_inline(
+pub unsafe fn mps_exec_inline(
     pp: &mut &[u8],
     mut x_user: f64,
     mut y_user: f64,

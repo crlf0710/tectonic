@@ -404,10 +404,10 @@ unsafe fn spc_handler_tpic_pa(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
         spc_warn!(spe, "Invalid arg for TPIC \"pa\" command.");
         return -1i32;
     }
-    (*tp).points.push(Coord {
-        x: v[0] * (0.072f64 / pdf_dev_scale()),
-        y: v[1] * (0.072f64 / pdf_dev_scale()),
-    });
+    (*tp).points.push(Coord::new(
+        v[0] * (0.072f64 / pdf_dev_scale()),
+        v[1] * (0.072f64 / pdf_dev_scale()),
+    ));
     0i32
 }
 unsafe fn spc_handler_tpic_fp(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i32
@@ -625,27 +625,27 @@ unsafe fn spc_handler_tpic__clean(mut spe: *mut spc_env, mut dp: *mut libc::c_vo
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn tpic_set_fill_mode(mut mode: i32) {
+pub unsafe fn tpic_set_fill_mode(mut mode: i32) {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     (*tp).mode.fill = mode;
 }
 #[no_mangle]
-pub unsafe extern "C" fn spc_tpic_at_begin_page() -> i32 {
+pub unsafe fn spc_tpic_at_begin_page() -> i32 {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     spc_handler_tpic__bophook(tp as *mut libc::c_void)
 }
 #[no_mangle]
-pub unsafe extern "C" fn spc_tpic_at_end_page() -> i32 {
+pub unsafe fn spc_tpic_at_end_page() -> i32 {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     spc_handler_tpic__eophook(ptr::null_mut(), tp as *mut libc::c_void)
 }
 #[no_mangle]
-pub unsafe extern "C" fn spc_tpic_at_begin_document() -> i32 {
+pub unsafe fn spc_tpic_at_begin_document() -> i32 {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     spc_handler_tpic__init(ptr::null_mut(), tp as *mut libc::c_void)
 }
 #[no_mangle]
-pub unsafe extern "C" fn spc_tpic_at_end_document() -> i32 {
+pub unsafe fn spc_tpic_at_end_document() -> i32 {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     spc_handler_tpic__clean(ptr::null_mut(), tp as *mut libc::c_void)
 }
@@ -690,7 +690,7 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
     }
     dict
 }
-unsafe extern "C" fn tpic_filter_getopts(
+unsafe fn tpic_filter_getopts(
     mut kp: *mut pdf_obj,
     mut vp: *mut pdf_obj,
     mut dp: *mut libc::c_void,
@@ -735,7 +735,7 @@ unsafe fn spc_handler_tpic__setopts(mut spe: *mut spc_env, mut ap: *mut spc_arg)
         &mut *dict,
         Some(
             tpic_filter_getopts
-                as unsafe extern "C" fn(
+                as unsafe fn(
                     _: *mut pdf_obj,
                     _: *mut pdf_obj,
                     _: *mut libc::c_void,
@@ -828,7 +828,7 @@ pub fn spc_tpic_check_special(mut buf: &[u8]) -> bool {
     istpic
 }
 #[no_mangle]
-pub unsafe extern "C" fn spc_tpic_setup_handler(
+pub unsafe fn spc_tpic_setup_handler(
     mut sph: *mut SpcHandler,
     mut spe: *mut spc_env,
     mut ap: *mut spc_arg,

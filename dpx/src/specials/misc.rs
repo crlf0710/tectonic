@@ -158,7 +158,7 @@ pub fn spc_misc_check_special(mut buf: &[u8]) -> bool {
     false
 }
 #[no_mangle]
-pub unsafe extern "C" fn spc_misc_setup_handler(
+pub unsafe fn spc_misc_setup_handler(
     mut handle: *mut SpcHandler,
     mut spe: *mut spc_env,
     mut args: *mut spc_arg,

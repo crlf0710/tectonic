@@ -70,7 +70,7 @@ pub struct C2RustUnnamed_2 {
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 #[no_mangle]
-pub unsafe extern "C" fn cff_new_dict() -> *mut cff_dict {
+pub unsafe fn cff_new_dict() -> *mut cff_dict {
     let dict =
         new((1_u64).wrapping_mul(::std::mem::size_of::<cff_dict>() as u64) as u32) as *mut cff_dict;
     (*dict).max = 16i32;
@@ -81,7 +81,7 @@ pub unsafe extern "C" fn cff_new_dict() -> *mut cff_dict {
     dict
 }
 #[no_mangle]
-pub unsafe extern "C" fn cff_release_dict(mut dict: *mut cff_dict) {
+pub unsafe fn cff_release_dict(mut dict: *mut cff_dict) {
     if !dict.is_null() {
         if !(*dict).entries.is_null() {
             for i in 0..(*dict).count {
@@ -544,7 +544,7 @@ don't treat this as underflow (e.g. StemSnapV in TemporaLGCUni-Italic.otf) */
  *  ROS    : three numbers, SID, SID, and a number
  */
 #[no_mangle]
-pub unsafe extern "C" fn cff_dict_unpack(mut data: *mut u8, mut endptr: *mut u8) -> *mut cff_dict {
+pub unsafe fn cff_dict_unpack(mut data: *mut u8, mut endptr: *mut u8) -> *mut cff_dict {
     let mut status: i32 = 0i32;
     stack_top = 0i32;
     let dict = cff_new_dict();
@@ -702,7 +702,7 @@ unsafe fn put_dict_entry(mut de: *mut cff_dict_entry, dest: &mut [u8]) -> usize 
     len
 }
 #[no_mangle]
-pub unsafe extern "C" fn cff_dict_pack(mut dict: *mut cff_dict, dest: &mut [u8]) -> usize {
+pub unsafe fn cff_dict_pack(mut dict: *mut cff_dict, dest: &mut [u8]) -> usize {
     let mut len = 0_usize;
     for i in 0..(*dict).count as isize {
         if streq_ptr(
@@ -725,7 +725,7 @@ pub unsafe extern "C" fn cff_dict_pack(mut dict: *mut cff_dict, dest: &mut [u8])
     len
 }
 #[no_mangle]
-pub unsafe extern "C" fn cff_dict_add(mut dict: *mut cff_dict, mut key: *const i8, mut count: i32) {
+pub unsafe fn cff_dict_add(mut dict: *mut cff_dict, mut key: *const i8, mut count: i32) {
     let mut id = 0;
     while id < 22 + 39 {
         if !key.is_null()
@@ -776,7 +776,7 @@ pub unsafe extern "C" fn cff_dict_add(mut dict: *mut cff_dict, mut key: *const i
     (*dict).count += 1i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn cff_dict_remove(mut dict: *mut cff_dict, mut key: *const i8) {
+pub unsafe fn cff_dict_remove(mut dict: *mut cff_dict, mut key: *const i8) {
     for i in 0..(*dict).count {
         if streq_ptr(key, (*(*dict).entries.offset(i as isize)).key) {
             (*(*dict).entries.offset(i as isize)).count = 0i32;
@@ -787,7 +787,7 @@ pub unsafe extern "C" fn cff_dict_remove(mut dict: *mut cff_dict, mut key: *cons
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn cff_dict_known(mut dict: *mut cff_dict, mut key: *const i8) -> i32 {
+pub unsafe fn cff_dict_known(mut dict: *mut cff_dict, mut key: *const i8) -> i32 {
     for i in 0..(*dict).count {
         if streq_ptr(key, (*(*dict).entries.offset(i as isize)).key) as i32 != 0
             && (*(*dict).entries.offset(i as isize)).count > 0i32
@@ -798,7 +798,7 @@ pub unsafe extern "C" fn cff_dict_known(mut dict: *mut cff_dict, mut key: *const
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn cff_dict_get(
+pub unsafe fn cff_dict_get(
     mut dict: *mut cff_dict,
     mut key: *const i8,
     mut idx: i32,
@@ -830,7 +830,7 @@ pub unsafe extern "C" fn cff_dict_get(
     value
 }
 #[no_mangle]
-pub unsafe extern "C" fn cff_dict_set(
+pub unsafe fn cff_dict_set(
     mut dict: *mut cff_dict,
     mut key: *const i8,
     mut idx: i32,
@@ -862,7 +862,7 @@ pub unsafe extern "C" fn cff_dict_set(
 }
 /* decode/encode DICT */
 #[no_mangle]
-pub unsafe extern "C" fn cff_dict_update(mut dict: *mut cff_dict, cff: &mut cff_font) {
+pub unsafe fn cff_dict_update(mut dict: *mut cff_dict, cff: &mut cff_font) {
     for i in 0..(*dict).count {
         if (*(*dict).entries.offset(i as isize)).count > 0i32 {
             let id = (*(*dict).entries.offset(i as isize)).id;

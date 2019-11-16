@@ -119,7 +119,7 @@ static padding_bytes: [u8; 32] = [
 static mut verbose: u8 = 0_u8;
 
 #[no_mangle]
-pub unsafe extern "C" fn pdf_enc_set_verbose(mut level: i32) {
+pub unsafe fn pdf_enc_set_verbose(mut level: i32) {
     verbose = level as u8; /* For AES IV */
 }
 
@@ -614,7 +614,7 @@ unsafe fn preproc_password(mut passwd: *const i8, mut outbuf: *mut i8, mut V: i3
     error
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_enc_set_passwd(
+pub unsafe fn pdf_enc_set_passwd(
     mut bits: u32,
     mut perm: u32,
     mut oplain: *const i8,
@@ -697,7 +697,7 @@ unsafe fn calculate_key(p: &mut pdf_sec) -> [u8; 16] {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn pdf_encrypt_data(
+pub unsafe fn pdf_encrypt_data(
     mut plain: *const u8,
     mut plain_len: size_t,
     mut cipher: *mut *mut u8,
@@ -762,7 +762,7 @@ pub unsafe extern "C" fn pdf_encrypt_data(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_encrypt_obj() -> *mut pdf_obj {
+pub unsafe fn pdf_encrypt_obj() -> *mut pdf_obj {
     let p = &mut sec_data;
     let mut doc_encrypt = pdf_new_dict();
     pdf_add_dict(&mut *doc_encrypt, "Filter", pdf_new_name("Standard"));
@@ -878,7 +878,7 @@ pub unsafe extern "C" fn pdf_encrypt_obj() -> *mut pdf_obj {
     doc_encrypt
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_enc_id_array() -> *mut pdf_obj {
+pub unsafe fn pdf_enc_id_array() -> *mut pdf_obj {
     let p = &mut sec_data;
     let mut id: *mut pdf_obj = pdf_new_array();
     pdf_add_array(
@@ -892,12 +892,12 @@ pub unsafe extern "C" fn pdf_enc_id_array() -> *mut pdf_obj {
     id
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_enc_set_label(mut label: u32) {
+pub unsafe fn pdf_enc_set_label(mut label: u32) {
     let p = &mut sec_data;
     p.label.objnum = label as u64;
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_enc_set_generation(mut generation: u32) {
+pub unsafe fn pdf_enc_set_generation(mut generation: u32) {
     let p = &mut sec_data;
     p.label.gennum = generation as u16;
 }

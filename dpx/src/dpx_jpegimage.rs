@@ -159,7 +159,7 @@ pub struct JPEG_APPn_JFIF {
    Licensed under the MIT License.
 */
 #[no_mangle]
-pub unsafe extern "C" fn check_for_jpeg(handle: &mut InputHandleWrapper) -> i32 {
+pub unsafe fn check_for_jpeg(handle: &mut InputHandleWrapper) -> i32 {
     let mut jpeg_sig: [u8; 2] = [0; 2];
     handle.seek(SeekFrom::Start(0)).unwrap();
     if ttstub_input_read(handle.0.as_ptr(), jpeg_sig.as_mut_ptr() as *mut i8, 2i32 as size_t) != 2i32 as i64 {
@@ -172,7 +172,7 @@ pub unsafe extern "C" fn check_for_jpeg(handle: &mut InputHandleWrapper) -> i32 
     1i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn jpeg_include_image(
+pub unsafe fn jpeg_include_image(
     mut ximage: *mut pdf_ximage,
     handle: &mut InputHandleWrapper,
 ) -> i32 {
@@ -1118,7 +1118,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn jpeg_get_bbox(
+pub unsafe fn jpeg_get_bbox(
     handle: &mut InputHandleWrapper,
     mut width: *mut u32,
     mut height: *mut u32,

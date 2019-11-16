@@ -2045,7 +2045,7 @@ unsafe fn parse_part1(
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn is_pfb(handle: &mut InputHandleWrapper) -> bool {
+pub unsafe fn is_pfb(handle: &mut InputHandleWrapper) -> bool {
     let mut sig: [u8; 14] = [0; 14];
     handle.seek(SeekFrom::Start(0)).unwrap();
     let mut ch = ttstub_input_getc(handle);
@@ -2148,14 +2148,14 @@ unsafe fn get_pfb_segment(
     buffer
 }
 #[no_mangle]
-pub unsafe extern "C" fn t1_get_standard_glyph(mut code: i32) -> *const i8 {
+pub unsafe fn t1_get_standard_glyph(mut code: i32) -> *const i8 {
     if StandardEncoding[code as usize].is_null() {
         return std::ptr::null();
     }
     StandardEncoding[code as usize]
 }
 #[no_mangle]
-pub unsafe extern "C" fn t1_get_fontname(
+pub unsafe fn t1_get_fontname(
     handle: &mut InputHandleWrapper,
     mut fontname: *mut i8,
 ) -> i32 {
@@ -2232,7 +2232,7 @@ unsafe fn init_cff_font(cff: &mut cff_font) {
     cff._string = cff_new_index(0);
 }
 #[no_mangle]
-pub unsafe extern "C" fn t1_load_font<'a>(
+pub unsafe fn t1_load_font<'a>(
     mut enc_vec: *mut *mut i8,
     mut mode: i32,
     mut handle: InputHandleWrapper,

@@ -314,12 +314,12 @@ use super::dpx_fontmap::fontmap_rec;
  * as directory separators. */
 static mut verbose: i32 = 0i32;
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_set_verbose(mut level: i32) {
+pub unsafe fn pdf_dev_set_verbose(mut level: i32) {
     verbose = level;
 }
 /* Not working yet... */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_scale() -> f64 {
+pub unsafe fn pdf_dev_scale() -> f64 {
     1.0f64
 }
 static mut dev_unit: DevUnit = DevUnit {
@@ -328,7 +328,7 @@ static mut dev_unit: DevUnit = DevUnit {
         precision: 2i32,
     };
 #[no_mangle]
-pub unsafe extern "C" fn dev_unit_dviunit() -> f64 {
+pub unsafe fn dev_unit_dviunit() -> f64 {
     1.0f64 / dev_unit.dvi2pts
 }
 static mut ten_pow: [u32; 10] = [
@@ -668,7 +668,7 @@ unsafe fn text_mode() {
     text_state.offset = 0i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn graphics_mode() {
+pub unsafe fn graphics_mode() {
     match motion_state {
         MotionState::GRAPHICS_MODE => {}
         MotionState::STRING_MODE|MotionState::TEXT_MODE => {
@@ -1001,7 +1001,7 @@ unsafe fn dev_set_font(mut font_id: i32) -> i32 {
 /* Access text state parameters.
  */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_get_font_wmode(mut font_id: i32) -> i32 {
+pub unsafe fn pdf_dev_get_font_wmode(mut font_id: i32) -> i32 {
     let font = &mut *dev_fonts.offset(font_id as isize) as *mut dev_font;
     if !font.is_null() {
         return (*font).wmode;
@@ -1149,7 +1149,7 @@ static mut dev_coords: *mut Coord = std::ptr::null_mut();
 static mut num_dev_coords: i32 = 0i32;
 static mut max_dev_coords: i32 = 0i32;
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_get_coord() -> Coord {
+pub unsafe fn pdf_dev_get_coord() -> Coord {
     if num_dev_coords > 0i32 {
         (*dev_coords.offset((num_dev_coords - 1i32) as isize))
     } else {
@@ -1157,7 +1157,7 @@ pub unsafe extern "C" fn pdf_dev_get_coord() -> Coord {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_push_coord(mut xpos: f64, mut ypos: f64) {
+pub unsafe fn pdf_dev_push_coord(mut xpos: f64, mut ypos: f64) {
     if num_dev_coords >= max_dev_coords {
         max_dev_coords += 4i32;
         dev_coords = renew(
@@ -1171,7 +1171,7 @@ pub unsafe extern "C" fn pdf_dev_push_coord(mut xpos: f64, mut ypos: f64) {
     num_dev_coords += 1;
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_pop_coord() {
+pub unsafe fn pdf_dev_pop_coord() {
     if num_dev_coords > 0i32 {
         num_dev_coords -= 1
     };
@@ -1189,7 +1189,7 @@ pub unsafe extern "C" fn pdf_dev_pop_coord() {
  * selectfont(font_name, point_size) and show_string(pos, string)
  */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_set_string(
+pub unsafe fn pdf_dev_set_string(
     mut xpos: spt_t,
     mut ypos: spt_t,
     mut instr_ptr: *const libc::c_void,
@@ -1375,7 +1375,7 @@ pub unsafe extern "C" fn pdf_dev_set_string(
     text_state.offset += width;
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_init_device(
+pub unsafe fn pdf_init_device(
     mut dvi2pts: f64,
     mut precision: i32,
     mut black_and_white: i32,
@@ -1410,7 +1410,7 @@ pub unsafe extern "C" fn pdf_init_device(
     dev_coords = ptr::null_mut();
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_close_device() {
+pub unsafe fn pdf_close_device() {
     if !dev_fonts.is_null() {
         for i in 0..num_dev_fonts {
             free((*dev_fonts.offset(i as isize)).tex_name as *mut libc::c_void);
@@ -1433,7 +1433,7 @@ pub unsafe extern "C" fn pdf_close_device() {
  * as the font stuff.
  */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_reset_fonts(mut newpage: i32) {
+pub unsafe fn pdf_dev_reset_fonts(mut newpage: i32) {
     for i in 0..num_dev_fonts {
         (*dev_fonts.offset(i as isize)).used_on_this_page = 0i32;
     }
@@ -1447,13 +1447,13 @@ pub unsafe extern "C" fn pdf_dev_reset_fonts(mut newpage: i32) {
     text_state.is_mb = 0i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_reset_color(mut force: i32) {
+pub unsafe fn pdf_dev_reset_color(mut force: i32) {
     let (sc, fc) = pdf_color_get_current();
     pdf_dev_set_color(sc, 0, force);
     pdf_dev_set_color(fc, 0x20, force);
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_bop(M: &TMatrix) {
+pub unsafe fn pdf_dev_bop(M: &TMatrix) {
     graphics_mode();
     text_state.force_reset = 0i32;
     pdf_dev_gsave();
@@ -1462,7 +1462,7 @@ pub unsafe extern "C" fn pdf_dev_bop(M: &TMatrix) {
     pdf_dev_reset_color(0i32);
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_eop() {
+pub unsafe fn pdf_dev_eop() {
     graphics_mode();
     let depth = pdf_dev_current_depth();
     if depth != 1 {
@@ -1527,7 +1527,7 @@ unsafe fn print_fontmap(mut font_name: *const i8, mut mrec: *mut fontmap_rec) {
  * of the same font at different sizes.
  */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_locate_font(mut font_name: *const i8, mut ptsize: spt_t) -> i32 {
+pub unsafe fn pdf_dev_locate_font(mut font_name: *const i8, mut ptsize: spt_t) -> i32 {
     /* found a dev_font that matches the request */
     if font_name.is_null() {
         return -1i32;
@@ -1688,7 +1688,7 @@ unsafe fn dev_sprint_line(
     len
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_set_rule(
+pub unsafe fn pdf_dev_set_rule(
     mut xpos: spt_t,
     mut ypos: spt_t,
     mut width: spt_t,
@@ -1778,7 +1778,7 @@ pub unsafe extern "C" fn pdf_dev_set_rule(
 }
 /* Rectangle in device space coordinate. */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_set_rect(
+pub unsafe fn pdf_dev_set_rect(
     rect: &mut Rect,
     mut x_user: spt_t,
     mut y_user: spt_t,
@@ -1825,11 +1825,11 @@ pub unsafe extern "C" fn pdf_dev_set_rect(
     rect.ur.y = max_y;
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_get_dirmode() -> i32 {
+pub unsafe fn pdf_dev_get_dirmode() -> i32 {
     text_state.dir_mode
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_set_dirmode(mut text_dir: i32) {
+pub unsafe fn pdf_dev_set_dirmode(mut text_dir: i32) {
     let font = if text_state.font_id < 0i32 {
         ptr::null_mut()
     } else {
@@ -1876,7 +1876,7 @@ unsafe fn dev_set_param_autorotate(mut auto_rotate: i32) {
     dev_param.autorotate = auto_rotate;
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_get_param(mut param_type: i32) -> i32 {
+pub unsafe fn pdf_dev_get_param(mut param_type: i32) -> i32 {
     match param_type {
         1 => dev_param.autorotate,
         2 => dev_param.colormode,
@@ -1886,7 +1886,7 @@ pub unsafe extern "C" fn pdf_dev_get_param(mut param_type: i32) -> i32 {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_set_param(mut param_type: i32, mut value: i32) {
+pub unsafe fn pdf_dev_set_param(mut param_type: i32, mut value: i32) {
     match param_type {
         1 => {
             dev_set_param_autorotate(value);
@@ -1898,7 +1898,7 @@ pub unsafe extern "C" fn pdf_dev_set_param(mut param_type: i32, mut value: i32) 
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_put_image(
+pub unsafe fn pdf_dev_put_image(
     mut id: i32,
     p: &mut transform_info,
     mut ref_x: f64,
@@ -1981,7 +1981,7 @@ pub unsafe extern "C" fn pdf_dev_put_image(
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn transform_info_clear(info: &mut transform_info) {
+pub unsafe fn transform_info_clear(info: &mut transform_info) {
     /* Physical dimensions */
     info.width = 0.;
     info.height = 0.;
@@ -1992,7 +1992,7 @@ pub unsafe extern "C" fn transform_info_clear(info: &mut transform_info) {
     info.flags = 0;
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count: i32) {
+pub unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count: i32) {
     let mut pdf_doc_enc = 1_usize;
     /* check whether we can use PDFDocEncoding for this string
     (we punt on the 0x80..0xA0 range that does not directly correspond to unicode)  */
@@ -2111,7 +2111,7 @@ pub unsafe extern "C" fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut co
  * to terminate text section. pdf_dev_flushpath() and others call this.
  */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_end_actualtext() {
+pub unsafe fn pdf_dev_end_actualtext() {
     graphics_mode();
     pdf_doc_add_page_content(b" EMC");
 }
@@ -2127,7 +2127,7 @@ pub unsafe extern "C" fn pdf_dev_end_actualtext() {
 /* transform matrix */
 /* user_bbox */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_reset_global_state() {
+pub unsafe fn pdf_dev_reset_global_state() {
     dev_fonts = ptr::null_mut();
     num_dev_fonts = 0i32;
     max_dev_fonts = 0i32;

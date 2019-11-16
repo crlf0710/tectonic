@@ -98,7 +98,7 @@ unsafe fn find_empty_slot(mut g: *mut tt_glyphs) -> u16 {
     gid
 }
 #[no_mangle]
-pub unsafe extern "C" fn tt_find_glyph(mut g: *mut tt_glyphs, mut gid: u16) -> u16 {
+pub unsafe fn tt_find_glyph(mut g: *mut tt_glyphs, mut gid: u16) -> u16 {
     let mut new_gid: u16 = 0_u16;
     assert!(!g.is_null());
     for idx in 0..(*g).num_glyphs as i32 {
@@ -110,7 +110,7 @@ pub unsafe extern "C" fn tt_find_glyph(mut g: *mut tt_glyphs, mut gid: u16) -> u
     new_gid
 }
 #[no_mangle]
-pub unsafe extern "C" fn tt_get_index(mut g: *mut tt_glyphs, mut gid: u16) -> u16 {
+pub unsafe fn tt_get_index(mut g: *mut tt_glyphs, mut gid: u16) -> u16 {
     assert!(!g.is_null());
     let mut idx = 0_u16;
     while (idx as i32) < (*g).num_glyphs as i32 {
@@ -125,7 +125,7 @@ pub unsafe extern "C" fn tt_get_index(mut g: *mut tt_glyphs, mut gid: u16) -> u1
     idx
 }
 #[no_mangle]
-pub unsafe extern "C" fn tt_add_glyph(
+pub unsafe fn tt_add_glyph(
     mut g: *mut tt_glyphs,
     mut gid: u16,
     mut new_gid: u16,
@@ -167,7 +167,7 @@ pub unsafe extern "C" fn tt_add_glyph(
  * Initialization
  */
 #[no_mangle]
-pub unsafe extern "C" fn tt_build_init() -> *mut tt_glyphs {
+pub unsafe fn tt_build_init() -> *mut tt_glyphs {
     let g = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_glyphs>() as u64) as u32)
         as *mut tt_glyphs;
     (*g).num_glyphs = 0_u16;
@@ -184,7 +184,7 @@ pub unsafe extern "C" fn tt_build_init() -> *mut tt_glyphs {
     g
 }
 #[no_mangle]
-pub unsafe extern "C" fn tt_build_finish(mut g: *mut tt_glyphs) {
+pub unsafe fn tt_build_finish(mut g: *mut tt_glyphs) {
     if !g.is_null() {
         if !(*g).gd.is_null() {
             for idx in 0..(*g).num_glyphs as i32 {
@@ -198,7 +198,7 @@ pub unsafe extern "C" fn tt_build_finish(mut g: *mut tt_glyphs) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
+pub unsafe fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
     /* some information available from other TrueType table */
     let vmtx;
     /* temp */
@@ -627,7 +627,7 @@ pub unsafe extern "C" fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_gl
 /* default value */
 /* default value */
 #[no_mangle]
-pub unsafe extern "C" fn tt_get_metrics(mut sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
+pub unsafe fn tt_get_metrics(mut sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
     let vmtx;
     /* temp */
     assert!(!g.is_null());

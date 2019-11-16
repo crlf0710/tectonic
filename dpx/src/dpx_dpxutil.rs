@@ -42,7 +42,7 @@ pub struct ht_entry {
     pub value: *mut libc::c_void,
     pub next: *mut ht_entry,
 }
-pub type hval_free_func = Option<unsafe extern "C" fn(_: *mut libc::c_void) -> ()>;
+pub type hval_free_func = Option<unsafe fn(_: *mut libc::c_void) -> ()>;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct ht_table {
@@ -75,7 +75,7 @@ pub fn xtoi(c: u8) -> i32 {
     -1
 }
 #[no_mangle]
-pub unsafe extern "C" fn skip_white_spaces(mut s: *mut *mut u8, mut endptr: *mut u8) {
+pub unsafe fn skip_white_spaces(mut s: *mut *mut u8, mut endptr: *mut u8) {
     while *s < endptr {
         if !(**s as i32 == ' ' as i32
             || **s as i32 == '\t' as i32
@@ -90,7 +90,7 @@ pub unsafe extern "C" fn skip_white_spaces(mut s: *mut *mut u8, mut endptr: *mut
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn ht_init_table(mut ht: *mut ht_table, mut hval_free_fn: hval_free_func) {
+pub unsafe fn ht_init_table(mut ht: *mut ht_table, mut hval_free_fn: hval_free_func) {
     assert!(!ht.is_null());
     for i in 0..503 {
         (*ht).table[i] = ptr::null_mut();
@@ -99,7 +99,7 @@ pub unsafe extern "C" fn ht_init_table(mut ht: *mut ht_table, mut hval_free_fn: 
     (*ht).hval_free_fn = hval_free_fn;
 }
 #[no_mangle]
-pub unsafe extern "C" fn ht_clear_table(mut ht: *mut ht_table) {
+pub unsafe fn ht_clear_table(mut ht: *mut ht_table) {
     assert!(!ht.is_null());
     for i in 0..503 {
         let mut hent = (*ht).table[i];
@@ -122,7 +122,7 @@ pub unsafe extern "C" fn ht_clear_table(mut ht: *mut ht_table) {
     (*ht).hval_free_fn = None;
 }
 #[no_mangle]
-pub unsafe extern "C" fn ht_table_size(mut ht: *mut ht_table) -> i32 {
+pub unsafe fn ht_table_size(mut ht: *mut ht_table) -> i32 {
     assert!(!ht.is_null());
     (*ht).count
 }
@@ -136,7 +136,7 @@ unsafe fn get_hash(mut key: *const libc::c_void, mut keylen: i32) -> u32 {
     hkey.wrapping_rem(503_u32)
 }
 #[no_mangle]
-pub unsafe extern "C" fn ht_lookup_table(
+pub unsafe fn ht_lookup_table(
     mut ht: *mut ht_table,
     mut key: *const libc::c_void,
     mut keylen: i32,
@@ -155,7 +155,7 @@ pub unsafe extern "C" fn ht_lookup_table(
     ptr::null_mut()
 }
 #[no_mangle]
-pub unsafe extern "C" fn ht_remove_table(
+pub unsafe fn ht_remove_table(
     mut ht: *mut ht_table,
     mut key: *const libc::c_void,
     mut keylen: i32,
@@ -195,7 +195,7 @@ pub unsafe extern "C" fn ht_remove_table(
 }
 /* replace... */
 #[no_mangle]
-pub unsafe extern "C" fn ht_insert_table(
+pub unsafe fn ht_insert_table(
     mut ht: *mut ht_table,
     mut key: *const libc::c_void,
     mut keylen: i32,
@@ -236,7 +236,7 @@ pub unsafe extern "C" fn ht_insert_table(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn ht_append_table(
+pub unsafe fn ht_append_table(
     mut ht: *mut ht_table,
     mut key: *const libc::c_void,
     mut keylen: i32,
@@ -268,7 +268,7 @@ pub unsafe extern "C" fn ht_append_table(
     (*ht).count += 1;
 }
 #[no_mangle]
-pub unsafe extern "C" fn ht_set_iter(mut ht: *mut ht_table, mut iter: *mut ht_iter) -> i32 {
+pub unsafe fn ht_set_iter(mut ht: *mut ht_table, mut iter: *mut ht_iter) -> i32 {
     assert!(!ht.is_null() && !iter.is_null());
     for i in 0..503 {
         if !(*ht).table[i as usize].is_null() {
@@ -281,7 +281,7 @@ pub unsafe extern "C" fn ht_set_iter(mut ht: *mut ht_table, mut iter: *mut ht_it
     -1i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn ht_clear_iter(mut iter: *mut ht_iter) {
+pub unsafe fn ht_clear_iter(mut iter: *mut ht_iter) {
     if !iter.is_null() {
         (*iter).index = 503i32;
         (*iter).curr = ptr::null_mut();
@@ -289,7 +289,7 @@ pub unsafe extern "C" fn ht_clear_iter(mut iter: *mut ht_iter) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn ht_iter_getkey(mut iter: *mut ht_iter, mut keylen: *mut i32) -> *mut i8 {
+pub unsafe fn ht_iter_getkey(mut iter: *mut ht_iter, mut keylen: *mut i32) -> *mut i8 {
     let hent = (*iter).curr as *mut ht_entry;
     if !iter.is_null() && !hent.is_null() {
         *keylen = (*hent).keylen;
@@ -300,7 +300,7 @@ pub unsafe extern "C" fn ht_iter_getkey(mut iter: *mut ht_iter, mut keylen: *mut
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn ht_iter_getval(mut iter: *mut ht_iter) -> *mut libc::c_void {
+pub unsafe fn ht_iter_getval(mut iter: *mut ht_iter) -> *mut libc::c_void {
     let hent = (*iter).curr as *mut ht_entry;
     if !iter.is_null() && !hent.is_null() {
         return (*hent).value;
@@ -309,7 +309,7 @@ pub unsafe extern "C" fn ht_iter_getval(mut iter: *mut ht_iter) -> *mut libc::c_
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn ht_iter_next(mut iter: *mut ht_iter) -> i32 {
+pub unsafe fn ht_iter_next(mut iter: *mut ht_iter) -> i32 {
     assert!(!iter.is_null());
     let ht = (*iter).hash;
     let mut hent = (*iter).curr as *mut ht_entry;
@@ -487,7 +487,7 @@ unsafe fn read_c_litstrc(
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn parse_c_string(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut i8 {
+pub unsafe fn parse_c_string(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut i8 {
     let mut q: *mut i8 = ptr::null_mut();
     let mut p: *const i8 = *pp;
     if p >= endptr || *p.offset(0) as u8 != b'\"' {
@@ -709,7 +709,7 @@ impl ParseCIdent for &[u8] {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn parse_float_decimal(
+pub unsafe fn parse_float_decimal(
     mut pp: *mut *const i8,
     mut endptr: *const i8,
 ) -> *mut i8 {

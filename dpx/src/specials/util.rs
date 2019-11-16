@@ -42,7 +42,7 @@ use std::ffi::CString;
 */
 
 #[no_mangle]
-pub unsafe extern "C" fn spc_util_read_numbers(
+pub unsafe fn spc_util_read_numbers(
     mut values: *mut f64,
     mut num_values: i32,
     mut args: *mut spc_arg,
@@ -272,7 +272,7 @@ unsafe fn spc_read_color_pdf(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> Res
 }
 /* This is for reading *single* color specification. */
 #[no_mangle]
-pub unsafe extern "C" fn spc_util_read_colorspec(
+pub unsafe fn spc_util_read_colorspec(
     mut spe: *mut spc_env,
     mut ap: *mut spc_arg,
     mut syntax: bool,
@@ -288,7 +288,7 @@ pub unsafe extern "C" fn spc_util_read_colorspec(
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn spc_util_read_pdfcolor(
+pub unsafe fn spc_util_read_pdfcolor(
     mut spe: *mut spc_env,
     mut ap: *mut spc_arg,
     defaultcolor: Option<&PdfColor>,
@@ -370,7 +370,7 @@ impl ReadLengthSpc for &[u8] {
  * transformations are applied in the following
  * order: scaling, rotate, displacement.
  */
-extern "C" fn make_transmatrix(
+fn make_transmatrix(
     M: &mut TMatrix,
     mut xoffset: f64,
     mut yoffset: f64,
@@ -686,7 +686,7 @@ unsafe fn spc_read_dimtrns_pdfm(
     error
 }
 #[no_mangle]
-pub unsafe extern "C" fn spc_util_read_dimtrns(
+pub unsafe fn spc_util_read_dimtrns(
     mut spe: *mut spc_env,
     ti: &mut transform_info,
     mut args: *mut spc_arg,
@@ -707,7 +707,7 @@ pub unsafe extern "C" fn spc_util_read_dimtrns(
  * This is for reading *single* color specification.
  */
 #[no_mangle]
-pub unsafe extern "C" fn spc_util_read_blahblah(
+pub unsafe fn spc_util_read_blahblah(
     mut spe: *mut spc_env,
     p: &mut transform_info,
     mut page_no: *mut i32,

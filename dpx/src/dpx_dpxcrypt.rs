@@ -269,7 +269,7 @@ unsafe fn do_encrypt_stream(
     (*ctx).idx_j = j;
 }
 #[no_mangle]
-pub unsafe extern "C" fn ARC4(
+pub unsafe fn ARC4(
     mut ctx: *mut ARC4_CONTEXT,
     mut len: u32,
     mut inbuf: *const u8,
@@ -298,7 +298,7 @@ unsafe fn do_arcfour_setkey(mut ctx: *mut ARC4_CONTEXT, mut key: *const u8, mut 
     memset(karr.as_mut_ptr() as *mut libc::c_void, 0i32, 256);
 }
 #[no_mangle]
-pub unsafe extern "C" fn ARC4_set_key(
+pub unsafe fn ARC4_set_key(
     mut ctx: *mut ARC4_CONTEXT,
     mut keylen: u32,
     mut key: *const u8,
@@ -307,7 +307,7 @@ pub unsafe extern "C" fn ARC4_set_key(
     _gcry_burn_stack(300i32);
 }
 #[no_mangle]
-pub unsafe extern "C" fn AES_ecb_encrypt(
+pub unsafe fn AES_ecb_encrypt(
     mut key: *const u8,
     mut key_len: size_t,
     mut plain: *const u8,
@@ -357,7 +357,7 @@ pub unsafe extern "C" fn AES_ecb_encrypt(
 /* libgcrypt arcfour */
 /* NULL iv means here "use random IV". */
 #[no_mangle]
-pub unsafe extern "C" fn AES_cbc_encrypt_tectonic(
+pub unsafe fn AES_cbc_encrypt_tectonic(
     mut key: *const u8,
     mut key_len: size_t,
     mut iv: *const u8,

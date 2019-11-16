@@ -65,7 +65,7 @@ pub struct ParserState {
 static mut parser_state: ParserState = ParserState { tainted: 0i32 };
 
 #[no_mangle]
-pub unsafe extern "C" fn dump(mut start: *const i8, mut end: *const i8) {
+pub unsafe fn dump(mut start: *const i8, mut end: *const i8) {
     let mut p: *const i8 = start;
     info!("\nCurrent input buffer is -->");
     while p < end && p < start.offset(50) {
@@ -88,7 +88,7 @@ pub fn dump_slice(buf: &[u8]) {
     info!("<--\n");
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdfparse_skip_line(mut start: *mut *const i8, mut end: *const i8) {
+pub unsafe fn pdfparse_skip_line(mut start: *mut *const i8, mut end: *const i8) {
     while *start < end && **start as i32 != '\n' as i32 && **start as i32 != '\r' as i32 {
         *start = (*start).offset(1)
     }
@@ -105,7 +105,7 @@ pub unsafe extern "C" fn pdfparse_skip_line(mut start: *mut *const i8, mut end: 
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn skip_white(mut start: *mut *const i8, mut end: *const i8) {
+pub unsafe fn skip_white(mut start: *mut *const i8, mut end: *const i8) {
     /*
      * The null (NUL; 0x00) character is a white-space character in PDF spec
      * but isspace(0x00) returns FALSE; on the other hand, the vertical tab
@@ -189,7 +189,7 @@ fn parsed_string_slice(buf: &[u8]) -> Option<CString> {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn parse_number(mut start: *mut *const i8, mut end: *const i8) -> *mut i8 {
+pub unsafe fn parse_number(mut start: *mut *const i8, mut end: *const i8) -> *mut i8 {
     skip_white(start, end);
     let mut p = *start;
     if p < end && (*p as i32 == '+' as i32 || *p as i32 == '-' as i32) {
@@ -209,7 +209,7 @@ pub unsafe extern "C" fn parse_number(mut start: *mut *const i8, mut end: *const
     number
 }
 #[no_mangle]
-pub unsafe extern "C" fn parse_unsigned(mut start: *mut *const i8, mut end: *const i8) -> *mut i8 {
+pub unsafe fn parse_unsigned(mut start: *mut *const i8, mut end: *const i8) -> *mut i8 {
     skip_white(start, end);
     let mut p = *start;
     while p < end {
@@ -256,13 +256,13 @@ fn parse_gen_ident_slice(
     ident
 }
 #[no_mangle]
-pub unsafe extern "C" fn parse_ident(mut start: *mut *const i8, mut end: *const i8) -> *mut i8 {
+pub unsafe fn parse_ident(mut start: *mut *const i8, mut end: *const i8) -> *mut i8 {
     const VALID_CHARS: &[u8] =
         b"!\"#$&\'*+,-.0123456789:;=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\\^_`abcdefghijklmnopqrstuvwxyz|~";
     parse_gen_ident(start, end, VALID_CHARS)
 }
 #[no_mangle]
-pub unsafe extern "C" fn parse_opt_ident(mut start: *mut *const i8, mut end: *const i8) -> *mut i8 {
+pub unsafe fn parse_opt_ident(mut start: *mut *const i8, mut end: *const i8) -> *mut i8 {
     if *start < end && **start as i32 == '@' as i32 {
         *start = (*start).offset(1);
         return parse_ident(start, end);
@@ -353,7 +353,7 @@ unsafe fn try_pdf_reference(
 
 /* Please remove this */
 #[no_mangle]
-pub unsafe extern "C" fn parse_pdf_object(
+pub unsafe fn parse_pdf_object(
     mut pp: *mut *const i8,
     mut endptr: *const i8,
     mut pf: *mut pdf_file,

@@ -292,7 +292,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn dvipdfmx_main(
+pub unsafe fn dvipdfmx_main(
     mut pdf_filename: *const i8,
     mut dvi_filename: *const i8,
     mut pagespec: *const i8,
