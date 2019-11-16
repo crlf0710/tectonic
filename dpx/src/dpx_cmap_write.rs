@@ -515,19 +515,12 @@ pub unsafe fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj {
         ) as size_t; /* Top node */
         if count > 0i32 as u64 {
             /* Flush */
-            let mut fmt_buf: [i8; 32] = [0; 32];
             if count > 100i32 as u64 {
                 panic!("Unexpected error....: {}", count,);
             }
-            sprintf(
-                fmt_buf.as_mut_ptr(),
-                b"%zu beginbfchar\n\x00" as *const u8 as *const i8,
-                count,
-            );
-            pdf_add_stream(
+            pdf_add_stream_str(
                 &mut *stream,
-                fmt_buf.as_mut_ptr() as *const libc::c_void,
-                strlen(fmt_buf.as_mut_ptr()) as i32,
+                &format!("{} beginbfchar\n", count),
             );
             pdf_add_stream(
                 &mut *stream,
