@@ -3881,7 +3881,7 @@ fn parse_pdf_version(handle: &mut InputHandleWrapper) -> Result<u32, ()> {
     handle.read_exact(&mut buffer_).map_err(|_| ())?;
 
     let line = buffer_
-        .split(|&c| c == b'\r' || c == b'\n')
+        .split(|&c| c == b'\r' || c == b'\n' || c == b' ')
         .next()
         .ok_or(())?;
 
