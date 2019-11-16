@@ -47,7 +47,7 @@ use crate::xetex_xetex0::{
 use bridge::_tt_abort;
 
 use crate::stub_stdio::strcasecmp;
-use crate::xetex_font_manager::PlatformFontRef;
+use crate::xetex_font_manager::{PlatformFontRef, ShaperRequest};
 use crate::xetex_layout_engine::*;
 use crate::xetex_texmfmp::maketexstring;
 use harfbuzz_sys::{hb_feature_t, hb_tag_from_string, hb_tag_t};
@@ -676,7 +676,7 @@ unsafe extern "C" fn loadOTfont(
     mut font: *mut XeTeXFontInst,
     mut scaled_size: Fixed,
     mut cp1: Option<&CStr>,
-    mut reqEngine: char,
+    mut shaperRequest: Option<ShaperRequest>,
 ) -> *mut libc::c_void {
     let mut current_block: u64;
     let mut engine: XeTeXLayoutEngine = 0 as XeTeXLayoutEngine;
@@ -696,23 +696,27 @@ unsafe extern "C" fn loadOTfont(
     let mut embolden: f32 = 0.0f64 as f32;
     let mut letterspace: f32 = 0.0f64 as f32;
     let mut i: i32 = 0;
-    if reqEngine == 'O' || reqEngine == 'G' {
+    if shaperRequest == Some(ShaperRequest::OpenType) || shaperRequest == Some(ShaperRequest::Graphite) {
         shapers = xrealloc(
             shapers as *mut libc::c_void,
             ((nShapers + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64),
         ) as *mut *mut i8;
-        if reqEngine == 'O' {
-            static mut ot_const: [i8; 3] = [111, 116, 0];
-            let ref mut fresh8 = *shapers.offset(nShapers as isize);
-            *fresh8 = ot_const.as_mut_ptr()
-        } else if reqEngine == 'G' {
-            static mut graphite2_const: [i8; 10] = [103, 114, 97, 112, 104, 105, 116, 101, 50, 0];
-            let ref mut fresh9 = *shapers.offset(nShapers as isize);
-            *fresh9 = graphite2_const.as_mut_ptr()
+        match shaperRequest.expect("already know shaperRequest is Some") {
+            ShaperRequest::OpenType => {
+                static mut ot_const: [i8; 3] = [111, 116, 0];
+                let ref mut fresh8 = *shapers.offset(nShapers as isize);
+                *fresh8 = ot_const.as_mut_ptr()
+            }
+            ShaperRequest::Graphite => {
+                static mut graphite2_const: [i8; 10] = [103, 114, 97, 112, 104, 105, 116, 101, 50, 0];
+                let ref mut fresh9 = *shapers.offset(nShapers as isize);
+                *fresh9 = graphite2_const.as_mut_ptr()
+            }
+            _ => unreachable!()
         }
         nShapers += 1
     }
-    if reqEngine == 'G' {
+    if shaperRequest == Some(ShaperRequest::Graphite) {
         let mut tmpShapers: [*mut i8; 1] = [*shapers.offset(0)];
         /* create a default engine so we can query the font for Graphite features;
          * because of font caching, it's cheap to discard this and create the real one later */
@@ -728,7 +732,7 @@ unsafe extern "C" fn loadOTfont(
             extend,
             slant,
             embolden,
-            reqEngine
+            shaperRequest
         );
         if engine.is_null() {
             return 0 as *mut libc::c_void;
@@ -819,7 +823,7 @@ unsafe extern "C" fn loadOTfont(
                         } else if i == -1i32 {
                             current_block = 10622493848381539643;
                         } else {
-                            if reqEngine == 'G' {
+                            if shaperRequest == Some(ShaperRequest::Graphite) {
                                 let mut value: i32 = 0i32;
                                 if readFeatureNumber(cp1, cp2, &mut tag, &mut value) as i32 != 0
                                     || findGraphiteFeature(engine, cp1, cp2, &mut tag, &mut value)
@@ -963,7 +967,7 @@ unsafe extern "C" fn loadOTfont(
     }
     engine = createLayoutEngine(
         fontRef, font, script, language, features, nFeatures, shapers, rgbValue, extend, slant,
-        embolden, reqEngine
+        embolden, shaperRequest
     );
     if engine.is_null() {
         // only free these if creation failed, otherwise the engine now owns them
@@ -1097,9 +1101,9 @@ pub unsafe extern "C" fn find_native_font(
     loaded_font_flags = 0_i8;
     loaded_font_letter_space = 0i32;
 
-    /// the requested rendering technology for the most recent findFont
-    /// or 0 if no specific technology was requested
-    let mut reqEngine = '\x00';
+    // the requested rendering technology for the most recent findFont
+    // or 0 if no specific technology was requested
+    let mut shaperRequest = None;
 
     // check for "[filename]" form, don't search maps in this case
     if tex_internal {
@@ -1121,14 +1125,14 @@ pub unsafe extern "C" fn find_native_font(
             /* This is duplicated in XeTeXFontMgr::findFont! */
             if let Some(var) = var {
                 if var.starts_with("/AAT") {
-                    reqEngine = 'A';
+                    shaperRequest = Some(ShaperRequest::AAT);
                 } else if var.starts_with("/OT") || var.starts_with("/ICU") {
-                    reqEngine = 'O';
+                    shaperRequest = Some(ShaperRequest::OpenType);
                 } else if var.starts_with("/GR") {
-                    reqEngine = 'G';
+                    shaperRequest = Some(ShaperRequest::Graphite);
                 }
             }
-            rval = loadOTfont(0 as PlatformFontRef, font, scaled_size, feat_cstr, reqEngine);
+            rval = loadOTfont(0 as PlatformFontRef, font, scaled_size, feat_cstr, shaperRequest);
             if rval.is_null() {
                 deleteFont(font);
             }
@@ -1141,7 +1145,7 @@ pub unsafe extern "C" fn find_native_font(
             }
         }
     } else {
-        fontRef = findFontByName(&name, var.as_mut(), Fix2D(scaled_size), &mut reqEngine);
+        fontRef = findFontByName(&name, var.as_mut(), Fix2D(scaled_size), &mut shaperRequest);
         if !fontRef.is_null() {
             /* update name_of_file to the full name of the font, for error messages during font loading */
             let mut fullName: *const i8 = getFullName(fontRef);
@@ -1171,7 +1175,7 @@ pub unsafe extern "C" fn find_native_font(
             if !font.is_null() {
                 #[cfg(not(target_os = "macos"))]
                 {
-                    rval = loadOTfont(fontRef, font, scaled_size, feat_cstr, reqEngine);
+                    rval = loadOTfont(fontRef, font, scaled_size, feat_cstr, shaperRequest);
                     if rval.is_null() {
                         deleteFont(font);
                     }
@@ -1179,18 +1183,18 @@ pub unsafe extern "C" fn find_native_font(
                 #[cfg(target_os = "macos")]
                 {
                     /* decide whether to use AAT or OpenType rendering with this font */
-                    if reqEngine == 'A' {
+                    if shaperRequest == Some(ShaperRequest::AAT) {
                         rval = aat::loadAATfont(fontRef, scaled_size, feat_cstr);
                         if rval.is_null() {
                             deleteFont(font);
                         }
                     } else {
-                        if reqEngine == 'O'
-                            || reqEngine == 'G'
+                        if shaperRequest == Some(ShaperRequest::OpenType)
+                            || shaperRequest == Some(ShaperRequest::Graphite)
                             || !getFontTablePtr(font, ft_make_tag(b"GSUB")).is_null()
                             || !getFontTablePtr(font, ft_make_tag(b"GPOS")).is_null()
                         {
-                            rval = loadOTfont(fontRef, font, scaled_size, feat_cstr, reqEngine)
+                            rval = loadOTfont(fontRef, font, scaled_size, feat_cstr, shaperRequest)
                         }
                         /* loadOTfont failed or the above check was false */
                         if rval.is_null() {

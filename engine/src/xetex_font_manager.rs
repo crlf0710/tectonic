@@ -212,6 +212,18 @@ pub struct XeTeXFontMgr {
     // maps PS name (as used in .xdv) to font record
 }
 
+/// Used to set harfbuzz's shaper list in loadOTFont, and by extension eventually layoutChars.
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum ShaperRequest {
+    None,
+    /// Don't use harfbuzz at all, use AAT if possible.
+    AAT,
+    /// Use harfbuzz ot shaper
+    OpenType,
+    /// See layoutChars
+    Graphite,
+}
+
 #[inline]
 unsafe fn XeTeXFontMgrFamily_create() -> *mut XeTeXFontMgrFamily {
     let mut self_0: *mut XeTeXFontMgrFamily =
@@ -393,7 +405,7 @@ pub unsafe fn XeTeXFontMgr_findFont(
     mut name: &CStr,
     mut variant: Option<&mut String>,
     mut ptSize: libc::c_double,
-    reqEngine: &mut char,
+    shaperRequest: &mut Option<ShaperRequest>,
 ) -> PlatformFontRef {
     // 1st arg is name as specified by user (C string, UTF-8)
     // 2nd is /B/I/AAT/OT/ICU/GR/S=## qualifiers
@@ -402,7 +414,7 @@ pub unsafe fn XeTeXFontMgr_findFont(
     // 3. try as PostScript name
     // 4. try name as family with "Regular/Plain/Normal" style
     // apply style qualifiers and optical sizing if present
-    // SIDE EFFECT: sets sReqEngine to 'A' or 'O' or 'G' if appropriate,
+    // SIDE EFFECT: sets shaperRequest to 'A' or 'O' or 'G' if appropriate,
     //   else clears it to 0
     // SIDE EFFECT: updates TeX variables /nameoffile/ and /namelength/,
     //   to match the actual font found
@@ -514,7 +526,7 @@ pub unsafe fn XeTeXFontMgr_findFont(
     let mut parent: *mut XeTeXFontMgrFamily = (*font).parent;
     // if there are variant requests, try to apply them
     // and delete B, I, and S=... codes from the string, just retain /engine option
-    *reqEngine = '\x00';
+    *shaperRequest = None;
     let mut reqBold: bool = 0i32 != 0;
     let mut reqItal: bool = 0i32 != 0;
     if let Some(variant_string) = variant {
@@ -522,7 +534,7 @@ pub unsafe fn XeTeXFontMgr_findFont(
         let mut slice = &variant_string[..];
         while !slice.is_empty() {
             if slice.starts_with("AAT") {
-                *reqEngine = 'A';
+                *shaperRequest = Some(ShaperRequest::AAT);
                 slice = &slice[3..];
                 if !varString.is_empty() && varString.chars().last() != Some('/') {
                     varString.push('/');
@@ -530,21 +542,21 @@ pub unsafe fn XeTeXFontMgr_findFont(
                 varString.push_str("AAT");
             } else if slice.starts_with("ICU") {
                 // for backword compatability
-                *reqEngine = 'O';
+                *shaperRequest = Some(ShaperRequest::OpenType);
                 slice = &slice[3..];
                 if !varString.is_empty() && varString.chars().last() != Some('/') {
                     varString.push('/');
                 }
                 varString.push_str("OT");
             } else if slice.starts_with("OT") {
-                *reqEngine = 'O';
+                *shaperRequest = Some(ShaperRequest::OpenType);
                 slice = &slice[2..];
                 if !varString.is_empty() && varString.chars().last() != Some('/') {
                     varString.push('/');
                 }
                 varString.push_str("OT");
             } else if slice.starts_with("GR") {
-                *reqEngine = 'G';
+                *shaperRequest = Some(ShaperRequest::Graphite);
                 slice = &slice[2..];
                 if !varString.is_empty() && varString.chars().last() != Some('/') {
                     varString.push('/');

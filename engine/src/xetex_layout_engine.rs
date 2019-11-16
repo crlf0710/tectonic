@@ -22,7 +22,7 @@ use harfbuzz_sys::*;
 use crate::xetex_font_info::XeTeXFontInst;
 #[cfg(target_os = "macos")]
 use crate::xetex_font_info::XeTeXFontInst_Mac_create;
-use crate::xetex_font_manager::{PlatformFontRef, XeTeXFontMgr, XeTeXFontMgrFamily, XeTeXFontMgrFont};
+use crate::xetex_font_manager::{PlatformFontRef, ShaperRequest, XeTeXFontMgr, XeTeXFontMgrFamily, XeTeXFontMgrFont};
 use std::ffi::CStr;
 use std::ptr;
 
@@ -631,9 +631,9 @@ pub unsafe fn findFontByName(
     mut name: &CStr,
     mut var: Option<&mut String>,
     mut size: f64,
-    reqEngine: &mut char,
+    shaperRequest: &mut Option<ShaperRequest>,
 ) -> PlatformFontRef {
-    return XeTeXFontMgr_findFont(XeTeXFontMgr_GetFontManager(), name, var, size, reqEngine);
+    return XeTeXFontMgr_findFont(XeTeXFontMgr_GetFontManager(), name, var, size, shaperRequest);
 }
 
 
@@ -1237,7 +1237,7 @@ pub unsafe fn createLayoutEngine(
     mut extend: f32,
     mut slant: f32,
     mut embolden: f32,
-    reqEngine: char,
+    shaperRequest: Option<ShaperRequest>,
 ) -> XeTeXLayoutEngine {
     let mut result: XeTeXLayoutEngine = XeTeXLayoutEngine_create();
     (*result).fontRef = fontRef;
@@ -1255,7 +1255,7 @@ pub unsafe fn createLayoutEngine(
     // For Graphite fonts treat the language as BCP 47 tag, for OpenType we
     // treat it as a OT language tag for backward compatibility with pre-0.9999
     // XeTeX.
-    if reqEngine == 'G' {
+    if shaperRequest == Some(ShaperRequest::Graphite) {
         (*result).language = hb_language_from_string(language, -1i32)
     } else {
         (*result).language = hb_ot_tag_to_language(hb_tag_from_string(language, -1i32))
