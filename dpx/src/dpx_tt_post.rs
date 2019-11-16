@@ -154,7 +154,7 @@ unsafe fn read_v2_post_names(mut post: *mut tt_post_table, mut sfont: *mut sfnt)
     free(indices as *mut libc::c_void);
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn tt_read_post_table(mut sfont: *mut sfnt) -> *mut tt_post_table {
     /* offset = */
     sfnt_locate_table(sfont, b"post"); /* Fixed */
@@ -193,7 +193,7 @@ pub unsafe fn tt_read_post_table(mut sfont: *mut sfnt) -> *mut tt_post_table {
     }
     post
 }
-#[no_mangle]
+
 pub unsafe fn tt_lookup_post_table(
     mut post: *mut tt_post_table,
     mut glyphname: *const i8,
@@ -208,7 +208,7 @@ pub unsafe fn tt_lookup_post_table(
     }
     0
 }
-#[no_mangle]
+
 pub unsafe fn tt_get_glyphname(mut post: *mut tt_post_table, mut gid: u16) -> *mut i8 {
     if (gid as i32) < (*post).count as i32
         && !(*(*post).glyphNamePtr.offset(gid as isize)).is_null()
@@ -220,7 +220,7 @@ pub unsafe fn tt_get_glyphname(mut post: *mut tt_post_table, mut gid: u16) -> *m
 /* Glyph names (pointer to C string) */
 /* Non-standard glyph names */
 /* Number of glyph names in names[] */
-#[no_mangle]
+
 pub unsafe fn tt_release_post_table(mut post: *mut tt_post_table) {
     assert!(!post.is_null());
     if !(*post).glyphNamePtr.is_null() && (*post).Version as u64 != 0x10000 {

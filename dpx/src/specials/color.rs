@@ -88,7 +88,7 @@ pub fn spc_color_check_special(mut buf: &[u8]) -> bool {
         false
     }
 }
-#[no_mangle]
+
 pub unsafe fn spc_color_setup_handler(
     mut sph: *mut SpcHandler,
     mut spe: *mut spc_env,

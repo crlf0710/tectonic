@@ -129,7 +129,7 @@ unsafe fn is_basefont(mut name: *const i8) -> bool {
     }
     false
 }
-#[no_mangle]
+
 pub unsafe fn pdf_font_open_type1(mut font: *mut pdf_font) -> i32 {
     let mut fontname: [i8; 128] = [0; 128];
     assert!(!font.is_null());
@@ -670,7 +670,7 @@ unsafe fn write_fontfile(
     );
     offset as i32
 }
-#[no_mangle]
+
 pub unsafe fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
     let mut enc_vec;
     assert!(!font.is_null());

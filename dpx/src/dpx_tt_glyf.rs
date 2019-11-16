@@ -97,7 +97,7 @@ unsafe fn find_empty_slot(mut g: *mut tt_glyphs) -> u16 {
     }
     gid
 }
-#[no_mangle]
+
 pub unsafe fn tt_find_glyph(mut g: *mut tt_glyphs, mut gid: u16) -> u16 {
     let mut new_gid: u16 = 0_u16;
     assert!(!g.is_null());
@@ -109,7 +109,7 @@ pub unsafe fn tt_find_glyph(mut g: *mut tt_glyphs, mut gid: u16) -> u16 {
     }
     new_gid
 }
-#[no_mangle]
+
 pub unsafe fn tt_get_index(mut g: *mut tt_glyphs, mut gid: u16) -> u16 {
     assert!(!g.is_null());
     let mut idx = 0_u16;
@@ -124,7 +124,7 @@ pub unsafe fn tt_get_index(mut g: *mut tt_glyphs, mut gid: u16) -> u16 {
     }
     idx
 }
-#[no_mangle]
+
 pub unsafe fn tt_add_glyph(
     mut g: *mut tt_glyphs,
     mut gid: u16,
@@ -166,7 +166,7 @@ pub unsafe fn tt_add_glyph(
 /*
  * Initialization
  */
-#[no_mangle]
+
 pub unsafe fn tt_build_init() -> *mut tt_glyphs {
     let g = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_glyphs>() as u64) as u32)
         as *mut tt_glyphs;
@@ -183,7 +183,7 @@ pub unsafe fn tt_build_init() -> *mut tt_glyphs {
     tt_add_glyph(g, 0_u16, 0_u16);
     g
 }
-#[no_mangle]
+
 pub unsafe fn tt_build_finish(mut g: *mut tt_glyphs) {
     if !g.is_null() {
         if !(*g).gd.is_null() {
@@ -197,7 +197,7 @@ pub unsafe fn tt_build_finish(mut g: *mut tt_glyphs) {
     };
 }
 
-#[no_mangle]
+
 pub unsafe fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
     /* some information available from other TrueType table */
     let vmtx;
@@ -626,7 +626,7 @@ pub unsafe fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i3
 /* optimal value for DW */
 /* default value */
 /* default value */
-#[no_mangle]
+
 pub unsafe fn tt_get_metrics(mut sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
     let vmtx;
     /* temp */

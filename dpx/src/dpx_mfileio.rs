@@ -37,7 +37,7 @@ use bridge::InputHandleWrapper;
 unsafe fn os_error() {
     panic!("io:  An OS command failed that should not have.\n");
 }
-#[no_mangle]
+
 pub unsafe fn seek_relative(mut file: *mut FILE, mut pos: i32) {
     if fseek(file, pos as _, 1i32) != 0 {
         os_error();
@@ -58,7 +58,7 @@ unsafe fn tell_position(mut file: *mut FILE) -> i32 {
     }
     size as i32
 }
-#[no_mangle]
+
 pub unsafe fn file_size(mut file: *mut FILE) -> i32 {
     seek_end(file);
     let mut size = tell_position(file);
@@ -66,12 +66,12 @@ pub unsafe fn file_size(mut file: *mut FILE) -> i32 {
     size
 }
 /* Note: this is really just a random array used in other files. */
-#[no_mangle]
+
 pub static mut work_buffer: [i8; 1024] = [0; 1024];
 pub static mut work_buffer_u8: [u8; 1024] = [0; 1024];
 /* Tectonic-enabled versions */
 /* Modified versions of the above functions based on the Tectonic I/O system. */
-#[no_mangle]
+
 pub unsafe fn tt_mfgets(
     mut buffer: *mut i8,
     mut length: i32,

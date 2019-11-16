@@ -84,7 +84,7 @@ use super::dpx_agl::agl_name;
    Licensed under the MIT License.
 */
 static mut verbose: u8 = 0_u8;
-#[no_mangle]
+
 pub unsafe fn pdf_encoding_set_verbose(mut level: i32) {
     verbose = level as u8;
 }
@@ -327,7 +327,7 @@ static mut enc_cache: C2RustUnnamed = C2RustUnnamed {
         capacity: 0i32,
         encodings: ptr::null_mut(),
     };
-#[no_mangle]
+
 pub unsafe fn pdf_init_encodings() {
     enc_cache.count = 0i32;
     enc_cache.capacity = 3i32;
@@ -449,7 +449,7 @@ unsafe fn pdf_encoding_new_encoding(
 /* Creates Encoding resource and ToUnicode CMap
  * for all non-predefined encodings.
  */
-#[no_mangle]
+
 pub unsafe fn pdf_encoding_complete() {
     for enc_id in 0..enc_cache.count {
         if pdf_encoding_is_predefined(enc_id) == 0 {
@@ -481,7 +481,7 @@ pub unsafe fn pdf_encoding_complete() {
         }
     }
 }
-#[no_mangle]
+
 pub unsafe fn pdf_close_encodings() {
     if !enc_cache.encodings.is_null() {
         for enc_id in 0..enc_cache.count {
@@ -497,7 +497,7 @@ pub unsafe fn pdf_close_encodings() {
     enc_cache.count = 0i32;
     enc_cache.capacity = 0i32;
 }
-#[no_mangle]
+
 pub unsafe fn pdf_encoding_findresource(mut enc_name: *const i8) -> i32 {
     assert!(!enc_name.is_null());
     for enc_id in 0..enc_cache.count {
@@ -517,7 +517,7 @@ pub unsafe fn pdf_encoding_findresource(mut enc_name: *const i8) -> i32 {
 /*
  * Pointer will change if other encoding is loaded...
  */
-#[no_mangle]
+
 pub unsafe fn pdf_encoding_get_encoding(mut enc_id: i32) -> *mut *mut i8 {
     if enc_id < 0i32 || enc_id >= enc_cache.count {
         panic!("Invalid encoding id: {}", enc_id);
@@ -525,7 +525,7 @@ pub unsafe fn pdf_encoding_get_encoding(mut enc_id: i32) -> *mut *mut i8 {
     let encoding = &mut *enc_cache.encodings.offset(enc_id as isize) as *mut pdf_encoding;
     (*encoding).glyphs.as_mut_ptr()
 }
-#[no_mangle]
+
 pub unsafe fn pdf_get_encoding_obj(mut enc_id: i32) -> *mut pdf_obj {
     if enc_id < 0i32 || enc_id >= enc_cache.count {
         panic!("Invalid encoding id: {}", enc_id);
@@ -533,7 +533,7 @@ pub unsafe fn pdf_get_encoding_obj(mut enc_id: i32) -> *mut pdf_obj {
     let encoding = &mut *enc_cache.encodings.offset(enc_id as isize) as *mut pdf_encoding;
     (*encoding).resource
 }
-#[no_mangle]
+
 pub unsafe fn pdf_encoding_is_predefined(mut enc_id: i32) -> i32 {
     if enc_id < 0i32 || enc_id >= enc_cache.count {
         panic!("Invalid encoding id: {}", enc_id);
@@ -545,7 +545,7 @@ pub unsafe fn pdf_encoding_is_predefined(mut enc_id: i32) -> i32 {
         0i32
     };
 }
-#[no_mangle]
+
 pub unsafe fn pdf_encoding_used_by_type3(mut enc_id: i32) {
     if enc_id < 0i32 || enc_id >= enc_cache.count {
         panic!("Invalid encoding id: {}", enc_id);
@@ -553,7 +553,7 @@ pub unsafe fn pdf_encoding_used_by_type3(mut enc_id: i32) {
     let encoding = &mut *enc_cache.encodings.offset(enc_id as isize) as *mut pdf_encoding;
     (*encoding).flags |= 1i32 << 1i32;
 }
-#[no_mangle]
+
 pub unsafe fn pdf_encoding_get_name(mut enc_id: i32) -> *mut i8 {
     if enc_id < 0i32 || enc_id >= enc_cache.count {
         panic!("Invalid encoding id: {}", enc_id);
@@ -564,7 +564,7 @@ pub unsafe fn pdf_encoding_get_name(mut enc_id: i32) -> *mut i8 {
 static mut wbuf: [u8; 1024] = [0; 1024];
 static mut range_min: [u8; 1] = [0u32 as u8];
 static mut range_max: [u8; 1] = [0xffu32 as u8];
-#[no_mangle]
+
 pub unsafe fn pdf_encoding_add_usedchars(mut encoding_id: i32, mut is_used: *const i8) {
     if encoding_id < 0i32 || encoding_id >= enc_cache.count {
         panic!("Invalid encoding id: {}", encoding_id);
@@ -579,7 +579,7 @@ pub unsafe fn pdf_encoding_add_usedchars(mut encoding_id: i32, mut is_used: *con
             as i8;
     }
 }
-#[no_mangle]
+
 pub unsafe fn pdf_encoding_get_tounicode(mut encoding_id: i32) -> *mut pdf_obj {
     if encoding_id < 0i32 || encoding_id >= enc_cache.count {
         panic!("Invalid encoding id: {}", encoding_id);
@@ -596,7 +596,7 @@ pub unsafe fn pdf_encoding_get_tounicode(mut encoding_id: i32) -> *mut pdf_obj {
  * the Unicode mapping of PDF 1.3 and Section 9.7.2 (in the context of
  * Tagged PDF) the one of PDF 1.5.
  */
-#[no_mangle]
+
 pub unsafe fn pdf_create_ToUnicode_CMap(
     mut enc_name: *const i8,
     mut enc_vec: *mut *mut i8,
@@ -687,7 +687,7 @@ pub unsafe fn pdf_create_ToUnicode_CMap(
 /* Just load CMap identified with 'ident'. (parsed)
  * PDF stream object (not reference) returned.
  */
-#[no_mangle]
+
 pub unsafe fn pdf_load_ToUnicode_stream(mut ident: *const i8) -> *mut pdf_obj {
     let mut stream: *mut pdf_obj = ptr::null_mut();
     if ident.is_null() {

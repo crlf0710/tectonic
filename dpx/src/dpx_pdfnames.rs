@@ -88,7 +88,7 @@ unsafe fn hval_free(mut hval: *mut libc::c_void) {
     }
     free(value as *mut libc::c_void);
 }
-#[no_mangle]
+
 pub unsafe fn pdf_new_name_tree() -> *mut ht_table {
     let names =
         new((1_u64).wrapping_mul(::std::mem::size_of::<ht_table>() as u64) as u32) as *mut ht_table;
@@ -126,14 +126,14 @@ unsafe fn check_objects_defined(mut ht_tab: *mut ht_table) {
         ht_clear_iter(&mut iter);
     };
 }
-#[no_mangle]
+
 pub unsafe fn pdf_delete_name_tree(mut names: *mut *mut ht_table) {
     assert!(!names.is_null() && !(*names).is_null());
     check_objects_defined(*names);
     ht_clear_table(*names);
     *names = mfree(*names as *mut libc::c_void) as *mut ht_table;
 }
-#[no_mangle]
+
 pub unsafe fn pdf_names_add_object(
     mut names: *mut ht_table,
     mut key: *const libc::c_void,
@@ -172,7 +172,7 @@ pub unsafe fn pdf_names_add_object(
 /*
  * The following routine returns copies, not the original object.
  */
-#[no_mangle]
+
 pub unsafe fn pdf_names_lookup_reference(
     mut names: *mut ht_table,
     mut key: *const libc::c_void,
@@ -194,7 +194,7 @@ pub unsafe fn pdf_names_lookup_reference(
     }
     pdf_ref_obj(object)
 }
-#[no_mangle]
+
 pub unsafe fn pdf_names_lookup_object(
     mut names: *mut ht_table,
     mut key: *const libc::c_void,
@@ -210,7 +210,7 @@ pub unsafe fn pdf_names_lookup_object(
     assert!(!(*value).object.is_null());
     (*value).object
 }
-#[no_mangle]
+
 pub unsafe fn pdf_names_close_object(
     mut names: *mut ht_table,
     mut key: *const libc::c_void,
@@ -392,7 +392,7 @@ unsafe fn flat_table(
 /* Hash */
 /* Not actually tree... */
 /* Really create name tree... */
-#[no_mangle]
+
 pub unsafe fn pdf_names_create_tree(
     mut names: *mut ht_table,
     mut count: *mut i32,

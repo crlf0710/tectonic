@@ -158,7 +158,7 @@ pub struct JPEG_APPn_JFIF {
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
 */
-#[no_mangle]
+
 pub unsafe fn check_for_jpeg(handle: &mut InputHandleWrapper) -> i32 {
     let mut jpeg_sig: [u8; 2] = [0; 2];
     handle.seek(SeekFrom::Start(0)).unwrap();
@@ -171,7 +171,7 @@ pub unsafe fn check_for_jpeg(handle: &mut InputHandleWrapper) -> i32 {
     }
     1i32
 }
-#[no_mangle]
+
 pub unsafe fn jpeg_include_image(
     mut ximage: *mut pdf_ximage,
     handle: &mut InputHandleWrapper,
@@ -1117,7 +1117,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
         -1i32
     }
 }
-#[no_mangle]
+
 pub unsafe fn jpeg_get_bbox(
     handle: &mut InputHandleWrapper,
     mut width: *mut u32,

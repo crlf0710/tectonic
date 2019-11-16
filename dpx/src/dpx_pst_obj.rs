@@ -72,7 +72,7 @@ pub struct pst_boolean {
 }
 static mut pst_const_null: *const i8 = b"null\x00" as *const u8 as *const i8;
 static mut pst_const_mark: *const i8 = b"mark\x00" as *const u8 as *const i8;
-#[no_mangle]
+
 pub unsafe fn pst_new_obj(
     mut type_0: pst_type,
     mut data: *mut libc::c_void,
@@ -83,7 +83,7 @@ pub unsafe fn pst_new_obj(
     (*obj).data = data;
     obj
 }
-#[no_mangle]
+
 pub unsafe fn pst_new_mark() -> *mut pst_obj {
     let q = new(
         (strlen(pst_const_mark).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _,
@@ -91,7 +91,7 @@ pub unsafe fn pst_new_mark() -> *mut pst_obj {
     strcpy(q, pst_const_mark);
     pst_new_obj(7i32, q as *mut libc::c_void)
 }
-#[no_mangle]
+
 pub unsafe fn pst_release_obj(mut obj: *mut pst_obj) {
     assert!(!obj.is_null());
     match (*obj).type_0 {
@@ -119,12 +119,12 @@ pub unsafe fn pst_release_obj(mut obj: *mut pst_obj) {
     }
     free(obj as *mut libc::c_void);
 }
-#[no_mangle]
+
 pub unsafe fn pst_type_of(mut obj: *mut pst_obj) -> pst_type {
     assert!(!obj.is_null());
     (*obj).type_0
 }
-#[no_mangle]
+
 pub unsafe fn pst_length_of(mut obj: *mut pst_obj) -> i32 {
     assert!(!obj.is_null());
     match (*obj).type_0 {
@@ -142,7 +142,7 @@ pub unsafe fn pst_length_of(mut obj: *mut pst_obj) -> i32 {
         }
     }
 }
-#[no_mangle]
+
 pub unsafe fn pst_getIV(mut obj: *mut pst_obj) -> i32 {
     assert!(!obj.is_null());
     match (*obj).type_0 {
@@ -162,7 +162,7 @@ pub unsafe fn pst_getIV(mut obj: *mut pst_obj) -> i32 {
         }
     }
 }
-#[no_mangle]
+
 pub unsafe fn pst_getRV(mut obj: *mut pst_obj) -> f64 {
     assert!(!obj.is_null());
     match (*obj).type_0 {
@@ -183,7 +183,7 @@ pub unsafe fn pst_getRV(mut obj: *mut pst_obj) -> f64 {
     }
 }
 /* Length can be obtained by pst_length_of(). */
-#[no_mangle]
+
 pub unsafe fn pst_getSV(mut obj: *mut pst_obj) -> *mut u8 {
     let sv;
     assert!(!obj.is_null());
@@ -214,7 +214,7 @@ pub unsafe fn pst_getSV(mut obj: *mut pst_obj) -> *mut u8 {
     }
     sv
 }
-#[no_mangle]
+
 pub unsafe fn pst_data_ptr(mut obj: *mut pst_obj) -> *mut libc::c_void {
     assert!(!obj.is_null());
     (match (*obj).type_0 {
@@ -281,7 +281,7 @@ unsafe fn pst_boolean_data_ptr(mut obj: *mut pst_boolean) -> *mut libc::c_void {
     assert!(!obj.is_null());
     &mut (*obj).value as *mut i8 as *mut libc::c_void
 }
-#[no_mangle]
+
 pub unsafe fn pst_parse_boolean(
     mut inbuf: *mut *mut u8,
     mut inbufend: *mut u8,
@@ -343,7 +343,7 @@ pub unsafe fn pst_parse_boolean(
     };
 }
 /* NULL */
-#[no_mangle]
+
 pub unsafe fn pst_parse_null(
     mut inbuf: *mut *mut u8,
     mut inbufend: *mut u8,
@@ -464,7 +464,7 @@ unsafe fn pst_real_length() -> u32 {
 }
 /* NOTE: the input buffer must be null-terminated, i.e., *inbufend == 0 */
 /* leading white-space is ignored */
-#[no_mangle]
+
 pub unsafe fn pst_parse_number(
     mut inbuf: *mut *mut u8,
     mut inbufend: *mut u8,
@@ -609,7 +609,7 @@ unsafe fn getxpair(mut s: *mut *mut u8) -> i32 {
     *s = (*s).offset(1);
     hi << 4i32 | lo
 }
-#[no_mangle]
+
 pub unsafe fn pst_parse_name(
     mut inbuf: *mut *mut u8,
     mut inbufend: *mut u8,
@@ -723,7 +723,7 @@ unsafe fn pst_string_release(mut obj: *mut pst_string) {
     free((*obj).value as *mut libc::c_void);
     free(obj as *mut libc::c_void);
 }
-#[no_mangle]
+
 pub unsafe fn pst_parse_string(
     mut inbuf: *mut *mut u8,
     mut inbufend: *mut u8,

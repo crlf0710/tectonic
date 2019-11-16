@@ -298,7 +298,7 @@ pub struct ColorStack {
 /* No page independence here...
  */
 static mut VERBOSE: i32 = 0i32;
-#[no_mangle]
+
 pub unsafe fn pdf_color_set_verbose(mut level: i32) {
     VERBOSE = level;
 }
@@ -309,7 +309,7 @@ static mut COLOR_STACK: ColorStack =ColorStack {
     fill: [BLACK; 128],
 };
 
-#[no_mangle]
+
 pub unsafe fn pdf_color_clear_stack() {
     if COLOR_STACK.current > 0 {
         warn!("You\'ve mistakenly made a global color change within nested colors.");
@@ -325,13 +325,13 @@ pub unsafe fn pdf_color_clear_stack() {
     COLOR_STACK.stroke[0] = BLACK;
     COLOR_STACK.fill[0] = BLACK;
 }
-#[no_mangle]
+
 pub unsafe fn pdf_color_set(sc: &PdfColor, fc: &PdfColor) {
     COLOR_STACK.stroke[COLOR_STACK.current as usize] = sc.clone();
     COLOR_STACK.fill[COLOR_STACK.current as usize] = fc.clone();
     pdf_dev_reset_color(0);
 }
-#[no_mangle]
+
 pub unsafe fn pdf_color_push(sc: &mut PdfColor, fc: &PdfColor) {
     if COLOR_STACK.current >= 128 - 1 {
         warn!("Color stack overflow. Just ignore.");
@@ -340,7 +340,7 @@ pub unsafe fn pdf_color_push(sc: &mut PdfColor, fc: &PdfColor) {
         pdf_color_set(sc, fc);
     };
 }
-#[no_mangle]
+
 pub unsafe fn pdf_color_pop() {
     if COLOR_STACK.current <= 0 {
         warn!("Color stack underflow. Just ignore.");
@@ -354,7 +354,7 @@ pub unsafe fn pdf_color_pop() {
  */
 /* Color stack
  */
-#[no_mangle]
+
 pub unsafe fn pdf_color_get_current() -> (&'static mut PdfColor, &'static mut PdfColor) {
     (
         &mut COLOR_STACK.stroke[COLOR_STACK.current as usize],
@@ -479,7 +479,7 @@ unsafe fn compare_iccbased(
     /* No way to compare */
     return -1i32; /* acsp */
 }
-#[no_mangle]
+
 pub unsafe fn iccp_check_colorspace(
     mut colortype: i32,
     mut profile: *const libc::c_void,
@@ -517,7 +517,7 @@ pub unsafe fn iccp_check_colorspace(
     }
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn iccp_get_rendering_intent(
     mut profile: *const libc::c_void,
     mut proflen: i32,
@@ -942,7 +942,7 @@ unsafe fn iccp_devClass_allowed(mut dev_class: i32) -> i32 {
     }
     1i32
 }
-#[no_mangle]
+
 pub unsafe fn iccp_load_profile(
     mut ident: *const i8,
     mut profile: *const libc::c_void,
@@ -1159,7 +1159,7 @@ unsafe fn pdf_colorspace_defineresource(
     CSPC_CACHE.count = CSPC_CACHE.count.wrapping_add(1);
     cspc_id
 }
-#[no_mangle]
+
 pub unsafe fn pdf_get_colorspace_reference(mut cspc_id: i32) -> *mut pdf_obj {
     let mut colorspace =
         &mut *CSPC_CACHE.colorspaces.offset(cspc_id as isize) as *mut pdf_colorspace;
@@ -1170,7 +1170,7 @@ pub unsafe fn pdf_get_colorspace_reference(mut cspc_id: i32) -> *mut pdf_obj {
     }
     pdf_link_obj((*colorspace).reference)
 }
-#[no_mangle]
+
 pub unsafe fn pdf_init_colors() {
     CSPC_CACHE.count = 0_u32;
     CSPC_CACHE.capacity = 0_u32;
@@ -1178,7 +1178,7 @@ pub unsafe fn pdf_init_colors() {
 }
 /* Not check size */
 /* returns colorspace ID */
-#[no_mangle]
+
 pub unsafe fn pdf_close_colors() {
     for i in 0..CSPC_CACHE.count {
         let colorspace = &mut *CSPC_CACHE.colorspaces.offset(i as isize);

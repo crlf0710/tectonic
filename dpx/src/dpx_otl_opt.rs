@@ -197,13 +197,13 @@ unsafe fn parse_expr(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut bt_n
     }
     root
 }
-#[no_mangle]
+
 pub unsafe fn otl_new_opt() -> *mut otl_opt {
     let opt = new((1_u64).wrapping_mul(::std::mem::size_of::<otl_opt>() as u64) as u32) as *mut otl_opt;
     (*opt).rule = ptr::null_mut();
     opt as *mut otl_opt
 }
-#[no_mangle]
+
 pub unsafe fn otl_release_opt(mut opt: *mut otl_opt) {
     if !(*opt).rule.is_null() {
         bt_release_tree((*opt).rule);
@@ -211,7 +211,7 @@ pub unsafe fn otl_release_opt(mut opt: *mut otl_opt) {
     (*opt).rule = ptr::null_mut();
     free(opt as *mut libc::c_void);
 }
-#[no_mangle]
+
 pub unsafe fn otl_parse_optstring(mut opt: *mut otl_opt, mut optstr: *const i8) -> i32 {
     assert!(!opt.is_null());
     if !optstr.is_null() {
@@ -221,7 +221,7 @@ pub unsafe fn otl_parse_optstring(mut opt: *mut otl_opt, mut optstr: *const i8) 
     }
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn otl_match_optrule(mut opt: *mut otl_opt, mut tag: *const i8) -> i32 {
     assert!(!tag.is_null());
     if opt.is_null() || (*opt).rule.is_null() {
