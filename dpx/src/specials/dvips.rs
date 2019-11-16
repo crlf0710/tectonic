@@ -366,12 +366,12 @@ const DVIPS_HANDLERS: [SpcHandler; 10] = [
     },
 ];
 
-#[no_mangle]
+
 pub unsafe fn spc_dvips_at_begin_document() -> i32 {
     /* This function used to start the global_defs temp file. */
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn spc_dvips_at_end_document() -> i32 {
     if !PS_HEADERS.is_null() {
         while NUM_PS_HEADERS > 0i32 {
@@ -382,12 +382,12 @@ pub unsafe fn spc_dvips_at_end_document() -> i32 {
     }
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn spc_dvips_at_begin_page() -> i32 {
     /* This function used do some things related to now-removed PSTricks functionality. */
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn spc_dvips_at_end_page() -> i32 {
     mps_eop_cleanup();
     0i32
@@ -404,7 +404,7 @@ pub fn spc_dvips_check_special(mut buf: &[u8]) -> bool {
     }
     false
 }
-#[no_mangle]
+
 pub unsafe fn spc_dvips_setup_handler(
     mut handle: *mut SpcHandler,
     mut spe: *mut spc_env,

@@ -170,7 +170,7 @@ pub struct cmap_plat_enc_rec {
     pub encoding: i16,
 }
 static mut verbose: i32 = 0i32;
-#[no_mangle]
+
 pub unsafe fn otf_cmap_set_verbose(mut level: i32) {
     otl_gsub_set_verbose(level);
     verbose = level;
@@ -447,7 +447,7 @@ unsafe fn lookup_cmap12(mut map: *mut cmap12, mut cccc: u32) -> u16 {
     gid
 }
 /* read cmap */
-#[no_mangle]
+
 pub unsafe fn tt_cmap_read(
     mut sfont: *mut sfnt,
     mut platform: u16,
@@ -519,7 +519,7 @@ pub unsafe fn tt_cmap_read(
     }
     cmap
 }
-#[no_mangle]
+
 pub unsafe fn tt_cmap_release(mut cmap: *mut tt_cmap) {
     if !cmap.is_null() {
         if !(*cmap).map.is_null() {
@@ -547,7 +547,7 @@ pub unsafe fn tt_cmap_release(mut cmap: *mut tt_cmap) {
         free(cmap as *mut libc::c_void);
     };
 }
-#[no_mangle]
+
 pub unsafe fn tt_cmap_lookup(mut cmap: *mut tt_cmap, mut cc: u32) -> u16 {
     assert!(!cmap.is_null());
     if cc as i64 > 0xffff && ((*cmap).format as i32) < 12i32 {
@@ -1240,7 +1240,7 @@ static mut cmap_plat_encs: [cmap_plat_enc_rec; 5] = [
             encoding: 1_i16,
         },
 ];
-#[no_mangle]
+
 pub unsafe fn otf_create_ToUnicode_stream(
     mut font_name: *const i8,
     mut ttc_index: i32,
@@ -1440,7 +1440,7 @@ unsafe fn load_base_CMap(
 /* Mac */
 /* Indirect reference */
 /* CMap ID */
-#[no_mangle]
+
 pub unsafe fn otf_load_Unicode_CMap(
     mut map_name: *const i8,
     mut ttc_index: i32,

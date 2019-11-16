@@ -672,7 +672,7 @@ unsafe fn do_cidsysteminfo(mut cmap: *mut CMap, mut input: *mut ifreader) -> i32
     free(csi.ordering as *mut libc::c_void);
     error
 }
-#[no_mangle]
+
 pub unsafe fn CMap_parse_check_sig(handle: Option<&mut InputHandleWrapper>) -> i32 {
     let mut result: i32 = -1i32;
     let mut sig: [i8; 65] = [0; 65];
@@ -699,7 +699,7 @@ pub unsafe fn CMap_parse_check_sig(handle: Option<&mut InputHandleWrapper>) -> i
     handle.seek(SeekFrom::Start(0)).unwrap();
     result
 }
-#[no_mangle]
+
 pub unsafe fn CMap_parse(mut cmap: *mut CMap, mut handle: InputHandleWrapper) -> i32 {
     let mut status: i32 = 0i32;
     let mut tmpint: i32 = -1i32;

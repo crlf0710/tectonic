@@ -231,12 +231,12 @@ unsafe fn spc_handler_pdfm__clean(mut dp: *mut libc::c_void) -> i32 {
     (*sd).cd.taintkeys = ptr::null_mut();
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn spc_pdfm_at_begin_document() -> i32 {
     let mut sd: *mut spc_pdf_ = &mut _PDF_STAT;
     spc_handler_pdfm__init(sd as *mut libc::c_void)
 }
-#[no_mangle]
+
 pub unsafe fn spc_pdfm_at_end_document() -> i32 {
     let mut sd: *mut spc_pdf_ = &mut _PDF_STAT;
     spc_handler_pdfm__clean(sd as *mut libc::c_void)
@@ -2074,7 +2074,7 @@ pub fn spc_pdfm_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
     buf.starts_with(b"pdf:")
 }
-#[no_mangle]
+
 pub unsafe fn spc_pdfm_setup_handler(
     mut sph: *mut SpcHandler,
     mut spe: *mut spc_env,

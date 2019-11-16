@@ -130,7 +130,7 @@ pub unsafe fn spc_resume_annot(mut _spe: *mut spc_env) -> i32 {
     dvi_link_annot(1i32);
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn spc_suspend_annot(mut _spe: *mut spc_env) -> i32 {
     dvi_link_annot(0i32);
     0i32

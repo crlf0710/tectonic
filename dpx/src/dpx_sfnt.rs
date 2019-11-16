@@ -74,7 +74,7 @@ pub struct sfnt {
     pub handle: InputHandleWrapper,
     pub offset: u32,
 }
-#[no_mangle]
+
 pub unsafe fn sfnt_open(mut handle: InputHandleWrapper) -> *mut sfnt {
     handle.seek(SeekFrom::Start(0)).unwrap(); /* mbz */
     let sfont =
@@ -95,7 +95,7 @@ pub unsafe fn sfnt_open(mut handle: InputHandleWrapper) -> *mut sfnt {
     (*sfont).offset = 0u64 as u32;
     sfont
 }
-#[no_mangle]
+
 pub unsafe fn dfont_open(mut handle: InputHandleWrapper, mut index: i32) -> *mut sfnt {
     let mut types_pos: u32 = 0;
     let mut res_pos: u32 = 0;
@@ -158,7 +158,7 @@ unsafe fn release_directory(mut td: *mut sfnt_table_directory) {
         free(td as *mut libc::c_void);
     };
 }
-#[no_mangle]
+
 pub unsafe fn sfnt_close(mut sfont: *mut sfnt) {
     if !sfont.is_null() {
         ttstub_input_close((*sfont).handle.clone()); // TODO: use drop
@@ -168,7 +168,7 @@ pub unsafe fn sfnt_close(mut sfont: *mut sfnt) {
         free(sfont as *mut libc::c_void);
     };
 }
-#[no_mangle]
+
 pub unsafe fn put_big_endian(mut s: *mut libc::c_void, mut q: i32, mut n: i32) -> i32 {
     let p = s as *mut i8;
     for i in (0..n).rev() {
@@ -228,7 +228,7 @@ unsafe fn find_table_index(td: Option<&sfnt_table_directory>, tag: &[u8; 4]) -> 
         .unwrap_or(-1)
 }
 
-#[no_mangle]
+
 pub unsafe fn sfnt_set_table(
     mut sfont: *mut sfnt,
     mut tag: &[u8; 4],
@@ -254,7 +254,7 @@ pub unsafe fn sfnt_set_table(
     let ref mut fresh0 = (*(*td).tables.offset(idx as isize)).data;
     *fresh0 = data as *mut i8;
 }
-#[no_mangle]
+
 pub unsafe fn sfnt_find_table_len(mut sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
     assert!(!sfont.is_null());
     let td = (*sfont).directory;
@@ -265,7 +265,7 @@ pub unsafe fn sfnt_find_table_len(mut sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
         (*(*td).tables.offset(idx as isize)).length
     }
 }
-#[no_mangle]
+
 pub unsafe fn sfnt_find_table_pos(mut sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
     assert!(!sfont.is_null());
     let td = (*sfont).directory;
@@ -276,7 +276,7 @@ pub unsafe fn sfnt_find_table_pos(mut sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
         (*(*td).tables.offset(idx as isize)).offset
     }
 }
-#[no_mangle]
+
 pub unsafe fn sfnt_locate_table(mut sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
     assert!(!sfont.is_null());
     let offset = sfnt_find_table_pos(sfont, tag);
@@ -286,7 +286,7 @@ pub unsafe fn sfnt_locate_table(mut sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
     (*sfont).handle.seek(SeekFrom::Start(offset as u64)).unwrap();
     offset
 }
-#[no_mangle]
+
 pub unsafe fn sfnt_read_table_directory(mut sfont: *mut sfnt, mut offset: u32) -> i32 {
     assert!(!sfont.is_null());
     if !(*sfont).directory.is_null() {
@@ -324,7 +324,7 @@ pub unsafe fn sfnt_read_table_directory(mut sfont: *mut sfnt, mut offset: u32) -
     (*td).num_kept_tables = 0_u16;
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn sfnt_require_table(
     sfont: &mut sfnt,
     table: &SfntTableInfo,
@@ -366,7 +366,7 @@ static mut padbytes: [u8; 4] = [0; 4];
 /* Convert sfnt "fixed" type to double */
 /* get_***_*** from numbers.h */
 /* table directory */
-#[no_mangle]
+
 pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj {
     let mut length;
     assert!(!sfont.is_null() && !(*sfont).directory.is_null());

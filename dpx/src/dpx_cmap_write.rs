@@ -350,7 +350,7 @@ unsafe fn write_map(
     }
     count as i32
 }
-#[no_mangle]
+
 pub unsafe fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj {
     let mut wbuf: sbuf = sbuf {
         buf: ptr::null_mut(),

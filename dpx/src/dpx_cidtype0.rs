@@ -152,11 +152,11 @@ use super::dpx_t1_char::t1_ginfo;
 /* Metrics */
 static mut verbose: i32 = 0i32;
 static mut opt_flags: i32 = 0i32;
-#[no_mangle]
+
 pub unsafe fn CIDFont_type0_set_verbose(mut level: i32) {
     verbose = level;
 }
-#[no_mangle]
+
 pub unsafe fn CIDFont_type0_set_flags(mut flags: i32) {
     opt_flags = flags;
 }
@@ -682,7 +682,7 @@ unsafe fn CIDFont_type0_add_CIDSet(
     pdf_add_dict(&mut *(*font).descriptor, "CIDSet", pdf_ref_obj(cidset));
     pdf_release_obj(cidset);
 }
-#[no_mangle]
+
 pub unsafe fn CIDFont_type0_dofont(mut font: *mut CIDFont) {
     let mut num_glyphs: u16 = 0i32 as u16;
     let mut last_cid: u16 = 0i32 as u16;
@@ -926,7 +926,7 @@ pub unsafe fn CIDFont_type0_dofont(mut font: *mut CIDFont) {
     }
     CIDFont_type0_add_CIDSet(font, used_chars, last_cid);
 }
-#[no_mangle]
+
 pub unsafe fn CIDFont_type0_open(
     mut font: *mut CIDFont,
     mut name: *const i8,
@@ -1178,7 +1178,7 @@ pub unsafe fn CIDFont_type0_open(
     }
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn CIDFont_type0_t1cdofont(mut font: *mut CIDFont) {
     let mut info: CIDType0Info = CIDType0Info {
         sfont: ptr::null_mut(),
@@ -1570,7 +1570,7 @@ unsafe fn load_base_CMap(mut font_name: *const i8, mut wmode: i32, cffont: &cff_
     }
     CMap_cache_add(cmap)
 }
-#[no_mangle]
+
 pub unsafe fn t1_load_UnicodeCMap(
     mut font_name: *const i8,
     mut otl_tags: *const i8,
@@ -1993,7 +1993,7 @@ unsafe fn add_metrics(
     pdf_release_obj(tmp);
 }
 /* Type1 --> CFF CIDFont */
-#[no_mangle]
+
 pub unsafe fn CIDFont_type0_t1dofont(mut font: *mut CIDFont) {
     let mut used_chars: *mut i8 = ptr::null_mut();
     assert!(!font.is_null());

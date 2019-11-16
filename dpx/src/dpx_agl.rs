@@ -72,7 +72,7 @@ pub struct C2RustUnnamed_0 {
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 static mut verbose: i32 = 0i32;
-#[no_mangle]
+
 pub unsafe fn agl_set_verbose(mut level: i32) {
     verbose = level;
 }
@@ -298,7 +298,7 @@ static mut VAR_LIST: [C2RustUnnamed_0; 14] = [
         suffixes: [&[]; SUFFIX_LIST_MAX],
     },
 ];
-#[no_mangle]
+
 pub unsafe fn agl_suffix_to_otltag(suffix: &[u8]) -> Option<&'static [u8]> {
     let mut i = 0;
     while !VAR_LIST[i].key.is_empty() {
@@ -380,7 +380,7 @@ static mut aglmap: ht_table = ht_table {
 unsafe fn hval_free(mut hval: *mut libc::c_void) {
     agl_release_name(hval as *mut agl_name);
 }
-#[no_mangle]
+
 pub unsafe fn agl_init_map() {
     ht_init_table(
         &mut aglmap,
@@ -394,7 +394,7 @@ pub unsafe fn agl_init_map() {
         warn!("Failed to load AGL file \"{}\"...", "glyphlist.txt");
     };
 }
-#[no_mangle]
+
 pub unsafe fn agl_close_map() {
     ht_clear_table(&mut aglmap);
 }
@@ -532,7 +532,7 @@ unsafe fn agl_load_listfile(mut filename: *const i8, mut is_predef: i32) -> i32 
     }
     count
 }
-#[no_mangle]
+
 pub unsafe fn agl_lookup_list(mut glyphname: *const i8) -> *mut agl_name {
     if glyphname.is_null() {
         return ptr::null_mut();
@@ -577,7 +577,7 @@ pub fn agl_name_is_unicode(glyphname: &[u8]) -> bool {
     }
     false
 }
-#[no_mangle]
+
 pub unsafe fn agl_name_convert_unicode(mut glyphname: *const i8) -> i32 {
     if !agl_name_is_unicode(CStr::from_ptr(glyphname).to_bytes()) {
         return -1i32;
@@ -652,7 +652,7 @@ unsafe fn put_unicode_glyph(name: &[u8], mut dstpp: *mut *mut u8, mut limptr: *m
     }
     len
 }
-#[no_mangle]
+
 pub unsafe fn agl_sput_UTF16BE(
     mut glyphstr: *const i8,
     mut dstpp: *mut *mut u8,
@@ -758,7 +758,7 @@ pub unsafe fn agl_sput_UTF16BE(
     }
     len
 }
-#[no_mangle]
+
 pub unsafe fn agl_get_unicodes(
     mut glyphstr: *const i8,
     mut unicodes: *mut i32,

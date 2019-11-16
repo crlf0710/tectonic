@@ -47,7 +47,7 @@ pub struct paper<'a> {
     pub pswidth: f64,
     pub psheight: f64,
 }
-#[no_mangle]
+
 pub static mut paperspecs: [paper; 21] = [
     paper {
         name: b"letter",
@@ -155,7 +155,7 @@ pub static mut paperspecs: [paper; 21] = [
         psheight: 1417.32,
     },
 ];
-#[no_mangle]
+
 pub unsafe fn paperinfo(ppformat: &[u8]) -> Option<*const paper> {
     if ppformat.is_empty() {
         return None;
@@ -169,7 +169,7 @@ pub unsafe fn paperinfo(ppformat: &[u8]) -> Option<*const paper> {
 }
 /* HAVE_LIBPAPER */
 /* HAVE_LIBPAPER */
-/*#[no_mangle]
+/*
 pub unsafe fn dumppaperinfo() {
     for ppinfo in &paperspecs {
         let wd = ppinfo.pswidth;

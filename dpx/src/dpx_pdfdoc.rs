@@ -224,7 +224,7 @@ pub struct C2RustUnnamed_4 {
 static mut verbose: i32 = 0i32;
 static mut manual_thumb_enabled: i8 = 0_i8;
 static mut thumb_basename: *mut i8 = ptr::null_mut();
-#[no_mangle]
+
 pub unsafe fn pdf_doc_enable_manual_thumbnails() {
     manual_thumb_enabled = 1_i8;
     // without HAVE_LIBPNG:
@@ -268,7 +268,7 @@ unsafe fn read_thumbnail(mut thumb_filename: *const i8) -> *mut pdf_obj {
         pdf_ximage_get_reference(xobj_id)
     }
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_set_verbose(mut level: i32) {
     verbose = level;
     pdf_font_set_verbose(level);
@@ -423,7 +423,7 @@ unsafe fn doc_get_page_entry(mut p: *mut pdf_doc, mut page_no: u32) -> *mut pdf_
         .entries
         .offset(page_no.wrapping_sub(1_u32) as isize) as *mut pdf_page
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_set_bop_content(mut content: *const i8, mut length: u32) {
     let mut p: *mut pdf_doc = &mut pdoc;
     assert!(!p.is_null());
@@ -442,7 +442,7 @@ pub unsafe fn pdf_doc_set_bop_content(mut content: *const i8, mut length: u32) {
         (*p).pages.bop = ptr::null_mut()
     };
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_set_eop_content(mut content: *const i8, mut length: u32) {
     let mut p: *mut pdf_doc = &mut pdoc;
     if !(*p).pages.eop.is_null() {
@@ -571,7 +571,7 @@ unsafe fn pdf_doc_get_page_resources(mut p: *mut pdf_doc, category: &str) -> *mu
         &mut *resources
     })
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_add_page_resource(
     category: &str,
     mut resource_name: *const i8,
@@ -847,7 +847,7 @@ unsafe fn pdf_doc_close_page_tree(mut p: *mut pdf_doc) {
     (*p).pages.num_entries = 0_u32;
     (*p).pages.max_entries = 0_u32;
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_get_page_count(mut pf: *mut pdf_file) -> i32 {
     let catalog = pdf_file_get_catalog(pf);
     let page_tree = pdf_deref_obj((*catalog).as_dict_mut().get_mut("Pages"));
@@ -917,7 +917,7 @@ pub unsafe fn pdf_doc_get_page_count(mut pf: *mut pdf_file) -> i32 {
 /* count_p removed: Please use different interface if you want to get total page
  * number. pdf_doc_get_page() is obviously not an interface to do such.
  */
-#[no_mangle]
+
 pub unsafe fn pdf_doc_get_page(
     mut pf: *mut pdf_file,
     mut page_no: i32,
@@ -1409,7 +1409,7 @@ unsafe fn flush_bookmarks(
     (*node).dict = ptr::null_mut();
     retval
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_bookmarks_up() -> i32 {
     let mut p: *mut pdf_doc = &mut pdoc;
     let item = (*p).outlines.current;
@@ -1433,7 +1433,7 @@ pub unsafe fn pdf_doc_bookmarks_up() -> i32 {
     (*p).outlines.current_depth -= 1;
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_bookmarks_down() -> i32 {
     let mut p: *mut pdf_doc = &mut pdoc;
     let item = (*p).outlines.current;
@@ -1481,12 +1481,12 @@ pub unsafe fn pdf_doc_bookmarks_down() -> i32 {
     (*p).outlines.current_depth += 1;
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_bookmarks_depth() -> i32 {
     let mut p: *mut pdf_doc = &mut pdoc;
     (*p).outlines.current_depth
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_bookmarks_add(mut dict: *mut pdf_obj, mut is_open: i32) {
     let mut p: *mut pdf_doc = &mut pdoc;
     assert!(!p.is_null() && !dict.is_null());
@@ -1600,7 +1600,7 @@ unsafe fn pdf_doc_init_names(mut p: *mut pdf_doc, mut check_gotos: i32) {
         )),
     );
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_add_names(
     mut category: *const i8,
     mut key: *const libc::c_void,
@@ -1846,7 +1846,7 @@ unsafe fn pdf_doc_close_names(mut p: *mut pdf_doc) {
     (*p).names = mfree((*p).names as *mut libc::c_void) as *mut name_dict;
     ht_clear_table(&mut (*p).gotos);
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_add_annot(
     mut page_no: u32,
     rect: &Rect,
@@ -1919,7 +1919,7 @@ unsafe fn pdf_doc_init_articles(mut p: *mut pdf_doc) {
     (*p).articles.max_entries = 0_u32;
     (*p).articles.entries = ptr::null_mut();
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_begin_article(
     mut article_id: *const i8,
     mut article_info: *mut pdf_obj,
@@ -1960,7 +1960,7 @@ unsafe fn find_bead(mut article: *mut pdf_article, mut bead_id: &[u8]) -> *mut p
     }
     bead
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_add_bead(
     mut article_id: *const i8,
     mut bead_id: &[u8],
@@ -2148,7 +2148,7 @@ unsafe fn pdf_doc_close_articles(mut p: *mut pdf_doc) {
     };
 }
 /* page_no = 0 for root page tree node. */
-#[no_mangle]
+
 pub unsafe fn pdf_doc_set_mediabox(mut page_no: u32, mediabox: &Rect) {
     let mut p: *mut pdf_doc = &mut pdoc;
     if page_no == 0_u32 {
@@ -2172,7 +2172,7 @@ unsafe fn pdf_doc_get_mediabox(mut page_no: u32, mediabox: &mut Rect) {
         }
     };
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_current_page_resources() -> *mut pdf_obj {
     let mut p: *mut pdf_doc = &mut pdoc;
     if !(*p).pending_forms.is_null() {
@@ -2193,7 +2193,7 @@ pub unsafe fn pdf_doc_current_page_resources() -> *mut pdf_obj {
         }
     }
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_get_dictionary(category: &str) -> *mut pdf_obj {
     let mut p: *mut pdf_doc = &mut pdoc;
     let dict = match category {
@@ -2234,12 +2234,12 @@ pub unsafe fn pdf_doc_get_dictionary(category: &str) -> *mut pdf_obj {
     }
     dict
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_current_page_number() -> i32 {
     let mut p: *mut pdf_doc = &mut pdoc;
     (*p).pages.num_entries.wrapping_add(1_u32) as i32
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_ref_page(mut page_no: u32) -> *mut pdf_obj {
     let mut p: *mut pdf_doc = &mut pdoc;
     let page = doc_get_page_entry(p, page_no);
@@ -2249,7 +2249,7 @@ pub unsafe fn pdf_doc_ref_page(mut page_no: u32) -> *mut pdf_obj {
     }
     pdf_link_obj((*page).page_ref)
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_get_reference(category: &str) -> *mut pdf_obj {
     let page_no = pdf_doc_current_page_number();
     let ref_0 = match category {
@@ -2390,7 +2390,7 @@ static mut bgcolor: PdfColor = WHITE;
 
 /* Manual thumbnail */
 /* Similar to bop_content */
-#[no_mangle]
+
 pub unsafe fn pdf_doc_set_bgcolor(color: Option<&PdfColor>) {
     bgcolor = if let Some(c) = color {
         c.clone()
@@ -2418,7 +2418,7 @@ unsafe fn doc_fill_page_background(p: &mut pdf_doc) {
     pdf_dev_grestore();
     currentpage.contents = saved_content;
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_begin_page(mut scale: f64, mut x_origin: f64, mut y_origin: f64) {
     let p = &mut pdoc;
     let mut M = TMatrix {
@@ -2433,7 +2433,7 @@ pub unsafe fn pdf_doc_begin_page(mut scale: f64, mut x_origin: f64, mut y_origin
     pdf_doc_new_page(p);
     pdf_dev_bop(&mut M);
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_end_page() {
     let p = &mut pdoc;
     pdf_dev_eop();
@@ -2462,7 +2462,7 @@ pub unsafe fn pdf_doc_add_page_content(buffer: &[u8]) {
 
 static mut doccreator: *mut i8 = ptr::null_mut();
 /* Ugh */
-#[no_mangle]
+
 pub unsafe fn pdf_open_document(
     mut filename: *const i8,
     mut enable_encrypt: bool,
@@ -2528,7 +2528,7 @@ pub unsafe fn pdf_open_document(
     }
     p.pending_forms = ptr::null_mut();
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_set_creator(mut creator: *const i8) {
     if creator.is_null() || *creator.offset(0) as i32 == '\u{0}' as i32 {
         return;
@@ -2539,7 +2539,7 @@ pub unsafe fn pdf_doc_set_creator(mut creator: *const i8) {
     strcpy(doccreator, creator);
     /* Ugh */
 }
-#[no_mangle]
+
 pub unsafe fn pdf_close_document() {
     let mut p: *mut pdf_doc = &mut pdoc;
     /*
@@ -2629,7 +2629,7 @@ unsafe fn pdf_doc_make_xform(
  * xpos and ypos that is clipped to the specified bbox. Note
  * that the origin is not the lower left corner of the bbox.
  */
-#[no_mangle]
+
 pub unsafe fn pdf_doc_begin_grabbing(
     mut ident: *const i8,
     mut ref_x: f64,
@@ -2680,7 +2680,7 @@ pub unsafe fn pdf_doc_begin_grabbing(
     pdf_dev_reset_color(1i32);
     xobj_id
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_end_grabbing(mut attrib: *mut pdf_obj) {
     let mut p: *mut pdf_doc = &mut pdoc;
     if (*p).pending_forms.is_null() {
@@ -2730,18 +2730,18 @@ unsafe fn reset_box() {
     );
     breaking_state.dirty = 0i32;
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_begin_annot(mut dict: *mut pdf_obj) {
     breaking_state.annot_dict = dict;
     breaking_state.broken = 0i32;
     reset_box();
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_end_annot() {
     pdf_doc_break_annot();
     breaking_state.annot_dict = ptr::null_mut();
 }
-#[no_mangle]
+
 pub unsafe fn pdf_doc_break_annot() {
     if breaking_state.dirty != 0 {
         /* Copy dict */
@@ -2771,7 +2771,7 @@ pub unsafe fn pdf_doc_break_annot() {
 /* Returns xobj_id of started xform. */
 /* Annotation */
 /* Annotation with auto- clip and line (or page) break */
-#[no_mangle]
+
 pub unsafe fn pdf_doc_expand_box(rect: &Rect) {
     breaking_state.rect.ll.x = breaking_state.rect.ll.x.min(rect.ll.x);
     breaking_state.rect.ll.y = breaking_state.rect.ll.y.min(rect.ll.y);

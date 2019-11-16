@@ -77,7 +77,7 @@ pub struct font_cache {
 }
 
 static mut __verbose: i32 = 0i32;
-#[no_mangle]
+
 pub unsafe fn Type0Font_set_verbose(mut level: i32) {
     __verbose = level;
 }
@@ -248,7 +248,7 @@ unsafe fn add_ToUnicode(mut font: *mut Type0Font) {
         );
     };
 }
-#[no_mangle]
+
 pub unsafe fn Type0Font_set_ToUnicode(
     mut font: *mut Type0Font,
     mut cmap_ref: *mut pdf_obj,
@@ -277,17 +277,17 @@ unsafe fn Type0Font_flush(mut font: *mut Type0Font) {
         (*font).descriptor = ptr::null_mut()
     };
 }
-#[no_mangle]
+
 pub unsafe fn Type0Font_get_wmode(mut font: *mut Type0Font) -> i32 {
     assert!(!font.is_null());
     (*font).wmode
 }
-#[no_mangle]
+
 pub unsafe fn Type0Font_get_usedchars(mut font: *mut Type0Font) -> *mut i8 {
     assert!(!font.is_null());
     (*font).used_chars
 }
-#[no_mangle]
+
 pub unsafe fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mut pdf_obj {
     assert!(!font.is_null());
     /*
@@ -306,7 +306,7 @@ static mut __cache: font_cache = font_cache {
         capacity: 0i32,
         fonts: std::ptr::null_mut(),
     };
-#[no_mangle]
+
 pub unsafe fn Type0Font_cache_init() {
     if !__cache.fonts.is_null() {
         panic!("{}: Already initialized.", "Type0",);
@@ -315,14 +315,14 @@ pub unsafe fn Type0Font_cache_init() {
     __cache.capacity = 0i32;
     __cache.fonts = ptr::null_mut();
 }
-#[no_mangle]
+
 pub unsafe fn Type0Font_cache_get(mut id: i32) -> *mut Type0Font {
     if id < 0i32 || id >= __cache.count {
         panic!("{}: Invalid ID {}", "Type0", id,);
     }
     &mut *__cache.fonts.offset(id as isize) as *mut Type0Font
 }
-#[no_mangle]
+
 pub unsafe fn Type0Font_cache_find(
     mut map_name: *const i8,
     mut cmap_id: i32,
@@ -499,7 +499,7 @@ pub unsafe fn Type0Font_cache_find(
     font_id
 }
 /* ******************************* CACHE ********************************/
-#[no_mangle]
+
 pub unsafe fn Type0Font_cache_close() {
     /*
      * This need to be fixed.

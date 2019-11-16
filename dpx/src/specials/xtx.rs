@@ -65,7 +65,7 @@ use crate::dpx_pdfdev::TMatrix;
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-#[no_mangle]
+
 pub unsafe fn spc_handler_xtx_do_transform(
     mut x_user: f64,
     mut y_user: f64,
@@ -173,12 +173,12 @@ unsafe fn spc_handler_xtx_rotate(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         0i32 as f64,
     )
 }
-#[no_mangle]
+
 pub unsafe fn spc_handler_xtx_gsave(mut _spe: *mut spc_env, mut _args: *mut spc_arg) -> i32 {
     pdf_dev_gsave();
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn spc_handler_xtx_grestore(mut _spe: *mut spc_env, mut _args: *mut spc_arg) -> i32 {
     pdf_dev_grestore();
     /*
@@ -442,7 +442,7 @@ pub fn spc_xtx_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
     buf.starts_with(b"x:")
 }
-#[no_mangle]
+
 pub unsafe fn spc_xtx_setup_handler(
     mut sph: *mut SpcHandler,
     mut spe: *mut spc_env,
