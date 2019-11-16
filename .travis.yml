@@ -21,6 +21,7 @@ matrix:
       env:
         - VS15=true
         - VCPKG_ROOT=${HOME}/vcpkg
+        - VCPKGRS_DYNAMIC=1
         - VCPKG_DEFAULT_TRIPLET=x64-windows
         - TECTONIC_DEP_BACKEND=vcpkg
       script:
