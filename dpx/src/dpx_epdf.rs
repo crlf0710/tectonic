@@ -74,7 +74,7 @@ pub const OP_UNKNOWN: C2RustUnnamed_0 = 16;
    Licensed under the MIT License.
 */
 /* ximage here is the result. DONT USE IT FOR PASSING OPTIONS! */
-#[no_mangle]
+
 pub unsafe fn pdf_include_page(
     mut ximage: *mut pdf_ximage,
     mut handle: InputHandleWrapper,

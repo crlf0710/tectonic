@@ -41,7 +41,7 @@ use std::ffi::CString;
    Licensed under the MIT License.
 */
 
-#[no_mangle]
+
 pub unsafe fn spc_util_read_numbers(
     mut values: *mut f64,
     mut num_values: i32,
@@ -271,7 +271,7 @@ unsafe fn spc_read_color_pdf(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> Res
     result
 }
 /* This is for reading *single* color specification. */
-#[no_mangle]
+
 pub unsafe fn spc_util_read_colorspec(
     mut spe: *mut spc_env,
     mut ap: *mut spc_arg,
@@ -287,7 +287,7 @@ pub unsafe fn spc_util_read_colorspec(
         spc_read_color_pdf(spe, ap)
     }
 }
-#[no_mangle]
+
 pub unsafe fn spc_util_read_pdfcolor(
     mut spe: *mut spc_env,
     mut ap: *mut spc_arg,
@@ -685,7 +685,7 @@ unsafe fn spc_read_dimtrns_pdfm(
     }
     error
 }
-#[no_mangle]
+
 pub unsafe fn spc_util_read_dimtrns(
     mut spe: *mut spc_env,
     ti: &mut transform_info,
@@ -706,7 +706,7 @@ pub unsafe fn spc_util_read_dimtrns(
  *
  * This is for reading *single* color specification.
  */
-#[no_mangle]
+
 pub unsafe fn spc_util_read_blahblah(
     mut spe: *mut spc_env,
     p: &mut transform_info,

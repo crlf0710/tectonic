@@ -136,7 +136,7 @@ static mut _opts: opt_ = opt_ {
         verbose: 0i32,
         cmdtmpl: ptr::null_mut(),
     };
-#[no_mangle]
+
 pub unsafe fn pdf_ximage_set_verbose(mut level: i32) {
     _opts.verbose = level;
 }
@@ -171,14 +171,14 @@ unsafe fn pdf_clean_ximage_struct(mut I: *mut pdf_ximage) {
     pdf_release_obj((*I).attr.dict);
     pdf_init_ximage_struct(I);
 }
-#[no_mangle]
+
 pub unsafe fn pdf_init_images() {
     let mut ic: *mut ic_ = &mut _ic;
     (*ic).count = 0i32;
     (*ic).capacity = 0i32;
     (*ic).ximages = ptr::null_mut();
 }
-#[no_mangle]
+
 pub unsafe fn pdf_close_images() {
     let mut ic: *mut ic_ = &mut _ic;
     if !(*ic).ximages.is_null() {
@@ -373,7 +373,7 @@ unsafe fn load_image(
     (*ic).count += 1;
     id
 }
-#[no_mangle]
+
 pub unsafe fn pdf_ximage_findresource(
     mut ident: *const i8,
     mut options: load_options,
@@ -442,7 +442,7 @@ pub unsafe fn pdf_ximage_findresource(
  *                matrix, which maps form space into user space.
  *                Default value: the identity matrix [1 0 0 1 0 0].
  */
-#[no_mangle]
+
 pub fn pdf_ximage_init_form_info(info: &mut xform_info) {
     info.flags = 0;
     info.bbox = Rect::zero();
@@ -478,7 +478,7 @@ pub fn pdf_ximage_init_form_info(info: &mut xform_info) {
  *                is optional and ignored if present. The bit depth is
  *                determined in the process of decoding the JPEG2000 image.
  */
-#[no_mangle]
+
 pub fn pdf_ximage_init_image_info(info: &mut ximage_info) {
     info.flags = 0; /* The width of the image, in samples */
     info.width = 0; /* The height of the image, in samples */
@@ -489,7 +489,7 @@ pub fn pdf_ximage_init_image_info(info: &mut ximage_info) {
     info.ydensity = 1.;
     info.xdensity = info.ydensity;
 }
-#[no_mangle]
+
 pub unsafe fn pdf_ximage_set_image(
     mut I: *mut pdf_ximage,
     image_info: &mut ximage_info,
@@ -524,7 +524,7 @@ pub unsafe fn pdf_ximage_set_image(
     pdf_release_obj(resource);
     (*I).resource = ptr::null_mut();
 }
-#[no_mangle]
+
 pub unsafe fn pdf_ximage_set_form(
     mut I: *mut pdf_ximage,
     form_info: &mut xform_info,
@@ -551,11 +551,11 @@ pub unsafe fn pdf_ximage_set_form(
     pdf_release_obj(resource);
     (*I).resource = ptr::null_mut();
 }
-#[no_mangle]
+
 pub unsafe fn pdf_ximage_get_page(mut I: *mut pdf_ximage) -> i32 {
     (*I).attr.page_no
 }
-#[no_mangle]
+
 pub unsafe fn pdf_ximage_get_reference(mut id: i32) -> *mut pdf_obj {
     let mut ic: *mut ic_ = &mut _ic;
     if id < 0i32 || id >= (*ic).count {
@@ -575,7 +575,7 @@ pub enum XInfo {
 }
 
 /* called from pdfdoc.c only for late binding */
-#[no_mangle]
+
 pub unsafe fn pdf_ximage_defineresource(
     mut ident: *const i8,
     info: XInfo,
@@ -620,7 +620,7 @@ pub unsafe fn pdf_ximage_defineresource(
     (*ic).count += 1;
     id
 }
-#[no_mangle]
+
 pub unsafe fn pdf_ximage_get_resname(mut id: i32) -> *mut i8 {
     let mut ic: *mut ic_ = &mut _ic;
     if id < 0i32 || id >= (*ic).count {
@@ -629,7 +629,7 @@ pub unsafe fn pdf_ximage_get_resname(mut id: i32) -> *mut i8 {
     let I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
     (*I).res_name.as_mut_ptr()
 }
-#[no_mangle]
+
 pub unsafe fn pdf_ximage_get_subtype(mut id: i32) -> i32 {
     let mut ic: *mut ic_ = &mut _ic;
     if id < 0i32 || id >= (*ic).count {
@@ -639,7 +639,7 @@ pub unsafe fn pdf_ximage_get_subtype(mut id: i32) -> i32 {
     (*I).subtype
 }
 /* from spc_pdfm.c */
-#[no_mangle]
+
 pub unsafe fn pdf_ximage_set_attr(
     mut id: i32,
     mut width: i32,
@@ -778,7 +778,7 @@ unsafe fn scale_to_fit_F(T: &mut TMatrix, p: &mut transform_info, mut I: *mut pd
     );
 }
 /* called from pdfdev.c and spc_html.c */
-#[no_mangle]
+
 pub unsafe fn pdf_ximage_scale_image(
     id: i32,
     r: &mut Rect,
@@ -843,7 +843,7 @@ pub unsafe fn pdf_ximage_scale_image(
     M
 }
 /* Migrated from psimage.c */
-#[no_mangle]
+
 pub unsafe fn set_distiller_template(mut s: *mut i8) {
     free(_opts.cmdtmpl as *mut libc::c_void);
     if s.is_null() || *s as i32 == '\u{0}' as i32 {
@@ -863,7 +863,7 @@ pub unsafe fn set_distiller_template(mut s: *mut i8) {
  */
 /* Called by pngimage, jpegimage, epdf, mpost, etc. */
 /* from pdfximage.c */
-#[no_mangle]
+
 pub unsafe fn get_distiller_template() -> *mut i8 {
     _opts.cmdtmpl
 }

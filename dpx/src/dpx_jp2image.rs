@@ -300,7 +300,7 @@ unsafe fn scan_file(info: &mut ximage_info, mut smask: *mut i32, mut fp: *mut FI
     }
     error
 }
-#[no_mangle]
+
 pub unsafe fn check_for_jp2(mut fp: *mut FILE) -> i32 {
     let mut lbox: u32 = 0;
     let mut tbox: u32 = 0;
@@ -322,7 +322,7 @@ pub unsafe fn check_for_jp2(mut fp: *mut FILE) -> i32 {
     }
     1i32
 }
-#[no_mangle]
+
 pub unsafe fn jp2_include_image(mut ximage: *mut pdf_ximage, mut fp: *mut FILE) -> i32 {
     let mut smask: i32 = 0i32;
     let mut info = ximage_info::default();
@@ -367,7 +367,7 @@ pub unsafe fn jp2_include_image(mut ximage: *mut pdf_ximage, mut fp: *mut FILE) 
     pdf_ximage_set_image(ximage, &mut info, stream);
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn jp2_get_bbox(
     mut fp: *mut FILE,
     mut width: *mut i32,

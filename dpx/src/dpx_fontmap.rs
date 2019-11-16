@@ -97,11 +97,11 @@ use super::dpx_dpxutil::ht_table;
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 static mut verbose: i32 = 0i32;
-#[no_mangle]
+
 pub unsafe fn pdf_fontmap_set_verbose(mut level: i32) {
     verbose = level;
 }
-#[no_mangle]
+
 pub unsafe fn pdf_init_fontmap_record(mut mrec: *mut fontmap_rec) {
     assert!(!mrec.is_null());
     (*mrec).map_name = ptr::null_mut();
@@ -125,7 +125,7 @@ pub unsafe fn pdf_init_fontmap_record(mut mrec: *mut fontmap_rec) {
     (*mrec).opt.stemv = -1i32;
     (*mrec).opt.cff_charsets = ptr::null_mut();
 }
-#[no_mangle]
+
 pub unsafe fn pdf_clear_fontmap_record(mut mrec: *mut fontmap_rec) {
     assert!(!mrec.is_null());
     free((*mrec).map_name as *mut libc::c_void);
@@ -855,7 +855,7 @@ unsafe fn make_subfont_name(
  *   fooyz ... -m sfd:A,yz
  * where 'ab' ... 'yz' is subfont IDs in SFD 'A'.
  */
-#[no_mangle]
+
 pub unsafe fn pdf_append_fontmap_record(
     mut kp: *const i8,
     mut vp: *const fontmap_rec,
@@ -933,7 +933,7 @@ pub unsafe fn pdf_append_fontmap_record(
     }
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn pdf_remove_fontmap_record(mut kp: *const i8) -> i32 {
     let mut sfd_name: *mut i8 = ptr::null_mut();
     if kp.is_null() {
@@ -987,7 +987,7 @@ pub unsafe fn pdf_remove_fontmap_record(mut kp: *const i8) -> i32 {
     }
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn pdf_insert_fontmap_record(
     mut kp: *const i8,
     mut vp: *const fontmap_rec,
@@ -1069,7 +1069,7 @@ pub unsafe fn pdf_insert_fontmap_record(
     }
     mrec
 }
-#[no_mangle]
+
 pub unsafe fn pdf_read_fontmap_line(
     mut mrec: *mut fontmap_rec,
     mut mline: *const i8,
@@ -1123,7 +1123,7 @@ pub unsafe fn pdf_read_fontmap_line(
  *
  * DVIPDFM fontmap line otherwise.
  */
-#[no_mangle]
+
 pub unsafe fn is_pdfm_mapline(mut mline: *const i8) -> i32
 /* NULL terminated. */ {
     let mut n: u32 = 0_u32; /* DVIPS/pdfTeX format */
@@ -1152,7 +1152,7 @@ pub unsafe fn is_pdfm_mapline(mut mline: *const i8) -> i32
         1i32
     }
 }
-#[no_mangle]
+
 pub unsafe fn pdf_load_fontmap_file(filename: &CStr, mut mode: i32) -> i32 {
     let mut p: *const i8 = std::ptr::null();
     let mut lpos: i32 = 0i32;
@@ -1241,7 +1241,7 @@ pub unsafe fn pdf_load_fontmap_file(filename: &CStr, mut mode: i32) -> i32 {
     }
     error
 }
-#[no_mangle]
+
 pub unsafe fn pdf_insert_native_fontmap_record(
     mut path: *const i8,
     mut index: u32,
@@ -1296,7 +1296,7 @@ pub unsafe fn pdf_insert_native_fontmap_record(
     }
     ret
 }
-#[no_mangle]
+
 pub unsafe fn pdf_lookup_fontmap_record(tfm_name: &[u8]) -> *mut fontmap_rec {
     let mut mrec: *mut fontmap_rec = ptr::null_mut();
     if !fontmap.is_null() && !tfm_name.is_empty() {
@@ -1308,7 +1308,7 @@ pub unsafe fn pdf_lookup_fontmap_record(tfm_name: &[u8]) -> *mut fontmap_rec {
     }
     mrec
 }
-#[no_mangle]
+
 pub unsafe fn pdf_init_fontmaps() {
     fontmap =
         new((1_u64).wrapping_mul(::std::mem::size_of::<ht_table>() as u64) as u32) as *mut ht_table;
@@ -1330,7 +1330,7 @@ pub unsafe fn pdf_init_fontmaps() {
 /* Subfont mapping: translate 8-bit charcode to 16-bit charcode
  * via SFD.
  */
-#[no_mangle]
+
 pub unsafe fn pdf_close_fontmaps() {
     if !fontmap.is_null() {
         ht_clear_table(fontmap);

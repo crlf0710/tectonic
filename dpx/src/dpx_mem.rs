@@ -32,7 +32,7 @@ use std::ptr;
 
 pub type size_t = u64;
 
-#[no_mangle]
+
 pub unsafe fn new(mut size: u32) -> *mut libc::c_void {
     let mut result: *mut libc::c_void = malloc(size as _);
     if result.is_null() {
@@ -40,7 +40,7 @@ pub unsafe fn new(mut size: u32) -> *mut libc::c_void {
     }
     result
 }
-#[no_mangle]
+
 pub unsafe fn renew(mut mem: *mut libc::c_void, mut size: u32) -> *mut libc::c_void {
     if size != 0 {
         let mut result: *mut libc::c_void = realloc(mem, size as _);
@@ -56,10 +56,10 @@ pub unsafe fn renew(mut mem: *mut libc::c_void, mut size: u32) -> *mut libc::c_v
 }
 
 extern "C" {
-    #[no_mangle]
+    
     pub fn xstrdup(s: *const i8) -> *mut i8;
-    #[no_mangle]
+    
     pub fn xrealloc(old_address: *mut libc::c_void, new_size: size_t) -> *mut libc::c_void;
-    #[no_mangle]
+    
     pub fn xmalloc(size: size_t) -> *mut libc::c_void;
 }

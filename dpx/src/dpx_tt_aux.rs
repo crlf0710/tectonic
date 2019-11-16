@@ -49,11 +49,11 @@ pub type size_t = u64;
 use super::dpx_sfnt::sfnt;
 
 static mut verbose: i32 = 0i32;
-#[no_mangle]
+
 pub unsafe fn tt_aux_set_verbose(mut level: i32) {
     verbose = level; /* skip version tag */
 }
-#[no_mangle]
+
 pub unsafe fn ttc_read_offset(mut sfont: *mut sfnt, mut ttc_idx: i32) -> u32 {
     if sfont.is_null() {
         panic!("file not opened");
@@ -76,7 +76,7 @@ pub unsafe fn ttc_read_offset(mut sfont: *mut sfnt, mut ttc_idx: i32) -> u32 {
 /* TTC (TrueType Collection) */
 /* FontDescriptor */
 /* Force bold at small text sizes */
-#[no_mangle]
+
 pub unsafe fn tt_get_fontdesc(
     mut sfont: *mut sfnt,
     mut embed: *mut i32,

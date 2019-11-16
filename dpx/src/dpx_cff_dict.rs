@@ -69,7 +69,7 @@ pub struct C2RustUnnamed_2 {
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-#[no_mangle]
+
 pub unsafe fn cff_new_dict() -> *mut cff_dict {
     let dict =
         new((1_u64).wrapping_mul(::std::mem::size_of::<cff_dict>() as u64) as u32) as *mut cff_dict;
@@ -80,7 +80,7 @@ pub unsafe fn cff_new_dict() -> *mut cff_dict {
         as u32) as *mut cff_dict_entry;
     dict
 }
-#[no_mangle]
+
 pub unsafe fn cff_release_dict(mut dict: *mut cff_dict) {
     if !dict.is_null() {
         if !(*dict).entries.is_null() {
@@ -543,7 +543,7 @@ don't treat this as underflow (e.g. StemSnapV in TemporaLGCUni-Italic.otf) */
  *  Private: two numbers, size and offset
  *  ROS    : three numbers, SID, SID, and a number
  */
-#[no_mangle]
+
 pub unsafe fn cff_dict_unpack(mut data: *mut u8, mut endptr: *mut u8) -> *mut cff_dict {
     let mut status: i32 = 0i32;
     stack_top = 0i32;
@@ -701,7 +701,7 @@ unsafe fn put_dict_entry(mut de: *mut cff_dict_entry, dest: &mut [u8]) -> usize 
     }
     len
 }
-#[no_mangle]
+
 pub unsafe fn cff_dict_pack(mut dict: *mut cff_dict, dest: &mut [u8]) -> usize {
     let mut len = 0_usize;
     for i in 0..(*dict).count as isize {
@@ -724,7 +724,7 @@ pub unsafe fn cff_dict_pack(mut dict: *mut cff_dict, dest: &mut [u8]) -> usize {
     }
     len
 }
-#[no_mangle]
+
 pub unsafe fn cff_dict_add(mut dict: *mut cff_dict, mut key: *const i8, mut count: i32) {
     let mut id = 0;
     while id < 22 + 39 {
@@ -775,7 +775,7 @@ pub unsafe fn cff_dict_add(mut dict: *mut cff_dict, mut key: *const i8, mut coun
     }
     (*dict).count += 1i32;
 }
-#[no_mangle]
+
 pub unsafe fn cff_dict_remove(mut dict: *mut cff_dict, mut key: *const i8) {
     for i in 0..(*dict).count {
         if streq_ptr(key, (*(*dict).entries.offset(i as isize)).key) {
@@ -786,7 +786,7 @@ pub unsafe fn cff_dict_remove(mut dict: *mut cff_dict, mut key: *const i8) {
         }
     }
 }
-#[no_mangle]
+
 pub unsafe fn cff_dict_known(mut dict: *mut cff_dict, mut key: *const i8) -> i32 {
     for i in 0..(*dict).count {
         if streq_ptr(key, (*(*dict).entries.offset(i as isize)).key) as i32 != 0
@@ -797,7 +797,7 @@ pub unsafe fn cff_dict_known(mut dict: *mut cff_dict, mut key: *const i8) -> i32
     }
     0i32
 }
-#[no_mangle]
+
 pub unsafe fn cff_dict_get(
     mut dict: *mut cff_dict,
     mut key: *const i8,
@@ -829,7 +829,7 @@ pub unsafe fn cff_dict_get(
     }
     value
 }
-#[no_mangle]
+
 pub unsafe fn cff_dict_set(
     mut dict: *mut cff_dict,
     mut key: *const i8,
@@ -861,7 +861,7 @@ pub unsafe fn cff_dict_set(
     };
 }
 /* decode/encode DICT */
-#[no_mangle]
+
 pub unsafe fn cff_dict_update(mut dict: *mut cff_dict, cff: &mut cff_font) {
     for i in 0..(*dict).count {
         if (*(*dict).entries.offset(i as isize)).count > 0i32 {

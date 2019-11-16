@@ -74,7 +74,7 @@ pub struct sfd_rec_ {
     /* 0 for undefined */
 }
 static mut verbose: i32 = 0i32;
-#[no_mangle]
+
 pub unsafe fn subfont_set_verbose(mut level: i32) {
     verbose = level;
 }
@@ -375,7 +375,7 @@ unsafe fn find_sfd_file(mut sfd_name: *const i8) -> i32 {
     }
     id
 }
-#[no_mangle]
+
 pub unsafe fn sfd_get_subfont_ids(
     mut sfd_name: *const i8,
     mut num_ids: *mut i32,
@@ -395,7 +395,7 @@ pub unsafe fn sfd_get_subfont_ids(
 /* Make sure that sfd_name does not have the extension '.sfd'.
  * Mapping tables are actually read here.
  */
-#[no_mangle]
+
 pub unsafe fn sfd_load_record(
     mut sfd_name: *const i8,
     mut subfont_id: *const i8,
@@ -522,14 +522,14 @@ pub unsafe fn sfd_load_record(
     rec_id
 }
 /* Lookup mapping table */
-#[no_mangle]
+
 pub unsafe fn lookup_sfd_record(mut rec_id: i32, mut c: u8) -> u16 {
     if sfd_record.is_null() || rec_id < 0i32 || rec_id >= num_sfd_records {
         panic!("Invalid subfont_id: {}", rec_id);
     }
     (*sfd_record.offset(rec_id as isize)).vector[c as usize]
 }
-#[no_mangle]
+
 pub unsafe fn release_sfd_record() {
     if !sfd_record.is_null() {
         free(sfd_record as *mut libc::c_void);

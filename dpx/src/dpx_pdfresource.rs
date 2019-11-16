@@ -140,7 +140,7 @@ unsafe fn pdf_clean_resource(mut res: *mut pdf_res) {
         (*res).flags = 0i32
     };
 }
-#[no_mangle]
+
 pub unsafe fn pdf_init_resources() {
     for i in 0..(::std::mem::size_of::<[C2RustUnnamed; 9]>() as u64)
         .wrapping_div(::std::mem::size_of::<C2RustUnnamed>() as u64) as usize
@@ -150,7 +150,7 @@ pub unsafe fn pdf_init_resources() {
         resources[i].resources = ptr::null_mut();
     }
 }
-#[no_mangle]
+
 pub unsafe fn pdf_close_resources() {
     for i in 0..(::std::mem::size_of::<[C2RustUnnamed; 9]>() as u64)
         .wrapping_div(::std::mem::size_of::<C2RustUnnamed>() as u64)
@@ -176,7 +176,7 @@ unsafe fn get_category(mut category: *const i8) -> i32 {
     }
     -1i32
 }
-#[no_mangle]
+
 pub unsafe fn pdf_defineresource(
     mut category: *const i8,
     mut resname: *const i8,
@@ -247,7 +247,7 @@ pub unsafe fn pdf_defineresource(
     }
     cat_id << 16i32 | res_id
 }
-#[no_mangle]
+
 pub unsafe fn pdf_findresource(mut category: *const i8, mut resname: *const i8) -> i32 {
     assert!(!resname.is_null() && !category.is_null());
     let cat_id = get_category(category);
@@ -266,7 +266,7 @@ pub unsafe fn pdf_findresource(mut category: *const i8, mut resname: *const i8) 
     }
     -1i32
 }
-#[no_mangle]
+
 pub unsafe fn pdf_get_resource_reference(mut rc_id: i32) -> *mut pdf_obj {
     let cat_id = rc_id >> 16i32 & 0xffffi32;
     let res_id = rc_id & 0xffffi32;
