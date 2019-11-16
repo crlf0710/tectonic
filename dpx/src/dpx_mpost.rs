@@ -207,7 +207,7 @@ unsafe fn mp_setfont(mut font_name: &CStr, mut pt_size: f64) -> i32 {
     } else {
         font_name
     };
-    let font_id = pdf_dev_locate_font(name.as_ptr(), (pt_size * dev_unit_dviunit()) as spt_t);
+    let font_id = pdf_dev_locate_font(name, (pt_size * dev_unit_dviunit()) as spt_t);
     let new_font = mp_font {
         font_name: font_name.to_owned(),
         font_id,

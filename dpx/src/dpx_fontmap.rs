@@ -184,13 +184,17 @@ unsafe fn fill_in_defaults(mut mrec: *mut fontmap_rec, tex_name: &str) {
     {
         (*mrec).font_name = mfree((*mrec).font_name as *mut libc::c_void) as *mut i8
     }
+
+    let mut tex_name = tex_name.as_bytes().to_vec();
+    tex_name.push(0);
+
     /* We *must* fill font_name either explicitly or by default */
     if (*mrec).font_name.is_null() {
         (*mrec).font_name = new(tex_name.len() as u32 + 1) as *mut i8;
-        strcpy((*mrec).font_name, tex_name.as_bytes().as_ptr() as *const i8);
+        strcpy((*mrec).font_name, tex_name.as_ptr() as *const i8);
     }
     (*mrec).map_name = new(tex_name.len() as u32 + 1) as *mut i8;
-    strcpy((*mrec).map_name, tex_name.as_bytes().as_ptr() as *const i8);
+    strcpy((*mrec).map_name, tex_name.as_ptr() as *const i8);
     /* Use "UCS" character collection for Unicode SFD
      * and Identity CMap combination. For backward
      * compatibility.

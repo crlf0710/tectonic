@@ -56,7 +56,7 @@ use super::dpx_pdfximage::{
 use crate::dpx_pdfobj::{pdf_link_obj, pdf_obj, pdf_release_obj, pdfobj_escape_str};
 use crate::shims::sprintf;
 use crate::streq_ptr;
-use libc::{free, strcpy, strlen};
+use libc::{free, strcpy};
 
 pub type size_t = u64;
 
@@ -1527,17 +1527,14 @@ unsafe fn print_fontmap(mut font_name: *const i8, mut mrec: *mut fontmap_rec) {
  * of the same font at different sizes.
  */
 
-pub unsafe fn pdf_dev_locate_font(mut font_name: *const i8, mut ptsize: spt_t) -> i32 {
+pub unsafe fn pdf_dev_locate_font(font_name: &CStr, mut ptsize: spt_t) -> i32 {
     /* found a dev_font that matches the request */
-    if font_name.is_null() {
-        return -1i32;
-    }
     if ptsize == 0i32 {
         panic!("pdf_dev_locate_font() called with the zero ptsize.");
     }
     let mut i = 0;
     while i < num_dev_fonts {
-        if streq_ptr(font_name, (*dev_fonts.offset(i as isize)).tex_name) {
+        if streq_ptr(font_name.as_ptr(), (*dev_fonts.offset(i as isize)).tex_name) {
             if ptsize == (*dev_fonts.offset(i as isize)).sptsize {
                 return i;
             }
@@ -1562,11 +1559,11 @@ pub unsafe fn pdf_dev_locate_font(mut font_name: *const i8, mut ptsize: spt_t) -
     }
     let font = &mut *dev_fonts.offset(num_dev_fonts as isize) as *mut dev_font;
     /* New font */
-    let mrec = pdf_lookup_fontmap_record(CStr::from_ptr(font_name).to_bytes());
+    let mrec = pdf_lookup_fontmap_record(font_name.to_bytes());
     if verbose > 1i32 {
-        print_fontmap(font_name, mrec);
+        print_fontmap(font_name.as_ptr(), mrec);
     }
-    (*font).font_id = pdf_font_findresource(font_name, ptsize as f64 * dev_unit.dvi2pts, mrec);
+    (*font).font_id = pdf_font_findresource(font_name.as_ptr(), ptsize as f64 * dev_unit.dvi2pts, mrec);
     if (*font).font_id < 0i32 {
         return -1i32;
     }
@@ -1590,10 +1587,8 @@ pub unsafe fn pdf_dev_locate_font(mut font_name: *const i8, mut ptsize: spt_t) -
         num_phys_fonts += 1
     }
     (*font).used_on_this_page = 0i32;
-    (*font).tex_name =
-        new((strlen(font_name).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-    strcpy((*font).tex_name, font_name);
+    (*font).tex_name = new(font_name.to_bytes().len() as u32 + 1) as *mut i8;
+    strcpy((*font).tex_name, font_name.as_ptr());
     (*font).sptsize = ptsize;
     match pdf_get_font_subtype((*font).font_id) {
         2 => (*font).format = 2i32,
