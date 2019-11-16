@@ -28,6 +28,8 @@
 
 use crate::{ttstub_input_getc, ttstub_input_ungetc};
 
+use std::ptr;
+
 use libc::{fseek, ftell, rewind, FILE};
 pub type __off_t = i64;
 pub type __off64_t = i64;
@@ -91,7 +93,7 @@ pub unsafe extern "C" fn tt_mfgets(
     }
     *buffer.offset(i as isize) = '\u{0}' as i32 as i8;
     if ch < 0i32 && i == 0i32 {
-        return 0 as *mut i8;
+        return ptr::null_mut();
     }
     if ch == '\r' as i32
         && {

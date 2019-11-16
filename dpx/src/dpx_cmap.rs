@@ -32,6 +32,7 @@ use crate::streq_ptr;
 use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_cid::CSI_IDENTITY;
 use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
@@ -145,11 +146,11 @@ pub unsafe extern "C" fn CMap_set_silent(mut value: i32) {
 #[no_mangle]
 pub unsafe extern "C" fn CMap_new() -> *mut CMap {
     let cmap = new((1_u64).wrapping_mul(::std::mem::size_of::<CMap>() as u64) as u32) as *mut CMap;
-    (*cmap).name = 0 as *mut i8;
+    (*cmap).name = ptr::null_mut();
     (*cmap).type_0 = 1i32;
     (*cmap).wmode = 0i32;
-    (*cmap).useCMap = 0 as *mut CMap;
-    (*cmap).CSI = 0 as *mut CIDSysInfo;
+    (*cmap).useCMap = ptr::null_mut();
+    (*cmap).CSI = ptr::null_mut();
     (*cmap).profile.minBytesIn = 2i32 as size_t;
     (*cmap).profile.maxBytesIn = 2i32 as size_t;
     (*cmap).profile.minBytesOut = 2i32 as size_t;
@@ -160,10 +161,10 @@ pub unsafe extern "C" fn CMap_new() -> *mut CMap {
     (*cmap).codespace.ranges =
         new((10_u64).wrapping_mul(::std::mem::size_of::<rangeDef>() as u64) as u32)
             as *mut rangeDef;
-    (*cmap).mapTbl = 0 as *mut mapDef;
+    (*cmap).mapTbl = ptr::null_mut();
     (*cmap).mapData =
         new((1_u64).wrapping_mul(::std::mem::size_of::<mapData>() as u64) as u32) as *mut mapData;
-    (*(*cmap).mapData).prev = 0 as *mut mapData;
+    (*(*cmap).mapData).prev = ptr::null_mut();
     (*(*cmap).mapData).pos = 0i32;
     (*(*cmap).mapData).data =
         new((4096_u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
@@ -508,7 +509,7 @@ pub unsafe extern "C" fn CMap_set_CIDSysInfo(mut cmap: *mut CMap, mut csi: *cons
         (*(*cmap).CSI).supplement = (*csi).supplement
     } else {
         warn!("Invalid CIDSystemInfo.");
-        (*cmap).CSI = 0 as *mut CIDSysInfo
+        (*cmap).CSI = ptr::null_mut()
     };
 }
 /*
@@ -873,9 +874,9 @@ unsafe fn mapDef_new() -> *mut mapDef {
     for c in 0..256 {
         (*t.offset(c as isize)).flag = 0i32 | 0i32;
         let ref mut fresh4 = (*t.offset(c as isize)).code;
-        *fresh4 = 0 as *mut u8;
+        *fresh4 = ptr::null_mut();
         let ref mut fresh5 = (*t.offset(c as isize)).next;
-        *fresh5 = 0 as *mut mapDef;
+        *fresh5 = ptr::null_mut();
     }
     t
 }

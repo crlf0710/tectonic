@@ -27,6 +27,7 @@
 
 use crate::DisplayExt;
 use std::ffi::{CStr, CString};
+use std::ptr;
 
 use crate::mfree;
 use crate::warn;
@@ -143,7 +144,7 @@ unsafe fn spc_handler_ps_file(mut spe: *mut spc_env, mut args: *mut spc_arg) -> 
     let mut options: load_options = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
-            dict: 0 as *mut pdf_obj,
+            dict: ptr::null_mut(),
         };
     assert!(!spe.is_null() && !args.is_null());
     (*args).cur.skip_white();
@@ -180,7 +181,7 @@ unsafe fn spc_handler_ps_plotfile(mut spe: *mut spc_env, mut args: *mut spc_arg)
     let mut options: load_options = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
-            dict: 0 as *mut pdf_obj,
+            dict: ptr::null_mut(),
         };
     assert!(!spe.is_null() && !args.is_null());
     spc_warn!(spe, "\"ps: plotfile\" found (not properly implemented)");

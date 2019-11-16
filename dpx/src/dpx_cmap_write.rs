@@ -27,6 +27,8 @@
     unused_mut
 )]
 
+use std::ptr;
+
 use crate::warn;
 
 use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
@@ -351,16 +353,16 @@ unsafe fn write_map(
 #[no_mangle]
 pub unsafe extern "C" fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj {
     let mut wbuf: sbuf = sbuf {
-        buf: 0 as *mut i8,
-        curptr: 0 as *mut i8,
-        limptr: 0 as *mut i8,
+        buf: ptr::null_mut(),
+        curptr: ptr::null_mut(),
+        limptr: ptr::null_mut(),
     };
     if cmap.is_null() || !CMap_is_valid(cmap) {
         warn!("Invalid CMap");
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     if (*cmap).type_0 == 0i32 {
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     let stream = pdf_new_stream(STREAM_COMPRESS);
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();

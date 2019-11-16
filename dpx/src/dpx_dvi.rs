@@ -29,6 +29,7 @@
 )]
 
 use std::io::{Read, Seek, SeekFrom};
+use std::ptr;
 
 use crate::FromBEByteSlice;
 use crate::DisplayExt;
@@ -1026,7 +1027,7 @@ unsafe fn dvi_locate_native_font(
     (*loaded_fonts.offset(cur_id as isize)).type_0 = 4i32;
     free(fontmap_key as *mut libc::c_void);
     if is_type1 != 0 {
-        let mut enc_vec: [*mut i8; 256] = [0 as *mut i8; 256];
+        let mut enc_vec: [*mut i8; 256] = [ptr::null_mut(); 256];
         /*if (!is_pfb(fp))
          *  panic!("Failed to read Type 1 font \"{}\".", filename);
          */
@@ -2027,18 +2028,18 @@ pub unsafe extern "C" fn dvi_close() {
         }
         free(def_fonts as *mut libc::c_void);
     }
-    def_fonts = 0 as *mut font_def;
+    def_fonts = ptr::null_mut();
     page_loc = mfree(page_loc as *mut libc::c_void) as *mut u32;
     num_pages = 0_u32;
     for i in 0..num_loaded_fonts {
         free((*loaded_fonts.offset(i as isize)).hvmt as *mut libc::c_void);
         let ref mut fresh24 = (*loaded_fonts.offset(i as isize)).hvmt;
-        *fresh24 = 0 as *mut tt_longMetrics;
+        *fresh24 = ptr::null_mut();
         if !(*loaded_fonts.offset(i as isize)).cffont.is_null() {
             cff_close((*loaded_fonts.offset(i as isize)).cffont);
         }
         let ref mut fresh25 = (*loaded_fonts.offset(i as isize)).cffont;
-        *fresh25 = 0 as *mut cff_font;
+        *fresh25 = ptr::null_mut();
     }
     loaded_fonts = mfree(loaded_fonts as *mut libc::c_void) as *mut loaded_font;
     num_loaded_fonts = 0_u32;

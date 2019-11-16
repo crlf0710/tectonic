@@ -313,35 +313,35 @@ pub unsafe extern "C" fn CIDFont_set_verbose(mut level: i32) {
 unsafe fn CIDFont_new() -> *mut CIDFont {
     let font =
         new((1_u64).wrapping_mul(::std::mem::size_of::<CIDFont>() as u64) as u32) as *mut CIDFont;
-    (*font).name = 0 as *mut i8;
-    (*font).fontname = 0 as *mut i8;
-    (*font).ident = 0 as *mut i8;
+    (*font).name = ptr::null_mut();
+    (*font).fontname = ptr::null_mut();
+    (*font).ident = ptr::null_mut();
     /*
      * CIDFont
      */
     (*font).subtype = -1i32; /* Horizontal */
     (*font).flags = 0i32; /* Vertical   */
-    (*font).csi = 0 as *mut CIDSysInfo;
-    (*font).options = 0 as *mut cid_opt;
+    (*font).csi = ptr::null_mut();
+    (*font).options = ptr::null_mut();
     (*font).parent[0] = -1i32;
     (*font).parent[1] = -1i32;
     /*
      * PDF Font Resource
      */
-    (*font).indirect = 0 as *mut pdf_obj;
-    (*font).fontdict = 0 as *mut pdf_obj;
-    (*font).descriptor = 0 as *mut pdf_obj;
+    (*font).indirect = ptr::null_mut();
+    (*font).fontdict = ptr::null_mut();
+    (*font).descriptor = ptr::null_mut();
     font
 }
 /* It does write PDF objects. */
 unsafe fn CIDFont_flush(mut font: *mut CIDFont) {
     if !font.is_null() {
         pdf_release_obj((*font).indirect);
-        (*font).indirect = 0 as *mut pdf_obj;
+        (*font).indirect = ptr::null_mut();
         pdf_release_obj((*font).fontdict);
-        (*font).fontdict = 0 as *mut pdf_obj;
+        (*font).fontdict = ptr::null_mut();
         pdf_release_obj((*font).descriptor);
-        (*font).descriptor = 0 as *mut pdf_obj
+        (*font).descriptor = ptr::null_mut()
     };
 }
 unsafe fn CIDFont_release(mut font: *mut CIDFont) {
@@ -787,9 +787,9 @@ unsafe fn CIDFont_base_open(
         _ => {}
     }
     let mut start = CStr::from_ptr(cid_basefont[idx].fontdict).to_bytes();
-    let fontdict = start.parse_pdf_dict(0 as *mut pdf_file).unwrap();
+    let fontdict = start.parse_pdf_dict(ptr::null_mut()).unwrap();
     let mut start = CStr::from_ptr(cid_basefont[idx].descriptor).to_bytes();
-    let descriptor = start.parse_pdf_dict(0 as *mut pdf_file).unwrap();
+    let descriptor = start.parse_pdf_dict(ptr::null_mut()).unwrap();
     (*font).fontname = fontname;
     (*font).flags |= 1i32 << 0i32;
     let tmp = (*fontdict).as_dict().get("CIDSystemInfo")
@@ -888,7 +888,7 @@ pub unsafe extern "C" fn CIDFont_cache_find(
     mut cmap_csi: *mut CIDSysInfo,
     mut fmap_opt: *mut fontmap_opt,
 ) -> i32 {
-    let mut font: *mut CIDFont = 0 as *mut CIDFont;
+    let mut font: *mut CIDFont = ptr::null_mut();
     if __cache.is_null() {
         CIDFont_cache_init();
     }
@@ -901,10 +901,10 @@ pub unsafe extern "C" fn CIDFont_cache_find(
     } else {
         1i32
     };
-    (*opt).name = 0 as *mut i8;
+    (*opt).name = ptr::null_mut();
     (*opt).csi = get_cidsysinfo(map_name, fmap_opt);
     (*opt).stemv = (*fmap_opt).stemv;
-    (*opt).cff_charsets = 0 as *mut libc::c_void;
+    (*opt).cff_charsets = ptr::null_mut();
     if (*opt).csi.is_null() && !cmap_csi.is_null() {
         /*
          * No CIDSystemInfo supplied explicitly. Copy from CMap's one if available.
@@ -1060,11 +1060,11 @@ unsafe fn get_cidsysinfo(
     mut map_name: *const i8,
     mut fmap_opt: *mut fontmap_opt,
 ) -> *mut CIDSysInfo {
-    let mut csi: *mut CIDSysInfo = 0 as *mut CIDSysInfo;
+    let mut csi: *mut CIDSysInfo = ptr::null_mut();
     let mut csi_idx: i32 = -1i32;
     let pdf_ver = pdf_get_version() as i32;
     if fmap_opt.is_null() || (*fmap_opt).charcoll.is_null() {
-        return 0 as *mut CIDSysInfo;
+        return ptr::null_mut();
     }
     /* First try alias for standard one. */
     let mut i = 0; /* Use heighest supported value for current output PDF version. */

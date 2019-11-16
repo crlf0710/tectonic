@@ -34,6 +34,7 @@ use super::dpx_pst_obj::{
     pst_parse_string,
 };
 use libc::memcpy;
+use std::ptr;
 
 unsafe fn pst_parse_any(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut pst_obj {
     let mut cur: *mut u8 = *inbuf;
@@ -94,12 +95,12 @@ pub unsafe extern "C" fn pst_get_token(
     mut inbuf: *mut *mut u8,
     mut inbufend: *mut u8,
 ) -> *mut pst_obj {
-    let mut obj: *mut pst_obj = 0 as *mut pst_obj;
+    let mut obj: *mut pst_obj = ptr::null_mut();
     assert!(*inbuf <= inbufend && *inbufend == 0);
     skip_white_spaces(inbuf, inbufend);
     skip_comments(inbuf, inbufend);
     if *inbuf >= inbufend {
-        return 0 as *mut pst_obj;
+        return ptr::null_mut();
     }
     let mut c = **inbuf;
     match c as i32 {
@@ -111,7 +112,7 @@ pub unsafe extern "C" fn pst_get_token(
         }
         60 => {
             if (*inbuf).offset(1) >= inbufend {
-                return 0 as *mut pst_obj;
+                return ptr::null_mut();
             }
             c = *(*inbuf).offset(1);
             if c as i32 == '<' as i32 {

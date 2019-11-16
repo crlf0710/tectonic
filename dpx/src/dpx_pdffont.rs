@@ -29,6 +29,7 @@
 
 use crate::DisplayExt;
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_agl::{agl_close_map, agl_init_map, agl_set_verbose};
 use super::dpx_cid::CIDFont_set_verbose;
@@ -196,20 +197,20 @@ pub unsafe extern "C" fn pdf_font_make_uniqueTag(mut tag: *mut i8) {
 }
 unsafe fn pdf_init_font_struct(mut font: *mut pdf_font) {
     assert!(!font.is_null());
-    (*font).ident = 0 as *mut i8;
-    (*font).map_name = 0 as *mut i8;
+    (*font).ident = ptr::null_mut();
+    (*font).map_name = ptr::null_mut();
     (*font).subtype = -1i32;
     (*font).font_id = -1i32;
-    (*font).fontname = 0 as *mut i8;
+    (*font).fontname = ptr::null_mut();
     memset((*font).uniqueID.as_mut_ptr() as *mut libc::c_void, 0i32, 7);
     (*font).index = 0i32;
     (*font).encoding_id = -1i32;
-    (*font).reference = 0 as *mut pdf_obj;
-    (*font).resource = 0 as *mut pdf_obj;
-    (*font).descriptor = 0 as *mut pdf_obj;
+    (*font).reference = ptr::null_mut();
+    (*font).resource = ptr::null_mut();
+    (*font).descriptor = ptr::null_mut();
     (*font).point_size = 0i32 as f64;
     (*font).design_size = 0i32 as f64;
-    (*font).usedchars = 0 as *mut i8;
+    (*font).usedchars = ptr::null_mut();
     (*font).flags = 0i32;
 }
 unsafe fn pdf_flush_font(mut font: *mut pdf_font) {
@@ -268,9 +269,9 @@ unsafe fn pdf_flush_font(mut font: *mut pdf_font) {
     pdf_release_obj((*font).resource);
     pdf_release_obj((*font).descriptor);
     pdf_release_obj((*font).reference);
-    (*font).reference = 0 as *mut pdf_obj;
-    (*font).resource = 0 as *mut pdf_obj;
-    (*font).descriptor = 0 as *mut pdf_obj;
+    (*font).reference = ptr::null_mut();
+    (*font).resource = ptr::null_mut();
+    (*font).descriptor = ptr::null_mut();
 }
 unsafe fn pdf_clean_font_struct(mut font: *mut pdf_font) {
     if !font.is_null() {
@@ -287,10 +288,10 @@ unsafe fn pdf_clean_font_struct(mut font: *mut pdf_font) {
         if !(*font).descriptor.is_null() {
             panic!("pdf_font>> Object not flushed.");
         }
-        (*font).ident = 0 as *mut i8;
-        (*font).map_name = 0 as *mut i8;
-        (*font).fontname = 0 as *mut i8;
-        (*font).usedchars = 0 as *mut i8
+        (*font).ident = ptr::null_mut();
+        (*font).map_name = ptr::null_mut();
+        (*font).fontname = ptr::null_mut();
+        (*font).usedchars = ptr::null_mut()
     };
 }
 static mut font_cache: C2RustUnnamed_0 = C2RustUnnamed_0 {
@@ -513,7 +514,7 @@ pub unsafe extern "C" fn pdf_close_fonts() {
             &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
         if (*font_0).encoding_id >= 0i32 && (*font_0).subtype != 4i32 {
             let mut enc_obj: *mut pdf_obj = pdf_get_encoding_obj((*font_0).encoding_id);
-            let mut tounicode: *mut pdf_obj = 0 as *mut pdf_obj;
+            let mut tounicode: *mut pdf_obj = ptr::null_mut();
             /* Predefined encodings (and those simplified to them) are embedded
             as direct objects, but this is purely a matter of taste. */
             if !enc_obj.is_null() {

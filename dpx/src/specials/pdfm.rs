@@ -200,7 +200,7 @@ unsafe fn spc_handler_pdfm__init(mut dp: *mut libc::c_void) -> i32 {
         "T",
         "TM",
     ];
-    (*sd).annot_dict = 0 as *mut pdf_obj;
+    (*sd).annot_dict = ptr::null_mut();
     (*sd).lowest_level = 255i32;
     (*sd).resourcemap =
         new((1_u64).wrapping_mul(::std::mem::size_of::<ht_table>() as u64) as u32) as *mut ht_table;
@@ -221,14 +221,14 @@ unsafe fn spc_handler_pdfm__clean(mut dp: *mut libc::c_void) -> i32 {
         pdf_release_obj((*sd).annot_dict);
     }
     (*sd).lowest_level = 255i32;
-    (*sd).annot_dict = 0 as *mut pdf_obj;
+    (*sd).annot_dict = ptr::null_mut();
     if !(*sd).resourcemap.is_null() {
         ht_clear_table((*sd).resourcemap);
         free((*sd).resourcemap as *mut libc::c_void);
     }
-    (*sd).resourcemap = 0 as *mut ht_table;
+    (*sd).resourcemap = ptr::null_mut();
     pdf_release_obj((*sd).cd.taintkeys);
-    (*sd).cd.taintkeys = 0 as *mut pdf_obj;
+    (*sd).cd.taintkeys = ptr::null_mut();
     0i32
 }
 #[no_mangle]
@@ -340,7 +340,7 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
         return -1i32;
     }
     (*ap).cur.skip_white();
-    let obj2 = (*ap).cur.parse_pdf_object(0 as *mut pdf_file);
+    let obj2 = (*ap).cur.parse_pdf_object(ptr::null_mut());
     if obj2.is_none() {
         spc_warn!(
             spe,
@@ -400,7 +400,7 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
             pdf_add_array(&mut *obj1, pdf_link_obj(obj2));
             while !(*ap).cur.is_empty() {
                 if let Some(mut obj3) =
-                    (*ap).cur.parse_pdf_object(0 as *mut pdf_file) {
+                    (*ap).cur.parse_pdf_object(ptr::null_mut()) {
                     pdf_add_array(&mut *obj1, obj3);
                     (*ap).cur.skip_white();
                 } else {
@@ -618,13 +618,13 @@ impl ParsePdfDictU for &[u8] {
     fn parse_pdf_dict_with_tounicode(&mut self, cd: *mut tounicode) -> Option<*mut pdf_obj> {
         /* disable this test for XDV files, as we do UTF8 reencoding with no cmap */
         if unsafe { is_xdv == 0 && (*cd).cmap_id < 0i32 } {
-            return self.parse_pdf_dict(0 as *mut pdf_file);
+            return self.parse_pdf_dict(ptr::null_mut());
         }
         /* :( */
         let dict = if unsafe { !cd.is_null() && (*cd).unescape_backslash != 0 } {
             self.parse_pdf_tainted_dict()
         } else {
-            self.parse_pdf_dict(0 as *mut pdf_file)
+            self.parse_pdf_dict(ptr::null_mut())
         };
         if let Some(d) = dict {
             unsafe { pdf_foreach_dict(
@@ -718,11 +718,11 @@ unsafe fn spc_handler_pdfm_bann(mut spe: *mut spc_env, mut args: *mut spc_arg) -
         if !(*(*sd).annot_dict).is_dict() {
             spc_warn!(spe, "Invalid type: not a dictionary object.");
             pdf_release_obj((*sd).annot_dict);
-            (*sd).annot_dict = 0 as *mut pdf_obj;
+            (*sd).annot_dict = ptr::null_mut();
             return -1i32;
         }
     } else {
-        (*sd).annot_dict = 0 as *mut pdf_obj;
+        (*sd).annot_dict = ptr::null_mut();
         spc_warn!(spe, "Ignoring annotation with invalid dictionary.");
         return -1i32;
     }
@@ -736,7 +736,7 @@ unsafe fn spc_handler_pdfm_eann(mut spe: *mut spc_env, mut _args: *mut spc_arg) 
     }
     let error = spc_end_annot(spe);
     pdf_release_obj((*sd).annot_dict);
-    (*sd).annot_dict = 0 as *mut pdf_obj;
+    (*sd).annot_dict = ptr::null_mut();
     error
 }
 /* Color:.... */
@@ -834,7 +834,7 @@ unsafe fn spc_handler_pdfm_outline(mut spe: *mut spc_env, mut args: *mut spc_arg
         (*args).cur = &(*args).cur[1..];
     }
     (*args).cur.skip_white();
-    let mut level = if let Some(tmp) = (*args).cur.parse_pdf_object(0 as *mut pdf_file) {
+    let mut level = if let Some(tmp) = (*args).cur.parse_pdf_object(ptr::null_mut()) {
         if !(!tmp.is_null() && (*tmp).is_number()) {
             pdf_release_obj(tmp);
             spc_warn!(spe, "Expecting number for outline item depth.");
@@ -978,7 +978,7 @@ unsafe fn spc_handler_pdfm_image(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     let mut options: load_options = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
-            dict: 0 as *mut pdf_obj,
+            dict: ptr::null_mut(),
         };
     (*args).cur.skip_white();
     if (*args).cur[0] == b'@' {
@@ -1013,7 +1013,7 @@ unsafe fn spc_handler_pdfm_image(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         return -1i32;
     }
     (*args).cur.skip_white();
-    let fspec = (*args).cur.parse_pdf_object(0 as *mut pdf_file);
+    let fspec = (*args).cur.parse_pdf_object(ptr::null_mut());
     if fspec.is_none() {
         spc_warn!(spe, "Missing filename string for pdf:image.");
         return -1i32;
@@ -1026,10 +1026,10 @@ unsafe fn spc_handler_pdfm_image(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     }
     (*args).cur.skip_white();
     if !(*args).cur.is_empty() {
-        options.dict = if let Some(obj) = (*args).cur.parse_pdf_object(0 as *mut pdf_file) {
+        options.dict = if let Some(obj) = (*args).cur.parse_pdf_object(ptr::null_mut()) {
             obj
         } else {
-            0 as *mut pdf_obj
+            ptr::null_mut()
         };
     }
     let xobj_id = pdf_ximage_findresource(pdf_string_value(&*fspec) as *const i8, options);
@@ -1050,7 +1050,7 @@ unsafe fn spc_handler_pdfm_image(mut spe: *mut spc_env, mut args: *mut spc_arg) 
 /* Use do_names instead. */
 unsafe fn spc_handler_pdfm_dest(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     (*args).cur.skip_white();
-    let name = (*args).cur.parse_pdf_object(0 as *mut pdf_file);
+    let name = (*args).cur.parse_pdf_object(ptr::null_mut());
     if name.is_none() {
         spc_warn!(
             spe,
@@ -1067,7 +1067,7 @@ unsafe fn spc_handler_pdfm_dest(mut spe: *mut spc_env, mut args: *mut spc_arg) -
         pdf_release_obj(name);
         return -1i32;
     }
-    if let Some(array) = (*args).cur.parse_pdf_object(0 as *mut pdf_file) {
+    if let Some(array) = (*args).cur.parse_pdf_object(ptr::null_mut()) {
         if !(*array).is_array() {
             spc_warn!(spe, "Destination not specified as an array object!");
             pdf_release_obj(name);
@@ -1089,7 +1089,7 @@ unsafe fn spc_handler_pdfm_dest(mut spe: *mut spc_env, mut args: *mut spc_arg) -
     0i32
 }
 unsafe fn spc_handler_pdfm_names(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
-    let category = (*args).cur.parse_pdf_object(0 as *mut pdf_file);
+    let category = (*args).cur.parse_pdf_object(ptr::null_mut());
     if category.is_none() {
         spc_warn!(spe, "PDF name expected but not found.");
         return -1i32;
@@ -1100,7 +1100,7 @@ unsafe fn spc_handler_pdfm_names(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         pdf_release_obj(category);
         return -1i32;
     }
-    if let Some(tmp) = (*args).cur.parse_pdf_object(0 as *mut pdf_file) {
+    if let Some(tmp) = (*args).cur.parse_pdf_object(ptr::null_mut()) {
         if (*tmp).is_array() {
             let size = pdf_array_length(&*tmp) as i32;
             if size % 2i32 != 0i32 {
@@ -1135,7 +1135,7 @@ unsafe fn spc_handler_pdfm_names(mut spe: *mut spc_env, mut args: *mut spc_arg) 
             pdf_release_obj(tmp);
         } else if (*tmp).is_string() {
             let key = tmp;
-            if let Some(value) = (*args).cur.parse_pdf_object(0 as *mut pdf_file) {
+            if let Some(value) = (*args).cur.parse_pdf_object(ptr::null_mut()) {
                 if pdf_doc_add_names(
                     pdf_name_value(&*category).as_ptr() as *mut i8,
                     pdf_string_value(&*key),
@@ -1212,7 +1212,7 @@ unsafe fn spc_handler_pdfm_close(mut _spe: *mut spc_env, mut args: *mut spc_arg)
 unsafe fn spc_handler_pdfm_object(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     (*args).cur.skip_white();
     if let Some(ident) = (*args).cur.parse_opt_ident() {
-        if let Some(object) = (*args).cur.parse_pdf_object(0 as *mut pdf_file) {
+        if let Some(object) = (*args).cur.parse_pdf_object(ptr::null_mut()) {
             spc_push_object(ident.as_ptr(), object)
         } else {
             spc_warn!(
@@ -1334,7 +1334,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
         return -1i32;
     }
     (*args).cur.skip_white();
-    let tmp = (*args).cur.parse_pdf_object(0 as *mut pdf_file);
+    let tmp = (*args).cur.parse_pdf_object(ptr::null_mut());
     if tmp.is_none() {
         spc_warn!(spe, "Missing input string for pdf:(f)stream.");
         return -1i32;
@@ -1353,7 +1353,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                 pdf_release_obj(tmp);
                 return -1i32;
             }
-            let fullname = 0 as *mut i8;
+            let fullname = ptr::null_mut::<i8>();
             if fullname.is_null() {
                 spc_warn!(
                     spe,
@@ -1415,7 +1415,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
     (*args).cur.skip_white();
     if (*args).cur[0] == b'<' {
         let stream_dict = (*fstream).as_stream_mut().get_dict_mut();
-        if let Some(tmp) = (*args).cur.parse_pdf_dict(0 as *mut pdf_file) {
+        if let Some(tmp) = (*args).cur.parse_pdf_dict(ptr::null_mut()) {
             if (*tmp).as_dict().has("Length") {
                 pdf_remove_dict(&mut *tmp, "Length");
             } else if (*tmp).as_dict().has("Filter") {
@@ -1508,22 +1508,22 @@ unsafe fn spc_handler_pdfm_bform(mut spe: *mut spc_env, mut args: *mut spc_arg) 
  * Please use pdf:put @resources (before pdf:exobj) instead.
  */
 unsafe fn spc_handler_pdfm_eform(mut _spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
-    let mut attrib: *mut pdf_obj = 0 as *mut pdf_obj;
+    let mut attrib: *mut pdf_obj = ptr::null_mut();
     (*args).cur.skip_white();
     let attrib = if !(*args).cur.is_empty() {
-        if let Some(attrib) = (*args).cur.parse_pdf_dict(0 as *mut pdf_file) {
+        if let Some(attrib) = (*args).cur.parse_pdf_dict(ptr::null_mut()) {
             if !(*attrib).is_dict() {
                 pdf_release_obj(attrib);
-                0 as *mut pdf_obj
+                ptr::null_mut()
             } else {
                 attrib
             }
         } else {
             pdf_release_obj(attrib);
-            0 as *mut pdf_obj
+            ptr::null_mut()
         }
     } else {
-        0 as *mut pdf_obj
+        ptr::null_mut()
     };
     pdf_doc_end_grabbing(attrib);
     0i32
@@ -1556,7 +1556,7 @@ unsafe fn spc_handler_pdfm_uxobj(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     let mut options: load_options = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
-            dict: 0 as *mut pdf_obj,
+            dict: ptr::null_mut(),
         };
     (*args).cur.skip_white();
     if let Some(ident) = (*args).cur.parse_opt_ident() {

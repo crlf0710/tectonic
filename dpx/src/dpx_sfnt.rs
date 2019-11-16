@@ -41,6 +41,7 @@ use crate::{ttstub_input_read};
 use libc::{free, memcpy};
 
 use std::io::{Seek, SeekFrom};
+use std::ptr;
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
@@ -90,7 +91,7 @@ pub unsafe extern "C" fn sfnt_open(mut handle: InputHandleWrapper) -> *mut sfnt 
     }
     handle.seek(SeekFrom::Start(0)).unwrap();
     (*sfont).handle = handle;
-    (*sfont).directory = 0 as *mut sfnt_table_directory;
+    (*sfont).directory = ptr::null_mut();
     (*sfont).offset = 0u64 as u32;
     sfont
 }
@@ -121,7 +122,7 @@ pub unsafe extern "C" fn dfont_open(mut handle: InputHandleWrapper, mut index: i
     if i as i32 > tags_num as i32 {
         free(sfont as *mut libc::c_void);
         ttstub_input_close(handle);
-        return 0 as *mut sfnt;
+        return ptr::null_mut();
     }
     handle.seek(SeekFrom::Start(types_pos as u64)).unwrap();
     if index > types_num as i32 {
@@ -139,7 +140,7 @@ pub unsafe extern "C" fn dfont_open(mut handle: InputHandleWrapper, mut index: i
     handle.seek(SeekFrom::Start(0)).unwrap();
     (*sfont).handle = handle;
     (*sfont).type_0 = 1i32 << 8i32;
-    (*sfont).directory = 0 as *mut sfnt_table_directory;
+    (*sfont).directory = ptr::null_mut();
     (*sfont).offset = (res_pos as u64 & 0xffffff)
         .wrapping_add(rdata_pos as u64)
         .wrapping_add(4i32 as u64) as u32;
@@ -316,7 +317,7 @@ pub unsafe extern "C" fn sfnt_read_table_directory(mut sfont: *mut sfnt, mut off
             tt_get_unsigned_quad(handle).wrapping_add((*sfont).offset);
         (*(*td).tables.offset(i as isize)).length = tt_get_unsigned_quad(handle);
         let ref mut fresh1 = (*(*td).tables.offset(i as isize)).data;
-        *fresh1 = 0 as *mut i8;
+        *fresh1 = ptr::null_mut();
         //fprintf(stderr, "[%4s:%x]", td->tables[i].tag, td->tables[i].offset);
         *(*td).flags.offset(i as isize) = 0_i8;
     }

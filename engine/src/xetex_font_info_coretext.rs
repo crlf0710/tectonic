@@ -253,7 +253,7 @@ authorization from the copyright holders.
  */
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontInst_Mac_dtor(mut self_0: *mut XeTeXFontInst) {
-    let mut real_self: *mut XeTeXFontInst_Mac = self_0 as *mut XeTeXFontInst_Mac;
+    let mut real_self: *mut XeTeXFontInst_Mac = self_ptr::null_mut();
     if !(*real_self).m_descriptor.is_null() {
         CFRelease((*real_self).m_descriptor as CFTypeRef);
     }
@@ -301,7 +301,7 @@ pub unsafe extern "C" fn XeTeXFontInst_Mac_initialize(
         ptr::null(),
     );
     if !(*self_0).m_fontRef.is_null() {
-        let mut pathname: *mut libc::c_char = 0 as *mut libc::c_char;
+        let mut pathname: *mut libc::c_char = ptr::null_mut();
         let mut index: uint32_t = 0;
         pathname = getFileNameFromCTFont((*self_0).m_fontRef, &mut index);
         XeTeXFontInst_initialize(

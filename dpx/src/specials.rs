@@ -224,7 +224,7 @@ pub unsafe fn spc_lookup_reference(mut key: &CString) -> Option<*mut pdf_obj> {
 pub unsafe extern "C" fn spc_lookup_object(mut key: *const i8) -> *mut pdf_obj {
     assert!(!NAMED_OBJECTS.is_null());
     if key.is_null() {
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     let mut k = 0i32;
     while !_RKEYS[k as usize].is_null() && strcmp(key, _RKEYS[k as usize]) != 0 {
