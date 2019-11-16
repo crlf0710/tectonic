@@ -34,6 +34,7 @@ use super::dpx_sfnt::{
 use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_agl::agl_get_unicodes;
 use super::dpx_cff::{
@@ -312,7 +313,7 @@ unsafe fn read_cmap4(mut sfont: *mut sfnt, mut len: u32) -> *mut cmap4 {
         .wrapping_sub((8i32 * segCount as i32) as u32)
         .wrapping_div(2_u32) as u16;
     if n as i32 == 0i32 {
-        (*map).glyphIndexArray = 0 as *mut u16
+        (*map).glyphIndexArray = ptr::null_mut()
     } else {
         (*map).glyphIndexArray = new((n as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u16>() as u64)
@@ -472,11 +473,11 @@ pub unsafe extern "C" fn tt_cmap_read(
         }
     }
     if i as i32 == n_subtabs as i32 {
-        return 0 as *mut tt_cmap;
+        return ptr::null_mut();
     }
     let mut cmap =
         new((1_u64).wrapping_mul(::std::mem::size_of::<tt_cmap>() as u64) as u32) as *mut tt_cmap;
-    (*cmap).map = 0 as *mut libc::c_void;
+    (*cmap).map = ptr::null_mut();
     (*cmap).platform = platform;
     (*cmap).encoding = encoding;
     handle.seek(SeekFrom::Start(offset as u64)).unwrap();
@@ -492,7 +493,7 @@ pub unsafe extern "C" fn tt_cmap_read(
         /* reverved - 0 */
         warn!("Unrecognized cmap subtable format.");
         tt_cmap_release(cmap);
-        return 0 as *mut tt_cmap;
+        return ptr::null_mut();
     } else {
         length = tt_get_unsigned_quad(handle);
         (*cmap).language = tt_get_unsigned_quad(handle)
@@ -509,12 +510,12 @@ pub unsafe extern "C" fn tt_cmap_read(
         _ => {
             warn!("Unrecognized OpenType/TrueType cmap format.");
             tt_cmap_release(cmap);
-            return 0 as *mut tt_cmap;
+            return ptr::null_mut();
         }
     }
     if (*cmap).map.is_null() {
         tt_cmap_release(cmap);
-        cmap = 0 as *mut tt_cmap
+        cmap = ptr::null_mut()
     }
     cmap
 }
@@ -715,9 +716,9 @@ unsafe fn handle_CIDFont(
     assert!(!csi.is_null());
     let offset = sfnt_find_table_pos(sfont, b"CFF ") as i32;
     if offset == 0i32 {
-        (*csi).registry = 0 as *mut i8;
-        (*csi).ordering = 0 as *mut i8;
-        *GIDToCIDMap = 0 as *mut u8;
+        (*csi).registry = ptr::null_mut();
+        (*csi).ordering = ptr::null_mut();
+        *GIDToCIDMap = ptr::null_mut();
         return 0i32;
     }
     let maxp = tt_read_maxp_table(sfont);
@@ -733,9 +734,9 @@ unsafe fn handle_CIDFont(
     let cffont = &mut *cffont;
     if cffont.flag & 1i32 << 0i32 == 0 {
         cff_close(cffont);
-        (*csi).registry = 0 as *mut i8;
-        (*csi).ordering = 0 as *mut i8;
-        *GIDToCIDMap = 0 as *mut u8;
+        (*csi).registry = ptr::null_mut();
+        (*csi).ordering = ptr::null_mut();
+        *GIDToCIDMap = ptr::null_mut();
         return 0i32;
     }
     if cff_dict_known(cffont.topdict, b"ROS\x00" as *const u8 as *const i8) == 0 {
@@ -840,7 +841,7 @@ unsafe fn sfnt_get_glyphname(
     cffont: Option<&cff_font>,
     mut gid: u16,
 ) -> *mut i8 {
-    let mut name: *mut i8 = 0 as *mut i8;
+    let mut name: *mut i8 = ptr::null_mut();
     if !post.is_null() {
         name = tt_get_glyphname(post, gid)
     }
@@ -863,7 +864,7 @@ unsafe fn handle_subst_glyphs(
     mut sfont: *mut sfnt,
     cffont: Option<&cff_font>,
 ) -> u16 {
-    let mut post: *mut tt_post_table = 0 as *mut tt_post_table;
+    let mut post: *mut tt_post_table = ptr::null_mut();
     if cmap_add.is_null() {
         post = tt_read_post_table(sfont)
     }
@@ -1207,7 +1208,7 @@ unsafe fn create_ToUnicode_cmap(
             ) as i32) as u16
     }
     let stream = if (count as i32) < 1i32 {
-        0 as *mut pdf_obj
+        ptr::null_mut()
     } else {
         CMap_create_stream(cmap)
     };
@@ -1246,8 +1247,8 @@ pub unsafe extern "C" fn otf_create_ToUnicode_stream(
     mut used_chars: *const i8,
     mut cmap_id: i32,
 ) -> *mut pdf_obj {
-    let mut cmap_obj: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut ttcmap: *mut tt_cmap = 0 as *mut tt_cmap;
+    let mut cmap_obj: *mut pdf_obj = ptr::null_mut();
+    let mut ttcmap: *mut tt_cmap = ptr::null_mut();
     let offset;
     /* replace slash in map name with dash to make the output cmap name valid,
      * happens when XeTeX embeds full font path
@@ -1294,7 +1295,7 @@ pub unsafe extern "C" fn otf_create_ToUnicode_stream(
         dfont_open(handle, ttc_index)
     } else {
         free(cmap_name as *mut libc::c_void);
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     };
     if sfont.is_null() {
         panic!(
@@ -1318,7 +1319,7 @@ pub unsafe extern "C" fn otf_create_ToUnicode_stream(
     let mut code_to_cid_cmap = CMap_cache_get(cmap_id);
     let cmap_type = CMap_get_type(code_to_cid_cmap);
     if cmap_type != 1i32 {
-        code_to_cid_cmap = 0 as *mut CMap
+        code_to_cid_cmap = ptr::null_mut()
     }
     let cmap_add_name = new((strlen(font_name)
         .wrapping_add(strlen(b",000-UCS32-Add\x00" as *const u8 as *const i8))
@@ -1333,7 +1334,7 @@ pub unsafe extern "C" fn otf_create_ToUnicode_stream(
     let cmap_add_id = CMap_cache_find(cmap_add_name);
     free(cmap_add_name as *mut libc::c_void);
     let cmap_add = if cmap_add_id < 0i32 {
-        0 as *mut CMap
+        ptr::null_mut()
     } else {
         CMap_cache_get(cmap_add_id)
     };
@@ -1374,7 +1375,7 @@ pub unsafe extern "C" fn otf_create_ToUnicode_stream(
         );
         pdf_get_resource_reference(res_id)
     } else {
-        0 as *mut pdf_obj
+        ptr::null_mut()
     };
     free(cmap_name as *mut libc::c_void);
     sfnt_close(sfont);
@@ -1447,17 +1448,17 @@ pub unsafe extern "C" fn otf_load_Unicode_CMap(
     mut wmode: i32,
 ) -> i32 {
     /* Additional ToUnicode mappings required by OTL GSUB substitusion */
-    let mut tounicode_add: *mut CMap = 0 as *mut CMap;
+    let mut tounicode_add: *mut CMap = ptr::null_mut();
     let mut offset;
     let cmap_name;
     let mut gsub_vert;
     let gsub_list;
     let mut csi: CIDSysInfo = CIDSysInfo {
-            registry: 0 as *mut i8,
-            ordering: 0 as *mut i8,
+            registry: ptr::null_mut(),
+            ordering: ptr::null_mut(),
             supplement: 0i32,
         };
-    let mut GIDToCIDMap: *mut u8 = 0 as *mut u8;
+    let mut GIDToCIDMap: *mut u8 = ptr::null_mut();
     if map_name.is_null() {
         return -1i32;
     }
@@ -1635,7 +1636,7 @@ pub unsafe extern "C" fn otf_load_Unicode_CMap(
             if otl_gsub_add_feat(gsub_vert, b"*", b"*", b"vert", sfont) < 0i32 {
                 warn!("GSUB feature vrt2/vert not found.");
                 otl_gsub_release(gsub_vert);
-                gsub_vert = 0 as *mut otl_gsub
+                gsub_vert = ptr::null_mut()
             } else {
                 otl_gsub_select(gsub_vert, b"*", b"*", b"vert");
             }
@@ -1643,7 +1644,7 @@ pub unsafe extern "C" fn otf_load_Unicode_CMap(
             otl_gsub_select(gsub_vert, b"*", b"*", b"vrt2");
         }
     } else {
-        gsub_vert = 0 as *mut otl_gsub
+        gsub_vert = ptr::null_mut()
     }
     if !otl_tags.is_null() {
         gsub_list = otl_gsub_new();
@@ -1656,7 +1657,7 @@ pub unsafe extern "C" fn otf_load_Unicode_CMap(
             otl_gsub_set_chain(gsub_list, otl_tags);
         }
     } else {
-        gsub_list = 0 as *mut otl_gsub
+        gsub_list = ptr::null_mut()
     }
     let cmap_id = load_base_CMap(
         cmap_name,
@@ -1665,7 +1666,7 @@ pub unsafe extern "C" fn otf_load_Unicode_CMap(
         if is_cidfont != 0 {
             &mut csi
         } else {
-            0 as *mut CIDSysInfo
+            ptr::null_mut()
         },
         GIDToCIDMap,
         gsub_vert,

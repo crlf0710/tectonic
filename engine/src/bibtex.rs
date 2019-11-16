@@ -2051,7 +2051,7 @@ unsafe extern "C" fn skip_illegal_stuff_after_token_print() {
     skip_token_print();
 }
 unsafe extern "C" fn scan_fn_def(mut fn_hash_loc: hash_loc) {
-    let mut singl_function: *mut hash_ptr2 = 0 as *mut hash_ptr2;
+    let mut singl_function: *mut hash_ptr2 = ptr::null_mut();
     let mut single_fn_space: i32 = 0;
     let mut single_ptr: fn_def_loc = 0;
     let mut copy_ptr: fn_def_loc = 0;
@@ -7340,8 +7340,8 @@ pub unsafe extern "C" fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory 
         return TTHistory::FATAL_ERROR;
     }
     setup_params();
-    entry_ints = 0 as *mut i32;
-    entry_strs = 0 as *mut u8;
+    entry_ints = ptr::null_mut();
+    entry_strs = ptr::null_mut();
     bib_file = Vec::with_capacity(MAX_BIB_FILES + 1);
     bib_list = xmalloc(
         ((MAX_BIB_FILES + 1) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),

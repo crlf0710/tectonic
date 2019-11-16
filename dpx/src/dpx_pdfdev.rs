@@ -30,6 +30,7 @@
 use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_cff::cff_charsets_lookup_cid;
 use super::dpx_cmap::{CMap_cache_get, CMap_decode};
@@ -1223,7 +1224,7 @@ pub unsafe extern "C" fn pdf_dev_set_string(
         dev_set_font(font_id);
     }
     let mut font = if text_state.font_id < 0i32 {
-        0 as *mut dev_font
+        ptr::null_mut()
     } else {
         &mut *dev_fonts.offset(text_state.font_id as isize) as *mut dev_font
     };
@@ -1420,10 +1421,10 @@ pub unsafe extern "C" fn pdf_init_device(
     pdf_dev_init_gstates();
     max_dev_fonts = 0i32;
     num_dev_fonts = max_dev_fonts;
-    dev_fonts = 0 as *mut dev_font;
+    dev_fonts = ptr::null_mut();
     max_dev_coords = 0i32;
     num_dev_coords = max_dev_coords;
-    dev_coords = 0 as *mut Coord;
+    dev_coords = ptr::null_mut();
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_close_device() {
@@ -1432,11 +1433,11 @@ pub unsafe extern "C" fn pdf_close_device() {
             free((*dev_fonts.offset(i as isize)).tex_name as *mut libc::c_void);
             pdf_release_obj((*dev_fonts.offset(i as isize)).resource);
             let ref mut fresh43 = (*dev_fonts.offset(i as isize)).tex_name;
-            *fresh43 = 0 as *mut i8;
+            *fresh43 = ptr::null_mut();
             let ref mut fresh44 = (*dev_fonts.offset(i as isize)).resource;
-            *fresh44 = 0 as *mut pdf_obj;
+            *fresh44 = ptr::null_mut();
             let ref mut fresh45 = (*dev_fonts.offset(i as isize)).cff_charsets;
-            *fresh45 = 0 as *mut cff_charsets;
+            *fresh45 = ptr::null_mut();
         }
         free(dev_fonts as *mut libc::c_void);
     }
@@ -1618,8 +1619,8 @@ pub unsafe extern "C" fn pdf_dev_locate_font(mut font_name: *const i8, mut ptsiz
     }
     (*font).wmode = pdf_get_font_wmode((*font).font_id);
     (*font).enc_id = pdf_get_font_encoding((*font).font_id);
-    (*font).resource = 0 as *mut pdf_obj;
-    (*font).used_chars = 0 as *mut i8;
+    (*font).resource = ptr::null_mut();
+    (*font).used_chars = ptr::null_mut();
     (*font).extend = 1.0f64;
     (*font).slant = 0.0f64;
     (*font).bold = 0.0f64;
@@ -1679,20 +1680,20 @@ unsafe fn dev_sprint_line(
     len += 1;
     buf[len] = b' ';
     len += 1;
-    len += dev_sprint_bp(&mut buf[len..], p0_x, 0 as *mut spt_t);
+    len += dev_sprint_bp(&mut buf[len..], p0_x, ptr::null_mut());
     buf[len] = b' ';
     len += 1;
-    len += dev_sprint_bp(&mut buf[len..], p0_y, 0 as *mut spt_t);
+    len += dev_sprint_bp(&mut buf[len..], p0_y, ptr::null_mut());
     buf[len] = b' ';
     len += 1;
     buf[len] = b'm';
     len += 1;
     buf[len] = b' ';
     len += 1;
-    len += dev_sprint_bp(&mut buf[len..], p1_x, 0 as *mut spt_t);
+    len += dev_sprint_bp(&mut buf[len..], p1_x, ptr::null_mut());
     buf[len] = b' ';
     len += 1;
-    len += dev_sprint_bp(&mut buf[len..], p1_y, 0 as *mut spt_t);
+    len += dev_sprint_bp(&mut buf[len..], p1_y, ptr::null_mut());
     buf[len] = b' ';
     len += 1;
     buf[len] = b'l';
@@ -1847,7 +1848,7 @@ pub unsafe extern "C" fn pdf_dev_get_dirmode() -> i32 {
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_set_dirmode(mut text_dir: i32) {
     let font = if text_state.font_id < 0i32 {
-        0 as *mut dev_font
+        ptr::null_mut()
     } else {
         &mut *dev_fonts.offset(text_state.font_id as isize) as *mut dev_font
     };
@@ -1870,7 +1871,7 @@ pub unsafe extern "C" fn pdf_dev_set_dirmode(mut text_dir: i32) {
 }
 unsafe fn dev_set_param_autorotate(mut auto_rotate: i32) {
     let font = if text_state.font_id < 0i32 {
-        0 as *mut dev_font
+        ptr::null_mut()
     } else {
         &mut *dev_fonts.offset(text_state.font_id as isize) as *mut dev_font
     };
@@ -2164,7 +2165,7 @@ pub unsafe extern "C" fn pdf_dev_end_actualtext() {
 /* user_bbox */
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_reset_global_state() {
-    dev_fonts = 0 as *mut dev_font;
+    dev_fonts = ptr::null_mut();
     num_dev_fonts = 0i32;
     max_dev_fonts = 0i32;
     num_phys_fonts = 0i32;

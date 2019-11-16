@@ -36,6 +36,7 @@ use crate::TTInputFormat;
 use crate::{ttstub_input_close, ttstub_input_open};
 use libc::{strlen};
 use std::ffi::CStr;
+use std::ptr;
 
 use super::{spc_arg, spc_env};
 
@@ -49,7 +50,7 @@ unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg)
     let mut options: load_options = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
-            dict: 0 as *mut pdf_obj,
+            dict: ptr::null_mut(),
         };
     let mut filename: [i8; 256] = [0; 256];
     let mut buf: [u8; 512] = [0; 512];

@@ -663,7 +663,7 @@ unsafe fn getGlyphWidthFromCTFont(mut font: CTFontRef, mut gid: UInt16) -> libc:
         font,
         kCTFontOrientationHorizontal,
         &mut gid as *mut UInt16 as *const CGGlyph,
-        0 as *mut CGSize,
+        ptr::null_mut(),
         1i32 as CFIndex,
     ));
 }
@@ -822,7 +822,7 @@ pub unsafe fn GetGlyphNameFromCTFont(
     static mut buffer: [libc::c_char; 256] = [0; 256];
     buffer[0] = 0i32 as libc::c_char;
     *len = 0i32;
-    cgfont = CTFontCopyGraphicsFont(ctFontRef, 0 as *mut CTFontDescriptorRef);
+    cgfont = CTFontCopyGraphicsFont(ctFontRef, ptr::null_mut());
     if !cgfont.is_null() && (gid as usize) < CGFontGetNumberOfGlyphs(cgfont) {
         let mut glyphname: CFStringRef = CGFontCopyGlyphNameForGlyph(cgfont, gid);
         if !glyphname.is_null() {
@@ -877,7 +877,7 @@ pub unsafe extern "C" fn getFileNameFromCTFont(
     mut index: *mut u32,
 ) -> *mut i8 {
     let mut ix: i32 = -1;
-    let mut ret: *mut libc::c_char = 0 as *mut libc::c_char;
+    let mut ret: *mut libc::c_char = ptr::null_mut();
     let urlRef = CTFontCopyAttribute(ctFontRef, kCTFontURLAttribute) as CFURLRef;
     if !urlRef.is_null() {
         let url = CFURL::wrap_under_create_rule(urlRef);
@@ -1106,7 +1106,7 @@ pub unsafe fn loadAATfont(
     ctSize = TeXtoPSPoints(Fix2D(scaled_size));
     font = CTFontCreateWithFontDescriptor(descriptor, ctSize, ptr::null());
     if font.is_null() {
-        return 0 as *mut libc::c_void;
+        return ptr::null_mut();
     }
     stringAttributes = CFDictionaryCreateMutable(
         0 as CFAllocatorRef,
@@ -1206,7 +1206,7 @@ pub unsafe fn loadAATfont(
                         );
                         if !selector.is_null()
                             && comparison_was(
-                                CFNumberCompare(selector, zero, 0 as *mut libc::c_void),
+                                CFNumberCompare(selector, zero, ptr::null_mut()),
                                 CFComparisonResult::GreaterThan,
                             )
                         {

@@ -30,6 +30,8 @@
 use crate::warn;
 use libc::memmove;
 
+use std::ptr;
+
 use super::dpx_cff::cff_index;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -785,7 +787,7 @@ unsafe fn do_charstring(
     mut gsubr_idx: *mut cff_index,
     mut subr_idx: *mut cff_index,
 ) {
-    let mut subr: *mut u8 = 0 as *mut u8;
+    let mut subr: *mut u8 = ptr::null_mut();
     let mut len: i32 = 0;
     if nest > 10i32 {
         panic!(

@@ -29,6 +29,7 @@
 
 use crate::DisplayExt;
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_dvipdfmx::always_embed;
 use super::dpx_numbers::tt_get_unsigned_quad;
@@ -94,7 +95,7 @@ pub unsafe extern "C" fn tt_get_fontdesc(
     if post.is_null() {
         free(os2 as *mut libc::c_void);
         free(head as *mut libc::c_void);
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     let descriptor = pdf_new_dict();
     pdf_add_dict(&mut *descriptor, "Type", pdf_new_name("FontDescriptor"));

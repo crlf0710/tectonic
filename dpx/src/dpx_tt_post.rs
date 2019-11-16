@@ -38,6 +38,8 @@ use super::dpx_mem::{new, xstrdup};
 use crate::ttstub_input_read;
 use libc::free;
 
+use std::ptr;
+
 pub type __ssize_t = i64;
 pub type size_t = u64;
 pub type Fixed = u32;
@@ -124,7 +126,7 @@ unsafe fn read_v2_post_names(mut post: *mut tt_post_table, mut sfont: *mut sfnt)
                 *(*(*post).names.offset(i as isize)).offset(len as isize) = 0_i8
             } else {
                 let ref mut fresh1 = *(*post).names.offset(i as isize);
-                *fresh1 = 0 as *mut i8
+                *fresh1 = ptr::null_mut()
             }
         }
     }
@@ -181,7 +183,7 @@ pub unsafe extern "C" fn tt_read_post_table(mut sfont: *mut sfnt) -> *mut tt_pos
         if read_v2_post_names(post, sfont) < 0i32 {
             warn!("Invalid version 2.0 \'post\' table");
             tt_release_post_table(post);
-            post = 0 as *mut tt_post_table
+            post = ptr::null_mut()
         }
     } else if !((*post).Version as u64 == 0x30000 || (*post).Version as u64 == 0x40000) {
         warn!(
@@ -213,7 +215,7 @@ pub unsafe extern "C" fn tt_get_glyphname(mut post: *mut tt_post_table, mut gid:
     {
         return xstrdup(*(*post).glyphNamePtr.offset(gid as isize));
     }
-    0 as *mut i8
+    ptr::null_mut()
 }
 /* Glyph names (pointer to C string) */
 /* Non-standard glyph names */

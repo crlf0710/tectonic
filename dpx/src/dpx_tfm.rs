@@ -36,6 +36,7 @@ use crate::streq_ptr;
 use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::{CString, CStr};
+use std::ptr;
 
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::tt_skip_bytes;
@@ -139,17 +140,17 @@ pub struct char_map {
  * as directory separators. */
 static mut verbose: i32 = 0i32;
 unsafe fn tfm_font_init(mut tfm: *mut tfm_font) {
-    (*tfm).header = 0 as *mut fixword;
+    (*tfm).header = ptr::null_mut();
     (*tfm).level = 0i32;
     (*tfm).fontdir = 0_u32;
     (*tfm).npc = 0_u32;
     (*tfm).ncw = (*tfm).npc;
     (*tfm).nco = (*tfm).ncw;
-    (*tfm).char_info = 0 as *mut u32;
-    (*tfm).width_index = 0 as *mut u16;
-    (*tfm).height_index = 0 as *mut u8;
-    (*tfm).depth_index = 0 as *mut u8;
-    (*tfm).depth = 0 as *mut fixword;
+    (*tfm).char_info = ptr::null_mut();
+    (*tfm).width_index = ptr::null_mut();
+    (*tfm).height_index = ptr::null_mut();
+    (*tfm).depth_index = ptr::null_mut();
+    (*tfm).depth = ptr::null_mut();
     (*tfm).height = (*tfm).depth;
     (*tfm).width = (*tfm).height;
 }
@@ -172,8 +173,8 @@ unsafe fn release_char_map(mut map: *mut char_map) {
 unsafe fn release_range_map(mut map: *mut range_map) {
     free((*map).coverages as *mut libc::c_void);
     free((*map).indices as *mut libc::c_void);
-    (*map).coverages = 0 as *mut coverage;
-    (*map).indices = 0 as *mut u16;
+    (*map).coverages = ptr::null_mut();
+    (*map).indices = ptr::null_mut();
     free(map as *mut libc::c_void);
 }
 unsafe fn lookup_char(mut map: *const char_map, mut charcode: i32) -> i32 {
@@ -201,17 +202,17 @@ unsafe fn lookup_range(mut map: *const range_map, mut charcode: i32) -> i32 {
     -1i32
 }
 unsafe fn fm_init(mut fm: *mut font_metric) {
-    (*fm).tex_name = 0 as *mut i8;
+    (*fm).tex_name = ptr::null_mut();
     (*fm).firstchar = 0i32;
     (*fm).lastchar = 0i32;
     (*fm).fontdir = 0i32;
-    (*fm).codingscheme = 0 as *mut i8;
+    (*fm).codingscheme = ptr::null_mut();
     (*fm).designsize = 0i32;
-    (*fm).widths = 0 as *mut fixword;
-    (*fm).heights = 0 as *mut fixword;
-    (*fm).depths = 0 as *mut fixword;
+    (*fm).widths = ptr::null_mut();
+    (*fm).heights = ptr::null_mut();
+    (*fm).depths = ptr::null_mut();
     (*fm).charmap.type_0 = 0i32;
-    (*fm).charmap.data = 0 as *mut libc::c_void;
+    (*fm).charmap.data = ptr::null_mut();
     (*fm).source = 0i32;
 }
 unsafe fn fm_clear(mut fm: *mut font_metric) {
@@ -237,7 +238,7 @@ static mut numfms: u32 = 0_u32;
 static mut max_fms: u32 = 0_u32;
 #[no_mangle]
 pub unsafe extern "C" fn tfm_reset_global_state() {
-    fms = 0 as *mut font_metric;
+    fms = ptr::null_mut();
     numfms = 0_u32;
     max_fms = 0_u32;
 }
@@ -381,7 +382,7 @@ unsafe fn sput_bigendian(mut s: *mut i8, mut v: i32, mut n: i32) -> i32 {
 }
 unsafe fn tfm_unpack_header(mut fm: *mut font_metric, mut tfm: *mut tfm_font) {
     if (*tfm).wlenheader < 12_u32 {
-        (*fm).codingscheme = 0 as *mut i8
+        (*fm).codingscheme = ptr::null_mut()
     } else {
         let len = *(*tfm).header.offset(2) >> 24i32;
         if len < 0i32 || len > 39i32 {
@@ -400,7 +401,7 @@ unsafe fn tfm_unpack_header(mut fm: *mut font_metric, mut tfm: *mut tfm_font) {
             }
             *(*fm).codingscheme.offset(len as isize) = '\u{0}' as i32 as i8
         } else {
-            (*fm).codingscheme = 0 as *mut i8
+            (*fm).codingscheme = ptr::null_mut()
         }
     }
     (*fm).designsize = *(*tfm).header.offset(1);
@@ -645,14 +646,14 @@ unsafe fn read_ofm(
         nco: 0,
         ncw: 0,
         npc: 0,
-        header: 0 as *mut fixword,
-        char_info: 0 as *mut u32,
-        width_index: 0 as *mut u16,
-        height_index: 0 as *mut u8,
-        depth_index: 0 as *mut u8,
-        width: 0 as *mut fixword,
-        height: 0 as *mut fixword,
-        depth: 0 as *mut fixword,
+        header: ptr::null_mut(),
+        char_info: ptr::null_mut(),
+        width_index: ptr::null_mut(),
+        height_index: ptr::null_mut(),
+        depth_index: ptr::null_mut(),
+        width: ptr::null_mut(),
+        height: ptr::null_mut(),
+        depth: ptr::null_mut(),
     };
     tfm_font_init(&mut tfm);
     ofm_get_sizes(ofm_handle, ofm_file_size, &mut tfm);
@@ -722,14 +723,14 @@ unsafe fn read_tfm(
         nco: 0,
         ncw: 0,
         npc: 0,
-        header: 0 as *mut fixword,
-        char_info: 0 as *mut u32,
-        width_index: 0 as *mut u16,
-        height_index: 0 as *mut u8,
-        depth_index: 0 as *mut u8,
-        width: 0 as *mut fixword,
-        height: 0 as *mut fixword,
-        depth: 0 as *mut fixword,
+        header: ptr::null_mut(),
+        char_info: ptr::null_mut(),
+        width_index: ptr::null_mut(),
+        height_index: ptr::null_mut(),
+        depth_index: ptr::null_mut(),
+        width: ptr::null_mut(),
+        height: ptr::null_mut(),
+        depth: ptr::null_mut(),
     };
     tfm_font_init(&mut tfm);
     tfm_get_sizes(tfm_handle, tfm_file_size, &mut tfm);
@@ -813,7 +814,7 @@ pub unsafe extern "C" fn tfm_open(mut tfm_name: *const i8, mut must_exist: i32) 
         strcpy(ofm_name, tfm_name);
         strcat(ofm_name, b".ofm\x00" as *const u8 as *const i8);
     } else {
-        ofm_name = 0 as *mut i8
+        ofm_name = ptr::null_mut()
     }
     if !ofm_name.is_null() && {
         tfm_handle = ttstub_input_open(ofm_name, TTInputFormat::OFM, 0i32);

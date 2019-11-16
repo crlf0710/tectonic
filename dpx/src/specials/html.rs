@@ -226,8 +226,8 @@ unsafe fn read_html_tag(
 
 unsafe fn spc_handler_html__init(mut dp: *mut libc::c_void) -> i32 {
     let mut sd: *mut spc_html_ = dp as *mut spc_html_;
-    (*sd).link_dict = 0 as *mut pdf_obj;
-    (*sd).baseurl = 0 as *mut i8;
+    (*sd).link_dict = ptr::null_mut();
+    (*sd).baseurl = ptr::null_mut();
     (*sd).pending_type = -1i32;
     0i32
 }
@@ -240,8 +240,8 @@ unsafe fn spc_handler_html__clean(mut spe: *mut spc_env, mut dp: *mut libc::c_vo
     }
     pdf_release_obj((*sd).link_dict);
     (*sd).pending_type = -1i32;
-    (*sd).baseurl = 0 as *mut i8;
-    (*sd).link_dict = 0 as *mut pdf_obj;
+    (*sd).baseurl = ptr::null_mut();
+    (*sd).link_dict = ptr::null_mut();
     0i32
 }
 
@@ -401,7 +401,7 @@ unsafe fn spc_html__anchor_close(mut spe: *mut spc_env, mut sd: *mut spc_html_) 
             if !(*sd).link_dict.is_null() {
                 spc_end_annot(spe);
                 pdf_release_obj((*sd).link_dict);
-                (*sd).link_dict = 0 as *mut pdf_obj;
+                (*sd).link_dict = ptr::null_mut();
                 (*sd).pending_type = -1i32
             } else {
                 spc_warn!(spe, "Closing html anchor (link) without starting!");
@@ -508,7 +508,7 @@ unsafe fn spc_html__img_empty(mut spe: *mut spc_env, attr: &pdf_obj) -> i32 {
     let mut options: load_options = load_options {
             page_no: 1i32,
             bbox_type: 0i32,
-            dict: 0 as *mut pdf_obj,
+            dict: ptr::null_mut(),
         };
     let mut error: i32 = 0i32;
     let mut alpha: f64 = 1.0f64;
@@ -840,19 +840,19 @@ pub unsafe extern "C" fn spc_html_at_begin_document() -> i32 {
 #[no_mangle]
 pub unsafe extern "C" fn spc_html_at_begin_page() -> i32 {
     let mut sd: *mut spc_html_ = &mut _HTML_STATE;
-    spc_handler_html__bophook(0 as *mut spc_env, sd as *mut libc::c_void)
+    spc_handler_html__bophook(ptr::null_mut(), sd as *mut libc::c_void)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn spc_html_at_end_page() -> i32 {
     let mut sd: *mut spc_html_ = &mut _HTML_STATE;
-    spc_handler_html__eophook(0 as *mut spc_env, sd as *mut libc::c_void)
+    spc_handler_html__eophook(ptr::null_mut(), sd as *mut libc::c_void)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn spc_html_at_end_document() -> i32 {
     let mut sd: *mut spc_html_ = &mut _HTML_STATE;
-    spc_handler_html__clean(0 as *mut spc_env, sd as *mut libc::c_void)
+    spc_handler_html__clean(ptr::null_mut(), sd as *mut libc::c_void)
 }
 
 pub fn spc_html_check_special(buf: &[u8]) -> bool {

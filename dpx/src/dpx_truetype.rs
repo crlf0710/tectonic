@@ -443,7 +443,7 @@ unsafe fn agl_decompose_glyphname(
     let mut p: *mut i8 = glyphname; /* _FIXME_ */
     let mut q = strchr(p, '.' as i32); /* chop every thing after *first* dot */
     if q.is_null() {
-        *suffix = 0 as *mut i8
+        *suffix = ptr::null_mut()
     } else {
         *q = '\u{0}' as i32 as i8;
         q = q.offset(1);
@@ -663,9 +663,9 @@ unsafe fn findcomposite(
     mut gid: *mut u16,
     mut gm: *mut glyph_mapper,
 ) -> i32 {
-    let mut suffix: *mut i8 = 0 as *mut i8;
+    let mut suffix: *mut i8 = ptr::null_mut();
     let mut gids: [u16; 32] = [0; 32];
-    let mut nptrs: [*mut i8; 32] = [0 as *mut i8; 32];
+    let mut nptrs: [*mut i8; 32] = [ptr::null_mut(); 32];
     let error = findposttable(glyphname, gid, gm);
     if error == 0 {
         return 0i32;
@@ -764,7 +764,7 @@ unsafe fn findparanoiac(
                 } else {
                     let mut _i: i32 = 0;
                     let mut _n: i32 = 0i32;
-                    let mut _p: *mut i8 = 0 as *mut i8;
+                    let mut _p: *mut i8 = ptr::null_mut();
                     let mut _buf: [i8; 256] = [0; 256];
                     warn!(
                         ">> Composite glyph glyph-name=\"{}\" found at glyph-id=\"{}\".",
@@ -901,10 +901,10 @@ unsafe fn clean_glyph_mapper(mut gm: *mut glyph_mapper) {
     if !(*gm).nametogid.is_null() {
         tt_release_post_table((*gm).nametogid);
     }
-    (*gm).gsub = 0 as *mut otl_gsub;
-    (*gm).codetogid = 0 as *mut tt_cmap;
-    (*gm).nametogid = 0 as *mut tt_post_table;
-    (*gm).sfont = 0 as *mut sfnt;
+    (*gm).gsub = ptr::null_mut();
+    (*gm).codetogid = ptr::null_mut();
+    (*gm).nametogid = ptr::null_mut();
+    (*gm).sfont = ptr::null_mut();
 }
 unsafe fn do_custom_encoding(
     mut font: *mut pdf_font,
@@ -914,10 +914,10 @@ unsafe fn do_custom_encoding(
 ) -> i32 {
     let mut widths: [f64; 256] = [0.; 256];
     let mut gm: glyph_mapper = glyph_mapper {
-        codetogid: 0 as *mut tt_cmap,
-        gsub: 0 as *mut otl_gsub,
-        sfont: 0 as *mut sfnt,
-        nametogid: 0 as *mut tt_post_table,
+        codetogid: ptr::null_mut(),
+        gsub: ptr::null_mut(),
+        sfont: ptr::null_mut(),
+        nametogid: ptr::null_mut(),
     };
     assert!(!font.is_null() && !encoding.is_null() && !usedchars.is_null() && !sfont.is_null());
     let error = setup_glyph_mapper(&mut gm, sfont);

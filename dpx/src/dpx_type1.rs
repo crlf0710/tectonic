@@ -703,7 +703,7 @@ pub unsafe extern "C" fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
             as *mut *mut i8;
         for code in 0..=0xff {
             let ref mut fresh0 = *enc_vec.offset(code as isize);
-            *fresh0 = 0 as *mut i8;
+            *fresh0 = ptr::null_mut();
         }
     }
     let cffont = t1_load_font(enc_vec, 0i32, handle);
@@ -906,7 +906,7 @@ pub unsafe extern "C" fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
     let mut dstlen_max = 0;
     let mut offset = dstlen_max;
     let cstring = cff_new_index((*cffont.cstrings).count);
-    (*cstring).data = 0 as *mut u8;
+    (*cstring).data = ptr::null_mut();
     *(*cstring).offset.offset(0) = 1i32 as l_offset;
     /* The num_glyphs increases if "seac" operators are used. */
     let mut gid_0 = 0_u16;
@@ -1017,7 +1017,7 @@ pub unsafe extern "C" fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
     (*cstring).count = num_glyphs;
     cff_release_index(*cffont.subrs.offset(0));
     let ref mut fresh4 = *cffont.subrs.offset(0);
-    *fresh4 = 0 as *mut cff_index;
+    *fresh4 = ptr::null_mut();
     cffont.subrs = mfree(cffont.subrs as *mut libc::c_void) as *mut *mut cff_index;
     cff_release_index(cffont.cstrings);
     cffont.cstrings = cstring;

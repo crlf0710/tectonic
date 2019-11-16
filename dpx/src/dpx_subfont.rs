@@ -33,6 +33,7 @@ use crate::streq_ptr;
 use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_mem::{new, renew};
 use super::dpx_mfileio::tt_mfgets;
@@ -78,9 +79,9 @@ pub unsafe extern "C" fn subfont_set_verbose(mut level: i32) {
     verbose = level;
 }
 unsafe fn init_sfd_file_(mut sfd: *mut sfd_file_) {
-    (*sfd).ident = 0 as *mut i8;
+    (*sfd).ident = ptr::null_mut();
     (*sfd).sub_id = 0 as *mut *mut i8;
-    (*sfd).rec_id = 0 as *mut i32;
+    (*sfd).rec_id = ptr::null_mut();
     (*sfd).num_subfonts = 0i32;
     (*sfd).max_subfonts = (*sfd).num_subfonts;
 }
@@ -112,7 +113,7 @@ unsafe fn readline(
     mut buf_len: i32,
     handle: &mut InputHandleWrapper,
 ) -> *mut i8 {
-    let mut q: *mut i8 = 0 as *mut i8;
+    let mut q: *mut i8 = ptr::null_mut();
     let mut p: *mut i8 = buf;
     let mut n: i32 = 0i32;
     let mut c: i32 = 0i32;
@@ -148,7 +149,7 @@ unsafe fn readline(
     if c > 0i32 {
         buf
     } else {
-        0 as *mut i8
+        ptr::null_mut()
     }
 }
 /* subfont_id ( integer ':' | integer '_' integer | integer )*
@@ -160,7 +161,7 @@ unsafe fn readline(
 /* subfont_id is already consumed here. */
 unsafe fn read_sfd_record(mut rec: *mut sfd_rec_, mut lbuf: *const i8) -> i32 {
     let mut p: *const i8 = lbuf;
-    let mut r: *mut i8 = 0 as *mut i8;
+    let mut r: *mut i8 = ptr::null_mut();
     let mut v2: i32 = 0i32;
     let mut curpos: i32 = 0i32;
     let mut error: i32 = 0i32;
@@ -539,8 +540,8 @@ pub unsafe extern "C" fn release_sfd_record() {
         }
         free(sfd_files as *mut libc::c_void);
     }
-    sfd_record = 0 as *mut sfd_rec_;
-    sfd_files = 0 as *mut sfd_file_;
+    sfd_record = ptr::null_mut();
+    sfd_files = ptr::null_mut();
     max_sfd_records = 0i32;
     num_sfd_records = max_sfd_records;
     max_sfd_files = 0i32;

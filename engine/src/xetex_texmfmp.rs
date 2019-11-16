@@ -179,7 +179,7 @@ pub unsafe extern "C" fn gettexstring(mut s: str_number) -> *mut i8 {
     let mut len: pool_pointer = 0;
     let mut i: pool_pointer = 0;
     let mut j: pool_pointer = 0;
-    let mut name: *mut i8 = 0 as *mut i8;
+    let mut name: *mut i8 = ptr::null_mut();
     if s as i64 >= 65536 {
         len = *str_start.offset(((s + 1i32) as i64 - 65536) as isize)
             - *str_start.offset((s as i64 - 65536) as isize)
@@ -378,7 +378,7 @@ unsafe extern "C" fn convertStringToHexString(mut in_0: *const i8, mut out: *mut
 pub unsafe extern "C" fn getmd5sum(mut s: str_number, mut file: bool) {
     let mut digest: [i8; 16] = [0; 16];
     let mut outbuf: [i8; 33] = [0; 33];
-    let mut xname: *mut i8 = 0 as *mut i8;
+    let mut xname: *mut i8 = ptr::null_mut();
     let mut ret: i32 = 0;
     let mut i: i32 = 0;
     xname = gettexstring(s);

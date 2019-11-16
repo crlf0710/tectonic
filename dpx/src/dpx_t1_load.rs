@@ -32,6 +32,7 @@ use crate::warn;
 use crate::DisplayExt;
 use crate::{streq_ptr, strstartswith};
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_cff::{cff_add_string, cff_get_sid, cff_update_string};
 use super::dpx_cff::{cff_close, cff_new_index, cff_set_name};
@@ -118,8 +119,8 @@ unsafe fn t1_decrypt(
 }
 /* T1CRYPT */
 unsafe fn get_next_key(mut start: *mut *mut u8, mut end: *mut u8) -> *mut i8 {
-    let mut key: *mut i8 = 0 as *mut i8;
-    let mut tok: *mut pst_obj = 0 as *mut pst_obj;
+    let mut key: *mut i8 = ptr::null_mut();
+    let mut tok: *mut pst_obj = ptr::null_mut();
     while *start < end && {
         tok = pst_get_token(start, end);
         !tok.is_null()
@@ -128,18 +129,18 @@ unsafe fn get_next_key(mut start: *mut *mut u8, mut end: *mut u8) -> *mut i8 {
             key = pst_getSV(tok) as *mut i8;
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             break;
         } else if !tok.is_null() {
             pst_release_obj(tok);
-            tok = 0 as *mut pst_obj
+            tok = ptr::null_mut()
         }
     }
     key
 }
 unsafe fn seek_operator(mut start: *mut *mut u8, mut end: *mut u8, mut op: *const i8) -> i32 {
-    let mut tok: *mut pst_obj = 0 as *mut pst_obj;
+    let mut tok: *mut pst_obj = ptr::null_mut();
     while *start < end && {
         tok = pst_get_token(start, end);
         !tok.is_null()
@@ -152,7 +153,7 @@ unsafe fn seek_operator(mut start: *mut *mut u8, mut end: *mut u8, mut op: *cons
         }
         if !tok.is_null() {
             pst_release_obj(tok);
-            tok = 0 as *mut pst_obj
+            tok = ptr::null_mut()
         }
     }
     if tok.is_null() {
@@ -160,7 +161,7 @@ unsafe fn seek_operator(mut start: *mut *mut u8, mut end: *mut u8, mut op: *cons
     }
     if !tok.is_null() {
         pst_release_obj(tok);
-        //tok = 0 as *mut pst_obj
+        //tok = ptr::null_mut()
     }
     0i32
 }
@@ -174,14 +175,14 @@ unsafe fn parse_svalue(mut start: *mut *mut u8, mut end: *mut u8, mut value: *mu
         } else {
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             return -1i32;
         }
     }
     if !tok.is_null() {
         pst_release_obj(tok);
-        //tok = 0 as *mut pst_obj
+        //tok = ptr::null_mut()
     }
     1i32
 }
@@ -195,14 +196,14 @@ unsafe fn parse_bvalue(mut start: *mut *mut u8, mut end: *mut u8, mut value: *mu
         } else {
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             return -1i32;
         }
     }
     if !tok.is_null() {
         pst_release_obj(tok);
-        //tok = 0 as *mut pst_obj
+        //tok = ptr::null_mut()
     }
     1i32
 }
@@ -227,7 +228,7 @@ unsafe fn parse_nvalue(
         /* It does not distinguish '[' and '{'... */
         if !tok.is_null() {
             pst_release_obj(tok);
-            tok = 0 as *mut pst_obj
+            tok = ptr::null_mut()
         }
         while *start < end
             && {
@@ -242,7 +243,7 @@ unsafe fn parse_nvalue(
             *value.offset(fresh5 as isize) = pst_getRV(tok);
             if !tok.is_null() {
                 pst_release_obj(tok);
-                tok = 0 as *mut pst_obj
+                tok = ptr::null_mut()
             }
         }
         if tok.is_null() {
@@ -268,7 +269,7 @@ unsafe fn parse_nvalue(
     }
     if !tok.is_null() {
         pst_release_obj(tok);
-        //tok = 0 as *mut pst_obj
+        //tok = ptr::null_mut()
     }
     argn
 }
@@ -810,13 +811,13 @@ unsafe fn try_put_or_putinterval(
     {
         if !tok.is_null() {
             pst_release_obj(tok);
-            //tok = 0 as *mut pst_obj
+            //tok = ptr::null_mut()
         }
         return -1i32;
     }
     if !tok.is_null() {
         pst_release_obj(tok);
-        //tok = 0 as *mut pst_obj
+        //tok = ptr::null_mut()
     }
     tok = pst_get_token(start, end);
     if tok.is_null() {
@@ -833,7 +834,7 @@ unsafe fn try_put_or_putinterval(
             /* dup num exch num get put */
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             tok = pst_get_token(start, end);
             if tok.is_null()
@@ -846,13 +847,13 @@ unsafe fn try_put_or_putinterval(
             {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    //tok = 0 as *mut pst_obj
+                    //tok = ptr::null_mut()
                 }
                 return -1i32;
             }
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             tok = pst_get_token(start, end);
             if !(!tok.is_null()
@@ -865,13 +866,13 @@ unsafe fn try_put_or_putinterval(
             {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    //tok = 0 as *mut pst_obj
+                    //tok = ptr::null_mut()
                 }
                 return -1i32;
             }
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             tok = pst_get_token(start, end);
             if !(!tok.is_null()
@@ -884,13 +885,13 @@ unsafe fn try_put_or_putinterval(
             {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    //tok = 0 as *mut pst_obj
+                    //tok = ptr::null_mut()
                 }
                 return -1i32;
             }
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             free(*enc_vec.offset(num1 as isize) as *mut libc::c_void);
             let ref mut fresh6 = *enc_vec.offset(num1 as isize);
@@ -904,7 +905,7 @@ unsafe fn try_put_or_putinterval(
         {
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             tok = pst_get_token(start, end);
             if !(!tok.is_null()
@@ -917,13 +918,13 @@ unsafe fn try_put_or_putinterval(
             {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    //tok = 0 as *mut pst_obj
+                    //tok = ptr::null_mut()
                 }
                 return -1i32;
             }
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             tok = pst_get_token(start, end);
             if tok.is_null()
@@ -936,13 +937,13 @@ unsafe fn try_put_or_putinterval(
             {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    //tok = 0 as *mut pst_obj
+                    //tok = ptr::null_mut()
                 }
                 return -1i32;
             }
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             tok = pst_get_token(start, end);
             if !(!tok.is_null()
@@ -955,13 +956,13 @@ unsafe fn try_put_or_putinterval(
             {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    //tok = 0 as *mut pst_obj
+                    //tok = ptr::null_mut()
                 }
                 return -1i32;
             }
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             tok = pst_get_token(start, end);
             if !(!tok.is_null()
@@ -974,13 +975,13 @@ unsafe fn try_put_or_putinterval(
             {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    //tok = 0 as *mut pst_obj
+                    //tok = ptr::null_mut()
                 }
                 return -1i32;
             }
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             for i in 0..num2 {
                 if !(*enc_vec.offset((num1 + i) as isize)).is_null() {
@@ -995,7 +996,7 @@ unsafe fn try_put_or_putinterval(
         } else {
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             return -1i32;
         }
@@ -1029,7 +1030,7 @@ unsafe fn parse_encoding(
     {
         if !tok.is_null() {
             pst_release_obj(tok);
-            //tok = 0 as *mut pst_obj
+            //tok = ptr::null_mut()
         }
         if !enc_vec.is_null() {
             code = 0i32;
@@ -1050,7 +1051,7 @@ unsafe fn parse_encoding(
                     );
                 } else {
                     let ref mut fresh10 = *enc_vec.offset(code as isize);
-                    *fresh10 = 0 as *mut i8
+                    *fresh10 = ptr::null_mut()
                 }
                 code += 1
             }
@@ -1065,7 +1066,7 @@ unsafe fn parse_encoding(
     {
         if !tok.is_null() {
             pst_release_obj(tok);
-            //tok = 0 as *mut pst_obj
+            //tok = ptr::null_mut()
         }
         if !enc_vec.is_null() {
             code = 0i32;
@@ -1086,7 +1087,7 @@ unsafe fn parse_encoding(
                     );
                 } else {
                     let ref mut fresh12 = *enc_vec.offset(code as isize);
-                    *fresh12 = 0 as *mut i8
+                    *fresh12 = ptr::null_mut()
                 }
                 code += 1
             }
@@ -1101,13 +1102,13 @@ unsafe fn parse_encoding(
     {
         if !tok.is_null() {
             pst_release_obj(tok);
-            tok = 0 as *mut pst_obj
+            tok = ptr::null_mut()
         }
         if !enc_vec.is_null() {
             warn!("ExpertEncoding not supported.");
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             return -1i32;
         }
@@ -1117,7 +1118,7 @@ unsafe fn parse_encoding(
     } else {
         if !tok.is_null() {
             pst_release_obj(tok);
-            tok = 0 as *mut pst_obj
+            tok = ptr::null_mut()
         }
         seek_operator(start, end, b"array\x00" as *const u8 as *const i8);
         /*
@@ -1145,7 +1146,7 @@ unsafe fn parse_encoding(
             {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    //tok = 0 as *mut pst_obj
+                    //tok = ptr::null_mut()
                 }
                 break;
             } else if !(!tok.is_null()
@@ -1158,12 +1159,12 @@ unsafe fn parse_encoding(
             {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    tok = 0 as *mut pst_obj
+                    tok = ptr::null_mut()
                 }
             } else {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    //tok = 0 as *mut pst_obj
+                    //tok = ptr::null_mut()
                 }
                 /* cmctt10.pfb for examples contains the following PS code
                  *     dup num num getinterval num exch putinterval
@@ -1186,7 +1187,7 @@ unsafe fn parse_encoding(
                     }
                     if !tok.is_null() {
                         pst_release_obj(tok);
-                        tok = 0 as *mut pst_obj
+                        tok = ptr::null_mut()
                     }
                 } else if tok.is_null()
                     || !(pst_type_of(tok) == 2i32)
@@ -1198,18 +1199,18 @@ unsafe fn parse_encoding(
                 {
                     if !tok.is_null() {
                         pst_release_obj(tok);
-                        tok = 0 as *mut pst_obj
+                        tok = ptr::null_mut()
                     }
                 } else {
                     if !tok.is_null() {
                         pst_release_obj(tok);
-                        //tok = 0 as *mut pst_obj
+                        //tok = ptr::null_mut()
                     }
                     tok = pst_get_token(start, end);
                     if tok.is_null() || !(pst_type_of(tok) == 6i32) {
                         if !tok.is_null() {
                             pst_release_obj(tok);
-                            tok = 0 as *mut pst_obj
+                            tok = ptr::null_mut()
                         }
                     } else {
                         if !enc_vec.is_null() {
@@ -1219,7 +1220,7 @@ unsafe fn parse_encoding(
                         }
                         if !tok.is_null() {
                             pst_release_obj(tok);
-                            //tok = 0 as *mut pst_obj
+                            //tok = ptr::null_mut()
                         }
                         tok = pst_get_token(start, end);
                         if !(!tok.is_null()
@@ -1235,11 +1236,11 @@ unsafe fn parse_encoding(
                                 as *mut i8;
                             if !tok.is_null() {
                                 pst_release_obj(tok);
-                                tok = 0 as *mut pst_obj
+                                tok = ptr::null_mut()
                             }
                         } else if !tok.is_null() {
                             pst_release_obj(tok);
-                            tok = 0 as *mut pst_obj
+                            tok = ptr::null_mut()
                         }
                     }
                 }
@@ -1264,18 +1265,18 @@ unsafe fn parse_subrs(
         warn!("Parsing Subrs failed.");
         if !tok.is_null() {
             pst_release_obj(tok);
-            //tok = 0 as *mut pst_obj
+            //tok = ptr::null_mut()
         }
         return -1i32;
     }
     let count = pst_getIV(tok);
     if !tok.is_null() {
         pst_release_obj(tok);
-        //tok = 0 as *mut pst_obj
+        //tok = ptr::null_mut()
     }
     if count == 0i32 {
         let ref mut fresh15 = *font.subrs.offset(0);
-        *fresh15 = 0 as *mut cff_index;
+        *fresh15 = ptr::null_mut();
         return 0i32;
     }
     let mut tok = pst_get_token(start, end);
@@ -1289,13 +1290,13 @@ unsafe fn parse_subrs(
     {
         if !tok.is_null() {
             pst_release_obj(tok);
-            //tok = 0 as *mut pst_obj
+            //tok = ptr::null_mut()
         }
         return -1i32;
     }
     if !tok.is_null() {
         pst_release_obj(tok);
-        //tok = 0 as *mut pst_obj
+        //tok = ptr::null_mut()
     }
     if mode != 1i32 {
         max_size = 65536i32;
@@ -1319,9 +1320,9 @@ unsafe fn parse_subrs(
         );
     } else {
         max_size = 0i32;
-        data = 0 as *mut u8;
-        offsets = 0 as *mut i32;
-        lengths = 0 as *mut i32
+        data = ptr::null_mut();
+        offsets = ptr::null_mut();
+        lengths = ptr::null_mut()
     }
     let mut offset = 0;
     /* dup subr# n-bytes RD n-binary-bytes NP */
@@ -1357,7 +1358,7 @@ unsafe fn parse_subrs(
         {
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             break;
         } else if !(!tok.is_null()
@@ -1370,19 +1371,19 @@ unsafe fn parse_subrs(
         {
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
         } else {
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             /* Found "dup" */
             tok = pst_get_token(start, end);
             if !(pst_type_of(tok) == 2i32) || pst_getIV(tok) < 0i32 || pst_getIV(tok) >= count {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    //tok = 0 as *mut pst_obj
+                    //tok = ptr::null_mut()
                 }
                 free(data as *mut libc::c_void);
                 free(offsets as *mut libc::c_void);
@@ -1392,20 +1393,20 @@ unsafe fn parse_subrs(
             let idx = pst_getIV(tok);
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             tok = pst_get_token(start, end);
             if !(pst_type_of(tok) == 2i32) || pst_getIV(tok) < 0i32 || pst_getIV(tok) > 65536i32 {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    //tok = 0 as *mut pst_obj
+                    //tok = ptr::null_mut()
                 }
                 return -1i32;
             }
             let len = pst_getIV(tok);
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             tok = pst_get_token(start, end);
             if !(!tok.is_null()
@@ -1426,7 +1427,7 @@ unsafe fn parse_subrs(
             {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    //tok = 0 as *mut pst_obj
+                    //tok = ptr::null_mut()
                 }
                 free(data as *mut libc::c_void);
                 free(offsets as *mut libc::c_void);
@@ -1435,7 +1436,7 @@ unsafe fn parse_subrs(
             }
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             *start = (*start).offset(1);
             if (*start).offset(len as isize) >= end {
@@ -1532,14 +1533,14 @@ unsafe fn parse_charstrings(
         free(s as *mut libc::c_void);
         if !tok.is_null() {
             pst_release_obj(tok);
-            //tok = 0 as *mut pst_obj
+            //tok = ptr::null_mut()
         }
         return 0i32;
     }
     let count = pst_getIV(tok);
     if !tok.is_null() {
         pst_release_obj(tok);
-        //tok = 0 as *mut pst_obj
+        //tok = ptr::null_mut()
     }
     if mode != 1i32 {
         charstrings = cff_new_index(count as u16);
@@ -1548,7 +1549,7 @@ unsafe fn parse_charstrings(
             .wrapping_mul(::std::mem::size_of::<u8>() as u64)
             as u32) as *mut u8
     } else {
-        charstrings = 0 as *mut cff_index;
+        charstrings = ptr::null_mut();
         max_size = 0i32
     }
     font.cstrings = charstrings;
@@ -1586,7 +1587,7 @@ unsafe fn parse_charstrings(
         if pst_type_of(tok) == 6i32 {
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             let gid = if glyph_name.is_null() {
                 return -1i32;
@@ -1616,14 +1617,14 @@ unsafe fn parse_charstrings(
             if !(pst_type_of(tok) == 2i32) || pst_getIV(tok) < 0i32 || pst_getIV(tok) > 65536i32 {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    //tok = 0 as *mut pst_obj
+                    //tok = ptr::null_mut()
                 }
                 return -1i32;
             }
             let len = pst_getIV(tok);
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             tok = pst_get_token(start, end);
             if !(!tok.is_null()
@@ -1644,13 +1645,13 @@ unsafe fn parse_charstrings(
             {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    //tok = 0 as *mut pst_obj
+                    //tok = ptr::null_mut()
                 }
                 return -1i32;
             }
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             if (*start).offset(len as isize).offset(1) >= end {
                 return -1i32;
@@ -1746,13 +1747,13 @@ unsafe fn parse_charstrings(
             {
                 if !tok.is_null() {
                     pst_release_obj(tok);
-                    //tok = 0 as *mut pst_obj
+                    //tok = ptr::null_mut()
                 }
                 return -1i32;
             }
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             i += 1
         } else if pst_type_of(tok) < 0i32
@@ -1760,13 +1761,13 @@ unsafe fn parse_charstrings(
         {
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             break;
         } else {
             if !tok.is_null() {
                 pst_release_obj(tok);
-                //tok = 0 as *mut pst_obj
+                //tok = ptr::null_mut()
             }
             return -1i32;
         }
@@ -1783,7 +1784,7 @@ unsafe fn parse_part2(
     mut end: *mut u8,
     mut mode: i32,
 ) -> i32 {
-    let mut key: *mut i8 = 0 as *mut i8;
+    let mut key: *mut i8 = ptr::null_mut();
     let mut argv: [f64; 127] = [0.; 127];
     let mut lenIV: i32 = 4i32;
     while *start < end && {
@@ -1888,8 +1889,8 @@ unsafe fn parse_part1(
     mut start: *mut *mut u8,
     mut end: *mut u8,
 ) -> i32 {
-    let mut key: *mut i8 = 0 as *mut i8;
-    let mut strval: *mut i8 = 0 as *mut i8;
+    let mut key: *mut i8 = ptr::null_mut();
+    let mut strval: *mut i8 = ptr::null_mut();
     let mut argv: [f64; 127] = [0.; 127];
     /*
      * We skip PostScript code inserted before the beginning of
@@ -2091,7 +2092,7 @@ unsafe fn get_pfb_segment(
     mut expected_type: i32,
     mut length: *mut i32,
 ) -> *mut u8 {
-    let mut buffer: *mut u8 = 0 as *mut u8;
+    let mut buffer: *mut u8 = ptr::null_mut();
     let mut bytesread: i32 = 0i32;
     loop {
         let ch = ttstub_input_getc(handle);
@@ -2111,7 +2112,7 @@ unsafe fn get_pfb_segment(
                 let ch = ttstub_input_getc(handle);
                 if ch < 0i32 {
                     free(buffer as *mut libc::c_void);
-                    return 0 as *mut u8;
+                    return ptr::null_mut();
                 }
                 slen += ch << 8i32 * i;
             }
@@ -2128,7 +2129,7 @@ unsafe fn get_pfb_segment(
                 ) as i32;
                 if rlen < 0i32 {
                     free(buffer as *mut libc::c_void);
-                    return 0 as *mut u8;
+                    return ptr::null_mut();
                 }
                 slen -= rlen;
                 bytesread += rlen
@@ -2161,7 +2162,7 @@ pub unsafe extern "C" fn t1_get_fontname(
     mut fontname: *mut i8,
 ) -> i32 {
     let mut length: i32 = 0;
-    let mut key: *mut i8 = 0 as *mut i8;
+    let mut key: *mut i8 = ptr::null_mut();
     let mut fn_found: i32 = 0i32;
     handle.seek(SeekFrom::Start(0)).unwrap();
     let buffer = get_pfb_segment(handle, 1i32, &mut length);
@@ -2179,7 +2180,7 @@ pub unsafe extern "C" fn t1_get_fontname(
         !key.is_null()
     } {
         if streq_ptr(key, b"FontName\x00" as *const u8 as *const i8) {
-            let mut strval: *mut i8 = 0 as *mut i8;
+            let mut strval: *mut i8 = ptr::null_mut();
             if parse_svalue(&mut start, end, &mut strval) == 1i32 {
                 if strlen(strval) > 127 {
                     warn!(
@@ -2202,7 +2203,7 @@ pub unsafe extern "C" fn t1_get_fontname(
 unsafe fn init_cff_font(cff: &mut cff_font) {
     cff.handle = None;
     cff.filter = 0;
-    cff.fontname = 0 as *mut i8;
+    cff.fontname = ptr::null_mut();
     cff.index = 0;
     cff.flag = 1 << 1;
     cff.header.major = 1 as u8;
@@ -2211,12 +2212,12 @@ unsafe fn init_cff_font(cff: &mut cff_font) {
     cff.header.offsize = 4 as c_offsize;
     cff.name = cff_new_index(1);
     cff.topdict = cff_new_dict();
-    cff.string = 0 as *mut cff_index;
+    cff.string = ptr::null_mut();
     cff.gsubr = cff_new_index(0);
-    cff.encoding = 0 as *mut cff_encoding;
-    cff.charsets = 0 as *mut cff_charsets;
-    cff.fdselect = 0 as *mut cff_fdselect;
-    cff.cstrings = 0 as *mut cff_index;
+    cff.encoding = ptr::null_mut();
+    cff.charsets = ptr::null_mut();
+    cff.fdselect = ptr::null_mut();
+    cff.cstrings = ptr::null_mut();
     cff.fdarray = 0 as *mut *mut cff_dict;
     cff.private = new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
         as *mut *mut cff_dict;
@@ -2225,7 +2226,7 @@ unsafe fn init_cff_font(cff: &mut cff_font) {
     cff.subrs = new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_index>() as u64) as u32)
         as *mut *mut cff_index;
     let ref mut fresh24 = *cff.subrs.offset(0);
-    *fresh24 = 0 as *mut cff_index;
+    *fresh24 = ptr::null_mut();
     cff.offset = 0 as l_offset;
     cff.gsubr_offset = 0 as l_offset;
     cff.num_glyphs = 0;

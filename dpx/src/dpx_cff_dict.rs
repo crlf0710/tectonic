@@ -455,7 +455,7 @@ unsafe fn get_real(mut data: *mut *mut u8, mut endptr: *mut u8, mut status: *mut
     if fail != 0 || nibble != 0xfi32 {
         *status = -1i32
     } else {
-        let mut s: *mut i8 = 0 as *mut i8;
+        let mut s: *mut i8 = ptr::null_mut();
         result = strtod(work_buffer.as_mut_ptr(), &mut s);
         if *s as i32 != 0i32 || errno::errno() == errno::ERANGE {
             *status = -1i32
@@ -771,7 +771,7 @@ pub unsafe extern "C" fn cff_dict_add(mut dict: *mut cff_dict, mut key: *const i
         );
     } else {
         let ref mut fresh22 = (*(*dict).entries.offset((*dict).count as isize)).values;
-        *fresh22 = 0 as *mut f64
+        *fresh22 = ptr::null_mut()
     }
     (*dict).count += 1i32;
 }
