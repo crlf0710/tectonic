@@ -16,7 +16,6 @@ use crate::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub
 use libc::{free, strncat};
 use std::ffi::{CString, CStr};
 use std::ptr;
-use crate::xetex_layout_engine::ft_make_tag;
 use crate::xetex_font_info::XeTeXFontInst;
 
 #[cfg(target_os = "macos")]
@@ -684,7 +683,7 @@ unsafe extern "C" fn loadOTfont(
     let mut script: hb_tag_t = ft_make_tag(&[0,0,0,0]);
     let mut language: *mut i8 = 0 as *mut i8;
     let mut features: *mut hb_feature_t = 0 as *mut hb_feature_t;
-    let mut shapers: *mut *mut i8 = 0 as *mut *mut i8;
+    let mut shaper_list = CStringListBuilder::new();
     let mut nFeatures: i32 = 0i32;
     let mut nShapers: i32 = 0i32;
     let mut cp2: *const i8 = ptr::null();
@@ -696,28 +695,21 @@ unsafe extern "C" fn loadOTfont(
     let mut embolden: f32 = 0.0f64 as f32;
     let mut letterspace: f32 = 0.0f64 as f32;
     let mut i: i32 = 0;
+
     if shaperRequest == Some(ShaperRequest::OpenType) || shaperRequest == Some(ShaperRequest::Graphite) {
-        shapers = xrealloc(
-            shapers as *mut libc::c_void,
-            ((nShapers + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64),
-        ) as *mut *mut i8;
         match shaperRequest.expect("already know shaperRequest is Some") {
             ShaperRequest::OpenType => {
-                static mut ot_const: [i8; 3] = [111, 116, 0];
-                let ref mut fresh8 = *shapers.offset(nShapers as isize);
-                *fresh8 = ot_const.as_mut_ptr()
+                shaper_list.push_non_null_terminated(&b"ot"[..]);
             }
             ShaperRequest::Graphite => {
-                static mut graphite2_const: [i8; 10] = [103, 114, 97, 112, 104, 105, 116, 101, 50, 0];
-                let ref mut fresh9 = *shapers.offset(nShapers as isize);
-                *fresh9 = graphite2_const.as_mut_ptr()
+                shaper_list.push_non_null_terminated(&b"graphite2"[..]);
             }
             _ => unreachable!()
         }
         nShapers += 1
     }
     if shaperRequest == Some(ShaperRequest::Graphite) {
-        let mut tmpShapers: [*mut i8; 1] = [*shapers.offset(0)];
+        let tmp_shapers = shaper_list.clone();
         /* create a default engine so we can query the font for Graphite features;
          * because of font caching, it's cheap to discard this and create the real one later */
         engine = createLayoutEngine(
@@ -727,7 +719,7 @@ unsafe extern "C" fn loadOTfont(
             language,
             features,
             nFeatures,
-            tmpShapers.as_mut_ptr(),
+            tmp_shapers.none_if_empty(),
             rgbValue,
             extend,
             slant,
@@ -794,18 +786,7 @@ unsafe extern "C" fn loadOTfont(
                             current_block = 10622493848381539643;
                         } else {
                             cp3 = cp3.offset(1);
-                            shapers = xrealloc(
-                                shapers as *mut libc::c_void,
-                                ((nShapers + 1i32) as u64)
-                                    .wrapping_mul(::std::mem::size_of::<*mut i8>() as u64),
-                            ) as *mut *mut i8;
-                            /* some dumb systems have no strndup() */
-                            let ref mut fresh10 = *shapers.offset(nShapers as isize);
-                            *fresh10 = strdup(cp3);
-                            *(*shapers.offset(nShapers as isize))
-                                .offset(cp2.wrapping_offset_from(cp3) as i64 as isize) =
-                                '\u{0}' as i32 as i8;
-                            nShapers += 1;
+                            shaper_list.push_cstr(CStr::from_ptr(cp3));
                             current_block = 13857423536159756434;
                         }
                     } else {
@@ -944,15 +925,6 @@ unsafe extern "C" fn loadOTfont(
             cp1 = cp2
         }
     }
-    /* break if end of string */
-    if !shapers.is_null() {
-        shapers = xrealloc(
-            shapers as *mut libc::c_void,
-            ((nShapers + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64),
-        ) as *mut *mut i8;
-        let ref mut fresh11 = *shapers.offset(nShapers as isize);
-        *fresh11 = 0 as *mut i8
-    }
     if embolden as f64 != 0.0f64 {
         embolden = (embolden as f64 * Fix2D(scaled_size) / 100.0f64) as f32
     }
@@ -966,13 +938,12 @@ unsafe extern "C" fn loadOTfont(
         setFontLayoutDir(font, 1i32);
     }
     engine = createLayoutEngine(
-        fontRef, font, script, language, features, nFeatures, shapers, rgbValue, extend, slant,
+        fontRef, font, script, language, features, nFeatures, shaper_list.none_if_empty(), rgbValue, extend, slant,
         embolden, shaperRequest
     );
     if engine.is_null() {
         // only free these if creation failed, otherwise the engine now owns them
         free(features as *mut libc::c_void);
-        free(shapers as *mut libc::c_void);
     } else {
         native_font_type_flag = 0xfffeu32 as i32
     }

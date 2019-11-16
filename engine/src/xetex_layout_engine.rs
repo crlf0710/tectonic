@@ -23,7 +23,7 @@ use crate::xetex_font_info::XeTeXFontInst;
 #[cfg(target_os = "macos")]
 use crate::xetex_font_info::XeTeXFontInst_Mac_create;
 use crate::xetex_font_manager::{PlatformFontRef, ShaperRequest, XeTeXFontMgr, XeTeXFontMgrFamily, XeTeXFontMgrFont};
-use std::ffi::CStr;
+use std::ffi::{CString, CStr};
 use std::ptr;
 
 pub type Fixed = i32;
@@ -337,9 +337,76 @@ pub type hb_unicode_decompose_compatibility_func_t = Option<
     ) -> libc::c_uint,
 >;
 
+pub struct ImmutableCStringList {
+    // Option to make freeing manually easier
+    inner: Option<CStringListBuilder>,
+    pointer: *const *const libc::c_char,
+}
+
+impl ImmutableCStringList {
+    // Warning: You must ensure that you do not drop this HarfBuzzShaperList
+    // while the resulting pointer here is still in use. Store this struct somewhere, or keep it in
+    // scope.
+    #[inline]
+    pub fn as_ptr(&self) -> *const *const libc::c_char {
+        self.pointer
+    }
+}
+
+/// A convenient way to build a null-terminated list of null-terminated C pointer strings.
+///
+/// Motivation: HarfBuzz shaper lists are pretty tiny, but storing each shaper id as a CString and
+/// also having a *const *const c_char available for HarfBuzz to use is otherwise pretty tricky.
+/// The original C code simply never freed these things as it was too hard.
+#[derive(Clone)]
+pub struct CStringListBuilder {
+    inner: Vec<CString>,
+    pointers: Option<Vec<*const libc::c_char>>,
+    dirty: bool,
+}
+
+impl CStringListBuilder {
+    pub fn freeze(mut self) -> ImmutableCStringList {
+        let mut pointers = Vec::with_capacity(self.inner.len() + 1);
+        for cstring in &self.inner {
+            pointers.push(cstring.as_ptr());
+        }
+        // HarfBuzz expects a null at the end.
+        pointers.push(ptr::null());
+        let p = pointers.as_ptr();
+        self.pointers = Some(pointers);
+        ImmutableCStringList {
+            pointer: p,
+            inner: Some(self),
+        }
+    }
+    pub fn new() -> Self {
+        CStringListBuilder {
+            inner: Vec::new(),
+            pointers: None,
+            dirty: true,
+        }
+    }
+    // Helps you select the default "ot" shaper if you haven't found any shapers to add.
+    pub fn none_if_empty(self) -> Option<Self> {
+        if self.inner.is_empty() {
+            return None;
+        }
+        Some(self)
+    }
+    pub fn push_non_null_terminated(&mut self, shaper: impl Into<Vec<u8>>) {
+        self.dirty = true;
+        self.inner.push(CString::new(shaper).expect("push_non_null_terminated called with a null terminated C string"));
+    }
+    pub fn push_cstr(&mut self, cstr: &CStr) {
+        self.dirty = true;
+        self.inner.push(cstr.to_owned())
+    }
+}
+
 pub type OTTag = uint32_t;
 pub type GlyphID = uint16_t;
-#[derive(Copy, Clone)]
+
 #[repr(C)]
 pub struct XeTeXLayoutEngine_rec {
     pub font: *mut XeTeXFontInst,
@@ -347,7 +414,7 @@ pub struct XeTeXLayoutEngine_rec {
     pub script: hb_tag_t,
     pub language: hb_language_t,
     pub features: *mut hb_feature_t,
-    pub ShaperList: *mut *mut libc::c_char,
+    shaper_list: ImmutableCStringList,
     pub shaper: *mut libc::c_char,
     pub nFeatures: libc::c_int,
     pub rgbValue: uint32_t,
@@ -1222,6 +1289,11 @@ pub unsafe fn XeTeXLayoutEngine_create() -> *mut XeTeXLayoutEngine_rec {
 }
 #[no_mangle]
 pub unsafe fn XeTeXLayoutEngine_delete(mut engine: *mut XeTeXLayoutEngine_rec) {
+    {
+        let eng = &mut *engine;
+        eng.shaper_list.inner = None;
+        eng.shaper_list.pointer = ptr::null();
+    }
     free(engine as *mut libc::c_void);
 }
 #[no_mangle]
@@ -1232,7 +1304,7 @@ pub unsafe fn createLayoutEngine(
     mut language: *mut libc::c_char,
     mut features: *mut hb_feature_t,
     mut nFeatures: libc::c_int,
-    mut shapers: *mut *mut libc::c_char,
+    mut shapers: Option<CStringListBuilder>,
     mut rgbValue: uint32_t,
     mut extend: f32,
     mut slant: f32,
@@ -1244,7 +1316,20 @@ pub unsafe fn createLayoutEngine(
     (*result).font = font;
     (*result).script = script;
     (*result).features = features;
-    (*result).ShaperList = shapers;
+
+    // HarfBuzz gives graphite2 shaper a priority, so that for hybrid
+    // Graphite/OpenType fonts, Graphite will be used. However, pre-0.9999
+    // XeTeX preferred OpenType over Graphite, so we are doing the same
+    // here for sake of backward compatibility. Since "ot" shaper never
+    // fails, we set the shaper list to just include it.
+    let shapers =  shapers.unwrap_or_else(|| {
+        let mut default_ot = CStringListBuilder::new();
+        default_ot.push_non_null_terminated(&b"ot"[..]);
+        default_ot
+    });
+
+    ptr::write(&mut (*result).shaper_list, shapers.freeze());
+
     (*result).shaper = 0 as *mut libc::c_char;
     (*result).nFeatures = nFeatures;
     (*result).rgbValue = rgbValue;
@@ -1302,6 +1387,7 @@ unsafe fn _get_unicode_funcs() -> *mut hb_unicode_funcs_t {
 }
 static mut hbUnicodeFuncs: *mut hb_unicode_funcs_t =
     0 as *const hb_unicode_funcs_t as *mut hb_unicode_funcs_t;
+
 #[no_mangle]
 pub unsafe fn layoutChars(
     mut engine: XeTeXLayoutEngine,
@@ -1348,27 +1434,12 @@ pub unsafe fn layoutChars(
     hb_buffer_set_language((*engine).hbBuffer, (*engine).language);
     hb_buffer_guess_segment_properties((*engine).hbBuffer);
     hb_buffer_get_segment_properties((*engine).hbBuffer, &mut segment_props);
-    if (*engine).ShaperList.is_null() {
-        // HarfBuzz gives graphite2 shaper a priority, so that for hybrid
-        // Graphite/OpenType fonts, Graphite will be used. However, pre-0.9999
-        // XeTeX preferred OpenType over Graphite, so we are doing the same
-        // here for sake of backward compatibility. Since "ot" shaper never
-        // fails, we set the shaper list to just include it.
-        (*engine).ShaperList = xcalloc(
-            2i32 as size_t,
-            ::std::mem::size_of::<*mut libc::c_char>() as _,
-        ) as *mut *mut libc::c_char;
-        let ref mut fresh0 = *(*engine).ShaperList.offset(0);
-        *fresh0 = b"ot\x00" as *const u8 as *const libc::c_char as *mut libc::c_char;
-        let ref mut fresh1 = *(*engine).ShaperList.offset(1);
-        *fresh1 = 0 as *mut libc::c_char
-    }
     shape_plan = hb_shape_plan_create_cached(
         hbFace,
         &mut segment_props,
         (*engine).features,
         (*engine).nFeatures as libc::c_uint,
-        (*engine).ShaperList as *const *const libc::c_char,
+        (*engine).shaper_list.as_ptr(),
     );
     res = hb_shape_plan_execute(
         shape_plan,
