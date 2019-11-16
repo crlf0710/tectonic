@@ -85,8 +85,7 @@ use crate::dpx_pdfobj::{
     pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
 };
 use crate::dpx_truetype::sfnt_table_info;
-use crate::shims::sprintf;
-use crate::{ttstub_input_read};
+use crate::ttstub_input_read;
 use libc::{free, memmove, memset, strcat, strcmp, strcpy, strlen, strstr};
 
 use std::io::{Seek, SeekFrom};
@@ -1496,33 +1495,21 @@ pub unsafe fn CIDFont_type0_t1cdofont(mut font: *mut CIDFont) {
     }
     CIDFont_type0_add_CIDSet(font, used_chars, last_cid);
 }
-unsafe fn load_base_CMap(mut font_name: *const i8, mut wmode: i32, cffont: &cff_font) -> i32 {
+
+unsafe fn load_base_CMap(font_name: &str, mut wmode: i32, cffont: &cff_font) -> i32 {
     let mut range_min: [u8; 4] = [0; 4];
     let mut range_max: [u8; 4] = [0x7f, 0xff, 0xff, 0xff];
-    let cmap_name = new((strlen(font_name)
-        .wrapping_add(strlen(b"-UCS4-H\x00" as *const u8 as *const i8))
-        .wrapping_add(1))
-    .wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-    if wmode != 0 {
-        sprintf(
-            cmap_name,
-            b"%s-UCS4-V\x00" as *const u8 as *const i8,
-            font_name,
-        );
+    let cmap_name = if wmode != 0 {
+        format!("{}-UCS4-V", font_name)
     } else {
-        sprintf(
-            cmap_name,
-            b"%s-UCS4-H\x00" as *const u8 as *const i8,
-            font_name,
-        );
-    }
-    let cmap_id = CMap_cache_find(cmap_name);
+        format!("{}-UCS4-H", font_name)
+    };
+    let cmap_id = CMap_cache_find(&cmap_name);
     if cmap_id >= 0i32 {
-        free(cmap_name as *mut libc::c_void);
         return cmap_id;
     }
     let cmap = CMap_new();
-    CMap_set_name(cmap, cmap_name);
+    CMap_set_name(cmap, &cmap_name);
     CMap_set_type(cmap, 1i32);
     CMap_set_wmode(cmap, wmode);
     CMap_add_codespacerange(
@@ -1532,7 +1519,6 @@ unsafe fn load_base_CMap(mut font_name: *const i8, mut wmode: i32, cffont: &cff_
         4i32 as size_t,
     );
     CMap_set_CIDSysInfo(cmap, &mut CSI_IDENTITY);
-    free(cmap_name as *mut libc::c_void);
     for gid in 1..cffont.num_glyphs as u16 {
         let sid = cff_charsets_lookup_inverse(cffont, gid);
         let glyph = cff_get_string(cffont, sid);
@@ -1588,7 +1574,7 @@ pub unsafe fn t1_load_UnicodeCMap(
     if cffont.is_null() {
         return -1i32;
     }
-    let cmap_id = load_base_CMap(font_name, wmode, &*cffont);
+    let cmap_id = load_base_CMap(&CStr::from_ptr(font_name).to_string_lossy(), wmode, &*cffont);
     cff_close(cffont);
     if cmap_id < 0i32 {
         panic!(
@@ -1617,14 +1603,7 @@ unsafe fn create_ToUnicode_stream(
         return ptr::null_mut();
     }
     let cmap = CMap_new();
-    let cmap_name = new((strlen(font_name)
-        .wrapping_add(strlen(b"-UTF16\x00" as *const u8 as *const i8))
-        .wrapping_add(1))
-    .wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-    strcpy(cmap_name, font_name);
-    strcat(cmap_name, b"-UTF16\x00" as *const u8 as *const i8);
-    CMap_set_name(cmap, cmap_name);
-    free(cmap_name as *mut libc::c_void);
+    CMap_set_name(cmap, &format!("{}-UTF16", CStr::from_ptr(font_name).display()));
     CMap_set_wmode(cmap, 0i32);
     CMap_set_type(cmap, 2i32);
     CMap_set_CIDSysInfo(cmap, &mut CSI_UNICODE);

@@ -572,7 +572,8 @@ pub unsafe fn pdf_font_findresource(
         if strstr((*mrec).enc_name, b".enc\x00" as *const u8 as *const i8).is_null()
             || !strstr((*mrec).enc_name, b".cmap\x00" as *const u8 as *const i8).is_null()
         {
-            cmap_id = CMap_cache_find((*mrec).enc_name);
+            let enc_name = CStr::from_ptr((*mrec).enc_name).to_string_lossy().to_string();
+            cmap_id = CMap_cache_find(&enc_name);
             if cmap_id >= 0i32 {
                 let cmap = CMap_cache_get(cmap_id);
                 let cmap_type = CMap_get_type(cmap);

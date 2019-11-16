@@ -50,7 +50,6 @@ use crate::dpx_pdfobj::{
 };
 use crate::dpx_pdfparse::{ParsePdfObj, SkipWhite};
 use crate::mfree;
-use crate::shims::sprintf;
 use crate::streq_ptr;
 use crate::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open};
 use libc::{free, memset, strcmp, strcpy, strlen};
@@ -603,17 +602,9 @@ pub unsafe fn pdf_create_ToUnicode_CMap(
     mut is_used: *const i8,
 ) -> *mut pdf_obj {
     assert!(!enc_name.is_null() && !enc_vec.is_null());
-    let cmap_name = new((strlen(enc_name)
-        .wrapping_add(strlen(b"-UTF16\x00" as *const u8 as *const i8))
-        .wrapping_add(1))
-    .wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-    sprintf(
-        cmap_name,
-        b"%s-UTF16\x00" as *const u8 as *const i8,
-        enc_name,
-    );
+
     let cmap = CMap_new();
-    CMap_set_name(cmap, cmap_name);
+    CMap_set_name(cmap, &format!("{}-UTF16", CStr::from_ptr(enc_name).display()));
     CMap_set_type(cmap, 2i32);
     CMap_set_wmode(cmap, 0i32);
     CMap_set_CIDSysInfo(cmap, &mut CSI_UNICODE);
@@ -662,7 +653,6 @@ pub unsafe fn pdf_create_ToUnicode_CMap(
         CMap_create_stream(cmap)
     };
     CMap_release(cmap);
-    free(cmap_name as *mut libc::c_void);
     stream
 }
 /* Creates Encoding resource and ToUnicode CMap

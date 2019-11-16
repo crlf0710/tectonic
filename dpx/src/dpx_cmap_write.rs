@@ -35,7 +35,8 @@ use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{CMap_get_CIDSysInfo, CMap_is_valid};
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_add_dict, pdf_add_stream, pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_new_number,
+    pdf_add_dict, pdf_add_stream, pdf_add_stream_str, pdf_copy_name,
+    pdf_new_dict, pdf_new_name, pdf_new_number,
     pdf_new_stream, pdf_new_string, pdf_obj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
@@ -214,19 +215,12 @@ unsafe fn write_map(
         }
         /* Flush if necessary */
         if count >= 100i32 as u64 || (*wbuf).curptr >= (*wbuf).limptr {
-            let mut fmt_buf: [i8; 32] = [0; 32];
             if count > 100i32 as u64 {
                 panic!("Unexpected error....: {}", count,);
             }
-            sprintf(
-                fmt_buf.as_mut_ptr(),
-                b"%zu beginbfchar\n\x00" as *const u8 as *const i8,
-                count,
-            );
-            pdf_add_stream(
+            pdf_add_stream_str(
                 &mut *stream,
-                fmt_buf.as_mut_ptr() as *const libc::c_void,
-                strlen(fmt_buf.as_mut_ptr()) as i32,
+                &format!("{} beginbfchar\n", count)
             );
             pdf_add_stream(
                 &mut *stream,
@@ -244,17 +238,10 @@ unsafe fn write_map(
         c = c.wrapping_add(1)
     }
     if num_blocks > 0i32 as u64 {
-        let mut fmt_buf_0: [i8; 32] = [0; 32];
         if count > 0i32 as u64 {
-            sprintf(
-                fmt_buf_0.as_mut_ptr(),
-                b"%zu beginbfchar\n\x00" as *const u8 as *const i8,
-                count,
-            );
-            pdf_add_stream(
+            pdf_add_stream_str(
                 &mut *stream,
-                fmt_buf_0.as_mut_ptr() as *const libc::c_void,
-                strlen(fmt_buf_0.as_mut_ptr()) as i32,
+                &format!("{} beginbfchar\n", count)
             );
             pdf_add_stream(
                 &mut *stream,
@@ -262,22 +249,15 @@ unsafe fn write_map(
                 (*wbuf).curptr.wrapping_offset_from((*wbuf).buf) as i64 as i32,
             );
             (*wbuf).curptr = (*wbuf).buf;
-            pdf_add_stream(
+            pdf_add_stream_str(
                 &mut *stream,
-                b"endbfchar\n\x00" as *const u8 as *const i8 as *const libc::c_void,
-                strlen(b"endbfchar\n\x00" as *const u8 as *const i8) as i32,
+                "endbfchar\n",
             );
             count = 0i32 as size_t
         }
-        sprintf(
-            fmt_buf_0.as_mut_ptr(),
-            b"%zu beginbfrange\n\x00" as *const u8 as *const i8,
-            num_blocks,
-        );
-        pdf_add_stream(
+        pdf_add_stream_str(
             &mut *stream,
-            fmt_buf_0.as_mut_ptr() as *const libc::c_void,
-            strlen(fmt_buf_0.as_mut_ptr()) as i32,
+            &format!("{} beginbfrange\n", num_blocks)
         );
         for i in 0..num_blocks {
             let c = blocks[i as usize].start as size_t;
@@ -342,10 +322,9 @@ unsafe fn write_map(
             (*wbuf).curptr.wrapping_offset_from((*wbuf).buf) as i64 as i32,
         );
         (*wbuf).curptr = (*wbuf).buf;
-        pdf_add_stream(
+        pdf_add_stream_str(
             &mut *stream,
-            b"endbfrange\n\x00" as *const u8 as *const i8 as *const libc::c_void,
-            strlen(b"endbfrange\n\x00" as *const u8 as *const i8) as i32,
+            "endbfrange\n",
         );
     }
     count as i32
