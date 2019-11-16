@@ -890,7 +890,7 @@ unsafe fn cs_parse_init() {
  * Not just copying...
  */
 #[no_mangle]
-pub unsafe extern "C" fn cs_copy_charstring(
+pub unsafe fn cs_copy_charstring(
     mut dst: *mut u8,
     mut dstlen: i32,
     mut src: *mut u8,

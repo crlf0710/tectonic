@@ -444,7 +444,7 @@ pub fn spc_xtx_check_special(mut buf: &[u8]) -> bool {
     buf.starts_with(b"x:")
 }
 #[no_mangle]
-pub unsafe extern "C" fn spc_xtx_setup_handler(
+pub unsafe fn spc_xtx_setup_handler(
     mut sph: *mut SpcHandler,
     mut spe: *mut spc_env,
     mut ap: *mut spc_arg,

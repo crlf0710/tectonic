@@ -136,15 +136,15 @@ pub struct CMap_cache {
 static mut __verbose: i32 = 0i32;
 static mut __silent: i32 = 0i32;
 #[no_mangle]
-pub unsafe extern "C" fn CMap_set_verbose(mut level: i32) {
+pub unsafe fn CMap_set_verbose(mut level: i32) {
     __verbose = level;
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_set_silent(mut value: i32) {
+pub unsafe fn CMap_set_silent(mut value: i32) {
     __silent = if value != 0 { 1i32 } else { 0i32 };
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_new() -> *mut CMap {
+pub unsafe fn CMap_new() -> *mut CMap {
     let cmap = new((1_u64).wrapping_mul(::std::mem::size_of::<CMap>() as u64) as u32) as *mut CMap;
     (*cmap).name = ptr::null_mut();
     (*cmap).type_0 = 1i32;
@@ -178,7 +178,7 @@ pub unsafe extern "C" fn CMap_new() -> *mut CMap {
     cmap
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_release(mut cmap: *mut CMap) {
+pub unsafe fn CMap_release(mut cmap: *mut CMap) {
     if cmap.is_null() {
         return;
     }
@@ -203,13 +203,13 @@ pub unsafe extern "C" fn CMap_release(mut cmap: *mut CMap) {
     free(cmap as *mut libc::c_void);
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_is_Identity(mut cmap: *mut CMap) -> bool {
+pub unsafe fn CMap_is_Identity(mut cmap: *mut CMap) -> bool {
     assert!(!cmap.is_null());
     return streq_ptr((*cmap).name, b"Identity-H\x00" as *const u8 as *const i8) as i32 != 0
         || streq_ptr((*cmap).name, b"Identity-V\x00" as *const u8 as *const i8) as i32 != 0;
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_is_valid(mut cmap: *mut CMap) -> bool {
+pub unsafe fn CMap_is_valid(mut cmap: *mut CMap) -> bool {
     /* Quick check */
     if cmap.is_null()
         || (*cmap).name.is_null()
@@ -237,7 +237,7 @@ pub unsafe extern "C" fn CMap_is_valid(mut cmap: *mut CMap) -> bool {
     true
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_get_profile(mut cmap: *mut CMap, mut type_0: i32) -> i32 {
+pub unsafe fn CMap_get_profile(mut cmap: *mut CMap, mut type_0: i32) -> i32 {
     assert!(!cmap.is_null());
     match type_0 {
         0 => (*cmap).profile.minBytesIn as i32,
@@ -293,7 +293,7 @@ unsafe fn handle_undefined(
     *inbytesleft = (*inbytesleft as u64).wrapping_sub(len) as size_t as size_t;
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_decode_char(
+pub unsafe fn CMap_decode_char(
     mut cmap: *mut CMap,
     mut inbuf: *mut *const u8,
     mut inbytesleft: *mut size_t,
@@ -420,7 +420,7 @@ pub unsafe extern "C" fn CMap_decode_char(
  * For convenience, it does not do decoding to CIDs.
  */
 #[no_mangle]
-pub unsafe extern "C" fn CMap_decode(
+pub unsafe fn CMap_decode(
     mut cmap: *mut CMap,
     mut inbuf: *mut *const u8,
     mut inbytesleft: *mut size_t,
@@ -437,7 +437,7 @@ pub unsafe extern "C" fn CMap_decode(
     count
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_reverse_decode(mut cmap: *mut CMap, mut cid: CID) -> i32 {
+pub unsafe fn CMap_reverse_decode(mut cmap: *mut CMap, mut cid: CID) -> i32 {
     let mut ch: i32 = if !(*cmap).reverseMap.is_null() {
         *(*cmap).reverseMap.offset(cid as isize)
     } else {
@@ -449,27 +449,27 @@ pub unsafe extern "C" fn CMap_reverse_decode(mut cmap: *mut CMap, mut cid: CID) 
     ch
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_get_name(mut cmap: *mut CMap) -> *mut i8 {
+pub unsafe fn CMap_get_name(mut cmap: *mut CMap) -> *mut i8 {
     assert!(!cmap.is_null());
     (*cmap).name
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_get_type(mut cmap: *mut CMap) -> i32 {
+pub unsafe fn CMap_get_type(mut cmap: *mut CMap) -> i32 {
     assert!(!cmap.is_null());
     (*cmap).type_0
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_get_wmode(mut cmap: *mut CMap) -> i32 {
+pub unsafe fn CMap_get_wmode(mut cmap: *mut CMap) -> i32 {
     assert!(!cmap.is_null());
     (*cmap).wmode
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_get_CIDSysInfo(mut cmap: *mut CMap) -> *mut CIDSysInfo {
+pub unsafe fn CMap_get_CIDSysInfo(mut cmap: *mut CMap) -> *mut CIDSysInfo {
     assert!(!cmap.is_null());
     (*cmap).CSI
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_set_name(mut cmap: *mut CMap, mut name: *const i8) {
+pub unsafe fn CMap_set_name(mut cmap: *mut CMap, mut name: *const i8) {
     assert!(!cmap.is_null());
     free((*cmap).name as *mut libc::c_void);
     (*cmap).name =
@@ -478,17 +478,17 @@ pub unsafe extern "C" fn CMap_set_name(mut cmap: *mut CMap, mut name: *const i8)
     strcpy((*cmap).name, name);
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_set_type(mut cmap: *mut CMap, mut type_0: i32) {
+pub unsafe fn CMap_set_type(mut cmap: *mut CMap, mut type_0: i32) {
     assert!(!cmap.is_null());
     (*cmap).type_0 = type_0;
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_set_wmode(mut cmap: *mut CMap, mut wmode: i32) {
+pub unsafe fn CMap_set_wmode(mut cmap: *mut CMap, mut wmode: i32) {
     assert!(!cmap.is_null());
     (*cmap).wmode = wmode;
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_set_CIDSysInfo(mut cmap: *mut CMap, mut csi: *const CIDSysInfo) {
+pub unsafe fn CMap_set_CIDSysInfo(mut cmap: *mut CMap, mut csi: *const CIDSysInfo) {
     assert!(!cmap.is_null());
     if !(*cmap).CSI.is_null() {
         free((*(*cmap).CSI).registry as *mut libc::c_void);
@@ -516,7 +516,7 @@ pub unsafe extern "C" fn CMap_set_CIDSysInfo(mut cmap: *mut CMap, mut csi: *cons
  * Can have muliple entry ?
  */
 #[no_mangle]
-pub unsafe extern "C" fn CMap_set_usecmap(mut cmap: *mut CMap, mut ucmap: *mut CMap) {
+pub unsafe fn CMap_set_usecmap(mut cmap: *mut CMap, mut ucmap: *mut CMap) {
     /* Maybe if (!ucmap) panic! is better for this. */
     assert!(!cmap.is_null());
     assert!(!ucmap.is_null());
@@ -592,7 +592,7 @@ unsafe fn CMap_match_codespace(mut cmap: *mut CMap, mut c: *const u8, mut dim: s
  * No overlapping codespace ranges are allowed, otherwise mapping is ambiguous.
  */
 #[no_mangle]
-pub unsafe extern "C" fn CMap_add_codespacerange(
+pub unsafe fn CMap_add_codespacerange(
     mut cmap: *mut CMap,
     mut codelo: *const u8,
     mut codehi: *const u8,
@@ -655,7 +655,7 @@ pub unsafe extern "C" fn CMap_add_codespacerange(
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_add_notdefchar(
+pub unsafe fn CMap_add_notdefchar(
     mut cmap: *mut CMap,
     mut src: *const u8,
     mut srcdim: size_t,
@@ -664,7 +664,7 @@ pub unsafe extern "C" fn CMap_add_notdefchar(
     CMap_add_notdefrange(cmap, src, src, srcdim, dst)
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_add_notdefrange(
+pub unsafe fn CMap_add_notdefrange(
     mut cmap: *mut CMap,
     mut srclo: *const u8,
     mut srchi: *const u8,
@@ -717,7 +717,7 @@ pub unsafe extern "C" fn CMap_add_notdefrange(
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_add_bfchar(
+pub unsafe fn CMap_add_bfchar(
     mut cmap: *mut CMap,
     mut src: *const u8,
     mut srcdim: size_t,
@@ -727,7 +727,7 @@ pub unsafe extern "C" fn CMap_add_bfchar(
     CMap_add_bfrange(cmap, src, src, srcdim, dst, dstdim)
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_add_bfrange(
+pub unsafe fn CMap_add_bfrange(
     mut cmap: *mut CMap,
     mut srclo: *const u8,
     mut srchi: *const u8,
@@ -794,7 +794,7 @@ pub unsafe extern "C" fn CMap_add_bfrange(
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_add_cidchar(
+pub unsafe fn CMap_add_cidchar(
     mut cmap: *mut CMap,
     mut src: *const u8,
     mut srcdim: size_t,
@@ -803,7 +803,7 @@ pub unsafe extern "C" fn CMap_add_cidchar(
     CMap_add_cidrange(cmap, src, src, srcdim, dst)
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_add_cidrange(
+pub unsafe fn CMap_add_cidrange(
     mut cmap: *mut CMap,
     mut srclo: *const u8,
     mut srchi: *const u8,
@@ -1015,7 +1015,7 @@ unsafe fn check_range(
 }
 static mut __cache: *mut CMap_cache = std::ptr::null_mut();
 #[no_mangle]
-pub unsafe extern "C" fn CMap_cache_init() {
+pub unsafe fn CMap_cache_init() {
     static mut range_min: [u8; 2] = [0; 2];
     static mut range_max: [u8; 2] = [0xff_u8, 0xff_u8];
     if !__cache.is_null() {
@@ -1062,7 +1062,7 @@ pub unsafe extern "C" fn CMap_cache_init() {
     (*__cache).num += 2i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_cache_get(mut id: i32) -> *mut CMap {
+pub unsafe fn CMap_cache_get(mut id: i32) -> *mut CMap {
     if __cache.is_null() {
         panic!("{}: CMap cache not initialized.", "CMap",);
     }
@@ -1072,7 +1072,7 @@ pub unsafe extern "C" fn CMap_cache_get(mut id: i32) -> *mut CMap {
     *(*__cache).cmaps.offset(id as isize)
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_cache_find(mut cmap_name: *const i8) -> i32 {
+pub unsafe fn CMap_cache_find(mut cmap_name: *const i8) -> i32 {
     if __cache.is_null() {
         CMap_cache_init();
     }
@@ -1117,7 +1117,7 @@ pub unsafe extern "C" fn CMap_cache_find(mut cmap_name: *const i8) -> i32 {
     id
 }
 #[no_mangle]
-pub unsafe extern "C" fn CMap_cache_add(mut cmap: *mut CMap) -> i32 {
+pub unsafe fn CMap_cache_add(mut cmap: *mut CMap) -> i32 {
     if !CMap_is_valid(cmap) {
         panic!("{}: Invalid CMap.", "CMap",);
     }
@@ -1153,7 +1153,7 @@ pub unsafe extern "C" fn CMap_cache_add(mut cmap: *mut CMap) -> i32 {
 /* ************************* CMAP_MAIN **************************/
 /* charName not supported */
 #[no_mangle]
-pub unsafe extern "C" fn CMap_cache_close() {
+pub unsafe fn CMap_cache_close() {
     if !__cache.is_null() {
         for id in 0..(*__cache).num {
             CMap_release(*(*__cache).cmaps.offset(id as isize));

@@ -158,7 +158,7 @@ pub struct glyph_mapper {
 /* TrueType */
 /* Modifying this has no effect :P */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_open_truetype(mut font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_open_truetype(mut font: *mut pdf_font) -> i32 {
     let mut embedding: i32 = 1i32;
     assert!(!font.is_null());
     let ident = pdf_font_get_ident(font); /* Must be embedded. */
@@ -1033,7 +1033,7 @@ unsafe fn do_custom_encoding(
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_load_truetype(mut font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_load_truetype(mut font: *mut pdf_font) -> i32 {
     let mut descriptor: *mut pdf_obj = pdf_font_get_descriptor(font);
     let mut ident: *mut i8 = pdf_font_get_ident(font);
     let mut encoding_id: i32 = pdf_font_get_encoding(font);

@@ -73,7 +73,7 @@ pub struct C2RustUnnamed_0 {
  * as directory separators. */
 static mut verbose: i32 = 0i32;
 #[no_mangle]
-pub unsafe extern "C" fn agl_set_verbose(mut level: i32) {
+pub unsafe fn agl_set_verbose(mut level: i32) {
     verbose = level;
 }
 unsafe fn agl_new_name() -> *mut agl_name {
@@ -299,7 +299,7 @@ static mut VAR_LIST: [C2RustUnnamed_0; 14] = [
     },
 ];
 #[no_mangle]
-pub unsafe extern "C" fn agl_suffix_to_otltag(suffix: &[u8]) -> Option<&'static [u8]> {
+pub unsafe fn agl_suffix_to_otltag(suffix: &[u8]) -> Option<&'static [u8]> {
     let mut i = 0;
     while !VAR_LIST[i].key.is_empty() {
         let mut j = 0;
@@ -377,14 +377,14 @@ static mut aglmap: ht_table = ht_table {
     table: [std::ptr::null_mut(); 503],
 };
 #[inline]
-unsafe extern "C" fn hval_free(mut hval: *mut libc::c_void) {
+unsafe fn hval_free(mut hval: *mut libc::c_void) {
     agl_release_name(hval as *mut agl_name);
 }
 #[no_mangle]
-pub unsafe extern "C" fn agl_init_map() {
+pub unsafe fn agl_init_map() {
     ht_init_table(
         &mut aglmap,
-        Some(hval_free as unsafe extern "C" fn(_: *mut libc::c_void) -> ()),
+        Some(hval_free as unsafe fn(_: *mut libc::c_void) -> ()),
     );
     agl_load_listfile(b"texglyphlist.txt\x00" as *const u8 as *const i8, 0i32);
     if agl_load_listfile(b"pdfglyphlist.txt\x00" as *const u8 as *const i8, 1i32) < 0i32 {
@@ -395,7 +395,7 @@ pub unsafe extern "C" fn agl_init_map() {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn agl_close_map() {
+pub unsafe fn agl_close_map() {
     ht_clear_table(&mut aglmap);
 }
 /*
@@ -533,7 +533,7 @@ unsafe fn agl_load_listfile(mut filename: *const i8, mut is_predef: i32) -> i32 
     count
 }
 #[no_mangle]
-pub unsafe extern "C" fn agl_lookup_list(mut glyphname: *const i8) -> *mut agl_name {
+pub unsafe fn agl_lookup_list(mut glyphname: *const i8) -> *mut agl_name {
     if glyphname.is_null() {
         return ptr::null_mut();
     }
@@ -578,7 +578,7 @@ pub fn agl_name_is_unicode(glyphname: &[u8]) -> bool {
     false
 }
 #[no_mangle]
-pub unsafe extern "C" fn agl_name_convert_unicode(mut glyphname: *const i8) -> i32 {
+pub unsafe fn agl_name_convert_unicode(mut glyphname: *const i8) -> i32 {
     if !agl_name_is_unicode(CStr::from_ptr(glyphname).to_bytes()) {
         return -1i32;
     }
@@ -653,7 +653,7 @@ unsafe fn put_unicode_glyph(name: &[u8], mut dstpp: *mut *mut u8, mut limptr: *m
     len
 }
 #[no_mangle]
-pub unsafe extern "C" fn agl_sput_UTF16BE(
+pub unsafe fn agl_sput_UTF16BE(
     mut glyphstr: *const i8,
     mut dstpp: *mut *mut u8,
     mut limptr: *mut u8,
@@ -759,7 +759,7 @@ pub unsafe extern "C" fn agl_sput_UTF16BE(
     len
 }
 #[no_mangle]
-pub unsafe extern "C" fn agl_get_unicodes(
+pub unsafe fn agl_get_unicodes(
     mut glyphstr: *const i8,
     mut unicodes: *mut i32,
     mut max_unicodes: i32,

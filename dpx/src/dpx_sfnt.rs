@@ -75,7 +75,7 @@ pub struct sfnt {
     pub offset: u32,
 }
 #[no_mangle]
-pub unsafe extern "C" fn sfnt_open(mut handle: InputHandleWrapper) -> *mut sfnt {
+pub unsafe fn sfnt_open(mut handle: InputHandleWrapper) -> *mut sfnt {
     handle.seek(SeekFrom::Start(0)).unwrap(); /* mbz */
     let sfont =
         new((1_u32 as u64).wrapping_mul(::std::mem::size_of::<sfnt>() as u64) as u32) as *mut sfnt; /* typefaces position */
@@ -96,7 +96,7 @@ pub unsafe extern "C" fn sfnt_open(mut handle: InputHandleWrapper) -> *mut sfnt 
     sfont
 }
 #[no_mangle]
-pub unsafe extern "C" fn dfont_open(mut handle: InputHandleWrapper, mut index: i32) -> *mut sfnt {
+pub unsafe fn dfont_open(mut handle: InputHandleWrapper, mut index: i32) -> *mut sfnt {
     let mut types_pos: u32 = 0;
     let mut res_pos: u32 = 0;
     let mut types_num: u16 = 0;
@@ -159,7 +159,7 @@ unsafe fn release_directory(mut td: *mut sfnt_table_directory) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn sfnt_close(mut sfont: *mut sfnt) {
+pub unsafe fn sfnt_close(mut sfont: *mut sfnt) {
     if !sfont.is_null() {
         ttstub_input_close((*sfont).handle.clone()); // TODO: use drop
         if !(*sfont).directory.is_null() {
@@ -169,7 +169,7 @@ pub unsafe extern "C" fn sfnt_close(mut sfont: *mut sfnt) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn put_big_endian(mut s: *mut libc::c_void, mut q: i32, mut n: i32) -> i32 {
+pub unsafe fn put_big_endian(mut s: *mut libc::c_void, mut q: i32, mut n: i32) -> i32 {
     let p = s as *mut i8;
     for i in (0..n).rev() {
         *p.offset(i as isize) = (q & 0xffi32) as i8;
@@ -229,7 +229,7 @@ unsafe fn find_table_index(td: Option<&sfnt_table_directory>, tag: &[u8; 4]) -> 
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sfnt_set_table(
+pub unsafe fn sfnt_set_table(
     mut sfont: *mut sfnt,
     mut tag: &[u8; 4],
     mut data: *mut libc::c_void,
@@ -255,7 +255,7 @@ pub unsafe extern "C" fn sfnt_set_table(
     *fresh0 = data as *mut i8;
 }
 #[no_mangle]
-pub unsafe extern "C" fn sfnt_find_table_len(mut sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
+pub unsafe fn sfnt_find_table_len(mut sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
     assert!(!sfont.is_null());
     let td = (*sfont).directory;
     let idx = find_table_index(td.as_ref(), tag);
@@ -266,7 +266,7 @@ pub unsafe extern "C" fn sfnt_find_table_len(mut sfont: *mut sfnt, tag: &[u8; 4]
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn sfnt_find_table_pos(mut sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
+pub unsafe fn sfnt_find_table_pos(mut sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
     assert!(!sfont.is_null());
     let td = (*sfont).directory;
     let idx = find_table_index(td.as_ref(), tag);
@@ -277,7 +277,7 @@ pub unsafe extern "C" fn sfnt_find_table_pos(mut sfont: *mut sfnt, tag: &[u8; 4]
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn sfnt_locate_table(mut sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
+pub unsafe fn sfnt_locate_table(mut sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
     assert!(!sfont.is_null());
     let offset = sfnt_find_table_pos(sfont, tag);
     if offset == 0_u32 {
@@ -287,7 +287,7 @@ pub unsafe extern "C" fn sfnt_locate_table(mut sfont: *mut sfnt, tag: &[u8; 4]) 
     offset
 }
 #[no_mangle]
-pub unsafe extern "C" fn sfnt_read_table_directory(mut sfont: *mut sfnt, mut offset: u32) -> i32 {
+pub unsafe fn sfnt_read_table_directory(mut sfont: *mut sfnt, mut offset: u32) -> i32 {
     assert!(!sfont.is_null());
     if !(*sfont).directory.is_null() {
         release_directory((*sfont).directory);
@@ -325,7 +325,7 @@ pub unsafe extern "C" fn sfnt_read_table_directory(mut sfont: *mut sfnt, mut off
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn sfnt_require_table(
+pub unsafe fn sfnt_require_table(
     sfont: &mut sfnt,
     table: &SfntTableInfo,
 ) -> Result<(), ()> {
@@ -367,7 +367,7 @@ static mut padbytes: [u8; 4] = [0; 4];
 /* get_***_*** from numbers.h */
 /* table directory */
 #[no_mangle]
-pub unsafe extern "C" fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj {
+pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj {
     let mut length;
     assert!(!sfont.is_null() && !(*sfont).directory.is_null());
     let stream = pdf_new_stream(STREAM_COMPRESS);

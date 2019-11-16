@@ -104,7 +104,7 @@ pub struct C2RustUnnamed_0 {
  * as directory separators. */
 static mut __verbose: i32 = 0i32;
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_set_verbose(mut level: i32) {
+pub unsafe fn pdf_font_set_verbose(mut level: i32) {
     __verbose = level;
     CMap_set_verbose(level);
     Type0Font_set_verbose(level);
@@ -114,11 +114,11 @@ pub unsafe extern "C" fn pdf_font_set_verbose(mut level: i32) {
     otf_cmap_set_verbose(level);
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_get_verbose() -> i32 {
+pub unsafe fn pdf_font_get_verbose() -> i32 {
     __verbose
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_set_dpi(mut font_dpi: i32) {
+pub unsafe fn pdf_font_set_dpi(mut font_dpi: i32) {
     PKFont_set_dpi(font_dpi);
 }
 /* Here is the complete list of PDF object types */
@@ -166,15 +166,15 @@ pub fn get_unique_time_if_given() -> Option<SystemTime> {
 static mut unique_tag_state: i32 = 1i32;
 static mut unique_tags_deterministic: i32 = 0i32;
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_reset_unique_tag_state() {
+pub unsafe fn pdf_font_reset_unique_tag_state() {
     unique_tag_state = 1i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_set_deterministic_unique_tags(mut value: i32) {
+pub unsafe fn pdf_font_set_deterministic_unique_tags(mut value: i32) {
     unique_tags_deterministic = value;
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_make_uniqueTag(mut tag: *mut i8) {
+pub unsafe fn pdf_font_make_uniqueTag(mut tag: *mut i8) {
     if unique_tags_deterministic != 0 {
         snprintf(
             tag,
@@ -300,7 +300,7 @@ static mut font_cache: C2RustUnnamed_0 = C2RustUnnamed_0 {
         fonts: std::ptr::null_mut(),
     };
 #[no_mangle]
-pub unsafe extern "C" fn pdf_init_fonts() {
+pub unsafe fn pdf_init_fonts() {
     assert!(font_cache.fonts.is_null());
     agl_init_map();
     CMap_cache_init();
@@ -313,7 +313,7 @@ pub unsafe extern "C" fn pdf_init_fonts() {
         as *mut pdf_font;
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_get_font_reference(mut font_id: i32) -> *mut pdf_obj {
+pub unsafe fn pdf_get_font_reference(mut font_id: i32) -> *mut pdf_obj {
     if font_id < 0i32 || font_id >= font_cache.count {
         panic!("Invalid font ID: {}", font_id);
     }
@@ -329,7 +329,7 @@ pub unsafe extern "C" fn pdf_get_font_reference(mut font_id: i32) -> *mut pdf_ob
     pdf_link_obj((*font).reference)
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_get_font_usedchars(mut font_id: i32) -> *mut i8 {
+pub unsafe fn pdf_get_font_usedchars(mut font_id: i32) -> *mut i8 {
     if font_id < 0i32 || font_id >= font_cache.count {
         panic!("Invalid font ID: {}", font_id);
     }
@@ -351,7 +351,7 @@ pub unsafe extern "C" fn pdf_get_font_usedchars(mut font_id: i32) -> *mut i8 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_get_font_wmode(mut font_id: i32) -> i32 {
+pub unsafe fn pdf_get_font_wmode(mut font_id: i32) -> i32 {
     if font_id < 0i32 || font_id >= font_cache.count {
         panic!("Invalid font ID: {}", font_id);
     }
@@ -364,7 +364,7 @@ pub unsafe extern "C" fn pdf_get_font_wmode(mut font_id: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_get_font_subtype(mut font_id: i32) -> i32 {
+pub unsafe fn pdf_get_font_subtype(mut font_id: i32) -> i32 {
     if font_id < 0i32 || font_id >= font_cache.count {
         panic!("Invalid font ID: {}", font_id);
     }
@@ -372,7 +372,7 @@ pub unsafe extern "C" fn pdf_get_font_subtype(mut font_id: i32) -> i32 {
     (*font).subtype
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_get_font_encoding(mut font_id: i32) -> i32 {
+pub unsafe fn pdf_get_font_encoding(mut font_id: i32) -> i32 {
     if font_id < 0i32 || font_id >= font_cache.count {
         panic!("Invalid font ID: {}", font_id);
     }
@@ -430,7 +430,7 @@ unsafe fn try_load_ToUnicode_CMap(mut font: *mut pdf_font) -> i32 {
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_close_fonts() {
+pub unsafe fn pdf_close_fonts() {
     let mut font_id = 0;
     while font_id < font_cache.count {
         let font = &mut *font_cache.fonts.offset(font_id as isize) as *mut pdf_font;
@@ -556,7 +556,7 @@ pub unsafe extern "C" fn pdf_close_fonts() {
     agl_close_map();
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_findresource(
+pub unsafe fn pdf_font_findresource(
     mut tex_name: *const i8,
     mut font_scale: f64,
     mut mrec: *mut fontmap_rec,
@@ -832,7 +832,7 @@ pub unsafe extern "C" fn pdf_font_findresource(
     font_id
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_is_in_use(mut font: *mut pdf_font) -> bool {
+pub unsafe fn pdf_font_is_in_use(mut font: *mut pdf_font) -> bool {
     assert!(!font.is_null());
     return if !(*font).reference.is_null() {
         1i32
@@ -841,27 +841,27 @@ pub unsafe extern "C" fn pdf_font_is_in_use(mut font: *mut pdf_font) -> bool {
     } != 0;
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_get_index(mut font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_get_index(mut font: *mut pdf_font) -> i32 {
     assert!(!font.is_null());
     (*font).index
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_get_ident(mut font: *mut pdf_font) -> *mut i8 {
+pub unsafe fn pdf_font_get_ident(mut font: *mut pdf_font) -> *mut i8 {
     assert!(!font.is_null());
     (*font).ident
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_get_mapname(mut font: *mut pdf_font) -> *mut i8 {
+pub unsafe fn pdf_font_get_mapname(mut font: *mut pdf_font) -> *mut i8 {
     assert!(!font.is_null());
     (*font).map_name
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_get_fontname(mut font: *mut pdf_font) -> *mut i8 {
+pub unsafe fn pdf_font_get_fontname(mut font: *mut pdf_font) -> *mut i8 {
     assert!(!font.is_null());
     (*font).fontname
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_get_resource(font: &mut pdf_font) -> &mut pdf_obj {
+pub unsafe fn pdf_font_get_resource(font: &mut pdf_font) -> &mut pdf_obj {
     if (*font).resource.is_null() {
         (*font).resource = pdf_new_dict();
         pdf_add_dict(&mut *(*font).resource, "Type", pdf_new_name("Font"));
@@ -881,7 +881,7 @@ pub unsafe extern "C" fn pdf_font_get_resource(font: &mut pdf_font) -> &mut pdf_
     &mut *(*font).resource
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_get_descriptor(mut font: *mut pdf_font) -> *mut pdf_obj {
+pub unsafe fn pdf_font_get_descriptor(mut font: *mut pdf_font) -> *mut pdf_obj {
     assert!(!font.is_null());
     if (*font).descriptor.is_null() {
         (*font).descriptor = pdf_new_dict();
@@ -890,17 +890,17 @@ pub unsafe extern "C" fn pdf_font_get_descriptor(mut font: *mut pdf_font) -> *mu
     (*font).descriptor
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_get_usedchars(mut font: *mut pdf_font) -> *mut i8 {
+pub unsafe fn pdf_font_get_usedchars(mut font: *mut pdf_font) -> *mut i8 {
     assert!(!font.is_null());
     (*font).usedchars
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_get_encoding(mut font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_get_encoding(mut font: *mut pdf_font) -> i32 {
     assert!(!font.is_null());
     (*font).encoding_id
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_get_flag(mut font: *mut pdf_font, mut mask: i32) -> i32 {
+pub unsafe fn pdf_font_get_flag(mut font: *mut pdf_font, mut mask: i32) -> i32 {
     assert!(!font.is_null());
     return if (*font).flags & mask != 0 {
         1i32
@@ -909,7 +909,7 @@ pub unsafe extern "C" fn pdf_font_get_flag(mut font: *mut pdf_font, mut mask: i3
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_get_param(mut font: *mut pdf_font, mut param_type: i32) -> f64 {
+pub unsafe fn pdf_font_get_param(mut font: *mut pdf_font, mut param_type: i32) -> f64 {
     let mut param: f64 = 0.0f64;
     assert!(!font.is_null());
     match param_type {
@@ -920,7 +920,7 @@ pub unsafe extern "C" fn pdf_font_get_param(mut font: *mut pdf_font, mut param_t
     param
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_get_uniqueTag(mut font: *mut pdf_font) -> *mut i8 {
+pub unsafe fn pdf_font_get_uniqueTag(mut font: *mut pdf_font) -> *mut i8 {
     assert!(!font.is_null());
     if (*font).uniqueID[0] as i32 == '\u{0}' as i32 {
         pdf_font_make_uniqueTag((*font).uniqueID.as_mut_ptr());
@@ -928,7 +928,7 @@ pub unsafe extern "C" fn pdf_font_get_uniqueTag(mut font: *mut pdf_font) -> *mut
     (*font).uniqueID.as_mut_ptr()
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_set_fontname(
+pub unsafe fn pdf_font_set_fontname(
     mut font: *mut pdf_font,
     mut fontname: *const i8,
 ) -> i32 {
@@ -946,7 +946,7 @@ pub unsafe extern "C" fn pdf_font_set_fontname(
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_set_subtype(mut font: *mut pdf_font, mut subtype: i32) -> i32 {
+pub unsafe fn pdf_font_set_subtype(mut font: *mut pdf_font, mut subtype: i32) -> i32 {
     assert!(!font.is_null());
     (*font).subtype = subtype;
     0i32
@@ -960,7 +960,7 @@ pub unsafe extern "C" fn pdf_font_set_subtype(mut font: *mut pdf_font, mut subty
 /* Each font drivers use the followings. */
 /* without unique tag */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_set_flags(mut font: *mut pdf_font, mut flags: i32) -> i32 {
+pub unsafe fn pdf_font_set_flags(mut font: *mut pdf_font, mut flags: i32) -> i32 {
     assert!(!font.is_null());
     (*font).flags |= flags;
     0i32
