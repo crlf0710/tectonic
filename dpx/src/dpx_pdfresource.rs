@@ -108,7 +108,7 @@ static mut pdf_resource_categories: [C2RustUnnamed; 9] = [
 static mut resources: [res_cache; 9] = [res_cache {
     count: 0,
     capacity: 0,
-    resources: 0 as *const pdf_res as *mut pdf_res,
+    resources: std::ptr::null_mut(),
 }; 9];
 unsafe fn pdf_init_resource(mut res: *mut pdf_res) {
     assert!(!res.is_null());

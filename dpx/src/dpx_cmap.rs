@@ -1012,7 +1012,7 @@ unsafe fn check_range(
     }
     0i32
 }
-static mut __cache: *mut CMap_cache = 0 as *const CMap_cache as *mut CMap_cache;
+static mut __cache: *mut CMap_cache = std::ptr::null_mut();
 #[no_mangle]
 pub unsafe extern "C" fn CMap_cache_init() {
     static mut range_min: [u8; 2] = [0; 2];

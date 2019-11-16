@@ -294,12 +294,12 @@ static mut output_xref: Vec<xref_entry> = Vec::new();
 static mut pdf_max_ind_objects: usize = 0;
 static mut next_label: usize = 0;
 static mut startxref: u32 = 0;
-static mut output_stream: *mut pdf_obj = 0 as *const pdf_obj as *mut pdf_obj;
+static mut output_stream: *mut pdf_obj = ptr::null_mut();
 /* the limit is only 100 for linearized PDF */
 static mut enc_mode: bool = false;
 static mut doc_enc_mode: bool = false;
-static mut trailer_dict: *mut pdf_obj = 0 as *const pdf_obj as *mut pdf_obj;
-static mut xref_stream: *mut pdf_obj = 0 as *const pdf_obj as *mut pdf_obj;
+static mut trailer_dict: *mut pdf_obj = ptr::null_mut();
+static mut xref_stream: *mut pdf_obj = ptr::null_mut();
 static mut verbose: i32 = 0i32;
 static mut compression_level: i8 = 9_i8;
 static mut compression_use_predictor: i8 = 1_i8;
@@ -343,7 +343,7 @@ pub unsafe extern "C" fn pdf_obj_get_verbose() -> i32 {
 pub unsafe extern "C" fn pdf_obj_set_verbose(mut level: i32) {
     verbose = level;
 }
-static mut current_objstm: *mut pdf_obj = 0 as *const pdf_obj as *mut pdf_obj;
+static mut current_objstm: *mut pdf_obj = ptr::null_mut();
 static mut do_objstm: i32 = 0;
 unsafe fn add_xref_entry(label: usize, typ: u8, field2: u32, field3: u16) {
     if label >= pdf_max_ind_objects {
@@ -3711,7 +3711,7 @@ unsafe fn read_xref(mut pf: *mut pdf_file) -> *mut pdf_obj {
         }
     }
 }
-static mut pdf_files: *mut ht_table = 0 as *const ht_table as *mut ht_table;
+static mut pdf_files: *mut ht_table = ptr::null_mut();
 unsafe fn pdf_file_new(mut handle: InputHandleWrapper) -> *mut pdf_file {
     let pf =
         new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_file>() as u64) as u32) as *mut pdf_file;
@@ -3922,7 +3922,7 @@ static mut loop_marker: pdf_obj = pdf_obj {
         generation: 0_u16,
         refcount: 0_u32,
         flags: 0i32,
-        data: 0 as *const libc::c_void as *mut libc::c_void,
+        data: ptr::null_mut(),
     };
 unsafe fn pdf_import_indirect(mut object: *mut pdf_obj) -> *mut pdf_obj {
     let mut pf: *mut pdf_file = (*((*object).data as *mut pdf_indirect)).pf;

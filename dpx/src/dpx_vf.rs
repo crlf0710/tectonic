@@ -98,7 +98,7 @@ static mut verbose: u8 = 0_u8;
 pub unsafe extern "C" fn vf_set_verbose(mut level: i32) {
     verbose = level as u8;
 }
-static mut vf_fonts: *mut vf = 0 as *const vf as *mut vf;
+static mut vf_fonts: *mut vf = std::ptr::null_mut();
 static mut num_vf_fonts: u32 = 0_u32;
 static mut max_vf_fonts: u32 = 0_u32;
 #[no_mangle]

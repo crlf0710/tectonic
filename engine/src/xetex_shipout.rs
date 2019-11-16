@@ -152,7 +152,7 @@ unsafe extern "C" fn cur_length() -> pool_pointer {
 /* DVI code */
 static mut dvi_file: Option<OutputHandleWrapper> = None;
 static mut output_file_name: str_number = 0;
-static mut dvi_buf: *mut u8 = 0 as *const u8 as *mut u8;
+static mut dvi_buf: *mut u8 = std::ptr::null_mut();
 static mut dvi_limit: i32 = 0;
 static mut g: i32 = 0;
 static mut lq: i32 = 0;

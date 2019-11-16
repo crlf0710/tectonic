@@ -204,7 +204,7 @@ use super::dpx_tt_table::tt_vhea_table;
 static mut dvi_handle: Option<InputHandleWrapper> = None;
 static mut linear: i8 = 0_i8;
 /* set to 1 for strict linear processing of the input */
-static mut page_loc: *mut u32 = 0 as *const u32 as *mut u32;
+static mut page_loc: *mut u32 = std::ptr::null_mut();
 static mut num_pages: u32 = 0_u32;
 static mut dvi_file_size: u32 = 0_u32;
 static mut DVI_INFO: dvi_header = dvi_header {
@@ -238,7 +238,7 @@ static mut lr_width: u32 = 0;
 /* total width of reflected segment    */
 static mut lr_width_stack: [u32; 256] = [0; 256];
 static mut lr_width_stack_depth: u32 = 0_u32;
-static mut loaded_fonts: *mut loaded_font = 0 as *const loaded_font as *mut loaded_font;
+static mut loaded_fonts: *mut loaded_font = std::ptr::null_mut();
 static mut num_loaded_fonts: u32 = 0_u32;
 static mut max_loaded_fonts: u32 = 0_u32;
 unsafe fn need_more_fonts(mut n: u32) {
@@ -251,7 +251,7 @@ unsafe fn need_more_fonts(mut n: u32) {
         ) as *mut loaded_font
     };
 }
-static mut def_fonts: *mut font_def = 0 as *const font_def as *mut font_def;
+static mut def_fonts: *mut font_def = std::ptr::null_mut();
 static mut num_def_fonts: u32 = 0_u32;
 static mut max_def_fonts: u32 = 0_u32;
 static mut compute_boxes: i32 = 0i32;

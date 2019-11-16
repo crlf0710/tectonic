@@ -34,6 +34,7 @@ pub mod xtx;
 use crate::warn;
 use crate::DisplayExt;
 use std::ffi::{CStr, CString};
+use std::ptr;
 
 use self::color::{spc_color_check_special, spc_color_setup_handler};
 use self::dvipdfmx::{spc_dvipdfmx_check_special, spc_dvipdfmx_setup_handler};
@@ -134,7 +135,7 @@ pub unsafe extern "C" fn spc_suspend_annot(mut _spe: *mut spc_env) -> i32 {
     dvi_link_annot(0i32);
     0i32
 }
-static mut NAMED_OBJECTS: *mut ht_table = 0 as *const ht_table as *mut ht_table;
+static mut NAMED_OBJECTS: *mut ht_table = ptr::null_mut();
 /* reserved keys */
 static mut _RKEYS: [*const i8; 11] = [
     b"xpos\x00" as *const u8 as *const i8,
@@ -147,7 +148,7 @@ static mut _RKEYS: [*const i8; 11] = [
     b"names\x00" as *const u8 as *const i8,
     b"catalog\x00" as *const u8 as *const i8,
     b"docinfo\x00" as *const u8 as *const i8,
-    0 as *const i8,
+    ptr::null(),
 ];
 /* pageN where N is a positive integer.
  * Note that page need not exist at this time.

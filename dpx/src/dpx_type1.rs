@@ -32,6 +32,7 @@ use crate::streq_ptr;
 use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_cff::{
     cff_add_string, cff_close, cff_get_seac_sid, cff_glyph_lookup, cff_index_size, cff_new_index,
@@ -167,20 +168,20 @@ unsafe fn get_font_attr(mut font: *mut pdf_font, cffont: &cff_font) {
         b"P\x00" as *const u8 as *const i8,
         b"Pi\x00" as *const u8 as *const i8,
         b"Rho\x00" as *const u8 as *const i8,
-        0 as *const i8,
+        ptr::null(),
     ];
     static mut L_d: [*const i8; 5] = [
         b"p\x00" as *const u8 as *const i8,
         b"q\x00" as *const u8 as *const i8,
         b"mu\x00" as *const u8 as *const i8,
         b"eta\x00" as *const u8 as *const i8,
-        0 as *const i8,
+        ptr::null(),
     ];
     static mut L_a: [*const i8; 4] = [
         b"b\x00" as *const u8 as *const i8,
         b"h\x00" as *const u8 as *const i8,
         b"lambda\x00" as *const u8 as *const i8,
-        0 as *const i8,
+        ptr::null(),
     ];
     let mut gm = t1_ginfo::new();
     let mut defaultwidth = 500_f64;

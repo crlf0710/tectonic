@@ -244,7 +244,7 @@ pub unsafe extern "C" fn jpeg_include_image(
                 colorspace = 0 as *mut pdf_obj
             } else {
                 let cspc_id = iccp_load_profile(
-                    0 as *const i8,
+                    std::ptr::null(),
                     pdf_stream_dataptr(icc_stream),
                     pdf_stream_length(icc_stream),
                 );

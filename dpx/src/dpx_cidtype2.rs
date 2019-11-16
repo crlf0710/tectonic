@@ -29,6 +29,7 @@
 
 use crate::DisplayExt;
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_sfnt::{
     dfont_open, sfnt_close, sfnt_create_FontFile_stream, sfnt_find_table_pos, sfnt_open,
@@ -158,7 +159,7 @@ unsafe fn validate_name(mut fontname: *mut i8, mut len: i32) {
         b"-WINP-RKSJ-H\x00" as *const u8 as *const i8,
         b"-WING-RKSJ-H\x00" as *const u8 as *const i8,
         b"-90pv-RKSJ-H\x00" as *const u8 as *const i8,
-        0 as *const i8,
+        ptr::null(),
     ];
     let mut count = 0;
     for i in 0..len {
@@ -210,7 +211,7 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
                 b"UCSms-UCS2\x00" as *const u8 as *const i8,
                 b"UCS4\x00" as *const u8 as *const i8,
                 b"UCS2\x00" as *const u8 as *const i8,
-                0 as *const i8,
+                ptr::null(),
             ],
         },
     C2RustUnnamed_3 {
@@ -221,7 +222,7 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
                 b"UCSms-UCS2\x00" as *const u8 as *const i8,
                 b"UCS4\x00" as *const u8 as *const i8,
                 b"UCS2\x00" as *const u8 as *const i8,
-                0 as *const i8,
+                ptr::null(),
             ],
         },
     C2RustUnnamed_3 {
@@ -229,10 +230,10 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
             encoding: 2_u16,
             pdfnames: [
                 b"90ms-RKSJ\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
             ],
         },
     C2RustUnnamed_3 {
@@ -240,10 +241,10 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
             encoding: 3_u16,
             pdfnames: [
                 b"GBK-EUC\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
             ],
         },
     C2RustUnnamed_3 {
@@ -251,10 +252,10 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
             encoding: 4_u16,
             pdfnames: [
                 b"ETen-B5\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
             ],
         },
     C2RustUnnamed_3 {
@@ -262,10 +263,10 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
             encoding: 5_u16,
             pdfnames: [
                 b"KSCms-UHC\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
             ],
         },
     C2RustUnnamed_3 {
@@ -273,10 +274,10 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
             encoding: 1_u16,
             pdfnames: [
                 b"90pv-RKSJ\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
             ],
         },
     C2RustUnnamed_3 {
@@ -284,10 +285,10 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
             encoding: 2_u16,
             pdfnames: [
                 b"B5pc\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
             ],
         },
     C2RustUnnamed_3 {
@@ -295,10 +296,10 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
             encoding: 25_u16,
             pdfnames: [
                 b"GBpc-EUC\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
             ],
         },
     C2RustUnnamed_3 {
@@ -306,21 +307,21 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
             encoding: 3_u16,
             pdfnames: [
                 b"KSCpc-EUC\x00" as *const u8 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
             ],
         },
     C2RustUnnamed_3 {
             platform: 0_u16,
             encoding: 0_u16,
             pdfnames: [
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
-                0 as *const i8,
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
             ],
         },
 ];

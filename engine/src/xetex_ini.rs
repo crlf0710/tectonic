@@ -10,6 +10,7 @@
 
 use std::ffi::CStr;
 use std::io::Write;
+use std::ptr;
 
 use super::xetex_texmfmp::get_date_and_time;
 use crate::core_memory::{mfree, xcalloc, xmalloc};
@@ -410,19 +411,19 @@ pub use super::xetex_io::UFILE;
 */
 /* All the following variables are declared in xetex-xetexd.h */
 #[no_mangle]
-pub static mut eqtb: *mut memory_word = 0 as *const memory_word as *mut memory_word;
+pub static mut eqtb: *mut memory_word = ptr::null_mut();
 #[no_mangle]
 pub static mut bad: i32 = 0;
 #[no_mangle]
-pub static mut name_of_file: *mut i8 = 0 as *const i8 as *mut i8;
+pub static mut name_of_file: *mut i8 = ptr::null_mut();
 #[no_mangle]
-pub static mut name_of_file16: *mut UTF16_code = 0 as *const UTF16_code as *mut UTF16_code;
+pub static mut name_of_file16: *mut UTF16_code = ptr::null_mut();
 #[no_mangle]
 pub static mut name_length: i32 = 0;
 #[no_mangle]
 pub static mut name_length16: i32 = 0;
 #[no_mangle]
-pub static mut buffer: *mut UnicodeScalar = 0 as *const UnicodeScalar as *mut UnicodeScalar;
+pub static mut buffer: *mut UnicodeScalar = ptr::null_mut();
 #[no_mangle]
 pub static mut first: i32 = 0;
 #[no_mangle]
@@ -485,9 +486,9 @@ pub static mut insert_src_special_every_math: bool = false;
 pub static mut insert_src_special_every_vbox: bool = false;
 #[no_mangle]
 pub static mut str_pool: *mut packed_UTF16_code =
-    0 as *const packed_UTF16_code as *mut packed_UTF16_code;
+    ptr::null_mut();
 #[no_mangle]
-pub static mut str_start: *mut pool_pointer = 0 as *const pool_pointer as *mut pool_pointer;
+pub static mut str_start: *mut pool_pointer = ptr::null_mut();
 #[no_mangle]
 pub static mut pool_ptr: pool_pointer = 0;
 #[no_mangle]
@@ -519,7 +520,7 @@ pub static mut first_count: i32 = 0;
 #[no_mangle]
 pub static mut doing_special: bool = false;
 #[no_mangle]
-pub static mut native_text: *mut UTF16_code = 0 as *const UTF16_code as *mut UTF16_code;
+pub static mut native_text: *mut UTF16_code = ptr::null_mut();
 #[no_mangle]
 pub static mut native_text_size: i32 = 0;
 #[no_mangle]
@@ -537,7 +538,7 @@ pub static mut history: TTHistory = TTHistory::SPOTLESS;
 #[no_mangle]
 pub static mut error_count: i8 = 0;
 #[no_mangle]
-pub static mut help_line: [*const i8; 6] = [0 as *const i8; 6];
+pub static mut help_line: [*const i8; 6] = [ptr::null(); 6];
 #[no_mangle]
 pub static mut help_ptr: u8 = 0;
 #[no_mangle]
@@ -549,7 +550,7 @@ pub static mut tex_remainder: scaled_t = 0;
 #[no_mangle]
 pub static mut temp_ptr: i32 = 0;
 #[no_mangle]
-pub static mut mem: *mut memory_word = 0 as *const memory_word as *mut memory_word;
+pub static mut mem: *mut memory_word = ptr::null_mut();
 #[no_mangle]
 pub static mut lo_mem_max: i32 = 0;
 #[no_mangle]
@@ -584,7 +585,7 @@ pub static mut depth_threshold: i32 = 0;
 pub static mut breadth_max: i32 = 0;
 #[no_mangle]
 pub static mut nest: *mut list_state_record =
-    0 as *const list_state_record as *mut list_state_record;
+    ptr::null_mut();
 #[no_mangle]
 pub static mut nest_ptr: i32 = 0;
 #[no_mangle]
@@ -606,7 +607,7 @@ pub static mut shown_mode: i16 = 0;
 #[no_mangle]
 pub static mut old_setting: Selector = Selector::FILE_0;
 #[no_mangle]
-pub static mut hash: *mut b32x2 = 0 as *const b32x2 as *mut b32x2;
+pub static mut hash: *mut b32x2 = ptr::null_mut();
 #[no_mangle]
 pub static mut hash_used: i32 = 0;
 #[no_mangle]
@@ -630,7 +631,7 @@ pub static mut prim_eqtb: [memory_word; 501] = [memory_word {
     b32: b32x2 { s0: 0, s1: 0 },
 }; 501];
 #[no_mangle]
-pub static mut save_stack: *mut memory_word = 0 as *const memory_word as *mut memory_word;
+pub static mut save_stack: *mut memory_word = ptr::null_mut();
 #[no_mangle]
 pub static mut save_ptr: i32 = 0;
 #[no_mangle]
@@ -652,7 +653,7 @@ pub static mut cur_cs: i32 = 0;
 #[no_mangle]
 pub static mut cur_tok: i32 = 0;
 #[no_mangle]
-pub static mut input_stack: *mut input_state_t = 0 as *const input_state_t as *mut input_state_t;
+pub static mut input_stack: *mut input_state_t = ptr::null_mut();
 #[no_mangle]
 pub static mut input_ptr: i32 = 0;
 #[no_mangle]
@@ -676,12 +677,12 @@ pub static mut input_file: *mut *mut UFILE = 0 as *const *mut UFILE as *mut *mut
 #[no_mangle]
 pub static mut line: i32 = 0;
 #[no_mangle]
-pub static mut line_stack: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut line_stack: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut source_filename_stack: *mut str_number = 0 as *const str_number as *mut str_number;
+pub static mut source_filename_stack: *mut str_number = ptr::null_mut();
 #[no_mangle]
 pub static mut full_source_filename_stack: *mut str_number =
-    0 as *const str_number as *mut str_number;
+    ptr::null_mut();
 #[no_mangle]
 pub static mut scanner_status: u8 = 0;
 #[no_mangle]
@@ -689,7 +690,7 @@ pub static mut warning_index: i32 = 0;
 #[no_mangle]
 pub static mut def_ref: i32 = 0;
 #[no_mangle]
-pub static mut param_stack: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut param_stack: *mut i32 = ptr::null_mut();
 #[no_mangle]
 pub static mut param_ptr: i32 = 0;
 #[no_mangle]
@@ -725,7 +726,7 @@ pub static mut radix: small_number = 0;
 #[no_mangle]
 pub static mut cur_order: glue_ord = 0;
 #[no_mangle]
-pub static mut read_file: [*mut UFILE; 16] = [0 as *const UFILE as *mut UFILE; 16];
+pub static mut read_file: [*mut UFILE; 16] = [ptr::null_mut(); 16];
 #[no_mangle]
 pub static mut read_open: [u8; 17] = [0; 17];
 #[no_mangle]
@@ -753,7 +754,7 @@ pub static mut file_name_quote_char: UTF16_code = 0;
 #[no_mangle]
 pub static mut format_default_length: i32 = 0;
 #[no_mangle]
-pub static mut TEX_format_default: *mut i8 = 0 as *const i8 as *mut i8;
+pub static mut TEX_format_default: *mut i8 = ptr::null_mut();
 #[no_mangle]
 pub static mut name_in_progress: bool = false;
 #[no_mangle]
@@ -761,45 +762,45 @@ pub static mut job_name: str_number = 0;
 #[no_mangle]
 pub static mut log_opened: bool = false;
 #[no_mangle]
-pub static mut output_file_extension: *const i8 = 0 as *const i8;
+pub static mut output_file_extension: *const i8 = ptr::null();
 #[no_mangle]
 pub static mut texmf_log_name: str_number = 0;
 #[no_mangle]
-pub static mut font_info: *mut memory_word = 0 as *const memory_word as *mut memory_word;
+pub static mut font_info: *mut memory_word = ptr::null_mut();
 #[no_mangle]
 pub static mut fmem_ptr: font_index = 0;
 #[no_mangle]
 pub static mut font_ptr: internal_font_number = 0;
 #[no_mangle]
-pub static mut font_check: *mut b16x4 = 0 as *const b16x4 as *mut b16x4;
+pub static mut font_check: *mut b16x4 = ptr::null_mut();
 #[no_mangle]
-pub static mut font_size: *mut scaled_t = 0 as *const scaled_t as *mut scaled_t;
+pub static mut font_size: *mut scaled_t = ptr::null_mut();
 #[no_mangle]
-pub static mut font_dsize: *mut scaled_t = 0 as *const scaled_t as *mut scaled_t;
+pub static mut font_dsize: *mut scaled_t = ptr::null_mut();
 #[no_mangle]
-pub static mut font_params: *mut font_index = 0 as *const font_index as *mut font_index;
+pub static mut font_params: *mut font_index = ptr::null_mut();
 #[no_mangle]
-pub static mut font_name: *mut str_number = 0 as *const str_number as *mut str_number;
+pub static mut font_name: *mut str_number = ptr::null_mut();
 #[no_mangle]
-pub static mut font_area: *mut str_number = 0 as *const str_number as *mut str_number;
+pub static mut font_area: *mut str_number = ptr::null_mut();
 #[no_mangle]
-pub static mut font_bc: *mut UTF16_code = 0 as *const UTF16_code as *mut UTF16_code;
+pub static mut font_bc: *mut UTF16_code = ptr::null_mut();
 #[no_mangle]
-pub static mut font_ec: *mut UTF16_code = 0 as *const UTF16_code as *mut UTF16_code;
+pub static mut font_ec: *mut UTF16_code = ptr::null_mut();
 #[no_mangle]
-pub static mut font_glue: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut font_glue: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut font_used: *mut bool = 0 as *const bool as *mut bool;
+pub static mut font_used: *mut bool = ptr::null_mut();
 #[no_mangle]
-pub static mut hyphen_char: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut hyphen_char: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut skew_char: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut skew_char: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut bchar_label: *mut font_index = 0 as *const font_index as *mut font_index;
+pub static mut bchar_label: *mut font_index = ptr::null_mut();
 #[no_mangle]
-pub static mut font_bchar: *mut nine_bits = 0 as *const nine_bits as *mut nine_bits;
+pub static mut font_bchar: *mut nine_bits = ptr::null_mut();
 #[no_mangle]
-pub static mut font_false_bchar: *mut nine_bits = 0 as *const nine_bits as *mut nine_bits;
+pub static mut font_false_bchar: *mut nine_bits = ptr::null_mut();
 #[no_mangle]
 pub static mut font_layout_engine: *mut *mut libc::c_void =
     0 as *const *mut libc::c_void as *mut *mut libc::c_void;
@@ -807,12 +808,11 @@ pub static mut font_layout_engine: *mut *mut libc::c_void =
 pub static mut font_mapping: *mut *mut libc::c_void =
     0 as *const *mut libc::c_void as *mut *mut libc::c_void;
 #[no_mangle]
-pub static mut font_flags: *mut i8 = 0 as *const i8 as *mut i8;
+pub static mut font_flags: *mut i8 = ptr::null_mut();
 #[no_mangle]
-pub static mut font_letter_space: *mut scaled_t = 0 as *const scaled_t as *mut scaled_t;
+pub static mut font_letter_space: *mut scaled_t = ptr::null_mut();
 #[no_mangle]
-pub static mut loaded_font_mapping: *mut libc::c_void =
-    0 as *const libc::c_void as *mut libc::c_void;
+pub static mut loaded_font_mapping: *mut libc::c_void = ptr::null_mut();
 #[no_mangle]
 pub static mut loaded_font_flags: i8 = 0;
 #[no_mangle]
@@ -820,27 +820,27 @@ pub static mut loaded_font_letter_space: scaled_t = 0;
 #[no_mangle]
 pub static mut loaded_font_design_size: scaled_t = 0;
 #[no_mangle]
-pub static mut mapped_text: *mut UTF16_code = 0 as *const UTF16_code as *mut UTF16_code;
+pub static mut mapped_text: *mut UTF16_code = ptr::null_mut();
 #[no_mangle]
-pub static mut xdv_buffer: *mut i8 = 0 as *const i8 as *mut i8;
+pub static mut xdv_buffer: *mut i8 = ptr::null_mut();
 #[no_mangle]
-pub static mut char_base: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut char_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut width_base: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut width_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut height_base: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut height_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut depth_base: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut depth_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut italic_base: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut italic_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut lig_kern_base: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut lig_kern_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut kern_base: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut kern_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut exten_base: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut exten_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut param_base: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut param_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
 pub static mut null_character: b16x4 = b16x4 {
     s0: 0,
@@ -952,11 +952,11 @@ pub static mut lft_hit: bool = false;
 #[no_mangle]
 pub static mut rt_hit: bool = false;
 #[no_mangle]
-pub static mut trie_trl: *mut trie_pointer = 0 as *const trie_pointer as *mut trie_pointer;
+pub static mut trie_trl: *mut trie_pointer = ptr::null_mut();
 #[no_mangle]
-pub static mut trie_tro: *mut trie_pointer = 0 as *const trie_pointer as *mut trie_pointer;
+pub static mut trie_tro: *mut trie_pointer = ptr::null_mut();
 #[no_mangle]
-pub static mut trie_trc: *mut u16 = 0 as *const u16 as *mut u16;
+pub static mut trie_trc: *mut u16 = ptr::null_mut();
 #[no_mangle]
 pub static mut hyf_distance: [small_number; 35112] = [0; 35112];
 #[no_mangle]
@@ -966,11 +966,11 @@ pub static mut hyf_next: [trie_opcode; 35112] = [0; 35112];
 #[no_mangle]
 pub static mut op_start: [i32; 256] = [0; 256];
 #[no_mangle]
-pub static mut hyph_word: *mut str_number = 0 as *const str_number as *mut str_number;
+pub static mut hyph_word: *mut str_number = ptr::null_mut();
 #[no_mangle]
-pub static mut hyph_list: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut hyph_list: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut hyph_link: *mut hyph_pointer = 0 as *const hyph_pointer as *mut hyph_pointer;
+pub static mut hyph_link: *mut hyph_pointer = ptr::null_mut();
 #[no_mangle]
 pub static mut hyph_count: i32 = 0;
 #[no_mangle]
@@ -987,19 +987,19 @@ pub static mut trie_op_ptr: i32 = 0;
 pub static mut max_op_used: trie_opcode = 0;
 #[no_mangle]
 pub static mut trie_c: *mut packed_UTF16_code =
-    0 as *const packed_UTF16_code as *mut packed_UTF16_code;
+    ptr::null_mut();
 #[no_mangle]
-pub static mut trie_o: *mut trie_opcode = 0 as *const trie_opcode as *mut trie_opcode;
+pub static mut trie_o: *mut trie_opcode = ptr::null_mut();
 #[no_mangle]
-pub static mut trie_l: *mut trie_pointer = 0 as *const trie_pointer as *mut trie_pointer;
+pub static mut trie_l: *mut trie_pointer = ptr::null_mut();
 #[no_mangle]
-pub static mut trie_r: *mut trie_pointer = 0 as *const trie_pointer as *mut trie_pointer;
+pub static mut trie_r: *mut trie_pointer = ptr::null_mut();
 #[no_mangle]
 pub static mut trie_ptr: trie_pointer = 0;
 #[no_mangle]
-pub static mut trie_hash: *mut trie_pointer = 0 as *const trie_pointer as *mut trie_pointer;
+pub static mut trie_hash: *mut trie_pointer = ptr::null_mut();
 #[no_mangle]
-pub static mut trie_taken: *mut bool = 0 as *const bool as *mut bool;
+pub static mut trie_taken: *mut bool = ptr::null_mut();
 #[no_mangle]
 pub static mut trie_min: [trie_pointer; 65536] = [0; 65536];
 #[no_mangle]
@@ -1079,7 +1079,7 @@ pub static mut pdf_last_x_pos: i32 = 0;
 #[no_mangle]
 pub static mut pdf_last_y_pos: i32 = 0;
 #[no_mangle]
-pub static mut eof_seen: *mut bool = 0 as *const bool as *mut bool;
+pub static mut eof_seen: *mut bool = ptr::null_mut();
 #[no_mangle]
 pub static mut LR_ptr: i32 = 0;
 #[no_mangle]
@@ -1089,13 +1089,13 @@ pub static mut cur_dir: small_number = 0;
 #[no_mangle]
 pub static mut pseudo_files: i32 = 0;
 #[no_mangle]
-pub static mut grp_stack: *mut save_pointer = 0 as *const save_pointer as *mut save_pointer;
+pub static mut grp_stack: *mut save_pointer = ptr::null_mut();
 #[no_mangle]
-pub static mut if_stack: *mut i32 = 0 as *const i32 as *mut i32;
+pub static mut if_stack: *mut i32 = ptr::null_mut();
 #[no_mangle]
 pub static mut max_reg_num: i32 = 0;
 #[no_mangle]
-pub static mut max_reg_help_line: *const i8 = 0 as *const i8;
+pub static mut max_reg_help_line: *const i8 = ptr::null();
 #[no_mangle]
 pub static mut sa_root: [i32; 8] = [0; 8];
 #[no_mangle]
@@ -1154,7 +1154,7 @@ pub static mut output_active: bool = false;
 #[no_mangle]
 pub static mut _xeq_level_array: [u16; 1114732] = [0; 1114732];
 static mut _trie_op_hash_array: [i32; 70223] = [0; 70223];
-static mut yhash: *mut b32x2 = 0 as *const b32x2 as *mut b32x2;
+static mut yhash: *mut b32x2 = ptr::null_mut();
 /* Read and write dump files.  As distributed, these files are
 architecture dependent; specifically, BigEndian and LittleEndian
 architectures produce different files.  These routines always output
@@ -5096,7 +5096,7 @@ static mut stdin_ufile: UFILE = UFILE {
     savedChar: 0,
     skipNextLF: 0,
     encodingMode: 0,
-    conversionData: 0 as *const libc::c_void as *mut libc::c_void,
+    conversionData: ptr::null_mut(),
 };
 unsafe extern "C" fn init_io() {
     /* This is largely vestigial at this point */

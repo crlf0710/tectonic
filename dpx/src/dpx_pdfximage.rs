@@ -32,6 +32,7 @@ use crate::DisplayExt;
 use crate::{info, warn};
 use crate::{streq_ptr, strstartswith};
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_bmpimage::{bmp_include_image, check_for_bmp};
 use super::dpx_dpxfile::{dpx_delete_temp_file, keep_cache};
@@ -133,7 +134,7 @@ pub struct ic_ {
  * as directory separators. */
 static mut _opts: opt_ = opt_ {
         verbose: 0i32,
-        cmdtmpl: 0 as *const i8 as *mut i8,
+        cmdtmpl: ptr::null_mut(),
     };
 #[no_mangle]
 pub unsafe extern "C" fn pdf_ximage_set_verbose(mut level: i32) {
@@ -142,7 +143,7 @@ pub unsafe extern "C" fn pdf_ximage_set_verbose(mut level: i32) {
 static mut _ic: ic_ = ic_ {
         count: 0i32,
         capacity: 0i32,
-        ximages: 0 as *const pdf_ximage as *mut pdf_ximage,
+        ximages: ptr::null_mut(),
     };
 unsafe fn pdf_init_ximage_struct(mut I: *mut pdf_ximage) {
     (*I).ident = 0 as *mut i8;

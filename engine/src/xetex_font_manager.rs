@@ -16,6 +16,7 @@ pub mod imp;
 
 use std::ffi::CString;
 use std::ptr::NonNull;
+use std::ptr;
 
 use crate::core_memory::xmalloc;
 
@@ -1659,8 +1660,7 @@ authorization from the copyright holders.
 \****************************************************************************/
 // see cpascal.h
 #[no_mangle]
-pub static mut XeTeXFontMgr_sFontManager: *mut XeTeXFontMgr =
-    0 as *const XeTeXFontMgr as *mut XeTeXFontMgr;
+pub static mut XeTeXFontMgr_sFontManager: *mut XeTeXFontMgr = ptr::null_mut();
 #[no_mangle]
 pub static mut XeTeXFontMgr_sReqEngine: libc::c_char = 0i32 as libc::c_char;
 /* use our own fmax function because it seems to be missing on certain platforms

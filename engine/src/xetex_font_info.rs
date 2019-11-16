@@ -21,6 +21,8 @@ use crate::{
     ttstub_input_close, ttstub_input_get_size, ttstub_input_read, ttstub_input_open, 
 };
 
+use std::ptr;
+
 use bridge::TTInputFormat;
 
 #[cfg(not(target_os = "macos"))]
@@ -1866,7 +1868,7 @@ pointer into NAME.  For example, `basename ("/foo/bar.baz")'
 returns "bar.baz".  */
 unsafe extern "C" fn xbasename(mut name: *const libc::c_char) -> *const libc::c_char {
     let mut base: *const libc::c_char = name;
-    let mut p: *const libc::c_char = 0 as *const libc::c_char;
+    let mut p: *const libc::c_char = ptr::null();
     p = base;
     while *p != 0 {
         if *p as libc::c_int == '/' as i32 {
@@ -1877,8 +1879,8 @@ unsafe extern "C" fn xbasename(mut name: *const libc::c_char) -> *const libc::c_
     return base;
 }
 #[no_mangle]
-pub static mut gFreeTypeLibrary: FT_Library = 0 as *const FT_LibraryRec_ as FT_Library;
-static mut hbFontFuncs: *mut hb_font_funcs_t = 0 as *const hb_font_funcs_t as *mut hb_font_funcs_t;
+pub static mut gFreeTypeLibrary: FT_Library = 0 as FT_Library;
+static mut hbFontFuncs: *mut hb_font_funcs_t = ptr::null_mut();
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontInst_base_ctor(
     mut self_0: *mut XeTeXFontInst,
@@ -2112,7 +2114,7 @@ unsafe extern "C" fn _get_glyph_name(
     return ret as hb_bool_t;
 }
 unsafe extern "C" fn _get_font_funcs() -> *mut hb_font_funcs_t {
-    static mut funcs: *mut hb_font_funcs_t = 0 as *const hb_font_funcs_t as *mut hb_font_funcs_t;
+    static mut funcs: *mut hb_font_funcs_t = ptr::null_mut();
     if funcs.is_null() {
         funcs = hb_font_funcs_create()
     }
@@ -2323,7 +2325,7 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
             ttstub_input_close(afm_handle);
             let mut open_args: FT_Open_Args = FT_Open_Args {
                 flags: 0,
-                memory_base: 0 as *const FT_Byte,
+                memory_base: ptr::null(),
                 memory_size: 0,
                 pathname: 0 as *mut FT_String,
                 stream: 0 as *mut FT_StreamRec_,
@@ -2679,7 +2681,7 @@ pub unsafe extern "C" fn XeTeXFontInst_getGlyphName(
         return &mut *buffer.as_mut_ptr().offset(0) as *mut libc::c_char;
     } else {
         *nameLen = 0i32;
-        return 0 as *const libc::c_char;
+        return ptr::null();
     };
 }
 #[no_mangle]
