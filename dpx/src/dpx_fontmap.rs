@@ -98,11 +98,11 @@ use super::dpx_dpxutil::ht_table;
  * as directory separators. */
 static mut verbose: i32 = 0i32;
 #[no_mangle]
-pub unsafe extern "C" fn pdf_fontmap_set_verbose(mut level: i32) {
+pub unsafe fn pdf_fontmap_set_verbose(mut level: i32) {
     verbose = level;
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_init_fontmap_record(mut mrec: *mut fontmap_rec) {
+pub unsafe fn pdf_init_fontmap_record(mut mrec: *mut fontmap_rec) {
     assert!(!mrec.is_null());
     (*mrec).map_name = ptr::null_mut();
     /* SFD char mapping */
@@ -126,7 +126,7 @@ pub unsafe extern "C" fn pdf_init_fontmap_record(mut mrec: *mut fontmap_rec) {
     (*mrec).opt.cff_charsets = ptr::null_mut();
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_clear_fontmap_record(mut mrec: *mut fontmap_rec) {
+pub unsafe fn pdf_clear_fontmap_record(mut mrec: *mut fontmap_rec) {
     assert!(!mrec.is_null());
     free((*mrec).map_name as *mut libc::c_void);
     free((*mrec).charmap.sfd_name as *mut libc::c_void);
@@ -167,7 +167,7 @@ unsafe fn pdf_copy_fontmap_record(mut dst: *mut fontmap_rec, mut src: *const fon
     (*dst).opt.stemv = (*src).opt.stemv;
     (*dst).opt.cff_charsets = (*src).opt.cff_charsets;
 }
-unsafe extern "C" fn hval_free(mut vp: *mut libc::c_void) {
+unsafe fn hval_free(mut vp: *mut libc::c_void) {
     let mut mrec: *mut fontmap_rec = vp as *mut fontmap_rec;
     pdf_clear_fontmap_record(mrec);
     free(mrec as *mut libc::c_void);
@@ -856,7 +856,7 @@ unsafe fn make_subfont_name(
  * where 'ab' ... 'yz' is subfont IDs in SFD 'A'.
  */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_append_fontmap_record(
+pub unsafe fn pdf_append_fontmap_record(
     mut kp: *const i8,
     mut vp: *const fontmap_rec,
 ) -> i32 {
@@ -934,7 +934,7 @@ pub unsafe extern "C" fn pdf_append_fontmap_record(
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_remove_fontmap_record(mut kp: *const i8) -> i32 {
+pub unsafe fn pdf_remove_fontmap_record(mut kp: *const i8) -> i32 {
     let mut sfd_name: *mut i8 = ptr::null_mut();
     if kp.is_null() {
         return -1i32;
@@ -988,7 +988,7 @@ pub unsafe extern "C" fn pdf_remove_fontmap_record(mut kp: *const i8) -> i32 {
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_insert_fontmap_record(
+pub unsafe fn pdf_insert_fontmap_record(
     mut kp: *const i8,
     mut vp: *const fontmap_rec,
 ) -> *mut fontmap_rec {
@@ -1070,7 +1070,7 @@ pub unsafe extern "C" fn pdf_insert_fontmap_record(
     mrec
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_read_fontmap_line(
+pub unsafe fn pdf_read_fontmap_line(
     mut mrec: *mut fontmap_rec,
     mut mline: *const i8,
     mut mline_len: i32,
@@ -1124,7 +1124,7 @@ pub unsafe extern "C" fn pdf_read_fontmap_line(
  * DVIPDFM fontmap line otherwise.
  */
 #[no_mangle]
-pub unsafe extern "C" fn is_pdfm_mapline(mut mline: *const i8) -> i32
+pub unsafe fn is_pdfm_mapline(mut mline: *const i8) -> i32
 /* NULL terminated. */ {
     let mut n: u32 = 0_u32; /* DVIPS/pdfTeX format */
     if !strchr(mline, '\"' as i32).is_null() || !strchr(mline, '<' as i32).is_null() {
@@ -1153,7 +1153,7 @@ pub unsafe extern "C" fn is_pdfm_mapline(mut mline: *const i8) -> i32
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_load_fontmap_file(filename: &CStr, mut mode: i32) -> i32 {
+pub unsafe fn pdf_load_fontmap_file(filename: &CStr, mut mode: i32) -> i32 {
     let mut p: *const i8 = std::ptr::null();
     let mut lpos: i32 = 0i32;
     let mut error: i32 = 0i32;
@@ -1242,7 +1242,7 @@ pub unsafe extern "C" fn pdf_load_fontmap_file(filename: &CStr, mut mode: i32) -
     error
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_insert_native_fontmap_record(
+pub unsafe fn pdf_insert_native_fontmap_record(
     mut path: *const i8,
     mut index: u32,
     mut layout_dir: i32,
@@ -1297,7 +1297,7 @@ pub unsafe extern "C" fn pdf_insert_native_fontmap_record(
     ret
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_lookup_fontmap_record(tfm_name: &[u8]) -> *mut fontmap_rec {
+pub unsafe fn pdf_lookup_fontmap_record(tfm_name: &[u8]) -> *mut fontmap_rec {
     let mut mrec: *mut fontmap_rec = ptr::null_mut();
     if !fontmap.is_null() && !tfm_name.is_empty() {
         mrec = ht_lookup_table(
@@ -1309,12 +1309,12 @@ pub unsafe extern "C" fn pdf_lookup_fontmap_record(tfm_name: &[u8]) -> *mut font
     mrec
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_init_fontmaps() {
+pub unsafe fn pdf_init_fontmaps() {
     fontmap =
         new((1_u64).wrapping_mul(::std::mem::size_of::<ht_table>() as u64) as u32) as *mut ht_table;
     ht_init_table(
         fontmap,
-        Some(hval_free as unsafe extern "C" fn(_: *mut libc::c_void) -> ()),
+        Some(hval_free as unsafe fn(_: *mut libc::c_void) -> ()),
     );
 }
 /* Options */
@@ -1331,7 +1331,7 @@ pub unsafe extern "C" fn pdf_init_fontmaps() {
  * via SFD.
  */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_close_fontmaps() {
+pub unsafe fn pdf_close_fontmaps() {
     if !fontmap.is_null() {
         ht_clear_table(fontmap);
         free(fontmap as *mut libc::c_void);

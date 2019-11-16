@@ -129,11 +129,11 @@ pub struct C2RustUnnamed_3 {
 static mut verbose: i32 = 0i32;
 static mut opt_flags: i32 = 0i32;
 #[no_mangle]
-pub unsafe extern "C" fn CIDFont_type2_set_verbose(mut level: i32) {
+pub unsafe fn CIDFont_type2_set_verbose(mut level: i32) {
     verbose = level;
 }
 #[no_mangle]
-pub unsafe extern "C" fn CIDFont_type2_set_flags(mut flags: i32) {
+pub unsafe fn CIDFont_type2_set_flags(mut flags: i32) {
     opt_flags = flags;
 }
 
@@ -642,7 +642,7 @@ unsafe fn cid_to_code(mut cmap: *mut CMap, mut cid: CID) -> i32 {
 }
 /* #define NO_GHOSTSCRIPT_BUG 1 */
 #[no_mangle]
-pub unsafe extern "C" fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
+pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
     let mut cmap;
     let mut ttcmap: *mut tt_cmap = ptr::null_mut();
     let offset;
@@ -1085,7 +1085,7 @@ pub unsafe extern "C" fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn CIDFont_type2_open(
+pub unsafe fn CIDFont_type2_open(
     mut font: *mut CIDFont,
     mut name: *const i8,
     mut cmap_csi: *mut CIDSysInfo,

@@ -130,7 +130,7 @@ unsafe fn ensuresuffix(mut basename: *const i8, mut sfx: *const i8) -> *mut i8 {
 /* tmp freed here */
 /* Tectonic-enabled I/O alternatives */
 #[no_mangle]
-pub unsafe extern "C" fn dpx_tt_open(
+pub unsafe fn dpx_tt_open(
     mut filename: *const i8,
     mut suffix: *const i8,
     mut format: TTInputFormat,
@@ -147,7 +147,7 @@ pub unsafe extern "C" fn dpx_tt_open(
  *   dvipdfm  (text file)
  */
 #[no_mangle]
-pub unsafe extern "C" fn dpx_open_type1_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
+pub unsafe fn dpx_open_type1_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
     match ttstub_input_open(filename, TTInputFormat::TYPE1, 0) {
         Some(mut handle) => {
             if !check_stream_is_type1(&mut handle) {
@@ -161,7 +161,7 @@ pub unsafe extern "C" fn dpx_open_type1_file(mut filename: *const i8) -> Option<
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn dpx_open_truetype_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
+pub unsafe fn dpx_open_truetype_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
     match ttstub_input_open(filename, TTInputFormat::TRUETYPE, 0) {
         Some(mut handle) => {
             if !check_stream_is_truetype(&mut handle) {
@@ -175,7 +175,7 @@ pub unsafe extern "C" fn dpx_open_truetype_file(mut filename: *const i8) -> Opti
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn dpx_open_opentype_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
+pub unsafe fn dpx_open_opentype_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
     let q = ensuresuffix(filename, b".otf\x00" as *const u8 as *const i8);
     let handle = ttstub_input_open(q, TTInputFormat::OPENTYPE, 0i32);
     free(q as *mut libc::c_void);
@@ -192,7 +192,7 @@ pub unsafe extern "C" fn dpx_open_opentype_file(mut filename: *const i8) -> Opti
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn dpx_open_dfont_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
+pub unsafe fn dpx_open_dfont_file(mut filename: *const i8) -> Option<InputHandleWrapper> {
     let q;
     let mut len: i32 = strlen(filename) as i32;
     if len > 6i32
@@ -229,7 +229,7 @@ pub unsafe extern "C" fn dpx_open_dfont_file(mut filename: *const i8) -> Option<
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn dpx_delete_old_cache(mut life: i32) {
+pub unsafe fn dpx_delete_old_cache(mut life: i32) {
     /* This used to delete files in tmpdir, but that code was ripped out since
      * it would have been annoying to port to Windows. */
     if life == -2i32 {
@@ -237,7 +237,7 @@ pub unsafe extern "C" fn dpx_delete_old_cache(mut life: i32) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn dpx_delete_temp_file(mut tmp: *mut i8, mut force: i32) {
+pub unsafe fn dpx_delete_temp_file(mut tmp: *mut i8, mut force: i32) {
     if tmp.is_null() {
         return;
     }
@@ -254,7 +254,7 @@ pub unsafe extern "C" fn dpx_delete_temp_file(mut tmp: *mut i8, mut force: i32) 
  * Please modify as appropriate (see also pdfximage.c and dvipdfmx.c).
  */
 #[no_mangle]
-pub unsafe extern "C" fn dpx_file_apply_filter(
+pub unsafe fn dpx_file_apply_filter(
     mut _cmdtmpl: *const i8,
     mut _input: *const i8,
     mut _output: *const i8,

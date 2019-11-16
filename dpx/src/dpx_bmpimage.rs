@@ -60,7 +60,7 @@ pub struct hdr_info {
     pub y_pix_per_meter: u32,
 }
 #[no_mangle]
-pub unsafe extern "C" fn check_for_bmp(handle: &mut InputHandleWrapper) -> i32 {
+pub unsafe fn check_for_bmp(handle: &mut InputHandleWrapper) -> i32 {
     let mut sigbytes: [u8; 2] = [0; 2];
     handle.seek(SeekFrom::Start(0)).unwrap();
     if ttstub_input_read(
@@ -87,7 +87,7 @@ unsafe fn get_density(mut xdensity: *mut f64, mut ydensity: *mut f64, mut hdr: *
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn bmp_get_bbox(
+pub unsafe fn bmp_get_bbox(
     handle: &mut InputHandleWrapper,
     mut width: *mut u32,
     mut height: *mut u32,
@@ -117,7 +117,7 @@ pub unsafe extern "C" fn bmp_get_bbox(
     r
 }
 #[no_mangle]
-pub unsafe extern "C" fn bmp_include_image(
+pub unsafe fn bmp_include_image(
     mut ximage: *mut pdf_ximage,
     handle: &mut InputHandleWrapper,
 ) -> i32 {

@@ -832,25 +832,25 @@ unsafe fn cvt_a_to_tmatrix<'a>(
 }
 /* ENABLE_HTML_SVG_TRANSFORM */
 #[no_mangle]
-pub unsafe extern "C" fn spc_html_at_begin_document() -> i32 {
+pub unsafe fn spc_html_at_begin_document() -> i32 {
     let mut sd: *mut spc_html_ = &mut _HTML_STATE;
     spc_handler_html__init(sd as *mut libc::c_void)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn spc_html_at_begin_page() -> i32 {
+pub unsafe fn spc_html_at_begin_page() -> i32 {
     let mut sd: *mut spc_html_ = &mut _HTML_STATE;
     spc_handler_html__bophook(ptr::null_mut(), sd as *mut libc::c_void)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn spc_html_at_end_page() -> i32 {
+pub unsafe fn spc_html_at_end_page() -> i32 {
     let mut sd: *mut spc_html_ = &mut _HTML_STATE;
     spc_handler_html__eophook(ptr::null_mut(), sd as *mut libc::c_void)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn spc_html_at_end_document() -> i32 {
+pub unsafe fn spc_html_at_end_document() -> i32 {
     let mut sd: *mut spc_html_ = &mut _HTML_STATE;
     spc_handler_html__clean(ptr::null_mut(), sd as *mut libc::c_void)
 }
@@ -868,7 +868,7 @@ pub fn spc_html_check_special(buf: &[u8]) -> bool {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn spc_html_setup_handler(
+pub unsafe fn spc_html_setup_handler(
     mut sph: *mut SpcHandler,
     mut spe: *mut spc_env,
     mut ap: *mut spc_arg,

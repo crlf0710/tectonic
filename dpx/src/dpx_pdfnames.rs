@@ -48,7 +48,7 @@ use libc::free;
 
 pub type size_t = u64;
 pub type __compar_fn_t =
-    Option<unsafe extern "C" fn(_: *const libc::c_void, _: *const libc::c_void) -> i32>;
+    Option<unsafe fn(_: *const libc::c_void, _: *const libc::c_void) -> i32>;
 
 use super::dpx_dpxutil::ht_iter;
 use super::dpx_dpxutil::ht_table;
@@ -80,7 +80,7 @@ unsafe fn printable_key(key: *const i8, keylen: i32) -> String {
     printable
 }
 #[inline]
-unsafe extern "C" fn hval_free(mut hval: *mut libc::c_void) {
+unsafe fn hval_free(mut hval: *mut libc::c_void) {
     let value = hval as *mut obj_data;
     if !(*value).object.is_null() {
         pdf_release_obj((*value).object);
@@ -89,12 +89,12 @@ unsafe extern "C" fn hval_free(mut hval: *mut libc::c_void) {
     free(value as *mut libc::c_void);
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_new_name_tree() -> *mut ht_table {
+pub unsafe fn pdf_new_name_tree() -> *mut ht_table {
     let names =
         new((1_u64).wrapping_mul(::std::mem::size_of::<ht_table>() as u64) as u32) as *mut ht_table;
     ht_init_table(
         names,
-        Some(hval_free as unsafe extern "C" fn(_: *mut libc::c_void) -> ()),
+        Some(hval_free as unsafe fn(_: *mut libc::c_void) -> ()),
     );
     names
 }
@@ -127,14 +127,14 @@ unsafe fn check_objects_defined(mut ht_tab: *mut ht_table) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_delete_name_tree(mut names: *mut *mut ht_table) {
+pub unsafe fn pdf_delete_name_tree(mut names: *mut *mut ht_table) {
     assert!(!names.is_null() && !(*names).is_null());
     check_objects_defined(*names);
     ht_clear_table(*names);
     *names = mfree(*names as *mut libc::c_void) as *mut ht_table;
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_names_add_object(
+pub unsafe fn pdf_names_add_object(
     mut names: *mut ht_table,
     mut key: *const libc::c_void,
     mut keylen: i32,
@@ -173,7 +173,7 @@ pub unsafe extern "C" fn pdf_names_add_object(
  * The following routine returns copies, not the original object.
  */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_names_lookup_reference(
+pub unsafe fn pdf_names_lookup_reference(
     mut names: *mut ht_table,
     mut key: *const libc::c_void,
     mut keylen: i32,
@@ -195,7 +195,7 @@ pub unsafe extern "C" fn pdf_names_lookup_reference(
     pdf_ref_obj(object)
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_names_lookup_object(
+pub unsafe fn pdf_names_lookup_object(
     mut names: *mut ht_table,
     mut key: *const libc::c_void,
     mut keylen: i32,
@@ -211,7 +211,7 @@ pub unsafe extern "C" fn pdf_names_lookup_object(
     (*value).object
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_names_close_object(
+pub unsafe fn pdf_names_close_object(
     mut names: *mut ht_table,
     mut key: *const libc::c_void,
     mut keylen: i32,
@@ -393,7 +393,7 @@ unsafe fn flat_table(
 /* Not actually tree... */
 /* Really create name tree... */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_names_create_tree(
+pub unsafe fn pdf_names_create_tree(
     mut names: *mut ht_table,
     mut count: *mut i32,
     mut filter: *mut ht_table,

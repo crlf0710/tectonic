@@ -351,7 +351,7 @@ impl Coord {
     }
 }
 /*#[no_mangle]
-pub unsafe extern "C" fn pdf_invertmatrix(M: &mut TMatrix) {
+pub unsafe fn pdf_invertmatrix(M: &mut TMatrix) {
     let mut W = TMatrix::new();
     let det = M.a * inverseM.d - M.b * M.c;
     if det.abs() < 2inverse.5e-16f64 {
@@ -717,14 +717,14 @@ unsafe fn copy_a_gstate(gs1: &mut pdf_gstate, gs2: &pdf_gstate) {
     gs1.pt_fixee.y = gs2.pt_fixee.y;
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_init_gstates() {
+pub unsafe fn pdf_dev_init_gstates() {
     let mut stack = unsafe { &mut gs_stack };
     *stack = vec![];
     let gs = pdf_gstate::init();
     stack.push(gs);
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_clear_gstates() {
+pub unsafe fn pdf_dev_clear_gstates() {
     let mut stack = unsafe { &mut gs_stack };
 
     if stack.len() > 1 {
@@ -734,7 +734,7 @@ pub unsafe extern "C" fn pdf_dev_clear_gstates() {
     *stack = vec![];
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_gsave() -> i32 {
+pub unsafe fn pdf_dev_gsave() -> i32 {
     let mut stack = unsafe { &mut gs_stack };
     let gs0 = stack.last().unwrap();
 
@@ -746,7 +746,7 @@ pub unsafe extern "C" fn pdf_dev_gsave() -> i32 {
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_grestore() -> i32 {
+pub unsafe fn pdf_dev_grestore() -> i32 {
     let mut stack = unsafe { &mut gs_stack };
     if stack.len() <= 1 {
         /* Initial state at bottom */
@@ -759,7 +759,7 @@ pub unsafe extern "C" fn pdf_dev_grestore() -> i32 {
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_push_gstate() -> i32 {
+pub unsafe fn pdf_dev_push_gstate() -> i32 {
     let mut stack = unsafe { &mut gs_stack };
 
     let gs0 = pdf_gstate::init();
@@ -768,7 +768,7 @@ pub unsafe extern "C" fn pdf_dev_push_gstate() -> i32 {
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_pop_gstate() -> i32 {
+pub unsafe fn pdf_dev_pop_gstate() -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     if gss.len() <= 1 {
         /* Initial state at bottom */
@@ -779,13 +779,13 @@ pub unsafe extern "C" fn pdf_dev_pop_gstate() -> i32 {
     0i32
 }
 #[no_mangle]
-pub extern "C" fn pdf_dev_current_depth() -> usize {
+pub fn pdf_dev_current_depth() -> usize {
     let stack = unsafe { &gs_stack };
     stack.len() - 1
     /* 0 means initial state */
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_grestore_to(mut depth: usize) {
+pub unsafe fn pdf_dev_grestore_to(mut depth: usize) {
     let mut gss = unsafe { &mut gs_stack }; /* op: Q */
     if gss.len() > depth + 1 {
         warn!("Closing pending transformations at end of page/XObject.");
@@ -797,14 +797,14 @@ pub unsafe extern "C" fn pdf_dev_grestore_to(mut depth: usize) {
     pdf_dev_reset_fonts(0i32);
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_currentpoint(p: &mut Coord) -> i32 {
+pub unsafe fn pdf_dev_currentpoint(p: &mut Coord) -> i32 {
     let mut gss = unsafe { &gs_stack };
     let gs = gss.last().unwrap();
     *p = gs.cp.clone();
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_currentmatrix(M: &mut TMatrix) -> i32 {
+pub unsafe fn pdf_dev_currentmatrix(M: &mut TMatrix) -> i32 {
     let mut gss = unsafe { &gs_stack };
     let gs = gss.last().unwrap();
     *M = gs.matrix.clone();
@@ -817,7 +817,7 @@ pub unsafe extern "C" fn pdf_dev_currentmatrix(M: &mut TMatrix) -> i32 {
  *   the color is the same as the current graphics state color
  */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_set_color(color: &PdfColor, mut mask: i8, mut force: i32) {
+pub unsafe fn pdf_dev_set_color(color: &PdfColor, mut mask: i8, mut force: i32) {
     let mut stack = unsafe { &mut gs_stack };
     let mut gs = stack.last_mut().unwrap();
     let current = if mask as i32 != 0 {
@@ -856,7 +856,7 @@ pub unsafe extern "C" fn pdf_dev_set_color(color: &PdfColor, mut mask: i8, mut f
     *current = color.clone();
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_concat(M: &TMatrix) -> i32 {
+pub unsafe fn pdf_dev_concat(M: &TMatrix) -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -919,7 +919,7 @@ pub unsafe extern "C" fn pdf_dev_concat(M: &TMatrix) -> i32 {
  * name gs      --  name: res. name of ExtGState dict.
  */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_setmiterlimit(mut mlimit: f64) -> i32 {
+pub unsafe fn pdf_dev_setmiterlimit(mut mlimit: f64) -> i32 {
     let mut gss = unsafe { &mut gs_stack }; /* op: M */
     let gs = gss.last_mut().unwrap(); /* op: J */
     let mut len = 0_usize; /* op: j */
@@ -939,7 +939,7 @@ pub unsafe extern "C" fn pdf_dev_setmiterlimit(mut mlimit: f64) -> i32 {
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_setlinecap(mut capstyle: i32) -> i32 {
+pub unsafe fn pdf_dev_setlinecap(mut capstyle: i32) -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let mut buf = &mut fmt_buf;
@@ -955,7 +955,7 @@ pub unsafe extern "C" fn pdf_dev_setlinecap(mut capstyle: i32) -> i32 {
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_setlinejoin(mut joinstyle: i32) -> i32 {
+pub unsafe fn pdf_dev_setlinejoin(mut joinstyle: i32) -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let mut buf = &mut fmt_buf;
@@ -971,7 +971,7 @@ pub unsafe extern "C" fn pdf_dev_setlinejoin(mut joinstyle: i32) -> i32 {
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_setlinewidth(mut width: f64) -> i32 {
+pub unsafe fn pdf_dev_setlinewidth(mut width: f64) -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let mut len = 0_usize;
@@ -990,7 +990,7 @@ pub unsafe extern "C" fn pdf_dev_setlinewidth(mut width: f64) -> i32 {
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_setdash(pattern: &[f64], mut offset: f64) -> i32 {
+pub unsafe fn pdf_dev_setdash(pattern: &[f64], mut offset: f64) -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let mut buf = &mut fmt_buf;
@@ -1012,21 +1012,21 @@ pub unsafe extern "C" fn pdf_dev_setdash(pattern: &[f64], mut offset: f64) -> i3
 }
 /* ZSYUEDVEDEOF */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_clip() -> i32 {
+pub unsafe fn pdf_dev_clip() -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     pdf_dev__flushpath(cpa, b'W', 0, 0)
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_eoclip() -> i32 {
+pub unsafe fn pdf_dev_eoclip() -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     pdf_dev__flushpath(cpa, b'W', 1, 0)
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_flushpath(mut p_op: u8, mut fill_rule: i32) -> i32 {
+pub unsafe fn pdf_dev_flushpath(mut p_op: u8, mut fill_rule: i32) -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1040,7 +1040,7 @@ pub unsafe extern "C" fn pdf_dev_flushpath(mut p_op: u8, mut fill_rule: i32) -> 
     error
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_newpath() -> i32 {
+pub unsafe fn pdf_dev_newpath() -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let p = &mut gs.path;
@@ -1052,7 +1052,7 @@ pub unsafe extern "C" fn pdf_dev_newpath() -> i32 {
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_moveto(mut x: f64, mut y: f64) -> i32 {
+pub unsafe fn pdf_dev_moveto(mut x: f64, mut y: f64) -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1061,7 +1061,7 @@ pub unsafe extern "C" fn pdf_dev_moveto(mut x: f64, mut y: f64) -> i32 {
     /* cpt updated */
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_rmoveto(mut x: f64, mut y: f64) -> i32 {
+pub unsafe fn pdf_dev_rmoveto(mut x: f64, mut y: f64) -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1070,7 +1070,7 @@ pub unsafe extern "C" fn pdf_dev_rmoveto(mut x: f64, mut y: f64) -> i32 {
     /* cpt updated */
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_lineto(mut x: f64, mut y: f64) -> i32 {
+pub unsafe fn pdf_dev_lineto(mut x: f64, mut y: f64) -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1078,7 +1078,7 @@ pub unsafe extern "C" fn pdf_dev_lineto(mut x: f64, mut y: f64) -> i32 {
     cpa.lineto(cpt, Coord::new(x, y))
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_rlineto(mut x: f64, mut y: f64) -> i32 {
+pub unsafe fn pdf_dev_rlineto(mut x: f64, mut y: f64) -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1086,7 +1086,7 @@ pub unsafe extern "C" fn pdf_dev_rlineto(mut x: f64, mut y: f64) -> i32 {
     cpa.lineto(cpt, Coord::new(x + cpt.x, y + cpt.y))
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_curveto(
+pub unsafe fn pdf_dev_curveto(
     mut x0: f64,
     mut y0: f64,
     mut x1: f64,
@@ -1104,7 +1104,7 @@ pub unsafe extern "C" fn pdf_dev_curveto(
     cpa.curveto(cpt, p0, p1, p2)
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_vcurveto(
+pub unsafe fn pdf_dev_vcurveto(
     mut x0: f64,
     mut y0: f64,
     mut x1: f64,
@@ -1120,7 +1120,7 @@ pub unsafe extern "C" fn pdf_dev_vcurveto(
     cpa.curveto(cpt, cpt_copy, p0, p1)
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_ycurveto(
+pub unsafe fn pdf_dev_ycurveto(
     mut x0: f64,
     mut y0: f64,
     mut x1: f64,
@@ -1135,7 +1135,7 @@ pub unsafe extern "C" fn pdf_dev_ycurveto(
     cpa.curveto(cpt, p0, p1, p1)
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_rcurveto(
+pub unsafe fn pdf_dev_rcurveto(
     mut x0: f64,
     mut y0: f64,
     mut x1: f64,
@@ -1153,7 +1153,7 @@ pub unsafe extern "C" fn pdf_dev_rcurveto(
     cpa.curveto(cpt, p0, p1, p2)
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_closepath() -> i32 {
+pub unsafe fn pdf_dev_closepath() -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpt = &mut gs.cp;
@@ -1161,7 +1161,7 @@ pub unsafe extern "C" fn pdf_dev_closepath() -> i32 {
     pdf_path__closepath(cpa, cpt)
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_dtransform(p: &mut Coord, mut M: Option<&TMatrix>) {
+pub unsafe fn pdf_dev_dtransform(p: &mut Coord, mut M: Option<&TMatrix>) {
     if let Some(m) = M {
         p.dtransform(m).unwrap();
     } else {
@@ -1171,7 +1171,7 @@ pub unsafe extern "C" fn pdf_dev_dtransform(p: &mut Coord, mut M: Option<&TMatri
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_idtransform(p: &mut Coord, M: Option<&TMatrix>) {
+pub unsafe fn pdf_dev_idtransform(p: &mut Coord, M: Option<&TMatrix>) {
     if let Some(m) = M {
         p.idtransform(m).unwrap();
     } else {
@@ -1181,7 +1181,7 @@ pub unsafe extern "C" fn pdf_dev_idtransform(p: &mut Coord, M: Option<&TMatrix>)
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_transform(p: &mut Coord, M: Option<&TMatrix>) {
+pub unsafe fn pdf_dev_transform(p: &mut Coord, M: Option<&TMatrix>) {
     if let Some(m) = M {
         p.transform(m).unwrap();
     } else {
@@ -1191,7 +1191,7 @@ pub unsafe extern "C" fn pdf_dev_transform(p: &mut Coord, M: Option<&TMatrix>) {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_arc(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1: f64) -> i32 {
+pub unsafe fn pdf_dev_arc(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1: f64) -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1200,7 +1200,7 @@ pub unsafe extern "C" fn pdf_dev_arc(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1: 
 }
 /* *negative* arc */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_arcn(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1: f64) -> i32 {
+pub unsafe fn pdf_dev_arcn(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1: f64) -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1208,7 +1208,7 @@ pub unsafe extern "C" fn pdf_dev_arcn(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1:
     cpa.elliptarc(cpt, Coord::new(c_x, c_y), r, r, 0.0f64, a_0, a_1, -1i32)
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_arcx(
+pub unsafe fn pdf_dev_arcx(
     c_x: f64,
     c_y: f64,
     r_x: f64,
@@ -1226,7 +1226,7 @@ pub unsafe extern "C" fn pdf_dev_arcx(
 }
 /* Required by Tpic */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_bspline(
+pub unsafe fn pdf_dev_bspline(
     x0: f64,
     y0: f64,
     x1: f64,
@@ -1258,7 +1258,7 @@ impl Rect {
 }
 
 #[no_mangle]
-pub extern "C" fn pdf_dev_set_fixed_point(mut x: f64, mut y: f64) {
+pub fn pdf_dev_set_fixed_point(mut x: f64, mut y: f64) {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     gs.pt_fixee = Coord::new(x, y);

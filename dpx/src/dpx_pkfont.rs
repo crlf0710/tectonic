@@ -77,7 +77,7 @@ pub struct pk_header_ {
 }
 static mut base_dpi: u32 = 600u32;
 #[no_mangle]
-pub unsafe extern "C" fn PKFont_set_dpi(mut dpi: i32) {
+pub unsafe fn PKFont_set_dpi(mut dpi: i32) {
     if dpi <= 0i32 {
         panic!("Invalid DPI: {}\n", dpi);
     }
@@ -113,7 +113,7 @@ unsafe fn dpx_open_pk_font_at(_ident: *const i8, _dpi: u32) -> *mut FILE {
     fp
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_open_pkfont(mut font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_open_pkfont(mut font: *mut pdf_font) -> i32 {
     let ident = pdf_font_get_ident(font);
     let point_size = pdf_font_get_param(font, 2i32);
     let encoding_id = pdf_font_get_encoding(font);
@@ -584,7 +584,7 @@ unsafe fn create_pk_CharProc_stream(
     stream
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_load_pkfont(mut font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_load_pkfont(mut font: *mut pdf_font) -> i32 {
     let mut widths: [f64; 256] = [0.; 256];
     let mut charavail: [i8; 256] = [0; 256];
     /* ENABLE_GLYPHENC */

@@ -142,10 +142,10 @@ static mut _PDF_STAT: spc_pdf_ = spc_pdf_ {
             },
     };
 /* PLEASE REMOVE THIS */
-unsafe extern "C" fn hval_free(mut vp: *mut libc::c_void) {
+unsafe fn hval_free(mut vp: *mut libc::c_void) {
     free(vp); /* unused */
 }
-unsafe extern "C" fn addresource(
+unsafe fn addresource(
     mut sd: *mut spc_pdf_,
     mut ident: *const i8,
     mut res_id: i32,
@@ -166,7 +166,7 @@ unsafe extern "C" fn addresource(
     spc_push_object(ident, pdf_ximage_get_reference(res_id));
     0i32
 }
-unsafe extern "C" fn findresource(mut sd: *mut spc_pdf_, ident: Option<&CString>) -> i32 {
+unsafe fn findresource(mut sd: *mut spc_pdf_, ident: Option<&CString>) -> i32 {
     if let Some(ident) = ident {
         let r = ht_lookup_table(
             (*sd).resourcemap,
@@ -206,7 +206,7 @@ unsafe fn spc_handler_pdfm__init(mut dp: *mut libc::c_void) -> i32 {
         new((1_u64).wrapping_mul(::std::mem::size_of::<ht_table>() as u64) as u32) as *mut ht_table;
     ht_init_table(
         (*sd).resourcemap,
-        Some(hval_free as unsafe extern "C" fn(_: *mut libc::c_void) -> ()),
+        Some(hval_free as unsafe fn(_: *mut libc::c_void) -> ()),
     );
     (*sd).cd.taintkeys = pdf_new_array();
     for &key in &DEFAULT_TAINTKEYS {
@@ -232,12 +232,12 @@ unsafe fn spc_handler_pdfm__clean(mut dp: *mut libc::c_void) -> i32 {
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn spc_pdfm_at_begin_document() -> i32 {
+pub unsafe fn spc_pdfm_at_begin_document() -> i32 {
     let mut sd: *mut spc_pdf_ = &mut _PDF_STAT;
     spc_handler_pdfm__init(sd as *mut libc::c_void)
 }
 #[no_mangle]
-pub unsafe extern "C" fn spc_pdfm_at_end_document() -> i32 {
+pub unsafe fn spc_pdfm_at_end_document() -> i32 {
     let mut sd: *mut spc_pdf_ = &mut _PDF_STAT;
     spc_handler_pdfm__clean(sd as *mut libc::c_void)
 }
@@ -263,7 +263,7 @@ unsafe fn spc_handler_pdfm_eop(mut _spe: *mut spc_env, mut args: *mut spc_arg) -
     0i32
 }
 /* Why should we have this kind of things? */
-unsafe extern "C" fn safeputresdent(
+unsafe fn safeputresdent(
     mut kp: *mut pdf_obj,
     mut vp: *mut pdf_obj,
     mut dp: *mut libc::c_void,
@@ -280,7 +280,7 @@ unsafe extern "C" fn safeputresdent(
     }
     0i32
 }
-unsafe extern "C" fn safeputresdict(
+unsafe fn safeputresdict(
     mut kp: *mut pdf_obj,
     mut vp: *mut pdf_obj,
     mut dp: *mut libc::c_void,
@@ -296,7 +296,7 @@ unsafe extern "C" fn safeputresdict(
                 &mut *vp,
                 Some(
                     safeputresdent
-                        as unsafe extern "C" fn(
+                        as unsafe fn(
                             _: *mut pdf_obj,
                             _: *mut pdf_obj,
                             _: *mut libc::c_void,
@@ -364,7 +364,7 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
                     &mut *obj2,
                     Some(
                         safeputresdict
-                            as unsafe extern "C" fn(
+                            as unsafe fn(
                                 _: *mut pdf_obj,
                                 _: *mut pdf_obj,
                                 _: *mut libc::c_void,
@@ -424,7 +424,7 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
  * This feature is provided for convenience. TeX can't do
  * input encoding conversion.
  */
-unsafe extern "C" fn reencodestring(mut cmap: *mut CMap, mut instring: *mut pdf_obj) -> i32 {
+unsafe fn reencodestring(mut cmap: *mut CMap, mut instring: *mut pdf_obj) -> i32 {
     let mut wbuf: [u8; 4096] = [0; 4096];
     if cmap.is_null() || instring.is_null() {
         return 0i32;
@@ -452,7 +452,7 @@ unsafe extern "C" fn reencodestring(mut cmap: *mut CMap, mut instring: *mut pdf_
     );
     0i32
 }
-unsafe extern "C" fn maybe_reencode_utf8(mut instring: *mut pdf_obj) -> i32 {
+unsafe fn maybe_reencode_utf8(mut instring: *mut pdf_obj) -> i32 {
     let mut non_ascii: i32 = 0i32;
     let mut cp: *const u8;
     let mut wbuf: [u8; 4096] = [0; 4096];
@@ -517,7 +517,7 @@ unsafe extern "C" fn maybe_reencode_utf8(mut instring: *mut pdf_obj) -> i32 {
  * but does a quick check. Please add entries for taintkeys if you have found
  * additional dictionary entries which is considered as a text string.
  */
-unsafe extern "C" fn needreencode(
+unsafe fn needreencode(
     mut kp: *mut pdf_obj,
     mut vp: *mut pdf_obj,
     mut cd: *mut tounicode,
@@ -548,7 +548,7 @@ unsafe extern "C" fn needreencode(
     } /* continue */
     r
 }
-unsafe extern "C" fn modstrings(
+unsafe fn modstrings(
     mut kp: *mut pdf_obj,
     mut vp: *mut pdf_obj,
     mut dp: *mut libc::c_void,
@@ -582,7 +582,7 @@ unsafe extern "C" fn modstrings(
                 &mut *vp,
                 Some(
                     modstrings
-                        as unsafe extern "C" fn(
+                        as unsafe fn(
                             _: *mut pdf_obj,
                             _: *mut pdf_obj,
                             _: *mut libc::c_void,
@@ -596,7 +596,7 @@ unsafe extern "C" fn modstrings(
                 (*vp).as_stream_mut().get_dict_mut(),
                 Some(
                     modstrings
-                        as unsafe extern "C" fn(
+                        as unsafe fn(
                             _: *mut pdf_obj,
                             _: *mut pdf_obj,
                             _: *mut libc::c_void,
@@ -631,7 +631,7 @@ impl ParsePdfDictU for &[u8] {
                 &mut *d,
                 Some(
                     modstrings
-                        as unsafe extern "C" fn(
+                        as unsafe fn(
                             _: *mut pdf_obj,
                             _: *mut pdf_obj,
                             _: *mut libc::c_void,
@@ -2075,7 +2075,7 @@ pub fn spc_pdfm_check_special(mut buf: &[u8]) -> bool {
     buf.starts_with(b"pdf:")
 }
 #[no_mangle]
-pub unsafe extern "C" fn spc_pdfm_setup_handler(
+pub unsafe fn spc_pdfm_setup_handler(
     mut sph: *mut SpcHandler,
     mut spe: *mut spc_env,
     mut ap: *mut spc_arg,

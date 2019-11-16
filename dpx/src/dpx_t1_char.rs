@@ -1548,7 +1548,7 @@ unsafe fn do_postproc(mut cd: *mut t1_chardesc) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn t1char_get_metrics(
+pub unsafe fn t1char_get_metrics(
     mut src: *mut u8,
     mut srclen: i32,
     mut subrs: *mut cff_index,
@@ -1880,7 +1880,7 @@ unsafe fn t1char_encode_charpath(
     dst.wrapping_offset_from(save) as i64 as i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn t1char_convert_charstring(
+pub unsafe fn t1char_convert_charstring(
     mut dst: *mut u8,
     mut dstlen: i32,
     mut src: *mut u8,

@@ -78,7 +78,7 @@ pub struct font_cache {
 
 static mut __verbose: i32 = 0i32;
 #[no_mangle]
-pub unsafe extern "C" fn Type0Font_set_verbose(mut level: i32) {
+pub unsafe fn Type0Font_set_verbose(mut level: i32) {
     __verbose = level;
 }
 unsafe fn new_used_chars2() -> *mut i8 {
@@ -249,7 +249,7 @@ unsafe fn add_ToUnicode(mut font: *mut Type0Font) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn Type0Font_set_ToUnicode(
+pub unsafe fn Type0Font_set_ToUnicode(
     mut font: *mut Type0Font,
     mut cmap_ref: *mut pdf_obj,
 ) {
@@ -278,17 +278,17 @@ unsafe fn Type0Font_flush(mut font: *mut Type0Font) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn Type0Font_get_wmode(mut font: *mut Type0Font) -> i32 {
+pub unsafe fn Type0Font_get_wmode(mut font: *mut Type0Font) -> i32 {
     assert!(!font.is_null());
     (*font).wmode
 }
 #[no_mangle]
-pub unsafe extern "C" fn Type0Font_get_usedchars(mut font: *mut Type0Font) -> *mut i8 {
+pub unsafe fn Type0Font_get_usedchars(mut font: *mut Type0Font) -> *mut i8 {
     assert!(!font.is_null());
     (*font).used_chars
 }
 #[no_mangle]
-pub unsafe extern "C" fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mut pdf_obj {
+pub unsafe fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mut pdf_obj {
     assert!(!font.is_null());
     /*
      * This looks somewhat strange.
@@ -307,7 +307,7 @@ static mut __cache: font_cache = font_cache {
         fonts: std::ptr::null_mut(),
     };
 #[no_mangle]
-pub unsafe extern "C" fn Type0Font_cache_init() {
+pub unsafe fn Type0Font_cache_init() {
     if !__cache.fonts.is_null() {
         panic!("{}: Already initialized.", "Type0",);
     }
@@ -316,14 +316,14 @@ pub unsafe extern "C" fn Type0Font_cache_init() {
     __cache.fonts = ptr::null_mut();
 }
 #[no_mangle]
-pub unsafe extern "C" fn Type0Font_cache_get(mut id: i32) -> *mut Type0Font {
+pub unsafe fn Type0Font_cache_get(mut id: i32) -> *mut Type0Font {
     if id < 0i32 || id >= __cache.count {
         panic!("{}: Invalid ID {}", "Type0", id,);
     }
     &mut *__cache.fonts.offset(id as isize) as *mut Type0Font
 }
 #[no_mangle]
-pub unsafe extern "C" fn Type0Font_cache_find(
+pub unsafe fn Type0Font_cache_find(
     mut map_name: *const i8,
     mut cmap_id: i32,
     mut fmap_opt: *mut fontmap_opt,
@@ -500,7 +500,7 @@ pub unsafe extern "C" fn Type0Font_cache_find(
 }
 /* ******************************* CACHE ********************************/
 #[no_mangle]
-pub unsafe extern "C" fn Type0Font_cache_close() {
+pub unsafe fn Type0Font_cache_close() {
     /*
      * This need to be fixed.
      *

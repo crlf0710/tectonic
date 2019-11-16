@@ -40,7 +40,7 @@ pub const DPX_MESG_INFO: _message_type = 0;
 pub static mut _last_message_type: message_type_t = DPX_MESG_INFO;
 pub static mut _dpx_quietness: i32 = 0i32;
 #[no_mangle]
-pub unsafe extern "C" fn shut_up(mut quietness: i32) {
+pub unsafe fn shut_up(mut quietness: i32) {
     _dpx_quietness = quietness;
 }
 pub static mut _dpx_message_handle: Option<OutputHandleWrapper> = None;
@@ -55,7 +55,7 @@ pub fn _dpx_ensure_output_handle() {
         panic!("xdvipdfmx cannot get output logging handle?!");
     }
 }
-unsafe extern "C" fn _dpx_print_to_stdout(
+unsafe fn _dpx_print_to_stdout(
     mut fmt: *const i8,
     mut argp: ::std::ffi::VaList,
     mut warn: bool,
