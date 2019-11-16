@@ -8,18 +8,28 @@ cache: false
 
 matrix:
   include:
-    # Linux, Rust stable: the "main" build; we do code coverage, AppImage generation, etc.
     - os: linux
       sudo: required
       dist: xenial
       rust: nightly
       env: RUSTFLAGS="-C link-dead-code"
-    # MacOS, Rust stable: just a smoke test
     - os: osx
       osx_image: xcode10.2
       rust: nightly
-  allow_failures:
-    - os: osx
+    - os: windows
+      rust: nightly
+      env:
+        - VS15=true
+        - VCPKG_ROOT=${HOME}/vcpkg
+        - VCPKG_DEFAULT_TRIPLET=x64-windows
+        - TECTONIC_DEP_BACKEND=vcpkg
+      script:
+        - dist/prepare-win-ci-deps.bat
+        - sh dist/travis.sh
+      cache:
+        directories:
+          - ${VCPKG_ROOT}/installed
+
 
 # Don't CI branches besides master. Pull requests still get CI'd -- but
 # when a PR comes in on a branch in the same repo, this prevents it from
