@@ -1048,7 +1048,7 @@ pub unsafe extern "C" fn iccp_load_profile(
 static mut CSPC_CACHE: CspcCache = CspcCache {
         count: 0_u32,
         capacity: 0_u32,
-        colorspaces: 0 as *const pdf_colorspace as *mut pdf_colorspace,
+        colorspaces: std::ptr::null_mut(),
     };
 unsafe fn pdf_colorspace_findresource(
     mut ident: *const i8,

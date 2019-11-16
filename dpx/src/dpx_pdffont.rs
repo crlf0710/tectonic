@@ -296,7 +296,7 @@ unsafe fn pdf_clean_font_struct(mut font: *mut pdf_font) {
 static mut font_cache: C2RustUnnamed_0 = C2RustUnnamed_0 {
         count: 0i32,
         capacity: 0i32,
-        fonts: 0 as *const pdf_font as *mut pdf_font,
+        fonts: std::ptr::null_mut(),
     };
 #[no_mangle]
 pub unsafe extern "C" fn pdf_init_fonts() {

@@ -531,7 +531,7 @@ static mut text_state: TextState = TextState {
     force_reset: 0,
     is_mb: 0,
 };
-static mut dev_fonts: *mut dev_font = 0 as *const dev_font as *mut dev_font;
+static mut dev_fonts: *mut dev_font = std::ptr::null_mut();
 static mut num_dev_fonts: i32 = 0i32;
 static mut max_dev_fonts: i32 = 0i32;
 static mut num_phys_fonts: i32 = 0i32;
@@ -1144,7 +1144,7 @@ unsafe fn handle_multibyte_string(
     *str_len = length;
     0i32
 }
-static mut dev_coords: *mut Coord = 0 as *const Coord as *mut Coord;
+static mut dev_coords: *mut Coord = std::ptr::null_mut();
 static mut num_dev_coords: i32 = 0i32;
 static mut max_dev_coords: i32 = 0i32;
 #[no_mangle]

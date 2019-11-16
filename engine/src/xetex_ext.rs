@@ -14,6 +14,7 @@ use crate::xetex_xetexd::print_c_string;
 use crate::{streq_ptr, strstartswith};
 use crate::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub_input_read};
 use libc::free;
+use std::ptr;
 
 #[cfg(target_os = "macos")]
 use super::xetex_aatfont as aat;
@@ -158,8 +159,7 @@ authorization from the copyright holders.
 /* for fabs() */
 
 /* OT-related constants we need */
-static mut brkIter: *mut icu::UBreakIterator =
-    0 as *const icu::UBreakIterator as *mut icu::UBreakIterator;
+static mut brkIter: *mut icu::UBreakIterator = 0 as *mut icu::UBreakIterator;
 static mut brkLocaleStrNum: i32 = 0i32;
 
 /* info for each glyph is location (FixedPoint) + glyph ID (u16) */
@@ -192,7 +192,7 @@ pub unsafe extern "C" fn linebreak_start(
         brkIter = icu::ubrk_open(
             icu::UBRK_LINE,
             locale,
-            0 as *const icu::UChar,
+            ptr::null(),
             0i32,
             &mut status,
         );
@@ -214,7 +214,7 @@ pub unsafe extern "C" fn linebreak_start(
             brkIter = icu::ubrk_open(
                 icu::UBRK_LINE,
                 b"en_us\x00" as *const u8 as *const i8,
-                0 as *const icu::UChar,
+                ptr::null(),
                 0i32,
                 &mut status,
             )
@@ -369,7 +369,7 @@ unsafe extern "C" fn load_mapping_file(
     free(buffer as *mut libc::c_void);
     cnv as *mut libc::c_void
 }
-static mut saved_mapping_name: *mut i8 = 0 as *const i8 as *mut i8;
+static mut saved_mapping_name: *mut i8 = ptr::null_mut();
 #[no_mangle]
 pub unsafe extern "C" fn check_for_tfm_font_mapping() {
     let mut cp: *mut i8 = strstr(name_of_file, b":mapping=\x00" as *const u8 as *const i8);
@@ -457,7 +457,7 @@ pub unsafe extern "C" fn read_double(mut s: *mut *const i8) -> f64 {
     }
 }
 unsafe extern "C" fn read_tag_with_param(mut cp: *const i8, mut param: *mut i32) -> hb_tag_t {
-    let mut cp2: *const i8 = 0 as *const i8;
+    let mut cp2: *const i8 = ptr::null();
     let mut tag: hb_tag_t = 0;
     cp2 = cp;
     while *cp2 as i32 != 0
@@ -557,7 +557,7 @@ pub unsafe extern "C" fn readCommonFeatures(
 ) -> i32
 // returns 1 to go to next_option, -1 for bad_option, 0 to continue
 {
-    let mut sep: *const i8 = 0 as *const i8;
+    let mut sep: *const i8 = ptr::null();
     sep = strstartswith(feat, b"mapping\x00" as *const u8 as *const i8);
     if !sep.is_null() {
         if *sep as i32 != '=' as i32 {
@@ -604,7 +604,7 @@ pub unsafe extern "C" fn readCommonFeatures(
     }
     sep = strstartswith(feat, b"color\x00" as *const u8 as *const i8);
     if !sep.is_null() {
-        let mut s: *const i8 = 0 as *const i8;
+        let mut s: *const i8 = ptr::null();
         if *sep as i32 != '=' as i32 {
             return -1i32;
         }
@@ -683,7 +683,7 @@ unsafe extern "C" fn loadOTfont(
     let mut nFeatures: i32 = 0i32;
     let mut nShapers: i32 = 0i32;
     let mut cp2: *mut i8 = 0 as *mut i8;
-    let mut cp3: *const i8 = 0 as *const i8;
+    let mut cp3: *const i8 = ptr::null();
     let mut tag: hb_tag_t = 0;
     let mut rgbValue: u32 = 0xff_u32;
     let mut extend: f32 = 1.0f64 as f32;
@@ -926,7 +926,7 @@ unsafe extern "C" fn loadOTfont(
                     font_feature_warning(
                         cp1 as *mut libc::c_void,
                         cp2.wrapping_offset_from(cp1) as i64 as i32,
-                        0 as *const libc::c_void,
+                        ptr::null(),
                         0i32,
                     );
                 }
@@ -1970,9 +1970,9 @@ pub unsafe extern "C" fn measure_native_node(
         /* need to find direction runs within the text, and call layoutChars separately for each */
         let mut dir: icu::UBiDiDirection = icu::UBIDI_LTR;
         let mut glyph_info: *mut libc::c_void = 0 as *mut libc::c_void;
-        static mut positions: *mut FloatPoint = 0 as *const FloatPoint as *mut FloatPoint;
-        static mut advances: *mut f32 = 0 as *const f32 as *mut f32;
-        static mut glyphs: *mut u32 = 0 as *const u32 as *mut u32;
+        static mut positions: *mut FloatPoint = ptr::null_mut();
+        static mut advances: *mut f32 = ptr::null_mut();
+        static mut glyphs: *mut u32 = ptr::null_mut();
         let mut pBiDi: *mut icu::UBiDi = icu::ubidi_open();
         let mut errorCode: icu::UErrorCode = icu::U_ZERO_ERROR;
         icu::ubidi_setPara(
@@ -2386,7 +2386,7 @@ pub unsafe extern "C" fn Fix2D(mut f: Fixed) -> f64 {
 
 #[no_mangle]
 pub unsafe extern "C" fn print_glyph_name(mut font: i32, mut gid: i32) {
-    let mut s: *const i8 = 0 as *const i8;
+    let mut s: *const i8 = ptr::null();
     let mut len: i32 = 0i32;
     match *font_area.offset(font as isize) as u32 {
         #[cfg(target_os = "macos")]

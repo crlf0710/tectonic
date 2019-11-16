@@ -27,6 +27,7 @@
 
 use std::io::Read;
 use std::ffi::{CStr, CString};
+use std::ptr;
 
 use crate::DisplayExt;
 use crate::TTInputFormat;
@@ -131,13 +132,13 @@ use crate::dpx_pdfdev::Coord;
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 static mut _PDF_STAT: spc_pdf_ = spc_pdf_ {
-        annot_dict: 0 as *const pdf_obj as *mut pdf_obj,
+        annot_dict: ptr::null_mut(),
         lowest_level: 255i32,
-        resourcemap: 0 as *const ht_table as *mut ht_table,
+        resourcemap: ptr::null_mut(),
         cd: tounicode {
                 cmap_id: -1i32,
                 unescape_backslash: 0i32,
-                taintkeys: 0 as *const pdf_obj as *mut pdf_obj,
+                taintkeys: ptr::null_mut(),
             },
     };
 /* PLEASE REMOVE THIS */

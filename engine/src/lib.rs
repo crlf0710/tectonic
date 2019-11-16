@@ -16,6 +16,8 @@ extern crate tectonic_dvipdfmx as dpx;
 
 pub use bridge::*;
 
+use std::ptr;
+
 // For the msg_send macro
 #[cfg(target_os = "macos")]
 #[macro_use]
@@ -55,7 +57,7 @@ pub unsafe extern "C" fn dvipdfmx_simple_main(
         dvipdfmx_main(
             pdfname,
             dviname,
-            0 as *const i8,
+            ptr::null(),
             0i32,
             false,
             compress,
@@ -182,7 +184,7 @@ pub(crate) unsafe extern "C" fn strstartswith(s: *const i8, prefix: *const i8) -
     if libc::strncmp(s, prefix, length) == 0i32 {
         return s.offset(length as isize);
     }
-    0 as *const i8
+    ptr::null()
 }
 
 #[inline]

@@ -29,6 +29,7 @@
 
 use crate::DisplayExt;
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_cff::{cff_add_string, cff_get_string};
 use super::dpx_mem::{new, renew};
@@ -143,7 +144,7 @@ static mut dict_operator: [C2RustUnnamed_2; 61] = [
             argtype: 1i32 << 0i32 | 1i32 << 1i32,
         },
     C2RustUnnamed_2 {
-            opname: 0 as *const i8,
+            opname: ptr::null(),
             argtype: -1i32,
         },
     C2RustUnnamed_2 {
@@ -243,11 +244,11 @@ static mut dict_operator: [C2RustUnnamed_2; 61] = [
             argtype: 1i32 << 2i32,
         },
     C2RustUnnamed_2 {
-            opname: 0 as *const i8,
+            opname: ptr::null(),
             argtype: -1i32,
         },
     C2RustUnnamed_2 {
-            opname: 0 as *const i8,
+            opname: ptr::null(),
             argtype: -1i32,
         },
     C2RustUnnamed_2 {
@@ -279,27 +280,27 @@ static mut dict_operator: [C2RustUnnamed_2; 61] = [
             argtype: 1i32 << 5i32,
         },
     C2RustUnnamed_2 {
-            opname: 0 as *const i8,
+            opname: ptr::null(),
             argtype: -1i32,
         },
     C2RustUnnamed_2 {
-            opname: 0 as *const i8,
+            opname: ptr::null(),
             argtype: -1i32,
         },
     C2RustUnnamed_2 {
-            opname: 0 as *const i8,
+            opname: ptr::null(),
             argtype: -1i32,
         },
     C2RustUnnamed_2 {
-            opname: 0 as *const i8,
+            opname: ptr::null(),
             argtype: -1i32,
         },
     C2RustUnnamed_2 {
-            opname: 0 as *const i8,
+            opname: ptr::null(),
             argtype: -1i32,
         },
     C2RustUnnamed_2 {
-            opname: 0 as *const i8,
+            opname: ptr::null(),
             argtype: -1i32,
         },
     C2RustUnnamed_2 {

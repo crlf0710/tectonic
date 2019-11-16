@@ -31,6 +31,7 @@ use std::io::Read;
 use crate::info;
 use crate::DisplayExt;
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_agl::{agl_lookup_list, agl_sput_UTF16BE};
 use super::dpx_cid::CSI_UNICODE;
@@ -253,7 +254,7 @@ unsafe fn make_encoding_differences(
     differences
 }
 unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
-    let mut enc_vec: [*const i8; 256] = [0 as *const i8; 256];
+    let mut enc_vec: [*const i8; 256] = [ptr::null(); 256];
     if filename.is_null() {
         return -1i32;
     }
@@ -306,7 +307,7 @@ unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
         },
         filename,
         enc_vec.as_mut_ptr(),
-        0 as *const i8,
+        ptr::null(),
         0i32,
     );
     if let Some(enc_name) = enc_name {
@@ -324,7 +325,7 @@ unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
 static mut enc_cache: C2RustUnnamed = C2RustUnnamed {
         count: 0i32,
         capacity: 0i32,
-        encodings: 0 as *const pdf_encoding as *mut pdf_encoding,
+        encodings: ptr::null_mut(),
     };
 #[no_mangle]
 pub unsafe extern "C" fn pdf_init_encodings() {
@@ -340,21 +341,21 @@ pub unsafe extern "C" fn pdf_init_encodings() {
         b"WinAnsiEncoding\x00" as *const u8 as *const i8,
         b"WinAnsiEncoding\x00" as *const u8 as *const i8,
         WinAnsiEncoding.as_mut_ptr(),
-        0 as *const i8,
+        ptr::null(),
         1i32 << 0i32,
     );
     pdf_encoding_new_encoding(
         b"MacRomanEncoding\x00" as *const u8 as *const i8,
         b"MacRomanEncoding\x00" as *const u8 as *const i8,
         MacRomanEncoding.as_mut_ptr(),
-        0 as *const i8,
+        ptr::null(),
         1i32 << 0i32,
     );
     pdf_encoding_new_encoding(
         b"MacExpertEncoding\x00" as *const u8 as *const i8,
         b"MacExpertEncoding\x00" as *const u8 as *const i8,
         MacExpertEncoding.as_mut_ptr(),
-        0 as *const i8,
+        ptr::null(),
         1i32 << 0i32,
     );
 }

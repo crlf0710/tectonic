@@ -1103,7 +1103,7 @@ pub unsafe fn loadAATfont(
     let mut rgbValue: u32 = 0;
     // create a base font instance for applying further attributes
     ctSize = TeXtoPSPoints(Fix2D(scaled_size));
-    font = CTFontCreateWithFontDescriptor(descriptor, ctSize, 0 as *const CGAffineTransform);
+    font = CTFontCreateWithFontDescriptor(descriptor, ctSize, ptr::null());
     if font.is_null() {
         return 0 as *mut libc::c_void;
     }
@@ -1127,8 +1127,8 @@ pub unsafe fn loadAATfont(
         while *cp1 != 0 {
             let mut feature: CFDictionaryRef = 0 as CFDictionaryRef;
             let mut ret: libc::c_int = 0;
-            let mut cp2: *const libc::c_char = 0 as *const libc::c_char;
-            let mut cp3: *const libc::c_char = 0 as *const libc::c_char;
+            let mut cp2: *const libc::c_char = ptr::null();
+            let mut cp3: *const libc::c_char = ptr::null();
             // locate beginning of name=value pair
             if *cp1 as libc::c_int == ':' as i32 || *cp1 as libc::c_int == ';' as i32 {
                 // skip over separator
@@ -1179,7 +1179,7 @@ pub unsafe fn loadAATfont(
                     while cp3 < cp2 {
                         let mut selector: CFNumberRef = 0 as CFNumberRef;
                         let mut disable: libc::c_int = 0i32;
-                        let mut cp4: *const libc::c_char = 0 as *const libc::c_char;
+                        let mut cp4: *const libc::c_char = ptr::null();
                         // skip leading whitespace
                         while *cp3 as libc::c_int == ' ' as i32
                             || *cp3 as libc::c_int == '\t' as i32
@@ -1331,7 +1331,7 @@ pub unsafe fn loadAATfont(
                             font_feature_warning(
                                 cp1 as *const libc::c_void,
                                 cp2.wrapping_offset_from(cp1) as libc::c_long as int32_t,
-                                0 as *const libc::c_void,
+                                ptr::null(),
                                 0i32,
                             );
                         }
@@ -1457,7 +1457,7 @@ pub unsafe extern "C" fn aat_get_font_metrics(
 pub unsafe extern "C" fn aat_font_get(mut what: i32, mut attributes: CFDictionaryRef) -> i32 {
     let mut rval: libc::c_int = -1i32;
     let mut font: CTFontRef = font_from_attributes(attributes);
-    let mut list: CFArrayRef = 0 as *const __CFArray;
+    let mut list: CFArrayRef = ptr::null();
     match what {
         1 => rval = CTFontGetGlyphCount(font) as libc::c_int,
         8 => {

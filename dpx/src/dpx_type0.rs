@@ -304,7 +304,7 @@ pub unsafe extern "C" fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mu
 static mut __cache: font_cache = font_cache {
         count: 0i32,
         capacity: 0i32,
-        fonts: 0 as *const Type0Font as *mut Type0Font,
+        fonts: std::ptr::null_mut(),
     };
 #[no_mangle]
 pub unsafe extern "C" fn Type0Font_cache_init() {
