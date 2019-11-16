@@ -1256,7 +1256,7 @@ pub unsafe fn otf_create_ToUnicode_stream(
      */
     let normalized_font_name =
         new((strlen(font_name).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8; /* many warnings without this... */
+            as *mut i8;
     strcpy(normalized_font_name, font_name);
     for i in 0..strlen(font_name) as _ {
         if *normalized_font_name.offset(i as isize) as i32 == '/' as i32 {
@@ -1331,7 +1331,7 @@ pub unsafe fn otf_create_ToUnicode_stream(
     } else {
         CMap_cache_get(cmap_add_id)
     };
-    CMap_set_silent(1i32);
+    CMap_set_silent(1i32); /* many warnings without this... */
     for i in 0..(::std::mem::size_of::<[cmap_plat_enc_rec; 5]>() as u64)
         .wrapping_div(::std::mem::size_of::<cmap_plat_enc_rec>() as u64) as usize
     {

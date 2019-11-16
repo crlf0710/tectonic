@@ -59,7 +59,5 @@ extern "C" {
     
     pub fn xstrdup(s: *const i8) -> *mut i8;
     
-    pub fn xrealloc(old_address: *mut libc::c_void, new_size: size_t) -> *mut libc::c_void;
-    
     pub fn xmalloc(size: size_t) -> *mut libc::c_void;
 }

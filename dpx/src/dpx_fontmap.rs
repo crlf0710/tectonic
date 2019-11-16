@@ -41,10 +41,9 @@ use super::dpx_dpxutil::{
     ht_clear_table, ht_init_table, ht_insert_table, ht_lookup_table, ht_remove_table,
 };
 use super::dpx_dpxutil::{parse_c_string, parse_float_decimal};
-use super::dpx_mem::{new, xmalloc};
+use super::dpx_mem::new;
 use super::dpx_mfileio::tt_mfgets;
 use super::dpx_subfont::{release_sfd_record, sfd_get_subfont_ids};
-use crate::shims::sprintf;
 use crate::ttstub_input_close;
 use libc::{
     atof, atoi, free, memcmp, memcpy, strcat, strchr, strcmp, strcpy, strlen, strstr, strtol,
@@ -172,7 +171,7 @@ unsafe fn hval_free(mut vp: *mut libc::c_void) {
     pdf_clear_fontmap_record(mrec);
     free(mrec as *mut libc::c_void);
 }
-unsafe fn fill_in_defaults(mut mrec: *mut fontmap_rec, mut tex_name: *const i8) {
+unsafe fn fill_in_defaults(mut mrec: *mut fontmap_rec, tex_name: &str) {
     if !(*mrec).enc_name.is_null()
         && (streq_ptr((*mrec).enc_name, b"default\x00" as *const u8 as *const i8) as i32 != 0
             || streq_ptr((*mrec).enc_name, b"none\x00" as *const u8 as *const i8) as i32 != 0)
@@ -187,15 +186,11 @@ unsafe fn fill_in_defaults(mut mrec: *mut fontmap_rec, mut tex_name: *const i8) 
     }
     /* We *must* fill font_name either explicitly or by default */
     if (*mrec).font_name.is_null() {
-        (*mrec).font_name =
-            new((strlen(tex_name).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-                as *mut i8;
-        strcpy((*mrec).font_name, tex_name);
+        (*mrec).font_name = new(tex_name.len() as u32 + 1) as *mut i8;
+        strcpy((*mrec).font_name, tex_name.as_bytes().as_ptr() as *const i8);
     }
-    (*mrec).map_name =
-        new((strlen(tex_name).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-    strcpy((*mrec).map_name, tex_name);
+    (*mrec).map_name = new(tex_name.len() as u32 + 1) as *mut i8;
+    strcpy((*mrec).map_name, tex_name.as_bytes().as_ptr() as *const i8);
     /* Use "UCS" character collection for Unicode SFD
      * and Identity CMap combination. For backward
      * compatibility.
@@ -1087,6 +1082,7 @@ pub unsafe fn pdf_read_fontmap_line(
     if q.is_null() {
         return -1i32;
     }
+    let qstr = CStr::from_ptr(q).to_string_lossy().to_string();
     let error = if format > 0i32 {
         /* DVIPDFM format */
         fontmap_parse_mapdef_dpm(mrec, p, endptr)
@@ -1110,7 +1106,7 @@ pub unsafe fn pdf_read_fontmap_line(
             free((*mrec).charmap.sfd_name as *mut libc::c_void);
             (*mrec).charmap.sfd_name = sfd_name
         }
-        fill_in_defaults(mrec, q);
+        fill_in_defaults(mrec, &qstr);
     }
     free(q as *mut libc::c_void);
     error
@@ -1251,11 +1247,9 @@ pub unsafe fn pdf_insert_native_fontmap_record(
     mut embolden: i32,
 ) -> *mut fontmap_rec {
     assert!(!path.is_null());
-    let fontmap_key = xmalloc(strlen(path).wrapping_add(40) as _) as *mut i8;
-    sprintf(
-        fontmap_key,
-        b"%s/%d/%c/%d/%d/%d\x00" as *const u8 as *const i8,
-        path,
+    let fontmap_key = format!(
+        "{}/{}/{}/{}/{}/{}",
+        CStr::from_ptr(path).display(),
         index,
         if layout_dir == 0i32 {
             'H' as i32
@@ -1267,12 +1261,11 @@ pub unsafe fn pdf_insert_native_fontmap_record(
         embolden,
     );
     if verbose != 0 {
-        info!("<NATIVE-FONTMAP:{}", CStr::from_ptr(fontmap_key).display(),);
+        info!("<NATIVE-FONTMAP:{}", fontmap_key);
     }
     let mrec = new((1_u64).wrapping_mul(::std::mem::size_of::<fontmap_rec>() as u64) as u32)
         as *mut fontmap_rec;
     pdf_init_fontmap_record(mrec);
-    (*mrec).map_name = fontmap_key;
     (*mrec).enc_name = mstrdup(if layout_dir == 0i32 {
         b"Identity-H\x00" as *const u8 as *const i8
     } else {
@@ -1283,8 +1276,7 @@ pub unsafe fn pdf_insert_native_fontmap_record(
     if layout_dir != 0i32 {
         (*mrec).opt.flags |= 1i32 << 2i32
     }
-    fill_in_defaults(mrec, fontmap_key);
-    free(fontmap_key as *mut libc::c_void);
+    fill_in_defaults(mrec, &fontmap_key);
     (*mrec).opt.extend = extend as f64 / 65536.0f64;
     (*mrec).opt.slant = slant as f64 / 65536.0f64;
     (*mrec).opt.bold = embolden as f64 / 65536.0f64;

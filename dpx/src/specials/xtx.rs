@@ -34,7 +34,7 @@ use crate::dpx_fontmap::{
     pdf_insert_fontmap_record, pdf_load_fontmap_file, pdf_read_fontmap_line,
     pdf_remove_fontmap_record,
 };
-use crate::dpx_mem::{new, xrealloc};
+use crate::dpx_mem::new;
 use crate::dpx_mfileio::work_buffer_u8 as WORK_BUFFER;
 use crate::dpx_pdfdev::{pdf_dev_reset_color, pdf_dev_reset_fonts};
 use crate::dpx_pdfdoc::{
@@ -108,26 +108,21 @@ unsafe fn spc_handler_xtx_scale(mut spe: *mut spc_env, mut args: *mut spc_arg) -
     );
 }
 /* Scaling without gsave/grestore. */
-static mut SCALE_FACTORS: *mut Coord = std::ptr::null_mut();
-static mut SCALE_FACTOR_COUNT: i32 = -1i32;
+static mut SCALE_FACTORS: Vec<Coord> = Vec::new();
+
 unsafe fn spc_handler_xtx_bscale(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut values: [f64; 2] = [0.; 2];
-    SCALE_FACTOR_COUNT += 1;
-    if SCALE_FACTOR_COUNT & 0xfi32 == 0 {
-        SCALE_FACTORS = xrealloc(
-            SCALE_FACTORS as *mut libc::c_void,
-            ((SCALE_FACTOR_COUNT + 16i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<Coord>() as u64),
-        ) as *mut Coord
-    }
+
     if spc_util_read_numbers(&mut *values.as_mut_ptr().offset(0), 2i32, args) < 2i32 {
         return -1i32;
     }
     if values[0].abs() < 1.0e-7f64 || values[1].abs() < 1.0e-7f64 {
         return -1i32;
     }
-    (*SCALE_FACTORS.offset(SCALE_FACTOR_COUNT as isize)).x = 1i32 as f64 / values[0];
-    (*SCALE_FACTORS.offset(SCALE_FACTOR_COUNT as isize)).y = 1i32 as f64 / values[1];
+    SCALE_FACTORS.push(Coord::new(
+        1i32 as f64 / values[0],
+        1i32 as f64 / values[1],
+    ));
     (*args).cur = &[];
     return spc_handler_xtx_do_transform(
         (*spe).x_user,
@@ -141,9 +136,7 @@ unsafe fn spc_handler_xtx_bscale(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     );
 }
 unsafe fn spc_handler_xtx_escale(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
-    let fresh0 = SCALE_FACTOR_COUNT;
-    SCALE_FACTOR_COUNT = SCALE_FACTOR_COUNT - 1;
-    let mut factor: Coord = *SCALE_FACTORS.offset(fresh0 as isize);
+    let factor = SCALE_FACTORS.pop().unwrap();
     (*args).cur = &[];
     return spc_handler_xtx_do_transform(
         (*spe).x_user,
