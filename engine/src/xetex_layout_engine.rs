@@ -1282,79 +1282,82 @@ pub unsafe fn getSlantFactor(mut engine: XeTeXLayoutEngine) -> f32 {
 pub unsafe fn getEmboldenFactor(mut engine: XeTeXLayoutEngine) -> f32 {
     return (*engine).embolden;
 }
-#[no_mangle]
-pub unsafe fn XeTeXLayoutEngine_create() -> *mut XeTeXLayoutEngine_rec {
-    return malloc(::std::mem::size_of::<XeTeXLayoutEngine_rec>() as libc::c_ulong)
-        as *mut XeTeXLayoutEngine_rec;
-}
-#[no_mangle]
-pub unsafe fn XeTeXLayoutEngine_delete(mut engine: *mut XeTeXLayoutEngine_rec) {
-    {
-        let eng = &mut *engine;
-        eng.shaper_list.inner = None;
-        eng.shaper_list.pointer = ptr::null();
-    }
-    free(engine as *mut libc::c_void);
-}
+
 #[no_mangle]
 pub unsafe fn createLayoutEngine(
-    mut fontRef: PlatformFontRef,
-    mut font: *mut XeTeXFontInst,
-    mut script: hb_tag_t,
-    mut language: *mut libc::c_char,
-    mut features: *mut hb_feature_t,
-    mut nFeatures: libc::c_int,
-    mut shapers: Option<CStringListBuilder>,
-    mut rgbValue: uint32_t,
-    mut extend: f32,
-    mut slant: f32,
-    mut embolden: f32,
+    fontRef: PlatformFontRef,
+    font: *mut XeTeXFontInst,
+    script: hb_tag_t,
+    language_s: *mut libc::c_char,
+    features: *mut hb_feature_t,
+    nFeatures: libc::c_int,
+    shapers: Option<CStringListBuilder>,
+    rgbValue: uint32_t,
+    extend: f32,
+    slant: f32,
+    embolden: f32,
     shaperRequest: Option<ShaperRequest>,
 ) -> XeTeXLayoutEngine {
-    let mut result: XeTeXLayoutEngine = XeTeXLayoutEngine_create();
-    (*result).fontRef = fontRef;
-    (*result).font = font;
-    (*result).script = script;
-    (*result).features = features;
+
+    // For Graphite fonts treat the language as BCP 47 tag, for OpenType we
+    // treat it as a OT language tag for backward compatibility with pre-0.9999
+    // XeTeX.
+    let language = if shaperRequest == Some(ShaperRequest::Graphite) {
+        hb_language_from_string(language_s, -1i32)
+    } else {
+        hb_ot_tag_to_language(hb_tag_from_string(language_s, -1i32))
+    };
+    free(language_s as *mut libc::c_void);
 
     // HarfBuzz gives graphite2 shaper a priority, so that for hybrid
     // Graphite/OpenType fonts, Graphite will be used. However, pre-0.9999
     // XeTeX preferred OpenType over Graphite, so we are doing the same
     // here for sake of backward compatibility. Since "ot" shaper never
     // fails, we set the shaper list to just include it.
-    let shapers =  shapers.unwrap_or_else(|| {
-        let mut default_ot = CStringListBuilder::new();
-        default_ot.push_non_null_terminated(&b"ot"[..]);
-        default_ot
-    });
+    let shaper_list =  shapers
+        .unwrap_or_else(|| {
+            let mut default_ot = CStringListBuilder::new();
+            default_ot.push_non_null_terminated(&b"ot"[..]);
+            default_ot
+        })
+        .freeze();
 
-    ptr::write(&mut (*result).shaper_list, shapers.freeze());
+    let record = XeTeXLayoutEngine_rec {
+        font,
+        fontRef,
+        script,
+        language,
+        features,
+        shaper_list,
+        shaper: ptr::null_mut(),
+        nFeatures,
+        rgbValue,
+        extend,
+        slant,
+        embolden,
+        hbBuffer: hb_buffer_create(),
+    };
 
-    (*result).shaper = 0 as *mut libc::c_char;
-    (*result).nFeatures = nFeatures;
-    (*result).rgbValue = rgbValue;
-    (*result).extend = extend;
-    (*result).slant = slant;
-    (*result).embolden = embolden;
-    (*result).hbBuffer = hb_buffer_create();
-    // For Graphite fonts treat the language as BCP 47 tag, for OpenType we
-    // treat it as a OT language tag for backward compatibility with pre-0.9999
-    // XeTeX.
-    if shaperRequest == Some(ShaperRequest::Graphite) {
-        (*result).language = hb_language_from_string(language, -1i32)
-    } else {
-        (*result).language = hb_ot_tag_to_language(hb_tag_from_string(language, -1i32))
-    }
-    free(language as *mut libc::c_void);
-    return result;
+    Box::into_raw(Box::new(record))
 }
+
+impl Drop for XeTeXLayoutEngine_rec {
+    fn drop(&mut self) {
+        unsafe {
+            hb_buffer_destroy(self.hbBuffer);
+            XeTeXFontInst_delete(self.font);
+            if !self.shaper.is_null() {
+                free(self.shaper as *mut libc::c_void);
+            }
+        }
+    }
+}
+
 #[no_mangle]
 pub unsafe fn deleteLayoutEngine(mut engine: XeTeXLayoutEngine) {
-    hb_buffer_destroy((*engine).hbBuffer);
-    XeTeXFontInst_delete((*engine).font);
-    free((*engine).shaper as *mut libc::c_void);
-    XeTeXLayoutEngine_delete(engine);
+    drop(Box::from_raw(engine));
 }
+
 unsafe fn _decompose_compat(
     mut ufuncs: *mut hb_unicode_funcs_t,
     mut u: hb_codepoint_t,
@@ -1363,6 +1366,7 @@ unsafe fn _decompose_compat(
 ) -> libc::c_uint {
     return 0i32 as libc::c_uint;
 }
+
 unsafe fn _get_unicode_funcs() -> *mut hb_unicode_funcs_t {
     static mut ufuncs: *mut hb_unicode_funcs_t =
         0 as *const hb_unicode_funcs_t as *mut hb_unicode_funcs_t;
