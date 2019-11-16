@@ -1706,7 +1706,7 @@ unsafe fn spc_handler_pdfm_tounicode(mut spe: *mut spc_env, mut args: *mut spc_a
      * But it's too late to change this special.
      */
     if let Some(cmap_name) = (*args).cur.parse_ident() {
-        (*sd).cd.cmap_id = CMap_cache_find(cmap_name.as_ptr());
+        (*sd).cd.cmap_id = CMap_cache_find(&cmap_name.to_string_lossy());
         if (*sd).cd.cmap_id < 0i32 {
             spc_warn!(
                 spe,

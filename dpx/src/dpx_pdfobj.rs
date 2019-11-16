@@ -2024,6 +2024,17 @@ pub unsafe fn pdf_add_stream(
     (*data).stream.extend_from_slice(payload);
 }
 
+pub unsafe fn pdf_add_stream_str(
+    stream: &mut pdf_obj,
+    stream_data: &str,
+) {
+    assert!(stream.is_stream());
+    if !stream_data.is_empty() {
+        let data = (*stream).data as *mut pdf_stream;
+        (*data).stream.extend_from_slice(stream_data.as_bytes());
+    }
+}
+
 
 #[cfg(feature = "libz-sys")]
 pub unsafe fn pdf_add_stream_flate(

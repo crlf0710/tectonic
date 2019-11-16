@@ -60,7 +60,6 @@ use crate::dpx_pdfobj::{
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_stream_length, STREAM_COMPRESS,
 };
-use crate::shims::sprintf;
 use libc::{free, memmove, memset, strcat, strcmp, strcpy, strlen, strncpy, strstr};
 
 pub type size_t = u64;
@@ -339,20 +338,13 @@ unsafe fn find_tocode_cmap(mut reg: *const i8, mut ord: *const i8, mut select: i
         if append.is_null() {
             break;
         }
-        let cmap_name = new((strlen(reg)
-            .wrapping_add(strlen(ord))
-            .wrapping_add(strlen(append))
-            .wrapping_add(3))
-        .wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-        sprintf(
-            cmap_name,
-            b"%s-%s-%s\x00" as *const u8 as *const i8,
-            reg,
-            ord,
-            append,
+        let cmap_name = format!(
+            "{}-{}-{}",
+            CStr::from_ptr(reg).display(),
+            CStr::from_ptr(ord).display(),
+            CStr::from_ptr(append).display()
         );
-        cmap_id = CMap_cache_find(cmap_name);
-        free(cmap_name as *mut libc::c_void);
+        cmap_id = CMap_cache_find(&cmap_name);
         i += 1
     }
     if cmap_id < 0i32 {

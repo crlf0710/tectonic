@@ -78,7 +78,6 @@
 # define strcasecmp _stricmp
 # define strncasecmp _strnicmp
 # if defined(_VC_CRT_MAJOR_VERSION) && _VC_CRT_MAJOR_VERSION < 14
-#  define snprintf _snprintf
 #  define strtoll _strtoi64
 # endif
 #endif

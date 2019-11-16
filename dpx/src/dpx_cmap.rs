@@ -31,7 +31,7 @@ use crate::mfree;
 use crate::streq_ptr;
 use crate::DisplayExt;
 use crate::{info, warn};
-use std::ffi::CStr;
+use std::ffi::{CString, CStr};
 use std::ptr;
 
 use super::dpx_cid::CSI_IDENTITY;
@@ -469,13 +469,12 @@ pub unsafe fn CMap_get_CIDSysInfo(mut cmap: *mut CMap) -> *mut CIDSysInfo {
     (*cmap).CSI
 }
 
-pub unsafe fn CMap_set_name(mut cmap: *mut CMap, mut name: *const i8) {
+pub unsafe fn CMap_set_name(mut cmap: *mut CMap, name: &str) {
     assert!(!cmap.is_null());
     free((*cmap).name as *mut libc::c_void);
-    (*cmap).name =
-        new((strlen(name).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-    strcpy((*cmap).name, name);
+    (*cmap).name = new(name.len() as u32 +1) as *mut i8;
+    let name_cstr = CString::new(name).unwrap();
+    strcpy((*cmap).name, name_cstr.as_ptr());
 }
 
 pub unsafe fn CMap_set_type(mut cmap: *mut CMap, mut type_0: i32) {
@@ -1033,7 +1032,7 @@ pub unsafe fn CMap_cache_init() {
     *fresh7 = CMap_new();
     CMap_set_name(
         *(*__cache).cmaps.offset(0),
-        b"Identity-H\x00" as *const u8 as *const i8,
+        "Identity-H",
     );
     CMap_set_type(*(*__cache).cmaps.offset(0), 0i32);
     CMap_set_wmode(*(*__cache).cmaps.offset(0), 0i32);
@@ -1048,7 +1047,7 @@ pub unsafe fn CMap_cache_init() {
     *fresh8 = CMap_new();
     CMap_set_name(
         *(*__cache).cmaps.offset(1),
-        b"Identity-V\x00" as *const u8 as *const i8,
+        "Identity-V",
     );
     CMap_set_type(*(*__cache).cmaps.offset(1), 0i32);
     CMap_set_wmode(*(*__cache).cmaps.offset(1), 1i32);
@@ -1072,19 +1071,20 @@ pub unsafe fn CMap_cache_get(mut id: i32) -> *mut CMap {
     *(*__cache).cmaps.offset(id as isize)
 }
 
-pub unsafe fn CMap_cache_find(mut cmap_name: *const i8) -> i32 {
+pub unsafe fn CMap_cache_find(cmap_name_str: &str) -> i32 {
     if __cache.is_null() {
         CMap_cache_init();
     }
     assert!(!__cache.is_null());
+    let cmap_name = CString::new(cmap_name_str).unwrap();
     for id in 0..(*__cache).num {
         /* CMapName may be undefined when processing usecmap. */
         let name = CMap_get_name(*(*__cache).cmaps.offset(id as isize));
-        if !name.is_null() && streq_ptr(cmap_name, name) as i32 != 0 {
+        if !name.is_null() && streq_ptr(cmap_name.as_ptr(), name) as i32 != 0 {
             return id;
         }
     }
-    let mut handle = ttstub_input_open(cmap_name, TTInputFormat::CMAP, 0i32);
+    let mut handle = ttstub_input_open(cmap_name.as_ptr(), TTInputFormat::CMAP, 0i32);
     if handle.is_none() {
         return -1i32;
     }
@@ -1094,7 +1094,7 @@ pub unsafe fn CMap_cache_find(mut cmap_name: *const i8) -> i32 {
     }
     let handle = handle.unwrap();
     if __verbose != 0 {
-        info!("(CMap:{}", CStr::from_ptr(cmap_name).display());
+        info!("(CMap:{}", cmap_name_str);
     }
     if (*__cache).num >= (*__cache).max {
         (*__cache).max = ((*__cache).max as u32).wrapping_add(16u32) as i32 as i32;

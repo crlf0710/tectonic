@@ -1101,7 +1101,7 @@ unsafe fn create_ToUnicode_cmap(
         false
     };
     let cmap = CMap_new();
-    CMap_set_name(cmap, cmap_name);
+    CMap_set_name(cmap, &CStr::from_ptr(cmap_name).to_string_lossy());
     CMap_set_wmode(cmap, 0i32);
     CMap_set_type(cmap, 2i32);
     CMap_set_CIDSysInfo(cmap, &mut CSI_UNICODE);
@@ -1321,18 +1321,11 @@ pub unsafe fn otf_create_ToUnicode_stream(
     if cmap_type != 1i32 {
         code_to_cid_cmap = ptr::null_mut()
     }
-    let cmap_add_name = new((strlen(font_name)
-        .wrapping_add(strlen(b",000-UCS32-Add\x00" as *const u8 as *const i8))
-        .wrapping_add(1))
-    .wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-    sprintf(
-        cmap_add_name,
-        b"%s,%03d-UCS32-Add\x00" as *const u8 as *const i8,
-        font_name,
+    let cmap_add_id = CMap_cache_find(&format!(
+        "{},{:03}-UCS32-Add",
+        CStr::from_ptr(font_name).display(),
         ttc_index,
-    );
-    let cmap_add_id = CMap_cache_find(cmap_add_name);
-    free(cmap_add_name as *mut libc::c_void);
+    ));
     let cmap_add = if cmap_add_id < 0i32 {
         ptr::null_mut()
     } else {
@@ -1382,7 +1375,7 @@ pub unsafe fn otf_create_ToUnicode_stream(
     cmap_ref
 }
 unsafe fn load_base_CMap(
-    mut cmap_name: *const i8,
+    mut cmap_name: &str,
     mut tounicode_add: *mut CMap,
     mut wmode: i32,
     mut csi: *mut CIDSysInfo,
@@ -1479,10 +1472,13 @@ pub unsafe fn otf_load_Unicode_CMap(
     } else {
         sfnt_open(handle.unwrap())
     };
+
+    let map_name =  CStr::from_ptr(map_name).to_string_lossy().to_string();
+
     if sfont.is_null() {
         panic!(
             "Could not open OpenType/TrueType/dfont font file \"{}\"",
-            CStr::from_ptr(map_name).display()
+            map_name
         );
     }
     match (*sfont).type_0 {
@@ -1497,76 +1493,38 @@ pub unsafe fn otf_load_Unicode_CMap(
         _ => {
             panic!(
                 "Not a OpenType/TrueType/TTC font?: {}",
-                CStr::from_ptr(map_name).display(),
+                map_name,
             );
         }
     }
     if sfnt_read_table_directory(sfont, offset) < 0i32 {
         panic!("Could not read OpenType/TrueType table directory.");
     }
-    let mut base_name = new((strlen(map_name)
-        .wrapping_add(strlen(b"-UCS4-H\x00" as *const u8 as *const i8))
-        .wrapping_add(5))
-    .wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-    if wmode != 0 {
-        sprintf(
-            base_name,
-            b"%s,%03d-UCS4-V\x00" as *const u8 as *const i8,
-            map_name,
-            ttc_index,
-        );
+
+    let base_name = if wmode != 0 {
+        format!("{},{:03}-UCS4-V", map_name, ttc_index)
     } else {
-        sprintf(
-            base_name,
-            b"%s,%03d-UCS4-H\x00" as *const u8 as *const i8,
-            map_name,
-            ttc_index,
-        );
-    }
+        format!("{},{:03}-UCS4-H", map_name, ttc_index)
+    };
+
     if !otl_tags.is_null() {
-        cmap_name = new((strlen(map_name)
-            .wrapping_add(strlen(otl_tags))
-            .wrapping_add(strlen(b"-UCS4-H\x00" as *const u8 as *const i8))
-            .wrapping_add(6))
-        .wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-        if wmode != 0 {
-            sprintf(
-                cmap_name,
-                b"%s,%03d,%s-UCS4-V\x00" as *const u8 as *const i8,
-                map_name,
-                ttc_index,
-                otl_tags,
-            );
+        cmap_name = if wmode != 0 {
+            format!("{},{:03},{}-UCS4-V", map_name, ttc_index, CStr::from_ptr(otl_tags).to_string_lossy())
         } else {
-            sprintf(
-                cmap_name,
-                b"%s,%03d,%s-UCS4-H\x00" as *const u8 as *const i8,
-                map_name,
-                ttc_index,
-                otl_tags,
-            );
-        }
+            format!("{},{:03},{}-UCS4-H", map_name, ttc_index, CStr::from_ptr(otl_tags).to_string_lossy())
+        };
         /* tounicode_add here is later refered by otf_create_ToUnicode_stream()
          * for finding additional CID to Unicode mapping entries required by
          * OTL gsub substitution.
          */
-        let tounicode_add_name = new((strlen(map_name)
-            .wrapping_add(strlen(b",000-UCS32-Add\x00" as *const u8 as *const i8))
-            .wrapping_add(1))
-        .wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8; /* Microsoft UCS4 */
-        sprintf(
-            tounicode_add_name,
-            b"%s,%03d-UCS32-Add\x00" as *const u8 as *const i8,
-            map_name,
-            ttc_index,
-        ); /* Microsoft UCS2 */
-        let mut tounicode_add_id = CMap_cache_find(tounicode_add_name); /* Unicode 2.0 or later */
+
+        let tounicode_add_name = format!("{},{:03}-UCS32-Add", map_name, ttc_index);
+        let mut tounicode_add_id = CMap_cache_find(&tounicode_add_name); /* Unicode 2.0 or later */
         if tounicode_add_id >= 0i32 {
             tounicode_add = CMap_cache_get(tounicode_add_id)
         } else {
             tounicode_add = CMap_new();
-            CMap_set_name(tounicode_add, tounicode_add_name);
+            CMap_set_name(tounicode_add, &tounicode_add_name);
             CMap_set_type(tounicode_add, 2i32);
             CMap_set_wmode(tounicode_add, 0i32);
             CMap_add_codespacerange(
@@ -1585,12 +1543,8 @@ pub unsafe fn otf_load_Unicode_CMap(
             );
             CMap_cache_add(tounicode_add);
         }
-        free(tounicode_add_name as *mut libc::c_void);
     } else {
-        cmap_name =
-            new((strlen(base_name).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-                as *mut i8;
-        strcpy(cmap_name, base_name);
+        cmap_name = base_name;
     }
     let is_cidfont = if (*sfont).type_0 == 1i32 << 2i32 {
         handle_CIDFont(sfont, &mut GIDToCIDMap, &mut csi)
@@ -1601,7 +1555,7 @@ pub unsafe fn otf_load_Unicode_CMap(
         info!("\n");
         info!(
             "otf_cmap>> Unicode charmap for font=\"{}\" layout=\"{}\"\n",
-            CStr::from_ptr(map_name).display(),
+            map_name,
             if !otl_tags.is_null() {
                 CStr::from_ptr(otl_tags).to_str().unwrap()
             } else {
@@ -1609,10 +1563,8 @@ pub unsafe fn otf_load_Unicode_CMap(
             },
         );
     }
-    let cmap_id = CMap_cache_find(cmap_name);
+    let cmap_id = CMap_cache_find(&cmap_name);
     if cmap_id >= 0i32 {
-        free(cmap_name as *mut libc::c_void);
-        free(base_name as *mut libc::c_void);
         free(GIDToCIDMap as *mut libc::c_void);
         sfnt_close(sfont);
         if verbose > 0i32 {
@@ -1660,7 +1612,7 @@ pub unsafe fn otf_load_Unicode_CMap(
         gsub_list = ptr::null_mut()
     }
     let cmap_id = load_base_CMap(
-        cmap_name,
+        &cmap_name,
         tounicode_add,
         wmode,
         if is_cidfont != 0 {
@@ -1682,8 +1634,6 @@ pub unsafe fn otf_load_Unicode_CMap(
     if !gsub_list.is_null() {
         otl_gsub_release(gsub_list);
     }
-    free(cmap_name as *mut libc::c_void);
-    free(base_name as *mut libc::c_void);
     free(GIDToCIDMap as *mut libc::c_void);
     if is_cidfont != 0 {
         free(csi.registry as *mut libc::c_void);

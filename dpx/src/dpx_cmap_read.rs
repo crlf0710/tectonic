@@ -28,6 +28,7 @@
 )]
 
 use std::io::{Seek, SeekFrom};
+use std::ffi::CStr;
 use std::ptr;
 use tectonic_bridge::ttstub_input_close;
 
@@ -731,7 +732,7 @@ pub unsafe fn CMap_parse(mut cmap: *mut CMap, mut handle: InputHandleWrapper) ->
             {
                 status = -1i32
             } else {
-                CMap_set_name(cmap, pst_data_ptr(tok2) as *const i8);
+                CMap_set_name(cmap, &CStr::from_ptr(pst_data_ptr(tok2) as *const i8).to_string_lossy());
             }
         } else if pst_type_of(tok1) == 6i32
             && memcmp(
@@ -803,7 +804,7 @@ pub unsafe fn CMap_parse(mut cmap: *mut CMap, mut handle: InputHandleWrapper) ->
                             strlen(b"usecmap\x00" as *const u8 as *const i8),
                         ) == 0)
                 {
-                    let id = CMap_cache_find(pst_data_ptr(tok1) as *const i8);
+                    let id = CMap_cache_find(&CStr::from_ptr(pst_data_ptr(tok1) as *const i8).to_string_lossy());
                     if id < 0i32 {
                         status = -1i32
                     } else {
