@@ -146,12 +146,12 @@ static mut _ic: ic_ = ic_ {
         ximages: ptr::null_mut(),
     };
 unsafe fn pdf_init_ximage_struct(mut I: *mut pdf_ximage) {
-    (*I).ident = 0 as *mut i8;
-    (*I).filename = 0 as *mut i8;
+    (*I).ident = ptr::null_mut();
+    (*I).filename = ptr::null_mut();
     (*I).subtype = -1i32;
     memset((*I).res_name.as_mut_ptr() as *mut libc::c_void, 0i32, 16);
-    (*I).reference = 0 as *mut pdf_obj;
-    (*I).resource = 0 as *mut pdf_obj;
+    (*I).reference = ptr::null_mut();
+    (*I).resource = ptr::null_mut();
     (*I).attr.height = 0i32;
     (*I).attr.width = (*I).attr.height;
     (*I).attr.ydensity = 1.0f64;
@@ -160,7 +160,7 @@ unsafe fn pdf_init_ximage_struct(mut I: *mut pdf_ximage) {
     (*I).attr.page_no = 1i32;
     (*I).attr.page_count = 1i32;
     (*I).attr.bbox_type = 0i32;
-    (*I).attr.dict = 0 as *mut pdf_obj;
+    (*I).attr.dict = ptr::null_mut();
     (*I).attr.tempfile = 0_i8;
 }
 unsafe fn pdf_clean_ximage_struct(mut I: *mut pdf_ximage) {
@@ -176,7 +176,7 @@ pub unsafe extern "C" fn pdf_init_images() {
     let mut ic: *mut ic_ = &mut _ic;
     (*ic).count = 0i32;
     (*ic).capacity = 0i32;
-    (*ic).ximages = 0 as *mut pdf_ximage;
+    (*ic).ximages = ptr::null_mut();
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_close_images() {
@@ -200,7 +200,7 @@ pub unsafe extern "C" fn pdf_close_images() {
                     ); /* temporary filename freed here */
                 }
                 dpx_delete_temp_file((*I).filename, 0i32);
-                (*I).filename = 0 as *mut i8
+                (*I).filename = ptr::null_mut()
             }
             pdf_clean_ximage_struct(I);
         }
@@ -522,7 +522,7 @@ pub unsafe extern "C" fn pdf_ximage_set_image(
         pdf_merge_dict(dict, &*(*I).attr.dict);
     }
     pdf_release_obj(resource);
-    (*I).resource = 0 as *mut pdf_obj;
+    (*I).resource = ptr::null_mut();
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_ximage_set_form(
@@ -549,7 +549,7 @@ pub unsafe extern "C" fn pdf_ximage_set_form(
     (*I).attr.bbox.ur.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
     (*I).reference = pdf_ref_obj(resource);
     pdf_release_obj(resource);
-    (*I).resource = 0 as *mut pdf_obj;
+    (*I).resource = ptr::null_mut();
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_ximage_get_page(mut I: *mut pdf_ximage) -> i32 {
@@ -847,7 +847,7 @@ pub unsafe extern "C" fn pdf_ximage_scale_image(
 pub unsafe extern "C" fn set_distiller_template(mut s: *mut i8) {
     free(_opts.cmdtmpl as *mut libc::c_void);
     if s.is_null() || *s as i32 == '\u{0}' as i32 {
-        _opts.cmdtmpl = 0 as *mut i8
+        _opts.cmdtmpl = ptr::null_mut()
     } else {
         _opts.cmdtmpl =
             new((strlen(s).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)

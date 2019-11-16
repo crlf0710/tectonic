@@ -29,6 +29,7 @@
 
 use crate::DisplayExt;
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_cid::{
     CIDFont, CIDFont_attach_parent, CIDFont_cache_close, CIDFont_cache_find, CIDFont_cache_get,
@@ -89,13 +90,13 @@ unsafe fn new_used_chars2() -> *mut i8 {
 /* MUST BE NULL */
 unsafe fn Type0Font_init_font_struct(mut font: *mut Type0Font) {
     assert!(!font.is_null());
-    (*font).fontname = 0 as *mut i8;
-    (*font).fontdict = 0 as *mut pdf_obj;
-    (*font).indirect = 0 as *mut pdf_obj;
-    (*font).descriptor = 0 as *mut pdf_obj;
-    (*font).encoding = 0 as *mut i8;
-    (*font).used_chars = 0 as *mut i8;
-    (*font).descendant = 0 as *mut CIDFont;
+    (*font).fontname = ptr::null_mut();
+    (*font).fontdict = ptr::null_mut();
+    (*font).indirect = ptr::null_mut();
+    (*font).descriptor = ptr::null_mut();
+    (*font).encoding = ptr::null_mut();
+    (*font).used_chars = ptr::null_mut();
+    (*font).descendant = ptr::null_mut();
     (*font).wmode = -1i32;
     (*font).cmap_id = -1i32;
     (*font).flags = 0i32;
@@ -116,12 +117,12 @@ unsafe fn Type0Font_clean(mut font: *mut Type0Font) {
         }
         free((*font).encoding as *mut libc::c_void);
         free((*font).fontname as *mut libc::c_void);
-        (*font).fontdict = 0 as *mut pdf_obj;
-        (*font).indirect = 0 as *mut pdf_obj;
-        (*font).descriptor = 0 as *mut pdf_obj;
-        (*font).used_chars = 0 as *mut i8;
-        (*font).encoding = 0 as *mut i8;
-        (*font).fontname = 0 as *mut i8
+        (*font).fontdict = ptr::null_mut();
+        (*font).indirect = ptr::null_mut();
+        (*font).descriptor = ptr::null_mut();
+        (*font).used_chars = ptr::null_mut();
+        (*font).encoding = ptr::null_mut();
+        (*font).fontname = ptr::null_mut()
     };
 }
 /* PLEASE FIX THIS */
@@ -268,13 +269,13 @@ unsafe fn Type0Font_dofont(mut font: *mut Type0Font) {
 unsafe fn Type0Font_flush(mut font: *mut Type0Font) {
     if !font.is_null() {
         pdf_release_obj((*font).fontdict);
-        (*font).fontdict = 0 as *mut pdf_obj;
+        (*font).fontdict = ptr::null_mut();
         pdf_release_obj((*font).indirect);
-        (*font).indirect = 0 as *mut pdf_obj;
+        (*font).indirect = ptr::null_mut();
         if !(*font).descriptor.is_null() {
             panic!("{}: FontDescriptor unexpected for Type0 font.", "Type0",);
         }
-        (*font).descriptor = 0 as *mut pdf_obj
+        (*font).descriptor = ptr::null_mut()
     };
 }
 #[no_mangle]
@@ -313,7 +314,7 @@ pub unsafe extern "C" fn Type0Font_cache_init() {
     }
     __cache.count = 0i32;
     __cache.capacity = 0i32;
-    __cache.fonts = 0 as *mut Type0Font;
+    __cache.fonts = ptr::null_mut();
 }
 #[no_mangle]
 pub unsafe extern "C" fn Type0Font_cache_get(mut id: i32) -> *mut Type0Font {
@@ -341,7 +342,7 @@ pub unsafe extern "C" fn Type0Font_cache_find(
      */
     let cmap = CMap_cache_get(cmap_id);
     let csi = if CMap_is_Identity(cmap) as i32 != 0 {
-        0 as *mut CIDSysInfo
+        ptr::null_mut()
     } else {
         CMap_get_CIDSysInfo(cmap)
     };
@@ -445,7 +446,7 @@ pub unsafe extern "C" fn Type0Font_cache_find(
      * In most PDF file, encoding name is not appended to fontname for Type0
      * fonts having CIDFontType 2 font as their descendant.
      */
-    (*font).used_chars = 0 as *mut i8;
+    (*font).used_chars = ptr::null_mut();
     (*font).flags = 0i32;
     match CIDFont_get_subtype(cidfont) {
         1 => {
@@ -520,7 +521,7 @@ pub unsafe extern "C" fn Type0Font_cache_close() {
         }
         free(__cache.fonts as *mut libc::c_void);
     }
-    __cache.fonts = 0 as *mut Type0Font;
+    __cache.fonts = ptr::null_mut();
     __cache.count = 0i32;
     __cache.capacity = 0i32;
 }
@@ -643,7 +644,7 @@ unsafe fn pdf_read_ToUnicode_file(mut cmap_name: *const i8) -> *mut pdf_obj {
         }
     }
     if res_id < 0i32 {
-        0 as *mut pdf_obj
+        ptr::null_mut()
     } else {
         pdf_get_resource_reference(res_id)
     }

@@ -34,6 +34,7 @@ use crate::streq_ptr;
 use crate::warn;
 use crate::DisplayExt;
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_dvi::{
     dpx_dvi_pop, dvi_dirchg, dvi_do_special, dvi_down, dvi_locate_font, dvi_push, dvi_put,
@@ -105,7 +106,7 @@ static mut max_vf_fonts: u32 = 0_u32;
 pub unsafe extern "C" fn vf_reset_global_state() {
     num_vf_fonts = 0_u32;
     max_vf_fonts = 0_u32;
-    vf_fonts = 0 as *mut vf;
+    vf_fonts = ptr::null_mut();
 }
 unsafe fn read_header(vf_handle: &mut InputHandleWrapper, mut thisfont: i32) {
     if tt_get_unsigned_byte(vf_handle) != PRE
@@ -134,7 +135,7 @@ unsafe fn resize_vf_fonts(mut size: i32) {
             (*vf_fonts.offset(i as isize)).num_dev_fonts = 0_u32;
             (*vf_fonts.offset(i as isize)).max_dev_fonts = 0_u32;
             let ref mut fresh0 = (*vf_fonts.offset(i as isize)).dev_fonts;
-            *fresh0 = 0 as *mut font_def;
+            *fresh0 = ptr::null_mut();
         }
         max_vf_fonts = size as u32
     };
@@ -156,7 +157,7 @@ unsafe fn resize_one_vf_font(mut a_vf: *mut vf, mut size: u32) {
         ) as *mut u32;
         for i in (*a_vf).num_chars..size {
             let ref mut fresh1 = *(*a_vf).ch_pkt.offset(i as isize);
-            *fresh1 = 0 as *mut u8;
+            *fresh1 = ptr::null_mut();
             *(*a_vf).pkt_len.offset(i as isize) = 0_u32;
         }
         (*a_vf).num_chars = size
@@ -336,7 +337,7 @@ pub unsafe extern "C" fn vf_locate_font(mut tex_name: *const i8, mut ptsize: spt
     let ref mut fresh8 = (*vf_fonts.offset(thisfont as isize)).ch_pkt;
     *fresh8 = 0 as *mut *mut u8;
     let ref mut fresh9 = (*vf_fonts.offset(thisfont as isize)).pkt_len;
-    *fresh9 = 0 as *mut u32;
+    *fresh9 = ptr::null_mut();
     read_header(&mut vf_handle, thisfont);
     process_vf_file(&mut vf_handle, thisfont);
     if verbose != 0 {
@@ -474,7 +475,7 @@ unsafe fn vf_xxx(mut len: i32, mut start: *mut *mut u8, mut end: *mut u8) {
 }
 #[no_mangle]
 pub unsafe extern "C" fn vf_set_char(mut ch: i32, mut vf_font: i32) {
-    let mut start: *mut u8 = 0 as *mut u8;
+    let mut start: *mut u8 = ptr::null_mut();
     let end;
     let mut default_font: i32 = -1i32;
     if (vf_font as u32) < num_vf_fonts {
@@ -492,7 +493,7 @@ pub unsafe extern "C" fn vf_set_char(mut ch: i32, mut vf_font: i32) {
         } {
             eprint!("\nchar=0x{ch:x}({ch})\n", ch = ch);
             eprint!("Tried to set a nonexistent character in a virtual font");
-            end = 0 as *mut u8;
+            end = ptr::null_mut();
             start = end
         } else {
             end = start.offset(

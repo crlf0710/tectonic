@@ -414,7 +414,7 @@ unsafe extern "C" fn XeTeXFontMgrNameCollection_delete(
     CppStdListOfString_delete((*self_0).m_fullNames);
     CppStdString_delete((*self_0).m_psName);
     CppStdString_delete((*self_0).m_subFamily);
-    free(self_0 as *mut libc::c_void);
+    free(self_ptr::null_mut());
 }
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_findFontWithName(
@@ -656,7 +656,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_getPlatformFontDesc(
     mut self_0: *const XeTeXFontMgr,
     mut descriptor: PlatformFontRef,
 ) -> *mut libc::c_char {
-    let mut path: *mut libc::c_char = 0 as *mut libc::c_char;
+    let mut path: *mut libc::c_char = ptr::null_mut();
     let mut ctFont: CTFontRef =
         CTFontCreateWithFontDescriptor(descriptor, 0.0f64, ptr::null());
     if !ctFont.is_null() {
@@ -679,7 +679,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_getPlatformFontDesc(
     }
     if strlen(path) == 0i32 as libc::c_ulong {
         free(path as *mut libc::c_void);
-        path = 0 as *mut libc::c_char
+        path = ptr::null_mut()
     }
     if path.is_null() {
         path = strdup(b"[unknown]\x00" as *const u8 as *const libc::c_char)

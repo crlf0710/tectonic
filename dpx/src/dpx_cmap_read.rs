@@ -28,6 +28,7 @@
 )]
 
 use std::io::{Seek, SeekFrom};
+use std::ptr;
 use tectonic_bridge::ttstub_input_close;
 
 use crate::strstartswith;
@@ -262,7 +263,7 @@ unsafe fn handle_codearray(
     check_next_token(input, b"]\x00" as *const u8 as *const i8)
 }
 unsafe fn do_notdefrange(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i32) -> i32 {
-    let mut tok: *mut pst_obj = 0 as *mut pst_obj;
+    let mut tok: *mut pst_obj = ptr::null_mut();
     let mut codeLo: [u8; 127] = [0; 127];
     let mut codeHi: [u8; 127] = [0; 127];
     let mut dim: i32 = 0;
@@ -308,7 +309,7 @@ unsafe fn do_notdefrange(mut cmap: *mut CMap, mut input: *mut ifreader, mut coun
     check_next_token(input, b"endnotdefrange\x00" as *const u8 as *const i8)
 }
 unsafe fn do_bfrange(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i32) -> i32 {
-    let mut tok: *mut pst_obj = 0 as *mut pst_obj;
+    let mut tok: *mut pst_obj = ptr::null_mut();
     let mut codeLo: [u8; 127] = [0; 127];
     let mut codeHi: [u8; 127] = [0; 127];
     let mut srcdim: i32 = 0;
@@ -365,7 +366,7 @@ unsafe fn do_bfrange(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i
     check_next_token(input, b"endbfrange\x00" as *const u8 as *const i8)
 }
 unsafe fn do_cidrange(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i32) -> i32 {
-    let mut tok: *mut pst_obj = 0 as *mut pst_obj;
+    let mut tok: *mut pst_obj = ptr::null_mut();
     let mut codeLo: [u8; 127] = [0; 127];
     let mut codeHi: [u8; 127] = [0; 127];
     let mut dim: i32 = 0;
@@ -524,8 +525,8 @@ unsafe fn do_cidchar(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i
 }
 unsafe fn do_cidsysteminfo(mut cmap: *mut CMap, mut input: *mut ifreader) -> i32 {
     let mut csi: CIDSysInfo = CIDSysInfo {
-            registry: 0 as *mut i8,
-            ordering: 0 as *mut i8,
+            registry: ptr::null_mut(),
+            ordering: ptr::null_mut(),
             supplement: -1i32,
         };
     let mut simpledict: i32 = 0i32;
@@ -560,7 +561,7 @@ unsafe fn do_cidsysteminfo(mut cmap: *mut CMap, mut input: *mut ifreader) -> i32
             /* continue */
         }
     }
-    let mut tok2 = 0 as *mut pst_obj;
+    let mut tok2 = ptr::null_mut();
     let mut tok1 = tok2;
     while error == 0 && {
         tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr);
@@ -657,7 +658,7 @@ unsafe fn do_cidsysteminfo(mut cmap: *mut CMap, mut input: *mut ifreader) -> i32
             if !tok1.is_null() {
                 pst_release_obj(tok1);
             }
-            tok2 = 0 as *mut pst_obj;
+            tok2 = ptr::null_mut();
             tok1 = tok2
         }
     }
@@ -710,7 +711,7 @@ pub unsafe extern "C" fn CMap_parse(mut cmap: *mut CMap, mut handle: InputHandle
         (4096i32 - 1i32) as size_t,
     );
     while status >= 0i32 {
-        let mut tok2 = 0 as *mut pst_obj;
+        let mut tok2 = ptr::null_mut();
         ifreader_read(input, (4096i32 / 2i32) as size_t);
         let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr);
         if tok1.is_null() {

@@ -43,6 +43,7 @@ use libc::{free, memcpy, memset};
 
 use std::io::{Seek, SeekFrom};
 use std::slice;
+use std::ptr;
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
@@ -154,7 +155,7 @@ pub unsafe extern "C" fn tt_add_glyph(
         (*(*g).gd.offset((*g).num_glyphs as isize)).ogid = gid;
         (*(*g).gd.offset((*g).num_glyphs as isize)).length = 0_u32;
         let ref mut fresh0 = (*(*g).gd.offset((*g).num_glyphs as isize)).data;
-        *fresh0 = 0 as *mut u8;
+        *fresh0 = ptr::null_mut();
         let ref mut fresh1 = *(*g).used_slot.offset((new_gid as i32 / 8i32) as isize);
         *fresh1 = (*fresh1 as i32 | 1i32 << 7i32 - new_gid as i32 % 8i32) as u8;
         (*g).num_glyphs = ((*g).num_glyphs as i32 + 1i32) as u16
@@ -177,7 +178,7 @@ pub unsafe extern "C" fn tt_build_init() -> *mut tt_glyphs {
     (*g).emsize = 1_u16;
     (*g).default_advh = 0_u16;
     (*g).default_tsb = 0_i16;
-    (*g).gd = 0 as *mut tt_glyph_desc;
+    (*g).gd = ptr::null_mut();
     (*g).used_slot =
         new((8192_u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
     memset((*g).used_slot as *mut libc::c_void, 0i32, 8192);
@@ -254,7 +255,7 @@ pub unsafe extern "C" fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_gl
         );
         free(vhea as *mut libc::c_void);
     } else {
-        vmtx = 0 as *mut tt_longMetrics
+        vmtx = ptr::null_mut()
     }
     sfnt_locate_table(sfont, sfnt_table_info::LOCA);
     let location = new((((*maxp).numGlyphs as i32 + 1i32) as u32 as u64)
@@ -311,7 +312,7 @@ pub unsafe extern "C" fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_gl
         }
         (*(*g).gd.offset(i as isize)).length = len;
         let ref mut fresh2 = (*(*g).gd.offset(i as isize)).data;
-        *fresh2 = 0 as *mut u8;
+        *fresh2 = ptr::null_mut();
         if (*(*g).gd.offset(i as isize)).advw as i32 <= (*g).emsize as i32 {
             let ref mut fresh3 = *w_stat.offset((*(*g).gd.offset(i as isize)).advw as isize);
             *fresh3 = (*fresh3 as i32 + 1i32) as u16
@@ -567,7 +568,7 @@ pub unsafe extern "C" fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_gl
         free((*(*g).gd.offset(i as isize)).data as *mut libc::c_void);
         (*(*g).gd.offset(i as isize)).length = 0_u32;
         let ref mut fresh6 = (*(*g).gd.offset(i as isize)).data;
-        *fresh6 = 0 as *mut u8;
+        *fresh6 = ptr::null_mut();
     }
     if (*head).indexToLocFormat as i32 == 0i32 {
         put_big_endian(
@@ -677,7 +678,7 @@ pub unsafe extern "C" fn tt_get_metrics(mut sfont: *mut sfnt, mut g: *mut tt_gly
         );
         free(vhea as *mut libc::c_void);
     } else {
-        vmtx = 0 as *mut tt_longMetrics
+        vmtx = ptr::null_mut()
     }
     sfnt_locate_table(sfont, sfnt_table_info::LOCA);
     let location = new((((*maxp).numGlyphs as i32 + 1i32) as u32 as u64)
@@ -723,7 +724,7 @@ pub unsafe extern "C" fn tt_get_metrics(mut sfont: *mut sfnt, mut g: *mut tt_gly
         }
         (*(*g).gd.offset(i as isize)).length = len;
         let ref mut fresh7 = (*(*g).gd.offset(i as isize)).data;
-        *fresh7 = 0 as *mut u8;
+        *fresh7 = ptr::null_mut();
         if (*(*g).gd.offset(i as isize)).advw as i32 <= (*g).emsize as i32 {
             let ref mut fresh8 = *w_stat.offset((*(*g).gd.offset(i as isize)).advw as isize);
             *fresh8 = (*fresh8 as i32 + 1i32) as u16

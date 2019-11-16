@@ -90,8 +90,8 @@ pub unsafe extern "C" fn pdf_encoding_set_verbose(mut level: i32) {
 }
 unsafe fn pdf_init_encoding_struct(mut encoding: *mut pdf_encoding) {
     assert!(!encoding.is_null());
-    (*encoding).ident = 0 as *mut i8;
-    (*encoding).enc_name = 0 as *mut i8;
+    (*encoding).ident = ptr::null_mut();
+    (*encoding).enc_name = ptr::null_mut();
     memset(
         (*encoding).glyphs.as_mut_ptr() as *mut libc::c_void,
         0i32,
@@ -102,9 +102,9 @@ unsafe fn pdf_init_encoding_struct(mut encoding: *mut pdf_encoding) {
         0i32,
         256,
     );
-    (*encoding).tounicode = 0 as *mut pdf_obj;
-    (*encoding).baseenc = 0 as *mut pdf_encoding;
-    (*encoding).resource = 0 as *mut pdf_obj;
+    (*encoding).tounicode = ptr::null_mut();
+    (*encoding).baseenc = ptr::null_mut();
+    (*encoding).resource = ptr::null_mut();
     (*encoding).flags = 0i32;
 }
 /* Creates the PDF Encoding entry for the encoding.
@@ -147,7 +147,7 @@ unsafe fn create_encoding_resource(
         return if !baseenc.is_null() {
             pdf_link_obj((*baseenc).resource)
         } else {
-            0 as *mut pdf_obj
+            ptr::null_mut()
         };
     };
 }
@@ -155,11 +155,11 @@ unsafe fn pdf_flush_encoding(mut encoding: *mut pdf_encoding) {
     assert!(!encoding.is_null());
     if !(*encoding).resource.is_null() {
         pdf_release_obj((*encoding).resource);
-        (*encoding).resource = 0 as *mut pdf_obj
+        (*encoding).resource = ptr::null_mut()
     }
     if !(*encoding).tounicode.is_null() {
         pdf_release_obj((*encoding).tounicode);
-        (*encoding).tounicode = 0 as *mut pdf_obj
+        (*encoding).tounicode = ptr::null_mut()
     };
 }
 unsafe fn pdf_clean_encoding_struct(mut encoding: *mut pdf_encoding) {
@@ -170,14 +170,14 @@ unsafe fn pdf_clean_encoding_struct(mut encoding: *mut pdf_encoding) {
     pdf_release_obj((*encoding).tounicode);
     free((*encoding).ident as *mut libc::c_void);
     free((*encoding).enc_name as *mut libc::c_void);
-    (*encoding).ident = 0 as *mut i8;
-    (*encoding).enc_name = 0 as *mut i8;
+    (*encoding).ident = ptr::null_mut();
+    (*encoding).enc_name = ptr::null_mut();
     for code in 0..256 {
         (*encoding).glyphs[code as usize] =
             mfree((*encoding).glyphs[code as usize] as *mut libc::c_void) as *mut i8;
     }
-    (*encoding).ident = 0 as *mut i8;
-    (*encoding).enc_name = 0 as *mut i8;
+    (*encoding).ident = ptr::null_mut();
+    (*encoding).enc_name = ptr::null_mut();
 }
 unsafe fn is_similar_charset(mut enc_vec: *mut *mut i8, mut enc_vec2: *mut *const i8) -> bool {
     let mut same: i32 = 0i32;
@@ -249,7 +249,7 @@ unsafe fn make_encoding_differences(
      */
     if count == 0i32 {
         pdf_release_obj(differences);
-        differences = 0 as *mut pdf_obj
+        differences = ptr::null_mut()
     }
     differences
 }
@@ -290,9 +290,9 @@ unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
         None
     };
     p.skip_white();
-    let encoding_array = p.parse_pdf_array(0 as *mut pdf_file);
+    let encoding_array = p.parse_pdf_array(ptr::null_mut());
     if encoding_array.is_none() {
-        pdf_release_obj(enc_name.unwrap_or(0 as *mut pdf_obj));
+        pdf_release_obj(enc_name.unwrap_or(ptr::null_mut()));
         return -1i32;
     }
     let encoding_array = encoding_array.unwrap();
@@ -303,7 +303,7 @@ unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
         if let Some(enc_name) = enc_name {
             pdf_name_value(&*enc_name).as_ptr()
         } else {
-            0 as *mut i8
+            ptr::null_mut()
         },
         filename,
         enc_vec.as_mut_ptr(),
@@ -469,7 +469,7 @@ pub unsafe extern "C" fn pdf_encoding_complete() {
                 if with_base != 0 {
                     (*encoding).baseenc
                 } else {
-                    0 as *mut pdf_encoding
+                    ptr::null_mut()
                 },
             );
             assert!((*encoding).tounicode.is_null());
@@ -493,7 +493,7 @@ pub unsafe extern "C" fn pdf_close_encodings() {
         }
         free(enc_cache.encodings as *mut libc::c_void);
     }
-    enc_cache.encodings = 0 as *mut pdf_encoding;
+    enc_cache.encodings = ptr::null_mut();
     enc_cache.count = 0i32;
     enc_cache.capacity = 0i32;
 }
@@ -657,7 +657,7 @@ pub unsafe extern "C" fn pdf_create_ToUnicode_CMap(
         }
     }
     let stream = if all_predef != 0 {
-        0 as *mut pdf_obj
+        ptr::null_mut()
     } else {
         CMap_create_stream(cmap)
     };
@@ -689,17 +689,17 @@ pub unsafe extern "C" fn pdf_create_ToUnicode_CMap(
  */
 #[no_mangle]
 pub unsafe extern "C" fn pdf_load_ToUnicode_stream(mut ident: *const i8) -> *mut pdf_obj {
-    let mut stream: *mut pdf_obj = 0 as *mut pdf_obj;
+    let mut stream: *mut pdf_obj = ptr::null_mut();
     if ident.is_null() {
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     let mut handle = ttstub_input_open(ident, TTInputFormat::CMAP, 0i32);
     if handle.is_none() {
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     if CMap_parse_check_sig(handle.as_mut()) < 0i32 {
         ttstub_input_close(handle.unwrap());
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     let mut handle = handle.unwrap();
     let cmap = CMap_new();

@@ -35,6 +35,7 @@ use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::shims::sprintf;
 use libc::{free, memcmp, memcpy, strcpy, strlen, strtod, strtol};
+use std::ptr;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -204,7 +205,7 @@ pub unsafe extern "C" fn pst_getSV(mut obj: *mut pst_obj) -> *mut u8 {
                 memcpy(sv as *mut libc::c_void, (*obj).data, len as _);
                 *sv.offset(len as isize) = '\u{0}' as i32 as u8
             } else {
-                sv = 0 as *mut u8
+                sv = ptr::null_mut()
             }
         }
         _ => {
@@ -338,7 +339,7 @@ pub unsafe extern "C" fn pst_parse_boolean(
         *inbuf = (*inbuf).offset(5);
         return pst_new_obj(1i32, pst_boolean_new(0_i8) as *mut libc::c_void);
     } else {
-        return 0 as *mut pst_obj;
+        return ptr::null_mut();
     };
 }
 /* NULL */
@@ -378,7 +379,7 @@ pub unsafe extern "C" fn pst_parse_null(
         strcpy(q, pst_const_null);
         return pst_new_obj(0i32, q as *mut libc::c_void);
     } else {
-        return 0 as *mut pst_obj;
+        return ptr::null_mut();
     };
 }
 /* NUMBERS */
@@ -468,7 +469,7 @@ pub unsafe extern "C" fn pst_parse_number(
     mut inbuf: *mut *mut u8,
     mut inbufend: *mut u8,
 ) -> *mut pst_obj {
-    let mut cur: *mut u8 = 0 as *mut u8;
+    let mut cur: *mut u8 = ptr::null_mut();
     errno::set_errno(errno::ZERO);
     let mut lval = strtol(
         *inbuf as *mut i8,
@@ -574,7 +575,7 @@ pub unsafe extern "C" fn pst_parse_number(
         }
     }
     /* error */
-    0 as *mut pst_obj
+    ptr::null_mut()
 }
 /* NAME */
 /* NAME */
@@ -619,7 +620,7 @@ pub unsafe extern "C" fn pst_parse_name(
     let mut cur: *mut u8 = *inbuf;
     let mut len: i32 = 0i32;
     if *cur as i32 != '/' as i32 {
-        return 0 as *mut pst_obj;
+        return ptr::null_mut();
     }
     cur = cur.offset(1);
     while !(cur == inbufend
@@ -703,7 +704,7 @@ unsafe fn pst_string_new(mut str: *mut u8, mut len: u32) -> *mut pst_string {
     let obj = new((1_u64).wrapping_mul(::std::mem::size_of::<pst_string>() as u64) as u32)
         as *mut pst_string;
     (*obj).length = len;
-    (*obj).value = 0 as *mut u8;
+    (*obj).value = ptr::null_mut();
     if len > 0_u32 {
         (*obj).value =
             new((len as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
@@ -728,7 +729,7 @@ pub unsafe extern "C" fn pst_parse_string(
     mut inbufend: *mut u8,
 ) -> *mut pst_obj {
     if (*inbuf).offset(2) >= inbufend {
-        return 0 as *mut pst_obj;
+        return ptr::null_mut();
     } else {
         if **inbuf as i32 == '(' as i32 {
             return pst_new_obj(
@@ -748,7 +749,7 @@ pub unsafe extern "C" fn pst_parse_string(
             }
         }
     }
-    0 as *mut pst_obj
+    ptr::null_mut()
 }
 /* Overflowed value is set to invalid char.  */
 unsafe fn ostrtouc(mut inbuf: *mut *mut u8, mut inbufend: *mut u8, mut valid: *mut u8) -> u8 {
@@ -838,7 +839,7 @@ unsafe fn pst_string_parse_literal(
     let mut len: i32 = 0i32;
     let mut balance: i32 = 1i32;
     if cur.offset(2) > inbufend || *cur as i32 != '(' as i32 {
-        return 0 as *mut pst_string;
+        return ptr::null_mut();
     }
     cur = cur.offset(1);
     while cur < inbufend && len < 4096i32 && balance > 0i32 {
@@ -889,7 +890,7 @@ unsafe fn pst_string_parse_literal(
         }
     }
     if c as i32 != ')' as i32 {
-        return 0 as *mut pst_string;
+        return ptr::null_mut();
     }
     *inbuf = cur;
     pst_string_new(wbuf.as_mut_ptr(), len as u32)
@@ -902,7 +903,7 @@ unsafe fn pst_string_parse_hex(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -
         || *cur as i32 != '<' as i32
         || *cur as i32 == '<' as i32 && *cur.offset(1) as i32 == '<' as i32
     {
-        return 0 as *mut pst_string;
+        return ptr::null_mut();
     }
     cur = cur.offset(1);
     /* PDF Reference does not specify how to treat invalid char */
@@ -947,7 +948,7 @@ unsafe fn pst_string_parse_hex(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -
     let fresh11 = cur;
     cur = cur.offset(1);
     if *fresh11 as i32 != '>' as i32 {
-        return 0 as *mut pst_string;
+        return ptr::null_mut();
     }
     *inbuf = cur;
     pst_string_new(wbuf.as_mut_ptr(), len)

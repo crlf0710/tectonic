@@ -30,6 +30,7 @@
 use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CString;
+use std::ptr;
 
 use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
@@ -165,7 +166,7 @@ impl SkipWhite for &[u8] {
     }
 }
 unsafe fn parsed_string(mut start: *const i8, mut end: *const i8) -> *mut i8 {
-    let mut result: *mut i8 = 0 as *mut i8;
+    let mut result: *mut i8 = ptr::null_mut();
     let len = end.wrapping_offset_from(start) as i64 as i32;
     if len > 0i32 {
         result = new(
@@ -266,7 +267,7 @@ pub unsafe extern "C" fn parse_opt_ident(mut start: *mut *const i8, mut end: *co
         *start = (*start).offset(1);
         return parse_ident(start, end);
     }
-    0 as *mut i8
+    ptr::null_mut()
 }
 pub trait ParseIdent {
     fn parse_ident(&mut self) -> Option<CString>;
@@ -363,7 +364,7 @@ pub unsafe extern "C" fn parse_pdf_object(
     if let Some(o) = obj {
         o
     } else {
-        0 as *mut pdf_obj
+        ptr::null_mut()
     }
 }
 
@@ -555,7 +556,7 @@ impl ParsePdfObj for &[u8] {
     }
     fn parse_pdf_tainted_dict(&mut self) -> Option<*mut pdf_obj> {
         unsafe { parser_state.tainted = 1; }
-        let result = self.parse_pdf_dict(0 as *mut pdf_file);
+        let result = self.parse_pdf_dict(ptr::null_mut());
         unsafe { parser_state.tainted = 0; }
         result
     }

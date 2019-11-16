@@ -30,6 +30,7 @@
 
 use crate::DisplayExt;
 use std::ffi::{CStr, CString};
+use std::ptr;
 
 use crate::warn;
 use crate::strstartswith;
@@ -591,7 +592,7 @@ unsafe fn do_currentfont() -> i32 {
     let mut error: i32 = 0i32; /* Should not be error... */
     /* Should not be error... */
     let font = if currentfont < 0i32 {
-        0 as *mut mp_font
+        ptr::null_mut()
     } else {
         &mut *font_stack.as_mut_ptr().offset(currentfont as isize) as *mut mp_font
     };
@@ -616,7 +617,7 @@ unsafe fn do_currentfont() -> i32 {
 unsafe fn do_show() -> i32 {
     let mut cp = Coord::zero();
     let font = if currentfont < 0i32 {
-        0 as *mut mp_font
+        ptr::null_mut()
     } else {
         &mut *font_stack.as_mut_ptr().offset(currentfont as isize) as *mut mp_font
     };
@@ -741,7 +742,7 @@ unsafe fn do_texfig_operator(mut opcode: Opcode, mut x_user: f64, mut y_user: f6
             if in_tfig == 0 {
                 panic!("endTexFig without valid startTexFig!.");
             }
-            pdf_doc_end_grabbing(0 as *mut pdf_obj);
+            pdf_doc_end_grabbing(ptr::null_mut());
             pdf_dev_put_image(xobj_id, &mut fig_p, x_user, y_user);
             in_tfig = 0i32
         }
@@ -1260,7 +1261,7 @@ unsafe fn mp_parse_body(
     mut x_user: f64,
     mut y_user: f64,
 ) -> i32 {
-    let mut obj = 0 as *mut pdf_obj;
+    let mut obj = ptr::null_mut();
     let mut error: i32 = 0i32;
     start.skip_white();
     while !start.is_empty() && error == 0 {
@@ -1270,7 +1271,7 @@ unsafe fn mp_parse_body(
                     || start[0] == b'-'
                     || start[0] == b'.')
         {
-            let mut next: *mut i8 = 0 as *mut i8;
+            let mut next: *mut i8 = ptr::null_mut();
             let value = strtod(start.as_ptr() as *const i8, &mut next);
             let pos = next.wrapping_offset_from(start.as_ptr() as *const i8) as usize;
             if pos < start.len()
@@ -1291,7 +1292,7 @@ unsafe fn mp_parse_body(
          * This shouldn't use parse_pdf_array().
          */
         } else if start[0] == b'[' &&
-            start.parse_pdf_array(0 as *mut pdf_file).map(|o| {obj = o; ()}).is_some()
+            start.parse_pdf_array(ptr::null_mut()).map(|o| {obj = o; ()}).is_some()
         {
             if STACK.push_checked(obj).is_err() {
                 error = 1i32;
@@ -1300,7 +1301,7 @@ unsafe fn mp_parse_body(
         /* This cannot handle ASCII85 string. */
         } else if start.len() > 1
             && (start[0] == b'<' && start[1] == b'<')
-            && start.parse_pdf_dict(0 as *mut pdf_file).map(|o| {obj = o; ()}).is_some()
+            && start.parse_pdf_dict(ptr::null_mut()).map(|o| {obj = o; ()}).is_some()
         {
             if STACK.push_checked(obj).is_err() {
                 error = 1i32;

@@ -31,6 +31,7 @@ use crate::streq_ptr;
 use crate::warn;
 use crate::DisplayExt;
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj};
@@ -112,19 +113,19 @@ static mut resources: [res_cache; 9] = [res_cache {
 }; 9];
 unsafe fn pdf_init_resource(mut res: *mut pdf_res) {
     assert!(!res.is_null());
-    (*res).ident = 0 as *mut i8;
+    (*res).ident = ptr::null_mut();
     (*res).category = -1i32;
     (*res).flags = 0i32;
-    (*res).cdata = 0 as *mut libc::c_void;
-    (*res).object = 0 as *mut pdf_obj;
-    (*res).reference = 0 as *mut pdf_obj;
+    (*res).cdata = ptr::null_mut();
+    (*res).object = ptr::null_mut();
+    (*res).reference = ptr::null_mut();
 }
 unsafe fn pdf_flush_resource(mut res: *mut pdf_res) {
     if !res.is_null() {
         pdf_release_obj((*res).reference);
         pdf_release_obj((*res).object);
-        (*res).reference = 0 as *mut pdf_obj;
-        (*res).object = 0 as *mut pdf_obj
+        (*res).reference = ptr::null_mut();
+        (*res).object = ptr::null_mut()
     };
 }
 unsafe fn pdf_clean_resource(mut res: *mut pdf_res) {
@@ -146,7 +147,7 @@ pub unsafe extern "C" fn pdf_init_resources() {
     {
         resources[i].count = 0i32;
         resources[i].capacity = 0i32;
-        resources[i].resources = 0 as *mut pdf_res;
+        resources[i].resources = ptr::null_mut();
     }
 }
 #[no_mangle]
@@ -162,7 +163,7 @@ pub unsafe extern "C" fn pdf_close_resources() {
         free((*rc).resources as *mut libc::c_void);
         (*rc).count = 0i32;
         (*rc).capacity = 0i32;
-        (*rc).resources = 0 as *mut pdf_res;
+        (*rc).resources = ptr::null_mut();
     }
 }
 unsafe fn get_category(mut category: *const i8) -> i32 {

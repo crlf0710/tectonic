@@ -47,6 +47,7 @@ use crate::dpx_pdfparse::parse_unsigned;
 use crate::DisplayExt;
 use crate::info;
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_cid::CIDFont_set_flags;
 use super::dpx_dpxconf::{paperinfo, defaultpapername, systempapername};
@@ -244,13 +245,13 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
                     &mut xo,
                     &mut yo,
                     &mut lm,
-                    0 as *mut i32,
-                    0 as *mut i32,
-                    0 as *mut i32,
-                    0 as *mut i32,
-                    0 as *mut i32,
-                    0 as *mut i8,
-                    0 as *mut i8,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    ptr::null_mut(),
                 );
                 if lm != landscape_mode {
                     let mut _tmp: f64 = w;

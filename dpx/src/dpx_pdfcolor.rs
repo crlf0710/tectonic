@@ -40,6 +40,7 @@ use std::error::Error;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::slice::from_raw_parts;
+use std::ptr;
 
 #[derive(Debug)]
 pub enum PdfColorError {
@@ -522,7 +523,7 @@ pub unsafe extern "C" fn iccp_get_rendering_intent(
     mut proflen: i32,
 ) -> *mut pdf_obj {
     if profile.is_null() || proflen < 128i32 {
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     let mut p = profile as *const u8;
     let intent = (*p.offset(64) as i32) << 24i32
@@ -539,7 +540,7 @@ pub unsafe extern "C" fn iccp_get_rendering_intent(
                 "Invalid rendering intent type: {}",
                 intent >> 16i32 & 0xffi32
             );
-            0 as *mut pdf_obj
+            ptr::null_mut()
         }
     }
 }
@@ -957,7 +958,7 @@ pub unsafe extern "C" fn iccp_load_profile(
             "Invalid ICC profile header in \"{}\"",
             CStr::from_ptr(ident).display()
         );
-        print_iccp_header(&mut icch, 0 as *mut u8);
+        print_iccp_header(&mut icch, ptr::null_mut());
         return -1i32;
     }
     if iccp_version_supported(
@@ -970,12 +971,12 @@ pub unsafe extern "C" fn iccp_load_profile(
                     icch.version >> 20i32 & 0xfi32,
                     icch.version >> 16i32 & 0xfi32);
         warn!("ICC profile not embedded.");
-        print_iccp_header(&mut icch, 0 as *mut u8);
+        print_iccp_header(&mut icch, ptr::null_mut());
         return -1i32;
     }
     if iccp_devClass_allowed(icch.devClass as i32) == 0 {
         warn!("Unsupported ICC Profile Device Class:");
-        print_iccp_header(&mut icch, 0 as *mut u8);
+        print_iccp_header(&mut icch, ptr::null_mut());
         return -1i32;
     }
     if icch.colorSpace == str2iccSig(b"RGB \x00" as *const u8 as *const i8 as *const libc::c_void) {
@@ -990,7 +991,7 @@ pub unsafe extern "C" fn iccp_load_profile(
         colorspace = -4i32
     } else {
         warn!("Unsupported input color space.");
-        print_iccp_header(&mut icch, 0 as *mut u8);
+        print_iccp_header(&mut icch, ptr::null_mut());
         return -1i32;
     }
     let mut checksum = iccp_get_checksum(profile as *const u8, proflen as usize);
@@ -1081,18 +1082,18 @@ unsafe fn pdf_colorspace_findresource(
     /* not found */
 }
 unsafe fn pdf_init_colorspace_struct(colorspace: &mut pdf_colorspace) {
-    colorspace.ident = 0 as *mut i8;
+    colorspace.ident = ptr::null_mut();
     colorspace.subtype = 0i32;
-    colorspace.resource = 0 as *mut pdf_obj;
-    colorspace.reference = 0 as *mut pdf_obj;
-    colorspace.cdata = 0 as *mut iccbased_cdata;
+    colorspace.resource = ptr::null_mut();
+    colorspace.reference = ptr::null_mut();
+    colorspace.cdata = ptr::null_mut();
 }
 unsafe fn pdf_clean_colorspace_struct(colorspace: &mut pdf_colorspace) {
     free(colorspace.ident as *mut libc::c_void);
     pdf_release_obj(colorspace.resource);
     pdf_release_obj(colorspace.reference);
-    colorspace.resource = 0 as *mut pdf_obj;
-    colorspace.reference = 0 as *mut pdf_obj;
+    colorspace.resource = ptr::null_mut();
+    colorspace.reference = ptr::null_mut();
     if !colorspace.cdata.is_null() {
         match colorspace.subtype {
             4 => {
@@ -1101,14 +1102,14 @@ unsafe fn pdf_clean_colorspace_struct(colorspace: &mut pdf_colorspace) {
             _ => {}
         }
     }
-    colorspace.cdata = 0 as *mut iccbased_cdata;
+    colorspace.cdata = ptr::null_mut();
     colorspace.subtype = 0i32;
 }
 unsafe fn pdf_flush_colorspace(colorspace: &mut pdf_colorspace) {
     pdf_release_obj(colorspace.resource);
     pdf_release_obj(colorspace.reference);
-    colorspace.resource = 0 as *mut pdf_obj;
-    colorspace.reference = 0 as *mut pdf_obj;
+    colorspace.resource = ptr::null_mut();
+    colorspace.reference = ptr::null_mut();
 }
 /* **************************** COLOR SPACE *****************************/
 unsafe fn pdf_colorspace_defineresource(
@@ -1165,7 +1166,7 @@ pub unsafe extern "C" fn pdf_get_colorspace_reference(mut cspc_id: i32) -> *mut 
     if (*colorspace).reference.is_null() {
         (*colorspace).reference = pdf_ref_obj((*colorspace).resource);
         pdf_release_obj((*colorspace).resource);
-        (*colorspace).resource = 0 as *mut pdf_obj
+        (*colorspace).resource = ptr::null_mut()
     }
     pdf_link_obj((*colorspace).reference)
 }
@@ -1173,7 +1174,7 @@ pub unsafe extern "C" fn pdf_get_colorspace_reference(mut cspc_id: i32) -> *mut 
 pub unsafe extern "C" fn pdf_init_colors() {
     CSPC_CACHE.count = 0_u32;
     CSPC_CACHE.capacity = 0_u32;
-    CSPC_CACHE.colorspaces = 0 as *mut pdf_colorspace;
+    CSPC_CACHE.colorspaces = ptr::null_mut();
 }
 /* Not check size */
 /* returns colorspace ID */

@@ -28,6 +28,7 @@
 )]
 
 use std::ffi::{CStr, CString};
+use std::ptr;
 
 use super::dpx_mem::new;
 use crate::mfree;
@@ -92,7 +93,7 @@ pub unsafe extern "C" fn skip_white_spaces(mut s: *mut *mut u8, mut endptr: *mut
 pub unsafe extern "C" fn ht_init_table(mut ht: *mut ht_table, mut hval_free_fn: hval_free_func) {
     assert!(!ht.is_null());
     for i in 0..503 {
-        (*ht).table[i] = 0 as *mut ht_entry;
+        (*ht).table[i] = ptr::null_mut();
     }
     (*ht).count = 0i32;
     (*ht).hval_free_fn = hval_free_fn;
@@ -106,16 +107,16 @@ pub unsafe extern "C" fn ht_clear_table(mut ht: *mut ht_table) {
             if !(*hent).value.is_null() && (*ht).hval_free_fn.is_some() {
                 (*ht).hval_free_fn.expect("non-null function pointer")((*hent).value);
             }
-            (*hent).value = 0 as *mut libc::c_void;
+            (*hent).value = ptr::null_mut();
             if !(*hent).key.is_null() {
                 free((*hent).key as *mut libc::c_void);
             }
-            (*hent).key = 0 as *mut i8;
+            (*hent).key = ptr::null_mut();
             let next = (*hent).next;
             free(hent as *mut libc::c_void);
             hent = next
         }
-        (*ht).table[i] = 0 as *mut ht_entry;
+        (*ht).table[i] = ptr::null_mut();
     }
     (*ht).count = 0i32;
     (*ht).hval_free_fn = None;
@@ -151,7 +152,7 @@ pub unsafe extern "C" fn ht_lookup_table(
         }
         hent = (*hent).next
     }
-    0 as *mut libc::c_void
+    ptr::null_mut()
 }
 #[no_mangle]
 pub unsafe extern "C" fn ht_remove_table(
@@ -163,7 +164,7 @@ pub unsafe extern "C" fn ht_remove_table(
     assert!(!ht.is_null() && !key.is_null());
     let mut hkey = get_hash(key, keylen) as usize;
     let mut hent = (*ht).table[hkey];
-    let mut prev = 0 as *mut ht_entry;
+    let mut prev = ptr::null_mut();
     while !hent.is_null() {
         if (*hent).keylen == keylen
             && memcmp((*hent).key as *const libc::c_void, key, keylen as _) == 0
@@ -179,7 +180,7 @@ pub unsafe extern "C" fn ht_remove_table(
         if !(*hent).value.is_null() && (*ht).hval_free_fn.is_some() {
             (*ht).hval_free_fn.expect("non-null function pointer")((*hent).value);
         }
-        (*hent).value = 0 as *mut libc::c_void;
+        (*hent).value = ptr::null_mut();
         if !prev.is_null() {
             (*prev).next = (*hent).next
         } else {
@@ -203,7 +204,7 @@ pub unsafe extern "C" fn ht_insert_table(
     assert!(!ht.is_null() && !key.is_null());
     let mut hkey = get_hash(key, keylen) as usize;
     let mut hent = (*ht).table[hkey];
-    let mut prev = 0 as *mut ht_entry;
+    let mut prev = ptr::null_mut();
     while !hent.is_null() {
         if (*hent).keylen == keylen
             && memcmp((*hent).key as *const libc::c_void, key, keylen as _) == 0
@@ -225,7 +226,7 @@ pub unsafe extern "C" fn ht_insert_table(
         memcpy((*hent).key as *mut libc::c_void, key, keylen as _);
         (*hent).keylen = keylen;
         (*hent).value = value;
-        (*hent).next = 0 as *mut ht_entry;
+        (*hent).next = ptr::null_mut();
         if !prev.is_null() {
             (*prev).next = hent
         } else {
@@ -241,7 +242,7 @@ pub unsafe extern "C" fn ht_append_table(
     mut keylen: i32,
     mut value: *mut libc::c_void,
 ) {
-    let mut last: *mut ht_entry = 0 as *mut ht_entry;
+    let mut last: *mut ht_entry = ptr::null_mut();
     let mut hkey = get_hash(key, keylen) as usize;
     let mut hent = (*ht).table[hkey];
     if hent.is_null() {
@@ -263,7 +264,7 @@ pub unsafe extern "C" fn ht_append_table(
     memcpy((*hent).key as *mut libc::c_void, key, keylen as _);
     (*hent).keylen = keylen;
     (*hent).value = value;
-    (*hent).next = 0 as *mut ht_entry;
+    (*hent).next = ptr::null_mut();
     (*ht).count += 1;
 }
 #[no_mangle]
@@ -283,8 +284,8 @@ pub unsafe extern "C" fn ht_set_iter(mut ht: *mut ht_table, mut iter: *mut ht_it
 pub unsafe extern "C" fn ht_clear_iter(mut iter: *mut ht_iter) {
     if !iter.is_null() {
         (*iter).index = 503i32;
-        (*iter).curr = 0 as *mut libc::c_void;
-        (*iter).hash = 0 as *mut ht_table
+        (*iter).curr = ptr::null_mut();
+        (*iter).hash = ptr::null_mut()
     };
 }
 #[no_mangle]
@@ -295,7 +296,7 @@ pub unsafe extern "C" fn ht_iter_getkey(mut iter: *mut ht_iter, mut keylen: *mut
         return (*hent).key;
     } else {
         *keylen = 0i32;
-        return 0 as *mut i8;
+        return ptr::null_mut();
     };
 }
 #[no_mangle]
@@ -304,7 +305,7 @@ pub unsafe extern "C" fn ht_iter_getval(mut iter: *mut ht_iter) -> *mut libc::c_
     if !iter.is_null() && !hent.is_null() {
         return (*hent).value;
     } else {
-        return 0 as *mut libc::c_void;
+        return ptr::null_mut();
     };
 }
 #[no_mangle]
@@ -445,7 +446,7 @@ unsafe fn read_c_litstrc(
                         if !q.is_null() {
                             &mut *q.offset(l as isize)
                         } else {
-                            0 as *mut i8
+                            ptr::null_mut()
                         },
                         &mut p,
                         endptr,
@@ -487,13 +488,13 @@ unsafe fn read_c_litstrc(
 }
 #[no_mangle]
 pub unsafe extern "C" fn parse_c_string(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut i8 {
-    let mut q: *mut i8 = 0 as *mut i8;
+    let mut q: *mut i8 = ptr::null_mut();
     let mut p: *const i8 = *pp;
     if p >= endptr || *p.offset(0) as u8 != b'\"' {
-        return 0 as *mut i8;
+        return ptr::null_mut();
     }
     p = p.offset(1);
-    let mut l = read_c_litstrc(0 as *mut i8, 0i32, &mut p, endptr);
+    let mut l = read_c_litstrc(ptr::null_mut(), 0i32, &mut p, endptr);
     if l >= 0i32 {
         q = new(((l + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
             as *mut i8;
@@ -712,10 +713,10 @@ pub unsafe extern "C" fn parse_float_decimal(
     mut pp: *mut *const i8,
     mut endptr: *const i8,
 ) -> *mut i8 {
-    let mut q: *mut i8 = 0 as *mut i8;
+    let mut q: *mut i8 = ptr::null_mut();
     let mut p: *const i8 = *pp;
     if p >= endptr {
-        return 0 as *mut i8;
+        return ptr::null_mut();
     }
     if *p.offset(0) as u8 == b'+' || *p.offset(0) as u8 == b'-' {
         p = p.offset(1)

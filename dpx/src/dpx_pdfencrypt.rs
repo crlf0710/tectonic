@@ -353,7 +353,7 @@ unsafe fn compute_hash_V5(
     /* Initial K count as nround 0. */
     {
         let mut K1: [u8; 256] = [0; 256];
-        let mut E: *mut u8 = 0 as *mut u8;
+        let mut E: *mut u8 = ptr::null_mut();
         let mut E_len: size_t = 0;
         let mut E_mod3: i32 = 0i32;
         let K1_len = strlen(passwd)
@@ -446,7 +446,7 @@ unsafe fn compute_hash_V5(
 unsafe fn compute_owner_password_V5(p: &mut pdf_sec, mut oplain: *const i8) {
     let mut vsalt: [u8; 8] = random();
     let mut ksalt: [u8; 8] = random();
-    let mut OE: *mut u8 = 0 as *mut u8;
+    let mut OE: *mut u8 = ptr::null_mut();
     let mut iv: [u8; 16] = [0; 16];
     let mut OE_len: size_t = 0;
     let mut hash = compute_hash_V5(oplain, vsalt.as_mut_ptr(), p.U.as_mut_ptr(), p.R);
@@ -487,7 +487,7 @@ unsafe fn compute_owner_password_V5(p: &mut pdf_sec, mut oplain: *const i8) {
 unsafe fn compute_user_password_V5(p: &mut pdf_sec, mut uplain: *const i8) {
     let mut vsalt: [u8; 8] = random();
     let mut ksalt: [u8; 8] = random();
-    let mut UE: *mut u8 = 0 as *mut u8;
+    let mut UE: *mut u8 = ptr::null_mut();
     let mut iv: [u8; 16] = [0; 16];
     let mut UE_len: size_t = 0;
     let mut hash = compute_hash_V5(uplain, vsalt.as_mut_ptr(), ptr::null(), p.R);
@@ -561,7 +561,7 @@ unsafe fn stringprep_profile(
     0i32
 }
 unsafe fn preproc_password(mut passwd: *const i8, mut outbuf: *mut i8, mut V: i32) -> i32 {
-    let mut saslpwd: *mut i8 = 0 as *mut i8;
+    let mut saslpwd: *mut i8 = ptr::null_mut();
     let mut error: i32 = 0i32;
     memset(outbuf as *mut libc::c_void, 0i32, 128);
     match V {
@@ -814,7 +814,7 @@ pub unsafe extern "C" fn pdf_encrypt_obj() -> *mut pdf_obj {
     pdf_add_dict(&mut *doc_encrypt, "P", pdf_new_number(p.P as f64));
     if p.V == 5i32 {
         let mut perms: [u8; 16] = [0; 16];
-        let mut cipher: *mut u8 = 0 as *mut u8;
+        let mut cipher: *mut u8 = ptr::null_mut();
         let mut cipher_len: size_t = 0i32 as size_t;
         pdf_add_dict(
             &mut *doc_encrypt,

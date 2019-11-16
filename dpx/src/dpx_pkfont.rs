@@ -30,6 +30,7 @@
 use crate::warn;
 use crate::DisplayExt;
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_mem::new;
 use super::dpx_mfileio::work_buffer_u8 as work_buffer;
@@ -103,9 +104,9 @@ unsafe fn truedpi(mut ident: *const i8, mut point_size: f64, mut bdpi: u32) -> u
 }
 unsafe fn dpx_open_pk_font_at(_ident: *const i8, _dpi: u32) -> *mut FILE {
     /*kpse_glyph_file_type kpse_file_info;*/
-    let fqpn = 0 as *mut i8; /*kpse_find_glyph(ident, dpi, kpse_pk_format, &kpse_file_info);*/
+    let fqpn = ptr::null_mut::<i8>(); /*kpse_find_glyph(ident, dpi, kpse_pk_format, &kpse_file_info);*/
     if fqpn.is_null() {
-        return 0 as *mut FILE;
+        return ptr::null_mut();
     }
     let fp = fopen(fqpn, b"rb\x00" as *const u8 as *const i8);
     free(fqpn as *mut libc::c_void);

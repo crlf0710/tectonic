@@ -38,6 +38,7 @@ use crate::dpx_truetype::sfnt_table_info;
 use crate::{ttstub_input_read};
 
 use std::io::{Seek, SeekFrom};
+use std::ptr;
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
@@ -503,7 +504,7 @@ pub unsafe extern "C" fn tt_read_VORG_table(mut sfont: *mut sfnt) -> *mut tt_VOR
         }
         vorg
     } else {
-        0 as *mut tt_VORG_table
+        ptr::null_mut()
     }
 }
 /*

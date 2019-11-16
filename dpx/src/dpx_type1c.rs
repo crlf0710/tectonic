@@ -32,6 +32,7 @@ use crate::streq_ptr;
 use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
+use std::ptr;
 
 use super::dpx_cff::{
     cff_add_string, cff_charsets_lookup, cff_charsets_lookup_inverse, cff_close,
@@ -397,7 +398,7 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
                 *fresh0 = cff_get_string(cffont, cff_charsets_lookup_inverse(cffont, gid))
             } else {
                 let ref mut fresh1 = *enc_vec.offset(code as isize);
-                *fresh1 = 0 as *mut i8
+                *fresh1 = ptr::null_mut()
             }
         }
         if !(*fontdict).as_dict().has("ToUnicode") {
@@ -735,7 +736,7 @@ pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
         cff_release_index(*cffont.subrs.offset(0));
     }
     let ref mut fresh3 = *cffont.subrs.offset(0);
-    *fresh3 = 0 as *mut cff_index;
+    *fresh3 = ptr::null_mut();
     /*
      * Flag must be reset since cff_pack_encoding(charset) does not write
      * encoding(charset) if HAVE_STANDARD_ENCODING(CHARSET) is set. We are

@@ -29,6 +29,7 @@
 use libpng_sys::ffi::*;
 
 use std::convert::TryInto;
+use std::ptr;
 
 use crate::warn;
 
@@ -101,14 +102,14 @@ pub unsafe extern "C" fn png_include_image(
     let mut info = ximage_info::default();
     /* Libpng stuff */
     pdf_ximage_init_image_info(&mut info);
-    let mut intent = 0 as *mut pdf_obj;
+    let mut intent = ptr::null_mut();
     let mut mask = intent;
     let mut colorspace = mask;
     handle.seek(SeekFrom::Start(0)).unwrap();
 
     let png = if let Some(png) = png_create_read_struct(
         b"1.6.37\x00" as *const u8 as *const i8,
-        0 as *mut libc::c_void,
+        ptr::null_mut(),
         None,
         Some(_png_warning_callback),
     )
@@ -240,7 +241,7 @@ pub unsafe extern "C" fn png_include_image(
                         height,
                     )
                 }
-                _ => mask = 0 as *mut pdf_obj,
+                _ => mask = ptr::null_mut(),
             }
             info.num_components = 3i32
         }
@@ -267,7 +268,7 @@ pub unsafe extern "C" fn png_include_image(
                         height,
                     )
                 }
-                _ => mask = 0 as *mut pdf_obj,
+                _ => mask = ptr::null_mut(),
             }
             info.num_components = 1i32
         }
@@ -305,7 +306,7 @@ pub unsafe extern "C" fn png_include_image(
      * flag of iTxt chunks.
      */
     if pdf_get_version() >= 4i32 as libc::c_uint {
-        let mut text_ptr = 0 as *mut png_text;
+        let mut text_ptr = ptr::null_mut();
         let mut have_XMP: libc::c_int = 0i32;
         let num_text = png_get_text(png, png_info, &mut text_ptr, &mut 0);
         for i in 0..num_text {
@@ -400,8 +401,8 @@ pub unsafe extern "C" fn png_include_image(
  */
 unsafe fn check_transparency(mut png: &mut png_struct, mut info: &mut png_info) -> libc::c_int {
     let mut trans_type;
-    let mut trans_values = 0 as *mut png_color_16;
-    let mut trans: png_bytep = 0 as *mut png_byte;
+    let mut trans_values = ptr::null_mut();
+    let mut trans: png_bytep = ptr::null_mut();
     let mut num_trans: i32 = 0;
     let pdf_version = pdf_get_version();
     let color_type = png_get_color_type(png, info);
@@ -517,11 +518,11 @@ unsafe fn get_rendering_intent(mut png: &mut png_struct, mut info: &mut png_info
                     "{}: Invalid value in PNG sRGB chunk: {}",
                     "PNG", srgb_intent,
                 );
-                0 as *mut pdf_obj
+                ptr::null_mut()
             }
         }
     } else {
-        0 as *mut pdf_obj
+        ptr::null_mut()
     }
 }
 /* sRGB:
@@ -538,7 +539,7 @@ unsafe fn create_cspace_sRGB(mut png: &png_struct, mut info: &png_info) -> *mut 
         color_type, 2.2f64, 0.3127f64, 0.329f64, 0.64f64, 0.33f64, 0.3f64, 0.6f64, 0.15f64, 0.06f64,
     );
     if cal_param.is_null() {
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     let colorspace = pdf_new_array();
     match color_type as i32 {
@@ -564,9 +565,9 @@ unsafe fn create_cspace_ICCBased(
     mut png: &mut png_struct,
     mut png_info: &mut png_info,
 ) -> *mut pdf_obj {
-    let mut name = 0 as *mut i8;
+    let mut name = ptr::null_mut();
     let mut compression_type: libc::c_int = 0;
-    let mut profile: png_bytep = 0 as *mut png_byte;
+    let mut profile: png_bytep = ptr::null_mut();
     let mut proflen: png_uint_32 = 0;
     if png_get_valid(png, png_info, 0x1000u32) == 0
         || png_get_iCCP(
@@ -578,7 +579,7 @@ unsafe fn create_cspace_ICCBased(
             &mut proflen,
         ) == 0
     {
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     let color_type = png_get_color_type(png, png_info);
     let colortype = if color_type as libc::c_int & 2i32 != 0 {
@@ -587,7 +588,7 @@ unsafe fn create_cspace_ICCBased(
         -1i32
     };
     if iccp_check_colorspace(colortype, profile as *const libc::c_void, proflen as i32) < 0i32 {
-        0 as *mut pdf_obj /* Manual page for libpng does not
+        ptr::null_mut() /* Manual page for libpng does not
                            * clarify whether profile data is inflated by libpng.
                            */
     } else {
@@ -597,7 +598,7 @@ unsafe fn create_cspace_ICCBased(
             proflen as i32,
         );
         if csp_id < 0i32 {
-            0 as *mut pdf_obj
+            ptr::null_mut()
         } else {
             pdf_get_colorspace_reference(csp_id)
         }
@@ -629,7 +630,7 @@ unsafe fn create_cspace_CalRGB(
             png, png_info, &mut xw, &mut yw, &mut xr, &mut yr, &mut xg, &mut yg, &mut xb, &mut yb,
         ) == 0
     {
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     if xw <= 0.0f64
         || yw < 1.0e-10f64
@@ -641,12 +642,12 @@ unsafe fn create_cspace_CalRGB(
         || yb < 0.0f64
     {
         warn!("{}: Invalid cHRM chunk parameters found.", "PNG");
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     if png_get_valid(png, png_info, 0x1u32) != 0 && png_get_gAMA(png, png_info, &mut G) != 0 {
         if G < 1.0e-2f64 {
             warn!("{}: Unusual Gamma value: 1.0 / {}", "PNG", G,);
-            return 0 as *mut pdf_obj;
+            return ptr::null_mut();
         }
         G = 1.0f64 / G
     /* Gamma is inverted. */
@@ -655,7 +656,7 @@ unsafe fn create_cspace_CalRGB(
     }
     let cal_param = make_param_Cal(2i32 as png_byte, G, xw, yw, xr, yr, xg, yg, xb, yb);
     if cal_param.is_null() {
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     let colorspace = pdf_new_array();
     pdf_add_array(&mut *colorspace, pdf_new_name("CalRGB"));
@@ -677,7 +678,7 @@ unsafe fn create_cspace_CalGray(mut png: &mut png_struct, mut info: &mut png_inf
             png, info, &mut xw, &mut yw, &mut xr, &mut yr, &mut xg, &mut yg, &mut xb, &mut yb,
         ) == 0
     {
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     if xw <= 0.0f64
         || yw < 1.0e-10f64
@@ -689,12 +690,12 @@ unsafe fn create_cspace_CalGray(mut png: &mut png_struct, mut info: &mut png_inf
         || yb < 0.0f64
     {
         warn!("{}: Invalid cHRM chunk parameters found.", "PNG");
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     if png_get_valid(png, info, 0x1u32) != 0 && png_get_gAMA(png, info, &mut G) != 0 {
         if G < 1.0e-2f64 {
             warn!("{}: Unusual Gamma value: 1.0 / {}", "PNG", G,);
-            return 0 as *mut pdf_obj;
+            return ptr::null_mut();
         }
         G = 1.0f64 / G
     /* Gamma is inverted. */
@@ -703,7 +704,7 @@ unsafe fn create_cspace_CalGray(mut png: &mut png_struct, mut info: &mut png_inf
     } /* Yw = 1.0 */
     let cal_param = make_param_Cal(0i32 as png_byte, G, xw, yw, xr, yr, xg, yg, xb, yb);
     if cal_param.is_null() {
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     let colorspace = pdf_new_array();
     pdf_add_array(&mut *colorspace, pdf_new_name("CalGray"));
@@ -745,7 +746,7 @@ unsafe fn make_param_Cal(
     let det = xr * (yg * zb - zg * yb) - xg * (yr * zb - zr * yb) + xb * (yr * zg - zr * yg);
     if (if det < 0i32 as f64 { -det } else { det }) < 1.0e-10f64 {
         warn!("Non invertible matrix: Maybe invalid value(s) specified in cHRM chunk.");
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     let fr = (Xw * (yg * zb - zg * yb) - xg * (zb - Zw * yb) + xb * (zg - Zw * yg)) / det;
     let fg = (xr * (zb - Zw * yb) - Xw * (yr * zb - zr * yb) + xb * (yr * Zw - zr)) / det;
@@ -761,7 +762,7 @@ unsafe fn make_param_Cal(
     let Zb = fb * zb;
     if G < 1.0e-2f64 {
         warn!("Unusual Gamma specified: 1.0 / {}", G,);
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     let cal_param = pdf_new_dict();
     /* White point is always required. */
@@ -854,13 +855,13 @@ unsafe fn make_param_Cal(
  *
  */
 unsafe fn create_cspace_Indexed(mut png: &mut png_struct, mut info: &mut png_info) -> *mut pdf_obj {
-    let mut plte = 0 as *mut png_color;
+    let mut plte = ptr::null_mut();
     let mut num_plte: libc::c_int = 0;
     if png_get_valid(png, info, 0x8u32) == 0
         || png_get_PLTE(png, info, &mut plte, &mut num_plte) == 0
     {
         warn!("{}: PNG does not have valid PLTE chunk.", "PNG");
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     /* Order is important. */
     let colorspace = pdf_new_array();
@@ -898,14 +899,14 @@ unsafe fn create_cspace_Indexed(mut png: &mut png_struct, mut info: &mut png_inf
  *
  */
 unsafe fn create_ckey_mask(mut png: &png_struct_def, mut png_info: &mut png_info) -> *mut pdf_obj {
-    let mut trans: png_bytep = 0 as *mut png_byte;
+    let mut trans: png_bytep = ptr::null_mut();
     let mut num_trans: libc::c_int = 0;
-    let mut colors = 0 as *mut png_color_16;
+    let mut colors = ptr::null_mut();
     if png_get_valid(png, png_info, 0x10u32) == 0
         || png_get_tRNS(png, png_info, &mut trans, &mut num_trans, &mut colors) == 0
     {
         warn!("{}: PNG does not have valid tRNS chunk!", "PNG");
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     let mut colorkeys = pdf_new_array();
     let color_type = png_get_color_type(png, png_info);
@@ -935,7 +936,7 @@ unsafe fn create_ckey_mask(mut png: &png_struct_def, mut png_info: &mut png_info
         _ => {
             warn!("{}: You found a bug in pngimage.c.", "PNG");
             pdf_release_obj(colorkeys);
-            colorkeys = 0 as *mut pdf_obj
+            colorkeys = ptr::null_mut()
         }
     }
     colorkeys
@@ -967,7 +968,7 @@ unsafe fn create_soft_mask(
     mut width: png_uint_32,
     mut height: png_uint_32,
 ) -> *mut pdf_obj {
-    let mut trans: png_bytep = 0 as *mut png_byte;
+    let mut trans: png_bytep = ptr::null_mut();
     let mut num_trans: i32 = 0;
     if png_get_valid(png, info, 0x10u32) == 0
         || png_get_tRNS(
@@ -982,7 +983,7 @@ unsafe fn create_soft_mask(
             "{}: PNG does not have valid tRNS chunk but tRNS is requested.",
             "PNG",
         );
-        return 0 as *mut pdf_obj;
+        return ptr::null_mut();
     }
     let smask = pdf_new_stream(STREAM_COMPRESS);
     let dict = (*smask).as_stream_mut().get_dict_mut();
@@ -1034,7 +1035,7 @@ unsafe fn strip_soft_mask(
         {
             /* Something wrong */
             warn!("{}: Inconsistent rowbytes value.", "PNG");
-            return 0 as *mut pdf_obj;
+            return ptr::null_mut();
         }
     } else {
         let mut bps_0: i32 = if bpc as i32 == 8i32 { 2i32 } else { 4i32 };
@@ -1044,7 +1045,7 @@ unsafe fn strip_soft_mask(
         {
             /* Something wrong */
             warn!("{}: Inconsistent rowbytes value.", "PNG");
-            return 0 as *mut pdf_obj;
+            return ptr::null_mut();
         }
     }
     let smask = pdf_new_stream(STREAM_COMPRESS);
@@ -1130,7 +1131,7 @@ unsafe fn strip_soft_mask(
             warn!("You found a bug in pngimage.c!");
             pdf_release_obj(smask);
             free(smask_data_ptr as *mut libc::c_void);
-            return 0 as *mut pdf_obj;
+            return ptr::null_mut();
         }
     }
     pdf_add_stream(
@@ -1171,7 +1172,7 @@ pub unsafe extern "C" fn png_get_bbox(
     handle.seek(SeekFrom::Start(0)).unwrap();
     let mut png = png_create_read_struct(
         b"1.6.37\x00" as *const u8 as *const i8,
-        0 as *mut libc::c_void,
+        ptr::null_mut(),
         None,
         Some(_png_warning_callback),
     )
