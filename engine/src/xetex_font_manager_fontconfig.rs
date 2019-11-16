@@ -750,7 +750,7 @@ pub unsafe fn XeTeXFontMgr_FC_terminate(mut self_0: *mut XeTeXFontMgr) {
 #[no_mangle]
 pub unsafe fn XeTeXFontMgr_FC_getPlatformFontDesc(
     mut self_0: *const XeTeXFontMgr,
-    mut font: PlatformFontRef,
+    mut font: *mut XeTeXFontInst,
 ) -> *mut libc::c_char {
     let mut s: *mut FcChar8 = 0 as *mut FcChar8;
     let mut path: *mut libc::c_char = 0 as *mut libc::c_char;

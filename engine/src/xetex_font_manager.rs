@@ -189,6 +189,7 @@ pub struct XeTeXFontMgrNameCollection {
     pub m_psName: *mut CppStdString,
     pub m_subFamily: *mut CppStdString,
 }
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct XeTeXFontMgr {
@@ -261,11 +262,11 @@ unsafe fn XeTeXFontMgr_terminate(mut self_0: *mut XeTeXFontMgr) {
 #[inline]
 unsafe fn XeTeXFontMgr_getPlatformFontDesc(
     mut self_0: *const XeTeXFontMgr,
-    mut font: PlatformFontRef,
+    mut fontRef: PlatformFontRef,
 ) -> *mut libc::c_char {
     return (*self_0)
         .m_memfnGetPlatformFontDesc
-        .expect("non-null function pointer")(self_0, font);
+        .expect("non-null function pointer")(self_0, fontRef);
 }
 #[inline]
 unsafe fn XeTeXFontMgr_searchForHostPlatformFonts(
@@ -799,11 +800,11 @@ pub unsafe fn XeTeXFontMgr_findFont(
 #[no_mangle]
 pub unsafe fn XeTeXFontMgr_getFullName(
     mut self_0: *const XeTeXFontMgr,
-    mut font: PlatformFontRef,
+    mut fontRef: PlatformFontRef,
 ) -> *const libc::c_char {
     // return the full name of the font, suitable for use in XeTeX source
     // without requiring style qualifiers
-    let font_ptr = if let Some(font_ptr) = (*(*self_0).m_platformRefToFont).get(&font).cloned() {
+    let font_ptr = if let Some(font_ptr) = (*(*self_0).m_platformRefToFont).get(&fontRef).cloned() {
         font_ptr
     } else {
         _tt_abort(
@@ -885,9 +886,9 @@ pub(self) unsafe fn XeTeXFontMgr_bestMatchFromFamily(
 #[no_mangle]
 pub(self) unsafe fn XeTeXFontMgr_getOpSize(
     mut self_0: *mut XeTeXFontMgr,
-    mut font: PlatformFontRef,
+    mut font: *mut XeTeXFontInst,
 ) -> *mut XeTeXFontMgrOpSizeRec {
-    let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font as *mut XeTeXFontInst);
+    let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
     if hbFont.is_null() {
         return 0 as *mut XeTeXFontMgrOpSizeRec;
     }
@@ -912,7 +913,7 @@ pub(self) unsafe fn XeTeXFontMgr_getOpSize(
 #[no_mangle]
 pub unsafe fn XeTeXFontMgr_getDesignSize(
     mut self_0: *mut XeTeXFontMgr,
-    mut font: PlatformFontRef,
+    mut font: *mut XeTeXFontInst,
 ) -> libc::c_double {
     let mut pSizeRec: *mut XeTeXFontMgrOpSizeRec = XeTeXFontMgr_getOpSize(self_0, font);
     if pSizeRec.is_null() {
@@ -928,10 +929,8 @@ pub unsafe fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
     mut self_0: *mut XeTeXFontMgr,
     mut theFont: *mut XeTeXFontMgrFont,
 ) {
-    // XXX: these are some of the worst two lines of code, ever.
-    // createFont's return value is NOT a PlatformFontRef!
-    let mut font: PlatformFontRef = createFont((*theFont).fontRef, 655360i32);
-    let mut fontInst: *mut XeTeXFontInst = font as *mut XeTeXFontInst;
+    let mut font = createFont((*theFont).fontRef, 655360i32);
+    let mut fontInst = font;
     if !font.is_null() {
         let mut pSizeRec: *mut XeTeXFontMgrOpSizeRec = XeTeXFontMgr_getOpSize(self_0, font);
         if !pSizeRec.is_null() {

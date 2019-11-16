@@ -17,6 +17,7 @@ use libc::{free, strncat};
 use std::ffi::{CString, CStr};
 use std::ptr;
 use crate::xetex_layout_engine::ft_make_tag;
+use crate::xetex_font_info::XeTeXFontInst;
 
 #[cfg(target_os = "macos")]
 use super::xetex_aatfont as aat;
@@ -672,7 +673,7 @@ unsafe extern "C" fn readFeatureNumber(
 }
 unsafe extern "C" fn loadOTfont(
     mut fontRef: PlatformFontRef,
-    mut font: PlatformFontRef,
+    mut font: *mut XeTeXFontInst,
     mut scaled_size: Fixed,
     mut cp1: Option<&CStr>,
 ) -> *mut libc::c_void {
@@ -1084,8 +1085,8 @@ pub unsafe extern "C" fn find_native_font(
 ) -> *mut libc::c_void
 {
     let mut rval: *mut libc::c_void = 0 as *mut libc::c_void;
-    let mut fontRef: PlatformFontRef = 0 as PlatformFontRef;
-    let mut font: PlatformFontRef = 0 as PlatformFontRef;
+    let mut fontRef: PlatformFontRef = ptr::null_mut();
+    let mut font: *mut XeTeXFontInst = ptr::null_mut();
 
     let mut name: *mut i8 = uname;
     let SplitName { tex_internal, name, mut var, feat, index } = SplitName::from_packed_name(name);
@@ -1246,7 +1247,7 @@ pub unsafe extern "C" fn ot_get_font_metrics(
     *ascent = D2Fix(a as f64);
     *descent = D2Fix(d as f64);
     *slant = D2Fix(
-        Fix2D(getSlant(getFont(engine))) * getExtendFactor(engine) as f64
+        Fix2D(getSlant(getFontInst(engine))) * getExtendFactor(engine) as f64
             + getSlantFactor(engine) as f64,
     );
     /* get cap and x height from OS/2 table */
@@ -1279,7 +1280,7 @@ pub unsafe extern "C" fn ot_get_font_metrics(
 #[no_mangle]
 pub unsafe extern "C" fn ot_font_get(mut what: i32, mut pEngine: *mut libc::c_void) -> i32 {
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
-    let mut fontInst: PlatformFontRef = getFont(engine);
+    let mut fontInst = getFontInst(engine);
     match what {
         1 => return countGlyphs(fontInst) as i32,
         8 => {
@@ -1298,7 +1299,7 @@ pub unsafe extern "C" fn ot_font_get_1(
     mut param: i32,
 ) -> i32 {
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
-    let mut fontInst: PlatformFontRef = getFont(engine);
+    let mut fontInst = getFontInst(engine);
     match what {
         17 => return countLanguages(fontInst, param as hb_tag_t) as i32,
         19 => return getIndScript(fontInst, param as u32) as i32,
@@ -1320,7 +1321,7 @@ pub unsafe extern "C" fn ot_font_get_2(
     mut param2: i32,
 ) -> i32 {
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
-    let mut fontInst: PlatformFontRef = getFont(engine);
+    let mut fontInst = getFontInst(engine);
     match what {
         20 => return getIndLanguage(fontInst, param1 as hb_tag_t, param2 as u32) as i32,
         18 => return countFeatures(fontInst, param1 as hb_tag_t, param2 as hb_tag_t) as i32,
@@ -1345,7 +1346,7 @@ pub unsafe extern "C" fn ot_font_get_3(
     mut param3: i32,
 ) -> i32 {
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
-    let mut fontInst: PlatformFontRef = getFont(engine);
+    let mut fontInst = getFontInst(engine);
     match what {
         21 => {
             return getIndFeature(
@@ -2302,7 +2303,7 @@ pub unsafe extern "C" fn measure_native_glyph(
         0xfffeu32 => {
             let mut engine: XeTeXLayoutEngine =
                 *font_layout_engine.offset(f as isize) as XeTeXLayoutEngine;
-            let mut fontInst: PlatformFontRef = getFont(engine);
+            let mut fontInst = getFontInst(engine);
             (*node.offset(1)).b32.s1 = D2Fix(getGlyphWidth(fontInst, gid as u32) as f64);
             if use_glyph_metrics != 0 {
                 getGlyphHeightDepth(engine, gid as u32, &mut ht, &mut dp);
@@ -2409,7 +2410,7 @@ pub unsafe extern "C" fn print_glyph_name(mut font: i32, mut gid: i32) {
         0xfffeu32 => {
             let mut engine: XeTeXLayoutEngine =
                 *font_layout_engine.offset(font as isize) as XeTeXLayoutEngine;
-            s = getGlyphName(getFont(engine), gid as u16, &mut len);
+            s = getGlyphName(getFontInst(engine), gid as u16, &mut len);
         }
         _ => {
             panic!("bad native font flag in `print_glyph_name`");
