@@ -51,7 +51,7 @@ use super::dpx_dpxfile::{
 use super::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use super::dpx_dvipdfmx::{is_xdv, landscape_mode, paper_height, paper_width};
 use super::dpx_fontmap::{pdf_insert_native_fontmap_record, pdf_lookup_fontmap_record};
-use super::dpx_mem::{new, renew};
+use super::dpx_mem::new;
 use super::dpx_numbers::{
     sqxfw, tt_get_positive_quad, tt_get_signed_quad, tt_get_unsigned_byte, tt_get_unsigned_num,
     tt_get_unsigned_pair, tt_get_unsigned_quad, tt_skip_bytes,
@@ -238,22 +238,8 @@ static mut lr_width: u32 = 0;
 /* total width of reflected segment    */
 static mut lr_width_stack: [u32; 256] = [0; 256];
 static mut lr_width_stack_depth: u32 = 0_u32;
-static mut loaded_fonts: *mut loaded_font = std::ptr::null_mut();
-static mut num_loaded_fonts: u32 = 0_u32;
-static mut max_loaded_fonts: u32 = 0_u32;
-unsafe fn need_more_fonts(mut n: u32) {
-    if num_loaded_fonts.wrapping_add(n) > max_loaded_fonts {
-        max_loaded_fonts = max_loaded_fonts.wrapping_add(16u32);
-        loaded_fonts = renew(
-            loaded_fonts as *mut libc::c_void,
-            (max_loaded_fonts as u64).wrapping_mul(::std::mem::size_of::<loaded_font>() as u64)
-                as u32,
-        ) as *mut loaded_font
-    };
-}
-static mut def_fonts: *mut font_def = std::ptr::null_mut();
-static mut num_def_fonts: u32 = 0_u32;
-static mut max_def_fonts: u32 = 0_u32;
+static mut loaded_fonts: Vec<loaded_font> = Vec::new();
+static mut def_fonts: Vec<font_def> = Vec::new();
 static mut compute_boxes: i32 = 0i32;
 static mut link_annot: i32 = 1i32;
 static mut verbose: i32 = 0i32;
@@ -513,13 +499,6 @@ pub unsafe fn dvi_comment() -> *const i8 {
     DVI_INFO.comment.as_mut_ptr() as *const i8
 }
 unsafe fn read_font_record(mut tex_id: u32) {
-    if num_def_fonts >= max_def_fonts {
-        max_def_fonts = max_def_fonts.wrapping_add(16u32);
-        def_fonts = renew(
-            def_fonts as *mut libc::c_void,
-            (max_def_fonts as u64).wrapping_mul(::std::mem::size_of::<font_def>() as u64) as u32,
-        ) as *mut font_def
-    }
     let handle = dvi_handle.as_mut().unwrap();
     tt_get_unsigned_quad(handle);
     let point_size = tt_get_positive_quad(
@@ -548,29 +527,23 @@ unsafe fn read_font_record(mut tex_id: u32) {
         panic!(invalid_signature);
     }
     *font_name.offset(name_length as isize) = '\u{0}' as i32 as i8;
-    (*def_fonts.offset(num_def_fonts as isize)).tex_id = tex_id;
-    let ref mut fresh14 = (*def_fonts.offset(num_def_fonts as isize)).font_name;
-    *fresh14 = font_name;
-    (*def_fonts.offset(num_def_fonts as isize)).point_size = point_size as spt_t;
-    (*def_fonts.offset(num_def_fonts as isize)).design_size = design_size as spt_t;
-    (*def_fonts.offset(num_def_fonts as isize)).used = 0i32;
-    (*def_fonts.offset(num_def_fonts as isize)).native = 0i32;
-    (*def_fonts.offset(num_def_fonts as isize)).rgba_color = 0xffffffffu32;
-    (*def_fonts.offset(num_def_fonts as isize)).face_index = 0_u32;
-    (*def_fonts.offset(num_def_fonts as isize)).layout_dir = 0i32;
-    (*def_fonts.offset(num_def_fonts as isize)).extend = 0x10000i32;
-    (*def_fonts.offset(num_def_fonts as isize)).slant = 0i32;
-    (*def_fonts.offset(num_def_fonts as isize)).embolden = 0i32;
-    num_def_fonts = num_def_fonts.wrapping_add(1);
+    def_fonts.push(font_def {
+        font_id: -1,
+        tex_id,
+        font_name,
+        point_size: point_size as spt_t,
+        design_size: design_size as spt_t,
+        used: 0i32,
+        native: 0i32,
+        rgba_color: 0xffffffffu32,
+        face_index: 0_u32,
+        layout_dir: 0i32,
+        extend: 0x10000i32,
+        slant: 0i32,
+        embolden: 0i32,
+    });
 }
 unsafe fn read_native_font_record(mut tex_id: u32) {
-    if num_def_fonts >= max_def_fonts {
-        max_def_fonts = max_def_fonts.wrapping_add(16u32);
-        def_fonts = renew(
-            def_fonts as *mut libc::c_void,
-            (max_def_fonts as u64).wrapping_mul(::std::mem::size_of::<font_def>() as u64) as u32,
-        ) as *mut font_def
-    }
     let handle = dvi_handle.as_mut().unwrap();
     let point_size = tt_get_positive_quad(
         handle,
@@ -591,35 +564,37 @@ unsafe fn read_native_font_record(mut tex_id: u32) {
         "DVI",
         "index",
     );
-    (*def_fonts.offset(num_def_fonts as isize)).tex_id = tex_id;
-    let ref mut fresh15 = (*def_fonts.offset(num_def_fonts as isize)).font_name;
-    *fresh15 = font_name;
-    (*def_fonts.offset(num_def_fonts as isize)).face_index = index;
-    (*def_fonts.offset(num_def_fonts as isize)).point_size = point_size as spt_t;
-    (*def_fonts.offset(num_def_fonts as isize)).design_size = 655360i32;
-    (*def_fonts.offset(num_def_fonts as isize)).used = 0i32;
-    (*def_fonts.offset(num_def_fonts as isize)).native = 1i32;
-    (*def_fonts.offset(num_def_fonts as isize)).layout_dir = 0i32;
-    (*def_fonts.offset(num_def_fonts as isize)).rgba_color = 0xffffffffu32;
-    (*def_fonts.offset(num_def_fonts as isize)).extend = 0x10000i32;
-    (*def_fonts.offset(num_def_fonts as isize)).slant = 0i32;
-    (*def_fonts.offset(num_def_fonts as isize)).embolden = 0i32;
+    let mut font = font_def {
+        font_id: -1,
+        tex_id: tex_id,
+        font_name: font_name,
+        face_index: index,
+        point_size: point_size as spt_t,
+        design_size: 655360i32,
+        used: 0i32,
+        native: 1i32,
+        layout_dir: 0i32,
+        rgba_color: 0xffffffffu32,
+        extend: 0x10000i32,
+        slant: 0i32,
+        embolden: 0i32,
+    };
     if flags & 0x100_u32 != 0 {
-        (*def_fonts.offset(num_def_fonts as isize)).layout_dir = 1i32
+        font.layout_dir = 1i32
     }
     if flags & 0x200_u32 != 0 {
-        (*def_fonts.offset(num_def_fonts as isize)).rgba_color = tt_get_unsigned_quad(handle)
+        font.rgba_color = tt_get_unsigned_quad(handle)
     }
     if flags & 0x1000_u32 != 0 {
-        (*def_fonts.offset(num_def_fonts as isize)).extend = tt_get_signed_quad(handle)
+        font.extend = tt_get_signed_quad(handle)
     }
     if flags & 0x2000_u32 != 0 {
-        (*def_fonts.offset(num_def_fonts as isize)).slant = tt_get_signed_quad(handle)
+        font.slant = tt_get_signed_quad(handle)
     }
     if flags & 0x4000_u32 != 0 {
-        (*def_fonts.offset(num_def_fonts as isize)).embolden = tt_get_signed_quad(handle)
+        font.embolden = tt_get_signed_quad(handle)
     }
-    num_def_fonts = num_def_fonts.wrapping_add(1);
+    def_fonts.push(font);
 }
 unsafe fn get_dvi_fonts(mut post_location: i32) {
     let handle = dvi_handle.as_mut().unwrap();
@@ -646,8 +621,7 @@ unsafe fn get_dvi_fonts(mut post_location: i32) {
     if verbose > 2 {
         info!("\n");
         info!("DVI file font info\n");
-        for i in 0..num_def_fonts {
-            let font = &*def_fonts.offset(i as isize);
+        for font in &def_fonts {
             info!(
                 "TeX Font: {:10} loaded at ID={:5}, ",
                 CStr::from_ptr(font.font_name).display(),
@@ -694,7 +668,7 @@ static mut dvi_stack: [dvi_registers; 256] = [dvi_registers {
     d: 0,
 }; 256];
 static mut dvi_stack_depth: i32 = 0i32;
-static mut current_font: i32 = -1i32;
+static mut current_font: i32 = -1i32; // TODO: Option<usize> or Option<&loaded_font>
 static mut processing_page: i32 = 0i32;
 unsafe fn clear_state() {
     dvi_state.h = 0i32;
@@ -793,13 +767,9 @@ pub unsafe fn dvi_locate_font(mut tfm_name: *const i8, mut ptsize: spt_t) -> u32
             ptsize as f64 * dvi2pts,
         );
     }
-    need_more_fonts(1_u32);
     /* This routine needs to be recursive/reentrant. Load current high water
      * mark into an automatic variable.
      */
-    let fresh16 = num_loaded_fonts;
-    num_loaded_fonts = num_loaded_fonts.wrapping_add(1);
-    let cur_id = fresh16;
     let mrec = pdf_lookup_fontmap_record(CStr::from_ptr(tfm_name).to_bytes());
     /* Load subfont mapping table */
     if !mrec.is_null()
@@ -808,17 +778,30 @@ pub unsafe fn dvi_locate_font(mut tfm_name: *const i8, mut ptsize: spt_t) -> u32
     {
         subfont_id = sfd_load_record((*mrec).charmap.sfd_name, (*mrec).charmap.subfont_id)
     }
-    memset(
-        &mut *loaded_fonts.offset(cur_id as isize) as *mut loaded_font as *mut libc::c_void,
-        0i32,
-        ::std::mem::size_of::<loaded_font>(),
-    );
-    /* TFM must exist here. */
-    (*loaded_fonts.offset(cur_id as isize)).tfm_id = tfm_open(tfm_name, 1i32);
-    (*loaded_fonts.offset(cur_id as isize)).subfont_id = subfont_id;
-    (*loaded_fonts.offset(cur_id as isize)).size = ptsize;
-    /* This will be reset later if it was really generated by the dvi file. */
-    (*loaded_fonts.offset(cur_id as isize)).source = 2i32;
+
+    let mut new_font = loaded_font {
+        /* TFM must exist here. */
+        tfm_id: tfm_open(tfm_name, 1i32),
+        subfont_id,
+        size: ptsize,
+        /* This will be reset later if it was really generated by the dvi file. */
+        source: 2,
+
+        // zero-initialize other fields
+        type_0: 0,
+        font_id: 0,
+        rgba_color: 0,
+        hvmt: ptr::null_mut(),
+        ascent: 0,
+        descent: 0,
+        unitsPerEm: 0,
+        cffont: ptr::null_mut(),
+        numGlyphs: 0,
+        layout_dir: 0,
+        extend: 0.,
+        slant: 0.,
+        embolden: 0.,
+    };
     /* The order of searching fonts is as follows:
      *
      * 1. If mrec is null, that is, there is no map entry matching
@@ -838,12 +821,13 @@ pub unsafe fn dvi_locate_font(mut tfm_name: *const i8, mut ptsize: spt_t) -> u32
     if mrec.is_null() {
         let font_id = vf_locate_font(tfm_name, ptsize);
         if font_id >= 0i32 {
-            (*loaded_fonts.offset(cur_id as isize)).type_0 = 2i32;
-            (*loaded_fonts.offset(cur_id as isize)).font_id = font_id;
+            new_font.type_0 = 2i32;
+            new_font.font_id = font_id;
             if verbose != 0 {
                 info!("(VF)>");
             }
-            return cur_id;
+            loaded_fonts.push(new_font);
+            return loaded_fonts.len() as u32 - 1;
         }
     } else if subfont_id >= 0i32 && !(*mrec).map_name.is_null() {
         let mut mrec1: *mut fontmap_rec = pdf_lookup_fontmap_record(CStr::from_ptr((*mrec).map_name).to_bytes());
@@ -869,12 +853,13 @@ pub unsafe fn dvi_locate_font(mut tfm_name: *const i8, mut ptsize: spt_t) -> u32
                     CStr::from_ptr(tfm_name).display(),
                 );
             } else {
-                (*loaded_fonts.offset(cur_id as isize)).type_0 = 2i32;
-                (*loaded_fonts.offset(cur_id as isize)).font_id = font_id;
+                new_font.type_0 = 2i32;
+                new_font.font_id = font_id;
                 if verbose != 0 {
                     info!("(OVF)>");
                 }
-                return cur_id;
+                loaded_fonts.push(new_font);
+                return loaded_fonts.len() as u32 - 1;
             }
         }
     }
@@ -893,7 +878,7 @@ pub unsafe fn dvi_locate_font(mut tfm_name: *const i8, mut ptsize: spt_t) -> u32
         tfm_name
     };
     /* We need ptsize for PK font creation. */
-    let font_id = pdf_dev_locate_font(name, ptsize);
+    let font_id = pdf_dev_locate_font(CStr::from_ptr(name), ptsize);
     if font_id < 0i32 {
         warn!(
             "Could not locate a virtual/physical font for TFM \"{}\".",
@@ -939,12 +924,13 @@ pub unsafe fn dvi_locate_font(mut tfm_name: *const i8, mut ptsize: spt_t) -> u32
         }
         panic!("Cannot proceed without .vf or \"physical\" font for PDF output...");
     }
-    (*loaded_fonts.offset(cur_id as isize)).type_0 = 1i32;
-    (*loaded_fonts.offset(cur_id as isize)).font_id = font_id;
+    new_font.type_0 = 1i32;
+    new_font.font_id = font_id;
     if verbose != 0 {
         info!(">");
     }
-    cur_id
+    loaded_fonts.push(new_font);
+    loaded_fonts.len() as u32 - 1
 }
 unsafe fn dvi_locate_native_font(
     mut filename: *const i8,
@@ -986,10 +972,7 @@ unsafe fn dvi_locate_native_font(
         }
     }
     let mut handle = handle.unwrap();
-    need_more_fonts(1_u32);
-    let fresh17 = num_loaded_fonts;
-    num_loaded_fonts = num_loaded_fonts.wrapping_add(1);
-    let cur_id = fresh17 as i32;
+
     let fontmap_key = format!(
         "{}/{}/{}/{}/{}/{}",
         CStr::from_ptr(filename).display(),
@@ -1014,14 +997,27 @@ unsafe fn dvi_locate_native_font(
             );
         }
     }
-    memset(
-        &mut *loaded_fonts.offset(cur_id as isize) as *mut loaded_font as *mut libc::c_void,
-        0i32,
-        ::std::mem::size_of::<loaded_font>(),
-    );
-    (*loaded_fonts.offset(cur_id as isize)).font_id = pdf_dev_locate_font(fontmap_key.as_bytes().as_ptr() as *const i8, ptsize);
-    (*loaded_fonts.offset(cur_id as isize)).size = ptsize;
-    (*loaded_fonts.offset(cur_id as isize)).type_0 = 4i32;
+    let mut font = loaded_font {
+        font_id: pdf_dev_locate_font(&CString::new(fontmap_key).unwrap(), ptsize),
+        size: ptsize,
+        type_0: 4i32,
+
+        // zero-initialize other fields
+        rgba_color: 0,
+        hvmt: ptr::null_mut(),
+        ascent: 0,
+        descent: 0,
+        unitsPerEm: 0,
+        cffont: ptr::null_mut(),
+        numGlyphs: 0,
+        layout_dir: 0,
+        extend: 0.,
+        slant: 0.,
+        embolden: 0.,
+        subfont_id: 0,
+        tfm_id: 0,
+        source: 0,
+    };
     if is_type1 != 0 {
         let mut enc_vec: [*mut i8; 256] = [ptr::null_mut(); 256];
         /*if (!is_pfb(fp))
@@ -1040,25 +1036,25 @@ unsafe fn dvi_locate_native_font(
                 CStr::from_ptr(filename).display()
             );
         }
-        let ref mut fresh18 = (*loaded_fonts.offset(cur_id as isize)).cffont;
+        let ref mut fresh18 = font.cffont;
         *fresh18 = cffont;
         if cff_dict_known((*cffont).topdict, b"FontBBox\x00" as *const u8 as *const i8) != 0 {
-            (*loaded_fonts.offset(cur_id as isize)).ascent = cff_dict_get(
+            font.ascent = cff_dict_get(
                 (*cffont).topdict,
                 b"FontBBox\x00" as *const u8 as *const i8,
                 3i32,
             ) as i32;
-            (*loaded_fonts.offset(cur_id as isize)).descent = cff_dict_get(
+            font.descent = cff_dict_get(
                 (*cffont).topdict,
                 b"FontBBox\x00" as *const u8 as *const i8,
                 1i32,
             ) as i32
         } else {
-            (*loaded_fonts.offset(cur_id as isize)).ascent = 690i32;
-            (*loaded_fonts.offset(cur_id as isize)).descent = -190i32
+            font.ascent = 690i32;
+            font.descent = -190i32
         }
-        (*loaded_fonts.offset(cur_id as isize)).unitsPerEm = 1000_u32;
-        (*loaded_fonts.offset(cur_id as isize)).numGlyphs = (*cffont).num_glyphs as u32;
+        font.unitsPerEm = 1000_u32;
+        font.numGlyphs = (*cffont).num_glyphs as u32;
     } else {
         let sfont = if is_dfont != 0 {
             dfont_open(handle, index as i32)
@@ -1074,14 +1070,14 @@ unsafe fn dvi_locate_native_font(
         let head = tt_read_head_table(sfont);
         let maxp = tt_read_maxp_table(sfont);
         let hhea = tt_read_hhea_table(sfont);
-        (*loaded_fonts.offset(cur_id as isize)).ascent = (*hhea).ascent as i32;
-        (*loaded_fonts.offset(cur_id as isize)).descent = (*hhea).descent as i32;
-        (*loaded_fonts.offset(cur_id as isize)).unitsPerEm = (*head).unitsPerEm as u32;
-        (*loaded_fonts.offset(cur_id as isize)).numGlyphs = (*maxp).numGlyphs as u32;
+        font.ascent = (*hhea).ascent as i32;
+        font.descent = (*hhea).descent as i32;
+        font.unitsPerEm = (*head).unitsPerEm as u32;
+        font.numGlyphs = (*maxp).numGlyphs as u32;
         if layout_dir == 1i32 && sfnt_find_table_pos(sfont, b"vmtx") > 0_u32 {
             let mut vhea: *mut tt_vhea_table = tt_read_vhea_table(sfont);
             sfnt_locate_table(sfont, b"vmtx");
-            let ref mut fresh19 = (*loaded_fonts.offset(cur_id as isize)).hvmt;
+            let ref mut fresh19 = font.hvmt;
             *fresh19 = tt_read_longMetrics(
                 sfont,
                 (*maxp).numGlyphs,
@@ -1091,7 +1087,7 @@ unsafe fn dvi_locate_native_font(
             free(vhea as *mut libc::c_void);
         } else {
             sfnt_locate_table(sfont, sfnt_table_info::HMTX);
-            let ref mut fresh20 = (*loaded_fonts.offset(cur_id as isize)).hvmt;
+            let ref mut fresh20 = font.hvmt;
             *fresh20 = tt_read_longMetrics(
                 sfont,
                 (*maxp).numGlyphs,
@@ -1104,14 +1100,15 @@ unsafe fn dvi_locate_native_font(
         free(head as *mut libc::c_void);
         sfnt_close(sfont);
     }
-    (*loaded_fonts.offset(cur_id as isize)).layout_dir = layout_dir;
-    (*loaded_fonts.offset(cur_id as isize)).extend = (*mrec).opt.extend as f32;
-    (*loaded_fonts.offset(cur_id as isize)).slant = (*mrec).opt.slant as f32;
-    (*loaded_fonts.offset(cur_id as isize)).embolden = (*mrec).opt.bold as f32;
+    font.layout_dir = layout_dir;
+    font.extend = (*mrec).opt.extend as f32;
+    font.slant = (*mrec).opt.slant as f32;
+    font.embolden = (*mrec).opt.bold as f32;
     if verbose != 0 {
         info!(">");
     }
-    cur_id
+    loaded_fonts.push(font);
+    loaded_fonts.len() as i32 - 1
 }
 
 pub unsafe fn dvi_dev_xpos() -> f64 {
@@ -1171,9 +1168,9 @@ pub unsafe fn dvi_set(mut ch: i32) {
      * the DVI size.  It's keeping me sane to keep *point sizes* of *all*
      * fonts in the dev.c file and convert them back if necessary.
      */
-    let font = &mut *loaded_fonts.offset(current_font as isize) as *mut loaded_font; /* Will actually move left */
-    let mut width = tfm_get_fw_width((*font).tfm_id, ch);
-    width = sqxfw((*font).size, width);
+    let font = &mut loaded_fonts[current_font as usize]; /* Will actually move left */
+    let mut width = tfm_get_fw_width(font.tfm_id, ch);
+    width = sqxfw(font.size, width);
     if lr_mode >= 2i32 {
         lr_width = (lr_width as u32).wrapping_add(width as u32) as u32;
         return;
@@ -1181,7 +1178,7 @@ pub unsafe fn dvi_set(mut ch: i32) {
     if lr_mode == 1i32 {
         dvi_right(width);
     }
-    match (*font).type_0 {
+    match font.type_0 {
         1 => {
             if ch > 65535i32 {
                 /* _FIXME_ */
@@ -1196,7 +1193,7 @@ pub unsafe fn dvi_set(mut ch: i32) {
                     wbuf.as_mut_ptr() as *const libc::c_void,
                     4i32 as size_t,
                     width,
-                    (*font).font_id,
+                    font.font_id,
                     2i32,
                 );
             } else if ch > 255i32 {
@@ -1209,11 +1206,11 @@ pub unsafe fn dvi_set(mut ch: i32) {
                     wbuf.as_mut_ptr() as *const libc::c_void,
                     2i32 as size_t,
                     width,
-                    (*font).font_id,
+                    font.font_id,
                     2i32,
                 );
-            } else if (*font).subfont_id >= 0i32 {
-                let mut uch: u16 = lookup_sfd_record((*font).subfont_id, ch as u8);
+            } else if font.subfont_id >= 0i32 {
+                let mut uch: u16 = lookup_sfd_record(font.subfont_id, ch as u8);
                 wbuf[0] = (uch as i32 >> 8i32 & 0xffi32) as u8;
                 wbuf[1] = (uch as i32 & 0xffi32) as u8;
                 pdf_dev_set_string(
@@ -1222,7 +1219,7 @@ pub unsafe fn dvi_set(mut ch: i32) {
                     wbuf.as_mut_ptr() as *const libc::c_void,
                     2i32 as size_t,
                     width,
-                    (*font).font_id,
+                    font.font_id,
                     2i32,
                 );
             } else {
@@ -1233,22 +1230,22 @@ pub unsafe fn dvi_set(mut ch: i32) {
                     wbuf.as_mut_ptr() as *const libc::c_void,
                     1i32 as size_t,
                     width,
-                    (*font).font_id,
+                    font.font_id,
                     1i32,
                 );
             }
             if dvi_is_tracking_boxes() {
                 let mut rect = Rect::zero();
-                let mut height = tfm_get_fw_height((*font).tfm_id, ch);
-                let mut depth = tfm_get_fw_depth((*font).tfm_id, ch);
-                height = sqxfw((*font).size, height);
-                depth = sqxfw((*font).size, depth);
+                let mut height = tfm_get_fw_height(font.tfm_id, ch);
+                let mut depth = tfm_get_fw_depth(font.tfm_id, ch);
+                height = sqxfw(font.size, height);
+                depth = sqxfw(font.size, depth);
                 pdf_dev_set_rect(&mut rect, dvi_state.h, -dvi_state.v, width, height, depth);
                 pdf_doc_expand_box(&mut rect);
             }
         }
         2 => {
-            vf_set_char(ch, (*font).font_id);
+            vf_set_char(ch, font.font_id);
         }
         _ => {}
     }
@@ -1262,7 +1259,7 @@ pub unsafe fn dvi_put(mut ch: i32) {
     if current_font < 0i32 {
         panic!("No font selected!");
     }
-    let font = &mut *loaded_fonts.offset(current_font as isize) as *mut loaded_font;
+    let font = &mut loaded_fonts[current_font as usize];
     match (*font).type_0 {
         1 => {
             let mut width = tfm_get_fw_width((*font).tfm_id, ch);
@@ -1475,43 +1472,33 @@ pub unsafe fn dvi_set_font(mut font_id: i32) {
     current_font = font_id;
 }
 unsafe fn do_fnt(mut tex_id: u32) {
-    let mut i = 0;
-    while i < num_def_fonts {
-        if (*def_fonts.offset(i as isize)).tex_id == tex_id {
-            break;
-        }
-        i += 1;
-    }
-    if i == num_def_fonts {
-        panic!(
-            "Tried to select a font that hasn\'t been defined: id={}",
-            tex_id
-        );
-    }
-    if (*def_fonts.offset(i as isize)).used == 0 {
-        let font_id = if (*def_fonts.offset(i as isize)).native != 0 {
+    let font = def_fonts.iter_mut()
+        .find(|font| font.tex_id == tex_id)
+        .expect("Tried to select a font that hasen't been defined");
+
+    if font.used == 0 {
+        let font_id = if font.native != 0 {
             dvi_locate_native_font(
-                (*def_fonts.offset(i as isize)).font_name,
-                (*def_fonts.offset(i as isize)).face_index,
-                (*def_fonts.offset(i as isize)).point_size,
-                (*def_fonts.offset(i as isize)).layout_dir,
-                (*def_fonts.offset(i as isize)).extend,
-                (*def_fonts.offset(i as isize)).slant,
-                (*def_fonts.offset(i as isize)).embolden,
-            ) as u32
+                font.font_name,
+                font.face_index,
+                font.point_size,
+                font.layout_dir,
+                font.extend,
+                font.slant,
+                font.embolden,
+            ) as usize
         } else {
             dvi_locate_font(
-                (*def_fonts.offset(i as isize)).font_name,
-                (*def_fonts.offset(i as isize)).point_size,
-            )
+                font.font_name,
+                font.point_size,
+            ) as usize
         };
-        (*loaded_fonts.offset(font_id as isize)).rgba_color =
-            (*def_fonts.offset(i as isize)).rgba_color;
-        (*loaded_fonts.offset(font_id as isize)).source = 1i32;
-        (*def_fonts.offset(i as isize)).used = 1i32;
-        (*def_fonts.offset(i as isize)).font_id = font_id as i32
+        loaded_fonts[font_id].rgba_color = font.rgba_color;
+        loaded_fonts[font_id].source = 1i32;
+        font.used = 1i32;
+        font.font_id = font_id as i32
     }
-    current_font = (*def_fonts.offset(i as isize)).font_id;
+    current_font = font.font_id;
 }
 unsafe fn do_xxx(mut size: i32) {
     if lr_mode < 2i32 {
@@ -1640,7 +1627,7 @@ unsafe fn do_glyphs(mut do_actual_text: i32) {
     if current_font < 0i32 {
         panic!("No font selected!");
     }
-    let font = &mut *loaded_fonts.offset(current_font as isize) as *mut loaded_font;
+    let font = &mut loaded_fonts[current_font as usize];
     if do_actual_text != 0 {
         let slen = get_buffered_unsigned_pair();
         if lr_mode >= 2i32 {
@@ -2016,29 +2003,23 @@ pub unsafe fn dvi_close() {
      */
     /* Do some house cleaning */
     ttstub_input_close(dvi_handle.take().unwrap());
-    if !def_fonts.is_null() {
-        for i in 0..num_def_fonts {
-            let ref mut fresh23 = (*def_fonts.offset(i as isize)).font_name;
-            *fresh23 =
-                mfree((*def_fonts.offset(i as isize)).font_name as *mut libc::c_void) as *mut i8;
-        }
-        free(def_fonts as *mut libc::c_void);
+
+    for font in &mut def_fonts {
+        font.font_name = mfree(font.font_name as *mut libc::c_void) as *mut i8;
     }
-    def_fonts = ptr::null_mut();
+    def_fonts.clear();
+
     page_loc = mfree(page_loc as *mut libc::c_void) as *mut u32;
     num_pages = 0_u32;
-    for i in 0..num_loaded_fonts {
-        free((*loaded_fonts.offset(i as isize)).hvmt as *mut libc::c_void);
-        let ref mut fresh24 = (*loaded_fonts.offset(i as isize)).hvmt;
-        *fresh24 = ptr::null_mut();
-        if !(*loaded_fonts.offset(i as isize)).cffont.is_null() {
-            cff_close((*loaded_fonts.offset(i as isize)).cffont);
+
+    for font in &mut loaded_fonts {
+        font.hvmt = mfree(font.hvmt as *mut libc::c_void) as _;
+        if !(font.cffont.is_null()) {
+            cff_close(font.cffont);
         }
-        let ref mut fresh25 = (*loaded_fonts.offset(i as isize)).cffont;
-        *fresh25 = ptr::null_mut();
+        font.cffont = ptr::null_mut();
     }
-    loaded_fonts = mfree(loaded_fonts as *mut libc::c_void) as *mut loaded_font;
-    num_loaded_fonts = 0_u32;
+    loaded_fonts.clear();
     vf_close_all_fonts();
     tfm_close_all();
     if !DVI_PAGE_BUFFER.is_empty() {
@@ -2547,11 +2528,9 @@ pub unsafe fn dvi_scan_specials(
 
 pub unsafe fn dvi_reset_global_state() {
     buffered_page = -1i32;
-    num_def_fonts = 0_u32;
-    max_def_fonts = 0_u32;
+    def_fonts = Vec::new();
     compute_boxes = 0i32;
     link_annot = 1i32;
     verbose = 0i32;
-    num_loaded_fonts = 0_u32;
-    max_loaded_fonts = 0_u32;
+    loaded_fonts = Vec::new();
 }
