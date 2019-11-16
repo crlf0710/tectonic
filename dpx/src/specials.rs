@@ -101,13 +101,13 @@ use super::dpx_pdfdev::Coord;
 #[repr(C)]
 pub struct Special {
     pub key: *const i8,
-    pub bodhk_func: Option<unsafe extern "C" fn() -> i32>,
-    pub eodhk_func: Option<unsafe extern "C" fn() -> i32>,
-    pub bophk_func: Option<unsafe extern "C" fn() -> i32>,
-    pub eophk_func: Option<unsafe extern "C" fn() -> i32>,
+    pub bodhk_func: Option<unsafe fn() -> i32>,
+    pub eodhk_func: Option<unsafe fn() -> i32>,
+    pub bophk_func: Option<unsafe fn() -> i32>,
+    pub eophk_func: Option<unsafe fn() -> i32>,
     pub check_func: fn(_: &[u8]) -> bool,
     pub setup_func:
-        unsafe extern "C" fn(_: *mut SpcHandler, _: *mut spc_env, _: *mut spc_arg) -> i32,
+        unsafe fn(_: *mut SpcHandler, _: *mut spc_env, _: *mut spc_arg) -> i32,
 }
 static mut VERBOSE: i32 = 0i32;
 pub unsafe fn spc_set_verbose(mut level: i32) {
@@ -116,22 +116,22 @@ pub unsafe fn spc_set_verbose(mut level: i32) {
 /* This is currently just to make other spc_xxx to not directly
  * call dvi_xxx.
  */
-pub unsafe extern "C" fn spc_begin_annot(mut _spe: *mut spc_env, mut dict: *mut pdf_obj) -> i32 {
+pub unsafe fn spc_begin_annot(mut _spe: *mut spc_env, mut dict: *mut pdf_obj) -> i32 {
     pdf_doc_begin_annot(dict); /* Tell dvi interpreter to handle line-break. */
     dvi_tag_depth();
     0i32
 }
-pub unsafe extern "C" fn spc_end_annot(mut _spe: *mut spc_env) -> i32 {
+pub unsafe fn spc_end_annot(mut _spe: *mut spc_env) -> i32 {
     dvi_untag_depth();
     pdf_doc_end_annot();
     0i32
 }
-pub unsafe extern "C" fn spc_resume_annot(mut _spe: *mut spc_env) -> i32 {
+pub unsafe fn spc_resume_annot(mut _spe: *mut spc_env) -> i32 {
     dvi_link_annot(1i32);
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn spc_suspend_annot(mut _spe: *mut spc_env) -> i32 {
+pub unsafe fn spc_suspend_annot(mut _spe: *mut spc_env) -> i32 {
     dvi_link_annot(0i32);
     0i32
 }
@@ -221,7 +221,7 @@ pub unsafe fn spc_lookup_reference(mut key: &CString) -> Option<*mut pdf_obj> {
         Some(value)
     }
 }
-pub unsafe extern "C" fn spc_lookup_object(mut key: *const i8) -> *mut pdf_obj {
+pub unsafe fn spc_lookup_object(mut key: *const i8) -> *mut pdf_obj {
     assert!(!NAMED_OBJECTS.is_null());
     if key.is_null() {
         return ptr::null_mut();
@@ -263,7 +263,7 @@ pub unsafe extern "C" fn spc_lookup_object(mut key: *const i8) -> *mut pdf_obj {
     */
     return value; /* _FIXME_ */
 }
-pub unsafe extern "C" fn spc_push_object(mut key: *const i8, mut value: *mut pdf_obj) {
+pub unsafe fn spc_push_object(mut key: *const i8, mut value: *mut pdf_obj) {
     assert!(!NAMED_OBJECTS.is_null());
     if key.is_null() || value.is_null() {
         return;
@@ -275,14 +275,14 @@ pub unsafe extern "C" fn spc_push_object(mut key: *const i8, mut value: *mut pdf
         value,
     );
 }
-pub unsafe extern "C" fn spc_flush_object(mut key: *const i8) {
+pub unsafe fn spc_flush_object(mut key: *const i8) {
     pdf_names_close_object(
         NAMED_OBJECTS,
         key as *const libc::c_void,
         strlen(key) as i32,
     );
 }
-pub unsafe extern "C" fn spc_clear_objects() {
+pub unsafe fn spc_clear_objects() {
     pdf_delete_name_tree(&mut NAMED_OBJECTS);
     NAMED_OBJECTS = pdf_new_name_tree();
 }
@@ -394,7 +394,7 @@ const KNOWN_SPECIALS: [Special; 8] = [
         setup_func: spc_misc_setup_handler,
     },
 ];
-pub unsafe extern "C" fn spc_exec_at_begin_page() -> i32 {
+pub unsafe fn spc_exec_at_begin_page() -> i32 {
     let mut error: i32 = 0i32;
     for spc in &KNOWN_SPECIALS {
         if let Some(bophk) = spc.bophk_func {
@@ -403,7 +403,7 @@ pub unsafe extern "C" fn spc_exec_at_begin_page() -> i32 {
     }
     error
 }
-pub unsafe extern "C" fn spc_exec_at_end_page() -> i32 {
+pub unsafe fn spc_exec_at_end_page() -> i32 {
     let mut error: i32 = 0i32;
     for spc in &KNOWN_SPECIALS {
         if let Some(eophk) = spc.eophk_func {
@@ -412,7 +412,7 @@ pub unsafe extern "C" fn spc_exec_at_end_page() -> i32 {
     }
     error
 }
-pub unsafe extern "C" fn spc_exec_at_begin_document() -> i32 {
+pub unsafe fn spc_exec_at_begin_document() -> i32 {
     let mut error: i32 = 0i32;
     assert!(NAMED_OBJECTS.is_null());
     NAMED_OBJECTS = pdf_new_name_tree();
@@ -423,7 +423,7 @@ pub unsafe extern "C" fn spc_exec_at_begin_document() -> i32 {
     }
     error
 }
-pub unsafe extern "C" fn spc_exec_at_end_document() -> i32 {
+pub unsafe fn spc_exec_at_end_document() -> i32 {
     let mut error: i32 = 0i32;
 
     for spc in &KNOWN_SPECIALS {
@@ -525,7 +525,7 @@ unsafe fn print_error(mut name: *const i8, mut spe: *mut spc_env, mut ap: *mut s
 /* This should not use pdf_. */
 /* PDF parser shouldn't depend on this...
  */
-pub unsafe extern "C" fn spc_exec_special(
+pub unsafe fn spc_exec_special(
     buffer: &[u8],
     mut x_user: f64,
     mut y_user: f64,

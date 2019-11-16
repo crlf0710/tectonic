@@ -237,7 +237,7 @@ static mut fms: *mut font_metric = std::ptr::null_mut();
 static mut numfms: u32 = 0_u32;
 static mut max_fms: u32 = 0_u32;
 #[no_mangle]
-pub unsafe extern "C" fn tfm_reset_global_state() {
+pub unsafe fn tfm_reset_global_state() {
     fms = ptr::null_mut();
     numfms = 0_u32;
     max_fms = 0_u32;
@@ -256,7 +256,7 @@ unsafe fn fms_need(mut n: u32) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn tfm_set_verbose(mut level: i32) {
+pub unsafe fn tfm_set_verbose(mut level: i32) {
     verbose = level;
 }
 unsafe fn fread_fwords(
@@ -775,7 +775,7 @@ unsafe fn read_tfm(
     tfm_font_clear(&mut tfm);
 }
 #[no_mangle]
-pub unsafe extern "C" fn tfm_open(mut tfm_name: *const i8, mut must_exist: i32) -> i32 {
+pub unsafe fn tfm_open(mut tfm_name: *const i8, mut must_exist: i32) -> i32 {
     let mut tfm_handle = None;
     let mut format: i32 = 1i32;
     let ofm_name;
@@ -877,7 +877,7 @@ pub unsafe extern "C" fn tfm_open(mut tfm_name: *const i8, mut must_exist: i32) 
     fresh1 as i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn tfm_close_all() {
+pub unsafe fn tfm_close_all() {
     if !fms.is_null() {
         for i in 0..numfms {
             fm_clear(&mut *fms.offset(i as isize));
@@ -886,7 +886,7 @@ pub unsafe extern "C" fn tfm_close_all() {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn tfm_get_fw_width(mut font_id: i32, mut ch: i32) -> fixword {
+pub unsafe fn tfm_get_fw_width(mut font_id: i32, mut ch: i32) -> fixword {
     let idx;
     if font_id < 0i32 || font_id as u32 >= numfms {
         panic!("TFM: Invalid TFM ID: {}", font_id);
@@ -914,7 +914,7 @@ pub unsafe extern "C" fn tfm_get_fw_width(mut font_id: i32, mut ch: i32) -> fixw
     *(*fm).widths.offset(idx as isize)
 }
 #[no_mangle]
-pub unsafe extern "C" fn tfm_get_fw_height(mut font_id: i32, mut ch: i32) -> fixword {
+pub unsafe fn tfm_get_fw_height(mut font_id: i32, mut ch: i32) -> fixword {
     let idx;
     if font_id < 0i32 || font_id as u32 >= numfms {
         panic!("TFM: Invalid TFM ID: {}", font_id);
@@ -942,7 +942,7 @@ pub unsafe extern "C" fn tfm_get_fw_height(mut font_id: i32, mut ch: i32) -> fix
     *(*fm).heights.offset(idx as isize)
 }
 #[no_mangle]
-pub unsafe extern "C" fn tfm_get_fw_depth(mut font_id: i32, mut ch: i32) -> fixword {
+pub unsafe fn tfm_get_fw_depth(mut font_id: i32, mut ch: i32) -> fixword {
     let idx;
     if font_id < 0i32 || font_id as u32 >= numfms {
         panic!("TFM: Invalid TFM ID: {}", font_id);
@@ -974,12 +974,12 @@ pub unsafe extern "C" fn tfm_get_fw_depth(mut font_id: i32, mut ch: i32) -> fixw
  * as a (double) fraction of the design size.
  */
 #[no_mangle]
-pub unsafe extern "C" fn tfm_get_width(mut font_id: i32, mut ch: i32) -> f64 {
+pub unsafe fn tfm_get_width(mut font_id: i32, mut ch: i32) -> f64 {
     tfm_get_fw_width(font_id, ch) as f64 / (1i32 << 20i32) as f64
 }
 /* tfm_string_xxx() do not work for OFM... */
 #[no_mangle]
-pub unsafe extern "C" fn tfm_string_width(
+pub unsafe fn tfm_string_width(
     mut font_id: i32,
     mut s: *const u8,
     mut len: u32,
@@ -994,7 +994,7 @@ pub unsafe extern "C" fn tfm_string_width(
     result
 }
 #[no_mangle]
-pub unsafe extern "C" fn tfm_get_design_size(mut font_id: i32) -> f64 {
+pub unsafe fn tfm_get_design_size(mut font_id: i32) -> f64 {
     if font_id < 0i32 || font_id as u32 >= numfms {
         panic!("TFM: Invalid TFM ID: {}", font_id);
     }
@@ -1003,7 +1003,7 @@ pub unsafe extern "C" fn tfm_get_design_size(mut font_id: i32) -> f64 {
 }
 /* From TFM header */
 #[no_mangle]
-pub unsafe extern "C" fn tfm_exists(tfm_name: &[u8]) -> bool {
+pub unsafe fn tfm_exists(tfm_name: &[u8]) -> bool {
     if tfm_name.is_empty() {
         return false;
     }

@@ -33,7 +33,7 @@ use std::ptr;
 pub type size_t = u64;
 
 #[no_mangle]
-pub unsafe extern "C" fn new(mut size: u32) -> *mut libc::c_void {
+pub unsafe fn new(mut size: u32) -> *mut libc::c_void {
     let mut result: *mut libc::c_void = malloc(size as _);
     if result.is_null() {
         panic!("Out of memory - asked for {} bytes\n", size);
@@ -41,7 +41,7 @@ pub unsafe extern "C" fn new(mut size: u32) -> *mut libc::c_void {
     result
 }
 #[no_mangle]
-pub unsafe extern "C" fn renew(mut mem: *mut libc::c_void, mut size: u32) -> *mut libc::c_void {
+pub unsafe fn renew(mut mem: *mut libc::c_void, mut size: u32) -> *mut libc::c_void {
     if size != 0 {
         let mut result: *mut libc::c_void = realloc(mem, size as _);
         if result.is_null() {

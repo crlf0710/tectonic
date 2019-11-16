@@ -156,7 +156,7 @@ pub static mut paperspecs: [paper; 21] = [
     },
 ];
 #[no_mangle]
-pub unsafe extern "C" fn paperinfo(ppformat: &[u8]) -> Option<*const paper> {
+pub unsafe fn paperinfo(ppformat: &[u8]) -> Option<*const paper> {
     if ppformat.is_empty() {
         return None;
     }
@@ -170,7 +170,7 @@ pub unsafe extern "C" fn paperinfo(ppformat: &[u8]) -> Option<*const paper> {
 /* HAVE_LIBPAPER */
 /* HAVE_LIBPAPER */
 /*#[no_mangle]
-pub unsafe extern "C" fn dumppaperinfo() {
+pub unsafe fn dumppaperinfo() {
     for ppinfo in &paperspecs {
         let wd = ppinfo.pswidth;
         let ht = ppinfo.psheight;

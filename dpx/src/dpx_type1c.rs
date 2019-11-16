@@ -138,7 +138,7 @@ use super::dpx_cs_type2::cs_ginfo;
  */
 /* Font info. from OpenType tables */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_open_type1c(mut font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_open_type1c(mut font: *mut pdf_font) -> i32 {
     assert!(!font.is_null());
     let ident = pdf_font_get_ident(font);
     let encoding_id = pdf_font_get_encoding(font);
@@ -208,7 +208,7 @@ pub unsafe extern "C" fn pdf_font_open_type1c(mut font: *mut pdf_font) -> i32 {
     sfnt_close(sfont);
     0i32
 }
-unsafe extern "C" fn add_SimpleMetrics(
+unsafe fn add_SimpleMetrics(
     mut font: *mut pdf_font,
     cffont: &cff_font,
     mut widths: *mut f64,
@@ -295,7 +295,7 @@ unsafe extern "C" fn add_SimpleMetrics(
     pdf_add_dict(fontdict, "LastChar", pdf_new_number(lastchar as f64));
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
     let mut offset: i32 = 0i32;
     let mut ginfo = cs_ginfo::new();
     let mut widths: [f64; 256] = [0.; 256];

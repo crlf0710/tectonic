@@ -220,7 +220,7 @@ static mut DVI_INFO: dvi_header = dvi_header {
 static mut dev_origin_x: f64 = 72.0f64;
 static mut dev_origin_y: f64 = 770.0f64;
 #[no_mangle]
-pub unsafe extern "C" fn get_origin(mut x: i32) -> f64 {
+pub unsafe fn get_origin(mut x: i32) -> f64 {
     if x != 0 {
         dev_origin_x
     } else {
@@ -343,7 +343,7 @@ unsafe fn get_buffered_unsigned_num(mut num: u8) -> i32 {
     quad
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_set_verbose(mut level: i32) {
+pub unsafe fn dvi_set_verbose(mut level: i32) {
     verbose = level;
     subfont_set_verbose(level);
     tfm_set_verbose(level);
@@ -351,7 +351,7 @@ pub unsafe extern "C" fn dvi_set_verbose(mut level: i32) {
     spc_set_verbose(level);
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_npages() -> u32 {
+pub unsafe fn dvi_npages() -> u32 {
     num_pages
 }
 
@@ -478,7 +478,7 @@ unsafe fn get_page_info(mut post_location: i32) {
 static mut dvi2pts: f64 = 1.52018f64;
 static mut total_mag: f64 = 1.0f64;
 #[no_mangle]
-pub unsafe extern "C" fn dvi_tell_mag() -> f64 {
+pub unsafe fn dvi_tell_mag() -> f64 {
     return total_mag; /* unused */
 }
 unsafe fn do_scales(mut mag: f64) {
@@ -510,7 +510,7 @@ unsafe fn get_dvi_info(mut post_location: i32) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_comment() -> *const i8 {
+pub unsafe fn dvi_comment() -> *const i8 {
     DVI_INFO.comment.as_mut_ptr() as *const i8
 }
 unsafe fn read_font_record(mut tex_id: u32) {
@@ -736,26 +736,26 @@ unsafe fn dvi_mark_depth() {
  * links.
  */
 #[no_mangle]
-pub unsafe extern "C" fn dvi_tag_depth() {
+pub unsafe fn dvi_tag_depth() {
     tagged_depth = marked_depth;
     dvi_compute_boxes(1i32);
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_untag_depth() {
+pub unsafe fn dvi_untag_depth() {
     tagged_depth = -1i32;
     dvi_compute_boxes(0i32);
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_compute_boxes(mut flag: i32) {
+pub unsafe fn dvi_compute_boxes(mut flag: i32) {
     compute_boxes = flag;
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_link_annot(mut flag: i32) {
+pub unsafe fn dvi_link_annot(mut flag: i32) {
     link_annot = flag;
 }
 /* allow other modules (pdfdev) to ask whether we're collecting box areas */
 #[no_mangle]
-pub unsafe extern "C" fn dvi_is_tracking_boxes() -> bool {
+pub unsafe fn dvi_is_tracking_boxes() -> bool {
     compute_boxes != 0 && link_annot != 0 && marked_depth >= tagged_depth
 }
 /* link or nolink:
@@ -768,7 +768,7 @@ pub unsafe extern "C" fn dvi_is_tracking_boxes() -> bool {
  * handled by inspecting current depth of DVI register stack.
  */
 #[no_mangle]
-pub unsafe extern "C" fn dvi_do_special(buffer: &[u8]) {
+pub unsafe fn dvi_do_special(buffer: &[u8]) {
     /* VF or device font ID */
     graphics_mode();
     let x_user = dvi_state.h as f64 * dvi2pts;
@@ -781,11 +781,11 @@ pub unsafe extern "C" fn dvi_do_special(buffer: &[u8]) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_unit_size() -> f64 {
+pub unsafe fn dvi_unit_size() -> f64 {
     dvi2pts
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_locate_font(mut tfm_name: *const i8, mut ptsize: spt_t) -> u32 {
+pub unsafe fn dvi_locate_font(mut tfm_name: *const i8, mut ptsize: spt_t) -> u32 {
     let mut subfont_id: i32 = -1i32;
     if verbose != 0 {
         info!(
@@ -1118,11 +1118,11 @@ unsafe fn dvi_locate_native_font(
     cur_id
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_dev_xpos() -> f64 {
+pub unsafe fn dvi_dev_xpos() -> f64 {
     dvi_state.h as f64 * dvi2pts
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_dev_ypos() -> f64 {
+pub unsafe fn dvi_dev_ypos() -> f64 {
     -(dvi_state.v as f64 * dvi2pts)
 }
 unsafe fn do_moveto(mut x: i32, mut y: i32) {
@@ -1131,7 +1131,7 @@ unsafe fn do_moveto(mut x: i32, mut y: i32) {
 }
 /* FIXME: dvi_forward() might be a better name */
 #[no_mangle]
-pub unsafe extern "C" fn dvi_right(mut x: i32) {
+pub unsafe fn dvi_right(mut x: i32) {
     if lr_mode >= 2i32 {
         lr_width = (lr_width as u32).wrapping_add(x as u32) as u32;
         return;
@@ -1147,7 +1147,7 @@ pub unsafe extern "C" fn dvi_right(mut x: i32) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_down(mut y: i32) {
+pub unsafe fn dvi_down(mut y: i32) {
     if lr_mode < 2i32 {
         match dvi_state.d {
             0 => dvi_state.v += y,
@@ -1163,7 +1163,7 @@ pub unsafe extern "C" fn dvi_down(mut y: i32) {
  * is not clear.
  */
 #[no_mangle]
-pub unsafe extern "C" fn dvi_set(mut ch: i32) {
+pub unsafe fn dvi_set(mut ch: i32) {
     let mut wbuf: [u8; 4] = [0; 4];
     if current_font < 0i32 {
         panic!("No font selected!");
@@ -1261,7 +1261,7 @@ pub unsafe extern "C" fn dvi_set(mut ch: i32) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_put(mut ch: i32) {
+pub unsafe fn dvi_put(mut ch: i32) {
     let mut wbuf: [u8; 4] = [0; 4];
     if current_font < 0i32 {
         panic!("No font selected!");
@@ -1345,7 +1345,7 @@ pub unsafe extern "C" fn dvi_put(mut ch: i32) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_rule(mut width: i32, mut height: i32) {
+pub unsafe fn dvi_rule(mut width: i32, mut height: i32) {
     if width > 0i32 && height > 0i32 {
         do_moveto(dvi_state.h, dvi_state.v);
         match dvi_state.d {
@@ -1363,7 +1363,7 @@ pub unsafe extern "C" fn dvi_rule(mut width: i32, mut height: i32) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_dirchg(mut dir: u8) {
+pub unsafe fn dvi_dirchg(mut dir: u8) {
     if verbose != 0 {
         eprintln!("  > dvi_dirchg {}", dir as i32);
     }
@@ -1402,7 +1402,7 @@ unsafe fn do_putrule() {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_push() {
+pub unsafe fn dvi_push() {
     if dvi_stack_depth as u32 >= 256u32 {
         panic!("DVI stack exceeded limit.");
     }
@@ -1411,7 +1411,7 @@ pub unsafe extern "C" fn dvi_push() {
     dvi_stack[fresh21 as usize] = dvi_state;
 }
 #[no_mangle]
-pub unsafe extern "C" fn dpx_dvi_pop() {
+pub unsafe fn dpx_dvi_pop() {
     if dvi_stack_depth <= 0i32 {
         panic!("Tried to pop an empty stack.");
     }
@@ -1422,39 +1422,39 @@ pub unsafe extern "C" fn dpx_dvi_pop() {
     /* 0: horizontal, 1,3: vertical */
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_w(mut ch: i32) {
+pub unsafe fn dvi_w(mut ch: i32) {
     dvi_state.w = ch;
     dvi_right(ch);
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_w0() {
+pub unsafe fn dvi_w0() {
     dvi_right(dvi_state.w);
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_x(mut ch: i32) {
+pub unsafe fn dvi_x(mut ch: i32) {
     dvi_state.x = ch;
     dvi_right(ch);
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_x0() {
+pub unsafe fn dvi_x0() {
     dvi_right(dvi_state.x);
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_y(mut ch: i32) {
+pub unsafe fn dvi_y(mut ch: i32) {
     dvi_state.y = ch;
     dvi_down(ch);
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_y0() {
+pub unsafe fn dvi_y0() {
     dvi_down(dvi_state.y);
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_z(mut ch: i32) {
+pub unsafe fn dvi_z(mut ch: i32) {
     dvi_state.z = ch;
     dvi_down(ch);
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_z0() {
+pub unsafe fn dvi_z0() {
     dvi_down(dvi_state.z);
 }
 unsafe fn skip_fntdef() {
@@ -1475,7 +1475,7 @@ unsafe fn do_fntdef(mut tex_id: u32) {
     DVI_PAGE_BUF_INDEX -= 1;
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_set_font(mut font_id: i32) {
+pub unsafe fn dvi_set_font(mut font_id: i32) {
     current_font = font_id;
 }
 unsafe fn do_fnt(mut tex_id: u32) {
@@ -1812,7 +1812,7 @@ unsafe fn check_postamble() {
  * the dvi file is here.
  */
 #[no_mangle]
-pub unsafe extern "C" fn dvi_do_page(
+pub unsafe fn dvi_do_page(
     mut page_paper_height: f64,
     mut hmargin: f64,
     mut vmargin: f64,
@@ -1987,7 +1987,7 @@ pub unsafe extern "C" fn dvi_do_page(
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_init(mut dvi_filename: *const i8, mut mag: f64) -> f64 {
+pub unsafe fn dvi_init(mut dvi_filename: *const i8, mut mag: f64) -> f64 {
     if dvi_filename.is_null() {
         panic!("filename must be specified");
     }
@@ -2009,7 +2009,7 @@ pub unsafe extern "C" fn dvi_init(mut dvi_filename: *const i8, mut mag: f64) -> 
     dvi2pts
 }
 #[no_mangle]
-pub unsafe extern "C" fn dvi_close() {
+pub unsafe fn dvi_close() {
     if linear != 0 {
         /* probably reading a pipe from xetex; consume any remaining data */
         while ttstub_input_getc(dvi_handle.as_mut().unwrap()) != -1i32 {}
@@ -2058,7 +2058,7 @@ may be undefined */
 static mut saved_dvi_font: [i32; 16] = [0; 16];
 static mut num_saved_fonts: u32 = 0_u32;
 #[no_mangle]
-pub unsafe extern "C" fn dvi_vf_init(mut dev_font_id: i32) {
+pub unsafe fn dvi_vf_init(mut dev_font_id: i32) {
     dvi_push();
     dvi_state.w = 0i32;
     dvi_state.x = 0i32;
@@ -2076,7 +2076,7 @@ pub unsafe extern "C" fn dvi_vf_init(mut dev_font_id: i32) {
 }
 /* After VF subroutine is finished, we simply pop the DVI stack */
 #[no_mangle]
-pub unsafe extern "C" fn dvi_vf_finish() {
+pub unsafe fn dvi_vf_finish() {
     dpx_dvi_pop();
     if num_saved_fonts > 0_u32 {
         num_saved_fonts -= 1;
@@ -2390,7 +2390,7 @@ static mut buffered_page: i32 = -1i32;
 /* Closes data structures created by dvi_open */
 /* Renamed to avoid clash with XeTeX */
 #[no_mangle]
-pub unsafe extern "C" fn dvi_scan_specials(
+pub unsafe fn dvi_scan_specials(
     mut page_no: i32,
     mut page_width: *mut f64,
     mut page_height: *mut f64,
@@ -2549,7 +2549,7 @@ pub unsafe extern "C" fn dvi_scan_specials(
 /* spt_t */
 /* instantiated in dvipdfmx.c */
 #[no_mangle]
-pub unsafe extern "C" fn dvi_reset_global_state() {
+pub unsafe fn dvi_reset_global_state() {
     buffered_page = -1i32;
     num_def_fonts = 0_u32;
     max_def_fonts = 0_u32;

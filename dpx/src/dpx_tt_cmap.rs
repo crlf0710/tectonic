@@ -171,7 +171,7 @@ pub struct cmap_plat_enc_rec {
 }
 static mut verbose: i32 = 0i32;
 #[no_mangle]
-pub unsafe extern "C" fn otf_cmap_set_verbose(mut level: i32) {
+pub unsafe fn otf_cmap_set_verbose(mut level: i32) {
     otl_gsub_set_verbose(level);
     verbose = level;
 }
@@ -448,7 +448,7 @@ unsafe fn lookup_cmap12(mut map: *mut cmap12, mut cccc: u32) -> u16 {
 }
 /* read cmap */
 #[no_mangle]
-pub unsafe extern "C" fn tt_cmap_read(
+pub unsafe fn tt_cmap_read(
     mut sfont: *mut sfnt,
     mut platform: u16,
     mut encoding: u16,
@@ -520,7 +520,7 @@ pub unsafe extern "C" fn tt_cmap_read(
     cmap
 }
 #[no_mangle]
-pub unsafe extern "C" fn tt_cmap_release(mut cmap: *mut tt_cmap) {
+pub unsafe fn tt_cmap_release(mut cmap: *mut tt_cmap) {
     if !cmap.is_null() {
         if !(*cmap).map.is_null() {
             match (*cmap).format as i32 {
@@ -548,7 +548,7 @@ pub unsafe extern "C" fn tt_cmap_release(mut cmap: *mut tt_cmap) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn tt_cmap_lookup(mut cmap: *mut tt_cmap, mut cc: u32) -> u16 {
+pub unsafe fn tt_cmap_lookup(mut cmap: *mut tt_cmap, mut cc: u32) -> u16 {
     assert!(!cmap.is_null());
     if cc as i64 > 0xffff && ((*cmap).format as i32) < 12i32 {
         warn!("Four bytes charcode not supported in OpenType/TrueType cmap format 0...6.");
@@ -1241,7 +1241,7 @@ static mut cmap_plat_encs: [cmap_plat_enc_rec; 5] = [
         },
 ];
 #[no_mangle]
-pub unsafe extern "C" fn otf_create_ToUnicode_stream(
+pub unsafe fn otf_create_ToUnicode_stream(
     mut font_name: *const i8,
     mut ttc_index: i32,
     mut used_chars: *const i8,
@@ -1441,7 +1441,7 @@ unsafe fn load_base_CMap(
 /* Indirect reference */
 /* CMap ID */
 #[no_mangle]
-pub unsafe extern "C" fn otf_load_Unicode_CMap(
+pub unsafe fn otf_load_Unicode_CMap(
     mut map_name: *const i8,
     mut ttc_index: i32,
     mut otl_tags: *const i8,

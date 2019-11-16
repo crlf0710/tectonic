@@ -194,7 +194,7 @@ pub struct tt_longMetrics {
   head->glyphDataFormat --> glyf
 */
 #[no_mangle]
-pub unsafe extern "C" fn tt_pack_head_table(mut table: *mut tt_head_table) -> *mut i8 {
+pub unsafe fn tt_pack_head_table(mut table: *mut tt_head_table) -> *mut i8 {
     if table.is_null() {
         panic!("passed NULL pointer\n");
     }
@@ -250,7 +250,7 @@ pub unsafe extern "C" fn tt_pack_head_table(mut table: *mut tt_head_table) -> *m
     data
 }
 #[no_mangle]
-pub unsafe extern "C" fn tt_read_head_table(mut sfont: *mut sfnt) -> *mut tt_head_table {
+pub unsafe fn tt_read_head_table(mut sfont: *mut sfnt) -> *mut tt_head_table {
     let mut table: *mut tt_head_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_head_table>() as u64)
         as u32) as *mut tt_head_table;
@@ -280,7 +280,7 @@ pub unsafe extern "C" fn tt_read_head_table(mut sfont: *mut sfnt) -> *mut tt_hea
     table
 }
 #[no_mangle]
-pub unsafe extern "C" fn tt_pack_maxp_table(mut table: *mut tt_maxp_table) -> *mut i8 {
+pub unsafe fn tt_pack_maxp_table(mut table: *mut tt_maxp_table) -> *mut i8 {
     let data = new((32u64 as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
         as *mut i8;
     let mut p = data;
@@ -339,7 +339,7 @@ pub unsafe extern "C" fn tt_pack_maxp_table(mut table: *mut tt_maxp_table) -> *m
     data
 }
 #[no_mangle]
-pub unsafe extern "C" fn tt_read_maxp_table(mut sfont: *mut sfnt) -> *mut tt_maxp_table {
+pub unsafe fn tt_read_maxp_table(mut sfont: *mut sfnt) -> *mut tt_maxp_table {
     let mut table: *mut tt_maxp_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_maxp_table>() as u64)
         as u32) as *mut tt_maxp_table;
@@ -363,7 +363,7 @@ pub unsafe extern "C" fn tt_read_maxp_table(mut sfont: *mut sfnt) -> *mut tt_max
     table
 }
 #[no_mangle]
-pub unsafe extern "C" fn tt_pack_hhea_table(mut table: *mut tt_hhea_table) -> *mut i8 {
+pub unsafe fn tt_pack_hhea_table(mut table: *mut tt_hhea_table) -> *mut i8 {
     let data = new((36u64 as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
         as *mut i8;
     let mut p = data;
@@ -413,7 +413,7 @@ pub unsafe extern "C" fn tt_pack_hhea_table(mut table: *mut tt_hhea_table) -> *m
     data
 }
 #[no_mangle]
-pub unsafe extern "C" fn tt_read_hhea_table(mut sfont: *mut sfnt) -> *mut tt_hhea_table {
+pub unsafe fn tt_read_hhea_table(mut sfont: *mut sfnt) -> *mut tt_hhea_table {
     let mut table: *mut tt_hhea_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_hhea_table>() as u64)
         as u32) as *mut tt_hhea_table;
@@ -446,7 +446,7 @@ pub unsafe extern "C" fn tt_read_hhea_table(mut sfont: *mut sfnt) -> *mut tt_hhe
 }
 /* vhea */
 #[no_mangle]
-pub unsafe extern "C" fn tt_read_vhea_table(mut sfont: *mut sfnt) -> *mut tt_vhea_table {
+pub unsafe fn tt_read_vhea_table(mut sfont: *mut sfnt) -> *mut tt_vhea_table {
     let mut table: *mut tt_vhea_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_vhea_table>() as u64)
         as u32) as *mut tt_vhea_table;
@@ -475,7 +475,7 @@ pub unsafe extern "C" fn tt_read_vhea_table(mut sfont: *mut sfnt) -> *mut tt_vhe
     table
 }
 #[no_mangle]
-pub unsafe extern "C" fn tt_read_VORG_table(mut sfont: *mut sfnt) -> *mut tt_VORG_table {
+pub unsafe fn tt_read_VORG_table(mut sfont: *mut sfnt) -> *mut tt_VORG_table {
     let offset = sfnt_find_table_pos(sfont, b"VORG");
     let handle = &mut (*sfont).handle;
     if offset > 0_u32 {
@@ -513,7 +513,7 @@ pub unsafe extern "C" fn tt_read_VORG_table(mut sfont: *mut sfnt) -> *mut tt_VOR
  *  Reading/writing hmtx and vmtx depend on other tables, maxp and hhea/vhea.
  */
 #[no_mangle]
-pub unsafe extern "C" fn tt_read_longMetrics(
+pub unsafe fn tt_read_longMetrics(
     mut sfont: *mut sfnt,
     mut numGlyphs: u16,
     mut numLongMetrics: u16,
@@ -540,7 +540,7 @@ pub unsafe extern "C" fn tt_read_longMetrics(
 /* OS/2 table */
 /* this table may not exist */
 #[no_mangle]
-pub unsafe extern "C" fn tt_read_os2__table(mut sfont: *mut sfnt) -> *mut tt_os2__table {
+pub unsafe fn tt_read_os2__table(mut sfont: *mut sfnt) -> *mut tt_os2__table {
     let table = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_os2__table>() as u64) as u32)
         as *mut tt_os2__table;
     let handle = &mut (*sfont).handle;
@@ -692,7 +692,7 @@ unsafe fn tt_get_name(
 /* OS/2 table */
 /* name table */
 #[no_mangle]
-pub unsafe extern "C" fn tt_get_ps_fontname(
+pub unsafe fn tt_get_ps_fontname(
     mut sfont: *mut sfnt,
     mut dest: *mut i8,
     mut destlen: u16,
