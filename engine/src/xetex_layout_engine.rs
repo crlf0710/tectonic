@@ -16,9 +16,11 @@
 
 // Fc* functions are from fontconfig.
 
+use crate::stub_icu as icu;
 use crate::core_memory::{xcalloc, xmalloc};
 use harfbuzz_sys::*;
 
+use crate::text_layout_engine::{TextLayoutEngine, LayoutRequest, NodeLayout};
 use crate::xetex_font_info::XeTeXFontInst;
 #[cfg(target_os = "macos")]
 use crate::xetex_font_info::XeTeXFontInst_Mac_create;
@@ -425,6 +427,382 @@ pub struct XeTeXLayoutEngine_rec {
 }
 
 pub type XeTeXLayoutEngine = *mut XeTeXLayoutEngine_rec;
+
+impl TextLayoutEngine for XeTeXLayoutEngine_rec {
+    /// getFontRef
+    fn platform_font_ref(&self) -> PlatformFontRef {
+        self.fontRef
+    }
+    /// getFontInst
+    fn font_instance(&self) -> *mut XeTeXFontInst {
+        self.font
+    }
+    /// getFontFilename
+    fn font_filename(&self, index: &mut u32) -> *mut libc::c_char {
+        unsafe {
+            xstrdup(XeTeXFontInst_getFilename(self.font, index))
+        }
+    }
+    /// getExtendFactor
+    fn extend_factor(&self) -> f32 {
+        self.extend
+    }
+    /// getPointSize
+    fn point_size(&self) -> f32 {
+        unsafe {
+            XeTeXFontInst_getPointSize(self.font)
+        }
+    }
+    /// getAscentAndDescent
+    fn ascent_and_descent(&self, ascent: &mut f32, descent: &mut f32) {
+        unsafe {
+            *ascent = XeTeXFontInst_getAscent(self.font);
+            *descent = XeTeXFontInst_getDescent(self.font);
+        }
+    }
+
+    /// getCapAndXHeight
+    fn cap_and_x_height(&self, capheight: &mut f32, xheight: &mut f32) {
+        unsafe {
+            *capheight = XeTeXFontInst_getCapHeight(self.font);
+            *xheight = XeTeXFontInst_getXHeight(self.font);
+        }
+    }
+    /// getEmboldenFactor
+    fn embolden_factor(&self) -> f32 {
+        self.embolden
+    }
+    /// getDefaultDirection
+    // TODO: TextDirection
+    fn default_direction(&self) -> i32 {
+        unsafe {
+            let mut script: hb_script_t = hb_buffer_get_script(self.hbBuffer);
+            if hb_script_get_horizontal_direction(script) as libc::c_uint
+                == HB_DIRECTION_RTL as libc::c_int as libc::c_uint
+            {
+                0xffi32
+            } else {
+                0xfei32
+            }
+        }
+    }
+
+    /// getRgbValue
+    fn rgb_value(&self) -> u32 {
+        self.rgbValue
+    }
+
+    /// getGlyphBounds (had out param)
+    unsafe fn glyph_bbox(&self, glyphID: u32) -> Option<GlyphBBox> {
+        let font_info = &*self.font;
+
+        // TODO: xetex_font_info uses u16 (why??????), but glyph IDs should be u32
+        font_info.get_glyph_bounds(glyphID as u16)
+            .map(|mut bbox| {
+                if self.extend != 0.0f32 {
+                    bbox.xMin *= self.extend;
+                    bbox.xMax *= self.extend;
+                }
+                bbox
+            })
+    }
+
+    unsafe fn getGlyphWidthFromEngine(&self, glyphID: u32) -> f32 {
+        self.extend * unsafe { XeTeXFontInst_getGlyphWidth(self.font, glyphID as GlyphID) }
+    }
+
+    /// getGlyphHeightDepth (had out params height, depth)
+    unsafe fn glyph_height_depth(&self, glyphID: u32) -> Option<(f32, f32)> {
+        let mut height: f32 = 0.;
+        let mut depth: f32 = 0.;
+        // TODO: None if glyph not found
+        unsafe {
+            XeTeXFontInst_getGlyphHeightDepth(self.font, glyphID as GlyphID, &mut height, &mut depth);
+        }
+        Some((height, depth))
+    }
+
+    /// getGlyphSidebearings (had out params lsb, rsb)
+    unsafe fn glyph_sidebearings(&self, mut glyphID: u32) -> Option<(f32, f32)> {
+        let mut lsb = 0.;
+        let mut rsb = 0.;
+        // TODO: None if glyph not found
+        unsafe {
+            XeTeXFontInst_getGlyphSidebearings(self.font, glyphID as GlyphID, &mut lsb, &mut rsb);
+        }
+        if self.extend as f64 != 0.0f64 {
+            lsb *= self.extend;
+            rsb *= self.extend;
+        };
+        Some((lsb, rsb))
+    }
+
+    /// getGlyphItalCorr
+    unsafe fn glyph_ital_correction(&self, glyphID: u32) -> Option<f32> {
+        /// XXX: return none if glyph not found
+        Some(self.extend * XeTeXFontInst_getGlyphItalCorr(self.font, glyphID as GlyphID))
+    }
+
+    /// mapCharToGlyph
+    unsafe fn map_codepoint_to_glyph(&self, codepoint: u32) -> u32 {
+        XeTeXFontInst_mapCharToGlyph(self.font, codepoint as UChar32) as u32
+    }
+
+    /// getFontCharRange
+    /// Another candidate for using XeTeXFontInst directly
+    unsafe fn font_char_range(&self, mut reqFirst: libc::c_int) -> libc::c_int {
+        if reqFirst != 0 {
+            return XeTeXFontInst_getFirstCharCode(self.font);
+        } else {
+            return XeTeXFontInst_getLastCharCode(self.font);
+        }
+    }
+
+    /// mapGlyphToIndex
+    unsafe fn map_glyph_to_index(
+        &self,
+        mut glyphName: *const libc::c_char,
+    ) -> i32 {
+        XeTeXFontInst_mapGlyphToIndex(self.font, glyphName) as i32
+    }
+
+    unsafe fn usingGraphite(&self) -> bool {
+        if !self.shaper.is_null()
+            && strcmp(
+                b"graphite2\x00" as *const u8 as *const libc::c_char,
+                self.shaper,
+            ) == 0i32
+        {
+            true
+        } else {
+            false
+        }
+    }
+
+    unsafe fn initGraphiteBreaking(
+        &mut self,
+        txtPtr: *const uint16_t,
+        txtLen: i32,
+    ) -> bool {
+        initGraphiteBreaking(self, txtPtr, txtLen)
+    }
+
+    unsafe fn usingOpenType(&self) -> bool {
+        if self.shaper.is_null()
+            || strcmp(
+                b"ot\x00" as *const u8 as *const libc::c_char,
+                self.shaper,
+            ) == 0i32
+        {
+            true
+        } else {
+            false
+        }
+    }
+
+    unsafe fn isOpenTypeMathFont(&self) -> bool {
+        hb_ot_math_has_data(hb_font_get_face(XeTeXFontInst_getHbFont(self.font))) != 0
+    }
+
+    unsafe fn layout_text(&mut self, request: LayoutRequest) -> NodeLayout {
+        use crate::bridge::size_t;
+
+        // XXX use slices
+        let txtPtr = request.text.as_ptr();
+        let txtLen = request.text.len() as i32;
+
+        let mut locations: *mut FixedPoint = ptr::null_mut();
+        let mut glyphIDs: *mut u16 = ptr::null_mut();
+        let mut glyphAdvances: *mut Fixed = ptr::null_mut();
+        let mut totalGlyphCount: i32 = 0i32;
+        /* need to find direction runs within the text, and call layoutChars separately for each */
+        let mut dir: icu::UBiDiDirection = icu::UBIDI_LTR;
+        let mut glyph_info: *mut FixedPoint = ptr::null_mut();
+        static mut positions: *mut FloatPoint = ptr::null_mut();
+        static mut advances: *mut f32 = ptr::null_mut();
+        static mut glyphs: *mut u32 = ptr::null_mut();
+        let mut pBiDi: *mut icu::UBiDi = icu::ubidi_open();
+        let mut errorCode: icu::UErrorCode = icu::U_ZERO_ERROR;
+        icu::ubidi_setPara(
+            pBiDi,
+            txtPtr,
+            txtLen,
+            self.default_direction() as icu::UBiDiLevel,
+            0 as *mut icu::UBiDiLevel,
+            &mut errorCode,
+        );
+        dir = icu::ubidi_getDirection(pBiDi);
+
+        let mut layout = if dir as u32 == icu::UBIDI_MIXED as i32 as u32 {
+            /* we actually do the layout twice here, once to count glyphs and then again to get them;
+               which is inefficient, but i figure that MIXED is a relatively rare occurrence, so i can't be
+               bothered to deal with the memory reallocation headache of doing it differently
+               */
+            let mut nRuns: i32 = icu::ubidi_countRuns(pBiDi, &mut errorCode);
+            let mut width: f64 = 0i32 as f64;
+            let mut i: i32 = 0;
+            let mut runIndex: i32 = 0;
+            let mut logicalStart: i32 = 0;
+            let mut length: i32 = 0;
+            runIndex = 0i32;
+            while runIndex < nRuns {
+                dir = icu::ubidi_getVisualRun(pBiDi, runIndex, &mut logicalStart, &mut length);
+                totalGlyphCount += self.layoutChars(
+                    txtPtr,
+                    logicalStart,
+                    length,
+                    txtLen,
+                    dir as u32 == icu::UBIDI_RTL as i32 as u32,
+                );
+                runIndex += 1
+            }
+            if totalGlyphCount > 0i32 {
+                let mut x: f64 = 0.;
+                let mut y: f64 = 0.;
+                glyph_info = xcalloc(totalGlyphCount as size_t, 10i32 as size_t) as *mut FixedPoint;
+                locations = glyph_info;
+                glyphIDs = locations.offset(totalGlyphCount as isize) as *mut u16;
+                glyphAdvances = xcalloc(
+                    totalGlyphCount as size_t,
+                    ::std::mem::size_of::<Fixed>() as u64,
+                ) as *mut Fixed;
+                totalGlyphCount = 0i32;
+                y = 0.0f64;
+                x = y;
+                runIndex = 0i32;
+                while runIndex < nRuns {
+                    let mut nGlyphs: i32 = 0;
+                    dir = icu::ubidi_getVisualRun(pBiDi, runIndex, &mut logicalStart, &mut length);
+                    nGlyphs = self.layoutChars(
+                        txtPtr,
+                        logicalStart,
+                        length,
+                        txtLen,
+                        dir as u32 == icu::UBIDI_RTL as i32 as u32,
+                    );
+                    glyphs =
+                        xcalloc(nGlyphs as size_t, ::std::mem::size_of::<u32>() as u64) as *mut u32;
+                    positions = xcalloc(
+                        (nGlyphs + 1i32) as size_t,
+                        ::std::mem::size_of::<FloatPoint>() as u64,
+                    ) as *mut FloatPoint;
+                    advances =
+                        xcalloc(nGlyphs as size_t, ::std::mem::size_of::<f32>() as u64) as *mut f32;
+                    getGlyphs(self, glyphs);
+                    getGlyphAdvances(self, advances);
+                    getGlyphPositions(self, positions);
+                    i = 0i32;
+                    while i < nGlyphs {
+                        *glyphIDs.offset(totalGlyphCount as isize) =
+                            *glyphs.offset(i as isize) as u16;
+                        (*locations.offset(totalGlyphCount as isize)).x =
+                            D2Fix((*positions.offset(i as isize)).x as f64 + x);
+                        (*locations.offset(totalGlyphCount as isize)).y =
+                            D2Fix((*positions.offset(i as isize)).y as f64 + y);
+                        *glyphAdvances.offset(totalGlyphCount as isize) =
+                            D2Fix(*advances.offset(i as isize) as f64);
+                        totalGlyphCount += 1;
+                        i += 1
+                    }
+                    x += (*positions.offset(nGlyphs as isize)).x as f64;
+                    y += (*positions.offset(nGlyphs as isize)).y as f64;
+                    free(glyphs as *mut libc::c_void);
+                    free(positions as *mut libc::c_void);
+                    free(advances as *mut libc::c_void);
+                    runIndex += 1
+                }
+                width = x
+            }
+            NodeLayout {
+                lsDelta: None,
+                width: D2Fix(width),
+                total_glyph_count: totalGlyphCount as u16,
+                glyph_info,
+            }
+        } else {
+            let mut width_0: f64 = 0i32 as f64;
+            totalGlyphCount = self.layoutChars(
+                txtPtr,
+                0i32,
+                txtLen,
+                txtLen,
+                dir as u32 == icu::UBIDI_RTL as i32 as u32,
+            );
+            glyphs = xcalloc(
+                totalGlyphCount as size_t,
+                ::std::mem::size_of::<u32>() as u64,
+            ) as *mut u32;
+            positions = xcalloc(
+                (totalGlyphCount + 1i32) as size_t,
+                ::std::mem::size_of::<FloatPoint>() as u64,
+            ) as *mut FloatPoint;
+            advances = xcalloc(
+                totalGlyphCount as size_t,
+                ::std::mem::size_of::<f32>() as u64,
+            ) as *mut f32;
+            getGlyphs(self, glyphs);
+            getGlyphAdvances(self, advances);
+            getGlyphPositions(self, positions);
+            if totalGlyphCount > 0i32 {
+                let mut i_0: i32 = 0;
+                glyph_info = xcalloc(totalGlyphCount as size_t, 10i32 as size_t) as *mut FixedPoint;
+                locations = glyph_info;
+                glyphIDs = locations.offset(totalGlyphCount as isize) as *mut u16;
+                glyphAdvances = xcalloc(
+                    totalGlyphCount as size_t,
+                    ::std::mem::size_of::<Fixed>() as u64,
+                ) as *mut Fixed;
+                i_0 = 0i32;
+                while i_0 < totalGlyphCount {
+                    *glyphIDs.offset(i_0 as isize) = *glyphs.offset(i_0 as isize) as u16;
+                    *glyphAdvances.offset(i_0 as isize) =
+                        D2Fix(*advances.offset(i_0 as isize) as f64);
+                    (*locations.offset(i_0 as isize)).x =
+                        D2Fix((*positions.offset(i_0 as isize)).x as f64);
+                    (*locations.offset(i_0 as isize)).y =
+                        D2Fix((*positions.offset(i_0 as isize)).y as f64);
+                    i_0 += 1
+                }
+                width_0 = (*positions.offset(totalGlyphCount as isize)).x as f64
+            }
+            free(glyphs as *mut libc::c_void);
+            free(positions as *mut libc::c_void);
+            free(advances as *mut libc::c_void);
+            NodeLayout {
+                lsDelta: None,
+                width: D2Fix(width_0),
+                total_glyph_count: totalGlyphCount as u16,
+                glyph_info,
+            }
+        };
+
+        icu::ubidi_close(pBiDi);
+
+        if request.letter_space_unit != 0i32 {
+            let mut lsDelta: Fixed = 0i32;
+            let mut lsUnit: Fixed = request.letter_space_unit;
+            let mut i_1: i32 = 0;
+            i_1 = 0i32;
+            while i_1 < totalGlyphCount {
+                if *glyphAdvances.offset(i_1 as isize) == 0i32 && lsDelta != 0i32 {
+                    lsDelta -= lsUnit
+                }
+                let ref mut fresh31 = (*locations.offset(i_1 as isize)).x;
+                *fresh31 += lsDelta;
+                lsDelta += lsUnit;
+                i_1 += 1
+            }
+            if lsDelta != 0i32 {
+                lsDelta -= lsUnit;
+                layout.lsDelta = Some(lsDelta);
+            }
+        }
+        free(glyphAdvances as *mut libc::c_void);
+        layout
+    }
+}
+
+
 pub type gr_uint16 = libc::c_ushort;
 pub type gr_int16 = libc::c_short;
 pub type gr_uint32 = libc::c_uint;
@@ -717,12 +1095,13 @@ pub unsafe fn getFontFilename(
     mut engine: XeTeXLayoutEngine,
     mut index: *mut uint32_t,
 ) -> *mut libc::c_char {
-    return xstrdup(XeTeXFontInst_getFilename((*engine).font, index));
+    xstrdup(XeTeXFontInst_getFilename((*engine).font, index))
 }
 #[no_mangle]
 pub unsafe fn getFontRef(mut engine: XeTeXLayoutEngine) -> PlatformFontRef {
     return (*engine).fontRef;
 }
+
 #[no_mangle]
 pub unsafe fn deleteFont(mut font: *mut XeTeXFontInst) {
     XeTeXFontInst_delete(font);
@@ -1057,6 +1436,7 @@ pub unsafe fn getGraphiteFeatureCode(
     }
     return rval;
 }
+
 #[no_mangle]
 pub unsafe fn countGraphiteFeatureSettings(
     mut engine: XeTeXLayoutEngine,
@@ -1071,6 +1451,7 @@ pub unsafe fn countGraphiteFeatureSettings(
     }
     return rval;
 }
+
 #[no_mangle]
 pub unsafe fn getGraphiteFeatureSettingCode(
     mut engine: XeTeXLayoutEngine,
@@ -1086,6 +1467,7 @@ pub unsafe fn getGraphiteFeatureSettingCode(
     }
     return rval;
 }
+
 #[no_mangle]
 pub unsafe fn getGraphiteFeatureDefaultSetting(
     mut engine: XeTeXLayoutEngine,
@@ -1392,104 +1774,107 @@ unsafe fn _get_unicode_funcs() -> *mut hb_unicode_funcs_t {
 static mut hbUnicodeFuncs: *mut hb_unicode_funcs_t =
     0 as *const hb_unicode_funcs_t as *mut hb_unicode_funcs_t;
 
-#[no_mangle]
-pub unsafe fn layoutChars(
-    mut engine: XeTeXLayoutEngine,
-    mut chars: *mut uint16_t,
-    mut offset: int32_t,
-    mut count: int32_t,
-    mut max: int32_t,
-    mut rightToLeft: bool,
-) -> libc::c_int {
-    use crate::bridge::size_t;
-    let mut res: bool = false;
-    let mut script: hb_script_t = HB_SCRIPT_INVALID;
-    let mut direction: hb_direction_t = HB_DIRECTION_LTR;
-    let mut segment_props: hb_segment_properties_t = hb_segment_properties_t {
-        direction: HB_DIRECTION_INVALID,
-        script: HB_SCRIPT_INVALID,
-        language: 0 as *const hb_language_impl_t,
-        reserved1: 0 as *mut libc::c_void,
-        reserved2: 0 as *mut libc::c_void,
-    };
-    let mut shape_plan: *mut hb_shape_plan_t = 0 as *mut hb_shape_plan_t;
-    let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont((*engine).font);
-    let mut hbFace: *mut hb_face_t = hb_font_get_face(hbFont);
-    if XeTeXFontInst_getLayoutDirVertical((*engine).font) {
-        direction = HB_DIRECTION_TTB
-    } else if rightToLeft {
-        direction = HB_DIRECTION_RTL
-    }
-    script = hb_ot_tag_to_script((*engine).script);
-    if hbUnicodeFuncs.is_null() {
-        hbUnicodeFuncs = _get_unicode_funcs()
-    }
-    hb_buffer_reset((*engine).hbBuffer);
-    hb_buffer_set_unicode_funcs((*engine).hbBuffer, hbUnicodeFuncs);
-    hb_buffer_add_utf16(
-        (*engine).hbBuffer,
-        chars as *const uint16_t,
-        max,
-        offset as libc::c_uint,
-        count,
-    );
-    hb_buffer_set_direction((*engine).hbBuffer, direction);
-    hb_buffer_set_script((*engine).hbBuffer, script);
-    hb_buffer_set_language((*engine).hbBuffer, (*engine).language);
-    hb_buffer_guess_segment_properties((*engine).hbBuffer);
-    hb_buffer_get_segment_properties((*engine).hbBuffer, &mut segment_props);
-    shape_plan = hb_shape_plan_create_cached(
-        hbFace,
-        &mut segment_props,
-        (*engine).features,
-        (*engine).nFeatures as libc::c_uint,
-        (*engine).shaper_list.as_ptr(),
-    );
-    res = hb_shape_plan_execute(
-        shape_plan,
-        hbFont,
-        (*engine).hbBuffer,
-        (*engine).features,
-        (*engine).nFeatures as libc::c_uint,
-    ) != 0;
-    if !(*engine).shaper.is_null() {
-        free((*engine).shaper as *mut libc::c_void);
-        (*engine).shaper = 0 as *mut libc::c_char
-    }
-    if res {
-        (*engine).shaper = strdup(hb_shape_plan_get_shaper(shape_plan));
-        hb_buffer_set_content_type((*engine).hbBuffer, HB_BUFFER_CONTENT_TYPE_GLYPHS);
-    } else {
-        // all selected shapers failed, retrying with default
-        // we don't use _cached here as the cached plain will always fail.
-        hb_shape_plan_destroy(shape_plan); /* negative is forwards */
-        shape_plan = hb_shape_plan_create(
+
+impl XeTeXLayoutEngine_rec {
+    pub unsafe fn layoutChars(
+        &mut self,
+        chars: *const u16,
+        offset: i32,
+        count: i32,
+        max: i32,
+        rightToLeft: bool,
+    ) -> libc::c_int {
+        use crate::bridge::size_t;
+        let mut res: bool = false;
+        let mut script: hb_script_t = HB_SCRIPT_INVALID;
+        let mut direction: hb_direction_t = HB_DIRECTION_LTR;
+        let mut segment_props: hb_segment_properties_t = hb_segment_properties_t {
+            direction: HB_DIRECTION_INVALID,
+            script: HB_SCRIPT_INVALID,
+            language: 0 as *const hb_language_impl_t,
+            reserved1: 0 as *mut libc::c_void,
+            reserved2: 0 as *mut libc::c_void,
+        };
+        let mut shape_plan: *mut hb_shape_plan_t = 0 as *mut hb_shape_plan_t;
+        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(self.font);
+        let mut hbFace: *mut hb_face_t = hb_font_get_face(hbFont);
+        if XeTeXFontInst_getLayoutDirVertical(self.font) {
+            direction = HB_DIRECTION_TTB
+        } else if rightToLeft {
+            direction = HB_DIRECTION_RTL
+        }
+        script = hb_ot_tag_to_script(self.script);
+        if hbUnicodeFuncs.is_null() {
+            hbUnicodeFuncs = _get_unicode_funcs()
+        }
+        hb_buffer_reset(self.hbBuffer);
+        hb_buffer_set_unicode_funcs(self.hbBuffer, hbUnicodeFuncs);
+        hb_buffer_add_utf16(
+            self.hbBuffer,
+            chars,
+            max,
+            offset as libc::c_uint,
+            count,
+        );
+        hb_buffer_set_direction(self.hbBuffer, direction);
+        hb_buffer_set_script(self.hbBuffer, script);
+        hb_buffer_set_language(self.hbBuffer, self.language);
+        hb_buffer_guess_segment_properties(self.hbBuffer);
+        hb_buffer_get_segment_properties(self.hbBuffer, &mut segment_props);
+        shape_plan = hb_shape_plan_create_cached(
             hbFace,
             &mut segment_props,
-            (*engine).features,
-            (*engine).nFeatures as libc::c_uint,
-            0 as *const *const libc::c_char,
-        ); /* negative is upwards */
+            self.features,
+            self.nFeatures as libc::c_uint,
+            self.shaper_list.as_ptr(),
+        );
         res = hb_shape_plan_execute(
             shape_plan,
             hbFont,
-            (*engine).hbBuffer,
-            (*engine).features,
-            (*engine).nFeatures as libc::c_uint,
+            self.hbBuffer,
+            self.features,
+            self.nFeatures as libc::c_uint,
         ) != 0;
-        if res {
-            (*engine).shaper = strdup(hb_shape_plan_get_shaper(shape_plan));
-            hb_buffer_set_content_type((*engine).hbBuffer, HB_BUFFER_CONTENT_TYPE_GLYPHS);
-        } else {
-            panic!("all shapers failed");
+        if !self.shaper.is_null() {
+            free(self.shaper as *mut libc::c_void);
+            self.shaper = 0 as *mut libc::c_char
         }
+        if res {
+            self.shaper = strdup(hb_shape_plan_get_shaper(shape_plan));
+            hb_buffer_set_content_type(self.hbBuffer, HB_BUFFER_CONTENT_TYPE_GLYPHS);
+        } else {
+            // all selected shapers failed, retrying with default
+            // we don't use _cached here as the cached plain will always fail.
+            hb_shape_plan_destroy(shape_plan); /* negative is forwards */
+            shape_plan = hb_shape_plan_create(
+                hbFace,
+                &mut segment_props,
+                self.features,
+                self.nFeatures as libc::c_uint,
+                0 as *const *const libc::c_char,
+            ); /* negative is upwards */
+            res = hb_shape_plan_execute(
+                shape_plan,
+                hbFont,
+                self.hbBuffer,
+                self.features,
+                self.nFeatures as libc::c_uint,
+            ) != 0;
+            if res {
+                self.shaper = strdup(hb_shape_plan_get_shaper(shape_plan));
+                hb_buffer_set_content_type(self.hbBuffer, HB_BUFFER_CONTENT_TYPE_GLYPHS);
+            } else {
+                panic!("all shapers failed");
+            }
+        }
+        hb_shape_plan_destroy(shape_plan);
+        let mut glyphCount: libc::c_int = hb_buffer_get_length(self.hbBuffer) as libc::c_int;
+        return glyphCount;
     }
-    hb_shape_plan_destroy(shape_plan);
-    let mut glyphCount: libc::c_int = hb_buffer_get_length((*engine).hbBuffer) as libc::c_int;
-    return glyphCount;
 }
+
 #[no_mangle]
-pub unsafe fn getGlyphs(mut engine: XeTeXLayoutEngine, mut glyphs: *mut uint32_t) {
+pub unsafe fn getGlyphs(engine: &XeTeXLayoutEngine_rec, mut glyphs: *mut uint32_t) {
     let mut glyphCount: libc::c_int = hb_buffer_get_length((*engine).hbBuffer) as libc::c_int;
     let mut hbGlyphs: *mut hb_glyph_info_t =
         hb_buffer_get_glyph_infos((*engine).hbBuffer, 0 as *mut libc::c_uint);
@@ -1500,7 +1885,7 @@ pub unsafe fn getGlyphs(mut engine: XeTeXLayoutEngine, mut glyphs: *mut uint32_t
     }
 }
 #[no_mangle]
-pub unsafe fn getGlyphAdvances(mut engine: XeTeXLayoutEngine, mut advances: *mut f32) {
+pub unsafe fn getGlyphAdvances(engine: &XeTeXLayoutEngine_rec, mut advances: *mut f32) {
     let mut glyphCount: libc::c_int = hb_buffer_get_length((*engine).hbBuffer) as libc::c_int;
     let mut hbPositions: *mut hb_glyph_position_t =
         hb_buffer_get_glyph_positions((*engine).hbBuffer, 0 as *mut libc::c_uint);
@@ -1521,7 +1906,7 @@ pub unsafe fn getGlyphAdvances(mut engine: XeTeXLayoutEngine, mut advances: *mut
     }
 }
 #[no_mangle]
-pub unsafe fn getGlyphPositions(mut engine: XeTeXLayoutEngine, mut positions: *mut FloatPoint) {
+pub unsafe fn getGlyphPositions(engine: &XeTeXLayoutEngine_rec, mut positions: *mut FloatPoint) {
     let mut glyphCount: libc::c_int = hb_buffer_get_length((*engine).hbBuffer) as libc::c_int;
     let mut hbPositions: *mut hb_glyph_position_t =
         hb_buffer_get_glyph_positions((*engine).hbBuffer, 0 as *mut libc::c_uint);
@@ -1619,7 +2004,9 @@ pub unsafe fn getGlyphBounds(
     let font_info = &*((*engine).font);
 
     // TODO: xetex_font_info uses u16 (why??????), but glyph IDs should be u32
-    ptr::write(bbox, font_info.get_glyph_bounds(glyphID as u16));
+    if let Some(bb) = font_info.get_glyph_bounds(glyphID as u16) {
+        ptr::write(bbox, bb);
+    }
 
     if (*engine).extend as f64 != 0.0f64 {
         (*bbox).xMin *= (*engine).extend;
@@ -1627,7 +2014,7 @@ pub unsafe fn getGlyphBounds(
     };
 }
 #[no_mangle]
-pub unsafe fn getGlyphWidthFromEngine(mut engine: XeTeXLayoutEngine, mut glyphID: uint32_t) -> f32 {
+pub unsafe fn getGlyphWidthFromEngine(engine: *mut XeTeXLayoutEngine_rec, mut glyphID: uint32_t) -> f32 {
     return (*engine).extend * XeTeXFontInst_getGlyphWidth((*engine).font, glyphID as GlyphID);
 }
 #[no_mangle]
@@ -1643,8 +2030,8 @@ pub unsafe fn getGlyphHeightDepth(
 pub unsafe fn getGlyphSidebearings(
     mut engine: XeTeXLayoutEngine,
     mut glyphID: uint32_t,
-    mut lsb: *mut f32,
-    mut rsb: *mut f32,
+    mut lsb: &mut f32,
+    mut rsb: &mut f32,
 ) {
     XeTeXFontInst_getGlyphSidebearings((*engine).font, glyphID as GlyphID, lsb, rsb);
     if (*engine).extend as f64 != 0.0f64 {

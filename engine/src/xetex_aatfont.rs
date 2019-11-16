@@ -641,7 +641,7 @@ pub unsafe fn do_aat_layout(mut p: *mut libc::c_void, mut justify: libc::c_int) 
             /* this is essentially a copy from similar code in XeTeX_ext.c, easier
              * to be done here */
             if *font_letter_space.offset(f as isize) != 0i32 {
-                let mut lsDelta: Fixed = 0i32;
+               let mut lsDelta: Fixed = 0i32;
                 let mut lsUnit: Fixed = *font_letter_space.offset(f as isize);
                 let mut i_0 = 0;
                 while i_0 < totalGlyphCount {

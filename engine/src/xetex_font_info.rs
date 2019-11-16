@@ -245,7 +245,7 @@ pub struct GlyphBBox {
 }
 
 impl GlyphBBox {
-    pub fn zero() -> Self {
+    pub const fn zero() -> Self {
         GlyphBBox {
             xMin: 0.0,
             yMin: 0.0,
@@ -376,11 +376,11 @@ impl XeTeXFontInst {
         XeTeXFontInst_initialize(self, pathname, index)
     }
 
-    pub unsafe extern "C" fn units_to_points(&self, units: f32) -> f32 {
+    pub fn units_to_points(&self, units: f32) -> f32 {
         (units * self.m_pointSize) / (self.m_unitsPerEM as f32)
     }
 
-    pub unsafe fn get_glyph_bounds(&self, gid: GlyphID) -> GlyphBBox {
+    pub fn get_glyph_bounds(&self, gid: GlyphID) -> Option<GlyphBBox> {
         if let Some(font) = &self.fk_font {
             if let Ok(rect) = font.typographic_bounds(gid as u32) {
                 let bbox = GlyphBBox {
@@ -389,10 +389,10 @@ impl XeTeXFontInst {
                     yMin: self.units_to_points(rect.origin.y),
                     yMax: self.units_to_points(rect.origin.y + rect.size.height),
                 };
-                return bbox;
+                return Some(bbox);
             }
         }
-        GlyphBBox::zero()
+        None
     }
 }
 
@@ -970,7 +970,7 @@ pub unsafe fn XeTeXFontInst_getGlyphHeightDepth(
     mut dp: *mut libc::c_float,
 ) {
     let self_1 = &*(self_0 as *const XeTeXFontInst);
-    let bbox = self_1.get_glyph_bounds(gid);
+    let bbox = self_1.get_glyph_bounds(gid).unwrap_or(GlyphBBox::zero());
     if !ht.is_null() {
         *ht = bbox.yMax
     }
@@ -1013,20 +1013,16 @@ authorization from the copyright holders.
 pub unsafe fn XeTeXFontInst_getGlyphSidebearings(
     mut self_0: *mut XeTeXFontInst,
     mut gid: GlyphID,
-    mut lsb: *mut libc::c_float,
-    mut rsb: *mut libc::c_float,
+    mut lsb: &mut f32,
+    mut rsb: &mut f32,
 ) {
     let mut width: libc::c_float = XeTeXFontInst_getGlyphWidth(self_0, gid);
 
     let self_1 = &*(self_0 as *const XeTeXFontInst);
-    let bbox = self_1.get_glyph_bounds(gid);
+    let bbox = self_1.get_glyph_bounds(gid).unwrap_or(GlyphBBox::zero());
 
-    if !lsb.is_null() {
-        *lsb = bbox.xMin
-    }
-    if !rsb.is_null() {
-        *rsb = width - bbox.xMax
-    };
+    *lsb = bbox.xMin;
+    *rsb = width - bbox.xMax;
 }
 #[no_mangle]
 pub unsafe fn XeTeXFontInst_getGlyphItalCorr(
@@ -1036,7 +1032,7 @@ pub unsafe fn XeTeXFontInst_getGlyphItalCorr(
     let mut rval: libc::c_float = 0.0f64 as libc::c_float;
     let mut width: libc::c_float = XeTeXFontInst_getGlyphWidth(self_0, gid);
     let self_1 = &*(self_0 as *const XeTeXFontInst);
-    let bbox = self_1.get_glyph_bounds(gid);
+    let bbox = self_1.get_glyph_bounds(gid).unwrap_or(GlyphBBox::zero());
     if bbox.xMax > width {
         rval = bbox.xMax - width
     }
