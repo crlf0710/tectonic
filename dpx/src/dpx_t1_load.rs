@@ -2151,7 +2151,7 @@ unsafe fn get_pfb_segment(
 #[no_mangle]
 pub unsafe extern "C" fn t1_get_standard_glyph(mut code: i32) -> *const i8 {
     if StandardEncoding[code as usize].is_null() {
-        return 0 as *const i8;
+        return std::ptr::null();
     }
     StandardEncoding[code as usize]
 }

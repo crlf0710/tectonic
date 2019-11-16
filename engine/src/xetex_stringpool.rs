@@ -28,11 +28,11 @@ pub type packed_UTF16_code = u16;
 static mut string_constants: [*const i8; 3] = [
     b"this marks the start of the stringpool\x00" as *const u8 as *const i8,
     b"\x00" as *const u8 as *const i8,
-    0 as *const i8,
+    std::ptr::null(),
 ];
 #[no_mangle]
 pub unsafe extern "C" fn load_pool_strings(mut spare_size: i32) -> i32 {
-    let mut s: *const i8 = 0 as *const i8;
+    let mut s: *const i8 = std::ptr::null();
     let mut i: i32 = 0i32;
     let mut g: str_number = 0i32;
     loop {

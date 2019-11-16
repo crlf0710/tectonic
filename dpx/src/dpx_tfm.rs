@@ -232,7 +232,7 @@ unsafe fn fm_clear(mut fm: *mut font_metric) {
         }
     };
 }
-static mut fms: *mut font_metric = 0 as *const font_metric as *mut font_metric;
+static mut fms: *mut font_metric = std::ptr::null_mut();
 static mut numfms: u32 = 0_u32;
 static mut max_fms: u32 = 0_u32;
 #[no_mangle]

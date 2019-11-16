@@ -17,6 +17,7 @@ use crate::{ttstub_get_data_md5, ttstub_get_file_md5};
 use libc::{free, strlen};
 
 use std::env;
+use std::ptr;
 
 pub type size_t = u64;
 pub type str_number = i32;
@@ -30,7 +31,7 @@ a collection of miscellany, everything that's easier (or only
 possible) to do in C.
 
 This file is public domain.  */
-static mut last_source_name: *mut i8 = 0 as *const i8 as *mut i8;
+static mut last_source_name: *mut i8 = ptr::null_mut();
 static mut last_lineno: i32 = 0;
 pub fn get_date_and_time() -> (i32, i32, i32, i32) {
     use chrono::prelude::*;

@@ -298,7 +298,7 @@ pub unsafe extern "C" fn XeTeXFontInst_Mac_initialize(
     (*self_0).m_fontRef = CTFontCreateWithFontDescriptor(
         (*self_0).m_descriptor,
         (*self_0).super_.m_pointSize as libc::c_double * 72.0f64 / 72.27f64,
-        0 as *const CGAffineTransform,
+        ptr::null(),
     );
     if !(*self_0).m_fontRef.is_null() {
         let mut pathname: *mut libc::c_char = 0 as *mut libc::c_char;
@@ -325,7 +325,7 @@ pub unsafe extern "C" fn XeTeXFontInst_Mac_ctor(
 ) {
     XeTeXFontInst_base_ctor(
         &mut (*self_0).super_,
-        0 as *const libc::c_char,
+        ptr::null()::c_char,
         0i32,
         pointSize,
         status,

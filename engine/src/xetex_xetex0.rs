@@ -9,6 +9,7 @@
 )]
 
 use std::io::Write;
+use std::ptr;
 
 use super::xetex_ini::Selector;
 pub use super::xetex_io::UFILE;
@@ -990,7 +991,7 @@ pub unsafe extern "C" fn show_node_list(mut p: i32) {
                             print_glue(
                                 (*mem.offset((p + 6i32) as isize)).b32.s1,
                                 (*mem.offset((p + 5i32) as isize)).b16.s0 as i32,
-                                0 as *const i8,
+                                ptr::null(),
                             );
                         }
                         if (*mem.offset((p + 4i32) as isize)).b32.s1 != 0i32 {
@@ -998,7 +999,7 @@ pub unsafe extern "C" fn show_node_list(mut p: i32) {
                             print_glue(
                                 (*mem.offset((p + 4i32) as isize)).b32.s1,
                                 (*mem.offset((p + 5i32) as isize)).b16.s1 as i32,
-                                0 as *const i8,
+                                ptr::null(),
                             );
                         }
                     } else {
@@ -1017,13 +1018,13 @@ pub unsafe extern "C" fn show_node_list(mut p: i32) {
                                 print_glue(
                                     (20000i32 as i64 * 65536) as scaled_t,
                                     (*mem.offset((p + 5i32) as isize)).b16.s0 as i32,
-                                    0 as *const i8,
+                                    ptr::null(),
                                 );
                             } else {
                                 print_glue(
                                     tex_round(65536 as f64 * g),
                                     (*mem.offset((p + 5i32) as isize)).b16.s0 as i32,
-                                    0 as *const i8,
+                                    ptr::null(),
                                 );
                             }
                         }
@@ -1057,7 +1058,7 @@ pub unsafe extern "C" fn show_node_list(mut p: i32) {
                     print_cstr(b", natural size \x00" as *const u8 as *const i8);
                     print_scaled((*mem.offset((p + 3i32) as isize)).b32.s1);
                     print_cstr(b"; split(\x00" as *const u8 as *const i8);
-                    print_spec((*mem.offset((p + 4i32) as isize)).b32.s1, 0 as *const i8);
+                    print_spec((*mem.offset((p + 4i32) as isize)).b32.s1, ptr::null());
                     print_char(',' as i32);
                     print_scaled((*mem.offset((p + 2i32) as isize)).b32.s1);
                     print_cstr(b"); float cost \x00" as *const u8 as *const i8);
@@ -1168,7 +1169,7 @@ pub unsafe extern "C" fn show_node_list(mut p: i32) {
                             print_char('x' as i32);
                         }
                         print_cstr(b"leaders \x00" as *const u8 as *const i8);
-                        print_spec((*mem.offset((p + 1i32) as isize)).b32.s0, 0 as *const i8);
+                        print_spec((*mem.offset((p + 1i32) as isize)).b32.s0, ptr::null());
                         *str_pool.offset(pool_ptr as isize) = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
                         show_node_list((*mem.offset((p + 1i32) as isize)).b32.s1);
@@ -1191,7 +1192,7 @@ pub unsafe extern "C" fn show_node_list(mut p: i32) {
                             if ((*mem.offset(p as isize)).b16.s0 as i32) < 98i32 {
                                 print_spec(
                                     (*mem.offset((p + 1i32) as isize)).b32.s0,
-                                    0 as *const i8,
+                                    ptr::null(),
                                 );
                             } else {
                                 print_spec(
@@ -8661,7 +8662,7 @@ pub unsafe extern "C" fn expand() {
                         insert_relax();
                     } else {
                         /* \input */
-                        start_input(0 as *const i8); /*393:*/
+                        start_input(ptr::null()); /*393:*/
                     }
                     break;
                 }
@@ -20048,7 +20049,7 @@ pub unsafe extern "C" fn show_save_groups() {
     let mut a: i8 = 0;
     let mut i: i32 = 0;
     let mut j: u16 = 0;
-    let mut s: *const i8 = 0 as *const i8;
+    let mut s: *const i8 = ptr::null();
     p = nest_ptr;
     *nest.offset(p as isize) = cur_list;
     v = save_ptr;

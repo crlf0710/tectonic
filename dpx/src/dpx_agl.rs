@@ -374,7 +374,7 @@ unsafe fn agl_normalized_name(glyphname: &[u8]) -> *mut agl_name {
 static mut aglmap: ht_table = ht_table {
     count: 0,
     hval_free_fn: None,
-    table: [0 as *const ht_entry as *mut ht_entry; 503],
+    table: [std::ptr::null_mut(); 503],
 };
 #[inline]
 unsafe extern "C" fn hval_free(mut hval: *mut libc::c_void) {

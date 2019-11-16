@@ -5,6 +5,8 @@
          non_upper_case_globals,
          unused_assignments,
          unused_mut)]
+
+use std::ptr;
 use crate::core_memory::{xcalloc, xmalloc};
 use harfbuzz_sys::*;
 
@@ -566,8 +568,7 @@ unsafe extern "C" fn XeTeXFontInst_getFilename(
 }
 #[no_mangle]
 pub unsafe extern "C" fn getGlyphBBoxCache() -> *mut CppStdMap<u32, GlyphBBox> {
-    static mut cache: *mut CppStdMap<u32, GlyphBBox> =
-        0 as *const CppStdMap<u32, GlyphBBox> as *mut CppStdMap<u32, GlyphBBox>;
+    static mut cache: *mut CppStdMap<u32, GlyphBBox> = ptr::null_mut();
     if cache.is_null() {
         cache = CppStdMap_create()
     }
@@ -611,9 +612,9 @@ unsafe extern "C" fn GlyphId_create(mut fontNum: libc::c_int, mut code: libc::c_
 #[no_mangle]
 pub unsafe extern "C" fn getProtrusionFactor(mut side: libc::c_int) -> *mut ProtrusionFactor {
     static mut leftProt: *mut ProtrusionFactor =
-        0 as *const ProtrusionFactor as *mut ProtrusionFactor;
+        ptr::null_mut();
     static mut rightProt: *mut ProtrusionFactor =
-        0 as *const ProtrusionFactor as *mut ProtrusionFactor;
+        ptr::null_mut();
     let mut container: *mut ProtrusionFactor = 0 as *mut ProtrusionFactor;
     match side {
         0 => {
@@ -1439,7 +1440,7 @@ unsafe extern "C" fn _decompose_compat(
 }
 unsafe extern "C" fn _get_unicode_funcs() -> *mut hb_unicode_funcs_t {
     static mut ufuncs: *mut hb_unicode_funcs_t =
-        0 as *const hb_unicode_funcs_t as *mut hb_unicode_funcs_t;
+        ptr::null_mut();
     if ufuncs.is_null() {
         ufuncs = hb_unicode_funcs_create(hb_icu_get_unicode_funcs())
     }
@@ -1460,7 +1461,7 @@ unsafe extern "C" fn _get_unicode_funcs() -> *mut hb_unicode_funcs_t {
     return ufuncs;
 }
 static mut hbUnicodeFuncs: *mut hb_unicode_funcs_t =
-    0 as *const hb_unicode_funcs_t as *mut hb_unicode_funcs_t;
+    ptr::null_mut();
 #[no_mangle]
 pub unsafe extern "C" fn layoutChars(
     mut engine: XeTeXLayoutEngine,
@@ -1477,7 +1478,7 @@ pub unsafe extern "C" fn layoutChars(
     let mut segment_props: hb_segment_properties_t = hb_segment_properties_t {
         direction: HB_DIRECTION_INVALID,
         script: HB_SCRIPT_INVALID,
-        language: 0 as *const hb_language_impl_t,
+        language: ptr::null(),
         reserved1: 0 as *mut libc::c_void,
         reserved2: 0 as *mut libc::c_void,
     };
@@ -1781,7 +1782,7 @@ pub unsafe extern "C" fn mapGlyphToIndex(
 ) -> libc::c_int {
     return XeTeXFontInst_mapGlyphToIndex((*engine).font, glyphName) as libc::c_int;
 }
-static mut grSegment: *mut gr_segment = 0 as *const gr_segment as *mut gr_segment;
+static mut grSegment: *mut gr_segment = 0 as *mut gr_segment;
 static mut grPrevSlot: *const gr_slot = 0 as *const gr_slot;
 static mut grTextLen: libc::c_int = 0;
 #[no_mangle]
@@ -1798,7 +1799,7 @@ pub unsafe extern "C" fn initGraphiteBreaking(
         if !grSegment.is_null() {
             gr_seg_destroy(grSegment);
             grSegment = 0 as *mut gr_segment;
-            grPrevSlot = 0 as *const gr_slot
+            grPrevSlot = 0 as *const gr_slot;
         }
         let mut grFeatureValues: *mut gr_feature_val = gr_face_featureval_for_lang(
             grFace,

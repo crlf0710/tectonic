@@ -95,10 +95,10 @@ unsafe fn clean_sfd_file_(mut sfd: *mut sfd_file_) {
     free((*sfd).rec_id as *mut libc::c_void);
     init_sfd_file_(sfd);
 }
-static mut sfd_files: *mut sfd_file_ = 0 as *const sfd_file_ as *mut sfd_file_;
+static mut sfd_files: *mut sfd_file_ = std::ptr::null_mut();
 static mut num_sfd_files: i32 = 0i32;
 static mut max_sfd_files: i32 = 0i32;
-static mut sfd_record: *mut sfd_rec_ = 0 as *const sfd_rec_ as *mut sfd_rec_;
+static mut sfd_record: *mut sfd_rec_ = std::ptr::null_mut();
 static mut num_sfd_records: i32 = 0i32;
 static mut max_sfd_records: i32 = 0i32;
 static mut line_buf: [i8; 4096] = [0; 4096];

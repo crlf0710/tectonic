@@ -27,6 +27,7 @@ unused_mut
 
 use crate::DisplayExt;
 use std::ffi::{CStr, CString};
+use std::ptr;
 
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_transform};
 use crate::dpx_pdfximage::{
@@ -85,8 +86,8 @@ use crate::dpx_pdfdev::Coord;
  * as directory separators. */
 static mut _HTML_STATE: spc_html_ = spc_html_ {
         opts: C2RustUnnamed_0 { extensions: 0i32 },
-        link_dict: 0 as *const pdf_obj as *mut pdf_obj,
-        baseurl: 0 as *const i8 as *mut i8,
+        link_dict: ptr::null_mut(),
+        baseurl: ptr::null_mut(),
         pending_type: -1i32,
     };
 /* ENABLE_HTML_SVG_TRANSFORM */

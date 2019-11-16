@@ -231,7 +231,7 @@ pub struct UFILE {
    Licensed under the MIT License.
 */
 #[no_mangle]
-pub static mut name_of_input_file: *mut i8 = 0 as *const i8 as *mut i8;
+pub static mut name_of_input_file: *mut i8 = ptr::null_mut();
 #[no_mangle]
 pub unsafe extern "C" fn tt_xetex_open_input(mut filefmt: TTInputFormat) -> Option<InputHandleWrapper> {
     let handle = if filefmt == TTInputFormat::TECTONIC_PRIMARY {
@@ -415,8 +415,8 @@ unsafe extern "C" fn apply_normalization(mut buf: *mut u32, mut len: i32, mut no
 }
 #[no_mangle]
 pub unsafe extern "C" fn input_line(mut f: *mut UFILE) -> i32 {
-    static mut byteBuffer: *mut i8 = 0 as *const i8 as *mut i8;
-    static mut utf32Buf: *mut u32 = 0 as *const u32 as *mut u32;
+    static mut byteBuffer: *mut i8 = ptr::null_mut();
+    static mut utf32Buf: *mut u32 = ptr::null_mut();
     let mut i: i32 = 0;
     let mut tmpLen: i32 = 0;
     let mut norm: i32 = get_input_normalization_state();

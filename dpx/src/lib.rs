@@ -117,7 +117,7 @@ unsafe fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8 {
     if libc::strncmp(s, prefix, length) == 0i32 {
         return s.offset(length as isize);
     }
-    0 as *const i8
+    std::ptr::null()
 }
 
 #[inline]
