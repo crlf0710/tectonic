@@ -77,7 +77,7 @@ use super::dpx_tt_table::{
     tt_read_maxp_table, tt_read_os2__table, tt_read_vhea_table,
 };
 use super::dpx_type0::{
-    Type0Font, Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode,
+    Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode,
 };
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_array_length, pdf_copy_name, pdf_new_array,
@@ -96,13 +96,11 @@ pub type size_t = u64;
 
 use super::dpx_cid::{cid_opt, CIDFont, CIDSysInfo};
 
-use super::dpx_cs_type2::cs_ginfo;
 use super::dpx_sfnt::sfnt;
 
 use super::dpx_cff::cff_charsets;
 pub type s_SID = u16;
 
-use super::dpx_cff::cff_index;
 pub type l_offset = u32;
 use super::dpx_cff::cff_fdselect;
 use super::dpx_cff::cff_range3;

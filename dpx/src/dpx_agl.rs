@@ -55,7 +55,6 @@ pub struct agl_name {
     pub alternate: *mut agl_name,
     pub is_predef: i32,
 }
-use super::dpx_dpxutil::ht_entry;
 use super::dpx_dpxutil::ht_table;
 #[derive(Copy, Clone)]
 #[repr(C)]
