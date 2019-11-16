@@ -25,6 +25,7 @@ type rust_output_handle_t = *mut libc::c_void;
 pub type rust_input_handle_t = *mut libc::c_void;
 
 #[derive(PartialEq)]
+#[repr(transparent)]
 pub struct OutputHandleWrapper(NonNull<libc::c_void>);
 
 impl OutputHandleWrapper {
@@ -52,6 +53,7 @@ impl Write for OutputHandleWrapper {
 }
 
 #[derive(Clone, PartialEq)]
+#[repr(transparent)]
 pub struct InputHandleWrapper(pub NonNull<libc::c_void>);
 
 impl Read for InputHandleWrapper {
