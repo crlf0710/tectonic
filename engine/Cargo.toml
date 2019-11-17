@@ -26,17 +26,17 @@ vcpkg = "0.2.7"
 [dependencies]
 tectonic_bridge = { version = "0.0.1-dev", path = "../bridge" }
 tectonic_dvipdfmx = { version = "0.0.1-dev", path = "../dpx" }
-bitflags = "1.1.0"
+bitflags = "1.2.1"
 libc = "0.2"
 chrono = "0.4.9"
 #log = { version = "0.4", features = ["std"] }
 harfbuzz-sys = {version = "^0.3", default-features = false}
 
 [target.'cfg(target_os = "macos")'.dependencies]
-core-foundation = "0.6.4"
-core-graphics = "0.17.3"
-core-text = "13.3.0"
-freetype-rs = "0.22.0"
-objc = "0.2.6"
+core-foundation = "0.7.0"
+core-graphics = "0.19.0"
+core-text = "15.0.0"
+freetype-rs = "0.23.0"
+objc = "0.2.7"
 objc-foundation = "0.1.1"
 objc_id = "0.1.1"
