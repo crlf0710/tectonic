@@ -986,8 +986,7 @@ pub static mut trie_op_ptr: i32 = 0;
 #[no_mangle]
 pub static mut max_op_used: trie_opcode = 0;
 #[no_mangle]
-pub static mut trie_c: *mut packed_UTF16_code =
-    ptr::null_mut();
+pub static mut trie_c: *mut packed_UTF16_code = ptr::null_mut();
 #[no_mangle]
 pub static mut trie_o: *mut trie_opcode = ptr::null_mut();
 #[no_mangle]
@@ -1431,12 +1430,11 @@ pub unsafe extern "C" fn new_trie_op(
 pub unsafe extern "C" fn trie_node(mut p: trie_pointer) -> trie_pointer {
     let mut h: trie_pointer = 0;
     let mut q: trie_pointer = 0;
-    h = (*trie_c.offset(p as isize) as i32
-        + 1009i32 * *trie_o.offset(p as isize) as i32
-        + 2718i32 * *trie_l.offset(p as isize)
-        + 3142i32 * *trie_r.offset(p as isize))
-    .abs()
-        % trie_size;
+    h = ((*trie_c.offset(p as isize) as u32
+        + 1009 * *trie_o.offset(p as isize) as u32
+        + 2718 * *trie_l.offset(p as isize) as u32
+        + 3142 * *trie_r.offset(p as isize) as u32)
+        % trie_size as u32) as i32;
     loop {
         q = *trie_hash.offset(h as isize);
         if q == 0i32 {
