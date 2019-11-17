@@ -218,7 +218,7 @@ if $is_main_build ; then
     cargo install --force cargo-kcov
     cargo test --no-run
     env RUNNING_COVERAGE=1 cargo kcov --no-clean-rebuild
-    bash <(curl -s https://codecov.io/bash)
+    curl -s https://codecov.io/bash | bash
     travis_fold_end cargo_kcov
 fi
 
