@@ -5,7 +5,6 @@
          non_upper_case_globals,
          unused_assignments,
          unused_mut)]
-#![feature(const_raw_ptr_to_usize_cast, extern_types)]
 
 use crate::core_memory::xmalloc;
 use harfbuzz_sys::{hb_font_funcs_t, hb_destroy_func_t, hb_font_t, hb_codepoint_t,

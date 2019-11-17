@@ -6,7 +6,6 @@
          non_upper_case_globals,
          unused_assignments,
          unused_mut)]
-#![feature(extern_types)]
 
 use harfbuzz_sys::hb_font_t;
 

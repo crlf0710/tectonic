@@ -7,9 +7,6 @@
          non_upper_case_globals,
          unused_assignments,
          unused_mut)]
-#![feature(const_raw_ptr_to_usize_cast,
-           extern_types,
-           ptr_wrapping_offset_from)]
 
 use crate::stub_icu as icu;
 use crate::xetex_layout_interface::collection_types::*;
