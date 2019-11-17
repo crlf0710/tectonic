@@ -16,12 +16,12 @@ use std::path::{Path, PathBuf};
 
 #[cfg(not(target_os = "macos"))]
 const PKGCONFIG_LIBS: &'static str =
-    "fontconfig harfbuzz >= 1.4 harfbuzz-icu icu-uc freetype2 graphite2 libpng zlib";
+    "fontconfig harfbuzz >= 1.4 harfbuzz-icu icu-uc freetype2 graphite2";
 
 // No fontconfig on MacOS:
 #[cfg(target_os = "macos")]
 const PKGCONFIG_LIBS: &'static str =
-    "harfbuzz >= 1.4 harfbuzz-icu icu-uc freetype2 graphite2 libpng zlib";
+    "harfbuzz >= 1.4 harfbuzz-icu icu-uc freetype2 graphite2";
 
 /// Build-script state when using pkg-config as the backend.
 #[derive(Debug)]
