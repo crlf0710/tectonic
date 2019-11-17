@@ -363,7 +363,7 @@ use crate::xetex_ini::{
     name_length, name_of_file, native_font_type_flag,
 };
 use crate::xetex_xetex0::font_feature_warning;
-use libc::{free, strcmp, strdup, strlen, strncmp};
+use libc::{free, strlen};
 type int32_t = libc::c_int;
 type uint16_t = libc::c_ushort;
 pub type Boolean = libc::c_uchar;
@@ -388,7 +388,7 @@ pub type str_number = int32_t;
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-use crate::{streq_ptr, strstartswith};
+use crate::strstartswith;
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International

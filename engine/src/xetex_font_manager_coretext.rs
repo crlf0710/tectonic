@@ -15,7 +15,7 @@ use std::ffi::CString;
 use std::ptr::{self, NonNull};
 
 use objc::rc::autoreleasepool;
-use objc::{runtime::Object, Message};
+use objc::runtime::Object;
 use objc_foundation::{NSArray, NSEnumerator, NSString};
 use objc_id::Shared;
 objc_foundation::object_struct!(NSAutoreleasePool);
@@ -414,7 +414,7 @@ unsafe extern "C" fn XeTeXFontMgrNameCollection_delete(
     CppStdListOfString_delete((*self_0).m_fullNames);
     CppStdString_delete((*self_0).m_psName);
     CppStdString_delete((*self_0).m_subFamily);
-    free(self_ptr::null_mut());
+    free(self_0 as *mut _);
 }
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_findFontWithName(
@@ -466,7 +466,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_appendNameToList(
         XeTeXFontMgr_appendToList(self_0, nameList, msg_send![name, UTF8String]);
         CFRelease(name as CFTypeRef);
     }
-    let mut language: CFStringRef = ptr::null();
+    let mut language: CFStringRef = 0 as CFStringRef;
     let name = CTFontCopyLocalizedName(font, nameKey, &mut language);
     let name: *const NSString = name.cast();
     if !name.is_null() {

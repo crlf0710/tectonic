@@ -21,9 +21,9 @@ use super::xetex_aatfont as aat;
 #[cfg(target_os = "macos")]
 use super::xetex_aatfont::cf_prelude::{
     kCFNumberFloatType, kCTFontAttributeName, kCTForegroundColorAttributeName,
-    kCTVerticalFormsAttributeName, CFBooleanRef, CFDictionaryGetValue, CFDictionaryRef,
+    kCTVerticalFormsAttributeName, CFDictionaryGetValue, CFDictionaryRef,
     CFNumberGetValue, CFNumberRef, CFNumberType, CFRelease, CFTypeRef, CGAffineTransform,
-    CGColorGetComponents, CGColorRef, CGFloat, CTFontDescriptorRef, CTFontGetMatrix, CTFontGetSize,
+    CGColorGetComponents, CGColorRef, CGFloat, CTFontGetMatrix, CTFontGetSize,
     CTFontRef,
 };
 use crate::core_memory::{mfree, xcalloc, xmalloc, xrealloc, xstrdup};
