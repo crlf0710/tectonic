@@ -99,7 +99,7 @@ fn ROTATE_TEXT(m: TextWMode) -> bool {
 }
 
 pub type spt_t = i32;
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 #[repr(C)]
 /// Transform coordinate matrix
 pub struct TMatrix {
@@ -134,7 +134,7 @@ impl TMatrix {
         }
     }
 }
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 #[repr(C)]
 /// Represents rectangle and TeX bbox in document
 pub struct Rect {
@@ -192,7 +192,7 @@ impl std::fmt::Display for Rect {
     }
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 #[repr(C)]
 /// Coordinate (point) in TeX document
 pub struct Coord {

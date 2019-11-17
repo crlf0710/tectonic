@@ -333,20 +333,23 @@ impl TMatrix {
 
 impl Coord {
     pub fn transform(&mut self, M: &TMatrix) -> Result<(), ()> {
-        self.x = self.x * M.a + self.y * M.c + M.e;
-        self.y = self.x * M.b + self.y * M.d + M.f;
+        let Coord { x, y } = *self;
+        self.x = x * M.a + y * M.c + M.e;
+        self.y = x * M.b + y * M.d + M.f;
         Ok(())
     }
     pub fn dtransform(&mut self, M: &TMatrix) -> Result<(), ()> {
-        self.x = self.x * M.a + self.y * M.c;
-        self.y = self.x * M.b + self.y * M.d;
+        let Coord { x, y } = *self;
+        self.x = x * M.a + y * M.c;
+        self.y = x * M.b + y * M.d;
         Ok(())
     }
 
     fn idtransform(&mut self, M: &TMatrix) -> Result<(), ()> {
         let W = M.inverse()?;
-        self.x = self.x * W.a + self.y * W.c;
-        self.y = self.x * W.b + self.y * W.d;
+        let Coord { x, y } = *self;
+        self.x = x * W.a + y * W.c;
+        self.y = x * W.b + y * W.d;
         Ok(())
     }
 }
