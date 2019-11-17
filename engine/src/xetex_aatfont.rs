@@ -460,7 +460,7 @@ pub unsafe fn do_aat_layout(mut p: *mut libc::c_void, mut justify: libc::c_int) 
     let mut glyph_info: *mut libc::c_void = ptr::null_mut();
     let mut locations: *mut FixedPoint = ptr::null_mut();
     let mut width: CGFloat = 0.;
-    let mut txtLen: libc::c_long = 0;
+    let mut txtLen: CFIndex = 0;
     let mut txtPtr: *const UniChar = ptr::null_mut();
     let mut attributes: CFDictionaryRef = ptr::null_mut();
     let mut string: CFStringRef = ptr::null_mut();
@@ -472,7 +472,7 @@ pub unsafe fn do_aat_layout(mut p: *mut libc::c_void, mut justify: libc::c_int) 
     if *font_area.offset(f as isize) as libc::c_uint != 0xffffu32 {
         panic!("do_aat_layout called for non-AAT font");
     }
-    txtLen = (*node.offset(4)).b16.s1 as libc::c_long;
+    txtLen = (*node.offset(4)).b16.s1 as CFIndex;
     txtPtr = node.offset(6) as *mut UniChar;
     attributes = *font_layout_engine.offset((*node.offset(4)).b16.s2 as isize) as CFDictionaryRef;
     string = CFStringCreateWithCharactersNoCopy(ptr::null(), txtPtr, txtLen, kCFAllocatorNull);
@@ -498,8 +498,8 @@ pub unsafe fn do_aat_layout(mut p: *mut libc::c_void, mut justify: libc::c_int) 
     glyphRuns = CTLineGetGlyphRuns(line);
     runCount = CFArrayGetCount(glyphRuns);
     totalGlyphCount = CTLineGetGlyphCount(line);
-    if totalGlyphCount > 0i32 as libc::c_long {
-        glyph_info = xmalloc((totalGlyphCount * 10i32 as libc::c_long) as _);
+    if totalGlyphCount > 0 {
+        glyph_info = xmalloc((totalGlyphCount * 10) as _);
         locations = glyph_info as *mut FixedPoint;
         glyphIDs = locations.offset(totalGlyphCount as isize) as *mut UInt16;
         glyphAdvances =
@@ -586,15 +586,14 @@ pub unsafe fn do_aat_layout(mut p: *mut libc::c_void, mut justify: libc::c_int) 
     *fresh0 = glyph_info;
     if justify == 0 {
         (*node.offset(1)).b32.s1 = width as int32_t;
-        if totalGlyphCount > 0i32 as libc::c_long {
+        if totalGlyphCount > 0 {
             /* this is essentially a copy from similar code in XeTeX_ext.c, easier
              * to be done here */
             if *font_letter_space.offset(f as isize) != 0i32 {
                 let mut lsDelta: Fixed = 0i32;
                 let mut lsUnit: Fixed = *font_letter_space.offset(f as isize);
-                let mut i_0: libc::c_int = 0;
-                i_0 = 0i32;
-                while (i_0 as libc::c_long) < totalGlyphCount {
+                let mut i_0 = 0;
+                while i_0 < totalGlyphCount {
                     if *glyphAdvances.offset(i_0 as isize) == 0i32 && lsDelta != 0i32 {
                         lsDelta -= lsUnit
                     }
@@ -1485,7 +1484,7 @@ pub unsafe extern "C" fn aat_font_get_1(
         9 => {
             let mut features: CFArrayRef = CTFontCopyFeatures(font);
             if !features.is_null() {
-                if CFArrayGetCount(features) > param as libc::c_long {
+                if CFArrayGetCount(features) > param as CFIndex {
                     let mut feature: CFDictionaryRef =
                         CFArrayGetValueAtIndex(features, param as CFIndex) as CFDictionaryRef;
                     let mut identifier: CFNumberRef = CFDictionaryGetValue(
@@ -1573,7 +1572,7 @@ pub unsafe fn aat_font_get_2(
                 let mut selector: CFDictionaryRef = ptr::null_mut();
                 match what {
                     13 => {
-                        if CFArrayGetCount(selectors) > param2 as libc::c_long {
+                        if CFArrayGetCount(selectors) > param2 as CFIndex {
                             let mut identifier: CFNumberRef = 0 as CFNumberRef;
                             selector = CFArrayGetValueAtIndex(selectors, param2 as CFIndex)
                                 as CFDictionaryRef;

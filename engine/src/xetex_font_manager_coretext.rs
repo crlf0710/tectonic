@@ -8,7 +8,6 @@
     unused_assignments,
     unused_mut
 )]
-#![feature(const_raw_ptr_to_usize_cast, extern_types, ptr_wrapping_offset_from)]
 
 use crate::xetex_layout_interface::collection_types::*;
 
@@ -648,7 +647,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_initialize(mut self_0: *mut XeTeXFontM
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_Mac_terminate(mut self_0: *mut XeTeXFontMgr) {
     if !pool.is_null() {
-        msg_send![pool, drain];
+        let _: () = msg_send![pool, drain];
     }
 }
 
