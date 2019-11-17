@@ -198,3 +198,83 @@ mod xetex_font_manager;
 mod xetex_layout_engine;
 mod xetex_layout_interface;
 mod xetex_opentype_math;
+
+pub(crate) mod freetype_sys_patch {
+    use freetype::freetype_sys::{FT_Face, FT_Byte, FT_Short, FT_UShort, FT_Long, FT_ULong, FT_UInt, FT_Int32, FT_Fixed, FT_Error, FT_Sfnt_Tag};
+
+    extern "C" {
+        #[no_mangle]
+        pub fn FT_Face_GetCharVariantIndex(
+            face: FT_Face,
+            charcode: FT_ULong,
+            variantSelector: FT_ULong,
+        ) -> FT_UInt;
+    
+        #[no_mangle]
+        pub fn FT_Get_Advance(
+            face: FT_Face,
+            gindex: FT_UInt,
+            load_flags: FT_Int32,
+            padvance: *mut FT_Fixed,
+        ) -> FT_Error;
+
+        #[no_mangle]
+        pub fn FT_Load_Sfnt_Table(
+            face: FT_Face,
+            tag: FT_ULong,
+            offset: FT_Long,
+            buffer: *mut FT_Byte,
+            length: *mut FT_ULong,
+        ) -> FT_Error;
+
+        #[no_mangle]
+        pub fn FT_Get_Sfnt_Name_Count(face: FT_Face) -> FT_UInt;
+
+        #[no_mangle]
+        pub fn FT_Get_Sfnt_Name(face: FT_Face, idx: FT_UInt, aname: *mut FT_SfntName) -> FT_Error;            
+    }
+
+    pub const FT_SFNT_MAX: FT_Sfnt_Tag = 7;
+    pub const FT_SFNT_PCLT: FT_Sfnt_Tag = 6;
+    pub const FT_SFNT_POST: FT_Sfnt_Tag = 5;
+    pub const FT_SFNT_VHEA: FT_Sfnt_Tag = 4;
+    pub const FT_SFNT_HHEA: FT_Sfnt_Tag = 3;
+    pub const FT_SFNT_OS2: FT_Sfnt_Tag = 2;
+    pub const FT_SFNT_MAXP: FT_Sfnt_Tag = 1;
+    pub const FT_SFNT_HEAD: FT_Sfnt_Tag = 0;
+
+    #[derive(Copy, Clone)]
+    #[repr(C)]
+    pub struct TT_Header_ {
+        pub Table_Version: FT_Fixed,
+        pub Font_Revision: FT_Fixed,
+        pub CheckSum_Adjust: FT_Long,
+        pub Magic_Number: FT_Long,
+        pub Flags: FT_UShort,
+        pub Units_Per_EM: FT_UShort,
+        pub Created: [FT_ULong; 2],
+        pub Modified: [FT_ULong; 2],
+        pub xMin: FT_Short,
+        pub yMin: FT_Short,
+        pub xMax: FT_Short,
+        pub yMax: FT_Short,
+        pub Mac_Style: FT_UShort,
+        pub Lowest_Rec_PPEM: FT_UShort,
+        pub Font_Direction: FT_Short,
+        pub Index_To_Loc_Format: FT_Short,
+        pub Glyph_Data_Format: FT_Short,
+    }
+    pub type TT_Header = TT_Header_;
+
+    #[derive(Copy, Clone)]
+    #[repr(C)]
+    pub struct FT_SfntName_ {
+        pub platform_id: FT_UShort,
+        pub encoding_id: FT_UShort,
+        pub language_id: FT_UShort,
+        pub name_id: FT_UShort,
+        pub string: *mut FT_Byte,
+        pub string_len: FT_UInt,
+    }    
+    pub type FT_SfntName = FT_SfntName_;
+}
