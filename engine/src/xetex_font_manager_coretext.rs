@@ -647,7 +647,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_initialize(mut self_0: *mut XeTeXFontM
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_Mac_terminate(mut self_0: *mut XeTeXFontMgr) {
     if !pool.is_null() {
-        msg_send![pool, drain];
+        let _: () = msg_send![pool, drain];
     }
 }
 

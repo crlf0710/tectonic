@@ -8,6 +8,7 @@
          unused_mut)]
 
 use harfbuzz_sys::hb_font_t;
+use freetype::freetype_sys;
 
 extern crate libc;
 extern "C" {
