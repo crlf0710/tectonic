@@ -239,30 +239,28 @@ pub trait TextLayout {
 
     // XXX: make a single struct for make_font_def to consume, of all the required values
 
-    unsafe fn get_font_metrics(&self, ascent: &mut Fixed, descent: &mut Fixed, x_ht: &mut Fixed, cap_ht: &mut Fixed, slant: &mut Fixed);
+    unsafe fn get_font_metrics(
+        &self,
+        ascent: &mut Fixed,
+        descent: &mut Fixed,
+        x_ht: &mut Fixed,
+        cap_ht: &mut Fixed,
+        slant: &mut Fixed,
+    );
 
     /// ot_font_get, aat_font_get
-    unsafe fn poorly_named_getter(
-        &self,
-        mut what: i32,
-    ) -> i32;
+    unsafe fn poorly_named_getter(&self, what: i32) -> i32;
 
     /// ot_font_get_1, aat_font_get_1
-    unsafe fn poorly_named_getter_1(
-        &self,
-        mut what: i32,
-        mut param1: i32,
-    ) -> i32;
+    unsafe fn poorly_named_getter_1(&self, what: i32, param1: i32) -> i32;
 
     /// ot_font_get_2, aat_font_get_2
-    unsafe fn poorly_named_getter_2(
-        &self,
-        mut what: i32,
-        mut param1: i32,
-        mut param2: i32,
-    ) -> i32;
+    unsafe fn poorly_named_getter_2(&self, what: i32, param1: i32, param2: i32) -> i32;
 
-    pub unsafe fn get_flags(&self, font_number: u32) -> i32;
+    /// ot_font_get_3
+    unsafe fn poorly_named_getter_3(&self, what: i32, param1: i32, param2: i32, param3: i32) -> i32;
+
+    unsafe fn get_flags(&self, font_number: u32) -> i32;
 
     /// getExtendFactor
     unsafe fn extend_factor(&self) -> f64;
@@ -303,7 +301,7 @@ pub trait TextLayout {
     /// This is used for 'fallback in case lacks an OS/2 table', and also for adding accents
     /// (get_native_char_sidebearings).
     /// Although the shaping engine should probably be doing the latter, not xetex0!
-    unsafe fn map_codepoint_to_glyph(&self, codepoint: u32) -> u32;
+    unsafe fn map_char_to_glyph(&self, codepoint: u32) -> u32;
 
     /// getFontCharRange
     /// Another candidate for using XeTeXFontInst directly

@@ -173,7 +173,10 @@ pub unsafe fn XeTeXFontInst_Mac_initialize(
         let mut pathname: *mut libc::c_char = 0 as *mut libc::c_char;
         let mut index: u32 = 0;
         pathname = getFileNameFromCTFont((*self_0).m_fontRef, &mut index);
-        if let Err(e) = (*self_0).super_.init(CStr::from_ptr(pathname), index as libc::c_int) {
+        if let Err(e) = (*self_0)
+            .super_
+            .init(CStr::from_ptr(pathname), index as libc::c_int)
+        {
             *status = e;
         }
     } else {

@@ -117,7 +117,7 @@ authorization from the copyright holders.
 
 use super::{
     XeTeXFontMgr, XeTeXFontMgrFamily, XeTeXFontMgrFont, XeTeXFontMgrNameCollection,
-    XeTeXFontMgr_Mac, XeTeXFontMgrOpSizeRec,
+    XeTeXFontMgrOpSizeRec, XeTeXFontMgr_Mac,
 };
 
 #[inline]
@@ -144,9 +144,7 @@ unsafe fn XeTeXFontMgr_readNames(
 }
 
 #[inline]
-unsafe fn XeTeXFontMgrNameCollection_delete(
-    mut self_0: *mut XeTeXFontMgrNameCollection,
-) {
+unsafe fn XeTeXFontMgrNameCollection_delete(mut self_0: *mut XeTeXFontMgrNameCollection) {
     if self_0.is_null() {
         return;
     }
@@ -249,10 +247,7 @@ pub unsafe fn XeTeXFontMgr_Mac_readNames(
 }
 
 #[no_mangle]
-pub unsafe fn XeTeXFontMgr_Mac_addFontsToCaches(
-    mut self_0: *mut XeTeXFontMgr,
-    fonts: CFArrayRef,
-) {
+pub unsafe fn XeTeXFontMgr_Mac_addFontsToCaches(mut self_0: *mut XeTeXFontMgr, fonts: CFArrayRef) {
     let fonts: *const NSArray<NSFont, Shared> = fonts.cast();
     let mut enumerator: id = msg_send![fonts, objectEnumerator];
     for mut aFont in NSEnumerator::<NSFont>::from_ptr(enumerator) {
@@ -436,10 +431,7 @@ unsafe fn XeTeXFontMgr_Mac_ctor(mut self_0: *mut XeTeXFontMgr_Mac) {
         Some(XeTeXFontMgr_Mac_terminate as unsafe fn(_: *mut XeTeXFontMgr) -> ());
     (*self_0).super_.m_memfnGetPlatformFontDesc = Some(
         XeTeXFontMgr_Mac_getPlatformFontDesc
-            as unsafe fn(
-                _: *const XeTeXFontMgr,
-                _: PlatformFontRef,
-            ) -> *mut libc::c_char,
+            as unsafe fn(_: *const XeTeXFontMgr, _: PlatformFontRef) -> *mut libc::c_char,
     );
     (*self_0).super_.m_memfnSearchForHostPlatformFonts = Some(
         XeTeXFontMgr_Mac_searchForHostPlatformFonts

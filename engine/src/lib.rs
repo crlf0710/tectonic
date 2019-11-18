@@ -150,6 +150,7 @@ mod core_memory {
 }
 
 mod bibtex;
+mod text_layout_engine;
 mod xetex_aatfont;
 mod xetex_consts;
 mod xetex_engine_interface;
@@ -169,7 +170,6 @@ mod xetex_synctex;
 mod xetex_texmfmp;
 mod xetex_xetex0;
 mod xetex_xetexd;
-mod text_layout_engine;
 
 mod stub_icu;
 mod stub_stdio;

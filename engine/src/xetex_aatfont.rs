@@ -32,9 +32,7 @@ pub struct AATLayoutEngine {
 
 impl AATLayoutEngine {
     pub fn new(attributes: CFDictionaryRef) -> Self {
-        AATLayoutEngine {
-            attributes
-        }
+        AATLayoutEngine { attributes }
     }
     pub unsafe fn ct_font(&self) -> CTFontRef {
         font_from_attributes(self.attributes)
@@ -58,7 +56,6 @@ impl TextLayout for AATLayoutEngine {
         let mut glyph_info: *mut FixedPoint = ptr::null_mut();
         let mut locations: *mut FixedPoint = ptr::null_mut();
         let mut width: CGFloat = 0.;
-        let mut attributes: CFDictionaryRef = ptr::null_mut();
         let mut string: CFStringRef = ptr::null_mut();
         let mut attrString: CFAttributedStringRef = ptr::null_mut();
         let mut typesetter: CTTypesetterRef = 0 as CTTypesetterRef;
@@ -75,12 +72,6 @@ impl TextLayout for AATLayoutEngine {
             glyph_info: ptr::null_mut(),
         };
 
-        // let mut f: libc::c_uint = (*node.offset(4)).b16.s2 as libc::c_uint;
-        // if *font_area.offset(f as isize) as libc::c_uint != 0xffffu32 {
-        //     panic!("do_aat_layout called for non-AAT font");
-        // }
-
-        attributes = self.attributes;
         string = CFStringCreateWithCharactersNoCopy(ptr::null(), txtPtr, txtLen, kCFAllocatorNull);
         attrString = CFAttributedStringCreate(ptr::null(), string, self.attributes);
         CFRelease(string as CFTypeRef);
@@ -235,11 +226,18 @@ impl TextLayout for AATLayoutEngine {
         }
     }
 
-    unsafe fn get_font_metrics(&self, ascent: &mut Fixed, descent: &mut Fixed, x_ht: &mut Fixed, cap_ht: &mut Fixed, slant: &mut Fixed) {
+    unsafe fn get_font_metrics(
+        &self,
+        ascent: &mut Fixed,
+        descent: &mut Fixed,
+        x_ht: &mut Fixed,
+        cap_ht: &mut Fixed,
+        slant: &mut Fixed,
+    ) {
         aat_get_font_metrics(self.attributes, ascent, descent, x_ht, cap_ht, slant);
     }
 
-    pub unsafe fn get_flags(&self, _font_number: u32) -> i32 {
+    unsafe fn get_flags(&self, _font_number: u32) -> i32 {
         if !CFDictionaryGetValue(
             self.attributes,
             kCTVerticalFormsAttributeName as *const libc::c_void,
@@ -253,30 +251,23 @@ impl TextLayout for AATLayoutEngine {
     }
 
     /// ot_font_get, aat_font_get
-    unsafe fn poorly_named_getter(
-        &self,
-        mut what: i32,
-    ) -> i32 {
-        aat_font_get(what, self.attributes);
+    unsafe fn poorly_named_getter(&self, mut what: i32) -> i32 {
+        aat_font_get(what, self.attributes)
     }
 
     /// ot_font_get_1, aat_font_get_1
-    unsafe fn poorly_named_getter_1(
-        &self,
-        mut what: i32,
-        mut param1: i32,
-    ) -> i32 {
-        aat_font_get_2(what, self.attributes, param1);
+    unsafe fn poorly_named_getter_1(&self, mut what: i32, mut param1: i32) -> i32 {
+        aat_font_get_2(what, self.attributes, param1)
     }
 
     /// ot_font_get_2, aat_font_get_2
-    unsafe fn poorly_named_getter_2(
-        &self,
-        mut what: i32,
-        mut param1: i32,
-        mut param2: i32,
-    ) -> i32 {
-        aat_font_get_2(what, self.attributes, param1, param2);
+    unsafe fn poorly_named_getter_2(&self, mut what: i32, mut param1: i32, mut param2: i32) -> i32 {
+        aat_font_get_2(what, self.attributes, param1, param2)
+    }
+
+    /// ot_font_get_3
+    unsafe fn poorly_named_getter_3(&self, what: i32, param1: i32, param2: i32, param3: i32) -> i32 {
+        unimplemented!()
     }
 
     /// getExtendFactor
@@ -379,7 +370,7 @@ impl TextLayout for AATLayoutEngine {
     }
 
     /// mapCharToGlyph
-    unsafe fn map_codepoint_to_glyph(&self, codepoint: u32) -> u32 {
+    unsafe fn map_char_to_glyph(&self, codepoint: u32) -> u32 {
         // XXX: not sure about this as cast
         MapCharToGlyph_AAT(self.attributes, codepoint) as u32
     }
@@ -401,8 +392,8 @@ use crate::core_memory::{xcalloc, xmalloc};
 use crate::xetex_ext::{print_chars, readCommonFeatures, read_double, D2Fix, Fix2D};
 use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
-    FONT_AREA, TEXT_LAYOUT_ENGINES, font_letter_space, loaded_font_flags, loaded_font_letter_space,
-    name_length, name_of_file, native_font_type_flag,
+    font_letter_space, loaded_font_flags, loaded_font_letter_space, name_length, name_of_file,
+    native_font_type_flag, FONT_AREA, TEXT_LAYOUT_ENGINES,
 };
 use crate::xetex_xetex0::font_feature_warning;
 #[cfg(not(unix))]
@@ -482,172 +473,6 @@ pub unsafe fn font_from_integer(mut font: int32_t) -> CTFontRef {
     let mut attributes: CFDictionaryRef =
         *TEXT_LAYOUT_ENGINES.offset(font as isize) as CFDictionaryRef;
     return font_from_attributes(attributes);
-}
-
-pub unsafe fn do_aat_layout(mut p: *mut libc::c_void, mut justify: libc::c_int) {
-    let mut glyphRuns: CFArrayRef = ptr::null_mut();
-    let mut i: CFIndex = 0;
-    let mut j: CFIndex = 0;
-    let mut runCount: CFIndex = 0;
-    let mut totalGlyphCount: CFIndex = 0;
-    let mut glyphIDs: *mut UInt16 = ptr::null_mut();
-    let mut glyphAdvances: *mut Fixed = ptr::null_mut();
-    let mut glyph_info: *mut libc::c_void = ptr::null_mut();
-    let mut locations: *mut FixedPoint = ptr::null_mut();
-    let mut width: CGFloat = 0.;
-    let mut txtLen: CFIndex = 0;
-    let mut txtPtr: *const UniChar = ptr::null_mut();
-    let mut attributes: CFDictionaryRef = ptr::null_mut();
-    let mut string: CFStringRef = ptr::null_mut();
-    let mut attrString: CFAttributedStringRef = ptr::null_mut();
-    let mut typesetter: CTTypesetterRef = 0 as CTTypesetterRef;
-    let mut line: CTLineRef = ptr::null_mut();
-    let mut node: *mut memory_word = p as *mut memory_word;
-    let mut f: libc::c_uint = (*node.offset(4)).b16.s2 as libc::c_uint;
-    if *FONT_AREA.offset(f as isize) as libc::c_uint != 0xffffu32 {
-        panic!("do_aat_layout called for non-AAT font");
-    }
-    txtLen = (*node.offset(4)).b16.s1 as CFIndex;
-    txtPtr = node.offset(6) as *mut UniChar;
-    attributes = *TEXT_LAYOUT_ENGINES.offset((*node.offset(4)).b16.s2 as isize) as CFDictionaryRef;
-    string = CFStringCreateWithCharactersNoCopy(ptr::null(), txtPtr, txtLen, kCFAllocatorNull);
-    attrString = CFAttributedStringCreate(ptr::null(), string, attributes);
-    CFRelease(string as CFTypeRef);
-    typesetter = CTTypesetterCreateWithAttributedString(attrString);
-    CFRelease(attrString as CFTypeRef);
-    line = CTTypesetterCreateLine(typesetter, CFRangeMake(0i32 as CFIndex, txtLen));
-    if justify != 0 {
-        let mut lineWidth: CGFloat = TeXtoPSPoints(Fix2D((*node.offset(1)).b32.s1));
-        let mut justifiedLine: CTLineRef = CTLineCreateJustifiedLine(
-            line,
-            TeXtoPSPoints(Fix2D(0x40000000i64 as Fract)),
-            lineWidth,
-        );
-        // TODO(jjgod): how to handle the case when justification failed? for
-        // now we just fallback to use the original line.
-        if !justifiedLine.is_null() {
-            CFRelease(line as CFTypeRef);
-            line = justifiedLine
-        }
-    }
-    glyphRuns = CTLineGetGlyphRuns(line);
-    runCount = CFArrayGetCount(glyphRuns);
-    totalGlyphCount = CTLineGetGlyphCount(line);
-    if totalGlyphCount > 0 {
-        glyph_info = xmalloc((totalGlyphCount * 10) as _);
-        locations = glyph_info as *mut FixedPoint;
-        glyphIDs = locations.offset(totalGlyphCount as isize) as *mut UInt16;
-        glyphAdvances =
-            xmalloc((totalGlyphCount as i64 * (std::mem::size_of::<Fixed>() as i64)) as _)
-                as *mut Fixed;
-        totalGlyphCount = 0;
-        width = 0i32 as CGFloat;
-        i = 0i32 as CFIndex;
-        while i < runCount {
-            let mut run: CTRunRef = CFArrayGetValueAtIndex(glyphRuns, i) as CTRunRef;
-            let mut count: CFIndex = CTRunGetGlyphCount(run);
-            let mut runAttributes: CFDictionaryRef = CTRunGetAttributes(run);
-            let mut vertical: CFBooleanRef = CFDictionaryGetValue(
-                runAttributes,
-                kCTVerticalFormsAttributeName as *const libc::c_void,
-            ) as CFBooleanRef;
-            // TODO(jjgod): Avoid unnecessary allocation with CTRunGetFoosPtr().
-            let mut glyphs: *mut CGGlyph =
-                xmalloc((count as usize).wrapping_mul(::std::mem::size_of::<CGGlyph>()) as _)
-                    as *mut CGGlyph;
-            let mut positions: *mut CGPoint =
-                xmalloc((count as usize).wrapping_mul(::std::mem::size_of::<CGPoint>()) as _)
-                    as *mut CGPoint;
-            let mut advances: *mut CGSize =
-                xmalloc((count as usize).wrapping_mul(::std::mem::size_of::<CGSize>()) as _)
-                    as *mut CGSize;
-            let mut runWidth: CGFloat = CTRunGetTypographicBounds(
-                run,
-                CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex),
-                ptr::null_mut(),
-                ptr::null_mut(),
-                ptr::null_mut(),
-            );
-            CTRunGetGlyphs(run, CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex), glyphs);
-            CTRunGetPositions(
-                run,
-                CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex),
-                positions,
-            );
-            CTRunGetAdvances(run, CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex), advances);
-            j = 0i32 as CFIndex;
-            while j < count {
-                // XXX Core Text has that font cascading thing that will do
-                // font substitution for missing glyphs, which we do not want
-                // but I can not find a way to disable it yet, so if the font
-                // of the resulting run is not the same font we asked for, use
-                // the glyph at index 0 (usually .notdef) instead or we will be
-                // showing garbage or even invalid glyphs
-                if CFEqual(
-                    font_from_attributes(attributes) as CFTypeRef,
-                    font_from_attributes(runAttributes) as CFTypeRef,
-                ) == 0
-                {
-                    *glyphIDs.offset(totalGlyphCount as isize) = 0i32 as UInt16
-                } else {
-                    *glyphIDs.offset(totalGlyphCount as isize) = *glyphs.offset(j as isize)
-                }
-                // Swap X and Y when doing vertical layout
-                if vertical == kCFBooleanTrue {
-                    (*locations.offset(totalGlyphCount as isize)).x =
-                        -FixedPStoTeXPoints((*positions.offset(j as isize)).y);
-                    (*locations.offset(totalGlyphCount as isize)).y =
-                        FixedPStoTeXPoints((*positions.offset(j as isize)).x)
-                } else {
-                    (*locations.offset(totalGlyphCount as isize)).x =
-                        FixedPStoTeXPoints((*positions.offset(j as isize)).x);
-                    (*locations.offset(totalGlyphCount as isize)).y =
-                        -FixedPStoTeXPoints((*positions.offset(j as isize)).y)
-                }
-                *glyphAdvances.offset(totalGlyphCount as isize) =
-                    (*advances.offset(j as isize)).width as Fixed;
-                totalGlyphCount += 1;
-                j += 1
-            }
-            width += FixedPStoTeXPoints(runWidth) as libc::c_double;
-            free(glyphs as *mut libc::c_void);
-            free(positions as *mut libc::c_void);
-            free(advances as *mut libc::c_void);
-            i += 1
-        }
-    }
-    (*node.offset(4)).b16.s0 = totalGlyphCount as uint16_t;
-    let ref mut fresh0 = (*node.offset(5)).ptr;
-    *fresh0 = glyph_info;
-    if justify == 0 {
-        (*node.offset(1)).b32.s1 = width as int32_t;
-        if totalGlyphCount > 0 {
-            /* this is essentially a copy from similar code in XeTeX_ext.c, easier
-             * to be done here */
-            if *font_letter_space.offset(f as isize) != 0i32 {
-                let mut lsDelta: Fixed = 0i32;
-                let mut lsUnit: Fixed = *font_letter_space.offset(f as isize);
-                let mut i_0 = 0;
-                while i_0 < totalGlyphCount {
-                    if *glyphAdvances.offset(i_0 as isize) == 0i32 && lsDelta != 0i32 {
-                        lsDelta -= lsUnit
-                    }
-                    let ref mut fresh1 = (*locations.offset(i_0 as isize)).x;
-                    *fresh1 += lsDelta;
-                    lsDelta += lsUnit;
-                    i_0 += 1
-                }
-                if lsDelta != 0i32 {
-                    lsDelta -= lsUnit;
-                    let ref mut fresh2 = (*node.offset(1)).b32.s1;
-                    *fresh2 += lsDelta
-                }
-            }
-        }
-    }
-    free(glyphAdvances as *mut libc::c_void);
-    CFRelease(line as CFTypeRef);
-    CFRelease(typesetter as CFTypeRef);
 }
 
 unsafe fn getGlyphBBoxFromCTFont(mut font: CTFontRef, mut gid: UInt16, mut bbox: *mut GlyphBBox) {
@@ -1656,10 +1481,7 @@ pub unsafe fn aat_font_get_2(
 }
 
 impl AATLayoutEngine {
-    pub unsafe fn aat_font_get_named(
-        &self,
-        mut what: libc::c_int,
-    ) -> libc::c_int {
+    pub unsafe fn aat_font_get_named(&self, mut what: libc::c_int) -> libc::c_int {
         let mut rval: libc::c_int = -1i32;
         if what == 10i32 {
             let mut font: CTFontRef = self.ct_font();
@@ -1688,11 +1510,7 @@ impl AATLayoutEngine {
         return rval;
     }
 
-    pub unsafe fn aat_font_get_named_1(
-        &self,
-        mut what: i32,
-        mut param: i32,
-    ) -> i32 {
+    pub unsafe fn aat_font_get_named_1(&self, mut what: i32, mut param: i32) -> i32 {
         let mut rval: libc::c_int = -1i32;
         let mut font: CTFontRef = self.ct_font();
         if what == 14i32 {

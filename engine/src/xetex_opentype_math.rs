@@ -15,7 +15,9 @@ use crate::xetex_font_info::{
     XeTeXFontInst_getHbFont, XeTeXFontInst_pointsToUnits, XeTeXFontInst_unitsToPoints,
 };
 use crate::xetex_font_manager::PlatformFontRef;
-use crate::xetex_layout_engine::{getFontInst, getGlyphHeightDepth, XeTeXLayoutEngine};
+use crate::xetex_layout_engine::{getFontInst, XeTeXLayoutEngine};
+use crate::xetex_ini::get_text_layout_engine;
+use crate::text_layout_engine::{TextLayoutEngine, TextLayout};
 use harfbuzz_sys::*;
 
 extern "C" {
@@ -91,10 +93,8 @@ pub unsafe extern "C" fn get_ot_math_constant(
 ) -> libc::c_int {
     let mut constant: hb_ot_math_constant_t = n as hb_ot_math_constant_t;
     let mut rval: hb_position_t = 0i32;
-    if *font_area.offset(f as isize) as libc::c_uint == 0xfffeu32 {
-        let mut font: *mut XeTeXFontInst =
-            getFontInst(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine)
-                as *mut XeTeXFontInst;
+    if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(f as usize) {
+        let font = eng.font;
         let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
         rval = hb_ot_math_get_constant(hbFont, constant);
         /* scale according to font size, except the ones that are percentages */
@@ -360,6 +360,7 @@ pub unsafe extern "C" fn ot_min_connector_overlap(mut f: libc::c_int) -> libc::c
     }
     return rval;
 }
+
 unsafe extern "C" fn getMathKernAt(
     mut f: libc::c_int,
     mut g: libc::c_int,
@@ -376,25 +377,25 @@ unsafe extern "C" fn getMathKernAt(
     }
     return rval;
 }
+
 unsafe extern "C" fn glyph_height(mut f: libc::c_int, mut g: libc::c_int) -> libc::c_float {
-    let mut rval: libc::c_float = 0.0f64 as libc::c_float;
-    if *font_area.offset(f as isize) as libc::c_uint == 0xfffeu32 {
-        let mut engine: XeTeXLayoutEngine =
-            *font_layout_engine.offset(f as isize) as XeTeXLayoutEngine;
-        getGlyphHeightDepth(engine, g as uint32_t, &mut rval, 0 as *mut libc::c_float);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(f as usize) {
+        if let Some((height, _depth)) = eng.glyph_height_depth(g as u32) {
+            return height;
+        }
     }
-    return rval;
+    0.
 }
+
 unsafe extern "C" fn glyph_depth(mut f: libc::c_int, mut g: libc::c_int) -> libc::c_float {
-    let mut rval: libc::c_float = 0.0f64 as libc::c_float;
-    if *font_area.offset(f as isize) as libc::c_uint == 0xfffeu32 {
-        let mut engine: XeTeXLayoutEngine =
-            *font_layout_engine.offset(f as isize) as XeTeXLayoutEngine;
-        getGlyphHeightDepth(engine, g as uint32_t, 0 as *mut libc::c_float, &mut rval);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(f as usize) {
+        if let Some((_height, depth)) = eng.glyph_height_depth(g as u32) {
+            return depth;
+        }
     }
-    return rval;
+    0.
 }
-#[no_mangle]
+
 pub unsafe extern "C" fn get_ot_math_kern(
     mut f: libc::c_int,
     mut g: libc::c_int,

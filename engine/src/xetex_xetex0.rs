@@ -8,32 +8,12 @@
     unused_mut
 )]
 
-const CUR_FONT_LOC: isize = (1i32
-     + (0x10ffffi32 + 1i32)
-     + (0x10ffffi32 + 1i32)
-     + 1i32
-     + 15000i32
-     + 12i32
-     + 9000i32
-     + 1i32
-     + 1i32
-     + 19i32
-     + 256i32
-     + 256i32
-     + 13i32
-     + 256i32
-     + 4i32
-     + 256i32) as isize;
+use crate::xetex_ini::{current_font_num, get_text_layout_engine, CUR_FONT_LOC};
 
-fn current_font_num() -> usize {
-    (*eqtb.offset(CUR_FONT_LOC)).b32.s1 as usize
-}
-fn get_text_layout_engine(f: usize) -> Option<&'static TextLayoutEngine> {
-    TEXT_LAYOUT_ENGINES.get(f)
-}
+use crate::text_layout_engine::{TextLayout, TextLayoutEngine};
 
-use std::io::Write;
 use std::ffi::CStr;
+use std::io::Write;
 
 use super::xetex_ini::Selector;
 pub use super::xetex_io::UFILE;
@@ -48,14 +28,12 @@ use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow, pdf_error};
 use crate::xetex_ext::{
     apply_mapping, apply_tfm_font_mapping, check_for_tfm_font_mapping, find_native_font,
-    get_encoding_mode_and_info, get_glyph_bounds,
-    get_native_char_height_depth, get_native_char_sidebearings, getnativechardp, getnativecharht,
-    getnativecharic, getnativecharwd, gr_font_get_named, gr_font_get_named_1,
-    linebreak_next, linebreak_start, load_tfm_font_mapping, map_char_to_glyph, map_glyph_to_index,
-    measure_native_glyph, measure_native_node, ot_font_get, ot_font_get_1, ot_font_get_2,
-    ot_font_get_3, print_glyph_name, print_utf8_str,
-    real_get_native_glyph_italic_correction, real_get_native_italic_correction,
-    real_get_native_word_cp,
+    get_encoding_mode_and_info, get_glyph_bounds, get_native_char_height_depth,
+    get_native_char_sidebearings, getnativechardp, getnativecharht, getnativecharic,
+    getnativecharwd, gr_font_get_named, gr_font_get_named_1, linebreak_next, linebreak_start,
+    load_tfm_font_mapping, map_char_to_glyph, map_glyph_to_index, measure_native_glyph,
+    measure_native_node, print_glyph_name, print_utf8_str, real_get_native_glyph_italic_correction,
+    real_get_native_italic_correction, real_get_native_word_cp,
 };
 use crate::xetex_ini::{
     _xeq_level_array, active_width, adjust_tail, after_token, align_ptr, align_state,
@@ -67,45 +45,45 @@ use crate::xetex_ini::{
     cur_val1, cur_val_level, dead_cycles, def_ref, deletions_allowed, depth_base, depth_threshold,
     dig, disc_ptr, empty, eof_seen, eqtb, eqtb_top, error_count, error_line, expand_depth,
     expand_depth_count, ext_delimiter, exten_base, false_bchar, file_line_error_style_p,
-    file_name_quote_char, file_offset, first, first_count, fmem_ptr, FONT_AREA, font_bc,
-    font_bchar, font_check, font_dsize, font_ec, font_false_bchar, font_flags, font_glue,
-    font_in_short_display, font_info, TEXT_LAYOUT_ENGINES, font_letter_space, font_mapping,
-    font_max, font_mem_size, font_name, font_params, font_ptr, font_size, font_used, force_eof,
-    full_source_filename_stack, gave_char_warning_help, grp_stack, half_error_line, hash,
-    hash_extra, hash_high, hash_used, height_base, help_line, help_ptr, hi_mem_min, history,
-    hyphen_char, if_limit, if_line, if_stack, in_open, init_pool_ptr, init_str_ptr, input_file,
-    input_ptr, input_stack, ins_disc, insert_penalties, insert_src_special_auto,
-    insert_src_special_every_par, insert_src_special_every_vbox, interaction, is_hyph,
-    is_in_csname, italic_base, job_name, kern_base, last, last_badness, last_glue, last_kern,
-    last_leftmost_char, last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_kern_base,
-    lig_stack, ligature_present, line, line_stack, lo_mem_max, loaded_font_design_size,
-    loaded_font_flags, loaded_font_letter_space, loaded_font_mapping, log_file, log_opened,
-    long_help_seen, long_state, mag_set, main_f, main_h, main_i, main_j, main_k, main_p, main_pp,
-    main_ppp, main_s, mapped_text, max_buf_stack, max_in_open, max_in_stack, max_nest_stack,
-    max_param_stack, max_print_line, max_reg_help_line, max_reg_num, max_save_stack, max_strings,
-    mem, mem_end, name_in_progress, name_length, name_length16, name_of_file, name_of_file16,
-    native_font_type_flag, native_len, native_text, native_text_size, nest, nest_ptr, nest_size,
-    no_new_control_sequence, old_setting, open_parens, output_active, pack_begin_line,
-    page_contents, page_so_far, page_tail, par_loc, par_token, param_base, param_ptr, param_size,
-    param_stack, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class,
-    prim, prim_eqtb, prim_used, pseudo_files, pstack, quoted_filename, radix, read_file, read_open,
-    rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_null, sa_root, save_native_len, save_ptr,
-    save_size, save_stack, scanner_status, selector, set_box_allowed, shown_mode, skew_char,
-    skip_line, source_filename_stack, space_class, stack_size, stop_at_space, str_pool, str_ptr,
-    str_start, tally, temp_ptr, term_offset, tex_remainder, texmf_log_name, total_shrink,
-    total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens, warning_index,
-    width_base, write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr,
+    file_name_quote_char, file_offset, first, first_count, fmem_ptr, font_bc, font_bchar,
+    font_check, font_dsize, font_ec, font_false_bchar, font_flags, font_glue,
+    font_in_short_display, font_info, font_letter_space, font_mapping, font_max, font_mem_size,
+    font_name, font_params, font_ptr, font_size, font_used, force_eof, full_source_filename_stack,
+    gave_char_warning_help, grp_stack, half_error_line, hash, hash_extra, hash_high, hash_used,
+    height_base, help_line, help_ptr, hi_mem_min, history, hyphen_char, if_limit, if_line,
+    if_stack, in_open, init_pool_ptr, init_str_ptr, input_file, input_ptr, input_stack, ins_disc,
+    insert_penalties, insert_src_special_auto, insert_src_special_every_par,
+    insert_src_special_every_vbox, interaction, is_hyph, is_in_csname, italic_base, job_name,
+    kern_base, last, last_badness, last_glue, last_kern, last_leftmost_char, last_node_type,
+    last_penalty, last_rightmost_char, lft_hit, lig_kern_base, lig_stack, ligature_present, line,
+    line_stack, lo_mem_max, loaded_font_design_size, loaded_font_flags, loaded_font_letter_space,
+    loaded_font_mapping, log_file, log_opened, long_help_seen, long_state, mag_set, main_f, main_h,
+    main_i, main_j, main_k, main_p, main_pp, main_ppp, main_s, mapped_text, max_buf_stack,
+    max_in_open, max_in_stack, max_nest_stack, max_param_stack, max_print_line, max_reg_help_line,
+    max_reg_num, max_save_stack, max_strings, mem, mem_end, name_in_progress, name_length,
+    name_length16, name_of_file, name_of_file16, native_font_type_flag, native_len, native_text,
+    native_text_size, nest, nest_ptr, nest_size, no_new_control_sequence, old_setting, open_parens,
+    output_active, pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token,
+    param_base, param_ptr, param_size, param_stack, pdf_last_x_pos, pdf_last_y_pos, pool_ptr,
+    pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used, pseudo_files, pstack,
+    quoted_filename, radix, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level,
+    sa_null, sa_root, save_native_len, save_ptr, save_size, save_stack, scanner_status, selector,
+    set_box_allowed, shown_mode, skew_char, skip_line, source_filename_stack, space_class,
+    stack_size, stop_at_space, str_pool, str_ptr, str_start, tally, temp_ptr, term_offset,
+    tex_remainder, texmf_log_name, total_shrink, total_stretch, trick_buf, trick_count,
+    use_err_help, used_tectonic_coda_tokens, warning_index, width_base, write_file, write_open,
+    xtx_ligature_present, LR_problems, LR_ptr, FONT_AREA, TEXT_LAYOUT_ENGINES,
 };
 use crate::xetex_ini::{b16x4, b32x2, memory_word, prefixed_command};
 use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding, u_close};
 use crate::xetex_layout_engine::*;
-use crate::xetex_opentype_math::get_ot_math_constant;
 use crate::xetex_linebreak::line_break;
 use crate::xetex_math::{
     after_math, append_choices, build_choices, fin_mlist, flush_math, init_math, math_ac,
     math_fraction, math_left_right, math_limit_switch, math_radical, resume_after_display,
     start_eq_no, sub_sup,
 };
+use crate::xetex_opentype_math::get_ot_math_constant;
 use crate::xetex_output::{
     print, print_char, print_cs, print_cstr, print_current_string, print_esc, print_esc_cstr,
     print_file_line, print_file_name, print_hex, print_int, print_ln, print_native_word, print_nl,
@@ -4205,7 +4183,7 @@ pub unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         89 => {
             print_cstr(b"select font \x00" as *const u8 as *const i8);
             font_name_str = *font_name.offset(chr_code as isize);
-            if let Some(_eng) = TEXT_LAYOUT_ENGINES.get(chr_code as usize) {
+            if let Some(_eng) = get_text_layout_engine(chr_code as usize) {
                 let mut for_end: i32 = length(font_name_str) - 1i32;
                 quote_char = '\"' as i32 as UTF16_code;
                 n = 0i32;
@@ -8888,7 +8866,7 @@ pub unsafe extern "C" fn scan_glyph_number(eng: &TextLayoutEngine) {
         cur_val_level = 0_u8
     } else if scan_keyword(b"u\x00" as *const u8 as *const i8) {
         scan_char_num();
-        cur_val = eng.map_char_to_glyph(cur_val);
+        cur_val = eng.map_char_to_glyph(cur_val as i32) as i32;
         cur_val_level = 0_u8
     } else {
         scan_int();
@@ -10392,7 +10370,7 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                 cur_val_level = 0_u8
             } else {
                 n = cur_val;
-                if let Some(eng) = TEXT_LAYOUT_ENGINES.get(n as usize) {
+                if let Some(eng) = get_text_layout_engine(n as usize) {
                     scan_glyph_number(eng);
                 } else {
                     scan_char_num();
@@ -10597,7 +10575,7 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                 if m >= 47i32 {
                     match m {
                         47 => {
-                            let font_num = (*eqtb.offset(CUR_FONT_LOC)).b32.s1;
+                            let font_num = current_font_num();
                             /*1435:*/
                             if let Some(_eng) = get_text_layout_engine(font_num as usize) {
                                 scan_int(); /* shellenabledp */
@@ -10620,18 +10598,10 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                                     cur_val = 0i32
                                 } else {
                                     scan_int();
-                                    cur_val = get_glyph_bounds(
-                                        current_font_num(),
-                                        n,
-                                        cur_val,
-                                    )
+                                    cur_val = get_glyph_bounds(current_font_num() as i32, n, cur_val)
                                 }
                             } else {
-                                not_native_font_error(
-                                    71i32,
-                                    m,
-                                    current_font_num() as i32,
-                                );
+                                not_native_font_error(71i32, m, current_font_num() as i32);
                                 cur_val = 0i32
                             }
                         }
@@ -10832,7 +10802,7 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                                 Some(TextLayoutEngine::XeTeX(eng)) if eng.usingGraphite() => {
                                     eng.poorly_named_getter(m - 14)
                                 }
-                                _ => 0
+                                _ => 0,
                             };
                         }
                         17 | 19 | 20 | 21 | 16 => {
@@ -10843,7 +10813,7 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         23 | 25 | 26 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match ncurrent_font_engine(n as usize) {
+                            cur_val = match current_font_engine(n as usize) {
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(eng)) => {
                                     scan_int();
@@ -10864,13 +10834,13 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         27 | 29 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match ncurrent_font_engine(n as usize) {
+                            cur_val = match current_font_engine(n as usize) {
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(eng)) => {
                                     scan_int();
                                     k = cur_val;
                                     scan_int();
-                                    eng.poorly_named_getter_1(m - 14, k, cur_val)
+                                    eng.poorly_named_getter_2(m - 14, k, cur_val)
                                 }
                                 Some(TextLayoutEngine::XeTeX(eng)) if eng.usingGraphite() => {
                                     scan_int();
@@ -10880,22 +10850,22 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                                 }
                                 _ => {
                                     not_aat_gr_font_error(71i32, m, n);
-                                    -1i32
+                                    -1
                                 }
                             };
                         }
                         18 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match ncurrent_font_engine(n as usize) {
+                            cur_val = match current_font_engine(n as usize) {
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(aat_eng)) => {
                                     scan_and_pack_name();
-                                    aat_eng.aat_font_get_named(m-14)
+                                    aat_eng.aat_font_get_named(m - 14)
                                 }
                                 _ => {
                                     not_aat_font_error(71i32, m, n);
-                                    -1i32
+                                    -1
                                 }
                             };
                         }
@@ -10906,9 +10876,11 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(aat_eng)) => {
                                     scan_and_pack_name();
-                                    aat_eng.aat_font_get_named(m-14)
+                                    aat_eng.aat_font_get_named(m - 14)
                                 }
-                                Some(TextLayoutEngine::XeTeX(xetex_eng)) if xetex_eng.usingGraphite() => {
+                                Some(TextLayoutEngine::XeTeX(xetex_eng))
+                                    if xetex_eng.usingGraphite() =>
+                                {
                                     scan_and_pack_name();
                                     xetex_eng.gr_font_get_named(m - 14i32)
                                 }
@@ -10943,7 +10915,7 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         30 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = if let Some(TextLayoutEngine::XeTeX(eng)) = TEXT_LAYOUT_ENGINES.get(n as usize)
+                            cur_val = if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(n as usize)
                                 && eng.usingOpenType() {
                                 eng.poorly_named_getter(m - 14)
                             } else {
@@ -10953,19 +10925,19 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         31 | 33 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = if let Some(TextLayoutEngine::XeTeX(eng)) = TEXT_LAYOUT_ENGINES.get(n as usize)
+                            cur_val = if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(n as usize)
                                 && eng.usingOpenType() {
                                 scan_int();
                                 eng.poorly_named_getter_1(m - 14, cur_val)
                             } else {
                                 not_ot_font_error(71i32, m, n);
-                                cur_val = -1i32
+                                -1
                             };
                         }
                         32 | 34 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = if let Some(TextLayoutEngine::XeTeX(eng)) = TEXT_LAYOUT_ENGINES.get(n as usize)
+                            cur_val = if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(n as usize)
                                 && eng.usingOpenType() {
                                 scan_int();
                                 k = cur_val;
@@ -10973,13 +10945,13 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                                 eng.poorly_named_getter_2(m - 14, k, cur_val)
                             } else {
                                 not_ot_font_error(71i32, m, n);
-                                cur_val = -1i32
+                                -1
                             };
                         }
                         35 => {
                             scan_font_ident();
                             n = cur_val;
-                            if let Some(TextLayoutEngine::XeTeX(eng)) = TEXT_LAYOUT_ENGINES.get(n as usize)
+                            cur_val = if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(n as usize)
                                 && eng.usingOpenType()
                             {
                                 scan_int();
@@ -10987,7 +10959,7 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                                 scan_int();
                                 kk = cur_val;
                                 scan_int();
-                                cur_val = eng.poorly_named_getter_3(
+                                eng.poorly_named_getter_3(
                                     m - 14i32,
                                     k,
                                     kk,
@@ -10995,81 +10967,35 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                                 )
                             } else {
                                 not_ot_font_error(71i32, m, n);
-                                cur_val = -1i32
-                            }
+                                -1
+                            };
                         }
                         36 => {
-                            let font_num = (*eqtb.offset(
-                                    (1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32) as isize,
-                                ))
-                                .b32
-                                .s1 as isize;
-                            if let Some(eng) = TEXT_LAYOUT_ENGINES.get(font_num) {
+                            let font_num = current_font_num();
+                            cur_val = if let Some(eng) = get_text_layout_engine(font_num) {
                                 scan_int();
                                 n = cur_val;
-                                cur_val = eng.map_char_to_glyph(n);
+                                eng.map_char_to_glyph(n) as i32
                             } else {
-                                not_native_font_error(
-                                    71i32,
-                                    m,
-                                    font_num,
-                                );
-                                cur_val = 0i32
+                                not_native_font_error(71i32, m, font_num as i32);
+                                0
                             }
                         }
                         37 => {
-                            let font_num = (*eqtb.offset(
-                                    (1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32) as isize,
-                                ))
-                                .b32
-                                .s1 as isize;
-                            if let Some(eng) = TEXT_LAYOUT_ENGINES.get(font_num) {
+                            let font_num = current_font_num();
+                            cur_val = if let Some(eng) = get_text_layout_engine(font_num) {
                                 scan_and_pack_name();
                                 // WHAT? WHY?
-                                cur_val = eng.map_glyph_to_index(name_of_file);
+                                eng.map_glyph_to_index(name_of_file)
                             } else {
-                                not_native_font_error(
-                                    71i32,
-                                    m,
-                                    font_num,
-                                );
-                                cur_val = 0i32
+                                not_native_font_error(71i32, m, font_num as i32);
+                                0
                             }
                         }
                         38 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match TEXT_LAYOUT_ENGINES.get(n as usize) {
+                            cur_val = match get_text_layout_engine(n as usize) {
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(_)) => 1,
                                 Some(TextLayoutEngine::XeTeX(e)) if x.usingOpenType() => 2,
@@ -11080,8 +11006,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         39 | 40 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = if let Some(eng) = TEXT_LAYOUT_ENGINES.get(n as usize) {
-                                eng.font_char_range(n, (m == 39) as i32)
+                            cur_val = if let Some(eng) = get_text_layout_engine(n as usize) {
+                                eng.font_char_range((m == 39) as i32)
                             } else if m == 39i32 {
                                 *font_bc.offset(n as isize) as i32
                             } else {
@@ -13098,9 +13024,10 @@ pub unsafe extern "C" fn conv_toks() {
         9 => {
             scan_font_ident();
             fnt = cur_val;
-            match TEXT_LAYOUT_ENGINES.get(fnt as usize) {
-                Some(TextLayoutEngine::AAT(_)) |
-                Some(TextLayoutEngine::XeTeX(e)) if e.usingGraphite() => {
+            match get_text_layout_engine(fnt as usize) {
+                Some(TextLayoutEngine::AAT(_)) | Some(TextLayoutEngine::XeTeX(e))
+                    if e.usingGraphite() =>
+                {
                     scan_int();
                     arg1 = cur_val;
                     scan_int();
@@ -13114,7 +13041,7 @@ pub unsafe extern "C" fn conv_toks() {
         10 => {
             scan_font_ident();
             fnt = cur_val;
-            if let Some(_) = TEXT_LAYOUT_ENGINES.get(fnt as usize) {
+            if let Some(_) = get_text_layout_engine(fnt as usize) {
                 scan_int();
                 arg1 = cur_val;
             } else {
@@ -13188,7 +13115,7 @@ pub unsafe extern "C" fn conv_toks() {
         }
         4 => {
             font_name_str = *font_name.offset(cur_val as isize);
-            match TEXT_LAYOUT_ENGINES.get(cur_val as usize) {
+            match get_text_layout_engine(cur_val as usize) {
                 Some(_eng) => {
                     quote_char = '\"' as i32 as UTF16_code;
                     i = 0i32 as small_number;
@@ -13229,23 +13156,21 @@ pub unsafe extern "C" fn conv_toks() {
         6 => {
             print_cstr(b".99998\x00" as *const u8 as *const i8);
         }
-        7 => {
-            match TEXT_LAYOUT_ENGINES.get(fnt as usize) {
-                #[cfg(target_os = "macos")]
-                Some(TextLayoutEngine::AAT(eng)) => eng.print_font_name(
-                    c as i32,
-                    arg1,
-                    arg2,
-                ),
-                _ => {}
+        7 => match get_text_layout_engine(fnt as usize) {
+            #[cfg(target_os = "macos")]
+            Some(TextLayoutEngine::AAT(eng)) => eng.print_font_name(c as i32, arg1, arg2),
+            _ => {}
+        },
+        8 | 9 => {
+            if let Some(eng) = get_text_layout_engine(fnt as usize) {
+                eng.print_font_name(c as i32, arg1, arg2);
             }
         }
-        8 | 9 => if let Some(eng) = TEXT_LAYOUT_ENGINES.get(fnt as usize) {
-            eng.print_font_name(c, arg1, arg2);
+        10 => {
+            if let Some(_eng) = get_text_layout_engine(fnt as usize) {
+                print_glyph_name(fnt, arg1);
+            }
         }
-        10 => if let Some(_eng) = TEXT_LAYOUT_ENGINES.get(fnt as usize) {
-            print_glyph_name(fnt, arg1);
-        },
         11 => {
             p = (*mem.offset((p + 5i32) as isize)).b32.s1;
             while p != TEX_NULL
@@ -14194,7 +14119,7 @@ pub unsafe extern "C" fn conditional() {
             scan_font_ident();
             n = cur_val;
             scan_usv_num();
-            if let Some(engine) = TEXT_LAYOUT_ENGINES.get(n as usize) {
+            if let Some(engine) = get_text_layout_engine(n as usize) {
                 b = map_char_to_glyph(n, cur_val) > 0i32
             } else if *font_bc.offset(n as isize) as i32 <= cur_val
                 && *font_ec.offset(n as isize) as i32 >= cur_val
@@ -15621,7 +15546,13 @@ pub unsafe extern "C" fn load_native_font(
     *font_dsize.offset(font_ptr as isize) = loaded_font_design_size;
     *font_size.offset(font_ptr as isize) = actual_size;
 
-    font_engine.get_font_metrics(&mut ascent, &mut descent, &mut x_ht, &mut cap_ht, &mut font_slant);
+    font_engine.get_font_metrics(
+        &mut ascent,
+        &mut descent,
+        &mut x_ht,
+        &mut cap_ht,
+        &mut font_slant,
+    );
 
     *height_base.offset(font_ptr as isize) = ascent;
     *depth_base.offset(font_ptr as isize) = -descent;
@@ -15688,8 +15619,9 @@ pub unsafe extern "C" fn load_native_font(
     .b32
     .s1;
     *param_base.offset(font_ptr as isize) = fmem_ptr - 1i32;
-    let ref mut fresh51 = *TEXT_LAYOUT_ENGINES.offset(font_ptr as isize);
-    *fresh51 = font_engine;
+
+    TEXT_LAYOUT_ENGINES.insert(font_ptr as usize, font_engine);
+
     let ref mut fresh52 = *font_mapping.offset(font_ptr as isize);
     *fresh52 = 0 as *mut libc::c_void;
     *font_letter_space.offset(font_ptr as isize) = loaded_font_letter_space;
@@ -22670,7 +22602,7 @@ pub unsafe extern "C" fn make_accent() {
             .b32
             .s1 as f64
             / 65536.0f64;
-        if let Some(_eng) = TEXT_LAYOUT_ENGINES.get(f as usize) {
+        if let Some(_eng) = get_text_layout_engine(f as usize) {
             a = (*mem.offset((p + 1i32) as isize)).b32.s1;
             if a == 0i32 {
                 get_native_char_sidebearings(f, cur_val, &mut lsb, &mut rsb);
@@ -22726,7 +22658,7 @@ pub unsafe extern "C" fn make_accent() {
                 .b32
                 .s1 as f64
                 / 65536.0f64;
-            if let Some(_eng) = TEXT_LAYOUT_ENGINES.get(f as usize) {
+            if let Some(_eng) = get_text_layout_engine(f as usize) {
                 w = (*mem.offset((q + 1i32) as isize)).b32.s1;
                 get_native_char_height_depth(f, cur_val, &mut h, &mut delta);
             } else {
@@ -23772,9 +23704,8 @@ pub unsafe extern "C" fn new_font(mut a: small_number) {
             }
             _ => {
                 if str_eq_str(*font_name.offset(f as isize), cur_name) as i32 != 0
-                    && (length(cur_area) == 0i32
-                    && TEXT_LAYOUT_ENGINES.get(f as usize).is_some()
-                    || str_eq_str(*FONT_AREA.offset(f as isize), cur_area) as i32 != 0)
+                    && (length(cur_area) == 0i32 && get_text_layout_engine(f as usize).is_some()
+                        || str_eq_str(*FONT_AREA.offset(f as isize), cur_area) as i32 != 0)
                 {
                     if s > 0i32 {
                         if s == *font_size.offset(f as isize) {
@@ -23792,7 +23723,7 @@ pub unsafe extern "C" fn new_font(mut a: small_number) {
                 if str_eq_str(*font_name.offset(f as isize), make_string()) {
                     str_ptr -= 1;
                     pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
-                    if TEXT_LAYOUT_ENGINES.get(f as usize).is_some() {
+                    if get_text_layout_engine(f as usize).is_some() {
                         if s > 0i32 {
                             if s == *font_size.offset(f as isize) {
                                 break;
@@ -24330,31 +24261,31 @@ pub unsafe extern "C" fn do_extension() {
         }
         43 => {
             let font_num = (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32) as isize,
-                ))
-                .b32
-                .s1;
+                (1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32) as isize,
+            ))
+            .b32
+            .s1;
             if (cur_list.mode as i32).abs() == 1i32 {
                 back_input();
                 new_graf(1i32 != 0);
             } else if (cur_list.mode as i32).abs() == 207i32 {
                 report_illegal_case();
-            } else if TEXT_LAYOUT_ENGINES.get(font_num as usize).is_some() {
+            } else if get_text_layout_engine(font_num as usize).is_some() {
                 new_whatsit(42i32 as small_number, 5i32 as small_number);
                 scan_int();
                 if cur_val < 0i32 || cur_val as i64 > 65535 {
@@ -24371,48 +24302,44 @@ pub unsafe extern "C" fn do_extension() {
                     int_error(cur_val);
                     cur_val = 0i32
                 }
-                (*mem.offset((cur_list.tail + 4i32) as isize)).b16.s2 =  as u16;
+                (*mem.offset((cur_list.tail + 4i32) as isize)).b16.s2 = current_font_num() as u16;
                 (*mem.offset((cur_list.tail + 4i32) as isize)).b16.s1 = cur_val as u16;
                 let use_glyph_metrics = ((*eqtb.offset(
-                        (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 74i32) as isize,
-                    ))
-                    .b32
-                    .s1 > 0i32) as i32;
+                    (1i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 1i32
+                        + 15000i32
+                        + 12i32
+                        + 9000i32
+                        + 1i32
+                        + 1i32
+                        + 19i32
+                        + 256i32
+                        + 256i32
+                        + 13i32
+                        + 256i32
+                        + 4i32
+                        + 256i32
+                        + 1i32
+                        + 3i32 * 256i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 74i32) as isize,
+                ))
+                .b32
+                .s1 > 0i32) as i32;
                 measure_native_glyph(
                     &mut *mem.offset(cur_list.tail as isize) as *mut memory_word
                         as *mut libc::c_void,
                     use_glyph_metrics,
                 );
             } else {
-                not_native_font_error(
-                    59i32,
-                    43i32,
-                    font_num,
-                );
+                not_native_font_error(59i32, 43i32, font_num);
             }
         }
         44 => {
@@ -25859,26 +25786,26 @@ pub unsafe extern "C" fn main_control() {
             }
             prev_class = 4096i32 - 1i32;
             let font_num = (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32) as isize,
-                ))
-                .b32
-                .s1;
-            if let Some(_eng) = TEXT_LAYOUT_ENGINES.get(font_num as usize) {
+                (1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32) as isize,
+            ))
+            .b32
+            .s1;
+            if let Some(_eng) = get_text_layout_engine(font_num as usize) {
                 if cur_list.mode as i32 > 0i32 {
                     if (*eqtb.offset(
                         (1i32

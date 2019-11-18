@@ -16,9 +16,9 @@ use freetype::freetype::{
     FT_Face_GetCharVariantIndex, FT_Fixed, FT_Generic, FT_Generic_Finalizer, FT_Get_Char_Index,
     FT_Get_First_Char, FT_Get_Glyph_Name, FT_Get_Kerning, FT_Get_Name_Index, FT_Get_Next_Char,
     FT_Get_Sfnt_Table, FT_GlyphSlot, FT_Glyph_Format, FT_Glyph_Metrics, FT_Int, FT_Int32,
-    FT_Library, FT_Load_Glyph, FT_Load_Sfnt_Table, FT_Long, FT_Memory, FT_MemoryRec_, FT_Open_Args,
-    FT_Parameter, FT_Pointer, FT_Pos, FT_Sfnt_Tag, FT_Short, FT_Size, FT_Stream, FT_String,
-    FT_UInt, FT_ULong, FT_Vector, FT_Kerning_Mode,
+    FT_Kerning_Mode, FT_Library, FT_Load_Glyph, FT_Load_Sfnt_Table, FT_Long, FT_Memory,
+    FT_MemoryRec_, FT_Open_Args, FT_Parameter, FT_Pointer, FT_Pos, FT_Sfnt_Tag, FT_Short, FT_Size,
+    FT_Stream, FT_String, FT_UInt, FT_ULong, FT_Vector,
 };
 
 use freetype::tt_os2::TT_OS2;
@@ -336,11 +336,7 @@ impl XeTeXFontInst {
         }
         neu
     }
-    pub unsafe fn init(
-        &mut self,
-        pathname: &CStr,
-        mut index: libc::c_int,
-    ) -> Result<(), i32> {
+    pub unsafe fn init(&mut self, pathname: &CStr, mut index: libc::c_int) -> Result<(), i32> {
         XeTeXFontInst_initialize(self, pathname, index)
     }
 

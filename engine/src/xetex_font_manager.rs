@@ -53,8 +53,8 @@ use std::ptr::NonNull;
 
 use crate::core_memory::xmalloc;
 
-use crate::xetex_layout_engine::collection_types::*;
 use crate::xetex_ext::Fix2D;
+use crate::xetex_layout_engine::collection_types::*;
 
 use harfbuzz_sys::{hb_face_t, hb_font_get_face, hb_font_t, hb_ot_layout_get_size_params};
 

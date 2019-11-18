@@ -13,6 +13,7 @@ use std::io::Write;
 
 use super::xetex_texmfmp::get_date_and_time;
 use crate::core_memory::{mfree, xcalloc, xmalloc};
+use crate::text_layout_engine::{TextLayout, TextLayoutEngine};
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, overflow};
 use crate::xetex_layout_engine::{destroy_font_manager, set_cp_code};
@@ -26,7 +27,6 @@ use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_va
 use crate::xetex_stringpool::{length, load_pool_strings, make_string};
 use crate::xetex_synctex::synctex_init_command;
 use crate::xetex_texmfmp::maketexstring;
-use crate::text_layout_engine::{TextLayoutEngine, TextLayout};
 use crate::xetex_xetex0::{
     alter_aux, alter_box_dimen, alter_integer, alter_page_so_far, alter_prev_graf, back_error,
     back_input, begin_diagnostic, close_files_and_terminate, delete_glue_ref, delete_token_ref,
@@ -409,7 +409,6 @@ pub use super::xetex_io::UFILE;
    Licensed under the MIT License.
 */
 /* All the following variables are declared in xetex-xetexd.h */
-
 
 /// The XeTeX sources don't contain much in the way of documentation for eqtb.
 /// This file does a better job:
@@ -805,7 +804,9 @@ pub static mut font_bchar: *mut nine_bits = 0 as *const nine_bits as *mut nine_b
 #[no_mangle]
 pub static mut font_false_bchar: *mut nine_bits = 0 as *const nine_bits as *mut nine_bits;
 pub static mut FONT_AREA: *mut str_number = 0 as *const str_number as *mut str_number;
-pub static mut TEXT_LAYOUT_ENGINES: Vec<TextLayoutEngine> = Vec::new();
+use std::collections::HashMap;
+// XXX: change the usize to u32 / internal font number
+pub static mut TEXT_LAYOUT_ENGINES: HashMap<usize, TextLayoutEngine> = HashMap::new();
 #[no_mangle]
 pub static mut font_mapping: *mut *mut libc::c_void =
     0 as *const *mut libc::c_void as *mut *mut libc::c_void;
@@ -1167,6 +1168,14 @@ that dumps a glue ratio, i.e., a floating-point number.  Fortunately,
 none of the standard formats do that.  */
 /* This macro is always invoked as a statement.  It assumes a variable
 `temp'.  */
+
+pub fn current_font_num() -> usize {
+    (*eqtb.offset(CUR_FONT_LOC as isize)).b32.s1 as usize
+}
+pub fn get_text_layout_engine(f: usize) -> Option<&'static TextLayoutEngine> {
+    TEXT_LAYOUT_ENGINES.get(&f)
+}
+
 /* Make the NITEMS items pointed at by P, each of size SIZE, be the
 opposite-endianness of whatever they are now.  */
 unsafe extern "C" fn swap_items(mut p: *mut i8, mut nitems: size_t, mut size: size_t) {
@@ -1291,7 +1300,8 @@ unsafe extern "C" fn do_undump(
     mut nitems: size_t,
     in_file: &mut InputHandleWrapper,
 ) {
-    let mut r: ssize_t = ttstub_input_read_exact(in_file.0.as_ptr(), p, item_size.wrapping_mul(nitems));
+    let mut r: ssize_t =
+        ttstub_input_read_exact(in_file.0.as_ptr(), p, item_size.wrapping_mul(nitems));
     if r < 0i32 as i64 || r as size_t != item_size.wrapping_mul(nitems) {
         _tt_abort(
             b"could not undump %zu %zu-byte item(s) from %s\x00" as *const u8 as *const i8,
@@ -2961,8 +2971,8 @@ pub unsafe extern "C" fn prefixed_command() {
                     *hyphen_char.offset(f as isize) = cur_val
                 } else { *skew_char.offset(f as isize) = cur_val }
             } else {
-                if TEXT_LAYOUT_ENGINES.get(f as usize).is_some() {
-                    scan_glyph_number(f);
+                if let Some(eng) = get_text_layout_engine(f as usize) {
+                    scan_glyph_number(eng);
                 } else {
                     scan_char_num();
                 }
@@ -3621,7 +3631,7 @@ unsafe extern "C" fn store_fmt_file() {
         print_nl_cstr(b"\\font\x00" as *const u8 as *const i8);
         print_esc((*hash.offset(FONT_ID_BASE as isize + k as isize)).s1);
         print_char('=' as i32);
-        if TEXT_LAYOUT_ENGINES.get(k as usize).is_some() {
+        if get_text_layout_engine(k as usize).is_some() {
             print_file_name(
                 *font_name.offset(k as isize),
                 (65536 + 1i32 as i64) as i32,
@@ -4399,7 +4409,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     font_mapping = xmalloc(
         ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut libc::c_void>() as u64),
     ) as *mut *mut libc::c_void;
-    TEXT_LAYOUT_ENGINES = Vec::with_capacity(font_max);
+    TEXT_LAYOUT_ENGINES = HashMap::with_capacity(font_max as usize);
     font_flags =
         xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64))
             as *mut i8;
@@ -9856,7 +9866,7 @@ pub unsafe extern "C" fn tt_run_engine(
             (font_max + 1i32) as size_t,
             ::std::mem::size_of::<*mut libc::c_void>() as u64,
         ) as *mut *mut libc::c_void;
-        TEXT_LAYOUT_ENGINES = Vec::with_capacity(font_max);
+        TEXT_LAYOUT_ENGINES = HashMap::with_capacity(font_max as usize);
         font_flags = xcalloc(
             (font_max + 1i32) as size_t,
             ::std::mem::size_of::<i8>() as u64,
@@ -10017,7 +10027,7 @@ pub unsafe extern "C" fn tt_run_engine(
     free(font_used as *mut libc::c_void);
     deinitialize_shipout_variables();
     destroy_font_manager();
-    TEXT_LAYOUT_ENGINES = Vec::new();
+    TEXT_LAYOUT_ENGINES = HashMap::new();
     // Free the big allocated arrays
     free(buffer as *mut libc::c_void);
     free(nest as *mut libc::c_void);

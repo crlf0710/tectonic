@@ -18,14 +18,14 @@ use crate::xetex_ext::{
 use crate::xetex_ini::{
     avail, char_base, cur_area, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_list, cur_name,
     cur_page_height, cur_page_width, cur_tok, cur_v, cur_v_offset, dead_cycles, def_ref,
-    doing_leaders, doing_special, eqtb, file_line_error_style_p, file_offset, FONT_AREA, font_bc,
-    font_check, font_dsize, font_ec, font_glue, font_info, font_letter_space, font_mapping,
-    font_name, font_ptr, font_size, font_used, help_line, help_ptr, init_pool_ptr, job_name,
-    last_bop, log_opened, max_h, max_print_line, max_push, max_v, mem, name_of_file,
-    output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht,
-    rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool, str_ptr, str_start,
-    temp_ptr, term_offset, total_pages, width_base, write_file, write_loc, write_open, xdv_buffer,
-    xtx_ligature_present, LR_problems, LR_ptr,
+    doing_leaders, doing_special, eqtb, file_line_error_style_p, file_offset, font_bc, font_check,
+    font_dsize, font_ec, font_glue, font_info, font_letter_space, font_mapping, font_name,
+    font_ptr, font_size, font_used, help_line, help_ptr, init_pool_ptr, job_name, last_bop,
+    log_opened, max_h, max_print_line, max_push, max_v, mem, name_of_file, output_file_extension,
+    pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht, rule_wd, rust_stdout,
+    selector, semantic_pagination_enabled, str_pool, str_ptr, str_start, temp_ptr, term_offset,
+    total_pages, width_base, write_file, write_loc, write_open, xdv_buffer, xtx_ligature_present,
+    LR_problems, LR_ptr, FONT_AREA, get_text_layout_engine,
 };
 use crate::xetex_ini::{memory_word, Selector};
 use crate::xetex_output::{
@@ -2971,7 +2971,7 @@ unsafe extern "C" fn dvi_native_font_def(mut f: internal_font_number) {
 unsafe extern "C" fn dvi_font_def(mut f: internal_font_number) {
     let mut k: pool_pointer = 0;
     let mut l: i32 = 0;
-    if let Some(_eng) = TEXT_LAYOUT_ENGINES.get(f as usize) {
+    if let Some(_eng) = get_text_layout_engine(f as usize) {
         dvi_native_font_def(f);
     } else {
         if f <= 256i32 {

@@ -237,7 +237,9 @@ pub static mut name_of_input_file: *mut i8 = 0 as *const i8 as *mut i8;
 ///
 /// `name_of_file` is a static set by scan_file_name() and pack_file_name() called in sequence.
 #[no_mangle]
-pub unsafe extern "C" fn tt_xetex_open_input(mut filefmt: TTInputFormat) -> Option<InputHandleWrapper> {
+pub unsafe extern "C" fn tt_xetex_open_input(
+    mut filefmt: TTInputFormat,
+) -> Option<InputHandleWrapper> {
     let handle = if filefmt == TTInputFormat::TECTONIC_PRIMARY {
         ttstub_input_open_primary()
     } else {
@@ -334,7 +336,7 @@ pub unsafe extern "C" fn u_open_in(
     (**f).handle = handle;
     if mode == 0i32 {
         /* sniff encoding form */
-        let handle =  (**f).handle.as_mut().unwrap();
+        let handle = (**f).handle.as_mut().unwrap();
         B1 = ttstub_input_getc(handle);
         B2 = ttstub_input_getc(handle);
         if B1 == 0xfei32 && B2 == 0xffi32 {
