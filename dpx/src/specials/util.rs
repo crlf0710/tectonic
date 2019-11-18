@@ -379,12 +379,14 @@ extern "C" fn make_transmatrix(
     mut rotate: f64,
 ) {
     let (s, c) = rotate.sin_cos();
-    M.a = xscale * c;
-    M.b = xscale * s;
-    M.c = -yscale * s;
-    M.d = yscale * c;
-    M.e = xoffset;
-    M.f = yoffset;
+    *M =  TMatrix::row_major(
+        xscale * c,
+        xscale * s,
+        -yscale * s,
+        yscale * c,
+        xoffset,
+        yoffset,
+    );
 }
 unsafe fn spc_read_dimtrns_dvips(
     mut spe: *mut spc_env,
@@ -623,12 +625,7 @@ unsafe fn spc_read_dimtrns_pdfm(
                     if spc_util_read_numbers(v_0.as_mut_ptr(), 6i32, ap) != 6i32 {
                         error = -1i32
                     } else {
-                        p.matrix.a = v_0[0];
-                        p.matrix.b = v_0[1];
-                        p.matrix.c = v_0[2];
-                        p.matrix.d = v_0[3];
-                        p.matrix.e = v_0[4];
-                        p.matrix.f = v_0[5];
+                        p.matrix = TMatrix::row_major(v_0[0], v_0[1], v_0[2], v_0[3], v_0[4], v_0[5]);
                         has_matrix = 1i32
                     }
                 }
@@ -804,12 +801,7 @@ pub unsafe extern "C" fn spc_util_read_blahblah(
                     if spc_util_read_numbers(v_0.as_mut_ptr(), 6i32, ap) != 6i32 {
                         error = -1i32
                     } else {
-                        p.matrix.a = v_0[0];
-                        p.matrix.b = v_0[1];
-                        p.matrix.c = v_0[2];
-                        p.matrix.d = v_0[3];
-                        p.matrix.e = v_0[4];
-                        p.matrix.f = v_0[5];
+                        p.matrix = TMatrix::row_major(v_0[0], v_0[1], v_0[2], v_0[3], v_0[4], v_0[5]);
                         has_matrix = 1i32
                     }
                 }

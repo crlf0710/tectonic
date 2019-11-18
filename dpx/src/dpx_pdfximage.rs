@@ -715,12 +715,14 @@ unsafe fn scale_to_fit_I(T: &mut TMatrix, p: &mut transform_info, mut I: *mut pd
         s_y = ht0;
         0.
     };
-    T.a = s_x;
-    T.c = 0.0f64;
-    T.b = 0.0f64;
-    T.d = s_y;
-    T.e = d_x * s_x / xscale;
-    T.f = d_y * s_y / yscale - dp;
+    *T = TMatrix::row_major(
+        s_x,
+        0.,
+        0.,
+        s_y,
+        d_x * s_x / xscale,
+        d_y * s_y / yscale - dp,
+    );
 }
 unsafe fn scale_to_fit_F(T: &mut TMatrix, p: &mut transform_info, mut I: *mut pdf_ximage) {
     let s_x;
@@ -765,28 +767,29 @@ unsafe fn scale_to_fit_F(T: &mut TMatrix, p: &mut transform_info, mut I: *mut pd
         s_x = s_y;
         0.
     };
-    T.a = s_x;
-    T.c = 0.0f64;
-    T.b = 0.0f64;
-    T.d = s_y;
-    T.e = s_x * d_x;
-    T.f = s_y * d_y - dp;
+    *T = TMatrix::row_major(
+        s_x,
+        0.,
+        0.,
+        s_y,
+        s_x * d_x,
+        s_y * d_y - dp,
+    );
 }
 /* called from pdfdev.c and spc_html.c */
 #[no_mangle]
 pub unsafe extern "C" fn pdf_ximage_scale_image(
     id: i32,
-    M: &mut TMatrix,
     r: &mut Rect,
     p: &mut transform_info,
-) -> i32
+) -> TMatrix
 /* argument from specials */ {
     let mut ic: *mut ic_ = &mut _ic;
     if id < 0i32 || id >= (*ic).count {
         panic!("Invalid XObject ID: {}", id);
     }
     let I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
-    *M = TMatrix::identity();
+    let mut M = TMatrix::identity();
     match (*I).subtype {
         1 => {
             /* Reference: PDF Reference 1.5 v6, p.302
@@ -814,7 +817,7 @@ pub unsafe extern "C" fn pdf_ximage_scale_image(
              * DVIPDFMx's xbb generates bounding box as 100px = 100bp in the same
              * way as pdfTeX. Furthermore, it takes care of density information too.
              */
-            scale_to_fit_I(M, p, I);
+            scale_to_fit_I(&mut M, p, I);
             if p.flags & 1i32 << 0i32 != 0 {
                 r.ll.x = p.bbox.ll.x / ((*I).attr.width as f64 * (*I).attr.xdensity);
                 r.ll.y = p.bbox.ll.y / ((*I).attr.height as f64 * (*I).attr.ydensity);
@@ -827,7 +830,7 @@ pub unsafe extern "C" fn pdf_ximage_scale_image(
         0 => {
             /* User-defined transformation and clipping are controlled by
              * the cm operator and W operator, explicitly */
-            scale_to_fit_F(M, p, I); /* I->attr.bbox from the image bounding box */
+            scale_to_fit_F(&mut M, p, I); /* I->attr.bbox from the image bounding box */
             if p.flags & 1i32 << 0i32 != 0 {
                 *r = p.bbox;
             } else {
@@ -836,7 +839,7 @@ pub unsafe extern "C" fn pdf_ximage_scale_image(
         }
         _ => {}
     }
-    0i32
+    M
 }
 /* Migrated from psimage.c */
 #[no_mangle]

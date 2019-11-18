@@ -667,15 +667,15 @@ unsafe fn do_texfig_operator(mut opcode: i32, mut x_user: f64, mut y_user: f64) 
     }
     error
 }
-unsafe fn ps_dev_CTM(M: &mut TMatrix) -> i32 {
-    pdf_dev_currentmatrix(M);
-    M.a *= 1000.;
-    M.b *= 1000.;
-    M.c *= 1000.;
-    M.d *= 1000.;
-    M.e *= 1000.;
-    M.f *= 1000.;
-    0i32
+unsafe fn ps_dev_CTM() -> TMatrix {
+    let mut M = pdf_dev_currentmatrix();
+    M.m11 *= 1000.;
+    M.m12 *= 1000.;
+    M.m21 *= 1000.;
+    M.m22 *= 1000.;
+    M.m31 *= 1000.;
+    M.m32 *= 1000.;
+    M
 }
 /*
  * Again, the only piece that needs x_user and y_user is
@@ -685,7 +685,6 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
     let mut error: i32 = 0i32;
     let mut values: [f64; 12] = [0.; 12];
     let mut tmp = None;
-    let mut matrix = TMatrix::new();
     let mut cp = Coord::zero();
     let opcode = get_opcode(token);
     match opcode {
@@ -839,12 +838,14 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
             if error != 0 {
                 warn!("Missing array before \"concat\".");
             } else {
-                matrix.a = values[0];
-                matrix.b = values[1];
-                matrix.c = values[2];
-                matrix.d = values[3];
-                matrix.e = values[4];
-                matrix.f = values[5];
+                let mut matrix = TMatrix::row_major(
+                    values[0],
+                    values[1],
+                    values[2],
+                    values[3],
+                    values[4],
+                    values[5],
+                );
                 error = pdf_dev_concat(&mut matrix)
             }
         }
@@ -854,12 +855,10 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                 match mp_cmode {
                     _ => {}
                 }
-                matrix.a = values[0];
-                matrix.b = 0.0f64;
-                matrix.c = 0.0f64;
-                matrix.d = values[1];
-                matrix.e = 0.0f64;
-                matrix.f = 0.0f64;
+                let mut matrix = TMatrix::create_scale(
+                    values[0],
+                    values[1],
+                );
                 error = pdf_dev_concat(&mut matrix)
             }
         }
@@ -868,39 +867,41 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
             error = pop_get_numbers(values.as_mut_ptr(), 1i32);
             if error == 0 {
                 values[0] = values[0] * 3.14159265358979323846f64 / 180i32 as f64;
-                match mp_cmode {
+                let mut matrix = match mp_cmode {
                     1 | 0 => {
                         /* Really? */
                         let (s, c) = values[0].sin_cos();
-                        matrix.a = c;
-                        matrix.b = -s;
-                        matrix.c = s;
-                        matrix.d = c;
-                        matrix.e = 0.;
-                        matrix.f = 0.
+                        TMatrix::row_major(
+                            c,
+                            -s,
+                            s,
+                            c,
+                            0.,
+                            0.,
+                        )
                     }
                     _ => {
                         let (s, c) = values[0].sin_cos();
-                        matrix.a = c;
-                        matrix.b = s;
-                        matrix.c = -s;
-                        matrix.d = c;
-                        matrix.e = 0.;
-                        matrix.f = 0.
+                        TMatrix::row_major(
+                            c,
+                            s,
+                            -s,
+                            c,
+                            0.,
+                            0.,
+                        )
                     }
-                }
+                };
                 error = pdf_dev_concat(&mut matrix)
             }
         }
         54 => {
             error = pop_get_numbers(values.as_mut_ptr(), 2i32);
             if error == 0 {
-                matrix.a = 1.;
-                matrix.b = 0.;
-                matrix.c = 0.;
-                matrix.d = 1.;
-                matrix.e = values[0];
-                matrix.f = values[1];
+                let mut matrix = TMatrix::create_translation(
+                    values[0],
+                    values[1],
+                );
                 error = pdf_dev_concat(&mut matrix)
             }
         }
@@ -1007,20 +1008,21 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
             }
         }
         82 => {
-            let mut has_matrix: i32 = 0i32;
+            let mut matrix = None;
             if let Some(tmp2) = STACK.pop() {
                 if (*tmp2).is_array() {
                     error = cvr_array(tmp2, values.as_mut_ptr(), 6i32);
                     tmp = None;
                     if error == 0 {
-                        matrix.a = values[0];
-                        matrix.b = values[1];
-                        matrix.c = values[2];
-                        matrix.d = values[3];
-                        matrix.e = values[4];
-                        matrix.f = values[5];
+                        matrix = Some(TMatrix::row_major(
+                            values[0],
+                            values[1],
+                            values[2],
+                            values[3],
+                            values[4],
+                            values[5],
+                        ));
                         tmp = STACK.pop();
-                        has_matrix = 1i32;
                     }
                 } else {
                     tmp = Some(tmp2);
@@ -1033,10 +1035,9 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                     if let Some(tmp) = STACK.pop().filter(|&o| (*o).is_number()) {
                         cp.x = pdf_number_value(&*tmp);
                         pdf_release_obj(tmp);
-                        if has_matrix == 0 {
-                            ps_dev_CTM(&mut matrix);
-                            /* Here, we need real PostScript CTM */
-                        } /* This does pdf_release_obj() */
+                        /* Here, we need real PostScript CTM */
+                        let mut matrix = matrix.unwrap_or_else(|| ps_dev_CTM());
+                        /* This does pdf_release_obj() */
                         pdf_dev_dtransform(&mut cp, Some(&mut matrix));
                         if STACK.push_checked(pdf_new_number(cp.x)).is_ok() {
                             if STACK.push_checked(pdf_new_number(cp.y)).is_err() {
@@ -1054,20 +1055,21 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
             }
         }
         81 => {
-            let mut has_matrix_0: i32 = 0i32;
+            let mut matrix = None;
             if let Some(tmp2) = STACK.pop() {
                 if (*tmp2).is_array() {
                     error = cvr_array(tmp2, values.as_mut_ptr(), 6i32);
                     tmp = None;
                     if error == 0 {
-                        matrix.a = values[0];
-                        matrix.b = values[1];
-                        matrix.c = values[2];
-                        matrix.d = values[3];
-                        matrix.e = values[4];
-                        matrix.f = values[5];
+                        matrix = Some(TMatrix::row_major(
+                            values[0],
+                            values[1],
+                            values[2],
+                            values[3],
+                            values[4],
+                            values[5],
+                        ));
                         tmp = STACK.pop();
-                        has_matrix_0 = 1i32;
                     }
                 } else {
                     tmp = Some(tmp2);
@@ -1080,10 +1082,8 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                     if let Some(tmp) = STACK.pop().filter(|&o| (*o).is_number()) {
                         cp.x = pdf_number_value(&*tmp);
                         pdf_release_obj(tmp);
-                        if has_matrix_0 == 0 {
-                            ps_dev_CTM(&mut matrix);
-                            /* Here, we need real PostScript CTM */
-                        }
+                        /* Here, we need real PostScript CTM */
+                        let matrix = matrix.unwrap_or_else(|| ps_dev_CTM());
                         pdf_dev_idtransform(&mut cp, Some(&matrix));
                         if STACK.push_checked(pdf_new_number(cp.x)).is_ok() {
                             if STACK.push_checked(pdf_new_number(cp.y)).is_err() {

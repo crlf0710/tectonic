@@ -99,7 +99,10 @@ fn ROTATE_TEXT(m: TextWMode) -> bool {
 }
 
 pub type spt_t = i32;
-#[derive(Copy, Clone, Default)]
+
+pub type TMatrix = euclid::Transform2D<f64, (), ()>;
+
+/*#[derive(Copy, Clone, Default)]
 #[repr(C)]
 /// Transform coordinate matrix
 pub struct TMatrix {
@@ -133,7 +136,7 @@ impl TMatrix {
             f: 0.,
         }
     }
-}
+}*/
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
 /// Represents rectangle and TeX bbox in document
@@ -147,15 +150,15 @@ impl Rect {
     /// Zero initialized rectangle
     pub const fn zero() -> Self {
         Self {
-            ll: Coord {x: 0., y: 0.},
-            ur: Coord {x: 0., y: 0.},
+            ll: Coord::new(0., 0.),
+            ur: Coord::new(0., 0.),
         }
     }
     /// Create new rectangle from lower left and upper right coorditate
     pub const fn new(ll: (f64, f64), ur: (f64, f64)) -> Self {
         Self {
-            ll: Coord {x: ll.0, y: ll.1},
-            ur: Coord {x: ur.0, y: ur.1},
+            ll: Coord::new(ll.0, ll.1),
+            ur: Coord::new(ur.0, ur.1),
         }
     }
     pub fn width(&self) -> f64 {
@@ -192,50 +195,16 @@ impl std::fmt::Display for Rect {
     }
 }
 
-#[derive(Copy, Clone, Default)]
-#[repr(C)]
 /// Coordinate (point) in TeX document
-pub struct Coord {
-    pub x: f64,
-    pub y: f64,
+pub type Coord = euclid::Point2D<f64, ()>;
+
+pub trait Equal {
+    fn equal(&self, other: &Self) -> bool;
 }
-impl Coord {
-    pub const fn new(x: f64, y: f64) -> Self {
-        Self { x, y }
-    }
-    pub const fn zero() -> Self {
-        Self { x: 0., y: 0. }
-    }
-    pub fn scale(self, factor: f64) -> Self {
-        Self { x: self.x*factor, y: self.y*factor }
-    }
-    pub fn equal(&self, other: &Coord) -> bool {
+
+impl Equal for Coord {
+    fn equal(&self, other: &Self) -> bool {
         ((self.x - other.x).abs() < 1e-7) && ((self.y - other.y).abs() < 1e-7)
-    }
-}
-
-impl core::ops::Add for Coord {
-    type Output = Self;
-    fn add(self, other: Self) -> Self {
-        Self { x: self.x + other.x, y: self.y + other.y }
-    }
-}
-
-impl core::ops::Sub for Coord {
-    type Output = Self;
-    fn sub(self, other: Self) -> Self {
-        Self { x: self.x - other.x, y: self.y - other.y }
-    }
-}
-
-impl core::ops::AddAssign for Coord {
-    fn add_assign(&mut self, other: Self) {
-        *self = *self + other
-    }
-}
-impl core::ops::SubAssign for Coord {
-    fn sub_assign(&mut self, other: Self) {
-        *self = *self - other
     }
 }
 
@@ -255,7 +224,12 @@ impl transform_info {
             width: 0.,
             height: 0.,
             depth: 0.,
-            matrix: TMatrix::new(),
+            matrix: TMatrix {
+                m11: 1., m12: 0.,
+                m21: 0., m22: 1.,
+                m31: 0., m32: 0.,
+                _unit: core::marker::PhantomData,
+            },
             bbox: Rect::zero(),
             flags: 0,
         }
@@ -481,22 +455,22 @@ pub fn pdf_sprint_matrix(buf: &mut [u8], M: &TMatrix) -> usize {
     } else {
         2i32
     }; /* xxx_sprint_xxx NULL terminates strings. */
-    let mut len = p_dtoa(M.a, prec2, buf); /* xxx_sprint_xxx NULL terminates strings. */
+    let mut len = p_dtoa(M.m11, prec2, buf); /* xxx_sprint_xxx NULL terminates strings. */
     buf[len] = b' '; /* xxx_sprint_xxx NULL terminates strings. */
     len += 1;
-    len += p_dtoa(M.b, prec2, &mut buf[len..]);
+    len += p_dtoa(M.m12, prec2, &mut buf[len..]);
     buf[len] = b' ';
     len += 1;
-    len += p_dtoa(M.c, prec2, &mut buf[len..]);
+    len += p_dtoa(M.m21, prec2, &mut buf[len..]);
     buf[len] = b' ';
     len += 1;
-    len += p_dtoa(M.d, prec2, &mut buf[len..]);
+    len += p_dtoa(M.m22, prec2, &mut buf[len..]);
     buf[len] = b' ';
     len += 1;
-    len += p_dtoa(M.e, prec0, &mut buf[len..]);
+    len += p_dtoa(M.m31, prec0, &mut buf[len..]);
     buf[len] = b' ';
     len += 1;
-    len += p_dtoa(M.f, prec0, &mut buf[len..]);
+    len += p_dtoa(M.m32, prec0, &mut buf[len..]);
     buf[len] = b'\x00';
     len
 }
@@ -568,56 +542,65 @@ unsafe fn dev_set_text_matrix(
     mut extend: f64,
     mut rotate: TextWMode,
 ) {
-    let mut tm = TMatrix::new();
     let mut len = 0;
     /* slant is negated for vertical font so that right-side
      * is always lower. */
+    let tma;
+    let tmb;
+    let tmc;
+    let tmd;
     match rotate {
         TextWMode::VH => {
             /* Vertical font */
-            tm.a = slant;
-            tm.b = 1.0f64;
-            tm.c = -extend;
-            tm.d = 0.0f64
+            tma = slant;
+            tmb = 1.;
+            tmc = -extend;
+            tmd = 0.;
         }
         TextWMode::HV => {
             /* Horizontal font */
-            tm.a = 0.0f64;
-            tm.b = -extend;
-            tm.c = 1.0f64;
-            tm.d = -slant
+            tma = 0.;
+            tmb = -extend;
+            tmc = 1.;
+            tmd = -slant;
         }
         TextWMode::HH => {
             /* Horizontal font */
-            tm.a = extend;
-            tm.b = 0.0f64;
-            tm.c = slant;
-            tm.d = 1.0f64
+            tma = extend;
+            tmb = 0.;
+            tmc = slant;
+            tmd = 1.;
         }
         TextWMode::VV => {
             /* Vertical font */
-            tm.a = 1.0f64;
-            tm.b = -slant;
-            tm.c = 0.0f64;
-            tm.d = extend
+            tma = 1.;
+            tmb = -slant;
+            tmc = 0.;
+            tmd = extend;
         }
         TextWMode::HD => {
             /* Horizontal font */
-            tm.a = 0.0f64;
-            tm.b = extend;
-            tm.c = -1.0f64;
-            tm.d = slant
+            tma = 0.;
+            tmb = extend;
+            tmc = -1.;
+            tmd = slant;
         }
         TextWMode::VD => {
             /* Vertical font */
-            tm.a = -1.0f64; /* op: Tm */
-            tm.b = slant;
-            tm.c = 0.0f64;
-            tm.d = -extend
+            tma = -1.; /* op: Tm */
+            tmb = slant;
+            tmc = 0.;
+            tmd = -extend;
         }
     }
-    tm.e = xpos as f64 * dev_unit.dvi2pts;
-    tm.f = ypos as f64 * dev_unit.dvi2pts;
+    let mut tm = TMatrix::row_major(
+        tma,
+        tmb,
+        tmc,
+        tmd,
+        xpos as f64 * dev_unit.dvi2pts,
+        ypos as f64 * dev_unit.dvi2pts,
+    );
     format_buffer[len] = b' ';
     len += 1;
     len += pdf_sprint_matrix(&mut format_buffer[len..], &mut tm) as usize;
@@ -1920,47 +1903,27 @@ pub unsafe extern "C" fn pdf_dev_put_image(
     mut ref_x: f64,
     mut ref_y: f64,
 ) -> i32 {
-    let mut M = TMatrix::new();
-    let mut M1 = TMatrix::new();
     let mut r = Rect::zero();
     if num_dev_coords > 0i32 {
         ref_x -= (*dev_coords.offset((num_dev_coords - 1i32) as isize)).x;
         ref_y -= (*dev_coords.offset((num_dev_coords - 1i32) as isize)).y
     }
-    M.a = p.matrix.a;
-    M.b = p.matrix.b;
-    M.c = p.matrix.c;
-    M.d = p.matrix.d;
-    M.e = p.matrix.e;
-    M.f = p.matrix.f;
-    M.e += ref_x;
-    M.f += ref_y;
+    let mut M = p.matrix;
+    M.m31 += ref_x;
+    M.m32 += ref_y;
     /* Just rotate by -90, but not tested yet. Any problem if M has scaling? */
     if dev_param.autorotate != 0 && text_state.dir_mode != 0 {
-        let tmp = -M.a;
-        M.a = M.b;
-        M.b = tmp;
-        let tmp = -M.c;
-        M.c = M.d;
-        M.d = tmp
+        let tmp = -M.m11;
+        M.m11 = M.m12;
+        M.m12 = tmp;
+        let tmp = -M.m21;
+        M.m21 = M.m22;
+        M.m22 = tmp
     }
     graphics_mode();
     pdf_dev_gsave();
-    pdf_ximage_scale_image(id, &mut M1, &mut r, p);
-    let mut _tmp_a: f64 = 0.;
-    let mut _tmp_b: f64 = 0.;
-    let mut _tmp_c: f64 = 0.;
-    let mut _tmp_d: f64 = 0.;
-    _tmp_a = M.a;
-    _tmp_b = M.b;
-    _tmp_c = M.c;
-    _tmp_d = M.d;
-    M.a = M1.a * _tmp_a + M1.b * _tmp_c;
-    M.b = M1.a * _tmp_b + M1.b * _tmp_d;
-    M.c = M1.c * _tmp_a + M1.d * _tmp_c;
-    M.d = M1.c * _tmp_b + M1.d * _tmp_d;
-    M.e += M1.e * _tmp_a + M1.f * _tmp_c;
-    M.f += M1.e * _tmp_b + M1.f * _tmp_d;
+    let M1 = pdf_ximage_scale_image(id, &mut r, p);
+    M = M1.post_transform(&M);
     pdf_dev_concat(&mut M);
     /* Clip */
     if p.flags & 1i32 << 3i32 != 0 {
@@ -1992,9 +1955,9 @@ pub unsafe extern "C" fn pdf_dev_put_image(
         corner[3] = rect.lower_right();
         let P = p.matrix;
         for c in corner.iter_mut() {
-            *c -= rect.ll;
+            *c -= rect.ll.to_vector();
             pdf_dev_transform(c, Some(&P));
-            *c += rect.ll;
+            *c += rect.ll.to_vector();
         }
         rect.ll = corner[0];
         rect.ur = corner[0];

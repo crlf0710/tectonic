@@ -198,12 +198,12 @@ pub unsafe extern "C" fn pdf_include_page(
     pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.ur.y));
     pdf_add_dict(contents_dict, "BBox", bbox);
     let matrix = pdf_new_array();
-    pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.a));
-    pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.b));
-    pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.c));
-    pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.d));
-    pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.e));
-    pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.f));
+    pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m11));
+    pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m12));
+    pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m21));
+    pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m22));
+    pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m31));
+    pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m32));
     pdf_add_dict(contents_dict, "Matrix", matrix);
     pdf_add_dict(contents_dict, "Resources", pdf_import_object(resources));
     pdf_release_obj(resources);
