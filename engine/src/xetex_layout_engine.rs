@@ -2723,11 +2723,15 @@ pub unsafe fn getRgbValue(mut engine: XeTeXLayoutEngine) -> uint32_t {
 }
 #[no_mangle]
 pub unsafe fn getGlyphBounds(
-    mut engine: XeTeXLayoutEngine,
-    mut glyphID: uint32_t,
-    mut bbox: *mut GlyphBBox,
+    engine: XeTeXLayoutEngine,
+    glyphID: uint32_t,
+    bbox: *mut GlyphBBox,
 ) {
-    XeTeXFontInst_getGlyphBounds((*engine).font, glyphID as GlyphID, bbox);
+    let font_info = &*((*engine).font);
+
+    // TODO: xetex_font_info uses u16 (why??????), but glyph IDs should be u32
+    std::ptr::write(bbox, font_info.get_glyph_bounds(glyphID as u16));
+
     if (*engine).extend as f64 != 0.0f64 {
         (*bbox).xMin *= (*engine).extend;
         (*bbox).xMax *= (*engine).extend
