@@ -9,7 +9,7 @@
     unused_mut
 )]
 
-use std::io::{prelude::*, Result};
+use std::io::{self, prelude::*, Result, ErrorKind};
 use std::io::SeekFrom;
 use std::ptr::NonNull;
 
@@ -52,19 +52,29 @@ impl Write for OutputHandleWrapper {
 }
 
 #[derive(Clone, PartialEq)]
+#[repr(transparent)]
 pub struct InputHandleWrapper(pub NonNull<libc::c_void>);
 
 impl Read for InputHandleWrapper {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         unsafe {
-            Ok(ttstub_input_read(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len() as u64) as usize)
+            let read_isize = ttstub_input_read(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len() as u64);
+            if read_isize < 0 {
+                Err(io::Error::new(ErrorKind::Other, anyhow::anyhow!("Unknown -1 error code from across the bridge while reading input handle")))
+            } else {
+                Ok(read_isize as usize)
+            }
         }
     }
 
     fn read_exact(&mut self, buf: &mut [u8]) -> Result<()> {
         unsafe {
-            let _ssize = ttstub_input_read_exact(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len() as u64);
-            Ok(())
+            let read_isize = ttstub_input_read_exact(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len() as u64);
+            if read_isize < 0 {
+                Err(io::Error::new(ErrorKind::Other, anyhow::anyhow!("Unknown -1 error code from across the bridge while reading input handle (with read_exact)")))
+            } else {
+                Ok(())
+            }
         }
     }
 }
@@ -78,7 +88,12 @@ impl Seek for InputHandleWrapper {
             SeekFrom::End(o) => (o as ssize_t, SEEK_END),
         };
         unsafe {
-            Ok(ttstub_input_seek(self.0.as_ptr(), offset, whence) as u64)
+            let sought = ttstub_input_seek(self.0.as_ptr(), offset, whence);
+            if sought < 0 {
+                Err(io::Error::new(ErrorKind::Other, anyhow::anyhow!("Unknown -1 error code from across the bridge when seeking input handle")))
+            } else {
+                Ok(sought as u64)
+            }
         }
     }
 }
