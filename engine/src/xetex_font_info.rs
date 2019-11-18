@@ -1747,7 +1747,7 @@ pub struct XeTeXFontInst {
     pub m_backingData2: *mut FT_Byte,
     pub m_hbFont: *mut hb_font_t,
     pub m_subdtor: Option<unsafe fn(_: *mut XeTeXFontInst) -> ()>,
-    pub font_kit: Option<Font>,
+    pub fk_font: Option<Font>,
 }
 
 /* *************************************************************************
@@ -1908,7 +1908,7 @@ impl XeTeXFontInst {
             m_backingData2: std::ptr::null_mut(),
             m_hbFont: std::ptr::null_mut(),
             m_subdtor: None,
-            font_kit: None,
+            fk_font: None,
         };
         if !pathname.is_null() {
             if let Err(e) = neu.init(pathname, index) {
@@ -2314,12 +2314,19 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
     use std::ffi::CStr;
     let pathname_str = CStr::from_ptr(pathname).to_str().map_err(|_| 1)?;
     let pathbuf = PathBuf::from(pathname_str);
-    let fk_handle = Handle::Path {
-        path: pathbuf,
+    let mut bytes = Vec::with_capacity(2000);
+    assert_eq!(bytes.len(), 0);
+    handle.seek(std::io::SeekFrom::Start(0));
+    handle.read_to_end(&mut bytes).unwrap();
+    let fk_handle = Handle::Memory {
+        bytes: Arc::new(bytes),
         font_index: index as u32,
     };
-    let font_kit = fk_handle.load().map_err(|_| 1)?;
-    self_0.font_kit = Some(font_kit);
+    let fk_font = fk_handle.load().map_err(|e| {
+        panic!("font-kit: Couldn't load Handle for {}, got error {:?}", pathname_str, e);
+        1
+    })?;
+    self_0.fk_font = Some(fk_font);
 
     let mut sz = ttstub_input_get_size(&mut handle);
     (*self_0).m_backingData = xmalloc(sz as _) as *mut FT_Byte;
@@ -2496,6 +2503,18 @@ pub unsafe extern "C" fn XeTeXFontInst_getGlyphBounds(
     mut gid: GlyphID,
     mut bbox: *mut GlyphBBox,
 ) {
+    if let Some(font) = &(*self_0).fk_font {
+        match font.typographic_bounds(gid as u32) {
+            Ok(rect) => {
+                (*bbox).xMin = XeTeXFontInst_unitsToPoints(self_0, rect.origin.x);
+                (*bbox).xMax = XeTeXFontInst_unitsToPoints(self_0, rect.origin.x + rect.size.width);
+                (*bbox).yMin = XeTeXFontInst_unitsToPoints(self_0, rect.origin.y);
+                (*bbox).yMax = XeTeXFontInst_unitsToPoints(self_0, rect.origin.y + rect.size.height);
+                return;
+            },
+            Err(_) => return,
+        }
+    }
     (*bbox).yMax = 0.0f64 as libc::c_float;
     (*bbox).xMax = (*bbox).yMax;
     (*bbox).yMin = (*bbox).xMax;
