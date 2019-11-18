@@ -27,10 +27,7 @@
     unused_mut
 )]
 
-use std::io::Write;
-
-use crate::{ttstub_issue_warning, ttstub_output_open_stdout};
-use bridge::vsnprintf;
+use crate::ttstub_output_open_stdout;
 
 use bridge::OutputHandleWrapper;
 pub type message_type_t = _message_type;
@@ -54,57 +51,4 @@ pub fn _dpx_ensure_output_handle() {
     } else {
         panic!("xdvipdfmx cannot get output logging handle?!");
     }
-}
-unsafe fn _dpx_print_to_stdout(
-    mut fmt: *const i8,
-    mut argp: ::std::ffi::VaList,
-    mut warn: bool,
-) {
-    let mut n = vsnprintf(
-        _dpx_message_buf.as_mut_ptr() as *mut i8,
-        ::std::mem::size_of::<[i8; 1024]>() as u64,
-        fmt,
-        argp.as_va_list(),
-    );
-    /* n is the number of bytes the vsnprintf() wanted to write -- it might be
-     * bigger than sizeof(buf). */
-    if n as u64 >= ::std::mem::size_of::<[i8; 1024]>() as u64 {
-        n = (::std::mem::size_of::<[i8; 1024]>() as u64).wrapping_sub(1i32 as u64) as i32;
-        _dpx_message_buf[n as usize] = 0
-    }
-    if warn {
-        ttstub_issue_warning(
-            b"%s\x00" as *const u8 as *const i8,
-            _dpx_message_buf.as_mut_ptr() as *mut i8,
-        );
-    }
-    _dpx_ensure_output_handle();
-    _dpx_message_handle
-        .as_mut()
-        .unwrap()
-        .write(&_dpx_message_buf[..n as usize])
-        .unwrap();
-}
-
-
-pub unsafe extern "C" fn dpx_warning(mut fmt: *const i8, mut args: ...) {
-    let mut argp: ::std::ffi::VaListImpl;
-    if _dpx_quietness > 1i32 {
-        return;
-    }
-    if _last_message_type as u32 == DPX_MESG_INFO as i32 as u32 {
-        _dpx_ensure_output_handle();
-        _dpx_message_handle.as_mut().unwrap().write(b"\n").unwrap();
-    }
-    _dpx_ensure_output_handle();
-    _dpx_message_handle
-        .as_mut()
-        .unwrap()
-        .write(b"warning: ")
-        .unwrap();
-    argp = args.clone();
-    _dpx_print_to_stdout(fmt, argp.as_va_list(), true);
-    _dpx_ensure_output_handle();
-    _dpx_message_handle.as_mut().unwrap().write(b"\n").unwrap();
-    _last_message_type = DPX_MESG_WARN;
 }
