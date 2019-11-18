@@ -18,8 +18,9 @@ use freetype::freetype::{
     FT_Get_Sfnt_Table, FT_GlyphSlot, FT_Glyph_Format, FT_Glyph_Metrics, FT_Int, FT_Int32,
     FT_Library, FT_Load_Glyph, FT_Load_Sfnt_Table, FT_Long, FT_Memory, FT_MemoryRec_, FT_Open_Args,
     FT_Parameter, FT_Pointer, FT_Pos, FT_Sfnt_Tag, FT_Short, FT_Size, FT_Stream, FT_String,
-    FT_UInt, FT_ULong, FT_Vector,
+    FT_UInt, FT_ULong, FT_Vector, FT_Kerning_Mode,
 };
+
 use freetype::tt_os2::TT_OS2;
 use std::ffi::{CStr, CString};
 
@@ -163,6 +164,7 @@ extern "C" {
         user_data: *mut libc::c_void,
         destroy: hb_destroy_func_t,
     );
+
 }
 
 pub type size_t = usize;
@@ -173,40 +175,6 @@ pub type ssize_t = isize;
 
 use bridge::InputHandleWrapper;
 pub type UChar32 = int32_t;
-
-/* *************************************************************************
- *
- * @enum:
- *   FT_Kerning_Mode
- *
- * @description:
- *   An enumeration to specify the format of kerning values returned by
- *   @FT_Get_Kerning.
- *
- * @values:
- *   FT_KERNING_DEFAULT ::
- *     Return grid-fitted kerning distances in 26.6 fractional pixels.
- *
- *   FT_KERNING_UNFITTED ::
- *     Return un-grid-fitted kerning distances in 26.6 fractional pixels.
- *
- *   FT_KERNING_UNSCALED ::
- *     Return the kerning vector in original font units.
- *
- * @note:
- *   `FT_KERNING_DEFAULT` returns full pixel values; it also makes FreeType
- *   heuristically scale down kerning distances at small ppem values so
- *   that they don't become too big.
- *
- *   Both `FT_KERNING_DEFAULT` and `FT_KERNING_UNFITTED` use the current
- *   horizontal scaling factor (as set e.g. with @FT_Set_Char_Size) to
- *   convert font units to pixels.
- */
-
-pub type FT_Kerning_Mode_ = libc::c_uint;
-pub const FT_KERNING_UNSCALED: FT_Kerning_Mode_ = 2;
-pub const FT_KERNING_UNFITTED: FT_Kerning_Mode_ = 1;
-pub const FT_KERNING_DEFAULT: FT_Kerning_Mode_ = 0;
 
 pub type hb_font_get_glyph_kerning_func_t = Option<
     unsafe extern "C" fn(
@@ -530,7 +498,7 @@ unsafe extern "C" fn _get_glyph_h_kerning(
         face,
         gid1,
         gid2,
-        FT_KERNING_UNSCALED as libc::c_int as FT_UInt,
+        FT_Kerning_Mode::FT_KERNING_UNSCALED as u32,
         &mut kerning,
     );
     if error != 0 {

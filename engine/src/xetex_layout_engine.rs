@@ -539,7 +539,7 @@ impl TextLayoutEngine for XeTeXLayoutEngine_rec {
 
     /// getGlyphItalCorr
     unsafe fn glyph_ital_correction(&self, glyphID: u32) -> Option<f32> {
-        /// XXX: return none if glyph not found
+        // XXX: return none if glyph not found
         Some(self.extend * XeTeXFontInst_getGlyphItalCorr(self.font, glyphID as GlyphID))
     }
 
