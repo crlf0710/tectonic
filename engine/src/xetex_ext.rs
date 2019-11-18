@@ -24,6 +24,7 @@ use super::xetex_aatfont::cf_prelude::{
     CFNumberRef, CFNumberType, CFRelease, CFTypeRef, CGAffineTransform, CGColorGetComponents,
     CGColorRef, CGFloat, CTFontGetMatrix, CTFontGetSize, CTFontRef,
 };
+use crate::xetex_font_info::GlyphBBox;
 use crate::core_memory::{mfree, xcalloc, xmalloc, xrealloc, xstrdup};
 use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
@@ -42,9 +43,8 @@ use crate::xetex_xetex0::{
 use bridge::_tt_abort;
 
 use crate::stub_stdio::strcasecmp;
-use crate::xetex_font_manager::XeTeXFont;
+use crate::xetex_font_manager::PlatformFontRef;
 use crate::xetex_layout_engine::*;
-use crate::xetex_layout_interface::*;
 use crate::xetex_texmfmp::maketexstring;
 use harfbuzz_sys::{hb_feature_t, hb_tag_from_string, hb_tag_t};
 use libc::{memcpy, strcat, strcpy, strdup, strlen, strncpy, strstr};
@@ -669,7 +669,7 @@ unsafe extern "C" fn readFeatureNumber(
 }
 unsafe extern "C" fn loadOTfont(
     mut fontRef: PlatformFontRef,
-    mut font: XeTeXFont,
+    mut font: PlatformFontRef,
     mut scaled_size: Fixed,
     mut cp1: *mut i8,
 ) -> *mut libc::c_void {
@@ -1041,7 +1041,7 @@ pub unsafe extern "C" fn find_native_font(
     let mut varString: *mut i8 = 0 as *mut i8;
     let mut featString: *mut i8 = 0 as *mut i8;
     let mut fontRef: PlatformFontRef = 0 as PlatformFontRef;
-    let mut font: XeTeXFont = 0 as XeTeXFont;
+    let mut font: PlatformFontRef = 0 as PlatformFontRef;
     let mut index: i32 = 0i32;
     loaded_font_mapping = 0 as *mut libc::c_void;
     loaded_font_flags = 0_i8;
@@ -1268,7 +1268,7 @@ pub unsafe extern "C" fn ot_get_font_metrics(
 #[no_mangle]
 pub unsafe extern "C" fn ot_font_get(mut what: i32, mut pEngine: *mut libc::c_void) -> i32 {
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
-    let mut fontInst: XeTeXFont = getFont(engine);
+    let mut fontInst: PlatformFontRef = getFont(engine);
     match what {
         1 => return countGlyphs(fontInst) as i32,
         8 => {
@@ -1287,7 +1287,7 @@ pub unsafe extern "C" fn ot_font_get_1(
     mut param: i32,
 ) -> i32 {
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
-    let mut fontInst: XeTeXFont = getFont(engine);
+    let mut fontInst: PlatformFontRef = getFont(engine);
     match what {
         17 => return countLanguages(fontInst, param as hb_tag_t) as i32,
         19 => return getIndScript(fontInst, param as u32) as i32,
@@ -1309,7 +1309,7 @@ pub unsafe extern "C" fn ot_font_get_2(
     mut param2: i32,
 ) -> i32 {
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
-    let mut fontInst: XeTeXFont = getFont(engine);
+    let mut fontInst: PlatformFontRef = getFont(engine);
     match what {
         20 => return getIndLanguage(fontInst, param1 as hb_tag_t, param2 as u32) as i32,
         18 => return countFeatures(fontInst, param1 as hb_tag_t, param2 as hb_tag_t) as i32,
@@ -1334,7 +1334,7 @@ pub unsafe extern "C" fn ot_font_get_3(
     mut param3: i32,
 ) -> i32 {
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
-    let mut fontInst: XeTeXFont = getFont(engine);
+    let mut fontInst: PlatformFontRef = getFont(engine);
     match what {
         21 => {
             return getIndFeature(
@@ -2291,7 +2291,7 @@ pub unsafe extern "C" fn measure_native_glyph(
         0xfffeu32 => {
             let mut engine: XeTeXLayoutEngine =
                 *font_layout_engine.offset(f as isize) as XeTeXLayoutEngine;
-            let mut fontInst: XeTeXFont = getFont(engine);
+            let mut fontInst: PlatformFontRef = getFont(engine);
             (*node.offset(1)).b32.s1 = D2Fix(getGlyphWidth(fontInst, gid as u32) as f64);
             if use_glyph_metrics != 0 {
                 getGlyphHeightDepth(engine, gid as u32, &mut ht, &mut dp);

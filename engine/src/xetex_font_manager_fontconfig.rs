@@ -9,9 +9,10 @@
          unused_mut)]
 
 use crate::stub_icu as icu;
-use crate::xetex_layout_interface::collection_types::*;
+use crate::xetex_layout_engine::collection_types::*;
 use std::ffi::CString;
 use std::ptr::NonNull;
+use super::PlatformFontRef;
 
 extern "C" {
     pub type _FcPattern;
@@ -1496,7 +1497,6 @@ pub struct FT_GlyphSlotRec_ {
 }
 pub type FT_Slot_Internal = *mut FT_Slot_InternalRec_;
 pub type FT_SubGlyph = *mut FT_SubGlyphRec_;
-pub type PlatformFontRef = *mut FcPattern;
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International

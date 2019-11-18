@@ -19,9 +19,16 @@ use std::ptr::NonNull;
 
 use crate::core_memory::xmalloc;
 
-use crate::xetex_layout_interface::collection_types::*;
+use crate::xetex_layout_engine::collection_types::*;
 
 use harfbuzz_sys::{hb_font_t, hb_face_t, hb_font_get_face, hb_ot_layout_get_size_params};
+
+#[cfg(not(target_os = "macos"))]
+pub type PlatformFontRef = *mut FcPattern;
+#[cfg(target_os = "macos")]
+use crate::xetex_aatfont::cf_prelude::CTFontDescriptorRef;
+#[cfg(target_os = "macos")]
+pub type PlatformFontRef = CTFontDescriptorRef;
 
 extern "C" {
     /* ************************************************************************/
@@ -92,9 +99,9 @@ extern "C" {
     #[no_mangle]
     fn _tt_abort(format: *const libc::c_char, _: ...) -> !;
     #[no_mangle]
-    fn createFont(fontRef: PlatformFontRef, pointSize: Fixed) -> XeTeXFont;
+    fn createFont(fontRef: PlatformFontRef, pointSize: Fixed) -> PlatformFontRef;
     #[no_mangle]
-    fn deleteFont(font: XeTeXFont);
+    fn deleteFont(font: PlatformFontRef);
     #[no_mangle]
     static mut loaded_font_design_size: Fixed;
     #[no_mangle]
@@ -1363,9 +1370,7 @@ pub const FT_SFNT_MAXP: FT_Sfnt_Tag_ = 1;
 pub const FT_SFNT_HEAD: FT_Sfnt_Tag_ = 0;
 pub type FT_Sfnt_Tag = FT_Sfnt_Tag_;
 pub type Fixed = i32;
-use crate::xetex_layout_engine::PlatformFontRef;
 
-pub type XeTeXFont = *mut XeTeXFont_rec;
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International
@@ -2257,7 +2262,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_bestMatchFromFamily(
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_getOpSize(
     mut self_0: *mut XeTeXFontMgr,
-    mut font: XeTeXFont,
+    mut font: PlatformFontRef,
 ) -> *mut XeTeXFontMgrOpSizeRec {
     let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font as *mut XeTeXFontInst);
     if hbFont.is_null() {
@@ -2283,7 +2288,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_getOpSize(
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontMgr_getDesignSize(
     mut self_0: *mut XeTeXFontMgr,
-    mut font: XeTeXFont,
+    mut font: PlatformFontRef,
 ) -> libc::c_double {
     let mut pSizeRec: *mut XeTeXFontMgrOpSizeRec = XeTeXFontMgr_getOpSize(self_0, font);
     if pSizeRec.is_null() {
@@ -2298,7 +2303,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
     mut self_0: *mut XeTeXFontMgr,
     mut theFont: *mut XeTeXFontMgrFont,
 ) {
-    let mut font: XeTeXFont = createFont((*theFont).fontRef, 655360i32);
+    let mut font: PlatformFontRef = createFont((*theFont).fontRef, 655360i32);
     let mut fontInst: *mut XeTeXFontInst = font as *mut XeTeXFontInst;
     if !font.is_null() {
         let mut pSizeRec: *mut XeTeXFontMgrOpSizeRec = XeTeXFontMgr_getOpSize(self_0, font);

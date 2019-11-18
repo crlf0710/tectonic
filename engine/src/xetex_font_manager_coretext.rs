@@ -9,7 +9,7 @@
     unused_mut
 )]
 
-use crate::xetex_layout_interface::collection_types::*;
+use crate::xetex_layout_engine::collection_types::*;
 
 use std::ffi::CString;
 use std::ptr::{self, NonNull};
@@ -279,6 +279,7 @@ pub struct CGAffineTransform {
 }
 pub type CTFontRef = *const __CTFont;
 pub type PlatformFontRef = CTFontDescriptorRef;
+
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International

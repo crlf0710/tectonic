@@ -9,7 +9,7 @@
     unused_mut
 )]
 
-use super::xetex_layout_engine::GlyphBBox;
+use super::xetex_font_info::GlyphBBox;
 
 use self::cf_prelude::*;
 

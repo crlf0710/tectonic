@@ -21,7 +21,6 @@ use crate::xetex_ini::{
 };
 use crate::xetex_ini::{b16x4, b16x4_le_t, memory_word};
 use crate::xetex_layout_engine::*;
-use crate::xetex_layout_interface::*;
 use crate::xetex_opentype_math::*;
 use crate::xetex_linebreak::line_break;
 use crate::xetex_output::{

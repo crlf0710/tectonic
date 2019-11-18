@@ -196,5 +196,4 @@ pub(crate) unsafe extern "C" fn streq_ptr(s1: *const i8, s2: *const i8) -> bool 
 mod xetex_font_info;
 mod xetex_font_manager;
 mod xetex_layout_engine;
-mod xetex_layout_interface;
 mod xetex_opentype_math;

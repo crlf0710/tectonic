@@ -1,18 +1,22 @@
-#![allow(dead_code,
-         mutable_transmutes,
-         non_camel_case_types,
-         non_snake_case,
-         non_upper_case_globals,
-         unused_assignments,
-         unused_mut)]
+#![allow(
+    dead_code,
+    mutable_transmutes,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    unused_assignments,
+    unused_mut
+)]
 
 use crate::core_memory::xmalloc;
-use harfbuzz_sys::*;
-use crate::xetex_ext::{Fix2D, D2Fix};
-use crate::xetex_font_info::{XeTeXFontInst_unitsToPoints, XeTeXFontInst_pointsToUnits, XeTeXFontInst_getHbFont};
-use crate::xetex_layout_interface::XeTeXLayoutEngine;
+use crate::xetex_ext::{D2Fix, Fix2D};
 use crate::xetex_font_info::XeTeXFontInst;
-use crate::xetex_font_manager::XeTeXFont;
+use crate::xetex_font_info::{
+    XeTeXFontInst_getHbFont, XeTeXFontInst_pointsToUnits, XeTeXFontInst_unitsToPoints,
+};
+use crate::xetex_font_manager::PlatformFontRef;
+use crate::xetex_layout_engine::{getFont, getGlyphHeightDepth, XeTeXLayoutEngine};
+use harfbuzz_sys::*;
 
 extern "C" {
     pub type FT_LibraryRec_;
@@ -23,15 +27,6 @@ extern "C" {
     pub type FT_SubGlyphRec_;
     #[no_mangle]
     fn free(__ptr: *mut libc::c_void);
-    #[no_mangle]
-    fn getFont(engine: XeTeXLayoutEngine) -> XeTeXFont;
-    #[no_mangle]
-    fn getGlyphHeightDepth(
-        engine: XeTeXLayoutEngine,
-        glyphID: uint32_t,
-        height: *mut libc::c_float,
-        depth: *mut libc::c_float,
-    );
     #[no_mangle]
     static mut font_layout_engine: *mut *mut libc::c_void;
     #[no_mangle]
