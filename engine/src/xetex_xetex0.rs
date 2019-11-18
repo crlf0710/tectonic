@@ -10975,7 +10975,7 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                             cur_val = if let Some(eng) = get_text_layout_engine(font_num) {
                                 scan_int();
                                 n = cur_val;
-                                eng.map_char_to_glyph(n) as i32
+                                eng.map_char_to_glyph(n as u32) as i32
                             } else {
                                 not_native_font_error(71i32, m, font_num as i32);
                                 0

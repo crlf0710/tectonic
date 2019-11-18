@@ -10,7 +10,7 @@
 )]
 
 use super::text_layout_engine::{
-    Fixed, FixedPoint, Fract, GlyphEdge, LayoutRequest, NodeLayout, TextLayout,
+    Fixed, FixedPoint, Fract, GlyphEdge, LayoutRequest, NodeLayout, TextLayout, TextLayoutEngine,
 };
 use super::xetex_font_info::GlyphBBox;
 
@@ -393,7 +393,7 @@ use crate::xetex_ext::{print_chars, readCommonFeatures, read_double, D2Fix, Fix2
 use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
     font_letter_space, loaded_font_flags, loaded_font_letter_space, name_length, name_of_file,
-    native_font_type_flag, FONT_AREA, TEXT_LAYOUT_ENGINES,
+    native_font_type_flag, FONT_AREA,
 };
 use crate::xetex_xetex0::font_feature_warning;
 #[cfg(not(unix))]
@@ -467,12 +467,6 @@ unsafe fn FixedPStoTeXPoints(mut pts: libc::c_double) -> Fixed {
 unsafe fn font_from_attributes(mut attributes: CFDictionaryRef) -> CTFontRef {
     return CFDictionaryGetValue(attributes, kCTFontAttributeName as *const libc::c_void)
         as CTFontRef;
-}
-
-pub unsafe fn font_from_integer(mut font: int32_t) -> CTFontRef {
-    let mut attributes: CFDictionaryRef =
-        *TEXT_LAYOUT_ENGINES.offset(font as isize) as CFDictionaryRef;
-    return font_from_attributes(attributes);
 }
 
 unsafe fn getGlyphBBoxFromCTFont(mut font: CTFontRef, mut gid: UInt16, mut bbox: *mut GlyphBBox) {
@@ -942,7 +936,7 @@ pub unsafe fn loadAATfont(
     mut descriptor: CTFontDescriptorRef,
     mut scaled_size: int32_t,
     mut cp1: Option<&CStr>,
-) -> *mut libc::c_void {
+) -> Option<TextLayoutEngine> {
     let mut current_block: u64;
     let mut font: CTFontRef = 0 as CTFontRef;
     let mut actualFont: CTFontRef = 0 as CTFontRef;
@@ -969,7 +963,7 @@ pub unsafe fn loadAATfont(
     ctSize = TeXtoPSPoints(Fix2D(scaled_size));
     font = CTFontCreateWithFontDescriptor(descriptor, ctSize, 0 as *const CGAffineTransform);
     if font.is_null() {
-        return 0 as *mut libc::c_void;
+        return None;
     }
     stringAttributes = CFDictionaryCreateMutable(
         0 as CFAllocatorRef,
@@ -1293,7 +1287,7 @@ pub unsafe fn loadAATfont(
     );
     CFRelease(actualFont as CFTypeRef);
     native_font_type_flag = 0xffffu32 as int32_t;
-    return stringAttributes as *mut libc::c_void;
+    return Some(TextLayoutEngine::AAT(AATLayoutEngine(stringAttributes)));
 }
 
 /* the metrics params here are really TeX 'scaled' (or MacOS 'Fixed') values, but that typedef isn't available every place this is included */

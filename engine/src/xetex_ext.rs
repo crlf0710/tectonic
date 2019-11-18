@@ -679,9 +679,9 @@ unsafe extern "C" fn loadOTfont(
     mut scaled_size: Fixed,
     mut cp1: Option<&CStr>,
     mut shaperRequest: Option<ShaperRequest>,
-) -> TextLayoutEngine {
+) -> Option<TextLayoutEngine> {
     let mut current_block: u64;
-    let mut engine = None;
+    let mut rval = None;
     // ft_make_tag also works for harfbuzz tags.
     let mut script: hb_tag_t = ft_make_tag(&[0, 0, 0, 0]);
     let mut language: *mut i8 = 0 as *mut i8;
@@ -717,7 +717,7 @@ unsafe extern "C" fn loadOTfont(
         let tmp_shapers = shaper_list.clone();
         /* create a default engine so we can query the font for Graphite features;
          * because of font caching, it's cheap to discard this and create the real one later */
-        engine = Some(createLayoutEngine(
+        rval = Some(createLayoutEngine(
             fontRef,
             font,
             script,
@@ -809,14 +809,13 @@ unsafe extern "C" fn loadOTfont(
                             if shaperRequest == Some(ShaperRequest::Graphite) {
                                 let mut value: i32 = 0i32;
                                 if readFeatureNumber(cp1, cp2, &mut tag, &mut value) as i32 != 0
-                                    || findGraphiteFeature(
+                                    || rval.as_ref().map(|engine| findGraphiteFeature(
                                         &mut engine,
                                         cp1,
                                         cp2,
                                         &mut tag,
                                         &mut value,
-                                    ) as i32
-                                        != 0
+                                    ) as i32).unwrap_or(false)
                                 {
                                     features = xrealloc(
                                         features as *mut libc::c_void,
@@ -944,7 +943,7 @@ unsafe extern "C" fn loadOTfont(
     if loaded_font_flags as i32 & 0x2i32 != 0i32 {
         setFontLayoutDir(font, 1i32);
     }
-    engine = createLayoutEngine(
+    rval = createLayoutEngine(
         fontRef,
         font,
         script,
@@ -959,7 +958,7 @@ unsafe extern "C" fn loadOTfont(
         shaperRequest,
     );
     native_font_type_flag = 0xfffeu32 as i32;
-    engine
+    rval
 }
 
 unsafe extern "C" fn splitFontName(
@@ -1129,10 +1128,10 @@ pub unsafe extern "C" fn find_native_font(
                 feat_cstr,
                 shaperRequest,
             );
-            if rval.is_null() {
+            if rval.is_none() {
                 deleteFont(font);
             }
-            if !rval.is_null() && get_tracing_fonts_state() > 0i32 {
+            if rval.is_some() && get_tracing_fonts_state() > 0i32 {
                 begin_diagnostic();
                 print_nl(' ' as i32);
                 print_c_string(b"-> \x00" as *const u8 as *const i8);
@@ -1172,16 +1171,13 @@ pub unsafe extern "C" fn find_native_font(
                 #[cfg(not(target_os = "macos"))]
                 {
                     rval = loadOTfont(fontRef, font, scaled_size, feat_cstr, shaperRequest);
-                    if rval.is_null() {
-                        deleteFont(font);
-                    }
                 }
                 #[cfg(target_os = "macos")]
                 {
                     /* decide whether to use AAT or OpenType rendering with this font */
                     if shaperRequest == Some(ShaperRequest::AAT) {
                         rval = aat::loadAATfont(fontRef, scaled_size, feat_cstr);
-                        if rval.is_null() {
+                        if rval.is_none() {
                             deleteFont(font);
                         }
                     } else {
@@ -1193,10 +1189,10 @@ pub unsafe extern "C" fn find_native_font(
                             rval = loadOTfont(fontRef, font, scaled_size, feat_cstr, shaperRequest)
                         }
                         /* loadOTfont failed or the above check was false */
-                        if rval.is_null() {
+                        if rval.is_none() {
                             rval = aat::loadAATfont(fontRef, scaled_size, feat_cstr)
                         }
-                        if rval.is_null() {
+                        if rval.is_none() {
                             deleteFont(font);
                         }
                     }
@@ -1326,9 +1322,9 @@ pub unsafe extern "C" fn make_font_def(mut f: i32) -> i32 {
     rgba = eng.rgb_value();
     extend = eng.extend_factor();
     slant = eng.slant_factor();
-    embolden = eng.embolden_factor();
+    embolden = eng.embolden_factor() as f64;
     size = D2Fix(eng.point_size());
-    flags = (flags as i32 | eng.get_flags()) as u16;
+    flags = (flags as i32 | eng.get_flags(f as u32)) as u16;
 
     /* parameters after internal font ID:
     //  size[4]
@@ -1472,9 +1468,11 @@ pub unsafe extern "C" fn get_native_char_height_depth(
 
     let engine = get_text_layout_engine(font as usize).expect("no font found with that id");
     let gid = engine.map_char_to_glyph(ch as u32);
-    (*height, *depth) = engine.glyph_height_depth(gid as u16)
-        .map(|(h, d)| (D2Fix(h), D2Fix(d)))
+    let (h, d) = engine.glyph_height_depth(gid)
+        .map(|(h, d)| (D2Fix(h as f64), D2Fix(d as f64)))
         .unwrap_or((0, 0));
+    *height = h;
+    *depth = d;
 
     /* snap to "known" zones for baseline, x-height, cap-height if within 4% of em-size */
     fuzz = (*font_info.offset((6i32 + *param_base.offset(font as isize)) as isize))
@@ -1522,7 +1520,7 @@ pub unsafe extern "C" fn get_native_char_sidebearings(
     let eng = get_text_layout_engine(font as usize)
         .expect("bad native font flag in `get_native_char_side_bearings`");
     let gid = eng.map_char_to_glyph(ch as u32);
-    let (l, r) = eng.glyph_sidebearings(gid as u16).unwrap_or((0., 0.));
+    let (l, r) = eng.glyph_sidebearings(gid).unwrap_or((0., 0.));
     *lsb = D2Fix(l as f64);
     *rsb = D2Fix(r as f64);
 }
@@ -1714,10 +1712,12 @@ pub unsafe extern "C" fn real_get_native_italic_correction(mut pNode: *mut libc:
         let mut locations: *mut FixedPoint = (*node.offset(5)).ptr as *mut FixedPoint;
         let mut glyphIDs: *mut u16 = locations.offset(n as isize) as *mut u16;
         get_text_layout_engine(f as usize)
-            .map(|eng| {
+            .and_then(|eng| {
                 let gid = *glyphIDs.offset(n.wrapping_sub(1i32 as libc::c_uint) as isize) as u32;
                 let lspace = *font_letter_space.offset(f as isize);
-                D2Fix(eng.glyph_ital_correction(gid)) + lspace
+                eng.glyph_ital_correction(gid.into())
+                    .map(D2Fix)
+                    .map(|x| x + lspace)
             })
             .unwrap_or(0) // XXX: Not many functions return 0 instead of panicking. Why this one?
     } else {
@@ -1733,7 +1733,7 @@ pub unsafe extern "C" fn real_get_native_glyph_italic_correction(
     let mut gid: u16 = (*node.offset(4)).b16.s1;
     let mut f: u32 = (*node.offset(4)).b16.s2 as u32;
     get_text_layout_engine(f as usize)
-        .and_then(|eng| eng.glyph_ital_correction(gid))
+        .and_then(|eng| eng.glyph_ital_correction(gid.into()))
         .map(D2Fix)
         .unwrap_or(0) // XXX: Apparently the matched-none case was "can't happen"
 }
