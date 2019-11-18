@@ -27,6 +27,7 @@ pub mod cf_prelude {
         base::{
             kCFAllocatorDefault, kCFAllocatorNull, CFAllocatorRef, CFComparisonResult, CFEqual,
             CFHashCode, CFIndex, CFOptionFlags, CFRange, CFRelease, CFTypeRef, ToVoid,
+            CFRetain,
         },
         boolean::{kCFBooleanTrue, CFBooleanRef},
         dictionary::{
@@ -44,6 +45,7 @@ pub mod cf_prelude {
             CFStringRef,
         },
         url::{CFURLGetFileSystemRepresentation, CFURLRef},
+        set::{CFSet, CFSetRef, CFSetCreate, kCFTypeSetCallBacks},
     };
     pub const kCFNumberMaxType: CFNumberType = 16;
     pub const kCFNumberCGFloatType: CFNumberType = 16;
@@ -190,6 +192,7 @@ pub mod cf_prelude {
             kCTFontOrientationAttribute, kCTFontURLAttribute, CTFontDescriptor,
             CTFontDescriptorCreateWithAttributes, CTFontDescriptorCreateWithNameAndSize,
             CTFontDescriptorRef, CTFontOrientation,
+
         },
         line::CTLineRef,
         string_attributes::{
@@ -197,6 +200,21 @@ pub mod cf_prelude {
             kCTVerticalFormsAttributeName,
         },
     };
+
+    extern "C" {
+        #[no_mangle]
+        pub static kCTFontFamilyNameKey: CFStringRef;
+        #[no_mangle]
+        pub static kCTFontNameAttribute: CFStringRef;
+        #[no_mangle]
+        pub static kCTFontStyleNameKey: CFStringRef;
+        #[no_mangle]
+        pub static kCTFontDisplayNameAttribute: CFStringRef;
+        #[no_mangle]
+        pub static kCTFontFamilyNameAttribute: CFStringRef;
+        #[no_mangle]
+        pub static kCTFontFullNameKey: CFStringRef;
+    }
 
     pub const kCTFontVerticalOrientation: CTFontOrientation = 2;
     pub const kCTFontHorizontalOrientation: CTFontOrientation = 1;
@@ -272,9 +290,25 @@ pub mod cf_prelude {
             attributes: CFDictionaryRef,
         ) -> CTFontDescriptorRef;
         #[no_mangle]
+        pub fn CTFontDescriptorCopyAttribute(
+            descriptor: CTFontDescriptorRef,
+            attribute: CFStringRef,
+        ) -> CFTypeRef;
+        #[no_mangle]
+        pub fn CTFontDescriptorCreateMatchingFontDescriptors(
+            descriptor: CTFontDescriptorRef,
+            mandatoryAttributes: CFSetRef,
+        ) -> CFArrayRef;
+        #[no_mangle]
         pub fn CTFontCopyAttribute(font: CTFontRef, attribute: CFStringRef) -> CFTypeRef;
         #[no_mangle]
         pub fn CTFontCopyName(font: CTFontRef, nameKey: CFStringRef) -> CFStringRef;
+        #[no_mangle]
+        pub fn CTFontCopyLocalizedName(
+            font: CTFontRef,
+            nameKey: CFStringRef,
+            actualLanguage: *mut CFStringRef,
+        ) -> CFStringRef;
         #[no_mangle]
         pub fn CTFontGetGlyphsForCharacters(
             font: CTFontRef,

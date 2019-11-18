@@ -23,9 +23,11 @@ use freetype::tt_os2::TT_OS2;
 
 use freetype_missing::*;
 
-mod freetype_missing {
+pub mod freetype_missing {
 
-    use freetype::freetype::{FT_ULong, FT_Short, FT_Fixed, FT_Int32, FT_UInt, FT_Face, FT_Error};
+    use freetype::freetype::{
+        FT_Error, FT_Face, FT_Fixed, FT_Int32, FT_Long, FT_Short, FT_UInt, FT_ULong, FT_UShort,
+    };
 
     #[derive(Copy, Clone)]
     #[repr(C)]
@@ -41,6 +43,29 @@ mod freetype_missing {
         pub maxMemType1: FT_ULong,
     }
     pub type TT_Postscript = TT_Postscript_;
+
+    #[derive(Copy, Clone)]
+    #[repr(C)]
+    pub struct TT_Header_ {
+        pub Table_Version: FT_Fixed,
+        pub Font_Revision: FT_Fixed,
+        pub CheckSum_Adjust: FT_Long,
+        pub Magic_Number: FT_Long,
+        pub Flags: FT_UShort,
+        pub Units_Per_EM: FT_UShort,
+        pub Created: [FT_ULong; 2],
+        pub Modified: [FT_ULong; 2],
+        pub xMin: FT_Short,
+        pub yMin: FT_Short,
+        pub xMax: FT_Short,
+        pub yMax: FT_Short,
+        pub Mac_Style: FT_UShort,
+        pub Lowest_Rec_PPEM: FT_UShort,
+        pub Font_Direction: FT_Short,
+        pub Index_To_Loc_Format: FT_Short,
+        pub Glyph_Data_Format: FT_Short,
+    }
+    pub type TT_Header = TT_Header_;
 
     extern "C" {
 
@@ -828,7 +853,8 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
         XeTeXFontInst_unitsToPoints(self_0, (*self_0.m_ftFace).ascender as libc::c_float);
     self_0.m_descent =
         XeTeXFontInst_unitsToPoints(self_0, (*self_0.m_ftFace).descender as libc::c_float);
-    postTable = XeTeXFontInst_getFontTableFT(self_0, FT_Sfnt_Tag::FT_SFNT_POST) as *mut TT_Postscript;
+    postTable =
+        XeTeXFontInst_getFontTableFT(self_0, FT_Sfnt_Tag::FT_SFNT_POST) as *mut TT_Postscript;
     if !postTable.is_null() {
         self_0.m_italicAngle = Fix2D((*postTable).italicAngle as Fixed) as libc::c_float
     }

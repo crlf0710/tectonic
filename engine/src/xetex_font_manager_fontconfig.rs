@@ -10,15 +10,23 @@
 )]
 
 use super::PlatformFontRef;
+use super::XeTeXFontMgr_base_ctor;
 use crate::stub_icu as icu;
 use crate::xetex_layout_engine::collection_types::*;
 use std::ffi::CString;
 use std::ptr::{self, NonNull};
 
 use freetype::freetype::{
-    FT_Done_Face, FT_Face, FT_GlyphSlot, FT_Init_FreeType, FT_Library, FT_New_Face, FT_SubGlyph,
-    FT_Get_Postscript_Name, FT_Bitmap_Size, FT_CharMap, FT_Encoding, FT_Size, FT_Glyph_Metrics,
-    FT_Generic, FT_Error, FT_Fixed, FT_Long, FT_UInt, FT_Int, FT_Short, FT_UShort, FT_String, FT_Byte,
+    FT_BBox, FT_Bitmap, FT_Bitmap_Size, FT_Byte, FT_CharMap, FT_Done_Face, FT_Encoding, FT_Error,
+    FT_Face, FT_Fixed, FT_Generic, FT_Get_Postscript_Name, FT_GlyphSlot, FT_Glyph_Metrics,
+    FT_Init_FreeType, FT_Int, FT_Library, FT_Long, FT_New_Face, FT_Outline, FT_Pos, FT_Short,
+    FT_Size, FT_String, FT_SubGlyph, FT_UInt, FT_UShort, FT_Vector,
+};
+
+use super::{
+    XeTeXFontMgr, XeTeXFontMgrFamily, XeTeXFontMgrFont, XeTeXFontMgrNameCollection,
+    XeTeXFontMgrOpSizeRec, XeTeXFontMgr_addToMaps, XeTeXFontMgr_appendToList,
+    XeTeXFontMgr_base_getOpSizeRecAndStyleFlags, XeTeXFontMgr_prependToList,
 };
 
 pub type FT_SfntName = FT_SfntName_;
@@ -36,9 +44,6 @@ pub struct FT_SfntName_ {
 extern "C" {
     pub type _FcPattern;
     pub type _FcConfig;
-    pub type FT_Size_InternalRec_;
-    pub type FT_Slot_InternalRec_;
-    pub type FT_SubGlyphRec_;
     #[no_mangle]
     fn FcConfigGetCurrent() -> *mut FcConfig;
     #[no_mangle]
@@ -82,110 +87,12 @@ extern "C" {
         s: *mut *mut FcChar8,
     ) -> FcResult;
 
-    /* tectonic/xetex-core.h: core XeTeX types and #includes.
-       Copyright 2016 the Tectonic Project
-       Licensed under the MIT License.
-    */
-    // defines U_IS_BIG_ENDIAN for us
-    /* fontconfig */
-    /* freetype */
-    /* harfbuzz */
-    /* Endianness foo */
-    /* our typedefs */
-    /* Macs provide Fixed and FixedPoint */
-    /* dummy declaration just so the stubs can compile */
-    /* Misc */
-    /* gFreeTypeLibrary is defined in xetex-XeTeXFontInst_FT2.cpp,
-     * also used in xetex-XeTeXFontMgr_FC.cpp and xetex-ext.c.  */
     #[no_mangle]
     static mut gFreeTypeLibrary: FT_Library;
 
     #[no_mangle]
-    fn XeTeXFontMgr_base_ctor(self_0: *mut XeTeXFontMgr);
-
-    #[no_mangle]
-    fn XeTeXFontMgr_appendToList(
-        self_0: *mut XeTeXFontMgr,
-        list: *mut CppStdListOfString,
-        str: *const libc::c_char,
-    );
-
-    #[no_mangle]
-    fn XeTeXFontMgr_prependToList(
-        self_0: *mut XeTeXFontMgr,
-        list: *mut CppStdListOfString,
-        str: *const libc::c_char,
-    );
-    #[no_mangle]
-    fn XeTeXFontMgr_addToMaps(
-        self_0: *mut XeTeXFontMgr,
-        platformFont: PlatformFontRef,
-        names: *const XeTeXFontMgrNameCollection,
-    );
-    #[no_mangle]
-    fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
-        self_0: *mut XeTeXFontMgr,
-        theFont: *mut XeTeXFontMgrFont,
-    );
-    /* *************************************************************************
-     *
-     * @function:
-     *   FT_Get_Sfnt_Name_Count
-     *
-     * @description:
-     *   Retrieve the number of name strings in the SFNT 'name' table.
-     *
-     * @input:
-     *   face ::
-     *     A handle to the source face.
-     *
-     * @return:
-     *   The number of strings in the 'name' table.
-     *
-     * @note:
-     *   This function always returns an error if the config macro
-     *   `TT_CONFIG_OPTION_SFNT_NAMES` is not defined in `ftoption.h`.
-     */
-    #[no_mangle]
     fn FT_Get_Sfnt_Name_Count(face: FT_Face) -> FT_UInt;
 
-    /* *************************************************************************
-     *
-     * @function:
-     *   FT_Get_Sfnt_Name
-     *
-     * @description:
-     *   Retrieve a string of the SFNT 'name' table for a given index.
-     *
-     * @input:
-     *   face ::
-     *     A handle to the source face.
-     *
-     *   idx ::
-     *     The index of the 'name' string.
-     *
-     * @output:
-     *   aname ::
-     *     The indexed @FT_SfntName structure.
-     *
-     * @return:
-     *   FreeType error code.  0~means success.
-     *
-     * @note:
-     *   The `string` array returned in the `aname` structure is not
-     *   null-terminated.  Note that you don't have to deallocate `string` by
-     *   yourself; FreeType takes care of it if you call @FT_Done_Face.
-     *
-     *   Use @FT_Get_Sfnt_Name_Count to get the total number of available
-     *   'name' table entries, then do a loop until you get the right platform,
-     *   encoding, and name ID.
-     *
-     *   'name' table format~1 entries can use language tags also, see
-     *   @FT_Get_Sfnt_LangTag.
-     *
-     *   This function always returns an error if the config macro
-     *   `TT_CONFIG_OPTION_SFNT_NAMES` is not defined in `ftoption.h`.
-     */
     #[no_mangle]
     fn FT_Get_Sfnt_Name(face: FT_Face, idx: FT_UInt, aname: *mut FT_SfntName) -> FT_Error;
 }
@@ -223,380 +130,14 @@ pub struct _FcObjectSet {
 }
 pub type FcObjectSet = _FcObjectSet;
 pub type FcConfig = _FcConfig;
-/* ***************************************************************************
- *
- * ftsystem.h
- *
- *   FreeType low-level system interface definition (specification).
- *
- * Copyright (C) 1996-2019 by
- * David Turner, Robert Wilhelm, and Werner Lemberg.
- *
- * This file is part of the FreeType project, and may only be used,
- * modified, and distributed under the terms of the FreeType project
- * license, LICENSE.TXT.  By continuing to use, modify, or distribute
- * this file you indicate that you have read the license and
- * understand and accept it fully.
- *
- */
-/* *************************************************************************
- *
- * @section:
- *  system_interface
- *
- * @title:
- *  System Interface
- *
- * @abstract:
- *  How FreeType manages memory and i/o.
- *
- * @description:
- *  This section contains various definitions related to memory management
- *  and i/o access.  You need to understand this information if you want to
- *  use a custom memory manager or you own i/o streams.
- *
- */
-/* *************************************************************************
- *
- *                 M E M O R Y   M A N A G E M E N T
- *
- */
-/* *************************************************************************
- *
- * @type:
- *   FT_Memory
- *
- * @description:
- *   A handle to a given memory manager object, defined with an
- *   @FT_MemoryRec structure.
- *
- */
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct FT_MemoryRec_ {
-    pub user: *mut libc::c_void,
-    pub alloc: FT_Alloc_Func,
-    pub free: FT_Free_Func,
-    pub realloc: FT_Realloc_Func,
-}
-pub type FT_Realloc_Func = Option<
-    unsafe extern "C" fn(
-        _: FT_Memory,
-        _: libc::c_long,
-        _: libc::c_long,
-        _: *mut libc::c_void,
-    ) -> *mut libc::c_void,
->;
-pub type FT_Memory = *mut FT_MemoryRec_;
-pub type FT_Free_Func = Option<unsafe extern "C" fn(_: FT_Memory, _: *mut libc::c_void) -> ()>;
-pub type FT_Alloc_Func =
-    Option<unsafe extern "C" fn(_: FT_Memory, _: libc::c_long) -> *mut libc::c_void>;
-/* *************************************************************************
- *
- *                      I / O   M A N A G E M E N T
- *
- */
-/* *************************************************************************
- *
- * @type:
- *   FT_Stream
- *
- * @description:
- *   A handle to an input stream.
- *
- * @also:
- *   See @FT_StreamRec for the publicly accessible fields of a given stream
- *   object.
- *
- */
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct FT_StreamRec_ {
-    pub base: *mut libc::c_uchar,
-    pub size: libc::c_ulong,
-    pub pos: libc::c_ulong,
-    pub descriptor: FT_StreamDesc,
-    pub pathname: FT_StreamDesc,
-    pub read: FT_Stream_IoFunc,
-    pub close: FT_Stream_CloseFunc,
-    pub memory: FT_Memory,
-    pub cursor: *mut libc::c_uchar,
-    pub limit: *mut libc::c_uchar,
-}
-pub type FT_Stream_CloseFunc = Option<unsafe extern "C" fn(_: FT_Stream) -> ()>;
-pub type FT_Stream = *mut FT_StreamRec_;
-pub type FT_Stream_IoFunc = Option<
-    unsafe extern "C" fn(
-        _: FT_Stream,
-        _: libc::c_ulong,
-        _: *mut libc::c_uchar,
-        _: libc::c_ulong,
-    ) -> libc::c_ulong,
->;
-pub type FT_StreamDesc = FT_StreamDesc_;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union FT_StreamDesc_ {
-    pub value: libc::c_long,
-    pub pointer: *mut libc::c_void,
-}
-/* ***************************************************************************
- *
- * ftimage.h
- *
- *   FreeType glyph image formats and default raster interface
- *   (specification).
- *
- * Copyright (C) 1996-2019 by
- * David Turner, Robert Wilhelm, and Werner Lemberg.
- *
- * This file is part of the FreeType project, and may only be used,
- * modified, and distributed under the terms of the FreeType project
- * license, LICENSE.TXT.  By continuing to use, modify, or distribute
- * this file you indicate that you have read the license and
- * understand and accept it fully.
- *
- */
-/* *************************************************************************
- *
- * Note: A 'raster' is simply a scan-line converter, used to render
- *       FT_Outlines into FT_Bitmaps.
- *
- */
-/* STANDALONE_ is from ftgrays.c */
-/* *************************************************************************
- *
- * @section:
- *   basic_types
- *
- */
-/* *************************************************************************
- *
- * @type:
- *   FT_Pos
- *
- * @description:
- *   The type FT_Pos is used to store vectorial coordinates.  Depending on
- *   the context, these can represent distances in integer font units, or
- *   16.16, or 26.6 fixed-point pixel coordinates.
- */
-pub type FT_Pos = libc::c_long;
-/* *************************************************************************
- *
- * @struct:
- *   FT_Vector
- *
- * @description:
- *   A simple structure used to store a 2D vector; coordinates are of the
- *   FT_Pos type.
- *
- * @fields:
- *   x ::
- *     The horizontal coordinate.
- *   y ::
- *     The vertical coordinate.
- */
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct FT_Vector_ {
-    pub x: FT_Pos,
-    pub y: FT_Pos,
-}
-pub type FT_Vector = FT_Vector_;
-/* *************************************************************************
- *
- * @struct:
- *   FT_BBox
- *
- * @description:
- *   A structure used to hold an outline's bounding box, i.e., the
- *   coordinates of its extrema in the horizontal and vertical directions.
- *
- * @fields:
- *   xMin ::
- *     The horizontal minimum (left-most).
- *
- *   yMin ::
- *     The vertical minimum (bottom-most).
- *
- *   xMax ::
- *     The horizontal maximum (right-most).
- *
- *   yMax ::
- *     The vertical maximum (top-most).
- *
- * @note:
- *   The bounding box is specified with the coordinates of the lower left
- *   and the upper right corner.  In PostScript, those values are often
- *   called (llx,lly) and (urx,ury), respectively.
- *
- *   If `yMin` is negative, this value gives the glyph's descender.
- *   Otherwise, the glyph doesn't descend below the baseline.  Similarly,
- *   if `ymax` is positive, this value gives the glyph's ascender.
- *
- *   `xMin` gives the horizontal distance from the glyph's origin to the
- *   left edge of the glyph's bounding box.  If `xMin` is negative, the
- *   glyph extends to the left of the origin.
- */
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct FT_BBox_ {
-    pub xMin: FT_Pos,
-    pub yMin: FT_Pos,
-    pub xMax: FT_Pos,
-    pub yMax: FT_Pos,
-}
-pub type FT_BBox = FT_BBox_;
-/* these constants are deprecated; use the corresponding `FT_Pixel_Mode` */
-/* values instead.                                                       */
-/* *************************************************************************
- *
- * @struct:
- *   FT_Bitmap
- *
- * @description:
- *   A structure used to describe a bitmap or pixmap to the raster.  Note
- *   that we now manage pixmaps of various depths through the `pixel_mode`
- *   field.
- *
- * @fields:
- *   rows ::
- *     The number of bitmap rows.
- *
- *   width ::
- *     The number of pixels in bitmap row.
- *
- *   pitch ::
- *     The pitch's absolute value is the number of bytes taken by one
- *     bitmap row, including padding.  However, the pitch is positive when
- *     the bitmap has a 'down' flow, and negative when it has an 'up' flow.
- *     In all cases, the pitch is an offset to add to a bitmap pointer in
- *     order to go down one row.
- *
- *     Note that 'padding' means the alignment of a bitmap to a byte
- *     border, and FreeType functions normally align to the smallest
- *     possible integer value.
- *
- *     For the B/W rasterizer, `pitch` is always an even number.
- *
- *     To change the pitch of a bitmap (say, to make it a multiple of 4),
- *     use @FT_Bitmap_Convert.  Alternatively, you might use callback
- *     functions to directly render to the application's surface; see the
- *     file `example2.cpp` in the tutorial for a demonstration.
- *
- *   buffer ::
- *     A typeless pointer to the bitmap buffer.  This value should be
- *     aligned on 32-bit boundaries in most cases.
- *
- *   num_grays ::
- *     This field is only used with @FT_PIXEL_MODE_GRAY; it gives the
- *     number of gray levels used in the bitmap.
- *
- *   pixel_mode ::
- *     The pixel mode, i.e., how pixel bits are stored.  See @FT_Pixel_Mode
- *     for possible values.
- *
- *   palette_mode ::
- *     This field is intended for paletted pixel modes; it indicates how
- *     the palette is stored.  Not used currently.
- *
- *   palette ::
- *     A typeless pointer to the bitmap palette; this field is intended for
- *     paletted pixel modes.  Not used currently.
- */
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct FT_Bitmap_ {
-    pub rows: libc::c_uint,
-    pub width: libc::c_uint,
-    pub pitch: libc::c_int,
-    pub buffer: *mut libc::c_uchar,
-    pub num_grays: libc::c_ushort,
-    pub pixel_mode: libc::c_uchar,
-    pub palette_mode: libc::c_uchar,
-    pub palette: *mut libc::c_void,
-}
-pub type FT_Bitmap = FT_Bitmap_;
-/* *************************************************************************
- *
- * @section:
- *   outline_processing
- *
- */
-/* *************************************************************************
- *
- * @struct:
- *   FT_Outline
- *
- * @description:
- *   This structure is used to describe an outline to the scan-line
- *   converter.
- *
- * @fields:
- *   n_contours ::
- *     The number of contours in the outline.
- *
- *   n_points ::
- *     The number of points in the outline.
- *
- *   points ::
- *     A pointer to an array of `n_points` @FT_Vector elements, giving the
- *     outline's point coordinates.
- *
- *   tags ::
- *     A pointer to an array of `n_points` chars, giving each outline
- *     point's type.
- *
- *     If bit~0 is unset, the point is 'off' the curve, i.e., a Bezier
- *     control point, while it is 'on' if set.
- *
- *     Bit~1 is meaningful for 'off' points only.  If set, it indicates a
- *     third-order Bezier arc control point; and a second-order control
- *     point if unset.
- *
- *     If bit~2 is set, bits 5-7 contain the drop-out mode (as defined in
- *     the OpenType specification; the value is the same as the argument to
- *     the 'SCANMODE' instruction).
- *
- *     Bits 3 and~4 are reserved for internal purposes.
- *
- *   contours ::
- *     An array of `n_contours` shorts, giving the end point of each
- *     contour within the outline.  For example, the first contour is
- *     defined by the points '0' to `contours[0]`, the second one is
- *     defined by the points `contours[0]+1` to `contours[1]`, etc.
- *
- *   flags ::
- *     A set of bit flags used to characterize the outline and give hints
- *     to the scan-converter and hinter on how to convert/grid-fit it.  See
- *     @FT_OUTLINE_XXX.
- *
- * @note:
- *   The B/W rasterizer only checks bit~2 in the `tags` array for the first
- *   point of each contour.  The drop-out mode as given with
- *   @FT_OUTLINE_IGNORE_DROPOUTS, @FT_OUTLINE_SMART_DROPOUTS, and
- *   @FT_OUTLINE_INCLUDE_STUBS in `flags` is then overridden.
- */
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct FT_Outline_ {
-    pub n_contours: libc::c_short,
-    pub n_points: libc::c_short,
-    pub points: *mut FT_Vector,
-    pub tags: *mut libc::c_char,
-    pub contours: *mut libc::c_short,
-    pub flags: libc::c_int,
-    /* outline masks                      */
-}
-pub type FT_Outline = FT_Outline_;
 
 /* ***************************************************************************\
- Part of the XeTeX typesetting system
- Copyright (c) 1994-2008 by SIL International
- Copyright (c) 2009 by Jonathan Kew
- Copyright (c) 2012, 2013 by Jiang Jiang
+Part of the XeTeX typesetting system
+Copyright (c) 1994-2008 by SIL International
+Copyright (c) 2009 by Jonathan Kew
+Copyright (c) 2012, 2013 by Jiang Jiang
 
- SIL Author(s): Jonathan Kew
+SIL Author(s): Jonathan Kew
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -622,16 +163,12 @@ shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
-use super::{
-    XeTeXFontMgr, XeTeXFontMgrFamily, XeTeXFontMgrFont, XeTeXFontMgrNameCollection,
-    XeTeXFontMgrOpSizeRec,
-};
 /* ***************************************************************************\
- Part of the XeTeX typesetting system
- Copyright (c) 1994-2008 by SIL International
- Copyright (c) 2009 by Jonathan Kew
+Part of the XeTeX typesetting system
+Copyright (c) 1994-2008 by SIL International
+Copyright (c) 2009 by Jonathan Kew
 
- SIL Author(s): Jonathan Kew
+SIL Author(s): Jonathan Kew
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -657,6 +194,7 @@ shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct XeTeXFontMgr_FC {
@@ -666,7 +204,7 @@ pub struct XeTeXFontMgr_FC {
 }
 
 #[inline]
-unsafe extern "C" fn XeTeXFontMgrNameCollection_create() -> *mut XeTeXFontMgrNameCollection {
+unsafe fn XeTeXFontMgrNameCollection_create() -> *mut XeTeXFontMgrNameCollection {
     let mut self_0: *mut XeTeXFontMgrNameCollection =
         malloc(::std::mem::size_of::<XeTeXFontMgrNameCollection>() as libc::c_ulong)
             as *mut XeTeXFontMgrNameCollection;
@@ -677,10 +215,9 @@ unsafe extern "C" fn XeTeXFontMgrNameCollection_create() -> *mut XeTeXFontMgrNam
     (*self_0).m_subFamily = CppStdString_create();
     return self_0;
 }
+
 #[inline]
-unsafe extern "C" fn XeTeXFontMgrNameCollection_delete(
-    mut self_0: *mut XeTeXFontMgrNameCollection,
-) {
+unsafe fn XeTeXFontMgrNameCollection_delete(mut self_0: *mut XeTeXFontMgrNameCollection) {
     if self_0.is_null() {
         return;
     }
@@ -691,8 +228,9 @@ unsafe extern "C" fn XeTeXFontMgrNameCollection_delete(
     CppStdString_delete((*self_0).m_subFamily);
     free(self_0 as *mut libc::c_void);
 }
+
 #[inline]
-unsafe extern "C" fn XeTeXFontMgr_readNames(
+unsafe fn XeTeXFontMgr_readNames(
     mut self_0: *mut XeTeXFontMgr,
     mut fontRef: PlatformFontRef,
 ) -> *mut XeTeXFontMgrNameCollection {
@@ -700,17 +238,19 @@ unsafe extern "C" fn XeTeXFontMgr_readNames(
         .m_memfnReadNames
         .expect("non-null function pointer")(self_0, fontRef);
 }
+
 #[inline]
-unsafe extern "C" fn XeTeXFontMgr_cacheFamilyMembers(
+unsafe fn XeTeXFontMgr_cacheFamilyMembers(
     mut self_0: *mut XeTeXFontMgr,
     mut familyNames: *const CppStdListOfString,
 ) {
     XeTeXFontMgr_FC_cacheFamilyMembers(self_0, familyNames);
 }
+
 static mut macRomanConv: *mut icu::UConverter = 0 as *mut icu::UConverter;
 static mut utf16beConv: *mut icu::UConverter = 0 as *mut icu::UConverter;
 static mut utf8Conv: *mut icu::UConverter = 0 as *mut icu::UConverter;
-unsafe extern "C" fn convertToUtf8(
+unsafe fn convertToUtf8(
     mut conv: *mut icu::UConverter,
     mut name: *const libc::c_uchar,
     mut len: libc::c_int,
@@ -754,8 +294,9 @@ unsafe extern "C" fn convertToUtf8(
     free(buffer1 as *mut libc::c_void);
     return buffer2;
 }
+
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
+pub unsafe fn XeTeXFontMgr_FC_readNames(
     mut self_0: *mut XeTeXFontMgr,
     mut pat: *mut FcPattern,
 ) -> *mut XeTeXFontMgrNameCollection {
@@ -930,8 +471,9 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
     FT_Done_Face(face);
     return names;
 }
+
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags(
+pub unsafe fn XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags(
     mut self_0: *mut XeTeXFontMgr,
     mut theFont: *mut XeTeXFontMgrFont,
 ) {
@@ -973,7 +515,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_cacheFamilyMembers(
+pub unsafe fn XeTeXFontMgr_FC_cacheFamilyMembers(
     mut self_0: *mut XeTeXFontMgr,
     mut familyNames: *const CppStdListOfString,
 ) {
@@ -1012,7 +554,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_cacheFamilyMembers(
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
+pub unsafe fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
     mut self_0: *mut XeTeXFontMgr,
     mut name: *const libc::c_char,
 ) {
@@ -1150,7 +692,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
     CppStdString_delete(famName);
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_initialize(mut self_0: *mut XeTeXFontMgr) {
+pub unsafe fn XeTeXFontMgr_FC_initialize(mut self_0: *mut XeTeXFontMgr) {
     let mut real_self: *mut XeTeXFontMgr_FC = self_0 as *mut XeTeXFontMgr_FC;
     if FcInit() == 0i32 {
         _tt_abort(b"fontconfig initialization failed\x00" as *const u8 as *const libc::c_char);
@@ -1188,7 +730,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_initialize(mut self_0: *mut XeTeXFontMg
     (*real_self).cachedAll = 0i32 != 0;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_terminate(mut self_0: *mut XeTeXFontMgr) {
+pub unsafe fn XeTeXFontMgr_FC_terminate(mut self_0: *mut XeTeXFontMgr) {
     let mut real_self: *mut XeTeXFontMgr_FC = self_0 as *mut XeTeXFontMgr_FC;
     FcFontSetDestroy((*real_self).allFonts);
     (*real_self).allFonts = 0 as *mut FcFontSet;
@@ -1206,7 +748,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_terminate(mut self_0: *mut XeTeXFontMgr
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
+pub unsafe fn XeTeXFontMgr_FC_getPlatformFontDesc(
     mut self_0: *const XeTeXFontMgr,
     mut font: PlatformFontRef,
 ) -> *mut libc::c_char {
@@ -1227,37 +769,34 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
     return path;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_ctor(mut self_0: *mut XeTeXFontMgr_FC) {
+pub unsafe fn XeTeXFontMgr_FC_ctor(mut self_0: *mut XeTeXFontMgr_FC) {
     XeTeXFontMgr_base_ctor(&mut (*self_0).super_);
     (*self_0).super_.m_memfnInitialize =
-        Some(XeTeXFontMgr_FC_initialize as unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ());
+        Some(XeTeXFontMgr_FC_initialize as unsafe fn(_: *mut XeTeXFontMgr) -> ());
     (*self_0).super_.m_memfnTerminate =
-        Some(XeTeXFontMgr_FC_terminate as unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ());
+        Some(XeTeXFontMgr_FC_terminate as unsafe fn(_: *mut XeTeXFontMgr) -> ());
     (*self_0).super_.m_memfnGetOpSizeRecAndStyleFlags = Some(
         XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags
-            as unsafe extern "C" fn(_: *mut XeTeXFontMgr, _: *mut XeTeXFontMgrFont) -> (),
+            as unsafe fn(_: *mut XeTeXFontMgr, _: *mut XeTeXFontMgrFont) -> (),
     );
     (*self_0).super_.m_memfnGetPlatformFontDesc = Some(
         XeTeXFontMgr_FC_getPlatformFontDesc
-            as unsafe extern "C" fn(
-                _: *const XeTeXFontMgr,
-                _: PlatformFontRef,
-            ) -> *mut libc::c_char,
+            as unsafe fn(_: *const XeTeXFontMgr, _: PlatformFontRef) -> *mut libc::c_char,
     );
     (*self_0).super_.m_memfnSearchForHostPlatformFonts = Some(
         XeTeXFontMgr_FC_searchForHostPlatformFonts
-            as unsafe extern "C" fn(_: *mut XeTeXFontMgr, _: *const libc::c_char) -> (),
+            as unsafe fn(_: *mut XeTeXFontMgr, _: *const libc::c_char) -> (),
     );
     (*self_0).super_.m_memfnReadNames = Some(
         XeTeXFontMgr_FC_readNames
-            as unsafe extern "C" fn(
+            as unsafe fn(
                 _: *mut XeTeXFontMgr,
                 _: *mut FcPattern,
             ) -> *mut XeTeXFontMgrNameCollection,
     );
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_create() -> *mut XeTeXFontMgr_FC {
+pub unsafe fn XeTeXFontMgr_FC_create() -> *mut XeTeXFontMgr_FC {
     let mut self_0: *mut XeTeXFontMgr_FC =
         malloc(::std::mem::size_of::<XeTeXFontMgr_FC>() as libc::c_ulong) as *mut XeTeXFontMgr_FC;
     XeTeXFontMgr_FC_ctor(self_0);
