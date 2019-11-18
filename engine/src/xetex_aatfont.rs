@@ -10,7 +10,7 @@
 )]
 
 use super::text_layout_engine::{
-    Fixed, FixedPoint, Fract, GlyphEdge, LayoutRequest, NodeLayout, TextLayoutEngine,
+    Fixed, FixedPoint, Fract, GlyphEdge, LayoutRequest, NodeLayout, TextLayout,
 };
 use super::xetex_font_info::GlyphBBox;
 
@@ -45,7 +45,7 @@ impl AATLayoutEngine {
     }
 }
 
-impl TextLayoutEngine for AATLayoutEngine {
+impl TextLayout for AATLayoutEngine {
     /// The most important trait method. Lay out some text and return its size.
     unsafe fn layout_text(&mut self, request: LayoutRequest) -> NodeLayout {
         let mut glyphRuns: CFArrayRef = ptr::null_mut();

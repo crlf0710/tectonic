@@ -15,7 +15,7 @@ use crate::stub_icu as icu;
 use harfbuzz_sys::*;
 
 use crate::text_layout_engine::{
-    Fixed, FixedPoint, FloatPoint, LayoutRequest, NodeLayout, TextLayoutEngine,
+    Fixed, FixedPoint, FloatPoint, LayoutRequest, NodeLayout, TextLayout,
 };
 use crate::xetex_font_info::XeTeXFontInst;
 #[cfg(target_os = "macos")]
@@ -410,7 +410,7 @@ pub struct XeTeXLayoutEngine_rec {
 
 pub type XeTeXLayoutEngine = *mut XeTeXLayoutEngine_rec;
 
-impl TextLayoutEngine for XeTeXLayoutEngine_rec {
+impl TextLayout for XeTeXLayoutEngine_rec {
     // AAT casualties
 
     // /// getFontRef

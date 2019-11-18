@@ -199,7 +199,27 @@ impl GlyphEdge {
     }
 }
 
-pub trait TextLayoutEngine {
+use crate::xetex_layout_engine::XeTeXLayoutEngine_rec;
+
+// Everywhere except macOS, this should compile down to nothing.
+cfg_if::cfg_if! {
+    if #[cfg(target_os = "macos")] {
+        use crate::xetex_aatfont::AATLayoutEngine;
+        #[enum_dispatch::enum_dispatch]
+        pub enum TextLayoutEngine {
+            AAT(AATLayoutEngine),
+            XeTeX(XeTeXLayoutEngine_rec),
+        }
+    } else {
+        #[enum_dispatch::enum_dispatch]
+        pub enum TextLayoutEngine {
+            XeTeX(XeTeXLayoutEngine_rec),
+        }
+    }
+}
+
+#[enum_dispatch::enum_dispatch(TextLayoutEngine)]
+pub trait TextLayout {
     /// The most important trait method. Lay out some text and return its size.
     unsafe fn layout_text(&mut self, request: LayoutRequest) -> NodeLayout;
 
