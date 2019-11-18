@@ -8,7 +8,7 @@
     unused_mut
 )]
 
-use crate::xetex_ini::{current_font_num, get_text_layout_engine, CUR_FONT_LOC};
+use crate::xetex_ini::{current_font_num, get_text_layout_engine};
 
 use crate::text_layout_engine::{TextLayout, TextLayoutEngine};
 
@@ -30,7 +30,7 @@ use crate::xetex_ext::{
     apply_mapping, apply_tfm_font_mapping, check_for_tfm_font_mapping, find_native_font,
     get_encoding_mode_and_info, get_glyph_bounds, get_native_char_height_depth,
     get_native_char_sidebearings, getnativechardp, getnativecharht, getnativecharic,
-    getnativecharwd, gr_font_get_named, gr_font_get_named_1, linebreak_next, linebreak_start,
+    getnativecharwd, linebreak_next, linebreak_start,
     load_tfm_font_mapping, map_char_to_glyph, map_glyph_to_index, measure_native_glyph,
     measure_native_node, print_glyph_name, print_utf8_str, real_get_native_glyph_italic_correction,
     real_get_native_italic_correction, real_get_native_word_cp,
@@ -10813,7 +10813,7 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         23 | 25 | 26 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match current_font_engine(n as usize) {
+                            cur_val = match get_text_layout_engine(n as usize) {
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(eng)) => {
                                     scan_int();
@@ -10834,7 +10834,7 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         27 | 29 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match current_font_engine(n as usize) {
+                            cur_val = match get_text_layout_engine(n as usize) {
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(eng)) => {
                                     scan_int();
@@ -10857,7 +10857,7 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         18 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match current_font_engine(n as usize) {
+                            cur_val = match get_text_layout_engine(n as usize) {
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(aat_eng)) => {
                                     scan_and_pack_name();
@@ -10915,59 +10915,68 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         30 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(n as usize)
-                                && eng.usingOpenType() {
-                                eng.poorly_named_getter(m - 14)
-                            } else {
-                                0
+                            cur_val = match get_text_layout_engine(n as usize) {
+                                Some(TextLayoutEngine::XeTeX(eng)) if eng.usingOpenType() => {
+                                    eng.poorly_named_getter(m - 14)
+                                }
+                                _ =>{
+                                    not_ot_font_error(71i32, m, n);
+                                    -1
+                                }
                             };
                         }
                         31 | 33 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(n as usize)
-                                && eng.usingOpenType() {
-                                scan_int();
-                                eng.poorly_named_getter_1(m - 14, cur_val)
-                            } else {
-                                not_ot_font_error(71i32, m, n);
-                                -1
+                            cur_val = match get_text_layout_engine(n as usize) {
+                                Some(TextLayoutEngine::XeTeX(eng)) if eng.usingOpenType() => {
+                                    scan_int();
+                                    k = cur_val;
+                                    eng.poorly_named_getter_1(m - 14, k)
+                                }
+                                _ =>{
+                                    not_ot_font_error(71i32, m, n);
+                                    -1
+                                }
                             };
                         }
                         32 | 34 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(n as usize)
-                                && eng.usingOpenType() {
-                                scan_int();
-                                k = cur_val;
-                                scan_int();
-                                eng.poorly_named_getter_2(m - 14, k, cur_val)
-                            } else {
-                                not_ot_font_error(71i32, m, n);
-                                -1
+                            cur_val = match get_text_layout_engine(n as usize) {
+                                Some(TextLayoutEngine::XeTeX(eng)) if eng.usingOpenType() => {
+                                    scan_int();
+                                    k = cur_val;
+                                    scan_int();
+                                    eng.poorly_named_getter_2(m - 14, k, cur_val)
+                                }
+                                _ =>{
+                                    not_ot_font_error(71i32, m, n);
+                                    -1
+                                }
                             };
                         }
                         35 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(n as usize)
-                                && eng.usingOpenType()
-                            {
-                                scan_int();
-                                k = cur_val;
-                                scan_int();
-                                kk = cur_val;
-                                scan_int();
-                                eng.poorly_named_getter_3(
-                                    m - 14i32,
-                                    k,
-                                    kk,
-                                    cur_val,
-                                )
-                            } else {
-                                not_ot_font_error(71i32, m, n);
-                                -1
+                            cur_val = match get_text_layout_engine(n as usize) {
+                                Some(TextLayoutEngine::XeTeX(eng)) if eng.usingOpenType() => {
+                                    scan_int();
+                                    k = cur_val;
+                                    scan_int();
+                                    kk = cur_val;
+                                    scan_int();
+                                    eng.poorly_named_getter_3(
+                                        m - 14i32,
+                                        k,
+                                        kk,
+                                        cur_val,
+                                    )
+                                }
+                                _ => {
+                                    not_ot_font_error(71i32, m, n);
+                                    -1
+                                }
                             };
                         }
                         36 => {
@@ -10998,8 +11007,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                             cur_val = match get_text_layout_engine(n as usize) {
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(_)) => 1,
-                                Some(TextLayoutEngine::XeTeX(e)) if x.usingOpenType() => 2,
-                                Some(TextLayoutEngine::XeTeX(e)) if x.usingGraphite() => 3,
+                                Some(TextLayoutEngine::XeTeX(e)) if e.usingOpenType() => 2,
+                                Some(TextLayoutEngine::XeTeX(e)) if e.usingGraphite() => 3,
                                 _ => 0,
                             };
                         }
@@ -22680,7 +22689,7 @@ pub unsafe extern "C" fn make_accent() {
                 p = hpack(p, 0i32, 1i32 as small_number);
                 (*mem.offset((p + 4i32) as isize)).b32.s1 = x - h
             }
-            if let Some(_eng) = get_text_layout_engine(f as usize) && a == 0i32 {
+            if get_text_layout_engine(f as usize).is_some() && a == 0i32 {
                 delta = tex_round((w - lsb + rsb) as f64 / 2.0f64 + h as f64 * t - x as f64 * s)
             } else {
                 delta = tex_round((w - a) as f64 / 2.0f64 + h as f64 * t - x as f64 * s)

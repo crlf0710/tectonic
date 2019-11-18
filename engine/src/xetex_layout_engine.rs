@@ -424,6 +424,7 @@ impl TextLayout for XeTeXLayoutEngine_rec {
     // }
 
     unsafe fn get_flags(&self, font_number: u32) -> i32 {
+        use crate::xetex_ini::font_flags;
         if *font_flags.offset(font_number as isize) as i32 & 0x2i32 != 0i32 {
             0x100i32
         } else {
@@ -450,8 +451,8 @@ impl TextLayout for XeTeXLayoutEngine_rec {
         &self,
         ascent: &mut Fixed,
         descent: &mut Fixed,
-        x_ht: &mut Fixed,
-        cap_ht: &mut Fixed,
+        xheight: &mut Fixed,
+        capheight: &mut Fixed,
         slant: &mut Fixed,
     ) {
         let mut a: f32 = 0.;
@@ -511,7 +512,7 @@ impl TextLayout for XeTeXLayoutEngine_rec {
     }
 
     /// ot_font_get_1, aat_font_get_1
-    unsafe fn poorly_named_getter_1(&self, what: i32) -> i32 {
+    unsafe fn poorly_named_getter_1(&self, what: i32, param: i32) -> i32 {
         let mut fontInst = self.font;
         match what {
             17 => return countLanguages(fontInst, param as hb_tag_t) as i32,
@@ -581,7 +582,7 @@ impl TextLayout for XeTeXLayoutEngine_rec {
     }
 
     /// gr_print_font_name
-    unsafe fn print_font_name(&self, c: i32, arg1: i32, arg2: i32) {
+    unsafe fn print_font_name(&self, what: i32, param1: i32, param2: i32) {
         if self.usingGraphite() {
             let mut name: *mut i8 = 0 as *mut i8;
             match what {
@@ -590,7 +591,7 @@ impl TextLayout for XeTeXLayoutEngine_rec {
                 _ => {}
             }
             if !name.is_null() {
-                print_c_string(name);
+                crate::xetex_xetexd::print_c_string(name);
                 gr_label_destroy(name as *mut libc::c_void);
             };
         }
@@ -1903,6 +1904,7 @@ static mut hbUnicodeFuncs: *mut hb_unicode_funcs_t =
 
 impl XeTeXLayoutEngine_rec {
     pub unsafe fn gr_font_get_named(&self, what: i32) -> i32 {
+        use crate::xetex_ini::{name_of_file, name_length};
         let mut rval: i64 = -1i32 as i64;
         match what {
             10 => rval = findGraphiteFeatureNamed(self, name_of_file, name_length),
@@ -1916,6 +1918,7 @@ impl XeTeXLayoutEngine_rec {
         mut what: i32,
         mut param: i32,
     ) -> i32 {
+        use crate::xetex_ini::{name_of_file, name_length};
         let mut rval: i64 = -1i32 as i64;
         match what {
             14 => {

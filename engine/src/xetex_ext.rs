@@ -183,12 +183,12 @@ pub unsafe extern "C" fn linebreak_start(
 ) {
     let mut status: icu::UErrorCode = icu::U_ZERO_ERROR;
     let mut locale: *mut i8 = gettexstring(localeStrNum);
-    if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(f as usize)
-        && streq_ptr(locale, b"G\x00" as *const u8 as *const i8) as i32 != 0
-    {
-        if eng.initGraphiteBreaking(text, textLength) {
-            /* user asked for Graphite line breaking and the font supports it */
-            return;
+    match get_text_layout_engine(f as usize) {
+        Some(TextLayoutEngine::XeTeX(eng)) if streq_ptr(locale, b"G\x00" as *const u8 as *const i8) as i32 != 0 => {
+            if eng.initGraphiteBreaking(text, textLength) {
+                /* user asked for Graphite line breaking and the font supports it */
+                return;
+            }
         }
     }
     if localeStrNum != brkLocaleStrNum && !brkIter.is_null() {
@@ -815,7 +815,7 @@ unsafe extern "C" fn loadOTfont(
                                         cp2,
                                         &mut tag,
                                         &mut value,
-                                    ) as i32).unwrap_or(false)
+                                    )).unwrap_or(false)
                                 {
                                     features = xrealloc(
                                         features as *mut libc::c_void,
@@ -943,7 +943,7 @@ unsafe extern "C" fn loadOTfont(
     if loaded_font_flags as i32 & 0x2i32 != 0i32 {
         setFontLayoutDir(font, 1i32);
     }
-    rval = createLayoutEngine(
+    rval = Some(createLayoutEngine(
         fontRef,
         font,
         script,
@@ -956,9 +956,9 @@ unsafe extern "C" fn loadOTfont(
         slant,
         embolden,
         shaperRequest,
-    );
+    ));
     native_font_type_flag = 0xfffeu32 as i32;
-    rval
+    rval.map(TextLayoutEngine::XeTeX)
 }
 
 unsafe extern "C" fn splitFontName(
@@ -1591,7 +1591,7 @@ pub unsafe fn store_justified_native_glyphs(mut pNode: *mut libc::c_void) {
         TextLayoutEngine::AAT(eng) => {
             /* separate Mac-only codepath for AAT fonts, activated with LayoutRequest.justify */
             let request = LayoutRequest::from_node(node, true);
-            let layout = engine.layout_text(request);
+            let layout = eng.layout_text(request);
             layout.write_node(node);
             return;
         }

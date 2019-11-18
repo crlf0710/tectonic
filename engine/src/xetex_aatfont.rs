@@ -27,7 +27,7 @@ use std::ptr;
 
 #[repr(transparent)]
 pub struct AATLayoutEngine {
-    pub attributes: CFDictionaryRef,
+    attributes: CFDictionaryRef,
 }
 
 impl AATLayoutEngine {
@@ -222,7 +222,7 @@ impl TextLayout for AATLayoutEngine {
 
     unsafe fn print_font_name(&self, c: i32, arg1: i32, arg2: i32) {
         if self.usingGraphite() {
-            aat_print_font_name(c, arg1, arg2);
+            aat_print_font_name(c, self.attributes, arg1, arg2);
         }
     }
 
@@ -257,7 +257,7 @@ impl TextLayout for AATLayoutEngine {
 
     /// ot_font_get_1, aat_font_get_1
     unsafe fn poorly_named_getter_1(&self, mut what: i32, mut param1: i32) -> i32 {
-        aat_font_get_2(what, self.attributes, param1)
+        aat_font_get_1(what, self.attributes, param1)
     }
 
     /// ot_font_get_2, aat_font_get_2
@@ -1287,7 +1287,7 @@ pub unsafe fn loadAATfont(
     );
     CFRelease(actualFont as CFTypeRef);
     native_font_type_flag = 0xffffu32 as int32_t;
-    return Some(TextLayoutEngine::AAT(AATLayoutEngine(stringAttributes)));
+    return Some(TextLayoutEngine::AAT(AATLayoutEngine { attributes: stringAttributes }));
 }
 
 /* the metrics params here are really TeX 'scaled' (or MacOS 'Fixed') values, but that typedef isn't available every place this is included */

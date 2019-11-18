@@ -49,17 +49,17 @@ fn math_font(n: isize) -> isize {
     (*eqtb.offset(MATH_FONT_BASE as isize + n)).b32.s1 as isize
 }
 
-fn is_opentype_math_font(f: usize) -> bool {
-    if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(cur_f as usize) && eng.isOpenTypeMathFont() {
-        true
+pub fn is_opentype_math_font(f: usize) -> bool {
+    if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(cur_f as usize) {
+        eng.isOpenTypeMathFont()
     } else {
         false
     }
 }
 
-fn is_using_opentype(f: u32) -> bool {
-    if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(cur_f as usize) && eng.usingOpenType() {
-        true
+pub fn is_using_opentype(f: u32) -> bool {
+    if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(cur_f as usize) {
+        eng.usingOpenType()
     } else {
         false
     }
