@@ -2,7 +2,9 @@
 #include <string.h>
 #include <stdarg.h>
 
-int dpx_sprintf(char *str, const char *format, ...);
+int dpx_sprintf ( char * str, const char * format, ... );
+int dpx_snprintf ( char * str, size_t n, const char * format, ... );
+int dpx_sscanf ( const char * str, const char * format, ...);
 
 int dpx_strcasecmp(const char *s1, const char *s2);
 
@@ -14,6 +16,24 @@ int dpx_sprintf(char *str, const char *format, ...)
     int r;
     va_start(arglist, format);
     r = vsprintf(str, format, arglist);
+    va_end(arglist);
+    return r;
+}
+
+int dpx_snprintf ( char * str, size_t n, const char * format, ... ) {
+    va_list arglist;
+    int r;
+    va_start(arglist, format);
+    r = vsnprintf(str, n, format, arglist);
+    va_end(arglist);
+    return r;
+}
+
+int dpx_sscanf ( const char * str, const char * format, ...) {
+    va_list arglist;
+    int r;
+    va_start(arglist, format);
+    r = vsscanf(str, format, arglist);
     va_end(arglist);
     return r;
 }
