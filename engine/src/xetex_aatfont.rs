@@ -31,6 +31,11 @@ pub struct AATLayoutEngine {
 }
 
 impl AATLayoutEngine {
+    pub fn new(attributes: CFDictionaryRef) -> Self {
+        AATLayoutEngine {
+            attributes
+        }
+    }
     unsafe fn ct_font(&self) -> CTFontRef {
         font_from_attributes(self.attributes)
     }
@@ -346,7 +351,7 @@ use crate::core_memory::{xcalloc, xmalloc};
 use crate::xetex_ext::{print_chars, readCommonFeatures, read_double, D2Fix, Fix2D};
 use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
-    font_area, font_layout_engine, font_letter_space, loaded_font_flags, loaded_font_letter_space,
+    FONT_AREA, TEXT_LAYOUT_ENGINES, font_letter_space, loaded_font_flags, loaded_font_letter_space,
     name_length, name_of_file, native_font_type_flag,
 };
 use crate::xetex_xetex0::font_feature_warning;
@@ -425,7 +430,7 @@ unsafe fn font_from_attributes(mut attributes: CFDictionaryRef) -> CTFontRef {
 
 pub unsafe fn font_from_integer(mut font: int32_t) -> CTFontRef {
     let mut attributes: CFDictionaryRef =
-        *font_layout_engine.offset(font as isize) as CFDictionaryRef;
+        *TEXT_LAYOUT_ENGINES.offset(font as isize) as CFDictionaryRef;
     return font_from_attributes(attributes);
 }
 
@@ -449,12 +454,12 @@ pub unsafe fn do_aat_layout(mut p: *mut libc::c_void, mut justify: libc::c_int) 
     let mut line: CTLineRef = ptr::null_mut();
     let mut node: *mut memory_word = p as *mut memory_word;
     let mut f: libc::c_uint = (*node.offset(4)).b16.s2 as libc::c_uint;
-    if *font_area.offset(f as isize) as libc::c_uint != 0xffffu32 {
+    if *FONT_AREA.offset(f as isize) as libc::c_uint != 0xffffu32 {
         panic!("do_aat_layout called for non-AAT font");
     }
     txtLen = (*node.offset(4)).b16.s1 as CFIndex;
     txtPtr = node.offset(6) as *mut UniChar;
-    attributes = *font_layout_engine.offset((*node.offset(4)).b16.s2 as isize) as CFDictionaryRef;
+    attributes = *TEXT_LAYOUT_ENGINES.offset((*node.offset(4)).b16.s2 as isize) as CFDictionaryRef;
     string = CFStringCreateWithCharactersNoCopy(ptr::null(), txtPtr, txtLen, kCFAllocatorNull);
     attrString = CFAttributedStringCreate(ptr::null(), string, attributes);
     CFRelease(string as CFTypeRef);

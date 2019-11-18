@@ -787,8 +787,6 @@ pub static mut font_params: *mut font_index = 0 as *const font_index as *mut fon
 #[no_mangle]
 pub static mut font_name: *mut str_number = 0 as *const str_number as *mut str_number;
 #[no_mangle]
-pub static mut font_area: *mut str_number = 0 as *const str_number as *mut str_number;
-#[no_mangle]
 pub static mut font_bc: *mut UTF16_code = 0 as *const UTF16_code as *mut UTF16_code;
 #[no_mangle]
 pub static mut font_ec: *mut UTF16_code = 0 as *const UTF16_code as *mut UTF16_code;
@@ -806,8 +804,8 @@ pub static mut bchar_label: *mut font_index = 0 as *const font_index as *mut fon
 pub static mut font_bchar: *mut nine_bits = 0 as *const nine_bits as *mut nine_bits;
 #[no_mangle]
 pub static mut font_false_bchar: *mut nine_bits = 0 as *const nine_bits as *mut nine_bits;
-#[no_mangle]
-pub static mut font_layout_engine: *mut *mut libc::c_void =
+pub static mut FONT_AREA: *mut str_number = 0 as *const str_number as *mut str_number;
+pub static mut TEXT_LAYOUT_ENGINES: *mut *mut libc::c_void =
     0 as *const *mut libc::c_void as *mut *mut libc::c_void;
 #[no_mangle]
 pub static mut font_mapping: *mut *mut libc::c_void =
@@ -2964,9 +2962,9 @@ pub unsafe extern "C" fn prefixed_command() {
                     *hyphen_char.offset(f as isize) = cur_val
                 } else { *skew_char.offset(f as isize) = cur_val }
             } else {
-                if *font_area.offset(f as isize) as u32 == 0xffffu32
+                if *FONT_AREA.offset(f as isize) as u32 == 0xffffu32
                        ||
-                       *font_area.offset(f as isize) as u32 ==
+                       *FONT_AREA.offset(f as isize) as u32 ==
                            0xfffeu32 {
                     scan_glyph_number(f);
                 } else { scan_char_num(); }
@@ -3524,7 +3522,7 @@ unsafe extern "C" fn store_fmt_file() {
         fmt_out,
     );
     do_dump(
-        &mut *font_area.offset(0) as *mut str_number as *mut i8,
+        &mut *FONT_AREA.offset(0) as *mut str_number as *mut i8,
         ::std::mem::size_of::<str_number>() as u64,
         (font_ptr + 1i32) as size_t,
         fmt_out,
@@ -3624,8 +3622,8 @@ unsafe extern "C" fn store_fmt_file() {
         print_nl_cstr(b"\\font\x00" as *const u8 as *const i8);
         print_esc((*hash.offset(FONT_ID_BASE as isize + k as isize)).s1);
         print_char('=' as i32);
-        if *font_area.offset(k as isize) as u32 == 0xffffu32
-            || *font_area.offset(k as isize) as u32 == 0xfffeu32
+        if *FONT_AREA.offset(k as isize) as u32 == 0xffffu32
+            || *FONT_AREA.offset(k as isize) as u32 == 0xfffeu32
             || !(*font_mapping.offset(k as isize)).is_null()
         {
             print_file_name(
@@ -3652,7 +3650,7 @@ unsafe extern "C" fn store_fmt_file() {
         } else {
             print_file_name(
                 *font_name.offset(k as isize),
-                *font_area.offset(k as isize),
+                *FONT_AREA.offset(k as isize),
                 (65536 + 1i32 as i64) as i32,
             );
         }
@@ -4405,7 +4403,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     font_mapping = xmalloc(
         ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut libc::c_void>() as u64),
     ) as *mut *mut libc::c_void;
-    font_layout_engine = xcalloc(
+    TEXT_LAYOUT_ENGINES = xcalloc(
         (font_max + 1i32) as size_t,
         ::std::mem::size_of::<*mut libc::c_void>() as u64,
     ) as *mut *mut libc::c_void;
@@ -4430,7 +4428,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     font_name = xmalloc(
         ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
     ) as *mut str_number;
-    font_area = xmalloc(
+    FONT_AREA = xmalloc(
         ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
     ) as *mut str_number;
     font_bc = xmalloc(
@@ -4566,19 +4564,19 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     let mut i_2: i32 = 0;
     do_undump(
-        &mut *font_area.offset(0) as *mut str_number as *mut i8,
+        &mut *FONT_AREA.offset(0) as *mut str_number as *mut i8,
         ::std::mem::size_of::<str_number>() as u64,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     i_2 = 0i32;
     while i_2 < font_ptr + 1i32 {
-        if *(&mut *font_area.offset(0) as *mut str_number).offset(i_2 as isize) > str_ptr {
+        if *(&mut *FONT_AREA.offset(0) as *mut str_number).offset(i_2 as isize) > str_ptr {
             panic!(
                 "Item {} (={}) of .fmt array at {:x} >{}",
                 i_2,
-                *(&mut *font_area.offset(0) as *mut str_number).offset(i_2 as isize) as uintptr_t,
-                &mut *font_area.offset(0) as *mut str_number as uintptr_t,
+                *(&mut *FONT_AREA.offset(0) as *mut str_number).offset(i_2 as isize) as uintptr_t,
+                &mut *FONT_AREA.offset(0) as *mut str_number as uintptr_t,
                 str_ptr as uintptr_t
             );
         }
@@ -9865,7 +9863,7 @@ pub unsafe extern "C" fn tt_run_engine(
             (font_max + 1i32) as size_t,
             ::std::mem::size_of::<*mut libc::c_void>() as u64,
         ) as *mut *mut libc::c_void;
-        font_layout_engine = xcalloc(
+        TEXT_LAYOUT_ENGINES = xcalloc(
             (font_max + 1i32) as size_t,
             ::std::mem::size_of::<*mut libc::c_void>() as u64,
         ) as *mut *mut libc::c_void;
@@ -9897,7 +9895,7 @@ pub unsafe extern "C" fn tt_run_engine(
             (font_max + 1i32) as size_t,
             ::std::mem::size_of::<str_number>() as u64,
         ) as *mut str_number;
-        font_area = xcalloc(
+        FONT_AREA = xcalloc(
             (font_max + 1i32) as size_t,
             ::std::mem::size_of::<str_number>() as u64,
         ) as *mut str_number;
@@ -9972,7 +9970,7 @@ pub unsafe extern "C" fn tt_run_engine(
         font_ptr = 0i32;
         fmem_ptr = 7i32;
         *font_name.offset(0) = maketexstring(b"nullfont\x00" as *const u8 as *const i8);
-        *font_area.offset(0) = (65536 + 1i32 as i64) as str_number;
+        *FONT_AREA.offset(0) = (65536 + 1i32 as i64) as str_number;
         *hyphen_char.offset(0) = '-' as i32;
         *skew_char.offset(0) = -1i32;
         *bchar_label.offset(0) = 0i32;
@@ -10031,12 +10029,12 @@ pub unsafe extern "C" fn tt_run_engine(
     destroy_font_manager();
     font_k = 0i32;
     while font_k < font_max {
-        if !(*font_layout_engine.offset(font_k as isize)).is_null() {
+        if !(*TEXT_LAYOUT_ENGINES.offset(font_k as isize)).is_null() {
             release_font_engine(
-                *font_layout_engine.offset(font_k as isize),
-                *font_area.offset(font_k as isize),
+                *TEXT_LAYOUT_ENGINES.offset(font_k as isize),
+                *FONT_AREA.offset(font_k as isize),
             );
-            let ref mut fresh22 = *font_layout_engine.offset(font_k as isize);
+            let ref mut fresh22 = *TEXT_LAYOUT_ENGINES.offset(font_k as isize);
             *fresh22 = 0 as *mut libc::c_void
         }
         font_k += 1
@@ -10067,7 +10065,7 @@ pub unsafe extern "C" fn tt_run_engine(
     free(str_pool as *mut libc::c_void);
     free(font_info as *mut libc::c_void);
     free(font_mapping as *mut libc::c_void);
-    free(font_layout_engine as *mut libc::c_void);
+    free(TEXT_LAYOUT_ENGINES as *mut libc::c_void);
     free(font_flags as *mut libc::c_void);
     free(font_letter_space as *mut libc::c_void);
     free(font_check as *mut libc::c_void);
@@ -10075,7 +10073,7 @@ pub unsafe extern "C" fn tt_run_engine(
     free(font_dsize as *mut libc::c_void);
     free(font_params as *mut libc::c_void);
     free(font_name as *mut libc::c_void);
-    free(font_area as *mut libc::c_void);
+    free(FONT_AREA as *mut libc::c_void);
     free(font_bc as *mut libc::c_void);
     free(font_ec as *mut libc::c_void);
     free(font_glue as *mut libc::c_void);
