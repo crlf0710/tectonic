@@ -17,7 +17,7 @@ use libc::{free, strncat};
 use std::ffi::{CString, CStr};
 use std::ptr;
 use crate::xetex_font_info::XeTeXFontInst;
-use crate::text_layout_engine::{TextLayoutEngine, LayoutRequest, NodeLayout};
+use crate::text_layout_engine::{TextLayoutEngine, LayoutRequest, NodeLayout, GlyphEdge, scaled_t, Fixed, FixedPoint};
 
 #[cfg(target_os = "macos")]
 use super::xetex_aatfont as aat;
@@ -1557,7 +1557,7 @@ pub unsafe extern "C" fn make_font_def(mut f: i32) -> i32 {
             let mut engine: XeTeXLayoutEngine = 0 as *mut XeTeXLayoutEngine_rec;
             engine = *font_layout_engine.offset(f as isize) as XeTeXLayoutEngine;
             /* fontRef = */
-            getFontRef(engine);
+            // getFontRef(engine);
             filename = getFontFilename(engine, &mut index);
             assert!(!filename.is_null());
             rgba = getRgbValue(engine);
@@ -1802,8 +1802,6 @@ pub unsafe extern "C" fn get_native_char_sidebearings(
     *rsb = D2Fix(r as f64);
 }
 
-use crate::text_layout_engine::GlyphEdge;
-
 #[no_mangle]
 pub unsafe extern "C" fn get_glyph_bounds(mut font: i32, mut edge: i32, mut gid: i32) -> scaled_t {
     GlyphEdge::from_int(edge).map(|edge| {
@@ -1970,7 +1968,7 @@ pub unsafe extern "C" fn measure_native_node(
         }
         0xfffeu32 => {
             let engine = &mut *(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine);
-            let request = LayoutRequest::from_node(node);
+            let request = LayoutRequest::from_node(node, false);
             let layout = engine.layout_text(request);
             layout.write_node(node);
         }
@@ -2159,6 +2157,7 @@ pub unsafe extern "C" fn map_char_to_glyph(mut font: i32, mut ch: i32) -> i32 {
         }
     }
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn map_glyph_to_index(mut font: i32) -> i32
 /* glyph name is at name_of_file */ {
@@ -2181,6 +2180,7 @@ pub unsafe extern "C" fn map_glyph_to_index(mut font: i32) -> i32
         }
     }
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn get_font_char_range(mut font: i32, mut first: i32) -> i32 {
     match *font_area.offset(font as isize) as u32 {

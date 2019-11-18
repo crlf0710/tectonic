@@ -7,45 +7,24 @@
     unused_assignments,
     unused_mut
 )]
-#![feature(
-    const_raw_ptr_to_usize_cast,
-    extern_types,
-    label_break_value,
-    ptr_wrapping_offset_from
-)]
 
 // Fc* functions are from fontconfig.
 
-use crate::stub_icu as icu;
 use crate::core_memory::{xcalloc, xmalloc};
+use crate::stub_icu as icu;
 use harfbuzz_sys::*;
 
-use crate::text_layout_engine::{TextLayoutEngine, LayoutRequest, NodeLayout};
+use crate::text_layout_engine::{
+    Fixed, FixedPoint, FloatPoint, LayoutRequest, NodeLayout, TextLayoutEngine,
+};
 use crate::xetex_font_info::XeTeXFontInst;
 #[cfg(target_os = "macos")]
 use crate::xetex_font_info::XeTeXFontInst_Mac_create;
-use crate::xetex_font_manager::{PlatformFontRef, ShaperRequest, XeTeXFontMgr, XeTeXFontMgrFamily, XeTeXFontMgrFont};
-use std::ffi::{CString, CStr};
+use crate::xetex_font_manager::{
+    PlatformFontRef, ShaperRequest, XeTeXFontMgr, XeTeXFontMgrFamily, XeTeXFontMgrFont,
+};
+use std::ffi::{CStr, CString};
 use std::ptr;
-
-pub type Fixed = i32;
-
-#[derive(Copy, Clone)]
-#[cfg_attr(not(target_os = "macos"), repr(C))]
-#[cfg_attr(target_os = "macos", repr(C, packed(2)))]
-pub struct FixedPoint {
-    pub x: Fixed,
-    pub y: Fixed,
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct FloatPoint {
-    pub x: f32,
-    pub y: f32,
-}
-
-pub type scaled_t = i32;
 
 // https://www.freetype.org/freetype2/docs/reference/ft2-basic_types.html#ft_make_tag
 pub const fn ft_make_tag(buf: &[u8; 4]) -> u32 {
@@ -398,7 +377,10 @@ impl CStringListBuilder {
     }
     pub fn push_non_null_terminated(&mut self, shaper: impl Into<Vec<u8>>) {
         self.dirty = true;
-        self.inner.push(CString::new(shaper).expect("push_non_null_terminated called with a null terminated C string"));
+        self.inner.push(
+            CString::new(shaper)
+                .expect("push_non_null_terminated called with a null terminated C string"),
+        );
     }
     pub fn push_cstr(&mut self, cstr: &CStr) {
         self.dirty = true;
@@ -429,67 +411,70 @@ pub struct XeTeXLayoutEngine_rec {
 pub type XeTeXLayoutEngine = *mut XeTeXLayoutEngine_rec;
 
 impl TextLayoutEngine for XeTeXLayoutEngine_rec {
-    /// getFontRef
-    fn platform_font_ref(&self) -> PlatformFontRef {
-        self.fontRef
+    // AAT casualties
+
+    // /// getFontRef
+    // fn platform_font_ref(&self) -> PlatformFontRef {
+    //     self.fontRef
+    // }
+
+    // /// getFontInst
+    // fn font_instance(&self) -> *mut XeTeXFontInst {
+    //     self.font
+    // }
+
+    // getGlyphWidth
+    unsafe fn glyph_width(&self, gid: u32) -> f64 {
+        XeTeXFontInst_getGlyphWidth(self.font, gid as GlyphID) as f64
     }
-    /// getFontInst
-    fn font_instance(&self) -> *mut XeTeXFontInst {
-        self.font
-    }
+
     /// getFontFilename
-    fn font_filename(&self, index: &mut u32) -> *mut libc::c_char {
-        unsafe {
-            xstrdup(XeTeXFontInst_getFilename(self.font, index))
-        }
+    unsafe fn font_filename(&self, index: &mut u32) -> *mut libc::c_char {
+        unsafe { xstrdup(XeTeXFontInst_getFilename(self.font, index)) }
     }
+
     /// getExtendFactor
-    fn extend_factor(&self) -> f32 {
-        self.extend
+    unsafe fn extend_factor(&self) -> f64 {
+        self.extend as f64
     }
+
     /// getPointSize
-    fn point_size(&self) -> f32 {
-        unsafe {
-            XeTeXFontInst_getPointSize(self.font)
-        }
+    unsafe fn point_size(&self) -> f64 {
+        unsafe { XeTeXFontInst_getPointSize(self.font) as f64 }
     }
     /// getAscentAndDescent
-    fn ascent_and_descent(&self, ascent: &mut f32, descent: &mut f32) {
+    unsafe fn ascent_and_descent(&self, ascent: &mut f32, descent: &mut f32) {
         unsafe {
             *ascent = XeTeXFontInst_getAscent(self.font);
             *descent = XeTeXFontInst_getDescent(self.font);
         }
     }
 
+    /// getGlyphName
+    /// Only used for debugging. Should be a String/CStr then!
+    unsafe fn glyph_name(&self, gid: u16, len: &mut libc::c_int) -> *const libc::c_char {
+        getGlyphName(self.font, gid, len)
+    }
+
     /// getCapAndXHeight
-    fn cap_and_x_height(&self, capheight: &mut f32, xheight: &mut f32) {
+    unsafe fn cap_and_x_height(&self, capheight: &mut f32, xheight: &mut f32) {
         unsafe {
             *capheight = XeTeXFontInst_getCapHeight(self.font);
             *xheight = XeTeXFontInst_getXHeight(self.font);
         }
     }
     /// getEmboldenFactor
-    fn embolden_factor(&self) -> f32 {
+    unsafe fn embolden_factor(&self) -> f32 {
         self.embolden
-    }
-    /// getDefaultDirection
-    // TODO: TextDirection
-    fn default_direction(&self) -> i32 {
-        unsafe {
-            let mut script: hb_script_t = hb_buffer_get_script(self.hbBuffer);
-            if hb_script_get_horizontal_direction(script) as libc::c_uint
-                == HB_DIRECTION_RTL as libc::c_int as libc::c_uint
-            {
-                0xffi32
-            } else {
-                0xfei32
-            }
-        }
     }
 
     /// getRgbValue
-    fn rgb_value(&self) -> u32 {
+    unsafe fn rgb_value(&self) -> u32 {
         self.rgbValue
+    }
+
+    unsafe fn slant_factor(&self) -> f64 {
+        self.slant as f64
     }
 
     /// getGlyphBounds (had out param)
@@ -497,18 +482,17 @@ impl TextLayoutEngine for XeTeXLayoutEngine_rec {
         let font_info = &*self.font;
 
         // TODO: xetex_font_info uses u16 (why??????), but glyph IDs should be u32
-        font_info.get_glyph_bounds(glyphID as u16)
-            .map(|mut bbox| {
-                if self.extend != 0.0f32 {
-                    bbox.xMin *= self.extend;
-                    bbox.xMax *= self.extend;
-                }
-                bbox
-            })
+        font_info.get_glyph_bounds(glyphID as u16).map(|mut bbox| {
+            if self.extend != 0.0f32 {
+                bbox.xMin *= self.extend;
+                bbox.xMax *= self.extend;
+            }
+            bbox
+        })
     }
 
-    unsafe fn getGlyphWidthFromEngine(&self, glyphID: u32) -> f32 {
-        self.extend * unsafe { XeTeXFontInst_getGlyphWidth(self.font, glyphID as GlyphID) }
+    unsafe fn getGlyphWidthFromEngine(&self, glyphID: u32) -> f64 {
+        (self.extend * XeTeXFontInst_getGlyphWidth(self.font, glyphID as GlyphID)) as f64
     }
 
     /// getGlyphHeightDepth (had out params height, depth)
@@ -517,7 +501,12 @@ impl TextLayoutEngine for XeTeXLayoutEngine_rec {
         let mut depth: f32 = 0.;
         // TODO: None if glyph not found
         unsafe {
-            XeTeXFontInst_getGlyphHeightDepth(self.font, glyphID as GlyphID, &mut height, &mut depth);
+            XeTeXFontInst_getGlyphHeightDepth(
+                self.font,
+                glyphID as GlyphID,
+                &mut height,
+                &mut depth,
+            );
         }
         Some((height, depth))
     }
@@ -538,9 +527,12 @@ impl TextLayoutEngine for XeTeXLayoutEngine_rec {
     }
 
     /// getGlyphItalCorr
-    unsafe fn glyph_ital_correction(&self, glyphID: u32) -> Option<f32> {
+    unsafe fn glyph_ital_correction(&self, glyphID: u32) -> Option<f64> {
         // XXX: return none if glyph not found
-        Some(self.extend * XeTeXFontInst_getGlyphItalCorr(self.font, glyphID as GlyphID))
+        Some(
+            self.extend as f64
+                * XeTeXFontInst_getGlyphItalCorr(self.font, glyphID as GlyphID) as f64,
+        )
     }
 
     /// mapCharToGlyph
@@ -559,10 +551,7 @@ impl TextLayoutEngine for XeTeXLayoutEngine_rec {
     }
 
     /// mapGlyphToIndex
-    unsafe fn map_glyph_to_index(
-        &self,
-        mut glyphName: *const libc::c_char,
-    ) -> i32 {
+    unsafe fn map_glyph_to_index(&self, mut glyphName: *const libc::c_char) -> i32 {
         XeTeXFontInst_mapGlyphToIndex(self.font, glyphName) as i32
     }
 
@@ -579,20 +568,13 @@ impl TextLayoutEngine for XeTeXLayoutEngine_rec {
         }
     }
 
-    unsafe fn initGraphiteBreaking(
-        &mut self,
-        txtPtr: *const uint16_t,
-        txtLen: i32,
-    ) -> bool {
+    unsafe fn initGraphiteBreaking(&mut self, txtPtr: *const uint16_t, txtLen: i32) -> bool {
         initGraphiteBreaking(self, txtPtr, txtLen)
     }
 
     unsafe fn usingOpenType(&self) -> bool {
         if self.shaper.is_null()
-            || strcmp(
-                b"ot\x00" as *const u8 as *const libc::c_char,
-                self.shaper,
-            ) == 0i32
+            || strcmp(b"ot\x00" as *const u8 as *const libc::c_char, self.shaper) == 0i32
         {
             true
         } else {
@@ -627,7 +609,7 @@ impl TextLayoutEngine for XeTeXLayoutEngine_rec {
             pBiDi,
             txtPtr,
             txtLen,
-            self.default_direction() as icu::UBiDiLevel,
+            getDefaultDirection(self) as icu::UBiDiLevel,
             0 as *mut icu::UBiDiLevel,
             &mut errorCode,
         );
@@ -635,9 +617,9 @@ impl TextLayoutEngine for XeTeXLayoutEngine_rec {
 
         let mut layout = if dir as u32 == icu::UBIDI_MIXED as i32 as u32 {
             /* we actually do the layout twice here, once to count glyphs and then again to get them;
-               which is inefficient, but i figure that MIXED is a relatively rare occurrence, so i can't be
-               bothered to deal with the memory reallocation headache of doing it differently
-               */
+            which is inefficient, but i figure that MIXED is a relatively rare occurrence, so i can't be
+            bothered to deal with the memory reallocation headache of doing it differently
+            */
             let mut nRuns: i32 = icu::ubidi_countRuns(pBiDi, &mut errorCode);
             let mut width: f64 = 0i32 as f64;
             let mut i: i32 = 0;
@@ -801,7 +783,6 @@ impl TextLayoutEngine for XeTeXLayoutEngine_rec {
         layout
     }
 }
-
 
 pub type gr_uint16 = libc::c_ushort;
 pub type gr_int16 = libc::c_short;
@@ -1078,9 +1059,14 @@ pub unsafe fn findFontByName(
     mut size: f64,
     shaperRequest: &mut Option<ShaperRequest>,
 ) -> PlatformFontRef {
-    return XeTeXFontMgr_findFont(XeTeXFontMgr_GetFontManager(), name, var, size, shaperRequest);
+    return XeTeXFontMgr_findFont(
+        XeTeXFontMgr_GetFontManager(),
+        name,
+        var,
+        size,
+        shaperRequest,
+    );
 }
-
 
 #[no_mangle]
 pub unsafe fn getFullName(mut fontRef: PlatformFontRef) -> *const libc::c_char {
@@ -1108,7 +1094,10 @@ pub unsafe fn deleteFont(mut font: *mut XeTeXFontInst) {
 }
 
 #[no_mangle]
-pub unsafe fn getFontTablePtr(mut font: *mut XeTeXFontInst, mut tableTag: uint32_t) -> *mut libc::c_void {
+pub unsafe fn getFontTablePtr(
+    mut font: *mut XeTeXFontInst,
+    mut tableTag: uint32_t,
+) -> *mut libc::c_void {
     return XeTeXFontInst_getFontTable(font, tableTag);
 }
 
@@ -1125,8 +1114,7 @@ unsafe fn getLargerScriptListTable(
 ) -> libc::c_uint {
     use crate::bridge::size_t;
     let mut rval: libc::c_uint = 0i32 as libc::c_uint;
-    let mut face: *mut hb_face_t =
-        hb_font_get_face(XeTeXFontInst_getHbFont(font));
+    let mut face: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont(font));
     let mut scriptListSub: *mut hb_tag_t = 0 as *mut hb_tag_t;
     let mut scriptListPos: *mut hb_tag_t = 0 as *mut hb_tag_t;
     let mut scriptCountSub: libc::c_uint = hb_ot_layout_table_get_script_tags(
@@ -1197,8 +1185,7 @@ pub unsafe fn getIndScript(mut font: *mut XeTeXFontInst, mut index: libc::c_uint
 #[no_mangle]
 pub unsafe fn countLanguages(mut font: *mut XeTeXFontInst, mut script: hb_tag_t) -> libc::c_uint {
     let mut rval: libc::c_uint = 0i32 as libc::c_uint;
-    let mut face: *mut hb_face_t =
-        hb_font_get_face(XeTeXFontInst_getHbFont(font));
+    let mut face: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont(font));
     let mut scriptList: *mut hb_tag_t = 0 as *mut hb_tag_t;
     let mut scriptCount: libc::c_uint = getLargerScriptListTable(font, &mut scriptList);
     if !scriptList.is_null() {
@@ -1237,8 +1224,7 @@ pub unsafe fn getIndLanguage(
 ) -> hb_tag_t {
     use crate::bridge::size_t;
     let mut rval: hb_tag_t = 0i32 as hb_tag_t;
-    let mut face: *mut hb_face_t =
-        hb_font_get_face(XeTeXFontInst_getHbFont(font));
+    let mut face: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont(font));
     let mut scriptList: *mut hb_tag_t = 0 as *mut hb_tag_t;
     let mut scriptCount: libc::c_uint = getLargerScriptListTable(font, &mut scriptList);
     if !scriptList.is_null() {
@@ -1312,8 +1298,7 @@ pub unsafe fn countFeatures(
     mut language: hb_tag_t,
 ) -> libc::c_uint {
     let mut rval: libc::c_uint = 0i32 as libc::c_uint;
-    let mut face: *mut hb_face_t =
-        hb_font_get_face(XeTeXFontInst_getHbFont(font));
+    let mut face: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont(font));
     let mut i: libc::c_int = 0i32;
     while i < 2i32 {
         let mut scriptIndex: libc::c_uint = 0;
@@ -1357,8 +1342,7 @@ pub unsafe fn getIndFeature(
 ) -> hb_tag_t {
     use crate::bridge::size_t;
     let mut rval: hb_tag_t = 0i32 as hb_tag_t;
-    let mut face: *mut hb_face_t =
-        hb_font_get_face(XeTeXFontInst_getHbFont(font));
+    let mut face: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont(font));
     let mut i: libc::c_int = 0i32;
     while i < 2i32 {
         let mut scriptIndex: libc::c_uint = 0;
@@ -1680,7 +1664,6 @@ pub unsafe fn createLayoutEngine(
     embolden: f32,
     shaperRequest: Option<ShaperRequest>,
 ) -> XeTeXLayoutEngine {
-
     // For Graphite fonts treat the language as BCP 47 tag, for OpenType we
     // treat it as a OT language tag for backward compatibility with pre-0.9999
     // XeTeX.
@@ -1696,7 +1679,7 @@ pub unsafe fn createLayoutEngine(
     // XeTeX preferred OpenType over Graphite, so we are doing the same
     // here for sake of backward compatibility. Since "ot" shaper never
     // fails, we set the shaper list to just include it.
-    let shaper_list =  shapers
+    let shaper_list = shapers
         .unwrap_or_else(|| {
             let mut default_ot = CStringListBuilder::new();
             default_ot.push_non_null_terminated(&b"ot"[..]);
@@ -1774,7 +1757,6 @@ unsafe fn _get_unicode_funcs() -> *mut hb_unicode_funcs_t {
 static mut hbUnicodeFuncs: *mut hb_unicode_funcs_t =
     0 as *const hb_unicode_funcs_t as *mut hb_unicode_funcs_t;
 
-
 impl XeTeXLayoutEngine_rec {
     pub unsafe fn layoutChars(
         &mut self,
@@ -1809,13 +1791,7 @@ impl XeTeXLayoutEngine_rec {
         }
         hb_buffer_reset(self.hbBuffer);
         hb_buffer_set_unicode_funcs(self.hbBuffer, hbUnicodeFuncs);
-        hb_buffer_add_utf16(
-            self.hbBuffer,
-            chars,
-            max,
-            offset as libc::c_uint,
-            count,
-        );
+        hb_buffer_add_utf16(self.hbBuffer, chars, max, offset as libc::c_uint, count);
         hb_buffer_set_direction(self.hbBuffer, direction);
         hb_buffer_set_script(self.hbBuffer, script);
         hb_buffer_set_language(self.hbBuffer, self.language);
@@ -1981,7 +1957,7 @@ pub unsafe fn getCapAndXHeight(
     *xheight = XeTeXFontInst_getXHeight((*engine).font);
 }
 #[no_mangle]
-pub unsafe fn getDefaultDirection(mut engine: XeTeXLayoutEngine) -> libc::c_int {
+pub unsafe fn getDefaultDirection(engine: XeTeXLayoutEngine) -> libc::c_int {
     let mut script: hb_script_t = hb_buffer_get_script((*engine).hbBuffer);
     if hb_script_get_horizontal_direction(script) as libc::c_uint
         == HB_DIRECTION_RTL as libc::c_int as libc::c_uint
@@ -1996,11 +1972,7 @@ pub unsafe fn getRgbValue(mut engine: XeTeXLayoutEngine) -> uint32_t {
     return (*engine).rgbValue;
 }
 #[no_mangle]
-pub unsafe fn getGlyphBounds(
-    engine: XeTeXLayoutEngine,
-    glyphID: uint32_t,
-    bbox: *mut GlyphBBox,
-) {
+pub unsafe fn getGlyphBounds(engine: XeTeXLayoutEngine, glyphID: uint32_t, bbox: *mut GlyphBBox) {
     let font_info = &*((*engine).font);
 
     // TODO: xetex_font_info uses u16 (why??????), but glyph IDs should be u32
@@ -2014,7 +1986,10 @@ pub unsafe fn getGlyphBounds(
     };
 }
 #[no_mangle]
-pub unsafe fn getGlyphWidthFromEngine(engine: *mut XeTeXLayoutEngine_rec, mut glyphID: uint32_t) -> f32 {
+pub unsafe fn getGlyphWidthFromEngine(
+    engine: *mut XeTeXLayoutEngine_rec,
+    mut glyphID: uint32_t,
+) -> f32 {
     return (*engine).extend * XeTeXFontInst_getGlyphWidth((*engine).font, glyphID as GlyphID);
 }
 #[no_mangle]
@@ -2062,7 +2037,7 @@ pub unsafe fn getFontCharRange(
 pub unsafe fn getGlyphName(
     mut font: *mut XeTeXFontInst,
     mut gid: uint16_t,
-    mut len: *mut libc::c_int,
+    mut len: &mut libc::c_int,
 ) -> *const libc::c_char {
     return XeTeXFontInst_getGlyphName(font, gid, len);
 }

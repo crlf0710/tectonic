@@ -7,7 +7,6 @@
     unused_assignments,
     unused_mut
 )]
-#![feature(const_raw_ptr_to_usize_cast, extern_types, ptr_wrapping_offset_from)]
 
 cfg_if::cfg_if! {
     if #[cfg(target_os = "macos")] {
@@ -55,6 +54,7 @@ use std::ptr::NonNull;
 use crate::core_memory::xmalloc;
 
 use crate::xetex_layout_engine::collection_types::*;
+use crate::xetex_ext::Fix2D;
 
 use harfbuzz_sys::{hb_face_t, hb_font_get_face, hb_font_t, hb_ot_layout_get_size_params};
 
@@ -97,8 +97,6 @@ extern "C" {
     fn print_char(c: libc::c_int);
     #[no_mangle]
     fn print_nl(s: libc::c_int);
-    #[no_mangle]
-    fn Fix2D(f: Fixed) -> libc::c_double;
 }
 
 pub type size_t = usize;

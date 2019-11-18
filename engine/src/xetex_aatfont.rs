@@ -9,398 +9,336 @@
     unused_mut
 )]
 
+use super::text_layout_engine::{
+    Fixed, FixedPoint, Fract, GlyphEdge, LayoutRequest, NodeLayout, TextLayoutEngine,
+};
 use super::xetex_font_info::GlyphBBox;
 
 use self::cf_prelude::*;
 
-use font_kit::handle::Handle;
 use core_foundation::base::TCFType;
 use core_foundation::string::CFString;
 use core_foundation::url::CFURL;
+use font_kit::handle::Handle;
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::ptr;
 use std::ffi::CStr;
+use std::ptr;
 
-pub mod cf_prelude {
-    pub use core_foundation::{
-        attributed_string::{CFAttributedString, CFAttributedStringCreate, CFAttributedStringRef},
-        base::{
-            kCFAllocatorDefault, kCFAllocatorNull, CFAllocatorRef, CFComparisonResult, CFEqual,
-            CFHashCode, CFIndex, CFOptionFlags, CFRange, CFRelease, CFTypeRef, ToVoid,
-            CFRetain,
-        },
-        boolean::{kCFBooleanTrue, CFBooleanRef},
-        dictionary::{
-            kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks, CFDictionary,
-            CFDictionaryAddValue, CFDictionaryCopyDescriptionCallBack, CFDictionaryCreate,
-            CFDictionaryCreateMutable, CFDictionaryEqualCallBack, CFDictionaryGetValueIfPresent,
-            CFDictionaryHashCallBack, CFDictionaryKeyCallBacks, CFDictionaryRef,
-            CFDictionaryReleaseCallBack, CFDictionaryRetainCallBack, CFDictionaryValueCallBacks,
-            CFMutableDictionaryRef,
-        },
-        number::{CFNumberCompare, CFNumberCreate, CFNumberGetValue, CFNumberRef, CFNumberType},
-        string::{
-            kCFStringEncodingUTF8, CFStringCompareFlags, CFStringCreateWithBytes,
-            CFStringCreateWithCString, CFStringEncoding, CFStringGetCString, CFStringGetLength,
-            CFStringRef,
-        },
-        url::{CFURLGetFileSystemRepresentation, CFURLRef},
-        set::{CFSet, CFSetRef, CFSetCreate, kCFTypeSetCallBacks},
-    };
-    pub const kCFNumberMaxType: CFNumberType = 16;
-    pub const kCFNumberCGFloatType: CFNumberType = 16;
-    pub const kCFNumberNSIntegerType: CFNumberType = 15;
-    pub const kCFNumberCFIndexType: CFNumberType = 14;
-    pub const kCFNumberDoubleType: CFNumberType = 13;
-    pub const kCFNumberFloatType: CFNumberType = 12;
-    pub const kCFNumberLongLongType: CFNumberType = 11;
-    pub const kCFNumberLongType: CFNumberType = 10;
-    pub const kCFNumberIntType: CFNumberType = 9;
-    pub const kCFNumberShortType: CFNumberType = 8;
-    pub const kCFNumberCharType: CFNumberType = 7;
-    pub const kCFNumberFloat64Type: CFNumberType = 6;
-    pub const kCFNumberFloat32Type: CFNumberType = 5;
-    pub const kCFNumberSInt64Type: CFNumberType = 4;
-    pub const kCFNumberSInt32Type: CFNumberType = 3;
-    pub const kCFNumberSInt16Type: CFNumberType = 2;
-    pub const kCFNumberSInt8Type: CFNumberType = 1;
+#[repr(transparent)]
+pub struct AATLayoutEngine {
+    attributes: CFDictionaryRef,
+}
 
-    pub const kCFStringEncodingUTF32LE: CFStringEncoding = 469762304;
-    pub const kCFStringEncodingUTF32BE: CFStringEncoding = 402653440;
-    pub const kCFStringEncodingUTF32: CFStringEncoding = 201326848;
-    pub const kCFStringEncodingUTF16LE: CFStringEncoding = 335544576;
-    pub const kCFStringEncodingUTF16BE: CFStringEncoding = 268435712;
-    pub const kCFStringEncodingUTF16: CFStringEncoding = 256;
-    pub const kCFStringEncodingNonLossyASCII: CFStringEncoding = 3071;
-    pub const kCFStringEncodingUnicode: CFStringEncoding = 256;
-    pub const kCFStringEncodingASCII: CFStringEncoding = 1536;
-    pub const kCFStringEncodingNextStepLatin: CFStringEncoding = 2817;
-    pub const kCFStringEncodingISOLatin1: CFStringEncoding = 513;
-    pub const kCFStringEncodingWindowsLatin1: CFStringEncoding = 1280;
-    pub const kCFStringEncodingMacRoman: CFStringEncoding = 0;
-
-    pub const kCFCompareForcedOrdering: CFStringCompareFlags = 512;
-    pub const kCFCompareWidthInsensitive: CFStringCompareFlags = 256;
-    pub const kCFCompareDiacriticInsensitive: CFStringCompareFlags = 128;
-    pub const kCFCompareNumerically: CFStringCompareFlags = 64;
-    pub const kCFCompareLocalized: CFStringCompareFlags = 32;
-    pub const kCFCompareNonliteral: CFStringCompareFlags = 16;
-    pub const kCFCompareAnchored: CFStringCompareFlags = 8;
-    pub const kCFCompareBackwards: CFStringCompareFlags = 4;
-    pub const kCFCompareCaseInsensitive: CFStringCompareFlags = 1;
-
-    // The CFArray wrapper is not mutable, so we use the APIs directly
-    pub use core_foundation::array::{
-        kCFTypeArrayCallBacks, CFArrayCallBacks, CFArrayCopyDescriptionCallBack,
-        CFArrayEqualCallBack, CFArrayGetCount, CFArrayRef, CFArrayReleaseCallBack,
-        CFArrayRetainCallBack, __CFArray,
-    };
-    pub type CFMutableArrayRef = *mut __CFArray;
-    extern "C" {
-        #[no_mangle]
-        pub fn CFArrayCreateMutable(
-            allocator: CFAllocatorRef,
-            capacity: CFIndex,
-            callBacks: *const CFArrayCallBacks,
-        ) -> CFMutableArrayRef;
-        #[no_mangle]
-        pub fn CFArrayCreate(
-            allocator: CFAllocatorRef,
-            values: *mut *const libc::c_void,
-            numValues: CFIndex,
-            callBacks: *const CFArrayCallBacks,
-        ) -> CFArrayRef;
-        #[no_mangle]
-        pub fn CFArrayAppendValue(theArray: CFMutableArrayRef, value: *const libc::c_void);
+impl AATLayoutEngine {
+    unsafe fn ct_font(&self) -> CTFontRef {
+        font_from_attributes(self.attributes)
     }
-    extern "C" {
-        // Missing
-        #[no_mangle]
-        pub fn CFStringCreateWithCStringNoCopy(
-            alloc: CFAllocatorRef,
-            cStr: *const libc::c_char,
-            encoding: CFStringEncoding,
-            contentsDeallocator: CFAllocatorRef,
-        ) -> CFStringRef;
-        #[no_mangle]
-        pub fn CFStringCompare(
-            theString1: CFStringRef,
-            theString2: CFStringRef,
-            compareOptions: CFStringCompareFlags,
-        ) -> CFComparisonResult;
+    unsafe fn transform(&self) -> CGAffineTransform {
+        let font = self.ct_font();
+        CTFontGetMatrix(font)
     }
-    extern "C" {
-        #[no_mangle]
-        pub fn CFDictionaryGetValue(
-            theDict: CFDictionaryRef,
-            key: *const libc::c_void,
-        ) -> *const libc::c_void;
+}
+
+impl TextLayoutEngine for AATLayoutEngine {
+    /// The most important trait method. Lay out some text and return its size.
+    unsafe fn layout_text(&mut self, request: LayoutRequest) -> NodeLayout {
+        let mut glyphRuns: CFArrayRef = ptr::null_mut();
+        let mut i: CFIndex = 0;
+        let mut j: CFIndex = 0;
+        let mut runCount: CFIndex = 0;
+        let mut totalGlyphCount: CFIndex = 0;
+        let mut glyphIDs: *mut UInt16 = ptr::null_mut();
+        let mut glyphAdvances: *mut Fixed = ptr::null_mut();
+        let mut glyph_info: *mut FixedPoint = ptr::null_mut();
+        let mut locations: *mut FixedPoint = ptr::null_mut();
+        let mut width: CGFloat = 0.;
+        let mut attributes: CFDictionaryRef = ptr::null_mut();
+        let mut string: CFStringRef = ptr::null_mut();
+        let mut attrString: CFAttributedStringRef = ptr::null_mut();
+        let mut typesetter: CTTypesetterRef = 0 as CTTypesetterRef;
+        let mut line: CTLineRef = ptr::null_mut();
+
+        let mut txtLen = request.text.len() as CFIndex;
+        let mut txtPtr: *const UniChar = request.text.as_ptr();
+        let justify = request.justify;
+
+        let mut layout = NodeLayout {
+            lsDelta: None,
+            width: 0,
+            total_glyph_count: 0,
+            glyph_info: ptr::null_mut(),
+        };
+
+        // let mut f: libc::c_uint = (*node.offset(4)).b16.s2 as libc::c_uint;
+        // if *font_area.offset(f as isize) as libc::c_uint != 0xffffu32 {
+        //     panic!("do_aat_layout called for non-AAT font");
+        // }
+
+        attributes = self.attributes;
+        string = CFStringCreateWithCharactersNoCopy(ptr::null(), txtPtr, txtLen, kCFAllocatorNull);
+        attrString = CFAttributedStringCreate(ptr::null(), string, self.attributes);
+        CFRelease(string as CFTypeRef);
+        typesetter = CTTypesetterCreateWithAttributedString(attrString);
+        CFRelease(attrString as CFTypeRef);
+        line = CTTypesetterCreateLine(typesetter, CFRangeMake(0i32 as CFIndex, txtLen));
+        if justify {
+            let mut lineWidth: CGFloat = TeXtoPSPoints(Fix2D(request.line_width));
+            let mut justifiedLine: CTLineRef = CTLineCreateJustifiedLine(
+                line,
+                TeXtoPSPoints(Fix2D(0x40000000i64 as Fixed)),
+                lineWidth,
+            );
+            // TODO(jjgod): how to handle the case when justification failed? for
+            // now we just fallback to use the original line.
+            if !justifiedLine.is_null() {
+                CFRelease(line as CFTypeRef);
+                line = justifiedLine
+            }
+        }
+        glyphRuns = CTLineGetGlyphRuns(line);
+        runCount = CFArrayGetCount(glyphRuns);
+        totalGlyphCount = CTLineGetGlyphCount(line);
+        if totalGlyphCount > 0 {
+            glyph_info = xmalloc((totalGlyphCount * 10) as _) as *mut FixedPoint;
+            locations = glyph_info as *mut FixedPoint;
+            glyphIDs = locations.offset(totalGlyphCount as isize) as *mut UInt16;
+            glyphAdvances =
+                xmalloc((totalGlyphCount as i64 * std::mem::size_of::<Fixed>() as i64) as _)
+                    as *mut Fixed;
+            totalGlyphCount = 0;
+            width = 0i32 as CGFloat;
+            i = 0i32 as CFIndex;
+            while i < runCount {
+                let mut run: CTRunRef = CFArrayGetValueAtIndex(glyphRuns, i) as CTRunRef;
+                let mut count: CFIndex = CTRunGetGlyphCount(run);
+                let mut runAttributes: CFDictionaryRef = CTRunGetAttributes(run);
+                let mut vertical: CFBooleanRef = CFDictionaryGetValue(
+                    runAttributes,
+                    kCTVerticalFormsAttributeName as *const libc::c_void,
+                ) as CFBooleanRef;
+                // TODO(jjgod): Avoid unnecessary allocation with CTRunGetFoosPtr().
+                let mut glyphs: *mut CGGlyph =
+                    xmalloc((count as usize).wrapping_mul(::std::mem::size_of::<CGGlyph>()) as _)
+                        as *mut CGGlyph;
+                let mut positions: *mut CGPoint =
+                    xmalloc((count as usize).wrapping_mul(::std::mem::size_of::<CGPoint>()) as _)
+                        as *mut CGPoint;
+                let mut advances: *mut CGSize =
+                    xmalloc((count as usize).wrapping_mul(::std::mem::size_of::<CGSize>()) as _)
+                        as *mut CGSize;
+                let mut runWidth: CGFloat = CTRunGetTypographicBounds(
+                    run,
+                    CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex),
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                );
+                CTRunGetGlyphs(run, CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex), glyphs);
+                CTRunGetPositions(
+                    run,
+                    CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex),
+                    positions,
+                );
+                CTRunGetAdvances(run, CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex), advances);
+                j = 0i32 as CFIndex;
+                while j < count {
+                    // XXX Core Text has that font cascading thing that will do
+                    // font substitution for missing glyphs, which we do not want
+                    // but I can not find a way to disable it yet, so if the font
+                    // of the resulting run is not the same font we asked for, use
+                    // the glyph at index 0 (usually .notdef) instead or we will be
+                    // showing garbage or even invalid glyphs
+                    if CFEqual(
+                        self.ct_font() as CFTypeRef,
+                        font_from_attributes(runAttributes) as CFTypeRef,
+                    ) == 0
+                    {
+                        *glyphIDs.offset(totalGlyphCount as isize) = 0i32 as UInt16
+                    } else {
+                        *glyphIDs.offset(totalGlyphCount as isize) = *glyphs.offset(j as isize)
+                    }
+                    // Swap X and Y when doing vertical layout
+                    if vertical == kCFBooleanTrue {
+                        (*locations.offset(totalGlyphCount as isize)).x =
+                            -FixedPStoTeXPoints((*positions.offset(j as isize)).y);
+                        (*locations.offset(totalGlyphCount as isize)).y =
+                            FixedPStoTeXPoints((*positions.offset(j as isize)).x)
+                    } else {
+                        (*locations.offset(totalGlyphCount as isize)).x =
+                            FixedPStoTeXPoints((*positions.offset(j as isize)).x);
+                        (*locations.offset(totalGlyphCount as isize)).y =
+                            -FixedPStoTeXPoints((*positions.offset(j as isize)).y)
+                    }
+                    *glyphAdvances.offset(totalGlyphCount as isize) =
+                        (*advances.offset(j as isize)).width as Fixed;
+                    totalGlyphCount += 1;
+                    j += 1
+                }
+                width += FixedPStoTeXPoints(runWidth) as libc::c_double;
+                free(glyphs as *mut libc::c_void);
+                free(positions as *mut libc::c_void);
+                free(advances as *mut libc::c_void);
+                i += 1
+            }
+        }
+        layout.total_glyph_count = totalGlyphCount as u16;
+        layout.glyph_info = glyph_info;
+
+        if !justify {
+            layout.width = width as Fixed;
+            if totalGlyphCount > 0 {
+                /* this is essentially a copy from similar code in XeTeX_ext.c, easier
+                 * to be done here */
+                if request.letter_space_unit != 0i32 {
+                    let mut lsDelta: Fixed = 0i32;
+                    let mut lsUnit: Fixed = request.letter_space_unit;
+                    let mut i_0 = 0;
+                    while i_0 < totalGlyphCount {
+                        if *glyphAdvances.offset(i_0 as isize) == 0i32 && lsDelta != 0i32 {
+                            lsDelta -= lsUnit
+                        }
+                        let ref mut fresh1 = (*locations.offset(i_0 as isize)).x;
+                        *fresh1 += lsDelta;
+                        lsDelta += lsUnit;
+                        i_0 += 1
+                    }
+                    if lsDelta != 0i32 {
+                        lsDelta -= lsUnit;
+                        layout.lsDelta = Some(lsDelta);
+                    }
+                }
+            }
+        }
+        free(glyphAdvances as *mut libc::c_void);
+        CFRelease(line as CFTypeRef);
+        CFRelease(typesetter as CFTypeRef);
+        layout
     }
 
-    // CFComparisonResult is missing PartialEq
-    pub fn comparison_was(a: CFComparisonResult, b: CFComparisonResult) -> bool {
-        match (a, b) {
-            (CFComparisonResult::LessThan, CFComparisonResult::LessThan) => true,
-            (CFComparisonResult::EqualTo, CFComparisonResult::EqualTo) => true,
-            (CFComparisonResult::GreaterThan, CFComparisonResult::GreaterThan) => true,
-            _ => false,
+    /// getFontFilename
+    /// Only for make_font_def. Should use CStr, probably.
+    unsafe fn font_filename(&self, index: &mut u32) -> *mut libc::c_char {
+        let filename = getFileNameFromCTFont(self.ct_font(), index);
+        assert!(!filename.is_null());
+        filename
+    }
+
+    /// getExtendFactor
+    unsafe fn extend_factor(&self) -> f64 {
+        self.transform().a
+    }
+
+    unsafe fn slant_factor(&self) -> f64 {
+        self.transform().c
+    }
+
+    unsafe fn point_size(&self) -> f64 {
+        unsafe { CTFontGetSize(self.ct_font()) }
+    }
+
+    /// getAscentAndDescent
+    unsafe fn ascent_and_descent(&self, ascent: &mut f32, descent: &mut f32) {
+        unimplemented!()
+    }
+
+    /// getCapAndXHeight
+    unsafe fn cap_and_x_height(&self, capheight: &mut f32, xheight: &mut f32) {
+        unimplemented!()
+    }
+
+    /// getEmboldenFactor
+    unsafe fn embolden_factor(&self) -> f32 {
+        let mut embolden: f32 = 0.;
+        unsafe {
+            let emboldenNumber = CFDictionaryGetValue(
+                self.attributes,
+                getkXeTeXEmboldenAttributeName() as *const libc::c_void,
+            ) as CFNumberRef;
+            if !emboldenNumber.is_null() {
+                CFNumberGetValue(
+                    emboldenNumber,
+                    kCFNumberFloatType as libc::c_int as CFNumberType,
+                    &mut embolden as *mut libc::c_float as *mut libc::c_void,
+                );
+            }
+        }
+        embolden
+    }
+
+    /// getRgbValue
+    unsafe fn rgb_value(&self) -> u32 {
+        let color = unsafe {
+            CFDictionaryGetValue(
+                self.attributes,
+                kCTForegroundColorAttributeName as *const libc::c_void,
+            )
+        } as CGColorRef;
+        if !color.is_null() {
+            unsafe { cgColorToRGBA32(color) }
+        } else {
+            0
         }
     }
 
-    pub use core_graphics::{
-        base::CGFloat,
-        color::{CGColor, SysCGColorRef as CGColorRef},
-        font::CGGlyph,
-        geometry::{CGAffineTransform, CGPoint, CGRect, CGSize},
-    };
-    extern "C" {
-        #[no_mangle]
-        pub static CGAffineTransformIdentity: CGAffineTransform;
-        #[no_mangle]
-        pub fn CGRectIsNull(rect: CGRect) -> bool;
-    }
-    pub use core_text::run::CTRunRef;
-    extern "C" {
-        #[no_mangle]
-        pub fn CTRunGetGlyphCount(run: CTRunRef) -> CFIndex;
-        #[no_mangle]
-        pub fn CTRunGetAttributes(run: CTRunRef) -> CFDictionaryRef;
-        #[no_mangle]
-        pub fn CTRunGetGlyphs(run: CTRunRef, range: CFRange, buffer: *mut CGGlyph);
-        #[no_mangle]
-        pub fn CTRunGetPositions(run: CTRunRef, range: CFRange, buffer: *mut CGPoint);
-        #[no_mangle]
-        pub fn CTRunGetAdvances(run: CTRunRef, range: CFRange, buffer: *mut CGSize);
-        #[no_mangle]
-        pub fn CTLineGetGlyphCount(line: CTLineRef) -> CFIndex;
-        #[no_mangle]
-        pub fn CTLineGetGlyphRuns(line: CTLineRef) -> CFArrayRef;
-        #[no_mangle]
-        pub fn CTRunGetTypographicBounds(
-            run: CTRunRef,
-            range: CFRange,
-            ascent: *mut CGFloat,
-            descent: *mut CGFloat,
-            leading: *mut CGFloat,
-        ) -> libc::c_double;
+    /// getGlyphName
+    /// Only used for debugging. Should be a String/CStr then!
+    unsafe fn glyph_name(&self, gid: u16, len: &mut libc::c_int) -> *const libc::c_char {
+        GetGlyphNameFromCTFont(font_from_attributes(self.attributes), gid, len)
     }
 
-    pub use core_text::{
-        font::CTFontRef,
-        font_descriptor::{
-            kCTFontCascadeListAttribute, kCTFontFeatureSettingsAttribute,
-            kCTFontOrientationAttribute, kCTFontURLAttribute, CTFontDescriptor,
-            CTFontDescriptorCreateWithAttributes, CTFontDescriptorCreateWithNameAndSize,
-            CTFontDescriptorRef, CTFontOrientation,
-
-        },
-        line::CTLineRef,
-        string_attributes::{
-            kCTFontAttributeName, kCTForegroundColorAttributeName, kCTKernAttributeName,
-            kCTVerticalFormsAttributeName,
-        },
-    };
-
-    extern "C" {
-        #[no_mangle]
-        pub static kCTFontFamilyNameKey: CFStringRef;
-        #[no_mangle]
-        pub static kCTFontNameAttribute: CFStringRef;
-        #[no_mangle]
-        pub static kCTFontStyleNameKey: CFStringRef;
-        #[no_mangle]
-        pub static kCTFontDisplayNameAttribute: CFStringRef;
-        #[no_mangle]
-        pub static kCTFontFamilyNameAttribute: CFStringRef;
-        #[no_mangle]
-        pub static kCTFontFullNameKey: CFStringRef;
+    unsafe fn glyph_width(&self, gid: u32) -> f64 {
+        GetGlyphWidth_AAT(self.attributes, gid as u16)
     }
 
-    pub const kCTFontVerticalOrientation: CTFontOrientation = 2;
-    pub const kCTFontHorizontalOrientation: CTFontOrientation = 1;
-    pub const kCTFontDefaultOrientation: CTFontOrientation = 0;
-    pub const kCTFontOrientationVertical: CTFontOrientation = 2;
-    pub const kCTFontOrientationHorizontal: CTFontOrientation = 1;
-    pub const kCTFontOrientationDefault: CTFontOrientation = 0;
-
-    // The CGFont wrapper is not feature complete.
-    pub type CGFontRef = *const __CGFont;
-    extern "C" {
-        pub type __CGFont;
-        #[no_mangle]
-        pub fn CGFontGetNumberOfGlyphs(font: CGFontRef) -> usize;
-        #[no_mangle]
-        pub fn CGFontRelease(font: CGFontRef);
-        #[no_mangle]
-        pub fn CGFontCopyGlyphNameForGlyph(font: CGFontRef, glyph: CGGlyph) -> CFStringRef;
-        #[no_mangle]
-        pub fn CTFontCopyGraphicsFont(
-            font: CTFontRef,
-            attributes: *mut CTFontDescriptorRef,
-        ) -> CGFontRef;
-        #[no_mangle]
-        pub static kCTFontPostScriptNameKey: CFStringRef;
-    }
-    // Typesetters
-    pub type CTTypesetterRef = *const __CTTypesetter;
-    extern "C" {
-        pub type __CTTypesetter;
-        #[no_mangle]
-        pub fn CTTypesetterCreateWithAttributedString(
-            string: CFAttributedStringRef,
-        ) -> CTTypesetterRef;
-        #[no_mangle]
-        pub fn CTTypesetterCreateLine(
-            typesetter: CTTypesetterRef,
-            stringRange: CFRange,
-        ) -> CTLineRef;
+    /// getGlyphBounds (had out param)
+    unsafe fn glyph_bbox(&self, glyphID: u32) -> Option<GlyphBBox> {
+        let mut bbox = GlyphBBox::zero();
+        GetGlyphBBox_AAT(self.attributes, glyphID as u16, &mut bbox);
+        Some(bbox)
     }
 
-    // misc
-    extern "C" {
-        #[no_mangle]
-        pub fn CTFontCreateWithFontDescriptor(
-            descriptor: CTFontDescriptorRef,
-            size: CGFloat,
-            matrix: *const CGAffineTransform,
-        ) -> CTFontRef;
-        #[no_mangle]
-        pub fn CTLineCreateJustifiedLine(
-            line: CTLineRef,
-            justificationFactor: CGFloat,
-            justificationWidth: libc::c_double,
-        ) -> CTLineRef;
-        #[no_mangle]
-        pub fn CFStringCreateWithCharactersNoCopy(
-            alloc: CFAllocatorRef,
-            chars: *const UniChar,
-            numChars: CFIndex,
-            contentsDeallocator: CFAllocatorRef,
-        ) -> CFStringRef;
-        #[no_mangle]
-        pub fn CTFontCreateCopyWithAttributes(
-            font: CTFontRef,
-            size: CGFloat,
-            matrix: *const CGAffineTransform,
-            attributes: CTFontDescriptorRef,
-        ) -> CTFontRef;
-        #[no_mangle]
-        pub fn CTFontDescriptorCreateCopyWithAttributes(
-            original: CTFontDescriptorRef,
-            attributes: CFDictionaryRef,
-        ) -> CTFontDescriptorRef;
-        #[no_mangle]
-        pub fn CTFontDescriptorCopyAttribute(
-            descriptor: CTFontDescriptorRef,
-            attribute: CFStringRef,
-        ) -> CFTypeRef;
-        #[no_mangle]
-        pub fn CTFontDescriptorCreateMatchingFontDescriptors(
-            descriptor: CTFontDescriptorRef,
-            mandatoryAttributes: CFSetRef,
-        ) -> CFArrayRef;
-        #[no_mangle]
-        pub fn CTFontCopyAttribute(font: CTFontRef, attribute: CFStringRef) -> CFTypeRef;
-        #[no_mangle]
-        pub fn CTFontCopyName(font: CTFontRef, nameKey: CFStringRef) -> CFStringRef;
-        #[no_mangle]
-        pub fn CTFontCopyLocalizedName(
-            font: CTFontRef,
-            nameKey: CFStringRef,
-            actualLanguage: *mut CFStringRef,
-        ) -> CFStringRef;
-        #[no_mangle]
-        pub fn CTFontGetGlyphsForCharacters(
-            font: CTFontRef,
-            characters: *const UniChar,
-            glyphs: *mut CGGlyph,
-            count: CFIndex,
-        ) -> bool;
-        #[no_mangle]
-        pub fn CTFontGetGlyphWithName(font: CTFontRef, glyphName: CFStringRef) -> CGGlyph;
-        #[no_mangle]
-        pub fn CTFontGetBoundingRectsForGlyphs(
-            font: CTFontRef,
-            orientation: CTFontOrientation,
-            glyphs: *const CGGlyph,
-            boundingRects: *mut CGRect,
-            count: CFIndex,
-        ) -> CGRect;
-        #[no_mangle]
-        pub fn CTFontGetAdvancesForGlyphs(
-            font: CTFontRef,
-            orientation: CTFontOrientation,
-            glyphs: *const CGGlyph,
-            advances: *mut CGSize,
-            count: CFIndex,
-        ) -> libc::c_double;
-        #[no_mangle]
-        pub static kCTFontFeatureTypeIdentifierKey: CFStringRef;
-        #[no_mangle]
-        pub static kCTFontFeatureTypeNameKey: CFStringRef;
-        #[no_mangle]
-        pub static kCTFontFeatureTypeSelectorsKey: CFStringRef;
-        #[no_mangle]
-        pub static kCTFontFeatureTypeExclusiveKey: CFStringRef;
-        #[no_mangle]
-        pub fn CTFontCopyFeatures(font: CTFontRef) -> CFArrayRef;
-        #[no_mangle]
-        pub static kCTFontFeatureSelectorNameKey: CFStringRef;
-        #[no_mangle]
-        pub static kCTFontFeatureSelectorDefaultKey: CFStringRef;
-        #[no_mangle]
-        pub static kCTFontFeatureSelectorIdentifierKey: CFStringRef;
-        #[no_mangle]
-        pub fn CTFontGetXHeight(font: CTFontRef) -> CGFloat;
-        #[no_mangle]
-        pub fn CTFontGetAscent(font: CTFontRef) -> CGFloat;
-        #[no_mangle]
-        pub fn CTFontGetDescent(font: CTFontRef) -> CGFloat;
-        #[no_mangle]
-        pub fn CTFontGetGlyphCount(font: CTFontRef) -> CFIndex;
-        #[no_mangle]
-        pub fn CTFontGetSlantAngle(font: CTFontRef) -> CGFloat;
-        #[no_mangle]
-        pub fn CTFontGetCapHeight(font: CTFontRef) -> CGFloat;
-        #[no_mangle]
-        pub fn CFStringGetCharacters(theString: CFStringRef, range: CFRange, buffer: *mut UniChar);
-        #[no_mangle]
-        pub fn CFArrayGetValueAtIndex(theArray: CFArrayRef, idx: CFIndex) -> *const libc::c_void;
-        #[no_mangle]
-        pub fn CTFontGetSize(font: CTFontRef) -> CGFloat;
-        #[no_mangle]
-        pub fn CTFontGetMatrix(font: CTFontRef) -> CGAffineTransform;
-        #[no_mangle]
-        pub fn CGColorGetComponents(color: CGColorRef) -> *const CGFloat;
-        #[no_mangle]
-        pub fn CFBooleanGetValue(boolean: CFBooleanRef) -> libc::c_uchar;
+    unsafe fn getGlyphWidthFromEngine(&self, glyphID: u32) -> f64 {
+        GetGlyphWidth_AAT(self.attributes, glyphID as u16)
     }
 
-    pub type UniChar = UInt16;
-    pub type UInt16 = libc::c_ushort;
-
-    #[inline(always)]
-    pub fn CFRangeMake(mut loc: CFIndex, mut len: CFIndex) -> CFRange {
-        let mut range: CFRange = CFRange {
-            location: 0,
-            length: 0,
-        };
-        range.location = loc;
-        range.length = len;
-        range
+    /// getGlyphHeightDepth (had out params height, depth)
+    unsafe fn glyph_height_depth(&self, glyphID: u32) -> Option<(f32, f32)> {
+        let mut h = 0.;
+        let mut d = 0.;
+        GetGlyphHeightDepth_AAT(self.attributes, glyphID as u16, &mut h, &mut d);
+        Some((h, d))
     }
 
-    pub unsafe fn cgColorToRGBA32(mut color: CGColorRef) -> u32 {
-        let mut components: *const CGFloat = CGColorGetComponents(color);
-        let mut rval: u32 = (*components.offset(0) * 255.0f64 + 0.5f64) as u8 as u32;
-        rval <<= 8i32;
-        rval = (rval as u32).wrapping_add((*components.offset(1) * 255.0f64 + 0.5f64) as u8 as u32);
-        rval <<= 8i32;
-        rval = (rval as u32).wrapping_add((*components.offset(2) * 255.0f64 + 0.5f64) as u8 as u32);
-        rval <<= 8i32;
-        rval = (rval as u32).wrapping_add((*components.offset(3) * 255.0f64 + 0.5f64) as u8 as u32);
-        return rval;
+    /// getGlyphSidebearings (had out params lsb, rsb)
+    unsafe fn glyph_sidebearings(&self, glyphID: u32) -> Option<(f32, f32)> {
+        let mut a = 0.;
+        let mut b = 0.;
+        GetGlyphSidebearings_AAT(self.attributes, glyphID as u16, &mut a, &mut b);
+        Some((a, b))
+    }
+
+    /// getGlyphItalCorr
+    unsafe fn glyph_ital_correction(&self, glyphID: u32) -> Option<f64> {
+        Some(GetGlyphItalCorr_AAT(self.attributes, glyphID as u16))
+    }
+
+    /// mapCharToGlyph
+    unsafe fn map_codepoint_to_glyph(&self, codepoint: u32) -> u32 {
+        // XXX: not sure about this as cast
+        MapCharToGlyph_AAT(self.attributes, codepoint) as u32
+    }
+
+    /// getFontCharRange
+    /// Another candidate for using XeTeXFontInst directly
+    unsafe fn font_char_range(&self, reqFirst: libc::c_int) -> libc::c_int {
+        GetFontCharRange_AAT(self.attributes, reqFirst)
+    }
+
+    /// mapGlyphToIndex
+    /// Should use engine.font directly
+    unsafe fn map_glyph_to_index(&self, glyphName: *const libc::c_char) -> i32 {
+        MapGlyphToIndex_AAT(self.attributes, glyphName)
     }
 }
 
@@ -412,24 +350,15 @@ use crate::xetex_ini::{
     name_length, name_of_file, native_font_type_flag,
 };
 use crate::xetex_xetex0::font_feature_warning;
-use libc::{free, strdup, strlen};
 #[cfg(not(unix))]
 use libc::strdup;
+use libc::{free, strdup, strlen};
 type int32_t = libc::c_int;
 type uint16_t = libc::c_ushort;
 pub type Boolean = libc::c_uchar;
 type scaled_t = int32_t;
 type UInt32 = libc::c_uint;
 type SInt32 = libc::c_int;
-
-type Fixed = SInt32;
-type Fract = SInt32;
-#[derive(Copy, Clone)]
-#[repr(C, packed(2))]
-struct FixedPoint {
-    x: Fixed,
-    y: Fixed,
-}
 
 pub type str_number = int32_t;
 /* tectonic/core-strutils.h: miscellaneous C string utilities
@@ -554,9 +483,9 @@ pub unsafe fn do_aat_layout(mut p: *mut libc::c_void, mut justify: libc::c_int) 
         locations = glyph_info as *mut FixedPoint;
         glyphIDs = locations.offset(totalGlyphCount as isize) as *mut UInt16;
         glyphAdvances =
-            xmalloc((totalGlyphCount as usize).wrapping_mul(::std::mem::size_of::<Fixed>()) as _)
+            xmalloc((totalGlyphCount as i64 * (std::mem::size_of::<Fixed>() as i64)) as _)
                 as *mut Fixed;
-        totalGlyphCount = 0i32 as CFIndex;
+        totalGlyphCount = 0;
         width = 0i32 as CGFloat;
         i = 0i32 as CFIndex;
         while i < runCount {
@@ -641,7 +570,7 @@ pub unsafe fn do_aat_layout(mut p: *mut libc::c_void, mut justify: libc::c_int) 
             /* this is essentially a copy from similar code in XeTeX_ext.c, easier
              * to be done here */
             if *font_letter_space.offset(f as isize) != 0i32 {
-               let mut lsDelta: Fixed = 0i32;
+                let mut lsDelta: Fixed = 0i32;
                 let mut lsUnit: Fixed = *font_letter_space.offset(f as isize);
                 let mut i_0 = 0;
                 while i_0 < totalGlyphCount {
@@ -933,12 +862,19 @@ pub unsafe extern "C" fn getFileNameFromCTFont(
             let ps_name1 = ct_font_get_postscript_name(ctFontRef, kCTFontPostScriptNameKey);
             let ps_name = Cow::from(&ps_name1);
 
-            let mut handle = Handle::Path { path: pathbuf.clone(), font_index: 0 };
+            let mut handle = Handle::Path {
+                path: pathbuf.clone(),
+                font_index: 0,
+            };
             // Saves cloning the path
             fn set_index(handle: &mut Handle, i: u32) {
                 match handle {
-                    Handle::Memory { ref mut font_index, .. } |
-                    Handle::Path { ref mut font_index, .. } => *font_index = i,
+                    Handle::Memory {
+                        ref mut font_index, ..
+                    }
+                    | Handle::Path {
+                        ref mut font_index, ..
+                    } => *font_index = i,
                 }
             }
             let mut i = 0u32;
@@ -951,7 +887,7 @@ pub unsafe extern "C" fn getFileNameFromCTFont(
                 }
                 i += 1;
                 set_index(&mut handle, i);
-            };
+            }
 
             if let Some(ix) = ix {
                 *index = ix;
@@ -959,8 +895,7 @@ pub unsafe extern "C" fn getFileNameFromCTFont(
                 // We're on macOS; std::os::unix is available.
                 use std::os::unix::ffi::OsStrExt;
                 let bytes = osstr.as_bytes();
-                ret =
-                    xcalloc((bytes.len() + 1) as _, std::mem::size_of::<i8>() as _) as *mut i8;
+                ret = xcalloc((bytes.len() + 1) as _, std::mem::size_of::<i8>() as _) as *mut i8;
                 for i in 0..bytes.len() {
                     *ret.offset(i as isize) = bytes[i] as i8;
                 }
@@ -1783,4 +1718,384 @@ pub unsafe fn aat_print_font_name(
         print_chars(buf, len as libc::c_int);
         free(buf as *mut libc::c_void);
     };
+}
+
+pub mod cf_prelude {
+    pub use core_foundation::{
+        attributed_string::{CFAttributedString, CFAttributedStringCreate, CFAttributedStringRef},
+        base::{
+            kCFAllocatorDefault, kCFAllocatorNull, CFAllocatorRef, CFComparisonResult, CFEqual,
+            CFHashCode, CFIndex, CFOptionFlags, CFRange, CFRelease, CFRetain, CFTypeRef, ToVoid,
+        },
+        boolean::{kCFBooleanTrue, CFBooleanRef},
+        dictionary::{
+            kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks, CFDictionary,
+            CFDictionaryAddValue, CFDictionaryCopyDescriptionCallBack, CFDictionaryCreate,
+            CFDictionaryCreateMutable, CFDictionaryEqualCallBack, CFDictionaryGetValueIfPresent,
+            CFDictionaryHashCallBack, CFDictionaryKeyCallBacks, CFDictionaryRef,
+            CFDictionaryReleaseCallBack, CFDictionaryRetainCallBack, CFDictionaryValueCallBacks,
+            CFMutableDictionaryRef,
+        },
+        number::{CFNumberCompare, CFNumberCreate, CFNumberGetValue, CFNumberRef, CFNumberType},
+        set::{kCFTypeSetCallBacks, CFSet, CFSetCreate, CFSetRef},
+        string::{
+            kCFStringEncodingUTF8, CFStringCompareFlags, CFStringCreateWithBytes,
+            CFStringCreateWithCString, CFStringEncoding, CFStringGetCString, CFStringGetLength,
+            CFStringRef,
+        },
+        url::{CFURLGetFileSystemRepresentation, CFURLRef},
+    };
+    pub const kCFNumberMaxType: CFNumberType = 16;
+    pub const kCFNumberCGFloatType: CFNumberType = 16;
+    pub const kCFNumberNSIntegerType: CFNumberType = 15;
+    pub const kCFNumberCFIndexType: CFNumberType = 14;
+    pub const kCFNumberDoubleType: CFNumberType = 13;
+    pub const kCFNumberFloatType: CFNumberType = 12;
+    pub const kCFNumberLongLongType: CFNumberType = 11;
+    pub const kCFNumberLongType: CFNumberType = 10;
+    pub const kCFNumberIntType: CFNumberType = 9;
+    pub const kCFNumberShortType: CFNumberType = 8;
+    pub const kCFNumberCharType: CFNumberType = 7;
+    pub const kCFNumberFloat64Type: CFNumberType = 6;
+    pub const kCFNumberFloat32Type: CFNumberType = 5;
+    pub const kCFNumberSInt64Type: CFNumberType = 4;
+    pub const kCFNumberSInt32Type: CFNumberType = 3;
+    pub const kCFNumberSInt16Type: CFNumberType = 2;
+    pub const kCFNumberSInt8Type: CFNumberType = 1;
+
+    pub const kCFStringEncodingUTF32LE: CFStringEncoding = 469762304;
+    pub const kCFStringEncodingUTF32BE: CFStringEncoding = 402653440;
+    pub const kCFStringEncodingUTF32: CFStringEncoding = 201326848;
+    pub const kCFStringEncodingUTF16LE: CFStringEncoding = 335544576;
+    pub const kCFStringEncodingUTF16BE: CFStringEncoding = 268435712;
+    pub const kCFStringEncodingUTF16: CFStringEncoding = 256;
+    pub const kCFStringEncodingNonLossyASCII: CFStringEncoding = 3071;
+    pub const kCFStringEncodingUnicode: CFStringEncoding = 256;
+    pub const kCFStringEncodingASCII: CFStringEncoding = 1536;
+    pub const kCFStringEncodingNextStepLatin: CFStringEncoding = 2817;
+    pub const kCFStringEncodingISOLatin1: CFStringEncoding = 513;
+    pub const kCFStringEncodingWindowsLatin1: CFStringEncoding = 1280;
+    pub const kCFStringEncodingMacRoman: CFStringEncoding = 0;
+
+    pub const kCFCompareForcedOrdering: CFStringCompareFlags = 512;
+    pub const kCFCompareWidthInsensitive: CFStringCompareFlags = 256;
+    pub const kCFCompareDiacriticInsensitive: CFStringCompareFlags = 128;
+    pub const kCFCompareNumerically: CFStringCompareFlags = 64;
+    pub const kCFCompareLocalized: CFStringCompareFlags = 32;
+    pub const kCFCompareNonliteral: CFStringCompareFlags = 16;
+    pub const kCFCompareAnchored: CFStringCompareFlags = 8;
+    pub const kCFCompareBackwards: CFStringCompareFlags = 4;
+    pub const kCFCompareCaseInsensitive: CFStringCompareFlags = 1;
+
+    // The CFArray wrapper is not mutable, so we use the APIs directly
+    pub use core_foundation::array::{
+        kCFTypeArrayCallBacks, CFArrayCallBacks, CFArrayCopyDescriptionCallBack,
+        CFArrayEqualCallBack, CFArrayGetCount, CFArrayRef, CFArrayReleaseCallBack,
+        CFArrayRetainCallBack, __CFArray,
+    };
+    pub type CFMutableArrayRef = *mut __CFArray;
+    extern "C" {
+        #[no_mangle]
+        pub fn CFArrayCreateMutable(
+            allocator: CFAllocatorRef,
+            capacity: CFIndex,
+            callBacks: *const CFArrayCallBacks,
+        ) -> CFMutableArrayRef;
+        #[no_mangle]
+        pub fn CFArrayCreate(
+            allocator: CFAllocatorRef,
+            values: *mut *const libc::c_void,
+            numValues: CFIndex,
+            callBacks: *const CFArrayCallBacks,
+        ) -> CFArrayRef;
+        #[no_mangle]
+        pub fn CFArrayAppendValue(theArray: CFMutableArrayRef, value: *const libc::c_void);
+    }
+    extern "C" {
+        // Missing
+        #[no_mangle]
+        pub fn CFStringCreateWithCStringNoCopy(
+            alloc: CFAllocatorRef,
+            cStr: *const libc::c_char,
+            encoding: CFStringEncoding,
+            contentsDeallocator: CFAllocatorRef,
+        ) -> CFStringRef;
+        #[no_mangle]
+        pub fn CFStringCompare(
+            theString1: CFStringRef,
+            theString2: CFStringRef,
+            compareOptions: CFStringCompareFlags,
+        ) -> CFComparisonResult;
+    }
+    extern "C" {
+        #[no_mangle]
+        pub fn CFDictionaryGetValue(
+            theDict: CFDictionaryRef,
+            key: *const libc::c_void,
+        ) -> *const libc::c_void;
+    }
+
+    // CFComparisonResult is missing PartialEq
+    pub fn comparison_was(a: CFComparisonResult, b: CFComparisonResult) -> bool {
+        match (a, b) {
+            (CFComparisonResult::LessThan, CFComparisonResult::LessThan) => true,
+            (CFComparisonResult::EqualTo, CFComparisonResult::EqualTo) => true,
+            (CFComparisonResult::GreaterThan, CFComparisonResult::GreaterThan) => true,
+            _ => false,
+        }
+    }
+
+    pub use core_graphics::{
+        base::CGFloat,
+        color::{CGColor, SysCGColorRef as CGColorRef},
+        font::CGGlyph,
+        geometry::{CGAffineTransform, CGPoint, CGRect, CGSize},
+    };
+    extern "C" {
+        #[no_mangle]
+        pub static CGAffineTransformIdentity: CGAffineTransform;
+        #[no_mangle]
+        pub fn CGRectIsNull(rect: CGRect) -> bool;
+    }
+    pub use core_text::run::CTRunRef;
+    extern "C" {
+        #[no_mangle]
+        pub fn CTRunGetGlyphCount(run: CTRunRef) -> CFIndex;
+        #[no_mangle]
+        pub fn CTRunGetAttributes(run: CTRunRef) -> CFDictionaryRef;
+        #[no_mangle]
+        pub fn CTRunGetGlyphs(run: CTRunRef, range: CFRange, buffer: *mut CGGlyph);
+        #[no_mangle]
+        pub fn CTRunGetPositions(run: CTRunRef, range: CFRange, buffer: *mut CGPoint);
+        #[no_mangle]
+        pub fn CTRunGetAdvances(run: CTRunRef, range: CFRange, buffer: *mut CGSize);
+        #[no_mangle]
+        pub fn CTLineGetGlyphCount(line: CTLineRef) -> CFIndex;
+        #[no_mangle]
+        pub fn CTLineGetGlyphRuns(line: CTLineRef) -> CFArrayRef;
+        #[no_mangle]
+        pub fn CTRunGetTypographicBounds(
+            run: CTRunRef,
+            range: CFRange,
+            ascent: *mut CGFloat,
+            descent: *mut CGFloat,
+            leading: *mut CGFloat,
+        ) -> libc::c_double;
+    }
+
+    pub use core_text::{
+        font::CTFontRef,
+        font_descriptor::{
+            kCTFontCascadeListAttribute, kCTFontFeatureSettingsAttribute,
+            kCTFontOrientationAttribute, kCTFontURLAttribute, CTFontDescriptor,
+            CTFontDescriptorCreateWithAttributes, CTFontDescriptorCreateWithNameAndSize,
+            CTFontDescriptorRef, CTFontOrientation,
+        },
+        line::CTLineRef,
+        string_attributes::{
+            kCTFontAttributeName, kCTForegroundColorAttributeName, kCTKernAttributeName,
+            kCTVerticalFormsAttributeName,
+        },
+    };
+
+    extern "C" {
+        #[no_mangle]
+        pub static kCTFontFamilyNameKey: CFStringRef;
+        #[no_mangle]
+        pub static kCTFontNameAttribute: CFStringRef;
+        #[no_mangle]
+        pub static kCTFontStyleNameKey: CFStringRef;
+        #[no_mangle]
+        pub static kCTFontDisplayNameAttribute: CFStringRef;
+        #[no_mangle]
+        pub static kCTFontFamilyNameAttribute: CFStringRef;
+        #[no_mangle]
+        pub static kCTFontFullNameKey: CFStringRef;
+    }
+
+    pub const kCTFontVerticalOrientation: CTFontOrientation = 2;
+    pub const kCTFontHorizontalOrientation: CTFontOrientation = 1;
+    pub const kCTFontDefaultOrientation: CTFontOrientation = 0;
+    pub const kCTFontOrientationVertical: CTFontOrientation = 2;
+    pub const kCTFontOrientationHorizontal: CTFontOrientation = 1;
+    pub const kCTFontOrientationDefault: CTFontOrientation = 0;
+
+    // The CGFont wrapper is not feature complete.
+    pub type CGFontRef = *const __CGFont;
+    extern "C" {
+        pub type __CGFont;
+        #[no_mangle]
+        pub fn CGFontGetNumberOfGlyphs(font: CGFontRef) -> usize;
+        #[no_mangle]
+        pub fn CGFontRelease(font: CGFontRef);
+        #[no_mangle]
+        pub fn CGFontCopyGlyphNameForGlyph(font: CGFontRef, glyph: CGGlyph) -> CFStringRef;
+        #[no_mangle]
+        pub fn CTFontCopyGraphicsFont(
+            font: CTFontRef,
+            attributes: *mut CTFontDescriptorRef,
+        ) -> CGFontRef;
+        #[no_mangle]
+        pub static kCTFontPostScriptNameKey: CFStringRef;
+    }
+    // Typesetters
+    pub type CTTypesetterRef = *const __CTTypesetter;
+    extern "C" {
+        pub type __CTTypesetter;
+        #[no_mangle]
+        pub fn CTTypesetterCreateWithAttributedString(
+            string: CFAttributedStringRef,
+        ) -> CTTypesetterRef;
+        #[no_mangle]
+        pub fn CTTypesetterCreateLine(
+            typesetter: CTTypesetterRef,
+            stringRange: CFRange,
+        ) -> CTLineRef;
+    }
+
+    // misc
+    extern "C" {
+        #[no_mangle]
+        pub fn CTFontCreateWithFontDescriptor(
+            descriptor: CTFontDescriptorRef,
+            size: CGFloat,
+            matrix: *const CGAffineTransform,
+        ) -> CTFontRef;
+        #[no_mangle]
+        pub fn CTLineCreateJustifiedLine(
+            line: CTLineRef,
+            justificationFactor: CGFloat,
+            justificationWidth: libc::c_double,
+        ) -> CTLineRef;
+        #[no_mangle]
+        pub fn CFStringCreateWithCharactersNoCopy(
+            alloc: CFAllocatorRef,
+            chars: *const UniChar,
+            numChars: CFIndex,
+            contentsDeallocator: CFAllocatorRef,
+        ) -> CFStringRef;
+        #[no_mangle]
+        pub fn CTFontCreateCopyWithAttributes(
+            font: CTFontRef,
+            size: CGFloat,
+            matrix: *const CGAffineTransform,
+            attributes: CTFontDescriptorRef,
+        ) -> CTFontRef;
+        #[no_mangle]
+        pub fn CTFontDescriptorCreateCopyWithAttributes(
+            original: CTFontDescriptorRef,
+            attributes: CFDictionaryRef,
+        ) -> CTFontDescriptorRef;
+        #[no_mangle]
+        pub fn CTFontDescriptorCopyAttribute(
+            descriptor: CTFontDescriptorRef,
+            attribute: CFStringRef,
+        ) -> CFTypeRef;
+        #[no_mangle]
+        pub fn CTFontDescriptorCreateMatchingFontDescriptors(
+            descriptor: CTFontDescriptorRef,
+            mandatoryAttributes: CFSetRef,
+        ) -> CFArrayRef;
+        #[no_mangle]
+        pub fn CTFontCopyAttribute(font: CTFontRef, attribute: CFStringRef) -> CFTypeRef;
+        #[no_mangle]
+        pub fn CTFontCopyName(font: CTFontRef, nameKey: CFStringRef) -> CFStringRef;
+        #[no_mangle]
+        pub fn CTFontCopyLocalizedName(
+            font: CTFontRef,
+            nameKey: CFStringRef,
+            actualLanguage: *mut CFStringRef,
+        ) -> CFStringRef;
+        #[no_mangle]
+        pub fn CTFontGetGlyphsForCharacters(
+            font: CTFontRef,
+            characters: *const UniChar,
+            glyphs: *mut CGGlyph,
+            count: CFIndex,
+        ) -> bool;
+        #[no_mangle]
+        pub fn CTFontGetGlyphWithName(font: CTFontRef, glyphName: CFStringRef) -> CGGlyph;
+        #[no_mangle]
+        pub fn CTFontGetBoundingRectsForGlyphs(
+            font: CTFontRef,
+            orientation: CTFontOrientation,
+            glyphs: *const CGGlyph,
+            boundingRects: *mut CGRect,
+            count: CFIndex,
+        ) -> CGRect;
+        #[no_mangle]
+        pub fn CTFontGetAdvancesForGlyphs(
+            font: CTFontRef,
+            orientation: CTFontOrientation,
+            glyphs: *const CGGlyph,
+            advances: *mut CGSize,
+            count: CFIndex,
+        ) -> libc::c_double;
+        #[no_mangle]
+        pub static kCTFontFeatureTypeIdentifierKey: CFStringRef;
+        #[no_mangle]
+        pub static kCTFontFeatureTypeNameKey: CFStringRef;
+        #[no_mangle]
+        pub static kCTFontFeatureTypeSelectorsKey: CFStringRef;
+        #[no_mangle]
+        pub static kCTFontFeatureTypeExclusiveKey: CFStringRef;
+        #[no_mangle]
+        pub fn CTFontCopyFeatures(font: CTFontRef) -> CFArrayRef;
+        #[no_mangle]
+        pub static kCTFontFeatureSelectorNameKey: CFStringRef;
+        #[no_mangle]
+        pub static kCTFontFeatureSelectorDefaultKey: CFStringRef;
+        #[no_mangle]
+        pub static kCTFontFeatureSelectorIdentifierKey: CFStringRef;
+        #[no_mangle]
+        pub fn CTFontGetXHeight(font: CTFontRef) -> CGFloat;
+        #[no_mangle]
+        pub fn CTFontGetAscent(font: CTFontRef) -> CGFloat;
+        #[no_mangle]
+        pub fn CTFontGetDescent(font: CTFontRef) -> CGFloat;
+        #[no_mangle]
+        pub fn CTFontGetGlyphCount(font: CTFontRef) -> CFIndex;
+        #[no_mangle]
+        pub fn CTFontGetSlantAngle(font: CTFontRef) -> CGFloat;
+        #[no_mangle]
+        pub fn CTFontGetCapHeight(font: CTFontRef) -> CGFloat;
+        #[no_mangle]
+        pub fn CFStringGetCharacters(theString: CFStringRef, range: CFRange, buffer: *mut UniChar);
+        #[no_mangle]
+        pub fn CFArrayGetValueAtIndex(theArray: CFArrayRef, idx: CFIndex) -> *const libc::c_void;
+        #[no_mangle]
+        pub fn CTFontGetSize(font: CTFontRef) -> CGFloat;
+        #[no_mangle]
+        pub fn CTFontGetMatrix(font: CTFontRef) -> CGAffineTransform;
+        #[no_mangle]
+        pub fn CGColorGetComponents(color: CGColorRef) -> *const CGFloat;
+        #[no_mangle]
+        pub fn CFBooleanGetValue(boolean: CFBooleanRef) -> libc::c_uchar;
+    }
+
+    pub type UniChar = UInt16;
+    pub type UInt16 = libc::c_ushort;
+
+    #[inline(always)]
+    pub fn CFRangeMake(mut loc: CFIndex, mut len: CFIndex) -> CFRange {
+        let mut range: CFRange = CFRange {
+            location: 0,
+            length: 0,
+        };
+        range.location = loc;
+        range.length = len;
+        range
+    }
+
+    pub unsafe fn cgColorToRGBA32(mut color: CGColorRef) -> u32 {
+        let mut components: *const CGFloat = CGColorGetComponents(color);
+        let mut rval: u32 = (*components.offset(0) * 255.0f64 + 0.5f64) as u8 as u32;
+        rval <<= 8i32;
+        rval = (rval as u32).wrapping_add((*components.offset(1) * 255.0f64 + 0.5f64) as u8 as u32);
+        rval <<= 8i32;
+        rval = (rval as u32).wrapping_add((*components.offset(2) * 255.0f64 + 0.5f64) as u8 as u32);
+        rval <<= 8i32;
+        rval = (rval as u32).wrapping_add((*components.offset(3) * 255.0f64 + 0.5f64) as u8 as u32);
+        return rval;
+    }
 }

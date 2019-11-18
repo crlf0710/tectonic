@@ -1017,7 +1017,7 @@ pub unsafe fn XeTeXFontInst_mapGlyphToIndex(
 pub unsafe fn XeTeXFontInst_getGlyphName(
     mut self_0: *mut XeTeXFontInst,
     mut gid: GlyphID,
-    mut nameLen: *mut libc::c_int,
+    mut nameLen: &mut libc::c_int,
 ) -> *const libc::c_char {
     if (*(*self_0).m_ftFace).face_flags & 1 << 9i32 != 0 {
         static mut buffer: [libc::c_char; 256] = [0; 256];

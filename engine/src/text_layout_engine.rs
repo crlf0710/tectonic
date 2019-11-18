@@ -1,18 +1,32 @@
 #![allow(dead_code)]
 
 // XXX: should be no harfbuzz in the interface
-use harfbuzz_sys::hb_tag_t;
 use crate::xetex_ext::UniChar;
-use crate::xetex_layout_engine::{Fixed, FixedPoint};
-use crate::xetex_font_info::{XeTeXFontInst, GlyphBBox};
-use crate::xetex_ini::memory_word;
+use crate::xetex_font_info::{GlyphBBox, XeTeXFontInst};
 use crate::xetex_font_manager::PlatformFontRef;
+use crate::xetex_ini::memory_word;
+use harfbuzz_sys::hb_tag_t;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-enum TextDirection {
-    LTR,
-    RTL,
+pub type Fixed = i32;
+
+#[derive(Copy, Clone)]
+#[cfg_attr(not(target_os = "macos"), repr(C))]
+#[cfg_attr(target_os = "macos", repr(C, packed(2)))]
+pub struct FixedPoint {
+    pub x: Fixed,
+    pub y: Fixed,
 }
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct FloatPoint {
+    pub x: f32,
+    pub y: f32,
+}
+
+pub type Fract = i32;
+
+pub type scaled_t = i32;
 
 // Annoying XeTeXFontMgr singleton accessors
 // pub unsafe fn getFullName(fontRef: PlatformFontRef) -> *const libc::c_char;
@@ -40,13 +54,15 @@ pub struct LayoutRequest<'a> {
     // let f = let mut f: libc::c_uint = (*node.offset(4)).b16.s2 as libc::c_uint;
     // *font_letter_space.offset(f as usize)
     pub letter_space_unit: Fixed,
+
+    /// Only used by AAT
+    pub justify: bool,
 }
 
 impl LayoutRequest<'_> {
     /// Unsafety: obviously, dereferences raw node pointer. The lifetime is also pulled out of
     /// thin air, so just keep it in scope, ok?
-    pub unsafe fn from_node<'a>(node: *mut memory_word) -> LayoutRequest<'a> {
-
+    pub unsafe fn from_node<'a>(node: *mut memory_word, justify: bool) -> LayoutRequest<'a> {
         use crate::xetex_ini::font_letter_space;
 
         let txtLen = (*node.offset(4)).b16.s1 as usize;
@@ -59,6 +75,7 @@ impl LayoutRequest<'_> {
             text,
             line_width,
             letter_space_unit,
+            justify,
         }
     }
 }
@@ -81,17 +98,17 @@ pub struct NodeLayout {
 
 impl NodeLayout {
     pub unsafe fn write_node(&self, node: *mut memory_word) {
-            let NodeLayout {
-                lsDelta,
-                width,
-                total_glyph_count,
-                glyph_info,
-            } = *self;
+        let NodeLayout {
+            lsDelta,
+            width,
+            total_glyph_count,
+            glyph_info,
+        } = *self;
 
-            (*node.offset(1)).b32.s1 = width + lsDelta.unwrap_or(0);
-            (*node.offset(4)).b16.s0 = total_glyph_count;
-            let ref mut fresh0 = (*node.offset(5)).ptr;
-            *fresh0 = glyph_info as *mut libc::c_void;
+        (*node.offset(1)).b32.s1 = width + lsDelta.unwrap_or(0);
+        (*node.offset(4)).b16.s0 = total_glyph_count;
+        let ref mut fresh0 = (*node.offset(5)).ptr;
+        *fresh0 = glyph_info as *mut libc::c_void;
     }
 }
 
@@ -101,24 +118,8 @@ trait FontInstance {
     unsafe fn getGlyphWidth(font: *mut XeTeXFontInst, gid: u32) -> f32;
     unsafe fn setFontLayoutDir(font: *mut XeTeXFontInst, vertical: libc::c_int);
 
-    /// getGlyphName
-    /// Only used for debugging. Should be a String/CStr then!
-    unsafe fn glyph_name(
-        font: *mut XeTeXFontInst,
-        gid: u16,
-        len: *mut libc::c_int,
-    ) -> *const libc::c_char;
-
-    unsafe fn getIndLanguage(
-        font: *mut XeTeXFontInst,
-        script: hb_tag_t,
-        index: u32,
-    ) -> hb_tag_t;
-    unsafe fn countFeatures(
-        font: *mut XeTeXFontInst,
-        script: hb_tag_t,
-        language: hb_tag_t,
-    ) -> u32;
+    unsafe fn getIndLanguage(font: *mut XeTeXFontInst, script: hb_tag_t, index: u32) -> hb_tag_t;
+    unsafe fn countFeatures(font: *mut XeTeXFontInst, script: hb_tag_t, language: hb_tag_t) -> u32;
     unsafe fn getIndFeature(
         font: *mut XeTeXFontInst,
         script: hb_tag_t,
@@ -199,46 +200,47 @@ impl GlyphEdge {
 }
 
 pub trait TextLayoutEngine {
-
     /// The most important trait method. Lay out some text and return its size.
     unsafe fn layout_text(&mut self, request: LayoutRequest) -> NodeLayout;
 
     /// getFontFilename
     /// Only for make_font_def. Should use CStr, probably.
-    fn font_filename(
-        &self,
-        index: &mut u32,
-    ) -> *mut libc::c_char;
-
-    /// getFontRef
-    fn platform_font_ref(&self) -> PlatformFontRef;
+    unsafe fn font_filename(&self, index: &mut u32) -> *mut libc::c_char;
 
     /// getFontInst
-    fn font_instance(&self) -> *mut XeTeXFontInst;
+    // fn font_instance(&self) -> *mut XeTeXFontInst;
 
     // should implement Drop
     // unsafe fn deleteLayoutEngine(mut engine: XeTeXLayoutEngine);
 
+    unsafe fn glyph_width(&self, gid: u32) -> f64;
+
+    // XXX: make a single struct for make_font_def to consume, of all the required values
+
     /// getExtendFactor
-    fn extend_factor(&self) -> f32;
+    unsafe fn extend_factor(&self) -> f64;
     /// getPointSize
-    fn point_size(&self) -> f32;
+    unsafe fn point_size(&self) -> f64;
     /// getAscentAndDescent
-    fn ascent_and_descent(&self, ascent: &mut f32, descent: &mut f32);
+    unsafe fn ascent_and_descent(&self, ascent: &mut f32, descent: &mut f32);
     /// getCapAndXHeight
-    fn cap_and_x_height(&self, capheight: &mut f32, xheight: &mut f32);
+    unsafe fn cap_and_x_height(&self, capheight: &mut f32, xheight: &mut f32);
     /// getEmboldenFactor
-    fn embolden_factor(&self) -> f32;
-    /// getDefaultDirection
-    // TODO: TextDirection
-    fn default_direction(&self) -> i32;
+    unsafe fn embolden_factor(&self) -> f32;
     /// getRgbValue
-    fn rgb_value(&self) -> u32;
+    /// as r,g,b,a bytes, in order (careful of endianness maybe at output phase)
+    unsafe fn rgb_value(&self) -> u32;
+    /// getSlantFactor
+    unsafe fn slant_factor(&self) -> f64;
+
+    /// getGlyphName
+    /// Only used for debugging. Should be a String/CStr then!
+    unsafe fn glyph_name(&self, gid: u16, len: &mut libc::c_int) -> *const libc::c_char;
 
     /// getGlyphBounds (had out param)
     unsafe fn glyph_bbox(&self, glyphID: u32) -> Option<GlyphBBox>;
 
-    unsafe fn getGlyphWidthFromEngine(&self, glyphID: u32) -> f32;
+    unsafe fn getGlyphWidthFromEngine(&self, glyphID: u32) -> f64;
 
     /// getGlyphHeightDepth (had out params height, depth)
     unsafe fn glyph_height_depth(&self, glyphID: u32) -> Option<(f32, f32)>;
@@ -247,7 +249,7 @@ pub trait TextLayoutEngine {
     unsafe fn glyph_sidebearings(&self, glyphID: u32) -> Option<(f32, f32)>;
 
     /// getGlyphItalCorr
-    unsafe fn glyph_ital_correction(&self, glyphID: u32) -> Option<f32>;
+    unsafe fn glyph_ital_correction(&self, glyphID: u32) -> Option<f64>;
 
     /// mapCharToGlyph
     /// Should probably just use engine.font as this just passes on the call
@@ -264,7 +266,6 @@ pub trait TextLayoutEngine {
     /// Should use engine.font directly
     unsafe fn map_glyph_to_index(&self, glyphName: *const libc::c_char) -> i32;
 
-
     // Provided methods, override if using stuff
 
     /// Default impl is { false }.
@@ -275,11 +276,7 @@ pub trait TextLayoutEngine {
 
     /// Returns true if "user asked for Graphite line breaking and the font supports it"
     /// Only relevant if this engine actually uses graphite, hence default impl of { false }
-    unsafe fn initGraphiteBreaking(
-        &mut self,
-        txtPtr: *const u16,
-        txtLen: i32,
-    ) -> bool {
+    unsafe fn initGraphiteBreaking(&mut self, txtPtr: *const u16, txtLen: i32) -> bool {
         false
     }
 
@@ -292,32 +289,15 @@ pub trait TextLayoutEngine {
     unsafe fn isOpenTypeMathFont(&self) -> bool {
         false
     }
-
 }
 
 trait GraphiteFontSomething {
     unsafe fn countGraphiteFeatures(&self) -> u32;
-    unsafe fn getGraphiteFeatureCode(
-        &self,
-        index: u32,
-    ) -> u32;
-    unsafe fn countGraphiteFeatureSettings(
-        &self,
-        featureID: u32,
-    ) -> u32;
-    unsafe fn getGraphiteFeatureSettingCode(
-        &self,
-        featureID: u32,
-        index: u32,
-    ) -> u32;
-    unsafe fn getGraphiteFeatureDefaultSetting(
-        &self,
-        featureID: u32,
-    ) -> u32;
-    unsafe fn getGraphiteFeatureLabel(
-        &self,
-        featureID: u32,
-    ) -> *mut libc::c_char;
+    unsafe fn getGraphiteFeatureCode(&self, index: u32) -> u32;
+    unsafe fn countGraphiteFeatureSettings(&self, featureID: u32) -> u32;
+    unsafe fn getGraphiteFeatureSettingCode(&self, featureID: u32, index: u32) -> u32;
+    unsafe fn getGraphiteFeatureDefaultSetting(&self, featureID: u32) -> u32;
+    unsafe fn getGraphiteFeatureLabel(&self, featureID: u32) -> *mut libc::c_char;
     unsafe fn getGraphiteFeatureSettingLabel(
         &self,
         featureID: u32,
@@ -342,4 +322,3 @@ trait GraphiteFontSomething {
         namelength: libc::c_int,
     ) -> libc::c_long;
 }
-
