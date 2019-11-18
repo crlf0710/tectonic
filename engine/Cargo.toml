@@ -15,7 +15,6 @@ repository = "https://github.com/tectonic-typesetting/tectonic/"
 readme = "README.md"
 license = "MIT"
 edition = "2018"
-
 [build-dependencies]
 cc = "^1.0"
 pkg-config = "^0.3"  # note: sync dist/docker/*/pkg-config-rs.sh with the version in Cargo.lock
@@ -32,11 +31,16 @@ chrono = "0.4.9"
 #log = { version = "0.4", features = ["std"] }
 harfbuzz-sys = {version = "^0.3", default-features = false}
 
+[dependencies.font-kit]
+version = "0.4.0"
+# to minimize code change, we're using harfbuzz with freetype only
+# but as font-kit takes over, this can go, and macOS gets to use Core Text, and Windows gets to use DirectWrite
+features = ["loader-freetype", "loader-freetype-default"]
+
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.7.0"
 core-graphics = "0.19.0"
 core-text = "15.0.0"
-freetype-rs = "0.23.0"
 objc = "0.2.7"
 objc-foundation = "0.1.1"
 objc_id = "0.1.1"

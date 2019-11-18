@@ -1221,7 +1221,7 @@ authorization from the copyright holders.
  *   created by: Jonathan Kew
  */
 //#include <ApplicationServices/ApplicationServices.h>
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub struct XeTeXFontInst_Mac {
     pub super_: XeTeXFontInst,
@@ -1320,7 +1320,9 @@ pub unsafe fn XeTeXFontInst_Mac_initialize(
         let mut pathname: *mut libc::c_char = 0 as *mut libc::c_char;
         let mut index: u32 = 0;
         pathname = getFileNameFromCTFont((*self_0).m_fontRef, &mut index);
-        (*self_0).super_.init(pathname, index as libc::c_int, status);
+        if let Err(e) = (*self_0).super_.init(pathname, index as libc::c_int) {
+            *status = e;
+        }
     } else {
         *status = 1i32;
         CFRelease((*self_0).m_descriptor as CFTypeRef);

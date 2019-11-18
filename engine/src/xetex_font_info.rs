@@ -1727,7 +1727,9 @@ pub struct GlyphBBox {
     pub yMax: libc::c_float,
 }
 
-#[derive(Copy, Clone)]
+use font_kit::loaders::default::{NativeFont, Font};
+
+#[derive(Clone)]
 #[repr(C)]
 pub struct XeTeXFontInst {
     pub m_unitsPerEM: libc::c_ushort,
@@ -1745,6 +1747,7 @@ pub struct XeTeXFontInst {
     pub m_backingData2: *mut FT_Byte,
     pub m_hbFont: *mut hb_font_t,
     pub m_subdtor: Option<unsafe fn(_: *mut XeTeXFontInst) -> ()>,
+    pub font_kit: Option<Font>,
 }
 
 /* *************************************************************************
@@ -1889,7 +1892,7 @@ impl XeTeXFontInst {
         mut pointSize: libc::c_float,
         mut status: *mut libc::c_int,
     ) -> Self {
-        let mut neu =XeTeXFontInst {
+        let mut neu = XeTeXFontInst {
             m_unitsPerEM: 0,
             m_pointSize: pointSize,
             m_ascent: 0.0,
@@ -1905,18 +1908,20 @@ impl XeTeXFontInst {
             m_backingData2: std::ptr::null_mut(),
             m_hbFont: std::ptr::null_mut(),
             m_subdtor: None,
+            font_kit: None,
         };
         if !pathname.is_null() {
-            neu.init(pathname, index, status);
+            if let Err(e) = neu.init(pathname, index) {
+                *status = e;
+            }
         }
         neu
     }
     pub unsafe fn init(&mut self, 
         mut pathname: *const libc::c_char,
         mut index: libc::c_int,
-        mut status: *mut libc::c_int,
-    ) {
-        XeTeXFontInst_initialize(self, pathname, index, status);
+    ) -> Result<(), i32> {
+        XeTeXFontInst_initialize(self, pathname, index)
     }
 }
 
@@ -1972,6 +1977,7 @@ unsafe extern "C" fn _get_glyph(
     }
     return (*gid != 0i32 as libc::c_uint) as libc::c_int;
 }
+
 unsafe extern "C" fn _get_glyph_advance(
     mut face: FT_Face,
     mut gid: FT_UInt,
@@ -1993,6 +1999,7 @@ unsafe extern "C" fn _get_glyph_advance(
     }
     return advance;
 }
+
 unsafe extern "C" fn _get_glyph_h_advance(
     mut _hbf: *mut hb_font_t,
     mut font_data: *mut libc::c_void,
@@ -2001,6 +2008,7 @@ unsafe extern "C" fn _get_glyph_h_advance(
 ) -> hb_position_t {
     return _get_glyph_advance(font_data as FT_Face, gid, 0i32 != 0) as hb_position_t;
 }
+
 unsafe extern "C" fn _get_glyph_v_advance(
     mut _hbf: *mut hb_font_t,
     mut font_data: *mut libc::c_void,
@@ -2020,6 +2028,7 @@ unsafe extern "C" fn _get_glyph_h_origin(
     // horizontal origin is (0, 0)
     return 1i32;
 }
+
 unsafe extern "C" fn _get_glyph_v_origin(
     mut _hbf: *mut hb_font_t,
     mut font_data: *mut libc::c_void,
@@ -2031,6 +2040,7 @@ unsafe extern "C" fn _get_glyph_v_origin(
     // vertical origin is (0, 0) for now
     return 1i32;
 }
+
 unsafe extern "C" fn _get_glyph_h_kerning(
     mut _hbf: *mut hb_font_t,
     mut font_data: *mut libc::c_void,
@@ -2056,6 +2066,7 @@ unsafe extern "C" fn _get_glyph_h_kerning(
     }
     return ret;
 }
+
 unsafe extern "C" fn _get_glyph_v_kerning(
     mut _hbf: *mut hb_font_t,
     mut font_data: *mut libc::c_void,
@@ -2066,6 +2077,7 @@ unsafe extern "C" fn _get_glyph_v_kerning(
     /* FreeType does not support vertical kerning */
     return 0i32;
 }
+
 unsafe extern "C" fn _get_glyph_extents(
     mut _hbf: *mut hb_font_t,
     mut font_data: *mut libc::c_void,
@@ -2084,6 +2096,7 @@ unsafe extern "C" fn _get_glyph_extents(
     }
     return (error == 0) as libc::c_int;
 }
+
 unsafe extern "C" fn _get_glyph_contour_point(
     mut _hbf: *mut hb_font_t,
     mut font_data: *mut libc::c_void,
@@ -2112,6 +2125,7 @@ unsafe extern "C" fn _get_glyph_contour_point(
     }
     return ret as hb_bool_t;
 }
+
 unsafe extern "C" fn _get_glyph_name(
     mut _hbf: *mut hb_font_t,
     mut font_data: *mut libc::c_void,
@@ -2128,6 +2142,7 @@ unsafe extern "C" fn _get_glyph_name(
     }
     return ret as hb_bool_t;
 }
+
 unsafe extern "C" fn _get_font_funcs() -> *mut hb_font_funcs_t {
     static mut funcs: *mut hb_font_funcs_t = 0 as *const hb_font_funcs_t as *mut hb_font_funcs_t;
     if funcs.is_null() {
@@ -2223,6 +2238,7 @@ unsafe extern "C" fn _get_font_funcs() -> *mut hb_font_funcs_t {
     );
     return funcs;
 }
+
 unsafe extern "C" fn _get_table(
     mut _hfc: *mut hb_face_t,
     mut tag: hb_tag_t,
@@ -2262,13 +2278,20 @@ unsafe extern "C" fn _get_table(
     return blob;
 }
 
+use font_kit::family_name::FamilyName;
+use font_kit::hinting::HintingOptions;
+use font_kit::properties::Properties;
+use font_kit::source::SystemSource;
+use font_kit::source::Source;
+use font_kit::loader::FontTransform;
+use font_kit::handle::Handle;
+
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontInst_initialize(
     mut self_0: &mut XeTeXFontInst,
     mut pathname: *const libc::c_char,
     mut index: libc::c_int,
-    mut status: *mut libc::c_int,
-) {
+) -> Result<(), i32> {
     let mut postTable: *mut TT_Postscript = 0 as *mut TT_Postscript;
     let mut os2Table: *mut TT_OS2 = 0 as *mut TT_OS2;
     let mut error: FT_Error = 0;
@@ -2282,12 +2305,22 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
     // Here we emulate some logic that was originally in find_native_font();
     let mut handle = ttstub_input_open(pathname, TTInputFormat::OPENTYPE, 0)
         .or_else(|| ttstub_input_open(pathname, TTInputFormat::TRUETYPE, 0))
-        .or_else(|| ttstub_input_open(pathname, TTInputFormat::TYPE1, 0));
-    if handle.is_none() {
-        *status = 1i32;
-        return;
-    }
-    let mut handle = handle.unwrap();
+        .or_else(|| ttstub_input_open(pathname, TTInputFormat::TYPE1, 0))
+        .ok_or(1)?;
+
+    use std::io::prelude::*;
+    use std::sync::Arc;
+    use std::path::PathBuf;
+    use std::ffi::CStr;
+    let pathname_str = CStr::from_ptr(pathname).to_str().map_err(|_| 1)?;
+    let pathbuf = PathBuf::from(pathname_str);
+    let fk_handle = Handle::Path {
+        path: pathbuf,
+        font_index: index as u32,
+    };
+    let font_kit = fk_handle.load().map_err(|_| 1)?;
+    self_0.font_kit = Some(font_kit);
+
     let mut sz = ttstub_input_get_size(&mut handle);
     (*self_0).m_backingData = xmalloc(sz as _) as *mut FT_Byte;
     let mut r =
@@ -2304,8 +2337,7 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
         &mut (*self_0).m_ftFace,
     );
     if (*(*self_0).m_ftFace).face_flags & 1 << 0i32 == 0 {
-        *status = 1i32;
-        return;
+        return Err(1);;
     }
     /* for non-sfnt-packaged fonts (presumably Type 1), see if there is an AFM file we can attach */
     if index == 0i32 && (*(*self_0).m_ftFace).face_flags & 1 << 3i32 == 0 {
@@ -2407,6 +2439,7 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
         0i32 as libc::c_uint,
         0i32 as libc::c_uint,
     );
+    Ok(())
 }
 
 #[no_mangle]
