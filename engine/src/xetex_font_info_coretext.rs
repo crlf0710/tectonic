@@ -1,25 +1,30 @@
 #![cfg(target_os = "macos")]
-#![allow(dead_code,
-         mutable_transmutes,
-         non_camel_case_types,
-         non_snake_case,
-         non_upper_case_globals,
-         unused_assignments,
-         unused_mut)]
+#![allow(
+    dead_code,
+    mutable_transmutes,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    unused_assignments,
+    unused_mut
+)]
 
 use harfbuzz_sys::hb_font_t;
-use freetype::freetype_sys;
+
+use super::XeTeXFontInst;
+
+use crate::xetex_aatfont::cf_prelude::{
+    kCFTypeArrayCallBacks, kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks,
+    kCTFontCascadeListAttribute, CFAllocatorRef, CFArrayCreate, CFArrayRef, CFDictionaryCreate,
+    CFDictionaryRef, CFIndex, CFRelease, CFTypeRef, CGAffineTransform,
+    CTFontCreateWithFontDescriptor, CTFontDescriptorCreateCopyWithAttributes, CTFontDescriptorRef,
+    CTFontRef,
+};
+use crate::xetex_aatfont::getFileNameFromCTFont;
+use crate::xetex_font_info::{XeTeXFontInst_base_ctor, XeTeXFontInst_initialize};
 
 extern crate libc;
 extern "C" {
-    pub type __CFAllocator;
-    /* ************************************************************************/
-    /* ************************************************************************/
-    /*                                                                       */
-    /*                     O B J E C T   C L A S S E S                       */
-    /*                                                                       */
-    /* ************************************************************************/
-    /* ************************************************************************/
     /* *************************************************************************
      *
      * @type:
@@ -58,83 +63,12 @@ extern "C" {
     pub type FT_Size_InternalRec_;
     pub type FT_Slot_InternalRec_;
     pub type FT_SubGlyphRec_;
-    pub type __CFString;
-    pub type __CFArray;
-    pub type __CFDictionary;
-    pub type __CTFontDescriptor;
-    pub type __CTFont;
     #[no_mangle]
     fn malloc(_: libc::c_ulong) -> *mut libc::c_void;
     #[no_mangle]
     fn xpc_debugger_api_misuse_info() -> *const libc::c_char;
-    #[no_mangle]
-    fn XeTeXFontInst_initialize(
-        self_0: *mut XeTeXFontInst,
-        pathname: *const libc::c_char,
-        index: libc::c_int,
-        status: *mut libc::c_int,
-    );
-    #[no_mangle]
-    fn XeTeXFontInst_base_ctor(
-        self_0: *mut XeTeXFontInst,
-        pathname: *const libc::c_char,
-        index: libc::c_int,
-        pointSize: libc::c_float,
-        status: *mut libc::c_int,
-    );
-    #[no_mangle]
-    fn getFileNameFromCTFont(ctFontRef: CTFontRef, index: *mut uint32_t) -> *mut libc::c_char;
-    #[no_mangle]
-    static kCFTypeArrayCallBacks: CFArrayCallBacks;
-    #[no_mangle]
-    static kCFTypeDictionaryKeyCallBacks: CFDictionaryKeyCallBacks;
-    #[no_mangle]
-    static kCTFontCascadeListAttribute: CFStringRef;
-    #[no_mangle]
-    static kCFTypeDictionaryValueCallBacks: CFDictionaryValueCallBacks;
-    #[no_mangle]
-    fn CFArrayCreate(
-        allocator: CFAllocatorRef,
-        values: *mut *const libc::c_void,
-        numValues: CFIndex,
-        callBacks: *const CFArrayCallBacks,
-    ) -> CFArrayRef;
-    #[no_mangle]
-    fn CTFontCreateWithFontDescriptor(
-        descriptor: CTFontDescriptorRef,
-        size: CGFloat,
-        matrix: *const CGAffineTransform,
-    ) -> CTFontRef;
-    #[no_mangle]
-    fn CFDictionaryCreate(
-        allocator: CFAllocatorRef,
-        keys: *mut *const libc::c_void,
-        values: *mut *const libc::c_void,
-        numValues: CFIndex,
-        keyCallBacks: *const CFDictionaryKeyCallBacks,
-        valueCallBacks: *const CFDictionaryValueCallBacks,
-    ) -> CFDictionaryRef;
-    #[no_mangle]
-    fn CTFontDescriptorCreateCopyWithAttributes(
-        original: CTFontDescriptorRef,
-        attributes: CFDictionaryRef,
-    ) -> CTFontDescriptorRef;
-    #[no_mangle]
-    fn CFRelease(cf: CFTypeRef);
 }
-pub type uint32_t = libc::c_uint;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct CGAffineTransform {
-    pub a: CGFloat,
-    pub b: CGFloat,
-    pub c: CGFloat,
-    pub d: CGFloat,
-    pub tx: CGFloat,
-    pub ty: CGFloat,
-}
-pub type CGFloat = libc::c_double;
-pub type CFAllocatorRef = *const __CFAllocator;
+
 pub type UniChar = UInt16;
 pub type UInt16 = libc::c_ushort;
 pub type Boolean = libc::c_uchar;
@@ -1248,79 +1182,6 @@ pub struct FT_GlyphSlotRec_ {
 }
 pub type FT_Slot_Internal = *mut FT_Slot_InternalRec_;
 pub type FT_SubGlyph = *mut FT_SubGlyphRec_;
-pub type CFHashCode = libc::c_ulong;
-pub type CFIndex = libc::c_long;
-pub type CFTypeRef = *const libc::c_void;
-pub type CFStringRef = *const __CFString;
-pub type CFArrayRetainCallBack =
-    Option<unsafe extern "C" fn(_: CFAllocatorRef, _: *const libc::c_void) -> *const libc::c_void>;
-pub type CFArrayReleaseCallBack =
-    Option<unsafe extern "C" fn(_: CFAllocatorRef, _: *const libc::c_void) -> ()>;
-pub type CFArrayCopyDescriptionCallBack =
-    Option<unsafe extern "C" fn(_: *const libc::c_void) -> CFStringRef>;
-pub type CFArrayEqualCallBack =
-    Option<unsafe extern "C" fn(_: *const libc::c_void, _: *const libc::c_void) -> Boolean>;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct CFArrayCallBacks {
-    pub version: CFIndex,
-    pub retain: CFArrayRetainCallBack,
-    pub release: CFArrayReleaseCallBack,
-    pub copyDescription: CFArrayCopyDescriptionCallBack,
-    pub equal: CFArrayEqualCallBack,
-}
-pub type CFArrayRef = *const __CFArray;
-pub type CFDictionaryRetainCallBack =
-    Option<unsafe extern "C" fn(_: CFAllocatorRef, _: *const libc::c_void) -> *const libc::c_void>;
-pub type CFDictionaryReleaseCallBack =
-    Option<unsafe extern "C" fn(_: CFAllocatorRef, _: *const libc::c_void) -> ()>;
-pub type CFDictionaryCopyDescriptionCallBack =
-    Option<unsafe extern "C" fn(_: *const libc::c_void) -> CFStringRef>;
-pub type CFDictionaryEqualCallBack =
-    Option<unsafe extern "C" fn(_: *const libc::c_void, _: *const libc::c_void) -> Boolean>;
-pub type CFDictionaryHashCallBack =
-    Option<unsafe extern "C" fn(_: *const libc::c_void) -> CFHashCode>;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct CFDictionaryKeyCallBacks {
-    pub version: CFIndex,
-    pub retain: CFDictionaryRetainCallBack,
-    pub release: CFDictionaryReleaseCallBack,
-    pub copyDescription: CFDictionaryCopyDescriptionCallBack,
-    pub equal: CFDictionaryEqualCallBack,
-    pub hash: CFDictionaryHashCallBack,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct CFDictionaryValueCallBacks {
-    pub version: CFIndex,
-    pub retain: CFDictionaryRetainCallBack,
-    pub release: CFDictionaryReleaseCallBack,
-    pub copyDescription: CFDictionaryCopyDescriptionCallBack,
-    pub equal: CFDictionaryEqualCallBack,
-}
-pub type CFDictionaryRef = *const __CFDictionary;
-pub type CTFontDescriptorRef = *const __CTFontDescriptor;
-pub type CTFontRef = *const __CTFont;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct XeTeXFontInst {
-    pub m_unitsPerEM: libc::c_ushort,
-    pub m_pointSize: libc::c_float,
-    pub m_ascent: libc::c_float,
-    pub m_descent: libc::c_float,
-    pub m_capHeight: libc::c_float,
-    pub m_xHeight: libc::c_float,
-    pub m_italicAngle: libc::c_float,
-    pub m_vertical: bool,
-    pub m_filename: *mut libc::c_char,
-    pub m_index: uint32_t,
-    pub m_ftFace: FT_Face,
-    pub m_backingData: *mut FT_Byte,
-    pub m_backingData2: *mut FT_Byte,
-    pub m_hbFont: *mut hb_font_t,
-    pub m_subdtor: Option<unsafe extern "C" fn(_: *mut XeTeXFontInst) -> ()>,
-}
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International
@@ -1407,7 +1268,7 @@ authorization from the copyright holders.
  *   created by: Jonathan Kew
  */
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_Mac_dtor(mut self_0: *mut XeTeXFontInst) {
+pub unsafe fn XeTeXFontInst_Mac_dtor(mut self_0: *mut XeTeXFontInst) {
     let mut real_self: *mut XeTeXFontInst_Mac = self_0 as *mut XeTeXFontInst_Mac;
     if !(*real_self).m_descriptor.is_null() {
         CFRelease((*real_self).m_descriptor as CFTypeRef);
@@ -1417,7 +1278,7 @@ pub unsafe extern "C" fn XeTeXFontInst_Mac_dtor(mut self_0: *mut XeTeXFontInst) 
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_Mac_initialize(
+pub unsafe fn XeTeXFontInst_Mac_initialize(
     mut self_0: *mut XeTeXFontInst_Mac,
     mut status: *mut libc::c_int,
 ) {
@@ -1452,12 +1313,12 @@ pub unsafe extern "C" fn XeTeXFontInst_Mac_initialize(
     CFRelease(attributes as CFTypeRef);
     (*self_0).m_fontRef = CTFontCreateWithFontDescriptor(
         (*self_0).m_descriptor,
-        (*self_0).super_.m_pointSize as libc::c_double * 72.0f64 / 72.27f64,
+        (*self_0).super_.m_pointSize as f64 * 72.0f64 / 72.27f64,
         0 as *const CGAffineTransform,
     );
     if !(*self_0).m_fontRef.is_null() {
         let mut pathname: *mut libc::c_char = 0 as *mut libc::c_char;
-        let mut index: uint32_t = 0;
+        let mut index: u32 = 0;
         pathname = getFileNameFromCTFont((*self_0).m_fontRef, &mut index);
         XeTeXFontInst_initialize(
             &mut (*self_0).super_,
@@ -1472,7 +1333,7 @@ pub unsafe extern "C" fn XeTeXFontInst_Mac_initialize(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_Mac_ctor(
+pub unsafe fn XeTeXFontInst_Mac_ctor(
     mut self_0: *mut XeTeXFontInst_Mac,
     mut descriptor: CTFontDescriptorRef,
     mut pointSize: libc::c_float,
@@ -1486,7 +1347,7 @@ pub unsafe extern "C" fn XeTeXFontInst_Mac_ctor(
         status,
     );
     (*self_0).super_.m_subdtor =
-        Some(XeTeXFontInst_Mac_dtor as unsafe extern "C" fn(_: *mut XeTeXFontInst) -> ());
+        Some(XeTeXFontInst_Mac_dtor as unsafe fn(_: *mut XeTeXFontInst) -> ());
     (*self_0).m_descriptor = descriptor;
     (*self_0).m_fontRef = 0 as CTFontRef;
     XeTeXFontInst_Mac_initialize(self_0, status);
@@ -1505,7 +1366,7 @@ public:
 };
 */
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_Mac_create(
+pub unsafe fn XeTeXFontInst_Mac_create(
     mut descriptor: CTFontDescriptorRef,
     mut pointSize: libc::c_float,
     mut status: *mut libc::c_int,

@@ -21,9 +21,6 @@ use crate::core_memory::xmalloc;
 
 use crate::xetex_layout_interface::collection_types::*;
 
-#[cfg(target_os = "macos")]
-use crate::xetex_layout_interface::__CTFontDescriptor;
-
 use harfbuzz_sys::{hb_font_t, hb_face_t, hb_font_get_face, hb_ot_layout_get_size_params};
 
 extern "C" {
@@ -72,6 +69,8 @@ extern "C" {
     pub type FT_Size_InternalRec_;
     pub type FT_Slot_InternalRec_;
     pub type FT_SubGlyphRec_;
+    /// This is never defined, it just serves as C void, really.
+    /// Needs to be cast to XeTeXFontInst
     pub type XeTeXFont_rec;
     #[no_mangle]
     fn tan(_: libc::c_double) -> libc::c_double;
@@ -1364,13 +1363,7 @@ pub const FT_SFNT_MAXP: FT_Sfnt_Tag_ = 1;
 pub const FT_SFNT_HEAD: FT_Sfnt_Tag_ = 0;
 pub type FT_Sfnt_Tag = FT_Sfnt_Tag_;
 pub type Fixed = i32;
-#[cfg(not(target_os = "macos"))]
-pub type PlatformFontRef = *mut FcPattern;
-
-#[cfg(target_os = "macos")]
-pub type PlatformFontRef = CTFontDescriptorRef;
-#[cfg(target_os = "macos")]
-pub type CTFontDescriptorRef = *const __CTFontDescriptor;
+use crate::xetex_layout_engine::PlatformFontRef;
 
 pub type XeTeXFont = *mut XeTeXFont_rec;
 /* ***************************************************************************\

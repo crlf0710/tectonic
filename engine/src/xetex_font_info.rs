@@ -30,6 +30,9 @@ mod imp {}
 #[path = "xetex_font_info_coretext.rs"]
 mod imp;
 
+#[cfg(target_os = "macos")]
+pub use imp::{XeTeXFontInst_Mac, XeTeXFontInst_Mac_create};
+
 extern crate libc;
 extern "C" {
     pub type FT_LibraryRec_;
@@ -50,9 +53,6 @@ extern "C" {
     fn strrchr(_: *const libc::c_char, _: libc::c_int) -> *mut libc::c_char;
     #[no_mangle]
     fn strlen(_: *const libc::c_char) -> libc::c_ulong;
-    /* The internal, C/C++ interface: */
-    #[no_mangle]
-    fn _tt_abort(format: *const libc::c_char, _: ...) -> !;
     /* tectonic/core-memory.h: basic dynamic memory helpers
        Copyright 2016-2018 the Tectonic Project
        Licensed under the MIT License.
@@ -1743,7 +1743,7 @@ pub struct XeTeXFontInst {
     pub m_backingData: *mut FT_Byte,
     pub m_backingData2: *mut FT_Byte,
     pub m_hbFont: *mut hb_font_t,
-    pub m_subdtor: Option<unsafe extern "C" fn(_: *mut XeTeXFontInst) -> ()>,
+    pub m_subdtor: Option<unsafe fn(_: *mut XeTeXFontInst) -> ()>,
 }
 /* *************************************************************************
  *
@@ -2258,10 +2258,7 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
     if gFreeTypeLibrary.is_null() {
         error = FT_Init_FreeType(&mut gFreeTypeLibrary);
         if error != 0 {
-            _tt_abort(
-                b"FreeType initialization failed, error %d\x00" as *const u8 as *const libc::c_char,
-                error,
-            );
+            panic!("FreeType initialization failed, error {}", error);
         }
     }
     // Here we emulate some logic that was originally in find_native_font();
@@ -2278,7 +2275,7 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
     let mut r =
         ttstub_input_read(handle.0.as_ptr(), (*self_0).m_backingData as *mut libc::c_char, sz);
     if r < 0 || r != sz as i64 {
-        _tt_abort(b"failed to read font file\x00" as *const u8 as *const libc::c_char);
+        panic!("failed to read font file");
     }
     ttstub_input_close(handle);
     error = FT_New_Memory_Face(
@@ -2318,7 +2315,7 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
                 sz,
             );
             if r < 0 || r != sz as i64 {
-                _tt_abort(b"failed to read AFM file\x00" as *const u8 as *const libc::c_char);
+                panic!("failed to read AFM file");
             }
             ttstub_input_close(afm_handle);
             let mut open_args: FT_Open_Args = FT_Open_Args {
@@ -2552,66 +2549,6 @@ Except as contained in this notice, the name of the copyright holders
 shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in this Software without prior written
 authorization from the copyright holders.
-\****************************************************************************/
-/*
- *   file name:  XeTeXFontInst.h
- *
- *   created on: 2005-10-22
- *   created by: Jonathan Kew
- *
- *  originally based on PortableFontInstance.h from ICU
- */
-// create specific subclasses for each supported platform
-// false = horizontal, true = vertical
-// font filename
-// face index
-/*
-class XeTeXFontInst
-{
-protected:
-
-public:
-    XeTeXFontInst(float pointSize, int &status);
-    XeTeXFontInst(const char* filename, int index, float pointSize, int &status);
-
-    virtual ~XeTeXFontInst();
-
-    void initialize(const char* pathname, int index, int &status);
-
-    void *getFontTable(OTTag tableTag) const;
-    void *getFontTable(FT_Sfnt_Tag tableTag) const;
-
-    hb_font_t *getHbFont() const { return m_hbFont; }
-    void setLayoutDirVertical(bool vertical);
-    bool getLayoutDirVertical() const { return m_vertical; }
-
-    GlyphID mapCharToGlyph(UChar32 ch) const;
-    GlyphID mapGlyphToIndex(const char* glyphName) const;
-
-    uint16_t getNumGlyphs() const;
-
-    void getGlyphBounds(GlyphID glyph, GlyphBBox* bbox);
-
-    float getGlyphWidth(GlyphID glyph);
-    void getGlyphHeightDepth(GlyphID glyph, float *ht, float* dp);
-    void getGlyphSidebearings(GlyphID glyph, float* lsb, float* rsb);
-    float getGlyphItalCorr(GlyphID glyph);
-
-    const char* getGlyphName(GlyphID gid, int& nameLen);
-
-    UChar32 getFirstCharCode();
-    UChar32 getLastCharCode();
-
-    float unitsToPoints(float units) const
-    {
-        return (units * m_pointSize) / (float) m_unitsPerEM;
-    }
-
-    float pointsToUnits(float points) const
-    {
-        return (points * (float) m_unitsPerEM) / m_pointSize;
-    }
-};
 */
 #[no_mangle]
 pub unsafe extern "C" fn XeTeXFontInst_getGlyphSidebearings(

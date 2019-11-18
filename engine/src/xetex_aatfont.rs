@@ -89,7 +89,9 @@ pub mod cf_prelude {
 
     // The CFArray wrapper is not mutable, so we use the APIs directly
     pub use core_foundation::array::{
-        kCFTypeArrayCallBacks, CFArrayCallBacks, CFArrayGetCount, CFArrayRef, __CFArray,
+        kCFTypeArrayCallBacks, CFArrayCallBacks, CFArrayCopyDescriptionCallBack,
+        CFArrayEqualCallBack, CFArrayGetCount, CFArrayRef, CFArrayReleaseCallBack,
+        CFArrayRetainCallBack, __CFArray,
     };
     pub type CFMutableArrayRef = *mut __CFArray;
     extern "C" {
@@ -99,6 +101,13 @@ pub mod cf_prelude {
             capacity: CFIndex,
             callBacks: *const CFArrayCallBacks,
         ) -> CFMutableArrayRef;
+        #[no_mangle]
+        pub fn CFArrayCreate(
+            allocator: CFAllocatorRef,
+            values: *mut *const libc::c_void,
+            numValues: CFIndex,
+            callBacks: *const CFArrayCallBacks,
+        ) -> CFArrayRef;
         #[no_mangle]
         pub fn CFArrayAppendValue(theArray: CFMutableArrayRef, value: *const libc::c_void);
     }
@@ -258,6 +267,11 @@ pub mod cf_prelude {
             attributes: CTFontDescriptorRef,
         ) -> CTFontRef;
         #[no_mangle]
+        pub fn CTFontDescriptorCreateCopyWithAttributes(
+            original: CTFontDescriptorRef,
+            attributes: CFDictionaryRef,
+        ) -> CTFontDescriptorRef;
+        #[no_mangle]
         pub fn CTFontCopyAttribute(font: CTFontRef, attribute: CFStringRef) -> CFTypeRef;
         #[no_mangle]
         pub fn CTFontCopyName(font: CTFontRef, nameKey: CFStringRef) -> CFStringRef;
@@ -363,7 +377,9 @@ use crate::xetex_ini::{
     name_length, name_of_file, native_font_type_flag,
 };
 use crate::xetex_xetex0::font_feature_warning;
-use libc::{free, strcmp, strdup, strlen, strncmp};
+use libc::{free, strdup, strlen};
+#[cfg(not(unix))]
+use libc::strdup;
 type int32_t = libc::c_int;
 type uint16_t = libc::c_ushort;
 pub type Boolean = libc::c_uchar;
@@ -388,7 +404,7 @@ pub type str_number = int32_t;
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-use crate::{streq_ptr, strstartswith};
+use crate::strstartswith;
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International
@@ -897,23 +913,13 @@ pub unsafe extern "C" fn getFileNameFromCTFont(
             if ix > -1 {
                 *index = ix as u32;
                 let osstr = pathbuf.as_os_str();
-                #[cfg(unix)]
-                {
-                    use std::os::unix::ffi::OsStrExt;
-                    let bytes = osstr.as_bytes();
-                    ret =
-                        xcalloc((bytes.len() + 1) as _, std::mem::size_of::<i8>() as _) as *mut i8;
-                    for i in 0..bytes.len() {
-                        *ret.offset(i as isize) = bytes[i] as i8;
-                    }
-                }
-                #[cfg(not(unix))]
-                {
-                    // On Windows, given the limitations of the bridge API, we don't actually
-                    // support full-on OsStrings anyway, so we'll just work with utf8.
-                    let cstring = CString::from(osstr.to_string_lossy());
-                    let bytes = cstring.as_bytes();
-                    ret = strdup(bytes.as_ptr());
+                // We're on macOS; std::os::unix is available.
+                use std::os::unix::ffi::OsStrExt;
+                let bytes = osstr.as_bytes();
+                ret =
+                    xcalloc((bytes.len() + 1) as _, std::mem::size_of::<i8>() as _) as *mut i8;
+                for i in 0..bytes.len() {
+                    *ret.offset(i as isize) = bytes[i] as i8;
                 }
             }
         }

@@ -150,6 +150,11 @@ extern "C" {
     #[no_mangle]
     fn CTFontDescriptorCreateWithAttributes(attributes: CFDictionaryRef) -> CTFontDescriptorRef;
     #[no_mangle]
+    fn CTFontDescriptorCreateCopyWithAttributes(
+        original: CTFontDescriptorRef,
+        attributes: CFDictionaryRef,
+    ) -> CTFontDescriptorRef;
+    #[no_mangle]
     fn CFArrayGetValueAtIndex(theArray: CFArrayRef, idx: CFIndex) -> *const libc::c_void;
     #[no_mangle]
     fn CTFontDescriptorCreateMatchingFontDescriptors(

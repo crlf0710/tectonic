@@ -20,10 +20,9 @@ use super::xetex_aatfont as aat;
 #[cfg(target_os = "macos")]
 use super::xetex_aatfont::cf_prelude::{
     kCFNumberFloatType, kCTFontAttributeName, kCTForegroundColorAttributeName,
-    kCTVerticalFormsAttributeName, CFBooleanRef, CFDictionaryGetValue, CFDictionaryRef,
-    CFNumberGetValue, CFNumberRef, CFNumberType, CFRelease, CFTypeRef, CGAffineTransform,
-    CGColorGetComponents, CGColorRef, CGFloat, CTFontDescriptorRef, CTFontGetMatrix, CTFontGetSize,
-    CTFontRef,
+    kCTVerticalFormsAttributeName, CFDictionaryGetValue, CFDictionaryRef, CFNumberGetValue,
+    CFNumberRef, CFNumberType, CFRelease, CFTypeRef, CGAffineTransform, CGColorGetComponents,
+    CGColorRef, CGFloat, CTFontGetMatrix, CTFontGetSize, CTFontRef,
 };
 use crate::core_memory::{mfree, xcalloc, xmalloc, xrealloc, xstrdup};
 use crate::xetex_ini::memory_word;
@@ -43,9 +42,12 @@ use crate::xetex_xetex0::{
 use bridge::_tt_abort;
 
 use crate::stub_stdio::strcasecmp;
+use crate::xetex_font_manager::XeTeXFont;
 use crate::xetex_layout_engine::*;
+use crate::xetex_layout_interface::*;
+use crate::xetex_texmfmp::maketexstring;
+use harfbuzz_sys::{hb_feature_t, hb_tag_from_string, hb_tag_t};
 use libc::{memcpy, strcat, strcpy, strdup, strlen, strncpy, strstr};
-use harfbuzz_sys::{hb_tag_t, hb_tag_from_string, hb_feature_t};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;

@@ -8,6 +8,11 @@
 
 use crate::core_memory::xmalloc;
 use harfbuzz_sys::*;
+use crate::xetex_ext::{Fix2D, D2Fix};
+use crate::xetex_font_info::{XeTeXFontInst_unitsToPoints, XeTeXFontInst_pointsToUnits, XeTeXFontInst_getHbFont};
+use crate::xetex_layout_interface::XeTeXLayoutEngine;
+use crate::xetex_font_info::XeTeXFontInst;
+use crate::xetex_font_manager::XeTeXFont;
 
 extern "C" {
     pub type FT_LibraryRec_;
@@ -16,8 +21,6 @@ extern "C" {
     pub type FT_Size_InternalRec_;
     pub type FT_Slot_InternalRec_;
     pub type FT_SubGlyphRec_;
-    pub type XeTeXFont_rec;
-    pub type XeTeXLayoutEngine_rec;
     #[no_mangle]
     fn free(__ptr: *mut libc::c_void);
     #[no_mangle]
@@ -30,27 +33,11 @@ extern "C" {
         depth: *mut libc::c_float,
     );
     #[no_mangle]
-    fn Fix2D(f: Fixed) -> libc::c_double;
-    #[no_mangle]
-    fn D2Fix(d: libc::c_double) -> Fixed;
-    #[no_mangle]
     static mut font_layout_engine: *mut *mut libc::c_void;
     #[no_mangle]
     static mut font_area: *mut int32_t;
     #[no_mangle]
     static mut font_size: *mut int32_t;
-    #[no_mangle]
-    fn XeTeXFontInst_getHbFont(self_0: *const XeTeXFontInst) -> *mut hb_font_t;
-    #[no_mangle]
-    fn XeTeXFontInst_unitsToPoints(
-        self_0: *const XeTeXFontInst,
-        units: libc::c_float,
-    ) -> libc::c_float;
-    #[no_mangle]
-    fn XeTeXFontInst_pointsToUnits(
-        self_0: *const XeTeXFontInst,
-        points: libc::c_float,
-    ) -> libc::c_float;
 }
 pub type size_t = usize;
 pub type int32_t = i32;
@@ -1272,32 +1259,11 @@ pub const HB_OT_MATH_GLYPH_PART_FLAG_EXTENDER: hb_ot_math_glyph_part_flags_t = 1
 /* our typedefs */
 
 pub type Fixed = i32;
-pub type XeTeXFont = *mut XeTeXFont_rec;
-pub type XeTeXLayoutEngine = *mut XeTeXLayoutEngine_rec;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct GlyphAssembly {
     pub count: libc::c_uint,
     pub parts: *mut hb_ot_math_glyph_part_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct XeTeXFontInst {
-    pub m_unitsPerEM: libc::c_ushort,
-    pub m_pointSize: libc::c_float,
-    pub m_ascent: libc::c_float,
-    pub m_descent: libc::c_float,
-    pub m_capHeight: libc::c_float,
-    pub m_xHeight: libc::c_float,
-    pub m_italicAngle: libc::c_float,
-    pub m_vertical: bool,
-    pub m_filename: *mut libc::c_char,
-    pub m_index: uint32_t,
-    pub m_ftFace: FT_Face,
-    pub m_backingData: *mut FT_Byte,
-    pub m_backingData2: *mut FT_Byte,
-    pub m_hbFont: *mut hb_font_t,
-    pub m_subdtor: Option<unsafe extern "C" fn(_: *mut XeTeXFontInst) -> ()>,
 }
 /* ***************************************************************************\
  Part of the XeTeX typesetting system

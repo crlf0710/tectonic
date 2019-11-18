@@ -16,7 +16,7 @@ use crate::core_memory::{mfree, xcalloc, xmalloc};
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, overflow};
 use crate::xetex_ext::release_font_engine;
-use crate::xetex_layout_engine::{destroy_font_manager, set_cp_code};
+use crate::xetex_layout_interface::{destroy_font_manager, set_cp_code};
 use crate::xetex_math::initialize_math_variables;
 use crate::xetex_output::{
     print, print_char, print_cstr, print_esc, print_esc_cstr, print_file_line, print_file_name,
