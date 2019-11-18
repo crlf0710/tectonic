@@ -27,7 +27,7 @@ use std::ptr;
 
 #[repr(transparent)]
 pub struct AATLayoutEngine {
-    attributes: CFDictionaryRef,
+    pub attributes: CFDictionaryRef,
 }
 
 impl AATLayoutEngine {
@@ -36,10 +36,10 @@ impl AATLayoutEngine {
             attributes
         }
     }
-    unsafe fn ct_font(&self) -> CTFontRef {
+    pub unsafe fn ct_font(&self) -> CTFontRef {
         font_from_attributes(self.attributes)
     }
-    unsafe fn transform(&self) -> CGAffineTransform {
+    pub unsafe fn transform(&self) -> CGAffineTransform {
         let font = self.ct_font();
         CTFontGetMatrix(font)
     }
@@ -227,6 +227,56 @@ impl TextLayout for AATLayoutEngine {
         let filename = getFileNameFromCTFont(self.ct_font(), index);
         assert!(!filename.is_null());
         filename
+    }
+
+    unsafe fn print_font_name(&self, c: i32, arg1: i32, arg2: i32) {
+        if self.usingGraphite() {
+            aat_print_font_name(c, arg1, arg2);
+        }
+    }
+
+    unsafe fn get_font_metrics(&self, ascent: &mut Fixed, descent: &mut Fixed, x_ht: &mut Fixed, cap_ht: &mut Fixed, slant: &mut Fixed) {
+        aat_get_font_metrics(self.attributes, ascent, descent, x_ht, cap_ht, slant);
+    }
+
+    pub unsafe fn get_flags(&self, _font_number: u32) -> i32 {
+        if !CFDictionaryGetValue(
+            self.attributes,
+            kCTVerticalFormsAttributeName as *const libc::c_void,
+        )
+        .is_null()
+        {
+            0x100
+        } else {
+            0
+        }
+    }
+
+    /// ot_font_get, aat_font_get
+    unsafe fn poorly_named_getter(
+        &self,
+        mut what: i32,
+    ) -> i32 {
+        aat_font_get(what, self.attributes);
+    }
+
+    /// ot_font_get_1, aat_font_get_1
+    unsafe fn poorly_named_getter_1(
+        &self,
+        mut what: i32,
+        mut param1: i32,
+    ) -> i32 {
+        aat_font_get_2(what, self.attributes, param1);
+    }
+
+    /// ot_font_get_2, aat_font_get_2
+    unsafe fn poorly_named_getter_2(
+        &self,
+        mut what: i32,
+        mut param1: i32,
+        mut param2: i32,
+    ) -> i32 {
+        aat_font_get_2(what, self.attributes, param1, param2);
     }
 
     /// getExtendFactor
@@ -1605,70 +1655,70 @@ pub unsafe fn aat_font_get_2(
     return rval;
 }
 
-#[no_mangle]
-pub unsafe fn aat_font_get_named(
-    mut what: libc::c_int,
-    mut attributes: CFDictionaryRef,
-) -> libc::c_int {
-    let mut rval: libc::c_int = -1i32;
-    if what == 10i32 {
-        let mut font: CTFontRef = font_from_attributes(attributes);
-        let mut features: CFArrayRef = CTFontCopyFeatures(font);
-        if !features.is_null() {
-            let mut feature: CFDictionaryRef = findDictionaryInArray(
-                features,
-                kCTFontFeatureTypeNameKey as *const libc::c_void,
-                name_of_file,
-                name_length,
-            );
-            if !feature.is_null() {
-                let mut identifier: CFNumberRef = CFDictionaryGetValue(
-                    feature,
-                    kCTFontFeatureTypeIdentifierKey as *const libc::c_void,
-                ) as CFNumberRef;
-                CFNumberGetValue(
-                    identifier,
-                    kCFNumberIntType as libc::c_int as CFNumberType,
-                    &mut rval as *mut libc::c_int as *mut libc::c_void,
+impl AATLayoutEngine {
+    pub unsafe fn aat_font_get_named(
+        &self,
+        mut what: libc::c_int,
+    ) -> libc::c_int {
+        let mut rval: libc::c_int = -1i32;
+        if what == 10i32 {
+            let mut font: CTFontRef = self.ct_font();
+            let mut features: CFArrayRef = CTFontCopyFeatures(font);
+            if !features.is_null() {
+                let mut feature: CFDictionaryRef = findDictionaryInArray(
+                    features,
+                    kCTFontFeatureTypeNameKey as *const libc::c_void,
+                    name_of_file,
+                    name_length,
                 );
-            }
-            CFRelease(features as CFTypeRef);
-        }
-    }
-    return rval;
-}
-
-#[no_mangle]
-pub unsafe fn aat_font_get_named_1(
-    mut what: i32,
-    mut attributes: CFDictionaryRef,
-    mut param: i32,
-) -> i32 {
-    let mut rval: libc::c_int = -1i32;
-    let mut font: CTFontRef = font_from_attributes(attributes);
-    if what == 14i32 {
-        let mut features: CFArrayRef = CTFontCopyFeatures(font);
-        if !features.is_null() {
-            let mut feature: CFDictionaryRef = findDictionaryInArrayWithIdentifier(
-                features,
-                kCTFontFeatureTypeIdentifierKey as *const libc::c_void,
-                param,
-            );
-            if !feature.is_null() {
-                let mut selector: CFNumberRef =
-                    findSelectorByName(feature, name_of_file, name_length);
-                if !selector.is_null() {
+                if !feature.is_null() {
+                    let mut identifier: CFNumberRef = CFDictionaryGetValue(
+                        feature,
+                        kCTFontFeatureTypeIdentifierKey as *const libc::c_void,
+                    ) as CFNumberRef;
                     CFNumberGetValue(
-                        selector,
+                        identifier,
                         kCFNumberIntType as libc::c_int as CFNumberType,
                         &mut rval as *mut libc::c_int as *mut libc::c_void,
                     );
                 }
+                CFRelease(features as CFTypeRef);
             }
-            CFRelease(features as CFTypeRef);
         }
+        return rval;
     }
-    return rval;
+
+    pub unsafe fn aat_font_get_named_1(
+        &self,
+        mut what: i32,
+        mut param: i32,
+    ) -> i32 {
+        let mut rval: libc::c_int = -1i32;
+        let mut font: CTFontRef = self.ct_font();
+        if what == 14i32 {
+            let mut features: CFArrayRef = CTFontCopyFeatures(font);
+            if !features.is_null() {
+                let mut feature: CFDictionaryRef = findDictionaryInArrayWithIdentifier(
+                    features,
+                    kCTFontFeatureTypeIdentifierKey as *const libc::c_void,
+                    param,
+                );
+                if !feature.is_null() {
+                    let mut selector: CFNumberRef =
+                        findSelectorByName(feature, name_of_file, name_length);
+                    if !selector.is_null() {
+                        CFNumberGetValue(
+                            selector,
+                            kCFNumberIntType as libc::c_int as CFNumberType,
+                            &mut rval as *mut libc::c_int as *mut libc::c_void,
+                        );
+                    }
+                }
+                CFRelease(features as CFTypeRef);
+            }
+        }
+        return rval;
+    }
 }
 
 #[no_mangle]

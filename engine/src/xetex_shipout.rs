@@ -2971,9 +2971,7 @@ unsafe extern "C" fn dvi_native_font_def(mut f: internal_font_number) {
 unsafe extern "C" fn dvi_font_def(mut f: internal_font_number) {
     let mut k: pool_pointer = 0;
     let mut l: i32 = 0;
-    if *FONT_AREA.offset(f as isize) as u32 == 0xffffu32
-        || *FONT_AREA.offset(f as isize) as u32 == 0xfffeu32
-    {
+    if let Some(_eng) = TEXT_LAYOUT_ENGINES.get(f as usize) {
         dvi_native_font_def(f);
     } else {
         if f <= 256i32 {

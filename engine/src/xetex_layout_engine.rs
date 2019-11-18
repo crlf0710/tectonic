@@ -423,6 +423,12 @@ impl TextLayout for XeTeXLayoutEngine_rec {
     //     self.font
     // }
 
+    pub unsafe fn get_flags(&self, font_number: u32) -> i32 {
+        if *font_flags.offset(font_number as isize) as i32 & 0x2i32 != 0i32 {
+            0x100i32
+        }
+    }
+
     // getGlyphWidth
     unsafe fn glyph_width(&self, gid: u32) -> f64 {
         XeTeXFontInst_getGlyphWidth(self.font, gid as GlyphID) as f64
@@ -438,6 +444,89 @@ impl TextLayout for XeTeXLayoutEngine_rec {
         self.extend as f64
     }
 
+    unsafe fn get_font_metrics(&self, ascent: &mut Fixed, descent: &mut Fixed, x_ht: &mut Fixed, cap_ht: &mut Fixed, slant: &mut Fixed) {
+        crate::xetex_ext::ot_get_font_metrics(self.attributes, ascent, descent, x_ht, cap_ht, slant);
+    }
+
+    /// ot_font_get, aat_font_get
+    unsafe fn poorly_named_getter(&self, what: i32) {
+        let mut fontInst = self.font;
+        match what {
+            1 => return countGlyphs(fontInst) as i32,
+            8 => {
+                /* ie Graphite features */
+                return countGraphiteFeatures(self) as i32;
+            }
+            16 => return countScripts(fontInst) as i32,
+            _ => {}
+        }
+        0i32
+    }
+
+    /// ot_font_get_1, aat_font_get_1
+    unsafe fn poorly_named_getter_1(&self, what: i32) {
+        let mut fontInst = self.font;
+        match what {
+            17 => return countLanguages(fontInst, param as hb_tag_t) as i32,
+            19 => return getIndScript(fontInst, param as u32) as i32,
+            9 => {
+                /* for graphite fonts...*/
+                return getGraphiteFeatureCode(engine, param as u32) as i32;
+            }
+            11 => return 1i32,
+            12 => return countGraphiteFeatureSettings(engine, param as u32) as i32,
+            _ => {}
+        }
+        0i32
+    }
+
+    /// ot_font_get_2, aat_font_get_2
+    unsafe fn poorly_named_getter_2(
+        &self,
+        mut what: i32,
+        mut param1: i32,
+        mut param2: i32,
+    ) -> i32 {
+        let mut fontInst = self.font;
+        match what {
+            20 => return getIndLanguage(fontInst, param1 as hb_tag_t, param2 as u32) as i32,
+            18 => return countFeatures(fontInst, param1 as hb_tag_t, param2 as hb_tag_t) as i32,
+            13 => {
+                /* for graphite fonts */
+                return getGraphiteFeatureSettingCode(self, param1 as u32, param2 as u32) as i32;
+            }
+            15 => {
+                return (getGraphiteFeatureDefaultSetting(self, param1 as u32) == param2 as u32)
+                    as i32
+            }
+            _ => {}
+        } /* to guarantee enough space in the buffer */
+        0i32
+    }
+
+    unsafe fn ot_font_get_3(
+        &self,
+        mut what: i32,
+        mut param1: i32,
+        mut param2: i32,
+        mut param3: i32,
+    ) -> i32 {
+        let mut fontInst = self.font;
+        match what {
+            21 => {
+                return getIndFeature(
+                    fontInst,
+                    param1 as hb_tag_t,
+                    param2 as hb_tag_t,
+                    param3 as u32,
+                ) as i32
+            }
+            _ => {}
+        }
+        0i32
+    }
+
+
     /// getPointSize
     unsafe fn point_size(&self) -> f64 {
         unsafe { XeTeXFontInst_getPointSize(self.font) as f64 }
@@ -448,6 +537,24 @@ impl TextLayout for XeTeXLayoutEngine_rec {
             *ascent = XeTeXFontInst_getAscent(self.font);
             *descent = XeTeXFontInst_getDescent(self.font);
         }
+    }
+
+    /// gr_print_font_name
+    unsafe fn print_font_name(&self, c: i32, arg1: i32, arg2: i32) {
+        if self.usingGraphite() {
+            let mut name: *mut i8 = 0 as *mut i8;
+            match what {
+                8 => name = getGraphiteFeatureLabel(self, param1 as u32),
+                9 => name = getGraphiteFeatureSettingLabel(self, param1 as u32, param2 as u32),
+                _ => {}
+            }
+            if !name.is_null() {
+                print_c_string(name);
+                gr_label_destroy(name as *mut libc::c_void);
+            };
+        }
+        // Not sure why non-graphite font names aren't printed
+        // Originally in xetex0.c.
     }
 
     /// getGlyphName
@@ -1397,9 +1504,9 @@ pub unsafe fn getIndFeature(
     return rval;
 }
 #[no_mangle]
-pub unsafe fn countGraphiteFeatures(mut engine: XeTeXLayoutEngine) -> uint32_t {
+pub unsafe fn countGraphiteFeatures(engine: &XeTeXLayoutEngine_rec) -> uint32_t {
     let mut rval: uint32_t = 0i32 as uint32_t;
-    let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
+    let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont(engine.font));
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
         rval = gr_face_n_fref(grFace) as uint32_t
@@ -1438,12 +1545,12 @@ pub unsafe fn countGraphiteFeatureSettings(
 
 #[no_mangle]
 pub unsafe fn getGraphiteFeatureSettingCode(
-    mut engine: XeTeXLayoutEngine,
+    engine: &XeTeXLayoutEngine_rec,
     mut featureID: uint32_t,
     mut index: uint32_t,
 ) -> uint32_t {
     let mut rval: uint32_t = 0i32 as uint32_t;
-    let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
+    let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont(engine.font));
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
         let mut feature: *const gr_feature_ref = gr_face_find_fref(grFace, featureID);
@@ -1454,19 +1561,19 @@ pub unsafe fn getGraphiteFeatureSettingCode(
 
 #[no_mangle]
 pub unsafe fn getGraphiteFeatureDefaultSetting(
-    mut engine: XeTeXLayoutEngine,
+    engine: &XeTeXLayoutEngine_rec,
     mut featureID: uint32_t,
 ) -> uint32_t {
     let mut rval: uint32_t = 0i32 as uint32_t;
-    let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
+    let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont(engine.font));
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
         let mut feature: *const gr_feature_ref = gr_face_find_fref(grFace, featureID);
         let mut featureValues: *mut gr_feature_val = gr_face_featureval_for_lang(
             grFace,
             hb_tag_from_string(
-                hb_language_to_string((*engine).language),
-                strlen(hb_language_to_string((*engine).language)) as libc::c_int,
+                hb_language_to_string(engine.language),
+                strlen(hb_language_to_string(engine.language)) as libc::c_int,
             ),
         );
         rval = gr_fref_feature_value(feature, featureValues) as uint32_t
@@ -1475,7 +1582,7 @@ pub unsafe fn getGraphiteFeatureDefaultSetting(
 }
 #[no_mangle]
 pub unsafe fn getGraphiteFeatureLabel(
-    mut engine: XeTeXLayoutEngine,
+    engine: &XeTeXLayoutEngine_rec,
     mut featureID: uint32_t,
 ) -> *mut libc::c_char {
     let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
@@ -1490,9 +1597,9 @@ pub unsafe fn getGraphiteFeatureLabel(
 }
 #[no_mangle]
 pub unsafe fn getGraphiteFeatureSettingLabel(
-    mut engine: XeTeXLayoutEngine,
-    mut featureID: uint32_t,
-    mut settingID: uint32_t,
+    engine: &XeTeXLayoutEngine_rec,
+    featureID: uint32_t,
+    settingID: uint32_t,
 ) -> *mut libc::c_char {
     let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
@@ -1513,7 +1620,7 @@ pub unsafe fn getGraphiteFeatureSettingLabel(
 }
 #[no_mangle]
 pub unsafe fn findGraphiteFeature(
-    mut engine: XeTeXLayoutEngine,
+    engine: &mut XeTeXLayoutEngine_rec,
     mut s: *const libc::c_char,
     mut e: *const libc::c_char,
     mut f: *mut hb_tag_t,
@@ -1663,7 +1770,7 @@ pub unsafe fn createLayoutEngine(
     slant: f32,
     embolden: f32,
     shaperRequest: Option<ShaperRequest>,
-) -> XeTeXLayoutEngine {
+) -> XeTeXLayoutEngine_rec {
     // For Graphite fonts treat the language as BCP 47 tag, for OpenType we
     // treat it as a OT language tag for backward compatibility with pre-0.9999
     // XeTeX.
@@ -1687,7 +1794,7 @@ pub unsafe fn createLayoutEngine(
         })
         .freeze();
 
-    let record = XeTeXLayoutEngine_rec {
+    XeTeXLayoutEngine_rec {
         font,
         fontRef,
         script,
@@ -1701,9 +1808,7 @@ pub unsafe fn createLayoutEngine(
         slant,
         embolden,
         hbBuffer: hb_buffer_create(),
-    };
-
-    Box::into_raw(Box::new(record))
+    }
 }
 
 impl Drop for XeTeXLayoutEngine_rec {
@@ -1720,7 +1825,6 @@ impl Drop for XeTeXLayoutEngine_rec {
 
 #[no_mangle]
 pub unsafe fn deleteLayoutEngine(mut engine: XeTeXLayoutEngine) {
-    drop(Box::from_raw(engine));
 }
 
 unsafe fn _decompose_compat(

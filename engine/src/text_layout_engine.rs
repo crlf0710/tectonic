@@ -227,6 +227,8 @@ pub trait TextLayout {
     /// Only for make_font_def. Should use CStr, probably.
     unsafe fn font_filename(&self, index: &mut u32) -> *mut libc::c_char;
 
+    unsafe fn print_font_name(&self, c: i32, arg1: i32, arg2: i32);
+
     /// getFontInst
     // fn font_instance(&self) -> *mut XeTeXFontInst;
 
@@ -236,6 +238,31 @@ pub trait TextLayout {
     unsafe fn glyph_width(&self, gid: u32) -> f64;
 
     // XXX: make a single struct for make_font_def to consume, of all the required values
+
+    unsafe fn get_font_metrics(&self, ascent: &mut Fixed, descent: &mut Fixed, x_ht: &mut Fixed, cap_ht: &mut Fixed, slant: &mut Fixed);
+
+    /// ot_font_get, aat_font_get
+    unsafe fn poorly_named_getter(
+        &self,
+        mut what: i32,
+    ) -> i32;
+
+    /// ot_font_get_1, aat_font_get_1
+    unsafe fn poorly_named_getter_1(
+        &self,
+        mut what: i32,
+        mut param1: i32,
+    ) -> i32;
+
+    /// ot_font_get_2, aat_font_get_2
+    unsafe fn poorly_named_getter_2(
+        &self,
+        mut what: i32,
+        mut param1: i32,
+        mut param2: i32,
+    ) -> i32;
+
+    pub unsafe fn get_flags(&self, font_number: u32) -> i32;
 
     /// getExtendFactor
     unsafe fn extend_factor(&self) -> f64;
