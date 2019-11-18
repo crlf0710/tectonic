@@ -37,11 +37,11 @@ use crate::xetex_xetex0::{
     new_native_character, new_noad, new_null_box, new_param_glue, new_penalty, new_rule,
     new_skip_param, new_spec, norm_min, off_save, pop_nest, push_math, push_nest,
     scan_delimiter_int, scan_dimen, scan_fifteen_bit_int, scan_keyword, scan_left_brace, scan_math,
-    scan_math_class_int, scan_math_fam_int, scan_usv_num, unsave, vpackage, CUR_FONT_LOC,
+    scan_math_class_int, scan_math_fam_int, scan_usv_num, unsave, vpackage,
 };
 use crate::xetex_xetexd::is_char_node;
 
-use crate::xetex_consts::MATH_FONT_BASE;
+use crate::xetex_consts::{MATH_FONT_BASE, CUR_FONT_LOC};
 use crate::text_layout_engine::{TextLayoutEngine, TextLayout};
 
 #[inline(always)]

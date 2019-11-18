@@ -484,7 +484,7 @@ impl TextLayout for XeTeXLayoutEngine_rec {
         if *capheight == 0i32 {
             let mut glyphID_0: i32 = self.map_char_to_glyph('X' as i32 as u32) as i32;
             if glyphID_0 != 0i32 {
-                if let Some((height, desc)) = self.glyph_height_depth(glyphID as u32) {
+                if let Some((height, desc)) = self.glyph_height_depth(glyphID_0 as u32) {
                     a = height;
                     d = desc;
                     *capheight = D2Fix(a as f64)

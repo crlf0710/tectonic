@@ -8866,7 +8866,7 @@ pub unsafe extern "C" fn scan_glyph_number(eng: &TextLayoutEngine) {
         cur_val_level = 0_u8
     } else if scan_keyword(b"u\x00" as *const u8 as *const i8) {
         scan_char_num();
-        cur_val = eng.map_char_to_glyph(cur_val as i32) as i32;
+        cur_val = eng.map_char_to_glyph(cur_val as u32) as i32;
         cur_val_level = 0_u8
     } else {
         scan_int();
@@ -13034,9 +13034,13 @@ pub unsafe extern "C" fn conv_toks() {
             scan_font_ident();
             fnt = cur_val;
             match get_text_layout_engine(fnt as usize) {
-                Some(TextLayoutEngine::AAT(_)) | Some(TextLayoutEngine::XeTeX(e))
-                    if e.usingGraphite() =>
-                {
+                Some(TextLayoutEngine::AAT(e)) => {
+                    scan_int();
+                    arg1 = cur_val;
+                    scan_int();
+                    arg2 = cur_val;
+                }
+                Some(TextLayoutEngine::XeTeX(e)) if e.usingGraphite() => {
                     scan_int();
                     arg1 = cur_val;
                     scan_int();

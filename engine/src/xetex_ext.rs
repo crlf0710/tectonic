@@ -1762,7 +1762,7 @@ pub unsafe fn map_char_to_glyph(mut font: i32, mut ch: i32) -> i32 {
     }
     let eng =
         get_text_layout_engine(font as usize).expect("bad native font flag in `map_char_to_glyph`");
-    eng.map_char_to_glyph(ch as i32) as i32
+    eng.map_char_to_glyph(ch as u32) as i32
 }
 
 #[no_mangle]
