@@ -46,9 +46,8 @@ use super::dpx_cidtype2::{
 };
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_get_version, pdf_link_obj,
-    pdf_name_value, pdf_new_name, pdf_number_value, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_remove_dict, pdf_string_value,
+    pdf_copy_name, pdf_get_version, pdf_link_obj, pdf_name_value, pdf_new_name, pdf_number_value,
+    pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_string_value,
 };
 use libc::{free, memcpy, memset, strcat, strchr, strcmp, strcpy, strlen, strncmp, strtoul};
 
@@ -156,54 +155,54 @@ pub struct C2RustUnnamed_3 {
 */
 static mut CIDFont_stdcc_def: [C2RustUnnamed_0; 7] = [
     C2RustUnnamed_0 {
-            registry: b"Adobe\x00" as *const u8 as *const i8,
-            ordering: b"UCS\x00" as *const u8 as *const i8,
-            supplement: [
-                -1i32, -1i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0, 0, 0, 0, 0, 0, 0, 0,
-            ],
-        },
+        registry: b"Adobe\x00" as *const u8 as *const i8,
+        ordering: b"UCS\x00" as *const u8 as *const i8,
+        supplement: [
+            -1i32, -1i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0, 0, 0, 0, 0, 0, 0, 0,
+        ],
+    },
     C2RustUnnamed_0 {
-            registry: b"Adobe\x00" as *const u8 as *const i8,
-            ordering: b"GB1\x00" as *const u8 as *const i8,
-            supplement: [
-                -1i32, -1i32, 0i32, 2i32, 4i32, 4i32, 4i32, 4i32, 0, 0, 0, 0, 0, 0, 0, 0,
-            ],
-        },
+        registry: b"Adobe\x00" as *const u8 as *const i8,
+        ordering: b"GB1\x00" as *const u8 as *const i8,
+        supplement: [
+            -1i32, -1i32, 0i32, 2i32, 4i32, 4i32, 4i32, 4i32, 0, 0, 0, 0, 0, 0, 0, 0,
+        ],
+    },
     C2RustUnnamed_0 {
-            registry: b"Adobe\x00" as *const u8 as *const i8,
-            ordering: b"CNS1\x00" as *const u8 as *const i8,
-            supplement: [
-                -1i32, -1i32, 0i32, 0i32, 3i32, 4i32, 4i32, 4i32, 0, 0, 0, 0, 0, 0, 0, 0,
-            ],
-        },
+        registry: b"Adobe\x00" as *const u8 as *const i8,
+        ordering: b"CNS1\x00" as *const u8 as *const i8,
+        supplement: [
+            -1i32, -1i32, 0i32, 0i32, 3i32, 4i32, 4i32, 4i32, 0, 0, 0, 0, 0, 0, 0, 0,
+        ],
+    },
     C2RustUnnamed_0 {
-            registry: b"Adobe\x00" as *const u8 as *const i8,
-            ordering: b"Japan1\x00" as *const u8 as *const i8,
-            supplement: [
-                -1i32, -1i32, 2i32, 2i32, 4i32, 5i32, 6i32, 6i32, 0, 0, 0, 0, 0, 0, 0, 0,
-            ],
-        },
+        registry: b"Adobe\x00" as *const u8 as *const i8,
+        ordering: b"Japan1\x00" as *const u8 as *const i8,
+        supplement: [
+            -1i32, -1i32, 2i32, 2i32, 4i32, 5i32, 6i32, 6i32, 0, 0, 0, 0, 0, 0, 0, 0,
+        ],
+    },
     C2RustUnnamed_0 {
-            registry: b"Adobe\x00" as *const u8 as *const i8,
-            ordering: b"Korea1\x00" as *const u8 as *const i8,
-            supplement: [
-                -1i32, -1i32, 1i32, 1i32, 2i32, 2i32, 2i32, 2i32, 0, 0, 0, 0, 0, 0, 0, 0,
-            ],
-        },
+        registry: b"Adobe\x00" as *const u8 as *const i8,
+        ordering: b"Korea1\x00" as *const u8 as *const i8,
+        supplement: [
+            -1i32, -1i32, 1i32, 1i32, 2i32, 2i32, 2i32, 2i32, 0, 0, 0, 0, 0, 0, 0, 0,
+        ],
+    },
     C2RustUnnamed_0 {
-            registry: b"Adobe\x00" as *const u8 as *const i8,
-            ordering: b"Identity\x00" as *const u8 as *const i8,
-            supplement: [
-                -1i32, -1i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0, 0, 0, 0, 0, 0, 0, 0,
-            ],
-        },
+        registry: b"Adobe\x00" as *const u8 as *const i8,
+        ordering: b"Identity\x00" as *const u8 as *const i8,
+        supplement: [
+            -1i32, -1i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0, 0, 0, 0, 0, 0, 0, 0,
+        ],
+    },
     C2RustUnnamed_0 {
-            registry: ptr::null(),
-            ordering: ptr::null(),
-            supplement: [
-                0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0, 0, 0, 0, 0, 0, 0, 0,
-            ],
-        },
+        registry: ptr::null(),
+        ordering: ptr::null(),
+        supplement: [
+            0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0, 0, 0, 0, 0, 0, 0, 0,
+        ],
+    },
 ];
 static mut registry_Adobe: [i8; 6] = [65, 100, 111, 98, 101, 0];
 static mut ordering_Identity: [i8; 9] = [73, 100, 101, 110, 116, 105, 116, 121, 0];
@@ -211,96 +210,96 @@ static mut ordering_UCS: [i8; 4] = [85, 67, 83, 0];
 
 pub static mut CSI_IDENTITY: CIDSysInfo = unsafe {
     CIDSysInfo {
-            registry: registry_Adobe.as_ptr() as *mut _,
-            ordering: ordering_Identity.as_ptr() as *mut _,
-            supplement: 0i32,
-        }
+        registry: registry_Adobe.as_ptr() as *mut _,
+        ordering: ordering_Identity.as_ptr() as *mut _,
+        supplement: 0i32,
+    }
 };
 
 pub static mut CSI_UNICODE: CIDSysInfo = unsafe {
     CIDSysInfo {
-            registry: registry_Adobe.as_ptr() as *mut _,
-            ordering: ordering_UCS.as_ptr() as *mut _,
-            supplement: 0i32,
-        }
+        registry: registry_Adobe.as_ptr() as *mut _,
+        ordering: ordering_UCS.as_ptr() as *mut _,
+        supplement: 0i32,
+    }
 };
 static mut CIDFont_stdcc_alias: [C2RustUnnamed_3; 19] = [
     C2RustUnnamed_3 {
-            name: b"AU\x00" as *const u8 as *const i8,
-            index: 0i32,
-        },
+        name: b"AU\x00" as *const u8 as *const i8,
+        index: 0i32,
+    },
     C2RustUnnamed_3 {
-            name: b"AG1\x00" as *const u8 as *const i8,
-            index: 1i32,
-        },
+        name: b"AG1\x00" as *const u8 as *const i8,
+        index: 1i32,
+    },
     C2RustUnnamed_3 {
-            name: b"AC1\x00" as *const u8 as *const i8,
-            index: 2i32,
-        },
+        name: b"AC1\x00" as *const u8 as *const i8,
+        index: 2i32,
+    },
     C2RustUnnamed_3 {
-            name: b"AJ1\x00" as *const u8 as *const i8,
-            index: 3i32,
-        },
+        name: b"AJ1\x00" as *const u8 as *const i8,
+        index: 3i32,
+    },
     C2RustUnnamed_3 {
-            name: b"AK1\x00" as *const u8 as *const i8,
-            index: 4i32,
-        },
+        name: b"AK1\x00" as *const u8 as *const i8,
+        index: 4i32,
+    },
     C2RustUnnamed_3 {
-            name: b"AI\x00" as *const u8 as *const i8,
-            index: 5i32,
-        },
+        name: b"AI\x00" as *const u8 as *const i8,
+        index: 5i32,
+    },
     C2RustUnnamed_3 {
-            name: b"UCS\x00" as *const u8 as *const i8,
-            index: 0i32,
-        },
+        name: b"UCS\x00" as *const u8 as *const i8,
+        index: 0i32,
+    },
     C2RustUnnamed_3 {
-            name: b"GB1\x00" as *const u8 as *const i8,
-            index: 1i32,
-        },
+        name: b"GB1\x00" as *const u8 as *const i8,
+        index: 1i32,
+    },
     C2RustUnnamed_3 {
-            name: b"CNS1\x00" as *const u8 as *const i8,
-            index: 2i32,
-        },
+        name: b"CNS1\x00" as *const u8 as *const i8,
+        index: 2i32,
+    },
     C2RustUnnamed_3 {
-            name: b"Japan1\x00" as *const u8 as *const i8,
-            index: 3i32,
-        },
+        name: b"Japan1\x00" as *const u8 as *const i8,
+        index: 3i32,
+    },
     C2RustUnnamed_3 {
-            name: b"Korea1\x00" as *const u8 as *const i8,
-            index: 4i32,
-        },
+        name: b"Korea1\x00" as *const u8 as *const i8,
+        index: 4i32,
+    },
     C2RustUnnamed_3 {
-            name: b"Identity\x00" as *const u8 as *const i8,
-            index: 5i32,
-        },
+        name: b"Identity\x00" as *const u8 as *const i8,
+        index: 5i32,
+    },
     C2RustUnnamed_3 {
-            name: b"U\x00" as *const u8 as *const i8,
-            index: 0i32,
-        },
+        name: b"U\x00" as *const u8 as *const i8,
+        index: 0i32,
+    },
     C2RustUnnamed_3 {
-            name: b"G\x00" as *const u8 as *const i8,
-            index: 1i32,
-        },
+        name: b"G\x00" as *const u8 as *const i8,
+        index: 1i32,
+    },
     C2RustUnnamed_3 {
-            name: b"C\x00" as *const u8 as *const i8,
-            index: 2i32,
-        },
+        name: b"C\x00" as *const u8 as *const i8,
+        index: 2i32,
+    },
     C2RustUnnamed_3 {
-            name: b"J\x00" as *const u8 as *const i8,
-            index: 3i32,
-        },
+        name: b"J\x00" as *const u8 as *const i8,
+        index: 3i32,
+    },
     C2RustUnnamed_3 {
-            name: b"K\x00" as *const u8 as *const i8,
-            index: 4i32,
-        },
+        name: b"K\x00" as *const u8 as *const i8,
+        index: 4i32,
+    },
     C2RustUnnamed_3 {
-            name: b"I\x00" as *const u8 as *const i8,
-            index: 5i32,
-        },
+        name: b"I\x00" as *const u8 as *const i8,
+        index: 5i32,
+    },
     C2RustUnnamed_3 {
-            name: ptr::null(),
-            index: 0i32,
-        },
+        name: ptr::null(),
+        index: 0i32,
+    },
 ];
 static mut __verbose: i32 = 0i32;
 static mut cidoptflags: i32 = 0i32;
@@ -426,11 +425,7 @@ pub unsafe fn CIDFont_get_resource(mut font: *mut CIDFont) -> *mut pdf_obj {
  * Set parent Type0 font.
  */
 
-pub unsafe fn CIDFont_attach_parent(
-    mut font: *mut CIDFont,
-    mut parent_id: i32,
-    mut wmode: i32,
-) {
+pub unsafe fn CIDFont_attach_parent(mut font: *mut CIDFont, mut parent_id: i32, mut wmode: i32) {
     assert!(!font.is_null());
     if wmode < 0i32 || wmode > 1i32 {
         panic!("{}: Invalid wmode value.", "CIDFont",);
@@ -792,7 +787,9 @@ unsafe fn CIDFont_base_open(
     let descriptor = start.parse_pdf_dict(ptr::null_mut()).unwrap();
     (*font).fontname = fontname;
     (*font).flags |= 1i32 << 0i32;
-    let tmp = (*fontdict).as_dict().get("CIDSystemInfo")
+    let tmp = (*fontdict)
+        .as_dict()
+        .get("CIDSystemInfo")
         .filter(|&tmp| (*tmp).is_dict())
         .unwrap();
     let registry = pdf_string_value(tmp.as_dict().get("Registry").unwrap()) as *mut i8;
@@ -828,7 +825,9 @@ unsafe fn CIDFont_base_open(
     strcpy((*(*font).csi).registry, registry);
     strcpy((*(*font).csi).ordering, ordering);
     (*(*font).csi).supplement = supplement;
-    let tmp = (*fontdict).as_dict().get("Subtype")
+    let tmp = (*fontdict)
+        .as_dict()
+        .get("Subtype")
         .filter(|&tmp| (*tmp).is_name())
         .unwrap();
     let typ = pdf_name_value(&*tmp).to_string_lossy();
@@ -848,9 +847,15 @@ unsafe fn CIDFont_base_open(
         }
     }
     (*fontdict).as_dict_mut().set("Type", pdf_new_name("Font"));
-    (*fontdict).as_dict_mut().set("BaseFont", pdf_copy_name(fontname));
-    (*descriptor).as_dict_mut().set("Type", pdf_new_name("FontDescriptor"));
-    (*descriptor).as_dict_mut().set("FontName", pdf_copy_name(fontname));
+    (*fontdict)
+        .as_dict_mut()
+        .set("BaseFont", pdf_copy_name(fontname));
+    (*descriptor)
+        .as_dict_mut()
+        .set("Type", pdf_new_name("FontDescriptor"));
+    (*descriptor)
+        .as_dict_mut()
+        .set("FontName", pdf_copy_name(fontname));
     (*font).fontdict = fontdict;
     (*font).descriptor = descriptor;
     (*opt).embed = 0i32;

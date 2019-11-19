@@ -260,7 +260,9 @@ pub unsafe fn pdf_font_open_truetype(mut font: *mut pdf_font) -> i32 {
     }
     sfnt_close(sfont);
     fontdict.as_dict_mut().set("Type", pdf_new_name("Font"));
-    fontdict.as_dict_mut().set("Subtype", pdf_new_name("TrueType"));
+    fontdict
+        .as_dict_mut()
+        .set("Subtype", pdf_new_name("TrueType"));
     0i32
 }
 const required_table: [SfntTableInfo; 12] = {
@@ -310,9 +312,7 @@ unsafe fn do_widths(mut font: *mut pdf_font, mut widths: *mut f64) {
             } else {
                 1000. * tfm_get_width(tfm_id, code)
             };
-            tmparray.push(
-                pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64),
-            );
+            tmparray.push(pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64));
         } else {
             tmparray.push(pdf_new_number(0.0f64));
         }
@@ -323,8 +323,12 @@ unsafe fn do_widths(mut font: *mut pdf_font, mut widths: *mut f64) {
         fontdict.as_dict_mut().set("Widths", pdf_ref_obj(tmparray));
     }
     pdf_release_obj(tmparray);
-    fontdict.as_dict_mut().set("FirstChar", pdf_new_number(firstchar as f64));
-    fontdict.as_dict_mut().set("LastChar", pdf_new_number(lastchar as f64));
+    fontdict
+        .as_dict_mut()
+        .set("FirstChar", pdf_new_number(firstchar as f64));
+    fontdict
+        .as_dict_mut()
+        .set("LastChar", pdf_new_number(lastchar as f64));
 }
 static mut verbose: i32 = 0i32;
 /*
@@ -1131,7 +1135,9 @@ pub unsafe fn pdf_font_load_truetype(mut font: *mut pdf_font) -> i32 {
     if verbose > 1i32 {
         info!("[{} bytes]", pdf_stream_length(&*fontfile));
     }
-    (*descriptor).as_dict_mut().set("FontFile2", pdf_ref_obj(fontfile));
+    (*descriptor)
+        .as_dict_mut()
+        .set("FontFile2", pdf_ref_obj(fontfile));
     pdf_release_obj(fontfile);
     0i32
 }

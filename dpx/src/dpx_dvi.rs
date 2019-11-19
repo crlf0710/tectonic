@@ -31,8 +31,8 @@
 use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
-use crate::FromBEByteSlice;
 use crate::DisplayExt;
+use crate::FromBEByteSlice;
 use std::ffi::{CStr, CString};
 
 use super::dpx_sfnt::{
@@ -40,8 +40,8 @@ use super::dpx_sfnt::{
     sfnt_read_table_directory,
 };
 use crate::mfree;
-use crate::warn;
 use crate::size_t;
+use crate::warn;
 
 use super::dpx_cff::cff_close;
 use super::dpx_cff_dict::{cff_dict_get, cff_dict_known};
@@ -64,7 +64,7 @@ use super::dpx_pdfdev::{
 use super::dpx_pdfdoc::{
     pdf_doc_begin_page, pdf_doc_break_annot, pdf_doc_end_page, pdf_doc_expand_box,
 };
-use super::dpx_pdfparse::{dump_slice, SkipWhite, ParsePdfObj};
+use super::dpx_pdfparse::{dump_slice, ParsePdfObj, SkipWhite};
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record, subfont_set_verbose};
 use super::dpx_t1_char::t1char_get_metrics;
 use super::dpx_t1_load::t1_load_font;
@@ -77,9 +77,8 @@ use super::dpx_tt_table::{
     tt_read_vhea_table,
 };
 use super::dpx_vf::{vf_close_all_fonts, vf_locate_font, vf_set_char, vf_set_verbose};
-use crate::dpx_pdfobj::{
-    pdf_number_value, pdf_release_obj, pdf_string_value,
-};
+use crate::dpx_dvicodes::*;
+use crate::dpx_pdfobj::{pdf_number_value, pdf_release_obj, pdf_string_value};
 use crate::dpx_truetype::sfnt_table_info;
 use crate::specials::{
     spc_exec_at_begin_page, spc_exec_at_end_page, spc_exec_special, spc_set_verbose,
@@ -88,7 +87,6 @@ use crate::{
     ttstub_input_close, ttstub_input_get_size, ttstub_input_getc, ttstub_input_open,
     ttstub_input_read, ttstub_input_ungetc,
 };
-use crate::dpx_dvicodes::*;
 
 use libc::{atof, free, memset, strncpy, strtol};
 
@@ -208,14 +206,14 @@ static mut page_loc: *mut u32 = std::ptr::null_mut();
 static mut num_pages: u32 = 0_u32;
 static mut dvi_file_size: u32 = 0_u32;
 static mut DVI_INFO: dvi_header = dvi_header {
-        unit_num: 25400000_u32,
-        unit_den: 473628672_u32,
-        mag: 1000_u32,
-        media_width: 0_u32,
-        media_height: 0_u32,
-        stackdepth: 0_u32,
-        comment: [0; 257],
-    };
+    unit_num: 25400000_u32,
+    unit_den: 473628672_u32,
+    mag: 1000_u32,
+    media_width: 0_u32,
+    media_height: 0_u32,
+    stackdepth: 0_u32,
+    comment: [0; 257],
+};
 static mut dev_origin_x: f64 = 72.0f64;
 static mut dev_origin_y: f64 = 770.0f64;
 
@@ -266,8 +264,9 @@ unsafe fn get_and_buffer_unsigned_pair(handle: &mut InputHandleWrapper) -> u32 {
     pair
 }
 unsafe fn get_and_buffer_bytes(handle: &mut InputHandleWrapper, mut count: u32) {
-    DVI_PAGE_BUFFER.resize_with(DVI_PAGE_BUF_INDEX+count as usize, Default::default);
-    handle.read_exact(&mut DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..])
+    DVI_PAGE_BUFFER.resize_with(DVI_PAGE_BUF_INDEX + count as usize, Default::default);
+    handle
+        .read_exact(&mut DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..])
         .expect("File ended prematurely\n");
     DVI_PAGE_BUF_INDEX += count as usize;
 }
@@ -278,12 +277,14 @@ unsafe fn get_buffered_unsigned_byte() -> u8 {
     b
 }
 unsafe fn get_buffered_unsigned_pair() -> u16 {
-    let pair = u16::from_be_byte_slice(&DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..DVI_PAGE_BUF_INDEX+2]);
+    let pair =
+        u16::from_be_byte_slice(&DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..DVI_PAGE_BUF_INDEX + 2]);
     DVI_PAGE_BUF_INDEX += 2;
     pair
 }
 unsafe fn get_buffered_signed_quad() -> i32 {
-    let quad = i32::from_be_byte_slice(&DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..DVI_PAGE_BUF_INDEX+4]);
+    let quad =
+        i32::from_be_byte_slice(&DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..DVI_PAGE_BUF_INDEX + 4]);
     DVI_PAGE_BUF_INDEX += 4;
     quad
 }
@@ -430,7 +431,9 @@ unsafe fn find_post() -> i32 {
 }
 unsafe fn get_page_info(mut post_location: i32) {
     let handle = dvi_handle.as_mut().unwrap();
-    handle.seek(SeekFrom::Start(post_location as u64 + 27)).unwrap();
+    handle
+        .seek(SeekFrom::Start(post_location as u64 + 27))
+        .unwrap();
     num_pages = tt_get_unsigned_pair(handle) as u32;
     if num_pages == 0_u32 {
         panic!("Page count is 0!");
@@ -440,7 +443,9 @@ unsafe fn get_page_info(mut post_location: i32) {
     }
     page_loc = new((num_pages as u64).wrapping_mul(::std::mem::size_of::<u32>() as u64) as u32)
         as *mut u32;
-    handle.seek(SeekFrom::Start(post_location as u64 + 1)).unwrap();
+    handle
+        .seek(SeekFrom::Start(post_location as u64 + 1))
+        .unwrap();
     *page_loc.offset(num_pages.wrapping_sub(1_u32) as isize) = tt_get_unsigned_quad(handle);
     if (*page_loc.offset(num_pages.wrapping_sub(1_u32) as isize)).wrapping_add(41_u32)
         > dvi_file_size
@@ -449,7 +454,11 @@ unsafe fn get_page_info(mut post_location: i32) {
     }
     let mut i = num_pages.wrapping_sub(2_u32) as i32;
     while i >= 0i32 {
-        handle.seek(SeekFrom::Start(*page_loc.offset((i + 1) as isize) as u64 + 41)).unwrap();
+        handle
+            .seek(SeekFrom::Start(
+                *page_loc.offset((i + 1) as isize) as u64 + 41,
+            ))
+            .unwrap();
         *page_loc.offset(i as isize) = tt_get_unsigned_quad(handle);
         if (*page_loc.offset(num_pages.wrapping_sub(1_u32) as isize)).wrapping_add(41_u32)
             > dvi_file_size
@@ -473,7 +482,9 @@ unsafe fn do_scales(mut mag: f64) {
 }
 unsafe fn get_dvi_info(mut post_location: i32) {
     let handle = dvi_handle.as_mut().unwrap();
-    handle.seek(SeekFrom::Start(post_location as u64 + 5)).unwrap(); /* direction */
+    handle
+        .seek(SeekFrom::Start(post_location as u64 + 5))
+        .unwrap(); /* direction */
     DVI_INFO.unit_num = tt_get_unsigned_quad(handle);
     DVI_INFO.unit_den = tt_get_unsigned_quad(handle);
     DVI_INFO.mag = tt_get_unsigned_quad(handle);
@@ -501,16 +512,8 @@ pub unsafe fn dvi_comment() -> *const i8 {
 unsafe fn read_font_record(mut tex_id: u32) {
     let handle = dvi_handle.as_mut().unwrap();
     tt_get_unsigned_quad(handle);
-    let point_size = tt_get_positive_quad(
-        handle,
-        "DVI",
-        "point_size",
-    );
-    let design_size = tt_get_positive_quad(
-        handle,
-        "DVI",
-        "design_size",
-    );
+    let point_size = tt_get_positive_quad(handle, "DVI", "point_size");
+    let design_size = tt_get_positive_quad(handle, "DVI", "design_size");
     let dir_length = tt_get_unsigned_byte(handle) as i32;
     let name_length = tt_get_unsigned_byte(handle) as i32;
     let directory = new(
@@ -523,7 +526,8 @@ unsafe fn read_font_record(mut tex_id: u32) {
     free(directory as *mut libc::c_void);
     let font_name = new(((name_length + 1i32) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    if ttstub_input_read(handle.0.as_ptr(), font_name, name_length as size_t) != name_length as i64 {
+    if ttstub_input_read(handle.0.as_ptr(), font_name, name_length as size_t) != name_length as i64
+    {
         panic!(invalid_signature);
     }
     *font_name.offset(name_length as isize) = '\u{0}' as i32 as i8;
@@ -545,11 +549,7 @@ unsafe fn read_font_record(mut tex_id: u32) {
 }
 unsafe fn read_native_font_record(mut tex_id: u32) {
     let handle = dvi_handle.as_mut().unwrap();
-    let point_size = tt_get_positive_quad(
-        handle,
-        "DVI",
-        "point_size",
-    );
+    let point_size = tt_get_positive_quad(handle, "DVI", "point_size");
     let flags = tt_get_unsigned_pair(handle) as u32;
     let len = tt_get_unsigned_byte(handle) as i32;
     let font_name =
@@ -559,11 +559,7 @@ unsafe fn read_native_font_record(mut tex_id: u32) {
         panic!(invalid_signature);
     }
     *font_name.offset(len as isize) = '\u{0}' as i32 as i8;
-    let index = tt_get_positive_quad(
-        handle,
-        "DVI",
-        "index",
-    );
+    let index = tt_get_positive_quad(handle, "DVI", "index");
     let mut font = font_def {
         font_id: -1,
         tex_id: tex_id,
@@ -598,7 +594,9 @@ unsafe fn read_native_font_record(mut tex_id: u32) {
 }
 unsafe fn get_dvi_fonts(mut post_location: i32) {
     let handle = dvi_handle.as_mut().unwrap();
-    handle.seek(SeekFrom::Start(post_location as u64 + 29)).unwrap();
+    handle
+        .seek(SeekFrom::Start(post_location as u64 + 29))
+        .unwrap();
     loop {
         let code = tt_get_unsigned_byte(handle);
         if code == POST_POST {
@@ -640,13 +638,12 @@ unsafe fn get_comment() {
     let handle = dvi_handle.as_mut().unwrap();
     handle.seek(SeekFrom::Start(14)).unwrap();
     let length = tt_get_unsigned_byte(handle) as usize;
-    handle.read_exact(&mut DVI_INFO.comment[..length]).expect(invalid_signature);
+    handle
+        .read_exact(&mut DVI_INFO.comment[..length])
+        .expect(invalid_signature);
     DVI_INFO.comment[length as usize] = '\u{0}' as u8;
     if verbose != 0 {
-        info!(
-            "DVI Comment: {}\n",
-            DVI_INFO.comment[..length].display()
-        );
+        info!("DVI Comment: {}\n", DVI_INFO.comment[..length].display());
     };
 }
 static mut dvi_state: dvi_registers = dvi_registers {
@@ -830,7 +827,8 @@ pub unsafe fn dvi_locate_font(mut tfm_name: *const i8, mut ptsize: spt_t) -> u32
             return loaded_fonts.len() as u32 - 1;
         }
     } else if subfont_id >= 0i32 && !(*mrec).map_name.is_null() {
-        let mut mrec1: *mut fontmap_rec = pdf_lookup_fontmap_record(CStr::from_ptr((*mrec).map_name).to_bytes());
+        let mut mrec1: *mut fontmap_rec =
+            pdf_lookup_fontmap_record(CStr::from_ptr((*mrec).map_name).to_bytes());
         /* Sorry, I don't understand this well... Please fix.
          * The purpose of this seems to be:
          *
@@ -886,7 +884,8 @@ pub unsafe fn dvi_locate_font(mut tfm_name: *const i8, mut ptsize: spt_t) -> u32
         );
         if !mrec.is_null() && !(*mrec).map_name.is_null() {
             /* has map_name */
-            let mut mrec1_0: *mut fontmap_rec = pdf_lookup_fontmap_record(CStr::from_ptr((*mrec).map_name).to_bytes()); // CHECK this is enough
+            let mut mrec1_0: *mut fontmap_rec =
+                pdf_lookup_fontmap_record(CStr::from_ptr((*mrec).map_name).to_bytes()); // CHECK this is enough
             warn!(">> This font is mapped to an intermediate 16-bit font \"{}\" with SFD charmap=<{},{}>,",
                         CStr::from_ptr((*mrec).map_name).display(), CStr::from_ptr((*mrec).charmap.sfd_name).display(),
                         CStr::from_ptr((*mrec).charmap.subfont_id).display()
@@ -1472,7 +1471,8 @@ pub unsafe fn dvi_set_font(mut font_id: i32) {
     current_font = font_id;
 }
 unsafe fn do_fnt(mut tex_id: u32) {
-    let font = def_fonts.iter_mut()
+    let font = def_fonts
+        .iter_mut()
         .find(|font| font.tex_id == tex_id)
         .expect("Tried to select a font that hasen't been defined");
 
@@ -1488,10 +1488,7 @@ unsafe fn do_fnt(mut tex_id: u32) {
                 font.embolden,
             ) as usize
         } else {
-            dvi_locate_font(
-                font.font_name,
-                font.point_size,
-            ) as usize
+            dvi_locate_font(font.font_name, font.point_size) as usize
         };
         loaded_fonts[font_id].rgba_color = font.rgba_color;
         loaded_fonts[font_id].source = 1i32;
@@ -1502,9 +1499,7 @@ unsafe fn do_fnt(mut tex_id: u32) {
 }
 unsafe fn do_xxx(mut size: i32) {
     if lr_mode < 2i32 {
-        dvi_do_special(
-            &DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..DVI_PAGE_BUF_INDEX+size as usize]
-        );
+        dvi_do_special(&DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..DVI_PAGE_BUF_INDEX + size as usize]);
     }
     DVI_PAGE_BUF_INDEX += size as usize;
 }
@@ -1692,10 +1687,8 @@ unsafe fn do_glyphs(mut do_actual_text: i32) {
                         .data
                         .offset(*(*cstrings).offset.offset(glyph_id as isize) as isize)
                         .offset(-1),
-                    (*(*cstrings)
-                        .offset
-                        .offset((glyph_id + 1) as isize))
-                    .wrapping_sub(*(*cstrings).offset.offset(glyph_id as isize))
+                    (*(*cstrings).offset.offset((glyph_id + 1) as isize))
+                        .wrapping_sub(*(*cstrings).offset.offset(glyph_id as isize))
                         as i32,
                     *(*(*font).cffont).subrs.offset(0),
                     &mut gm,
@@ -1795,11 +1788,7 @@ unsafe fn check_postamble() {
  * the dvi file is here.
  */
 
-pub unsafe fn dvi_do_page(
-    mut page_paper_height: f64,
-    mut hmargin: f64,
-    mut vmargin: f64,
-) {
+pub unsafe fn dvi_do_page(mut page_paper_height: f64, mut hmargin: f64, mut vmargin: f64) {
     /* before this is called, we have scanned the page for papersize specials
     and the complete DVI data is now in DVI_PAGE_BUFFER */
     DVI_PAGE_BUF_INDEX = 0;
@@ -1820,7 +1809,7 @@ pub unsafe fn dvi_do_page(
         if opcode >= FNT_NUM_0 && opcode <= FNT_NUM_63 {
             do_fnt((opcode - FNT_NUM_0) as u32);
             continue;
-        } 
+        }
 
         match opcode {
             SET1 | SET2 | SET3 => {
@@ -1914,7 +1903,7 @@ pub unsafe fn dvi_do_page(
             FNT1 | FNT2 | FNT3 | FNT4 => {
                 do_fnt(get_buffered_unsigned_num(opcode - FNT1) as u32);
             }
-                /* Specials */
+            /* Specials */
             XXX1 | XXX2 | XXX3 | XXX4 => {
                 let size: i32 = get_buffered_unsigned_num(opcode - XXX1);
                 if size < 0 {
@@ -2119,7 +2108,7 @@ impl ReadLength for &[u8] {
         }
         *self = p;
         if error == 0 {
-            Ok( v * u )
+            Ok(v * u)
         } else {
             Err(())
         }
@@ -2159,7 +2148,7 @@ unsafe fn scan_special(
                     q = buf.parse_c_ident();
                     ns_pdf = 1;
                 }
-            },
+            }
             b"x" => {
                 buf.skip_white();
                 if !buf.is_empty() && buf[0] == b':' {
@@ -2167,7 +2156,7 @@ unsafe fn scan_special(
                     buf.skip_white();
                     q = buf.parse_c_ident();
                 }
-            },
+            }
             b"dvipdfmx" => {
                 buf.skip_white();
                 if !buf.is_empty() && buf[0] == b':' {
@@ -2176,8 +2165,8 @@ unsafe fn scan_special(
                     q = buf.parse_c_ident();
                     ns_dvipdfmx = 1
                 }
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
     buf.skip_white();
@@ -2195,36 +2184,36 @@ unsafe fn scan_special(
                             } else {
                                 error = -1;
                             }
-                        },
+                        }
                         b"height" => {
                             if let Ok(tmp) = buf.read_length(dvi_tell_mag()) {
                                 *ht = tmp * dvi_tell_mag()
                             } else {
                                 error = -1;
                             }
-                        },
+                        }
                         b"xoffset" => {
                             if let Ok(tmp) = buf.read_length(dvi_tell_mag()) {
                                 *xo = tmp * dvi_tell_mag()
                             } else {
                                 error = -1;
                             }
-                        },
+                        }
                         b"yoffset" => {
                             if let Ok(tmp) = buf.read_length(dvi_tell_mag()) {
                                 *yo = tmp * dvi_tell_mag()
                             } else {
                                 error = -1;
                             }
-                        },
+                        }
                         b"default" => {
                             *wd = paper_width;
                             *ht = paper_height;
                             *lm = landscape_mode;
                             *yo = 72.0f64;
                             *xo = *yo
-                        },
-                        _ => {},
+                        }
+                        _ => {}
                     }
                     buf.skip_white();
                 } else {
@@ -2268,10 +2257,7 @@ unsafe fn scan_special(
                 paper_width = *wd;
                 paper_height = *ht
             }
-        } else if !minorversion.is_null()
-            && ns_pdf != 0
-            && q.to_bytes() == b"minorversion"
-        {
+        } else if !minorversion.is_null() && ns_pdf != 0 && q.to_bytes() == b"minorversion" {
             if buf[0] == b'=' {
                 buf = &buf[1..];
             }
@@ -2279,10 +2265,7 @@ unsafe fn scan_special(
             if let Some(kv) = buf.parse_float_decimal() {
                 *minorversion = strtol(kv.as_ptr(), 0 as *mut *mut i8, 10i32) as i32;
             }
-        } else if !majorversion.is_null()
-            && ns_pdf != 0
-            && q.to_bytes() == b"majorversion"
-        {
+        } else if !majorversion.is_null() && ns_pdf != 0 && q.to_bytes() == b"majorversion" {
             if buf[0] == b'=' {
                 buf = &buf[1..];
             }
@@ -2290,10 +2273,7 @@ unsafe fn scan_special(
             if let Some(kv_0) = buf.parse_float_decimal() {
                 *majorversion = strtol(kv_0.as_ptr(), 0 as *mut *mut i8, 10) as i32;
             }
-        } else if ns_pdf != 0
-            && q.to_bytes() == b"encrypt"
-            && !do_enc.is_null()
-        {
+        } else if ns_pdf != 0 && q.to_bytes() == b"encrypt" && !do_enc.is_null() {
             *do_enc = 1i32;
             *user_pw = 0_i8;
             *owner_pw = *user_pw;
@@ -2310,7 +2290,7 @@ unsafe fn scan_special(
                             } else {
                                 error = -1i32
                             }
-                        },
+                        }
                         b"userpw" => {
                             if let Some(obj) = buf.parse_pdf_string() {
                                 if !pdf_string_value(&*obj).is_null() {
@@ -2320,7 +2300,7 @@ unsafe fn scan_special(
                             } else {
                                 error = -1i32
                             }
-                        },
+                        }
                         b"length" => {
                             if let Some(obj) = buf.parse_pdf_number() {
                                 if (*obj).is_number() {
@@ -2332,7 +2312,7 @@ unsafe fn scan_special(
                             } else {
                                 error = -1i32
                             }
-                        },
+                        }
                         b"perm" => {
                             if let Some(obj) = buf.parse_pdf_number() {
                                 if (*obj).is_number() {
@@ -2344,18 +2324,15 @@ unsafe fn scan_special(
                             } else {
                                 error = -1i32
                             }
-                        },
-                        _ => {
-                            error = -1i32
                         }
+                        _ => error = -1i32,
                     }
                     buf.skip_white();
                 } else {
                     break;
                 }
             }
-        } else if ns_dvipdfmx != 0 && q.to_bytes() == b"config"
-        {
+        } else if ns_dvipdfmx != 0 && q.to_bytes() == b"config" {
             warn!("Tectonic does not support `config\' special. Ignored.");
         }
     }
@@ -2404,11 +2381,7 @@ pub unsafe fn dvi_scan_specials(
         if opcode <= SET_CHAR_127 || opcode >= FNT_NUM_0 && opcode <= FNT_NUM_63 {
             continue;
         }
-        if opcode == XXX1
-            || opcode == XXX2
-            || opcode == XXX3
-            || opcode == XXX4
-        {
+        if opcode == XXX1 || opcode == XXX2 || opcode == XXX3 || opcode == XXX4 {
             let mut size: u32 = get_and_buffer_unsigned_byte(handle) as u32;
             match opcode {
                 XXX4 => {
@@ -2433,7 +2406,8 @@ pub unsafe fn dvi_scan_specials(
             }
 
             DVI_PAGE_BUFFER.resize_with(DVI_PAGE_BUF_INDEX + size as usize, Default::default);
-            handle.read(&mut DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..DVI_PAGE_BUF_INDEX+size as usize])
+            handle
+                .read(&mut DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..DVI_PAGE_BUF_INDEX + size as usize])
                 .expect("Reading DVI file failed!");
             if scan_special(
                 page_width,
@@ -2484,16 +2458,16 @@ pub unsafe fn dvi_scan_specials(
                 }
                 XDV_GLYPHS => {
                     need_XeTeX(opcode as i32);
-                    get_and_buffer_bytes(handle, 4);                    /* width */
-                    let len = get_and_buffer_unsigned_pair(handle);     /* glyph count */
+                    get_and_buffer_bytes(handle, 4); /* width */
+                    let len = get_and_buffer_unsigned_pair(handle); /* glyph count */
                     get_and_buffer_bytes(handle, len.wrapping_mul(10)); /* 2 bytes ID + 8 bytes x,y-location per glyph */
                 }
                 XDV_TEXT_AND_GLYPHS => {
                     need_XeTeX(opcode as i32);
-                    let len = get_and_buffer_unsigned_pair(handle);     /* utf16 code unit count */
-                    get_and_buffer_bytes(handle, len.wrapping_mul(2));  /* 2 bytes per code unit */
-                    get_and_buffer_bytes(handle, 4);                    /* width */
-                    let len = get_and_buffer_unsigned_pair(handle);     /* glyph count */
+                    let len = get_and_buffer_unsigned_pair(handle); /* utf16 code unit count */
+                    get_and_buffer_bytes(handle, len.wrapping_mul(2)); /* 2 bytes per code unit */
+                    get_and_buffer_bytes(handle, 4); /* width */
+                    let len = get_and_buffer_unsigned_pair(handle); /* glyph count */
                     get_and_buffer_bytes(handle, len.wrapping_mul(10)); /* 2 bytes ID + 8 bytes x,y-location per glyph */
                 }
                 XDV_NATIVE_FONT_DEF => {

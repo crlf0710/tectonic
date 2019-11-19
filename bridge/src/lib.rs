@@ -9,8 +9,8 @@
     unused_mut
 )]
 
-use std::io::{prelude::*, Result};
 use std::io::SeekFrom;
+use std::io::{prelude::*, Result};
 use std::ptr::NonNull;
 
 extern "C" {
@@ -59,22 +59,24 @@ pub struct InputHandleWrapper(pub NonNull<libc::c_void>);
 impl Read for InputHandleWrapper {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         unsafe {
-            Ok(ttstub_input_read(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len() as u64) as usize)
+            Ok(ttstub_input_read(
+                self.0.as_ptr(),
+                buf.as_mut_ptr() as *mut i8,
+                buf.len() as u64,
+            ) as usize)
         }
     }
 }
 
 impl Seek for InputHandleWrapper {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
-        use libc::{SEEK_SET, SEEK_CUR, SEEK_END};
+        use libc::{SEEK_CUR, SEEK_END, SEEK_SET};
         let (offset, whence) = match pos {
             SeekFrom::Start(o) => (o as ssize_t, SEEK_SET),
             SeekFrom::Current(o) => (o as ssize_t, SEEK_CUR),
             SeekFrom::End(o) => (o as ssize_t, SEEK_END),
         };
-        unsafe {
-            Ok(ttstub_input_seek(self.0.as_ptr(), offset, whence) as u64)
-        }
+        unsafe { Ok(ttstub_input_seek(self.0.as_ptr(), offset, whence) as u64) }
     }
 }
 
@@ -336,20 +338,27 @@ pub unsafe extern "C" fn ttstub_input_open(
     InputHandleWrapper::new((*tectonic_global_bridge)
         .input_open
         .expect("non-null function pointer")(
-        (*tectonic_global_bridge).context, path, format, is_gz
+        (*tectonic_global_bridge).context,
+        path,
+        format,
+        is_gz,
     ))
 }
 #[no_mangle]
 pub unsafe extern "C" fn ttstub_input_open_primary() -> Option<InputHandleWrapper> {
     InputHandleWrapper::new((*tectonic_global_bridge)
         .input_open_primary
-        .expect("non-null function pointer")((*tectonic_global_bridge).context))
+        .expect("non-null function pointer")(
+        (*tectonic_global_bridge).context
+    ))
 }
 #[no_mangle]
 pub unsafe extern "C" fn ttstub_input_get_size(handle: &mut InputHandleWrapper) -> size_t {
     (*tectonic_global_bridge)
         .input_get_size
-        .expect("non-null function pointer")((*tectonic_global_bridge).context, handle.0.as_ptr())
+        .expect("non-null function pointer")(
+        (*tectonic_global_bridge).context, handle.0.as_ptr()
+    )
 }
 #[no_mangle]
 pub unsafe extern "C" fn ttstub_input_seek(
@@ -389,20 +398,27 @@ pub unsafe extern "C" fn ttstub_input_read(
 pub unsafe extern "C" fn ttstub_input_getc(handle: &mut InputHandleWrapper) -> i32 {
     (*tectonic_global_bridge)
         .input_getc
-        .expect("non-null function pointer")((*tectonic_global_bridge).context, handle.0.as_ptr())
+        .expect("non-null function pointer")(
+        (*tectonic_global_bridge).context, handle.0.as_ptr()
+    )
 }
 #[no_mangle]
 pub unsafe extern "C" fn ttstub_input_ungetc(handle: &mut InputHandleWrapper, mut ch: i32) -> i32 {
     (*tectonic_global_bridge)
         .input_ungetc
-        .expect("non-null function pointer")((*tectonic_global_bridge).context, handle.0.as_ptr(), ch)
+        .expect("non-null function pointer")(
+        (*tectonic_global_bridge).context,
+        handle.0.as_ptr(),
+        ch,
+    )
 }
 #[no_mangle]
 pub unsafe extern "C" fn ttstub_input_close(mut handle: InputHandleWrapper) -> i32 {
     if (*tectonic_global_bridge)
         .input_close
-        .expect("non-null function pointer")((*tectonic_global_bridge).context, handle.0.as_ptr())
-        != 0
+        .expect("non-null function pointer")(
+        (*tectonic_global_bridge).context, handle.0.as_ptr()
+    ) != 0
     {
         // Nonzero return value indicates a serious internal error.
         panic!("ttstub_input_close");

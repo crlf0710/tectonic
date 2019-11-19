@@ -485,8 +485,7 @@ pub static mut insert_src_special_every_math: bool = false;
 #[no_mangle]
 pub static mut insert_src_special_every_vbox: bool = false;
 #[no_mangle]
-pub static mut str_pool: *mut packed_UTF16_code =
-    ptr::null_mut();
+pub static mut str_pool: *mut packed_UTF16_code = ptr::null_mut();
 #[no_mangle]
 pub static mut str_start: *mut pool_pointer = ptr::null_mut();
 #[no_mangle]
@@ -584,8 +583,7 @@ pub static mut depth_threshold: i32 = 0;
 #[no_mangle]
 pub static mut breadth_max: i32 = 0;
 #[no_mangle]
-pub static mut nest: *mut list_state_record =
-    ptr::null_mut();
+pub static mut nest: *mut list_state_record = ptr::null_mut();
 #[no_mangle]
 pub static mut nest_ptr: i32 = 0;
 #[no_mangle]
@@ -681,8 +679,7 @@ pub static mut line_stack: *mut i32 = ptr::null_mut();
 #[no_mangle]
 pub static mut source_filename_stack: *mut str_number = ptr::null_mut();
 #[no_mangle]
-pub static mut full_source_filename_stack: *mut str_number =
-    ptr::null_mut();
+pub static mut full_source_filename_stack: *mut str_number = ptr::null_mut();
 #[no_mangle]
 pub static mut scanner_status: u8 = 0;
 #[no_mangle]

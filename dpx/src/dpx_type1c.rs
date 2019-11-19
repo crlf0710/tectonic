@@ -60,11 +60,11 @@ use super::dpx_pdffont::{
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
 use crate::dpx_pdfobj::{
-    pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS, IntoObj,
+    pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_ref_obj, pdf_release_obj,
+    pdf_stream_dataptr, pdf_stream_length, IntoObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
-use crate::{ttstub_input_read};
+use crate::ttstub_input_read;
 use libc::{free, strcmp, strlen};
 
 use std::io::{Seek, SeekFrom};
@@ -275,9 +275,7 @@ unsafe fn add_SimpleMetrics(
                             *widths.offset(code as isize),
                         );
                     }
-                    tmp_array.push(
-                        pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64),
-                    );
+                    tmp_array.push(pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64));
                 }
             } else {
                 tmp_array.push(pdf_new_number(0.0f64));
@@ -437,10 +435,20 @@ pub unsafe fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
         b"CharStrings\x00" as *const u8 as *const i8,
         0i32,
     ) as u64;
-    cffont.handle.as_mut().unwrap().seek(SeekFrom::Start(cffont.offset as u64 + offset)).unwrap();
+    cffont
+        .handle
+        .as_mut()
+        .unwrap()
+        .seek(SeekFrom::Start(cffont.offset as u64 + offset))
+        .unwrap();
     let cs_idx = cff_get_index_header(cffont);
     /* Offset is now absolute offset ... fixme */
-    let mut offset = cffont.handle.as_mut().unwrap().seek(SeekFrom::Current(0)).unwrap() as i32;
+    let mut offset = cffont
+        .handle
+        .as_mut()
+        .unwrap()
+        .seek(SeekFrom::Current(0))
+        .unwrap() as i32;
     let cs_count = (*cs_idx).count;
     if (cs_count as i32) < 2i32 {
         panic!("No valid charstring data found.");
@@ -512,7 +520,11 @@ pub unsafe fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
     }
     *(*charstrings).offset.offset(0) = (charstring_len + 1i32) as l_offset;
     let handle = cffont.handle.as_mut().unwrap();
-    handle.seek(SeekFrom::Start(offset as u64 + *(*cs_idx).offset.offset(0) as u64 - 1)).unwrap();
+    handle
+        .seek(SeekFrom::Start(
+            offset as u64 + *(*cs_idx).offset.offset(0) as u64 - 1,
+        ))
+        .unwrap();
     ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t);
     charstring_len += cs_copy_charstring(
         (*charstrings).data.offset(charstring_len as isize),
@@ -613,7 +625,11 @@ pub unsafe fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
                     *(*charstrings).offset.offset(num_glyphs as isize) =
                         (charstring_len + 1i32) as l_offset;
                     let handle = cffont.handle.as_mut().unwrap();
-                    handle.seek(SeekFrom::Start(offset as u64 + *(*cs_idx).offset.offset(gid_0 as isize) as u64 - 1)).unwrap();
+                    handle
+                        .seek(SeekFrom::Start(
+                            offset as u64 + *(*cs_idx).offset.offset(gid_0 as isize) as u64 - 1,
+                        ))
+                        .unwrap();
                     ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t);
                     charstring_len += cs_copy_charstring(
                         (*charstrings).data.offset(charstring_len as isize),
@@ -890,7 +906,9 @@ pub unsafe fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
     descriptor.set("FontFile3", pdf_ref_obj(fontfile));
     stream_dict.set("Subtype", pdf_new_name("Type1C"));
-    (*fontfile).as_stream_mut().add_slice(&stream_data[..offset]);
+    (*fontfile)
+        .as_stream_mut()
+        .add_slice(&stream_data[..offset]);
     pdf_release_obj(fontfile);
     0i32
 }

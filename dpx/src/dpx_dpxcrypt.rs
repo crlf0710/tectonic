@@ -298,11 +298,7 @@ unsafe fn do_arcfour_setkey(mut ctx: *mut ARC4_CONTEXT, mut key: *const u8, mut 
     memset(karr.as_mut_ptr() as *mut libc::c_void, 0i32, 256);
 }
 
-pub unsafe fn ARC4_set_key(
-    mut ctx: *mut ARC4_CONTEXT,
-    mut keylen: u32,
-    mut key: *const u8,
-) {
+pub unsafe fn ARC4_set_key(mut ctx: *mut ARC4_CONTEXT, mut keylen: u32, mut key: *const u8) {
     do_arcfour_setkey(ctx, key, keylen);
     _gcry_burn_stack(300i32);
 }

@@ -7,8 +7,8 @@
          unused_mut)]
 
 use crate::core_memory::xmalloc;
-use harfbuzz_sys::*;
 use freetype::freetype_sys;
+use harfbuzz_sys::*;
 
 extern "C" {
     pub type XeTeXFont_rec;

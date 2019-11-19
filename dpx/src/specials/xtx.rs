@@ -37,9 +37,7 @@ use crate::dpx_fontmap::{
 use crate::dpx_mem::new;
 use crate::dpx_mfileio::work_buffer_u8 as WORK_BUFFER;
 use crate::dpx_pdfdev::{pdf_dev_reset_color, pdf_dev_reset_fonts};
-use crate::dpx_pdfdoc::{
-    pdf_doc_add_page_content, pdf_doc_set_bgcolor,
-};
+use crate::dpx_pdfdoc::{pdf_doc_add_page_content, pdf_doc_set_bgcolor};
 use crate::dpx_pdfdraw::{
     pdf_dev_concat, pdf_dev_get_fixed_point, pdf_dev_grestore, pdf_dev_gsave,
     pdf_dev_set_fixed_point,
@@ -47,7 +45,7 @@ use crate::dpx_pdfdraw::{
 use crate::dpx_pdfparse::{ParseIdent, SkipWhite};
 use crate::shims::sprintf;
 use crate::spc_warn;
-use libc::{free};
+use libc::free;
 
 use super::{spc_arg, spc_env};
 
@@ -77,7 +75,7 @@ pub unsafe fn spc_handler_xtx_do_transform(
     mut f: f64,
 ) -> i32 {
     let mut M = TMatrix::row_major(
-    /* Create transformation matrix */
+        /* Create transformation matrix */
         a,
         b,
         c,
@@ -119,10 +117,7 @@ unsafe fn spc_handler_xtx_bscale(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     if values[0].abs() < 1.0e-7f64 || values[1].abs() < 1.0e-7f64 {
         return -1i32;
     }
-    SCALE_FACTORS.push(Point::new(
-        1i32 as f64 / values[0],
-        1i32 as f64 / values[1],
-    ));
+    SCALE_FACTORS.push(Point::new(1i32 as f64 / values[0], 1i32 as f64 / values[1]));
     (*args).cur = &[];
     return spc_handler_xtx_do_transform(
         (*spe).x_user,
@@ -295,8 +290,7 @@ unsafe fn spc_handler_xtx_clipoverlay(mut _spe: *mut spc_env, mut args: *mut spc
     pdf_dev_grestore();
     pdf_dev_gsave();
     let pos = OVERLAY_NAME.iter().position(|&x| x == 0).unwrap();
-    if (*args).cur != &OVERLAY_NAME[..pos]
-        && (*args).cur != b"all" {
+    if (*args).cur != &OVERLAY_NAME[..pos] && (*args).cur != b"all" {
         pdf_doc_add_page_content(b" 0 0 m W n");
     }
     (*args).cur = &[];
@@ -317,9 +311,7 @@ unsafe fn spc_handler_xtx_renderingmode(mut spe: *mut spc_env, mut args: *mut sp
         value as i32,
     );
     let pos = WORK_BUFFER.iter().position(|&x| x == 0).unwrap();
-    pdf_doc_add_page_content(
-        &WORK_BUFFER[..pos]
-    );
+    pdf_doc_add_page_content(&WORK_BUFFER[..pos]);
     (*args).cur.skip_white();
     if !(*args).cur.is_empty() {
         pdf_doc_add_page_content(b" ");

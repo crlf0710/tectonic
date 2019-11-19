@@ -82,12 +82,10 @@ unsafe fn peekable_open(
     mut path: *const i8,
     mut format: TTInputFormat,
 ) -> Option<peekable_input_t> {
-    ttstub_input_open(path, format, 0i32).map(|handle| {
-        peekable_input_t {
-            handle,
-            peek_char: -1,
-            saw_eof: false,
-        }
+    ttstub_input_open(path, format, 0i32).map(|handle| peekable_input_t {
+        handle,
+        peek_char: -1,
+        saw_eof: false,
     })
 }
 unsafe fn peekable_close(peekable: Option<peekable_input_t>) -> i32 {
@@ -208,8 +206,8 @@ static mut scan_result: u8 = 0;
 static mut token_value: i32 = 0;
 static mut aux_name_length: i32 = 0;
 static mut aux_file: [Option<peekable_input_t>; 21] = [
-    None, None, None, None, None, None, None, None, None, None, None,
-    None, None, None, None, None, None, None, None, None, None
+    None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+    None, None, None, None, None,
 ];
 static mut aux_list: [str_number; 21] = [0; 21];
 static mut aux_ptr: aux_number = 0;
@@ -3338,11 +3336,7 @@ unsafe fn pop_lit_stk(mut pop_lit: *mut i32, mut pop_type: *mut stk_type) {
         }
     };
 }
-unsafe fn print_wrong_stk_lit(
-    mut stk_lt: i32,
-    mut stk_tp1: stk_type,
-    mut stk_tp2: stk_type,
-) {
+unsafe fn print_wrong_stk_lit(mut stk_lt: i32, mut stk_tp1: stk_type, mut stk_tp2: stk_type) {
     if stk_tp1 as i32 != 4i32 {
         /*stk_empty */
         print_stk_lit(stk_lt, stk_tp1);

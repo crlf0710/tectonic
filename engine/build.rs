@@ -20,8 +20,7 @@ const PKGCONFIG_LIBS: &'static str =
 
 // No fontconfig on MacOS:
 #[cfg(target_os = "macos")]
-const PKGCONFIG_LIBS: &'static str =
-    "harfbuzz >= 1.4 harfbuzz-icu icu-uc freetype2 graphite2";
+const PKGCONFIG_LIBS: &'static str = "harfbuzz >= 1.4 harfbuzz-icu icu-uc freetype2 graphite2";
 
 /// Build-script state when using pkg-config as the backend.
 #[derive(Debug)]

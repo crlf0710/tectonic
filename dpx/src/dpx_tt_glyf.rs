@@ -38,12 +38,12 @@ use super::dpx_tt_table::{
     tt_read_vhea_table,
 };
 use crate::dpx_truetype::sfnt_table_info;
-use crate::{ttstub_input_read};
+use crate::ttstub_input_read;
 use libc::{free, memcpy, memset};
 
 use std::io::{Seek, SeekFrom};
-use std::slice;
 use std::ptr;
+use std::slice;
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
@@ -125,11 +125,7 @@ pub unsafe fn tt_get_index(mut g: *mut tt_glyphs, mut gid: u16) -> u16 {
     idx
 }
 
-pub unsafe fn tt_add_glyph(
-    mut g: *mut tt_glyphs,
-    mut gid: u16,
-    mut new_gid: u16,
-) -> u16 {
+pub unsafe fn tt_add_glyph(mut g: *mut tt_glyphs, mut gid: u16, mut new_gid: u16) -> u16 {
     assert!(!g.is_null());
     if *(*g).used_slot.offset((new_gid as i32 / 8i32) as isize) as i32
         & 1i32 << 7i32 - new_gid as i32 % 8i32
@@ -196,7 +192,6 @@ pub unsafe fn tt_build_finish(mut g: *mut tt_glyphs) {
         free(g as *mut libc::c_void);
     };
 }
-
 
 pub unsafe fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
     /* some information available from other TrueType table */
@@ -329,7 +324,9 @@ pub unsafe fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i3
             *fresh5 = p;
             let endptr = p.offset(len as isize);
             let handle = &mut (*sfont).handle;
-            handle.seek(SeekFrom::Start(offset as u64 + loc as u64)).unwrap();
+            handle
+                .seek(SeekFrom::Start(offset as u64 + loc as u64))
+                .unwrap();
             let number_of_contours = tt_get_signed_pair(handle);
             p = p.offset(
                 put_big_endian(p as *mut libc::c_void, number_of_contours as i32, 2i32) as isize,
@@ -442,10 +439,7 @@ pub unsafe fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i3
         }
     }
     free(w_stat as *mut libc::c_void);
-    slice::from_raw_parts_mut(
-        (*g).gd,
-        (*g).num_glyphs as usize
-    ).sort_unstable_by_key(|sv| sv.gid);
+    slice::from_raw_parts_mut((*g).gd, (*g).num_glyphs as usize).sort_unstable_by_key(|sv| sv.gid);
     let mut glyf_table_size = 0u64 as u32;
     let mut num_hm_known = 0;
     let last_advw = (*(*g).gd.offset(((*g).num_glyphs as i32 - 1i32) as isize)).advw;
@@ -736,7 +730,9 @@ pub unsafe fn tt_get_metrics(mut sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32
                 panic!("Invalid TrueType glyph data (gid {}).", gid);
             }
             let handle = &mut (*sfont).handle;
-            handle.seek(SeekFrom::Start(offset as u64 + loc as u64)).unwrap();
+            handle
+                .seek(SeekFrom::Start(offset as u64 + loc as u64))
+                .unwrap();
             tt_get_signed_pair(handle);
             /* BoundingBox: FWord x 4 */
             (*(*g).gd.offset(i as isize)).llx = tt_get_signed_pair(handle);

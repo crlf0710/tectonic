@@ -202,7 +202,10 @@ mod xetex_layout_interface;
 mod xetex_opentype_math;
 
 pub(crate) mod freetype_sys_patch {
-    use freetype::freetype_sys::{FT_Face, FT_Byte, FT_Short, FT_UShort, FT_Long, FT_ULong, FT_UInt, FT_Int32, FT_Fixed, FT_Error, FT_Sfnt_Tag};
+    use freetype::freetype_sys::{
+        FT_Byte, FT_Error, FT_Face, FT_Fixed, FT_Int32, FT_Long, FT_Sfnt_Tag, FT_Short, FT_UInt,
+        FT_ULong, FT_UShort,
+    };
 
     extern "C" {
         #[no_mangle]
@@ -211,7 +214,7 @@ pub(crate) mod freetype_sys_patch {
             charcode: FT_ULong,
             variantSelector: FT_ULong,
         ) -> FT_UInt;
-    
+
         #[no_mangle]
         pub fn FT_Get_Advance(
             face: FT_Face,
@@ -233,7 +236,7 @@ pub(crate) mod freetype_sys_patch {
         pub fn FT_Get_Sfnt_Name_Count(face: FT_Face) -> FT_UInt;
 
         #[no_mangle]
-        pub fn FT_Get_Sfnt_Name(face: FT_Face, idx: FT_UInt, aname: *mut FT_SfntName) -> FT_Error;            
+        pub fn FT_Get_Sfnt_Name(face: FT_Face, idx: FT_UInt, aname: *mut FT_SfntName) -> FT_Error;
     }
 
     pub const FT_SFNT_MAX: FT_Sfnt_Tag = 7;
@@ -277,6 +280,6 @@ pub(crate) mod freetype_sys_patch {
         pub name_id: FT_UShort,
         pub string: *mut FT_Byte,
         pub string_len: FT_UInt,
-    }    
+    }
     pub type FT_SfntName = FT_SfntName_;
 }

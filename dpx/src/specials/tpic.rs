@@ -29,7 +29,7 @@ use crate::streq_ptr;
 use crate::warn;
 use crate::DisplayExt;
 use crate::SkipBlank;
-use std::ffi::{CString, CStr};
+use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::{spc_arg, spc_env};
@@ -48,12 +48,11 @@ use crate::dpx_pdfdraw::{
     pdf_dev_setmiterlimit,
 };
 use crate::dpx_pdfobj::{
-    pdf_foreach_dict, pdf_get_version, pdf_name_value,
-    pdf_new_boolean, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_string, pdf_obj,
-    pdf_ref_obj, pdf_release_obj, pdf_string_value,
+    pdf_foreach_dict, pdf_get_version, pdf_name_value, pdf_new_boolean, pdf_new_dict, pdf_new_name,
+    pdf_new_number, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string_value,
 };
 use crate::dpx_pdfparse::ParseIdent;
-use libc::{atof};
+use libc::atof;
 
 use super::SpcHandler;
 #[derive(Copy, Clone)]
@@ -135,21 +134,13 @@ unsafe fn set_fillstyle(mut g: f64, mut a: f64, mut f_ais: i32) -> i32 {
     if a > 0.0f64 {
         let alp = (100. * a).round() as i32;
         let resname = format!("_Tps_a{:03}_", alp);
-        if check_resourcestatus(
-            "ExtGState",
-            &resname,
-        ) == 0
-        {
+        if check_resourcestatus("ExtGState", &resname) == 0 {
             let dict = create_xgstate(
                 (0.01f64 * alp as f64 / 0.01f64 + 0.5f64).floor() * 0.01f64,
                 f_ais,
             );
             let s = CString::new(resname.as_bytes()).unwrap();
-            pdf_doc_add_page_resource(
-                "ExtGState",
-                s.as_ptr() as *const i8,
-                pdf_ref_obj(dict),
-            );
+            pdf_doc_add_page_resource("ExtGState", s.as_ptr() as *const i8, pdf_ref_obj(dict));
             pdf_release_obj(dict);
         }
         let buf = format!(" /{} gs", resname);
@@ -169,14 +160,7 @@ unsafe fn set_styles(
     mut pn: f64,
     mut da: f64,
 ) {
-    let mut M = TMatrix::row_major(
-        1.,
-        0.,
-        0.,
-        -1.,
-        (*c).x,
-        (*c).y,
-    );
+    let mut M = TMatrix::row_major(1., 0., 0., -1., (*c).x, (*c).y);
     pdf_dev_concat(&mut M);
     if f_vp {
         set_linestyle(pn, da);
@@ -220,10 +204,8 @@ unsafe fn tpic__polyline(
      * path (a path without path-painting operator applied)?
      */
     /* Shading is applied only to closed path. */
-    f_fs = if (*tp).points[0].x
-        == (*tp).points[(*tp).points.len() - 1].x
-        && (*tp).points[0].y
-            == (*tp).points[(*tp).points.len() - 1].y
+    f_fs = if (*tp).points[0].x == (*tp).points[(*tp).points.len() - 1].x
+        && (*tp).points[0].y == (*tp).points[(*tp).points.len() - 1].y
     {
         f_fs as i32
     } else {
@@ -235,10 +217,7 @@ unsafe fn tpic__polyline(
         set_styles(tp, c, f_fs, f_vp, pn, da);
         pdf_dev_moveto((*tp).points[0].x, (*tp).points[0].y);
         for pt in &(*tp).points {
-            pdf_dev_lineto(
-                pt.x,
-                pt.y,
-            );
+            pdf_dev_lineto(pt.x, pt.y);
         }
         showpath(f_vp, f_fs);
         pdf_dev_grestore();
@@ -275,10 +254,8 @@ unsafe fn tpic__spline(
     let mut pn: f64 = (*tp).pen_size;
     let mut f_fs: bool = (*tp).fill_shape;
     let mut error: i32 = 0i32;
-    f_fs = if (*tp).points[0].x
-        == (*tp).points[(*tp).points.len()-1].x
-        && (*tp).points[0].y
-            == (*tp).points[(*tp).points.len()-1].y
+    f_fs = if (*tp).points[0].x == (*tp).points[(*tp).points.len() - 1].x
+        && (*tp).points[0].y == (*tp).points[(*tp).points.len() - 1].y
     {
         f_fs as i32
     } else {
@@ -295,27 +272,16 @@ unsafe fn tpic__spline(
         let mut i = 1;
         while i < (*tp).points.len() - 1 {
             /* B-spline control points */
-            v[0] = 0.5f64
-                * ((*tp).points[i-1].x
-                    + (*tp).points[i].x);
-            v[1] = 0.5f64
-                * ((*tp).points[i-1].y
-                    + (*tp).points[i].y);
+            v[0] = 0.5f64 * ((*tp).points[i - 1].x + (*tp).points[i].x);
+            v[1] = 0.5f64 * ((*tp).points[i - 1].y + (*tp).points[i].y);
             v[2] = (*tp).points[i].x;
             v[3] = (*tp).points[i].y;
-            v[4] = 0.5f64
-                * ((*tp).points[i].x
-                    + (*tp).points[i+1].x);
-            v[5] = 0.5f64
-                * ((*tp).points[i].y
-                    + (*tp).points[i+1].y);
+            v[4] = 0.5f64 * ((*tp).points[i].x + (*tp).points[i + 1].x);
+            v[5] = 0.5f64 * ((*tp).points[i].y + (*tp).points[i + 1].y);
             pdf_dev_bspline(v[0], v[1], v[2], v[3], v[4], v[5]);
             i += 1
         }
-        pdf_dev_lineto(
-            (*tp).points[i].x,
-            (*tp).points[i].y,
-        );
+        pdf_dev_lineto((*tp).points[i].x, (*tp).points[i].y);
         showpath(f_vp, f_fs);
         pdf_dev_grestore();
     }
@@ -668,7 +634,10 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
                     if let Some(vp) = (*ap).cur.parse_c_string() {
                         dict_ref.set(
                             kp.to_bytes(),
-                            pdf_new_string(vp.as_ptr() as *const libc::c_void, (vp.to_bytes().len() + 1) as _),
+                            pdf_new_string(
+                                vp.as_ptr() as *const libc::c_void,
+                                (vp.to_bytes().len() + 1) as _,
+                            ),
                         );
                     } else {
                         error = -1;
@@ -736,11 +705,7 @@ unsafe fn spc_handler_tpic__setopts(mut spe: *mut spc_env, mut ap: *mut spc_arg)
         &mut *dict,
         Some(
             tpic_filter_getopts
-                as unsafe fn(
-                    _: *mut pdf_obj,
-                    _: *mut pdf_obj,
-                    _: *mut libc::c_void,
-                ) -> i32,
+                as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
         ),
         tp as *mut libc::c_void,
     );

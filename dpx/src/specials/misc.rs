@@ -66,10 +66,10 @@ fn parse_postscriptbox_special(buf: &str) -> Result<(f64, f64, String), ()> {
 unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i32 {
     let mut ti = transform_info::new();
     let mut options: load_options = load_options {
-            page_no: 1i32,
-            bbox_type: 0i32,
-            dict: ptr::null_mut(),
-        };
+        page_no: 1i32,
+        bbox_type: 0i32,
+        dict: ptr::null_mut(),
+    };
     let mut buf: [u8; 512] = [0; 512];
     assert!(!spe.is_null() && !ap.is_null());
     if (*ap).cur.is_empty() {

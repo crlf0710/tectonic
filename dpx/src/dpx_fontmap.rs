@@ -142,7 +142,8 @@ unsafe fn mstrdup(mut s: *const i8) -> *mut i8 {
     if s.is_null() {
         return ptr::null_mut();
     }
-    let r = new((strlen(s).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
+    let r =
+        new((strlen(s).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
     strcpy(r, s);
     r
 }
@@ -855,10 +856,7 @@ unsafe fn make_subfont_name(
  * where 'ab' ... 'yz' is subfont IDs in SFD 'A'.
  */
 
-pub unsafe fn pdf_append_fontmap_record(
-    mut kp: *const i8,
-    mut vp: *const fontmap_rec,
-) -> i32 {
+pub unsafe fn pdf_append_fontmap_record(mut kp: *const i8, mut vp: *const fontmap_rec) -> i32 {
     let mut sfd_name: *mut i8 = ptr::null_mut();
     if kp.is_null() || (vp.is_null() || (*vp).map_name.is_null() || (*vp).font_name.is_null()) {
         warn!("Invalid fontmap record...");
@@ -870,7 +868,7 @@ pub unsafe fn pdf_append_fontmap_record(
             CStr::from_ptr(kp).display()
         );
     }
-    let mut fnt_name = chop_sfd_name(kp, &mut sfd_name);/* link to this entry */
+    let mut fnt_name = chop_sfd_name(kp, &mut sfd_name); /* link to this entry */
     if !fnt_name.is_null() && !sfd_name.is_null() {
         let mut n: i32 = 0i32;
         let mut subfont_ids = sfd_get_subfont_ids(sfd_name, &mut n);
@@ -1168,10 +1166,7 @@ pub unsafe fn pdf_load_fontmap_file(filename: &CStr, mut mode: i32) -> i32 {
         TTInputFormat::FONTMAP,
     );
     if handle.is_none() {
-        warn!(
-            "Couldn\'t open font map file \"{}\".",
-            filename.display()
-        );
+        warn!("Couldn\'t open font map file \"{}\".", filename.display());
         return -1i32;
     }
     let mut handle = handle.unwrap();

@@ -294,12 +294,7 @@ pub unsafe fn tt_get_positive_quad(
 ) -> u32 {
     let mut val: i32 = tt_get_signed_quad(handle);
     if val < 0i32 {
-        panic!(
-            "Bad {}: negative {}: {}",
-            type_0,
-            name,
-            val,
-        );
+        panic!("Bad {}: negative {}: {}", type_0, name, val,);
     }
     val as u32
 }

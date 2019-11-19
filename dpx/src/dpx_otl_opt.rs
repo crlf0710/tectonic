@@ -199,7 +199,8 @@ unsafe fn parse_expr(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut bt_n
 }
 
 pub unsafe fn otl_new_opt() -> *mut otl_opt {
-    let opt = new((1_u64).wrapping_mul(::std::mem::size_of::<otl_opt>() as u64) as u32) as *mut otl_opt;
+    let opt =
+        new((1_u64).wrapping_mul(::std::mem::size_of::<otl_opt>() as u64) as u32) as *mut otl_opt;
     (*opt).rule = ptr::null_mut();
     opt as *mut otl_opt
 }

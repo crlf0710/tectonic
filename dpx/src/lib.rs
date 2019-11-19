@@ -93,7 +93,6 @@ fn isblank(c: libc::c_int) -> libc::c_int {
     (c == ' ' as _ || c == '\t' as _) as _
 }
 
-
 trait SkipBlank {
     fn skip_blank(&mut self);
 }
@@ -242,4 +241,3 @@ mod shims;
 pub mod specials;
 
 pub use crate::dpx_dvipdfmx::dvipdfmx_main;
-

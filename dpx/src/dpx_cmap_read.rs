@@ -27,8 +27,8 @@
     unused_mut
 )]
 
-use std::io::{Seek, SeekFrom};
 use std::ffi::CStr;
+use std::io::{Seek, SeekFrom};
 use std::ptr;
 use tectonic_bridge::ttstub_input_close;
 
@@ -124,7 +124,11 @@ unsafe fn ifreader_read(mut reader: *mut ifreader, mut size: size_t) -> size_t {
         );
         (*reader).cursor = (*reader).buf;
         (*reader).endptr = (*reader).buf.offset(bytesrem as isize);
-        if ttstub_input_read((*reader).handle.0.as_ptr(), (*reader).endptr as *mut i8, bytesread) as u64
+        if ttstub_input_read(
+            (*reader).handle.0.as_ptr(),
+            (*reader).endptr as *mut i8,
+            bytesread,
+        ) as u64
             != bytesread
         {
             panic!("Reading file failed.");
@@ -526,10 +530,10 @@ unsafe fn do_cidchar(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i
 }
 unsafe fn do_cidsysteminfo(mut cmap: *mut CMap, mut input: *mut ifreader) -> i32 {
     let mut csi: CIDSysInfo = CIDSysInfo {
-            registry: ptr::null_mut(),
-            ordering: ptr::null_mut(),
-            supplement: -1i32,
-        };
+        registry: ptr::null_mut(),
+        ordering: ptr::null_mut(),
+        supplement: -1i32,
+    };
     let mut simpledict: i32 = 0i32;
     let mut error: i32 = 0i32;
     ifreader_read(input, (127i32 * 2i32) as size_t);
@@ -706,11 +710,7 @@ pub unsafe fn CMap_parse(mut cmap: *mut CMap, mut handle: InputHandleWrapper) ->
     let mut tmpint: i32 = -1i32;
     assert!(!cmap.is_null());
     let size = ttstub_input_get_size(&mut handle);
-    let input = ifreader_create(
-        handle,
-        size,
-        (4096i32 - 1i32) as size_t,
-    );
+    let input = ifreader_create(handle, size, (4096i32 - 1i32) as size_t);
     while status >= 0i32 {
         let mut tok2 = ptr::null_mut();
         ifreader_read(input, (4096i32 / 2i32) as size_t);
@@ -732,7 +732,10 @@ pub unsafe fn CMap_parse(mut cmap: *mut CMap, mut handle: InputHandleWrapper) ->
             {
                 status = -1i32
             } else {
-                CMap_set_name(cmap, &CStr::from_ptr(pst_data_ptr(tok2) as *const i8).to_string_lossy());
+                CMap_set_name(
+                    cmap,
+                    &CStr::from_ptr(pst_data_ptr(tok2) as *const i8).to_string_lossy(),
+                );
             }
         } else if pst_type_of(tok1) == 6i32
             && memcmp(
@@ -804,7 +807,9 @@ pub unsafe fn CMap_parse(mut cmap: *mut CMap, mut handle: InputHandleWrapper) ->
                             strlen(b"usecmap\x00" as *const u8 as *const i8),
                         ) == 0)
                 {
-                    let id = CMap_cache_find(&CStr::from_ptr(pst_data_ptr(tok1) as *const i8).to_string_lossy());
+                    let id = CMap_cache_find(
+                        &CStr::from_ptr(pst_data_ptr(tok1) as *const i8).to_string_lossy(),
+                    );
                     if id < 0i32 {
                         status = -1i32
                     } else {

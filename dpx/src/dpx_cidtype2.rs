@@ -56,9 +56,8 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_new_dict, IntoObj,
-    pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_length, STREAM_COMPRESS,
+    pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string,
+    pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length, IntoObj, STREAM_COMPRESS,
 };
 use libc::{free, memmove, memset, strcat, strcmp, strcpy, strlen, strncpy, strstr};
 
@@ -203,126 +202,126 @@ unsafe fn validate_name(mut fontname: *mut i8, mut len: i32) {
 }
 static mut known_encodings: [C2RustUnnamed_3; 11] = [
     C2RustUnnamed_3 {
-            platform: 3_u16,
-            encoding: 10_u16,
-            pdfnames: [
-                b"UCSms-UCS4\x00" as *const u8 as *const i8,
-                b"UCSms-UCS2\x00" as *const u8 as *const i8,
-                b"UCS4\x00" as *const u8 as *const i8,
-                b"UCS2\x00" as *const u8 as *const i8,
-                ptr::null(),
-            ],
-        },
+        platform: 3_u16,
+        encoding: 10_u16,
+        pdfnames: [
+            b"UCSms-UCS4\x00" as *const u8 as *const i8,
+            b"UCSms-UCS2\x00" as *const u8 as *const i8,
+            b"UCS4\x00" as *const u8 as *const i8,
+            b"UCS2\x00" as *const u8 as *const i8,
+            ptr::null(),
+        ],
+    },
     C2RustUnnamed_3 {
-            platform: 3_u16,
-            encoding: 1_u16,
-            pdfnames: [
-                b"UCSms-UCS4\x00" as *const u8 as *const i8,
-                b"UCSms-UCS2\x00" as *const u8 as *const i8,
-                b"UCS4\x00" as *const u8 as *const i8,
-                b"UCS2\x00" as *const u8 as *const i8,
-                ptr::null(),
-            ],
-        },
+        platform: 3_u16,
+        encoding: 1_u16,
+        pdfnames: [
+            b"UCSms-UCS4\x00" as *const u8 as *const i8,
+            b"UCSms-UCS2\x00" as *const u8 as *const i8,
+            b"UCS4\x00" as *const u8 as *const i8,
+            b"UCS2\x00" as *const u8 as *const i8,
+            ptr::null(),
+        ],
+    },
     C2RustUnnamed_3 {
-            platform: 3_u16,
-            encoding: 2_u16,
-            pdfnames: [
-                b"90ms-RKSJ\x00" as *const u8 as *const i8,
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-            ],
-        },
+        platform: 3_u16,
+        encoding: 2_u16,
+        pdfnames: [
+            b"90ms-RKSJ\x00" as *const u8 as *const i8,
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+        ],
+    },
     C2RustUnnamed_3 {
-            platform: 3_u16,
-            encoding: 3_u16,
-            pdfnames: [
-                b"GBK-EUC\x00" as *const u8 as *const i8,
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-            ],
-        },
+        platform: 3_u16,
+        encoding: 3_u16,
+        pdfnames: [
+            b"GBK-EUC\x00" as *const u8 as *const i8,
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+        ],
+    },
     C2RustUnnamed_3 {
-            platform: 3_u16,
-            encoding: 4_u16,
-            pdfnames: [
-                b"ETen-B5\x00" as *const u8 as *const i8,
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-            ],
-        },
+        platform: 3_u16,
+        encoding: 4_u16,
+        pdfnames: [
+            b"ETen-B5\x00" as *const u8 as *const i8,
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+        ],
+    },
     C2RustUnnamed_3 {
-            platform: 3_u16,
-            encoding: 5_u16,
-            pdfnames: [
-                b"KSCms-UHC\x00" as *const u8 as *const i8,
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-            ],
-        },
+        platform: 3_u16,
+        encoding: 5_u16,
+        pdfnames: [
+            b"KSCms-UHC\x00" as *const u8 as *const i8,
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+        ],
+    },
     C2RustUnnamed_3 {
-            platform: 1_u16,
-            encoding: 1_u16,
-            pdfnames: [
-                b"90pv-RKSJ\x00" as *const u8 as *const i8,
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-            ],
-        },
+        platform: 1_u16,
+        encoding: 1_u16,
+        pdfnames: [
+            b"90pv-RKSJ\x00" as *const u8 as *const i8,
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+        ],
+    },
     C2RustUnnamed_3 {
-            platform: 1_u16,
-            encoding: 2_u16,
-            pdfnames: [
-                b"B5pc\x00" as *const u8 as *const i8,
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-            ],
-        },
+        platform: 1_u16,
+        encoding: 2_u16,
+        pdfnames: [
+            b"B5pc\x00" as *const u8 as *const i8,
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+        ],
+    },
     C2RustUnnamed_3 {
-            platform: 1_u16,
-            encoding: 25_u16,
-            pdfnames: [
-                b"GBpc-EUC\x00" as *const u8 as *const i8,
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-            ],
-        },
+        platform: 1_u16,
+        encoding: 25_u16,
+        pdfnames: [
+            b"GBpc-EUC\x00" as *const u8 as *const i8,
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+        ],
+    },
     C2RustUnnamed_3 {
-            platform: 1_u16,
-            encoding: 3_u16,
-            pdfnames: [
-                b"KSCpc-EUC\x00" as *const u8 as *const i8,
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-            ],
-        },
+        platform: 1_u16,
+        encoding: 3_u16,
+        pdfnames: [
+            b"KSCpc-EUC\x00" as *const u8 as *const i8,
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+        ],
+    },
     C2RustUnnamed_3 {
-            platform: 0_u16,
-            encoding: 0_u16,
-            pdfnames: [
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-                ptr::null(),
-            ],
-        },
+        platform: 0_u16,
+        encoding: 0_u16,
+        pdfnames: [
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+            ptr::null(),
+        ],
+    },
 ];
 unsafe fn find_tocode_cmap(mut reg: *const i8, mut ord: *const i8, mut select: i32) -> *mut CMap {
     let mut cmap_id: i32 = -1i32;
@@ -535,45 +534,45 @@ unsafe fn add_TTCIDVMetrics(
 unsafe fn fix_CJK_symbols(mut code: u16) -> u16 {
     static mut CJK_Uni_symbols: [C2RustUnnamed_2; 10] = [
         C2RustUnnamed_2 {
-                alt1: 0x2014_u16,
-                alt2: 0x2015_u16,
-            },
+            alt1: 0x2014_u16,
+            alt2: 0x2015_u16,
+        },
         C2RustUnnamed_2 {
-                alt1: 0x2016_u16,
-                alt2: 0x2225_u16,
-            },
+            alt1: 0x2016_u16,
+            alt2: 0x2225_u16,
+        },
         C2RustUnnamed_2 {
-                alt1: 0x203e_u16,
-                alt2: 0xffe3_u16,
-            },
+            alt1: 0x203e_u16,
+            alt2: 0xffe3_u16,
+        },
         C2RustUnnamed_2 {
-                alt1: 0x2026_u16,
-                alt2: 0x22ef_u16,
-            },
+            alt1: 0x2026_u16,
+            alt2: 0x22ef_u16,
+        },
         C2RustUnnamed_2 {
-                alt1: 0x2212_u16,
-                alt2: 0xff0d_u16,
-            },
+            alt1: 0x2212_u16,
+            alt2: 0xff0d_u16,
+        },
         C2RustUnnamed_2 {
-                alt1: 0x301c_u16,
-                alt2: 0xff5e_u16,
-            },
+            alt1: 0x301c_u16,
+            alt2: 0xff5e_u16,
+        },
         C2RustUnnamed_2 {
-                alt1: 0xffe0_u16,
-                alt2: 0xa2_u16,
-            },
+            alt1: 0xffe0_u16,
+            alt2: 0xa2_u16,
+        },
         C2RustUnnamed_2 {
-                alt1: 0xffe1_u16,
-                alt2: 0xa3_u16,
-            },
+            alt1: 0xffe1_u16,
+            alt2: 0xa3_u16,
+        },
         C2RustUnnamed_2 {
-                alt1: 0xffe2_u16,
-                alt2: 0xac_u16,
-            },
+            alt1: 0xffe2_u16,
+            alt2: 0xac_u16,
+        },
         C2RustUnnamed_2 {
-                alt1: 0xffff_u16,
-                alt2: 0xffff_u16,
-            },
+            alt1: 0xffff_u16,
+            alt2: 0xffff_u16,
+        },
     ];
     let mut alt_code = code;
     for i in 0..(::std::mem::size_of::<[C2RustUnnamed_2; 10]>() as u64)
@@ -645,10 +644,9 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
     if (*font).indirect.is_null() {
         return;
     }
-    (*(*font).fontdict).as_dict_mut().set(
-        "FontDescriptor",
-        pdf_ref_obj((*font).descriptor),
-    );
+    (*(*font).fontdict)
+        .as_dict_mut()
+        .set("FontDescriptor", pdf_ref_obj((*font).descriptor));
     if CIDFont_is_BaseFont(font) {
         return;
     }
@@ -677,7 +675,9 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
     (*(*font).fontdict).as_dict_mut().set("CIDSystemInfo", tmp);
     /* Quick exit for non-embedded & fixed-pitch font. */
     if CIDFont_get_embedding(font) == 0 && opt_flags & 1i32 << 1i32 != 0 {
-        (*(*font).fontdict).as_dict_mut().set("DW", pdf_new_number(1000.0f64));
+        (*(*font).fontdict)
+            .as_dict_mut()
+            .set("DW", pdf_new_number(1000.0f64));
         return;
     }
     let sfont = if let Some(handle) = dpx_open_truetype_file((*font).ident) {
@@ -1004,7 +1004,9 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
      * DW, W, DW2, and W2
      */
     if opt_flags & 1i32 << 1i32 != 0 {
-        (*(*font).fontdict).as_dict_mut().set("DW", pdf_new_number(1000.0f64));
+        (*(*font).fontdict)
+            .as_dict_mut()
+            .set("DW", pdf_new_number(1000.0f64));
     } else {
         add_TTCIDHMetrics((*font).fontdict, glyphs, used_chars, cidtogidmap, last_cid);
         if !v_used_chars.is_null() {
@@ -1041,7 +1043,9 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
     if verbose > 1i32 {
         info!("[{} bytes]", pdf_stream_length(&*fontfile));
     }
-    (*(*font).descriptor).as_dict_mut().set("FontFile2", pdf_ref_obj(fontfile));
+    (*(*font).descriptor)
+        .as_dict_mut()
+        .set("FontFile2", pdf_ref_obj(fontfile));
     pdf_release_obj(fontfile);
     /*
      * CIDSet
@@ -1051,7 +1055,9 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
         used_chars as *const libc::c_void,
         last_cid as i32 / 8i32 + 1i32,
     );
-    (*(*font).descriptor).as_dict_mut().set("CIDSet", pdf_ref_obj(cidset));
+    (*(*font).descriptor)
+        .as_dict_mut()
+        .set("CIDSet", pdf_ref_obj(cidset));
     pdf_release_obj(cidset);
     /*
      * CIDToGIDMap
@@ -1060,14 +1066,18 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
      * for Type 2 CIDFonts with embedded font programs.
      */
     if cidtogidmap.is_null() {
-        (*(*font).fontdict).as_dict_mut().set("CIDToGIDMap", pdf_new_name("Identity"));
+        (*(*font).fontdict)
+            .as_dict_mut()
+            .set("CIDToGIDMap", pdf_new_name("Identity"));
     } else {
         let c2gmstream = pdf_new_stream(STREAM_COMPRESS);
         (*c2gmstream).as_stream_mut().add(
             cidtogidmap as *const libc::c_void,
             (last_cid as i32 + 1i32) * 2i32,
         );
-        (*(*font).fontdict).as_dict_mut().set("CIDToGIDMap", pdf_ref_obj(c2gmstream));
+        (*(*font).fontdict)
+            .as_dict_mut()
+            .set("CIDToGIDMap", pdf_ref_obj(c2gmstream));
         pdf_release_obj(c2gmstream);
         free(cidtogidmap as *mut libc::c_void);
     };
@@ -1081,7 +1091,7 @@ pub unsafe fn CIDFont_type2_open(
 ) -> i32 {
     let offset;
     assert!(!font.is_null() && !opt.is_null());
-    
+
     let sfont = if let Some(handle) = dpx_open_truetype_file(name) {
         sfnt_open(handle)
     } else if let Some(handle) = dpx_open_dfont_file(name) {
@@ -1228,8 +1238,12 @@ pub unsafe fn CIDFont_type2_open(
         (*(*font).csi).supplement = 0i32
     }
     (*font).fontdict = pdf_new_dict();
-    (*(*font).fontdict).as_dict_mut().set("Type", pdf_new_name("Font"));
-    (*(*font).fontdict).as_dict_mut().set("Subtype", pdf_new_name("CIDFontType2"));
+    (*(*font).fontdict)
+        .as_dict_mut()
+        .set("Type", pdf_new_name("Font"));
+    (*(*font).fontdict)
+        .as_dict_mut()
+        .set("Subtype", pdf_new_name("CIDFontType2"));
     (*font).descriptor = tt_get_fontdesc(sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name);
     if (*font).descriptor.is_null() {
         panic!("Could not obtain necessary font info.");
@@ -1243,8 +1257,12 @@ pub unsafe fn CIDFont_type2_open(
         pdf_font_make_uniqueTag(fontname);
         *fontname.offset(6) = '+' as i32 as i8
     }
-    (*(*font).descriptor).as_dict_mut().set("FontName", pdf_copy_name(fontname));
-    (*(*font).fontdict).as_dict_mut().set("BaseFont", pdf_copy_name(fontname));
+    (*(*font).descriptor)
+        .as_dict_mut()
+        .set("FontName", pdf_copy_name(fontname));
+    (*(*font).fontdict)
+        .as_dict_mut()
+        .set("BaseFont", pdf_copy_name(fontname));
     sfnt_close(sfont);
     /*
      * Don't write fontdict here.

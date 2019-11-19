@@ -55,8 +55,8 @@ use super::dpx_type0::{
 use super::dpx_type1::{pdf_font_load_type1, pdf_font_open_type1};
 use super::dpx_type1c::{pdf_font_load_type1c, pdf_font_open_type1c};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_link_obj, pdf_new_dict, pdf_new_name,
-    pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length,
+    pdf_copy_name, pdf_link_obj, pdf_new_dict, pdf_new_name, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_stream_length,
 };
 use crate::mfree;
 use crate::shims::sprintf;
@@ -215,15 +215,13 @@ unsafe fn pdf_flush_font(mut font: *mut pdf_font) {
     if !(*font).resource.is_null() && !(*font).reference.is_null() {
         if (*font).subtype != 2i32 {
             if pdf_font_get_flag(font, 1i32 << 0i32) != 0 {
-                (*(*font).resource).as_dict_mut().set(
-                    "BaseFont",
-                    pdf_copy_name((*font).fontname),
-                );
+                (*(*font).resource)
+                    .as_dict_mut()
+                    .set("BaseFont", pdf_copy_name((*font).fontname));
                 if !(*font).descriptor.is_null() {
-                    (*(*font).descriptor).as_dict_mut().set(
-                        "FontName",
-                        pdf_copy_name((*font).fontname),
-                    );
+                    (*(*font).descriptor)
+                        .as_dict_mut()
+                        .set("FontName", pdf_copy_name((*font).fontname));
                 }
             } else {
                 if (*font).fontname.is_null() {
@@ -244,17 +242,20 @@ unsafe fn pdf_flush_font(mut font: *mut pdf_font) {
                     uniqueTag,
                     (*font).fontname,
                 );
-                (*(*font).resource).as_dict_mut().set("BaseFont", pdf_copy_name(fontname));
+                (*(*font).resource)
+                    .as_dict_mut()
+                    .set("BaseFont", pdf_copy_name(fontname));
                 if !(*font).descriptor.is_null() {
-                    (*(*font).descriptor).as_dict_mut().set("FontName", pdf_copy_name(fontname));
+                    (*(*font).descriptor)
+                        .as_dict_mut()
+                        .set("FontName", pdf_copy_name(fontname));
                 }
                 free(fontname as *mut libc::c_void);
             }
             if !(*font).descriptor.is_null() {
-                (*(*font).resource).as_dict_mut().set(
-                    "FontDescriptor",
-                    pdf_ref_obj((*font).descriptor),
-                );
+                (*(*font).resource)
+                    .as_dict_mut()
+                    .set("FontDescriptor", pdf_ref_obj((*font).descriptor));
             }
         }
     }
@@ -287,10 +288,10 @@ unsafe fn pdf_clean_font_struct(mut font: *mut pdf_font) {
     };
 }
 static mut font_cache: C2RustUnnamed_0 = C2RustUnnamed_0 {
-        count: 0i32,
-        capacity: 0i32,
-        fonts: std::ptr::null_mut(),
-    };
+    count: 0i32,
+    capacity: 0i32,
+    fonts: std::ptr::null_mut(),
+};
 
 pub unsafe fn pdf_init_fonts() {
     assert!(font_cache.fonts.is_null());
@@ -407,7 +408,9 @@ unsafe fn try_load_ToUnicode_CMap(mut font: *mut pdf_font) -> i32 {
             panic!("Object returned by pdf_load_ToUnicode_stream() not stream object! (This must be bug)");
         } else {
             if pdf_stream_length(&*tounicode) > 0i32 {
-                fontdict.as_dict_mut().set("ToUnicode", pdf_ref_obj(tounicode));
+                fontdict
+                    .as_dict_mut()
+                    .set("ToUnicode", pdf_ref_obj(tounicode));
                 if __verbose != 0 {
                     info!(
                         "pdf_font>> ToUnicode CMap \"{}\" attached to font id=\"{}\".\n",
@@ -523,15 +526,16 @@ pub unsafe fn pdf_close_fonts() {
                 tounicode = pdf_encoding_get_tounicode((*font_0).encoding_id);
                 !tounicode.is_null()
             } {
-                (*(*font_0).resource).as_dict_mut().set("ToUnicode", pdf_ref_obj(tounicode));
+                (*(*font_0).resource)
+                    .as_dict_mut()
+                    .set("ToUnicode", pdf_ref_obj(tounicode));
             }
         } else if (*font_0).subtype == 3i32 {
             /* encoding_id < 0 means MacRoman here (but not really)
              * We use MacRoman as "default" encoding. */
-            (*(*font_0).resource).as_dict_mut().set(
-                "Encoding",
-                pdf_new_name("MacRomanEncoding"),
-            ); /* After encoding */
+            (*(*font_0).resource)
+                .as_dict_mut()
+                .set("Encoding", pdf_new_name("MacRomanEncoding")); /* After encoding */
         }
         pdf_flush_font(font_0);
         pdf_clean_font_struct(font_0);
@@ -567,7 +571,9 @@ pub unsafe fn pdf_font_findresource(
         if strstr((*mrec).enc_name, b".enc\x00" as *const u8 as *const i8).is_null()
             || !strstr((*mrec).enc_name, b".cmap\x00" as *const u8 as *const i8).is_null()
         {
-            let enc_name = CStr::from_ptr((*mrec).enc_name).to_string_lossy().to_string();
+            let enc_name = CStr::from_ptr((*mrec).enc_name)
+                .to_string_lossy()
+                .to_string();
             cmap_id = CMap_cache_find(&enc_name);
             if cmap_id >= 0i32 {
                 let cmap = CMap_cache_get(cmap_id);
@@ -855,18 +861,26 @@ pub unsafe fn pdf_font_get_fontname(mut font: *mut pdf_font) -> *mut i8 {
 pub unsafe fn pdf_font_get_resource(font: &mut pdf_font) -> &mut pdf_obj {
     if (*font).resource.is_null() {
         (*font).resource = pdf_new_dict();
-        (*(*font).resource).as_dict_mut().set("Type", pdf_new_name("Font"));
+        (*(*font).resource)
+            .as_dict_mut()
+            .set("Type", pdf_new_name("Font"));
         match (*font).subtype {
             0 | 1 => {
-                (*(*font).resource).as_dict_mut().set("Subtype", pdf_new_name("Type1"));
+                (*(*font).resource)
+                    .as_dict_mut()
+                    .set("Subtype", pdf_new_name("Type1"));
             }
             2 => {
-                (*(*font).resource).as_dict_mut().set("Subtype", pdf_new_name("Type3"));
+                (*(*font).resource)
+                    .as_dict_mut()
+                    .set("Subtype", pdf_new_name("Type3"));
             }
             3 => {
-                (*(*font).resource).as_dict_mut().set("Subtype", pdf_new_name("TrueType"));
+                (*(*font).resource)
+                    .as_dict_mut()
+                    .set("Subtype", pdf_new_name("TrueType"));
             }
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
     &mut *(*font).resource
@@ -876,7 +890,9 @@ pub unsafe fn pdf_font_get_descriptor(mut font: *mut pdf_font) -> *mut pdf_obj {
     assert!(!font.is_null());
     if (*font).descriptor.is_null() {
         (*font).descriptor = pdf_new_dict();
-        (*(*font).descriptor).as_dict_mut().set("Type", pdf_new_name("FontDescriptor"));
+        (*(*font).descriptor)
+            .as_dict_mut()
+            .set("Type", pdf_new_name("FontDescriptor"));
     }
     (*font).descriptor
 }
@@ -919,10 +935,7 @@ pub unsafe fn pdf_font_get_uniqueTag(mut font: *mut pdf_font) -> *mut i8 {
     (*font).uniqueID.as_mut_ptr()
 }
 
-pub unsafe fn pdf_font_set_fontname(
-    mut font: *mut pdf_font,
-    mut fontname: *const i8,
-) -> i32 {
+pub unsafe fn pdf_font_set_fontname(mut font: *mut pdf_font, mut fontname: *const i8) -> i32 {
     assert!(!font.is_null() && !fontname.is_null());
     if strlen(fontname) > 127 {
         panic!("Unexpected error...");

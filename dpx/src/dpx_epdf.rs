@@ -34,12 +34,9 @@ use crate::warn;
 use super::dpx_pdfdoc::pdf_doc_get_page;
 use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
-    pdf_boolean_value, pdf_close, pdf_concat_stream,
-    pdf_deref_obj, pdf_file_get_catalog, pdf_file_get_version,
-    pdf_get_version, pdf_import_object, IntoObj,
-    pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj,
-    pdf_open, pdf_release_obj,
-    STREAM_COMPRESS,
+    pdf_boolean_value, pdf_close, pdf_concat_stream, pdf_deref_obj, pdf_file_get_catalog,
+    pdf_file_get_version, pdf_get_version, pdf_import_object, pdf_new_name, pdf_new_number,
+    pdf_new_stream, pdf_obj, pdf_open, pdf_release_obj, IntoObj, STREAM_COMPRESS,
 };
 pub type __off_t = i64;
 pub type __off64_t = i64;
@@ -109,7 +106,9 @@ pub unsafe fn pdf_include_page(
         error_silent();
     };
 
-    if let Some((page, bbox, matrix)) = pdf_doc_get_page(pf, options.page_no, options.bbox_type, &mut resources) {
+    if let Some((page, bbox, matrix)) =
+        pdf_doc_get_page(pf, options.page_no, options.bbox_type, &mut resources)
+    {
         let mut info = xform_info::default();
         pdf_ximage_init_form_info(&mut info);
         info.bbox = bbox;
@@ -141,7 +140,7 @@ pub unsafe fn pdf_include_page(
              * Empty page
              */
             content_new = pdf_new_stream(0i32);
-            /* TODO: better don't include anything if the page is empty */
+        /* TODO: better don't include anything if the page is empty */
         } else if !contents.is_null() && (*contents).is_stream() {
             /*
              * We must import the stream because its dictionary
@@ -158,8 +157,8 @@ pub unsafe fn pdf_include_page(
                 let mut content_seg: *mut pdf_obj =
                     pdf_deref_obj((*contents).as_array_mut().get_mut(idx));
                 if content_seg.is_null()
-                || !(*content_seg).is_stream()
-                || pdf_concat_stream(content_new, content_seg) < 0
+                    || !(*content_seg).is_stream()
+                    || pdf_concat_stream(content_new, content_seg) < 0
                 {
                     pdf_release_obj(content_seg);
                     pdf_release_obj(content_new);
@@ -212,4 +211,3 @@ pub unsafe fn pdf_include_page(
         return -1;
     }
 }
-

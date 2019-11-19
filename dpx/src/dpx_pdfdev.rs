@@ -110,7 +110,10 @@ pub type Rect = euclid::Box2D<f64, ()>;
 impl DisplayExt for Rect {
     type Adapter = String;
     fn display(self) -> Self::Adapter {
-        format!("[{}, {}, {}, {}]", self.min.x, self.min.y, self.max.x, self.max.y)
+        format!(
+            "[{}, {}, {}, {}]",
+            self.min.x, self.min.y, self.max.x, self.max.y
+        )
     }
 }
 
@@ -165,15 +168,15 @@ impl transform_info {
             height: 0.,
             depth: 0.,
             matrix: TMatrix {
-                m11: 1., m12: 0.,
-                m21: 0., m22: 1.,
-                m31: 0., m32: 0.,
+                m11: 1.,
+                m12: 0.,
+                m21: 0.,
+                m22: 1.,
+                m31: 0.,
+                m32: 0.,
                 _unit: core::marker::PhantomData,
             },
-            bbox: Rect::new(
-                point2(0., 0.,),
-                point2(0., 0.,),
-            ),
+            bbox: Rect::new(point2(0., 0.), point2(0., 0.)),
             flags: 0,
         }
     }
@@ -265,10 +268,10 @@ pub unsafe fn pdf_dev_scale() -> f64 {
     1.0f64
 }
 static mut dev_unit: DevUnit = DevUnit {
-        dvi2pts: 0.0f64,
-        min_bp_val: 658i32,
-        precision: 2i32,
-    };
+    dvi2pts: 0.0f64,
+    min_bp_val: 658i32,
+    precision: 2i32,
+};
 
 pub unsafe fn dev_unit_dviunit() -> f64 {
     1.0f64 / dev_unit.dvi2pts
@@ -348,7 +351,7 @@ fn p_dtoa(mut value: f64, mut prec: i32, buf: &mut [u8]) -> usize {
     if i != 0. {
         let fv = format!("{:.0}", i);
         let m = fv.as_bytes().len();
-        buf[n..n+m].copy_from_slice(&fv.as_bytes());
+        buf[n..n + m].copy_from_slice(&fv.as_bytes());
         n += m
     } else if g == 0i32 {
         buf[0] = b'0';
@@ -363,11 +366,11 @@ fn p_dtoa(mut value: f64, mut prec: i32, buf: &mut [u8]) -> usize {
             if !(fresh4 != 0) {
                 break;
             }
-            buf[n+1+j as usize] = (g % 10) as u8 + b'0';
+            buf[n + 1 + j as usize] = (g % 10) as u8 + b'0';
             g /= 10
         }
         n += 1 + prec as usize;
-        while buf[n-1] == b'0' {
+        while buf[n - 1] == b'0' {
             n -= 1
         }
     }
@@ -393,11 +396,7 @@ pub fn pdf_sprint_matrix(buf: &mut [u8], M: &TMatrix) -> usize {
     } else {
         8i32
     }; /* xxx_sprint_xxx NULL terminates strings. */
-    let mut prec0: i32 = if precision > 2i32 {
-        precision
-    } else {
-        2i32
-    }; /* xxx_sprint_xxx NULL terminates strings. */
+    let mut prec0: i32 = if precision > 2i32 { precision } else { 2i32 }; /* xxx_sprint_xxx NULL terminates strings. */
     let mut len = p_dtoa(M.m11, prec2, buf); /* xxx_sprint_xxx NULL terminates strings. */
     buf[len] = b' '; /* xxx_sprint_xxx NULL terminates strings. */
     len += 1;
@@ -442,7 +441,7 @@ pub fn pdf_sprint_coord(buf: &mut [u8], p: &Point) -> usize {
     len
 }
 pub fn pdf_sprint_length(buf: &mut [u8], value: f64) -> usize {
-    let len = p_dtoa(value, unsafe{ dev_unit.precision }, buf);
+    let len = p_dtoa(value, unsafe { dev_unit.precision }, buf);
     buf[len] = 0;
     len
 }
@@ -452,9 +451,9 @@ pub fn pdf_sprint_number(buf: &mut [u8], mut value: f64) -> usize {
     len
 }
 static mut dev_param: DevParam = DevParam {
-        autorotate: 1i32,
-        colormode: 1i32,
-    };
+    autorotate: 1i32,
+    colormode: 1i32,
+};
 static mut motion_state: MotionState = MotionState::GRAPHICS_MODE;
 static mut format_buffer: [u8; 4096] = [0; 4096];
 static mut text_state: TextState = TextState {
@@ -613,7 +612,7 @@ unsafe fn text_mode() {
 pub unsafe fn graphics_mode() {
     match motion_state {
         MotionState::GRAPHICS_MODE => {}
-        MotionState::STRING_MODE|MotionState::TEXT_MODE => {
+        MotionState::STRING_MODE | MotionState::TEXT_MODE => {
             if let MotionState::STRING_MODE = motion_state {
                 pdf_doc_add_page_content(if text_state.is_mb != 0 {
                     b">]TJ"
@@ -621,7 +620,7 @@ pub unsafe fn graphics_mode() {
                     b")]TJ"
                 });
             }
-            
+
             pdf_doc_add_page_content(b" ET"); /* op: ET */
             text_state.force_reset = 0i32;
             text_state.font_id = -1i32
@@ -825,11 +824,11 @@ unsafe fn string_mode(
     mut rotate: TextWMode,
 ) {
     match motion_state {
-        MotionState::GRAPHICS_MODE|MotionState::TEXT_MODE => {
+        MotionState::GRAPHICS_MODE | MotionState::TEXT_MODE => {
             if let MotionState::GRAPHICS_MODE = motion_state {
                 reset_text_state();
             }
-            
+
             if text_state.force_reset != 0 {
                 dev_set_text_matrix(xpos, ypos, slant, extend, rotate); /* op: */
                 pdf_doc_add_page_content(if text_state.is_mb != 0 { b"[<" } else { b"[(" });
@@ -1207,16 +1206,13 @@ pub unsafe fn pdf_dev_set_string(
      */
     let (delh, delv) = if text_state.dir_mode == 0i32 {
         /* Left-to-right */
-        (text_xorigin + text_state.offset - xpos,
-        ypos - text_yorigin)
+        (text_xorigin + text_state.offset - xpos, ypos - text_yorigin)
     } else if text_state.dir_mode == 1i32 {
         /* Top-to-bottom */
-        (ypos - text_yorigin + text_state.offset,
-        xpos - text_xorigin)
+        (ypos - text_yorigin + text_state.offset, xpos - text_xorigin)
     } else {
         /* Bottom-to-top */
-        (ypos + text_yorigin + text_state.offset,
-        xpos + text_xorigin)
+        (ypos + text_yorigin + text_state.offset, xpos + text_xorigin)
     };
     /* White-space more than 3em is not considered as a part of single text.
      * So we will break string mode in that case.
@@ -1317,11 +1313,7 @@ pub unsafe fn pdf_dev_set_string(
     text_state.offset += width;
 }
 
-pub unsafe fn pdf_init_device(
-    mut dvi2pts: f64,
-    mut precision: i32,
-    mut black_and_white: i32,
-) {
+pub unsafe fn pdf_init_device(mut dvi2pts: f64, mut precision: i32, mut black_and_white: i32) {
     if precision < 0i32 || precision > 8i32 {
         warn!("Number of decimal digits out of range [0-{}].", 8i32);
     }
@@ -1505,7 +1497,8 @@ pub unsafe fn pdf_dev_locate_font(font_name: &CStr, mut ptsize: spt_t) -> i32 {
     if verbose > 1i32 {
         print_fontmap(font_name.as_ptr(), mrec);
     }
-    (*font).font_id = pdf_font_findresource(font_name.as_ptr(), ptsize as f64 * dev_unit.dvi2pts, mrec);
+    (*font).font_id =
+        pdf_font_findresource(font_name.as_ptr(), ptsize as f64 * dev_unit.dvi2pts, mrec);
     if (*font).font_id < 0i32 {
         return -1i32;
     }

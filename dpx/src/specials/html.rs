@@ -38,18 +38,15 @@ use crate::dpx_pdfximage::{
 use super::{spc_begin_annot, spc_end_annot};
 use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use crate::dpx_mem::new;
-use crate::dpx_pdfdev::{
-    graphics_mode, Rect, TMatrix, transform_info, transform_info_clear,
-};
+use crate::dpx_pdfdev::{graphics_mode, transform_info, transform_info_clear, Rect, TMatrix};
 use crate::dpx_pdfdoc::{
     pdf_doc_add_names, pdf_doc_add_page_content, pdf_doc_add_page_resource,
     pdf_doc_current_page_resources, pdf_doc_get_reference,
 };
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
-    pdf_link_obj, pdf_new_boolean,
-    pdf_new_dict, pdf_new_name, pdf_new_null, pdf_new_number, pdf_new_string, pdf_obj,
-    pdf_ref_obj, pdf_release_obj, pdf_string_value, IntoObj,
+    pdf_link_obj, pdf_new_boolean, pdf_new_dict, pdf_new_name, pdf_new_null, pdf_new_number,
+    pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string_value, IntoObj,
 };
 use crate::spc_warn;
 use libc::{atof, free, strcat, strcpy, strlen};
@@ -85,15 +82,13 @@ use crate::dpx_pdfdev::Point;
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 static mut _HTML_STATE: spc_html_ = spc_html_ {
-        opts: C2RustUnnamed_0 { extensions: 0i32 },
-        link_dict: ptr::null_mut(),
-        baseurl: ptr::null_mut(),
-        pending_type: -1i32,
-    };
+    opts: C2RustUnnamed_0 { extensions: 0i32 },
+    link_dict: ptr::null_mut(),
+    baseurl: ptr::null_mut(),
+    pending_type: -1i32,
+};
 /* ENABLE_HTML_SVG_TRANSFORM */
-unsafe fn parse_key_val(
-    pp: &mut &[u8],
-) -> Result<(CString, CString), ()> {
+unsafe fn parse_key_val(pp: &mut &[u8]) -> Result<(CString, CString), ()> {
     let mut error: i32 = 0i32;
     let mut p = *pp; /* include trailing NULL here!!! */
     while !p.is_empty() && libc::isspace(p[0] as _) != 0 {
@@ -103,10 +98,7 @@ unsafe fn parse_key_val(
     let mut q = p; /* skip '="' */
                    
     let mut n = 0; /* Assume this is URL */
-    while !p.is_empty()
-        && (p[0].is_ascii_alphanumeric()
-            || p[0] == b'-'
-            || p[0] == b':') {
+    while !p.is_empty() && (p[0].is_ascii_alphanumeric() || p[0] == b'-' || p[0] == b':') {
         n += 1;
         p = &p[1..];
     }
@@ -114,9 +106,7 @@ unsafe fn parse_key_val(
         return Err(());
     }
     let mut k = Some(CString::new(&q[..n]).unwrap());
-    if p.len() <= 2
-        || p[0] != b'='
-        || p[1] != b'\"' && p[1] != b'\'' {
+    if p.len() <= 2 || p[0] != b'=' || p[1] != b'\"' && p[1] != b'\'' {
         k = None;
         *pp = p;
         error = -1
@@ -179,10 +169,7 @@ unsafe fn read_html_tag(
         n += 1;
         p = &p[1..];
     }
-    if n == 0
-        || p.is_empty()
-        || !(p[0] == b'>' || p[0] == b'/' || libc::isspace(p[0] as _) != 0)
-    {
+    if n == 0 || p.is_empty() || !(p[0] == b'>' || p[0] == b'/' || libc::isspace(p[0] as _) != 0) {
         *pp = p;
         return Err(());
     }
@@ -193,7 +180,10 @@ unsafe fn read_html_tag(
         if let Ok((kp, vp)) = parse_key_val(&mut p) {
             attr.as_dict_mut().set(
                 kp.to_bytes().to_ascii_lowercase(),
-                pdf_new_string(vp.as_ptr() as *const libc::c_void, (vp.to_bytes().len() + 1) as _),
+                pdf_new_string(
+                    vp.as_ptr() as *const libc::c_void,
+                    (vp.to_bytes().len() + 1) as _,
+                ),
             );
         } else {
             error = -1;
@@ -294,8 +284,12 @@ unsafe fn html_open_link(
     assert!(!name.is_null());
     assert!((*sd).link_dict.is_null());
     (*sd).link_dict = pdf_new_dict();
-    (*(*sd).link_dict).as_dict_mut().set("Type", pdf_new_name("Annot"));
-    (*(*sd).link_dict).as_dict_mut().set("Subtype", pdf_new_name("Link"));
+    (*(*sd).link_dict)
+        .as_dict_mut()
+        .set("Type", pdf_new_name("Annot"));
+    (*(*sd).link_dict)
+        .as_dict_mut()
+        .set("Subtype", pdf_new_name("Link"));
     let mut color = vec![];
     color.push(pdf_new_number(0.0f64));
     color.push(pdf_new_number(0.0f64));
@@ -319,7 +313,9 @@ unsafe fn html_open_link(
             "URI",
             pdf_new_string(url as *const libc::c_void, strlen(url) as _),
         );
-        (*(*sd).link_dict).as_dict_mut().set("A", pdf_link_obj(action));
+        (*(*sd).link_dict)
+            .as_dict_mut()
+            .set("A", pdf_link_obj(action));
         pdf_release_obj(action);
     }
     free(url as *mut libc::c_void);
@@ -503,17 +499,14 @@ unsafe fn check_resourcestatus(category: &str, mut resname: &str) -> i32 {
 unsafe fn spc_html__img_empty(mut spe: *mut spc_env, attr: &pdf_obj) -> i32 {
     let mut ti = transform_info::new();
     let mut options: load_options = load_options {
-            page_no: 1i32,
-            bbox_type: 0i32,
-            dict: ptr::null_mut(),
-        };
+        page_no: 1i32,
+        bbox_type: 0i32,
+        dict: ptr::null_mut(),
+    };
     let mut error: i32 = 0i32;
     let mut alpha: f64 = 1.0f64;
     /* ENABLE_HTML_SVG_OPACITY */
-    let mut M: TMatrix = TMatrix::create_translation(
-        (*spe).x_user,
-        (*spe).y_user,
-    );
+    let mut M: TMatrix = TMatrix::create_translation((*spe).x_user, (*spe).y_user);
     /* ENABLE_HTML_SVG_TRANSFORM */
     spc_warn!(
         spe,
@@ -627,24 +620,18 @@ unsafe fn spc_handler_html_default(mut spe: *mut spc_env, mut ap: *mut spc_arg) 
         return 0i32;
     }
     let attr = pdf_new_dict();
-    let name = read_html_tag(
-        &mut *attr,
-        &mut type_0,
-        &mut (*ap).cur,
-    );
+    let name = read_html_tag(&mut *attr, &mut type_0, &mut (*ap).cur);
     if name.is_err() {
         pdf_release_obj(attr);
         return -1;
     }
     let error = match name.unwrap().as_slice() {
-        b"a" => {
-            match type_0 {
-                1 => spc_html__anchor_open(spe, &*attr, sd),
-                2 => spc_html__anchor_close(spe, sd),
-                _ => {
-                    spc_warn!(spe, "Empty html anchor tag???");
-                    -1
-                }
+        b"a" => match type_0 {
+            1 => spc_html__anchor_open(spe, &*attr, sd),
+            2 => spc_html__anchor_close(spe, sd),
+            _ => {
+                spc_warn!(spe, "Empty html anchor tag???");
+                -1
             }
         },
         b"base" => {
@@ -654,7 +641,7 @@ unsafe fn spc_handler_html_default(mut spe: *mut spc_env, mut ap: *mut spc_arg) 
             } else {
                 spc_html__base_empty(spe, &*attr, sd)
             }
-        },
+        }
         b"img" => {
             if type_0 == 2 {
                 spc_warn!(spe, "Close tag for \"img\"???");
@@ -662,8 +649,8 @@ unsafe fn spc_handler_html_default(mut spe: *mut spc_env, mut ap: *mut spc_arg) 
             } else {
                 spc_html__img_empty(spe, &*attr)
             }
-        },
-        _ => { 0 }
+        }
+        _ => 0,
     };
     pdf_release_obj(attr);
     while !(*ap).cur.is_empty() && libc::isspace((*ap).cur[0] as _) != 0 {
@@ -672,10 +659,7 @@ unsafe fn spc_handler_html_default(mut spe: *mut spc_env, mut ap: *mut spc_arg) 
     error
 }
 /* translate wsp* '(' wsp* number (comma-wsp number)? wsp* ')' */
-unsafe fn cvt_a_to_tmatrix<'a>(
-    M: &mut TMatrix,
-    buf: &'a [u8],
-) -> Result<&'a [u8], ()> {
+unsafe fn cvt_a_to_tmatrix<'a>(M: &mut TMatrix, buf: &'a [u8]) -> Result<&'a [u8], ()> {
     let mut p = buf;
     let mut v: [f64; 6] = [0.; 6];
     while p[0] != 0 && libc::isspace(p[0] as _) != 0 {
@@ -733,19 +717,13 @@ unsafe fn cvt_a_to_tmatrix<'a>(
             if n != 1 && n != 2 {
                 return Err(());
             }
-            *M = TMatrix::create_translation(
-                v[0],
-                if n == 2 { v[1] } else { 0. },
-            );
+            *M = TMatrix::create_translation(v[0], if n == 2 { v[1] } else { 0. });
         }
         b"scale" => {
             if n != 1 && n != 2 {
                 return Err(());
             }
-            *M = TMatrix::create_scale(
-                v[0],
-                if n == 2 { v[1] } else { v[0] }
-            );
+            *M = TMatrix::create_scale(v[0], if n == 2 { v[1] } else { v[0] });
         }
         b"rotate" => {
             if n != 1 && n != 3 {
@@ -788,18 +766,15 @@ pub unsafe fn spc_html_at_begin_document() -> i32 {
     spc_handler_html__init(sd as *mut libc::c_void)
 }
 
-
 pub unsafe fn spc_html_at_begin_page() -> i32 {
     let mut sd: *mut spc_html_ = &mut _HTML_STATE;
     spc_handler_html__bophook(ptr::null_mut(), sd as *mut libc::c_void)
 }
 
-
 pub unsafe fn spc_html_at_end_page() -> i32 {
     let mut sd: *mut spc_html_ = &mut _HTML_STATE;
     spc_handler_html__eophook(ptr::null_mut(), sd as *mut libc::c_void)
 }
-
 
 pub unsafe fn spc_html_at_end_document() -> i32 {
     let mut sd: *mut spc_html_ = &mut _HTML_STATE;
@@ -809,7 +784,7 @@ pub unsafe fn spc_html_at_end_document() -> i32 {
 pub fn spc_html_check_special(buf: &[u8]) -> bool {
     let mut i = 0;
     for &p in buf {
-        if unsafe{ libc::isspace(p as _) == 0 } {
+        if unsafe { libc::isspace(p as _) == 0 } {
             break;
         }
         i += 1;
@@ -817,7 +792,6 @@ pub fn spc_html_check_special(buf: &[u8]) -> bool {
     let buf = &buf[i..];
     buf.starts_with(b"html:")
 }
-
 
 pub unsafe fn spc_html_setup_handler(
     mut sph: *mut SpcHandler,

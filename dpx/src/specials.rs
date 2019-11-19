@@ -106,8 +106,7 @@ pub struct Special {
     pub bophk_func: Option<unsafe fn() -> i32>,
     pub eophk_func: Option<unsafe fn() -> i32>,
     pub check_func: fn(_: &[u8]) -> bool,
-    pub setup_func:
-        unsafe fn(_: *mut SpcHandler, _: *mut spc_env, _: *mut spc_arg) -> i32,
+    pub setup_func: unsafe fn(_: *mut SpcHandler, _: *mut spc_env, _: *mut spc_arg) -> i32,
 }
 static mut VERBOSE: i32 = 0i32;
 pub unsafe fn spc_set_verbose(mut level: i32) {
@@ -210,10 +209,7 @@ pub unsafe fn spc_lookup_reference(mut key: &CString) -> Option<*mut pdf_obj> {
         }
     };
     if value.is_null() {
-        panic!(
-            "Object reference {} not exist.",
-            key.display(),
-        );
+        panic!("Object reference {} not exist.", key.display(),);
     }
     if value.is_null() {
         None
@@ -299,7 +295,9 @@ unsafe fn init_special<'a, 'b>(
     mut x_user: f64,
     mut y_user: f64,
     mut mag: f64,
-) where 'b: 'a {
+) where
+    'b: 'a,
+{
     special.key = &[];
     special.exec = Some(spc_handler_unknown);
     spe.x_user = x_user;
@@ -482,7 +480,10 @@ unsafe fn print_error(mut name: *const i8, mut spe: *mut spc_env, mut ap: *mut s
             ebuf[i] = b'.';
         }
     }
-    warn!(">> xxx \"{}\"", CStr::from_ptr(ebuf.as_ptr() as *const i8).display());
+    warn!(
+        ">> xxx \"{}\"",
+        CStr::from_ptr(ebuf.as_ptr() as *const i8).display()
+    );
     if !(*ap).cur.is_empty() {
         i = 0;
         for &b in (*ap).cur {

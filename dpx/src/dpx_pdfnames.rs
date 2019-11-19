@@ -29,10 +29,10 @@
 
 use crate::mfree;
 use crate::warn;
-use std::slice;
 use std::cmp::Ordering;
 use std::fmt::Write;
 use std::ptr;
+use std::slice;
 
 use super::dpx_dpxutil::{
     ht_append_table, ht_clear_iter, ht_clear_table, ht_init_table, ht_iter_getkey, ht_iter_getval,
@@ -40,15 +40,14 @@ use super::dpx_dpxutil::{
 };
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_link_obj, pdf_new_dict, pdf_new_null, IntoObj,
-    pdf_new_string, pdf_new_undefined, pdf_obj, pdf_obj_typeof, pdf_ref_obj, pdf_release_obj,
-    pdf_string_length, pdf_string_value, pdf_transfer_label, PdfObjType,
+    pdf_link_obj, pdf_new_dict, pdf_new_null, pdf_new_string, pdf_new_undefined, pdf_obj,
+    pdf_obj_typeof, pdf_ref_obj, pdf_release_obj, pdf_string_length, pdf_string_value,
+    pdf_transfer_label, IntoObj, PdfObjType,
 };
 use libc::free;
 
 pub type size_t = u64;
-pub type __compar_fn_t =
-    Option<unsafe fn(_: *const libc::c_void, _: *const libc::c_void) -> i32>;
+pub type __compar_fn_t = Option<unsafe fn(_: *const libc::c_void, _: *const libc::c_void) -> i32>;
 
 use super::dpx_dpxutil::ht_iter;
 use super::dpx_dpxutil::ht_table;
@@ -270,15 +269,14 @@ unsafe fn build_name_tree(
     if is_root == 0 {
         let mut limits = vec![];
         let mut last = &mut *first.offset((num_leaves - 1i32) as isize) as *mut named_object;
-        limits.push(
-            pdf_new_string(
-                (*first).key as *const libc::c_void,
-                (*first).keylen as size_t,
-            ),
-        );
-        limits.push(
-            pdf_new_string((*last).key as *const libc::c_void, (*last).keylen as size_t),
-        );
+        limits.push(pdf_new_string(
+            (*first).key as *const libc::c_void,
+            (*first).keylen as size_t,
+        ));
+        limits.push(pdf_new_string(
+            (*last).key as *const libc::c_void,
+            (*last).keylen as size_t,
+        ));
         (*result).as_dict_mut().set("Limits", limits.into_obj());
     }
     if num_leaves > 0i32 && num_leaves <= 2i32 * 4i32 {
@@ -286,9 +284,10 @@ unsafe fn build_name_tree(
         let mut names = vec![];
         for i in 0..num_leaves {
             let cur = &mut *first.offset(i as isize) as *mut named_object;
-            names.push(
-                pdf_new_string((*cur).key as *const libc::c_void, (*cur).keylen as size_t),
-            );
+            names.push(pdf_new_string(
+                (*cur).key as *const libc::c_void,
+                (*cur).keylen as size_t,
+            ));
             match pdf_obj_typeof((*cur).value) {
                 PdfObjType::ARRAY | PdfObjType::DICT | PdfObjType::STREAM | PdfObjType::STRING => {
                     names.push(pdf_ref_obj((*cur).value));
@@ -333,8 +332,8 @@ unsafe fn flat_table(
     };
     assert!(!ht_tab.is_null());
     let mut objects = new(((*ht_tab).count as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<named_object>() as u64) as u32)
-        as *mut named_object;
+        .wrapping_mul(::std::mem::size_of::<named_object>() as u64)
+        as u32) as *mut named_object;
     let mut count = 0i32;
     if ht_set_iter(ht_tab, &mut iter) >= 0i32 {
         loop {
@@ -352,8 +351,8 @@ unsafe fn flat_table(
                 }
                 key = pdf_string_value(&*new_obj) as *mut i8;
                 keylen = pdf_string_length(&*new_obj) as i32;
-            } 
-            
+            }
+
             let value = ht_iter_getval(&mut iter) as *mut obj_data;
             assert!(!(*value).object.is_null());
             if pdf_obj_typeof((*value).object) == PdfObjType::UNDEFINED {
@@ -372,7 +371,7 @@ unsafe fn flat_table(
                 obj.value = pdf_link_obj((*value).object);
             }
             count += 1;
-                
+
             if !(ht_iter_next(&mut iter) >= 0i32) {
                 break;
             }
@@ -400,10 +399,7 @@ pub unsafe fn pdf_names_create_tree(
     if flat.is_null() {
         name_tree = ptr::null_mut()
     } else {
-        slice::from_raw_parts_mut(
-            flat,
-            *count as usize,
-        ).sort_unstable_by(cmp_key);
+        slice::from_raw_parts_mut(flat, *count as usize).sort_unstable_by(cmp_key);
         name_tree = build_name_tree(flat, *count, 1i32);
         free(flat as *mut libc::c_void);
     }

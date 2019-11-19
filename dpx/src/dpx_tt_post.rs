@@ -194,10 +194,7 @@ pub unsafe fn tt_read_post_table(mut sfont: *mut sfnt) -> *mut tt_post_table {
     post
 }
 
-pub unsafe fn tt_lookup_post_table(
-    mut post: *mut tt_post_table,
-    mut glyphname: *const i8,
-) -> u16 {
+pub unsafe fn tt_lookup_post_table(mut post: *mut tt_post_table, mut glyphname: *const i8) -> u16 {
     assert!(!post.is_null() && !glyphname.is_null());
     for gid in 0..(*post).count as u16 {
         if !(*(*post).glyphNamePtr.offset(gid as isize)).is_null()

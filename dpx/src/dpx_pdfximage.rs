@@ -45,8 +45,8 @@ use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pngimage::{check_for_png, png_include_image};
 use crate::dpx_epdf::pdf_include_page;
 use crate::dpx_pdfobj::{
-    check_for_pdf, pdf_link_obj, pdf_new_name, pdf_new_number,
-    pdf_obj, pdf_ref_obj, pdf_release_obj,
+    check_for_pdf, pdf_link_obj, pdf_new_name, pdf_new_number, pdf_obj, pdf_ref_obj,
+    pdf_release_obj,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
@@ -60,7 +60,7 @@ use crate::TTInputFormat;
 
 use bridge::InputHandleWrapper;
 
-use super::dpx_pdfdev::{Point, Rect, TMatrix, transform_info};
+use super::dpx_pdfdev::{transform_info, Point, Rect, TMatrix};
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub struct ximage_info {
@@ -85,10 +85,7 @@ impl Default for xform_info {
     fn default() -> Self {
         Self {
             flags: 0,
-            bbox: Rect::new(
-                Point::default(),
-                Point::default(),
-            ),
+            bbox: Rect::new(Point::default(), Point::default()),
             matrix: TMatrix::default(),
         }
     }
@@ -149,18 +146,18 @@ pub struct ic_ {
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 static mut _opts: opt_ = opt_ {
-        verbose: 0i32,
-        cmdtmpl: ptr::null_mut(),
-    };
+    verbose: 0i32,
+    cmdtmpl: ptr::null_mut(),
+};
 
 pub unsafe fn pdf_ximage_set_verbose(mut level: i32) {
     _opts.verbose = level;
 }
 static mut _ic: ic_ = ic_ {
-        count: 0i32,
-        capacity: 0i32,
-        ximages: ptr::null_mut(),
-    };
+    count: 0i32,
+    capacity: 0i32,
+    ximages: ptr::null_mut(),
+};
 unsafe fn pdf_init_ximage_struct(mut I: *mut pdf_ximage) {
     (*I).ident = ptr::null_mut();
     (*I).filename = ptr::null_mut();
@@ -390,10 +387,7 @@ unsafe fn load_image(
     id
 }
 
-pub unsafe fn pdf_ximage_findresource(
-    mut ident: *const i8,
-    mut options: load_options,
-) -> i32 {
+pub unsafe fn pdf_ximage_findresource(mut ident: *const i8, mut options: load_options) -> i32 {
     let mut ic: *mut ic_ = &mut _ic;
     /* "I don't understand why there is comparision against I->attr.dict here...
      * I->attr.dict and options.dict are simply pointers to PDF dictionaries."
@@ -783,22 +777,11 @@ unsafe fn scale_to_fit_F(T: &mut TMatrix, p: &mut transform_info, mut I: *mut pd
         s_x = s_y;
         0.
     };
-    *T = TMatrix::row_major(
-        s_x,
-        0.,
-        0.,
-        s_y,
-        s_x * d_x,
-        s_y * d_y - dp,
-    );
+    *T = TMatrix::row_major(s_x, 0., 0., s_y, s_x * d_x, s_y * d_y - dp);
 }
 /* called from pdfdev.c and spc_html.c */
 
-pub unsafe fn pdf_ximage_scale_image(
-    id: i32,
-    r: &mut Rect,
-    p: &mut transform_info,
-) -> TMatrix
+pub unsafe fn pdf_ximage_scale_image(id: i32, r: &mut Rect, p: &mut transform_info) -> TMatrix
 /* argument from specials */ {
     let mut ic: *mut ic_ = &mut _ic;
     if id < 0i32 || id >= (*ic).count {

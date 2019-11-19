@@ -6710,11 +6710,11 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
     let mut u: scaled_t = 0;
     let mut w: scaled_t = 0;
     let mut q: b16x4 = b16x4_le_t {
-            s0: 0_u16,
-            s1: 0_u16,
-            s2: 0_u16,
-            s3: 0_u16,
-        };
+        s0: 0_u16,
+        s1: 0_u16,
+        s2: 0_u16,
+        s3: 0_u16,
+    };
     let mut r: b16x4 = b16x4 {
         s0: 0,
         s1: 0,
