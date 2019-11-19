@@ -76,14 +76,15 @@ pub unsafe fn spc_handler_xtx_do_transform(
     mut e: f64,
     mut f: f64,
 ) -> i32 {
-    let mut M = TMatrix::new();
+    let mut M = TMatrix::row_major(
     /* Create transformation matrix */
-    M.a = a;
-    M.b = b;
-    M.c = c;
-    M.d = d;
-    M.e = (1.0f64 - M.a) * x_user - M.c * y_user + e;
-    M.f = (1.0f64 - M.d) * y_user - M.b * x_user + f;
+        a,
+        b,
+        c,
+        d,
+        (1. - a) * x_user - c * y_user + e,
+        (1. - d) * y_user - b * x_user + f,
+    );
     pdf_dev_concat(&mut M);
     let pt = pdf_dev_get_fixed_point();
     pdf_dev_set_fixed_point(x_user - pt.x, y_user - pt.y);

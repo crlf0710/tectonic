@@ -115,7 +115,7 @@ unsafe extern "C" fn pdf_get_rect(
     let mut pf: *mut pdf_file = 0 as *mut pdf_file;
     let mut page: *mut pdf_obj = 0 as *mut pdf_obj;
     let mut bbox = Rect::zero();
-    let mut matrix = TMatrix::new();
+    let mut matrix = TMatrix::identity(); // TODO: check
     pf = pdf_open(filename, handle);
     if pf.is_null() {
         /* TODO: issue warning */

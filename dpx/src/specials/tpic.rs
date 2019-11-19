@@ -175,14 +175,14 @@ unsafe fn set_styles(
     mut pn: f64,
     mut da: f64,
 ) {
-    let mut M = TMatrix {
-        a: 1.,
-        b: 0.,
-        c: 0.,
-        d: -1.,
-        e: (*c).x,
-        f: (*c).y,
-    };
+    let mut M = TMatrix::row_major(
+        1.,
+        0.,
+        0.,
+        -1.,
+        (*c).x,
+        (*c).y,
+    );
     pdf_dev_concat(&mut M);
     if f_vp {
         set_linestyle(pn, da);

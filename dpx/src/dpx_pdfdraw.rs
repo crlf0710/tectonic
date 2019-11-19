@@ -41,7 +41,7 @@ static mut gs_stack: Vec<pdf_gstate> = Vec::new();
 
 use crate::shims::sprintf;
 
-use super::dpx_pdfdev::{Coord, Rect, TMatrix};
+use super::dpx_pdfdev::{Coord, Rect, TMatrix, Equal};
 
 /* Graphics State */
 #[derive(Clone)]
@@ -87,7 +87,7 @@ impl pdf_path {
         for pe in self.path.iter_mut() {
             if pe.typ != PeType::TERMINATE {
                 for n in (0..pe.typ.n_pts()).rev() {
-                    pe.p[n].transform(M).unwrap();
+                    pe.p[n] = M.transform_point(pe.p[n]);
                 }
             }
         }
@@ -243,22 +243,20 @@ impl pdf_path {
         d_a *= core::f64::consts::PI / 180.;
         xar *= core::f64::consts::PI / 180.;
         let (s, c) = xar.sin_cos();
-        let T = TMatrix {
-            a: c,
-            b: s,
-            c: -s,
-            d: c,
-            e: 0.,
-            f: 0.,
-        };
+        let T = TMatrix::row_major(
+            c,
+            s,
+            -s,
+            c,
+            0.,
+            0.,
+        );
         /* A parameter that controls cb-curve (off-curve) points */
         let b = 4.0f64 * (1.0f64 - (0.5f64 * d_a).cos()) / (3.0f64 * (0.5f64 * d_a).sin()); /* number of segments */
         let b_x = r_x * b;
         let b_y = r_y * b;
         let (s, c) = a_0.sin_cos();
-        let mut p0 = Coord::new(r_x * c, r_y * s);
-        p0.transform(&T).unwrap();
-        p0 += ca;
+        let p0 = T.transform_point(Coord::new(r_x * c, r_y * s)) + ca.to_vector();
         if self.path.is_empty() {
             self.moveto(cp, p0);
         } else if !cp.equal(&p0) {
@@ -279,20 +277,14 @@ impl pdf_path {
              *  g^2 = f^2
              */
             /* s.p. *//* e.p. */
-            let mut p0 = Coord::new(r_x * e0.x, r_y * e0.y);
-            let mut p3 = Coord::new(r_x * e1.x, r_y * e1.y);
-            let mut p1 = Coord::new(-b_x * e0.y, b_y * e0.x);
-            let mut p2 = Coord::new(b_x * e1.y, -b_y * e1.x);
-            p0.transform(&T).unwrap();
-            p1.transform(&T).unwrap();
-            p2.transform(&T).unwrap();
-            p3.transform(&T).unwrap();
-            p0 += ca;
-            p3 += ca;
-            p1 += p0;
-            p2 += p3;
+            let mut p0 = T.transform_point(Coord::new(r_x * e0.x, r_y * e0.y)) + ca.to_vector();
+            let p3 = T.transform_point(Coord::new(r_x * e1.x, r_y * e1.y)) + ca.to_vector();
+            let mut p1 = T.transform_point(Coord::new(-b_x * e0.y, b_y * e0.x));
+            let mut p2 = T.transform_point(Coord::new(b_x * e1.y, -b_y * e1.x));
+            p1 += p0.to_vector();
+            p2 += p3.to_vector();
             error = self.curveto(&mut p0, p1, p2, p3);
-            *cp = p3.clone();
+            *cp = p3;
             i += 1
         }
         error
@@ -313,70 +305,13 @@ pub struct LineDash {
     pub offset: f64,
 }
 
-impl TMatrix {
-    pub fn inverse(&self) -> Result<Self, ()> {
-        let det = self.a * self.d - self.b * self.c;
-        if det.abs() < 2.5e-16 {
-            warn!("Inverting matrix with zero determinant...");
-            return Err(());
-        }
-        Ok(Self {
-            a: self.d / det,
-            b: -self.b / det,
-            c: -self.c / det,
-            d: self.a / det,
-            e: self.c * self.f - self.d * self.e,
-            f: self.b * self.e - self.a * self.f,
-        })
-    }
+fn idtransform(M: &TMatrix, vec: Coord) -> Option<Coord> {
+    let W = M.inverse()?;
+    Some(Coord::new(
+        vec.x * W.m11 + vec.y * W.m21,
+        vec.x * W.m12 + vec.y * W.m22
+    ))
 }
-
-impl Coord {
-    pub fn transform(&mut self, M: &TMatrix) -> Result<(), ()> {
-        let (x, y) = (self.x, self.y);
-        self.x = x * M.a + y * M.c + M.e;
-        self.y = x * M.b + y * M.d + M.f;
-        Ok(())
-    }
-    pub fn dtransform(&mut self, M: &TMatrix) -> Result<(), ()> {
-        let (x, y) = (self.x, self.y);
-        self.x = x * M.a + y * M.c;
-        self.y = x * M.b + y * M.d;
-        Ok(())
-    }
-
-    fn idtransform(&mut self, M: &TMatrix) -> Result<(), ()> {
-        let W = M.inverse()?;
-        let (x, y) = (self.x, self.y);
-        self.x = x * W.a + y * W.c;
-        self.y = x * W.b + y * W.d;
-        Ok(())
-    }
-}
-/*#[no_mangle]
-pub unsafe extern "C" fn pdf_invertmatrix(M: &mut TMatrix) {
-    let mut W = TMatrix::new();
-    let det = M.a * inverseM.d - M.b * M.c;
-    if det.abs() < 2inverse.5e-16f64 {
-        warn!("Inverinverseting matrix with zero determinant...");
-        W.a = 1.0f64inverse;
-        W.c = 0.0f64inverse;
-        W.b = 0.0f64inverse;
-        W.d = 1.0f64inverse;
-        W.e = 0.0f64inverse;
-        W.f = 0.0f64
-    } else {
-        W.a = M.d / det;
-        W.b = -M.b / det;
-        W.c = -M.c / det;
-        W.d = M.a / det;
-        W.e = M.c * M.f - M.d * M.e;
-        W.f = M.b * M.e - M.a * M.f;
-        W.e /= det;
-        W.f /= det
-    }
-    *M = W;
-}*/
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PeType {
@@ -496,9 +431,9 @@ unsafe fn pdf_path__isarect(pa: &pdf_path, mut f_ir: i32) -> i32
 /* Path Painting */
 /* F is obsoleted */
 unsafe fn INVERTIBLE_MATRIX(M: &TMatrix) -> i32 {
-    if (M.a * M.d - M.b * M.c).abs() < 2.5e-16f64 {
+    if M.determinant().abs() < 2.5e-16f64 {
         warn!("Transformation matrix not invertible.");
-        warn!("--- M = [{} {} {} {} {} {}]", M.a, M.b, M.c, M.d, M.e, M.f,);
+        warn!("--- M = [{} {} {} {} {} {}]", M.m11, M.m12, M.m21, M.m22, M.m31, M.m32);
         return -1i32;
     }
     0i32
@@ -610,7 +545,7 @@ unsafe fn pdf_dev__flushpath(
         let pe = &pa.path[0];
         let pe1 = &pa.path[2];
         r.ll = pe.p[0];
-        r.ur = pe1.p[0] - pe.p[0];
+        r.ur = pe1.p[0] - pe.p[0].to_vector();
         b[len] = b' ';
         len += 1;
         len += pdf_sprint_rect(&mut b[len..], &r);
@@ -807,11 +742,10 @@ pub unsafe extern "C" fn pdf_dev_currentpoint(p: &mut Coord) -> i32 {
     0i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn pdf_dev_currentmatrix(M: &mut TMatrix) -> i32 {
+pub unsafe extern "C" fn pdf_dev_currentmatrix() -> TMatrix {
     let mut gss = unsafe { &gs_stack };
     let gs = gss.last().unwrap();
-    *M = gs.matrix.clone();
-    0i32
+    gs.matrix.clone()
 }
 /*
  * mask == 0 means stroking color, mask == 0x20 nonstroking color
@@ -870,17 +804,17 @@ pub unsafe extern "C" fn pdf_dev_concat(M: &TMatrix) -> i32 {
     /* Adobe Reader erases page content if there are
      * non invertible transformation.
      */
-    if (M.a * M.d - M.b * M.c).abs() < 2.5e-16f64 {
+    if M.determinant().abs() < 2.5e-16 {
         warn!("Transformation matrix not invertible."); /* op: cm */
-        warn!("--- M = [{} {} {} {} {} {}]", M.a, M.b, M.c, M.d, M.e, M.f,);
+        warn!("--- M = [{} {} {} {} {} {}]", M.m11, M.m12, M.m21, M.m22, M.m31, M.m32);
         return -1i32;
     }
-    if (M.a - 1.0f64).abs() > 2.5e-16f64
-        || M.b.abs() > 2.5e-16f64
-        || M.c.abs() > 2.5e-16f64
-        || (M.d - 1.0f64).abs() > 2.5e-16f64
-        || M.e.abs() > 2.5e-16f64
-        || M.f.abs() > 2.5e-16f64
+    if (M.m11 - 1.).abs() > 2.5e-16
+        || M.m12.abs() > 2.5e-16
+        || M.m21.abs() > 2.5e-16
+        || (M.m22 - 1.).abs() > 2.5e-16
+        || M.m31.abs() > 2.5e-16
+        || M.m32.abs() > 2.5e-16
     {
         buf[len] = b' ';
         len += 1;
@@ -892,23 +826,11 @@ pub unsafe extern "C" fn pdf_dev_concat(M: &TMatrix) -> i32 {
         buf[len] = b'm';
         len += 1;
         pdf_doc_add_page_content(&buf[..len]);
-        let TMatrix {
-            a: _tmp_a,
-            b: _tmp_b,
-            c: _tmp_c,
-            d: _tmp_d,
-            ..
-        } = *CTM;
-        CTM.a = M.a * _tmp_a + M.b * _tmp_c;
-        CTM.b = M.a * _tmp_b + M.b * _tmp_d;
-        CTM.c = M.c * _tmp_a + M.d * _tmp_c;
-        CTM.d = M.c * _tmp_b + M.d * _tmp_d;
-        CTM.e += M.e * _tmp_a + M.f * _tmp_c;
-        CTM.f += M.e * _tmp_b + M.f * _tmp_d
+        *CTM = M.post_transform(CTM);
     }
     let W = M.inverse().unwrap();
     cpa.transform(&W);
-    cpt.transform(&W).unwrap();
+    *cpt = W.transform_point(*cpt);
     0i32
 }
 /*
@@ -1166,31 +1088,31 @@ pub unsafe extern "C" fn pdf_dev_closepath() -> i32 {
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_dtransform(p: &mut Coord, mut M: Option<&TMatrix>) {
     if let Some(m) = M {
-        p.dtransform(m).unwrap();
+        *p = m.transform_vector(p.to_vector()).to_point();
     } else {
         let gss = unsafe { &gs_stack };
         let gs = gss.last().unwrap();
-        p.dtransform(&gs.matrix).unwrap();
+        *p = gs.matrix.transform_vector(p.to_vector()).to_point();
     }
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_idtransform(p: &mut Coord, M: Option<&TMatrix>) {
     if let Some(m) = M {
-        p.idtransform(m).unwrap();
+        *p = idtransform(m, *p).unwrap();
     } else {
         let gss = unsafe { &gs_stack };
         let gs = gss.last().unwrap();
-        p.idtransform(&gs.matrix).unwrap();
+        *p = idtransform(&gs.matrix, *p).unwrap();
     }
 }
 #[no_mangle]
 pub unsafe extern "C" fn pdf_dev_transform(p: &mut Coord, M: Option<&TMatrix>) {
     if let Some(m) = M {
-        p.transform(m).unwrap();
+        *p = m.transform_point(*p);
     } else {
         let gss = unsafe { &gs_stack };
         let gs = gss.last().unwrap();
-        p.transform(&gs.matrix).unwrap();
+        *p = gs.matrix.transform_point(*p);
     }
 }
 #[no_mangle]

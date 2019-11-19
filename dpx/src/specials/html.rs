@@ -512,15 +512,10 @@ unsafe fn spc_html__img_empty(mut spe: *mut spc_env, attr: &pdf_obj) -> i32 {
     let mut error: i32 = 0i32;
     let mut alpha: f64 = 1.0f64;
     /* ENABLE_HTML_SVG_OPACITY */
-    let mut M1 = TMatrix::new();
-    let mut M: TMatrix = TMatrix {
-        a: 1.,
-        b: 0.,
-        c: 0.,
-        d: 1.,
-        e: (*spe).x_user,
-        f: (*spe).y_user,
-    };
+    let mut M: TMatrix = TMatrix::create_translation(
+        (*spe).x_user,
+        (*spe).y_user,
+    );
     /* ENABLE_HTML_SVG_TRANSFORM */
     spc_warn!(
         spe,
@@ -555,38 +550,19 @@ unsafe fn spc_html__img_empty(mut spe: *mut spc_env, attr: &pdf_obj) -> i32 {
     /* ENABLE_HTML_SVG_OPCAITY */
     if let Some(obj) = attr.as_dict().get("svg:transform") {
         let mut p: *const i8 = pdf_string_value(&*obj) as *const i8;
-        let mut N = TMatrix::new();
         while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
             p = p.offset(1)
         }
         while *p as i32 != 0 && error == 0 {
-            N.a = 1.;
-            N.b = 0.;
-            N.c = 0.;
-            N.d = 1.;
-            N.e = 0.;
-            N.f = 0.;
+            let mut N = TMatrix::identity();
             if let Ok(nextptr) = cvt_a_to_tmatrix(&mut N, CStr::from_ptr(p).to_bytes()) {
                 p = nextptr.as_ptr() as *const i8;
             } else {
                 error = -1;
             }
             if error == 0 {
-                N.f = -N.f;
-                let mut _tmp_a: f64 = 0.;
-                let mut _tmp_b: f64 = 0.;
-                let mut _tmp_c: f64 = 0.;
-                let mut _tmp_d: f64 = 0.;
-                _tmp_a = M.a;
-                _tmp_b = M.b;
-                _tmp_c = M.c;
-                _tmp_d = M.d;
-                M.a = N.a * _tmp_a + N.b * _tmp_c;
-                M.b = N.a * _tmp_b + N.b * _tmp_d;
-                M.c = N.c * _tmp_a + N.d * _tmp_c;
-                M.d = N.c * _tmp_b + N.d * _tmp_d;
-                M.e += N.e * _tmp_a + N.f * _tmp_c;
-                M.f += N.e * _tmp_b + N.f * _tmp_d;
+                N.m32 = -N.m32;
+                M = N.post_transform(&M);
                 while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
                     p = p.offset(1)
                 }
@@ -630,21 +606,8 @@ unsafe fn spc_html__img_empty(mut spe: *mut spc_env, attr: &pdf_obj) -> i32 {
             pdf_doc_add_page_content(b" gs");
         }
         /* ENABLE_HTML_SVG_OPACITY */
-        pdf_ximage_scale_image(id, &mut M1, &mut r, &mut ti); /* op: */
-        let mut _tmp_a_0: f64 = 0.; /* op: */
-        let mut _tmp_b_0: f64 = 0.; /* op: Do */
-        let mut _tmp_c_0: f64 = 0.;
-        let mut _tmp_d_0: f64 = 0.;
-        _tmp_a_0 = M.a;
-        _tmp_b_0 = M.b;
-        _tmp_c_0 = M.c;
-        _tmp_d_0 = M.d;
-        M.a = M1.a * _tmp_a_0 + M1.b * _tmp_c_0;
-        M.b = M1.a * _tmp_b_0 + M1.b * _tmp_d_0;
-        M.c = M1.c * _tmp_a_0 + M1.d * _tmp_c_0;
-        M.d = M1.c * _tmp_b_0 + M1.d * _tmp_d_0;
-        M.e += M1.e * _tmp_a_0 + M1.f * _tmp_c_0;
-        M.f += M1.e * _tmp_b_0 + M1.f * _tmp_d_0;
+        let M1 = pdf_ximage_scale_image(id, &mut r, &mut ti); /* op: */
+        M = M1.post_transform(&M);
         pdf_dev_concat(&mut M);
         r.clip();
         let res_name = pdf_ximage_get_resname(id);
@@ -766,64 +729,62 @@ unsafe fn cvt_a_to_tmatrix<'a>(
             if n != 6 {
                 return Err(());
             }
-            M.a = v[0];
-            M.c = v[1];
-            M.b = v[2];
-            M.d = v[3];
-            M.e = v[4];
-            M.f = v[5]
+            *M = TMatrix::row_major(
+                v[0],
+                v[1],
+                v[2],
+                v[3],
+                v[4],
+                v[5],
+            )
         }
         b"translate" => {
             if n != 1 && n != 2 {
                 return Err(());
             }
-            M.d = 1.;
-            M.a = M.d;
-            M.b = 0.;
-            M.c = M.b;
-            M.e = v[0];
-            M.f = if n == 2 { v[1] } else { 0. }
+            *M = TMatrix::create_translation(
+                v[0],
+                if n == 2 { v[1] } else { 0. },
+            );
         }
         b"scale" => {
             if n != 1 && n != 2 {
                 return Err(());
             }
-            M.a = v[0];
-            M.d = if n == 2 { v[1] } else { v[0] };
-            M.b = 0.;
-            M.c = M.b;
-            M.f = 0.;
-            M.e = M.f
+            *M = TMatrix::create_scale(
+                v[0],
+                if n == 2 { v[1] } else { v[0] }
+            );
         }
         b"rotate" => {
             if n != 1 && n != 3 {
                 return Err(());
             }
             let (s, c) = (v[0] * core::f64::consts::PI / 180.).sin_cos();
-            M.a = c;
-            M.c = s;
-            M.b = -s;
-            M.d = c;
-            M.e = if n == 3 { v[1] } else { 0. };
-            M.f = if n == 3 { v[2] } else { 0. }
+            M.m11 = c;
+            M.m12 = -s;
+            M.m21 = s;
+            M.m22 = c;
+            M.m31 = if n == 3 { v[1] } else { 0. };
+            M.m32 = if n == 3 { v[2] } else { 0. };
         }
         b"skewX" => {
             if n != 1 {
                 return Err(());
             }
-            M.d = 1.;
-            M.a = M.d;
-            M.c = 0.;
-            M.b = (v[0] * core::f64::consts::PI / 180.).tan()
+            M.m11 = 1.;
+            M.m12 = (v[0] * core::f64::consts::PI / 180.).tan();
+            M.m21 = 0.;
+            M.m22 = 1.;
         }
         b"skewY" => {
             if n != 1 {
                 return Err(());
             }
-            M.d = 1.;
-            M.a = M.d;
-            M.c = (v[0] * core::f64::consts::PI / 180.).tan();
-            M.b = 0.
+            M.m11 = 1.;
+            M.m12 = 0.;
+            M.m21 = (v[0] * core::f64::consts::PI / 180.).tan();
+            M.m22 = 1.;
         }
         _ => {}
     }

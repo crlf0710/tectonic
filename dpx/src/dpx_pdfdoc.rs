@@ -1240,12 +1240,7 @@ pub unsafe extern "C" fn pdf_doc_get_page(
                                             7715203803291643663 => {}
                                             _ => {
                                                 pdf_release_obj(box_0);
-                                                matrix.d = 1.0f64;
-                                                matrix.a = matrix.d;
-                                                matrix.c = 0.0f64;
-                                                matrix.b = matrix.c;
-                                                matrix.f = 0.0f64;
-                                                matrix.e = matrix.f;
+                                                *matrix = TMatrix::identity();
                                                 if !rotate.is_null()
                                                     && (*rotate).is_number()
                                                 {
@@ -1265,28 +1260,34 @@ pub unsafe extern "C" fn pdf_doc_get_page(
                                                             }
                                                             match rot {
                                                                 90 => {
-                                                                    matrix.d = 0i32 as f64;
-                                                                    matrix.a = matrix.d;
-                                                                    matrix.b = -1i32 as f64;
-                                                                    matrix.c = 1i32 as f64;
-                                                                    matrix.e = bbox.ll.x - bbox.ll.y;
-                                                                    matrix.f = bbox.ll.y + bbox.ur.x
+                                                                    *matrix = TMatrix::row_major(
+                                                                        0.,
+                                                                        -1.,
+                                                                        1.,
+                                                                        0.,
+                                                                        bbox.ll.x - bbox.ll.y,
+                                                                        bbox.ll.y + bbox.ur.x,
+                                                                    );
                                                                 }
                                                                 180 => {
-                                                                    matrix.d = -1i32 as f64;
-                                                                    matrix.a = matrix.d;
-                                                                    matrix.c = 0i32 as f64;
-                                                                    matrix.b = matrix.c;
-                                                                    matrix.e = bbox.ll.x + bbox.ur.x;
-                                                                    matrix.f = bbox.ll.y + bbox.ur.y
+                                                                    *matrix = TMatrix::row_major(
+                                                                        -1.,
+                                                                        0.,
+                                                                        0.,
+                                                                        -1.,
+                                                                        bbox.ll.x + bbox.ur.x,
+                                                                        bbox.ll.y + bbox.ur.y,
+                                                                    );
                                                                 }
                                                                 270 => {
-                                                                    matrix.d = 0i32 as f64;
-                                                                    matrix.a = matrix.d;
-                                                                    matrix.b = 1i32 as f64;
-                                                                    matrix.c = -1i32 as f64;
-                                                                    matrix.e = bbox.ll.x + bbox.ur.y;
-                                                                    matrix.f = bbox.ll.y - bbox.ll.x
+                                                                    *matrix = TMatrix::row_major(
+                                                                        0.,
+                                                                        1.,
+                                                                        -1.,
+                                                                        0.,
+                                                                        bbox.ll.x + bbox.ur.y,
+                                                                        bbox.ll.y - bbox.ll.x,
+                                                                    );
                                                                 }
                                                                 _ => {}
                                                             }
@@ -1863,8 +1864,8 @@ pub unsafe extern "C" fn pdf_doc_add_annot(
     let mut mediabox = Rect::zero();
     pdf_doc_get_mediabox(page_no, &mut mediabox);
     let pos = pdf_dev_get_coord();
-    annbox.ll = rect.ll - pos;
-    annbox.ur = rect.ur - pos;
+    annbox.ll = rect.ll - pos.to_vector();
+    annbox.ur = rect.ur - pos.to_vector();
     if annbox.ll.x < mediabox.ll.x
         || annbox.ur.x > mediabox.ur.x
         || annbox.ll.y < mediabox.ll.y
@@ -2421,14 +2422,14 @@ unsafe fn doc_fill_page_background(p: &mut pdf_doc) {
 #[no_mangle]
 pub unsafe extern "C" fn pdf_doc_begin_page(mut scale: f64, mut x_origin: f64, mut y_origin: f64) {
     let p = &mut pdoc;
-    let mut M = TMatrix {
-        a: scale,
-        b: 0.,
-        c: 0.,
-        d: scale,
-        e: x_origin,
-        f: y_origin,
-    };
+    let mut M = TMatrix::row_major(
+        scale,
+        0.,
+        0.,
+        scale,
+        x_origin,
+        y_origin,
+    );
     /* pdf_doc_new_page() allocates page content stream. */
     pdf_doc_new_page(p);
     pdf_dev_bop(&mut M);
@@ -2595,27 +2596,27 @@ unsafe fn pdf_doc_make_xform(
         let tmp = pdf_new_array();
         pdf_add_array(
             &mut *tmp,
-            pdf_new_number((matrix.a / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
+            pdf_new_number((matrix.m11 / 0.00001 + 0.5).floor() * 0.00001),
         );
         pdf_add_array(
             &mut *tmp,
-            pdf_new_number((matrix.b / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
+            pdf_new_number((matrix.m12 / 0.00001 + 0.5).floor() * 0.00001),
         );
         pdf_add_array(
             &mut *tmp,
-            pdf_new_number((matrix.c / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
+            pdf_new_number((matrix.m21 / 0.00001 + 0.5).floor() * 0.00001),
         );
         pdf_add_array(
             &mut *tmp,
-            pdf_new_number((matrix.d / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
+            pdf_new_number((matrix.m22 / 0.00001 + 0.5).floor() * 0.00001),
         );
         pdf_add_array(
             &mut *tmp,
-            pdf_new_number((matrix.e / 0.001f64 + 0.5f64).floor() * 0.001f64),
+            pdf_new_number((matrix.m31 / 0.001 + 0.5).floor() * 0.001),
         );
         pdf_add_array(
             &mut *tmp,
-            pdf_new_number((matrix.f / 0.001f64 + 0.5f64).floor() * 0.001f64),
+            pdf_new_number((matrix.m32 / 0.001 + 0.5).floor() * 0.001),
         );
         pdf_add_dict(xform_dict, "Matrix", tmp);
     }
@@ -2650,24 +2651,20 @@ pub unsafe extern "C" fn pdf_doc_begin_grabbing(
      * reference point, we use a transformation matrix, translating
      * the reference point to (0,0).
      */
-    form.matrix.a = 1.;
-    form.matrix.b = 0.;
-    form.matrix.c = 0.;
-    form.matrix.d = 1.;
-    form.matrix.e = -ref_x;
-    form.matrix.f = -ref_y;
-    let ref_xy = Coord::new(ref_x, ref_y);
-    form.cropbox.ll = ref_xy + cropbox.ll;
-    form.cropbox.ur = ref_xy + cropbox.ur;
+    form.matrix = TMatrix::create_translation(
+        -ref_x,
+        -ref_y,
+    );
+    let ref_xy = Coord::new(ref_x, ref_y).to_vector();
+    form.cropbox.ll =  cropbox.ll + ref_xy;
+    form.cropbox.ur =  cropbox.ur + ref_xy;
     form.contents = pdf_new_stream(STREAM_COMPRESS);
     form.resources = pdf_new_dict();
     pdf_ximage_init_form_info(&mut info);
-    info.matrix.a = 1.0f64;
-    info.matrix.b = 0.0f64;
-    info.matrix.c = 0.0f64;
-    info.matrix.d = 1.0f64;
-    info.matrix.e = -ref_x;
-    info.matrix.f = -ref_y;
+    info.matrix = TMatrix::create_translation(
+        -ref_x,
+        -ref_y,
+    );
     info.bbox = *cropbox;
     /* Use reference since content itself isn't available yet. */
     let xobj_id = pdf_ximage_defineresource(ident, XInfo::Form(info), pdf_ref_obj((*form).contents));

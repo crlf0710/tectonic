@@ -679,8 +679,8 @@ unsafe fn spc_handler_pdfm_annot(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     let mut cp = Coord::new((*spe).x_user, (*spe).y_user);
     pdf_dev_transform(&mut cp, None);
     if ti.flags & 1i32 << 0i32 != 0 {
-        rect.ll = ti.bbox.ll + cp;
-        rect.ur = ti.bbox.ur + cp;
+        rect.ll = ti.bbox.ll + cp.to_vector();
+        rect.ur = ti.bbox.ur + cp.to_vector();
     } else {
         rect.ll.x = cp.x;
         rect.ll.y = cp.y - (*spe).mag * ti.depth;
@@ -793,8 +793,8 @@ unsafe fn spc_handler_pdfm_btrans(mut spe: *mut spc_env, mut args: *mut spc_arg)
     }
     /* Create transformation matrix */
     let mut M = ti.matrix.clone();
-    M.e += (1.0f64 - M.a) * (*spe).x_user - M.c * (*spe).y_user;
-    M.f += (1.0f64 - M.d) * (*spe).y_user - M.b * (*spe).x_user;
+    M.m31 += (1. - M.m11) * (*spe).x_user - M.m21 * (*spe).y_user;
+    M.m32 += (1. - M.m22) * (*spe).y_user - M.m12 * (*spe).x_user;
     pdf_dev_gsave();
     pdf_dev_concat(&mut M);
     0i32
@@ -938,8 +938,8 @@ unsafe fn spc_handler_pdfm_bead(mut spe: *mut spc_env, mut args: *mut spc_arg) -
     let mut cp = Coord::new((*spe).x_user, (*spe).y_user);
     pdf_dev_transform(&mut cp, None);
     if ti.flags & 1i32 << 0i32 != 0 {
-        rect.ll = ti.bbox.ll + cp;
-        rect.ur = ti.bbox.ur + cp;
+        rect.ll = ti.bbox.ll + cp.to_vector();
+        rect.ur = ti.bbox.ur + cp.to_vector();
     } else {
         rect.ll.x = cp.x;
         rect.ll.y = cp.y - (*spe).mag * ti.depth;
@@ -1231,14 +1231,10 @@ unsafe fn spc_handler_pdfm_content(mut spe: *mut spc_env, mut args: *mut spc_arg
     let mut len = 0;
     (*args).cur.skip_white();
     if !(*args).cur.is_empty() {
-        let mut M = TMatrix {
-            a: 1.,
-            b: 0.,
-            c: 0.,
-            d: 1.,
-            e: (*spe).x_user,
-            f: (*spe).y_user,
-        };
+        let mut M = TMatrix::create_translation(
+            (*spe).x_user,
+            (*spe).y_user,
+        );
         WORK_BUFFER[len] = b' ';
         len += 1;
         WORK_BUFFER[len] = b'q';
@@ -1280,21 +1276,14 @@ unsafe fn spc_handler_pdfm_literal(mut spe: *mut spc_env, mut args: *mut spc_arg
         (*args).cur.skip_white();
     }
     if !(*args).cur.is_empty() {
-        let mut M = TMatrix::new();
         if direct == 0 {
-            M.d = 1.0f64;
-            M.a = M.d;
-            M.c = 0.0f64;
-            M.b = M.c;
-            M.e = (*spe).x_user;
-            M.f = (*spe).y_user;
+            let mut M = TMatrix::create_translation((*spe).x_user, (*spe).y_user);
             pdf_dev_concat(&mut M);
         }
         pdf_doc_add_page_content(b" ");
         pdf_doc_add_page_content((*args).cur);
         if direct == 0 {
-            M.e = -(*spe).x_user;
-            M.f = -(*spe).y_user;
+            let mut M = TMatrix::create_translation(-(*spe).x_user, -(*spe).y_user);
             pdf_dev_concat(&mut M);
         }
     }
@@ -1304,14 +1293,10 @@ unsafe fn spc_handler_pdfm_literal(mut spe: *mut spc_env, mut args: *mut spc_arg
 unsafe fn spc_handler_pdfm_bcontent(mut spe: *mut spc_env, mut _args: *mut spc_arg) -> i32 {
     pdf_dev_gsave();
     let pos = pdf_dev_get_coord();
-    let mut M = TMatrix {
-        a: 1.,
-        b: 0.,
-        c: 0.,
-        d: 1.,
-        e: (*spe).x_user - pos.x,
-        f: (*spe).y_user - pos.y,
-    };
+    let mut M  = TMatrix::create_translation(
+        (*spe).x_user - pos.x,
+        (*spe).y_user - pos.y,
+    );
     pdf_dev_concat(&mut M);
     pdf_dev_push_coord((*spe).x_user, (*spe).y_user);
     0i32

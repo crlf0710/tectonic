@@ -196,7 +196,7 @@ unsafe fn spc_handler_ps_plotfile(mut spe: *mut spc_env, mut args: *mut spc_arg)
             error = -1i32
         } else {
             transform_info_clear(&mut p);
-            p.matrix.d = -1.0f64;
+            p.matrix.m22 = -1.;
             pdf_dev_put_image(form_id, &mut p, 0i32 as f64, 0i32 as f64);
         }
         error
@@ -287,21 +287,18 @@ unsafe fn spc_handler_ps_default(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     pdf_dev_gsave();
     let st_depth = mps_stack_depth();
     let gs_depth = pdf_dev_current_depth();
-    let mut M = TMatrix::new();
-    M.d = 1.0f64;
-    M.a = M.d;
-    M.c = 0.0f64;
-    M.b = M.c;
-    M.e = (*spe).x_user;
-    M.f = (*spe).y_user;
+    let mut M = TMatrix::create_translation(
+        (*spe).x_user,
+        (*spe).y_user,
+    );
     pdf_dev_concat(&mut M);
     let error = mps_exec_inline(
         &mut (*args).cur,
         (*spe).x_user,
         (*spe).y_user,
     );
-    M.e = -(*spe).x_user;
-    M.f = -(*spe).y_user;
+    M.m31 = -(*spe).x_user;
+    M.m32 = -(*spe).y_user;
     pdf_dev_concat(&mut M);
     if error != 0 {
         spc_warn!(
