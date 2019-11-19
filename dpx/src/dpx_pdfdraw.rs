@@ -241,16 +241,8 @@ impl pdf_path {
         a_0 *= core::f64::consts::PI / 180.;
         //a_1 *= core::f64::consts::PI / 180.; TODO: check
         d_a *= core::f64::consts::PI / 180.;
-        xar *= core::f64::consts::PI / 180.;
-        let (s, c) = xar.sin_cos();
-        let T = TMatrix::row_major(
-            c,
-            s,
-            -s,
-            c,
-            0.,
-            0.,
-        );
+
+        let T = TMatrix::create_rotation(euclid::Angle::degrees(-xar));
         /* A parameter that controls cb-curve (off-curve) points */
         let b = 4.0f64 * (1.0f64 - (0.5f64 * d_a).cos()) / (3.0f64 * (0.5f64 * d_a).sin()); /* number of segments */
         let b_x = r_x * b;
