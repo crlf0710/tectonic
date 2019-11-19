@@ -76,6 +76,79 @@ pub type size_t = u64;
 
 pub type spt_t = i32;
 
+#[derive(Clone, Copy)]
+pub enum Opcode {
+    Add = 1,
+    Sub = 2,
+    Mul = 3,
+    Div = 4,
+    Neg = 5,
+    Truncate = 6,
+
+    Clear = 10,
+    ExCh = 11,
+    Pop = 12,
+
+    NewPath = 31,
+    ClosePath = 32,
+    MoveTo = 33,
+    RMoveTo = 34,
+    CurveTo = 35,
+    RCurveTo = 36,
+    LineTo = 37,
+    RLineTo = 38,
+    Arc = 39,
+    ArcN = 40,
+
+    Fill = 41,
+    Stroke = 42,
+    Show = 43,
+
+    Clip = 44,
+    EoClip = 45,
+
+    ShowPage = 49,
+
+    GSave = 50,
+    GRestore = 51,
+
+    Concat = 52,
+    Scale = 53,
+    Translate = 54,
+    Rotate = 55,
+
+    SetLineWidth = 60,
+    SetDash = 61,
+    SetLineCap = 62,
+    SetLineJoin = 63,
+    SetMIterLimit = 64,
+
+    SetGray = 70,
+    SetRgbColor = 71,
+    SetCmykColor = 72,
+
+    CurrentPoint = 80,
+    IDTransform = 81,
+    DTransform = 82,
+
+    FindFont = 201,
+    ScaleFont = 202,
+    SetFont = 203,
+    CurrentFont = 204,
+
+    StringWidth = 210,
+
+    Def = 999,
+
+    FShow = 1001,
+    STexFig = 1002,
+    ETexFig = 1003,
+    Hlw = 1004,
+    Vlw = 1005,
+    Rd = 1006,
+    B = 1007,
+}
+
 #[derive(Clone)]
 #[repr(C)]
 pub struct mp_font {
@@ -87,10 +160,10 @@ pub struct mp_font {
 }
 struct operators {
     pub token: &'static [u8],
-    pub opcode: i32,
+    pub opcode: Opcode,
 }
 impl operators {
-    const fn new(token: &'static [u8], opcode: i32) -> Self {
+    const fn new(token: &'static [u8], opcode: Opcode) -> Self {
         Self { token, opcode }
     }
 }
@@ -238,98 +311,105 @@ pub unsafe extern "C" fn mps_scan_bbox(
     }
     -1i32
 }
-static mut ps_operators: [operators; 48] = [
-    operators::new(b"add", 1),
-    operators::new(b"mul", 3),
-    operators::new(b"div", 4),
-    operators::new(b"neg", 5),
-    operators::new(b"sub", 2),
-    operators::new(b"truncate", 6),
-    operators::new(b"clear", 10),
-    operators::new(b"exch", 11),
-    operators::new(b"pop", 12),
-    operators::new(b"clip", 44),
-    operators::new(b"eoclip", 45),
-    operators::new(b"closepath", 32),
-    operators::new(b"concat", 52),
-    operators::new(b"newpath", 31),
-    operators::new(b"moveto", 33),
-    operators::new(b"rmoveto", 34),
-    operators::new(b"lineto", 37),
-    operators::new(b"rlineto", 38),
-    operators::new(b"curveto", 35),
-    operators::new(b"rcurveto", 36),
-    operators::new(b"arc", 39),
-    operators::new(b"arcn", 40),
-    operators::new(b"stroke", 42),
-    operators::new(b"fill", 41),
-    operators::new(b"show", 43),
-    operators::new(b"showpage", 49),
-    operators::new(b"gsave", 50),
-    operators::new(b"grestore", 51),
-    operators::new(b"translate", 54),
-    operators::new(b"rotate", 55),
-    operators::new(b"scale", 53),
-    operators::new(b"setlinecap", 62),
-    operators::new(b"setlinejoin", 63),
-    operators::new(b"setlinewidth", 60),
-    operators::new(b"setmiterlimit", 64),
-    operators::new(b"setdash", 61),
-    operators::new(b"setgray", 70),
-    operators::new(b"setrgbcolor", 71),
-    operators::new(b"setcmykcolor", 72),
-    operators::new(b"currentpoint", 80),
-    operators::new(b"dtransform", 82),
-    operators::new(b"idtransform", 81),
-    operators::new(b"findfont", 201),
-    operators::new(b"scalefont", 202),
-    operators::new(b"setfont", 203),
-    operators::new(b"currentfont", 204),
-    operators::new(b"stringwidth", 210),
-    operators::new(b"def", 999),
-];
-static mut mps_operators: [operators; 28] = [
-    operators::new(b"fshow", 1001),
-    operators::new(b"startTexFig", 1002),
-    operators::new(b"endTexFig", 1003),
-    operators::new(b"hlw", 1004),
-    operators::new(b"vlw", 1005),
-    operators::new(b"l", 37),
-    operators::new(b"r", 38),
-    operators::new(b"c", 35),
-    operators::new(b"m", 33),
-    operators::new(b"p", 32),
-    operators::new(b"n", 31),
-    operators::new(b"C", 72),
-    operators::new(b"G", 70),
-    operators::new(b"R", 71),
-    operators::new(b"lj", 63),
-    operators::new(b"ml", 64),
-    operators::new(b"lc", 62),
-    operators::new(b"S", 42),
-    operators::new(b"F", 41),
-    operators::new(b"q", 50),
-    operators::new(b"Q", 51),
-    operators::new(b"s", 53),
-    operators::new(b"t", 52),
-    operators::new(b"sd", 61),
-    operators::new(b"rd", 1006),
-    operators::new(b"P", 49),
-    operators::new(b"B", 1007),
-    operators::new(b"W", 44),
-];
-unsafe fn get_opcode(token: &[u8]) -> i32 {
+static mut ps_operators: [operators; 48] = {
+    use Opcode::*;
+    [
+        operators::new(b"add", Add),
+        operators::new(b"mul", Mul),
+        operators::new(b"div", Div),
+        operators::new(b"neg", Neg),
+        operators::new(b"sub", Sub),
+        operators::new(b"truncate", Truncate),
+        operators::new(b"clear", Clear),
+        operators::new(b"exch", ExCh),
+        operators::new(b"pop", Pop),
+        operators::new(b"clip", Clip),
+        operators::new(b"eoclip", EoClip),
+        operators::new(b"closepath", ClosePath),
+        operators::new(b"concat", Concat),
+        operators::new(b"newpath", NewPath),
+        operators::new(b"moveto", MoveTo),
+        operators::new(b"rmoveto", RMoveTo),
+        operators::new(b"lineto", LineTo),
+        operators::new(b"rlineto", RLineTo),
+        operators::new(b"curveto", CurveTo),
+        operators::new(b"rcurveto", RCurveTo),
+        operators::new(b"arc", Arc),
+        operators::new(b"arcn", ArcN),
+        operators::new(b"stroke", Stroke),
+        operators::new(b"fill", Fill),
+        operators::new(b"show", Show),
+        operators::new(b"showpage", ShowPage),
+        operators::new(b"gsave", GSave),
+        operators::new(b"grestore", GRestore),
+        operators::new(b"translate", Translate),
+        operators::new(b"rotate", Rotate),
+        operators::new(b"scale", Scale),
+        operators::new(b"setlinecap", SetLineCap),
+        operators::new(b"setlinejoin", SetLineJoin),
+        operators::new(b"setlinewidth", SetLineWidth),
+        operators::new(b"setmiterlimit", SetMIterLimit),
+        operators::new(b"setdash", SetDash),
+        operators::new(b"setgray", SetGray),
+        operators::new(b"setrgbcolor", SetRgbColor),
+        operators::new(b"setcmykcolor", SetCmykColor),
+        operators::new(b"currentpoint", CurrentPoint),
+        operators::new(b"dtransform", DTransform),
+        operators::new(b"idtransform", IDTransform),
+        operators::new(b"findfont", FindFont),
+        operators::new(b"scalefont", ScaleFont),
+        operators::new(b"setfont", SetFont),
+        operators::new(b"currentfont", CurrentFont),
+        operators::new(b"stringwidth", StringWidth),
+        operators::new(b"def", Def),
+    ]
+};
+static mut mps_operators: [operators; 28] = {
+    use Opcode::*;
+    [
+        operators::new(b"fshow", FShow),
+        operators::new(b"startTexFig", STexFig),
+        operators::new(b"endTexFig", ETexFig),
+        operators::new(b"hlw", Hlw),
+        operators::new(b"vlw", Vlw),
+        operators::new(b"l", LineTo),
+        operators::new(b"r", RLineTo),
+        operators::new(b"c", CurveTo),
+        operators::new(b"m", MoveTo),
+        operators::new(b"p", ClosePath),
+        operators::new(b"n", NewPath),
+        operators::new(b"C", SetCmykColor),
+        operators::new(b"G", SetGray),
+        operators::new(b"R", SetRgbColor),
+        operators::new(b"lj", SetLineJoin),
+        operators::new(b"ml", SetMIterLimit),
+        operators::new(b"lc", SetLineCap),
+        operators::new(b"S", Stroke),
+        operators::new(b"F", Fill),
+        operators::new(b"q", GSave),
+        operators::new(b"Q", GRestore),
+        operators::new(b"s", Scale),
+        operators::new(b"t", Concat),
+        operators::new(b"sd", SetDash),
+        operators::new(b"rd", Rd),
+        operators::new(b"P", ShowPage),
+        operators::new(b"B", B),
+        operators::new(b"W", Clip),
+    ]
+};
+
+unsafe fn get_opcode(token: &[u8]) -> Result<Opcode, ()> {
     for op in ps_operators.iter() {
         if token == op.token {
-            return op.opcode;
+            return Ok(op.opcode);
         }
     }
     for op in mps_operators.iter() {
         if token == op.token {
-            return op.opcode;
+            return Ok(op.opcode);
         }
     }
-    -1i32
+    Err(())
 }
 static mut STACK: Vec<*mut pdf_obj> = Vec::new();
 trait PushChecked {
@@ -367,11 +447,12 @@ unsafe fn do_clear() -> i32 {
     }
     0i32
 }
-unsafe fn pop_get_numbers(mut values: *mut f64, mut count: i32) -> i32 {
+unsafe fn pop_get_numbers(values: &mut [f64]) -> i32 {
+    let mut count = values.len();
     loop {
         let fresh1 = count;
         count -= 1;
-        if !(fresh1 > 0i32) {
+        if !(fresh1 > 0) {
             break;
         }
         if let Some(tmp) = STACK.pop() {
@@ -380,7 +461,7 @@ unsafe fn pop_get_numbers(mut values: *mut f64, mut count: i32) -> i32 {
                 pdf_release_obj(tmp);
                 break;
             } else {
-                *values.offset(count as isize) = pdf_number_value(&*tmp);
+                values[count] = pdf_number_value(&*tmp);
                 pdf_release_obj(tmp);
             }
         } else {
@@ -388,29 +469,30 @@ unsafe fn pop_get_numbers(mut values: *mut f64, mut count: i32) -> i32 {
             break;
         }
     }
-    count + 1i32
+    (count + 1) as i32
 }
-unsafe fn cvr_array(mut array: *mut pdf_obj, mut values: *mut f64, mut count: i32) -> i32 {
+unsafe fn cvr_array(mut array: *mut pdf_obj, values: &mut [f64]) -> i32 {
+    let mut count = values.len();
     if !(!array.is_null() && (*array).is_array()) {
         warn!("mpost: Not an array!");
     } else {
         loop {
             let fresh2 = count;
-            count = count - 1;
-            if !(fresh2 > 0i32) {
+            count -= 1;
+            if !(fresh2 > 0) {
                 break;
             }
-            let tmp = (*array).as_array().get(count).unwrap();
+            let tmp = (*array).as_array().get(count as i32).unwrap();
             if !tmp.is_number() {
                 warn!("mpost: Not a number!");
                 break;
             } else {
-                *values.offset(count as isize) = pdf_number_value(tmp)
+                values[count] = pdf_number_value(tmp)
             }
         }
     }
     pdf_release_obj(array);
-    count + 1i32
+    (count + 1) as i32
 }
 unsafe fn is_fontdict(dict: &pdf_obj) -> bool {
     if !dict.is_dict() {
@@ -464,15 +546,15 @@ unsafe fn do_findfont() -> i32 {
     error
 }
 unsafe fn do_scalefont() -> i32 {
-    let mut scale: f64 = 0.;
-    let mut error = pop_get_numbers(&mut scale, 1i32);
+    let mut scale = [0.; 1];
+    let mut error = pop_get_numbers(scale.as_mut());
     if error != 0 {
         return error;
     }
     if let Some(font_dict) = STACK.pop() {
         if is_fontdict(&*font_dict) {
             let font_scale = (*font_dict).as_dict_mut().get_mut("FontScale").unwrap();
-            let val = pdf_number_value(&*font_scale) * scale;
+            let val = pdf_number_value(&*font_scale) * scale[0];
             pdf_set_number(&mut *font_scale, val);
             if STACK.push_checked(font_dict).is_err() {
                 pdf_release_obj(font_dict);
@@ -619,7 +701,7 @@ unsafe fn do_mpost_bind_def(mut ps_code: *const i8, mut x_user: f64, mut y_user:
     let mut start = CStr::from_ptr(ps_code).to_bytes();
     mp_parse_body(&mut start, x_user, y_user)
 }
-unsafe fn do_texfig_operator(mut opcode: i32, mut x_user: f64, mut y_user: f64) -> i32 {
+unsafe fn do_texfig_operator(mut opcode: Opcode, mut x_user: f64, mut y_user: f64) -> i32 {
     static mut fig_p: transform_info = transform_info::new();
     static mut in_tfig: i32 = 0i32;
     static mut xobj_id: i32 = -1i32;
@@ -627,8 +709,8 @@ unsafe fn do_texfig_operator(mut opcode: i32, mut x_user: f64, mut y_user: f64) 
     let mut values: [f64; 6] = [0.; 6];
     let mut error: i32 = 0i32;
     match opcode {
-        1002 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 6i32);
+        Opcode::STexFig => {
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 let mut resname: [i8; 256] = [0; 256];
                 transform_info_clear(&mut fig_p);
@@ -655,7 +737,7 @@ unsafe fn do_texfig_operator(mut opcode: i32, mut x_user: f64, mut y_user: f64) 
                 count += 1
             }
         }
-        1003 => {
+        Opcode::ETexFig => {
             if in_tfig == 0 {
                 panic!("endTexFig without valid startTexFig!.");
             }
@@ -683,57 +765,74 @@ unsafe fn ps_dev_CTM() -> TMatrix {
  */
 unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
     let mut error: i32 = 0i32;
-    let mut values: [f64; 12] = [0.; 12];
     let mut tmp = None;
     let mut cp = Coord::zero();
     let opcode = get_opcode(token);
+    if opcode.is_err() {
+        if is_fontname(token) {
+            if STACK.push_checked(pdf_new_name(token)).is_err() {
+                return 1;
+            }
+        } else {
+            warn!("Unknown token \"{}\"", token.display());
+            return 1;
+        }
+        return -1;
+    }
+    let opcode = opcode.unwrap();
     match opcode {
-        1 => {
+        Opcode::Add => {
             /*
              * Arithmetic operators
              */
-            error = pop_get_numbers(values.as_mut_ptr(), 2i32);
+            let mut values = [0.; 2];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 if STACK.push_checked(pdf_new_number(values[0] + values[1])).is_err() {
                     error = 1i32
                 }
             }
         }
-        3 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 2i32);
+        Opcode::Mul => {
+            let mut values = [0.; 2];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 if STACK.push_checked(pdf_new_number(values[0] * values[1])).is_err() {
                     error = 1i32
                 }
             }
         }
-        5 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 1i32);
+        Opcode::Neg => {
+            let mut values = [0.; 1];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 if STACK.push_checked(pdf_new_number(-values[0])).is_err() {
                     error = 1i32
                 }
             }
         }
-        2 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 2i32);
+        Opcode::Sub => {
+            let mut values = [0.; 2];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 if STACK.push_checked(pdf_new_number(values[0] - values[1])).is_err() {
                     error = 1i32
                 }
             }
         }
-        4 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 2i32);
+        Opcode::Div => {
+            let mut values = [0.; 2];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 if STACK.push_checked(pdf_new_number(values[0] / values[1])).is_err() {
                     error = 1i32
                 }
             }
         }
-        6 => {
+        Opcode::Truncate => {
             /* Round toward zero. */
-            error = pop_get_numbers(values.as_mut_ptr(), 1i32);
+            let mut values = [0.; 1];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 if STACK.push_checked(pdf_new_number(
                     if values[0] > 0. {
@@ -746,111 +845,114 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                 }
             }
         }
-        10 => {
+        Opcode::Clear => {
             /* STACK operation */
             error = do_clear()
         }
-        12 => {
+        Opcode::Pop => {
             if let Some(tmp) = STACK.pop() {
                 pdf_release_obj(tmp);
             }
         }
-        11 => error = do_exch(),
-        33 => {
+        Opcode::ExCh => error = do_exch(),
+        Opcode::MoveTo => {
             /* Path construction */
-            error = pop_get_numbers(values.as_mut_ptr(), 2i32);
+            let mut values = [0.; 2];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 error = pdf_dev_moveto(values[0], values[1])
             }
         }
-        34 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 2i32);
+        Opcode::RMoveTo => {
+            let mut values = [0.; 2];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 error = pdf_dev_rmoveto(values[0], values[1])
             }
         }
-        37 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 2i32);
+        Opcode::LineTo => {
+            let mut values = [0.; 2];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 error = pdf_dev_lineto(values[0], values[1])
             }
         }
-        38 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 2i32);
+        Opcode::RLineTo => {
+            let mut values = [0.; 2];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 error = pdf_dev_rlineto(values[0], values[1])
             }
         }
-        35 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 6i32);
+        Opcode::CurveTo => {
+            let mut values = [0.; 6];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 error = pdf_dev_curveto(
                     values[0], values[1], values[2], values[3], values[4], values[5],
                 )
             }
         }
-        36 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 6i32);
+        Opcode::RCurveTo => {
+            let mut values = [0.; 6];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 error = pdf_dev_rcurveto(
                     values[0], values[1], values[2], values[3], values[4], values[5],
                 )
             }
         }
-        32 => error = pdf_dev_closepath(),
-        39 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 5i32);
+        Opcode::ClosePath => error = pdf_dev_closepath(),
+        Opcode::Arc => {
+            let mut values = [0.; 5];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 error = pdf_dev_arc(values[0], values[1], values[2], values[3], values[4])
             }
         }
-        40 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 5i32);
+        Opcode::ArcN => {
+            let mut values = [0.; 5];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 error = pdf_dev_arcn(values[0], values[1], values[2], values[3], values[4])
             }
         }
-        31 => {
+        Opcode::NewPath => {
             pdf_dev_newpath();
         }
-        42 => {
+        Opcode::Stroke => {
             /* fill rule not supported yet */
             pdf_dev_flushpath(b'S', 0);
         }
-        41 => {
+        Opcode::Fill => {
             pdf_dev_flushpath(b'f', 0);
         }
-        44 => error = pdf_dev_clip(),
-        45 => error = pdf_dev_eoclip(),
-        50 => {
+        Opcode::Clip => error = pdf_dev_clip(),
+        Opcode::EoClip => error = pdf_dev_eoclip(),
+        Opcode::GSave => {
             /* Graphics state operators: */
             error = pdf_dev_gsave(); /* This does pdf_release_obj() */
             save_font();
         }
-        51 => {
+        Opcode::GRestore => {
             error = pdf_dev_grestore();
             restore_font();
         }
-        52 => {
+        Opcode::Concat => {
             tmp = STACK.pop();
-            error = cvr_array(tmp.unwrap(), values.as_mut_ptr(), 6i32); // TODO: check
+            let mut values = [0.; 6];
+            error = cvr_array(tmp.unwrap(), values.as_mut()); // TODO: check
             tmp = None;
             if error != 0 {
                 warn!("Missing array before \"concat\".");
             } else {
-                let mut matrix = TMatrix::row_major(
-                    values[0],
-                    values[1],
-                    values[2],
-                    values[3],
-                    values[4],
-                    values[5],
-                );
+                let mut matrix = TMatrix::from_row_major_array(values);
                 error = pdf_dev_concat(&mut matrix)
             }
         }
-        53 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 2i32);
+        Opcode::Scale => {
+            let mut values = [0.; 2];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 match mp_cmode {
                     _ => {}
@@ -862,9 +964,10 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                 error = pdf_dev_concat(&mut matrix)
             }
         }
-        55 => {
+        Opcode::Rotate => {
             /* Positive angle means clock-wise direction in graphicx-dvips??? */
-            error = pop_get_numbers(values.as_mut_ptr(), 1i32);
+            let mut values = [0.; 1];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 let mut matrix = match mp_cmode {
                     1 | 0 => {
@@ -878,8 +981,9 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                 error = pdf_dev_concat(&mut matrix)
             }
         }
-        54 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 2i32);
+        Opcode::Translate => {
+            let mut values = [0.; 2];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 let mut matrix = TMatrix::create_translation(
                     values[0],
@@ -888,8 +992,9 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                 error = pdf_dev_concat(&mut matrix)
             }
         }
-        61 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 1i32);
+        Opcode::SetDash => {
+            let mut values = [0.; 1];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 let mut num_dashes = 0_usize;
                 let mut dash_values: [f64; 16] = [0.; 16];
@@ -926,32 +1031,37 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                 }
             }
         }
-        62 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 1i32);
+        Opcode::SetLineCap => {
+            let mut values = [0.; 1];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 error = pdf_dev_setlinecap(values[0] as i32)
             }
         }
-        63 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 1i32);
+        Opcode::SetLineJoin => {
+            let mut values = [0.; 1];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 error = pdf_dev_setlinejoin(values[0] as i32)
             }
         }
-        60 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 1i32);
+        Opcode::SetLineWidth => {
+            let mut values = [0.; 1];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 error = pdf_dev_setlinewidth(values[0])
             }
         }
-        64 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 1i32);
+        Opcode::SetMIterLimit => {
+            let mut values = [0.; 1];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 error = pdf_dev_setmiterlimit(values[0])
             }
         }
-        72 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 4i32);
+        Opcode::SetCmykColor => {
+            let mut values = [0.; 4];
+            error = pop_get_numbers(values.as_mut());
             /* Not handled properly */
             if error == 0 {
                 let color =
@@ -960,25 +1070,27 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                 pdf_dev_set_color(&color, 0x20, 0);
             }
         }
-        70 => {
+        Opcode::SetGray => {
             /* Not handled properly */
-            error = pop_get_numbers(values.as_mut_ptr(), 1i32); /* This does pdf_release_obj() */
+            let mut values = [0.; 1];
+            error = pop_get_numbers(values.as_mut()); /* This does pdf_release_obj() */
             if error == 0 {
                 let color = PdfColor::from_gray(values[0]).unwrap();
                 pdf_dev_set_color(&color, 0, 0);
                 pdf_dev_set_color(&color, 0x20, 0);
             }
         }
-        71 => {
-            error = pop_get_numbers(values.as_mut_ptr(), 3i32);
+        Opcode::SetRgbColor => {
+            let mut values = [0.; 3];
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 let color = PdfColor::from_rgb(values[0], values[1], values[2]).unwrap();
                 pdf_dev_set_color(&color, 0, 0);
                 pdf_dev_set_color(&color, 0x20, 0);
             }
         }
-        49 => {}
-        80 => {
+        Opcode::ShowPage => {}
+        Opcode::CurrentPoint => {
             error = pdf_dev_currentpoint(&mut cp);
             if error == 0 {
                 if STACK.push_checked(pdf_new_number(cp.x)).is_ok() {
@@ -990,21 +1102,15 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                 }
             }
         }
-        82 => {
+        Opcode::DTransform => {
+            let mut values = [0.; 6];
             let mut matrix = None;
             if let Some(tmp2) = STACK.pop() {
                 if (*tmp2).is_array() {
-                    error = cvr_array(tmp2, values.as_mut_ptr(), 6i32);
+                    error = cvr_array(tmp2, values.as_mut());
                     tmp = None;
                     if error == 0 {
-                        matrix = Some(TMatrix::row_major(
-                            values[0],
-                            values[1],
-                            values[2],
-                            values[3],
-                            values[4],
-                            values[5],
-                        ));
+                        matrix = Some(TMatrix::from_row_major_array(values));
                         tmp = STACK.pop();
                     }
                 } else {
@@ -1037,21 +1143,15 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                 }
             }
         }
-        81 => {
+        Opcode::IDTransform => {
             let mut matrix = None;
+            let mut values = [0.; 6];
             if let Some(tmp2) = STACK.pop() {
                 if (*tmp2).is_array() {
-                    error = cvr_array(tmp2, values.as_mut_ptr(), 6i32);
+                    error = cvr_array(tmp2, values.as_mut());
                     tmp = None;
                     if error == 0 {
-                        matrix = Some(TMatrix::row_major(
-                            values[0],
-                            values[1],
-                            values[2],
-                            values[3],
-                            values[4],
-                            values[5],
-                        ));
+                        matrix = Some(TMatrix::from_row_major_array(values));
                         tmp = STACK.pop();
                     }
                 } else {
@@ -1083,22 +1183,22 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                 }
             }
         }
-        201 => error = do_findfont(),
-        202 => error = do_scalefont(),
-        203 => error = do_setfont(),
-        204 => error = do_currentfont(),
-        43 => error = do_show(),
-        210 => error = 1i32,
-        1001 => {
-            /* Extensions */
+        Opcode::FindFont => error = do_findfont(),
+        Opcode::ScaleFont => error = do_scalefont(),
+        Opcode::SetFont => error = do_setfont(),
+        Opcode::CurrentFont => error = do_currentfont(),
+        Opcode::Show => error = do_show(),
+        Opcode::StringWidth => error = 1i32,
+        /* Extensions */
+        Opcode::FShow => {
             error = do_mpost_bind_def(
                 b"exch findfont exch scalefont setfont show\x00" as *const u8 as *const i8,
                 x_user,
                 y_user,
             )
         }
-        1002 | 1003 => error = do_texfig_operator(opcode, x_user, y_user),
-        1004 => {
+        Opcode::STexFig | Opcode::ETexFig => error = do_texfig_operator(opcode, x_user, y_user),
+        Opcode::Hlw => {
             error = do_mpost_bind_def(
                 b"0 dtransform exch truncate exch idtransform pop setlinewidth\x00" as *const u8
                     as *const i8,
@@ -1106,7 +1206,7 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                 y_user,
             )
         }
-        1005 => {
+        Opcode::Vlw => {
             error = do_mpost_bind_def(
                 b"0 exch dtransform truncate idtransform setlinewidth pop\x00" as *const u8
                     as *const i8,
@@ -1114,33 +1214,23 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
                 y_user,
             )
         }
-        1006 => {
+        Opcode::Rd => {
             error = do_mpost_bind_def(
                 b"[] 0 setdash\x00" as *const u8 as *const i8,
                 x_user,
                 y_user,
             )
         }
-        1007 => {
+        Opcode::B => {
             error = do_mpost_bind_def(
                 b"gsave fill grestore\x00" as *const u8 as *const i8,
                 x_user,
                 y_user,
             )
         }
-        999 => {
+        Opcode::Def => {
             STACK.pop();
             STACK.pop();
-        }
-        _ => {
-            if is_fontname(token) {
-                if STACK.push_checked(pdf_new_name(token)).is_err() {
-                    error = 1i32
-                }
-            } else {
-                warn!("Unknown token \"{}\"", token.display());
-                error = 1i32
-            }
         }
     }
     error
