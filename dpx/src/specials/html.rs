@@ -729,14 +729,7 @@ unsafe fn cvt_a_to_tmatrix<'a>(
             if n != 6 {
                 return Err(());
             }
-            *M = TMatrix::row_major(
-                v[0],
-                v[1],
-                v[2],
-                v[3],
-                v[4],
-                v[5],
-            )
+            *M = TMatrix::from_row_major_array(v);
         }
         b"translate" => {
             if n != 1 && n != 2 {

@@ -866,30 +866,13 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
             /* Positive angle means clock-wise direction in graphicx-dvips??? */
             error = pop_get_numbers(values.as_mut_ptr(), 1i32);
             if error == 0 {
-                values[0] = values[0] * 3.14159265358979323846f64 / 180i32 as f64;
                 let mut matrix = match mp_cmode {
                     1 | 0 => {
                         /* Really? */
-                        let (s, c) = values[0].sin_cos();
-                        TMatrix::row_major(
-                            c,
-                            -s,
-                            s,
-                            c,
-                            0.,
-                            0.,
-                        )
+                        TMatrix::create_rotation(euclid::Angle::degrees(values[0]))
                     }
                     _ => {
-                        let (s, c) = values[0].sin_cos();
-                        TMatrix::row_major(
-                            c,
-                            s,
-                            -s,
-                            c,
-                            0.,
-                            0.,
-                        )
+                        TMatrix::create_rotation(euclid::Angle::degrees(-values[0]))
                     }
                 };
                 error = pdf_dev_concat(&mut matrix)

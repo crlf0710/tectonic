@@ -625,7 +625,7 @@ unsafe fn spc_read_dimtrns_pdfm(
                     if spc_util_read_numbers(v_0.as_mut_ptr(), 6i32, ap) != 6i32 {
                         error = -1i32
                     } else {
-                        p.matrix = TMatrix::row_major(v_0[0], v_0[1], v_0[2], v_0[3], v_0[4], v_0[5]);
+                        p.matrix = TMatrix::from_row_major_array(v_0);
                         has_matrix = 1i32
                     }
                 }
@@ -801,7 +801,7 @@ pub unsafe extern "C" fn spc_util_read_blahblah(
                     if spc_util_read_numbers(v_0.as_mut_ptr(), 6i32, ap) != 6i32 {
                         error = -1i32
                     } else {
-                        p.matrix = TMatrix::row_major(v_0[0], v_0[1], v_0[2], v_0[3], v_0[4], v_0[5]);
+                        p.matrix = TMatrix::from_row_major_array(v_0);
                         has_matrix = 1i32
                     }
                 }
