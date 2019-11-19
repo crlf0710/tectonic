@@ -27,6 +27,8 @@
     unused_mut
 )]
 
+use euclid::point2;
+
 use crate::mfree;
 use crate::DisplayExt;
 use crate::{info, warn};
@@ -58,7 +60,7 @@ use crate::TTInputFormat;
 
 use bridge::InputHandleWrapper;
 
-use super::dpx_pdfdev::{transform_info, Coord, Rect, TMatrix};
+use super::dpx_pdfdev::{Point, Rect, TMatrix, transform_info};
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub struct ximage_info {
@@ -71,13 +73,27 @@ pub struct ximage_info {
     pub xdensity: f64,
     pub ydensity: f64,
 }
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct xform_info {
     pub flags: i32,
     pub bbox: Rect,
     pub matrix: TMatrix,
 }
+
+impl Default for xform_info {
+    fn default() -> Self {
+        Self {
+            flags: 0,
+            bbox: Rect::new(
+                Point::default(),
+                Point::default(),
+            ),
+            matrix: TMatrix::default(),
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct load_options {
@@ -535,18 +551,18 @@ pub unsafe fn pdf_ximage_set_form(
     /* Image's attribute "bbox" here is affected by /Rotate entry of included
      * PDF page.
      */
-    let mut p1 = info.bbox.ll;
+    let mut p1 = info.bbox.min;
     pdf_dev_transform(&mut p1, Some(&info.matrix));
-    let mut p2 = Coord::new(info.bbox.ur.x, info.bbox.ll.y);
+    let mut p2 = point2(info.bbox.max.x, info.bbox.min.y);
     pdf_dev_transform(&mut p2, Some(&info.matrix));
-    let mut p3 = info.bbox.ur;
+    let mut p3 = info.bbox.max;
     pdf_dev_transform(&mut p3, Some(&info.matrix));
-    let mut p4 = Coord::new(info.bbox.ll.x, info.bbox.ur.y);
+    let mut p4 = point2(info.bbox.min.x, info.bbox.max.y);
     pdf_dev_transform(&mut p4, Some(&info.matrix));
-    (*I).attr.bbox.ll.x = p1.x.min(p2.x).min(p3.x).min(p4.x);
-    (*I).attr.bbox.ll.y = p1.y.min(p2.y).min(p3.y).min(p4.y);
-    (*I).attr.bbox.ur.x = p1.x.max(p2.x).max(p3.x).max(p4.x);
-    (*I).attr.bbox.ur.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
+    (*I).attr.bbox.min.x = p1.x.min(p2.x).min(p3.x).min(p4.x);
+    (*I).attr.bbox.min.y = p1.y.min(p2.y).min(p3.y).min(p4.y);
+    (*I).attr.bbox.max.x = p1.x.max(p2.x).max(p3.x).max(p4.x);
+    (*I).attr.bbox.max.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
     (*I).reference = pdf_ref_obj(resource);
     pdf_release_obj(resource);
     (*I).resource = ptr::null_mut();
@@ -660,7 +676,7 @@ pub unsafe fn pdf_ximage_set_attr(
     (*I).attr.height = height;
     (*I).attr.xdensity = xdensity;
     (*I).attr.ydensity = ydensity;
-    (*I).attr.bbox = Rect::new((llx, lly), (urx, ury));
+    (*I).attr.bbox = Rect::new(point2(llx, lly), point2(urx, ury));
 }
 /* depth...
  * Dvipdfm treat "depth" as "yoffset" for pdf:image and pdf:uxobj
@@ -677,12 +693,12 @@ unsafe fn scale_to_fit_I(T: &mut TMatrix, p: &mut transform_info, mut I: *mut pd
     let xscale;
     let yscale;
     if p.flags & 1i32 << 0i32 != 0 {
-        wd0 = p.bbox.width();
-        ht0 = p.bbox.height();
+        wd0 = p.bbox.size().width;
+        ht0 = p.bbox.size().height;
         xscale = (*I).attr.width as f64 * (*I).attr.xdensity / wd0;
         yscale = (*I).attr.height as f64 * (*I).attr.ydensity / ht0;
-        d_x = -p.bbox.ll.x / wd0;
-        d_y = -p.bbox.ll.y / ht0
+        d_x = -p.bbox.min.x / wd0;
+        d_y = -p.bbox.min.y / ht0
     } else {
         wd0 = (*I).attr.width as f64 * (*I).attr.xdensity;
         ht0 = (*I).attr.height as f64 * (*I).attr.ydensity;
@@ -733,13 +749,13 @@ unsafe fn scale_to_fit_F(T: &mut TMatrix, p: &mut transform_info, mut I: *mut pd
     let mut wd0;
     let mut ht0;
     if p.flags & 1i32 << 0i32 != 0 {
-        wd0 = p.bbox.width();
-        ht0 = p.bbox.height();
-        d_x = -p.bbox.ll.x;
-        d_y = -p.bbox.ll.y
+        wd0 = p.bbox.size().width;
+        ht0 = p.bbox.size().height;
+        d_x = -p.bbox.min.x;
+        d_y = -p.bbox.min.y
     } else {
-        wd0 = (*I).attr.bbox.width();
-        ht0 = (*I).attr.bbox.height();
+        wd0 = (*I).attr.bbox.size().width;
+        ht0 = (*I).attr.bbox.size().height;
         d_x = 0.0f64;
         d_y = 0.0f64
     }
@@ -820,12 +836,12 @@ pub unsafe fn pdf_ximage_scale_image(
              */
             scale_to_fit_I(&mut M, p, I);
             if p.flags & 1i32 << 0i32 != 0 {
-                r.ll.x = p.bbox.ll.x / ((*I).attr.width as f64 * (*I).attr.xdensity);
-                r.ll.y = p.bbox.ll.y / ((*I).attr.height as f64 * (*I).attr.ydensity);
-                r.ur.x = p.bbox.ur.x / ((*I).attr.width as f64 * (*I).attr.xdensity);
-                r.ur.y = p.bbox.ur.y / ((*I).attr.height as f64 * (*I).attr.ydensity)
+                r.min.x = p.bbox.min.x / ((*I).attr.width as f64 * (*I).attr.xdensity);
+                r.min.y = p.bbox.min.y / ((*I).attr.height as f64 * (*I).attr.ydensity);
+                r.max.x = p.bbox.max.x / ((*I).attr.width as f64 * (*I).attr.xdensity);
+                r.max.y = p.bbox.max.y / ((*I).attr.height as f64 * (*I).attr.ydensity)
             } else {
-                *r = Rect::new((0., 0.), (1., 1.));
+                *r = Rect::new(point2(0., 0.), point2(1., 1.));
             }
         }
         0 => {

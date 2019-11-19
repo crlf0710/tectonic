@@ -25,6 +25,8 @@
     unused_mut
 )]
 
+use euclid::point2;
+
 use std::io::Read;
 use std::ffi::{CStr, CString};
 use std::ptr;
@@ -122,7 +124,7 @@ pub struct resource_map {
 }
 use crate::dpx_cmap::CMap;
 
-use crate::dpx_pdfdev::Coord;
+use crate::dpx_pdfdev::Point;
 
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -677,16 +679,15 @@ unsafe fn spc_handler_pdfm_annot(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         pdf_release_obj(annot_dict);
         return -1i32;
     }
-    let mut cp = Coord::new((*spe).x_user, (*spe).y_user);
+    let mut cp = point2((*spe).x_user, (*spe).y_user);
     pdf_dev_transform(&mut cp, None);
     if ti.flags & 1i32 << 0i32 != 0 {
-        rect.ll = ti.bbox.ll + cp.to_vector();
-        rect.ur = ti.bbox.ur + cp.to_vector();
+        rect = ti.bbox.translate(cp.to_vector());
     } else {
-        rect.ll.x = cp.x;
-        rect.ll.y = cp.y - (*spe).mag * ti.depth;
-        rect.ur.x = cp.x + (*spe).mag * ti.width;
-        rect.ur.y = cp.y + (*spe).mag * ti.height
+        rect.min.x = cp.x;
+        rect.min.y = cp.y - (*spe).mag * ti.depth;
+        rect.max.x = cp.x + (*spe).mag * ti.width;
+        rect.max.y = cp.y + (*spe).mag * ti.height
     }
     /* Order is important... */
     if let Some(i) = ident.as_ref() {
@@ -912,7 +913,6 @@ unsafe fn spc_handler_pdfm_article(mut spe: *mut spc_env, mut args: *mut spc_arg
 unsafe fn spc_handler_pdfm_bead(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut sd: *mut spc_pdf_ = &mut _PDF_STAT;
     let article_info;
-    let mut rect = Rect::zero();
     let mut ti = transform_info::new();
     (*args).cur.skip_white();
     if (*args).cur[0] != b'@' {
@@ -936,17 +936,16 @@ unsafe fn spc_handler_pdfm_bead(mut spe: *mut spc_env, mut args: *mut spc_arg) -
         spc_warn!(spe, "You can\'t specify both bbox and width/height.");
         return -1i32;
     }
-    let mut cp = Coord::new((*spe).x_user, (*spe).y_user);
+    let mut cp = point2((*spe).x_user, (*spe).y_user);
     pdf_dev_transform(&mut cp, None);
-    if ti.flags & 1i32 << 0i32 != 0 {
-        rect.ll = ti.bbox.ll + cp.to_vector();
-        rect.ur = ti.bbox.ur + cp.to_vector();
+    let mut rect = if ti.flags & 1i32 << 0i32 != 0 {
+        ti.bbox.translate(cp.to_vector())
     } else {
-        rect.ll.x = cp.x;
-        rect.ll.y = cp.y - (*spe).mag * ti.depth;
-        rect.ur.x = cp.x + (*spe).mag * ti.width;
-        rect.ur.y = cp.y + (*spe).mag * ti.height
-    }
+        Rect::new(
+            point2(cp.x, cp.y - (*spe).mag * ti.depth),
+            point2(cp.x + (*spe).mag * ti.width, cp.y + (*spe).mag * ti.height)
+        )
+    };
     (*args).cur.skip_white();
     if (*args).cur[0] != b'<' {
         article_info = pdf_new_dict()
@@ -1479,7 +1478,7 @@ unsafe fn spc_handler_pdfm_bform(mut spe: *mut spc_env, mut args: *mut spc_arg) 
          * by zero.
          */
         let mut cropbox = if ti.flags & 1i32 << 0i32 != 0 {
-            if ti.bbox.width() == 0. || ti.bbox.height() == 0. {
+            if ti.bbox.size().width == 0. || ti.bbox.size().height == 0. {
                 spc_warn!(spe, "Bounding box has a zero dimension.");
                 return -1i32;
             }
@@ -1489,7 +1488,7 @@ unsafe fn spc_handler_pdfm_bform(mut spe: *mut spc_env, mut args: *mut spc_arg) 
                 spc_warn!(spe, "Bounding box has a zero dimension.");
                 return -1i32;
             }
-            Rect::new((0., -ti.depth), (ti.width, ti.height))
+            Rect::new(point2(0., -ti.depth), point2(ti.width, ti.height))
         };
         let xobj_id = pdf_doc_begin_grabbing(ident.as_ptr(), (*spe).x_user, (*spe).y_user, &mut cropbox);
         if xobj_id < 0i32 {

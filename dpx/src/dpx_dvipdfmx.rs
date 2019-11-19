@@ -27,12 +27,14 @@
     unused_mut
 )]
 
+use euclid::point2;
+
 use super::dpx_dvi::{
     dvi_close, dvi_comment, dvi_do_page, dvi_init, dvi_npages, dvi_reset_global_state,
     dvi_scan_specials, dvi_set_verbose, ReadLength,
 };
 use super::dpx_pdfdev::{
-    Rect, Coord,
+    Rect, Point,
     pdf_close_device, pdf_dev_reset_global_state, pdf_dev_set_verbose, pdf_init_device,
 };
 use super::dpx_pdfdoc::pdf_doc_set_mediabox;
@@ -205,15 +207,13 @@ unsafe fn system_default() {
 }
 
 unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
-    let mut mediabox = Rect::zero();
     spc_exec_at_begin_document();
     let mut page_width = paper_width;
     let init_paper_width = page_width;
     let mut page_height = paper_height;
     let init_paper_height = page_height;
     let mut page_count = 0;
-    mediabox.ll = Coord::zero();
-    mediabox.ur = Coord::new(paper_width, paper_height);
+    let mut mediabox = Rect::new(Point::zero(), point2(paper_width, paper_height));
     pdf_doc_set_mediabox(0_u32, &mediabox);
     let mut i = 0;
     while i < page_ranges.len() && dvi_npages() != 0 {
@@ -268,7 +268,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
                     y_offset = yo
                 }
                 if page_width != init_paper_width || page_height != init_paper_height {
-                    mediabox = Rect::new((0., 0.), (page_width, page_height));
+                    mediabox = Rect::new(point2(0., 0.), point2(page_width, page_height));
                     pdf_doc_set_mediabox(page_count + 1, &mediabox);
                 }
                 dvi_do_page(page_height, x_offset, y_offset);

@@ -27,6 +27,8 @@
     unused_mut
 )]
 
+use euclid::point2;
+
 use crate::warn;
 
 use super::dpx_pdfcolor::{PdfColor, BLACK};
@@ -41,13 +43,13 @@ static mut gs_stack: Vec<pdf_gstate> = Vec::new();
 
 use crate::shims::sprintf;
 
-use super::dpx_pdfdev::{Coord, Rect, TMatrix, Equal};
+use super::dpx_pdfdev::{Point, Rect, TMatrix, Equal};
 
 /* Graphics State */
 #[derive(Clone)]
 #[repr(C)]
 pub struct pdf_gstate {
-    pub cp: Coord,
+    pub cp: Point,
     pub matrix: TMatrix,
     pub strokecolor: PdfColor,
     pub fillcolor: PdfColor,
@@ -59,7 +61,7 @@ pub struct pdf_gstate {
     pub flatness: i32,
     pub path: pdf_path,
     pub flags: i32,
-    pub pt_fixee: Coord,
+    pub pt_fixee: Point,
 }
 #[derive(Clone)]
 pub struct pdf_path {
@@ -94,7 +96,7 @@ impl pdf_path {
         0
     }
     /* start new subpath */
-    pub fn moveto(&mut self, cp: &mut Coord, p0: Coord) -> i32 {
+    pub fn moveto(&mut self, cp: &mut Point, p0: Point) -> i32 {
         if !self.path.is_empty() {
             let len = self.len();
             let pe = &mut self.path[len - 1];
@@ -107,7 +109,7 @@ impl pdf_path {
         *cp = p0;
         let pe = pa_elem {
             typ: PeType::MOVETO,
-            p: [*cp, Coord::zero(), Coord::zero()],
+            p: [*cp, Point::zero(), Point::zero()],
         };
         self.path.push(pe);
         0
@@ -121,7 +123,7 @@ impl pdf_path {
      * 'moveto' must be used to enforce starting new path.
      * This affects how 'closepath' is treated.
      */
-    fn next_pe(&mut self, cp: &Coord) -> &mut pa_elem {
+    fn next_pe(&mut self, cp: &Point) -> &mut pa_elem {
         if self.path.is_empty() {
             let mut pe = pa_elem::default();
             pe.p[0] = *cp;
@@ -169,7 +171,7 @@ impl pdf_path {
         return &mut self.path[len - 1];
     }
     /* Path Construction */
-    pub fn lineto(&mut self, cp: &mut Coord, p0: Coord) -> i32 {
+    pub fn lineto(&mut self, cp: &mut Point, p0: Point) -> i32 {
         let pe = self.next_pe(cp);
         pe.typ = PeType::LINETO;
         *cp = p0;
@@ -178,10 +180,10 @@ impl pdf_path {
     }
     pub fn curveto(
         &mut self,
-        cp: &mut Coord,
-        p0: Coord,
-        p1: Coord,
-        p2: Coord,
+        cp: &mut Point,
+        p0: Point,
+        p1: Point,
+        p2: Point,
     ) -> i32 {
         let pe = self.next_pe(cp);
         if cp.equal(&p0) {
@@ -206,8 +208,8 @@ impl pdf_path {
     /* This isn't specified as cp to somewhere. */
     fn elliptarc(
         &mut self,
-        cp: &mut Coord,
-        ca: Coord,
+        cp: &mut Point,
+        ca: Point,
         mut r_x: f64,
         mut r_y: f64,
         mut xar: f64,
@@ -248,7 +250,7 @@ impl pdf_path {
         let b_x = r_x * b;
         let b_y = r_y * b;
         let (s, c) = a_0.sin_cos();
-        let p0 = T.transform_point(Coord::new(r_x * c, r_y * s)) + ca.to_vector();
+        let p0 = T.transform_point(point2(r_x * c, r_y * s)) + ca.to_vector();
         if self.path.is_empty() {
             self.moveto(cp, p0);
         } else if !cp.equal(&p0) {
@@ -259,9 +261,9 @@ impl pdf_path {
         while error == 0 && i < n_c {
             let q = a_0 + i as f64 * d_a;
             let (s, c) = q.sin_cos();
-            let e0 = Coord::new(c, s);
+            let e0 = Point::new(c, s);
             let (s, c) = (q + d_a).sin_cos();
-            let e1 = Coord::new(c, s);
+            let e1 = Point::new(c, s);
             /* Condition for tangent vector requirs
              *  d1 = p1 - p0 = f ( sin a, -cos a)
              *  d2 = p2 - p3 = g ( sin b, -cos b)
@@ -269,10 +271,10 @@ impl pdf_path {
              *  g^2 = f^2
              */
             /* s.p. *//* e.p. */
-            let mut p0 = T.transform_point(Coord::new(r_x * e0.x, r_y * e0.y)) + ca.to_vector();
-            let p3 = T.transform_point(Coord::new(r_x * e1.x, r_y * e1.y)) + ca.to_vector();
-            let mut p1 = T.transform_point(Coord::new(-b_x * e0.y, b_y * e0.x));
-            let mut p2 = T.transform_point(Coord::new(b_x * e1.y, -b_y * e1.x));
+            let mut p0 = T.transform_point(point2(r_x * e0.x, r_y * e0.y)) + ca.to_vector();
+            let p3 = T.transform_point(point2(r_x * e1.x, r_y * e1.y)) + ca.to_vector();
+            let mut p1 = T.transform_point(point2(-b_x * e0.y, b_y * e0.x));
+            let mut p2 = T.transform_point(point2(b_x * e1.y, -b_y * e1.x));
             p1 += p0.to_vector();
             p2 += p3.to_vector();
             error = self.curveto(&mut p0, p1, p2, p3);
@@ -287,7 +289,7 @@ impl pdf_path {
 #[repr(C)]
 pub struct pa_elem {
     pub typ: PeType,
-    pub p: [Coord; 3],
+    pub p: [Point; 3],
 }
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
@@ -297,9 +299,9 @@ pub struct LineDash {
     pub offset: f64,
 }
 
-fn idtransform(M: &TMatrix, vec: Coord) -> Option<Coord> {
+fn idtransform(M: &TMatrix, vec: Point) -> Option<Point> {
     let W = M.inverse()?;
-    Some(Coord::new(
+    Some(point2(
         vec.x * W.m11 + vec.y * W.m21,
         vec.x * W.m12 + vec.y * W.m22
     ))
@@ -352,7 +354,7 @@ impl PeType {
 static mut fmt_buf: [u8; 1024] = [0; 1024];
 
 
-unsafe fn pdf_path__closepath(pa: &mut pdf_path, cp: &mut Coord) -> i32
+unsafe fn pdf_path__closepath(pa: &mut pdf_path, cp: &mut Point) -> i32
 /* no arg */ {
     /* search for start point of the last subpath */
     let pe = pa.path.iter().rev().find(|pe| pe.typ == PeType::MOVETO);
@@ -480,9 +482,9 @@ unsafe fn pdf_dev__rectshape(r: &Rect, M: Option<&TMatrix>, opchr: u8) -> i32 {
     }
     buf[len] = b'n';
     len += 1;
-    let p = r.ll;
-    let wd = r.width();
-    let ht = r.height();
+    let p = r.min;
+    let wd = r.size().width;
+    let ht = r.size().height;
     buf[len] = b' ';
     len += 1;
     len += pdf_sprint_coord(&mut buf[len..], &p);
@@ -536,8 +538,8 @@ unsafe fn pdf_dev__flushpath(
     if isrect != 0 {
         let pe = &pa.path[0];
         let pe1 = &pa.path[2];
-        r.ll = pe.p[0];
-        r.ur = pe1.p[0] - pe.p[0].to_vector();
+        r.min = pe.p[0];
+        r.max = pe1.p[0] - pe.p[0].to_vector();
         b[len] = b' ';
         len += 1;
         len += pdf_sprint_rect(&mut b[len..], &r);
@@ -604,7 +606,7 @@ unsafe fn pdf_dev__flushpath(
 impl pdf_gstate {
     pub fn init() -> Self {
         Self {
-            cp: Coord::zero(),
+            cp: Point::zero(),
             matrix: TMatrix::identity(),
             strokecolor: BLACK,
             fillcolor: BLACK,
@@ -617,7 +619,7 @@ impl pdf_gstate {
             /* Internal variables */
             flags: 0,
             path: pdf_path::new(),
-            pt_fixee: Coord::zero(),
+            pt_fixee: Point::zero(),
         }
     }
 }
@@ -727,7 +729,7 @@ pub unsafe fn pdf_dev_grestore_to(mut depth: usize) {
     pdf_dev_reset_fonts(0i32);
 }
 
-pub unsafe fn pdf_dev_currentpoint(p: &mut Coord) -> i32 {
+pub unsafe fn pdf_dev_currentpoint(p: &mut Point) -> i32 {
     let mut gss = unsafe { &gs_stack };
     let gs = gss.last().unwrap();
     *p = gs.cp.clone();
@@ -974,7 +976,7 @@ pub unsafe fn pdf_dev_moveto(mut x: f64, mut y: f64) -> i32 {
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     let cpt = &mut gs.cp;
-    cpa.moveto(cpt, Coord::new(x, y))
+    cpa.moveto(cpt, point2(x, y))
     /* cpt updated */
 }
 
@@ -983,7 +985,7 @@ pub unsafe fn pdf_dev_rmoveto(mut x: f64, mut y: f64) -> i32 {
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     let cpt = &mut gs.cp;
-    cpa.moveto(cpt, Coord::new(cpt.x + x, cpt.y + y))
+    cpa.moveto(cpt, point2(cpt.x + x, cpt.y + y))
     /* cpt updated */
 }
 
@@ -992,7 +994,7 @@ pub unsafe fn pdf_dev_lineto(mut x: f64, mut y: f64) -> i32 {
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     let cpt = &mut gs.cp;
-    cpa.lineto(cpt, Coord::new(x, y))
+    cpa.lineto(cpt, point2(x, y))
 }
 
 pub unsafe fn pdf_dev_rlineto(mut x: f64, mut y: f64) -> i32 {
@@ -1000,7 +1002,7 @@ pub unsafe fn pdf_dev_rlineto(mut x: f64, mut y: f64) -> i32 {
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     let cpt = &mut gs.cp;
-    cpa.lineto(cpt, Coord::new(x + cpt.x, y + cpt.y))
+    cpa.lineto(cpt, point2(x + cpt.x, y + cpt.y))
 }
 
 pub unsafe fn pdf_dev_curveto(
@@ -1015,9 +1017,9 @@ pub unsafe fn pdf_dev_curveto(
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     let cpt = &mut gs.cp;
-    let p0 = Coord::new(x0, y0);
-    let p1 = Coord::new(x1, y1);
-    let p2 = Coord::new(x2, y2);
+    let p0 = point2(x0, y0);
+    let p1 = point2(x1, y1);
+    let p2 = point2(x2, y2);
     cpa.curveto(cpt, p0, p1, p2)
 }
 
@@ -1032,8 +1034,8 @@ pub unsafe fn pdf_dev_vcurveto(
     let cpa = &mut gs.path;
     let cpt = &mut gs.cp;
     let cpt_copy = *cpt;
-    let p0 = Coord::new(x0, y0);
-    let p1 = Coord::new(x1, y1);
+    let p0 = point2(x0, y0);
+    let p1 = point2(x1, y1);
     cpa.curveto(cpt, cpt_copy, p0, p1)
 }
 
@@ -1047,8 +1049,8 @@ pub unsafe fn pdf_dev_ycurveto(
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     let cpt = &mut gs.cp;
-    let p0 = Coord::new(x0, y0);
-    let p1 = Coord::new(x1, y1);
+    let p0 = point2(x0, y0);
+    let p1 = point2(x1, y1);
     cpa.curveto(cpt, p0, p1, p1)
 }
 
@@ -1064,9 +1066,9 @@ pub unsafe fn pdf_dev_rcurveto(
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     let cpt = &mut gs.cp;
-    let p0 = Coord::new(x0 + cpt.x, y0 + cpt.y);
-    let p1 = Coord::new(x1 + cpt.x, y1 + cpt.y);
-    let p2 = Coord::new(x2 + cpt.x, y2 + cpt.y);
+    let p0 = point2(x0 + cpt.x, y0 + cpt.y);
+    let p1 = point2(x1 + cpt.x, y1 + cpt.y);
+    let p2 = point2(x2 + cpt.x, y2 + cpt.y);
     cpa.curveto(cpt, p0, p1, p2)
 }
 
@@ -1078,7 +1080,7 @@ pub unsafe fn pdf_dev_closepath() -> i32 {
     pdf_path__closepath(cpa, cpt)
 }
 
-pub unsafe fn pdf_dev_dtransform(p: &mut Coord, mut M: Option<&TMatrix>) {
+pub unsafe fn pdf_dev_dtransform(p: &mut Point, mut M: Option<&TMatrix>) {
     if let Some(m) = M {
         *p = m.transform_vector(p.to_vector()).to_point();
     } else {
@@ -1088,7 +1090,7 @@ pub unsafe fn pdf_dev_dtransform(p: &mut Coord, mut M: Option<&TMatrix>) {
     }
 }
 
-pub unsafe fn pdf_dev_idtransform(p: &mut Coord, M: Option<&TMatrix>) {
+pub unsafe fn pdf_dev_idtransform(p: &mut Point, M: Option<&TMatrix>) {
     if let Some(m) = M {
         *p = idtransform(m, *p).unwrap();
     } else {
@@ -1098,7 +1100,7 @@ pub unsafe fn pdf_dev_idtransform(p: &mut Coord, M: Option<&TMatrix>) {
     }
 }
 
-pub unsafe fn pdf_dev_transform(p: &mut Coord, M: Option<&TMatrix>) {
+pub unsafe fn pdf_dev_transform(p: &mut Point, M: Option<&TMatrix>) {
     if let Some(m) = M {
         *p = m.transform_point(*p);
     } else {
@@ -1113,7 +1115,7 @@ pub unsafe fn pdf_dev_arc(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1: f64) -> i32
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     let cpt = &mut gs.cp;
-    cpa.elliptarc(cpt, Coord::new(c_x, c_y), r, r, 0.0f64, a_0, a_1, 1i32)
+    cpa.elliptarc(cpt, point2(c_x, c_y), r, r, 0.0f64, a_0, a_1, 1i32)
 }
 /* *negative* arc */
 
@@ -1122,7 +1124,7 @@ pub unsafe fn pdf_dev_arcn(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1: f64) -> i3
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     let cpt = &mut gs.cp;
-    cpa.elliptarc(cpt, Coord::new(c_x, c_y), r, r, 0.0f64, a_0, a_1, -1i32)
+    cpa.elliptarc(cpt, point2(c_x, c_y), r, r, 0.0f64, a_0, a_1, -1i32)
 }
 
 pub unsafe fn pdf_dev_arcx(
@@ -1139,7 +1141,7 @@ pub unsafe fn pdf_dev_arcx(
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     let cpt = &mut gs.cp;
-    cpa.elliptarc(cpt, Coord::new(c_x, c_y), r_x, r_y, xar, a_0, a_1, a_d)
+    cpa.elliptarc(cpt, point2(c_x, c_y), r_x, r_y, xar, a_0, a_1, a_d)
 }
 /* Required by Tpic */
 
@@ -1155,30 +1157,24 @@ pub unsafe fn pdf_dev_bspline(
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     let cpt = &mut gs.cp;
-    let p1 = Coord::new(x0 + 2. * (x1 - x0) / 3., y0 + 2. * (y1 - y0) / 3.);
-    let p2 = Coord::new(x1 + (x2 - x1) / 3., y1 + (y2 - y1) / 3.);
-    let p3 = Coord::new(x2, y2);
+    let p1 = point2(x0 + 2. * (x1 - x0) / 3., y0 + 2. * (y1 - y0) / 3.);
+    let p2 = point2(x1 + (x2 - x1) / 3., y1 + (y2 - y1) / 3.);
+    let p3 = point2(x2, y2);
     cpa.curveto(cpt, p1, p2, p3)
 }
 
-impl Rect {
-    pub fn fill(&self) {
-        unsafe { pdf_dev__rectshape(self, None, b'f'); }
-    }
-    pub fn clip(&self) {
-        unsafe { pdf_dev__rectshape(self, None, b'W'); }
-    }
-    /*pub fn add(&self) {
-        path_added = 1;
-        pdf_dev__rectshape(&self, None, b' ');
-    }*/
+pub fn pdf_dev_rectfill (r: &Rect) {
+    unsafe { pdf_dev__rectshape(r, None, b'f'); }
+}
+pub fn pdf_dev_rectclip (r: &Rect) {
+    unsafe { pdf_dev__rectshape(r, None, b'W'); }
 }
 
 
 pub fn pdf_dev_set_fixed_point(mut x: f64, mut y: f64) {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
-    gs.pt_fixee = Coord::new(x, y);
+    gs.pt_fixee = point2(x, y);
 }
 /* m -> n x m */
 /* Path Construction */
@@ -1193,7 +1189,7 @@ pub fn pdf_dev_set_fixed_point(mut x: f64, mut y: f64) {
  * We must remember current depth of nesting when starting a page or xform,
  * and must recover until that depth at the end of page/xform.
  */
-pub fn pdf_dev_get_fixed_point() -> Coord {
+pub fn pdf_dev_get_fixed_point() -> Point {
     let mut gss = unsafe { &gs_stack };
     let gs = gss.last().unwrap();
     gs.pt_fixee.clone()

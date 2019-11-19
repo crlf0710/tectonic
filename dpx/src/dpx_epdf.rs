@@ -194,10 +194,10 @@ pub unsafe fn pdf_include_page(
     pdf_add_dict(contents_dict, "Subtype", pdf_new_name("Form"));
     pdf_add_dict(contents_dict, "FormType", pdf_new_number(1.0f64));
     let bbox = pdf_new_array();
-    pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.ll.x));
-    pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.ll.y));
-    pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.ur.x));
-    pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.ur.y));
+    pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.min.x));
+    pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.min.y));
+    pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.max.x));
+    pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.max.y));
     pdf_add_dict(contents_dict, "BBox", bbox);
     let matrix = pdf_new_array();
     pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m11));

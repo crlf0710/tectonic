@@ -45,7 +45,7 @@ use crate::dpx_pdfdoc::{
     pdf_doc_add_names, pdf_doc_add_page_content, pdf_doc_add_page_resource,
     pdf_doc_current_page_resources, pdf_doc_get_reference,
 };
-use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave};
+use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
     pdf_add_array, pdf_add_dict, pdf_link_obj, pdf_new_array, pdf_new_boolean,
     pdf_new_dict, pdf_new_name, pdf_new_null, pdf_new_number, pdf_new_string, pdf_obj,
@@ -75,7 +75,7 @@ pub struct C2RustUnnamed_0 {
 
 use crate::dpx_pdfximage::load_options;
 
-use crate::dpx_pdfdev::Coord;
+use crate::dpx_pdfdev::Point;
 
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -336,7 +336,7 @@ unsafe fn html_open_dest(
     mut name: *const i8,
     mut sd: *mut spc_html_,
 ) -> i32 {
-    let mut cp = Coord::new((*spe).x_user, (*spe).y_user);
+    let mut cp = Point::new((*spe).x_user, (*spe).y_user);
     pdf_dev_transform(&mut cp, None);
     let page_ref = pdf_doc_get_reference("@THISPAGE");
     assert!(!page_ref.is_null());
@@ -610,7 +610,7 @@ unsafe fn spc_html__img_empty(mut spe: *mut spc_env, attr: &pdf_obj) -> i32 {
         let M1 = pdf_ximage_scale_image(id, &mut r, &mut ti); /* op: */
         M = M1.post_transform(&M);
         pdf_dev_concat(&mut M);
-        r.clip();
+        pdf_dev_rectclip(&r);
         let res_name = pdf_ximage_get_resname(id);
         pdf_doc_add_page_content(b" /");
         pdf_doc_add_page_content(CStr::from_ptr(res_name).to_bytes());
