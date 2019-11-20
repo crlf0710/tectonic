@@ -107,6 +107,13 @@ pub type TMatrix = euclid::Transform2D<f64, (), ()>;
 
 pub type Rect = euclid::Box2D<f64, ()>;
 
+impl DisplayExt for Rect {
+    type Adapter = String;
+    fn display(self) -> Self::Adapter {
+        format!("[{}, {}, {}, {}]", self.min.x, self.min.y, self.max.x, self.max.y)
+    }
+}
+
 pub trait Corner {
     fn lower_left(&self) -> Point;
     fn upper_right(&self) -> Point;

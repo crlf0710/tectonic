@@ -31,7 +31,7 @@ use crate::SkipBlank;
 use super::{spc_arg, spc_env};
 use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use crate::dpx_pdfcolor::PdfColor;
-use crate::dpx_pdfdev::{Point, Rect, TMatrix, transform_info};
+use crate::dpx_pdfdev::{Rect, TMatrix, transform_info};
 use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
 use crate::DisplayExt;
