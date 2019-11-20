@@ -28,6 +28,8 @@
     unused_mut
 )]
 
+use euclid::point2;
+
 use crate::DisplayExt;
 use std::ffi::{CStr, CString};
 use std::ptr;
@@ -40,7 +42,7 @@ use super::dpx_fontmap::pdf_lookup_fontmap_record;
 use super::dpx_mem::new;
 use super::dpx_pdfcolor::PdfColor;
 use super::dpx_pdfdev::{
-    dev_unit_dviunit, graphics_mode, Coord, pdf_dev_get_dirmode, pdf_dev_get_font_wmode,
+    dev_unit_dviunit, graphics_mode, Point, pdf_dev_get_dirmode, pdf_dev_get_font_wmode,
     pdf_dev_get_param, pdf_dev_locate_font, pdf_dev_put_image, pdf_dev_set_dirmode,
     pdf_dev_set_param, pdf_dev_set_string, Rect, TMatrix, transform_info,
     transform_info_clear,
@@ -289,18 +291,16 @@ pub unsafe fn mps_scan_bbox(
             } else {
                 /* The new xetex.def and dvipdfmx.def require bbox->llx = bbox->lly = 0.  */
                 if translate_origin != 0 {
-                    bbox.ll = Coord::zero();
-                    bbox.ur.x = values[2] - values[0];
-                    bbox.ur.y = values[3] - values[1];
+                    *bbox = Rect::new(Point::zero(), point2(values[2] - values[0], values[3] - values[1]));
                     Xorigin = values[0];
-                    Yorigin = values[1]
+                    Yorigin = values[1];
                 } else {
-                    bbox.ll.x = values[0];
-                    bbox.ll.y = values[1];
-                    bbox.ur.x = values[2];
-                    bbox.ur.y = values[3];
-                    Xorigin = 0.0f64;
-                    Yorigin = 0.0f64
+                    *bbox = Rect::new(
+                        point2(values[0], values[1]),
+                        point2(values[2], values[3]),
+                    );
+                    Xorigin = 0.;
+                    Yorigin = 0.
                 }
                 return 0i32;
             }
@@ -615,7 +615,7 @@ unsafe fn do_currentfont() -> i32 {
     error
 }
 unsafe fn do_show() -> i32 {
-    let mut cp = Coord::zero();
+    let mut cp = Point::zero();
     let font = if currentfont < 0i32 {
         ptr::null_mut()
     } else {
@@ -718,10 +718,10 @@ unsafe fn do_texfig_operator(mut opcode: Opcode, mut x_user: f64, mut y_user: f6
                 let dvi2pts = 1.0f64 / dev_unit_dviunit();
                 fig_p.width = values[0] * dvi2pts;
                 fig_p.height = values[1] * dvi2pts;
-                fig_p.bbox.ll.x = values[2] * dvi2pts;
-                fig_p.bbox.ll.y = -values[3] * dvi2pts;
-                fig_p.bbox.ur.x = values[4] * dvi2pts;
-                fig_p.bbox.ur.y = -values[5] * dvi2pts;
+                fig_p.bbox.min.x = values[2] * dvi2pts;
+                fig_p.bbox.min.y = -values[3] * dvi2pts;
+                fig_p.bbox.max.x = values[4] * dvi2pts;
+                fig_p.bbox.max.y = -values[5] * dvi2pts;
                 fig_p.flags |= 1i32 << 0i32;
                 sprintf(
                     resname.as_mut_ptr(),
@@ -730,8 +730,8 @@ unsafe fn do_texfig_operator(mut opcode: Opcode, mut x_user: f64, mut y_user: f6
                 );
                 xobj_id = pdf_doc_begin_grabbing(
                     resname.as_mut_ptr(),
-                    fig_p.bbox.ll.x,
-                    fig_p.bbox.ur.y,
+                    fig_p.bbox.min.x,
+                    fig_p.bbox.max.y,
                     &mut fig_p.bbox,
                 );
                 in_tfig = 1i32;
@@ -767,7 +767,7 @@ unsafe fn ps_dev_CTM() -> TMatrix {
 unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
     let mut error: i32 = 0i32;
     let mut tmp = None;
-    let mut cp = Coord::zero();
+    let mut cp = Point::zero();
     let opcode = get_opcode(token);
     if opcode.is_err() {
         if is_fontname(token) {

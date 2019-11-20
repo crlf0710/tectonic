@@ -54,7 +54,7 @@ use super::{spc_arg, spc_env};
 use super::SpcHandler;
 use crate::dpx_fontmap::fontmap_rec;
 
-use crate::dpx_pdfdev::Coord;
+use crate::dpx_pdfdev::Point;
 
 use crate::dpx_pdfdev::TMatrix;
 
@@ -108,7 +108,7 @@ unsafe fn spc_handler_xtx_scale(mut spe: *mut spc_env, mut args: *mut spc_arg) -
     );
 }
 /* Scaling without gsave/grestore. */
-static mut SCALE_FACTORS: Vec<Coord> = Vec::new();
+static mut SCALE_FACTORS: Vec<Point> = Vec::new();
 
 unsafe fn spc_handler_xtx_bscale(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut values: [f64; 2] = [0.; 2];
@@ -119,7 +119,7 @@ unsafe fn spc_handler_xtx_bscale(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     if values[0].abs() < 1.0e-7f64 || values[1].abs() < 1.0e-7f64 {
         return -1i32;
     }
-    SCALE_FACTORS.push(Coord::new(
+    SCALE_FACTORS.push(Point::new(
         1i32 as f64 / values[0],
         1i32 as f64 / values[1],
     ));

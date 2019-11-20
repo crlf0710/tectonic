@@ -31,7 +31,7 @@ use dpx::dpx_pdfdraw::pdf_dev_transform;
 use dpx::dpx_pdfobj::{pdf_close, pdf_file, pdf_obj, pdf_open, pdf_release_obj};
 use dpx::dpx_pngimage::{check_for_png, png_get_bbox};
 use libc::{free, memcpy, strlen};
-
+use dpx::dpx_pdfdev::Corner;
 use bridge::InputHandleWrapper;
 pub type scaled_t = i32;
 pub type Fixed = scaled_t;
@@ -61,7 +61,7 @@ pub struct real_rect {
     pub wd: f32,
     pub ht: f32,
 }
-use dpx::dpx_pdfdev::{Coord, Rect};
+use dpx::dpx_pdfdev::Rect;
 
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
@@ -158,22 +158,22 @@ unsafe extern "C" fn pdf_get_rect(
     /* Image's attribute "bbox" here is affected by /Rotate entry of included
      * PDF page.
      */
-    let mut p1 = bbox.ll;
+    let mut p1 = bbox.lower_left();
     pdf_dev_transform(&mut p1, Some(&matrix));
-    let mut p2 = Coord::new(bbox.ur.x, bbox.ll.y);
+    let mut p2 = bbox.lower_right();
     pdf_dev_transform(&mut p2, Some(&matrix));
-    let mut p3 = bbox.ur;
+    let mut p3 = bbox.upper_right();
     pdf_dev_transform(&mut p3, Some(&matrix));
-    let mut p4 = Coord::new(bbox.ll.x, bbox.ur.y);
+    let mut p4 = bbox.upper_left();
     pdf_dev_transform(&mut p4, Some(&matrix));
-    bbox.ll.x = p1.x.min(p2.x).min(p3.x).min(p4.x);
-    bbox.ll.y = p1.y.min(p2.y).min(p3.y).min(p4.y);
-    bbox.ur.x = p1.x.max(p2.x).max(p3.x).max(p4.x);
-    bbox.ur.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
-    (*box_0).x = (72.27 / 72. * bbox.ll.x) as f32;
-    (*box_0).y = (72.27 / 72. * bbox.ll.y) as f32;
-    (*box_0).wd = (72.27 / 72. * (bbox.ur.x - bbox.ll.x)) as f32;
-    (*box_0).ht = (72.27 / 72. * (bbox.ur.y - bbox.ll.y)) as f32;
+    bbox.min.x = p1.x.min(p2.x).min(p3.x).min(p4.x);
+    bbox.min.y = p1.y.min(p2.y).min(p3.y).min(p4.y);
+    bbox.max.x = p1.x.max(p2.x).max(p3.x).max(p4.x);
+    bbox.max.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
+    (*box_0).x = (72.27 / 72. * bbox.min.x) as f32;
+    (*box_0).y = (72.27 / 72. * bbox.min.y) as f32;
+    (*box_0).wd = (72.27 / 72. * bbox.size().width) as f32;
+    (*box_0).ht = (72.27 / 72. * bbox.size().height) as f32;
     0
 }
 unsafe extern "C" fn get_image_size_in_inches(

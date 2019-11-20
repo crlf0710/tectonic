@@ -31,6 +31,8 @@ pub mod tpic;
 pub mod util;
 pub mod xtx;
 
+use euclid::point2;
+
 use crate::warn;
 use crate::DisplayExt;
 use std::ffi::{CStr, CString};
@@ -95,7 +97,7 @@ pub struct SpcHandler {
 
 use super::dpx_dpxutil::ht_table;
 
-use super::dpx_pdfdev::Coord;
+use super::dpx_pdfdev::Point;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -179,12 +181,12 @@ pub unsafe fn spc_lookup_reference(mut key: &CString) -> Option<*mut pdf_obj> {
     let value = match key.to_bytes() {
         b"xpos" => {
             /* xpos and ypos must be position in device space here. */
-            let mut cp = Coord::new(dvi_dev_xpos(), 0.);
+            let mut cp = point2(dvi_dev_xpos(), 0.);
             pdf_dev_transform(&mut cp, None);
             pdf_new_number((cp.x / 0.01 + 0.5).floor() * 0.01)
         }
         b"ypos" => {
-            let mut cp = Coord::new(0., dvi_dev_ypos());
+            let mut cp = point2(0., dvi_dev_ypos());
             pdf_dev_transform(&mut cp, None);
             pdf_new_number((cp.y / 0.01 + 0.5).floor() * 0.01)
         }
@@ -233,12 +235,12 @@ pub unsafe fn spc_lookup_object(mut key: *const i8) -> *mut pdf_obj {
     let value;
     match k {
         0 => {
-            let mut cp = Coord::new(dvi_dev_xpos(), 0.);
+            let mut cp = point2(dvi_dev_xpos(), 0.);
             pdf_dev_transform(&mut cp, None);
             value = pdf_new_number((cp.x / 0.01f64 + 0.5f64).floor() * 0.01f64)
         }
         1 => {
-            let mut cp = Coord::new(0., dvi_dev_ypos());
+            let mut cp = point2(0., dvi_dev_ypos());
             pdf_dev_transform(&mut cp, None);
             value = pdf_new_number((cp.y / 0.01f64 + 0.5f64).floor() * 0.01f64)
         }
@@ -439,7 +441,7 @@ pub unsafe fn spc_exec_at_end_document() -> i32 {
 unsafe fn print_error(mut name: *const i8, mut spe: *mut spc_env, mut ap: *mut spc_arg) {
     let mut ebuf: [u8; 64] = [0; 64];
     let mut pg: i32 = (*spe).pg;
-    let mut c = Coord::new((*spe).x_user, (*spe).y_user);
+    let mut c = point2((*spe).x_user, (*spe).y_user);
     pdf_dev_transform(&mut c, None);
     if (*ap).command.is_some() && !name.is_null() {
         warn!(

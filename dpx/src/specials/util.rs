@@ -25,11 +25,13 @@
     unused_mut
 )]
 
+use euclid::point2;
+
 use crate::SkipBlank;
 use super::{spc_arg, spc_env};
 use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use crate::dpx_pdfcolor::PdfColor;
-use crate::dpx_pdfdev::{Rect, TMatrix, transform_info};
+use crate::dpx_pdfdev::{Point, Rect, TMatrix, transform_info};
 use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
 use crate::DisplayExt;
@@ -491,19 +493,19 @@ unsafe fn spc_read_dimtrns_dvips(
                             5 => yscale = atof(vp) / 100.0f64,
                             6 => rotate = std::f64::consts::PI * atof(vp) / 180.0f64,
                             8 => {
-                                t.bbox.ll.x = atof(vp);
+                                t.bbox.min.x = atof(vp);
                                 t.flags |= 1i32 << 0i32
                             }
                             9 => {
-                                t.bbox.ll.y = atof(vp);
+                                t.bbox.min.y = atof(vp);
                                 t.flags |= 1i32 << 0i32
                             }
                             10 => {
-                                t.bbox.ur.x = atof(vp);
+                                t.bbox.max.x = atof(vp);
                                 t.flags |= 1i32 << 0i32
                             }
                             11 => {
-                                t.bbox.ur.y = atof(vp);
+                                t.bbox.max.y = atof(vp);
                                 t.flags |= 1i32 << 0i32
                             }
                             12 => {
@@ -616,7 +618,7 @@ unsafe fn spc_read_dimtrns_pdfm(
                     if spc_util_read_numbers(v.as_mut_ptr(), 4i32, ap) != 4i32 {
                         error = -1i32
                     } else {
-                        p.bbox = Rect::new((v[0], v[1]), (v[2], v[3]));
+                        p.bbox = Rect::new(point2(v[0], v[1]), point2(v[2], v[3]));
                         p.flags |= 1i32 << 0i32
                     }
                 }
@@ -792,7 +794,7 @@ pub unsafe fn spc_util_read_blahblah(
                     if spc_util_read_numbers(v.as_mut_ptr(), 4i32, ap) != 4i32 {
                         error = -1i32
                     } else {
-                        p.bbox = Rect::new((v[0], v[1]), (v[2], v[3]));
+                        p.bbox = Rect::new(point2(v[0], v[1]), point2(v[2], v[3]));
                         p.flags |= 1i32 << 0i32
                     }
                 }

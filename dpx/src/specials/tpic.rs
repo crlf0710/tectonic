@@ -67,10 +67,10 @@ pub struct spc_tpic_ {
     pub pen_size: f64,
     pub fill_shape: bool,
     pub fill_color: f64,
-    pub points: Vec<Coord>,
+    pub points: Vec<Point>,
 }
 
-use crate::dpx_pdfdev::Coord;
+use crate::dpx_pdfdev::Point;
 
 use crate::dpx_pdfdev::TMatrix;
 
@@ -162,7 +162,7 @@ unsafe fn set_fillstyle(mut g: f64, mut a: f64, mut f_ais: i32) -> i32 {
 }
 unsafe fn set_styles(
     mut tp: *mut spc_tpic_,
-    mut c: *const Coord,
+    mut c: *const Point,
     mut f_fs: bool,
     mut f_vp: bool,
     mut pn: f64,
@@ -207,7 +207,7 @@ unsafe fn showpath(mut f_vp: bool, mut f_fs: bool)
 }
 unsafe fn tpic__polyline(
     mut tp: *mut spc_tpic_,
-    mut c: *const Coord,
+    mut c: *const Point,
     mut f_vp: bool,
     mut da: f64,
 ) -> i32 {
@@ -266,7 +266,7 @@ unsafe fn tpic__polyline(
  */
 unsafe fn tpic__spline(
     mut tp: *mut spc_tpic_,
-    mut c: *const Coord,
+    mut c: *const Point,
     mut f_vp: bool,
     mut da: f64,
 ) -> i32 {
@@ -323,7 +323,7 @@ unsafe fn tpic__spline(
 }
 unsafe fn tpic__arc(
     mut tp: *mut spc_tpic_,
-    mut c: *const Coord,
+    mut c: *const Point,
     mut f_vp: bool,
     mut da: f64,
     mut v: *mut f64,
@@ -366,9 +366,9 @@ unsafe fn tpic__arc(
     tpic__clear(tp);
     0i32
 }
-unsafe fn spc_currentpoint(mut spe: *mut spc_env, mut pg: *mut i32) -> Coord {
+unsafe fn spc_currentpoint(mut spe: *mut spc_env, mut pg: *mut i32) -> Point {
     *pg = 0;
-    Coord::new((*spe).x_user, (*spe).y_user)
+    Point::new((*spe).x_user, (*spe).y_user)
 }
 unsafe fn spc_handler_tpic_pn(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i32
 /* , void *dp) */ {
@@ -404,7 +404,7 @@ unsafe fn spc_handler_tpic_pa(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i3
         spc_warn!(spe, "Invalid arg for TPIC \"pa\" command.");
         return -1i32;
     }
-    (*tp).points.push(Coord::new(
+    (*tp).points.push(Point::new(
         v[0] * (0.072f64 / pdf_dev_scale()),
         v[1] * (0.072f64 / pdf_dev_scale()),
     ));

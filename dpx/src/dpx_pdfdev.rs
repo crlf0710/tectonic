@@ -27,6 +27,8 @@
     unused_mut
 )]
 
+use euclid::point2;
+
 use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
@@ -43,7 +45,7 @@ use super::dpx_pdfdoc::pdf_doc_expand_box;
 use super::dpx_pdfdoc::{pdf_doc_add_page_content, pdf_doc_add_page_resource};
 use super::dpx_pdfdraw::{
     pdf_dev_clear_gstates, pdf_dev_current_depth, pdf_dev_grestore, pdf_dev_grestore_to,
-    pdf_dev_gsave, pdf_dev_init_gstates,
+    pdf_dev_gsave, pdf_dev_init_gstates, pdf_dev_rectclip,
 };
 use super::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_set_color, pdf_dev_transform};
 use super::dpx_pdffont::{
@@ -103,113 +105,43 @@ pub type spt_t = i32;
 
 pub type TMatrix = euclid::Transform2D<f64, (), ()>;
 
-/*#[derive(Copy, Clone, Default)]
-#[repr(C)]
-/// Transform coordinate matrix
-pub struct TMatrix {
-    pub a: f64,
-    pub b: f64,
-    pub c: f64,
-    pub d: f64,
-    pub e: f64,
-    pub f: f64,
+pub type Rect = euclid::Box2D<f64, ()>;
+
+pub trait Corner {
+    fn lower_left(&self) -> Point;
+    fn upper_right(&self) -> Point;
+    fn lower_right(&self) -> Point;
+    fn upper_left(&self) -> Point;
 }
-impl TMatrix {
-    /// Zero initialized transform matrix
-    pub const fn new() -> Self {
-        Self {
-            a: 0.,
-            b: 0.,
-            c: 0.,
-            d: 0.,
-            e: 0.,
-            f: 0.,
-        }
+impl Corner for Rect {
+    fn lower_left(&self) -> Point {
+        self.min
     }
-    /// Identity transform matrix
-    pub const fn identity() -> Self {
-        Self {
-            a: 1.,
-            b: 0.,
-            c: 0.,
-            d: 1.,
-            e: 0.,
-            f: 0.,
-        }
+    fn upper_right(&self) -> Point {
+        self.max
     }
-}*/
-#[derive(Copy, Clone, Default)]
-#[repr(C)]
-/// Represents rectangle and TeX bbox in document
-pub struct Rect {
-    /// Lower left coorditate of rectangle
-    pub ll: Coord,
-    /// Upper right coorditate of rectangle
-    pub ur: Coord,
-}
-impl Rect {
-    /// Zero initialized rectangle
-    pub const fn zero() -> Self {
-        Self {
-            ll: Coord::new(0., 0.),
-            ur: Coord::new(0., 0.),
-        }
+    fn lower_right(&self) -> Point {
+        point2(self.max.x, self.min.y)
     }
-    /// Create new rectangle from lower left and upper right coorditate
-    pub const fn new(ll: (f64, f64), ur: (f64, f64)) -> Self {
-        Self {
-            ll: Coord::new(ll.0, ll.1),
-            ur: Coord::new(ur.0, ur.1),
-        }
-    }
-    pub fn width(&self) -> f64 {
-        self.ur.x - self.ll.x
-    }
-    pub fn height(&self) -> f64 {
-        self.ur.y - self.ll.y
-    }
-    pub fn lower_left(&self) -> Coord {
-        self.ll
-    }
-    pub fn upper_right(&self) -> Coord {
-        self.ur
-    }
-    pub fn lower_right(&self) -> Coord {
-        Coord::new(self.ur.x, self.ll.y)
-    }
-    pub fn upper_left(&self) -> Coord {
-        Coord::new(self.ll.x, self.ur.y)
-    }
-}
-impl From<(Coord, Coord)> for Rect {
-    fn from(c: (Coord, Coord)) -> Self {
-        Self {
-            ll: c.0,
-            ur: c.1,
-        }
+    fn upper_left(&self) -> Point {
+        point2(self.min.x, self.max.y)
     }
 }
 
-impl std::fmt::Display for Rect {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{}, {}, {}, {}]", self.ll.x, self.ll.y, self.ur.x, self.ur.y)
-    }
-}
-
-/// Coordinate (point) in TeX document
-pub type Coord = euclid::Point2D<f64, ()>;
+/// Pointinate (point) in TeX document
+pub type Point = euclid::Point2D<f64, ()>;
 
 pub trait Equal {
     fn equal(&self, other: &Self) -> bool;
 }
 
-impl Equal for Coord {
+impl Equal for Point {
     fn equal(&self, other: &Self) -> bool {
         ((self.x - other.x).abs() < 1e-7) && ((self.y - other.y).abs() < 1e-7)
     }
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct transform_info {
     pub width: f64,
@@ -231,7 +163,10 @@ impl transform_info {
                 m31: 0., m32: 0.,
                 _unit: core::marker::PhantomData,
             },
-            bbox: Rect::zero(),
+            bbox: Rect::new(
+                point2(0., 0.,),
+                point2(0., 0.,),
+            ),
             flags: 0,
         }
     }
@@ -477,20 +412,20 @@ pub fn pdf_sprint_matrix(buf: &mut [u8], M: &TMatrix) -> usize {
 }
 pub fn pdf_sprint_rect(buf: &mut [u8], rect: &Rect) -> usize {
     let precision = unsafe { dev_unit.precision };
-    let mut len = p_dtoa(rect.ll.x, precision, buf);
+    let mut len = p_dtoa(rect.min.x, precision, buf);
     buf[len] = b' ';
     len += 1;
-    len += p_dtoa(rect.ll.y, precision, &mut buf[len..]);
+    len += p_dtoa(rect.min.y, precision, &mut buf[len..]);
     buf[len] = b' ';
     len += 1;
-    len += p_dtoa(rect.ur.x, precision, &mut buf[len..]);
+    len += p_dtoa(rect.max.x, precision, &mut buf[len..]);
     buf[len] = b' ';
     len += 1;
-    len += p_dtoa(rect.ur.y, precision, &mut buf[len..]);
+    len += p_dtoa(rect.max.y, precision, &mut buf[len..]);
     buf[len] = 0;
     len
 }
-pub fn pdf_sprint_coord(buf: &mut [u8], p: &Coord) -> usize {
+pub fn pdf_sprint_coord(buf: &mut [u8], p: &Point) -> usize {
     let precision = unsafe { dev_unit.precision };
     let mut len = p_dtoa(p.x, precision, buf);
     buf[len] = b' ';
@@ -1145,15 +1080,15 @@ unsafe fn handle_multibyte_string(
     *str_len = length;
     0i32
 }
-static mut dev_coords: *mut Coord = std::ptr::null_mut();
+static mut dev_coords: *mut Point = std::ptr::null_mut();
 static mut num_dev_coords: i32 = 0i32;
 static mut max_dev_coords: i32 = 0i32;
 
-pub unsafe fn pdf_dev_get_coord() -> Coord {
+pub unsafe fn pdf_dev_get_coord() -> Point {
     if num_dev_coords > 0i32 {
         (*dev_coords.offset((num_dev_coords - 1i32) as isize))
     } else {
-        Coord::zero()
+        Point::zero()
     }
 }
 
@@ -1162,9 +1097,9 @@ pub unsafe fn pdf_dev_push_coord(mut xpos: f64, mut ypos: f64) {
         max_dev_coords += 4i32;
         dev_coords = renew(
             dev_coords as *mut libc::c_void,
-            (max_dev_coords as u32 as u64).wrapping_mul(::std::mem::size_of::<Coord>() as u64)
+            (max_dev_coords as u32 as u64).wrapping_mul(::std::mem::size_of::<Point>() as u64)
                 as u32,
-        ) as *mut Coord
+        ) as *mut Point
     }
     (*dev_coords.offset(num_dev_coords as isize)).x = xpos;
     (*dev_coords.offset(num_dev_coords as isize)).y = ypos;
@@ -1710,10 +1645,10 @@ pub unsafe fn pdf_dev_set_rule(
     let width_in_bp = (if width < height { width } else { height }) as f64 * dev_unit.dvi2pts;
     if width_in_bp < 0.0f64 || width_in_bp > 5.0f64 {
         let mut rect = Rect::zero();
-        rect.ll.x = dev_unit.dvi2pts * xpos as f64;
-        rect.ll.y = dev_unit.dvi2pts * ypos as f64;
-        rect.ur.x = dev_unit.dvi2pts * width as f64;
-        rect.ur.y = dev_unit.dvi2pts * height as f64;
+        rect.min.x = dev_unit.dvi2pts * xpos as f64;
+        rect.min.y = dev_unit.dvi2pts * ypos as f64;
+        rect.max.x = dev_unit.dvi2pts * width as f64;
+        rect.max.y = dev_unit.dvi2pts * height as f64;
         len += pdf_sprint_rect(&mut format_buffer[len..], &rect);
         let fresh62 = len;
         len = len + 1;
@@ -1781,10 +1716,10 @@ pub unsafe fn pdf_dev_set_rect(
     mut height: spt_t,
     mut depth: spt_t,
 ) {
-    let mut p0 = Coord::zero();
-    let mut p1 = Coord::zero();
-    let mut p2 = Coord::zero();
-    let mut p3 = Coord::zero();
+    let mut p0 = Point::zero();
+    let mut p1 = Point::zero();
+    let mut p2 = Point::zero();
+    let mut p3 = Point::zero();
     let dev_x = x_user as f64 * dev_unit.dvi2pts; /* currentmatrix */
     let dev_y = y_user as f64 * dev_unit.dvi2pts; /* 0 for B&W */
     if text_state.dir_mode != 0 {
@@ -1814,10 +1749,7 @@ pub unsafe fn pdf_dev_set_rect(
     let max_x = p0.x.max(p1.x).max(p2.x).max(p3.x);
     let min_y = p0.y.min(p1.y).min(p2.y).min(p3.y);
     let max_y = p0.y.max(p1.y).max(p2.y).max(p3.y);
-    rect.ll.x = min_x;
-    rect.ll.y = min_y;
-    rect.ur.x = max_x;
-    rect.ur.y = max_y;
+    *rect = Rect::new(point2(min_x, min_y), point2(max_x, max_y));
 }
 
 pub unsafe fn pdf_dev_get_dirmode() -> i32 {
@@ -1923,7 +1855,7 @@ pub unsafe fn pdf_dev_put_image(
     pdf_dev_concat(&mut M);
     /* Clip */
     if p.flags & 1i32 << 3i32 != 0 {
-        r.clip(); /* op: Do */
+        pdf_dev_rectclip(&r); /* op: Do */
     }
     let res_name = pdf_ximage_get_resname(id);
     let len = sprintf(
@@ -1936,13 +1868,13 @@ pub unsafe fn pdf_dev_put_image(
     pdf_doc_add_page_resource("XObject", res_name, pdf_ximage_get_reference(id));
     if dvi_is_tracking_boxes() {
         let mut rect = Rect::zero();
-        let mut corner: [Coord; 4] = [Coord::zero(); 4];
+        let mut corner: [Point; 4] = [Point::zero(); 4];
         pdf_dev_set_rect(
             &mut rect,
             (65536. * ref_x) as spt_t,
             (65536. * ref_y) as spt_t,
-            (65536. * r.width()) as spt_t,
-            (65536. * r.height()) as spt_t,
+            (65536. * r.size().width) as spt_t,
+            (65536. * r.size().height) as spt_t,
             0i32,
         );
         corner[0] = rect.lower_left();
@@ -1951,24 +1883,24 @@ pub unsafe fn pdf_dev_put_image(
         corner[3] = rect.lower_right();
         let P = p.matrix;
         for c in corner.iter_mut() {
-            *c -= rect.ll.to_vector();
+            *c -= rect.min.to_vector();
             pdf_dev_transform(c, Some(&P));
-            *c += rect.ll.to_vector();
+            *c += rect.min.to_vector();
         }
-        rect.ll = corner[0];
-        rect.ur = corner[0];
+        rect.min = corner[0];
+        rect.max = corner[0];
         for c in corner.iter() {
-            if c.x < rect.ll.x {
-                rect.ll.x = c.x
+            if c.x < rect.min.x {
+                rect.min.x = c.x
             }
-            if c.x > rect.ur.x {
-                rect.ur.x = c.x
+            if c.x > rect.max.x {
+                rect.max.x = c.x
             }
-            if c.y < rect.ll.y {
-                rect.ll.y = c.y
+            if c.y < rect.min.y {
+                rect.min.y = c.y
             }
-            if c.y > rect.ur.y {
-                rect.ur.y = c.y
+            if c.y > rect.max.y {
+                rect.max.y = c.y
             }
         }
         pdf_doc_expand_box(&mut rect);
