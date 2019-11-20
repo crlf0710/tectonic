@@ -919,10 +919,8 @@ pub unsafe fn pdf_doc_get_page(
     mut pf: *mut pdf_file,
     mut page_no: i32,
     mut options: i32,
-    bbox: &mut Rect,
-    matrix: &mut TMatrix,
-    mut resources_p: *mut *mut pdf_obj,
-) -> *mut pdf_obj
+    resources_p: *mut *mut pdf_obj,
+) -> Option<(*mut pdf_obj, Rect, TMatrix)>
 /* returned values */ {
     let mut resources: *mut pdf_obj = ptr::null_mut();
     let mut box_0: *mut pdf_obj = ptr::null_mut();
@@ -1148,6 +1146,7 @@ pub unsafe fn pdf_doc_get_page(
         return error(box_0, rotate, resources, page_tree);
     }
 
+    let mut bbox = Rect::zero();
     let mut i_0 = 4;
     loop {
         let fresh11 = i_0;
@@ -1222,7 +1221,7 @@ pub unsafe fn pdf_doc_get_page(
 
     pdf_release_obj(box_0);
 
-    *matrix = TMatrix::identity();
+    let mut matrix = TMatrix::identity();
     if !rotate.is_null()
         && (*rotate).is_number()
     {
@@ -1242,7 +1241,7 @@ pub unsafe fn pdf_doc_get_page(
                 }
                 match rot {
                     90 => {
-                        *matrix = TMatrix::row_major(
+                        matrix = TMatrix::row_major(
                             0.,
                             -1.,
                             1.,
@@ -1252,7 +1251,7 @@ pub unsafe fn pdf_doc_get_page(
                         );
                     }
                     180 => {
-                        *matrix = TMatrix::row_major(
+                        matrix = TMatrix::row_major(
                             -1.,
                             0.,
                             0.,
@@ -1262,7 +1261,7 @@ pub unsafe fn pdf_doc_get_page(
                         );
                     }
                     270 => {
-                        *matrix = TMatrix::row_major(
+                        matrix = TMatrix::row_major(
                             0.,
                             1.,
                             -1.,
@@ -1281,23 +1280,23 @@ pub unsafe fn pdf_doc_get_page(
     }
 
     if !resources_p.is_null() {
-        *resources_p = resources
+        *resources_p = resources;
     } else {
         pdf_release_obj(resources);
     }
-    return page_tree;
+    return Some((page_tree, bbox, matrix));
 
-    unsafe fn error(box_0: *mut pdf_obj, rotate: *mut pdf_obj, resources: *mut pdf_obj, page_tree: *mut pdf_obj) -> *mut pdf_obj {
+    unsafe fn error(box_0: *mut pdf_obj, rotate: *mut pdf_obj, resources: *mut pdf_obj, page_tree: *mut pdf_obj) -> Option<(*mut pdf_obj, Rect, TMatrix)> {
         warn!("Cannot parse document. Broken PDF file?");
         error_silent(box_0, rotate, resources, page_tree)
     }
 
-    unsafe fn error_silent(box_0: *mut pdf_obj, rotate: *mut pdf_obj, resources: *mut pdf_obj, page_tree: *mut pdf_obj) -> *mut pdf_obj {
+    unsafe fn error_silent(box_0: *mut pdf_obj, rotate: *mut pdf_obj, resources: *mut pdf_obj, page_tree: *mut pdf_obj) -> Option<(*mut pdf_obj, Rect, TMatrix)> {
         pdf_release_obj(box_0);
         pdf_release_obj(rotate);
         pdf_release_obj(resources);
         pdf_release_obj(page_tree);
-        ptr::null_mut()
+        None
     }
 }
 
