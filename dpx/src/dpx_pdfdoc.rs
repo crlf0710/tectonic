@@ -924,415 +924,383 @@ pub unsafe fn pdf_doc_get_page(
     mut resources_p: *mut *mut pdf_obj,
 ) -> *mut pdf_obj
 /* returned values */ {
-    let mut current_block: u64;
     let mut resources: *mut pdf_obj = ptr::null_mut();
     let mut box_0: *mut pdf_obj = ptr::null_mut();
     let mut rotate: *mut pdf_obj = ptr::null_mut();
     let catalog = pdf_file_get_catalog(pf);
     let mut page_tree = pdf_deref_obj((*catalog).as_dict_mut().get_mut("Pages"));
     if !(!page_tree.is_null() && (*page_tree).is_dict()) {
-        current_block = 7715203803291643663;
-    } else {
-        let mut tmp: *mut pdf_obj = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Count"));
-        if !(!tmp.is_null() && (*tmp).is_number()) {
-            pdf_release_obj(tmp);
-            current_block = 7715203803291643663;
+        return error(box_0, rotate, resources, page_tree);
+    }
+    let mut tmp: *mut pdf_obj = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Count"));
+    if !(!tmp.is_null() && (*tmp).is_number()) {
+        pdf_release_obj(tmp);
+        return error(box_0, rotate, resources, page_tree);
+    }
+    let count = pdf_number_value(&*tmp) as i32;
+    pdf_release_obj(tmp);
+    if page_no <= 0i32 || page_no > count {
+        warn!("Page {} does not exist.", page_no);
+        return error_silent(box_0, rotate, resources, page_tree);
+    }
+
+    /*
+     * Seek correct page. Get MediaBox, CropBox and Resources.
+     * (Note that these entries can be inherited.)
+     */
+    let mut art_box: *mut pdf_obj = ptr::null_mut();
+    let mut trim_box: *mut pdf_obj = ptr::null_mut();
+    let mut bleed_box: *mut pdf_obj = ptr::null_mut();
+    let mut media_box: *mut pdf_obj = ptr::null_mut();
+    let mut crop_box: *mut pdf_obj = ptr::null_mut();
+    let mut depth: i32 = 30i32;
+    let mut page_idx: i32 = page_no - 1i32;
+    let mut kids_length: i32 = 1i32;
+    let mut i: i32 = 0i32;
+    's_83: loop {
+        depth -= 1;
+        if !(depth != 0 && i != kids_length) {
+            break;
+        }
+        let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("MediaBox"));
+        if !tmp_0.is_null() {
+            pdf_release_obj(media_box);
+            media_box = tmp_0
+        }
+        let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("CropBox"));
+        if !tmp_0.is_null() {
+            pdf_release_obj(crop_box);
+            crop_box = tmp_0
+        }
+        let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("ArtBox"));
+        if !tmp_0.is_null() {
+            pdf_release_obj(art_box);
+            art_box = tmp_0
+        }
+        let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("TrimBox"));
+        if !tmp_0.is_null() {
+            pdf_release_obj(trim_box);
+            trim_box = tmp_0
+        }
+        let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("BleedBox"));
+        if !tmp_0.is_null() {
+            pdf_release_obj(bleed_box);
+            bleed_box = tmp_0
+        }
+        let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Rotate"));
+        if !tmp_0.is_null() {
+            pdf_release_obj(rotate);
+            rotate = tmp_0
+        }
+        let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Resources"));
+        if !tmp_0.is_null() {
+            pdf_release_obj(resources);
+            resources = tmp_0
+        }
+        let kids = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Kids"));
+        if kids.is_null() {
+            break;
+        }
+        if !(!kids.is_null() && (*kids).is_array()) {
+            pdf_release_obj(kids);
+            return error(box_0, rotate, resources, page_tree);
         } else {
-            let count = pdf_number_value(&*tmp) as i32;
-            pdf_release_obj(tmp);
-            if page_no <= 0i32 || page_no > count {
-                warn!("Page {} does not exist.", page_no);
-                current_block = 5059794928954228255;
-            } else {
-                /*
-                 * Seek correct page. Get MediaBox, CropBox and Resources.
-                 * (Note that these entries can be inherited.)
-                 */
-                let mut art_box: *mut pdf_obj = ptr::null_mut();
-                let mut trim_box: *mut pdf_obj = ptr::null_mut();
-                let mut bleed_box: *mut pdf_obj = ptr::null_mut();
-                let mut media_box: *mut pdf_obj = ptr::null_mut();
-                let mut crop_box: *mut pdf_obj = ptr::null_mut();
-                let mut depth: i32 = 30i32;
-                let mut page_idx: i32 = page_no - 1i32;
-                let mut kids_length: i32 = 1i32;
-                let mut i: i32 = 0i32;
-                's_83: loop {
-                    depth -= 1;
-                    if !(depth != 0 && i != kids_length) {
-                        current_block = 13707613154239713890;
-                        break;
-                    }
-                    let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("MediaBox"));
-                    if !tmp_0.is_null() {
-                        pdf_release_obj(media_box);
-                        media_box = tmp_0
-                    }
-                    let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("CropBox"));
-                    if !tmp_0.is_null() {
-                        pdf_release_obj(crop_box);
-                        crop_box = tmp_0
-                    }
-                    let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("ArtBox"));
-                    if !tmp_0.is_null() {
-                        pdf_release_obj(art_box);
-                        art_box = tmp_0
-                    }
-                    let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("TrimBox"));
-                    if !tmp_0.is_null() {
-                        pdf_release_obj(trim_box);
-                        trim_box = tmp_0
-                    }
-                    let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("BleedBox"));
-                    if !tmp_0.is_null() {
-                        pdf_release_obj(bleed_box);
-                        bleed_box = tmp_0
-                    }
-                    let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Rotate"));
-                    if !tmp_0.is_null() {
-                        pdf_release_obj(rotate);
-                        rotate = tmp_0
-                    }
-                    let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Resources"));
-                    if !tmp_0.is_null() {
-                        pdf_release_obj(resources);
-                        resources = tmp_0
-                    }
-                    let kids = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Kids"));
-                    if kids.is_null() {
-                        current_block = 13707613154239713890;
-                        break;
-                    }
-                    if !(!kids.is_null() && (*kids).is_array()) {
-                        pdf_release_obj(kids);
-                        current_block = 7715203803291643663;
-                        break;
-                    } else {
-                        kids_length = pdf_array_length(&*kids) as i32;
-                        i = 0i32;
-                        while i < kids_length {
-                            let count_0;
-                            pdf_release_obj(page_tree);
-                            page_tree = pdf_deref_obj((*kids).as_array_mut().get_mut(i));
-                            if !(!page_tree.is_null()
-                                && (*page_tree).is_dict())
-                            {
-                                current_block = 7715203803291643663;
-                                break 's_83;
-                            }
-                            let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Count"));
-                            if !tmp_0.is_null() && (*tmp_0).is_number() {
-                                /* Pages object */
-                                count_0 = pdf_number_value(&*tmp_0) as i32;
-                                pdf_release_obj(tmp_0);
-                            } else if tmp_0.is_null() {
-                                /* Page object */
-                                count_0 = 1i32
-                            } else {
-                                pdf_release_obj(tmp_0);
-                                current_block = 7715203803291643663;
-                                break 's_83;
-                            }
-                            if page_idx < count_0 {
-                                break;
-                            }
-                            page_idx -= count_0;
-                            i += 1
-                        }
-                        pdf_release_obj(kids);
-                    }
+            kids_length = pdf_array_length(&*kids) as i32;
+            for i in 0..kids_length {
+                let count_0;
+                pdf_release_obj(page_tree);
+                page_tree = pdf_deref_obj((*kids).as_array_mut().get_mut(i));
+                if !(!page_tree.is_null()
+                    && (*page_tree).is_dict())
+                {
+                    return error(box_0, rotate, resources, page_tree);
                 }
-                match current_block {
-                    7715203803291643663 => {}
-                    _ => {
-                        if depth == 0 || kids_length == i {
-                            pdf_release_obj(media_box);
-                            pdf_release_obj(crop_box);
-                        } else {
-                            /* Nasty BBox selection... */
-                            if options == 0i32 || options == 1i32 {
-                                if !crop_box.is_null() {
-                                    box_0 = crop_box
-                                } else {
-                                    box_0 = media_box;
-                                    if box_0.is_null()
-                                        && {
-                                            box_0 = bleed_box;
-                                            box_0.is_null()
-                                        }
-                                        && {
-                                            box_0 = trim_box;
-                                            box_0.is_null()
-                                        }
-                                        && !art_box.is_null()
-                                    {
-                                        box_0 = art_box
-                                    }
-                                }
-                            } else if options == 2i32 {
-                                if !media_box.is_null() {
-                                    box_0 = media_box
-                                } else {
-                                    box_0 = crop_box;
-                                    if box_0.is_null()
-                                        && {
-                                            box_0 = bleed_box;
-                                            box_0.is_null()
-                                        }
-                                        && {
-                                            box_0 = trim_box;
-                                            box_0.is_null()
-                                        }
-                                        && !art_box.is_null()
-                                    {
-                                        box_0 = art_box
-                                    }
-                                }
-                            } else if options == 3i32 {
-                                if !art_box.is_null() {
-                                    box_0 = art_box
-                                } else {
-                                    box_0 = crop_box;
-                                    if box_0.is_null()
-                                        && {
-                                            box_0 = media_box;
-                                            box_0.is_null()
-                                        }
-                                        && {
-                                            box_0 = bleed_box;
-                                            box_0.is_null()
-                                        }
-                                        && !trim_box.is_null()
-                                    {
-                                        box_0 = trim_box
-                                    }
-                                }
-                            } else if options == 4i32 {
-                                if !trim_box.is_null() {
-                                    box_0 = trim_box
-                                } else {
-                                    box_0 = crop_box;
-                                    if box_0.is_null()
-                                        && {
-                                            box_0 = media_box;
-                                            box_0.is_null()
-                                        }
-                                        && {
-                                            box_0 = bleed_box;
-                                            box_0.is_null()
-                                        }
-                                        && !art_box.is_null()
-                                    {
-                                        box_0 = art_box
-                                    }
-                                }
-                            } else if options == 5i32 {
-                                if !bleed_box.is_null() {
-                                    box_0 = bleed_box
-                                } else {
-                                    box_0 = crop_box;
-                                    if box_0.is_null()
-                                        && {
-                                            box_0 = media_box;
-                                            box_0.is_null()
-                                        }
-                                        && {
-                                            box_0 = trim_box;
-                                            box_0.is_null()
-                                        }
-                                        && !art_box.is_null()
-                                    {
-                                        box_0 = art_box
-                                    }
-                                }
-                            }
-                            let medbox = media_box;
-                            if !(!(!box_0.is_null() && (*box_0).is_array())
-                                || pdf_array_length(&*box_0) != 4
-                                || !(!resources.is_null()
-                                    && (*resources).is_dict()))
-                            {
-                                let mut i_0 = 4;
-                                loop {
-                                    let fresh11 = i_0;
-                                    i_0 = i_0 - 1;
-                                    if !(fresh11 != 0) {
-                                        current_block = 13014351284863956202;
-                                        break;
-                                    }
-                                    let mut tmp_1: *mut pdf_obj =
-                                        pdf_deref_obj((*box_0).as_array_mut().get_mut(i_0));
-                                    if !(!tmp_1.is_null()
-                                        && (*tmp_1).is_number())
-                                    {
-                                        pdf_release_obj(tmp_1);
-                                        current_block = 7715203803291643663;
-                                        break;
-                                    } else {
-                                        let x = pdf_number_value(&*tmp_1);
-                                        match i_0 {
-                                            0 => bbox.min.x = x,
-                                            1 => bbox.min.y = x,
-                                            2 => bbox.max.x = x,
-                                            3 => bbox.max.y = x,
-                                            _ => {}
-                                        }
-                                        pdf_release_obj(tmp_1);
-                                    }
-                                }
-                                match current_block {
-                                    7715203803291643663 => {}
-                                    _ =>
-                                    /* New scheme only for XDV files */
-                                    {
-                                        if !medbox.is_null() && (is_xdv != 0 || options != 0) {
-                                            i_0 = 4i32;
-                                            loop {
-                                                let fresh12 = i_0;
-                                                i_0 = i_0 - 1;
-                                                if !(fresh12 != 0) {
-                                                    current_block = 10570719081292997246;
-                                                    break;
-                                                }
-                                                let mut tmp_2: *mut pdf_obj =
-                                                    pdf_deref_obj((*medbox).as_array_mut().get_mut(i_0));
-                                                if !(!tmp_2.is_null()
-                                                    && (*tmp_2).is_number())
-                                                {
-                                                    pdf_release_obj(tmp_2);
-                                                    current_block = 7715203803291643663;
-                                                    break;
-                                                } else {
-                                                    let x_0 = pdf_number_value(&*tmp_2);
-                                                    match i_0 {
-                                                        0 => {
-                                                            if bbox.min.x < x_0 {
-                                                                bbox.min.x = x_0
-                                                            }
-                                                        }
-                                                        1 => {
-                                                            if bbox.min.y < x_0 {
-                                                                bbox.min.y = x_0
-                                                            }
-                                                        }
-                                                        2 => {
-                                                            if bbox.max.x > x_0 {
-                                                                bbox.max.x = x_0
-                                                            }
-                                                        }
-                                                        3 => {
-                                                            if bbox.max.y > x_0 {
-                                                                bbox.max.y = x_0
-                                                            }
-                                                        }
-                                                        _ => {}
-                                                    }
-                                                    pdf_release_obj(tmp_2);
-                                                }
-                                            }
-                                        } else {
-                                            current_block = 10570719081292997246;
-                                        }
-                                        match current_block {
-                                            7715203803291643663 => {}
-                                            _ => {
-                                                pdf_release_obj(box_0);
-                                                *matrix = TMatrix::identity();
-                                                if !rotate.is_null()
-                                                    && (*rotate).is_number()
-                                                {
-                                                    let mut deg: f64 = pdf_number_value(&*rotate);
-                                                    if deg - deg as i32 as f64 != 0.0f64 {
-                                                        warn!("Invalid value specified for /Rotate: {}",
-                                                                    deg);
-                                                    } else if deg != 0.0f64 {
-                                                        let mut rot: i32 = deg as i32;
-                                                        if (rot % 90i32) as f64 != 0.0f64 {
-                                                            warn!("Invalid value specified for /Rotate: {}",
-                                                                        deg);
-                                                        } else {
-                                                            rot = rot % 360i32;
-                                                            if rot < 0i32 {
-                                                                rot += 360i32
-                                                            }
-                                                            match rot {
-                                                                90 => {
-                                                                    *matrix = TMatrix::row_major(
-                                                                        0.,
-                                                                        -1.,
-                                                                        1.,
-                                                                        0.,
-                                                                        bbox.min.x - bbox.min.y,
-                                                                        bbox.min.y + bbox.max.x,
-                                                                    );
-                                                                }
-                                                                180 => {
-                                                                    *matrix = TMatrix::row_major(
-                                                                        -1.,
-                                                                        0.,
-                                                                        0.,
-                                                                        -1.,
-                                                                        bbox.min.x + bbox.max.x,
-                                                                        bbox.min.y + bbox.max.y,
-                                                                    );
-                                                                }
-                                                                270 => {
-                                                                    *matrix = TMatrix::row_major(
-                                                                        0.,
-                                                                        1.,
-                                                                        -1.,
-                                                                        0.,
-                                                                        bbox.min.x + bbox.max.y,
-                                                                        bbox.min.y - bbox.min.x,
-                                                                    );
-                                                                }
-                                                                _ => {}
-                                                            }
-                                                        }
-                                                    }
-                                                    pdf_release_obj(rotate);
-                                                    rotate = ptr::null_mut();
-                                                    current_block = 3151994457458062110;
-                                                } else if !rotate.is_null() {
-                                                    current_block = 7715203803291643663;
-                                                } else {
-                                                    current_block = 3151994457458062110;
-                                                }
-                                                match current_block {
-                                                    7715203803291643663 => {}
-                                                    _ => {
-                                                        if !resources_p.is_null() {
-                                                            *resources_p = resources
-                                                        } else {
-                                                            pdf_release_obj(resources);
-                                                        }
-                                                        return page_tree;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        current_block = 7715203803291643663;
-                    }
+                let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Count"));
+                if !tmp_0.is_null() && (*tmp_0).is_number() {
+                    /* Pages object */
+                    count_0 = pdf_number_value(&*tmp_0) as i32;
+                    pdf_release_obj(tmp_0);
+                } else if tmp_0.is_null() {
+                    /* Page object */
+                    count_0 = 1i32
+                } else {
+                    pdf_release_obj(tmp_0);
+                    return error(box_0, rotate, resources, page_tree);
                 }
+                if page_idx < count_0 {
+                    break;
+                }
+                page_idx -= count_0;
+            }
+            pdf_release_obj(kids);
+        }
+    }
+
+    if depth == 0 || kids_length == i {
+        pdf_release_obj(media_box);
+        pdf_release_obj(crop_box);
+        return error(box_0, rotate, resources, page_tree);
+    }
+
+    /* Nasty BBox selection... */
+    if options == 0i32 || options == 1i32 {
+        if !crop_box.is_null() {
+            box_0 = crop_box
+        } else {
+            box_0 = media_box;
+            if box_0.is_null()
+                && {
+                    box_0 = bleed_box;
+                    box_0.is_null()
+                }
+                && {
+                    box_0 = trim_box;
+                    box_0.is_null()
+                }
+                && !art_box.is_null()
+            {
+                box_0 = art_box
+            }
+        }
+    } else if options == 2i32 {
+        if !media_box.is_null() {
+            box_0 = media_box
+        } else {
+            box_0 = crop_box;
+            if box_0.is_null()
+                && {
+                    box_0 = bleed_box;
+                    box_0.is_null()
+                }
+                && {
+                    box_0 = trim_box;
+                    box_0.is_null()
+                }
+                && !art_box.is_null()
+            {
+                box_0 = art_box
+            }
+        }
+    } else if options == 3i32 {
+        if !art_box.is_null() {
+            box_0 = art_box
+        } else {
+            box_0 = crop_box;
+            if box_0.is_null()
+                && {
+                    box_0 = media_box;
+                    box_0.is_null()
+                }
+                && {
+                    box_0 = bleed_box;
+                    box_0.is_null()
+                }
+                && !trim_box.is_null()
+            {
+                box_0 = trim_box
+            }
+        }
+    } else if options == 4i32 {
+        if !trim_box.is_null() {
+            box_0 = trim_box
+        } else {
+            box_0 = crop_box;
+            if box_0.is_null()
+                && {
+                    box_0 = media_box;
+                    box_0.is_null()
+                }
+                && {
+                    box_0 = bleed_box;
+                    box_0.is_null()
+                }
+                && !art_box.is_null()
+            {
+                box_0 = art_box
+            }
+        }
+    } else if options == 5i32 {
+        if !bleed_box.is_null() {
+            box_0 = bleed_box
+        } else {
+            box_0 = crop_box;
+            if box_0.is_null()
+                && {
+                    box_0 = media_box;
+                    box_0.is_null()
+                }
+                && {
+                    box_0 = trim_box;
+                    box_0.is_null()
+                }
+                && !art_box.is_null()
+            {
+                box_0 = art_box
             }
         }
     }
-    match current_block {
-        7715203803291643663 => {
-            warn!("Cannot parse document. Broken PDF file?");
-        }
-        _ => {}
+    let medbox = media_box;
+
+    if !(!box_0.is_null() && (*box_0).is_array())
+        || pdf_array_length(&*box_0) != 4
+        || !(!resources.is_null()
+            && (*resources).is_dict()) {
+        return error(box_0, rotate, resources, page_tree);
     }
+
+    let mut i_0 = 4;
+    loop {
+        let fresh11 = i_0;
+        i_0 = i_0 - 1;
+        if !(fresh11 != 0) {
+            break;
+        }
+        let mut tmp_1: *mut pdf_obj =
+            pdf_deref_obj((*box_0).as_array_mut().get_mut(i_0));
+        if !(!tmp_1.is_null()
+            && (*tmp_1).is_number())
+        {
+            pdf_release_obj(tmp_1);
+            return error(box_0, rotate, resources, page_tree);
+        } else {
+            let x = pdf_number_value(&*tmp_1);
+            match i_0 {
+                0 => bbox.min.x = x,
+                1 => bbox.min.y = x,
+                2 => bbox.max.x = x,
+                3 => bbox.max.y = x,
+                _ => {}
+            }
+            pdf_release_obj(tmp_1);
+        }
+    }
+
+    if !medbox.is_null() && (is_xdv != 0 || options != 0) {
+        i_0 = 4i32;
+        loop {
+            let fresh12 = i_0;
+            i_0 = i_0 - 1;
+            if !(fresh12 != 0) {
+                break;
+            }
+            let mut tmp_2: *mut pdf_obj =
+                pdf_deref_obj((*medbox).as_array_mut().get_mut(i_0));
+            if !(!tmp_2.is_null()
+                && (*tmp_2).is_number())
+            {
+                pdf_release_obj(tmp_2);
+                return error(box_0, rotate, resources, page_tree);
+            } else {
+                let x_0 = pdf_number_value(&*tmp_2);
+                match i_0 {
+                    0 => {
+                        if bbox.min.x < x_0 {
+                            bbox.min.x = x_0
+                        }
+                    }
+                    1 => {
+                        if bbox.min.y < x_0 {
+                            bbox.min.y = x_0
+                        }
+                    }
+                    2 => {
+                        if bbox.max.x > x_0 {
+                            bbox.max.x = x_0
+                        }
+                    }
+                    3 => {
+                        if bbox.max.y > x_0 {
+                            bbox.max.y = x_0
+                        }
+                    }
+                    _ => {}
+                }
+                pdf_release_obj(tmp_2);
+            }
+        }
+    }
+
     pdf_release_obj(box_0);
-    pdf_release_obj(rotate);
-    pdf_release_obj(resources);
-    pdf_release_obj(page_tree);
-    ptr::null_mut()
+
+    *matrix = TMatrix::identity();
+    if !rotate.is_null()
+        && (*rotate).is_number()
+    {
+        let mut deg: f64 = pdf_number_value(&*rotate);
+        if deg - deg as i32 as f64 != 0.0f64 {
+            warn!("Invalid value specified for /Rotate: {}",
+                        deg);
+        } else if deg != 0.0f64 {
+            let mut rot: i32 = deg as i32;
+            if (rot % 90i32) as f64 != 0.0f64 {
+                warn!("Invalid value specified for /Rotate: {}",
+                            deg);
+            } else {
+                rot = rot % 360i32;
+                if rot < 0i32 {
+                    rot += 360i32
+                }
+                match rot {
+                    90 => {
+                        *matrix = TMatrix::row_major(
+                            0.,
+                            -1.,
+                            1.,
+                            0.,
+                            bbox.min.x - bbox.min.y,
+                            bbox.min.y + bbox.max.x,
+                        );
+                    }
+                    180 => {
+                        *matrix = TMatrix::row_major(
+                            -1.,
+                            0.,
+                            0.,
+                            -1.,
+                            bbox.min.x + bbox.max.x,
+                            bbox.min.y + bbox.max.y,
+                        );
+                    }
+                    270 => {
+                        *matrix = TMatrix::row_major(
+                            0.,
+                            1.,
+                            -1.,
+                            0.,
+                            bbox.min.x + bbox.max.y,
+                            bbox.min.y - bbox.min.x,
+                        );
+                    }
+                    _ => {}
+                }
+            }
+        }
+        pdf_release_obj(rotate);
+    } else if !rotate.is_null() {
+        return error(box_0, rotate, resources, page_tree);
+    }
+
+    if !resources_p.is_null() {
+        *resources_p = resources
+    } else {
+        pdf_release_obj(resources);
+    }
+    return page_tree;
+
+    unsafe fn error(box_0: *mut pdf_obj, rotate: *mut pdf_obj, resources: *mut pdf_obj, page_tree: *mut pdf_obj) -> *mut pdf_obj {
+        warn!("Cannot parse document. Broken PDF file?");
+        error_silent(box_0, rotate, resources, page_tree)
+    }
+
+    unsafe fn error_silent(box_0: *mut pdf_obj, rotate: *mut pdf_obj, resources: *mut pdf_obj, page_tree: *mut pdf_obj) -> *mut pdf_obj {
+        pdf_release_obj(box_0);
+        pdf_release_obj(rotate);
+        pdf_release_obj(resources);
+        pdf_release_obj(page_tree);
+        ptr::null_mut()
+    }
 }
+
 unsafe fn pdf_doc_init_bookmarks(mut p: *mut pdf_doc, mut bm_open_depth: i32) {
     (*p).opt.outline_open_depth = (if bm_open_depth >= 0i32 {
         bm_open_depth as u32
@@ -1627,7 +1595,6 @@ pub unsafe fn pdf_doc_add_names(
     pdf_names_add_object((*(*p).names.offset(i as isize)).data, key, keylen, value)
 }
 unsafe fn pdf_doc_add_goto(mut annot_dict: *mut pdf_obj) {
-    let mut current_block: u64;
     let mut A: *mut pdf_obj = ptr::null_mut();
     let mut S: *mut pdf_obj = ptr::null_mut();
     let mut D: *mut pdf_obj = ptr::null_mut();
@@ -1642,113 +1609,101 @@ unsafe fn pdf_doc_add_goto(mut annot_dict: *mut pdf_obj) {
     let subtype = pdf_deref_obj((*annot_dict).as_dict_mut().get_mut("Subtype"));
     if !subtype.is_null() {
         if !subtype.is_null() && pdf_obj_typeof(subtype) == PdfObjType::UNDEFINED {
-            current_block = 14825911176647684745;
+            return undefined(subtype, A, S, D);
         } else if !(!subtype.is_null() && (*subtype).is_name()) {
-            current_block = 10743935136377679094;
+            return error(subtype, A, S, D);
         } else if pdf_name_value(&*subtype).to_string_lossy() != "Link" {
-            current_block = 6401626691277551363;
+            return cleanup(subtype, A, S, D);
+        }
+    }
+
+    let mut dict = annot_dict;
+    let mut key = "Dest";
+    D = pdf_deref_obj((*annot_dict).as_dict_mut().get_mut(key));
+    if !D.is_null() && pdf_obj_typeof(D) == PdfObjType::UNDEFINED {
+        return undefined(subtype, A, S, D);
+    }
+
+    A = pdf_deref_obj((*annot_dict).as_dict_mut().get_mut("A"));
+    if !A.is_null() {
+        if !A.is_null() && pdf_obj_typeof(A) == PdfObjType::UNDEFINED {
+            return undefined(subtype, A, S, D);
+        } else if !D.is_null()
+            || !(!A.is_null() && (*A).is_dict())
+        {
+            return error(subtype, A, S, D);
         } else {
-            current_block = 3276175668257526147;
-        }
-    } else {
-        current_block = 3276175668257526147;
-    }
-    match current_block {
-        3276175668257526147 => {
-            let mut dict = annot_dict;
-            let mut key = "Dest";
-            D = pdf_deref_obj((*annot_dict).as_dict_mut().get_mut(key));
-            if !D.is_null() && pdf_obj_typeof(D) == PdfObjType::UNDEFINED {
-                current_block = 14825911176647684745;
-            } else {
-                A = pdf_deref_obj((*annot_dict).as_dict_mut().get_mut("A"));
-                if !A.is_null() {
-                    if !A.is_null() && pdf_obj_typeof(A) == PdfObjType::UNDEFINED {
-                        current_block = 14825911176647684745;
-                    } else if !D.is_null()
-                        || !(!A.is_null() && (*A).is_dict())
-                    {
-                        current_block = 10743935136377679094;
-                    } else {
-                        S = pdf_deref_obj((*A).as_dict_mut().get_mut("S"));
-                        if !S.is_null() && pdf_obj_typeof(S) == PdfObjType::UNDEFINED {
-                            current_block = 14825911176647684745;
-                        } else if !(!S.is_null() && (*S).is_name()) {
-                            current_block = 10743935136377679094;
-                        } else if pdf_name_value(&*S).to_string_lossy() != "GoTo" {
-                            current_block = 6401626691277551363;
-                        } else {
-                            dict = A;
-                            key = "D";
-                            D = pdf_deref_obj((*A).as_dict_mut().get_mut(key));
-                            current_block = 9828876828309294594;
-                        }
-                    }
-                } else {
-                    current_block = 9828876828309294594;
-                }
-                match current_block {
-                    14825911176647684745 => {}
-                    10743935136377679094 => {}
-                    6401626691277551363 => {}
-                    _ => {
-                        if !D.is_null() && (*D).is_string() {
-                            let dest = pdf_string_value(&*D) as *mut i8;
-                            let destlen = pdf_string_length(&*D) as i32;
-                            let mut D_new = ht_lookup_table(
-                                &mut pdoc.gotos,
-                                dest as *const libc::c_void,
-                                destlen,
-                            ) as *mut pdf_obj;
-                            if D_new.is_null() {
-                                let mut buf: [i8; 10] = [0; 10];
-                                /* We use hexadecimal notation for our numeric destinations.
-                                 * Other bases (e.g., 10+26 or 10+2*26) would be more efficient.
-                                 */
-                                sprintf(
-                                    buf.as_mut_ptr(),
-                                    b"%x\x00" as *const u8 as *const i8,
-                                    ht_table_size(&mut pdoc.gotos),
-                                ); /* Maybe reference */
-                                D_new = pdf_new_string(
-                                    buf.as_mut_ptr() as *const libc::c_void,
-                                    strlen(buf.as_mut_ptr()) as _,
-                                );
-                                ht_append_table(
-                                    &mut pdoc.gotos,
-                                    dest as *const libc::c_void,
-                                    destlen,
-                                    D_new as *mut libc::c_void,
-                                );
-                            }
-                            pdf_add_dict(&mut *dict, key, pdf_link_obj(D_new));
-                            current_block = 6401626691277551363;
-                        } else if !D.is_null() && (*D).is_array() {
-                            current_block = 6401626691277551363;
-                        } else if !D.is_null() && pdf_obj_typeof(D) == PdfObjType::UNDEFINED {
-                            current_block = 14825911176647684745;
-                        } else {
-                            current_block = 10743935136377679094;
-                        }
-                    }
-                }
+            S = pdf_deref_obj((*A).as_dict_mut().get_mut("S"));
+            if !S.is_null() && pdf_obj_typeof(S) == PdfObjType::UNDEFINED {
+                return undefined(subtype, A, S, D);
+            } else if !(!S.is_null() && (*S).is_name()) {
+                return error(subtype, A, S, D);
+            } else if pdf_name_value(&*S).to_string_lossy() != "GoTo" {
+                return cleanup(subtype, A, S, D);
             }
+
+            dict = A;
+            key = "D";
+            D = pdf_deref_obj((*A).as_dict_mut().get_mut(key));
         }
-        _ => {}
     }
-    match current_block {
-        14825911176647684745 => {
-            warn!("Cannot optimize PDF annotations. Output file may be broken. Please restart with option \"-C 0x10\"\n");
-        }
-        10743935136377679094 => {
-            warn!("Unknown PDF annotation format. Output file may be broken.");
-        }
-        _ => {}
+
+    let (dest, destlen) = if !D.is_null() && (*D).is_string() {
+        (pdf_string_value(&*D) as *mut i8, pdf_string_length(&*D) as i32)
+    } else if !D.is_null() && (*D).is_array() {
+        return cleanup(subtype, A, S, D);
+    } else if !D.is_null() && pdf_obj_typeof(D) == PdfObjType::UNDEFINED {
+        return undefined(subtype, A, S, D);
+    } else {
+        return error(subtype, A, S, D);
+    };
+
+    let mut D_new = ht_lookup_table(
+        &mut pdoc.gotos,
+        dest as *const libc::c_void,
+        destlen,
+    ) as *mut pdf_obj;
+    if D_new.is_null() {
+        let mut buf: [i8; 10] = [0; 10];
+        /* We use hexadecimal notation for our numeric destinations.
+         * Other bases (e.g., 10+26 or 10+2*26) would be more efficient.
+         */
+        sprintf(
+            buf.as_mut_ptr(),
+            b"%x\x00" as *const u8 as *const i8,
+            ht_table_size(&mut pdoc.gotos),
+        ); /* Maybe reference */
+        D_new = pdf_new_string(
+            buf.as_mut_ptr() as *const libc::c_void,
+            strlen(buf.as_mut_ptr()) as _,
+        );
+        ht_append_table(
+            &mut pdoc.gotos,
+            dest as *const libc::c_void,
+            destlen,
+            D_new as *mut libc::c_void,
+        );
     }
-    pdf_release_obj(subtype);
-    pdf_release_obj(A);
-    pdf_release_obj(S);
-    pdf_release_obj(D);
+
+    pdf_add_dict(&mut *dict, key, pdf_link_obj(D_new));
+
+    return;
+
+    unsafe fn cleanup(subtype: *mut pdf_obj, A: *mut pdf_obj, S: *mut pdf_obj, D: *mut pdf_obj) {
+        pdf_release_obj(subtype);
+        pdf_release_obj(A);
+        pdf_release_obj(S);
+        pdf_release_obj(D);
+    }
+
+    unsafe fn error(subtype: *mut pdf_obj, A: *mut pdf_obj, S: *mut pdf_obj, D: *mut pdf_obj) {
+        warn!("Unknown PDF annotation format. Output file may be broken.");
+        cleanup(subtype, A, S, D)
+    }
+    unsafe fn undefined(subtype: *mut pdf_obj, A: *mut pdf_obj, S: *mut pdf_obj, D: *mut pdf_obj) {
+        warn!("Cannot optimize PDF annotations. Output file may be broken. Please restart with option \"-C 0x10\"\n");
+        cleanup(subtype, A, S, D)
+    }
 }
 unsafe fn warn_undef_dests(mut dests: *mut ht_table, mut gotos: *mut ht_table) {
     let mut iter: ht_iter = ht_iter {
