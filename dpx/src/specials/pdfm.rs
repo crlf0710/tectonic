@@ -124,8 +124,6 @@ pub struct resource_map {
 }
 use crate::dpx_cmap::CMap;
 
-use crate::dpx_pdfdev::Point;
-
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.

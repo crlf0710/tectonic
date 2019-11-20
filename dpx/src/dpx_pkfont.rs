@@ -36,7 +36,7 @@ use std::ptr;
 
 use super::dpx_mem::new;
 use super::dpx_mfileio::work_buffer_u8 as work_buffer;
-use super::dpx_pdfdev::{Point, Rect, pdf_sprint_number};
+use super::dpx_pdfdev::{Rect, pdf_sprint_number};
 use super::dpx_pdfencoding::{
     pdf_encoding_get_encoding, pdf_encoding_get_name, pdf_encoding_used_by_type3,
 };

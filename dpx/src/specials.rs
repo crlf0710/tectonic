@@ -97,8 +97,6 @@ pub struct SpcHandler {
 
 use super::dpx_dpxutil::ht_table;
 
-use super::dpx_pdfdev::Point;
-
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Special {

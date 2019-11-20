@@ -45,7 +45,7 @@ use super::dpx_jpegimage::check_for_jpeg;
 use super::dpx_mem::{new, renew};
 use super::dpx_pdfcolor::{pdf_close_colors, pdf_color_set_verbose, pdf_init_colors, WHITE};
 use super::dpx_pdfdev::{
-    Point, pdf_dev_bop, pdf_dev_eop, pdf_dev_get_coord, pdf_dev_get_param, pdf_dev_reset_color,
+    pdf_dev_bop, pdf_dev_eop, pdf_dev_get_coord, pdf_dev_get_param, pdf_dev_reset_color,
     pdf_dev_reset_fonts,
 };
 use super::dpx_pdfdraw::{
@@ -1869,18 +1869,18 @@ pub unsafe fn pdf_doc_add_annot(
         warn!("Annotation out of page boundary.");
         warn!(
             "Current page\'s MediaBox: {}",
-            mediabox,
+            mediabox.display(),
         );
         warn!(
             "Annotation: {}",
-            annbox,
+            annbox.display(),
         );
         warn!("Maybe incorrect paper size specified.");
     }
     if annbox.min.x > annbox.max.x || annbox.min.y > annbox.max.y {
         warn!(
             "Rectangle with negative width/height: {}",
-            annbox,
+            annbox.display(),
         );
     }
     let rect_array = pdf_new_array();
