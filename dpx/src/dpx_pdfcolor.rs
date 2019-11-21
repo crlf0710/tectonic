@@ -28,8 +28,8 @@ use super::dpx_mem::{new, renew};
 use super::dpx_numbers::sget_unsigned_pair;
 use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_link_obj, pdf_new_name, pdf_new_number, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_get_version, pdf_link_obj, pdf_new_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
+    IntoObj, STREAM_COMPRESS,
 };
 use crate::mfree;
 use crate::shims::sprintf;
@@ -1029,10 +1029,7 @@ pub unsafe fn iccp_load_profile(ident: *const i8, profile: &[u8]) -> i32 {
     resource.push(pdf_new_name("ICCBased"));
     resource.push(pdf_ref_obj(stream));
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
-    stream_dict.set(
-        "N",
-        pdf_new_number(get_num_components_iccbased(cdata) as f64),
-    );
+    stream_dict.set("N", get_num_components_iccbased(cdata) as f64);
     (*stream).as_stream_mut().add_slice(profile);
     pdf_release_obj(stream);
     cspc_id = pdf_colorspace_defineresource(ident, 4i32, cdata, resource.into_obj());

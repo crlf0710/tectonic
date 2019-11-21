@@ -68,7 +68,7 @@ use super::specials::dvips::{
     spc_dvips_at_begin_document, spc_dvips_at_begin_page, spc_dvips_at_end_document,
     spc_dvips_at_end_page, spc_dvips_check_special, spc_dvips_setup_handler,
 };
-use crate::dpx_pdfobj::{pdf_new_number, pdf_obj, pdf_ref_obj};
+use crate::dpx_pdfobj::{pdf_obj, pdf_ref_obj, IntoObj};
 use crate::shims::sprintf;
 use libc::{atoi, memcmp, strcmp, strlen};
 
@@ -179,12 +179,12 @@ pub unsafe fn spc_lookup_reference(key: &CString) -> Option<*mut pdf_obj> {
             /* xpos and ypos must be position in device space here. */
             let mut cp = point2(dvi_dev_xpos(), 0.);
             pdf_dev_transform(&mut cp, None);
-            pdf_new_number((cp.x / 0.01 + 0.5).floor() * 0.01)
+            ((cp.x / 0.01 + 0.5).floor() * 0.01).into_obj()
         }
         b"ypos" => {
             let mut cp = point2(0., dvi_dev_ypos());
             pdf_dev_transform(&mut cp, None);
-            pdf_new_number((cp.y / 0.01 + 0.5).floor() * 0.01)
+            ((cp.y / 0.01 + 0.5).floor() * 0.01).into_obj()
         }
         b"thispage" => pdf_doc_get_reference("@THISPAGE"),
         b"prevpage" => pdf_doc_get_reference("@PREVPAGE"),
@@ -230,12 +230,12 @@ pub unsafe fn spc_lookup_object(key: *const i8) -> *mut pdf_obj {
         0 => {
             let mut cp = point2(dvi_dev_xpos(), 0.);
             pdf_dev_transform(&mut cp, None);
-            value = pdf_new_number((cp.x / 0.01f64 + 0.5f64).floor() * 0.01f64)
+            value = ((cp.x / 0.01 + 0.5).floor() * 0.01).into_obj()
         }
         1 => {
             let mut cp = point2(0., dvi_dev_ypos());
             pdf_dev_transform(&mut cp, None);
-            value = pdf_new_number((cp.y / 0.01f64 + 0.5f64).floor() * 0.01f64)
+            value = ((cp.y / 0.01 + 0.5).floor() * 0.01).into_obj()
         }
         2 => value = pdf_doc_get_dictionary("@THISPAGE"),
         6 => value = pdf_doc_get_dictionary("Pages"),

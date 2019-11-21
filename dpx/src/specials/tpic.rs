@@ -47,8 +47,8 @@ use crate::dpx_pdfdraw::{
     pdf_dev_setmiterlimit,
 };
 use crate::dpx_pdfobj::{
-    pdf_foreach_dict, pdf_get_version, pdf_name_value, pdf_new_boolean, pdf_new_dict, pdf_new_name,
-    pdf_new_number, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string_value,
+    pdf_foreach_dict, pdf_get_version, pdf_name_value, pdf_new_dict, pdf_new_name, pdf_new_string,
+    pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string_value,
 };
 use crate::dpx_pdfparse::ParseIdent;
 use libc::atof;
@@ -93,9 +93,9 @@ unsafe fn create_xgstate(a: f64, f_ais: i32) -> *mut pdf_obj
     let dict_ref = (*dict).as_dict_mut();
     dict_ref.set("Type", pdf_new_name("ExtGState"));
     if f_ais != 0 {
-        dict_ref.set("AIS", pdf_new_boolean(1_i8));
+        dict_ref.set("AIS", true);
     }
-    dict_ref.set("ca", pdf_new_number(a));
+    dict_ref.set("ca", a);
     dict
 }
 unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
@@ -634,7 +634,7 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
                 }
             } else {
                 /* Treated as 'flag' */
-                dict_ref.set(kp.to_bytes(), pdf_new_boolean(1_i8));
+                dict_ref.set(kp.to_bytes(), true);
             }
             if error == 0 {
                 (*ap).cur.skip_blank();

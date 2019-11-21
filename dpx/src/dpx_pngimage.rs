@@ -36,8 +36,8 @@ use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_string, pdf_obj,
-    pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_stream_set_predictor, IntoObj, STREAM_COMPRESS,
+    pdf_get_version, pdf_new_dict, pdf_new_name, pdf_new_string, pdf_obj, pdf_ref_obj,
+    pdf_release_obj, pdf_stream, pdf_stream_set_predictor, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::ttstub_input_read;
 use libc::free;
@@ -752,15 +752,9 @@ unsafe fn make_param_Cal(
     let cal_param = pdf_new_dict();
     /* White point is always required. */
     let mut white_point = vec![];
-    white_point.push(pdf_new_number(
-        (Xw / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
-    ));
-    white_point.push(pdf_new_number(
-        (Yw / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
-    ));
-    white_point.push(pdf_new_number(
-        (Zw / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
-    ));
+    for val in &[Xw, Yw, Zw] {
+        white_point.push_obj((val / 0.00001 + 0.5).floor() * 0.00001);
+    }
     (*cal_param)
         .as_dict_mut()
         .set("WhitePoint", white_point.into_obj());
@@ -768,53 +762,22 @@ unsafe fn make_param_Cal(
     if color_type as i32 & 2i32 != 0 {
         if G != 1.0f64 {
             let mut dev_gamma = vec![]; /* Gray */
-            dev_gamma.push(pdf_new_number(
-                (G / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
-            ));
-            dev_gamma.push(pdf_new_number(
-                (G / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
-            ));
-            dev_gamma.push(pdf_new_number(
-                (G / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
-            ));
+            for _ in 0..3 {
+                dev_gamma.push_obj((G / 0.00001 + 0.5).floor() * 0.00001);
+            }
             (*cal_param)
                 .as_dict_mut()
                 .set("Gamma", dev_gamma.into_obj());
         }
         let mut matrix = vec![];
-        matrix.push(pdf_new_number(
-            (Xr / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
-        ));
-        matrix.push(pdf_new_number(
-            (Yr / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
-        ));
-        matrix.push(pdf_new_number(
-            (Zr / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
-        ));
-        matrix.push(pdf_new_number(
-            (Xg / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
-        ));
-        matrix.push(pdf_new_number(
-            (Yg / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
-        ));
-        matrix.push(pdf_new_number(
-            (Zg / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
-        ));
-        matrix.push(pdf_new_number(
-            (Xb / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
-        ));
-        matrix.push(pdf_new_number(
-            (Yb / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
-        ));
-        matrix.push(pdf_new_number(
-            (Zb / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
-        ));
+        for val in &[Xr, Yr, Zr, Xg, Yg, Zg, Xb, Yb, Zb] {
+            matrix.push_obj((val / 0.00001 + 0.5).floor() * 0.00001);
+        }
         (*cal_param).as_dict_mut().set("Matrix", matrix.into_obj());
     } else if G != 1.0f64 {
-        (*cal_param).as_dict_mut().set(
-            "Gamma",
-            pdf_new_number((G / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-        );
+        (*cal_param)
+            .as_dict_mut()
+            .set("Gamma", (G / 0.00001 + 0.5).floor() * 0.00001);
     }
     cal_param
 }
@@ -850,7 +813,7 @@ unsafe fn create_cspace_Indexed(png: &mut png_struct, info: &mut png_info) -> *m
         base = pdf_new_name("DeviceRGB")
     }
     colorspace.push(base);
-    colorspace.push(pdf_new_number((num_plte - 1i32) as f64));
+    colorspace.push_obj((num_plte - 1i32) as f64);
     let data_ptr = new(((num_plte * 3i32) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
         as *mut png_byte;
@@ -887,24 +850,24 @@ unsafe fn create_ckey_mask(png: &png_struct_def, png_info: &mut png_info) -> *mu
         3 => {
             for i in 0..num_trans {
                 if *trans.offset(i as isize) as i32 == 0i32 {
-                    colorkeys.push(pdf_new_number(i as f64));
-                    colorkeys.push(pdf_new_number(i as f64));
+                    colorkeys.push_obj(i as f64);
+                    colorkeys.push_obj(i as f64);
                 } else if *trans.offset(i as isize) as i32 != 0xffi32 {
                     warn!("{}: You found a bug in pngimage.c.", "PNG");
                 }
             }
         }
         2 => {
-            colorkeys.push(pdf_new_number((*colors).red as f64));
-            colorkeys.push(pdf_new_number((*colors).red as f64));
-            colorkeys.push(pdf_new_number((*colors).green as f64));
-            colorkeys.push(pdf_new_number((*colors).green as f64));
-            colorkeys.push(pdf_new_number((*colors).blue as f64));
-            colorkeys.push(pdf_new_number((*colors).blue as f64));
+            colorkeys.push_obj((*colors).red as f64);
+            colorkeys.push_obj((*colors).red as f64);
+            colorkeys.push_obj((*colors).green as f64);
+            colorkeys.push_obj((*colors).green as f64);
+            colorkeys.push_obj((*colors).blue as f64);
+            colorkeys.push_obj((*colors).blue as f64);
         }
         0 => {
-            colorkeys.push(pdf_new_number((*colors).gray as f64));
-            colorkeys.push(pdf_new_number((*colors).gray as f64));
+            colorkeys.push_obj((*colors).gray as f64);
+            colorkeys.push_obj((*colors).gray as f64);
         }
         _ => {
             warn!("{}: You found a bug in pngimage.c.", "PNG");
@@ -964,10 +927,10 @@ unsafe fn create_soft_mask(
         as *mut png_byte;
     dict.set("Type", pdf_new_name("XObject"));
     dict.set("Subtype", pdf_new_name("Image"));
-    dict.set("Width", pdf_new_number(width as f64));
-    dict.set("Height", pdf_new_number(height as f64));
+    dict.set("Width", width as f64);
+    dict.set("Height", height as f64);
     dict.set("ColorSpace", pdf_new_name("DeviceGray"));
-    dict.set("BitsPerComponent", pdf_new_number(8i32 as f64));
+    dict.set("BitsPerComponent", 8_f64);
     for i in 0..width.wrapping_mul(height) {
         let idx: png_byte = *image_data_ptr.offset(i as isize);
         *smask_data_ptr.offset(i as isize) = (if (idx as i32) < num_trans {
@@ -1023,10 +986,10 @@ unsafe fn strip_soft_mask(
     let dict = smask.get_dict_mut();
     dict.set("Type", pdf_new_name("XObject"));
     dict.set("Subtype", pdf_new_name("Image"));
-    dict.set("Width", pdf_new_number(width as f64));
-    dict.set("Height", pdf_new_number(height as f64));
+    dict.set("Width", width as f64);
+    dict.set("Height", height as f64);
     dict.set("ColorSpace", pdf_new_name("DeviceGray"));
-    dict.set("BitsPerComponent", pdf_new_number(bpc as f64));
+    dict.set("BitsPerComponent", bpc as f64);
     let smask_data_ptr = new((((bpc as i32 / 8i32) as u32)
         .wrapping_mul(width)
         .wrapping_mul(height) as u64)

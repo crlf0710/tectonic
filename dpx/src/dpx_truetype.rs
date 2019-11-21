@@ -62,7 +62,7 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::tt_get_ps_fontname;
 use crate::dpx_pdfobj::{
-    pdf_new_name, pdf_new_number, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length, IntoObj,
+    pdf_new_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length, IntoObj, PushObj,
 };
 use crate::shims::sprintf;
 use libc::{atoi, free, memcpy, memmove, memset, strchr, strcpy, strlen, strncpy};
@@ -311,9 +311,9 @@ unsafe fn do_widths(font: *mut pdf_font, widths: *mut f64) {
             } else {
                 1000. * tfm_get_width(tfm_id, code)
             };
-            tmparray.push(pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64));
+            tmparray.push_obj((width / 0.1 + 0.5).floor() * 0.1);
         } else {
-            tmparray.push(pdf_new_number(0.0f64));
+            tmparray.push_obj(0f64);
         }
     }
     let empty = tmparray.is_empty();
@@ -322,12 +322,8 @@ unsafe fn do_widths(font: *mut pdf_font, widths: *mut f64) {
         fontdict.as_dict_mut().set("Widths", pdf_ref_obj(tmparray));
     }
     pdf_release_obj(tmparray);
-    fontdict
-        .as_dict_mut()
-        .set("FirstChar", pdf_new_number(firstchar as f64));
-    fontdict
-        .as_dict_mut()
-        .set("LastChar", pdf_new_number(lastchar as f64));
+    fontdict.as_dict_mut().set("FirstChar", firstchar as f64);
+    fontdict.as_dict_mut().set("LastChar", lastchar as f64);
 }
 static mut verbose: i32 = 0i32;
 /*

@@ -43,8 +43,8 @@ use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_get_version, pdf_link_obj, pdf_name_value, pdf_new_dict, pdf_new_number,
-    pdf_obj, pdf_release_obj, IntoObj,
+    pdf_copy_name, pdf_get_version, pdf_link_obj, pdf_name_value, pdf_new_dict, pdf_obj,
+    pdf_release_obj, IntoObj, PushObj,
 };
 use crate::dpx_pdfparse::{ParsePdfObj, SkipWhite};
 use crate::mfree;
@@ -233,7 +233,7 @@ unsafe fn make_encoding_differences(
              * Difference found.
              */
             if skipping != 0 {
-                differences.push(pdf_new_number(code as f64));
+                differences.push_obj(code as f64);
             }
             differences.push(pdf_copy_name(*enc_vec.offset(code as isize)));
             skipping = 0i32;
@@ -297,8 +297,7 @@ unsafe fn load_encoding_file(filename: *const i8) -> i32 {
     }
     let encoding_array = encoding_array.unwrap();
     for code in 0..256 {
-        enc_vec[code as usize] =
-            pdf_name_value((*encoding_array).as_array().get(code).unwrap()).as_ptr();
+        enc_vec[code] = pdf_name_value(&*(*encoding_array).as_array()[code]).as_ptr();
     }
     let enc_id = pdf_encoding_new_encoding(
         if let Some(enc_name) = enc_name {

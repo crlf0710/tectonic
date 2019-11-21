@@ -53,8 +53,8 @@ use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
 use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load_font};
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_new_name, pdf_new_number, pdf_new_string_from_slice, pdf_ref_obj, pdf_release_obj,
-    pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_new_name, pdf_new_string_from_slice, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj,
+    PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
@@ -383,11 +383,11 @@ unsafe fn get_font_attr(font: *mut pdf_font, cffont: &cff_font) {
         flags |= 1i32 << 17i32
     }
     flags |= 1i32 << 2i32;
-    descriptor.set("CapHeight", pdf_new_number(capheight));
-    descriptor.set("Ascent", pdf_new_number(ascent));
-    descriptor.set("Descent", pdf_new_number(descent));
-    descriptor.set("ItalicAngle", pdf_new_number(italicangle));
-    descriptor.set("StemV", pdf_new_number(stemv));
+    descriptor.set("CapHeight", capheight);
+    descriptor.set("Ascent", ascent);
+    descriptor.set("Descent", descent);
+    descriptor.set("ItalicAngle", italicangle);
+    descriptor.set("StemV", stemv);
     descriptor.set("Flags", flags as f64);
 }
 unsafe fn add_metrics(
@@ -429,7 +429,7 @@ unsafe fn add_metrics(
     let mut tmp_array = vec![];
     for i in 0..4 {
         let val = cff_dict_get(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8, i);
-        tmp_array.push(pdf_new_number((val / 1.0f64 + 0.5f64).floor() * 1.0f64));
+        tmp_array.push_obj((val / 1. + 0.5).floor() * 1.);
     }
     (*descriptor)
         .as_dict_mut()
@@ -439,7 +439,7 @@ unsafe fn add_metrics(
         /* This must be an error. */
         lastchar = 0i32;
         firstchar = lastchar;
-        tmp_array.push(pdf_new_number(0.0f64));
+        tmp_array.push_obj(0f64);
     } else {
         firstchar = 255i32;
         lastchar = 0i32;
@@ -492,9 +492,9 @@ unsafe fn add_metrics(
                         );
                     }
                 }
-                tmp_array.push(pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64));
+                tmp_array.push_obj((width / 0.1 + 0.5).floor() * 0.1);
             } else {
-                tmp_array.push(pdf_new_number(0.0f64));
+                tmp_array.push_obj(0f64);
             }
         }
     }
@@ -504,8 +504,8 @@ unsafe fn add_metrics(
         fontdict.set("Widths", pdf_ref_obj(tmp_array));
     }
     pdf_release_obj(tmp_array);
-    fontdict.set("FirstChar", pdf_new_number(firstchar as f64));
-    fontdict.set("LastChar", pdf_new_number(lastchar as f64));
+    fontdict.set("FirstChar", firstchar as f64);
+    fontdict.set("LastChar", lastchar as f64);
 }
 unsafe fn write_fontfile(font: *mut pdf_font, cffont: &cff_font, pdfcharset: &pdf_stream) -> i32 {
     let mut wbuf: [u8; 1024] = [0; 1024];

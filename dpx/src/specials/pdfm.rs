@@ -66,8 +66,8 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_foreach_dict, pdf_link_obj, pdf_name_value, pdf_new_dict, pdf_new_name, pdf_number_value,
-    pdf_obj, pdf_obj_typeof, pdf_release_obj, pdf_remove_dict, pdf_set_string, pdf_stream,
+    pdf_foreach_dict, pdf_link_obj, pdf_name_value, pdf_new_dict, pdf_new_name, pdf_obj,
+    pdf_obj_typeof, pdf_release_obj, pdf_remove_dict, pdf_set_string, pdf_stream,
     pdf_string_length, pdf_string_value, IntoObj, PdfObjType, STREAM_COMPRESS,
 };
 use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
@@ -488,7 +488,7 @@ unsafe fn needreencode(kp: *mut pdf_obj, vp: *mut pdf_obj, cd: *mut tounicode) -
     assert!((*kp).is_name());
     assert!((*vp).is_string());
     for i in 0..(*(*cd).taintkeys).as_array().len() {
-        let tk = (*(*cd).taintkeys).as_array().get(i as i32).unwrap();
+        let tk = (*(*cd).taintkeys).as_array()[i];
         assert!((*tk).is_name());
         if pdf_name_value(&*kp) == pdf_name_value(&*tk) {
             r = 1i32;
@@ -788,7 +788,7 @@ unsafe fn spc_handler_pdfm_outline(spe: *mut spc_env, mut args: *mut spc_arg) ->
             spc_warn!(spe, "Expecting number for outline item depth.");
             return -1i32;
         }
-        let level = pdf_number_value(&*tmp) as i32;
+        let level = (*tmp).as_f64() as i32;
         pdf_release_obj(tmp);
         level
     } else {
@@ -1053,9 +1053,9 @@ unsafe fn spc_handler_pdfm_names(spe: *mut spc_env, args: *mut spc_arg) -> i32 {
                 pdf_release_obj(tmp);
                 return -1i32;
             }
-            for i in 0..(size / 2) {
-                let key = (*tmp).as_array().get(2i32 * i).unwrap();
-                let value = (*tmp).as_array_mut().get_mut(2i32 * i + 1i32).unwrap();
+            for i in 0..(size / 2) as usize {
+                let key = (*tmp).as_array()[2 * i];
+                let value = (*tmp).as_array_mut()[2 * i + 1];
                 if !(*key).is_string() {
                     spc_warn!(spe, "Name tree key must be string.");
                     pdf_release_obj(category);

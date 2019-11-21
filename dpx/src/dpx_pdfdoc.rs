@@ -66,10 +66,10 @@ use super::dpx_pdfximage::{
 use super::dpx_pngimage::check_for_png;
 use crate::dpx_pdfobj::{
     pdf_compare_reference, pdf_deref_obj, pdf_file, pdf_file_get_catalog, pdf_link_obj,
-    pdf_name_value, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_string, pdf_number_value,
-    pdf_obj, pdf_obj_typeof, pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj,
-    pdf_remove_dict, pdf_set_encrypt, pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream,
-    pdf_stream_length, pdf_string_length, pdf_string_value, IntoObj, PdfObjType, STREAM_COMPRESS,
+    pdf_name_value, pdf_new_dict, pdf_new_name, pdf_new_string, pdf_obj, pdf_obj_typeof,
+    pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt,
+    pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream, pdf_stream_length, pdf_string_length,
+    pdf_string_value, IntoObj, PdfObjType, PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
@@ -616,18 +616,10 @@ unsafe fn doc_flush_page(p: *mut pdf_doc, mut page: *mut pdf_page, parent_ref: *
      */
     if (*page).flags & 1i32 << 0i32 != 0 {
         let mut mediabox = vec![];
-        mediabox.push(pdf_new_number(
-            ((*page).cropbox.min.x / 0.01 + 0.5).floor() * 0.01,
-        ));
-        mediabox.push(pdf_new_number(
-            ((*page).cropbox.min.y / 0.01 + 0.5).floor() * 0.01,
-        ));
-        mediabox.push(pdf_new_number(
-            ((*page).cropbox.max.x / 0.01 + 0.5).floor() * 0.01,
-        ));
-        mediabox.push(pdf_new_number(
-            ((*page).cropbox.max.y / 0.01 + 0.5).floor() * 0.01,
-        ));
+        mediabox.push_obj(((*page).cropbox.min.x / 0.01 + 0.5).floor() * 0.01);
+        mediabox.push_obj(((*page).cropbox.min.y / 0.01 + 0.5).floor() * 0.01);
+        mediabox.push_obj(((*page).cropbox.max.x / 0.01 + 0.5).floor() * 0.01);
+        mediabox.push_obj(((*page).cropbox.max.y / 0.01 + 0.5).floor() * 0.01);
         (*(*page).page_obj)
             .as_dict_mut()
             .set("MediaBox", mediabox.into_obj());
@@ -708,9 +700,7 @@ unsafe fn build_page_tree(
         pdf_ref_obj((*p).root.pages)
     };
     (*self_0).as_dict_mut().set("Type", pdf_new_name("Pages"));
-    (*self_0)
-        .as_dict_mut()
-        .set("Count", pdf_new_number(num_pages as f64));
+    (*self_0).as_dict_mut().set("Count", num_pages as f64);
     if !parent_ref.is_null() {
         (*self_0).as_dict_mut().set("Parent", parent_ref);
     }
@@ -822,18 +812,10 @@ unsafe fn pdf_doc_close_page_tree(mut p: *mut pdf_doc) {
     }
     /* Create media box at root node and let the other pages inherit it. */
     let mut mediabox = vec![];
-    mediabox.push(pdf_new_number(
-        ((*p).pages.mediabox.min.x / 0.01 + 0.5).floor() * 0.01,
-    ));
-    mediabox.push(pdf_new_number(
-        ((*p).pages.mediabox.min.y / 0.01 + 0.5).floor() * 0.01,
-    ));
-    mediabox.push(pdf_new_number(
-        ((*p).pages.mediabox.max.x / 0.01 + 0.5).floor() * 0.01,
-    ));
-    mediabox.push(pdf_new_number(
-        ((*p).pages.mediabox.max.y / 0.01 + 0.5).floor() * 0.01,
-    ));
+    mediabox.push_obj(((*p).pages.mediabox.min.x / 0.01 + 0.5).floor() * 0.01);
+    mediabox.push_obj(((*p).pages.mediabox.min.y / 0.01 + 0.5).floor() * 0.01);
+    mediabox.push_obj(((*p).pages.mediabox.max.x / 0.01 + 0.5).floor() * 0.01);
+    mediabox.push_obj(((*p).pages.mediabox.max.y / 0.01 + 0.5).floor() * 0.01);
     (*(*p).root.pages)
         .as_dict_mut()
         .set("MediaBox", mediabox.into_obj());
@@ -858,7 +840,7 @@ pub unsafe fn pdf_doc_get_page_count(pf: *mut pdf_file) -> i32 {
         pdf_release_obj(tmp);
         return 0i32;
     }
-    let count = pdf_number_value(&*tmp) as i32;
+    let count = (*tmp).as_f64() as i32;
     pdf_release_obj(tmp);
     count
 }
@@ -937,7 +919,7 @@ pub unsafe fn pdf_doc_get_page(
         pdf_release_obj(tmp);
         return error(box_0, rotate, resources, page_tree);
     }
-    let count = pdf_number_value(&*tmp) as i32;
+    let count = (*tmp).as_f64() as i32;
     pdf_release_obj(tmp);
     if page_no <= 0i32 || page_no > count {
         warn!("Page {} does not exist.", page_no);
@@ -955,8 +937,8 @@ pub unsafe fn pdf_doc_get_page(
     let mut crop_box: *mut pdf_obj = ptr::null_mut();
     let mut depth: i32 = 30i32;
     let mut page_idx: i32 = page_no - 1i32;
-    let mut kids_length: i32 = 1i32;
-    let i: i32 = 0i32;
+    let mut kids_length = 1;
+    let i = 0;
     's_83: loop {
         depth -= 1;
         if !(depth != 0 && i != kids_length) {
@@ -1005,18 +987,24 @@ pub unsafe fn pdf_doc_get_page(
             pdf_release_obj(kids);
             return error(box_0, rotate, resources, page_tree);
         } else {
-            kids_length = (*kids).as_array().len() as i32;
+            kids_length = (*kids).as_array().len();
             for i in 0..kids_length {
                 let count_0;
                 pdf_release_obj(page_tree);
-                page_tree = pdf_deref_obj((*kids).as_array_mut().get_mut(i));
+
+                let array = (*kids).as_array_mut();
+                page_tree = if i < array.len() {
+                    pdf_deref_obj(Some(&mut *array[i]))
+                } else {
+                    0 as *mut pdf_obj
+                };
                 if !(!page_tree.is_null() && (*page_tree).is_dict()) {
                     return error(box_0, rotate, resources, page_tree);
                 }
                 let tmp_0 = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Count"));
                 if !tmp_0.is_null() && (*tmp_0).is_number() {
                     /* Pages object */
-                    count_0 = pdf_number_value(&*tmp_0) as i32;
+                    count_0 = (*tmp_0).as_f64() as i32;
                     pdf_release_obj(tmp_0);
                 } else if tmp_0.is_null() {
                     /* Page object */
@@ -1149,17 +1137,22 @@ pub unsafe fn pdf_doc_get_page(
     let mut bbox = Rect::zero();
     let mut i_0 = 4;
     loop {
-        let fresh11 = i_0;
-        i_0 = i_0 - 1;
-        if !(fresh11 != 0) {
+        if i_0 == 0 {
             break;
         }
-        let tmp_1: *mut pdf_obj = pdf_deref_obj((*box_0).as_array_mut().get_mut(i_0));
+        i_0 -= 1;
+
+        let array = (*box_0).as_array_mut();
+        let tmp_1 = if i_0 < array.len() {
+            pdf_deref_obj(Some(&mut *array[i_0]))
+        } else {
+            0 as *mut pdf_obj
+        };
         if !(!tmp_1.is_null() && (*tmp_1).is_number()) {
             pdf_release_obj(tmp_1);
             return error(box_0, rotate, resources, page_tree);
         } else {
-            let x = pdf_number_value(&*tmp_1);
+            let x = (*tmp_1).as_f64();
             match i_0 {
                 0 => bbox.min.x = x,
                 1 => bbox.min.y = x,
@@ -1172,19 +1165,24 @@ pub unsafe fn pdf_doc_get_page(
     }
 
     if !medbox.is_null() && (is_xdv != 0 || options != 0) {
-        i_0 = 4i32;
+        let mut i_0 = 4;
         loop {
-            let fresh12 = i_0;
-            i_0 = i_0 - 1;
-            if !(fresh12 != 0) {
+            if i_0 == 0 {
                 break;
             }
-            let tmp_2: *mut pdf_obj = pdf_deref_obj((*medbox).as_array_mut().get_mut(i_0));
+            i_0 -= 1;
+
+            let array = (*medbox).as_array_mut();
+            let tmp_2 = if i_0 < array.len() {
+                pdf_deref_obj(Some(&mut *array[i_0]))
+            } else {
+                0 as *mut pdf_obj
+            };
             if !(!tmp_2.is_null() && (*tmp_2).is_number()) {
                 pdf_release_obj(tmp_2);
                 return error(box_0, rotate, resources, page_tree);
             } else {
-                let x_0 = pdf_number_value(&*tmp_2);
+                let x_0 = (*tmp_2).as_f64();
                 match i_0 {
                     0 => {
                         if bbox.min.x < x_0 {
@@ -1217,7 +1215,7 @@ pub unsafe fn pdf_doc_get_page(
 
     let mut matrix = TMatrix::identity();
     if !rotate.is_null() && (*rotate).is_number() {
-        let deg: f64 = pdf_number_value(&*rotate);
+        let deg: f64 = (*rotate).as_f64();
         if deg - deg as i32 as f64 != 0.0f64 {
             warn!("Invalid value specified for /Rotate: {}", deg);
         } else if deg != 0.0f64 {
@@ -1346,14 +1344,10 @@ unsafe fn flush_bookmarks(
         if !(*item).first.is_null() && !(*(*item).first).dict.is_null() {
             let count = flush_bookmarks((*item).first, this_ref, &mut *(*item).dict);
             if (*item).is_open != 0 {
-                (*(*item).dict)
-                    .as_dict_mut()
-                    .set("Count", pdf_new_number(count as f64));
+                (*(*item).dict).as_dict_mut().set("Count", count as f64);
                 retval += count
             } else {
-                (*(*item).dict)
-                    .as_dict_mut()
-                    .set("Count", pdf_new_number(-count as f64));
+                (*(*item).dict).as_dict_mut().set("Count", -count as f64);
             }
         }
         (*(*item).dict)
@@ -1426,15 +1420,13 @@ pub unsafe fn pdf_doc_bookmarks_down() -> i32 {
             ),
         );
         let mut tcolor = vec![];
-        tcolor.push(pdf_new_number(1.0f64));
-        tcolor.push(pdf_new_number(0.0f64));
-        tcolor.push(pdf_new_number(0.0f64));
+        tcolor.push_obj(1_f64);
+        tcolor.push_obj(0_f64);
+        tcolor.push_obj(0_f64);
         let tcolor = tcolor.into_obj();
         (*(*item).dict).as_dict_mut().set("C", pdf_link_obj(tcolor));
         pdf_release_obj(tcolor);
-        (*(*item).dict)
-            .as_dict_mut()
-            .set("F", pdf_new_number(1.0f64));
+        (*(*item).dict).as_dict_mut().set("F", 1_f64);
         let action = pdf_new_dict();
         (*action).as_dict_mut().set("S", pdf_new_name("JavaScript"));
         (*action).as_dict_mut().set(
@@ -1508,9 +1500,7 @@ unsafe fn pdf_doc_close_bookmarks(mut p: *mut pdf_doc) {
         let bm_root = pdf_new_dict();
         let bm_root_ref = pdf_ref_obj(bm_root);
         let count = flush_bookmarks(item, bm_root_ref, &mut *bm_root);
-        (*bm_root)
-            .as_dict_mut()
-            .set("Count", pdf_new_number(count as f64));
+        (*bm_root).as_dict_mut().set("Count", count as f64);
         (*catalog).as_dict_mut().set("Outlines", bm_root_ref);
         pdf_release_obj(bm_root);
     }
@@ -1844,18 +1834,10 @@ pub unsafe fn pdf_doc_add_annot(
         warn!("Rectangle with negative width/height: {}", annbox.display(),);
     }
     let mut rect_array = vec![];
-    rect_array.push(pdf_new_number(
-        ((annbox.min.x - annot_grow) / 0.001 + 0.5).floor() * 0.001,
-    ));
-    rect_array.push(pdf_new_number(
-        ((annbox.min.y - annot_grow) / 0.001 + 0.5).floor() * 0.001,
-    ));
-    rect_array.push(pdf_new_number(
-        ((annbox.max.x + annot_grow) / 0.001 + 0.5).floor() * 0.001,
-    ));
-    rect_array.push(pdf_new_number(
-        ((annbox.max.y + annot_grow) / 0.001 + 0.5).floor() * 0.001,
-    ));
+    rect_array.push_obj(((annbox.min.x - annot_grow) / 0.001 + 0.5).floor() * 0.001);
+    rect_array.push_obj(((annbox.min.y - annot_grow) / 0.001 + 0.5).floor() * 0.001);
+    rect_array.push_obj(((annbox.max.x + annot_grow) / 0.001 + 0.5).floor() * 0.001);
+    rect_array.push_obj(((annbox.max.y + annot_grow) / 0.001 + 0.5).floor() * 0.001);
     (*annot_dict)
         .as_dict_mut()
         .set("Rect", rect_array.into_obj());
@@ -2014,18 +1996,10 @@ unsafe fn make_article(
                 .as_dict_mut()
                 .set("P", pdf_link_obj((*page).page_ref));
             let mut rect = vec![];
-            rect.push(pdf_new_number(
-                ((*bead).rect.min.x / 0.01 + 0.5).floor() * 0.01,
-            ));
-            rect.push(pdf_new_number(
-                ((*bead).rect.min.y / 0.01 + 0.5).floor() * 0.01,
-            ));
-            rect.push(pdf_new_number(
-                ((*bead).rect.max.x / 0.01 + 0.5).floor() * 0.01,
-            ));
-            rect.push(pdf_new_number(
-                ((*bead).rect.max.y / 0.01 + 0.5).floor() * 0.01,
-            ));
+            rect.push_obj(((*bead).rect.min.x / 0.01 + 0.5).floor() * 0.01);
+            rect.push_obj(((*bead).rect.min.y / 0.01 + 0.5).floor() * 0.01);
+            rect.push_obj(((*bead).rect.max.x / 0.01 + 0.5).floor() * 0.01);
+            rect.push_obj(((*bead).rect.max.y / 0.01 + 0.5).floor() * 0.01);
             (*last).as_dict_mut().set("R", rect.into_obj());
             (*(*page).beads).as_array_mut().push(pdf_ref_obj(last));
             prev = last
@@ -2508,29 +2482,21 @@ unsafe fn pdf_doc_make_xform(
     let xform_dict = (*xform).as_stream_mut().get_dict_mut();
     xform_dict.set("Type", pdf_new_name("XObject"));
     xform_dict.set("Subtype", pdf_new_name("Form"));
-    xform_dict.set("FormType", pdf_new_number(1.0f64));
+    xform_dict.set("FormType", 1_f64);
     let mut tmp = vec![];
-    tmp.push(pdf_new_number((bbox.min.x / 0.001 + 0.5).floor() * 0.001));
-    tmp.push(pdf_new_number((bbox.min.y / 0.001 + 0.5).floor() * 0.001));
-    tmp.push(pdf_new_number((bbox.max.x / 0.001 + 0.5).floor() * 0.001));
-    tmp.push(pdf_new_number((bbox.max.y / 0.001 + 0.5).floor() * 0.001));
+    tmp.push_obj((bbox.min.x / 0.001 + 0.5).floor() * 0.001);
+    tmp.push_obj((bbox.min.y / 0.001 + 0.5).floor() * 0.001);
+    tmp.push_obj((bbox.max.x / 0.001 + 0.5).floor() * 0.001);
+    tmp.push_obj((bbox.max.y / 0.001 + 0.5).floor() * 0.001);
     xform_dict.set("BBox", tmp.into_obj());
     if let Some(matrix) = matrix {
         let mut tmp = vec![];
-        tmp.push(pdf_new_number(
-            (matrix.m11 / 0.00001 + 0.5).floor() * 0.00001,
-        ));
-        tmp.push(pdf_new_number(
-            (matrix.m12 / 0.00001 + 0.5).floor() * 0.00001,
-        ));
-        tmp.push(pdf_new_number(
-            (matrix.m21 / 0.00001 + 0.5).floor() * 0.00001,
-        ));
-        tmp.push(pdf_new_number(
-            (matrix.m22 / 0.00001 + 0.5).floor() * 0.00001,
-        ));
-        tmp.push(pdf_new_number((matrix.m31 / 0.001 + 0.5).floor() * 0.001));
-        tmp.push(pdf_new_number((matrix.m32 / 0.001 + 0.5).floor() * 0.001));
+        tmp.push_obj((matrix.m11 / 0.00001 + 0.5).floor() * 0.00001);
+        tmp.push_obj((matrix.m12 / 0.00001 + 0.5).floor() * 0.00001);
+        tmp.push_obj((matrix.m21 / 0.00001 + 0.5).floor() * 0.00001);
+        tmp.push_obj((matrix.m22 / 0.00001 + 0.5).floor() * 0.00001);
+        tmp.push_obj((matrix.m31 / 0.001 + 0.5).floor() * 0.001);
+        tmp.push_obj((matrix.m32 / 0.001 + 0.5).floor() * 0.001);
         xform_dict.set("Matrix", tmp.into_obj());
     }
     if !attrib.is_null() {

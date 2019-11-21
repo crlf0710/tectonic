@@ -34,9 +34,8 @@ use std::ptr;
 use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_deref_obj, pdf_file, pdf_name_value, pdf_new_boolean, pdf_new_dict, pdf_new_indirect,
-    pdf_new_name, pdf_new_null, pdf_new_number, pdf_new_string, pdf_number_value, pdf_obj,
-    pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_deref_obj, pdf_file, pdf_name_value, pdf_new_dict, pdf_new_indirect, pdf_new_name,
+    pdf_new_null, pdf_new_string, pdf_obj, pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::specials::spc_lookup_reference;
 use libc::memcpy;
@@ -466,7 +465,7 @@ impl ParsePdfObj for &[u8] {
             if unsafe { !(*tmp2).is_number() } {
                 stream_length = -1
             } else {
-                stream_length = unsafe { pdf_number_value(&*tmp2) as i32 }
+                stream_length = unsafe { (*tmp2).as_f64() as i32 }
             }
             unsafe {
                 pdf_release_obj(tmp2);
@@ -837,12 +836,12 @@ impl ParsePdfObj for &[u8] {
         if self.starts_with(b"true") {
             if (*self).len() == 4 || istokensep(&self[4]) {
                 *self = &(*self)[4..];
-                return unsafe { Some(pdf_new_boolean(1)) };
+                return unsafe { Some(true.into_obj()) };
             }
         } else if self.starts_with(b"false") {
             if (*self).len() == 5 || istokensep(&self[5]) {
                 *self = &(*self)[5..];
-                return unsafe { Some(pdf_new_boolean(0)) };
+                return unsafe { Some(false.into_obj()) };
             }
         }
         warn!("Not a boolean object.");
@@ -970,6 +969,6 @@ impl ParsePdfObj for &[u8] {
             p = &p[1..];
         }
         *self = p;
-        unsafe { Some(pdf_new_number(sign as f64 * v)) }
+        unsafe { Some((sign as f64 * v).into_obj()) }
     }
 }

@@ -59,8 +59,8 @@ use super::dpx_pdffont::{
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
 use crate::dpx_pdfobj::{
-    pdf_new_name, pdf_new_number, pdf_new_string_from_slice, pdf_ref_obj, pdf_release_obj,
-    pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_new_name, pdf_new_string_from_slice, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj,
+    PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::ttstub_input_read;
@@ -236,7 +236,7 @@ unsafe fn add_SimpleMetrics(
         /* This should be error. */
         lastchar = 0i32;
         firstchar = lastchar;
-        tmp_array.push(pdf_new_number(0.0f64));
+        tmp_array.push_obj(0f64);
     } else {
         firstchar = 255i32;
         lastchar = 0i32;
@@ -274,10 +274,10 @@ unsafe fn add_SimpleMetrics(
                             *widths.offset(code as isize),
                         );
                     }
-                    tmp_array.push(pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64));
+                    tmp_array.push_obj((width / 0.1 + 0.5).floor() * 0.1);
                 }
             } else {
-                tmp_array.push(pdf_new_number(0.0f64));
+                tmp_array.push_obj(0f64);
             }
         }
     }
@@ -287,8 +287,8 @@ unsafe fn add_SimpleMetrics(
         fontdict.set("Widths", pdf_ref_obj(tmp_array));
     }
     pdf_release_obj(tmp_array);
-    fontdict.set("FirstChar", pdf_new_number(firstchar as f64));
-    fontdict.set("LastChar", pdf_new_number(lastchar as f64));
+    fontdict.set("FirstChar", firstchar as f64);
+    fontdict.set("LastChar", lastchar as f64);
 }
 
 pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
@@ -473,7 +473,7 @@ pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
             b"StdVW\x00" as *const u8 as *const i8,
             0i32,
         );
-        descriptor.set("StemV", pdf_new_number(stemv));
+        descriptor.set("StemV", stemv);
     }
     /*
      * Widths

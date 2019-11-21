@@ -34,9 +34,7 @@ use super::dpx_dvipdfmx::always_embed;
 use super::dpx_numbers::tt_get_unsigned_quad;
 use super::dpx_tt_post::{tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::{tt_read_head_table, tt_read_os2__table};
-use crate::dpx_pdfobj::{
-    pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_string, pdf_obj, IntoObj,
-};
+use crate::dpx_pdfobj::{pdf_new_dict, pdf_new_name, pdf_new_string, pdf_obj, IntoObj, PushObj};
 
 use libc::{free, memcpy};
 use std::io::{Seek, SeekFrom};
@@ -148,25 +146,19 @@ pub unsafe fn tt_get_fontdesc(
     if !os2.is_null() {
         (*descriptor).as_dict_mut().set(
             "Ascent",
-            pdf_new_number(
-                (1000.0f64 * (*os2).sTypoAscender as i32 as f64
-                    / (*head).unitsPerEm as i32 as f64
-                    / 1i32 as f64
-                    + 0.5f64)
-                    .floor()
-                    * 1i32 as f64,
-            ),
+            (1000_f64 * (*os2).sTypoAscender as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1.
+                + 0.5)
+                .floor()
+                * 1.,
         );
         (*descriptor).as_dict_mut().set(
             "Descent",
-            pdf_new_number(
-                (1000.0f64 * (*os2).sTypoDescender as i32 as f64
-                    / (*head).unitsPerEm as i32 as f64
-                    / 1i32 as f64
-                    + 0.5f64)
-                    .floor()
-                    * 1i32 as f64,
-            ),
+            (1000_f64 * (*os2).sTypoDescender as i32 as f64
+                / (*head).unitsPerEm as i32 as f64
+                / 1.
+                + 0.5)
+                .floor()
+                * 1.,
         );
         if stemv < 0i32 {
             /* if not given by the option '-v' */
@@ -174,100 +166,82 @@ pub unsafe fn tt_get_fontdesc(
                 * ((*os2).usWeightClass as i32 as f64 / 65.0f64)
                 + 50i32 as f64) as i32
         } /* arbitrary */
-        (*descriptor)
-            .as_dict_mut()
-            .set("StemV", pdf_new_number(stemv as f64));
+        (*descriptor).as_dict_mut().set("StemV", stemv as f64);
         if (*os2).version as i32 == 0x2i32 {
             (*descriptor).as_dict_mut().set(
                 "CapHeight",
-                pdf_new_number(
-                    (1000.0f64 * (*os2).sCapHeight as i32 as f64
-                        / (*head).unitsPerEm as i32 as f64
-                        / 1i32 as f64
-                        + 0.5f64)
-                        .floor()
-                        * 1i32 as f64,
-                ),
+                (1000_f64 * (*os2).sCapHeight as i32 as f64
+                    / (*head).unitsPerEm as i32 as f64
+                    / 1.
+                    + 0.5)
+                    .floor()
+                    * 1.,
             );
             /* optional */
             (*descriptor).as_dict_mut().set(
                 "XHeight",
-                pdf_new_number(
-                    (1000.0f64 * (*os2).sxHeight as i32 as f64
-                        / (*head).unitsPerEm as i32 as f64
-                        / 1i32 as f64
-                        + 0.5f64)
-                        .floor()
-                        * 1i32 as f64,
-                ),
+                (1000_f64 * (*os2).sxHeight as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1.
+                    + 0.5)
+                    .floor()
+                    * 1.,
             );
         } else {
             (*descriptor).as_dict_mut().set(
                 "CapHeight",
-                pdf_new_number(
-                    (1000.0f64 * (*os2).sTypoAscender as i32 as f64
-                        / (*head).unitsPerEm as i32 as f64
-                        / 1i32 as f64
-                        + 0.5f64)
-                        .floor()
-                        * 1i32 as f64,
-                ),
+                (1000_f64 * (*os2).sTypoAscender as i32 as f64
+                    / (*head).unitsPerEm as i32 as f64
+                    / 1.
+                    + 0.5)
+                    .floor()
+                    * 1.,
             );
         }
         /* optional */
         if (*os2).xAvgCharWidth as i32 != 0i32 {
             (*descriptor).as_dict_mut().set(
                 "AvgWidth",
-                pdf_new_number(
-                    (1000.0f64 * (*os2).xAvgCharWidth as i32 as f64
-                        / (*head).unitsPerEm as i32 as f64
-                        / 1i32 as f64
-                        + 0.5f64)
-                        .floor()
-                        * 1i32 as f64,
-                ),
+                (1000_f64 * (*os2).xAvgCharWidth as i32 as f64
+                    / (*head).unitsPerEm as i32 as f64
+                    / 1.
+                    + 0.5)
+                    .floor()
+                    * 1.,
             );
         }
     }
     /* BoundingBox (array) */
     let mut bbox = vec![];
-    bbox.push(pdf_new_number(
-        (1000.0f64 * (*head).xMin as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1i32 as f64
-            + 0.5f64)
+    bbox.push_obj(
+        (1000_f64 * (*head).xMin as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1. + 0.5)
             .floor()
-            * 1i32 as f64,
-    ));
-    bbox.push(pdf_new_number(
-        (1000.0f64 * (*head).yMin as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1i32 as f64
-            + 0.5f64)
+            * 1.,
+    );
+    bbox.push_obj(
+        (1000_f64 * (*head).yMin as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1. + 0.5)
             .floor()
-            * 1i32 as f64,
-    ));
-    bbox.push(pdf_new_number(
-        (1000.0f64 * (*head).xMax as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1i32 as f64
-            + 0.5f64)
+            * 1.,
+    );
+    bbox.push_obj(
+        (1000_f64 * (*head).xMax as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1. + 0.5)
             .floor()
-            * 1i32 as f64,
-    ));
-    bbox.push(pdf_new_number(
-        (1000.0f64 * (*head).yMax as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1i32 as f64
-            + 0.5f64)
+            * 1.,
+    );
+    bbox.push_obj(
+        (1000_f64 * (*head).yMax as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1. + 0.5)
             .floor()
-            * 1i32 as f64,
-    ));
+            * 1.,
+    );
     (*descriptor).as_dict_mut().set("FontBBox", bbox.into_obj());
     /* post */
     (*descriptor).as_dict_mut().set(
         "ItalicAngle",
-        pdf_new_number(
-            ((*post).italicAngle as i64 % 0x10000) as f64 / 0x10000i64 as f64
-                + ((*post).italicAngle as i64 / 0x10000) as f64
-                - (if (*post).italicAngle as i64 / 0x10000 > 0x7fff {
-                    0x10000
-                } else {
-                    0i32 as i64
-                }) as f64,
-        ),
+        ((*post).italicAngle as i64 % 0x10000) as f64 / 0x10000 as f64
+            + ((*post).italicAngle as i64 / 0x10000) as f64
+            - (if (*post).italicAngle as i64 / 0x10000 > 0x7fff {
+                0x10000
+            } else {
+                0i64
+            }) as f64,
     );
     /* Flags */
     if !os2.is_null() {
@@ -287,9 +261,7 @@ pub unsafe fn tt_get_fontdesc(
             flag |= 1i32 << 0i32
         }
     }
-    (*descriptor)
-        .as_dict_mut()
-        .set("Flags", pdf_new_number(flag as f64));
+    (*descriptor).as_dict_mut().set("Flags", flag as f64);
     /* insert panose if you want */
     if type_0 == 0i32 && !os2.is_null() {
         /* cid-keyed font - add panose */

@@ -45,8 +45,8 @@ use super::dpx_cidtype2::{
 };
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_get_version, pdf_link_obj, pdf_name_value, pdf_new_name, pdf_number_value,
-    pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_string_value,
+    pdf_copy_name, pdf_get_version, pdf_link_obj, pdf_name_value, pdf_new_name, pdf_obj,
+    pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_string_value,
 };
 use libc::{free, memcpy, memset, strcat, strchr, strcmp, strcpy, strlen, strncmp, strtoul};
 
@@ -793,7 +793,7 @@ unsafe fn CIDFont_base_open(
         .unwrap();
     let registry = pdf_string_value(tmp.as_dict().get("Registry").unwrap()) as *mut i8;
     let ordering = pdf_string_value(tmp.as_dict().get("Ordering").unwrap()) as *mut i8;
-    let supplement = pdf_number_value(tmp.as_dict().get("Supplement").unwrap()) as i32;
+    let supplement = tmp.as_dict().get("Supplement").unwrap().as_f64() as i32;
     if !cmap_csi.is_null() {
         /* NULL for accept any */
         if strcmp(registry, (*cmap_csi).registry) != 0

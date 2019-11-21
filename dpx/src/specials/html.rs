@@ -44,8 +44,8 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
-    pdf_link_obj, pdf_new_boolean, pdf_new_dict, pdf_new_name, pdf_new_null, pdf_new_number,
-    pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string_value, IntoObj,
+    pdf_link_obj, pdf_new_dict, pdf_new_name, pdf_new_null, pdf_new_string, pdf_obj, pdf_ref_obj,
+    pdf_release_obj, pdf_string_value, IntoObj, PushObj,
 };
 use crate::spc_warn;
 use libc::{atof, free, strcat, strcpy, strlen};
@@ -286,9 +286,9 @@ unsafe fn html_open_link(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_ht
         .as_dict_mut()
         .set("Subtype", pdf_new_name("Link"));
     let mut color = vec![];
-    color.push(pdf_new_number(0.0f64));
-    color.push(pdf_new_number(0.0f64));
-    color.push(pdf_new_number(1.0f64));
+    color.push_obj(0f64);
+    color.push_obj(0f64);
+    color.push_obj(1f64);
     (*(*sd).link_dict).as_dict_mut().set("C", color.into_obj());
     let url = fqurl((*sd).baseurl, name);
     if *url.offset(0) as i32 == '#' as i32 {
@@ -328,7 +328,7 @@ unsafe fn html_open_dest(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_ht
     array.push(page_ref);
     array.push(pdf_new_name("XYZ"));
     array.push(pdf_new_null());
-    array.push(pdf_new_number(cp.y + 24.0f64));
+    array.push_obj(cp.y + 24.);
     array.push(pdf_new_null());
     let error = pdf_doc_add_names(
         b"Dests\x00" as *const u8 as *const i8,
@@ -461,9 +461,9 @@ unsafe fn create_xgstate(a: f64, f_ais: i32) -> *mut pdf_obj
     let dict = pdf_new_dict();
     (*dict).as_dict_mut().set("Type", pdf_new_name("ExtGState"));
     if f_ais != 0 {
-        (*dict).as_dict_mut().set("AIS", pdf_new_boolean(1_i8));
+        (*dict).as_dict_mut().set("AIS", true);
     }
-    (*dict).as_dict_mut().set("ca", pdf_new_number(a));
+    (*dict).as_dict_mut().set("ca", a);
     dict
 }
 unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {

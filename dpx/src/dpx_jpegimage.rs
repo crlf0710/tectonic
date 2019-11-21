@@ -38,8 +38,8 @@ use super::dpx_pdfcolor::{
 };
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_new_name, pdf_new_number, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_get_version, pdf_new_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj,
+    PushObj, STREAM_COMPRESS,
 };
 use crate::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_read};
 use libc::{free, memcmp, memset};
@@ -264,8 +264,8 @@ pub unsafe fn jpeg_include_image(ximage: *mut pdf_ximage, handle: &mut InputHand
         warn!("Adobe CMYK JPEG: Inverted color assumed.");
         let mut decode = vec![];
         for _ in 0..j_info.num_components as u32 {
-            decode.push(pdf_new_number(1.0f64));
-            decode.push(pdf_new_number(0.0f64));
+            decode.push_obj(1_f64);
+            decode.push_obj(0_f64);
         }
         stream_dict.set("Decode", decode.into_obj());
     }

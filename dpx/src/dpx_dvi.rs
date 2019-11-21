@@ -77,7 +77,7 @@ use super::dpx_tt_table::{
 };
 use super::dpx_vf::{vf_close_all_fonts, vf_locate_font, vf_set_char, vf_set_verbose};
 use crate::dpx_dvicodes::*;
-use crate::dpx_pdfobj::{pdf_number_value, pdf_release_obj, pdf_string_value};
+use crate::dpx_pdfobj::{pdf_release_obj, pdf_string_value};
 use crate::dpx_truetype::sfnt_table_info;
 use crate::specials::{
     spc_exec_at_begin_page, spc_exec_at_end_page, spc_exec_special, spc_set_verbose,
@@ -2303,7 +2303,7 @@ unsafe fn scan_special(
                         b"length" => {
                             if let Some(obj) = buf.parse_pdf_number() {
                                 if (*obj).is_number() {
-                                    *key_bits = pdf_number_value(&*obj) as u32 as i32
+                                    *key_bits = (*obj).as_f64() as u32 as i32
                                 } else {
                                     error = -1i32
                                 }
@@ -2315,7 +2315,7 @@ unsafe fn scan_special(
                         b"perm" => {
                             if let Some(obj) = buf.parse_pdf_number() {
                                 if (*obj).is_number() {
-                                    *permission = pdf_number_value(&*obj) as u32 as i32
+                                    *permission = (*obj).as_f64() as u32 as i32
                                 } else {
                                     error = -1i32
                                 }
