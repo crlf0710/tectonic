@@ -35,7 +35,7 @@ use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
     pdf_boolean_value, pdf_close, pdf_concat_stream, pdf_deref_obj, pdf_file_get_catalog,
     pdf_file_get_version, pdf_get_version, pdf_import_object, pdf_new_name, pdf_new_number,
-    pdf_new_stream, pdf_obj, pdf_open, pdf_release_obj, IntoObj, STREAM_COMPRESS,
+    pdf_obj, pdf_open, pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 pub type __off_t = i64;
 pub type __off64_t = i64;
@@ -133,45 +133,44 @@ pub unsafe fn pdf_include_page(
         /*
          * Handle page content stream.
          */
-        let content_new: *mut pdf_obj;
-        if contents.is_null() {
+        let content_new = if contents.is_null() {
             /*
              * Empty page
              */
-            content_new = pdf_new_stream(0i32);
+            pdf_stream::new(0i32).into_obj()
         /* TODO: better don't include anything if the page is empty */
         } else if !contents.is_null() && (*contents).is_stream() {
             /*
              * We must import the stream because its dictionary
              * may contain indirect references.
              */
-            content_new = pdf_import_object(contents);
+            pdf_import_object(contents)
         } else if !contents.is_null() && (*contents).is_array() {
             /*
              * Concatenate all content streams.
              */
             let len = (*contents).as_array().len() as i32;
-            content_new = pdf_new_stream(STREAM_COMPRESS);
+            let mut content_new = pdf_stream::new(STREAM_COMPRESS);
             for idx in 0..len {
                 let content_seg: *mut pdf_obj =
                     pdf_deref_obj((*contents).as_array_mut().get_mut(idx));
                 if content_seg.is_null()
                     || !(*content_seg).is_stream()
-                    || pdf_concat_stream(content_new, content_seg) < 0
+                    || pdf_concat_stream(&mut content_new, (*content_seg).as_stream_mut()) < 0
                 {
                     pdf_release_obj(content_seg);
-                    pdf_release_obj(content_new);
                     pdf_release_obj(page);
                     error();
                     return -1;
                 }
                 pdf_release_obj(content_seg);
             }
+            content_new.into_obj()
         } else {
             pdf_release_obj(page);
             error();
             return -1;
-        }
+        };
 
         pdf_release_obj(contents);
         contents = content_new;

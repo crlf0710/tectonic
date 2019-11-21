@@ -45,8 +45,8 @@ use super::dpx_pdffont::{
 };
 use super::dpx_tfm::{tfm_get_design_size, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj,
-    pdf_ref_obj, pdf_release_obj, IntoObj, STREAM_COMPRESS,
+    pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_obj, pdf_ref_obj,
+    pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use libc::{fclose, fgetc, fopen, fread, free, memset};
@@ -240,13 +240,11 @@ unsafe fn pk_packed_num(np: *mut u32, dyn_f: i32, dp: *mut u8, pl: u32) -> u32 {
     *np = i;
     nmbr
 }
-unsafe fn send_out(rowptr: *mut u8, rowbytes: u32, stream: *mut pdf_obj) {
-    (*stream)
-        .as_stream_mut()
-        .add(rowptr as *mut libc::c_void, rowbytes as i32);
+unsafe fn send_out(rowptr: *mut u8, rowbytes: u32, stream: &mut pdf_stream) {
+    (*stream).add(rowptr as *mut libc::c_void, rowbytes as i32);
 }
 unsafe fn pk_decode_packed(
-    stream: *mut pdf_obj,
+    stream: &mut pdf_stream,
     wd: u32,
     ht: u32,
     dyn_f: i32,
@@ -350,7 +348,7 @@ unsafe fn pk_decode_packed(
     0i32
 }
 unsafe fn pk_decode_bitmap(
-    stream: *mut pdf_obj,
+    stream: &mut pdf_stream,
     wd: u32,
     ht: u32,
     dyn_f: i32,
@@ -490,7 +488,7 @@ unsafe fn create_pk_CharProc_stream(
     let lly = ((*pkh).bm_voff as u32).wrapping_sub((*pkh).bm_ht) as i32;
     let urx = (*pkh).bm_wd.wrapping_sub((*pkh).bm_hoff as u32) as i32;
     let ury = (*pkh).bm_voff;
-    let stream = pdf_new_stream(STREAM_COMPRESS); /* charproc */
+    let mut stream = pdf_stream::new(STREAM_COMPRESS); /* charproc */
     /*
      * The following line is a "metric" for the PDF reader:
      *
@@ -509,7 +507,7 @@ unsafe fn create_pk_CharProc_stream(
         urx,
         ury,
     ) as usize;
-    (*stream).as_stream_mut().add_slice(&work_buffer[..len]);
+    stream.add_slice(&work_buffer[..len]);
     /*
      * Acrobat dislike transformation [0 0 0 0 dx dy].
      * PDF Reference, 4th ed., p.147, says,
@@ -530,19 +528,19 @@ unsafe fn create_pk_CharProc_stream(
             llx,
             lly,
         ) as usize;
-        (*stream).as_stream_mut().add_slice(&work_buffer[..len]);
+        stream.add_slice(&work_buffer[..len]);
         len = sprintf(
             work_buffer.as_mut_ptr() as *mut i8,
             b"BI\n/W %u\n/H %u\n/IM true\n/BPC 1\nID \x00" as *const u8 as *const i8,
             (*pkh).bm_wd,
             (*pkh).bm_ht,
         ) as usize;
-        (*stream).as_stream_mut().add_slice(&work_buffer[..len]);
+        stream.add_slice(&work_buffer[..len]);
         /* Add bitmap data */
         if (*pkh).dyn_f == 14i32 {
             /* bitmap */
             pk_decode_bitmap(
-                stream,
+                &mut stream,
                 (*pkh).bm_wd,
                 (*pkh).bm_ht,
                 (*pkh).dyn_f,
@@ -552,7 +550,7 @@ unsafe fn create_pk_CharProc_stream(
             );
         } else {
             pk_decode_packed(
-                stream,
+                &mut stream,
                 (*pkh).bm_wd,
                 (*pkh).bm_ht,
                 (*pkh).dyn_f,
@@ -565,9 +563,9 @@ unsafe fn create_pk_CharProc_stream(
             work_buffer.as_mut_ptr() as *mut i8,
             b"\nEI\nQ\x00" as *const u8 as *const i8,
         ) as usize;
-        (*stream).as_stream_mut().add_slice(&work_buffer[..len]);
+        stream.add_slice(&work_buffer[..len]);
     }
-    stream
+    stream.into_obj()
 }
 
 pub unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {

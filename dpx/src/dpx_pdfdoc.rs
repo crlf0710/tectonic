@@ -66,9 +66,9 @@ use super::dpx_pdfximage::{
 use super::dpx_pngimage::check_for_png;
 use crate::dpx_pdfobj::{
     pdf_compare_reference, pdf_deref_obj, pdf_file, pdf_file_get_catalog, pdf_link_obj,
-    pdf_name_value, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string,
-    pdf_number_value, pdf_obj, pdf_obj_typeof, pdf_out_flush, pdf_out_init, pdf_ref_obj,
-    pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id, pdf_set_info, pdf_set_root,
+    pdf_name_value, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_string, pdf_number_value,
+    pdf_obj, pdf_obj_typeof, pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj,
+    pdf_remove_dict, pdf_set_encrypt, pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream,
     pdf_stream_length, pdf_string_length, pdf_string_value, IntoObj, PdfObjType, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
@@ -432,7 +432,7 @@ pub unsafe fn pdf_doc_set_bop_content(content: *const i8, length: u32) {
         (*p).pages.bop = ptr::null_mut()
     }
     if length > 0_u32 {
-        (*p).pages.bop = pdf_new_stream(STREAM_COMPRESS);
+        (*p).pages.bop = pdf_stream::new(STREAM_COMPRESS).into_obj();
         (*(*p).pages.bop)
             .as_stream_mut()
             .add(content as *const libc::c_void, length as i32);
@@ -448,7 +448,7 @@ pub unsafe fn pdf_doc_set_eop_content(content: *const i8, length: u32) {
         (*p).pages.eop = ptr::null_mut()
     }
     if length > 0_u32 {
-        (*p).pages.eop = pdf_new_stream(STREAM_COMPRESS);
+        (*p).pages.eop = pdf_stream::new(STREAM_COMPRESS).into_obj();
         (*(*p).pages.eop)
             .as_stream_mut()
             .add(content as *const libc::c_void, length as i32);
@@ -2235,7 +2235,7 @@ unsafe fn pdf_doc_new_page(p: *mut pdf_doc) {
         (*currentpage).page_ref = pdf_ref_obj((*currentpage).page_obj)
     }
     (*currentpage).background = ptr::null_mut();
-    (*currentpage).contents = pdf_new_stream(STREAM_COMPRESS);
+    (*currentpage).contents = pdf_stream::new(STREAM_COMPRESS).into_obj();
     (*currentpage).resources = pdf_new_dict();
     (*currentpage).annots = ptr::null_mut();
     (*currentpage).beads = ptr::null_mut();
@@ -2356,7 +2356,7 @@ unsafe fn doc_fill_page_background(p: &mut pdf_doc) {
     pdf_doc_get_mediabox(pdf_doc_current_page_number() as u32, &mut r);
     let currentpage = &mut *p.pages.entries.offset(p.pages.num_entries as isize);
     if currentpage.background.is_null() {
-        currentpage.background = pdf_new_stream(STREAM_COMPRESS)
+        currentpage.background = pdf_stream::new(STREAM_COMPRESS).into_obj()
     }
     let saved_content = currentpage.contents;
     currentpage.contents = currentpage.background;
@@ -2567,7 +2567,7 @@ pub unsafe fn pdf_doc_begin_grabbing(
     form.matrix = TMatrix::create_translation(-ref_x, -ref_y);
     let ref_xy = point2(ref_x, ref_y).to_vector();
     form.cropbox = cropbox.translate(ref_xy);
-    form.contents = pdf_new_stream(STREAM_COMPRESS);
+    form.contents = pdf_stream::new(STREAM_COMPRESS).into_obj();
     form.resources = pdf_new_dict();
     pdf_ximage_init_form_info(&mut info);
     info.matrix = TMatrix::create_translation(-ref_x, -ref_y);

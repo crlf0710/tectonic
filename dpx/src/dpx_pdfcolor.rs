@@ -28,8 +28,8 @@ use super::dpx_mem::{new, renew};
 use super::dpx_numbers::sget_unsigned_pair;
 use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_link_obj, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj,
-    pdf_ref_obj, pdf_release_obj, IntoObj, STREAM_COMPRESS,
+    pdf_get_version, pdf_link_obj, pdf_new_name, pdf_new_number, pdf_obj, pdf_ref_obj,
+    pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::mfree;
 use crate::shims::sprintf;
@@ -479,17 +479,12 @@ unsafe fn compare_iccbased(
     return -1i32; /* acsp */
 }
 
-pub unsafe fn iccp_check_colorspace(
-    colortype: i32,
-    profile: *const libc::c_void,
-    proflen: i32,
-) -> i32 {
-    let colorspace: iccSig;
-    if profile.is_null() || proflen < 128i32 {
+pub unsafe fn iccp_check_colorspace(colortype: i32, profile: &[u8]) -> i32 {
+    if profile.len() < 128 {
         return -1i32;
     }
-    let p = profile as *const u8;
-    colorspace = str2iccSig(p.offset(16) as *const libc::c_void);
+    let p = profile.as_ptr();
+    let colorspace = str2iccSig(p.offset(16) as *const libc::c_void);
     match colortype {
         3 | -3 => {
             if colorspace
@@ -517,14 +512,11 @@ pub unsafe fn iccp_check_colorspace(
     0i32
 }
 
-pub unsafe fn iccp_get_rendering_intent(
-    profile: *const libc::c_void,
-    proflen: i32,
-) -> *mut pdf_obj {
-    if profile.is_null() || proflen < 128i32 {
+pub unsafe fn iccp_get_rendering_intent(profile: &[u8]) -> *mut pdf_obj {
+    if profile.len() < 128 {
         return ptr::null_mut();
     }
-    let p = profile as *const u8;
+    let p = profile.as_ptr();
     let intent = (*p.offset(64) as i32) << 24i32
         | (*p.offset(65) as i32) << 16i32
         | (*p.offset(66) as i32) << 8i32
@@ -942,16 +934,18 @@ unsafe fn iccp_devClass_allowed(dev_class: i32) -> i32 {
     1i32
 }
 
-pub unsafe fn iccp_load_profile(
-    ident: *const i8,
-    profile: *const libc::c_void,
-    proflen: i32,
-) -> i32 {
+pub unsafe fn iccp_load_profile(ident: *const i8, profile: &[u8]) -> i32 {
     let mut cspc_id;
     let mut icch = iccHeader::default();
     let colorspace;
     iccp_init_iccHeader(&mut icch);
-    if iccp_unpack_header(&mut icch, profile, proflen, 1i32) < 0i32 {
+    if iccp_unpack_header(
+        &mut icch,
+        profile.as_ptr() as *const libc::c_void,
+        profile.len() as i32,
+        1i32,
+    ) < 0i32
+    {
         /* check size */
         warn!(
             "Invalid ICC profile header in \"{}\"",
@@ -993,7 +987,7 @@ pub unsafe fn iccp_load_profile(
         print_iccp_header(&mut icch, ptr::null_mut());
         return -1i32;
     }
-    let mut checksum = iccp_get_checksum(profile as *const u8, proflen as usize);
+    let mut checksum = iccp_get_checksum(profile.as_ptr(), profile.len());
     if memcmp(
         icch.ID.as_mut_ptr() as *const libc::c_void,
         NULLBYTES16.as_mut_ptr() as *const libc::c_void,
@@ -1031,7 +1025,7 @@ pub unsafe fn iccp_load_profile(
         print_iccp_header(&mut icch, checksum.as_mut_ptr());
     }
     let mut resource = vec![];
-    let stream = pdf_new_stream(STREAM_COMPRESS);
+    let stream = pdf_stream::new(STREAM_COMPRESS).into_obj();
     resource.push(pdf_new_name("ICCBased"));
     resource.push(pdf_ref_obj(stream));
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
@@ -1039,7 +1033,7 @@ pub unsafe fn iccp_load_profile(
         "N",
         pdf_new_number(get_num_components_iccbased(cdata) as f64),
     );
-    (*stream).as_stream_mut().add(profile, proflen);
+    (*stream).as_stream_mut().add_slice(profile);
     pdf_release_obj(stream);
     cspc_id = pdf_colorspace_defineresource(ident, 4i32, cdata, resource.into_obj());
     cspc_id

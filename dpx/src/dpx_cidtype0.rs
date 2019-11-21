@@ -77,8 +77,8 @@ use super::dpx_tt_table::{
 };
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string,
-    pdf_obj, pdf_ref_obj, pdf_release_obj, IntoObj, STREAM_COMPRESS,
+    pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_string, pdf_obj,
+    pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::dpx_truetype::sfnt_table_info;
 use crate::ttstub_input_read;
@@ -539,7 +539,7 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     /*
      * FontFile
      */
-    let fontfile = pdf_new_stream(STREAM_COMPRESS);
+    let fontfile = pdf_stream::new(STREAM_COMPRESS).into_obj();
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
     (*(*font).descriptor)
         .as_dict_mut()
@@ -670,11 +670,12 @@ unsafe fn CIDFont_type0_add_CIDSet(font: *mut CIDFont, used_chars: *mut i8, last
      * CIDSet:
      * Length of CIDSet stream is not clear. Must be 8192 bytes long?
      */
-    let cidset = pdf_new_stream(STREAM_COMPRESS);
-    (*cidset).as_stream_mut().add(
+    let mut cidset = pdf_stream::new(STREAM_COMPRESS);
+    cidset.add(
         used_chars as *const libc::c_void,
         last_cid as i32 / 8i32 + 1i32,
     );
+    let cidset = cidset.into_obj();
     (*(*font).descriptor)
         .as_dict_mut()
         .set("CIDSet", pdf_ref_obj(cidset));

@@ -53,8 +53,8 @@ use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
 use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load_font};
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, IntoObj, STREAM_COMPRESS,
+    pdf_new_name, pdf_new_number, pdf_new_string_from_slice, pdf_ref_obj, pdf_release_obj,
+    pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
@@ -507,7 +507,7 @@ unsafe fn add_metrics(
     fontdict.set("FirstChar", pdf_new_number(firstchar as f64));
     fontdict.set("LastChar", pdf_new_number(lastchar as f64));
 }
-unsafe fn write_fontfile(font: *mut pdf_font, cffont: &cff_font, pdfcharset: *mut pdf_obj) -> i32 {
+unsafe fn write_fontfile(font: *mut pdf_font, cffont: &cff_font, pdfcharset: &pdf_stream) -> i32 {
     let mut wbuf: [u8; 1024] = [0; 1024];
     let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
     let mut topdict = CffIndex::new(1);
@@ -641,7 +641,7 @@ unsafe fn write_fontfile(font: *mut pdf_font, cffont: &cff_font, pdfcharset: *mu
     topdict.pack(&mut stream_data[topdict_offset..topdict_offset + len]);
     /* Copyright and Trademark Notice ommited. */
     /* Flush Font File */
-    let fontfile = pdf_new_stream(STREAM_COMPRESS);
+    let fontfile = pdf_stream::new(STREAM_COMPRESS).into_obj();
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
     descriptor.set("FontFile3", pdf_ref_obj(fontfile));
     stream_dict.set("Subtype", pdf_new_name("Type1C"));
@@ -649,13 +649,7 @@ unsafe fn write_fontfile(font: *mut pdf_font, cffont: &cff_font, pdfcharset: *mu
         .as_stream_mut()
         .add_slice(&stream_data[..offset]);
     pdf_release_obj(fontfile);
-    descriptor.set(
-        "CharSet",
-        pdf_new_string(
-            pdf_stream_dataptr(&*pdfcharset),
-            pdf_stream_length(&*pdfcharset) as size_t,
-        ),
-    );
+    descriptor.set("CharSet", pdf_new_string_from_slice(&pdfcharset.content));
     offset as i32
 }
 
@@ -757,7 +751,7 @@ pub unsafe fn pdf_font_load_type1(font: *mut pdf_font) -> i32 {
     /* Create CFF encoding, charset, sort glyphs */
     let GIDMap =
         new((1024_u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32) as *mut u16; /* FIXME */
-    let pdfcharset = pdf_new_stream(0i32); /* With pseudo unique tag */
+    let mut pdfcharset = pdf_stream::new(0i32); /* With pseudo unique tag */
     cffont.encoding = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_encoding>() as u64) as u32)
         as *mut cff_encoding;
     (*cffont.encoding).format = 1i32 as u8;
@@ -860,10 +854,8 @@ pub unsafe fn pdf_font_load_type1(font: *mut pdf_font) -> i32 {
                             info!("/{}", CStr::from_ptr(glyph).display());
                         }
                         /* CharSet is actually string object. */
-                        (*pdfcharset).as_stream_mut().add_str("/");
-                        (*pdfcharset)
-                            .as_stream_mut()
-                            .add(glyph as *const libc::c_void, strlen(glyph) as i32);
+                        pdfcharset.add_str("/");
+                        pdfcharset.add(glyph as *const libc::c_void, strlen(glyph) as i32);
                     }
                 }
             }
@@ -1013,11 +1005,10 @@ pub unsafe fn pdf_font_load_type1(font: *mut pdf_font) -> i32 {
     cff_dict_update(*cffont.private.offset(0), cffont);
     cff_update_string(cffont);
     add_metrics(font, cffont, enc_vec, widths, num_glyphs as i32);
-    offset = write_fontfile(font, cffont, pdfcharset);
+    offset = write_fontfile(font, cffont, &pdfcharset);
     if verbose > 1i32 {
         info!("[{} glyphs][{} bytes]", num_glyphs, offset);
     }
-    pdf_release_obj(pdfcharset);
     cff_close(cffont);
     /* Cleanup */
     if encoding_id < 0i32 && !enc_vec.is_null() {

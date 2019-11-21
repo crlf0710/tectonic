@@ -36,8 +36,8 @@ use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string,
-    pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_set_predictor, IntoObj, STREAM_COMPRESS,
+    pdf_get_version, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_string, pdf_obj,
+    pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_stream_set_predictor, IntoObj, STREAM_COMPRESS,
 };
 use crate::ttstub_input_read;
 use libc::free;
@@ -185,7 +185,7 @@ pub unsafe fn png_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
     if yppm > 0_u32 {
         info.ydensity = 72.0f64 / 0.0254f64 / yppm as f64
     }
-    let stream = pdf_new_stream(STREAM_COMPRESS);
+    let stream = pdf_stream::new(STREAM_COMPRESS).into_obj();
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
     let stream_data_ptr = new((rowbytes.wrapping_mul(height) as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
@@ -330,14 +330,15 @@ pub unsafe fn png_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
                      * application programs that only want PDF document global XMP metadata
                      * and scan for that.
                      */
-                    let XMP_stream = pdf_new_stream(STREAM_COMPRESS);
-                    let XMP_stream_dict = (*XMP_stream).as_stream_mut().get_dict_mut();
+                    let mut XMP_stream = pdf_stream::new(STREAM_COMPRESS);
+                    let XMP_stream_dict = XMP_stream.get_dict_mut();
                     XMP_stream_dict.set("Type", pdf_new_name("Metadata"));
                     XMP_stream_dict.set("Subtype", pdf_new_name("XML"));
-                    (*XMP_stream).as_stream_mut().add(
+                    XMP_stream.add(
                         (*text_ptr.offset(i as isize)).text as *const libc::c_void,
                         (*text_ptr.offset(i as isize)).itxt_length as i32,
                     );
+                    let XMP_stream = XMP_stream.into_obj();
                     stream_dict.set("Metadata", pdf_ref_obj(XMP_stream));
                     pdf_release_obj(XMP_stream);
                     have_XMP = 1i32
@@ -571,22 +572,19 @@ unsafe fn create_cspace_ICCBased(png: &mut png_struct, png_info: &mut png_info) 
     {
         return ptr::null_mut();
     }
+    let profile = core::slice::from_raw_parts(profile, proflen as usize);
     let color_type = png_get_color_type(png, png_info);
     let colortype = if color_type as libc::c_int & 2i32 != 0 {
         -3i32
     } else {
         -1i32
     };
-    if iccp_check_colorspace(colortype, profile as *const libc::c_void, proflen as i32) < 0i32 {
+    if iccp_check_colorspace(colortype, profile) < 0i32 {
         ptr::null_mut() /* Manual page for libpng does not
                          * clarify whether profile data is inflated by libpng.
                          */
     } else {
-        let csp_id = iccp_load_profile(
-            name as *const i8,
-            profile as *const libc::c_void,
-            proflen as i32,
-        );
+        let csp_id = iccp_load_profile(name as *const i8, profile);
         if csp_id < 0i32 {
             ptr::null_mut()
         } else {
@@ -959,8 +957,8 @@ unsafe fn create_soft_mask(
         );
         return ptr::null_mut();
     }
-    let smask = pdf_new_stream(STREAM_COMPRESS);
-    let dict = (*smask).as_stream_mut().get_dict_mut();
+    let mut smask = pdf_stream::new(STREAM_COMPRESS);
+    let dict = smask.get_dict_mut();
     let smask_data_ptr = new((width.wrapping_mul(height) as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
         as *mut png_byte;
@@ -978,12 +976,12 @@ unsafe fn create_soft_mask(
             0xffi32
         }) as png_byte;
     }
-    (*smask).as_stream_mut().add(
+    smask.add(
         smask_data_ptr as *mut i8 as *const libc::c_void,
         width.wrapping_mul(height) as i32,
     );
     free(smask_data_ptr as *mut libc::c_void);
-    smask
+    smask.into_obj()
 }
 /* bitdepth is always 8 (16 is not supported) */
 unsafe fn strip_soft_mask(
@@ -1021,8 +1019,8 @@ unsafe fn strip_soft_mask(
             return ptr::null_mut();
         }
     }
-    let smask = pdf_new_stream(STREAM_COMPRESS);
-    let dict = (*smask).as_stream_mut().get_dict_mut();
+    let mut smask = pdf_stream::new(STREAM_COMPRESS);
+    let dict = smask.get_dict_mut();
     dict.set("Type", pdf_new_name("XObject"));
     dict.set("Subtype", pdf_new_name("Image"));
     dict.set("Width", pdf_new_number(width as f64));
@@ -1102,19 +1100,18 @@ unsafe fn strip_soft_mask(
         }
         _ => {
             warn!("You found a bug in pngimage.c!");
-            pdf_release_obj(smask);
             free(smask_data_ptr as *mut libc::c_void);
             return ptr::null_mut();
         }
     }
-    (*smask).as_stream_mut().add(
+    smask.add(
         smask_data_ptr as *const libc::c_void,
         ((bpc as i32 / 8i32) as u32)
             .wrapping_mul(width)
             .wrapping_mul(height) as i32,
     );
     free(smask_data_ptr as *mut libc::c_void);
-    smask
+    smask.into_obj()
 }
 /* Read image body */
 unsafe fn read_image_data(
