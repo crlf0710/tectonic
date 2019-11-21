@@ -356,10 +356,9 @@ pub unsafe fn jp2_include_image(mut ximage: *mut pdf_ximage, mut fp: *mut FILE) 
         if !(nb_read > 0i32) {
             break;
         }
-        (*stream).as_stream_mut().add(
-            work_buffer.as_mut_ptr() as *const libc::c_void,
-            nb_read,
-        );
+        (*stream)
+            .as_stream_mut()
+            .add(work_buffer.as_mut_ptr() as *const libc::c_void, nb_read);
     }
     pdf_ximage_set_image(ximage, &mut info, stream);
     0i32

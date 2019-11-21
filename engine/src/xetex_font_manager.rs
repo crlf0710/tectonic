@@ -15,8 +15,8 @@ pub mod imp;
 pub mod imp;
 
 use std::ffi::CString;
-use std::ptr::NonNull;
 use std::ptr;
+use std::ptr::NonNull;
 
 use crate::core_memory::xmalloc;
 
@@ -25,8 +25,8 @@ use crate::xetex_layout_interface::collection_types::*;
 #[cfg(target_os = "macos")]
 use crate::xetex_layout_interface::__CTFontDescriptor;
 
-use harfbuzz_sys::{hb_font_t, hb_face_t, hb_font_get_face, hb_ot_layout_get_size_params};
 use freetype::freetype_sys;
+use harfbuzz_sys::{hb_face_t, hb_font_get_face, hb_font_t, hb_ot_layout_get_size_params};
 
 #[allow(improper_ctypes)]
 extern "C" {
@@ -1044,8 +1044,8 @@ pub unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
     mut self_0: *mut XeTeXFontMgr,
     mut theFont: *mut XeTeXFontMgrFont,
 ) {
-    use crate::freetype_sys_patch::{FT_SFNT_HEAD, FT_SFNT_OS2, FT_SFNT_POST, TT_Header};
-    use freetype::freetype_sys::{TT_OS2, TT_Postscript};
+    use crate::freetype_sys_patch::{TT_Header, FT_SFNT_HEAD, FT_SFNT_OS2, FT_SFNT_POST};
+    use freetype::freetype_sys::{TT_Postscript, TT_OS2};
     let mut font: XeTeXFont = createFont((*theFont).fontRef, 655360i32);
     let mut fontInst: *mut XeTeXFontInst = font as *mut XeTeXFontInst;
     if !font.is_null() {

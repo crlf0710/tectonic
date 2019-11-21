@@ -37,11 +37,10 @@ use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_new_dict,
-    pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_set_predictor, STREAM_COMPRESS, IntoObj,
+    pdf_get_version, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string,
+    pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_set_predictor, IntoObj, STREAM_COMPRESS,
 };
-use crate::{ttstub_input_read};
+use crate::ttstub_input_read;
 use libc::free;
 
 use std::io::{Seek, SeekFrom};
@@ -587,8 +586,8 @@ unsafe fn create_cspace_ICCBased(
     };
     if iccp_check_colorspace(colortype, profile as *const libc::c_void, proflen as i32) < 0i32 {
         ptr::null_mut() /* Manual page for libpng does not
-                           * clarify whether profile data is inflated by libpng.
-                           */
+                         * clarify whether profile data is inflated by libpng.
+                         */
     } else {
         let csp_id = iccp_load_profile(
             name as *const i8,
@@ -765,59 +764,63 @@ unsafe fn make_param_Cal(
     let cal_param = pdf_new_dict();
     /* White point is always required. */
     let mut white_point = vec![];
-    white_point.push(
-        pdf_new_number((Xw / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-    );
-    white_point.push(
-        pdf_new_number((Yw / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-    );
-    white_point.push(
-        pdf_new_number((Zw / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-    );
-    (*cal_param).as_dict_mut().set("WhitePoint", white_point.into_obj());
+    white_point.push(pdf_new_number(
+        (Xw / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
+    ));
+    white_point.push(pdf_new_number(
+        (Yw / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
+    ));
+    white_point.push(pdf_new_number(
+        (Zw / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
+    ));
+    (*cal_param)
+        .as_dict_mut()
+        .set("WhitePoint", white_point.into_obj());
     /* Matrix - default: Identity */
     if color_type as i32 & 2i32 != 0 {
         if G != 1.0f64 {
             let mut dev_gamma = vec![]; /* Gray */
-            dev_gamma.push(
-                pdf_new_number((G / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-            );
-            dev_gamma.push(
-                pdf_new_number((G / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-            );
-            dev_gamma.push(
-                pdf_new_number((G / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-            );
-            (*cal_param).as_dict_mut().set("Gamma", dev_gamma.into_obj());
+            dev_gamma.push(pdf_new_number(
+                (G / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
+            ));
+            dev_gamma.push(pdf_new_number(
+                (G / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
+            ));
+            dev_gamma.push(pdf_new_number(
+                (G / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
+            ));
+            (*cal_param)
+                .as_dict_mut()
+                .set("Gamma", dev_gamma.into_obj());
         }
         let mut matrix = vec![];
-        matrix.push(
-            pdf_new_number((Xr / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-        );
-        matrix.push(
-            pdf_new_number((Yr / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-        );
-        matrix.push(
-            pdf_new_number((Zr / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-        );
-        matrix.push(
-            pdf_new_number((Xg / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-        );
-        matrix.push(
-            pdf_new_number((Yg / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-        );
-        matrix.push(
-            pdf_new_number((Zg / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-        );
-        matrix.push(
-            pdf_new_number((Xb / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-        );
-        matrix.push(
-            pdf_new_number((Yb / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-        );
-        matrix.push(
-            pdf_new_number((Zb / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
-        );
+        matrix.push(pdf_new_number(
+            (Xr / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
+        ));
+        matrix.push(pdf_new_number(
+            (Yr / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
+        ));
+        matrix.push(pdf_new_number(
+            (Zr / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
+        ));
+        matrix.push(pdf_new_number(
+            (Xg / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
+        ));
+        matrix.push(pdf_new_number(
+            (Yg / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
+        ));
+        matrix.push(pdf_new_number(
+            (Zg / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
+        ));
+        matrix.push(pdf_new_number(
+            (Xb / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
+        ));
+        matrix.push(pdf_new_number(
+            (Yb / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
+        ));
+        matrix.push(pdf_new_number(
+            (Zb / 0.00001f64 + 0.5f64).floor() * 0.00001f64,
+        ));
         (*cal_param).as_dict_mut().set("Matrix", matrix.into_obj());
     } else if G != 1.0f64 {
         (*cal_param).as_dict_mut().set(

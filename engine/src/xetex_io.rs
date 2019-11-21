@@ -13,9 +13,9 @@ use crate::stub_errno as errno;
 use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_ini::{
-    buf_size, buffer, cur_area, cur_chr, cur_ext, cur_name, cur_val, first, last,
-    max_buf_stack, name_in_progress, name_length, name_length16, name_of_file, name_of_file16,
-    read_file, read_open, stop_at_space,
+    buf_size, buffer, cur_area, cur_chr, cur_ext, cur_name, cur_val, first, last, max_buf_stack,
+    name_in_progress, name_length, name_length16, name_of_file, name_of_file16, read_file,
+    read_open, stop_at_space,
 };
 use crate::xetex_output::{print_int, print_nl};
 use crate::xetex_texmfmp::gettexstring;
@@ -233,7 +233,9 @@ pub struct UFILE {
 #[no_mangle]
 pub static mut name_of_input_file: *mut i8 = ptr::null_mut();
 #[no_mangle]
-pub unsafe extern "C" fn tt_xetex_open_input(mut filefmt: TTInputFormat) -> Option<InputHandleWrapper> {
+pub unsafe extern "C" fn tt_xetex_open_input(
+    mut filefmt: TTInputFormat,
+) -> Option<InputHandleWrapper> {
     let handle = if filefmt == TTInputFormat::TECTONIC_PRIMARY {
         ttstub_input_open_primary()
     } else {
@@ -329,7 +331,7 @@ pub unsafe extern "C" fn u_open_in(
     (**f).handle = handle;
     if mode == 0i32 {
         /* sniff encoding form */
-        let handle =  (**f).handle.as_mut().unwrap();
+        let handle = (**f).handle.as_mut().unwrap();
         B1 = ttstub_input_getc(handle);
         B2 = ttstub_input_getc(handle);
         if B1 == 0xfei32 && B2 == 0xffi32 {

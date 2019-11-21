@@ -23,13 +23,13 @@
     unused_mut
 )]
 
-use crate::SkipBlank;
 use super::util::spc_util_read_colorspec;
 use super::{spc_arg, spc_env, SpcHandler};
 use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_pdfcolor::{pdf_color_clear_stack, pdf_color_pop, pdf_color_push, pdf_color_set};
 use crate::dpx_pdfdoc::pdf_doc_set_bgcolor;
 use crate::spc_warn;
+use crate::SkipBlank;
 
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -105,9 +105,10 @@ pub unsafe fn spc_color_setup_handler(
         b"background" => {
             (*ap).command = Some(b"background");
             (*sph).exec = Some(spc_handler_background);
-        },
+        }
         b"color" => {
-            /* color */ /* cmyk, rgb, ... */
+            /* color */
+ /* cmyk, rgb, ... */
             let mut p = &(*ap).cur[..];
             if let Some(q) = p.parse_c_ident() {
                 match q.to_bytes() {
@@ -115,12 +116,12 @@ pub unsafe fn spc_color_setup_handler(
                         (*ap).command = Some(b"push");
                         (*sph).exec = Some(spc_handler_color_push);
                         (*ap).cur = p
-                    },
+                    }
                     b"pop" => {
                         (*ap).command = Some(b"pop");
                         (*sph).exec = Some(spc_handler_color_pop);
                         (*ap).cur = p
-                    },
+                    }
                     _ => {
                         (*ap).command = Some(b"");
                         (*sph).exec = Some(spc_handler_color_default)
@@ -129,7 +130,7 @@ pub unsafe fn spc_color_setup_handler(
             } else {
                 return -1i32;
             }
-        },
+        }
         _ => {
             spc_warn!(spe, "Not color/background special?");
             return -1i32;

@@ -7,8 +7,8 @@
          unused_assignments,
          unused_mut)]
 
-use harfbuzz_sys::hb_font_t;
 use freetype::freetype_sys;
+use harfbuzz_sys::hb_font_t;
 use std::ptr;
 
 extern crate libc;
@@ -324,13 +324,7 @@ pub unsafe extern "C" fn XeTeXFontInst_Mac_ctor(
     mut pointSize: libc::c_float,
     mut status: *mut libc::c_int,
 ) {
-    XeTeXFontInst_base_ctor(
-        &mut (*self_0).super_,
-        ptr::null(),
-        0i32,
-        pointSize,
-        status,
-    );
+    XeTeXFontInst_base_ctor(&mut (*self_0).super_, ptr::null(), 0i32, pointSize, status);
     (*self_0).super_.m_subdtor =
         Some(XeTeXFontInst_Mac_dtor as unsafe extern "C" fn(_: *mut XeTeXFontInst) -> ());
     (*self_0).m_descriptor = descriptor;

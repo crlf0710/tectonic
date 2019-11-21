@@ -1,4 +1,4 @@
-use harfbuzz_sys::{hb_ot_math_glyph_part_t, hb_tag_t, hb_feature_t};
+use harfbuzz_sys::{hb_feature_t, hb_ot_math_glyph_part_t, hb_tag_t};
 
 pub type XeTeXLayoutEngine = *mut XeTeXLayoutEngine_rec;
 /// PlatformFontRef matches C++

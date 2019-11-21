@@ -32,12 +32,11 @@ use tectonic_bridge::ttstub_input_close;
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::{tt_get_unsigned_pair, tt_get_unsigned_quad};
 use crate::dpx_pdfobj::{
-    pdf_new_number, pdf_new_stream, pdf_obj, pdf_release_obj,
-    STREAM_COMPRESS,
+    pdf_new_number, pdf_new_stream, pdf_obj, pdf_release_obj, STREAM_COMPRESS,
 };
 use crate::dpx_truetype::SfntTableInfo;
 use crate::mfree;
-use crate::{ttstub_input_read};
+use crate::ttstub_input_read;
 use libc::{free, memcpy};
 
 use std::io::{Seek, SeekFrom};
@@ -105,7 +104,9 @@ pub unsafe fn dfont_open(mut handle: InputHandleWrapper, mut index: i32) -> *mut
         new((1_u32 as u64).wrapping_mul(::std::mem::size_of::<sfnt>() as u64) as u32) as *mut sfnt;
     let rdata_pos = tt_get_unsigned_quad(&mut handle);
     let map_pos = tt_get_unsigned_quad(&mut handle);
-    handle.seek(SeekFrom::Start((map_pos + 0x18) as u64)).unwrap();
+    handle
+        .seek(SeekFrom::Start((map_pos + 0x18) as u64))
+        .unwrap();
     let tags_pos = map_pos.wrapping_add(tt_get_unsigned_pair(&mut handle) as u32);
     handle.seek(SeekFrom::Start(tags_pos as u64)).unwrap();
     let tags_num = tt_get_unsigned_pair(&mut handle);
@@ -228,7 +229,6 @@ unsafe fn find_table_index(td: Option<&sfnt_table_directory>, tag: &[u8; 4]) -> 
         .unwrap_or(-1)
 }
 
-
 pub unsafe fn sfnt_set_table(
     mut sfont: *mut sfnt,
     mut tag: &[u8; 4],
@@ -283,7 +283,10 @@ pub unsafe fn sfnt_locate_table(mut sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
     if offset == 0_u32 {
         panic!("sfnt: table not found...");
     }
-    (*sfont).handle.seek(SeekFrom::Start(offset as u64)).unwrap();
+    (*sfont)
+        .handle
+        .seek(SeekFrom::Start(offset as u64))
+        .unwrap();
     offset
 }
 
@@ -325,10 +328,7 @@ pub unsafe fn sfnt_read_table_directory(mut sfont: *mut sfnt, mut offset: u32) -
     0i32
 }
 
-pub unsafe fn sfnt_require_table(
-    sfont: &mut sfnt,
-    table: &SfntTableInfo,
-) -> Result<(), ()> {
+pub unsafe fn sfnt_require_table(sfont: &mut sfnt, table: &SfntTableInfo) -> Result<(), ()> {
     let mut td = (*sfont).directory.as_mut().unwrap();
     let idx = find_table_index(Some(td), table.name());
     if idx < 0 {
@@ -429,7 +429,9 @@ pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj 
         if *(*td).flags.offset(i as isize) as i32 & 1i32 << 0i32 != 0 {
             if offset % 4i32 != 0i32 {
                 length = 4i32 - offset % 4i32;
-                (*stream).as_stream_mut().add_slice(&padbytes[..length as usize]);
+                (*stream)
+                    .as_stream_mut()
+                    .add_slice(&padbytes[..length as usize]);
                 offset += length
             }
             if (*(*td).tables.offset(i as isize)).data.is_null() {
@@ -438,7 +440,12 @@ pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj 
                     panic!("Font file not opened or already closed...");
                 }*/
                 length = (*(*td).tables.offset(i as isize)).length as i32;
-                (*sfont).handle.seek(SeekFrom::Start((*(*td).tables.offset(i as isize)).offset as u64)).unwrap();
+                (*sfont)
+                    .handle
+                    .seek(SeekFrom::Start(
+                        (*(*td).tables.offset(i as isize)).offset as u64,
+                    ))
+                    .unwrap();
                 while length > 0i32 {
                     let nb_read = ttstub_input_read(
                         (*sfont).handle.0.as_ptr(),
@@ -450,7 +457,9 @@ pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj 
                         panic!("Reading file failed...");
                     } else {
                         if nb_read > 0i32 {
-                            (*stream).as_stream_mut().add_slice(&wbuf[..nb_read as usize]);
+                            (*stream)
+                                .as_stream_mut()
+                                .add_slice(&wbuf[..nb_read as usize]);
                         }
                     }
                     length -= nb_read

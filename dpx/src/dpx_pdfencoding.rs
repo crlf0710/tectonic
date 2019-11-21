@@ -27,10 +27,10 @@
     unused_mut
 )]
 
-use std::io::Read;
 use crate::info;
 use crate::DisplayExt;
 use std::ffi::CStr;
+use std::io::Read;
 use std::ptr;
 
 use super::dpx_agl::{agl_lookup_list, agl_sput_UTF16BE};
@@ -44,9 +44,8 @@ use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_get_version,
-    pdf_link_obj, pdf_name_value, pdf_new_dict, pdf_new_number, pdf_obj,
-    pdf_release_obj, IntoObj,
+    pdf_copy_name, pdf_get_version, pdf_link_obj, pdf_name_value, pdf_new_dict, pdf_new_number,
+    pdf_obj, pdf_release_obj, IntoObj,
 };
 use crate::dpx_pdfparse::{ParsePdfObj, SkipWhite};
 use crate::mfree;
@@ -127,7 +126,9 @@ unsafe fn create_encoding_resource(
     if !differences.is_null() {
         let mut resource = pdf_new_dict();
         if !baseenc.is_null() {
-            (*resource).as_dict_mut().set("BaseEncoding", pdf_link_obj((*baseenc).resource));
+            (*resource)
+                .as_dict_mut()
+                .set("BaseEncoding", pdf_link_obj((*baseenc).resource));
         }
         (*resource).as_dict_mut().set("Differences", differences);
         return resource;
@@ -270,8 +271,10 @@ unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
     let mut handle = handle.unwrap();
     let fsize = ttstub_input_get_size(&mut handle) as usize;
     let mut wbuf_0 = vec![0_u8; fsize];
-    handle.read(&mut wbuf_0[..])
-        .expect(&format!("error reading {}", CStr::from_ptr(filename).display()));
+    handle.read(&mut wbuf_0[..]).expect(&format!(
+        "error reading {}",
+        CStr::from_ptr(filename).display()
+    ));
     ttstub_input_close(handle);
     let mut p = &wbuf_0[..fsize];
     p.skip_white();
@@ -295,7 +298,8 @@ unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
     }
     let encoding_array = encoding_array.unwrap();
     for code in 0..256 {
-        enc_vec[code as usize] = pdf_name_value((*encoding_array).as_array().get(code).unwrap()).as_ptr();
+        enc_vec[code as usize] =
+            pdf_name_value((*encoding_array).as_array().get(code).unwrap()).as_ptr();
     }
     let enc_id = pdf_encoding_new_encoding(
         if let Some(enc_name) = enc_name {
@@ -321,10 +325,10 @@ unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
     enc_id
 }
 static mut enc_cache: C2RustUnnamed = C2RustUnnamed {
-        count: 0i32,
-        capacity: 0i32,
-        encodings: ptr::null_mut(),
-    };
+    count: 0i32,
+    capacity: 0i32,
+    encodings: ptr::null_mut(),
+};
 
 pub unsafe fn pdf_init_encodings() {
     enc_cache.count = 0i32;
@@ -603,7 +607,10 @@ pub unsafe fn pdf_create_ToUnicode_CMap(
     assert!(!enc_name.is_null() && !enc_vec.is_null());
 
     let cmap = CMap_new();
-    CMap_set_name(cmap, &format!("{}-UTF16", CStr::from_ptr(enc_name).display()));
+    CMap_set_name(
+        cmap,
+        &format!("{}-UTF16", CStr::from_ptr(enc_name).display()),
+    );
     CMap_set_type(cmap, 2i32);
     CMap_set_wmode(cmap, 0i32);
     CMap_set_CIDSysInfo(cmap, &mut CSI_UNICODE);

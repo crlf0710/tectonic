@@ -41,7 +41,6 @@ use crate::TTInputFormat;
 use bridge::InputHandleWrapper;
 /* quasi-hack to get the primary input */
 
-
 pub static mut keep_cache: i32 = 0i32;
 
 static mut _SBUF: [u8; 128] = [0; 128];
@@ -87,7 +86,7 @@ unsafe fn check_stream_is_type1(handle: &mut InputHandleWrapper) -> bool {
     if p[0] != 0x80 || p[1] >= 0x80 || p[1] > 3 {
         return false;
     }
-    if &p[6..20] == b"%!PS-"  || &p[6..17] == b"%!FontType1" {
+    if &p[6..20] == b"%!PS-" || &p[6..17] == b"%!FontType1" {
         return true;
     }
     if &p[6..10] == b"%!PS" {
@@ -156,7 +155,7 @@ pub unsafe fn dpx_open_type1_file(mut filename: *const i8) -> Option<InputHandle
             } else {
                 Some(handle)
             }
-        },
+        }
         None => None,
     }
 }
@@ -170,7 +169,7 @@ pub unsafe fn dpx_open_truetype_file(mut filename: *const i8) -> Option<InputHan
             } else {
                 Some(handle)
             }
-        },
+        }
         None => None,
     }
 }
@@ -187,7 +186,7 @@ pub unsafe fn dpx_open_opentype_file(mut filename: *const i8) -> Option<InputHan
             } else {
                 Some(handle)
             }
-        },
+        }
         None => None,
     }
 }
@@ -223,11 +222,10 @@ pub unsafe fn dpx_open_dfont_file(mut filename: *const i8) -> Option<InputHandle
             } else {
                 Some(handle)
             }
-        },
+        }
         None => None,
     }
 }
-
 
 pub unsafe fn dpx_delete_old_cache(mut life: i32) {
     /* This used to delete files in tmpdir, but that code was ripped out since

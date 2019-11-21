@@ -178,8 +178,9 @@ fn stem_compare(s1: &t1_stem, s2: &t1_stem) -> Ordering {
     // the order of comparing : dir, pos, del
     if s1.dir == s2.dir {
         s1.pos
-            .partial_cmp(&s2.pos).unwrap()
-            .then_with(||s1.del.partial_cmp(&s2.del).unwrap())
+            .partial_cmp(&s2.pos)
+            .unwrap()
+            .then_with(|| s1.del.partial_cmp(&s2.del).unwrap())
     } else if s1.dir == 0 {
         Ordering::Less
     } else {

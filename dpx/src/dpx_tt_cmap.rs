@@ -219,8 +219,7 @@ unsafe fn read_cmap2(mut sfont: *mut sfnt, mut len: u32) -> *mut cmap2 {
         (*(*map).subHeaders.offset(i as isize)).firstCode = tt_get_unsigned_pair(handle);
         (*(*map).subHeaders.offset(i as isize)).entryCount = tt_get_unsigned_pair(handle);
         (*(*map).subHeaders.offset(i as isize)).idDelta = tt_get_signed_pair(handle);
-        (*(*map).subHeaders.offset(i as isize)).idRangeOffset =
-            tt_get_unsigned_pair(handle);
+        (*(*map).subHeaders.offset(i as isize)).idRangeOffset = tt_get_unsigned_pair(handle);
         /* It makes things easier to let the offset starts from
          * the beginning of glyphIndexArray.
          */
@@ -467,8 +466,7 @@ pub unsafe fn tt_cmap_read(
             tt_get_unsigned_quad(handle);
             i += 1;
         } else {
-            offset =
-                (offset as u32).wrapping_add(tt_get_unsigned_quad(handle)) as u32 as u32;
+            offset = (offset as u32).wrapping_add(tt_get_unsigned_quad(handle)) as u32 as u32;
             break;
         }
     }
@@ -727,7 +725,8 @@ unsafe fn handle_CIDFont(
     if (num_glyphs as i32) < 1i32 {
         panic!("No glyph contained in this font...");
     }
-    let cffont = cff_open(&mut (*sfont).handle, offset, 0i32); /* CID... */ // TODO: use link
+    let cffont = cff_open(&mut (*sfont).handle, offset, 0i32); /* CID... */
+ // TODO: use link
     if cffont.is_null() {
         panic!("Could not open CFF font...");
     }
@@ -1220,25 +1219,25 @@ unsafe fn create_ToUnicode_cmap(
 }
 static mut cmap_plat_encs: [cmap_plat_enc_rec; 5] = [
     cmap_plat_enc_rec {
-            platform: 3_i16,
-            encoding: 10_i16,
-        },
+        platform: 3_i16,
+        encoding: 10_i16,
+    },
     cmap_plat_enc_rec {
-            platform: 0_i16,
-            encoding: 3_i16,
-        },
+        platform: 0_i16,
+        encoding: 3_i16,
+    },
     cmap_plat_enc_rec {
-            platform: 0_i16,
-            encoding: 0_i16,
-        },
+        platform: 0_i16,
+        encoding: 0_i16,
+    },
     cmap_plat_enc_rec {
-            platform: 3_i16,
-            encoding: 1_i16,
-        },
+        platform: 3_i16,
+        encoding: 1_i16,
+    },
     cmap_plat_enc_rec {
-            platform: 0_i16,
-            encoding: 1_i16,
-        },
+        platform: 0_i16,
+        encoding: 1_i16,
+    },
 ];
 
 pub unsafe fn otf_create_ToUnicode_stream(
@@ -1287,9 +1286,9 @@ pub unsafe fn otf_create_ToUnicode_stream(
             CStr::from_ptr(font_name).display()
         );
     }
-    let sfont = if let Some(handle) = dpx_open_truetype_file(font_name).or_else(||
-        dpx_open_opentype_file(font_name)
-    ) {
+    let sfont = if let Some(handle) =
+        dpx_open_truetype_file(font_name).or_else(|| dpx_open_opentype_file(font_name))
+    {
         sfnt_open(handle)
     } else if let Some(handle) = dpx_open_dfont_file(font_name) {
         dfont_open(handle, ttc_index)
@@ -1447,10 +1446,10 @@ pub unsafe fn otf_load_Unicode_CMap(
     let mut gsub_vert;
     let gsub_list;
     let mut csi: CIDSysInfo = CIDSysInfo {
-            registry: ptr::null_mut(),
-            ordering: ptr::null_mut(),
-            supplement: 0i32,
-        };
+        registry: ptr::null_mut(),
+        ordering: ptr::null_mut(),
+        supplement: 0i32,
+    };
     let mut GIDToCIDMap: *mut u8 = ptr::null_mut();
     if map_name.is_null() {
         return -1i32;
@@ -1473,7 +1472,7 @@ pub unsafe fn otf_load_Unicode_CMap(
         sfnt_open(handle.unwrap())
     };
 
-    let map_name =  CStr::from_ptr(map_name).to_string_lossy().to_string();
+    let map_name = CStr::from_ptr(map_name).to_string_lossy().to_string();
 
     if sfont.is_null() {
         panic!(
@@ -1491,10 +1490,7 @@ pub unsafe fn otf_load_Unicode_CMap(
         1 | 4 => offset = 0_u32,
         256 => offset = (*sfont).offset,
         _ => {
-            panic!(
-                "Not a OpenType/TrueType/TTC font?: {}",
-                map_name,
-            );
+            panic!("Not a OpenType/TrueType/TTC font?: {}", map_name,);
         }
     }
     if sfnt_read_table_directory(sfont, offset) < 0i32 {
@@ -1509,9 +1505,19 @@ pub unsafe fn otf_load_Unicode_CMap(
 
     if !otl_tags.is_null() {
         cmap_name = if wmode != 0 {
-            format!("{},{:03},{}-UCS4-V", map_name, ttc_index, CStr::from_ptr(otl_tags).to_string_lossy())
+            format!(
+                "{},{:03},{}-UCS4-V",
+                map_name,
+                ttc_index,
+                CStr::from_ptr(otl_tags).to_string_lossy()
+            )
         } else {
-            format!("{},{:03},{}-UCS4-H", map_name, ttc_index, CStr::from_ptr(otl_tags).to_string_lossy())
+            format!(
+                "{},{:03},{}-UCS4-H",
+                map_name,
+                ttc_index,
+                CStr::from_ptr(otl_tags).to_string_lossy()
+            )
         };
         /* tounicode_add here is later refered by otf_create_ToUnicode_stream()
          * for finding additional CID to Unicode mapping entries required by

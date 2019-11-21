@@ -27,9 +27,8 @@ use super::dpx_mem::{new, renew};
 use super::dpx_numbers::sget_unsigned_pair;
 use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_link_obj, IntoObj,
-    pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    STREAM_COMPRESS,
+    pdf_get_version, pdf_link_obj, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj,
+    pdf_ref_obj, pdf_release_obj, IntoObj, STREAM_COMPRESS,
 };
 use crate::mfree;
 use crate::shims::sprintf;
@@ -39,8 +38,8 @@ use md5::{Digest, Md5};
 use std::error::Error;
 use std::ffi::{CStr, CString};
 use std::fmt;
-use std::slice::from_raw_parts;
 use std::ptr;
+use std::slice::from_raw_parts;
 
 #[derive(Debug)]
 pub enum PdfColorError {
@@ -303,12 +302,11 @@ pub unsafe fn pdf_color_set_verbose(mut level: i32) {
     VERBOSE = level;
 }
 
-static mut COLOR_STACK: ColorStack =ColorStack {
+static mut COLOR_STACK: ColorStack = ColorStack {
     current: 0,
     stroke: [BLACK; 128],
     fill: [BLACK; 128],
 };
-
 
 pub unsafe fn pdf_color_clear_stack() {
     if COLOR_STACK.current > 0 {
@@ -1046,10 +1044,10 @@ pub unsafe fn iccp_load_profile(
     cspc_id
 }
 static mut CSPC_CACHE: CspcCache = CspcCache {
-        count: 0_u32,
-        capacity: 0_u32,
-        colorspaces: std::ptr::null_mut(),
-    };
+    count: 0_u32,
+    capacity: 0_u32,
+    colorspaces: std::ptr::null_mut(),
+};
 unsafe fn pdf_colorspace_findresource(
     mut ident: *const i8,
     mut type_0: i32,

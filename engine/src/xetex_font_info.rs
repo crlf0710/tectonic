@@ -7,34 +7,30 @@
          unused_mut)]
 
 use crate::core_memory::xmalloc;
-use harfbuzz_sys::{hb_font_funcs_t, hb_destroy_func_t, hb_font_t, hb_codepoint_t,
-    hb_position_t, hb_bool_t, hb_font_destroy, hb_glyph_extents_t, hb_font_funcs_create,
-    hb_font_funcs_set_glyph_h_advance_func, hb_font_funcs_set_glyph_v_advance_func,
-    hb_font_funcs_set_glyph_h_origin_func, hb_font_funcs_set_glyph_v_origin_func,
+use harfbuzz_sys::{
+    hb_blob_create, hb_blob_t, hb_bool_t, hb_codepoint_t, hb_destroy_func_t,
+    hb_face_create_for_tables, hb_face_destroy, hb_face_set_index, hb_face_set_upem, hb_face_t,
+    hb_font_create, hb_font_destroy, hb_font_funcs_create,
     hb_font_funcs_set_glyph_contour_point_func, hb_font_funcs_set_glyph_extents_func,
-    hb_blob_create, HB_MEMORY_MODE_WRITABLE, hb_face_t, hb_tag_t, hb_blob_t,
-    hb_font_funcs_set_glyph_name_func, hb_face_create_for_tables, hb_face_set_index,
-    hb_face_set_upem, hb_font_create, hb_face_destroy, hb_font_set_funcs,
-    hb_font_set_scale, hb_font_set_ppem};
-
-use freetype::freetype_sys::{FT_Byte, FT_UInt, FT_Long, FT_ULong, FT_Int32, FT_Pointer, FT_Error, FT_Fixed, 
-    FT_Library, FT_Face, FT_Glyph, FT_String, FT_Parameter, FT_Vector, FT_Sfnt_Tag,
-    FT_BBox};
-use freetype::freetype_sys::{
-    FT_Init_FreeType, 
-    FT_New_Memory_Face, FT_Attach_Stream, 
-    FT_Get_Char_Index, FT_Get_First_Char, FT_Get_Next_Char, 
-    FT_Load_Glyph, FT_Get_Glyph, FT_Get_Glyph_Name, FT_Glyph_Get_CBox, FT_Done_Glyph,
-    FT_Get_Sfnt_Table,
-    FT_Get_Kerning,
-    FT_Get_Name_Index,
-    FT_Done_Face, 
+    hb_font_funcs_set_glyph_h_advance_func, hb_font_funcs_set_glyph_h_origin_func,
+    hb_font_funcs_set_glyph_name_func, hb_font_funcs_set_glyph_v_advance_func,
+    hb_font_funcs_set_glyph_v_origin_func, hb_font_funcs_t, hb_font_set_funcs, hb_font_set_ppem,
+    hb_font_set_scale, hb_font_t, hb_glyph_extents_t, hb_position_t, hb_tag_t,
+    HB_MEMORY_MODE_WRITABLE,
 };
+
 use crate::freetype_sys_patch::{FT_Face_GetCharVariantIndex, FT_Get_Advance, FT_Load_Sfnt_Table};
-
-use crate::{
-    ttstub_input_close, ttstub_input_get_size, ttstub_input_read, ttstub_input_open, 
+use freetype::freetype_sys::{
+    FT_Attach_Stream, FT_Done_Face, FT_Done_Glyph, FT_Get_Char_Index, FT_Get_First_Char,
+    FT_Get_Glyph, FT_Get_Glyph_Name, FT_Get_Kerning, FT_Get_Name_Index, FT_Get_Next_Char,
+    FT_Get_Sfnt_Table, FT_Glyph_Get_CBox, FT_Init_FreeType, FT_Load_Glyph, FT_New_Memory_Face,
 };
+use freetype::freetype_sys::{
+    FT_BBox, FT_Byte, FT_Error, FT_Face, FT_Fixed, FT_Glyph, FT_Int32, FT_Library, FT_Long,
+    FT_Parameter, FT_Pointer, FT_Sfnt_Tag, FT_String, FT_UInt, FT_ULong, FT_Vector,
+};
+
+use crate::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub_input_read};
 
 use std::ptr;
 
@@ -100,7 +96,6 @@ pub type int32_t = i32;
 pub type uint16_t = u16;
 pub type uint32_t = u32;
 pub type ssize_t = isize;
-
 
 pub type UChar32 = int32_t;
 /* quasi-hack to get the primary input */
@@ -507,12 +502,7 @@ unsafe extern "C" fn _get_font_funcs() -> *mut hb_font_funcs_t {
         0 as *mut libc::c_void,
         None,
     );
-    hb_font_funcs_set_glyph_name_func(
-        funcs,
-        Some(_get_glyph_name),
-        0 as *mut libc::c_void,
-        None,
-    );
+    hb_font_funcs_set_glyph_name_func(funcs, Some(_get_glyph_name), 0 as *mut libc::c_void, None);
     return funcs;
 }
 unsafe extern "C" fn _get_table(
@@ -560,9 +550,9 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
     mut index: libc::c_int,
     mut status: *mut libc::c_int,
 ) {
-    use freetype::freetype_sys::{FT_Open_Args};
-    use freetype::freetype_sys::{TT_OS2, TT_Postscript};
-    use crate::freetype_sys_patch::{FT_SFNT_POST, FT_SFNT_OS2};
+    use crate::freetype_sys_patch::{FT_SFNT_OS2, FT_SFNT_POST};
+    use freetype::freetype_sys::FT_Open_Args;
+    use freetype::freetype_sys::{TT_Postscript, TT_OS2};
     let mut postTable: *mut TT_Postscript = 0 as *mut TT_Postscript;
     let mut os2Table: *mut TT_OS2 = 0 as *mut TT_OS2;
     let mut error: FT_Error = 0;
@@ -587,8 +577,11 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
     let mut handle = handle.unwrap();
     let mut sz = ttstub_input_get_size(&mut handle);
     (*self_0).m_backingData = xmalloc(sz as _) as *mut FT_Byte;
-    let mut r =
-        ttstub_input_read(handle.0.as_ptr(), (*self_0).m_backingData as *mut libc::c_char, sz);
+    let mut r = ttstub_input_read(
+        handle.0.as_ptr(),
+        (*self_0).m_backingData as *mut libc::c_char,
+        sz,
+    );
     if r < 0 || r != sz as i64 {
         _tt_abort(b"failed to read font file\x00" as *const u8 as *const libc::c_char);
     }

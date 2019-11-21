@@ -33,7 +33,7 @@ use crate::warn;
 use super::dpx_cff_dict::{cff_dict_get, cff_dict_known, cff_dict_unpack, cff_release_dict};
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::{tt_get_unsigned_byte, tt_get_unsigned_pair};
-use crate::{ttstub_input_read};
+use crate::ttstub_input_read;
 use libc::{free, memcmp, memcpy, memmove, memset, strlen};
 
 use std::io::{Seek, SeekFrom};
@@ -759,7 +759,11 @@ pub unsafe fn cff_open<'a>(
         cff_close(cff);
         return ptr::null_mut();
     }
-    handle.seek(SeekFrom::Start((*cff).offset as u64 + (*cff).header.hdr_size as u64)).unwrap();
+    handle
+        .seek(SeekFrom::Start(
+            (*cff).offset as u64 + (*cff).header.hdr_size as u64,
+        ))
+        .unwrap();
     /* Name INDEX */
     let idx = cff_get_index(&mut *cff);
     if n > (*idx).count as i32 - 1i32 {
@@ -821,7 +825,9 @@ pub unsafe fn cff_open<'a>(
         b"CharStrings\x00" as *const u8 as *const i8,
         0i32,
     ) as i32;
-    handle.seek(SeekFrom::Start((*cff).offset as u64 + offset as u64)).unwrap();
+    handle
+        .seek(SeekFrom::Start((*cff).offset as u64 + offset as u64))
+        .unwrap();
     (*cff).num_glyphs = tt_get_unsigned_pair(handle);
     /* Check for font type */
     if cff_dict_known((*cff).topdict, b"ROS\x00" as *const u8 as *const i8) != 0 {
@@ -863,7 +869,11 @@ pub unsafe fn cff_open<'a>(
     } else {
         (*cff).flag |= 1i32 << 5i32
     } /* seek back to GSubr */
-    handle.seek(SeekFrom::Start((*cff).offset as u64 + (*cff).gsubr_offset as u64)).unwrap(); /* no trailing '\0' */
+    handle
+        .seek(SeekFrom::Start(
+            (*cff).offset as u64 + (*cff).gsubr_offset as u64,
+        ))
+        .unwrap(); /* no trailing '\0' */
     return cff; /* Additional data in between header and
                  * Name INDEX ignored.
                  */
@@ -999,7 +1009,9 @@ pub unsafe fn cff_get_index_header(cff: &mut cff_font) -> *mut cff_index {
         }
         if count as i32 == 0xffffi32 {
             let n = handle.seek(SeekFrom::Current(0)).unwrap();
-            handle.seek(SeekFrom::Start(n + (*idx).offsize as u64)).unwrap();
+            handle
+                .seek(SeekFrom::Start(n + (*idx).offsize as u64))
+                .unwrap();
         } else {
             *(*idx).offset.offset(count as isize) = get_unsigned(handle, (*idx).offsize as i32)
         }
@@ -1303,11 +1315,7 @@ pub unsafe fn cff_update_string(cff: &mut cff_font) {
 }
 /* String */
 
-pub unsafe fn cff_add_string(
-    mut cff: &mut cff_font,
-    mut str: *const i8,
-    mut unique: i32,
-) -> s_SID
+pub unsafe fn cff_add_string(mut cff: &mut cff_font, mut str: *const i8, mut unique: i32) -> s_SID
 /* Setting unique == 1 eliminates redundant or predefined strings. */ {
     let mut len: size_t = strlen(str) as _;
     if cff._string.is_null() {
@@ -1394,7 +1402,9 @@ pub unsafe fn cff_read_encoding(cff: &mut cff_font) -> i32 {
         }
     }
     let handle = cff.handle.as_mut().unwrap();
-    handle.seek(SeekFrom::Start(cff.offset as u64 + offset as u64)).unwrap();
+    handle
+        .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
+        .unwrap();
     let encoding = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_encoding>() as u64) as u32)
         as *mut cff_encoding;
     cff.encoding = encoding;
@@ -1603,7 +1613,9 @@ pub unsafe fn cff_read_charsets(cff: &mut cff_font) -> i32 {
         }
     }
     let handle = cff.handle.as_mut().unwrap();
-    handle.seek(SeekFrom::Start(cff.offset as u64 + offset as u64)).unwrap();
+    handle
+        .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
+        .unwrap();
     let charset = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_charsets>() as u64) as u32)
         as *mut cff_charsets;
     cff.charsets = charset;
@@ -1813,10 +1825,7 @@ pub unsafe fn cff_charsets_lookup(cff: &cff_font, mut cid: u16) -> u16 {
     cff_charsets_lookup_gid(cff.charsets, cid)
 }
 
-pub unsafe fn cff_charsets_lookup_gid(
-    mut charset: *mut cff_charsets,
-    mut cid: u16,
-) -> u16 {
+pub unsafe fn cff_charsets_lookup_gid(mut charset: *mut cff_charsets, mut cid: u16) -> u16 {
     let mut gid: u16 = 0i32 as u16;
     if cid as i32 == 0i32 {
         return 0i32 as u16;
@@ -1891,10 +1900,7 @@ pub unsafe fn cff_charsets_lookup_inverse(cff: &cff_font, gid: u16) -> u16 {
     cff_charsets_lookup_cid(cff.charsets, gid)
 }
 
-pub unsafe fn cff_charsets_lookup_cid(
-    mut charset: *mut cff_charsets,
-    mut gid: u16,
-) -> u16 {
+pub unsafe fn cff_charsets_lookup_cid(mut charset: *mut cff_charsets, mut gid: u16) -> u16 {
     let mut sid: u16 = 0i32 as u16;
     match (*charset).format as i32 {
         0 => {
@@ -1974,7 +1980,9 @@ pub unsafe fn cff_read_fdselect(cff: &mut cff_font) -> i32 {
     }
     let offset = cff_dict_get(cff.topdict, b"FDSelect\x00" as *const u8 as *const i8, 0i32) as i32;
     let handle = cff.handle.as_mut().unwrap();
-    handle.seek(SeekFrom::Start(cff.offset as u64 + offset as u64)).unwrap();
+    handle
+        .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
+        .unwrap();
     let fdsel = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_fdselect>() as u64) as u32)
         as *mut cff_fdselect;
     cff.fdselect = fdsel;
@@ -2110,7 +2118,11 @@ pub unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
         cff_read_private(cff);
     }
     if cff.gsubr.is_null() {
-        cff.handle.as_mut().unwrap().seek(SeekFrom::Start(cff.offset as u64 + cff.gsubr_offset as u64)).unwrap();
+        cff.handle
+            .as_mut()
+            .unwrap()
+            .seek(SeekFrom::Start(cff.offset as u64 + cff.gsubr_offset as u64))
+            .unwrap();
         cff.gsubr = cff_get_index(cff)
     }
     cff.subrs = new((cff.num_fds as u32 as u64)
@@ -2138,7 +2150,11 @@ pub unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
                         b"Subrs\x00" as *const u8 as *const i8,
                         0i32,
                     )) as i32;
-                cff.handle.as_mut().unwrap().seek(SeekFrom::Start(cff.offset as u64 + offset as u64)).unwrap();
+                cff.handle
+                    .as_mut()
+                    .unwrap()
+                    .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
+                    .unwrap();
                 let ref mut fresh48 = *cff.subrs.offset(i as isize);
                 *fresh48 = cff_get_index(cff);
                 len += cff_index_size(*cff.subrs.offset(i as isize)) as i32
@@ -2161,7 +2177,11 @@ pub unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
                 b"Subrs\x00" as *const u8 as *const i8,
                 0i32,
             )) as i32;
-        cff.handle.as_mut().unwrap().seek(SeekFrom::Start(cff.offset as u64 + offset as u64)).unwrap();
+        cff.handle
+            .as_mut()
+            .unwrap()
+            .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
+            .unwrap();
         let ref mut fresh50 = *cff.subrs.offset(0);
         *fresh50 = cff_get_index(cff);
         len += cff_index_size(*cff.subrs.offset(0)) as i32
@@ -2178,7 +2198,11 @@ pub unsafe fn cff_read_fdarray(cff: &mut cff_font) -> i32 {
     }
     /* must exist */
     let offset = cff_dict_get(cff.topdict, b"FDArray\x00" as *const u8 as *const i8, 0i32) as i32;
-    cff.handle.as_mut().unwrap().seek(SeekFrom::Start(cff.offset as u64 + offset as u64)).unwrap();
+    cff.handle
+        .as_mut()
+        .unwrap()
+        .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
+        .unwrap();
     let idx = cff_get_index(cff);
     cff.num_fds = (*idx).count as u8;
     cff.fdarray = new(((*idx).count as u32 as u64)
@@ -2274,11 +2298,15 @@ pub unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
                     1i32,
                 ) as i32;
                 let handle = cff.handle.as_mut().unwrap();
-                handle.seek(SeekFrom::Start(cff.offset as u64 + offset as u64)).unwrap();
+                handle
+                    .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
+                    .unwrap();
                 let data = new(
                     (size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
                 ) as *mut u8;
-                if ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t) != size as i64 {
+                if ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t)
+                    != size as i64
+                {
                     panic!("reading file failed");
                 }
                 let ref mut fresh53 = *cff.private.offset(i as isize);
@@ -2302,11 +2330,14 @@ pub unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
             let handle = cff.handle.as_mut().unwrap();
             let offset =
                 cff_dict_get(cff.topdict, b"Private\x00" as *const u8 as *const i8, 1i32) as i32;
-            handle.seek(SeekFrom::Start(cff.offset as u64 + offset as u64)).unwrap();
+            handle
+                .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
+                .unwrap();
             let data =
                 new((size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
                     as *mut u8;
-            if ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t) != size as i64 {
+            if ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t) != size as i64
+            {
                 panic!("reading file failed");
             }
             let ref mut fresh55 = *cff.private.offset(0);

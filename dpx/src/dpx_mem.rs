@@ -32,7 +32,6 @@ use std::ptr;
 
 pub type size_t = u64;
 
-
 pub unsafe fn new(mut size: u32) -> *mut libc::c_void {
     let mut result: *mut libc::c_void = malloc(size as _);
     if result.is_null() {
@@ -56,8 +55,8 @@ pub unsafe fn renew(mut mem: *mut libc::c_void, mut size: u32) -> *mut libc::c_v
 }
 
 extern "C" {
-    
+
     pub fn xstrdup(s: *const i8) -> *mut i8;
-    
+
     pub fn xmalloc(size: size_t) -> *mut libc::c_void;
 }

@@ -6,9 +6,9 @@
          unused_assignments,
          unused_mut)]
 
-use std::ptr;
 use crate::core_memory::{xcalloc, xmalloc};
 use harfbuzz_sys::*;
+use std::ptr;
 
 use freetype::freetype_sys;
 
@@ -261,9 +261,7 @@ extern "C" {
 }
 
 pub mod collection_types {
-    
-    
-    
+
     use std::collections::{BTreeMap, VecDeque};
     use std::ffi::CStr;
     use std::ffi::CString;
@@ -483,7 +481,7 @@ pub struct XeTeXFontInst_Mac {
     pub m_fontRef: CTFontRef,
 }
 
-use crate::xetex_font_manager::{XeTeXFontMgr};
+use crate::xetex_font_manager::XeTeXFontMgr;
 
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
@@ -611,10 +609,8 @@ unsafe extern "C" fn GlyphId_create(mut fontNum: libc::c_int, mut code: libc::c_
 }
 #[no_mangle]
 pub unsafe extern "C" fn getProtrusionFactor(mut side: libc::c_int) -> *mut ProtrusionFactor {
-    static mut leftProt: *mut ProtrusionFactor =
-        ptr::null_mut();
-    static mut rightProt: *mut ProtrusionFactor =
-        ptr::null_mut();
+    static mut leftProt: *mut ProtrusionFactor = ptr::null_mut();
+    static mut rightProt: *mut ProtrusionFactor = ptr::null_mut();
     let mut container: *mut ProtrusionFactor = 0 as *mut ProtrusionFactor;
     match side {
         0 => {
@@ -1439,8 +1435,7 @@ unsafe extern "C" fn _decompose_compat(
     return 0i32 as libc::c_uint;
 }
 unsafe extern "C" fn _get_unicode_funcs() -> *mut hb_unicode_funcs_t {
-    static mut ufuncs: *mut hb_unicode_funcs_t =
-        ptr::null_mut();
+    static mut ufuncs: *mut hb_unicode_funcs_t = ptr::null_mut();
     if ufuncs.is_null() {
         ufuncs = hb_unicode_funcs_create(hb_icu_get_unicode_funcs())
     }
@@ -1460,8 +1455,7 @@ unsafe extern "C" fn _get_unicode_funcs() -> *mut hb_unicode_funcs_t {
     );
     return ufuncs;
 }
-static mut hbUnicodeFuncs: *mut hb_unicode_funcs_t =
-    ptr::null_mut();
+static mut hbUnicodeFuncs: *mut hb_unicode_funcs_t = ptr::null_mut();
 #[no_mangle]
 pub unsafe extern "C" fn layoutChars(
     mut engine: XeTeXLayoutEngine,

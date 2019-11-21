@@ -27,22 +27,21 @@
 
 use euclid::point2;
 
-use crate::SkipBlank;
 use super::{spc_arg, spc_env};
 use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use crate::dpx_pdfcolor::PdfColor;
-use crate::dpx_pdfdev::{Rect, TMatrix, transform_info};
+use crate::dpx_pdfdev::{transform_info, Rect, TMatrix};
 use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
 use crate::DisplayExt;
-use libc::{atof};
+use crate::SkipBlank;
+use libc::atof;
 use std::ffi::CString;
 
 /* tectonic/core-memory.h: basic dynamic memory helpers
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
 */
-
 
 pub unsafe fn spc_util_read_numbers(
     mut values: *mut f64,
@@ -132,7 +131,7 @@ unsafe fn spc_read_color_color(
                 } else {
                     result = PdfColor::from_rgb(cv[0], cv[1], cv[2]).map_err(|err| err.warn())
                 }
-            },
+            }
             b"cmyk" => {
                 /* Handle cmyk color */
                 let nc = spc_util_read_numbers(cv.as_mut_ptr(), 4i32, ap);
@@ -140,9 +139,10 @@ unsafe fn spc_read_color_color(
                     spc_warn!(spe, "Invalid value for CMYK color specification.");
                     result = Err(())
                 } else {
-                    result = PdfColor::from_cmyk(cv[0], cv[1], cv[2], cv[3]).map_err(|err| err.warn())
+                    result =
+                        PdfColor::from_cmyk(cv[0], cv[1], cv[2], cv[3]).map_err(|err| err.warn())
                 }
-            },
+            }
             b"gray" => {
                 /* Handle gray */
                 let nc = spc_util_read_numbers(cv.as_mut_ptr(), 1i32, ap);
@@ -152,24 +152,24 @@ unsafe fn spc_read_color_color(
                 } else {
                     result = PdfColor::from_gray(cv[0]).map_err(|err| err.warn())
                 }
-            },
+            }
             b"spot" => {
                 /* Handle spot colors */
-                if let Some(color_name) = (*ap).cur.parse_c_ident() { /* Must be a "named" color */
+                if let Some(color_name) = (*ap).cur.parse_c_ident() {
+                    /* Must be a "named" color */
                     (*ap).cur.skip_blank();
                     let nc = spc_util_read_numbers(cv.as_mut_ptr(), 1, ap);
                     if nc != 1 {
                         spc_warn!(spe, "Invalid value for spot color specification.");
                         result = Err(());
                     } else {
-                        result = PdfColor::from_spot(color_name, cv[0])
-                            .map_err(|err| err.warn())
+                        result = PdfColor::from_spot(color_name, cv[0]).map_err(|err| err.warn())
                     }
                 } else {
                     spc_warn!(spe, "No valid spot color name specified?");
                     return Err(());
                 }
-            },
+            }
             b"hsb" => {
                 let nc = spc_util_read_numbers(cv.as_mut_ptr(), 3i32, ap);
                 if nc != 3i32 {
@@ -193,7 +193,7 @@ unsafe fn spc_read_color_color(
                     }
                     result = Ok(color);
                 }
-            },
+            }
             _ => {
                 result = if let Ok(name) = q.to_str() {
                     if let Some(color) = pdf_color_namedcolor(name) {
@@ -205,11 +205,7 @@ unsafe fn spc_read_color_color(
                     Err(())
                 };
                 if result.is_err() {
-                    spc_warn!(
-                        spe,
-                        "Unrecognized color name: {}",
-                        q.display(),
-                    );
+                    spc_warn!(spe, "Unrecognized color name: {}", q.display(),);
                 }
             }
         }
@@ -330,7 +326,8 @@ impl ReadLengthSpc for &[u8] {
                 u /= if spe.mag != 0.0f64 { spe.mag } else { 1.0f64 };
                 bytes = &bytes[b"true".len()..];
             }
-            let q = if bytes.is_empty() { // TODO: check
+            let q = if bytes.is_empty() {
+                // TODO: check
                 /* "true" was a separate word from the units */
                 p.skip_white();
                 p.parse_c_ident()
@@ -360,7 +357,7 @@ impl ReadLengthSpc for &[u8] {
         }
         *self = p;
         if error == 0 {
-            Ok( v * u )
+            Ok(v * u)
         } else {
             Err(())
         }
@@ -381,7 +378,7 @@ fn make_transmatrix(
     mut rotate: f64,
 ) {
     let (s, c) = rotate.sin_cos();
-    *M =  TMatrix::row_major(
+    *M = TMatrix::row_major(
         xscale * c,
         xscale * s,
         -yscale * s,
@@ -396,20 +393,8 @@ unsafe fn spc_read_dimtrns_dvips(
     mut ap: *mut spc_arg,
 ) -> i32 {
     const _DTKEYS: [&[u8]; 14] = [
-        b"hoffset",
-        b"voffset",
-        b"hsize",
-        b"vsize",
-        b"hscale",
-        b"vscale",
-        b"angle",
-        b"clip",
-        b"llx",
-        b"lly",
-        b"urx",
-        b"ury",
-        b"rwi",
-        b"rhi",
+        b"hoffset", b"voffset", b"hsize", b"vsize", b"hscale", b"vscale", b"angle", b"clip",
+        b"llx", b"lly", b"urx", b"ury", b"rwi", b"rhi",
     ];
     let mut error: i32 = 0i32;
     let mut rotate = 0.0f64;
@@ -445,8 +430,7 @@ unsafe fn spc_read_dimtrns_dvips(
                         (*ap).cur = &(*ap).cur[1..];
                         (*ap).cur.skip_blank();
                     }
-                    let vp = if (*ap).cur[0] == b'\''
-                        || (*ap).cur[0] == b'\"' {
+                    let vp = if (*ap).cur[0] == b'\'' || (*ap).cur[0] == b'\"' {
                         let mut qchr = (*ap).cur[0];
                         (*ap).cur = &(*ap).cur[1..];
                         (*ap).cur.skip_blank();
@@ -836,7 +820,7 @@ pub unsafe fn spc_util_read_blahblah(
                                 b"artbox" => *bbox_type = 3,
                                 b"trimbox" => *bbox_type = 4,
                                 b"bleedbox" => *bbox_type = 5,
-                                _ => {},
+                                _ => {}
                             }
                         }
                     } else if !bbox_type.is_null() {

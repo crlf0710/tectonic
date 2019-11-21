@@ -27,8 +27,8 @@
 
 use euclid::point2;
 
-use std::io::Read;
 use std::ffi::{CStr, CString};
+use std::io::Read;
 use std::ptr;
 
 use crate::DisplayExt;
@@ -41,7 +41,9 @@ use super::{
     spc_push_object, spc_resume_annot, spc_suspend_annot,
 };
 use crate::dpx_cmap::{CMap_cache_find, CMap_cache_get, CMap_decode};
-use crate::dpx_dpxutil::{ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table, ParseCIdent};
+use crate::dpx_dpxutil::{
+    ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table, ParseCIdent,
+};
 use crate::dpx_dvipdfmx::is_xdv;
 use crate::dpx_fontmap::{
     is_pdfm_mapline, pdf_append_fontmap_record, pdf_clear_fontmap_record, pdf_init_fontmap_record,
@@ -55,27 +57,21 @@ use crate::dpx_pdfdev::pdf_sprint_matrix;
 use crate::dpx_pdfdev::{
     pdf_dev_get_coord, pdf_dev_pop_coord, pdf_dev_push_coord, pdf_dev_reset_color,
 };
-use crate::dpx_pdfdev::{
-    pdf_dev_put_image, Rect, TMatrix, transform_info, transform_info_clear,
-};
+use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear, Rect, TMatrix};
 use crate::dpx_pdfdoc::{
     pdf_doc_add_annot, pdf_doc_add_bead, pdf_doc_add_names, pdf_doc_add_page_content,
-    pdf_doc_begin_article, pdf_doc_begin_grabbing,
-    pdf_doc_bookmarks_add, pdf_doc_bookmarks_depth, pdf_doc_bookmarks_down, pdf_doc_bookmarks_up,
-    pdf_doc_current_page_number, pdf_doc_end_grabbing, pdf_doc_get_dictionary, pdf_doc_set_bgcolor,
-    pdf_doc_set_bop_content, pdf_doc_set_eop_content,
+    pdf_doc_begin_article, pdf_doc_begin_grabbing, pdf_doc_bookmarks_add, pdf_doc_bookmarks_depth,
+    pdf_doc_bookmarks_down, pdf_doc_bookmarks_up, pdf_doc_current_page_number,
+    pdf_doc_end_grabbing, pdf_doc_get_dictionary, pdf_doc_set_bgcolor, pdf_doc_set_bop_content,
+    pdf_doc_set_eop_content,
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_new_name,
-    pdf_foreach_dict, pdf_link_obj, pdf_name_value,
-    pdf_new_dict, pdf_new_stream, pdf_number_value, pdf_obj, pdf_obj_typeof,
-    pdf_release_obj, pdf_remove_dict, pdf_set_string, pdf_string_length,
-    pdf_string_value, PdfObjType, STREAM_COMPRESS, IntoObj,
+    pdf_foreach_dict, pdf_link_obj, pdf_name_value, pdf_new_dict, pdf_new_name, pdf_new_stream,
+    pdf_number_value, pdf_obj, pdf_obj_typeof, pdf_release_obj, pdf_remove_dict, pdf_set_string,
+    pdf_string_length, pdf_string_value, IntoObj, PdfObjType, STREAM_COMPRESS,
 };
-use crate::dpx_pdfparse::{
-    ParseIdent, ParsePdfObj, SkipWhite,
-};
+use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
 use crate::dpx_unicode::{
     UC_UTF16BE_encode_char, UC_UTF16BE_is_valid_string, UC_UTF8_decode_char,
@@ -132,24 +128,20 @@ use crate::dpx_cmap::CMap;
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 static mut _PDF_STAT: spc_pdf_ = spc_pdf_ {
-        annot_dict: ptr::null_mut(),
-        lowest_level: 255i32,
-        resourcemap: ptr::null_mut(),
-        cd: tounicode {
-                cmap_id: -1i32,
-                unescape_backslash: 0i32,
-                taintkeys: ptr::null_mut(),
-            },
-    };
+    annot_dict: ptr::null_mut(),
+    lowest_level: 255i32,
+    resourcemap: ptr::null_mut(),
+    cd: tounicode {
+        cmap_id: -1i32,
+        unescape_backslash: 0i32,
+        taintkeys: ptr::null_mut(),
+    },
+};
 /* PLEASE REMOVE THIS */
 unsafe fn hval_free(mut vp: *mut libc::c_void) {
     free(vp); /* unused */
 }
-unsafe fn addresource(
-    mut sd: *mut spc_pdf_,
-    mut ident: *const i8,
-    mut res_id: i32,
-) -> i32 {
+unsafe fn addresource(mut sd: *mut spc_pdf_, mut ident: *const i8, mut res_id: i32) -> i32 {
     if ident.is_null() || res_id < 0i32 {
         return -1i32;
     }
@@ -188,17 +180,8 @@ unsafe fn spc_handler_pdfm__init(mut dp: *mut libc::c_void) -> i32 {
      * text strings. Be sure that string object is NOT always a text string.
      */
     const DEFAULT_TAINTKEYS: [&str; 11] = [
-        "Title",
-        "Author",
-        "Subject",
-        "Keywords",
-        "Creator",
-        "Producer",
-        "Contents",
-        "Subj",
-        "TU",
-        "T",
-        "TM",
+        "Title", "Author", "Subject", "Keywords", "Creator", "Producer", "Contents", "Subj", "TU",
+        "T", "TM",
     ];
     (*sd).annot_dict = ptr::null_mut();
     (*sd).lowest_level = 255i32;
@@ -208,7 +191,10 @@ unsafe fn spc_handler_pdfm__init(mut dp: *mut libc::c_void) -> i32 {
         (*sd).resourcemap,
         Some(hval_free as unsafe fn(_: *mut libc::c_void) -> ()),
     );
-    let array: Vec<*mut pdf_obj> = DEFAULT_TAINTKEYS.iter().map(|&key| pdf_new_name(key)).collect();
+    let array: Vec<*mut pdf_obj> = DEFAULT_TAINTKEYS
+        .iter()
+        .map(|&key| pdf_new_name(key))
+        .collect();
     (*sd).cd.taintkeys = array.into_obj();
     0i32
 }
@@ -242,20 +228,14 @@ pub unsafe fn spc_pdfm_at_end_document() -> i32 {
 /* Dvipdfm specials */
 unsafe fn spc_handler_pdfm_bop(mut _spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     if !(*args).cur.is_empty() {
-        pdf_doc_set_bop_content(
-            (*args).cur.as_ptr() as *const i8,
-            (*args).cur.len() as u32,
-        );
+        pdf_doc_set_bop_content((*args).cur.as_ptr() as *const i8, (*args).cur.len() as u32);
     }
     (*args).cur = &[];
     0i32
 }
 unsafe fn spc_handler_pdfm_eop(mut _spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     if !(*args).cur.is_empty() {
-        pdf_doc_set_eop_content(
-            (*args).cur.as_ptr() as *const i8,
-            (*args).cur.len() as u32,
-        );
+        pdf_doc_set_eop_content((*args).cur.as_ptr() as *const i8, (*args).cur.len() as u32);
     }
     (*args).cur = &[];
     0i32
@@ -296,11 +276,7 @@ unsafe fn safeputresdict(
                 &mut *vp,
                 Some(
                     safeputresdent
-                        as unsafe fn(
-                            _: *mut pdf_obj,
-                            _: *mut pdf_obj,
-                            _: *mut libc::c_void,
-                        ) -> i32,
+                        as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                 ),
                 dict as *mut pdf_obj as *mut libc::c_void,
             );
@@ -332,11 +308,7 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
     let ident = ident.unwrap();
     let obj1 = spc_lookup_object(ident.as_ptr()); /* put obj2 into obj1 */
     if obj1.is_null() {
-        spc_warn!(
-            spe,
-            "Specified object not exist: {}",
-            ident.display(),
-        );
+        spc_warn!(spe, "Specified object not exist: {}", ident.display(),);
         return -1i32;
     }
     (*ap).cur.skip_white();
@@ -378,7 +350,10 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
         }
         PdfObjType::STREAM => {
             if (*obj2).is_dict() {
-                (*obj1).as_stream_mut().get_dict_mut().merge((*obj2).as_dict());
+                (*obj1)
+                    .as_stream_mut()
+                    .get_dict_mut()
+                    .merge((*obj2).as_dict());
             } else if (*obj2).is_stream() {
                 spc_warn!(
                     spe,
@@ -399,8 +374,7 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
             /* dvipdfm */
             (*obj1).as_array_mut().push(pdf_link_obj(obj2));
             while !(*ap).cur.is_empty() {
-                if let Some(mut obj3) =
-                    (*ap).cur.parse_pdf_object(ptr::null_mut()) {
+                if let Some(mut obj3) = (*ap).cur.parse_pdf_object(ptr::null_mut()) {
                     (*obj1).as_array_mut().push(obj3);
                     (*ap).cur.skip_white();
                 } else {
@@ -517,11 +491,7 @@ unsafe fn maybe_reencode_utf8(mut instring: *mut pdf_obj) -> i32 {
  * but does a quick check. Please add entries for taintkeys if you have found
  * additional dictionary entries which is considered as a text string.
  */
-unsafe fn needreencode(
-    mut kp: *mut pdf_obj,
-    mut vp: *mut pdf_obj,
-    mut cd: *mut tounicode,
-) -> i32 {
+unsafe fn needreencode(mut kp: *mut pdf_obj, mut vp: *mut pdf_obj, mut cd: *mut tounicode) -> i32 {
     let mut r: i32 = 0i32;
     assert!(!cd.is_null() && !(*cd).taintkeys.is_null());
     assert!((*kp).is_name());
@@ -548,11 +518,7 @@ unsafe fn needreencode(
     } /* continue */
     r
 }
-unsafe fn modstrings(
-    mut kp: *mut pdf_obj,
-    mut vp: *mut pdf_obj,
-    mut dp: *mut libc::c_void,
-) -> i32 {
+unsafe fn modstrings(mut kp: *mut pdf_obj, mut vp: *mut pdf_obj, mut dp: *mut libc::c_void) -> i32 {
     let mut r: i32 = 0i32;
     let mut cd: *mut tounicode = dp as *mut tounicode;
     assert!((*kp).is_name());
@@ -582,11 +548,7 @@ unsafe fn modstrings(
                 &mut *vp,
                 Some(
                     modstrings
-                        as unsafe fn(
-                            _: *mut pdf_obj,
-                            _: *mut pdf_obj,
-                            _: *mut libc::c_void,
-                        ) -> i32,
+                        as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                 ),
                 dp,
             )
@@ -596,11 +558,7 @@ unsafe fn modstrings(
                 (*vp).as_stream_mut().get_dict_obj(),
                 Some(
                     modstrings
-                        as unsafe fn(
-                            _: *mut pdf_obj,
-                            _: *mut pdf_obj,
-                            _: *mut libc::c_void,
-                        ) -> i32,
+                        as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                 ),
                 dp,
             )
@@ -627,23 +585,24 @@ impl ParsePdfDictU for &[u8] {
             self.parse_pdf_dict(ptr::null_mut())
         };
         if let Some(d) = dict {
-            unsafe { pdf_foreach_dict(
-                &mut *d,
-                Some(
-                    modstrings
-                        as unsafe fn(
-                            _: *mut pdf_obj,
-                            _: *mut pdf_obj,
-                            _: *mut libc::c_void,
-                        ) -> i32,
-                ),
-                cd as *mut libc::c_void,
-            ); }
+            unsafe {
+                pdf_foreach_dict(
+                    &mut *d,
+                    Some(
+                        modstrings
+                            as unsafe fn(
+                                _: *mut pdf_obj,
+                                _: *mut pdf_obj,
+                                _: *mut libc::c_void,
+                            ) -> i32,
+                    ),
+                    cd as *mut libc::c_void,
+                );
+            }
         }
         dict
     }
 }
-
 
 unsafe fn spc_handler_pdfm_annot(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut sd: *mut spc_pdf_ = &mut _PDF_STAT;
@@ -665,8 +624,7 @@ unsafe fn spc_handler_pdfm_annot(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         spc_warn!(spe, "You can\'t specify both bbox and width/height.");
         return -1i32;
     }
-    let annot_dict =
-        (*args).cur.parse_pdf_dict_with_tounicode(&mut (*sd).cd);
+    let annot_dict = (*args).cur.parse_pdf_dict_with_tounicode(&mut (*sd).cd);
     if annot_dict.is_none() {
         spc_warn!(spe, "Could not find dictionary object.");
         return -1i32;
@@ -860,8 +818,7 @@ unsafe fn spc_handler_pdfm_outline(mut spe: *mut spc_env, mut args: *mut spc_arg
         level
     };
     level += 1i32 - (*sd).lowest_level;
-    let item_dict =
-        (*args).cur.parse_pdf_dict_with_tounicode(&mut (*sd).cd);
+    let item_dict = (*args).cur.parse_pdf_dict_with_tounicode(&mut (*sd).cd);
     if item_dict.is_none() {
         spc_warn!(spe, "Ignoring invalid dictionary.");
         return -1i32;
@@ -894,8 +851,7 @@ unsafe fn spc_handler_pdfm_article(mut spe: *mut spc_env, mut args: *mut spc_arg
     let mut sd: *mut spc_pdf_ = &mut _PDF_STAT;
     (*args).cur.skip_white();
     if let Some(ident) = (*args).cur.parse_opt_ident() {
-        if let Some(info_dict) =
-            (*args).cur.parse_pdf_dict_with_tounicode(&mut (*sd).cd) {
+        if let Some(info_dict) = (*args).cur.parse_pdf_dict_with_tounicode(&mut (*sd).cd) {
             pdf_doc_begin_article(ident.as_ptr(), pdf_link_obj(info_dict));
             spc_push_object(ident.as_ptr(), info_dict);
             0
@@ -941,7 +897,7 @@ unsafe fn spc_handler_pdfm_bead(mut spe: *mut spc_env, mut args: *mut spc_arg) -
     } else {
         Rect::new(
             point2(cp.x, cp.y - (*spe).mag * ti.depth),
-            point2(cp.x + (*spe).mag * ti.width, cp.y + (*spe).mag * ti.height)
+            point2(cp.x + (*spe).mag * ti.width, cp.y + (*spe).mag * ti.height),
         )
     };
     (*args).cur.skip_white();
@@ -973,10 +929,10 @@ unsafe fn spc_handler_pdfm_image(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     let mut ident = None;
     let mut ti = transform_info::new();
     let mut options: load_options = load_options {
-            page_no: 1i32,
-            bbox_type: 0i32,
-            dict: ptr::null_mut(),
-        };
+        page_no: 1i32,
+        bbox_type: 0i32,
+        dict: ptr::null_mut(),
+    };
     (*args).cur.skip_white();
     if (*args).cur[0] == b'@' {
         ident = (*args).cur.parse_opt_ident();
@@ -1229,10 +1185,7 @@ unsafe fn spc_handler_pdfm_content(mut spe: *mut spc_env, mut args: *mut spc_arg
     let mut len = 0;
     (*args).cur.skip_white();
     if !(*args).cur.is_empty() {
-        let mut M = TMatrix::create_translation(
-            (*spe).x_user,
-            (*spe).y_user,
-        );
+        let mut M = TMatrix::create_translation((*spe).x_user, (*spe).y_user);
         WORK_BUFFER[len] = b' ';
         len += 1;
         WORK_BUFFER[len] = b'q';
@@ -1291,10 +1244,7 @@ unsafe fn spc_handler_pdfm_literal(mut spe: *mut spc_env, mut args: *mut spc_arg
 unsafe fn spc_handler_pdfm_bcontent(mut spe: *mut spc_env, mut _args: *mut spc_arg) -> i32 {
     pdf_dev_gsave();
     let pos = pdf_dev_get_coord();
-    let mut M  = TMatrix::create_translation(
-        (*spe).x_user - pos.x,
-        (*spe).y_user - pos.y,
-    );
+    let mut M = TMatrix::create_translation((*spe).x_user - pos.x, (*spe).y_user - pos.y);
     pdf_dev_concat(&mut M);
     pdf_dev_push_coord((*spe).x_user, (*spe).y_user);
     0i32
@@ -1360,8 +1310,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                 pdf_release_obj(tmp);
                 return -1i32;
             }
-            let handle =
-                ttstub_input_open(fullname, TTInputFormat::PICT, 0i32);
+            let handle = ttstub_input_open(fullname, TTInputFormat::PICT, 0i32);
             if handle.is_none() {
                 spc_warn!(
                     spe,
@@ -1376,10 +1325,13 @@ unsafe fn spc_handler_pdfm_stream_with_type(
             fstream = pdf_new_stream(STREAM_COMPRESS);
             loop {
                 let nb_read = handle.read(&mut WORK_BUFFER[..]).unwrap();
-                if !(nb_read > 0) { // TODO: check
+                if !(nb_read > 0) {
+                    // TODO: check
                     break;
                 }
-                (*fstream).as_stream_mut().add_slice(&WORK_BUFFER[..nb_read]);
+                (*fstream)
+                    .as_stream_mut()
+                    .add_slice(&WORK_BUFFER[..nb_read]);
             }
             ttstub_input_close(handle);
             free(fullname as *mut libc::c_void);
@@ -1387,10 +1339,9 @@ unsafe fn spc_handler_pdfm_stream_with_type(
         0 => {
             fstream = pdf_new_stream(STREAM_COMPRESS);
             if !instring.is_null() {
-                (*fstream).as_stream_mut().add(
-                    instring as *const libc::c_void,
-                    strlen(instring) as i32,
-                );
+                (*fstream)
+                    .as_stream_mut()
+                    .add(instring as *const libc::c_void, strlen(instring) as i32);
             }
         }
         _ => {
@@ -1483,7 +1434,8 @@ unsafe fn spc_handler_pdfm_bform(mut spe: *mut spc_env, mut args: *mut spc_arg) 
             }
             Rect::new(point2(0., -ti.depth), point2(ti.width, ti.height))
         };
-        let xobj_id = pdf_doc_begin_grabbing(ident.as_ptr(), (*spe).x_user, (*spe).y_user, &mut cropbox);
+        let xobj_id =
+            pdf_doc_begin_grabbing(ident.as_ptr(), (*spe).x_user, (*spe).y_user, &mut cropbox);
         if xobj_id < 0i32 {
             spc_warn!(spe, "Couldn\'t start form object.");
             return -1i32;
@@ -1546,10 +1498,10 @@ unsafe fn spc_handler_pdfm_uxobj(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     let mut sd: *mut spc_pdf_ = &mut _PDF_STAT;
     let mut ti = transform_info::new();
     let mut options: load_options = load_options {
-            page_no: 1i32,
-            bbox_type: 0i32,
-            dict: ptr::null_mut(),
-        };
+        page_no: 1i32,
+        bbox_type: 0i32,
+        dict: ptr::null_mut(),
+    };
     (*args).cur.skip_white();
     if let Some(ident) = (*args).cur.parse_opt_ident() {
         transform_info_clear(&mut ti);

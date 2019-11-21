@@ -35,8 +35,8 @@ use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{CMap_get_CIDSysInfo, CMap_is_valid};
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_new_number,
-    pdf_new_stream, pdf_new_string, pdf_obj, STREAM_COMPRESS,
+    pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string,
+    pdf_obj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use libc::{free, memcmp, memset, strlen};
@@ -217,8 +217,9 @@ unsafe fn write_map(
             if count > 100i32 as u64 {
                 panic!("Unexpected error....: {}", count,);
             }
-            (*stream).as_stream_mut().add_str(&format!("{} beginbfchar\n", count)
-            );
+            (*stream)
+                .as_stream_mut()
+                .add_str(&format!("{} beginbfchar\n", count));
             (*stream).as_stream_mut().add(
                 (*wbuf).buf as *const libc::c_void,
                 (*wbuf).curptr.wrapping_offset_from((*wbuf).buf) as i64 as i32,
@@ -231,7 +232,9 @@ unsafe fn write_map(
     }
     if num_blocks > 0i32 as u64 {
         if count > 0i32 as u64 {
-            (*stream).as_stream_mut().add_str(&format!("{} beginbfchar\n", count));
+            (*stream)
+                .as_stream_mut()
+                .add_str(&format!("{} beginbfchar\n", count));
             (*stream).as_stream_mut().add(
                 (*wbuf).buf as *const libc::c_void,
                 (*wbuf).curptr.wrapping_offset_from((*wbuf).buf) as i64 as i32,
@@ -240,7 +243,9 @@ unsafe fn write_map(
             (*stream).as_stream_mut().add_str("endbfchar\n");
             count = 0i32 as size_t
         }
-        (*stream).as_stream_mut().add_str(&format!("{} beginbfrange\n", num_blocks));
+        (*stream)
+            .as_stream_mut()
+            .add_str(&format!("{} beginbfrange\n", num_blocks));
         for i in 0..num_blocks {
             let c = blocks[i as usize].start as size_t;
             let fresh6 = (*wbuf).curptr;
@@ -347,10 +352,9 @@ pub unsafe fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj {
                 strlen((*csi).ordering) as _,
             ),
         );
-        (*csi_dict).as_dict_mut().set(
-            "Supplement",
-            pdf_new_number((*csi).supplement as f64),
-        );
+        (*csi_dict)
+            .as_dict_mut()
+            .set("Supplement", pdf_new_number((*csi).supplement as f64));
         stream_dict.set("Type", pdf_new_name("CMap"));
         stream_dict.set("CMapName", pdf_copy_name((*cmap).name));
         stream_dict.set("CIDSystemInfo", csi_dict);
@@ -386,7 +390,9 @@ pub unsafe fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj {
         )
         .offset(16);
     /* Start CMap */
-    (*stream).as_stream_mut().add_str("/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n");
+    (*stream)
+        .as_stream_mut()
+        .add_str("/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n");
     wbuf.curptr = wbuf.curptr.offset(sprintf(
         wbuf.curptr,
         b"/CMapName /%s def\n\x00" as *const u8 as *const i8,
@@ -479,8 +485,9 @@ pub unsafe fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj {
             if count > 100i32 as u64 {
                 panic!("Unexpected error....: {}", count,);
             }
-            (*stream).as_stream_mut().add_str(&format!("{} beginbfchar\n", count),
-            );
+            (*stream)
+                .as_stream_mut()
+                .add_str(&format!("{} beginbfchar\n", count));
             (*stream).as_stream_mut().add(
                 wbuf.buf as *const libc::c_void,
                 wbuf.curptr.wrapping_offset_from(wbuf.buf) as i64 as i32,
@@ -490,7 +497,9 @@ pub unsafe fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj {
         }
     }
     /* End CMap */
-    (*stream).as_stream_mut().add_str("endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n");
+    (*stream)
+        .as_stream_mut()
+        .add_str("endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n");
     free(codestr as *mut libc::c_void);
     free(wbuf.buf as *mut libc::c_void);
     stream

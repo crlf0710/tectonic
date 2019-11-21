@@ -562,11 +562,7 @@ impl ParseCString for &[u8] {
                 b'0'..=b'7' => {
                     c = 0;
                     let mut i = 0;
-                    while i < 3
-                        && !p.is_empty()
-                        && p[0] >= b'0'
-                        && p[0] <= b'7'
-                    {
+                    while i < 3 && !p.is_empty() && p[0] >= b'0' && p[0] <= b'7' {
                         c = (c << 3) + (p[0] as i32 - b'0' as i32);
                         i += 1;
                         p = &p[1..];
@@ -592,10 +588,7 @@ impl ParseCString for &[u8] {
                     }
                 }
                 _ => {
-                    warn!(
-                        "Unknown escape char sequence: \\{}",
-                        char::from(p[0]),
-                    );
+                    warn!("Unknown escape char sequence: \\{}", char::from(p[0]),);
                     l = 0;
                     p = &p[1..];
                 }
@@ -603,14 +596,10 @@ impl ParseCString for &[u8] {
             *pp = p;
             (l, c as u8)
         }
-        
+
         const C_QUOTE: u8 = b'"';
         const C_ESCAPE: u8 = b'\\';
-        fn read_c_litstrc(
-            q: &mut Option<Vec<u8>>,
-            mut len: i32,
-            pp: &mut &[u8],
-        ) -> i32 {
+        fn read_c_litstrc(q: &mut Option<Vec<u8>>, mut len: i32, pp: &mut &[u8]) -> i32 {
             let mut s = -1i32;
             let mut l = 0;
             let mut p = *pp;
@@ -675,7 +664,7 @@ impl ParseCString for &[u8] {
             read_c_litstrc(&mut v, l + 1, &mut p);
             let v = v.unwrap();
             let pos = v.iter().position(|&x| x == 0).unwrap();
-            q = Some(CStr::from_bytes_with_nul(&v[..pos+1]).unwrap().to_owned());
+            q = Some(CStr::from_bytes_with_nul(&v[..pos + 1]).unwrap().to_owned());
         }
         *self = p;
         q
@@ -687,18 +676,13 @@ pub trait ParseCIdent {
 }
 impl ParseCIdent for &[u8] {
     fn parse_c_ident(&mut self) -> Option<CString> {
-        if self.len() == 0
-            || !(self[0] == b'_'
-                || self[0].is_ascii_alphabetic()
-            )
-        {
+        if self.len() == 0 || !(self[0] == b'_' || self[0].is_ascii_alphabetic()) {
             return None;
         }
         let mut n = 0;
         for p in *self {
-            if !(*p == b'_'
-                || p.is_ascii_alphanumeric()) {
-                    break;
+            if !(*p == b'_' || p.is_ascii_alphanumeric()) {
+                break;
             }
             n += 1;
         }
@@ -708,11 +692,7 @@ impl ParseCIdent for &[u8] {
     }
 }
 
-
-pub unsafe fn parse_float_decimal(
-    mut pp: *mut *const i8,
-    mut endptr: *const i8,
-) -> *mut i8 {
+pub unsafe fn parse_float_decimal(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut i8 {
     let mut q: *mut i8 = ptr::null_mut();
     let mut p: *const i8 = *pp;
     if p >= endptr {
@@ -816,7 +796,9 @@ impl ParseFloatDecimal for &[u8] {
                         p = &p[1..];
                     }
                 }
-                _ => { s = -1; },
+                _ => {
+                    s = -1;
+                }
             }
         }
         if n != 0 {

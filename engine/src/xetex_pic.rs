@@ -24,15 +24,15 @@ use crate::xetex_xetex0::{
 };
 use crate::TTInputFormat;
 use crate::{ttstub_input_close, ttstub_input_open};
+use bridge::InputHandleWrapper;
 use dpx::dpx_bmpimage::{bmp_get_bbox, check_for_bmp};
 use dpx::dpx_jpegimage::{check_for_jpeg, jpeg_get_bbox};
+use dpx::dpx_pdfdev::Corner;
 use dpx::dpx_pdfdoc::{pdf_doc_get_page, pdf_doc_get_page_count};
 use dpx::dpx_pdfdraw::pdf_dev_transform;
 use dpx::dpx_pdfobj::{pdf_close, pdf_file, pdf_obj, pdf_open, pdf_release_obj};
 use dpx::dpx_pngimage::{check_for_png, png_get_bbox};
 use libc::{free, memcpy, strlen};
-use dpx::dpx_pdfdev::Corner;
-use bridge::InputHandleWrapper;
 pub type scaled_t = i32;
 pub type Fixed = scaled_t;
 pub type str_number = i32;
@@ -139,12 +139,9 @@ unsafe extern "C" fn pdf_get_rect(
         5 => dpx_options = 3i32,
         1 | _ => dpx_options = 1i32,
     }
-    if let Some((page, mut bbox, matrix)) = pdf_doc_get_page(
-        pf,
-        page_num,
-        dpx_options,
-        0 as *mut *mut pdf_obj,
-    ) {
+    if let Some((page, mut bbox, matrix)) =
+        pdf_doc_get_page(pf, page_num, dpx_options, 0 as *mut *mut pdf_obj)
+    {
         pdf_close(pf);
         pdf_release_obj(page);
         /* Image's attribute "bbox" here is affected by /Rotate entry of included

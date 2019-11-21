@@ -73,10 +73,7 @@ pub struct pst_boolean {
 static mut pst_const_null: *const i8 = b"null\x00" as *const u8 as *const i8;
 static mut pst_const_mark: *const i8 = b"mark\x00" as *const u8 as *const i8;
 
-pub unsafe fn pst_new_obj(
-    mut type_0: pst_type,
-    mut data: *mut libc::c_void,
-) -> *mut pst_obj {
+pub unsafe fn pst_new_obj(mut type_0: pst_type, mut data: *mut libc::c_void) -> *mut pst_obj {
     let obj =
         new((1_u64).wrapping_mul(::std::mem::size_of::<pst_obj>() as u64) as u32) as *mut pst_obj;
     (*obj).type_0 = type_0;
@@ -282,10 +279,7 @@ unsafe fn pst_boolean_data_ptr(mut obj: *mut pst_boolean) -> *mut libc::c_void {
     &mut (*obj).value as *mut i8 as *mut libc::c_void
 }
 
-pub unsafe fn pst_parse_boolean(
-    mut inbuf: *mut *mut u8,
-    mut inbufend: *mut u8,
-) -> *mut pst_obj {
+pub unsafe fn pst_parse_boolean(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut pst_obj {
     if (*inbuf).offset(4) <= inbufend
         && memcmp(
             *inbuf as *const libc::c_void,
@@ -344,10 +338,7 @@ pub unsafe fn pst_parse_boolean(
 }
 /* NULL */
 
-pub unsafe fn pst_parse_null(
-    mut inbuf: *mut *mut u8,
-    mut inbufend: *mut u8,
-) -> *mut pst_obj {
+pub unsafe fn pst_parse_null(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut pst_obj {
     if (*inbuf).offset(4) <= inbufend
         && memcmp(
             *inbuf as *const libc::c_void,
@@ -465,10 +456,7 @@ unsafe fn pst_real_length() -> u32 {
 /* NOTE: the input buffer must be null-terminated, i.e., *inbufend == 0 */
 /* leading white-space is ignored */
 
-pub unsafe fn pst_parse_number(
-    mut inbuf: *mut *mut u8,
-    mut inbufend: *mut u8,
-) -> *mut pst_obj {
+pub unsafe fn pst_parse_number(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut pst_obj {
     let mut cur: *mut u8 = ptr::null_mut();
     errno::set_errno(errno::ZERO);
     let mut lval = strtol(
@@ -610,10 +598,7 @@ unsafe fn getxpair(mut s: *mut *mut u8) -> i32 {
     hi << 4i32 | lo
 }
 
-pub unsafe fn pst_parse_name(
-    mut inbuf: *mut *mut u8,
-    mut inbufend: *mut u8,
-) -> *mut pst_obj
+pub unsafe fn pst_parse_name(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut pst_obj
 /* / is required */ {
     let mut wbuf: [u8; 128] = [0; 128];
     let mut p: *mut u8 = wbuf.as_mut_ptr();
@@ -724,10 +709,7 @@ unsafe fn pst_string_release(mut obj: *mut pst_string) {
     free(obj as *mut libc::c_void);
 }
 
-pub unsafe fn pst_parse_string(
-    mut inbuf: *mut *mut u8,
-    mut inbufend: *mut u8,
-) -> *mut pst_obj {
+pub unsafe fn pst_parse_string(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut pst_obj {
     if (*inbuf).offset(2) >= inbufend {
         return ptr::null_mut();
     } else {

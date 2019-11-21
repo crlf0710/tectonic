@@ -31,12 +31,11 @@ use super::dpx_mem::new;
 use super::dpx_numbers::tt_get_unsigned_byte;
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_new_name, pdf_new_number, IntoObj,
-    pdf_new_stream, pdf_new_string, pdf_release_obj,
-    pdf_stream_set_predictor, STREAM_COMPRESS,
+    pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_release_obj,
+    pdf_stream_set_predictor, IntoObj, STREAM_COMPRESS,
 };
+use crate::ttstub_input_read;
 use crate::warn;
-use crate::{ttstub_input_read};
 use libc::{free, memset};
 
 use std::io::{Seek, SeekFrom};
@@ -95,16 +94,16 @@ pub unsafe fn bmp_get_bbox(
     mut ydensity: *mut f64,
 ) -> i32 {
     let mut hdr: hdr_info = hdr_info {
-            offset: 0_u32,
-            hsize: 0_u32,
-            width: 0_u32,
-            height: 0i32,
-            compression: 0i32,
-            bit_count: 0_u16,
-            psize: 0i32,
-            x_pix_per_meter: 0_u32,
-            y_pix_per_meter: 0_u32,
-        };
+        offset: 0_u32,
+        hsize: 0_u32,
+        width: 0_u32,
+        height: 0i32,
+        compression: 0i32,
+        bit_count: 0_u16,
+        psize: 0i32,
+        x_pix_per_meter: 0_u32,
+        y_pix_per_meter: 0_u32,
+    };
     handle.seek(SeekFrom::Start(0)).unwrap();
     let r = read_header(handle, &mut hdr);
     *width = hdr.width;
@@ -123,16 +122,16 @@ pub unsafe fn bmp_include_image(
 ) -> i32 {
     let mut info = ximage_info::default();
     let mut hdr: hdr_info = hdr_info {
-            offset: 0_u32,
-            hsize: 0_u32,
-            width: 0_u32,
-            height: 0i32,
-            compression: 0i32,
-            bit_count: 0_u16,
-            psize: 0i32,
-            x_pix_per_meter: 0_u32,
-            y_pix_per_meter: 0_u32,
-        };
+        offset: 0_u32,
+        hsize: 0_u32,
+        width: 0_u32,
+        height: 0i32,
+        compression: 0i32,
+        bit_count: 0_u16,
+        psize: 0i32,
+        x_pix_per_meter: 0_u32,
+        y_pix_per_meter: 0_u32,
+    };
     let num_palette;
     pdf_ximage_init_image_info(&mut info);
     handle.seek(SeekFrom::Start(0)).unwrap();
@@ -189,10 +188,14 @@ pub unsafe fn bmp_include_image(
     let colorspace = if (hdr.bit_count as i32) < 24i32 {
         let mut bgrq: [u8; 4] = [0; 4];
         let palette = new(((num_palette * 3i32 + 1i32) as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
+            .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
+            as *mut u8;
         for i in 0..num_palette {
-            if ttstub_input_read(handle.0.as_ptr(), bgrq.as_mut_ptr() as *mut i8, hdr.psize as size_t)
-                != hdr.psize as i64
+            if ttstub_input_read(
+                handle.0.as_ptr(),
+                bgrq.as_mut_ptr() as *mut i8,
+                hdr.psize as size_t,
+            ) != hdr.psize as i64
             {
                 warn!("Reading file failed...");
                 free(palette as *mut libc::c_void);
@@ -287,7 +290,9 @@ pub unsafe fn bmp_include_image(
         let mut n = info.height - 1i32;
         while n >= 0i32 {
             let p = stream_data_ptr.offset((n * rowbytes) as isize);
-            (*stream).as_stream_mut().add(p as *const libc::c_void, rowbytes);
+            (*stream)
+                .as_stream_mut()
+                .add(p as *const libc::c_void, rowbytes);
             n -= 1
         }
     } else {
@@ -315,8 +320,11 @@ use crate::FromLEByteSlice;
 unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> i32 {
     let mut buf: [u8; 142] = [0; 142];
     let p = &mut buf;
-    if ttstub_input_read(handle.0.as_ptr(), p.as_mut_ptr() as *mut i8, (14i32 + 4i32) as size_t)
-        != (14i32 + 4i32) as i64
+    if ttstub_input_read(
+        handle.0.as_ptr(),
+        p.as_mut_ptr() as *mut i8,
+        (14i32 + 4i32) as size_t,
+    ) != (14i32 + 4i32) as i64
     {
         warn!("Could not read BMP file header...");
         return -1i32;
@@ -438,7 +446,9 @@ unsafe fn read_raster_rle8(
                             warn!("RLE decode failed...");
                             return -1i32;
                         }
-                        if ttstub_input_read(handle.0.as_ptr(), p as *mut i8, b1 as size_t) != b1 as i64 {
+                        if ttstub_input_read(handle.0.as_ptr(), p as *mut i8, b1 as size_t)
+                            != b1 as i64
+                        {
                             return -1i32;
                         }
                         count += b1 as i32;
@@ -533,8 +543,11 @@ unsafe fn read_raster_rle4(
                                 *fresh0 = (*fresh0 as i32 | b as i32 >> 4i32 & 0xfi32) as u8;
                                 *p = ((b as i32) << 4i32 & 0xf0i32) as u8;
                             }
-                        } else if ttstub_input_read(handle.0.as_ptr(), p as *mut i8, nbytes as size_t)
-                            != nbytes as i64
+                        } else if ttstub_input_read(
+                            handle.0.as_ptr(),
+                            p as *mut i8,
+                            nbytes as size_t,
+                        ) != nbytes as i64
                         {
                             return -1i32;
                         }

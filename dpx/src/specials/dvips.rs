@@ -41,7 +41,7 @@ use crate::{ttstub_input_close, ttstub_input_open};
 use super::util::spc_util_read_dimtrns;
 use crate::dpx_mem::xmalloc;
 use crate::dpx_mpost::{mps_eop_cleanup, mps_exec_inline, mps_stack_depth};
-use crate::dpx_pdfdev::{pdf_dev_put_image, TMatrix, transform_info, transform_info_clear};
+use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear, TMatrix};
 use crate::dpx_pdfdraw::{
     pdf_dev_current_depth, pdf_dev_grestore, pdf_dev_grestore_to, pdf_dev_gsave,
 };
@@ -68,17 +68,10 @@ unsafe fn spc_handler_ps_header(mut spe: *mut spc_env, mut args: *mut spc_arg) -
         return -1i32;
     }
     (*args).cur = &(*args).cur[1..];
-    let pro = xmalloc(
-        ((*args).cur.len() as i64 + 1i32 as i64) as size_t,
-    ) as *mut i8;
-    strncpy(
-        pro,
-        (*args).cur.as_ptr() as *mut i8,
-        (*args).cur.len() as _,
-    );
+    let pro = xmalloc(((*args).cur.len() as i64 + 1i32 as i64) as size_t) as *mut i8;
+    strncpy(pro, (*args).cur.as_ptr() as *mut i8, (*args).cur.len() as _);
     *pro.offset((*args).cur.len() as isize) = 0_i8;
-    let ps_header =
-        ttstub_input_open(pro, TTInputFormat::TEX_PS_HEADER, 0i32);
+    let ps_header = ttstub_input_open(pro, TTInputFormat::TEX_PS_HEADER, 0i32);
     if ps_header.is_none() {
         spc_warn!(
             spe,
@@ -131,10 +124,10 @@ unsafe fn parse_filename(pp: &mut &[u8]) -> Option<CString> {
 unsafe fn spc_handler_ps_file(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut ti = transform_info::new();
     let mut options: load_options = load_options {
-            page_no: 1i32,
-            bbox_type: 0i32,
-            dict: ptr::null_mut(),
-        };
+        page_no: 1i32,
+        bbox_type: 0i32,
+        dict: ptr::null_mut(),
+    };
     assert!(!spe.is_null() && !args.is_null());
     (*args).cur.skip_white();
     if (*args).cur.len() <= 1 || (*args).cur[0] != b'=' {
@@ -149,11 +142,7 @@ unsafe fn spc_handler_ps_file(mut spe: *mut spc_env, mut args: *mut spc_arg) -> 
         }
         let form_id = pdf_ximage_findresource(filename.as_ptr(), options);
         if form_id < 0i32 {
-            spc_warn!(
-                spe,
-                "Failed to read image file: {}",
-                filename.display(),
-            );
+            spc_warn!(spe, "Failed to read image file: {}", filename.display(),);
             return -1i32;
         }
         pdf_dev_put_image(form_id, &mut ti, (*spe).x_user, (*spe).y_user);
@@ -168,21 +157,17 @@ unsafe fn spc_handler_ps_plotfile(mut spe: *mut spc_env, mut args: *mut spc_arg)
     let mut error: i32 = 0i32; /* xscale = 1.0, yscale = -1.0 */
     let mut p = transform_info::new();
     let mut options: load_options = load_options {
-            page_no: 1i32,
-            bbox_type: 0i32,
-            dict: ptr::null_mut(),
-        };
+        page_no: 1i32,
+        bbox_type: 0i32,
+        dict: ptr::null_mut(),
+    };
     assert!(!spe.is_null() && !args.is_null());
     spc_warn!(spe, "\"ps: plotfile\" found (not properly implemented)");
     (*args).cur.skip_white();
     if let Some(filename) = parse_filename(&mut (*args).cur) {
         let form_id = pdf_ximage_findresource(filename.as_ptr(), options);
         if form_id < 0i32 {
-            spc_warn!(
-                spe,
-                "Could not open PS file: {}",
-                filename.display(),
-            );
+            spc_warn!(spe, "Could not open PS file: {}", filename.display(),);
             error = -1i32
         } else {
             transform_info_clear(&mut p);
@@ -277,16 +262,9 @@ unsafe fn spc_handler_ps_default(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     pdf_dev_gsave();
     let st_depth = mps_stack_depth();
     let gs_depth = pdf_dev_current_depth();
-    let mut M = TMatrix::create_translation(
-        (*spe).x_user,
-        (*spe).y_user,
-    );
+    let mut M = TMatrix::create_translation((*spe).x_user, (*spe).y_user);
     pdf_dev_concat(&mut M);
-    let error = mps_exec_inline(
-        &mut (*args).cur,
-        (*spe).x_user,
-        (*spe).y_user,
-    );
+    let error = mps_exec_inline(&mut (*args).cur, (*spe).x_user, (*spe).y_user);
     M.m31 = -(*spe).x_user;
     M.m32 = -(*spe).y_user;
     pdf_dev_concat(&mut M);
@@ -352,7 +330,6 @@ const DVIPS_HANDLERS: [SpcHandler; 10] = [
         exec: Some(spc_handler_ps_default),
     },
 ];
-
 
 pub unsafe fn spc_dvips_at_begin_document() -> i32 {
     /* This function used to start the global_defs temp file. */

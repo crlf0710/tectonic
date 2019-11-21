@@ -1190,10 +1190,7 @@ pub unsafe extern "C" fn show_node_list(mut p: i32) {
                         if (*mem.offset(p as isize)).b16.s0 as i32 != 98i32 {
                             print_char(' ' as i32);
                             if ((*mem.offset(p as isize)).b16.s0 as i32) < 98i32 {
-                                print_spec(
-                                    (*mem.offset((p + 1i32) as isize)).b32.s0,
-                                    ptr::null(),
-                                );
+                                print_spec((*mem.offset((p + 1i32) as isize)).b32.s0, ptr::null());
                             } else {
                                 print_spec(
                                     (*mem.offset((p + 1i32) as isize)).b32.s0,

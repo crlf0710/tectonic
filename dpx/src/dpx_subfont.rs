@@ -108,11 +108,7 @@ static mut line_buf: [i8; 4096] = [0; 4096];
  * SFD file format uses a '\' before newline sequence
  * for line-continuation.
  */
-unsafe fn readline(
-    mut buf: *mut i8,
-    mut buf_len: i32,
-    handle: &mut InputHandleWrapper,
-) -> *mut i8 {
+unsafe fn readline(mut buf: *mut i8, mut buf_len: i32, handle: &mut InputHandleWrapper) -> *mut i8 {
     let mut q: *mut i8 = ptr::null_mut();
     let mut p: *mut i8 = buf;
     let mut n: i32 = 0i32;
@@ -351,8 +347,7 @@ unsafe fn find_sfd_file(mut sfd_name: *const i8) -> i32 {
             new((strlen(sfd_name).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
                 as *mut i8;
         strcpy((*sfd).ident, sfd_name);
-        let handle =
-            ttstub_input_open((*sfd).ident, TTInputFormat::SFD, 0i32);
+        let handle = ttstub_input_open((*sfd).ident, TTInputFormat::SFD, 0i32);
         if handle.is_none() {
             clean_sfd_file_(sfd);
             return -1i32;
@@ -376,10 +371,7 @@ unsafe fn find_sfd_file(mut sfd_name: *const i8) -> i32 {
     id
 }
 
-pub unsafe fn sfd_get_subfont_ids(
-    mut sfd_name: *const i8,
-    mut num_ids: *mut i32,
-) -> *mut *mut i8 {
+pub unsafe fn sfd_get_subfont_ids(mut sfd_name: *const i8, mut num_ids: *mut i32) -> *mut *mut i8 {
     if sfd_name.is_null() {
         return 0 as *mut *mut i8;
     }
@@ -396,10 +388,7 @@ pub unsafe fn sfd_get_subfont_ids(
  * Mapping tables are actually read here.
  */
 
-pub unsafe fn sfd_load_record(
-    mut sfd_name: *const i8,
-    mut subfont_id: *const i8,
-) -> i32 {
+pub unsafe fn sfd_load_record(mut sfd_name: *const i8, mut subfont_id: *const i8) -> i32 {
     let mut rec_id: i32 = -1i32;
     if sfd_name.is_null() || subfont_id.is_null() {
         return -1i32;
@@ -434,8 +423,7 @@ pub unsafe fn sfd_load_record(
         );
     }
     /* reopen */
-    let handle =
-        ttstub_input_open((*sfd).ident, TTInputFormat::SFD, 0i32);
+    let handle = ttstub_input_open((*sfd).ident, TTInputFormat::SFD, 0i32);
     if handle.is_none() {
         return -1i32;
         /* panic!("Could not open SFD file \"{}\"", sfd_name); */

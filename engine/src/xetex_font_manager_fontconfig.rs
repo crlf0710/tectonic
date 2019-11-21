@@ -13,10 +13,12 @@ use crate::xetex_layout_interface::collection_types::*;
 use std::ffi::CString;
 use std::ptr::NonNull;
 
-use freetype::freetype_sys::{FT_Byte, FT_UInt, FT_Long, FT_ULong, FT_Int32, FT_Pointer, FT_Error, FT_Fixed, 
-    FT_Library, FT_Face, FT_Glyph, FT_String, FT_Parameter};
-use freetype::freetype_sys::{FT_New_Face, FT_Done_Face, FT_Get_Postscript_Name, FT_Init_FreeType};
 use crate::freetype_sys_patch::{FT_Get_Sfnt_Name, FT_Get_Sfnt_Name_Count};
+use freetype::freetype_sys::{
+    FT_Byte, FT_Error, FT_Face, FT_Fixed, FT_Glyph, FT_Int32, FT_Library, FT_Long, FT_Parameter,
+    FT_Pointer, FT_String, FT_UInt, FT_ULong,
+};
+use freetype::freetype_sys::{FT_Done_Face, FT_Get_Postscript_Name, FT_Init_FreeType, FT_New_Face};
 
 extern "C" {
     pub type _FcPattern;
@@ -160,9 +162,7 @@ shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
-use super::{
-    XeTeXFontMgr, XeTeXFontMgrFont, XeTeXFontMgrNameCollection,
-};
+use super::{XeTeXFontMgr, XeTeXFontMgrFont, XeTeXFontMgrNameCollection};
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International

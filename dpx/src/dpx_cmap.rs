@@ -31,7 +31,7 @@ use crate::mfree;
 use crate::streq_ptr;
 use crate::DisplayExt;
 use crate::{info, warn};
-use std::ffi::{CString, CStr};
+use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_cid::CSI_IDENTITY;
@@ -472,7 +472,7 @@ pub unsafe fn CMap_get_CIDSysInfo(mut cmap: *mut CMap) -> *mut CIDSysInfo {
 pub unsafe fn CMap_set_name(mut cmap: *mut CMap, name: &str) {
     assert!(!cmap.is_null());
     free((*cmap).name as *mut libc::c_void);
-    (*cmap).name = new(name.len() as u32 +1) as *mut i8;
+    (*cmap).name = new(name.len() as u32 + 1) as *mut i8;
     let name_cstr = CString::new(name).unwrap();
     strcpy((*cmap).name, name_cstr.as_ptr());
 }
@@ -1030,10 +1030,7 @@ pub unsafe fn CMap_cache_init() {
     /* Create Identity mapping */
     let ref mut fresh7 = *(*__cache).cmaps.offset(0);
     *fresh7 = CMap_new();
-    CMap_set_name(
-        *(*__cache).cmaps.offset(0),
-        "Identity-H",
-    );
+    CMap_set_name(*(*__cache).cmaps.offset(0), "Identity-H");
     CMap_set_type(*(*__cache).cmaps.offset(0), 0i32);
     CMap_set_wmode(*(*__cache).cmaps.offset(0), 0i32);
     CMap_set_CIDSysInfo(*(*__cache).cmaps.offset(0), &mut CSI_IDENTITY);
@@ -1045,10 +1042,7 @@ pub unsafe fn CMap_cache_init() {
     );
     let ref mut fresh8 = *(*__cache).cmaps.offset(1);
     *fresh8 = CMap_new();
-    CMap_set_name(
-        *(*__cache).cmaps.offset(1),
-        "Identity-V",
-    );
+    CMap_set_name(*(*__cache).cmaps.offset(1), "Identity-V");
     CMap_set_type(*(*__cache).cmaps.offset(1), 0i32);
     CMap_set_wmode(*(*__cache).cmaps.offset(1), 1i32);
     CMap_set_CIDSysInfo(*(*__cache).cmaps.offset(1), &mut CSI_IDENTITY);

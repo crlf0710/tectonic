@@ -35,7 +35,7 @@ use crate::mfree;
 use crate::streq_ptr;
 use crate::DisplayExt;
 use crate::{info, warn};
-use std::ffi::{CString, CStr};
+use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_mem::{new, renew};
@@ -430,96 +430,34 @@ unsafe fn ofm_get_sizes(
     mut tfm: *mut tfm_font,
 ) {
     (*tfm).level = tt_get_signed_quad(ofm_handle);
-    (*tfm).wlenfile = tt_get_positive_quad(
-        ofm_handle,
-        "OFM",
-        "wlenfile",
-    );
-    (*tfm).wlenheader = tt_get_positive_quad(
-        ofm_handle,
-        "OFM",
-        "wlenheader",
-    );
-    (*tfm).bc = tt_get_positive_quad(
-        ofm_handle,
-        "OFM",
-        "bc",
-    );
-    (*tfm).ec = tt_get_positive_quad(
-        ofm_handle,
-        "OFM",
-        "ec",
-    );
+    (*tfm).wlenfile = tt_get_positive_quad(ofm_handle, "OFM", "wlenfile");
+    (*tfm).wlenheader = tt_get_positive_quad(ofm_handle, "OFM", "wlenheader");
+    (*tfm).bc = tt_get_positive_quad(ofm_handle, "OFM", "bc");
+    (*tfm).ec = tt_get_positive_quad(ofm_handle, "OFM", "ec");
     if (*tfm).ec < (*tfm).bc {
         panic!("OFM file error: ec({}) < bc({}) ???", (*tfm).ec, (*tfm).bc);
     }
-    (*tfm).nwidths = tt_get_positive_quad(
-        ofm_handle,
-        "OFM",
-        "nwidths",
-    );
-    (*tfm).nheights = tt_get_positive_quad(
-        ofm_handle,
-        "OFM",
-        "nheights",
-    );
-    (*tfm).ndepths = tt_get_positive_quad(
-        ofm_handle,
-        "OFM",
-        "ndepths",
-    );
-    (*tfm).nitcor = tt_get_positive_quad(
-        ofm_handle,
-        "OFM",
-        "nitcor",
-    );
-    (*tfm).nlig = tt_get_positive_quad(
-        ofm_handle,
-        "OFM",
-        "nlig",
-    );
-    (*tfm).nkern = tt_get_positive_quad(
-        ofm_handle,
-        "OFM",
-        "nkern",
-    );
-    (*tfm).nextens = tt_get_positive_quad(
-        ofm_handle,
-        "OFM",
-        "nextens",
-    );
-    (*tfm).nfonparm = tt_get_positive_quad(
-        ofm_handle,
-        "OFM",
-        "nfonparm",
-    );
-    (*tfm).fontdir = tt_get_positive_quad(
-        ofm_handle,
-        "OFM",
-        "fontdir",
-    );
+    (*tfm).nwidths = tt_get_positive_quad(ofm_handle, "OFM", "nwidths");
+    (*tfm).nheights = tt_get_positive_quad(ofm_handle, "OFM", "nheights");
+    (*tfm).ndepths = tt_get_positive_quad(ofm_handle, "OFM", "ndepths");
+    (*tfm).nitcor = tt_get_positive_quad(ofm_handle, "OFM", "nitcor");
+    (*tfm).nlig = tt_get_positive_quad(ofm_handle, "OFM", "nlig");
+    (*tfm).nkern = tt_get_positive_quad(ofm_handle, "OFM", "nkern");
+    (*tfm).nextens = tt_get_positive_quad(ofm_handle, "OFM", "nextens");
+    (*tfm).nfonparm = tt_get_positive_quad(ofm_handle, "OFM", "nfonparm");
+    (*tfm).fontdir = tt_get_positive_quad(ofm_handle, "OFM", "fontdir");
     if (*tfm).fontdir != 0 {
         warn!("I may be interpreting a font direction incorrectly.");
     }
     if (*tfm).level == 0i32 {
         ofm_check_size_one(tfm, ofm_file_size);
     } else if (*tfm).level == 1i32 {
-        (*tfm).nco = tt_get_positive_quad(
-            ofm_handle,
-            "OFM",
-            "nco",
-        );
-        (*tfm).ncw = tt_get_positive_quad(
-            ofm_handle,
-            "OFM",
-            "nco",
-        );
-        (*tfm).npc = tt_get_positive_quad(
-            ofm_handle,
-            "OFM",
-            "npc",
-        );
-        ofm_handle.seek(SeekFrom::Start(4 * ((*tfm).nco - (*tfm).wlenheader) as u64)).unwrap();
+        (*tfm).nco = tt_get_positive_quad(ofm_handle, "OFM", "nco");
+        (*tfm).ncw = tt_get_positive_quad(ofm_handle, "OFM", "nco");
+        (*tfm).npc = tt_get_positive_quad(ofm_handle, "OFM", "npc");
+        ofm_handle
+            .seek(SeekFrom::Start(4 * ((*tfm).nco - (*tfm).wlenheader) as u64))
+            .unwrap();
     } else {
         panic!("can\'t handle OFM files with level > 1");
     };
@@ -860,9 +798,17 @@ pub unsafe fn tfm_open(mut tfm_name: *const i8, mut must_exist: i32) -> i32 {
     fms_need(numfms.wrapping_add(1_u32));
     fm_init(fms.offset(numfms as isize));
     if format == 2i32 {
-        read_ofm(&mut *fms.offset(numfms as isize), &mut tfm_handle, tfm_file_size);
+        read_ofm(
+            &mut *fms.offset(numfms as isize),
+            &mut tfm_handle,
+            tfm_file_size,
+        );
     } else {
-        read_tfm(&mut *fms.offset(numfms as isize), &mut tfm_handle, tfm_file_size);
+        read_tfm(
+            &mut *fms.offset(numfms as isize),
+            &mut tfm_handle,
+            tfm_file_size,
+        );
     }
     ttstub_input_close(tfm_handle);
     let ref mut fresh0 = (*fms.offset(numfms as isize)).tex_name;
@@ -979,11 +925,7 @@ pub unsafe fn tfm_get_width(mut font_id: i32, mut ch: i32) -> f64 {
 }
 /* tfm_string_xxx() do not work for OFM... */
 
-pub unsafe fn tfm_string_width(
-    mut font_id: i32,
-    mut s: *const u8,
-    mut len: u32,
-) -> fixword {
+pub unsafe fn tfm_string_width(mut font_id: i32, mut s: *const u8, mut len: u32) -> fixword {
     let mut result: fixword = 0i32;
     if font_id < 0i32 || font_id as u32 >= numfms {
         panic!("TFM: Invalid TFM ID: {}", font_id);

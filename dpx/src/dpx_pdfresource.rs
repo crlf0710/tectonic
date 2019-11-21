@@ -70,41 +70,41 @@ pub struct C2RustUnnamed {
  * as directory separators. */
 static mut pdf_resource_categories: [C2RustUnnamed; 9] = [
     C2RustUnnamed {
-            name: b"Font\x00" as *const u8 as *const i8,
-            cat_id: 0i32,
-        },
+        name: b"Font\x00" as *const u8 as *const i8,
+        cat_id: 0i32,
+    },
     C2RustUnnamed {
-            name: b"CIDFont\x00" as *const u8 as *const i8,
-            cat_id: 1i32,
-        },
+        name: b"CIDFont\x00" as *const u8 as *const i8,
+        cat_id: 1i32,
+    },
     C2RustUnnamed {
-            name: b"Encoding\x00" as *const u8 as *const i8,
-            cat_id: 2i32,
-        },
+        name: b"Encoding\x00" as *const u8 as *const i8,
+        cat_id: 2i32,
+    },
     C2RustUnnamed {
-            name: b"CMap\x00" as *const u8 as *const i8,
-            cat_id: 3i32,
-        },
+        name: b"CMap\x00" as *const u8 as *const i8,
+        cat_id: 3i32,
+    },
     C2RustUnnamed {
-            name: b"XObject\x00" as *const u8 as *const i8,
-            cat_id: 4i32,
-        },
+        name: b"XObject\x00" as *const u8 as *const i8,
+        cat_id: 4i32,
+    },
     C2RustUnnamed {
-            name: b"ColorSpace\x00" as *const u8 as *const i8,
-            cat_id: 5i32,
-        },
+        name: b"ColorSpace\x00" as *const u8 as *const i8,
+        cat_id: 5i32,
+    },
     C2RustUnnamed {
-            name: b"Shading\x00" as *const u8 as *const i8,
-            cat_id: 6i32,
-        },
+        name: b"Shading\x00" as *const u8 as *const i8,
+        cat_id: 6i32,
+    },
     C2RustUnnamed {
-            name: b"Pattern\x00" as *const u8 as *const i8,
-            cat_id: 7i32,
-        },
+        name: b"Pattern\x00" as *const u8 as *const i8,
+        cat_id: 7i32,
+    },
     C2RustUnnamed {
-            name: b"ExtGState\x00" as *const u8 as *const i8,
-            cat_id: 8i32,
-        },
+        name: b"ExtGState\x00" as *const u8 as *const i8,
+        cat_id: 8i32,
+    },
 ];
 static mut resources: [res_cache; 9] = [res_cache {
     count: 0,

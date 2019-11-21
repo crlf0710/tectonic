@@ -35,7 +35,7 @@ use crate::warn;
 use super::dpx_mem::new;
 use super::dpx_sfnt::{sfnt_find_table_len, sfnt_find_table_pos, sfnt_locate_table};
 use crate::dpx_truetype::sfnt_table_info;
-use crate::{ttstub_input_read};
+use crate::ttstub_input_read;
 
 use std::io::{Seek, SeekFrom};
 use std::ptr;
@@ -654,7 +654,11 @@ unsafe fn tt_get_name(
                 );
                 length = (destlen as i32 - 1i32) as u16
             }
-            handle.seek(SeekFrom::Start(name_offset as u64 + string_offset as u64 + offset as u64)).unwrap();
+            handle
+                .seek(SeekFrom::Start(
+                    name_offset as u64 + string_offset as u64 + offset as u64,
+                ))
+                .unwrap();
             ttstub_input_read(
                 handle.0.as_ptr(),
                 dest as *mut u8 as *mut i8,
@@ -692,11 +696,7 @@ unsafe fn tt_get_name(
 /* OS/2 table */
 /* name table */
 
-pub unsafe fn tt_get_ps_fontname(
-    mut sfont: *mut sfnt,
-    mut dest: *mut i8,
-    mut destlen: u16,
-) -> u16 {
+pub unsafe fn tt_get_ps_fontname(mut sfont: *mut sfnt, mut dest: *mut i8, mut destlen: u16) -> u16 {
     /* First try Mac-Roman PS name and then Win-Unicode PS name */
     let mut namelen = tt_get_name(sfont, dest, destlen, 1_u16, 0_u16, 0_u16, 6_u16);
     if namelen as i32 != 0i32

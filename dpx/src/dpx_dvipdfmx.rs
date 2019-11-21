@@ -34,8 +34,7 @@ use super::dpx_dvi::{
     dvi_scan_specials, dvi_set_verbose, ReadLength,
 };
 use super::dpx_pdfdev::{
-    Rect, Point,
-    pdf_close_device, pdf_dev_reset_global_state, pdf_dev_set_verbose, pdf_init_device,
+    pdf_close_device, pdf_dev_reset_global_state, pdf_dev_set_verbose, pdf_init_device, Point, Rect,
 };
 use super::dpx_pdfdoc::pdf_doc_set_mediabox;
 use super::dpx_pdfdoc::{
@@ -46,13 +45,13 @@ use super::dpx_pdffont::{
 };
 use super::dpx_tt_aux::tt_aux_set_verbose;
 use crate::dpx_pdfparse::parse_unsigned;
-use crate::DisplayExt;
 use crate::info;
+use crate::DisplayExt;
 use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_cid::CIDFont_set_flags;
-use super::dpx_dpxconf::{paperinfo, defaultpapername, systempapername};
+use super::dpx_dpxconf::{defaultpapername, paperinfo, systempapername};
 use super::dpx_dpxfile::dpx_delete_old_cache;
 use super::dpx_error::shut_up;
 use super::dpx_fontmap::{
@@ -120,9 +119,14 @@ unsafe fn select_paper(paperspec: &[u8]) {
         paper_width = (*pi).pswidth;
         paper_height = (*pi).psheight;
     } else {
-        let comma = paperspec.iter().position(|&x| x == b',')
-            .expect(&format!("Unrecognized paper format: {}", paperspec.display()));
-        if let (Ok(width), Ok(height)) = ((&paperspec[..comma]).read_length_no_mag(), (&paperspec[comma+1..]).read_length_no_mag()) {
+        let comma = paperspec.iter().position(|&x| x == b',').expect(&format!(
+            "Unrecognized paper format: {}",
+            paperspec.display()
+        ));
+        if let (Ok(width), Ok(height)) = (
+            (&paperspec[..comma]).read_length_no_mag(),
+            (&paperspec[comma + 1..]).read_length_no_mag(),
+        ) {
             paper_width = width;
             paper_height = height;
         } else {
@@ -138,17 +142,11 @@ unsafe fn select_paper(paperspec: &[u8]) {
         );
     };
 }
-unsafe fn select_pages(
-    pagespec: *const i8,
-    page_ranges: &mut Vec<PageRange>,
-) {
+unsafe fn select_pages(pagespec: *const i8, page_ranges: &mut Vec<PageRange>) {
     let mut p: *const i8 = pagespec;
     while *p as i32 != '\u{0}' as i32 {
-        let mut page_range = PageRange {
-            first: 0,
-            last: 0,
-        };
-        
+        let mut page_range = PageRange { first: 0, last: 0 };
+
         while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
             p = p.offset(1)
         }
@@ -220,8 +218,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
         if page_ranges[i].last < 0i32 {
             page_ranges[i].last += dvi_npages() as i32;
         }
-        let step = if page_ranges[i].first <= page_ranges[i].last
-        {
+        let step = if page_ranges[i].first <= page_ranges[i].last {
             1i32
         } else {
             -1i32
@@ -291,7 +288,6 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
     spc_exec_at_end_document();
 }
 
-
 pub unsafe fn dvipdfmx_main(
     mut pdf_filename: *const i8,
     mut dvi_filename: *const i8,
@@ -345,17 +341,23 @@ pub unsafe fn dvipdfmx_main(
     font_dpi = 600i32;
     pdfdecimaldigits = 5i32;
     image_cache_life = -2i32;
-    pdf_load_fontmap_file(CStr::from_bytes_with_nul(b"pdftex.map\x00").unwrap(), '+' as i32);
-    pdf_load_fontmap_file(CStr::from_bytes_with_nul(b"kanjix.map\x00").unwrap(), '+' as i32);
-    pdf_load_fontmap_file(CStr::from_bytes_with_nul(b"ckx.map\x00").unwrap(), '+' as i32);
+    pdf_load_fontmap_file(
+        CStr::from_bytes_with_nul(b"pdftex.map\x00").unwrap(),
+        '+' as i32,
+    );
+    pdf_load_fontmap_file(
+        CStr::from_bytes_with_nul(b"kanjix.map\x00").unwrap(),
+        '+' as i32,
+    );
+    pdf_load_fontmap_file(
+        CStr::from_bytes_with_nul(b"ckx.map\x00").unwrap(),
+        '+' as i32,
+    );
     if !pagespec.is_null() {
         select_pages(pagespec, &mut page_ranges);
     }
     if page_ranges.is_empty() {
-        page_ranges.push(PageRange {
-            first: 0,
-            last: -1
-        });
+        page_ranges.push(PageRange { first: 0, last: -1 });
     }
     /*kpse_init_prog("", font_dpi, NULL, NULL);
     kpse_set_program_enabled(kpse_pk_format, true, kpse_src_texmf_cnf);*/

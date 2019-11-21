@@ -43,7 +43,7 @@ static mut gs_stack: Vec<pdf_gstate> = Vec::new();
 
 use crate::shims::sprintf;
 
-use super::dpx_pdfdev::{Point, Rect, TMatrix, Equal};
+use super::dpx_pdfdev::{Equal, Point, Rect, TMatrix};
 
 /* Graphics State */
 #[derive(Clone)]
@@ -114,7 +114,7 @@ impl pdf_path {
         self.path.push(pe);
         0
     }
-    
+
     /* Do 'compression' of path while adding new path elements.
      * Sequantial moveto command will be replaced with a
      * single moveto. If cp is not equal to the last point in pa,
@@ -178,13 +178,7 @@ impl pdf_path {
         pe.p[0] = p0;
         0i32
     }
-    pub fn curveto(
-        &mut self,
-        cp: &mut Point,
-        p0: Point,
-        p1: Point,
-        p2: Point,
-    ) -> i32 {
+    pub fn curveto(&mut self, cp: &mut Point, p0: Point, p1: Point, p2: Point) -> i32 {
         let pe = self.next_pe(cp);
         if cp.equal(&p0) {
             pe.typ = PeType::CURVETO_V;
@@ -217,7 +211,7 @@ impl pdf_path {
         mut a_1: f64,
         mut a_d: i32,
     ) -> i32
-    /* arc orientation        */ {
+/* arc orientation        */ {
         let mut error: i32 = 0i32;
         if r_x.abs() < 2.5e-16f64 || r_y.abs() < 2.5e-16f64 {
             return -1i32;
@@ -303,7 +297,7 @@ fn idtransform(M: &TMatrix, vec: Point) -> Option<Point> {
     let W = M.inverse()?;
     Some(point2(
         vec.x * W.m11 + vec.y * W.m21,
-        vec.x * W.m12 + vec.y * W.m22
+        vec.x * W.m12 + vec.y * W.m22,
     ))
 }
 
@@ -352,7 +346,6 @@ impl PeType {
 }
 
 static mut fmt_buf: [u8; 1024] = [0; 1024];
-
 
 unsafe fn pdf_path__closepath(pa: &mut pdf_path, cp: &mut Point) -> i32
 /* no arg */ {
@@ -427,7 +420,10 @@ unsafe fn pdf_path__isarect(pa: &pdf_path, mut f_ir: i32) -> i32
 unsafe fn INVERTIBLE_MATRIX(M: &TMatrix) -> i32 {
     if M.determinant().abs() < 2.5e-16f64 {
         warn!("Transformation matrix not invertible.");
-        warn!("--- M = [{} {} {} {} {} {}]", M.m11, M.m12, M.m21, M.m22, M.m31, M.m32);
+        warn!(
+            "--- M = [{} {} {} {} {} {}]",
+            M.m11, M.m12, M.m21, M.m22, M.m31, M.m32
+        );
         return -1i32;
     }
     0i32
@@ -800,7 +796,10 @@ pub unsafe fn pdf_dev_concat(M: &TMatrix) -> i32 {
      */
     if M.determinant().abs() < 2.5e-16 {
         warn!("Transformation matrix not invertible."); /* op: cm */
-        warn!("--- M = [{} {} {} {} {} {}]", M.m11, M.m12, M.m21, M.m22, M.m31, M.m32);
+        warn!(
+            "--- M = [{} {} {} {} {} {}]",
+            M.m11, M.m12, M.m21, M.m22, M.m31, M.m32
+        );
         return -1i32;
     }
     if (M.m11 - 1.).abs() > 2.5e-16
@@ -1023,12 +1022,7 @@ pub unsafe fn pdf_dev_curveto(
     cpa.curveto(cpt, p0, p1, p2)
 }
 
-pub unsafe fn pdf_dev_vcurveto(
-    mut x0: f64,
-    mut y0: f64,
-    mut x1: f64,
-    mut y1: f64,
-) -> i32 {
+pub unsafe fn pdf_dev_vcurveto(mut x0: f64, mut y0: f64, mut x1: f64, mut y1: f64) -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1039,12 +1033,7 @@ pub unsafe fn pdf_dev_vcurveto(
     cpa.curveto(cpt, cpt_copy, p0, p1)
 }
 
-pub unsafe fn pdf_dev_ycurveto(
-    mut x0: f64,
-    mut y0: f64,
-    mut x1: f64,
-    mut y1: f64,
-) -> i32 {
+pub unsafe fn pdf_dev_ycurveto(mut x0: f64, mut y0: f64, mut x1: f64, mut y1: f64) -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1145,14 +1134,7 @@ pub unsafe fn pdf_dev_arcx(
 }
 /* Required by Tpic */
 
-pub unsafe fn pdf_dev_bspline(
-    x0: f64,
-    y0: f64,
-    x1: f64,
-    y1: f64,
-    x2: f64,
-    y2: f64,
-) -> i32 {
+pub unsafe fn pdf_dev_bspline(x0: f64, y0: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> i32 {
     let mut gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1163,13 +1145,16 @@ pub unsafe fn pdf_dev_bspline(
     cpa.curveto(cpt, p1, p2, p3)
 }
 
-pub fn pdf_dev_rectfill (r: &Rect) {
-    unsafe { pdf_dev__rectshape(r, None, b'f'); }
+pub fn pdf_dev_rectfill(r: &Rect) {
+    unsafe {
+        pdf_dev__rectshape(r, None, b'f');
+    }
 }
-pub fn pdf_dev_rectclip (r: &Rect) {
-    unsafe { pdf_dev__rectshape(r, None, b'W'); }
+pub fn pdf_dev_rectclip(r: &Rect) {
+    unsafe {
+        pdf_dev__rectshape(r, None, b'W');
+    }
 }
-
 
 pub fn pdf_dev_set_fixed_point(mut x: f64, mut y: f64) {
     let mut gss = unsafe { &mut gs_stack };

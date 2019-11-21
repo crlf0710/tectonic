@@ -35,13 +35,12 @@ use std::ptr;
 use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_new_name, pdf_deref_obj, pdf_file,
-    pdf_name_value, pdf_new_boolean, pdf_new_dict, IntoObj,
-    pdf_new_indirect, pdf_new_null, pdf_new_number, pdf_new_stream, pdf_new_string,
-    pdf_number_value, pdf_obj, pdf_release_obj, STREAM_COMPRESS,
+    pdf_deref_obj, pdf_file, pdf_name_value, pdf_new_boolean, pdf_new_dict, pdf_new_indirect,
+    pdf_new_name, pdf_new_null, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_number_value,
+    pdf_obj, pdf_release_obj, IntoObj, STREAM_COMPRESS,
 };
 use crate::specials::spc_lookup_reference;
-use libc::{memcpy};
+use libc::memcpy;
 
 fn is_space(c: &u8) -> bool {
     [b' ', b'\t', '\u{c}' as u8, b'\r', b'\n', 0].contains(c)
@@ -63,7 +62,6 @@ pub struct ParserState {
     pub tainted: i32,
 }
 static mut parser_state: ParserState = ParserState { tainted: 0i32 };
-
 
 pub unsafe fn dump(mut start: *const i8, mut end: *const i8) {
     let mut p: *const i8 = start;
@@ -239,10 +237,7 @@ unsafe fn parse_gen_ident(
     *start = p;
     ident
 }
-fn parse_gen_ident_slice(
-    mut buf: &mut &[u8],
-    mut valid_chars: &[u8],
-) -> Option<CString> {
+fn parse_gen_ident_slice(mut buf: &mut &[u8], mut valid_chars: &[u8]) -> Option<CString> {
     /* No skip_white(start, end)? */
     let mut i = 0;
     for p in *buf {
@@ -302,14 +297,11 @@ const PDF_NAME_LEN_MAX: usize = 128;
 //#ifndef PDF_STRING_LEN_MAX
 const PDF_STRING_LEN_MAX: usize = 65535;
 
-const STRING_BUFFER_SIZE: usize = PDF_STRING_LEN_MAX+1;
-static mut sbuf: [i8; PDF_STRING_LEN_MAX+1] = [0; PDF_STRING_LEN_MAX+1];
+const STRING_BUFFER_SIZE: usize = PDF_STRING_LEN_MAX + 1;
+static mut sbuf: [i8; PDF_STRING_LEN_MAX + 1] = [0; PDF_STRING_LEN_MAX + 1];
 
 /* !PDF_PARSE_STRICT */
-unsafe fn try_pdf_reference(
-    mut p: &[u8],
-    pf: *mut pdf_file,
-) -> Option<(*mut pdf_obj, &[u8])> {
+unsafe fn try_pdf_reference(mut p: &[u8], pf: *mut pdf_file) -> Option<(*mut pdf_obj, &[u8])> {
     let mut id: u32 = 0_u32;
     let mut gen: u16 = 0_u16;
     assert!(!pf.is_null());
@@ -317,20 +309,18 @@ unsafe fn try_pdf_reference(
     if p.len() < 5 || !p[0].is_ascii_digit() {
         return None;
     }
-    while !is_space(&p[0])
-    {
+    while !is_space(&p[0]) {
         if p.is_empty() || !p[0].is_ascii_digit() {
             return None;
         }
-        id = id*10 + (p[0] as u32 - '0' as u32);
+        id = id * 10 + (p[0] as u32 - '0' as u32);
         p = &p[1..];
     }
     p.skip_white();
     if p.is_empty() || !p[0].is_ascii_digit() {
         return None;
     }
-    while !is_space(&(p[0]))
-    {
+    while !is_space(&(p[0])) {
         if p.is_empty() || !p[0].is_ascii_digit() {
             return None;
         }
@@ -342,10 +332,7 @@ unsafe fn try_pdf_reference(
         return None;
     }
     p = &p[1..];
-    if !(p.is_empty()
-        || is_space(&(p[0]))
-        || is_delim(&(p[0])))
-    {
+    if !(p.is_empty() || is_space(&(p[0])) || is_delim(&(p[0]))) {
         return None;
     }
     Some((pdf_new_indirect(pf, id, gen), p))
@@ -358,7 +345,10 @@ pub unsafe fn parse_pdf_object(
     mut endptr: *const i8,
     mut pf: *mut pdf_file,
 ) -> *mut pdf_obj {
-    let mut b = std::slice::from_raw_parts(*pp as *const i8 as *const u8, endptr.wrapping_offset_from(*pp) as usize);
+    let mut b = std::slice::from_raw_parts(
+        *pp as *const i8 as *const u8,
+        endptr.wrapping_offset_from(*pp) as usize,
+    );
     let obj = b.parse_pdf_object(pf);
     *pp = b.as_ptr() as *const i8;
     if let Some(o) = obj {
@@ -399,12 +389,10 @@ impl ParsePdfObj for &[u8] {
                 } else {
                     result = self.parse_pdf_dict(pf);
                     self.skip_white();
-                    if result.is_some()
-                        && self.len() >= 15
-                        && self.starts_with(b"stream") {
+                    if result.is_some() && self.len() >= 15 && self.starts_with(b"stream") {
                         let dict = result.unwrap();
                         result = self.parse_pdf_stream(dict);
-                        unsafe{ pdf_release_obj(dict) };
+                        unsafe { pdf_release_obj(dict) };
                     }
                 }
             }
@@ -420,7 +408,7 @@ impl ParsePdfObj for &[u8] {
                  * and indirect references are allowed.
                  */
                 if !pf.is_null() {
-                    if let Some((res, next)) = unsafe{ try_pdf_reference(*self, pf) } {
+                    if let Some((res, next)) = unsafe { try_pdf_reference(*self, pf) } {
                         result = Some(res);
                         *self = next;
                     } else {
@@ -443,12 +431,10 @@ impl ParsePdfObj for &[u8] {
         let save2 = *self; // TODO: check
         self.skip_white();
         if let Some(name) = self.parse_opt_ident() {
-            result = unsafe{ spc_lookup_reference(&name) };
-            if result.is_none() { // DEAD code
-                warn!(
-                    "Could not find the named reference (@{}).",
-                    name.display(),
-                );
+            result = unsafe { spc_lookup_reference(&name) };
+            if result.is_none() {
+                // DEAD code
+                warn!("Could not find the named reference (@{}).", name.display(),);
                 dump_slice(save2);
                 *self = save2
             }
@@ -487,7 +473,9 @@ impl ParsePdfObj for &[u8] {
             } else {
                 stream_length = unsafe { pdf_number_value(&*tmp2) as i32 }
             }
-            unsafe { pdf_release_obj(tmp2); }
+            unsafe {
+                pdf_release_obj(tmp2);
+            }
         } else {
             return None;
         }
@@ -504,8 +492,14 @@ impl ParsePdfObj for &[u8] {
             unsafe { pdf_new_stream(0) }
         };
         let stream_dict = unsafe { (*result).as_stream_mut().get_dict_mut() };
-        unsafe { stream_dict.merge((*dict).as_dict()); }
-        unsafe { (*result).as_stream_mut().add(p.as_ptr() as *const libc::c_void, stream_length); }
+        unsafe {
+            stream_dict.merge((*dict).as_dict());
+        }
+        unsafe {
+            (*result)
+                .as_stream_mut()
+                .add(p.as_ptr() as *const libc::c_void, stream_length);
+        }
         p = &p[(stream_length as usize)..];
         /* Check "endsteam" */
         /* It is recommended that there be an end-of-line marker
@@ -519,7 +513,9 @@ impl ParsePdfObj for &[u8] {
             p = &p[1..];
         }
         if !p.starts_with(b"endstream") {
-            unsafe { pdf_release_obj(result); }
+            unsafe {
+                pdf_release_obj(result);
+            }
             return None;
         }
         p = &p[9..];
@@ -553,9 +549,13 @@ impl ParsePdfObj for &[u8] {
         Some(result.into_obj())
     }
     fn parse_pdf_tainted_dict(&mut self) -> Option<*mut pdf_obj> {
-        unsafe { parser_state.tainted = 1; }
+        unsafe {
+            parser_state.tainted = 1;
+        }
         let result = self.parse_pdf_dict(ptr::null_mut());
-        unsafe { parser_state.tainted = 0; }
+        unsafe {
+            parser_state.tainted = 0;
+        }
         result
     }
     fn parse_pdf_dict(&mut self, pf: *mut pdf_file) -> Option<*mut pdf_obj> {
@@ -566,30 +566,40 @@ impl ParsePdfObj for &[u8] {
             return None;
         } /* skip >> */
         p = &p[2..]; /* skip ] */
-        let result = unsafe{ pdf_new_dict() };
+        let result = unsafe { pdf_new_dict() };
         p.skip_white();
         while !p.is_empty() && p[0] != b'>' {
             p.skip_white();
             if let Some(key) = p.parse_pdf_name() {
                 p.skip_white();
                 if let Some(value) = p.parse_pdf_object(pf) {
-                    unsafe{ (*result).as_dict_mut().set(pdf_name_value(&*key).to_bytes(), value); }
+                    unsafe {
+                        (*result)
+                            .as_dict_mut()
+                            .set(pdf_name_value(&*key).to_bytes(), value);
+                    }
                     p.skip_white();
                 } else {
-                    unsafe{ pdf_release_obj(key);
-                    pdf_release_obj(result); }
+                    unsafe {
+                        pdf_release_obj(key);
+                        pdf_release_obj(result);
+                    }
                     warn!("Could not find a value in dictionary object.");
                     return None;
                 }
             } else {
                 warn!("Could not find a key in dictionary object.");
-                unsafe { pdf_release_obj(result); }
+                unsafe {
+                    pdf_release_obj(result);
+                }
                 return None;
             }
         }
         if p.len() < 2 || p[0] != b'>' || p[1] != b'>' {
             warn!("Syntax error: Dictionary object ended prematurely.");
-            unsafe { pdf_release_obj(result); }
+            unsafe {
+                pdf_release_obj(result);
+            }
             return None;
         }
         *self = &p[2..];
@@ -638,20 +648,14 @@ impl ParsePdfObj for &[u8] {
                     }
                 }
                 _ => {
-                    if p[0] == b'\\'
-                        || p[0] == b'('
-                        || p[0] == b')'
-                    {
+                    if p[0] == b'\\' || p[0] == b'(' || p[0] == b')' {
                         ch = p[0] as i32;
                         p = &p[1..];
                     } else if p[0] >= b'0' && p[0] <= b'7' {
                         ch = 0i32;
                         /* Ignore overflow. */
                         let mut i = 0;
-                        while i < 3
-                            && !p.is_empty()
-                            && (p[0] >= b'0' && p[0] <= b'7')
-                        {
+                        while i < 3 && !p.is_empty() && (p[0] >= b'0' && p[0] <= b'7') {
                             ch = (ch << 3) + (p[0] as i32 - '0' as i32);
                             p = &p[1..];
                             i += 1;
@@ -690,15 +694,19 @@ impl ParsePdfObj for &[u8] {
             if ch == ')' as i32 && op_count < 1 {
                 break;
             }
-            if unsafe{ parser_state.tainted != 0 } {
+            if unsafe { parser_state.tainted != 0 } {
                 if p.len() > 1 && ch & 0x80 != 0 {
                     if len + 2 >= 65535 {
                         warn!("PDF string length too long. (limit: {})", 65535);
                         return None;
                     }
-                    unsafe{ sbuf[len] = p[0] as i8; }
+                    unsafe {
+                        sbuf[len] = p[0] as i8;
+                    }
                     len += 1;
-                    unsafe{ sbuf[len] = p[1] as i8; }
+                    unsafe {
+                        sbuf[len] = p[1] as i8;
+                    }
                     len += 1;
                     p = &p[2..];
                     continue;
@@ -713,7 +721,9 @@ impl ParsePdfObj for &[u8] {
                 b'\\' => {
                     ch = ps_getescc(&mut p);
                     if ch >= 0i32 {
-                        unsafe{ sbuf[len] = (ch & 0xff) as i8; }
+                        unsafe {
+                            sbuf[len] = (ch & 0xff) as i8;
+                        }
                         len += 1;
                     }
                 }
@@ -722,7 +732,9 @@ impl ParsePdfObj for &[u8] {
                     if !p.is_empty() && p[0] == b'\n' {
                         p = &p[1..];
                     }
-                    unsafe{ sbuf[len] = '\n' as i8; }
+                    unsafe {
+                        sbuf[len] = '\n' as i8;
+                    }
                     len += 1;
                 }
                 _ => {
@@ -731,7 +743,9 @@ impl ParsePdfObj for &[u8] {
                     } else if ch == ')' as i32 {
                         op_count -= 1
                     }
-                    unsafe{ sbuf[len] = ch as i8; }
+                    unsafe {
+                        sbuf[len] = ch as i8;
+                    }
                     len += 1;
                     p = &p[1..]
                 }
@@ -742,7 +756,12 @@ impl ParsePdfObj for &[u8] {
             return None;
         }
         *self = &p[1..];
-        unsafe{ Some(pdf_new_string(sbuf.as_mut_ptr() as *const libc::c_void, len as size_t)) }
+        unsafe {
+            Some(pdf_new_string(
+                sbuf.as_mut_ptr() as *const libc::c_void,
+                len as size_t,
+            ))
+        }
     }
 
     /*
@@ -772,7 +791,9 @@ impl ParsePdfObj for &[u8] {
                 ch += xtoi(p[0]);
                 p = &p[1..]
             }
-            unsafe{ sbuf[len] = (ch & 0xffi32) as i8; }
+            unsafe {
+                sbuf[len] = (ch & 0xffi32) as i8;
+            }
             len += 1;
         }
         if p.is_empty() {
@@ -785,19 +806,20 @@ impl ParsePdfObj for &[u8] {
             }
         }
         *self = &p[1..];
-        unsafe{ Some(pdf_new_string(sbuf.as_mut_ptr() as *const libc::c_void, len as size_t)) }
+        unsafe {
+            Some(pdf_new_string(
+                sbuf.as_mut_ptr() as *const libc::c_void,
+                len as size_t,
+            ))
+        }
     }
     fn parse_pdf_string(&mut self) -> Option<*mut pdf_obj> {
-
         self.skip_white();
         if self.len() >= 2 {
             if self[0] == b'(' {
                 return unsafe { self.parse_pdf_literal_string() };
             } else {
-                if self[0] == b'<'
-                    && (self[1] == b'>'
-                        || self[1].is_ascii_hexdigit())
-                {
+                if self[0] == b'<' && (self[1] == b'>' || self[1].is_ascii_hexdigit()) {
                     return unsafe { self.parse_pdf_hex_string() };
                 }
             }
@@ -810,9 +832,7 @@ impl ParsePdfObj for &[u8] {
         if (*self).len() < 4 {
             warn!("Not a null object.");
             return None;
-        } else if (*self).len() > 4
-            && !istokensep(&self[4])
-        {
+        } else if (*self).len() > 4 && !istokensep(&self[4]) {
             warn!("Not a null object.");
             return None;
         } else if self.starts_with(b"null") {
@@ -828,14 +848,12 @@ impl ParsePdfObj for &[u8] {
         if self.starts_with(b"true") {
             if (*self).len() == 4 || istokensep(&self[4]) {
                 *self = &(*self)[4..];
-                return unsafe{ Some(pdf_new_boolean(1)) };
+                return unsafe { Some(pdf_new_boolean(1)) };
             }
         } else if self.starts_with(b"false") {
-            if (*self).len() == 5
-                || istokensep(&self[5])
-            {
+            if (*self).len() == 5 || istokensep(&self[5]) {
                 *self = &(*self)[5..];
-                return unsafe{ Some(pdf_new_boolean(0)) };
+                return unsafe { Some(pdf_new_boolean(0)) };
             }
         }
         warn!("Not a boolean object.");
@@ -903,10 +921,7 @@ impl ParsePdfObj for &[u8] {
         let mut has_dot = false;
         let mut p = *self;
         p.skip_white();
-        if p.is_empty()
-            || !p[0].is_ascii_digit()
-                && !(b".+-".contains(&p[0]))
-        {
+        if p.is_empty() || !p[0].is_ascii_digit() && !(b".+-".contains(&p[0])) {
             warn!("Could not find a numeric object.");
             return None;
         }
@@ -926,7 +941,23 @@ impl ParsePdfObj for &[u8] {
             p = &p[1..];
         }
         while !p.is_empty()
-            && !([b' ', b'\t', b'\r', b'\n', b'(', b')', b'/', b'<', b'>', b'[', b']', b'%', '\u{c}' as u8, 0].contains(&p[0]))
+            && !([
+                b' ',
+                b'\t',
+                b'\r',
+                b'\n',
+                b'(',
+                b')',
+                b'/',
+                b'<',
+                b'>',
+                b'[',
+                b']',
+                b'%',
+                '\u{c}' as u8,
+                0,
+            ]
+            .contains(&p[0]))
         {
             if p[0] == b'.' {
                 if has_dot {

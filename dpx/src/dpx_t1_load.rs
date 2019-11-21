@@ -2071,15 +2071,11 @@ pub unsafe fn is_pfb(handle: &mut InputHandleWrapper) -> bool {
         }
         sig[i] = ch as u8;
     }
-    if &sig[..] == b"%!PS-AdobeFont" || &sig[..11] == b"%!FontType1"
-    {
+    if &sig[..] == b"%!PS-AdobeFont" || &sig[..11] == b"%!FontType1" {
         return true;
     }
     if &sig[..4] == b"%!PS" {
-        warn!(
-            "Ambiguous PostScript resource type: {}",
-            &sig[..].display(),
-        );
+        warn!("Ambiguous PostScript resource type: {}", &sig[..].display(),);
         return true;
     }
     warn!("Not a PFB font file?");
@@ -2155,10 +2151,7 @@ pub unsafe fn t1_get_standard_glyph(mut code: i32) -> *const i8 {
     StandardEncoding[code as usize]
 }
 
-pub unsafe fn t1_get_fontname(
-    handle: &mut InputHandleWrapper,
-    mut fontname: *mut i8,
-) -> i32 {
+pub unsafe fn t1_get_fontname(handle: &mut InputHandleWrapper, mut fontname: *mut i8) -> i32 {
     let mut length: i32 = 0;
     let mut key: *mut i8 = ptr::null_mut();
     let mut fn_found: i32 = 0i32;

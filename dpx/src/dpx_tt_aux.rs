@@ -36,12 +36,11 @@ use super::dpx_numbers::tt_get_unsigned_quad;
 use super::dpx_tt_post::{tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::{tt_read_head_table, tt_read_os2__table};
 use crate::dpx_pdfobj::{
-    pdf_new_dict, pdf_new_name, pdf_new_number,
-    pdf_new_string, pdf_obj, IntoObj,
+    pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_string, pdf_obj, IntoObj,
 };
 
-use std::io::{Seek, SeekFrom};
 use libc::{free, memcpy};
+use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
@@ -69,7 +68,9 @@ pub unsafe fn ttc_read_offset(mut sfont: *mut sfnt, mut ttc_idx: i32) -> u32 {
     if ttc_idx < 0i32 || ttc_idx as u32 > num_dirs.wrapping_sub(1_u32) {
         panic!("Invalid TTC index number");
     }
-    handle.seek(SeekFrom::Start((12 + ttc_idx * 4)  as u64)).unwrap();
+    handle
+        .seek(SeekFrom::Start((12 + ttc_idx * 4) as u64))
+        .unwrap();
     tt_get_unsigned_quad(handle)
 }
 /* flag declared in dvipdfmx.c */
@@ -98,7 +99,9 @@ pub unsafe fn tt_get_fontdesc(
         return ptr::null_mut();
     }
     let descriptor = pdf_new_dict();
-    (*descriptor).as_dict_mut().set("Type", pdf_new_name("FontDescriptor"));
+    (*descriptor)
+        .as_dict_mut()
+        .set("Type", pdf_new_name("FontDescriptor"));
     if *embed != 0 && !os2.is_null() {
         /*
           License:
@@ -172,7 +175,9 @@ pub unsafe fn tt_get_fontdesc(
                 * ((*os2).usWeightClass as i32 as f64 / 65.0f64)
                 + 50i32 as f64) as i32
         } /* arbitrary */
-        (*descriptor).as_dict_mut().set("StemV", pdf_new_number(stemv as f64));
+        (*descriptor)
+            .as_dict_mut()
+            .set("StemV", pdf_new_number(stemv as f64));
         if (*os2).version as i32 == 0x2i32 {
             (*descriptor).as_dict_mut().set(
                 "CapHeight",
@@ -227,46 +232,30 @@ pub unsafe fn tt_get_fontdesc(
     }
     /* BoundingBox (array) */
     let mut bbox = vec![];
-    bbox.push(
-        pdf_new_number(
-            (1000.0f64 * (*head).xMin as i32 as f64
-                / (*head).unitsPerEm as i32 as f64
-                / 1i32 as f64
-                + 0.5f64)
-                .floor()
-                * 1i32 as f64,
-        ),
-    );
-    bbox.push(
-        pdf_new_number(
-            (1000.0f64 * (*head).yMin as i32 as f64
-                / (*head).unitsPerEm as i32 as f64
-                / 1i32 as f64
-                + 0.5f64)
-                .floor()
-                * 1i32 as f64,
-        ),
-    );
-    bbox.push(
-        pdf_new_number(
-            (1000.0f64 * (*head).xMax as i32 as f64
-                / (*head).unitsPerEm as i32 as f64
-                / 1i32 as f64
-                + 0.5f64)
-                .floor()
-                * 1i32 as f64,
-        ),
-    );
-    bbox.push(
-        pdf_new_number(
-            (1000.0f64 * (*head).yMax as i32 as f64
-                / (*head).unitsPerEm as i32 as f64
-                / 1i32 as f64
-                + 0.5f64)
-                .floor()
-                * 1i32 as f64,
-        ),
-    );
+    bbox.push(pdf_new_number(
+        (1000.0f64 * (*head).xMin as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1i32 as f64
+            + 0.5f64)
+            .floor()
+            * 1i32 as f64,
+    ));
+    bbox.push(pdf_new_number(
+        (1000.0f64 * (*head).yMin as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1i32 as f64
+            + 0.5f64)
+            .floor()
+            * 1i32 as f64,
+    ));
+    bbox.push(pdf_new_number(
+        (1000.0f64 * (*head).xMax as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1i32 as f64
+            + 0.5f64)
+            .floor()
+            * 1i32 as f64,
+    ));
+    bbox.push(pdf_new_number(
+        (1000.0f64 * (*head).yMax as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1i32 as f64
+            + 0.5f64)
+            .floor()
+            * 1i32 as f64,
+    ));
     (*descriptor).as_dict_mut().set("FontBBox", bbox.into_obj());
     /* post */
     (*descriptor).as_dict_mut().set(
@@ -299,7 +288,9 @@ pub unsafe fn tt_get_fontdesc(
             flag |= 1i32 << 0i32
         }
     }
-    (*descriptor).as_dict_mut().set("Flags", pdf_new_number(flag as f64));
+    (*descriptor)
+        .as_dict_mut()
+        .set("Flags", pdf_new_number(flag as f64));
     /* insert panose if you want */
     if type_0 == 0i32 && !os2.is_null() {
         /* cid-keyed font - add panose */

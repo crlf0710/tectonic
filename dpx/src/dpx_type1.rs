@@ -55,7 +55,7 @@ use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use crate::dpx_pdfobj::{
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS, IntoObj,
+    pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, IntoObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
@@ -430,11 +430,11 @@ unsafe fn add_metrics(
     let mut tmp_array = vec![];
     for i in 0..4 {
         let val = cff_dict_get(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8, i);
-        tmp_array.push(
-            pdf_new_number((val / 1.0f64 + 0.5f64).floor() * 1.0f64),
-        );
+        tmp_array.push(pdf_new_number((val / 1.0f64 + 0.5f64).floor() * 1.0f64));
     }
-    (*descriptor).as_dict_mut().set("FontBBox", tmp_array.into_obj());
+    (*descriptor)
+        .as_dict_mut()
+        .set("FontBBox", tmp_array.into_obj());
     let mut tmp_array = vec![];
     if num_glyphs <= 1i32 {
         /* This must be an error. */
@@ -493,9 +493,7 @@ unsafe fn add_metrics(
                         );
                     }
                 }
-                tmp_array.push(
-                    pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64),
-                );
+                tmp_array.push(pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64));
             } else {
                 tmp_array.push(pdf_new_number(0.0f64));
             }
@@ -652,7 +650,9 @@ unsafe fn write_fontfile(
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
     descriptor.set("FontFile3", pdf_ref_obj(fontfile));
     stream_dict.set("Subtype", pdf_new_name("Type1C"));
-    (*fontfile).as_stream_mut().add_slice(&stream_data[..offset]);
+    (*fontfile)
+        .as_stream_mut()
+        .add_slice(&stream_data[..offset]);
     pdf_release_obj(fontfile);
     descriptor.set(
         "CharSet",
@@ -866,10 +866,9 @@ pub unsafe fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
                         }
                         /* CharSet is actually string object. */
                         (*pdfcharset).as_stream_mut().add_str("/");
-                        (*pdfcharset).as_stream_mut().add(
-                            glyph as *const libc::c_void,
-                            strlen(glyph) as i32,
-                        );
+                        (*pdfcharset)
+                            .as_stream_mut()
+                            .add(glyph as *const libc::c_void, strlen(glyph) as i32);
                     }
                 }
             }

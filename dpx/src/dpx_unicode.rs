@@ -32,10 +32,7 @@ pub unsafe fn UC_is_valid(mut ucv: i32) -> bool {
     !(ucv < 0i32 || ucv as i64 > 0x10ffff || ucv as i64 >= 0xd800 && ucv as i64 <= 0xdfff)
 }
 
-pub unsafe fn UC_UTF16BE_is_valid_string(
-    mut p: *const u8,
-    mut endptr: *const u8,
-) -> bool {
+pub unsafe fn UC_UTF16BE_is_valid_string(mut p: *const u8, mut endptr: *const u8) -> bool {
     if p.offset(1) >= endptr {
         return false;
     }
@@ -61,10 +58,7 @@ pub unsafe fn UC_UTF8_is_valid_string(mut p: *const u8, mut endptr: *const u8) -
     true
 }
 
-pub unsafe fn UC_UTF16BE_decode_char(
-    mut pp: *mut *const u8,
-    mut endptr: *const u8,
-) -> i32 {
+pub unsafe fn UC_UTF16BE_decode_char(mut pp: *mut *const u8, mut endptr: *const u8) -> i32 {
     let mut p: *const u8 = *pp;
     let mut ucv;
     if p.offset(1) >= endptr {

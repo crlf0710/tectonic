@@ -21,10 +21,9 @@ use super::xetex_aatfont as aat;
 #[cfg(target_os = "macos")]
 use super::xetex_aatfont::cf_prelude::{
     kCFNumberFloatType, kCTFontAttributeName, kCTForegroundColorAttributeName,
-    kCTVerticalFormsAttributeName, CFDictionaryGetValue, CFDictionaryRef,
-    CFNumberGetValue, CFNumberRef, CFNumberType, CFRelease, CFTypeRef, CGAffineTransform,
-    CGColorGetComponents, CGColorRef, CGFloat, CTFontGetMatrix, CTFontGetSize,
-    CTFontRef,
+    kCTVerticalFormsAttributeName, CFDictionaryGetValue, CFDictionaryRef, CFNumberGetValue,
+    CFNumberRef, CFNumberType, CFRelease, CFTypeRef, CGAffineTransform, CGColorGetComponents,
+    CGColorRef, CGFloat, CTFontGetMatrix, CTFontGetSize, CTFontRef,
 };
 use crate::core_memory::{mfree, xcalloc, xmalloc, xrealloc, xstrdup};
 use crate::xetex_ini::memory_word;
@@ -45,16 +44,14 @@ use bridge::_tt_abort;
 
 use crate::stub_stdio::strcasecmp;
 use crate::xetex_layout_engine::*;
+use harfbuzz_sys::{hb_feature_t, hb_tag_from_string, hb_tag_t};
 use libc::{memcpy, strcat, strcpy, strdup, strlen, strncpy, strstr};
-use harfbuzz_sys::{hb_tag_t, hb_tag_from_string, hb_feature_t};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
 pub type ssize_t = __ssize_t;
 
 use crate::TTInputFormat;
-
-
 
 pub type Boolean = libc::c_uchar;
 
@@ -189,13 +186,7 @@ pub unsafe extern "C" fn linebreak_start(
         brkIter = 0 as *mut icu::UBreakIterator
     }
     if brkIter.is_null() {
-        brkIter = icu::ubrk_open(
-            icu::UBRK_LINE,
-            locale,
-            ptr::null(),
-            0i32,
-            &mut status,
-        );
+        brkIter = icu::ubrk_open(icu::UBRK_LINE, locale, ptr::null(), 0i32, &mut status);
         if status as i32 > icu::U_ZERO_ERROR as i32 {
             begin_diagnostic();
             print_nl('E' as i32);
