@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use crate::warn;
@@ -49,7 +48,7 @@ pub struct bt_node {
     pub right: *mut bt_node,
     pub data: [i8; 4],
 }
-unsafe fn match_expr(mut expr: *mut bt_node, mut key: *const i8) -> i32 {
+unsafe fn match_expr(expr: *mut bt_node, key: *const i8) -> i32 {
     let mut retval: i32 = 1i32;
     if !expr.is_null() {
         if (*expr).left.is_null() && (*expr).right.is_null() {
@@ -88,7 +87,7 @@ unsafe fn bt_new_tree() -> *mut bt_node {
     memset((*expr).data.as_mut_ptr() as *mut libc::c_void, 0i32, 4);
     expr
 }
-unsafe fn bt_release_tree(mut tree: *mut bt_node) {
+unsafe fn bt_release_tree(tree: *mut bt_node) {
     if !tree.is_null() {
         if !(*tree).left.is_null() {
             bt_release_tree((*tree).left);
@@ -99,7 +98,7 @@ unsafe fn bt_release_tree(mut tree: *mut bt_node) {
         free(tree as *mut libc::c_void);
     };
 }
-unsafe fn parse_expr(mut pp: *mut *const i8, mut endptr: *const i8) -> *mut bt_node {
+unsafe fn parse_expr(pp: *mut *const i8, endptr: *const i8) -> *mut bt_node {
     if *pp >= endptr {
         return ptr::null_mut();
     }
@@ -213,7 +212,7 @@ pub unsafe fn otl_release_opt(mut opt: *mut otl_opt) {
     free(opt as *mut libc::c_void);
 }
 
-pub unsafe fn otl_parse_optstring(mut opt: *mut otl_opt, mut optstr: *const i8) -> i32 {
+pub unsafe fn otl_parse_optstring(mut opt: *mut otl_opt, optstr: *const i8) -> i32 {
     assert!(!opt.is_null());
     if !optstr.is_null() {
         let mut p = optstr as *const i8;
@@ -223,7 +222,7 @@ pub unsafe fn otl_parse_optstring(mut opt: *mut otl_opt, mut optstr: *const i8) 
     0i32
 }
 
-pub unsafe fn otl_match_optrule(mut opt: *mut otl_opt, mut tag: *const i8) -> i32 {
+pub unsafe fn otl_match_optrule(opt: *mut otl_opt, tag: *const i8) -> i32 {
     assert!(!tag.is_null());
     if opt.is_null() || (*opt).rule.is_null() {
         return 1i32;

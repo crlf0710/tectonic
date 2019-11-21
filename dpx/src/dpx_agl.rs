@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use crate::DisplayExt;
@@ -73,7 +72,7 @@ pub struct C2RustUnnamed_0 {
  * as directory separators. */
 static mut verbose: i32 = 0i32;
 
-pub unsafe fn agl_set_verbose(mut level: i32) {
+pub unsafe fn agl_set_verbose(level: i32) {
     verbose = level;
 }
 unsafe fn agl_new_name() -> *mut agl_name {
@@ -377,7 +376,7 @@ static mut aglmap: ht_table = ht_table {
     table: [std::ptr::null_mut(); 503],
 };
 #[inline]
-unsafe fn hval_free(mut hval: *mut libc::c_void) {
+unsafe fn hval_free(hval: *mut libc::c_void) {
     agl_release_name(hval as *mut agl_name);
 }
 
@@ -405,7 +404,7 @@ pub unsafe fn agl_close_map() {
  *  http://partners.adobe.com/asn/tech/type/unicodegn.jsp
  */
 /* Hash */
-unsafe fn agl_load_listfile(mut filename: *const i8, mut is_predef: i32) -> i32 {
+unsafe fn agl_load_listfile(filename: *const i8, is_predef: i32) -> i32 {
     let mut count: i32 = 0i32;
     let mut wbuf: [i8; 1024] = [0; 1024];
     if filename.is_null() {
@@ -533,7 +532,7 @@ unsafe fn agl_load_listfile(mut filename: *const i8, mut is_predef: i32) -> i32 
     count
 }
 
-pub unsafe fn agl_lookup_list(mut glyphname: *const i8) -> *mut agl_name {
+pub unsafe fn agl_lookup_list(glyphname: *const i8) -> *mut agl_name {
     if glyphname.is_null() {
         return ptr::null_mut();
     }
@@ -578,7 +577,7 @@ pub fn agl_name_is_unicode(glyphname: &[u8]) -> bool {
     false
 }
 
-pub unsafe fn agl_name_convert_unicode(mut glyphname: *const i8) -> i32 {
+pub unsafe fn agl_name_convert_unicode(glyphname: *const i8) -> i32 {
     if !agl_name_is_unicode(CStr::from_ptr(glyphname).to_bytes()) {
         return -1i32;
     }
@@ -620,7 +619,7 @@ pub unsafe fn agl_name_convert_unicode(mut glyphname: *const i8) -> i32 {
     ucv
 }
 
-fn xtol(mut buf: &[u8]) -> i32 {
+fn xtol(buf: &[u8]) -> i32 {
     let mut v: i32 = 0i32;
     for b in buf {
         v <<= 4;
@@ -635,7 +634,7 @@ fn xtol(mut buf: &[u8]) -> i32 {
     v
 }
 
-unsafe fn put_unicode_glyph(name: &[u8], mut dstpp: *mut *mut u8, mut limptr: *mut u8) -> i32 {
+unsafe fn put_unicode_glyph(name: &[u8], dstpp: *mut *mut u8, limptr: *mut u8) -> i32 {
     let mut len = 0;
     let mut p = name;
     if p[1] != b'n' {
@@ -654,10 +653,10 @@ unsafe fn put_unicode_glyph(name: &[u8], mut dstpp: *mut *mut u8, mut limptr: *m
 }
 
 pub unsafe fn agl_sput_UTF16BE(
-    mut glyphstr: *const i8,
-    mut dstpp: *mut *mut u8,
-    mut limptr: *mut u8,
-    mut fail_count: *mut i32,
+    glyphstr: *const i8,
+    dstpp: *mut *mut u8,
+    limptr: *mut u8,
+    fail_count: *mut i32,
 ) -> i32 {
     let mut len: i32 = 0i32;
     let mut count: i32 = 0i32;
@@ -759,11 +758,7 @@ pub unsafe fn agl_sput_UTF16BE(
     len
 }
 
-pub unsafe fn agl_get_unicodes(
-    mut glyphstr: *const i8,
-    mut unicodes: *mut i32,
-    mut max_unicodes: i32,
-) -> i32 {
+pub unsafe fn agl_get_unicodes(glyphstr: *const i8, unicodes: *mut i32, max_unicodes: i32) -> i32 {
     let mut count: i32 = 0i32;
     let mut p = glyphstr;
     let mut endptr = strchr(p, '.' as i32) as *const i8;
@@ -832,7 +827,7 @@ pub unsafe fn agl_get_unicodes(
                         || (*agln1).unicodes[0] as i64 >= 0x100000
                             && (*agln1).unicodes[0] as i64 <= 0x10fffd)
             {
-                let mut agln0 = agl_normalized_name(name.to_bytes());
+                let agln0 = agl_normalized_name(name.to_bytes());
                 if !agln0.is_null() {
                     if verbose > 1i32 && !(*agln0).suffix.is_null() {
                         warn!(

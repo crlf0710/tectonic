@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use euclid::point2;
@@ -150,7 +149,7 @@ static mut _opts: opt_ = opt_ {
     cmdtmpl: ptr::null_mut(),
 };
 
-pub unsafe fn pdf_ximage_set_verbose(mut level: i32) {
+pub unsafe fn pdf_ximage_set_verbose(level: i32) {
     _opts.verbose = level;
 }
 static mut _ic: ic_ = ic_ {
@@ -176,7 +175,7 @@ unsafe fn pdf_init_ximage_struct(mut I: *mut pdf_ximage) {
     (*I).attr.dict = ptr::null_mut();
     (*I).attr.tempfile = 0_i8;
 }
-unsafe fn pdf_clean_ximage_struct(mut I: *mut pdf_ximage) {
+unsafe fn pdf_clean_ximage_struct(I: *mut pdf_ximage) {
     free((*I).ident as *mut libc::c_void);
     free((*I).filename as *mut libc::c_void);
     pdf_release_obj((*I).reference);
@@ -244,11 +243,11 @@ unsafe fn source_image_type(handle: &mut InputHandleWrapper) -> i32 {
     format
 }
 unsafe fn load_image(
-    mut ident: *const i8,
-    mut fullname: *const i8,
-    mut format: i32,
+    ident: *const i8,
+    fullname: *const i8,
+    format: i32,
     mut handle: InputHandleWrapper,
-    mut options: load_options,
+    options: load_options,
 ) -> i32 {
     let mut ic: *mut ic_ = &mut _ic;
     let id = (*ic).count;
@@ -331,7 +330,7 @@ unsafe fn load_image(
             if _opts.verbose != 0 {
                 info!("[PDF]");
             }
-            let mut result: i32 = pdf_include_page(I, handle.clone(), fullname, options);
+            let result: i32 = pdf_include_page(I, handle.clone(), fullname, options);
             /* Tectonic: this used to try ps_include_page() */
             if result != 0 {
                 pdf_clean_ximage_struct(I);
@@ -387,8 +386,8 @@ unsafe fn load_image(
     id
 }
 
-pub unsafe fn pdf_ximage_findresource(mut ident: *const i8, mut options: load_options) -> i32 {
-    let mut ic: *mut ic_ = &mut _ic;
+pub unsafe fn pdf_ximage_findresource(ident: *const i8, options: load_options) -> i32 {
+    let ic: *mut ic_ = &mut _ic;
     /* "I don't understand why there is comparision against I->attr.dict here...
      * I->attr.dict and options.dict are simply pointers to PDF dictionaries."
      */
@@ -503,7 +502,7 @@ pub fn pdf_ximage_init_image_info(info: &mut ximage_info) {
 pub unsafe fn pdf_ximage_set_image(
     mut I: *mut pdf_ximage,
     image_info: &mut ximage_info,
-    mut resource: *mut pdf_obj,
+    resource: *mut pdf_obj,
 ) {
     let info = image_info;
     if !(!resource.is_null() && (*resource).is_stream()) {
@@ -537,7 +536,7 @@ pub unsafe fn pdf_ximage_set_image(
 pub unsafe fn pdf_ximage_set_form(
     mut I: *mut pdf_ximage,
     form_info: &mut xform_info,
-    mut resource: *mut pdf_obj,
+    resource: *mut pdf_obj,
 ) {
     let info = form_info;
     (*I).subtype = 0i32;
@@ -561,12 +560,12 @@ pub unsafe fn pdf_ximage_set_form(
     (*I).resource = ptr::null_mut();
 }
 
-pub unsafe fn pdf_ximage_get_page(mut I: *mut pdf_ximage) -> i32 {
+pub unsafe fn pdf_ximage_get_page(I: *mut pdf_ximage) -> i32 {
     (*I).attr.page_no
 }
 
-pub unsafe fn pdf_ximage_get_reference(mut id: i32) -> *mut pdf_obj {
-    let mut ic: *mut ic_ = &mut _ic;
+pub unsafe fn pdf_ximage_get_reference(id: i32) -> *mut pdf_obj {
+    let ic: *mut ic_ = &mut _ic;
     if id < 0i32 || id >= (*ic).count {
         panic!("Invalid XObject ID: {}", id);
     }
@@ -586,9 +585,9 @@ pub enum XInfo {
 /* called from pdfdoc.c only for late binding */
 
 pub unsafe fn pdf_ximage_defineresource(
-    mut ident: *const i8,
+    ident: *const i8,
     info: XInfo,
-    mut resource: *mut pdf_obj,
+    resource: *mut pdf_obj,
 ) -> i32 {
     let mut ic: *mut ic_ = &mut _ic;
     let id = (*ic).count;
@@ -630,8 +629,8 @@ pub unsafe fn pdf_ximage_defineresource(
     id
 }
 
-pub unsafe fn pdf_ximage_get_resname(mut id: i32) -> *mut i8 {
-    let mut ic: *mut ic_ = &mut _ic;
+pub unsafe fn pdf_ximage_get_resname(id: i32) -> *mut i8 {
+    let ic: *mut ic_ = &mut _ic;
     if id < 0i32 || id >= (*ic).count {
         panic!("Invalid XObject ID: {}", id);
     }
@@ -639,8 +638,8 @@ pub unsafe fn pdf_ximage_get_resname(mut id: i32) -> *mut i8 {
     (*I).res_name.as_mut_ptr()
 }
 
-pub unsafe fn pdf_ximage_get_subtype(mut id: i32) -> i32 {
-    let mut ic: *mut ic_ = &mut _ic;
+pub unsafe fn pdf_ximage_get_subtype(id: i32) -> i32 {
+    let ic: *mut ic_ = &mut _ic;
     if id < 0i32 || id >= (*ic).count {
         panic!("Invalid XObject ID: {}", id);
     }
@@ -650,17 +649,17 @@ pub unsafe fn pdf_ximage_get_subtype(mut id: i32) -> i32 {
 /* from spc_pdfm.c */
 
 pub unsafe fn pdf_ximage_set_attr(
-    mut id: i32,
-    mut width: i32,
-    mut height: i32,
-    mut xdensity: f64,
-    mut ydensity: f64,
-    mut llx: f64,
-    mut lly: f64,
-    mut urx: f64,
-    mut ury: f64,
+    id: i32,
+    width: i32,
+    height: i32,
+    xdensity: f64,
+    ydensity: f64,
+    llx: f64,
+    lly: f64,
+    urx: f64,
+    ury: f64,
 ) {
-    let mut ic: *mut ic_ = &mut _ic;
+    let ic: *mut ic_ = &mut _ic;
     if id < 0i32 || id >= (*ic).count {
         panic!("Invalid XObject ID: {}", id);
     }
@@ -676,7 +675,7 @@ pub unsafe fn pdf_ximage_set_attr(
  * not as vertical dimension of scaled image. (And there are bugs.)
  * This part contains incompatibile behaviour than dvipdfm!
  */
-unsafe fn scale_to_fit_I(T: &mut TMatrix, p: &mut transform_info, mut I: *mut pdf_ximage) {
+unsafe fn scale_to_fit_I(T: &mut TMatrix, p: &mut transform_info, I: *mut pdf_ximage) {
     let s_x;
     let s_y;
     let d_x;
@@ -734,7 +733,7 @@ unsafe fn scale_to_fit_I(T: &mut TMatrix, p: &mut transform_info, mut I: *mut pd
         d_y * s_y / yscale - dp,
     );
 }
-unsafe fn scale_to_fit_F(T: &mut TMatrix, p: &mut transform_info, mut I: *mut pdf_ximage) {
+unsafe fn scale_to_fit_F(T: &mut TMatrix, p: &mut transform_info, I: *mut pdf_ximage) {
     let s_x;
     let s_y;
     let d_x;
@@ -783,7 +782,7 @@ unsafe fn scale_to_fit_F(T: &mut TMatrix, p: &mut transform_info, mut I: *mut pd
 
 pub unsafe fn pdf_ximage_scale_image(id: i32, r: &mut Rect, p: &mut transform_info) -> TMatrix
 /* argument from specials */ {
-    let mut ic: *mut ic_ = &mut _ic;
+    let ic: *mut ic_ = &mut _ic;
     if id < 0i32 || id >= (*ic).count {
         panic!("Invalid XObject ID: {}", id);
     }
@@ -842,7 +841,7 @@ pub unsafe fn pdf_ximage_scale_image(id: i32, r: &mut Rect, p: &mut transform_in
 }
 /* Migrated from psimage.c */
 
-pub unsafe fn set_distiller_template(mut s: *mut i8) {
+pub unsafe fn set_distiller_template(s: *mut i8) {
     free(_opts.cmdtmpl as *mut libc::c_void);
     if s.is_null() || *s as i32 == '\u{0}' as i32 {
         _opts.cmdtmpl = ptr::null_mut()

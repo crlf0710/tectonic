@@ -20,7 +20,6 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
 #![allow(
-    unused_mut
 )]
 
 use super::{spc_arg, spc_env, SpcHandler};
@@ -52,7 +51,7 @@ pub fn spc_dvipdfmx_check_special(mut buf: &[u8]) -> bool {
 
 pub unsafe fn spc_dvipdfmx_setup_handler(
     mut sph: *mut SpcHandler,
-    mut spe: *mut spc_env,
+    spe: *mut spc_env,
     mut ap: *mut spc_arg,
 ) -> i32 {
     let mut error: i32 = -1i32;

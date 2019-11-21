@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use crate::DisplayExt;
@@ -49,11 +48,11 @@ use super::dpx_sfnt::sfnt;
 
 static mut verbose: i32 = 0i32;
 
-pub unsafe fn tt_aux_set_verbose(mut level: i32) {
+pub unsafe fn tt_aux_set_verbose(level: i32) {
     verbose = level; /* skip version tag */
 }
 
-pub unsafe fn ttc_read_offset(mut sfont: *mut sfnt, mut ttc_idx: i32) -> u32 {
+pub unsafe fn ttc_read_offset(sfont: *mut sfnt, ttc_idx: i32) -> u32 {
     if sfont.is_null() {
         panic!("file not opened");
     }
@@ -79,11 +78,11 @@ pub unsafe fn ttc_read_offset(mut sfont: *mut sfnt, mut ttc_idx: i32) -> u32 {
 /* Force bold at small text sizes */
 
 pub unsafe fn tt_get_fontdesc(
-    mut sfont: *mut sfnt,
-    mut embed: *mut i32,
+    sfont: *mut sfnt,
+    embed: *mut i32,
     mut stemv: i32,
-    mut type_0: i32,
-    mut fontname: *const i8,
+    type_0: i32,
+    fontname: *const i8,
 ) -> *mut pdf_obj {
     let mut flag: i32 = 1i32 << 2i32;
     if sfont.is_null() {

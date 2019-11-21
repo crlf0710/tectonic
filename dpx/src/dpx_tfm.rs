@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use super::dpx_numbers::{
@@ -177,7 +176,7 @@ unsafe fn release_range_map(mut map: *mut range_map) {
     (*map).indices = ptr::null_mut();
     free(map as *mut libc::c_void);
 }
-unsafe fn lookup_char(mut map: *const char_map, mut charcode: i32) -> i32 {
+unsafe fn lookup_char(map: *const char_map, charcode: i32) -> i32 {
     if charcode >= (*map).coverage.first_char
         && charcode <= (*map).coverage.first_char + (*map).coverage.num_chars
     {
@@ -188,7 +187,7 @@ unsafe fn lookup_char(mut map: *const char_map, mut charcode: i32) -> i32 {
         return -1i32;
     };
 }
-unsafe fn lookup_range(mut map: *const range_map, mut charcode: i32) -> i32 {
+unsafe fn lookup_range(map: *const range_map, charcode: i32) -> i32 {
     let mut idx = (*map).num_coverages as i32 - 1i32;
     while idx >= 0i32 && charcode >= (*(*map).coverages.offset(idx as isize)).first_char {
         if charcode
@@ -215,7 +214,7 @@ unsafe fn fm_init(mut fm: *mut font_metric) {
     (*fm).charmap.data = ptr::null_mut();
     (*fm).source = 0i32;
 }
-unsafe fn fm_clear(mut fm: *mut font_metric) {
+unsafe fn fm_clear(fm: *mut font_metric) {
     if !fm.is_null() {
         free((*fm).tex_name as *mut libc::c_void);
         free((*fm).widths as *mut libc::c_void);
@@ -242,7 +241,7 @@ pub unsafe fn tfm_reset_global_state() {
     numfms = 0_u32;
     max_fms = 0_u32;
 }
-unsafe fn fms_need(mut n: u32) {
+unsafe fn fms_need(n: u32) {
     if n > max_fms {
         max_fms = if max_fms.wrapping_add(16_u32) > n {
             max_fms.wrapping_add(16_u32)
@@ -256,24 +255,16 @@ unsafe fn fms_need(mut n: u32) {
     };
 }
 
-pub unsafe fn tfm_set_verbose(mut level: i32) {
+pub unsafe fn tfm_set_verbose(level: i32) {
     verbose = level;
 }
-unsafe fn fread_fwords(
-    mut words: *mut fixword,
-    mut nmemb: u32,
-    handle: &mut InputHandleWrapper,
-) -> i32 {
+unsafe fn fread_fwords(words: *mut fixword, nmemb: u32, handle: &mut InputHandleWrapper) -> i32 {
     for i in 0..nmemb {
         *words.offset(i as isize) = tt_get_signed_quad(handle);
     }
     nmemb.wrapping_mul(4_u32) as i32
 }
-unsafe fn fread_uquads(
-    mut quads: *mut u32,
-    mut nmemb: u32,
-    handle: &mut InputHandleWrapper,
-) -> i32 {
+unsafe fn fread_uquads(quads: *mut u32, nmemb: u32, handle: &mut InputHandleWrapper) -> i32 {
     for i in 0..nmemb {
         *quads.offset(i as isize) = tt_get_unsigned_quad(handle);
     }
@@ -282,7 +273,7 @@ unsafe fn fread_uquads(
 /*
  * TFM and JFM
  */
-unsafe fn tfm_check_size(mut tfm: *mut tfm_font, mut tfm_file_size: off_t) {
+unsafe fn tfm_check_size(tfm: *mut tfm_font, tfm_file_size: off_t) {
     let mut expected_size: u32 = 6_u32;
     /* Removed the warning message caused by EC TFM metric files.
      *
@@ -326,7 +317,7 @@ unsafe fn tfm_check_size(mut tfm: *mut tfm_font, mut tfm_file_size: off_t) {
 }
 unsafe fn tfm_get_sizes(
     tfm_handle: &mut InputHandleWrapper,
-    mut tfm_file_size: off_t,
+    tfm_file_size: off_t,
     mut tfm: *mut tfm_font,
 ) {
     (*tfm).wlenfile = tt_get_unsigned_pair(tfm_handle) as u32;
@@ -346,7 +337,7 @@ unsafe fn tfm_get_sizes(
     (*tfm).nfonparm = tt_get_unsigned_pair(tfm_handle) as u32;
     tfm_check_size(tfm, tfm_file_size);
 }
-unsafe fn tfm_unpack_arrays(mut fm: *mut font_metric, mut tfm: *mut tfm_font) {
+unsafe fn tfm_unpack_arrays(mut fm: *mut font_metric, tfm: *mut tfm_font) {
     (*fm).widths =
         new((256_u32 as u64).wrapping_mul(::std::mem::size_of::<fixword>() as u64) as u32)
             as *mut fixword;
@@ -371,7 +362,7 @@ unsafe fn tfm_unpack_arrays(mut fm: *mut font_metric, mut tfm: *mut tfm_font) {
         *(*fm).depths.offset(i as isize) = *(*tfm).depth.offset(depth_index as isize);
     }
 }
-unsafe fn sput_bigendian(mut s: *mut i8, mut v: i32, mut n: i32) -> i32 {
+unsafe fn sput_bigendian(s: *mut i8, mut v: i32, n: i32) -> i32 {
     let mut i = n - 1i32;
     while i >= 0i32 {
         *s.offset(i as isize) = (v & 0xffi32) as i8;
@@ -380,7 +371,7 @@ unsafe fn sput_bigendian(mut s: *mut i8, mut v: i32, mut n: i32) -> i32 {
     }
     n
 }
-unsafe fn tfm_unpack_header(mut fm: *mut font_metric, mut tfm: *mut tfm_font) {
+unsafe fn tfm_unpack_header(mut fm: *mut font_metric, tfm: *mut tfm_font) {
     if (*tfm).wlenheader < 12_u32 {
         (*fm).codingscheme = ptr::null_mut()
     } else {
@@ -406,7 +397,7 @@ unsafe fn tfm_unpack_header(mut fm: *mut font_metric, mut tfm: *mut tfm_font) {
     }
     (*fm).designsize = *(*tfm).header.offset(1);
 }
-unsafe fn ofm_check_size_one(mut tfm: *mut tfm_font, mut ofm_file_size: off_t) {
+unsafe fn ofm_check_size_one(tfm: *mut tfm_font, ofm_file_size: off_t) {
     let mut ofm_size: u32 = 14_u32;
     ofm_size = (ofm_size as u32)
         .wrapping_add((2_u32).wrapping_mul((*tfm).ec.wrapping_sub((*tfm).bc).wrapping_add(1_u32)))
@@ -426,7 +417,7 @@ unsafe fn ofm_check_size_one(mut tfm: *mut tfm_font, mut ofm_file_size: off_t) {
 }
 unsafe fn ofm_get_sizes(
     ofm_handle: &mut InputHandleWrapper,
-    mut ofm_file_size: off_t,
+    ofm_file_size: off_t,
     mut tfm: *mut tfm_font,
 ) {
     (*tfm).level = tt_get_signed_quad(ofm_handle);
@@ -463,7 +454,7 @@ unsafe fn ofm_get_sizes(
     };
 }
 unsafe fn ofm_do_char_info_zero(ofm_handle: &mut InputHandleWrapper, mut tfm: *mut tfm_font) {
-    let mut num_chars = (*tfm).ec.wrapping_sub((*tfm).bc).wrapping_add(1_u32);
+    let num_chars = (*tfm).ec.wrapping_sub((*tfm).bc).wrapping_add(1_u32);
     if num_chars != 0_u32 {
         (*tfm).width_index = new((num_chars as u64)
             .wrapping_mul(::std::mem::size_of::<u16>() as u64)
@@ -487,7 +478,7 @@ unsafe fn ofm_do_char_info_one(ofm_handle: &mut InputHandleWrapper, mut tfm: *mu
     let num_char_infos = (*tfm)
         .ncw
         .wrapping_div((3_u32).wrapping_add((*tfm).npc.wrapping_div(2_u32)));
-    let mut num_chars = (*tfm).ec.wrapping_sub((*tfm).bc).wrapping_add(1_u32);
+    let num_chars = (*tfm).ec.wrapping_sub((*tfm).bc).wrapping_add(1_u32);
     if num_chars != 0_u32 {
         (*tfm).width_index = new((num_chars as u64)
             .wrapping_mul(::std::mem::size_of::<u16>() as u64)
@@ -539,7 +530,7 @@ unsafe fn ofm_do_char_info_one(ofm_handle: &mut InputHandleWrapper, mut tfm: *mu
         }
     };
 }
-unsafe fn ofm_unpack_arrays(mut fm: *mut font_metric, mut tfm: *mut tfm_font, mut num_chars: u32) {
+unsafe fn ofm_unpack_arrays(mut fm: *mut font_metric, tfm: *mut tfm_font, num_chars: u32) {
     (*fm).widths = new(((*tfm).bc.wrapping_add(num_chars) as u64)
         .wrapping_mul(::std::mem::size_of::<fixword>() as u64) as u32)
         as *mut fixword;
@@ -564,7 +555,7 @@ unsafe fn ofm_unpack_arrays(mut fm: *mut font_metric, mut tfm: *mut tfm_font, mu
 unsafe fn read_ofm(
     mut fm: *mut font_metric,
     ofm_handle: &mut InputHandleWrapper,
-    mut ofm_file_size: off_t,
+    ofm_file_size: off_t,
 ) {
     let mut tfm: tfm_font = tfm_font {
         level: 0,
@@ -641,7 +632,7 @@ unsafe fn read_ofm(
 unsafe fn read_tfm(
     mut fm: *mut font_metric,
     tfm_handle: &mut InputHandleWrapper,
-    mut tfm_file_size: off_t,
+    tfm_file_size: off_t,
 ) {
     let mut tfm: tfm_font = tfm_font {
         level: 0,
@@ -713,7 +704,7 @@ unsafe fn read_tfm(
     tfm_font_clear(&mut tfm);
 }
 
-pub unsafe fn tfm_open(mut tfm_name: *const i8, mut must_exist: i32) -> i32 {
+pub unsafe fn tfm_open(tfm_name: *const i8, must_exist: i32) -> i32 {
     let mut tfm_handle = None;
     let mut format: i32 = 1i32;
     let ofm_name;
@@ -832,7 +823,7 @@ pub unsafe fn tfm_close_all() {
     };
 }
 
-pub unsafe fn tfm_get_fw_width(mut font_id: i32, mut ch: i32) -> fixword {
+pub unsafe fn tfm_get_fw_width(font_id: i32, ch: i32) -> fixword {
     let idx;
     if font_id < 0i32 || font_id as u32 >= numfms {
         panic!("TFM: Invalid TFM ID: {}", font_id);
@@ -860,7 +851,7 @@ pub unsafe fn tfm_get_fw_width(mut font_id: i32, mut ch: i32) -> fixword {
     *(*fm).widths.offset(idx as isize)
 }
 
-pub unsafe fn tfm_get_fw_height(mut font_id: i32, mut ch: i32) -> fixword {
+pub unsafe fn tfm_get_fw_height(font_id: i32, ch: i32) -> fixword {
     let idx;
     if font_id < 0i32 || font_id as u32 >= numfms {
         panic!("TFM: Invalid TFM ID: {}", font_id);
@@ -888,7 +879,7 @@ pub unsafe fn tfm_get_fw_height(mut font_id: i32, mut ch: i32) -> fixword {
     *(*fm).heights.offset(idx as isize)
 }
 
-pub unsafe fn tfm_get_fw_depth(mut font_id: i32, mut ch: i32) -> fixword {
+pub unsafe fn tfm_get_fw_depth(font_id: i32, ch: i32) -> fixword {
     let idx;
     if font_id < 0i32 || font_id as u32 >= numfms {
         panic!("TFM: Invalid TFM ID: {}", font_id);
@@ -920,12 +911,12 @@ pub unsafe fn tfm_get_fw_depth(mut font_id: i32, mut ch: i32) -> fixword {
  * as a (double) fraction of the design size.
  */
 
-pub unsafe fn tfm_get_width(mut font_id: i32, mut ch: i32) -> f64 {
+pub unsafe fn tfm_get_width(font_id: i32, ch: i32) -> f64 {
     tfm_get_fw_width(font_id, ch) as f64 / (1i32 << 20i32) as f64
 }
 /* tfm_string_xxx() do not work for OFM... */
 
-pub unsafe fn tfm_string_width(mut font_id: i32, mut s: *const u8, mut len: u32) -> fixword {
+pub unsafe fn tfm_string_width(font_id: i32, s: *const u8, len: u32) -> fixword {
     let mut result: fixword = 0i32;
     if font_id < 0i32 || font_id as u32 >= numfms {
         panic!("TFM: Invalid TFM ID: {}", font_id);
@@ -936,7 +927,7 @@ pub unsafe fn tfm_string_width(mut font_id: i32, mut s: *const u8, mut len: u32)
     result
 }
 
-pub unsafe fn tfm_get_design_size(mut font_id: i32) -> f64 {
+pub unsafe fn tfm_get_design_size(font_id: i32) -> f64 {
     if font_id < 0i32 || font_id as u32 >= numfms {
         panic!("TFM: Invalid TFM ID: {}", font_id);
     }

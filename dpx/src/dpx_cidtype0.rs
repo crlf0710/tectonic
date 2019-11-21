@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use crate::DisplayExt;
@@ -149,23 +148,23 @@ use super::dpx_t1_char::t1_ginfo;
 static mut verbose: i32 = 0i32;
 static mut opt_flags: i32 = 0i32;
 
-pub unsafe fn CIDFont_type0_set_verbose(mut level: i32) {
+pub unsafe fn CIDFont_type0_set_verbose(level: i32) {
     verbose = level;
 }
 
-pub unsafe fn CIDFont_type0_set_flags(mut flags: i32) {
+pub unsafe fn CIDFont_type0_set_flags(flags: i32) {
     opt_flags = flags;
 }
 /*
  * PDF Reference 3rd. ed., p.340, "Glyph Metrics in CID Fonts".
  */
 unsafe fn add_CIDHMetrics(
-    mut fontdict: *mut pdf_obj,
-    mut CIDToGIDMap: *mut u8,
-    mut last_cid: u16,
-    mut maxp: *mut tt_maxp_table,
-    mut head: *mut tt_head_table,
-    mut hmtx: *mut tt_longMetrics,
+    fontdict: *mut pdf_obj,
+    CIDToGIDMap: *mut u8,
+    last_cid: u16,
+    maxp: *mut tt_maxp_table,
+    head: *mut tt_head_table,
+    hmtx: *mut tt_longMetrics,
 ) {
     let mut an_array: *mut pdf_obj = ptr::null_mut();
     let mut start: i32 = 0i32;
@@ -241,13 +240,13 @@ unsafe fn add_CIDHMetrics(
     pdf_release_obj(w_array);
 }
 unsafe fn add_CIDVMetrics(
-    mut sfont: *mut sfnt,
-    mut fontdict: *mut pdf_obj,
-    mut CIDToGIDMap: *mut u8,
-    mut last_cid: u16,
-    mut maxp: *mut tt_maxp_table,
-    mut head: *mut tt_head_table,
-    mut hmtx: *mut tt_longMetrics,
+    sfont: *mut sfnt,
+    fontdict: *mut pdf_obj,
+    CIDToGIDMap: *mut u8,
+    last_cid: u16,
+    maxp: *mut tt_maxp_table,
+    head: *mut tt_head_table,
+    hmtx: *mut tt_longMetrics,
 ) {
     let mut vhea: *mut tt_vhea_table = ptr::null_mut();
     let mut vmtx: *mut tt_longMetrics = ptr::null_mut();
@@ -376,11 +375,11 @@ unsafe fn add_CIDVMetrics(
     free(vhea as *mut libc::c_void);
 }
 unsafe fn add_CIDMetrics(
-    mut sfont: *mut sfnt,
-    mut fontdict: *mut pdf_obj,
-    mut CIDToGIDMap: *mut u8,
-    mut last_cid: u16,
-    mut need_vmetrics: i32,
+    sfont: *mut sfnt,
+    fontdict: *mut pdf_obj,
+    CIDToGIDMap: *mut u8,
+    last_cid: u16,
+    need_vmetrics: i32,
 ) {
     /*
      * Read head, hhea, maxp:
@@ -411,7 +410,7 @@ unsafe fn add_CIDMetrics(
 /*
  * Create an instance of embeddable font.
  */
-unsafe fn write_fontfile(mut font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
+unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     /*  DICT sizes (offset set to long int) */
     let mut topdict = CffIndex::new(1); /* some bad font may have */
     let mut fdarray = CffIndex::new(cffont.num_fds as u16); /* some bad font may have */
@@ -552,7 +551,7 @@ unsafe fn write_fontfile(mut font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     pdf_release_obj(fontfile);
     destlen as i32
 }
-unsafe fn CIDFont_type0_get_used_chars(mut font: *mut CIDFont) -> *mut i8 {
+unsafe fn CIDFont_type0_get_used_chars(font: *mut CIDFont) -> *mut i8 {
     let mut parent_id = CIDFont_get_parent_id(font, 0i32);
     if parent_id < 0i32 && {
         parent_id = CIDFont_get_parent_id(font, 1i32);
@@ -566,7 +565,7 @@ unsafe fn CIDFont_type0_get_used_chars(mut font: *mut CIDFont) -> *mut i8 {
     }
     used_chars
 }
-unsafe fn CIDType0Error_Show(error: CidOpenError, mut name: *const i8) {
+unsafe fn CIDType0Error_Show(error: CidOpenError, name: *const i8) {
     match error {
         CidOpenError::CANNOT_OPEN_FILE => {
             panic!(
@@ -603,14 +602,14 @@ unsafe fn CIDType0Error_Show(error: CidOpenError, mut name: *const i8) {
         }
     };
 }
-unsafe fn CIDFontInfo_init(mut info: *mut CIDType0Info) {
+unsafe fn CIDFontInfo_init(info: *mut CIDType0Info) {
     memset(
         info as *mut libc::c_void,
         0i32,
         ::std::mem::size_of::<CIDType0Info>(),
     );
 }
-unsafe fn CIDFontInfo_close(mut info: *mut CIDType0Info) {
+unsafe fn CIDFontInfo_close(info: *mut CIDType0Info) {
     if !(*info).cffont.is_null() {
         cff_close((*info).cffont);
     }
@@ -623,9 +622,9 @@ unsafe fn CIDFontInfo_close(mut info: *mut CIDType0Info) {
     CIDFontInfo_init(info);
 }
 unsafe fn CIDFont_type0_try_open(
-    mut name: *const i8,
-    mut index: i32,
-    mut required_cid: i32,
+    name: *const i8,
+    index: i32,
+    required_cid: i32,
     mut info: *mut CIDType0Info,
 ) -> Result<(), CidOpenError> {
     let mut offset: u32 = 0_u32;
@@ -666,11 +665,7 @@ unsafe fn CIDFont_type0_try_open(
     }
     Ok(())
 }
-unsafe fn CIDFont_type0_add_CIDSet(
-    mut font: *mut CIDFont,
-    mut used_chars: *mut i8,
-    mut last_cid: u16,
-) {
+unsafe fn CIDFont_type0_add_CIDSet(font: *mut CIDFont, used_chars: *mut i8, last_cid: u16) {
     /*
      * CIDSet:
      * Length of CIDSet stream is not clear. Must be 8192 bytes long?
@@ -686,7 +681,7 @@ unsafe fn CIDFont_type0_add_CIDSet(
     pdf_release_obj(cidset);
 }
 
-pub unsafe fn CIDFont_type0_dofont(mut font: *mut CIDFont) {
+pub unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
     let mut num_glyphs: u16 = 0i32 as u16;
     let mut last_cid: u16 = 0i32 as u16;
     let mut CIDToGIDMap: *mut u8 = ptr::null_mut();
@@ -950,17 +945,17 @@ pub unsafe fn CIDFont_type0_dofont(mut font: *mut CIDFont) {
 
 pub unsafe fn CIDFont_type0_open(
     mut font: *mut CIDFont,
-    mut name: *const i8,
-    mut cmap_csi: *mut CIDSysInfo,
+    name: *const i8,
+    cmap_csi: *mut CIDSysInfo,
     mut opt: *mut cid_opt,
-    mut expected_flag: i32,
+    expected_flag: i32,
 ) -> i32 {
     let mut sfont: *mut sfnt = ptr::null_mut();
     let cffont;
     let mut offset: u32 = 0_u32;
     let mut is_cid_font: i32 = 0i32;
-    let mut expect_cid_font: i32 = (expected_flag == 0i32) as i32;
-    let mut expect_type1_font: i32 = expected_flag & 1i32 << 8i32;
+    let expect_cid_font: i32 = (expected_flag == 0i32) as i32;
+    let expect_type1_font: i32 = expected_flag & 1i32 << 8i32;
     assert!(!font.is_null());
     if expect_type1_font != 0 {
         if !cmap_csi.is_null()
@@ -973,7 +968,7 @@ pub unsafe fn CIDFont_type0_open(
             return -1i32;
         }
     }
-    let mut handle = if expect_type1_font != 0 {
+    let handle = if expect_type1_font != 0 {
         dpx_open_type1_file(name)
     } else {
         dpx_open_opentype_file(name)
@@ -1023,7 +1018,7 @@ pub unsafe fn CIDFont_type0_open(
         if handle.is_none() {
             return -1i32;
         }
-        let mut handle = handle.unwrap();
+        let handle = handle.unwrap();
         cffont = t1_load_font(0 as *mut *mut i8, 1i32, handle);
         if cffont.is_null() {
             return -1i32;
@@ -1175,7 +1170,7 @@ pub unsafe fn CIDFont_type0_open(
     (*(*font).fontdict)
         .as_dict_mut()
         .set("BaseFont", pdf_copy_name(fontname));
-    let mut csi_dict = pdf_new_dict();
+    let csi_dict = pdf_new_dict();
     (*csi_dict).as_dict_mut().set(
         "Registry",
         pdf_new_string(
@@ -1208,7 +1203,7 @@ pub unsafe fn CIDFont_type0_open(
     0i32
 }
 
-pub unsafe fn CIDFont_type0_t1cdofont(mut font: *mut CIDFont) {
+pub unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
     let mut info: CIDType0Info = CIDType0Info {
         sfont: ptr::null_mut(),
         cffont: ptr::null_mut(),
@@ -1542,7 +1537,7 @@ pub unsafe fn CIDFont_type0_t1cdofont(mut font: *mut CIDFont) {
     CIDFont_type0_add_CIDSet(font, used_chars, last_cid);
 }
 
-unsafe fn load_base_CMap(font_name: &str, mut wmode: i32, cffont: &cff_font) -> i32 {
+unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 {
     let mut range_min: [u8; 4] = [0; 4];
     let mut range_max: [u8; 4] = [0x7f, 0xff, 0xff, 0xff];
     let cmap_name = if wmode != 0 {
@@ -1603,11 +1598,7 @@ unsafe fn load_base_CMap(font_name: &str, mut wmode: i32, cffont: &cff_font) -> 
     CMap_cache_add(cmap)
 }
 
-pub unsafe fn t1_load_UnicodeCMap(
-    mut font_name: *const i8,
-    mut otl_tags: *const i8,
-    mut wmode: i32,
-) -> i32 {
+pub unsafe fn t1_load_UnicodeCMap(font_name: *const i8, otl_tags: *const i8, wmode: i32) -> i32 {
     if font_name.is_null() {
         return -1i32;
     }
@@ -1615,7 +1606,7 @@ pub unsafe fn t1_load_UnicodeCMap(
     if handle.is_none() {
         return -1i32;
     }
-    let mut handle = handle.unwrap();
+    let handle = handle.unwrap();
     let cffont = t1_load_font(0 as *mut *mut i8, 1i32, handle);
     if cffont.is_null() {
         return -1i32;
@@ -1642,8 +1633,8 @@ pub unsafe fn t1_load_UnicodeCMap(
  */
 unsafe fn create_ToUnicode_stream(
     cffont: &cff_font,
-    mut font_name: *const i8,
-    mut used_glyphs: *const i8,
+    font_name: *const i8,
+    used_glyphs: *const i8,
 ) -> *mut pdf_obj {
     let mut stream: *mut pdf_obj = ptr::null_mut();
     let mut wbuf: [u8; 1024] = [0; 1024];
@@ -1718,7 +1709,7 @@ unsafe fn create_ToUnicode_stream(
 }
 /* Force bold at small text sizes */
 /* pdf_font --> CIDFont */
-unsafe fn get_font_attr(mut font: *mut CIDFont, cffont: &cff_font) {
+unsafe fn get_font_attr(font: *mut CIDFont, cffont: &cff_font) {
     let italicangle;
     let mut flags: i32 = 0i32;
     static mut L_c: [*const i8; 5] = [
@@ -1960,12 +1951,12 @@ unsafe fn get_font_attr(mut font: *mut CIDFont, cffont: &cff_font) {
         .set("Flags", pdf_new_number(flags as f64));
 }
 unsafe fn add_metrics(
-    mut font: *mut CIDFont,
-    mut cffont: *mut cff_font,
-    mut CIDToGIDMap: *mut u8,
-    mut widths: *mut f64,
-    mut default_width: f64,
-    mut last_cid: CID,
+    font: *mut CIDFont,
+    cffont: *mut cff_font,
+    CIDToGIDMap: *mut u8,
+    widths: *mut f64,
+    default_width: f64,
+    last_cid: CID,
 ) {
     /*
      * The original FontBBox of the font is preserved, instead
@@ -2034,7 +2025,7 @@ unsafe fn add_metrics(
 }
 /* Type1 --> CFF CIDFont */
 
-pub unsafe fn CIDFont_type0_t1dofont(mut font: *mut CIDFont) {
+pub unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
     let mut used_chars: *mut i8 = ptr::null_mut();
     assert!(!font.is_null());
     if (*font).indirect.is_null() {
@@ -2047,7 +2038,7 @@ pub unsafe fn CIDFont_type0_t1dofont(mut font: *mut CIDFont) {
     if handle.is_none() {
         panic!("Type1: Could not open Type1 font.");
     }
-    let mut handle = handle.unwrap();
+    let handle = handle.unwrap();
     let cffont = t1_load_font(0 as *mut *mut i8, 0i32, handle);
     if cffont.is_null() {
         panic!("Could not read Type 1 font...");

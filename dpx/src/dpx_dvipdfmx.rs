@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use euclid::point2;
@@ -289,15 +288,15 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
 }
 
 pub unsafe fn dvipdfmx_main(
-    mut pdf_filename: *const i8,
-    mut dvi_filename: *const i8,
-    mut pagespec: *const i8,
-    mut opt_flags: i32,
-    mut translate: bool,
-    mut compress: bool,
-    mut deterministic_tags: bool,
-    mut quiet: bool,
-    mut verbose: u32,
+    pdf_filename: *const i8,
+    dvi_filename: *const i8,
+    pagespec: *const i8,
+    opt_flags: i32,
+    translate: bool,
+    compress: bool,
+    deterministic_tags: bool,
+    quiet: bool,
+    verbose: u32,
 ) -> i32 {
     let mut enable_object_stream: bool = true; /* This must come before parsing options... */
     let mut page_ranges = Vec::new();

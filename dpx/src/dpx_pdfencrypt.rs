@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use std::ptr;
@@ -117,11 +116,11 @@ static padding_bytes: [u8; 32] = [
 ];
 static mut verbose: u8 = 0_u8;
 
-pub unsafe fn pdf_enc_set_verbose(mut level: i32) {
+pub unsafe fn pdf_enc_set_verbose(level: i32) {
     verbose = level as u8; /* For AES IV */
 }
 
-unsafe fn pdf_enc_init(mut use_aes: i32, mut encrypt_metadata: i32) {
+unsafe fn pdf_enc_init(use_aes: i32, encrypt_metadata: i32) {
     let p = &mut sec_data;
     let current_time = match get_unique_time_if_given() {
         Some(x) => x,
@@ -137,7 +136,7 @@ unsafe fn pdf_enc_init(mut use_aes: i32, mut encrypt_metadata: i32) {
     p.setting.encrypt_metadata = encrypt_metadata;
 }
 
-pub unsafe fn pdf_enc_compute_id_string(dviname: Option<&[u8]>, mut pdfname: Option<&[u8]>) {
+pub unsafe fn pdf_enc_compute_id_string(dviname: Option<&[u8]>, pdfname: Option<&[u8]>) {
     let p = &mut sec_data;
     /* FIXME: This should be placed in main() or somewhere. */
     pdf_enc_init(1i32, 1i32);
@@ -164,7 +163,7 @@ pub unsafe fn pdf_enc_compute_id_string(dviname: Option<&[u8]>, mut pdfname: Opt
     }
     p.ID = md5.result().into();
 }
-unsafe fn passwd_padding(mut src: *const i8, mut dst: *mut u8) {
+unsafe fn passwd_padding(src: *const i8, dst: *mut u8) {
     let len = (if 32 < strlen(src) { 32 } else { strlen(src) }) as i32;
     memcpy(
         dst as *mut libc::c_void,
@@ -177,7 +176,7 @@ unsafe fn passwd_padding(mut src: *const i8, mut dst: *mut u8) {
         (32 - len) as _,
     );
 }
-unsafe fn compute_owner_password(p: &mut pdf_sec, mut opasswd: *const i8, mut upasswd: *const i8) {
+unsafe fn compute_owner_password(p: &mut pdf_sec, opasswd: *const i8, upasswd: *const i8) {
     let mut padded: [u8; 32] = [0; 32];
     let mut arc4: ARC4_CONTEXT = ARC4_CONTEXT {
         idx_i: 0,
@@ -233,7 +232,7 @@ unsafe fn compute_owner_password(p: &mut pdf_sec, mut opasswd: *const i8, mut up
     );
 }
 
-unsafe fn compute_encryption_key(p: &mut pdf_sec, mut passwd: *const i8) {
+unsafe fn compute_encryption_key(p: &mut pdf_sec, passwd: *const i8) {
     let mut padded: [u8; 32] = [0; 32];
     passwd_padding(passwd, padded.as_mut_ptr());
     let mut md5 = Md5::new();
@@ -265,7 +264,7 @@ unsafe fn compute_encryption_key(p: &mut pdf_sec, mut passwd: *const i8) {
     );
 }
 
-unsafe fn compute_user_password(p: &mut pdf_sec, mut uplain: *const i8) {
+unsafe fn compute_user_password(p: &mut pdf_sec, uplain: *const i8) {
     let mut arc4: ARC4_CONTEXT = ARC4_CONTEXT {
         idx_i: 0,
         idx_j: 0,
@@ -323,10 +322,10 @@ unsafe fn compute_user_password(p: &mut pdf_sec, mut uplain: *const i8) {
 }
 /* Algorithm 2.B from ISO 32000-1 chapter 7 */
 unsafe fn compute_hash_V5(
-    mut passwd: *const i8,
-    mut salt: *const u8,
-    mut user_key: *const u8,
-    mut R: i32,
+    passwd: *const i8,
+    salt: *const u8,
+    user_key: *const u8,
+    R: i32,
 ) -> [u8; 32]
 /* revision */
 {
@@ -441,7 +440,7 @@ unsafe fn compute_hash_V5(
     }
     hash
 }
-unsafe fn compute_owner_password_V5(p: &mut pdf_sec, mut oplain: *const i8) {
+unsafe fn compute_owner_password_V5(p: &mut pdf_sec, oplain: *const i8) {
     let mut vsalt: [u8; 8] = random();
     let mut ksalt: [u8; 8] = random();
     let mut OE: *mut u8 = ptr::null_mut();
@@ -482,7 +481,7 @@ unsafe fn compute_owner_password_V5(p: &mut pdf_sec, mut oplain: *const i8) {
     );
     free(OE as *mut libc::c_void);
 }
-unsafe fn compute_user_password_V5(p: &mut pdf_sec, mut uplain: *const i8) {
+unsafe fn compute_user_password_V5(p: &mut pdf_sec, uplain: *const i8) {
     let mut vsalt: [u8; 8] = random();
     let mut ksalt: [u8; 8] = random();
     let mut UE: *mut u8 = ptr::null_mut();
@@ -523,7 +522,7 @@ unsafe fn compute_user_password_V5(p: &mut pdf_sec, mut uplain: *const i8) {
     );
     free(UE as *mut libc::c_void);
 }
-unsafe fn check_version(p: &mut pdf_sec, mut version: i32) {
+unsafe fn check_version(p: &mut pdf_sec, version: i32) {
     if p.V > 2i32 && version < 4i32 {
         warn!("Current encryption setting requires PDF version >= 1.4.");
         p.V = 1i32;
@@ -537,15 +536,15 @@ unsafe fn check_version(p: &mut pdf_sec, mut version: i32) {
     };
 }
 unsafe fn stringprep_profile(
-    mut input: *const i8,
-    mut output: *mut *mut i8,
+    input: *const i8,
+    output: *mut *mut i8,
     mut _profile: *const i8,
     mut _flags: Stringprep_profile_flags,
 ) -> i32 {
     let mut p = input;
     let endptr = p.offset(strlen(p) as isize);
     while p < endptr {
-        let mut ucv: i32 = UC_UTF8_decode_char(
+        let ucv: i32 = UC_UTF8_decode_char(
             &mut p as *mut *const i8 as *mut *const u8,
             endptr as *const u8,
         );
@@ -558,7 +557,7 @@ unsafe fn stringprep_profile(
     strcpy(*output, input);
     0i32
 }
-unsafe fn preproc_password(mut passwd: *const i8, mut outbuf: *mut i8, mut V: i32) -> i32 {
+unsafe fn preproc_password(passwd: *const i8, outbuf: *mut i8, V: i32) -> i32 {
     let mut saslpwd: *mut i8 = ptr::null_mut();
     let mut error: i32 = 0i32;
     memset(outbuf as *mut libc::c_void, 0i32, 128);
@@ -612,12 +611,7 @@ unsafe fn preproc_password(mut passwd: *const i8, mut outbuf: *mut i8, mut V: i3
     error
 }
 
-pub unsafe fn pdf_enc_set_passwd(
-    mut bits: u32,
-    mut perm: u32,
-    mut oplain: *const i8,
-    mut uplain: *const i8,
-) {
+pub unsafe fn pdf_enc_set_passwd(bits: u32, perm: u32, oplain: *const i8, uplain: *const i8) {
     let p = &mut sec_data;
     assert!(!oplain.is_null());
     assert!(!uplain.is_null());
@@ -695,10 +689,10 @@ unsafe fn calculate_key(p: &mut pdf_sec) -> [u8; 16] {
 }
 
 pub unsafe fn pdf_encrypt_data(
-    mut plain: *const u8,
-    mut plain_len: size_t,
-    mut cipher: *mut *mut u8,
-    mut cipher_len: *mut size_t,
+    plain: *const u8,
+    plain_len: size_t,
+    cipher: *mut *mut u8,
+    cipher_len: *mut size_t,
 ) {
     let p = &mut sec_data;
     match p.V {
@@ -761,7 +755,7 @@ pub unsafe fn pdf_encrypt_data(
 
 pub unsafe fn pdf_encrypt_obj() -> *mut pdf_obj {
     let p = &mut sec_data;
-    let mut doc_encrypt = pdf_new_dict();
+    let doc_encrypt = pdf_new_dict();
     (*doc_encrypt)
         .as_dict_mut()
         .set("Filter", pdf_new_name("Standard"));
@@ -865,9 +859,9 @@ pub unsafe fn pdf_encrypt_obj() -> *mut pdf_obj {
         free(cipher as *mut libc::c_void);
     }
     if p.R > 5i32 {
-        let mut catalog: *mut pdf_obj = pdf_doc_get_dictionary("Catalog");
-        let mut ext = pdf_new_dict();
-        let mut adbe = pdf_new_dict();
+        let catalog: *mut pdf_obj = pdf_doc_get_dictionary("Catalog");
+        let ext = pdf_new_dict();
+        let adbe = pdf_new_dict();
         (*adbe)
             .as_dict_mut()
             .set("BaseVersion", pdf_new_name("1.7"));
@@ -895,12 +889,12 @@ pub unsafe fn pdf_enc_id_array() -> *mut pdf_obj {
     id.into_obj()
 }
 
-pub unsafe fn pdf_enc_set_label(mut label: u32) {
+pub unsafe fn pdf_enc_set_label(label: u32) {
     let p = &mut sec_data;
     p.label.objnum = label as u64;
 }
 
-pub unsafe fn pdf_enc_set_generation(mut generation: u32) {
+pub unsafe fn pdf_enc_set_generation(generation: u32) {
     let p = &mut sec_data;
     p.label.gennum = generation as u16;
 }

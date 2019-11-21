@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use super::dpx_sfnt::{sfnt_close, sfnt_find_table_pos, sfnt_open, sfnt_read_table_directory};
@@ -137,7 +136,7 @@ use super::dpx_cs_type2::cs_ginfo;
  */
 /* Font info. from OpenType tables */
 
-pub unsafe fn pdf_font_open_type1c(mut font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_open_type1c(font: *mut pdf_font) -> i32 {
     assert!(!font.is_null());
     let ident = pdf_font_get_ident(font);
     let encoding_id = pdf_font_get_encoding(font);
@@ -208,10 +207,10 @@ pub unsafe fn pdf_font_open_type1c(mut font: *mut pdf_font) -> i32 {
     0i32
 }
 unsafe fn add_SimpleMetrics(
-    mut font: *mut pdf_font,
+    font: *mut pdf_font,
     cffont: &cff_font,
-    mut widths: *mut f64,
-    mut num_glyphs: u16,
+    widths: *mut f64,
+    num_glyphs: u16,
 ) {
     let mut firstchar;
     let mut lastchar;
@@ -292,7 +291,7 @@ unsafe fn add_SimpleMetrics(
     fontdict.set("LastChar", pdf_new_number(lastchar as f64));
 }
 
-pub unsafe fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
     let mut offset: i32 = 0i32;
     let mut ginfo = cs_ginfo::new();
     let mut widths: [f64; 256] = [0.; 256];
@@ -321,7 +320,7 @@ pub unsafe fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
             CStr::from_ptr(ident).display(),
         );
     }
-    let mut handle = handle.unwrap();
+    let handle = handle.unwrap();
     let sfont = sfnt_open(handle);
     if sfont.is_null() {
         panic!(
@@ -443,7 +442,7 @@ pub unsafe fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
         .unwrap();
     let cs_idx = cff_get_index_header(cffont);
     /* Offset is now absolute offset ... fixme */
-    let mut offset = cffont
+    let offset = cffont
         .handle
         .as_mut()
         .unwrap()

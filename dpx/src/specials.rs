@@ -19,7 +19,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
-#![allow(non_camel_case_types, unused_mut)]
 
 pub mod color;
 pub mod dvipdfmx;
@@ -109,13 +108,13 @@ pub struct Special {
     pub setup_func: unsafe fn(_: *mut SpcHandler, _: *mut spc_env, _: *mut spc_arg) -> i32,
 }
 static mut VERBOSE: i32 = 0i32;
-pub unsafe fn spc_set_verbose(mut level: i32) {
+pub unsafe fn spc_set_verbose(level: i32) {
     VERBOSE = level;
 }
 /* This is currently just to make other spc_xxx to not directly
  * call dvi_xxx.
  */
-pub unsafe fn spc_begin_annot(mut _spe: *mut spc_env, mut dict: *mut pdf_obj) -> i32 {
+pub unsafe fn spc_begin_annot(mut _spe: *mut spc_env, dict: *mut pdf_obj) -> i32 {
     pdf_doc_begin_annot(dict); /* Tell dvi interpreter to handle line-break. */
     dvi_tag_depth();
     0i32
@@ -152,7 +151,7 @@ static mut _RKEYS: [*const i8; 11] = [
 /* pageN where N is a positive integer.
  * Note that page need not exist at this time.
  */
-unsafe fn ispageref(mut key: *const i8) -> i32 {
+unsafe fn ispageref(key: *const i8) -> i32 {
     if strlen(key) <= strlen(b"page\x00" as *const u8 as *const i8)
         || memcmp(
             key as *const libc::c_void,
@@ -173,7 +172,7 @@ unsafe fn ispageref(mut key: *const i8) -> i32 {
     1i32
 }
 
-pub unsafe fn spc_lookup_reference(mut key: &CString) -> Option<*mut pdf_obj> {
+pub unsafe fn spc_lookup_reference(key: &CString) -> Option<*mut pdf_obj> {
     assert!(!NAMED_OBJECTS.is_null());
     let value = match key.to_bytes() {
         b"xpos" => {
@@ -217,7 +216,7 @@ pub unsafe fn spc_lookup_reference(mut key: &CString) -> Option<*mut pdf_obj> {
         Some(value)
     }
 }
-pub unsafe fn spc_lookup_object(mut key: *const i8) -> *mut pdf_obj {
+pub unsafe fn spc_lookup_object(key: *const i8) -> *mut pdf_obj {
     assert!(!NAMED_OBJECTS.is_null());
     if key.is_null() {
         return ptr::null_mut();
@@ -259,7 +258,7 @@ pub unsafe fn spc_lookup_object(mut key: *const i8) -> *mut pdf_obj {
     */
     return value; /* _FIXME_ */
 }
-pub unsafe fn spc_push_object(mut key: *const i8, mut value: *mut pdf_obj) {
+pub unsafe fn spc_push_object(key: *const i8, value: *mut pdf_obj) {
     assert!(!NAMED_OBJECTS.is_null());
     if key.is_null() || value.is_null() {
         return;
@@ -271,7 +270,7 @@ pub unsafe fn spc_push_object(mut key: *const i8, mut value: *mut pdf_obj) {
         value,
     );
 }
-pub unsafe fn spc_flush_object(mut key: *const i8) {
+pub unsafe fn spc_flush_object(key: *const i8) {
     pdf_names_close_object(
         NAMED_OBJECTS,
         key as *const libc::c_void,
@@ -282,7 +281,7 @@ pub unsafe fn spc_clear_objects() {
     pdf_delete_name_tree(&mut NAMED_OBJECTS);
     NAMED_OBJECTS = pdf_new_name_tree();
 }
-unsafe fn spc_handler_unknown(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_unknown(spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     assert!(!spe.is_null() && !args.is_null());
     (*args).cur = &[];
     -1i32
@@ -291,10 +290,10 @@ unsafe fn init_special<'a, 'b>(
     mut special: &mut SpcHandler,
     mut spe: &mut spc_env,
     mut args: &'a mut spc_arg<'b>,
-    mut buf: &'b [u8],
-    mut x_user: f64,
-    mut y_user: f64,
-    mut mag: f64,
+    buf: &'b [u8],
+    x_user: f64,
+    y_user: f64,
+    mag: f64,
 ) where
     'b: 'a,
 {
@@ -308,7 +307,7 @@ unsafe fn init_special<'a, 'b>(
     args.base = buf;
     args.command = None;
 }
-unsafe fn check_garbage(mut args: &mut spc_arg) {
+unsafe fn check_garbage(args: &mut spc_arg) {
     if args.cur.is_empty() {
         return;
     }
@@ -434,9 +433,9 @@ pub unsafe fn spc_exec_at_end_document() -> i32 {
     }
     error
 }
-unsafe fn print_error(mut name: *const i8, mut spe: *mut spc_env, mut ap: *mut spc_arg) {
+unsafe fn print_error(name: *const i8, spe: *mut spc_env, mut ap: *mut spc_arg) {
     let mut ebuf: [u8; 64] = [0; 64];
-    let mut pg: i32 = (*spe).pg;
+    let pg: i32 = (*spe).pg;
     let mut c = point2((*spe).x_user, (*spe).y_user);
     pdf_dev_transform(&mut c, None);
     if (*ap).command.is_some() && !name.is_null() {
@@ -526,12 +525,7 @@ unsafe fn print_error(mut name: *const i8, mut spe: *mut spc_env, mut ap: *mut s
 /* This should not use pdf_. */
 /* PDF parser shouldn't depend on this...
  */
-pub unsafe fn spc_exec_special(
-    buffer: &[u8],
-    mut x_user: f64,
-    mut y_user: f64,
-    mut mag: f64,
-) -> i32 {
+pub unsafe fn spc_exec_special(buffer: &[u8], x_user: f64, y_user: f64, mag: f64) -> i32 {
     let mut error: i32 = -1i32;
     let mut spe: spc_env = spc_env {
         x_user: 0.,

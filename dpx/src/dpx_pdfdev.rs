@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use euclid::point2;
@@ -259,7 +258,7 @@ use super::dpx_fontmap::fontmap_rec;
  * as directory separators. */
 static mut verbose: i32 = 0i32;
 
-pub unsafe fn pdf_dev_set_verbose(mut level: i32) {
+pub unsafe fn pdf_dev_set_verbose(level: i32) {
     verbose = level;
 }
 /* Not working yet... */
@@ -291,9 +290,9 @@ static mut ten_pow_inv: [f64; 10] = [
     0.00000001f64,
     0.000000001f64,
 ];
-unsafe fn p_itoa(mut value: i32, mut buf: *mut i8) -> u32 {
+unsafe fn p_itoa(mut value: i32, buf: *mut i8) -> u32 {
     let mut p: *mut i8 = buf;
-    let mut sign = if value < 0i32 {
+    let sign = if value < 0i32 {
         let fresh0 = p;
         p = p.offset(1);
         *fresh0 = '-' as i32 as i8;
@@ -316,7 +315,7 @@ unsafe fn p_itoa(mut value: i32, mut buf: *mut i8) -> u32 {
     }
     /* Reverse the digits */
     for i in 0..ndigits.wrapping_div(2_u32) {
-        let mut tmp: i8 = *p.offset(i as isize);
+        let tmp: i8 = *p.offset(i as isize);
         *p.offset(i as isize) = *p.offset(ndigits.wrapping_sub(i).wrapping_sub(1_u32) as isize);
         *p.offset(ndigits.wrapping_sub(i).wrapping_sub(1_u32) as isize) = tmp;
     }
@@ -330,7 +329,7 @@ unsafe fn p_itoa(mut value: i32, mut buf: *mut i8) -> u32 {
 /* NOTE: Acrobat 5 and prior uses 16.16 fixed point representation for
  * real numbers.
  */
-fn p_dtoa(mut value: f64, mut prec: i32, buf: &mut [u8]) -> usize {
+fn p_dtoa(mut value: f64, prec: i32, buf: &mut [u8]) -> usize {
     let p: [i32; 10] = [
         1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000,
     ];
@@ -377,8 +376,8 @@ fn p_dtoa(mut value: f64, mut prec: i32, buf: &mut [u8]) -> usize {
     buf[n] = 0;
     n as usize
 }
-unsafe fn dev_sprint_bp(buf: &mut [u8], mut value: spt_t, mut error: *mut spt_t) -> usize {
-    let mut prec: i32 = dev_unit.precision;
+unsafe fn dev_sprint_bp(buf: &mut [u8], value: spt_t, error: *mut spt_t) -> usize {
+    let prec: i32 = dev_unit.precision;
     let value_in_bp = value as f64 * dev_unit.dvi2pts;
     if !error.is_null() {
         let error_in_bp = value_in_bp
@@ -391,12 +390,12 @@ unsafe fn dev_sprint_bp(buf: &mut [u8], mut value: spt_t, mut error: *mut spt_t)
 /* They are affected by precision (set at device initialization). */
 pub fn pdf_sprint_matrix(buf: &mut [u8], M: &TMatrix) -> usize {
     let precision = unsafe { dev_unit.precision };
-    let mut prec2: i32 = if precision + 2 < 8i32 {
+    let prec2: i32 = if precision + 2 < 8i32 {
         precision + 2
     } else {
         8i32
     }; /* xxx_sprint_xxx NULL terminates strings. */
-    let mut prec0: i32 = if precision > 2i32 { precision } else { 2i32 }; /* xxx_sprint_xxx NULL terminates strings. */
+    let prec0: i32 = if precision > 2i32 { precision } else { 2i32 }; /* xxx_sprint_xxx NULL terminates strings. */
     let mut len = p_dtoa(M.m11, prec2, buf); /* xxx_sprint_xxx NULL terminates strings. */
     buf[len] = b' '; /* xxx_sprint_xxx NULL terminates strings. */
     len += 1;
@@ -445,7 +444,7 @@ pub fn pdf_sprint_length(buf: &mut [u8], value: f64) -> usize {
     buf[len] = 0;
     len
 }
-pub fn pdf_sprint_number(buf: &mut [u8], mut value: f64) -> usize {
+pub fn pdf_sprint_number(buf: &mut [u8], value: f64) -> usize {
     let len = p_dtoa(value, 8, buf);
     buf[len] = 0;
     len
@@ -478,11 +477,11 @@ static mut num_dev_fonts: i32 = 0i32;
 static mut max_dev_fonts: i32 = 0i32;
 static mut num_phys_fonts: i32 = 0i32;
 unsafe fn dev_set_text_matrix(
-    mut xpos: spt_t,
-    mut ypos: spt_t,
-    mut slant: f64,
-    mut extend: f64,
-    mut rotate: TextWMode,
+    xpos: spt_t,
+    ypos: spt_t,
+    slant: f64,
+    extend: f64,
+    rotate: TextWMode,
 ) {
     let mut len = 0;
     /* slant is negated for vertical font so that right-side
@@ -628,13 +627,7 @@ pub unsafe fn graphics_mode() {
     }
     motion_state = MotionState::GRAPHICS_MODE;
 }
-unsafe fn start_string(
-    mut xpos: spt_t,
-    mut ypos: spt_t,
-    mut slant: f64,
-    mut extend: f64,
-    mut rotate: TextWMode,
-) {
+unsafe fn start_string(xpos: spt_t, ypos: spt_t, slant: f64, extend: f64, rotate: TextWMode) {
     let mut error_delx: spt_t = 0i32;
     let mut error_dely: spt_t = 0i32;
     let mut len = 0_usize;
@@ -816,13 +809,7 @@ unsafe fn start_string(
     text_state.ref_y = ypos - error_dely;
     text_state.offset = 0i32;
 }
-unsafe fn string_mode(
-    mut xpos: spt_t,
-    mut ypos: spt_t,
-    mut slant: f64,
-    mut extend: f64,
-    mut rotate: TextWMode,
-) {
+unsafe fn string_mode(xpos: spt_t, ypos: spt_t, slant: f64, extend: f64, rotate: TextWMode) {
     match motion_state {
         MotionState::GRAPHICS_MODE | MotionState::TEXT_MODE => {
             if let MotionState::GRAPHICS_MODE = motion_state {
@@ -852,7 +839,7 @@ unsafe fn string_mode(
  * This routine prevents a PDF Tf font selection until there's
  * really a character in that font.
  */
-unsafe fn dev_set_font(mut font_id: i32) -> i32 {
+unsafe fn dev_set_font(font_id: i32) -> i32 {
     /* text_mode() must come before text_state.is_mb is changed. */
     text_mode(); /* Caller should check font_id. */
     let font = &mut *dev_fonts.offset(font_id as isize) as *mut dev_font; /* space not necessary. */
@@ -942,7 +929,7 @@ unsafe fn dev_set_font(mut font_id: i32) -> i32 {
 /* Access text state parameters.
  */
 
-pub unsafe fn pdf_dev_get_font_wmode(mut font_id: i32) -> i32 {
+pub unsafe fn pdf_dev_get_font_wmode(font_id: i32) -> i32 {
     let font = &mut *dev_fonts.offset(font_id as isize) as *mut dev_font;
     if !font.is_null() {
         return (*font).wmode;
@@ -952,10 +939,10 @@ pub unsafe fn pdf_dev_get_font_wmode(mut font_id: i32) -> i32 {
 static mut sbuf0: [u8; 4096] = [0; 4096];
 static mut sbuf1: [u8; 4096] = [0; 4096];
 unsafe fn handle_multibyte_string(
-    mut font: *mut dev_font,
-    mut str_ptr: *mut *const u8,
-    mut str_len: *mut size_t,
-    mut ctype: i32,
+    font: *mut dev_font,
+    str_ptr: *mut *const u8,
+    str_len: *mut size_t,
+    ctype: i32,
 ) -> i32 {
     let mut p = *str_ptr;
     let mut length = *str_len;
@@ -1098,7 +1085,7 @@ pub unsafe fn pdf_dev_get_coord() -> Point {
     }
 }
 
-pub unsafe fn pdf_dev_push_coord(mut xpos: f64, mut ypos: f64) {
+pub unsafe fn pdf_dev_push_coord(xpos: f64, ypos: f64) {
     if num_dev_coords >= max_dev_coords {
         max_dev_coords += 4i32;
         dev_coords = renew(
@@ -1133,11 +1120,11 @@ pub unsafe fn pdf_dev_pop_coord() {
 pub unsafe fn pdf_dev_set_string(
     mut xpos: spt_t,
     mut ypos: spt_t,
-    mut instr_ptr: *const libc::c_void,
-    mut instr_len: size_t,
-    mut width: spt_t,
-    mut font_id: i32,
-    mut ctype: i32,
+    instr_ptr: *const libc::c_void,
+    instr_len: size_t,
+    width: spt_t,
+    font_id: i32,
+    ctype: i32,
 ) {
     /* Pointer to the reencoded string. */
     let mut len: size_t = 0i32 as size_t;
@@ -1147,7 +1134,7 @@ pub unsafe fn pdf_dev_set_string(
     if font_id != text_state.font_id {
         dev_set_font(font_id);
     }
-    let mut font = if text_state.font_id < 0i32 {
+    let font = if text_state.font_id < 0i32 {
         ptr::null_mut()
     } else {
         &mut *dev_fonts.offset(text_state.font_id as isize) as *mut dev_font
@@ -1170,7 +1157,7 @@ pub unsafe fn pdf_dev_set_string(
         }
         if !(*real_font).used_chars.is_null() {
             for i in (0..length).step_by(2) {
-                let mut cid: u16 = ((*str_ptr.offset(i as isize) as i32) << 8i32
+                let cid: u16 = ((*str_ptr.offset(i as isize) as i32) << 8i32
                     | *str_ptr.offset(i.wrapping_add(1i32 as u64) as isize) as i32)
                     as u16;
                 let ref mut fresh38 = *(*real_font).used_chars.offset((cid as i32 / 8i32) as isize);
@@ -1283,8 +1270,8 @@ pub unsafe fn pdf_dev_set_string(
             panic!("Buffer overflow...");
         }
         for i in 0..length {
-            let mut first = *str_ptr.offset(i as isize) as i32 >> 4i32 & 0xfi32;
-            let mut second = *str_ptr.offset(i as isize) as i32 & 0xfi32;
+            let first = *str_ptr.offset(i as isize) as i32 >> 4i32 & 0xfi32;
+            let second = *str_ptr.offset(i as isize) as i32 & 0xfi32;
             let fresh41 = len;
             len = len.wrapping_add(1);
             format_buffer[fresh41 as usize] = (if first >= 10i32 {
@@ -1313,7 +1300,7 @@ pub unsafe fn pdf_dev_set_string(
     text_state.offset += width;
 }
 
-pub unsafe fn pdf_init_device(mut dvi2pts: f64, mut precision: i32, mut black_and_white: i32) {
+pub unsafe fn pdf_init_device(dvi2pts: f64, precision: i32, black_and_white: i32) {
     if precision < 0i32 || precision > 8i32 {
         warn!("Number of decimal digits out of range [0-{}].", 8i32);
     }
@@ -1367,7 +1354,7 @@ pub unsafe fn pdf_close_device() {
  * as the font stuff.
  */
 
-pub unsafe fn pdf_dev_reset_fonts(mut newpage: i32) {
+pub unsafe fn pdf_dev_reset_fonts(newpage: i32) {
     for i in 0..num_dev_fonts {
         (*dev_fonts.offset(i as isize)).used_on_this_page = 0i32;
     }
@@ -1381,7 +1368,7 @@ pub unsafe fn pdf_dev_reset_fonts(mut newpage: i32) {
     text_state.is_mb = 0i32;
 }
 
-pub unsafe fn pdf_dev_reset_color(mut force: i32) {
+pub unsafe fn pdf_dev_reset_color(force: i32) {
     let (sc, fc) = pdf_color_get_current();
     pdf_dev_set_color(sc, 0, force);
     pdf_dev_set_color(fc, 0x20, force);
@@ -1406,7 +1393,7 @@ pub unsafe fn pdf_dev_eop() {
         pdf_dev_grestore();
     };
 }
-unsafe fn print_fontmap(mut font_name: *const i8, mut mrec: *mut fontmap_rec) {
+unsafe fn print_fontmap(font_name: *const i8, mrec: *mut fontmap_rec) {
     if mrec.is_null() {
         return;
     }
@@ -1461,7 +1448,7 @@ unsafe fn print_fontmap(mut font_name: *const i8, mut mrec: *mut fontmap_rec) {
  * of the same font at different sizes.
  */
 
-pub unsafe fn pdf_dev_locate_font(font_name: &CStr, mut ptsize: spt_t) -> i32 {
+pub unsafe fn pdf_dev_locate_font(font_name: &CStr, ptsize: spt_t) -> i32 {
     /* found a dev_font that matches the request */
     if ptsize == 0i32 {
         panic!("pdf_dev_locate_font() called with the zero ptsize.");
@@ -1570,11 +1557,11 @@ pub unsafe fn pdf_dev_locate_font(font_name: &CStr, mut ptsize: spt_t) -> i32 {
 /* This does not remember current stroking width. */
 unsafe fn dev_sprint_line(
     buf: &mut [u8],
-    mut width: spt_t,
-    mut p0_x: spt_t,
-    mut p0_y: spt_t,
-    mut p1_x: spt_t,
-    mut p1_y: spt_t,
+    width: spt_t,
+    p0_x: spt_t,
+    p0_y: spt_t,
+    p1_x: spt_t,
+    p1_y: spt_t,
 ) -> usize {
     let mut len = 0_usize;
     let w = width as f64 * dev_unit.dvi2pts;
@@ -1618,12 +1605,7 @@ unsafe fn dev_sprint_line(
     len
 }
 
-pub unsafe fn pdf_dev_set_rule(
-    mut xpos: spt_t,
-    mut ypos: spt_t,
-    mut width: spt_t,
-    mut height: spt_t,
-) {
+pub unsafe fn pdf_dev_set_rule(mut xpos: spt_t, mut ypos: spt_t, width: spt_t, height: spt_t) {
     let mut len = 0_usize;
     if num_dev_coords > 0i32 {
         xpos -= ((*dev_coords.offset((num_dev_coords - 1i32) as isize)).x / dev_unit.dvi2pts)
@@ -1710,11 +1692,11 @@ pub unsafe fn pdf_dev_set_rule(
 
 pub unsafe fn pdf_dev_set_rect(
     rect: &mut Rect,
-    mut x_user: spt_t,
-    mut y_user: spt_t,
-    mut width: spt_t,
-    mut height: spt_t,
-    mut depth: spt_t,
+    x_user: spt_t,
+    y_user: spt_t,
+    width: spt_t,
+    height: spt_t,
+    depth: spt_t,
 ) {
     let mut p0 = Point::zero();
     let mut p1 = Point::zero();
@@ -1756,7 +1738,7 @@ pub unsafe fn pdf_dev_get_dirmode() -> i32 {
     text_state.dir_mode
 }
 
-pub unsafe fn pdf_dev_set_dirmode(mut text_dir: i32) {
+pub unsafe fn pdf_dev_set_dirmode(text_dir: i32) {
     let font = if text_state.font_id < 0i32 {
         ptr::null_mut()
     } else {
@@ -1779,7 +1761,7 @@ pub unsafe fn pdf_dev_set_dirmode(mut text_dir: i32) {
     text_state.matrix.rotate = text_rotate;
     text_state.dir_mode = text_dir;
 }
-unsafe fn dev_set_param_autorotate(mut auto_rotate: i32) {
+unsafe fn dev_set_param_autorotate(auto_rotate: i32) {
     let font = if text_state.font_id < 0i32 {
         ptr::null_mut()
     } else {
@@ -1803,7 +1785,7 @@ unsafe fn dev_set_param_autorotate(mut auto_rotate: i32) {
     dev_param.autorotate = auto_rotate;
 }
 
-pub unsafe fn pdf_dev_get_param(mut param_type: i32) -> i32 {
+pub unsafe fn pdf_dev_get_param(param_type: i32) -> i32 {
     match param_type {
         1 => dev_param.autorotate,
         2 => dev_param.colormode,
@@ -1813,7 +1795,7 @@ pub unsafe fn pdf_dev_get_param(mut param_type: i32) -> i32 {
     }
 }
 
-pub unsafe fn pdf_dev_set_param(mut param_type: i32, mut value: i32) {
+pub unsafe fn pdf_dev_set_param(param_type: i32, value: i32) {
     match param_type {
         1 => {
             dev_set_param_autorotate(value);
@@ -1826,7 +1808,7 @@ pub unsafe fn pdf_dev_set_param(mut param_type: i32, mut value: i32) {
 }
 
 pub unsafe fn pdf_dev_put_image(
-    mut id: i32,
+    id: i32,
     p: &mut transform_info,
     mut ref_x: f64,
     mut ref_y: f64,
@@ -1952,10 +1934,10 @@ pub unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count: i32) {
         if !(fresh69 > 0i32) {
             break;
         }
-        let mut s: [u8; 2] = (*unicodes).to_be_bytes();
+        let s: [u8; 2] = (*unicodes).to_be_bytes();
         len = 0i32;
         for i in pdf_doc_enc..2 {
-            let mut c: u8 = s[i];
+            let c: u8 = s[i];
             if c as i32 == '(' as i32 || c as i32 == ')' as i32 || c as i32 == '\\' as i32 {
                 len += sprintf(
                     (work_buffer.as_mut_ptr() as *mut i8).offset(len as isize),

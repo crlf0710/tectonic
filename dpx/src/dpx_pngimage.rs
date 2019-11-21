@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 use libpng_sys::ffi::*;
 
@@ -85,19 +84,16 @@ unsafe extern "C" fn _png_warning_callback(
 ) {
     /* Make compiler happy */
 }
-unsafe extern "C" fn _png_read(mut png_ptr: *mut png_struct, mut outbytes: *mut u8, mut n: usize) {
-    let mut png = png_ptr.as_ref().unwrap();
-    let mut handle = png_get_io_ptr(png) as tectonic_bridge::rust_input_handle_t;
+unsafe extern "C" fn _png_read(png_ptr: *mut png_struct, outbytes: *mut u8, n: usize) {
+    let png = png_ptr.as_ref().unwrap();
+    let handle = png_get_io_ptr(png) as tectonic_bridge::rust_input_handle_t;
     let r = ttstub_input_read(handle, outbytes as *mut i8, n.try_into().unwrap());
     if r < 0i32 as ssize_t || r as size_t != n.try_into().unwrap() {
         panic!("error reading PNG");
     };
 }
 
-pub unsafe fn png_include_image(
-    mut ximage: *mut pdf_ximage,
-    handle: &mut InputHandleWrapper,
-) -> i32 {
+pub unsafe fn png_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandleWrapper) -> i32 {
     let mut info = ximage_info::default();
     /* Libpng stuff */
     pdf_ximage_init_image_info(&mut info);
@@ -181,8 +177,8 @@ pub unsafe fn png_include_image(
     info.width = width as libc::c_int;
     info.height = height as libc::c_int;
     info.bits_per_component = bpc as libc::c_int;
-    let mut xppm: png_uint_32 = png_get_x_pixels_per_meter(png, png_info);
-    let mut yppm: png_uint_32 = png_get_y_pixels_per_meter(png, png_info);
+    let xppm: png_uint_32 = png_get_x_pixels_per_meter(png, png_info);
+    let yppm: png_uint_32 = png_get_y_pixels_per_meter(png, png_info);
     if xppm > 0i32 as libc::c_uint {
         info.xdensity = 72.0f64 / 0.0254f64 / xppm as f64
     }
@@ -396,7 +392,7 @@ pub unsafe fn png_include_image(
  * Finally, in the case of PDF version 1.4, all kind of translucent pixels can
  * be represented with Soft-Mask.
  */
-unsafe fn check_transparency(mut png: &mut png_struct, mut info: &mut png_info) -> libc::c_int {
+unsafe fn check_transparency(png: &mut png_struct, info: &mut png_info) -> libc::c_int {
     let mut trans_type;
     let mut trans_values = ptr::null_mut();
     let mut trans: png_bytep = ptr::null_mut();
@@ -502,7 +498,7 @@ unsafe fn check_transparency(mut png: &mut png_struct, mut info: &mut png_info) 
  *   If sRGB chunk is present, cHRM and gAMA chunk must be ignored.
  *
  */
-unsafe fn get_rendering_intent(mut png: &mut png_struct, mut info: &mut png_info) -> *mut pdf_obj {
+unsafe fn get_rendering_intent(png: &mut png_struct, info: &mut png_info) -> *mut pdf_obj {
     let mut srgb_intent: libc::c_int = 0;
     if png_get_valid(png, info, 0x800u32) != 0 && png_get_sRGB(png, info, &mut srgb_intent) != 0 {
         match srgb_intent {
@@ -529,7 +525,7 @@ unsafe fn get_rendering_intent(mut png: &mut png_struct, mut info: &mut png_info
  * space.
  */
 /* Approximated sRGB */
-unsafe fn create_cspace_sRGB(mut png: &png_struct, mut info: &png_info) -> *mut pdf_obj {
+unsafe fn create_cspace_sRGB(png: &png_struct, info: &png_info) -> *mut pdf_obj {
     let color_type = png_get_color_type(png, info);
     /* Parameters taken from PNG spec. section 4.2.2.3. */
     let cal_param = make_param_Cal(
@@ -558,10 +554,7 @@ unsafe fn create_cspace_sRGB(mut png: &png_struct, mut info: &png_info) -> *mut 
  * There are few restrictions (should be applied to PNG too?) in ICC profile
  * support in PDF. Some information should be obtained from profile.
  */
-unsafe fn create_cspace_ICCBased(
-    mut png: &mut png_struct,
-    mut png_info: &mut png_info,
-) -> *mut pdf_obj {
+unsafe fn create_cspace_ICCBased(png: &mut png_struct, png_info: &mut png_info) -> *mut pdf_obj {
     let mut name = ptr::null_mut();
     let mut compression_type: libc::c_int = 0;
     let mut profile: png_bytep = ptr::null_mut();
@@ -609,10 +602,7 @@ unsafe fn create_cspace_ICCBased(
  *   If cHRM is present, we use CIE-Based color space. gAMA is also used here
  * if available.
  */
-unsafe fn create_cspace_CalRGB(
-    mut png: &mut png_struct,
-    mut png_info: &mut png_info,
-) -> *mut pdf_obj {
+unsafe fn create_cspace_CalRGB(png: &mut png_struct, png_info: &mut png_info) -> *mut pdf_obj {
     let mut xw: f64 = 0.;
     let mut yw: f64 = 0.;
     let mut xr: f64 = 0.;
@@ -660,7 +650,7 @@ unsafe fn create_cspace_CalRGB(
     colorspace.push(cal_param);
     colorspace.into_obj()
 }
-unsafe fn create_cspace_CalGray(mut png: &mut png_struct, mut info: &mut png_info) -> *mut pdf_obj {
+unsafe fn create_cspace_CalGray(png: &mut png_struct, info: &mut png_info) -> *mut pdf_obj {
     let mut xw: f64 = 0.;
     let mut yw: f64 = 0.;
     let mut xr: f64 = 0.;
@@ -839,7 +829,7 @@ unsafe fn make_param_Cal(
  *  for base color space.
  *
  */
-unsafe fn create_cspace_Indexed(mut png: &mut png_struct, mut info: &mut png_info) -> *mut pdf_obj {
+unsafe fn create_cspace_Indexed(png: &mut png_struct, info: &mut png_info) -> *mut pdf_obj {
     let mut plte = ptr::null_mut();
     let mut num_plte: libc::c_int = 0;
     if png_get_valid(png, info, 0x8u32) == 0
@@ -883,7 +873,7 @@ unsafe fn create_cspace_Indexed(mut png: &mut png_struct, mut info: &mut png_inf
  *  [component_0_min component_0_max ... component_n_min component_n_max]
  *
  */
-unsafe fn create_ckey_mask(mut png: &png_struct_def, mut png_info: &mut png_info) -> *mut pdf_obj {
+unsafe fn create_ckey_mask(png: &png_struct_def, png_info: &mut png_info) -> *mut pdf_obj {
     let mut trans: png_bytep = ptr::null_mut();
     let mut num_trans: libc::c_int = 0;
     let mut colors = ptr::null_mut();
@@ -946,11 +936,11 @@ unsafe fn create_ckey_mask(mut png: &png_struct_def, mut png_info: &mut png_info
  *   ColorSpace, Mask, SMask must be absent. ImageMask must be false or absent.
  */
 unsafe fn create_soft_mask(
-    mut png: &mut png_struct_def,
-    mut info: &mut png_info,
-    mut image_data_ptr: png_bytep,
-    mut width: png_uint_32,
-    mut height: png_uint_32,
+    png: &mut png_struct_def,
+    info: &mut png_info,
+    image_data_ptr: png_bytep,
+    width: png_uint_32,
+    height: png_uint_32,
 ) -> *mut pdf_obj {
     let mut trans: png_bytep = ptr::null_mut();
     let mut num_trans: i32 = 0;
@@ -981,7 +971,7 @@ unsafe fn create_soft_mask(
     dict.set("ColorSpace", pdf_new_name("DeviceGray"));
     dict.set("BitsPerComponent", pdf_new_number(8i32 as f64));
     for i in 0..width.wrapping_mul(height) {
-        let mut idx: png_byte = *image_data_ptr.offset(i as isize);
+        let idx: png_byte = *image_data_ptr.offset(i as isize);
         *smask_data_ptr.offset(i as isize) = (if (idx as i32) < num_trans {
             *trans.offset(idx as isize) as i32
         } else {
@@ -997,17 +987,17 @@ unsafe fn create_soft_mask(
 }
 /* bitdepth is always 8 (16 is not supported) */
 unsafe fn strip_soft_mask(
-    mut png: &png_struct,
-    mut png_info: &png_info,
-    mut image_data_ptr: *mut png_byte,
-    mut rowbytes_ptr: *mut png_uint_32,
-    mut width: png_uint_32,
-    mut height: png_uint_32,
+    png: &png_struct,
+    png_info: &png_info,
+    image_data_ptr: *mut png_byte,
+    rowbytes_ptr: *mut png_uint_32,
+    width: png_uint_32,
+    height: png_uint_32,
 ) -> *mut pdf_obj {
     let color_type = png_get_color_type(png, png_info);
     let bpc = png_get_bit_depth(png, png_info);
     if color_type as libc::c_int & 2i32 != 0 {
-        let mut bps: libc::c_int = if bpc as libc::c_int == 8i32 {
+        let bps: libc::c_int = if bpc as libc::c_int == 8i32 {
             4i32
         } else {
             8i32
@@ -1021,7 +1011,7 @@ unsafe fn strip_soft_mask(
             return ptr::null_mut();
         }
     } else {
-        let mut bps_0: i32 = if bpc as i32 == 8i32 { 2i32 } else { 4i32 };
+        let bps_0: i32 = if bpc as i32 == 8i32 { 2i32 } else { 4i32 };
         if *rowbytes_ptr as u64
             != ((bps_0 as u32).wrapping_mul(width) as u64)
                 .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
@@ -1039,11 +1029,11 @@ unsafe fn strip_soft_mask(
     dict.set("Height", pdf_new_number(height as f64));
     dict.set("ColorSpace", pdf_new_name("DeviceGray"));
     dict.set("BitsPerComponent", pdf_new_number(bpc as f64));
-    let mut smask_data_ptr = new((((bpc as i32 / 8i32) as u32)
+    let smask_data_ptr = new((((bpc as i32 / 8i32) as u32)
         .wrapping_mul(width)
         .wrapping_mul(height) as u64)
-        .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
-        as u32) as *mut png_byte;
+        .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
+        as *mut png_byte;
     match color_type as i32 {
         6 => {
             if bpc as i32 == 8i32 {
@@ -1128,14 +1118,13 @@ unsafe fn strip_soft_mask(
 }
 /* Read image body */
 unsafe fn read_image_data(
-    mut png: &mut png_struct,
-    mut dest_ptr: png_bytep,
-    mut height: png_uint_32,
-    mut rowbytes: png_uint_32,
+    png: &mut png_struct,
+    dest_ptr: png_bytep,
+    height: png_uint_32,
+    rowbytes: png_uint_32,
 ) {
-    let mut rows_p =
-        new((height as u64).wrapping_mul(::std::mem::size_of::<png_bytep>() as u64) as u32)
-            as *mut png_bytep;
+    let rows_p = new((height as u64).wrapping_mul(::std::mem::size_of::<png_bytep>() as u64) as u32)
+        as *mut png_bytep;
     for i in 0..height {
         let ref mut fresh1 = *rows_p.offset(i as isize);
         *fresh1 = dest_ptr.offset(rowbytes.wrapping_mul(i) as isize);
@@ -1146,13 +1135,13 @@ unsafe fn read_image_data(
 
 pub unsafe fn png_get_bbox(
     handle: &mut InputHandleWrapper,
-    mut width: *mut u32,
-    mut height: *mut u32,
-    mut xdensity: *mut f64,
-    mut ydensity: *mut f64,
+    width: *mut u32,
+    height: *mut u32,
+    xdensity: *mut f64,
+    ydensity: *mut f64,
 ) -> libc::c_int {
     handle.seek(SeekFrom::Start(0)).unwrap();
-    let mut png = png_create_read_struct(
+    let png = png_create_read_struct(
         b"1.6.37\x00" as *const u8 as *const i8,
         ptr::null_mut(),
         None,
@@ -1185,8 +1174,8 @@ pub unsafe fn png_get_bbox(
     png_read_info(png, png_info);
     *width = png_get_image_width(png, png_info);
     *height = png_get_image_height(png, png_info);
-    let mut xppm: png_uint_32 = png_get_x_pixels_per_meter(png, png_info);
-    let mut yppm: png_uint_32 = png_get_y_pixels_per_meter(png, png_info);
+    let xppm: png_uint_32 = png_get_x_pixels_per_meter(png, png_info);
+    let yppm: png_uint_32 = png_get_y_pixels_per_meter(png, png_info);
     *xdensity = if xppm != 0 {
         72.0f64 / 0.0254f64 / xppm as f64
     } else {

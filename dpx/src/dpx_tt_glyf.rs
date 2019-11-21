@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use crate::warn;
@@ -80,7 +79,7 @@ pub struct tt_glyphs {
     pub used_slot: *mut u8,
 }
 
-unsafe fn find_empty_slot(mut g: *mut tt_glyphs) -> u16 {
+unsafe fn find_empty_slot(g: *mut tt_glyphs) -> u16 {
     assert!(!g.is_null());
     let mut gid = 0_u16;
     while (gid as i32) < 65534i32 {
@@ -98,7 +97,7 @@ unsafe fn find_empty_slot(mut g: *mut tt_glyphs) -> u16 {
     gid
 }
 
-pub unsafe fn tt_find_glyph(mut g: *mut tt_glyphs, mut gid: u16) -> u16 {
+pub unsafe fn tt_find_glyph(g: *mut tt_glyphs, gid: u16) -> u16 {
     let mut new_gid: u16 = 0_u16;
     assert!(!g.is_null());
     for idx in 0..(*g).num_glyphs as i32 {
@@ -110,7 +109,7 @@ pub unsafe fn tt_find_glyph(mut g: *mut tt_glyphs, mut gid: u16) -> u16 {
     new_gid
 }
 
-pub unsafe fn tt_get_index(mut g: *mut tt_glyphs, mut gid: u16) -> u16 {
+pub unsafe fn tt_get_index(g: *mut tt_glyphs, gid: u16) -> u16 {
     assert!(!g.is_null());
     let mut idx = 0_u16;
     while (idx as i32) < (*g).num_glyphs as i32 {
@@ -125,7 +124,7 @@ pub unsafe fn tt_get_index(mut g: *mut tt_glyphs, mut gid: u16) -> u16 {
     idx
 }
 
-pub unsafe fn tt_add_glyph(mut g: *mut tt_glyphs, mut gid: u16, mut new_gid: u16) -> u16 {
+pub unsafe fn tt_add_glyph(mut g: *mut tt_glyphs, gid: u16, new_gid: u16) -> u16 {
     assert!(!g.is_null());
     if *(*g).used_slot.offset((new_gid as i32 / 8i32) as isize) as i32
         & 1i32 << 7i32 - new_gid as i32 % 8i32
@@ -180,7 +179,7 @@ pub unsafe fn tt_build_init() -> *mut tt_glyphs {
     g
 }
 
-pub unsafe fn tt_build_finish(mut g: *mut tt_glyphs) {
+pub unsafe fn tt_build_finish(g: *mut tt_glyphs) {
     if !g.is_null() {
         if !(*g).gd.is_null() {
             for idx in 0..(*g).num_glyphs as i32 {
@@ -193,7 +192,7 @@ pub unsafe fn tt_build_finish(mut g: *mut tt_glyphs) {
     };
 }
 
-pub unsafe fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
+pub unsafe fn tt_build_tables(sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
     /* some information available from other TrueType table */
     let vmtx;
     /* temp */
@@ -621,7 +620,7 @@ pub unsafe fn tt_build_tables(mut sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i3
 /* default value */
 /* default value */
 
-pub unsafe fn tt_get_metrics(mut sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
+pub unsafe fn tt_get_metrics(sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
     let vmtx;
     /* temp */
     assert!(!g.is_null());

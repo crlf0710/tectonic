@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use crate::streq_ptr;
@@ -166,7 +165,7 @@ pub unsafe fn pdf_close_resources() {
         (*rc).resources = ptr::null_mut();
     }
 }
-unsafe fn get_category(mut category: *const i8) -> i32 {
+unsafe fn get_category(category: *const i8) -> i32 {
     for i in 0..(::std::mem::size_of::<[C2RustUnnamed; 9]>() as u64)
         .wrapping_div(::std::mem::size_of::<C2RustUnnamed>() as u64) as usize
     {
@@ -178,10 +177,10 @@ unsafe fn get_category(mut category: *const i8) -> i32 {
 }
 
 pub unsafe fn pdf_defineresource(
-    mut category: *const i8,
-    mut resname: *const i8,
-    mut object: *mut pdf_obj,
-    mut flags: i32,
+    category: *const i8,
+    resname: *const i8,
+    object: *mut pdf_obj,
+    flags: i32,
 ) -> i32 {
     let mut res_id;
     assert!(!category.is_null() && !object.is_null());
@@ -248,7 +247,7 @@ pub unsafe fn pdf_defineresource(
     cat_id << 16i32 | res_id
 }
 
-pub unsafe fn pdf_findresource(mut category: *const i8, mut resname: *const i8) -> i32 {
+pub unsafe fn pdf_findresource(category: *const i8, resname: *const i8) -> i32 {
     assert!(!resname.is_null() && !category.is_null());
     let cat_id = get_category(category);
     if cat_id < 0i32 {
@@ -267,7 +266,7 @@ pub unsafe fn pdf_findresource(mut category: *const i8, mut resname: *const i8) 
     -1i32
 }
 
-pub unsafe fn pdf_get_resource_reference(mut rc_id: i32) -> *mut pdf_obj {
+pub unsafe fn pdf_get_resource_reference(rc_id: i32) -> *mut pdf_obj {
     let cat_id = rc_id >> 16i32 & 0xffffi32;
     let res_id = rc_id & 0xffffi32;
     if cat_id < 0i32

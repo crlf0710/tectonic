@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use super::dpx_numbers::{
@@ -96,7 +95,7 @@ pub struct font_def {
  * as directory separators. */
 static mut verbose: u8 = 0_u8;
 
-pub unsafe fn vf_set_verbose(mut level: i32) {
+pub unsafe fn vf_set_verbose(level: i32) {
     verbose = level as u8;
 }
 static mut vf_fonts: *mut vf = std::ptr::null_mut();
@@ -108,7 +107,7 @@ pub unsafe fn vf_reset_global_state() {
     max_vf_fonts = 0_u32;
     vf_fonts = ptr::null_mut();
 }
-unsafe fn read_header(vf_handle: &mut InputHandleWrapper, mut thisfont: i32) {
+unsafe fn read_header(vf_handle: &mut InputHandleWrapper, thisfont: i32) {
     if tt_get_unsigned_byte(vf_handle) != PRE || tt_get_unsigned_byte(vf_handle) != VF_ID {
         eprintln!("VF file may be corrupt");
         return;
@@ -120,7 +119,7 @@ unsafe fn read_header(vf_handle: &mut InputHandleWrapper, mut thisfont: i32) {
     (*vf_fonts.offset(thisfont as isize)).design_size =
         tt_get_positive_quad(vf_handle, "VF", "design_size");
 }
-unsafe fn resize_vf_fonts(mut size: i32) {
+unsafe fn resize_vf_fonts(size: i32) {
     if size as u32 > max_vf_fonts {
         vf_fonts = renew(
             vf_fonts as *mut libc::c_void,
@@ -160,9 +159,9 @@ unsafe fn resize_one_vf_font(mut a_vf: *mut vf, mut size: u32) {
 }
 unsafe fn read_a_char_def(
     vf_handle: &mut InputHandleWrapper,
-    mut thisfont: i32,
-    mut pkt_len: u32,
-    mut ch: u32,
+    thisfont: i32,
+    pkt_len: u32,
+    ch: u32,
 ) {
     /* Resize and initialize character arrays if necessary */
     if ch >= (*vf_fonts.offset(thisfont as isize)).num_chars {
@@ -186,7 +185,7 @@ unsafe fn read_a_char_def(
         .pkt_len
         .offset(ch as isize) = pkt_len;
 }
-unsafe fn read_a_font_def(vf_handle: &mut InputHandleWrapper, mut font_id: i32, mut thisfont: i32) {
+unsafe fn read_a_font_def(vf_handle: &mut InputHandleWrapper, font_id: i32, thisfont: i32) {
     if (*vf_fonts.offset(thisfont as isize)).num_dev_fonts
         >= (*vf_fonts.offset(thisfont as isize)).max_dev_fonts
     {
@@ -242,7 +241,7 @@ unsafe fn read_a_font_def(vf_handle: &mut InputHandleWrapper, mut font_id: i32, 
         ),
     ) as i32;
 }
-unsafe fn process_vf_file(vf_handle: &mut InputHandleWrapper, mut thisfont: i32) {
+unsafe fn process_vf_file(vf_handle: &mut InputHandleWrapper, thisfont: i32) {
     loop {
         let code = tt_get_unsigned_byte(vf_handle);
         match code {
@@ -291,7 +290,7 @@ the PDF file will never repeat a physical font name */
 /* Note: This code needs to be able to recurse */
 /* Global variables such as num_vf_fonts require careful attention */
 
-pub unsafe fn vf_locate_font(mut tex_name: *const i8, mut ptsize: spt_t) -> i32 {
+pub unsafe fn vf_locate_font(tex_name: *const i8, ptsize: spt_t) -> i32 {
     /* Has this name and ptsize already been loaded as a VF? */
     let mut i = 0;
     while (i as u32) < num_vf_fonts {
@@ -305,7 +304,7 @@ pub unsafe fn vf_locate_font(mut tex_name: *const i8, mut ptsize: spt_t) -> i32 
     if i as u32 != num_vf_fonts {
         return i;
     }
-    let mut vf_handle = ttstub_input_open(tex_name, TTInputFormat::VF, 0i32)
+    let vf_handle = ttstub_input_open(tex_name, TTInputFormat::VF, 0i32)
         .or_else(|| ttstub_input_open(tex_name, TTInputFormat::OVF, 0i32));
     if vf_handle.is_none() {
         return -1i32;
@@ -340,7 +339,7 @@ pub unsafe fn vf_locate_font(mut tex_name: *const i8, mut ptsize: spt_t) -> i32 
     ttstub_input_close(vf_handle);
     thisfont
 }
-unsafe fn unsigned_byte(mut start: *mut *mut u8, mut end: *mut u8) -> i32 {
+unsafe fn unsigned_byte(start: *mut *mut u8, end: *mut u8) -> i32 {
     if *start < end {
         let fresh10 = *start;
         *start = (*start).offset(1);
@@ -349,7 +348,7 @@ unsafe fn unsigned_byte(mut start: *mut *mut u8, mut end: *mut u8) -> i32 {
         panic!("Premature end of DVI byte stream in VF font\n");
     }
 }
-unsafe fn get_pkt_signed_num(mut start: *mut *mut u8, mut end: *mut u8, mut num: u8) -> i32 {
+unsafe fn get_pkt_signed_num(start: *mut *mut u8, end: *mut u8, num: u8) -> i32 {
     let mut val;
     if end.wrapping_offset_from(*start) as i64 > num as i64 {
         val = **start as i32;
@@ -368,7 +367,7 @@ unsafe fn get_pkt_signed_num(mut start: *mut *mut u8, mut end: *mut u8, mut num:
     }
     val
 }
-unsafe fn get_pkt_unsigned_num(mut start: *mut *mut u8, mut end: *mut u8, mut num: u8) -> i32 {
+unsafe fn get_pkt_unsigned_num(start: *mut *mut u8, end: *mut u8, num: u8) -> i32 {
     let mut val;
     if end.wrapping_offset_from(*start) as i64 > num as i64 {
         val = **start as i32;
@@ -402,18 +401,18 @@ unsafe fn get_pkt_unsigned_num(mut start: *mut *mut u8, mut end: *mut u8, mut nu
     }
     val
 }
-unsafe fn vf_putrule(mut start: *mut *mut u8, mut end: *mut u8, mut ptsize: spt_t) {
-    let mut height: i32 = get_pkt_signed_num(start, end, 3_u8);
-    let mut width: i32 = get_pkt_signed_num(start, end, 3_u8);
+unsafe fn vf_putrule(start: *mut *mut u8, end: *mut u8, ptsize: spt_t) {
+    let height: i32 = get_pkt_signed_num(start, end, 3_u8);
+    let width: i32 = get_pkt_signed_num(start, end, 3_u8);
     dvi_rule(sqxfw(ptsize, width), sqxfw(ptsize, height));
 }
-unsafe fn vf_setrule(mut start: *mut *mut u8, mut end: *mut u8, mut ptsize: spt_t) {
-    let mut height: i32 = get_pkt_signed_num(start, end, 3_u8);
-    let mut s_width: i32 = sqxfw(ptsize, get_pkt_signed_num(start, end, 3_u8));
+unsafe fn vf_setrule(start: *mut *mut u8, end: *mut u8, ptsize: spt_t) {
+    let height: i32 = get_pkt_signed_num(start, end, 3_u8);
+    let s_width: i32 = sqxfw(ptsize, get_pkt_signed_num(start, end, 3_u8));
     dvi_rule(s_width, sqxfw(ptsize, height));
     dvi_right(s_width);
 }
-unsafe fn vf_fnt(mut font_id: i32, mut vf_font: i32) {
+unsafe fn vf_fnt(font_id: i32, vf_font: i32) {
     let mut i: i32 = 0;
     while (i as u32) < (*vf_fonts.offset(vf_font as isize)).num_dev_fonts {
         if font_id
@@ -439,7 +438,7 @@ unsafe fn vf_fnt(mut font_id: i32, mut vf_font: i32) {
     };
 }
 /* identical to do_xxx in dvi.c */
-unsafe fn vf_xxx(mut len: i32, mut start: *mut *mut u8, mut end: *mut u8) {
+unsafe fn vf_xxx(len: i32, start: *mut *mut u8, end: *mut u8) {
     if *start <= end.offset(-(len as isize)) {
         let mut buffer = Vec::with_capacity(len as usize);
         for i in 0..len {
@@ -468,7 +467,7 @@ unsafe fn vf_xxx(mut len: i32, mut start: *mut *mut u8, mut end: *mut u8) {
     *start = (*start).offset(len as isize);
 }
 
-pub unsafe fn vf_set_char(mut ch: i32, mut vf_font: i32) {
+pub unsafe fn vf_set_char(ch: i32, vf_font: i32) {
     let mut start: *mut u8 = ptr::null_mut();
     let end;
     let mut default_font: i32 = -1i32;

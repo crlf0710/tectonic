@@ -22,7 +22,6 @@
 #![allow(
     non_camel_case_types,
     non_snake_case,
-    unused_mut
 )]
 
 use euclid::point2;
@@ -43,11 +42,7 @@ use std::ffi::CString;
    Licensed under the MIT License.
 */
 
-pub unsafe fn spc_util_read_numbers(
-    mut values: *mut f64,
-    mut num_values: i32,
-    mut args: *mut spc_arg,
-) -> i32 {
+pub unsafe fn spc_util_read_numbers(values: *mut f64, num_values: i32, args: *mut spc_arg) -> i32 {
     (*args).cur.skip_blank();
     let mut count = 0;
     while count < num_values && !(*args).cur.is_empty() {
@@ -61,7 +56,7 @@ pub unsafe fn spc_util_read_numbers(
     }
     count
 }
-unsafe fn rgb_color_from_hsv(mut h: f64, mut s: f64, mut v: f64) -> PdfColor {
+unsafe fn rgb_color_from_hsv(h: f64, s: f64, v: f64) -> PdfColor {
     let mut b = v;
     let mut g = b;
     let mut r = g;
@@ -113,12 +108,9 @@ unsafe fn rgb_color_from_hsv(mut h: f64, mut s: f64, mut v: f64) -> PdfColor {
     }
     PdfColor::from_rgb(r, g, b).unwrap()
 }
-unsafe fn spc_read_color_color(
-    mut spe: *mut spc_env,
-    mut ap: *mut spc_arg,
-) -> Result<PdfColor, ()> {
+unsafe fn spc_read_color_color(spe: *mut spc_env, ap: *mut spc_arg) -> Result<PdfColor, ()> {
     let mut cv: [f64; 4] = [0.; 4];
-    let mut result: Result<PdfColor, ()>;
+    let result: Result<PdfColor, ()>;
     if let Some(q) = (*ap).cur.parse_c_ident() {
         (*ap).cur.skip_blank();
         match q.to_bytes() {
@@ -221,7 +213,7 @@ unsafe fn spc_read_color_color(
  * allowed for color specification. "pdf" here
  * means pdf: special syntax.
  */
-unsafe fn spc_read_color_pdf(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> Result<PdfColor, ()> {
+unsafe fn spc_read_color_pdf(spe: *mut spc_env, mut ap: *mut spc_arg) -> Result<PdfColor, ()> {
     let mut cv: [f64; 4] = [0.; 4]; /* at most four */
     let mut isarry: bool = false;
     (*ap).cur.skip_blank();
@@ -238,7 +230,7 @@ unsafe fn spc_read_color_pdf(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> Res
         _ => {
             /* Try to read the color names defined in dvipsname.def */
             if let Some(q) = (*ap).cur.parse_c_ident() {
-                let mut result = q
+                let result = q
                     .to_str()
                     .ok()
                     .and_then(|name| pdf_color_namedcolor(name))
@@ -271,9 +263,9 @@ unsafe fn spc_read_color_pdf(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> Res
 /* This is for reading *single* color specification. */
 
 pub unsafe fn spc_util_read_colorspec(
-    mut spe: *mut spc_env,
-    mut ap: *mut spc_arg,
-    mut syntax: bool,
+    spe: *mut spc_env,
+    ap: *mut spc_arg,
+    syntax: bool,
 ) -> Result<PdfColor, ()> {
     assert!(!spe.is_null() && !ap.is_null());
     (*ap).cur.skip_blank();
@@ -287,8 +279,8 @@ pub unsafe fn spc_util_read_colorspec(
 }
 
 pub unsafe fn spc_util_read_pdfcolor(
-    mut spe: *mut spc_env,
-    mut ap: *mut spc_arg,
+    spe: *mut spc_env,
+    ap: *mut spc_arg,
     defaultcolor: Option<&PdfColor>,
 ) -> Result<PdfColor, ()> {
     assert!(!spe.is_null() && !ap.is_null());
@@ -371,11 +363,11 @@ impl ReadLengthSpc for &[u8] {
  */
 fn make_transmatrix(
     M: &mut TMatrix,
-    mut xoffset: f64,
-    mut yoffset: f64,
-    mut xscale: f64,
-    mut yscale: f64,
-    mut rotate: f64,
+    xoffset: f64,
+    yoffset: f64,
+    xscale: f64,
+    yscale: f64,
+    rotate: f64,
 ) {
     let (s, c) = rotate.sin_cos();
     *M = TMatrix::row_major(
@@ -388,7 +380,7 @@ fn make_transmatrix(
     );
 }
 unsafe fn spc_read_dimtrns_dvips(
-    mut spe: *mut spc_env,
+    spe: *mut spc_env,
     t: &mut transform_info,
     mut ap: *mut spc_arg,
 ) -> i32 {
@@ -431,7 +423,7 @@ unsafe fn spc_read_dimtrns_dvips(
                         (*ap).cur.skip_blank();
                     }
                     let vp = if (*ap).cur[0] == b'\'' || (*ap).cur[0] == b'\"' {
-                        let mut qchr = (*ap).cur[0];
+                        let qchr = (*ap).cur[0];
                         (*ap).cur = &(*ap).cur[1..];
                         (*ap).cur.skip_blank();
                         let mut vp = (*ap).cur.parse_float_decimal();
@@ -520,9 +512,9 @@ unsafe fn spc_read_dimtrns_dvips(
  * PLEASE DONT ADD HERE!
  */
 unsafe fn spc_read_dimtrns_pdfm(
-    mut spe: *mut spc_env,
+    spe: *mut spc_env,
     p: &mut transform_info,
-    mut ap: *mut spc_arg,
+    ap: *mut spc_arg,
 ) -> i32 {
     let mut error: i32 = 0i32;
     let mut has_matrix = 0i32;
@@ -673,10 +665,10 @@ unsafe fn spc_read_dimtrns_pdfm(
 }
 
 pub unsafe fn spc_util_read_dimtrns(
-    mut spe: *mut spc_env,
+    spe: *mut spc_env,
     ti: &mut transform_info,
-    mut args: *mut spc_arg,
-    mut syntax: i32,
+    args: *mut spc_arg,
+    syntax: i32,
 ) -> i32 {
     if spe.is_null() || args.is_null() {
         return -1i32;
@@ -694,11 +686,11 @@ pub unsafe fn spc_util_read_dimtrns(
  */
 
 pub unsafe fn spc_util_read_blahblah(
-    mut spe: *mut spc_env,
+    spe: *mut spc_env,
     p: &mut transform_info,
-    mut page_no: *mut i32,
-    mut bbox_type: *mut i32,
-    mut ap: *mut spc_arg,
+    page_no: *mut i32,
+    bbox_type: *mut i32,
+    ap: *mut spc_arg,
 ) -> i32 {
     let mut error: i32 = 0i32;
     let mut has_matrix = 0i32; /* default: do clipping */

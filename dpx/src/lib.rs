@@ -58,7 +58,7 @@ macro_rules! warn(
                 writeln!(handle).unwrap();
             }
             writeln!(handle, concat!("warning: ", $fmt), $($arg)*).unwrap();
-            let mut v = format!(concat!($fmt, "\x00"), $($arg)*);
+            let v = format!(concat!($fmt, "\x00"), $($arg)*);
             unsafe{crate::ttstub_issue_warning_slice(v.as_bytes());}
             unsafe{_last_message_type = DPX_MESG_WARN;}
         }

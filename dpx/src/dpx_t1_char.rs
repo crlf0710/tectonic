@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use super::dpx_mem::new;
@@ -187,7 +186,7 @@ fn stem_compare(s1: &t1_stem, s2: &t1_stem) -> Ordering {
         Ordering::Greater
     }
 }
-unsafe fn get_stem(mut cd: *mut t1_chardesc, mut stem_id: i32) -> i32 {
+unsafe fn get_stem(cd: *mut t1_chardesc, stem_id: i32) -> i32 {
     let mut i = 0;
     while i < (*cd).num_stems {
         if (*cd).stems[i as usize].id == stem_id {
@@ -201,7 +200,7 @@ unsafe fn get_stem(mut cd: *mut t1_chardesc, mut stem_id: i32) -> i32 {
         -1i32
     }
 }
-unsafe fn add_stem(mut cd: *mut t1_chardesc, mut pos: f64, mut del: f64, mut dir: i32) -> i32 {
+unsafe fn add_stem(mut cd: *mut t1_chardesc, mut pos: f64, del: f64, dir: i32) -> i32 {
     assert!(!cd.is_null());
     pos += if dir == 0i32 {
         (*cd).sbw.sby
@@ -246,12 +245,7 @@ unsafe fn copy_args(mut args1: *mut f64, mut args2: *mut f64, mut count: i32) {
  * Path construction:
  */
 /* Get operands from cs_arg_stack[] */
-unsafe fn add_charpath(
-    mut cd: *mut t1_chardesc,
-    mut type_0: i32,
-    mut argv: *mut f64,
-    mut argn: i32,
-) {
+unsafe fn add_charpath(mut cd: *mut t1_chardesc, type_0: i32, argv: *mut f64, mut argn: i32) {
     assert!(!cd.is_null());
     assert!(argn <= 48i32);
     let mut p =
@@ -317,7 +311,7 @@ unsafe fn release_charpath(mut cd: *mut t1_chardesc) {
 /*
  * Single byte operators:
  */
-unsafe fn do_operator1(mut cd: *mut t1_chardesc, mut data: *mut *mut u8) {
+unsafe fn do_operator1(mut cd: *mut t1_chardesc, data: *mut *mut u8) {
     let mut op: u8 = **data;
     *data = (*data).offset(1);
     match op as i32 {
@@ -722,7 +716,7 @@ unsafe fn do_othersubr13(mut cd: *mut t1_chardesc) {
     }
     (*cd).flags |= 1i32 << 1i32;
 }
-unsafe fn do_callothersubr(mut cd: *mut t1_chardesc) {
+unsafe fn do_callothersubr(cd: *mut t1_chardesc) {
     if cs_stack_top < 2i32 {
         status = -2i32;
         return;
@@ -777,7 +771,7 @@ unsafe fn do_callothersubr(mut cd: *mut t1_chardesc) {
 /*
  * Double byte operators:
  */
-unsafe fn do_operator2(mut cd: *mut t1_chardesc, mut data: *mut *mut u8, mut endptr: *mut u8) {
+unsafe fn do_operator2(mut cd: *mut t1_chardesc, data: *mut *mut u8, endptr: *mut u8) {
     *data = (*data).offset(1);
     if endptr < (*data).offset(1) {
         status = -1i32;
@@ -918,14 +912,9 @@ unsafe fn do_operator2(mut cd: *mut t1_chardesc, mut data: *mut *mut u8, mut end
  *   Type 1 format.
  */
 /* Type 2 5-bytes encoding used. */
-unsafe fn put_numbers(
-    mut argv: *mut f64,
-    mut argn: i32,
-    mut dest: *mut *mut u8,
-    mut limit: *mut u8,
-) {
+unsafe fn put_numbers(argv: *mut f64, argn: i32, dest: *mut *mut u8, limit: *mut u8) {
     for i in 0..argn {
-        let mut value = *argv.offset(i as isize);
+        let value = *argv.offset(i as isize);
         /* Nearest integer value */
         let mut ivalue = (value + 0.5).floor() as i32;
         if value >= 0x8000i64 as f64 || value <= (-0x8000 - 1i32 as i64) as f64 {
@@ -1012,10 +1001,10 @@ unsafe fn put_numbers(
         }
     }
 }
-unsafe fn get_integer(mut data: *mut *mut u8, mut endptr: *mut u8) {
+unsafe fn get_integer(data: *mut *mut u8, endptr: *mut u8) {
     let mut result;
-    let mut b0: u8 = **data;
-    let mut b1;
+    let b0: u8 = **data;
+    let b1;
     *data = (*data).offset(1);
     if b0 as i32 == 28i32 {
         /* shortint */
@@ -1063,7 +1052,7 @@ unsafe fn get_integer(mut data: *mut *mut u8, mut endptr: *mut u8) {
     cs_arg_stack[fresh21 as usize] = result as f64;
 }
 /* Type 1 */
-unsafe fn get_longint(mut data: *mut *mut u8, mut endptr: *mut u8) {
+unsafe fn get_longint(data: *mut *mut u8, endptr: *mut u8) {
     *data = (*data).offset(1);
     if endptr < (*data).offset(4) {
         status = -1i32;
@@ -1093,10 +1082,10 @@ unsafe fn get_longint(mut data: *mut *mut u8, mut endptr: *mut u8) {
  */
 /* Parse charstring and build charpath. */
 unsafe fn t1char_build_charpath(
-    mut cd: *mut t1_chardesc,
-    mut data: *mut *mut u8,
-    mut endptr: *mut u8,
-    mut subrs: *mut cff_index,
+    cd: *mut t1_chardesc,
+    data: *mut *mut u8,
+    endptr: *mut u8,
+    subrs: *mut cff_index,
 ) {
     if nest > 10i32 {
         panic!("Subroutine nested too deeply.");
@@ -1551,8 +1540,8 @@ unsafe fn do_postproc(mut cd: *mut t1_chardesc) {
 
 pub unsafe fn t1char_get_metrics(
     mut src: *mut u8,
-    mut srclen: i32,
-    mut subrs: *mut cff_index,
+    srclen: i32,
+    subrs: *mut cff_index,
     mut ginfo: *mut t1_ginfo,
 ) -> i32 {
     let mut t1char: t1_chardesc = t1_chardesc {
@@ -1622,11 +1611,11 @@ pub unsafe fn t1char_get_metrics(
  * Encode Charpath as a Type 2 Charstring
  */
 unsafe fn t1char_encode_charpath(
-    mut cd: *mut t1_chardesc,
-    mut default_width: f64,
-    mut nominal_width: f64,
+    cd: *mut t1_chardesc,
+    default_width: f64,
+    nominal_width: f64,
     mut dst: *mut u8,
-    mut endptr: *mut u8,
+    endptr: *mut u8,
 ) -> i32 {
     assert!(!cd.is_null());
     let save = dst;
@@ -1882,13 +1871,13 @@ unsafe fn t1char_encode_charpath(
 }
 
 pub unsafe fn t1char_convert_charstring(
-    mut dst: *mut u8,
-    mut dstlen: i32,
+    dst: *mut u8,
+    dstlen: i32,
     mut src: *mut u8,
-    mut srclen: i32,
-    mut subrs: *mut cff_index,
-    mut default_width: f64,
-    mut nominal_width: f64,
+    srclen: i32,
+    subrs: *mut cff_index,
+    default_width: f64,
+    nominal_width: f64,
     mut ginfo: *mut t1_ginfo,
 ) -> i32 {
     let mut t1char: t1_chardesc = t1_chardesc {

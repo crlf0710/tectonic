@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use super::dpx_numbers::{
@@ -72,7 +71,7 @@ pub struct tt_post_table {
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 /* offset from begenning of the post table */
-unsafe fn read_v2_post_names(mut post: *mut tt_post_table, mut sfont: *mut sfnt) -> i32 {
+unsafe fn read_v2_post_names(mut post: *mut tt_post_table, sfont: *mut sfnt) -> i32 {
     let handle = &mut (*sfont).handle;
     (*post).numberOfGlyphs = tt_get_unsigned_pair(handle);
     let indices = new(((*post).numberOfGlyphs as u32 as u64)
@@ -155,7 +154,7 @@ unsafe fn read_v2_post_names(mut post: *mut tt_post_table, mut sfont: *mut sfnt)
     0i32
 }
 
-pub unsafe fn tt_read_post_table(mut sfont: *mut sfnt) -> *mut tt_post_table {
+pub unsafe fn tt_read_post_table(sfont: *mut sfnt) -> *mut tt_post_table {
     /* offset = */
     sfnt_locate_table(sfont, b"post"); /* Fixed */
     let mut post = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_post_table>() as u64) as u32)
@@ -194,7 +193,7 @@ pub unsafe fn tt_read_post_table(mut sfont: *mut sfnt) -> *mut tt_post_table {
     post
 }
 
-pub unsafe fn tt_lookup_post_table(mut post: *mut tt_post_table, mut glyphname: *const i8) -> u16 {
+pub unsafe fn tt_lookup_post_table(post: *mut tt_post_table, glyphname: *const i8) -> u16 {
     assert!(!post.is_null() && !glyphname.is_null());
     for gid in 0..(*post).count as u16 {
         if !(*(*post).glyphNamePtr.offset(gid as isize)).is_null()
@@ -206,7 +205,7 @@ pub unsafe fn tt_lookup_post_table(mut post: *mut tt_post_table, mut glyphname: 
     0
 }
 
-pub unsafe fn tt_get_glyphname(mut post: *mut tt_post_table, mut gid: u16) -> *mut i8 {
+pub unsafe fn tt_get_glyphname(post: *mut tt_post_table, gid: u16) -> *mut i8 {
     if (gid as i32) < (*post).count as i32
         && !(*(*post).glyphNamePtr.offset(gid as isize)).is_null()
     {

@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use crate::DisplayExt;
@@ -127,11 +126,11 @@ pub struct C2RustUnnamed_3 {
 static mut verbose: i32 = 0i32;
 static mut opt_flags: i32 = 0i32;
 
-pub unsafe fn CIDFont_type2_set_verbose(mut level: i32) {
+pub unsafe fn CIDFont_type2_set_verbose(level: i32) {
     verbose = level;
 }
 
-pub unsafe fn CIDFont_type2_set_flags(mut flags: i32) {
+pub unsafe fn CIDFont_type2_set_flags(flags: i32) {
     opt_flags = flags;
 }
 
@@ -151,7 +150,7 @@ const required_table: [SfntTableInfo; 11] = {
         SfntTableInfo::new(PREP, false),
     ]
 };
-unsafe fn validate_name(mut fontname: *mut i8, mut len: i32) {
+unsafe fn validate_name(fontname: *mut i8, mut len: i32) {
     static mut badstrlist: [*const i8; 5] = [
         b"-WIN-RKSJ-H\x00" as *const u8 as *const i8,
         b"-WINP-RKSJ-H\x00" as *const u8 as *const i8,
@@ -323,7 +322,7 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
         ],
     },
 ];
-unsafe fn find_tocode_cmap(mut reg: *const i8, mut ord: *const i8, mut select: i32) -> *mut CMap {
+unsafe fn find_tocode_cmap(reg: *const i8, ord: *const i8, select: i32) -> *mut CMap {
     let mut cmap_id: i32 = -1i32;
     if reg.is_null() || ord.is_null() || select < 0i32 || select > 9i32 {
         panic!("Character set unknown.");
@@ -375,11 +374,11 @@ unsafe fn find_tocode_cmap(mut reg: *const i8, mut ord: *const i8, mut select: i
  * Mostly same as add_CID[HV]Metrics in cidtype0.c.
  */
 unsafe fn add_TTCIDHMetrics(
-    mut fontdict: *mut pdf_obj,
-    mut g: *mut tt_glyphs,
-    mut used_chars: *mut i8,
-    mut cidtogidmap: *mut u8,
-    mut last_cid: u16,
+    fontdict: *mut pdf_obj,
+    g: *mut tt_glyphs,
+    used_chars: *mut i8,
+    cidtogidmap: *mut u8,
+    last_cid: u16,
 ) {
     let mut start: i32 = 0i32;
     let mut prev: i32 = 0i32;
@@ -453,10 +452,10 @@ unsafe fn add_TTCIDHMetrics(
     pdf_release_obj(w_array);
 }
 unsafe fn add_TTCIDVMetrics(
-    mut fontdict: *mut pdf_obj,
-    mut g: *mut tt_glyphs,
-    mut used_chars: *mut i8,
-    mut last_cid: u16,
+    fontdict: *mut pdf_obj,
+    g: *mut tt_glyphs,
+    used_chars: *mut i8,
+    last_cid: u16,
 ) {
     let mut empty: i32 = 1i32;
     let defaultVertOriginY = (1000.0f64
@@ -531,7 +530,7 @@ unsafe fn add_TTCIDVMetrics(
  * The following routine fixes few problems caused by vendor specific
  * Unicode mappings.
  */
-unsafe fn fix_CJK_symbols(mut code: u16) -> u16 {
+unsafe fn fix_CJK_symbols(code: u16) -> u16 {
     static mut CJK_Uni_symbols: [C2RustUnnamed_2; 10] = [
         C2RustUnnamed_2 {
             alt1: 0x2014_u16,
@@ -588,7 +587,7 @@ unsafe fn fix_CJK_symbols(mut code: u16) -> u16 {
     }
     alt_code
 }
-unsafe fn cid_to_code(mut cmap: *mut CMap, mut cid: CID) -> i32 {
+unsafe fn cid_to_code(cmap: *mut CMap, cid: CID) -> i32 {
     let mut outbuf: [u8; 32] = [0; 32];
     let mut inbytesleft: size_t = 2i32 as size_t;
     let mut outbytesleft: size_t = 32i32 as size_t;
@@ -615,8 +614,8 @@ unsafe fn cid_to_code(mut cmap: *mut CMap, mut cid: CID) -> i32 {
             } else {
                 if outbytesleft == 28i32 as u64 {
                     /* We assume the output encoding is UTF-16. */
-                    let mut hi: CID = u16::from_be_byte_slice(&outbuf[0..2]);
-                    let mut lo: CID = u16::from_be_byte_slice(&outbuf[2..4]);
+                    let hi: CID = u16::from_be_byte_slice(&outbuf[0..2]);
+                    let lo: CID = u16::from_be_byte_slice(&outbuf[2..4]);
                     if hi as i32 >= 0xd800i32
                         && hi as i32 <= 0xdbffi32
                         && lo as i32 >= 0xdc00i32
@@ -635,8 +634,8 @@ unsafe fn cid_to_code(mut cmap: *mut CMap, mut cid: CID) -> i32 {
 }
 /* #define NO_GHOSTSCRIPT_BUG 1 */
 
-pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
-    let mut cmap;
+pub unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
+    let cmap;
     let mut ttcmap: *mut tt_cmap = ptr::null_mut();
     let offset;
     let mut i: i32 = 0;
@@ -732,7 +731,7 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
     /*
      * Adobe-Identity means font's internal glyph ordering here.
      */
-    let mut glyph_ordering = if streq_ptr(
+    let glyph_ordering = if streq_ptr(
         (*(*font).csi).registry,
         b"Adobe\x00" as *const u8 as *const i8,
     ) as i32
@@ -851,7 +850,7 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
     if last_cid as u32 >= 0xffffu32 {
         panic!("CID count > 65535");
     }
-    let mut cidtogidmap = ptr::null_mut();
+    let cidtogidmap = ptr::null_mut();
     /* !NO_GHOSTSCRIPT_BUG */
     /*
      * Map CIDs to GIDs.
@@ -1085,8 +1084,8 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
 
 pub unsafe fn CIDFont_type2_open(
     mut font: *mut CIDFont,
-    mut name: *const i8,
-    mut cmap_csi: *mut CIDSysInfo,
+    name: *const i8,
+    cmap_csi: *mut CIDSysInfo,
     mut opt: *mut cid_opt,
 ) -> i32 {
     let offset;

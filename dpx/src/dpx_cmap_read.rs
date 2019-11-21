@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use std::ffi::CStr;
@@ -75,8 +74,8 @@ pub struct ifreader {
 static mut __verbose: i32 = 0i32;
 unsafe fn ifreader_create(
     handle: InputHandleWrapper,
-    mut size: size_t,
-    mut bufsize: size_t,
+    size: size_t,
+    bufsize: size_t,
 ) -> *mut ifreader {
     let reader =
         new((1_u64).wrapping_mul(::std::mem::size_of::<ifreader>() as u64) as u32) as *mut ifreader;
@@ -90,13 +89,13 @@ unsafe fn ifreader_create(
     *(*reader).endptr = 0_u8;
     reader
 }
-unsafe fn ifreader_destroy(mut reader: *mut ifreader) {
+unsafe fn ifreader_destroy(reader: *mut ifreader) {
     assert!(!reader.is_null());
     ttstub_input_close((*reader).handle.clone()); // TODO: use drop
     free((*reader).buf as *mut libc::c_void);
     free(reader as *mut libc::c_void);
 }
-unsafe fn ifreader_read(mut reader: *mut ifreader, mut size: size_t) -> size_t {
+unsafe fn ifreader_read(mut reader: *mut ifreader, size: size_t) -> size_t {
     let mut bytesread: size_t = 0i32 as size_t;
     assert!(!reader.is_null());
     let bytesrem = ((*reader).endptr as size_t).wrapping_sub((*reader).cursor as size_t);
@@ -145,7 +144,7 @@ unsafe fn ifreader_read(mut reader: *mut ifreader, mut size: size_t) -> size_t {
     *(*reader).endptr = 0_u8;
     bytesread.wrapping_add(bytesrem)
 }
-unsafe fn check_next_token(mut input: *mut ifreader, mut key: *const i8) -> i32 {
+unsafe fn check_next_token(input: *mut ifreader, key: *const i8) -> i32 {
     if ifreader_read(input, strlen(key) as _) == 0 {
         return -1i32;
     }
@@ -160,11 +159,11 @@ unsafe fn check_next_token(mut input: *mut ifreader, mut key: *const i8) -> i32 
     cmp
 }
 unsafe fn get_coderange(
-    mut input: *mut ifreader,
-    mut codeLo: *mut u8,
-    mut codeHi: *mut u8,
-    mut dim: *mut i32,
-    mut maxlen: i32,
+    input: *mut ifreader,
+    codeLo: *mut u8,
+    codeHi: *mut u8,
+    dim: *mut i32,
+    maxlen: i32,
 ) -> i32 {
     let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr);
     if tok1.is_null() {
@@ -194,7 +193,7 @@ unsafe fn get_coderange(
     *dim = dim1;
     0i32
 }
-unsafe fn do_codespacerange(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i32) -> i32 {
+unsafe fn do_codespacerange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i32 {
     let mut codeLo: [u8; 127] = [0; 127];
     let mut codeHi: [u8; 127] = [0; 127];
     let mut dim: i32 = 0;
@@ -228,10 +227,10 @@ unsafe fn do_codespacerange(mut cmap: *mut CMap, mut input: *mut ifreader, mut c
  *  <codeLo> <codeHi> [destCode1 destCode2 ...]
  */
 unsafe fn handle_codearray(
-    mut cmap: *mut CMap,
-    mut input: *mut ifreader,
-    mut codeLo: *mut u8,
-    mut dim: i32,
+    cmap: *mut CMap,
+    input: *mut ifreader,
+    codeLo: *mut u8,
+    dim: i32,
     mut count: i32,
 ) -> i32 {
     if dim < 1i32 {
@@ -267,7 +266,7 @@ unsafe fn handle_codearray(
     }
     check_next_token(input, b"]\x00" as *const u8 as *const i8)
 }
-unsafe fn do_notdefrange(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i32) -> i32 {
+unsafe fn do_notdefrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i32 {
     let mut tok: *mut pst_obj = ptr::null_mut();
     let mut codeLo: [u8; 127] = [0; 127];
     let mut codeHi: [u8; 127] = [0; 127];
@@ -313,7 +312,7 @@ unsafe fn do_notdefrange(mut cmap: *mut CMap, mut input: *mut ifreader, mut coun
     }
     check_next_token(input, b"endnotdefrange\x00" as *const u8 as *const i8)
 }
-unsafe fn do_bfrange(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i32) -> i32 {
+unsafe fn do_bfrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i32 {
     let mut tok: *mut pst_obj = ptr::null_mut();
     let mut codeLo: [u8; 127] = [0; 127];
     let mut codeHi: [u8; 127] = [0; 127];
@@ -370,7 +369,7 @@ unsafe fn do_bfrange(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i
     }
     check_next_token(input, b"endbfrange\x00" as *const u8 as *const i8)
 }
-unsafe fn do_cidrange(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i32) -> i32 {
+unsafe fn do_cidrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i32 {
     let mut tok: *mut pst_obj = ptr::null_mut();
     let mut codeLo: [u8; 127] = [0; 127];
     let mut codeHi: [u8; 127] = [0; 127];
@@ -416,7 +415,7 @@ unsafe fn do_cidrange(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: 
     }
     check_next_token(input, b"endcidrange\x00" as *const u8 as *const i8)
 }
-unsafe fn do_notdefchar(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i32) -> i32 {
+unsafe fn do_notdefchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i32 {
     loop {
         let fresh6 = count;
         count = count - 1;
@@ -453,7 +452,7 @@ unsafe fn do_notdefchar(mut cmap: *mut CMap, mut input: *mut ifreader, mut count
     }
     check_next_token(input, b"endnotdefchar\x00" as *const u8 as *const i8)
 }
-unsafe fn do_bfchar(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i32) -> i32 {
+unsafe fn do_bfchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i32 {
     loop {
         let fresh7 = count;
         count = count - 1;
@@ -491,7 +490,7 @@ unsafe fn do_bfchar(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i3
     }
     check_next_token(input, b"endbfchar\x00" as *const u8 as *const i8)
 }
-unsafe fn do_cidchar(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i32) -> i32 {
+unsafe fn do_cidchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i32 {
     loop {
         let fresh8 = count;
         count = count - 1;
@@ -528,7 +527,7 @@ unsafe fn do_cidchar(mut cmap: *mut CMap, mut input: *mut ifreader, mut count: i
     }
     check_next_token(input, b"endcidchar\x00" as *const u8 as *const i8)
 }
-unsafe fn do_cidsysteminfo(mut cmap: *mut CMap, mut input: *mut ifreader) -> i32 {
+unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: *mut ifreader) -> i32 {
     let mut csi: CIDSysInfo = CIDSysInfo {
         registry: ptr::null_mut(),
         ordering: ptr::null_mut(),
@@ -684,7 +683,7 @@ pub unsafe fn CMap_parse_check_sig(handle: Option<&mut InputHandleWrapper>) -> i
     if handle.is_none() {
         return -1i32;
     }
-    let mut handle = handle.unwrap();
+    let handle = handle.unwrap();
     handle.seek(SeekFrom::Start(0)).unwrap();
     if ttstub_input_read(handle.0.as_ptr(), sig.as_mut_ptr(), 64i32 as size_t) != 64i32 as i64 {
         result = -1i32
@@ -705,7 +704,7 @@ pub unsafe fn CMap_parse_check_sig(handle: Option<&mut InputHandleWrapper>) -> i
     result
 }
 
-pub unsafe fn CMap_parse(mut cmap: *mut CMap, mut handle: InputHandleWrapper) -> i32 {
+pub unsafe fn CMap_parse(cmap: *mut CMap, mut handle: InputHandleWrapper) -> i32 {
     let mut status: i32 = 0i32;
     let mut tmpint: i32 = -1i32;
     assert!(!cmap.is_null());

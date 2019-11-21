@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use crate::ttstub_output_open_stdout;
@@ -37,7 +36,7 @@ pub const DPX_MESG_INFO: _message_type = 0;
 pub static mut _last_message_type: message_type_t = DPX_MESG_INFO;
 pub static mut _dpx_quietness: i32 = 0i32;
 
-pub unsafe fn shut_up(mut quietness: i32) {
+pub unsafe fn shut_up(quietness: i32) {
     _dpx_quietness = quietness;
 }
 pub static mut _dpx_message_handle: Option<OutputHandleWrapper> = None;

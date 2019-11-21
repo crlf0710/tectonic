@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use crate::DisplayExt;
@@ -77,7 +76,7 @@ pub struct font_cache {
 
 static mut __verbose: i32 = 0i32;
 
-pub unsafe fn Type0Font_set_verbose(mut level: i32) {
+pub unsafe fn Type0Font_set_verbose(level: i32) {
     __verbose = level;
 }
 unsafe fn new_used_chars2() -> *mut i8 {
@@ -124,8 +123,8 @@ unsafe fn Type0Font_clean(mut font: *mut Type0Font) {
     };
 }
 /* PLEASE FIX THIS */
-unsafe fn Type0Font_create_ToUnicode_stream(mut font: *mut Type0Font) -> *mut pdf_obj {
-    let mut cidfont: *mut CIDFont = (*font).descendant;
+unsafe fn Type0Font_create_ToUnicode_stream(font: *mut Type0Font) -> *mut pdf_obj {
+    let cidfont: *mut CIDFont = (*font).descendant;
     otf_create_ToUnicode_stream(
         CIDFont_get_ident(cidfont),
         CIDFont_get_opt_index(cidfont),
@@ -136,14 +135,14 @@ unsafe fn Type0Font_create_ToUnicode_stream(mut font: *mut Type0Font) -> *mut pd
 /* Try to load ToUnicode CMap from file system first, if not found fallback to
  * font CMap reverse lookup. */
 unsafe fn Type0Font_try_load_ToUnicode_stream(
-    mut font: *mut Type0Font,
-    mut cmap_base: *mut i8,
+    font: *mut Type0Font,
+    cmap_base: *mut i8,
 ) -> *mut pdf_obj {
-    let mut cmap_name: *mut i8 = new((strlen(cmap_base)
+    let cmap_name: *mut i8 = new((strlen(cmap_base)
         .wrapping_add(strlen(b"-UTF-16\x00" as *const u8 as *const i8))
         as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<i8>() as u64)
-        as u32) as *mut i8;
+        .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
+        as *mut i8;
     sprintf(
         cmap_name,
         b"%s-UTF16\x00" as *const u8 as *const i8,
@@ -164,7 +163,7 @@ unsafe fn Type0Font_try_load_ToUnicode_stream(
     }
     tounicode
 }
-unsafe fn add_ToUnicode(mut font: *mut Type0Font) {
+unsafe fn add_ToUnicode(font: *mut Type0Font) {
     /*
      * ToUnicode CMap:
      *
@@ -226,7 +225,7 @@ unsafe fn add_ToUnicode(mut font: *mut Type0Font) {
             }
         }
     } else {
-        let mut cmap_base: *mut i8 = new((strlen((*csi).registry)
+        let cmap_base: *mut i8 = new((strlen((*csi).registry)
             .wrapping_add(strlen((*csi).ordering))
             .wrapping_add(2))
         .wrapping_mul(::std::mem::size_of::<i8>()) as _)
@@ -252,11 +251,11 @@ unsafe fn add_ToUnicode(mut font: *mut Type0Font) {
     };
 }
 
-pub unsafe fn Type0Font_set_ToUnicode(mut font: *mut Type0Font, mut cmap_ref: *mut pdf_obj) {
+pub unsafe fn Type0Font_set_ToUnicode(font: *mut Type0Font, cmap_ref: *mut pdf_obj) {
     assert!(!font.is_null());
     (*(*font).fontdict).as_dict_mut().set("ToUnicode", cmap_ref);
 }
-unsafe fn Type0Font_dofont(mut font: *mut Type0Font) {
+unsafe fn Type0Font_dofont(font: *mut Type0Font) {
     if font.is_null() || (*font).indirect.is_null() {
         return;
     }
@@ -278,12 +277,12 @@ unsafe fn Type0Font_flush(mut font: *mut Type0Font) {
     };
 }
 
-pub unsafe fn Type0Font_get_wmode(mut font: *mut Type0Font) -> i32 {
+pub unsafe fn Type0Font_get_wmode(font: *mut Type0Font) -> i32 {
     assert!(!font.is_null());
     (*font).wmode
 }
 
-pub unsafe fn Type0Font_get_usedchars(mut font: *mut Type0Font) -> *mut i8 {
+pub unsafe fn Type0Font_get_usedchars(font: *mut Type0Font) -> *mut i8 {
     assert!(!font.is_null());
     (*font).used_chars
 }
@@ -318,7 +317,7 @@ pub unsafe fn Type0Font_cache_init() {
     __cache.fonts = ptr::null_mut();
 }
 
-pub unsafe fn Type0Font_cache_get(mut id: i32) -> *mut Type0Font {
+pub unsafe fn Type0Font_cache_get(id: i32) -> *mut Type0Font {
     if id < 0i32 || id >= __cache.count {
         panic!("{}: Invalid ID {}", "Type0", id,);
     }
@@ -326,9 +325,9 @@ pub unsafe fn Type0Font_cache_get(mut id: i32) -> *mut Type0Font {
 }
 
 pub unsafe fn Type0Font_cache_find(
-    mut map_name: *const i8,
-    mut cmap_id: i32,
-    mut fmap_opt: *mut fontmap_opt,
+    map_name: *const i8,
+    cmap_id: i32,
+    fmap_opt: *mut fontmap_opt,
 ) -> i32 {
     let pdf_ver = pdf_get_version() as i32;
     if map_name.is_null() || cmap_id < 0i32 || pdf_ver < 2i32 {
@@ -583,7 +582,7 @@ unsafe fn create_dummy_CMap() -> *mut pdf_obj {
     stream.as_stream_mut().add_str("endcmap\n\nCMapName currentdict /CMap defineresource pop\n\nend\nend\n\n%%EndResource\n%%EOF\n");
     stream
 }
-unsafe fn pdf_read_ToUnicode_file(mut cmap_name: *const i8) -> *mut pdf_obj {
+unsafe fn pdf_read_ToUnicode_file(cmap_name: *const i8) -> *mut pdf_obj {
     assert!(!cmap_name.is_null());
     let mut res_id = pdf_findresource(b"CMap\x00" as *const u8 as *const i8, cmap_name);
     if res_id < 0i32 {

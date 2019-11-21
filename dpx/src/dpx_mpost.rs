@@ -25,7 +25,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use euclid::point2;
@@ -185,7 +184,7 @@ static mut font_stack: Vec<mp_font> = Vec::new();
 
 static mut currentfont: i32 = -1i32;
 static mut mp_cmode: i32 = 0i32;
-unsafe fn mp_setfont(mut font_name: &CStr, mut pt_size: f64) -> i32 {
+unsafe fn mp_setfont(font_name: &CStr, pt_size: f64) -> i32 {
     let mut subfont_id: i32 = -1i32;
     if let Some(font) = font_stack.last() {
         if (font.font_name.as_c_str() == font_name) && (font.pt_size == pt_size) {
@@ -253,7 +252,7 @@ unsafe fn is_fontname(token: &[u8]) -> bool {
     tfm_exists(token)
 }
 
-pub unsafe fn mps_scan_bbox(mut pp: *mut *const i8, mut endptr: *const i8, bbox: &mut Rect) -> i32 {
+pub unsafe fn mps_scan_bbox(pp: *mut *const i8, endptr: *const i8, bbox: &mut Rect) -> i32 {
     let mut values: [f64; 4] = [0.; 4];
     /* skip_white() skips lines starting '%'... */
     while *pp < endptr && libc::isspace(**pp as _) != 0 {
@@ -462,7 +461,7 @@ unsafe fn pop_get_numbers(values: &mut [f64]) -> i32 {
     }
     (count + 1) as i32
 }
-unsafe fn cvr_array(mut array: *mut pdf_obj, values: &mut [f64]) -> i32 {
+unsafe fn cvr_array(array: *mut pdf_obj, values: &mut [f64]) -> i32 {
     let mut count = values.len();
     if !(!array.is_null() && (*array).is_array()) {
         warn!("mpost: Not an array!");
@@ -698,11 +697,11 @@ unsafe fn do_show() -> i32 {
     pdf_release_obj(text_str);
     0i32
 }
-unsafe fn do_mpost_bind_def(mut ps_code: *const i8, mut x_user: f64, mut y_user: f64) -> i32 {
+unsafe fn do_mpost_bind_def(ps_code: *const i8, x_user: f64, y_user: f64) -> i32 {
     let mut start = CStr::from_ptr(ps_code).to_bytes();
     mp_parse_body(&mut start, x_user, y_user)
 }
-unsafe fn do_texfig_operator(mut opcode: Opcode, mut x_user: f64, mut y_user: f64) -> i32 {
+unsafe fn do_texfig_operator(opcode: Opcode, x_user: f64, y_user: f64) -> i32 {
     static mut fig_p: transform_info = transform_info::new();
     static mut in_tfig: i32 = 0i32;
     static mut xobj_id: i32 = -1i32;
@@ -764,7 +763,7 @@ unsafe fn ps_dev_CTM() -> TMatrix {
  * Again, the only piece that needs x_user and y_user is
  * that piece dealing with texfig.
  */
-unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
+unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
     let mut error: i32 = 0i32;
     let mut tmp = None;
     let mut cp = Point::zero();
@@ -1261,7 +1260,7 @@ unsafe fn do_operator(token: &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
  * The only sections that need to know x_user and y _user are those
  * dealing with texfig.
  */
-unsafe fn mp_parse_body(mut start: &mut &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
+unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
     let mut obj = ptr::null_mut();
     let mut error: i32 = 0i32;
     start.skip_white();
@@ -1364,7 +1363,7 @@ pub unsafe fn mps_stack_depth() -> i32 {
     STACK.len() as i32
 }
 
-pub unsafe fn mps_exec_inline(pp: &mut &[u8], mut x_user: f64, mut y_user: f64) -> i32 {
+pub unsafe fn mps_exec_inline(pp: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
     /* Compatibility for dvipsk. */
     let dirmode = pdf_dev_get_dirmode();
     if dirmode != 0 {

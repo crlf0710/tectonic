@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use crate::DisplayExt;
@@ -63,7 +62,7 @@ pub struct ParserState {
 }
 static mut parser_state: ParserState = ParserState { tainted: 0i32 };
 
-pub unsafe fn dump(mut start: *const i8, mut end: *const i8) {
+pub unsafe fn dump(start: *const i8, end: *const i8) {
     let mut p: *const i8 = start;
     info!("\nCurrent input buffer is -->");
     while p < end && p < start.offset(50) {
@@ -86,7 +85,7 @@ pub fn dump_slice(buf: &[u8]) {
     info!("<--\n");
 }
 
-pub unsafe fn pdfparse_skip_line(mut start: *mut *const i8, mut end: *const i8) {
+pub unsafe fn pdfparse_skip_line(start: *mut *const i8, end: *const i8) {
     while *start < end && **start as i32 != '\n' as i32 && **start as i32 != '\r' as i32 {
         *start = (*start).offset(1)
     }
@@ -103,7 +102,7 @@ pub unsafe fn pdfparse_skip_line(mut start: *mut *const i8, mut end: *const i8) 
     };
 }
 
-pub unsafe fn skip_white(mut start: *mut *const i8, mut end: *const i8) {
+pub unsafe fn skip_white(start: *mut *const i8, end: *const i8) {
     /*
      * The null (NUL; 0x00) character is a white-space character in PDF spec
      * but isspace(0x00) returns FALSE; on the other hand, the vertical tab
@@ -163,7 +162,7 @@ impl SkipWhite for &[u8] {
         };
     }
 }
-unsafe fn parsed_string(mut start: *const i8, mut end: *const i8) -> *mut i8 {
+unsafe fn parsed_string(start: *const i8, end: *const i8) -> *mut i8 {
     let mut result: *mut i8 = ptr::null_mut();
     let len = end.wrapping_offset_from(start) as i64 as i32;
     if len > 0i32 {
@@ -187,7 +186,7 @@ fn parsed_string_slice(buf: &[u8]) -> Option<CString> {
     }
 }
 
-pub unsafe fn parse_number(mut start: *mut *const i8, mut end: *const i8) -> *mut i8 {
+pub unsafe fn parse_number(start: *mut *const i8, end: *const i8) -> *mut i8 {
     skip_white(start, end);
     let mut p = *start;
     if p < end && (*p as i32 == '+' as i32 || *p as i32 == '-' as i32) {
@@ -207,7 +206,7 @@ pub unsafe fn parse_number(mut start: *mut *const i8, mut end: *const i8) -> *mu
     number
 }
 
-pub unsafe fn parse_unsigned(mut start: *mut *const i8, mut end: *const i8) -> *mut i8 {
+pub unsafe fn parse_unsigned(start: *mut *const i8, end: *const i8) -> *mut i8 {
     skip_white(start, end);
     let mut p = *start;
     while p < end {
@@ -220,11 +219,7 @@ pub unsafe fn parse_unsigned(mut start: *mut *const i8, mut end: *const i8) -> *
     *start = p;
     number
 }
-unsafe fn parse_gen_ident(
-    mut start: *mut *const i8,
-    mut end: *const i8,
-    mut valid_chars: &[u8],
-) -> *mut i8 {
+unsafe fn parse_gen_ident(start: *mut *const i8, end: *const i8, valid_chars: &[u8]) -> *mut i8 {
     /* No skip_white(start, end)? */
     let mut p = *start;
     while p < end {
@@ -237,7 +232,7 @@ unsafe fn parse_gen_ident(
     *start = p;
     ident
 }
-fn parse_gen_ident_slice(mut buf: &mut &[u8], mut valid_chars: &[u8]) -> Option<CString> {
+fn parse_gen_ident_slice(buf: &mut &[u8], valid_chars: &[u8]) -> Option<CString> {
     /* No skip_white(start, end)? */
     let mut i = 0;
     for p in *buf {
@@ -251,13 +246,13 @@ fn parse_gen_ident_slice(mut buf: &mut &[u8], mut valid_chars: &[u8]) -> Option<
     ident
 }
 
-pub unsafe fn parse_ident(mut start: *mut *const i8, mut end: *const i8) -> *mut i8 {
+pub unsafe fn parse_ident(start: *mut *const i8, end: *const i8) -> *mut i8 {
     const VALID_CHARS: &[u8] =
         b"!\"#$&\'*+,-.0123456789:;=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\\^_`abcdefghijklmnopqrstuvwxyz|~";
     parse_gen_ident(start, end, VALID_CHARS)
 }
 
-pub unsafe fn parse_opt_ident(mut start: *mut *const i8, mut end: *const i8) -> *mut i8 {
+pub unsafe fn parse_opt_ident(start: *mut *const i8, end: *const i8) -> *mut i8 {
     if *start < end && **start as i32 == '@' as i32 {
         *start = (*start).offset(1);
         return parse_ident(start, end);
@@ -341,9 +336,9 @@ unsafe fn try_pdf_reference(mut p: &[u8], pf: *mut pdf_file) -> Option<(*mut pdf
 /* Please remove this */
 
 pub unsafe fn parse_pdf_object(
-    mut pp: *mut *const i8,
-    mut endptr: *const i8,
-    mut pf: *mut pdf_file,
+    pp: *mut *const i8,
+    endptr: *const i8,
+    pf: *mut pdf_file,
 ) -> *mut pdf_obj {
     let mut b = std::slice::from_raw_parts(
         *pp as *const i8 as *const u8,
@@ -862,7 +857,7 @@ impl ParsePdfObj for &[u8] {
     fn parse_pdf_name(&mut self) -> Option<*mut pdf_obj> {
         unsafe fn pn_getc(pp: &mut &[u8]) -> i32 {
             let mut ch;
-            let mut p = *pp;
+            let p = *pp;
             if p[0] == b'#' {
                 if p.len() <= 2 {
                     *pp = &[];

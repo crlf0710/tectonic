@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use std::ptr;
@@ -73,7 +72,7 @@ pub struct C2RustUnnamed_1 {
     pub start: i32,
     pub count: i32,
 }
-unsafe fn block_count(mut mtab: *mut mapDef, mut c: i32) -> size_t {
+unsafe fn block_count(mtab: *mut mapDef, mut c: i32) -> size_t {
     let mut count: size_t = 0i32 as size_t;
     let n = (*mtab.offset(c as isize)).len.wrapping_sub(1i32 as u64);
     c += 1i32;
@@ -106,9 +105,9 @@ unsafe fn block_count(mut mtab: *mut mapDef, mut c: i32) -> size_t {
     }
     count
 }
-unsafe fn sputx(mut c: u8, mut s: *mut *mut i8, mut end: *mut i8) -> i32 {
-    let mut hi: i8 = (c as i32 >> 4i32) as i8;
-    let mut lo: i8 = (c as i32 & 0xfi32) as i8;
+unsafe fn sputx(c: u8, s: *mut *mut i8, end: *mut i8) -> i32 {
+    let hi: i8 = (c as i32 >> 4i32) as i8;
+    let lo: i8 = (c as i32 & 0xfi32) as i8;
     if (*s).offset(2) > end {
         panic!("Buffer overflow.");
     }
@@ -126,12 +125,12 @@ unsafe fn sputx(mut c: u8, mut s: *mut *mut i8, mut end: *mut i8) -> i32 {
     2i32
 }
 unsafe fn write_map(
-    mut mtab: *mut mapDef,
+    mtab: *mut mapDef,
     mut count: size_t,
-    mut codestr: *mut u8,
-    mut depth: size_t,
+    codestr: *mut u8,
+    depth: size_t,
     mut wbuf: *mut sbuf,
-    mut stream: *mut pdf_obj,
+    stream: *mut pdf_obj,
 ) -> i32 {
     /* Must be greater than 1 */
     let mut blocks: [C2RustUnnamed_1; 129] = [C2RustUnnamed_1 { start: 0, count: 0 }; 129];
@@ -313,7 +312,7 @@ unsafe fn write_map(
     count as i32
 }
 
-pub unsafe fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj {
+pub unsafe fn CMap_create_stream(cmap: *mut CMap) -> *mut pdf_obj {
     let mut wbuf: sbuf = sbuf {
         buf: ptr::null_mut(),
         curptr: ptr::null_mut(),

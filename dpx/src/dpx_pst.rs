@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 use super::dpx_dpxutil::skip_white_spaces;
 use super::dpx_mem::new;
@@ -36,7 +35,7 @@ use super::dpx_pst_obj::{
 use libc::memcpy;
 use std::ptr;
 
-unsafe fn pst_parse_any(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut pst_obj {
+unsafe fn pst_parse_any(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut pst_obj {
     let mut cur: *mut u8 = *inbuf;
     while cur < inbufend
         && !(cur == inbufend
@@ -72,7 +71,7 @@ unsafe fn pst_parse_any(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut 
     *inbuf = cur;
     pst_new_obj(-1i32, data as *mut libc::c_void)
 }
-unsafe fn skip_line(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) {
+unsafe fn skip_line(inbuf: *mut *mut u8, inbufend: *mut u8) {
     while *inbuf < inbufend && **inbuf as i32 != '\n' as i32 && **inbuf as i32 != '\r' as i32 {
         *inbuf = (*inbuf).offset(1)
     }
@@ -83,7 +82,7 @@ unsafe fn skip_line(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) {
         *inbuf = (*inbuf).offset(1)
     };
 }
-unsafe fn skip_comments(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) {
+unsafe fn skip_comments(inbuf: *mut *mut u8, inbufend: *mut u8) {
     while *inbuf < inbufend && **inbuf as i32 == '%' as i32 {
         skip_line(inbuf, inbufend);
         skip_white_spaces(inbuf, inbufend);
@@ -91,7 +90,7 @@ unsafe fn skip_comments(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) {
 }
 /* NOTE: the input buffer must be null-terminated, i.e., *inbufend == 0 */
 
-pub unsafe fn pst_get_token(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut pst_obj {
+pub unsafe fn pst_get_token(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut pst_obj {
     let mut obj: *mut pst_obj = ptr::null_mut();
     assert!(*inbuf <= inbufend && *inbufend == 0);
     skip_white_spaces(inbuf, inbufend);

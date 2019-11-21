@@ -24,7 +24,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut
 )]
 
 use super::dpx_mem::new;
@@ -75,7 +74,7 @@ pub unsafe fn check_for_bmp(handle: &mut InputHandleWrapper) -> i32 {
     }
     1i32
 }
-unsafe fn get_density(mut xdensity: *mut f64, mut ydensity: *mut f64, mut hdr: *mut hdr_info) {
+unsafe fn get_density(xdensity: *mut f64, ydensity: *mut f64, hdr: *mut hdr_info) {
     if (*hdr).x_pix_per_meter > 0_u32 && (*hdr).y_pix_per_meter > 0_u32 {
         /* 0 for undefined. FIXME */
         *xdensity = 72.0f64 / ((*hdr).x_pix_per_meter as f64 * 0.0254f64);
@@ -88,10 +87,10 @@ unsafe fn get_density(mut xdensity: *mut f64, mut ydensity: *mut f64, mut hdr: *
 
 pub unsafe fn bmp_get_bbox(
     handle: &mut InputHandleWrapper,
-    mut width: *mut u32,
-    mut height: *mut u32,
-    mut xdensity: *mut f64,
-    mut ydensity: *mut f64,
+    width: *mut u32,
+    height: *mut u32,
+    xdensity: *mut f64,
+    ydensity: *mut f64,
 ) -> i32 {
     let mut hdr: hdr_info = hdr_info {
         offset: 0_u32,
@@ -116,10 +115,7 @@ pub unsafe fn bmp_get_bbox(
     r
 }
 
-pub unsafe fn bmp_include_image(
-    mut ximage: *mut pdf_ximage,
-    handle: &mut InputHandleWrapper,
-) -> i32 {
+pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandleWrapper) -> i32 {
     let mut info = ximage_info::default();
     let mut hdr: hdr_info = hdr_info {
         offset: 0_u32,
@@ -223,7 +219,7 @@ pub unsafe fn bmp_include_image(
     stream_dict.set("ColorSpace", colorspace);
     /* Raster data of BMP is four-byte aligned. */
     let stream_data_ptr;
-    let mut rowbytes = (info.width * hdr.bit_count as i32 + 7i32) / 8i32;
+    let rowbytes = (info.width * hdr.bit_count as i32 + 7i32) / 8i32;
     handle.seek(SeekFrom::Start(hdr.offset as u64)).unwrap();
     if hdr.compression == 0i32 {
         let padding = if rowbytes % 4i32 != 0 {
@@ -403,9 +399,9 @@ unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> i3
     0i32
 }
 unsafe fn read_raster_rle8(
-    mut data_ptr: *mut u8,
-    mut width: i32,
-    mut height: i32,
+    data_ptr: *mut u8,
+    width: i32,
+    height: i32,
     handle: &mut InputHandleWrapper,
 ) -> i32 {
     let mut count: i32 = 0i32;
@@ -421,10 +417,10 @@ unsafe fn read_raster_rle8(
         let mut h = 0;
         let mut eol = 0i32;
         while h < width && eol == 0 {
-            let mut b0 = tt_get_unsigned_byte(handle);
-            let mut b1 = tt_get_unsigned_byte(handle);
+            let b0 = tt_get_unsigned_byte(handle);
+            let b1 = tt_get_unsigned_byte(handle);
             count += 2i32;
-            let mut p = data_ptr.offset((v * rowbytes) as isize).offset(h as isize);
+            let p = data_ptr.offset((v * rowbytes) as isize).offset(h as isize);
             if b0 as i32 == 0i32 {
                 match b1 as i32 {
                     0 => {
@@ -488,9 +484,9 @@ unsafe fn read_raster_rle8(
     count
 }
 unsafe fn read_raster_rle4(
-    mut data_ptr: *mut u8,
-    mut width: i32,
-    mut height: i32,
+    data_ptr: *mut u8,
+    width: i32,
+    height: i32,
     handle: &mut InputHandleWrapper,
 ) -> i32 {
     let mut count: i32 = 0i32;

@@ -22,7 +22,6 @@
 #![allow(
     non_camel_case_types,
     non_snake_case,
-    unused_mut
 )]
 
 use crate::DisplayExt;
@@ -61,7 +60,7 @@ static mut PENDING_Y: f64 = 0.0f64;
 static mut POSITION_SET: i32 = 0i32;
 static mut PS_HEADERS: Vec<*mut i8> = Vec::new();
 
-unsafe fn spc_handler_ps_header(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_ps_header(spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     (*args).cur.skip_white();
     if (*args).cur.len() <= 1 || (*args).cur[0] != b'=' {
         spc_warn!(spe, "No filename specified for PSfile special.");
@@ -89,7 +88,7 @@ unsafe fn spc_handler_ps_header(mut spe: *mut spc_env, mut args: *mut spc_arg) -
 }
 unsafe fn parse_filename(pp: &mut &[u8]) -> Option<CString> {
     let mut p = *pp;
-    let mut qchar;
+    let qchar;
     if p.is_empty() {
         return None;
     } else {
@@ -121,9 +120,9 @@ unsafe fn parse_filename(pp: &mut &[u8]) -> Option<CString> {
     r
 }
 /* =filename ... */
-unsafe fn spc_handler_ps_file(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_ps_file(spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut ti = transform_info::new();
-    let mut options: load_options = load_options {
+    let options: load_options = load_options {
         page_no: 1i32,
         bbox_type: 0i32,
         dict: ptr::null_mut(),
@@ -153,10 +152,10 @@ unsafe fn spc_handler_ps_file(mut spe: *mut spc_env, mut args: *mut spc_arg) -> 
     }
 }
 /* This isn't correct implementation but dvipdfm supports... */
-unsafe fn spc_handler_ps_plotfile(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_ps_plotfile(spe: *mut spc_env, args: *mut spc_arg) -> i32 {
     let mut error: i32 = 0i32; /* xscale = 1.0, yscale = -1.0 */
     let mut p = transform_info::new();
-    let mut options: load_options = load_options {
+    let options: load_options = load_options {
         page_no: 1i32,
         bbox_type: 0i32,
         dict: ptr::null_mut(),
@@ -180,7 +179,7 @@ unsafe fn spc_handler_ps_plotfile(mut spe: *mut spc_env, mut args: *mut spc_arg)
         return -1i32;
     }
 }
-unsafe fn spc_handler_ps_literal(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_ps_literal(spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut error: i32 = 0i32;
     let x_user;
     let y_user;
@@ -257,7 +256,7 @@ unsafe fn spc_handler_ps_tricksobj(mut _spe: *mut spc_env, mut args: *mut spc_ar
     (*args).cur = &[];
     -1i32
 }
-unsafe fn spc_handler_ps_default(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_ps_default(spe: *mut spc_env, args: *mut spc_arg) -> i32 {
     assert!(!spe.is_null() && !args.is_null());
     pdf_dev_gsave();
     let st_depth = mps_stack_depth();
@@ -368,7 +367,7 @@ pub fn spc_dvips_check_special(mut buf: &[u8]) -> bool {
 
 pub unsafe fn spc_dvips_setup_handler(
     mut handle: *mut SpcHandler,
-    mut spe: *mut spc_env,
+    spe: *mut spc_env,
     mut args: *mut spc_arg,
 ) -> i32 {
     assert!(!handle.is_null() && !spe.is_null() && !args.is_null());
