@@ -162,8 +162,53 @@ pub unsafe extern "C" fn badness(mut t: scaled_t, mut s: scaled_t) -> i32 {
     (r * r * r + 0x20000i32) / 0x40000i32
 }
 
-unsafe fn LLIST_link(p: isize) -> i32 {
-    (*mem.offset(p)).b32.s1
+pub unsafe fn LLIST_link(p: isize) -> *mut i32 {
+    &mut (*mem.offset(p)).b32.s1
+}
+pub unsafe fn LLIST_info(p: isize) -> *mut i32 {
+    &mut (*mem.offset(p)).b32.s0
+}
+
+/// half of LLIST_info(p)
+pub unsafe fn NODE_type(p: isize) -> *mut u16 {
+    &mut (*mem.offset(p)).b16.s1
+}
+/// the other half of LLIST_info(p)
+pub unsafe fn NODE_subtype(p: isize) -> *mut u16 {
+    &mut (*mem.offset(p)).b16.s0
+}
+/// aka "llink" in doubly-linked list
+pub unsafe fn GLUE_NODE_glue_ptr(p: isize) -> *mut i32 {
+    &mut (*mem.offset(p + 1)).b32.s0
+}
+/// aka "rlink" in double-linked list
+pub unsafe fn GLUE_NODE_leader_ptr(p: isize) -> *mut i32 {
+    &mut (*mem.offset(p + 1)).b32.s1
+}
+/// was originally the `mem[x+1].int` field
+pub unsafe fn PENALTY_NODE_penalty(p: isize) -> *mut i32 {
+    &mut (*mem.offset(p + 1)).b32.s1
+}
+
+/// aka "type" of a node
+pub unsafe fn GLUE_SPEC_stretch_order(p: isize) -> *mut u16 {
+    &mut (*mem.offset(p)).b16.s1
+}
+/// aka "subtype" of a node
+pub unsafe fn GLUE_SPEC_shrink_order(p: isize) -> *mut u16 {
+    &mut (*mem.offset(p)).b16.s0
+}
+/// a scaled
+pub unsafe fn GLUE_SPEC_stretch(p: isize) -> *mut i32 {
+    &mut (*mem.offset(p + 2)).b32.s1
+}
+/// a scaled
+pub unsafe fn GLUE_SPEC_shrink(p: isize) -> *mut i32 {
+    &mut (*mem.offset(p + 3)).b32.s1
+}
+/// a scaled; 1 <=> WEB const `width_offset`
+pub unsafe fn BOX_width(p: isize) -> *mut i32 {
+    &mut (*mem.offset(p + 1)).b32.s1
 }
 
 /*:112*/
@@ -237,7 +282,7 @@ pub unsafe extern "C" fn show_token_list(mut p: i32, mut q: i32, mut l: i32) {
                 }
             }
         }
-        p = LLIST_link(p as isize);
+        p = *LLIST_link(p as isize);
     }
     if p != TEX_NULL {
         print_esc_cstr(b"ETC.\x00" as *const u8 as *const i8);
@@ -275,7 +320,7 @@ pub unsafe extern "C" fn runaway() {
 pub unsafe extern "C" fn get_avail() -> i32 {
     let mut p = avail;
     if p != TEX_NULL {
-        avail = LLIST_link(avail as _);
+        avail = *LLIST_link(avail as _);
     } else if mem_end < MEM_TOP {
         mem_end += 1;
         p = mem_end
