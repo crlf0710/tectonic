@@ -47,9 +47,9 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_link_obj, pdf_new_array, pdf_new_boolean,
+    pdf_link_obj, pdf_new_boolean,
     pdf_new_dict, pdf_new_name, pdf_new_null, pdf_new_number, pdf_new_string, pdf_obj,
-    pdf_ref_obj, pdf_release_obj, pdf_string_value,
+    pdf_ref_obj, pdf_release_obj, pdf_string_value, IntoObj,
 };
 use crate::spc_warn;
 use libc::{atof, free, strcat, strcpy, strlen};
@@ -191,8 +191,7 @@ unsafe fn read_html_tag(
     }
     while !p.is_empty() && error == 0 && p[0] != b'/' && p[0] != b'>' {
         if let Ok((kp, vp)) = parse_key_val(&mut p) {
-            pdf_add_dict(
-                attr,
+            attr.as_dict_mut().set(
                 kp.to_bytes().to_ascii_lowercase(),
                 pdf_new_string(vp.as_ptr() as *const libc::c_void, (vp.to_bytes().len() + 1) as _),
             );
@@ -295,18 +294,17 @@ unsafe fn html_open_link(
     assert!(!name.is_null());
     assert!((*sd).link_dict.is_null());
     (*sd).link_dict = pdf_new_dict();
-    pdf_add_dict(&mut *(*sd).link_dict, "Type", pdf_new_name("Annot"));
-    pdf_add_dict(&mut *(*sd).link_dict, "Subtype", pdf_new_name("Link"));
-    let color = pdf_new_array();
-    pdf_add_array(&mut *color, pdf_new_number(0.0f64));
-    pdf_add_array(&mut *color, pdf_new_number(0.0f64));
-    pdf_add_array(&mut *color, pdf_new_number(1.0f64));
-    pdf_add_dict(&mut *(*sd).link_dict, "C", color);
+    (*(*sd).link_dict).as_dict_mut().set("Type", pdf_new_name("Annot"));
+    (*(*sd).link_dict).as_dict_mut().set("Subtype", pdf_new_name("Link"));
+    let mut color = vec![];
+    color.push(pdf_new_number(0.0f64));
+    color.push(pdf_new_number(0.0f64));
+    color.push(pdf_new_number(1.0f64));
+    (*(*sd).link_dict).as_dict_mut().set("C", color.into_obj());
     let url = fqurl((*sd).baseurl, name);
     if *url.offset(0) as i32 == '#' as i32 {
         /* url++; causes memory leak in free(url) */
-        pdf_add_dict(
-            &mut *(*sd).link_dict,
+        (*(*sd).link_dict).as_dict_mut().set(
             "Dest",
             pdf_new_string(
                 url.offset(1) as *const libc::c_void,
@@ -315,14 +313,13 @@ unsafe fn html_open_link(
         ); /* Otherwise must be bug */
     } else {
         let mut action: *mut pdf_obj = pdf_new_dict();
-        pdf_add_dict(&mut *action, "Type", pdf_new_name("Action"));
-        pdf_add_dict(&mut *action, "S", pdf_new_name("URI"));
-        pdf_add_dict(
-            &mut *action,
+        (*action).as_dict_mut().set("Type", pdf_new_name("Action"));
+        (*action).as_dict_mut().set("S", pdf_new_name("URI"));
+        (*action).as_dict_mut().set(
             "URI",
             pdf_new_string(url as *const libc::c_void, strlen(url) as _),
         );
-        pdf_add_dict(&mut *(*sd).link_dict, "A", pdf_link_obj(action));
+        (*(*sd).link_dict).as_dict_mut().set("A", pdf_link_obj(action));
         pdf_release_obj(action);
     }
     free(url as *mut libc::c_void);
@@ -340,17 +337,17 @@ unsafe fn html_open_dest(
     pdf_dev_transform(&mut cp, None);
     let page_ref = pdf_doc_get_reference("@THISPAGE");
     assert!(!page_ref.is_null());
-    let array = pdf_new_array();
-    pdf_add_array(&mut *array, page_ref);
-    pdf_add_array(&mut *array, pdf_new_name("XYZ"));
-    pdf_add_array(&mut *array, pdf_new_null());
-    pdf_add_array(&mut *array, pdf_new_number(cp.y + 24.0f64));
-    pdf_add_array(&mut *array, pdf_new_null());
+    let mut array = vec![];
+    array.push(page_ref);
+    array.push(pdf_new_name("XYZ"));
+    array.push(pdf_new_null());
+    array.push(pdf_new_number(cp.y + 24.0f64));
+    array.push(pdf_new_null());
     let error = pdf_doc_add_names(
         b"Dests\x00" as *const u8 as *const i8,
         name as *const libc::c_void,
         strlen(name) as i32,
-        array,
+        array.into_obj(),
     );
     if error != 0 {
         spc_warn!(
@@ -483,11 +480,11 @@ unsafe fn atopt(a: &[u8]) -> f64 {
 unsafe fn create_xgstate(mut a: f64, mut f_ais: i32) -> *mut pdf_obj
 /* alpha is shape */ {
     let dict = pdf_new_dict();
-    pdf_add_dict(&mut *dict, "Type", pdf_new_name("ExtGState"));
+    (*dict).as_dict_mut().set("Type", pdf_new_name("ExtGState"));
     if f_ais != 0 {
-        pdf_add_dict(&mut *dict, "AIS", pdf_new_boolean(1_i8));
+        (*dict).as_dict_mut().set("AIS", pdf_new_boolean(1_i8));
     }
-    pdf_add_dict(&mut *dict, "ca", pdf_new_number(a));
+    (*dict).as_dict_mut().set("ca", pdf_new_number(a));
     dict
 }
 unsafe fn check_resourcestatus(category: &str, mut resname: &str) -> i32 {

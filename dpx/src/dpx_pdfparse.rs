@@ -35,8 +35,8 @@ use std::ptr;
 use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_new_name, pdf_deref_obj, pdf_file,
-    pdf_merge_dict, pdf_name_value, pdf_new_array, pdf_new_boolean, pdf_new_dict,
+    pdf_new_name, pdf_deref_obj, pdf_file,
+    pdf_name_value, pdf_new_boolean, pdf_new_dict, IntoObj,
     pdf_new_indirect, pdf_new_null, pdf_new_number, pdf_new_stream, pdf_new_string,
     pdf_number_value, pdf_obj, pdf_release_obj, STREAM_COMPRESS,
 };
@@ -504,8 +504,8 @@ impl ParsePdfObj for &[u8] {
             unsafe { pdf_new_stream(0) }
         };
         let stream_dict = unsafe { (*result).as_stream_mut().get_dict_mut() };
-        unsafe { pdf_merge_dict(stream_dict, &*dict); }
-        unsafe { pdf_add_stream(&mut *result, p.as_ptr() as *const libc::c_void, stream_length); }
+        unsafe { stream_dict.merge((*dict).as_dict()); }
+        unsafe { (*result).as_stream_mut().add(p.as_ptr() as *const libc::c_void, stream_length); }
         p = &p[(stream_length as usize)..];
         /* Check "endsteam" */
         /* It is recommended that there be an end-of-line marker
@@ -533,26 +533,24 @@ impl ParsePdfObj for &[u8] {
             warn!("Could not find an array object.");
             return None;
         }
-        let result = unsafe { pdf_new_array() };
+        let mut result = vec![];
         p = &p[1..];
         p.skip_white();
         while !p.is_empty() && p[0] != b']' {
             if let Some(elem) = p.parse_pdf_object(pf) {
-                unsafe { pdf_add_array(&mut *result, elem); }
+                result.push(elem);
                 p.skip_white();
             } else {
-                unsafe { pdf_release_obj(result); }
                 warn!("Could not find a valid object in array object.");
                 return None;
             }
         }
         if p.is_empty() || p[0] != b']' {
             warn!("Array object ended prematurely.");
-            unsafe { pdf_release_obj(result); }
             return None;
         }
         *self = &p[1..];
-        Some(result)
+        Some(result.into_obj())
     }
     fn parse_pdf_tainted_dict(&mut self) -> Option<*mut pdf_obj> {
         unsafe { parser_state.tainted = 1; }
@@ -575,7 +573,7 @@ impl ParsePdfObj for &[u8] {
             if let Some(key) = p.parse_pdf_name() {
                 p.skip_white();
                 if let Some(value) = p.parse_pdf_object(pf) {
-                    unsafe{ pdf_add_dict(&mut *result, pdf_name_value(&*key).to_bytes(), value); }
+                    unsafe{ (*result).as_dict_mut().set(pdf_name_value(&*key).to_bytes(), value); }
                     p.skip_white();
                 } else {
                     unsafe{ pdf_release_obj(key);

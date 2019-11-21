@@ -48,7 +48,7 @@ use crate::dpx_pdfdraw::{
     pdf_dev_setmiterlimit,
 };
 use crate::dpx_pdfobj::{
-    pdf_add_dict, pdf_foreach_dict, pdf_get_version, pdf_name_value,
+    pdf_foreach_dict, pdf_get_version, pdf_name_value,
     pdf_new_boolean, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_string, pdf_obj,
     pdf_ref_obj, pdf_release_obj, pdf_string_value,
 };
@@ -92,11 +92,12 @@ unsafe fn tpic__clear(tp: *mut spc_tpic_) {
 unsafe fn create_xgstate(mut a: f64, mut f_ais: i32) -> *mut pdf_obj
 /* alpha is shape */ {
     let dict = pdf_new_dict(); /* dash pattern */
-    pdf_add_dict(&mut *dict, "Type", pdf_new_name("ExtGState"));
+    let dict_ref = (*dict).as_dict_mut();
+    dict_ref.set("Type", pdf_new_name("ExtGState"));
     if f_ais != 0 {
-        pdf_add_dict(&mut *dict, "AIS", pdf_new_boolean(1_i8));
+        dict_ref.set("AIS", pdf_new_boolean(1_i8));
     }
-    pdf_add_dict(&mut *dict, "ca", pdf_new_number(a));
+    dict_ref.set("ca", pdf_new_number(a));
     dict
 }
 unsafe fn check_resourcestatus(category: &str, mut resname: &str) -> i32 {
@@ -652,6 +653,7 @@ pub unsafe fn spc_tpic_at_end_document() -> i32 {
 unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
     let mut error: i32 = 0i32;
     let mut dict = pdf_new_dict();
+    let dict_ref = (*dict).as_dict_mut();
     (*ap).cur.skip_blank();
     while error == 0 && !(*ap).cur.is_empty() {
         if let Some(kp) = (*ap).cur.parse_val_ident() {
@@ -664,8 +666,7 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
                     break;
                 } else {
                     if let Some(vp) = (*ap).cur.parse_c_string() {
-                        pdf_add_dict(
-                            &mut *dict,
+                        dict_ref.set(
                             kp.to_bytes(),
                             pdf_new_string(vp.as_ptr() as *const libc::c_void, (vp.to_bytes().len() + 1) as _),
                         );
@@ -675,7 +676,7 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
                 }
             } else {
                 /* Treated as 'flag' */
-                pdf_add_dict(&mut *dict, kp.to_bytes(), pdf_new_boolean(1_i8));
+                dict_ref.set(kp.to_bytes(), pdf_new_boolean(1_i8));
             }
             if error == 0 {
                 (*ap).cur.skip_blank();

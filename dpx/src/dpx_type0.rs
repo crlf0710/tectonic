@@ -43,9 +43,9 @@ use super::dpx_pdfencoding::pdf_load_ToUnicode_stream;
 use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resource_reference};
 use super::dpx_tt_cmap::otf_create_ToUnicode_stream;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_add_stream_str, pdf_copy_name, pdf_get_version, pdf_link_obj,
-    pdf_new_array, pdf_new_dict, pdf_new_name, pdf_new_stream, pdf_obj,
-    pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
+    pdf_copy_name, pdf_get_version, pdf_link_obj,
+    pdf_new_dict, pdf_new_name, pdf_new_stream, pdf_obj,
+    pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS, IntoObj,
 };
 use crate::shims::sprintf;
 use crate::streq_ptr;
@@ -192,7 +192,7 @@ unsafe fn add_ToUnicode(mut font: *mut Type0Font) {
                 /* This should work */
                 tounicode = pdf_new_name("Identity-H")
             }
-            pdf_add_dict(&mut *(*font).fontdict, "ToUnicode", tounicode);
+            (*(*font).fontdict).as_dict_mut().set("ToUnicode", tounicode);
             return;
         }
     }
@@ -240,7 +240,7 @@ unsafe fn add_ToUnicode(mut font: *mut Type0Font) {
         free(cmap_base as *mut libc::c_void);
     }
     if !tounicode.is_null() {
-        pdf_add_dict(&mut *(*font).fontdict, "ToUnicode", tounicode);
+        (*(*font).fontdict).as_dict_mut().set("ToUnicode", tounicode);
     } else {
         warn!(
             "Failed to load ToUnicode CMap for font \"{}\"",
@@ -254,7 +254,7 @@ pub unsafe fn Type0Font_set_ToUnicode(
     mut cmap_ref: *mut pdf_obj,
 ) {
     assert!(!font.is_null());
-    pdf_add_dict(&mut *(*font).fontdict, "ToUnicode", cmap_ref);
+    (*(*font).fontdict).as_dict_mut().set("ToUnicode", cmap_ref);
 }
 unsafe fn Type0Font_dofont(mut font: *mut Type0Font) {
     if font.is_null() || (*font).indirect.is_null() {
@@ -294,9 +294,9 @@ pub unsafe fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mut pdf_obj {
      * This looks somewhat strange.
      */
     if (*font).indirect.is_null() {
-        let array = pdf_new_array();
-        pdf_add_array(&mut *array, CIDFont_get_resource((*font).descendant));
-        pdf_add_dict(&mut *(*font).fontdict, "DescendantFonts", array);
+        let mut array = vec![];
+        array.push(CIDFont_get_resource((*font).descendant));
+        (*(*font).fontdict).as_dict_mut().set("DescendantFonts", array.into_obj());
         (*font).indirect = pdf_ref_obj((*font).fontdict)
     }
     pdf_link_obj((*font).indirect)
@@ -408,8 +408,8 @@ pub unsafe fn Type0Font_cache_find(
      * Now we start font dictionary.
      */
     (*font).fontdict = pdf_new_dict();
-    pdf_add_dict(&mut *(*font).fontdict, "Type", pdf_new_name("Font"));
-    pdf_add_dict(&mut *(*font).fontdict, "Subtype", pdf_new_name("Type0"));
+    (*(*font).fontdict).as_dict_mut().set("Type", pdf_new_name("Font"));
+    (*(*font).fontdict).as_dict_mut().set("Subtype", pdf_new_name("Type0"));
     /*
      * Type0 font does not have FontDescriptor because it is not a simple font.
      * Instead, DescendantFonts appears here.
@@ -460,8 +460,7 @@ pub unsafe fn Type0Font_cache_find(
                 fontname,
                 (*font).encoding,
             );
-            pdf_add_dict(
-                &mut *(*font).fontdict,
+            (*(*font).fontdict).as_dict_mut().set(
                 "BaseFont",
                 pdf_copy_name((*font).fontname),
             );
@@ -483,15 +482,14 @@ pub unsafe fn Type0Font_cache_find(
              *
              *  Use different used_chars for H and V.
              */
-            pdf_add_dict(&mut *(*font).fontdict, "BaseFont", pdf_copy_name(fontname));
+            (*(*font).fontdict).as_dict_mut().set("BaseFont", pdf_copy_name(fontname));
             (*font).used_chars = new_used_chars2()
         }
         _ => {
             panic!("Unrecognized CIDFont Type");
         }
     }
-    pdf_add_dict(
-        &mut *(*font).fontdict,
+    (*(*font).fontdict).as_dict_mut().set(
         "Encoding",
         pdf_copy_name((*font).encoding),
     );
@@ -526,57 +524,57 @@ pub unsafe fn Type0Font_cache_close() {
 }
 /* ******************************* COMPAT ********************************/
 unsafe fn create_dummy_CMap() -> *mut pdf_obj {
-    let mut buf: [i8; 32] = [0; 32];
+    let mut buf: [u8; 32] = [0; 32];
     let stream = &mut *pdf_new_stream(STREAM_COMPRESS);
-    pdf_add_stream_str(stream, "%!PS-Adobe-3.0 Resource-CMap\n%%DocumentNeededResources: ProcSet (CIDInit)\n%%IncludeResource: ProcSet (CIDInit)\n%%BeginResource: CMap (Adobe-Identity-UCS2)\n%%Title: (Adobe-Identity-UCS2 Adobe UCS2 0)\n%%Version: 1.0\n%%Copyright:\n%% ---\n%%EndComments\n\n");
-    pdf_add_stream_str(stream, "/CIDInit /ProcSet findresource begin\n\n12 dict begin\n\nbegincmap\n\n/CIDSystemInfo 3 dict dup begin\n  /Registry (Adobe) def\n  /Ordering (UCS2) def\n  /Supplement 0 def\nend def\n\n/CMapName /Adobe-Identity-UCS2 def\n/CMapVersion 1.0 def\n/CMapType 2 def\n\n2 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n");
-    pdf_add_stream_str(stream, "\n100 beginbfrange\n");
+    stream.as_stream_mut().add_str("%!PS-Adobe-3.0 Resource-CMap\n%%DocumentNeededResources: ProcSet (CIDInit)\n%%IncludeResource: ProcSet (CIDInit)\n%%BeginResource: CMap (Adobe-Identity-UCS2)\n%%Title: (Adobe-Identity-UCS2 Adobe UCS2 0)\n%%Version: 1.0\n%%Copyright:\n%% ---\n%%EndComments\n\n");
+    stream.as_stream_mut().add_str("/CIDInit /ProcSet findresource begin\n\n12 dict begin\n\nbegincmap\n\n/CIDSystemInfo 3 dict dup begin\n  /Registry (Adobe) def\n  /Ordering (UCS2) def\n  /Supplement 0 def\nend def\n\n/CMapName /Adobe-Identity-UCS2 def\n/CMapVersion 1.0 def\n/CMapType 2 def\n\n2 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n");
+    stream.as_stream_mut().add_str("\n100 beginbfrange\n");
     for i in 0..0x64 {
         let n = sprintf(
-            buf.as_mut_ptr(),
+            buf.as_mut_ptr() as *mut i8,
             b"<%02X00> <%02XFF> <%02X00>\n\x00" as *const u8 as *const i8,
             i,
             i,
             i,
-        );
-        pdf_add_stream(stream, buf.as_mut_ptr() as *const libc::c_void, n);
+        ) as usize;
+        stream.as_stream_mut().add_slice(&buf[..n]);
     }
-    pdf_add_stream_str(stream, "endbfrange\n\n");
-    pdf_add_stream_str(stream, "\n100 beginbfrange\n");
+    stream.as_stream_mut().add_str("endbfrange\n\n");
+    stream.as_stream_mut().add_str("\n100 beginbfrange\n");
     for i in 0x64..0xc8 {
         let n = sprintf(
-            buf.as_mut_ptr(),
+            buf.as_mut_ptr() as *mut i8,
             b"<%02X00> <%02XFF> <%02X00>\n\x00" as *const u8 as *const i8,
             i,
             i,
             i,
-        );
-        pdf_add_stream(stream, buf.as_mut_ptr() as *const libc::c_void, n);
+        ) as usize;
+        stream.as_stream_mut().add_slice(&buf[..n]);
     }
-    pdf_add_stream_str(stream, "endbfrange\n\n");
-    pdf_add_stream_str(stream, "\n48 beginbfrange\n");
+    stream.as_stream_mut().add_str("endbfrange\n\n");
+    stream.as_stream_mut().add_str("\n48 beginbfrange\n");
     for i in 0xc8..=0xd7 {
         let n = sprintf(
-            buf.as_mut_ptr(),
+            buf.as_mut_ptr() as *mut i8,
             b"<%02X00> <%02XFF> <%02X00>\n\x00" as *const u8 as *const i8,
             i,
             i,
             i,
-        );
-        pdf_add_stream(stream, buf.as_mut_ptr() as *const libc::c_void, n);
+        ) as usize;
+        stream.as_stream_mut().add_slice(&buf[..n]);
     }
     for i in 0xe0..=0xff {
         let n = sprintf(
-            buf.as_mut_ptr(),
+            buf.as_mut_ptr() as *mut i8,
             b"<%02X00> <%02XFF> <%02X00>\n\x00" as *const u8 as *const i8,
             i,
             i,
             i,
-        );
-        pdf_add_stream(stream, buf.as_mut_ptr() as *const libc::c_void, n);
+        ) as usize;
+        stream.as_stream_mut().add_slice(&buf[..n]);
     }
-    pdf_add_stream_str(stream, "endbfrange\n\n");
-    pdf_add_stream_str(stream, "endcmap\n\nCMapName currentdict /CMap defineresource pop\n\nend\nend\n\n%%EndResource\n%%EOF\n");
+    stream.as_stream_mut().add_str("endbfrange\n\n");
+    stream.as_stream_mut().add_str("endcmap\n\nCMapName currentdict /CMap defineresource pop\n\nend\nend\n\n%%EndResource\n%%EOF\n");
     stream
 }
 unsafe fn pdf_read_ToUnicode_file(mut cmap_name: *const i8) -> *mut pdf_obj {

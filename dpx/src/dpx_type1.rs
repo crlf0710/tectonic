@@ -54,9 +54,8 @@ use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
 use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load_font};
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_add_stream_str, pdf_array_length, pdf_new_array,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS,
+    pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS, IntoObj,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
@@ -377,7 +376,7 @@ unsafe fn get_font_attr(mut font: *mut pdf_font, cffont: &cff_font) {
         flags |= 1i32 << 0i32
     }
     let fontname = pdf_font_get_fontname(font);
-    let descriptor = pdf_font_get_descriptor(font);
+    let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
     if !fontname.is_null() && strstr(fontname, b"Sans\x00" as *const u8 as *const i8).is_null() {
         flags |= 1i32 << 1i32
     }
@@ -385,12 +384,12 @@ unsafe fn get_font_attr(mut font: *mut pdf_font, cffont: &cff_font) {
         flags |= 1i32 << 17i32
     }
     flags |= 1i32 << 2i32;
-    pdf_add_dict(&mut *descriptor, "CapHeight", pdf_new_number(capheight));
-    pdf_add_dict(&mut *descriptor, "Ascent", pdf_new_number(ascent));
-    pdf_add_dict(&mut *descriptor, "Descent", pdf_new_number(descent));
-    pdf_add_dict(&mut *descriptor, "ItalicAngle", pdf_new_number(italicangle));
-    pdf_add_dict(&mut *descriptor, "StemV", pdf_new_number(stemv));
-    pdf_add_dict(&mut *descriptor, "Flags", pdf_new_number(flags as f64));
+    descriptor.set("CapHeight", pdf_new_number(capheight));
+    descriptor.set("Ascent", pdf_new_number(ascent));
+    descriptor.set("Descent", pdf_new_number(descent));
+    descriptor.set("ItalicAngle", pdf_new_number(italicangle));
+    descriptor.set("StemV", pdf_new_number(stemv));
+    descriptor.set("Flags", flags as f64);
 }
 unsafe fn add_metrics(
     mut font: *mut pdf_font,
@@ -401,7 +400,7 @@ unsafe fn add_metrics(
 ) {
     let mut firstchar;
     let mut lastchar;
-    let fontdict = pdf_font_get_resource(&mut *font);
+    let fontdict = pdf_font_get_resource(&mut *font).as_dict_mut();
     let descriptor = pdf_font_get_descriptor(font);
     let usedchars = pdf_font_get_usedchars(font);
     /*
@@ -428,21 +427,20 @@ unsafe fn add_metrics(
         } else {
             1.
         };
-    let tmp_array = pdf_new_array();
+    let mut tmp_array = vec![];
     for i in 0..4 {
         let val = cff_dict_get(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8, i);
-        pdf_add_array(
-            &mut *tmp_array,
+        tmp_array.push(
             pdf_new_number((val / 1.0f64 + 0.5f64).floor() * 1.0f64),
         );
     }
-    pdf_add_dict(&mut *descriptor, "FontBBox", tmp_array);
-    let tmp_array = pdf_new_array();
+    (*descriptor).as_dict_mut().set("FontBBox", tmp_array.into_obj());
+    let mut tmp_array = vec![];
     if num_glyphs <= 1i32 {
         /* This must be an error. */
         lastchar = 0i32;
         firstchar = lastchar;
-        pdf_add_array(&mut *tmp_array, pdf_new_number(0.0f64));
+        tmp_array.push(pdf_new_number(0.0f64));
     } else {
         firstchar = 255i32;
         lastchar = 0i32;
@@ -458,7 +456,6 @@ unsafe fn add_metrics(
         }
         if firstchar > lastchar {
             warn!("No glyphs actually used???");
-            pdf_release_obj(tmp_array);
             return;
         }
         /* PLEASE FIX THIS
@@ -496,21 +493,22 @@ unsafe fn add_metrics(
                         );
                     }
                 }
-                pdf_add_array(
-                    &mut *tmp_array,
+                tmp_array.push(
                     pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64),
                 );
             } else {
-                pdf_add_array(&mut *tmp_array, pdf_new_number(0.0f64));
+                tmp_array.push(pdf_new_number(0.0f64));
             }
         }
     }
-    if pdf_array_length(&*tmp_array) > 0_u32 {
-        pdf_add_dict(fontdict, "Widths", pdf_ref_obj(tmp_array));
+    let empty = tmp_array.is_empty();
+    let tmp_array = tmp_array.into_obj();
+    if !empty {
+        fontdict.set("Widths", pdf_ref_obj(tmp_array));
     }
     pdf_release_obj(tmp_array);
-    pdf_add_dict(fontdict, "FirstChar", pdf_new_number(firstchar as f64));
-    pdf_add_dict(fontdict, "LastChar", pdf_new_number(lastchar as f64));
+    fontdict.set("FirstChar", pdf_new_number(firstchar as f64));
+    fontdict.set("LastChar", pdf_new_number(lastchar as f64));
 }
 unsafe fn write_fontfile(
     mut font: *mut pdf_font,
@@ -518,7 +516,7 @@ unsafe fn write_fontfile(
     mut pdfcharset: *mut pdf_obj,
 ) -> i32 {
     let mut wbuf: [u8; 1024] = [0; 1024];
-    let descriptor = pdf_font_get_descriptor(font);
+    let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
     let mut topdict = CffIndex::new(1);
 
     /*
@@ -652,16 +650,11 @@ unsafe fn write_fontfile(
     /* Flush Font File */
     let fontfile = pdf_new_stream(STREAM_COMPRESS);
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
-    pdf_add_dict(&mut *descriptor, "FontFile3", pdf_ref_obj(fontfile));
-    pdf_add_dict(stream_dict, "Subtype", pdf_new_name("Type1C"));
-    pdf_add_stream(
-        &mut *fontfile,
-        stream_data.as_ptr() as *mut libc::c_void,
-        offset as i32,
-    );
+    descriptor.set("FontFile3", pdf_ref_obj(fontfile));
+    stream_dict.set("Subtype", pdf_new_name("Type1C"));
+    (*fontfile).as_stream_mut().add_slice(&stream_data[..offset]);
     pdf_release_obj(fontfile);
-    pdf_add_dict(
-        &mut *descriptor,
+    descriptor.set(
         "CharSet",
         pdf_new_string(
             pdf_stream_dataptr(&*pdfcharset),
@@ -679,7 +672,7 @@ pub unsafe fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
     }
     let verbose = pdf_font_get_verbose();
     let encoding_id = pdf_font_get_encoding(font);
-    let fontdict = pdf_font_get_resource(&mut *font); /* Actually string object */
+    let fontdict = pdf_font_get_resource(&mut *font).as_dict_mut(); /* Actually string object */
     pdf_font_get_descriptor(font);
     let usedchars = pdf_font_get_usedchars(font);
     let ident = pdf_font_get_ident(font);
@@ -728,10 +721,10 @@ pub unsafe fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
         enc_vec = pdf_encoding_get_encoding(encoding_id)
     } else {
         /* Create enc_vec and ToUnicode CMap for built-in encoding. */
-        if !(*fontdict).as_dict().has("ToUnicode") {
+        if !fontdict.has("ToUnicode") {
             let tounicode = pdf_create_ToUnicode_CMap(fullname, enc_vec, usedchars);
             if !tounicode.is_null() {
-                pdf_add_dict(fontdict, "ToUnicode", pdf_ref_obj(tounicode));
+                fontdict.set("ToUnicode", pdf_ref_obj(tounicode));
                 pdf_release_obj(tounicode);
             }
         }
@@ -872,9 +865,8 @@ pub unsafe fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
                             info!("/{}", CStr::from_ptr(glyph).display());
                         }
                         /* CharSet is actually string object. */
-                        pdf_add_stream_str(&mut *pdfcharset, "/");
-                        pdf_add_stream(
-                            &mut *pdfcharset,
+                        (*pdfcharset).as_stream_mut().add_str("/");
+                        (*pdfcharset).as_stream_mut().add(
                             glyph as *const libc::c_void,
                             strlen(glyph) as i32,
                         );

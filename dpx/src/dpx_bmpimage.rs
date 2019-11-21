@@ -31,7 +31,7 @@ use super::dpx_mem::new;
 use super::dpx_numbers::tt_get_unsigned_byte;
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_new_array, pdf_new_name, pdf_new_number,
+    pdf_new_name, pdf_new_number, IntoObj,
     pdf_new_stream, pdf_new_string, pdf_release_obj,
     pdf_stream_set_predictor, STREAM_COMPRESS,
 };
@@ -135,7 +135,6 @@ pub unsafe fn bmp_include_image(
         };
     let num_palette;
     pdf_ximage_init_image_info(&mut info);
-    let colorspace;
     handle.seek(SeekFrom::Start(0)).unwrap();
     if read_header(handle, &mut hdr) < 0i32 {
         return -1i32;
@@ -187,7 +186,7 @@ pub unsafe fn bmp_include_image(
     let stream = pdf_new_stream(STREAM_COMPRESS);
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
     /* Color space: Indexed or DeviceRGB */
-    if (hdr.bit_count as i32) < 24i32 {
+    let colorspace = if (hdr.bit_count as i32) < 24i32 {
         let mut bgrq: [u8; 4] = [0; 4];
         let palette = new(((num_palette * 3i32 + 1i32) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
@@ -209,15 +208,16 @@ pub unsafe fn bmp_include_image(
             (num_palette * 3i32) as size_t,
         );
         free(palette as *mut libc::c_void);
-        colorspace = pdf_new_array();
-        pdf_add_array(&mut *colorspace, pdf_new_name("Indexed"));
-        pdf_add_array(&mut *colorspace, pdf_new_name("DeviceRGB"));
-        pdf_add_array(&mut *colorspace, pdf_new_number((num_palette - 1i32) as f64));
-        pdf_add_array(&mut *colorspace, lookup);
+        let mut colorspace = vec![];
+        colorspace.push(pdf_new_name("Indexed"));
+        colorspace.push(pdf_new_name("DeviceRGB"));
+        colorspace.push(pdf_new_number((num_palette - 1i32) as f64));
+        colorspace.push(lookup);
+        colorspace.into_obj()
     } else {
-        colorspace = pdf_new_name("DeviceRGB")
-    }
-    pdf_add_dict(stream_dict, "ColorSpace", colorspace);
+        pdf_new_name("DeviceRGB")
+    };
+    stream_dict.set("ColorSpace", colorspace);
     /* Raster data of BMP is four-byte aligned. */
     let stream_data_ptr;
     let mut rowbytes = (info.width * hdr.bit_count as i32 + 7i32) / 8i32;
@@ -287,12 +287,11 @@ pub unsafe fn bmp_include_image(
         let mut n = info.height - 1i32;
         while n >= 0i32 {
             let p = stream_data_ptr.offset((n * rowbytes) as isize);
-            pdf_add_stream(&mut *stream, p as *const libc::c_void, rowbytes);
+            (*stream).as_stream_mut().add(p as *const libc::c_void, rowbytes);
             n -= 1
         }
     } else {
-        pdf_add_stream(
-            &mut *stream,
+        (*stream).as_stream_mut().add(
             stream_data_ptr as *const libc::c_void,
             rowbytes * info.height,
         );

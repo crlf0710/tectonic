@@ -39,7 +39,7 @@ use super::dpx_pdfcolor::{
 };
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_get_version, pdf_new_array, pdf_new_name,
+    pdf_get_version, pdf_new_name, IntoObj,
     pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_dataptr,
     pdf_stream_length, STREAM_COMPRESS,
 };
@@ -219,12 +219,12 @@ pub unsafe fn jpeg_include_image(
     /* JPEG image use DCTDecode. */
     let stream = pdf_new_stream(0i32);
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
-    pdf_add_dict(stream_dict, "Filter", pdf_new_name("DCTDecode"));
+    stream_dict.set("Filter", pdf_new_name("DCTDecode"));
     /* XMP Metadata */
     if pdf_get_version() >= 4_u32 {
         if j_info.flags & 1i32 << 4i32 != 0 {
             let XMP_stream = JPEG_get_XMP(&mut j_info);
-            pdf_add_dict(stream_dict, "Metadata", pdf_ref_obj(XMP_stream));
+            stream_dict.set("Metadata", pdf_ref_obj(XMP_stream));
             pdf_release_obj(XMP_stream);
         }
     }
@@ -258,7 +258,7 @@ pub unsafe fn jpeg_include_image(
                         pdf_stream_length(icc_stream),
                     );
                     if !intent.is_null() {
-                        pdf_add_dict(stream_dict, "Intent", intent);
+                        stream_dict.set("Intent", intent);
                     }
                 }
             }
@@ -274,15 +274,15 @@ pub unsafe fn jpeg_include_image(
             _ => {}
         }
     }
-    pdf_add_dict(stream_dict, "ColorSpace", colorspace);
+    stream_dict.set("ColorSpace", colorspace);
     if j_info.flags & 1i32 << 1i32 != 0 && j_info.num_components as i32 == 4i32 {
         warn!("Adobe CMYK JPEG: Inverted color assumed.");
-        let decode = pdf_new_array();
+        let mut decode = vec![];
         for _ in 0..j_info.num_components as u32 {
-            pdf_add_array(&mut *decode, pdf_new_number(1.0f64));
-            pdf_add_array(&mut *decode, pdf_new_number(0.0f64));
+            decode.push(pdf_new_number(1.0f64));
+            decode.push(pdf_new_number(0.0f64));
         }
-        pdf_add_dict(stream_dict, "Decode", decode);
+        stream_dict.set("Decode", decode.into_obj());
     }
     /* Copy file */
     JPEG_copy_stream(&mut j_info, stream, handle);
@@ -399,8 +399,7 @@ unsafe fn JPEG_get_iccp(mut j_info: *mut JPEG_info) -> *mut pdf_obj {
                 icc_stream = ptr::null_mut();
                 break;
             }
-            pdf_add_stream(
-                &mut *icc_stream,
+            (*icc_stream).as_stream_mut().add(
                 (*icc).chunk as *const libc::c_void,
                 (*icc).length as i32,
             );
@@ -415,16 +414,15 @@ unsafe fn JPEG_get_XMP(mut j_info: *mut JPEG_info) -> *mut pdf_obj {
     /* I don't know if XMP Metadata should be compressed here.*/
     let XMP_stream = pdf_new_stream(STREAM_COMPRESS);
     let stream_dict = (*XMP_stream).as_stream_mut().get_dict_mut();
-    pdf_add_dict(stream_dict, "Type", pdf_new_name("Metadata"));
-    pdf_add_dict(stream_dict, "Subtype", pdf_new_name("XML"));
+    stream_dict.set("Type", pdf_new_name("Metadata"));
+    stream_dict.set("Subtype", pdf_new_name("XML"));
     for i in 0..(*j_info).num_appn {
         /* Not sure for the case of multiple segments */
         if !((*(*j_info).appn.offset(i as isize)).marker as u32 != JM_APP1 as i32 as u32
             || (*(*j_info).appn.offset(i as isize)).app_sig as u32 != JS_APPn_XMP as i32 as u32)
         {
             let XMP = (*(*j_info).appn.offset(i as isize)).app_data as *mut JPEG_APPn_XMP;
-            pdf_add_stream(
-                &mut *XMP_stream,
+            (*XMP_stream).as_stream_mut().add(
                 (*XMP).packet as *const libc::c_void,
                 (*XMP).length as i32,
             );
@@ -821,8 +819,7 @@ unsafe fn JPEG_copy_stream(
         {
             *work_buffer.as_mut_ptr().offset(0) = 0xffi32 as i8;
             *work_buffer.as_mut_ptr().offset(1) = marker as i8;
-            pdf_add_stream(
-                &mut *stream,
+            (*stream).as_stream_mut().add(
                 work_buffer.as_mut_ptr() as *const libc::c_void,
                 2i32,
             );
@@ -834,8 +831,7 @@ unsafe fn JPEG_copy_stream(
                     *work_buffer.as_mut_ptr().offset(1) = marker as i8;
                     *work_buffer.as_mut_ptr().offset(2) = (length + 2i32 >> 8i32 & 0xffi32) as i8;
                     *work_buffer.as_mut_ptr().offset(3) = (length + 2i32 & 0xffi32) as i8;
-                    pdf_add_stream(
-                        &mut *stream,
+                    (*stream).as_stream_mut().add(
                         work_buffer.as_mut_ptr() as *const libc::c_void,
                         4i32,
                     );
@@ -846,8 +842,7 @@ unsafe fn JPEG_copy_stream(
                             (if length < 1024i32 { length } else { 1024i32 }) as size_t,
                         ) as i32;
                         if nb_read > 0i32 {
-                            pdf_add_stream(
-                                &mut *stream,
+                            (*stream).as_stream_mut().add(
                                 work_buffer.as_mut_ptr() as *const libc::c_void,
                                 nb_read,
                             );
@@ -868,8 +863,7 @@ unsafe fn JPEG_copy_stream(
                         *work_buffer.as_mut_ptr().offset(2) =
                             (length + 2i32 >> 8i32 & 0xffi32) as i8;
                         *work_buffer.as_mut_ptr().offset(3) = (length + 2i32 & 0xffi32) as i8;
-                        pdf_add_stream(
-                            &mut *stream,
+                        (*stream).as_stream_mut().add(
                             work_buffer.as_mut_ptr() as *const libc::c_void,
                             4i32,
                         );
@@ -880,8 +874,7 @@ unsafe fn JPEG_copy_stream(
                                 (if length < 1024i32 { length } else { 1024i32 }) as size_t,
                             ) as i32;
                             if nb_read_0 > 0i32 {
-                                pdf_add_stream(
-                                    &mut *stream,
+                                (*stream).as_stream_mut().add(
                                     work_buffer.as_mut_ptr() as *const libc::c_void,
                                     nb_read_0,
                                 );
@@ -909,8 +902,7 @@ unsafe fn JPEG_copy_stream(
         if !(length > 0i32) {
             break;
         }
-        pdf_add_stream(
-            &mut *stream,
+        (*stream).as_stream_mut().add(
             work_buffer.as_mut_ptr() as *const libc::c_void,
             length,
         );

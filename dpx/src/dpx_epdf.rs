@@ -34,9 +34,9 @@ use crate::warn;
 use super::dpx_pdfdoc::pdf_doc_get_page;
 use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_array_length, pdf_boolean_value, pdf_close, pdf_concat_stream,
+    pdf_boolean_value, pdf_close, pdf_concat_stream,
     pdf_deref_obj, pdf_file_get_catalog, pdf_file_get_version,
-    pdf_get_version, pdf_import_object, pdf_new_array,
+    pdf_get_version, pdf_import_object, IntoObj,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj,
     pdf_open, pdf_release_obj,
     STREAM_COMPRESS,
@@ -152,7 +152,7 @@ pub unsafe fn pdf_include_page(
             /*
              * Concatenate all content streams.
              */
-            let mut len: i32 = pdf_array_length(&*contents) as i32;
+            let mut len = (*contents).as_array().len() as i32;
             content_new = pdf_new_stream(STREAM_COMPRESS);
             for idx in 0..len {
                 let mut content_seg: *mut pdf_obj =
@@ -182,24 +182,24 @@ pub unsafe fn pdf_include_page(
          * Add entries to contents stream dictionary.
          */
         let contents_dict = (*contents).as_stream_mut().get_dict_mut();
-        pdf_add_dict(contents_dict, "Type", pdf_new_name("XObject"));
-        pdf_add_dict(contents_dict, "Subtype", pdf_new_name("Form"));
-        pdf_add_dict(contents_dict, "FormType", pdf_new_number(1.0f64));
-        let bbox = pdf_new_array();
-        pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.min.x));
-        pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.min.y));
-        pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.max.x));
-        pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.max.y));
-        pdf_add_dict(contents_dict, "BBox", bbox);
-        let matrix = pdf_new_array();
-        pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m11));
-        pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m12));
-        pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m21));
-        pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m22));
-        pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m31));
-        pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m32));
-        pdf_add_dict(contents_dict, "Matrix", matrix);
-        pdf_add_dict(contents_dict, "Resources", pdf_import_object(resources));
+        contents_dict.set("Type", pdf_new_name("XObject"));
+        contents_dict.set("Subtype", pdf_new_name("Form"));
+        contents_dict.set("FormType", pdf_new_number(1.0f64));
+        let mut bbox = vec![];
+        bbox.push(pdf_new_number(info.bbox.min.x));
+        bbox.push(pdf_new_number(info.bbox.min.y));
+        bbox.push(pdf_new_number(info.bbox.max.x));
+        bbox.push(pdf_new_number(info.bbox.max.y));
+        contents_dict.set("BBox", bbox.into_obj());
+        let mut matrix = vec![];
+        matrix.push(pdf_new_number(info.matrix.m11));
+        matrix.push(pdf_new_number(info.matrix.m12));
+        matrix.push(pdf_new_number(info.matrix.m21));
+        matrix.push(pdf_new_number(info.matrix.m22));
+        matrix.push(pdf_new_number(info.matrix.m31));
+        matrix.push(pdf_new_number(info.matrix.m32));
+        contents_dict.set("Matrix", matrix.into_obj());
+        contents_dict.set("Resources", pdf_import_object(resources));
         pdf_release_obj(resources);
 
         pdf_close(pf);
@@ -212,3 +212,4 @@ pub unsafe fn pdf_include_page(
         return -1;
     }
 }
+

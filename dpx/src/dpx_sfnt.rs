@@ -32,7 +32,7 @@ use tectonic_bridge::ttstub_input_close;
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::{tt_get_unsigned_pair, tt_get_unsigned_quad};
 use crate::dpx_pdfobj::{
-    pdf_add_dict, pdf_add_stream, pdf_new_number, pdf_new_stream, pdf_obj, pdf_release_obj,
+    pdf_new_number, pdf_new_stream, pdf_obj, pdf_release_obj,
     STREAM_COMPRESS,
 };
 use crate::dpx_truetype::SfntTableInfo;
@@ -390,7 +390,7 @@ pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj 
         (*td).num_kept_tables as i32 * 16i32 - sr,
         2i32,
     );
-    pdf_add_stream(&mut *stream, wbuf.as_mut_ptr() as *const libc::c_void, 12i32);
+    (*stream).as_stream_mut().add_slice(&wbuf[..12]);
     /*
      * Compute start of actual tables (after headers).
      */
@@ -419,7 +419,7 @@ pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj 
                 (*(*td).tables.offset(i as isize)).length as i32,
                 4i32,
             );
-            pdf_add_stream(&mut *stream, wbuf.as_mut_ptr() as *const libc::c_void, 16i32);
+            (*stream).as_stream_mut().add_slice(&wbuf[..16]);
             offset = (offset as u32).wrapping_add((*(*td).tables.offset(i as isize)).length) as i32
                 as i32
         }
@@ -429,7 +429,7 @@ pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj 
         if *(*td).flags.offset(i as isize) as i32 & 1i32 << 0i32 != 0 {
             if offset % 4i32 != 0i32 {
                 length = 4i32 - offset % 4i32;
-                pdf_add_stream(&mut *stream, padbytes.as_mut_ptr() as *const libc::c_void, length);
+                (*stream).as_stream_mut().add_slice(&padbytes[..length as usize]);
                 offset += length
             }
             if (*(*td).tables.offset(i as isize)).data.is_null() {
@@ -450,18 +450,13 @@ pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj 
                         panic!("Reading file failed...");
                     } else {
                         if nb_read > 0i32 {
-                            pdf_add_stream(
-                                &mut *stream,
-                                wbuf.as_mut_ptr() as *const libc::c_void,
-                                nb_read,
-                            );
+                            (*stream).as_stream_mut().add_slice(&wbuf[..nb_read as usize]);
                         }
                     }
                     length -= nb_read
                 }
             } else {
-                pdf_add_stream(
-                    &mut *stream,
+                (*stream).as_stream_mut().add(
                     (*(*td).tables.offset(i as isize)).data as *const libc::c_void,
                     (*(*td).tables.offset(i as isize)).length as i32,
                 );
@@ -475,6 +470,6 @@ pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj 
         }
     }
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
-    pdf_add_dict(stream_dict, "Length1", pdf_new_number(offset as f64));
+    stream_dict.set("Length1", pdf_new_number(offset as f64));
     stream
 }

@@ -67,11 +67,11 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_array_length, pdf_new_name,
-    pdf_foreach_dict, pdf_link_obj, pdf_merge_dict, pdf_name_value,
-    pdf_new_array, pdf_new_dict, pdf_new_stream, pdf_number_value, pdf_obj, pdf_obj_typeof,
+    pdf_new_name,
+    pdf_foreach_dict, pdf_link_obj, pdf_name_value,
+    pdf_new_dict, pdf_new_stream, pdf_number_value, pdf_obj, pdf_obj_typeof,
     pdf_release_obj, pdf_remove_dict, pdf_set_string, pdf_string_length,
-    pdf_string_value, PdfObjType, STREAM_COMPRESS,
+    pdf_string_value, PdfObjType, STREAM_COMPRESS, IntoObj,
 };
 use crate::dpx_pdfparse::{
     ParseIdent, ParsePdfObj, SkipWhite,
@@ -208,10 +208,8 @@ unsafe fn spc_handler_pdfm__init(mut dp: *mut libc::c_void) -> i32 {
         (*sd).resourcemap,
         Some(hval_free as unsafe fn(_: *mut libc::c_void) -> ()),
     );
-    (*sd).cd.taintkeys = pdf_new_array();
-    for &key in &DEFAULT_TAINTKEYS {
-        pdf_add_array(&mut *(*sd).cd.taintkeys, pdf_new_name(key));
-    }
+    let array: Vec<*mut pdf_obj> = DEFAULT_TAINTKEYS.iter().map(|&key| pdf_new_name(key)).collect();
+    (*sd).cd.taintkeys = array.into_obj();
     0i32
 }
 unsafe fn spc_handler_pdfm__clean(mut dp: *mut libc::c_void) -> i32 {
@@ -270,13 +268,14 @@ unsafe fn safeputresdent(
 ) -> i32 {
     assert!(!kp.is_null() && !vp.is_null() && !dp.is_null());
     let key = pdf_name_value(&*kp);
-    if (*(dp as *mut pdf_obj)).as_dict().has(key.to_bytes()) {
+    let dict_ref = (*(dp as *mut pdf_obj)).as_dict_mut();
+    if dict_ref.has(key.to_bytes()) {
         warn!(
             "Object \"{}\" already defined in dict! (ignored)",
             key.display()
         );
     } else {
-        pdf_add_dict(&mut *(dp as *mut pdf_obj), key.to_bytes(), pdf_link_obj(vp));
+        dict_ref.set(key.to_bytes(), pdf_link_obj(vp));
     }
     0i32
 }
@@ -287,9 +286,10 @@ unsafe fn safeputresdict(
 ) -> i32 {
     assert!(!kp.is_null() && !vp.is_null() && !dp.is_null());
     let key = pdf_name_value(&*kp);
-    let dict = (*(dp as *mut pdf_obj)).as_dict_mut().get_mut(key.to_bytes());
+    let dict_ref = (*(dp as *mut pdf_obj)).as_dict_mut();
+    let dict = dict_ref.get_mut(key.to_bytes());
     if (*vp).is_indirect() {
-        pdf_add_dict(&mut *(dp as *mut pdf_obj), key.to_bytes(), pdf_link_obj(vp));
+        dict_ref.set(key.to_bytes(), pdf_link_obj(vp));
     } else if (*vp).is_dict() {
         if let Some(dict) = dict {
             pdf_foreach_dict(
@@ -305,7 +305,7 @@ unsafe fn safeputresdict(
                 dict as *mut pdf_obj as *mut libc::c_void,
             );
         } else {
-            pdf_add_dict(&mut *(dp as *mut pdf_obj), key.to_bytes(), pdf_link_obj(vp));
+            dict_ref.set(key.to_bytes(), pdf_link_obj(vp));
         }
     } else {
         warn!(
@@ -373,12 +373,12 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
                     obj1 as *mut libc::c_void,
                 )
             } else {
-                pdf_merge_dict(&mut *obj1, &*obj2);
+                (*obj1).as_dict_mut().merge((*obj2).as_dict());
             }
         }
         PdfObjType::STREAM => {
             if (*obj2).is_dict() {
-                pdf_merge_dict((*obj1).as_stream_mut().get_dict_mut(), &*obj2);
+                (*obj1).as_stream_mut().get_dict_mut().merge((*obj2).as_dict());
             } else if (*obj2).is_stream() {
                 spc_warn!(
                     spe,
@@ -397,11 +397,11 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
         }
         PdfObjType::ARRAY => {
             /* dvipdfm */
-            pdf_add_array(&mut *obj1, pdf_link_obj(obj2));
+            (*obj1).as_array_mut().push(pdf_link_obj(obj2));
             while !(*ap).cur.is_empty() {
                 if let Some(mut obj3) =
                     (*ap).cur.parse_pdf_object(ptr::null_mut()) {
-                    pdf_add_array(&mut *obj1, obj3);
+                    (*obj1).as_array_mut().push(obj3);
                     (*ap).cur.skip_white();
                 } else {
                     break;
@@ -526,7 +526,7 @@ unsafe fn needreencode(
     assert!(!cd.is_null() && !(*cd).taintkeys.is_null());
     assert!((*kp).is_name());
     assert!((*vp).is_string());
-    for i in 0..pdf_array_length(&*(*cd).taintkeys) {
+    for i in 0..(*(*cd).taintkeys).as_array().len() {
         let tk = (*(*cd).taintkeys).as_array().get(i as i32).unwrap();
         assert!((*tk).is_name());
         if pdf_name_value(&*kp) == pdf_name_value(&*tk) {
@@ -593,7 +593,7 @@ unsafe fn modstrings(
         }
         PdfObjType::STREAM => {
             r = pdf_foreach_dict(
-                (*vp).as_stream_mut().get_dict_mut(),
+                (*vp).as_stream_mut().get_dict_obj(),
                 Some(
                     modstrings
                         as unsafe fn(
@@ -958,7 +958,7 @@ unsafe fn spc_handler_pdfm_bead(mut spe: *mut spc_env, mut args: *mut spc_arg) -
     /* Does this article exist yet */
     let article = spc_lookup_object(article_name.as_ptr());
     if !article.is_null() {
-        pdf_merge_dict(&mut *article, &*article_info);
+        (*article).as_dict_mut().merge((*article_info).as_dict());
         pdf_release_obj(article_info);
     } else {
         pdf_doc_begin_article(article_name.as_ptr(), pdf_link_obj(article_info));
@@ -1099,7 +1099,7 @@ unsafe fn spc_handler_pdfm_names(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     }
     if let Some(tmp) = (*args).cur.parse_pdf_object(ptr::null_mut()) {
         if (*tmp).is_array() {
-            let size = pdf_array_length(&*tmp) as i32;
+            let size = (*tmp).as_array().len() as i32;
             if size % 2i32 != 0i32 {
                 spc_warn!(spe, "Array size not multiple of 2 for pdf:names.");
                 pdf_release_obj(category);
@@ -1170,7 +1170,7 @@ unsafe fn spc_handler_pdfm_docinfo(mut spe: *mut spc_env, mut args: *mut spc_arg
     let mut sd: *mut spc_pdf_ = &mut _PDF_STAT;
     if let Some(dict) = (*args).cur.parse_pdf_dict_with_tounicode(&mut (*sd).cd) {
         let docinfo = pdf_doc_get_dictionary("Info");
-        pdf_merge_dict(&mut *docinfo, &*dict);
+        (*docinfo).as_dict_mut().merge((*dict).as_dict());
         pdf_release_obj(dict);
         0
     } else {
@@ -1186,10 +1186,10 @@ unsafe fn spc_handler_pdfm_docview(mut spe: *mut spc_env, mut args: *mut spc_arg
         let pref_old = (*catalog).as_dict_mut().get_mut("ViewerPreferences"); /* Close all? */
         let pref_add = (*dict).as_dict().get("ViewerPreferences");
         if let (Some(pref_old), Some(pref_add)) = (pref_old, pref_add) {
-            pdf_merge_dict(&mut *pref_old, &*pref_add);
+            (*pref_old).as_dict_mut().merge((*pref_add).as_dict());
             pdf_remove_dict(&mut *dict, "ViewerPreferences");
         }
-        pdf_merge_dict(&mut *catalog, &*dict);
+        (*catalog).as_dict_mut().merge((*dict).as_dict());
         pdf_release_obj(dict);
         0
     } else {
@@ -1379,11 +1379,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                 if !(nb_read > 0) { // TODO: check
                     break;
                 }
-                pdf_add_stream(
-                    &mut *fstream,
-                    WORK_BUFFER.as_mut_ptr() as *const libc::c_void,
-                    nb_read as i32,
-                );
+                (*fstream).as_stream_mut().add_slice(&WORK_BUFFER[..nb_read]);
             }
             ttstub_input_close(handle);
             free(fullname as *mut libc::c_void);
@@ -1391,8 +1387,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
         0 => {
             fstream = pdf_new_stream(STREAM_COMPRESS);
             if !instring.is_null() {
-                pdf_add_stream(
-                    &mut *fstream,
+                (*fstream).as_stream_mut().add(
                     instring as *const libc::c_void,
                     strlen(instring) as i32,
                 );
@@ -1418,7 +1413,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
             } else if (*tmp).as_dict().has("Filter") {
                 pdf_remove_dict(&mut *tmp, "Filter");
             }
-            pdf_merge_dict(stream_dict, &*tmp);
+            stream_dict.merge((*tmp).as_dict());
             pdf_release_obj(tmp);
         } else {
             spc_warn!(spe, "Parsing dictionary failed.");

@@ -44,9 +44,9 @@ use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_copy_name, pdf_get_version,
-    pdf_link_obj, pdf_name_value, pdf_new_array, pdf_new_dict, pdf_new_number, pdf_obj,
-    pdf_release_obj,
+    pdf_copy_name, pdf_get_version,
+    pdf_link_obj, pdf_name_value, pdf_new_dict, pdf_new_number, pdf_obj,
+    pdf_release_obj, IntoObj,
 };
 use crate::dpx_pdfparse::{ParsePdfObj, SkipWhite};
 use crate::mfree;
@@ -127,9 +127,9 @@ unsafe fn create_encoding_resource(
     if !differences.is_null() {
         let mut resource = pdf_new_dict();
         if !baseenc.is_null() {
-            pdf_add_dict(&mut *resource, "BaseEncoding", pdf_link_obj((*baseenc).resource));
+            (*resource).as_dict_mut().set("BaseEncoding", pdf_link_obj((*baseenc).resource));
         }
-        pdf_add_dict(&mut *resource, "Differences", differences);
+        (*resource).as_dict_mut().set("Differences", differences);
         return resource;
     } else {
         /* Fix a bug with the MinionPro package using MnSymbol fonts
@@ -213,7 +213,7 @@ unsafe fn make_encoding_differences(
      *  Write all entries (except .notdef) if baseenc is unknown.
      *  If is_used is given, write only used entries.
      */
-    let mut differences = pdf_new_array();
+    let mut differences = vec![];
     for code in 0..256 {
         /* We skip NULL (= ".notdef"). Any character code mapped to ".notdef"
          * glyph should not be used in the document.
@@ -233,9 +233,9 @@ unsafe fn make_encoding_differences(
              * Difference found.
              */
             if skipping != 0 {
-                pdf_add_array(&mut *differences, pdf_new_number(code as f64));
+                differences.push(pdf_new_number(code as f64));
             }
-            pdf_add_array(&mut *differences, pdf_copy_name(*enc_vec.offset(code as isize)));
+            differences.push(pdf_copy_name(*enc_vec.offset(code as isize)));
             skipping = 0i32;
             count += 1
         } else {
@@ -247,10 +247,9 @@ unsafe fn make_encoding_differences(
      * any differences. We return NULL.
      */
     if count == 0i32 {
-        pdf_release_obj(differences);
-        differences = ptr::null_mut()
+        return ptr::null_mut();
     }
-    differences
+    differences.into_obj()
 }
 unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
     let mut enc_vec: [*const i8; 256] = [ptr::null(); 256];

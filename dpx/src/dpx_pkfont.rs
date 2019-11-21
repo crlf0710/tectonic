@@ -46,7 +46,7 @@ use super::dpx_pdffont::{
 };
 use super::dpx_tfm::{tfm_get_design_size, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_copy_name, pdf_new_array, pdf_new_dict,
+    pdf_copy_name, pdf_new_dict, IntoObj,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
@@ -242,7 +242,7 @@ unsafe fn pk_packed_num(mut np: *mut u32, mut dyn_f: i32, mut dp: *mut u8, mut p
     nmbr
 }
 unsafe fn send_out(mut rowptr: *mut u8, mut rowbytes: u32, mut stream: *mut pdf_obj) {
-    pdf_add_stream(&mut *stream, rowptr as *mut libc::c_void, rowbytes as i32);
+    (*stream).as_stream_mut().add(rowptr as *mut libc::c_void, rowbytes as i32);
 }
 unsafe fn pk_decode_packed(
     mut stream: *mut pdf_obj,
@@ -508,11 +508,7 @@ unsafe fn create_pk_CharProc_stream(
         urx,
         ury,
     ) as usize;
-    pdf_add_stream(
-        &mut *stream,
-        work_buffer.as_mut_ptr() as *const libc::c_void,
-        len as i32,
-    );
+    (*stream).as_stream_mut().add_slice(&work_buffer[..len]);
     /*
      * Acrobat dislike transformation [0 0 0 0 dx dy].
      * PDF Reference, 4th ed., p.147, says,
@@ -533,22 +529,14 @@ unsafe fn create_pk_CharProc_stream(
             llx,
             lly,
         ) as usize;
-        pdf_add_stream(
-            &mut *stream,
-            work_buffer.as_mut_ptr() as *const libc::c_void,
-            len as i32,
-        );
+        (*stream).as_stream_mut().add_slice(&work_buffer[..len]);
         len = sprintf(
             work_buffer.as_mut_ptr() as *mut i8,
             b"BI\n/W %u\n/H %u\n/IM true\n/BPC 1\nID \x00" as *const u8 as *const i8,
             (*pkh).bm_wd,
             (*pkh).bm_ht,
         ) as usize;
-        pdf_add_stream(
-            &mut *stream,
-            work_buffer.as_mut_ptr() as *const libc::c_void,
-            len as i32,
-        );
+        (*stream).as_stream_mut().add_slice(&work_buffer[..len]);
         /* Add bitmap data */
         if (*pkh).dyn_f == 14i32 {
             /* bitmap */
@@ -576,11 +564,7 @@ unsafe fn create_pk_CharProc_stream(
             work_buffer.as_mut_ptr() as *mut i8,
             b"\nEI\nQ\x00" as *const u8 as *const i8,
         ) as usize;
-        pdf_add_stream(
-            &mut *stream,
-            work_buffer.as_mut_ptr() as *const libc::c_void,
-            len as i32,
-        );
+        (*stream).as_stream_mut().add_slice(&work_buffer[..len]);
     }
     stream
 }
@@ -711,8 +695,7 @@ pub unsafe fn pdf_font_load_pkfont(mut font: *mut pdf_font) -> i32 {
                         pkh.chrcode as u8 as i32,
                     );
                 }
-                pdf_add_dict(
-                    &mut *charprocs,
+                (*charprocs).as_dict_mut().set(
                     CStr::from_ptr(charname).to_bytes(),
                     pdf_ref_obj(charproc),
                 );
@@ -752,7 +735,7 @@ pub unsafe fn pdf_font_load_pkfont(mut font: *mut pdf_font) -> i32 {
     }
     /* Now actually fill fontdict. */
     let fontdict = pdf_font_get_resource(&mut *font);
-    pdf_add_dict(fontdict, "CharProcs", pdf_ref_obj(charprocs));
+    fontdict.as_dict_mut().set("CharProcs", pdf_ref_obj(charprocs));
     pdf_release_obj(charprocs);
     /*
      * Resources:
@@ -763,13 +746,13 @@ pub unsafe fn pdf_font_load_pkfont(mut font: *mut pdf_font) -> i32 {
      *  note 47, Appendix H of PDF Ref., 4th ed.).
      */
     let procset = pdf_new_dict();
-    let tmp_array = pdf_new_array();
-    pdf_add_array(&mut *tmp_array, pdf_new_name("PDF"));
-    pdf_add_array(&mut *tmp_array, pdf_new_name("ImageB"));
-    pdf_add_dict(&mut *procset, "ProcSet", tmp_array);
-    pdf_add_dict(fontdict, "Resources", procset);
+    let mut tmp_array = vec![];
+    tmp_array.push(pdf_new_name("PDF"));
+    tmp_array.push(pdf_new_name("ImageB"));
+    (*procset).as_dict_mut().set("ProcSet", tmp_array.into_obj());
+    fontdict.as_dict_mut().set("Resources", procset);
     /* Encoding */
-    let tmp_array = pdf_new_array();
+    let mut tmp_array = vec![];
     let mut prev = -2i32;
     let mut firstchar = 255i32;
     let mut lastchar = 0i32;
@@ -783,7 +766,7 @@ pub unsafe fn pdf_font_load_pkfont(mut font: *mut pdf_font) -> i32 {
                 lastchar = code
             }
             if code != prev + 1i32 {
-                pdf_add_array(&mut *tmp_array, pdf_new_number(code as f64));
+                tmp_array.push(pdf_new_number(code as f64));
             }
             if encoding_id >= 0i32 && !enc_vec.is_null() {
                 charname_0 = *enc_vec.offset(code as u8 as isize);
@@ -804,12 +787,11 @@ pub unsafe fn pdf_font_load_pkfont(mut font: *mut pdf_font) -> i32 {
                     code as u8 as i32,
                 );
             }
-            pdf_add_array(&mut *tmp_array, pdf_copy_name(charname_0));
+            tmp_array.push(pdf_copy_name(charname_0));
             prev = code
         }
     }
     if firstchar > lastchar {
-        pdf_release_obj(tmp_array);
         panic!(
             "Unexpected error: firstchar > lastchar ({} {})",
             firstchar, lastchar
@@ -818,44 +800,43 @@ pub unsafe fn pdf_font_load_pkfont(mut font: *mut pdf_font) -> i32 {
     if encoding_id < 0i32 || enc_vec.is_null() {
         /* ENABLE_GLYPHENC */
         let encoding = pdf_new_dict();
-        pdf_add_dict(&mut *encoding, "Type", pdf_new_name("Encoding"));
-        pdf_add_dict(&mut *encoding, "Differences", tmp_array);
-        pdf_add_dict(fontdict, "Encoding", pdf_ref_obj(encoding));
+        (*encoding).as_dict_mut().set("Type", pdf_new_name("Encoding"));
+        (*encoding).as_dict_mut().set("Differences", tmp_array.into_obj());
+        fontdict.as_dict_mut().set("Encoding", pdf_ref_obj(encoding));
         pdf_release_obj(encoding);
-    } else {
-        pdf_release_obj(tmp_array);
     }
     /* FontBBox: Accurate value is important.
      */
-    let tmp_array = pdf_new_array();
-    pdf_add_array(&mut *tmp_array, pdf_new_number(bbox.min.x));
-    pdf_add_array(&mut *tmp_array, pdf_new_number(bbox.min.y));
-    pdf_add_array(&mut *tmp_array, pdf_new_number(bbox.max.x));
-    pdf_add_array(&mut *tmp_array, pdf_new_number(bbox.max.y));
-    pdf_add_dict(fontdict, "FontBBox", tmp_array);
-    /* Widths:
+    let mut tmp_array = vec![];
+    tmp_array.push(pdf_new_number(bbox.min.x));
+    tmp_array.push(pdf_new_number(bbox.min.y));
+    tmp_array.push(pdf_new_number(bbox.max.x));
+    tmp_array.push(pdf_new_number(bbox.max.y));
+    fontdict.as_dict_mut().set("FontBBox", tmp_array.into_obj());
+     /* Widths:
      *  Indirect reference preffered. (See PDF Reference)
      */
-    let tmp_array = pdf_new_array();
+    let mut tmp_array = vec![];
     for code in firstchar..=lastchar {
         if *usedchars.offset(code as isize) != 0 {
-            pdf_add_array(&mut *tmp_array, pdf_new_number(widths[code as usize]));
+            tmp_array.push(pdf_new_number(widths[code as usize]));
         } else {
-            pdf_add_array(&mut *tmp_array, pdf_new_number(0i32 as f64));
+            tmp_array.push(pdf_new_number(0i32 as f64));
         }
     }
-    pdf_add_dict(fontdict, "Widths", pdf_ref_obj(tmp_array));
+    let tmp_array = tmp_array.into_obj();
+    fontdict.as_dict_mut().set("Widths", pdf_ref_obj(tmp_array));
     pdf_release_obj(tmp_array);
     /* FontMatrix */
-    let tmp_array = pdf_new_array();
-    pdf_add_array(&mut *tmp_array, pdf_new_number(0.001f64 * pix2charu));
-    pdf_add_array(&mut *tmp_array, pdf_new_number(0.0f64));
-    pdf_add_array(&mut *tmp_array, pdf_new_number(0.0f64));
-    pdf_add_array(&mut *tmp_array, pdf_new_number(0.001f64 * pix2charu));
-    pdf_add_array(&mut *tmp_array, pdf_new_number(0.0f64));
-    pdf_add_array(&mut *tmp_array, pdf_new_number(0.0f64));
-    pdf_add_dict(fontdict, "FontMatrix", tmp_array);
-    pdf_add_dict(fontdict, "FirstChar", pdf_new_number(firstchar as f64));
-    pdf_add_dict(fontdict, "LastChar", pdf_new_number(lastchar as f64));
+    let mut tmp_array = vec![];
+    tmp_array.push(pdf_new_number(0.001f64 * pix2charu));
+    tmp_array.push(pdf_new_number(0.0f64));
+    tmp_array.push(pdf_new_number(0.0f64));
+    tmp_array.push(pdf_new_number(0.001f64 * pix2charu));
+    tmp_array.push(pdf_new_number(0.0f64));
+    tmp_array.push(pdf_new_number(0.0f64));
+    fontdict.as_dict_mut().set("FontMatrix", tmp_array.into_obj());
+    fontdict.as_dict_mut().set("FirstChar", pdf_new_number(firstchar as f64));
+    fontdict.as_dict_mut().set("LastChar", pdf_new_number(lastchar as f64));
     0i32
 }

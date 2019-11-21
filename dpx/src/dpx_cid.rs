@@ -46,7 +46,7 @@ use super::dpx_cidtype2::{
 };
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_add_dict, pdf_copy_name, pdf_get_version, pdf_link_obj,
+    pdf_copy_name, pdf_get_version, pdf_link_obj,
     pdf_name_value, pdf_new_name, pdf_number_value, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_remove_dict, pdf_string_value,
 };
@@ -847,10 +847,10 @@ unsafe fn CIDFont_base_open(
             pdf_remove_dict(&mut *fontdict, "W2");
         }
     }
-    pdf_add_dict(&mut *fontdict, "Type", pdf_new_name("Font"));
-    pdf_add_dict(&mut *fontdict, "BaseFont", pdf_copy_name(fontname));
-    pdf_add_dict(&mut *descriptor, "Type", pdf_new_name("FontDescriptor"));
-    pdf_add_dict(&mut *descriptor, "FontName", pdf_copy_name(fontname));
+    (*fontdict).as_dict_mut().set("Type", pdf_new_name("Font"));
+    (*fontdict).as_dict_mut().set("BaseFont", pdf_copy_name(fontname));
+    (*descriptor).as_dict_mut().set("Type", pdf_new_name("FontDescriptor"));
+    (*descriptor).as_dict_mut().set("FontName", pdf_copy_name(fontname));
     (*font).fontdict = fontdict;
     (*font).descriptor = descriptor;
     (*opt).embed = 0i32;

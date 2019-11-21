@@ -45,7 +45,7 @@ use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pngimage::{check_for_png, png_include_image};
 use crate::dpx_epdf::pdf_include_page;
 use crate::dpx_pdfobj::{
-    check_for_pdf, pdf_add_dict, pdf_link_obj, pdf_merge_dict, pdf_new_name, pdf_new_number,
+    check_for_pdf, pdf_link_obj, pdf_new_name, pdf_new_number,
     pdf_obj, pdf_ref_obj, pdf_release_obj,
 };
 use crate::shims::sprintf;
@@ -522,20 +522,19 @@ pub unsafe fn pdf_ximage_set_image(
     (*I).attr.ydensity = info.ydensity;
     (*I).reference = pdf_ref_obj(resource);
     let dict = (*resource).as_stream_mut().get_dict_mut();
-    pdf_add_dict(dict, "Type", pdf_new_name("XObject"));
-    pdf_add_dict(dict, "Subtype", pdf_new_name("Image"));
-    pdf_add_dict(dict, "Width", pdf_new_number((*info).width as f64));
-    pdf_add_dict(dict, "Height", pdf_new_number((*info).height as f64));
+    dict.set("Type", pdf_new_name("XObject"));
+    dict.set("Subtype", pdf_new_name("Image"));
+    dict.set("Width", pdf_new_number((*info).width as f64));
+    dict.set("Height", pdf_new_number((*info).height as f64));
     if (*info).bits_per_component > 0i32 {
         /* Ignored for JPXDecode filter. FIXME */
-        pdf_add_dict(
-            dict,
+        dict.set(
             "BitsPerComponent",
             pdf_new_number((*info).bits_per_component as f64),
         ); /* Caller don't know we are using reference. */
     }
     if !(*I).attr.dict.is_null() {
-        pdf_merge_dict(dict, &*(*I).attr.dict);
+        dict.merge((*(*I).attr.dict).as_dict());
     }
     pdf_release_obj(resource);
     (*I).resource = ptr::null_mut();

@@ -56,7 +56,7 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_dict, pdf_add_stream, pdf_copy_name, pdf_new_array, pdf_new_dict,
+    pdf_copy_name, pdf_new_dict, IntoObj,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_stream_length, STREAM_COMPRESS,
 };
@@ -386,7 +386,7 @@ unsafe fn add_TTCIDHMetrics(
     let mut prev: i32 = 0i32;
     let mut an_array: *mut pdf_obj = ptr::null_mut();
     let mut empty: i32 = 1i32;
-    let w_array = pdf_new_array();
+    let mut w_array = vec![];
     let dw = if (*g).dw as i32 != 0i32 && (*g).dw as i32 <= (*g).emsize as i32 {
         (1000.0f64 * (*g).dw as i32 as f64 / (*g).emsize as i32 as f64 / 1i32 as f64 + 0.5f64)
             .floor()
@@ -417,38 +417,39 @@ unsafe fn add_TTCIDHMetrics(
                     * 1i32 as f64;
                 if width == dw {
                     if !an_array.is_null() {
-                        pdf_add_array(&mut *w_array, pdf_new_number(start as f64));
-                        pdf_add_array(&mut *w_array, an_array);
+                        w_array.push(pdf_new_number(start as f64));
+                        w_array.push(an_array);
                         an_array = ptr::null_mut();
                         empty = 0i32
                     }
                 } else {
                     if cid != prev + 1i32 {
                         if !an_array.is_null() {
-                            pdf_add_array(&mut *w_array, pdf_new_number(start as f64));
-                            pdf_add_array(&mut *w_array, an_array);
+                            w_array.push(pdf_new_number(start as f64));
+                            w_array.push(an_array);
                             an_array = ptr::null_mut();
                             empty = 0i32
                         }
                     }
                     if an_array.is_null() {
-                        an_array = pdf_new_array();
+                        an_array = Vec::new().into_obj();
                         start = cid
                     }
-                    pdf_add_array(&mut *an_array, pdf_new_number(width));
+                    (*an_array).as_array_mut().push(pdf_new_number(width));
                     prev = cid
                 }
             }
         }
     }
     if !an_array.is_null() {
-        pdf_add_array(&mut *w_array, pdf_new_number(start as f64));
-        pdf_add_array(&mut *w_array, an_array);
+        w_array.push(pdf_new_number(start as f64));
+        w_array.push(an_array);
         empty = 0i32
     }
-    pdf_add_dict(&mut *fontdict, "DW", pdf_new_number(dw));
+    (*fontdict).as_dict_mut().set("DW", pdf_new_number(dw));
+    let w_array = w_array.into_obj();
     if empty == 0 {
-        pdf_add_dict(&mut *fontdict, "W", pdf_ref_obj(w_array));
+        (*fontdict).as_dict_mut().set("W", pdf_ref_obj(w_array));
     }
     pdf_release_obj(w_array);
 }
@@ -471,7 +472,7 @@ unsafe fn add_TTCIDVMetrics(
             + 0.5f64)
             .floor()
             * 1i32 as f64;
-    let w2_array = pdf_new_array();
+    let mut w2_array = vec![];
     for cid in 0..=last_cid as i32 {
         if !(*used_chars.offset((cid / 8i32) as isize) as i32 & 1i32 << 7i32 - cid % 8i32 == 0) {
             let idx = tt_get_index(g, cid as u16);
@@ -505,24 +506,25 @@ unsafe fn add_TTCIDVMetrics(
                  * Maybe GS's bug?
                  */
                 if vertOriginY != defaultVertOriginY || advanceHeight != defaultAdvanceHeight {
-                    pdf_add_array(&mut *w2_array, pdf_new_number(cid as f64));
-                    pdf_add_array(&mut *w2_array, pdf_new_number(cid as f64));
-                    pdf_add_array(&mut *w2_array, pdf_new_number(-advanceHeight));
-                    pdf_add_array(&mut *w2_array, pdf_new_number(vertOriginX));
-                    pdf_add_array(&mut *w2_array, pdf_new_number(vertOriginY));
+                    w2_array.push(pdf_new_number(cid as f64));
+                    w2_array.push(pdf_new_number(cid as f64));
+                    w2_array.push(pdf_new_number(-advanceHeight));
+                    w2_array.push(pdf_new_number(vertOriginX));
+                    w2_array.push(pdf_new_number(vertOriginY));
                     empty = 0i32
                 }
             }
         }
     }
     if defaultVertOriginY != 880i32 as f64 || defaultAdvanceHeight != 1000i32 as f64 {
-        let an_array = pdf_new_array();
-        pdf_add_array(&mut *an_array, pdf_new_number(defaultVertOriginY));
-        pdf_add_array(&mut *an_array, pdf_new_number(-defaultAdvanceHeight));
-        pdf_add_dict(&mut *fontdict, "DW2", an_array);
+        let mut an_array = vec![];
+        an_array.push(pdf_new_number(defaultVertOriginY));
+        an_array.push(pdf_new_number(-defaultAdvanceHeight));
+        (*fontdict).as_dict_mut().set("DW2", an_array.into_obj());
     }
+    let w2_array = w2_array.into_obj();
     if empty == 0 {
-        pdf_add_dict(&mut *fontdict, "W2", pdf_ref_obj(w2_array));
+        (*fontdict).as_dict_mut().set("W2", pdf_ref_obj(w2_array));
     }
     pdf_release_obj(w2_array);
 }
@@ -643,8 +645,7 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
     if (*font).indirect.is_null() {
         return;
     }
-    pdf_add_dict(
-        &mut *(*font).fontdict,
+    (*(*font).fontdict).as_dict_mut().set(
         "FontDescriptor",
         pdf_ref_obj((*font).descriptor),
     );
@@ -655,31 +656,28 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
      * CIDSystemInfo comes here since Supplement can be increased.
      */
     let tmp = pdf_new_dict();
-    pdf_add_dict(
-        &mut *tmp,
+    (*tmp).as_dict_mut().set(
         "Registry",
         pdf_new_string(
             (*(*font).csi).registry as *const libc::c_void,
             strlen((*(*font).csi).registry) as _,
         ),
     );
-    pdf_add_dict(
-        &mut *tmp,
+    (*tmp).as_dict_mut().set(
         "Ordering",
         pdf_new_string(
             (*(*font).csi).ordering as *const libc::c_void,
             strlen((*(*font).csi).ordering) as _,
         ),
     );
-    pdf_add_dict(
-        &mut *tmp,
+    (*tmp).as_dict_mut().set(
         "Supplement",
         pdf_new_number((*(*font).csi).supplement as f64),
     );
-    pdf_add_dict(&mut *(*font).fontdict, "CIDSystemInfo", tmp);
+    (*(*font).fontdict).as_dict_mut().set("CIDSystemInfo", tmp);
     /* Quick exit for non-embedded & fixed-pitch font. */
     if CIDFont_get_embedding(font) == 0 && opt_flags & 1i32 << 1i32 != 0 {
-        pdf_add_dict(&mut *(*font).fontdict, "DW", pdf_new_number(1000.0f64));
+        (*(*font).fontdict).as_dict_mut().set("DW", pdf_new_number(1000.0f64));
         return;
     }
     let sfont = if let Some(handle) = dpx_open_truetype_file((*font).ident) {
@@ -1006,7 +1004,7 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
      * DW, W, DW2, and W2
      */
     if opt_flags & 1i32 << 1i32 != 0 {
-        pdf_add_dict(&mut *(*font).fontdict, "DW", pdf_new_number(1000.0f64));
+        (*(*font).fontdict).as_dict_mut().set("DW", pdf_new_number(1000.0f64));
     } else {
         add_TTCIDHMetrics((*font).fontdict, glyphs, used_chars, cidtogidmap, last_cid);
         if !v_used_chars.is_null() {
@@ -1043,18 +1041,17 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
     if verbose > 1i32 {
         info!("[{} bytes]", pdf_stream_length(&*fontfile));
     }
-    pdf_add_dict(&mut *(*font).descriptor, "FontFile2", pdf_ref_obj(fontfile));
+    (*(*font).descriptor).as_dict_mut().set("FontFile2", pdf_ref_obj(fontfile));
     pdf_release_obj(fontfile);
     /*
      * CIDSet
      */
     let cidset = pdf_new_stream(STREAM_COMPRESS);
-    pdf_add_stream(
-        &mut *cidset,
+    (*cidset).as_stream_mut().add(
         used_chars as *const libc::c_void,
         last_cid as i32 / 8i32 + 1i32,
     );
-    pdf_add_dict(&mut *(*font).descriptor, "CIDSet", pdf_ref_obj(cidset));
+    (*(*font).descriptor).as_dict_mut().set("CIDSet", pdf_ref_obj(cidset));
     pdf_release_obj(cidset);
     /*
      * CIDToGIDMap
@@ -1063,15 +1060,14 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
      * for Type 2 CIDFonts with embedded font programs.
      */
     if cidtogidmap.is_null() {
-        pdf_add_dict(&mut *(*font).fontdict, "CIDToGIDMap", pdf_new_name("Identity"));
+        (*(*font).fontdict).as_dict_mut().set("CIDToGIDMap", pdf_new_name("Identity"));
     } else {
         let c2gmstream = pdf_new_stream(STREAM_COMPRESS);
-        pdf_add_stream(
-            &mut *c2gmstream,
+        (*c2gmstream).as_stream_mut().add(
             cidtogidmap as *const libc::c_void,
             (last_cid as i32 + 1i32) * 2i32,
         );
-        pdf_add_dict(&mut *(*font).fontdict, "CIDToGIDMap", pdf_ref_obj(c2gmstream));
+        (*(*font).fontdict).as_dict_mut().set("CIDToGIDMap", pdf_ref_obj(c2gmstream));
         pdf_release_obj(c2gmstream);
         free(cidtogidmap as *mut libc::c_void);
     };
@@ -1232,8 +1228,8 @@ pub unsafe fn CIDFont_type2_open(
         (*(*font).csi).supplement = 0i32
     }
     (*font).fontdict = pdf_new_dict();
-    pdf_add_dict(&mut *(*font).fontdict, "Type", pdf_new_name("Font"));
-    pdf_add_dict(&mut *(*font).fontdict, "Subtype", pdf_new_name("CIDFontType2"));
+    (*(*font).fontdict).as_dict_mut().set("Type", pdf_new_name("Font"));
+    (*(*font).fontdict).as_dict_mut().set("Subtype", pdf_new_name("CIDFontType2"));
     (*font).descriptor = tt_get_fontdesc(sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name);
     if (*font).descriptor.is_null() {
         panic!("Could not obtain necessary font info.");
@@ -1247,8 +1243,8 @@ pub unsafe fn CIDFont_type2_open(
         pdf_font_make_uniqueTag(fontname);
         *fontname.offset(6) = '+' as i32 as i8
     }
-    pdf_add_dict(&mut *(*font).descriptor, "FontName", pdf_copy_name(fontname));
-    pdf_add_dict(&mut *(*font).fontdict, "BaseFont", pdf_copy_name(fontname));
+    (*(*font).descriptor).as_dict_mut().set("FontName", pdf_copy_name(fontname));
+    (*(*font).fontdict).as_dict_mut().set("BaseFont", pdf_copy_name(fontname));
     sfnt_close(sfont);
     /*
      * Don't write fontdict here.

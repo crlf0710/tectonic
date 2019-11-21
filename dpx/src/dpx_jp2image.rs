@@ -32,9 +32,7 @@ use crate::warn;
 use super::dpx_mfileio::{file_size, seek_relative, work_buffer};
 use super::dpx_numbers::{get_unsigned_byte, get_unsigned_pair, get_unsigned_quad};
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
-use crate::dpx_pdfobj::{
-    pdf_add_dict, pdf_add_stream, pdf_get_version, pdf_new_name, pdf_new_number, pdf_new_stream,
-};
+use crate::dpx_pdfobj::{pdf_get_version, pdf_new_name, pdf_new_number, pdf_new_stream};
 use libc::{fread, rewind, FILE};
 
 pub type __off_t = i64;
@@ -342,9 +340,9 @@ pub unsafe fn jp2_include_image(mut ximage: *mut pdf_ximage, mut fp: *mut FILE) 
     }
     let stream = pdf_new_stream(0i32);
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
-    pdf_add_dict(stream_dict, "Filter", pdf_new_name("JPXDecode"));
+    stream_dict.set("Filter", pdf_new_name("JPXDecode"));
     if smask != 0 {
-        pdf_add_dict(stream_dict, "SMaskInData", pdf_new_number(1i32 as f64));
+        stream_dict.set("SMaskInData", pdf_new_number(1i32 as f64));
     }
     /* Read whole file */
     rewind(fp);
@@ -358,8 +356,7 @@ pub unsafe fn jp2_include_image(mut ximage: *mut pdf_ximage, mut fp: *mut FILE) 
         if !(nb_read > 0i32) {
             break;
         }
-        pdf_add_stream(
-            &mut *stream,
+        (*stream).as_stream_mut().add(
             work_buffer.as_mut_ptr() as *const libc::c_void,
             nb_read,
         );
