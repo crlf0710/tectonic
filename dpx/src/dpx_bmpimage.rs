@@ -31,7 +31,7 @@ use super::dpx_mem::new;
 use super::dpx_numbers::tt_get_unsigned_byte;
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_new_array, pdf_new_name, pdf_new_number,
+    pdf_new_array, pdf_new_name, pdf_new_number,
     pdf_new_stream, pdf_new_string, pdf_release_obj,
     pdf_stream_set_predictor, STREAM_COMPRESS,
 };
@@ -210,10 +210,10 @@ pub unsafe fn bmp_include_image(
         );
         free(palette as *mut libc::c_void);
         colorspace = pdf_new_array();
-        pdf_add_array(&mut *colorspace, pdf_new_name("Indexed"));
-        pdf_add_array(&mut *colorspace, pdf_new_name("DeviceRGB"));
-        pdf_add_array(&mut *colorspace, pdf_new_number((num_palette - 1i32) as f64));
-        pdf_add_array(&mut *colorspace, lookup);
+        (*colorspace).as_array_mut().push(pdf_new_name("Indexed"));
+        (*colorspace).as_array_mut().push(pdf_new_name("DeviceRGB"));
+        (*colorspace).as_array_mut().push(pdf_new_number((num_palette - 1i32) as f64));
+        (*colorspace).as_array_mut().push(lookup);
     } else {
         colorspace = pdf_new_name("DeviceRGB")
     }

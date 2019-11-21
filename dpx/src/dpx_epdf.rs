@@ -34,7 +34,7 @@ use crate::warn;
 use super::dpx_pdfdoc::pdf_doc_get_page;
 use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_array_length, pdf_boolean_value, pdf_close, pdf_concat_stream,
+    pdf_array_length, pdf_boolean_value, pdf_close, pdf_concat_stream,
     pdf_deref_obj, pdf_file_get_catalog, pdf_file_get_version,
     pdf_get_version, pdf_import_object, pdf_new_array,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj,
@@ -186,18 +186,18 @@ pub unsafe fn pdf_include_page(
         contents_dict.set("Subtype", pdf_new_name("Form"));
         contents_dict.set("FormType", pdf_new_number(1.0f64));
         let bbox = pdf_new_array();
-        pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.min.x));
-        pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.min.y));
-        pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.max.x));
-        pdf_add_array(&mut *bbox, pdf_new_number(info.bbox.max.y));
+        (*bbox).as_array_mut().push(pdf_new_number(info.bbox.min.x));
+        (*bbox).as_array_mut().push(pdf_new_number(info.bbox.min.y));
+        (*bbox).as_array_mut().push(pdf_new_number(info.bbox.max.x));
+        (*bbox).as_array_mut().push(pdf_new_number(info.bbox.max.y));
         contents_dict.set("BBox", bbox);
         let matrix = pdf_new_array();
-        pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m11));
-        pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m12));
-        pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m21));
-        pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m22));
-        pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m31));
-        pdf_add_array(&mut *matrix, pdf_new_number(info.matrix.m32));
+        (*matrix).as_array_mut().push(pdf_new_number(info.matrix.m11));
+        (*matrix).as_array_mut().push(pdf_new_number(info.matrix.m12));
+        (*matrix).as_array_mut().push(pdf_new_number(info.matrix.m21));
+        (*matrix).as_array_mut().push(pdf_new_number(info.matrix.m22));
+        (*matrix).as_array_mut().push(pdf_new_number(info.matrix.m31));
+        (*matrix).as_array_mut().push(pdf_new_number(info.matrix.m32));
         contents_dict.set("Matrix", matrix);
         contents_dict.set("Resources", pdf_import_object(resources));
         pdf_release_obj(resources);

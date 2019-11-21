@@ -60,7 +60,7 @@ use super::dpx_pdffont::{
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_array_length,
+    pdf_array_length,
     pdf_new_array, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_ref_obj,
     pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS,
 };
@@ -238,7 +238,7 @@ unsafe fn add_SimpleMetrics(
         /* This should be error. */
         lastchar = 0i32;
         firstchar = lastchar;
-        pdf_add_array(&mut *tmp_array, pdf_new_number(0.0f64));
+        (*tmp_array).as_array_mut().push(pdf_new_number(0.0f64));
     } else {
         firstchar = 255i32;
         lastchar = 0i32;
@@ -277,13 +277,12 @@ unsafe fn add_SimpleMetrics(
                             *widths.offset(code as isize),
                         );
                     }
-                    pdf_add_array(
-                        &mut *tmp_array,
+                    (*tmp_array).as_array_mut().push(
                         pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64),
                     );
                 }
             } else {
-                pdf_add_array(&mut *tmp_array, pdf_new_number(0.0f64));
+                (*tmp_array).as_array_mut().push(pdf_new_number(0.0f64));
             }
         }
     }

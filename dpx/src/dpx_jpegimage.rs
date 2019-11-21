@@ -39,7 +39,7 @@ use super::dpx_pdfcolor::{
 };
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_get_version, pdf_new_array, pdf_new_name,
+    pdf_get_version, pdf_new_array, pdf_new_name,
     pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_dataptr,
     pdf_stream_length, STREAM_COMPRESS,
 };
@@ -279,8 +279,8 @@ pub unsafe fn jpeg_include_image(
         warn!("Adobe CMYK JPEG: Inverted color assumed.");
         let decode = pdf_new_array();
         for _ in 0..j_info.num_components as u32 {
-            pdf_add_array(&mut *decode, pdf_new_number(1.0f64));
-            pdf_add_array(&mut *decode, pdf_new_number(0.0f64));
+            (*decode).as_array_mut().push(pdf_new_number(1.0f64));
+            (*decode).as_array_mut().push(pdf_new_number(0.0f64));
         }
         stream_dict.set("Decode", decode);
     }

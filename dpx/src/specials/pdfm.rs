@@ -67,7 +67,7 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_array_length, pdf_new_name,
+    pdf_array_length, pdf_new_name,
     pdf_foreach_dict, pdf_link_obj, pdf_name_value,
     pdf_new_array, pdf_new_dict, pdf_new_stream, pdf_number_value, pdf_obj, pdf_obj_typeof,
     pdf_release_obj, pdf_remove_dict, pdf_set_string, pdf_string_length,
@@ -210,7 +210,7 @@ unsafe fn spc_handler_pdfm__init(mut dp: *mut libc::c_void) -> i32 {
     );
     (*sd).cd.taintkeys = pdf_new_array();
     for &key in &DEFAULT_TAINTKEYS {
-        pdf_add_array(&mut *(*sd).cd.taintkeys, pdf_new_name(key));
+        (*(*sd).cd.taintkeys).as_array_mut().push(pdf_new_name(key));
     }
     0i32
 }
@@ -399,11 +399,11 @@ unsafe fn spc_handler_pdfm_put(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i
         }
         PdfObjType::ARRAY => {
             /* dvipdfm */
-            pdf_add_array(&mut *obj1, pdf_link_obj(obj2));
+            (*obj1).as_array_mut().push(pdf_link_obj(obj2));
             while !(*ap).cur.is_empty() {
                 if let Some(mut obj3) =
                     (*ap).cur.parse_pdf_object(ptr::null_mut()) {
-                    pdf_add_array(&mut *obj1, obj3);
+                    (*obj1).as_array_mut().push(obj3);
                     (*ap).cur.skip_white();
                 } else {
                     break;

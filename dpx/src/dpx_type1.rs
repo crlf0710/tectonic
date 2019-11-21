@@ -54,7 +54,7 @@ use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
 use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load_font};
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_array_length, pdf_new_array,
+    pdf_array_length, pdf_new_array,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS,
 };
@@ -431,8 +431,7 @@ unsafe fn add_metrics(
     let tmp_array = pdf_new_array();
     for i in 0..4 {
         let val = cff_dict_get(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8, i);
-        pdf_add_array(
-            &mut *tmp_array,
+        (*tmp_array).as_array_mut().push(
             pdf_new_number((val / 1.0f64 + 0.5f64).floor() * 1.0f64),
         );
     }
@@ -442,7 +441,7 @@ unsafe fn add_metrics(
         /* This must be an error. */
         lastchar = 0i32;
         firstchar = lastchar;
-        pdf_add_array(&mut *tmp_array, pdf_new_number(0.0f64));
+        (*tmp_array).as_array_mut().push(pdf_new_number(0.0f64));
     } else {
         firstchar = 255i32;
         lastchar = 0i32;
@@ -496,12 +495,11 @@ unsafe fn add_metrics(
                         );
                     }
                 }
-                pdf_add_array(
-                    &mut *tmp_array,
+                (*tmp_array).as_array_mut().push(
                     pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64),
                 );
             } else {
-                pdf_add_array(&mut *tmp_array, pdf_new_number(0.0f64));
+                (*tmp_array).as_array_mut().push(pdf_new_number(0.0f64));
             }
         }
     }

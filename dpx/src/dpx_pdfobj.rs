@@ -494,9 +494,9 @@ unsafe fn dump_xref_stream() {
         poslen = poslen.wrapping_add(1)
     }
     let w = pdf_new_array();
-    pdf_add_array(&mut *w, pdf_new_number(1i32 as f64));
-    pdf_add_array(&mut *w, pdf_new_number(poslen as f64));
-    pdf_add_array(&mut *w, pdf_new_number(2i32 as f64));
+    (*w).as_array_mut().push(pdf_new_number(1i32 as f64));
+    (*w).as_array_mut().push(pdf_new_number(poslen as f64));
+    (*w).as_array_mut().push(pdf_new_number(2i32 as f64));
     (*trailer_dict).as_dict_mut().set("W", w);
     /* We need the xref entry for the xref stream right now */
     add_xref_entry(next_label - 1, 1_u8, startxref, 0_u16);
@@ -1169,15 +1169,10 @@ unsafe fn release_array(data: *mut pdf_array) {
     let _ = Box::from_raw(data);
 }
 
-/*
- * The name pdf_add_array is misleading. It behaves differently than
- * pdf_add_dict(). This should be pdf_push_array().
- */
-
-pub unsafe fn pdf_add_array(array: &mut pdf_obj, mut object: *mut pdf_obj) {
-    assert!(array.is_array());
-    let mut data = array.data as *mut pdf_array;
-    (*data).values.push(object);
+impl pdf_array {
+    pub unsafe fn push(&mut self, object: *mut pdf_obj) {
+        self.values.push(object);
+    }
 }
 /* Prepend an object to an array */
 unsafe fn pdf_unshift_array(array: &mut pdf_obj, mut object: *mut pdf_obj) {
@@ -4030,7 +4025,7 @@ pub unsafe fn pdf_import_object(mut object: *mut pdf_obj) -> *mut pdf_obj {
                     pdf_release_obj(imported);
                     return ptr::null_mut();
                 }
-                pdf_add_array(&mut *imported, tmp);
+                (*imported).as_array_mut().push(tmp);
             }
         }
         _ => imported = pdf_link_obj(object),

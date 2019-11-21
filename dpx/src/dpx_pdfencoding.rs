@@ -44,7 +44,7 @@ use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_copy_name, pdf_get_version,
+    pdf_copy_name, pdf_get_version,
     pdf_link_obj, pdf_name_value, pdf_new_array, pdf_new_dict, pdf_new_number, pdf_obj,
     pdf_release_obj,
 };
@@ -233,9 +233,9 @@ unsafe fn make_encoding_differences(
              * Difference found.
              */
             if skipping != 0 {
-                pdf_add_array(&mut *differences, pdf_new_number(code as f64));
+                (*differences).as_array_mut().push(pdf_new_number(code as f64));
             }
-            pdf_add_array(&mut *differences, pdf_copy_name(*enc_vec.offset(code as isize)));
+            (*differences).as_array_mut().push(pdf_copy_name(*enc_vec.offset(code as isize)));
             skipping = 0i32;
             count += 1
         } else {

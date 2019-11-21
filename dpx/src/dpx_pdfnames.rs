@@ -40,7 +40,7 @@ use super::dpx_dpxutil::{
 };
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_link_obj, pdf_new_array, pdf_new_dict, pdf_new_null,
+    pdf_link_obj, pdf_new_array, pdf_new_dict, pdf_new_null,
     pdf_new_string, pdf_new_undefined, pdf_obj, pdf_obj_typeof, pdf_ref_obj, pdf_release_obj,
     pdf_string_length, pdf_string_value, pdf_transfer_label, PdfObjType,
 };
@@ -270,15 +270,13 @@ unsafe fn build_name_tree(
     if is_root == 0 {
         let mut limits = pdf_new_array();
         let mut last = &mut *first.offset((num_leaves - 1i32) as isize) as *mut named_object;
-        pdf_add_array(
-            &mut *limits,
+        (*limits).as_array_mut().push(
             pdf_new_string(
                 (*first).key as *const libc::c_void,
                 (*first).keylen as size_t,
             ),
         );
-        pdf_add_array(
-            &mut *limits,
+        (*limits).as_array_mut().push(
             pdf_new_string((*last).key as *const libc::c_void, (*last).keylen as size_t),
         );
         (*result).as_dict_mut().set("Limits", limits);
@@ -288,13 +286,12 @@ unsafe fn build_name_tree(
         let mut names = pdf_new_array();
         for i in 0..num_leaves {
             let cur = &mut *first.offset(i as isize) as *mut named_object;
-            pdf_add_array(
-                &mut *names,
+            (*names).as_array_mut().push(
                 pdf_new_string((*cur).key as *const libc::c_void, (*cur).keylen as size_t),
             );
             match pdf_obj_typeof((*cur).value) {
                 PdfObjType::ARRAY | PdfObjType::DICT | PdfObjType::STREAM | PdfObjType::STRING => {
-                    pdf_add_array(&mut *names, pdf_ref_obj((*cur).value));
+                    (*names).as_array_mut().push(pdf_ref_obj((*cur).value));
                 }
                 PdfObjType::OBJ_INVALID => {
                     panic!(
@@ -303,7 +300,7 @@ unsafe fn build_name_tree(
                     );
                 }
                 _ => {
-                    pdf_add_array(&mut *names, pdf_link_obj((*cur).value));
+                    (*names).as_array_mut().push(pdf_link_obj((*cur).value));
                 }
             }
             pdf_release_obj((*cur).value);
@@ -317,7 +314,7 @@ unsafe fn build_name_tree(
             let start = i * num_leaves / 4i32;
             let end = (i + 1i32) * num_leaves / 4i32;
             let subtree = build_name_tree(&mut *first.offset(start as isize), end - start, 0i32);
-            pdf_add_array(&mut *kids, pdf_ref_obj(subtree));
+            (*kids).as_array_mut().push(pdf_ref_obj(subtree));
             pdf_release_obj(subtree);
         }
         (*result).as_dict_mut().set("Kids", kids);

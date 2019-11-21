@@ -63,7 +63,7 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::tt_get_ps_fontname;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_array_length, pdf_new_array, pdf_new_name,
+    pdf_array_length, pdf_new_array, pdf_new_name,
     pdf_new_number, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length,
 };
 use crate::shims::sprintf;
@@ -312,12 +312,11 @@ unsafe fn do_widths(mut font: *mut pdf_font, mut widths: *mut f64) {
             } else {
                 1000. * tfm_get_width(tfm_id, code)
             };
-            pdf_add_array(
-                &mut *tmparray,
+            (*tmparray).as_array_mut().push(
                 pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64),
             );
         } else {
-            pdf_add_array(&mut *tmparray, pdf_new_number(0.0f64));
+            (*tmparray).as_array_mut().push(pdf_new_number(0.0f64));
         }
     }
     if pdf_array_length(&*tmparray) > 0_u32 {

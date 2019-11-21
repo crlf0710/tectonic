@@ -43,7 +43,7 @@ use super::dpx_pdfencoding::pdf_load_ToUnicode_stream;
 use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resource_reference};
 use super::dpx_tt_cmap::otf_create_ToUnicode_stream;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_copy_name, pdf_get_version, pdf_link_obj,
+    pdf_copy_name, pdf_get_version, pdf_link_obj,
     pdf_new_array, pdf_new_dict, pdf_new_name, pdf_new_stream, pdf_obj,
     pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
 };
@@ -295,7 +295,7 @@ pub unsafe fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mut pdf_obj {
      */
     if (*font).indirect.is_null() {
         let array = pdf_new_array();
-        pdf_add_array(&mut *array, CIDFont_get_resource((*font).descendant));
+        (*array).as_array_mut().push(CIDFont_get_resource((*font).descendant));
         (*(*font).fontdict).as_dict_mut().set("DescendantFonts", array);
         (*font).indirect = pdf_ref_obj((*font).fontdict)
     }

@@ -56,7 +56,7 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_copy_name, pdf_new_array, pdf_new_dict,
+    pdf_copy_name, pdf_new_array, pdf_new_dict,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_stream_length, STREAM_COMPRESS,
 };
@@ -417,16 +417,16 @@ unsafe fn add_TTCIDHMetrics(
                     * 1i32 as f64;
                 if width == dw {
                     if !an_array.is_null() {
-                        pdf_add_array(&mut *w_array, pdf_new_number(start as f64));
-                        pdf_add_array(&mut *w_array, an_array);
+                        (*w_array).as_array_mut().push(pdf_new_number(start as f64));
+                        (*w_array).as_array_mut().push(an_array);
                         an_array = ptr::null_mut();
                         empty = 0i32
                     }
                 } else {
                     if cid != prev + 1i32 {
                         if !an_array.is_null() {
-                            pdf_add_array(&mut *w_array, pdf_new_number(start as f64));
-                            pdf_add_array(&mut *w_array, an_array);
+                            (*w_array).as_array_mut().push(pdf_new_number(start as f64));
+                            (*w_array).as_array_mut().push(an_array);
                             an_array = ptr::null_mut();
                             empty = 0i32
                         }
@@ -435,15 +435,15 @@ unsafe fn add_TTCIDHMetrics(
                         an_array = pdf_new_array();
                         start = cid
                     }
-                    pdf_add_array(&mut *an_array, pdf_new_number(width));
+                    (*an_array).as_array_mut().push(pdf_new_number(width));
                     prev = cid
                 }
             }
         }
     }
     if !an_array.is_null() {
-        pdf_add_array(&mut *w_array, pdf_new_number(start as f64));
-        pdf_add_array(&mut *w_array, an_array);
+        (*w_array).as_array_mut().push(pdf_new_number(start as f64));
+        (*w_array).as_array_mut().push(an_array);
         empty = 0i32
     }
     (*fontdict).as_dict_mut().set("DW", pdf_new_number(dw));
@@ -505,11 +505,11 @@ unsafe fn add_TTCIDVMetrics(
                  * Maybe GS's bug?
                  */
                 if vertOriginY != defaultVertOriginY || advanceHeight != defaultAdvanceHeight {
-                    pdf_add_array(&mut *w2_array, pdf_new_number(cid as f64));
-                    pdf_add_array(&mut *w2_array, pdf_new_number(cid as f64));
-                    pdf_add_array(&mut *w2_array, pdf_new_number(-advanceHeight));
-                    pdf_add_array(&mut *w2_array, pdf_new_number(vertOriginX));
-                    pdf_add_array(&mut *w2_array, pdf_new_number(vertOriginY));
+                    (*w2_array).as_array_mut().push(pdf_new_number(cid as f64));
+                    (*w2_array).as_array_mut().push(pdf_new_number(cid as f64));
+                    (*w2_array).as_array_mut().push(pdf_new_number(-advanceHeight));
+                    (*w2_array).as_array_mut().push(pdf_new_number(vertOriginX));
+                    (*w2_array).as_array_mut().push(pdf_new_number(vertOriginY));
                     empty = 0i32
                 }
             }
@@ -517,8 +517,8 @@ unsafe fn add_TTCIDVMetrics(
     }
     if defaultVertOriginY != 880i32 as f64 || defaultAdvanceHeight != 1000i32 as f64 {
         let an_array = pdf_new_array();
-        pdf_add_array(&mut *an_array, pdf_new_number(defaultVertOriginY));
-        pdf_add_array(&mut *an_array, pdf_new_number(-defaultAdvanceHeight));
+        (*an_array).as_array_mut().push(pdf_new_number(defaultVertOriginY));
+        (*an_array).as_array_mut().push(pdf_new_number(-defaultAdvanceHeight));
         (*fontdict).as_dict_mut().set("DW2", an_array);
     }
     if empty == 0 {

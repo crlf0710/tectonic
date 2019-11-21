@@ -66,7 +66,7 @@ use super::dpx_pdfximage::{
 };
 use super::dpx_pngimage::check_for_png;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_array_length, pdf_compare_reference,
+    pdf_array_length, pdf_compare_reference,
     pdf_deref_obj, pdf_file, pdf_file_get_catalog, pdf_link_obj,
     pdf_name_value, pdf_new_array, pdf_new_dict, pdf_new_name, pdf_new_number,
     pdf_new_stream, pdf_new_string, pdf_number_value, pdf_obj, pdf_obj_typeof, pdf_out_flush,
@@ -616,20 +616,16 @@ unsafe fn doc_flush_page(
      */
     if (*page).flags & 1i32 << 0i32 != 0 {
         let mediabox = pdf_new_array();
-        pdf_add_array(
-            &mut *mediabox,
+        (*mediabox).as_array_mut().push(
             pdf_new_number(((*page).cropbox.min.x / 0.01 + 0.5).floor() * 0.01),
         );
-        pdf_add_array(
-            &mut *mediabox,
+        (*mediabox).as_array_mut().push(
             pdf_new_number(((*page).cropbox.min.y / 0.01 + 0.5).floor() * 0.01),
         );
-        pdf_add_array(
-            &mut *mediabox,
+        (*mediabox).as_array_mut().push(
             pdf_new_number(((*page).cropbox.max.x / 0.01 + 0.5).floor() * 0.01),
         );
-        pdf_add_array(
-            &mut *mediabox,
+        (*mediabox).as_array_mut().push(
             pdf_new_number(((*page).cropbox.max.y / 0.01 + 0.5).floor() * 0.01),
         );
         (*(*page).page_obj).as_dict_mut().set("MediaBox", mediabox);
@@ -638,28 +634,28 @@ unsafe fn doc_flush_page(
     let contents_array = pdf_new_array();
     if !(*page).content_refs[0].is_null() {
         /* global bop */
-        pdf_add_array(&mut *contents_array, (*page).content_refs[0]);
+        (*contents_array).as_array_mut().push((*page).content_refs[0]);
         count = count.wrapping_add(1)
     } else if !(*p).pages.bop.is_null() && pdf_stream_length(&*(*p).pages.bop) > 0i32 {
-        pdf_add_array(&mut *contents_array, pdf_ref_obj((*p).pages.bop));
+        (*contents_array).as_array_mut().push(pdf_ref_obj((*p).pages.bop));
         count = count.wrapping_add(1)
     }
     if !(*page).content_refs[1].is_null() {
         /* background */
-        pdf_add_array(&mut *contents_array, (*page).content_refs[1]);
+        (*contents_array).as_array_mut().push((*page).content_refs[1]);
         count = count.wrapping_add(1)
     }
     if !(*page).content_refs[2].is_null() {
         /* page body */
-        pdf_add_array(&mut *contents_array, (*page).content_refs[2]);
+        (*contents_array).as_array_mut().push((*page).content_refs[2]);
         count = count.wrapping_add(1)
     }
     if !(*page).content_refs[3].is_null() {
         /* global eop */
-        pdf_add_array(&mut *contents_array, (*page).content_refs[3]);
+        (*contents_array).as_array_mut().push((*page).content_refs[3]);
         count = count.wrapping_add(1)
     } else if !(*p).pages.eop.is_null() && pdf_stream_length(&*(*p).pages.eop) > 0i32 {
-        pdf_add_array(&mut *contents_array, pdf_ref_obj((*p).pages.eop));
+        (*contents_array).as_array_mut().push(pdf_ref_obj((*p).pages.eop));
         count = count.wrapping_add(1)
     }
     if count == 0_u32 {
@@ -715,7 +711,7 @@ unsafe fn build_page_tree(
             if (*page).page_ref.is_null() {
                 (*page).page_ref = pdf_ref_obj((*page).page_obj)
             }
-            pdf_add_array(&mut *kids, pdf_link_obj((*page).page_ref));
+            (*kids).as_array_mut().push(pdf_link_obj((*page).page_ref));
             doc_flush_page(p, page, pdf_link_obj(self_ref));
         }
     } else if num_pages > 0i32 {
@@ -729,14 +725,14 @@ unsafe fn build_page_tree(
                     end - start,
                     pdf_link_obj(self_ref),
                 );
-                pdf_add_array(&mut *kids, pdf_ref_obj(subtree));
+                (*kids).as_array_mut().push(pdf_ref_obj(subtree));
                 pdf_release_obj(subtree);
             } else {
                 let page_0 = firstpage.offset(start as isize);
                 if (*page_0).page_ref.is_null() {
                     (*page_0).page_ref = pdf_ref_obj((*page_0).page_obj)
                 }
-                pdf_add_array(&mut *kids, pdf_link_obj((*page_0).page_ref));
+                (*kids).as_array_mut().push(pdf_link_obj((*page_0).page_ref));
                 doc_flush_page(p, page_0, pdf_link_obj(self_ref));
             }
         }
@@ -814,20 +810,16 @@ unsafe fn pdf_doc_close_page_tree(mut p: *mut pdf_doc) {
     }
     /* Create media box at root node and let the other pages inherit it. */
     let mediabox = pdf_new_array();
-    pdf_add_array(
-        &mut *mediabox,
+    (*mediabox).as_array_mut().push(
         pdf_new_number(((*p).pages.mediabox.min.x / 0.01 + 0.5).floor() * 0.01),
     );
-    pdf_add_array(
-        &mut *mediabox,
+    (*mediabox).as_array_mut().push(
         pdf_new_number(((*p).pages.mediabox.min.y / 0.01 + 0.5).floor() * 0.01),
     );
-    pdf_add_array(
-        &mut *mediabox,
+    (*mediabox).as_array_mut().push(
         pdf_new_number(((*p).pages.mediabox.max.x / 0.01 + 0.5).floor() * 0.01),
     );
-    pdf_add_array(
-        &mut *mediabox,
+    (*mediabox).as_array_mut().push(
         pdf_new_number(((*p).pages.mediabox.max.y / 0.01 + 0.5).floor() * 0.01),
     );
     (*(*p).root.pages).as_dict_mut().set("MediaBox", mediabox);
@@ -1408,9 +1400,9 @@ pub unsafe fn pdf_doc_bookmarks_down() -> i32 {
             ),
         );
         let tcolor = pdf_new_array();
-        pdf_add_array(&mut *tcolor, pdf_new_number(1.0f64));
-        pdf_add_array(&mut *tcolor, pdf_new_number(0.0f64));
-        pdf_add_array(&mut *tcolor, pdf_new_number(0.0f64));
+        (*tcolor).as_array_mut().push(pdf_new_number(1.0f64));
+        (*tcolor).as_array_mut().push(pdf_new_number(0.0f64));
+        (*tcolor).as_array_mut().push(pdf_new_number(0.0f64));
         (*(*item).dict).as_dict_mut().set("C", pdf_link_obj(tcolor));
         pdf_release_obj(tcolor);
         (*(*item).dict).as_dict_mut().set("F", pdf_new_number(1.0f64));
@@ -1830,24 +1822,20 @@ pub unsafe fn pdf_doc_add_annot(
         );
     }
     let rect_array = pdf_new_array();
-    pdf_add_array(
-        &mut *rect_array,
+    (*rect_array).as_array_mut().push(
         pdf_new_number(((annbox.min.x - annot_grow) / 0.001 + 0.5).floor() * 0.001),
     );
-    pdf_add_array(
-        &mut *rect_array,
+    (*rect_array).as_array_mut().push(
         pdf_new_number(((annbox.min.y - annot_grow) / 0.001 + 0.5).floor() * 0.001),
     );
-    pdf_add_array(
-        &mut *rect_array,
+    (*rect_array).as_array_mut().push(
         pdf_new_number(((annbox.max.x + annot_grow) / 0.001 + 0.5).floor() * 0.001),
     );
-    pdf_add_array(
-        &mut *rect_array,
+    (*rect_array).as_array_mut().push(
         pdf_new_number(((annbox.max.y + annot_grow) / 0.001 + 0.5).floor() * 0.001),
     );
     (*annot_dict).as_dict_mut().set("Rect", rect_array);
-    pdf_add_array(&mut *(*page).annots, pdf_ref_obj(annot_dict));
+    (*(*page).annots).as_array_mut().push(pdf_ref_obj(annot_dict));
     if new_annot != 0 {
         pdf_doc_add_goto(annot_dict);
     };
@@ -2006,24 +1994,20 @@ unsafe fn make_article(
             }
             (*last).as_dict_mut().set("P", pdf_link_obj((*page).page_ref));
             let rect = pdf_new_array();
-            pdf_add_array(
-                &mut *rect,
+            (*rect).as_array_mut().push(
                 pdf_new_number(((*bead).rect.min.x / 0.01 + 0.5).floor() * 0.01),
             );
-            pdf_add_array(
-                &mut *rect,
+            (*rect).as_array_mut().push(
                 pdf_new_number(((*bead).rect.min.y / 0.01 + 0.5).floor() * 0.01),
             );
-            pdf_add_array(
-                &mut *rect,
+            (*rect).as_array_mut().push(
                 pdf_new_number(((*bead).rect.max.x / 0.01 + 0.5).floor() * 0.01),
             );
-            pdf_add_array(
-                &mut *rect,
+            (*rect).as_array_mut().push(
                 pdf_new_number(((*bead).rect.max.y / 0.01 + 0.5).floor() * 0.01),
             );
             (*last).as_dict_mut().set("R", rect);
-            pdf_add_array(&mut *(*page).beads, pdf_ref_obj(last));
+            (*(*page).beads).as_array_mut().push(pdf_ref_obj(last));
             prev = last
         }
     }
@@ -2075,7 +2059,7 @@ unsafe fn pdf_doc_close_articles(mut p: *mut pdf_doc) {
             if (*p).root.threads.is_null() {
                 (*p).root.threads = pdf_new_array()
             }
-            pdf_add_array(&mut *(*p).root.threads, pdf_ref_obj(art_dict));
+            (*(*p).root.threads).as_array_mut().push(pdf_ref_obj(art_dict));
             pdf_release_obj(art_dict);
         }
         clean_article(article);
@@ -2287,11 +2271,11 @@ unsafe fn pdf_doc_finish_page(mut p: *mut pdf_doc) {
          * ProcSet is obsolete in PDF-1.4 but recommended for compatibility.
          */
         let procset = pdf_new_array();
-        pdf_add_array(&mut *procset, &mut *pdf_new_name("PDF"));
-        pdf_add_array(&mut *procset, &mut *pdf_new_name("Text"));
-        pdf_add_array(&mut *procset, &mut *pdf_new_name("ImageC"));
-        pdf_add_array(&mut *procset, &mut *pdf_new_name("ImageB"));
-        pdf_add_array(&mut *procset, &mut *pdf_new_name("ImageI"));
+        (*procset).as_array_mut().push(&mut *pdf_new_name("PDF"));
+        (*procset).as_array_mut().push(&mut *pdf_new_name("Text"));
+        (*procset).as_array_mut().push(&mut *pdf_new_name("ImageC"));
+        (*procset).as_array_mut().push(&mut *pdf_new_name("ImageB"));
+        (*procset).as_array_mut().push(&mut *pdf_new_name("ImageI"));
         (*(*currentpage).resources).as_dict_mut().set("ProcSet", procset);
         (*(*currentpage).page_obj).as_dict_mut().set(
             "Resources",
@@ -2498,47 +2482,37 @@ unsafe fn pdf_doc_make_xform(
     xform_dict.set("Subtype", pdf_new_name("Form"));
     xform_dict.set("FormType", pdf_new_number(1.0f64));
     let tmp = pdf_new_array();
-    pdf_add_array(
-        &mut *tmp,
+    (*tmp).as_array_mut().push(
         pdf_new_number((bbox.min.x / 0.001 + 0.5).floor() * 0.001),
     );
-    pdf_add_array(
-        &mut *tmp,
+    (*tmp).as_array_mut().push(
         pdf_new_number((bbox.min.y / 0.001 + 0.5).floor() * 0.001),
     );
-    pdf_add_array(
-        &mut *tmp,
+    (*tmp).as_array_mut().push(
         pdf_new_number((bbox.max.x / 0.001 + 0.5).floor() * 0.001),
     );
-    pdf_add_array(
-        &mut *tmp,
+    (*tmp).as_array_mut().push(
         pdf_new_number((bbox.max.y / 0.001 + 0.5).floor() * 0.001),
     );
     xform_dict.set("BBox", tmp);
     if let Some(matrix) = matrix {
         let tmp = pdf_new_array();
-        pdf_add_array(
-            &mut *tmp,
+        (*tmp).as_array_mut().push(
             pdf_new_number((matrix.m11 / 0.00001 + 0.5).floor() * 0.00001),
         );
-        pdf_add_array(
-            &mut *tmp,
+        (*tmp).as_array_mut().push(
             pdf_new_number((matrix.m12 / 0.00001 + 0.5).floor() * 0.00001),
         );
-        pdf_add_array(
-            &mut *tmp,
+        (*tmp).as_array_mut().push(
             pdf_new_number((matrix.m21 / 0.00001 + 0.5).floor() * 0.00001),
         );
-        pdf_add_array(
-            &mut *tmp,
+        (*tmp).as_array_mut().push(
             pdf_new_number((matrix.m22 / 0.00001 + 0.5).floor() * 0.00001),
         );
-        pdf_add_array(
-            &mut *tmp,
+        (*tmp).as_array_mut().push(
             pdf_new_number((matrix.m31 / 0.001 + 0.5).floor() * 0.001),
         );
-        pdf_add_array(
-            &mut *tmp,
+        (*tmp).as_array_mut().push(
             pdf_new_number((matrix.m32 / 0.001 + 0.5).floor() * 0.001),
         );
         xform_dict.set("Matrix", tmp);
@@ -2613,11 +2587,11 @@ pub unsafe fn pdf_doc_end_grabbing(mut attrib: *mut pdf_obj) {
      * ProcSet is obsolete in PDF-1.4 but recommended for compatibility.
      */
     let mut procset = pdf_new_array();
-    pdf_add_array(&mut *procset, pdf_new_name("PDF"));
-    pdf_add_array(&mut *procset, pdf_new_name("Text"));
-    pdf_add_array(&mut *procset, pdf_new_name("ImageC"));
-    pdf_add_array(&mut *procset, pdf_new_name("ImageB"));
-    pdf_add_array(&mut *procset, pdf_new_name("ImageI"));
+    (*procset).as_array_mut().push(pdf_new_name("PDF"));
+    (*procset).as_array_mut().push(pdf_new_name("Text"));
+    (*procset).as_array_mut().push(pdf_new_name("ImageC"));
+    (*procset).as_array_mut().push(pdf_new_name("ImageB"));
+    (*procset).as_array_mut().push(pdf_new_name("ImageI"));
     (*(*form).resources).as_dict_mut().set("ProcSet", procset);
     let matrix = (*form).matrix.clone();
     pdf_doc_make_xform(

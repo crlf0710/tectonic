@@ -80,7 +80,7 @@ use super::dpx_type0::{
     Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode,
 };
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_array_length, pdf_copy_name, pdf_new_array,
+    pdf_array_length, pdf_copy_name, pdf_new_array,
     pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj,
     pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
 };
@@ -201,15 +201,15 @@ unsafe fn add_CIDHMetrics(
                 * 1i32 as f64;
             if advanceWidth == defaultAdvanceWidth {
                 if !an_array.is_null() {
-                    pdf_add_array(&mut *w_array, pdf_new_number(start as f64));
-                    pdf_add_array(&mut *w_array, an_array);
+                    (*w_array).as_array_mut().push(pdf_new_number(start as f64));
+                    (*w_array).as_array_mut().push(an_array);
                     an_array = ptr::null_mut();
                     empty = 0i32
                 }
             } else {
                 if cid != prev + 1i32 && !an_array.is_null() {
-                    pdf_add_array(&mut *w_array, pdf_new_number(start as f64));
-                    pdf_add_array(&mut *w_array, an_array);
+                    (*w_array).as_array_mut().push(pdf_new_number(start as f64));
+                    (*w_array).as_array_mut().push(an_array);
                     an_array = ptr::null_mut();
                     empty = 0i32
                 }
@@ -217,14 +217,14 @@ unsafe fn add_CIDHMetrics(
                     an_array = pdf_new_array();
                     start = cid
                 }
-                pdf_add_array(&mut *an_array, pdf_new_number(advanceWidth));
+                (*an_array).as_array_mut().push(pdf_new_number(advanceWidth));
                 prev = cid
             }
         }
     }
     if !an_array.is_null() {
-        pdf_add_array(&mut *w_array, pdf_new_number(start as f64));
-        pdf_add_array(&mut *w_array, an_array);
+        (*w_array).as_array_mut().push(pdf_new_number(start as f64));
+        (*w_array).as_array_mut().push(an_array);
         empty = 0i32
     }
     /*
@@ -348,19 +348,19 @@ unsafe fn add_CIDVMetrics(
              * AFPL GhostScript 8.11 stops with rangecheck error with this. Maybe GS's bug?
              */
             if vertOriginY != defaultVertOriginY || advanceHeight != defaultAdvanceHeight {
-                pdf_add_array(&mut *w2_array, pdf_new_number(cid as f64));
-                pdf_add_array(&mut *w2_array, pdf_new_number(cid as f64));
-                pdf_add_array(&mut *w2_array, pdf_new_number(-advanceHeight));
-                pdf_add_array(&mut *w2_array, pdf_new_number(vertOriginX));
-                pdf_add_array(&mut *w2_array, pdf_new_number(vertOriginY));
+                (*w2_array).as_array_mut().push(pdf_new_number(cid as f64));
+                (*w2_array).as_array_mut().push(pdf_new_number(cid as f64));
+                (*w2_array).as_array_mut().push(pdf_new_number(-advanceHeight));
+                (*w2_array).as_array_mut().push(pdf_new_number(vertOriginX));
+                (*w2_array).as_array_mut().push(pdf_new_number(vertOriginY));
                 empty = 0i32
             }
         }
     }
     if defaultVertOriginY != 880i32 as f64 || defaultAdvanceHeight != 1000i32 as f64 {
         let an_array = pdf_new_array();
-        pdf_add_array(&mut *an_array, pdf_new_number(defaultVertOriginY));
-        pdf_add_array(&mut *an_array, pdf_new_number(-defaultAdvanceHeight));
+        (*an_array).as_array_mut().push(pdf_new_number(defaultVertOriginY));
+        (*an_array).as_array_mut().push(pdf_new_number(-defaultAdvanceHeight));
         (*fontdict).as_dict_mut().set("DW2", an_array);
     }
     if empty == 0 {
@@ -1911,8 +1911,7 @@ unsafe fn add_metrics(
             b"FontBBox\x00" as *const u8 as *const i8,
             i,
         );
-        pdf_add_array(
-            &mut *tmp,
+        (*tmp).as_array_mut().push(
             pdf_new_number((val / 1.0f64 + 0.5f64).floor() * 1.0f64),
         );
     }
@@ -1943,10 +1942,9 @@ unsafe fn add_metrics(
                 | *CIDToGIDMap.offset((2i32 * cid as i32 + 1i32) as isize) as i32)
                 as u16;
             if *widths.offset(gid as isize) != default_width {
-                pdf_add_array(&mut *tmp, pdf_new_number(cid as f64));
-                pdf_add_array(&mut *tmp, pdf_new_number(cid as f64));
-                pdf_add_array(
-                    &mut *tmp,
+                (*tmp).as_array_mut().push(pdf_new_number(cid as f64));
+                (*tmp).as_array_mut().push(pdf_new_number(cid as f64));
+                (*tmp).as_array_mut().push(
                     pdf_new_number(
                         (*widths.offset(gid as isize) / 1.0f64 + 0.5f64).floor() * 1.0f64,
                     ),
