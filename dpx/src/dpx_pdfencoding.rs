@@ -45,8 +45,8 @@ use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
     pdf_copy_name, pdf_get_version,
-    pdf_link_obj, pdf_name_value, pdf_new_array, pdf_new_dict, pdf_new_number, pdf_obj,
-    pdf_release_obj,
+    pdf_link_obj, pdf_name_value, pdf_new_dict, pdf_new_number, pdf_obj,
+    pdf_release_obj, IntoObj,
 };
 use crate::dpx_pdfparse::{ParsePdfObj, SkipWhite};
 use crate::mfree;
@@ -213,7 +213,7 @@ unsafe fn make_encoding_differences(
      *  Write all entries (except .notdef) if baseenc is unknown.
      *  If is_used is given, write only used entries.
      */
-    let mut differences = pdf_new_array();
+    let mut differences = vec![];
     for code in 0..256 {
         /* We skip NULL (= ".notdef"). Any character code mapped to ".notdef"
          * glyph should not be used in the document.
@@ -233,9 +233,9 @@ unsafe fn make_encoding_differences(
              * Difference found.
              */
             if skipping != 0 {
-                (*differences).as_array_mut().push(pdf_new_number(code as f64));
+                differences.push(pdf_new_number(code as f64));
             }
-            (*differences).as_array_mut().push(pdf_copy_name(*enc_vec.offset(code as isize)));
+            differences.push(pdf_copy_name(*enc_vec.offset(code as isize)));
             skipping = 0i32;
             count += 1
         } else {
@@ -247,10 +247,9 @@ unsafe fn make_encoding_differences(
      * any differences. We return NULL.
      */
     if count == 0i32 {
-        pdf_release_obj(differences);
-        differences = ptr::null_mut()
+        return ptr::null_mut();
     }
-    differences
+    differences.into_obj()
 }
 unsafe fn load_encoding_file(mut filename: *const i8) -> i32 {
     let mut enc_vec: [*const i8; 256] = [ptr::null(); 256];

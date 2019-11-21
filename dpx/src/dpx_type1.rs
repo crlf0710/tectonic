@@ -54,9 +54,8 @@ use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
 use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load_font};
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_array_length, pdf_new_array,
-    pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS,
+    pdf_array_length, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
+    pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS, IntoObj,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
@@ -428,20 +427,20 @@ unsafe fn add_metrics(
         } else {
             1.
         };
-    let tmp_array = pdf_new_array();
+    let mut tmp_array = vec![];
     for i in 0..4 {
         let val = cff_dict_get(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8, i);
-        (*tmp_array).as_array_mut().push(
+        tmp_array.push(
             pdf_new_number((val / 1.0f64 + 0.5f64).floor() * 1.0f64),
         );
     }
-    (*descriptor).as_dict_mut().set("FontBBox", tmp_array);
-    let tmp_array = pdf_new_array();
+    (*descriptor).as_dict_mut().set("FontBBox", tmp_array.into_obj());
+    let mut tmp_array = vec![];
     if num_glyphs <= 1i32 {
         /* This must be an error. */
         lastchar = 0i32;
         firstchar = lastchar;
-        (*tmp_array).as_array_mut().push(pdf_new_number(0.0f64));
+        tmp_array.push(pdf_new_number(0.0f64));
     } else {
         firstchar = 255i32;
         lastchar = 0i32;
@@ -457,7 +456,6 @@ unsafe fn add_metrics(
         }
         if firstchar > lastchar {
             warn!("No glyphs actually used???");
-            pdf_release_obj(tmp_array);
             return;
         }
         /* PLEASE FIX THIS
@@ -495,14 +493,15 @@ unsafe fn add_metrics(
                         );
                     }
                 }
-                (*tmp_array).as_array_mut().push(
+                tmp_array.push(
                     pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64),
                 );
             } else {
-                (*tmp_array).as_array_mut().push(pdf_new_number(0.0f64));
+                tmp_array.push(pdf_new_number(0.0f64));
             }
         }
     }
+    let tmp_array = tmp_array.into_obj();
     if pdf_array_length(&*tmp_array) > 0_u32 {
         fontdict.set("Widths", pdf_ref_obj(tmp_array));
     }

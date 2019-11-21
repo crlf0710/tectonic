@@ -295,6 +295,16 @@ impl IntoObj for &[u8] {
     fn into_obj(self) -> *mut pdf_obj {
         unsafe { pdf_new_name(self) }
     }
+}impl IntoObj for Vec<*mut pdf_obj> {
+    #[inline(always)]
+    fn into_obj(self) -> *mut pdf_obj {
+        unsafe {
+            let result = pdf_new_obj(PdfObjType::ARRAY);
+            let data = Box::<pdf_array>::new(pdf_array { values: self });
+            (*result).data = Box::into_raw(data) as *mut libc::c_void;
+            result
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -493,11 +503,11 @@ unsafe fn dump_xref_stream() {
         }
         poslen = poslen.wrapping_add(1)
     }
-    let w = pdf_new_array();
-    (*w).as_array_mut().push(pdf_new_number(1i32 as f64));
-    (*w).as_array_mut().push(pdf_new_number(poslen as f64));
-    (*w).as_array_mut().push(pdf_new_number(2i32 as f64));
-    (*trailer_dict).as_dict_mut().set("W", w);
+    let mut w = vec![];
+    w.push(pdf_new_number(1i32 as f64));
+    w.push(pdf_new_number(poslen as f64));
+    w.push(pdf_new_number(2i32 as f64));
+    (*trailer_dict).as_dict_mut().set("W", w.into_obj());
     /* We need the xref entry for the xref stream right now */
     add_xref_entry(next_label - 1, 1_u8, startxref, 0_u16);
     for i in 0..next_label {

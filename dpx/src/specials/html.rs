@@ -47,9 +47,9 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
-    pdf_link_obj, pdf_new_array, pdf_new_boolean,
+    pdf_link_obj, pdf_new_boolean,
     pdf_new_dict, pdf_new_name, pdf_new_null, pdf_new_number, pdf_new_string, pdf_obj,
-    pdf_ref_obj, pdf_release_obj, pdf_string_value,
+    pdf_ref_obj, pdf_release_obj, pdf_string_value, IntoObj,
 };
 use crate::spc_warn;
 use libc::{atof, free, strcat, strcpy, strlen};
@@ -296,11 +296,11 @@ unsafe fn html_open_link(
     (*sd).link_dict = pdf_new_dict();
     (*(*sd).link_dict).as_dict_mut().set("Type", pdf_new_name("Annot"));
     (*(*sd).link_dict).as_dict_mut().set("Subtype", pdf_new_name("Link"));
-    let color = pdf_new_array();
-    (*color).as_array_mut().push(pdf_new_number(0.0f64));
-    (*color).as_array_mut().push(pdf_new_number(0.0f64));
-    (*color).as_array_mut().push(pdf_new_number(1.0f64));
-    (*(*sd).link_dict).as_dict_mut().set("C", color);
+    let mut color = vec![];
+    color.push(pdf_new_number(0.0f64));
+    color.push(pdf_new_number(0.0f64));
+    color.push(pdf_new_number(1.0f64));
+    (*(*sd).link_dict).as_dict_mut().set("C", color.into_obj());
     let url = fqurl((*sd).baseurl, name);
     if *url.offset(0) as i32 == '#' as i32 {
         /* url++; causes memory leak in free(url) */
@@ -337,17 +337,17 @@ unsafe fn html_open_dest(
     pdf_dev_transform(&mut cp, None);
     let page_ref = pdf_doc_get_reference("@THISPAGE");
     assert!(!page_ref.is_null());
-    let array = pdf_new_array();
-    (*array).as_array_mut().push(page_ref);
-    (*array).as_array_mut().push(pdf_new_name("XYZ"));
-    (*array).as_array_mut().push(pdf_new_null());
-    (*array).as_array_mut().push(pdf_new_number(cp.y + 24.0f64));
-    (*array).as_array_mut().push(pdf_new_null());
+    let mut array = vec![];
+    array.push(page_ref);
+    array.push(pdf_new_name("XYZ"));
+    array.push(pdf_new_null());
+    array.push(pdf_new_number(cp.y + 24.0f64));
+    array.push(pdf_new_null());
     let error = pdf_doc_add_names(
         b"Dests\x00" as *const u8 as *const i8,
         name as *const libc::c_void,
         strlen(name) as i32,
-        array,
+        array.into_obj(),
     );
     if error != 0 {
         spc_warn!(

@@ -36,7 +36,7 @@ use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
     pdf_array_length, pdf_boolean_value, pdf_close, pdf_concat_stream,
     pdf_deref_obj, pdf_file_get_catalog, pdf_file_get_version,
-    pdf_get_version, pdf_import_object, pdf_new_array,
+    pdf_get_version, pdf_import_object, IntoObj,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj,
     pdf_open, pdf_release_obj,
     STREAM_COMPRESS,
@@ -185,20 +185,20 @@ pub unsafe fn pdf_include_page(
         contents_dict.set("Type", pdf_new_name("XObject"));
         contents_dict.set("Subtype", pdf_new_name("Form"));
         contents_dict.set("FormType", pdf_new_number(1.0f64));
-        let bbox = pdf_new_array();
-        (*bbox).as_array_mut().push(pdf_new_number(info.bbox.min.x));
-        (*bbox).as_array_mut().push(pdf_new_number(info.bbox.min.y));
-        (*bbox).as_array_mut().push(pdf_new_number(info.bbox.max.x));
-        (*bbox).as_array_mut().push(pdf_new_number(info.bbox.max.y));
-        contents_dict.set("BBox", bbox);
-        let matrix = pdf_new_array();
-        (*matrix).as_array_mut().push(pdf_new_number(info.matrix.m11));
-        (*matrix).as_array_mut().push(pdf_new_number(info.matrix.m12));
-        (*matrix).as_array_mut().push(pdf_new_number(info.matrix.m21));
-        (*matrix).as_array_mut().push(pdf_new_number(info.matrix.m22));
-        (*matrix).as_array_mut().push(pdf_new_number(info.matrix.m31));
-        (*matrix).as_array_mut().push(pdf_new_number(info.matrix.m32));
-        contents_dict.set("Matrix", matrix);
+        let mut bbox = vec![];
+        bbox.push(pdf_new_number(info.bbox.min.x));
+        bbox.push(pdf_new_number(info.bbox.min.y));
+        bbox.push(pdf_new_number(info.bbox.max.x));
+        bbox.push(pdf_new_number(info.bbox.max.y));
+        contents_dict.set("BBox", bbox.into_obj());
+        let mut matrix = vec![];
+        matrix.push(pdf_new_number(info.matrix.m11));
+        matrix.push(pdf_new_number(info.matrix.m12));
+        matrix.push(pdf_new_number(info.matrix.m21));
+        matrix.push(pdf_new_number(info.matrix.m22));
+        matrix.push(pdf_new_number(info.matrix.m31));
+        matrix.push(pdf_new_number(info.matrix.m32));
+        contents_dict.set("Matrix", matrix.into_obj());
         contents_dict.set("Resources", pdf_import_object(resources));
         pdf_release_obj(resources);
 

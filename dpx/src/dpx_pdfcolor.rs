@@ -27,7 +27,7 @@ use super::dpx_mem::{new, renew};
 use super::dpx_numbers::sget_unsigned_pair;
 use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_link_obj, pdf_new_array,
+    pdf_get_version, pdf_link_obj, IntoObj,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj, pdf_release_obj,
     STREAM_COMPRESS,
 };
@@ -1031,10 +1031,10 @@ pub unsafe fn iccp_load_profile(
     if VERBOSE > 1i32 {
         print_iccp_header(&mut icch, checksum.as_mut_ptr());
     }
-    let resource = pdf_new_array();
+    let mut resource = vec![];
     let stream = pdf_new_stream(STREAM_COMPRESS);
-    (*resource).as_array_mut().push(pdf_new_name("ICCBased"));
-    (*resource).as_array_mut().push(pdf_ref_obj(stream));
+    resource.push(pdf_new_name("ICCBased"));
+    resource.push(pdf_ref_obj(stream));
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
     stream_dict.set(
         "N",
@@ -1042,7 +1042,7 @@ pub unsafe fn iccp_load_profile(
     );
     (*stream).as_stream_mut().add(profile, proflen);
     pdf_release_obj(stream);
-    cspc_id = pdf_colorspace_defineresource(ident, 4i32, cdata, resource);
+    cspc_id = pdf_colorspace_defineresource(ident, 4i32, cdata, resource.into_obj());
     cspc_id
 }
 static mut CSPC_CACHE: CspcCache = CspcCache {

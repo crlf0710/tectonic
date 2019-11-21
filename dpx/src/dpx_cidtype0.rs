@@ -80,7 +80,7 @@ use super::dpx_type0::{
     Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode,
 };
 use crate::dpx_pdfobj::{
-    pdf_array_length, pdf_copy_name, pdf_new_array,
+    pdf_array_length, pdf_copy_name, pdf_new_array, IntoObj,
     pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj,
     pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
 };
@@ -184,7 +184,7 @@ unsafe fn add_CIDHMetrics(
      * We alway use format:
      *  c [w_1 w_2 ... w_n]
      */
-    let w_array = pdf_new_array();
+    let mut w_array = vec![];
     for cid in 0..=last_cid as i32 {
         let gid = (if !CIDToGIDMap.is_null() {
             (*CIDToGIDMap.offset((2i32 * cid) as isize) as i32) << 8i32
@@ -201,15 +201,15 @@ unsafe fn add_CIDHMetrics(
                 * 1i32 as f64;
             if advanceWidth == defaultAdvanceWidth {
                 if !an_array.is_null() {
-                    (*w_array).as_array_mut().push(pdf_new_number(start as f64));
-                    (*w_array).as_array_mut().push(an_array);
+                    w_array.push(pdf_new_number(start as f64));
+                    w_array.push(an_array);
                     an_array = ptr::null_mut();
                     empty = 0i32
                 }
             } else {
                 if cid != prev + 1i32 && !an_array.is_null() {
-                    (*w_array).as_array_mut().push(pdf_new_number(start as f64));
-                    (*w_array).as_array_mut().push(an_array);
+                    w_array.push(pdf_new_number(start as f64));
+                    w_array.push(an_array);
                     an_array = ptr::null_mut();
                     empty = 0i32
                 }
@@ -223,8 +223,8 @@ unsafe fn add_CIDHMetrics(
         }
     }
     if !an_array.is_null() {
-        (*w_array).as_array_mut().push(pdf_new_number(start as f64));
-        (*w_array).as_array_mut().push(an_array);
+        w_array.push(pdf_new_number(start as f64));
+        w_array.push(an_array);
         empty = 0i32
     }
     /*
@@ -233,6 +233,7 @@ unsafe fn add_CIDHMetrics(
      * MacOS X's (up to 10.2.8) preview app. implements this wrong description.
      */
     (*fontdict).as_dict_mut().set("DW", pdf_new_number(defaultAdvanceWidth));
+    let w_array = w_array.into_obj();
     if empty == 0 {
         (*fontdict).as_dict_mut().set("W", pdf_ref_obj(w_array));
     }
@@ -298,7 +299,7 @@ unsafe fn add_CIDVMetrics(
         /* Some TrueType fonts used in Macintosh does not have OS/2 table. */
         defaultAdvanceHeight = 1000i32 as f64
     }
-    let w2_array = pdf_new_array();
+    let mut w2_array = vec![];
     for cid in 0..=last_cid as i32 {
         let gid = (if !CIDToGIDMap.is_null() {
             (*CIDToGIDMap.offset((2i32 * cid) as isize) as i32) << 8i32
@@ -348,21 +349,22 @@ unsafe fn add_CIDVMetrics(
              * AFPL GhostScript 8.11 stops with rangecheck error with this. Maybe GS's bug?
              */
             if vertOriginY != defaultVertOriginY || advanceHeight != defaultAdvanceHeight {
-                (*w2_array).as_array_mut().push(pdf_new_number(cid as f64));
-                (*w2_array).as_array_mut().push(pdf_new_number(cid as f64));
-                (*w2_array).as_array_mut().push(pdf_new_number(-advanceHeight));
-                (*w2_array).as_array_mut().push(pdf_new_number(vertOriginX));
-                (*w2_array).as_array_mut().push(pdf_new_number(vertOriginY));
+                w2_array.push(pdf_new_number(cid as f64));
+                w2_array.push(pdf_new_number(cid as f64));
+                w2_array.push(pdf_new_number(-advanceHeight));
+                w2_array.push(pdf_new_number(vertOriginX));
+                w2_array.push(pdf_new_number(vertOriginY));
                 empty = 0i32
             }
         }
     }
     if defaultVertOriginY != 880i32 as f64 || defaultAdvanceHeight != 1000i32 as f64 {
-        let an_array = pdf_new_array();
-        (*an_array).as_array_mut().push(pdf_new_number(defaultVertOriginY));
-        (*an_array).as_array_mut().push(pdf_new_number(-defaultAdvanceHeight));
-        (*fontdict).as_dict_mut().set("DW2", an_array);
+        let mut an_array = vec![];
+        an_array.push(pdf_new_number(defaultVertOriginY));
+        an_array.push(pdf_new_number(-defaultAdvanceHeight));
+        (*fontdict).as_dict_mut().set("DW2", an_array.into_obj());
     }
+    let w2_array = w2_array.into_obj();
     if empty == 0 {
         (*fontdict).as_dict_mut().set("W2", pdf_ref_obj(w2_array));
     }
@@ -1904,18 +1906,18 @@ unsafe fn add_metrics(
     if cff_dict_known((*cffont).topdict, b"FontBBox\x00" as *const u8 as *const i8) == 0 {
         panic!("No FontBBox?");
     }
-    let tmp = pdf_new_array();
+    let mut tmp = vec![];
     for i in 0..4 {
         let val = cff_dict_get(
             (*cffont).topdict,
             b"FontBBox\x00" as *const u8 as *const i8,
             i,
         );
-        (*tmp).as_array_mut().push(
+        tmp.push(
             pdf_new_number((val / 1.0f64 + 0.5f64).floor() * 1.0f64),
         );
     }
-    (*(*font).descriptor).as_dict_mut().set("FontBBox", tmp);
+    (*(*font).descriptor).as_dict_mut().set("FontBBox", tmp.into_obj());
     let mut parent_id = CIDFont_get_parent_id(font, 0i32);
     if parent_id < 0i32 && {
         parent_id = CIDFont_get_parent_id(font, 1i32);
@@ -1932,7 +1934,7 @@ unsafe fn add_metrics(
      * I think it's better to handle each 8 char block
      * and to use "CID_start [ w0 w1 ...]".
      */
-    let tmp = pdf_new_array();
+    let mut tmp = vec![];
     for cid in 0..=last_cid as u16 {
         if *used_chars.offset((cid as i32 / 8i32) as isize) as i32
             & 1i32 << 7i32 - cid as i32 % 8i32
@@ -1942,9 +1944,9 @@ unsafe fn add_metrics(
                 | *CIDToGIDMap.offset((2i32 * cid as i32 + 1i32) as isize) as i32)
                 as u16;
             if *widths.offset(gid as isize) != default_width {
-                (*tmp).as_array_mut().push(pdf_new_number(cid as f64));
-                (*tmp).as_array_mut().push(pdf_new_number(cid as f64));
-                (*tmp).as_array_mut().push(
+                tmp.push(pdf_new_number(cid as f64));
+                tmp.push(pdf_new_number(cid as f64));
+                tmp.push(
                     pdf_new_number(
                         (*widths.offset(gid as isize) / 1.0f64 + 0.5f64).floor() * 1.0f64,
                     ),
@@ -1953,6 +1955,7 @@ unsafe fn add_metrics(
         }
     }
     (*(*font).fontdict).as_dict_mut().set("DW", pdf_new_number(default_width));
+    let tmp = tmp.into_obj();
     if pdf_array_length(&*tmp) > 0 {
         (*(*font).fontdict).as_dict_mut().set("W", pdf_ref_obj(tmp));
     }

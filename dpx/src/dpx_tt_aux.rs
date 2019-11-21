@@ -36,8 +36,8 @@ use super::dpx_numbers::tt_get_unsigned_quad;
 use super::dpx_tt_post::{tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::{tt_read_head_table, tt_read_os2__table};
 use crate::dpx_pdfobj::{
-    pdf_new_array, pdf_new_dict, pdf_new_name, pdf_new_number,
-    pdf_new_string, pdf_obj,
+    pdf_new_dict, pdf_new_name, pdf_new_number,
+    pdf_new_string, pdf_obj, IntoObj,
 };
 
 use std::io::{Seek, SeekFrom};
@@ -226,8 +226,8 @@ pub unsafe fn tt_get_fontdesc(
         }
     }
     /* BoundingBox (array) */
-    let bbox = pdf_new_array();
-    (*bbox).as_array_mut().push(
+    let mut bbox = vec![];
+    bbox.push(
         pdf_new_number(
             (1000.0f64 * (*head).xMin as i32 as f64
                 / (*head).unitsPerEm as i32 as f64
@@ -237,7 +237,7 @@ pub unsafe fn tt_get_fontdesc(
                 * 1i32 as f64,
         ),
     );
-    (*bbox).as_array_mut().push(
+    bbox.push(
         pdf_new_number(
             (1000.0f64 * (*head).yMin as i32 as f64
                 / (*head).unitsPerEm as i32 as f64
@@ -247,7 +247,7 @@ pub unsafe fn tt_get_fontdesc(
                 * 1i32 as f64,
         ),
     );
-    (*bbox).as_array_mut().push(
+    bbox.push(
         pdf_new_number(
             (1000.0f64 * (*head).xMax as i32 as f64
                 / (*head).unitsPerEm as i32 as f64
@@ -257,7 +257,7 @@ pub unsafe fn tt_get_fontdesc(
                 * 1i32 as f64,
         ),
     );
-    (*bbox).as_array_mut().push(
+    bbox.push(
         pdf_new_number(
             (1000.0f64 * (*head).yMax as i32 as f64
                 / (*head).unitsPerEm as i32 as f64
@@ -267,7 +267,7 @@ pub unsafe fn tt_get_fontdesc(
                 * 1i32 as f64,
         ),
     );
-    (*descriptor).as_dict_mut().set("FontBBox", bbox);
+    (*descriptor).as_dict_mut().set("FontBBox", bbox.into_obj());
     /* post */
     (*descriptor).as_dict_mut().set(
         "ItalicAngle",

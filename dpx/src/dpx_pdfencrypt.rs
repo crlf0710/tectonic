@@ -37,7 +37,7 @@ use super::dpx_pdfdoc::pdf_doc_get_dictionary;
 use super::dpx_pdffont::get_unique_time_if_given;
 use super::dpx_unicode::{UC_UTF8_decode_char, UC_is_valid};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_new_array, pdf_new_dict, pdf_new_name,
+    pdf_get_version, pdf_new_dict, pdf_new_name, IntoObj,
     pdf_new_number, pdf_new_string, pdf_obj,
 };
 use crate::warn;
@@ -870,14 +870,10 @@ pub unsafe fn pdf_encrypt_obj() -> *mut pdf_obj {
 
 pub unsafe fn pdf_enc_id_array() -> *mut pdf_obj {
     let p = &mut sec_data;
-    let mut id: *mut pdf_obj = pdf_new_array();
-    (*id).as_array_mut().push(
-        pdf_new_string(p.ID.as_mut_ptr() as *const libc::c_void, 16i32 as size_t),
-    );
-    (*id).as_array_mut().push(
-        pdf_new_string(p.ID.as_mut_ptr() as *const libc::c_void, 16i32 as size_t),
-    );
-    id
+    let mut id = vec![];
+    id.push(pdf_new_string(p.ID.as_mut_ptr() as *const libc::c_void, 16i32 as size_t));
+    id.push(pdf_new_string(p.ID.as_mut_ptr() as *const libc::c_void, 16i32 as size_t));
+    id.into_obj()
 }
 
 pub unsafe fn pdf_enc_set_label(mut label: u32) {

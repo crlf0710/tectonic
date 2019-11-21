@@ -56,7 +56,7 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_new_array, pdf_new_dict,
+    pdf_new_array, pdf_copy_name, pdf_new_dict, IntoObj,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_stream_length, STREAM_COMPRESS,
 };
@@ -386,7 +386,7 @@ unsafe fn add_TTCIDHMetrics(
     let mut prev: i32 = 0i32;
     let mut an_array: *mut pdf_obj = ptr::null_mut();
     let mut empty: i32 = 1i32;
-    let w_array = pdf_new_array();
+    let mut w_array = vec![];
     let dw = if (*g).dw as i32 != 0i32 && (*g).dw as i32 <= (*g).emsize as i32 {
         (1000.0f64 * (*g).dw as i32 as f64 / (*g).emsize as i32 as f64 / 1i32 as f64 + 0.5f64)
             .floor()
@@ -417,16 +417,16 @@ unsafe fn add_TTCIDHMetrics(
                     * 1i32 as f64;
                 if width == dw {
                     if !an_array.is_null() {
-                        (*w_array).as_array_mut().push(pdf_new_number(start as f64));
-                        (*w_array).as_array_mut().push(an_array);
+                        w_array.push(pdf_new_number(start as f64));
+                        w_array.push(an_array);
                         an_array = ptr::null_mut();
                         empty = 0i32
                     }
                 } else {
                     if cid != prev + 1i32 {
                         if !an_array.is_null() {
-                            (*w_array).as_array_mut().push(pdf_new_number(start as f64));
-                            (*w_array).as_array_mut().push(an_array);
+                            w_array.push(pdf_new_number(start as f64));
+                            w_array.push(an_array);
                             an_array = ptr::null_mut();
                             empty = 0i32
                         }
@@ -442,11 +442,12 @@ unsafe fn add_TTCIDHMetrics(
         }
     }
     if !an_array.is_null() {
-        (*w_array).as_array_mut().push(pdf_new_number(start as f64));
-        (*w_array).as_array_mut().push(an_array);
+        w_array.push(pdf_new_number(start as f64));
+        w_array.push(an_array);
         empty = 0i32
     }
     (*fontdict).as_dict_mut().set("DW", pdf_new_number(dw));
+    let w_array = w_array.into_obj();
     if empty == 0 {
         (*fontdict).as_dict_mut().set("W", pdf_ref_obj(w_array));
     }
@@ -471,7 +472,7 @@ unsafe fn add_TTCIDVMetrics(
             + 0.5f64)
             .floor()
             * 1i32 as f64;
-    let w2_array = pdf_new_array();
+    let mut w2_array = vec![];
     for cid in 0..=last_cid as i32 {
         if !(*used_chars.offset((cid / 8i32) as isize) as i32 & 1i32 << 7i32 - cid % 8i32 == 0) {
             let idx = tt_get_index(g, cid as u16);
@@ -505,22 +506,23 @@ unsafe fn add_TTCIDVMetrics(
                  * Maybe GS's bug?
                  */
                 if vertOriginY != defaultVertOriginY || advanceHeight != defaultAdvanceHeight {
-                    (*w2_array).as_array_mut().push(pdf_new_number(cid as f64));
-                    (*w2_array).as_array_mut().push(pdf_new_number(cid as f64));
-                    (*w2_array).as_array_mut().push(pdf_new_number(-advanceHeight));
-                    (*w2_array).as_array_mut().push(pdf_new_number(vertOriginX));
-                    (*w2_array).as_array_mut().push(pdf_new_number(vertOriginY));
+                    w2_array.push(pdf_new_number(cid as f64));
+                    w2_array.push(pdf_new_number(cid as f64));
+                    w2_array.push(pdf_new_number(-advanceHeight));
+                    w2_array.push(pdf_new_number(vertOriginX));
+                    w2_array.push(pdf_new_number(vertOriginY));
                     empty = 0i32
                 }
             }
         }
     }
     if defaultVertOriginY != 880i32 as f64 || defaultAdvanceHeight != 1000i32 as f64 {
-        let an_array = pdf_new_array();
-        (*an_array).as_array_mut().push(pdf_new_number(defaultVertOriginY));
-        (*an_array).as_array_mut().push(pdf_new_number(-defaultAdvanceHeight));
-        (*fontdict).as_dict_mut().set("DW2", an_array);
+        let mut an_array = vec![];
+        an_array.push(pdf_new_number(defaultVertOriginY));
+        an_array.push(pdf_new_number(-defaultAdvanceHeight));
+        (*fontdict).as_dict_mut().set("DW2", an_array.into_obj());
     }
+    let w2_array = w2_array.into_obj();
     if empty == 0 {
         (*fontdict).as_dict_mut().set("W2", pdf_ref_obj(w2_array));
     }

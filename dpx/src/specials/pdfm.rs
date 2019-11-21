@@ -69,9 +69,9 @@ use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_de
 use crate::dpx_pdfobj::{
     pdf_array_length, pdf_new_name,
     pdf_foreach_dict, pdf_link_obj, pdf_name_value,
-    pdf_new_array, pdf_new_dict, pdf_new_stream, pdf_number_value, pdf_obj, pdf_obj_typeof,
+    pdf_new_dict, pdf_new_stream, pdf_number_value, pdf_obj, pdf_obj_typeof,
     pdf_release_obj, pdf_remove_dict, pdf_set_string, pdf_string_length,
-    pdf_string_value, PdfObjType, STREAM_COMPRESS,
+    pdf_string_value, PdfObjType, STREAM_COMPRESS, IntoObj,
 };
 use crate::dpx_pdfparse::{
     ParseIdent, ParsePdfObj, SkipWhite,
@@ -208,10 +208,8 @@ unsafe fn spc_handler_pdfm__init(mut dp: *mut libc::c_void) -> i32 {
         (*sd).resourcemap,
         Some(hval_free as unsafe fn(_: *mut libc::c_void) -> ()),
     );
-    (*sd).cd.taintkeys = pdf_new_array();
-    for &key in &DEFAULT_TAINTKEYS {
-        (*(*sd).cd.taintkeys).as_array_mut().push(pdf_new_name(key));
-    }
+    let array: Vec<*mut pdf_obj> = DEFAULT_TAINTKEYS.iter().map(|&key| pdf_new_name(key)).collect();
+    (*sd).cd.taintkeys = array.into_obj();
     0i32
 }
 unsafe fn spc_handler_pdfm__clean(mut dp: *mut libc::c_void) -> i32 {

@@ -60,9 +60,8 @@ use super::dpx_pdffont::{
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
 use crate::dpx_pdfobj::{
-    pdf_array_length,
-    pdf_new_array, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS,
+    pdf_array_length, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_ref_obj,
+    pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS, IntoObj,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_read};
@@ -233,12 +232,12 @@ unsafe fn add_SimpleMetrics(
         } else {
             1.
         };
-    let tmp_array = pdf_new_array();
+    let mut tmp_array = vec![];
     if num_glyphs as i32 <= 1i32 {
         /* This should be error. */
         lastchar = 0i32;
         firstchar = lastchar;
-        (*tmp_array).as_array_mut().push(pdf_new_number(0.0f64));
+        tmp_array.push(pdf_new_number(0.0f64));
     } else {
         firstchar = 255i32;
         lastchar = 0i32;
@@ -253,7 +252,6 @@ unsafe fn add_SimpleMetrics(
             }
         }
         if firstchar > lastchar {
-            pdf_release_obj(tmp_array);
             panic!("No glyphs used at all!");
         }
         let tfm_id = tfm_open(pdf_font_get_mapname(font), 0i32);
@@ -277,15 +275,16 @@ unsafe fn add_SimpleMetrics(
                             *widths.offset(code as isize),
                         );
                     }
-                    (*tmp_array).as_array_mut().push(
+                    tmp_array.push(
                         pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64),
                     );
                 }
             } else {
-                (*tmp_array).as_array_mut().push(pdf_new_number(0.0f64));
+                tmp_array.push(pdf_new_number(0.0f64));
             }
         }
     }
+    let tmp_array = tmp_array.into_obj();
     if pdf_array_length(&*tmp_array) > 0_u32 {
         fontdict.set("Widths", pdf_ref_obj(tmp_array));
     }

@@ -37,9 +37,9 @@ use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_new_array, pdf_new_dict,
+    pdf_get_version, pdf_new_dict,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_set_predictor, STREAM_COMPRESS,
+    pdf_release_obj, pdf_stream_set_predictor, STREAM_COMPRESS, IntoObj,
 };
 use crate::{ttstub_input_read};
 use libc::free;
@@ -539,18 +539,18 @@ unsafe fn create_cspace_sRGB(mut png: &png_struct, mut info: &png_info) -> *mut 
     if cal_param.is_null() {
         return ptr::null_mut();
     }
-    let colorspace = pdf_new_array();
+    let mut colorspace = vec![];
     match color_type as i32 {
         2 | 6 | 3 => {
-            (*colorspace).as_array_mut().push(pdf_new_name("CalRGB"));
+            colorspace.push(pdf_new_name("CalRGB"));
         }
         0 | 4 => {
-            (*colorspace).as_array_mut().push(pdf_new_name("CalGray"));
+            colorspace.push(pdf_new_name("CalGray"));
         }
         _ => {}
     }
-    (*colorspace).as_array_mut().push(cal_param);
-    colorspace
+    colorspace.push(cal_param);
+    colorspace.into_obj()
 }
 /* ICCBased:
  *
@@ -656,10 +656,10 @@ unsafe fn create_cspace_CalRGB(
     if cal_param.is_null() {
         return ptr::null_mut();
     }
-    let colorspace = pdf_new_array();
-    (*colorspace).as_array_mut().push(pdf_new_name("CalRGB"));
-    (*colorspace).as_array_mut().push(cal_param);
-    colorspace
+    let mut colorspace = vec![];
+    colorspace.push(pdf_new_name("CalRGB"));
+    colorspace.push(cal_param);
+    colorspace.into_obj()
 }
 unsafe fn create_cspace_CalGray(mut png: &mut png_struct, mut info: &mut png_info) -> *mut pdf_obj {
     let mut xw: f64 = 0.;
@@ -704,10 +704,10 @@ unsafe fn create_cspace_CalGray(mut png: &mut png_struct, mut info: &mut png_inf
     if cal_param.is_null() {
         return ptr::null_mut();
     }
-    let colorspace = pdf_new_array();
-    (*colorspace).as_array_mut().push(pdf_new_name("CalGray"));
-    (*colorspace).as_array_mut().push(cal_param);
-    colorspace
+    let mut colorspace = vec![];
+    colorspace.push(pdf_new_name("CalGray"));
+    colorspace.push(cal_param);
+    colorspace.into_obj()
 }
 unsafe fn make_param_Cal(
     color_type: png_byte,
@@ -764,61 +764,61 @@ unsafe fn make_param_Cal(
     }
     let cal_param = pdf_new_dict();
     /* White point is always required. */
-    let white_point = pdf_new_array();
-    (*white_point).as_array_mut().push(
+    let mut white_point = vec![];
+    white_point.push(
         pdf_new_number((Xw / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
     );
-    (*white_point).as_array_mut().push(
+    white_point.push(
         pdf_new_number((Yw / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
     );
-    (*white_point).as_array_mut().push(
+    white_point.push(
         pdf_new_number((Zw / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
     );
-    (*cal_param).as_dict_mut().set("WhitePoint", white_point);
+    (*cal_param).as_dict_mut().set("WhitePoint", white_point.into_obj());
     /* Matrix - default: Identity */
     if color_type as i32 & 2i32 != 0 {
         if G != 1.0f64 {
-            let dev_gamma = pdf_new_array(); /* Gray */
-            (*dev_gamma).as_array_mut().push(
+            let mut dev_gamma = vec![]; /* Gray */
+            dev_gamma.push(
                 pdf_new_number((G / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
             );
-            (*dev_gamma).as_array_mut().push(
+            dev_gamma.push(
                 pdf_new_number((G / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
             );
-            (*dev_gamma).as_array_mut().push(
+            dev_gamma.push(
                 pdf_new_number((G / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
             );
-            (*cal_param).as_dict_mut().set("Gamma", dev_gamma);
+            (*cal_param).as_dict_mut().set("Gamma", dev_gamma.into_obj());
         }
-        let matrix = pdf_new_array();
-        (*matrix).as_array_mut().push(
+        let mut matrix = vec![];
+        matrix.push(
             pdf_new_number((Xr / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
-        (*matrix).as_array_mut().push(
+        matrix.push(
             pdf_new_number((Yr / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
-        (*matrix).as_array_mut().push(
+        matrix.push(
             pdf_new_number((Zr / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
-        (*matrix).as_array_mut().push(
+        matrix.push(
             pdf_new_number((Xg / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
-        (*matrix).as_array_mut().push(
+        matrix.push(
             pdf_new_number((Yg / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
-        (*matrix).as_array_mut().push(
+        matrix.push(
             pdf_new_number((Zg / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
-        (*matrix).as_array_mut().push(
+        matrix.push(
             pdf_new_number((Xb / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
-        (*matrix).as_array_mut().push(
+        matrix.push(
             pdf_new_number((Yb / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
-        (*matrix).as_array_mut().push(
+        matrix.push(
             pdf_new_number((Zb / 0.00001f64 + 0.5f64).floor() * 0.00001f64),
         );
-        (*cal_param).as_dict_mut().set("Matrix", matrix);
+        (*cal_param).as_dict_mut().set("Matrix", matrix.into_obj());
     } else if G != 1.0f64 {
         (*cal_param).as_dict_mut().set(
             "Gamma",
@@ -846,8 +846,8 @@ unsafe fn create_cspace_Indexed(mut png: &mut png_struct, mut info: &mut png_inf
         return ptr::null_mut();
     }
     /* Order is important. */
-    let colorspace = pdf_new_array();
-    (*colorspace).as_array_mut().push(pdf_new_name("Indexed"));
+    let mut colorspace = vec![];
+    colorspace.push(pdf_new_name("Indexed"));
     let mut base = if png_get_valid(png, info, 0x1000u32) != 0 {
         create_cspace_ICCBased(png, info)
     } else if png_get_valid(png, info, 0x800u32) != 0 {
@@ -858,8 +858,8 @@ unsafe fn create_cspace_Indexed(mut png: &mut png_struct, mut info: &mut png_inf
     if base.is_null() {
         base = pdf_new_name("DeviceRGB")
     }
-    (*colorspace).as_array_mut().push(base);
-    (*colorspace).as_array_mut().push(pdf_new_number((num_plte - 1i32) as f64));
+    colorspace.push(base);
+    colorspace.push(pdf_new_number((num_plte - 1i32) as f64));
     let data_ptr = new(((num_plte * 3i32) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
         as *mut png_byte;
@@ -870,8 +870,8 @@ unsafe fn create_cspace_Indexed(mut png: &mut png_struct, mut info: &mut png_inf
     }
     let lookup = pdf_new_string(data_ptr as *const libc::c_void, (num_plte * 3i32) as size_t);
     free(data_ptr as *mut libc::c_void);
-    (*colorspace).as_array_mut().push(lookup);
-    colorspace
+    colorspace.push(lookup);
+    colorspace.into_obj()
 }
 /* Color-Key Mask */
 /*
@@ -890,38 +890,37 @@ unsafe fn create_ckey_mask(mut png: &png_struct_def, mut png_info: &mut png_info
         warn!("{}: PNG does not have valid tRNS chunk!", "PNG");
         return ptr::null_mut();
     }
-    let mut colorkeys = pdf_new_array();
+    let mut colorkeys = vec![];
     let color_type = png_get_color_type(png, png_info);
     match color_type as libc::c_int {
         3 => {
             for i in 0..num_trans {
                 if *trans.offset(i as isize) as i32 == 0i32 {
-                    (*colorkeys).as_array_mut().push(pdf_new_number(i as f64));
-                    (*colorkeys).as_array_mut().push(pdf_new_number(i as f64));
+                    colorkeys.push(pdf_new_number(i as f64));
+                    colorkeys.push(pdf_new_number(i as f64));
                 } else if *trans.offset(i as isize) as i32 != 0xffi32 {
                     warn!("{}: You found a bug in pngimage.c.", "PNG");
                 }
             }
         }
         2 => {
-            (*colorkeys).as_array_mut().push(pdf_new_number((*colors).red as f64));
-            (*colorkeys).as_array_mut().push(pdf_new_number((*colors).red as f64));
-            (*colorkeys).as_array_mut().push(pdf_new_number((*colors).green as f64));
-            (*colorkeys).as_array_mut().push(pdf_new_number((*colors).green as f64));
-            (*colorkeys).as_array_mut().push(pdf_new_number((*colors).blue as f64));
-            (*colorkeys).as_array_mut().push(pdf_new_number((*colors).blue as f64));
+            colorkeys.push(pdf_new_number((*colors).red as f64));
+            colorkeys.push(pdf_new_number((*colors).red as f64));
+            colorkeys.push(pdf_new_number((*colors).green as f64));
+            colorkeys.push(pdf_new_number((*colors).green as f64));
+            colorkeys.push(pdf_new_number((*colors).blue as f64));
+            colorkeys.push(pdf_new_number((*colors).blue as f64));
         }
         0 => {
-            (*colorkeys).as_array_mut().push(pdf_new_number((*colors).gray as f64));
-            (*colorkeys).as_array_mut().push(pdf_new_number((*colors).gray as f64));
+            colorkeys.push(pdf_new_number((*colors).gray as f64));
+            colorkeys.push(pdf_new_number((*colors).gray as f64));
         }
         _ => {
             warn!("{}: You found a bug in pngimage.c.", "PNG");
-            pdf_release_obj(colorkeys);
-            colorkeys = ptr::null_mut()
+            return ptr::null_mut();
         }
     }
-    colorkeys
+    colorkeys.into_obj()
 }
 /* Soft Mask:
  *
