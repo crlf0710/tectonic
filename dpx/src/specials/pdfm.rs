@@ -67,7 +67,7 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_array_length, pdf_new_name,
+    pdf_new_name,
     pdf_foreach_dict, pdf_link_obj, pdf_name_value,
     pdf_new_dict, pdf_new_stream, pdf_number_value, pdf_obj, pdf_obj_typeof,
     pdf_release_obj, pdf_remove_dict, pdf_set_string, pdf_string_length,
@@ -526,7 +526,7 @@ unsafe fn needreencode(
     assert!(!cd.is_null() && !(*cd).taintkeys.is_null());
     assert!((*kp).is_name());
     assert!((*vp).is_string());
-    for i in 0..pdf_array_length(&*(*cd).taintkeys) {
+    for i in 0..(*(*cd).taintkeys).as_array().len() {
         let tk = (*(*cd).taintkeys).as_array().get(i as i32).unwrap();
         assert!((*tk).is_name());
         if pdf_name_value(&*kp) == pdf_name_value(&*tk) {
@@ -1099,7 +1099,7 @@ unsafe fn spc_handler_pdfm_names(mut spe: *mut spc_env, mut args: *mut spc_arg) 
     }
     if let Some(tmp) = (*args).cur.parse_pdf_object(ptr::null_mut()) {
         if (*tmp).is_array() {
-            let size = pdf_array_length(&*tmp) as i32;
+            let size = (*tmp).as_array().len() as i32;
             if size % 2i32 != 0i32 {
                 spc_warn!(spe, "Array size not multiple of 2 for pdf:names.");
                 pdf_release_obj(category);

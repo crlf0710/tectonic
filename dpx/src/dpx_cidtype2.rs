@@ -56,7 +56,7 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
-    pdf_new_array, pdf_copy_name, pdf_new_dict, IntoObj,
+    pdf_copy_name, pdf_new_dict, IntoObj,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_stream_length, STREAM_COMPRESS,
 };
@@ -432,7 +432,7 @@ unsafe fn add_TTCIDHMetrics(
                         }
                     }
                     if an_array.is_null() {
-                        an_array = pdf_new_array();
+                        an_array = Vec::new().into_obj();
                         start = cid
                     }
                     (*an_array).as_array_mut().push(pdf_new_number(width));

@@ -66,7 +66,7 @@ use super::dpx_pdfximage::{
 };
 use super::dpx_pngimage::check_for_png;
 use crate::dpx_pdfobj::{
-    pdf_new_array, pdf_array_length, pdf_compare_reference,
+    pdf_compare_reference,
     pdf_deref_obj, pdf_file, pdf_file_get_catalog, pdf_link_obj,
     pdf_name_value, pdf_new_dict, pdf_new_name, pdf_new_number,
     pdf_new_stream, pdf_new_string, pdf_number_value, pdf_obj, pdf_obj_typeof, pdf_out_flush,
@@ -973,7 +973,7 @@ pub unsafe fn pdf_doc_get_page(
             pdf_release_obj(kids);
             return error(box_0, rotate, resources, page_tree);
         } else {
-            kids_length = pdf_array_length(&*kids) as i32;
+            kids_length = (*kids).as_array().len() as i32;
             for i in 0..kids_length {
                 let count_0;
                 pdf_release_obj(page_tree);
@@ -1110,7 +1110,7 @@ pub unsafe fn pdf_doc_get_page(
     let medbox = media_box;
 
     if !(!box_0.is_null() && (*box_0).is_array())
-        || pdf_array_length(&*box_0) != 4
+        || (*box_0).as_array().len() != 4
         || !(!resources.is_null()
             && (*resources).is_dict()) {
         return error(box_0, rotate, resources, page_tree);
@@ -1778,7 +1778,7 @@ pub unsafe fn pdf_doc_add_annot(
     let mut annot_grow: f64 = (*p).opt.annot_grow;
     let page = doc_get_page_entry(p, page_no);
     if (*page).annots.is_null() {
-        (*page).annots = pdf_new_array()
+        (*page).annots = Vec::new().into_obj();
     }
     let mut mediabox = Rect::zero();
     pdf_doc_get_mediabox(page_no, &mut mediabox);
@@ -1967,7 +1967,7 @@ unsafe fn make_article(
             /* Realize bead now. */
             let page = doc_get_page_entry(p, (*bead).page_no as u32);
             if (*page).beads.is_null() {
-                (*page).beads = pdf_new_array()
+                (*page).beads = Vec::new().into_obj();
             }
             (*last).as_dict_mut().set("P", pdf_link_obj((*page).page_ref));
             let mut rect = vec![];
@@ -2026,7 +2026,7 @@ unsafe fn pdf_doc_close_articles(mut p: *mut pdf_doc) {
         if !(*article).beads.is_null() {
             let art_dict = make_article(p, article, 0 as *mut *const i8, 0_u32, ptr::null_mut());
             if (*p).root.threads.is_null() {
-                (*p).root.threads = pdf_new_array()
+                (*p).root.threads = Vec::new().into_obj();
             }
             (*(*p).root.threads).as_array_mut().push(pdf_ref_obj(art_dict));
             pdf_release_obj(art_dict);

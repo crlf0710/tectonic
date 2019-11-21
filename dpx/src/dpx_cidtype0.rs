@@ -80,7 +80,7 @@ use super::dpx_type0::{
     Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode,
 };
 use crate::dpx_pdfobj::{
-    pdf_array_length, pdf_copy_name, pdf_new_array, IntoObj,
+    pdf_copy_name, IntoObj,
     pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj,
     pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
 };
@@ -214,7 +214,7 @@ unsafe fn add_CIDHMetrics(
                     empty = 0i32
                 }
                 if an_array.is_null() {
-                    an_array = pdf_new_array();
+                    an_array = Vec::new().into_obj();
                     start = cid
                 }
                 (*an_array).as_array_mut().push(pdf_new_number(advanceWidth));
@@ -1955,8 +1955,9 @@ unsafe fn add_metrics(
         }
     }
     (*(*font).fontdict).as_dict_mut().set("DW", pdf_new_number(default_width));
+    let empty = tmp.is_empty();
     let tmp = tmp.into_obj();
-    if pdf_array_length(&*tmp) > 0 {
+    if !empty {
         (*(*font).fontdict).as_dict_mut().set("W", pdf_ref_obj(tmp));
     }
     pdf_release_obj(tmp);

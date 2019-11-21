@@ -1111,13 +1111,6 @@ pub unsafe fn pdf_name_value<'a>(object: &'a pdf_obj) -> &'a CStr {
  * in PDF name object.
  */
 
-pub unsafe fn pdf_new_array() -> *mut pdf_obj {
-    let result = pdf_new_obj(PdfObjType::ARRAY);
-    let data = Box::<pdf_array>::new(pdf_array { values: vec![], });
-    (*result).data = Box::into_raw(data) as *mut libc::c_void;
-    result
-}
-
 unsafe fn write_array(mut array: *mut pdf_array, handle: &mut OutputHandleWrapper) {
     pdf_out_char(handle, b'[');
     if !(*array).values.is_empty() {
@@ -1160,10 +1153,10 @@ impl pdf_array {
     }
 }
 
-pub unsafe fn pdf_array_length(array: &pdf_obj) -> u32 {
-    assert!(array.is_array());
-    let mut data = array.data as *mut pdf_array;
-    (*data).values.len() as u32
+impl pdf_array {
+    pub fn len(&self) -> u32 {
+        self.values.len() as u32
+    }
 }
 
 impl Drop for pdf_array {
@@ -2525,7 +2518,7 @@ pub unsafe fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) ->
                 /* Dictionary or array */
                 let mut tmp = pdf_deref_obj(stream_dict.get_mut("DecodeParms"));
                 if !tmp.is_null() && (*tmp).is_array() {
-                    if pdf_array_length(&*tmp) > 1i32 as libc::c_uint {
+                    if (*tmp).as_array().len() > 1i32 as libc::c_uint {
                         warn!("Unexpected size for DecodeParms array.");
                         return -1i32;
                     }
@@ -2542,7 +2535,7 @@ pub unsafe fn pdf_concat_stream(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) ->
                 have_parms = 1i32
             }
             if (*filter).is_array() {
-                if pdf_array_length(&*filter) > 1i32 as libc::c_uint {
+                if (*filter).as_array().len() > 1i32 as libc::c_uint {
                     warn!("Multiple DecodeFilter not supported.");
                     return -1i32;
                 }
@@ -3541,7 +3534,7 @@ unsafe fn parse_xref_stream(
                 let size = pdf_number_value(size_obj) as u32;
                 let mut length = pdf_stream_length(&*xrefstm);
                 let W_obj = (**trailer).as_dict().get("W").unwrap();
-                if !(!W_obj.is_array() || pdf_array_length(W_obj) != 3_u32)
+                if !(!W_obj.is_array() || W_obj.as_array().len() != 3_u32)
                 {
                     let mut i = 0i32;
                     loop {
@@ -3565,7 +3558,7 @@ unsafe fn parse_xref_stream(
                             if let Some(index_obj) = (**trailer).as_dict().get("Index") {
                                 let mut index_len: u32 = 0;
                                 if !index_obj.is_array() || {
-                                    index_len = pdf_array_length(index_obj);
+                                    index_len = index_obj.as_array().len();
                                     index_len.wrapping_rem(2_u32) != 0
                                 } {
                                     current_block = 5131529843719913080;
@@ -3982,13 +3975,12 @@ unsafe fn pdf_import_indirect(mut object: *mut pdf_obj) -> *mut pdf_obj {
  */
 
 pub unsafe fn pdf_import_object(mut object: *mut pdf_obj) -> *mut pdf_obj {
-    let imported;
     match pdf_obj_typeof(object) {
         PdfObjType::INDIRECT => {
             if !(*((*object).data as *mut pdf_indirect)).pf.is_null() {
-                imported = pdf_import_indirect(object)
+                pdf_import_indirect(object)
             } else {
-                imported = pdf_link_obj(object)
+                pdf_link_obj(object)
             }
         }
         PdfObjType::STREAM => {
@@ -3996,7 +3988,7 @@ pub unsafe fn pdf_import_object(mut object: *mut pdf_obj) -> *mut pdf_obj {
             if tmp.is_null() {
                 return ptr::null_mut();
             }
-            imported = pdf_new_stream(0i32);
+            let mut imported = pdf_new_stream(0i32);
             let stream_dict = (*imported).as_stream_mut().get_dict_mut();
             stream_dict.merge((*tmp).as_dict());
             pdf_release_obj(tmp);
@@ -4004,9 +3996,10 @@ pub unsafe fn pdf_import_object(mut object: *mut pdf_obj) -> *mut pdf_obj {
                 pdf_stream_dataptr(&*object),
                 pdf_stream_length(&*object),
             );
+            imported
         }
         PdfObjType::DICT => {
-            imported = pdf_new_dict();
+            let mut imported = pdf_new_dict();
             if pdf_foreach_dict(
                 &mut *object,
                 Some(
@@ -4023,24 +4016,24 @@ pub unsafe fn pdf_import_object(mut object: *mut pdf_obj) -> *mut pdf_obj {
                 pdf_release_obj(imported);
                 return ptr::null_mut();
             }
+            imported
         }
         PdfObjType::ARRAY => {
-            imported = pdf_new_array();
-            for i in 0..pdf_array_length(&*object) {
+            let mut imported = vec![];
+            for i in 0..(*object).as_array().len() {
                 let tmp = pdf_import_object(match (*object).as_array_mut().get_mut(i as i32) {
                     Some(o) => o as *mut pdf_obj,
                     None => ptr::null_mut(),
                 });
                 if tmp.is_null() {
-                    pdf_release_obj(imported);
                     return ptr::null_mut();
                 }
-                (*imported).as_array_mut().push(tmp);
+                imported.push(tmp);
             }
+            imported.into_obj()
         }
-        _ => imported = pdf_link_obj(object),
+        _ => pdf_link_obj(object),
     }
-    imported
 }
 /* returns 0 if indirect references point to the same object */
 

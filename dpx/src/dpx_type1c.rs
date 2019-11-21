@@ -60,7 +60,7 @@ use super::dpx_pdffont::{
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
 use crate::dpx_pdfobj::{
-    pdf_array_length, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_ref_obj,
+    pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_ref_obj,
     pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS, IntoObj,
 };
 use crate::shims::sprintf;
@@ -284,8 +284,9 @@ unsafe fn add_SimpleMetrics(
             }
         }
     }
+    let empty = tmp_array.is_empty();
     let tmp_array = tmp_array.into_obj();
-    if pdf_array_length(&*tmp_array) > 0_u32 {
+    if !empty {
         fontdict.set("Widths", pdf_ref_obj(tmp_array));
     }
     pdf_release_obj(tmp_array);

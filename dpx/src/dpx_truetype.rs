@@ -63,8 +63,7 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::tt_get_ps_fontname;
 use crate::dpx_pdfobj::{
-    pdf_array_length, pdf_new_name,
-    pdf_new_number, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length, IntoObj,
+    pdf_new_name, pdf_new_number, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length, IntoObj,
 };
 use crate::shims::sprintf;
 use libc::{atoi, free, memcpy, memmove, memset, strchr, strcpy, strlen, strncpy};
@@ -318,8 +317,9 @@ unsafe fn do_widths(mut font: *mut pdf_font, mut widths: *mut f64) {
             tmparray.push(pdf_new_number(0.0f64));
         }
     }
+    let empty = tmparray.is_empty();
     let tmparray = tmparray.into_obj();
-    if pdf_array_length(&*tmparray) > 0_u32 {
+    if !empty {
         fontdict.as_dict_mut().set("Widths", pdf_ref_obj(tmparray));
     }
     pdf_release_obj(tmparray);

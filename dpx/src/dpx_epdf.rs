@@ -34,7 +34,7 @@ use crate::warn;
 use super::dpx_pdfdoc::pdf_doc_get_page;
 use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
-    pdf_array_length, pdf_boolean_value, pdf_close, pdf_concat_stream,
+    pdf_boolean_value, pdf_close, pdf_concat_stream,
     pdf_deref_obj, pdf_file_get_catalog, pdf_file_get_version,
     pdf_get_version, pdf_import_object, IntoObj,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj,
@@ -152,7 +152,7 @@ pub unsafe fn pdf_include_page(
             /*
              * Concatenate all content streams.
              */
-            let mut len: i32 = pdf_array_length(&*contents) as i32;
+            let mut len = (*contents).as_array().len() as i32;
             content_new = pdf_new_stream(STREAM_COMPRESS);
             for idx in 0..len {
                 let mut content_seg: *mut pdf_obj =
