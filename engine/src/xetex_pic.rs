@@ -114,8 +114,6 @@ unsafe extern "C" fn pdf_get_rect(
     let mut dpx_options: i32 = 0;
     let mut pf: *mut pdf_file = 0 as *mut pdf_file;
     let mut page: *mut pdf_obj = 0 as *mut pdf_obj;
-    let mut bbox = Rect::zero();
-    let mut matrix = TMatrix::identity(); // TODO: check
     pf = pdf_open(filename, handle);
     if pf.is_null() {
         /* TODO: issue warning */
@@ -141,40 +139,39 @@ unsafe extern "C" fn pdf_get_rect(
         5 => dpx_options = 3i32,
         1 | _ => dpx_options = 1i32,
     }
-    page = pdf_doc_get_page(
+    if let Some((page, mut bbox, matrix)) = pdf_doc_get_page(
         pf,
         page_num,
         dpx_options,
-        &mut bbox,
-        &mut matrix,
         0 as *mut *mut pdf_obj,
-    );
-    pdf_close(pf);
-    if page.is_null() {
+    ) {
+        pdf_close(pf);
+        pdf_release_obj(page);
+        /* Image's attribute "bbox" here is affected by /Rotate entry of included
+         * PDF page.
+         */
+        let mut p1 = bbox.lower_left();
+        pdf_dev_transform(&mut p1, Some(&matrix));
+        let mut p2 = bbox.lower_right();
+        pdf_dev_transform(&mut p2, Some(&matrix));
+        let mut p3 = bbox.upper_right();
+        pdf_dev_transform(&mut p3, Some(&matrix));
+        let mut p4 = bbox.upper_left();
+        pdf_dev_transform(&mut p4, Some(&matrix));
+        bbox.min.x = p1.x.min(p2.x).min(p3.x).min(p4.x);
+        bbox.min.y = p1.y.min(p2.y).min(p3.y).min(p4.y);
+        bbox.max.x = p1.x.max(p2.x).max(p3.x).max(p4.x);
+        bbox.max.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
+        (*box_0).x = (72.27 / 72. * bbox.min.x) as f32;
+        (*box_0).y = (72.27 / 72. * bbox.min.y) as f32;
+        (*box_0).wd = (72.27 / 72. * bbox.size().width) as f32;
+        (*box_0).ht = (72.27 / 72. * bbox.size().height) as f32;
+        0
+    } else {
+        pdf_close(pf);
         /* TODO: issue warning */
         return -1i32;
     }
-    pdf_release_obj(page);
-    /* Image's attribute "bbox" here is affected by /Rotate entry of included
-     * PDF page.
-     */
-    let mut p1 = bbox.lower_left();
-    pdf_dev_transform(&mut p1, Some(&matrix));
-    let mut p2 = bbox.lower_right();
-    pdf_dev_transform(&mut p2, Some(&matrix));
-    let mut p3 = bbox.upper_right();
-    pdf_dev_transform(&mut p3, Some(&matrix));
-    let mut p4 = bbox.upper_left();
-    pdf_dev_transform(&mut p4, Some(&matrix));
-    bbox.min.x = p1.x.min(p2.x).min(p3.x).min(p4.x);
-    bbox.min.y = p1.y.min(p2.y).min(p3.y).min(p4.y);
-    bbox.max.x = p1.x.max(p2.x).max(p3.x).max(p4.x);
-    bbox.max.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
-    (*box_0).x = (72.27 / 72. * bbox.min.x) as f32;
-    (*box_0).y = (72.27 / 72. * bbox.min.y) as f32;
-    (*box_0).wd = (72.27 / 72. * bbox.size().width) as f32;
-    (*box_0).ht = (72.27 / 72. * bbox.size().height) as f32;
-    0
 }
 unsafe extern "C" fn get_image_size_in_inches(
     handle: &mut InputHandleWrapper,
