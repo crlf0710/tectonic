@@ -54,7 +54,7 @@ use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
 use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load_font};
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_stream, pdf_array_length, pdf_new_array,
+    pdf_add_array, pdf_array_length, pdf_new_array,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS,
 };
@@ -654,8 +654,7 @@ unsafe fn write_fontfile(
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
     descriptor.set("FontFile3", pdf_ref_obj(fontfile));
     stream_dict.set("Subtype", pdf_new_name("Type1C"));
-    pdf_add_stream(
-        &mut *fontfile,
+    (*fontfile).as_stream_mut().add(
         stream_data.as_ptr() as *mut libc::c_void,
         offset as i32,
     );
@@ -872,8 +871,7 @@ pub unsafe fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
                         }
                         /* CharSet is actually string object. */
                         (*pdfcharset).as_stream_mut().add_str("/");
-                        pdf_add_stream(
-                            &mut *pdfcharset,
+                        (*pdfcharset).as_stream_mut().add(
                             glyph as *const libc::c_void,
                             strlen(glyph) as i32,
                         );

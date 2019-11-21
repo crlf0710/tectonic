@@ -80,7 +80,7 @@ use super::dpx_type0::{
     Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode,
 };
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_stream, pdf_array_length, pdf_copy_name, pdf_new_array,
+    pdf_add_array, pdf_array_length, pdf_copy_name, pdf_new_array,
     pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj,
     pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
 };
@@ -541,8 +541,7 @@ unsafe fn write_fontfile(mut font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
     (*(*font).descriptor).as_dict_mut().set("FontFile3", pdf_ref_obj(fontfile));
     stream_dict.set("Subtype", pdf_new_name("CIDFontType0C"));
-    pdf_add_stream(
-        &mut *fontfile,
+    (*fontfile).as_stream_mut().add(
         dest.as_mut_ptr() as *const libc::c_void,
         offset as i32,
     );
@@ -673,8 +672,7 @@ unsafe fn CIDFont_type0_add_CIDSet(
      * Length of CIDSet stream is not clear. Must be 8192 bytes long?
      */
     let cidset = pdf_new_stream(STREAM_COMPRESS);
-    pdf_add_stream(
-        &mut *cidset,
+    (*cidset).as_stream_mut().add(
         used_chars as *const libc::c_void,
         last_cid as i32 / 8i32 + 1i32,
     );

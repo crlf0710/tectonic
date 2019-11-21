@@ -31,7 +31,7 @@ use super::dpx_mem::new;
 use super::dpx_numbers::tt_get_unsigned_byte;
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_stream, pdf_new_array, pdf_new_name, pdf_new_number,
+    pdf_add_array, pdf_new_array, pdf_new_name, pdf_new_number,
     pdf_new_stream, pdf_new_string, pdf_release_obj,
     pdf_stream_set_predictor, STREAM_COMPRESS,
 };
@@ -287,12 +287,11 @@ pub unsafe fn bmp_include_image(
         let mut n = info.height - 1i32;
         while n >= 0i32 {
             let p = stream_data_ptr.offset((n * rowbytes) as isize);
-            pdf_add_stream(&mut *stream, p as *const libc::c_void, rowbytes);
+            (*stream).as_stream_mut().add(p as *const libc::c_void, rowbytes);
             n -= 1
         }
     } else {
-        pdf_add_stream(
-            &mut *stream,
+        (*stream).as_stream_mut().add(
             stream_data_ptr as *const libc::c_void,
             rowbytes * info.height,
         );

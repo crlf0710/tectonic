@@ -67,7 +67,7 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_stream, pdf_array_length, pdf_new_name,
+    pdf_add_array, pdf_array_length, pdf_new_name,
     pdf_foreach_dict, pdf_link_obj, pdf_name_value,
     pdf_new_array, pdf_new_dict, pdf_new_stream, pdf_number_value, pdf_obj, pdf_obj_typeof,
     pdf_release_obj, pdf_remove_dict, pdf_set_string, pdf_string_length,
@@ -1381,8 +1381,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                 if !(nb_read > 0) { // TODO: check
                     break;
                 }
-                pdf_add_stream(
-                    &mut *fstream,
+                (*fstream).as_stream_mut().add(
                     WORK_BUFFER.as_mut_ptr() as *const libc::c_void,
                     nb_read as i32,
                 );
@@ -1393,8 +1392,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
         0 => {
             fstream = pdf_new_stream(STREAM_COMPRESS);
             if !instring.is_null() {
-                pdf_add_stream(
-                    &mut *fstream,
+                (*fstream).as_stream_mut().add(
                     instring as *const libc::c_void,
                     strlen(instring) as i32,
                 );

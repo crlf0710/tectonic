@@ -39,7 +39,7 @@ use super::dpx_pdfcolor::{
 };
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_stream, pdf_get_version, pdf_new_array, pdf_new_name,
+    pdf_add_array, pdf_get_version, pdf_new_array, pdf_new_name,
     pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_dataptr,
     pdf_stream_length, STREAM_COMPRESS,
 };
@@ -399,8 +399,7 @@ unsafe fn JPEG_get_iccp(mut j_info: *mut JPEG_info) -> *mut pdf_obj {
                 icc_stream = ptr::null_mut();
                 break;
             }
-            pdf_add_stream(
-                &mut *icc_stream,
+            (*icc_stream).as_stream_mut().add(
                 (*icc).chunk as *const libc::c_void,
                 (*icc).length as i32,
             );
@@ -423,8 +422,7 @@ unsafe fn JPEG_get_XMP(mut j_info: *mut JPEG_info) -> *mut pdf_obj {
             || (*(*j_info).appn.offset(i as isize)).app_sig as u32 != JS_APPn_XMP as i32 as u32)
         {
             let XMP = (*(*j_info).appn.offset(i as isize)).app_data as *mut JPEG_APPn_XMP;
-            pdf_add_stream(
-                &mut *XMP_stream,
+            (*XMP_stream).as_stream_mut().add(
                 (*XMP).packet as *const libc::c_void,
                 (*XMP).length as i32,
             );
@@ -821,8 +819,7 @@ unsafe fn JPEG_copy_stream(
         {
             *work_buffer.as_mut_ptr().offset(0) = 0xffi32 as i8;
             *work_buffer.as_mut_ptr().offset(1) = marker as i8;
-            pdf_add_stream(
-                &mut *stream,
+            (*stream).as_stream_mut().add(
                 work_buffer.as_mut_ptr() as *const libc::c_void,
                 2i32,
             );
@@ -834,8 +831,7 @@ unsafe fn JPEG_copy_stream(
                     *work_buffer.as_mut_ptr().offset(1) = marker as i8;
                     *work_buffer.as_mut_ptr().offset(2) = (length + 2i32 >> 8i32 & 0xffi32) as i8;
                     *work_buffer.as_mut_ptr().offset(3) = (length + 2i32 & 0xffi32) as i8;
-                    pdf_add_stream(
-                        &mut *stream,
+                    (*stream).as_stream_mut().add(
                         work_buffer.as_mut_ptr() as *const libc::c_void,
                         4i32,
                     );
@@ -846,8 +842,7 @@ unsafe fn JPEG_copy_stream(
                             (if length < 1024i32 { length } else { 1024i32 }) as size_t,
                         ) as i32;
                         if nb_read > 0i32 {
-                            pdf_add_stream(
-                                &mut *stream,
+                            (*stream).as_stream_mut().add(
                                 work_buffer.as_mut_ptr() as *const libc::c_void,
                                 nb_read,
                             );
@@ -868,8 +863,7 @@ unsafe fn JPEG_copy_stream(
                         *work_buffer.as_mut_ptr().offset(2) =
                             (length + 2i32 >> 8i32 & 0xffi32) as i8;
                         *work_buffer.as_mut_ptr().offset(3) = (length + 2i32 & 0xffi32) as i8;
-                        pdf_add_stream(
-                            &mut *stream,
+                        (*stream).as_stream_mut().add(
                             work_buffer.as_mut_ptr() as *const libc::c_void,
                             4i32,
                         );
@@ -880,8 +874,7 @@ unsafe fn JPEG_copy_stream(
                                 (if length < 1024i32 { length } else { 1024i32 }) as size_t,
                             ) as i32;
                             if nb_read_0 > 0i32 {
-                                pdf_add_stream(
-                                    &mut *stream,
+                                (*stream).as_stream_mut().add(
                                     work_buffer.as_mut_ptr() as *const libc::c_void,
                                     nb_read_0,
                                 );
@@ -909,8 +902,7 @@ unsafe fn JPEG_copy_stream(
         if !(length > 0i32) {
             break;
         }
-        pdf_add_stream(
-            &mut *stream,
+        (*stream).as_stream_mut().add(
             work_buffer.as_mut_ptr() as *const libc::c_void,
             length,
         );

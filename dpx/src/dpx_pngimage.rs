@@ -37,7 +37,7 @@ use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_stream, pdf_get_version, pdf_new_array, pdf_new_dict,
+    pdf_add_array, pdf_get_version, pdf_new_array, pdf_new_dict,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_stream_set_predictor, STREAM_COMPRESS,
 };
@@ -277,8 +277,7 @@ pub unsafe fn png_include_image(
         }
     }
     stream_dict.set("ColorSpace", colorspace);
-    pdf_add_stream(
-        &mut *stream,
+    (*stream).as_stream_mut().add(
         stream_data_ptr as *const libc::c_void,
         rowbytes.wrapping_mul(height) as i32,
     );
@@ -340,8 +339,7 @@ pub unsafe fn png_include_image(
                     let XMP_stream_dict = (*XMP_stream).as_stream_mut().get_dict_mut();
                     XMP_stream_dict.set("Type", pdf_new_name("Metadata"));
                     XMP_stream_dict.set("Subtype", pdf_new_name("XML"));
-                    pdf_add_stream(
-                        &mut *XMP_stream,
+                    (*XMP_stream).as_stream_mut().add(
                         (*text_ptr.offset(i as isize)).text as *const libc::c_void,
                         (*text_ptr.offset(i as isize)).itxt_length as i32,
                     );
@@ -1003,8 +1001,7 @@ unsafe fn create_soft_mask(
             0xffi32
         }) as png_byte;
     }
-    pdf_add_stream(
-        &mut *smask,
+    (*smask).as_stream_mut().add(
         smask_data_ptr as *mut i8 as *const libc::c_void,
         width.wrapping_mul(height) as i32,
     );
@@ -1133,8 +1130,7 @@ unsafe fn strip_soft_mask(
             return ptr::null_mut();
         }
     }
-    pdf_add_stream(
-        &mut *smask,
+    (*smask).as_stream_mut().add(
         smask_data_ptr as *const libc::c_void,
         ((bpc as i32 / 8i32) as u32)
             .wrapping_mul(width)

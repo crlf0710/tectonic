@@ -66,7 +66,7 @@ use super::dpx_pdfximage::{
 };
 use super::dpx_pngimage::check_for_png;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_stream, pdf_array_length, pdf_compare_reference,
+    pdf_add_array, pdf_array_length, pdf_compare_reference,
     pdf_deref_obj, pdf_file, pdf_file_get_catalog, pdf_link_obj,
     pdf_name_value, pdf_new_array, pdf_new_dict, pdf_new_name, pdf_new_number,
     pdf_new_stream, pdf_new_string, pdf_number_value, pdf_obj, pdf_obj_typeof, pdf_out_flush,
@@ -436,8 +436,7 @@ pub unsafe fn pdf_doc_set_bop_content(mut content: *const i8, mut length: u32) {
     }
     if length > 0_u32 {
         (*p).pages.bop = pdf_new_stream(STREAM_COMPRESS);
-        pdf_add_stream(
-            &mut *(*p).pages.bop,
+        (*(*p).pages.bop).as_stream_mut().add(
             content as *const libc::c_void,
             length as i32,
         );
@@ -454,8 +453,7 @@ pub unsafe fn pdf_doc_set_eop_content(mut content: *const i8, mut length: u32) {
     }
     if length > 0_u32 {
         (*p).pages.eop = pdf_new_stream(STREAM_COMPRESS);
-        pdf_add_stream(
-            &mut *(*p).pages.eop,
+        (*(*p).pages.eop).as_stream_mut().add(
             content as *const libc::c_void,
             length as i32,
         );
@@ -2379,16 +2377,14 @@ pub unsafe fn pdf_doc_end_page() {
 pub unsafe fn pdf_doc_add_page_content(buffer: &[u8]) {
     let p = &mut pdoc;
     if !p.pending_forms.is_null() {
-        pdf_add_stream(
-            &mut *(*p.pending_forms).form.contents,
+        (*(*p.pending_forms).form.contents).as_stream_mut().add(
             buffer.as_ptr() as *const libc::c_void,
             buffer.len() as i32,
         );
     } else {
         let currentpage =
             &mut *p.pages.entries.offset(p.pages.num_entries as isize) as *mut pdf_page;
-        pdf_add_stream(
-            &mut *(*currentpage).contents,
+        (*(*currentpage).contents).as_stream_mut().add(
             buffer.as_ptr() as *const libc::c_void,
             buffer.len() as i32,
         );

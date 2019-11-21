@@ -56,7 +56,7 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_stream, pdf_copy_name, pdf_new_array, pdf_new_dict,
+    pdf_add_array, pdf_copy_name, pdf_new_array, pdf_new_dict,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_stream_length, STREAM_COMPRESS,
 };
@@ -1045,8 +1045,7 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
      * CIDSet
      */
     let cidset = pdf_new_stream(STREAM_COMPRESS);
-    pdf_add_stream(
-        &mut *cidset,
+    (*cidset).as_stream_mut().add(
         used_chars as *const libc::c_void,
         last_cid as i32 / 8i32 + 1i32,
     );
@@ -1062,8 +1061,7 @@ pub unsafe fn CIDFont_type2_dofont(mut font: *mut CIDFont) {
         (*(*font).fontdict).as_dict_mut().set("CIDToGIDMap", pdf_new_name("Identity"));
     } else {
         let c2gmstream = pdf_new_stream(STREAM_COMPRESS);
-        pdf_add_stream(
-            &mut *c2gmstream,
+        (*c2gmstream).as_stream_mut().add(
             cidtogidmap as *const libc::c_void,
             (last_cid as i32 + 1i32) * 2i32,
         );

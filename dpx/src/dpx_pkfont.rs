@@ -46,7 +46,7 @@ use super::dpx_pdffont::{
 };
 use super::dpx_tfm::{tfm_get_design_size, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_stream, pdf_copy_name, pdf_new_array, pdf_new_dict,
+    pdf_add_array, pdf_copy_name, pdf_new_array, pdf_new_dict,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
@@ -242,7 +242,7 @@ unsafe fn pk_packed_num(mut np: *mut u32, mut dyn_f: i32, mut dp: *mut u8, mut p
     nmbr
 }
 unsafe fn send_out(mut rowptr: *mut u8, mut rowbytes: u32, mut stream: *mut pdf_obj) {
-    pdf_add_stream(&mut *stream, rowptr as *mut libc::c_void, rowbytes as i32);
+    (*stream).as_stream_mut().add(rowptr as *mut libc::c_void, rowbytes as i32);
 }
 unsafe fn pk_decode_packed(
     mut stream: *mut pdf_obj,
@@ -508,8 +508,7 @@ unsafe fn create_pk_CharProc_stream(
         urx,
         ury,
     ) as usize;
-    pdf_add_stream(
-        &mut *stream,
+    (*stream).as_stream_mut().add(
         work_buffer.as_mut_ptr() as *const libc::c_void,
         len as i32,
     );
@@ -533,8 +532,7 @@ unsafe fn create_pk_CharProc_stream(
             llx,
             lly,
         ) as usize;
-        pdf_add_stream(
-            &mut *stream,
+        (*stream).as_stream_mut().add(
             work_buffer.as_mut_ptr() as *const libc::c_void,
             len as i32,
         );
@@ -544,8 +542,7 @@ unsafe fn create_pk_CharProc_stream(
             (*pkh).bm_wd,
             (*pkh).bm_ht,
         ) as usize;
-        pdf_add_stream(
-            &mut *stream,
+        (*stream).as_stream_mut().add(
             work_buffer.as_mut_ptr() as *const libc::c_void,
             len as i32,
         );
@@ -576,8 +573,7 @@ unsafe fn create_pk_CharProc_stream(
             work_buffer.as_mut_ptr() as *mut i8,
             b"\nEI\nQ\x00" as *const u8 as *const i8,
         ) as usize;
-        pdf_add_stream(
-            &mut *stream,
+        (*stream).as_stream_mut().add(
             work_buffer.as_mut_ptr() as *const libc::c_void,
             len as i32,
         );

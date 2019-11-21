@@ -27,7 +27,7 @@ use super::dpx_mem::{new, renew};
 use super::dpx_numbers::sget_unsigned_pair;
 use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_stream, pdf_get_version, pdf_link_obj, pdf_new_array,
+    pdf_add_array, pdf_get_version, pdf_link_obj, pdf_new_array,
     pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj, pdf_release_obj,
     STREAM_COMPRESS,
 };
@@ -1040,7 +1040,7 @@ pub unsafe fn iccp_load_profile(
         "N",
         pdf_new_number(get_num_components_iccbased(cdata) as f64),
     );
-    pdf_add_stream(&mut *stream, profile, proflen);
+    (*stream).as_stream_mut().add(profile, proflen);
     pdf_release_obj(stream);
     cspc_id = pdf_colorspace_defineresource(ident, 4i32, cdata, resource);
     cspc_id

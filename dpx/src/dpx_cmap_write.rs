@@ -35,7 +35,7 @@ use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{CMap_get_CIDSysInfo, CMap_is_valid};
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_add_stream, pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_new_number,
+    pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_new_number,
     pdf_new_stream, pdf_new_string, pdf_obj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
@@ -219,8 +219,7 @@ unsafe fn write_map(
             }
             (*stream).as_stream_mut().add_str(&format!("{} beginbfchar\n", count)
             );
-            pdf_add_stream(
-                &mut *stream,
+            (*stream).as_stream_mut().add(
                 (*wbuf).buf as *const libc::c_void,
                 (*wbuf).curptr.wrapping_offset_from((*wbuf).buf) as i64 as i32,
             );
@@ -233,8 +232,7 @@ unsafe fn write_map(
     if num_blocks > 0i32 as u64 {
         if count > 0i32 as u64 {
             (*stream).as_stream_mut().add_str(&format!("{} beginbfchar\n", count));
-            pdf_add_stream(
-                &mut *stream,
+            (*stream).as_stream_mut().add(
                 (*wbuf).buf as *const libc::c_void,
                 (*wbuf).curptr.wrapping_offset_from((*wbuf).buf) as i64 as i32,
             );
@@ -300,8 +298,7 @@ unsafe fn write_map(
             (*wbuf).curptr = (*wbuf).curptr.offset(1);
             *fresh14 = '\n' as i32 as i8;
         }
-        pdf_add_stream(
-            &mut *stream,
+        (*stream).as_stream_mut().add(
             (*wbuf).buf as *const libc::c_void,
             (*wbuf).curptr.wrapping_offset_from((*wbuf).buf) as i64 as i32,
         );
@@ -415,8 +412,7 @@ pub unsafe fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj {
         (*csi).ordering,
         (*csi).supplement,
     ) as isize);
-    pdf_add_stream(
-        &mut *stream,
+    (*stream).as_stream_mut().add(
         wbuf.buf as *const libc::c_void,
         wbuf.curptr.wrapping_offset_from(wbuf.buf) as i64 as i32,
     );
@@ -462,8 +458,7 @@ pub unsafe fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj {
         wbuf.curptr = wbuf.curptr.offset(1);
         *fresh20 = '\n' as i32 as i8;
     }
-    pdf_add_stream(
-        &mut *stream,
+    (*stream).as_stream_mut().add(
         wbuf.buf as *const libc::c_void,
         wbuf.curptr.wrapping_offset_from(wbuf.buf) as i64 as i32,
     );
@@ -486,8 +481,7 @@ pub unsafe fn CMap_create_stream(mut cmap: *mut CMap) -> *mut pdf_obj {
             }
             (*stream).as_stream_mut().add_str(&format!("{} beginbfchar\n", count),
             );
-            pdf_add_stream(
-                &mut *stream,
+            (*stream).as_stream_mut().add(
                 wbuf.buf as *const libc::c_void,
                 wbuf.curptr.wrapping_offset_from(wbuf.buf) as i64 as i32,
             );

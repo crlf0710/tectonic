@@ -43,7 +43,7 @@ use super::dpx_pdfencoding::pdf_load_ToUnicode_stream;
 use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resource_reference};
 use super::dpx_tt_cmap::otf_create_ToUnicode_stream;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_stream, pdf_copy_name, pdf_get_version, pdf_link_obj,
+    pdf_add_array, pdf_copy_name, pdf_get_version, pdf_link_obj,
     pdf_new_array, pdf_new_dict, pdf_new_name, pdf_new_stream, pdf_obj,
     pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
 };
@@ -537,7 +537,7 @@ unsafe fn create_dummy_CMap() -> *mut pdf_obj {
             i,
             i,
         );
-        pdf_add_stream(stream, buf.as_mut_ptr() as *const libc::c_void, n);
+        stream.as_stream_mut().add(buf.as_mut_ptr() as *const libc::c_void, n);
     }
     stream.as_stream_mut().add_str("endbfrange\n\n");
     stream.as_stream_mut().add_str("\n100 beginbfrange\n");
@@ -549,7 +549,7 @@ unsafe fn create_dummy_CMap() -> *mut pdf_obj {
             i,
             i,
         );
-        pdf_add_stream(stream, buf.as_mut_ptr() as *const libc::c_void, n);
+        stream.as_stream_mut().add(buf.as_mut_ptr() as *const libc::c_void, n);
     }
     stream.as_stream_mut().add_str("endbfrange\n\n");
     stream.as_stream_mut().add_str("\n48 beginbfrange\n");
@@ -561,7 +561,7 @@ unsafe fn create_dummy_CMap() -> *mut pdf_obj {
             i,
             i,
         );
-        pdf_add_stream(stream, buf.as_mut_ptr() as *const libc::c_void, n);
+        stream.as_stream_mut().add(buf.as_mut_ptr() as *const libc::c_void, n);
     }
     for i in 0xe0..=0xff {
         let n = sprintf(
@@ -571,7 +571,7 @@ unsafe fn create_dummy_CMap() -> *mut pdf_obj {
             i,
             i,
         );
-        pdf_add_stream(stream, buf.as_mut_ptr() as *const libc::c_void, n);
+        stream.as_stream_mut().add(buf.as_mut_ptr() as *const libc::c_void, n);
     }
     stream.as_stream_mut().add_str("endbfrange\n\n");
     stream.as_stream_mut().add_str("endcmap\n\nCMapName currentdict /CMap defineresource pop\n\nend\nend\n\n%%EndResource\n%%EOF\n");
