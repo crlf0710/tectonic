@@ -516,10 +516,7 @@ unsafe fn dump_xref_stream() {
         let f3 = output_xref[i].field3;
         buf[poslen.wrapping_add(1_u32) as usize] = (f3 as i32 >> 8i32) as u8;
         buf[poslen.wrapping_add(2_u32) as usize] = f3 as u8;
-        (*xref_stream).as_stream_mut().add(
-            &mut buf as *mut [u8; 7] as *const libc::c_void,
-            poslen.wrapping_add(3_u32) as i32,
-        );
+        (*xref_stream).as_stream_mut().add_slice(&buf[..(poslen.wrapping_add(3_u32) as usize)]);
     }
     pdf_release_obj(xref_stream);
 }
@@ -616,10 +613,7 @@ pub unsafe fn pdf_set_encrypt(mut encrypt: *mut pdf_obj) {
 }
 unsafe fn pdf_out_char(handle: &mut OutputHandleWrapper, mut c: u8) {
     if !output_stream.is_null() && handle == pdf_output_handle.as_mut().unwrap() {
-        (*output_stream).as_stream_mut().add(
-            &mut c as *mut u8 as *mut i8 as *const libc::c_void,
-            1i32,
-        );
+        (*output_stream).as_stream_mut().add_slice([c].as_ref());
     } else {
         ttstub_output_putc(handle, c as i32);
         /* Keep tallys for xref table *only* if writing a pdf file. */
@@ -638,10 +632,7 @@ const xchar: &[u8; 17] = b"0123456789abcdef\x00";
 unsafe fn pdf_out(handle: &mut OutputHandleWrapper, buffer: &[u8]) {
     let length = buffer.len();
     if !output_stream.is_null() && handle == pdf_output_handle.as_mut().unwrap() {
-        (*output_stream).as_stream_mut().add(
-            buffer.as_ptr() as *const libc::c_void,
-            length as i32,
-        );
+        (*output_stream).as_stream_mut().add_slice(buffer);
     } else {
         handle.write(buffer).unwrap();
         /* Keep tallys for xref table *only* if writing a pdf file */
@@ -2060,7 +2051,7 @@ pub unsafe fn pdf_add_stream_flate(
 ) -> libc::c_int {
     const WBUF_SIZE: usize = 4096;
     let mut z: libz::z_stream = std::mem::zeroed();
-    let mut wbuf: [libz::Bytef; WBUF_SIZE] = [0; WBUF_SIZE];
+    let mut wbuf = [0u8; WBUF_SIZE];
     // FIXME: Bug in libz-sys
     // z.zalloc = null_mut();
     // z.zfree = null_mut();
@@ -2090,16 +2081,13 @@ pub unsafe fn pdf_add_stream_flate(
             return -1i32;
         }
         if z.avail_out == 0 {
-            (*dst).as_stream_mut().add(wbuf.as_mut_ptr() as *const libc::c_void, WBUF_SIZE as i32);
+            (*dst).as_stream_mut().add_slice(wbuf.as_ref());
             z.next_out = wbuf.as_mut_ptr();
             z.avail_out = WBUF_SIZE as libz::uInt
         }
     }
     if (WBUF_SIZE as u32) - z.avail_out > 0 {
-        (*dst).as_stream_mut().add(
-            wbuf.as_mut_ptr() as *const libc::c_void,
-            (WBUF_SIZE - z.avail_out as usize) as libc::c_int,
-        );
+        (*dst).as_stream_mut().add_slice(&wbuf[..((WBUF_SIZE - z.avail_out as usize) as usize)]);
     }
 
     return if libz::inflateEnd(&mut z) == 0i32 {
@@ -2463,9 +2451,9 @@ unsafe fn pdf_add_stream_flate_filtered(
     // FIXME: Bug in libz-sys
     // z.zalloc = null_mut();
     // z.zfree = null_mut();
-    let mut wbuf: [libz::Bytef; 4096] = [0; 4096];
+    let mut wbuf: [u8; 4096] = [0; 4096];
     z.opaque = 0 as libz::voidpf;
-    z.next_in = data as *mut libz::Bytef;
+    z.next_in = data as *mut u8;
     z.avail_in = len as libz::uInt;
     z.next_out = wbuf.as_mut_ptr();
     z.avail_out = 4096i32 as libz::uInt;
@@ -2496,10 +2484,7 @@ unsafe fn pdf_add_stream_flate_filtered(
         }
     }
     if (4096i32 as libc::c_uint).wrapping_sub(z.avail_out) > 0i32 as libc::c_uint {
-        (*tmp).as_stream_mut().add(
-            wbuf.as_mut_ptr() as *const libc::c_void,
-            (4096i32 as libc::c_uint).wrapping_sub(z.avail_out) as libc::c_int,
-        );
+        (*tmp).as_stream_mut().add_slice(&wbuf[..((4096u32).wrapping_sub(z.avail_out) as usize)]);
     }
     let error = filter_decoded(dst, pdf_stream_dataptr(&*tmp), pdf_stream_length(&*tmp), parms);
     pdf_release_obj(tmp);
@@ -2699,15 +2684,12 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
         }
         let fresh17 = val;
         val = val.offset(1);
-        let mut length: i32 = sprintf(
+        let mut length = sprintf(
             format_buffer.as_mut_ptr() as *mut i8,
             b"%d \x00" as *const u8 as *const i8,
             *fresh17,
-        );
-        (*objstm).as_stream_mut().add(
-            format_buffer.as_mut_ptr() as *const libc::c_void,
-            length,
-        );
+        ) as usize;
+        (*objstm).as_stream_mut().add_slice(&format_buffer[..length]);
     }
     let dict = (*objstm).as_stream_mut().get_dict_mut();
     dict.set("Type", pdf_new_name("ObjStm"));
@@ -2715,7 +2697,7 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
     dict.set("First",
         pdf_new_number((*stream).content.len() as f64),
     );
-    (*objstm).as_stream_mut().add(old_buf.as_ptr() as *const libc::c_void, old_buf.len() as i32);
+    (*objstm).as_stream_mut().add_slice(old_buf.as_ref());
     pdf_release_obj(objstm);
 }
 

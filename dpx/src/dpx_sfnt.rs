@@ -390,7 +390,7 @@ pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj 
         (*td).num_kept_tables as i32 * 16i32 - sr,
         2i32,
     );
-    (*stream).as_stream_mut().add(wbuf.as_mut_ptr() as *const libc::c_void, 12i32);
+    (*stream).as_stream_mut().add_slice(&wbuf[..12]);
     /*
      * Compute start of actual tables (after headers).
      */
@@ -419,7 +419,7 @@ pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj 
                 (*(*td).tables.offset(i as isize)).length as i32,
                 4i32,
             );
-            (*stream).as_stream_mut().add(wbuf.as_mut_ptr() as *const libc::c_void, 16i32);
+            (*stream).as_stream_mut().add_slice(&wbuf[..16]);
             offset = (offset as u32).wrapping_add((*(*td).tables.offset(i as isize)).length) as i32
                 as i32
         }
@@ -429,7 +429,7 @@ pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj 
         if *(*td).flags.offset(i as isize) as i32 & 1i32 << 0i32 != 0 {
             if offset % 4i32 != 0i32 {
                 length = 4i32 - offset % 4i32;
-                (*stream).as_stream_mut().add(padbytes.as_mut_ptr() as *const libc::c_void, length);
+                (*stream).as_stream_mut().add_slice(&padbytes[..length as usize]);
                 offset += length
             }
             if (*(*td).tables.offset(i as isize)).data.is_null() {
@@ -450,10 +450,7 @@ pub unsafe fn sfnt_create_FontFile_stream(mut sfont: *mut sfnt) -> *mut pdf_obj 
                         panic!("Reading file failed...");
                     } else {
                         if nb_read > 0i32 {
-                            (*stream).as_stream_mut().add(
-                                wbuf.as_mut_ptr() as *const libc::c_void,
-                                nb_read,
-                            );
+                            (*stream).as_stream_mut().add_slice(&wbuf[..nb_read as usize]);
                         }
                     }
                     length -= nb_read

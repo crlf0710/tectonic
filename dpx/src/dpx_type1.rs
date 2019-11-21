@@ -654,10 +654,7 @@ unsafe fn write_fontfile(
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
     descriptor.set("FontFile3", pdf_ref_obj(fontfile));
     stream_dict.set("Subtype", pdf_new_name("Type1C"));
-    (*fontfile).as_stream_mut().add(
-        stream_data.as_ptr() as *mut libc::c_void,
-        offset as i32,
-    );
+    (*fontfile).as_stream_mut().add_slice(&stream_data[..offset]);
     pdf_release_obj(fontfile);
     descriptor.set(
         "CharSet",

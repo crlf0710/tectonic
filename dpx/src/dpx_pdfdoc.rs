@@ -2377,17 +2377,11 @@ pub unsafe fn pdf_doc_end_page() {
 pub unsafe fn pdf_doc_add_page_content(buffer: &[u8]) {
     let p = &mut pdoc;
     if !p.pending_forms.is_null() {
-        (*(*p.pending_forms).form.contents).as_stream_mut().add(
-            buffer.as_ptr() as *const libc::c_void,
-            buffer.len() as i32,
-        );
+        (*(*p.pending_forms).form.contents).as_stream_mut().add_slice(&buffer);
     } else {
         let currentpage =
             &mut *p.pages.entries.offset(p.pages.num_entries as isize) as *mut pdf_page;
-        (*(*currentpage).contents).as_stream_mut().add(
-            buffer.as_ptr() as *const libc::c_void,
-            buffer.len() as i32,
-        );
+        (*(*currentpage).contents).as_stream_mut().add_slice(&buffer);
     };
 }
 

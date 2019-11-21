@@ -508,10 +508,7 @@ unsafe fn create_pk_CharProc_stream(
         urx,
         ury,
     ) as usize;
-    (*stream).as_stream_mut().add(
-        work_buffer.as_mut_ptr() as *const libc::c_void,
-        len as i32,
-    );
+    (*stream).as_stream_mut().add_slice(&work_buffer[..len]);
     /*
      * Acrobat dislike transformation [0 0 0 0 dx dy].
      * PDF Reference, 4th ed., p.147, says,
@@ -532,20 +529,14 @@ unsafe fn create_pk_CharProc_stream(
             llx,
             lly,
         ) as usize;
-        (*stream).as_stream_mut().add(
-            work_buffer.as_mut_ptr() as *const libc::c_void,
-            len as i32,
-        );
+        (*stream).as_stream_mut().add_slice(&work_buffer[..len]);
         len = sprintf(
             work_buffer.as_mut_ptr() as *mut i8,
             b"BI\n/W %u\n/H %u\n/IM true\n/BPC 1\nID \x00" as *const u8 as *const i8,
             (*pkh).bm_wd,
             (*pkh).bm_ht,
         ) as usize;
-        (*stream).as_stream_mut().add(
-            work_buffer.as_mut_ptr() as *const libc::c_void,
-            len as i32,
-        );
+        (*stream).as_stream_mut().add_slice(&work_buffer[..len]);
         /* Add bitmap data */
         if (*pkh).dyn_f == 14i32 {
             /* bitmap */
@@ -573,10 +564,7 @@ unsafe fn create_pk_CharProc_stream(
             work_buffer.as_mut_ptr() as *mut i8,
             b"\nEI\nQ\x00" as *const u8 as *const i8,
         ) as usize;
-        (*stream).as_stream_mut().add(
-            work_buffer.as_mut_ptr() as *const libc::c_void,
-            len as i32,
-        );
+        (*stream).as_stream_mut().add_slice(&work_buffer[..len]);
     }
     stream
 }

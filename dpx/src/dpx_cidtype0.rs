@@ -541,10 +541,7 @@ unsafe fn write_fontfile(mut font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
     (*(*font).descriptor).as_dict_mut().set("FontFile3", pdf_ref_obj(fontfile));
     stream_dict.set("Subtype", pdf_new_name("CIDFontType0C"));
-    (*fontfile).as_stream_mut().add(
-        dest.as_mut_ptr() as *const libc::c_void,
-        offset as i32,
-    );
+    (*fontfile).as_stream_mut().add_slice(&dest[..offset as usize]);
     pdf_release_obj(fontfile);
     destlen as i32
 }

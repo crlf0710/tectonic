@@ -1381,10 +1381,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                 if !(nb_read > 0) { // TODO: check
                     break;
                 }
-                (*fstream).as_stream_mut().add(
-                    WORK_BUFFER.as_mut_ptr() as *const libc::c_void,
-                    nb_read as i32,
-                );
+                (*fstream).as_stream_mut().add_slice(&WORK_BUFFER[..nb_read]);
             }
             ttstub_input_close(handle);
             free(fullname as *mut libc::c_void);
