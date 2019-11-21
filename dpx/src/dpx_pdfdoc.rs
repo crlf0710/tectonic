@@ -66,7 +66,7 @@ use super::dpx_pdfximage::{
 };
 use super::dpx_pngimage::check_for_png;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_stream, pdf_add_stream_str, pdf_array_length, pdf_compare_reference,
+    pdf_add_array, pdf_add_stream, pdf_array_length, pdf_compare_reference,
     pdf_deref_obj, pdf_file, pdf_file_get_catalog, pdf_link_obj,
     pdf_name_value, pdf_new_array, pdf_new_dict, pdf_new_name, pdf_new_number,
     pdf_new_stream, pdf_new_string, pdf_number_value, pdf_obj, pdf_obj_typeof, pdf_out_flush,
@@ -805,12 +805,12 @@ unsafe fn pdf_doc_close_page_tree(mut p: *mut pdf_doc) {
     pdf_release_obj(page_tree_root);
     /* They must be after build_page_tree() */
     if !(*p).pages.bop.is_null() {
-        pdf_add_stream_str(&mut *(*p).pages.bop, "\n");
+        (*(*p).pages.bop).as_stream_mut().add_str("\n");
         pdf_release_obj((*p).pages.bop);
         (*p).pages.bop = ptr::null_mut()
     }
     if !(*p).pages.eop.is_null() {
-        pdf_add_stream_str(&mut *(*p).pages.eop, "\n");
+        (*(*p).pages.eop).as_stream_mut().add_str("\n");
         pdf_release_obj((*p).pages.eop);
         (*p).pages.eop = ptr::null_mut()
     }
@@ -2261,7 +2261,7 @@ unsafe fn pdf_doc_finish_page(mut p: *mut pdf_doc) {
     if !(*currentpage).background.is_null() {
         if pdf_stream_length(&*(*currentpage).background) > 0i32 {
             (*currentpage).content_refs[1] = pdf_ref_obj((*currentpage).background);
-            pdf_add_stream_str(&mut *(*currentpage).background, "\n");
+            (*(*currentpage).background).as_stream_mut().add_str("\n");
         }
         pdf_release_obj((*currentpage).background);
         (*currentpage).background = ptr::null_mut()
@@ -2270,7 +2270,7 @@ unsafe fn pdf_doc_finish_page(mut p: *mut pdf_doc) {
     }
     /* Content body of current page */
     (*currentpage).content_refs[2] = pdf_ref_obj((*currentpage).contents);
-    pdf_add_stream_str(&mut *(*currentpage).contents, "\n");
+    (*(*currentpage).contents).as_stream_mut().add_str("\n");
     pdf_release_obj((*currentpage).contents);
     (*currentpage).contents = ptr::null_mut();
     /*

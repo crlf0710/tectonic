@@ -230,7 +230,7 @@ pub struct pdf_dict {
 #[repr(C)]
 pub struct pdf_stream {
     pub dict: *mut pdf_obj,
-    pub stream: Vec<u8>,
+    pub content: Vec<u8>,
     pub objstm_data: *mut i32,
     pub _flags: i32,
     pub decodeparms: decode_parms,
@@ -1382,7 +1382,7 @@ pub unsafe fn pdf_new_stream(mut flags: i32) -> *mut pdf_obj {
             colors: 0i32,
          },
          objstm_data: ptr::null_mut(),
-         stream: Vec::new(),
+         content: Vec::new(),
     });
     /*
      * Although we are using an arbitrary pdf_object here, it must have
@@ -1804,13 +1804,13 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
      * Always work from a copy of the stream. All filters read from
      * "filtered" and leave their result in "filtered".
      */
-    let mut filtered = new((*stream).stream.len() as u32) as *mut u8;
+    let mut filtered = new((*stream).content.len() as u32) as *mut u8;
     libc::memcpy(
         filtered as *mut libc::c_void,
-        (*stream).stream.as_ptr() as *const libc::c_void,
-        (*stream).stream.len(),
+        (*stream).content.as_ptr() as *const libc::c_void,
+        (*stream).content.len(),
     );
-    let mut filtered_length = (*stream).stream.len() as u32;
+    let mut filtered_length = (*stream).content.len() as u32;
     /* PDF/A requires Metadata to be not filtered. */
     if (*(*stream).dict).as_dict().get("Type")
         .filter(|typ| "Metadata" == pdf_name_value(&**typ).to_string_lossy())
@@ -1821,7 +1821,7 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
     /* Apply compression filter if requested */
     #[cfg(feature = "libz-sys")]
     {
-        if (*stream).stream.len() > 0
+        if (*stream).content.len() > 0
             && (*stream)._flags & STREAM_COMPRESS != 0
             && compression_level as libc::c_int > 0i32
         {
@@ -1834,9 +1834,9 @@ unsafe fn write_stream(mut stream: *mut pdf_stream, handle: &mut OutputHandleWra
                     (*stream).decodeparms.colors * (*stream).decodeparms.bits_per_component;
                 let mut len: i32 = ((*stream).decodeparms.columns * bits_per_pixel + 7i32) / 8i32;
                 let mut rows: i32 =
-                    ((*stream).stream.len() as i32) / len;
+                    ((*stream).content.len() as i32) / len;
                 let mut filtered2: *mut libc::c_uchar = ptr::null_mut();
-                let mut length2: i32 = (*stream).stream.len() as i32;
+                let mut length2: i32 = (*stream).content.len() as i32;
                 let parms = filter_create_predictor_dict(
                     (*stream).decodeparms.predictor,
                     (*stream).decodeparms.columns,
@@ -2015,14 +2015,14 @@ impl pdf_stream {
 pub unsafe fn pdf_stream_dataptr(stream: &pdf_obj) -> *const libc::c_void {
     assert!(stream.is_stream());
     let data = (*stream).data as *mut pdf_stream;
-    (*data).stream.as_ptr() as *const libc::c_void
+    (*data).content.as_ptr() as *const libc::c_void
 }
 
 
 pub unsafe fn pdf_stream_length(stream: &pdf_obj) -> i32 {
     assert!((*stream).is_stream());
     let data = (*stream).data as *mut pdf_stream;
-    (*data).stream.len() as i32
+    (*data).content.len() as i32
 }
 unsafe fn set_objstm_data(objstm: &mut pdf_obj, mut data: *mut i32) {
     assert!(objstm.is_stream());
@@ -2045,20 +2045,16 @@ pub unsafe fn pdf_add_stream(
     }
     let payload = std::slice::from_raw_parts(stream_data as *const u8, length as usize);
     let data = (*stream).data as *mut pdf_stream;
-    (*data).stream.extend_from_slice(payload);
+    (*data).content.extend_from_slice(payload);
 }
 
-pub unsafe fn pdf_add_stream_str(
-    stream: &mut pdf_obj,
-    stream_data: &str,
-) {
-    assert!(stream.is_stream());
-    if !stream_data.is_empty() {
-        let data = (*stream).data as *mut pdf_stream;
-        (*data).stream.extend_from_slice(stream_data.as_bytes());
+impl pdf_stream {
+    pub fn add_str(&mut self, stream_data: &str) {
+        if !stream_data.is_empty() {
+            self.content.extend_from_slice(stream_data.as_bytes());
+        }
     }
 }
-
 
 #[cfg(feature = "libz-sys")]
 pub unsafe fn pdf_add_stream_flate(
@@ -2698,7 +2694,7 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
     let stream = (*objstm).data as *mut pdf_stream;
     /* Precede stream data by offset table */
     /* Reserve 22 bytes for each entry (two 10 digit numbers plus two spaces) */
-    let old_buf = std::mem::replace(&mut (*stream).stream, Vec::with_capacity(22 * pos as usize));
+    let old_buf = std::mem::replace(&mut (*stream).content, Vec::with_capacity(22 * pos as usize));
     let mut i: i32 = 2i32 * pos;
     let mut val: *mut i32 = data.offset(2);
     loop {
@@ -2724,7 +2720,7 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
     dict.set("Type", pdf_new_name("ObjStm"));
     dict.set("N", pdf_new_number(pos as f64));
     dict.set("First",
-        pdf_new_number((*stream).stream.len() as f64),
+        pdf_new_number((*stream).content.len() as f64),
     );
     pdf_add_stream(&mut *objstm, old_buf.as_ptr() as *const libc::c_void, old_buf.len() as i32);
     pdf_release_obj(objstm);
@@ -3199,7 +3195,7 @@ unsafe fn pdf_get_object(
             let first = *fresh26;
             if !(index as i32 >= n) && *data.offset((2i32 * index as i32) as isize) as u32 == obj_num {
                 assert!((*objstm).is_stream());
-                let objstm_slice = &(*(*((*objstm).data as *mut pdf_stream)).stream);
+                let objstm_slice = &(*(*((*objstm).data as *mut pdf_stream)).content);
 
                 let length = pdf_stream_length(&*objstm);
                 let pdfobj_start = first + *data.offset(2*index as isize+1);

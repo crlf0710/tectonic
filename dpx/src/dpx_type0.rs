@@ -43,7 +43,7 @@ use super::dpx_pdfencoding::pdf_load_ToUnicode_stream;
 use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resource_reference};
 use super::dpx_tt_cmap::otf_create_ToUnicode_stream;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_stream, pdf_add_stream_str, pdf_copy_name, pdf_get_version, pdf_link_obj,
+    pdf_add_array, pdf_add_stream, pdf_copy_name, pdf_get_version, pdf_link_obj,
     pdf_new_array, pdf_new_dict, pdf_new_name, pdf_new_stream, pdf_obj,
     pdf_ref_obj, pdf_release_obj, STREAM_COMPRESS,
 };
@@ -526,9 +526,9 @@ pub unsafe fn Type0Font_cache_close() {
 unsafe fn create_dummy_CMap() -> *mut pdf_obj {
     let mut buf: [i8; 32] = [0; 32];
     let stream = &mut *pdf_new_stream(STREAM_COMPRESS);
-    pdf_add_stream_str(stream, "%!PS-Adobe-3.0 Resource-CMap\n%%DocumentNeededResources: ProcSet (CIDInit)\n%%IncludeResource: ProcSet (CIDInit)\n%%BeginResource: CMap (Adobe-Identity-UCS2)\n%%Title: (Adobe-Identity-UCS2 Adobe UCS2 0)\n%%Version: 1.0\n%%Copyright:\n%% ---\n%%EndComments\n\n");
-    pdf_add_stream_str(stream, "/CIDInit /ProcSet findresource begin\n\n12 dict begin\n\nbegincmap\n\n/CIDSystemInfo 3 dict dup begin\n  /Registry (Adobe) def\n  /Ordering (UCS2) def\n  /Supplement 0 def\nend def\n\n/CMapName /Adobe-Identity-UCS2 def\n/CMapVersion 1.0 def\n/CMapType 2 def\n\n2 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n");
-    pdf_add_stream_str(stream, "\n100 beginbfrange\n");
+    stream.as_stream_mut().add_str("%!PS-Adobe-3.0 Resource-CMap\n%%DocumentNeededResources: ProcSet (CIDInit)\n%%IncludeResource: ProcSet (CIDInit)\n%%BeginResource: CMap (Adobe-Identity-UCS2)\n%%Title: (Adobe-Identity-UCS2 Adobe UCS2 0)\n%%Version: 1.0\n%%Copyright:\n%% ---\n%%EndComments\n\n");
+    stream.as_stream_mut().add_str("/CIDInit /ProcSet findresource begin\n\n12 dict begin\n\nbegincmap\n\n/CIDSystemInfo 3 dict dup begin\n  /Registry (Adobe) def\n  /Ordering (UCS2) def\n  /Supplement 0 def\nend def\n\n/CMapName /Adobe-Identity-UCS2 def\n/CMapVersion 1.0 def\n/CMapType 2 def\n\n2 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n");
+    stream.as_stream_mut().add_str("\n100 beginbfrange\n");
     for i in 0..0x64 {
         let n = sprintf(
             buf.as_mut_ptr(),
@@ -539,8 +539,8 @@ unsafe fn create_dummy_CMap() -> *mut pdf_obj {
         );
         pdf_add_stream(stream, buf.as_mut_ptr() as *const libc::c_void, n);
     }
-    pdf_add_stream_str(stream, "endbfrange\n\n");
-    pdf_add_stream_str(stream, "\n100 beginbfrange\n");
+    stream.as_stream_mut().add_str("endbfrange\n\n");
+    stream.as_stream_mut().add_str("\n100 beginbfrange\n");
     for i in 0x64..0xc8 {
         let n = sprintf(
             buf.as_mut_ptr(),
@@ -551,8 +551,8 @@ unsafe fn create_dummy_CMap() -> *mut pdf_obj {
         );
         pdf_add_stream(stream, buf.as_mut_ptr() as *const libc::c_void, n);
     }
-    pdf_add_stream_str(stream, "endbfrange\n\n");
-    pdf_add_stream_str(stream, "\n48 beginbfrange\n");
+    stream.as_stream_mut().add_str("endbfrange\n\n");
+    stream.as_stream_mut().add_str("\n48 beginbfrange\n");
     for i in 0xc8..=0xd7 {
         let n = sprintf(
             buf.as_mut_ptr(),
@@ -573,8 +573,8 @@ unsafe fn create_dummy_CMap() -> *mut pdf_obj {
         );
         pdf_add_stream(stream, buf.as_mut_ptr() as *const libc::c_void, n);
     }
-    pdf_add_stream_str(stream, "endbfrange\n\n");
-    pdf_add_stream_str(stream, "endcmap\n\nCMapName currentdict /CMap defineresource pop\n\nend\nend\n\n%%EndResource\n%%EOF\n");
+    stream.as_stream_mut().add_str("endbfrange\n\n");
+    stream.as_stream_mut().add_str("endcmap\n\nCMapName currentdict /CMap defineresource pop\n\nend\nend\n\n%%EndResource\n%%EOF\n");
     stream
 }
 unsafe fn pdf_read_ToUnicode_file(mut cmap_name: *const i8) -> *mut pdf_obj {

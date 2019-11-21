@@ -60,7 +60,7 @@ use super::dpx_pdffont::{
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
 use crate::dpx_pdfobj::{
-    pdf_add_array, pdf_add_stream, pdf_add_stream_str, pdf_array_length,
+    pdf_add_array, pdf_add_stream, pdf_array_length,
     pdf_new_array, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_ref_obj,
     pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, STREAM_COMPRESS,
 };
@@ -586,7 +586,7 @@ pub unsafe fn pdf_font_load_type1c(mut font: *mut pdf_font) -> i32 {
                     warn!("Maybe incorrect encoding specified.");
                     *usedchars.offset(code as isize) = 0_i8
                 } else {
-                    pdf_add_stream_str(&mut *pdfcharset, "/");
+                    (*pdfcharset).as_stream_mut().add_str("/");
                     pdf_add_stream(
                         &mut *pdfcharset,
                         *enc_vec.offset(code as isize) as *const libc::c_void,
