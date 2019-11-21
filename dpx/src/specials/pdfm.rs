@@ -240,11 +240,7 @@ unsafe fn spc_handler_pdfm_eop(mut _spe: *mut spc_env, mut args: *mut spc_arg) -
     0i32
 }
 /* Why should we have this kind of things? */
-unsafe fn safeputresdent(
-    kp: *mut pdf_obj,
-    vp: *mut pdf_obj,
-    dp: *mut libc::c_void,
-) -> i32 {
+unsafe fn safeputresdent(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
     assert!(!kp.is_null() && !vp.is_null() && !dp.is_null());
     let key = pdf_name_value(&*kp);
     let dict_ref = (*(dp as *mut pdf_obj)).as_dict_mut();
@@ -258,11 +254,7 @@ unsafe fn safeputresdent(
     }
     0i32
 }
-unsafe fn safeputresdict(
-    kp: *mut pdf_obj,
-    vp: *mut pdf_obj,
-    dp: *mut libc::c_void,
-) -> i32 {
+unsafe fn safeputresdict(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
     assert!(!kp.is_null() && !vp.is_null() && !dp.is_null());
     let key = pdf_name_value(&*kp);
     let dict_ref = (*(dp as *mut pdf_obj)).as_dict_mut();

@@ -627,13 +627,7 @@ pub unsafe fn graphics_mode() {
     }
     motion_state = MotionState::GRAPHICS_MODE;
 }
-unsafe fn start_string(
-    xpos: spt_t,
-    ypos: spt_t,
-    slant: f64,
-    extend: f64,
-    rotate: TextWMode,
-) {
+unsafe fn start_string(xpos: spt_t, ypos: spt_t, slant: f64, extend: f64, rotate: TextWMode) {
     let mut error_delx: spt_t = 0i32;
     let mut error_dely: spt_t = 0i32;
     let mut len = 0_usize;
@@ -815,13 +809,7 @@ unsafe fn start_string(
     text_state.ref_y = ypos - error_dely;
     text_state.offset = 0i32;
 }
-unsafe fn string_mode(
-    xpos: spt_t,
-    ypos: spt_t,
-    slant: f64,
-    extend: f64,
-    rotate: TextWMode,
-) {
+unsafe fn string_mode(xpos: spt_t, ypos: spt_t, slant: f64, extend: f64, rotate: TextWMode) {
     match motion_state {
         MotionState::GRAPHICS_MODE | MotionState::TEXT_MODE => {
             if let MotionState::GRAPHICS_MODE = motion_state {
@@ -1617,12 +1605,7 @@ unsafe fn dev_sprint_line(
     len
 }
 
-pub unsafe fn pdf_dev_set_rule(
-    mut xpos: spt_t,
-    mut ypos: spt_t,
-    width: spt_t,
-    height: spt_t,
-) {
+pub unsafe fn pdf_dev_set_rule(mut xpos: spt_t, mut ypos: spt_t, width: spt_t, height: spt_t) {
     let mut len = 0_usize;
     if num_dev_coords > 0i32 {
         xpos -= ((*dev_coords.offset((num_dev_coords - 1i32) as isize)).x / dev_unit.dvi2pts)

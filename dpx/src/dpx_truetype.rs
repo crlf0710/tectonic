@@ -338,11 +338,7 @@ static mut verbose: i32 = 0i32;
  * It does not work with encodings that uses full 256 range since
  * GID = 0 is reserved for .notdef, so GID = 256 is not accessible.
  */
-unsafe fn do_builtin_encoding(
-    font: *mut pdf_font,
-    usedchars: *const i8,
-    sfont: *mut sfnt,
-) -> i32 {
+unsafe fn do_builtin_encoding(font: *mut pdf_font, usedchars: *const i8, sfont: *mut sfnt) -> i32 {
     let mut widths: [f64; 256] = [0.; 256];
     let ttcm = tt_cmap_read(sfont, 1_u16, 0_u16);
     if ttcm.is_null() {
@@ -643,11 +639,7 @@ unsafe fn composeuchar(
     error
 }
 /* Search 'post' table. */
-unsafe fn findposttable(
-    glyph_name: *const i8,
-    gid: *mut u16,
-    gm: *mut glyph_mapper,
-) -> i32 {
+unsafe fn findposttable(glyph_name: *const i8, gid: *mut u16, gm: *mut glyph_mapper) -> i32 {
     if (*gm).nametogid.is_null() {
         return -1i32;
     }
@@ -660,11 +652,7 @@ unsafe fn findposttable(
 }
 /* This is wrong. We must care about '.'. */
 /* Glyph names are concatinated with '_'. */
-unsafe fn findcomposite(
-    glyphname: *const i8,
-    gid: *mut u16,
-    gm: *mut glyph_mapper,
-) -> i32 {
+unsafe fn findcomposite(glyphname: *const i8, gid: *mut u16, gm: *mut glyph_mapper) -> i32 {
     let mut suffix: *mut i8 = ptr::null_mut();
     let mut gids: [u16; 32] = [0; 32];
     let mut nptrs: [*mut i8; 32] = [ptr::null_mut(); 32];
@@ -718,11 +706,7 @@ unsafe fn findcomposite(
     error
 }
 /* glyphname should not have suffix here */
-unsafe fn findparanoiac(
-    glyphname: *const i8,
-    gid: *mut u16,
-    gm: *mut glyph_mapper,
-) -> i32 {
+unsafe fn findparanoiac(glyphname: *const i8, gid: *mut u16, gm: *mut glyph_mapper) -> i32 {
     let mut idx: u16 = 0_u16;
     let mut error;
     let mut agln = agl_lookup_list(glyphname);
@@ -821,11 +805,7 @@ unsafe fn findparanoiac(
         0i32
     }
 }
-unsafe fn resolve_glyph(
-    glyphname: *const i8,
-    gid: *mut u16,
-    gm: *mut glyph_mapper,
-) -> i32 {
+unsafe fn resolve_glyph(glyphname: *const i8, gid: *mut u16, gm: *mut glyph_mapper) -> i32 {
     assert!(!glyphname.is_null());
     /* Boooo */
     /*

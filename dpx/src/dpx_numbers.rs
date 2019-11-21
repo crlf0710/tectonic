@@ -140,11 +140,7 @@ pub unsafe fn get_unsigned_num(file: *mut FILE, num: u8) -> u32 {
 }
 /* Compute a signed quad that must be positive */
 
-pub unsafe fn get_positive_quad(
-    file: *mut FILE,
-    type_0: *const i8,
-    name: *const i8,
-) -> u32 {
+pub unsafe fn get_positive_quad(file: *mut FILE, type_0: *const i8, name: *const i8) -> u32 {
     let val: i32 = get_signed_quad(file);
     if val < 0i32 {
         panic!(

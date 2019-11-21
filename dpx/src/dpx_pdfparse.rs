@@ -219,11 +219,7 @@ pub unsafe fn parse_unsigned(start: *mut *const i8, end: *const i8) -> *mut i8 {
     *start = p;
     number
 }
-unsafe fn parse_gen_ident(
-    start: *mut *const i8,
-    end: *const i8,
-    valid_chars: &[u8],
-) -> *mut i8 {
+unsafe fn parse_gen_ident(start: *mut *const i8, end: *const i8, valid_chars: &[u8]) -> *mut i8 {
     /* No skip_white(start, end)? */
     let mut p = *start;
     while p < end {

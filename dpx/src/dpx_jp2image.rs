@@ -149,12 +149,7 @@ unsafe fn scan_res_(info: &mut ximage_info, fp: *mut FILE, mut size: u32) -> i32
  * contains opacity channel. However, OpenJPEG (and maybe most of JPEG 2000 coders?)
  * does not write Channel Definition box so transparency will be ignored.
  */
-unsafe fn scan_cdef(
-    _info: &mut ximage_info,
-    smask: *mut i32,
-    fp: *mut FILE,
-    size: u32,
-) -> i32 {
+unsafe fn scan_cdef(_info: &mut ximage_info, smask: *mut i32, fp: *mut FILE, size: u32) -> i32 {
     let mut opacity_channels: i32 = 0i32; /* Cn */
     let mut have_type0: i32 = 0i32; /* must be 0 for SMask */
     *smask = 0i32;
@@ -186,12 +181,7 @@ unsafe fn scan_cdef(
     }
     0i32
 }
-unsafe fn scan_jp2h(
-    info: &mut ximage_info,
-    smask: *mut i32,
-    fp: *mut FILE,
-    mut size: u32,
-) -> i32 {
+unsafe fn scan_jp2h(info: &mut ximage_info, smask: *mut i32, fp: *mut FILE, mut size: u32) -> i32 {
     let mut error: i32 = 0i32;
     let mut have_ihdr: i32 = 0i32;
     let mut lbox: u32 = 0;

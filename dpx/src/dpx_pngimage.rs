@@ -93,10 +93,7 @@ unsafe extern "C" fn _png_read(png_ptr: *mut png_struct, outbytes: *mut u8, n: u
     };
 }
 
-pub unsafe fn png_include_image(
-    ximage: *mut pdf_ximage,
-    handle: &mut InputHandleWrapper,
-) -> i32 {
+pub unsafe fn png_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandleWrapper) -> i32 {
     let mut info = ximage_info::default();
     /* Libpng stuff */
     pdf_ximage_init_image_info(&mut info);
@@ -557,10 +554,7 @@ unsafe fn create_cspace_sRGB(png: &png_struct, info: &png_info) -> *mut pdf_obj 
  * There are few restrictions (should be applied to PNG too?) in ICC profile
  * support in PDF. Some information should be obtained from profile.
  */
-unsafe fn create_cspace_ICCBased(
-    png: &mut png_struct,
-    png_info: &mut png_info,
-) -> *mut pdf_obj {
+unsafe fn create_cspace_ICCBased(png: &mut png_struct, png_info: &mut png_info) -> *mut pdf_obj {
     let mut name = ptr::null_mut();
     let mut compression_type: libc::c_int = 0;
     let mut profile: png_bytep = ptr::null_mut();
@@ -608,10 +602,7 @@ unsafe fn create_cspace_ICCBased(
  *   If cHRM is present, we use CIE-Based color space. gAMA is also used here
  * if available.
  */
-unsafe fn create_cspace_CalRGB(
-    png: &mut png_struct,
-    png_info: &mut png_info,
-) -> *mut pdf_obj {
+unsafe fn create_cspace_CalRGB(png: &mut png_struct, png_info: &mut png_info) -> *mut pdf_obj {
     let mut xw: f64 = 0.;
     let mut yw: f64 = 0.;
     let mut xr: f64 = 0.;
@@ -1041,8 +1032,8 @@ unsafe fn strip_soft_mask(
     let smask_data_ptr = new((((bpc as i32 / 8i32) as u32)
         .wrapping_mul(width)
         .wrapping_mul(height) as u64)
-        .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
-        as u32) as *mut png_byte;
+        .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
+        as *mut png_byte;
     match color_type as i32 {
         6 => {
             if bpc as i32 == 8i32 {
@@ -1132,9 +1123,8 @@ unsafe fn read_image_data(
     height: png_uint_32,
     rowbytes: png_uint_32,
 ) {
-    let rows_p =
-        new((height as u64).wrapping_mul(::std::mem::size_of::<png_bytep>() as u64) as u32)
-            as *mut png_bytep;
+    let rows_p = new((height as u64).wrapping_mul(::std::mem::size_of::<png_bytep>() as u64) as u32)
+        as *mut png_bytep;
     for i in 0..height {
         let ref mut fresh1 = *rows_p.offset(i as isize);
         *fresh1 = dest_ptr.offset(rowbytes.wrapping_mul(i) as isize);

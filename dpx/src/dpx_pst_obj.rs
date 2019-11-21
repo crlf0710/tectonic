@@ -810,10 +810,7 @@ unsafe fn esctouc(inbuf: *mut *mut u8, inbufend: *mut u8, valid: *mut u8) -> u8 
     unescaped
 }
 /* STRING */
-unsafe fn pst_string_parse_literal(
-    inbuf: *mut *mut u8,
-    inbufend: *mut u8,
-) -> *mut pst_string {
+unsafe fn pst_string_parse_literal(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut pst_string {
     let mut wbuf: [u8; 4096] = [0; 4096];
     let mut cur: *mut u8 = *inbuf;
     let mut c: u8 = 0_u8;

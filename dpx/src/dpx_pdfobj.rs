@@ -393,11 +393,7 @@ unsafe fn add_xref_entry(label: usize, typ: u8, field2: u32, field3: u16) {
     }
 }
 
-pub unsafe fn pdf_out_init(
-    filename: *const i8,
-    do_encryption: bool,
-    enable_object_stream: bool,
-) {
+pub unsafe fn pdf_out_init(filename: *const i8, do_encryption: bool, enable_object_stream: bool) {
     output_xref = vec![];
     pdf_max_ind_objects = 0;
     add_xref_entry(0, 0_u8, 0_u32, 0xffff_u16);
@@ -1740,8 +1736,7 @@ unsafe fn filter_TIFF2_apply_filter(
                     let pos: i32 = colors as libc::c_int * (columns * j + i);
                     for c in 0..colors as libc::c_int {
                         let cur: u8 = *raster.offset((pos + c) as isize);
-                        let sub: i32 =
-                            cur as libc::c_int - *prev.offset(c as isize) as libc::c_int;
+                        let sub: i32 = cur as libc::c_int - *prev.offset(c as isize) as libc::c_int;
                         *prev.offset(c as isize) = cur as u16;
                         *dst.offset((pos + c) as isize) = sub as libc::c_uchar;
                     }
@@ -2988,11 +2983,7 @@ unsafe fn next_object_offset(pf: *mut pdf_file, obj_num: u32) -> i32 {
     next
 }
 
-pub unsafe fn pdf_new_indirect(
-    pf: *mut pdf_file,
-    obj_num: u32,
-    obj_gen: u16,
-) -> *mut pdf_obj {
+pub unsafe fn pdf_new_indirect(pf: *mut pdf_file, obj_num: u32, obj_gen: u16) -> *mut pdf_obj {
     let indirect = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_indirect>() as u64) as u32)
         as *mut pdf_indirect;
     (*indirect).pf = pf;
@@ -3161,11 +3152,7 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
  * null object, as required by the PDF spec. This is important to parse
  * several cross-reference sections.
  */
-unsafe fn pdf_get_object(
-    pf: *mut pdf_file,
-    obj_num: u32,
-    obj_gen: u16,
-) -> *mut pdf_obj {
+unsafe fn pdf_get_object(pf: *mut pdf_file, obj_num: u32, obj_gen: u16) -> *mut pdf_obj {
     if !(obj_num > 0_u32
         && obj_num < (*pf).num_obj as u32
         && ((*(*pf).xref_table.offset(obj_num as isize)).typ as i32 == 1i32
@@ -3563,11 +3550,7 @@ unsafe fn parse_xrefstm_subsec(
     }
     0i32
 }
-unsafe fn parse_xref_stream(
-    pf: *mut pdf_file,
-    xref_pos: i32,
-    trailer: *mut *mut pdf_obj,
-) -> i32 {
+unsafe fn parse_xref_stream(pf: *mut pdf_file, xref_pos: i32, trailer: *mut *mut pdf_obj) -> i32 {
     let mut current_block: u64;
     let mut W: [i32; 3] = [0; 3];
     let mut wsum: i32 = 0i32;
@@ -3955,11 +3938,7 @@ pub unsafe extern "C" fn check_for_pdf(handle: &mut InputHandleWrapper) -> bool 
 }
 
 #[inline]
-unsafe fn import_dict(
-    key: *mut pdf_obj,
-    value: *mut pdf_obj,
-    pdata: *mut libc::c_void,
-) -> i32 {
+unsafe fn import_dict(key: *mut pdf_obj, value: *mut pdf_obj, pdata: *mut libc::c_void) -> i32 {
     let copy = &mut *(pdata as *mut pdf_obj);
     let tmp = pdf_import_object(value);
     if tmp.is_null() {

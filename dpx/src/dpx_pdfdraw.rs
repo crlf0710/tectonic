@@ -510,12 +510,7 @@ unsafe fn pdf_dev__rectshape(r: &Rect, M: Option<&TMatrix>, opchr: u8) -> i32 {
 }
 static mut path_added: i32 = 0i32;
 /* FIXME */
-unsafe fn pdf_dev__flushpath(
-    pa: &mut pdf_path,
-    opchr: u8,
-    rule: i32,
-    ignore_rule: i32,
-) -> i32 {
+unsafe fn pdf_dev__flushpath(pa: &mut pdf_path, opchr: u8, rule: i32, ignore_rule: i32) -> i32 {
     let b = &mut fmt_buf; /* height... */
     let b_len = 1024; /* op: re */
     let mut r = Rect::zero(); /* op: m l c v y h */
@@ -1003,14 +998,7 @@ pub unsafe fn pdf_dev_rlineto(x: f64, y: f64) -> i32 {
     cpa.lineto(cpt, point2(x + cpt.x, y + cpt.y))
 }
 
-pub unsafe fn pdf_dev_curveto(
-    x0: f64,
-    y0: f64,
-    x1: f64,
-    y1: f64,
-    x2: f64,
-    y2: f64,
-) -> i32 {
+pub unsafe fn pdf_dev_curveto(x0: f64, y0: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1042,14 +1030,7 @@ pub unsafe fn pdf_dev_ycurveto(x0: f64, y0: f64, x1: f64, y1: f64) -> i32 {
     cpa.curveto(cpt, p0, p1, p1)
 }
 
-pub unsafe fn pdf_dev_rcurveto(
-    x0: f64,
-    y0: f64,
-    x1: f64,
-    y1: f64,
-    x2: f64,
-    y2: f64,
-) -> i32 {
+pub unsafe fn pdf_dev_rcurveto(x0: f64, y0: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;

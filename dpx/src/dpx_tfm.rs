@@ -258,21 +258,13 @@ unsafe fn fms_need(n: u32) {
 pub unsafe fn tfm_set_verbose(level: i32) {
     verbose = level;
 }
-unsafe fn fread_fwords(
-    words: *mut fixword,
-    nmemb: u32,
-    handle: &mut InputHandleWrapper,
-) -> i32 {
+unsafe fn fread_fwords(words: *mut fixword, nmemb: u32, handle: &mut InputHandleWrapper) -> i32 {
     for i in 0..nmemb {
         *words.offset(i as isize) = tt_get_signed_quad(handle);
     }
     nmemb.wrapping_mul(4_u32) as i32
 }
-unsafe fn fread_uquads(
-    quads: *mut u32,
-    nmemb: u32,
-    handle: &mut InputHandleWrapper,
-) -> i32 {
+unsafe fn fread_uquads(quads: *mut u32, nmemb: u32, handle: &mut InputHandleWrapper) -> i32 {
     for i in 0..nmemb {
         *quads.offset(i as isize) = tt_get_unsigned_quad(handle);
     }

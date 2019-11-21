@@ -200,12 +200,7 @@ unsafe fn clear_stack(dest: *mut *mut u8, limit: *mut u8) {
  *  1: hint declaration, first stack-clearing operator appeared
  *  2: in path construction
  */
-unsafe fn do_operator1(
-    dest: *mut *mut u8,
-    limit: *mut u8,
-    data: *mut *mut u8,
-    endptr: *mut u8,
-) {
+unsafe fn do_operator1(dest: *mut *mut u8, limit: *mut u8, data: *mut *mut u8, endptr: *mut u8) {
     let op: u8 = **data;
     *data = (*data).offset(1);
     match op as i32 {
@@ -356,12 +351,7 @@ unsafe fn do_operator1(
  * Following operators are not supported:
  *  random: How random ?
  */
-unsafe fn do_operator2(
-    dest: *mut *mut u8,
-    limit: *mut u8,
-    data: *mut *mut u8,
-    endptr: *mut u8,
-) {
+unsafe fn do_operator2(dest: *mut *mut u8, limit: *mut u8, data: *mut *mut u8, endptr: *mut u8) {
     *data = (*data).offset(1);
     if endptr < (*data).offset(1) {
         status = -1i32;
@@ -738,12 +728,7 @@ unsafe fn get_fixed(data: *mut *mut u8, endptr: *mut u8) {
  * subr_idx: CFF INDEX data that contains subroutines.
  * id:       biased subroutine number.
  */
-unsafe fn get_subr(
-    subr: *mut *mut u8,
-    len: *mut i32,
-    subr_idx: *mut cff_index,
-    mut id: i32,
-) {
+unsafe fn get_subr(subr: *mut *mut u8, len: *mut i32, subr_idx: *mut cff_index, mut id: i32) {
     if subr_idx.is_null() {
         panic!(
             "{}: Subroutine called but no subroutine found.",

@@ -1060,10 +1060,7 @@ unsafe fn release_opt(opt: *mut cid_opt) {
     }
     free(opt as *mut libc::c_void);
 }
-unsafe fn get_cidsysinfo(
-    map_name: *const i8,
-    fmap_opt: *mut fontmap_opt,
-) -> *mut CIDSysInfo {
+unsafe fn get_cidsysinfo(map_name: *const i8, fmap_opt: *mut fontmap_opt) -> *mut CIDSysInfo {
     let mut csi: *mut CIDSysInfo = ptr::null_mut();
     let mut csi_idx: i32 = -1i32;
     let pdf_ver = pdf_get_version() as i32;

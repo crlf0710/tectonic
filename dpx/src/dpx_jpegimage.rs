@@ -175,10 +175,7 @@ pub unsafe fn check_for_jpeg(handle: &mut InputHandleWrapper) -> i32 {
     1i32
 }
 
-pub unsafe fn jpeg_include_image(
-    ximage: *mut pdf_ximage,
-    handle: &mut InputHandleWrapper,
-) -> i32 {
+pub unsafe fn jpeg_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandleWrapper) -> i32 {
     let mut info = ximage_info::default();
     let mut j_info: JPEG_info = JPEG_info {
         height: 0,
@@ -298,11 +295,7 @@ pub unsafe fn jpeg_include_image(
     JPEG_info_clear(&mut j_info);
     0i32
 }
-unsafe fn jpeg_get_density(
-    mut j_info: *mut JPEG_info,
-    xdensity: *mut f64,
-    ydensity: *mut f64,
-) {
+unsafe fn jpeg_get_density(mut j_info: *mut JPEG_info, xdensity: *mut f64, ydensity: *mut f64) {
     /*
      * j_info->xdpi and j_info->ydpi are determined in most cases
      * in JPEG_scan_file(). FIXME: However, in some kinds of JPEG files,

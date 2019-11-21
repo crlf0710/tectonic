@@ -1367,11 +1367,7 @@ pub unsafe fn otl_gsub_apply(gsub_list: *mut otl_gsub, gid: *mut u16) -> i32 {
     retval
 }
 
-pub unsafe fn otl_gsub_apply_alt(
-    gsub_list: *mut otl_gsub,
-    alt_idx: u16,
-    gid: *mut u16,
-) -> i32 {
+pub unsafe fn otl_gsub_apply_alt(gsub_list: *mut otl_gsub, alt_idx: u16, gid: *mut u16) -> i32 {
     let mut retval: i32 = -1i32;
     if gsub_list.is_null() || gid.is_null() {
         return retval;

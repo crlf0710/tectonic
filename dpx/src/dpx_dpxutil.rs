@@ -154,11 +154,7 @@ pub unsafe fn ht_lookup_table(
     ptr::null_mut()
 }
 
-pub unsafe fn ht_remove_table(
-    mut ht: *mut ht_table,
-    key: *const libc::c_void,
-    keylen: i32,
-) -> i32
+pub unsafe fn ht_remove_table(mut ht: *mut ht_table, key: *const libc::c_void, keylen: i32) -> i32
 /* returns 1 if the element was found and removed and 0 otherwise */ {
     assert!(!ht.is_null() && !key.is_null());
     let hkey = get_hash(key, keylen) as usize;
@@ -421,12 +417,7 @@ unsafe fn read_c_escchar(r: *mut i8, pp: *mut *const i8, endptr: *const i8) -> i
     *pp = p;
     l
 }
-unsafe fn read_c_litstrc(
-    q: *mut i8,
-    len: i32,
-    pp: *mut *const i8,
-    endptr: *const i8,
-) -> i32 {
+unsafe fn read_c_litstrc(q: *mut i8, len: i32, pp: *mut *const i8, endptr: *const i8) -> i32 {
     let mut s: i32 = -1i32;
     let mut l = 0i32;
     let mut p = *pp;

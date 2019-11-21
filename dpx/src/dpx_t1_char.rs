@@ -245,12 +245,7 @@ unsafe fn copy_args(mut args1: *mut f64, mut args2: *mut f64, mut count: i32) {
  * Path construction:
  */
 /* Get operands from cs_arg_stack[] */
-unsafe fn add_charpath(
-    mut cd: *mut t1_chardesc,
-    type_0: i32,
-    argv: *mut f64,
-    mut argn: i32,
-) {
+unsafe fn add_charpath(mut cd: *mut t1_chardesc, type_0: i32, argv: *mut f64, mut argn: i32) {
     assert!(!cd.is_null());
     assert!(argn <= 48i32);
     let mut p =
@@ -917,12 +912,7 @@ unsafe fn do_operator2(mut cd: *mut t1_chardesc, data: *mut *mut u8, endptr: *mu
  *   Type 1 format.
  */
 /* Type 2 5-bytes encoding used. */
-unsafe fn put_numbers(
-    argv: *mut f64,
-    argn: i32,
-    dest: *mut *mut u8,
-    limit: *mut u8,
-) {
+unsafe fn put_numbers(argv: *mut f64, argn: i32, dest: *mut *mut u8, limit: *mut u8) {
     for i in 0..argn {
         let value = *argv.offset(i as isize);
         /* Nearest integer value */

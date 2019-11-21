@@ -252,11 +252,7 @@ unsafe fn fill_in_defaults(mut mrec: *mut fontmap_rec, tex_name: &str) {
         }
     };
 }
-unsafe fn tt_readline(
-    buf: *mut i8,
-    buf_len: i32,
-    handle: &mut InputHandleWrapper,
-) -> *mut i8 {
+unsafe fn tt_readline(buf: *mut i8, buf_len: i32, handle: &mut InputHandleWrapper) -> *mut i8 {
     assert!(!buf.is_null() && buf_len > 0i32);
     let p = tt_mfgets(buf, buf_len, handle);
     if p.is_null() {
@@ -305,11 +301,7 @@ unsafe fn parse_string_value(pp: *mut *const i8, endptr: *const i8) -> *mut i8 {
     q
 }
 /* no preceeding spaces allowed */
-unsafe fn parse_integer_value(
-    pp: *mut *const i8,
-    endptr: *const i8,
-    mut base: i32,
-) -> *mut i8 {
+unsafe fn parse_integer_value(pp: *mut *const i8, endptr: *const i8, mut base: i32) -> *mut i8 {
     let mut p: *const i8 = *pp;
     let mut has_sign: i32 = 0i32;
     let mut has_prefix: i32 = 0i32;
@@ -984,10 +976,7 @@ pub unsafe fn pdf_remove_fontmap_record(kp: *const i8) -> i32 {
     0i32
 }
 
-pub unsafe fn pdf_insert_fontmap_record(
-    kp: *const i8,
-    vp: *const fontmap_rec,
-) -> *mut fontmap_rec {
+pub unsafe fn pdf_insert_fontmap_record(kp: *const i8, vp: *const fontmap_rec) -> *mut fontmap_rec {
     let mut sfd_name: *mut i8 = ptr::null_mut();
     if kp.is_null() || (vp.is_null() || (*vp).map_name.is_null() || (*vp).font_name.is_null()) {
         warn!("Invalid fontmap record...");

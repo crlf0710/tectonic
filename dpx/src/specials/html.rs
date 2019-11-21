@@ -275,11 +275,7 @@ unsafe fn fqurl(baseurl: *const i8, name: *const i8) -> *mut i8 {
     q
 }
 
-unsafe fn html_open_link(
-    spe: *mut spc_env,
-    name: *const i8,
-    mut sd: *mut spc_html_,
-) -> i32 {
+unsafe fn html_open_link(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_html_) -> i32 {
     assert!(!name.is_null());
     assert!((*sd).link_dict.is_null());
     (*sd).link_dict = pdf_new_dict();
@@ -323,11 +319,7 @@ unsafe fn html_open_link(
     0i32
 }
 
-unsafe fn html_open_dest(
-    spe: *mut spc_env,
-    name: *const i8,
-    mut sd: *mut spc_html_,
-) -> i32 {
+unsafe fn html_open_dest(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_html_) -> i32 {
     let mut cp = Point::new((*spe).x_user, (*spe).y_user);
     pdf_dev_transform(&mut cp, None);
     let page_ref = pdf_doc_get_reference("@THISPAGE");
@@ -355,11 +347,7 @@ unsafe fn html_open_dest(
     error
 }
 
-unsafe fn spc_html__anchor_open(
-    spe: *mut spc_env,
-    attr: &pdf_obj,
-    sd: *mut spc_html_,
-) -> i32 {
+unsafe fn spc_html__anchor_open(spe: *mut spc_env, attr: &pdf_obj, sd: *mut spc_html_) -> i32 {
     if (*sd).pending_type >= 0i32 || !(*sd).link_dict.is_null() {
         spc_warn!(spe, "Nested html anchors found!");
         return -1i32;
@@ -409,11 +397,7 @@ unsafe fn spc_html__anchor_close(spe: *mut spc_env, mut sd: *mut spc_html_) -> i
     error
 }
 
-unsafe fn spc_html__base_empty(
-    spe: *mut spc_env,
-    attr: &pdf_obj,
-    mut sd: *mut spc_html_,
-) -> i32 {
+unsafe fn spc_html__base_empty(spe: *mut spc_env, attr: &pdf_obj, mut sd: *mut spc_html_) -> i32 {
     let href = attr.as_dict().get("href");
     if href.is_none() {
         spc_warn!(spe, "\"href\" not found for \"base\" tag!");

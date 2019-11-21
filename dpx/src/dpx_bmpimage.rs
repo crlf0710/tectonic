@@ -115,10 +115,7 @@ pub unsafe fn bmp_get_bbox(
     r
 }
 
-pub unsafe fn bmp_include_image(
-    ximage: *mut pdf_ximage,
-    handle: &mut InputHandleWrapper,
-) -> i32 {
+pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandleWrapper) -> i32 {
     let mut info = ximage_info::default();
     let mut hdr: hdr_info = hdr_info {
         offset: 0_u32,

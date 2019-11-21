@@ -446,11 +446,7 @@ unsafe fn lookup_cmap12(map: *mut cmap12, cccc: u32) -> u16 {
 }
 /* read cmap */
 
-pub unsafe fn tt_cmap_read(
-    sfont: *mut sfnt,
-    platform: u16,
-    encoding: u16,
-) -> *mut tt_cmap {
+pub unsafe fn tt_cmap_read(sfont: *mut sfnt, platform: u16, encoding: u16) -> *mut tt_cmap {
     let length;
     assert!(!sfont.is_null());
     let mut offset = sfnt_locate_table(sfont, sfnt_table_info::CMAP);
@@ -657,8 +653,7 @@ unsafe fn load_cmap12(
         for ch in (*(*map).groups.offset(i as isize)).startCharCode
             ..=(*(*map).groups.offset(i as isize)).endCharCode
         {
-            let d: i32 =
-                ch.wrapping_sub((*(*map).groups.offset(i as isize)).startCharCode) as i32;
+            let d: i32 = ch.wrapping_sub((*(*map).groups.offset(i as isize)).startCharCode) as i32;
             let mut gid = ((*(*map).groups.offset(i as isize))
                 .startGlyphID
                 .wrapping_add(d as u32)
@@ -725,7 +720,7 @@ unsafe fn handle_CIDFont(
         panic!("No glyph contained in this font...");
     }
     let cffont = cff_open(&mut (*sfont).handle, offset, 0i32); /* CID... */
- // TODO: use link
+    // TODO: use link
     if cffont.is_null() {
         panic!("Could not open CFF font...");
     }
@@ -1072,8 +1067,7 @@ unsafe fn create_ToUnicode_cmap12(
         for ch in (*(*map).groups.offset(i as isize)).startCharCode
             ..=(*(*map).groups.offset(i as isize)).endCharCode
         {
-            let d: i32 =
-                ch.wrapping_sub((*(*map).groups.offset(i as isize)).startCharCode) as i32;
+            let d: i32 = ch.wrapping_sub((*(*map).groups.offset(i as isize)).startCharCode) as i32;
             let gid: u16 = ((*(*map).groups.offset(i as isize))
                 .startGlyphID
                 .wrapping_add(d as u32)

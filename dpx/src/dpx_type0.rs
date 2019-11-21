@@ -141,8 +141,8 @@ unsafe fn Type0Font_try_load_ToUnicode_stream(
     let cmap_name: *mut i8 = new((strlen(cmap_base)
         .wrapping_add(strlen(b"-UTF-16\x00" as *const u8 as *const i8))
         as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<i8>() as u64)
-        as u32) as *mut i8;
+        .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
+        as *mut i8;
     sprintf(
         cmap_name,
         b"%s-UTF16\x00" as *const u8 as *const i8,

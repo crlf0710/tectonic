@@ -107,7 +107,7 @@ pub unsafe fn spc_color_setup_handler(
         }
         b"color" => {
             /* color */
- /* cmyk, rgb, ... */
+            /* cmyk, rgb, ... */
             let mut p = &(*ap).cur[..];
             if let Some(q) = p.parse_c_ident() {
                 match q.to_bytes() {

@@ -507,11 +507,7 @@ unsafe fn add_metrics(
     fontdict.set("FirstChar", pdf_new_number(firstchar as f64));
     fontdict.set("LastChar", pdf_new_number(lastchar as f64));
 }
-unsafe fn write_fontfile(
-    font: *mut pdf_font,
-    cffont: &cff_font,
-    pdfcharset: *mut pdf_obj,
-) -> i32 {
+unsafe fn write_fontfile(font: *mut pdf_font, cffont: &cff_font, pdfcharset: *mut pdf_obj) -> i32 {
     let mut wbuf: [u8; 1024] = [0; 1024];
     let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
     let mut topdict = CffIndex::new(1);

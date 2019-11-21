@@ -189,12 +189,7 @@ unsafe fn showpath(f_vp: bool, f_fs: bool)
         pdf_dev_newpath();
     };
 }
-unsafe fn tpic__polyline(
-    tp: *mut spc_tpic_,
-    c: *const Point,
-    mut f_vp: bool,
-    da: f64,
-) -> i32 {
+unsafe fn tpic__polyline(tp: *mut spc_tpic_, c: *const Point, mut f_vp: bool, da: f64) -> i32 {
     let pn: f64 = (*tp).pen_size;
     let mut f_fs: bool = (*tp).fill_shape;
     let error: i32 = 0i32;
@@ -243,12 +238,7 @@ unsafe fn tpic__polyline(
  * curve) control point p1, end point q2 = (p1 + p2)/2, ..., and a
  * straight line from qn to pn.
  */
-unsafe fn tpic__spline(
-    tp: *mut spc_tpic_,
-    c: *const Point,
-    mut f_vp: bool,
-    da: f64,
-) -> i32 {
+unsafe fn tpic__spline(tp: *mut spc_tpic_, c: *const Point, mut f_vp: bool, da: f64) -> i32 {
     let mut v: [f64; 6] = [0.; 6];
     let pn: f64 = (*tp).pen_size;
     let mut f_fs: bool = (*tp).fill_shape;
@@ -659,11 +649,7 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
     }
     dict
 }
-unsafe fn tpic_filter_getopts(
-    kp: *mut pdf_obj,
-    vp: *mut pdf_obj,
-    dp: *mut libc::c_void,
-) -> i32 {
+unsafe fn tpic_filter_getopts(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
     let mut tp: *mut spc_tpic_ = dp as *mut spc_tpic_;
     let mut error: i32 = 0i32;
     assert!(!kp.is_null() && !vp.is_null() && !tp.is_null());

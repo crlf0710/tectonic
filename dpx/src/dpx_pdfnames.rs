@@ -250,11 +250,7 @@ fn cmp_key(sd1: &named_object, sd2: &named_object) -> Ordering {
         }
     }
 }
-unsafe fn build_name_tree(
-    first: *mut named_object,
-    num_leaves: i32,
-    is_root: i32,
-) -> *mut pdf_obj {
+unsafe fn build_name_tree(first: *mut named_object, num_leaves: i32, is_root: i32) -> *mut pdf_obj {
     let result = pdf_new_dict();
     /*
      * According to PDF Refrence, Third Edition (p.101-102), a name tree

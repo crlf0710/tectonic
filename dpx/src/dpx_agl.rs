@@ -758,11 +758,7 @@ pub unsafe fn agl_sput_UTF16BE(
     len
 }
 
-pub unsafe fn agl_get_unicodes(
-    glyphstr: *const i8,
-    unicodes: *mut i32,
-    max_unicodes: i32,
-) -> i32 {
+pub unsafe fn agl_get_unicodes(glyphstr: *const i8, unicodes: *mut i32, max_unicodes: i32) -> i32 {
     let mut count: i32 = 0i32;
     let mut p = glyphstr;
     let mut endptr = strchr(p, '.' as i32) as *const i8;

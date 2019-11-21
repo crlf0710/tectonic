@@ -603,11 +603,7 @@ pub unsafe fn pdf_doc_add_page_resource(
             .set(resource_name.to_bytes(), resource_ref);
     }
 }
-unsafe fn doc_flush_page(
-    p: *mut pdf_doc,
-    mut page: *mut pdf_page,
-    parent_ref: *mut pdf_obj,
-) {
+unsafe fn doc_flush_page(p: *mut pdf_doc, mut page: *mut pdf_page, parent_ref: *mut pdf_obj) {
     (*(*page).page_obj)
         .as_dict_mut()
         .set("Type", pdf_new_name("Page"));
@@ -1918,12 +1914,7 @@ unsafe fn find_bead(article: *mut pdf_article, bead_id: &[u8]) -> *mut pdf_bead 
     bead
 }
 
-pub unsafe fn pdf_doc_add_bead(
-    article_id: *const i8,
-    bead_id: &[u8],
-    page_no: i32,
-    rect: &Rect,
-) {
+pub unsafe fn pdf_doc_add_bead(article_id: *const i8, bead_id: &[u8], page_no: i32, rect: &Rect) {
     let p: *mut pdf_doc = &mut pdoc;
     if article_id.is_null() {
         panic!("No article identifier specified.");

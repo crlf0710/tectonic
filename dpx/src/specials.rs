@@ -525,12 +525,7 @@ unsafe fn print_error(name: *const i8, spe: *mut spc_env, mut ap: *mut spc_arg) 
 /* This should not use pdf_. */
 /* PDF parser shouldn't depend on this...
  */
-pub unsafe fn spc_exec_special(
-    buffer: &[u8],
-    x_user: f64,
-    y_user: f64,
-    mag: f64,
-) -> i32 {
+pub unsafe fn spc_exec_special(buffer: &[u8], x_user: f64, y_user: f64, mag: f64) -> i32 {
     let mut error: i32 = -1i32;
     let mut spe: spc_env = spc_env {
         x_user: 0.,

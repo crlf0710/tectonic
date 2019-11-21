@@ -463,12 +463,7 @@ unsafe fn get_real(data: *mut *mut u8, endptr: *mut u8, status: *mut i32) -> f64
     result
 }
 /* operators */
-unsafe fn add_dict(
-    mut dict: *mut cff_dict,
-    data: *mut *mut u8,
-    endptr: *mut u8,
-    status: *mut i32,
-) {
+unsafe fn add_dict(mut dict: *mut cff_dict, data: *mut *mut u8, endptr: *mut u8, status: *mut i32) {
     let mut id = **data as i32;
     if id == 0xci32 {
         *data = (*data).offset(1);
@@ -825,12 +820,7 @@ pub unsafe fn cff_dict_get(dict: *mut cff_dict, key: *const i8, idx: i32) -> f64
     value
 }
 
-pub unsafe fn cff_dict_set(
-    dict: *mut cff_dict,
-    key: *const i8,
-    idx: i32,
-    value: f64,
-) {
+pub unsafe fn cff_dict_set(dict: *mut cff_dict, key: *const i8, idx: i32, value: f64) {
     assert!(!dict.is_null() && !key.is_null());
     let mut i = 0;
     while i < (*dict).count {

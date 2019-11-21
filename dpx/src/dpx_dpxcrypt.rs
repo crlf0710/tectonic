@@ -268,12 +268,7 @@ unsafe fn do_encrypt_stream(
     (*ctx).idx_j = j;
 }
 
-pub unsafe fn ARC4(
-    ctx: *mut ARC4_CONTEXT,
-    len: u32,
-    inbuf: *const u8,
-    outbuf: *mut u8,
-) {
+pub unsafe fn ARC4(ctx: *mut ARC4_CONTEXT, len: u32, inbuf: *const u8, outbuf: *mut u8) {
     do_encrypt_stream(ctx, outbuf, inbuf, len);
     _gcry_burn_stack(64i32);
 }

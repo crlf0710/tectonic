@@ -204,12 +204,7 @@ unsafe fn parse_bvalue(start: *mut *mut u8, end: *mut u8, value: *mut f64) -> i3
     }
     1i32
 }
-unsafe fn parse_nvalue(
-    start: *mut *mut u8,
-    end: *mut u8,
-    value: *mut f64,
-    max: i32,
-) -> i32 {
+unsafe fn parse_nvalue(start: *mut *mut u8, end: *mut u8, value: *mut f64, max: i32) -> i32 {
     let mut argn: i32 = 0i32;
     let mut tok = pst_get_token(start, end);
     if tok.is_null() {
@@ -789,11 +784,7 @@ static mut ISOLatin1Encoding: [*const i8; 256] = [
 /* Treat cases such as "dup num num getinterval num exch putinterval"
  * or "dup num exch num get put"
  */
-unsafe fn try_put_or_putinterval(
-    enc_vec: *mut *mut i8,
-    start: *mut *mut u8,
-    end: *mut u8,
-) -> i32 {
+unsafe fn try_put_or_putinterval(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u8) -> i32 {
     let mut num1: i32 = 0;
     let mut num2: i32 = 0;
     let mut num3: i32 = 0;
@@ -1000,11 +991,7 @@ unsafe fn try_put_or_putinterval(
     }
     0i32
 }
-unsafe fn parse_encoding(
-    enc_vec: *mut *mut i8,
-    start: *mut *mut u8,
-    end: *mut u8,
-) -> i32 {
+unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u8) -> i32 {
     let mut code: i32 = 0;
     /*
      *  StandardEncoding def
@@ -1775,12 +1762,7 @@ unsafe fn parse_charstrings(
     font.num_glyphs = count as u16;
     0i32
 }
-unsafe fn parse_part2(
-    font: &mut cff_font,
-    start: *mut *mut u8,
-    end: *mut u8,
-    mode: i32,
-) -> i32 {
+unsafe fn parse_part2(font: &mut cff_font, start: *mut *mut u8, end: *mut u8, mode: i32) -> i32 {
     let mut key: *mut i8 = ptr::null_mut();
     let mut argv: [f64; 127] = [0.; 127];
     let mut lenIV: i32 = 4i32;

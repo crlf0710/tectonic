@@ -665,11 +665,7 @@ unsafe fn CIDFont_type0_try_open(
     }
     Ok(())
 }
-unsafe fn CIDFont_type0_add_CIDSet(
-    font: *mut CIDFont,
-    used_chars: *mut i8,
-    last_cid: u16,
-) {
+unsafe fn CIDFont_type0_add_CIDSet(font: *mut CIDFont, used_chars: *mut i8, last_cid: u16) {
     /*
      * CIDSet:
      * Length of CIDSet stream is not clear. Must be 8192 bytes long?
@@ -1602,11 +1598,7 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
     CMap_cache_add(cmap)
 }
 
-pub unsafe fn t1_load_UnicodeCMap(
-    font_name: *const i8,
-    otl_tags: *const i8,
-    wmode: i32,
-) -> i32 {
+pub unsafe fn t1_load_UnicodeCMap(font_name: *const i8, otl_tags: *const i8, wmode: i32) -> i32 {
     if font_name.is_null() {
         return -1i32;
     }

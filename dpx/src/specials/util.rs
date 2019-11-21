@@ -42,11 +42,7 @@ use std::ffi::CString;
    Licensed under the MIT License.
 */
 
-pub unsafe fn spc_util_read_numbers(
-    values: *mut f64,
-    num_values: i32,
-    args: *mut spc_arg,
-) -> i32 {
+pub unsafe fn spc_util_read_numbers(values: *mut f64, num_values: i32, args: *mut spc_arg) -> i32 {
     (*args).cur.skip_blank();
     let mut count = 0;
     while count < num_values && !(*args).cur.is_empty() {
@@ -112,10 +108,7 @@ unsafe fn rgb_color_from_hsv(h: f64, s: f64, v: f64) -> PdfColor {
     }
     PdfColor::from_rgb(r, g, b).unwrap()
 }
-unsafe fn spc_read_color_color(
-    spe: *mut spc_env,
-    ap: *mut spc_arg,
-) -> Result<PdfColor, ()> {
+unsafe fn spc_read_color_color(spe: *mut spc_env, ap: *mut spc_arg) -> Result<PdfColor, ()> {
     let mut cv: [f64; 4] = [0.; 4];
     let result: Result<PdfColor, ()>;
     if let Some(q) = (*ap).cur.parse_c_ident() {
