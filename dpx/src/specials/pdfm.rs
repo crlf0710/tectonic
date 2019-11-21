@@ -66,8 +66,8 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_foreach_dict, pdf_link_obj, pdf_name_value, pdf_new_dict, pdf_new_name, pdf_new_stream,
-    pdf_number_value, pdf_obj, pdf_obj_typeof, pdf_release_obj, pdf_remove_dict, pdf_set_string,
+    pdf_foreach_dict, pdf_link_obj, pdf_name_value, pdf_new_dict, pdf_new_name, pdf_number_value,
+    pdf_obj, pdf_obj_typeof, pdf_release_obj, pdf_remove_dict, pdf_set_string, pdf_stream,
     pdf_string_length, pdf_string_value, IntoObj, PdfObjType, STREAM_COMPRESS,
 };
 use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
@@ -1264,7 +1264,6 @@ unsafe fn spc_handler_pdfm_stream_with_type(
     args: *mut spc_arg,
     type_0: i32,
 ) -> i32 {
-    let fstream;
     (*args).cur.skip_white();
     let ident = (*args).cur.parse_opt_ident();
     if ident.is_none() {
@@ -1284,7 +1283,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
         return -1i32;
     }
     let instring = pdf_string_value(&*tmp) as *mut i8;
-    match type_0 {
+    let mut fstream = match type_0 {
         1 => {
             if instring.is_null() {
                 spc_warn!(spe, "Missing filename for pdf:fstream.");
@@ -1313,33 +1312,31 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                 return -1i32;
             }
             let mut handle = handle.unwrap();
-            fstream = pdf_new_stream(STREAM_COMPRESS);
+            let mut fstream = pdf_stream::new(STREAM_COMPRESS);
             loop {
                 let nb_read = handle.read(&mut WORK_BUFFER[..]).unwrap();
                 if !(nb_read > 0) {
                     // TODO: check
                     break;
                 }
-                (*fstream)
-                    .as_stream_mut()
-                    .add_slice(&WORK_BUFFER[..nb_read]);
+                fstream.add_slice(&WORK_BUFFER[..nb_read]);
             }
             ttstub_input_close(handle);
             free(fullname as *mut libc::c_void);
+            fstream
         }
         0 => {
-            fstream = pdf_new_stream(STREAM_COMPRESS);
+            let mut fstream = pdf_stream::new(STREAM_COMPRESS);
             if !instring.is_null() {
-                (*fstream)
-                    .as_stream_mut()
-                    .add(instring as *const libc::c_void, strlen(instring) as i32);
+                fstream.add(instring as *const libc::c_void, strlen(instring) as i32);
             }
+            fstream
         }
         _ => {
             pdf_release_obj(tmp);
             return -1i32;
         }
-    }
+    };
     pdf_release_obj(tmp);
     /*
      * Optional dict.
@@ -1348,7 +1345,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
      */
     (*args).cur.skip_white();
     if (*args).cur[0] == b'<' {
-        let stream_dict = (*fstream).as_stream_mut().get_dict_mut();
+        let stream_dict = fstream.get_dict_mut();
         if let Some(tmp) = (*args).cur.parse_pdf_dict(ptr::null_mut()) {
             if (*tmp).as_dict().has("Length") {
                 pdf_remove_dict(&mut *tmp, "Length");
@@ -1359,12 +1356,11 @@ unsafe fn spc_handler_pdfm_stream_with_type(
             pdf_release_obj(tmp);
         } else {
             spc_warn!(spe, "Parsing dictionary failed.");
-            pdf_release_obj(fstream);
             return -1i32;
         }
     }
     /* Users should explicitly close this. */
-    spc_push_object(ident.unwrap().as_ptr(), fstream);
+    spc_push_object(ident.unwrap().as_ptr(), fstream.into_obj());
     0i32
 }
 /*

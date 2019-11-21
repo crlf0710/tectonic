@@ -35,8 +35,8 @@ use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_file, pdf_name_value, pdf_new_boolean, pdf_new_dict, pdf_new_indirect,
-    pdf_new_name, pdf_new_null, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_number_value,
-    pdf_obj, pdf_release_obj, IntoObj, STREAM_COMPRESS,
+    pdf_new_name, pdf_new_null, pdf_new_number, pdf_new_string, pdf_number_value, pdf_obj,
+    pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::specials::spc_lookup_reference;
 use libc::memcpy;
@@ -477,25 +477,22 @@ impl ParsePdfObj for &[u8] {
         if stream_length < 0 || p.len() < stream_length as usize {
             return None;
         }
+        let stream_length = stream_length as usize;
         /*
          * If Filter is not aselflied, set STREAM_COMPRESS flag.
          * Should we use filter for ASCIIHexEncode/ASCII85Encode-ed streams?
          */
-        let result = if unsafe { !(*dict).as_dict().has("Filter") } && stream_length > 10 {
-            unsafe { pdf_new_stream(STREAM_COMPRESS) }
+        let mut result = if unsafe { !(*dict).as_dict().has("Filter") } && stream_length > 10 {
+            pdf_stream::new(STREAM_COMPRESS)
         } else {
-            unsafe { pdf_new_stream(0) }
+            pdf_stream::new(0)
         };
-        let stream_dict = unsafe { (*result).as_stream_mut().get_dict_mut() };
+        let stream_dict = result.get_dict_mut();
         unsafe {
             stream_dict.merge((*dict).as_dict());
         }
-        unsafe {
-            (*result)
-                .as_stream_mut()
-                .add(p.as_ptr() as *const libc::c_void, stream_length);
-        }
-        p = &p[(stream_length as usize)..];
+        result.add_slice(&p[..stream_length]);
+        p = &p[stream_length..];
         /* Check "endsteam" */
         /* It is recommended that there be an end-of-line marker
          * after the data and before endstream; this marker is not included
@@ -508,14 +505,11 @@ impl ParsePdfObj for &[u8] {
             p = &p[1..];
         }
         if !p.starts_with(b"endstream") {
-            unsafe {
-                pdf_release_obj(result);
-            }
             return None;
         }
         p = &p[9..];
         *self = p;
-        Some(result)
+        Some(result.into_obj())
     }
     fn parse_pdf_array(&mut self, pf: *mut pdf_file) -> Option<*mut pdf_obj> {
         let mut p = *self;

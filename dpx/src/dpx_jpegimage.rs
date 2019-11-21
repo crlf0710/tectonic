@@ -38,8 +38,8 @@ use super::dpx_pdfcolor::{
 };
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_new_name, pdf_new_number, pdf_new_stream, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream_dataptr, pdf_stream_length, IntoObj, STREAM_COMPRESS,
+    pdf_get_version, pdf_new_name, pdf_new_number, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_read};
 use libc::{free, memcmp, memset};
@@ -217,8 +217,8 @@ pub unsafe fn jpeg_include_image(ximage: *mut pdf_ximage, handle: &mut InputHand
         }
     };
     /* JPEG image use DCTDecode. */
-    let stream = pdf_new_stream(0i32);
-    let stream_dict = (*stream).as_stream_mut().get_dict_mut();
+    let mut stream = pdf_stream::new(0i32);
+    let stream_dict = stream.get_dict_mut();
     stream_dict.set("Filter", pdf_new_name("DCTDecode"));
     /* XMP Metadata */
     if pdf_get_version() >= 4_u32 {
@@ -231,38 +231,23 @@ pub unsafe fn jpeg_include_image(ximage: *mut pdf_ximage, handle: &mut InputHand
     /* Check embedded ICC Profile */
     let mut colorspace = ptr::null_mut();
     if j_info.flags & 1i32 << 2i32 != 0 {
-        let icc_stream = JPEG_get_iccp(&mut j_info);
-        if icc_stream.is_null() {
-            colorspace = ptr::null_mut()
-        } else {
-            let icc_stream = &*icc_stream;
-            if iccp_check_colorspace(
-                colortype,
-                pdf_stream_dataptr(icc_stream),
-                pdf_stream_length(icc_stream),
-            ) < 0i32
-            {
+        if let Some(icc_stream) = JPEG_get_iccp(&mut j_info) {
+            if iccp_check_colorspace(colortype, &icc_stream.content) < 0i32 {
                 colorspace = ptr::null_mut()
             } else {
-                let cspc_id = iccp_load_profile(
-                    std::ptr::null(),
-                    pdf_stream_dataptr(icc_stream),
-                    pdf_stream_length(icc_stream),
-                );
+                let cspc_id = iccp_load_profile(std::ptr::null(), &icc_stream.content);
                 if cspc_id < 0i32 {
                     colorspace = ptr::null_mut()
                 } else {
                     colorspace = pdf_get_colorspace_reference(cspc_id);
-                    let intent = iccp_get_rendering_intent(
-                        pdf_stream_dataptr(icc_stream),
-                        pdf_stream_length(icc_stream),
-                    );
+                    let intent = iccp_get_rendering_intent(&icc_stream.content);
                     if !intent.is_null() {
                         stream_dict.set("Intent", intent);
                     }
                 }
             }
-            pdf_release_obj(icc_stream as *const pdf_obj as *mut pdf_obj);
+        } else {
+            colorspace = ptr::null_mut()
         }
     }
     /* No ICC or invalid ICC profile. */
@@ -285,13 +270,13 @@ pub unsafe fn jpeg_include_image(ximage: *mut pdf_ximage, handle: &mut InputHand
         stream_dict.set("Decode", decode.into_obj());
     }
     /* Copy file */
-    JPEG_copy_stream(&mut j_info, stream, handle);
+    JPEG_copy_stream(&mut j_info, &mut stream, handle);
     info.width = j_info.width as i32;
     info.height = j_info.height as i32;
     info.bits_per_component = j_info.bits_per_component as i32;
     info.num_components = j_info.num_components as i32;
     jpeg_get_density(&mut j_info, &mut info.xdensity, &mut info.ydensity);
-    pdf_ximage_set_image(ximage, &mut info, stream);
+    pdf_ximage_set_image(ximage, &mut info, stream.into_obj());
     JPEG_info_clear(&mut j_info);
     0i32
 }
@@ -369,10 +354,10 @@ unsafe fn JPEG_info_clear(mut j_info: *mut JPEG_info) {
     (*j_info).max_appn = 0i32;
     (*j_info).flags = 0i32;
 }
-unsafe fn JPEG_get_iccp(j_info: *mut JPEG_info) -> *mut pdf_obj {
+unsafe fn JPEG_get_iccp(j_info: *mut JPEG_info) -> Option<pdf_stream> {
     let mut prev_id: i32 = 0i32;
     let mut num_icc_seg: i32 = -1i32;
-    let mut icc_stream = pdf_new_stream(STREAM_COMPRESS);
+    let mut icc_stream = pdf_stream::new(STREAM_COMPRESS);
     for i in 0..(*j_info).num_appn {
         if !((*(*j_info).appn.offset(i as isize)).marker as u32 != JM_APP2 as i32 as u32
             || (*(*j_info).appn.offset(i as isize)).app_sig as u32 != JS_APPn_ICC as i32 as u32)
@@ -392,24 +377,20 @@ unsafe fn JPEG_get_iccp(j_info: *mut JPEG_info) -> *mut pdf_obj {
                     prev_id,
                     (*icc).num_chunks as i32,
                 );
-                pdf_release_obj(icc_stream);
-                icc_stream = ptr::null_mut();
-                break;
+                return None;
             }
-            (*icc_stream)
-                .as_stream_mut()
-                .add((*icc).chunk as *const libc::c_void, (*icc).length as i32);
+            icc_stream.add((*icc).chunk as *const libc::c_void, (*icc).length as i32);
             prev_id = (*icc).seq_id as i32;
             num_icc_seg = (*icc).num_chunks as i32
         }
     }
-    icc_stream
+    Some(icc_stream)
 }
 unsafe fn JPEG_get_XMP(j_info: *mut JPEG_info) -> *mut pdf_obj {
     let mut count: i32 = 0i32;
     /* I don't know if XMP Metadata should be compressed here.*/
-    let XMP_stream = pdf_new_stream(STREAM_COMPRESS);
-    let stream_dict = (*XMP_stream).as_stream_mut().get_dict_mut();
+    let mut XMP_stream = pdf_stream::new(STREAM_COMPRESS);
+    let stream_dict = XMP_stream.get_dict_mut();
     stream_dict.set("Type", pdf_new_name("Metadata"));
     stream_dict.set("Subtype", pdf_new_name("XML"));
     for i in 0..(*j_info).num_appn {
@@ -418,9 +399,7 @@ unsafe fn JPEG_get_XMP(j_info: *mut JPEG_info) -> *mut pdf_obj {
             || (*(*j_info).appn.offset(i as isize)).app_sig as u32 != JS_APPn_XMP as i32 as u32)
         {
             let XMP = (*(*j_info).appn.offset(i as isize)).app_data as *mut JPEG_APPn_XMP;
-            (*XMP_stream)
-                .as_stream_mut()
-                .add((*XMP).packet as *const libc::c_void, (*XMP).length as i32);
+            XMP_stream.add((*XMP).packet as *const libc::c_void, (*XMP).length as i32);
             count += 1
         }
     }
@@ -430,7 +409,7 @@ unsafe fn JPEG_get_XMP(j_info: *mut JPEG_info) -> *mut pdf_obj {
             "JPEG",
         );
     }
-    XMP_stream
+    XMP_stream.into_obj()
 }
 unsafe fn JPEG_get_marker(handle: &mut InputHandleWrapper) -> JPEG_marker {
     let mut c = ttstub_input_getc(handle);
@@ -799,7 +778,7 @@ unsafe fn read_APP2_ICC(
 }
 unsafe fn JPEG_copy_stream(
     j_info: *mut JPEG_info,
-    stream: *mut pdf_obj,
+    stream: &mut pdf_stream,
     handle: &mut InputHandleWrapper,
 ) -> i32 {
     let mut marker: JPEG_marker = 0 as JPEG_marker;
@@ -815,9 +794,7 @@ unsafe fn JPEG_copy_stream(
         {
             *work_buffer.as_mut_ptr().offset(0) = 0xffi32 as i8;
             *work_buffer.as_mut_ptr().offset(1) = marker as i8;
-            (*stream)
-                .as_stream_mut()
-                .add(work_buffer.as_mut_ptr() as *const libc::c_void, 2i32);
+            stream.add(work_buffer.as_mut_ptr() as *const libc::c_void, 2i32);
         } else {
             let mut length = tt_get_unsigned_pair(handle) as i32 - 2i32;
             match marker as u32 {
@@ -826,9 +803,7 @@ unsafe fn JPEG_copy_stream(
                     *work_buffer.as_mut_ptr().offset(1) = marker as i8;
                     *work_buffer.as_mut_ptr().offset(2) = (length + 2i32 >> 8i32 & 0xffi32) as i8;
                     *work_buffer.as_mut_ptr().offset(3) = (length + 2i32 & 0xffi32) as i8;
-                    (*stream)
-                        .as_stream_mut()
-                        .add(work_buffer.as_mut_ptr() as *const libc::c_void, 4i32);
+                    stream.add(work_buffer.as_mut_ptr() as *const libc::c_void, 4i32);
                     while length > 0i32 {
                         let nb_read: i32 = ttstub_input_read(
                             handle.0.as_ptr(),
@@ -836,9 +811,7 @@ unsafe fn JPEG_copy_stream(
                             (if length < 1024i32 { length } else { 1024i32 }) as size_t,
                         ) as i32;
                         if nb_read > 0i32 {
-                            (*stream)
-                                .as_stream_mut()
-                                .add(work_buffer.as_mut_ptr() as *const libc::c_void, nb_read);
+                            stream.add(work_buffer.as_mut_ptr() as *const libc::c_void, nb_read);
                         }
                         length -= nb_read
                     }
@@ -856,9 +829,7 @@ unsafe fn JPEG_copy_stream(
                         *work_buffer.as_mut_ptr().offset(2) =
                             (length + 2i32 >> 8i32 & 0xffi32) as i8;
                         *work_buffer.as_mut_ptr().offset(3) = (length + 2i32 & 0xffi32) as i8;
-                        (*stream)
-                            .as_stream_mut()
-                            .add(work_buffer.as_mut_ptr() as *const libc::c_void, 4i32);
+                        stream.add(work_buffer.as_mut_ptr() as *const libc::c_void, 4i32);
                         while length > 0i32 {
                             let nb_read_0: i32 = ttstub_input_read(
                                 handle.0.as_ptr(),
@@ -866,7 +837,7 @@ unsafe fn JPEG_copy_stream(
                                 (if length < 1024i32 { length } else { 1024i32 }) as size_t,
                             ) as i32;
                             if nb_read_0 > 0i32 {
-                                (*stream).as_stream_mut().add(
+                                stream.add(
                                     work_buffer.as_mut_ptr() as *const libc::c_void,
                                     nb_read_0,
                                 );
@@ -894,9 +865,7 @@ unsafe fn JPEG_copy_stream(
         if !(length > 0i32) {
             break;
         }
-        (*stream)
-            .as_stream_mut()
-            .add(work_buffer.as_mut_ptr() as *const libc::c_void, length);
+        stream.add(work_buffer.as_mut_ptr() as *const libc::c_void, length);
         pos = (pos as u64).wrapping_add(length as u64) as size_t as size_t
     }
     if found_SOFn != 0 {

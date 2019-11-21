@@ -30,8 +30,8 @@ use super::dpx_mem::new;
 use super::dpx_numbers::tt_get_unsigned_byte;
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_release_obj,
-    pdf_stream_set_predictor, IntoObj, STREAM_COMPRESS,
+    pdf_new_name, pdf_new_number, pdf_new_string, pdf_stream, pdf_stream_set_predictor, IntoObj,
+    STREAM_COMPRESS,
 };
 use crate::ttstub_input_read;
 use crate::warn;
@@ -178,8 +178,8 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
         return -1i32;
     }
     /* Start reading raster data */
-    let stream = pdf_new_stream(STREAM_COMPRESS);
-    let stream_dict = (*stream).as_stream_mut().get_dict_mut();
+    let mut stream = pdf_stream::new(STREAM_COMPRESS);
+    let stream_dict = stream.get_dict_mut();
     /* Color space: Indexed or DeviceRGB */
     let colorspace = if (hdr.bit_count as i32) < 24i32 {
         let mut bgrq: [u8; 4] = [0; 4];
@@ -238,7 +238,6 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
                 != dib_rowbytes as i64
             {
                 warn!("Reading BMP raster data failed...");
-                pdf_release_obj(stream);
                 free(stream_data_ptr as *mut libc::c_void);
                 return -1i32;
             }
@@ -250,7 +249,6 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
             as *mut u8;
         if read_raster_rle8(stream_data_ptr, info.width, info.height, handle) < 0i32 {
             warn!("Reading BMP raster data failed...");
-            pdf_release_obj(stream);
             free(stream_data_ptr as *mut libc::c_void);
             return -1i32;
         }
@@ -260,7 +258,6 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
             as *mut u8;
         if read_raster_rle4(stream_data_ptr, info.width, info.height, handle) < 0i32 {
             warn!("Reading BMP raster data failed...");
-            pdf_release_obj(stream);
             free(stream_data_ptr as *mut libc::c_void);
             return -1i32;
         }
@@ -269,7 +266,6 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
             "Unknown/Unsupported compression type for BMP image: {}",
             hdr.compression
         );
-        pdf_release_obj(stream);
         return -1i32;
     }
     /* gbr --> rgb */
@@ -286,19 +282,18 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
         let mut n = info.height - 1i32;
         while n >= 0i32 {
             let p = stream_data_ptr.offset((n * rowbytes) as isize);
-            (*stream)
-                .as_stream_mut()
-                .add(p as *const libc::c_void, rowbytes);
+            stream.add(p as *const libc::c_void, rowbytes);
             n -= 1
         }
     } else {
-        (*stream).as_stream_mut().add(
+        stream.add(
             stream_data_ptr as *const libc::c_void,
             rowbytes * info.height,
         );
     }
     free(stream_data_ptr as *mut libc::c_void);
     /* Predictor is usually not so efficient for indexed images. */
+    let stream = stream.into_obj();
     if hdr.bit_count as i32 >= 24i32 && info.bits_per_component >= 8i32 && info.height > 64i32 {
         pdf_stream_set_predictor(
             stream,

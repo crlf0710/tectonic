@@ -59,8 +59,8 @@ use super::dpx_pdffont::{
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
 use crate::dpx_pdfobj::{
-    pdf_new_name, pdf_new_number, pdf_new_stream, pdf_new_string, pdf_ref_obj, pdf_release_obj,
-    pdf_stream_dataptr, pdf_stream_length, IntoObj, STREAM_COMPRESS,
+    pdf_new_name, pdf_new_number, pdf_new_string_from_slice, pdf_ref_obj, pdf_release_obj,
+    pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::ttstub_input_read;
@@ -541,7 +541,7 @@ pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
      * Subset font
      */
     let mut num_glyphs = 1_u16;
-    let pdfcharset = pdf_new_stream(0i32);
+    let mut pdfcharset = pdf_stream::new(0i32);
     for code in 0..256 {
         widths[code as usize] = notdef_width;
         if !(*usedchars.offset(code as isize) == 0
@@ -596,8 +596,8 @@ pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
                     warn!("Maybe incorrect encoding specified.");
                     *usedchars.offset(code as isize) = 0_i8
                 } else {
-                    (*pdfcharset).as_stream_mut().add_str("/");
-                    (*pdfcharset).as_stream_mut().add(
+                    pdfcharset.add_str("/");
+                    pdfcharset.add(
                         *enc_vec.offset(code as isize) as *const libc::c_void,
                         strlen(*enc_vec.offset(code as isize)) as i32,
                     );
@@ -890,18 +890,11 @@ pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
     /*
      * CharSet
      */
-    descriptor.set(
-        "CharSet",
-        pdf_new_string(
-            pdf_stream_dataptr(&*pdfcharset),
-            pdf_stream_length(&*pdfcharset) as size_t,
-        ),
-    );
-    pdf_release_obj(pdfcharset);
+    descriptor.set("CharSet", pdf_new_string_from_slice(&pdfcharset.content));
     /*
      * Write PDF FontFile data.
      */
-    let fontfile = pdf_new_stream(STREAM_COMPRESS);
+    let fontfile = pdf_stream::new(STREAM_COMPRESS).into_obj();
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
     descriptor.set("FontFile3", pdf_ref_obj(fontfile));
     stream_dict.set("Subtype", pdf_new_name("Type1C"));

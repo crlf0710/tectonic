@@ -307,6 +307,23 @@ impl IntoObj for Vec<*mut pdf_obj> {
     }
 }
 
+impl IntoObj for pdf_stream {
+    fn into_obj(self) -> *mut pdf_obj {
+        unsafe {
+            let result = pdf_new_obj(PdfObjType::STREAM);
+            let data = Box::new(self);
+            /*
+             * Although we are using an arbitrary pdf_object here, it must have
+             * type=PDF_DICT and cannot be an indirect reference.  This will be
+             * checked by the output routine.
+             */
+            (*result).data = Box::into_raw(data) as *mut libc::c_void;
+            (*result).flags |= OBJ_NO_OBJSTM;
+            result
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct pdf_boolean {
@@ -377,7 +394,7 @@ pub unsafe fn pdf_obj_get_verbose() -> i32 {
 pub unsafe fn pdf_obj_set_verbose(level: i32) {
     verbose = level;
 }
-static mut current_objstm: *mut pdf_obj = ptr::null_mut();
+static mut current_objstm: *mut pdf_obj = ptr::null_mut(); // TODO: replace with Option<pdf_stream>
 static mut do_objstm: i32 = 0;
 unsafe fn add_xref_entry(label: usize, typ: u8, field2: u32, field3: u16) {
     if label >= pdf_max_ind_objects {
@@ -400,7 +417,7 @@ pub unsafe fn pdf_out_init(filename: *const i8, do_encryption: bool, enable_obje
     next_label = 1;
     if pdf_version >= 5_u32 {
         if enable_object_stream {
-            xref_stream = pdf_new_stream(STREAM_COMPRESS);
+            xref_stream = pdf_stream::new(STREAM_COMPRESS).into_obj();
             (*xref_stream).flags |= OBJ_NO_ENCRYPT;
             trailer_dict = (*xref_stream).as_stream_mut().get_dict_obj();
             (*trailer_dict)
@@ -843,6 +860,10 @@ pub unsafe fn pdf_number_value(object: &pdf_obj) -> f64 {
     assert!(object.is_number());
     let data = object.data as *mut pdf_number;
     (*data).value
+}
+
+pub unsafe fn pdf_new_string_from_slice(slice: &[u8]) -> *mut pdf_obj {
+    pdf_new_string(slice.as_ptr() as *const libc::c_void, slice.len() as size_t)
 }
 
 pub unsafe fn pdf_new_string(str: *const libc::c_void, length: size_t) -> *mut pdf_obj {
@@ -1364,28 +1385,21 @@ where
     }
 }
 
-pub unsafe fn pdf_new_stream(flags: i32) -> *mut pdf_obj {
-    let result = pdf_new_obj(PdfObjType::STREAM);
-    let data = Box::new(pdf_stream {
-        dict: pdf_new_dict(),
-        _flags: flags,
-        decodeparms: decode_parms {
-            predictor: 2i32,
-            columns: 0i32,
-            bits_per_component: 0i32,
-            colors: 0i32,
-        },
-        objstm_data: ptr::null_mut(),
-        content: Vec::new(),
-    });
-    /*
-     * Although we are using an arbitrary pdf_object here, it must have
-     * type=PDF_DICT and cannot be an indirect reference.  This will be
-     * checked by the output routine.
-     */
-    (*result).data = Box::into_raw(data) as *mut libc::c_void;
-    (*result).flags |= OBJ_NO_OBJSTM;
-    result
+impl pdf_stream {
+    pub fn new(flags: i32) -> Self {
+        Self {
+            dict: unsafe { pdf_new_dict() },
+            _flags: flags,
+            decodeparms: decode_parms {
+                predictor: 2i32,
+                columns: 0i32,
+                bits_per_component: 0i32,
+                colors: 0i32,
+            },
+            objstm_data: ptr::null_mut(),
+            content: Vec::new(),
+        }
+    }
 }
 
 pub unsafe fn pdf_stream_set_predictor(
@@ -2058,11 +2072,7 @@ impl pdf_stream {
 }
 
 #[cfg(feature = "libz-sys")]
-pub unsafe fn pdf_add_stream_flate(
-    dst: *mut pdf_obj,
-    data: *const libc::c_void,
-    len: libc::c_int,
-) -> libc::c_int {
+pub unsafe fn pdf_add_stream_flate(dst: &mut pdf_stream, data: &[u8]) -> libc::c_int {
     const WBUF_SIZE: usize = 4096;
     let mut z: libz::z_stream = std::mem::zeroed();
     let mut wbuf = [0u8; WBUF_SIZE];
@@ -2070,8 +2080,8 @@ pub unsafe fn pdf_add_stream_flate(
     // z.zalloc = null_mut();
     // z.zfree = null_mut();
     z.opaque = 0 as libz::voidpf;
-    z.next_in = data as *mut libz::Bytef;
-    z.avail_in = len as libz::uInt;
+    z.next_in = data.as_ptr() as *mut u8;
+    z.avail_in = data.len() as libz::uInt;
     z.next_out = wbuf.as_mut_ptr();
     z.avail_out = WBUF_SIZE as libz::uInt;
     if libz::inflateInit_(
@@ -2097,15 +2107,13 @@ pub unsafe fn pdf_add_stream_flate(
             return -1i32;
         }
         if z.avail_out == 0 {
-            (*dst).as_stream_mut().add_slice(wbuf.as_ref());
+            dst.add_slice(wbuf.as_ref());
             z.next_out = wbuf.as_mut_ptr();
             z.avail_out = WBUF_SIZE as libz::uInt
         }
     }
     if (WBUF_SIZE as u32) - z.avail_out > 0 {
-        (*dst)
-            .as_stream_mut()
-            .add_slice(&wbuf[..((WBUF_SIZE - z.avail_out as usize) as usize)]);
+        dst.add_slice(&wbuf[..((WBUF_SIZE - z.avail_out as usize) as usize)]);
     }
 
     return if libz::inflateEnd(&mut z) == 0i32 {
@@ -2218,13 +2226,12 @@ unsafe fn filter_row_TIFF2(
  */
 #[cfg(feature = "libz-sys")]
 unsafe fn filter_decoded(
-    dst: *mut pdf_obj,
-    src: *const libc::c_void,
-    srclen: libc::c_int,
+    dst: &mut pdf_stream,
+    src: &[u8],
     parms: &mut decode_parms,
 ) -> libc::c_int {
-    let mut p: *const libc::c_uchar = src as *const libc::c_uchar; /* Just copy */
-    let endptr: *const libc::c_uchar = p.offset(srclen as isize);
+    let mut p = src.as_ptr(); /* Just copy */
+    let endptr = p.offset(src.len() as isize);
     let bits_per_pixel: libc::c_int = parms.colors * parms.bits_per_component;
     let bytes_per_pixel: libc::c_int = (bits_per_pixel + 7i32) / 8i32;
     let length: libc::c_int = (parms.columns * bits_per_pixel + 7i32) / 8i32;
@@ -2240,7 +2247,7 @@ unsafe fn filter_decoded(
     match parms.predictor {
         1 => {
             /* No prediction */
-            (*dst).as_stream_mut().add(src, srclen);
+            dst.add_slice(src);
             current_block_77 = 6040267449472925966;
         }
         2 => {
@@ -2258,9 +2265,7 @@ unsafe fn filter_decoded(
                         *buf.offset(i as isize) =
                             (*p.offset(i as isize) as libc::c_int + pv & 0xffi32) as libc::c_uchar;
                     }
-                    (*dst)
-                        .as_stream_mut()
-                        .add(buf as *const libc::c_void, length);
+                    dst.add(buf as *const libc::c_void, length);
                     p = p.offset(length as isize)
                 }
             } else if parms.bits_per_component == 16i32 {
@@ -2284,18 +2289,14 @@ unsafe fn filter_decoded(
                         *buf.offset(i as isize) = (c >> 8i32) as libc::c_uchar;
                         *buf.offset((i + 1i32) as isize) = (c & 0xffi32) as libc::c_uchar;
                     }
-                    (*dst)
-                        .as_stream_mut()
-                        .add(buf as *const libc::c_void, length);
+                    dst.add(buf as *const libc::c_void, length);
                     p = p.offset(length as isize)
                 }
             } else {
                 while error == 0 && p.offset(length as isize) < endptr {
                     error = filter_row_TIFF2(buf, p, parms);
                     if error == 0 {
-                        (*dst)
-                            .as_stream_mut()
-                            .add(buf as *const libc::c_void, length);
+                        dst.add(buf as *const libc::c_void, length);
                         p = p.offset(length as isize)
                     }
                 }
@@ -2448,9 +2449,7 @@ unsafe fn filter_decoded(
                     }
                 }
                 if error == 0 {
-                    (*dst)
-                        .as_stream_mut()
-                        .add(buf as *const libc::c_void, length);
+                    dst.add(buf as *const libc::c_void, length);
                     libc::memcpy(
                         prev as *mut libc::c_void,
                         buf as *const libc::c_void,
@@ -2468,9 +2467,8 @@ unsafe fn filter_decoded(
 }
 #[cfg(feature = "libz-sys")]
 unsafe fn pdf_add_stream_flate_filtered(
-    dst: *mut pdf_obj,
-    data: *const libc::c_void,
-    len: libc::c_int,
+    dst: &mut pdf_stream,
+    data: &[u8],
     parms: &mut decode_parms,
 ) -> libc::c_int {
     let mut z: libz::z_stream = std::mem::zeroed();
@@ -2479,8 +2477,8 @@ unsafe fn pdf_add_stream_flate_filtered(
     // z.zfree = null_mut();
     let mut wbuf: [u8; 4096] = [0; 4096];
     z.opaque = 0 as libz::voidpf;
-    z.next_in = data as *mut u8;
-    z.avail_in = len as libz::uInt;
+    z.next_in = data.as_ptr() as *mut u8;
+    z.avail_in = data.len() as libz::uInt;
     z.next_out = wbuf.as_mut_ptr();
     z.avail_out = 4096i32 as libz::uInt;
     if libz::inflateInit_(
@@ -2492,7 +2490,7 @@ unsafe fn pdf_add_stream_flate_filtered(
         warn!("inflateInit() failed.");
         return -1i32;
     }
-    let tmp = pdf_new_stream(0i32);
+    let mut tmp = pdf_stream::new(0i32);
     loop {
         let status = libz::inflate(&mut z, 0i32);
         if status == 1i32 {
@@ -2504,25 +2502,15 @@ unsafe fn pdf_add_stream_flate_filtered(
             return -1i32;
         }
         if z.avail_out == 0i32 as libc::c_uint {
-            (*tmp)
-                .as_stream_mut()
-                .add(wbuf.as_mut_ptr() as *const libc::c_void, 4096i32);
+            tmp.add(wbuf.as_mut_ptr() as *const libc::c_void, 4096i32);
             z.next_out = wbuf.as_mut_ptr();
             z.avail_out = 4096i32 as libz::uInt
         }
     }
     if (4096i32 as libc::c_uint).wrapping_sub(z.avail_out) > 0i32 as libc::c_uint {
-        (*tmp)
-            .as_stream_mut()
-            .add_slice(&wbuf[..((4096u32).wrapping_sub(z.avail_out) as usize)]);
+        tmp.add_slice(&wbuf[..((4096u32).wrapping_sub(z.avail_out) as usize)]);
     }
-    let error = filter_decoded(
-        dst,
-        pdf_stream_dataptr(&*tmp),
-        pdf_stream_length(&*tmp),
-        parms,
-    );
-    pdf_release_obj(tmp);
+    let error = filter_decoded(dst, &tmp.content, parms);
     if error == 0 && libz::inflateEnd(&mut z) == 0i32 {
         0i32
     } else {
@@ -2530,14 +2518,10 @@ unsafe fn pdf_add_stream_flate_filtered(
     }
 }
 
-pub unsafe fn pdf_concat_stream(dst: *mut pdf_obj, src: *mut pdf_obj) -> i32 {
+pub unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_stream) -> i32 {
     let mut error: i32 = 0i32;
-    if !(!dst.is_null() && (*dst).is_stream()) || !(!src.is_null() && (*src).is_stream()) {
-        panic!("Invalid type.");
-    }
-    let stream_data = pdf_stream_dataptr(&*src) as *const i8;
-    let stream_length = pdf_stream_length(&*src);
-    let stream_dict = (*src).as_stream_mut().get_dict_mut();
+    let stream_dict = (*(src as *mut pdf_stream)).get_dict_mut(); // TODO: fix hack
+    let stream_data = &src.content;
     if let Some(filter) = stream_dict.get("Filter") {
         let mut filter = &filter.clone(); // TODO: check
         #[cfg(feature = "libz-sys")]
@@ -2580,18 +2564,9 @@ pub unsafe fn pdf_concat_stream(dst: *mut pdf_obj, src: *mut pdf_obj) -> i32 {
                 let filter_name = pdf_name_value(&*filter).to_string_lossy();
                 if filter_name == "FlateDecode" {
                     if have_parms != 0 {
-                        error = pdf_add_stream_flate_filtered(
-                            dst,
-                            stream_data as *const libc::c_void,
-                            stream_length,
-                            &mut parms,
-                        )
+                        error = pdf_add_stream_flate_filtered(dst, stream_data, &mut parms)
                     } else {
-                        error = pdf_add_stream_flate(
-                            dst,
-                            stream_data as *const libc::c_void,
-                            stream_length,
-                        )
+                        error = pdf_add_stream_flate(dst, stream_data)
                     }
                 } else {
                     warn!("DecodeFilter \"{}\" not supported.", filter_name,);
@@ -2602,23 +2577,18 @@ pub unsafe fn pdf_concat_stream(dst: *mut pdf_obj, src: *mut pdf_obj) -> i32 {
             }
         }
     } else {
-        (*dst)
-            .as_stream_mut()
-            .add(stream_data as *const libc::c_void, stream_length);
+        (*dst).add_slice(stream_data);
     }
     /* HAVE_ZLIB */
     error
 }
 unsafe fn pdf_stream_uncompress(src: &mut pdf_obj) -> *mut pdf_obj {
-    let dst = pdf_new_stream(0i32);
+    let mut dst = pdf_stream::new(0i32);
     assert!(src.is_stream());
-    (*dst)
-        .as_stream_mut()
-        .get_dict_mut()
-        .merge(src.as_stream().get_dict());
-    pdf_remove_dict((*dst).as_stream_mut().get_dict_obj(), "Length");
-    pdf_concat_stream(dst, src);
-    dst
+    dst.get_dict_mut().merge(src.as_stream().get_dict());
+    pdf_remove_dict(dst.get_dict_obj(), "Length");
+    pdf_concat_stream(&mut dst, src.as_stream_mut());
+    dst.into_obj()
 }
 unsafe fn pdf_write_obj(object: *mut pdf_obj, handle: &mut OutputHandleWrapper) {
     if object.is_null() {
@@ -2784,7 +2754,7 @@ pub unsafe fn pdf_release_obj(mut object: *mut pdf_obj) {
                     let ref mut fresh18 = *data.offset(1);
                     *fresh18 = 0i32;
                     *data.offset(0) = *fresh18;
-                    current_objstm = pdf_new_stream(STREAM_COMPRESS);
+                    current_objstm = pdf_stream::new(STREAM_COMPRESS).into_obj();
                     set_objstm_data(&mut *current_objstm, data);
                     pdf_label_obj(current_objstm);
                 }
@@ -4016,14 +3986,12 @@ pub unsafe fn pdf_import_object(object: *mut pdf_obj) -> *mut pdf_obj {
             if tmp.is_null() {
                 return ptr::null_mut();
             }
-            let imported = pdf_new_stream(0i32);
-            let stream_dict = (*imported).as_stream_mut().get_dict_mut();
+            let mut imported = pdf_stream::new(0i32);
+            let stream_dict = imported.get_dict_mut();
             stream_dict.merge((*tmp).as_dict());
             pdf_release_obj(tmp);
-            (*imported)
-                .as_stream_mut()
-                .add(pdf_stream_dataptr(&*object), pdf_stream_length(&*object));
-            imported
+            imported.add_slice(&(*object).as_stream().content);
+            imported.into_obj()
         }
         PdfObjType::DICT => {
             let imported = pdf_new_dict();
