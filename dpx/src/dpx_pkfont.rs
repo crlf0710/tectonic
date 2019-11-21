@@ -77,14 +77,14 @@ pub struct pk_header_ {
 }
 static mut base_dpi: u32 = 600u32;
 
-pub unsafe fn PKFont_set_dpi(mut dpi: i32) {
+pub unsafe fn PKFont_set_dpi(dpi: i32) {
     if dpi <= 0i32 {
         panic!("Invalid DPI: {}\n", dpi);
     }
     base_dpi = dpi as u32;
 }
 /* (Only) This requires TFM to get design size... */
-unsafe fn truedpi(mut ident: *const i8, mut point_size: f64, mut bdpi: u32) -> u32 {
+unsafe fn truedpi(ident: *const i8, point_size: f64, bdpi: u32) -> u32 {
     let mut dpi: u32 = bdpi;
     let tfm_id = tfm_open(ident, 0i32);
     if tfm_id < 0i32 {
@@ -113,7 +113,7 @@ unsafe fn dpx_open_pk_font_at(_ident: *const i8, _dpi: u32) -> *mut FILE {
     fp
 }
 
-pub unsafe fn pdf_font_open_pkfont(mut font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_open_pkfont(font: *mut pdf_font) -> i32 {
     let ident = pdf_font_get_ident(font);
     let point_size = pdf_font_get_param(font, 2i32);
     let encoding_id = pdf_font_get_encoding(font);
@@ -144,7 +144,7 @@ pub unsafe fn pdf_font_open_pkfont(mut font: *mut pdf_font) -> i32 {
 /* We are using Mask Image. Fill black is bit clear.
  * Optimizing those codes doesn't improve things.
  */
-unsafe fn fill_black_run(mut dp: *mut u8, mut left: u32, mut run_count: u32) -> u32 {
+unsafe fn fill_black_run(dp: *mut u8, mut left: u32, run_count: u32) -> u32 {
     static mut mask: [u8; 8] = [
         127u32 as u8,
         191u32 as u8,
@@ -155,7 +155,7 @@ unsafe fn fill_black_run(mut dp: *mut u8, mut left: u32, mut run_count: u32) -> 
         253u32 as u8,
         254u32 as u8,
     ];
-    let mut right: u32 = left.wrapping_add(run_count).wrapping_sub(1_u32);
+    let right: u32 = left.wrapping_add(run_count).wrapping_sub(1_u32);
     while left <= right {
         let ref mut fresh0 = *dp.offset(left.wrapping_div(8_u32) as isize);
         *fresh0 = (*fresh0 as i32 & mask[left.wrapping_rem(8_u32) as usize] as i32) as u8;
@@ -164,10 +164,10 @@ unsafe fn fill_black_run(mut dp: *mut u8, mut left: u32, mut run_count: u32) -> 
     run_count
 }
 /* Just skip bits. See decode_packed() */
-unsafe fn fill_white_run(mut run_count: u32) -> u32 {
+unsafe fn fill_white_run(run_count: u32) -> u32 {
     run_count
 }
-unsafe fn pk_packed_num(mut np: *mut u32, mut dyn_f: i32, mut dp: *mut u8, mut pl: u32) -> u32 {
+unsafe fn pk_packed_num(np: *mut u32, dyn_f: i32, dp: *mut u8, pl: u32) -> u32 {
     let mut nmbr: u32 = 0_u32;
     let mut i: u32 = *np;
     if i.wrapping_div(2_u32) == pl {
@@ -240,19 +240,19 @@ unsafe fn pk_packed_num(mut np: *mut u32, mut dyn_f: i32, mut dp: *mut u8, mut p
     *np = i;
     nmbr
 }
-unsafe fn send_out(mut rowptr: *mut u8, mut rowbytes: u32, mut stream: *mut pdf_obj) {
+unsafe fn send_out(rowptr: *mut u8, rowbytes: u32, stream: *mut pdf_obj) {
     (*stream)
         .as_stream_mut()
         .add(rowptr as *mut libc::c_void, rowbytes as i32);
 }
 unsafe fn pk_decode_packed(
-    mut stream: *mut pdf_obj,
-    mut wd: u32,
-    mut ht: u32,
-    mut dyn_f: i32,
+    stream: *mut pdf_obj,
+    wd: u32,
+    ht: u32,
+    dyn_f: i32,
     mut run_color: i32,
-    mut dp: *mut u8,
-    mut pl: u32,
+    dp: *mut u8,
+    pl: u32,
 ) -> i32 {
     let mut run_count: u32 = 0_u32;
     let rowbytes = wd.wrapping_add(7_u32).wrapping_div(8_u32);
@@ -350,13 +350,13 @@ unsafe fn pk_decode_packed(
     0i32
 }
 unsafe fn pk_decode_bitmap(
-    mut stream: *mut pdf_obj,
-    mut wd: u32,
-    mut ht: u32,
-    mut dyn_f: i32,
-    mut run_color: i32,
-    mut dp: *mut u8,
-    mut pl: u32,
+    stream: *mut pdf_obj,
+    wd: u32,
+    ht: u32,
+    dyn_f: i32,
+    run_color: i32,
+    dp: *mut u8,
+    pl: u32,
 ) -> i32 {
     static mut mask: [u8; 8] = [
         0x80u32 as u8,
@@ -402,7 +402,7 @@ unsafe fn pk_decode_bitmap(
     }
     0i32
 }
-unsafe fn do_preamble(mut fp: *mut FILE) {
+unsafe fn do_preamble(fp: *mut FILE) {
     /* Check for id byte */
     if fgetc(fp) == 89i32 {
         /* Skip comment */
@@ -414,7 +414,7 @@ unsafe fn do_preamble(mut fp: *mut FILE) {
         panic!("embed_pk_font: PK ID byte is incorrect.  Are you sure this is a PK file?");
     };
 }
-unsafe fn read_pk_char_header(mut h: *mut pk_header_, mut opcode: u8, mut fp: *mut FILE) -> i32 {
+unsafe fn read_pk_char_header(mut h: *mut pk_header_, opcode: u8, fp: *mut FILE) -> i32 {
     assert!(!h.is_null());
     if opcode as i32 & 4i32 == 0i32 {
         /* short */
@@ -481,10 +481,10 @@ unsafe fn read_pk_char_header(mut h: *mut pk_header_, mut opcode: u8, mut fp: *m
 }
 /* CCITT Group 4 filter may reduce file size. */
 unsafe fn create_pk_CharProc_stream(
-    mut pkh: *mut pk_header_,
-    mut chrwid: f64,
-    mut pkt_ptr: *mut u8,
-    mut pkt_len: u32,
+    pkh: *mut pk_header_,
+    chrwid: f64,
+    pkt_ptr: *mut u8,
+    pkt_len: u32,
 ) -> *mut pdf_obj {
     let llx = -(*pkh).bm_hoff;
     let lly = ((*pkh).bm_voff as u32).wrapping_sub((*pkh).bm_ht) as i32;
@@ -570,7 +570,7 @@ unsafe fn create_pk_CharProc_stream(
     stream
 }
 
-pub unsafe fn pdf_font_load_pkfont(mut font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
     let mut widths: [f64; 256] = [0.; 256];
     let mut charavail: [i8; 256] = [0; 256];
     /* ENABLE_GLYPHENC */
@@ -705,7 +705,7 @@ pub unsafe fn pdf_font_load_pkfont(mut font: *mut pdf_font) -> i32 {
         } else {
             match opcode {
                 240 | 241 | 242 | 243 => {
-                    let mut len: i32 = get_unsigned_num(fp, (opcode - 240i32) as u8) as i32;
+                    let len: i32 = get_unsigned_num(fp, (opcode - 240i32) as u8) as i32;
                     if len < 0i32 {
                         warn!("PK: Special with {} bytes???", len);
                     } else {

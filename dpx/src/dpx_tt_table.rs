@@ -193,7 +193,7 @@ pub struct tt_longMetrics {
   head->glyphDataFormat --> glyf
 */
 
-pub unsafe fn tt_pack_head_table(mut table: *mut tt_head_table) -> *mut i8 {
+pub unsafe fn tt_pack_head_table(table: *mut tt_head_table) -> *mut i8 {
     if table.is_null() {
         panic!("passed NULL pointer\n");
     }
@@ -249,7 +249,7 @@ pub unsafe fn tt_pack_head_table(mut table: *mut tt_head_table) -> *mut i8 {
     data
 }
 
-pub unsafe fn tt_read_head_table(mut sfont: *mut sfnt) -> *mut tt_head_table {
+pub unsafe fn tt_read_head_table(sfont: *mut sfnt) -> *mut tt_head_table {
     let mut table: *mut tt_head_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_head_table>() as u64)
         as u32) as *mut tt_head_table;
@@ -279,7 +279,7 @@ pub unsafe fn tt_read_head_table(mut sfont: *mut sfnt) -> *mut tt_head_table {
     table
 }
 
-pub unsafe fn tt_pack_maxp_table(mut table: *mut tt_maxp_table) -> *mut i8 {
+pub unsafe fn tt_pack_maxp_table(table: *mut tt_maxp_table) -> *mut i8 {
     let data = new((32u64 as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
         as *mut i8;
     let mut p = data;
@@ -338,7 +338,7 @@ pub unsafe fn tt_pack_maxp_table(mut table: *mut tt_maxp_table) -> *mut i8 {
     data
 }
 
-pub unsafe fn tt_read_maxp_table(mut sfont: *mut sfnt) -> *mut tt_maxp_table {
+pub unsafe fn tt_read_maxp_table(sfont: *mut sfnt) -> *mut tt_maxp_table {
     let mut table: *mut tt_maxp_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_maxp_table>() as u64)
         as u32) as *mut tt_maxp_table;
@@ -362,7 +362,7 @@ pub unsafe fn tt_read_maxp_table(mut sfont: *mut sfnt) -> *mut tt_maxp_table {
     table
 }
 
-pub unsafe fn tt_pack_hhea_table(mut table: *mut tt_hhea_table) -> *mut i8 {
+pub unsafe fn tt_pack_hhea_table(table: *mut tt_hhea_table) -> *mut i8 {
     let data = new((36u64 as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
         as *mut i8;
     let mut p = data;
@@ -412,7 +412,7 @@ pub unsafe fn tt_pack_hhea_table(mut table: *mut tt_hhea_table) -> *mut i8 {
     data
 }
 
-pub unsafe fn tt_read_hhea_table(mut sfont: *mut sfnt) -> *mut tt_hhea_table {
+pub unsafe fn tt_read_hhea_table(sfont: *mut sfnt) -> *mut tt_hhea_table {
     let mut table: *mut tt_hhea_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_hhea_table>() as u64)
         as u32) as *mut tt_hhea_table;
@@ -445,7 +445,7 @@ pub unsafe fn tt_read_hhea_table(mut sfont: *mut sfnt) -> *mut tt_hhea_table {
 }
 /* vhea */
 
-pub unsafe fn tt_read_vhea_table(mut sfont: *mut sfnt) -> *mut tt_vhea_table {
+pub unsafe fn tt_read_vhea_table(sfont: *mut sfnt) -> *mut tt_vhea_table {
     let mut table: *mut tt_vhea_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_vhea_table>() as u64)
         as u32) as *mut tt_vhea_table;
@@ -474,7 +474,7 @@ pub unsafe fn tt_read_vhea_table(mut sfont: *mut sfnt) -> *mut tt_vhea_table {
     table
 }
 
-pub unsafe fn tt_read_VORG_table(mut sfont: *mut sfnt) -> *mut tt_VORG_table {
+pub unsafe fn tt_read_VORG_table(sfont: *mut sfnt) -> *mut tt_VORG_table {
     let offset = sfnt_find_table_pos(sfont, b"VORG");
     let handle = &mut (*sfont).handle;
     if offset > 0_u32 {
@@ -513,10 +513,10 @@ pub unsafe fn tt_read_VORG_table(mut sfont: *mut sfnt) -> *mut tt_VORG_table {
  */
 
 pub unsafe fn tt_read_longMetrics(
-    mut sfont: *mut sfnt,
-    mut numGlyphs: u16,
-    mut numLongMetrics: u16,
-    mut numExSideBearings: u16,
+    sfont: *mut sfnt,
+    numGlyphs: u16,
+    numLongMetrics: u16,
+    numExSideBearings: u16,
 ) -> *mut tt_longMetrics {
     let mut last_adv: u16 = 0_u16;
     let mut last_esb: i16 = 0_i16;
@@ -539,7 +539,7 @@ pub unsafe fn tt_read_longMetrics(
 /* OS/2 table */
 /* this table may not exist */
 
-pub unsafe fn tt_read_os2__table(mut sfont: *mut sfnt) -> *mut tt_os2__table {
+pub unsafe fn tt_read_os2__table(sfont: *mut sfnt) -> *mut tt_os2__table {
     let table = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_os2__table>() as u64) as u32)
         as *mut tt_os2__table;
     let handle = &mut (*sfont).handle;
@@ -616,13 +616,13 @@ pub unsafe fn tt_read_os2__table(mut sfont: *mut sfnt) -> *mut tt_os2__table {
     table
 }
 unsafe fn tt_get_name(
-    mut sfont: *mut sfnt,
-    mut dest: *mut i8,
-    mut destlen: u16,
-    mut plat_id: u16,
-    mut enco_id: u16,
-    mut lang_id: u16,
-    mut name_id: u16,
+    sfont: *mut sfnt,
+    dest: *mut i8,
+    destlen: u16,
+    plat_id: u16,
+    enco_id: u16,
+    lang_id: u16,
+    name_id: u16,
 ) -> u16 {
     let mut length: u16 = 0_u16;
     let name_offset = sfnt_locate_table(sfont, sfnt_table_info::NAME);
@@ -634,12 +634,12 @@ unsafe fn tt_get_name(
     let string_offset = tt_get_unsigned_pair(handle);
     let mut i = 0;
     while i < num_names as i32 {
-        let mut p_id = tt_get_unsigned_pair(handle);
-        let mut e_id = tt_get_unsigned_pair(handle);
-        let mut l_id = tt_get_unsigned_pair(handle);
-        let mut n_id = tt_get_unsigned_pair(handle);
+        let p_id = tt_get_unsigned_pair(handle);
+        let e_id = tt_get_unsigned_pair(handle);
+        let l_id = tt_get_unsigned_pair(handle);
+        let n_id = tt_get_unsigned_pair(handle);
         length = tt_get_unsigned_pair(handle);
-        let mut offset = tt_get_unsigned_pair(handle);
+        let offset = tt_get_unsigned_pair(handle);
         /* language ID value 0xffffu for `accept any language ID' */
         if p_id as i32 == plat_id as i32
             && e_id as i32 == enco_id as i32
@@ -695,7 +695,7 @@ unsafe fn tt_get_name(
 /* OS/2 table */
 /* name table */
 
-pub unsafe fn tt_get_ps_fontname(mut sfont: *mut sfnt, mut dest: *mut i8, mut destlen: u16) -> u16 {
+pub unsafe fn tt_get_ps_fontname(sfont: *mut sfnt, dest: *mut i8, destlen: u16) -> u16 {
     /* First try Mac-Roman PS name and then Win-Unicode PS name */
     let mut namelen = tt_get_name(sfont, dest, destlen, 1_u16, 0_u16, 0_u16, 6_u16);
     if namelen as i32 != 0i32

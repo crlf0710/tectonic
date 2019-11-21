@@ -80,31 +80,31 @@ unsafe fn _gcry_burn_stack(mut bytes: i32) {
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
-unsafe fn _gcry_bswap32(mut x: u32) -> u32 {
+unsafe fn _gcry_bswap32(x: u32) -> u32 {
     return ((x << 8i32 | x >> 32i32 - 8i32) as i64 & 0xff00ffi64
         | (x >> (8i32 & 32i32 - 1i32) | x << (32i32 - 8i32 & 32i32 - 1i32)) as i64 & 0xff00ff00i64)
         as u32;
 }
-unsafe fn _gcry_bswap64(mut x: u64) -> u64 {
+unsafe fn _gcry_bswap64(x: u64) -> u64 {
     (_gcry_bswap32(x as u32) as u64) << 32i32 | _gcry_bswap32((x >> 32i32) as u32) as u64
 }
 /* Endian dependent byte swap operations.  */
 unsafe fn buf_get_be32(mut _buf: *const libc::c_void) -> u32 {
-    let mut in_0: *const u8 = _buf as *const u8;
+    let in_0: *const u8 = _buf as *const u8;
     return (*in_0.offset(0) as u32) << 24i32
         | (*in_0.offset(1) as u32) << 16i32
         | (*in_0.offset(2) as u32) << 8i32
         | *in_0.offset(3) as u32;
 }
-unsafe fn buf_put_be32(mut _buf: *mut libc::c_void, mut val: u32) {
-    let mut out: *mut u8 = _buf as *mut u8;
+unsafe fn buf_put_be32(mut _buf: *mut libc::c_void, val: u32) {
+    let out: *mut u8 = _buf as *mut u8;
     *out.offset(0) = (val >> 24i32) as u8;
     *out.offset(1) = (val >> 16i32) as u8;
     *out.offset(2) = (val >> 8i32) as u8;
     *out.offset(3) = val as u8;
 }
 unsafe fn buf_get_be64(mut _buf: *const libc::c_void) -> u64 {
-    let mut in_0: *const u8 = _buf as *const u8;
+    let in_0: *const u8 = _buf as *const u8;
     return (*in_0.offset(0) as u64) << 56i32
         | (*in_0.offset(1) as u64) << 48i32
         | (*in_0.offset(2) as u64) << 40i32
@@ -114,8 +114,8 @@ unsafe fn buf_get_be64(mut _buf: *const libc::c_void) -> u64 {
         | (*in_0.offset(6) as u64) << 8i32
         | *in_0.offset(7) as u64;
 }
-unsafe fn buf_put_be64(mut _buf: *mut libc::c_void, mut val: u64) {
-    let mut out: *mut u8 = _buf as *mut u8;
+unsafe fn buf_put_be64(mut _buf: *mut libc::c_void, val: u64) {
+    let out: *mut u8 = _buf as *mut u8;
     *out.offset(0) = (val >> 56i32) as u8;
     *out.offset(1) = (val >> 48i32) as u8;
     *out.offset(2) = (val >> 40i32) as u8;
@@ -240,7 +240,7 @@ unsafe fn do_encrypt_stream(
 ) {
     let mut i: i32 = (*ctx).idx_i; /* and seems to be faster than mod */
     let mut j: i32 = (*ctx).idx_j;
-    let mut sbox: *mut u8 = (*ctx).sbox.as_mut_ptr();
+    let sbox: *mut u8 = (*ctx).sbox.as_mut_ptr();
     loop {
         let fresh40 = len;
         len = len.wrapping_sub(1);
@@ -269,15 +269,15 @@ unsafe fn do_encrypt_stream(
 }
 
 pub unsafe fn ARC4(
-    mut ctx: *mut ARC4_CONTEXT,
-    mut len: u32,
-    mut inbuf: *const u8,
-    mut outbuf: *mut u8,
+    ctx: *mut ARC4_CONTEXT,
+    len: u32,
+    inbuf: *const u8,
+    outbuf: *mut u8,
 ) {
     do_encrypt_stream(ctx, outbuf, inbuf, len);
     _gcry_burn_stack(64i32);
 }
-unsafe fn do_arcfour_setkey(mut ctx: *mut ARC4_CONTEXT, mut key: *const u8, mut keylen: u32) {
+unsafe fn do_arcfour_setkey(mut ctx: *mut ARC4_CONTEXT, key: *const u8, keylen: u32) {
     let mut karr: [u8; 256] = [0; 256];
     (*ctx).idx_j = 0i32;
     (*ctx).idx_i = (*ctx).idx_j;
@@ -297,18 +297,18 @@ unsafe fn do_arcfour_setkey(mut ctx: *mut ARC4_CONTEXT, mut key: *const u8, mut 
     memset(karr.as_mut_ptr() as *mut libc::c_void, 0i32, 256);
 }
 
-pub unsafe fn ARC4_set_key(mut ctx: *mut ARC4_CONTEXT, mut keylen: u32, mut key: *const u8) {
+pub unsafe fn ARC4_set_key(ctx: *mut ARC4_CONTEXT, keylen: u32, key: *const u8) {
     do_arcfour_setkey(ctx, key, keylen);
     _gcry_burn_stack(300i32);
 }
 
 pub unsafe fn AES_ecb_encrypt(
-    mut key: *const u8,
-    mut key_len: size_t,
-    mut plain: *const u8,
-    mut plain_len: size_t,
-    mut cipher: *mut *mut u8,
-    mut cipher_len: *mut size_t,
+    key: *const u8,
+    key_len: size_t,
+    plain: *const u8,
+    plain_len: size_t,
+    cipher: *mut *mut u8,
+    cipher_len: *mut size_t,
 ) {
     let mut aes: AES_CONTEXT = AES_CONTEXT {
         nrounds: 0,
@@ -353,14 +353,14 @@ pub unsafe fn AES_ecb_encrypt(
 /* NULL iv means here "use random IV". */
 
 pub unsafe fn AES_cbc_encrypt_tectonic(
-    mut key: *const u8,
-    mut key_len: size_t,
-    mut iv: *const u8,
-    mut padding: i32,
-    mut plain: *const u8,
-    mut plain_len: size_t,
-    mut cipher: *mut *mut u8,
-    mut cipher_len: *mut size_t,
+    key: *const u8,
+    key_len: size_t,
+    iv: *const u8,
+    padding: i32,
+    plain: *const u8,
+    plain_len: size_t,
+    cipher: *mut *mut u8,
+    cipher_len: *mut size_t,
 ) {
     let mut aes: AES_CONTEXT = AES_CONTEXT {
         nrounds: 0,
@@ -1771,7 +1771,7 @@ static mut rcon: [u32; 10] = [
  *
  * @return the number of rounds for the given cipher key size.
  */
-unsafe fn rijndaelSetupEncrypt(mut rk: *mut u32, mut key: *const u8, mut keybits: i32) -> i32 {
+unsafe fn rijndaelSetupEncrypt(mut rk: *mut u32, key: *const u8, keybits: i32) -> i32 {
     let mut i: u32 = 0_u32;
     *rk.offset(0) = (*key.offset(0) as u32) << 24i32
         ^ (*key.offset(1) as u32) << 16i32
@@ -1877,9 +1877,9 @@ unsafe fn rijndaelSetupEncrypt(mut rk: *mut u32, mut key: *const u8, mut keybits
 }
 unsafe fn rijndaelEncrypt(
     mut rk: *const u32,
-    mut nrounds: i32,
-    mut plaintext: *const u8,
-    mut ciphertext: *mut u8,
+    nrounds: i32,
+    plaintext: *const u8,
+    ciphertext: *mut u8,
 ) {
     /* ?FULL_UNROLL */
     /*

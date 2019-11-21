@@ -176,7 +176,7 @@ pub unsafe fn check_for_jpeg(handle: &mut InputHandleWrapper) -> i32 {
 }
 
 pub unsafe fn jpeg_include_image(
-    mut ximage: *mut pdf_ximage,
+    ximage: *mut pdf_ximage,
     handle: &mut InputHandleWrapper,
 ) -> i32 {
     let mut info = ximage_info::default();
@@ -300,8 +300,8 @@ pub unsafe fn jpeg_include_image(
 }
 unsafe fn jpeg_get_density(
     mut j_info: *mut JPEG_info,
-    mut xdensity: *mut f64,
-    mut ydensity: *mut f64,
+    xdensity: *mut f64,
+    ydensity: *mut f64,
 ) {
     /*
      * j_info->xdpi and j_info->ydpi are determined in most cases
@@ -335,9 +335,9 @@ unsafe fn JPEG_info_init(mut j_info: *mut JPEG_info) {
     );
 }
 unsafe fn JPEG_release_APPn_data(
-    mut marker: JPEG_marker,
-    mut app_sig: JPEG_APPn_sig,
-    mut app_data: *mut libc::c_void,
+    marker: JPEG_marker,
+    app_sig: JPEG_APPn_sig,
+    app_data: *mut libc::c_void,
 ) {
     if marker as u32 == JM_APP0 as i32 as u32 && app_sig as u32 == JS_APPn_JFIF as i32 as u32 {
         let data = app_data as *mut JPEG_APPn_JFIF;
@@ -376,7 +376,7 @@ unsafe fn JPEG_info_clear(mut j_info: *mut JPEG_info) {
     (*j_info).max_appn = 0i32;
     (*j_info).flags = 0i32;
 }
-unsafe fn JPEG_get_iccp(mut j_info: *mut JPEG_info) -> *mut pdf_obj {
+unsafe fn JPEG_get_iccp(j_info: *mut JPEG_info) -> *mut pdf_obj {
     let mut prev_id: i32 = 0i32;
     let mut num_icc_seg: i32 = -1i32;
     let mut icc_stream = pdf_new_stream(STREAM_COMPRESS);
@@ -412,7 +412,7 @@ unsafe fn JPEG_get_iccp(mut j_info: *mut JPEG_info) -> *mut pdf_obj {
     }
     icc_stream
 }
-unsafe fn JPEG_get_XMP(mut j_info: *mut JPEG_info) -> *mut pdf_obj {
+unsafe fn JPEG_get_XMP(j_info: *mut JPEG_info) -> *mut pdf_obj {
     let mut count: i32 = 0i32;
     /* I don't know if XMP Metadata should be compressed here.*/
     let XMP_stream = pdf_new_stream(STREAM_COMPRESS);
@@ -457,9 +457,9 @@ unsafe fn JPEG_get_marker(handle: &mut InputHandleWrapper) -> JPEG_marker {
 }
 unsafe fn add_APPn_marker(
     mut j_info: *mut JPEG_info,
-    mut marker: JPEG_marker,
-    mut app_sig: i32,
-    mut app_data: *mut libc::c_void,
+    marker: JPEG_marker,
+    app_sig: i32,
+    app_data: *mut libc::c_void,
 ) -> i32 {
     if (*j_info).num_appn >= (*j_info).max_appn {
         (*j_info).max_appn += 16i32;
@@ -477,7 +477,7 @@ unsafe fn add_APPn_marker(
     (*j_info).num_appn += 1i32;
     n
 }
-unsafe fn read_APP14_Adobe(mut j_info: *mut JPEG_info, handle: &mut InputHandleWrapper) -> u16 {
+unsafe fn read_APP14_Adobe(j_info: *mut JPEG_info, handle: &mut InputHandleWrapper) -> u16 {
     let app_data = new((1_u64).wrapping_mul(::std::mem::size_of::<JPEG_APPn_Adobe>() as u64) as u32)
         as *mut JPEG_APPn_Adobe;
     (*app_data).version = tt_get_unsigned_pair(handle);
@@ -492,9 +492,9 @@ unsafe fn read_APP14_Adobe(mut j_info: *mut JPEG_info, handle: &mut InputHandleW
     );
     7_u16
 }
-unsafe fn read_exif_bytes(mut pp: *mut *mut u8, mut n: i32, mut endian: i32) -> i32 {
+unsafe fn read_exif_bytes(pp: *mut *mut u8, n: i32, endian: i32) -> i32 {
     let mut rval: i32 = 0i32;
-    let mut p: *mut u8 = *pp;
+    let p: *mut u8 = *pp;
     match endian {
         0 => {
             for i in 0..n {
@@ -514,9 +514,9 @@ unsafe fn read_exif_bytes(mut pp: *mut *mut u8, mut n: i32, mut endian: i32) -> 
 unsafe fn read_APP1_Exif(
     mut info: *mut JPEG_info,
     handle: &mut InputHandleWrapper,
-    mut length: size_t,
+    length: size_t,
 ) -> size_t {
-    let mut bigendian: i8;
+    let bigendian: i8;
     let mut type_0;
     let mut value;
     let mut num: i32 = 0i32;
@@ -742,7 +742,7 @@ unsafe fn read_APP0_JFIF(j_info: *mut JPEG_info, handle: &mut InputHandleWrapper
     }
     (9i32 as u64).wrapping_add(thumb_data_len)
 }
-unsafe fn read_APP0_JFXX(handle: &mut InputHandleWrapper, mut length: size_t) -> size_t {
+unsafe fn read_APP0_JFXX(handle: &mut InputHandleWrapper, length: size_t) -> size_t {
     tt_get_unsigned_byte(handle);
     /* Extension Code:
      *
@@ -755,9 +755,9 @@ unsafe fn read_APP0_JFXX(handle: &mut InputHandleWrapper, mut length: size_t) ->
     return length; /* Starting at 1 */
 }
 unsafe fn read_APP1_XMP(
-    mut j_info: *mut JPEG_info,
+    j_info: *mut JPEG_info,
     handle: &mut InputHandleWrapper,
-    mut length: size_t,
+    length: size_t,
 ) -> size_t {
     let app_data = new((1_u64).wrapping_mul(::std::mem::size_of::<JPEG_APPn_XMP>() as u64) as u32)
         as *mut JPEG_APPn_XMP;
@@ -779,9 +779,9 @@ unsafe fn read_APP1_XMP(
     length
 }
 unsafe fn read_APP2_ICC(
-    mut j_info: *mut JPEG_info,
+    j_info: *mut JPEG_info,
     handle: &mut InputHandleWrapper,
-    mut length: size_t,
+    length: size_t,
 ) -> size_t {
     let app_data = new((1_u64).wrapping_mul(::std::mem::size_of::<JPEG_APPn_ICC>() as u64) as u32)
         as *mut JPEG_APPn_ICC;
@@ -805,8 +805,8 @@ unsafe fn read_APP2_ICC(
     length
 }
 unsafe fn JPEG_copy_stream(
-    mut j_info: *mut JPEG_info,
-    mut stream: *mut pdf_obj,
+    j_info: *mut JPEG_info,
+    stream: *mut pdf_obj,
     handle: &mut InputHandleWrapper,
 ) -> i32 {
     let mut marker: JPEG_marker = 0 as JPEG_marker;
@@ -837,7 +837,7 @@ unsafe fn JPEG_copy_stream(
                         .as_stream_mut()
                         .add(work_buffer.as_mut_ptr() as *const libc::c_void, 4i32);
                     while length > 0i32 {
-                        let mut nb_read: i32 = ttstub_input_read(
+                        let nb_read: i32 = ttstub_input_read(
                             handle.0.as_ptr(),
                             work_buffer.as_mut_ptr(),
                             (if length < 1024i32 { length } else { 1024i32 }) as size_t,
@@ -867,7 +867,7 @@ unsafe fn JPEG_copy_stream(
                             .as_stream_mut()
                             .add(work_buffer.as_mut_ptr() as *const libc::c_void, 4i32);
                         while length > 0i32 {
-                            let mut nb_read_0: i32 = ttstub_input_read(
+                            let nb_read_0: i32 = ttstub_input_read(
                                 handle.0.as_ptr(),
                                 work_buffer.as_mut_ptr(),
                                 (if length < 1024i32 { length } else { 1024i32 }) as size_t,
@@ -886,7 +886,7 @@ unsafe fn JPEG_copy_stream(
         }
         count += 1
     }
-    let mut total_size: size_t = ttstub_input_get_size(handle);
+    let total_size: size_t = ttstub_input_get_size(handle);
     let mut pos = handle.seek(SeekFrom::Current(0)).unwrap();
     loop {
         let length = ttstub_input_read(
@@ -1125,10 +1125,10 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
 
 pub unsafe fn jpeg_get_bbox(
     handle: &mut InputHandleWrapper,
-    mut width: *mut u32,
-    mut height: *mut u32,
-    mut xdensity: *mut f64,
-    mut ydensity: *mut f64,
+    width: *mut u32,
+    height: *mut u32,
+    xdensity: *mut f64,
+    ydensity: *mut f64,
 ) -> i32 {
     let mut j_info: JPEG_info = JPEG_info {
         height: 0,

@@ -39,7 +39,7 @@ pub type __off64_t = i64;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 /* Label */
-unsafe fn read_box_hdr(mut fp: *mut FILE, mut lbox: *mut u32, mut tbox: *mut u32) -> u32 {
+unsafe fn read_box_hdr(fp: *mut FILE, lbox: *mut u32, tbox: *mut u32) -> u32 {
     let mut bytesread: u32 = 0_u32;
     *lbox = get_unsigned_quad(fp);
     *tbox = get_unsigned_quad(fp);
@@ -55,7 +55,7 @@ unsafe fn read_box_hdr(mut fp: *mut FILE, mut lbox: *mut u32, mut tbox: *mut u32
     }
     bytesread
 }
-unsafe fn check_jp___box(mut fp: *mut FILE) -> i32 {
+unsafe fn check_jp___box(fp: *mut FILE) -> i32 {
     if get_unsigned_quad(fp) != 0xc_u32 {
         return 0i32;
     }
@@ -68,7 +68,7 @@ unsafe fn check_jp___box(mut fp: *mut FILE) -> i32 {
     }
     1i32
 }
-unsafe fn check_ftyp_data(mut fp: *mut FILE, mut size: u32) -> i32 {
+unsafe fn check_ftyp_data(fp: *mut FILE, mut size: u32) -> i32 {
     let mut supported: i32 = 0i32;
     let BR = get_unsigned_quad(fp);
     size = size.wrapping_sub(4_u32);
@@ -99,7 +99,7 @@ unsafe fn check_ftyp_data(mut fp: *mut FILE, mut size: u32) -> i32 {
     }
     supported
 }
-unsafe fn read_res__data(info: &mut ximage_info, mut fp: *mut FILE, mut _size: u32) {
+unsafe fn read_res__data(info: &mut ximage_info, fp: *mut FILE, mut _size: u32) {
     let VR_N = get_unsigned_pair(fp) as u32;
     let VR_D = get_unsigned_pair(fp) as u32;
     let HR_N = get_unsigned_pair(fp) as u32;
@@ -109,7 +109,7 @@ unsafe fn read_res__data(info: &mut ximage_info, mut fp: *mut FILE, mut _size: u
     info.xdensity = 72. / (HR_N as f64 / HR_D as f64 * (10f64).powf(HR_E as f64) * 0.0254);
     info.ydensity = 72. / (VR_N as f64 / VR_D as f64 * (10f64).powf(VR_E as f64) * 0.0254);
 }
-unsafe fn scan_res_(info: &mut ximage_info, mut fp: *mut FILE, mut size: u32) -> i32 {
+unsafe fn scan_res_(info: &mut ximage_info, fp: *mut FILE, mut size: u32) -> i32 {
     let mut lbox: u32 = 0;
     let mut tbox: u32 = 0;
     let mut have_resd: i32 = 0i32;
@@ -151,9 +151,9 @@ unsafe fn scan_res_(info: &mut ximage_info, mut fp: *mut FILE, mut size: u32) ->
  */
 unsafe fn scan_cdef(
     _info: &mut ximage_info,
-    mut smask: *mut i32,
-    mut fp: *mut FILE,
-    mut size: u32,
+    smask: *mut i32,
+    fp: *mut FILE,
+    size: u32,
 ) -> i32 {
     let mut opacity_channels: i32 = 0i32; /* Cn */
     let mut have_type0: i32 = 0i32; /* must be 0 for SMask */
@@ -188,8 +188,8 @@ unsafe fn scan_cdef(
 }
 unsafe fn scan_jp2h(
     info: &mut ximage_info,
-    mut smask: *mut i32,
-    mut fp: *mut FILE,
+    smask: *mut i32,
+    fp: *mut FILE,
     mut size: u32,
 ) -> i32 {
     let mut error: i32 = 0i32;
@@ -241,7 +241,7 @@ unsafe fn scan_jp2h(
         -1i32
     };
 }
-unsafe fn scan_file(info: &mut ximage_info, mut smask: *mut i32, mut fp: *mut FILE) -> i32 {
+unsafe fn scan_file(info: &mut ximage_info, smask: *mut i32, fp: *mut FILE) -> i32 {
     let mut error: i32 = 0i32;
     let mut have_jp2h: i32 = 0i32;
     let mut lbox: u32 = 0;
@@ -298,7 +298,7 @@ unsafe fn scan_file(info: &mut ximage_info, mut smask: *mut i32, mut fp: *mut FI
     error
 }
 
-pub unsafe fn check_for_jp2(mut fp: *mut FILE) -> i32 {
+pub unsafe fn check_for_jp2(fp: *mut FILE) -> i32 {
     let mut lbox: u32 = 0;
     let mut tbox: u32 = 0;
     if fp.is_null() {
@@ -320,7 +320,7 @@ pub unsafe fn check_for_jp2(mut fp: *mut FILE) -> i32 {
     1i32
 }
 
-pub unsafe fn jp2_include_image(mut ximage: *mut pdf_ximage, mut fp: *mut FILE) -> i32 {
+pub unsafe fn jp2_include_image(ximage: *mut pdf_ximage, fp: *mut FILE) -> i32 {
     let mut smask: i32 = 0i32;
     let mut info = ximage_info::default();
     let pdf_version = pdf_get_version();
@@ -364,11 +364,11 @@ pub unsafe fn jp2_include_image(mut ximage: *mut pdf_ximage, mut fp: *mut FILE) 
 }
 
 pub unsafe fn jp2_get_bbox(
-    mut fp: *mut FILE,
-    mut width: *mut i32,
-    mut height: *mut i32,
-    mut xdensity: *mut f64,
-    mut ydensity: *mut f64,
+    fp: *mut FILE,
+    width: *mut i32,
+    height: *mut i32,
+    xdensity: *mut f64,
+    ydensity: *mut f64,
 ) -> i32 {
     let mut smask: i32 = 0i32;
     let mut info = ximage_info::default();

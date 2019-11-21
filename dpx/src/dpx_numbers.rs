@@ -36,7 +36,7 @@ pub type __off64_t = i64;
 use bridge::InputHandleWrapper;
 pub type fixword = i32;
 
-pub unsafe fn get_unsigned_byte(mut file: *mut FILE) -> u8 {
+pub unsafe fn get_unsigned_byte(file: *mut FILE) -> u8 {
     let ch = fgetc(file);
     if ch < 0i32 {
         panic!("File ended prematurely\n");
@@ -44,7 +44,7 @@ pub unsafe fn get_unsigned_byte(mut file: *mut FILE) -> u8 {
     ch as u8
 }
 
-pub unsafe fn skip_bytes(mut n: u32, mut file: *mut FILE) {
+pub unsafe fn skip_bytes(mut n: u32, file: *mut FILE) {
     loop {
         let fresh0 = n;
         n = n.wrapping_sub(1);
@@ -55,7 +55,7 @@ pub unsafe fn skip_bytes(mut n: u32, mut file: *mut FILE) {
     }
 }
 
-pub unsafe fn get_signed_byte(mut file: *mut FILE) -> i8 {
+pub unsafe fn get_signed_byte(file: *mut FILE) -> i8 {
     let mut byte = get_unsigned_byte(file) as i32;
     if byte >= 0x80i32 {
         byte -= 0x100i32
@@ -63,7 +63,7 @@ pub unsafe fn get_signed_byte(mut file: *mut FILE) -> i8 {
     byte as i8
 }
 
-pub unsafe fn get_unsigned_pair(mut file: *mut FILE) -> u16 {
+pub unsafe fn get_unsigned_pair(file: *mut FILE) -> u16 {
     let mut pair: u16 = get_unsigned_byte(file) as u16;
     pair = ((pair as i32) << 8i32 | get_unsigned_byte(file) as i32) as u16;
     pair
@@ -78,13 +78,13 @@ pub unsafe fn sget_unsigned_pair(mut s: *mut u8) -> u16 {
     pair
 }
 
-pub unsafe fn get_signed_pair(mut file: *mut FILE) -> i16 {
+pub unsafe fn get_signed_pair(file: *mut FILE) -> i16 {
     let mut pair: i16 = get_signed_byte(file) as i16;
     pair = ((pair as i32) << 8i32 | get_unsigned_byte(file) as i32) as i16;
     pair
 }
 
-pub unsafe fn get_unsigned_triple(mut file: *mut FILE) -> u32 {
+pub unsafe fn get_unsigned_triple(file: *mut FILE) -> u32 {
     let mut triple: u32 = 0_u32;
     for _ in 0..3 {
         triple = triple << 8i32 | get_unsigned_byte(file) as u32;
@@ -92,7 +92,7 @@ pub unsafe fn get_unsigned_triple(mut file: *mut FILE) -> u32 {
     triple
 }
 
-pub unsafe fn get_signed_triple(mut file: *mut FILE) -> i32 {
+pub unsafe fn get_signed_triple(file: *mut FILE) -> i32 {
     let mut triple: i32 = get_signed_byte(file) as i32;
     for _ in 0..2 {
         triple = triple << 8i32 | get_unsigned_byte(file) as i32;
@@ -100,7 +100,7 @@ pub unsafe fn get_signed_triple(mut file: *mut FILE) -> i32 {
     triple
 }
 
-pub unsafe fn get_signed_quad(mut file: *mut FILE) -> i32 {
+pub unsafe fn get_signed_quad(file: *mut FILE) -> i32 {
     let mut quad: i32 = get_signed_byte(file) as i32;
     for _ in 0..3 {
         quad = quad << 8i32 | get_unsigned_byte(file) as i32;
@@ -108,7 +108,7 @@ pub unsafe fn get_signed_quad(mut file: *mut FILE) -> i32 {
     quad
 }
 
-pub unsafe fn get_unsigned_quad(mut file: *mut FILE) -> u32 {
+pub unsafe fn get_unsigned_quad(file: *mut FILE) -> u32 {
     let mut quad = 0u32;
     for _ in 0..4 {
         quad = quad << 8i32 | get_unsigned_byte(file) as u32;
@@ -116,7 +116,7 @@ pub unsafe fn get_unsigned_quad(mut file: *mut FILE) -> u32 {
     quad
 }
 
-pub unsafe fn get_unsigned_num(mut file: *mut FILE, mut num: u8) -> u32 {
+pub unsafe fn get_unsigned_num(file: *mut FILE, num: u8) -> u32 {
     let mut val = get_unsigned_byte(file) as u32;
     match num {
         3 => {
@@ -141,11 +141,11 @@ pub unsafe fn get_unsigned_num(mut file: *mut FILE, mut num: u8) -> u32 {
 /* Compute a signed quad that must be positive */
 
 pub unsafe fn get_positive_quad(
-    mut file: *mut FILE,
-    mut type_0: *const i8,
-    mut name: *const i8,
+    file: *mut FILE,
+    type_0: *const i8,
+    name: *const i8,
 ) -> u32 {
-    let mut val: i32 = get_signed_quad(file);
+    let val: i32 = get_signed_quad(file);
     if val < 0i32 {
         panic!(
             "Bad {}: negative {}: {}",
@@ -253,7 +253,7 @@ pub unsafe fn tt_get_signed_quad(handle: &mut InputHandleWrapper) -> i32 {
     quad
 }
 
-pub unsafe fn tt_get_unsigned_num(handle: &mut InputHandleWrapper, mut num: u8) -> u32 {
+pub unsafe fn tt_get_unsigned_num(handle: &mut InputHandleWrapper, num: u8) -> u32 {
     let mut val: u32 = tt_get_unsigned_byte(handle) as u32;
     match num {
         3 => {
@@ -291,7 +291,7 @@ pub unsafe fn tt_get_positive_quad(
     type_0: &str,
     name: &str,
 ) -> u32 {
-    let mut val: i32 = tt_get_signed_quad(handle);
+    let val: i32 = tt_get_signed_quad(handle);
     if val < 0i32 {
         panic!("Bad {}: negative {}: {}", type_0, name, val,);
     }

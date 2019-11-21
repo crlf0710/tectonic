@@ -62,9 +62,9 @@ fn parse_postscriptbox_special(buf: &str) -> Result<(f64, f64, String), ()> {
 }
 
 /* quasi-hack to get the primary input */
-unsafe fn spc_handler_postscriptbox(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_postscriptbox(spe: *mut spc_env, mut ap: *mut spc_arg) -> i32 {
     let mut ti = transform_info::new();
-    let mut options: load_options = load_options {
+    let options: load_options = load_options {
         page_no: 1i32,
         bbox_type: 0i32,
         dict: ptr::null_mut(),
@@ -172,7 +172,7 @@ pub fn spc_misc_check_special(mut buf: &[u8]) -> bool {
 
 pub unsafe fn spc_misc_setup_handler(
     mut handle: *mut SpcHandler,
-    mut spe: *mut spc_env,
+    spe: *mut spc_env,
     mut args: *mut spc_arg,
 ) -> i32 {
     assert!(!handle.is_null() && !spe.is_null() && !args.is_null());

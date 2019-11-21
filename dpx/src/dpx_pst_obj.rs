@@ -72,7 +72,7 @@ pub struct pst_boolean {
 static mut pst_const_null: *const i8 = b"null\x00" as *const u8 as *const i8;
 static mut pst_const_mark: *const i8 = b"mark\x00" as *const u8 as *const i8;
 
-pub unsafe fn pst_new_obj(mut type_0: pst_type, mut data: *mut libc::c_void) -> *mut pst_obj {
+pub unsafe fn pst_new_obj(type_0: pst_type, data: *mut libc::c_void) -> *mut pst_obj {
     let obj =
         new((1_u64).wrapping_mul(::std::mem::size_of::<pst_obj>() as u64) as u32) as *mut pst_obj;
     (*obj).type_0 = type_0;
@@ -88,7 +88,7 @@ pub unsafe fn pst_new_mark() -> *mut pst_obj {
     pst_new_obj(7i32, q as *mut libc::c_void)
 }
 
-pub unsafe fn pst_release_obj(mut obj: *mut pst_obj) {
+pub unsafe fn pst_release_obj(obj: *mut pst_obj) {
     assert!(!obj.is_null());
     match (*obj).type_0 {
         1 => {
@@ -116,12 +116,12 @@ pub unsafe fn pst_release_obj(mut obj: *mut pst_obj) {
     free(obj as *mut libc::c_void);
 }
 
-pub unsafe fn pst_type_of(mut obj: *mut pst_obj) -> pst_type {
+pub unsafe fn pst_type_of(obj: *mut pst_obj) -> pst_type {
     assert!(!obj.is_null());
     (*obj).type_0
 }
 
-pub unsafe fn pst_length_of(mut obj: *mut pst_obj) -> i32 {
+pub unsafe fn pst_length_of(obj: *mut pst_obj) -> i32 {
     assert!(!obj.is_null());
     match (*obj).type_0 {
         1 => pst_boolean_length() as i32,
@@ -139,7 +139,7 @@ pub unsafe fn pst_length_of(mut obj: *mut pst_obj) -> i32 {
     }
 }
 
-pub unsafe fn pst_getIV(mut obj: *mut pst_obj) -> i32 {
+pub unsafe fn pst_getIV(obj: *mut pst_obj) -> i32 {
     assert!(!obj.is_null());
     match (*obj).type_0 {
         1 => pst_boolean_IV((*obj).data as *mut pst_boolean),
@@ -159,7 +159,7 @@ pub unsafe fn pst_getIV(mut obj: *mut pst_obj) -> i32 {
     }
 }
 
-pub unsafe fn pst_getRV(mut obj: *mut pst_obj) -> f64 {
+pub unsafe fn pst_getRV(obj: *mut pst_obj) -> f64 {
     assert!(!obj.is_null());
     match (*obj).type_0 {
         1 => pst_boolean_RV((*obj).data as *mut pst_boolean),
@@ -180,7 +180,7 @@ pub unsafe fn pst_getRV(mut obj: *mut pst_obj) -> f64 {
 }
 /* Length can be obtained by pst_length_of(). */
 
-pub unsafe fn pst_getSV(mut obj: *mut pst_obj) -> *mut u8 {
+pub unsafe fn pst_getSV(obj: *mut pst_obj) -> *mut u8 {
     let sv;
     assert!(!obj.is_null());
     match (*obj).type_0 {
@@ -211,7 +211,7 @@ pub unsafe fn pst_getSV(mut obj: *mut pst_obj) -> *mut u8 {
     sv
 }
 
-pub unsafe fn pst_data_ptr(mut obj: *mut pst_obj) -> *mut libc::c_void {
+pub unsafe fn pst_data_ptr(obj: *mut pst_obj) -> *mut libc::c_void {
     assert!(!obj.is_null());
     (match (*obj).type_0 {
         1 => pst_boolean_data_ptr((*obj).data as *mut pst_boolean) as *mut i8,
@@ -230,25 +230,25 @@ pub unsafe fn pst_data_ptr(mut obj: *mut pst_obj) -> *mut libc::c_void {
 }
 /* BOOLEAN */
 /* BOOLEAN */
-unsafe fn pst_boolean_new(mut value: i8) -> *mut pst_boolean {
+unsafe fn pst_boolean_new(value: i8) -> *mut pst_boolean {
     let obj = new((1_u64).wrapping_mul(::std::mem::size_of::<pst_boolean>() as u64) as u32)
         as *mut pst_boolean;
     (*obj).value = value;
     obj
 }
-unsafe fn pst_boolean_release(mut obj: *mut pst_boolean) {
+unsafe fn pst_boolean_release(obj: *mut pst_boolean) {
     assert!(!obj.is_null());
     free(obj as *mut libc::c_void);
 }
-unsafe fn pst_boolean_IV(mut obj: *mut pst_boolean) -> i32 {
+unsafe fn pst_boolean_IV(obj: *mut pst_boolean) -> i32 {
     assert!(!obj.is_null());
     (*obj).value as i32
 }
-unsafe fn pst_boolean_RV(mut obj: *mut pst_boolean) -> f64 {
+unsafe fn pst_boolean_RV(obj: *mut pst_boolean) -> f64 {
     assert!(!obj.is_null());
     (*obj).value as f64
 }
-unsafe fn pst_boolean_SV(mut obj: *mut pst_boolean) -> *mut u8 {
+unsafe fn pst_boolean_SV(obj: *mut pst_boolean) -> *mut u8 {
     let str;
     assert!(!obj.is_null());
     if (*obj).value != 0 {
@@ -273,12 +273,12 @@ unsafe fn pst_boolean_SV(mut obj: *mut pst_boolean) -> *mut u8 {
 unsafe fn pst_boolean_length() -> u32 {
     panic!("Operation not defined for this type of object.");
 }
-unsafe fn pst_boolean_data_ptr(mut obj: *mut pst_boolean) -> *mut libc::c_void {
+unsafe fn pst_boolean_data_ptr(obj: *mut pst_boolean) -> *mut libc::c_void {
     assert!(!obj.is_null());
     &mut (*obj).value as *mut i8 as *mut libc::c_void
 }
 
-pub unsafe fn pst_parse_boolean(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut pst_obj {
+pub unsafe fn pst_parse_boolean(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut pst_obj {
     if (*inbuf).offset(4) <= inbufend
         && memcmp(
             *inbuf as *const libc::c_void,
@@ -337,7 +337,7 @@ pub unsafe fn pst_parse_boolean(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) 
 }
 /* NULL */
 
-pub unsafe fn pst_parse_null(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut pst_obj {
+pub unsafe fn pst_parse_null(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut pst_obj {
     if (*inbuf).offset(4) <= inbufend
         && memcmp(
             *inbuf as *const libc::c_void,
@@ -374,25 +374,25 @@ pub unsafe fn pst_parse_null(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> 
 }
 /* NUMBERS */
 /* INTEGER */
-unsafe fn pst_integer_new(mut value: i32) -> *mut pst_integer {
+unsafe fn pst_integer_new(value: i32) -> *mut pst_integer {
     let obj = new((1_u64).wrapping_mul(::std::mem::size_of::<pst_integer>() as u64) as u32)
         as *mut pst_integer;
     (*obj).value = value;
     obj
 }
-unsafe fn pst_integer_release(mut obj: *mut pst_integer) {
+unsafe fn pst_integer_release(obj: *mut pst_integer) {
     assert!(!obj.is_null());
     free(obj as *mut libc::c_void);
 }
-unsafe fn pst_integer_IV(mut obj: *mut pst_integer) -> i32 {
+unsafe fn pst_integer_IV(obj: *mut pst_integer) -> i32 {
     assert!(!obj.is_null());
     (*obj).value
 }
-unsafe fn pst_integer_RV(mut obj: *mut pst_integer) -> f64 {
+unsafe fn pst_integer_RV(obj: *mut pst_integer) -> f64 {
     assert!(!obj.is_null());
     (*obj).value as f64
 }
-unsafe fn pst_integer_SV(mut obj: *mut pst_integer) -> *mut u8 {
+unsafe fn pst_integer_SV(obj: *mut pst_integer) -> *mut u8 {
     let mut fmt_buf: [i8; 15] = [0; 15];
     assert!(!obj.is_null());
     let len = sprintf(
@@ -406,7 +406,7 @@ unsafe fn pst_integer_SV(mut obj: *mut pst_integer) -> *mut u8 {
     strcpy(value, fmt_buf.as_mut_ptr());
     value as *mut u8
 }
-unsafe fn pst_integer_data_ptr(mut obj: *mut pst_integer) -> *mut libc::c_void {
+unsafe fn pst_integer_data_ptr(obj: *mut pst_integer) -> *mut libc::c_void {
     assert!(!obj.is_null());
     &mut (*obj).value as *mut i32 as *mut libc::c_void
 }
@@ -414,25 +414,25 @@ unsafe fn pst_integer_length() -> u32 {
     panic!("Operation not defined for this type of object.");
 }
 /* REAL */
-unsafe fn pst_real_new(mut value: f64) -> *mut pst_real {
+unsafe fn pst_real_new(value: f64) -> *mut pst_real {
     let obj =
         new((1_u64).wrapping_mul(::std::mem::size_of::<pst_real>() as u64) as u32) as *mut pst_real;
     (*obj).value = value;
     obj
 }
-unsafe fn pst_real_release(mut obj: *mut pst_real) {
+unsafe fn pst_real_release(obj: *mut pst_real) {
     assert!(!obj.is_null());
     free(obj as *mut libc::c_void);
 }
-unsafe fn pst_real_IV(mut obj: *mut pst_real) -> i32 {
+unsafe fn pst_real_IV(obj: *mut pst_real) -> i32 {
     assert!(!obj.is_null());
     (*obj).value as i32
 }
-unsafe fn pst_real_RV(mut obj: *mut pst_real) -> f64 {
+unsafe fn pst_real_RV(obj: *mut pst_real) -> f64 {
     assert!(!obj.is_null());
     (*obj).value
 }
-unsafe fn pst_real_SV(mut obj: *mut pst_real) -> *mut u8 {
+unsafe fn pst_real_SV(obj: *mut pst_real) -> *mut u8 {
     let mut fmt_buf: [i8; 15] = [0; 15];
     assert!(!obj.is_null());
     let len = sprintf(
@@ -445,7 +445,7 @@ unsafe fn pst_real_SV(mut obj: *mut pst_real) -> *mut u8 {
     strcpy(value, fmt_buf.as_mut_ptr());
     value as *mut u8
 }
-unsafe fn pst_real_data_ptr(mut obj: *mut pst_real) -> *mut libc::c_void {
+unsafe fn pst_real_data_ptr(obj: *mut pst_real) -> *mut libc::c_void {
     assert!(!obj.is_null());
     &mut (*obj).value as *mut f64 as *mut libc::c_void
 }
@@ -455,7 +455,7 @@ unsafe fn pst_real_length() -> u32 {
 /* NOTE: the input buffer must be null-terminated, i.e., *inbufend == 0 */
 /* leading white-space is ignored */
 
-pub unsafe fn pst_parse_number(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut pst_obj {
+pub unsafe fn pst_parse_number(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut pst_obj {
     let mut cur: *mut u8 = ptr::null_mut();
     errno::set_errno(errno::ZERO);
     let mut lval = strtol(
@@ -569,7 +569,7 @@ pub unsafe fn pst_parse_number(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -
 /*
  * \0 is not allowed for name object.
  */
-unsafe fn pst_name_new(mut name: *const i8) -> *mut pst_name {
+unsafe fn pst_name_new(name: *const i8) -> *mut pst_name {
     let obj =
         new((1_u64).wrapping_mul(::std::mem::size_of::<pst_name>() as u64) as u32) as *mut pst_name;
     (*obj).value =
@@ -578,12 +578,12 @@ unsafe fn pst_name_new(mut name: *const i8) -> *mut pst_name {
     strcpy((*obj).value, name);
     obj
 }
-unsafe fn pst_name_release(mut obj: *mut pst_name) {
+unsafe fn pst_name_release(obj: *mut pst_name) {
     assert!(!obj.is_null());
     free((*obj).value as *mut libc::c_void);
     free(obj as *mut libc::c_void);
 }
-unsafe fn getxpair(mut s: *mut *mut u8) -> i32 {
+unsafe fn getxpair(s: *mut *mut u8) -> i32 {
     let hi = xtoi(**s);
     if hi < 0i32 {
         return hi;
@@ -597,7 +597,7 @@ unsafe fn getxpair(mut s: *mut *mut u8) -> i32 {
     hi << 4i32 | lo
 }
 
-pub unsafe fn pst_parse_name(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut pst_obj
+pub unsafe fn pst_parse_name(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut pst_obj
 /* / is required */ {
     let mut wbuf: [u8; 128] = [0; 128];
     let mut p: *mut u8 = wbuf.as_mut_ptr();
@@ -665,18 +665,18 @@ unsafe fn pst_name_IV() -> i32 {
 unsafe fn pst_name_RV() -> f64 {
     panic!("Operation not defined for this type of object.");
 }
-unsafe fn pst_name_SV(mut obj: *mut pst_name) -> *mut u8 {
+unsafe fn pst_name_SV(obj: *mut pst_name) -> *mut u8 {
     let value =
         new((strlen((*obj).value).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
             as *mut i8;
     strcpy(value, (*obj).value);
     value as *mut u8
 }
-unsafe fn pst_name_data_ptr(mut obj: *mut pst_name) -> *mut libc::c_void {
+unsafe fn pst_name_data_ptr(obj: *mut pst_name) -> *mut libc::c_void {
     assert!(!obj.is_null());
     (*obj).value as *mut libc::c_void
 }
-unsafe fn pst_name_length(mut obj: *mut pst_name) -> u32 {
+unsafe fn pst_name_length(obj: *mut pst_name) -> u32 {
     assert!(!obj.is_null());
     strlen((*obj).value) as u32
 }
@@ -684,7 +684,7 @@ unsafe fn pst_name_length(mut obj: *mut pst_name) -> u32 {
 /*
  * TODO: ascii85 string <~ .... ~>
  */
-unsafe fn pst_string_new(mut str: *mut u8, mut len: u32) -> *mut pst_string {
+unsafe fn pst_string_new(str: *mut u8, len: u32) -> *mut pst_string {
     let obj = new((1_u64).wrapping_mul(::std::mem::size_of::<pst_string>() as u64) as u32)
         as *mut pst_string;
     (*obj).length = len;
@@ -702,13 +702,13 @@ unsafe fn pst_string_new(mut str: *mut u8, mut len: u32) -> *mut pst_string {
     }
     obj
 }
-unsafe fn pst_string_release(mut obj: *mut pst_string) {
+unsafe fn pst_string_release(obj: *mut pst_string) {
     assert!(!obj.is_null());
     free((*obj).value as *mut libc::c_void);
     free(obj as *mut libc::c_void);
 }
 
-pub unsafe fn pst_parse_string(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut pst_obj {
+pub unsafe fn pst_parse_string(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut pst_obj {
     if (*inbuf).offset(2) >= inbufend {
         return ptr::null_mut();
     } else {
@@ -733,7 +733,7 @@ pub unsafe fn pst_parse_string(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -
     ptr::null_mut()
 }
 /* Overflowed value is set to invalid char.  */
-unsafe fn ostrtouc(mut inbuf: *mut *mut u8, mut inbufend: *mut u8, mut valid: *mut u8) -> u8 {
+unsafe fn ostrtouc(inbuf: *mut *mut u8, inbufend: *mut u8, valid: *mut u8) -> u8 {
     let mut cur: *mut u8 = *inbuf;
     let mut val: u32 = 0_u32;
     while cur < inbufend
@@ -751,7 +751,7 @@ unsafe fn ostrtouc(mut inbuf: *mut *mut u8, mut inbufend: *mut u8, mut valid: *m
     *inbuf = cur;
     val as u8
 }
-unsafe fn esctouc(mut inbuf: *mut *mut u8, mut inbufend: *mut u8, mut valid: *mut u8) -> u8 {
+unsafe fn esctouc(inbuf: *mut *mut u8, inbufend: *mut u8, valid: *mut u8) -> u8 {
     let unescaped;
     let escaped = **inbuf;
     *valid = 1_u8;
@@ -811,8 +811,8 @@ unsafe fn esctouc(mut inbuf: *mut *mut u8, mut inbufend: *mut u8, mut valid: *mu
 }
 /* STRING */
 unsafe fn pst_string_parse_literal(
-    mut inbuf: *mut *mut u8,
-    mut inbufend: *mut u8,
+    inbuf: *mut *mut u8,
+    inbufend: *mut u8,
 ) -> *mut pst_string {
     let mut wbuf: [u8; 4096] = [0; 4096];
     let mut cur: *mut u8 = *inbuf;
@@ -876,7 +876,7 @@ unsafe fn pst_string_parse_literal(
     *inbuf = cur;
     pst_string_new(wbuf.as_mut_ptr(), len as u32)
 }
-unsafe fn pst_string_parse_hex(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -> *mut pst_string {
+unsafe fn pst_string_parse_hex(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut pst_string {
     let mut wbuf: [u8; 4096] = [0; 4096];
     let mut cur: *mut u8 = *inbuf;
     let mut len: u32 = 0_u32;
@@ -934,10 +934,10 @@ unsafe fn pst_string_parse_hex(mut inbuf: *mut *mut u8, mut inbufend: *mut u8) -
     *inbuf = cur;
     pst_string_new(wbuf.as_mut_ptr(), len)
 }
-unsafe fn pst_string_IV(mut obj: *mut pst_string) -> i32 {
+unsafe fn pst_string_IV(obj: *mut pst_string) -> i32 {
     pst_string_RV(obj) as i32
 }
-unsafe fn pst_string_RV(mut obj: *mut pst_string) -> f64 {
+unsafe fn pst_string_RV(obj: *mut pst_string) -> f64 {
     assert!(!obj.is_null());
     let mut p = (*obj).value;
     let end = p.offset((*obj).length as isize);
@@ -949,7 +949,7 @@ unsafe fn pst_string_RV(mut obj: *mut pst_string) -> f64 {
     pst_release_obj(nobj);
     rv
 }
-unsafe fn pst_string_SV(mut obj: *mut pst_string) -> *mut u8 {
+unsafe fn pst_string_SV(obj: *mut pst_string) -> *mut u8 {
     assert!(!obj.is_null());
     let str = new(((*obj).length.wrapping_add(1_u32) as u64)
         .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
@@ -961,11 +961,11 @@ unsafe fn pst_string_SV(mut obj: *mut pst_string) -> *mut u8 {
     *str.offset((*obj).length as isize) = '\u{0}' as i32 as u8;
     str
 }
-unsafe fn pst_string_data_ptr(mut obj: *mut pst_string) -> *mut libc::c_void {
+unsafe fn pst_string_data_ptr(obj: *mut pst_string) -> *mut libc::c_void {
     assert!(!obj.is_null());
     (*obj).value as *mut libc::c_void
 }
-unsafe fn pst_string_length(mut obj: *mut pst_string) -> u32 {
+unsafe fn pst_string_length(obj: *mut pst_string) -> u32 {
     assert!(!obj.is_null());
     (*obj).length
 }

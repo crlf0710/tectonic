@@ -43,7 +43,7 @@ use crate::SkipBlank;
  * other operations that can change current color
  * implicitely.
  */
-unsafe fn spc_handler_color_push(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_color_push(spe: *mut spc_env, args: *mut spc_arg) -> i32 {
     if let Ok(mut colorspec) = spc_util_read_colorspec(spe, args, true) {
         let color_clone = colorspec.clone();
         pdf_color_push(&mut colorspec, &color_clone);
@@ -60,7 +60,7 @@ unsafe fn spc_handler_color_pop(mut _spe: *mut spc_env, mut _args: *mut spc_arg)
 /* Invoked by the special command "color rgb .625 0 0".
  * DVIPS clears the color stack, and then saves and sets the given color.
  */
-unsafe fn spc_handler_color_default(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_color_default(spe: *mut spc_env, args: *mut spc_arg) -> i32 {
     if let Ok(colorspec) = spc_util_read_colorspec(spe, args, true) {
         pdf_color_clear_stack();
         pdf_color_set(&colorspec, &colorspec);
@@ -70,7 +70,7 @@ unsafe fn spc_handler_color_default(mut spe: *mut spc_env, mut args: *mut spc_ar
     }
 }
 /* This is from color special? */
-unsafe fn spc_handler_background(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_background(spe: *mut spc_env, args: *mut spc_arg) -> i32 {
     if let Ok(colorspec) = spc_util_read_colorspec(spe, args, true) {
         pdf_doc_set_bgcolor(Some(&colorspec));
         0
@@ -90,7 +90,7 @@ pub fn spc_color_check_special(mut buf: &[u8]) -> bool {
 
 pub unsafe fn spc_color_setup_handler(
     mut sph: *mut SpcHandler,
-    mut spe: *mut spc_env,
+    spe: *mut spc_env,
     mut ap: *mut spc_arg,
 ) -> i32 {
     assert!(!sph.is_null() && !spe.is_null() && !ap.is_null());

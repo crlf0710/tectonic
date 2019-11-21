@@ -74,7 +74,7 @@ pub struct sfd_rec_ {
 }
 static mut verbose: i32 = 0i32;
 
-pub unsafe fn subfont_set_verbose(mut level: i32) {
+pub unsafe fn subfont_set_verbose(level: i32) {
     verbose = level;
 }
 unsafe fn init_sfd_file_(mut sfd: *mut sfd_file_) {
@@ -84,7 +84,7 @@ unsafe fn init_sfd_file_(mut sfd: *mut sfd_file_) {
     (*sfd).num_subfonts = 0i32;
     (*sfd).max_subfonts = (*sfd).num_subfonts;
 }
-unsafe fn clean_sfd_file_(mut sfd: *mut sfd_file_) {
+unsafe fn clean_sfd_file_(sfd: *mut sfd_file_) {
     free((*sfd).ident as *mut libc::c_void);
     if !(*sfd).sub_id.is_null() {
         for i in 0..(*sfd).num_subfonts {
@@ -107,7 +107,7 @@ static mut line_buf: [i8; 4096] = [0; 4096];
  * SFD file format uses a '\' before newline sequence
  * for line-continuation.
  */
-unsafe fn readline(mut buf: *mut i8, mut buf_len: i32, handle: &mut InputHandleWrapper) -> *mut i8 {
+unsafe fn readline(buf: *mut i8, buf_len: i32, handle: &mut InputHandleWrapper) -> *mut i8 {
     let mut q: *mut i8 = ptr::null_mut();
     let mut p: *mut i8 = buf;
     let mut n: i32 = 0i32;
@@ -154,12 +154,12 @@ unsafe fn readline(mut buf: *mut i8, mut buf_len: i32, handle: &mut InputHandleW
  *  0xA1A1_0xA1A5 ==> Expanded to 0xA1A1 0xA1A2 ... 0xA1A5
  */
 /* subfont_id is already consumed here. */
-unsafe fn read_sfd_record(mut rec: *mut sfd_rec_, mut lbuf: *const i8) -> i32 {
+unsafe fn read_sfd_record(mut rec: *mut sfd_rec_, lbuf: *const i8) -> i32 {
     let mut p: *const i8 = lbuf;
     let mut r: *mut i8 = ptr::null_mut();
     let mut v2: i32 = 0i32;
     let mut curpos: i32 = 0i32;
-    let mut error: i32 = 0i32;
+    let error: i32 = 0i32;
     while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
         p = p.offset(1)
     }
@@ -322,7 +322,7 @@ unsafe fn scan_sfd_file(mut sfd: *mut sfd_file_, handle: &mut InputHandleWrapper
 /* Open SFD file and gather subfont IDs. We do not read mapping tables
  * here but only read subfont IDs used in SFD file.
  */
-unsafe fn find_sfd_file(mut sfd_name: *const i8) -> i32 {
+unsafe fn find_sfd_file(sfd_name: *const i8) -> i32 {
     let mut id: i32 = -1i32;
     /* Check if we already opened SFD file */
     for i in 0..num_sfd_files {
@@ -370,7 +370,7 @@ unsafe fn find_sfd_file(mut sfd_name: *const i8) -> i32 {
     id
 }
 
-pub unsafe fn sfd_get_subfont_ids(mut sfd_name: *const i8, mut num_ids: *mut i32) -> *mut *mut i8 {
+pub unsafe fn sfd_get_subfont_ids(sfd_name: *const i8, num_ids: *mut i32) -> *mut *mut i8 {
     if sfd_name.is_null() {
         return 0 as *mut *mut i8;
     }
@@ -387,7 +387,7 @@ pub unsafe fn sfd_get_subfont_ids(mut sfd_name: *const i8, mut num_ids: *mut i32
  * Mapping tables are actually read here.
  */
 
-pub unsafe fn sfd_load_record(mut sfd_name: *const i8, mut subfont_id: *const i8) -> i32 {
+pub unsafe fn sfd_load_record(sfd_name: *const i8, subfont_id: *const i8) -> i32 {
     let mut rec_id: i32 = -1i32;
     if sfd_name.is_null() || subfont_id.is_null() {
         return -1i32;
@@ -510,7 +510,7 @@ pub unsafe fn sfd_load_record(mut sfd_name: *const i8, mut subfont_id: *const i8
 }
 /* Lookup mapping table */
 
-pub unsafe fn lookup_sfd_record(mut rec_id: i32, mut c: u8) -> u16 {
+pub unsafe fn lookup_sfd_record(rec_id: i32, c: u8) -> u16 {
     if sfd_record.is_null() || rec_id < 0i32 || rec_id >= num_sfd_records {
         panic!("Invalid subfont_id: {}", rec_id);
     }

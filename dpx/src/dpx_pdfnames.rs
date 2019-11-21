@@ -78,7 +78,7 @@ unsafe fn printable_key(key: *const i8, keylen: i32) -> String {
     printable
 }
 #[inline]
-unsafe fn hval_free(mut hval: *mut libc::c_void) {
+unsafe fn hval_free(hval: *mut libc::c_void) {
     let value = hval as *mut obj_data;
     if !(*value).object.is_null() {
         pdf_release_obj((*value).object);
@@ -96,7 +96,7 @@ pub unsafe fn pdf_new_name_tree() -> *mut ht_table {
     );
     names
 }
-unsafe fn check_objects_defined(mut ht_tab: *mut ht_table) {
+unsafe fn check_objects_defined(ht_tab: *mut ht_table) {
     let mut iter: ht_iter = ht_iter {
         index: 0,
         curr: ptr::null_mut(),
@@ -125,7 +125,7 @@ unsafe fn check_objects_defined(mut ht_tab: *mut ht_table) {
     };
 }
 
-pub unsafe fn pdf_delete_name_tree(mut names: *mut *mut ht_table) {
+pub unsafe fn pdf_delete_name_tree(names: *mut *mut ht_table) {
     assert!(!names.is_null() && !(*names).is_null());
     check_objects_defined(*names);
     ht_clear_table(*names);
@@ -133,10 +133,10 @@ pub unsafe fn pdf_delete_name_tree(mut names: *mut *mut ht_table) {
 }
 
 pub unsafe fn pdf_names_add_object(
-    mut names: *mut ht_table,
-    mut key: *const libc::c_void,
-    mut keylen: i32,
-    mut object: *mut pdf_obj,
+    names: *mut ht_table,
+    key: *const libc::c_void,
+    keylen: i32,
+    object: *mut pdf_obj,
 ) -> i32 {
     assert!(!names.is_null() && !object.is_null());
     if key.is_null() || keylen < 1i32 {
@@ -172,9 +172,9 @@ pub unsafe fn pdf_names_add_object(
  */
 
 pub unsafe fn pdf_names_lookup_reference(
-    mut names: *mut ht_table,
-    mut key: *const libc::c_void,
-    mut keylen: i32,
+    names: *mut ht_table,
+    key: *const libc::c_void,
+    keylen: i32,
 ) -> *mut pdf_obj {
     let object;
     assert!(!names.is_null());
@@ -194,9 +194,9 @@ pub unsafe fn pdf_names_lookup_reference(
 }
 
 pub unsafe fn pdf_names_lookup_object(
-    mut names: *mut ht_table,
-    mut key: *const libc::c_void,
-    mut keylen: i32,
+    names: *mut ht_table,
+    key: *const libc::c_void,
+    keylen: i32,
 ) -> *mut pdf_obj {
     assert!(!names.is_null());
     let value = ht_lookup_table(names, key, keylen) as *mut obj_data;
@@ -210,9 +210,9 @@ pub unsafe fn pdf_names_lookup_object(
 }
 
 pub unsafe fn pdf_names_close_object(
-    mut names: *mut ht_table,
-    mut key: *const libc::c_void,
-    mut keylen: i32,
+    names: *mut ht_table,
+    key: *const libc::c_void,
+    keylen: i32,
 ) -> i32 {
     assert!(!names.is_null());
     let value = ht_lookup_table(names, key, keylen) as *mut obj_data;
@@ -251,9 +251,9 @@ fn cmp_key(sd1: &named_object, sd2: &named_object) -> Ordering {
     }
 }
 unsafe fn build_name_tree(
-    mut first: *mut named_object,
-    mut num_leaves: i32,
-    mut is_root: i32,
+    first: *mut named_object,
+    num_leaves: i32,
+    is_root: i32,
 ) -> *mut pdf_obj {
     let result = pdf_new_dict();
     /*
@@ -267,7 +267,7 @@ unsafe fn build_name_tree(
      */
     if is_root == 0 {
         let mut limits = vec![];
-        let mut last = &mut *first.offset((num_leaves - 1i32) as isize) as *mut named_object;
+        let last = &mut *first.offset((num_leaves - 1i32) as isize) as *mut named_object;
         limits.push(pdf_new_string(
             (*first).key as *const libc::c_void,
             (*first).keylen as size_t,
@@ -320,9 +320,9 @@ unsafe fn build_name_tree(
     result
 }
 unsafe fn flat_table(
-    mut ht_tab: *mut ht_table,
-    mut num_entries: *mut i32,
-    mut filter: *mut ht_table,
+    ht_tab: *mut ht_table,
+    num_entries: *mut i32,
+    filter: *mut ht_table,
 ) -> *mut named_object {
     let mut iter: ht_iter = ht_iter {
         index: 0,
@@ -340,7 +340,7 @@ unsafe fn flat_table(
             let mut key = ht_iter_getkey(&mut iter, &mut keylen);
 
             if !filter.is_null() {
-                let mut new_obj: *mut pdf_obj =
+                let new_obj: *mut pdf_obj =
                     ht_lookup_table(filter, key as *const libc::c_void, keylen) as *mut pdf_obj;
                 if new_obj.is_null() {
                     if !(ht_iter_next(&mut iter) >= 0) {
@@ -389,9 +389,9 @@ unsafe fn flat_table(
 /* Really create name tree... */
 
 pub unsafe fn pdf_names_create_tree(
-    mut names: *mut ht_table,
-    mut count: *mut i32,
-    mut filter: *mut ht_table,
+    names: *mut ht_table,
+    count: *mut i32,
+    filter: *mut ht_table,
 ) -> *mut pdf_obj {
     let name_tree;
     let flat = flat_table(names, count, filter);

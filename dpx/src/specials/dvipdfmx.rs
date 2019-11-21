@@ -51,7 +51,7 @@ pub fn spc_dvipdfmx_check_special(mut buf: &[u8]) -> bool {
 
 pub unsafe fn spc_dvipdfmx_setup_handler(
     mut sph: *mut SpcHandler,
-    mut spe: *mut spc_env,
+    spe: *mut spc_env,
     mut ap: *mut spc_arg,
 ) -> i32 {
     let mut error: i32 = -1i32;

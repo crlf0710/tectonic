@@ -98,7 +98,7 @@ static mut trn_array: [f64; 32] = [0.; 32];
 /*
  * clear_stack() put all operands sotred in operand stack to dest.
  */
-unsafe fn clear_stack(mut dest: *mut *mut u8, mut limit: *mut u8) {
+unsafe fn clear_stack(dest: *mut *mut u8, limit: *mut u8) {
     for i in 0..stack_top {
         let value = arg_stack[i as usize];
         /* Nearest integer value */
@@ -201,12 +201,12 @@ unsafe fn clear_stack(mut dest: *mut *mut u8, mut limit: *mut u8) {
  *  2: in path construction
  */
 unsafe fn do_operator1(
-    mut dest: *mut *mut u8,
-    mut limit: *mut u8,
-    mut data: *mut *mut u8,
-    mut endptr: *mut u8,
+    dest: *mut *mut u8,
+    limit: *mut u8,
+    data: *mut *mut u8,
+    endptr: *mut u8,
 ) {
-    let mut op: u8 = **data;
+    let op: u8 = **data;
     *data = (*data).offset(1);
     match op as i32 {
         18 | 23 | 1 | 3 => {
@@ -243,7 +243,7 @@ unsafe fn do_operator1(
             *dest = (*dest).offset(1);
             *fresh14 = op;
             if num_stems > 0i32 {
-                let mut masklen: i32 = (num_stems + 7i32) / 8i32;
+                let masklen: i32 = (num_stems + 7i32) / 8i32;
                 if limit < (*dest).offset(masklen as isize) {
                     status = -3i32;
                     return;
@@ -357,10 +357,10 @@ unsafe fn do_operator1(
  *  random: How random ?
  */
 unsafe fn do_operator2(
-    mut dest: *mut *mut u8,
-    mut limit: *mut u8,
-    mut data: *mut *mut u8,
-    mut endptr: *mut u8,
+    dest: *mut *mut u8,
+    limit: *mut u8,
+    data: *mut *mut u8,
+    endptr: *mut u8,
 ) {
     *data = (*data).offset(1);
     if endptr < (*data).offset(1) {
@@ -495,7 +495,7 @@ unsafe fn do_operator2(
                 return;
             }
             stack_top -= 1;
-            let mut idx: i32 = arg_stack[stack_top as usize] as i32;
+            let idx: i32 = arg_stack[stack_top as usize] as i32;
             if 32i32 < idx {
                 status = -2i32;
                 return;
@@ -508,7 +508,7 @@ unsafe fn do_operator2(
                 status = -2i32;
                 return;
             }
-            let mut idx_0: i32 = arg_stack[(stack_top - 1i32) as usize] as i32;
+            let idx_0: i32 = arg_stack[(stack_top - 1i32) as usize] as i32;
             if 32i32 < idx_0 {
                 status = -2i32;
                 return;
@@ -558,7 +558,7 @@ unsafe fn do_operator2(
                 status = -2i32;
                 return;
             }
-            let mut save: f64 = arg_stack[(stack_top - 2i32) as usize];
+            let save: f64 = arg_stack[(stack_top - 2i32) as usize];
             arg_stack[(stack_top - 2i32) as usize] = arg_stack[(stack_top - 1i32) as usize];
             arg_stack[(stack_top - 1i32) as usize] = save
         }
@@ -568,7 +568,7 @@ unsafe fn do_operator2(
                 return;
             }
             /* need two arguments at least */
-            let mut idx_1: i32 = arg_stack[(stack_top - 1i32) as usize] as i32;
+            let idx_1: i32 = arg_stack[(stack_top - 1i32) as usize] as i32;
             if idx_1 < 0i32 {
                 arg_stack[(stack_top - 1i32) as usize] = arg_stack[(stack_top - 2i32) as usize]
             } else {
@@ -601,7 +601,7 @@ unsafe fn do_operator2(
                     if !(fresh21 > 0i32) {
                         break;
                     }
-                    let mut save_0: f64 = arg_stack[(stack_top - 1i32) as usize];
+                    let save_0: f64 = arg_stack[(stack_top - 1i32) as usize];
                     let mut i: i32 = stack_top - 1i32;
                     while i > stack_top - N {
                         arg_stack[i as usize] = arg_stack[(i - 1i32) as usize];
@@ -617,7 +617,7 @@ unsafe fn do_operator2(
                     if !(fresh22 > 0i32) {
                         break;
                     }
-                    let mut save_1: f64 = arg_stack[(stack_top - N) as usize];
+                    let save_1: f64 = arg_stack[(stack_top - N) as usize];
                     let mut i_0: i32 = stack_top - N;
                     while i_0 < stack_top - 1i32 {
                         arg_stack[i_0 as usize] = arg_stack[(i_0 + 1i32) as usize];
@@ -654,9 +654,9 @@ unsafe fn do_operator2(
  * integer:
  *  exactly the same as the DICT encoding (except 29)
  */
-unsafe fn get_integer(mut data: *mut *mut u8, mut endptr: *mut u8) {
+unsafe fn get_integer(data: *mut *mut u8, endptr: *mut u8) {
     let mut result;
-    let mut b0: u8 = **data;
+    let b0: u8 = **data;
     *data = (*data).offset(1);
     if b0 as i32 == 28i32 {
         /* shortint */
@@ -706,7 +706,7 @@ unsafe fn get_integer(mut data: *mut *mut u8, mut endptr: *mut u8) {
 /*
  * Signed 16.16-bits fixed number for Type 2 charstring encoding
  */
-unsafe fn get_fixed(mut data: *mut *mut u8, mut endptr: *mut u8) {
+unsafe fn get_fixed(data: *mut *mut u8, endptr: *mut u8) {
     *data = (*data).offset(1);
     if endptr < (*data).offset(4) {
         status = -1i32;
@@ -739,9 +739,9 @@ unsafe fn get_fixed(mut data: *mut *mut u8, mut endptr: *mut u8) {
  * id:       biased subroutine number.
  */
 unsafe fn get_subr(
-    mut subr: *mut *mut u8,
-    mut len: *mut i32,
-    mut subr_idx: *mut cff_index,
+    subr: *mut *mut u8,
+    len: *mut i32,
+    subr_idx: *mut cff_index,
     mut id: i32,
 ) {
     if subr_idx.is_null() {
@@ -779,12 +779,12 @@ unsafe fn get_subr(
  *  Type 1 format.
  */
 unsafe fn do_charstring(
-    mut dest: *mut *mut u8,
-    mut limit: *mut u8,
-    mut data: *mut *mut u8,
-    mut endptr: *mut u8,
-    mut gsubr_idx: *mut cff_index,
-    mut subr_idx: *mut cff_index,
+    dest: *mut *mut u8,
+    limit: *mut u8,
+    data: *mut *mut u8,
+    endptr: *mut u8,
+    gsubr_idx: *mut cff_index,
+    subr_idx: *mut cff_index,
 ) {
     let mut subr: *mut u8 = ptr::null_mut();
     let mut len: i32 = 0;
@@ -891,16 +891,16 @@ unsafe fn cs_parse_init() {
 
 pub unsafe fn cs_copy_charstring(
     mut dst: *mut u8,
-    mut dstlen: i32,
+    dstlen: i32,
     mut src: *mut u8,
-    mut srclen: i32,
-    mut gsubr: *mut cff_index,
-    mut subr: *mut cff_index,
-    mut default_width: f64,
-    mut nominal_width: f64,
+    srclen: i32,
+    gsubr: *mut cff_index,
+    subr: *mut cff_index,
+    default_width: f64,
+    nominal_width: f64,
     mut ginfo: *mut cs_ginfo,
 ) -> i32 {
-    let mut save: *mut u8 = dst;
+    let save: *mut u8 = dst;
     cs_parse_init();
     width = 0.0f64;
     have_width = 0i32;

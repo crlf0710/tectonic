@@ -103,7 +103,7 @@ use super::dpx_t1_char::t1_ginfo;
  * as directory separators. */
 
 /* Force bold at small text sizes */
-unsafe fn is_basefont(mut name: *const i8) -> bool {
+unsafe fn is_basefont(name: *const i8) -> bool {
     static mut basefonts: [*const i8; 14] = [
         b"Courier\x00" as *const u8 as *const i8,
         b"Courier-Bold\x00" as *const u8 as *const i8,
@@ -128,7 +128,7 @@ unsafe fn is_basefont(mut name: *const i8) -> bool {
     false
 }
 
-pub unsafe fn pdf_font_open_type1(mut font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_open_type1(font: *mut pdf_font) -> i32 {
     let mut fontname: [i8; 128] = [0; 128];
     assert!(!font.is_null());
     let ident = pdf_font_get_ident(font);
@@ -158,8 +158,8 @@ pub unsafe fn pdf_font_open_type1(mut font: *mut pdf_font) -> i32 {
     }
     0i32
 }
-unsafe fn get_font_attr(mut font: *mut pdf_font, cffont: &cff_font) {
-    let mut italicangle;
+unsafe fn get_font_attr(font: *mut pdf_font, cffont: &cff_font) {
+    let italicangle;
     let mut flags: i32 = 0i32;
     static mut L_c: [*const i8; 5] = [
         b"H\x00" as *const u8 as *const i8,
@@ -183,7 +183,7 @@ unsafe fn get_font_attr(mut font: *mut pdf_font, cffont: &cff_font) {
     ];
     let mut gm = t1_ginfo::new();
     let mut defaultwidth = 500_f64;
-    let mut nominalwidth = 0_f64;
+    let nominalwidth = 0_f64;
     /*
      * CapHeight, Ascent, and Descent is meaningfull only for Latin/Greek/Cyrillic.
      * The BlueValues and OtherBlues also have those information.
@@ -391,11 +391,11 @@ unsafe fn get_font_attr(mut font: *mut pdf_font, cffont: &cff_font) {
     descriptor.set("Flags", flags as f64);
 }
 unsafe fn add_metrics(
-    mut font: *mut pdf_font,
+    font: *mut pdf_font,
     cffont: &cff_font,
-    mut enc_vec: *mut *mut i8,
-    mut widths: *mut f64,
-    mut num_glyphs: i32,
+    enc_vec: *mut *mut i8,
+    widths: *mut f64,
+    num_glyphs: i32,
 ) {
     let mut firstchar;
     let mut lastchar;
@@ -508,9 +508,9 @@ unsafe fn add_metrics(
     fontdict.set("LastChar", pdf_new_number(lastchar as f64));
 }
 unsafe fn write_fontfile(
-    mut font: *mut pdf_font,
+    font: *mut pdf_font,
     cffont: &cff_font,
-    mut pdfcharset: *mut pdf_obj,
+    pdfcharset: *mut pdf_obj,
 ) -> i32 {
     let mut wbuf: [u8; 1024] = [0; 1024];
     let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
@@ -663,7 +663,7 @@ unsafe fn write_fontfile(
     offset as i32
 }
 
-pub unsafe fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_load_type1(font: *mut pdf_font) -> i32 {
     let mut enc_vec;
     assert!(!font.is_null());
     if !pdf_font_is_in_use(font) {
@@ -687,7 +687,7 @@ pub unsafe fn pdf_font_load_type1(mut font: *mut pdf_font) -> i32 {
             CStr::from_ptr(ident).display(),
         );
     }
-    let mut handle = handle.unwrap();
+    let handle = handle.unwrap();
     if encoding_id >= 0i32 {
         enc_vec = 0 as *mut *mut i8
     } else {

@@ -156,7 +156,7 @@ pub struct glyph_mapper {
 /* TrueType */
 /* Modifying this has no effect :P */
 
-pub unsafe fn pdf_font_open_truetype(mut font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_open_truetype(font: *mut pdf_font) -> i32 {
     let mut embedding: i32 = 1i32;
     assert!(!font.is_null());
     let ident = pdf_font_get_ident(font); /* Must be embedded. */
@@ -282,7 +282,7 @@ const required_table: [SfntTableInfo; 12] = {
     ]
 };
 
-unsafe fn do_widths(mut font: *mut pdf_font, mut widths: *mut f64) {
+unsafe fn do_widths(font: *mut pdf_font, widths: *mut f64) {
     let fontdict = pdf_font_get_resource(&mut *font);
     let usedchars = pdf_font_get_usedchars(font);
     let mut tmparray = vec![];
@@ -339,9 +339,9 @@ static mut verbose: i32 = 0i32;
  * GID = 0 is reserved for .notdef, so GID = 256 is not accessible.
  */
 unsafe fn do_builtin_encoding(
-    mut font: *mut pdf_font,
-    mut usedchars: *const i8,
-    mut sfont: *mut sfnt,
+    font: *mut pdf_font,
+    usedchars: *const i8,
+    sfont: *mut sfnt,
 ) -> i32 {
     let mut widths: [f64; 256] = [0.; 256];
     let ttcm = tt_cmap_read(sfont, 1_u16, 0_u16);
@@ -437,10 +437,10 @@ unsafe fn do_builtin_encoding(
 }
 /* WARNING: This modifies glyphname itself */
 unsafe fn agl_decompose_glyphname(
-    mut glyphname: *mut i8,
-    mut nptrs: *mut *mut i8,
-    mut size: i32,
-    mut suffix: *mut *mut i8,
+    glyphname: *mut i8,
+    nptrs: *mut *mut i8,
+    size: i32,
+    suffix: *mut *mut i8,
 ) -> i32 {
     let mut p: *mut i8 = glyphname; /* _FIXME_ */
     let mut q = strchr(p, '.' as i32); /* chop every thing after *first* dot */
@@ -470,7 +470,7 @@ unsafe fn agl_decompose_glyphname(
     }
     n
 }
-unsafe fn select_gsub(feat: &[u8], mut gm: *mut glyph_mapper) -> i32 {
+unsafe fn select_gsub(feat: &[u8], gm: *mut glyph_mapper) -> i32 {
     if feat.is_empty() || gm.is_null() || (*gm).gsub.is_null() {
         return -1i32;
     }
@@ -495,9 +495,9 @@ unsafe fn select_gsub(feat: &[u8], mut gm: *mut glyph_mapper) -> i32 {
 /* Apply GSUB. This is a bit tricky... */
 unsafe fn selectglyph(
     mut in_0: u16,
-    mut suffix: *const i8,
-    mut gm: *mut glyph_mapper,
-    mut out: *mut u16,
+    suffix: *const i8,
+    gm: *mut glyph_mapper,
+    out: *mut u16,
 ) -> i32 {
     let mut t: [i8; 5] = [0; 5];
     let mut error;
@@ -578,11 +578,11 @@ unsafe fn selectglyph(
 }
 /* Compose glyphs via ligature substitution. */
 unsafe fn composeglyph(
-    mut glyphs: *mut u16,
-    mut n_glyphs: i32,
-    mut feat: *const i8,
-    mut gm: *mut glyph_mapper,
-    mut gid: *mut u16,
+    glyphs: *mut u16,
+    n_glyphs: i32,
+    feat: *const i8,
+    gm: *mut glyph_mapper,
+    gid: *mut u16,
 ) -> i32 {
     let mut t: [i8; 5] = [
         ' ' as i32 as i8,
@@ -612,11 +612,11 @@ unsafe fn composeglyph(
 }
 /* This may be called by findparanoiac(). */
 unsafe fn composeuchar(
-    mut unicodes: *mut i32,
-    mut n_unicodes: i32,
-    mut feat: *const i8,
-    mut gm: *mut glyph_mapper,
-    mut gid: *mut u16,
+    unicodes: *mut i32,
+    n_unicodes: i32,
+    feat: *const i8,
+    gm: *mut glyph_mapper,
+    gid: *mut u16,
 ) -> i32 {
     let mut error: i32 = 0i32;
     if (*gm).codetogid.is_null() {
@@ -644,9 +644,9 @@ unsafe fn composeuchar(
 }
 /* Search 'post' table. */
 unsafe fn findposttable(
-    mut glyph_name: *const i8,
-    mut gid: *mut u16,
-    mut gm: *mut glyph_mapper,
+    glyph_name: *const i8,
+    gid: *mut u16,
+    gm: *mut glyph_mapper,
 ) -> i32 {
     if (*gm).nametogid.is_null() {
         return -1i32;
@@ -661,9 +661,9 @@ unsafe fn findposttable(
 /* This is wrong. We must care about '.'. */
 /* Glyph names are concatinated with '_'. */
 unsafe fn findcomposite(
-    mut glyphname: *const i8,
-    mut gid: *mut u16,
-    mut gm: *mut glyph_mapper,
+    glyphname: *const i8,
+    gid: *mut u16,
+    gm: *mut glyph_mapper,
 ) -> i32 {
     let mut suffix: *mut i8 = ptr::null_mut();
     let mut gids: [u16; 32] = [0; 32];
@@ -719,9 +719,9 @@ unsafe fn findcomposite(
 }
 /* glyphname should not have suffix here */
 unsafe fn findparanoiac(
-    mut glyphname: *const i8,
-    mut gid: *mut u16,
-    mut gm: *mut glyph_mapper,
+    glyphname: *const i8,
+    gid: *mut u16,
+    gm: *mut glyph_mapper,
 ) -> i32 {
     let mut idx: u16 = 0_u16;
     let mut error;
@@ -822,9 +822,9 @@ unsafe fn findparanoiac(
     }
 }
 unsafe fn resolve_glyph(
-    mut glyphname: *const i8,
-    mut gid: *mut u16,
-    mut gm: *mut glyph_mapper,
+    glyphname: *const i8,
+    gid: *mut u16,
+    gm: *mut glyph_mapper,
 ) -> i32 {
     assert!(!glyphname.is_null());
     /* Boooo */
@@ -880,7 +880,7 @@ unsafe fn resolve_glyph(
  * glyph mapping. We use Unicode plus OTL GSUB for finding
  * glyphs in this case.
  */
-unsafe fn setup_glyph_mapper(mut gm: *mut glyph_mapper, mut sfont: *mut sfnt) -> i32 {
+unsafe fn setup_glyph_mapper(mut gm: *mut glyph_mapper, sfont: *mut sfnt) -> i32 {
     (*gm).sfont = sfont;
     (*gm).nametogid = tt_read_post_table(sfont);
     (*gm).codetogid = tt_cmap_read(sfont, 3_u16, 10_u16);
@@ -909,10 +909,10 @@ unsafe fn clean_glyph_mapper(mut gm: *mut glyph_mapper) {
     (*gm).sfont = ptr::null_mut();
 }
 unsafe fn do_custom_encoding(
-    mut font: *mut pdf_font,
-    mut encoding: *mut *mut i8,
-    mut usedchars: *const i8,
-    mut sfont: *mut sfnt,
+    font: *mut pdf_font,
+    encoding: *mut *mut i8,
+    usedchars: *const i8,
+    sfont: *mut sfnt,
 ) -> i32 {
     let mut widths: [f64; 256] = [0.; 256];
     let mut gm: glyph_mapper = glyph_mapper {
@@ -1035,13 +1035,13 @@ unsafe fn do_custom_encoding(
     0i32
 }
 
-pub unsafe fn pdf_font_load_truetype(mut font: *mut pdf_font) -> i32 {
-    let mut descriptor: *mut pdf_obj = pdf_font_get_descriptor(font);
-    let mut ident: *mut i8 = pdf_font_get_ident(font);
-    let mut encoding_id: i32 = pdf_font_get_encoding(font);
-    let mut usedchars: *mut i8 = pdf_font_get_usedchars(font);
+pub unsafe fn pdf_font_load_truetype(font: *mut pdf_font) -> i32 {
+    let descriptor: *mut pdf_obj = pdf_font_get_descriptor(font);
+    let ident: *mut i8 = pdf_font_get_ident(font);
+    let encoding_id: i32 = pdf_font_get_encoding(font);
+    let usedchars: *mut i8 = pdf_font_get_usedchars(font);
     /* ENABLE_NOEMBED */
-    let mut index: i32 = pdf_font_get_index(font); /* Should find *truetype* here */
+    let index: i32 = pdf_font_get_index(font); /* Should find *truetype* here */
     if !pdf_font_is_in_use(font) {
         return 0i32;
     }

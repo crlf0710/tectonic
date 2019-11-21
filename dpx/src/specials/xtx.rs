@@ -64,14 +64,14 @@ use crate::dpx_pdfdev::TMatrix;
  * as directory separators. */
 
 pub unsafe fn spc_handler_xtx_do_transform(
-    mut x_user: f64,
-    mut y_user: f64,
-    mut a: f64,
-    mut b: f64,
-    mut c: f64,
-    mut d: f64,
-    mut e: f64,
-    mut f: f64,
+    x_user: f64,
+    y_user: f64,
+    a: f64,
+    b: f64,
+    c: f64,
+    d: f64,
+    e: f64,
+    f: f64,
 ) -> i32 {
     let mut M = TMatrix::row_major(
         /* Create transformation matrix */
@@ -87,7 +87,7 @@ pub unsafe fn spc_handler_xtx_do_transform(
     pdf_dev_set_fixed_point(x_user - pt.x, y_user - pt.y);
     0i32
 }
-unsafe fn spc_handler_xtx_scale(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_scale(spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut values: [f64; 2] = [0.; 2];
     if spc_util_read_numbers(&mut *values.as_mut_ptr().offset(0), 2i32, args) < 2i32 {
         return -1i32;
@@ -107,7 +107,7 @@ unsafe fn spc_handler_xtx_scale(mut spe: *mut spc_env, mut args: *mut spc_arg) -
 /* Scaling without gsave/grestore. */
 static mut SCALE_FACTORS: Vec<Point> = Vec::new();
 
-unsafe fn spc_handler_xtx_bscale(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_bscale(spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut values: [f64; 2] = [0.; 2];
 
     if spc_util_read_numbers(&mut *values.as_mut_ptr().offset(0), 2i32, args) < 2i32 {
@@ -129,7 +129,7 @@ unsafe fn spc_handler_xtx_bscale(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         0i32 as f64,
     );
 }
-unsafe fn spc_handler_xtx_escale(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_escale(spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let factor = SCALE_FACTORS.pop().unwrap();
     (*args).cur = &[];
     return spc_handler_xtx_do_transform(
@@ -143,7 +143,7 @@ unsafe fn spc_handler_xtx_escale(mut spe: *mut spc_env, mut args: *mut spc_arg) 
         0i32 as f64,
     );
 }
-unsafe fn spc_handler_xtx_rotate(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_rotate(spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut value: f64 = 0.;
     if spc_util_read_numbers(&mut value, 1i32, args) < 1i32 {
         return -1i32;
@@ -186,7 +186,7 @@ pub unsafe fn spc_handler_xtx_grestore(mut _spe: *mut spc_env, mut _args: *mut s
 unsafe fn spc_handler_xtx_papersize(mut _spe: *mut spc_env, mut _args: *mut spc_arg) -> i32 {
     0i32
 }
-unsafe fn spc_handler_xtx_backgroundcolor(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_backgroundcolor(spe: *mut spc_env, args: *mut spc_arg) -> i32 {
     if let Ok(colorspec) = spc_util_read_colorspec(spe, args, false) {
         pdf_doc_set_bgcolor(Some(&colorspec));
         1
@@ -197,7 +197,7 @@ unsafe fn spc_handler_xtx_backgroundcolor(mut spe: *mut spc_env, mut args: *mut 
 }
 
 /* FIXME: xdv2pdf's x:fontmapline and x:fontmapfile may have slightly different syntax/semantics */
-unsafe fn spc_handler_xtx_fontmapline(mut spe: *mut spc_env, mut ap: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_fontmapline(spe: *mut spc_env, mut ap: *mut spc_arg) -> i32 {
     let mut error: i32 = 0i32;
     static mut BUFFER: [u8; 1024] = [0; 1024];
     (*ap).cur.skip_white();
@@ -247,7 +247,7 @@ unsafe fn spc_handler_xtx_fontmapline(mut spe: *mut spc_env, mut ap: *mut spc_ar
     }
     0i32
 }
-unsafe fn spc_handler_xtx_fontmapfile(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_fontmapfile(spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     (*args).cur.skip_white();
     if (*args).cur.is_empty() {
         return 0i32;
@@ -295,7 +295,7 @@ unsafe fn spc_handler_xtx_clipoverlay(mut _spe: *mut spc_env, mut args: *mut spc
     (*args).cur = &[];
     0i32
 }
-unsafe fn spc_handler_xtx_renderingmode(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_renderingmode(spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     let mut value: f64 = 0.;
     if spc_util_read_numbers(&mut value, 1i32, args) < 1i32 {
         return -1i32;
@@ -319,7 +319,7 @@ unsafe fn spc_handler_xtx_renderingmode(mut spe: *mut spc_env, mut args: *mut sp
     (*args).cur = &[];
     0i32
 }
-unsafe fn spc_handler_xtx_unsupportedcolor(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_unsupportedcolor(spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     spc_warn!(
         spe,
         "xetex-style \\special{{x:{}}} is not supported by this driver;\nupdate document or driver to use \\special{{color}} instead.",
@@ -328,7 +328,7 @@ unsafe fn spc_handler_xtx_unsupportedcolor(mut spe: *mut spc_env, mut args: *mut
     (*args).cur = &[];
     0i32
 }
-unsafe fn spc_handler_xtx_unsupported(mut spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_unsupported(spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
     spc_warn!(
         spe,
         "xetex-style \\special{{x:{}}} is not supported by this driver.",
@@ -430,7 +430,7 @@ pub fn spc_xtx_check_special(mut buf: &[u8]) -> bool {
 
 pub unsafe fn spc_xtx_setup_handler(
     mut sph: *mut SpcHandler,
-    mut spe: *mut spc_env,
+    spe: *mut spc_env,
     mut ap: *mut spc_arg,
 ) -> i32 {
     let mut error: i32 = -1i32;

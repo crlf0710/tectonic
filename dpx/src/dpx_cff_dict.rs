@@ -80,7 +80,7 @@ pub unsafe fn cff_new_dict() -> *mut cff_dict {
     dict
 }
 
-pub unsafe fn cff_release_dict(mut dict: *mut cff_dict) {
+pub unsafe fn cff_release_dict(dict: *mut cff_dict) {
     if !dict.is_null() {
         if !(*dict).entries.is_null() {
             for i in 0..(*dict).count {
@@ -340,7 +340,7 @@ static mut dict_operator: [C2RustUnnamed_2; 61] = [
     },
 ];
 /* Parse DICT data */
-unsafe fn get_integer(mut data: *mut *mut u8, mut endptr: *mut u8, mut status: *mut i32) -> f64 {
+unsafe fn get_integer(data: *mut *mut u8, endptr: *mut u8, status: *mut i32) -> f64 {
     let mut result: i32 = 0i32;
     let fresh0 = *data;
     *data = (*data).offset(1);
@@ -389,7 +389,7 @@ unsafe fn get_integer(mut data: *mut *mut u8, mut endptr: *mut u8, mut status: *
     result as f64
 }
 /* Simply uses strtod */
-unsafe fn get_real(mut data: *mut *mut u8, mut endptr: *mut u8, mut status: *mut i32) -> f64 {
+unsafe fn get_real(data: *mut *mut u8, endptr: *mut u8, status: *mut i32) -> f64 {
     let mut result: f64 = 0.0f64; /* skip first byte (30) */
     let mut nibble: i32 = 0i32;
     let mut len: i32 = 0i32;
@@ -465,9 +465,9 @@ unsafe fn get_real(mut data: *mut *mut u8, mut endptr: *mut u8, mut status: *mut
 /* operators */
 unsafe fn add_dict(
     mut dict: *mut cff_dict,
-    mut data: *mut *mut u8,
-    mut endptr: *mut u8,
-    mut status: *mut i32,
+    data: *mut *mut u8,
+    endptr: *mut u8,
+    status: *mut i32,
 ) {
     let mut id = **data as i32;
     if id == 0xci32 {
@@ -543,7 +543,7 @@ don't treat this as underflow (e.g. StemSnapV in TemporaLGCUni-Italic.otf) */
  *  ROS    : three numbers, SID, SID, and a number
  */
 
-pub unsafe fn cff_dict_unpack(mut data: *mut u8, mut endptr: *mut u8) -> *mut cff_dict {
+pub unsafe fn cff_dict_unpack(mut data: *mut u8, endptr: *mut u8) -> *mut cff_dict {
     let mut status: i32 = 0i32;
     stack_top = 0i32;
     let dict = cff_new_dict();
@@ -580,7 +580,7 @@ pub unsafe fn cff_dict_unpack(mut data: *mut u8, mut endptr: *mut u8) -> *mut cf
     dict
 }
 /* Pack DICT data */
-unsafe fn pack_integer(dest: &mut [u8], mut value: i32) -> usize {
+unsafe fn pack_integer(dest: &mut [u8], value: i32) -> usize {
     if value >= -107 && value <= 107 {
         dest[0] = (value + 139 & 0xff) as u8;
         1
@@ -627,7 +627,7 @@ unsafe fn pack_real(dest: &mut [u8], mut value: f64) -> usize {
     );
     let mut i = 0;
     while buffer[i] != '\u{0}' as u8 {
-        let mut ch = if buffer[i] == b'.' {
+        let ch = if buffer[i] == b'.' {
             0xa
         } else if buffer[i] >= b'0' && buffer[i] <= b'9' {
             buffer[i] - b'0'
@@ -654,11 +654,11 @@ unsafe fn pack_real(dest: &mut [u8], mut value: f64) -> usize {
     }
     pos / 2
 }
-unsafe fn cff_dict_put_number(mut value: f64, dest: &mut [u8], mut type_0: i32) -> usize {
-    let mut nearint = (value + 0.5f64).floor();
+unsafe fn cff_dict_put_number(value: f64, dest: &mut [u8], type_0: i32) -> usize {
+    let nearint = (value + 0.5f64).floor();
     /* set offset to longint */
     if type_0 == 1i32 << 7i32 {
-        let mut lvalue = value as i32; /* integer */
+        let lvalue = value as i32; /* integer */
         dest[0] = 29;
         dest[1..5].copy_from_slice(&lvalue.to_be_bytes());
         5
@@ -672,11 +672,11 @@ unsafe fn cff_dict_put_number(mut value: f64, dest: &mut [u8], mut type_0: i32) 
         pack_integer(dest, nearint as i32)
     }
 }
-unsafe fn put_dict_entry(mut de: *mut cff_dict_entry, dest: &mut [u8]) -> usize {
+unsafe fn put_dict_entry(de: *mut cff_dict_entry, dest: &mut [u8]) -> usize {
     let mut len = 0_usize;
     if (*de).count > 0i32 {
         let id = (*de).id;
-        let mut type_0 = if dict_operator[id as usize].argtype == 1i32 << 7i32
+        let type_0 = if dict_operator[id as usize].argtype == 1i32 << 7i32
             || dict_operator[id as usize].argtype == 1i32 << 8i32
         {
             1 << 7
@@ -701,7 +701,7 @@ unsafe fn put_dict_entry(mut de: *mut cff_dict_entry, dest: &mut [u8]) -> usize 
     len
 }
 
-pub unsafe fn cff_dict_pack(mut dict: *mut cff_dict, dest: &mut [u8]) -> usize {
+pub unsafe fn cff_dict_pack(dict: *mut cff_dict, dest: &mut [u8]) -> usize {
     let mut len = 0_usize;
     for i in 0..(*dict).count as isize {
         if streq_ptr(
@@ -724,7 +724,7 @@ pub unsafe fn cff_dict_pack(mut dict: *mut cff_dict, dest: &mut [u8]) -> usize {
     len
 }
 
-pub unsafe fn cff_dict_add(mut dict: *mut cff_dict, mut key: *const i8, mut count: i32) {
+pub unsafe fn cff_dict_add(mut dict: *mut cff_dict, key: *const i8, count: i32) {
     let mut id = 0;
     while id < 22 + 39 {
         if !key.is_null()
@@ -775,7 +775,7 @@ pub unsafe fn cff_dict_add(mut dict: *mut cff_dict, mut key: *const i8, mut coun
     (*dict).count += 1i32;
 }
 
-pub unsafe fn cff_dict_remove(mut dict: *mut cff_dict, mut key: *const i8) {
+pub unsafe fn cff_dict_remove(dict: *mut cff_dict, key: *const i8) {
     for i in 0..(*dict).count {
         if streq_ptr(key, (*(*dict).entries.offset(i as isize)).key) {
             (*(*dict).entries.offset(i as isize)).count = 0i32;
@@ -786,7 +786,7 @@ pub unsafe fn cff_dict_remove(mut dict: *mut cff_dict, mut key: *const i8) {
     }
 }
 
-pub unsafe fn cff_dict_known(mut dict: *mut cff_dict, mut key: *const i8) -> i32 {
+pub unsafe fn cff_dict_known(dict: *mut cff_dict, key: *const i8) -> i32 {
     for i in 0..(*dict).count {
         if streq_ptr(key, (*(*dict).entries.offset(i as isize)).key) as i32 != 0
             && (*(*dict).entries.offset(i as isize)).count > 0i32
@@ -797,7 +797,7 @@ pub unsafe fn cff_dict_known(mut dict: *mut cff_dict, mut key: *const i8) -> i32
     0i32
 }
 
-pub unsafe fn cff_dict_get(mut dict: *mut cff_dict, mut key: *const i8, mut idx: i32) -> f64 {
+pub unsafe fn cff_dict_get(dict: *mut cff_dict, key: *const i8, idx: i32) -> f64 {
     let mut value: f64 = 0.0f64;
     assert!(!key.is_null() && !dict.is_null());
     let mut i = 0;
@@ -826,10 +826,10 @@ pub unsafe fn cff_dict_get(mut dict: *mut cff_dict, mut key: *const i8, mut idx:
 }
 
 pub unsafe fn cff_dict_set(
-    mut dict: *mut cff_dict,
-    mut key: *const i8,
-    mut idx: i32,
-    mut value: f64,
+    dict: *mut cff_dict,
+    key: *const i8,
+    idx: i32,
+    value: f64,
 ) {
     assert!(!dict.is_null() && !key.is_null());
     let mut i = 0;
@@ -857,7 +857,7 @@ pub unsafe fn cff_dict_set(
 }
 /* decode/encode DICT */
 
-pub unsafe fn cff_dict_update(mut dict: *mut cff_dict, cff: &mut cff_font) {
+pub unsafe fn cff_dict_update(dict: *mut cff_dict, cff: &mut cff_font) {
     for i in 0..(*dict).count {
         if (*(*dict).entries.offset(i as isize)).count > 0i32 {
             let id = (*(*dict).entries.offset(i as isize)).id;

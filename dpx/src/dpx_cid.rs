@@ -303,7 +303,7 @@ static mut CIDFont_stdcc_alias: [C2RustUnnamed_3; 19] = [
 static mut __verbose: i32 = 0i32;
 static mut cidoptflags: i32 = 0i32;
 
-pub unsafe fn CIDFont_set_verbose(mut level: i32) {
+pub unsafe fn CIDFont_set_verbose(level: i32) {
     CIDFont_type0_set_verbose(level);
     CIDFont_type2_set_verbose(level);
     __verbose = level;
@@ -342,7 +342,7 @@ unsafe fn CIDFont_flush(mut font: *mut CIDFont) {
         (*font).descriptor = ptr::null_mut()
     };
 }
-unsafe fn CIDFont_release(mut font: *mut CIDFont) {
+unsafe fn CIDFont_release(font: *mut CIDFont) {
     if !font.is_null() {
         if !(*font).indirect.is_null() {
             panic!("{}: Object not flushed.", "CIDFont",);
@@ -367,17 +367,17 @@ unsafe fn CIDFont_release(mut font: *mut CIDFont) {
     };
 }
 
-pub unsafe fn CIDFont_get_fontname(mut font: *mut CIDFont) -> *mut i8 {
+pub unsafe fn CIDFont_get_fontname(font: *mut CIDFont) -> *mut i8 {
     assert!(!font.is_null());
     (*font).fontname
 }
 
-pub unsafe fn CIDFont_get_ident(mut font: *mut CIDFont) -> *mut i8 {
+pub unsafe fn CIDFont_get_ident(font: *mut CIDFont) -> *mut i8 {
     assert!(!font.is_null());
     (*font).ident
 }
 
-pub unsafe fn CIDFont_get_opt_index(mut font: *mut CIDFont) -> i32 {
+pub unsafe fn CIDFont_get_opt_index(font: *mut CIDFont) -> i32 {
     assert!(!font.is_null());
     if !(*font).options.is_null() {
         (*(*font).options).index
@@ -386,17 +386,17 @@ pub unsafe fn CIDFont_get_opt_index(mut font: *mut CIDFont) -> i32 {
     }
 }
 
-pub unsafe fn CIDFont_get_subtype(mut font: *mut CIDFont) -> i32 {
+pub unsafe fn CIDFont_get_subtype(font: *mut CIDFont) -> i32 {
     assert!(!font.is_null());
     (*font).subtype
 }
 
-pub unsafe fn CIDFont_get_embedding(mut font: *mut CIDFont) -> i32 {
+pub unsafe fn CIDFont_get_embedding(font: *mut CIDFont) -> i32 {
     assert!(!font.is_null());
     (*(*font).options).embed
 }
 
-pub unsafe fn CIDFont_get_CIDSysInfo(mut font: *mut CIDFont) -> *mut CIDSysInfo {
+pub unsafe fn CIDFont_get_CIDSysInfo(font: *mut CIDFont) -> *mut CIDSysInfo {
     assert!(!font.is_null());
     (*font).csi
 }
@@ -405,7 +405,7 @@ pub unsafe fn CIDFont_get_CIDSysInfo(mut font: *mut CIDFont) -> *mut CIDSysInfo 
  *  wmode: 0 for horizontal, 1 for vertical
  */
 
-pub unsafe fn CIDFont_get_parent_id(mut font: *mut CIDFont, mut wmode: i32) -> i32 {
+pub unsafe fn CIDFont_get_parent_id(font: *mut CIDFont, wmode: i32) -> i32 {
     assert!(!font.is_null());
     if wmode < 0i32 || wmode > 1i32 {
         panic!("{}: Invalid wmode value.", "CIDFont",);
@@ -424,7 +424,7 @@ pub unsafe fn CIDFont_get_resource(mut font: *mut CIDFont) -> *mut pdf_obj {
  * Set parent Type0 font.
  */
 
-pub unsafe fn CIDFont_attach_parent(mut font: *mut CIDFont, mut parent_id: i32, mut wmode: i32) {
+pub unsafe fn CIDFont_attach_parent(mut font: *mut CIDFont, parent_id: i32, wmode: i32) {
     assert!(!font.is_null());
     if wmode < 0i32 || wmode > 1i32 {
         panic!("{}: Invalid wmode value.", "CIDFont",);
@@ -435,7 +435,7 @@ pub unsafe fn CIDFont_attach_parent(mut font: *mut CIDFont, mut parent_id: i32, 
     (*font).parent[wmode as usize] = parent_id;
 }
 
-pub unsafe fn CIDFont_is_ACCFont(mut font: *mut CIDFont) -> bool {
+pub unsafe fn CIDFont_is_ACCFont(font: *mut CIDFont) -> bool {
     assert!(!font.is_null());
     if (*font).csi.is_null() {
         panic!("{}: CIDSystemInfo undefined.", "CIDFont",);
@@ -458,7 +458,7 @@ pub unsafe fn CIDFont_is_ACCFont(mut font: *mut CIDFont) -> bool {
     false
 }
 
-pub unsafe fn CIDFont_is_UCSFont(mut font: *mut CIDFont) -> bool {
+pub unsafe fn CIDFont_is_UCSFont(font: *mut CIDFont) -> bool {
     assert!(!font.is_null());
     return streq_ptr(
         (*(*font).csi).ordering,
@@ -473,7 +473,7 @@ pub unsafe fn CIDFont_is_UCSFont(mut font: *mut CIDFont) -> bool {
 }
 /* FIXME */
 
-pub unsafe fn CIDFont_get_flag(mut font: *mut CIDFont, mut mask: i32) -> i32 {
+pub unsafe fn CIDFont_get_flag(font: *mut CIDFont, mask: i32) -> i32 {
     assert!(!font.is_null());
     return if (*font).flags & mask != 0 {
         1i32
@@ -481,7 +481,7 @@ pub unsafe fn CIDFont_get_flag(mut font: *mut CIDFont, mut mask: i32) -> i32 {
         0i32
     };
 }
-unsafe fn CIDFont_dofont(mut font: *mut CIDFont) {
+unsafe fn CIDFont_dofont(font: *mut CIDFont) {
     if font.is_null() || (*font).indirect.is_null() {
         return;
     }
@@ -521,7 +521,7 @@ unsafe fn CIDFont_dofont(mut font: *mut CIDFont) {
  *
  */
 
-pub unsafe fn CIDFont_is_BaseFont(mut font: *mut CIDFont) -> bool {
+pub unsafe fn CIDFont_is_BaseFont(font: *mut CIDFont) -> bool {
     assert!(!font.is_null());
     (*font).flags & 1i32 << 0i32 != 0
 }
@@ -734,8 +734,8 @@ static mut cid_basefont: [C2RustUnnamed_2; 21] = [
 ];
 unsafe fn CIDFont_base_open(
     mut font: *mut CIDFont,
-    mut name: *const i8,
-    mut cmap_csi: *mut CIDSysInfo,
+    name: *const i8,
+    cmap_csi: *mut CIDSysInfo,
     mut opt: *mut cid_opt,
 ) -> i32 {
     assert!(!font.is_null());
@@ -874,7 +874,7 @@ unsafe fn CIDFont_cache_init() {
     (*__cache).num = 0i32;
 }
 
-pub unsafe fn CIDFont_cache_get(mut font_id: i32) -> *mut CIDFont {
+pub unsafe fn CIDFont_cache_get(font_id: i32) -> *mut CIDFont {
     if __cache.is_null() {
         panic!("{}: CIDFont cache not initialized.", "CIDFont",);
     }
@@ -888,8 +888,8 @@ pub unsafe fn CIDFont_cache_get(mut font_id: i32) -> *mut CIDFont {
  */
 
 pub unsafe fn CIDFont_cache_find(
-    mut map_name: *const i8,
-    mut cmap_csi: *mut CIDSysInfo,
+    map_name: *const i8,
+    cmap_csi: *mut CIDSysInfo,
     mut fmap_opt: *mut fontmap_opt,
 ) -> i32 {
     let mut font: *mut CIDFont = ptr::null_mut();
@@ -1049,7 +1049,7 @@ pub unsafe fn CIDFont_cache_close() {
  *
  *   (:int:)?!?string(/string)?(,string)?
  */
-unsafe fn release_opt(mut opt: *mut cid_opt) {
+unsafe fn release_opt(opt: *mut cid_opt) {
     if !(*opt).csi.is_null() {
         free((*(*opt).csi).registry as *mut libc::c_void);
         free((*(*opt).csi).ordering as *mut libc::c_void);
@@ -1061,8 +1061,8 @@ unsafe fn release_opt(mut opt: *mut cid_opt) {
     free(opt as *mut libc::c_void);
 }
 unsafe fn get_cidsysinfo(
-    mut map_name: *const i8,
-    mut fmap_opt: *mut fontmap_opt,
+    map_name: *const i8,
+    fmap_opt: *mut fontmap_opt,
 ) -> *mut CIDSysInfo {
     let mut csi: *mut CIDSysInfo = ptr::null_mut();
     let mut csi_idx: i32 = -1i32;
@@ -1198,7 +1198,7 @@ unsafe fn get_cidsysinfo(
 }
 /* CIDFont types */
 
-pub unsafe fn CIDFont_set_flags(mut flags: i32) {
+pub unsafe fn CIDFont_set_flags(flags: i32) {
     CIDFont_type0_set_flags(flags);
     CIDFont_type2_set_flags(flags);
     cidoptflags |= flags;

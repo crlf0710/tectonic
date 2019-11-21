@@ -105,7 +105,7 @@ unsafe fn t1_decrypt(
         }
         let fresh3 = src;
         src = src.offset(1);
-        let mut c: u8 = *fresh3;
+        let c: u8 = *fresh3;
         let fresh4 = dst;
         dst = dst.offset(1);
         *fresh4 = (c as i32 ^ key as i32 >> 8i32) as u8;
@@ -115,7 +115,7 @@ unsafe fn t1_decrypt(
     }
 }
 /* T1CRYPT */
-unsafe fn get_next_key(mut start: *mut *mut u8, mut end: *mut u8) -> *mut i8 {
+unsafe fn get_next_key(start: *mut *mut u8, end: *mut u8) -> *mut i8 {
     let mut key: *mut i8 = ptr::null_mut();
     let mut tok: *mut pst_obj = ptr::null_mut();
     while *start < end && {
@@ -136,7 +136,7 @@ unsafe fn get_next_key(mut start: *mut *mut u8, mut end: *mut u8) -> *mut i8 {
     }
     key
 }
-unsafe fn seek_operator(mut start: *mut *mut u8, mut end: *mut u8, mut op: *const i8) -> i32 {
+unsafe fn seek_operator(start: *mut *mut u8, end: *mut u8, op: *const i8) -> i32 {
     let mut tok: *mut pst_obj = ptr::null_mut();
     while *start < end && {
         tok = pst_get_token(start, end);
@@ -162,7 +162,7 @@ unsafe fn seek_operator(mut start: *mut *mut u8, mut end: *mut u8, mut op: *cons
     }
     0i32
 }
-unsafe fn parse_svalue(mut start: *mut *mut u8, mut end: *mut u8, mut value: *mut *mut i8) -> i32 {
+unsafe fn parse_svalue(start: *mut *mut u8, end: *mut u8, value: *mut *mut i8) -> i32 {
     let tok = pst_get_token(start, end);
     if tok.is_null() {
         return -1i32;
@@ -183,7 +183,7 @@ unsafe fn parse_svalue(mut start: *mut *mut u8, mut end: *mut u8, mut value: *mu
     }
     1i32
 }
-unsafe fn parse_bvalue(mut start: *mut *mut u8, mut end: *mut u8, mut value: *mut f64) -> i32 {
+unsafe fn parse_bvalue(start: *mut *mut u8, end: *mut u8, value: *mut f64) -> i32 {
     let tok = pst_get_token(start, end);
     if tok.is_null() {
         return -1i32;
@@ -205,10 +205,10 @@ unsafe fn parse_bvalue(mut start: *mut *mut u8, mut end: *mut u8, mut value: *mu
     1i32
 }
 unsafe fn parse_nvalue(
-    mut start: *mut *mut u8,
-    mut end: *mut u8,
-    mut value: *mut f64,
-    mut max: i32,
+    start: *mut *mut u8,
+    end: *mut u8,
+    value: *mut f64,
+    max: i32,
 ) -> i32 {
     let mut argn: i32 = 0i32;
     let mut tok = pst_get_token(start, end);
@@ -790,9 +790,9 @@ static mut ISOLatin1Encoding: [*const i8; 256] = [
  * or "dup num exch num get put"
  */
 unsafe fn try_put_or_putinterval(
-    mut enc_vec: *mut *mut i8,
-    mut start: *mut *mut u8,
-    mut end: *mut u8,
+    enc_vec: *mut *mut i8,
+    start: *mut *mut u8,
+    end: *mut u8,
 ) -> i32 {
     let mut num1: i32 = 0;
     let mut num2: i32 = 0;
@@ -1001,9 +1001,9 @@ unsafe fn try_put_or_putinterval(
     0i32
 }
 unsafe fn parse_encoding(
-    mut enc_vec: *mut *mut i8,
-    mut start: *mut *mut u8,
-    mut end: *mut u8,
+    enc_vec: *mut *mut i8,
+    start: *mut *mut u8,
+    end: *mut u8,
 ) -> i32 {
     let mut code: i32 = 0;
     /*
@@ -1248,14 +1248,14 @@ unsafe fn parse_encoding(
 }
 unsafe fn parse_subrs(
     font: &cff_font,
-    mut start: *mut *mut u8,
-    mut end: *mut u8,
-    mut lenIV: i32,
-    mut mode: i32,
+    start: *mut *mut u8,
+    end: *mut u8,
+    lenIV: i32,
+    mode: i32,
 ) -> i32 {
     let mut max_size;
-    let mut offsets;
-    let mut lengths;
+    let offsets;
+    let lengths;
     let mut data;
     let tok = pst_get_token(start, end);
     if !(pst_type_of(tok) == 2i32) || pst_getIV(tok) < 0i32 {
@@ -1507,10 +1507,10 @@ unsafe fn parse_subrs(
 }
 unsafe fn parse_charstrings(
     font: &mut cff_font,
-    mut start: *mut *mut u8,
-    mut end: *mut u8,
-    mut lenIV: i32,
-    mut mode: i32,
+    start: *mut *mut u8,
+    end: *mut u8,
+    lenIV: i32,
+    mode: i32,
 ) -> i32 {
     let charstrings;
     let mut max_size;
@@ -1522,7 +1522,7 @@ unsafe fn parse_charstrings(
      */
     let mut tok = pst_get_token(start, end); /* .notdef must be at gid = 0 in CFF */
     if !(pst_type_of(tok) == 2i32) || pst_getIV(tok) < 0i32 || pst_getIV(tok) > 64999i32 {
-        let mut s: *mut u8 = pst_getSV(tok);
+        let s: *mut u8 = pst_getSV(tok);
         warn!(
             "Ignores non dict \"/CharStrings {} ...\"",
             CStr::from_ptr(s as *mut i8).display(),
@@ -1695,7 +1695,7 @@ unsafe fn parse_charstrings(
             *start = (*start).offset(1);
             if mode != 1i32 {
                 if lenIV >= 0i32 {
-                    let mut offs: i32 = if gid != 0 { offset } else { 0i32 };
+                    let offs: i32 = if gid != 0 { offset } else { 0i32 };
                     *(*charstrings).offset.offset(gid as isize) = (offs + 1i32) as l_offset;
                     t1_decrypt(
                         4330_u16,
@@ -1777,9 +1777,9 @@ unsafe fn parse_charstrings(
 }
 unsafe fn parse_part2(
     font: &mut cff_font,
-    mut start: *mut *mut u8,
-    mut end: *mut u8,
-    mut mode: i32,
+    start: *mut *mut u8,
+    end: *mut u8,
+    mode: i32,
 ) -> i32 {
     let mut key: *mut i8 = ptr::null_mut();
     let mut argv: [f64; 127] = [0.; 127];
@@ -1882,9 +1882,9 @@ unsafe fn parse_part2(
 }
 unsafe fn parse_part1(
     font: &mut cff_font,
-    mut enc_vec: *mut *mut i8,
-    mut start: *mut *mut u8,
-    mut end: *mut u8,
+    enc_vec: *mut *mut i8,
+    start: *mut *mut u8,
+    end: *mut u8,
 ) -> i32 {
     let mut key: *mut i8 = ptr::null_mut();
     let mut strval: *mut i8 = ptr::null_mut();
@@ -2082,8 +2082,8 @@ pub unsafe fn is_pfb(handle: &mut InputHandleWrapper) -> bool {
 }
 unsafe fn get_pfb_segment(
     handle: &mut InputHandleWrapper,
-    mut expected_type: i32,
-    mut length: *mut i32,
+    expected_type: i32,
+    length: *mut i32,
 ) -> *mut u8 {
     let mut buffer: *mut u8 = ptr::null_mut();
     let mut bytesread: i32 = 0i32;
@@ -2143,14 +2143,14 @@ unsafe fn get_pfb_segment(
     buffer
 }
 
-pub unsafe fn t1_get_standard_glyph(mut code: i32) -> *const i8 {
+pub unsafe fn t1_get_standard_glyph(code: i32) -> *const i8 {
     if StandardEncoding[code as usize].is_null() {
         return std::ptr::null();
     }
     StandardEncoding[code as usize]
 }
 
-pub unsafe fn t1_get_fontname(handle: &mut InputHandleWrapper, mut fontname: *mut i8) -> i32 {
+pub unsafe fn t1_get_fontname(handle: &mut InputHandleWrapper, fontname: *mut i8) -> i32 {
     let mut length: i32 = 0;
     let mut key: *mut i8 = ptr::null_mut();
     let mut fn_found: i32 = 0i32;
@@ -2225,8 +2225,8 @@ unsafe fn init_cff_font(cff: &mut cff_font) {
 }
 
 pub unsafe fn t1_load_font<'a>(
-    mut enc_vec: *mut *mut i8,
-    mut mode: i32,
+    enc_vec: *mut *mut i8,
+    mode: i32,
     mut handle: InputHandleWrapper,
 ) -> *mut cff_font<'a> {
     let mut length: i32 = 0;
