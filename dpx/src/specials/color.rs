@@ -20,7 +20,6 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
 #![allow(
-    unused_mut
 )]
 
 use super::util::spc_util_read_colorspec;
