@@ -8,6 +8,7 @@
     unused_mut
 )]
 
+use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, pdf_error};
 use crate::xetex_ext::measure_native_node;
 use crate::xetex_ini::{
@@ -31,6 +32,11 @@ use crate::xetex_xetex0::{
     new_native_character, new_native_word_node, new_param_glue, new_penalty, new_spec, pop_nest,
     prev_rightmost,
 };
+use crate::xetex_xetex0::{
+    BOX_width, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order,
+    GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LLIST_info, LLIST_link, NODE_subtype, NODE_type,
+    PENALTY_NODE_penalty,
+};
 use crate::xetex_xetexd::{is_char_node, is_non_discardable_node};
 
 pub type scaled_t = i32;
@@ -46,6 +52,14 @@ pub type nine_bits = i32;
 pub type trie_pointer = i32;
 pub type trie_opcode = u16;
 pub type hyph_pointer = u16;
+
+const AWFUL_BAD: i32 = 0x3FFFFFFF;
+const VERY_LOOSE_FIT: usize = 0;
+const LOOSE_FIT: usize = 1;
+const DECENT_FIT: usize = 2;
+const TIGHT_FIT: usize = 3;
+const LAST_ACTIVE: i32 = ACTIVE_LIST;
+
 static mut passive: i32 = 0;
 static mut cur_active_width: [scaled_t; 7] = [0; 7];
 static mut background: [scaled_t; 7] = [0; 7];
@@ -126,944 +140,149 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
     let mut l: i32 = 0;
     let mut i: i32 = 0;
     let mut for_end_1: i32 = 0;
-    pack_begin_line = cur_list.mode_line;
-    (*mem.offset((4999999i32 - 3i32) as isize)).b32.s1 =
-        (*mem.offset(cur_list.head as isize)).b32.s1;
+    pack_begin_line = cur_list.mode_line; /* "this is for over/underfull box messages" */
+    *LLIST_link(TEMP_HEAD as isize) = *LLIST_link(cur_list.head as isize);
+
     /* Remove trailing space or glue if present; add infinite penalty then par_fill_skip */
+
     if is_char_node(cur_list.tail) {
         /* is_char_node */
-        let ref mut fresh0 = (*mem.offset(cur_list.tail as isize)).b32.s1;
-        *fresh0 = new_penalty(10000i32);
-        cur_list.tail = *fresh0
-    } else if (*mem.offset(cur_list.tail as isize)).b16.s1 as i32 != 10i32 {
-        let ref mut fresh1 = (*mem.offset(cur_list.tail as isize)).b32.s1;
-        *fresh1 = new_penalty(10000i32);
-        cur_list.tail = *fresh1
+        *LLIST_link(cur_list.tail as isize) = new_penalty(INF_PENALTY);
+        cur_list.tail = *LLIST_link(cur_list.tail as isize);
+    } else if *NODE_type(cur_list.tail as isize) != GLUE_NODE {
+        *LLIST_link(cur_list.tail as isize) = new_penalty(INF_PENALTY);
+        cur_list.tail = *LLIST_link(cur_list.tail as isize);
     } else {
-        (*mem.offset(cur_list.tail as isize)).b16.s1 = 12_u16;
-        delete_glue_ref((*mem.offset((cur_list.tail + 1i32) as isize)).b32.s0);
-        flush_node_list((*mem.offset((cur_list.tail + 1i32) as isize)).b32.s1);
-        (*mem.offset((cur_list.tail + 1i32) as isize)).b32.s1 = 10000i32
+        *NODE_type(cur_list.tail as isize) = PENALTY_NODE;
+        delete_glue_ref(*GLUE_NODE_glue_ptr(cur_list.tail as isize));
+        flush_node_list(*GLUE_NODE_leader_ptr(cur_list.tail as isize));
+        *PENALTY_NODE_penalty(cur_list.tail as isize) = INF_PENALTY;
     }
-    let ref mut fresh2 = (*mem.offset(cur_list.tail as isize)).b32.s1;
-    *fresh2 = new_param_glue(14i32 as small_number);
-    last_line_fill = *fresh2;
+
+    *LLIST_link(cur_list.tail as isize) = new_param_glue(GLUE_PAR__par_fill_skip as _);
+    last_line_fill = *LLIST_link(cur_list.tail as isize);
+
     /* Yet more initialization of various kinds */
-    init_cur_lang = (cur_list.prev_graf as i64 % 65536) as u8;
-    init_l_hyf = cur_list.prev_graf / 0x400000i32;
-    init_r_hyf = (cur_list.prev_graf as i64 / 65536 % 64i32 as i64) as i32;
+
+    init_cur_lang = (cur_list.prev_graf % 65536) as _;
+    init_l_hyf = cur_list.prev_graf / 0x400000;
+    init_r_hyf = (cur_list.prev_graf / 65536) % 64;
+
     pop_nest();
+
     no_shrink_error_yet = true;
-    if (*mem.offset(
-        (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 7i32) as isize,
-        ))
-        .b32
-        .s1 as isize,
-    ))
-    .b16
-    .s0 as i32
-        != 0i32
-        && (*mem.offset(
-            ((*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 7i32) as isize,
-            ))
-            .b32
-            .s1 + 3i32) as isize,
-        ))
-        .b32
-        .s1 != 0i32
+
+    if *GLUE_SPEC_shrink_order(*GLUEPAR(GLUE_PAR__left_skip) as isize) != NORMAL as _
+        && *GLUE_SPEC_shrink(*GLUEPAR(GLUE_PAR__left_skip) as isize) != 0
     {
-        (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 7i32) as isize,
-        ))
-        .b32
-        .s1 = finite_shrink(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 7i32) as isize,
-            ))
-            .b32
-            .s1,
-        )
+        *GLUEPAR(GLUE_PAR__left_skip) = finite_shrink(*GLUEPAR(GLUE_PAR__left_skip));
     }
-    if (*mem.offset(
-        (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 8i32) as isize,
-        ))
-        .b32
-        .s1 as isize,
-    ))
-    .b16
-    .s0 as i32
-        != 0i32
-        && (*mem.offset(
-            ((*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 8i32) as isize,
-            ))
-            .b32
-            .s1 + 3i32) as isize,
-        ))
-        .b32
-        .s1 != 0i32
+    if *GLUE_SPEC_shrink_order(*GLUEPAR(GLUE_PAR__right_skip) as isize) != NORMAL as _
+        && *GLUE_SPEC_shrink(*GLUEPAR(GLUE_PAR__right_skip) as isize) != 0
     {
-        (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 8i32) as isize,
-        ))
-        .b32
-        .s1 = finite_shrink(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 8i32) as isize,
-            ))
-            .b32
-            .s1,
-        )
+        *GLUEPAR(GLUE_PAR__right_skip) = finite_shrink(*GLUEPAR(GLUE_PAR__right_skip));
     }
-    q = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 7i32) as isize,
-    ))
-    .b32
-    .s1;
-    r = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 8i32) as isize,
-    ))
-    .b32
-    .s1;
-    background[1] =
-        (*mem.offset((q + 1i32) as isize)).b32.s1 + (*mem.offset((r + 1i32) as isize)).b32.s1;
-    background[2] = 0i32;
-    background[3] = 0i32;
-    background[4] = 0i32;
-    background[5] = 0i32;
-    background[(2i32 + (*mem.offset(q as isize)).b16.s1 as i32) as usize] =
-        (*mem.offset((q + 2i32) as isize)).b32.s1;
-    background[(2i32 + (*mem.offset(r as isize)).b16.s1 as i32) as usize] +=
-        (*mem.offset((r + 2i32) as isize)).b32.s1;
-    background[6] =
-        (*mem.offset((q + 3i32) as isize)).b32.s1 + (*mem.offset((r + 3i32) as isize)).b32.s1;
+
+    q = *GLUEPAR(GLUE_PAR__left_skip);
+    r = *GLUEPAR(GLUE_PAR__right_skip);
+    background[1] = *BOX_width(q as isize) + *BOX_width(r as isize);
+    background[2] = 0;
+    background[3] = 0;
+    background[4] = 0;
+    background[5] = 0;
+    background[2 + *GLUE_SPEC_stretch_order(q as isize) as usize] = *GLUE_SPEC_stretch(q as isize);
+    background[2 + *GLUE_SPEC_stretch_order(r as isize) as usize] += *GLUE_SPEC_stretch(r as isize);
+    background[6] = *GLUE_SPEC_shrink(q as isize) + *GLUE_SPEC_shrink(r as isize);
+
     /* 1631: "check for special treatment of last line of paragraph" (\lastlinefit > 0) */
+
     do_last_line_fit = false; /*863:*/
-    active_node_size = 3i32 as small_number;
-    if (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 64i32) as isize,
-    ))
-    .b32
-    .s1 > 0i32
-    {
-        q = (*mem.offset((last_line_fill + 1i32) as isize)).b32.s0;
-        if (*mem.offset((q + 2i32) as isize)).b32.s1 > 0i32
-            && (*mem.offset(q as isize)).b16.s1 as i32 > 0i32
+    active_node_size = ACTIVE_NODE_SIZE_NORMAL as _;
+    if INTPAR(INT_PAR__last_line_fit) > 0 {
+        q = *GLUE_NODE_glue_ptr(last_line_fill as isize);
+        if *GLUE_SPEC_stretch(q as isize) > 0 && *GLUE_SPEC_stretch_order(q as isize) > NORMAL as _
         {
-            if background[3] == 0i32 && background[4] == 0i32 && background[5] == 0i32 {
+            if background[3] == 0 && background[4] == 0 && background[5] == 0 {
                 do_last_line_fit = true;
-                active_node_size = 5i32 as small_number;
-                fill_width[0] = 0i32;
-                fill_width[1] = 0i32;
-                fill_width[2] = 0i32;
-                fill_width[((*mem.offset(q as isize)).b16.s1 as i32 - 1i32) as usize] =
-                    (*mem.offset((q + 2i32) as isize)).b32.s1
+                active_node_size = ACTIVE_NODE_SIZE_EXTENDED as _;
+                fill_width[0] = 0;
+                fill_width[1] = 0;
+                fill_width[2] = 0;
+                fill_width[*GLUE_SPEC_stretch_order(q as isize) as usize - 1] =
+                    *GLUE_SPEC_stretch(q as isize);
             }
         }
     }
-    minimum_demerits = 0x3fffffffi32;
-    minimal_demerits[3] = 0x3fffffffi32;
-    minimal_demerits[2] = 0x3fffffffi32;
-    minimal_demerits[1] = 0x3fffffffi32;
-    minimal_demerits[0] = 0x3fffffffi32;
+    minimum_demerits = AWFUL_BAD; /* 863: */
+    minimal_demerits[TIGHT_FIT] = AWFUL_BAD;
+    minimal_demerits[DECENT_FIT] = AWFUL_BAD;
+    minimal_demerits[LOOSE_FIT] = AWFUL_BAD;
+    minimal_demerits[VERY_LOOSE_FIT] = AWFUL_BAD;
+
     /* Prep relating to par_shape (877) */
-    if (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 0i32) as isize,
-    ))
-    .b32
-    .s1 == -0xfffffffi32
-    {
-        if (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 17i32) as isize,
-        ))
-        .b32
-        .s1 == 0i32
-        {
-            last_special_line = 0i32; /*878:*/
-            second_width = (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 3i32) as isize,
-            ))
-            .b32
-            .s1;
-            second_indent = 0i32
+
+    if LOCAL(LOCAL__par_shape) == TEX_NULL {
+        if DIMENPAR(DIMEN_PAR__hang_indent) == 0 {
+            last_special_line = 0;
+            second_width = DIMENPAR(DIMEN_PAR__hsize);
+            second_indent = 0;
         } else {
-            last_special_line = (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 41i32) as isize,
-            ))
-            .b32
-            .s1
-            .abs();
-            if (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 41i32) as isize,
-            ))
-            .b32
-            .s1 < 0i32
-            {
-                first_width = (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 3i32) as isize,
-                ))
-                .b32
-                .s1 - (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 17i32) as isize,
-                ))
-                .b32
-                .s1
-                .abs();
-                if (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 17i32) as isize,
-                ))
-                .b32
-                .s1 >= 0i32
-                {
-                    first_indent = (*eqtb.offset(
-                        (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 85i32
-                            + 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + 17i32) as isize,
-                    ))
-                    .b32
-                    .s1
+            /*878:*/
+            last_special_line = INTPAR(INT_PAR__hang_after).abs();
+
+            if INTPAR(INT_PAR__hang_after) < 0 {
+                first_width = DIMENPAR(DIMEN_PAR__hsize) - DIMENPAR(DIMEN_PAR__hang_indent).abs();
+                if DIMENPAR(DIMEN_PAR__hang_indent) >= 0 {
+                    first_indent = DIMENPAR(DIMEN_PAR__hang_indent);
                 } else {
-                    first_indent = 0i32
+                    first_indent = 0;
                 }
-                second_width = (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 3i32) as isize,
-                ))
-                .b32
-                .s1;
-                second_indent = 0i32
+                second_width = DIMENPAR(DIMEN_PAR__hsize);
+                second_indent = 0;
             } else {
-                first_width = (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 3i32) as isize,
-                ))
-                .b32
-                .s1;
-                first_indent = 0i32;
-                second_width = (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 3i32) as isize,
-                ))
-                .b32
-                .s1 - (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 17i32) as isize,
-                ))
-                .b32
-                .s1
-                .abs();
-                if (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 17i32) as isize,
-                ))
-                .b32
-                .s1 >= 0i32
-                {
-                    second_indent = (*eqtb.offset(
-                        (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 85i32
-                            + 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + 17i32) as isize,
-                    ))
-                    .b32
-                    .s1
+                first_width = DIMENPAR(DIMEN_PAR__hsize);
+                first_indent = 0;
+                second_width = DIMENPAR(DIMEN_PAR__hsize) - DIMENPAR(DIMEN_PAR__hang_indent).abs();
+                if DIMENPAR(DIMEN_PAR__hang_indent) >= 0 {
+                    second_indent = DIMENPAR(DIMEN_PAR__hang_indent);
                 } else {
-                    second_indent = 0i32
+                    second_indent = 0;
                 }
             }
         }
     } else {
-        last_special_line = (*mem.offset(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 0i32) as isize,
-            ))
-            .b32
-            .s1 as isize,
-        ))
-        .b32
-        .s0 - 1i32;
+        last_special_line = *LLIST_info(LOCAL(LOCAL__par_shape) as isize) - 1;
         /* These direct `mem` accesses are in the original WEB code */
-        second_width = (*mem.offset(
-            ((*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 0i32) as isize,
-            ))
-            .b32
-            .s1 + 2i32 * (last_special_line + 1i32)) as isize,
-        ))
+        second_width = (*mem
+            .offset(LOCAL(LOCAL__par_shape) as isize + 2 * (last_special_line as isize + 1)))
         .b32
-        .s1; /*:877*/
-        second_indent = (*mem.offset(
-            ((*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 0i32) as isize,
-            ))
-            .b32
-            .s1 + 2i32 * last_special_line
-                + 1i32) as isize,
-        ))
+        .s1;
+        second_indent = (*mem
+            .offset(LOCAL(LOCAL__par_shape) as isize + 2 * last_special_line as isize + 1))
         .b32
-        .s1
+        .s1;
     }
-    if (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 19i32) as isize,
-    ))
-    .b32
-    .s1 == 0i32
-    {
+
+    if INTPAR(INT_PAR__looseness) == 0 {
         easy_line = last_special_line
     } else {
-        easy_line = 0x3fffffffi32
+        easy_line = MAX_HALFWORD; /*:877*/
     }
+
     /* Start finding optimal breakpoints (892) */
-    threshold = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 0i32) as isize,
-    ))
-    .b32
-    .s1;
-    if threshold >= 0i32 {
+
+    threshold = INTPAR(INT_PAR__pretolerance);
+    if threshold >= 0 {
         second_pass = false;
         final_pass = false
     } else {
-        threshold = (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32) as isize,
-        ))
-        .b32
-        .s1;
+        threshold = INTPAR(INT_PAR__tolerance);
         second_pass = true;
-        final_pass = (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 20i32) as isize,
-        ))
-        .b32
-        .s1 <= 0i32
+        final_pass = DIMENPAR(DIMEN_PAR__emergency_stretch) <= 0;
     }
     loop {
-        if threshold > 10000i32 {
-            threshold = 10000i32
+        if threshold > INF_BAD {
+            threshold = INF_BAD;
         }
         if second_pass {
             /*920:*/
@@ -1080,13 +299,14 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
             }
         }
         q = get_node(active_node_size as i32);
-        (*mem.offset(q as isize)).b16.s1 = 0_u16;
-        (*mem.offset(q as isize)).b16.s0 = 2_u16;
-        (*mem.offset(q as isize)).b32.s1 = 4999999i32 - 7i32;
-        (*mem.offset((q + 1i32) as isize)).b32.s1 = -0xfffffffi32;
+        *NODE_type(q as isize) = UNHYPHENATED as _;
+        (*mem.offset(q as isize)).b16.s0 = DECENT_FIT as _;
+        *LLIST_link(q as isize) = LAST_ACTIVE;
+        (*mem.offset((q + 1i32) as isize)).b32.s1 = TEX_NULL;
         (*mem.offset((q + 1i32) as isize)).b32.s0 = cur_list.prev_graf + 1i32;
-        (*mem.offset((q + 2i32) as isize)).b32.s1 = 0i32;
-        (*mem.offset((4999999i32 - 7i32) as isize)).b32.s1 = q;
+        (*mem.offset((q + 2i32) as isize)).b32.s1 = 0;
+        *LLIST_link(ACTIVE_LIST as isize) = q;
+
         if do_last_line_fit {
             /*1633:*/
             (*mem.offset((q + 3i32) as isize)).b32.s1 = 0i32; /*:893*/
@@ -1098,16 +318,16 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
         active_width[4] = background[4];
         active_width[5] = background[5];
         active_width[6] = background[6];
-        passive = -0xfffffffi32;
-        font_in_short_display = 0i32;
-        cur_p = (*mem.offset((4999999i32 - 3i32) as isize)).b32.s1;
+        passive = TEX_NULL;
+        font_in_short_display = 0; /*:893*/
+        cur_p = *LLIST_link(TEMP_HEAD as isize);
         auto_breaking = true;
+
         global_prev_p = cur_p;
         prev_p = global_prev_p;
         first_p = cur_p;
-        while cur_p != -0xfffffffi32
-            && (*mem.offset((4999999i32 - 7i32) as isize)).b32.s1 != 4999999i32 - 7i32
-        {
+
+        while cur_p != TEX_NULL && *LLIST_link(ACTIVE_LIST as isize) != LAST_ACTIVE {
             /*895: "Call try_break if cur_p is a legal breakpoint; on the
              * second pass, also try to hyphenate the next word, if cur_p is a
              * glue node; then advance cur_p to the next node of the paragraph
@@ -1129,16 +349,18 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                     ))
                     .b32
                     .s1;
-                    cur_p = (*mem.offset(cur_p as isize)).b32.s1;
+                    cur_p = *LLIST_link(cur_p as isize);
                     if !is_char_node(cur_p) {
                         break;
                     }
                 }
             }
-            match (*mem.offset(cur_p as isize)).b16.s1 as i32 {
-                0 | 1 | 2 => active_width[1] += (*mem.offset((cur_p + 1i32) as isize)).b32.s1,
-                8 => {
-                    if (*mem.offset(cur_p as isize)).b16.s0 as i32 == 4i32 {
+            match *NODE_type(cur_p as isize) {
+                HLIST_NODE | VLIST_NODE | RULE_NODE => {
+                    active_width[1] += *BOX_width(cur_p as isize);
+                }
+                WHATSIT_NODE => {
+                    if *NODE_subtype(cur_p as isize) == LANGUAGE_NODE as _ {
                         cur_lang = (*mem.offset((cur_p + 1i32) as isize)).b32.s1 as u8;
                         l_hyf = (*mem.offset((cur_p + 1i32) as isize)).b16.s1 as i32;
                         r_hyf = (*mem.offset((cur_p + 1i32) as isize)).b16.s0 as i32;
@@ -1149,28 +371,28 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                         } else {
                             hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
                         }
-                    } else if (*mem.offset(cur_p as isize)).b16.s0 as i32 == 40i32
-                        || (*mem.offset(cur_p as isize)).b16.s0 as i32 == 41i32
-                        || (*mem.offset(cur_p as isize)).b16.s0 as i32 == 42i32
-                        || (*mem.offset(cur_p as isize)).b16.s0 as i32 == 43i32
-                        || (*mem.offset(cur_p as isize)).b16.s0 as i32 == 44i32
+                    } else if *NODE_subtype(cur_p as isize) == NATIVE_WORD_NODE
+                        || *NODE_subtype(cur_p as isize) == NATIVE_WORD_NODE_AT
+                        || *NODE_subtype(cur_p as isize) == GLYPH_NODE
+                        || *NODE_subtype(cur_p as isize) == PIC_NODE
+                        || *NODE_subtype(cur_p as isize) == PDF_NODE
                     {
-                        active_width[1] += (*mem.offset((cur_p + 1i32) as isize)).b32.s1
+                        active_width[1] += *BOX_width(cur_p as isize);
                     }
                 }
-                10 => {
+                GLUE_NODE => {
                     if auto_breaking {
                         if is_char_node(prev_p) {
-                            try_break(0i32, 0i32 as small_number);
+                            try_break(0, UNHYPHENATED as _);
                         } else if is_non_discardable_node(prev_p) {
-                            try_break(0i32, 0i32 as small_number);
-                        } else if (*mem.offset(prev_p as isize)).b16.s1 as i32 == 11i32
-                            && (*mem.offset(prev_p as isize)).b16.s0 as i32 != 1i32
+                            try_break(0, UNHYPHENATED as _);
+                        } else if *NODE_type(prev_p as isize) == KERN_NODE
+                            && *NODE_subtype(prev_p as isize) != EXPLICIT as _
                         {
-                            try_break(0i32, 0i32 as small_number);
+                            try_break(0, UNHYPHENATED as _);
                         }
                     }
-                    q = (*mem.offset((cur_p + 1i32) as isize)).b32.s0;
+                    q = *GLUE_NODE_glue_ptr(cur_p as isize);
                     if (*mem.offset(q as isize)).b16.s0 as i32 != 0i32
                         && (*mem.offset((q + 3i32) as isize)).b32.s1 != 0i32
                     {
@@ -1224,32 +446,7 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                                         l = 0i32;
                                         while l < (*mem.offset((s + 4i32) as isize)).b16.s1 as i32 {
                                             c = get_native_usv(s, l);
-                                            if (*eqtb.offset(
-                                                (1i32
-                                                    + (0x10ffffi32 + 1i32)
-                                                    + (0x10ffffi32 + 1i32)
-                                                    + 1i32
-                                                    + 15000i32
-                                                    + 12i32
-                                                    + 9000i32
-                                                    + 1i32
-                                                    + 1i32
-                                                    + 19i32
-                                                    + 256i32
-                                                    + 256i32
-                                                    + 13i32
-                                                    + 256i32
-                                                    + 4i32
-                                                    + 256i32
-                                                    + 1i32
-                                                    + 3i32 * 256i32
-                                                    + (0x10ffffi32 + 1i32)
-                                                    + c)
-                                                    as isize,
-                                            ))
-                                            .b32
-                                            .s1 != 0i32
-                                            {
+                                            if LC_CODE(c) != 0 {
                                                 hf = (*mem.offset((s + 4i32) as isize)).b16.s2
                                                     as internal_font_number;
                                                 prev_s = s;
@@ -1282,31 +479,7 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                                 match current_block {
                                     11202235766349324107 => {
                                         if hyph_index == 0i32 || c > 255i32 {
-                                            hc[0] = (*eqtb.offset(
-                                                (1i32
-                                                    + (0x10ffffi32 + 1i32)
-                                                    + (0x10ffffi32 + 1i32)
-                                                    + 1i32
-                                                    + 15000i32
-                                                    + 12i32
-                                                    + 9000i32
-                                                    + 1i32
-                                                    + 1i32
-                                                    + 19i32
-                                                    + 256i32
-                                                    + 256i32
-                                                    + 13i32
-                                                    + 256i32
-                                                    + 4i32
-                                                    + 256i32
-                                                    + 1i32
-                                                    + 3i32 * 256i32
-                                                    + (0x10ffffi32 + 1i32)
-                                                    + c)
-                                                    as isize,
-                                            ))
-                                            .b32
-                                            .s1
+                                            hc[0] = LC_CODE(c);
                                         } else if *trie_trc.offset((hyph_index + c) as isize) as i32
                                             != c
                                         {
@@ -1315,38 +488,7 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                                             hc[0] = *trie_tro.offset((hyph_index + c) as isize)
                                         }
                                         if hc[0] != 0i32 {
-                                            if hc[0] == c
-                                                || (*eqtb.offset(
-                                                    (1i32
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + 1i32
-                                                        + 15000i32
-                                                        + 12i32
-                                                        + 9000i32
-                                                        + 1i32
-                                                        + 1i32
-                                                        + 19i32
-                                                        + 256i32
-                                                        + 256i32
-                                                        + 13i32
-                                                        + 256i32
-                                                        + 4i32
-                                                        + 256i32
-                                                        + 1i32
-                                                        + 3i32 * 256i32
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + 38i32)
-                                                        as isize,
-                                                ))
-                                                .b32
-                                                .s1 > 0i32
-                                            {
+                                            if hc[0] == c || INTPAR(INT_PAR__uc_hyph) > 0 {
                                                 current_block = 16581706250867416845;
                                                 break;
                                             } else {
@@ -1435,34 +577,7 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                                                                     if hyph_index == 0i32
                                                                         || c > 255i32
                                                                     {
-                                                                        hc[0] = (*eqtb.offset(
-                                                                            (1i32
-                                                                                + (0x10ffffi32
-                                                                                    + 1i32)
-                                                                                + (0x10ffffi32
-                                                                                    + 1i32)
-                                                                                + 1i32
-                                                                                + 15000i32
-                                                                                + 12i32
-                                                                                + 9000i32
-                                                                                + 1i32
-                                                                                + 1i32
-                                                                                + 19i32
-                                                                                + 256i32
-                                                                                + 256i32
-                                                                                + 13i32
-                                                                                + 256i32
-                                                                                + 4i32
-                                                                                + 256i32
-                                                                                + 1i32
-                                                                                + 3i32 * 256i32
-                                                                                + (0x10ffffi32
-                                                                                    + 1i32)
-                                                                                + c)
-                                                                                as isize,
-                                                                        ))
-                                                                        .b32
-                                                                        .s1
+                                                                        hc[0] = LC_CODE(c);
                                                                     } else if *trie_trc.offset(
                                                                         (hyph_index + c) as isize,
                                                                     )
@@ -2008,31 +1123,7 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                                                                     as i32;
                                                             c = hyf_bchar;
                                                             if hyph_index == 0i32 || c > 255i32 {
-                                                                hc[0] = (*eqtb.offset(
-                                                                    (1i32
-                                                                        + (0x10ffffi32 + 1i32)
-                                                                        + (0x10ffffi32 + 1i32)
-                                                                        + 1i32
-                                                                        + 15000i32
-                                                                        + 12i32
-                                                                        + 9000i32
-                                                                        + 1i32
-                                                                        + 1i32
-                                                                        + 19i32
-                                                                        + 256i32
-                                                                        + 256i32
-                                                                        + 13i32
-                                                                        + 256i32
-                                                                        + 4i32
-                                                                        + 256i32
-                                                                        + 1i32
-                                                                        + 3i32 * 256i32
-                                                                        + (0x10ffffi32 + 1i32)
-                                                                        + c)
-                                                                        as isize,
-                                                                ))
-                                                                .b32
-                                                                .s1
+                                                                hc[0] = LC_CODE(c);
                                                             } else if *trie_trc
                                                                 .offset((hyph_index + c) as isize)
                                                                 as i32
@@ -2078,41 +1169,17 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                                                             q = (*mem.offset((s + 1i32) as isize))
                                                                 .b32
                                                                 .s1;
-                                                            if q > -0xfffffffi32 {
+                                                            if q > TEX_NULL {
                                                                 hyf_bchar =
                                                                     (*mem.offset(q as isize)).b16.s0
                                                                         as i32
                                                             }
-                                                            while q > -0xfffffffi32 {
+                                                            while q > TEX_NULL {
                                                                 c = (*mem.offset(q as isize)).b16.s0
                                                                     as UnicodeScalar;
                                                                 if hyph_index == 0i32 || c > 255i32
                                                                 {
-                                                                    hc[0] = (*eqtb.offset(
-                                                                        (1i32
-                                                                            + (0x10ffffi32 + 1i32)
-                                                                            + (0x10ffffi32 + 1i32)
-                                                                            + 1i32
-                                                                            + 15000i32
-                                                                            + 12i32
-                                                                            + 9000i32
-                                                                            + 1i32
-                                                                            + 1i32
-                                                                            + 19i32
-                                                                            + 256i32
-                                                                            + 256i32
-                                                                            + 13i32
-                                                                            + 256i32
-                                                                            + 4i32
-                                                                            + 256i32
-                                                                            + 1i32
-                                                                            + 3i32 * 256i32
-                                                                            + (0x10ffffi32 + 1i32)
-                                                                            + c)
-                                                                            as isize,
-                                                                    ))
-                                                                    .b32
-                                                                    .s1
+                                                                    hc[0] = LC_CODE(c);
                                                                 } else if *trie_trc.offset(
                                                                     (hyph_index + c) as isize,
                                                                 )
@@ -2182,21 +1249,14 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                                                         if !((hn as i32) < l_hyf + r_hyf) {
                                                             loop {
                                                                 if !is_char_node(s) {
-                                                                    match (*mem.offset(s as isize))
-                                                                        .b16
-                                                                        .s1
-                                                                        as i32
-                                                                    {
-                                                                        6 => {}
-                                                                        11 => {
+                                                                    match *NODE_type(s as isize) {
+                                                                        LIGATURE_NODE => {}
+                                                                        KERN_NODE => {
                                                                             current_block =
                                                                                 5935670669791948619;
-                                                                            if (*mem
-                                                                                .offset(s as isize))
-                                                                            .b16
-                                                                            .s0
-                                                                                as i32
-                                                                                != 0i32
+                                                                            if *NODE_subtype(
+                                                                                s as isize,
+                                                                            ) != NORMAL as _
                                                                             {
                                                                                 current_block
                                                                                             =
@@ -2296,43 +1356,13 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                     .b32
                     .s1
                 }
-                7 => {
+                DISC_NODE => {
                     /*898: try to break after a discretionary fragment, then goto done5 */
                     s = (*mem.offset((cur_p + 1i32) as isize)).b32.s0;
-                    disc_width = 0i32;
-                    if s == -0xfffffffi32 {
-                        try_break(
-                            (*eqtb.offset(
-                                (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + 3i32 * 256i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 4i32) as isize,
-                            ))
-                            .b32
-                            .s1,
-                            1i32 as small_number,
-                        );
+                    disc_width = 0;
+
+                    if s == TEX_NULL {
+                        try_break(INTPAR(INT_PAR__ex_hyphen_penalty), HYPHENATED as _);
                     } else {
                         loop {
                             /*899:*/
@@ -2403,38 +1433,7 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                             }
                         }
                         active_width[1] += disc_width;
-                        try_break(
-                            (*eqtb.offset(
-                                (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + 3i32 * 256i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 3i32) as isize,
-                            ))
-                            .b32
-                            .s1,
-                            1i32 as small_number,
-                        );
+                        try_break(INTPAR(INT_PAR__hyphen_penalty), HYPHENATED as _);
                         active_width[1] -= disc_width
                     }
                     r = (*mem.offset(cur_p as isize)).b16.s0 as i32;
@@ -2541,125 +1540,40 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
             prev_p = global_prev_p;
             cur_p = (*mem.offset(cur_p as isize)).b32.s1
         }
-        if cur_p == -0xfffffffi32 {
+        if cur_p == TEX_NULL {
             /*902: "Try the final line break at the end of the paragraph, and
              * goto done if the desired breakpoints have been found." */
-            try_break(-10000i32, 1i32 as small_number);
-            if (*mem.offset((4999999i32 - 7i32) as isize)).b32.s1 != 4999999i32 - 7i32 {
-                /*:902*/
+            try_break(EJECT_PENALTY, HYPHENATED as _);
+            if *LLIST_link(ACTIVE_LIST as isize) != LAST_ACTIVE {
                 /*903:*/
-                r = (*mem.offset((4999999i32 - 7i32) as isize)).b32.s1; /*:903*/
-                fewest_demerits = 0x3fffffffi32; /*904:*/
+                r = *LLIST_link(ACTIVE_LIST as isize);
+                fewest_demerits = MAX_HALFWORD;
                 loop {
-                    if (*mem.offset(r as isize)).b16.s1 as i32 != 2i32 {
+                    if *NODE_type(r as isize) != DELTA_NODE {
                         if (*mem.offset((r + 2i32) as isize)).b32.s1 < fewest_demerits {
                             fewest_demerits = (*mem.offset((r + 2i32) as isize)).b32.s1; /*:904*/
                             best_bet = r
                         }
                     }
-                    r = (*mem.offset(r as isize)).b32.s1;
-                    if !(r != 4999999i32 - 7i32) {
+                    r = *LLIST_link(r as isize);
+                    if !(r != LAST_ACTIVE) {
                         break;
                     }
                 }
                 best_line = (*mem.offset((best_bet + 1i32) as isize)).b32.s0;
-                if (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 19i32) as isize,
-                ))
-                .b32
-                .s1 == 0i32
-                {
+                if INTPAR(INT_PAR__looseness) == 0 {
                     break;
                 }
-                r = (*mem.offset((4999999i32 - 7i32) as isize)).b32.s1;
-                actual_looseness = 0i32;
+
+                r = *LLIST_link(ACTIVE_LIST as isize); /*904:*/
+                actual_looseness = 0;
+
                 loop {
                     if (*mem.offset(r as isize)).b16.s1 as i32 != 2i32 {
                         line_diff = (*mem.offset((r + 1i32) as isize)).b32.s0 - best_line;
-                        if line_diff < actual_looseness
-                            && (*eqtb.offset(
-                                (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + 3i32 * 256i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 19i32) as isize,
-                            ))
-                            .b32
-                            .s1 <= line_diff
+                        if line_diff < actual_looseness && INTPAR(INT_PAR__looseness) <= line_diff
                             || line_diff > actual_looseness
-                                && (*eqtb.offset(
-                                    (1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32
-                                        + 1i32
-                                        + 3i32 * 256i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 19i32) as isize,
-                                ))
-                                .b32
-                                .s1 >= line_diff
+                                && INTPAR(INT_PAR__looseness) >= line_diff
                         {
                             best_bet = r;
                             actual_looseness = line_diff;
@@ -2677,38 +1591,7 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
                     }
                 }
                 best_line = (*mem.offset((best_bet + 1i32) as isize)).b32.s0;
-                if actual_looseness
-                    == (*eqtb.offset(
-                        (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 19i32) as isize,
-                    ))
-                    .b32
-                    .s1
-                    || final_pass as i32 != 0
-                {
+                if actual_looseness == INTPAR(INT_PAR__looseness) || final_pass {
                     break;
                 }
             }
@@ -2732,103 +1615,12 @@ pub unsafe extern "C" fn line_break(mut d: bool) {
         }
         /* ... resuming 892 ... */
         if !second_pass {
-            threshold = (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32) as isize,
-            ))
-            .b32
-            .s1;
-            second_pass = 1i32 != 0;
-            final_pass = (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 20i32) as isize,
-            ))
-            .b32
-            .s1 <= 0i32
+            threshold = INTPAR(INT_PAR__tolerance);
+            second_pass = true;
+            final_pass = DIMENPAR(DIMEN_PAR__emergency_stretch) <= 0;
         } else {
-            background[2] = background[2]
-                + (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 20i32) as isize,
-                ))
-                .b32
-                .s1;
-            final_pass = 1i32 != 0
+            background[2] = background[2] + DIMENPAR(DIMEN_PAR__emergency_stretch);
+            final_pass = true;
         }
     }
     if do_last_line_fit {
@@ -2905,17 +1697,10 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
          * insertions. The current line starts a TEMP_HEAD.link and ends at
          * cur_p.cur_break.
          **/
-        if (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              1i32 + 15000i32 + 12i32 + 9000i32 + 1i32 + 1i32
-                              + 19i32 + 256i32 + 256i32 + 13i32 + 256i32 +
-                              4i32 + 256i32 + 1i32 + 3i32 * 256i32 +
-                              (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              71i32) as isize)).b32.s1 > 0i32 {
+        if INTPAR(INT_PAR__texxet) > 0 {
             /*1494:*/
-            q = (*mem.offset((4999999i32 - 3i32) as isize)).b32.s1;
-            if LR_ptr != -0xfffffffi32 {
+            q = (*mem.offset(TEMP_HEAD as isize)).b32.s1;
+            if LR_ptr != TEX_NULL {
                 temp_ptr = LR_ptr;
                 r = q;
                 loop  {
@@ -2967,19 +1752,16 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
         disc_break = false;
         post_disc_break = false;
         glue_break = false;
-        if q == -0xfffffffi32 {
-            q = 4999999i32 - 3i32;
-            while (*mem.offset(q as isize)).b32.s1 != -0xfffffffi32 {
-                q = (*mem.offset(q as isize)).b32.s1
+
+        if q == TEX_NULL {
+            q = TEMP_HEAD;
+            while *LLIST_link(q as isize) != TEX_NULL {
+                q = *LLIST_link(q as isize);
             }
         } else if (*mem.offset(q as isize)).b16.s1 as i32 == 10i32 {
             delete_glue_ref((*mem.offset((q + 1i32) as isize)).b32.s0);
-            (*mem.offset((q + 1i32) as isize)).b32.s0 =
-                (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                   (0x10ffffi32 + 1i32) + 1i32 + 15000i32 +
-                                   12i32 + 9000i32 + 1i32 + 1i32 + 8i32) as
-                                  isize)).b32.s1;
-            (*mem.offset(q as isize)).b16.s0 = (8i32 + 1i32) as u16;
+            *GLUE_NODE_glue_ptr(q as isize) = *GLUEPAR(GLUE_PAR__right_skip);
+            *NODE_subtype(q as isize) = GLUE_PAR__right_skip as u16 + 1;
             let ref mut fresh5 =
                 (*mem.offset((*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
                                                 (0x10ffffi32 + 1i32) + 1i32 +
@@ -2988,7 +1770,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
                                                isize)).b32.s1 as
                                  isize)).b32.s1;
             *fresh5 += 1;
-            glue_break = 1i32 != 0
+            glue_break = true;
         } else if (*mem.offset(q as isize)).b16.s1 as i32 == 7i32 {
             /*911:*/
             t = (*mem.offset(q as isize)).b16.s0;
@@ -3033,20 +1815,11 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
             (*mem.offset((q + 1i32) as isize)).b32.s1 = 0i32
         } else if (*mem.offset(q as isize)).b16.s1 as i32 == 9i32 {
             (*mem.offset((q + 1i32) as isize)).b32.s1 = 0i32;
-            if (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                  (0x10ffffi32 + 1i32) + 1i32 + 15000i32 +
-                                  12i32 + 9000i32 + 1i32 + 1i32 + 19i32 +
-                                  256i32 + 256i32 + 13i32 + 256i32 + 4i32 +
-                                  256i32 + 1i32 + 3i32 * 256i32 +
-                                  (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32)
-                                  + (0x10ffffi32 + 1i32) +
-                                  (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32)
-                                  + (0x10ffffi32 + 1i32) + 71i32) as
-                                 isize)).b32.s1 > 0i32 {
+            if INTPAR(INT_PAR__texxet) > 0 {
                 /*1495:*/
                 if (*mem.offset(q as isize)).b16.s0 as i32 & 1i32 != 0
                    {
-                    if LR_ptr != -0xfffffffi32 &&
+                    if LR_ptr != TEX_NULL &&
                            (*mem.offset(LR_ptr as isize)).b32.s0 ==
                                4i32 *
                                    ((*mem.offset(q as isize)).b16.s0 as
@@ -3070,14 +1843,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
         /* "at this point q is the rightmost breakpoint; the only exception is
          * the case of a discretionary break with non-empty pre_break -- then
          * q has been changed to the last node of the pre-break list" */
-        if (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              1i32 + 15000i32 + 12i32 + 9000i32 + 1i32 + 1i32
-                              + 19i32 + 256i32 + 256i32 + 13i32 + 256i32 +
-                              4i32 + 256i32 + 1i32 + 3i32 * 256i32 +
-                              (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              70i32) as isize)).b32.s1 > 0i32 {
+        if INTPAR(INT_PAR__xetex_protrude_chars) > 0 {
             if disc_break as i32 != 0 &&
                    (is_char_node(q) as i32 != 0 ||
                         (*mem.offset(q as isize)).b16.s1 as i32 !=
@@ -3111,17 +1877,10 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
             (*mem.offset(q as isize)).b32.s1 = r;
             q = r
         }
-        if (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              1i32 + 15000i32 + 12i32 + 9000i32 + 1i32 + 1i32
-                              + 19i32 + 256i32 + 256i32 + 13i32 + 256i32 +
-                              4i32 + 256i32 + 1i32 + 3i32 * 256i32 +
-                              (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              71i32) as isize)).b32.s1 > 0i32 {
+        if INTPAR(INT_PAR__texxet) > 0 {
             /*1496:*/
-            if LR_ptr != -0xfffffffi32 {
-                s = 4999999i32 - 3i32;
+            if LR_ptr != TEX_NULL {
+                s = TEMP_HEAD;
                 r = (*mem.offset(s as isize)).b32.s1;
                 while r != q { s = r; r = (*mem.offset(s as isize)).b32.s1 }
                 r = LR_ptr;
@@ -3143,14 +1902,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
         q = (*mem.offset((4999999i32 - 3i32) as isize)).b32.s1;
         (*mem.offset((4999999i32 - 3i32) as isize)).b32.s1 = r;
         /* "at this point q is the leftmost node; all discardable nodes have been discarded */
-        if (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              1i32 + 15000i32 + 12i32 + 9000i32 + 1i32 + 1i32
-                              + 19i32 + 256i32 + 256i32 + 13i32 + 256i32 +
-                              4i32 + 256i32 + 1i32 + 3i32 * 256i32 +
-                              (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              70i32) as isize)).b32.s1 > 0i32 {
+        if INTPAR(INT_PAR__xetex_protrude_chars) > 0 {
             p = q;
             p = find_protchar_left(p, false);
             w = char_pw(p, 0i32 as small_number);
@@ -3162,9 +1914,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
                 q = k
             }
         }
-        if (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) +
-                              1i32 + 15000i32 + 12i32 + 9000i32 + 1i32 + 1i32
-                              + 7i32) as isize)).b32.s1 != 0i32 {
+        if *GLUEPAR(GLUE_PAR__left_skip) != 0 {
             r = new_param_glue(7i32 as small_number);
             (*mem.offset(r as isize)).b32.s1 = q;
             q = r
@@ -3174,34 +1924,18 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
         if cur_line > last_special_line {
             cur_width = second_width;
             cur_indent = second_indent
-        } else if (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                     (0x10ffffi32 + 1i32) + 1i32 + 15000i32 +
-                                     12i32 + 9000i32 + 1i32 + 1i32 + 19i32 +
-                                     256i32 + 256i32 + 0i32) as isize)).b32.s1
-                      == -0xfffffffi32 {
+        } else if LOCAL(LOCAL__par_shape) == TEX_NULL {
             cur_width = first_width;
             cur_indent = first_indent
         } else {
             /* These manual `mem` indices are in the original WEB code */
             cur_width =
-                (*mem.offset(((*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                                 (0x10ffffi32 + 1i32) + 1i32 +
-                                                 15000i32 + 12i32 + 9000i32 +
-                                                 1i32 + 1i32 + 19i32 + 256i32
-                                                 + 256i32 + 0i32) as
-                                                isize)).b32.s1 +
-                                  2i32 * cur_line) as isize)).b32.s1;
+                (*mem.offset(LOCAL(LOCAL__par_shape) as isize + 2* cur_line as isize)).b32.s1;
             cur_indent =
-                (*mem.offset(((*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                                 (0x10ffffi32 + 1i32) + 1i32 +
-                                                 15000i32 + 12i32 + 9000i32 +
-                                                 1i32 + 1i32 + 19i32 + 256i32
-                                                 + 256i32 + 0i32) as
-                                                isize)).b32.s1 +
-                                  2i32 * cur_line - 1i32) as isize)).b32.s1
+                (*mem.offset(LOCAL(LOCAL__par_shape) as isize + 2* cur_line as isize - 1)).b32.s1;
         }
-        adjust_tail = 4999999i32 - 5i32;
-        pre_adjust_tail = 4999999i32 - 14i32;
+        adjust_tail = ADJUST_HEAD;
+        pre_adjust_tail = PRE_ADJUST_HEAD;
         /* Tectonic: in semantic pagination mode, set each "line" (really the
          * whole paragraph) at its natural width. */
         if semantic_pagination_enabled {
@@ -4286,148 +3020,32 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                         d = 0i32
                     } else {
                         /*888: "Compute the demerits, d, from r to cur_p" */
-                        d = (*eqtb.offset(
-                            (1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + 3i32 * 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 2i32) as isize,
-                        ))
-                        .b32
-                        .s1 + b; /* algorithmic constant */
-                        if d.abs() >= 10000i32 {
-                            d = 100000000 as i32
+                        d = INTPAR(INT_PAR__line_penalty) + b;
+                        if d.abs() >= 10000 {
+                            d = 100000000;
+                        /* algorithmic constant */
                         } else {
                             d = d * d
                         }
-                        if pi != 0i32 {
-                            if pi > 0i32 {
+                        if pi != 0 {
+                            if pi > 0 {
                                 d = d + pi * pi
-                            } else if pi > -10000i32 {
+                            } else if pi > EJECT_PENALTY {
                                 d = d - pi * pi
                             }
                         }
                         if break_type as i32 == 1i32
                             && (*mem.offset(r as isize)).b16.s1 as i32 == 1i32
                         {
-                            if cur_p != -0xfffffffi32 {
-                                d = d
-                                    + (*eqtb.offset(
-                                        (1i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + 1i32
-                                            + 15000i32
-                                            + 12i32
-                                            + 9000i32
-                                            + 1i32
-                                            + 1i32
-                                            + 19i32
-                                            + 256i32
-                                            + 256i32
-                                            + 13i32
-                                            + 256i32
-                                            + 4i32
-                                            + 256i32
-                                            + 1i32
-                                            + 3i32 * 256i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + 14i32)
-                                            as isize,
-                                    ))
-                                    .b32
-                                    .s1
+                            if cur_p != TEX_NULL {
+                                d = d + INTPAR(INT_PAR__double_hyphen_demerits);
                             } else {
-                                d = d
-                                    + (*eqtb.offset(
-                                        (1i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + 1i32
-                                            + 15000i32
-                                            + 12i32
-                                            + 9000i32
-                                            + 1i32
-                                            + 1i32
-                                            + 19i32
-                                            + 256i32
-                                            + 256i32
-                                            + 13i32
-                                            + 256i32
-                                            + 4i32
-                                            + 256i32
-                                            + 1i32
-                                            + 3i32 * 256i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + 15i32)
-                                            as isize,
-                                    ))
-                                    .b32
-                                    .s1
+                                d = d + INTPAR(INT_PAR__final_hyphen_demerits);
                             }
                         }
                         if (fit_class as i32 - (*mem.offset(r as isize)).b16.s0 as i32).abs() > 1i32
                         {
-                            d = d
-                                + (*eqtb.offset(
-                                    (1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32
-                                        + 1i32
-                                        + 3i32 * 256i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 16i32) as isize,
-                                ))
-                                .b32
-                                .s1
+                            d = d + INTPAR(INT_PAR__adj_demerits);
                         }
                     }
                     /* resuming 884: */

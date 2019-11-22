@@ -115,8 +115,8 @@ pub const GLUE_PAR__med_mu_skip: placeholdertype = 17;
 pub const GLUE_PAR__thick_mu_skip: placeholdertype = 18;
 pub const GLUE_PARS: placeholdertype = 19;
 
-pub unsafe fn GLUEPAR(s: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((GLUE_BASE + s) as isize))).b32.s1
+pub unsafe fn GLUEPAR(s: placeholdertype) -> *mut i32 {
+    &mut (*(eqtb.offset((GLUE_BASE + s) as isize))).b32.s1
 }
 
 pub const SKIP_BASE: placeholdertype = (GLUE_BASE + GLUE_PARS);
