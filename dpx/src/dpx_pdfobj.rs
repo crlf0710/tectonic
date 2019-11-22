@@ -1300,24 +1300,22 @@ impl pdf_dict {
     }
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn pdf_foreach_dict(
-    dict: &mut pdf_obj,
-    proc_0: Option<unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32>,
-    pdata: *mut libc::c_void,
-) -> i32 {
-    let mut error: i32 = 0i32;
-    assert!(proc_0.is_some());
-    assert!(dict.is_dict());
-    let mut data = dict.data as *mut pdf_dict;
-    while error == 0 && !(*data).key.is_null() {
-        error = proc_0.expect("non-null function pointer")((*data).key, (*data).value, pdata);
-        data = (*data).next
-    }
-    error
-}
-
 impl pdf_dict {
+    pub unsafe fn foreach(
+        &mut self,
+        proc_0: Option<unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32>,
+        pdata: *mut libc::c_void,
+    ) -> i32 {
+        let mut error: i32 = 0i32;
+        assert!(proc_0.is_some());
+        let mut data = self;
+        while error == 0 && !data.key.is_null() {
+            error = proc_0.expect("non-null function pointer")(data.key, data.value, pdata);
+            data = &mut *data.next
+        }
+        error
+    }
+
     pub unsafe fn has<K>(&self, name: K) -> bool
     where
         K: AsRef<[u8]>,
@@ -3981,8 +3979,7 @@ pub unsafe fn pdf_import_object(object: *mut pdf_obj) -> *mut pdf_obj {
         }
         PdfObjType::DICT => {
             let imported = pdf_dict::new().into_obj();
-            if pdf_foreach_dict(
-                &mut *object,
+            if (*object).as_dict_mut().foreach(
                 Some(
                     import_dict
                         as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,

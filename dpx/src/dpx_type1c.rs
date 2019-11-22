@@ -397,8 +397,8 @@ pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
             }
         }
         if !fontdict.has("ToUnicode") {
-            let tounicode = pdf_create_ToUnicode_CMap(fullname, enc_vec, usedchars);
-            if !tounicode.is_null() {
+            if let Some(tounicode) = pdf_create_ToUnicode_CMap(fullname, enc_vec, usedchars) {
+                let tounicode = tounicode.into_obj();
                 fontdict.set("ToUnicode", pdf_ref_obj(tounicode));
                 pdf_release_obj(tounicode);
             }

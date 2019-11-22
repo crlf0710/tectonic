@@ -524,7 +524,7 @@ pub unsafe fn Type0Font_cache_close() {
     __cache.capacity = 0i32;
 }
 /* ******************************* COMPAT ********************************/
-unsafe fn create_dummy_CMap() -> *mut pdf_obj {
+unsafe fn create_dummy_CMap() -> pdf_stream {
     let mut buf: [u8; 32] = [0; 32];
     let mut stream = pdf_stream::new(STREAM_COMPRESS);
     stream.add_str("%!PS-Adobe-3.0 Resource-CMap\n%%DocumentNeededResources: ProcSet (CIDInit)\n%%IncludeResource: ProcSet (CIDInit)\n%%BeginResource: CMap (Adobe-Identity-UCS2)\n%%Title: (Adobe-Identity-UCS2 Adobe UCS2 0)\n%%Version: 1.0\n%%Copyright:\n%% ---\n%%EndComments\n\n");
@@ -576,7 +576,7 @@ unsafe fn create_dummy_CMap() -> *mut pdf_obj {
     }
     stream.add_str("endbfrange\n\n");
     stream.add_str("endcmap\n\nCMapName currentdict /CMap defineresource pop\n\nend\nend\n\n%%EndResource\n%%EOF\n");
-    stream.into_obj()
+    stream
 }
 unsafe fn pdf_read_ToUnicode_file(cmap_name: *const i8) -> *mut pdf_obj {
     assert!(!cmap_name.is_null());
@@ -586,15 +586,15 @@ unsafe fn pdf_read_ToUnicode_file(cmap_name: *const i8) -> *mut pdf_obj {
             cmap_name,
             b"Adobe-Identity-UCS2\x00" as *const u8 as *const i8,
         ) {
-            create_dummy_CMap()
+            Some(create_dummy_CMap())
         } else {
             pdf_load_ToUnicode_stream(cmap_name)
         };
-        if !stream.is_null() {
+        if let Some(stream) = stream {
             res_id = pdf_defineresource(
                 b"CMap\x00" as *const u8 as *const i8,
                 cmap_name,
-                stream,
+                stream.into_obj(),
                 1i32,
             )
         }

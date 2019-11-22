@@ -66,7 +66,7 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_foreach_dict, pdf_link_obj, pdf_obj, pdf_obj_typeof, pdf_release_obj,
+    pdf_dict, pdf_link_obj, pdf_obj, pdf_obj_typeof, pdf_release_obj,
     pdf_remove_dict, pdf_set_string, pdf_stream, pdf_string_length, pdf_string_value, IntoObj,
     PdfObjType, STREAM_COMPRESS,
 };
@@ -263,8 +263,7 @@ unsafe fn safeputresdict(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_vo
         dict_ref.set(key.to_bytes(), pdf_link_obj(vp));
     } else if (*vp).is_dict() {
         if let Some(dict) = dict {
-            pdf_foreach_dict(
-                &mut *vp,
+            (*vp).as_dict_mut().foreach(
                 Some(
                     safeputresdent
                         as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
@@ -323,8 +322,7 @@ unsafe fn spc_handler_pdfm_put(spe: *mut spc_env, ap: *mut spc_arg) -> i32 {
                 );
                 error = -1i32
             } else if ident.to_bytes() == b"resources" {
-                error = pdf_foreach_dict(
-                    &mut *obj2,
+                error = (*obj2).as_dict_mut().foreach(
                     Some(
                         safeputresdict
                             as unsafe fn(
@@ -535,8 +533,7 @@ unsafe fn modstrings(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) 
             }
         }
         PdfObjType::DICT => {
-            r = pdf_foreach_dict(
-                &mut *vp,
+            r = (*vp).as_dict_mut().foreach(
                 Some(
                     modstrings
                         as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
@@ -545,8 +542,7 @@ unsafe fn modstrings(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) 
             )
         }
         PdfObjType::STREAM => {
-            r = pdf_foreach_dict(
-                (*vp).as_stream_mut().get_dict_obj(),
+            r = (*vp).as_stream_mut().get_dict_mut().foreach(
                 Some(
                     modstrings
                         as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
@@ -577,8 +573,7 @@ impl ParsePdfDictU for &[u8] {
         };
         if let Some(d) = dict {
             unsafe {
-                pdf_foreach_dict(
-                    &mut *d,
+                (*d).as_dict_mut().foreach(
                     Some(
                         modstrings
                             as unsafe fn(

@@ -44,7 +44,7 @@ use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
     pdf_copy_name, pdf_dict, pdf_get_version, pdf_link_obj, pdf_obj, pdf_release_obj, IntoObj,
-    PushObj,
+    PushObj, pdf_stream,
 };
 use crate::dpx_pdfparse::{ParsePdfObj, SkipWhite};
 use crate::mfree;
@@ -477,7 +477,7 @@ pub unsafe fn pdf_encoding_complete() {
                 (*encoding).enc_name,
                 (*encoding).glyphs.as_mut_ptr(),
                 (*encoding).is_used.as_mut_ptr(),
-            )
+            ).map(IntoObj::into_obj).unwrap_or(ptr::null_mut());
         }
     }
 }
@@ -601,7 +601,7 @@ pub unsafe fn pdf_create_ToUnicode_CMap(
     enc_name: *const i8,
     enc_vec: *mut *mut i8,
     is_used: *const i8,
-) -> *mut pdf_obj {
+) -> Option<pdf_stream> {
     assert!(!enc_name.is_null() && !enc_vec.is_null());
 
     let cmap = CMap_new();
@@ -652,7 +652,7 @@ pub unsafe fn pdf_create_ToUnicode_CMap(
         }
     }
     let stream = if all_predef != 0 {
-        ptr::null_mut()
+        None
     } else {
         CMap_create_stream(cmap)
     };
@@ -682,18 +682,18 @@ pub unsafe fn pdf_create_ToUnicode_CMap(
  * PDF stream object (not reference) returned.
  */
 
-pub unsafe fn pdf_load_ToUnicode_stream(ident: *const i8) -> *mut pdf_obj {
-    let mut stream: *mut pdf_obj = ptr::null_mut();
+pub unsafe fn pdf_load_ToUnicode_stream(ident: *const i8) -> Option<pdf_stream> {
+    let mut stream = None;
     if ident.is_null() {
-        return ptr::null_mut();
+        return None;
     }
     let mut handle = ttstub_input_open(ident, TTInputFormat::CMAP, 0i32);
     if handle.is_none() {
-        return ptr::null_mut();
+        return None;
     }
     if CMap_parse_check_sig(handle.as_mut()) < 0i32 {
         ttstub_input_close(handle.unwrap());
-        return ptr::null_mut();
+        return None;
     }
     let handle = handle.unwrap();
     let cmap = CMap_new();
@@ -707,7 +707,7 @@ pub unsafe fn pdf_load_ToUnicode_stream(ident: *const i8) -> *mut pdf_obj {
             info!("(CMap:{})", CStr::from_ptr(ident).display());
         }
         stream = CMap_create_stream(cmap);
-        if stream.is_null() {
+        if stream.is_none() {
             warn!(
                 "Failed to creat ToUnicode CMap stream for \"{}\".",
                 CStr::from_ptr(ident).display()

@@ -34,7 +34,7 @@ use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{CMap_get_CIDSysInfo, CMap_is_valid};
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_dict, pdf_new_string, pdf_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_copy_name, pdf_dict, pdf_new_string, pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use libc::{free, memcmp, memset, strlen};
@@ -305,7 +305,7 @@ unsafe fn write_map(
     count as i32
 }
 
-pub unsafe fn CMap_create_stream(cmap: *mut CMap) -> *mut pdf_obj {
+pub unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
     let mut wbuf: sbuf = sbuf {
         buf: ptr::null_mut(),
         curptr: ptr::null_mut(),
@@ -313,10 +313,10 @@ pub unsafe fn CMap_create_stream(cmap: *mut CMap) -> *mut pdf_obj {
     };
     if cmap.is_null() || !CMap_is_valid(cmap) {
         warn!("Invalid CMap");
-        return ptr::null_mut();
+        return None;
     }
     if (*cmap).type_0 == 0i32 {
-        return ptr::null_mut();
+        return None;
     }
     let mut stream = pdf_stream::new(STREAM_COMPRESS);
     let stream_dict = stream.get_dict_mut();
@@ -486,5 +486,5 @@ pub unsafe fn CMap_create_stream(cmap: *mut CMap) -> *mut pdf_obj {
     stream.add_str("endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n");
     free(codestr as *mut libc::c_void);
     free(wbuf.buf as *mut libc::c_void);
-    stream.into_obj()
+    Some(stream)
 }

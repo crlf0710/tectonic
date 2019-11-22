@@ -1620,13 +1620,13 @@ unsafe fn create_ToUnicode_stream(
     cffont: &cff_font,
     font_name: *const i8,
     used_glyphs: *const i8,
-) -> *mut pdf_obj {
-    let mut stream: *mut pdf_obj = ptr::null_mut();
+) -> Option<pdf_stream> {
+    let mut stream = None;
     let mut wbuf: [u8; 1024] = [0; 1024];
     static mut range_min: [u8; 2] = [0; 2];
     static mut range_max: [u8; 2] = [0xff, 0xff];
     if font_name.is_null() || used_glyphs.is_null() {
-        return ptr::null_mut();
+        return None;
     }
     let cmap = CMap_new();
     CMap_set_name(
@@ -2045,7 +2045,7 @@ pub unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
     if used_chars.is_null() {
         panic!("Unexpected error: Font not actually used???");
     }
-    let tounicode = create_ToUnicode_stream(cffont, (*font).fontname, used_chars);
+    let tounicode = create_ToUnicode_stream(cffont, (*font).fontname, used_chars).map(IntoObj::into_obj).unwrap_or(ptr::null_mut());
     if !hparent.is_null() {
         Type0Font_set_ToUnicode(hparent, pdf_ref_obj(tounicode));
     }

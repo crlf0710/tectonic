@@ -397,26 +397,23 @@ unsafe fn try_load_ToUnicode_CMap(font: *mut pdf_font) -> i32 {
     };
     let fontdict = pdf_font_get_resource(&mut *font);
     let tounicode = pdf_load_ToUnicode_stream(cmap_name);
-    if tounicode.is_null() && (!mrec.is_null() && !(*mrec).opt.tounicode.is_null()) {
+    if tounicode.is_none() && (!mrec.is_null() && !(*mrec).opt.tounicode.is_null()) {
         warn!(
             "Failed to read ToUnicode mapping \"{}\"...",
             CStr::from_ptr((*mrec).opt.tounicode).display(),
         );
-    } else if !tounicode.is_null() {
-        if !(*tounicode).is_stream() {
-            panic!("Object returned by pdf_load_ToUnicode_stream() not stream object! (This must be bug)");
-        } else {
-            if pdf_stream_length(&*tounicode) > 0i32 {
-                fontdict
-                    .as_dict_mut()
-                    .set("ToUnicode", pdf_ref_obj(tounicode));
-                if __verbose != 0 {
-                    info!(
-                        "pdf_font>> ToUnicode CMap \"{}\" attached to font id=\"{}\".\n",
-                        CStr::from_ptr(cmap_name).display(),
-                        CStr::from_ptr((*font).map_name).display(),
-                    );
-                }
+    } else if let Some(tounicode) = tounicode {
+        let tounicode = tounicode.into_obj();
+        if pdf_stream_length(&*tounicode) > 0i32 {
+            fontdict
+                .as_dict_mut()
+                .set("ToUnicode", pdf_ref_obj(tounicode));
+            if __verbose != 0 {
+                info!(
+                    "pdf_font>> ToUnicode CMap \"{}\" attached to font id=\"{}\".\n",
+                    CStr::from_ptr(cmap_name).display(),
+                    CStr::from_ptr((*font).map_name).display(),
+                );
             }
         }
         pdf_release_obj(tounicode);

@@ -47,7 +47,7 @@ use crate::dpx_pdfdraw::{
     pdf_dev_setmiterlimit,
 };
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_foreach_dict, pdf_get_version, pdf_new_string, pdf_obj, pdf_ref_obj,
+    pdf_dict, pdf_get_version, pdf_new_string, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_string_value, IntoObj,
 };
 use crate::dpx_pdfparse::ParseIdent;
@@ -604,7 +604,7 @@ pub unsafe fn spc_tpic_at_end_document() -> i32 {
     let tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     spc_handler_tpic__clean(ptr::null_mut(), tp as *mut libc::c_void)
 }
-unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
+unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> Option<pdf_dict> {
     let mut error: i32 = 0i32;
     let mut dict = pdf_dict::new();
     (*ap).cur.skip_blank();
@@ -642,9 +642,9 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
         }
     }
     if error != 0 {
-        return ptr::null_mut();
+        return None;
     }
-    dict.into_obj()
+    Some(dict)
 }
 unsafe fn tpic_filter_getopts(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
     let mut tp: *mut spc_tpic_ = dp as *mut spc_tpic_;
@@ -682,25 +682,24 @@ unsafe fn tpic_filter_getopts(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc:
 }
 unsafe fn spc_handler_tpic__setopts(spe: *mut spc_env, ap: *mut spc_arg) -> i32 {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
-    let dict = spc_parse_kvpairs(ap);
-    if dict.is_null() {
-        return -1i32;
-    }
-    let error = pdf_foreach_dict(
-        &mut *dict,
-        Some(
-            tpic_filter_getopts
-                as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
-        ),
-        tp as *mut libc::c_void,
-    );
-    if error == 0 {
-        if (*tp).mode.fill != 0i32 && pdf_get_version() < 4_u32 {
-            spc_warn!(spe, "Transparent fill mode requires PDF version 1.4.");
-            (*tp).mode.fill = 0i32
+    if let Some(mut dict) = spc_parse_kvpairs(ap) {
+        let error = dict.foreach(
+            Some(
+                tpic_filter_getopts
+                    as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
+            ),
+            tp as *mut libc::c_void,
+        );
+        if error == 0 {
+            if (*tp).mode.fill != 0i32 && pdf_get_version() < 4_u32 {
+                spc_warn!(spe, "Transparent fill mode requires PDF version 1.4.");
+                (*tp).mode.fill = 0i32
+            }
         }
+        error
+    } else {
+        -1
     }
-    error
 }
 /* DEBUG */
 const TPIC_HANDLERS: [SpcHandler; 13] = [
