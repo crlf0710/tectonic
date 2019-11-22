@@ -115,7 +115,7 @@ impl From<i32> for PdfObjType {
 }
 
 impl pdf_obj {
-    pub fn is_boolean(&self) -> bool {
+    pub fn is_bool(&self) -> bool {
         PdfObjType::from(self.typ) == PdfObjType::BOOLEAN
     }
     pub fn is_number(&self) -> bool {
@@ -139,29 +139,42 @@ impl pdf_obj {
     pub fn is_indirect(&self) -> bool {
         PdfObjType::from(self.typ) == PdfObjType::INDIRECT
     }
+    pub unsafe fn as_bool(&self) -> bool {
+        assert!(self.is_bool());
+        (*(self.data as *const pdf_boolean)).value != 0
+    }
+    pub unsafe fn as_f64(&self) -> f64 {
+        assert!(self.is_number());
+        (*(self.data as *const pdf_number)).value
+    }
     pub unsafe fn as_dict(&self) -> &pdf_dict {
         assert!(self.is_dict());
         &*(self.data as *const pdf_dict)
     }
-    pub unsafe fn as_dict_mut(&self) -> &mut pdf_dict {
+    pub unsafe fn as_dict_mut(&mut self) -> &mut pdf_dict {
         assert!(self.is_dict());
         &mut *(self.data as *mut pdf_dict)
     }
-    pub unsafe fn as_array(&self) -> &pdf_array {
+    pub unsafe fn as_array(&self) -> &Vec<*mut Self> {
         assert!(self.is_array());
-        &*(self.data as *const pdf_array)
+        &(*(self.data as *const pdf_array)).values
     }
-    pub unsafe fn as_array_mut(&self) -> &mut pdf_array {
+    pub unsafe fn as_array_mut(&mut self) -> &mut Vec<*mut Self> {
         assert!(self.is_array());
-        &mut *(self.data as *mut pdf_array)
+        &mut (*(self.data as *mut pdf_array)).values
     }
     pub unsafe fn as_stream(&self) -> &pdf_stream {
         assert!(self.is_stream());
         &*(self.data as *const pdf_stream)
     }
-    pub unsafe fn as_stream_mut(&self) -> &mut pdf_stream {
+    pub unsafe fn as_stream_mut(&mut self) -> &mut pdf_stream {
         assert!(self.is_stream());
         &mut *(self.data as *mut pdf_stream)
+    }
+    pub fn as_name(&self) -> &CStr {
+        assert!(self.is_name());
+        let data = self.data as *const pdf_name;
+        unsafe { (*data).name.as_c_str() }
     }
 }
 
@@ -242,10 +255,10 @@ pub struct decode_parms {
     pub bits_per_component: i32,
     pub columns: i32,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub struct pdf_name {
-    pub name: *mut i8,
+    name: CString,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -289,12 +302,21 @@ impl IntoObj for f64 {
         unsafe { pdf_new_number(self) }
     }
 }
-impl IntoObj for &[u8] {
+
+impl IntoObj for bool {
+    #[inline(always)]
+    fn into_obj(self) -> *mut pdf_obj {
+        unsafe { pdf_new_boolean(self as i8) }
+    }
+}
+
+impl IntoObj for &str {
     #[inline(always)]
     fn into_obj(self) -> *mut pdf_obj {
         unsafe { pdf_new_name(self) }
     }
 }
+
 impl IntoObj for Vec<*mut pdf_obj> {
     #[inline(always)]
     fn into_obj(self) -> *mut pdf_obj {
@@ -319,6 +341,17 @@ impl IntoObj for pdf_stream {
              */
             (*result).data = Box::into_raw(data) as *mut libc::c_void;
             (*result).flags |= OBJ_NO_OBJSTM;
+            result
+        }
+    }
+}
+
+impl IntoObj for pdf_dict {
+    fn into_obj(self) -> *mut pdf_obj {
+        unsafe {
+            let result = pdf_new_obj(PdfObjType::DICT);
+            let boxed = Box::new(self);
+            (*result).data = Box::into_raw(boxed) as *mut libc::c_void;
             result
         }
     }
@@ -420,17 +453,15 @@ pub unsafe fn pdf_out_init(filename: *const i8, do_encryption: bool, enable_obje
             xref_stream = pdf_stream::new(STREAM_COMPRESS).into_obj();
             (*xref_stream).flags |= OBJ_NO_ENCRYPT;
             trailer_dict = (*xref_stream).as_stream_mut().get_dict_obj();
-            (*trailer_dict)
-                .as_dict_mut()
-                .set("Type", pdf_new_name("XRef"));
+            (*trailer_dict).as_dict_mut().set("Type", "XRef");
             do_objstm = 1i32
         } else {
-            trailer_dict = pdf_new_dict();
+            trailer_dict = pdf_dict::new().into_obj();
             do_objstm = 0i32
         }
     } else {
         xref_stream = ptr::null_mut();
-        trailer_dict = pdf_new_dict();
+        trailer_dict = pdf_dict::new().into_obj();
         do_objstm = 0i32
     }
     output_stream = ptr::null_mut();
@@ -519,10 +550,10 @@ unsafe fn dump_xref_stream() {
         poslen = poslen.wrapping_add(1)
     }
     let mut w = vec![];
-    w.push(pdf_new_number(1i32 as f64));
-    w.push(pdf_new_number(poslen as f64));
-    w.push(pdf_new_number(2i32 as f64));
-    (*trailer_dict).as_dict_mut().set("W", w.into_obj());
+    w.push_obj(1_f64);
+    w.push_obj(poslen as f64);
+    w.push_obj(2_f64);
+    (*trailer_dict).as_dict_mut().set("W", w);
     /* We need the xref entry for the xref stream right now */
     add_xref_entry(next_label - 1, 1_u8, startxref, 0_u16);
     for i in 0..next_label {
@@ -565,9 +596,7 @@ pub unsafe fn pdf_out_flush() {
         }
         /* Record where this xref is for trailer */
         startxref = pdf_output_file_position as u32;
-        (*trailer_dict)
-            .as_dict_mut()
-            .set("Size", pdf_new_number(next_label as f64));
+        (*trailer_dict).as_dict_mut().set("Size", next_label as f64);
         if !xref_stream.is_null() {
             dump_xref_stream();
         } else {
@@ -637,7 +666,7 @@ pub unsafe fn pdf_set_info(object: *mut pdf_obj) {
         panic!("Info object already set!");
     };
 }
-pub unsafe fn pdf_set_id(id: *mut pdf_obj) {
+pub unsafe fn pdf_set_id(id: Vec<*mut pdf_obj>) {
     if (*trailer_dict).as_dict_mut().set("ID", id) != 0 {
         panic!("ID already set!");
     };
@@ -809,7 +838,7 @@ unsafe fn write_null(handle: &mut OutputHandleWrapper) {
     pdf_out(handle, b"null");
 }
 
-pub unsafe fn pdf_new_boolean(value: i8) -> *mut pdf_obj {
+unsafe fn pdf_new_boolean(value: i8) -> *mut pdf_obj {
     let result = pdf_new_obj(PdfObjType::BOOLEAN);
     let data = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_boolean>() as u64) as u32)
         as *mut pdf_boolean;
@@ -828,13 +857,7 @@ unsafe fn write_boolean(data: *mut pdf_boolean, handle: &mut OutputHandleWrapper
     };
 }
 
-pub unsafe fn pdf_boolean_value(object: &pdf_obj) -> i8 {
-    assert!(object.is_boolean());
-    let data = object.data as *mut pdf_boolean;
-    (*data).value
-}
-
-pub unsafe fn pdf_new_number(value: f64) -> *mut pdf_obj {
+unsafe fn pdf_new_number(value: f64) -> *mut pdf_obj {
     let result = pdf_new_obj(PdfObjType::NUMBER);
     let data = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_number>() as u64) as u32)
         as *mut pdf_number;
@@ -854,12 +877,6 @@ pub unsafe fn pdf_set_number(object: &mut pdf_obj, value: f64) {
     assert!((*object).is_number());
     let data = object.data as *mut pdf_number;
     (*data).value = value;
-}
-
-pub unsafe fn pdf_number_value(object: &pdf_obj) -> f64 {
-    assert!(object.is_number());
-    let data = object.data as *mut pdf_number;
-    (*data).value
 }
 
 pub unsafe fn pdf_new_string_from_slice(slice: &[u8]) -> *mut pdf_obj {
@@ -1060,39 +1077,24 @@ where
     let data = new(::std::mem::size_of::<pdf_name>() as u32) as *mut pdf_name;
     (*result).data = data as *mut libc::c_void;
     let name = CString::new(name).unwrap();
-    if name.as_bytes().len() != 0 {
-        (*data).name = name.into_raw();
-    } else {
-        drop(name);
-        (*data).name = ptr::null_mut();
-    }
-    (*result).data = data as *mut libc::c_void;
+    let data = Box::new(pdf_name { name });
+    (*result).data = Box::into_raw(data) as *mut libc::c_void;
     result
 }
 
 pub unsafe fn pdf_copy_name(name: *const i8) -> *mut pdf_obj {
-    let result = pdf_new_obj(PdfObjType::NAME);
-    let data = new(::std::mem::size_of::<pdf_name>() as u32) as *mut pdf_name;
-    (*result).data = data as *mut libc::c_void;
     let length = strlen(name);
-    if length != 0 {
-        let slice = std::slice::from_raw_parts(name as *const u8, length as _);
-        let name = CString::new(slice).unwrap();
-        (*data).name = name.into_raw();
-    } else {
-        (*data).name = ptr::null_mut()
-    }
-    (*result).data = data as *mut libc::c_void;
-    result
+    let slice = std::slice::from_raw_parts(name as *const u8, length as _);
+    pdf_new_name(slice)
+}
+
+unsafe fn release_name(data: *mut pdf_name) {
+    let _ = Box::from_raw(data);
 }
 
 unsafe fn write_name(name: *mut pdf_name, handle: &mut OutputHandleWrapper) {
-    let s = (*name).name;
-    let length = (if !(*name).name.is_null() {
-        strlen((*name).name)
-    } else {
-        0
-    }) as i32;
+    let name = &mut *name;
+    let cstr = name.name.as_c_str();
     /*
      * From PDF Reference, 3rd ed., p.33:
      *
@@ -1105,35 +1107,17 @@ unsafe fn write_name(name: *mut pdf_name, handle: &mut OutputHandleWrapper) {
      *  whose codes are outside the range 33 (!) to 126 (~).
      */
     pdf_out_char(handle, b'/');
-    for i in 0..length as isize {
-        if (*s.offset(i) as u8) < b'!'
-            || (*s.offset(i) as u8) > b'~'
-            || b"#()/<>[]{}%".contains(&(*s.offset(i) as u8))
-        {
-            /*     ^ "space" is here. */
+    for &byte in cstr.to_bytes() {
+        if byte < b'!' || byte > b'~' || b"#()/<>[]{}%".contains(&byte) {
             pdf_out_char(handle, b'#');
-            pdf_out_char(
-                handle,
-                xchar[(*s.offset(i) as i32 >> 4 & 0xf) as usize] as u8,
-            );
-            pdf_out_char(handle, xchar[(*s.offset(i) as i32 & 0xf) as usize] as u8);
+            pdf_out_char(handle, xchar[((byte as i32) >> 4 & 0xf) as usize] as u8);
+            pdf_out_char(handle, xchar[(byte as i32 & 0xf) as usize] as u8);
         } else {
-            pdf_out_char(handle, *s.offset(i) as u8);
+            pdf_out_char(handle, byte);
         }
     }
 }
-unsafe fn release_name(data: *mut pdf_name) {
-    if !(*data).name.is_null() {
-        let _ = CString::from_raw((*data).name);
-    }
-    free(data as *mut libc::c_void);
-}
 
-pub unsafe fn pdf_name_value<'a>(object: &'a pdf_obj) -> &'a CStr {
-    assert!(object.is_name());
-    let data = object.data as *mut pdf_name;
-    CStr::from_ptr((*data).name)
-}
 /*
  * We do not have pdf_name_length() since '\0' is not allowed
  * in PDF name object.
@@ -1198,15 +1182,30 @@ impl Drop for pdf_array {
     }
 }
 
-unsafe fn release_array(data: *mut pdf_array) {
-    let _ = Box::from_raw(data);
-}
-
 impl pdf_array {
-    pub unsafe fn push(&mut self, object: *mut pdf_obj) {
-        self.values.push(object);
+    pub fn push<O>(&mut self, object: O)
+    where
+        O: IntoObj,
+    {
+        self.values.push(object.into_obj());
     }
 }
+
+pub trait PushObj {
+    fn push_obj<O>(&mut self, object: O)
+    where
+        O: IntoObj;
+}
+
+impl PushObj for Vec<*mut pdf_obj> {
+    fn push_obj<O>(&mut self, object: O)
+    where
+        O: IntoObj,
+    {
+        self.push(object.into_obj());
+    }
+}
+
 /* Prepend an object to an array */
 unsafe fn pdf_unshift_array(array: &mut pdf_obj, object: *mut pdf_obj) {
     assert!(array.is_array());
@@ -1226,27 +1225,31 @@ unsafe fn write_dict(mut dict: *mut pdf_dict, handle: &mut OutputHandleWrapper) 
     pdf_out(handle, b">>");
 }
 
-pub unsafe fn pdf_new_dict() -> *mut pdf_obj {
-    let result = pdf_new_obj(PdfObjType::DICT);
-    let data =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_dict>() as u64) as u32) as *mut pdf_dict;
-    (*data).key = ptr::null_mut();
-    (*data).value = ptr::null_mut();
-    (*data).next = ptr::null_mut();
-    (*result).data = data as *mut libc::c_void;
-    result
-}
-unsafe fn release_dict(mut data: *mut pdf_dict) {
-    while !data.is_null() && !(*data).key.is_null() {
-        pdf_release_obj((*data).key);
-        pdf_release_obj((*data).value);
-        (*data).key = ptr::null_mut();
-        (*data).value = ptr::null_mut();
-        let next = (*data).next;
-        free(data as *mut libc::c_void);
-        data = next
+impl pdf_dict {
+    pub fn new() -> Self {
+        Self {
+            key: ptr::null_mut(),
+            value: ptr::null_mut(),
+            next: ptr::null_mut(),
+        }
     }
-    free(data as *mut libc::c_void);
+}
+
+unsafe fn release_dict(data: *mut pdf_dict) {
+    if data.is_null() {
+        return;
+    }
+    let mut data = Box::from_raw(data);
+    while !data.key.is_null() {
+        pdf_release_obj(data.key);
+        pdf_release_obj(data.value);
+        data.key = ptr::null_mut();
+        data.value = ptr::null_mut();
+        if data.next.is_null() {
+            break;
+        }
+        data = Box::from_raw(data.next);
+    }
 }
 impl pdf_dict {
     /* Array is ended by a node with NULL this pointer */
@@ -1264,7 +1267,7 @@ impl pdf_dict {
         /* If this key already exists, simply replace the value */
         let mut data = self;
         while !data.key.is_null() {
-            if key.as_ref() == pdf_name_value(&*data.key).to_bytes() {
+            if key.as_ref() == (*data.key).as_name().to_bytes() {
                 /* Release the old value */
                 pdf_release_obj(data.value);
                 data.value = value;
@@ -1277,12 +1280,8 @@ impl pdf_dict {
          * We didn't find the key. We build a new "end" node and add
          * the new key just before the end
          */
-        let new_node = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_dict>() as u64) as u32)
-            as *mut pdf_dict;
-        (*new_node).key = ptr::null_mut();
-        (*new_node).value = ptr::null_mut();
-        (*new_node).next = ptr::null_mut();
-        data.next = new_node;
+        let new_node = Box::new(pdf_dict::new());
+        data.next = Box::into_raw(new_node);
         data.key = name;
         data.value = value;
         0i32
@@ -1293,7 +1292,7 @@ impl pdf_dict {
         while !(*data).key.is_null() {
             self.set(
                 //pdf_link_obj((*data).key),
-                pdf_name_value(&*(*data).key).to_bytes(),
+                (*(*data).key).as_name().to_bytes(),
                 pdf_link_obj((*data).value),
             );
             data = &*(*data).next
@@ -1301,31 +1300,29 @@ impl pdf_dict {
     }
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn pdf_foreach_dict(
-    dict: &mut pdf_obj,
-    proc_0: Option<unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32>,
-    pdata: *mut libc::c_void,
-) -> i32 {
-    let mut error: i32 = 0i32;
-    assert!(proc_0.is_some());
-    assert!(dict.is_dict());
-    let mut data = dict.data as *mut pdf_dict;
-    while error == 0 && !(*data).key.is_null() {
-        error = proc_0.expect("non-null function pointer")((*data).key, (*data).value, pdata);
-        data = (*data).next
-    }
-    error
-}
-
 impl pdf_dict {
+    pub unsafe fn foreach(
+        &mut self,
+        proc_0: Option<unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32>,
+        pdata: *mut libc::c_void,
+    ) -> i32 {
+        let mut error: i32 = 0i32;
+        assert!(proc_0.is_some());
+        let mut data = self;
+        while error == 0 && !data.key.is_null() {
+            error = proc_0.expect("non-null function pointer")(data.key, data.value, pdata);
+            data = &mut *data.next
+        }
+        error
+    }
+
     pub unsafe fn has<K>(&self, name: K) -> bool
     where
         K: AsRef<[u8]>,
     {
         let mut data = self;
         while !(*data).key.is_null() {
-            if name.as_ref() == pdf_name_value(&*(*data).key).to_bytes() {
+            if name.as_ref() == (*(*data).key).as_name().to_bytes() {
                 return true;
             }
             data = &*(*data).next
@@ -1338,7 +1335,7 @@ impl pdf_dict {
     {
         let mut data = self;
         while !(*data).key.is_null() {
-            if name.as_ref() == pdf_name_value(&*(*data).key).to_bytes() {
+            if name.as_ref() == (*(*data).key).as_name().to_bytes() {
                 return Some(&*(*data).value);
             }
             data = &*(*data).next
@@ -1351,7 +1348,7 @@ impl pdf_dict {
     {
         let mut data = self;
         while !(*data).key.is_null() {
-            if name.as_ref() == pdf_name_value(&*(*data).key).to_bytes() {
+            if name.as_ref() == (*(*data).key).as_name().to_bytes() {
                 return Some(&mut *(*data).value);
             }
             data = &mut *(*data).next
@@ -1370,8 +1367,7 @@ where
         &mut dict.data as *mut *mut libc::c_void as *mut libc::c_void as *mut *mut pdf_dict;
     while !(*data).key.is_null() {
         if !(*data).key.is_null()
-            && (CStr::from_ptr((*((*(*data).key).data as *mut pdf_name)).name).to_bytes()
-                == name.as_ref())
+            && ((*((*(*data).key).data as *mut pdf_name)).name.to_bytes() == name.as_ref())
         {
             pdf_release_obj((*data).key);
             pdf_release_obj((*data).value);
@@ -1388,7 +1384,7 @@ where
 impl pdf_stream {
     pub fn new(flags: i32) -> Self {
         Self {
-            dict: unsafe { pdf_new_dict() },
+            dict: unsafe { pdf_dict::new().into_obj() },
             _flags: flags,
             decodeparms: decode_parms {
                 predictor: 2i32,
@@ -1798,21 +1794,13 @@ unsafe fn filter_create_predictor_dict(
     columns: i32,
     bpc: libc::c_int,
     colors: libc::c_int,
-) -> *mut pdf_obj {
-    let parms = pdf_new_dict();
-    (*parms)
-        .as_dict_mut()
-        .set("BitsPerComponent", pdf_new_number(bpc as f64));
-    (*parms)
-        .as_dict_mut()
-        .set("Colors", pdf_new_number(colors as f64));
-    (*parms)
-        .as_dict_mut()
-        .set("Columns", pdf_new_number(columns as f64));
-    (*parms)
-        .as_dict_mut()
-        .set("Predictor", pdf_new_number(predictor as f64));
-    return parms;
+) -> pdf_dict {
+    let mut parms = pdf_dict::new();
+    parms.set("BitsPerComponent", bpc as f64);
+    parms.set("Colors", colors as f64);
+    parms.set("Columns", columns as f64);
+    parms.set("Predictor", predictor as f64);
+    parms
 }
 unsafe fn write_stream(stream: *mut pdf_stream, handle: &mut OutputHandleWrapper) {
     /*
@@ -1830,7 +1818,7 @@ unsafe fn write_stream(stream: *mut pdf_stream, handle: &mut OutputHandleWrapper
     if (*(*stream).dict)
         .as_dict()
         .get("Type")
-        .filter(|typ| "Metadata" == pdf_name_value(&**typ).to_string_lossy())
+        .filter(|typ| b"Metadata" == (**typ).as_name().to_bytes())
         .is_some()
     {
         (*stream)._flags &= !STREAM_COMPRESS;
@@ -1889,7 +1877,7 @@ unsafe fn write_stream(stream: *mut pdf_stream, handle: &mut OutputHandleWrapper
                         );
                     }
                 }
-                if !parms.is_null() && !filtered2.is_null() {
+                if !filtered2.is_null() {
                     free(filtered as *mut libc::c_void);
                     filtered = filtered2;
                     filtered_length = length2 as libc::c_uint;
@@ -1904,7 +1892,7 @@ unsafe fn write_stream(stream: *mut pdf_stream, handle: &mut OutputHandleWrapper
             let buffer = new((buffer_length as u32 as u64)
                 .wrapping_mul(::std::mem::size_of::<libc::c_uchar>() as u64)
                 as u32) as *mut libc::c_uchar;
-            let filter_name: *mut pdf_obj = pdf_new_name("FlateDecode");
+            let filter_name = "FlateDecode".into_obj();
             let has_filters = filters.is_some();
             if let Some(filters) = filters {
                 /*
@@ -1976,7 +1964,7 @@ unsafe fn write_stream(stream: *mut pdf_stream, handle: &mut OutputHandleWrapper
     }
     (*(*stream).dict)
         .as_dict_mut()
-        .set("Length", pdf_new_number(filtered_length as f64));
+        .set("Length", filtered_length as f64);
     pdf_write_obj((*stream).dict, handle);
     pdf_out(handle, b"\nstream\n");
     let mut v = Vec::<u8>::new();
@@ -2013,10 +2001,6 @@ impl Drop for pdf_stream {
     }
 }
 
-unsafe fn release_stream(streamptr: *mut pdf_stream) {
-    let _ = Box::from_raw(streamptr);
-}
-
 impl pdf_stream {
     pub fn get_dict(&self) -> &pdf_dict {
         unsafe { (*self.dict).as_dict() }
@@ -2026,6 +2010,9 @@ impl pdf_stream {
     }
     pub unsafe fn get_dict_obj(&mut self) -> &mut pdf_obj {
         &mut (*self.dict)
+    }
+    pub fn len(&self) -> usize {
+        self.content.len()
     }
 }
 
@@ -2133,19 +2120,19 @@ unsafe fn get_decode_parms(parms: &mut decode_parms, dict: &mut pdf_obj) -> libc
     parms.columns = 1i32;
     let tmp = pdf_deref_obj(dict.as_dict_mut().get_mut("Predictor"));
     if !tmp.is_null() {
-        parms.predictor = pdf_number_value(&*tmp) as libc::c_int
+        parms.predictor = (*tmp).as_f64() as libc::c_int
     }
     let tmp = pdf_deref_obj(dict.as_dict_mut().get_mut("Colors"));
     if !tmp.is_null() {
-        parms.colors = pdf_number_value(&*tmp) as libc::c_int
+        parms.colors = (*tmp).as_f64() as libc::c_int
     }
     let tmp = pdf_deref_obj(dict.as_dict_mut().get_mut("BitsPerComponent"));
     if !tmp.is_null() {
-        parms.bits_per_component = pdf_number_value(&*tmp) as libc::c_int
+        parms.bits_per_component = (*tmp).as_f64() as libc::c_int
     }
     let tmp = pdf_deref_obj(dict.as_dict_mut().get_mut("Columns"));
     if !tmp.is_null() {
-        parms.columns = pdf_number_value(&*tmp) as i32
+        parms.columns = (*tmp).as_f64() as i32
     }
     if parms.bits_per_component != 1i32
         && parms.bits_per_component != 2i32
@@ -2537,11 +2524,17 @@ pub unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_stream) -> i
                 /* Dictionary or array */
                 let mut tmp = pdf_deref_obj(stream_dict.get_mut("DecodeParms"));
                 if !tmp.is_null() && (*tmp).is_array() {
-                    if (*tmp).as_array().len() > 1i32 as libc::c_uint {
+                    if (*tmp).as_array().len() > 1 {
                         warn!("Unexpected size for DecodeParms array.");
                         return -1i32;
                     }
-                    tmp = pdf_deref_obj((*tmp).as_array_mut().get_mut(0i32))
+
+                    let array = (*tmp).as_array_mut();
+                    tmp = if !array.is_empty() {
+                        pdf_deref_obj(Some(&mut *array[0]))
+                    } else {
+                        0 as *mut pdf_obj
+                    };
                 }
                 if !(!tmp.is_null() && (*tmp).is_dict()) {
                     warn!("PDF dict expected for DecodeParms...");
@@ -2554,22 +2547,22 @@ pub unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_stream) -> i
                 have_parms = 1i32
             }
             if (*filter).is_array() {
-                if (*filter).as_array().len() > 1i32 as libc::c_uint {
+                if (*filter).as_array().len() > 1 {
                     warn!("Multiple DecodeFilter not supported.");
                     return -1i32;
                 }
-                filter = (*filter).as_array().get(0i32).expect("Broken PDF file?");
+                filter = &**(*filter).as_array().get(0).expect("Broken PDF file?");
             }
             if (*filter).is_name() {
-                let filter_name = pdf_name_value(&*filter).to_string_lossy();
-                if filter_name == "FlateDecode" {
+                let filter_name = (*filter).as_name().to_bytes();
+                if filter_name == b"FlateDecode" {
                     if have_parms != 0 {
                         error = pdf_add_stream_flate_filtered(dst, stream_data, &mut parms)
                     } else {
                         error = pdf_add_stream_flate(dst, stream_data)
                     }
                 } else {
-                    warn!("DecodeFilter \"{}\" not supported.", filter_name,);
+                    warn!("DecodeFilter \"{}\" not supported.", filter_name.display());
                     error = -1i32
                 }
             } else {
@@ -2710,9 +2703,9 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
             .add_slice(&format_buffer[..length]);
     }
     let dict = (*objstm).as_stream_mut().get_dict_mut();
-    dict.set("Type", pdf_new_name("ObjStm"));
-    dict.set("N", pdf_new_number(pos as f64));
-    dict.set("First", pdf_new_number((*stream).content.len() as f64));
+    dict.set("Type", "ObjStm");
+    dict.set("N", pos as f64);
+    dict.set("First", (*stream).content.len() as f64);
     (*objstm).as_stream_mut().add_slice(old_buf.as_ref());
     pdf_release_obj(objstm);
 }
@@ -2778,13 +2771,13 @@ pub unsafe fn pdf_release_obj(mut object: *mut pdf_obj) {
                 release_name((*object).data as *mut pdf_name);
             }
             PdfObjType::ARRAY => {
-                release_array((*object).data as *mut pdf_array);
+                let _ = Box::from_raw((*object).data as *mut pdf_array);
             }
             PdfObjType::DICT => {
                 release_dict((*object).data as *mut pdf_dict);
             }
             PdfObjType::STREAM => {
-                release_stream((*object).data as *mut pdf_stream);
+                let _ = Box::from_raw((*object).data as *mut pdf_stream);
             }
             PdfObjType::INDIRECT => {
                 release_indirect((*object).data as *mut pdf_indirect);
@@ -3047,11 +3040,11 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
             objstm = tmp;
             let dict = (*objstm).as_stream().get_dict();
             let typ = dict.get("Type").unwrap();
-            if !(!typ.is_name() || pdf_name_value(typ).to_bytes() != b"ObjStm") {
+            if !(!typ.is_name() || typ.as_name().to_bytes() != b"ObjStm") {
                 if let Some(n_obj) = dict.get("N").filter(|&no| (*no).is_number()) {
-                    let n = pdf_number_value(n_obj) as i32;
+                    let n = n_obj.as_f64() as i32;
                     if let Some(first_obj) = dict.get("First").filter(|&fo| (*fo).is_number()) {
-                        let first = pdf_number_value(first_obj) as i32;
+                        let first = first_obj.as_f64() as i32;
                         /* reject object streams without object data */
                         if !(first >= pdf_stream_length(&*objstm)) {
                             let mut header = new(((2i32 * (n + 1i32)) as u32 as u64)
@@ -3536,23 +3529,23 @@ unsafe fn parse_xref_stream(pf: *mut pdf_file, xref_pos: i32, trailer: *mut *mut
                 .get("Size")
                 .filter(|&so| (*so).is_number())
             {
-                let size = pdf_number_value(size_obj) as u32;
+                let size = size_obj.as_f64() as u32;
                 let mut length = pdf_stream_length(&*xrefstm);
                 let W_obj = (**trailer).as_dict().get("W").unwrap();
-                if !(!W_obj.is_array() || W_obj.as_array().len() != 3_u32) {
-                    let mut i = 0i32;
+                if !(!W_obj.is_array() || W_obj.as_array().len() != 3) {
+                    let mut i = 0;
                     loop {
-                        if !(i < 3i32) {
+                        if !(i < 3) {
                             current_block = 12147880666119273379;
                             break;
                         }
-                        let tmp_0 = W_obj.as_array().get(i).unwrap();
-                        if !tmp_0.is_number() {
+                        let tmp_0 = W_obj.as_array()[i];
+                        if !(*tmp_0).is_number() {
                             current_block = 5131529843719913080;
                             break;
                         }
-                        W[i as usize] = pdf_number_value(tmp_0) as i32;
-                        wsum += W[i as usize];
+                        W[i] = (*tmp_0).as_f64() as i32;
+                        wsum += W[i];
                         i += 1
                     }
                     match current_block {
@@ -3560,40 +3553,38 @@ unsafe fn parse_xref_stream(pf: *mut pdf_file, xref_pos: i32, trailer: *mut *mut
                         _ => {
                             let mut p = pdf_stream_dataptr(&*xrefstm) as *const i8;
                             if let Some(index_obj) = (**trailer).as_dict().get("Index") {
-                                let mut index_len: u32 = 0;
+                                let mut index_len = 0;
                                 if !index_obj.is_array() || {
                                     index_len = index_obj.as_array().len();
-                                    index_len.wrapping_rem(2_u32) != 0
+                                    index_len.wrapping_rem(2) != 0
                                 } {
                                     current_block = 5131529843719913080;
                                 } else {
-                                    i = 0i32;
+                                    let mut i = 0;
                                     loop {
-                                        if !((i as u32) < index_len) {
+                                        if !(i < index_len) {
                                             current_block = 652864300344834934;
                                             break;
                                         }
-                                        let fresh34 = i;
-                                        i = i + 1;
                                         let first = index_obj
                                             .as_array()
-                                            .get(fresh34)
-                                            .filter(|&o| o.is_number());
-                                        let fresh35 = i;
-                                        i = i + 1;
+                                            .get(i)
+                                            .filter(|&&o| (*o).is_number());
+                                        i += 1;
                                         let size_obj = index_obj
                                             .as_array()
-                                            .get(fresh35)
-                                            .filter(|&o| o.is_number());
-                                        if let (Some(first), Some(size_obj)) = (first, size_obj) {
+                                            .get(i)
+                                            .filter(|&&o| (*o).is_number());
+                                        i += 1;
+                                        if let (Some(&first), Some(&size_obj)) = (first, size_obj) {
                                             if parse_xrefstm_subsec(
                                                 pf,
                                                 &mut p,
                                                 &mut length,
                                                 W.as_mut_ptr(),
                                                 wsum,
-                                                pdf_number_value(first) as i32,
-                                                pdf_number_value(size_obj) as i32,
+                                                (*first).as_f64() as i32,
+                                                (*size_obj).as_f64() as i32,
                                             ) != 0
                                             {
                                                 current_block = 5131529843719913080;
@@ -3672,11 +3663,8 @@ unsafe fn read_xref(pf: *mut pdf_file) -> *mut pdf_obj {
                         if let Some(xrefstm) = (*trailer).as_dict().get("XRefStm") {
                             let mut new_trailer: *mut pdf_obj = ptr::null_mut();
                             if xrefstm.is_number()
-                                && parse_xref_stream(
-                                    pf,
-                                    pdf_number_value(xrefstm) as i32,
-                                    &mut new_trailer,
-                                ) != 0
+                                && parse_xref_stream(pf, xrefstm.as_f64() as i32, &mut new_trailer)
+                                    != 0
                             {
                                 pdf_release_obj(new_trailer);
                             } else {
@@ -3702,7 +3690,7 @@ unsafe fn read_xref(pf: *mut pdf_file) -> *mut pdf_obj {
                             current_block = 13794981049891343809;
                             continue;
                         }
-                        xref_pos = pdf_number_value(prev) as i32
+                        xref_pos = prev.as_f64() as i32
                     } else {
                         xref_pos = 0i32
                     }
@@ -3819,7 +3807,7 @@ pub unsafe fn pdf_open(ident: *const i8, mut handle: InputHandleWrapper) -> *mut
         if !new_version.is_null() {
             let mut minor: u32 = 0;
             if (&*new_version).is_name() {
-                let new_version_str = pdf_name_value(&*new_version).to_bytes();
+                let new_version_str = (*new_version).as_name().to_bytes();
                 let minor_num_str = if new_version_str.starts_with(b"1.") {
                     std::str::from_utf8(&new_version_str[2..]).unwrap_or("")
                 } else {
@@ -3914,8 +3902,7 @@ unsafe fn import_dict(key: *mut pdf_obj, value: *mut pdf_obj, pdata: *mut libc::
     if tmp.is_null() {
         return -1i32;
     }
-    copy.as_dict_mut()
-        .set(pdf_name_value(&*key).to_bytes(), tmp); // TODO: check
+    copy.as_dict_mut().set((*key).as_name().to_bytes(), tmp); // TODO: check
     0i32
 }
 static mut loop_marker: pdf_obj = pdf_obj {
@@ -3994,9 +3981,8 @@ pub unsafe fn pdf_import_object(object: *mut pdf_obj) -> *mut pdf_obj {
             imported.into_obj()
         }
         PdfObjType::DICT => {
-            let imported = pdf_new_dict();
-            if pdf_foreach_dict(
-                &mut *object,
+            let imported = pdf_dict::new().into_obj();
+            if (*object).as_dict_mut().foreach(
                 Some(
                     import_dict
                         as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
@@ -4012,10 +3998,12 @@ pub unsafe fn pdf_import_object(object: *mut pdf_obj) -> *mut pdf_obj {
         PdfObjType::ARRAY => {
             let mut imported = vec![];
             for i in 0..(*object).as_array().len() {
-                let tmp = pdf_import_object(match (*object).as_array_mut().get_mut(i as i32) {
-                    Some(o) => o as *mut pdf_obj,
-                    None => ptr::null_mut(),
-                });
+                let array = (*object).as_array_mut();
+                let tmp = if i < array.len() {
+                    pdf_import_object(array[i])
+                } else {
+                    ptr::null_mut()
+                };
                 if tmp.is_null() {
                     return ptr::null_mut();
                 }

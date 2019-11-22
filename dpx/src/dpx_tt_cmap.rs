@@ -62,7 +62,7 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_post::{tt_get_glyphname, tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::tt_read_maxp_table;
 use super::dpx_unicode::UC_UTF16BE_encode_char;
-use crate::dpx_pdfobj::pdf_obj;
+use crate::dpx_pdfobj::{pdf_obj, pdf_stream, IntoObj};
 use crate::dpx_truetype::sfnt_table_info;
 use crate::mfree;
 use crate::shims::sprintf;
@@ -1084,7 +1084,7 @@ unsafe fn create_ToUnicode_cmap(
     used_chars: *const i8,
     sfont: *mut sfnt,
     code_to_cid_cmap: *mut CMap,
-) -> *mut pdf_obj {
+) -> Option<pdf_stream> {
     let mut count: u16 = 0_u16;
     let cffont = prepare_CIDFont_from_sfnt(&mut *sfont);
     let is_cidfont = if let Some(cffont) = &cffont {
@@ -1200,7 +1200,7 @@ unsafe fn create_ToUnicode_cmap(
             ) as i32) as u16
     }
     let stream = if (count as i32) < 1i32 {
-        ptr::null_mut()
+        None
     } else {
         CMap_create_stream(cmap)
     };
@@ -1239,7 +1239,7 @@ pub unsafe fn otf_create_ToUnicode_stream(
     used_chars: *const i8,
     cmap_id: i32,
 ) -> *mut pdf_obj {
-    let mut cmap_obj: *mut pdf_obj = ptr::null_mut();
+    let mut cmap_obj = None;
     let mut ttcmap: *mut tt_cmap = ptr::null_mut();
     let offset;
     /* replace slash in map name with dash to make the output cmap name valid,
@@ -1346,16 +1346,16 @@ pub unsafe fn otf_create_ToUnicode_stream(
             }
         }
     }
-    if cmap_obj.is_null() {
+    if cmap_obj.is_none() {
         warn!("Unable to read OpenType/TrueType Unicode cmap table.");
     }
     tt_cmap_release(ttcmap);
     CMap_set_silent(0i32);
-    let cmap_ref = if !cmap_obj.is_null() {
+    let cmap_ref = if let Some(cmap_obj) = cmap_obj {
         let res_id = pdf_defineresource(
             b"CMap\x00" as *const u8 as *const i8,
             cmap_name,
-            cmap_obj,
+            cmap_obj.into_obj(),
             1i32,
         );
         pdf_get_resource_reference(res_id)

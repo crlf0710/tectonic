@@ -33,9 +33,9 @@ use crate::warn;
 use super::dpx_pdfdoc::pdf_doc_get_page;
 use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
-    pdf_boolean_value, pdf_close, pdf_concat_stream, pdf_deref_obj, pdf_file_get_catalog,
-    pdf_file_get_version, pdf_get_version, pdf_import_object, pdf_new_name, pdf_new_number,
-    pdf_obj, pdf_open, pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_close, pdf_concat_stream, pdf_deref_obj, pdf_file_get_catalog, pdf_file_get_version,
+    pdf_get_version, pdf_import_object, pdf_obj, pdf_open, pdf_release_obj, pdf_stream, IntoObj,
+    PushObj, STREAM_COMPRESS,
 };
 pub type __off_t = i64;
 pub type __off64_t = i64;
@@ -117,12 +117,12 @@ pub unsafe fn pdf_include_page(
         if !markinfo.is_null() {
             let tmp: *mut pdf_obj = pdf_deref_obj((*markinfo).as_dict_mut().get_mut("Marked"));
             pdf_release_obj(markinfo);
-            if tmp.is_null() || !(*tmp).is_boolean() {
+            if tmp.is_null() || !(*tmp).is_bool() {
                 pdf_release_obj(tmp);
                 pdf_release_obj(page);
                 error();
                 return -1;
-            } else if pdf_boolean_value(&*tmp) != 0 {
+            } else if (*tmp).as_bool() {
                 warn!("PDF file is tagged... Ignoring tags.");
             }
             pdf_release_obj(tmp);
@@ -149,11 +149,15 @@ pub unsafe fn pdf_include_page(
             /*
              * Concatenate all content streams.
              */
-            let len = (*contents).as_array().len() as i32;
+            let len = (*contents).as_array().len();
             let mut content_new = pdf_stream::new(STREAM_COMPRESS);
             for idx in 0..len {
-                let content_seg: *mut pdf_obj =
-                    pdf_deref_obj((*contents).as_array_mut().get_mut(idx));
+                let array = (*contents).as_array_mut();
+                let content_seg = if idx < array.len() {
+                    pdf_deref_obj(Some(&mut *array[idx]))
+                } else {
+                    0 as *mut pdf_obj
+                };
                 if content_seg.is_null()
                     || !(*content_seg).is_stream()
                     || pdf_concat_stream(&mut content_new, (*content_seg).as_stream_mut()) < 0
@@ -179,23 +183,20 @@ pub unsafe fn pdf_include_page(
          * Add entries to contents stream dictionary.
          */
         let contents_dict = (*contents).as_stream_mut().get_dict_mut();
-        contents_dict.set("Type", pdf_new_name("XObject"));
-        contents_dict.set("Subtype", pdf_new_name("Form"));
-        contents_dict.set("FormType", pdf_new_number(1.0f64));
+        contents_dict.set("Type", "XObject");
+        contents_dict.set("Subtype", "Form");
+        contents_dict.set("FormType", 1_f64);
         let mut bbox = vec![];
-        bbox.push(pdf_new_number(info.bbox.min.x));
-        bbox.push(pdf_new_number(info.bbox.min.y));
-        bbox.push(pdf_new_number(info.bbox.max.x));
-        bbox.push(pdf_new_number(info.bbox.max.y));
-        contents_dict.set("BBox", bbox.into_obj());
+        bbox.push_obj(info.bbox.min.x);
+        bbox.push_obj(info.bbox.min.y);
+        bbox.push_obj(info.bbox.max.x);
+        bbox.push_obj(info.bbox.max.y);
+        contents_dict.set("BBox", bbox);
         let mut matrix = vec![];
-        matrix.push(pdf_new_number(info.matrix.m11));
-        matrix.push(pdf_new_number(info.matrix.m12));
-        matrix.push(pdf_new_number(info.matrix.m21));
-        matrix.push(pdf_new_number(info.matrix.m22));
-        matrix.push(pdf_new_number(info.matrix.m31));
-        matrix.push(pdf_new_number(info.matrix.m32));
-        contents_dict.set("Matrix", matrix.into_obj());
+        for &val in &info.matrix.to_row_major_array() {
+            matrix.push_obj(val);
+        }
+        contents_dict.set("Matrix", matrix);
         contents_dict.set("Resources", pdf_import_object(resources));
         pdf_release_obj(resources);
 

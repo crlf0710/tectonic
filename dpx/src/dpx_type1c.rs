@@ -59,8 +59,8 @@ use super::dpx_pdffont::{
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
 use crate::dpx_pdfobj::{
-    pdf_new_name, pdf_new_number, pdf_new_string_from_slice, pdf_ref_obj, pdf_release_obj,
-    pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_new_string_from_slice, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj,
+    STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::ttstub_input_read;
@@ -193,18 +193,18 @@ pub unsafe fn pdf_font_open_type1c(font: *mut pdf_font) -> i32 {
      * Create font descriptor from OpenType tables.
      * We can also use CFF TOP DICT/Private DICT for this.
      */
-    let tmp = tt_get_fontdesc(sfont, &mut embedding, -1i32, 1i32, fontname); /* copy */
-    if tmp.is_null() {
+    if let Some(tmp) = tt_get_fontdesc(sfont, &mut embedding, -1i32, 1i32, fontname) {
+        /* copy */
+        (*descriptor).as_dict_mut().merge(&tmp);
+        if embedding == 0 {
+            /* tt_get_fontdesc may have changed this */
+            pdf_font_set_flags(font, 1i32 << 0i32);
+        }
+        sfnt_close(sfont);
+        0i32
+    } else {
         panic!("Could not obtain neccesary font info from OpenType table.");
     }
-    (*descriptor).as_dict_mut().merge((*tmp).as_dict());
-    pdf_release_obj(tmp);
-    if embedding == 0 {
-        /* tt_get_fontdesc may have changed this */
-        pdf_font_set_flags(font, 1i32 << 0i32);
-    }
-    sfnt_close(sfont);
-    0i32
 }
 unsafe fn add_SimpleMetrics(
     font: *mut pdf_font,
@@ -236,7 +236,7 @@ unsafe fn add_SimpleMetrics(
         /* This should be error. */
         lastchar = 0i32;
         firstchar = lastchar;
-        tmp_array.push(pdf_new_number(0.0f64));
+        tmp_array.push_obj(0f64);
     } else {
         firstchar = 255i32;
         lastchar = 0i32;
@@ -274,10 +274,10 @@ unsafe fn add_SimpleMetrics(
                             *widths.offset(code as isize),
                         );
                     }
-                    tmp_array.push(pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64));
+                    tmp_array.push_obj((width / 0.1 + 0.5).floor() * 0.1);
                 }
             } else {
-                tmp_array.push(pdf_new_number(0.0f64));
+                tmp_array.push_obj(0f64);
             }
         }
     }
@@ -287,8 +287,8 @@ unsafe fn add_SimpleMetrics(
         fontdict.set("Widths", pdf_ref_obj(tmp_array));
     }
     pdf_release_obj(tmp_array);
-    fontdict.set("FirstChar", pdf_new_number(firstchar as f64));
-    fontdict.set("LastChar", pdf_new_number(lastchar as f64));
+    fontdict.set("FirstChar", firstchar as f64);
+    fontdict.set("LastChar", lastchar as f64);
 }
 
 pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
@@ -397,8 +397,8 @@ pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
             }
         }
         if !fontdict.has("ToUnicode") {
-            let tounicode = pdf_create_ToUnicode_CMap(fullname, enc_vec, usedchars);
-            if !tounicode.is_null() {
+            if let Some(tounicode) = pdf_create_ToUnicode_CMap(fullname, enc_vec, usedchars) {
+                let tounicode = tounicode.into_obj();
                 fontdict.set("ToUnicode", pdf_ref_obj(tounicode));
                 pdf_release_obj(tounicode);
             }
@@ -473,7 +473,7 @@ pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
             b"StdVW\x00" as *const u8 as *const i8,
             0i32,
         );
-        descriptor.set("StemV", pdf_new_number(stemv));
+        descriptor.set("StemV", stemv);
     }
     /*
      * Widths
@@ -897,7 +897,7 @@ pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
     let fontfile = pdf_stream::new(STREAM_COMPRESS).into_obj();
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
     descriptor.set("FontFile3", pdf_ref_obj(fontfile));
-    stream_dict.set("Subtype", pdf_new_name("Type1C"));
+    stream_dict.set("Subtype", "Type1C");
     (*fontfile)
         .as_stream_mut()
         .add_slice(&stream_data[..offset]);

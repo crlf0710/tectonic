@@ -39,7 +39,7 @@ use super::dpx_dpxutil::{
 };
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_link_obj, pdf_new_dict, pdf_new_null, pdf_new_string, pdf_new_undefined, pdf_obj,
+    pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_string, pdf_new_undefined, pdf_obj,
     pdf_obj_typeof, pdf_ref_obj, pdf_release_obj, pdf_string_length, pdf_string_value,
     pdf_transfer_label, IntoObj, PdfObjType,
 };
@@ -250,8 +250,8 @@ fn cmp_key(sd1: &named_object, sd2: &named_object) -> Ordering {
         }
     }
 }
-unsafe fn build_name_tree(first: *mut named_object, num_leaves: i32, is_root: i32) -> *mut pdf_obj {
-    let result = pdf_new_dict();
+unsafe fn build_name_tree(first: *mut named_object, num_leaves: i32, is_root: i32) -> pdf_dict {
+    let mut result = pdf_dict::new();
     /*
      * According to PDF Refrence, Third Edition (p.101-102), a name tree
      * always has exactly one root node, which contains a SINGLE entry:
@@ -272,7 +272,7 @@ unsafe fn build_name_tree(first: *mut named_object, num_leaves: i32, is_root: i3
             (*last).key as *const libc::c_void,
             (*last).keylen as size_t,
         ));
-        (*result).as_dict_mut().set("Limits", limits.into_obj());
+        result.set("Limits", limits);
     }
     if num_leaves > 0i32 && num_leaves <= 2i32 * 4i32 {
         /* Create leaf nodes. */
@@ -300,18 +300,19 @@ unsafe fn build_name_tree(first: *mut named_object, num_leaves: i32, is_root: i3
             pdf_release_obj((*cur).value);
             (*cur).value = ptr::null_mut();
         }
-        (*result).as_dict_mut().set("Names", names.into_obj());
+        result.set("Names", names.into_obj());
     } else if num_leaves > 0i32 {
         /* Intermediate node */
         let mut kids = vec![];
         for i in 0..4 {
             let start = i * num_leaves / 4i32;
             let end = (i + 1i32) * num_leaves / 4i32;
-            let subtree = build_name_tree(&mut *first.offset(start as isize), end - start, 0i32);
+            let subtree =
+                build_name_tree(&mut *first.offset(start as isize), end - start, 0i32).into_obj();
             kids.push(pdf_ref_obj(subtree));
             pdf_release_obj(subtree);
         }
-        (*result).as_dict_mut().set("Kids", kids.into_obj());
+        result.set("Kids", kids);
     }
     result
 }
@@ -388,14 +389,14 @@ pub unsafe fn pdf_names_create_tree(
     names: *mut ht_table,
     count: *mut i32,
     filter: *mut ht_table,
-) -> *mut pdf_obj {
+) -> Option<pdf_dict> {
     let name_tree;
     let flat = flat_table(names, count, filter);
     if flat.is_null() {
-        name_tree = ptr::null_mut()
+        name_tree = None;
     } else {
         slice::from_raw_parts_mut(flat, *count as usize).sort_unstable_by(cmp_key);
-        name_tree = build_name_tree(flat, *count, 1i32);
+        name_tree = Some(build_name_tree(flat, *count, 1i32));
         free(flat as *mut libc::c_void);
     }
     name_tree

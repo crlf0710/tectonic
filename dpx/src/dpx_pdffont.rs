@@ -54,8 +54,8 @@ use super::dpx_type0::{
 use super::dpx_type1::{pdf_font_load_type1, pdf_font_open_type1};
 use super::dpx_type1c::{pdf_font_load_type1c, pdf_font_open_type1c};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_link_obj, pdf_new_dict, pdf_new_name, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_stream_length,
+    pdf_copy_name, pdf_dict, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_stream_length, IntoObj,
 };
 use crate::mfree;
 use crate::shims::sprintf;
@@ -397,26 +397,23 @@ unsafe fn try_load_ToUnicode_CMap(font: *mut pdf_font) -> i32 {
     };
     let fontdict = pdf_font_get_resource(&mut *font);
     let tounicode = pdf_load_ToUnicode_stream(cmap_name);
-    if tounicode.is_null() && (!mrec.is_null() && !(*mrec).opt.tounicode.is_null()) {
+    if tounicode.is_none() && (!mrec.is_null() && !(*mrec).opt.tounicode.is_null()) {
         warn!(
             "Failed to read ToUnicode mapping \"{}\"...",
             CStr::from_ptr((*mrec).opt.tounicode).display(),
         );
-    } else if !tounicode.is_null() {
-        if !(*tounicode).is_stream() {
-            panic!("Object returned by pdf_load_ToUnicode_stream() not stream object! (This must be bug)");
-        } else {
-            if pdf_stream_length(&*tounicode) > 0i32 {
-                fontdict
-                    .as_dict_mut()
-                    .set("ToUnicode", pdf_ref_obj(tounicode));
-                if __verbose != 0 {
-                    info!(
-                        "pdf_font>> ToUnicode CMap \"{}\" attached to font id=\"{}\".\n",
-                        CStr::from_ptr(cmap_name).display(),
-                        CStr::from_ptr((*font).map_name).display(),
-                    );
-                }
+    } else if let Some(tounicode) = tounicode {
+        let tounicode = tounicode.into_obj();
+        if pdf_stream_length(&*tounicode) > 0i32 {
+            fontdict
+                .as_dict_mut()
+                .set("ToUnicode", pdf_ref_obj(tounicode));
+            if __verbose != 0 {
+                info!(
+                    "pdf_font>> ToUnicode CMap \"{}\" attached to font id=\"{}\".\n",
+                    CStr::from_ptr(cmap_name).display(),
+                    CStr::from_ptr((*font).map_name).display(),
+                );
             }
         }
         pdf_release_obj(tounicode);
@@ -534,7 +531,7 @@ pub unsafe fn pdf_close_fonts() {
              * We use MacRoman as "default" encoding. */
             (*(*font_0).resource)
                 .as_dict_mut()
-                .set("Encoding", pdf_new_name("MacRomanEncoding")); /* After encoding */
+                .set("Encoding", "MacRomanEncoding"); /* After encoding */
         }
         pdf_flush_font(font_0);
         pdf_clean_font_struct(font_0);
@@ -859,25 +856,17 @@ pub unsafe fn pdf_font_get_fontname(font: *mut pdf_font) -> *mut i8 {
 
 pub unsafe fn pdf_font_get_resource(font: &mut pdf_font) -> &mut pdf_obj {
     if (*font).resource.is_null() {
-        (*font).resource = pdf_new_dict();
-        (*(*font).resource)
-            .as_dict_mut()
-            .set("Type", pdf_new_name("Font"));
+        (*font).resource = pdf_dict::new().into_obj();
+        (*(*font).resource).as_dict_mut().set("Type", "Font");
         match (*font).subtype {
             0 | 1 => {
-                (*(*font).resource)
-                    .as_dict_mut()
-                    .set("Subtype", pdf_new_name("Type1"));
+                (*(*font).resource).as_dict_mut().set("Subtype", "Type1");
             }
             2 => {
-                (*(*font).resource)
-                    .as_dict_mut()
-                    .set("Subtype", pdf_new_name("Type3"));
+                (*(*font).resource).as_dict_mut().set("Subtype", "Type3");
             }
             3 => {
-                (*(*font).resource)
-                    .as_dict_mut()
-                    .set("Subtype", pdf_new_name("TrueType"));
+                (*(*font).resource).as_dict_mut().set("Subtype", "TrueType");
             }
             _ => unreachable!(),
         }
@@ -888,10 +877,10 @@ pub unsafe fn pdf_font_get_resource(font: &mut pdf_font) -> &mut pdf_obj {
 pub unsafe fn pdf_font_get_descriptor(mut font: *mut pdf_font) -> *mut pdf_obj {
     assert!(!font.is_null());
     if (*font).descriptor.is_null() {
-        (*font).descriptor = pdf_new_dict();
+        (*font).descriptor = pdf_dict::new().into_obj();
         (*(*font).descriptor)
             .as_dict_mut()
-            .set("Type", pdf_new_name("FontDescriptor"));
+            .set("Type", "FontDescriptor");
     }
     (*font).descriptor
 }

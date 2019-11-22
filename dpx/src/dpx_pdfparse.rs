@@ -34,9 +34,8 @@ use std::ptr;
 use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_deref_obj, pdf_file, pdf_name_value, pdf_new_boolean, pdf_new_dict, pdf_new_indirect,
-    pdf_new_name, pdf_new_null, pdf_new_number, pdf_new_string, pdf_number_value, pdf_obj,
-    pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_deref_obj, pdf_dict, pdf_file, pdf_new_indirect, pdf_new_name, pdf_new_null,
+    pdf_new_string, pdf_obj, pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::specials::spc_lookup_reference;
 use libc::memcpy;
@@ -466,7 +465,7 @@ impl ParsePdfObj for &[u8] {
             if unsafe { !(*tmp2).is_number() } {
                 stream_length = -1
             } else {
-                stream_length = unsafe { pdf_number_value(&*tmp2) as i32 }
+                stream_length = unsafe { (*tmp2).as_f64() as i32 }
             }
             unsafe {
                 pdf_release_obj(tmp2);
@@ -555,7 +554,7 @@ impl ParsePdfObj for &[u8] {
             return None;
         } /* skip >> */
         p = &p[2..]; /* skip ] */
-        let result = unsafe { pdf_new_dict() };
+        let mut result = pdf_dict::new();
         p.skip_white();
         while !p.is_empty() && p[0] != b'>' {
             p.skip_white();
@@ -563,36 +562,27 @@ impl ParsePdfObj for &[u8] {
                 p.skip_white();
                 if let Some(value) = p.parse_pdf_object(pf) {
                     unsafe {
-                        (*result)
-                            .as_dict_mut()
-                            .set(pdf_name_value(&*key).to_bytes(), value);
+                        result.set((*key).as_name().to_bytes(), value);
                     }
                     p.skip_white();
                 } else {
                     unsafe {
                         pdf_release_obj(key);
-                        pdf_release_obj(result);
                     }
                     warn!("Could not find a value in dictionary object.");
                     return None;
                 }
             } else {
                 warn!("Could not find a key in dictionary object.");
-                unsafe {
-                    pdf_release_obj(result);
-                }
                 return None;
             }
         }
         if p.len() < 2 || p[0] != b'>' || p[1] != b'>' {
             warn!("Syntax error: Dictionary object ended prematurely.");
-            unsafe {
-                pdf_release_obj(result);
-            }
             return None;
         }
         *self = &p[2..];
-        Some(result)
+        Some(result.into_obj())
     }
     fn parse_pdf_literal_string(&mut self) -> Option<*mut pdf_obj> {
         /*
@@ -837,12 +827,12 @@ impl ParsePdfObj for &[u8] {
         if self.starts_with(b"true") {
             if (*self).len() == 4 || istokensep(&self[4]) {
                 *self = &(*self)[4..];
-                return unsafe { Some(pdf_new_boolean(1)) };
+                return unsafe { Some(true.into_obj()) };
             }
         } else if self.starts_with(b"false") {
             if (*self).len() == 5 || istokensep(&self[5]) {
                 *self = &(*self)[5..];
-                return unsafe { Some(pdf_new_boolean(0)) };
+                return unsafe { Some(false.into_obj()) };
             }
         }
         warn!("Not a boolean object.");
@@ -970,6 +960,6 @@ impl ParsePdfObj for &[u8] {
             p = &p[1..];
         }
         *self = p;
-        unsafe { Some(pdf_new_number(sign as f64 * v)) }
+        unsafe { Some((sign as f64 * v).into_obj()) }
     }
 }

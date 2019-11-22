@@ -47,8 +47,8 @@ use crate::dpx_pdfdraw::{
     pdf_dev_setmiterlimit,
 };
 use crate::dpx_pdfobj::{
-    pdf_foreach_dict, pdf_get_version, pdf_name_value, pdf_new_boolean, pdf_new_dict, pdf_new_name,
-    pdf_new_number, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string_value,
+    pdf_dict, pdf_get_version, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_string_value, IntoObj,
 };
 use crate::dpx_pdfparse::ParseIdent;
 use libc::atof;
@@ -87,15 +87,14 @@ unsafe fn tpic__clear(tp: *mut spc_tpic_) {
     (*tp).fill_shape = false;
     (*tp).fill_color = 0.0f64;
 }
-unsafe fn create_xgstate(a: f64, f_ais: i32) -> *mut pdf_obj
+unsafe fn create_xgstate(a: f64, f_ais: i32) -> pdf_dict
 /* alpha is shape */ {
-    let dict = pdf_new_dict(); /* dash pattern */
-    let dict_ref = (*dict).as_dict_mut();
-    dict_ref.set("Type", pdf_new_name("ExtGState"));
+    let mut dict = pdf_dict::new(); /* dash pattern */
+    dict.set("Type", "ExtGState");
     if f_ais != 0 {
-        dict_ref.set("AIS", pdf_new_boolean(1_i8));
+        dict.set("AIS", true);
     }
-    dict_ref.set("ca", pdf_new_number(a));
+    dict.set("ca", a);
     dict
 }
 unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
@@ -137,7 +136,8 @@ unsafe fn set_fillstyle(g: f64, a: f64, f_ais: i32) -> i32 {
             let dict = create_xgstate(
                 (0.01f64 * alp as f64 / 0.01f64 + 0.5f64).floor() * 0.01f64,
                 f_ais,
-            );
+            )
+            .into_obj();
             let s = CString::new(resname.as_bytes()).unwrap();
             pdf_doc_add_page_resource("ExtGState", s.as_ptr() as *const i8, pdf_ref_obj(dict));
             pdf_release_obj(dict);
@@ -605,10 +605,9 @@ pub unsafe fn spc_tpic_at_end_document() -> i32 {
     let tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     spc_handler_tpic__clean(ptr::null_mut(), tp as *mut libc::c_void)
 }
-unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
+unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> Option<pdf_dict> {
     let mut error: i32 = 0i32;
-    let mut dict = pdf_new_dict();
-    let dict_ref = (*dict).as_dict_mut();
+    let mut dict = pdf_dict::new();
     (*ap).cur.skip_blank();
     while error == 0 && !(*ap).cur.is_empty() {
         if let Some(kp) = (*ap).cur.parse_val_ident() {
@@ -621,7 +620,7 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
                     break;
                 } else {
                     if let Some(vp) = (*ap).cur.parse_c_string() {
-                        dict_ref.set(
+                        dict.set(
                             kp.to_bytes(),
                             pdf_new_string(
                                 vp.as_ptr() as *const libc::c_void,
@@ -634,7 +633,7 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
                 }
             } else {
                 /* Treated as 'flag' */
-                dict_ref.set(kp.to_bytes(), pdf_new_boolean(1_i8));
+                dict.set(kp.to_bytes(), true);
             }
             if error == 0 {
                 (*ap).cur.skip_blank();
@@ -644,17 +643,16 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
         }
     }
     if error != 0 {
-        pdf_release_obj(dict);
-        dict = ptr::null_mut()
+        return None;
     }
-    dict
+    Some(dict)
 }
 unsafe fn tpic_filter_getopts(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
     let mut tp: *mut spc_tpic_ = dp as *mut spc_tpic_;
     let mut error: i32 = 0i32;
     assert!(!kp.is_null() && !vp.is_null() && !tp.is_null());
-    let k = pdf_name_value(&*kp).to_string_lossy();
-    if k == "fill-mode" {
+    let k = (*kp).as_name().to_bytes();
+    if k == b"fill-mode" {
         if !(*vp).is_string() {
             warn!("Invalid value for TPIC option fill-mode...");
             error = -1i32
@@ -675,32 +673,34 @@ unsafe fn tpic_filter_getopts(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc:
             }
         }
     } else {
-        warn!("Unrecognized option for TPIC special handler: {}", k,);
+        warn!(
+            "Unrecognized option for TPIC special handler: {}",
+            k.display()
+        );
         error = -1i32
     }
     error
 }
 unsafe fn spc_handler_tpic__setopts(spe: *mut spc_env, ap: *mut spc_arg) -> i32 {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
-    let dict = spc_parse_kvpairs(ap);
-    if dict.is_null() {
-        return -1i32;
-    }
-    let error = pdf_foreach_dict(
-        &mut *dict,
-        Some(
-            tpic_filter_getopts
-                as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
-        ),
-        tp as *mut libc::c_void,
-    );
-    if error == 0 {
-        if (*tp).mode.fill != 0i32 && pdf_get_version() < 4_u32 {
-            spc_warn!(spe, "Transparent fill mode requires PDF version 1.4.");
-            (*tp).mode.fill = 0i32
+    if let Some(mut dict) = spc_parse_kvpairs(ap) {
+        let error = dict.foreach(
+            Some(
+                tpic_filter_getopts
+                    as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
+            ),
+            tp as *mut libc::c_void,
+        );
+        if error == 0 {
+            if (*tp).mode.fill != 0i32 && pdf_get_version() < 4_u32 {
+                spc_warn!(spe, "Transparent fill mode requires PDF version 1.4.");
+                (*tp).mode.fill = 0i32
+            }
         }
+        error
+    } else {
+        -1
     }
-    error
 }
 /* DEBUG */
 const TPIC_HANDLERS: [SpcHandler; 13] = [

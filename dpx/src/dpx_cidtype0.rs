@@ -77,8 +77,8 @@ use super::dpx_tt_table::{
 };
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_new_number, pdf_new_string, pdf_obj,
-    pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_copy_name, pdf_dict, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
+    IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::dpx_truetype::sfnt_table_info;
 use crate::ttstub_input_read;
@@ -197,14 +197,14 @@ unsafe fn add_CIDHMetrics(
                 * 1i32 as f64;
             if advanceWidth == defaultAdvanceWidth {
                 if !an_array.is_null() {
-                    w_array.push(pdf_new_number(start as f64));
+                    w_array.push_obj(start as f64);
                     w_array.push(an_array);
                     an_array = ptr::null_mut();
                     empty = 0i32
                 }
             } else {
                 if cid != prev + 1i32 && !an_array.is_null() {
-                    w_array.push(pdf_new_number(start as f64));
+                    w_array.push_obj(start as f64);
                     w_array.push(an_array);
                     an_array = ptr::null_mut();
                     empty = 0i32
@@ -213,15 +213,13 @@ unsafe fn add_CIDHMetrics(
                     an_array = Vec::new().into_obj();
                     start = cid
                 }
-                (*an_array)
-                    .as_array_mut()
-                    .push(pdf_new_number(advanceWidth));
+                (*an_array).as_array_mut().push_obj(advanceWidth);
                 prev = cid
             }
         }
     }
     if !an_array.is_null() {
-        w_array.push(pdf_new_number(start as f64));
+        w_array.push_obj(start as f64);
         w_array.push(an_array);
         empty = 0i32
     }
@@ -230,9 +228,7 @@ unsafe fn add_CIDHMetrics(
      * PDF Reference 2nd. ed, wrongly described default value of DW as 0, and
      * MacOS X's (up to 10.2.8) preview app. implements this wrong description.
      */
-    (*fontdict)
-        .as_dict_mut()
-        .set("DW", pdf_new_number(defaultAdvanceWidth));
+    (*fontdict).as_dict_mut().set("DW", defaultAdvanceWidth);
     let w_array = w_array.into_obj();
     if empty == 0 {
         (*fontdict).as_dict_mut().set("W", pdf_ref_obj(w_array));
@@ -349,20 +345,20 @@ unsafe fn add_CIDVMetrics(
              * AFPL GhostScript 8.11 stops with rangecheck error with this. Maybe GS's bug?
              */
             if vertOriginY != defaultVertOriginY || advanceHeight != defaultAdvanceHeight {
-                w2_array.push(pdf_new_number(cid as f64));
-                w2_array.push(pdf_new_number(cid as f64));
-                w2_array.push(pdf_new_number(-advanceHeight));
-                w2_array.push(pdf_new_number(vertOriginX));
-                w2_array.push(pdf_new_number(vertOriginY));
+                w2_array.push_obj(cid as f64);
+                w2_array.push_obj(cid as f64);
+                w2_array.push_obj(-advanceHeight);
+                w2_array.push_obj(vertOriginX);
+                w2_array.push_obj(vertOriginY);
                 empty = 0i32
             }
         }
     }
     if defaultVertOriginY != 880i32 as f64 || defaultAdvanceHeight != 1000i32 as f64 {
         let mut an_array = vec![];
-        an_array.push(pdf_new_number(defaultVertOriginY));
-        an_array.push(pdf_new_number(-defaultAdvanceHeight));
-        (*fontdict).as_dict_mut().set("DW2", an_array.into_obj());
+        an_array.push_obj(defaultVertOriginY);
+        an_array.push_obj(-defaultAdvanceHeight);
+        (*fontdict).as_dict_mut().set("DW2", an_array);
     }
     let w2_array = w2_array.into_obj();
     if empty == 0 {
@@ -544,7 +540,7 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     (*(*font).descriptor)
         .as_dict_mut()
         .set("FontFile3", pdf_ref_obj(fontfile));
-    stream_dict.set("Subtype", pdf_new_name("CIDFontType0C"));
+    stream_dict.set("Subtype", "CIDFontType0C");
     (*fontfile)
         .as_stream_mut()
         .add_slice(&dest[..offset as usize]);
@@ -702,9 +698,7 @@ pub unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
     } else {
         if CIDFont_get_embedding(font) == 0 && opt_flags & 1i32 << 1i32 != 0 {
             /* No metrics needed. */
-            (*(*font).fontdict)
-                .as_dict_mut()
-                .set("DW", pdf_new_number(1000.0f64));
+            (*(*font).fontdict).as_dict_mut().set("DW", 1000_f64);
             return;
         }
     }
@@ -722,9 +716,7 @@ pub unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
      * Those values are obtained from OpenType table (not TFM).
      */
     if opt_flags & 1i32 << 1i32 != 0 {
-        (*(*font).fontdict)
-            .as_dict_mut()
-            .set("DW", pdf_new_number(1000.0f64));
+        (*(*font).fontdict).as_dict_mut().set("DW", 1000_f64);
     } else {
         let cid_count =
             if cff_dict_known((*cffont).topdict, b"CIDCount\x00" as *const u8 as *const i8) != 0 {
@@ -1140,13 +1132,11 @@ pub unsafe fn CIDFont_type0_open(
     (*font).subtype = 1i32;
     (*font).csi = csi;
     (*font).flags |= expected_flag;
-    (*font).fontdict = pdf_new_dict();
+    (*font).fontdict = pdf_dict::new().into_obj();
+    (*(*font).fontdict).as_dict_mut().set("Type", "Font");
     (*(*font).fontdict)
         .as_dict_mut()
-        .set("Type", pdf_new_name("Font"));
-    (*(*font).fontdict)
-        .as_dict_mut()
-        .set("Subtype", pdf_new_name("CIDFontType0"));
+        .set("Subtype", "CIDFontType0");
     if expect_type1_font != 0 || (*opt).embed != 0 {
         memmove(
             fontname.offset(7) as *mut libc::c_void,
@@ -1157,11 +1147,14 @@ pub unsafe fn CIDFont_type0_open(
         *fontname.offset(6) = '+' as i32 as i8
     }
     if expect_type1_font != 0 {
-        (*font).descriptor = pdf_new_dict()
+        (*font).descriptor = pdf_dict::new().into_obj();
     } else {
         /* getting font info. from TrueType tables */
-        (*font).descriptor = tt_get_fontdesc(sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name);
-        if (*font).descriptor.is_null() {
+        if let Some(descriptor) =
+            tt_get_fontdesc(sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name)
+        {
+            (*font).descriptor = descriptor.into_obj();
+        } else {
             panic!("Could not obtain necessary font info.");
         }
     }
@@ -1171,31 +1164,27 @@ pub unsafe fn CIDFont_type0_open(
     (*(*font).fontdict)
         .as_dict_mut()
         .set("BaseFont", pdf_copy_name(fontname));
-    let csi_dict = pdf_new_dict();
-    (*csi_dict).as_dict_mut().set(
+    let mut csi_dict = pdf_dict::new();
+    csi_dict.set(
         "Registry",
         pdf_new_string(
             (*csi).registry as *const libc::c_void,
             strlen((*csi).registry) as _,
         ),
     );
-    (*csi_dict).as_dict_mut().set(
+    csi_dict.set(
         "Ordering",
         pdf_new_string(
             (*csi).ordering as *const libc::c_void,
             strlen((*csi).ordering) as _,
         ),
     );
-    (*csi_dict)
-        .as_dict_mut()
-        .set("Supplement", pdf_new_number((*csi).supplement as f64));
+    csi_dict.set("Supplement", (*csi).supplement as f64);
     (*(*font).fontdict)
         .as_dict_mut()
         .set("CIDSystemInfo", csi_dict);
     if is_cid_font != 0 {
-        (*(*font).fontdict)
-            .as_dict_mut()
-            .set("DW", pdf_new_number(1000i32 as f64));
+        (*(*font).fontdict).as_dict_mut().set("DW", 1000_f64);
         /* not sure */
     }
     if expect_type1_font == 0 {
@@ -1237,9 +1226,7 @@ pub unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
             b"StdVW\x00" as *const u8 as *const i8,
             0i32,
         );
-        (*(*font).descriptor)
-            .as_dict_mut()
-            .set("StemV", pdf_new_number(stemv));
+        (*(*font).descriptor).as_dict_mut().set("StemV", stemv);
     }
     let default_width = if !(*cffont.private.offset(0)).is_null()
         && cff_dict_known(
@@ -1636,13 +1623,13 @@ unsafe fn create_ToUnicode_stream(
     cffont: &cff_font,
     font_name: *const i8,
     used_glyphs: *const i8,
-) -> *mut pdf_obj {
-    let mut stream: *mut pdf_obj = ptr::null_mut();
+) -> Option<pdf_stream> {
+    let mut stream = None;
     let mut wbuf: [u8; 1024] = [0; 1024];
     static mut range_min: [u8; 2] = [0; 2];
     static mut range_max: [u8; 2] = [0xff, 0xff];
     if font_name.is_null() || used_glyphs.is_null() {
-        return ptr::null_mut();
+        return None;
     }
     let cmap = CMap_new();
     CMap_set_name(
@@ -1934,22 +1921,16 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &cff_font) {
     flags |= 1i32 << 2i32;
     (*(*font).descriptor)
         .as_dict_mut()
-        .set("CapHeight", pdf_new_number(capheight));
+        .set("CapHeight", capheight);
+    (*(*font).descriptor).as_dict_mut().set("Ascent", ascent);
+    (*(*font).descriptor).as_dict_mut().set("Descent", descent);
     (*(*font).descriptor)
         .as_dict_mut()
-        .set("Ascent", pdf_new_number(ascent));
+        .set("ItalicAngle", italicangle);
+    (*(*font).descriptor).as_dict_mut().set("StemV", stemv);
     (*(*font).descriptor)
         .as_dict_mut()
-        .set("Descent", pdf_new_number(descent));
-    (*(*font).descriptor)
-        .as_dict_mut()
-        .set("ItalicAngle", pdf_new_number(italicangle));
-    (*(*font).descriptor)
-        .as_dict_mut()
-        .set("StemV", pdf_new_number(stemv));
-    (*(*font).descriptor)
-        .as_dict_mut()
-        .set("Flags", pdf_new_number(flags as f64));
+        .set("Flags", flags as f64);
 }
 unsafe fn add_metrics(
     font: *mut CIDFont,
@@ -1975,11 +1956,9 @@ unsafe fn add_metrics(
             b"FontBBox\x00" as *const u8 as *const i8,
             i,
         );
-        tmp.push(pdf_new_number((val / 1.0f64 + 0.5f64).floor() * 1.0f64));
+        tmp.push_obj((val / 1. + 0.5).floor() * 1.);
     }
-    (*(*font).descriptor)
-        .as_dict_mut()
-        .set("FontBBox", tmp.into_obj());
+    (*(*font).descriptor).as_dict_mut().set("FontBBox", tmp);
     let mut parent_id = CIDFont_get_parent_id(font, 0i32);
     if parent_id < 0i32 && {
         parent_id = CIDFont_get_parent_id(font, 1i32);
@@ -2006,17 +1985,13 @@ unsafe fn add_metrics(
                 | *CIDToGIDMap.offset((2i32 * cid as i32 + 1i32) as isize) as i32)
                 as u16;
             if *widths.offset(gid as isize) != default_width {
-                tmp.push(pdf_new_number(cid as f64));
-                tmp.push(pdf_new_number(cid as f64));
-                tmp.push(pdf_new_number(
-                    (*widths.offset(gid as isize) / 1.0f64 + 0.5f64).floor() * 1.0f64,
-                ));
+                tmp.push_obj(cid as f64);
+                tmp.push_obj(cid as f64);
+                tmp.push_obj((*widths.offset(gid as isize) / 1. + 0.5).floor() * 1.);
             }
         }
     }
-    (*(*font).fontdict)
-        .as_dict_mut()
-        .set("DW", pdf_new_number(default_width));
+    (*(*font).fontdict).as_dict_mut().set("DW", default_width);
     let empty = tmp.is_empty();
     let tmp = tmp.into_obj();
     if !empty {
@@ -2071,7 +2046,9 @@ pub unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
     if used_chars.is_null() {
         panic!("Unexpected error: Font not actually used???");
     }
-    let tounicode = create_ToUnicode_stream(cffont, (*font).fontname, used_chars);
+    let tounicode = create_ToUnicode_stream(cffont, (*font).fontname, used_chars)
+        .map(IntoObj::into_obj)
+        .unwrap_or(ptr::null_mut());
     if !hparent.is_null() {
         Type0Font_set_ToUnicode(hparent, pdf_ref_obj(tounicode));
     }

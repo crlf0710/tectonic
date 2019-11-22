@@ -42,8 +42,8 @@ use super::dpx_pdfencoding::pdf_load_ToUnicode_stream;
 use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resource_reference};
 use super::dpx_tt_cmap::otf_create_ToUnicode_stream;
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_get_version, pdf_link_obj, pdf_new_dict, pdf_new_name, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_copy_name, pdf_dict, pdf_get_version, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::streq_ptr;
@@ -188,7 +188,7 @@ unsafe fn add_ToUnicode(font: *mut Type0Font) {
                 pdf_read_ToUnicode_file(b"Adobe-Identity-UCS2\x00" as *const u8 as *const i8);
             if tounicode.is_null() {
                 /* This should work */
-                tounicode = pdf_new_name("Identity-H")
+                tounicode = "Identity-H".into_obj();
             }
             (*(*font).fontdict)
                 .as_dict_mut()
@@ -408,13 +408,9 @@ pub unsafe fn Type0Font_cache_find(
     /*
      * Now we start font dictionary.
      */
-    (*font).fontdict = pdf_new_dict();
-    (*(*font).fontdict)
-        .as_dict_mut()
-        .set("Type", pdf_new_name("Font"));
-    (*(*font).fontdict)
-        .as_dict_mut()
-        .set("Subtype", pdf_new_name("Type0"));
+    (*font).fontdict = pdf_dict::new().into_obj();
+    (*(*font).fontdict).as_dict_mut().set("Type", "Font");
+    (*(*font).fontdict).as_dict_mut().set("Subtype", "Type0");
     /*
      * Type0 font does not have FontDescriptor because it is not a simple font.
      * Instead, DescendantFonts appears here.
@@ -528,7 +524,7 @@ pub unsafe fn Type0Font_cache_close() {
     __cache.capacity = 0i32;
 }
 /* ******************************* COMPAT ********************************/
-unsafe fn create_dummy_CMap() -> *mut pdf_obj {
+unsafe fn create_dummy_CMap() -> pdf_stream {
     let mut buf: [u8; 32] = [0; 32];
     let mut stream = pdf_stream::new(STREAM_COMPRESS);
     stream.add_str("%!PS-Adobe-3.0 Resource-CMap\n%%DocumentNeededResources: ProcSet (CIDInit)\n%%IncludeResource: ProcSet (CIDInit)\n%%BeginResource: CMap (Adobe-Identity-UCS2)\n%%Title: (Adobe-Identity-UCS2 Adobe UCS2 0)\n%%Version: 1.0\n%%Copyright:\n%% ---\n%%EndComments\n\n");
@@ -580,7 +576,7 @@ unsafe fn create_dummy_CMap() -> *mut pdf_obj {
     }
     stream.add_str("endbfrange\n\n");
     stream.add_str("endcmap\n\nCMapName currentdict /CMap defineresource pop\n\nend\nend\n\n%%EndResource\n%%EOF\n");
-    stream.into_obj()
+    stream
 }
 unsafe fn pdf_read_ToUnicode_file(cmap_name: *const i8) -> *mut pdf_obj {
     assert!(!cmap_name.is_null());
@@ -590,15 +586,15 @@ unsafe fn pdf_read_ToUnicode_file(cmap_name: *const i8) -> *mut pdf_obj {
             cmap_name,
             b"Adobe-Identity-UCS2\x00" as *const u8 as *const i8,
         ) {
-            create_dummy_CMap()
+            Some(create_dummy_CMap())
         } else {
             pdf_load_ToUnicode_stream(cmap_name)
         };
-        if !stream.is_null() {
+        if let Some(stream) = stream {
             res_id = pdf_defineresource(
                 b"CMap\x00" as *const u8 as *const i8,
                 cmap_name,
-                stream,
+                stream.into_obj(),
                 1i32,
             )
         }

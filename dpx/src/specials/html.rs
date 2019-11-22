@@ -44,8 +44,8 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
-    pdf_link_obj, pdf_new_boolean, pdf_new_dict, pdf_new_name, pdf_new_null, pdf_new_number,
-    pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string_value, IntoObj,
+    pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_string_value, IntoObj, PushObj,
 };
 use crate::spc_warn;
 use libc::{atof, free, strcat, strcpy, strlen};
@@ -278,18 +278,14 @@ unsafe fn fqurl(baseurl: *const i8, name: *const i8) -> *mut i8 {
 unsafe fn html_open_link(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_html_) -> i32 {
     assert!(!name.is_null());
     assert!((*sd).link_dict.is_null());
-    (*sd).link_dict = pdf_new_dict();
-    (*(*sd).link_dict)
-        .as_dict_mut()
-        .set("Type", pdf_new_name("Annot"));
-    (*(*sd).link_dict)
-        .as_dict_mut()
-        .set("Subtype", pdf_new_name("Link"));
+    (*sd).link_dict = pdf_dict::new().into_obj();
+    (*(*sd).link_dict).as_dict_mut().set("Type", "Annot");
+    (*(*sd).link_dict).as_dict_mut().set("Subtype", "Link");
     let mut color = vec![];
-    color.push(pdf_new_number(0.0f64));
-    color.push(pdf_new_number(0.0f64));
-    color.push(pdf_new_number(1.0f64));
-    (*(*sd).link_dict).as_dict_mut().set("C", color.into_obj());
+    color.push_obj(0f64);
+    color.push_obj(0f64);
+    color.push_obj(1f64);
+    (*(*sd).link_dict).as_dict_mut().set("C", color);
     let url = fqurl((*sd).baseurl, name);
     if *url.offset(0) as i32 == '#' as i32 {
         /* url++; causes memory leak in free(url) */
@@ -301,13 +297,14 @@ unsafe fn html_open_link(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_ht
             ),
         ); /* Otherwise must be bug */
     } else {
-        let action: *mut pdf_obj = pdf_new_dict();
-        (*action).as_dict_mut().set("Type", pdf_new_name("Action"));
-        (*action).as_dict_mut().set("S", pdf_new_name("URI"));
-        (*action).as_dict_mut().set(
+        let mut action = pdf_dict::new();
+        action.set("Type", "Action");
+        action.set("S", "URI");
+        action.set(
             "URI",
             pdf_new_string(url as *const libc::c_void, strlen(url) as _),
         );
+        let action = action.into_obj();
         (*(*sd).link_dict)
             .as_dict_mut()
             .set("A", pdf_link_obj(action));
@@ -326,9 +323,9 @@ unsafe fn html_open_dest(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_ht
     assert!(!page_ref.is_null());
     let mut array = vec![];
     array.push(page_ref);
-    array.push(pdf_new_name("XYZ"));
+    array.push_obj("XYZ");
     array.push(pdf_new_null());
-    array.push(pdf_new_number(cp.y + 24.0f64));
+    array.push_obj(cp.y + 24.);
     array.push(pdf_new_null());
     let error = pdf_doc_add_names(
         b"Dests\x00" as *const u8 as *const i8,
@@ -456,14 +453,14 @@ unsafe fn atopt(a: &[u8]) -> f64 {
     v * u
 }
 /* Replicated from spc_tpic */
-unsafe fn create_xgstate(a: f64, f_ais: i32) -> *mut pdf_obj
+unsafe fn create_xgstate(a: f64, f_ais: i32) -> pdf_dict
 /* alpha is shape */ {
-    let dict = pdf_new_dict();
-    (*dict).as_dict_mut().set("Type", pdf_new_name("ExtGState"));
+    let mut dict = pdf_dict::new();
+    dict.set("Type", "ExtGState");
     if f_ais != 0 {
-        (*dict).as_dict_mut().set("AIS", pdf_new_boolean(1_i8));
+        dict.set("AIS", true);
     }
-    (*dict).as_dict_mut().set("ca", pdf_new_number(a));
+    dict.set("ca", a);
     dict
 }
 unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
@@ -559,7 +556,7 @@ unsafe fn spc_html__img_empty(spe: *mut spc_env, attr: &pdf_obj) -> i32 {
         spc_warn!(
             spe,
             "Could not find/load image: {}",
-            CStr::from_ptr(pdf_string_value(src) as *mut i8).display(),
+            CStr::from_ptr(pdf_string_value(src) as *const i8).display(),
         ); /* op: gs */
         error = -1i32
     } else {
@@ -571,7 +568,8 @@ unsafe fn spc_html__img_empty(spe: *mut spc_env, attr: &pdf_obj) -> i32 {
             let res_name = format!("_Tps_a{:03}_", a);
             let res_name_c = CString::new(res_name.as_str()).unwrap();
             if check_resourcestatus("ExtGState", &res_name) == 0 {
-                let dict = create_xgstate((0.01f64 * a as f64 / 0.01f64).round() * 0.01f64, 0i32);
+                let dict = create_xgstate((0.01f64 * a as f64 / 0.01f64).round() * 0.01f64, 0i32)
+                    .into_obj();
                 pdf_doc_add_page_resource("ExtGState", res_name_c.as_ptr(), pdf_ref_obj(dict));
                 pdf_release_obj(dict);
             }
@@ -602,7 +600,7 @@ unsafe fn spc_handler_html_default(spe: *mut spc_env, mut ap: *mut spc_arg) -> i
     if (*ap).cur.is_empty() {
         return 0i32;
     }
-    let attr = pdf_new_dict();
+    let attr = pdf_dict::new().into_obj();
     let name = read_html_tag(&mut *attr, &mut type_0, &mut (*ap).cur);
     if name.is_err() {
         pdf_release_obj(attr);

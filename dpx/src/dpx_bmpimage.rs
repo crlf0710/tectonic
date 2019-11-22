@@ -30,8 +30,7 @@ use super::dpx_mem::new;
 use super::dpx_numbers::tt_get_unsigned_byte;
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_new_name, pdf_new_number, pdf_new_string, pdf_stream, pdf_stream_set_predictor, IntoObj,
-    STREAM_COMPRESS,
+    pdf_new_string, pdf_stream, pdf_stream_set_predictor, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::ttstub_input_read;
 use crate::warn;
@@ -208,13 +207,13 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
         );
         free(palette as *mut libc::c_void);
         let mut colorspace = vec![];
-        colorspace.push(pdf_new_name("Indexed"));
-        colorspace.push(pdf_new_name("DeviceRGB"));
-        colorspace.push(pdf_new_number((num_palette - 1i32) as f64));
+        colorspace.push_obj("Indexed");
+        colorspace.push_obj("DeviceRGB");
+        colorspace.push_obj((num_palette - 1i32) as f64);
         colorspace.push(lookup);
         colorspace.into_obj()
     } else {
-        pdf_new_name("DeviceRGB")
+        "DeviceRGB".into_obj()
     };
     stream_dict.set("ColorSpace", colorspace);
     /* Raster data of BMP is four-byte aligned. */

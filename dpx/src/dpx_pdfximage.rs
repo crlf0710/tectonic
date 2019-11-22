@@ -43,10 +43,7 @@ use super::dpx_mfileio::{tt_mfgets, work_buffer};
 use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pngimage::{check_for_png, png_include_image};
 use crate::dpx_epdf::pdf_include_page;
-use crate::dpx_pdfobj::{
-    check_for_pdf, pdf_link_obj, pdf_new_name, pdf_new_number, pdf_obj, pdf_ref_obj,
-    pdf_release_obj,
-};
+use crate::dpx_pdfobj::{check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj};
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
 use libc::{free, memset, strcpy, strlen};
@@ -515,16 +512,13 @@ pub unsafe fn pdf_ximage_set_image(
     (*I).attr.ydensity = info.ydensity;
     (*I).reference = pdf_ref_obj(resource);
     let dict = (*resource).as_stream_mut().get_dict_mut();
-    dict.set("Type", pdf_new_name("XObject"));
-    dict.set("Subtype", pdf_new_name("Image"));
-    dict.set("Width", pdf_new_number((*info).width as f64));
-    dict.set("Height", pdf_new_number((*info).height as f64));
+    dict.set("Type", "XObject");
+    dict.set("Subtype", "Image");
+    dict.set("Width", (*info).width as f64);
+    dict.set("Height", (*info).height as f64);
     if (*info).bits_per_component > 0i32 {
         /* Ignored for JPXDecode filter. FIXME */
-        dict.set(
-            "BitsPerComponent",
-            pdf_new_number((*info).bits_per_component as f64),
-        ); /* Caller don't know we are using reference. */
+        dict.set("BitsPerComponent", (*info).bits_per_component as f64); /* Caller don't know we are using reference. */
     }
     if !(*I).attr.dict.is_null() {
         dict.merge((*(*I).attr.dict).as_dict());

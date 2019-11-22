@@ -61,9 +61,7 @@ use super::dpx_tt_gsub::{
 };
 use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::tt_get_ps_fontname;
-use crate::dpx_pdfobj::{
-    pdf_new_name, pdf_new_number, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length, IntoObj,
-};
+use crate::dpx_pdfobj::{pdf_obj, pdf_ref_obj, pdf_release_obj, IntoObj, PushObj};
 use crate::shims::sprintf;
 use libc::{atoi, free, memcpy, memmove, memset, strchr, strcpy, strlen, strncpy};
 
@@ -230,13 +228,12 @@ pub unsafe fn pdf_font_open_truetype(font: *mut pdf_font) -> i32 {
     }
     pdf_font_set_fontname(font, fontname.as_mut_ptr());
     let tmp = tt_get_fontdesc(sfont, &mut embedding, -1i32, 1i32, fontname.as_mut_ptr());
-    if tmp.is_null() {
+    if tmp.is_none() {
         sfnt_close(sfont);
         panic!("Could not obtain necessary font info.");
     }
-    assert!((*tmp).is_dict());
-    (*descriptor).as_dict_mut().merge((*tmp).as_dict());
-    pdf_release_obj(tmp);
+    let tmp = tmp.unwrap();
+    (*descriptor).as_dict_mut().merge(&tmp);
     if embedding == 0 {
         if encoding_id >= 0i32 && pdf_encoding_is_predefined(encoding_id) == 0 {
             sfnt_close(sfont);
@@ -258,10 +255,8 @@ pub unsafe fn pdf_font_open_truetype(font: *mut pdf_font) -> i32 {
         }
     }
     sfnt_close(sfont);
-    fontdict.as_dict_mut().set("Type", pdf_new_name("Font"));
-    fontdict
-        .as_dict_mut()
-        .set("Subtype", pdf_new_name("TrueType"));
+    fontdict.as_dict_mut().set("Type", "Font");
+    fontdict.as_dict_mut().set("Subtype", "TrueType");
     0i32
 }
 const required_table: [SfntTableInfo; 12] = {
@@ -311,9 +306,9 @@ unsafe fn do_widths(font: *mut pdf_font, widths: *mut f64) {
             } else {
                 1000. * tfm_get_width(tfm_id, code)
             };
-            tmparray.push(pdf_new_number((width / 0.1f64 + 0.5f64).floor() * 0.1f64));
+            tmparray.push_obj((width / 0.1 + 0.5).floor() * 0.1);
         } else {
-            tmparray.push(pdf_new_number(0.0f64));
+            tmparray.push_obj(0f64);
         }
     }
     let empty = tmparray.is_empty();
@@ -322,12 +317,8 @@ unsafe fn do_widths(font: *mut pdf_font, widths: *mut f64) {
         fontdict.as_dict_mut().set("Widths", pdf_ref_obj(tmparray));
     }
     pdf_release_obj(tmparray);
-    fontdict
-        .as_dict_mut()
-        .set("FirstChar", pdf_new_number(firstchar as f64));
-    fontdict
-        .as_dict_mut()
-        .set("LastChar", pdf_new_number(lastchar as f64));
+    fontdict.as_dict_mut().set("FirstChar", firstchar as f64);
+    fontdict.as_dict_mut().set("LastChar", lastchar as f64);
 }
 static mut verbose: i32 = 0i32;
 /*
@@ -1104,16 +1095,11 @@ pub unsafe fn pdf_font_load_truetype(font: *mut pdf_font) -> i32 {
      * FontFile2
      */
     let fontfile = sfnt_create_FontFile_stream(sfont); /* XXX */
-    if fontfile.is_null() {
-        panic!(
-            "Could not created FontFile stream for \"{}\".",
-            CStr::from_ptr(ident).display()
-        );
-    }
     sfnt_close(sfont);
     if verbose > 1i32 {
-        info!("[{} bytes]", pdf_stream_length(&*fontfile));
+        info!("[{} bytes]", fontfile.len());
     }
+    let fontfile = fontfile.into_obj();
     (*descriptor)
         .as_dict_mut()
         .set("FontFile2", pdf_ref_obj(fontfile));

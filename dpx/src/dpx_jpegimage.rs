@@ -38,8 +38,7 @@ use super::dpx_pdfcolor::{
 };
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_new_name, pdf_new_number, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_get_version, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_read};
 use libc::{free, memcmp, memset};
@@ -219,11 +218,11 @@ pub unsafe fn jpeg_include_image(ximage: *mut pdf_ximage, handle: &mut InputHand
     /* JPEG image use DCTDecode. */
     let mut stream = pdf_stream::new(0i32);
     let stream_dict = stream.get_dict_mut();
-    stream_dict.set("Filter", pdf_new_name("DCTDecode"));
+    stream_dict.set("Filter", "DCTDecode");
     /* XMP Metadata */
     if pdf_get_version() >= 4_u32 {
         if j_info.flags & 1i32 << 4i32 != 0 {
-            let XMP_stream = JPEG_get_XMP(&mut j_info);
+            let XMP_stream = JPEG_get_XMP(&mut j_info).into_obj();
             stream_dict.set("Metadata", pdf_ref_obj(XMP_stream));
             pdf_release_obj(XMP_stream);
         }
@@ -253,9 +252,9 @@ pub unsafe fn jpeg_include_image(ximage: *mut pdf_ximage, handle: &mut InputHand
     /* No ICC or invalid ICC profile. */
     if colorspace.is_null() {
         match colortype {
-            -1 => colorspace = pdf_new_name("DeviceGray"),
-            -3 => colorspace = pdf_new_name("DeviceRGB"),
-            -4 => colorspace = pdf_new_name("DeviceCMYK"),
+            -1 => colorspace = "DeviceGray".into_obj(),
+            -3 => colorspace = "DeviceRGB".into_obj(),
+            -4 => colorspace = "DeviceCMYK".into_obj(),
             _ => {}
         }
     }
@@ -264,10 +263,10 @@ pub unsafe fn jpeg_include_image(ximage: *mut pdf_ximage, handle: &mut InputHand
         warn!("Adobe CMYK JPEG: Inverted color assumed.");
         let mut decode = vec![];
         for _ in 0..j_info.num_components as u32 {
-            decode.push(pdf_new_number(1.0f64));
-            decode.push(pdf_new_number(0.0f64));
+            decode.push_obj(1_f64);
+            decode.push_obj(0_f64);
         }
-        stream_dict.set("Decode", decode.into_obj());
+        stream_dict.set("Decode", decode);
     }
     /* Copy file */
     JPEG_copy_stream(&mut j_info, &mut stream, handle);
@@ -386,13 +385,13 @@ unsafe fn JPEG_get_iccp(j_info: *mut JPEG_info) -> Option<pdf_stream> {
     }
     Some(icc_stream)
 }
-unsafe fn JPEG_get_XMP(j_info: *mut JPEG_info) -> *mut pdf_obj {
+unsafe fn JPEG_get_XMP(j_info: *mut JPEG_info) -> pdf_stream {
     let mut count: i32 = 0i32;
     /* I don't know if XMP Metadata should be compressed here.*/
     let mut XMP_stream = pdf_stream::new(STREAM_COMPRESS);
     let stream_dict = XMP_stream.get_dict_mut();
-    stream_dict.set("Type", pdf_new_name("Metadata"));
-    stream_dict.set("Subtype", pdf_new_name("XML"));
+    stream_dict.set("Type", "Metadata");
+    stream_dict.set("Subtype", "XML");
     for i in 0..(*j_info).num_appn {
         /* Not sure for the case of multiple segments */
         if !((*(*j_info).appn.offset(i as isize)).marker as u32 != JM_APP1 as i32 as u32
@@ -409,7 +408,7 @@ unsafe fn JPEG_get_XMP(j_info: *mut JPEG_info) -> *mut pdf_obj {
             "JPEG",
         );
     }
-    XMP_stream.into_obj()
+    XMP_stream
 }
 unsafe fn JPEG_get_marker(handle: &mut InputHandleWrapper) -> JPEG_marker {
     let mut c = ttstub_input_getc(handle);
