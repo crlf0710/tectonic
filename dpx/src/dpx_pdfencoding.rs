@@ -43,7 +43,7 @@ use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_get_version, pdf_link_obj, pdf_new_dict, pdf_obj, pdf_release_obj, IntoObj,
+    pdf_copy_name, pdf_dict, pdf_get_version, pdf_link_obj, pdf_obj, pdf_release_obj, IntoObj,
     PushObj,
 };
 use crate::dpx_pdfparse::{ParsePdfObj, SkipWhite};
@@ -123,7 +123,7 @@ unsafe fn create_encoding_resource(
         (*encoding).is_used.as_mut_ptr(),
     );
     if !differences.is_null() {
-        let resource = pdf_new_dict();
+        let resource = pdf_dict::new().into_obj();
         if !baseenc.is_null() {
             (*resource)
                 .as_dict_mut()

@@ -55,7 +55,7 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_new_dict, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
+    pdf_copy_name, pdf_dict, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
     pdf_stream_length, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use libc::{free, memmove, memset, strcat, strcmp, strcpy, strlen, strncpy, strstr};
@@ -652,25 +652,25 @@ pub unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
     /*
      * CIDSystemInfo comes here since Supplement can be increased.
      */
-    let tmp = pdf_new_dict();
-    (*tmp).as_dict_mut().set(
+    let mut tmp = pdf_dict::new();
+    tmp.set(
         "Registry",
         pdf_new_string(
             (*(*font).csi).registry as *const libc::c_void,
             strlen((*(*font).csi).registry) as _,
         ),
     );
-    (*tmp).as_dict_mut().set(
+    tmp.set(
         "Ordering",
         pdf_new_string(
             (*(*font).csi).ordering as *const libc::c_void,
             strlen((*(*font).csi).ordering) as _,
         ),
     );
-    (*tmp)
+    tmp.set("Supplement", (*(*font).csi).supplement as f64);
+    (*(*font).fontdict)
         .as_dict_mut()
-        .set("Supplement", (*(*font).csi).supplement as f64);
-    (*(*font).fontdict).as_dict_mut().set("CIDSystemInfo", tmp);
+        .set("CIDSystemInfo", tmp.into_obj());
     /* Quick exit for non-embedded & fixed-pitch font. */
     if CIDFont_get_embedding(font) == 0 && opt_flags & 1i32 << 1i32 != 0 {
         (*(*font).fontdict).as_dict_mut().set("DW", 1000_f64);
@@ -1233,7 +1233,7 @@ pub unsafe fn CIDFont_type2_open(
         );
         (*(*font).csi).supplement = 0i32
     }
-    (*font).fontdict = pdf_new_dict();
+    (*font).fontdict = pdf_dict::new().into_obj();
     (*(*font).fontdict).as_dict_mut().set("Type", "Font");
     (*(*font).fontdict)
         .as_dict_mut()

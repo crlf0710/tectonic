@@ -39,7 +39,7 @@ use super::dpx_dpxutil::{
 };
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_link_obj, pdf_new_dict, pdf_new_null, pdf_new_string, pdf_new_undefined, pdf_obj,
+    pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_string, pdf_new_undefined, pdf_obj,
     pdf_obj_typeof, pdf_ref_obj, pdf_release_obj, pdf_string_length, pdf_string_value,
     pdf_transfer_label, IntoObj, PdfObjType,
 };
@@ -251,7 +251,7 @@ fn cmp_key(sd1: &named_object, sd2: &named_object) -> Ordering {
     }
 }
 unsafe fn build_name_tree(first: *mut named_object, num_leaves: i32, is_root: i32) -> *mut pdf_obj {
-    let result = pdf_new_dict();
+    let mut result = pdf_dict::new();
     /*
      * According to PDF Refrence, Third Edition (p.101-102), a name tree
      * always has exactly one root node, which contains a SINGLE entry:
@@ -272,7 +272,7 @@ unsafe fn build_name_tree(first: *mut named_object, num_leaves: i32, is_root: i3
             (*last).key as *const libc::c_void,
             (*last).keylen as size_t,
         ));
-        (*result).as_dict_mut().set("Limits", limits.into_obj());
+        result.set("Limits", limits.into_obj());
     }
     if num_leaves > 0i32 && num_leaves <= 2i32 * 4i32 {
         /* Create leaf nodes. */
@@ -300,7 +300,7 @@ unsafe fn build_name_tree(first: *mut named_object, num_leaves: i32, is_root: i3
             pdf_release_obj((*cur).value);
             (*cur).value = ptr::null_mut();
         }
-        (*result).as_dict_mut().set("Names", names.into_obj());
+        result.set("Names", names.into_obj());
     } else if num_leaves > 0i32 {
         /* Intermediate node */
         let mut kids = vec![];
@@ -311,9 +311,9 @@ unsafe fn build_name_tree(first: *mut named_object, num_leaves: i32, is_root: i3
             kids.push(pdf_ref_obj(subtree));
             pdf_release_obj(subtree);
         }
-        (*result).as_dict_mut().set("Kids", kids.into_obj());
+        result.set("Kids", kids.into_obj());
     }
-    result
+    result.into_obj()
 }
 unsafe fn flat_table(
     ht_tab: *mut ht_table,

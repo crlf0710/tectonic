@@ -54,8 +54,8 @@ use super::dpx_type0::{
 use super::dpx_type1::{pdf_font_load_type1, pdf_font_open_type1};
 use super::dpx_type1c::{pdf_font_load_type1c, pdf_font_open_type1c};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_link_obj, pdf_new_dict, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_stream_length,
+    pdf_copy_name, pdf_dict, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_stream_length, IntoObj,
 };
 use crate::mfree;
 use crate::shims::sprintf;
@@ -859,7 +859,7 @@ pub unsafe fn pdf_font_get_fontname(font: *mut pdf_font) -> *mut i8 {
 
 pub unsafe fn pdf_font_get_resource(font: &mut pdf_font) -> &mut pdf_obj {
     if (*font).resource.is_null() {
-        (*font).resource = pdf_new_dict();
+        (*font).resource = pdf_dict::new().into_obj();
         (*(*font).resource).as_dict_mut().set("Type", "Font");
         match (*font).subtype {
             0 | 1 => {
@@ -880,7 +880,7 @@ pub unsafe fn pdf_font_get_resource(font: &mut pdf_font) -> &mut pdf_obj {
 pub unsafe fn pdf_font_get_descriptor(mut font: *mut pdf_font) -> *mut pdf_obj {
     assert!(!font.is_null());
     if (*font).descriptor.is_null() {
-        (*font).descriptor = pdf_new_dict();
+        (*font).descriptor = pdf_dict::new().into_obj();
         (*(*font).descriptor)
             .as_dict_mut()
             .set("Type", "FontDescriptor");

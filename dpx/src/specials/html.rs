@@ -44,8 +44,8 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
-    pdf_link_obj, pdf_new_dict, pdf_new_null, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_string_value, IntoObj, PushObj,
+    pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_string_value, IntoObj, PushObj,
 };
 use crate::spc_warn;
 use libc::{atof, free, strcat, strcpy, strlen};
@@ -278,7 +278,7 @@ unsafe fn fqurl(baseurl: *const i8, name: *const i8) -> *mut i8 {
 unsafe fn html_open_link(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_html_) -> i32 {
     assert!(!name.is_null());
     assert!((*sd).link_dict.is_null());
-    (*sd).link_dict = pdf_new_dict();
+    (*sd).link_dict = pdf_dict::new().into_obj();
     (*(*sd).link_dict).as_dict_mut().set("Type", "Annot");
     (*(*sd).link_dict).as_dict_mut().set("Subtype", "Link");
     let mut color = vec![];
@@ -297,13 +297,14 @@ unsafe fn html_open_link(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_ht
             ),
         ); /* Otherwise must be bug */
     } else {
-        let action: *mut pdf_obj = pdf_new_dict();
-        (*action).as_dict_mut().set("Type", "Action");
-        (*action).as_dict_mut().set("S", "URI");
-        (*action).as_dict_mut().set(
+        let mut action = pdf_dict::new();
+        action.set("Type", "Action");
+        action.set("S", "URI");
+        action.set(
             "URI",
             pdf_new_string(url as *const libc::c_void, strlen(url) as _),
         );
+        let action = action.into_obj();
         (*(*sd).link_dict)
             .as_dict_mut()
             .set("A", pdf_link_obj(action));
@@ -454,13 +455,13 @@ unsafe fn atopt(a: &[u8]) -> f64 {
 /* Replicated from spc_tpic */
 unsafe fn create_xgstate(a: f64, f_ais: i32) -> *mut pdf_obj
 /* alpha is shape */ {
-    let dict = pdf_new_dict();
-    (*dict).as_dict_mut().set("Type", "ExtGState");
+    let mut dict = pdf_dict::new();
+    dict.set("Type", "ExtGState");
     if f_ais != 0 {
-        (*dict).as_dict_mut().set("AIS", true);
+        dict.set("AIS", true);
     }
-    (*dict).as_dict_mut().set("ca", a);
-    dict
+    dict.set("ca", a);
+    dict.into_obj()
 }
 unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
     let dict1 = pdf_doc_current_page_resources();
@@ -598,7 +599,7 @@ unsafe fn spc_handler_html_default(spe: *mut spc_env, mut ap: *mut spc_arg) -> i
     if (*ap).cur.is_empty() {
         return 0i32;
     }
-    let attr = pdf_new_dict();
+    let attr = pdf_dict::new().into_obj();
     let name = read_html_tag(&mut *attr, &mut type_0, &mut (*ap).cur);
     if name.is_err() {
         pdf_release_obj(attr);

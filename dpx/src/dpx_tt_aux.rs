@@ -34,7 +34,7 @@ use super::dpx_dvipdfmx::always_embed;
 use super::dpx_numbers::tt_get_unsigned_quad;
 use super::dpx_tt_post::{tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::{tt_read_head_table, tt_read_os2__table};
-use crate::dpx_pdfobj::{pdf_new_dict, pdf_new_string, pdf_obj, IntoObj, PushObj};
+use crate::dpx_pdfobj::{pdf_dict, pdf_new_string, pdf_obj, IntoObj, PushObj};
 
 use libc::{free, memcpy};
 use std::io::{Seek, SeekFrom};
@@ -95,8 +95,8 @@ pub unsafe fn tt_get_fontdesc(
         free(head as *mut libc::c_void);
         return ptr::null_mut();
     }
-    let descriptor = pdf_new_dict();
-    (*descriptor).as_dict_mut().set("Type", "FontDescriptor");
+    let mut descriptor = pdf_dict::new();
+    descriptor.set("Type", "FontDescriptor");
     if *embed != 0 && !os2.is_null() {
         /*
           License:
@@ -142,14 +142,14 @@ pub unsafe fn tt_get_fontdesc(
         }
     }
     if !os2.is_null() {
-        (*descriptor).as_dict_mut().set(
+        descriptor.set(
             "Ascent",
             (1000_f64 * (*os2).sTypoAscender as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1.
                 + 0.5)
                 .floor()
                 * 1.,
         );
-        (*descriptor).as_dict_mut().set(
+        descriptor.set(
             "Descent",
             (1000_f64 * (*os2).sTypoDescender as i32 as f64
                 / (*head).unitsPerEm as i32 as f64
@@ -164,9 +164,9 @@ pub unsafe fn tt_get_fontdesc(
                 * ((*os2).usWeightClass as i32 as f64 / 65.0f64)
                 + 50i32 as f64) as i32
         } /* arbitrary */
-        (*descriptor).as_dict_mut().set("StemV", stemv as f64);
+        descriptor.set("StemV", stemv as f64);
         if (*os2).version as i32 == 0x2i32 {
-            (*descriptor).as_dict_mut().set(
+            descriptor.set(
                 "CapHeight",
                 (1000_f64 * (*os2).sCapHeight as i32 as f64
                     / (*head).unitsPerEm as i32 as f64
@@ -176,7 +176,7 @@ pub unsafe fn tt_get_fontdesc(
                     * 1.,
             );
             /* optional */
-            (*descriptor).as_dict_mut().set(
+            descriptor.set(
                 "XHeight",
                 (1000_f64 * (*os2).sxHeight as i32 as f64 / (*head).unitsPerEm as i32 as f64 / 1.
                     + 0.5)
@@ -184,7 +184,7 @@ pub unsafe fn tt_get_fontdesc(
                     * 1.,
             );
         } else {
-            (*descriptor).as_dict_mut().set(
+            descriptor.set(
                 "CapHeight",
                 (1000_f64 * (*os2).sTypoAscender as i32 as f64
                     / (*head).unitsPerEm as i32 as f64
@@ -196,7 +196,7 @@ pub unsafe fn tt_get_fontdesc(
         }
         /* optional */
         if (*os2).xAvgCharWidth as i32 != 0i32 {
-            (*descriptor).as_dict_mut().set(
+            descriptor.set(
                 "AvgWidth",
                 (1000_f64 * (*os2).xAvgCharWidth as i32 as f64
                     / (*head).unitsPerEm as i32 as f64
@@ -229,9 +229,9 @@ pub unsafe fn tt_get_fontdesc(
             .floor()
             * 1.,
     );
-    (*descriptor).as_dict_mut().set("FontBBox", bbox.into_obj());
+    descriptor.set("FontBBox", bbox.into_obj());
     /* post */
-    (*descriptor).as_dict_mut().set(
+    descriptor.set(
         "ItalicAngle",
         ((*post).italicAngle as i64 % 0x10000) as f64 / 0x10000 as f64
             + ((*post).italicAngle as i64 / 0x10000) as f64
@@ -259,7 +259,7 @@ pub unsafe fn tt_get_fontdesc(
             flag |= 1i32 << 0i32
         }
     }
-    (*descriptor).as_dict_mut().set("Flags", flag as f64);
+    descriptor.set("Flags", flag as f64);
     /* insert panose if you want */
     if type_0 == 0i32 && !os2.is_null() {
         /* cid-keyed font - add panose */
@@ -270,15 +270,15 @@ pub unsafe fn tt_get_fontdesc(
             (*os2).panose.as_mut_ptr() as *const libc::c_void,
             10,
         );
-        let styledict = pdf_new_dict();
-        (*styledict).as_dict_mut().set(
+        let mut styledict = pdf_dict::new();
+        styledict.set(
             "Panose",
             pdf_new_string(panose.as_mut_ptr() as *const libc::c_void, 12i32 as size_t),
         );
-        (*descriptor).as_dict_mut().set("Style", styledict);
+        descriptor.set("Style", styledict.into_obj());
     }
     free(head as *mut libc::c_void);
     free(os2 as *mut libc::c_void);
     tt_release_post_table(post);
-    descriptor
+    descriptor.into_obj()
 }

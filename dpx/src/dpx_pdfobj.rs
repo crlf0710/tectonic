@@ -346,6 +346,17 @@ impl IntoObj for pdf_stream {
     }
 }
 
+impl IntoObj for pdf_dict {
+    fn into_obj(self) -> *mut pdf_obj {
+        unsafe {
+            let result = pdf_new_obj(PdfObjType::DICT);
+            let boxed = Box::new(self);
+            (*result).data = Box::into_raw(boxed) as *mut libc::c_void;
+            result
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct pdf_boolean {
@@ -445,12 +456,12 @@ pub unsafe fn pdf_out_init(filename: *const i8, do_encryption: bool, enable_obje
             (*trailer_dict).as_dict_mut().set("Type", "XRef");
             do_objstm = 1i32
         } else {
-            trailer_dict = pdf_new_dict();
+            trailer_dict = pdf_dict::new().into_obj();
             do_objstm = 0i32
         }
     } else {
         xref_stream = ptr::null_mut();
-        trailer_dict = pdf_new_dict();
+        trailer_dict = pdf_dict::new().into_obj();
         do_objstm = 0i32
     }
     output_stream = ptr::null_mut();
@@ -1215,7 +1226,7 @@ unsafe fn write_dict(mut dict: *mut pdf_dict, handle: &mut OutputHandleWrapper) 
 }
 
 impl pdf_dict {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             key: ptr::null_mut(),
             value: ptr::null_mut(),
@@ -1224,16 +1235,7 @@ impl pdf_dict {
     }
 }
 
-pub fn pdf_new_dict() -> *mut pdf_obj {
-    unsafe {
-        let result = pdf_new_obj(PdfObjType::DICT);
-        let boxed = Box::new(pdf_dict::new());
-        (*result).data = Box::into_raw(boxed) as *mut libc::c_void;
-        result
-    }
-}
-
-unsafe fn release_dict(mut data: *mut pdf_dict) {
+unsafe fn release_dict(data: *mut pdf_dict) {
     if data.is_null() {
         return;
     }
@@ -1384,7 +1386,7 @@ where
 impl pdf_stream {
     pub fn new(flags: i32) -> Self {
         Self {
-            dict: unsafe { pdf_new_dict() },
+            dict: unsafe { pdf_dict::new().into_obj() },
             _flags: flags,
             decodeparms: decode_parms {
                 predictor: 2i32,
@@ -1795,12 +1797,12 @@ unsafe fn filter_create_predictor_dict(
     bpc: libc::c_int,
     colors: libc::c_int,
 ) -> *mut pdf_obj {
-    let parms = pdf_new_dict();
-    (*parms).as_dict_mut().set("BitsPerComponent", bpc as f64);
-    (*parms).as_dict_mut().set("Colors", colors as f64);
-    (*parms).as_dict_mut().set("Columns", columns as f64);
-    (*parms).as_dict_mut().set("Predictor", predictor as f64);
-    return parms;
+    let mut parms = pdf_dict::new();
+    parms.set("BitsPerComponent", bpc as f64);
+    parms.set("Colors", colors as f64);
+    parms.set("Columns", columns as f64);
+    parms.set("Predictor", predictor as f64);
+    parms.into_obj()
 }
 unsafe fn write_stream(stream: *mut pdf_stream, handle: &mut OutputHandleWrapper) {
     /*
@@ -3978,7 +3980,7 @@ pub unsafe fn pdf_import_object(object: *mut pdf_obj) -> *mut pdf_obj {
             imported.into_obj()
         }
         PdfObjType::DICT => {
-            let imported = pdf_new_dict();
+            let imported = pdf_dict::new().into_obj();
             if pdf_foreach_dict(
                 &mut *object,
                 Some(

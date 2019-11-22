@@ -59,7 +59,7 @@ use super::dpx_pdfparse::dump_slice;
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record};
 use super::dpx_tfm::{tfm_exists, tfm_get_width, tfm_open, tfm_string_width};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_obj, pdf_release_obj, pdf_set_number,
+    pdf_copy_name, pdf_dict, pdf_new_name, pdf_obj, pdf_release_obj, pdf_set_number,
     pdf_string_length, pdf_string_value, IntoObj,
 };
 use crate::dpx_pdfparse::{
@@ -518,18 +518,19 @@ unsafe fn do_findfont() -> i32 {
              * The reason for this is that we cannot locate PK font without
              * font scale.
              */
-            let font_dict = pdf_new_dict();
-            (*font_dict).as_dict_mut().set("Type", "Font");
+            let mut font_dict = pdf_dict::new();
+            font_dict.set("Type", "Font");
             if (*font_name).is_string() {
-                (*font_dict).as_dict_mut().set(
+                font_dict.set(
                     "FontName",
                     pdf_copy_name(pdf_string_value(&*font_name) as *const i8),
                 );
                 pdf_release_obj(font_name);
             } else {
-                (*font_dict).as_dict_mut().set("FontName", font_name);
+                font_dict.set("FontName", font_name);
             }
-            (*font_dict).as_dict_mut().set("FontScale", 1_f64);
+            font_dict.set("FontScale", 1_f64);
+            let font_dict = font_dict.into_obj();
             if STACK.push_checked(font_dict).is_err() {
                 pdf_release_obj(font_dict);
                 error = 1i32
@@ -596,17 +597,14 @@ unsafe fn do_currentfont() -> i32 {
         warn!("Currentfont undefined...");
         return 1i32;
     } else {
-        let font_dict = pdf_new_dict();
-        (*font_dict).as_dict_mut().set("Type", "Font");
-        (*font_dict)
-            .as_dict_mut()
-            .set("FontName", pdf_new_name((*font).font_name.to_bytes()));
-        (*font_dict).as_dict_mut().set("FontScale", (*font).pt_size);
+        let mut font_dict = pdf_dict::new();
+        font_dict.set("Type", "Font");
+        font_dict.set("FontName", pdf_new_name((*font).font_name.to_bytes()));
+        font_dict.set("FontScale", (*font).pt_size);
         if STACK.len() < 1024 {
-            STACK.push(font_dict)
+            STACK.push(font_dict.into_obj())
         } else {
             warn!("PS stack overflow...");
-            pdf_release_obj(font_dict);
             error = 1i32
         }
     }

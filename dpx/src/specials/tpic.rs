@@ -47,8 +47,8 @@ use crate::dpx_pdfdraw::{
     pdf_dev_setmiterlimit,
 };
 use crate::dpx_pdfobj::{
-    pdf_foreach_dict, pdf_get_version, pdf_new_dict, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_string_value,
+    pdf_dict, pdf_foreach_dict, pdf_get_version, pdf_new_string, pdf_obj, pdf_ref_obj,
+    pdf_release_obj, pdf_string_value, IntoObj,
 };
 use crate::dpx_pdfparse::ParseIdent;
 use libc::atof;
@@ -89,14 +89,13 @@ unsafe fn tpic__clear(tp: *mut spc_tpic_) {
 }
 unsafe fn create_xgstate(a: f64, f_ais: i32) -> *mut pdf_obj
 /* alpha is shape */ {
-    let dict = pdf_new_dict(); /* dash pattern */
-    let dict_ref = (*dict).as_dict_mut();
-    dict_ref.set("Type", "ExtGState");
+    let mut dict = pdf_dict::new(); /* dash pattern */
+    dict.set("Type", "ExtGState");
     if f_ais != 0 {
-        dict_ref.set("AIS", true);
+        dict.set("AIS", true);
     }
-    dict_ref.set("ca", a);
-    dict
+    dict.set("ca", a);
+    dict.into_obj()
 }
 unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
     let dict1 = pdf_doc_current_page_resources();
@@ -607,8 +606,7 @@ pub unsafe fn spc_tpic_at_end_document() -> i32 {
 }
 unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
     let mut error: i32 = 0i32;
-    let mut dict = pdf_new_dict();
-    let dict_ref = (*dict).as_dict_mut();
+    let mut dict = pdf_dict::new();
     (*ap).cur.skip_blank();
     while error == 0 && !(*ap).cur.is_empty() {
         if let Some(kp) = (*ap).cur.parse_val_ident() {
@@ -621,7 +619,7 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
                     break;
                 } else {
                     if let Some(vp) = (*ap).cur.parse_c_string() {
-                        dict_ref.set(
+                        dict.set(
                             kp.to_bytes(),
                             pdf_new_string(
                                 vp.as_ptr() as *const libc::c_void,
@@ -634,7 +632,7 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
                 }
             } else {
                 /* Treated as 'flag' */
-                dict_ref.set(kp.to_bytes(), true);
+                dict.set(kp.to_bytes(), true);
             }
             if error == 0 {
                 (*ap).cur.skip_blank();
@@ -644,10 +642,9 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> *mut pdf_obj {
         }
     }
     if error != 0 {
-        pdf_release_obj(dict);
-        dict = ptr::null_mut()
+        return ptr::null_mut();
     }
-    dict
+    dict.into_obj()
 }
 unsafe fn tpic_filter_getopts(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
     let mut tp: *mut spc_tpic_ = dp as *mut spc_tpic_;

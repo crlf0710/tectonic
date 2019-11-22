@@ -66,7 +66,7 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_foreach_dict, pdf_link_obj, pdf_new_dict, pdf_obj, pdf_obj_typeof, pdf_release_obj,
+    pdf_dict, pdf_foreach_dict, pdf_link_obj, pdf_obj, pdf_obj_typeof, pdf_release_obj,
     pdf_remove_dict, pdf_set_string, pdf_stream, pdf_string_length, pdf_string_value, IntoObj,
     PdfObjType, STREAM_COMPRESS,
 };
@@ -893,7 +893,7 @@ unsafe fn spc_handler_pdfm_bead(spe: *mut spc_env, args: *mut spc_arg) -> i32 {
     };
     (*args).cur.skip_white();
     if (*args).cur[0] != b'<' {
-        article_info = pdf_new_dict()
+        article_info = pdf_dict::new().into_obj();
     } else {
         if let Some(ai) = (*args).cur.parse_pdf_dict_with_tounicode(&mut (*sd).cd) {
             article_info = ai;

@@ -34,7 +34,7 @@ use std::ptr;
 use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_deref_obj, pdf_file, pdf_new_dict, pdf_new_indirect, pdf_new_name, pdf_new_null,
+    pdf_deref_obj, pdf_dict, pdf_file, pdf_new_indirect, pdf_new_name, pdf_new_null,
     pdf_new_string, pdf_obj, pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::specials::spc_lookup_reference;
@@ -554,7 +554,7 @@ impl ParsePdfObj for &[u8] {
             return None;
         } /* skip >> */
         p = &p[2..]; /* skip ] */
-        let result = unsafe { pdf_new_dict() };
+        let mut result = pdf_dict::new();
         p.skip_white();
         while !p.is_empty() && p[0] != b'>' {
             p.skip_white();
@@ -562,36 +562,27 @@ impl ParsePdfObj for &[u8] {
                 p.skip_white();
                 if let Some(value) = p.parse_pdf_object(pf) {
                     unsafe {
-                        (*result)
-                            .as_dict_mut()
-                            .set((*key).as_name().to_bytes(), value);
+                        result.set((*key).as_name().to_bytes(), value);
                     }
                     p.skip_white();
                 } else {
                     unsafe {
                         pdf_release_obj(key);
-                        pdf_release_obj(result);
                     }
                     warn!("Could not find a value in dictionary object.");
                     return None;
                 }
             } else {
                 warn!("Could not find a key in dictionary object.");
-                unsafe {
-                    pdf_release_obj(result);
-                }
                 return None;
             }
         }
         if p.len() < 2 || p[0] != b'>' || p[1] != b'>' {
             warn!("Syntax error: Dictionary object ended prematurely.");
-            unsafe {
-                pdf_release_obj(result);
-            }
             return None;
         }
         *self = &p[2..];
-        Some(result)
+        Some(result.into_obj())
     }
     fn parse_pdf_literal_string(&mut self) -> Option<*mut pdf_obj> {
         /*

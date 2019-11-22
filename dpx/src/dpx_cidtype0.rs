@@ -77,7 +77,7 @@ use super::dpx_tt_table::{
 };
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_new_dict, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
+    pdf_copy_name, pdf_dict, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
     IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::dpx_truetype::sfnt_table_info;
@@ -1132,7 +1132,7 @@ pub unsafe fn CIDFont_type0_open(
     (*font).subtype = 1i32;
     (*font).csi = csi;
     (*font).flags |= expected_flag;
-    (*font).fontdict = pdf_new_dict();
+    (*font).fontdict = pdf_dict::new().into_obj();
     (*(*font).fontdict).as_dict_mut().set("Type", "Font");
     (*(*font).fontdict)
         .as_dict_mut()
@@ -1147,7 +1147,7 @@ pub unsafe fn CIDFont_type0_open(
         *fontname.offset(6) = '+' as i32 as i8
     }
     if expect_type1_font != 0 {
-        (*font).descriptor = pdf_new_dict()
+        (*font).descriptor = pdf_dict::new().into_obj()
     } else {
         /* getting font info. from TrueType tables */
         (*font).descriptor = tt_get_fontdesc(sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name);
@@ -1161,27 +1161,25 @@ pub unsafe fn CIDFont_type0_open(
     (*(*font).fontdict)
         .as_dict_mut()
         .set("BaseFont", pdf_copy_name(fontname));
-    let csi_dict = pdf_new_dict();
-    (*csi_dict).as_dict_mut().set(
+    let mut csi_dict = pdf_dict::new();
+    csi_dict.set(
         "Registry",
         pdf_new_string(
             (*csi).registry as *const libc::c_void,
             strlen((*csi).registry) as _,
         ),
     );
-    (*csi_dict).as_dict_mut().set(
+    csi_dict.set(
         "Ordering",
         pdf_new_string(
             (*csi).ordering as *const libc::c_void,
             strlen((*csi).ordering) as _,
         ),
     );
-    (*csi_dict)
-        .as_dict_mut()
-        .set("Supplement", (*csi).supplement as f64);
+    csi_dict.set("Supplement", (*csi).supplement as f64);
     (*(*font).fontdict)
         .as_dict_mut()
-        .set("CIDSystemInfo", csi_dict);
+        .set("CIDSystemInfo", csi_dict.into_obj());
     if is_cid_font != 0 {
         (*(*font).fontdict).as_dict_mut().set("DW", 1000_f64);
         /* not sure */

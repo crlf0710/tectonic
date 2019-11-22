@@ -36,8 +36,8 @@ use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_new_dict, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_stream, pdf_stream_set_predictor, IntoObj, PushObj, STREAM_COMPRESS,
+    pdf_dict, pdf_get_version, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
+    pdf_stream_set_predictor, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::ttstub_input_read;
 use libc::free;
@@ -749,15 +749,13 @@ unsafe fn make_param_Cal(
         warn!("Unusual Gamma specified: 1.0 / {}", G,);
         return ptr::null_mut();
     }
-    let cal_param = pdf_new_dict();
+    let mut cal_param = pdf_dict::new();
     /* White point is always required. */
     let mut white_point = vec![];
     for val in &[Xw, Yw, Zw] {
         white_point.push_obj((val / 0.00001 + 0.5).floor() * 0.00001);
     }
-    (*cal_param)
-        .as_dict_mut()
-        .set("WhitePoint", white_point.into_obj());
+    cal_param.set("WhitePoint", white_point.into_obj());
     /* Matrix - default: Identity */
     if color_type as i32 & 2i32 != 0 {
         if G != 1.0f64 {
@@ -765,21 +763,17 @@ unsafe fn make_param_Cal(
             for _ in 0..3 {
                 dev_gamma.push_obj((G / 0.00001 + 0.5).floor() * 0.00001);
             }
-            (*cal_param)
-                .as_dict_mut()
-                .set("Gamma", dev_gamma.into_obj());
+            cal_param.set("Gamma", dev_gamma.into_obj());
         }
         let mut matrix = vec![];
         for val in &[Xr, Yr, Zr, Xg, Yg, Zg, Xb, Yb, Zb] {
             matrix.push_obj((val / 0.00001 + 0.5).floor() * 0.00001);
         }
-        (*cal_param).as_dict_mut().set("Matrix", matrix.into_obj());
+        cal_param.set("Matrix", matrix.into_obj());
     } else if G != 1.0f64 {
-        (*cal_param)
-            .as_dict_mut()
-            .set("Gamma", (G / 0.00001 + 0.5).floor() * 0.00001);
+        cal_param.set("Gamma", (G / 0.00001 + 0.5).floor() * 0.00001);
     }
-    cal_param
+    cal_param.into_obj()
 }
 /* ColorSpace */
 /*
