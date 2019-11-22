@@ -515,7 +515,6 @@ const AWFUL_BAD: i32 = MAX_HALFWORD; /* XXX redundant with xetex-linebreak.c */
 
 #[no_mangle]
 pub unsafe extern "C" fn build_page() {
-    let mut current_block: u64;
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut r: i32 = 0;
@@ -523,9 +522,18 @@ pub unsafe extern "C" fn build_page() {
     let mut c: i32 = 0;
     let mut pi: i32 = 0;
     let mut n: u8 = 0;
-    let mut delta: scaled_t = 0;
     let mut h: scaled_t = 0;
     let mut w: scaled_t = 0;
+
+    enum OPCODE {
+        Contribute,
+        Done1,
+        UpdateHeights,
+        Done,
+        NormalBlock0,
+        NormalBlock1,
+        Continue,
+    };
 
     if *LLIST_link(CONTRIB_HEAD as isize) == TEX_NULL || output_active as i32 != 0 {
         return;
@@ -573,7 +581,7 @@ pub unsafe extern "C" fn build_page() {
          * contribution list will not be contributed until we know its
          * successor." */
 
-        match *NODE_type(p as isize) {
+        let next_move : OPCODE = match *NODE_type(p as isize) {
             HLIST_NODE | VLIST_NODE | RULE_NODE => {
                 if page_contents < BOX_THERE as _ {
                     /*1036: "Initialize the current page, insert the \topskip glue
@@ -592,13 +600,13 @@ pub unsafe extern "C" fn build_page() {
 
                     *LLIST_link(q as isize) = p;
                     *LLIST_link(CONTRIB_HEAD as isize) = q;
-                    current_block = 15427931788582360902;
+                    OPCODE::Continue
                 } else {
                     /*1037: "Prepare to move a box or rule node to the current
                  * page, then goto contribute." */
                     page_so_far[1] += page_so_far[7] + *BOX_height(p as isize);
                     page_so_far[7] = *BOX_depth(p as isize);
-                    current_block = 11918621130838443904;
+                    OPCODE::Contribute
                 }
             }
             WHATSIT_NODE => {
@@ -607,35 +615,39 @@ pub unsafe extern "C" fn build_page() {
                     page_so_far[1] += page_so_far[7] + *BOX_height(p as isize);
                     page_so_far[7] = *BOX_depth(p as isize);
                 }
-                current_block = 11918621130838443904;
+                OPCODE::Contribute
             }
             GLUE_NODE => {
                 if page_contents < BOX_THERE as _ {
-                    current_block = 15559656170992153795;
+                    OPCODE::Done1
                 } else if is_non_discardable_node(page_tail) {
                     pi = 0;
-                    current_block = 13253659531982233645;
-                } else { current_block = 5579886686420104461; }
+                    OPCODE::NormalBlock0
+                } else {
+                    OPCODE::UpdateHeights
+                }
             }
             KERN_NODE => {
                 if page_contents  < BOX_THERE as _ {
-                    current_block = 15559656170992153795;
+                    OPCODE::Done1
                 } else if *LLIST_link(p as isize) == TEX_NULL {
                     return
                 } else if *NODE_type(*LLIST_link(p as isize) as isize) == GLUE_NODE {
                     pi = 0;
-                    current_block = 13253659531982233645;
-                } else { current_block = 5579886686420104461; }
+                    OPCODE::NormalBlock0
+                } else {
+                    OPCODE::UpdateHeights
+                }
             }
             PENALTY_NODE => {
                 if page_contents < BOX_THERE as _ {
-                    current_block = 15559656170992153795;
+                    OPCODE::Done1
                 } else {
                     pi = (*mem.offset((p + 1i32) as isize)).b32.s1;
-                    current_block = 13253659531982233645;
+                    OPCODE::NormalBlock0
                 }
             }
-            MARK_NODE => { current_block = 11918621130838443904; }
+            MARK_NODE => { OPCODE::Contribute }
             INS_NODE => {
                 /*1043: "Append an insertion to the current page and goto contribute" */
                 if page_contents == EMPTY as _ {
@@ -712,7 +724,7 @@ pub unsafe extern "C" fn build_page() {
                         (*mem.offset((p + 1i32) as isize)).b32.s1
                 } else {
                     (*mem.offset((r + 2i32) as isize)).b32.s1 = p;
-                    delta =
+                    let delta =
                         page_so_far[0] - page_so_far[1] - page_so_far[7] +
                             page_so_far[6];
 
@@ -781,21 +793,25 @@ pub unsafe extern "C" fn build_page() {
                         }
                     }
                 }
-                current_block = 11918621130838443904;
+                OPCODE::Contribute
             }
             _ => {
                 confusion(b"page\x00" as *const u8 as *const i8);
+                OPCODE::NormalBlock0
             }
-        }
-        match current_block {
-            13253659531982233645 =>
+        };
+
+        // Regular exit from the switch
+        let next_move : OPCODE = match next_move {
+            OPCODE::NormalBlock0 => {
+
             /*1040: "Check if node p is the new champion breakpoint; then if it is
          * time for a page break, prepare for output, and either fire up the
          * user's output routine and return or ship out the page and goto
          * done." We reach this point when p is a glue, kern, or penalty, and
          * there's already content on the page -- so this might be a place to
          * break the page. */
-            {
+
                 if pi < INF_PENALTY {
                     /*1042: "Compute the badness b of the current page, using
              * awful_bad if the box is too full." */
@@ -842,69 +858,41 @@ pub unsafe extern "C" fn build_page() {
                     if c == AWFUL_BAD || pi <= EJECT_PENALTY {
                         fire_up(p);
                         if output_active {
-                            /* "the page has been shipped out by the default output routine" */
                             /* "user's output routine will act" */
                             return
                         }
-                        current_block = 15427931788582360902;
-                    } else { current_block = 433373112845341403; }
-                } else { current_block = 433373112845341403; }
-                match current_block {
-                    15427931788582360902 => { }
-                    _ =>
+                        /* "the page has been shipped out by the default output routine" */
+                        OPCODE::Done
+                    } else {
+                        OPCODE::NormalBlock1
+                    }
+                } else {
+                    OPCODE::NormalBlock1
+                }
+            },
+            x => x,
+        };
+
+        // Everything falling through from above
+        let next_move : OPCODE = match next_move {
+            OPCODE::NormalBlock1 => {
                     /* ... resuming 1032 ... I believe the "goto" here can only be
          * triggered if p is a penalty node, and we decided not to break. */
-                    {
-                        if ((*mem.offset(p as isize)).b16.s1 as i32) <
-                               10i32 ||
-                               (*mem.offset(p as isize)).b16.s1 as i32
-                                   > 11i32 {
-                            current_block = 11918621130838443904;
-                        } else { current_block = 5579886686420104461; }
-                    }
-                }
-            }
-            15559656170992153795 => {
-                /*1034: "Recycle node p". This codepath is triggered if we encountered
-         * something nonprinting (glue, kern, penalty) and there aren't any
-         * yes-printing boxes at the top of the page yet. When that happens,
-         * we just discard the nonprinting node. */
-                (*mem.offset((4999999i32 - 1i32) as isize)).b32.s1 =
-                    (*mem.offset(p as isize)).b32.s1;
-                (*mem.offset(p as isize)).b32.s1 = -0xfffffffi32;
-                if (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                      (0x10ffffi32 + 1i32) + 1i32 + 15000i32 +
-                                      12i32 + 9000i32 + 1i32 + 1i32 + 19i32 +
-                                      256i32 + 256i32 + 13i32 + 256i32 + 4i32
-                                      + 256i32 + 1i32 + 3i32 * 256i32 +
-                                      (0x10ffffi32 + 1i32) +
-                                      (0x10ffffi32 + 1i32) +
-                                      (0x10ffffi32 + 1i32) +
-                                      (0x10ffffi32 + 1i32) +
-                                      (0x10ffffi32 + 1i32) +
-                                      (0x10ffffi32 + 1i32) + 65i32) as
-                                     isize)).b32.s1 <= 0i32 {
-                    flush_node_list(p);
+                if *NODE_type(p as isize) < GLUE_NODE || *NODE_type(p as isize) > KERN_NODE {
+                    OPCODE::Contribute
                 } else {
-                    /* `disc_ptr[LAST_BOX_CODE]` is `tail_page_disc`, the last item
-             * removed by the page builder. `disc_ptr[LAST_BOX_CODE]` is
-             * `page_disc`, the first item removed by the page builder.
-             * `disc_ptr[VSPLIT_CODE]` is `split_disc`, the first item removed
-             * by \vsplit. */
-                    if disc_ptr[2] == -0xfffffffi32 {
-                        disc_ptr[2] = p
-                    } else { (*mem.offset(disc_ptr[1] as isize)).b32.s1 = p }
-                    disc_ptr[1] = p
+                    OPCODE::UpdateHeights
                 }
-                current_block = 15427931788582360902;
-            }
-            _ => { }
-        }
-        match current_block {
-            5579886686420104461 => {
+            },
+            x => x,
+        };
+
+        // update_heights:
+        let next_move : OPCODE = match next_move {
+            OPCODE::UpdateHeights => {
                 /*1039: "Update the current page measurements with respect to the glue or kern
          * specified by node p" */
-                if (*mem.offset(p as isize)).b16.s1 as i32 == 11i32 {
+                if *NODE_type(p as isize) == KERN_NODE {
                     q = p
                 } else {
                     q = (*mem.offset((p + 1i32) as isize)).b32.s0;
@@ -950,36 +938,72 @@ pub unsafe extern "C" fn build_page() {
                     page_so_far[7] +
                         (*mem.offset((q + 1i32) as isize)).b32.s1;
                 page_so_far[7] = 0i32;
-                current_block = 11918621130838443904;
-            }
-            _ => { }
-        }
-        match current_block {
-            11918621130838443904 => {
+
+                OPCODE::Contribute
+            },
+            x => x
+        };
+
+        // contribute:
+        let next_move : OPCODE = match next_move {
+            OPCODE::Contribute => {
                 /*1038: "Make sure that page_max_depth is not exceeded." */
                 if page_so_far[7] > page_max_depth {
                     page_so_far[1] += page_so_far[7] - page_max_depth;
                     page_so_far[7] = page_max_depth
                 }
                 /*1033: "Link node p into the current page and goto done." */
-                (*mem.offset(page_tail as isize)).b32.s1 =
-                    p; /* "vertical mode" */
+                *LLIST_link(page_tail as isize) = p;
                 page_tail = p;
-                (*mem.offset((4999999i32 - 1i32) as isize)).b32.s1 =
-                    (*mem.offset(p as isize)).b32.s1;
-                (*mem.offset(p as isize)).b32.s1 = -0xfffffffi32
-            }
-            _ => { }
+                *LLIST_link(CONTRIB_HEAD as isize) = *LLIST_link(p as isize);
+                *LLIST_link(p as isize) = TEX_NULL;
+
+                OPCODE::Done
+            },
+            x => x
+        };
+
+        // done1:
+        let next_move : OPCODE = match next_move {
+            OPCODE::Done1 => {
+                /*1034: "Recycle node p". This codepath is triggered if we encountered
+         * something nonprinting (glue, kern, penalty) and there aren't any
+         * yes-printing boxes at the top of the page yet. When that happens,
+         * we just discard the nonprinting node. */
+                *LLIST_link(CONTRIB_HEAD as isize) = *LLIST_link(p as isize);
+                *LLIST_link(p as isize) = TEX_NULL;
+
+                if INTPAR(INT_PAR__saving_vdiscards) <= 0 {
+                    flush_node_list(p);
+                } else {
+                    /* `disc_ptr[LAST_BOX_CODE]` is `tail_page_disc`, the last item
+             * removed by the page builder. `disc_ptr[LAST_BOX_CODE]` is
+             * `page_disc`, the first item removed by the page builder.
+             * `disc_ptr[VSPLIT_CODE]` is `split_disc`, the first item removed
+             * by \vsplit. */
+                    if disc_ptr[LAST_BOX_CODE as usize] == TEX_NULL {
+                        disc_ptr[LAST_BOX_CODE as usize] = p
+                    } else { *LLIST_link(disc_ptr[COPY_CODE as usize] as isize) = p;}
+                    disc_ptr[COPY_CODE as usize] = p
+                }
+                OPCODE::Done
+            },
+            x => x,
+        };
+        // done:
+        match next_move {
+            OPCODE::Done | OPCODE::Continue => {
+            },
+            x => unreachable!(),
+
         }
-        if !((*mem.offset((4999999i32 - 1i32) as isize)).b32.s1 !=
-                 -0xfffffffi32) {
+        if !(*LLIST_link(CONTRIB_HEAD as isize) != TEX_NULL) {
             break ;
         }
     }
-    if nest_ptr == 0i32 {
-        cur_list.tail = 4999999i32 - 1i32
+    if nest_ptr == 0 {
+        cur_list.tail = CONTRIB_HEAD; /* "vertical mode" */
     } else {
-        (*nest.offset(0)).tail = 4999999i32 - 1i32
+        (*nest.offset(0)).tail = CONTRIB_HEAD; /* "other modes" */
     };
-    /* "other modes" */
 }
