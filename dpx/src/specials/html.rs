@@ -559,7 +559,7 @@ unsafe fn spc_html__img_empty(spe: *mut spc_env, attr: &pdf_obj) -> i32 {
         spc_warn!(
             spe,
             "Could not find/load image: {}",
-            CStr::from_ptr(pdf_string_value(src) as *mut i8).display(),
+            CStr::from_ptr(pdf_string_value(src) as *const i8).display(),
         ); /* op: gs */
         error = -1i32
     } else {
