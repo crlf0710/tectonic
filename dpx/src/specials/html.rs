@@ -285,7 +285,7 @@ unsafe fn html_open_link(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_ht
     color.push_obj(0f64);
     color.push_obj(0f64);
     color.push_obj(1f64);
-    (*(*sd).link_dict).as_dict_mut().set("C", color.into_obj());
+    (*(*sd).link_dict).as_dict_mut().set("C", color);
     let url = fqurl((*sd).baseurl, name);
     if *url.offset(0) as i32 == '#' as i32 {
         /* url++; causes memory leak in free(url) */
@@ -453,7 +453,7 @@ unsafe fn atopt(a: &[u8]) -> f64 {
     v * u
 }
 /* Replicated from spc_tpic */
-unsafe fn create_xgstate(a: f64, f_ais: i32) -> *mut pdf_obj
+unsafe fn create_xgstate(a: f64, f_ais: i32) -> pdf_dict
 /* alpha is shape */ {
     let mut dict = pdf_dict::new();
     dict.set("Type", "ExtGState");
@@ -461,7 +461,7 @@ unsafe fn create_xgstate(a: f64, f_ais: i32) -> *mut pdf_obj
         dict.set("AIS", true);
     }
     dict.set("ca", a);
-    dict.into_obj()
+    dict
 }
 unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
     let dict1 = pdf_doc_current_page_resources();
@@ -568,7 +568,8 @@ unsafe fn spc_html__img_empty(spe: *mut spc_env, attr: &pdf_obj) -> i32 {
             let res_name = format!("_Tps_a{:03}_", a);
             let res_name_c = CString::new(res_name.as_str()).unwrap();
             if check_resourcestatus("ExtGState", &res_name) == 0 {
-                let dict = create_xgstate((0.01f64 * a as f64 / 0.01f64).round() * 0.01f64, 0i32);
+                let dict = create_xgstate((0.01f64 * a as f64 / 0.01f64).round() * 0.01f64, 0i32)
+                    .into_obj();
                 pdf_doc_add_page_resource("ExtGState", res_name_c.as_ptr(), pdf_ref_obj(dict));
                 pdf_release_obj(dict);
             }

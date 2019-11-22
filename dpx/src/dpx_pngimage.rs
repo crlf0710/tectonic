@@ -198,15 +198,21 @@ pub unsafe fn png_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
     }
     match color_type as i32 {
         3 => {
-            colorspace = create_cspace_Indexed(png, png_info);
+            colorspace = create_cspace_Indexed(png, png_info)
+                .map(IntoObj::into_obj)
+                .unwrap_or(ptr::null_mut());
             match trans_type {
                 1 => {
                     /* Color-key masking */
                     mask = create_ckey_mask(png, png_info)
+                        .map(IntoObj::into_obj)
+                        .unwrap_or(ptr::null_mut())
                 }
                 2 => {
                     /* Soft mask */
                     mask = create_soft_mask(png, png_info, stream_data_ptr, width, height)
+                        .map(IntoObj::into_obj)
+                        .unwrap_or(ptr::null_mut())
                 }
                 _ => {}
             }
@@ -217,27 +223,28 @@ pub unsafe fn png_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
                 colorspace = create_cspace_ICCBased(png, png_info)
             } else if !intent.is_null() {
                 colorspace = create_cspace_sRGB(png, png_info)
+                    .map(IntoObj::into_obj)
+                    .unwrap_or(ptr::null_mut())
             } else {
                 colorspace = create_cspace_CalRGB(png, png_info)
+                    .map(IntoObj::into_obj)
+                    .unwrap_or(ptr::null_mut())
             }
             if colorspace.is_null() {
                 colorspace = "DeviceRGB".into_obj()
             }
-            match trans_type {
-                1 => mask = create_ckey_mask(png, png_info),
+            mask = match trans_type {
+                1 => create_ckey_mask(png, png_info)
+                    .map(IntoObj::into_obj)
+                    .unwrap_or(ptr::null_mut()),
                 2 => {
                     /* rowbytes changes 4 to 3 at here */
-                    mask = strip_soft_mask(
-                        png,
-                        png_info,
-                        stream_data_ptr,
-                        &mut rowbytes,
-                        width,
-                        height,
-                    )
+                    strip_soft_mask(png, png_info, stream_data_ptr, &mut rowbytes, width, height)
+                        .map(IntoObj::into_obj)
+                        .unwrap_or(ptr::null_mut())
                 }
-                _ => mask = ptr::null_mut(),
-            }
+                _ => ptr::null_mut(),
+            };
             info.num_components = 3i32
         }
         0 | 4 => {
@@ -245,26 +252,25 @@ pub unsafe fn png_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
                 colorspace = create_cspace_ICCBased(png, png_info)
             } else if !intent.is_null() {
                 colorspace = create_cspace_sRGB(png, png_info)
+                    .map(IntoObj::into_obj)
+                    .unwrap_or(ptr::null_mut())
             } else {
                 colorspace = create_cspace_CalGray(png, png_info)
+                    .map(IntoObj::into_obj)
+                    .unwrap_or(ptr::null_mut())
             }
             if colorspace.is_null() {
                 colorspace = "DeviceGray".into_obj()
             }
-            match trans_type {
-                1 => mask = create_ckey_mask(png, png_info),
-                2 => {
-                    mask = strip_soft_mask(
-                        png,
-                        png_info,
-                        stream_data_ptr,
-                        &mut rowbytes,
-                        width,
-                        height,
-                    )
-                }
-                _ => mask = ptr::null_mut(),
-            }
+            mask = match trans_type {
+                1 => create_ckey_mask(png, png_info)
+                    .map(IntoObj::into_obj)
+                    .unwrap_or(ptr::null_mut()),
+                2 => strip_soft_mask(png, png_info, stream_data_ptr, &mut rowbytes, width, height)
+                    .map(IntoObj::into_obj)
+                    .unwrap_or(ptr::null_mut()),
+                _ => ptr::null_mut(),
+            };
             info.num_components = 1i32
         }
         _ => {
@@ -526,15 +532,12 @@ unsafe fn get_rendering_intent(png: &mut png_struct, info: &mut png_info) -> *mu
  * space.
  */
 /* Approximated sRGB */
-unsafe fn create_cspace_sRGB(png: &png_struct, info: &png_info) -> *mut pdf_obj {
+unsafe fn create_cspace_sRGB(png: &png_struct, info: &png_info) -> Option<Vec<*mut pdf_obj>> {
     let color_type = png_get_color_type(png, info);
     /* Parameters taken from PNG spec. section 4.2.2.3. */
     let cal_param = make_param_Cal(
         color_type, 2.2f64, 0.3127f64, 0.329f64, 0.64f64, 0.33f64, 0.3f64, 0.6f64, 0.15f64, 0.06f64,
-    );
-    if cal_param.is_null() {
-        return ptr::null_mut();
-    }
+    )?;
     let mut colorspace = vec![];
     match color_type as i32 {
         2 | 6 | 3 => {
@@ -545,8 +548,8 @@ unsafe fn create_cspace_sRGB(png: &png_struct, info: &png_info) -> *mut pdf_obj 
         }
         _ => {}
     }
-    colorspace.push(cal_param);
-    colorspace.into_obj()
+    colorspace.push_obj(cal_param);
+    Some(colorspace)
 }
 /* ICCBased:
  *
@@ -600,7 +603,10 @@ unsafe fn create_cspace_ICCBased(png: &mut png_struct, png_info: &mut png_info) 
  *   If cHRM is present, we use CIE-Based color space. gAMA is also used here
  * if available.
  */
-unsafe fn create_cspace_CalRGB(png: &mut png_struct, png_info: &mut png_info) -> *mut pdf_obj {
+unsafe fn create_cspace_CalRGB(
+    png: &mut png_struct,
+    png_info: &mut png_info,
+) -> Option<Vec<*mut pdf_obj>> {
     let mut xw: f64 = 0.;
     let mut yw: f64 = 0.;
     let mut xr: f64 = 0.;
@@ -615,7 +621,7 @@ unsafe fn create_cspace_CalRGB(png: &mut png_struct, png_info: &mut png_info) ->
             png, png_info, &mut xw, &mut yw, &mut xr, &mut yr, &mut xg, &mut yg, &mut xb, &mut yb,
         ) == 0
     {
-        return ptr::null_mut();
+        return None;
     }
     if xw <= 0.0f64
         || yw < 1.0e-10f64
@@ -627,28 +633,28 @@ unsafe fn create_cspace_CalRGB(png: &mut png_struct, png_info: &mut png_info) ->
         || yb < 0.0f64
     {
         warn!("{}: Invalid cHRM chunk parameters found.", "PNG");
-        return ptr::null_mut();
+        return None;
     }
     if png_get_valid(png, png_info, 0x1u32) != 0 && png_get_gAMA(png, png_info, &mut G) != 0 {
         if G < 1.0e-2f64 {
             warn!("{}: Unusual Gamma value: 1.0 / {}", "PNG", G,);
-            return ptr::null_mut();
+            return None;
         }
         G = 1.0f64 / G
     /* Gamma is inverted. */
     } else {
         G = 2.2f64
     }
-    let cal_param = make_param_Cal(2i32 as png_byte, G, xw, yw, xr, yr, xg, yg, xb, yb);
-    if cal_param.is_null() {
-        return ptr::null_mut();
-    }
+    let cal_param = make_param_Cal(2i32 as png_byte, G, xw, yw, xr, yr, xg, yg, xb, yb)?;
     let mut colorspace = vec![];
     colorspace.push_obj("CalRGB");
-    colorspace.push(cal_param);
-    colorspace.into_obj()
+    colorspace.push_obj(cal_param);
+    Some(colorspace)
 }
-unsafe fn create_cspace_CalGray(png: &mut png_struct, info: &mut png_info) -> *mut pdf_obj {
+unsafe fn create_cspace_CalGray(
+    png: &mut png_struct,
+    info: &mut png_info,
+) -> Option<Vec<*mut pdf_obj>> {
     let mut xw: f64 = 0.;
     let mut yw: f64 = 0.;
     let mut xr: f64 = 0.;
@@ -663,7 +669,7 @@ unsafe fn create_cspace_CalGray(png: &mut png_struct, info: &mut png_info) -> *m
             png, info, &mut xw, &mut yw, &mut xr, &mut yr, &mut xg, &mut yg, &mut xb, &mut yb,
         ) == 0
     {
-        return ptr::null_mut();
+        return None;
     }
     if xw <= 0.0f64
         || yw < 1.0e-10f64
@@ -675,26 +681,23 @@ unsafe fn create_cspace_CalGray(png: &mut png_struct, info: &mut png_info) -> *m
         || yb < 0.0f64
     {
         warn!("{}: Invalid cHRM chunk parameters found.", "PNG");
-        return ptr::null_mut();
+        return None;
     }
     if png_get_valid(png, info, 0x1u32) != 0 && png_get_gAMA(png, info, &mut G) != 0 {
         if G < 1.0e-2f64 {
             warn!("{}: Unusual Gamma value: 1.0 / {}", "PNG", G,);
-            return ptr::null_mut();
+            return None;
         }
         G = 1.0f64 / G
     /* Gamma is inverted. */
     } else {
         G = 2.2f64
     } /* Yw = 1.0 */
-    let cal_param = make_param_Cal(0i32 as png_byte, G, xw, yw, xr, yr, xg, yg, xb, yb);
-    if cal_param.is_null() {
-        return ptr::null_mut();
-    }
+    let cal_param = make_param_Cal(0i32 as png_byte, G, xw, yw, xr, yr, xg, yg, xb, yb)?;
     let mut colorspace = vec![];
     colorspace.push_obj("CalGray");
-    colorspace.push(cal_param);
-    colorspace.into_obj()
+    colorspace.push_obj(cal_param);
+    Some(colorspace)
 }
 unsafe fn make_param_Cal(
     color_type: png_byte,
@@ -707,7 +710,7 @@ unsafe fn make_param_Cal(
     yg: f64,
     xb: f64,
     yb: f64,
-) -> *mut pdf_obj {
+) -> Option<pdf_dict> {
     /*
      * TODO: Check validity
      *
@@ -731,7 +734,7 @@ unsafe fn make_param_Cal(
     let det = xr * (yg * zb - zg * yb) - xg * (yr * zb - zr * yb) + xb * (yr * zg - zr * yg);
     if (if det < 0i32 as f64 { -det } else { det }) < 1.0e-10f64 {
         warn!("Non invertible matrix: Maybe invalid value(s) specified in cHRM chunk.");
-        return ptr::null_mut();
+        return None;
     }
     let fr = (Xw * (yg * zb - zg * yb) - xg * (zb - Zw * yb) + xb * (zg - Zw * yg)) / det;
     let fg = (xr * (zb - Zw * yb) - Xw * (yr * zb - zr * yb) + xb * (yr * Zw - zr)) / det;
@@ -746,8 +749,8 @@ unsafe fn make_param_Cal(
     let Yb = fb * yb;
     let Zb = fb * zb;
     if G < 1.0e-2f64 {
-        warn!("Unusual Gamma specified: 1.0 / {}", G,);
-        return ptr::null_mut();
+        warn!("Unusual Gamma specified: 1.0 / {}", G);
+        return None;
     }
     let mut cal_param = pdf_dict::new();
     /* White point is always required. */
@@ -755,7 +758,7 @@ unsafe fn make_param_Cal(
     for val in &[Xw, Yw, Zw] {
         white_point.push_obj((val / 0.00001 + 0.5).floor() * 0.00001);
     }
-    cal_param.set("WhitePoint", white_point.into_obj());
+    cal_param.set("WhitePoint", white_point);
     /* Matrix - default: Identity */
     if color_type as i32 & 2i32 != 0 {
         if G != 1.0f64 {
@@ -763,17 +766,17 @@ unsafe fn make_param_Cal(
             for _ in 0..3 {
                 dev_gamma.push_obj((G / 0.00001 + 0.5).floor() * 0.00001);
             }
-            cal_param.set("Gamma", dev_gamma.into_obj());
+            cal_param.set("Gamma", dev_gamma);
         }
         let mut matrix = vec![];
         for val in &[Xr, Yr, Zr, Xg, Yg, Zg, Xb, Yb, Zb] {
             matrix.push_obj((val / 0.00001 + 0.5).floor() * 0.00001);
         }
-        cal_param.set("Matrix", matrix.into_obj());
+        cal_param.set("Matrix", matrix);
     } else if G != 1.0f64 {
         cal_param.set("Gamma", (G / 0.00001 + 0.5).floor() * 0.00001);
     }
-    cal_param.into_obj()
+    Some(cal_param)
 }
 /* ColorSpace */
 /*
@@ -784,14 +787,17 @@ unsafe fn make_param_Cal(
  *  for base color space.
  *
  */
-unsafe fn create_cspace_Indexed(png: &mut png_struct, info: &mut png_info) -> *mut pdf_obj {
+unsafe fn create_cspace_Indexed(
+    png: &mut png_struct,
+    info: &mut png_info,
+) -> Option<Vec<*mut pdf_obj>> {
     let mut plte = ptr::null_mut();
     let mut num_plte: libc::c_int = 0;
     if png_get_valid(png, info, 0x8u32) == 0
         || png_get_PLTE(png, info, &mut plte, &mut num_plte) == 0
     {
         warn!("{}: PNG does not have valid PLTE chunk.", "PNG");
-        return ptr::null_mut();
+        return None;
     }
     /* Order is important. */
     let mut colorspace = vec![];
@@ -800,8 +806,12 @@ unsafe fn create_cspace_Indexed(png: &mut png_struct, info: &mut png_info) -> *m
         create_cspace_ICCBased(png, info)
     } else if png_get_valid(png, info, 0x800u32) != 0 {
         create_cspace_sRGB(png, info)
+            .map(IntoObj::into_obj)
+            .unwrap_or(ptr::null_mut())
     } else {
         create_cspace_CalRGB(png, info)
+            .map(IntoObj::into_obj)
+            .unwrap_or(ptr::null_mut())
     };
     if base.is_null() {
         base = "DeviceRGB".into_obj();
@@ -819,7 +829,7 @@ unsafe fn create_cspace_Indexed(png: &mut png_struct, info: &mut png_info) -> *m
     let lookup = pdf_new_string(data_ptr as *const libc::c_void, (num_plte * 3i32) as size_t);
     free(data_ptr as *mut libc::c_void);
     colorspace.push(lookup);
-    colorspace.into_obj()
+    Some(colorspace)
 }
 /* Color-Key Mask */
 /*
@@ -828,7 +838,10 @@ unsafe fn create_cspace_Indexed(png: &mut png_struct, info: &mut png_info) -> *m
  *  [component_0_min component_0_max ... component_n_min component_n_max]
  *
  */
-unsafe fn create_ckey_mask(png: &png_struct_def, png_info: &mut png_info) -> *mut pdf_obj {
+unsafe fn create_ckey_mask(
+    png: &png_struct_def,
+    png_info: &mut png_info,
+) -> Option<Vec<*mut pdf_obj>> {
     let mut trans: png_bytep = ptr::null_mut();
     let mut num_trans: libc::c_int = 0;
     let mut colors = ptr::null_mut();
@@ -836,7 +849,7 @@ unsafe fn create_ckey_mask(png: &png_struct_def, png_info: &mut png_info) -> *mu
         || png_get_tRNS(png, png_info, &mut trans, &mut num_trans, &mut colors) == 0
     {
         warn!("{}: PNG does not have valid tRNS chunk!", "PNG");
-        return ptr::null_mut();
+        return None;
     }
     let mut colorkeys = vec![];
     let color_type = png_get_color_type(png, png_info);
@@ -865,10 +878,10 @@ unsafe fn create_ckey_mask(png: &png_struct_def, png_info: &mut png_info) -> *mu
         }
         _ => {
             warn!("{}: You found a bug in pngimage.c.", "PNG");
-            return ptr::null_mut();
+            return None;
         }
     }
-    colorkeys.into_obj()
+    Some(colorkeys)
 }
 /* Soft Mask:
  *
@@ -896,7 +909,7 @@ unsafe fn create_soft_mask(
     image_data_ptr: png_bytep,
     width: png_uint_32,
     height: png_uint_32,
-) -> *mut pdf_obj {
+) -> Option<pdf_stream> {
     let mut trans: png_bytep = ptr::null_mut();
     let mut num_trans: i32 = 0;
     if png_get_valid(png, info, 0x10u32) == 0
@@ -912,7 +925,7 @@ unsafe fn create_soft_mask(
             "{}: PNG does not have valid tRNS chunk but tRNS is requested.",
             "PNG",
         );
-        return ptr::null_mut();
+        return None;
     }
     let mut smask = pdf_stream::new(STREAM_COMPRESS);
     let dict = smask.get_dict_mut();
@@ -938,7 +951,7 @@ unsafe fn create_soft_mask(
         width.wrapping_mul(height) as i32,
     );
     free(smask_data_ptr as *mut libc::c_void);
-    smask.into_obj()
+    Some(smask)
 }
 /* bitdepth is always 8 (16 is not supported) */
 unsafe fn strip_soft_mask(
@@ -948,7 +961,7 @@ unsafe fn strip_soft_mask(
     rowbytes_ptr: *mut png_uint_32,
     width: png_uint_32,
     height: png_uint_32,
-) -> *mut pdf_obj {
+) -> Option<pdf_stream> {
     let color_type = png_get_color_type(png, png_info);
     let bpc = png_get_bit_depth(png, png_info);
     if color_type as libc::c_int & 2i32 != 0 {
@@ -963,7 +976,7 @@ unsafe fn strip_soft_mask(
         {
             /* Something wrong */
             warn!("{}: Inconsistent rowbytes value.", "PNG");
-            return ptr::null_mut();
+            return None;
         }
     } else {
         let bps_0: i32 = if bpc as i32 == 8i32 { 2i32 } else { 4i32 };
@@ -973,7 +986,7 @@ unsafe fn strip_soft_mask(
         {
             /* Something wrong */
             warn!("{}: Inconsistent rowbytes value.", "PNG");
-            return ptr::null_mut();
+            return None;
         }
     }
     let mut smask = pdf_stream::new(STREAM_COMPRESS);
@@ -1058,7 +1071,7 @@ unsafe fn strip_soft_mask(
         _ => {
             warn!("You found a bug in pngimage.c!");
             free(smask_data_ptr as *mut libc::c_void);
-            return ptr::null_mut();
+            return None;
         }
     }
     smask.add(
@@ -1068,7 +1081,7 @@ unsafe fn strip_soft_mask(
             .wrapping_mul(height) as i32,
     );
     free(smask_data_ptr as *mut libc::c_void);
-    smask.into_obj()
+    Some(smask)
 }
 /* Read image body */
 unsafe fn read_image_data(

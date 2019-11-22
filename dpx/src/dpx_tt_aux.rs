@@ -28,13 +28,12 @@
 
 use crate::DisplayExt;
 use std::ffi::CStr;
-use std::ptr;
 
 use super::dpx_dvipdfmx::always_embed;
 use super::dpx_numbers::tt_get_unsigned_quad;
 use super::dpx_tt_post::{tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::{tt_read_head_table, tt_read_os2__table};
-use crate::dpx_pdfobj::{pdf_dict, pdf_new_string, pdf_obj, IntoObj, PushObj};
+use crate::dpx_pdfobj::{pdf_dict, pdf_new_string, PushObj};
 
 use libc::{free, memcpy};
 use std::io::{Seek, SeekFrom};
@@ -81,7 +80,7 @@ pub unsafe fn tt_get_fontdesc(
     mut stemv: i32,
     type_0: i32,
     fontname: *const i8,
-) -> *mut pdf_obj {
+) -> Option<pdf_dict> {
     let mut flag: i32 = 1i32 << 2i32;
     if sfont.is_null() {
         panic!("font file not opened");
@@ -93,7 +92,7 @@ pub unsafe fn tt_get_fontdesc(
     if post.is_null() {
         free(os2 as *mut libc::c_void);
         free(head as *mut libc::c_void);
-        return ptr::null_mut();
+        return None;
     }
     let mut descriptor = pdf_dict::new();
     descriptor.set("Type", "FontDescriptor");
@@ -229,7 +228,7 @@ pub unsafe fn tt_get_fontdesc(
             .floor()
             * 1.,
     );
-    descriptor.set("FontBBox", bbox.into_obj());
+    descriptor.set("FontBBox", bbox);
     /* post */
     descriptor.set(
         "ItalicAngle",
@@ -275,10 +274,10 @@ pub unsafe fn tt_get_fontdesc(
             "Panose",
             pdf_new_string(panose.as_mut_ptr() as *const libc::c_void, 12i32 as size_t),
         );
-        descriptor.set("Style", styledict.into_obj());
+        descriptor.set("Style", styledict);
     }
     free(head as *mut libc::c_void);
     free(os2 as *mut libc::c_void);
     tt_release_post_table(post);
-    descriptor.into_obj()
+    Some(descriptor)
 }

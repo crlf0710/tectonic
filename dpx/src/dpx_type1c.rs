@@ -193,18 +193,18 @@ pub unsafe fn pdf_font_open_type1c(font: *mut pdf_font) -> i32 {
      * Create font descriptor from OpenType tables.
      * We can also use CFF TOP DICT/Private DICT for this.
      */
-    let tmp = tt_get_fontdesc(sfont, &mut embedding, -1i32, 1i32, fontname); /* copy */
-    if tmp.is_null() {
+    if let Some(tmp) = tt_get_fontdesc(sfont, &mut embedding, -1i32, 1i32, fontname) {
+        /* copy */
+        (*descriptor).as_dict_mut().merge(&tmp);
+        if embedding == 0 {
+            /* tt_get_fontdesc may have changed this */
+            pdf_font_set_flags(font, 1i32 << 0i32);
+        }
+        sfnt_close(sfont);
+        0i32
+    } else {
         panic!("Could not obtain neccesary font info from OpenType table.");
     }
-    (*descriptor).as_dict_mut().merge((*tmp).as_dict());
-    pdf_release_obj(tmp);
-    if embedding == 0 {
-        /* tt_get_fontdesc may have changed this */
-        pdf_font_set_flags(font, 1i32 << 0i32);
-    }
-    sfnt_close(sfont);
-    0i32
 }
 unsafe fn add_SimpleMetrics(
     font: *mut pdf_font,

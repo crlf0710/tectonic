@@ -45,7 +45,7 @@ use super::dpx_pdffont::{
 };
 use super::dpx_tfm::{tfm_get_design_size, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_dict, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj,
+    pdf_copy_name, pdf_dict, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj,
     STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
@@ -483,7 +483,7 @@ unsafe fn create_pk_CharProc_stream(
     chrwid: f64,
     pkt_ptr: *mut u8,
     pkt_len: u32,
-) -> *mut pdf_obj {
+) -> pdf_stream {
     let llx = -(*pkh).bm_hoff;
     let lly = ((*pkh).bm_voff as u32).wrapping_sub((*pkh).bm_ht) as i32;
     let urx = (*pkh).bm_wd.wrapping_sub((*pkh).bm_hoff as u32) as i32;
@@ -565,7 +565,7 @@ unsafe fn create_pk_CharProc_stream(
         ) as usize;
         stream.add_slice(&work_buffer[..len]);
     }
-    stream.into_obj()
+    stream
 }
 
 pub unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
@@ -665,11 +665,9 @@ pub unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
                     );
                 }
                 let charproc =
-                    create_pk_CharProc_stream(&mut pkh, charwidth, pkt_ptr, bytesread as u32);
+                    create_pk_CharProc_stream(&mut pkh, charwidth, pkt_ptr, bytesread as u32)
+                        .into_obj();
                 free(pkt_ptr as *mut libc::c_void);
-                if charproc.is_null() {
-                    panic!("Unpacking PK character data failed.");
-                }
                 if encoding_id >= 0i32 && !enc_vec.is_null() {
                     charname = *enc_vec.offset((pkh.chrcode & 0xffi32) as isize);
                     if charname.is_null() {
@@ -748,8 +746,8 @@ pub unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
     let mut tmp_array = vec![];
     tmp_array.push_obj("PDF");
     tmp_array.push_obj("ImageB");
-    procset.set("ProcSet", tmp_array.into_obj());
-    fontdict.as_dict_mut().set("Resources", procset.into_obj());
+    procset.set("ProcSet", tmp_array);
+    fontdict.as_dict_mut().set("Resources", procset);
     /* Encoding */
     let mut tmp_array = vec![];
     let mut prev = -2i32;
@@ -800,7 +798,7 @@ pub unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
         /* ENABLE_GLYPHENC */
         let mut encoding = pdf_dict::new();
         encoding.set("Type", "Encoding");
-        encoding.set("Differences", tmp_array.into_obj());
+        encoding.set("Differences", tmp_array);
         let encoding = encoding.into_obj();
         fontdict
             .as_dict_mut()
@@ -814,7 +812,7 @@ pub unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
     tmp_array.push_obj(bbox.min.y);
     tmp_array.push_obj(bbox.max.x);
     tmp_array.push_obj(bbox.max.y);
-    fontdict.as_dict_mut().set("FontBBox", tmp_array.into_obj());
+    fontdict.as_dict_mut().set("FontBBox", tmp_array);
     /* Widths:
      *  Indirect reference preffered. (See PDF Reference)
      */
@@ -837,9 +835,7 @@ pub unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
     tmp_array.push_obj(0.001_f64 * pix2charu);
     tmp_array.push_obj(0_f64);
     tmp_array.push_obj(0_f64);
-    fontdict
-        .as_dict_mut()
-        .set("FontMatrix", tmp_array.into_obj());
+    fontdict.as_dict_mut().set("FontMatrix", tmp_array);
     fontdict.as_dict_mut().set("FirstChar", firstchar as f64);
     fontdict.as_dict_mut().set("LastChar", lastchar as f64);
     0i32

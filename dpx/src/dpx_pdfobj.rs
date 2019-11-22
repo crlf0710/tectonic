@@ -553,7 +553,7 @@ unsafe fn dump_xref_stream() {
     w.push_obj(1_f64);
     w.push_obj(poslen as f64);
     w.push_obj(2_f64);
-    (*trailer_dict).as_dict_mut().set("W", w.into_obj());
+    (*trailer_dict).as_dict_mut().set("W", w);
     /* We need the xref entry for the xref stream right now */
     add_xref_entry(next_label - 1, 1_u8, startxref, 0_u16);
     for i in 0..next_label {
@@ -666,7 +666,7 @@ pub unsafe fn pdf_set_info(object: *mut pdf_obj) {
         panic!("Info object already set!");
     };
 }
-pub unsafe fn pdf_set_id(id: *mut pdf_obj) {
+pub unsafe fn pdf_set_id(id: Vec<*mut pdf_obj>) {
     if (*trailer_dict).as_dict_mut().set("ID", id) != 0 {
         panic!("ID already set!");
     };
@@ -1794,13 +1794,13 @@ unsafe fn filter_create_predictor_dict(
     columns: i32,
     bpc: libc::c_int,
     colors: libc::c_int,
-) -> *mut pdf_obj {
+) -> pdf_dict {
     let mut parms = pdf_dict::new();
     parms.set("BitsPerComponent", bpc as f64);
     parms.set("Colors", colors as f64);
     parms.set("Columns", columns as f64);
     parms.set("Predictor", predictor as f64);
-    parms.into_obj()
+    parms
 }
 unsafe fn write_stream(stream: *mut pdf_stream, handle: &mut OutputHandleWrapper) {
     /*
@@ -1877,7 +1877,7 @@ unsafe fn write_stream(stream: *mut pdf_stream, handle: &mut OutputHandleWrapper
                         );
                     }
                 }
-                if !parms.is_null() && !filtered2.is_null() {
+                if !filtered2.is_null() {
                     free(filtered as *mut libc::c_void);
                     filtered = filtered2;
                     filtered_length = length2 as libc::c_uint;
@@ -2010,6 +2010,9 @@ impl pdf_stream {
     }
     pub unsafe fn get_dict_obj(&mut self) -> &mut pdf_obj {
         &mut (*self.dict)
+    }
+    pub fn len(&self) -> usize {
+        self.content.len()
     }
 }
 

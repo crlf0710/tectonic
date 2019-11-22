@@ -35,7 +35,7 @@ use super::dpx_mem::new;
 use super::dpx_pdfdoc::pdf_doc_get_dictionary;
 use super::dpx_pdffont::get_unique_time_if_given;
 use super::dpx_unicode::{UC_UTF8_decode_char, UC_is_valid};
-use crate::dpx_pdfobj::{pdf_dict, pdf_get_version, pdf_new_string, pdf_obj, IntoObj};
+use crate::dpx_pdfobj::{pdf_dict, pdf_get_version, pdf_new_string, pdf_obj};
 use crate::warn;
 use chrono::prelude::*;
 use libc::{free, memcpy, memset, srand, strcpy, strlen};
@@ -751,7 +751,7 @@ pub unsafe fn pdf_encrypt_data(
     };
 }
 
-pub unsafe fn pdf_encrypt_obj() -> *mut pdf_obj {
+pub unsafe fn pdf_encrypt_obj() -> pdf_dict {
     let p = &mut sec_data;
     let mut doc_encrypt = pdf_dict::new();
     doc_encrypt.set("Filter", "Standard");
@@ -763,8 +763,8 @@ pub unsafe fn pdf_encrypt_obj() -> *mut pdf_obj {
         StdCF.set("CFM", if p.V == 4 { "AESV2" } else { "AESV3" });
         StdCF.set("AuthEvent", "DocOpen");
         StdCF.set("Length", p.key_size as f64);
-        CF.set("StdCF", StdCF.into_obj());
-        doc_encrypt.set("CF", CF.into_obj());
+        CF.set("StdCF", StdCF);
+        doc_encrypt.set("CF", CF);
         doc_encrypt.set("StmF", "StdCF");
         doc_encrypt.set("StrF", "StdCF");
     }
@@ -844,24 +844,18 @@ pub unsafe fn pdf_encrypt_obj() -> *mut pdf_obj {
             "ExtensionLevel",
             (if p.R == 5i32 { 3i32 } else { 8i32 }) as f64,
         );
-        ext.set("ADBE", adbe.into_obj());
-        (*catalog).as_dict_mut().set("Extensions", ext.into_obj());
+        ext.set("ADBE", adbe);
+        (*catalog).as_dict_mut().set("Extensions", ext);
     }
-    doc_encrypt.into_obj()
+    doc_encrypt
 }
 
-pub unsafe fn pdf_enc_id_array() -> *mut pdf_obj {
+pub unsafe fn pdf_enc_id_array() -> Vec<*mut pdf_obj> {
     let p = &mut sec_data;
     let mut id = vec![];
-    id.push(pdf_new_string(
-        p.ID.as_mut_ptr() as *const libc::c_void,
-        16i32 as size_t,
-    ));
-    id.push(pdf_new_string(
-        p.ID.as_mut_ptr() as *const libc::c_void,
-        16i32 as size_t,
-    ));
-    id.into_obj()
+    id.push(pdf_new_string(p.ID.as_mut_ptr() as *const libc::c_void, 16));
+    id.push(pdf_new_string(p.ID.as_mut_ptr() as *const libc::c_void, 16));
+    id
 }
 
 pub unsafe fn pdf_enc_set_label(label: u32) {

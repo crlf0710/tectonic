@@ -56,7 +56,7 @@ use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
     pdf_copy_name, pdf_dict, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
-    pdf_stream_length, IntoObj, PushObj, STREAM_COMPRESS,
+    IntoObj, PushObj, STREAM_COMPRESS,
 };
 use libc::{free, memmove, memset, strcat, strcmp, strcpy, strlen, strncpy, strstr};
 
@@ -518,7 +518,7 @@ unsafe fn add_TTCIDVMetrics(
         let mut an_array = vec![];
         an_array.push_obj(defaultVertOriginY);
         an_array.push_obj(-defaultAdvanceHeight);
-        (*fontdict).as_dict_mut().set("DW2", an_array.into_obj());
+        (*fontdict).as_dict_mut().set("DW2", an_array);
     }
     let w2_array = w2_array.into_obj();
     if empty == 0 {
@@ -668,9 +668,7 @@ pub unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
         ),
     );
     tmp.set("Supplement", (*(*font).csi).supplement as f64);
-    (*(*font).fontdict)
-        .as_dict_mut()
-        .set("CIDSystemInfo", tmp.into_obj());
+    (*(*font).fontdict).as_dict_mut().set("CIDSystemInfo", tmp);
     /* Quick exit for non-embedded & fixed-pitch font. */
     if CIDFont_get_embedding(font) == 0 && opt_flags & 1i32 << 1i32 != 0 {
         (*(*font).fontdict).as_dict_mut().set("DW", 1000_f64);
@@ -1028,15 +1026,10 @@ pub unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
      */
     let fontfile = sfnt_create_FontFile_stream(sfont);
     sfnt_close(sfont);
-    if fontfile.is_null() {
-        panic!(
-            "Could not created FontFile stream for \"{}\".",
-            CStr::from_ptr((*font).ident).display()
-        );
-    }
     if verbose > 1i32 {
-        info!("[{} bytes]", pdf_stream_length(&*fontfile));
+        info!("[{} bytes]", fontfile.len());
     }
+    let fontfile = fontfile.into_obj();
     (*(*font).descriptor)
         .as_dict_mut()
         .set("FontFile2", pdf_ref_obj(fontfile));
@@ -1238,8 +1231,9 @@ pub unsafe fn CIDFont_type2_open(
     (*(*font).fontdict)
         .as_dict_mut()
         .set("Subtype", "CIDFontType2");
-    (*font).descriptor = tt_get_fontdesc(sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name);
-    if (*font).descriptor.is_null() {
+    if let Some(descriptor) = tt_get_fontdesc(sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name) {
+        (*font).descriptor = descriptor.into_obj();
+    } else {
         panic!("Could not obtain necessary font info.");
     }
     if (*opt).embed != 0 {

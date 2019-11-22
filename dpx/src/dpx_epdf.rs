@@ -191,12 +191,12 @@ pub unsafe fn pdf_include_page(
         bbox.push_obj(info.bbox.min.y);
         bbox.push_obj(info.bbox.max.x);
         bbox.push_obj(info.bbox.max.y);
-        contents_dict.set("BBox", bbox.into_obj());
+        contents_dict.set("BBox", bbox);
         let mut matrix = vec![];
         for &val in &info.matrix.to_row_major_array() {
             matrix.push_obj(val);
         }
-        contents_dict.set("Matrix", matrix.into_obj());
+        contents_dict.set("Matrix", matrix);
         contents_dict.set("Resources", pdf_import_object(resources));
         pdf_release_obj(resources);
 

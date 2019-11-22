@@ -358,7 +358,7 @@ unsafe fn add_CIDVMetrics(
         let mut an_array = vec![];
         an_array.push_obj(defaultVertOriginY);
         an_array.push_obj(-defaultAdvanceHeight);
-        (*fontdict).as_dict_mut().set("DW2", an_array.into_obj());
+        (*fontdict).as_dict_mut().set("DW2", an_array);
     }
     let w2_array = w2_array.into_obj();
     if empty == 0 {
@@ -1147,11 +1147,14 @@ pub unsafe fn CIDFont_type0_open(
         *fontname.offset(6) = '+' as i32 as i8
     }
     if expect_type1_font != 0 {
-        (*font).descriptor = pdf_dict::new().into_obj()
+        (*font).descriptor = pdf_dict::new().into_obj();
     } else {
         /* getting font info. from TrueType tables */
-        (*font).descriptor = tt_get_fontdesc(sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name);
-        if (*font).descriptor.is_null() {
+        if let Some(descriptor) =
+            tt_get_fontdesc(sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name)
+        {
+            (*font).descriptor = descriptor.into_obj();
+        } else {
             panic!("Could not obtain necessary font info.");
         }
     }
@@ -1179,7 +1182,7 @@ pub unsafe fn CIDFont_type0_open(
     csi_dict.set("Supplement", (*csi).supplement as f64);
     (*(*font).fontdict)
         .as_dict_mut()
-        .set("CIDSystemInfo", csi_dict.into_obj());
+        .set("CIDSystemInfo", csi_dict);
     if is_cid_font != 0 {
         (*(*font).fontdict).as_dict_mut().set("DW", 1000_f64);
         /* not sure */
@@ -1955,9 +1958,7 @@ unsafe fn add_metrics(
         );
         tmp.push_obj((val / 1. + 0.5).floor() * 1.);
     }
-    (*(*font).descriptor)
-        .as_dict_mut()
-        .set("FontBBox", tmp.into_obj());
+    (*(*font).descriptor).as_dict_mut().set("FontBBox", tmp);
     let mut parent_id = CIDFont_get_parent_id(font, 0i32);
     if parent_id < 0i32 && {
         parent_id = CIDFont_get_parent_id(font, 1i32);
@@ -2045,7 +2046,9 @@ pub unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
     if used_chars.is_null() {
         panic!("Unexpected error: Font not actually used???");
     }
-    let tounicode = create_ToUnicode_stream(cffont, (*font).fontname, used_chars).map(IntoObj::into_obj).unwrap_or(ptr::null_mut());
+    let tounicode = create_ToUnicode_stream(cffont, (*font).fontname, used_chars)
+        .map(IntoObj::into_obj)
+        .unwrap_or(ptr::null_mut());
     if !hparent.is_null() {
         Type0Font_set_ToUnicode(hparent, pdf_ref_obj(tounicode));
     }

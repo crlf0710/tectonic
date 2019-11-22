@@ -60,7 +60,7 @@ use super::dpx_subfont::{lookup_sfd_record, sfd_load_record};
 use super::dpx_tfm::{tfm_exists, tfm_get_width, tfm_open, tfm_string_width};
 use crate::dpx_pdfobj::{
     pdf_copy_name, pdf_dict, pdf_new_name, pdf_obj, pdf_release_obj, pdf_set_number,
-    pdf_string_length, pdf_string_value, IntoObj,
+    pdf_string_length, pdf_string_value, IntoObj, PushObj,
 };
 use crate::dpx_pdfparse::{
     parse_number, pdfparse_skip_line, skip_white, ParseIdent, ParsePdfObj, SkipWhite,
@@ -602,7 +602,7 @@ unsafe fn do_currentfont() -> i32 {
         font_dict.set("FontName", pdf_new_name((*font).font_name.to_bytes()));
         font_dict.set("FontScale", (*font).pt_size);
         if STACK.len() < 1024 {
-            STACK.push(font_dict.into_obj())
+            STACK.push_obj(font_dict)
         } else {
             warn!("PS stack overflow...");
             error = 1i32

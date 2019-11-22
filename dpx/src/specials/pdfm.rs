@@ -66,9 +66,9 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_obj, pdf_obj_typeof, pdf_release_obj,
-    pdf_remove_dict, pdf_set_string, pdf_stream, pdf_string_length, pdf_string_value, IntoObj,
-    PdfObjType, STREAM_COMPRESS,
+    pdf_dict, pdf_link_obj, pdf_obj, pdf_obj_typeof, pdf_release_obj, pdf_remove_dict,
+    pdf_set_string, pdf_stream, pdf_string_length, pdf_string_value, IntoObj, PdfObjType,
+    STREAM_COMPRESS,
 };
 use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};

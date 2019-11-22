@@ -61,9 +61,7 @@ use super::dpx_tt_gsub::{
 };
 use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::tt_get_ps_fontname;
-use crate::dpx_pdfobj::{
-    pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length, IntoObj, PushObj,
-};
+use crate::dpx_pdfobj::{pdf_obj, pdf_ref_obj, pdf_release_obj, IntoObj, PushObj};
 use crate::shims::sprintf;
 use libc::{atoi, free, memcpy, memmove, memset, strchr, strcpy, strlen, strncpy};
 
@@ -230,13 +228,12 @@ pub unsafe fn pdf_font_open_truetype(font: *mut pdf_font) -> i32 {
     }
     pdf_font_set_fontname(font, fontname.as_mut_ptr());
     let tmp = tt_get_fontdesc(sfont, &mut embedding, -1i32, 1i32, fontname.as_mut_ptr());
-    if tmp.is_null() {
+    if tmp.is_none() {
         sfnt_close(sfont);
         panic!("Could not obtain necessary font info.");
     }
-    assert!((*tmp).is_dict());
-    (*descriptor).as_dict_mut().merge((*tmp).as_dict());
-    pdf_release_obj(tmp);
+    let tmp = tmp.unwrap();
+    (*descriptor).as_dict_mut().merge(&tmp);
     if embedding == 0 {
         if encoding_id >= 0i32 && pdf_encoding_is_predefined(encoding_id) == 0 {
             sfnt_close(sfont);
@@ -1098,16 +1095,11 @@ pub unsafe fn pdf_font_load_truetype(font: *mut pdf_font) -> i32 {
      * FontFile2
      */
     let fontfile = sfnt_create_FontFile_stream(sfont); /* XXX */
-    if fontfile.is_null() {
-        panic!(
-            "Could not created FontFile stream for \"{}\".",
-            CStr::from_ptr(ident).display()
-        );
-    }
     sfnt_close(sfont);
     if verbose > 1i32 {
-        info!("[{} bytes]", pdf_stream_length(&*fontfile));
+        info!("[{} bytes]", fontfile.len());
     }
+    let fontfile = fontfile.into_obj();
     (*descriptor)
         .as_dict_mut()
         .set("FontFile2", pdf_ref_obj(fontfile));

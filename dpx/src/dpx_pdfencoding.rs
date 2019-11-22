@@ -43,8 +43,8 @@ use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_dict, pdf_get_version, pdf_link_obj, pdf_obj, pdf_release_obj, IntoObj,
-    PushObj, pdf_stream,
+    pdf_copy_name, pdf_dict, pdf_get_version, pdf_link_obj, pdf_obj, pdf_release_obj, pdf_stream,
+    IntoObj, PushObj,
 };
 use crate::dpx_pdfparse::{ParsePdfObj, SkipWhite};
 use crate::mfree;
@@ -113,7 +113,7 @@ unsafe fn create_encoding_resource(
 ) -> *mut pdf_obj {
     assert!(!encoding.is_null());
     assert!((*encoding).resource.is_null());
-    let differences = make_encoding_differences(
+    if let Some(differences) = make_encoding_differences(
         (*encoding).glyphs.as_mut_ptr(),
         if !baseenc.is_null() {
             (*baseenc).glyphs.as_mut_ptr()
@@ -121,8 +121,7 @@ unsafe fn create_encoding_resource(
             0 as *mut *mut i8
         },
         (*encoding).is_used.as_mut_ptr(),
-    );
-    if !differences.is_null() {
+    ) {
         let resource = pdf_dict::new().into_obj();
         if !baseenc.is_null() {
             (*resource)
@@ -205,7 +204,7 @@ unsafe fn make_encoding_differences(
     enc_vec: *mut *mut i8,
     baseenc: *mut *mut i8,
     is_used: *const i8,
-) -> *mut pdf_obj {
+) -> Option<Vec<*mut pdf_obj>> {
     let mut count: i32 = 0i32;
     let mut skipping: i32 = 1i32;
     assert!(!enc_vec.is_null());
@@ -247,9 +246,9 @@ unsafe fn make_encoding_differences(
      * any differences. We return NULL.
      */
     if count == 0i32 {
-        return ptr::null_mut();
+        return None;
     }
-    differences.into_obj()
+    Some(differences)
 }
 unsafe fn load_encoding_file(filename: *const i8) -> i32 {
     let mut enc_vec: [*const i8; 256] = [ptr::null(); 256];
@@ -477,7 +476,9 @@ pub unsafe fn pdf_encoding_complete() {
                 (*encoding).enc_name,
                 (*encoding).glyphs.as_mut_ptr(),
                 (*encoding).is_used.as_mut_ptr(),
-            ).map(IntoObj::into_obj).unwrap_or(ptr::null_mut());
+            )
+            .map(IntoObj::into_obj)
+            .unwrap_or(ptr::null_mut());
         }
     }
 }

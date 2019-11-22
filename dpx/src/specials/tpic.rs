@@ -47,8 +47,8 @@ use crate::dpx_pdfdraw::{
     pdf_dev_setmiterlimit,
 };
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_get_version, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_string_value, IntoObj,
+    pdf_dict, pdf_get_version, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_string_value, IntoObj,
 };
 use crate::dpx_pdfparse::ParseIdent;
 use libc::atof;
@@ -87,7 +87,7 @@ unsafe fn tpic__clear(tp: *mut spc_tpic_) {
     (*tp).fill_shape = false;
     (*tp).fill_color = 0.0f64;
 }
-unsafe fn create_xgstate(a: f64, f_ais: i32) -> *mut pdf_obj
+unsafe fn create_xgstate(a: f64, f_ais: i32) -> pdf_dict
 /* alpha is shape */ {
     let mut dict = pdf_dict::new(); /* dash pattern */
     dict.set("Type", "ExtGState");
@@ -95,7 +95,7 @@ unsafe fn create_xgstate(a: f64, f_ais: i32) -> *mut pdf_obj
         dict.set("AIS", true);
     }
     dict.set("ca", a);
-    dict.into_obj()
+    dict
 }
 unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
     let dict1 = pdf_doc_current_page_resources();
@@ -136,7 +136,8 @@ unsafe fn set_fillstyle(g: f64, a: f64, f_ais: i32) -> i32 {
             let dict = create_xgstate(
                 (0.01f64 * alp as f64 / 0.01f64 + 0.5f64).floor() * 0.01f64,
                 f_ais,
-            );
+            )
+            .into_obj();
             let s = CString::new(resname.as_bytes()).unwrap();
             pdf_doc_add_page_resource("ExtGState", s.as_ptr() as *const i8, pdf_ref_obj(dict));
             pdf_release_obj(dict);

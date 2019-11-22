@@ -431,9 +431,7 @@ unsafe fn add_metrics(
         let val = cff_dict_get(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8, i);
         tmp_array.push_obj((val / 1. + 0.5).floor() * 1.);
     }
-    (*descriptor)
-        .as_dict_mut()
-        .set("FontBBox", tmp_array.into_obj());
+    (*descriptor).as_dict_mut().set("FontBBox", tmp_array);
     let mut tmp_array = vec![];
     if num_glyphs <= 1i32 {
         /* This must be an error. */

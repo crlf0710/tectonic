@@ -615,9 +615,7 @@ unsafe fn doc_flush_page(p: *mut pdf_doc, mut page: *mut pdf_page, parent_ref: *
         mediabox.push_obj(((*page).cropbox.min.y / 0.01 + 0.5).floor() * 0.01);
         mediabox.push_obj(((*page).cropbox.max.x / 0.01 + 0.5).floor() * 0.01);
         mediabox.push_obj(((*page).cropbox.max.y / 0.01 + 0.5).floor() * 0.01);
-        (*(*page).page_obj)
-            .as_dict_mut()
-            .set("MediaBox", mediabox.into_obj());
+        (*(*page).page_obj).as_dict_mut().set("MediaBox", mediabox);
     }
     let mut count = 0_u32;
     let mut contents_array = vec![];
@@ -656,7 +654,7 @@ unsafe fn doc_flush_page(p: *mut pdf_doc, mut page: *mut pdf_page, parent_ref: *
     (*page).content_refs[3] = ptr::null_mut();
     (*(*page).page_obj)
         .as_dict_mut()
-        .set("Contents", contents_array.into_obj());
+        .set("Contents", contents_array);
     if !(*page).annots.is_null() {
         (*(*page).page_obj)
             .as_dict_mut()
@@ -732,7 +730,7 @@ unsafe fn build_page_tree(
             }
         }
     }
-    (*self_0).as_dict_mut().set("Kids", kids.into_obj());
+    (*self_0).as_dict_mut().set("Kids", kids);
     pdf_release_obj(self_ref);
     self_0
 }
@@ -811,9 +809,7 @@ unsafe fn pdf_doc_close_page_tree(mut p: *mut pdf_doc) {
     mediabox.push_obj(((*p).pages.mediabox.min.y / 0.01 + 0.5).floor() * 0.01);
     mediabox.push_obj(((*p).pages.mediabox.max.x / 0.01 + 0.5).floor() * 0.01);
     mediabox.push_obj(((*p).pages.mediabox.max.y / 0.01 + 0.5).floor() * 0.01);
-    (*(*p).root.pages)
-        .as_dict_mut()
-        .set("MediaBox", mediabox.into_obj());
+    (*(*p).root.pages).as_dict_mut().set("MediaBox", mediabox);
     (*(*p).root.dict)
         .as_dict_mut()
         .set("Pages", pdf_ref_obj((*p).root.pages));
@@ -1762,7 +1758,8 @@ unsafe fn pdf_doc_close_names(mut p: *mut pdf_doc) {
                     warn_undef_dests(data, &mut pdoc.gotos);
                 }
             }
-            if !name_tree.is_null() {
+            if let Some(name_tree) = name_tree {
+                let name_tree = name_tree.into_obj();
                 if (*p).root.names.is_null() {
                     (*p).root.names = pdf_dict::new().into_obj();
                 }
@@ -1834,9 +1831,7 @@ pub unsafe fn pdf_doc_add_annot(
     rect_array.push_obj(((annbox.min.y - annot_grow) / 0.001 + 0.5).floor() * 0.001);
     rect_array.push_obj(((annbox.max.x + annot_grow) / 0.001 + 0.5).floor() * 0.001);
     rect_array.push_obj(((annbox.max.y + annot_grow) / 0.001 + 0.5).floor() * 0.001);
-    (*annot_dict)
-        .as_dict_mut()
-        .set("Rect", rect_array.into_obj());
+    (*annot_dict).as_dict_mut().set("Rect", rect_array);
     (*(*page).annots)
         .as_array_mut()
         .push(pdf_ref_obj(annot_dict));
@@ -1996,7 +1991,7 @@ unsafe fn make_article(
             rect.push_obj(((*bead).rect.min.y / 0.01 + 0.5).floor() * 0.01);
             rect.push_obj(((*bead).rect.max.x / 0.01 + 0.5).floor() * 0.01);
             rect.push_obj(((*bead).rect.max.y / 0.01 + 0.5).floor() * 0.01);
-            (*last).as_dict_mut().set("R", rect.into_obj());
+            (*last).as_dict_mut().set("R", rect);
             (*(*page).beads).as_array_mut().push(pdf_ref_obj(last));
             prev = last
         }
@@ -2276,7 +2271,7 @@ unsafe fn pdf_doc_finish_page(mut p: *mut pdf_doc) {
         procset.push_obj("ImageI");
         (*(*currentpage).resources)
             .as_dict_mut()
-            .set("ProcSet", procset.into_obj());
+            .set("ProcSet", procset);
         (*(*currentpage).page_obj)
             .as_dict_mut()
             .set("Resources", pdf_ref_obj((*currentpage).resources));
@@ -2404,7 +2399,7 @@ pub unsafe fn pdf_open_document(
     pdf_doc_init_page_tree(p, media_width, media_height);
     pdf_doc_set_bgcolor(None);
     if enable_encrypt {
-        let encrypt: *mut pdf_obj = pdf_encrypt_obj();
+        let encrypt = pdf_encrypt_obj().into_obj();
         pdf_set_encrypt(encrypt);
         pdf_release_obj(encrypt);
     }
@@ -2484,7 +2479,7 @@ unsafe fn pdf_doc_make_xform(
     tmp.push_obj((bbox.min.y / 0.001 + 0.5).floor() * 0.001);
     tmp.push_obj((bbox.max.x / 0.001 + 0.5).floor() * 0.001);
     tmp.push_obj((bbox.max.y / 0.001 + 0.5).floor() * 0.001);
-    xform_dict.set("BBox", tmp.into_obj());
+    xform_dict.set("BBox", tmp);
     if let Some(matrix) = matrix {
         let mut tmp = vec![];
         tmp.push_obj((matrix.m11 / 0.00001 + 0.5).floor() * 0.00001);
@@ -2493,7 +2488,7 @@ unsafe fn pdf_doc_make_xform(
         tmp.push_obj((matrix.m22 / 0.00001 + 0.5).floor() * 0.00001);
         tmp.push_obj((matrix.m31 / 0.001 + 0.5).floor() * 0.001);
         tmp.push_obj((matrix.m32 / 0.001 + 0.5).floor() * 0.001);
-        xform_dict.set("Matrix", tmp.into_obj());
+        xform_dict.set("Matrix", tmp);
     }
     if !attrib.is_null() {
         xform_dict.merge((*attrib).as_dict());
@@ -2565,9 +2560,7 @@ pub unsafe fn pdf_doc_end_grabbing(attrib: *mut pdf_obj) {
     procset.push_obj("ImageC");
     procset.push_obj("ImageB");
     procset.push_obj("ImageI");
-    (*(*form).resources)
-        .as_dict_mut()
-        .set("ProcSet", procset.into_obj());
+    (*(*form).resources).as_dict_mut().set("ProcSet", procset);
     let matrix = (*form).matrix.clone();
     pdf_doc_make_xform(
         (*form).contents,
