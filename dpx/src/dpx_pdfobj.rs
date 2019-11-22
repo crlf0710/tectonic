@@ -1214,27 +1214,40 @@ unsafe fn write_dict(mut dict: *mut pdf_dict, handle: &mut OutputHandleWrapper) 
     pdf_out(handle, b">>");
 }
 
-pub unsafe fn pdf_new_dict() -> *mut pdf_obj {
-    let result = pdf_new_obj(PdfObjType::DICT);
-    let data =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_dict>() as u64) as u32) as *mut pdf_dict;
-    (*data).key = ptr::null_mut();
-    (*data).value = ptr::null_mut();
-    (*data).next = ptr::null_mut();
-    (*result).data = data as *mut libc::c_void;
-    result
-}
-unsafe fn release_dict(mut data: *mut pdf_dict) {
-    while !data.is_null() && !(*data).key.is_null() {
-        pdf_release_obj((*data).key);
-        pdf_release_obj((*data).value);
-        (*data).key = ptr::null_mut();
-        (*data).value = ptr::null_mut();
-        let next = (*data).next;
-        free(data as *mut libc::c_void);
-        data = next
+impl pdf_dict {
+    fn new() -> Self {
+        Self {
+            key: ptr::null_mut(),
+            value: ptr::null_mut(),
+            next: ptr::null_mut(),
+        }
     }
-    free(data as *mut libc::c_void);
+}
+
+pub fn pdf_new_dict() -> *mut pdf_obj {
+    unsafe {
+        let result = pdf_new_obj(PdfObjType::DICT);
+        let boxed = Box::new(pdf_dict::new());
+        (*result).data = Box::into_raw(boxed) as *mut libc::c_void;
+        result
+    }
+}
+
+unsafe fn release_dict(mut data: *mut pdf_dict) {
+    if data.is_null() {
+        return;
+    }
+    let mut data = Box::from_raw(data);
+    while !data.key.is_null() {
+        pdf_release_obj(data.key);
+        pdf_release_obj(data.value);
+        data.key = ptr::null_mut();
+        data.value = ptr::null_mut();
+        if data.next.is_null() {
+            break;
+        }
+        data = Box::from_raw(data.next);
+    }
 }
 impl pdf_dict {
     /* Array is ended by a node with NULL this pointer */
@@ -1265,12 +1278,8 @@ impl pdf_dict {
          * We didn't find the key. We build a new "end" node and add
          * the new key just before the end
          */
-        let new_node = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_dict>() as u64) as u32)
-            as *mut pdf_dict;
-        (*new_node).key = ptr::null_mut();
-        (*new_node).value = ptr::null_mut();
-        (*new_node).next = ptr::null_mut();
-        data.next = new_node;
+        let new_node = Box::new(pdf_dict::new());
+        data.next = Box::into_raw(new_node);
         data.key = name;
         data.value = value;
         0i32
