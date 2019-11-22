@@ -47,7 +47,7 @@ use crate::dpx_pdfdraw::{
     pdf_dev_setmiterlimit,
 };
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_get_version, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_dict, pdf_get_version, pdf_name, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj,
     pdf_string_value, IntoObj,
 };
 use crate::dpx_pdfparse::ParseIdent;
@@ -647,11 +647,11 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> Option<pdf_dict> {
     }
     Some(dict)
 }
-unsafe fn tpic_filter_getopts(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
+unsafe fn tpic_filter_getopts(kp: &pdf_name, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
     let mut tp: *mut spc_tpic_ = dp as *mut spc_tpic_;
     let mut error: i32 = 0i32;
-    assert!(!kp.is_null() && !vp.is_null() && !tp.is_null());
-    let k = (*kp).as_name().to_bytes();
+    assert!(!vp.is_null() && !tp.is_null());
+    let k = kp.to_bytes();
     if k == b"fill-mode" {
         if !(*vp).is_string() {
             warn!("Invalid value for TPIC option fill-mode...");
@@ -687,7 +687,7 @@ unsafe fn spc_handler_tpic__setopts(spe: *mut spc_env, ap: *mut spc_arg) -> i32 
         let error = dict.foreach(
             Some(
                 tpic_filter_getopts
-                    as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
+                    as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
             ),
             tp as *mut libc::c_void,
         );

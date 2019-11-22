@@ -66,7 +66,7 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_obj, pdf_obj_typeof, pdf_release_obj, pdf_remove_dict,
+    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_obj_typeof, pdf_release_obj, pdf_remove_dict,
     pdf_set_string, pdf_stream, pdf_string_length, pdf_string_value, IntoObj, PdfObjType,
     STREAM_COMPRESS,
 };
@@ -240,38 +240,38 @@ unsafe fn spc_handler_pdfm_eop(mut _spe: *mut spc_env, mut args: *mut spc_arg) -
     0i32
 }
 /* Why should we have this kind of things? */
-unsafe fn safeputresdent(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
-    assert!(!kp.is_null() && !vp.is_null() && !dp.is_null());
-    let key = (*kp).as_name();
+unsafe fn safeputresdent(kp: &pdf_name, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
+    assert!(!vp.is_null() && !dp.is_null());
+    let key = kp.to_bytes();
     let dict_ref = (*(dp as *mut pdf_obj)).as_dict_mut();
-    if dict_ref.has(key.to_bytes()) {
+    if dict_ref.has(key) {
         warn!(
             "Object \"{}\" already defined in dict! (ignored)",
             key.display()
         );
     } else {
-        dict_ref.set(key.to_bytes(), pdf_link_obj(vp));
+        dict_ref.set(key, pdf_link_obj(vp));
     }
     0i32
 }
-unsafe fn safeputresdict(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
-    assert!(!kp.is_null() && !vp.is_null() && !dp.is_null());
-    let key = (*kp).as_name();
+unsafe fn safeputresdict(kp: &pdf_name, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
+    assert!(!vp.is_null() && !dp.is_null());
+    let key = kp.to_bytes();
     let dict_ref = (*(dp as *mut pdf_obj)).as_dict_mut();
-    let dict = dict_ref.get_mut(key.to_bytes());
+    let dict = dict_ref.get_mut(key);
     if (*vp).is_indirect() {
-        dict_ref.set(key.to_bytes(), pdf_link_obj(vp));
+        dict_ref.set(key, pdf_link_obj(vp));
     } else if (*vp).is_dict() {
         if let Some(dict) = dict {
             (*vp).as_dict_mut().foreach(
                 Some(
                     safeputresdent
-                        as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
+                        as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                 ),
                 dict as *mut pdf_obj as *mut libc::c_void,
             );
         } else {
-            dict_ref.set(key.to_bytes(), pdf_link_obj(vp));
+            dict_ref.set(key, pdf_link_obj(vp));
         }
     } else {
         warn!(
@@ -326,7 +326,7 @@ unsafe fn spc_handler_pdfm_put(spe: *mut spc_env, ap: *mut spc_arg) -> i32 {
                     Some(
                         safeputresdict
                             as unsafe fn(
-                                _: *mut pdf_obj,
+                                _: &pdf_name,
                                 _: *mut pdf_obj,
                                 _: *mut libc::c_void,
                             ) -> i32,
@@ -480,15 +480,14 @@ unsafe fn maybe_reencode_utf8(instring: *mut pdf_obj) -> i32 {
  * but does a quick check. Please add entries for taintkeys if you have found
  * additional dictionary entries which is considered as a text string.
  */
-unsafe fn needreencode(kp: *mut pdf_obj, vp: *mut pdf_obj, cd: *mut tounicode) -> i32 {
+unsafe fn needreencode(kp: &pdf_name, vp: *mut pdf_obj, cd: *mut tounicode) -> i32 {
     let mut r: i32 = 0i32;
     assert!(!cd.is_null() && !(*cd).taintkeys.is_null());
-    assert!((*kp).is_name());
     assert!((*vp).is_string());
     for i in 0..(*(*cd).taintkeys).as_array().len() {
         let tk = (*(*cd).taintkeys).as_array()[i];
         assert!((*tk).is_name());
-        if (*kp).as_name() == (*tk).as_name() {
+        if kp.to_bytes() == (*tk).as_name().to_bytes() {
             r = 1i32;
             break;
         }
@@ -507,10 +506,9 @@ unsafe fn needreencode(kp: *mut pdf_obj, vp: *mut pdf_obj, cd: *mut tounicode) -
     } /* continue */
     r
 }
-unsafe fn modstrings(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
+unsafe fn modstrings(kp: &pdf_name, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
     let mut r: i32 = 0i32;
     let cd: *mut tounicode = dp as *mut tounicode;
-    assert!((*kp).is_name());
     match pdf_obj_typeof(vp) {
         PdfObjType::STRING => {
             if !cd.is_null() && (*cd).cmap_id >= 0i32 && !(*cd).taintkeys.is_null() {
@@ -536,7 +534,7 @@ unsafe fn modstrings(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) 
             r = (*vp).as_dict_mut().foreach(
                 Some(
                     modstrings
-                        as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
+                        as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                 ),
                 dp,
             )
@@ -545,7 +543,7 @@ unsafe fn modstrings(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) 
             r = (*vp).as_stream_mut().get_dict_mut().foreach(
                 Some(
                     modstrings
-                        as unsafe fn(_: *mut pdf_obj, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
+                        as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                 ),
                 dp,
             )
@@ -577,7 +575,7 @@ impl ParsePdfDictU for &[u8] {
                     Some(
                         modstrings
                             as unsafe fn(
-                                _: *mut pdf_obj,
+                                _: &pdf_name,
                                 _: *mut pdf_obj,
                                 _: *mut libc::c_void,
                             ) -> i32,
