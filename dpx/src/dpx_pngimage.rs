@@ -36,8 +36,8 @@ use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_new_dict, pdf_new_name, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream, pdf_stream_set_predictor, IntoObj, PushObj, STREAM_COMPRESS,
+    pdf_get_version, pdf_new_dict, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_stream, pdf_stream_set_predictor, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::ttstub_input_read;
 use libc::free;
@@ -221,7 +221,7 @@ pub unsafe fn png_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
                 colorspace = create_cspace_CalRGB(png, png_info)
             }
             if colorspace.is_null() {
-                colorspace = pdf_new_name("DeviceRGB")
+                colorspace = "DeviceRGB".into_obj()
             }
             match trans_type {
                 1 => mask = create_ckey_mask(png, png_info),
@@ -249,7 +249,7 @@ pub unsafe fn png_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
                 colorspace = create_cspace_CalGray(png, png_info)
             }
             if colorspace.is_null() {
-                colorspace = pdf_new_name("DeviceGray")
+                colorspace = "DeviceGray".into_obj()
             }
             match trans_type {
                 1 => mask = create_ckey_mask(png, png_info),
@@ -332,8 +332,8 @@ pub unsafe fn png_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
                      */
                     let mut XMP_stream = pdf_stream::new(STREAM_COMPRESS);
                     let XMP_stream_dict = XMP_stream.get_dict_mut();
-                    XMP_stream_dict.set("Type", pdf_new_name("Metadata"));
-                    XMP_stream_dict.set("Subtype", pdf_new_name("XML"));
+                    XMP_stream_dict.set("Type", "Metadata");
+                    XMP_stream_dict.set("Subtype", "XML");
                     XMP_stream.add(
                         (*text_ptr.offset(i as isize)).text as *const libc::c_void,
                         (*text_ptr.offset(i as isize)).itxt_length as i32,
@@ -503,10 +503,10 @@ unsafe fn get_rendering_intent(png: &mut png_struct, info: &mut png_info) -> *mu
     let mut srgb_intent: libc::c_int = 0;
     if png_get_valid(png, info, 0x800u32) != 0 && png_get_sRGB(png, info, &mut srgb_intent) != 0 {
         match srgb_intent {
-            2 => pdf_new_name("Saturation"),
-            0 => pdf_new_name("Perceptual"),
-            3 => pdf_new_name("AbsoluteColorimetric"),
-            1 => pdf_new_name("RelativeColorimetric"),
+            2 => "Saturation".into_obj(),
+            0 => "Perceptual".into_obj(),
+            3 => "AbsoluteColorimetric".into_obj(),
+            1 => "RelativeColorimetric".into_obj(),
             _ => {
                 warn!(
                     "{}: Invalid value in PNG sRGB chunk: {}",
@@ -538,10 +538,10 @@ unsafe fn create_cspace_sRGB(png: &png_struct, info: &png_info) -> *mut pdf_obj 
     let mut colorspace = vec![];
     match color_type as i32 {
         2 | 6 | 3 => {
-            colorspace.push(pdf_new_name("CalRGB"));
+            colorspace.push_obj("CalRGB");
         }
         0 | 4 => {
-            colorspace.push(pdf_new_name("CalGray"));
+            colorspace.push_obj("CalGray");
         }
         _ => {}
     }
@@ -644,7 +644,7 @@ unsafe fn create_cspace_CalRGB(png: &mut png_struct, png_info: &mut png_info) ->
         return ptr::null_mut();
     }
     let mut colorspace = vec![];
-    colorspace.push(pdf_new_name("CalRGB"));
+    colorspace.push_obj("CalRGB");
     colorspace.push(cal_param);
     colorspace.into_obj()
 }
@@ -692,7 +692,7 @@ unsafe fn create_cspace_CalGray(png: &mut png_struct, info: &mut png_info) -> *m
         return ptr::null_mut();
     }
     let mut colorspace = vec![];
-    colorspace.push(pdf_new_name("CalGray"));
+    colorspace.push_obj("CalGray");
     colorspace.push(cal_param);
     colorspace.into_obj()
 }
@@ -801,7 +801,7 @@ unsafe fn create_cspace_Indexed(png: &mut png_struct, info: &mut png_info) -> *m
     }
     /* Order is important. */
     let mut colorspace = vec![];
-    colorspace.push(pdf_new_name("Indexed"));
+    colorspace.push_obj("Indexed");
     let mut base = if png_get_valid(png, info, 0x1000u32) != 0 {
         create_cspace_ICCBased(png, info)
     } else if png_get_valid(png, info, 0x800u32) != 0 {
@@ -810,7 +810,7 @@ unsafe fn create_cspace_Indexed(png: &mut png_struct, info: &mut png_info) -> *m
         create_cspace_CalRGB(png, info)
     };
     if base.is_null() {
-        base = pdf_new_name("DeviceRGB")
+        base = "DeviceRGB".into_obj();
     }
     colorspace.push(base);
     colorspace.push_obj((num_plte - 1i32) as f64);
@@ -925,11 +925,11 @@ unsafe fn create_soft_mask(
     let smask_data_ptr = new((width.wrapping_mul(height) as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
         as *mut png_byte;
-    dict.set("Type", pdf_new_name("XObject"));
-    dict.set("Subtype", pdf_new_name("Image"));
+    dict.set("Type", "XObject");
+    dict.set("Subtype", "Image");
     dict.set("Width", width as f64);
     dict.set("Height", height as f64);
-    dict.set("ColorSpace", pdf_new_name("DeviceGray"));
+    dict.set("ColorSpace", "DeviceGray");
     dict.set("BitsPerComponent", 8_f64);
     for i in 0..width.wrapping_mul(height) {
         let idx: png_byte = *image_data_ptr.offset(i as isize);
@@ -984,11 +984,11 @@ unsafe fn strip_soft_mask(
     }
     let mut smask = pdf_stream::new(STREAM_COMPRESS);
     let dict = smask.get_dict_mut();
-    dict.set("Type", pdf_new_name("XObject"));
-    dict.set("Subtype", pdf_new_name("Image"));
+    dict.set("Type", "XObject");
+    dict.set("Subtype", "Image");
     dict.set("Width", width as f64);
     dict.set("Height", height as f64);
-    dict.set("ColorSpace", pdf_new_name("DeviceGray"));
+    dict.set("ColorSpace", "DeviceGray");
     dict.set("BitsPerComponent", bpc as f64);
     let smask_data_ptr = new((((bpc as i32 / 8i32) as u32)
         .wrapping_mul(width)

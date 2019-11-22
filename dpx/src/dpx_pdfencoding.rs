@@ -43,8 +43,8 @@ use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_get_version, pdf_link_obj, pdf_name_value, pdf_new_dict, pdf_obj,
-    pdf_release_obj, IntoObj, PushObj,
+    pdf_copy_name, pdf_get_version, pdf_link_obj, pdf_new_dict, pdf_obj, pdf_release_obj, IntoObj,
+    PushObj,
 };
 use crate::dpx_pdfparse::{ParsePdfObj, SkipWhite};
 use crate::mfree;
@@ -297,11 +297,11 @@ unsafe fn load_encoding_file(filename: *const i8) -> i32 {
     }
     let encoding_array = encoding_array.unwrap();
     for code in 0..256 {
-        enc_vec[code] = pdf_name_value(&*(*encoding_array).as_array()[code]).as_ptr();
+        enc_vec[code] = (*(*encoding_array).as_array()[code]).as_name().as_ptr();
     }
     let enc_id = pdf_encoding_new_encoding(
         if let Some(enc_name) = enc_name {
-            pdf_name_value(&*enc_name).as_ptr()
+            (*enc_name).as_name().as_ptr()
         } else {
             ptr::null_mut()
         },
@@ -312,7 +312,7 @@ unsafe fn load_encoding_file(filename: *const i8) -> i32 {
     );
     if let Some(enc_name) = enc_name {
         if verbose as i32 > 1i32 {
-            info!("[{:?}]", pdf_name_value(&*enc_name).display());
+            info!("[{:?}]", (*enc_name).as_name().display());
         }
         pdf_release_obj(enc_name);
     }

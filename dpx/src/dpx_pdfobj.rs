@@ -310,6 +310,13 @@ impl IntoObj for bool {
     }
 }
 
+impl IntoObj for &str {
+    #[inline(always)]
+    fn into_obj(self) -> *mut pdf_obj {
+        unsafe { pdf_new_name(self) }
+    }
+}
+
 impl IntoObj for Vec<*mut pdf_obj> {
     #[inline(always)]
     fn into_obj(self) -> *mut pdf_obj {
@@ -435,9 +442,7 @@ pub unsafe fn pdf_out_init(filename: *const i8, do_encryption: bool, enable_obje
             xref_stream = pdf_stream::new(STREAM_COMPRESS).into_obj();
             (*xref_stream).flags |= OBJ_NO_ENCRYPT;
             trailer_dict = (*xref_stream).as_stream_mut().get_dict_obj();
-            (*trailer_dict)
-                .as_dict_mut()
-                .set("Type", pdf_new_name("XRef"));
+            (*trailer_dict).as_dict_mut().set("Type", "XRef");
             do_objstm = 1i32
         } else {
             trailer_dict = pdf_new_dict();
@@ -1102,9 +1107,6 @@ unsafe fn write_name(name: *mut pdf_name, handle: &mut OutputHandleWrapper) {
     }
 }
 
-pub unsafe fn pdf_name_value<'a>(object: &'a pdf_obj) -> &'a CStr {
-    object.as_name()
-}
 /*
  * We do not have pdf_name_length() since '\0' is not allowed
  * in PDF name object.
@@ -1250,7 +1252,7 @@ impl pdf_dict {
         /* If this key already exists, simply replace the value */
         let mut data = self;
         while !data.key.is_null() {
-            if key.as_ref() == pdf_name_value(&*data.key).to_bytes() {
+            if key.as_ref() == (*data.key).as_name().to_bytes() {
                 /* Release the old value */
                 pdf_release_obj(data.value);
                 data.value = value;
@@ -1279,7 +1281,7 @@ impl pdf_dict {
         while !(*data).key.is_null() {
             self.set(
                 //pdf_link_obj((*data).key),
-                pdf_name_value(&*(*data).key).to_bytes(),
+                (*(*data).key).as_name().to_bytes(),
                 pdf_link_obj((*data).value),
             );
             data = &*(*data).next
@@ -1311,7 +1313,7 @@ impl pdf_dict {
     {
         let mut data = self;
         while !(*data).key.is_null() {
-            if name.as_ref() == pdf_name_value(&*(*data).key).to_bytes() {
+            if name.as_ref() == (*(*data).key).as_name().to_bytes() {
                 return true;
             }
             data = &*(*data).next
@@ -1324,7 +1326,7 @@ impl pdf_dict {
     {
         let mut data = self;
         while !(*data).key.is_null() {
-            if name.as_ref() == pdf_name_value(&*(*data).key).to_bytes() {
+            if name.as_ref() == (*(*data).key).as_name().to_bytes() {
                 return Some(&*(*data).value);
             }
             data = &*(*data).next
@@ -1337,7 +1339,7 @@ impl pdf_dict {
     {
         let mut data = self;
         while !(*data).key.is_null() {
-            if name.as_ref() == pdf_name_value(&*(*data).key).to_bytes() {
+            if name.as_ref() == (*(*data).key).as_name().to_bytes() {
                 return Some(&mut *(*data).value);
             }
             data = &mut *(*data).next
@@ -1807,7 +1809,7 @@ unsafe fn write_stream(stream: *mut pdf_stream, handle: &mut OutputHandleWrapper
     if (*(*stream).dict)
         .as_dict()
         .get("Type")
-        .filter(|typ| "Metadata" == pdf_name_value(&**typ).to_string_lossy())
+        .filter(|typ| b"Metadata" == (**typ).as_name().to_bytes())
         .is_some()
     {
         (*stream)._flags &= !STREAM_COMPRESS;
@@ -1881,7 +1883,7 @@ unsafe fn write_stream(stream: *mut pdf_stream, handle: &mut OutputHandleWrapper
             let buffer = new((buffer_length as u32 as u64)
                 .wrapping_mul(::std::mem::size_of::<libc::c_uchar>() as u64)
                 as u32) as *mut libc::c_uchar;
-            let filter_name: *mut pdf_obj = pdf_new_name("FlateDecode");
+            let filter_name = "FlateDecode".into_obj();
             let has_filters = filters.is_some();
             if let Some(filters) = filters {
                 /*
@@ -2540,15 +2542,15 @@ pub unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_stream) -> i
                 filter = &**(*filter).as_array().get(0).expect("Broken PDF file?");
             }
             if (*filter).is_name() {
-                let filter_name = pdf_name_value(&*filter).to_string_lossy();
-                if filter_name == "FlateDecode" {
+                let filter_name = (*filter).as_name().to_bytes();
+                if filter_name == b"FlateDecode" {
                     if have_parms != 0 {
                         error = pdf_add_stream_flate_filtered(dst, stream_data, &mut parms)
                     } else {
                         error = pdf_add_stream_flate(dst, stream_data)
                     }
                 } else {
-                    warn!("DecodeFilter \"{}\" not supported.", filter_name,);
+                    warn!("DecodeFilter \"{}\" not supported.", filter_name.display());
                     error = -1i32
                 }
             } else {
@@ -2689,7 +2691,7 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
             .add_slice(&format_buffer[..length]);
     }
     let dict = (*objstm).as_stream_mut().get_dict_mut();
-    dict.set("Type", pdf_new_name("ObjStm"));
+    dict.set("Type", "ObjStm");
     dict.set("N", pos as f64);
     dict.set("First", (*stream).content.len() as f64);
     (*objstm).as_stream_mut().add_slice(old_buf.as_ref());
@@ -3026,7 +3028,7 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
             objstm = tmp;
             let dict = (*objstm).as_stream().get_dict();
             let typ = dict.get("Type").unwrap();
-            if !(!typ.is_name() || pdf_name_value(typ).to_bytes() != b"ObjStm") {
+            if !(!typ.is_name() || typ.as_name().to_bytes() != b"ObjStm") {
                 if let Some(n_obj) = dict.get("N").filter(|&no| (*no).is_number()) {
                     let n = n_obj.as_f64() as i32;
                     if let Some(first_obj) = dict.get("First").filter(|&fo| (*fo).is_number()) {
@@ -3793,7 +3795,7 @@ pub unsafe fn pdf_open(ident: *const i8, mut handle: InputHandleWrapper) -> *mut
         if !new_version.is_null() {
             let mut minor: u32 = 0;
             if (&*new_version).is_name() {
-                let new_version_str = pdf_name_value(&*new_version).to_bytes();
+                let new_version_str = (*new_version).as_name().to_bytes();
                 let minor_num_str = if new_version_str.starts_with(b"1.") {
                     std::str::from_utf8(&new_version_str[2..]).unwrap_or("")
                 } else {
@@ -3888,8 +3890,7 @@ unsafe fn import_dict(key: *mut pdf_obj, value: *mut pdf_obj, pdata: *mut libc::
     if tmp.is_null() {
         return -1i32;
     }
-    copy.as_dict_mut()
-        .set(pdf_name_value(&*key).to_bytes(), tmp); // TODO: check
+    copy.as_dict_mut().set((*key).as_name().to_bytes(), tmp); // TODO: check
     0i32
 }
 static mut loop_marker: pdf_obj = pdf_obj {

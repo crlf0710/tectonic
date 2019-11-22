@@ -44,7 +44,7 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
-    pdf_link_obj, pdf_new_dict, pdf_new_name, pdf_new_null, pdf_new_string, pdf_obj, pdf_ref_obj,
+    pdf_link_obj, pdf_new_dict, pdf_new_null, pdf_new_string, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_string_value, IntoObj, PushObj,
 };
 use crate::spc_warn;
@@ -279,12 +279,8 @@ unsafe fn html_open_link(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_ht
     assert!(!name.is_null());
     assert!((*sd).link_dict.is_null());
     (*sd).link_dict = pdf_new_dict();
-    (*(*sd).link_dict)
-        .as_dict_mut()
-        .set("Type", pdf_new_name("Annot"));
-    (*(*sd).link_dict)
-        .as_dict_mut()
-        .set("Subtype", pdf_new_name("Link"));
+    (*(*sd).link_dict).as_dict_mut().set("Type", "Annot");
+    (*(*sd).link_dict).as_dict_mut().set("Subtype", "Link");
     let mut color = vec![];
     color.push_obj(0f64);
     color.push_obj(0f64);
@@ -302,8 +298,8 @@ unsafe fn html_open_link(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_ht
         ); /* Otherwise must be bug */
     } else {
         let action: *mut pdf_obj = pdf_new_dict();
-        (*action).as_dict_mut().set("Type", pdf_new_name("Action"));
-        (*action).as_dict_mut().set("S", pdf_new_name("URI"));
+        (*action).as_dict_mut().set("Type", "Action");
+        (*action).as_dict_mut().set("S", "URI");
         (*action).as_dict_mut().set(
             "URI",
             pdf_new_string(url as *const libc::c_void, strlen(url) as _),
@@ -326,7 +322,7 @@ unsafe fn html_open_dest(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_ht
     assert!(!page_ref.is_null());
     let mut array = vec![];
     array.push(page_ref);
-    array.push(pdf_new_name("XYZ"));
+    array.push_obj("XYZ");
     array.push(pdf_new_null());
     array.push_obj(cp.y + 24.);
     array.push(pdf_new_null());
@@ -459,7 +455,7 @@ unsafe fn atopt(a: &[u8]) -> f64 {
 unsafe fn create_xgstate(a: f64, f_ais: i32) -> *mut pdf_obj
 /* alpha is shape */ {
     let dict = pdf_new_dict();
-    (*dict).as_dict_mut().set("Type", pdf_new_name("ExtGState"));
+    (*dict).as_dict_mut().set("Type", "ExtGState");
     if f_ais != 0 {
         (*dict).as_dict_mut().set("AIS", true);
     }

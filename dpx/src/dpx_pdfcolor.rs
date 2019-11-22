@@ -28,8 +28,8 @@ use super::dpx_mem::{new, renew};
 use super::dpx_numbers::sget_unsigned_pair;
 use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_link_obj, pdf_new_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
-    IntoObj, STREAM_COMPRESS,
+    pdf_get_version, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj,
+    PushObj, STREAM_COMPRESS,
 };
 use crate::mfree;
 use crate::shims::sprintf;
@@ -522,10 +522,10 @@ pub unsafe fn iccp_get_rendering_intent(profile: &[u8]) -> *mut pdf_obj {
         | (*p.offset(66) as i32) << 8i32
         | *p.offset(67) as i32;
     match intent >> 16i32 & 0xffi32 {
-        2 => pdf_new_name("Saturation"),
-        0 => pdf_new_name("Perceptual"),
-        3 => pdf_new_name("AbsoluteColorimetric"),
-        1 => pdf_new_name("RelativeColorimetric"),
+        2 => "Saturation".into_obj(),
+        0 => "Perceptual".into_obj(),
+        3 => "AbsoluteColorimetric".into_obj(),
+        1 => "RelativeColorimetric".into_obj(),
         _ => {
             warn!(
                 "Invalid rendering intent type: {}",
@@ -1026,7 +1026,7 @@ pub unsafe fn iccp_load_profile(ident: *const i8, profile: &[u8]) -> i32 {
     }
     let mut resource = vec![];
     let stream = pdf_stream::new(STREAM_COMPRESS).into_obj();
-    resource.push(pdf_new_name("ICCBased"));
+    resource.push_obj("ICCBased");
     resource.push(pdf_ref_obj(stream));
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
     stream_dict.set("N", get_num_components_iccbased(cdata) as f64);

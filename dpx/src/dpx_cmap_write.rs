@@ -34,8 +34,7 @@ use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{CMap_get_CIDSysInfo, CMap_is_valid};
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_new_string, pdf_obj, pdf_stream, IntoObj,
-    STREAM_COMPRESS,
+    pdf_copy_name, pdf_new_dict, pdf_new_string, pdf_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use libc::{free, memcmp, memset, strlen};
@@ -348,7 +347,7 @@ pub unsafe fn CMap_create_stream(cmap: *mut CMap) -> *mut pdf_obj {
         (*csi_dict)
             .as_dict_mut()
             .set("Supplement", (*csi).supplement as f64);
-        stream_dict.set("Type", pdf_new_name("CMap"));
+        stream_dict.set("Type", "CMap");
         stream_dict.set("CMapName", pdf_copy_name((*cmap).name));
         stream_dict.set("CIDSystemInfo", csi_dict);
         if (*cmap).wmode != 0i32 {

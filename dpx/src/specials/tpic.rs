@@ -47,8 +47,8 @@ use crate::dpx_pdfdraw::{
     pdf_dev_setmiterlimit,
 };
 use crate::dpx_pdfobj::{
-    pdf_foreach_dict, pdf_get_version, pdf_name_value, pdf_new_dict, pdf_new_name, pdf_new_string,
-    pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string_value,
+    pdf_foreach_dict, pdf_get_version, pdf_new_dict, pdf_new_string, pdf_obj, pdf_ref_obj,
+    pdf_release_obj, pdf_string_value,
 };
 use crate::dpx_pdfparse::ParseIdent;
 use libc::atof;
@@ -91,7 +91,7 @@ unsafe fn create_xgstate(a: f64, f_ais: i32) -> *mut pdf_obj
 /* alpha is shape */ {
     let dict = pdf_new_dict(); /* dash pattern */
     let dict_ref = (*dict).as_dict_mut();
-    dict_ref.set("Type", pdf_new_name("ExtGState"));
+    dict_ref.set("Type", "ExtGState");
     if f_ais != 0 {
         dict_ref.set("AIS", true);
     }
@@ -653,8 +653,8 @@ unsafe fn tpic_filter_getopts(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc:
     let mut tp: *mut spc_tpic_ = dp as *mut spc_tpic_;
     let mut error: i32 = 0i32;
     assert!(!kp.is_null() && !vp.is_null() && !tp.is_null());
-    let k = pdf_name_value(&*kp).to_string_lossy();
-    if k == "fill-mode" {
+    let k = (*kp).as_name().to_bytes();
+    if k == b"fill-mode" {
         if !(*vp).is_string() {
             warn!("Invalid value for TPIC option fill-mode...");
             error = -1i32
@@ -675,7 +675,10 @@ unsafe fn tpic_filter_getopts(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc:
             }
         }
     } else {
-        warn!("Unrecognized option for TPIC special handler: {}", k,);
+        warn!(
+            "Unrecognized option for TPIC special handler: {}",
+            k.display()
+        );
         error = -1i32
     }
     error

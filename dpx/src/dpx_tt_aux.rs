@@ -34,7 +34,7 @@ use super::dpx_dvipdfmx::always_embed;
 use super::dpx_numbers::tt_get_unsigned_quad;
 use super::dpx_tt_post::{tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::{tt_read_head_table, tt_read_os2__table};
-use crate::dpx_pdfobj::{pdf_new_dict, pdf_new_name, pdf_new_string, pdf_obj, IntoObj, PushObj};
+use crate::dpx_pdfobj::{pdf_new_dict, pdf_new_string, pdf_obj, IntoObj, PushObj};
 
 use libc::{free, memcpy};
 use std::io::{Seek, SeekFrom};
@@ -96,9 +96,7 @@ pub unsafe fn tt_get_fontdesc(
         return ptr::null_mut();
     }
     let descriptor = pdf_new_dict();
-    (*descriptor)
-        .as_dict_mut()
-        .set("Type", pdf_new_name("FontDescriptor"));
+    (*descriptor).as_dict_mut().set("Type", "FontDescriptor");
     if *embed != 0 && !os2.is_null() {
         /*
           License:

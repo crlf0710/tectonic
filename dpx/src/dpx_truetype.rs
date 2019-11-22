@@ -62,7 +62,7 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::tt_get_ps_fontname;
 use crate::dpx_pdfobj::{
-    pdf_new_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length, IntoObj, PushObj,
+    pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length, IntoObj, PushObj,
 };
 use crate::shims::sprintf;
 use libc::{atoi, free, memcpy, memmove, memset, strchr, strcpy, strlen, strncpy};
@@ -258,10 +258,8 @@ pub unsafe fn pdf_font_open_truetype(font: *mut pdf_font) -> i32 {
         }
     }
     sfnt_close(sfont);
-    fontdict.as_dict_mut().set("Type", pdf_new_name("Font"));
-    fontdict
-        .as_dict_mut()
-        .set("Subtype", pdf_new_name("TrueType"));
+    fontdict.as_dict_mut().set("Type", "Font");
+    fontdict.as_dict_mut().set("Subtype", "TrueType");
     0i32
 }
 const required_table: [SfntTableInfo; 12] = {

@@ -77,8 +77,8 @@ use super::dpx_tt_table::{
 };
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream, IntoObj, PushObj, STREAM_COMPRESS,
+    pdf_copy_name, pdf_new_dict, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
+    IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::dpx_truetype::sfnt_table_info;
 use crate::ttstub_input_read;
@@ -540,7 +540,7 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     (*(*font).descriptor)
         .as_dict_mut()
         .set("FontFile3", pdf_ref_obj(fontfile));
-    stream_dict.set("Subtype", pdf_new_name("CIDFontType0C"));
+    stream_dict.set("Subtype", "CIDFontType0C");
     (*fontfile)
         .as_stream_mut()
         .add_slice(&dest[..offset as usize]);
@@ -1133,12 +1133,10 @@ pub unsafe fn CIDFont_type0_open(
     (*font).csi = csi;
     (*font).flags |= expected_flag;
     (*font).fontdict = pdf_new_dict();
+    (*(*font).fontdict).as_dict_mut().set("Type", "Font");
     (*(*font).fontdict)
         .as_dict_mut()
-        .set("Type", pdf_new_name("Font"));
-    (*(*font).fontdict)
-        .as_dict_mut()
-        .set("Subtype", pdf_new_name("CIDFontType0"));
+        .set("Subtype", "CIDFontType0");
     if expect_type1_font != 0 || (*opt).embed != 0 {
         memmove(
             fontname.offset(7) as *mut libc::c_void,

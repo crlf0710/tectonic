@@ -55,8 +55,8 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_new_string, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream, pdf_stream_length, IntoObj, PushObj, STREAM_COMPRESS,
+    pdf_copy_name, pdf_new_dict, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
+    pdf_stream_length, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use libc::{free, memmove, memset, strcat, strcmp, strcpy, strlen, strncpy, strstr};
 
@@ -1063,7 +1063,7 @@ pub unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
     if cidtogidmap.is_null() {
         (*(*font).fontdict)
             .as_dict_mut()
-            .set("CIDToGIDMap", pdf_new_name("Identity"));
+            .set("CIDToGIDMap", "Identity");
     } else {
         let mut c2gmstream = pdf_stream::new(STREAM_COMPRESS);
         c2gmstream.add(
@@ -1234,12 +1234,10 @@ pub unsafe fn CIDFont_type2_open(
         (*(*font).csi).supplement = 0i32
     }
     (*font).fontdict = pdf_new_dict();
+    (*(*font).fontdict).as_dict_mut().set("Type", "Font");
     (*(*font).fontdict)
         .as_dict_mut()
-        .set("Type", pdf_new_name("Font"));
-    (*(*font).fontdict)
-        .as_dict_mut()
-        .set("Subtype", pdf_new_name("CIDFontType2"));
+        .set("Subtype", "CIDFontType2");
     (*font).descriptor = tt_get_fontdesc(sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name);
     if (*font).descriptor.is_null() {
         panic!("Could not obtain necessary font info.");

@@ -31,7 +31,7 @@ use crate::warn;
 use super::dpx_mfileio::{file_size, seek_relative, work_buffer};
 use super::dpx_numbers::{get_unsigned_byte, get_unsigned_pair, get_unsigned_quad};
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
-use crate::dpx_pdfobj::{pdf_get_version, pdf_new_name, pdf_stream, IntoObj};
+use crate::dpx_pdfobj::{pdf_get_version, pdf_stream, IntoObj};
 use libc::{fread, rewind, FILE};
 
 pub type __off_t = i64;
@@ -329,7 +329,7 @@ pub unsafe fn jp2_include_image(ximage: *mut pdf_ximage, fp: *mut FILE) -> i32 {
     }
     let mut stream = pdf_stream::new(0i32);
     let stream_dict = stream.get_dict_mut();
-    stream_dict.set("Filter", pdf_new_name("JPXDecode"));
+    stream_dict.set("Filter", "JPXDecode");
     if smask != 0 {
         stream_dict.set("SMaskInData", 1_f64);
     }

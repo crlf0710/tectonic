@@ -53,8 +53,8 @@ use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
 use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load_font};
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_new_name, pdf_new_string_from_slice, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj,
-    PushObj, STREAM_COMPRESS,
+    pdf_new_string_from_slice, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj,
+    STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
@@ -644,7 +644,7 @@ unsafe fn write_fontfile(font: *mut pdf_font, cffont: &cff_font, pdfcharset: &pd
     let fontfile = pdf_stream::new(STREAM_COMPRESS).into_obj();
     let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
     descriptor.set("FontFile3", pdf_ref_obj(fontfile));
-    stream_dict.set("Subtype", pdf_new_name("Type1C"));
+    stream_dict.set("Subtype", "Type1C");
     (*fontfile)
         .as_stream_mut()
         .add_slice(&stream_data[..offset]);

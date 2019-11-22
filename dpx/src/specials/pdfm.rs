@@ -66,9 +66,9 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_foreach_dict, pdf_link_obj, pdf_name_value, pdf_new_dict, pdf_new_name, pdf_obj,
-    pdf_obj_typeof, pdf_release_obj, pdf_remove_dict, pdf_set_string, pdf_stream,
-    pdf_string_length, pdf_string_value, IntoObj, PdfObjType, STREAM_COMPRESS,
+    pdf_foreach_dict, pdf_link_obj, pdf_new_dict, pdf_obj, pdf_obj_typeof, pdf_release_obj,
+    pdf_remove_dict, pdf_set_string, pdf_stream, pdf_string_length, pdf_string_value, IntoObj,
+    PdfObjType, STREAM_COMPRESS,
 };
 use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
@@ -192,7 +192,7 @@ unsafe fn spc_handler_pdfm__init(dp: *mut libc::c_void) -> i32 {
     );
     let array: Vec<*mut pdf_obj> = DEFAULT_TAINTKEYS
         .iter()
-        .map(|&key| pdf_new_name(key))
+        .map(|&key| key.into_obj())
         .collect();
     (*sd).cd.taintkeys = array.into_obj();
     0i32
@@ -242,7 +242,7 @@ unsafe fn spc_handler_pdfm_eop(mut _spe: *mut spc_env, mut args: *mut spc_arg) -
 /* Why should we have this kind of things? */
 unsafe fn safeputresdent(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
     assert!(!kp.is_null() && !vp.is_null() && !dp.is_null());
-    let key = pdf_name_value(&*kp);
+    let key = (*kp).as_name();
     let dict_ref = (*(dp as *mut pdf_obj)).as_dict_mut();
     if dict_ref.has(key.to_bytes()) {
         warn!(
@@ -256,7 +256,7 @@ unsafe fn safeputresdent(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_vo
 }
 unsafe fn safeputresdict(kp: *mut pdf_obj, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
     assert!(!kp.is_null() && !vp.is_null() && !dp.is_null());
-    let key = pdf_name_value(&*kp);
+    let key = (*kp).as_name();
     let dict_ref = (*(dp as *mut pdf_obj)).as_dict_mut();
     let dict = dict_ref.get_mut(key.to_bytes());
     if (*vp).is_indirect() {
@@ -490,7 +490,7 @@ unsafe fn needreencode(kp: *mut pdf_obj, vp: *mut pdf_obj, cd: *mut tounicode) -
     for i in 0..(*(*cd).taintkeys).as_array().len() {
         let tk = (*(*cd).taintkeys).as_array()[i];
         assert!((*tk).is_name());
-        if pdf_name_value(&*kp) == pdf_name_value(&*tk) {
+        if (*kp).as_name() == (*tk).as_name() {
             r = 1i32;
             break;
         }
@@ -1063,7 +1063,7 @@ unsafe fn spc_handler_pdfm_names(spe: *mut spc_env, args: *mut spc_arg) -> i32 {
                     return -1i32;
                 } else {
                     if pdf_doc_add_names(
-                        pdf_name_value(&*category).as_ptr() as *mut i8,
+                        (*category).as_name().as_ptr() as *mut i8,
                         pdf_string_value(&*key),
                         pdf_string_length(&*key) as i32,
                         pdf_link_obj(value),
@@ -1081,7 +1081,7 @@ unsafe fn spc_handler_pdfm_names(spe: *mut spc_env, args: *mut spc_arg) -> i32 {
             let key = tmp;
             if let Some(value) = (*args).cur.parse_pdf_object(ptr::null_mut()) {
                 if pdf_doc_add_names(
-                    pdf_name_value(&*category).as_ptr() as *mut i8,
+                    (*category).as_name().as_ptr() as *mut i8,
                     pdf_string_value(&*key),
                     pdf_string_length(&*key) as i32,
                     value,

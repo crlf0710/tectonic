@@ -66,10 +66,10 @@ use super::dpx_pdfximage::{
 use super::dpx_pngimage::check_for_png;
 use crate::dpx_pdfobj::{
     pdf_compare_reference, pdf_deref_obj, pdf_file, pdf_file_get_catalog, pdf_link_obj,
-    pdf_name_value, pdf_new_dict, pdf_new_name, pdf_new_string, pdf_obj, pdf_obj_typeof,
-    pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt,
-    pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream, pdf_stream_length, pdf_string_length,
-    pdf_string_value, IntoObj, PdfObjType, PushObj, STREAM_COMPRESS,
+    pdf_new_dict, pdf_new_string, pdf_obj, pdf_obj_typeof, pdf_out_flush, pdf_out_init,
+    pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id, pdf_set_info,
+    pdf_set_root, pdf_stream, pdf_stream_length, pdf_string_length, pdf_string_value, IntoObj,
+    PdfObjType, PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
@@ -361,9 +361,7 @@ unsafe fn pdf_doc_close_catalog(mut p: *mut pdf_doc) {
         pdf_release_obj((*p).root.pagelabels);
         (*p).root.pagelabels = ptr::null_mut()
     }
-    (*(*p).root.dict)
-        .as_dict_mut()
-        .set("Type", pdf_new_name("Catalog"));
+    (*(*p).root.dict).as_dict_mut().set("Type", "Catalog");
     pdf_release_obj((*p).root.dict);
     (*p).root.dict = ptr::null_mut();
 }
@@ -604,9 +602,7 @@ pub unsafe fn pdf_doc_add_page_resource(
     }
 }
 unsafe fn doc_flush_page(p: *mut pdf_doc, mut page: *mut pdf_page, parent_ref: *mut pdf_obj) {
-    (*(*page).page_obj)
-        .as_dict_mut()
-        .set("Type", pdf_new_name("Page"));
+    (*(*page).page_obj).as_dict_mut().set("Type", "Page");
     (*(*page).page_obj).as_dict_mut().set("Parent", parent_ref);
     /*
      * Clipping area specified by CropBox is affected by MediaBox which
@@ -699,7 +695,7 @@ unsafe fn build_page_tree(
     } else {
         pdf_ref_obj((*p).root.pages)
     };
-    (*self_0).as_dict_mut().set("Type", pdf_new_name("Pages"));
+    (*self_0).as_dict_mut().set("Type", "Pages");
     (*self_0).as_dict_mut().set("Count", num_pages as f64);
     if !parent_ref.is_null() {
         (*self_0).as_dict_mut().set("Parent", parent_ref);
@@ -1428,7 +1424,7 @@ pub unsafe fn pdf_doc_bookmarks_down() -> i32 {
         pdf_release_obj(tcolor);
         (*(*item).dict).as_dict_mut().set("F", 1_f64);
         let action = pdf_new_dict();
-        (*action).as_dict_mut().set("S", pdf_new_name("JavaScript"));
+        (*action).as_dict_mut().set("S", "JavaScript");
         (*action).as_dict_mut().set(
                      "JS",
                      pdf_new_string(b"app.alert(\"The author of this document made this bookmark item empty!\", 3, 0)\x00"
@@ -1615,7 +1611,7 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
             return undefined(subtype, A, S, D);
         } else if !(!subtype.is_null() && (*subtype).is_name()) {
             return error(subtype, A, S, D);
-        } else if pdf_name_value(&*subtype).to_string_lossy() != "Link" {
+        } else if (*subtype).as_name().to_bytes() != b"Link" {
             return cleanup(subtype, A, S, D);
         }
     }
@@ -1639,7 +1635,7 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
                 return undefined(subtype, A, S, D);
             } else if !(!S.is_null() && (*S).is_name()) {
                 return error(subtype, A, S, D);
-            } else if pdf_name_value(&*S).to_string_lossy() != "GoTo" {
+            } else if (*S).as_name().to_bytes() != b"GoTo" {
                 return cleanup(subtype, A, S, D);
             }
 
@@ -2273,11 +2269,11 @@ unsafe fn pdf_doc_finish_page(mut p: *mut pdf_doc) {
          * ProcSet is obsolete in PDF-1.4 but recommended for compatibility.
          */
         let mut procset = vec![];
-        procset.push(pdf_new_name("PDF"));
-        procset.push(pdf_new_name("Text"));
-        procset.push(pdf_new_name("ImageC"));
-        procset.push(pdf_new_name("ImageB"));
-        procset.push(pdf_new_name("ImageI"));
+        procset.push_obj("PDF");
+        procset.push_obj("Text");
+        procset.push_obj("ImageC");
+        procset.push_obj("ImageB");
+        procset.push_obj("ImageI");
         (*(*currentpage).resources)
             .as_dict_mut()
             .set("ProcSet", procset.into_obj());
@@ -2480,8 +2476,8 @@ unsafe fn pdf_doc_make_xform(
     attrib: *mut pdf_obj,
 ) {
     let xform_dict = (*xform).as_stream_mut().get_dict_mut();
-    xform_dict.set("Type", pdf_new_name("XObject"));
-    xform_dict.set("Subtype", pdf_new_name("Form"));
+    xform_dict.set("Type", "XObject");
+    xform_dict.set("Subtype", "Form");
     xform_dict.set("FormType", 1_f64);
     let mut tmp = vec![];
     tmp.push_obj((bbox.min.x / 0.001 + 0.5).floor() * 0.001);
@@ -2564,11 +2560,11 @@ pub unsafe fn pdf_doc_end_grabbing(attrib: *mut pdf_obj) {
      * ProcSet is obsolete in PDF-1.4 but recommended for compatibility.
      */
     let mut procset = vec![];
-    procset.push(pdf_new_name("PDF"));
-    procset.push(pdf_new_name("Text"));
-    procset.push(pdf_new_name("ImageC"));
-    procset.push(pdf_new_name("ImageB"));
-    procset.push(pdf_new_name("ImageI"));
+    procset.push_obj("PDF");
+    procset.push_obj("Text");
+    procset.push_obj("ImageC");
+    procset.push_obj("ImageB");
+    procset.push_obj("ImageI");
     (*(*form).resources)
         .as_dict_mut()
         .set("ProcSet", procset.into_obj());

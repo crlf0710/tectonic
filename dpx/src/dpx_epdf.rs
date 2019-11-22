@@ -34,8 +34,8 @@ use super::dpx_pdfdoc::pdf_doc_get_page;
 use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
     pdf_close, pdf_concat_stream, pdf_deref_obj, pdf_file_get_catalog, pdf_file_get_version,
-    pdf_get_version, pdf_import_object, pdf_new_name, pdf_obj, pdf_open, pdf_release_obj,
-    pdf_stream, IntoObj, PushObj, STREAM_COMPRESS,
+    pdf_get_version, pdf_import_object, pdf_obj, pdf_open, pdf_release_obj, pdf_stream, IntoObj,
+    PushObj, STREAM_COMPRESS,
 };
 pub type __off_t = i64;
 pub type __off64_t = i64;
@@ -183,8 +183,8 @@ pub unsafe fn pdf_include_page(
          * Add entries to contents stream dictionary.
          */
         let contents_dict = (*contents).as_stream_mut().get_dict_mut();
-        contents_dict.set("Type", pdf_new_name("XObject"));
-        contents_dict.set("Subtype", pdf_new_name("Form"));
+        contents_dict.set("Type", "XObject");
+        contents_dict.set("Subtype", "Form");
         contents_dict.set("FormType", 1_f64);
         let mut bbox = vec![];
         bbox.push_obj(info.bbox.min.x);

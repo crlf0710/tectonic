@@ -45,8 +45,8 @@ use super::dpx_pdffont::{
 };
 use super::dpx_tfm::{tfm_get_design_size, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
-    IntoObj, PushObj, STREAM_COMPRESS,
+    pdf_copy_name, pdf_new_dict, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj,
+    PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use libc::{fclose, fgetc, fopen, fread, free, memset};
@@ -747,8 +747,8 @@ pub unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
      */
     let procset = pdf_new_dict();
     let mut tmp_array = vec![];
-    tmp_array.push(pdf_new_name("PDF"));
-    tmp_array.push(pdf_new_name("ImageB"));
+    tmp_array.push_obj("PDF");
+    tmp_array.push_obj("ImageB");
     (*procset)
         .as_dict_mut()
         .set("ProcSet", tmp_array.into_obj());
@@ -802,9 +802,7 @@ pub unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
     if encoding_id < 0i32 || enc_vec.is_null() {
         /* ENABLE_GLYPHENC */
         let encoding = pdf_new_dict();
-        (*encoding)
-            .as_dict_mut()
-            .set("Type", pdf_new_name("Encoding"));
+        (*encoding).as_dict_mut().set("Type", "Encoding");
         (*encoding)
             .as_dict_mut()
             .set("Differences", tmp_array.into_obj());

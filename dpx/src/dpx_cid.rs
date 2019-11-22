@@ -45,8 +45,8 @@ use super::dpx_cidtype2::{
 };
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_get_version, pdf_link_obj, pdf_name_value, pdf_new_name, pdf_obj,
-    pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_string_value,
+    pdf_copy_name, pdf_get_version, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_remove_dict, pdf_string_value,
 };
 use libc::{free, memcpy, memset, strcat, strchr, strcmp, strcpy, strlen, strncmp, strtoul};
 
@@ -829,13 +829,13 @@ unsafe fn CIDFont_base_open(
         .get("Subtype")
         .filter(|&tmp| (*tmp).is_name())
         .unwrap();
-    let typ = pdf_name_value(&*tmp).to_string_lossy();
-    if typ == "CIDFontType0" {
+    let typ = (*tmp).as_name().to_bytes();
+    if typ == b"CIDFontType0" {
         (*font).subtype = 1i32
-    } else if typ == "CIDFontType2" {
+    } else if typ == b"CIDFontType2" {
         (*font).subtype = 2i32
     } else {
-        panic!("Unknown CIDFontType \"{}\"", typ);
+        panic!("Unknown CIDFontType \"{}\"", typ.display());
     }
     if cidoptflags & 1i32 << 1i32 != 0 {
         if (*fontdict).as_dict().has("W") {
@@ -845,13 +845,11 @@ unsafe fn CIDFont_base_open(
             pdf_remove_dict(&mut *fontdict, "W2");
         }
     }
-    (*fontdict).as_dict_mut().set("Type", pdf_new_name("Font"));
+    (*fontdict).as_dict_mut().set("Type", "Font");
     (*fontdict)
         .as_dict_mut()
         .set("BaseFont", pdf_copy_name(fontname));
-    (*descriptor)
-        .as_dict_mut()
-        .set("Type", pdf_new_name("FontDescriptor"));
+    (*descriptor).as_dict_mut().set("Type", "FontDescriptor");
     (*descriptor)
         .as_dict_mut()
         .set("FontName", pdf_copy_name(fontname));

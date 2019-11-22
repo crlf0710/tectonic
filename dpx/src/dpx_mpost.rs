@@ -59,8 +59,8 @@ use super::dpx_pdfparse::dump_slice;
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record};
 use super::dpx_tfm::{tfm_exists, tfm_get_width, tfm_open, tfm_string_width};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_name_value, pdf_new_dict, pdf_new_name, pdf_obj, pdf_release_obj,
-    pdf_set_number, pdf_string_length, pdf_string_value, IntoObj,
+    pdf_copy_name, pdf_new_dict, pdf_new_name, pdf_obj, pdf_release_obj, pdf_set_number,
+    pdf_string_length, pdf_string_value, IntoObj,
 };
 use crate::dpx_pdfparse::{
     parse_number, pdfparse_skip_line, skip_white, ParseIdent, ParsePdfObj, SkipWhite,
@@ -494,7 +494,7 @@ unsafe fn is_fontdict(dict: &pdf_obj) -> bool {
     let tmp = dict
         .as_dict()
         .get("Type")
-        .filter(|&tmp| (*tmp).is_name() && pdf_name_value(&*tmp).to_string_lossy() == "Font");
+        .filter(|&tmp| (*tmp).is_name() && (*tmp).as_name().to_bytes() == b"Font");
     if tmp.is_none() {
         return false;
     }
@@ -519,7 +519,7 @@ unsafe fn do_findfont() -> i32 {
              * font scale.
              */
             let font_dict = pdf_new_dict();
-            (*font_dict).as_dict_mut().set("Type", pdf_new_name("Font"));
+            (*font_dict).as_dict_mut().set("Type", "Font");
             if (*font_name).is_string() {
                 (*font_dict).as_dict_mut().set(
                     "FontName",
@@ -573,7 +573,7 @@ unsafe fn do_setfont() -> i32 {
             /* Subfont support prevent us from managing
              * font in a single place...
              */
-            let font_name = pdf_name_value((*font_dict).as_dict().get("FontName").unwrap());
+            let font_name = ((*font_dict).as_dict().get("FontName").unwrap()).as_name();
             let font_scale = (*font_dict).as_dict().get("FontScale").unwrap().as_f64();
             mp_setfont(font_name, font_scale)
         };
@@ -597,7 +597,7 @@ unsafe fn do_currentfont() -> i32 {
         return 1i32;
     } else {
         let font_dict = pdf_new_dict();
-        (*font_dict).as_dict_mut().set("Type", pdf_new_name("Font"));
+        (*font_dict).as_dict_mut().set("Type", "Font");
         (*font_dict)
             .as_dict_mut()
             .set("FontName", pdf_new_name((*font).font_name.to_bytes()));

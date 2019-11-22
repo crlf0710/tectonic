@@ -42,7 +42,7 @@ use super::dpx_pdfencoding::pdf_load_ToUnicode_stream;
 use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resource_reference};
 use super::dpx_tt_cmap::otf_create_ToUnicode_stream;
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_get_version, pdf_link_obj, pdf_new_dict, pdf_new_name, pdf_obj, pdf_ref_obj,
+    pdf_copy_name, pdf_get_version, pdf_link_obj, pdf_new_dict, pdf_obj, pdf_ref_obj,
     pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
@@ -188,7 +188,7 @@ unsafe fn add_ToUnicode(font: *mut Type0Font) {
                 pdf_read_ToUnicode_file(b"Adobe-Identity-UCS2\x00" as *const u8 as *const i8);
             if tounicode.is_null() {
                 /* This should work */
-                tounicode = pdf_new_name("Identity-H")
+                tounicode = "Identity-H".into_obj();
             }
             (*(*font).fontdict)
                 .as_dict_mut()
@@ -409,12 +409,8 @@ pub unsafe fn Type0Font_cache_find(
      * Now we start font dictionary.
      */
     (*font).fontdict = pdf_new_dict();
-    (*(*font).fontdict)
-        .as_dict_mut()
-        .set("Type", pdf_new_name("Font"));
-    (*(*font).fontdict)
-        .as_dict_mut()
-        .set("Subtype", pdf_new_name("Type0"));
+    (*(*font).fontdict).as_dict_mut().set("Type", "Font");
+    (*(*font).fontdict).as_dict_mut().set("Subtype", "Type0");
     /*
      * Type0 font does not have FontDescriptor because it is not a simple font.
      * Instead, DescendantFonts appears here.
