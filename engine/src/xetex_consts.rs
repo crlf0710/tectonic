@@ -173,6 +173,9 @@ pub const BOX_BASE: placeholdertype = ETEX_PENS;
 pub unsafe fn BOX_REG(n: placeholdertype) -> placeholdertype {
     (*(eqtb.offset((BOX_BASE + n) as isize))).b32.s1
 }
+pub unsafe fn BOX_REG_set(n: placeholdertype, m: placeholdertype) {
+    (*(eqtb.offset((BOX_BASE + n) as isize))).b32.s1 = m
+}
 
 pub const CUR_FONT_LOC: placeholdertype = (BOX_BASE + NUMBER_REGS);
 pub const MATH_FONT_BASE: placeholdertype = (CUR_FONT_LOC + 1);
@@ -371,6 +374,11 @@ pub unsafe fn DIMENPAR(x: placeholdertype) -> placeholdertype {
     (*(eqtb.offset((DIMEN_BASE + x as placeholdertype) as isize)))
         .b32
         .s1
+}
+pub unsafe fn DIMENPAR_set(x: placeholdertype, y: placeholdertype) {
+    (*(eqtb.offset((DIMEN_BASE + x as placeholdertype) as isize)))
+        .b32
+        .s1 = y
 }
 
 pub const SCALED_BASE: placeholdertype = (DIMEN_BASE + DIMEN_PARS);
