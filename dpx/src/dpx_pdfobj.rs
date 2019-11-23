@@ -308,14 +308,24 @@ impl IntoObj for *mut pdf_obj {
 impl IntoObj for f64 {
     #[inline(always)]
     fn into_obj(self) -> *mut pdf_obj {
-        unsafe { pdf_new_number(self) }
+        unsafe {
+            let result = pdf_new_obj(PdfObjType::NUMBER);
+            let data = Box::new(pdf_number { value: self });
+            (*result).data = Box::into_raw(data) as *mut libc::c_void;
+            result
+        }
     }
 }
 
 impl IntoObj for bool {
     #[inline(always)]
     fn into_obj(self) -> *mut pdf_obj {
-        unsafe { pdf_new_boolean(self as i8) }
+        unsafe {
+            let result = pdf_new_obj(PdfObjType::BOOLEAN);
+            let data = Box::new(pdf_boolean { value: self as i8 });
+            (*result).data = Box::into_raw(data) as *mut libc::c_void;
+            result
+        }
     }
 }
 
@@ -859,17 +869,6 @@ unsafe fn write_null(handle: &mut OutputHandleWrapper) {
     pdf_out(handle, b"null");
 }
 
-unsafe fn pdf_new_boolean(value: i8) -> *mut pdf_obj {
-    let result = pdf_new_obj(PdfObjType::BOOLEAN);
-    let data = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_boolean>() as u64) as u32)
-        as *mut pdf_boolean;
-    (*data).value = value;
-    (*result).data = data as *mut libc::c_void;
-    result
-}
-unsafe fn release_boolean(data: *mut pdf_obj) {
-    free(data as *mut libc::c_void);
-}
 unsafe fn write_boolean(data: *mut pdf_boolean, handle: &mut OutputHandleWrapper) {
     if (*data).value != 0 {
         pdf_out(handle, b"true");
@@ -878,17 +877,6 @@ unsafe fn write_boolean(data: *mut pdf_boolean, handle: &mut OutputHandleWrapper
     };
 }
 
-unsafe fn pdf_new_number(value: f64) -> *mut pdf_obj {
-    let result = pdf_new_obj(PdfObjType::NUMBER);
-    let data = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_number>() as u64) as u32)
-        as *mut pdf_number;
-    (*data).value = value;
-    (*result).data = data as *mut libc::c_void;
-    result
-}
-unsafe fn release_number(data: *mut pdf_number) {
-    free(data as *mut libc::c_void);
-}
 unsafe fn write_number(number: *mut pdf_number, handle: &mut OutputHandleWrapper) {
     let count = pdf_sprint_number(&mut format_buffer[..], (*number).value) as usize;
     pdf_out(handle, &format_buffer[..count]);
@@ -1103,10 +1091,6 @@ pub unsafe fn pdf_copy_name(name: *const i8) -> *mut pdf_obj {
     pdf_new_name(slice)
 }
 
-unsafe fn release_name(data: *mut pdf_name) {
-    let _ = Box::from_raw(data);
-}
-
 unsafe fn write_name(name: &pdf_name, handle: &mut OutputHandleWrapper) {
     let cstr = name.name.as_c_str();
     /*
@@ -1246,14 +1230,16 @@ impl pdf_dict {
     }
 }
 
-unsafe fn release_dict(data: *mut pdf_dict) {
-    let mut boxed = Box::from_raw(data);
-    for (_k, v) in boxed.inner.drain(..) {
-        unsafe {
-            pdf_release_obj(v);
+impl Drop for pdf_dict {
+    fn drop(&mut self) {
+        for (_k, v) in self.inner.drain(..) {
+            unsafe {
+                pdf_release_obj(v);
+            }
         }
     }
 }
+
 impl pdf_dict {
     /* Array is ended by a node with NULL this pointer */
     /* pdf_add_dict returns 0 if the key is new and non-zero otherwise */
@@ -2746,22 +2732,22 @@ pub unsafe fn pdf_release_obj(mut object: *mut pdf_obj) {
         }
         match PdfObjType::from((*object).typ) {
             PdfObjType::BOOLEAN => {
-                release_boolean((*object).data as *mut pdf_obj);
+                let _ = Box::from_raw((*object).data as *mut pdf_boolean);
             }
             PdfObjType::NUMBER => {
-                release_number((*object).data as *mut pdf_number);
+                let _ = Box::from_raw((*object).data as *mut pdf_number);
             }
             PdfObjType::STRING => {
                 release_string((*object).data as *mut pdf_string);
             }
             PdfObjType::NAME => {
-                release_name((*object).data as *mut pdf_name);
+                let _ = Box::from_raw((*object).data as *mut pdf_name);
             }
             PdfObjType::ARRAY => {
                 let _ = Box::from_raw((*object).data as *mut pdf_array);
             }
             PdfObjType::DICT => {
-                release_dict((*object).data as *mut pdf_dict);
+                let _ = Box::from_raw((*object).data as *mut pdf_dict);
             }
             PdfObjType::STREAM => {
                 let _ = Box::from_raw((*object).data as *mut pdf_stream);
