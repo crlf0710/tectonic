@@ -13,7 +13,7 @@ use std::io::Write;
 use std::ptr;
 
 use super::xetex_texmfmp::get_date_and_time;
-use crate::core_memory::{mfree, xcalloc, xmalloc};
+use crate::core_memory::{mfree, xcalloc, xcalloc_array, xmalloc, xmalloc_array};
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, overflow};
 use crate::xetex_ext::release_font_engine;
@@ -1294,6 +1294,9 @@ unsafe extern "C" fn do_undump(
     }
     swap_items(p, nitems, item_size);
 }
+
+const hash_offset: i32 = 514;
+
 /*:134*/
 /*135: */
 unsafe extern "C" fn sort_avail() {
@@ -3827,10 +3830,7 @@ unsafe extern "C" fn store_fmt_file() {
 }
 unsafe extern "C" fn pack_buffered_name(mut _n: small_number, mut _a: i32, mut _b: i32) {
     free(name_of_file as *mut libc::c_void);
-    name_of_file = xmalloc(
-        ((format_default_length + 1i32 + 1i32) as u64)
-            .wrapping_mul(::std::mem::size_of::<UTF8_code>() as u64),
-    ) as *mut i8;
+    name_of_file = xmalloc_array(format_default_length as usize + 1);
     strcpy(name_of_file, TEX_format_default);
     name_length = strlen(name_of_file) as i32;
 }
@@ -3914,21 +3914,18 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     } else {
         hash_top = eqtb_top
     }
-    yhash = xmalloc(
-        ((1i32 + hash_top - 514i32 + 1i32) as u64)
-            .wrapping_mul(::std::mem::size_of::<b32x2>() as u64),
-    ) as *mut b32x2;
+    yhash = xmalloc_array::<b32x2>((1 + hash_top - hash_offset) as usize);
     hash = yhash.offset(-514);
     (*hash.offset((1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32) as isize)).s0 = 0i32;
     (*hash.offset((1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32) as isize)).s1 = 0i32;
+
     x = 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 1i32;
     while x <= hash_top {
         *hash.offset(x as isize) = *hash.offset(HASH_BASE as isize);
         x += 1
     }
-    eqtb = xmalloc(
-        ((eqtb_top + 1i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<memory_word>() as u64),
-    ) as *mut memory_word;
+
+    eqtb = xmalloc_array::<memory_word>(eqtb_top as usize + 1);
     (*eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize)).b16.s1 = UNDEFINED_CS as _;
     (*eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize)).b32.s1 = TEX_NULL as _;
     (*eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize)).b16.s0 = LEVEL_ZERO as _;
@@ -3953,10 +3950,8 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     cur_list.head = CONTRIB_HEAD;
     cur_list.tail = CONTRIB_HEAD;
     page_tail = PAGE_HEAD;
-    mem = xmalloc(
-        ((4999999i32 + 1i32 + 1i32) as u64)
-            .wrapping_mul(::std::mem::size_of::<memory_word>() as u64),
-    ) as *mut memory_word;
+    mem = xmalloc_array::<memory_word>(MEM_TOP as usize + 1);
+
     do_undump(
         &mut x as *mut i32 as *mut i8,
         ::std::mem::size_of::<i32>() as u64,
@@ -4023,9 +4018,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         max_strings = str_ptr + strings_free
     }
 
-    str_start = xmalloc(
-        ((max_strings + 1i32) as u64).wrapping_mul(::std::mem::size_of::<pool_pointer>() as u64),
-    ) as *mut pool_pointer;
+    str_start = xmalloc_array::<pool_pointer>(max_strings as usize);
     let mut i: i32 = 0;
     do_undump(
         &mut *str_start.offset(0) as *mut pool_pointer as *mut i8,
@@ -4049,9 +4042,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         }
         i += 1
     }
-    str_pool = xmalloc(
-        ((pool_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<packed_UTF16_code>() as u64),
-    ) as *mut packed_UTF16_code;
+    str_pool = xmalloc_array::<packed_UTF16_code>(pool_size as usize);
     do_undump(
         &mut *str_pool.offset(0) as *mut packed_UTF16_code as *mut i8,
         ::std::mem::size_of::<packed_UTF16_code>() as u64,
@@ -4366,9 +4357,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     if fmem_ptr > font_mem_size {
         font_mem_size = fmem_ptr
     }
-    font_info = xmalloc(
-        ((font_mem_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<memory_word>() as u64),
-    ) as *mut memory_word;
+    font_info = xmalloc_array::<memory_word>(font_mem_size as usize);
     do_undump(
         &mut *font_info.offset(0) as *mut memory_word as *mut i8,
         ::std::mem::size_of::<memory_word>() as u64,
@@ -4389,88 +4378,34 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
 
     font_ptr = x;
-    font_mapping = xmalloc(
-        ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut libc::c_void>() as u64),
-    ) as *mut *mut libc::c_void;
-    font_layout_engine = xcalloc(
-        (font_max + 1i32) as size_t,
-        ::std::mem::size_of::<*mut libc::c_void>() as u64,
-    ) as *mut *mut libc::c_void;
-    font_flags =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64))
-            as *mut i8;
-    font_letter_space =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<scaled_t>() as u64))
-            as *mut scaled_t;
-    font_check =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<b16x4>() as u64))
-            as *mut b16x4;
-    font_size =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<scaled_t>() as u64))
-            as *mut scaled_t;
-    font_dsize =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<scaled_t>() as u64))
-            as *mut scaled_t;
-    font_params = xmalloc(
-        ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<font_index>() as u64),
-    ) as *mut font_index;
-    font_name = xmalloc(
-        ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
-    ) as *mut str_number;
-    font_area = xmalloc(
-        ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
-    ) as *mut str_number;
-    font_bc = xmalloc(
-        ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64),
-    ) as *mut UTF16_code;
-    font_ec = xmalloc(
-        ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64),
-    ) as *mut UTF16_code;
-    font_glue =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
-    hyphen_char =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
-    skew_char =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
-    bchar_label = xmalloc(
-        ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<font_index>() as u64),
-    ) as *mut font_index;
-    font_bchar =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<nine_bits>() as u64))
-            as *mut nine_bits;
-    font_false_bchar =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<nine_bits>() as u64))
-            as *mut nine_bits;
-    char_base =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
-    width_base =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
-    height_base =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
-    depth_base =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
-    italic_base =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
-    lig_kern_base =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
-    kern_base =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
-    exten_base =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
-    param_base =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
+    font_mapping = xmalloc_array::<*mut libc::c_void>(font_max as usize);
+    font_layout_engine = xcalloc_array::<*mut libc::c_void>(font_max as usize);
+    font_flags = xmalloc_array(font_max as usize);
+    font_letter_space = xmalloc_array(font_max as usize);
+    font_check = xmalloc_array(font_max as usize);
+    font_size = xmalloc_array(font_max as usize);
+    font_dsize = xmalloc_array(font_max as usize);
+    font_params = xmalloc_array(font_max as usize);
+    font_name = xmalloc_array(font_max as usize);
+    font_area = xmalloc_array(font_max as usize);
+    font_bc = xmalloc_array(font_max as usize);
+    font_ec = xmalloc_array(font_max as usize);
+    font_glue = xmalloc_array(font_max as usize);
+    hyphen_char = xmalloc_array(font_max as usize);
+    skew_char = xmalloc_array(font_max as usize);
+    bchar_label = xmalloc_array(font_max as usize);
+    font_bchar = xmalloc_array(font_max as usize);
+    font_false_bchar = xmalloc_array::<nine_bits>(font_max as usize);
+    char_base = xmalloc_array(font_max as usize);
+    width_base = xmalloc_array(font_max as usize);
+    height_base = xmalloc_array(font_max as usize);
+    depth_base = xmalloc_array(font_max as usize);
+    italic_base = xmalloc_array(font_max as usize);
+    lig_kern_base = xmalloc_array(font_max as usize);
+    kern_base = xmalloc_array(font_max as usize);
+    exten_base = xmalloc_array(font_max as usize);
+    param_base = xmalloc_array(font_max as usize);
+
     k = 0i32;
     while k <= font_ptr {
         let ref mut fresh16 = *font_mapping.offset(k as isize);
@@ -4848,9 +4783,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
 
     if trie_trl.is_null() {
-        trie_trl = xmalloc(
-            ((j + 1i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<trie_pointer>() as u64),
-        ) as *mut trie_pointer
+        trie_trl = xmalloc_array(j as usize + 1);
     }
     do_undump(
         &mut *trie_trl.offset(0) as *mut trie_pointer as *mut i8,
@@ -4859,9 +4792,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         fmt_in,
     );
     if trie_tro.is_null() {
-        trie_tro = xmalloc(
-            ((j + 1i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<trie_pointer>() as u64),
-        ) as *mut trie_pointer
+        trie_tro = xmalloc_array(j as usize + 1);
     }
     do_undump(
         &mut *trie_tro.offset(0) as *mut trie_pointer as *mut i8,
@@ -4870,9 +4801,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         fmt_in,
     );
     if trie_trc.is_null() {
-        trie_trc =
-            xmalloc(((j + 1i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64))
-                as *mut u16
+        trie_trc = xmalloc_array(j as usize + 1);
     }
     do_undump(
         &mut *trie_trc.offset(0) as *mut u16 as *mut i8,
@@ -9129,67 +9058,33 @@ pub unsafe extern "C" fn tt_run_engine(
     hash_extra = 600000i64 as i32;
     expand_depth = 10000i32;
     /* Allocate many of our big arrays. */
-    buffer = xmalloc(
-        ((buf_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<UnicodeScalar>() as u64),
-    ) as *mut UnicodeScalar;
-    nest = xmalloc(
-        ((nest_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<list_state_record>() as u64),
-    ) as *mut list_state_record;
-    save_stack = xmalloc(
-        ((save_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<memory_word>() as u64),
-    ) as *mut memory_word;
-    input_stack = xmalloc(
-        ((stack_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<input_state_t>() as u64),
-    ) as *mut input_state_t;
-    input_file = xmalloc(
-        ((max_in_open + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut UFILE>() as u64),
-    ) as *mut *mut UFILE;
-    line_stack =
-        xmalloc(((max_in_open + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
-    eof_seen =
-        xmalloc(((max_in_open + 1i32) as u64).wrapping_mul(::std::mem::size_of::<bool>() as u64))
-            as *mut bool;
-    grp_stack = xmalloc(
-        ((max_in_open + 1i32) as u64).wrapping_mul(::std::mem::size_of::<save_pointer>() as u64),
-    ) as *mut save_pointer;
-    if_stack =
-        xmalloc(((max_in_open + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
-    source_filename_stack = xmalloc(
-        ((max_in_open + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
-    ) as *mut str_number;
-    full_source_filename_stack = xmalloc(
-        ((max_in_open + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
-    ) as *mut str_number;
-    param_stack =
-        xmalloc(((param_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
-    hyph_word = xmalloc(
-        ((hyph_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
-    ) as *mut str_number;
-    hyph_list =
-        xmalloc(((hyph_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-            as *mut i32;
-    hyph_link = xmalloc(
-        ((hyph_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<hyph_pointer>() as u64),
-    ) as *mut hyph_pointer;
+    buffer = xmalloc_array(buf_size as usize);
+    nest = xmalloc_array(nest_size as usize);
+    save_stack = xmalloc_array(save_size as usize);
+    input_stack = xmalloc_array(stack_size as usize);
+    input_file = xmalloc_array(max_in_open as usize);
+    line_stack = xmalloc_array(max_in_open as usize);
+    eof_seen = xmalloc_array(max_in_open as usize);
+    grp_stack = xmalloc_array(max_in_open as usize);
+    if_stack = xmalloc_array(max_in_open as usize);
+    source_filename_stack = xmalloc_array(max_in_open as usize);
+    full_source_filename_stack = xmalloc_array(max_in_open as usize);
+    param_stack = xmalloc_array(param_size as usize);
+    hyph_word = xmalloc_array(hyph_size as usize);
+    hyph_list = xmalloc_array(hyph_size as usize);
+    hyph_link = xmalloc_array(hyph_size as usize);
+
     /* First bit of initex handling: more allocations. */
+
     if in_initex_mode {
-        mem = xmalloc(
-            ((4999999i32 + 1i32 + 1i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<memory_word>() as u64),
-        ) as *mut memory_word;
+        mem = xmalloc_array(MEM_TOP as usize + 1);
         eqtb_top = EQTB_SIZE + hash_extra;
         if hash_extra == 0 {
             hash_top = UNDEFINED_CONTROL_SEQUENCE;
         } else {
             hash_top = eqtb_top
         }
-        yhash = xmalloc(
-            ((1i32 + hash_top - 514i32 + 1i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<b32x2>() as u64),
-        ) as *mut b32x2;
+        yhash = xmalloc_array((1 + hash_top - hash_offset) as usize);
         hash = yhash.offset(-514);
         (*hash.offset((HASH_BASE) as isize)).s0 = 0;
         (*hash.offset((HASH_BASE) as isize)).s1 = 0;
@@ -9198,22 +9093,10 @@ pub unsafe extern "C" fn tt_run_engine(
             *hash.offset(hash_used as isize) = *hash.offset(HASH_BASE as isize);
             hash_used += 1
         }
-        eqtb = xcalloc(
-            (eqtb_top + 1i32) as size_t,
-            ::std::mem::size_of::<memory_word>() as u64,
-        ) as *mut memory_word;
-        str_start = xmalloc(
-            ((max_strings + 1i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<pool_pointer>() as u64),
-        ) as *mut pool_pointer;
-        str_pool = xmalloc(
-            ((pool_size + 1i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<packed_UTF16_code>() as u64),
-        ) as *mut packed_UTF16_code;
-        font_info = xmalloc(
-            ((font_mem_size + 1i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<memory_word>() as u64),
-        ) as *mut memory_word
+        eqtb = xcalloc_array(eqtb_top as usize);
+        str_start = xmalloc_array(max_strings as usize);
+        str_pool = xmalloc_array(pool_size as usize);
+        font_info = xmalloc_array(font_mem_size as usize);
     }
     /* Sanity-check various invariants. */
     history = TTHistory::FATAL_ERROR;
@@ -9815,147 +9698,47 @@ pub unsafe extern "C" fn tt_run_engine(
         INTPAR_set(INT_PAR__year, year);
     }
     if trie_not_ready {
-        trie_trl = xmalloc(
-            ((trie_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<trie_pointer>() as u64),
-        ) as *mut trie_pointer;
-        trie_tro = xmalloc(
-            ((trie_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<trie_pointer>() as u64),
-        ) as *mut trie_pointer;
-        trie_trc =
-            xmalloc(((trie_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64))
-                as *mut u16;
-        trie_c = xmalloc(
-            ((trie_size + 1i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<packed_UTF16_code>() as u64),
-        ) as *mut packed_UTF16_code;
-        trie_o = xmalloc(
-            ((trie_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<trie_opcode>() as u64),
-        ) as *mut trie_opcode;
-        trie_l = xmalloc(
-            ((trie_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<trie_pointer>() as u64),
-        ) as *mut trie_pointer;
-        trie_r = xmalloc(
-            ((trie_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<trie_pointer>() as u64),
-        ) as *mut trie_pointer;
-        trie_hash = xmalloc(
-            ((trie_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<trie_pointer>() as u64),
-        ) as *mut trie_pointer;
-        trie_taken =
-            xmalloc(((trie_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<bool>() as u64))
-                as *mut bool;
+        trie_trl = xmalloc_array(trie_size as usize);
+        trie_tro = xmalloc_array(trie_size as usize);
+        trie_trc = xmalloc_array(trie_size as usize);
+        trie_c = xmalloc_array(trie_size as usize);
+        trie_o = xmalloc_array(trie_size as usize);
+        trie_l = xmalloc_array(trie_size as usize);
+        trie_r = xmalloc_array(trie_size as usize);
+        trie_hash = xmalloc_array(trie_size as usize);
+        trie_taken = xmalloc_array(trie_size as usize);
         *trie_l.offset(0) = 0i32;
         *trie_c.offset(0) = 0i32 as packed_UTF16_code;
         trie_ptr = 0i32;
         *trie_r.offset(0) = 0i32;
         hyph_start = 0i32;
-        font_mapping = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<*mut libc::c_void>() as u64,
-        ) as *mut *mut libc::c_void;
-        font_layout_engine = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<*mut libc::c_void>() as u64,
-        ) as *mut *mut libc::c_void;
-        font_flags = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<i8>() as u64,
-        ) as *mut i8;
-        font_letter_space = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<scaled_t>() as u64,
-        ) as *mut scaled_t;
-        font_check = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<b16x4>() as u64,
-        ) as *mut b16x4;
-        font_size = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<scaled_t>() as u64,
-        ) as *mut scaled_t;
-        font_dsize = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<scaled_t>() as u64,
-        ) as *mut scaled_t;
-        font_params = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<font_index>() as u64,
-        ) as *mut font_index;
-        font_name = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<str_number>() as u64,
-        ) as *mut str_number;
-        font_area = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<str_number>() as u64,
-        ) as *mut str_number;
-        font_bc = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<UTF16_code>() as u64,
-        ) as *mut UTF16_code;
-        font_ec = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<UTF16_code>() as u64,
-        ) as *mut UTF16_code;
-        font_glue = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<i32>() as u64,
-        ) as *mut i32;
-        hyphen_char = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<i32>() as u64,
-        ) as *mut i32;
-        skew_char = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<i32>() as u64,
-        ) as *mut i32;
-        bchar_label = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<font_index>() as u64,
-        ) as *mut font_index;
-        font_bchar = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<nine_bits>() as u64,
-        ) as *mut nine_bits;
-        font_false_bchar = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<nine_bits>() as u64,
-        ) as *mut nine_bits;
-        char_base = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<i32>() as u64,
-        ) as *mut i32;
-        width_base = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<i32>() as u64,
-        ) as *mut i32;
-        height_base = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<i32>() as u64,
-        ) as *mut i32;
-        depth_base = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<i32>() as u64,
-        ) as *mut i32;
-        italic_base = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<i32>() as u64,
-        ) as *mut i32;
-        lig_kern_base = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<i32>() as u64,
-        ) as *mut i32;
-        kern_base = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<i32>() as u64,
-        ) as *mut i32;
-        exten_base = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<i32>() as u64,
-        ) as *mut i32;
-        param_base = xcalloc(
-            (font_max + 1i32) as size_t,
-            ::std::mem::size_of::<i32>() as u64,
-        ) as *mut i32;
+        font_mapping = xcalloc_array::<*mut libc::c_void>(font_max as usize);
+        font_layout_engine = xcalloc_array::<*mut libc::c_void>(font_max as usize);
+        font_flags = xcalloc_array(font_max as usize);
+        font_letter_space = xcalloc_array(font_max as usize);
+        font_check = xcalloc_array(font_max as usize);
+        font_size = xcalloc_array(font_max as usize);
+        font_dsize = xcalloc_array(font_max as usize);
+        font_params = xcalloc_array(font_max as usize);
+        font_name = xcalloc_array(font_max as usize);
+        font_area = xcalloc_array(font_max as usize);
+        font_bc = xcalloc_array(font_max as usize);
+        font_ec = xcalloc_array(font_max as usize);
+        font_glue = xcalloc_array(font_max as usize);
+        hyphen_char = xcalloc_array(font_max as usize);
+        skew_char = xcalloc_array(font_max as usize);
+        bchar_label = xcalloc_array(font_max as usize);
+        font_bchar = xcalloc_array(font_max as usize);
+        font_false_bchar = xcalloc_array(font_max as usize);
+        char_base = xcalloc_array(font_max as usize);
+        width_base = xcalloc_array(font_max as usize);
+        height_base = xcalloc_array(font_max as usize);
+        depth_base = xcalloc_array(font_max as usize);
+        italic_base = xcalloc_array(font_max as usize);
+        lig_kern_base = xcalloc_array(font_max as usize);
+        kern_base = xcalloc_array(font_max as usize);
+        exten_base = xcalloc_array(font_max as usize);
+        param_base = xcalloc_array(font_max as usize);
         font_ptr = 0i32;
         fmem_ptr = 7i32;
         *font_name.offset(0) = maketexstring(b"nullfont\x00" as *const u8 as *const i8);
@@ -9988,9 +9771,7 @@ pub unsafe extern "C" fn tt_run_engine(
             font_k += 1
         }
     }
-    font_used =
-        xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<bool>() as u64))
-            as *mut bool;
+    font_used = xmalloc_array(font_max as usize);
     font_k = 0i32;
     while font_k <= font_max {
         *font_used.offset(font_k as isize) = false;

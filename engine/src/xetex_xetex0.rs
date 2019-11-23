@@ -17,7 +17,7 @@ use super::xetex_io::{
     bytesFromUTF8, make_utf16_name, name_of_input_file, offsetsFromUTF8, tt_xetex_open_input,
     u_open_in,
 };
-use crate::core_memory::{mfree, xmalloc, xrealloc};
+use crate::core_memory::{mfree, xmalloc_array, xrealloc};
 #[cfg(target_os = "macos")]
 use crate::xetex_aatfont as aat;
 use crate::xetex_consts::*;
@@ -558,9 +558,9 @@ pub unsafe extern "C" fn copy_native_glyph_info(mut src: i32, mut dest: i32) {
     if !(*mem.offset((src + 5i32) as isize)).ptr.is_null() {
         glyph_count = (*mem.offset((src + 4i32) as isize)).b16.s0 as i32;
         let ref mut fresh1 = (*mem.offset((dest + 5i32) as isize)).ptr;
-        *fresh1 = xmalloc(
-            ((glyph_count * 10i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64),
-        );
+        *fresh1 =
+            xmalloc_array::<libc::c_char>(glyph_count as usize * NATIVE_GLYPH_INFO_SIZE as usize)
+                as *mut _;
         memcpy(
             (*mem.offset((dest + 5i32) as isize)).ptr,
             (*mem.offset((src + 5i32) as isize)).ptr,
@@ -15012,10 +15012,8 @@ pub unsafe extern "C" fn end_name() {
 pub unsafe extern "C" fn pack_file_name(mut n: str_number, mut a: str_number, mut e: str_number) {
     // Note that we populate the buffer in an order different than how the
     // arguments are passed to this function!
-    let mut work_buffer: *mut i8 = xmalloc(
-        (((length(a) + length(n) + length(e)) * 3i32 + 1i32 + 1i32) as u64)
-            .wrapping_mul(::std::mem::size_of::<UTF8_code>() as u64),
-    ) as *mut i8;
+    let mut work_buffer: *mut i8 =
+        xmalloc_array((length(a) + length(n) + length(e)) as usize * 3 + 1);
     *work_buffer.offset(0) = '\u{0}' as i32 as i8;
     let mut a_utf8: *mut i8 = gettexstring(a);
     strcat(work_buffer, a_utf8);
@@ -15028,9 +15026,7 @@ pub unsafe extern "C" fn pack_file_name(mut n: str_number, mut a: str_number, mu
     free(e_utf8 as *mut libc::c_void);
     name_length = strlen(work_buffer) as i32;
     free(name_of_file as *mut libc::c_void);
-    name_of_file = xmalloc(
-        ((name_length + 1i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64),
-    ) as *mut i8;
+    name_of_file = xmalloc_array(name_length as usize + 1);
     strcpy(name_of_file, work_buffer);
     free(work_buffer as *mut libc::c_void);
 }
