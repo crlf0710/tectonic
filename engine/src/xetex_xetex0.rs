@@ -128,7 +128,7 @@ pub type nine_bits = i32;
 pub type save_pointer = i32;
 
 #[inline]
-unsafe extern "C" fn cur_length() -> pool_pointer {
+pub unsafe fn cur_length() -> pool_pointer {
     pool_ptr - *str_start.offset((str_ptr - 65536i32) as isize)
 }
 unsafe extern "C" fn int_error(mut n: i32) {
@@ -206,6 +206,11 @@ pub unsafe fn GLUE_SPEC_stretch(p: isize) -> *mut i32 {
 pub unsafe fn GLUE_SPEC_shrink(p: isize) -> *mut i32 {
     &mut (*mem.offset(p + 3)).b32.s1
 }
+
+/// subtype; records L/R direction mode
+pub unsafe fn BOX_lr_mode(p: isize) -> *mut u16 {
+    &mut (*mem.offset(p)).b16.s0
+}
 /// a scaled; 1 <=> WEB const `width_offset`
 pub unsafe fn BOX_width(p: isize) -> *mut i32 {
     &mut (*mem.offset(p + 1)).b32.s1
@@ -217,6 +222,31 @@ pub unsafe fn BOX_depth(p: isize) -> *mut i32 {
 /// a scaled; 3 <=> WEB const `height_offset`
 pub unsafe fn BOX_height(p: isize) -> *mut i32 {
     &mut (*mem.offset(p + 3)).b32.s1
+}
+/// a scaled
+pub unsafe fn BOX_shift_amount(p: isize) -> *mut i32 {
+    &mut (*mem.offset(p + 4)).b32.s1
+}
+/// aka `link` of p+5
+pub unsafe fn BOX_list_ptr(p: isize) -> *mut i32 {
+    &mut (*mem.offset(p + 5)).b32.s1
+}
+/// aka `type` of p+5
+pub unsafe fn BOX_glue_sign(p: isize) -> *mut u16 {
+    &mut (*mem.offset(p + 5)).b16.s1
+}
+/// aka `subtype` of p+5
+pub unsafe fn BOX_glue_order(p: isize) -> *mut u16 {
+    &mut (*mem.offset(p + 5)).b16.s0
+}
+/// the glue ratio
+pub unsafe fn BOX_glue_set(p: isize) -> *mut f64 {
+    &mut (*mem.offset(p + 6)).gr
+}
+
+/// "new left_edge position relative to cur_h"
+pub unsafe fn EDGE_NODE_edge_dist(p: isize) -> *mut i32 {
+    &mut (*mem.offset(p + 2)).b32.s1
 }
 
 /*:112*/
