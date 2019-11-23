@@ -515,41 +515,36 @@ const AWFUL_BAD: i32 = MAX_HALFWORD; /* XXX redundant with xetex-linebreak.c */
 
 #[no_mangle]
 pub unsafe extern "C" fn build_page() {
-    let mut current_block: u64;
-    let mut p: i32 = 0;
-    let mut q: i32 = 0;
-    let mut r: i32 = 0;
-    let mut b: i32 = 0;
-    let mut c: i32 = 0;
-    let mut pi: i32 = 0;
-    let mut n: u8 = 0;
-    let mut delta: scaled_t = 0;
-    let mut h: scaled_t = 0;
-    let mut w: scaled_t = 0;
-
-    if *LLIST_link(CONTRIB_HEAD as isize) == TEX_NULL || output_active as i32 != 0 {
-        return;
+    #[derive(Default)]
+    struct Args {
+        p: i32,
+        q: i32,
+        r: i32,
+        pi: i32,
     }
-    loop  {
-        p = *LLIST_link(CONTRIB_HEAD as isize);
+
+    unsafe fn do_smth(mut slf: Args) -> (Args, bool) {
+        slf.p = *LLIST_link(CONTRIB_HEAD as isize);
 
         /*1031: "Update the values of last_glue, last_penalty, and last_kern" */
-        if last_glue != MAX_HALFWORD { delete_glue_ref(last_glue); }
+        if last_glue != MAX_HALFWORD {
+            delete_glue_ref(last_glue);
+        }
 
         last_penalty = 0;
         last_kern = 0;
-        last_node_type = *NODE_type(p as isize) as i32 + 1;
+        last_node_type = *NODE_type(slf.p as isize) as i32 + 1;
 
-        if *NODE_type(p as isize) == GLUE_NODE {
-            last_glue = *GLUE_NODE_glue_ptr(p as isize);
+        if *NODE_type(slf.p as isize) == GLUE_NODE {
+            last_glue = *GLUE_NODE_glue_ptr(slf.p as isize);
             (*mem.offset(last_glue as isize)).b32.s1 += 1;
         } else {
             last_glue = MAX_HALFWORD;
 
-            if *NODE_type(p as isize) == PENALTY_NODE {
-                last_penalty = (*mem.offset((p + 1i32) as isize)).b32.s1
-            } else if *NODE_type(p as isize) == KERN_NODE {
-                last_kern = *BOX_width(p as isize);
+            if *NODE_type(slf.p as isize) == PENALTY_NODE {
+                last_penalty = (*mem.offset((slf.p + 1i32) as isize)).b32.s1
+            } else if *NODE_type(slf.p as isize) == KERN_NODE {
+                last_kern = *BOX_width(slf.p as isize);
             }
         }
         /*1032: "Move node p to the current page; if it is time for a page
@@ -573,7 +568,7 @@ pub unsafe extern "C" fn build_page() {
          * contribution list will not be contributed until we know its
          * successor." */
 
-        match *NODE_type(p as isize) {
+        match *NODE_type(slf.p as isize) {
             HLIST_NODE | VLIST_NODE | RULE_NODE => {
                 if page_contents < BOX_THERE as _ {
                     /*1036: "Initialize the current page, insert the \topskip glue
@@ -582,106 +577,103 @@ pub unsafe extern "C" fn build_page() {
                         freeze_page_specs(BOX_THERE as _);
                     } else { page_contents = BOX_THERE as _}
 
-                    q = new_skip_param(GLUE_PAR__top_skip as _); /* "now temp_ptr = glue_ptr(q) */
+                    slf.q = new_skip_param(GLUE_PAR__top_skip as _); /* "now temp_ptr = glue_ptr(q) */
 
-                    if *BOX_width(temp_ptr as isize) > *BOX_height(p as isize) {
-                        *BOX_width(temp_ptr as isize) -= *BOX_height(p as isize);
+                    if *BOX_width(temp_ptr as isize) > *BOX_height(slf.p as isize) {
+                        *BOX_width(temp_ptr as isize) -= *BOX_height(slf.p as isize);
                     } else {
                         *BOX_width(temp_ptr as isize) = 0;
                     }
 
-                    *LLIST_link(q as isize) = p;
-                    *LLIST_link(CONTRIB_HEAD as isize) = q;
-                    current_block = 15427931788582360902;
+                    *LLIST_link(slf.q as isize) = slf.p;
+                    *LLIST_link(CONTRIB_HEAD as isize) = slf.q;
+                    return (slf, false); // TODO: check
                 } else {
                     /*1037: "Prepare to move a box or rule node to the current
                  * page, then goto contribute." */
-                    page_so_far[1] += page_so_far[7] + *BOX_height(p as isize);
-                    page_so_far[7] = *BOX_depth(p as isize);
-                    current_block = 11918621130838443904;
+                    page_so_far[1] += page_so_far[7] + *BOX_height(slf.p as isize);
+                    page_so_far[7] = *BOX_depth(slf.p as isize);
+                    return contribute(slf);
                 }
             }
             WHATSIT_NODE => {
                 /*1401: "Prepare to move whatsit p to the current page, then goto contribute" */
-                if *NODE_subtype(p as isize) == PIC_NODE || *NODE_subtype(p as isize) == PDF_NODE {
-                    page_so_far[1] += page_so_far[7] + *BOX_height(p as isize);
-                    page_so_far[7] = *BOX_depth(p as isize);
+                if *NODE_subtype(slf.p as isize) == PIC_NODE || *NODE_subtype(slf.p as isize) == PDF_NODE {
+                    page_so_far[1] += page_so_far[7] + *BOX_height(slf.p as isize);
+                    page_so_far[7] = *BOX_depth(slf.p as isize);
                 }
-                current_block = 11918621130838443904;
+                return contribute(slf);
             }
             GLUE_NODE => {
                 if page_contents < BOX_THERE as _ {
-                    current_block = 15559656170992153795;
+                    return done1(slf);
                 } else if is_non_discardable_node(page_tail) {
-                    pi = 0;
-                    current_block = 13253659531982233645;
-                } else { current_block = 5579886686420104461; }
+                    slf.pi = 0;
+                } else { return update_heights(slf); }
             }
             KERN_NODE => {
                 if page_contents  < BOX_THERE as _ {
-                    current_block = 15559656170992153795;
-                } else if *LLIST_link(p as isize) == TEX_NULL {
-                    return
-                } else if *NODE_type(*LLIST_link(p as isize) as isize) == GLUE_NODE {
-                    pi = 0;
-                    current_block = 13253659531982233645;
-                } else { current_block = 5579886686420104461; }
+                    return done1(slf);
+                } else if *LLIST_link(slf.p as isize) == TEX_NULL {
+                    return (slf, true)
+                } else if *NODE_type(*LLIST_link(slf.p as isize) as isize) == GLUE_NODE {
+                    slf.pi = 0;
+                } else { return update_heights(slf); }
             }
             PENALTY_NODE => {
                 if page_contents < BOX_THERE as _ {
-                    current_block = 15559656170992153795;
+                    return done1(slf);
                 } else {
-                    pi = (*mem.offset((p + 1i32) as isize)).b32.s1;
-                    current_block = 13253659531982233645;
+                    slf.pi = (*mem.offset((slf.p + 1i32) as isize)).b32.s1;
                 }
             }
-            MARK_NODE => { current_block = 11918621130838443904; }
+            MARK_NODE => { return contribute(slf); }
             INS_NODE => {
                 /*1043: "Append an insertion to the current page and goto contribute" */
                 if page_contents == EMPTY as _ {
                     freeze_page_specs(INSERTS_ONLY as _);
                 }
 
-                n = *NODE_subtype(p as isize) as _;
-                r = PAGE_INS_HEAD;
+                let n = *NODE_subtype(slf.p as isize) as u8;
+                slf.r = PAGE_INS_HEAD;
 
-                while n as u16 >= *NODE_subtype(*LLIST_link(r as isize) as isize) {
-                    r = *LLIST_link(r as isize);
+                while n as u16 >= *NODE_subtype(*LLIST_link(slf.r as isize) as isize) {
+                    slf.r = *LLIST_link(slf.r as isize);
                 }
 
-                if *NODE_subtype(r as isize) != n as _{
+                if *NODE_subtype(slf.r as isize) != n as _{
                     /*1044: "Create a page insertion node with subtype(r) = n, and
-                 * include the glue correction for box `n` in the current page
-                 * state" */
-                    q = get_node(PAGE_INS_NODE_SIZE);
-                    *LLIST_link(q as isize) = *LLIST_link(r as isize);
-                    *LLIST_link(r as isize) = q;
-                    r = q;
+                     * include the glue correction for box `n` in the current page
+                     * state" */
+                    slf.q = get_node(PAGE_INS_NODE_SIZE);
+                    *LLIST_link(slf.q as isize) = *LLIST_link(slf.r as isize);
+                    *LLIST_link(slf.r as isize) = slf.q;
+                    slf.r = slf.q;
 
-                    *NODE_subtype(r as isize) = n as _;
-                    *NODE_type(r as isize) = INSERTING as _;
+                    *NODE_subtype(slf.r as isize) = n as _;
+                    *NODE_type(slf.r as isize) = INSERTING as _;
                     ensure_vbox(n);
 
                     if BOX_REG(n as _) == TEX_NULL {
-                        *BOX_height(r as isize) = 0;
+                        *BOX_height(slf.r as isize) = 0;
                     } else {
-                        *BOX_height(r as isize) = *BOX_height(BOX_REG(n as _) as isize) + *BOX_depth(BOX_REG(n as _) as isize);
+                        *BOX_height(slf.r as isize) = *BOX_height(BOX_REG(n as _) as isize) + *BOX_depth(BOX_REG(n as _) as isize);
                     }
 
-                    (*mem.offset((r + 2i32) as isize)).b32.s0 = TEX_NULL;
-                    q = SKIP_REG(n as _);
+                    (*mem.offset((slf.r + 2i32) as isize)).b32.s0 = TEX_NULL;
+                    slf.q = SKIP_REG(n as _);
 
-                    if COUNT_REG(n as _) == 1000 {
-                        h = *BOX_height(r as isize);
+                    let h: scaled_t = if COUNT_REG(n as _) == 1000 {
+                        *BOX_height(slf.r as isize)
                     } else {
-                        h = x_over_n(*BOX_height(r as isize), 1000) * COUNT_REG(n as _);
-                    }
+                        x_over_n(*BOX_height(slf.r as isize), 1000) * COUNT_REG(n as _)
+                    };
 
-                    page_so_far[0] -= h + *BOX_width(q as isize);
-                    page_so_far[2 + *GLUE_SPEC_stretch_order(q as isize) as usize] += *GLUE_SPEC_stretch(q as isize);
-                    page_so_far[6] += *GLUE_SPEC_shrink(q as isize);
+                    page_so_far[0] -= h + *BOX_width(slf.q as isize);
+                    page_so_far[2 + *GLUE_SPEC_stretch_order(slf.q as isize) as usize] += *GLUE_SPEC_stretch(slf.q as isize);
+                    page_so_far[6] += *GLUE_SPEC_shrink(slf.q as isize);
 
-                    if *GLUE_SPEC_shrink_order(q as isize) != NORMAL as _ && *GLUE_SPEC_shrink(q as isize) != 0 {
+                    if *GLUE_SPEC_shrink_order(slf.q as isize) != NORMAL as _ && *GLUE_SPEC_shrink(slf.q as isize) != 0 {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
@@ -707,61 +699,62 @@ pub unsafe extern "C" fn build_page() {
                     }
                 }
 
-                if *NODE_type(r as isize) == SPLIT_UP as _ {
+                if *NODE_type(slf.r as isize) == SPLIT_UP as _ {
                     insert_penalties +=
-                        (*mem.offset((p + 1i32) as isize)).b32.s1
+                        (*mem.offset((slf.p + 1i32) as isize)).b32.s1
                 } else {
-                    (*mem.offset((r + 2i32) as isize)).b32.s1 = p;
-                    delta =
+                    (*mem.offset((slf.r + 2i32) as isize)).b32.s1 = slf.p;
+                    let delta: scaled_t =
                         page_so_far[0] - page_so_far[1] - page_so_far[7] +
                             page_so_far[6];
 
-                    if COUNT_REG(n as _) == 1000 {
-                        h = *BOX_height(p as isize);
+                    let h: scaled_t = if COUNT_REG(n as _) == 1000 {
+                        *BOX_height(slf.p as isize)
                     } else {
-                        h = x_over_n(*BOX_height(p as isize), 1000) * COUNT_REG(n as _);
-                    }
+                        x_over_n(*BOX_height(slf.p as isize), 1000) * COUNT_REG(n as _)
+                    };
 
                     if (h <= 0 || h <= delta) &&
-                        *BOX_height(p as isize) + *BOX_height(r as isize) <= SCALED_REG(n as _) {
+                        *BOX_height(slf.p as isize) + *BOX_height(slf.r as isize) <= SCALED_REG(n as _) {
                         page_so_far[0] -= h;
-                        *BOX_height(r as isize) += *BOX_height(p as isize);
+                        *BOX_height(slf.r as isize) += *BOX_height(slf.p as isize);
                     } else {
                         /*1045: "Find the best way to split the insertion, and
-                     * change type(r) to split_up." ... "Here is code that
-                     * will split a long footnote between pages, in an
-                     * emergency ... Node `p` is an insertion into box `n`;
-                     * the insertion will not fit, in its entirety, either
-                     * because it would make the total contents of box `n`
-                     * greater then `\dimen n`, or because it would make the
-                     * incremental amount of growth `h` greater than the
-                     * available space `delta`, or both. (This amount `h` has
-                     * been weighted by the insertion scaling factor, i.e., by
-                     * `\count n` over 1000.) Now we will choose the best way
-                     * to break the vlist of the insertion, using the same
-                     * criteria as in the `\vsplit` operation." */
-                        if COUNT_REG(n as _) <= 0 {
-                            w = MAX_HALFWORD;
+                         * change type(r) to split_up." ... "Here is code that
+                         * will split a long footnote between pages, in an
+                         * emergency ... Node `p` is an insertion into box `n`;
+                         * the insertion will not fit, in its entirety, either
+                         * because it would make the total contents of box `n`
+                         * greater then `\dimen n`, or because it would make the
+                         * incremental amount of growth `h` greater than the
+                         * available space `delta`, or both. (This amount `h` has
+                         * been weighted by the insertion scaling factor, i.e., by
+                         * `\count n` over 1000.) Now we will choose the best way
+                         * to break the vlist of the insertion, using the same
+                         * criteria as in the `\vsplit` operation." */
+                        let mut w: scaled_t = if COUNT_REG(n as _) <= 0 {
+                            MAX_HALFWORD
                         } else {
-                            w =
+                            let mut w =
                                 page_so_far[0] - page_so_far[1] -
                                     page_so_far[7];
                             if COUNT_REG(n as _) != 1000 {
                                 w = x_over_n(w, COUNT_REG(n as _))* 1000;
                             }
+                            w
+                        };
+
+                        if w > SCALED_REG(n as _) - *BOX_height(slf.r as isize) {
+                            w = SCALED_REG(n as _) - *BOX_height(slf.r as isize);
                         }
 
-                        if w > SCALED_REG(n as _) - *BOX_height(r as isize) {
-                            w = SCALED_REG(n as _) - *BOX_height(r as isize);
-                        }
-
-                        q =
-                            vert_break((*mem.offset((p + 4i32) as
+                        slf.q =
+                            vert_break((*mem.offset((slf.p + 4i32) as
                                                         isize)).b32.s0, w,
-                                       (*mem.offset((p + 2i32) as
+                                       (*mem.offset((slf.p + 2i32) as
                                                         isize)).b32.s1);
                         let ref mut fresh9 =
-                            (*mem.offset((r + 3i32) as isize)).b32.s1;
+                            (*mem.offset((slf.r + 3i32) as isize)).b32.s1;
                         *fresh9 += best_height_plus_depth;
 
                         if COUNT_REG(n as _) != 1000 {
@@ -769,217 +762,204 @@ pub unsafe extern "C" fn build_page() {
                                 x_over_n(best_height_plus_depth, 1000i32) * COUNT_REG(n as _);
                         }
                         page_so_far[0] -= best_height_plus_depth;
-                        *NODE_type(r as isize) = SPLIT_UP as _;
-                        (*mem.offset((r + 1i32) as isize)).b32.s1 = q;
-                        (*mem.offset((r + 1i32) as isize)).b32.s0 = p;
+                        *NODE_type(slf.r as isize) = SPLIT_UP as _;
+                        (*mem.offset((slf.r + 1i32) as isize)).b32.s1 = slf.q;
+                        (*mem.offset((slf.r + 1i32) as isize)).b32.s0 = slf.p;
 
-                        if q == TEX_NULL {
+                        if slf.q == TEX_NULL {
                             insert_penalties += EJECT_PENALTY;
-                        } else if *NODE_type(q as isize) == PENALTY_NODE {
+                        } else if *NODE_type(slf.q as isize) == PENALTY_NODE {
                             insert_penalties +=
-                                (*mem.offset((q + 1i32) as isize)).b32.s1
+                                (*mem.offset((slf.q + 1i32) as isize)).b32.s1
                         }
                     }
                 }
-                current_block = 11918621130838443904;
+                return contribute(slf);
             }
             _ => {
                 confusion(b"page\x00" as *const u8 as *const i8);
             }
         }
-        match current_block {
-            13253659531982233645 =>
-            /*1040: "Check if node p is the new champion breakpoint; then if it is
+
+        /*1040: "Check if node p is the new champion breakpoint; then if it is
          * time for a page break, prepare for output, and either fire up the
          * user's output routine and return or ship out the page and goto
          * done." We reach this point when p is a glue, kern, or penalty, and
          * there's already content on the page -- so this might be a place to
          * break the page. */
-            {
-                if pi < INF_PENALTY {
-                    /*1042: "Compute the badness b of the current page, using
+
+        if slf.pi < INF_PENALTY {
+            /*1042: "Compute the badness b of the current page, using
              * awful_bad if the box is too full." */
-                    if page_so_far[1] < page_so_far[0] {
-                        if page_so_far[3] != 0 || page_so_far[4] != 0 ||
-                               page_so_far[5] != 0 {
-                            b = 0;
-                        } else {
-                            b =
-                                badness(page_so_far[0] - page_so_far[1],
-                                        page_so_far[2])
-                        }
-                    } else if page_so_far[1] - page_so_far[0] > page_so_far[6]
-                     {
-                        b = AWFUL_BAD;
-                    } else {
-                        b =
-                            badness(page_so_far[1] - page_so_far[0],
-                                    page_so_far[6])
-                    }
-                    if b < AWFUL_BAD {
-                        if pi <= EJECT_PENALTY {
-                            c = pi
-                        } else if b < INF_BAD {
-                            c = b + pi + insert_penalties
-                        } else { c = 100000 }
-                        /* DEPLORABLE */
-                    } else { c = b }
+            let b = if page_so_far[1] < page_so_far[0] {
+                if page_so_far[3] != 0 || page_so_far[4] != 0 || page_so_far[5] != 0 {
+                    0_i32
+                } else {
+                    badness(page_so_far[0] - page_so_far[1], page_so_far[2])
+                }
+            } else if page_so_far[1] - page_so_far[0] > page_so_far[6] {
+                AWFUL_BAD
+            } else {
+                badness(page_so_far[1] - page_so_far[0], page_so_far[6])
+            };
 
-                    if insert_penalties >= 10000 { c = MAX_HALFWORD }
+            let mut c = if b < AWFUL_BAD {
+                if slf.pi <= EJECT_PENALTY {
+                    slf.pi as i32
+                } else if b < INF_BAD {
+                    b + slf.pi + insert_penalties
+                } else {
+                    100000
+                }
+            /* DEPLORABLE */
+            } else {
+                b
+            };
 
-                    if c <= least_page_cost {
-                        best_page_break = p;
-                        best_size = page_so_far[0];
-                        least_page_cost = c;
-                        r = *LLIST_link(PAGE_INS_HEAD as isize);
+            if insert_penalties >= 10000 {
+                c = MAX_HALFWORD
+            }
 
-                        while r != PAGE_INS_HEAD {
-                            (*mem.offset((r + 2i32) as isize)).b32.s0 =
-                                (*mem.offset((r + 2i32) as isize)).b32.s1;
-                            r = *LLIST_link(r as isize);
-                        }
-                    }
-                    if c == AWFUL_BAD || pi <= EJECT_PENALTY {
-                        fire_up(p);
-                        if output_active {
-                            /* "the page has been shipped out by the default output routine" */
-                            /* "user's output routine will act" */
-                            return
-                        }
-                        current_block = 15427931788582360902;
-                    } else { current_block = 433373112845341403; }
-                } else { current_block = 433373112845341403; }
-                match current_block {
-                    15427931788582360902 => { }
-                    _ =>
-                    /* ... resuming 1032 ... I believe the "goto" here can only be
+            if c <= least_page_cost {
+                best_page_break = slf.p;
+                best_size = page_so_far[0];
+                least_page_cost = c;
+                slf.r = *LLIST_link(PAGE_INS_HEAD as isize);
+
+                while slf.r != PAGE_INS_HEAD {
+                    (*mem.offset((slf.r + 2i32) as isize)).b32.s0 =
+                        (*mem.offset((slf.r + 2i32) as isize)).b32.s1;
+                    slf.r = *LLIST_link(slf.r as isize);
+                }
+            }
+
+            if c == AWFUL_BAD || slf.pi <= EJECT_PENALTY {
+                fire_up(slf.p);
+                if output_active {
+                    /* "user's output routine will act" */
+                    return (slf, true);
+                }
+                /* "the page has been shipped out by the default output routine" */
+                return (slf, false);
+            }
+        }
+
+        /* ... resuming 1032 ... I believe the "goto" here can only be
          * triggered if p is a penalty node, and we decided not to break. */
-                    {
-                        if ((*mem.offset(p as isize)).b16.s1 as i32) <
-                               10i32 ||
-                               (*mem.offset(p as isize)).b16.s1 as i32
-                                   > 11i32 {
-                            current_block = 11918621130838443904;
-                        } else { current_block = 5579886686420104461; }
+
+        if *NODE_type(slf.p as isize) < GLUE_NODE || *NODE_type(slf.p as isize) > KERN_NODE {
+            return contribute(slf);
+        }
+        
+        return update_heights(slf);
+
+        unsafe fn update_heights(mut slf: Args) -> (Args, bool) {
+            /*1039: "Update the current page measurements with respect to the glue or kern
+             * specified by node p" */
+            if *NODE_type(slf.p as isize) == KERN_NODE {
+                slf.q = slf.p
+            } else {
+                slf.q = (*mem.offset((slf.p + 1i32) as isize)).b32.s0;
+                page_so_far[(2i32 + (*mem.offset(slf.q as isize)).b16.s1 as i32) as usize] +=
+                    (*mem.offset((slf.q + 2i32) as isize)).b32.s1;
+                page_so_far[6] += (*mem.offset((slf.q + 3i32) as isize)).b32.s1;
+                if (*mem.offset(slf.q as isize)).b16.s0 as i32 != 0i32
+                    && (*mem.offset((slf.q + 3i32) as isize)).b32.s1 != 0i32
+                {
+                    if file_line_error_style_p != 0 {
+                        print_file_line();
+                    } else {
+                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
                     }
+                    print_cstr(
+                        b"Infinite glue shrinkage found on current page\x00" as *const u8
+                            as *const i8,
+                    );
+                    help_ptr = 4_u8;
+                    help_line[3] = b"The page about to be output contains some infinitely\x00"
+                        as *const u8 as *const i8;
+                    help_line[2] =
+                        b"shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.\x00"
+                            as *const u8 as *const i8;
+                    help_line[1] =
+                        b"Such glue doesn\'t belong there; but you can safely proceed,\x00"
+                            as *const u8 as *const i8;
+                    help_line[0] = b"since the offensive shrinkability has been made finite.\x00"
+                        as *const u8 as *const i8;
+                    error();
+                    slf.r = new_spec(slf.q);
+                    (*mem.offset(slf.r as isize)).b16.s0 = 0_u16;
+                    delete_glue_ref(slf.q);
+                    (*mem.offset((slf.p + 1i32) as isize)).b32.s0 = slf.r;
+                    slf.q = slf.r
                 }
             }
-            15559656170992153795 => {
-                /*1034: "Recycle node p". This codepath is triggered if we encountered
-         * something nonprinting (glue, kern, penalty) and there aren't any
-         * yes-printing boxes at the top of the page yet. When that happens,
-         * we just discard the nonprinting node. */
-                (*mem.offset((4999999i32 - 1i32) as isize)).b32.s1 =
-                    (*mem.offset(p as isize)).b32.s1;
-                (*mem.offset(p as isize)).b32.s1 = -0xfffffffi32;
-                if (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                      (0x10ffffi32 + 1i32) + 1i32 + 15000i32 +
-                                      12i32 + 9000i32 + 1i32 + 1i32 + 19i32 +
-                                      256i32 + 256i32 + 13i32 + 256i32 + 4i32
-                                      + 256i32 + 1i32 + 3i32 * 256i32 +
-                                      (0x10ffffi32 + 1i32) +
-                                      (0x10ffffi32 + 1i32) +
-                                      (0x10ffffi32 + 1i32) +
-                                      (0x10ffffi32 + 1i32) +
-                                      (0x10ffffi32 + 1i32) +
-                                      (0x10ffffi32 + 1i32) + 65i32) as
-                                     isize)).b32.s1 <= 0i32 {
-                    flush_node_list(p);
+            page_so_far[1] += page_so_far[7] + (*mem.offset((slf.q + 1i32) as isize)).b32.s1;
+            page_so_far[7] = 0i32;
+            return contribute(slf);
+        }
+
+        unsafe fn contribute(mut slf: Args) -> (Args, bool) {
+            /*1038: "Make sure that page_max_depth is not exceeded." */
+            if page_so_far[7] > page_max_depth {
+                page_so_far[1] += page_so_far[7] - page_max_depth;
+                page_so_far[7] = page_max_depth
+            }
+            /*1033: "Link node p into the current page and goto done." */
+            *LLIST_link(page_tail as isize) = slf.p;
+            page_tail = slf.p;
+            *LLIST_link(CONTRIB_HEAD as isize) = *LLIST_link(slf.p as isize);
+            *LLIST_link(slf.p as isize) = TEX_NULL;
+            (slf, false)
+        }
+
+        unsafe fn done1(mut slf: Args) -> (Args, bool) {
+            /*1034: "Recycle node p". This codepath is triggered if we encountered
+             * something nonprinting (glue, kern, penalty) and there aren't any
+             * yes-printing boxes at the top of the page yet. When that happens,
+             * we just discard the nonprinting node. */
+            *LLIST_link(CONTRIB_HEAD as isize) = *LLIST_link(slf.p as isize);
+            *LLIST_link(slf.p as isize) = TEX_NULL;
+
+            if INTPAR(INT_PAR__saving_vdiscards) <= 0 {
+                flush_node_list(slf.p);
+            } else {
+                /* `disc_ptr[LAST_BOX_CODE]` is `tail_page_disc`, the last item
+                 * removed by the page builder. `disc_ptr[LAST_BOX_CODE]` is
+                 * `page_disc`, the first item removed by the page builder.
+                 * `disc_ptr[VSPLIT_CODE]` is `split_disc`, the first item removed
+                 * by \vsplit. */
+                if disc_ptr[LAST_BOX_CODE as usize] == TEX_NULL {
+                    disc_ptr[LAST_BOX_CODE as usize] = slf.p
                 } else {
-                    /* `disc_ptr[LAST_BOX_CODE]` is `tail_page_disc`, the last item
-             * removed by the page builder. `disc_ptr[LAST_BOX_CODE]` is
-             * `page_disc`, the first item removed by the page builder.
-             * `disc_ptr[VSPLIT_CODE]` is `split_disc`, the first item removed
-             * by \vsplit. */
-                    if disc_ptr[2] == -0xfffffffi32 {
-                        disc_ptr[2] = p
-                    } else { (*mem.offset(disc_ptr[1] as isize)).b32.s1 = p }
-                    disc_ptr[1] = p
+                    *LLIST_link(disc_ptr[COPY_CODE as usize] as isize) = slf.p;
                 }
-                current_block = 15427931788582360902;
+                disc_ptr[COPY_CODE as usize] = slf.p
             }
-            _ => { }
-        }
-        match current_block {
-            5579886686420104461 => {
-                /*1039: "Update the current page measurements with respect to the glue or kern
-         * specified by node p" */
-                if (*mem.offset(p as isize)).b16.s1 as i32 == 11i32 {
-                    q = p
-                } else {
-                    q = (*mem.offset((p + 1i32) as isize)).b32.s0;
-                    page_so_far[(2i32 +
-                                     (*mem.offset(q as isize)).b16.s1 as
-                                         i32) as usize] +=
-                        (*mem.offset((q + 2i32) as isize)).b32.s1;
-                    page_so_far[6] +=
-                        (*mem.offset((q + 3i32) as isize)).b32.s1;
-                    if (*mem.offset(q as isize)).b16.s0 as i32 != 0i32
-                           &&
-                           (*mem.offset((q + 3i32) as isize)).b32.s1 != 0i32 {
-                        if file_line_error_style_p != 0 {
-                            print_file_line();
-                        } else {
-                            print_nl_cstr(b"! \x00" as *const u8 as
-                                              *const i8);
-                        }
-                        print_cstr(b"Infinite glue shrinkage found on current page\x00"
-                                       as *const u8 as *const i8);
-                        help_ptr = 4_u8;
-                        help_line[3] =
-                            b"The page about to be output contains some infinitely\x00"
-                                as *const u8 as *const i8;
-                        help_line[2] =
-                            b"shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.\x00"
-                                as *const u8 as *const i8;
-                        help_line[1] =
-                            b"Such glue doesn\'t belong there; but you can safely proceed,\x00"
-                                as *const u8 as *const i8;
-                        help_line[0] =
-                            b"since the offensive shrinkability has been made finite.\x00"
-                                as *const u8 as *const i8;
-                        error();
-                        r = new_spec(q);
-                        (*mem.offset(r as isize)).b16.s0 = 0_u16;
-                        delete_glue_ref(q);
-                        (*mem.offset((p + 1i32) as isize)).b32.s0 = r;
-                        q = r
-                    }
-                }
-                page_so_far[1] +=
-                    page_so_far[7] +
-                        (*mem.offset((q + 1i32) as isize)).b32.s1;
-                page_so_far[7] = 0i32;
-                current_block = 11918621130838443904;
-            }
-            _ => { }
-        }
-        match current_block {
-            11918621130838443904 => {
-                /*1038: "Make sure that page_max_depth is not exceeded." */
-                if page_so_far[7] > page_max_depth {
-                    page_so_far[1] += page_so_far[7] - page_max_depth;
-                    page_so_far[7] = page_max_depth
-                }
-                /*1033: "Link node p into the current page and goto done." */
-                (*mem.offset(page_tail as isize)).b32.s1 =
-                    p; /* "vertical mode" */
-                page_tail = p;
-                (*mem.offset((4999999i32 - 1i32) as isize)).b32.s1 =
-                    (*mem.offset(p as isize)).b32.s1;
-                (*mem.offset(p as isize)).b32.s1 = -0xfffffffi32
-            }
-            _ => { }
-        }
-        if !((*mem.offset((4999999i32 - 1i32) as isize)).b32.s1 !=
-                 -0xfffffffi32) {
-            break ;
+            (slf, false)
         }
     }
-    if nest_ptr == 0i32 {
-        cur_list.tail = 4999999i32 - 1i32
+
+    if *LLIST_link(CONTRIB_HEAD as isize) == TEX_NULL || output_active as i32 != 0 {
+        return;
+    }
+
+    let mut args = Args::default();
+
+    loop {
+        let (slf, halt) = do_smth(args);
+        args = slf;
+        if halt {
+            return;
+        };
+        if !(*LLIST_link(CONTRIB_HEAD as isize) != TEX_NULL) {
+            break;
+        }
+    }
+    if nest_ptr == 0 {
+        cur_list.tail = CONTRIB_HEAD; /* "vertical mode" */
     } else {
-        (*nest.offset(0)).tail = 4999999i32 - 1i32
+        (*nest.offset(0)).tail = CONTRIB_HEAD; /* "other modes" */
     };
     /* "other modes" */
 }
