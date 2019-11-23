@@ -24,11 +24,10 @@
     non_snake_case,
 )]
 
-use crate::streq_ptr;
 use crate::warn;
 use crate::DisplayExt;
 use crate::SkipBlank;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::ptr;
 
 use super::{spc_arg, spc_env};
@@ -47,8 +46,7 @@ use crate::dpx_pdfdraw::{
     pdf_dev_setmiterlimit,
 };
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_get_version, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string,
-    pdf_string_value, IntoObj,
+    pdf_dict, pdf_get_version, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string, IntoObj,
 };
 use crate::dpx_pdfparse::ParseIdent;
 use libc::atof;
@@ -657,19 +655,15 @@ unsafe fn tpic_filter_getopts(kp: &pdf_name, vp: *mut pdf_obj, dp: *mut libc::c_
             warn!("Invalid value for TPIC option fill-mode...");
             error = -1i32
         } else {
-            let v = pdf_string_value(&*vp) as *mut i8;
-            if streq_ptr(v, b"shape\x00" as *const u8 as *const i8) {
-                (*tp).mode.fill = 2i32
-            } else if streq_ptr(v, b"opacity\x00" as *const u8 as *const i8) {
-                (*tp).mode.fill = 1i32
-            } else if streq_ptr(v, b"solid\x00" as *const u8 as *const i8) {
-                (*tp).mode.fill = 0i32
-            } else {
-                warn!(
-                    "Invalid value for TPIC option fill-mode: {}",
-                    CStr::from_ptr(v).display(),
-                );
-                error = -1i32
+            let v = (*vp).as_string().to_bytes();
+            match v {
+                b"shape" => (*tp).mode.fill = 2,
+                b"opacity" => (*tp).mode.fill = 1,
+                b"solid" => (*tp).mode.fill = 0,
+                _ => {
+                    warn!("Invalid value for TPIC option fill-mode: {}", v.display(),);
+                    error = -1;
+                }
             }
         }
     } else {

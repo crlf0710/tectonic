@@ -329,8 +329,7 @@ unsafe fn html_open_dest(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_ht
     array.push(pdf_new_null());
     let error = pdf_doc_add_names(
         b"Dests\x00" as *const u8 as *const i8,
-        name as *const libc::c_void,
-        strlen(name) as i32,
+        CStr::from_ptr(name).to_bytes(),
         array.into_obj(),
     );
     if error != 0 {
@@ -500,11 +499,11 @@ unsafe fn spc_html__img_empty(spe: *mut spc_env, attr: &pdf_obj) -> i32 {
     let src = src.unwrap();
     transform_info_clear(&mut ti);
     if let Some(obj) = attr.as_dict().get("width") {
-        ti.width = atopt(CStr::from_ptr(pdf_string_value(obj) as *const i8).to_bytes());
+        ti.width = atopt(obj.as_string().to_bytes_without_nul());
         ti.flags |= 1i32 << 1i32
     }
     if let Some(obj) = attr.as_dict().get("height") {
-        ti.height = atopt(CStr::from_ptr(pdf_string_value(obj) as *const i8).to_bytes());
+        ti.height = atopt(obj.as_string().to_bytes_without_nul());
         ti.flags |= 1i32 << 2i32
     }
     if let Some(obj) = attr.as_dict().get("svg:opacity") {
@@ -513,7 +512,7 @@ unsafe fn spc_html__img_empty(spe: *mut spc_env, attr: &pdf_obj) -> i32 {
             spc_warn!(
                 spe,
                 "Invalid opacity value: {}",
-                CStr::from_ptr(pdf_string_value(&*obj) as *mut i8).display(),
+                (*obj).as_string().to_bytes_without_nul().display(),
             );
             alpha = 1.0f64
         }
@@ -556,7 +555,7 @@ unsafe fn spc_html__img_empty(spe: *mut spc_env, attr: &pdf_obj) -> i32 {
         spc_warn!(
             spe,
             "Could not find/load image: {}",
-            CStr::from_ptr(pdf_string_value(src) as *const i8).display(),
+            src.as_string().to_bytes_without_nul().display(),
         ); /* op: gs */
         error = -1i32
     } else {

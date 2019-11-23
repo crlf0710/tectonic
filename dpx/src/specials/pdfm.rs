@@ -26,7 +26,7 @@
 
 use euclid::point2;
 
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::io::Read;
 use std::ptr;
 
@@ -67,7 +67,7 @@ use crate::dpx_pdfdoc::{
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_obj_typeof, pdf_release_obj, pdf_remove_dict,
-    pdf_stream, pdf_string_length, pdf_string_value, IntoObj, PdfObjType, STREAM_COMPRESS,
+    pdf_stream, pdf_string, pdf_string_value, IntoObj, PdfObjType, STREAM_COMPRESS,
 };
 use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
@@ -76,7 +76,7 @@ use crate::dpx_unicode::{
     UC_UTF8_is_valid_string, UC_is_valid,
 };
 use crate::{ttstub_input_close, ttstub_input_open};
-use libc::{free, memcmp, strlen, strstr};
+use libc::{free, strlen, strstr};
 
 pub type __ssize_t = i64;
 pub type size_t = u64;
@@ -391,8 +391,9 @@ unsafe fn reencodestring(cmap: *mut CMap, instring: *mut pdf_obj) -> i32 {
     if cmap.is_null() || instring.is_null() {
         return 0i32;
     }
-    let mut inbufleft = pdf_string_length(&*instring) as size_t;
-    let mut inbufcur = pdf_string_value(&*instring) as *const u8;
+    let slice = (*instring).as_string_mut().to_bytes();
+    let mut inbufleft = slice.len() as size_t;
+    let mut inbufcur = slice.as_ptr() as *const u8;
     wbuf[0] = 0xfe_u8;
     wbuf[1] = 0xff_u8;
     let mut obufcur = wbuf.as_mut_ptr().offset(2);
@@ -419,8 +420,9 @@ unsafe fn maybe_reencode_utf8(instring: *mut pdf_obj) -> i32 {
     if instring.is_null() {
         return 0i32;
     }
-    let inlen = pdf_string_length(&*instring) as i32;
-    let inbuf = pdf_string_value(&*instring) as *mut u8;
+    let slice = (*instring).as_string_mut().as_mut_slice();
+    let inlen = slice.len() as i32;
+    let inbuf = slice.as_mut_ptr() as *mut u8;
     /* check if the input string is strictly ASCII */
     cp = inbuf; /* no need to reencode ASCII strings */
     while cp < inbuf.offset(inlen as isize) as *const u8 {
@@ -475,10 +477,9 @@ unsafe fn maybe_reencode_utf8(instring: *mut pdf_obj) -> i32 {
  * but does a quick check. Please add entries for taintkeys if you have found
  * additional dictionary entries which is considered as a text string.
  */
-unsafe fn needreencode(kp: &pdf_name, vp: *mut pdf_obj, cd: *mut tounicode) -> i32 {
+unsafe fn needreencode(kp: &pdf_name, vp: &pdf_string, cd: *mut tounicode) -> i32 {
     let mut r: i32 = 0i32;
     assert!(!cd.is_null() && !(*cd).taintkeys.is_null());
-    assert!((*vp).is_string());
     for i in 0..(*(*cd).taintkeys).as_array().len() {
         let tk = (*(*cd).taintkeys).as_array()[i];
         assert!((*tk).is_name());
@@ -489,13 +490,7 @@ unsafe fn needreencode(kp: &pdf_name, vp: *mut pdf_obj, cd: *mut tounicode) -> i
     }
     if r != 0 {
         /* Check UTF-16BE BOM. */
-        if pdf_string_length(&*vp) >= 2_u32
-            && memcmp(
-                pdf_string_value(&*vp),
-                b"\xfe\xff\x00" as *const u8 as *const i8 as *const libc::c_void,
-                2,
-            ) == 0
-        {
+        if vp.to_bytes().starts_with(b"\xfe\xff") {
             r = 0i32
         }
     } /* continue */
@@ -508,7 +503,7 @@ unsafe fn modstrings(kp: &pdf_name, vp: *mut pdf_obj, dp: *mut libc::c_void) -> 
         PdfObjType::STRING => {
             if !cd.is_null() && (*cd).cmap_id >= 0i32 && !(*cd).taintkeys.is_null() {
                 let cmap: *mut CMap = CMap_cache_get((*cd).cmap_id);
-                if needreencode(kp, vp, cd) != 0 {
+                if needreencode(kp, (*vp).as_string(), cd) != 0 {
                     r = reencodestring(cmap, vp)
                 }
             } else if is_xdv != 0 && !cd.is_null() && !(*cd).taintkeys.is_null() {
@@ -516,7 +511,7 @@ unsafe fn modstrings(kp: &pdf_name, vp: *mut pdf_obj, dp: *mut libc::c_void) -> 
                  * needreencode() is assumed to do a simple check if given string
                  * object is actually a text string.
                  */
-                if needreencode(kp, vp, cd) != 0 {
+                if needreencode(kp, (*vp).as_string(), cd) != 0 {
                     r = maybe_reencode_utf8(vp)
                 }
             }
@@ -1008,8 +1003,7 @@ unsafe fn spc_handler_pdfm_dest(spe: *mut spc_env, args: *mut spc_arg) -> i32 {
         }
         pdf_doc_add_names(
             b"Dests\x00" as *const u8 as *const i8,
-            pdf_string_value(&*name),
-            pdf_string_length(&*name) as i32,
+            (*name).as_string().to_bytes(),
             array,
         );
     } else {
@@ -1052,8 +1046,7 @@ unsafe fn spc_handler_pdfm_names(spe: *mut spc_env, args: *mut spc_arg) -> i32 {
                 } else {
                     if pdf_doc_add_names(
                         (*category).as_name().as_ptr() as *mut i8,
-                        pdf_string_value(&*key),
-                        pdf_string_length(&*key) as i32,
+                        (*key).as_string().to_bytes(),
                         pdf_link_obj(value),
                     ) < 0i32
                     {
@@ -1070,8 +1063,7 @@ unsafe fn spc_handler_pdfm_names(spe: *mut spc_env, args: *mut spc_arg) -> i32 {
             if let Some(value) = (*args).cur.parse_pdf_object(ptr::null_mut()) {
                 if pdf_doc_add_names(
                     (*category).as_name().as_ptr() as *mut i8,
-                    pdf_string_value(&*key),
-                    pdf_string_length(&*key) as i32,
+                    (*key).as_string().to_bytes(),
                     value,
                 ) < 0i32
                 {
@@ -1270,31 +1262,23 @@ unsafe fn spc_handler_pdfm_stream_with_type(
         pdf_release_obj(tmp);
         return -1i32;
     }
-    let instring = pdf_string_value(&*tmp) as *mut i8;
+    let instring = (*tmp).as_string().to_bytes();
     let mut fstream = match type_0 {
         1 => {
-            if instring.is_null() {
+            if instring.is_empty() {
                 spc_warn!(spe, "Missing filename for pdf:fstream.");
                 pdf_release_obj(tmp);
                 return -1i32;
             }
-            let fullname = ptr::null_mut::<i8>();
+            let fullname = ptr::null_mut::<i8>(); // TODO: check dead code
             if fullname.is_null() {
-                spc_warn!(
-                    spe,
-                    "File \"{}\" not found.",
-                    CStr::from_ptr(instring).display(),
-                );
+                spc_warn!(spe, "File \"{}\" not found.", instring.display(),);
                 pdf_release_obj(tmp);
                 return -1i32;
             }
             let handle = ttstub_input_open(fullname, TTInputFormat::PICT, 0i32);
             if handle.is_none() {
-                spc_warn!(
-                    spe,
-                    "Could not open file: {}",
-                    CStr::from_ptr(instring).display(),
-                );
+                spc_warn!(spe, "Could not open file: {}", instring.display(),);
                 pdf_release_obj(tmp);
                 free(fullname as *mut libc::c_void);
                 return -1i32;
@@ -1315,8 +1299,11 @@ unsafe fn spc_handler_pdfm_stream_with_type(
         }
         0 => {
             let mut fstream = pdf_stream::new(STREAM_COMPRESS);
-            if !instring.is_null() {
-                fstream.add(instring as *const libc::c_void, strlen(instring) as i32);
+            if !instring.is_empty() {
+                fstream.add(
+                    instring.as_ptr() as *const libc::c_void,
+                    instring.len() as i32,
+                );
             }
             fstream
         }

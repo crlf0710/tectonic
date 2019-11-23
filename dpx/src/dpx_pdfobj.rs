@@ -304,8 +304,7 @@ pub struct pdf_array {
 #[derive(Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct pdf_string {
-    pub string: CString,
-    pub length: usize,
+    pub string: Vec<u8>,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -932,14 +931,13 @@ impl pdf_string {
     where
         K: AsRef<[u8]>,
     {
-        let slice = from.as_ref();
-        let length = slice.iter().position(|&x| x == 0).unwrap_or(slice.len());
-        let string = CString::new(&slice[..length]).unwrap();
-        Self { string, length }
+        let mut string = Vec::from(from.as_ref());
+        string.push(0);
+        Self { string }
     }
     pub unsafe fn new_from_ptr(ptr: *const libc::c_void, length: size_t) -> Self {
         if ptr.is_null() {
-            Self::new("")
+            Self::new(&[])
         } else {
             Self::new(std::slice::from_raw_parts(
                 ptr as *const u8,
@@ -951,15 +949,32 @@ impl pdf_string {
     where
         K: AsRef<[u8]>,
     {
-        let slice = from.as_ref();
-        self.length = slice.iter().position(|&x| x == 0).unwrap_or(slice.len());
-        self.string = CString::new(&slice[..self.length]).unwrap();
+        self.string = Vec::from(from.as_ref());
+        self.string.push(0);
+    }
+    pub fn len(&self) -> usize {
+        self.string.len() - 1
+    }
+    pub fn to_bytes(&self) -> &[u8] {
+        &self.string[..self.len()]
+    }
+    pub fn to_bytes_without_nul(&self) -> &[u8] {
+        let pos = self
+            .string
+            .iter()
+            .position(|&x| x == 0)
+            .unwrap_or(self.len());
+        &self.string[..pos]
+    }
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+        let len = self.len();
+        &mut self.string[..len]
     }
 }
 
 pub unsafe fn pdf_string_value(object: &pdf_obj) -> *mut libc::c_void {
     let data = object.as_string();
-    if data.length == 0 {
+    if data.len() == 0 {
         ptr::null_mut()
     } else {
         data.string.as_ptr() as *mut u8 as *mut libc::c_void
@@ -968,7 +983,7 @@ pub unsafe fn pdf_string_value(object: &pdf_obj) -> *mut libc::c_void {
 
 pub unsafe fn pdf_string_length(object: &pdf_obj) -> u32 {
     let data = object.as_string();
-    data.length as u32
+    data.len() as u32
 }
 /*
  * This routine escapes non printable characters and control
@@ -1044,13 +1059,13 @@ unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
     if enc_mode {
         pdf_encrypt_data(
             strn.string.as_ptr() as *const u8,
-            strn.length as size_t,
+            strn.len() as size_t,
             &mut s,
             &mut len,
         );
     } else {
         s = strn.string.as_ptr() as *const u8 as *mut u8;
-        len = strn.length as size_t;
+        len = strn.len() as size_t;
     }
     /*
      * Count all ASCII non-printable characters.
@@ -1104,17 +1119,10 @@ unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
 }
 
 /* Name does *not* include the /. */
-pub unsafe fn pdf_new_name<K>(name: K) -> *mut pdf_obj
-where
-    K: AsRef<[u8]>,
-{
-    pdf_name::new(name).into_obj()
-}
-
 pub unsafe fn pdf_copy_name(name: *const i8) -> *mut pdf_obj {
     let length = strlen(name);
     let slice = std::slice::from_raw_parts(name as *const u8, length as _);
-    pdf_new_name(slice)
+    pdf_name::new(slice).into_obj()
 }
 
 unsafe fn write_name(name: &pdf_name, handle: &mut OutputHandleWrapper) {

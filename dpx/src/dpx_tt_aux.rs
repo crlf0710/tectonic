@@ -35,7 +35,7 @@ use super::dpx_tt_post::{tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::{tt_read_head_table, tt_read_os2__table};
 use crate::dpx_pdfobj::{pdf_dict, pdf_string, PushObj};
 
-use libc::{free, memcpy};
+use libc::free;
 use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
@@ -264,16 +264,9 @@ pub unsafe fn tt_get_fontdesc(
         /* cid-keyed font - add panose */
         let mut panose: [u8; 12] = [0; 12];
         panose[0..2].copy_from_slice(&(*os2).sFamilyClass.to_be_bytes());
-        memcpy(
-            panose.as_mut_ptr().offset(2) as *mut libc::c_void,
-            (*os2).panose.as_mut_ptr() as *const libc::c_void,
-            10,
-        );
+        panose[2..12].copy_from_slice((*os2).panose.as_ref());
         let mut styledict = pdf_dict::new();
-        styledict.set(
-            "Panose",
-            pdf_string::new_from_ptr(panose.as_mut_ptr() as *const libc::c_void, 12i32 as size_t),
-        );
+        styledict.set("Panose", pdf_string::new(panose));
         descriptor.set("Style", styledict);
     }
     free(head as *mut libc::c_void);

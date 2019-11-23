@@ -1550,12 +1550,7 @@ unsafe fn pdf_doc_init_names(mut p: *mut pdf_doc, check_gotos: i32) {
     );
 }
 
-pub unsafe fn pdf_doc_add_names(
-    category: *const i8,
-    key: *const libc::c_void,
-    keylen: i32,
-    value: *mut pdf_obj,
-) -> i32 {
+pub unsafe fn pdf_doc_add_names(category: *const i8, key: &[u8], value: *mut pdf_obj) -> i32 {
     let p: *mut pdf_doc = &mut pdoc;
     let mut i = 0;
     while !(*(*p).names.offset(i as isize)).category.is_null() {
@@ -1575,7 +1570,9 @@ pub unsafe fn pdf_doc_add_names(
         let ref mut fresh17 = (*(*p).names.offset(i as isize)).data;
         *fresh17 = pdf_new_name_tree()
     }
-    pdf_names_add_object((*(*p).names.offset(i as isize)).data, key, keylen, value)
+    let keyptr = key.as_ptr() as *const libc::c_void;
+    let keylen = key.len() as i32;
+    pdf_names_add_object((*(*p).names.offset(i as isize)).data, keyptr, keylen, value)
 }
 unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
     let mut A: *mut pdf_obj = ptr::null_mut();

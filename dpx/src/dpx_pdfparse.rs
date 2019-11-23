@@ -34,7 +34,7 @@ use std::ptr;
 use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_deref_obj, pdf_dict, pdf_file, pdf_indirect, pdf_new_name, pdf_new_null, pdf_obj,
+    pdf_deref_obj, pdf_dict, pdf_file, pdf_indirect, pdf_name, pdf_new_null, pdf_obj,
     pdf_release_obj, pdf_stream, pdf_string, IntoObj, STREAM_COMPRESS,
 };
 use crate::specials::spc_lookup_reference;
@@ -881,7 +881,7 @@ impl ParsePdfObj for &[u8] {
             warn!("No valid name object found.");
             return None;
         }
-        unsafe { Some(pdf_new_name(name)) }
+        unsafe { Some(pdf_name::new(name).into_obj()) }
     }
     fn parse_pdf_number(&mut self) -> Option<*mut pdf_obj> {
         let mut v = 0_f64;
