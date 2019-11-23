@@ -1995,11 +1995,11 @@ pub unsafe extern "C" fn after_math() {
     let script_script_three = math_font(3 + SCRIPT_SCRIPT_SIZE);
 
     if *font_params.offset(font_num) < TOTAL_MATHSY_PARAMS
-        && is_opentype_math_font(font_num as usize)
+        && !is_opentype_math_font(font_num as usize)
         || *font_params.offset(script_num) < TOTAL_MATHSY_PARAMS
-            && is_opentype_math_font(script_num as usize)
+            && !is_opentype_math_font(script_num as usize)
         || *font_params.offset(script_script_num) < TOTAL_MATHSY_PARAMS
-            && is_opentype_math_font(script_script_num as usize)
+            && !is_opentype_math_font(script_script_num as usize)
     {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -2019,11 +2019,11 @@ pub unsafe extern "C" fn after_math() {
         error();
         flush_math();
         danger = true
-    } else if (*font_params.offset(three) < TOTAL_MATHEX_PARAMS) && is_opentype_math_font(three as usize)
+    } else if (*font_params.offset(three) < TOTAL_MATHEX_PARAMS) && !is_opentype_math_font(three as usize)
         || (*font_params.offset(script_three) < TOTAL_MATHEX_PARAMS)
-            && is_opentype_math_font(script_three as usize)
+            && !is_opentype_math_font(script_three as usize)
         || (*font_params.offset(script_script_three) < TOTAL_MATHEX_PARAMS)
-            && is_opentype_math_font(script_script_three as usize)
+            && !is_opentype_math_font(script_script_three as usize)
     {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -2083,11 +2083,11 @@ pub unsafe extern "C" fn after_math() {
             j = cur_list.eTeX_aux
         }
         if *font_params.offset(font_num) < TOTAL_MATHSY_PARAMS
-            && is_opentype_math_font(font_num as usize)
+            && !is_opentype_math_font(font_num as usize)
             || *font_params.offset(script_num) < TOTAL_MATHSY_PARAMS
-                && is_opentype_math_font(script_num as usize)
+                && !is_opentype_math_font(script_num as usize)
             || *font_params.offset(script_script_num) < TOTAL_MATHSY_PARAMS
-                && is_opentype_math_font(script_script_num as usize)
+                && !is_opentype_math_font(script_script_num as usize)
         {
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -2107,11 +2107,11 @@ pub unsafe extern "C" fn after_math() {
             error();
             flush_math();
             danger = true
-        } else if (*font_params.offset(three) < TOTAL_MATHEX_PARAMS) && is_opentype_math_font(three as usize)
+        } else if (*font_params.offset(three) < TOTAL_MATHEX_PARAMS) && !is_opentype_math_font(three as usize)
             || (*font_params.offset(script_three) < TOTAL_MATHEX_PARAMS)
-                && is_opentype_math_font(script_three as usize)
+                && !is_opentype_math_font(script_three as usize)
             || (*font_params.offset(script_script_three) < TOTAL_MATHEX_PARAMS)
-                && is_opentype_math_font(script_script_three as usize)
+                && !is_opentype_math_font(script_script_three as usize)
         {
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -5813,7 +5813,7 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
             + ((*mem.offset(d as isize)).b16.s1 as i32 / 256i32) as i64 * 65536) as u16
     }
     if f != 0i32 {
-        if is_using_opentype(f as u32) {
+        if !is_using_opentype(f as u32) {
             /*736: */
             if q.s1 as i32 % 4i32 == 3i32 {
                 /*739: */
