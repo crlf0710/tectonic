@@ -16,19 +16,13 @@ use crate::xetex_font_info::{
 };
 use crate::xetex_font_manager::PlatformFontRef;
 use crate::xetex_layout_engine::{getFontInst, XeTeXLayoutEngine};
-use crate::xetex_ini::get_text_layout_engine;
+use crate::xetex_ini::{get_text_layout_engine, font_size};
 use crate::text_layout_engine::{TextLayoutEngine, TextLayout};
 use harfbuzz_sys::*;
 
 extern "C" {
     #[no_mangle]
     fn free(__ptr: *mut libc::c_void);
-    #[no_mangle]
-    static mut font_layout_engine: *mut *mut libc::c_void;
-    #[no_mangle]
-    static mut font_area: *mut int32_t;
-    #[no_mangle]
-    static mut font_size: *mut int32_t;
 }
 pub type size_t = usize;
 pub type int32_t = i32;
@@ -224,11 +218,9 @@ pub unsafe extern "C" fn get_ot_math_variant(
 ) -> libc::c_int {
     let mut rval: hb_codepoint_t = g as hb_codepoint_t;
     *adv = -1i32;
-    if *font_area.offset(f as isize) as libc::c_uint == 0xfffeu32 {
-        let mut font: *mut XeTeXFontInst =
-            getFontInst(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine)
-                as *mut XeTeXFontInst;
-        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
+    let engine = get_text_layout_engine(f as usize);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = engine.as_ref().map(|x| &**x) {
+        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(eng.font);
         let mut variant: [hb_ot_math_glyph_variant_t; 1] = [hb_ot_math_glyph_variant_t {
             glyph: 0,
             advance: 0,
@@ -249,7 +241,7 @@ pub unsafe extern "C" fn get_ot_math_variant(
         if count > 0i32 as libc::c_uint {
             rval = (*variant.as_mut_ptr()).glyph;
             *adv = D2Fix(XeTeXFontInst_unitsToPoints(
-                font,
+                eng.font,
                 (*variant.as_mut_ptr()).advance as libc::c_float,
             ) as libc::c_double)
         }
@@ -263,11 +255,9 @@ pub unsafe extern "C" fn get_ot_assembly_ptr(
     mut horiz: libc::c_int,
 ) -> *mut libc::c_void {
     let mut rval: *mut libc::c_void = 0 as *mut libc::c_void;
-    if *font_area.offset(f as isize) as libc::c_uint == 0xfffeu32 {
-        let mut font: *mut XeTeXFontInst =
-            getFontInst(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine)
-                as *mut XeTeXFontInst;
-        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
+    let engine = get_text_layout_engine(f as usize);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = engine.as_ref().map(|x| &**x) {
+        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(eng.font);
         let mut count: libc::c_uint = hb_ot_math_get_glyph_assembly(
             hbFont,
             g as hb_codepoint_t,
@@ -322,13 +312,11 @@ pub unsafe extern "C" fn get_ot_math_ital_corr(
     mut g: libc::c_int,
 ) -> libc::c_int {
     let mut rval: hb_position_t = 0i32;
-    if *font_area.offset(f as isize) as libc::c_uint == 0xfffeu32 {
-        let mut font: *mut XeTeXFontInst =
-            getFontInst(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine)
-                as *mut XeTeXFontInst;
-        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
+    let engine = get_text_layout_engine(f as usize);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = engine.as_ref().map(|x| &**x) {
+        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(eng.font);
         rval = hb_ot_math_get_glyph_italics_correction(hbFont, g as hb_codepoint_t);
-        rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as libc::c_float) as libc::c_double)
+        rval = D2Fix(XeTeXFontInst_unitsToPoints(eng.font, rval as libc::c_float) as libc::c_double)
     }
     return rval;
 }
@@ -338,26 +326,22 @@ pub unsafe extern "C" fn get_ot_math_accent_pos(
     mut g: libc::c_int,
 ) -> libc::c_int {
     let mut rval: hb_position_t = 0x7fffffffu64 as hb_position_t;
-    if *font_area.offset(f as isize) as libc::c_uint == 0xfffeu32 {
-        let mut font: *mut XeTeXFontInst =
-            getFontInst(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine)
-                as *mut XeTeXFontInst;
-        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
+    let engine = get_text_layout_engine(f as usize);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = engine.as_ref().map(|x| &**x) {
+        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(eng.font);
         rval = hb_ot_math_get_glyph_top_accent_attachment(hbFont, g as hb_codepoint_t);
-        rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as libc::c_float) as libc::c_double)
+        rval = D2Fix(XeTeXFontInst_unitsToPoints(eng.font, rval as libc::c_float) as libc::c_double)
     }
     return rval;
 }
 #[no_mangle]
 pub unsafe extern "C" fn ot_min_connector_overlap(mut f: libc::c_int) -> libc::c_int {
     let mut rval: hb_position_t = 0i32;
-    if *font_area.offset(f as isize) as libc::c_uint == 0xfffeu32 {
-        let mut font: *mut XeTeXFontInst =
-            getFontInst(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine)
-                as *mut XeTeXFontInst;
-        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
+    let engine = get_text_layout_engine(f as usize);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = engine.as_ref().map(|x| &**x) {
+        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(eng.font);
         rval = hb_ot_math_get_min_connector_overlap(hbFont, HB_DIRECTION_RTL);
-        rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as libc::c_float) as libc::c_double)
+        rval = D2Fix(XeTeXFontInst_unitsToPoints(eng.font, rval as libc::c_float) as libc::c_double)
     }
     return rval;
 }
@@ -369,11 +353,9 @@ unsafe extern "C" fn getMathKernAt(
     mut height: libc::c_int,
 ) -> libc::c_int {
     let mut rval: hb_position_t = 0i32;
-    if *font_area.offset(f as isize) as libc::c_uint == 0xfffeu32 {
-        let mut font: *mut XeTeXFontInst =
-            getFontInst(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine)
-                as *mut XeTeXFontInst;
-        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
+    let engine = get_text_layout_engine(f as usize);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = engine.as_ref().map(|x| &**x) {
+        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(eng.font);
         rval = hb_ot_math_get_glyph_kerning(hbFont, g as hb_codepoint_t, side, height)
     }
     return rval;
@@ -408,19 +390,17 @@ pub unsafe extern "C" fn get_ot_math_kern(
     mut shift: libc::c_int,
 ) -> libc::c_int {
     let mut rval: libc::c_int = 0i32;
-    if *font_area.offset(f as isize) as libc::c_uint == 0xfffeu32 {
-        let mut font: *mut XeTeXFontInst =
-            getFontInst(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine)
-                as *mut XeTeXFontInst;
+    let engine = get_text_layout_engine(f as usize);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = engine.as_ref().map(|x| &**x) {
         let mut kern: libc::c_int = 0i32;
         let mut skern: libc::c_int = 0i32;
         let mut corr_height_top: libc::c_float = 0.0f64 as libc::c_float;
         let mut corr_height_bot: libc::c_float = 0.0f64 as libc::c_float;
         if cmd == 0i32 {
             // superscript
-            corr_height_top = XeTeXFontInst_pointsToUnits(font, glyph_height(f, g));
+            corr_height_top = XeTeXFontInst_pointsToUnits(eng.font, glyph_height(f, g));
             corr_height_bot = -XeTeXFontInst_pointsToUnits(
-                font,
+                eng.font,
                 (glyph_depth(sf, sg) as libc::c_double + Fix2D(shift)) as libc::c_float,
             );
             kern = getMathKernAt(
@@ -454,10 +434,10 @@ pub unsafe extern "C" fn get_ot_math_kern(
         } else if cmd == 1i32 {
             // subscript
             corr_height_top = XeTeXFontInst_pointsToUnits(
-                font,
+                eng.font,
                 (glyph_height(sf, sg) as libc::c_double - Fix2D(shift)) as libc::c_float,
             );
-            corr_height_bot = -XeTeXFontInst_pointsToUnits(font, glyph_depth(f, g));
+            corr_height_bot = -XeTeXFontInst_pointsToUnits(eng.font, glyph_depth(f, g));
             kern = getMathKernAt(
                 f,
                 g,
@@ -490,7 +470,7 @@ pub unsafe extern "C" fn get_ot_math_kern(
             unreachable!()
             // we should not reach here
         }
-        return D2Fix(XeTeXFontInst_unitsToPoints(font, rval as libc::c_float) as libc::c_double);
+        return D2Fix(XeTeXFontInst_unitsToPoints(eng.font, rval as libc::c_float) as libc::c_double);
     }
     return 0i32;
 }
@@ -521,12 +501,10 @@ pub unsafe extern "C" fn ot_part_start_connector(
     mut i: libc::c_int,
 ) -> libc::c_int {
     let mut rval: libc::c_int = 0i32;
-    if *font_area.offset(f as isize) as libc::c_uint == 0xfffeu32 {
-        let mut font: *mut XeTeXFontInst =
-            getFontInst(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine)
-                as *mut XeTeXFontInst;
+    let engine = get_text_layout_engine(f as usize);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = engine.as_ref().map(|x| &**x) {
         rval = D2Fix(XeTeXFontInst_unitsToPoints(
-            font,
+            eng.font,
             (*(*a).parts.offset(i as isize)).start_connector_length as libc::c_float,
         ) as libc::c_double)
     }
@@ -539,12 +517,10 @@ pub unsafe extern "C" fn ot_part_end_connector(
     mut i: libc::c_int,
 ) -> libc::c_int {
     let mut rval: libc::c_int = 0i32;
-    if *font_area.offset(f as isize) as libc::c_uint == 0xfffeu32 {
-        let mut font: *mut XeTeXFontInst =
-            getFontInst(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine)
-                as *mut XeTeXFontInst;
+    let engine = get_text_layout_engine(f as usize);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = engine.as_ref().map(|x| &**x) {
         rval = D2Fix(XeTeXFontInst_unitsToPoints(
-            font,
+            eng.font,
             (*(*a).parts.offset(i as isize)).end_connector_length as libc::c_float,
         ) as libc::c_double)
     }
@@ -588,12 +564,10 @@ pub unsafe extern "C" fn ot_part_full_advance(
     mut i: libc::c_int,
 ) -> libc::c_int {
     let mut rval: libc::c_int = 0i32;
-    if *font_area.offset(f as isize) as libc::c_uint == 0xfffeu32 {
-        let mut font: *mut XeTeXFontInst =
-            getFontInst(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine)
-                as *mut XeTeXFontInst;
+    let engine = get_text_layout_engine(f as usize);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = engine.as_ref().map(|x| &**x) {
         rval = D2Fix(XeTeXFontInst_unitsToPoints(
-            font,
+            eng.font,
             (*(*a).parts.offset(i as isize)).full_advance as libc::c_float,
         ) as libc::c_double)
     }
