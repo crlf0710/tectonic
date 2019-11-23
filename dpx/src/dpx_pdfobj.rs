@@ -26,8 +26,6 @@
     non_upper_case_globals,
 )]
 
-use core::mem;
-
 use crate::DisplayExt;
 use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -1298,10 +1296,9 @@ impl pdf_name {
     }
 }
 
-use indexmap::Equivalent;
-impl Equivalent<pdf_name> for [u8] {
-    fn equivalent(&self, key: &pdf_name) -> bool {
-        self == key.to_bytes()
+impl std::borrow::Borrow<[u8]> for pdf_name {
+    fn borrow(&self) -> &[u8] {
+        self.to_bytes()
     }
 }
 
