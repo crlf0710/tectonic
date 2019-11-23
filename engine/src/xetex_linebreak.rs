@@ -4003,7 +4003,6 @@ unsafe extern "C" fn reconstitute(
     j
 }
 unsafe extern "C" fn total_pw(mut q: i32, mut p: i32) -> scaled_t {
-    let mut current_block: u64;
     let mut l: i32 = 0;
     let mut r: i32 = 0;
     let mut n: i32 = 0;
@@ -4029,7 +4028,7 @@ unsafe extern "C" fn total_pw(mut q: i32, mut p: i32) -> scaled_t {
     if l != -0xfffffffi32 && (*mem.offset(l as isize)).b16.s1 as i32 == 7i32 {
         if (*mem.offset((l + 1i32) as isize)).b32.s1 != -0xfffffffi32 {
             l = (*mem.offset((l + 1i32) as isize)).b32.s1;
-            current_block = 15424580701460361554;
+            return char_pw(l, 0) + char_pw(r, 1);
         } else {
             n = (*mem.offset(l as isize)).b16.s0 as i32;
             l = (*mem.offset(l as isize)).b32.s1;
@@ -4039,16 +4038,10 @@ unsafe extern "C" fn total_pw(mut q: i32, mut p: i32) -> scaled_t {
                 }
                 n -= 1
             }
-            current_block = 15089075282327824602;
         }
-    } else {
-        current_block = 15089075282327824602;
     }
-    match current_block {
-        15089075282327824602 => l = find_protchar_left(l, 1i32 != 0),
-        _ => {}
-    }
-    char_pw(l, 0i32 as small_number) + char_pw(r, 1i32 as small_number)
+    l = find_protchar_left(l, true);
+    char_pw(l, 0) + char_pw(r, 1)
 }
 unsafe extern "C" fn find_protchar_left(mut l: i32, mut d: bool) -> i32 {
     let mut t: i32 = 0;
