@@ -235,7 +235,6 @@ impl Default for xref_entry {
 
 use indexmap::IndexMap;
 
-#[derive(Clone)]
 #[repr(C)]
 pub struct pdf_dict {
     inner: IndexMap<pdf_name, *mut pdf_obj>,
@@ -1281,14 +1280,10 @@ impl pdf_dict {
     /* pdf_merge_dict makes a link for each item in dict2 before stealing it */
     pub unsafe fn merge(&mut self, dict2: &Self) {
         for (k, &v) in dict2.inner.iter() {
-            let linked = pdf_link_obj(v);
-            self.inner
-                .entry(k.clone())
-                .and_modify(|existing| {
-                    let existing = mem::replace(existing, linked);
-                    pdf_release_obj(existing);
-                })
-                .or_insert(linked);
+            self.set(
+                k.to_bytes(),
+                pdf_link_obj(v),
+            );
         }
     }
 }
