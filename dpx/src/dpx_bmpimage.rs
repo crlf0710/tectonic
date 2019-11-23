@@ -30,7 +30,7 @@ use super::dpx_mem::new;
 use super::dpx_numbers::tt_get_unsigned_byte;
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_new_string, pdf_stream, pdf_stream_set_predictor, IntoObj, PushObj, STREAM_COMPRESS,
+    pdf_stream, pdf_stream_set_predictor, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::ttstub_input_read;
 use crate::warn;
@@ -201,7 +201,7 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
             *palette.offset((3i32 * i + 1i32) as isize) = bgrq[1];
             *palette.offset((3i32 * i + 2i32) as isize) = bgrq[0];
         }
-        let lookup = pdf_new_string(
+        let lookup = pdf_string::new_from_ptr(
             palette as *const libc::c_void,
             (num_palette * 3i32) as size_t,
         );
@@ -210,7 +210,7 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
         colorspace.push_obj("Indexed");
         colorspace.push_obj("DeviceRGB");
         colorspace.push_obj((num_palette - 1i32) as f64);
-        colorspace.push(lookup);
+        colorspace.push_obj(lookup);
         colorspace.into_obj()
     } else {
         "DeviceRGB".into_obj()

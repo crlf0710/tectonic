@@ -31,7 +31,6 @@ use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::dpx_pdfparse::{parse_number, parse_pdf_object, parse_unsigned, ParsePdfObj, SkipWhite};
-use crate::mfree;
 use crate::strstartswith;
 use crate::{info, warn};
 use std::ffi::CStr;
@@ -171,6 +170,14 @@ impl pdf_obj {
         assert!(self.is_stream());
         &mut *(self.data as *mut pdf_stream)
     }
+    pub unsafe fn as_string(&self) -> &pdf_string {
+        assert!(self.is_string());
+        &*(self.data as *const pdf_string)
+    }
+    pub unsafe fn as_string_mut(&mut self) -> &mut pdf_string {
+        assert!(self.is_string());
+        &mut *(self.data as *mut pdf_string)
+    }
     pub fn as_name(&self) -> &CStr {
         assert!(self.is_name());
         let data = self.data as *const pdf_name;
@@ -277,16 +284,28 @@ pub struct pdf_indirect {
     pub label: u32,
     pub generation: u16,
 }
+
+impl pdf_indirect {
+    pub fn new(pf: *mut pdf_file, label: u32, generation: u16) -> Self {
+        Self {
+            pf,
+            obj: ptr::null_mut(),
+            label,
+            generation,
+        }
+    }
+}
+
 #[derive(Clone)]
 #[repr(C)]
 pub struct pdf_array {
     pub values: Vec<*mut pdf_obj>,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct pdf_string {
-    pub string: *mut u8,
-    pub length: size_t,
+    pub string: CString,
+    pub length: usize,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -360,6 +379,18 @@ impl IntoObj for pdf_name {
     }
 }
 
+impl IntoObj for pdf_string {
+    #[inline(always)]
+    fn into_obj(self) -> *mut pdf_obj {
+        unsafe {
+            let result = pdf_new_obj(PdfObjType::STRING);
+            let data = Box::new(self);
+            (*result).data = Box::into_raw(data) as *mut libc::c_void;
+            result
+        }
+    }
+}
+
 impl IntoObj for pdf_stream {
     fn into_obj(self) -> *mut pdf_obj {
         unsafe {
@@ -381,6 +412,17 @@ impl IntoObj for pdf_dict {
     fn into_obj(self) -> *mut pdf_obj {
         unsafe {
             let result = pdf_new_obj(PdfObjType::DICT);
+            let boxed = Box::new(self);
+            (*result).data = Box::into_raw(boxed) as *mut libc::c_void;
+            result
+        }
+    }
+}
+
+impl IntoObj for pdf_indirect {
+    fn into_obj(self) -> *mut pdf_obj {
+        unsafe {
+            let result = pdf_new_obj(PdfObjType::INDIRECT);
             let boxed = Box::new(self);
             (*result).data = Box::into_raw(boxed) as *mut libc::c_void;
             result
@@ -837,9 +879,6 @@ pub unsafe fn pdf_ref_obj(object: *mut pdf_obj) -> *mut pdf_obj {
         return pdf_new_ref(object);
     };
 }
-unsafe fn release_indirect(data: *mut pdf_indirect) {
-    free(data as *mut libc::c_void);
-}
 unsafe fn write_indirect(indirect: *mut pdf_indirect, handle: &mut OutputHandleWrapper) {
     assert!((*indirect).pf.is_null());
     let length = sprintf(
@@ -888,40 +927,48 @@ pub unsafe fn pdf_set_number(object: &mut pdf_obj, value: f64) {
     (*data).value = value;
 }
 
-pub unsafe fn pdf_new_string_from_slice(slice: &[u8]) -> *mut pdf_obj {
-    pdf_new_string(slice.as_ptr() as *const libc::c_void, slice.len() as size_t)
-}
-
-pub unsafe fn pdf_new_string(str: *const libc::c_void, length: size_t) -> *mut pdf_obj {
-    assert!(!str.is_null());
-    let result = pdf_new_obj(PdfObjType::STRING);
-    let data = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_string>() as u64) as u32)
-        as *mut pdf_string;
-    (*result).data = data as *mut libc::c_void;
-    (*data).length = length;
-    if length != 0 {
-        (*data).string = new((length.wrapping_add(1i32 as u64) as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
-            as *mut u8;
-        libc::memcpy((*data).string as *mut libc::c_void, str, length as usize);
-        /* Shouldn't assume NULL terminated. */
-        *(*data).string.offset(length as isize) = '\u{0}' as i32 as u8
-    } else {
-        (*data).string = ptr::null_mut()
+impl pdf_string {
+    pub fn new<K>(from: K) -> Self
+    where
+        K: AsRef<[u8]>,
+    {
+        let slice = from.as_ref();
+        let length = slice.iter().position(|&x| x == 0).unwrap_or(slice.len());
+        let string = CString::new(&slice[..length]).unwrap();
+        Self { string, length }
     }
-    result
+    pub unsafe fn new_from_ptr(ptr: *const libc::c_void, length: size_t) -> Self {
+        if ptr.is_null() {
+            Self::new("")
+        } else {
+            Self::new(std::slice::from_raw_parts(
+                ptr as *const u8,
+                length as usize,
+            ))
+        }
+    }
+    pub fn set<K>(&mut self, from: K)
+    where
+        K: AsRef<[u8]>,
+    {
+        let slice = from.as_ref();
+        self.length = slice.iter().position(|&x| x == 0).unwrap_or(slice.len());
+        self.string = CString::new(&slice[..self.length]).unwrap();
+    }
 }
 
 pub unsafe fn pdf_string_value(object: &pdf_obj) -> *mut libc::c_void {
-    assert!(object.is_string());
-    let data = (*object).data as *mut pdf_string;
-    (*data).string as *mut libc::c_void
+    let data = object.as_string();
+    if data.length == 0 {
+        ptr::null_mut()
+    } else {
+        data.string.as_ptr() as *mut u8 as *mut libc::c_void
+    }
 }
 
 pub unsafe fn pdf_string_length(object: &pdf_obj) -> u32 {
-    assert!(object.is_string());
-    let data = object.data as *mut pdf_string;
-    (*data).length as u32
+    let data = object.as_string();
+    data.length as u32
 }
 /*
  * This routine escapes non printable characters and control
@@ -989,16 +1036,21 @@ pub unsafe fn pdfobj_escape_str(
     }
     result
 }
-unsafe fn write_string(str: *mut pdf_string, handle: &mut OutputHandleWrapper) {
+unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
     let mut s: *mut u8 = ptr::null_mut();
     let mut wbuf = [0_u8; 4096];
     let mut nescc: i32 = 0i32;
     let mut len: size_t = 0i32 as size_t;
     if enc_mode {
-        pdf_encrypt_data((*str).string, (*str).length, &mut s, &mut len);
+        pdf_encrypt_data(
+            strn.string.as_ptr() as *const u8,
+            strn.length as size_t,
+            &mut s,
+            &mut len,
+        );
     } else {
-        s = (*str).string;
-        len = (*str).length
+        s = strn.string.as_ptr() as *const u8 as *mut u8;
+        len = strn.length as size_t;
     }
     /*
      * Count all ASCII non-printable characters.
@@ -1050,37 +1102,11 @@ unsafe fn write_string(str: *mut pdf_string, handle: &mut OutputHandleWrapper) {
         free(s as *mut libc::c_void);
     };
 }
-unsafe fn release_string(mut data: *mut pdf_string) {
-    (*data).string = mfree((*data).string as *mut libc::c_void) as *mut u8;
-    free(data as *mut libc::c_void);
-}
 
-pub unsafe fn pdf_set_string(object: &mut pdf_obj, string: *mut u8, length: size_t) {
-    assert!(object.is_string());
-    let data = object.data as *mut pdf_string;
-    if !(*data).string.is_null() {
-        free((*data).string as *mut libc::c_void);
-    }
-    if length != 0i32 as u64 {
-        (*data).length = length;
-        (*data).string = new((length.wrapping_add(1i32 as u64) as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
-            as *mut u8;
-        libc::memcpy(
-            (*data).string as *mut libc::c_void,
-            string as *const libc::c_void,
-            length as usize,
-        );
-        *(*data).string.offset(length as isize) = '\u{0}' as i32 as u8
-    } else {
-        (*data).length = 0i32 as size_t;
-        (*data).string = ptr::null_mut()
-    };
-}
 /* Name does *not* include the /. */
 pub unsafe fn pdf_new_name<K>(name: K) -> *mut pdf_obj
 where
-    K: Into<Vec<u8>>,
+    K: AsRef<[u8]>,
 {
     pdf_name::new(name).into_obj()
 }
@@ -1245,7 +1271,7 @@ impl pdf_dict {
     /* pdf_add_dict returns 0 if the key is new and non-zero otherwise */
     pub unsafe fn set<K, V>(&mut self, key: K, value: V) -> i32
     where
-        K: Into<Vec<u8>> + AsRef<[u8]>,
+        K: AsRef<[u8]>,
         V: IntoObj,
     {
         let value = value.into_obj();
@@ -1254,7 +1280,7 @@ impl pdf_dict {
             panic!("pdf_add_dict(): Passed invalid value");
         }
         /* If this key already exists, simply replace the value */
-        if let Some(existing) = self.inner.insert(pdf_name::new(key), value) {
+        if let Some(existing) = self.inner.insert(pdf_name::new(key.as_ref()), value) {
             pdf_release_obj(existing);
             1
         } else {
@@ -1264,17 +1290,14 @@ impl pdf_dict {
     /* pdf_merge_dict makes a link for each item in dict2 before stealing it */
     pub unsafe fn merge(&mut self, dict2: &Self) {
         for (k, &v) in dict2.inner.iter() {
-            self.set(
-                k.to_bytes(),
-                pdf_link_obj(v),
-            );
+            self.set(k.to_bytes(), pdf_link_obj(v));
         }
     }
 }
 
 impl pdf_name {
-    pub fn new<K: Into<Vec<u8>>>(from: K) -> Self {
-        let name = CString::new(from).unwrap();
+    pub fn new<K: AsRef<[u8]>>(from: K) -> Self {
+        let name = CString::new(from.as_ref()).unwrap();
         pdf_name { name }
     }
     pub fn to_bytes(&self) -> &[u8] {
@@ -2576,7 +2599,7 @@ unsafe fn pdf_write_obj(object: *mut pdf_obj, handle: &mut OutputHandleWrapper) 
             write_number((*object).data as *mut pdf_number, handle);
         }
         PdfObjType::STRING => {
-            write_string((*object).data as *mut pdf_string, handle);
+            write_string(&*((*object).data as *mut pdf_string), handle);
         }
         PdfObjType::NAME => {
             write_name(&*((*object).data as *mut pdf_name), handle);
@@ -2738,7 +2761,7 @@ pub unsafe fn pdf_release_obj(mut object: *mut pdf_obj) {
                 let _ = Box::from_raw((*object).data as *mut pdf_number);
             }
             PdfObjType::STRING => {
-                release_string((*object).data as *mut pdf_string);
+                let _ = Box::from_raw((*object).data as *mut pdf_string);
             }
             PdfObjType::NAME => {
                 let _ = Box::from_raw((*object).data as *mut pdf_name);
@@ -2753,7 +2776,7 @@ pub unsafe fn pdf_release_obj(mut object: *mut pdf_obj) {
                 let _ = Box::from_raw((*object).data as *mut pdf_stream);
             }
             PdfObjType::INDIRECT => {
-                release_indirect((*object).data as *mut pdf_indirect);
+                let _ = Box::from_raw((*object).data as *mut pdf_indirect);
             }
             PdfObjType::NULL | _ => {}
         }
@@ -2919,17 +2942,6 @@ unsafe fn next_object_offset(pf: *mut pdf_file, obj_num: u32) -> i32 {
     next
 }
 
-pub unsafe fn pdf_new_indirect(pf: *mut pdf_file, obj_num: u32, obj_gen: u16) -> *mut pdf_obj {
-    let indirect = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_indirect>() as u64) as u32)
-        as *mut pdf_indirect;
-    (*indirect).pf = pf;
-    (*indirect).obj = ptr::null_mut();
-    (*indirect).label = obj_num;
-    (*indirect).generation = obj_gen;
-    let result = pdf_new_obj(PdfObjType::INDIRECT);
-    (*result).data = indirect as *mut libc::c_void;
-    result
-}
 unsafe fn pdf_read_object(
     obj_num: u32,
     obj_gen: u16,
@@ -3167,7 +3179,8 @@ unsafe fn pdf_new_ref(object: *mut pdf_obj) -> *mut pdf_obj {
     if (*object).label == 0 {
         pdf_label_obj(object);
     }
-    let result = pdf_new_indirect(ptr::null_mut(), (*object).label, (*object).generation);
+    let result =
+        pdf_indirect::new(ptr::null_mut(), (*object).label, (*object).generation).into_obj();
     let ref mut fresh28 = (*((*result).data as *mut pdf_indirect)).obj;
     *fresh28 = object;
     result

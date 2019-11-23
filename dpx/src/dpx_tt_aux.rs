@@ -33,7 +33,7 @@ use super::dpx_dvipdfmx::always_embed;
 use super::dpx_numbers::tt_get_unsigned_quad;
 use super::dpx_tt_post::{tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::{tt_read_head_table, tt_read_os2__table};
-use crate::dpx_pdfobj::{pdf_dict, pdf_new_string, PushObj};
+use crate::dpx_pdfobj::{pdf_dict, pdf_string, PushObj};
 
 use libc::{free, memcpy};
 use std::io::{Seek, SeekFrom};
@@ -272,7 +272,7 @@ pub unsafe fn tt_get_fontdesc(
         let mut styledict = pdf_dict::new();
         styledict.set(
             "Panose",
-            pdf_new_string(panose.as_mut_ptr() as *const libc::c_void, 12i32 as size_t),
+            pdf_string::new_from_ptr(panose.as_mut_ptr() as *const libc::c_void, 12i32 as size_t),
         );
         descriptor.set("Style", styledict);
     }

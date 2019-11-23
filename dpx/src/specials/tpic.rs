@@ -47,7 +47,7 @@ use crate::dpx_pdfdraw::{
     pdf_dev_setmiterlimit,
 };
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_get_version, pdf_name, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_dict, pdf_get_version, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string,
     pdf_string_value, IntoObj,
 };
 use crate::dpx_pdfparse::ParseIdent;
@@ -622,7 +622,7 @@ unsafe fn spc_parse_kvpairs(mut ap: *mut spc_arg) -> Option<pdf_dict> {
                     if let Some(vp) = (*ap).cur.parse_c_string() {
                         dict.set(
                             kp.to_bytes(),
-                            pdf_new_string(
+                            pdf_string::new_from_ptr(
                                 vp.as_ptr() as *const libc::c_void,
                                 (vp.to_bytes().len() + 1) as _,
                             ),

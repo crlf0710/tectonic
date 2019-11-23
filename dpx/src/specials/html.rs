@@ -44,7 +44,7 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_dict, pdf_link_obj, pdf_new_null, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string,
     pdf_string_value, IntoObj, PushObj,
 };
 use crate::spc_warn;
@@ -179,7 +179,7 @@ unsafe fn read_html_tag(
         if let Ok((kp, vp)) = parse_key_val(&mut p) {
             attr.as_dict_mut().set(
                 kp.to_bytes().to_ascii_lowercase(),
-                pdf_new_string(
+                pdf_string::new_from_ptr(
                     vp.as_ptr() as *const libc::c_void,
                     (vp.to_bytes().len() + 1) as _,
                 ),
@@ -291,7 +291,7 @@ unsafe fn html_open_link(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_ht
         /* url++; causes memory leak in free(url) */
         (*(*sd).link_dict).as_dict_mut().set(
             "Dest",
-            pdf_new_string(
+            pdf_string::new_from_ptr(
                 url.offset(1) as *const libc::c_void,
                 strlen(url.offset(1)) as _,
             ),
@@ -302,7 +302,7 @@ unsafe fn html_open_link(spe: *mut spc_env, name: *const i8, mut sd: *mut spc_ht
         action.set("S", "URI");
         action.set(
             "URI",
-            pdf_new_string(url as *const libc::c_void, strlen(url) as _),
+            pdf_string::new_from_ptr(url as *const libc::c_void, strlen(url) as _),
         );
         let action = action.into_obj();
         (*(*sd).link_dict)

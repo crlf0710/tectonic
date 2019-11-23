@@ -36,8 +36,8 @@ use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_get_version, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
-    pdf_stream_set_predictor, IntoObj, PushObj, STREAM_COMPRESS,
+    pdf_dict, pdf_get_version, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
+    pdf_stream_set_predictor, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::ttstub_input_read;
 use libc::free;
@@ -826,9 +826,10 @@ unsafe fn create_cspace_Indexed(
         *data_ptr.offset((3i32 * i + 1i32) as isize) = (*plte.offset(i as isize)).green;
         *data_ptr.offset((3i32 * i + 2i32) as isize) = (*plte.offset(i as isize)).blue;
     }
-    let lookup = pdf_new_string(data_ptr as *const libc::c_void, (num_plte * 3i32) as size_t);
+    let lookup =
+        pdf_string::new_from_ptr(data_ptr as *const libc::c_void, (num_plte * 3i32) as size_t);
     free(data_ptr as *mut libc::c_void);
-    colorspace.push(lookup);
+    colorspace.push_obj(lookup);
     Some(colorspace)
 }
 /* Color-Key Mask */

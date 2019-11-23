@@ -66,9 +66,9 @@ use super::dpx_pdfximage::{
 use super::dpx_pngimage::check_for_png;
 use crate::dpx_pdfobj::{
     pdf_compare_reference, pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj,
-    pdf_new_string, pdf_obj, pdf_obj_typeof, pdf_out_flush, pdf_out_init, pdf_ref_obj,
-    pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id, pdf_set_info, pdf_set_root,
-    pdf_stream, pdf_stream_length, pdf_string_length, pdf_string_value, IntoObj, PdfObjType,
+    pdf_obj, pdf_obj_typeof, pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj,
+    pdf_remove_dict, pdf_set_encrypt, pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream,
+    pdf_stream_length, pdf_string, pdf_string_length, pdf_string_value, IntoObj, PdfObjType,
     PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
@@ -513,24 +513,17 @@ unsafe fn pdf_doc_close_docinfo(mut p: *mut pdf_doc) {
         }
     }
     if !(*docinfo).as_dict().has("Producer") {
-        let mut banner: [i8; 16] =
-            *::std::mem::transmute::<&[u8; 16], &mut [i8; 16]>(b"xdvipdfmx (0.1)\x00");
-        (*docinfo).as_dict_mut().set(
-            "Producer",
-            pdf_new_string(
-                banner.as_mut_ptr() as *const libc::c_void,
-                strlen(banner.as_mut_ptr()) as _,
-            ),
-        );
+        let banner = b"xdvipdfmx (0.1)";
+        (*docinfo)
+            .as_dict_mut()
+            .set("Producer", pdf_string::new(banner));
     }
     if !(*docinfo).as_dict().has("CreationDate") {
         let now = asn_date();
-        let l = now.len();
 
-        (*docinfo).as_dict_mut().set(
-            "CreationDate",
-            pdf_new_string(now.as_ptr() as *const libc::c_void, l as _),
-        );
+        (*docinfo)
+            .as_dict_mut()
+            .set("CreationDate", pdf_string::new(now));
     }
     pdf_release_obj(docinfo);
     (*p).info = ptr::null_mut();
@@ -1403,13 +1396,9 @@ pub unsafe fn pdf_doc_bookmarks_down() -> i32 {
         warn!("Empty bookmark node!");
         warn!("You have tried to jump more than 1 level.");
         (*item).dict = pdf_dict::new().into_obj();
-        (*(*item).dict).as_dict_mut().set(
-            "Title",
-            pdf_new_string(
-                b"<No Title>\x00" as *const u8 as *const i8 as *const libc::c_void,
-                strlen(b"<No Title>\x00" as *const u8 as *const i8) as _,
-            ),
-        );
+        (*(*item).dict)
+            .as_dict_mut()
+            .set("Title", pdf_string::new(b"<No Title>"));
         let mut tcolor = vec![];
         tcolor.push_obj(1_f64);
         tcolor.push_obj(0_f64);
@@ -1421,13 +1410,12 @@ pub unsafe fn pdf_doc_bookmarks_down() -> i32 {
         let mut action = pdf_dict::new();
         action.set("S", "JavaScript");
         action.set(
-                     "JS",
-                     pdf_new_string(b"app.alert(\"The author of this document made this bookmark item empty!\", 3, 0)\x00"
-                                        as *const u8 as *const i8 as
-                                        *const libc::c_void,
-                                    strlen(b"app.alert(\"The author of this document made this bookmark item empty!\", 3, 0)\x00"
-                                               as *const u8 as
-                                               *const i8) as _));
+            "JS",
+            pdf_string::new(
+                &b"app.alert(\"The author of this document made this bookmark item empty!\", 3, 0)"
+                    [..],
+            ),
+        );
         let action = action.into_obj();
         (*(*item).dict).as_dict_mut().set("A", pdf_link_obj(action));
         pdf_release_obj(action);
@@ -1657,19 +1645,12 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
     let mut D_new =
         ht_lookup_table(&mut pdoc.gotos, dest as *const libc::c_void, destlen) as *mut pdf_obj;
     if D_new.is_null() {
-        let mut buf: [i8; 10] = [0; 10];
         /* We use hexadecimal notation for our numeric destinations.
          * Other bases (e.g., 10+26 or 10+2*26) would be more efficient.
          */
-        sprintf(
-            buf.as_mut_ptr(),
-            b"%x\x00" as *const u8 as *const i8,
-            ht_table_size(&mut pdoc.gotos),
-        ); /* Maybe reference */
-        D_new = pdf_new_string(
-            buf.as_mut_ptr() as *const libc::c_void,
-            strlen(buf.as_mut_ptr()) as _,
-        );
+        let buf = format!("{:x}", ht_table_size(&mut pdoc.gotos));
+        /* Maybe reference */
+        D_new = pdf_string::new(buf).into_obj();
         ht_append_table(
             &mut pdoc.gotos,
             dest as *const libc::c_void,
@@ -2389,7 +2370,7 @@ pub unsafe fn pdf_open_document(
     if !doccreator.is_null() {
         (*p.info).as_dict_mut().set(
             "Creator",
-            pdf_new_string(doccreator as *const libc::c_void, strlen(doccreator) as _),
+            pdf_string::new_from_ptr(doccreator as *const libc::c_void, strlen(doccreator) as _),
         );
         doccreator = mfree(doccreator as *mut libc::c_void) as *mut i8
     }

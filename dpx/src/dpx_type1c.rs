@@ -59,8 +59,7 @@ use super::dpx_pdffont::{
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
 use crate::dpx_pdfobj::{
-    pdf_new_string_from_slice, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj,
-    STREAM_COMPRESS,
+    pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::ttstub_input_read;
@@ -885,12 +884,12 @@ pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
     cff_close(cffont);
     sfnt_close(sfont);
     if verbose > 1i32 {
-        info!("[{}/{} glyphs][{} bytes]", num_glyphs, cs_count, offset,);
+        info!("[{}/{} glyphs][{} bytes]", num_glyphs, cs_count, offset);
     }
     /*
      * CharSet
      */
-    descriptor.set("CharSet", pdf_new_string_from_slice(&pdfcharset.content));
+    descriptor.set("CharSet", pdf_string::new(&pdfcharset.content));
     /*
      * Write PDF FontFile data.
      */

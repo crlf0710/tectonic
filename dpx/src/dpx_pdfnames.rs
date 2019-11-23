@@ -39,9 +39,9 @@ use super::dpx_dpxutil::{
 };
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_string, pdf_new_undefined, pdf_obj,
-    pdf_obj_typeof, pdf_ref_obj, pdf_release_obj, pdf_string_length, pdf_string_value,
-    pdf_transfer_label, IntoObj, PdfObjType,
+    pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_undefined, pdf_obj, pdf_obj_typeof, pdf_ref_obj,
+    pdf_release_obj, pdf_string, pdf_string_length, pdf_string_value, pdf_transfer_label, IntoObj,
+    PdfObjType, PushObj,
 };
 use libc::free;
 
@@ -264,11 +264,11 @@ unsafe fn build_name_tree(first: *mut named_object, num_leaves: i32, is_root: i3
     if is_root == 0 {
         let mut limits = vec![];
         let last = &mut *first.offset((num_leaves - 1i32) as isize) as *mut named_object;
-        limits.push(pdf_new_string(
+        limits.push_obj(pdf_string::new_from_ptr(
             (*first).key as *const libc::c_void,
             (*first).keylen as size_t,
         ));
-        limits.push(pdf_new_string(
+        limits.push_obj(pdf_string::new_from_ptr(
             (*last).key as *const libc::c_void,
             (*last).keylen as size_t,
         ));
@@ -279,7 +279,7 @@ unsafe fn build_name_tree(first: *mut named_object, num_leaves: i32, is_root: i3
         let mut names = vec![];
         for i in 0..num_leaves {
             let cur = &mut *first.offset(i as isize) as *mut named_object;
-            names.push(pdf_new_string(
+            names.push_obj(pdf_string::new_from_ptr(
                 (*cur).key as *const libc::c_void,
                 (*cur).keylen as size_t,
             ));

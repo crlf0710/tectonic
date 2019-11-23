@@ -67,8 +67,7 @@ use crate::dpx_pdfdoc::{
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_obj_typeof, pdf_release_obj, pdf_remove_dict,
-    pdf_set_string, pdf_stream, pdf_string_length, pdf_string_value, IntoObj, PdfObjType,
-    STREAM_COMPRESS,
+    pdf_stream, pdf_string_length, pdf_string_value, IntoObj, PdfObjType, STREAM_COMPRESS,
 };
 use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
@@ -408,11 +407,9 @@ unsafe fn reencodestring(cmap: *mut CMap, instring: *mut pdf_obj) -> i32 {
     if inbufleft > 0i32 as u64 {
         return -1i32;
     }
-    pdf_set_string(
-        &mut *instring,
-        wbuf.as_mut_ptr(),
-        (4096i32 as u64).wrapping_sub(obufleft),
-    );
+    (*instring)
+        .as_string_mut()
+        .set(&wbuf[..(4096_usize - obufleft as usize)]);
     0i32
 }
 unsafe fn maybe_reencode_utf8(instring: *mut pdf_obj) -> i32 {
@@ -468,11 +465,9 @@ unsafe fn maybe_reencode_utf8(instring: *mut pdf_obj) -> i32 {
             return -1i32;
         }
     }
-    pdf_set_string(
-        &mut *instring,
-        wbuf.as_mut_ptr(),
-        op.wrapping_offset_from(wbuf.as_mut_ptr()) as i64 as size_t,
-    );
+    (*instring)
+        .as_string_mut()
+        .set(&wbuf[..(op.wrapping_offset_from(wbuf.as_ptr()) as usize)]);
     0i32
 }
 /* The purpose of this routine is to check if given string object is
