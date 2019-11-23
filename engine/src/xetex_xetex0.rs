@@ -210,6 +210,14 @@ pub unsafe fn GLUE_SPEC_shrink(p: isize) -> *mut i32 {
 pub unsafe fn BOX_width(p: isize) -> *mut i32 {
     &mut (*mem.offset(p + 1)).b32.s1
 }
+/// a scaled; 2 <=> WEB const `depth_offset`
+pub unsafe fn BOX_depth(p: isize) -> *mut i32 {
+    &mut (*mem.offset(p + 2)).b32.s1
+}
+/// a scaled; 3 <=> WEB const `height_offset`
+pub unsafe fn BOX_height(p: isize) -> *mut i32 {
+    &mut (*mem.offset(p + 3)).b32.s1
+}
 
 /*:112*/
 /*118:*/
