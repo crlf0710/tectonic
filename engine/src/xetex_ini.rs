@@ -804,9 +804,14 @@ pub static mut font_bchar: *mut nine_bits = 0 as *const nine_bits as *mut nine_b
 #[no_mangle]
 pub static mut font_false_bchar: *mut nine_bits = 0 as *const nine_bits as *mut nine_bits;
 pub static mut FONT_AREA: *mut str_number = 0 as *const str_number as *mut str_number;
-use std::collections::HashMap;
 // XXX: change the usize to u32 / internal font number
-pub static mut TEXT_LAYOUT_ENGINES: HashMap<usize, TextLayoutEngine> = HashMap::new();
+use std::{sync::Mutex, collections::HashMap};
+use std::cell::{RefCell, Ref, RefMut};
+use once_cell::unsync::Lazy;
+pub static mut TEXT_LAYOUT_ENGINES: Lazy<RefCell<HashMap<usize, TextLayoutEngine>>> = Lazy::new(|| {
+    let m = HashMap::new();
+    RefCell::new(m)
+});
 #[no_mangle]
 pub static mut font_mapping: *mut *mut libc::c_void =
     0 as *const *mut libc::c_void as *mut *mut libc::c_void;
@@ -1169,11 +1174,25 @@ none of the standard formats do that.  */
 /* This macro is always invoked as a statement.  It assumes a variable
 `temp'.  */
 
-pub fn current_font_num() -> usize {
+pub unsafe fn current_font_num() -> usize {
     (*eqtb.offset(CUR_FONT_LOC as isize)).b32.s1 as usize
 }
-pub fn get_text_layout_engine(f: usize) -> Option<&'static TextLayoutEngine> {
-    TEXT_LAYOUT_ENGINES.get(&f)
+use std::ops::{Deref, DerefMut};
+pub unsafe fn get_text_layout_engine(f: usize) -> Option<Ref<'static, TextLayoutEngine>> {
+    let engines = TEXT_LAYOUT_ENGINES.borrow();
+    if engines.contains_key(&f) {
+        Some(Ref::map(engines, |es| &es[&f]))
+    } else {
+        None
+    }
+}
+pub unsafe fn get_text_layout_engine_mut(f: usize) -> Option<RefMut<'static, TextLayoutEngine>> {
+    let engines = TEXT_LAYOUT_ENGINES.borrow_mut();
+    if engines.contains_key(&f) {
+        Some(RefMut::map(engines, |es| es.get_mut(&f).unwrap()))
+    } else {
+        None
+    }
 }
 
 /* Make the NITEMS items pointed at by P, each of size SIZE, be the
@@ -2972,7 +2991,7 @@ pub unsafe extern "C" fn prefixed_command() {
                 } else { *skew_char.offset(f as isize) = cur_val }
             } else {
                 if let Some(eng) = get_text_layout_engine(f as usize) {
-                    scan_glyph_number(eng);
+                    scan_glyph_number(&*eng);
                 } else {
                     scan_char_num();
                 }
@@ -4409,7 +4428,6 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     font_mapping = xmalloc(
         ((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut libc::c_void>() as u64),
     ) as *mut *mut libc::c_void;
-    TEXT_LAYOUT_ENGINES = HashMap::with_capacity(font_max as usize);
     font_flags =
         xmalloc(((font_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64))
             as *mut i8;
@@ -9866,7 +9884,6 @@ pub unsafe extern "C" fn tt_run_engine(
             (font_max + 1i32) as size_t,
             ::std::mem::size_of::<*mut libc::c_void>() as u64,
         ) as *mut *mut libc::c_void;
-        TEXT_LAYOUT_ENGINES = HashMap::with_capacity(font_max as usize);
         font_flags = xcalloc(
             (font_max + 1i32) as size_t,
             ::std::mem::size_of::<i8>() as u64,
@@ -10027,7 +10044,6 @@ pub unsafe extern "C" fn tt_run_engine(
     free(font_used as *mut libc::c_void);
     deinitialize_shipout_variables();
     destroy_font_manager();
-    TEXT_LAYOUT_ENGINES = HashMap::new();
     // Free the big allocated arrays
     free(buffer as *mut libc::c_void);
     free(nest as *mut libc::c_void);

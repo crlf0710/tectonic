@@ -8,7 +8,7 @@
     unused_mut
 )]
 
-use crate::xetex_ini::{current_font_num, get_text_layout_engine};
+use crate::xetex_ini::{current_font_num, get_text_layout_engine, get_text_layout_engine_mut};
 
 use crate::text_layout_engine::{TextLayout, TextLayoutEngine};
 
@@ -4183,7 +4183,8 @@ pub unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         89 => {
             print_cstr(b"select font \x00" as *const u8 as *const i8);
             font_name_str = *font_name.offset(chr_code as isize);
-            if let Some(_eng) = get_text_layout_engine(chr_code as usize) {
+            let engine = get_text_layout_engine(chr_code as usize);
+            if let Some(_eng) = engine.as_ref().map(|x| &**x) {
                 let mut for_end: i32 = length(font_name_str) - 1i32;
                 quote_char = '\"' as i32 as UTF16_code;
                 n = 0i32;
@@ -10370,7 +10371,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                 cur_val_level = 0_u8
             } else {
                 n = cur_val;
-                if let Some(eng) = get_text_layout_engine(n as usize) {
+                let engine = get_text_layout_engine(n as usize);
+                if let Some(eng) = engine.as_ref().map(|x| &**x) {
                     scan_glyph_number(eng);
                 } else {
                     scan_char_num();
@@ -10577,7 +10579,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         47 => {
                             let font_num = current_font_num();
                             /*1435:*/
-                            if let Some(_eng) = get_text_layout_engine(font_num as usize) {
+                            let engine = get_text_layout_engine(font_num as usize);
+                            if let Some(_eng) = engine.as_ref().map(|x| &**x) {
                                 scan_int(); /* shellenabledp */
                                 n = cur_val;
                                 if n < 1i32 || n > 4i32 {
@@ -10609,7 +10612,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                             scan_font_ident();
                             q = cur_val;
                             scan_usv_num();
-                            if let Some(_eng) = get_text_layout_engine(q as usize) {
+                            let engine = get_text_layout_engine(q as usize);
+                            if let Some(_eng) = engine.as_ref().map(|x| &**x) {
                                 match m {
                                     48 => cur_val = getnativecharwd(q, cur_val),
                                     49 => cur_val = getnativecharht(q, cur_val),
@@ -10788,7 +10792,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         15 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match get_text_layout_engine(n as usize) {
+                            let engine = get_text_layout_engine(n as usize);
+                            cur_val = match engine.as_ref().map(|x| &**x) {
                                 Some(eng) => eng.poorly_named_getter(m - 14),
                                 None => 0,
                             };
@@ -10796,7 +10801,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         22 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match get_text_layout_engine(n as usize) {
+                            let engine = get_text_layout_engine(n as usize);
+                            cur_val = match engine.as_ref().map(|x| &**x) {
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(eng)) => eng.poorly_named_getter(m - 14),
                                 Some(TextLayoutEngine::XeTeX(eng)) if eng.usingGraphite() => {
@@ -10813,7 +10819,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         23 | 25 | 26 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match get_text_layout_engine(n as usize) {
+                            let engine = get_text_layout_engine(n as usize);
+                            cur_val = match engine.as_ref().map(|x| &**x) {
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(eng)) => {
                                     scan_int();
@@ -10834,7 +10841,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         27 | 29 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match get_text_layout_engine(n as usize) {
+                            let engine = get_text_layout_engine(n as usize);
+                            cur_val = match engine.as_ref().map(|x| &**x) {
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(eng)) => {
                                     scan_int();
@@ -10857,7 +10865,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         18 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match get_text_layout_engine(n as usize) {
+                            let engine = get_text_layout_engine(n as usize);
+                            cur_val = match engine.as_ref().map(|x| &**x) {
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(aat_eng)) => {
                                     scan_and_pack_name();
@@ -10872,7 +10881,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         24 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match get_text_layout_engine(n as usize) {
+                            let engine = get_text_layout_engine(n as usize);
+                            cur_val = match engine.as_ref().map(|x| &**x) {
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(aat_eng)) => {
                                     scan_and_pack_name();
@@ -10893,7 +10903,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         28 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match get_text_layout_engine(n as usize) {
+                            let engine = get_text_layout_engine(n as usize);
+                            cur_val = match engine.as_ref().map(|x| &**x) {
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(eng)) => {
                                     scan_int();
@@ -10915,7 +10926,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         30 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match get_text_layout_engine(n as usize) {
+                            let engine = get_text_layout_engine(n as usize);
+                            cur_val = match engine.as_ref().map(|x| &**x) {
                                 Some(TextLayoutEngine::XeTeX(eng)) if eng.usingOpenType() => {
                                     eng.poorly_named_getter(m - 14)
                                 }
@@ -10928,7 +10940,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         31 | 33 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match get_text_layout_engine(n as usize) {
+                            let engine = get_text_layout_engine(n as usize);
+                            cur_val = match engine.as_ref().map(|x| &**x) {
                                 Some(TextLayoutEngine::XeTeX(eng)) if eng.usingOpenType() => {
                                     scan_int();
                                     k = cur_val;
@@ -10943,7 +10956,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         32 | 34 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match get_text_layout_engine(n as usize) {
+                            let engine = get_text_layout_engine(n as usize);
+                            cur_val = match engine.as_ref().map(|x| &**x) {
                                 Some(TextLayoutEngine::XeTeX(eng)) if eng.usingOpenType() => {
                                     scan_int();
                                     k = cur_val;
@@ -10959,7 +10973,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         35 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match get_text_layout_engine(n as usize) {
+                            let engine = get_text_layout_engine(n as usize);
+                            cur_val = match engine.as_ref().map(|x| &**x) {
                                 Some(TextLayoutEngine::XeTeX(eng)) if eng.usingOpenType() => {
                                     scan_int();
                                     k = cur_val;
@@ -10981,7 +10996,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         }
                         36 => {
                             let font_num = current_font_num();
-                            cur_val = if let Some(eng) = get_text_layout_engine(font_num) {
+                            let engine = get_text_layout_engine(font_num);
+                            cur_val = if let Some(eng) = engine.as_ref().map(|x| &**x) {
                                 scan_int();
                                 n = cur_val;
                                 eng.map_char_to_glyph(n as u32) as i32
@@ -10992,7 +11008,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         }
                         37 => {
                             let font_num = current_font_num();
-                            cur_val = if let Some(eng) = get_text_layout_engine(font_num) {
+                            let engine = get_text_layout_engine(font_num);
+                            cur_val = if let Some(eng) = engine.as_ref().map(|x| &**x) {
                                 scan_and_pack_name();
                                 // WHAT? WHY?
                                 eng.map_glyph_to_index(name_of_file)
@@ -11004,7 +11021,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         38 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = match get_text_layout_engine(n as usize) {
+                            let engine = get_text_layout_engine(n as usize);
+                            cur_val = match engine.as_ref().map(|x| &**x) {
                                 #[cfg(target_os = "macos")]
                                 Some(TextLayoutEngine::AAT(_)) => 1,
                                 Some(TextLayoutEngine::XeTeX(e)) if e.usingOpenType() => 2,
@@ -11015,7 +11033,8 @@ pub unsafe extern "C" fn scan_something_internal(mut level: small_number, mut ne
                         39 | 40 => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = if let Some(eng) = get_text_layout_engine(n as usize) {
+                            let engine = get_text_layout_engine(n as usize);
+                            cur_val = if let Some(eng) = engine.as_ref().map(|x| &**x) {
                                 eng.font_char_range((m == 39) as i32)
                             } else if m == 39i32 {
                                 *font_bc.offset(n as isize) as i32
@@ -13004,7 +13023,8 @@ pub unsafe extern "C" fn conv_toks() {
         7 => {
             scan_font_ident();
             fnt = cur_val;
-            if let Some(TextLayoutEngine::AAT(_)) = get_text_layout_engine(fnt as usize) {
+            let engine = get_text_layout_engine(fnt as usize);
+            if let Some(TextLayoutEngine::AAT(_)) = engine.as_ref().map(|x| &**x) {
                 scan_int();
                 arg1 = cur_val;
                 arg2 = 0i32
@@ -13015,7 +13035,8 @@ pub unsafe extern "C" fn conv_toks() {
         8 => {
             scan_font_ident();
             fnt = cur_val;
-            match get_text_layout_engine(fnt as usize) {
+            let engine = get_text_layout_engine(fnt as usize);
+            match engine.as_ref().map(|x| &**x) {
                 #[cfg(target_os = "macos")]
                 Some(TextLayoutEngine::AAT(eng)) => {
                     scan_int();
@@ -13033,7 +13054,8 @@ pub unsafe extern "C" fn conv_toks() {
         9 => {
             scan_font_ident();
             fnt = cur_val;
-            match get_text_layout_engine(fnt as usize) {
+            let engine = get_text_layout_engine(fnt as usize);
+            match engine.as_ref().map(|x| &**x) {
                 Some(TextLayoutEngine::AAT(e)) => {
                     scan_int();
                     arg1 = cur_val;
@@ -13054,7 +13076,8 @@ pub unsafe extern "C" fn conv_toks() {
         10 => {
             scan_font_ident();
             fnt = cur_val;
-            if let Some(_) = get_text_layout_engine(fnt as usize) {
+            let engine = get_text_layout_engine(fnt as usize);
+            if let Some(_) = engine.as_ref().map(|x| &**x) {
                 scan_int();
                 arg1 = cur_val;
             } else {
@@ -13128,7 +13151,8 @@ pub unsafe extern "C" fn conv_toks() {
         }
         4 => {
             font_name_str = *font_name.offset(cur_val as isize);
-            match get_text_layout_engine(cur_val as usize) {
+            let engine = get_text_layout_engine(cur_val as usize);
+            match engine.as_ref().map(|x| &**x) {
                 Some(_eng) => {
                     quote_char = '\"' as i32 as UTF16_code;
                     i = 0i32 as small_number;
@@ -13169,18 +13193,23 @@ pub unsafe extern "C" fn conv_toks() {
         6 => {
             print_cstr(b".99998\x00" as *const u8 as *const i8);
         }
-        7 => match get_text_layout_engine(fnt as usize) {
-            #[cfg(target_os = "macos")]
-            Some(TextLayoutEngine::AAT(eng)) => eng.print_font_name(c as i32, arg1, arg2),
-            _ => {}
+        7 =>  {
+            let engine = get_text_layout_engine(fnt as usize);
+            match engine.as_ref().map(|x| &**x) {
+                #[cfg(target_os = "macos")]
+                Some(TextLayoutEngine::AAT(eng)) => eng.print_font_name(c as i32, arg1, arg2),
+                _ => {}
+            }
         },
         8 | 9 => {
-            if let Some(eng) = get_text_layout_engine(fnt as usize) {
+            let engine = get_text_layout_engine(fnt as usize);
+            if let Some(eng) = engine.as_ref().map(|x| &**x) {
                 eng.print_font_name(c as i32, arg1, arg2);
             }
         }
         10 => {
-            if let Some(_eng) = get_text_layout_engine(fnt as usize) {
+            let engine = get_text_layout_engine(fnt as usize);
+            if let Some(_eng) = engine.as_ref().map(|x| &**x) {
                 print_glyph_name(fnt, arg1);
             }
         }
@@ -14132,7 +14161,8 @@ pub unsafe extern "C" fn conditional() {
             scan_font_ident();
             n = cur_val;
             scan_usv_num();
-            if let Some(engine) = get_text_layout_engine(n as usize) {
+            let engine = get_text_layout_engine(n as usize);
+            if let Some(engine) = engine.as_ref().map(|x| &**x) {
                 b = map_char_to_glyph(n, cur_val) > 0i32
             } else if *font_bc.offset(n as isize) as i32 <= cur_val
                 && *font_ec.offset(n as isize) as i32 >= cur_val
@@ -15633,7 +15663,7 @@ pub unsafe extern "C" fn load_native_font(
     .s1;
     *param_base.offset(font_ptr as isize) = fmem_ptr - 1i32;
 
-    TEXT_LAYOUT_ENGINES.insert(font_ptr as usize, font_engine);
+    TEXT_LAYOUT_ENGINES.borrow_mut().insert(font_ptr as usize, font_engine);
 
     let ref mut fresh52 = *font_mapping.offset(font_ptr as isize);
     *fresh52 = 0 as *mut libc::c_void;
@@ -16646,7 +16676,8 @@ pub unsafe extern "C" fn read_font_info(
 pub unsafe extern "C" fn new_character(mut f: internal_font_number, mut c: UTF16_code) -> i32 {
     let mut p: i32 = 0;
     let mut ec: u16 = 0;
-    if let Some(_eng) = get_text_layout_engine(f as usize) {
+    let engine = get_text_layout_engine(f as usize);
+    if let Some(_eng) = engine.as_ref().map(|x| &**x) {
         return new_native_character(f, c as UnicodeScalar);
     }
     ec = effective_char(false, f, c) as u16;
@@ -22615,7 +22646,8 @@ pub unsafe extern "C" fn make_accent() {
             .b32
             .s1 as f64
             / 65536.0f64;
-        if let Some(_eng) = get_text_layout_engine(f as usize) {
+        let engine = get_text_layout_engine(f as usize);
+        if let Some(_eng) = engine.as_ref().map(|x| &**x) {
             a = (*mem.offset((p + 1i32) as isize)).b32.s1;
             if a == 0i32 {
                 get_native_char_sidebearings(f, cur_val, &mut lsb, &mut rsb);
@@ -22671,7 +22703,8 @@ pub unsafe extern "C" fn make_accent() {
                 .b32
                 .s1 as f64
                 / 65536.0f64;
-            if let Some(_eng) = get_text_layout_engine(f as usize) {
+            let engine = get_text_layout_engine(f as usize);
+            if let Some(_eng) = engine.as_ref().map(|x| &**x) {
                 w = (*mem.offset((q + 1i32) as isize)).b32.s1;
                 get_native_char_height_depth(f, cur_val, &mut h, &mut delta);
             } else {
@@ -22693,7 +22726,8 @@ pub unsafe extern "C" fn make_accent() {
                 p = hpack(p, 0i32, 1i32 as small_number);
                 (*mem.offset((p + 4i32) as isize)).b32.s1 = x - h
             }
-            if get_text_layout_engine(f as usize).is_some() && a == 0i32 {
+            let engine = get_text_layout_engine(f as usize);
+            if engine.is_some() && a == 0i32 {
                 delta = tex_round((w - lsb + rsb) as f64 / 2.0f64 + h as f64 * t - x as f64 * s)
             } else {
                 delta = tex_round((w - a) as f64 / 2.0f64 + h as f64 * t - x as f64 * s)

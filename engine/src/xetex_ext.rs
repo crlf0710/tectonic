@@ -36,7 +36,7 @@ use crate::core_memory::{mfree, xcalloc, xmalloc, xrealloc, xstrdup};
 use crate::xetex_font_info::GlyphBBox;
 use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
-    depth_base, font_flags, font_info, font_letter_space, get_text_layout_engine, height_base,
+    depth_base, font_flags, font_info, font_letter_space, get_text_layout_engine, get_text_layout_engine_mut, height_base,
     loaded_font_design_size, loaded_font_flags, loaded_font_letter_space, loaded_font_mapping,
     mapped_text, name_length, name_of_file, native_font_type_flag, param_base, xdv_buffer,
 };
@@ -183,13 +183,15 @@ pub unsafe extern "C" fn linebreak_start(
 ) {
     let mut status: icu::UErrorCode = icu::U_ZERO_ERROR;
     let mut locale: *mut i8 = gettexstring(localeStrNum);
-    match get_text_layout_engine(f as usize) {
+    let mut engine = get_text_layout_engine_mut(f as usize);
+    match engine.as_mut().map(|x| &mut **x) {
         Some(TextLayoutEngine::XeTeX(eng)) if streq_ptr(locale, b"G\x00" as *const u8 as *const i8) as i32 != 0 => {
             if eng.initGraphiteBreaking(text, textLength) {
                 /* user asked for Graphite line breaking and the font supports it */
                 return;
             }
         }
+        _ => {}
     }
     if localeStrNum != brkLocaleStrNum && !brkIter.is_null() {
         icu::ubrk_close(brkIter);
@@ -809,8 +811,8 @@ unsafe extern "C" fn loadOTfont(
                             if shaperRequest == Some(ShaperRequest::Graphite) {
                                 let mut value: i32 = 0i32;
                                 if readFeatureNumber(cp1, cp2, &mut tag, &mut value) as i32 != 0
-                                    || rval.as_ref().map(|engine| findGraphiteFeature(
-                                        &mut engine,
+                                    || rval.as_mut().map(|engine| findGraphiteFeature(
+                                        engine,
                                         cp1,
                                         cp2,
                                         &mut tag,
@@ -1586,8 +1588,8 @@ pub unsafe extern "C" fn real_get_native_glyph(
 pub unsafe fn store_justified_native_glyphs(mut pNode: *mut libc::c_void) {
     let mut node: *mut memory_word = pNode as *mut memory_word;
     let mut f: u32 = (*node.offset(4)).b16.s2 as u32;
-    let eng = get_text_layout_engine(f as usize).expect("bad native font flag");
-    match eng {
+    let mut eng = get_text_layout_engine_mut(f as usize).expect("bad native font flag");
+    match &mut *eng {
         TextLayoutEngine::AAT(eng) => {
             /* separate Mac-only codepath for AAT fonts, activated with LayoutRequest.justify */
             let request = LayoutRequest::from_node(node, true);
@@ -1652,8 +1654,8 @@ pub unsafe fn measure_native_node(mut pNode: *mut libc::c_void, mut use_glyph_me
     let mut txtPtr: *mut u16 = node.offset(6) as *mut u16;
     let mut f: u32 = (*node.offset(4)).b16.s2 as u32;
 
-    let eng =
-        get_text_layout_engine(f as usize).expect("bad native font flag in `measure_native_node`");
+    let mut eng =
+        get_text_layout_engine_mut(f as usize).expect("bad native font flag in `measure_native_node`");
     let request = LayoutRequest::from_node(node, false);
     let layout = eng.layout_text(request);
     layout.write_node(node);

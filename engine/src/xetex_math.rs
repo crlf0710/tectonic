@@ -45,20 +45,22 @@ use crate::xetex_consts::{MATH_FONT_BASE, CUR_FONT_LOC};
 use crate::text_layout_engine::{TextLayoutEngine, TextLayout};
 
 #[inline(always)]
-fn math_font(n: isize) -> isize {
+unsafe fn math_font(n: isize) -> isize {
     (*eqtb.offset(MATH_FONT_BASE as isize + n)).b32.s1 as isize
 }
 
-pub fn is_opentype_math_font(f: usize) -> bool {
-    if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(cur_f as usize) {
+pub unsafe fn is_opentype_math_font(f: usize) -> bool {
+    let engine = get_text_layout_engine(cur_f as usize);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = engine.as_ref().map(|x| &**x) {
         eng.isOpenTypeMathFont()
     } else {
         false
     }
 }
 
-pub fn is_using_opentype(f: u32) -> bool {
-    if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(cur_f as usize) {
+pub unsafe fn is_using_opentype(f: u32) -> bool {
+    let engine = get_text_layout_engine(cur_f as usize);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = engine.as_ref().map(|x| &**x) {
         eng.usingOpenType()
     } else {
         false
@@ -3889,7 +3891,8 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
     fetch(q + 4i32);
     x = -0xfffffffi32;
     ot_assembly_ptr = 0 as *mut libc::c_void;
-    if let Some(_eng) = get_text_layout_engine(cur_f as usize) {
+    let engine = get_text_layout_engine(cur_f as usize);
+    if let Some(_eng) = engine.as_ref().map(|x| &**x) {
         c = cur_c;
         f = cur_f;
         if !((*mem.offset(q as isize)).b16.s0 as i32 == 2i32
@@ -4013,7 +4016,8 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
             }
         }
         y = char_box(f, c);
-        if let Some(_eng) = get_text_layout_engine(f as usize) {
+        let engine = get_text_layout_engine(f as usize);
+        if let Some(_eng) = engine.as_ref().map(|x| &**x) {
             p = get_node(5i32);
             (*mem.offset(p as isize)).b16.s1 = 8_u16;
             (*mem.offset(p as isize)).b16.s0 = 42_u16;
@@ -5297,7 +5301,8 @@ unsafe extern "C" fn mlist_to_hlist() {
                 match (*mem.offset((q + 1i32) as isize)).b32.s1 {
                     1 | 4 => {
                         fetch(q + 1i32);
-                        if get_text_layout_engine(cur_f as usize).is_some() {
+                        let engine = get_text_layout_engine(cur_f as usize);
+                        if engine.as_ref().map(|x| &**x).is_some() {
                             z = new_native_character(cur_f, cur_c);
                             p = get_node(5i32);
                             (*mem.offset(p as isize)).b16.s1 = 8_u16;
@@ -5984,7 +5989,8 @@ unsafe extern "C" fn char_box(mut f: internal_font_number, mut c: i32) -> i32 {
     };
     let mut b: i32 = 0;
     let mut p: i32 = 0;
-    if get_text_layout_engine(f as usize).is_some() {
+    let engine = get_text_layout_engine(f as usize);
+    if engine.as_ref().map(|x| &**x).is_some() {
         b = new_null_box();
         p = new_native_character(f, c);
         (*mem.offset((b + 5i32) as isize)).b32.s1 = p;

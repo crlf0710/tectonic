@@ -93,7 +93,8 @@ pub unsafe extern "C" fn get_ot_math_constant(
 ) -> libc::c_int {
     let mut constant: hb_ot_math_constant_t = n as hb_ot_math_constant_t;
     let mut rval: hb_position_t = 0i32;
-    if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(f as usize) {
+    let engine = get_text_layout_engine(f as usize);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = engine.as_ref().map(|x| &**x) {
         let font = eng.font;
         let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
         rval = hb_ot_math_get_constant(hbFont, constant);
@@ -379,7 +380,8 @@ unsafe extern "C" fn getMathKernAt(
 }
 
 unsafe extern "C" fn glyph_height(mut f: libc::c_int, mut g: libc::c_int) -> libc::c_float {
-    if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(f as usize) {
+    let engine = get_text_layout_engine(f as usize);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = engine.as_ref().map(|x| &**x) {
         if let Some((height, _depth)) = eng.glyph_height_depth(g as u32) {
             return height;
         }
@@ -388,7 +390,8 @@ unsafe extern "C" fn glyph_height(mut f: libc::c_int, mut g: libc::c_int) -> lib
 }
 
 unsafe extern "C" fn glyph_depth(mut f: libc::c_int, mut g: libc::c_int) -> libc::c_float {
-    if let Some(TextLayoutEngine::XeTeX(eng)) = get_text_layout_engine(f as usize) {
+    let engine = get_text_layout_engine(f as usize);
+    if let Some(TextLayoutEngine::XeTeX(eng)) = engine.as_ref().map(|x| &**x) {
         if let Some((_height, depth)) = eng.glyph_height_depth(g as u32) {
             return depth;
         }
