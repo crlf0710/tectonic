@@ -13024,12 +13024,14 @@ pub unsafe extern "C" fn conv_toks() {
             scan_font_ident();
             fnt = cur_val;
             let engine = get_text_layout_engine(fnt as usize);
-            if let Some(TextLayoutEngine::AAT(_)) = engine.as_ref().map(|x| &**x) {
-                scan_int();
-                arg1 = cur_val;
-                arg2 = 0i32
-            } else {
-                not_aat_font_error(110i32, c as i32, fnt);
+            match engine.as_ref().map(|x| &**x) {
+                #[cfg(target_os = "macos")]
+                Some(TextLayoutEngine::AAT(_)) => {
+                    scan_int();
+                    arg1 = cur_val;
+                    arg2 = 0;
+                }
+                _ => not_aat_font_error(110, c as i32, fnt),
             }
         }
         8 => {
@@ -13056,6 +13058,7 @@ pub unsafe extern "C" fn conv_toks() {
             fnt = cur_val;
             let engine = get_text_layout_engine(fnt as usize);
             match engine.as_ref().map(|x| &**x) {
+                #[cfg(target_os = "macos")]
                 Some(TextLayoutEngine::AAT(e)) => {
                     scan_int();
                     arg1 = cur_val;

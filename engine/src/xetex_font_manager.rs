@@ -25,7 +25,7 @@ cfg_if::cfg_if! {
     } else {
         #[path = "xetex_font_manager_fontconfig.rs"]
         pub mod imp;
-        use imp::{FcPattern,XeTeXFontMgr_FC, XeTeXFontMgr_FC_create};
+        use imp::{FcPattern, XeTeXFontMgr_FC, XeTeXFontMgr_FC_create};
         pub type PlatformFontRef = *mut FcPattern;
 
         #[derive(Copy, Clone)]

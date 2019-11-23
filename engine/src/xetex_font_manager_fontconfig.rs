@@ -15,6 +15,7 @@ use crate::stub_icu as icu;
 use crate::xetex_layout_engine::collection_types::*;
 use std::ffi::CString;
 use std::ptr::{self, NonNull};
+use crate::xetex_font_info::XeTeXFontInst;
 
 use freetype::freetype::{
     FT_BBox, FT_Bitmap, FT_Bitmap_Size, FT_Byte, FT_CharMap, FT_Done_Face, FT_Encoding, FT_Error,
@@ -750,12 +751,12 @@ pub unsafe fn XeTeXFontMgr_FC_terminate(mut self_0: *mut XeTeXFontMgr) {
 #[no_mangle]
 pub unsafe fn XeTeXFontMgr_FC_getPlatformFontDesc(
     mut self_0: *const XeTeXFontMgr,
-    mut font: *mut XeTeXFontInst,
+    mut fontRef: PlatformFontRef,
 ) -> *mut libc::c_char {
     let mut s: *mut FcChar8 = 0 as *mut FcChar8;
     let mut path: *mut libc::c_char = 0 as *mut libc::c_char;
     if FcPatternGetString(
-        font as *const FcPattern,
+        fontRef as *const FcPattern,
         b"file\x00" as *const u8 as *const libc::c_char,
         0i32,
         &mut s as *mut *mut FcChar8,

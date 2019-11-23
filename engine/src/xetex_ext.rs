@@ -1075,7 +1075,7 @@ pub unsafe extern "C" fn find_native_font(
     mut scaled_size: i32,
 ) -> Option<TextLayoutEngine> {
     let mut rval = None;
-    let mut fontRef: PlatformFontRef = ptr::null_mut();
+    let mut fontRef: PlatformFontRef = 0 as PlatformFontRef;
     let mut font: *mut XeTeXFontInst = ptr::null_mut();
 
     let mut name: *mut i8 = uname;
@@ -1590,6 +1590,7 @@ pub unsafe fn store_justified_native_glyphs(mut pNode: *mut libc::c_void) {
     let mut f: u32 = (*node.offset(4)).b16.s2 as u32;
     let mut eng = get_text_layout_engine_mut(f as usize).expect("bad native font flag");
     match &mut *eng {
+        #[cfg(target_os = "macos")]
         TextLayoutEngine::AAT(eng) => {
             /* separate Mac-only codepath for AAT fonts, activated with LayoutRequest.justify */
             let request = LayoutRequest::from_node(node, true);
