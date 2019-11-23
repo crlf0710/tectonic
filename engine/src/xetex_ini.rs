@@ -3548,13 +3548,12 @@ unsafe extern "C" fn store_fmt_file() {
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
-    // XXX: what is this code anyway?
-    // do_dump(
-    //     &mut *FONT_AREA.offset(0) as *mut str_number as *mut i8,
-    //     ::std::mem::size_of::<str_number>() as u64,
-    //     (font_ptr + 1i32) as size_t,
-    //     fmt_out,
-    // );
+    do_dump(
+        &mut *FONT_AREA.offset(0) as *mut str_number as *mut i8,
+        ::std::mem::size_of::<str_number>() as u64,
+        (font_ptr + 1i32) as size_t,
+        fmt_out,
+    );
     do_dump(
         &mut *font_bc.offset(0) as *mut UTF16_code as *mut i8,
         ::std::mem::size_of::<UTF16_code>() as u64,
