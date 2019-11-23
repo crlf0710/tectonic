@@ -1,16 +1,7 @@
-#![allow(
-    dead_code,
-    mutable_transmutes,
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-    unused_assignments,
-    unused_mut
-)]
-
 use std::io::Write;
 
 use crate::core_memory::xmalloc;
+use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow};
 use crate::xetex_ext::{
     apply_tfm_font_mapping, makeXDVGlyphArrayData, make_font_def, store_justified_native_glyphs,
@@ -18,7 +9,7 @@ use crate::xetex_ext::{
 use crate::xetex_ini::{
     avail, char_base, cur_area, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_list, cur_name,
     cur_page_height, cur_page_width, cur_tok, cur_v, cur_v_offset, dead_cycles, def_ref,
-    doing_leaders, doing_special, eqtb, file_line_error_style_p, file_offset, font_area, font_bc,
+    doing_leaders, doing_special, file_line_error_style_p, file_offset, font_area, font_bc,
     font_check, font_dsize, font_ec, font_glue, font_info, font_letter_space, font_mapping,
     font_name, font_ptr, font_size, font_used, help_line, help_ptr, init_pool_ptr, job_name,
     last_bop, log_opened, max_h, max_print_line, max_push, max_v, mem, name_of_file,
@@ -41,115 +32,26 @@ use crate::xetex_synctex::{
 };
 use crate::xetex_texmfmp::maketexstring;
 use crate::xetex_xetex0::{
-    begin_diagnostic, begin_token_list, effective_char, end_diagnostic, end_token_list, flush_list,
-    flush_node_list, free_node, get_avail, get_node, get_token, make_name_string, new_kern,
-    new_math, new_native_word_node, open_log_file, pack_file_name, pack_job_name, prepare_mag,
-    scan_toks, show_box, show_token_list, token_show,
+    begin_diagnostic, begin_token_list, cur_length, effective_char, end_diagnostic, end_token_list,
+    flush_list, flush_node_list, free_node, get_avail, get_node, get_token, glue_ord,
+    internal_font_number, make_name_string, new_kern, new_math, new_native_word_node,
+    open_log_file, pack_file_name, pack_job_name, packed_UTF16_code, pool_pointer, prepare_mag,
+    scaled_t, scan_toks, show_box, show_token_list, small_number, str_number, token_show,
+    BOX_depth, BOX_glue_order, BOX_glue_sign, BOX_height, BOX_list_ptr, BOX_width,
+    EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr, GLUE_SPEC_shrink_order, LLIST_link, NODE_subtype,
+    NODE_type, UTF16_code,
 };
 use crate::xetex_xetexd::{is_char_node, print_c_string};
 use crate::{ttstub_output_close, ttstub_output_open};
 use bridge::_tt_abort;
 use libc::{free, strerror, strlen};
 
-pub type size_t = u64;
 use bridge::OutputHandleWrapper;
-pub type scaled_t = i32;
 
-/* tectonic/xetex-xetexd.h -- many, many XeTeX symbol definitions
-   Copyright 2016-2018 The Tectonic Project
-   Licensed under the MIT License.
-*/
-/* Extra stuff used in various change files for various reasons.  */
-/* Array allocations. Add 1 to size to account for Pascal indexing convention. */
-/*11:*/
-/*18: */
-pub type UTF16_code = u16;
-pub type pool_pointer = i32;
-pub type str_number = i32;
-pub type packed_UTF16_code = u16;
-pub type small_number = i16;
-/* Symbolic accessors for various TeX data structures. I would loooove to turn these
- * into actual structs, but the path to doing that is not currently clear. Making
- * field references symbolic seems like a decent start. Sadly I don't see how to do
- * this conversion besides painstakingly annotating things.
- */
-/* half of LLIST_info(p) */
-/* the other half of LLIST_info(p) */
-/* subtype; records L/R direction mode */
-/* a scaled; 1 <=> WEB const `width_offset` */
-/* a scaled; 2 <=> WEB const `depth_offset` */
-/* a scaled; 3 <=> WEB const `height_offset` */
-/* a scaled */
-/* aka `link` of p+5 */
-/* aka `type` of p+5 */
-/* aka `subtype` of p+5 */
-/* the glue ratio */
-/* aka "subtype" of a node */
-/* aka "rlink" in double-linked list */
-/* aka "llink" in doubly-linked list */
-/* was originally the `mem[x+2].int` field */
-/* a scaled; "active_short" in the WEB */
-/* a scaled */
-/* aka "type" of a node */
-/* aka "subtype" of a node */
-/* the "natural width" difference */
-/* the stretch difference in points */
-/* the stretch difference in fil */
-/* the stretch difference in fill */
-/* the stretch difference in fill */
-/* the shrink difference */
-/* aka "subtype" of a node */
-/* aka "llink" in doubly-linked list */
-/* aka "rlink" in double-linked list */
-/* "new left_edge position relative to cur_h" */
-/* aka "llink" in doubly-linked list */
-/* aka "rlink" in double-linked list */
-/* "the floating_penalty to be used" */
-/* a glue pointer */
-/* a pointer to a vlist */
-/* language number, 0..255 */
-/* "minimum left fragment, range 1..63" */
-/* "minimum right fragment, range 1..63" */
-/* WEB: font(lig_char(p)) */
-/* WEB: character(lig_char(p)) */
-/* WEB: link(lig_char(p)) */
-/* "head of the token list for the mark" */
-/* "the mark class" */
-/* To check: do these really only apply to MATH_NODEs? */
-/* number of UTF16 items in the text */
-/* ... or the glyph number, if subtype==GLYPH_NODE */
-/* "an insertion for this class will break here if anywhere" */
-/* "this insertion might break at broken_ptr" */
-/* "the most recent insertion for this subtype" */
-/* "the optimum most recent insertion" */
-/* aka "llink" in doubly-linked list */
-/* siggggghhhhh */
-/* aka "rlink" in double-linked list */
-/* aka "info" */
-/* was originally the `mem[x+1].int` field */
-/* number of bytes in the path item */
-/* "reference count of token list to write" */
-/* Synctex hacks various nodes to add an extra word at the end to store its
- * information, hence the need to know the node size to get the synctex
- * info. */
-/* aka "link" of a link-list node */
-/* aka "type" of a node */
-/* aka "subtype" of a node */
-/* a scaled */
-/* a scaled */
-/* e-TeX extended marks stuff ... not sure where to put these */
-/* \topmarks<n> */
-/* \firstmarks<n> */
-/* \botmarks<n> */
-/* \splitfirstmarks<n> */
-/* \splitbotmarks<n> */
-pub type glue_ord = u8;
-pub type internal_font_number = i32;
-#[inline]
-unsafe extern "C" fn cur_length() -> pool_pointer {
-    pool_ptr - *str_start.offset((str_ptr - 65536i32) as isize)
-}
-/* DVI code */
+const DVI_BUF_SIZE: i32 = 16384;
+const HALF_BUF: i32 = 8192;
+const FNT_NUM_0: i32 = 171; /* DVI code */
+
 static mut dvi_file: Option<OutputHandleWrapper> = None;
 static mut output_file_name: str_number = 0;
 static mut dvi_buf: *mut u8 = std::ptr::null_mut();
@@ -166,24 +68,26 @@ static mut dvi_h: scaled_t = 0;
 static mut dvi_v: scaled_t = 0;
 static mut dvi_f: internal_font_number = 0;
 static mut cur_s: i32 = 0;
+
 #[no_mangle]
 pub unsafe extern "C" fn initialize_shipout_variables() {
-    output_file_name = 0i32;
-    dvi_buf = xmalloc(((16384i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64))
-        as *mut u8;
-    dvi_limit = 16384i32;
-    dvi_ptr = 0i32;
-    dvi_offset = 0i32;
-    dvi_gone = 0i32;
-    down_ptr = -0xfffffffi32;
-    right_ptr = -0xfffffffi32;
-    cur_s = -1i32;
+    output_file_name = 0;
+    dvi_buf = xmalloc(DVI_BUF_SIZE as u64 + 1) as *mut _;
+    dvi_limit = DVI_BUF_SIZE;
+    dvi_ptr = 0;
+    dvi_offset = 0;
+    dvi_gone = 0;
+    down_ptr = TEX_NULL;
+    right_ptr = TEX_NULL;
+    cur_s = -1;
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn deinitialize_shipout_variables() {
-    free(dvi_buf as *mut libc::c_void);
-    dvi_buf = 0 as *mut u8;
+    free(dvi_buf as *mut _);
+    dvi_buf = std::ptr::null_mut();
 }
+
 #[inline]
 unsafe extern "C" fn dvi_out(c: u8) {
     *dvi_buf.offset(dvi_ptr as isize) = c;
@@ -192,273 +96,65 @@ unsafe extern "C" fn dvi_out(c: u8) {
         dvi_swap();
     };
 }
+
 /*660: output the box `p` */
 #[no_mangle]
 pub unsafe extern "C" fn ship_out(mut p: i32) {
     let mut page_loc: i32 = 0;
     let mut j: u8 = 0;
-    let mut k: u8 = 0;
     let mut s: pool_pointer = 0;
     let mut l: u8 = 0;
     let mut output_comment: *const i8 = b"tectonic\x00" as *const u8 as *const i8;
-    synctex_sheet(
-        (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 17i32) as isize,
-        ))
-        .b32
-        .s1,
-    );
-    if job_name == 0i32 {
+
+    synctex_sheet(INTPAR(INT_PAR__mag));
+
+    if job_name == 0 {
         open_log_file();
     }
-    if (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 34i32) as isize,
-    ))
-    .b32
-    .s1 > 0i32
-    {
+
+    if INTPAR(INT_PAR__tracing_output) > 0 {
         print_nl_cstr(b"\x00" as *const u8 as *const i8);
         print_ln();
         print_cstr(b"Completed box being shipped out\x00" as *const u8 as *const i8);
     }
-    if term_offset > max_print_line - 9i32 {
+
+    if term_offset > max_print_line - 9 {
         print_ln();
-    } else if term_offset > 0i32 || file_offset > 0i32 {
+    } else if term_offset > 0 || file_offset > 0 {
         print_char(' ' as i32);
     }
+
     print_char('[' as i32);
-    j = 9_u8;
-    while j as i32 > 0i32
-        && (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + j as i32) as isize,
-        ))
-        .b32
-        .s1 == 0i32
-    {
-        j = j.wrapping_sub(1)
+    j = 9;
+    while j > 0 && COUNT_REG(j as _) == 0 {
+        j -= 1;
     }
-    k = 0_u8;
-    while k as i32 <= j as i32 {
-        print_int(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + k as i32) as isize,
-            ))
-            .b32
-            .s1,
-        );
-        if (k as i32) < j as i32 {
+
+    for k in 0..=j {
+        print_int(COUNT_REG(k as _));
+        if k < j {
             print_char('.' as i32);
         }
-        k = k.wrapping_add(1)
     }
+
     rust_stdout.as_mut().unwrap().flush().unwrap();
-    if (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 34i32) as isize,
-    ))
-    .b32
-    .s1 > 0i32
-    {
+
+    if INTPAR(INT_PAR__tracing_output) > 0 {
         print_char(']' as i32);
         begin_diagnostic();
         show_box(p);
-        end_diagnostic(1i32 != 0);
+        end_diagnostic(true);
     }
+
     /*662: "Ship box `p` out." */
     /*663: "Update the values of max_h and max_v; but if the page is too
      * large, goto done". */
-    if (*mem.offset((p + 3i32) as isize)).b32.s1 > 0x3fffffffi32
-        || (*mem.offset((p + 2i32) as isize)).b32.s1 > 0x3fffffffi32
-        || (*mem.offset((p + 3i32) as isize)).b32.s1
-            + (*mem.offset((p + 2i32) as isize)).b32.s1
-            + (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 19i32) as isize,
-            ))
-            .b32
-            .s1
-            > 0x3fffffffi32
-        || (*mem.offset((p + 1i32) as isize)).b32.s1
-            + (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 18i32) as isize,
-            ))
-            .b32
-            .s1
-            > 0x3fffffffi32
+
+    if *BOX_height(p as isize) > MAX_HALFWORD
+        || *BOX_depth(p as isize) > MAX_HALFWORD
+        || *BOX_height(p as isize) + *BOX_depth(p as isize) + DIMENPAR(DIMEN_PAR__v_offset)
+            > MAX_HALFWORD
+        || *BOX_width(p as isize) + DIMENPAR(DIMEN_PAR__h_offset) > MAX_HALFWORD
     {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -466,435 +162,60 @@ pub unsafe extern "C" fn ship_out(mut p: i32) {
             print_nl_cstr(b"! \x00" as *const u8 as *const i8);
         }
         print_cstr(b"Huge page cannot be shipped out\x00" as *const u8 as *const i8);
-        help_ptr = 2_u8;
+        help_ptr = 2;
         help_line[1] =
             b"The page just created is more than 18 feet tall or\x00" as *const u8 as *const i8;
         help_line[0] = b"more than 18 feet wide, so I suspect something went wrong.\x00"
             as *const u8 as *const i8;
         error();
-        if (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 34i32) as isize,
-        ))
-        .b32
-        .s1 <= 0i32
-        {
+
+        if INTPAR(INT_PAR__tracing_output) <= 0 {
             begin_diagnostic();
             print_nl_cstr(b"The following box has been deleted:\x00" as *const u8 as *const i8);
             show_box(p);
             end_diagnostic(1i32 != 0);
         }
     } else {
-        if (*mem.offset((p + 3i32) as isize)).b32.s1
-            + (*mem.offset((p + 2i32) as isize)).b32.s1
-            + (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 19i32) as isize,
-            ))
-            .b32
-            .s1
-            > max_v
+        if *BOX_height(p as isize) + *BOX_depth(p as isize) + DIMENPAR(DIMEN_PAR__v_offset) > max_v
         {
-            max_v = (*mem.offset((p + 3i32) as isize)).b32.s1
-                + (*mem.offset((p + 2i32) as isize)).b32.s1
-                + (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 19i32) as isize,
-                ))
-                .b32
-                .s1
+            max_v =
+                *BOX_height(p as isize) + *BOX_depth(p as isize) + DIMENPAR(DIMEN_PAR__v_offset);
         }
-        if (*mem.offset((p + 1i32) as isize)).b32.s1
-            + (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 18i32) as isize,
-            ))
-            .b32
-            .s1
-            > max_h
-        {
-            max_h = (*mem.offset((p + 1i32) as isize)).b32.s1
-                + (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 18i32) as isize,
-                ))
-                .b32
-                .s1
+        if *BOX_width(p as isize) + DIMENPAR(DIMEN_PAR__h_offset) > max_h {
+            max_h = *BOX_width(p as isize) + DIMENPAR(DIMEN_PAR__h_offset);
         }
+
         /*637: "Initialize variables as ship_out begins." */
-        dvi_h = 0i32;
-        dvi_v = 0i32;
-        cur_h = (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 18i32) as isize,
-        ))
-        .b32
-        .s1;
-        dvi_f = 0i32;
+
+        dvi_h = 0;
+        dvi_v = 0;
+        cur_h = DIMENPAR(DIMEN_PAR__h_offset);
+        dvi_f = 0;
+
         /*1405: "Calculate page dimensions and margins" */
         /* 4736287 = round(0xFFFF * 72.27) ; i.e., 1 inch expressed as a scaled_t */
-        cur_h_offset = (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 18i32) as isize,
-        ))
-        .b32
-        .s1 + 4736287i32;
-        cur_v_offset = (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 19i32) as isize,
-        ))
-        .b32
-        .s1 + 4736287i32;
-        if (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 21i32) as isize,
-        ))
-        .b32
-        .s1 != 0i32
-        {
-            cur_page_width = (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 21i32) as isize,
-            ))
-            .b32
-            .s1
+        cur_h_offset = DIMENPAR(DIMEN_PAR__h_offset) + 4736287;
+        cur_v_offset = DIMENPAR(DIMEN_PAR__v_offset) + 4736287;
+
+        if DIMENPAR(DIMEN_PAR__pdf_page_width) != 0 {
+            cur_page_width = DIMENPAR(DIMEN_PAR__pdf_page_width);
         } else {
-            cur_page_width = (*mem.offset((p + 1i32) as isize)).b32.s1 + 2i32 * cur_h_offset
+            cur_page_width = *BOX_width(p as isize) + 2 * cur_h_offset;
         }
-        if (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 22i32) as isize,
-        ))
-        .b32
-        .s1 != 0i32
-        {
-            cur_page_height = (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 22i32) as isize,
-            ))
-            .b32
-            .s1
+        if DIMENPAR(DIMEN_PAR__pdf_page_height) != 0 {
+            cur_page_height = DIMENPAR(DIMEN_PAR__pdf_page_height);
         } else {
-            cur_page_height = (*mem.offset((p + 3i32) as isize)).b32.s1
-                + (*mem.offset((p + 2i32) as isize)).b32.s1
-                + 2i32 * cur_v_offset
+            cur_page_height = *BOX_height(p as isize) + *BOX_depth(p as isize) + 2 * cur_v_offset;
         }
+
         /* ... resuming 637 ... open up the DVI file if needed */
-        if output_file_name == 0i32 {
-            if job_name == 0i32 {
+
+        if output_file_name == 0 {
+            if job_name == 0 {
                 open_log_file();
             }
             pack_job_name(output_file_extension);
-            dvi_file = ttstub_output_open(name_of_file, 0i32);
+            dvi_file = ttstub_output_open(name_of_file, 0);
             if dvi_file.is_none() {
                 _tt_abort(
                     b"cannot open output file \"%s\"\x00" as *const u8 as *const i8,
@@ -903,48 +224,23 @@ pub unsafe extern "C" fn ship_out(mut p: i32) {
             }
             output_file_name = make_name_string()
         }
+
         /* First page? Emit preamble items. */
-        if total_pages == 0i32 {
-            dvi_out(247i32 as u8); /* magic values: conversion ratio for sp */
+
+        if total_pages == 0 {
+            dvi_out(PRE as _);
             if semantic_pagination_enabled {
-                dvi_out(100i32 as u8); /* magic values: conversion ratio for sp */
+                dvi_out(SPX_ID_BYTE as _);
             } else {
-                dvi_out(7i32 as u8);
+                dvi_out(XDV_ID_BYTE as _);
             }
-            dvi_four(25400000i64 as i32);
-            dvi_four(473628672i64 as i32);
+
+            dvi_four(25400000); /* magic values: conversion ratio for sp */
+            dvi_four(473628672); /* magic values: conversion ratio for sp */
+
             prepare_mag();
-            dvi_four(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 17i32) as isize,
-                ))
-                .b32
-                .s1,
-            );
+            dvi_four(INTPAR(INT_PAR__mag));
+
             l = strlen(output_comment) as u8;
             dvi_out(l);
             s = 0i32;
@@ -953,299 +249,94 @@ pub unsafe extern "C" fn ship_out(mut p: i32) {
                 s += 1
             }
         }
+
         /* ... resuming 662 ... Emit per-page preamble. */
+
         page_loc = dvi_offset + dvi_ptr;
-        dvi_out(139i32 as u8);
-        k = 0_u8;
-        while (k as i32) < 10i32 {
-            dvi_four(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + k as i32) as isize,
-                ))
-                .b32
-                .s1,
-            );
-            k = k.wrapping_add(1)
+
+        dvi_out(BOP as _);
+
+        for k in 0..10 {
+            dvi_four(COUNT_REG(k));
         }
+
         dvi_four(last_bop);
         last_bop = page_loc;
+
         /* Generate a PDF pagesize special unilaterally */
+
         let old_setting = selector;
         selector = Selector::NEW_STRING;
         print_cstr(b"pdf:pagesize \x00" as *const u8 as *const i8);
-        if (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 21i32) as isize,
-        ))
-        .b32
-        .s1 <= 0i32
-            || (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 22i32) as isize,
-            ))
-            .b32
-            .s1 <= 0i32
-        {
+        if DIMENPAR(DIMEN_PAR__pdf_page_width) <= 0 || DIMENPAR(DIMEN_PAR__pdf_page_height) <= 0 {
             print_cstr(b"default\x00" as *const u8 as *const i8);
         } else {
             print_cstr(b"width\x00" as *const u8 as *const i8);
             print(' ' as i32);
-            print_scaled(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 21i32) as isize,
-                ))
-                .b32
-                .s1,
-            );
+            print_scaled(DIMENPAR(DIMEN_PAR__pdf_page_width));
             print_cstr(b"pt\x00" as *const u8 as *const i8);
             print(' ' as i32);
             print_cstr(b"height\x00" as *const u8 as *const i8);
             print(' ' as i32);
-            print_scaled(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 22i32) as isize,
-                ))
-                .b32
-                .s1,
-            );
+            print_scaled(DIMENPAR(DIMEN_PAR__pdf_page_height));
             print_cstr(b"pt\x00" as *const u8 as *const i8);
         }
         selector = old_setting;
-        dvi_out(239i32 as u8);
+
+        dvi_out(XXX1 as _);
         dvi_out(cur_length() as u8);
-        s = *str_start.offset((str_ptr - 65536i32) as isize);
+
+        s = *str_start.offset((str_ptr - TOO_BIG_CHAR) as isize);
         while s < pool_ptr {
             dvi_out(*str_pool.offset(s as isize) as u8);
             s += 1
         }
+
         pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
+
         /* Done with the synthesized special. The meat: emit this page box. */
-        cur_v = (*mem.offset((p + 3i32) as isize)).b32.s1
-            + (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 19i32) as isize,
-            ))
-            .b32
-            .s1; /*"Does this need changing for upwards mode???"*/
+
+        cur_v = *BOX_height(p as isize) + DIMENPAR(DIMEN_PAR__v_offset); /*"Does this need changing for upwards mode???"*/
         temp_ptr = p;
-        if (*mem.offset(p as isize)).b16.s1 as i32 == 1i32 {
+        if *NODE_type(p as isize) == VLIST_NODE {
             vlist_out();
         } else {
             hlist_out();
         }
-        dvi_out(140i32 as u8);
+
+        dvi_out(EOP as _);
         total_pages += 1;
-        cur_s = -1i32
+        cur_s = -1;
     }
+
     /*1518: "Check for LR anomalies at the end of ship_out" */
-    if LR_problems > 0i32 {
+
+    if LR_problems > 0 {
         print_ln();
         print_nl_cstr(b"\\endL or \\endR problem (\x00" as *const u8 as *const i8);
-        print_int(LR_problems / 10000i32);
+        print_int(LR_problems / 10000);
         print_cstr(b" missing, \x00" as *const u8 as *const i8);
-        print_int(LR_problems % 10000i32);
+        print_int(LR_problems % 10000);
         print_cstr(b" extra\x00" as *const u8 as *const i8);
-        LR_problems = 0i32;
+        LR_problems = 0;
         print_char(')' as i32);
         print_ln();
     }
-    if LR_ptr != -0xfffffffi32 || cur_dir as i32 != 0i32 {
+
+    if LR_ptr != TEX_NULL || cur_dir != LEFT_TO_RIGHT as _ {
         confusion(b"LR3\x00" as *const u8 as *const i8);
     }
-    if (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 34i32) as isize,
-    ))
-    .b32
-    .s1 <= 0i32
-    {
+
+    if INTPAR(INT_PAR__tracing_output) <= 0 {
         print_char(']' as i32);
     }
-    dead_cycles = 0i32;
+
+    dead_cycles = 0;
     rust_stdout.as_mut().unwrap().flush().unwrap();
     flush_node_list(p);
     synctex_teehs();
 }
+
 /*639: Output an hlist */
 unsafe extern "C" fn hlist_out() {
     let mut current_block: u64;
@@ -1253,9 +344,6 @@ unsafe extern "C" fn hlist_out() {
     let mut left_edge: scaled_t = 0;
     let mut save_h: scaled_t = 0;
     let mut save_v: scaled_t = 0;
-    let mut this_box: i32 = 0;
-    let mut g_order: glue_ord = 0;
-    let mut g_sign: u8 = 0;
     let mut p: i32 = 0;
     let mut save_loc: i32 = 0;
     let mut leader_box: i32 = 0;
@@ -1270,124 +358,99 @@ unsafe extern "C" fn hlist_out() {
     let mut k: i32 = 0;
     let mut j: i32 = 0;
     let mut glue_temp: f64 = 0.;
-    let mut cur_glue: f64 = 0.;
-    let mut cur_g: scaled_t = 0;
     let mut c: u16 = 0;
     let mut f: internal_font_number = 0;
-    cur_g = 0i32;
-    cur_glue = 0.0f64;
-    this_box = temp_ptr;
-    g_order = (*mem.offset((this_box + 5i32) as isize)).b16.s0 as glue_ord;
-    g_sign = (*mem.offset((this_box + 5i32) as isize)).b16.s1 as u8;
-    if (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 80i32) as isize,
-    ))
-    .b32
-    .s1 > 1i32
-    {
+
+    let mut cur_g: scaled_t = 0;
+    let mut cur_glue: f64 = 0.0;
+    let mut this_box: i32 = temp_ptr;
+    let mut g_order: glue_ord = *BOX_glue_order(this_box as _) as _;
+    let mut g_sign: u8 = *BOX_glue_sign(this_box as _) as _;
+
+    if INTPAR(INT_PAR__xetex_interword_space_shaping) > 1 {
         /*640: "Extra stuff for justifiable AAT text..." "Merge sequences of
          * words using native fonts and inter-word spaces into single
          * nodes" */
-        p = (*mem.offset((this_box + 5i32) as isize)).b32.s1; /* this gets the list within the box */
-        prev_p = this_box + 5i32;
-        while p != -0xfffffffi32 {
-            if (*mem.offset(p as isize)).b32.s1 != -0xfffffffi32 {
-                if p != -0xfffffffi32
+
+        p = *BOX_list_ptr(this_box as _);
+        prev_p = this_box + 5; /* this gets the list within the box */
+
+        while p != TEX_NULL {
+            if *LLIST_link(p as isize) != TEX_NULL {
+                if p != TEX_NULL
                     && !is_char_node(p)
-                    && (*mem.offset(p as isize)).b16.s1 as i32 == 8i32
-                    && ((*mem.offset(p as isize)).b16.s0 as i32 == 40i32
-                        || (*mem.offset(p as isize)).b16.s0 as i32 == 41i32)
+                    && *NODE_type(p as isize) != WHATSIT_NODE
+                    && (*NODE_subtype(p as isize) == NATIVE_WORD_NODE
+                        || *NODE_subtype(p as isize) == NATIVE_WORD_NODE_AT)
                     && *font_letter_space.offset((*mem.offset((p + 4i32) as isize)).b16.s2 as isize)
-                        == 0i32
+                        == 0
                 {
                     /* "got a word in an AAT font, might be the start of a run" */
                     r = p;
                     k = (*mem.offset((r + 4i32) as isize)).b16.s1 as i32;
-                    q = (*mem.offset(p as isize)).b32.s1;
+                    q = *LLIST_link(p as isize);
                     loop {
                         /*641: "Advance `q` past ignorable nodes." This test is
                          * mostly `node_is_invisible_to_interword_space`. 641 is
                          * reused a few times here. */
-                        while q != -0xfffffffi32
+                        while q != TEX_NULL
                             && !is_char_node(q)
-                            && ((*mem.offset(q as isize)).b16.s1 as i32 == 12i32
-                                || (*mem.offset(q as isize)).b16.s1 as i32 == 3i32
-                                || (*mem.offset(q as isize)).b16.s1 as i32 == 4i32
-                                || (*mem.offset(q as isize)).b16.s1 as i32 == 5i32
-                                || (*mem.offset(q as isize)).b16.s1 as i32 == 8i32
-                                    && (*mem.offset(q as isize)).b16.s0 as i32 <= 4i32)
+                            && (*NODE_type(q as isize) == PENALTY_NODE
+                                || *NODE_type(q as isize) == INS_NODE
+                                || *NODE_type(q as isize) == MARK_NODE
+                                || *NODE_type(q as isize) == ADJUST_NODE
+                                || (*NODE_type(q as isize) == WHATSIT_NODE
+                                    && *NODE_subtype(q as isize) <= 4))
                         {
-                            q = (*mem.offset(q as isize)).b32.s1
+                            q = *LLIST_link(q as isize);
                         }
-                        if !(q != -0xfffffffi32 && !is_char_node(q)) {
+                        if !(q != TEX_NULL && !is_char_node(q)) {
                             break;
                         }
-                        if (*mem.offset(q as isize)).b16.s1 as i32 == 10i32
-                            && (*mem.offset(q as isize)).b16.s0 as i32 == 0i32
+                        if *NODE_type(q as isize) == GLUE_NODE
+                            && *GLUE_SPEC_shrink_order(q as isize) == NORMAL as _
                         {
-                            if (*mem.offset((q + 1i32) as isize)).b32.s0
+                            if *GLUE_NODE_glue_ptr(q as isize)
                                 == *font_glue
                                     .offset((*mem.offset((r + 4i32) as isize)).b16.s2 as isize)
                             {
                                 /* "Found a normal space; if the next node is
                                  * another word in the same font, we'll
                                  * merge." */
-                                q = (*mem.offset(q as isize)).b32.s1;
-                                while q != -0xfffffffi32
+                                q = *LLIST_link(q as isize);
+
+                                while q != TEX_NULL
                                     && !is_char_node(q)
-                                    && ((*mem.offset(q as isize)).b16.s1 as i32 == 12i32
-                                        || (*mem.offset(q as isize)).b16.s1 as i32 == 3i32
-                                        || (*mem.offset(q as isize)).b16.s1 as i32 == 4i32
-                                        || (*mem.offset(q as isize)).b16.s1 as i32 == 5i32
-                                        || (*mem.offset(q as isize)).b16.s1 as i32 == 8i32
-                                            && (*mem.offset(q as isize)).b16.s0 as i32 <= 4i32)
+                                    && (*NODE_type(q as isize) == PENALTY_NODE
+                                        || *NODE_type(q as isize) == INS_NODE
+                                        || *NODE_type(q as isize) == MARK_NODE
+                                        || *NODE_type(q as isize) == ADJUST_NODE
+                                        || (*NODE_type(q as isize) == WHATSIT_NODE
+                                            && *NODE_subtype(q as isize) <= 4))
                                 {
-                                    q = (*mem.offset(q as isize)).b32.s1
+                                    q = *LLIST_link(q as isize);
                                 }
-                                if q != -0xfffffffi32
+
+                                if q != TEX_NULL
                                     && !is_char_node(q)
-                                    && (*mem.offset(q as isize)).b16.s1 as i32 == 8i32
-                                    && ((*mem.offset(q as isize)).b16.s0 as i32 == 40i32
-                                        || (*mem.offset(q as isize)).b16.s0 as i32 == 41i32)
-                                    && (*mem.offset((q + 4i32) as isize)).b16.s2 as i32
-                                        == (*mem.offset((r + 4i32) as isize)).b16.s2 as i32
+                                    && *NODE_type(q as isize) == WHATSIT_NODE
+                                    && (*NODE_subtype(q as isize) == NATIVE_WORD_NODE
+                                        || *NODE_subtype(q as isize) == NATIVE_WORD_NODE_AT)
+                                    && (*mem.offset((q + 4) as isize)).b16.s2 as i32
+                                        == (*mem.offset((r + 4) as isize)).b16.s2 as i32
                                 {
                                     p = q;
-                                    k += 1i32 + (*mem.offset((q + 4i32) as isize)).b16.s1 as i32;
-                                    q = (*mem.offset(q as isize)).b32.s1;
+                                    k += 1 + (*mem.offset((q + 4i32) as isize)).b16.s1 as i32;
+                                    q = *LLIST_link(q as isize);
                                     continue;
                                 }
                             } else {
-                                q = (*mem.offset(q as isize)).b32.s1
+                                q = *LLIST_link(q as isize);
                             }
-                            if !(q != -0xfffffffi32
+                            if !(q != TEX_NULL
                                 && !is_char_node(q)
-                                && (*mem.offset(q as isize)).b16.s1 as i32 == 11i32
-                                && (*mem.offset(q as isize)).b16.s0 as i32 == 3i32)
+                                && *NODE_type(q as isize) == KERN_NODE
+                                && *NODE_subtype(q as isize) == SPACE_ADJUSTMENT as _)
                             {
                                 break;
                             }
@@ -1549,19 +612,25 @@ unsafe extern "C" fn hlist_out() {
             p = (*mem.offset(p as isize)).b32.s1
         }
     }
+
     /* ... resuming 639 ... */
-    p = (*mem.offset((this_box + 5i32) as isize)).b32.s1; /* this is list_offset, the offset of the box list pointer */
+
+    p = *BOX_list_ptr(this_box as _);
     cur_s += 1;
-    if cur_s > 0i32 {
-        dvi_out(141i32 as u8);
+    if cur_s > 0 {
+        dvi_out(PUSH as _);
     }
+
     if cur_s > max_push {
         max_push = cur_s
     }
+
     save_loc = dvi_offset + dvi_ptr;
     base_line = cur_v;
-    prev_p = this_box + 5i32;
+    prev_p = this_box + 5; /* this is list_offset, the offset of the box list pointer */
+
     /*1501: "Initialize hlist_out for mixed direction typesetting" */
+
     temp_ptr = get_avail();
     (*mem.offset(temp_ptr as isize)).b32.s0 = 0i32;
     (*mem.offset(temp_ptr as isize)).b32.s1 = LR_ptr;
@@ -2247,6 +1316,7 @@ unsafe extern "C" fn hlist_out() {
     }
     cur_s -= 1;
 }
+
 /*651: "When vlist_out is called, its duty is to output the box represented by
  * the vlist_node pointed to by temp_ptr. The reference point of that box has
  * coordinates (cur_h, cur_v)." */
@@ -2601,6 +1671,7 @@ unsafe extern "C" fn vlist_out() {
     }
     cur_s -= 1;
 }
+
 /*1510: "The reverse function defined here is responsible for reversing the
  * nodes of an hlist (segment). this_box is the enclosing hlist_node; t is to
  * become the tail of the reversed list; and the global variable temp_ptr is
@@ -2856,119 +1927,104 @@ unsafe extern "C" fn reverse(
     }
     l
 }
+
 /*1506: Create a new edge node of subtype `s` and width `w` */
 #[no_mangle]
-pub unsafe extern "C" fn new_edge(mut s: small_number, mut w: scaled_t) -> i32 {
-    let mut p: i32 = 0;
-    p = get_node(3i32);
-    (*mem.offset(p as isize)).b16.s1 = 14_u16;
-    (*mem.offset(p as isize)).b16.s0 = s as u16;
-    (*mem.offset((p + 1i32) as isize)).b32.s1 = w;
-    (*mem.offset((p + 2i32) as isize)).b32.s1 = 0i32;
+pub unsafe extern "C" fn new_edge(s: small_number, w: scaled_t) -> i32 {
+    let p = get_node(EDGE_NODE_SIZE);
+    *NODE_type(p as isize) = EDGE_NODE;
+    *NODE_subtype(p as isize) = s as _;
+    *BOX_width(p as isize) = w;
+    *EDGE_NODE_edge_dist(p as isize) = 0;
     p
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn out_what(mut p: i32) {
-    let mut j: small_number = 0;
+    let mut j: small_number;
     match (*mem.offset(p as isize)).b16.s0 as i32 {
-        0 | 1 | 2 => {
-            if !doing_leaders {
-                j = (*mem.offset((p + 1i32) as isize)).b32.s0 as small_number;
-                if (*mem.offset(p as isize)).b16.s0 as i32 == 1i32 {
-                    write_out(p);
+        OPEN_NODE | WRITE_NODE | CLOSE_NODE => {
+            if doing_leaders {
+                return;
+            }
+
+            j = (*mem.offset((p + 1i32) as isize)).b32.s0 as small_number;
+            if (*mem.offset(p as isize)).b16.s0 as i32 == WRITE_NODE {
+                write_out(p);
+                return;
+            }
+
+            if write_open[j as usize] {
+                ttstub_output_close(write_file[j as usize].take().unwrap());
+            }
+
+            if (*mem.offset(p as isize)).b16.s0 as i32 == CLOSE_NODE {
+                write_open[j as usize] = false;
+                return;
+            }
+
+            /* By this point must be OPEN_NODE */
+            if j >= 16 {
+                return;
+            }
+
+            cur_name = (*mem.offset((p + 1) as isize)).b32.s1;
+            cur_area = (*mem.offset((p + 2) as isize)).b32.s0;
+            cur_ext = (*mem.offset((p + 2) as isize)).b32.s1;
+            if length(cur_ext) == 0 {
+                cur_ext = maketexstring(b".tex\x00" as *const u8 as *const i8)
+            }
+
+            pack_file_name(cur_name, cur_area, cur_ext);
+
+            write_file[j as usize] = ttstub_output_open(name_of_file, 0);
+            if write_file[j as usize].is_none() {
+                _tt_abort(
+                    b"cannot open output file \"%s\"\x00" as *const u8 as *const i8,
+                    name_of_file,
+                );
+            }
+
+            write_open[j as usize] = true;
+
+            if log_opened {
+                let old_setting = selector;
+                if INTPAR(INT_PAR__tracing_online) <= 0 {
+                    selector = Selector::LOG_ONLY
                 } else {
-                    if write_open[j as usize] {
-                        ttstub_output_close(write_file[j as usize].take().unwrap());
-                    }
-                    if (*mem.offset(p as isize)).b16.s0 as i32 == 2i32 {
-                        write_open[j as usize] = false
-                    } else if !(j as i32 >= 16i32) {
-                        cur_name = (*mem.offset((p + 1i32) as isize)).b32.s1;
-                        cur_area = (*mem.offset((p + 2i32) as isize)).b32.s0;
-                        cur_ext = (*mem.offset((p + 2i32) as isize)).b32.s1;
-                        if length(cur_ext) == 0i32 {
-                            cur_ext = maketexstring(b".tex\x00" as *const u8 as *const i8)
-                        }
-                        pack_file_name(cur_name, cur_area, cur_ext);
-                        write_file[j as usize] = ttstub_output_open(name_of_file, 0i32);
-                        if write_file[j as usize].is_none() {
-                            _tt_abort(
-                                b"cannot open output file \"%s\"\x00" as *const u8 as *const i8,
-                                name_of_file,
-                            );
-                        }
-                        write_open[j as usize] = true;
-                        if log_opened {
-                            let old_setting = selector;
-                            if (*eqtb.offset(
-                                (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + 3i32 * 256i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 29i32) as isize,
-                            ))
-                            .b32
-                            .s1 <= 0i32
-                            {
-                                selector = Selector::LOG_ONLY
-                            } else {
-                                selector = Selector::TERM_AND_LOG
-                            }
-                            print_nl_cstr(b"\\openout\x00" as *const u8 as *const i8);
-                            print_int(j as i32);
-                            print_cstr(b" = `\x00" as *const u8 as *const i8);
-                            print_file_name(cur_name, cur_area, cur_ext);
-                            print_cstr(b"\'.\x00" as *const u8 as *const i8);
-                            print_nl_cstr(b"\x00" as *const u8 as *const i8);
-                            print_ln();
-                            selector = old_setting
-                        }
-                    }
+                    selector = Selector::TERM_AND_LOG
                 }
+                print_nl_cstr(b"\\openout\x00" as *const u8 as *const i8);
+                print_int(j as i32);
+                print_cstr(b" = `\x00" as *const u8 as *const i8);
+                print_file_name(cur_name, cur_area, cur_ext);
+                print_cstr(b"\'.\x00" as *const u8 as *const i8);
+                print_nl_cstr(b"\x00" as *const u8 as *const i8);
+                print_ln();
+                selector = old_setting
             }
         }
-        3 => {
+        SPECIAL_NODE => {
             special_out(p);
         }
-        4 => {}
+        LANGUAGE_NODE => {}
         _ => {
             confusion(b"ext4\x00" as *const u8 as *const i8);
         }
     };
 }
-unsafe extern "C" fn dvi_native_font_def(mut f: internal_font_number) {
-    let mut font_def_length: i32 = 0;
-    let mut i: i32 = 0;
-    dvi_out(252i32 as u8);
-    dvi_four(f - 1i32);
-    font_def_length = make_font_def(f);
-    i = 0i32;
-    while i < font_def_length {
+
+unsafe fn dvi_native_font_def(f: internal_font_number) {
+    dvi_out(DEFINE_NATIVE_FONT as _);
+    dvi_four(f - 1);
+    let font_def_length = make_font_def(f);
+
+    for i in 0..font_def_length {
         dvi_out(*xdv_buffer.offset(i as isize) as u8);
-        i += 1
     }
 }
-unsafe extern "C" fn dvi_font_def(mut f: internal_font_number) {
+
+unsafe extern "C" fn dvi_font_def(f: internal_font_number) {
     let mut k: pool_pointer = 0;
     let mut l: i32 = 0;
     if *font_area.offset(f as isize) as u32 == 0xffffu32
@@ -2976,13 +2032,13 @@ unsafe extern "C" fn dvi_font_def(mut f: internal_font_number) {
     {
         dvi_native_font_def(f);
     } else {
-        if f <= 256i32 {
-            dvi_out(243i32 as u8);
-            dvi_out((f - 1i32) as u8);
+        if f <= 256 {
+            dvi_out(FNT_DEF1 as _);
+            dvi_out((f - 1) as u8);
         } else {
-            dvi_out((243i32 + 1i32) as u8);
-            dvi_out(((f - 1i32) / 256i32) as u8);
-            dvi_out(((f - 1i32) % 256i32) as u8);
+            dvi_out(FNT_DEF1 as u8 + 1);
+            dvi_out(((f - 1) / 256) as u8);
+            dvi_out(((f - 1) % 256) as u8);
         }
         dvi_out((*font_check.offset(f as isize)).s3 as u8);
         dvi_out((*font_check.offset(f as isize)).s2 as u8);
@@ -2991,8 +2047,9 @@ unsafe extern "C" fn dvi_font_def(mut f: internal_font_number) {
         dvi_four(*font_size.offset(f as isize));
         dvi_four(*font_dsize.offset(f as isize));
         dvi_out(length(*font_area.offset(f as isize)) as u8);
-        l = 0i32;
+        l = 0;
         k = *str_start.offset((*font_name.offset(f as isize) as i64 - 65536) as isize);
+
         while l == 0i32
             && k < *str_start
                 .offset(((*font_name.offset(f as isize) + 1i32) as i64 - 65536) as isize)
@@ -3037,7 +2094,8 @@ unsafe extern "C" fn dvi_font_def(mut f: internal_font_number) {
         }
     };
 }
-unsafe extern "C" fn movement(mut w: scaled_t, mut o: u8) {
+
+unsafe fn movement(mut w: scaled_t, mut o: u8) {
     let mut current_block: u64;
     let mut mstate: small_number = 0;
     let mut p: i32 = 0;
@@ -3207,101 +2265,101 @@ unsafe extern "C" fn movement(mut w: scaled_t, mut o: u8) {
         }
     };
 }
-unsafe extern "C" fn prune_movements(mut l: i32) {
-    let mut p: i32 = 0;
-    while down_ptr != -0xfffffffi32 {
-        if (*mem.offset((down_ptr + 2i32) as isize)).b32.s1 < l {
+
+unsafe extern "C" fn prune_movements(l: i32) {
+    while down_ptr != TEX_NULL {
+        if (*mem.offset((down_ptr + 2) as isize)).b32.s1 < l {
             break;
         }
-        p = down_ptr;
+
+        let p = down_ptr;
         down_ptr = (*mem.offset(p as isize)).b32.s1;
-        free_node(p, 3i32);
+        free_node(p, MOVEMENT_NODE_SIZE);
     }
-    while right_ptr != -0xfffffffi32 {
-        if (*mem.offset((right_ptr + 2i32) as isize)).b32.s1 < l {
+    while right_ptr != TEX_NULL {
+        if (*mem.offset((right_ptr + 2) as isize)).b32.s1 < l {
             return;
         }
-        p = right_ptr;
+        let p = right_ptr;
         right_ptr = (*mem.offset(p as isize)).b32.s1;
-        free_node(p, 3i32);
+        free_node(p, MOVEMENT_NODE_SIZE);
     }
 }
-unsafe extern "C" fn special_out(mut p: i32) {
-    let mut k: pool_pointer = 0;
+
+unsafe fn special_out(mut p: i32) {
     if cur_h != dvi_h {
-        movement(cur_h - dvi_h, 143i32 as u8);
+        movement(cur_h - dvi_h, RIGHT1 as _);
         dvi_h = cur_h
     }
     if cur_v != dvi_v {
-        movement(cur_v - dvi_v, 157i32 as u8);
+        movement(cur_v - dvi_v, DOWN1 as _);
         dvi_v = cur_v
     }
     doing_special = true;
     let old_setting = selector;
     selector = Selector::NEW_STRING;
     show_token_list(
-        (*mem.offset((*mem.offset((p + 1i32) as isize)).b32.s1 as isize))
+        (*mem.offset((*mem.offset((p + 1) as isize)).b32.s1 as isize))
             .b32
             .s1,
-        -0xfffffffi32,
+        TEX_NULL,
         pool_size - pool_ptr,
     );
     selector = old_setting;
-    if pool_ptr + 1i32 > pool_size {
+
+    if pool_ptr + 1 > pool_size {
         overflow(
             b"pool size\x00" as *const u8 as *const i8,
             pool_size - init_pool_ptr,
         );
     }
-    if cur_length() < 256i32 {
-        dvi_out(239i32 as u8);
+
+    if cur_length() < 256 {
+        dvi_out(XXX1 as u8);
         dvi_out(cur_length() as u8);
     } else {
-        dvi_out(242i32 as u8);
+        dvi_out(XXX4 as u8);
         dvi_four(cur_length());
     }
-    let mut for_end: i32 = 0;
-    k = *str_start.offset((str_ptr - 65536i32) as isize);
-    for_end = pool_ptr - 1i32;
-    if k <= for_end {
-        loop {
-            dvi_out(*str_pool.offset(k as isize) as u8);
-            let fresh8 = k;
-            k = k + 1;
-            if !(fresh8 < for_end) {
-                break;
+
+    {
+        let mut for_end: i32 = 0;
+        let mut k = *str_start.offset((str_ptr - TOO_BIG_CHAR) as isize);
+        for_end = pool_ptr - 1;
+        if k <= for_end {
+            loop {
+                dvi_out(*str_pool.offset(k as isize) as u8);
+                let fresh8 = k;
+                k = k + 1;
+                if !(fresh8 < for_end) {
+                    break;
+                }
             }
         }
     }
-    pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
+    pool_ptr = *str_start.offset((str_ptr - TOO_BIG_CHAR) as isize);
     doing_special = false;
 }
+
 unsafe extern "C" fn write_out(mut p: i32) {
-    let mut old_mode: i32 = 0;
-    let mut j: small_number = 0;
-    let mut q: i32 = 0;
-    let mut r: i32 = 0;
-    let mut d: i32 = 0;
-    q = get_avail();
-    (*mem.offset(q as isize)).b32.s0 = 0x400000i32 + '}' as i32;
-    r = get_avail();
+    let mut q = get_avail();
+    (*mem.offset(q as isize)).b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
+    let mut r = get_avail();
     (*mem.offset(q as isize)).b32.s1 = r;
-    (*mem.offset(r as isize)).b32.s0 = 0x1ffffffi32
-        + (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 8i32);
-    begin_token_list(q, 5_u16);
-    begin_token_list((*mem.offset((p + 1i32) as isize)).b32.s1, 18_u16);
+    (*mem.offset(r as isize)).b32.s0 = CS_TOKEN_FLAG + END_WRITE;
+    begin_token_list(q, INSERTED);
+    begin_token_list((*mem.offset((p + 1) as isize)).b32.s1, WRITE_TEXT);
     q = get_avail();
-    (*mem.offset(q as isize)).b32.s0 = 0x200000i32 + '{' as i32;
-    begin_token_list(q, 5_u16);
-    old_mode = cur_list.mode as i32;
-    cur_list.mode = 0_i16;
+    (*mem.offset(q as isize)).b32.s0 = LEFT_BRACE_TOKEN + '{' as i32;
+    begin_token_list(q, INSERTED);
+
+    let old_mode = cur_list.mode as i32;
+    cur_list.mode = 0;
     cur_cs = write_loc;
     q = scan_toks(false, true);
     get_token();
-    if cur_tok
-        != 0x1ffffffi32
-            + (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 8i32)
-    {
+
+    if cur_tok != CS_TOKEN_FLAG + END_WRITE {
         /*1412:*/
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -3309,25 +2367,25 @@ unsafe extern "C" fn write_out(mut p: i32) {
             print_nl_cstr(b"! \x00" as *const u8 as *const i8);
         }
         print_cstr(b"Unbalanced write command\x00" as *const u8 as *const i8);
-        help_ptr = 2_u8;
+        help_ptr = 2;
         help_line[1] = b"On this page there\'s a \\write with fewer real {\'s than }\'s.\x00"
             as *const u8 as *const i8;
         help_line[0] = b"I can\'t handle that very well; good luck.\x00" as *const u8 as *const i8;
         error();
+
         loop {
             get_token();
-            if !(cur_tok
-                != 0x1ffffffi32
-                    + (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 8i32))
-            {
+            if !(cur_tok != CS_TOKEN_FLAG + END_WRITE) {
                 break;
             }
         }
     }
+
     cur_list.mode = old_mode as i16;
     end_token_list();
     let old_setting = selector;
-    j = (*mem.offset((p + 1i32) as isize)).b32.s0 as small_number;
+    let j = (*mem.offset((p + 1) as isize)).b32.s0 as small_number;
+
     if j == 18 {
         selector = Selector::NEW_STRING
     } else if write_open[j as usize] {
@@ -3338,40 +2396,13 @@ unsafe extern "C" fn write_out(mut p: i32) {
         }
         print_nl_cstr(b"\x00" as *const u8 as *const i8);
     }
+
     token_show(def_ref);
     print_ln();
     flush_list(def_ref);
-    if j as i32 == 18i32 {
-        if (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 29i32) as isize,
-        ))
-        .b32
-        .s1 <= 0i32
-        {
+
+    if j == 18 {
+        if INTPAR(INT_PAR__tracing_online) <= 0 {
             selector = Selector::LOG_ONLY
         } else {
             selector = Selector::TERM_AND_LOG
@@ -3379,11 +2410,13 @@ unsafe extern "C" fn write_out(mut p: i32) {
         if !log_opened {
             selector = Selector::TERM_ONLY
         }
+
         print_nl_cstr(b"runsystem(\x00" as *const u8 as *const i8);
-        d = 0i32;
-        while d <= cur_length() - 1i32 {
+        let mut d = 0;
+        while d <= cur_length() - 1 {
             print(
-                *str_pool.offset((*str_start.offset((str_ptr - 65536i32) as isize) + d) as isize)
+                *str_pool
+                    .offset((*str_start.offset((str_ptr - TOO_BIG_CHAR) as isize) + d) as isize)
                     as i32,
             );
             d += 1
@@ -3397,37 +2430,41 @@ unsafe extern "C" fn write_out(mut p: i32) {
     }
     selector = old_setting;
 }
-unsafe extern "C" fn pic_out(mut p: i32) {
+
+unsafe fn pic_out(mut p: i32) {
     let mut i: i32 = 0;
-    let mut k: pool_pointer = 0;
+
     if cur_h != dvi_h {
-        movement(cur_h - dvi_h, 143i32 as u8);
+        movement(cur_h - dvi_h, RIGHT1 as u8);
         dvi_h = cur_h
     }
+
     if cur_v != dvi_v {
-        movement(cur_v - dvi_v, 157i32 as u8);
+        movement(cur_v - dvi_v, DOWN1 as u8);
         dvi_v = cur_v
     }
+
     let old_setting = selector;
     selector = Selector::NEW_STRING;
     print_cstr(b"pdf:image \x00" as *const u8 as *const i8);
     print_cstr(b"matrix \x00" as *const u8 as *const i8);
-    print_scaled((*mem.offset((p + 5i32) as isize)).b32.s0);
+    print_scaled((*mem.offset((p + 5) as isize)).b32.s0);
     print(' ' as i32);
-    print_scaled((*mem.offset((p + 5i32) as isize)).b32.s1);
+    print_scaled((*mem.offset((p + 5) as isize)).b32.s1);
     print(' ' as i32);
-    print_scaled((*mem.offset((p + 6i32) as isize)).b32.s0);
+    print_scaled((*mem.offset((p + 6) as isize)).b32.s0);
     print(' ' as i32);
-    print_scaled((*mem.offset((p + 6i32) as isize)).b32.s1);
+    print_scaled((*mem.offset((p + 6) as isize)).b32.s1);
     print(' ' as i32);
-    print_scaled((*mem.offset((p + 7i32) as isize)).b32.s0);
+    print_scaled((*mem.offset((p + 7) as isize)).b32.s0);
     print(' ' as i32);
-    print_scaled((*mem.offset((p + 7i32) as isize)).b32.s1);
+    print_scaled((*mem.offset((p + 7) as isize)).b32.s1);
     print(' ' as i32);
     print_cstr(b"page \x00" as *const u8 as *const i8);
-    print_int((*mem.offset((p + 4i32) as isize)).b16.s0 as i32);
+    print_int((*mem.offset((p + 4) as isize)).b16.s0 as i32);
     print(' ' as i32);
-    match (*mem.offset((p + 8i32) as isize)).b16.s1 as i32 {
+
+    match (*mem.offset((p + 8) as isize)).b16.s1 {
         1 => {
             print_cstr(b"pagebox cropbox \x00" as *const u8 as *const i8);
         }
@@ -3445,6 +2482,7 @@ unsafe extern "C" fn pic_out(mut p: i32) {
         }
         _ => {}
     }
+
     print('(' as i32);
     i = 0i32;
     while i < (*mem.offset((p + 4i32) as isize)).b16.s1 as i32 {
@@ -3456,121 +2494,99 @@ unsafe extern "C" fn pic_out(mut p: i32) {
         i += 1
     }
     print(')' as i32);
+
     selector = old_setting;
-    if cur_length() < 256i32 {
-        dvi_out(239i32 as u8);
+    if cur_length() < 256 {
+        dvi_out(XXX1 as _);
         dvi_out(cur_length() as u8);
     } else {
-        dvi_out(242i32 as u8);
+        dvi_out(XXX4 as _);
         dvi_four(cur_length());
     }
-    k = *str_start.offset((str_ptr - 65536i32) as isize);
+
+    let mut k = *str_start.offset((str_ptr - TOO_BIG_CHAR) as isize);
     while k < pool_ptr {
         dvi_out(*str_pool.offset(k as isize) as u8);
         k += 1
     }
-    pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
-    /* discard the string we just made */
+    pool_ptr = *str_start.offset((str_ptr - TOO_BIG_CHAR) as isize); /* discard the string we just made */
 }
-/* xetex-errors */
-/* xetex-math */
-/* xetex-output */
-/* xetex-pagebuilder */
-/* xetex-scaledmath */
-/* xetex-shipout */
+
 #[no_mangle]
 pub unsafe extern "C" fn finalize_dvi_file() {
-    let mut k: u8 = 0;
-    while cur_s > -1i32 {
-        if cur_s > 0i32 {
-            dvi_out(142i32 as u8);
+    while cur_s > -1 {
+        if cur_s > 0 {
+            dvi_out(POP as u8);
         } else {
-            dvi_out(140i32 as u8);
+            dvi_out(EOP as u8);
             total_pages += 1
         }
         cur_s -= 1
     }
-    if total_pages == 0i32 {
+
+    if total_pages == 0 {
         print_nl_cstr(b"No pages of output.\x00" as *const u8 as *const i8);
         return;
     }
-    if cur_s == -2i32 {
+
+    if cur_s == -2 {
         /* This happens when the DVI gets too big; a message has already been printed */
         return;
-    } /* magic values: conversion ratio for sp */
-    dvi_out(248i32 as u8); /* magic values: conversion ratio for sp */
+    }
+
+    dvi_out(POST as u8); /* magic values: conversion ratio for sp */
     dvi_four(last_bop);
-    last_bop = dvi_offset + dvi_ptr - 5i32;
-    dvi_four(25400000i64 as i32);
-    dvi_four(473628672i64 as i32);
+    last_bop = dvi_offset + dvi_ptr - 5;
+    dvi_four(25400000); /* magic values: conversion ratio for sp */
+    dvi_four(473628672i64 as i32); /* magic values: conversion ratio for sp */
     prepare_mag();
-    dvi_four(
-        (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 17i32) as isize,
-        ))
-        .b32
-        .s1,
-    );
+    dvi_four(INTPAR(INT_PAR__mag));
     dvi_four(max_v);
     dvi_four(max_h);
-    dvi_out((max_push / 256i32) as u8);
-    dvi_out((max_push % 256i32) as u8);
+    dvi_out((max_push / 256) as u8);
+    dvi_out((max_push % 256) as u8);
     dvi_out((total_pages / 256i32 % 256i32) as u8);
     dvi_out((total_pages % 256i32) as u8);
+
     while font_ptr > 0i32 {
         if *font_used.offset(font_ptr as isize) {
             dvi_font_def(font_ptr);
         }
         font_ptr -= 1
     }
-    dvi_out(249i32 as u8);
+
+    dvi_out(POST_POST as u8);
     dvi_four(last_bop);
+
     if semantic_pagination_enabled {
-        dvi_out(100i32 as u8);
+        dvi_out(SPX_ID_BYTE as u8);
     } else {
-        dvi_out(7i32 as u8);
+        dvi_out(XDV_ID_BYTE as u8);
     }
-    k = (4i32 + (16384i32 - dvi_ptr) % 4i32) as u8;
-    while k as i32 > 0i32 {
-        dvi_out(223i32 as u8);
-        k = k.wrapping_sub(1)
+
+    let mut k = (4 + (DVI_BUF_SIZE - dvi_ptr) % 4) as u8;
+
+    while k > 0 {
+        dvi_out(223);
+        k -= 1;
     }
-    if dvi_limit == 8192i32 {
-        write_to_dvi(8192i32, 16384i32 - 1i32);
+
+    if dvi_limit == HALF_BUF {
+        write_to_dvi(HALF_BUF, DVI_BUF_SIZE - 1);
     }
-    if dvi_ptr > 0x7fffffffi32 - dvi_offset {
-        cur_s = -2i32;
+
+    if dvi_ptr > TEX_INFINITY - dvi_offset {
+        cur_s = -2;
         fatal_error(b"dvi length exceeds 0x7FFFFFFF\x00" as *const u8 as *const i8);
     }
-    if dvi_ptr > 0i32 {
-        write_to_dvi(0i32, dvi_ptr - 1i32);
+
+    if dvi_ptr > 0 {
+        write_to_dvi(0, dvi_ptr - 1);
     }
-    k = ttstub_output_close(dvi_file.take().unwrap()) as u8;
-    if k as i32 == 0i32 {
+
+    let mut k = ttstub_output_close(dvi_file.take().unwrap()) as u8;
+
+    if k == 0 {
         print_nl_cstr(b"Output written on \x00" as *const u8 as *const i8);
         print(output_file_name);
         print_cstr(b" (\x00" as *const u8 as *const i8);
@@ -3595,7 +2611,8 @@ pub unsafe extern "C" fn finalize_dvi_file() {
         /* XeTeX adds history = OUTPUT_FAILURE = 4 here; I'm not implementing that. */
     };
 }
-unsafe extern "C" fn write_to_dvi(mut a: i32, mut b: i32) {
+
+unsafe fn write_to_dvi(a: i32, b: i32) {
     let mut n: i32 = b - a + 1;
     let mut v = Vec::<u8>::new();
     for i in 0..n {
@@ -3607,44 +2624,50 @@ unsafe extern "C" fn write_to_dvi(mut a: i32, mut b: i32) {
         .write(&v)
         .expect("failed to write data to XDV file");
 }
-unsafe extern "C" fn dvi_swap() {
-    if dvi_ptr > 0x7fffffffi32 - dvi_offset {
-        cur_s = -2i32;
+
+unsafe fn dvi_swap() {
+    if dvi_ptr > TEX_INFINITY - dvi_offset {
+        cur_s = -2;
         fatal_error(b"dvi length exceeds 0x7FFFFFFF\x00" as *const u8 as *const i8);
     }
-    if dvi_limit == 16384i32 {
-        write_to_dvi(0i32, 8192i32 - 1i32);
-        dvi_limit = 8192i32;
-        dvi_offset = dvi_offset + 16384i32;
-        dvi_ptr = 0i32
+    if dvi_limit == DVI_BUF_SIZE {
+        write_to_dvi(0, HALF_BUF - 1);
+        dvi_limit = HALF_BUF;
+        dvi_offset = dvi_offset + DVI_BUF_SIZE;
+        dvi_ptr = 0;
     } else {
-        write_to_dvi(8192i32, 16384i32 - 1i32);
-        dvi_limit = 16384i32
+        write_to_dvi(HALF_BUF, DVI_BUF_SIZE - 1);
+        dvi_limit = DVI_BUF_SIZE;
     }
-    dvi_gone = dvi_gone + 8192i32;
+    dvi_gone = dvi_gone + HALF_BUF;
 }
-unsafe extern "C" fn dvi_four(mut x: i32) {
-    if x >= 0i32 {
-        dvi_out((x / 0x1000000i32) as u8);
+
+unsafe fn dvi_four(mut x: i32) {
+    if x >= 0 {
+        dvi_out((x / 0x1000000) as u8);
     } else {
-        x = x + 0x40000000i32;
-        x = x + 0x40000000i32;
-        dvi_out((x / 0x1000000i32 + 128i32) as u8);
+        x = x + 0x40000000;
+        x = x + 0x40000000;
+        dvi_out((x / 0x1000000 + 128) as u8);
     }
-    x = x % 0x1000000i32;
-    dvi_out((x / 0x10000i32) as u8);
-    x = x % 0x10000i32;
-    dvi_out((x / 0x100i32) as u8);
-    dvi_out((x % 0x100i32) as u8);
+
+    x = x % 0x1000000;
+    dvi_out((x / 0x10000) as u8);
+
+    x = x % 0x10000;
+    dvi_out((x / 0x100) as u8);
+    dvi_out((x % 0x100) as u8);
 }
-unsafe extern "C" fn dvi_two(mut s: UTF16_code) {
-    dvi_out((s as i32 / 0x100i32) as u8);
-    dvi_out((s as i32 % 0x100i32) as u8);
+
+unsafe fn dvi_two(s: UTF16_code) {
+    dvi_out((s as i32 / 0x100) as u8);
+    dvi_out((s as i32 % 0x100) as u8);
 }
-unsafe extern "C" fn dvi_pop(mut l: i32) {
-    if l == dvi_offset + dvi_ptr && dvi_ptr > 0i32 {
+
+unsafe fn dvi_pop(l: i32) {
+    if l == dvi_offset + dvi_ptr && dvi_ptr > 0 {
         dvi_ptr -= 1
     } else {
-        dvi_out(142i32 as u8);
+        dvi_out(POP as u8);
     };
 }
