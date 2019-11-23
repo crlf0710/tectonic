@@ -629,96 +629,47 @@ pub unsafe extern "C" fn u_close(mut f: *mut UFILE) {
 }
 #[no_mangle]
 pub unsafe extern "C" fn get_uni_c(mut f: *mut UFILE) -> i32 {
-    let mut current_block: u64;
     let mut rval: i32 = 0;
     let mut c: i32 = 0;
-    if (*f).savedChar != -1i32 as i64 {
+    if (*f).savedChar != -1 {
         rval = (*f).savedChar as i32;
-        (*f).savedChar = -1i32 as i64;
+        (*f).savedChar = -1;
         return rval;
     }
     let handle = (*f).handle.as_mut().unwrap();
-    match (*f).encodingMode as i32 {
+    match (*f).encodingMode {
         1 => {
             rval = ttstub_input_getc(handle);
             c = rval;
-            if rval != -1i32 {
+            if rval != -1 {
                 let mut extraBytes: u16 = bytesFromUTF8[rval as usize] as u16;
-                match extraBytes as i32 {
-                    3 => {
-                        /* note: code falls through cases! */
-                        c = ttstub_input_getc(handle);
-                        if c < 0x80i32 || c >= 0xc0i32 {
-                            current_block = 4870039662467851697;
-                        } else {
-                            rval <<= 6i32;
+                match extraBytes {
+                    0..=3 => {
+                        for _ in 0..extraBytes {
+                            c = ttstub_input_getc(handle);
+                            if c < 0x80 || c >= 0xC0 {
+                                if c != -1 {
+                                    ttstub_input_ungetc(handle, c);
+                                }
+                                bad_utf8_warning();
+                                return 0xFFFD; /* return without adjusting by offsetsFromUTF8 */
+                            } 
+                            rval <<= 6;
                             rval += c;
-                            current_block = 11439173586221378108;
                         }
-                    }
-                    2 => {
-                        current_block = 11439173586221378108;
-                    }
-                    1 => {
-                        current_block = 223857376187897572;
                     }
                     5 | 4 => {
-                        current_block = 8891683451182524030;
-                    }
-                    0 | _ => {
-                        current_block = 15925075030174552612;
-                    }
-                }
-                match current_block {
-                    11439173586221378108 => {
-                        c = ttstub_input_getc(handle);
-                        if c < 0x80i32 || c >= 0xc0i32 {
-                            current_block = 4870039662467851697;
-                        } else {
-                            rval <<= 6i32;
-                            rval += c;
-                            current_block = 223857376187897572;
-                        }
-                    }
-                    _ => {}
-                }
-                match current_block {
-                    223857376187897572 => {
-                        c = ttstub_input_getc(handle);
-                        if c < 0x80i32 || c >= 0xc0i32 {
-                            current_block = 4870039662467851697;
-                        } else {
-                            rval <<= 6i32;
-                            rval += c;
-                            current_block = 15925075030174552612;
-                        }
-                    }
-                    _ => {}
-                }
-                match current_block {
-                    15925075030174552612 => {
-                        rval = (rval as u32).wrapping_sub(offsetsFromUTF8[extraBytes as usize])
-                            as i32 as i32;
-                        if rval < 0i32 || rval > 0x10ffffi32 {
-                            bad_utf8_warning();
-                            return 0xfffdi32;
-                        }
-                        current_block = 317151059986244064;
-                    }
-                    4870039662467851697 => {
-                        if c != -1i32 {
-                            ttstub_input_ungetc(handle, c);
-                        }
-                        current_block = 8891683451182524030;
-                    }
-                    _ => {}
-                }
-                match current_block {
-                    317151059986244064 => {}
-                    _ => {
                         bad_utf8_warning();
-                        return 0xfffdi32;
+                        return 0xFFFD; /* return without adjusting by offsetsFromUTF8 */
                     }
+                    _ => {}
+                }
+
+                rval -= offsetsFromUTF8[extraBytes as usize] as i32;
+
+                if rval < 0 || rval > 0x10ffff {
+                    bad_utf8_warning();
+                    return 0xfffd;
                 }
             }
         }
@@ -789,84 +740,15 @@ pub unsafe extern "C" fn make_utf16_name() {
     t = name_of_file16;
     while s < (name_of_file as *mut u8).offset(name_length as isize) {
         let mut extraBytes: u16 = 0;
-        let fresh7 = s;
+        rval = *s as u32;
         s = s.offset(1);
-        rval = *fresh7 as u32;
         extraBytes = bytesFromUTF8[rval as usize] as u16;
-        let mut current_block_23: u64;
-        match extraBytes as i32 {
-            5 => {
-                /* note: code falls through cases! */
-                rval <<= 6i32;
-                if *s != 0 {
-                    let fresh8 = s;
-                    s = s.offset(1);
-                    rval = (rval as u32).wrapping_add(*fresh8 as u32) as u32
-                }
-                current_block_23 = 1933956893526356233;
+        for _ in 0..extraBytes {
+            rval <<= 6;
+            if *s != 0 {
+                rval = (rval as u32).wrapping_add(*s as u32);
+                s = s.offset(1);
             }
-            4 => {
-                current_block_23 = 1933956893526356233;
-            }
-            3 => {
-                current_block_23 = 15901505722045918842;
-            }
-            2 => {
-                current_block_23 = 5484884370842436748;
-            }
-            1 => {
-                current_block_23 = 1843389027537967668;
-            }
-            0 | _ => {
-                current_block_23 = 14648156034262866959;
-            }
-        }
-        match current_block_23 {
-            1933956893526356233 => {
-                rval <<= 6i32;
-                if *s != 0 {
-                    let fresh9 = s;
-                    s = s.offset(1);
-                    rval = (rval as u32).wrapping_add(*fresh9 as u32) as u32
-                }
-                current_block_23 = 15901505722045918842;
-            }
-            _ => {}
-        }
-        match current_block_23 {
-            15901505722045918842 => {
-                rval <<= 6i32;
-                if *s != 0 {
-                    let fresh10 = s;
-                    s = s.offset(1);
-                    rval = (rval as u32).wrapping_add(*fresh10 as u32) as u32
-                }
-                current_block_23 = 5484884370842436748;
-            }
-            _ => {}
-        }
-        match current_block_23 {
-            5484884370842436748 => {
-                rval <<= 6i32;
-                if *s != 0 {
-                    let fresh11 = s;
-                    s = s.offset(1);
-                    rval = (rval as u32).wrapping_add(*fresh11 as u32) as u32
-                }
-                current_block_23 = 1843389027537967668;
-            }
-            _ => {}
-        }
-        match current_block_23 {
-            1843389027537967668 => {
-                rval <<= 6i32;
-                if *s != 0 {
-                    let fresh12 = s;
-                    s = s.offset(1);
-                    rval = (rval as u32).wrapping_add(*fresh12 as u32) as u32
-                }
-            }
-            _ => {}
         }
         rval = (rval as u32).wrapping_sub(offsetsFromUTF8[extraBytes as usize]) as u32;
         if rval > 0xffff_u32 {
