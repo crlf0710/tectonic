@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::core_memory::xmalloc;
+use crate::core_memory::xmalloc_array;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow};
 use crate::xetex_ext::{
@@ -72,7 +72,7 @@ static mut cur_s: i32 = 0;
 #[no_mangle]
 pub unsafe extern "C" fn initialize_shipout_variables() {
     output_file_name = 0;
-    dvi_buf = xmalloc(DVI_BUF_SIZE as u64 + 1) as *mut _;
+    dvi_buf = xmalloc_array(DVI_BUF_SIZE as usize + 1);
     dvi_limit = DVI_BUF_SIZE;
     dvi_ptr = 0;
     dvi_offset = 0;

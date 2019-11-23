@@ -10,7 +10,7 @@
 
 use std::io::Write;
 
-use crate::core_memory::{xmalloc, xrealloc};
+use crate::core_memory::{xmalloc, xmalloc_array, xrealloc};
 use crate::{
     ttstub_input_close, ttstub_input_getc, ttstub_input_open, ttstub_output_close,
     ttstub_output_open, ttstub_output_open_stdout, ttstub_output_putc,
@@ -1044,12 +1044,10 @@ unsafe fn case_conversion_confusion() {
 unsafe fn start_name(mut file_name: str_number) {
     let mut p_ptr: pool_pointer = 0;
     free(name_of_file as *mut libc::c_void);
-    name_of_file = xmalloc(
-        ((*str_start.offset((file_name + 1i32) as isize) - *str_start.offset(file_name as isize)
-            + 1i32
-            + 1i32) as u64)
-            .wrapping_mul(::std::mem::size_of::<u8>() as u64),
-    ) as *mut u8;
+    name_of_file = xmalloc_array(
+        (*str_start.offset(file_name as isize + 1) - *str_start.offset(file_name as isize) + 1)
+            as usize,
+    );
     name_ptr = 0i32;
     p_ptr = *str_start.offset(file_name as isize);
     while p_ptr < *str_start.offset((file_name + 1i32) as isize) {
@@ -5214,12 +5212,7 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
     };
 }
 unsafe fn get_the_top_level_aux_file_name(mut aux_file_name: *const i8) -> i32 {
-    name_of_file = xmalloc(
-        strlen(aux_file_name)
-            .wrapping_add(1)
-            .wrapping_add(1)
-            .wrapping_mul(::std::mem::size_of::<u8>()) as _,
-    ) as *mut u8;
+    name_of_file = xmalloc_array(strlen(aux_file_name) + 1);
     strcpy(name_of_file as *mut i8, aux_file_name);
     aux_name_length = strlen(name_of_file as *mut i8) as i32;
     aux_name_length -= 4i32;

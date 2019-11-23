@@ -149,6 +149,15 @@ mod core_memory {
         libc::free(ptr);
         std::ptr::null_mut()
     }
+
+    #[inline]
+    pub(crate) unsafe fn xmalloc_array<T>(size: usize) -> *mut T {
+        xmalloc(((size + 1) * std::mem::size_of::<T>()) as _) as *mut T
+    }
+    #[inline]
+    pub(crate) unsafe fn xcalloc_array<T>(size: usize) -> *mut T {
+        xcalloc((size + 1) as _, std::mem::size_of::<T>() as _) as *mut T
+    }
 }
 
 mod bibtex;
