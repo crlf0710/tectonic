@@ -1600,7 +1600,7 @@ pub unsafe fn store_justified_native_glyphs(mut pNode: *mut libc::c_void) {
         TextLayoutEngine::XeTeX(eng) => {
             /* save desired width */
             let mut savedWidth: i32 = (*node.offset(1)).b32.s1;
-            measure_native_node(node as *mut libc::c_void, 0i32);
+            measure_native_node_inner(node as *mut libc::c_void, eng, 0i32);
             if (*node.offset(1)).b32.s1 != savedWidth {
                 /* see how much adjustment is needed overall */
                 let mut justAmount: f64 = Fix2D(savedWidth - (*node.offset(1)).b32.s1);
@@ -1650,12 +1650,17 @@ pub unsafe fn store_justified_native_glyphs(mut pNode: *mut libc::c_void) {
 
 pub unsafe fn measure_native_node(mut pNode: *mut libc::c_void, mut use_glyph_metrics: i32) {
     let mut node: *mut memory_word = pNode as *mut memory_word;
+    let f = (*node.offset(4)).b16.s2 as usize;
+    let mut eng = get_text_layout_engine_mut(f).expect("bad native font flag in `measure_native_node`");
+    measure_native_node_inner(pNode, &mut *eng, use_glyph_metrics);
+}
+
+pub unsafe fn measure_native_node_inner(mut pNode: *mut libc::c_void, eng: &mut impl TextLayout, use_glyph_metrics: i32) {
+    let mut node: *mut memory_word = pNode as *mut memory_word;
     let mut txtLen: i32 = (*node.offset(4)).b16.s1 as i32;
     let mut txtPtr: *mut u16 = node.offset(6) as *mut u16;
     let mut f: u32 = (*node.offset(4)).b16.s2 as u32;
 
-    let mut eng =
-        get_text_layout_engine_mut(f as usize).expect("bad native font flag in `measure_native_node`");
     let request = LayoutRequest::from_node(node, false);
     let layout = eng.layout_text(request);
     layout.write_node(node);
@@ -1705,6 +1710,7 @@ pub unsafe fn measure_native_node(mut pNode: *mut libc::c_void, mut use_glyph_me
         (*node.offset(2)).b32.s1 = -D2Fix(yMin as f64)
     };
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn real_get_native_italic_correction(mut pNode: *mut libc::c_void) -> Fixed {
     let mut node: *mut memory_word = pNode as *mut memory_word;

@@ -8,7 +8,7 @@
     unused_mut
 )]
 
-use crate::xetex_ini::{current_font_num, get_text_layout_engine, get_text_layout_engine_mut};
+use crate::xetex_ini::{current_font_num, get_text_layout_engine};
 
 use crate::text_layout_engine::{TextLayout, TextLayoutEngine};
 
@@ -25852,7 +25852,9 @@ pub unsafe extern "C" fn main_control() {
             ))
             .b32
             .s1;
-            if let Some(_eng) = get_text_layout_engine(font_num as usize) {
+            let engine = get_text_layout_engine(font_num as usize);
+            if let Some(_) = engine {
+                drop(engine);
                 if cur_list.mode as i32 > 0i32 {
                     if (*eqtb.offset(
                         (1i32
