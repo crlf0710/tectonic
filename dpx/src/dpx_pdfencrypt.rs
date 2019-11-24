@@ -35,7 +35,7 @@ use super::dpx_mem::new;
 use super::dpx_pdfdoc::pdf_doc_get_dictionary;
 use super::dpx_pdffont::get_unique_time_if_given;
 use super::dpx_unicode::{UC_UTF8_decode_char, UC_is_valid};
-use crate::dpx_pdfobj::{pdf_dict, pdf_get_version, pdf_new_string, pdf_obj};
+use crate::dpx_pdfobj::{pdf_dict, pdf_get_version, pdf_obj, pdf_string, PushObj};
 use crate::warn;
 use chrono::prelude::*;
 use libc::{free, memcpy, memset, srand, strcpy, strlen};
@@ -769,38 +769,20 @@ pub unsafe fn pdf_encrypt_obj() -> pdf_dict {
         doc_encrypt.set("StrF", "StdCF");
     }
     doc_encrypt.set("R", p.R as f64);
-    if p.V < 5i32 {
-        doc_encrypt.set(
-            "O",
-            pdf_new_string(p.O.as_mut_ptr() as *const libc::c_void, 32i32 as size_t),
-        );
-        doc_encrypt.set(
-            "U",
-            pdf_new_string(p.U.as_mut_ptr() as *const libc::c_void, 32i32 as size_t),
-        );
-    } else if p.V == 5i32 {
-        doc_encrypt.set(
-            "O",
-            pdf_new_string(p.O.as_mut_ptr() as *const libc::c_void, 48i32 as size_t),
-        );
-        doc_encrypt.set(
-            "U",
-            pdf_new_string(p.U.as_mut_ptr() as *const libc::c_void, 48i32 as size_t),
-        );
+    if p.V < 5 {
+        doc_encrypt.set("O", pdf_string::new(&p.O[..32]));
+        doc_encrypt.set("U", pdf_string::new(&p.U[..32]));
+    } else if p.V == 5 {
+        doc_encrypt.set("O", pdf_string::new(p.O.as_ref()));
+        doc_encrypt.set("U", pdf_string::new(p.U.as_ref()));
     }
     doc_encrypt.set("P", p.P as f64);
-    if p.V == 5i32 {
+    if p.V == 5 {
         let mut perms: [u8; 16] = [0; 16];
         let mut cipher: *mut u8 = ptr::null_mut();
         let mut cipher_len: size_t = 0i32 as size_t;
-        doc_encrypt.set(
-            "OE",
-            pdf_new_string(p.OE.as_mut_ptr() as *const libc::c_void, 32i32 as size_t),
-        );
-        doc_encrypt.set(
-            "UE",
-            pdf_new_string(p.UE.as_mut_ptr() as *const libc::c_void, 32i32 as size_t),
-        );
+        doc_encrypt.set("OE", pdf_string::new(p.OE.as_ref()));
+        doc_encrypt.set("UE", pdf_string::new(p.UE.as_ref()));
         perms[0] = (p.P & 0xffi32) as u8;
         perms[1] = (p.P >> 8i32 & 0xffi32) as u8;
         perms[2] = (p.P >> 16i32 & 0xffi32) as u8;
@@ -809,14 +791,14 @@ pub unsafe fn pdf_encrypt_obj() -> pdf_dict {
         perms[5] = 0xff_u8;
         perms[6] = 0xff_u8;
         perms[7] = 0xff_u8;
-        perms[8] = (if p.setting.encrypt_metadata != 0 {
-            'T' as i32
+        perms[8] = if p.setting.encrypt_metadata != 0 {
+            b'T'
         } else {
-            'F' as i32
-        }) as u8;
-        perms[9] = 'a' as i32 as u8;
-        perms[10] = 'd' as i32 as u8;
-        perms[11] = 'b' as i32 as u8;
+            b'F'
+        };
+        perms[9] = b'a';
+        perms[10] = b'd';
+        perms[11] = b'b';
         perms[12] = 0_u8;
         perms[13] = 0_u8;
         perms[14] = 0_u8;
@@ -831,7 +813,7 @@ pub unsafe fn pdf_encrypt_obj() -> pdf_dict {
         );
         doc_encrypt.set(
             "Perms",
-            pdf_new_string(cipher as *const libc::c_void, cipher_len),
+            pdf_string::new_from_ptr(cipher as *const libc::c_void, cipher_len),
         );
         free(cipher as *mut libc::c_void);
     }
@@ -853,8 +835,8 @@ pub unsafe fn pdf_encrypt_obj() -> pdf_dict {
 pub unsafe fn pdf_enc_id_array() -> Vec<*mut pdf_obj> {
     let p = &mut sec_data;
     let mut id = vec![];
-    id.push(pdf_new_string(p.ID.as_mut_ptr() as *const libc::c_void, 16));
-    id.push(pdf_new_string(p.ID.as_mut_ptr() as *const libc::c_void, 16));
+    id.push_obj(pdf_string::new(p.ID.as_ref()));
+    id.push_obj(pdf_string::new(p.ID.as_ref()));
     id
 }
 

@@ -59,8 +59,8 @@ use super::dpx_pdfparse::dump_slice;
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record};
 use super::dpx_tfm::{tfm_exists, tfm_get_width, tfm_open, tfm_string_width};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_dict, pdf_new_name, pdf_obj, pdf_release_obj, pdf_set_number,
-    pdf_string_length, pdf_string_value, IntoObj, PushObj,
+    pdf_dict, pdf_name, pdf_obj, pdf_release_obj, pdf_set_number, pdf_string_length,
+    pdf_string_value, IntoObj, PushObj,
 };
 use crate::dpx_pdfparse::{
     parse_number, pdfparse_skip_line, skip_white, ParseIdent, ParsePdfObj, SkipWhite,
@@ -523,7 +523,7 @@ unsafe fn do_findfont() -> i32 {
             if (*font_name).is_string() {
                 font_dict.set(
                     "FontName",
-                    pdf_copy_name(pdf_string_value(&*font_name) as *const i8),
+                    pdf_name::new((*font_name).as_string().to_bytes_without_nul()),
                 );
                 pdf_release_obj(font_name);
             } else {
@@ -599,7 +599,7 @@ unsafe fn do_currentfont() -> i32 {
     } else {
         let mut font_dict = pdf_dict::new();
         font_dict.set("Type", "Font");
-        font_dict.set("FontName", pdf_new_name((*font).font_name.to_bytes()));
+        font_dict.set("FontName", pdf_name::new((*font).font_name.to_bytes()));
         font_dict.set("FontScale", (*font).pt_size);
         if STACK.len() < 1024 {
             STACK.push_obj(font_dict)
@@ -767,7 +767,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
     let opcode = get_opcode(token);
     if opcode.is_err() {
         if is_fontname(token) {
-            if STACK.push_checked(pdf_new_name(token)).is_err() {
+            if STACK.push_checked(pdf_name::new(token)).is_err() {
                 return 1;
             }
         } else {

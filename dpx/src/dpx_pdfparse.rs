@@ -34,8 +34,8 @@ use std::ptr;
 use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_deref_obj, pdf_dict, pdf_file, pdf_new_indirect, pdf_new_name, pdf_new_null,
-    pdf_new_string, pdf_obj, pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_deref_obj, pdf_dict, pdf_file, pdf_indirect, pdf_name, pdf_new_null, pdf_obj,
+    pdf_release_obj, pdf_stream, pdf_string, IntoObj, STREAM_COMPRESS,
 };
 use crate::specials::spc_lookup_reference;
 use libc::memcpy;
@@ -292,7 +292,7 @@ const PDF_NAME_LEN_MAX: usize = 128;
 const PDF_STRING_LEN_MAX: usize = 65535;
 
 const STRING_BUFFER_SIZE: usize = PDF_STRING_LEN_MAX + 1;
-static mut sbuf: [i8; PDF_STRING_LEN_MAX + 1] = [0; PDF_STRING_LEN_MAX + 1];
+static mut sbuf: [u8; PDF_STRING_LEN_MAX + 1] = [0; PDF_STRING_LEN_MAX + 1];
 
 /* !PDF_PARSE_STRICT */
 unsafe fn try_pdf_reference(mut p: &[u8], pf: *mut pdf_file) -> Option<(*mut pdf_obj, &[u8])> {
@@ -329,7 +329,7 @@ unsafe fn try_pdf_reference(mut p: &[u8], pf: *mut pdf_file) -> Option<(*mut pdf
     if !(p.is_empty() || is_space(&(p[0])) || is_delim(&(p[0]))) {
         return None;
     }
-    Some((pdf_new_indirect(pf, id, gen), p))
+    Some((pdf_indirect::new(pf, id, gen).into_obj(), p))
 }
 
 /* Please remove this */
@@ -680,11 +680,11 @@ impl ParsePdfObj for &[u8] {
                         return None;
                     }
                     unsafe {
-                        sbuf[len] = p[0] as i8;
+                        sbuf[len] = p[0] as u8;
                     }
                     len += 1;
                     unsafe {
-                        sbuf[len] = p[1] as i8;
+                        sbuf[len] = p[1] as u8;
                     }
                     len += 1;
                     p = &p[2..];
@@ -701,7 +701,7 @@ impl ParsePdfObj for &[u8] {
                     ch = ps_getescc(&mut p);
                     if ch >= 0i32 {
                         unsafe {
-                            sbuf[len] = (ch & 0xff) as i8;
+                            sbuf[len] = (ch & 0xff) as u8;
                         }
                         len += 1;
                     }
@@ -712,7 +712,7 @@ impl ParsePdfObj for &[u8] {
                         p = &p[1..];
                     }
                     unsafe {
-                        sbuf[len] = '\n' as i8;
+                        sbuf[len] = b'\n';
                     }
                     len += 1;
                 }
@@ -723,7 +723,7 @@ impl ParsePdfObj for &[u8] {
                         op_count -= 1
                     }
                     unsafe {
-                        sbuf[len] = ch as i8;
+                        sbuf[len] = ch as u8;
                     }
                     len += 1;
                     p = &p[1..]
@@ -735,12 +735,7 @@ impl ParsePdfObj for &[u8] {
             return None;
         }
         *self = &p[1..];
-        unsafe {
-            Some(pdf_new_string(
-                sbuf.as_mut_ptr() as *const libc::c_void,
-                len as size_t,
-            ))
-        }
+        unsafe { Some(pdf_string::new(&sbuf[..len]).into_obj()) }
     }
 
     /*
@@ -771,7 +766,7 @@ impl ParsePdfObj for &[u8] {
                 p = &p[1..]
             }
             unsafe {
-                sbuf[len] = (ch & 0xffi32) as i8;
+                sbuf[len] = (ch & 0xff) as u8;
             }
             len += 1;
         }
@@ -785,12 +780,7 @@ impl ParsePdfObj for &[u8] {
             }
         }
         *self = &p[1..];
-        unsafe {
-            Some(pdf_new_string(
-                sbuf.as_mut_ptr() as *const libc::c_void,
-                len as size_t,
-            ))
-        }
+        unsafe { Some(pdf_string::new(&sbuf[..len]).into_obj()) }
     }
     fn parse_pdf_string(&mut self) -> Option<*mut pdf_obj> {
         self.skip_white();
@@ -891,7 +881,7 @@ impl ParsePdfObj for &[u8] {
             warn!("No valid name object found.");
             return None;
         }
-        unsafe { Some(pdf_new_name(name)) }
+        unsafe { Some(pdf_name::new(name).into_obj()) }
     }
     fn parse_pdf_number(&mut self) -> Option<*mut pdf_obj> {
         let mut v = 0_f64;

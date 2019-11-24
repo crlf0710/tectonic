@@ -77,7 +77,7 @@ use super::dpx_tt_table::{
 };
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_dict, pdf_new_string, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
+    pdf_copy_name, pdf_dict, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string,
     IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::dpx_truetype::sfnt_table_info;
@@ -1167,14 +1167,14 @@ pub unsafe fn CIDFont_type0_open(
     let mut csi_dict = pdf_dict::new();
     csi_dict.set(
         "Registry",
-        pdf_new_string(
+        pdf_string::new_from_ptr(
             (*csi).registry as *const libc::c_void,
             strlen((*csi).registry) as _,
         ),
     );
     csi_dict.set(
         "Ordering",
-        pdf_new_string(
+        pdf_string::new_from_ptr(
             (*csi).ordering as *const libc::c_void,
             strlen((*csi).ordering) as _,
         ),
