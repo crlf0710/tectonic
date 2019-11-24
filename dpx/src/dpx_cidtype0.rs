@@ -1472,17 +1472,12 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
     if cmap_id >= 0i32 {
         return cmap_id;
     }
-    let cmap = CMap_new();
-    CMap_set_name(cmap, &cmap_name);
-    CMap_set_type(cmap, 1i32);
-    CMap_set_wmode(cmap, wmode);
-    CMap_add_codespacerange(
-        cmap,
-        range_min.as_mut_ptr(),
-        range_max.as_mut_ptr(),
-        4i32 as size_t,
-    );
-    CMap_set_CIDSysInfo(cmap, &mut CSI_IDENTITY);
+    let mut cmap = CMap_new();
+    CMap_set_name(&mut cmap, &cmap_name);
+    CMap_set_type(&mut cmap, 1i32);
+    CMap_set_wmode(&mut cmap, wmode);
+    CMap_add_codespacerange(&mut cmap, range_min.as_mut_ptr(), range_max.as_mut_ptr(), 4);
+    CMap_set_CIDSysInfo(&mut cmap, &mut CSI_IDENTITY);
     for gid in 1..cffont.num_glyphs as u16 {
         let sid = cff_charsets_lookup_inverse(cffont, gid);
         let glyph = cff_get_string(cffont, sid);
@@ -1490,7 +1485,7 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
             if agl_name_is_unicode(name.to_bytes()) {
                 let ucv = agl_name_convert_unicode(name.as_ptr());
                 let mut srcCode = ucv.to_be_bytes();
-                CMap_add_cidchar(cmap, srcCode.as_mut_ptr(), 4i32 as size_t, gid);
+                CMap_add_cidchar(&mut cmap, srcCode.as_mut_ptr(), 4, gid);
             } else {
                 let mut agln = agl_lookup_list(name.as_ptr());
                 if agln.is_null() {
@@ -1508,7 +1503,7 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
                     } else if (*agln).n_components == 1i32 {
                         let ucv = (*agln).unicodes[0];
                         let mut srcCode = ucv.to_be_bytes();
-                        CMap_add_cidchar(cmap, srcCode.as_mut_ptr(), 4i32 as size_t, gid);
+                        CMap_add_cidchar(&mut cmap, srcCode.as_mut_ptr(), 4, gid);
                     }
                     agln = (*agln).alternate
                 }
@@ -1518,7 +1513,7 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
             free(glyph as *mut libc::c_void);
         }
     }
-    CMap_cache_add(cmap)
+    CMap_cache_add(Box::new(cmap))
 }
 
 pub(crate) unsafe fn t1_load_UnicodeCMap(font_name: &str, otl_tags: &str, wmode: i32) -> i32 {
@@ -1559,17 +1554,12 @@ unsafe fn create_ToUnicode_stream(
     if font_name.is_empty() || used_glyphs.is_empty() {
         return None;
     }
-    let cmap = CMap_new();
-    CMap_set_name(cmap, &format!("{}-UTF16", font_name));
-    CMap_set_wmode(cmap, 0i32);
-    CMap_set_type(cmap, 2i32);
-    CMap_set_CIDSysInfo(cmap, &mut CSI_UNICODE);
-    CMap_add_codespacerange(
-        cmap,
-        range_min.as_mut_ptr(),
-        range_max.as_mut_ptr(),
-        2i32 as size_t,
-    );
+    let mut cmap = CMap_new();
+    CMap_set_name(&mut cmap, &format!("{}-UTF16", font_name));
+    CMap_set_wmode(&mut cmap, 0i32);
+    CMap_set_type(&mut cmap, 2i32);
+    CMap_set_CIDSysInfo(&mut cmap, &mut CSI_UNICODE);
+    CMap_add_codespacerange(&mut cmap, range_min.as_mut_ptr(), range_max.as_mut_ptr(), 2);
     let mut total_fail_count = 0i32;
     let mut glyph_count = total_fail_count;
     //p = wbuf.as_mut_ptr();
@@ -1589,9 +1579,9 @@ unsafe fn create_ToUnicode_stream(
                         total_fail_count += fail_count
                     } else {
                         CMap_add_bfchar(
-                            cmap,
+                            &mut cmap,
                             wbuf.as_mut_ptr(),
-                            2i32 as size_t,
+                            2,
                             wbuf.as_mut_ptr().offset(2),
                             len as size_t,
                         );
@@ -1609,9 +1599,9 @@ unsafe fn create_ToUnicode_stream(
         );
         warn!("ToUnicode CMap \"{}-UTF16\" removed.", font_name);
     } else {
-        stream = CMap_create_stream(cmap)
+        stream = CMap_create_stream(&mut cmap)
     }
-    CMap_release(cmap);
+    CMap_release(&mut cmap);
     stream
 }
 /* Force bold at small text sizes */

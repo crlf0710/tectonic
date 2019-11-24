@@ -268,7 +268,7 @@ pub(crate) unsafe fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mut pd
     }
     pdf_link_obj((*font).indirect)
 }
-static mut __cache: Vec<Type0Font> = Vec::new();
+static mut __cache: Vec<Box<Type0Font>> = Vec::new();
 
 pub(crate) unsafe fn Type0Font_cache_init() {
     __cache.clear();
@@ -278,7 +278,7 @@ pub(crate) unsafe fn Type0Font_cache_get(id: i32) -> *mut Type0Font {
     if id < 0i32 || id >= __cache.len() as i32 {
         panic!("{}: Invalid ID {}", "Type0", id,);
     }
-    &mut __cache[id as usize] as *mut Type0Font
+    &mut *__cache[id as usize] as *mut Type0Font
 }
 
 pub unsafe fn Type0Font_cache_find(
@@ -325,8 +325,8 @@ pub unsafe fn Type0Font_cache_find(
      */
 
     let font_id = __cache.len() as i32;
-    __cache.push(Type0Font_init_font_struct());
-    let font = &mut __cache[font_id as usize] as *mut Type0Font;
+    __cache.push(Box::new(Type0Font_init_font_struct()));
+    let font = &mut *__cache[font_id as usize] as *mut Type0Font;
     /*
      * All CJK double-byte characters are mapped so that resulting
      * character codes coincide with CIDs of given character collection.
@@ -450,12 +450,12 @@ pub(crate) unsafe fn Type0Font_cache_close() {
      * ToUnicode support want descendant CIDFont's CSI and fontname.
      */
     for font in &mut __cache {
-        Type0Font_dofont(font);
+        Type0Font_dofont(&mut **font);
     }
     CIDFont_cache_close();
     for font in &mut __cache {
-        Type0Font_flush(font);
-        Type0Font_clean(font);
+        Type0Font_flush(&mut **font);
+        Type0Font_clean(&mut **font);
     }
     __cache.clear();
 }

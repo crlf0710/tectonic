@@ -1101,13 +1101,13 @@ unsafe fn create_ToUnicode_cmap(
     } else {
         false
     };
-    let cmap = CMap_new();
-    CMap_set_name(cmap, cmap_name);
-    CMap_set_wmode(cmap, 0i32);
-    CMap_set_type(cmap, 2i32);
-    CMap_set_CIDSysInfo(cmap, &mut CSI_UNICODE);
+    let mut cmap = CMap_new();
+    CMap_set_name(&mut cmap, cmap_name);
+    CMap_set_wmode(&mut cmap, 0i32);
+    CMap_set_type(&mut cmap, 2i32);
+    CMap_set_CIDSysInfo(&mut cmap, &mut CSI_UNICODE);
     CMap_add_codespacerange(
-        cmap,
+        &mut cmap,
         srange_min.as_mut_ptr(),
         srange_max.as_mut_ptr(),
         2i32 as size_t,
@@ -1133,7 +1133,7 @@ unsafe fn create_ToUnicode_cmap(
                                 UC_UTF16BE_encode_char(ch, &mut p, wbuf.as_mut_ptr().offset(1024))
                                     as i32;
                             CMap_add_bfchar(
-                                cmap,
+                                &mut cmap,
                                 wbuf.as_mut_ptr(),
                                 2i32 as size_t,
                                 wbuf.as_mut_ptr().offset(2),
@@ -1157,7 +1157,7 @@ unsafe fn create_ToUnicode_cmap(
         match (*ttcmap).format as i32 {
             4 => {
                 count = create_ToUnicode_cmap4(
-                    cmap,
+                    &mut cmap,
                     (*ttcmap).map as *mut cmap4,
                     used_chars_copy.as_mut_ptr(),
                     if is_cidfont {
@@ -1173,7 +1173,7 @@ unsafe fn create_ToUnicode_cmap(
             }
             12 => {
                 count = create_ToUnicode_cmap12(
-                    cmap,
+                    &mut cmap,
                     (*ttcmap).map as *mut cmap12,
                     used_chars_copy.as_mut_ptr(),
                     if is_cidfont {
@@ -1193,7 +1193,7 @@ unsafe fn create_ToUnicode_cmap(
          * it is only needed for non-CID fonts. */
         count = (count as i32
             + handle_subst_glyphs(
-                cmap,
+                &mut cmap,
                 cmap_add,
                 used_chars_copy.as_mut_ptr(),
                 sfont,
@@ -1211,9 +1211,9 @@ unsafe fn create_ToUnicode_cmap(
     let stream = if (count as i32) < 1i32 {
         None
     } else {
-        CMap_create_stream(cmap)
+        CMap_create_stream(&mut cmap)
     };
-    CMap_release(cmap);
+    CMap_release(&mut cmap);
     if let Some(cffont) = cffont {
         cff_close(cffont);
     }
@@ -1357,21 +1357,21 @@ unsafe fn load_base_CMap(
 ) -> i32 {
     let mut cmap_id = CMap_cache_find(cmap_name);
     if cmap_id < 0i32 {
-        let cmap = CMap_new();
-        CMap_set_name(cmap, cmap_name);
-        CMap_set_type(cmap, 1i32);
-        CMap_set_wmode(cmap, wmode);
+        let mut cmap = CMap_new();
+        CMap_set_name(&mut cmap, cmap_name);
+        CMap_set_type(&mut cmap, 1i32);
+        CMap_set_wmode(&mut cmap, wmode);
         CMap_add_codespacerange(
-            cmap,
+            &mut cmap,
             lrange_min.as_mut_ptr(),
             lrange_max.as_mut_ptr(),
             4i32 as size_t,
         );
         if !csi.is_null() {
             /* CID */
-            CMap_set_CIDSysInfo(cmap, csi);
+            CMap_set_CIDSysInfo(&mut cmap, csi);
         } else {
-            CMap_set_CIDSysInfo(cmap, &mut CSI_IDENTITY);
+            CMap_set_CIDSysInfo(&mut cmap, &mut CSI_IDENTITY);
         }
         if (*ttcmap).format as i32 == 12i32 {
             load_cmap12(
@@ -1379,7 +1379,7 @@ unsafe fn load_base_CMap(
                 GIDToCIDMap,
                 gsub_vert,
                 gsub_list,
-                cmap,
+                &mut cmap,
                 tounicode_add,
             );
         } else if (*ttcmap).format as i32 == 4i32 {
@@ -1388,11 +1388,11 @@ unsafe fn load_base_CMap(
                 GIDToCIDMap,
                 gsub_vert,
                 gsub_list,
-                cmap,
+                &mut cmap,
                 tounicode_add,
             );
         }
-        cmap_id = CMap_cache_add(cmap)
+        cmap_id = CMap_cache_add(Box::new(cmap))
     }
     cmap_id
 }
@@ -1489,25 +1489,25 @@ pub unsafe fn otf_load_Unicode_CMap(
         if tounicode_add_id >= 0i32 {
             tounicode_add = CMap_cache_get(tounicode_add_id)
         } else {
-            tounicode_add = CMap_new();
-            CMap_set_name(tounicode_add, &tounicode_add_name);
-            CMap_set_type(tounicode_add, 2i32);
-            CMap_set_wmode(tounicode_add, 0i32);
+            let mut cmap = CMap_new();
+            CMap_set_name(&mut cmap, &tounicode_add_name);
+            CMap_set_type(&mut cmap, 2i32);
+            CMap_set_wmode(&mut cmap, 0i32);
             CMap_add_codespacerange(
-                tounicode_add,
+                &mut cmap,
                 srange_min.as_mut_ptr(),
                 srange_max.as_mut_ptr(),
                 2i32 as size_t,
             );
-            CMap_set_CIDSysInfo(tounicode_add, &mut CSI_UNICODE);
+            CMap_set_CIDSysInfo(&mut cmap, &mut CSI_UNICODE);
             CMap_add_bfchar(
-                tounicode_add,
+                &mut cmap,
                 srange_min.as_mut_ptr(),
                 2i32 as size_t,
                 srange_max.as_mut_ptr(),
                 2i32 as size_t,
             );
-            CMap_cache_add(tounicode_add);
+            tounicode_add = CMap_cache_get(CMap_cache_add(Box::new(cmap)));
         }
     } else {
         cmap_name = base_name;

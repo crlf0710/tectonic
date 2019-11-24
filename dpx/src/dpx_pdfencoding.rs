@@ -545,17 +545,12 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
 ) -> Option<pdf_stream> {
     assert!(!enc_name.is_empty() && !enc_vec.is_null());
 
-    let cmap = CMap_new();
-    CMap_set_name(cmap, &format!("{}-UTF16", enc_name));
-    CMap_set_type(cmap, 2i32);
-    CMap_set_wmode(cmap, 0i32);
-    CMap_set_CIDSysInfo(cmap, &mut CSI_UNICODE);
-    CMap_add_codespacerange(
-        cmap,
-        range_min.as_mut_ptr(),
-        range_max.as_mut_ptr(),
-        1i32 as size_t,
-    );
+    let mut cmap = CMap_new();
+    CMap_set_name(&mut cmap, &format!("{}-UTF16", enc_name));
+    CMap_set_type(&mut cmap, 2i32);
+    CMap_set_wmode(&mut cmap, 0i32);
+    CMap_set_CIDSysInfo(&mut cmap, &mut CSI_UNICODE);
+    CMap_add_codespacerange(&mut cmap, range_min.as_mut_ptr(), range_max.as_mut_ptr(), 1);
     let mut all_predef = 1;
     for code in 0..=0xff {
         if !(!is_used.is_null() && *is_used.offset(code as isize) == 0) {
@@ -577,7 +572,7 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
                     );
                     if len >= 1i32 && fail_count == 0 {
                         CMap_add_bfchar(
-                            cmap,
+                            &mut cmap,
                             wbuf.as_mut_ptr(),
                             1i32 as size_t,
                             wbuf.as_mut_ptr().offset(1),
@@ -592,9 +587,9 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
     let stream = if all_predef != 0 {
         None
     } else {
-        CMap_create_stream(cmap)
+        CMap_create_stream(&mut cmap)
     };
-    CMap_release(cmap);
+    CMap_release(&mut cmap);
     stream
 }
 /* Creates Encoding resource and ToUnicode CMap
@@ -635,19 +630,19 @@ pub(crate) unsafe fn pdf_load_ToUnicode_stream(ident: &str) -> Option<pdf_stream
         return None;
     }
     let handle = handle.unwrap();
-    let cmap = CMap_new();
-    if CMap_parse(cmap, handle) < 0i32 {
+    let mut cmap = CMap_new();
+    if CMap_parse(&mut cmap, handle) < 0i32 {
         warn!("Reading CMap file \"{}\" failed.", ident)
     } else {
         if verbose != 0 {
             info!("(CMap:{})", ident);
         }
-        stream = CMap_create_stream(cmap);
+        stream = CMap_create_stream(&mut cmap);
         if stream.is_none() {
             warn!("Failed to creat ToUnicode CMap stream for \"{}\".", ident)
         }
     }
-    CMap_release(cmap);
+    CMap_release(&mut cmap);
     stream
 }
 static mut MacRomanEncoding: [*const i8; 256] = [
