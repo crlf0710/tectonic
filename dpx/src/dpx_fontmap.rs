@@ -192,7 +192,7 @@ unsafe fn fill_in_defaults(mut mrec: *mut fontmap_rec, tex_name: &str) {
                 || (*mrec).charmap.sfd_name.contains("UKS")
                 || (*mrec).charmap.sfd_name.contains("UJIS"))
         {
-            (*mrec).opt.charcoll = "UCS".to_owned(); /* we don't have quoted string */
+            (*mrec).opt.charcoll = "UCS".to_owned();
         }
     };
 }
@@ -202,7 +202,7 @@ unsafe fn tt_readline(buf: *mut i8, buf_len: i32, handle: &mut InputHandleWrappe
     if p.is_null() {
         return ptr::null_mut();
     }
-    let q = strchr(p, '%' as i32);
+    let q = strchr(p, '%' as i32); /* we don't have quoted string */
     if !q.is_null() {
         *q = '\u{0}' as i32 as i8
     }

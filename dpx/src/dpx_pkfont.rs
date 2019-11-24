@@ -28,7 +28,6 @@
 
 use euclid::point2;
 
-use crate::bridge::DisplayExt;
 use crate::warn;
 use std::ffi::{CStr, CString};
 use std::ptr;
@@ -133,7 +132,7 @@ pub unsafe fn pdf_font_open_pkfont(font: &mut pdf_font) -> i32 {
         warn!(
             "PK font is found for font \"{}\" but non built-in encoding \"{}\" is specified.",
             ident,
-            CStr::from_ptr(pdf_encoding_get_name(encoding_id)).display(),
+            pdf_encoding_get_name(encoding_id)
         );
         warn!(">> Assuming this is for glyph name assignment.");
     }

@@ -401,11 +401,7 @@ pub(crate) unsafe fn pdf_close_fonts() {
                 }
                 if __verbose > 1i32 {
                     if pdf_font_get_encoding(font) >= 0i32 {
-                        info!(
-                            "[{}]",
-                            CStr::from_ptr(pdf_encoding_get_name(pdf_font_get_encoding(font)))
-                                .display()
-                        );
+                        info!("[{}]", pdf_encoding_get_name(pdf_font_get_encoding(font)));
                     } else {
                         info!("[built-in]");
                     }
