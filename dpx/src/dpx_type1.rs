@@ -367,7 +367,7 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &cff_font) {
         flags |= 1i32 << 0i32
     }
     let fontname = &*(&*font).fontname;
-    if fontname.contains("Sans") {
+    if !fontname.contains("Sans") {
         flags |= 1i32 << 1i32
     }
     if fontname.contains("Caps") {

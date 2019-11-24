@@ -1826,7 +1826,7 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &cff_font) {
     {
         flags |= 1i32 << 0i32
     }
-    if (*font).fontname.contains("Sans") {
+    if !(*font).fontname.contains("Sans") {
         flags |= 1i32 << 1i32
     }
     flags |= 1i32 << 2i32;
