@@ -994,7 +994,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
     };
 }
 
-pub unsafe fn CIDFont_type2_open(
+pub(crate) unsafe fn CIDFont_type2_open(
     mut font: &mut CIDFont,
     name: &str,
     cmap_csi: *mut CIDSysInfo,

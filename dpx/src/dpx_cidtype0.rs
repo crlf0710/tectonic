@@ -919,7 +919,7 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
     CIDFont_type0_add_CIDSet(font, used_chars, last_cid);
 }
 
-pub unsafe fn CIDFont_type0_open(
+pub(crate) unsafe fn CIDFont_type0_open(
     mut font: &mut CIDFont,
     name: &str,
     cmap_csi: *mut CIDSysInfo,
@@ -1518,7 +1518,7 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
     CMap_cache_add(cmap)
 }
 
-pub unsafe fn t1_load_UnicodeCMap(font_name: &str, otl_tags: &str, wmode: i32) -> i32 {
+pub(crate) unsafe fn t1_load_UnicodeCMap(font_name: &str, otl_tags: &str, wmode: i32) -> i32 {
     let handle = dpx_open_type1_file(font_name);
     if handle.is_none() {
         return -1i32;
