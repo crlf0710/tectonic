@@ -46,7 +46,7 @@ use super::dpx_cidtype2::{
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
     pdf_copy_name, pdf_get_version, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_remove_dict, pdf_string_value,
+    pdf_string_value,
 };
 use libc::{free, memcpy, memset, strcat, strchr, strcmp, strcpy, strlen, strncmp, strtoul};
 
@@ -829,7 +829,7 @@ unsafe fn CIDFont_base_open(
         .get("Subtype")
         .filter(|&tmp| (*tmp).is_name())
         .unwrap();
-    let typ = (*tmp).as_name().to_bytes();
+    let typ = (*tmp).as_name();
     if typ == b"CIDFontType0" {
         (*font).subtype = 1i32
     } else if typ == b"CIDFontType2" {
@@ -839,10 +839,10 @@ unsafe fn CIDFont_base_open(
     }
     if cidoptflags & 1i32 << 1i32 != 0 {
         if (*fontdict).as_dict().has("W") {
-            pdf_remove_dict(&mut *fontdict, "W");
+            (*fontdict).as_dict_mut().remove("W");
         }
         if (*fontdict).as_dict().has("W2") {
-            pdf_remove_dict(&mut *fontdict, "W2");
+            (*fontdict).as_dict_mut().remove("W2");
         }
     }
     (*fontdict).as_dict_mut().set("Type", "Font");

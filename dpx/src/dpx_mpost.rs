@@ -59,8 +59,8 @@ use super::dpx_pdfparse::dump_slice;
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record};
 use super::dpx_tfm::{tfm_exists, tfm_get_width, tfm_open, tfm_string_width};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_name, pdf_obj, pdf_release_obj, pdf_set_number, pdf_string_length,
-    pdf_string_value, IntoObj, PushObj,
+    pdf_dict, pdf_name, pdf_obj, pdf_release_obj, pdf_set_number, pdf_string_value, IntoObj,
+    PushObj,
 };
 use crate::dpx_pdfparse::{
     parse_number, pdfparse_skip_line, skip_white, ParseIdent, ParsePdfObj, SkipWhite,
@@ -184,14 +184,14 @@ static mut font_stack: Vec<mp_font> = Vec::new();
 
 static mut currentfont: i32 = -1i32;
 static mut mp_cmode: i32 = 0i32;
-unsafe fn mp_setfont(font_name: &CStr, pt_size: f64) -> i32 {
+unsafe fn mp_setfont(font_name: &[u8], pt_size: f64) -> i32 {
     let mut subfont_id: i32 = -1i32;
     if let Some(font) = font_stack.last() {
-        if (font.font_name.as_c_str() == font_name) && (font.pt_size == pt_size) {
+        if (font.font_name.to_bytes() == font_name) && (font.pt_size == pt_size) {
             return 0;
         }
     }
-    let mrec = pdf_lookup_fontmap_record(font_name.to_bytes());
+    let mrec = pdf_lookup_fontmap_record(font_name);
     if !mrec.is_null()
         && !(*mrec).charmap.sfd_name.is_null()
         && !(*mrec).charmap.subfont_id.is_null()
@@ -199,16 +199,17 @@ unsafe fn mp_setfont(font_name: &CStr, pt_size: f64) -> i32 {
         subfont_id = sfd_load_record((*mrec).charmap.sfd_name, (*mrec).charmap.subfont_id)
     }
     /* See comments in dvi_locate_font() in dvi.c. */
+    let new_name = CString::new(font_name).unwrap();
     let name = if !mrec.is_null() && !(*mrec).map_name.is_null() {
         CStr::from_ptr((*mrec).map_name)
     } else {
-        font_name
+        new_name.as_c_str()
     };
     let font_id = pdf_dev_locate_font(name, (pt_size * dev_unit_dviunit()) as spt_t);
     let new_font = mp_font {
-        font_name: font_name.to_owned(),
+        font_name: new_name,
         font_id,
-        tfm_id: tfm_open(font_name.as_ptr(), 0),
+        tfm_id: tfm_open(font_name.as_ptr() as *const i8, 0),
         subfont_id,
         pt_size,
     };
@@ -494,7 +495,7 @@ unsafe fn is_fontdict(dict: &pdf_obj) -> bool {
     let tmp = dict
         .as_dict()
         .get("Type")
-        .filter(|&tmp| (*tmp).is_name() && (*tmp).as_name().to_bytes() == b"Font");
+        .filter(|&tmp| (*tmp).is_name() && (*tmp).as_name() == b"Font");
     if tmp.is_none() {
         return false;
     }
@@ -637,7 +638,7 @@ unsafe fn do_show() -> i32 {
         return 1i32;
     }
     let strptr = pdf_string_value(&*text_str) as *mut u8;
-    let length = pdf_string_length(&*text_str) as i32;
+    let length = (*text_str).as_string().len() as i32;
     if (*font).tfm_id < 0i32 {
         warn!(
             "mpost: TFM not found for \"{}\".",

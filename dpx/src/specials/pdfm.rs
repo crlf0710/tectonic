@@ -66,8 +66,8 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_obj_typeof, pdf_release_obj, pdf_remove_dict,
-    pdf_stream, pdf_string, pdf_string_value, IntoObj, PdfObjType, STREAM_COMPRESS,
+    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_obj_typeof, pdf_release_obj, pdf_stream,
+    pdf_string, pdf_string_value, IntoObj, PdfObjType, STREAM_COMPRESS,
 };
 use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
@@ -483,7 +483,7 @@ unsafe fn needreencode(kp: &pdf_name, vp: &pdf_string, cd: *mut tounicode) -> i3
     for i in 0..(*(*cd).taintkeys).as_array().len() {
         let tk = (*(*cd).taintkeys).as_array()[i];
         assert!((*tk).is_name());
-        if kp.to_bytes() == (*tk).as_name().to_bytes() {
+        if kp.to_bytes() == (*tk).as_name() {
             r = 1i32;
             break;
         }
@@ -1114,7 +1114,7 @@ unsafe fn spc_handler_pdfm_docview(spe: *mut spc_env, args: *mut spc_arg) -> i32
         let pref_add = (*dict).as_dict().get("ViewerPreferences");
         if let (Some(pref_old), Some(pref_add)) = (pref_old, pref_add) {
             (*pref_old).as_dict_mut().merge((*pref_add).as_dict());
-            pdf_remove_dict(&mut *dict, "ViewerPreferences");
+            (*dict).as_dict_mut().remove("ViewerPreferences");
         }
         (*catalog).as_dict_mut().merge((*dict).as_dict());
         pdf_release_obj(dict);
@@ -1323,9 +1323,9 @@ unsafe fn spc_handler_pdfm_stream_with_type(
         let stream_dict = fstream.get_dict_mut();
         if let Some(tmp) = (*args).cur.parse_pdf_dict(ptr::null_mut()) {
             if (*tmp).as_dict().has("Length") {
-                pdf_remove_dict(&mut *tmp, "Length");
+                (*tmp).as_dict_mut().remove("Length");
             } else if (*tmp).as_dict().has("Filter") {
-                pdf_remove_dict(&mut *tmp, "Filter");
+                (*tmp).as_dict_mut().remove("Filter");
             }
             stream_dict.merge((*tmp).as_dict());
             pdf_release_obj(tmp);

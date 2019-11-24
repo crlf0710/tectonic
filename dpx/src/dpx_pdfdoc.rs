@@ -67,9 +67,8 @@ use super::dpx_pngimage::check_for_png;
 use crate::dpx_pdfobj::{
     pdf_compare_reference, pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj,
     pdf_obj, pdf_obj_typeof, pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj,
-    pdf_remove_dict, pdf_set_encrypt, pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream,
-    pdf_stream_length, pdf_string, pdf_string_length, pdf_string_value, IntoObj, PdfObjType,
-    PushObj, STREAM_COMPRESS,
+    pdf_set_encrypt, pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream, pdf_stream_length,
+    pdf_string, pdf_string_value, IntoObj, PdfObjType, PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
@@ -504,11 +503,11 @@ unsafe fn pdf_doc_close_docinfo(mut p: *mut pdf_doc) {
         if let Some(value) = (*docinfo).as_dict().get(*key) {
             if !(*value).is_string() {
                 warn!("\"{}\" in DocInfo dictionary not string type.", key,);
-                pdf_remove_dict(&mut *docinfo, key);
+                (*docinfo).as_dict_mut().remove(key);
                 warn!("\"{}\" removed from DocInfo.", key,);
-            } else if pdf_string_length(&*value) == 0_u32 {
+            } else if (*value).as_string().len() == 0 {
                 /* The hyperref package often uses emtpy strings. */
-                pdf_remove_dict(&mut *docinfo, key);
+                (*docinfo).as_dict_mut().remove(key);
             }
         }
     }
@@ -1592,7 +1591,7 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
             return undefined(subtype, A, S, D);
         } else if !(!subtype.is_null() && (*subtype).is_name()) {
             return error(subtype, A, S, D);
-        } else if (*subtype).as_name().to_bytes() != b"Link" {
+        } else if (*subtype).as_name() != b"Link" {
             return cleanup(subtype, A, S, D);
         }
     }
@@ -1616,7 +1615,7 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
                 return undefined(subtype, A, S, D);
             } else if !(!S.is_null() && (*S).is_name()) {
                 return error(subtype, A, S, D);
-            } else if (*S).as_name().to_bytes() != b"GoTo" {
+            } else if (*S).as_name() != b"GoTo" {
                 return cleanup(subtype, A, S, D);
             }
 
@@ -1629,7 +1628,7 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
     let (dest, destlen) = if !D.is_null() && (*D).is_string() {
         (
             pdf_string_value(&*D) as *mut i8,
-            pdf_string_length(&*D) as i32,
+            (*D).as_string().len() as i32,
         )
     } else if !D.is_null() && (*D).is_array() {
         return cleanup(subtype, A, S, D);

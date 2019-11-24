@@ -27,13 +27,11 @@
 )]
 
 use crate::DisplayExt;
-use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::dpx_pdfparse::{parse_number, parse_pdf_object, parse_unsigned, ParsePdfObj, SkipWhite};
 use crate::strstartswith;
 use crate::{info, warn};
-use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_dpxutil::{ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table};
@@ -188,10 +186,10 @@ impl pdf_obj {
         assert!(self.is_string());
         &mut *(self.data as *mut pdf_string)
     }
-    pub fn as_name(&self) -> &CStr {
+    pub fn as_name(&self) -> &[u8] {
         assert!(self.is_name());
         let data = self.data as *const pdf_name;
-        unsafe { (*data).name.as_c_str() }
+        unsafe { (*data).to_bytes() }
     }
 }
 
@@ -274,7 +272,7 @@ pub struct decode_parms {
 #[derive(Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct pdf_name {
-    name: CString,
+    name: Vec<u8>,
 }
 
 impl std::hash::Hash for pdf_name {
@@ -980,10 +978,6 @@ pub unsafe fn pdf_string_value(object: &pdf_obj) -> *mut libc::c_void {
     }
 }
 
-pub unsafe fn pdf_string_length(object: &pdf_obj) -> u32 {
-    let data = object.as_string();
-    data.len() as u32
-}
 /*
  * This routine escapes non printable characters and control
  * characters in an output string.
@@ -1119,7 +1113,6 @@ pub unsafe fn pdf_copy_name(name: *const i8) -> *mut pdf_obj {
 }
 
 unsafe fn write_name(name: &pdf_name, handle: &mut OutputHandleWrapper) {
-    let cstr = name.name.as_c_str();
     /*
      * From PDF Reference, 3rd ed., p.33:
      *
@@ -1132,7 +1125,7 @@ unsafe fn write_name(name: &pdf_name, handle: &mut OutputHandleWrapper) {
      *  whose codes are outside the range 33 (!) to 126 (~).
      */
     pdf_out_char(handle, b'/');
-    for &byte in cstr.to_bytes() {
+    for &byte in name.to_bytes() {
         if byte < b'!' || byte > b'~' || b"#()/<>[]{}%".contains(&byte) {
             pdf_out_char(handle, b'#');
             pdf_out_char(handle, xchar[((byte as i32) >> 4 & 0xf) as usize] as u8);
@@ -1298,11 +1291,11 @@ impl pdf_dict {
 
 impl pdf_name {
     pub fn new<K: AsRef<[u8]>>(from: K) -> Self {
-        let name = CString::new(from.as_ref()).unwrap();
+        let name = Vec::from(from.as_ref());
         pdf_name { name }
     }
     pub fn to_bytes(&self) -> &[u8] {
-        self.name.to_bytes()
+        self.name.as_slice()
     }
 }
 
@@ -1365,15 +1358,14 @@ impl pdf_dict {
             None => None,
         }
     }
-}
 
-pub unsafe fn pdf_remove_dict<K>(dict: &mut pdf_obj, name: K)
-where
-    K: AsRef<[u8]>,
-{
-    let dict = dict.as_dict_mut();
-    if let Some(existing_value) = dict.inner.shift_remove(name.as_ref()) {
-        pdf_release_obj(existing_value);
+    pub unsafe fn remove<K>(&mut self, name: K)
+    where
+        K: AsRef<[u8]>,
+    {
+        if let Some(existing_value) = self.inner.shift_remove(name.as_ref()) {
+            pdf_release_obj(existing_value);
+        }
     }
 }
 
@@ -1814,7 +1806,7 @@ unsafe fn write_stream(stream: &mut pdf_stream, handle: &mut OutputHandleWrapper
     if stream
         .get_dict()
         .get("Type")
-        .filter(|&typ| b"Metadata" == (*typ).as_name().to_bytes())
+        .filter(|&typ| b"Metadata" == (*typ).as_name())
         .is_some()
     {
         stream._flags &= !STREAM_COMPRESS;
@@ -2550,7 +2542,7 @@ pub unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_stream) -> i
                 filter = &**(*filter).as_array().get(0).expect("Broken PDF file?");
             }
             if (*filter).is_name() {
-                let filter_name = (*filter).as_name().to_bytes();
+                let filter_name = (*filter).as_name();
                 if filter_name == b"FlateDecode" {
                     if have_parms != 0 {
                         error = pdf_add_stream_flate_filtered(dst, stream_data, &mut parms)
@@ -2575,7 +2567,7 @@ unsafe fn pdf_stream_uncompress(src: &mut pdf_obj) -> *mut pdf_obj {
     let mut dst = pdf_stream::new(0i32);
     assert!(src.is_stream());
     dst.get_dict_mut().merge(src.as_stream().get_dict());
-    pdf_remove_dict(dst.get_dict_obj(), "Length");
+    dst.get_dict_obj().as_dict_mut().remove("Length");
     pdf_concat_stream(&mut dst, src.as_stream_mut());
     dst.into_obj()
 }
@@ -3026,7 +3018,7 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
             objstm = tmp;
             let dict = (*objstm).as_stream().get_dict();
             let typ = dict.get("Type").unwrap();
-            if !(!typ.is_name() || typ.as_name().to_bytes() != b"ObjStm") {
+            if !(!typ.is_name() || typ.as_name() != b"ObjStm") {
                 if let Some(n_obj) = dict.get("N").filter(|&no| (*no).is_number()) {
                     let n = n_obj.as_f64() as i32;
                     if let Some(first_obj) = dict.get("First").filter(|&fo| (*fo).is_number()) {
@@ -3794,7 +3786,7 @@ pub unsafe fn pdf_open(ident: *const i8, mut handle: InputHandleWrapper) -> *mut
         if !new_version.is_null() {
             let mut minor: u32 = 0;
             if (&*new_version).is_name() {
-                let new_version_str = (*new_version).as_name().to_bytes();
+                let new_version_str = (*new_version).as_name();
                 let minor_num_str = if new_version_str.starts_with(b"1.") {
                     std::str::from_utf8(&new_version_str[2..]).unwrap_or("")
                 } else {

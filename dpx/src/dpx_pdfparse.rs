@@ -562,7 +562,7 @@ impl ParsePdfObj for &[u8] {
                 p.skip_white();
                 if let Some(value) = p.parse_pdf_object(pf) {
                     unsafe {
-                        result.set((*key).as_name().to_bytes(), value);
+                        result.set((*key).as_name(), value);
                     }
                     p.skip_white();
                 } else {

@@ -296,11 +296,11 @@ unsafe fn load_encoding_file(filename: *const i8) -> i32 {
     }
     let encoding_array = encoding_array.unwrap();
     for code in 0..256 {
-        enc_vec[code] = (*(*encoding_array).as_array()[code]).as_name().as_ptr();
+        enc_vec[code] = (*(*encoding_array).as_array()[code]).as_name().as_ptr() as *const i8;
     }
     let enc_id = pdf_encoding_new_encoding(
         if let Some(enc_name) = enc_name {
-            (*enc_name).as_name().as_ptr()
+            (*enc_name).as_name().as_ptr() as *const i8
         } else {
             ptr::null_mut()
         },

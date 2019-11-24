@@ -40,8 +40,8 @@ use super::dpx_dpxutil::{
 use super::dpx_mem::{new, renew};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_undefined, pdf_obj, pdf_obj_typeof, pdf_ref_obj,
-    pdf_release_obj, pdf_string, pdf_string_length, pdf_string_value, pdf_transfer_label, IntoObj,
-    PdfObjType, PushObj,
+    pdf_release_obj, pdf_string, pdf_string_value, pdf_transfer_label, IntoObj, PdfObjType,
+    PushObj,
 };
 use libc::free;
 
@@ -346,7 +346,7 @@ unsafe fn flat_table(
                     continue;
                 }
                 key = pdf_string_value(&*new_obj) as *mut i8;
-                keylen = pdf_string_length(&*new_obj) as i32;
+                keylen = (*new_obj).as_string().len() as i32;
             }
 
             let value = ht_iter_getval(&mut iter) as *mut obj_data;
