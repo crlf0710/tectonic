@@ -456,7 +456,7 @@ unsafe fn CIDFont_dofont(font: *mut CIDFont) {
             if __verbose != 0 {
                 info!("[CIDFontType2]");
             }
-            CIDFont_type2_dofont(font);
+            CIDFont_type2_dofont(&mut *font);
         }
         _ => {
             panic!("{}: Unknown CIDFontType {}.", "CIDFont", (*font).subtype,);

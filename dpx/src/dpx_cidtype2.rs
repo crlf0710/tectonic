@@ -53,8 +53,8 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj,
-    STREAM_COMPRESS,
+    pdf_dict, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj,
+    PushObj, STREAM_COMPRESS,
 };
 use libc::free;
 
@@ -592,18 +592,18 @@ unsafe fn cid_to_code(cmap: *mut CMap, cid: CID) -> i32 {
 }
 /* #define NO_GHOSTSCRIPT_BUG 1 */
 
-pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
+pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     let cmap;
     let mut ttcmap: *mut tt_cmap = ptr::null_mut();
     let offset;
     let mut i: i32 = 0;
     let mut unicode_cmap: i32 = 0i32;
-    if (*font).indirect.is_null() {
+    if font.indirect.is_null() {
         return;
     }
-    (*(*font).fontdict)
+    (*font.fontdict)
         .as_dict_mut()
-        .set("FontDescriptor", pdf_ref_obj((*font).descriptor));
+        .set("FontDescriptor", pdf_ref_obj(font.descriptor));
     if CIDFont_is_BaseFont(font) {
         return;
     }
@@ -611,57 +611,53 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
      * CIDSystemInfo comes here since Supplement can be increased.
      */
     let mut tmp = pdf_dict::new();
-    tmp.set("Registry", (*(*font).csi).registry.into_obj());
-    tmp.set("Ordering", (*(*font).csi).ordering.into_obj());
-    tmp.set("Supplement", (*(*font).csi).supplement as f64);
-    (*(*font).fontdict).as_dict_mut().set("CIDSystemInfo", tmp);
+    tmp.set("Registry", pdf_string::new((*font.csi).registry.as_bytes()));
+    tmp.set("Ordering", pdf_string::new((*font.csi).ordering.as_bytes()));
+    tmp.set("Supplement", (*font.csi).supplement as f64);
+    (*font.fontdict).as_dict_mut().set("CIDSystemInfo", tmp);
     /* Quick exit for non-embedded & fixed-pitch font. */
     if CIDFont_get_embedding(font) == 0 && opt_flags & 1i32 << 1i32 != 0 {
-        (*(*font).fontdict).as_dict_mut().set("DW", 1000_f64);
+        (*font.fontdict).as_dict_mut().set("DW", 1000_f64);
         return;
     }
-    let sfont = if let Some(handle) = dpx_open_truetype_file(&(*font).ident) {
+    let sfont = if let Some(handle) = dpx_open_truetype_file(&font.ident) {
         sfnt_open(handle)
-    } else if let Some(handle) = dpx_open_dfont_file(&(*font).ident) {
-        dfont_open(handle, (*(*font).options).index)
+    } else if let Some(handle) = dpx_open_dfont_file(&font.ident) {
+        dfont_open(handle, (*font.options).index)
     } else {
-        panic!("Could not open TTF/dfont file: {}", (*font).ident);
+        panic!("Could not open TTF/dfont file: {}", font.ident);
     };
     if sfont.is_null() {
-        panic!("Could not open TTF file: {}", (*font).ident);
+        panic!("Could not open TTF file: {}", font.ident);
     }
     match (*sfont).type_0 {
         16 => {
-            offset = ttc_read_offset(sfont, (*(*font).options).index);
+            offset = ttc_read_offset(sfont, (*font.options).index);
             if offset == 0_u32 {
-                panic!("Invalid TTC index in {}.", (*font).ident);
+                panic!("Invalid TTC index in {}.", font.ident);
             }
         }
         1 => {
-            if (*(*font).options).index > 0i32 {
+            if (*font.options).index > 0i32 {
                 panic!(
                     "Found TrueType font file while expecting TTC file ({}).",
-                    (*font).ident
+                    font.ident
                 );
             }
             offset = 0_u32
         }
         256 => offset = (*sfont).offset,
         _ => {
-            panic!("Not a TrueType/TTC font ({})?", (*font).ident);
+            panic!("Not a TrueType/TTC font ({})?", font.ident);
         }
     }
     if sfnt_read_table_directory(sfont, offset) < 0i32 {
-        panic!(
-            "Could not read TrueType table directory ({}).",
-            (*font).ident
-        );
+        panic!("Could not read TrueType table directory ({}).", font.ident);
     }
     /*
      * Adobe-Identity means font's internal glyph ordering here.
      */
-    let glyph_ordering =
-        (*(*font).csi).registry == "Adobe" && (*(*font).csi).ordering == "Identity";
+    let glyph_ordering = (*font.csi).registry == "Adobe" && (*font.csi).ordering == "Identity";
     /*
      * Select TrueType cmap table, find ToCode CMap for each TrueType encodings.
      */
@@ -686,12 +682,12 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
         if ttcmap.is_null() {
             warn!(
                 "No usable TrueType cmap table found for font \"{}\".",
-                (*font).ident
+                font.ident
             );
             warn!(
                 "CID character collection for this font is set to \"{}-{}\"",
-                (*(*font).csi).registry,
-                (*(*font).csi).ordering,
+                (*font.csi).registry,
+                (*font.csi).ordering,
             );
             panic!("Cannot continue without this...");
         } else {
@@ -704,7 +700,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
         /*
          * NULL is returned if CMap is Identity CMap.
          */
-        cmap = find_tocode_cmap(&(*(*font).csi).registry, &(*(*font).csi).ordering, i)
+        cmap = find_tocode_cmap(&(*font.csi).registry, &(*font.csi).ordering, i)
     } /* .notdef */
     let glyphs = tt_build_init();
     let mut last_cid = 0i32 as CID;
@@ -919,11 +915,11 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
      * DW, W, DW2, and W2
      */
     if opt_flags & 1i32 << 1i32 != 0 {
-        (*(*font).fontdict).as_dict_mut().set("DW", 1000_f64);
+        (*font.fontdict).as_dict_mut().set("DW", 1000_f64);
     } else {
-        add_TTCIDHMetrics((*font).fontdict, glyphs, used_chars, cidtogidmap, last_cid);
+        add_TTCIDHMetrics(font.fontdict, glyphs, used_chars, cidtogidmap, last_cid);
         if !v_used_chars.is_null() {
-            add_TTCIDVMetrics((*font).fontdict, glyphs, used_chars, last_cid);
+            add_TTCIDVMetrics(font.fontdict, glyphs, used_chars, last_cid);
         }
     }
     tt_build_finish(glyphs);
@@ -951,7 +947,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
         info!("[{} bytes]", fontfile.len());
     }
     let fontfile = fontfile.into_obj();
-    (*(*font).descriptor)
+    (*font.descriptor)
         .as_dict_mut()
         .set("FontFile2", pdf_ref_obj(fontfile));
     pdf_release_obj(fontfile);
@@ -964,7 +960,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
         last_cid as i32 / 8i32 + 1i32,
     );
     let cidset = cidset.into_obj();
-    (*(*font).descriptor)
+    (*font.descriptor)
         .as_dict_mut()
         .set("CIDSet", pdf_ref_obj(cidset));
     pdf_release_obj(cidset);
@@ -975,7 +971,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
      * for Type 2 CIDFonts with embedded font programs.
      */
     if cidtogidmap.is_null() {
-        (*(*font).fontdict)
+        (*font.fontdict)
             .as_dict_mut()
             .set("CIDToGIDMap", "Identity");
     } else {
@@ -985,7 +981,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
             (last_cid as i32 + 1i32) * 2i32,
         );
         let c2gmstream = c2gmstream.into_obj();
-        (*(*font).fontdict)
+        (*font.fontdict)
             .as_dict_mut()
             .set("CIDToGIDMap", pdf_ref_obj(c2gmstream));
         pdf_release_obj(c2gmstream);

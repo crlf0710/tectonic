@@ -33,8 +33,7 @@ use crate::warn;
 use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{CMap_get_CIDSysInfo, CMap_is_valid};
 use super::dpx_mem::new;
-use crate::dpx_pdfobj::IntoObj;
-use crate::dpx_pdfobj::{pdf_copy_name, pdf_dict, pdf_stream, STREAM_COMPRESS};
+use crate::dpx_pdfobj::{pdf_copy_name, pdf_dict, pdf_stream, pdf_string, STREAM_COMPRESS};
 use crate::shims::sprintf;
 use libc::{free, memcmp, memset};
 
@@ -322,8 +321,8 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
     }
     if (*cmap).type_0 != 2i32 {
         let mut csi_dict = pdf_dict::new();
-        csi_dict.set("Registry", (*csi).registry.into_obj());
-        csi_dict.set("Ordering", (*csi).ordering.into_obj());
+        csi_dict.set("Registry", pdf_string::new((*csi).registry.as_bytes()));
+        csi_dict.set("Ordering", pdf_string::new((*csi).ordering.as_bytes()));
         csi_dict.set("Supplement", (*csi).supplement as f64);
         stream_dict.set("Type", "CMap");
         stream_dict.set("CMapName", pdf_copy_name((*cmap).name));

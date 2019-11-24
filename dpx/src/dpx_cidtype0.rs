@@ -78,8 +78,8 @@ use super::dpx_tt_table::{
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode};
 use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj,
-    STREAM_COMPRESS,
+    pdf_dict, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj,
+    PushObj, STREAM_COMPRESS,
 };
 use crate::dpx_truetype::sfnt_table_info;
 use libc::{free, memset};
@@ -1112,8 +1112,8 @@ pub(crate) unsafe fn CIDFont_type0_open(
         .as_dict_mut()
         .set("BaseFont", pdf_name::new(fontname.as_bytes()));
     let mut csi_dict = pdf_dict::new();
-    csi_dict.set("Registry", (*csi).registry.into_obj());
-    csi_dict.set("Ordering", (*csi).ordering.into_obj());
+    csi_dict.set("Registry", pdf_string::new((*csi).registry.as_bytes()));
+    csi_dict.set("Ordering", pdf_string::new((*csi).ordering.as_bytes()));
     csi_dict.set("Supplement", (*csi).supplement as f64);
     (*(*font).fontdict)
         .as_dict_mut()
