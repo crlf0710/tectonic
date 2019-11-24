@@ -66,16 +66,26 @@ const OBJ_NO_OBJSTM: i32 = (1 << 0);
 /// This implies OBJ_NO_OBJSTM if encryption is turned on.
 const OBJ_NO_ENCRYPT: i32 = (1 << 1);
 
+pub type ObjectId = (u32, u16);
+
 use super::dpx_dpxutil::ht_table;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct pdf_obj {
     pub typ: i32,
-    pub label: u32,
-    pub generation: u16,
+    pub id: ObjectId,
     pub refcount: u32,
     pub flags: i32,
     pub data: *mut libc::c_void,
+}
+
+impl pdf_obj {
+    pub fn label(&self) -> u32 {
+        self.id.0
+    }
+    pub fn generation(&self) -> u16 {
+        self.id.1
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -281,17 +291,15 @@ impl std::hash::Hash for pdf_name {
 pub struct pdf_indirect {
     pub pf: *mut pdf_file,
     pub obj: *mut pdf_obj,
-    pub label: u32,
-    pub generation: u16,
+    pub id: ObjectId,
 }
 
 impl pdf_indirect {
-    pub fn new(pf: *mut pdf_file, label: u32, generation: u16) -> Self {
+    pub fn new(pf: *mut pdf_file, id: ObjectId) -> Self {
         Self {
             pf,
             obj: ptr::null_mut(),
-            label,
-            generation,
+            id,
         }
     }
 }
@@ -811,8 +819,7 @@ unsafe fn pdf_new_obj(typ: PdfObjType) -> *mut pdf_obj {
         new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_obj>() as u64) as u32) as *mut pdf_obj;
     (*result).typ = typ as i32;
     (*result).data = ptr::null_mut();
-    (*result).label = 0_u32;
-    (*result).generation = 0_u16;
+    (*result).id = (0, 0);
     (*result).refcount = 1_u32;
     (*result).flags = 0i32;
     result
@@ -832,9 +839,8 @@ unsafe fn pdf_label_obj(mut object: *mut pdf_obj) {
     /*
      * Don't change label on an already labeled object. Ignore such calls.
      */
-    if (*object).label == 0 {
-        (*object).label = next_label as u32;
-        (*object).generation = 0;
+    if (*object).label() == 0 {
+        (*object).id = (next_label as u32, 0);
         next_label += 1;
     };
 }
@@ -844,11 +850,9 @@ unsafe fn pdf_label_obj(mut object: *mut pdf_obj) {
  */
 
 pub unsafe fn pdf_transfer_label(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) {
-    assert!(!dst.is_null() && (*dst).label == 0 && !src.is_null());
-    (*dst).label = (*src).label;
-    (*dst).generation = (*src).generation;
-    (*src).label = 0_u32;
-    (*src).generation = 0_u16;
+    assert!(!dst.is_null() && (*dst).label() == 0 && !src.is_null());
+    (*dst).id = (*src).id;
+    (*src).id = (0, 0);
 }
 /*
  * This doesn't really copy the object, but allows it to be used without
@@ -880,13 +884,8 @@ pub unsafe fn pdf_ref_obj(object: *mut pdf_obj) -> *mut pdf_obj {
 }
 unsafe fn write_indirect(indirect: *mut pdf_indirect, handle: &mut OutputHandleWrapper) {
     assert!((*indirect).pf.is_null());
-    let length = sprintf(
-        format_buffer.as_mut_ptr() as *mut i8,
-        b"%u %hu R\x00" as *const u8 as *const i8,
-        (*indirect).label,
-        (*indirect).generation as i32,
-    ) as usize;
-    pdf_out(handle, &format_buffer[..length]);
+    let (label, generation) = (*indirect).id;
+    pdf_out(handle, format!("{} {} R", label, generation).as_bytes());
 }
 /* The undefined object is used as a placeholder in pdfnames.c
  * for objects which are referenced before they are defined.
@@ -2628,21 +2627,22 @@ unsafe fn pdf_flush_obj(object: *mut pdf_obj, handle: &mut OutputHandleWrapper) 
     /*
      * Record file position
      */
+    let (label, generation) = (*object).id;
     add_xref_entry(
-        (*object).label as usize,
+        label as usize,
         1_u8,
         pdf_output_file_position as u32,
-        (*object).generation,
+        generation,
     );
     let length = sprintf(
         format_buffer.as_mut_ptr() as *mut i8,
         b"%u %hu obj\n\x00" as *const u8 as *const i8,
-        (*object).label,
-        (*object).generation as i32,
+        label,
+        generation as i32,
     ) as usize;
     enc_mode = doc_enc_mode as i32 != 0 && (*object).flags & OBJ_NO_ENCRYPT == 0;
-    pdf_enc_set_label((*object).label);
-    pdf_enc_set_generation((*object).generation as u32);
+    pdf_enc_set_label(label);
+    pdf_enc_set_generation(generation as u32);
     pdf_out(handle, &format_buffer[..length]);
     pdf_write_obj(object, handle);
     pdf_out(handle, b"\nendobj\n");
@@ -2653,12 +2653,12 @@ unsafe fn pdf_add_objstm(objstm: &mut pdf_obj, object: &mut pdf_obj) -> i32 {
     let ref mut fresh15 = *data.offset(0);
     *fresh15 += 1;
     let pos = *fresh15;
-    *data.offset((2i32 * pos) as isize) = object.label as i32;
+    *data.offset((2i32 * pos) as isize) = object.label() as i32;
     *data.offset((2i32 * pos + 1i32) as isize) = pdf_stream_length(objstm);
     add_xref_entry(
-        object.label as usize,
+        object.label() as usize,
         2_u8,
-        objstm.label,
+        objstm.label(),
         (pos - 1i32) as u16,
     );
     /* redirect output into objstm */
@@ -2728,11 +2728,11 @@ pub unsafe fn pdf_release_obj(mut object: *mut pdf_obj) {
          * Nothing is using this object so it's okay to remove it.
          * Nonzero "label" means object needs to be written before it's destroyed.
          */
-        if (*object).label != 0 && pdf_output_handle.is_some() {
+        if (*object).label() != 0 && pdf_output_handle.is_some() {
             if do_objstm == 0
                 || (*object).flags & OBJ_NO_OBJSTM != 0
                 || doc_enc_mode as i32 != 0 && (*object).flags & OBJ_NO_ENCRYPT != 0
-                || (*object).generation as i32 != 0
+                || (*object).generation() as i32 != 0
             {
                 let handle = pdf_output_handle.as_mut().unwrap();
                 pdf_flush_obj(object, handle);
@@ -3101,7 +3101,8 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
  * null object, as required by the PDF spec. This is important to parse
  * several cross-reference sections.
  */
-unsafe fn pdf_get_object(pf: *mut pdf_file, obj_num: u32, obj_gen: u16) -> *mut pdf_obj {
+unsafe fn pdf_get_object(pf: *mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
+    let (obj_num, obj_gen) = obj_id;
     if !(obj_num > 0_u32
         && obj_num < (*pf).num_obj as u32
         && ((*(*pf).xref_table.offset(obj_num as isize)).typ as i32 == 1i32
@@ -3177,11 +3178,11 @@ unsafe fn pdf_get_object(pf: *mut pdf_file, obj_num: u32, obj_gen: u16) -> *mut 
     }
 }
 unsafe fn pdf_new_ref(object: *mut pdf_obj) -> *mut pdf_obj {
-    if (*object).label == 0 {
+    if (*object).label() == 0 {
         pdf_label_obj(object);
     }
     let result =
-        pdf_indirect::new(ptr::null_mut(), (*object).label, (*object).generation).into_obj();
+        pdf_indirect::new(ptr::null_mut(), (*object).id).into_obj();
     let ref mut fresh28 = (*((*result).data as *mut pdf_indirect)).obj;
     *fresh28 = object;
     result
@@ -3204,10 +3205,9 @@ pub unsafe fn pdf_deref_obj(obj: Option<&mut pdf_obj>) -> *mut pdf_obj {
     } {
         let pf: *mut pdf_file = (*((*obj).data as *mut pdf_indirect)).pf;
         if !pf.is_null() {
-            let obj_num: u32 = (*((*obj).data as *mut pdf_indirect)).label;
-            let obj_gen: u16 = (*((*obj).data as *mut pdf_indirect)).generation;
+            let obj_id = (*((*obj).data as *mut pdf_indirect)).id;
             pdf_release_obj(obj);
-            obj = pdf_get_object(pf, obj_num, obj_gen)
+            obj = pdf_get_object(pf, obj_id)
         } else {
             let next_obj: *mut pdf_obj = (*((*obj).data as *mut pdf_indirect)).obj;
             if next_obj.is_null() {
@@ -3894,16 +3894,14 @@ unsafe fn import_dict(key: &pdf_name, value: *mut pdf_obj, pdata: *mut libc::c_v
 }
 static mut loop_marker: pdf_obj = pdf_obj {
     typ: 0i32,
-    label: 0_u32,
-    generation: 0_u16,
+    id: (0, 0),
     refcount: 0_u32,
     flags: 0i32,
     data: ptr::null_mut(),
 };
 unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
     let pf: *mut pdf_file = (*((*object).data as *mut pdf_indirect)).pf;
-    let obj_num: u32 = (*((*object).data as *mut pdf_indirect)).label;
-    let obj_gen: u16 = (*((*object).data as *mut pdf_indirect)).generation;
+    let (obj_num, obj_gen) = (*((*object).data as *mut pdf_indirect)).id;
     assert!(!pf.is_null());
     if !(obj_num > 0_u32
         && obj_num < (*pf).num_obj as u32
@@ -3921,7 +3919,7 @@ unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
         }
         return pdf_link_obj(ref_0);
     } else {
-        let obj = pdf_get_object(pf, obj_num, obj_gen);
+        let obj = pdf_get_object(pf, (obj_num, obj_gen));
         if obj.is_null() {
             warn!("Could not read object: {} {}", obj_num, obj_gen as i32,);
             return ptr::null_mut();
@@ -4007,9 +4005,7 @@ pub unsafe fn pdf_compare_reference(ref1: *mut pdf_obj, ref2: *mut pdf_obj) -> i
     assert!(!ref1.is_null() && (*ref1).is_indirect() && (!ref2.is_null() && (*ref2).is_indirect()));
     let data1 = (*ref1).data as *mut pdf_indirect;
     let data2 = (*ref2).data as *mut pdf_indirect;
-    return ((*data1).pf != (*data2).pf
-        || (*data1).label != (*data2).label
-        || (*data1).generation as i32 != (*data2).generation as i32) as i32;
+    return ((*data1).pf != (*data2).pf || (*data1).id != (*data2).id) as i32;
 }
 
 pub unsafe fn pdf_obj_reset_global_state() {

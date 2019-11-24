@@ -329,7 +329,7 @@ unsafe fn try_pdf_reference(mut p: &[u8], pf: *mut pdf_file) -> Option<(*mut pdf
     if !(p.is_empty() || is_space(&(p[0])) || is_delim(&(p[0]))) {
         return None;
     }
-    Some((pdf_indirect::new(pf, id, gen).into_obj(), p))
+    Some((pdf_indirect::new(pf, (id, gen)).into_obj(), p))
 }
 
 /* Please remove this */
