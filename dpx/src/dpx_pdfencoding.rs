@@ -97,26 +97,27 @@ unsafe fn pdf_init_encoding_struct() -> pdf_encoding {
 /* Creates the PDF Encoding entry for the encoding.
  * If baseenc is non-null, it is used as BaseEncoding entry.
  */
-unsafe fn create_encoding_resource(
-    encoding: *mut pdf_encoding,
-    baseenc: *mut pdf_encoding,
-) -> *mut pdf_obj {
-    assert!(!encoding.is_null());
-    assert!((*encoding).resource.is_null());
+unsafe fn create_encoding_resource(encoding: &mut pdf_encoding, with_base: bool) -> *mut pdf_obj {
+    let baseenc = if with_base {
+        Some(&mut *encoding.baseenc)
+    } else {
+        None
+    };
+    assert!(encoding.resource.is_null());
     if let Some(differences) = make_encoding_differences(
-        (*encoding).glyphs.as_mut_ptr(),
-        if !baseenc.is_null() {
-            (*baseenc).glyphs.as_mut_ptr()
+        &mut encoding.glyphs,
+        if with_base {
+            Some(&mut (*encoding.baseenc).glyphs)
         } else {
-            0 as *mut *mut i8
+            None
         },
-        (*encoding).is_used.as_mut_ptr(),
+        &mut encoding.is_used,
     ) {
         let resource = pdf_dict::new().into_obj();
-        if !baseenc.is_null() {
+        if let Some(baseenc) = &baseenc {
             (*resource)
                 .as_dict_mut()
-                .set("BaseEncoding", pdf_link_obj((*baseenc).resource));
+                .set("BaseEncoding", pdf_link_obj(baseenc.resource));
         }
         (*resource).as_dict_mut().set("Differences", differences);
         return resource;
@@ -132,10 +133,9 @@ unsafe fn create_encoding_resource(
          *
          * Actually these fonts will be ignored in pdffont.c.
          */
-        return if !baseenc.is_null() {
-            pdf_link_obj((*baseenc).resource)
-        } else {
-            ptr::null_mut()
+        return match baseenc {
+            Some(baseenc) => pdf_link_obj(baseenc.resource),
+            None => ptr::null_mut(),
         };
     };
 }
@@ -185,13 +185,12 @@ unsafe fn is_similar_charset(enc_vec: *mut *mut i8, enc_vec2: *mut *const i8) ->
  * are actually used in the document are considered.
  */
 unsafe fn make_encoding_differences(
-    enc_vec: *mut *mut i8,
-    baseenc: *mut *mut i8,
-    is_used: *const i8,
+    enc_vec: &mut [*mut i8; 256],
+    baseenc: Option<&mut [*mut i8; 256]>,
+    is_used: &mut [i8],
 ) -> Option<Vec<*mut pdf_obj>> {
     let mut count: i32 = 0i32;
-    let mut skipping: i32 = 1i32;
-    assert!(!enc_vec.is_null());
+    let mut skipping = true;
     /*
      *  Write all entries (except .notdef) if baseenc is unknown.
      *  If is_used is given, write only used entries.
@@ -201,28 +200,27 @@ unsafe fn make_encoding_differences(
         /* We skip NULL (= ".notdef"). Any character code mapped to ".notdef"
          * glyph should not be used in the document.
          */
-        if !is_used.is_null() && *is_used.offset(code as isize) == 0
-            || (*enc_vec.offset(code as isize)).is_null()
-        {
-            skipping = 1i32
-        } else if baseenc.is_null()
-            || (*baseenc.offset(code as isize)).is_null()
-            || strcmp(
-                *baseenc.offset(code as isize),
-                *enc_vec.offset(code as isize),
-            ) != 0i32
-        {
-            /*
-             * Difference found.
-             */
-            if skipping != 0 {
-                differences.push_obj(code as f64);
-            }
-            differences.push(pdf_copy_name(*enc_vec.offset(code as isize)));
-            skipping = 0i32;
-            count += 1
+        if is_used[code] == 0 || enc_vec[code].is_null() {
+            skipping = true
         } else {
-            skipping = 1i32
+            let mut differs = false;
+            if let Some(&mut baseenc) = &baseenc {
+                differs = baseenc[code].is_null() || strcmp(baseenc[code], enc_vec[code]) != 0;
+            }
+
+            if differs {
+                /*
+                 * Difference found.
+                 */
+                if skipping {
+                    differences.push_obj(code as f64);
+                }
+                differences.push(pdf_copy_name(enc_vec[code]));
+                skipping = false;
+                count += 1
+            } else {
+                skipping = true
+            }
         }
     }
     /*
@@ -413,17 +411,9 @@ pub(crate) unsafe fn pdf_encoding_complete() {
              * an incorrect implementation in Acrobat 4 and earlier. Hence,
              * we do use a base encodings for PDF versions >= 1.3.
              */
-            let with_base: i32 =
-                (encoding.flags & 1i32 << 1i32 == 0 || pdf_get_version() >= 4_u32) as i32;
+            let with_base = encoding.flags & 1i32 << 1i32 == 0 || pdf_get_version() >= 4;
             assert!(encoding.resource.is_null());
-            encoding.resource = create_encoding_resource(
-                encoding,
-                if with_base != 0 {
-                    encoding.baseenc
-                } else {
-                    ptr::null_mut()
-                },
-            );
+            encoding.resource = create_encoding_resource(&mut *encoding, with_base);
             assert!(encoding.tounicode.is_null());
             encoding.tounicode = pdf_create_ToUnicode_CMap(
                 &encoding.enc_name,

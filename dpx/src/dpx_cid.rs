@@ -677,7 +677,6 @@ unsafe fn CIDFont_base_open(
 }
 static mut __cache: Vec<Box<CIDFont>> = Vec::new();
 
-// Note: this is highly unsafe as __cache might be reallocated.
 pub(crate) unsafe fn CIDFont_cache_get(font_id: i32) -> *mut CIDFont {
     if font_id < 0i32 || font_id >= __cache.len() as i32 {
         panic!("{}: Invalid ID {}", "CIDFont", font_id,);
