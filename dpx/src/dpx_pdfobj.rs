@@ -1379,8 +1379,7 @@ where
     K: AsRef<[u8]>,
 {
     let dict = dict.as_dict_mut();
-    //if let Some(existing_value) = dict.inner.remove(name.as_ref()) {
-    if let Some(existing_value) = dict.inner.remove(&pdf_name::new(name.as_ref())) {
+    if let Some(existing_value) = dict.inner.shift_remove(name.as_ref()) {
         pdf_release_obj(existing_value);
     }
 }
@@ -1806,60 +1805,60 @@ unsafe fn filter_create_predictor_dict(
     parms.set("Predictor", predictor as f64);
     parms
 }
-unsafe fn write_stream(stream: *mut pdf_stream, handle: &mut OutputHandleWrapper) {
+unsafe fn write_stream(stream: &mut pdf_stream, handle: &mut OutputHandleWrapper) {
     /*
      * Always work from a copy of the stream. All filters read from
      * "filtered" and leave their result in "filtered".
      */
-    let mut filtered = new((*stream).content.len() as u32) as *mut u8;
+    let mut filtered = new(stream.content.len() as u32) as *mut u8;
     libc::memcpy(
         filtered as *mut libc::c_void,
-        (*stream).content.as_ptr() as *const libc::c_void,
-        (*stream).content.len(),
+        stream.content.as_ptr() as *const libc::c_void,
+        stream.content.len(),
     );
-    let mut filtered_length = (*stream).content.len() as u32;
+    let mut filtered_length = stream.content.len() as u32;
     /* PDF/A requires Metadata to be not filtered. */
-    if (*(*stream).dict)
-        .as_dict()
+    if stream
+        .get_dict()
         .get("Type")
-        .filter(|typ| b"Metadata" == (**typ).as_name().to_bytes())
+        .filter(|&typ| b"Metadata" == (*typ).as_name().to_bytes())
         .is_some()
     {
-        (*stream)._flags &= !STREAM_COMPRESS;
+        stream._flags &= !STREAM_COMPRESS;
     }
     /* Apply compression filter if requested */
     #[cfg(feature = "libz-sys")]
     {
-        if (*stream).content.len() > 0
-            && (*stream)._flags & STREAM_COMPRESS != 0
+        if stream.content.len() > 0
+            && stream._flags & STREAM_COMPRESS != 0
             && compression_level as libc::c_int > 0i32
         {
             /* First apply predictor filter if requested. */
             if compression_use_predictor as libc::c_int != 0
-                && (*stream)._flags & STREAM_USE_PREDICTOR != 0
-                && !(*(*stream).dict).as_dict().has("DecodeParms")
+                && stream._flags & STREAM_USE_PREDICTOR != 0
+                && !(*stream.dict).as_dict().has("DecodeParms")
             {
                 let bits_per_pixel: libc::c_int =
-                    (*stream).decodeparms.colors * (*stream).decodeparms.bits_per_component;
-                let len: i32 = ((*stream).decodeparms.columns * bits_per_pixel + 7i32) / 8i32;
-                let rows: i32 = ((*stream).content.len() as i32) / len;
+                    stream.decodeparms.colors * stream.decodeparms.bits_per_component;
+                let len: i32 = (stream.decodeparms.columns * bits_per_pixel + 7i32) / 8i32;
+                let rows: i32 = (stream.content.len() as i32) / len;
                 let mut filtered2: *mut libc::c_uchar = ptr::null_mut();
-                let mut length2: i32 = (*stream).content.len() as i32;
+                let mut length2: i32 = stream.content.len() as i32;
                 let parms = filter_create_predictor_dict(
-                    (*stream).decodeparms.predictor,
-                    (*stream).decodeparms.columns,
-                    (*stream).decodeparms.bits_per_component,
-                    (*stream).decodeparms.colors,
+                    stream.decodeparms.predictor,
+                    stream.decodeparms.columns,
+                    stream.decodeparms.bits_per_component,
+                    stream.decodeparms.colors,
                 );
-                match (*stream).decodeparms.predictor {
+                match stream.decodeparms.predictor {
                     2 => {
                         /* TIFF2 */
                         filtered2 = filter_TIFF2_apply_filter(
                             filtered,
-                            (*stream).decodeparms.columns,
+                            stream.decodeparms.columns,
                             rows,
-                            (*stream).decodeparms.bits_per_component as i8,
-                            (*stream).decodeparms.colors as i8,
+                            stream.decodeparms.bits_per_component as i8,
+                            stream.decodeparms.colors as i8,
                             &mut length2,
                         )
                     }
@@ -1867,17 +1866,17 @@ unsafe fn write_stream(stream: *mut pdf_stream, handle: &mut OutputHandleWrapper
                         /* PNG optimun */
                         filtered2 = filter_PNG15_apply_filter(
                             filtered,
-                            (*stream).decodeparms.columns,
+                            stream.decodeparms.columns,
                             rows,
-                            (*stream).decodeparms.bits_per_component as i8,
-                            (*stream).decodeparms.colors as i8,
+                            stream.decodeparms.bits_per_component as i8,
+                            stream.decodeparms.colors as i8,
                             &mut length2,
                         )
                     }
                     _ => {
                         warn!(
                             "Unknown/unsupported Predictor function {}.",
-                            (*stream).decodeparms.predictor
+                            stream.decodeparms.predictor
                         );
                     }
                 }
@@ -1885,10 +1884,10 @@ unsafe fn write_stream(stream: *mut pdf_stream, handle: &mut OutputHandleWrapper
                     free(filtered as *mut libc::c_void);
                     filtered = filtered2;
                     filtered_length = length2 as libc::c_uint;
-                    (*(*stream).dict).as_dict_mut().set("DecodeParms", parms);
+                    (*stream.dict).as_dict_mut().set("DecodeParms", parms);
                 }
             }
-            let filters = (*(*stream).dict).as_dict_mut().get_mut("Filter");
+            let filters = (*stream.dict).as_dict_mut().get_mut("Filter");
             let mut buffer_length: libz::uLong;
             buffer_length = filtered_length
                 .wrapping_add(filtered_length.wrapping_div(1000i32 as libc::c_uint))
@@ -1909,7 +1908,7 @@ unsafe fn write_stream(stream: *mut pdf_stream, handle: &mut OutputHandleWrapper
                  * is crucial because otherwise Adobe Reader cannot read the
                  * cross-reference stream any more, cf. the PDF v1.5 Errata.
                  */
-                (*(*stream).dict).as_dict_mut().set("Filter", filter_name);
+                (*stream.dict).as_dict_mut().set("Filter", filter_name);
             }
 
             #[cfg(not(feature = "legacy-libz"))]
@@ -1966,10 +1965,10 @@ unsafe fn write_stream(stream: *mut pdf_stream, handle: &mut OutputHandleWrapper
         filtered = cipher;
         filtered_length = cipher_len as u32
     }
-    (*(*stream).dict)
+    (*stream.dict)
         .as_dict_mut()
         .set("Length", filtered_length as f64);
-    pdf_write_obj((*stream).dict, handle);
+    pdf_write_obj(stream.dict, handle);
     pdf_out(handle, b"\nstream\n");
     let mut v = Vec::<u8>::new();
     for i in 0..filtered_length {
@@ -2619,7 +2618,7 @@ unsafe fn pdf_write_obj(object: *mut pdf_obj, handle: &mut OutputHandleWrapper) 
             write_dict(&*((*object).data as *mut pdf_dict), handle);
         }
         PdfObjType::STREAM => {
-            write_stream((*object).data as *mut pdf_stream, handle);
+            write_stream(&mut *((*object).data as *mut pdf_stream), handle);
         }
         PdfObjType::NULL => {
             write_null(handle);
