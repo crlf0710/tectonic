@@ -40,7 +40,6 @@ use crate::{info, warn, FromBEByteSlice};
 use super::dpx_cid::{CIDFont_get_embedding, CIDFont_get_parent_id, CIDFont_is_BaseFont};
 use super::dpx_cmap::{CMap_cache_find, CMap_cache_get, CMap_decode_char};
 use super::dpx_dpxfile::{dpx_open_dfont_file, dpx_open_truetype_file};
-use super::dpx_mem::new;
 use super::dpx_pdffont::pdf_font_make_uniqueTag;
 use super::dpx_tt_aux::tt_get_fontdesc;
 use super::dpx_tt_aux::ttc_read_offset;
@@ -1057,8 +1056,11 @@ pub(crate) unsafe fn CIDFont_type2_open(
      */
     (*font).fontname = fontname.clone(); /* This means font's internal glyph ordering. */
     (*font).subtype = 2i32;
-    (*font).csi = new((1_u64).wrapping_mul(::std::mem::size_of::<CIDSysInfo>() as u64) as u32)
-        as *mut CIDSysInfo;
+    (*font).csi = Box::into_raw(Box::new(CIDSysInfo {
+        ordering: "".into(),
+        registry: "".into(),
+        supplement: 0,
+    }));
     if !(*opt).csi.is_null() {
         if !cmap_csi.is_null() {
             if (*(*opt).csi).registry != (*cmap_csi).registry

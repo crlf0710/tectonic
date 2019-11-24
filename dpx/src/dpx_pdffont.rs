@@ -516,7 +516,7 @@ pub unsafe fn pdf_font_findresource(
         tex_name
     };
     if !mrec.is_null() && !(*mrec).enc_name.is_empty() {
-        if (*mrec).enc_name.ends_with(".enc") || (*mrec).enc_name.ends_with(".cmap") {
+        if !(*mrec).enc_name.ends_with(".enc") || (*mrec).enc_name.ends_with(".cmap") {
             let enc_name = &(*mrec).enc_name;
             cmap_id = CMap_cache_find(&enc_name);
             if cmap_id >= 0i32 {

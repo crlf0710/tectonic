@@ -36,7 +36,7 @@ use super::dpx_cid::{
     CIDFont_is_UCSFont,
 };
 use super::dpx_cmap::{CMap_cache_get, CMap_get_CIDSysInfo, CMap_get_wmode, CMap_is_Identity};
-use super::dpx_mem::{new, renew};
+use super::dpx_mem::new;
 use super::dpx_pdfencoding::pdf_load_ToUnicode_stream;
 use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resource_reference};
 use super::dpx_tt_cmap::otf_create_ToUnicode_stream;
@@ -81,19 +81,20 @@ unsafe fn new_used_chars2() -> *mut i8 {
     memset(used_chars as *mut libc::c_void, 0i32, 8192);
     used_chars
 }
-/* MUST BE NULL */
-unsafe fn Type0Font_init_font_struct(mut font: *mut Type0Font) {
-    assert!(!font.is_null());
-    (*font).fontname = String::new();
-    (*font).fontdict = ptr::null_mut();
-    (*font).indirect = ptr::null_mut();
-    (*font).descriptor = ptr::null_mut();
-    (*font).encoding = ptr::null_mut();
-    (*font).used_chars = ptr::null_mut();
-    (*font).descendant = ptr::null_mut();
-    (*font).wmode = -1i32;
-    (*font).cmap_id = -1i32;
-    (*font).flags = 0i32;
+
+fn Type0Font_init_font_struct() -> Type0Font {
+    Type0Font {
+        fontname: String::new(),
+        fontdict: ptr::null_mut(),
+        indirect: ptr::null_mut(),
+        descriptor: ptr::null_mut(),
+        encoding: ptr::null_mut(),
+        used_chars: ptr::null_mut(),
+        descendant: ptr::null_mut(),
+        wmode: -1i32,
+        cmap_id: -1i32,
+        flags: 0i32,
+    }
 }
 unsafe fn Type0Font_clean(mut font: *mut Type0Font) {
     if !font.is_null() {
@@ -158,7 +159,7 @@ unsafe fn add_ToUnicode(font: *mut Type0Font) {
     if cidfont.is_null() {
         panic!("{}: No descendant CID-keyed font.", "Type0",);
     }
-    if CIDFont_is_ACCFont(cidfont) {
+    if CIDFont_is_ACCFont(&mut *cidfont) {
         /* No need to embed ToUnicode */
         return;
     } else {
@@ -267,26 +268,17 @@ pub(crate) unsafe fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mut pd
     }
     pdf_link_obj((*font).indirect)
 }
-static mut __cache: font_cache = font_cache {
-    count: 0i32,
-    capacity: 0i32,
-    fonts: std::ptr::null_mut(),
-};
+static mut __cache: Vec<Type0Font> = Vec::new();
 
 pub(crate) unsafe fn Type0Font_cache_init() {
-    if !__cache.fonts.is_null() {
-        panic!("{}: Already initialized.", "Type0",);
-    }
-    __cache.count = 0i32;
-    __cache.capacity = 0i32;
-    __cache.fonts = ptr::null_mut();
+    __cache.clear();
 }
 
 pub(crate) unsafe fn Type0Font_cache_get(id: i32) -> *mut Type0Font {
-    if id < 0i32 || id >= __cache.count {
+    if id < 0i32 || id >= __cache.len() as i32 {
         panic!("{}: Invalid ID {}", "Type0", id,);
     }
-    &mut *__cache.fonts.offset(id as isize) as *mut Type0Font
+    &mut __cache[id as usize] as *mut Type0Font
 }
 
 pub unsafe fn Type0Font_cache_find(
@@ -321,10 +313,9 @@ pub unsafe fn Type0Font_cache_find(
      * Type 0 font. Otherwise, there already exists parent Type 0 font and
      * then we find him and return his ID. We must check against their WMode.
      */
-    let cidfont = CIDFont_cache_get(cid_id);
     let wmode = CMap_get_wmode(cmap);
     /* Does CID-keyed font already have parent ? */
-    let parent_id = CIDFont_get_parent_id(cidfont, wmode); /* If so, we don't need new one. */
+    let parent_id = CIDFont_get_parent_id(CIDFont_cache_get(cid_id), wmode); /* If so, we don't need new one. */
     if parent_id >= 0i32 {
         return parent_id;
     }
@@ -332,17 +323,10 @@ pub unsafe fn Type0Font_cache_find(
      * CIDFont does not have parent or his parent's WMode does not matched with
      * wmode. Create new Type0 font.
      */
-    if __cache.count >= __cache.capacity {
-        __cache.capacity = (__cache.capacity as u32).wrapping_add(16u32) as i32 as i32;
-        __cache.fonts = renew(
-            __cache.fonts as *mut libc::c_void,
-            (__cache.capacity as u32 as u64).wrapping_mul(::std::mem::size_of::<Type0Font>() as u64)
-                as u32,
-        ) as *mut Type0Font
-    }
-    let font_id = __cache.count;
-    let font = &mut *__cache.fonts.offset(font_id as isize) as *mut Type0Font;
-    Type0Font_init_font_struct(font);
+
+    let font_id = __cache.len() as i32;
+    __cache.push(Type0Font_init_font_struct());
+    let font = &mut __cache[font_id as usize] as *mut Type0Font;
     /*
      * All CJK double-byte characters are mapped so that resulting
      * character codes coincide with CIDs of given character collection.
@@ -384,6 +368,7 @@ pub unsafe fn Type0Font_cache_find(
      * is a CID-keyed font. Future PDF spec. will allow multiple desecendant
      * fonts.
      */
+    let cidfont = CIDFont_cache_get(cid_id);
     (*font).descendant = cidfont;
     CIDFont_attach_parent(cidfont, font_id, wmode);
     /*
@@ -453,7 +438,6 @@ pub unsafe fn Type0Font_cache_find(
     (*(*font).fontdict)
         .as_dict_mut()
         .set("Encoding", pdf_copy_name((*font).encoding));
-    __cache.count += 1;
     font_id
 }
 /* ******************************* CACHE ********************************/
@@ -465,22 +449,15 @@ pub(crate) unsafe fn Type0Font_cache_close() {
      * CIDFont_cache_close() before Type0Font_release because of used_chars.
      * ToUnicode support want descendant CIDFont's CSI and fontname.
      */
-    if !__cache.fonts.is_null() {
-        for font_id in 0..__cache.count {
-            Type0Font_dofont(&mut *__cache.fonts.offset(font_id as isize));
-        }
+    for font in &mut __cache {
+        Type0Font_dofont(font);
     }
     CIDFont_cache_close();
-    if !__cache.fonts.is_null() {
-        for font_id in 0..__cache.count {
-            Type0Font_flush(&mut *__cache.fonts.offset(font_id as isize));
-            Type0Font_clean(&mut *__cache.fonts.offset(font_id as isize));
-        }
-        free(__cache.fonts as *mut libc::c_void);
+    for font in &mut __cache {
+        Type0Font_flush(font);
+        Type0Font_clean(font);
     }
-    __cache.fonts = ptr::null_mut();
-    __cache.count = 0i32;
-    __cache.capacity = 0i32;
+    __cache.clear();
 }
 /* ******************************* COMPAT ********************************/
 unsafe fn create_dummy_CMap() -> pdf_stream {

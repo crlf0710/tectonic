@@ -992,8 +992,11 @@ pub(crate) unsafe fn CIDFont_type0_open(
             return -1i32;
         }
     }
-    let csi = new((1_u64).wrapping_mul(::std::mem::size_of::<CIDSysInfo>() as u64) as u32)
-        as *mut CIDSysInfo;
+    let csi = Box::into_raw(Box::new(CIDSysInfo {
+        ordering: "".into(),
+        registry: "".into(),
+        supplement: 0,
+    }));
     if is_cid_font != 0 {
         (*csi).registry = CStr::from_ptr(cff_get_string(
             cffont,
