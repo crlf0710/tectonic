@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use std::ptr;
@@ -33,9 +33,10 @@ use crate::warn;
 use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{CMap_get_CIDSysInfo, CMap_is_valid};
 use super::dpx_mem::new;
-use crate::dpx_pdfobj::{pdf_copy_name, pdf_dict, pdf_stream, pdf_string, STREAM_COMPRESS};
+use crate::dpx_pdfobj::IntoObj;
+use crate::dpx_pdfobj::{pdf_copy_name, pdf_dict, pdf_stream, STREAM_COMPRESS};
 use crate::shims::sprintf;
-use libc::{free, memcmp, memset, strlen};
+use libc::{free, memcmp, memset};
 
 use crate::bridge::size_t;
 
@@ -321,20 +322,8 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
     }
     if (*cmap).type_0 != 2i32 {
         let mut csi_dict = pdf_dict::new();
-        csi_dict.set(
-            "Registry",
-            pdf_string::new_from_ptr(
-                (*csi).registry as *const libc::c_void,
-                strlen((*csi).registry) as _,
-            ),
-        );
-        csi_dict.set(
-            "Ordering",
-            pdf_string::new_from_ptr(
-                (*csi).ordering as *const libc::c_void,
-                strlen((*csi).ordering) as _,
-            ),
-        );
+        csi_dict.set("Registry", (*csi).registry.into_obj());
+        csi_dict.set("Ordering", (*csi).ordering.into_obj());
         csi_dict.set("Supplement", (*csi).supplement as f64);
         stream_dict.set("Type", "CMap");
         stream_dict.set("CMapName", pdf_copy_name((*cmap).name));
@@ -389,14 +378,16 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
             (*cmap).wmode,
         ) as isize)
     }
-    wbuf.curptr = wbuf.curptr.offset(sprintf(
-        wbuf.curptr,
-        b"/CIDSystemInfo <<\n  /Registry (%s)\n  /Ordering (%s)\n  /Supplement %d\n>> def\n\x00"
-            as *const u8 as *const i8,
+    let s = format!(
+        "/CIDSystemInfo <<\n  /Registry ({})\n  /Ordering ({})\n  /Supplement {}\n>> def\n",
         (*csi).registry,
         (*csi).ordering,
         (*csi).supplement,
-    ) as isize);
+    );
+    s.as_bytes()
+        .as_ptr()
+        .copy_to_nonoverlapping(wbuf.curptr as *mut u8, s.len());
+    wbuf.curptr = wbuf.curptr.add(s.len());
     stream.add(
         wbuf.buf as *const libc::c_void,
         wbuf.curptr.wrapping_offset_from(wbuf.buf) as i64 as i32,

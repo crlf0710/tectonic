@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use euclid::point2;
@@ -72,7 +72,6 @@ use crate::dpx_pdfobj::{
     pdf_stream_length, pdf_string, pdf_string_length, pdf_string_value, IntoObj, PdfObjType,
     PushObj, STREAM_COMPRESS,
 };
-use crate::shims::sprintf;
 use libc::{free, memcpy, strcmp, strcpy, strlen, strncmp, strncpy};
 
 use crate::bridge::size_t;
@@ -229,36 +228,28 @@ pub(crate) unsafe fn pdf_doc_enable_manual_thumbnails() {
     // without HAVE_LIBPNG:
     // warn!("Manual thumbnail is not supported without the libpng library.");
 }
-unsafe fn read_thumbnail(thumb_filename: *const i8) -> *mut pdf_obj {
+unsafe fn read_thumbnail(thumb_filename: &str) -> *mut pdf_obj {
     let options: load_options = load_options {
         page_no: 1i32,
         bbox_type: 0i32,
         dict: ptr::null_mut(),
     };
-    let handle = ttstub_input_open(thumb_filename, TTInputFormat::PICT, 0i32);
+    let filename = CString::new(thumb_filename).unwrap();
+    let handle = ttstub_input_open(filename.as_ptr(), TTInputFormat::PICT, 0i32);
     if handle.is_none() {
-        warn!(
-            "Could not open thumbnail file \"{}\"",
-            CStr::from_ptr(thumb_filename).display()
-        );
+        warn!("Could not open thumbnail file \"{}\"", thumb_filename);
         return ptr::null_mut();
     }
     let mut handle = handle.unwrap();
     if check_for_png(&mut handle) == 0 && check_for_jpeg(&mut handle) == 0 {
-        warn!(
-            "Thumbnail \"{}\" not a png/jpeg file!",
-            CStr::from_ptr(thumb_filename).display()
-        );
+        warn!("Thumbnail \"{}\" not a png/jpeg file!", thumb_filename);
         ttstub_input_close(handle);
         return ptr::null_mut();
     }
     ttstub_input_close(handle);
-    let xobj_id = pdf_ximage_findresource(thumb_filename, options);
+    let xobj_id = pdf_ximage_findresource(filename.as_ptr(), options);
     if xobj_id < 0i32 {
-        warn!(
-            "Could not read thumbnail file \"{}\".",
-            CStr::from_ptr(thumb_filename).display()
-        );
+        warn!("Could not read thumbnail file \"{}\".", thumb_filename);
         ptr::null_mut()
     } else {
         pdf_ximage_get_reference(xobj_id)
@@ -923,7 +914,7 @@ pub unsafe fn pdf_doc_get_page(
     let mut page_idx: i32 = page_no - 1i32;
     let mut kids_length = 1;
     let i = 0;
-    's_83: loop {
+    loop {
         depth -= 1;
         if !(depth != 0 && i != kids_length) {
             break;
@@ -2285,17 +2276,12 @@ unsafe fn pdf_doc_finish_page(mut p: *mut pdf_doc) {
         (*currentpage).resources = ptr::null_mut()
     }
     if manual_thumb_enabled != 0 {
-        let thumb_filename = new(
-            (strlen(thumb_basename).wrapping_add(7)).wrapping_mul(::std::mem::size_of::<i8>()) as _
-        ) as *mut i8;
-        sprintf(
-            thumb_filename,
-            b"%s.%ld\x00" as *const u8 as *const i8,
-            thumb_basename,
-            (*p).pages.num_entries.wrapping_rem(99999_u32) as i64 + 1,
+        let thumb_filename = format!(
+            "{}.{}",
+            CStr::from_ptr(thumb_basename).to_string_lossy(),
+            (*p).pages.num_entries.wrapping_rem(99999_u32) as i64 + 1
         );
-        let thumb_ref = read_thumbnail(thumb_filename);
-        free(thumb_filename as *mut libc::c_void);
+        let thumb_ref = read_thumbnail(&thumb_filename);
         if !thumb_ref.is_null() {
             (*(*currentpage).page_obj)
                 .as_dict_mut()

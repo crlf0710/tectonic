@@ -23,14 +23,14 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use euclid::point2;
 
 use crate::bridge::DisplayExt;
 use crate::warn;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_mem::new;
@@ -40,8 +40,8 @@ use super::dpx_pdfencoding::{
     pdf_encoding_get_encoding, pdf_encoding_get_name, pdf_encoding_used_by_type3,
 };
 use super::dpx_pdffont::{
-    pdf_font, pdf_font_get_encoding, pdf_font_get_ident, pdf_font_get_param, pdf_font_get_resource,
-    pdf_font_get_usedchars, pdf_font_is_in_use, pdf_font_set_fontname,
+    pdf_font, pdf_font_get_encoding, pdf_font_get_param, pdf_font_get_resource,
+    pdf_font_get_usedchars, pdf_font_is_in_use,
 };
 use super::dpx_tfm::{tfm_get_design_size, tfm_open};
 use crate::dpx_pdfobj::{
@@ -84,7 +84,7 @@ pub(crate) unsafe fn PKFont_set_dpi(dpi: i32) {
     base_dpi = dpi as u32;
 }
 /* (Only) This requires TFM to get design size... */
-unsafe fn truedpi(ident: *const i8, point_size: f64, bdpi: u32) -> u32 {
+unsafe fn truedpi(ident: &str, point_size: f64, bdpi: u32) -> u32 {
     let mut dpi: u32 = bdpi;
     let tfm_id = tfm_open(ident, 0i32);
     if tfm_id < 0i32 {
@@ -92,10 +92,7 @@ unsafe fn truedpi(ident: *const i8, point_size: f64, bdpi: u32) -> u32 {
     }
     let design_size = tfm_get_design_size(tfm_id);
     if design_size <= 0.0f64 {
-        warn!(
-            "DESGIN_SIZE <= 0.0? (TFM=\"{}\")",
-            CStr::from_ptr(ident).display(),
-        );
+        warn!("DESGIN_SIZE <= 0.0? (TFM=\"{}\")", ident,);
     } else {
         dpi =
             ((base_dpi as f64 * point_size / design_size / 1.0f64 + 0.5f64).floor() * 1.0f64) as u32
@@ -113,15 +110,16 @@ unsafe fn dpx_open_pk_font_at(_ident: *const i8, _dpi: u32) -> *mut FILE {
     fp
 }
 
-pub(crate) unsafe fn pdf_font_open_pkfont(font: *mut pdf_font) -> i32 {
-    let ident = pdf_font_get_ident(font);
+pub unsafe fn pdf_font_open_pkfont(font: &mut pdf_font) -> i32 {
     let point_size = pdf_font_get_param(font, 2i32);
     let encoding_id = pdf_font_get_encoding(font);
-    if ident.is_null() || point_size <= 0.0f64 {
+    let ident = &*font.ident;
+    if ident.is_empty() || point_size <= 0.0f64 {
         return -1i32;
     }
+    let ident_ = CString::new(ident).unwrap();
     let dpi = truedpi(ident, point_size, base_dpi);
-    let fp = dpx_open_pk_font_at(ident, dpi);
+    let fp = dpx_open_pk_font_at(ident_.as_ptr(), dpi);
     if fp.is_null() {
         return -1i32;
     }
@@ -129,12 +127,12 @@ pub(crate) unsafe fn pdf_font_open_pkfont(font: *mut pdf_font) -> i32 {
     /* Type 3 fonts doesn't have FontName.
      * FontFamily is recommended for PDF 1.5.
      */
-    pdf_font_set_fontname(font, ident);
+    font.fontname = ident.to_owned();
     if encoding_id >= 0i32 {
         pdf_encoding_used_by_type3(encoding_id);
         warn!(
             "PK font is found for font \"{}\" but non built-in encoding \"{}\" is specified.",
-            CStr::from_ptr(ident).display(),
+            ident,
             CStr::from_ptr(pdf_encoding_get_name(encoding_id)).display(),
         );
         warn!(">> Assuming this is for glyph name assignment.");
@@ -568,14 +566,13 @@ unsafe fn create_pk_CharProc_stream(
     stream
 }
 
-pub(crate) unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
     let mut widths: [f64; 256] = [0.; 256];
     let mut charavail: [i8; 256] = [0; 256];
     /* ENABLE_GLYPHENC */
     if !pdf_font_is_in_use(font) {
         return 0i32;
     }
-    let ident = pdf_font_get_ident(font);
     let point_size = pdf_font_get_param(font, 2i32);
     let usedchars = pdf_font_get_usedchars(font);
     let encoding_id = pdf_font_get_encoding(font);
@@ -585,14 +582,15 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
         pdf_encoding_get_encoding(encoding_id)
     };
     /* ENABLE_GLYPHENC */
-    assert!(!ident.is_null() && !usedchars.is_null() && point_size > 0.0f64);
+    let ident = &*font.ident;
+    assert!(!ident.is_empty() && !usedchars.is_null() && point_size > 0.0f64);
+    let ident_ = CString::new(ident).unwrap();
     let dpi = truedpi(ident, point_size, base_dpi);
-    let fp = dpx_open_pk_font_at(ident, dpi);
+    let fp = dpx_open_pk_font_at(ident_.as_ptr(), dpi);
     if fp.is_null() {
         panic!(
             "Could not find/open PK font file: {} (at {}dpi)",
-            CStr::from_ptr(ident).display(),
-            dpi,
+            ident, dpi,
         );
     }
     memset(charavail.as_mut_ptr() as *mut libc::c_void, 0i32, 256);
@@ -632,8 +630,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
                 if charavail[(pkh.chrcode & 0xffi32) as usize] != 0 {
                     warn!(
                         "More than two bitmap image for single glyph?: font=\"{}\" code=0x{:02x}",
-                        CStr::from_ptr(ident).display(),
-                        pkh.chrcode,
+                        ident, pkh.chrcode,
                     );
                 }
             }
@@ -673,8 +670,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
                     if charname.is_null() {
                         warn!(
                             "\".notdef\" glyph used in font (code=0x{:02x}): {}",
-                            pkh.chrcode,
-                            CStr::from_ptr(ident).display(),
+                            pkh.chrcode, ident,
                         );
                         charname = work_buffer.as_mut_ptr() as *mut i8;
                         sprintf(
@@ -722,8 +718,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
         if *usedchars.offset(code as isize) as i32 != 0 && charavail[code as usize] == 0 {
             warn!(
                 "Missing glyph code=0x{:02x} in PK font \"{}\".",
-                code,
-                CStr::from_ptr(ident).display(),
+                code, ident,
             );
         }
     }

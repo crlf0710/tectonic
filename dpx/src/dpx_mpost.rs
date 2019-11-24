@@ -24,7 +24,7 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
+    unused_assignments
 )]
 
 use euclid::point2;
@@ -65,7 +65,6 @@ use crate::dpx_pdfobj::{
 use crate::dpx_pdfparse::{
     parse_number, pdfparse_skip_line, skip_white, ParseIdent, ParsePdfObj, SkipWhite,
 };
-use crate::shims::sprintf;
 use libc::{atof, free, strtod};
 
 pub(crate) type __off_t = i64;
@@ -193,22 +192,23 @@ unsafe fn mp_setfont(font_name: &CStr, pt_size: f64) -> i32 {
     }
     let mrec = pdf_lookup_fontmap_record(font_name.to_bytes());
     if !mrec.is_null()
-        && !(*mrec).charmap.sfd_name.is_null()
+        && !(*mrec).charmap.sfd_name.is_empty()
         && !(*mrec).charmap.subfont_id.is_null()
     {
-        subfont_id = sfd_load_record((*mrec).charmap.sfd_name, (*mrec).charmap.subfont_id)
+        subfont_id = sfd_load_record(&(*mrec).charmap.sfd_name, (*mrec).charmap.subfont_id)
     }
     /* See comments in dvi_locate_font() in dvi.c. */
-    let name = if !mrec.is_null() && !(*mrec).map_name.is_null() {
-        CStr::from_ptr((*mrec).map_name)
+    let name = if !mrec.is_null() && !(*mrec).map_name.is_empty() {
+        &(*mrec).map_name
     } else {
-        font_name
+        font_name.to_str().unwrap()
     };
-    let font_id = pdf_dev_locate_font(name, (pt_size * dev_unit_dviunit()) as spt_t);
+    let name_ = CString::new(name).unwrap();
+    let font_id = pdf_dev_locate_font(&name_, (pt_size * dev_unit_dviunit()) as spt_t);
     let new_font = mp_font {
         font_name: font_name.to_owned(),
         font_id,
-        tfm_id: tfm_open(font_name.as_ptr(), 0),
+        tfm_id: tfm_open(font_name.to_str().unwrap(), 0),
         subfont_id,
         pt_size,
     };
@@ -709,7 +709,6 @@ unsafe fn do_texfig_operator(opcode: Opcode, x_user: f64, y_user: f64) -> i32 {
         Opcode::STexFig => {
             error = pop_get_numbers(values.as_mut());
             if error == 0 {
-                let mut resname: [i8; 256] = [0; 256];
                 transform_info_clear(&mut fig_p);
                 let dvi2pts = 1.0f64 / dev_unit_dviunit();
                 fig_p.width = values[0] * dvi2pts;
@@ -719,13 +718,9 @@ unsafe fn do_texfig_operator(opcode: Opcode, x_user: f64, y_user: f64) -> i32 {
                 fig_p.bbox.max.x = values[4] * dvi2pts;
                 fig_p.bbox.max.y = -values[5] * dvi2pts;
                 fig_p.flags |= 1i32 << 0i32;
-                sprintf(
-                    resname.as_mut_ptr(),
-                    b"__tf%d__\x00" as *const u8 as *const i8,
-                    count,
-                );
+                let resname = format!("__tf{}__", count);
                 xobj_id = pdf_doc_begin_grabbing(
-                    resname.as_mut_ptr(),
+                    resname.as_bytes().as_ptr() as *const i8,
                     fig_p.bbox.min.x,
                     fig_p.bbox.max.y,
                     &mut fig_p.bbox,

@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use crate::bridge::DisplayExt;
@@ -35,7 +35,6 @@ use super::dpx_sfnt::{
     sfnt_read_table_directory, sfnt_require_table,
 };
 use crate::dpx_truetype::SfntTableInfo;
-use crate::streq_ptr;
 use crate::{info, warn, FromBEByteSlice};
 
 use super::dpx_cid::{CIDFont_get_embedding, CIDFont_get_parent_id, CIDFont_is_BaseFont};
@@ -55,10 +54,10 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_dict, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string,
-    IntoObj, PushObj, STREAM_COMPRESS,
+    pdf_dict, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj,
+    STREAM_COMPRESS,
 };
-use libc::{free, memmove, memset, strcat, strcmp, strcpy, strlen, strncpy, strstr};
+use libc::free;
 
 use crate::bridge::size_t;
 
@@ -150,54 +149,27 @@ const required_table: [SfntTableInfo; 11] = {
         SfntTableInfo::new(PREP, false),
     ]
 };
-unsafe fn validate_name(fontname: *mut i8, mut len: i32) {
-    static mut badstrlist: [*const i8; 5] = [
-        b"-WIN-RKSJ-H\x00" as *const u8 as *const i8,
-        b"-WINP-RKSJ-H\x00" as *const u8 as *const i8,
-        b"-WING-RKSJ-H\x00" as *const u8 as *const i8,
-        b"-90pv-RKSJ-H\x00" as *const u8 as *const i8,
-        ptr::null(),
+unsafe fn validate_name(mut fontname: String) -> String {
+    const badstrlist: [&str; 4] = [
+        "-WIN-RKSJ-H",
+        "-WINP-RKSJ-H",
+        "-WING-RKSJ-H",
+        "-90pv-RKSJ-H",
     ];
-    let mut count = 0;
-    for i in 0..len {
-        if *fontname.offset(i as isize) as i32 == 0i32 {
-            memmove(
-                fontname.offset(i as isize) as *mut libc::c_void,
-                fontname.offset(i as isize).offset(1) as *const libc::c_void,
-                (len - i) as _,
-            );
-            count += 1;
-            len -= 1
-        }
-    }
-    if count > 0i32 {
-        warn!(
-            "Removed {} null character(s) from fontname --> {}",
-            count,
-            CStr::from_ptr(fontname).display(),
-        );
-    }
-    *fontname.offset(len as isize) = '\u{0}' as i32 as i8;
     /* For some fonts that have bad PS name. ad hoc. remove me. */
-    let mut i = 0;
-    while !badstrlist[i as usize].is_null() {
-        let p = strstr(fontname, badstrlist[i as usize]);
-        if !p.is_null() && p > fontname {
+    for badstr in &badstrlist {
+        if fontname.ends_with(badstr) {
             warn!(
                 "Removed string \"{}\" from fontname \"{}\".",
-                CStr::from_ptr(badstrlist[i as usize]).display(),
-                CStr::from_ptr(fontname).display(),
+                badstr, fontname
             );
-            *p.offset(0) = '\u{0}' as i32 as i8;
-            len = p.wrapping_offset_from(fontname) as i64 as i32;
-            break;
-        } else {
-            i += 1
+            fontname = fontname.replace(badstr, "");
         }
     }
-    if len < 1i32 {
+    if fontname.is_empty() {
         panic!("No valid character found in fontname string.");
     };
+    fontname
 }
 static mut known_encodings: [C2RustUnnamed_3; 11] = [
     C2RustUnnamed_3 {
@@ -322,12 +294,12 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
         ],
     },
 ];
-unsafe fn find_tocode_cmap(reg: *const i8, ord: *const i8, select: i32) -> *mut CMap {
+unsafe fn find_tocode_cmap(reg: &str, ord: &str, select: i32) -> *mut CMap {
     let mut cmap_id: i32 = -1i32;
-    if reg.is_null() || ord.is_null() || select < 0i32 || select > 9i32 {
+    if select < 0i32 || select > 9i32 {
         panic!("Character set unknown.");
     }
-    if streq_ptr(ord, b"UCS\x00" as *const u8 as *const i8) as i32 != 0 && select <= 1i32 {
+    if ord == "UCS" && select <= 1i32 {
         return ptr::null_mut();
     }
     let mut i = 0;
@@ -336,20 +308,14 @@ unsafe fn find_tocode_cmap(reg: *const i8, ord: *const i8, select: i32) -> *mut 
         if append.is_null() {
             break;
         }
-        let cmap_name = format!(
-            "{}-{}-{}",
-            CStr::from_ptr(reg).display(),
-            CStr::from_ptr(ord).display(),
-            CStr::from_ptr(append).display()
-        );
+        let cmap_name = format!("{}-{}-{}", reg, ord, CStr::from_ptr(append).display());
         cmap_id = CMap_cache_find(&cmap_name);
         i += 1
     }
     if cmap_id < 0i32 {
         warn!(
             "Could not find CID-to-Code mapping for \"{}-{}\".",
-            CStr::from_ptr(reg).display(),
-            CStr::from_ptr(ord).display(),
+            reg, ord,
         );
         warn!("I tried to load (one of) the following file(s):");
         for i in 0..5 {
@@ -357,12 +323,7 @@ unsafe fn find_tocode_cmap(reg: *const i8, ord: *const i8, select: i32) -> *mut 
             if append.is_null() {
                 break;
             }
-            info!(
-                " {}-{}-{}",
-                CStr::from_ptr(reg).display(),
-                CStr::from_ptr(ord).display(),
-                CStr::from_ptr(append).display()
-            );
+            info!(" {}-{}-{}", reg, ord, CStr::from_ptr(append).display());
         }
         warn!("Please check if this file exists.");
         panic!("Cannot continue...");
@@ -651,20 +612,8 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
      * CIDSystemInfo comes here since Supplement can be increased.
      */
     let mut tmp = pdf_dict::new();
-    tmp.set(
-        "Registry",
-        pdf_string::new_from_ptr(
-            (*(*font).csi).registry as *const libc::c_void,
-            strlen((*(*font).csi).registry) as _,
-        ),
-    );
-    tmp.set(
-        "Ordering",
-        pdf_string::new_from_ptr(
-            (*(*font).csi).ordering as *const libc::c_void,
-            strlen((*(*font).csi).ordering) as _,
-        ),
-    );
+    tmp.set("Registry", (*(*font).csi).registry.into_obj());
+    tmp.set("Ordering", (*(*font).csi).ordering.into_obj());
     tmp.set("Supplement", (*(*font).csi).supplement as f64);
     (*(*font).fontdict).as_dict_mut().set("CIDSystemInfo", tmp);
     /* Quick exit for non-embedded & fixed-pitch font. */
@@ -672,77 +621,52 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
         (*(*font).fontdict).as_dict_mut().set("DW", 1000_f64);
         return;
     }
-    let sfont = if let Some(handle) = dpx_open_truetype_file((*font).ident) {
+    let sfont = if let Some(handle) = dpx_open_truetype_file(&(*font).ident) {
         sfnt_open(handle)
-    } else if let Some(handle) = dpx_open_dfont_file((*font).ident) {
+    } else if let Some(handle) = dpx_open_dfont_file(&(*font).ident) {
         dfont_open(handle, (*(*font).options).index)
     } else {
-        panic!(
-            "Could not open TTF/dfont file: {}",
-            CStr::from_ptr((*font).ident).display()
-        );
+        panic!("Could not open TTF/dfont file: {}", (*font).ident);
     };
     if sfont.is_null() {
-        panic!(
-            "Could not open TTF file: {}",
-            CStr::from_ptr((*font).ident).display()
-        );
+        panic!("Could not open TTF file: {}", (*font).ident);
     }
     match (*sfont).type_0 {
         16 => {
             offset = ttc_read_offset(sfont, (*(*font).options).index);
             if offset == 0_u32 {
-                panic!(
-                    "Invalid TTC index in {}.",
-                    CStr::from_ptr((*font).ident).display()
-                );
+                panic!("Invalid TTC index in {}.", (*font).ident);
             }
         }
         1 => {
             if (*(*font).options).index > 0i32 {
                 panic!(
                     "Found TrueType font file while expecting TTC file ({}).",
-                    CStr::from_ptr((*font).ident).display()
+                    (*font).ident
                 );
             }
             offset = 0_u32
         }
         256 => offset = (*sfont).offset,
         _ => {
-            panic!(
-                "Not a TrueType/TTC font ({})?",
-                CStr::from_ptr((*font).ident).display()
-            );
+            panic!("Not a TrueType/TTC font ({})?", (*font).ident);
         }
     }
     if sfnt_read_table_directory(sfont, offset) < 0i32 {
         panic!(
             "Could not read TrueType table directory ({}).",
-            CStr::from_ptr((*font).ident).display()
+            (*font).ident
         );
     }
     /*
      * Adobe-Identity means font's internal glyph ordering here.
      */
-    let glyph_ordering = if streq_ptr(
-        (*(*font).csi).registry,
-        b"Adobe\x00" as *const u8 as *const i8,
-    ) as i32
-        != 0
-        && streq_ptr(
-            (*(*font).csi).ordering,
-            b"Identity\x00" as *const u8 as *const i8,
-        ) as i32
-            != 0
-    {
-        1
-    } else {
-        0
-    };
+    let glyph_ordering =
+        (*(*font).csi).registry == "Adobe" && (*(*font).csi).ordering == "Identity";
     /*
      * Select TrueType cmap table, find ToCode CMap for each TrueType encodings.
      */
-    if glyph_ordering != 0 {
+    if glyph_ordering {
         ttcmap = ptr::null_mut();
         cmap = ptr::null_mut()
     } else {
@@ -763,12 +687,12 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
         if ttcmap.is_null() {
             warn!(
                 "No usable TrueType cmap table found for font \"{}\".",
-                CStr::from_ptr((*font).ident).display()
+                (*font).ident
             );
             warn!(
                 "CID character collection for this font is set to \"{}-{}\"",
-                CStr::from_ptr((*(*font).csi).registry).display(),
-                CStr::from_ptr((*(*font).csi).ordering).display(),
+                (*(*font).csi).registry,
+                (*(*font).csi).ordering,
             );
             panic!("Cannot continue without this...");
         } else {
@@ -781,7 +705,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
         /*
          * NULL is returned if CMap is Identity CMap.
          */
-        cmap = find_tocode_cmap((*(*font).csi).registry, (*(*font).csi).ordering, i)
+        cmap = find_tocode_cmap(&(*(*font).csi).registry, &(*(*font).csi).ordering, i)
     } /* .notdef */
     let glyphs = tt_build_init();
     let mut last_cid = 0i32 as CID;
@@ -861,7 +785,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
                 & 1i32 << 7i32 - cid as i32 % 8i32
                 == 0)
             {
-                if glyph_ordering != 0 {
+                if glyph_ordering {
                     gid = cid;
                     code = cid as i32
                 } else {
@@ -899,7 +823,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
         /*
          * Require `vrt2' or `vert'.
          */
-        if glyph_ordering != 0 {
+        if glyph_ordering {
             gsub_list = ptr::null_mut()
         } else {
             gsub_list = otl_gsub_new();
@@ -931,7 +855,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
                         & 1i32 << 7i32 - cid as i32 % 8i32
                         != 0)
                 {
-                    if glyph_ordering != 0 {
+                    if glyph_ordering {
                         gid_0 = cid;
                         code_0 = cid as i32
                     } else {
@@ -1070,14 +994,14 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
     };
 }
 
-pub(crate) unsafe fn CIDFont_type2_open(
-    mut font: *mut CIDFont,
-    name: *const i8,
+pub unsafe fn CIDFont_type2_open(
+    mut font: &mut CIDFont,
+    name: &str,
     cmap_csi: *mut CIDSysInfo,
     mut opt: *mut cid_opt,
 ) -> i32 {
     let offset;
-    assert!(!font.is_null() && !opt.is_null());
+    assert!(!opt.is_null());
 
     let sfont = if let Some(handle) = dpx_open_truetype_file(name) {
         sfnt_open(handle)
@@ -1093,10 +1017,7 @@ pub(crate) unsafe fn CIDFont_type2_open(
         16 => offset = ttc_read_offset(sfont, (*opt).index),
         1 => {
             if (*opt).index > 0i32 {
-                panic!(
-                    "Invalid TTC index (not TTC font): {}",
-                    CStr::from_ptr(name).display()
-                );
+                panic!("Invalid TTC index (not TTC font): {}", name);
             }
             offset = 0_u32
         }
@@ -1115,67 +1036,45 @@ pub(crate) unsafe fn CIDFont_type2_open(
         return -1i32;
     }
     /* MAC-ROMAN-EN-POSTSCRIPT or WIN-UNICODE-EN(US)-POSTSCRIPT */
-    let shortname =
-        new((127_u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8; /* for SJIS, UTF-16, ... string */
-    let mut namelen = tt_get_ps_fontname(sfont, shortname, 127_u16) as i32;
-    if namelen == 0i32 {
-        memset(shortname as *mut libc::c_void, 0i32, 127);
-        strncpy(shortname, name, 127);
-        namelen = strlen(shortname) as i32
-    }
-    validate_name(shortname, namelen);
-    /*
-     * Strlen works, after validate_named string.
-     * Mangled name requires more 7 bytes.
-     * Style requires more 11 bytes.
-     */
-    let fontname =
-        new((strlen(shortname).wrapping_add(19)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-    strcpy(fontname, shortname);
-    free(shortname as *mut libc::c_void);
+    /* for SJIS, UTF-16, ... string */
+    let shortname = tt_get_ps_fontname(sfont).unwrap_or_else(|| name.to_owned());
+    let shortname = validate_name(shortname);
+
     if (*opt).embed != 0 && (*opt).style != 0i32 {
-        warn!(
-            "Embedding disabled due to style option for {}.",
-            CStr::from_ptr(name).display()
-        );
+        warn!("Embedding disabled due to style option for {}.", name);
         (*opt).embed = 0i32
     }
-    match (*opt).style {
-        1 => {
-            strcat(fontname, b",Bold\x00" as *const u8 as *const i8);
-        }
-        2 => {
-            strcat(fontname, b",Italic\x00" as *const u8 as *const i8);
-        }
-        3 => {
-            strcat(fontname, b",BoldItalic\x00" as *const u8 as *const i8);
-        }
-        _ => {}
-    }
+
+    let mut fontname = shortname
+        + match (*opt).style {
+            1 => ",Bold",
+            2 => ",Italic",
+            3 => ",BoldItalic",
+            _ => "",
+        };
     /*
      * CIDSystemInfo is determined from CMap or from map record option.
      */
-    (*font).fontname = fontname; /* This means font's internal glyph ordering. */
+    (*font).fontname = fontname.clone(); /* This means font's internal glyph ordering. */
     (*font).subtype = 2i32;
     (*font).csi = new((1_u64).wrapping_mul(::std::mem::size_of::<CIDSysInfo>() as u64) as u32)
         as *mut CIDSysInfo;
     if !(*opt).csi.is_null() {
         if !cmap_csi.is_null() {
-            if strcmp((*(*opt).csi).registry, (*cmap_csi).registry) != 0
-                || strcmp((*(*opt).csi).ordering, (*cmap_csi).ordering) != 0
+            if (*(*opt).csi).registry != (*cmap_csi).registry
+                || (*(*opt).csi).ordering != (*cmap_csi).ordering
             {
                 warn!("CID character collection mismatched:\n");
                 info!(
                     "\tFont: {}-{}-{}\n",
-                    CStr::from_ptr((*(*opt).csi).registry).display(),
-                    CStr::from_ptr((*(*opt).csi).ordering).display(),
+                    (*(*opt).csi).registry,
+                    (*(*opt).csi).ordering,
                     (*(*opt).csi).supplement,
                 );
                 info!(
                     "\tCMap: {}-{}-{}\n",
-                    CStr::from_ptr((*cmap_csi).registry).display(),
-                    CStr::from_ptr((*cmap_csi).ordering).display(),
+                    (*cmap_csi).registry,
+                    (*cmap_csi).ordering,
                     (*cmap_csi).supplement,
                 );
                 panic!("Incompatible CMap specified for this font.");
@@ -1186,42 +1085,16 @@ pub(crate) unsafe fn CIDFont_type2_open(
                 (*(*opt).csi).supplement = (*cmap_csi).supplement
             }
         }
-        (*(*font).csi).registry = new((strlen((*(*opt).csi).registry).wrapping_add(1))
-            .wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-        strcpy((*(*font).csi).registry, (*(*opt).csi).registry);
-        (*(*font).csi).ordering = new((strlen((*(*opt).csi).ordering).wrapping_add(1))
-            .wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-        strcpy((*(*font).csi).ordering, (*(*opt).csi).ordering);
+        (*(*font).csi).registry = (*(*opt).csi).registry.clone();
+        (*(*font).csi).ordering = (*(*opt).csi).ordering.clone();
         (*(*font).csi).supplement = (*(*opt).csi).supplement
     } else if !cmap_csi.is_null() {
-        (*(*font).csi).registry = new((strlen((*cmap_csi).registry).wrapping_add(1))
-            .wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-        strcpy((*(*font).csi).registry, (*cmap_csi).registry);
-        (*(*font).csi).ordering = new((strlen((*cmap_csi).ordering).wrapping_add(1))
-            .wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-        strcpy((*(*font).csi).ordering, (*cmap_csi).ordering);
+        (*(*font).csi).registry = (*cmap_csi).registry.clone();
+        (*(*font).csi).ordering = (*cmap_csi).ordering.clone();
         (*(*font).csi).supplement = (*cmap_csi).supplement
     } else {
-        (*(*font).csi).registry = new((strlen(b"Adobe\x00" as *const u8 as *const i8)
-            .wrapping_add(1))
-        .wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-        strcpy(
-            (*(*font).csi).registry,
-            b"Adobe\x00" as *const u8 as *const i8,
-        );
-        (*(*font).csi).ordering = new((strlen(b"Identity\x00" as *const u8 as *const i8)
-            .wrapping_add(1))
-        .wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-        strcpy(
-            (*(*font).csi).ordering,
-            b"Identity\x00" as *const u8 as *const i8,
-        );
+        (*(*font).csi).registry = "Adobe".into();
+        (*(*font).csi).ordering = "Identity".into();
         (*(*font).csi).supplement = 0i32
     }
     (*font).fontdict = pdf_dict::new().into_obj();
@@ -1235,20 +1108,15 @@ pub(crate) unsafe fn CIDFont_type2_open(
         panic!("Could not obtain necessary font info.");
     }
     if (*opt).embed != 0 {
-        memmove(
-            fontname.offset(7) as *mut libc::c_void,
-            fontname as *const libc::c_void,
-            strlen(fontname).wrapping_add(1),
-        );
-        pdf_font_make_uniqueTag(fontname);
-        *fontname.offset(6) = '+' as i32 as i8
+        let tag = pdf_font_make_uniqueTag();
+        fontname = tag + "+" + &fontname;
     }
     (*(*font).descriptor)
         .as_dict_mut()
-        .set("FontName", pdf_copy_name(fontname));
+        .set("FontName", pdf_name::new(fontname.as_bytes()));
     (*(*font).fontdict)
         .as_dict_mut()
-        .set("BaseFont", pdf_copy_name(fontname));
+        .set("BaseFont", pdf_name::new(fontname.as_bytes()));
     sfnt_close(sfont);
     /*
      * Don't write fontdict here.

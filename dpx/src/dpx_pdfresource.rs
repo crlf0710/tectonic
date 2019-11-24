@@ -23,13 +23,12 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
-use crate::bridge::DisplayExt;
 use crate::streq_ptr;
 use crate::warn;
-use std::ffi::CStr;
+use std::ffi::CString;
 use std::ptr;
 
 use super::dpx_mem::{new, renew};
@@ -176,31 +175,30 @@ unsafe fn get_category(category: *const i8) -> i32 {
     -1i32
 }
 
-pub(crate) unsafe fn pdf_defineresource(
-    category: *const i8,
-    resname: *const i8,
+pub unsafe fn pdf_defineresource(
+    category: &str,
+    resname: &str,
     object: *mut pdf_obj,
     flags: i32,
 ) -> i32 {
+    let category_ = CString::new(category).unwrap();
+    let resname_ = CString::new(resname).unwrap();
+
     let mut res_id;
-    assert!(!category.is_null() && !object.is_null());
-    let cat_id = get_category(category);
+    assert!(!object.is_null());
+    let cat_id = get_category(category_.as_ptr());
     if cat_id < 0i32 {
-        panic!(
-            "Unknown resource category: {}",
-            CStr::from_ptr(category).display(),
-        );
+        panic!("Unknown resource category: {}", category,);
     }
     let rc = &mut *resources.as_mut_ptr().offset(cat_id as isize) as *mut res_cache;
-    if !resname.is_null() {
+    {
         res_id = 0i32;
         while res_id < (*rc).count {
             let res = &mut *(*rc).resources.offset(res_id as isize) as *mut pdf_res;
-            if streq_ptr(resname, (*res).ident) {
+            if streq_ptr(resname_.as_ptr(), (*res).ident) {
                 warn!(
                     "Resource {} (category: {}) already defined...",
-                    CStr::from_ptr(resname).display(),
-                    CStr::from_ptr(category).display(),
+                    resname, category,
                 );
                 pdf_flush_resource(res);
                 (*res).flags = flags;
@@ -214,8 +212,6 @@ pub(crate) unsafe fn pdf_defineresource(
             }
             res_id += 1
         }
-    } else {
-        res_id = (*rc).count
     }
     if res_id == (*rc).count {
         if (*rc).count >= (*rc).capacity {
@@ -228,11 +224,11 @@ pub(crate) unsafe fn pdf_defineresource(
         }
         let res = &mut *(*rc).resources.offset(res_id as isize) as *mut pdf_res;
         pdf_init_resource(res);
-        if !resname.is_null() && *resname.offset(0) as i32 != '\u{0}' as i32 {
-            (*res).ident = new(
-                (strlen(resname).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _
-            ) as *mut i8;
-            strcpy((*res).ident, resname);
+        if !resname.is_empty() {
+            (*res).ident = new((strlen(resname_.as_ptr()).wrapping_add(1))
+                .wrapping_mul(::std::mem::size_of::<i8>()) as _)
+                as *mut i8;
+            strcpy((*res).ident, resname_.as_ptr());
         }
         (*res).category = cat_id;
         (*res).flags = flags;
@@ -247,19 +243,17 @@ pub(crate) unsafe fn pdf_defineresource(
     cat_id << 16i32 | res_id
 }
 
-pub(crate) unsafe fn pdf_findresource(category: *const i8, resname: *const i8) -> i32 {
-    assert!(!resname.is_null() && !category.is_null());
-    let cat_id = get_category(category);
+pub unsafe fn pdf_findresource(category: &str, resname: &str) -> i32 {
+    let category_ = CString::new(category).unwrap();
+    let resname_ = CString::new(resname).unwrap();
+    let cat_id = get_category(category_.as_ptr());
     if cat_id < 0i32 {
-        panic!(
-            "Unknown resource category: {}",
-            CStr::from_ptr(category).display(),
-        );
+        panic!("Unknown resource category: {}", category);
     }
     let rc = &mut *resources.as_mut_ptr().offset(cat_id as isize) as *mut res_cache;
     for res_id in 0..(*rc).count {
         let res = &mut *(*rc).resources.offset(res_id as isize) as *mut pdf_res;
-        if streq_ptr(resname, (*res).ident) {
+        if streq_ptr(resname_.as_ptr(), (*res).ident) {
             return cat_id << 16i32 | res_id;
         }
     }

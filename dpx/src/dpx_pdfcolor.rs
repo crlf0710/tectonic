@@ -32,7 +32,6 @@ use crate::dpx_pdfobj::{
     PushObj, STREAM_COMPRESS,
 };
 use crate::mfree;
-use crate::shims::sprintf;
 use crate::{info, warn};
 use libc::{free, memcmp, memcpy, memset, strcmp, strcpy, strlen};
 use md5::{Digest, Md5};
@@ -181,30 +180,25 @@ impl PdfColor {
         }
     }
 
-    pub(crate) unsafe fn to_string(&self, buffer: *mut u8, mask: i8) -> usize {
+    pub unsafe fn to_string(&self, mask: u8) -> String {
         let values_to_string = |values: &[f64]| {
-            let mut len = 0isize;
+            let mut res = String::new();
             for value in values {
-                len += sprintf(
-                    buffer.offset(len) as *mut i8,
-                    b" %g\x00" as *const u8 as *const i8,
-                    (value / 0.001 + 0.5).floor() * 0.001,
-                ) as isize;
+                res += &format!(" {}", (value / 0.001 + 0.5).floor() * 0.001);
             }
-            len as usize
+            res
         };
 
         match self {
-            PdfColor::Spot(name, c) => sprintf(
-                buffer as *mut i8,
-                b" /%s %c%c %g %c%c\x00" as *const u8 as *const i8,
-                name.as_ptr(),
-                'C' as i32 | mask as i32,
-                'S' as i32 | mask as i32,
+            PdfColor::Spot(name, c) => format!(
+                " /{} {}{} {} {}{}",
+                name.display(),
+                ('C' as u8 | mask) as char,
+                ('S' as u8 | mask) as char,
                 (c / 0.001 + 0.5).floor() * 0.001,
-                'S' as i32 | mask as i32,
-                'C' as i32 | mask as i32,
-            ) as usize,
+                ('S' as u8 | mask) as char,
+                ('C' as u8 | mask) as char,
+            ),
             PdfColor::Cmyk(c, m, y, k) => values_to_string(&[*c, *m, *y, *k]),
             PdfColor::Rgb(r, g, b) => values_to_string(&[*r, *g, *b]),
             PdfColor::Gray(g) => values_to_string(&[*g]),

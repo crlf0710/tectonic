@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use euclid::point2;
@@ -1384,10 +1384,10 @@ unsafe fn print_fontmap(font_name: *const i8, mrec: *mut fontmap_rec) {
     info!(
         "fontmap: {} -> {}",
         CStr::from_ptr(font_name).display(),
-        CStr::from_ptr((*mrec).font_name).display(),
+        (*mrec).font_name,
     );
-    if !(*mrec).enc_name.is_null() {
-        info!("({})", CStr::from_ptr((*mrec).enc_name).display());
+    if !(*mrec).enc_name.is_empty() {
+        info!("({})", (*mrec).enc_name);
     }
     if (*mrec).opt.extend != 1.0f64 {
         info!("[extend:{}]", (*mrec).opt.extend);
@@ -1404,8 +1404,8 @@ unsafe fn print_fontmap(font_name: *const i8, mrec: *mut fontmap_rec) {
     if (*mrec).opt.mapc >= 0i32 {
         info!("[map:<{:02x}>]", (*mrec).opt.mapc);
     }
-    if !(*mrec).opt.charcoll.is_null() {
-        info!("[csi:{}]", CStr::from_ptr((*mrec).opt.charcoll).display());
+    if !(*mrec).opt.charcoll.is_empty() {
+        info!("[csi:{}]", (*mrec).opt.charcoll);
     }
     if (*mrec).opt.index != 0 {
         info!("[index:{}]", (*mrec).opt.index);
@@ -1467,8 +1467,11 @@ pub(crate) unsafe fn pdf_dev_locate_font(font_name: &CStr, ptsize: spt_t) -> i32
     if verbose > 1i32 {
         print_fontmap(font_name.as_ptr(), mrec);
     }
-    (*font).font_id =
-        pdf_font_findresource(font_name.as_ptr(), ptsize as f64 * dev_unit.dvi2pts, mrec);
+    (*font).font_id = pdf_font_findresource(
+        font_name.to_str().unwrap(),
+        ptsize as f64 * dev_unit.dvi2pts,
+        mrec,
+    );
     if (*font).font_id < 0i32 {
         return -1i32;
     }
@@ -1520,8 +1523,8 @@ pub(crate) unsafe fn pdf_dev_locate_font(font_name: &CStr, ptsize: spt_t) -> i32
         } else {
             (*font).mapc = -1i32
         }
-        if streq_ptr((*mrec).enc_name, b"unicode\x00" as *const u8 as *const i8) {
-            (*font).is_unicode = 1i32;
+        if (*mrec).enc_name == "unicode" {
+            (*font).is_unicode = 1;
             if (*mrec).opt.mapc >= 0i32 {
                 (*font).ucs_group = (*mrec).opt.mapc >> 24i32 & 0xffi32;
                 (*font).ucs_plane = (*mrec).opt.mapc >> 16i32 & 0xffi32

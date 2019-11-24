@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use crate::bridge::DisplayExt;
@@ -37,7 +37,7 @@ use super::dpx_cid::CSI_IDENTITY;
 use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_mem::{new, renew};
 use crate::bridge::{ttstub_input_close, ttstub_input_open};
-use libc::{free, memcmp, memcpy, memset, strcmp, strcpy, strlen};
+use libc::{free, memcmp, memcpy, memset, strcpy};
 
 use crate::bridge::size_t;
 
@@ -183,8 +183,6 @@ pub(crate) unsafe fn CMap_release(cmap: *mut CMap) {
     }
     free((*cmap).name as *mut libc::c_void);
     if !(*cmap).CSI.is_null() {
-        free((*(*cmap).CSI).registry as *mut libc::c_void);
-        free((*(*cmap).CSI).ordering as *mut libc::c_void);
         free((*cmap).CSI as *mut libc::c_void);
     }
     free((*cmap).codespace.ranges as *mut libc::c_void);
@@ -222,9 +220,7 @@ pub(crate) unsafe fn CMap_is_valid(cmap: *mut CMap) -> bool {
     if !(*cmap).useCMap.is_null() {
         let csi1 = CMap_get_CIDSysInfo(cmap);
         let csi2 = CMap_get_CIDSysInfo((*cmap).useCMap);
-        if strcmp((*csi1).registry, (*csi2).registry) != 0
-            || strcmp((*csi1).ordering, (*csi2).ordering) != 0
-        {
+        if (*csi1).registry != (*csi2).registry || (*csi1).ordering != (*csi2).ordering {
             warn!(
                 "CIDSystemInfo mismatched {} <--> {}",
                 CStr::from_ptr(CMap_get_name(cmap)).display(),
@@ -489,22 +485,10 @@ pub(crate) unsafe fn CMap_set_wmode(mut cmap: *mut CMap, wmode: i32) {
 pub(crate) unsafe fn CMap_set_CIDSysInfo(mut cmap: *mut CMap, csi: *const CIDSysInfo) {
     assert!(!cmap.is_null());
     if !(*cmap).CSI.is_null() {
-        free((*(*cmap).CSI).registry as *mut libc::c_void);
-        free((*(*cmap).CSI).ordering as *mut libc::c_void);
         free((*cmap).CSI as *mut libc::c_void);
     }
-    if !csi.is_null() && !(*csi).registry.is_null() && !(*csi).ordering.is_null() {
-        (*cmap).CSI =
-            new((1usize).wrapping_mul(::std::mem::size_of::<CIDSysInfo>()) as _) as *mut CIDSysInfo;
-        (*(*cmap).CSI).registry = new((strlen((*csi).registry).wrapping_add(1))
-            .wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-        strcpy((*(*cmap).CSI).registry, (*csi).registry);
-        (*(*cmap).CSI).ordering = new((strlen((*csi).ordering).wrapping_add(1))
-            .wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-        strcpy((*(*cmap).CSI).ordering, (*csi).ordering);
-        (*(*cmap).CSI).supplement = (*csi).supplement
+    if !csi.is_null() && !(*csi).registry.is_empty() && !(*csi).ordering.is_empty() {
+        (*cmap).CSI = Box::into_raw(Box::new((*csi).clone()));
     } else {
         warn!("Invalid CIDSystemInfo.");
         (*cmap).CSI = ptr::null_mut()
@@ -540,16 +524,12 @@ pub(crate) unsafe fn CMap_set_usecmap(mut cmap: *mut CMap, ucmap: *mut CMap) {
             CStr::from_ptr((*ucmap).name).display(),
         );
     }
-    if !(*cmap).CSI.is_null()
-        && !(*(*cmap).CSI).registry.is_null()
-        && !(*(*cmap).CSI).ordering.is_null()
-    {
-        if strcmp((*(*cmap).CSI).registry, (*(*ucmap).CSI).registry) != 0
-            || strcmp((*(*cmap).CSI).ordering, (*(*ucmap).CSI).ordering) != 0
+    if !(*cmap).CSI.is_null() {
+        if (*(*cmap).CSI).registry != (*(*ucmap).CSI).registry
+            || (*(*cmap).CSI).ordering != (*(*ucmap).CSI).ordering
         {
             panic!(
-                "{}: CMap {} required by {} have different CSI.",
-                "CMap",
+                "CMap: CMap {} required by {} have different CSI.",
                 CStr::from_ptr(CMap_get_name(cmap)).display(),
                 CStr::from_ptr(CMap_get_name(ucmap)).display(),
             );

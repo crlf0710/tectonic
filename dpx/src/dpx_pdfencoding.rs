@@ -23,12 +23,12 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use crate::bridge::DisplayExt;
 use crate::info;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::io::Read;
 use std::ptr;
 
@@ -250,29 +250,21 @@ unsafe fn make_encoding_differences(
     }
     Some(differences)
 }
-unsafe fn load_encoding_file(filename: *const i8) -> i32 {
+unsafe fn load_encoding_file(filename: &str) -> i32 {
     let mut enc_vec: [*const i8; 256] = [ptr::null(); 256];
-    if filename.is_null() {
-        return -1i32;
-    }
     if verbose != 0 {
-        info!("(Encoding:{}", CStr::from_ptr(filename).display());
+        info!("(Encoding:{}", filename);
     }
-    let handle = dpx_tt_open(
-        filename,
-        b".enc\x00" as *const u8 as *const i8,
-        TTInputFormat::ENC,
-    );
+    let handle = dpx_tt_open(filename, ".enc", TTInputFormat::ENC);
     if handle.is_none() {
         return -1i32;
     }
     let mut handle = handle.unwrap();
     let fsize = ttstub_input_get_size(&mut handle) as usize;
     let mut wbuf_0 = vec![0_u8; fsize];
-    handle.read(&mut wbuf_0[..]).expect(&format!(
-        "error reading {}",
-        CStr::from_ptr(filename).display()
-    ));
+    handle
+        .read(&mut wbuf_0[..])
+        .expect(&format!("error reading {}", filename));
     ttstub_input_close(handle);
     let mut p = &wbuf_0[..fsize];
     p.skip_white();
@@ -300,13 +292,13 @@ unsafe fn load_encoding_file(filename: *const i8) -> i32 {
     }
     let enc_id = pdf_encoding_new_encoding(
         if let Some(enc_name) = enc_name {
-            (*enc_name).as_name().as_ptr()
+            (*enc_name).as_name().to_str().unwrap()
         } else {
-            ptr::null_mut()
+            ""
         },
         filename,
         enc_vec.as_mut_ptr(),
-        ptr::null(),
+        None,
         0i32,
     );
     if let Some(enc_name) = enc_name {
@@ -337,24 +329,24 @@ pub(crate) unsafe fn pdf_init_encodings() {
      * PDF Predefined Encodings
      */
     pdf_encoding_new_encoding(
-        b"WinAnsiEncoding\x00" as *const u8 as *const i8,
-        b"WinAnsiEncoding\x00" as *const u8 as *const i8,
+        "WinAnsiEncoding",
+        "WinAnsiEncoding",
         WinAnsiEncoding.as_mut_ptr(),
-        ptr::null(),
+        None,
         1i32 << 0i32,
     );
     pdf_encoding_new_encoding(
-        b"MacRomanEncoding\x00" as *const u8 as *const i8,
-        b"MacRomanEncoding\x00" as *const u8 as *const i8,
+        "MacRomanEncoding",
+        "MacRomanEncoding",
         MacRomanEncoding.as_mut_ptr(),
-        ptr::null(),
+        None,
         1i32 << 0i32,
     );
     pdf_encoding_new_encoding(
-        b"MacExpertEncoding\x00" as *const u8 as *const i8,
-        b"MacExpertEncoding\x00" as *const u8 as *const i8,
+        "MacExpertEncoding",
+        "MacExpertEncoding",
         MacExpertEncoding.as_mut_ptr(),
-        ptr::null(),
+        None,
         1i32 << 0i32,
     );
 }
@@ -371,10 +363,10 @@ pub(crate) unsafe fn pdf_init_encodings() {
  * when the font is Symbol font or TrueType font.
  */
 unsafe fn pdf_encoding_new_encoding(
-    enc_name: *const i8,
-    ident: *const i8,
+    enc_name: &str,
+    ident: &str,
     encoding_vec: *mut *const i8,
-    mut baseenc_name: *const i8,
+    mut baseenc_name: Option<&str>,
     flags: i32,
 ) -> i32 {
     let enc_id = enc_cache.count;
@@ -390,6 +382,11 @@ unsafe fn pdf_encoding_new_encoding(
     }
     let encoding = &mut *enc_cache.encodings.offset(enc_id as isize) as *mut pdf_encoding;
     pdf_init_encoding_struct(encoding);
+
+    let ident_ = CString::new(ident).unwrap();
+    let ident = ident_.as_ptr();
+    let enc_name_ = CString::new(enc_name).unwrap();
+    let enc_name = enc_name_.as_ptr();
     (*encoding).ident =
         new((strlen(ident).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
             as *mut i8;
@@ -398,6 +395,7 @@ unsafe fn pdf_encoding_new_encoding(
         new((strlen(enc_name).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
             as *mut i8;
     strcpy((*encoding).enc_name, enc_name);
+
     (*encoding).flags = flags;
     for code in 0..256 {
         if !(*encoding_vec.offset(code as isize)).is_null()
@@ -416,7 +414,7 @@ unsafe fn pdf_encoding_new_encoding(
             );
         }
     }
-    if baseenc_name.is_null()
+    if baseenc_name.is_none()
         && flags & 1i32 << 0i32 == 0
         && is_similar_charset(
             (*encoding).glyphs.as_mut_ptr(),
@@ -425,15 +423,15 @@ unsafe fn pdf_encoding_new_encoding(
             != 0
     {
         /* Dvipdfmx default setting. */
-        baseenc_name = b"WinAnsiEncoding\x00" as *const u8 as *const i8
+        baseenc_name = Some("WinAnsiEncoding")
     }
     /* TODO: make base encoding configurable */
-    if !baseenc_name.is_null() {
+    if let Some(baseenc_name) = baseenc_name {
         let baseenc_id: i32 = pdf_encoding_findresource(baseenc_name);
         if baseenc_id < 0i32 || pdf_encoding_is_predefined(baseenc_id) == 0 {
             panic!(
                 "Illegal base encoding {} for encoding {}\n",
-                CStr::from_ptr(baseenc_name).display(),
+                baseenc_name,
                 CStr::from_ptr((*encoding).enc_name).display()
             );
         }
@@ -473,7 +471,7 @@ pub(crate) unsafe fn pdf_encoding_complete() {
             );
             assert!((*encoding).tounicode.is_null());
             (*encoding).tounicode = pdf_create_ToUnicode_CMap(
-                (*encoding).enc_name,
+                &CStr::from_ptr((*encoding).enc_name).to_string_lossy(),
                 (*encoding).glyphs.as_mut_ptr(),
                 (*encoding).is_used.as_mut_ptr(),
             )
@@ -499,15 +497,17 @@ pub(crate) unsafe fn pdf_close_encodings() {
     enc_cache.capacity = 0i32;
 }
 
-pub(crate) unsafe fn pdf_encoding_findresource(enc_name: *const i8) -> i32 {
-    assert!(!enc_name.is_null());
+pub unsafe fn pdf_encoding_findresource(enc_name: &str) -> i32 {
+    let enc_name_ = CString::new(enc_name).unwrap();
     for enc_id in 0..enc_cache.count {
         let encoding = &mut *enc_cache.encodings.offset(enc_id as isize) as *mut pdf_encoding;
-        if !(*encoding).ident.is_null() && streq_ptr(enc_name, (*encoding).ident) as i32 != 0 {
+        if !(*encoding).ident.is_null()
+            && streq_ptr(enc_name_.as_ptr(), (*encoding).ident) as i32 != 0
+        {
             return enc_id;
         } else {
             if !(*encoding).enc_name.is_null()
-                && streq_ptr(enc_name, (*encoding).enc_name) as i32 != 0
+                && streq_ptr(enc_name_.as_ptr(), (*encoding).enc_name) as i32 != 0
             {
                 return enc_id;
             }
@@ -599,17 +599,14 @@ pub(crate) unsafe fn pdf_encoding_get_tounicode(encoding_id: i32) -> *mut pdf_ob
  */
 
 pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
-    enc_name: *const i8,
+    enc_name: &str,
     enc_vec: *mut *mut i8,
     is_used: *const i8,
 ) -> Option<pdf_stream> {
-    assert!(!enc_name.is_null() && !enc_vec.is_null());
+    assert!(!enc_name.is_empty() && !enc_vec.is_null());
 
     let cmap = CMap_new();
-    CMap_set_name(
-        cmap,
-        &format!("{}-UTF16", CStr::from_ptr(enc_name).display()),
-    );
+    CMap_set_name(cmap, &format!("{}-UTF16", enc_name));
     CMap_set_type(cmap, 2i32);
     CMap_set_wmode(cmap, 0i32);
     CMap_set_CIDSysInfo(cmap, &mut CSI_UNICODE);
@@ -683,12 +680,13 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
  * PDF stream object (not reference) returned.
  */
 
-pub(crate) unsafe fn pdf_load_ToUnicode_stream(ident: *const i8) -> Option<pdf_stream> {
+pub(crate) unsafe fn pdf_load_ToUnicode_stream(ident: &str) -> Option<pdf_stream> {
     let mut stream = None;
-    if ident.is_null() {
+    if ident.is_empty() {
         return None;
     }
-    let mut handle = ttstub_input_open(ident, TTInputFormat::CMAP, 0i32);
+    let ident_ = CString::new(ident).unwrap();
+    let mut handle = ttstub_input_open(ident_.as_ptr(), TTInputFormat::CMAP, 0i32);
     if handle.is_none() {
         return None;
     }
@@ -699,20 +697,14 @@ pub(crate) unsafe fn pdf_load_ToUnicode_stream(ident: *const i8) -> Option<pdf_s
     let handle = handle.unwrap();
     let cmap = CMap_new();
     if CMap_parse(cmap, handle) < 0i32 {
-        warn!(
-            "Reading CMap file \"{}\" failed.",
-            CStr::from_ptr(ident).display()
-        )
+        warn!("Reading CMap file \"{}\" failed.", ident)
     } else {
         if verbose != 0 {
-            info!("(CMap:{})", CStr::from_ptr(ident).display());
+            info!("(CMap:{})", ident);
         }
         stream = CMap_create_stream(cmap);
         if stream.is_none() {
-            warn!(
-                "Failed to creat ToUnicode CMap stream for \"{}\".",
-                CStr::from_ptr(ident).display()
-            )
+            warn!("Failed to creat ToUnicode CMap stream for \"{}\".", ident)
         }
     }
     CMap_release(cmap);

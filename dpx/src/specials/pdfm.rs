@@ -19,10 +19,7 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-)]
+#![allow(non_camel_case_types, non_snake_case)]
 
 use euclid::point2;
 
@@ -1537,7 +1534,7 @@ unsafe fn spc_handler_pdfm_mapline(spe: *mut spc_env, mut ap: *mut spc_arg) -> i
     match opchr {
         45 => {
             if let Some(map_name) = (*ap).cur.parse_ident() {
-                pdf_remove_fontmap_record(map_name.as_ptr());
+                pdf_remove_fontmap_record(&map_name.to_string_lossy());
             } else {
                 spc_warn!(spe, "Invalid fontmap line: Missing TFM name.");
                 error = -1i32
@@ -1558,9 +1555,9 @@ unsafe fn spc_handler_pdfm_mapline(spe: *mut spc_env, mut ap: *mut spc_arg) -> i
             if error != 0 {
                 spc_warn!(spe, "Invalid fontmap line.");
             } else if opchr == b'+' {
-                pdf_append_fontmap_record((*mrec).map_name, mrec);
+                pdf_append_fontmap_record(&(*mrec).map_name, mrec);
             } else {
-                pdf_insert_fontmap_record((*mrec).map_name, mrec);
+                pdf_insert_fontmap_record(&(*mrec).map_name, mrec);
             }
             pdf_clear_fontmap_record(mrec);
             free(mrec as *mut libc::c_void);

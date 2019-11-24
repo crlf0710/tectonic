@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use crate::bridge::DisplayExt;
@@ -1903,7 +1903,7 @@ unsafe fn parse_part1(
                 );
                 *strval.offset(127) = '\u{0}' as i32 as i8
             }
-            cff_set_name(font, strval);
+            cff_set_name(font, &CStr::from_ptr(strval).to_string_lossy());
             free(strval as *mut libc::c_void);
         } else if streq_ptr(key, b"FontType\x00" as *const u8 as *const i8) {
             let argn = parse_nvalue(start, end, argv.as_mut_ptr(), 1i32);

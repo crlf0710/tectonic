@@ -52,9 +52,8 @@ use super::dpx_mfileio::work_buffer_u8 as work_buffer;
 use super::dpx_pdfencoding::{pdf_create_ToUnicode_CMap, pdf_encoding_get_encoding};
 use super::dpx_pdffont::{
     pdf_font, pdf_font_get_descriptor, pdf_font_get_encoding, pdf_font_get_flag,
-    pdf_font_get_fontname, pdf_font_get_ident, pdf_font_get_mapname, pdf_font_get_resource,
-    pdf_font_get_uniqueTag, pdf_font_get_usedchars, pdf_font_get_verbose, pdf_font_is_in_use,
-    pdf_font_set_flags, pdf_font_set_fontname, pdf_font_set_subtype,
+    pdf_font_get_resource, pdf_font_get_uniqueTag, pdf_font_get_usedchars, pdf_font_get_verbose,
+    pdf_font_is_in_use, pdf_font_set_flags, pdf_font_set_subtype,
 };
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
@@ -62,7 +61,6 @@ use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{
     pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
-use crate::shims::sprintf;
 use libc::{free, strcmp, strlen};
 
 use crate::bridge::size_t;
@@ -133,9 +131,8 @@ use super::dpx_cs_type2::cs_ginfo;
  */
 /* Font info. from OpenType tables */
 
-pub(crate) unsafe fn pdf_font_open_type1c(font: *mut pdf_font) -> i32 {
-    assert!(!font.is_null());
-    let ident = pdf_font_get_ident(font);
+pub unsafe fn pdf_font_open_type1c(font: &mut pdf_font) -> i32 {
+    let ident = &*(&*font).ident;
     let encoding_id = pdf_font_get_encoding(font);
     let handle = dpx_open_opentype_file(ident);
     if handle.is_none() {
@@ -166,8 +163,8 @@ pub(crate) unsafe fn pdf_font_open_type1c(font: *mut pdf_font) -> i32 {
     if fontname.is_null() {
         panic!("No valid FontName found in CFF/OpenType font.");
     }
-    pdf_font_set_fontname(font, fontname);
-    free(fontname as *mut libc::c_void);
+    let fontname = CStr::from_ptr(fontname).to_str().unwrap().to_owned();
+    (&mut *font).fontname = fontname.clone();
     cff_close(cffont);
     /*
      * Font like AdobePiStd does not have meaningful built-in encoding.
@@ -190,7 +187,7 @@ pub(crate) unsafe fn pdf_font_open_type1c(font: *mut pdf_font) -> i32 {
      * Create font descriptor from OpenType tables.
      * We can also use CFF TOP DICT/Private DICT for this.
      */
-    if let Some(tmp) = tt_get_fontdesc(sfont, &mut embedding, -1i32, 1i32, fontname) {
+    if let Some(tmp) = tt_get_fontdesc(sfont, &mut embedding, -1i32, 1i32, &fontname) {
         /* copy */
         (*descriptor).as_dict_mut().merge(&tmp);
         if embedding == 0 {
@@ -204,14 +201,13 @@ pub(crate) unsafe fn pdf_font_open_type1c(font: *mut pdf_font) -> i32 {
     }
 }
 unsafe fn add_SimpleMetrics(
-    font: *mut pdf_font,
+    font: &mut pdf_font,
     cffont: &cff_font,
     widths: *mut f64,
     num_glyphs: u16,
 ) {
     let mut firstchar;
     let mut lastchar;
-    let fontdict = pdf_font_get_resource(&mut *font).as_dict_mut();
     let usedchars = pdf_font_get_usedchars(font);
     /* The widhts array in the font dictionary must be given relative
      * to the default scaling of 1000:1, not relative to the scaling
@@ -249,7 +245,7 @@ unsafe fn add_SimpleMetrics(
         if firstchar > lastchar {
             panic!("No glyphs used at all!");
         }
-        let tfm_id = tfm_open(pdf_font_get_mapname(font), 0i32);
+        let tfm_id = tfm_open(&(&*font).map_name, 0i32);
         for code in firstchar..=lastchar {
             if *usedchars.offset(code as isize) != 0 {
                 let width;
@@ -262,7 +258,7 @@ unsafe fn add_SimpleMetrics(
                     if diff.abs() > 1.0f64 {
                         warn!(
                             "Glyph width mismatch for TFM and font ({})",
-                            CStr::from_ptr(pdf_font_get_mapname(font)).display(),
+                            (&*font).map_name,
                         );
                         warn!(
                             "TFM: {} vs. CFF font: {}",
@@ -279,6 +275,8 @@ unsafe fn add_SimpleMetrics(
     }
     let empty = tmp_array.is_empty();
     let tmp_array = tmp_array.into_obj();
+
+    let fontdict = pdf_font_get_resource(font).as_dict_mut();
     if !empty {
         fontdict.set("Widths", pdf_ref_obj(tmp_array));
     }
@@ -287,11 +285,10 @@ unsafe fn add_SimpleMetrics(
     fontdict.set("LastChar", lastchar as f64);
 }
 
-pub(crate) unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
+pub unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     let mut offset: i32 = 0i32;
     let mut ginfo = cs_ginfo::new();
     let mut widths: [f64; 256] = [0.; 256];
-    assert!(!font.is_null());
     let verbose = pdf_font_get_verbose();
     if !pdf_font_is_in_use(font) {
         return 0i32;
@@ -300,35 +297,23 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
         panic!("Only embedded font supported for CFF/OpenType font.");
     }
     let usedchars = pdf_font_get_usedchars(font);
-    let fontname = pdf_font_get_fontname(font);
-    let ident = pdf_font_get_ident(font);
     let uniqueTag = pdf_font_get_uniqueTag(font);
-    if usedchars.is_null() || fontname.is_null() || ident.is_null() {
+    if usedchars.is_null() || font.fontname.is_empty() || font.ident.is_empty() {
         panic!("Unexpected error....");
     }
-    let fontdict = pdf_font_get_resource(&mut *font).as_dict_mut(); /* Actually string object */
-    let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
     let encoding_id = pdf_font_get_encoding(font);
-    let handle = dpx_open_opentype_file(ident);
+
+    let handle = dpx_open_opentype_file(&font.ident);
     if handle.is_none() {
-        panic!(
-            "Could not open OpenType font: {}",
-            CStr::from_ptr(ident).display(),
-        );
+        panic!("Could not open OpenType font: {}", font.ident);
     }
     let handle = handle.unwrap();
     let sfont = sfnt_open(handle);
     if sfont.is_null() {
-        panic!(
-            "Could not open OpenType font: {}",
-            CStr::from_ptr(ident).display(),
-        );
+        panic!("Could not open OpenType font: {}", font.ident);
     }
     if sfnt_read_table_directory(sfont, 0_u32) < 0i32 {
-        panic!(
-            "Could not read OpenType table directory: {}",
-            CStr::from_ptr(ident).display(),
-        );
+        panic!("Could not read OpenType table directory: {}", font.ident);
     }
     if (*sfont).type_0 != 1i32 << 2i32 || {
         offset = sfnt_find_table_pos(sfont, b"CFF ") as i32;
@@ -344,15 +329,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
     if cffont.flag & 1i32 << 0i32 != 0 {
         panic!("This is CIDFont...");
     }
-    let fullname =
-        new((strlen(fontname).wrapping_add(8)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-    sprintf(
-        fullname,
-        b"%6s+%s\x00" as *const u8 as *const i8,
-        uniqueTag,
-        fontname,
-    );
+    let fullname = format!("{}+{}", uniqueTag, font.fontname);
     /* Offsets from DICTs */
     cff_read_charsets(cffont);
     if encoding_id < 0i32 {
@@ -392,8 +369,9 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
                 *fresh1 = ptr::null_mut()
             }
         }
+        let fontdict = pdf_font_get_resource(font).as_dict_mut();
         if !fontdict.has("ToUnicode") {
-            if let Some(tounicode) = pdf_create_ToUnicode_CMap(fullname, enc_vec, usedchars) {
+            if let Some(tounicode) = pdf_create_ToUnicode_CMap(&fullname, enc_vec, usedchars) {
                 let tounicode = tounicode.into_obj();
                 fontdict.set("ToUnicode", pdf_ref_obj(tounicode));
                 pdf_release_obj(tounicode);
@@ -469,6 +447,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
             b"StdVW\x00" as *const u8 as *const i8,
             0i32,
         );
+        let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
         descriptor.set("StemV", stemv);
     }
     /*
@@ -585,7 +564,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
                     warn!(
                         "Glyph \"{}\" missing in font \"{}\".",
                         CStr::from_ptr(*enc_vec.offset(code as isize)).display(),
-                        CStr::from_ptr(fontname).display(),
+                        font.fontname,
                     ); /* Set unused for writing correct encoding */
                     warn!("Maybe incorrect encoding specified.");
                     *usedchars.offset(code as isize) = 0_i8
@@ -786,8 +765,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
      * Estimate total size of fontfile.
      */
     let mut stream_data_len = 4_usize; /* header size */
-    stream_data_len += cff_set_name(cffont, fullname) as usize;
-    free(fullname as *mut libc::c_void);
+    stream_data_len += cff_set_name(cffont, &fullname) as usize;
     stream_data_len += topdict.size();
     stream_data_len += cff_index_size(cffont.string);
     stream_data_len += cff_index_size(cffont.gsubr);
@@ -881,6 +859,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
     if verbose > 1i32 {
         info!("[{}/{} glyphs][{} bytes]", num_glyphs, cs_count, offset);
     }
+    let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
     /*
      * CharSet
      */

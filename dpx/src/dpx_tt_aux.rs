@@ -23,11 +23,8 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
-
-use crate::bridge::DisplayExt;
-use std::ffi::CStr;
 
 use super::dpx_dvipdfmx::always_embed;
 use super::dpx_numbers::tt_get_unsigned_quad;
@@ -76,7 +73,7 @@ pub(crate) unsafe fn tt_get_fontdesc(
     embed: *mut i32,
     mut stemv: i32,
     type_0: i32,
-    fontname: *const i8,
+    fontname: &str,
 ) -> Option<pdf_dict> {
     let mut flag: i32 = 1i32 << 2i32;
     if sfont.is_null() {
@@ -115,7 +112,7 @@ pub(crate) unsafe fn tt_get_fontdesc(
             if verbose > 0i32 {
                 warn!(
                     "Font \"{}\" permits \"Preview & Print\" embedding only **\n",
-                    CStr::from_ptr(fontname).display(),
+                    fontname,
                 );
             }
             *embed = 1i32
@@ -123,7 +120,7 @@ pub(crate) unsafe fn tt_get_fontdesc(
             if verbose > 0i32 {
                 warn!(
                     "Font \"{}\" may be subject to embedding restrictions **\n",
-                    CStr::from_ptr(fontname).display(),
+                    fontname,
                 );
             }
             *embed = 1i32
@@ -131,7 +128,7 @@ pub(crate) unsafe fn tt_get_fontdesc(
             if verbose > 0i32 {
                 warn!(
                     "Embedding of font \"{}\" disabled due to license restrictions",
-                    CStr::from_ptr(fontname).display(),
+                    fontname,
                 );
             }
             *embed = 0i32

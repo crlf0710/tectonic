@@ -23,18 +23,17 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
-use crate::bridge::DisplayExt;
 use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_cid::{
     CIDFont, CIDFont_attach_parent, CIDFont_cache_close, CIDFont_cache_find, CIDFont_cache_get,
-    CIDFont_get_CIDSysInfo, CIDFont_get_embedding, CIDFont_get_flag, CIDFont_get_fontname,
-    CIDFont_get_ident, CIDFont_get_opt_index, CIDFont_get_parent_id, CIDFont_get_resource,
-    CIDFont_get_subtype, CIDFont_is_ACCFont, CIDFont_is_UCSFont,
+    CIDFont_get_CIDSysInfo, CIDFont_get_embedding, CIDFont_get_flag, CIDFont_get_opt_index,
+    CIDFont_get_parent_id, CIDFont_get_resource, CIDFont_get_subtype, CIDFont_is_ACCFont,
+    CIDFont_is_UCSFont,
 };
 use super::dpx_cmap::{CMap_cache_get, CMap_get_CIDSysInfo, CMap_get_wmode, CMap_is_Identity};
 use super::dpx_mem::{new, renew};
@@ -42,17 +41,15 @@ use super::dpx_pdfencoding::pdf_load_ToUnicode_stream;
 use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resource_reference};
 use super::dpx_tt_cmap::otf_create_ToUnicode_stream;
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_dict, pdf_get_version, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_copy_name, pdf_dict, pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj,
+    pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
-use crate::streq_ptr;
 use libc::{free, memset, strcpy, strlen};
 
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct Type0Font {
-    pub(crate) fontname: *mut i8,
+    pub(crate) fontname: String,
     pub(crate) encoding: *mut i8,
     pub(crate) used_chars: *mut i8,
     pub(crate) descendant: *mut CIDFont,
@@ -87,7 +84,7 @@ unsafe fn new_used_chars2() -> *mut i8 {
 /* MUST BE NULL */
 unsafe fn Type0Font_init_font_struct(mut font: *mut Type0Font) {
     assert!(!font.is_null());
-    (*font).fontname = ptr::null_mut();
+    (*font).fontname = String::new();
     (*font).fontdict = ptr::null_mut();
     (*font).indirect = ptr::null_mut();
     (*font).descriptor = ptr::null_mut();
@@ -113,20 +110,19 @@ unsafe fn Type0Font_clean(mut font: *mut Type0Font) {
             free((*font).used_chars as *mut libc::c_void);
         }
         free((*font).encoding as *mut libc::c_void);
-        free((*font).fontname as *mut libc::c_void);
         (*font).fontdict = ptr::null_mut();
         (*font).indirect = ptr::null_mut();
         (*font).descriptor = ptr::null_mut();
         (*font).used_chars = ptr::null_mut();
         (*font).encoding = ptr::null_mut();
-        (*font).fontname = ptr::null_mut()
+        (*font).fontname.clear();
     };
 }
 /* PLEASE FIX THIS */
 unsafe fn Type0Font_create_ToUnicode_stream(font: *mut Type0Font) -> *mut pdf_obj {
     let cidfont: *mut CIDFont = (*font).descendant;
     otf_create_ToUnicode_stream(
-        CIDFont_get_ident(cidfont),
+        &*(&*cidfont).ident,
         CIDFont_get_opt_index(cidfont),
         Type0Font_get_usedchars(font),
         (*font).cmap_id,
@@ -136,28 +132,14 @@ unsafe fn Type0Font_create_ToUnicode_stream(font: *mut Type0Font) -> *mut pdf_ob
  * font CMap reverse lookup. */
 unsafe fn Type0Font_try_load_ToUnicode_stream(
     font: *mut Type0Font,
-    cmap_base: *mut i8,
+    cmap_base: &str,
 ) -> *mut pdf_obj {
-    let cmap_name: *mut i8 = new((strlen(cmap_base)
-        .wrapping_add(strlen(b"-UTF-16\x00" as *const u8 as *const i8))
-        as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-        as *mut i8;
-    sprintf(
-        cmap_name,
-        b"%s-UTF16\x00" as *const u8 as *const i8,
-        cmap_base,
-    );
-    let mut tounicode = pdf_read_ToUnicode_file(cmap_name);
+    let mut cmap_name = format!("{}-UTF16", cmap_base,);
+    let mut tounicode = pdf_read_ToUnicode_file(&cmap_name);
     if tounicode.is_null() {
-        sprintf(
-            cmap_name,
-            b"%s-UCS2\x00" as *const u8 as *const i8,
-            cmap_base,
-        );
-        tounicode = pdf_read_ToUnicode_file(cmap_name)
+        cmap_name = format!("{}-UCS2", cmap_base,);
+        tounicode = pdf_read_ToUnicode_file(&cmap_name)
     }
-    free(cmap_name as *mut libc::c_void);
     if tounicode.is_null() {
         tounicode = Type0Font_create_ToUnicode_stream(font)
     }
@@ -184,8 +166,7 @@ unsafe fn add_ToUnicode(font: *mut Type0Font) {
             /*
              * Old version of dvipdfmx mistakenly used Adobe-Identity as Unicode.
              */
-            let mut tounicode =
-                pdf_read_ToUnicode_file(b"Adobe-Identity-UCS2\x00" as *const u8 as *const i8);
+            let mut tounicode = pdf_read_ToUnicode_file("Adobe-Identity-UCS2");
             if tounicode.is_null() {
                 /* This should work */
                 tounicode = "Identity-H".into_obj();
@@ -198,14 +179,12 @@ unsafe fn add_ToUnicode(font: *mut Type0Font) {
     }
     let tounicode;
     let csi = CIDFont_get_CIDSysInfo(cidfont);
-    let mut fontname = CIDFont_get_fontname(cidfont);
+    let mut fontname = &*(&*cidfont).fontname;
     if CIDFont_get_embedding(cidfont) != 0 {
-        fontname = fontname.offset(7)
+        fontname = &fontname[7..]
         /* FIXME */
     }
-    if streq_ptr((*csi).registry, b"Adobe\x00" as *const u8 as *const i8) as i32 != 0
-        && streq_ptr((*csi).ordering, b"Identity\x00" as *const u8 as *const i8) as i32 != 0
-    {
+    if (*csi).registry == "Adobe" && (*csi).ordering == "Identity" {
         match CIDFont_get_subtype(cidfont) {
             2 => {
                 /* PLEASE FIX THIS */
@@ -225,29 +204,15 @@ unsafe fn add_ToUnicode(font: *mut Type0Font) {
             }
         }
     } else {
-        let cmap_base: *mut i8 = new((strlen((*csi).registry)
-            .wrapping_add(strlen((*csi).ordering))
-            .wrapping_add(2))
-        .wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-        sprintf(
-            cmap_base,
-            b"%s-%s\x00" as *const u8 as *const i8,
-            (*csi).registry,
-            (*csi).ordering,
-        );
-        tounicode = Type0Font_try_load_ToUnicode_stream(font, cmap_base);
-        free(cmap_base as *mut libc::c_void);
+        let cmap_base = format!("{}-{}", (*csi).registry, (*csi).ordering,);
+        tounicode = Type0Font_try_load_ToUnicode_stream(font, &cmap_base);
     }
     if !tounicode.is_null() {
         (*(*font).fontdict)
             .as_dict_mut()
             .set("ToUnicode", tounicode);
     } else {
-        warn!(
-            "Failed to load ToUnicode CMap for font \"{}\"",
-            CStr::from_ptr(fontname).display(),
-        );
+        warn!("Failed to load ToUnicode CMap for font \"{}\"", fontname);
     };
 }
 
@@ -324,13 +289,13 @@ pub(crate) unsafe fn Type0Font_cache_get(id: i32) -> *mut Type0Font {
     &mut *__cache.fonts.offset(id as isize) as *mut Type0Font
 }
 
-pub(crate) unsafe fn Type0Font_cache_find(
-    map_name: *const i8,
+pub unsafe fn Type0Font_cache_find(
+    map_name: &str,
     cmap_id: i32,
     fmap_opt: *mut fontmap_opt,
 ) -> i32 {
     let pdf_ver = pdf_get_version() as i32;
-    if map_name.is_null() || cmap_id < 0i32 || pdf_ver < 2i32 {
+    if map_name.is_empty() || cmap_id < 0i32 || pdf_ver < 2i32 {
         return -1i32;
     }
     /*
@@ -427,12 +392,12 @@ pub(crate) unsafe fn Type0Font_cache_find(
      *  Type0 font's fontname is usually descendant CID-keyed font's font name
      *  appended by -ENCODING.
      */
-    let fontname = CIDFont_get_fontname(cidfont); /* skip XXXXXX+ */
+    let fontname = &*(&*cidfont).fontname; /* skip XXXXXX+ */
     if __verbose != 0 {
-        if CIDFont_get_embedding(cidfont) != 0 && strlen(fontname) > 7 {
-            info!("(CID:{})", CStr::from_ptr(fontname.offset(7)).display());
+        if CIDFont_get_embedding(cidfont) != 0 && fontname.len() > 7 {
+            info!("(CID:{})", &fontname[7..]);
         } else {
-            info!("(CID:{})", CStr::from_ptr(fontname).display());
+            info!("(CID:{})", fontname);
         }
     }
     /*
@@ -450,20 +415,14 @@ pub(crate) unsafe fn Type0Font_cache_find(
     (*font).flags = 0i32;
     match CIDFont_get_subtype(cidfont) {
         1 => {
-            (*font).fontname = new((strlen(fontname)
-                .wrapping_add(strlen((*font).encoding))
-                .wrapping_add(2))
-            .wrapping_mul(::std::mem::size_of::<i8>()) as _)
-                as *mut i8;
-            sprintf(
-                (*font).fontname,
-                b"%s-%s\x00" as *const u8 as *const i8,
+            (*font).fontname = format!(
+                "{}-{}",
                 fontname,
-                (*font).encoding,
+                CStr::from_ptr((*font).encoding).to_string_lossy(),
             );
             (*(*font).fontdict)
                 .as_dict_mut()
-                .set("BaseFont", pdf_copy_name((*font).fontname));
+                .set("BaseFont", pdf_name::new((*font).fontname.as_bytes()));
             /*
              * Need used_chars to write W, W2.
              */
@@ -484,7 +443,7 @@ pub(crate) unsafe fn Type0Font_cache_find(
              */
             (*(*font).fontdict)
                 .as_dict_mut()
-                .set("BaseFont", pdf_copy_name(fontname));
+                .set("BaseFont", pdf_name::new(fontname.as_bytes()));
             (*font).used_chars = new_used_chars2()
         }
         _ => {
@@ -578,25 +537,17 @@ unsafe fn create_dummy_CMap() -> pdf_stream {
     stream.add_str("endcmap\n\nCMapName currentdict /CMap defineresource pop\n\nend\nend\n\n%%EndResource\n%%EOF\n");
     stream
 }
-unsafe fn pdf_read_ToUnicode_file(cmap_name: *const i8) -> *mut pdf_obj {
-    assert!(!cmap_name.is_null());
-    let mut res_id = pdf_findresource(b"CMap\x00" as *const u8 as *const i8, cmap_name);
+unsafe fn pdf_read_ToUnicode_file(cmap_name: &str) -> *mut pdf_obj {
+    assert!(!cmap_name.is_empty());
+    let mut res_id = pdf_findresource("CMap", cmap_name);
     if res_id < 0i32 {
-        let stream = if streq_ptr(
-            cmap_name,
-            b"Adobe-Identity-UCS2\x00" as *const u8 as *const i8,
-        ) {
+        let stream = if cmap_name == "Adobe-Identity-UCS2" {
             Some(create_dummy_CMap())
         } else {
             pdf_load_ToUnicode_stream(cmap_name)
         };
         if let Some(stream) = stream {
-            res_id = pdf_defineresource(
-                b"CMap\x00" as *const u8 as *const i8,
-                cmap_name,
-                stream.into_obj(),
-                1i32,
-            )
+            res_id = pdf_defineresource("CMap", cmap_name, stream.into_obj(), 1i32)
         }
     }
     if res_id < 0i32 {

@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use std::io::{Seek, SeekFrom};
@@ -31,7 +31,7 @@ use std::io::{Seek, SeekFrom};
 use crate::bridge::DisplayExt;
 use crate::streq_ptr;
 use crate::{info, warn};
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_mem::{new, renew};
@@ -322,7 +322,9 @@ unsafe fn scan_sfd_file(mut sfd: *mut sfd_file_, handle: &mut InputHandleWrapper
 /* Open SFD file and gather subfont IDs. We do not read mapping tables
  * here but only read subfont IDs used in SFD file.
  */
-unsafe fn find_sfd_file(sfd_name: *const i8) -> i32 {
+unsafe fn find_sfd_file(sfd_name: &str) -> i32 {
+    let sfd_name_ = CString::new(sfd_name).unwrap();
+    let sfd_name = sfd_name_.as_ptr();
     let mut id: i32 = -1i32;
     /* Check if we already opened SFD file */
     for i in 0..num_sfd_files {
@@ -370,8 +372,8 @@ unsafe fn find_sfd_file(sfd_name: *const i8) -> i32 {
     id
 }
 
-pub(crate) unsafe fn sfd_get_subfont_ids(sfd_name: *const i8, num_ids: *mut i32) -> *mut *mut i8 {
-    if sfd_name.is_null() {
+pub unsafe fn sfd_get_subfont_ids(sfd_name: &str, num_ids: *mut i32) -> *mut *mut i8 {
+    if sfd_name.is_empty() {
         return 0 as *mut *mut i8;
     }
     let sfd_id = find_sfd_file(sfd_name);
@@ -387,9 +389,9 @@ pub(crate) unsafe fn sfd_get_subfont_ids(sfd_name: *const i8, num_ids: *mut i32)
  * Mapping tables are actually read here.
  */
 
-pub(crate) unsafe fn sfd_load_record(sfd_name: *const i8, subfont_id: *const i8) -> i32 {
+pub unsafe fn sfd_load_record(sfd_name: &str, subfont_id: *const i8) -> i32 {
     let mut rec_id: i32 = -1i32;
-    if sfd_name.is_null() || subfont_id.is_null() {
+    if sfd_name.is_empty() || subfont_id.is_null() {
         return -1i32;
     }
     let sfd_id = find_sfd_file(sfd_name);

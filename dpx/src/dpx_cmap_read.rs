@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use std::ffi::CStr;
@@ -530,8 +530,8 @@ unsafe fn do_cidchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i
 }
 unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: *mut ifreader) -> i32 {
     let mut csi: CIDSysInfo = CIDSysInfo {
-        registry: ptr::null_mut(),
-        ordering: ptr::null_mut(),
+        registry: "".into(),
+        ordering: "".into(),
         supplement: -1i32,
     };
     let mut simpledict: i32 = 0i32;
@@ -612,7 +612,11 @@ unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: *mut ifreader) -> i32 {
                     error = -1i32
                 }
                 if error == 0 {
-                    csi.registry = pst_getSV(tok2) as *mut i8
+                    csi.registry = CStr::from_ptr(pst_getSV(tok2) as *const i8)
+                        .to_str()
+                        .unwrap()
+                        .to_owned()
+                        .into();
                 }
             } else if pst_type_of(tok1) == 6i32
                 && memcmp(
@@ -633,7 +637,11 @@ unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: *mut ifreader) -> i32 {
                     error = -1i32
                 }
                 if error == 0 {
-                    csi.ordering = pst_getSV(tok2) as *mut i8
+                    csi.ordering = CStr::from_ptr(pst_getSV(tok2) as *const i8)
+                        .to_str()
+                        .unwrap()
+                        .to_owned()
+                        .into();
                 }
             } else if pst_type_of(tok1) == 6i32
                 && memcmp(
@@ -670,11 +678,10 @@ unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: *mut ifreader) -> i32 {
     if error == 0 && check_next_token(input, b"def\x00" as *const u8 as *const i8) != 0 {
         error = -1i32
     }
-    if error == 0 && !csi.registry.is_null() && !csi.ordering.is_null() && csi.supplement >= 0i32 {
+    if error == 0 && !csi.registry.is_empty() && !csi.ordering.is_empty() && csi.supplement >= 0i32
+    {
         CMap_set_CIDSysInfo(cmap, &mut csi);
     }
-    free(csi.registry as *mut libc::c_void);
-    free(csi.ordering as *mut libc::c_void);
     error
 }
 
