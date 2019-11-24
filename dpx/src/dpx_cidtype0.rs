@@ -166,7 +166,7 @@ unsafe fn add_CIDHMetrics(
     head: *mut tt_head_table,
     hmtx: *mut tt_longMetrics,
 ) {
-    let mut an_array: *mut pdf_obj = ptr::null_mut();
+    let mut an_array = None;
     let mut start: i32 = 0i32;
     let mut prev: i32 = 0i32;
     let mut empty: i32 = 1i32;
@@ -196,31 +196,29 @@ unsafe fn add_CIDHMetrics(
                 .floor()
                 * 1i32 as f64;
             if advanceWidth == defaultAdvanceWidth {
-                if !an_array.is_null() {
+                if an_array.is_some() {
                     w_array.push_obj(start as f64);
-                    w_array.push(an_array);
-                    an_array = ptr::null_mut();
+                    w_array.push_obj(an_array.take().unwrap());
                     empty = 0i32
                 }
             } else {
-                if cid != prev + 1i32 && !an_array.is_null() {
+                if cid != prev + 1i32 && an_array.is_some() {
                     w_array.push_obj(start as f64);
-                    w_array.push(an_array);
-                    an_array = ptr::null_mut();
+                    w_array.push_obj(an_array.take().unwrap());
                     empty = 0i32
                 }
-                if an_array.is_null() {
-                    an_array = Vec::new().into_obj();
+                if an_array.is_none() {
+                    an_array = Some(Vec::new());
                     start = cid
                 }
-                (*an_array).as_array_mut().push_obj(advanceWidth);
+                an_array.as_mut().unwrap().push_obj(advanceWidth);
                 prev = cid
             }
         }
     }
-    if !an_array.is_null() {
+    if an_array.is_some() {
         w_array.push_obj(start as f64);
-        w_array.push(an_array);
+        w_array.push_obj(an_array.take().unwrap());
         empty = 0i32
     }
     /*

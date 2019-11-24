@@ -991,65 +991,60 @@ pub unsafe fn pdf_string_length(object: &pdf_obj) -> u32 {
  */
 
 pub unsafe fn pdfobj_escape_str(
-    buffer: *mut i8,
-    bufsize: size_t,
+    buffer: &mut [u8],
     s: *const u8,
     len: size_t,
 ) -> size_t {
-    let mut result: size_t = 0i32 as size_t;
+    let bufsize = buffer.len();
+    let mut result = 0;
     for i in 0..len {
         let ch = *s.offset(i as isize);
-        if result > bufsize.wrapping_sub(4i32 as u64) {
+        if result > bufsize - 4 {
             panic!("pdfobj_escape_str: Buffer overflow");
         }
         /*
          * We always write three octal digits. Optimization only gives few Kb
          * smaller size for most documents when zlib compressed.
          */
-        if (ch as i32) < 32i32 || ch as i32 > 126i32 {
-            let fresh4 = result; /* Shouldn't use format_buffer[]. */
-            result = result.wrapping_add(1);
-            *buffer.offset(fresh4 as isize) = '\\' as i32 as i8;
-            result = (result as u64).wrapping_add(sprintf(
+        if ch < 32 || ch > 126 {
+            /* Shouldn't use format_buffer[]. */
+            buffer[result] = b'\\';
+            result += 1;
+            write!(&mut buffer[result..], "{:03o}", ch);
+            result += 3;
+            /*result = (result as u64).wrapping_add(sprintf(
                 buffer.offset(result as isize),
                 b"%03o\x00" as *const u8 as *const i8,
                 ch as i32,
-            ) as u64) as size_t as size_t
+            ) as u64) as size_t as size_t*/
         } else {
-            match ch as i32 {
+            match ch {
                 40 => {
-                    let fresh5 = result;
-                    result = result.wrapping_add(1);
-                    *buffer.offset(fresh5 as isize) = '\\' as i32 as i8;
-                    let fresh6 = result;
-                    result = result.wrapping_add(1);
-                    *buffer.offset(fresh6 as isize) = '(' as i32 as i8
+                    buffer[result] = b'\\';
+                    result += 1;
+                    buffer[result] = b'(';
+                    result += 1;
                 }
                 41 => {
-                    let fresh7 = result;
-                    result = result.wrapping_add(1);
-                    *buffer.offset(fresh7 as isize) = '\\' as i32 as i8;
-                    let fresh8 = result;
-                    result = result.wrapping_add(1);
-                    *buffer.offset(fresh8 as isize) = ')' as i32 as i8
+                    buffer[result] = b'\\';
+                    result += 1;
+                    buffer[result] = b')';
+                    result += 1;
                 }
                 92 => {
-                    let fresh9 = result;
-                    result = result.wrapping_add(1);
-                    *buffer.offset(fresh9 as isize) = '\\' as i32 as i8;
-                    let fresh10 = result;
-                    result = result.wrapping_add(1);
-                    *buffer.offset(fresh10 as isize) = '\\' as i32 as i8
+                    buffer[result] = b'\\';
+                    result += 1;
+                    buffer[result] = b'\\';
+                    result += 1;
                 }
                 _ => {
-                    let fresh11 = result;
-                    result = result.wrapping_add(1);
-                    *buffer.offset(fresh11 as isize) = ch as i8
+                    buffer[result] = ch;
+                    result += 1;
                 }
             }
         }
     }
-    result
+    result as size_t
 }
 unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
     let mut s: *mut u8 = ptr::null_mut();
@@ -1104,8 +1099,7 @@ unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
          */
         for i in 0..len {
             let count = pdfobj_escape_str(
-                wbuf.as_mut_ptr() as *mut i8,
-                4096i32 as size_t,
+                &mut wbuf[..],
                 &mut *s.offset(i as isize),
                 1i32 as size_t,
             ) as usize;

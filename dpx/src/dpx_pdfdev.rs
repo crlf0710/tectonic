@@ -1289,8 +1289,7 @@ pub unsafe fn pdf_dev_set_string(
         }
     } else {
         len = (len as u64).wrapping_add(pdfobj_escape_str(
-            (format_buffer.as_mut_ptr() as *mut i8).offset(len as isize),
-            (4096i32 as u64).wrapping_sub(len),
+            &mut format_buffer[len as usize..],
             str_ptr,
             length,
         )) as size_t as size_t
