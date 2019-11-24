@@ -1081,7 +1081,6 @@ pub(crate) unsafe fn CIDFont_type0_open(
     } else {
         (*opt).embed = 1i32
     }
-    (*font).fontname = fontname.clone();
     (*font).subtype = 1i32;
     (*font).csi = csi;
     (*font).flags |= expected_flag;
@@ -1091,8 +1090,9 @@ pub(crate) unsafe fn CIDFont_type0_open(
         .as_dict_mut()
         .set("Subtype", "CIDFontType0");
     if expect_type1_font != 0 || (*opt).embed != 0 {
-        fontname = pdf_font_make_uniqueTag() + "+" + &fontname;
+        fontname = format!("{}+{}", pdf_font_make_uniqueTag(), fontname);
     }
+    (*font).fontname = fontname.clone();
     if expect_type1_font != 0 {
         (*font).descriptor = pdf_dict::new().into_obj();
     } else {
@@ -1252,12 +1252,12 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
         1i32,
     );
 
-    let cff_font_name = CString::new(&(*font).fontname[7..]).unwrap();
+    let fontname_without_tag = CString::new(&(*font).fontname[7..]).unwrap();
     cff_dict_set(
         *cffont.fdarray.offset(0),
         b"FontName\x00" as *const u8 as *const i8,
         0i32,
-        cff_add_string(cffont, cff_font_name.as_ptr(), 1i32) as f64,
+        cff_add_string(cffont, fontname_without_tag.as_ptr(), 1i32) as f64,
     );
     cff_dict_add(
         *cffont.fdarray.offset(0),

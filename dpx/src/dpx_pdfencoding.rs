@@ -446,7 +446,6 @@ pub(crate) unsafe fn pdf_close_encodings() {
 
 pub unsafe fn pdf_encoding_findresource(enc_name: &str) -> i32 {
     for (enc_id, encoding) in enc_cache.iter().enumerate() {
-        dbg!((enc_name, &encoding.ident, &encoding.enc_name));
         if enc_name == encoding.ident {
             return enc_id as i32;
         } else if enc_name == encoding.enc_name {

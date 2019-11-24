@@ -1054,7 +1054,6 @@ pub(crate) unsafe fn CIDFont_type2_open(
     /*
      * CIDSystemInfo is determined from CMap or from map record option.
      */
-    (*font).fontname = fontname.clone(); /* This means font's internal glyph ordering. */
     (*font).subtype = 2i32;
     (*font).csi = Box::into_raw(Box::new(CIDSysInfo {
         ordering: "".into(),
@@ -1111,7 +1110,7 @@ pub(crate) unsafe fn CIDFont_type2_open(
     }
     if (*opt).embed != 0 {
         let tag = pdf_font_make_uniqueTag();
-        fontname = tag + "+" + &fontname;
+        fontname = format!("{}+{}", tag, fontname);
     }
     (*(*font).descriptor)
         .as_dict_mut()
@@ -1119,6 +1118,9 @@ pub(crate) unsafe fn CIDFont_type2_open(
     (*(*font).fontdict)
         .as_dict_mut()
         .set("BaseFont", pdf_name::new(fontname.as_bytes()));
+
+    (*font).fontname = fontname.clone();
+
     sfnt_close(sfont);
     /*
      * Don't write fontdict here.
