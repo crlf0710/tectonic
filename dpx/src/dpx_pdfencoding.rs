@@ -295,6 +295,9 @@ unsafe fn load_encoding_file(filename: &str) -> i32 {
     }
     enc_id
 }
+
+// Note: The elements are boxed to be able
+// to get stable pointers to the cached data.
 static mut enc_cache: Vec<Box<pdf_encoding>> = Vec::new();
 
 pub(crate) unsafe fn pdf_init_encodings() {

@@ -675,6 +675,10 @@ unsafe fn CIDFont_base_open(
     (*opt).embed = 0i32;
     0i32
 }
+
+// Note: The elements are boxed to be able
+// to get stable pointers to the cached data.
+// (CIDFont_cache_get returns *mut CIDFont)
 static mut __cache: Vec<Box<CIDFont>> = Vec::new();
 
 pub(crate) unsafe fn CIDFont_cache_get(font_id: i32) -> *mut CIDFont {

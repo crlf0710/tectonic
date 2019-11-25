@@ -992,6 +992,10 @@ unsafe fn check_range(
     }
     0i32
 }
+
+// Note: The elements are boxed to be able
+// to get stable pointers to the cached data.
+// (CMap_cache_get returns *mut CMap)
 static mut __cache: Vec<Box<CMap>> = Vec::new();
 
 pub(crate) unsafe fn CMap_cache_init() {

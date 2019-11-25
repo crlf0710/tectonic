@@ -268,6 +268,10 @@ pub(crate) unsafe fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mut pd
     }
     pdf_link_obj((*font).indirect)
 }
+
+// Note: The elements are boxed to be able
+// to get stable pointers to the cached data.
+// (Type0Font_cache_get returns *mut Type0Font)
 static mut __cache: Vec<Box<Type0Font>> = Vec::new();
 
 pub(crate) unsafe fn Type0Font_cache_init() {
