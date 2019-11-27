@@ -81,13 +81,6 @@ pub struct pdf_font {
     pub design_size: f64,
     /* _PDFFONT_H_ */
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct C2RustUnnamed_0 {
-    pub(crate) count: i32,
-    pub(crate) capacity: i32,
-    pub(crate) fonts: *mut pdf_font,
-}
 
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project

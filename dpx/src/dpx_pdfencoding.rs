@@ -65,13 +65,6 @@ pub struct pdf_encoding {
     pub tounicode: *mut pdf_obj,
     pub resource: *mut pdf_obj,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct C2RustUnnamed {
-    pub(crate) count: i32,
-    pub(crate) capacity: i32,
-    pub(crate) encodings: *mut pdf_encoding,
-}
 use super::dpx_agl::agl_name;
 /* tectonic/core-memory.h: basic dynamic memory helpers
    Copyright 2016-2018 the Tectonic Project

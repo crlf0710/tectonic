@@ -93,13 +93,6 @@ pub(crate) struct C2RustUnnamed_0 {
     pub(crate) ordering: &'static str,
     pub(crate) supplement: [i32; 16],
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct FontCache {
-    pub(crate) num: i32,
-    pub(crate) max: i32,
-    pub(crate) fonts: *mut *mut CIDFont,
-}
 use super::dpx_cff::cff_charsets;
 /* PLEASE SEND INFORMATION ON FONTS
  *

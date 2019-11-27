@@ -63,13 +63,6 @@ pub(crate) struct Type0Font {
 }
 use super::dpx_fontmap::fontmap_opt;
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct font_cache {
-    pub(crate) count: i32,
-    pub(crate) capacity: i32,
-    pub(crate) fonts: *mut Type0Font,
-}
 
 static mut __verbose: i32 = 0i32;
 

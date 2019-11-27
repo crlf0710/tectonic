@@ -99,13 +99,7 @@ pub(crate) struct C2RustUnnamed_0 {
     pub(crate) ranges: *mut rangeDef,
 }
 pub(crate) type CID = u16;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct CMap_cache {
-    pub(crate) num: i32,
-    pub(crate) max: i32,
-    pub(crate) cmaps: *mut *mut CMap,
-}
+
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
