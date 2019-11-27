@@ -92,10 +92,12 @@ unsafe fn pdf_init_encoding_struct() -> pdf_encoding {
  */
 unsafe fn create_encoding_resource(encoding: &mut pdf_encoding, with_base: bool) -> *mut pdf_obj {
     let baseenc = if with_base {
+        assert!(!encoding.baseenc.is_null());
         Some(&mut *encoding.baseenc)
     } else {
         None
     };
+
     assert!(encoding.resource.is_null());
     if let Some(differences) = make_encoding_differences(
         &mut encoding.glyphs,
@@ -407,7 +409,8 @@ pub(crate) unsafe fn pdf_encoding_complete() {
              * an incorrect implementation in Acrobat 4 and earlier. Hence,
              * we do use a base encodings for PDF versions >= 1.3.
              */
-            let with_base = encoding.flags & 1i32 << 1i32 == 0 || pdf_get_version() >= 4;
+            let with_base = (encoding.flags & 1i32 << 1i32 == 0 || pdf_get_version() >= 4)
+                && !encoding.baseenc.is_null();
             assert!(encoding.resource.is_null());
             encoding.resource = create_encoding_resource(&mut *encoding, with_base);
             assert!(encoding.tounicode.is_null());
