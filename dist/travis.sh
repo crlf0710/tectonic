@@ -185,6 +185,11 @@ if $is_main_build ; then
     travis_retry rustup component add clippy
     cargo clippy --all --all-targets --all-features -- --deny warnings
     travis_fold_end cargo_clippy
+elif [[ "$TRAVIS_OS_NAME" == linux ]] ; then
+    travis_fold_start cargo_fmt "cargo fmt" verbose
+    travis_retry rustup component add rustfmt
+    cargo fmt --all -- --check
+    travis_fold_end cargo_fmt
 fi
 
 # OK, the biggie: does it compile and pass the test suite?
