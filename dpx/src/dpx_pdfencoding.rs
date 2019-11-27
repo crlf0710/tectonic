@@ -295,7 +295,7 @@ unsafe fn load_encoding_file(filename: &str) -> i32 {
     }
     enc_id
 }
-static mut enc_cache: Vec<pdf_encoding> = Vec::new();
+static mut enc_cache: Vec<Box<pdf_encoding>> = Vec::new();
 
 pub(crate) unsafe fn pdf_init_encodings() {
     enc_cache = Vec::new();
@@ -344,8 +344,8 @@ unsafe fn pdf_encoding_new_encoding(
     flags: i32,
 ) -> i32 {
     let enc_id = enc_cache.len();
-    enc_cache.push(pdf_init_encoding_struct());
-    let mut encoding = &mut enc_cache[enc_id];
+    enc_cache.push(Box::new(pdf_init_encoding_struct()));
+    let mut encoding = &mut *enc_cache[enc_id];
 
     (*encoding).ident = ident.to_owned();
     (*encoding).enc_name = enc_name.to_owned();
@@ -390,7 +390,7 @@ unsafe fn pdf_encoding_new_encoding(
                 (*encoding).enc_name
             );
         }
-        (*encoding).baseenc = &mut enc_cache[baseenc_id as usize] as *mut pdf_encoding
+        (*encoding).baseenc = &mut *enc_cache[baseenc_id as usize] as *mut pdf_encoding
     }
     if flags & 1i32 << 0i32 != 0 {
         (*encoding).resource = pdf_name::new((*encoding).enc_name.as_bytes()).into_obj()
@@ -428,8 +428,8 @@ pub(crate) unsafe fn pdf_encoding_complete() {
 
 pub(crate) unsafe fn pdf_close_encodings() {
     for encoding in &mut enc_cache {
-        pdf_flush_encoding(encoding);
-        pdf_clean_encoding_struct(encoding);
+        pdf_flush_encoding(&mut **encoding);
+        pdf_clean_encoding_struct(&mut **encoding);
     }
     enc_cache.clear();
 }
