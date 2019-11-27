@@ -850,7 +850,7 @@ pub unsafe extern "C" fn build_page() {
         if *NODE_type(slf.p as isize) < GLUE_NODE || *NODE_type(slf.p as isize) > KERN_NODE {
             return contribute(slf);
         }
-        
+
         return update_heights(slf);
 
         unsafe fn update_heights(mut slf: Args) -> (Args, bool) {

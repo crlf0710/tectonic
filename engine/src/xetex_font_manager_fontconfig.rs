@@ -592,7 +592,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
                 b"fullname\x00" as *const u8 as *const libc::c_char,
                 i,
                 &mut s as *mut *mut libc::c_char as *mut *mut FcChar8,
-            ) == FcResultMatch 
+            ) == FcResultMatch
             {
                 if CStr::from_ptr(name) == CStr::from_ptr(s) {
                     let mut names_0: *mut XeTeXFontMgrNameCollection =
@@ -612,7 +612,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
                 b"family\x00" as *const u8 as *const libc::c_char,
                 i,
                 &mut s as *mut *mut libc::c_char as *mut *mut FcChar8,
-            ) == FcResultMatch 
+            ) == FcResultMatch
             {
                 if CStr::from_ptr(name) == CStr::from_ptr(s)
                     || hyph != 0 && (&**famName == CStr::from_ptr(s))
@@ -620,10 +620,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
                     let mut names_1: *mut XeTeXFontMgrNameCollection =
                         XeTeXFontMgr_readNames(self_0, pat);
                     XeTeXFontMgr_addToMaps(self_0, pat, names_1);
-                    XeTeXFontMgr_cacheFamilyMembers(
-                        self_0,
-                        (*names_1).m_familyNames,
-                    );
+                    XeTeXFontMgr_cacheFamilyMembers(self_0, (*names_1).m_familyNames);
                     XeTeXFontMgrNameCollection_delete(names_1);
                     found = true;
                     continue 'traverse_fonts;
@@ -651,10 +648,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
                         let mut names_2: *mut XeTeXFontMgrNameCollection =
                             XeTeXFontMgr_readNames(self_0, pat);
                         XeTeXFontMgr_addToMaps(self_0, pat, names_2);
-                        XeTeXFontMgr_cacheFamilyMembers(
-                            self_0,
-                            (*names_2).m_familyNames,
-                        );
+                        XeTeXFontMgr_cacheFamilyMembers(self_0, (*names_2).m_familyNames);
                         XeTeXFontMgrNameCollection_delete(names_2);
                         found = true;
                         continue 'traverse_fonts;

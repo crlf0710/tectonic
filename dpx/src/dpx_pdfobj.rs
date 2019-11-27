@@ -989,11 +989,7 @@ pub unsafe fn pdf_string_length(object: &pdf_obj) -> u32 {
  * characters in an output string.
  */
 
-pub unsafe fn pdfobj_escape_str(
-    buffer: &mut [u8],
-    s: *const u8,
-    len: size_t,
-) -> size_t {
+pub unsafe fn pdfobj_escape_str(buffer: &mut [u8], s: *const u8, len: size_t) -> size_t {
     let bufsize = buffer.len();
     let mut result = 0;
     for i in 0..len {
@@ -1011,11 +1007,11 @@ pub unsafe fn pdfobj_escape_str(
             result += 1;
             write!(&mut buffer[result..], "{:03o}", ch);
             result += 3;
-            /*result = (result as u64).wrapping_add(sprintf(
-                buffer.offset(result as isize),
-                b"%03o\x00" as *const u8 as *const i8,
-                ch as i32,
-            ) as u64) as size_t as size_t*/
+        /*result = (result as u64).wrapping_add(sprintf(
+            buffer.offset(result as isize),
+            b"%03o\x00" as *const u8 as *const i8,
+            ch as i32,
+        ) as u64) as size_t as size_t*/
         } else {
             match ch {
                 40 => {
@@ -1097,11 +1093,8 @@ unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
          * handled as quickly as possible since there are so many of them.
          */
         for i in 0..len {
-            let count = pdfobj_escape_str(
-                &mut wbuf[..],
-                &mut *s.offset(i as isize),
-                1i32 as size_t,
-            ) as usize;
+            let count = pdfobj_escape_str(&mut wbuf[..], &mut *s.offset(i as isize), 1i32 as size_t)
+                as usize;
             pdf_out(handle, &wbuf[..count]);
         }
         pdf_out_char(handle, b')');
@@ -3181,8 +3174,7 @@ unsafe fn pdf_new_ref(object: *mut pdf_obj) -> *mut pdf_obj {
     if (*object).label() == 0 {
         pdf_label_obj(object);
     }
-    let result =
-        pdf_indirect::new(ptr::null_mut(), (*object).id).into_obj();
+    let result = pdf_indirect::new(ptr::null_mut(), (*object).id).into_obj();
     let ref mut fresh28 = (*((*result).data as *mut pdf_indirect)).obj;
     *fresh28 = object;
     result

@@ -653,7 +653,7 @@ pub unsafe extern "C" fn get_uni_c(mut f: *mut UFILE) -> i32 {
                                 }
                                 bad_utf8_warning();
                                 return 0xFFFD; /* return without adjusting by offsetsFromUTF8 */
-                            } 
+                            }
                             rval <<= 6;
                             rval += c;
                         }
