@@ -78,81 +78,15 @@ pub unsafe extern "C" fn maketexstring(mut s: *const i8) -> i32 {
             break;
         }
         let mut extraBytes: UInt16 = bytesFromUTF8[rval as usize] as UInt16;
-        let mut current_block_19: u64;
-        match extraBytes as i32 {
-            5 => {
-                /* note: code falls through cases! */
-                rval <<= 6i32; /* max UTF16->UTF8 expansion
-                               (code units, not bytes) */
-                if *cp != 0 {
-                    let fresh1 = cp;
-                    cp = cp.offset(1);
-                    rval = (rval as u32).wrapping_add(*fresh1 as u32) as UInt32 as UInt32
-                }
-                current_block_19 = 15420705083065539194;
+
+        assert!(extraBytes < 6);
+        for _ in (1..=extraBytes).rev() {
+            /* note: code falls through cases! */
+            rval <<= 6i32; /* max UTF16->UTF8 expansion (code units, not bytes) */
+            if *cp != 0 {
+                rval += *cp as u32;
+                cp = cp.offset(1);
             }
-            4 => {
-                current_block_19 = 15420705083065539194;
-            }
-            3 => {
-                current_block_19 = 17593909170536150684;
-            }
-            2 => {
-                current_block_19 = 9565569445570550704;
-            }
-            1 => {
-                current_block_19 = 4209676304665092873;
-            }
-            0 | _ => {
-                current_block_19 = 11194104282611034094;
-            }
-        }
-        match current_block_19 {
-            15420705083065539194 => {
-                rval <<= 6i32;
-                if *cp != 0 {
-                    let fresh2 = cp;
-                    cp = cp.offset(1);
-                    rval = (rval as u32).wrapping_add(*fresh2 as u32) as UInt32 as UInt32
-                }
-                current_block_19 = 17593909170536150684;
-            }
-            _ => {}
-        }
-        match current_block_19 {
-            17593909170536150684 => {
-                rval <<= 6i32;
-                if *cp != 0 {
-                    let fresh3 = cp;
-                    cp = cp.offset(1);
-                    rval = (rval as u32).wrapping_add(*fresh3 as u32) as UInt32 as UInt32
-                }
-                current_block_19 = 9565569445570550704;
-            }
-            _ => {}
-        }
-        match current_block_19 {
-            9565569445570550704 => {
-                rval <<= 6i32;
-                if *cp != 0 {
-                    let fresh4 = cp;
-                    cp = cp.offset(1);
-                    rval = (rval as u32).wrapping_add(*fresh4 as u32) as UInt32 as UInt32
-                }
-                current_block_19 = 4209676304665092873;
-            }
-            _ => {}
-        }
-        match current_block_19 {
-            4209676304665092873 => {
-                rval <<= 6i32;
-                if *cp != 0 {
-                    let fresh5 = cp;
-                    cp = cp.offset(1);
-                    rval = (rval as u32).wrapping_add(*fresh5 as u32) as UInt32 as UInt32
-                }
-            }
-            _ => {}
         }
         rval = (rval as u32).wrapping_sub(offsetsFromUTF8[extraBytes as usize]) as UInt32 as UInt32;
         if rval > 0xffff_u32 {
@@ -175,7 +109,6 @@ pub unsafe extern "C" fn maketexstring(mut s: *const i8) -> i32 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn gettexstring(mut s: str_number) -> *mut i8 {
-    let mut bytesToWrite: u32 = 0_u32;
     let mut len: pool_pointer = 0;
     let mut i: pool_pointer = 0;
     let mut j: pool_pointer = 0;
@@ -208,67 +141,30 @@ pub unsafe extern "C" fn gettexstring(mut s: str_number) -> *mut i8 {
                 c = 0xfffd_u32
             }
         }
-        if c < 0x80_u32 {
-            bytesToWrite = 1_u32
+        let bytesToWrite = if c < 0x80_u32 {
+            1_usize
         } else if c < 0x800_u32 {
-            bytesToWrite = 2_u32
+            2
         } else if c < 0x10000_u32 {
-            bytesToWrite = 3_u32
+            3
         } else if c < 0x110000_u32 {
-            bytesToWrite = 4_u32
+            4
         } else {
-            bytesToWrite = 3_u32;
-            c = 0xfffd_u32
-        }
-        j = (j as u32).wrapping_add(bytesToWrite) as pool_pointer as pool_pointer;
-        let mut current_block_28: u64;
-        match bytesToWrite {
-            4 => {
-                /* note: everything falls through. */
-                j -= 1;
-                *name.offset(j as isize) = ((c | 0x80_u32) & 0xbf_u32) as i8;
-                c >>= 6i32;
-                current_block_28 = 9281751456159701257;
-            }
-            3 => {
-                current_block_28 = 9281751456159701257;
-            }
-            2 => {
-                current_block_28 = 13645261163415976511;
-            }
-            1 => {
-                current_block_28 = 4925739576308592327;
-            }
-            _ => {
-                current_block_28 = 2891135413264362348;
+            c = 0xfffd_u32;
+            3
+        };
+        j += bytesToWrite as i32;
+        for k in (1..=bytesToWrite).rev() {
+            /* note: everything falls through. */
+            j -= 1;
+            if k == 1 {
+                *name.offset(j as isize) = (c | firstByteMark[bytesToWrite] as u32) as i8;
+            } else {
+                *name.offset(j as isize) = ((c | 0x80) & 0xbf) as i8;
+                c >>= 6;
             }
         }
-        match current_block_28 {
-            9281751456159701257 => {
-                j -= 1;
-                *name.offset(j as isize) = ((c | 0x80_u32) & 0xbf_u32) as i8;
-                c >>= 6i32;
-                current_block_28 = 13645261163415976511;
-            }
-            _ => {}
-        }
-        match current_block_28 {
-            13645261163415976511 => {
-                j -= 1;
-                *name.offset(j as isize) = ((c | 0x80_u32) & 0xbf_u32) as i8;
-                c >>= 6i32;
-                current_block_28 = 4925739576308592327;
-            }
-            _ => {}
-        }
-        match current_block_28 {
-            4925739576308592327 => {
-                j -= 1;
-                *name.offset(j as isize) = (c | firstByteMark[bytesToWrite as usize] as u32) as i8
-            }
-            _ => {}
-        }
-        j = (j as u32).wrapping_add(bytesToWrite) as pool_pointer as pool_pointer;
+        j += bytesToWrite as i32;
         i += 1
     }
     *name.offset(j as isize) = 0_i8;
