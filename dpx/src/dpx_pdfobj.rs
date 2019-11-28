@@ -1005,13 +1005,8 @@ pub unsafe fn pdfobj_escape_str(buffer: &mut [u8], s: *const u8, len: size_t) ->
             /* Shouldn't use format_buffer[]. */
             buffer[result] = b'\\';
             result += 1;
-            write!(&mut buffer[result..], "{:03o}", ch);
+            write!(&mut buffer[result..], "{:03o}", ch).unwrap();
             result += 3;
-        /*result = (result as u64).wrapping_add(sprintf(
-            buffer.offset(result as isize),
-            b"%03o\x00" as *const u8 as *const i8,
-            ch as i32,
-        ) as u64) as size_t as size_t*/
         } else {
             match ch {
                 40 => {
