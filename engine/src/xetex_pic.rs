@@ -188,7 +188,7 @@ unsafe extern "C" fn get_image_size_in_inches(
             &mut xdensity,
             &mut ydensity,
         )
-    } else if check_for_bmp(handle) != 0 {
+    } else if check_for_bmp(handle) {
         err = bmp_get_bbox(
             handle,
             &mut width_pix,
@@ -196,6 +196,8 @@ unsafe extern "C" fn get_image_size_in_inches(
             &mut xdensity,
             &mut ydensity,
         )
+        .map(|_| 0)
+        .unwrap_or(-1);
     } else if check_for_png(handle) != 0 {
         err = png_get_bbox(
             handle,

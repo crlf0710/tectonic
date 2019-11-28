@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use crate::DisplayExt;
@@ -385,11 +385,11 @@ pub unsafe fn agl_init_map() {
         &mut aglmap,
         Some(hval_free as unsafe fn(_: *mut libc::c_void) -> ()),
     );
-    agl_load_listfile(b"texglyphlist.txt\x00" as *const u8 as *const i8, 0i32);
-    if agl_load_listfile(b"pdfglyphlist.txt\x00" as *const u8 as *const i8, 1i32) < 0i32 {
+    agl_load_listfile(b"texglyphlist.txt\x00" as *const u8 as *const i8, 0);
+    if agl_load_listfile(b"pdfglyphlist.txt\x00" as *const u8 as *const i8, 1).is_err() {
         warn!("Failed to load AGL file \"{}\"...", "pdfglyphlist.txt");
     }
-    if agl_load_listfile(b"glyphlist.txt\x00" as *const u8 as *const i8, 0i32) < 0i32 {
+    if agl_load_listfile(b"glyphlist.txt\x00" as *const u8 as *const i8, 0).is_err() {
         warn!("Failed to load AGL file \"{}\"...", "glyphlist.txt");
     };
 }
@@ -404,11 +404,11 @@ pub unsafe fn agl_close_map() {
  *  http://partners.adobe.com/asn/tech/type/unicodegn.jsp
  */
 /* Hash */
-unsafe fn agl_load_listfile(filename: *const i8, is_predef: i32) -> i32 {
-    let mut count: i32 = 0i32;
+unsafe fn agl_load_listfile(filename: *const i8, is_predef: i32) -> Result<u32, ()> {
+    let mut count: u32 = 0;
     let mut wbuf: [i8; 1024] = [0; 1024];
     if filename.is_null() {
-        return -1i32;
+        return Err(());
     }
     let handle = dpx_tt_open(
         filename,
@@ -416,7 +416,7 @@ unsafe fn agl_load_listfile(filename: *const i8, is_predef: i32) -> i32 {
         TTInputFormat::FONTMAP,
     );
     if handle.is_none() {
-        return -1i32;
+        return Err(());
     }
     let mut handle = handle.unwrap();
     if verbose != 0 {
@@ -529,7 +529,7 @@ unsafe fn agl_load_listfile(filename: *const i8, is_predef: i32) -> i32 {
     if verbose != 0 {
         info!(">");
     }
-    count
+    Ok(count)
 }
 
 pub unsafe fn agl_lookup_list(glyphname: *const i8) -> *mut agl_name {

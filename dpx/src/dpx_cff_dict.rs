@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use crate::DisplayExt;
@@ -781,15 +781,15 @@ pub unsafe fn cff_dict_remove(dict: *mut cff_dict, key: *const i8) {
     }
 }
 
-pub unsafe fn cff_dict_known(dict: *mut cff_dict, key: *const i8) -> i32 {
+pub unsafe fn cff_dict_known(dict: *mut cff_dict, key: *const i8) -> bool {
     for i in 0..(*dict).count {
         if streq_ptr(key, (*(*dict).entries.offset(i as isize)).key) as i32 != 0
             && (*(*dict).entries.offset(i as isize)).count > 0i32
         {
-            return 1i32;
+            return true;
         }
     }
-    0i32
+    false
 }
 
 pub unsafe fn cff_dict_get(dict: *mut cff_dict, key: *const i8, idx: i32) -> f64 {
