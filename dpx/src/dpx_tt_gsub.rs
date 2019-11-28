@@ -1304,7 +1304,7 @@ fn scan_otl_tag(otl_tags: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>), ()> {
         language = vec![b'*'];
     }
     /* Finally feature */
-    let feature = if p.len() < 5 {
+    let feature = if p.len() >= 4 {
         Vec::from(p)
     } else {
         warn!("No valid OTL feature tag specified.");
