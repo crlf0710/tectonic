@@ -163,7 +163,6 @@ pub unsafe fn pdf_include_page(
                     || pdf_concat_stream(&mut content_new, (*content_seg).as_stream_mut()) < 0
                 {
                     pdf_release_obj(content_seg);
-                    pdf_release_obj(page);
                     error();
                     return -1;
                 }
@@ -171,7 +170,6 @@ pub unsafe fn pdf_include_page(
             }
             content_new.into_obj()
         } else {
-            pdf_release_obj(page);
             error();
             return -1;
         };
