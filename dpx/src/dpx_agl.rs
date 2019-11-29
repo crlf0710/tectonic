@@ -60,7 +60,7 @@ use super::dpx_dpxutil::ht_table;
 pub struct C2RustUnnamed_0 {
     pub key: &'static [u8],
     pub otl_tag: &'static [u8],
-    pub suffixes: [&'static [u8]; 16],
+    pub suffixes: &'static [&'static [u8]],
 }
 /* quasi-hack to get the primary input */
 /* tectonic/core-strutils.h: miscellaneous C string utilities
@@ -206,115 +206,87 @@ fn is_smallcap(glyphname: &[u8]) -> bool {
     true
 }
 
-const SUFFIX_LIST_MAX: usize = 16;
-
-static mut VAR_LIST: [C2RustUnnamed_0; 14] = [
+static mut VAR_LIST: [C2RustUnnamed_0; 13] = [
     C2RustUnnamed_0 {
         key: b"small",
         otl_tag: b"smcp",
-        suffixes: [
-            b"sc",
-            &[],
-            &[],
-            &[],
-            &[],
-            &[],
-            &[],
-            &[],
-            &[],
-            &[],
-            &[],
-            &[],
-            &[],
-            &[],
-            &[],
-            &[],
-        ],
+        suffixes: &[b"sc"],
     },
     C2RustUnnamed_0 {
         key: b"swash",
         otl_tag: b"swsh",
-        suffixes: [&[]; SUFFIX_LIST_MAX],
+        suffixes: &[],
     },
     C2RustUnnamed_0 {
         key: b"superior",
         otl_tag: b"sups",
-        suffixes: [&[]; SUFFIX_LIST_MAX],
+        suffixes: &[],
     },
     C2RustUnnamed_0 {
         key: b"inferior",
         otl_tag: b"sinf",
-        suffixes: [&[]; SUFFIX_LIST_MAX],
+        suffixes: &[],
     },
     C2RustUnnamed_0 {
         key: b"numerator",
         otl_tag: b"numr",
-        suffixes: [&[]; SUFFIX_LIST_MAX],
+        suffixes: &[],
     },
     C2RustUnnamed_0 {
         key: b"denominator",
         otl_tag: b"dnom",
-        suffixes: [&[]; SUFFIX_LIST_MAX],
+        suffixes: &[],
     },
     C2RustUnnamed_0 {
         key: b"oldstyle",
         otl_tag: b"onum",
-        suffixes: [&[]; SUFFIX_LIST_MAX],
+        suffixes: &[],
     },
     C2RustUnnamed_0 {
         key: b"display",
         otl_tag: &[],
-        suffixes: [&[]; SUFFIX_LIST_MAX],
+        suffixes: &[],
     },
     C2RustUnnamed_0 {
         key: b"text",
         otl_tag: &[],
-        suffixes: [&[]; SUFFIX_LIST_MAX],
+        suffixes: &[],
     },
     C2RustUnnamed_0 {
         key: b"big",
         otl_tag: &[],
-        suffixes: [&[]; SUFFIX_LIST_MAX],
+        suffixes: &[],
     },
     C2RustUnnamed_0 {
         key: b"bigg",
         otl_tag: &[],
-        suffixes: [&[]; SUFFIX_LIST_MAX],
+        suffixes: &[],
     },
     C2RustUnnamed_0 {
         key: b"Big",
         otl_tag: &[],
-        suffixes: [&[]; SUFFIX_LIST_MAX],
+        suffixes: &[],
     },
     C2RustUnnamed_0 {
         key: b"Bigg",
         otl_tag: &[],
-        suffixes: [&[]; SUFFIX_LIST_MAX],
-    },
-    C2RustUnnamed_0 {
-        key: &[],
-        otl_tag: &[],
-        suffixes: [&[]; SUFFIX_LIST_MAX],
+        suffixes: &[],
     },
 ];
 
 pub unsafe fn agl_suffix_to_otltag(suffix: &[u8]) -> Option<&'static [u8]> {
-    let mut i = 0;
-    while !VAR_LIST[i].key.is_empty() {
-        let mut j = 0;
-        while !VAR_LIST[i].suffixes[j].is_empty() {
-            if suffix == VAR_LIST[i].suffixes[j] {
-                return Some(VAR_LIST[i].otl_tag);
+    for vl in &VAR_LIST {
+        for &vlsuffix in vl.suffixes {
+            if suffix == vlsuffix {
+                return Some(vl.otl_tag);
             }
-            j += 1
         }
-        if suffix == VAR_LIST[i].key {
-            return Some(VAR_LIST[i].otl_tag);
+        if suffix == vl.key {
+            return Some(vl.otl_tag);
         }
-        if !VAR_LIST[i].otl_tag.is_empty() && suffix == VAR_LIST[i].otl_tag {
-            return Some(VAR_LIST[i].otl_tag);
+        if !vl.otl_tag.is_empty() && suffix == vl.otl_tag {
+            return Some(vl.otl_tag);
         }
-        i += 1
     }
     None
 }
@@ -323,12 +295,10 @@ unsafe fn agl_guess_name(glyphname: &[u8]) -> Option<usize> {
         return Some(0);
     }
     let len = glyphname.len();
-    let mut i = 1;
-    while !VAR_LIST[i].key.is_empty() {
+    for i in 1..VAR_LIST.len() {
         if len > VAR_LIST[i].key.len() && glyphname.ends_with(VAR_LIST[i].key) {
             return Some(i);
         }
-        i += 1
     }
     None
 }
@@ -351,17 +321,13 @@ unsafe fn agl_normalized_name(glyphname: &[u8]) -> *mut agl_name {
     } else {
         let n;
         if let Some(var_idx) = agl_guess_name(glyphname) {
-            if VAR_LIST[var_idx].key.is_empty() {
-                n = glyphname.len()
+            n = glyphname.len() - VAR_LIST[var_idx].key.len();
+            if !VAR_LIST[var_idx].suffixes.is_empty() {
+                (*agln).suffix = CString::new(VAR_LIST[var_idx].suffixes[0])
+                    .unwrap()
+                    .into_raw();
             } else {
-                n = glyphname.len() - VAR_LIST[var_idx].key.len();
-                if !VAR_LIST[var_idx].suffixes[0].is_empty() {
-                    (*agln).suffix = CString::new(VAR_LIST[var_idx].suffixes[0])
-                        .unwrap()
-                        .into_raw();
-                } else {
-                    (*agln).suffix = CString::new(VAR_LIST[var_idx].key).unwrap().into_raw();
-                }
+                (*agln).suffix = CString::new(VAR_LIST[var_idx].key).unwrap().into_raw();
             }
         } else {
             n = glyphname.len()
