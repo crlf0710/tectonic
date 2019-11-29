@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use crate::DisplayExt;
@@ -717,7 +717,7 @@ pub unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
         (*(*font).fontdict).as_dict_mut().set("DW", 1000_f64);
     } else {
         let cid_count =
-            if cff_dict_known((*cffont).topdict, b"CIDCount\x00" as *const u8 as *const i8) != 0 {
+            if cff_dict_known((*cffont).topdict, b"CIDCount\x00" as *const u8 as *const i8) {
                 cff_dict_get(
                     (*cffont).topdict,
                     b"CIDCount\x00" as *const u8 as *const i8,
@@ -1217,7 +1217,7 @@ pub unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
         && cff_dict_known(
             *cffont.private.offset(0),
             b"StdVW\x00" as *const u8 as *const i8,
-        ) != 0
+        )
     {
         let stemv = cff_dict_get(
             *cffont.private.offset(0),
@@ -1230,8 +1230,7 @@ pub unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
         && cff_dict_known(
             *cffont.private.offset(0),
             b"defaultWidthX\x00" as *const u8 as *const i8,
-        ) != 0
-    {
+        ) {
         cff_dict_get(
             *cffont.private.offset(0),
             b"defaultWidthX\x00" as *const u8 as *const i8,
@@ -1244,8 +1243,7 @@ pub unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
         && cff_dict_known(
             *cffont.private.offset(0),
             b"nominalWidthX\x00" as *const u8 as *const i8,
-        ) != 0
-    {
+        ) {
         cff_dict_get(
             *cffont.private.offset(0),
             b"nominalWidthX\x00" as *const u8 as *const i8,
@@ -1728,7 +1726,7 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &cff_font) {
     let mut capheight;
     let mut ascent;
     let mut descent;
-    if cff_dict_known(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8) != 0 {
+    if cff_dict_known(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8) {
         /* Default values */
         ascent = cff_dict_get(
             cffont.topdict,
@@ -1749,8 +1747,7 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &cff_font) {
     let stemv = if cff_dict_known(
         *cffont.private.offset(0),
         b"StdVW\x00" as *const u8 as *const i8,
-    ) != 0
-    {
+    ) {
         cff_dict_get(
             *cffont.private.offset(0),
             b"StdVW\x00" as *const u8 as *const i8,
@@ -1768,7 +1765,7 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &cff_font) {
          */
         88.
     };
-    if cff_dict_known(cffont.topdict, b"ItalicAngle\x00" as *const u8 as *const i8) != 0 {
+    if cff_dict_known(cffont.topdict, b"ItalicAngle\x00" as *const u8 as *const i8) {
         italicangle = cff_dict_get(
             cffont.topdict,
             b"ItalicAngle\x00" as *const u8 as *const i8,
@@ -1890,24 +1887,22 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &cff_font) {
     if cff_dict_known(
         *cffont.private.offset(0),
         b"ForceBold\x00" as *const u8 as *const i8,
-    ) != 0
-        && cff_dict_get(
-            *cffont.private.offset(0),
-            b"ForceBold\x00" as *const u8 as *const i8,
-            0i32,
-        ) != 0.
+    ) && cff_dict_get(
+        *cffont.private.offset(0),
+        b"ForceBold\x00" as *const u8 as *const i8,
+        0i32,
+    ) != 0.
     {
         flags |= 1i32 << 18i32
     }
     if cff_dict_known(
         *cffont.private.offset(0),
         b"IsFixedPitch\x00" as *const u8 as *const i8,
-    ) != 0
-        && cff_dict_get(
-            *cffont.private.offset(0),
-            b"IsFixedPitch\x00" as *const u8 as *const i8,
-            0i32,
-        ) != 0.
+    ) && cff_dict_get(
+        *cffont.private.offset(0),
+        b"IsFixedPitch\x00" as *const u8 as *const i8,
+        0i32,
+    ) != 0.
     {
         flags |= 1i32 << 0i32
     }
@@ -1944,7 +1939,7 @@ unsafe fn add_metrics(
      * charstrings, to prevent Acrobat 4 from greeking text as
      * much as possible.
      */
-    if cff_dict_known((*cffont).topdict, b"FontBBox\x00" as *const u8 as *const i8) == 0 {
+    if !cff_dict_known((*cffont).topdict, b"FontBBox\x00" as *const u8 as *const i8) {
         panic!("No FontBBox?");
     }
     let mut tmp = vec![];
@@ -2060,8 +2055,7 @@ pub unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
     let defaultwidth = if cff_dict_known(
         *cffont.private.offset(0),
         b"defaultWidthX\x00" as *const u8 as *const i8,
-    ) != 0
-    {
+    ) {
         cff_dict_get(
             *cffont.private.offset(0),
             b"defaultWidthX\x00" as *const u8 as *const i8,
@@ -2073,8 +2067,7 @@ pub unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
     let nominalwidth = if cff_dict_known(
         *cffont.private.offset(0),
         b"nominalWidthX\x00" as *const u8 as *const i8,
-    ) != 0
-    {
+    ) {
         cff_dict_get(
             *cffont.private.offset(0),
             b"nominalWidthX\x00" as *const u8 as *const i8,

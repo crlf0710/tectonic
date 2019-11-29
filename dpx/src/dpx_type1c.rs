@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use super::dpx_sfnt::{sfnt_close, sfnt_find_table_pos, sfnt_open, sfnt_read_table_directory};
@@ -219,17 +219,16 @@ unsafe fn add_SimpleMetrics(
      * to the default scaling of 1000:1, not relative to the scaling
      * given by the font matrix.
      */
-    let scaling =
-        if cff_dict_known(cffont.topdict, b"FontMatrix\x00" as *const u8 as *const i8) != 0 {
-            1000i32 as f64
-                * cff_dict_get(
-                    cffont.topdict,
-                    b"FontMatrix\x00" as *const u8 as *const i8,
-                    0i32,
-                )
-        } else {
-            1.
-        };
+    let scaling = if cff_dict_known(cffont.topdict, b"FontMatrix\x00" as *const u8 as *const i8) {
+        1000i32 as f64
+            * cff_dict_get(
+                cffont.topdict,
+                b"FontMatrix\x00" as *const u8 as *const i8,
+                0i32,
+            )
+    } else {
+        1.
+    };
     let mut tmp_array = vec![];
     if num_glyphs as i32 <= 1i32 {
         /* This should be error. */
@@ -465,7 +464,7 @@ pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
         && cff_dict_known(
             *cffont.private.offset(0),
             b"StdVW\x00" as *const u8 as *const i8,
-        ) != 0
+        )
     {
         let stemv = cff_dict_get(
             *cffont.private.offset(0),
@@ -481,8 +480,7 @@ pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
         && cff_dict_known(
             *cffont.private.offset(0),
             b"defaultWidthX\x00" as *const u8 as *const i8,
-        ) != 0
-    {
+        ) {
         cff_dict_get(
             *cffont.private.offset(0),
             b"defaultWidthX\x00" as *const u8 as *const i8,
@@ -495,8 +493,7 @@ pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
         && cff_dict_known(
             *cffont.private.offset(0),
             b"nominalWidthX\x00" as *const u8 as *const i8,
-        ) != 0
-    {
+        ) {
         cff_dict_get(
             *cffont.private.offset(0),
             b"nominalWidthX\x00" as *const u8 as *const i8,
@@ -771,7 +768,7 @@ pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
     /*
      * Force existence of Encoding.
      */
-    if cff_dict_known(cffont.topdict, b"Encoding\x00" as *const u8 as *const i8) == 0 {
+    if !cff_dict_known(cffont.topdict, b"Encoding\x00" as *const u8 as *const i8) {
         cff_dict_add(
             cffont.topdict,
             b"Encoding\x00" as *const u8 as *const i8,

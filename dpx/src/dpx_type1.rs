@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use crate::mfree;
@@ -190,7 +190,7 @@ unsafe fn get_font_attr(font: *mut pdf_font, cffont: &cff_font) {
     let mut capheight;
     let mut ascent;
     let mut descent;
-    if cff_dict_known(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8) != 0 {
+    if cff_dict_known(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8) {
         /* Default values */
         ascent = cff_dict_get(
             cffont.topdict,
@@ -211,8 +211,7 @@ unsafe fn get_font_attr(font: *mut pdf_font, cffont: &cff_font) {
     let stemv = if cff_dict_known(
         *cffont.private.offset(0),
         b"StdVW\x00" as *const u8 as *const i8,
-    ) != 0
-    {
+    ) {
         cff_dict_get(
             *cffont.private.offset(0),
             b"StdVW\x00" as *const u8 as *const i8,
@@ -230,7 +229,7 @@ unsafe fn get_font_attr(font: *mut pdf_font, cffont: &cff_font) {
          */
         88.
     };
-    if cff_dict_known(cffont.topdict, b"ItalicAngle\x00" as *const u8 as *const i8) != 0 {
+    if cff_dict_known(cffont.topdict, b"ItalicAngle\x00" as *const u8 as *const i8) {
         italicangle = cff_dict_get(
             cffont.topdict,
             b"ItalicAngle\x00" as *const u8 as *const i8,
@@ -352,24 +351,22 @@ unsafe fn get_font_attr(font: *mut pdf_font, cffont: &cff_font) {
     if cff_dict_known(
         *cffont.private.offset(0),
         b"ForceBold\x00" as *const u8 as *const i8,
-    ) != 0
-        && cff_dict_get(
-            *cffont.private.offset(0),
-            b"ForceBold\x00" as *const u8 as *const i8,
-            0i32,
-        ) != 0.
+    ) && cff_dict_get(
+        *cffont.private.offset(0),
+        b"ForceBold\x00" as *const u8 as *const i8,
+        0i32,
+    ) != 0.
     {
         flags |= 1i32 << 18i32
     }
     if cff_dict_known(
         *cffont.private.offset(0),
         b"IsFixedPitch\x00" as *const u8 as *const i8,
-    ) != 0
-        && cff_dict_get(
-            *cffont.private.offset(0),
-            b"IsFixedPitch\x00" as *const u8 as *const i8,
-            0i32,
-        ) != 0.
+    ) && cff_dict_get(
+        *cffont.private.offset(0),
+        b"IsFixedPitch\x00" as *const u8 as *const i8,
+        0i32,
+    ) != 0.
     {
         flags |= 1i32 << 0i32
     }
@@ -407,24 +404,23 @@ unsafe fn add_metrics(
      * charstrings, to prevent Acrobat 4 from greeking text as
      * much as possible.
      */
-    if cff_dict_known(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8) == 0 {
+    if !cff_dict_known(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8) {
         panic!("No FontBBox?");
     }
     /* The widhts array in the font dictionary must be given relative
      * to the default scaling of 1000:1, not relative to the scaling
      * given by the font matrix.
      */
-    let scaling =
-        if cff_dict_known(cffont.topdict, b"FontMatrix\x00" as *const u8 as *const i8) != 0 {
-            1000.
-                * cff_dict_get(
-                    cffont.topdict,
-                    b"FontMatrix\x00" as *const u8 as *const i8,
-                    0i32,
-                )
-        } else {
-            1.
-        };
+    let scaling = if cff_dict_known(cffont.topdict, b"FontMatrix\x00" as *const u8 as *const i8) {
+        1000.
+            * cff_dict_get(
+                cffont.topdict,
+                b"FontMatrix\x00" as *const u8 as *const i8,
+                0i32,
+            )
+    } else {
+        1.
+    };
     let mut tmp_array = vec![];
     for i in 0..4 {
         let val = cff_dict_get(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8, i);
@@ -512,21 +508,21 @@ unsafe fn write_fontfile(font: *mut pdf_font, cffont: &cff_font, pdfcharset: &pd
     /*
      * Force existence of Encoding.
      */
-    if cff_dict_known(cffont.topdict, b"CharStrings\x00" as *const u8 as *const i8) == 0 {
+    if !cff_dict_known(cffont.topdict, b"CharStrings\x00" as *const u8 as *const i8) {
         cff_dict_add(
             cffont.topdict,
             b"CharStrings\x00" as *const u8 as *const i8,
             1i32,
         );
     }
-    if cff_dict_known(cffont.topdict, b"charset\x00" as *const u8 as *const i8) == 0 {
+    if !cff_dict_known(cffont.topdict, b"charset\x00" as *const u8 as *const i8) {
         cff_dict_add(
             cffont.topdict,
             b"charset\x00" as *const u8 as *const i8,
             1i32,
         );
     }
-    if cff_dict_known(cffont.topdict, b"Encoding\x00" as *const u8 as *const i8) == 0 {
+    if !cff_dict_known(cffont.topdict, b"Encoding\x00" as *const u8 as *const i8) {
         cff_dict_add(
             cffont.topdict,
             b"Encoding\x00" as *const u8 as *const i8,
@@ -535,7 +531,7 @@ unsafe fn write_fontfile(font: *mut pdf_font, cffont: &cff_font, pdfcharset: &pd
     }
     let mut private_size = cff_dict_pack(*cffont.private.offset(0), &mut wbuf[..]);
     /* Private dict is required (but may have size 0) */
-    if cff_dict_known(cffont.topdict, b"Private\x00" as *const u8 as *const i8) == 0 {
+    if !cff_dict_known(cffont.topdict, b"Private\x00" as *const u8 as *const i8) {
         cff_dict_add(
             cffont.topdict,
             b"Private\x00" as *const u8 as *const i8,
@@ -722,8 +718,7 @@ pub unsafe fn pdf_font_load_type1(font: *mut pdf_font) -> i32 {
     let defaultwidth = if cff_dict_known(
         *cffont.private.offset(0),
         b"defaultWidthX\x00" as *const u8 as *const i8,
-    ) != 0
-    {
+    ) {
         cff_dict_get(
             *cffont.private.offset(0),
             b"defaultWidthX\x00" as *const u8 as *const i8,
@@ -735,8 +730,7 @@ pub unsafe fn pdf_font_load_type1(font: *mut pdf_font) -> i32 {
     let nominalwidth = if cff_dict_known(
         *cffont.private.offset(0),
         b"nominalWidthX\x00" as *const u8 as *const i8,
-    ) != 0
-    {
+    ) {
         cff_dict_get(
             *cffont.private.offset(0),
             b"nominalWidthX\x00" as *const u8 as *const i8,

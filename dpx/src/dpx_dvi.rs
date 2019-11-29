@@ -24,7 +24,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use std::io::{Read, Seek, SeekFrom};
@@ -1036,7 +1036,7 @@ unsafe fn dvi_locate_native_font(
         }
         let ref mut fresh18 = font.cffont;
         *fresh18 = cffont;
-        if cff_dict_known((*cffont).topdict, b"FontBBox\x00" as *const u8 as *const i8) != 0 {
+        if cff_dict_known((*cffont).topdict, b"FontBBox\x00" as *const u8 as *const i8) {
             font.ascent = cff_dict_get(
                 (*cffont).topdict,
                 b"FontBBox\x00" as *const u8 as *const i8,

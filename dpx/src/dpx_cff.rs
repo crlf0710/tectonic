@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use crate::streq_ptr;
@@ -794,12 +794,11 @@ pub unsafe fn cff_open<'a>(
     if cff_dict_known(
         (*cff).topdict,
         b"CharstringType\x00" as *const u8 as *const i8,
-    ) != 0
-        && cff_dict_get(
-            (*cff).topdict,
-            b"CharstringType\x00" as *const u8 as *const i8,
-            0i32,
-        ) != 2i32 as f64
+    ) && cff_dict_get(
+        (*cff).topdict,
+        b"CharstringType\x00" as *const u8 as *const i8,
+        0i32,
+    ) != 2i32 as f64
     {
         warn!("Only Type 2 Charstrings supported...");
         cff_close(cff);
@@ -808,8 +807,7 @@ pub unsafe fn cff_open<'a>(
     if cff_dict_known(
         (*cff).topdict,
         b"SyntheticBase\x00" as *const u8 as *const i8,
-    ) != 0
-    {
+    ) {
         warn!("CFF Synthetic font not supported.");
         cff_close(cff);
         return ptr::null_mut();
@@ -829,13 +827,13 @@ pub unsafe fn cff_open<'a>(
         .unwrap();
     (*cff).num_glyphs = tt_get_unsigned_pair(handle);
     /* Check for font type */
-    if cff_dict_known((*cff).topdict, b"ROS\x00" as *const u8 as *const i8) != 0 {
+    if cff_dict_known((*cff).topdict, b"ROS\x00" as *const u8 as *const i8) {
         (*cff).flag |= 1i32 << 0i32
     } else {
         (*cff).flag |= 1i32 << 1i32
     }
     /* Check for encoding */
-    if cff_dict_known((*cff).topdict, b"Encoding\x00" as *const u8 as *const i8) != 0 {
+    if cff_dict_known((*cff).topdict, b"Encoding\x00" as *const u8 as *const i8) {
         offset = cff_dict_get(
             (*cff).topdict,
             b"Encoding\x00" as *const u8 as *const i8,
@@ -851,7 +849,7 @@ pub unsafe fn cff_open<'a>(
         (*cff).flag |= 1i32 << 3i32
     }
     /* Check for charset */
-    if cff_dict_known((*cff).topdict, b"charset\x00" as *const u8 as *const i8) != 0 {
+    if cff_dict_known((*cff).topdict, b"charset\x00" as *const u8 as *const i8) {
         offset = cff_dict_get(
             (*cff).topdict,
             b"charset\x00" as *const u8 as *const i8,
@@ -1382,7 +1380,7 @@ pub unsafe fn cff_read_encoding(cff: &mut cff_font) -> i32 {
     if cff.topdict.is_null() {
         panic!("Top DICT data not found");
     }
-    if cff_dict_known(cff.topdict, b"Encoding\x00" as *const u8 as *const i8) == 0 {
+    if !cff_dict_known(cff.topdict, b"Encoding\x00" as *const u8 as *const i8) {
         cff.flag |= 1i32 << 3i32;
         cff.encoding = ptr::null_mut();
         return 0i32;
@@ -1587,7 +1585,7 @@ pub unsafe fn cff_read_charsets(cff: &mut cff_font) -> i32 {
     if cff.topdict.is_null() {
         panic!("Top DICT not available");
     }
-    if cff_dict_known(cff.topdict, b"charset\x00" as *const u8 as *const i8) == 0 {
+    if !cff_dict_known(cff.topdict, b"charset\x00" as *const u8 as *const i8) {
         cff.flag |= 1i32 << 5i32;
         cff.charsets = ptr::null_mut();
         return 0i32;
@@ -2130,10 +2128,10 @@ pub unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
     if cff.flag & 1i32 << 0i32 != 0 {
         for i in 0..cff.num_fds as i32 {
             if (*cff.private.offset(i as isize)).is_null()
-                || cff_dict_known(
+                || !cff_dict_known(
                     *cff.private.offset(i as isize),
                     b"Subrs\x00" as *const u8 as *const i8,
-                ) == 0
+                )
             {
                 let ref mut fresh47 = *cff.subrs.offset(i as isize);
                 *fresh47 = ptr::null_mut()
@@ -2160,10 +2158,10 @@ pub unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
             }
         }
     } else if (*cff.private.offset(0)).is_null()
-        || cff_dict_known(
+        || !cff_dict_known(
             *cff.private.offset(0),
             b"Subrs\x00" as *const u8 as *const i8,
-        ) == 0
+        )
     {
         let ref mut fresh49 = *cff.subrs.offset(0);
         *fresh49 = ptr::null_mut()
@@ -2281,7 +2279,7 @@ pub unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
                 && cff_dict_known(
                     *cff.fdarray.offset(i as isize),
                     b"Private\x00" as *const u8 as *const i8,
-                ) != 0
+                )
                 && {
                     size = cff_dict_get(
                         *cff.fdarray.offset(i as isize),
@@ -2322,7 +2320,7 @@ pub unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
         cff.private =
             new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
                 as *mut *mut cff_dict;
-        if cff_dict_known(cff.topdict, b"Private\x00" as *const u8 as *const i8) != 0 && {
+        if cff_dict_known(cff.topdict, b"Private\x00" as *const u8 as *const i8) && {
             size = cff_dict_get(cff.topdict, b"Private\x00" as *const u8 as *const i8, 0i32) as i32;
             size > 0i32
         } {

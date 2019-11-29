@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use super::dpx_mem::new;
@@ -57,7 +57,7 @@ pub struct hdr_info {
     pub y_pix_per_meter: u32,
 }
 
-pub unsafe fn check_for_bmp(handle: &mut InputHandleWrapper) -> i32 {
+pub unsafe fn check_for_bmp(handle: &mut InputHandleWrapper) -> bool {
     let mut sigbytes: [u8; 2] = [0; 2];
     handle.seek(SeekFrom::Start(0)).unwrap();
     if ttstub_input_read(
@@ -69,9 +69,10 @@ pub unsafe fn check_for_bmp(handle: &mut InputHandleWrapper) -> i32 {
         || sigbytes[0] as i32 != 'B' as i32
         || sigbytes[1] as i32 != 'M' as i32
     {
-        return 0i32;
+        false
+    } else {
+        true
     }
-    1i32
 }
 unsafe fn get_density(xdensity: *mut f64, ydensity: *mut f64, hdr: *mut hdr_info) {
     if (*hdr).x_pix_per_meter > 0_u32 && (*hdr).y_pix_per_meter > 0_u32 {
@@ -90,7 +91,7 @@ pub unsafe fn bmp_get_bbox(
     height: *mut u32,
     xdensity: *mut f64,
     ydensity: *mut f64,
-) -> i32 {
+) -> Result<(), ()> {
     let mut hdr: hdr_info = hdr_info {
         offset: 0_u32,
         hsize: 0_u32,
@@ -114,7 +115,10 @@ pub unsafe fn bmp_get_bbox(
     r
 }
 
-pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandleWrapper) -> i32 {
+pub unsafe fn bmp_include_image(
+    ximage: *mut pdf_ximage,
+    handle: &mut InputHandleWrapper,
+) -> Result<(), ()> {
     let mut info = ximage_info::default();
     let mut hdr: hdr_info = hdr_info {
         offset: 0_u32,
@@ -130,17 +134,15 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
     let num_palette;
     pdf_ximage_init_image_info(&mut info);
     handle.seek(SeekFrom::Start(0)).unwrap();
-    if read_header(handle, &mut hdr) < 0i32 {
-        return -1i32;
-    }
+    read_header(handle, &mut hdr)?;
     get_density(&mut info.xdensity, &mut info.ydensity, &mut hdr);
     info.width = hdr.width as i32;
     info.height = hdr.height;
-    let flip = if info.height < 0i32 {
+    let flip = if info.height < 0 {
         info.height = -info.height;
-        0
+        false
     } else {
-        1
+        true
     };
     if (hdr.bit_count as i32) < 24i32 {
         if hdr.bit_count as i32 != 1i32
@@ -148,7 +150,7 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
             && hdr.bit_count as i32 != 8i32
         {
             warn!("Unsupported palette size: {}", hdr.bit_count as i32,);
-            return -1i32;
+            return Err(());
         }
         num_palette = hdr
             .offset
@@ -167,14 +169,14 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
             "Unkown/Unsupported BMP bitCount value: {}",
             hdr.bit_count as i32,
         );
-        return -1i32;
+        return Err(());
     }
     if info.width == 0i32 || info.height == 0i32 || num_palette < 1i32 {
         warn!(
             "Invalid BMP file: width={}, height={}, #palette={}",
             info.width, info.height, num_palette,
         );
-        return -1i32;
+        return Err(());
     }
     /* Start reading raster data */
     let mut stream = pdf_stream::new(STREAM_COMPRESS);
@@ -194,7 +196,7 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
             {
                 warn!("Reading file failed...");
                 free(palette as *mut libc::c_void);
-                return -1i32;
+                return Err(());
             }
             /* BGR data */
             *palette.offset((3i32 * i) as isize) = bgrq[2];
@@ -238,7 +240,7 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
             {
                 warn!("Reading BMP raster data failed...");
                 free(stream_data_ptr as *mut libc::c_void);
-                return -1i32;
+                return Err(());
             }
             n += 1
         }
@@ -246,26 +248,26 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
         stream_data_ptr = new(((rowbytes * info.height) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
             as *mut u8;
-        if read_raster_rle8(stream_data_ptr, info.width, info.height, handle) < 0i32 {
+        if read_raster_rle8(stream_data_ptr, info.width, info.height, handle).is_err() {
             warn!("Reading BMP raster data failed...");
             free(stream_data_ptr as *mut libc::c_void);
-            return -1i32;
+            return Err(());
         }
     } else if hdr.compression == 2i32 {
         stream_data_ptr = new(((rowbytes * info.height) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
             as *mut u8;
-        if read_raster_rle4(stream_data_ptr, info.width, info.height, handle) < 0i32 {
+        if read_raster_rle4(stream_data_ptr, info.width, info.height, handle).is_err() {
             warn!("Reading BMP raster data failed...");
             free(stream_data_ptr as *mut libc::c_void);
-            return -1i32;
+            return Err(());
         }
     } else {
         warn!(
             "Unknown/Unsupported compression type for BMP image: {}",
             hdr.compression
         );
-        return -1i32;
+        return Err(());
     }
     /* gbr --> rgb */
     if hdr.bit_count as i32 == 24i32 {
@@ -277,7 +279,7 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
             n += 3i32
         }
     }
-    if flip != 0 {
+    if flip {
         let mut n = info.height - 1i32;
         while n >= 0i32 {
             let p = stream_data_ptr.offset((n * rowbytes) as isize);
@@ -303,11 +305,11 @@ pub unsafe fn bmp_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
         );
     }
     pdf_ximage_set_image(ximage, &mut info, stream);
-    0i32
+    Ok(())
 }
 
 use crate::FromLEByteSlice;
-unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> i32 {
+unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> Result<(), ()> {
     let mut buf: [u8; 142] = [0; 142];
     let p = &mut buf;
     if ttstub_input_read(
@@ -317,18 +319,18 @@ unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> i3
     ) != (14i32 + 4i32) as i64
     {
         warn!("Could not read BMP file header...");
-        return -1i32;
+        return Err(());
     }
     if p[0] != b'B' || p[1] != b'M' {
         warn!("File not starting with \'B\' \'M\'... Not a BMP file?");
-        return -1i32;
+        return Err(());
     }
     let p = &mut p[2..];
     /* fsize  = ULONG_LE(p); */
     let p = &mut p[4..];
     if u32::from_le_byte_slice(&p[..4]) != 0 {
         warn!("Not a BMP file???");
-        return -1i32;
+        return Err(());
     }
     let p = &mut p[4..];
     hdr.offset = u32::from_le_byte_slice(&p[..4]);
@@ -343,7 +345,7 @@ unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> i3
     ) != hdr.hsize.wrapping_sub(4_u32) as i64
     {
         warn!("Could not read BMP file header...");
-        return -1i32;
+        return Err(());
     }
     match hdr.hsize {
         12 => {
@@ -355,7 +357,7 @@ unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> i3
             hdr.y_pix_per_meter = 0_u32;
             if u16::from_le_byte_slice(&p[..2]) != 1 {
                 warn!("Unknown bcPlanes value in BMP COREHEADER.");
-                return -1i32;
+                return Err(());
             }
             let p = &mut p[2..];
             hdr.bit_count = u16::from_le_byte_slice(&p[..2]);
@@ -370,7 +372,7 @@ unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> i3
             let p = &mut p[4..];
             if u16::from_le_byte_slice(&p[..2]) != 1 {
                 warn!("Unknown biPlanes value in BMP INFOHEADER.");
-                return -1i32;
+                return Err(());
             }
             let p = &mut p[2..];
             hdr.bit_count = u16::from_le_byte_slice(&p[..2]);
@@ -387,18 +389,18 @@ unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> i3
         }
         _ => {
             warn!("Unknown BMP header type.");
-            return -1i32;
+            return Err(());
         }
     }
-    0i32
+    Ok(())
 }
 unsafe fn read_raster_rle8(
     data_ptr: *mut u8,
     width: i32,
     height: i32,
     handle: &mut InputHandleWrapper,
-) -> i32 {
-    let mut count: i32 = 0i32;
+) -> Result<u32, ()> {
+    let mut count: u32 = 0;
     let rowbytes = width;
     memset(
         data_ptr as *mut libc::c_void,
@@ -413,7 +415,7 @@ unsafe fn read_raster_rle8(
         while h < width && eol == 0 {
             let b0 = tt_get_unsigned_byte(handle);
             let b1 = tt_get_unsigned_byte(handle);
-            count += 2i32;
+            count += 2;
             let p = data_ptr.offset((v * rowbytes) as isize).offset(h as isize);
             if b0 as i32 == 0i32 {
                 match b1 as i32 {
@@ -428,20 +430,20 @@ unsafe fn read_raster_rle8(
                     2 => {
                         h += tt_get_unsigned_byte(handle) as i32;
                         v += tt_get_unsigned_byte(handle) as i32;
-                        count += 2i32
+                        count += 2
                     }
                     _ => {
                         h += b1 as i32;
                         if h > width {
                             warn!("RLE decode failed...");
-                            return -1i32;
+                            return Err(());
                         }
                         if ttstub_input_read(handle.0.as_ptr(), p as *mut i8, b1 as size_t)
                             != b1 as i64
                         {
-                            return -1i32;
+                            return Err(());
                         }
-                        count += b1 as i32;
+                        count += u32::from(b1);
                         if b1 as i32 % 2i32 != 0 {
                             tt_get_unsigned_byte(handle);
                             count += 1
@@ -452,7 +454,7 @@ unsafe fn read_raster_rle8(
                 h += b0 as i32;
                 if h > width {
                     warn!("RLE decode failed...");
-                    return -1i32;
+                    return Err(());
                 }
                 memset(p as *mut libc::c_void, b1 as i32, b0 as _);
             }
@@ -463,27 +465,27 @@ unsafe fn read_raster_rle8(
             let b1 = tt_get_unsigned_byte(handle);
             if b0 as i32 != 0i32 {
                 warn!("RLE decode failed...");
-                return -1i32;
+                return Err(());
             } else {
                 if b1 as i32 == 0x1i32 {
                     eoi = 1i32
                 } else if b1 as i32 != 0i32 {
                     warn!("RLE decode failed...");
-                    return -1i32;
+                    return Err(());
                 }
             }
         }
         v += 1
     }
-    count
+    Ok(count)
 }
 unsafe fn read_raster_rle4(
     data_ptr: *mut u8,
     width: i32,
     height: i32,
     handle: &mut InputHandleWrapper,
-) -> i32 {
-    let mut count: i32 = 0i32;
+) -> Result<u32, ()> {
+    let mut count: u32 = 0;
     let rowbytes = (width + 1i32) / 2i32;
     memset(
         data_ptr as *mut libc::c_void,
@@ -498,7 +500,7 @@ unsafe fn read_raster_rle4(
         while h < width && eol == 0 {
             let mut b0 = tt_get_unsigned_byte(handle);
             let mut b1 = tt_get_unsigned_byte(handle);
-            count += 2i32;
+            count += 2;
             let mut p = data_ptr
                 .offset((v * rowbytes) as isize)
                 .offset((h / 2i32) as isize);
@@ -516,14 +518,14 @@ unsafe fn read_raster_rle4(
                     2 => {
                         h += tt_get_unsigned_byte(handle) as i32;
                         v += tt_get_unsigned_byte(handle) as i32;
-                        count += 2i32
+                        count += 2
                     }
                     _ => {
                         if h + b1 as i32 > width {
                             warn!("RLE decode failed...");
-                            return -1i32;
+                            return Err(());
                         }
-                        let nbytes = (b1 as i32 + 1i32) / 2i32;
+                        let nbytes = (u32::from(b1) + 1) / 2;
                         if h % 2i32 != 0 {
                             /* starting at hi-nib */
                             for _ in 0..nbytes {
@@ -539,11 +541,11 @@ unsafe fn read_raster_rle4(
                             nbytes as size_t,
                         ) != nbytes as i64
                         {
-                            return -1i32;
+                            return Err(());
                         }
                         h += b1 as i32;
                         count += nbytes;
-                        if nbytes % 2i32 != 0 {
+                        if nbytes % 2 != 0 {
                             tt_get_unsigned_byte(handle);
                             count += 1
                         }
@@ -552,7 +554,7 @@ unsafe fn read_raster_rle4(
             } else {
                 if h + b0 as i32 > width {
                     warn!("RLE decode failed...");
-                    return -1i32;
+                    return Err(());
                 }
                 if h % 2i32 != 0 {
                     let fresh1 = p;
@@ -577,18 +579,18 @@ unsafe fn read_raster_rle4(
             let b1 = tt_get_unsigned_byte(handle);
             if b0 as i32 != 0i32 {
                 warn!("No EOL/EOI marker. RLE decode failed...");
-                return -1i32;
+                return Err(());
             } else {
                 if b1 as i32 == 0x1i32 {
                     eoi = 1i32
                 } else if b1 as i32 != 0i32 {
                     warn!("No EOL/EOI marker. RLE decode failed...");
-                    return -1i32;
+                    return Err(());
                 }
             }
         }
         v += 1
     }
-    count
+    Ok(count)
 }
 /* Check for EOL and EOI marker */

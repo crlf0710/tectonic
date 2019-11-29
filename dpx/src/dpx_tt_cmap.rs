@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use super::dpx_sfnt::{
@@ -732,7 +732,7 @@ unsafe fn handle_CIDFont(
         *GIDToCIDMap = ptr::null_mut();
         return 0i32;
     }
-    if cff_dict_known(cffont.topdict, b"ROS\x00" as *const u8 as *const i8) == 0 {
+    if !cff_dict_known(cffont.topdict, b"ROS\x00" as *const u8 as *const i8) {
         panic!("No CIDSystemInfo???");
     } else {
         let reg = cff_dict_get(cffont.topdict, b"ROS\x00" as *const u8 as *const i8, 0i32) as u16;

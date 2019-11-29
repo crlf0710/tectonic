@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use euclid::point2;
@@ -226,9 +226,9 @@ unsafe fn source_image_type(handle: &mut InputHandleWrapper) -> i32 {
         1
     } else if check_for_png(handle) != 0 {
         2
-    } else if check_for_bmp(handle) != 0 {
+    } else if check_for_bmp(handle) {
         6
-    } else if check_for_pdf(handle) != false {
+    } else if check_for_pdf(handle) {
         0
     } else if check_for_ps(handle) != 0 {
         5
@@ -316,7 +316,7 @@ unsafe fn load_image(
             if _opts.verbose != 0 {
                 info!("[BMP]");
             }
-            if bmp_include_image(I, &mut handle) < 0 {
+            if bmp_include_image(I, &mut handle).is_err() {
                 pdf_clean_ximage_struct(I);
                 return -1;
             }
