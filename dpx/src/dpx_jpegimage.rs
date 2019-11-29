@@ -362,14 +362,12 @@ unsafe fn JPEG_get_iccp(j_info: *mut JPEG_info) -> Option<pdf_stream> {
             || (*(*j_info).appn.offset(i as isize)).app_sig as u32 != JS_APPn_ICC as i32 as u32)
         {
             let icc = (*(*j_info).appn.offset(i as isize)).app_data as *mut JPEG_APPn_ICC;
-            /*if num_icc_seg < 0i32 && prev_id == 0i32 { // TODO: check unused
-                num_icc_seg = (*icc).num_chunks as i32
-            /* ICC chunks are sorted? */
-            } else */
-            if (*icc).seq_id as i32 != prev_id + 1i32
+            if num_icc_seg < 0i32 && prev_id == 0i32 {
+            } else if (*icc).seq_id as i32 != prev_id + 1i32
                 || num_icc_seg != (*icc).num_chunks as i32
                 || (*icc).seq_id as i32 > (*icc).num_chunks as i32
             {
+                /* ICC chunks are sorted? */
                 warn!(
                     "Invalid JPEG ICC chunk: {} (p:{}, n:{})",
                     (*icc).seq_id as i32,
