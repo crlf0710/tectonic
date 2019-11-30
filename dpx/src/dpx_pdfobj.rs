@@ -47,7 +47,6 @@ use crate::{
     ttstub_input_get_size, ttstub_input_getc, ttstub_input_read, ttstub_input_ungetc,
     ttstub_output_close, ttstub_output_open, ttstub_output_open_stdout, ttstub_output_putc,
 };
-use bridge::_tt_abort;
 use libc::{atof, atoi, free, memcmp, memset, strlen, strtoul};
 
 use libz_sys as libz;
@@ -551,10 +550,7 @@ pub unsafe fn pdf_out_init(filename: *const i8, do_encryption: bool, enable_obje
     pdf_output_handle = ttstub_output_open(filename, 0i32);
     if pdf_output_handle.is_none() {
         if strlen(filename) < 128 {
-            _tt_abort(
-                b"Unable to open \"%s\".\x00" as *const u8 as *const i8,
-                filename,
-            );
+            panic!("Unable to open \"{}\".", CStr::from_ptr(filename).display());
         } else {
             panic!("Unable to open file.");
         }
@@ -585,11 +581,8 @@ unsafe fn dump_xref_table() {
      */
     for i in 0..next_label {
         let typ: u8 = output_xref[i].typ;
-        if typ as i32 > 1i32 {
-            _tt_abort(
-                b"object type %c not allowed in xref table\x00" as *const u8 as *const i8,
-                typ as i32,
-            );
+        if typ > 1 {
+            panic!("object type {} not allowed in xref table", char::from(typ));
         }
         let length = sprintf(
             format_buffer.as_mut_ptr() as *mut i8,

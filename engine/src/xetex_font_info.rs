@@ -55,9 +55,6 @@ extern "C" {
     fn strrchr(_: *const libc::c_char, _: libc::c_int) -> *mut libc::c_char;
     #[no_mangle]
     fn strlen(_: *const libc::c_char) -> libc::c_ulong;
-    /* The internal, C/C++ interface: */
-    #[no_mangle]
-    fn _tt_abort(format: *const libc::c_char, _: ...) -> !;
     /* tectonic/core-memory.h: basic dynamic memory helpers
        Copyright 2016-2018 the Tectonic Project
        Licensed under the MIT License.
@@ -560,10 +557,7 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
     if gFreeTypeLibrary.is_null() {
         error = FT_Init_FreeType(&mut gFreeTypeLibrary);
         if error != 0 {
-            _tt_abort(
-                b"FreeType initialization failed, error %d\x00" as *const u8 as *const libc::c_char,
-                error,
-            );
+            abort!("FreeType initialization failed, error {}", error);
         }
     }
     // Here we emulate some logic that was originally in find_native_font();
@@ -583,7 +577,7 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
         sz,
     );
     if r < 0 || r != sz as i64 {
-        _tt_abort(b"failed to read font file\x00" as *const u8 as *const libc::c_char);
+        abort!("failed to read font file");
     }
     ttstub_input_close(handle);
     error = FT_New_Memory_Face(
@@ -623,7 +617,7 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
                 sz,
             );
             if r < 0 || r != sz as i64 {
-                _tt_abort(b"failed to read AFM file\x00" as *const u8 as *const libc::c_char);
+                abort!("failed to read AFM file");
             }
             ttstub_input_close(afm_handle);
             let mut open_args: FT_Open_Args = FT_Open_Args {

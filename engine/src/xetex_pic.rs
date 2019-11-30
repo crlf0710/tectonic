@@ -61,7 +61,6 @@ pub struct real_rect {
     pub wd: f32,
     pub ht: f32,
 }
-use dpx::dpx_pdfdev::Rect;
 
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
@@ -84,8 +83,6 @@ use dpx::dpx_pdfdev::Rect;
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
-
-use dpx::dpx_pdfdev::TMatrix;
 
 #[no_mangle]
 pub unsafe extern "C" fn count_pdf_file_pages() -> i32 {

@@ -1,3 +1,5 @@
+use bridge::{abort, DisplayExt};
+use std::ffi::CStr;
 use std::io::Write;
 
 use crate::core_memory::xmalloc_array;
@@ -43,7 +45,6 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{is_char_node, print_c_string};
 use crate::{ttstub_output_close, ttstub_output_open};
-use bridge::_tt_abort;
 use libc::{free, strerror, strlen};
 
 use bridge::OutputHandleWrapper;
@@ -217,9 +218,9 @@ pub unsafe extern "C" fn ship_out(mut p: i32) {
             pack_job_name(output_file_extension);
             dvi_file = ttstub_output_open(name_of_file, 0);
             if dvi_file.is_none() {
-                _tt_abort(
-                    b"cannot open output file \"%s\"\x00" as *const u8 as *const i8,
-                    name_of_file,
+                abort!(
+                    "cannot open output file \"{}\"",
+                    CStr::from_ptr(name_of_file).display()
                 );
             }
             output_file_name = make_name_string()
@@ -1979,9 +1980,9 @@ pub unsafe extern "C" fn out_what(mut p: i32) {
 
             write_file[j as usize] = ttstub_output_open(name_of_file, 0);
             if write_file[j as usize].is_none() {
-                _tt_abort(
-                    b"cannot open output file \"%s\"\x00" as *const u8 as *const i8,
-                    name_of_file,
+                abort!(
+                    "cannot open output file \"{}\"",
+                    CStr::from_ptr(name_of_file).display()
                 );
             }
 

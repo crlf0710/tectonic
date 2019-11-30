@@ -44,9 +44,6 @@ extern "C" {
     fn strdup(_: *const libc::c_char) -> *mut libc::c_char;
     #[no_mangle]
     fn strlen(_: *const libc::c_char) -> libc::c_ulong;
-    /* The internal, C/C++ interface: */
-    #[no_mangle]
-    fn _tt_abort(format: *const libc::c_char, _: ...) -> !;
     /* tectonic/core-memory.h: basic dynamic memory helpers
        Copyright 2016-2018 the Tectonic Project
        Licensed under the MIT License.
@@ -1560,7 +1557,7 @@ pub unsafe extern "C" fn layoutChars(
             (*engine).shaper = strdup(hb_shape_plan_get_shaper(shape_plan));
             hb_buffer_set_content_type((*engine).hbBuffer, HB_BUFFER_CONTENT_TYPE_GLYPHS);
         } else {
-            _tt_abort(b"all shapers failed\x00" as *const u8 as *const libc::c_char);
+            abort!("all shapers failed");
         }
     }
     hb_shape_plan_destroy(shape_plan);

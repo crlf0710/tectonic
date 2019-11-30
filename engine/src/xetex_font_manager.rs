@@ -47,9 +47,6 @@ extern "C" {
     fn strchr(_: *const libc::c_char, _: libc::c_int) -> *mut libc::c_char;
     #[no_mangle]
     fn strlen(_: *const libc::c_char) -> libc::c_ulong;
-    /* The internal, C/C++ interface: */
-    #[no_mangle]
-    fn _tt_abort(format: *const libc::c_char, _: ...) -> !;
     #[no_mangle]
     fn createFont(fontRef: PlatformFontRef, pointSize: Fixed) -> XeTeXFont;
     #[no_mangle]
@@ -928,10 +925,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_getFullName(
     let font_ptr = if let Some(font_ptr) = (*(*self_0).m_platformRefToFont).get(&font).cloned() {
         font_ptr
     } else {
-        _tt_abort(
-            b"internal error %d in XeTeXFontMgr\x00" as *const u8 as *const libc::c_char,
-            2i32,
-        );
+        abort!("internal error {} in XeTeXFontMgr", 2i32,);
     };
     let font_ptr = font_ptr.as_ptr();
 

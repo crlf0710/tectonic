@@ -8,6 +8,9 @@
     unused_mut
 )]
 
+use bridge::DisplayExt;
+use std::ffi::CStr;
+
 use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_xetexd::print_c_string;
@@ -40,7 +43,6 @@ use crate::xetex_xetex0::{
     begin_diagnostic, end_diagnostic, font_feature_warning, font_mapping_warning,
     get_tracing_fonts_state,
 };
-use bridge::_tt_abort;
 
 use crate::stub_stdio::strcasecmp;
 use crate::xetex_layout_engine::*;
@@ -321,9 +323,9 @@ unsafe extern "C" fn load_mapping_file(
         let mut mapping: *mut u8 = xmalloc(mappingSize) as *mut u8;
         let mut r: ssize_t = ttstub_input_read(map.0.as_ptr(), mapping as *mut i8, mappingSize);
         if r < 0i32 as i64 || r as size_t != mappingSize {
-            _tt_abort(
-                b"could not read mapping file \"%s\"\x00" as *const u8 as *const i8,
-                buffer,
+            abort!(
+                "could not read mapping file \"{}\"",
+                CStr::from_ptr(buffer).display()
             );
         }
         ttstub_input_close(map);
@@ -1824,7 +1826,7 @@ pub unsafe extern "C" fn get_glyph_bounds(mut font: i32, mut edge: i32, mut gid:
             }
         }
         _ => {
-            _tt_abort(b"bad native font flag in `get_glyph_bounds`\x00" as *const u8 as *const i8);
+            abort!("bad native font flag in `get_glyph_bounds`");
         }
     }
     D2Fix((if edge <= 2i32 { a } else { b }) as f64)

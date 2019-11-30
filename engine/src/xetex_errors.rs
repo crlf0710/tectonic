@@ -8,6 +8,8 @@
     unused_mut
 )]
 
+use bridge::DisplayExt;
+use std::ffi::CStr;
 use std::io::Write;
 
 use crate::xetex_ini::{
@@ -18,7 +20,6 @@ use crate::xetex_output::{
     print, print_char, print_cstr, print_file_line, print_int, print_ln, print_nl_cstr,
 };
 use crate::xetex_xetex0::{close_files_and_terminate, give_err_help, open_log_file, show_context};
-use bridge::_tt_abort;
 
 use crate::TTHistory;
 
@@ -71,9 +72,7 @@ pub unsafe extern "C" fn error() {
     if halt_on_error_p != 0 {
         history = TTHistory::FATAL_ERROR;
         post_error_message(0i32);
-        _tt_abort(
-            b"halted on potentially-recoverable error as specified\x00" as *const u8 as *const i8,
-        );
+        abort!("halted on potentially-recoverable error as specified");
     }
     /* This used to be where there was a bunch of code if "interaction ==
      * error_stop_mode" that would let the use interactively try to solve the
@@ -110,7 +109,7 @@ pub unsafe extern "C" fn fatal_error(mut s: *const i8) -> ! {
     print_nl_cstr(s);
     close_files_and_terminate();
     rust_stdout.as_mut().unwrap().flush().unwrap();
-    _tt_abort(b"%s\x00" as *const u8 as *const i8, s);
+    abort!("{}", CStr::from_ptr(s).display());
 }
 #[no_mangle]
 pub unsafe extern "C" fn overflow(mut s: *const i8, mut n: i32) -> ! {

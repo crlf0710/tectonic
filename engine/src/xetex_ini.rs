@@ -8,6 +8,7 @@
     unused_mut
 )]
 
+use bridge::DisplayExt;
 use std::ffi::CStr;
 use std::io::Write;
 use std::ptr;
@@ -46,7 +47,6 @@ use crate::{
     ttstub_input_close, ttstub_input_open, ttstub_input_read, ttstub_output_close,
     ttstub_output_open, ttstub_output_open_stdout,
 };
-use bridge::_tt_abort;
 use dpx::dpx_pdfobj::{pdf_files_close, pdf_files_init};
 use libc::{free, memset, strcpy, strlen};
 
@@ -1244,10 +1244,7 @@ unsafe extern "C" fn swap_items(mut p: *mut i8, mut nitems: size_t, mut size: si
         },
         1 => {}
         _ => {
-            _tt_abort(
-                b"can\'t swap a %zu-byte item for (un)dumping\x00" as *const u8 as *const i8,
-                size,
-            );
+            abort!("can\'t swap a {}-byte item for (un)dumping", size);
         }
     };
 }
@@ -1285,11 +1282,11 @@ unsafe extern "C" fn do_undump(
 ) {
     let mut r: ssize_t = ttstub_input_read(in_file.0.as_ptr(), p, item_size.wrapping_mul(nitems));
     if r < 0i32 as i64 || r as size_t != item_size.wrapping_mul(nitems) {
-        _tt_abort(
-            b"could not undump %zu %zu-byte item(s) from %s\x00" as *const u8 as *const i8,
+        abort!(
+            "could not undump {} {}-byte item(s) from {}",
             nitems,
             item_size,
-            name_of_file,
+            CStr::from_ptr(name_of_file).display()
         );
     }
     swap_items(p, nitems, item_size);
@@ -3036,9 +3033,9 @@ unsafe extern "C" fn store_fmt_file() {
     pack_job_name(b".fmt\x00" as *const u8 as *const i8);
     let fmt_out = ttstub_output_open(name_of_file, 0i32);
     if fmt_out.is_none() {
-        _tt_abort(
-            b"cannot open format output file \"%s\"\x00" as *const u8 as *const i8,
-            name_of_file,
+        abort!(
+            "cannot open format output file \"{}\"",
+            CStr::from_ptr(name_of_file).display()
         );
     }
     let mut fmt_out_owner = fmt_out.unwrap();
@@ -3850,9 +3847,9 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     pack_buffered_name((format_default_length - 4) as small_number, 1, 0);
     let fmt_in_owner = ttstub_input_open(name_of_file, TTInputFormat::FORMAT, 0);
     if fmt_in_owner.is_none() {
-        _tt_abort(
-            b"cannot open the format file \"%s\"\x00" as *const u8 as *const i8,
-            name_of_file,
+        abort!(
+            "cannot open the format file \"{}\"",
+            CStr::from_ptr(name_of_file).display()
         );
     }
     let mut fmt_in_owner = fmt_in_owner.unwrap();
@@ -3887,12 +3884,11 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         fmt_in,
     );
     if x != FORMAT_SERIAL {
-        _tt_abort(
-            b"format file \"%s\" is of the wrong version: expected %d, found %d\x00" as *const u8
-                as *const i8,
-            name_of_file,
+        abort!(
+            "format file \"{}\" is of the wrong version: expected {}, found {}",
+            CStr::from_ptr(name_of_file).display(),
             FORMAT_SERIAL,
-            x,
+            x
         );
     }
     /* hash table parameters */
