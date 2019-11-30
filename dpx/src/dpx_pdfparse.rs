@@ -845,7 +845,7 @@ impl ParsePdfObj for &[u8] {
                 ch += xtoi(p[2]);
                 *pp = &(*pp)[3..];
             } else {
-                ch = p[0] as i32;
+                ch = p[0] as i8 as i32; // TODO: more tests
                 *pp = &(*pp)[1..];
             }
             ch
