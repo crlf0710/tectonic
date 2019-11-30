@@ -74,6 +74,18 @@ pub fn xtoi(c: u8) -> i32 {
     -1
 }
 
+pub fn xtoi_err(c: u8) -> Result<u8, ()> {
+    if c.is_ascii_digit() {
+        Ok(c - b'0')
+    } else if (b'A'..=b'F').contains(&c) {
+        Ok(c - b'A' + 10)
+    } else if (b'a'..=b'f').contains(&c) {
+        Ok(c - b'a' + 10)
+    } else {
+        Err(())
+    }
+}
+
 pub unsafe fn skip_white_spaces(s: *mut *mut u8, endptr: *mut u8) {
     while *s < endptr {
         if !(**s as i32 == ' ' as i32

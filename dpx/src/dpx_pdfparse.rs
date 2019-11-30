@@ -31,7 +31,7 @@ use crate::{info, warn};
 use std::ffi::CString;
 use std::ptr;
 
-use super::dpx_dpxutil::xtoi;
+use super::dpx_dpxutil::{xtoi, xtoi_err};
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_dict, pdf_file, pdf_indirect, pdf_name, pdf_new_null, pdf_obj,
@@ -829,26 +829,19 @@ impl ParsePdfObj for &[u8] {
         None
     }
     fn parse_pdf_name(&mut self) -> Option<*mut pdf_obj> {
-        unsafe fn pn_getc(pp: &mut &[u8]) -> i32 {
-            let mut ch;
+        fn pn_getc(pp: &mut &[u8]) -> Result<u8, ()> {
             let p = *pp;
             if p[0] == b'#' {
                 if p.len() <= 2 {
                     *pp = &[];
-                    return -1;
+                    return Err(());
                 }
-                if !p[1].is_ascii_hexdigit() || !p[2].is_ascii_hexdigit() {
-                    *pp = &(*pp)[3..];
-                    return -1;
-                }
-                ch = xtoi(p[1]) << 4;
-                ch += xtoi(p[2]);
                 *pp = &(*pp)[3..];
+                Ok((xtoi_err(p[1])? << 4) + xtoi_err(p[2])?)
             } else {
-                ch = p[0] as i8 as i32; // TODO: more tests
                 *pp = &(*pp)[1..];
+                Ok(p[0])
             }
-            ch
         }
         let mut name = Vec::<u8>::with_capacity(PDF_NAME_LEN_MAX);
         let mut len = 0;
@@ -859,22 +852,25 @@ impl ParsePdfObj for &[u8] {
         }
         *self = &(*self)[1..];
         while !self.is_empty() && !istokensep(&self[0]) {
-            let ch = unsafe { pn_getc(self) };
-            if ch < 0 || ch > 0xff {
-                warn!("Invalid char in PDF name object. (ignored)");
-            } else if ch == 0 {
-                warn!("Null char not allowed in PDF name object. (ignored)");
-            } else if len < STRING_BUFFER_SIZE {
-                if len == PDF_NAME_LEN_MAX {
-                    warn!("PDF name length too long. (>= {} bytes)", PDF_NAME_LEN_MAX);
+            if let Ok(ch) = pn_getc(self) {
+                if ch > 0x7f {
+                    warn!("Invalid char in PDF name object. (ignored)");
+                } else if ch == 0 {
+                    warn!("Null char not allowed in PDF name object. (ignored)");
+                } else if len < STRING_BUFFER_SIZE {
+                    if len == PDF_NAME_LEN_MAX {
+                        warn!("PDF name length too long. (>= {} bytes)", PDF_NAME_LEN_MAX);
+                    }
+                    name.push(ch as u8);
+                    len += 1;
+                } else {
+                    warn!(
+                        "PDF name length too long. (>= {} bytes, truncated)",
+                        STRING_BUFFER_SIZE
+                    );
                 }
-                name.push(ch as u8);
-                len += 1;
             } else {
-                warn!(
-                    "PDF name length too long. (>= {} bytes, truncated)",
-                    STRING_BUFFER_SIZE
-                );
+                warn!("Invalid char in PDF name object. (ignored)");
             }
         }
         if len < 1 {
