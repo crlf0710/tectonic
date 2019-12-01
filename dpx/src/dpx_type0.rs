@@ -26,7 +26,7 @@
     non_upper_case_globals,
 )]
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use std::ffi::CStr;
 use std::ptr;
 
@@ -51,32 +51,32 @@ use libc::{free, memset, strcpy, strlen};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct Type0Font {
-    pub fontname: *mut i8,
-    pub encoding: *mut i8,
-    pub used_chars: *mut i8,
-    pub descendant: *mut CIDFont,
-    pub flags: i32,
-    pub wmode: i32,
-    pub cmap_id: i32,
-    pub indirect: *mut pdf_obj,
-    pub fontdict: *mut pdf_obj,
-    pub descriptor: *mut pdf_obj,
+pub(crate) struct Type0Font {
+    pub(crate) fontname: *mut i8,
+    pub(crate) encoding: *mut i8,
+    pub(crate) used_chars: *mut i8,
+    pub(crate) descendant: *mut CIDFont,
+    pub(crate) flags: i32,
+    pub(crate) wmode: i32,
+    pub(crate) cmap_id: i32,
+    pub(crate) indirect: *mut pdf_obj,
+    pub(crate) fontdict: *mut pdf_obj,
+    pub(crate) descriptor: *mut pdf_obj,
     /* _TYPE0_H_ */
 }
 use super::dpx_fontmap::fontmap_opt;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct font_cache {
-    pub count: i32,
-    pub capacity: i32,
-    pub fonts: *mut Type0Font,
+pub(crate) struct font_cache {
+    pub(crate) count: i32,
+    pub(crate) capacity: i32,
+    pub(crate) fonts: *mut Type0Font,
 }
 
 static mut __verbose: i32 = 0i32;
 
-pub unsafe fn Type0Font_set_verbose(level: i32) {
+pub(crate) unsafe fn Type0Font_set_verbose(level: i32) {
     __verbose = level;
 }
 unsafe fn new_used_chars2() -> *mut i8 {
@@ -251,7 +251,7 @@ unsafe fn add_ToUnicode(font: *mut Type0Font) {
     };
 }
 
-pub unsafe fn Type0Font_set_ToUnicode(font: *mut Type0Font, cmap_ref: *mut pdf_obj) {
+pub(crate) unsafe fn Type0Font_set_ToUnicode(font: *mut Type0Font, cmap_ref: *mut pdf_obj) {
     assert!(!font.is_null());
     (*(*font).fontdict).as_dict_mut().set("ToUnicode", cmap_ref);
 }
@@ -277,17 +277,17 @@ unsafe fn Type0Font_flush(mut font: *mut Type0Font) {
     };
 }
 
-pub unsafe fn Type0Font_get_wmode(font: *mut Type0Font) -> i32 {
+pub(crate) unsafe fn Type0Font_get_wmode(font: *mut Type0Font) -> i32 {
     assert!(!font.is_null());
     (*font).wmode
 }
 
-pub unsafe fn Type0Font_get_usedchars(font: *mut Type0Font) -> *mut i8 {
+pub(crate) unsafe fn Type0Font_get_usedchars(font: *mut Type0Font) -> *mut i8 {
     assert!(!font.is_null());
     (*font).used_chars
 }
 
-pub unsafe fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mut pdf_obj {
+pub(crate) unsafe fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mut pdf_obj {
     assert!(!font.is_null());
     /*
      * This looks somewhat strange.
@@ -308,7 +308,7 @@ static mut __cache: font_cache = font_cache {
     fonts: std::ptr::null_mut(),
 };
 
-pub unsafe fn Type0Font_cache_init() {
+pub(crate) unsafe fn Type0Font_cache_init() {
     if !__cache.fonts.is_null() {
         panic!("{}: Already initialized.", "Type0",);
     }
@@ -317,14 +317,14 @@ pub unsafe fn Type0Font_cache_init() {
     __cache.fonts = ptr::null_mut();
 }
 
-pub unsafe fn Type0Font_cache_get(id: i32) -> *mut Type0Font {
+pub(crate) unsafe fn Type0Font_cache_get(id: i32) -> *mut Type0Font {
     if id < 0i32 || id >= __cache.count {
         panic!("{}: Invalid ID {}", "Type0", id,);
     }
     &mut *__cache.fonts.offset(id as isize) as *mut Type0Font
 }
 
-pub unsafe fn Type0Font_cache_find(
+pub(crate) unsafe fn Type0Font_cache_find(
     map_name: *const i8,
     cmap_id: i32,
     fmap_opt: *mut fontmap_opt,
@@ -499,7 +499,7 @@ pub unsafe fn Type0Font_cache_find(
 }
 /* ******************************* CACHE ********************************/
 
-pub unsafe fn Type0Font_cache_close() {
+pub(crate) unsafe fn Type0Font_cache_close() {
     /*
      * This need to be fixed.
      *

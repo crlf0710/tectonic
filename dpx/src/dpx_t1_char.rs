@@ -36,15 +36,15 @@ use std::ptr;
 use super::dpx_cff::cff_index;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct t1_ginfo {
-    pub use_seac: i32,
-    pub wx: f64,
-    pub wy: f64,
-    pub bbox: C2RustUnnamed_0,
-    pub seac: C2RustUnnamed,
+pub(crate) struct t1_ginfo {
+    pub(crate) use_seac: i32,
+    pub(crate) wx: f64,
+    pub(crate) wy: f64,
+    pub(crate) bbox: C2RustUnnamed_0,
+    pub(crate) seac: C2RustUnnamed,
 }
 impl t1_ginfo {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             use_seac: 0,
             wx: 0.,
@@ -67,79 +67,79 @@ impl t1_ginfo {
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed {
-    pub asb: f64,
-    pub adx: f64,
-    pub ady: f64,
-    pub bchar: u8,
-    pub achar: u8,
+pub(crate) struct C2RustUnnamed {
+    pub(crate) asb: f64,
+    pub(crate) adx: f64,
+    pub(crate) ady: f64,
+    pub(crate) bchar: u8,
+    pub(crate) achar: u8,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_0 {
-    pub llx: f64,
-    pub lly: f64,
-    pub urx: f64,
-    pub ury: f64,
+pub(crate) struct C2RustUnnamed_0 {
+    pub(crate) llx: f64,
+    pub(crate) lly: f64,
+    pub(crate) urx: f64,
+    pub(crate) ury: f64,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct t1_chardesc {
-    pub flags: i32,
-    pub sbw: C2RustUnnamed_3,
-    pub bbox: C2RustUnnamed_2,
-    pub seac: C2RustUnnamed_1,
-    pub num_stems: i32,
-    pub stems: [t1_stem; 96],
-    pub charpath: *mut t1_cpath,
-    pub lastpath: *mut t1_cpath,
+pub(crate) struct t1_chardesc {
+    pub(crate) flags: i32,
+    pub(crate) sbw: C2RustUnnamed_3,
+    pub(crate) bbox: C2RustUnnamed_2,
+    pub(crate) seac: C2RustUnnamed_1,
+    pub(crate) num_stems: i32,
+    pub(crate) stems: [t1_stem; 96],
+    pub(crate) charpath: *mut t1_cpath,
+    pub(crate) lastpath: *mut t1_cpath,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct t1_cpath {
-    pub type_0: i32,
-    pub num_args: i32,
-    pub args: [f64; 48],
-    pub next: *mut t1_cpath,
+pub(crate) struct t1_cpath {
+    pub(crate) type_0: i32,
+    pub(crate) num_args: i32,
+    pub(crate) args: [f64; 48],
+    pub(crate) next: *mut t1_cpath,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct t1_stem {
-    pub id: i32,
-    pub dir: i32,
-    pub pos: f64,
-    pub del: f64,
+pub(crate) struct t1_stem {
+    pub(crate) id: i32,
+    pub(crate) dir: i32,
+    pub(crate) pos: f64,
+    pub(crate) del: f64,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_1 {
-    pub asb: f64,
-    pub adx: f64,
-    pub ady: f64,
-    pub bchar: u8,
-    pub achar: u8,
+pub(crate) struct C2RustUnnamed_1 {
+    pub(crate) asb: f64,
+    pub(crate) adx: f64,
+    pub(crate) ady: f64,
+    pub(crate) bchar: u8,
+    pub(crate) achar: u8,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_2 {
-    pub llx: f64,
-    pub lly: f64,
-    pub urx: f64,
-    pub ury: f64,
+pub(crate) struct C2RustUnnamed_2 {
+    pub(crate) llx: f64,
+    pub(crate) lly: f64,
+    pub(crate) urx: f64,
+    pub(crate) ury: f64,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_3 {
-    pub sbx: f64,
-    pub sby: f64,
-    pub wx: f64,
-    pub wy: f64,
+pub(crate) struct C2RustUnnamed_3 {
+    pub(crate) sbx: f64,
+    pub(crate) sby: f64,
+    pub(crate) wx: f64,
+    pub(crate) wy: f64,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct t1_stemgroup {
-    pub num_stems: i32,
-    pub stems: [f64; 96],
+pub(crate) struct t1_stemgroup {
+    pub(crate) num_stems: i32,
+    pub(crate) stems: [f64; 96],
 }
 /* tectonic/core-memory.h: basic dynamic memory helpers
    Copyright 2016-2018 the Tectonic Project
@@ -1536,7 +1536,7 @@ unsafe fn do_postproc(mut cd: *mut t1_chardesc) {
     };
 }
 
-pub unsafe fn t1char_get_metrics(
+pub(crate) unsafe fn t1char_get_metrics(
     mut src: *mut u8,
     srclen: i32,
     subrs: *mut cff_index,
@@ -1868,7 +1868,7 @@ unsafe fn t1char_encode_charpath(
     dst.wrapping_offset_from(save) as i64 as i32
 }
 
-pub unsafe fn t1char_convert_charstring(
+pub(crate) unsafe fn t1char_convert_charstring(
     dst: *mut u8,
     dstlen: i32,
     mut src: *mut u8,

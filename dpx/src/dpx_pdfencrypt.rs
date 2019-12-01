@@ -43,7 +43,7 @@ use md5::{Digest, Md5};
 use rand::prelude::*;
 use sha2::{Sha256, Sha384, Sha512};
 
-use crate::size_t;
+use crate::bridge::size_t;
 
 /* Encryption support
  *
@@ -54,31 +54,31 @@ use crate::size_t;
 /* PDF-2.0 is not published yet. */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct pdf_sec {
-    pub key: [u8; 32],
-    pub key_size: i32,
-    pub ID: [u8; 16],
-    pub O: [u8; 48],
-    pub U: [u8; 48],
-    pub OE: [u8; 32],
-    pub UE: [u8; 32],
-    pub V: i32,
-    pub R: i32,
-    pub P: i32,
-    pub setting: PdfSecSetting,
-    pub label: PdfSecLabel,
+pub(crate) struct pdf_sec {
+    pub(crate) key: [u8; 32],
+    pub(crate) key_size: i32,
+    pub(crate) ID: [u8; 16],
+    pub(crate) O: [u8; 48],
+    pub(crate) U: [u8; 48],
+    pub(crate) OE: [u8; 32],
+    pub(crate) UE: [u8; 32],
+    pub(crate) V: i32,
+    pub(crate) R: i32,
+    pub(crate) P: i32,
+    pub(crate) setting: PdfSecSetting,
+    pub(crate) label: PdfSecLabel,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct PdfSecLabel {
-    pub objnum: u64,
-    pub gennum: u16,
+pub(crate) struct PdfSecLabel {
+    pub(crate) objnum: u64,
+    pub(crate) gennum: u16,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct PdfSecSetting {
-    pub use_aes: i32,
-    pub encrypt_metadata: i32,
+pub(crate) struct PdfSecSetting {
+    pub(crate) use_aes: i32,
+    pub(crate) encrypt_metadata: i32,
 }
 /* Dummy routine for stringprep - NOT IMPLEMENTED YET
  *
@@ -87,7 +87,7 @@ pub struct PdfSecSetting {
  * of the "stringprep" algorithm (RFC 3454) to the supplied password using the
  * Normalize and BiDi options.
  */
-pub type Stringprep_profile_flags = i32;
+pub(crate) type Stringprep_profile_flags = i32;
 static mut sec_data: pdf_sec = pdf_sec {
     key: [0; 32],
     key_size: 0,
@@ -114,7 +114,7 @@ static padding_bytes: [u8; 32] = [
 ];
 static mut verbose: u8 = 0_u8;
 
-pub unsafe fn pdf_enc_set_verbose(level: i32) {
+pub(crate) unsafe fn pdf_enc_set_verbose(level: i32) {
     verbose = level as u8; /* For AES IV */
 }
 
@@ -134,7 +134,7 @@ unsafe fn pdf_enc_init(use_aes: i32, encrypt_metadata: i32) {
     p.setting.encrypt_metadata = encrypt_metadata;
 }
 
-pub unsafe fn pdf_enc_compute_id_string(dviname: Option<&[u8]>, pdfname: Option<&[u8]>) {
+pub(crate) unsafe fn pdf_enc_compute_id_string(dviname: Option<&[u8]>, pdfname: Option<&[u8]>) {
     let p = &mut sec_data;
     /* FIXME: This should be placed in main() or somewhere. */
     pdf_enc_init(1i32, 1i32);
@@ -609,7 +609,7 @@ unsafe fn preproc_password(passwd: *const i8, outbuf: *mut i8, V: i32) -> i32 {
     error
 }
 
-pub unsafe fn pdf_enc_set_passwd(bits: u32, perm: u32, oplain: *const i8, uplain: *const i8) {
+pub(crate) unsafe fn pdf_enc_set_passwd(bits: u32, perm: u32, oplain: *const i8, uplain: *const i8) {
     let p = &mut sec_data;
     assert!(!oplain.is_null());
     assert!(!uplain.is_null());
@@ -686,7 +686,7 @@ unsafe fn calculate_key(p: &mut pdf_sec) -> [u8; 16] {
     md5.result().into()
 }
 
-pub unsafe fn pdf_encrypt_data(
+pub(crate) unsafe fn pdf_encrypt_data(
     plain: *const u8,
     plain_len: size_t,
     cipher: *mut *mut u8,
@@ -751,7 +751,7 @@ pub unsafe fn pdf_encrypt_data(
     };
 }
 
-pub unsafe fn pdf_encrypt_obj() -> pdf_dict {
+pub(crate) unsafe fn pdf_encrypt_obj() -> pdf_dict {
     let p = &mut sec_data;
     let mut doc_encrypt = pdf_dict::new();
     doc_encrypt.set("Filter", "Standard");
@@ -832,7 +832,7 @@ pub unsafe fn pdf_encrypt_obj() -> pdf_dict {
     doc_encrypt
 }
 
-pub unsafe fn pdf_enc_id_array() -> Vec<*mut pdf_obj> {
+pub(crate) unsafe fn pdf_enc_id_array() -> Vec<*mut pdf_obj> {
     let p = &mut sec_data;
     let mut id = vec![];
     id.push_obj(pdf_string::new(p.ID.as_ref()));
@@ -840,12 +840,12 @@ pub unsafe fn pdf_enc_id_array() -> Vec<*mut pdf_obj> {
     id
 }
 
-pub unsafe fn pdf_enc_set_label(label: u32) {
+pub(crate) unsafe fn pdf_enc_set_label(label: u32) {
     let p = &mut sec_data;
     p.label.objnum = label as u64;
 }
 
-pub unsafe fn pdf_enc_set_generation(generation: u32) {
+pub(crate) unsafe fn pdf_enc_set_generation(generation: u32) {
     let p = &mut sec_data;
     p.label.gennum = generation as u16;
 }

@@ -26,19 +26,19 @@
          non_upper_case_globals,
 )]
 
-use crate::{ttstub_input_getc, ttstub_input_ungetc};
+use crate::bridge::{ttstub_input_getc, ttstub_input_ungetc};
 
 use std::ptr;
 
 use libc::{fseek, ftell, rewind, FILE};
-pub type __off_t = i64;
-pub type __off64_t = i64;
+pub(crate) type __off_t = i64;
+pub(crate) type __off64_t = i64;
 use bridge::InputHandleWrapper;
 unsafe fn os_error() {
     panic!("io:  An OS command failed that should not have.\n");
 }
 
-pub unsafe fn seek_relative(file: *mut FILE, pos: i32) {
+pub(crate) unsafe fn seek_relative(file: *mut FILE, pos: i32) {
     if fseek(file, pos as _, 1i32) != 0 {
         os_error();
     };
@@ -59,7 +59,7 @@ unsafe fn tell_position(file: *mut FILE) -> i32 {
     size as i32
 }
 
-pub unsafe fn file_size(file: *mut FILE) -> i32 {
+pub(crate) unsafe fn file_size(file: *mut FILE) -> i32 {
     seek_end(file);
     let size = tell_position(file);
     rewind(file);
@@ -67,12 +67,12 @@ pub unsafe fn file_size(file: *mut FILE) -> i32 {
 }
 /* Note: this is really just a random array used in other files. */
 
-pub static mut work_buffer: [i8; 1024] = [0; 1024];
-pub static mut work_buffer_u8: [u8; 1024] = [0; 1024];
+pub(crate) static mut work_buffer: [i8; 1024] = [0; 1024];
+pub(crate) static mut work_buffer_u8: [u8; 1024] = [0; 1024];
 /* Tectonic-enabled versions */
 /* Modified versions of the above functions based on the Tectonic I/O system. */
 
-pub unsafe fn tt_mfgets(buffer: *mut i8, length: i32, file: &mut InputHandleWrapper) -> *mut i8 {
+pub(crate) unsafe fn tt_mfgets(buffer: *mut i8, length: i32, file: &mut InputHandleWrapper) -> *mut i8 {
     let mut ch: i32 = 0i32;
     let mut i: i32 = 0i32;
     while i < length - 1i32

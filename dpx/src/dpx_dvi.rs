@@ -30,7 +30,7 @@
 use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use crate::FromBEByteSlice;
 use std::ffi::{CStr, CString};
 
@@ -39,7 +39,7 @@ use super::dpx_sfnt::{
     sfnt_read_table_directory,
 };
 use crate::mfree;
-use crate::size_t;
+use crate::bridge::size_t;
 use crate::warn;
 
 use super::dpx_cff::cff_close;
@@ -82,20 +82,20 @@ use crate::dpx_truetype::sfnt_table_info;
 use crate::specials::{
     spc_exec_at_begin_page, spc_exec_at_end_page, spc_exec_special, spc_set_verbose,
 };
-use crate::{
+use crate::bridge::{
     ttstub_input_close, ttstub_input_get_size, ttstub_input_getc, ttstub_input_open,
     ttstub_input_read, ttstub_input_ungetc,
 };
 
 use libc::{atof, free, memset, strncpy, strtol};
 
-use crate::TTInputFormat;
+use crate::bridge::TTInputFormat;
 
 use bridge::InputHandleWrapper;
-pub type fixword = i32;
+pub(crate) type fixword = i32;
 /* quasi-hack to get the primary input */
 
-pub type spt_t = i32;
+pub(crate) type spt_t = i32;
 use super::dpx_pdfdev::Rect;
 /*
  * The section below this line deals with the actual processing of the
@@ -105,52 +105,52 @@ use super::dpx_pdfdev::Rect;
  */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct dvi_registers {
-    pub h: i32,
-    pub v: i32,
-    pub w: i32,
-    pub x: i32,
-    pub y: i32,
-    pub z: i32,
-    pub d: u32,
+pub(crate) struct dvi_registers {
+    pub(crate) h: i32,
+    pub(crate) v: i32,
+    pub(crate) w: i32,
+    pub(crate) x: i32,
+    pub(crate) y: i32,
+    pub(crate) z: i32,
+    pub(crate) d: u32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct font_def {
-    pub tex_id: u32,
-    pub point_size: spt_t,
-    pub design_size: spt_t,
-    pub font_name: *mut i8,
-    pub font_id: i32,
-    pub used: i32,
-    pub native: i32,
-    pub rgba_color: u32,
-    pub face_index: u32,
-    pub layout_dir: i32,
-    pub extend: i32,
-    pub slant: i32,
-    pub embolden: i32,
+pub(crate) struct font_def {
+    pub(crate) tex_id: u32,
+    pub(crate) point_size: spt_t,
+    pub(crate) design_size: spt_t,
+    pub(crate) font_name: *mut i8,
+    pub(crate) font_id: i32,
+    pub(crate) used: i32,
+    pub(crate) native: i32,
+    pub(crate) rgba_color: u32,
+    pub(crate) face_index: u32,
+    pub(crate) layout_dir: i32,
+    pub(crate) extend: i32,
+    pub(crate) slant: i32,
+    pub(crate) embolden: i32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct loaded_font<'a> {
-    pub type_0: i32,
-    pub font_id: i32,
-    pub subfont_id: i32,
-    pub tfm_id: i32,
-    pub size: spt_t,
-    pub source: i32,
-    pub rgba_color: u32,
-    pub hvmt: *mut tt_longMetrics,
-    pub ascent: i32,
-    pub descent: i32,
-    pub unitsPerEm: u32,
-    pub cffont: *mut cff_font<'a>,
-    pub numGlyphs: u32,
-    pub layout_dir: i32,
-    pub extend: f32,
-    pub slant: f32,
-    pub embolden: f32,
+pub(crate) struct loaded_font<'a> {
+    pub(crate) type_0: i32,
+    pub(crate) font_id: i32,
+    pub(crate) subfont_id: i32,
+    pub(crate) tfm_id: i32,
+    pub(crate) size: spt_t,
+    pub(crate) source: i32,
+    pub(crate) rgba_color: u32,
+    pub(crate) hvmt: *mut tt_longMetrics,
+    pub(crate) ascent: i32,
+    pub(crate) descent: i32,
+    pub(crate) unitsPerEm: u32,
+    pub(crate) cffont: *mut cff_font<'a>,
+    pub(crate) numGlyphs: u32,
+    pub(crate) layout_dir: i32,
+    pub(crate) extend: f32,
+    pub(crate) slant: f32,
+    pub(crate) embolden: f32,
 }
 
 use super::dpx_cff::cff_font;
@@ -160,33 +160,33 @@ use super::dpx_fontmap::fontmap_rec;
 use super::dpx_tt_table::tt_longMetrics;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct dvi_header {
-    pub unit_num: u32,
-    pub unit_den: u32,
-    pub mag: u32,
-    pub media_width: u32,
-    pub media_height: u32,
-    pub stackdepth: u32,
-    pub comment: [u8; 257],
+pub(crate) struct dvi_header {
+    pub(crate) unit_num: u32,
+    pub(crate) unit_den: u32,
+    pub(crate) mag: u32,
+    pub(crate) media_width: u32,
+    pub(crate) media_height: u32,
+    pub(crate) stackdepth: u32,
+    pub(crate) comment: [u8; 257],
 }
 /* skimming through reflected segment measuring its width */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct dvi_lr {
-    pub state: i32,
-    pub font: i32,
-    pub buf_index: u32,
+pub(crate) struct dvi_lr {
+    pub(crate) state: i32,
+    pub(crate) font: i32,
+    pub(crate) buf_index: u32,
 }
 
 use super::dpx_t1_char::t1_ginfo;
 
 /* 16.16-bit signed fixed-point number */
-pub type FWord = i16;
+pub(crate) type FWord = i16;
 /* Acoid conflict with CHAR ... from <winnt.h>.  */
 /* Data Types as described in Apple's TTRefMan */
-pub type Fixed = u32;
+pub(crate) type Fixed = u32;
 
-pub type uFWord = u16;
+pub(crate) type uFWord = u16;
 
 use super::dpx_tt_table::tt_vhea_table;
 /* tectonic/core-strutils.h: miscellaneous C string utilities
@@ -216,7 +216,7 @@ static mut DVI_INFO: dvi_header = dvi_header {
 static mut dev_origin_x: f64 = 72.0f64;
 static mut dev_origin_y: f64 = 770.0f64;
 
-pub unsafe fn get_origin(x: i32) -> f64 {
+pub(crate) unsafe fn get_origin(x: i32) -> f64 {
     if x != 0 {
         dev_origin_x
     } else {
@@ -328,7 +328,7 @@ unsafe fn get_buffered_unsigned_num(num: u8) -> i32 {
     quad
 }
 
-pub unsafe fn dvi_set_verbose(level: i32) {
+pub(crate) unsafe fn dvi_set_verbose(level: i32) {
     verbose = level;
     subfont_set_verbose(level);
     tfm_set_verbose(level);
@@ -336,7 +336,7 @@ pub unsafe fn dvi_set_verbose(level: i32) {
     spc_set_verbose(level);
 }
 
-pub unsafe fn dvi_npages() -> u32 {
+pub(crate) unsafe fn dvi_npages() -> u32 {
     num_pages
 }
 
@@ -471,7 +471,7 @@ unsafe fn get_page_info(post_location: i32) {
 static mut dvi2pts: f64 = 1.52018f64;
 static mut total_mag: f64 = 1.0f64;
 
-pub unsafe fn dvi_tell_mag() -> f64 {
+pub(crate) unsafe fn dvi_tell_mag() -> f64 {
     return total_mag; /* unused */
 }
 unsafe fn do_scales(mag: f64) {
@@ -505,7 +505,7 @@ unsafe fn get_dvi_info(post_location: i32) {
     };
 }
 
-pub unsafe fn dvi_comment() -> *const i8 {
+pub(crate) unsafe fn dvi_comment() -> *const i8 {
     DVI_INFO.comment.as_mut_ptr() as *const i8
 }
 unsafe fn read_font_record(tex_id: u32) {
@@ -518,7 +518,7 @@ unsafe fn read_font_record(tex_id: u32) {
     let directory = new(
         ((dir_length + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
     ) as *mut i8;
-    if ttstub_input_read(handle.0.as_ptr(), directory, dir_length as size_t) != dir_length as isize
+    if ttstub_input_read(handle.as_ptr(), directory, dir_length as size_t) != dir_length as isize
     {
         panic!(invalid_signature);
     }
@@ -526,7 +526,7 @@ unsafe fn read_font_record(tex_id: u32) {
     free(directory as *mut libc::c_void);
     let font_name = new(((name_length + 1i32) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    if ttstub_input_read(handle.0.as_ptr(), font_name, name_length as size_t)
+    if ttstub_input_read(handle.as_ptr(), font_name, name_length as size_t)
         != name_length as isize
     {
         panic!(invalid_signature);
@@ -556,7 +556,7 @@ unsafe fn read_native_font_record(tex_id: u32) {
     let font_name =
         new(((len + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
             as *mut i8;
-    if ttstub_input_read(handle.0.as_ptr(), font_name, len as size_t) != len as isize {
+    if ttstub_input_read(handle.as_ptr(), font_name, len as size_t) != len as isize {
         panic!(invalid_signature);
     }
     *font_name.offset(len as isize) = '\u{0}' as i32 as i8;
@@ -707,26 +707,26 @@ unsafe fn dvi_mark_depth() {
  * links.
  */
 
-pub unsafe fn dvi_tag_depth() {
+pub(crate) unsafe fn dvi_tag_depth() {
     tagged_depth = marked_depth;
     dvi_compute_boxes(1i32);
 }
 
-pub unsafe fn dvi_untag_depth() {
+pub(crate) unsafe fn dvi_untag_depth() {
     tagged_depth = -1i32;
     dvi_compute_boxes(0i32);
 }
 
-pub unsafe fn dvi_compute_boxes(flag: i32) {
+pub(crate) unsafe fn dvi_compute_boxes(flag: i32) {
     compute_boxes = flag;
 }
 
-pub unsafe fn dvi_link_annot(flag: i32) {
+pub(crate) unsafe fn dvi_link_annot(flag: i32) {
     link_annot = flag;
 }
 /* allow other modules (pdfdev) to ask whether we're collecting box areas */
 
-pub unsafe fn dvi_is_tracking_boxes() -> bool {
+pub(crate) unsafe fn dvi_is_tracking_boxes() -> bool {
     compute_boxes != 0 && link_annot != 0 && marked_depth >= tagged_depth
 }
 /* link or nolink:
@@ -739,7 +739,7 @@ pub unsafe fn dvi_is_tracking_boxes() -> bool {
  * handled by inspecting current depth of DVI register stack.
  */
 
-pub unsafe fn dvi_do_special(buffer: &[u8]) {
+pub(crate) unsafe fn dvi_do_special(buffer: &[u8]) {
     /* VF or device font ID */
     graphics_mode();
     let x_user = dvi_state.h as f64 * dvi2pts;
@@ -752,11 +752,11 @@ pub unsafe fn dvi_do_special(buffer: &[u8]) {
     };
 }
 
-pub unsafe fn dvi_unit_size() -> f64 {
+pub(crate) unsafe fn dvi_unit_size() -> f64 {
     dvi2pts
 }
 
-pub unsafe fn dvi_locate_font(tfm_name: *const i8, ptsize: spt_t) -> u32 {
+pub(crate) unsafe fn dvi_locate_font(tfm_name: *const i8, ptsize: spt_t) -> u32 {
     let mut subfont_id: i32 = -1i32;
     if verbose != 0 {
         info!(
@@ -1111,11 +1111,11 @@ unsafe fn dvi_locate_native_font(
     loaded_fonts.len() as i32 - 1
 }
 
-pub unsafe fn dvi_dev_xpos() -> f64 {
+pub(crate) unsafe fn dvi_dev_xpos() -> f64 {
     dvi_state.h as f64 * dvi2pts
 }
 
-pub unsafe fn dvi_dev_ypos() -> f64 {
+pub(crate) unsafe fn dvi_dev_ypos() -> f64 {
     -(dvi_state.v as f64 * dvi2pts)
 }
 unsafe fn do_moveto(x: i32, y: i32) {
@@ -1124,7 +1124,7 @@ unsafe fn do_moveto(x: i32, y: i32) {
 }
 /* FIXME: dvi_forward() might be a better name */
 
-pub unsafe fn dvi_right(mut x: i32) {
+pub(crate) unsafe fn dvi_right(mut x: i32) {
     if lr_mode >= 2i32 {
         lr_width = (lr_width as u32).wrapping_add(x as u32) as u32;
         return;
@@ -1140,7 +1140,7 @@ pub unsafe fn dvi_right(mut x: i32) {
     };
 }
 
-pub unsafe fn dvi_down(y: i32) {
+pub(crate) unsafe fn dvi_down(y: i32) {
     if lr_mode < 2i32 {
         match dvi_state.d {
             0 => dvi_state.v += y,
@@ -1156,7 +1156,7 @@ pub unsafe fn dvi_down(y: i32) {
  * is not clear.
  */
 
-pub unsafe fn dvi_set(ch: i32) {
+pub(crate) unsafe fn dvi_set(ch: i32) {
     let mut wbuf: [u8; 4] = [0; 4];
     if current_font < 0i32 {
         panic!("No font selected!");
@@ -1254,7 +1254,7 @@ pub unsafe fn dvi_set(ch: i32) {
     };
 }
 
-pub unsafe fn dvi_put(ch: i32) {
+pub(crate) unsafe fn dvi_put(ch: i32) {
     let mut wbuf: [u8; 4] = [0; 4];
     if current_font < 0i32 {
         panic!("No font selected!");
@@ -1338,7 +1338,7 @@ pub unsafe fn dvi_put(ch: i32) {
     };
 }
 
-pub unsafe fn dvi_rule(width: i32, height: i32) {
+pub(crate) unsafe fn dvi_rule(width: i32, height: i32) {
     if width > 0i32 && height > 0i32 {
         do_moveto(dvi_state.h, dvi_state.v);
         match dvi_state.d {
@@ -1356,7 +1356,7 @@ pub unsafe fn dvi_rule(width: i32, height: i32) {
     };
 }
 
-pub unsafe fn dvi_dirchg(dir: u8) {
+pub(crate) unsafe fn dvi_dirchg(dir: u8) {
     if verbose != 0 {
         eprintln!("  > dvi_dirchg {}", dir as i32);
     }
@@ -1395,7 +1395,7 @@ unsafe fn do_putrule() {
     };
 }
 
-pub unsafe fn dvi_push() {
+pub(crate) unsafe fn dvi_push() {
     if dvi_stack_depth as u32 >= 256u32 {
         panic!("DVI stack exceeded limit.");
     }
@@ -1404,7 +1404,7 @@ pub unsafe fn dvi_push() {
     dvi_stack[fresh21 as usize] = dvi_state;
 }
 
-pub unsafe fn dpx_dvi_pop() {
+pub(crate) unsafe fn dpx_dvi_pop() {
     if dvi_stack_depth <= 0i32 {
         panic!("Tried to pop an empty stack.");
     }
@@ -1415,39 +1415,39 @@ pub unsafe fn dpx_dvi_pop() {
     /* 0: horizontal, 1,3: vertical */
 }
 
-pub unsafe fn dvi_w(ch: i32) {
+pub(crate) unsafe fn dvi_w(ch: i32) {
     dvi_state.w = ch;
     dvi_right(ch);
 }
 
-pub unsafe fn dvi_w0() {
+pub(crate) unsafe fn dvi_w0() {
     dvi_right(dvi_state.w);
 }
 
-pub unsafe fn dvi_x(ch: i32) {
+pub(crate) unsafe fn dvi_x(ch: i32) {
     dvi_state.x = ch;
     dvi_right(ch);
 }
 
-pub unsafe fn dvi_x0() {
+pub(crate) unsafe fn dvi_x0() {
     dvi_right(dvi_state.x);
 }
 
-pub unsafe fn dvi_y(ch: i32) {
+pub(crate) unsafe fn dvi_y(ch: i32) {
     dvi_state.y = ch;
     dvi_down(ch);
 }
 
-pub unsafe fn dvi_y0() {
+pub(crate) unsafe fn dvi_y0() {
     dvi_down(dvi_state.y);
 }
 
-pub unsafe fn dvi_z(ch: i32) {
+pub(crate) unsafe fn dvi_z(ch: i32) {
     dvi_state.z = ch;
     dvi_down(ch);
 }
 
-pub unsafe fn dvi_z0() {
+pub(crate) unsafe fn dvi_z0() {
     dvi_down(dvi_state.z);
 }
 unsafe fn skip_fntdef() {
@@ -1468,7 +1468,7 @@ unsafe fn do_fntdef(tex_id: u32) {
     DVI_PAGE_BUF_INDEX -= 1;
 }
 
-pub unsafe fn dvi_set_font(font_id: i32) {
+pub(crate) unsafe fn dvi_set_font(font_id: i32) {
     current_font = font_id;
 }
 unsafe fn do_fnt(tex_id: u32) {
@@ -1789,7 +1789,7 @@ unsafe fn check_postamble() {
  * the dvi file is here.
  */
 
-pub unsafe fn dvi_do_page(page_paper_height: f64, hmargin: f64, vmargin: f64) {
+pub(crate) unsafe fn dvi_do_page(page_paper_height: f64, hmargin: f64, vmargin: f64) {
     /* before this is called, we have scanned the page for papersize specials
     and the complete DVI data is now in DVI_PAGE_BUFFER */
     DVI_PAGE_BUF_INDEX = 0;
@@ -1960,7 +1960,7 @@ pub unsafe fn dvi_do_page(page_paper_height: f64, hmargin: f64, vmargin: f64) {
     }
 }
 
-pub unsafe fn dvi_init(dvi_filename: *const i8, mag: f64) -> f64 {
+pub(crate) unsafe fn dvi_init(dvi_filename: *const i8, mag: f64) -> f64 {
     if dvi_filename.is_null() {
         panic!("filename must be specified");
     }
@@ -1982,7 +1982,7 @@ pub unsafe fn dvi_init(dvi_filename: *const i8, mag: f64) -> f64 {
     dvi2pts
 }
 
-pub unsafe fn dvi_close() {
+pub(crate) unsafe fn dvi_close() {
     if linear != 0 {
         /* probably reading a pipe from xetex; consume any remaining data */
         while ttstub_input_getc(dvi_handle.as_mut().unwrap()) != -1i32 {}
@@ -2025,7 +2025,7 @@ may be undefined */
 static mut saved_dvi_font: [i32; 16] = [0; 16];
 static mut num_saved_fonts: u32 = 0_u32;
 
-pub unsafe fn dvi_vf_init(dev_font_id: i32) {
+pub(crate) unsafe fn dvi_vf_init(dev_font_id: i32) {
     dvi_push();
     dvi_state.w = 0i32;
     dvi_state.x = 0i32;
@@ -2043,7 +2043,7 @@ pub unsafe fn dvi_vf_init(dev_font_id: i32) {
 }
 /* After VF subroutine is finished, we simply pop the DVI stack */
 
-pub unsafe fn dvi_vf_finish() {
+pub(crate) unsafe fn dvi_vf_finish() {
     dpx_dvi_pop();
     if num_saved_fonts > 0_u32 {
         num_saved_fonts -= 1;
@@ -2057,7 +2057,7 @@ pub unsafe fn dvi_vf_finish() {
  * length value must be divided by current magnification.
  */
 /* XXX: there are four quasi-redundant versions of this; grp for K_UNIT__PT */
-pub trait ReadLength {
+pub(crate) trait ReadLength {
     fn read_length(&mut self, mag: f64) -> Result<f64, ()>;
     fn read_length_no_mag(&mut self) -> Result<f64, ()>;
 }
@@ -2345,7 +2345,7 @@ static mut buffered_page: i32 = -1i32;
 /* Closes data structures created by dvi_open */
 /* Renamed to avoid clash with XeTeX */
 
-pub unsafe fn dvi_scan_specials(
+pub(crate) unsafe fn dvi_scan_specials(
     page_no: i32,
     page_width: *mut f64,
     page_height: *mut f64,
@@ -2501,7 +2501,7 @@ pub unsafe fn dvi_scan_specials(
 /* spt_t */
 /* instantiated in dvipdfmx.c */
 
-pub unsafe fn dvi_reset_global_state() {
+pub(crate) unsafe fn dvi_reset_global_state() {
     buffered_page = -1i32;
     def_fonts = Vec::new();
     compute_boxes = 0i32;

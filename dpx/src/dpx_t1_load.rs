@@ -28,7 +28,7 @@
 
 use crate::mfree;
 use crate::warn;
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use crate::{streq_ptr, strstartswith};
 use std::ffi::CStr;
 use std::ptr;
@@ -42,25 +42,25 @@ use super::dpx_pst_obj::pst_obj;
 use super::dpx_pst_obj::{
     pst_data_ptr, pst_getIV, pst_getRV, pst_getSV, pst_release_obj, pst_type_of,
 };
-use crate::{ttstub_input_getc, ttstub_input_read};
+use crate::bridge::{ttstub_input_getc, ttstub_input_read};
 use libc::{free, memcpy, memmove, memset, strcmp, strcpy, strlen};
 
 use std::io::{Seek, SeekFrom};
 
-pub type __ssize_t = i64;
-use crate::size_t;
+pub(crate) type __ssize_t = i64;
+use crate::bridge::size_t;
 use bridge::InputHandleWrapper;
 
 /* CFF Data Types */
 /* SID SID number */
 /* offset(0) */
 /* size offset(0) */
-pub type c_offsize = u8;
+pub(crate) type c_offsize = u8;
 /* 1-byte unsigned number specifies the size
 of an Offset field or fields, range 1-4 */
-pub type l_offset = u32;
+pub(crate) type l_offset = u32;
 /* 1, 2, 3, or 4-byte offset */
-pub type s_SID = u16;
+pub(crate) type s_SID = u16;
 /* 2-byte string identifier  */
 
 use super::dpx_cff::cff_index;
@@ -2026,7 +2026,7 @@ unsafe fn parse_part1(
     0i32
 }
 
-pub unsafe fn is_pfb(handle: &mut InputHandleWrapper) -> bool {
+pub(crate) unsafe fn is_pfb(handle: &mut InputHandleWrapper) -> bool {
     let mut sig: [u8; 14] = [0; 14];
     handle.seek(SeekFrom::Start(0)).unwrap();
     let mut ch = ttstub_input_getc(handle);
@@ -2098,7 +2098,7 @@ unsafe fn get_pfb_segment(
             ) as *mut u8;
             while slen > 0i32 {
                 let rlen = ttstub_input_read(
-                    handle.0.as_ptr(),
+                    handle.as_ptr(),
                     (buffer as *mut i8).offset(bytesread as isize),
                     slen as size_t,
                 ) as i32;
@@ -2125,14 +2125,14 @@ unsafe fn get_pfb_segment(
     buffer
 }
 
-pub unsafe fn t1_get_standard_glyph(code: i32) -> *const i8 {
+pub(crate) unsafe fn t1_get_standard_glyph(code: i32) -> *const i8 {
     if StandardEncoding[code as usize].is_null() {
         return std::ptr::null();
     }
     StandardEncoding[code as usize]
 }
 
-pub unsafe fn t1_get_fontname(handle: &mut InputHandleWrapper, fontname: *mut i8) -> i32 {
+pub(crate) unsafe fn t1_get_fontname(handle: &mut InputHandleWrapper, fontname: *mut i8) -> i32 {
     let mut length: i32 = 0;
     let mut key: *mut i8 = ptr::null_mut();
     let mut fn_found: i32 = 0i32;
@@ -2206,7 +2206,7 @@ unsafe fn init_cff_font(cff: &mut cff_font) {
     cff._string = cff_new_index(0);
 }
 
-pub unsafe fn t1_load_font<'a>(
+pub(crate) unsafe fn t1_load_font<'a>(
     enc_vec: *mut *mut i8,
     mode: i32,
     mut handle: InputHandleWrapper,

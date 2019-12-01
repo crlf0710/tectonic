@@ -25,7 +25,7 @@
 )]
 
 use crate::warn;
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use crate::SkipBlank;
 use std::ffi::CString;
 use std::ptr;
@@ -54,16 +54,16 @@ use libc::atof;
 use super::SpcHandler;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_0 {
-    pub fill: i32,
+pub(crate) struct C2RustUnnamed_0 {
+    pub(crate) fill: i32,
 }
 #[derive(Clone)]
-pub struct spc_tpic_ {
-    pub mode: C2RustUnnamed_0,
-    pub pen_size: f64,
-    pub fill_shape: bool,
-    pub fill_color: f64,
-    pub points: Vec<Point>,
+pub(crate) struct spc_tpic_ {
+    pub(crate) mode: C2RustUnnamed_0,
+    pub(crate) pen_size: f64,
+    pub(crate) fill_shape: bool,
+    pub(crate) fill_color: f64,
+    pub(crate) points: Vec<Point>,
 }
 
 use crate::dpx_pdfdev::Point;
@@ -579,27 +579,27 @@ unsafe fn spc_handler_tpic__clean(spe: *mut spc_env, dp: *mut libc::c_void) -> i
     0i32
 }
 
-pub unsafe fn tpic_set_fill_mode(mode: i32) {
+pub(crate) unsafe fn tpic_set_fill_mode(mode: i32) {
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     (*tp).mode.fill = mode;
 }
 
-pub unsafe fn spc_tpic_at_begin_page() -> i32 {
+pub(crate) unsafe fn spc_tpic_at_begin_page() -> i32 {
     let tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     spc_handler_tpic__bophook(tp as *mut libc::c_void)
 }
 
-pub unsafe fn spc_tpic_at_end_page() -> i32 {
+pub(crate) unsafe fn spc_tpic_at_end_page() -> i32 {
     let tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     spc_handler_tpic__eophook(ptr::null_mut(), tp as *mut libc::c_void)
 }
 
-pub unsafe fn spc_tpic_at_begin_document() -> i32 {
+pub(crate) unsafe fn spc_tpic_at_begin_document() -> i32 {
     let tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     spc_handler_tpic__init(ptr::null_mut(), tp as *mut libc::c_void)
 }
 
-pub unsafe fn spc_tpic_at_end_document() -> i32 {
+pub(crate) unsafe fn spc_tpic_at_end_document() -> i32 {
     let tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     spc_handler_tpic__clean(ptr::null_mut(), tp as *mut libc::c_void)
 }
@@ -751,7 +751,7 @@ const TPIC_HANDLERS: [SpcHandler; 13] = [
         exec: Some(spc_handler_tpic_tx),
     },
 ];
-pub fn spc_tpic_check_special(mut buf: &[u8]) -> bool {
+pub(crate) fn spc_tpic_check_special(mut buf: &[u8]) -> bool {
     buf.skip_blank();
     let hasnsp = buf.starts_with(b"tpic:");
     if hasnsp {
@@ -773,7 +773,7 @@ pub fn spc_tpic_check_special(mut buf: &[u8]) -> bool {
     istpic
 }
 
-pub unsafe fn spc_tpic_setup_handler(
+pub(crate) unsafe fn spc_tpic_setup_handler(
     mut sph: *mut SpcHandler,
     spe: *mut spc_env,
     mut ap: *mut spc_arg,

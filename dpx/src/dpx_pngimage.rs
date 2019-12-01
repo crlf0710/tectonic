@@ -39,28 +39,28 @@ use crate::dpx_pdfobj::{
     pdf_dict, pdf_get_version, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
     pdf_stream_set_predictor, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
-use crate::ttstub_input_read;
+use crate::bridge::ttstub_input_read;
 use libc::free;
 
 use std::io::{Seek, SeekFrom};
 
-use crate::size_t;
+use crate::bridge::size_t;
 use bridge::InputHandleWrapper;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 
-pub type png_byte = u8;
-pub type png_infopp = *mut *mut png_info;
-pub type png_const_charp = *const i8;
-pub type png_uint_16 = libc::c_ushort;
-pub type png_bytep = *mut png_byte;
-pub type png_uint_32 = libc::c_uint;
+pub(crate) type png_byte = u8;
+pub(crate) type png_infopp = *mut *mut png_info;
+pub(crate) type png_const_charp = *const i8;
+pub(crate) type png_uint_16 = libc::c_ushort;
+pub(crate) type png_bytep = *mut png_byte;
+pub(crate) type png_uint_32 = libc::c_uint;
 
 pub unsafe fn check_for_png(handle: &mut InputHandleWrapper) -> i32 {
     let mut sigbytes: [u8; 8] = [0; 8];
     handle.seek(SeekFrom::Start(0)).unwrap();
     if ttstub_input_read(
-        handle.0.as_ptr(),
+        handle.as_ptr(),
         sigbytes.as_mut_ptr() as *mut i8,
         ::std::mem::size_of::<[u8; 8]>(),
     ) as u64
@@ -91,7 +91,7 @@ unsafe extern "C" fn _png_read(png_ptr: *mut png_struct, outbytes: *mut u8, n: u
     };
 }
 
-pub unsafe fn png_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandleWrapper) -> i32 {
+pub(crate) unsafe fn png_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandleWrapper) -> i32 {
     let mut info = ximage_info::default();
     /* Libpng stuff */
     pdf_ximage_init_image_info(&mut info);
@@ -129,7 +129,7 @@ pub unsafe fn png_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandl
     /* ignore possibly incorrect CMF bytes */
     png_set_option(png, 2i32, 3i32);
     /* Rust-backed IO */
-    png_set_read_fn(png, handle.0.as_ptr(), Some(_png_read));
+    png_set_read_fn(png, handle.as_ptr(), Some(_png_read));
     /* NOTE: could use png_set_sig_bytes() to tell libpng if we started at non-zero file offset */
     /* Read PNG info-header and get some info. */
     png_read_info(png, png_info);
@@ -1134,7 +1134,7 @@ pub unsafe fn png_get_bbox(
     let png_info = png_info.unwrap();
 
     /* Rust-backed IO */
-    png_set_read_fn(png, handle.0.as_ptr(), Some(_png_read));
+    png_set_read_fn(png, handle.as_ptr(), Some(_png_read));
     /* NOTE: could use png_set_sig_bytes() to tell libpng if we started at non-zero file offset */
     /* Read PNG info-header and get some info. */
     png_read_info(png, png_info);

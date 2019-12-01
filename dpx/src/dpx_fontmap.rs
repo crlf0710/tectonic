@@ -26,7 +26,7 @@
     non_upper_case_globals,
 )]
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use std::ffi::CStr;
 use std::ptr;
 
@@ -43,46 +43,46 @@ use super::dpx_dpxutil::{parse_c_string, parse_float_decimal};
 use super::dpx_mem::new;
 use super::dpx_mfileio::tt_mfgets;
 use super::dpx_subfont::{release_sfd_record, sfd_get_subfont_ids};
-use crate::ttstub_input_close;
+use crate::bridge::ttstub_input_close;
 use libc::{
     atof, atoi, free, memcmp, memcpy, strcat, strchr, strcmp, strcpy, strlen, strstr, strtol,
     strtoul,
 };
 
-use crate::TTInputFormat;
+use crate::bridge::TTInputFormat;
 
 use bridge::InputHandleWrapper;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct fontmap_opt {
-    pub slant: f64,
-    pub extend: f64,
-    pub bold: f64,
-    pub mapc: i32,
-    pub flags: i32,
-    pub otl_tags: *mut i8,
-    pub tounicode: *mut i8,
-    pub cff_charsets: *mut libc::c_void,
-    pub design_size: f64,
-    pub charcoll: *mut i8,
-    pub index: i32,
-    pub style: i32,
-    pub stemv: i32,
+pub(crate) struct fontmap_opt {
+    pub(crate) slant: f64,
+    pub(crate) extend: f64,
+    pub(crate) bold: f64,
+    pub(crate) mapc: i32,
+    pub(crate) flags: i32,
+    pub(crate) otl_tags: *mut i8,
+    pub(crate) tounicode: *mut i8,
+    pub(crate) cff_charsets: *mut libc::c_void,
+    pub(crate) design_size: f64,
+    pub(crate) charcoll: *mut i8,
+    pub(crate) index: i32,
+    pub(crate) style: i32,
+    pub(crate) stemv: i32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct fontmap_rec {
-    pub map_name: *mut i8,
-    pub font_name: *mut i8,
-    pub enc_name: *mut i8,
-    pub charmap: C2RustUnnamed_0,
-    pub opt: fontmap_opt,
+pub(crate) struct fontmap_rec {
+    pub(crate) map_name: *mut i8,
+    pub(crate) font_name: *mut i8,
+    pub(crate) enc_name: *mut i8,
+    pub(crate) charmap: C2RustUnnamed_0,
+    pub(crate) opt: fontmap_opt,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_0 {
-    pub sfd_name: *mut i8,
-    pub subfont_id: *mut i8,
+pub(crate) struct C2RustUnnamed_0 {
+    pub(crate) sfd_name: *mut i8,
+    pub(crate) subfont_id: *mut i8,
 }
 
 use super::dpx_dpxutil::ht_table;
@@ -96,11 +96,11 @@ use super::dpx_dpxutil::ht_table;
  * as directory separators. */
 static mut verbose: i32 = 0i32;
 
-pub unsafe fn pdf_fontmap_set_verbose(level: i32) {
+pub(crate) unsafe fn pdf_fontmap_set_verbose(level: i32) {
     verbose = level;
 }
 
-pub unsafe fn pdf_init_fontmap_record(mut mrec: *mut fontmap_rec) {
+pub(crate) unsafe fn pdf_init_fontmap_record(mut mrec: *mut fontmap_rec) {
     assert!(!mrec.is_null());
     (*mrec).map_name = ptr::null_mut();
     /* SFD char mapping */
@@ -124,7 +124,7 @@ pub unsafe fn pdf_init_fontmap_record(mut mrec: *mut fontmap_rec) {
     (*mrec).opt.cff_charsets = ptr::null_mut();
 }
 
-pub unsafe fn pdf_clear_fontmap_record(mrec: *mut fontmap_rec) {
+pub(crate) unsafe fn pdf_clear_fontmap_record(mrec: *mut fontmap_rec) {
     assert!(!mrec.is_null());
     free((*mrec).map_name as *mut libc::c_void);
     free((*mrec).charmap.sfd_name as *mut libc::c_void);
@@ -847,7 +847,7 @@ unsafe fn make_subfont_name(
  * where 'ab' ... 'yz' is subfont IDs in SFD 'A'.
  */
 
-pub unsafe fn pdf_append_fontmap_record(kp: *const i8, vp: *const fontmap_rec) -> i32 {
+pub(crate) unsafe fn pdf_append_fontmap_record(kp: *const i8, vp: *const fontmap_rec) -> i32 {
     let mut sfd_name: *mut i8 = ptr::null_mut();
     if kp.is_null() || (vp.is_null() || (*vp).map_name.is_null() || (*vp).font_name.is_null()) {
         warn!("Invalid fontmap record...");
@@ -922,7 +922,7 @@ pub unsafe fn pdf_append_fontmap_record(kp: *const i8, vp: *const fontmap_rec) -
     0i32
 }
 
-pub unsafe fn pdf_remove_fontmap_record(kp: *const i8) -> i32 {
+pub(crate) unsafe fn pdf_remove_fontmap_record(kp: *const i8) -> i32 {
     let mut sfd_name: *mut i8 = ptr::null_mut();
     if kp.is_null() {
         return -1i32;
@@ -976,7 +976,7 @@ pub unsafe fn pdf_remove_fontmap_record(kp: *const i8) -> i32 {
     0i32
 }
 
-pub unsafe fn pdf_insert_fontmap_record(kp: *const i8, vp: *const fontmap_rec) -> *mut fontmap_rec {
+pub(crate) unsafe fn pdf_insert_fontmap_record(kp: *const i8, vp: *const fontmap_rec) -> *mut fontmap_rec {
     let mut sfd_name: *mut i8 = ptr::null_mut();
     if kp.is_null() || (vp.is_null() || (*vp).map_name.is_null() || (*vp).font_name.is_null()) {
         warn!("Invalid fontmap record...");
@@ -1055,7 +1055,7 @@ pub unsafe fn pdf_insert_fontmap_record(kp: *const i8, vp: *const fontmap_rec) -
     mrec
 }
 
-pub unsafe fn pdf_read_fontmap_line(
+pub(crate) unsafe fn pdf_read_fontmap_line(
     mut mrec: *mut fontmap_rec,
     mline: *const i8,
     mline_len: i32,
@@ -1110,7 +1110,7 @@ pub unsafe fn pdf_read_fontmap_line(
  * DVIPDFM fontmap line otherwise.
  */
 
-pub unsafe fn is_pdfm_mapline(mline: *const i8) -> i32
+pub(crate) unsafe fn is_pdfm_mapline(mline: *const i8) -> i32
 /* NULL terminated. */ {
     let mut n: u32 = 0_u32; /* DVIPS/pdfTeX format */
     if !strchr(mline, '\"' as i32).is_null() || !strchr(mline, '<' as i32).is_null() {
@@ -1139,7 +1139,7 @@ pub unsafe fn is_pdfm_mapline(mline: *const i8) -> i32
     }
 }
 
-pub unsafe fn pdf_load_fontmap_file(filename: &CStr, mode: i32) -> i32 {
+pub(crate) unsafe fn pdf_load_fontmap_file(filename: &CStr, mode: i32) -> i32 {
     let mut p: *const i8 = std::ptr::null();
     let mut lpos: i32 = 0i32;
     let mut error: i32 = 0i32;
@@ -1225,7 +1225,7 @@ pub unsafe fn pdf_load_fontmap_file(filename: &CStr, mode: i32) -> i32 {
     error
 }
 
-pub unsafe fn pdf_insert_native_fontmap_record(
+pub(crate) unsafe fn pdf_insert_native_fontmap_record(
     path: *const i8,
     index: u32,
     layout_dir: i32,
@@ -1276,7 +1276,7 @@ pub unsafe fn pdf_insert_native_fontmap_record(
     ret
 }
 
-pub unsafe fn pdf_lookup_fontmap_record(tfm_name: &[u8]) -> *mut fontmap_rec {
+pub(crate) unsafe fn pdf_lookup_fontmap_record(tfm_name: &[u8]) -> *mut fontmap_rec {
     let mut mrec: *mut fontmap_rec = ptr::null_mut();
     if !fontmap.is_null() && !tfm_name.is_empty() {
         mrec = ht_lookup_table(
@@ -1288,7 +1288,7 @@ pub unsafe fn pdf_lookup_fontmap_record(tfm_name: &[u8]) -> *mut fontmap_rec {
     mrec
 }
 
-pub unsafe fn pdf_init_fontmaps() {
+pub(crate) unsafe fn pdf_init_fontmaps() {
     fontmap =
         new((1_u64).wrapping_mul(::std::mem::size_of::<ht_table>() as u64) as u32) as *mut ht_table;
     ht_init_table(
@@ -1310,7 +1310,7 @@ pub unsafe fn pdf_init_fontmaps() {
  * via SFD.
  */
 
-pub unsafe fn pdf_close_fontmaps() {
+pub(crate) unsafe fn pdf_close_fontmaps() {
     if !fontmap.is_null() {
         ht_clear_table(fontmap);
         free(fontmap as *mut libc::c_void);

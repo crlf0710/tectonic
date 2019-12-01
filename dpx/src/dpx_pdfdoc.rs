@@ -30,7 +30,7 @@ use euclid::point2;
 
 use crate::mfree;
 use crate::streq_ptr;
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use crate::{info, warn};
 use std::ffi::{CStr, CString};
 use std::ptr;
@@ -72,145 +72,145 @@ use crate::dpx_pdfobj::{
     PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
-use crate::{ttstub_input_close, ttstub_input_open};
+use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use libc::{free, memcpy, strcmp, strcpy, strlen, strncmp, strncpy};
 
-use crate::size_t;
+use crate::bridge::size_t;
 
-use crate::TTInputFormat;
+use crate::bridge::TTInputFormat;
 
-pub use super::dpx_pdfcolor::PdfColor;
+pub(crate) use super::dpx_pdfcolor::PdfColor;
 
 use super::dpx_pdfdev::{Rect, TMatrix};
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct form_list_node {
-    pub q_depth: i32,
-    pub form: pdf_form,
-    pub prev: *mut form_list_node,
+pub(crate) struct form_list_node {
+    pub(crate) q_depth: i32,
+    pub(crate) form: pdf_form,
+    pub(crate) prev: *mut form_list_node,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct pdf_form {
-    pub ident: *mut i8,
-    pub matrix: TMatrix,
-    pub cropbox: Rect,
-    pub resources: *mut pdf_obj,
-    pub contents: *mut pdf_obj,
+pub(crate) struct pdf_form {
+    pub(crate) ident: *mut i8,
+    pub(crate) matrix: TMatrix,
+    pub(crate) cropbox: Rect,
+    pub(crate) resources: *mut pdf_obj,
+    pub(crate) contents: *mut pdf_obj,
 }
 
 use super::dpx_dpxutil::ht_table;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct pdf_article {
-    pub id: *mut i8,
-    pub info: *mut pdf_obj,
-    pub num_beads: u32,
-    pub max_beads: u32,
-    pub beads: *mut pdf_bead,
+pub(crate) struct pdf_article {
+    pub(crate) id: *mut i8,
+    pub(crate) info: *mut pdf_obj,
+    pub(crate) num_beads: u32,
+    pub(crate) max_beads: u32,
+    pub(crate) beads: *mut pdf_bead,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct pdf_bead {
-    pub id: *mut i8,
-    pub page_no: i32,
-    pub rect: Rect,
+pub(crate) struct pdf_bead {
+    pub(crate) id: *mut i8,
+    pub(crate) page_no: i32,
+    pub(crate) rect: Rect,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct pdf_olitem {
-    pub dict: *mut pdf_obj,
-    pub is_open: i32,
-    pub first: *mut pdf_olitem,
-    pub parent: *mut pdf_olitem,
-    pub next: *mut pdf_olitem,
+pub(crate) struct pdf_olitem {
+    pub(crate) dict: *mut pdf_obj,
+    pub(crate) is_open: i32,
+    pub(crate) first: *mut pdf_olitem,
+    pub(crate) parent: *mut pdf_olitem,
+    pub(crate) next: *mut pdf_olitem,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct pdf_page {
-    pub page_obj: *mut pdf_obj,
-    pub page_ref: *mut pdf_obj,
-    pub flags: i32,
-    pub ref_x: f64,
-    pub ref_y: f64,
-    pub cropbox: Rect,
-    pub resources: *mut pdf_obj,
-    pub background: *mut pdf_obj,
-    pub contents: *mut pdf_obj,
-    pub content_refs: [*mut pdf_obj; 4],
-    pub annots: *mut pdf_obj,
-    pub beads: *mut pdf_obj,
+pub(crate) struct pdf_page {
+    pub(crate) page_obj: *mut pdf_obj,
+    pub(crate) page_ref: *mut pdf_obj,
+    pub(crate) flags: i32,
+    pub(crate) ref_x: f64,
+    pub(crate) ref_y: f64,
+    pub(crate) cropbox: Rect,
+    pub(crate) resources: *mut pdf_obj,
+    pub(crate) background: *mut pdf_obj,
+    pub(crate) contents: *mut pdf_obj,
+    pub(crate) content_refs: [*mut pdf_obj; 4],
+    pub(crate) annots: *mut pdf_obj,
+    pub(crate) beads: *mut pdf_obj,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct pdf_doc {
-    pub root: C2RustUnnamed_3,
-    pub info: *mut pdf_obj,
-    pub pages: C2RustUnnamed_2,
-    pub outlines: C2RustUnnamed_1,
-    pub articles: C2RustUnnamed_0,
-    pub names: *mut name_dict,
-    pub check_gotos: i32,
-    pub gotos: ht_table,
-    pub opt: C2RustUnnamed,
-    pub pending_forms: *mut form_list_node,
+pub(crate) struct pdf_doc {
+    pub(crate) root: C2RustUnnamed_3,
+    pub(crate) info: *mut pdf_obj,
+    pub(crate) pages: C2RustUnnamed_2,
+    pub(crate) outlines: C2RustUnnamed_1,
+    pub(crate) articles: C2RustUnnamed_0,
+    pub(crate) names: *mut name_dict,
+    pub(crate) check_gotos: i32,
+    pub(crate) gotos: ht_table,
+    pub(crate) opt: C2RustUnnamed,
+    pub(crate) pending_forms: *mut form_list_node,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed {
-    pub outline_open_depth: i32,
-    pub annot_grow: f64,
+pub(crate) struct C2RustUnnamed {
+    pub(crate) outline_open_depth: i32,
+    pub(crate) annot_grow: f64,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct name_dict {
-    pub category: *const i8,
-    pub data: *mut ht_table,
+pub(crate) struct name_dict {
+    pub(crate) category: *const i8,
+    pub(crate) data: *mut ht_table,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_0 {
-    pub num_entries: u32,
-    pub max_entries: u32,
-    pub entries: *mut pdf_article,
+pub(crate) struct C2RustUnnamed_0 {
+    pub(crate) num_entries: u32,
+    pub(crate) max_entries: u32,
+    pub(crate) entries: *mut pdf_article,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_1 {
-    pub first: *mut pdf_olitem,
-    pub current: *mut pdf_olitem,
-    pub current_depth: i32,
+pub(crate) struct C2RustUnnamed_1 {
+    pub(crate) first: *mut pdf_olitem,
+    pub(crate) current: *mut pdf_olitem,
+    pub(crate) current_depth: i32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_2 {
-    pub mediabox: Rect,
-    pub bop: *mut pdf_obj,
-    pub eop: *mut pdf_obj,
-    pub num_entries: u32,
-    pub max_entries: u32,
-    pub entries: *mut pdf_page,
+pub(crate) struct C2RustUnnamed_2 {
+    pub(crate) mediabox: Rect,
+    pub(crate) bop: *mut pdf_obj,
+    pub(crate) eop: *mut pdf_obj,
+    pub(crate) num_entries: u32,
+    pub(crate) max_entries: u32,
+    pub(crate) entries: *mut pdf_page,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_3 {
-    pub dict: *mut pdf_obj,
-    pub viewerpref: *mut pdf_obj,
-    pub pagelabels: *mut pdf_obj,
-    pub pages: *mut pdf_obj,
-    pub names: *mut pdf_obj,
-    pub threads: *mut pdf_obj,
+pub(crate) struct C2RustUnnamed_3 {
+    pub(crate) dict: *mut pdf_obj,
+    pub(crate) viewerpref: *mut pdf_obj,
+    pub(crate) pagelabels: *mut pdf_obj,
+    pub(crate) pages: *mut pdf_obj,
+    pub(crate) names: *mut pdf_obj,
+    pub(crate) threads: *mut pdf_obj,
 }
 use super::dpx_dpxutil::ht_iter;
 
 use crate::dpx_pdfximage::{load_options, xform_info};
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_4 {
-    pub dirty: i32,
-    pub broken: i32,
-    pub annot_dict: *mut pdf_obj,
-    pub rect: Rect,
+pub(crate) struct C2RustUnnamed_4 {
+    pub(crate) dirty: i32,
+    pub(crate) broken: i32,
+    pub(crate) annot_dict: *mut pdf_obj,
+    pub(crate) rect: Rect,
 }
 /* quasi-hack to get the primary input */
 /* tectonic/core-strutils.h: miscellaneous C string utilities
@@ -224,7 +224,7 @@ static mut verbose: i32 = 0i32;
 static mut manual_thumb_enabled: i8 = 0_i8;
 static mut thumb_basename: *mut i8 = ptr::null_mut();
 
-pub unsafe fn pdf_doc_enable_manual_thumbnails() {
+pub(crate) unsafe fn pdf_doc_enable_manual_thumbnails() {
     manual_thumb_enabled = 1_i8;
     // without HAVE_LIBPNG:
     // warn!("Manual thumbnail is not supported without the libpng library.");
@@ -265,7 +265,7 @@ unsafe fn read_thumbnail(thumb_filename: *const i8) -> *mut pdf_obj {
     }
 }
 
-pub unsafe fn pdf_doc_set_verbose(level: i32) {
+pub(crate) unsafe fn pdf_doc_set_verbose(level: i32) {
     verbose = level;
     pdf_font_set_verbose(level);
     pdf_color_set_verbose(level);
@@ -421,7 +421,7 @@ unsafe fn doc_get_page_entry(p: *mut pdf_doc, page_no: u32) -> *mut pdf_page {
         .offset(page_no.wrapping_sub(1_u32) as isize) as *mut pdf_page
 }
 
-pub unsafe fn pdf_doc_set_bop_content(content: *const i8, length: u32) {
+pub(crate) unsafe fn pdf_doc_set_bop_content(content: *const i8, length: u32) {
     let mut p: *mut pdf_doc = &mut pdoc;
     assert!(!p.is_null());
     if !(*p).pages.bop.is_null() {
@@ -438,7 +438,7 @@ pub unsafe fn pdf_doc_set_bop_content(content: *const i8, length: u32) {
     };
 }
 
-pub unsafe fn pdf_doc_set_eop_content(content: *const i8, length: u32) {
+pub(crate) unsafe fn pdf_doc_set_eop_content(content: *const i8, length: u32) {
     let mut p: *mut pdf_doc = &mut pdoc;
     if !(*p).pages.eop.is_null() {
         pdf_release_obj((*p).pages.eop);
@@ -559,7 +559,7 @@ unsafe fn pdf_doc_get_page_resources(mut p: *mut pdf_doc, category: &str) -> *mu
         })
 }
 
-pub unsafe fn pdf_doc_add_page_resource(
+pub(crate) unsafe fn pdf_doc_add_page_resource(
     category: &str,
     resource_name: *const i8,
     mut resource_ref: *mut pdf_obj,
@@ -1365,7 +1365,7 @@ unsafe fn flush_bookmarks(
     retval
 }
 
-pub unsafe fn pdf_doc_bookmarks_up() -> i32 {
+pub(crate) unsafe fn pdf_doc_bookmarks_up() -> i32 {
     let mut p: *mut pdf_doc = &mut pdoc;
     let item = (*p).outlines.current;
     if item.is_null() || (*item).parent.is_null() {
@@ -1389,7 +1389,7 @@ pub unsafe fn pdf_doc_bookmarks_up() -> i32 {
     0i32
 }
 
-pub unsafe fn pdf_doc_bookmarks_down() -> i32 {
+pub(crate) unsafe fn pdf_doc_bookmarks_down() -> i32 {
     let mut p: *mut pdf_doc = &mut pdoc;
     let item = (*p).outlines.current;
     if (*item).dict.is_null() {
@@ -1433,12 +1433,12 @@ pub unsafe fn pdf_doc_bookmarks_down() -> i32 {
     0i32
 }
 
-pub unsafe fn pdf_doc_bookmarks_depth() -> i32 {
+pub(crate) unsafe fn pdf_doc_bookmarks_depth() -> i32 {
     let p: *mut pdf_doc = &mut pdoc;
     (*p).outlines.current_depth
 }
 
-pub unsafe fn pdf_doc_bookmarks_add(dict: *mut pdf_obj, is_open: i32) {
+pub(crate) unsafe fn pdf_doc_bookmarks_add(dict: *mut pdf_obj, is_open: i32) {
     let mut p: *mut pdf_doc = &mut pdoc;
     assert!(!p.is_null() && !dict.is_null());
     let mut item = (*p).outlines.current;
@@ -1550,7 +1550,7 @@ unsafe fn pdf_doc_init_names(mut p: *mut pdf_doc, check_gotos: i32) {
     );
 }
 
-pub unsafe fn pdf_doc_add_names(category: *const i8, key: &[u8], value: *mut pdf_obj) -> i32 {
+pub(crate) unsafe fn pdf_doc_add_names(category: *const i8, key: &[u8], value: *mut pdf_obj) -> i32 {
     let p: *mut pdf_doc = &mut pdoc;
     let mut i = 0;
     while !(*(*p).names.offset(i as isize)).category.is_null() {
@@ -1775,7 +1775,7 @@ unsafe fn pdf_doc_close_names(mut p: *mut pdf_doc) {
     ht_clear_table(&mut (*p).gotos);
 }
 
-pub unsafe fn pdf_doc_add_annot(
+pub(crate) unsafe fn pdf_doc_add_annot(
     page_no: u32,
     rect: &Rect,
     annot_dict: *mut pdf_obj,
@@ -1846,7 +1846,7 @@ unsafe fn pdf_doc_init_articles(mut p: *mut pdf_doc) {
     (*p).articles.entries = ptr::null_mut();
 }
 
-pub unsafe fn pdf_doc_begin_article(article_id: *const i8, article_info: *mut pdf_obj) {
+pub(crate) unsafe fn pdf_doc_begin_article(article_id: *const i8, article_info: *mut pdf_obj) {
     let mut p: *mut pdf_doc = &mut pdoc;
     if article_id.is_null() || strlen(article_id) == 0 {
         panic!("Article thread without internal identifier.");
@@ -1884,7 +1884,7 @@ unsafe fn find_bead(article: *mut pdf_article, bead_id: &[u8]) -> *mut pdf_bead 
     bead
 }
 
-pub unsafe fn pdf_doc_add_bead(article_id: *const i8, bead_id: &[u8], page_no: i32, rect: &Rect) {
+pub(crate) unsafe fn pdf_doc_add_bead(article_id: *const i8, bead_id: &[u8], page_no: i32, rect: &Rect) {
     let p: *mut pdf_doc = &mut pdoc;
     if article_id.is_null() {
         panic!("No article identifier specified.");
@@ -2063,7 +2063,7 @@ unsafe fn pdf_doc_close_articles(mut p: *mut pdf_doc) {
 }
 /* page_no = 0 for root page tree node. */
 
-pub unsafe fn pdf_doc_set_mediabox(page_no: u32, mediabox: &Rect) {
+pub(crate) unsafe fn pdf_doc_set_mediabox(page_no: u32, mediabox: &Rect) {
     let mut p: *mut pdf_doc = &mut pdoc;
     if page_no == 0_u32 {
         (*p).pages.mediabox = *mediabox;
@@ -2087,7 +2087,7 @@ unsafe fn pdf_doc_get_mediabox(page_no: u32, mediabox: &mut Rect) {
     };
 }
 
-pub unsafe fn pdf_doc_current_page_resources() -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_doc_current_page_resources() -> *mut pdf_obj {
     let mut p: *mut pdf_doc = &mut pdoc;
     if !(*p).pending_forms.is_null() {
         if !(*(*p).pending_forms).form.resources.is_null() {
@@ -2108,7 +2108,7 @@ pub unsafe fn pdf_doc_current_page_resources() -> *mut pdf_obj {
     }
 }
 
-pub unsafe fn pdf_doc_get_dictionary(category: &str) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_doc_get_dictionary(category: &str) -> *mut pdf_obj {
     let mut p: *mut pdf_doc = &mut pdoc;
     let dict = match category {
         "Names" => {
@@ -2149,12 +2149,12 @@ pub unsafe fn pdf_doc_get_dictionary(category: &str) -> *mut pdf_obj {
     dict
 }
 
-pub unsafe fn pdf_doc_current_page_number() -> i32 {
+pub(crate) unsafe fn pdf_doc_current_page_number() -> i32 {
     let p: *mut pdf_doc = &mut pdoc;
     (*p).pages.num_entries.wrapping_add(1_u32) as i32
 }
 
-pub unsafe fn pdf_doc_ref_page(page_no: u32) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_doc_ref_page(page_no: u32) -> *mut pdf_obj {
     let p: *mut pdf_doc = &mut pdoc;
     let page = doc_get_page_entry(p, page_no);
     if (*page).page_obj.is_null() {
@@ -2164,7 +2164,7 @@ pub unsafe fn pdf_doc_ref_page(page_no: u32) -> *mut pdf_obj {
     pdf_link_obj((*page).page_ref)
 }
 
-pub unsafe fn pdf_doc_get_reference(category: &str) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_doc_get_reference(category: &str) -> *mut pdf_obj {
     let page_no = pdf_doc_current_page_number();
     let ref_0 = match category {
         "@THISPAGE" => pdf_doc_ref_page(page_no as u32),
@@ -2301,7 +2301,7 @@ static mut bgcolor: PdfColor = WHITE;
 /* Manual thumbnail */
 /* Similar to bop_content */
 
-pub unsafe fn pdf_doc_set_bgcolor(color: Option<&PdfColor>) {
+pub(crate) unsafe fn pdf_doc_set_bgcolor(color: Option<&PdfColor>) {
     bgcolor = if let Some(c) = color {
         c.clone()
     } else {
@@ -2329,7 +2329,7 @@ unsafe fn doc_fill_page_background(p: &mut pdf_doc) {
     currentpage.contents = saved_content;
 }
 
-pub unsafe fn pdf_doc_begin_page(scale: f64, x_origin: f64, y_origin: f64) {
+pub(crate) unsafe fn pdf_doc_begin_page(scale: f64, x_origin: f64, y_origin: f64) {
     let p = &mut pdoc;
     let mut M = TMatrix::row_major(scale, 0., 0., scale, x_origin, y_origin);
     /* pdf_doc_new_page() allocates page content stream. */
@@ -2337,14 +2337,14 @@ pub unsafe fn pdf_doc_begin_page(scale: f64, x_origin: f64, y_origin: f64) {
     pdf_dev_bop(&mut M);
 }
 
-pub unsafe fn pdf_doc_end_page() {
+pub(crate) unsafe fn pdf_doc_end_page() {
     let p = &mut pdoc;
     pdf_dev_eop();
     doc_fill_page_background(p);
     pdf_doc_finish_page(p);
 }
 
-pub unsafe fn pdf_doc_add_page_content(buffer: &[u8]) {
+pub(crate) unsafe fn pdf_doc_add_page_content(buffer: &[u8]) {
     let p = &mut pdoc;
     if !p.pending_forms.is_null() {
         (*(*p.pending_forms).form.contents)
@@ -2362,7 +2362,7 @@ pub unsafe fn pdf_doc_add_page_content(buffer: &[u8]) {
 static mut doccreator: *mut i8 = ptr::null_mut();
 /* Ugh */
 
-pub unsafe fn pdf_open_document(
+pub(crate) unsafe fn pdf_open_document(
     filename: *const i8,
     enable_encrypt: bool,
     enable_object_stream: bool,
@@ -2426,7 +2426,7 @@ pub unsafe fn pdf_open_document(
     p.pending_forms = ptr::null_mut();
 }
 
-pub unsafe fn pdf_doc_set_creator(creator: *const i8) {
+pub(crate) unsafe fn pdf_doc_set_creator(creator: *const i8) {
     if creator.is_null() || *creator.offset(0) as i32 == '\u{0}' as i32 {
         return;
     }
@@ -2437,7 +2437,7 @@ pub unsafe fn pdf_doc_set_creator(creator: *const i8) {
     /* Ugh */
 }
 
-pub unsafe fn pdf_close_document() {
+pub(crate) unsafe fn pdf_close_document() {
     let p: *mut pdf_doc = &mut pdoc;
     /*
      * Following things were kept around so user can add dictionary items.
@@ -2497,7 +2497,7 @@ unsafe fn pdf_doc_make_xform(
  * that the origin is not the lower left corner of the bbox.
  */
 
-pub unsafe fn pdf_doc_begin_grabbing(
+pub(crate) unsafe fn pdf_doc_begin_grabbing(
     ident: *const i8,
     ref_x: f64,
     ref_y: f64,
@@ -2538,7 +2538,7 @@ pub unsafe fn pdf_doc_begin_grabbing(
     xobj_id
 }
 
-pub unsafe fn pdf_doc_end_grabbing(attrib: *mut pdf_obj) {
+pub(crate) unsafe fn pdf_doc_end_grabbing(attrib: *mut pdf_obj) {
     let mut p: *mut pdf_doc = &mut pdoc;
     if (*p).pending_forms.is_null() {
         warn!("Tried to close a nonexistent form XOject.");
@@ -2588,18 +2588,18 @@ unsafe fn reset_box() {
     breaking_state.dirty = 0i32;
 }
 
-pub unsafe fn pdf_doc_begin_annot(dict: *mut pdf_obj) {
+pub(crate) unsafe fn pdf_doc_begin_annot(dict: *mut pdf_obj) {
     breaking_state.annot_dict = dict;
     breaking_state.broken = 0i32;
     reset_box();
 }
 
-pub unsafe fn pdf_doc_end_annot() {
+pub(crate) unsafe fn pdf_doc_end_annot() {
     pdf_doc_break_annot();
     breaking_state.annot_dict = ptr::null_mut();
 }
 
-pub unsafe fn pdf_doc_break_annot() {
+pub(crate) unsafe fn pdf_doc_break_annot() {
     if breaking_state.dirty != 0 {
         /* Copy dict */
         let mut annot_dict = pdf_dict::new();
@@ -2630,7 +2630,7 @@ pub unsafe fn pdf_doc_break_annot() {
 /* Annotation */
 /* Annotation with auto- clip and line (or page) break */
 
-pub unsafe fn pdf_doc_expand_box(rect: &Rect) {
+pub(crate) unsafe fn pdf_doc_expand_box(rect: &Rect) {
     breaking_state.rect.min.x = breaking_state.rect.min.x.min(rect.min.x);
     breaking_state.rect.min.y = breaking_state.rect.min.y.min(rect.min.y);
     breaking_state.rect.max.x = breaking_state.rect.max.x.max(rect.max.x);

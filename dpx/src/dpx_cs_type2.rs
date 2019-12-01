@@ -34,16 +34,16 @@ use std::ptr;
 use super::dpx_cff::cff_index;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct cs_ginfo {
-    pub flags: i32,
-    pub wx: f64,
-    pub wy: f64,
-    pub bbox: C2RustUnnamed_0,
-    pub seac: C2RustUnnamed,
+pub(crate) struct cs_ginfo {
+    pub(crate) flags: i32,
+    pub(crate) wx: f64,
+    pub(crate) wy: f64,
+    pub(crate) bbox: C2RustUnnamed_0,
+    pub(crate) seac: C2RustUnnamed,
 }
 
 impl cs_ginfo {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             flags: 0,
             wx: 0.,
@@ -67,20 +67,20 @@ impl cs_ginfo {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed {
-    pub asb: f64,
-    pub adx: f64,
-    pub ady: f64,
-    pub bchar: u8,
-    pub achar: u8,
+pub(crate) struct C2RustUnnamed {
+    pub(crate) asb: f64,
+    pub(crate) adx: f64,
+    pub(crate) ady: f64,
+    pub(crate) bchar: u8,
+    pub(crate) achar: u8,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_0 {
-    pub llx: f64,
-    pub lly: f64,
-    pub urx: f64,
-    pub ury: f64,
+pub(crate) struct C2RustUnnamed_0 {
+    pub(crate) llx: f64,
+    pub(crate) lly: f64,
+    pub(crate) urx: f64,
+    pub(crate) ury: f64,
 }
 static mut status: i32 = -1i32;
 /* hintmask and cntrmask need number of stem zones */
@@ -874,7 +874,7 @@ unsafe fn cs_parse_init() {
  * Not just copying...
  */
 
-pub unsafe fn cs_copy_charstring(
+pub(crate) unsafe fn cs_copy_charstring(
     mut dst: *mut u8,
     dstlen: i32,
     mut src: *mut u8,

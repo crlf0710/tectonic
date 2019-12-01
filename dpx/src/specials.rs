@@ -20,20 +20,20 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
 
-pub mod color;
-pub mod dvipdfmx;
-pub mod dvips;
-pub mod html;
-pub mod misc;
-pub mod pdfm;
-pub mod tpic;
-pub mod util;
-pub mod xtx;
+pub(crate) mod color;
+pub(crate) mod dvipdfmx;
+pub(crate) mod dvips;
+pub(crate) mod html;
+pub(crate) mod misc;
+pub(crate) mod pdfm;
+pub(crate) mod tpic;
+pub(crate) mod util;
+pub(crate) mod xtx;
 
 use euclid::point2;
 
 use crate::warn;
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use std::ffi::{CStr, CString};
 use std::ptr;
 
@@ -74,62 +74,62 @@ use libc::{atoi, memcmp, strcmp, strlen};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct spc_env {
-    pub x_user: f64,
-    pub y_user: f64,
-    pub mag: f64,
-    pub pg: i32,
+pub(crate) struct spc_env {
+    pub(crate) x_user: f64,
+    pub(crate) y_user: f64,
+    pub(crate) mag: f64,
+    pub(crate) pg: i32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct spc_arg<'a> {
-    pub cur: &'a [u8],
-    pub base: &'a [u8],
-    pub command: Option<&'static [u8]>,
+pub(crate) struct spc_arg<'a> {
+    pub(crate) cur: &'a [u8],
+    pub(crate) base: &'a [u8],
+    pub(crate) command: Option<&'static [u8]>,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct SpcHandler {
-    pub key: &'static [u8],
-    pub exec: Option<unsafe fn(_: *mut spc_env, _: *mut spc_arg) -> i32>,
+pub(crate) struct SpcHandler {
+    pub(crate) key: &'static [u8],
+    pub(crate) exec: Option<unsafe fn(_: *mut spc_env, _: *mut spc_arg) -> i32>,
 }
 
 use super::dpx_dpxutil::ht_table;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct Special {
-    pub key: *const i8,
-    pub bodhk_func: Option<unsafe fn() -> i32>,
-    pub eodhk_func: Option<unsafe fn() -> i32>,
-    pub bophk_func: Option<unsafe fn() -> i32>,
-    pub eophk_func: Option<unsafe fn() -> i32>,
-    pub check_func: fn(_: &[u8]) -> bool,
-    pub setup_func: unsafe fn(_: *mut SpcHandler, _: *mut spc_env, _: *mut spc_arg) -> i32,
+pub(crate) struct Special {
+    pub(crate) key: *const i8,
+    pub(crate) bodhk_func: Option<unsafe fn() -> i32>,
+    pub(crate) eodhk_func: Option<unsafe fn() -> i32>,
+    pub(crate) bophk_func: Option<unsafe fn() -> i32>,
+    pub(crate) eophk_func: Option<unsafe fn() -> i32>,
+    pub(crate) check_func: fn(_: &[u8]) -> bool,
+    pub(crate) setup_func: unsafe fn(_: *mut SpcHandler, _: *mut spc_env, _: *mut spc_arg) -> i32,
 }
 static mut VERBOSE: i32 = 0i32;
-pub unsafe fn spc_set_verbose(level: i32) {
+pub(crate) unsafe fn spc_set_verbose(level: i32) {
     VERBOSE = level;
 }
 /* This is currently just to make other spc_xxx to not directly
  * call dvi_xxx.
  */
-pub unsafe fn spc_begin_annot(mut _spe: *mut spc_env, dict: *mut pdf_obj) -> i32 {
+pub(crate) unsafe fn spc_begin_annot(mut _spe: *mut spc_env, dict: *mut pdf_obj) -> i32 {
     pdf_doc_begin_annot(dict); /* Tell dvi interpreter to handle line-break. */
     dvi_tag_depth();
     0i32
 }
-pub unsafe fn spc_end_annot(mut _spe: *mut spc_env) -> i32 {
+pub(crate) unsafe fn spc_end_annot(mut _spe: *mut spc_env) -> i32 {
     dvi_untag_depth();
     pdf_doc_end_annot();
     0i32
 }
-pub unsafe fn spc_resume_annot(mut _spe: *mut spc_env) -> i32 {
+pub(crate) unsafe fn spc_resume_annot(mut _spe: *mut spc_env) -> i32 {
     dvi_link_annot(1i32);
     0i32
 }
 
-pub unsafe fn spc_suspend_annot(mut _spe: *mut spc_env) -> i32 {
+pub(crate) unsafe fn spc_suspend_annot(mut _spe: *mut spc_env) -> i32 {
     dvi_link_annot(0i32);
     0i32
 }
@@ -172,7 +172,7 @@ unsafe fn ispageref(key: *const i8) -> i32 {
     1i32
 }
 
-pub unsafe fn spc_lookup_reference(key: &CString) -> Option<*mut pdf_obj> {
+pub(crate) unsafe fn spc_lookup_reference(key: &CString) -> Option<*mut pdf_obj> {
     assert!(!NAMED_OBJECTS.is_null());
     let value = match key.to_bytes() {
         b"xpos" => {
@@ -216,7 +216,7 @@ pub unsafe fn spc_lookup_reference(key: &CString) -> Option<*mut pdf_obj> {
         Some(value)
     }
 }
-pub unsafe fn spc_lookup_object(key: *const i8) -> *mut pdf_obj {
+pub(crate) unsafe fn spc_lookup_object(key: *const i8) -> *mut pdf_obj {
     assert!(!NAMED_OBJECTS.is_null());
     if key.is_null() {
         return ptr::null_mut();
@@ -258,7 +258,7 @@ pub unsafe fn spc_lookup_object(key: *const i8) -> *mut pdf_obj {
     */
     return value; /* _FIXME_ */
 }
-pub unsafe fn spc_push_object(key: *const i8, value: *mut pdf_obj) {
+pub(crate) unsafe fn spc_push_object(key: *const i8, value: *mut pdf_obj) {
     assert!(!NAMED_OBJECTS.is_null());
     if key.is_null() || value.is_null() {
         return;
@@ -270,14 +270,14 @@ pub unsafe fn spc_push_object(key: *const i8, value: *mut pdf_obj) {
         value,
     );
 }
-pub unsafe fn spc_flush_object(key: *const i8) {
+pub(crate) unsafe fn spc_flush_object(key: *const i8) {
     pdf_names_close_object(
         NAMED_OBJECTS,
         key as *const libc::c_void,
         strlen(key) as i32,
     );
 }
-pub unsafe fn spc_clear_objects() {
+pub(crate) unsafe fn spc_clear_objects() {
     pdf_delete_name_tree(&mut NAMED_OBJECTS);
     NAMED_OBJECTS = pdf_new_name_tree();
 }
@@ -391,7 +391,7 @@ const KNOWN_SPECIALS: [Special; 8] = [
         setup_func: spc_misc_setup_handler,
     },
 ];
-pub unsafe fn spc_exec_at_begin_page() -> i32 {
+pub(crate) unsafe fn spc_exec_at_begin_page() -> i32 {
     let mut error: i32 = 0i32;
     for spc in &KNOWN_SPECIALS {
         if let Some(bophk) = spc.bophk_func {
@@ -400,7 +400,7 @@ pub unsafe fn spc_exec_at_begin_page() -> i32 {
     }
     error
 }
-pub unsafe fn spc_exec_at_end_page() -> i32 {
+pub(crate) unsafe fn spc_exec_at_end_page() -> i32 {
     let mut error: i32 = 0i32;
     for spc in &KNOWN_SPECIALS {
         if let Some(eophk) = spc.eophk_func {
@@ -409,7 +409,7 @@ pub unsafe fn spc_exec_at_end_page() -> i32 {
     }
     error
 }
-pub unsafe fn spc_exec_at_begin_document() -> i32 {
+pub(crate) unsafe fn spc_exec_at_begin_document() -> i32 {
     let mut error: i32 = 0i32;
     assert!(NAMED_OBJECTS.is_null());
     NAMED_OBJECTS = pdf_new_name_tree();
@@ -420,7 +420,7 @@ pub unsafe fn spc_exec_at_begin_document() -> i32 {
     }
     error
 }
-pub unsafe fn spc_exec_at_end_document() -> i32 {
+pub(crate) unsafe fn spc_exec_at_end_document() -> i32 {
     let mut error: i32 = 0i32;
 
     for spc in &KNOWN_SPECIALS {
@@ -525,7 +525,7 @@ unsafe fn print_error(name: *const i8, spe: *mut spc_env, mut ap: *mut spc_arg) 
 /* This should not use pdf_. */
 /* PDF parser shouldn't depend on this...
  */
-pub unsafe fn spc_exec_special(buffer: &[u8], x_user: f64, y_user: f64, mag: f64) -> i32 {
+pub(crate) unsafe fn spc_exec_special(buffer: &[u8], x_user: f64, y_user: f64, mag: f64) -> i32 {
     let mut error: i32 = -1i32;
     let mut spe: spc_env = spc_env {
         x_user: 0.,

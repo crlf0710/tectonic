@@ -26,7 +26,7 @@
     non_upper_case_globals,
 )]
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use std::ffi::CStr;
 
 use super::dpx_dvipdfmx::always_embed;
@@ -42,11 +42,11 @@ use super::dpx_sfnt::sfnt;
 
 static mut verbose: i32 = 0i32;
 
-pub unsafe fn tt_aux_set_verbose(level: i32) {
+pub(crate) unsafe fn tt_aux_set_verbose(level: i32) {
     verbose = level; /* skip version tag */
 }
 
-pub unsafe fn ttc_read_offset(sfont: *mut sfnt, ttc_idx: i32) -> u32 {
+pub(crate) unsafe fn ttc_read_offset(sfont: *mut sfnt, ttc_idx: i32) -> u32 {
     if sfont.is_null() {
         panic!("file not opened");
     }
@@ -71,7 +71,7 @@ pub unsafe fn ttc_read_offset(sfont: *mut sfnt, ttc_idx: i32) -> u32 {
 /* FontDescriptor */
 /* Force bold at small text sizes */
 
-pub unsafe fn tt_get_fontdesc(
+pub(crate) unsafe fn tt_get_fontdesc(
     sfont: *mut sfnt,
     embed: *mut i32,
     mut stemv: i32,

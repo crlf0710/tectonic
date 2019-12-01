@@ -28,7 +28,7 @@
 
 use super::dpx_sfnt::{sfnt_close, sfnt_find_table_pos, sfnt_open, sfnt_read_table_directory};
 use crate::streq_ptr;
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
@@ -62,16 +62,16 @@ use crate::dpx_pdfobj::{
     pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
-use crate::ttstub_input_read;
+use crate::bridge::ttstub_input_read;
 use libc::{free, strcmp, strlen};
 
-use crate::size_t;
+use crate::bridge::size_t;
 use std::io::{Seek, SeekFrom};
 
-pub type l_offset = u32;
+pub(crate) type l_offset = u32;
 use super::dpx_cff::cff_encoding;
 use super::dpx_cff::cff_map;
-pub type s_SID = u16;
+pub(crate) type s_SID = u16;
 use super::dpx_cff::cff_range1;
 /* CFF Data Types */
 /* SID SID number */
@@ -133,7 +133,7 @@ use super::dpx_cs_type2::cs_ginfo;
  */
 /* Font info. from OpenType tables */
 
-pub unsafe fn pdf_font_open_type1c(font: *mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_open_type1c(font: *mut pdf_font) -> i32 {
     assert!(!font.is_null());
     let ident = pdf_font_get_ident(font);
     let encoding_id = pdf_font_get_encoding(font);
@@ -287,7 +287,7 @@ unsafe fn add_SimpleMetrics(
     fontdict.set("LastChar", lastchar as f64);
 }
 
-pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
     let mut offset: i32 = 0i32;
     let mut ginfo = cs_ginfo::new();
     let mut widths: [f64; 256] = [0.; 256];
@@ -518,7 +518,7 @@ pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
             offset as u64 + *(*cs_idx).offset.offset(0) as u64 - 1,
         ))
         .unwrap();
-    ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t);
+    ttstub_input_read(handle.as_ptr(), data as *mut i8, size as size_t);
     charstring_len += cs_copy_charstring(
         (*charstrings).data.offset(charstring_len as isize),
         max_len - charstring_len,
@@ -623,7 +623,7 @@ pub unsafe fn pdf_font_load_type1c(font: *mut pdf_font) -> i32 {
                             offset as u64 + *(*cs_idx).offset.offset(gid_0 as isize) as u64 - 1,
                         ))
                         .unwrap();
-                    ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t);
+                    ttstub_input_read(handle.as_ptr(), data as *mut i8, size as size_t);
                     charstring_len += cs_copy_charstring(
                         (*charstrings).data.offset(charstring_len as isize),
                         max_len - charstring_len,

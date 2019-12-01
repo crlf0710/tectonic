@@ -29,9 +29,9 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::is_non_discardable_node;
 
-pub type scaled_t = i32;
-pub type eight_bits = u8;
-pub type small_number = i16;
+pub(crate) type scaled_t = i32;
+pub(crate) type eight_bits = u8;
+pub(crate) type small_number = i16;
 /* tectonic/xetex-pagebuilder.c: the page builder
    Copyright 2017-2018 The Tectonic Project
    Licensed under the MIT License.
@@ -51,7 +51,7 @@ static mut page_max_depth: scaled_t = 0;
 /* XXX other variables belong here but pop up all over the code */
 
 #[no_mangle]
-pub unsafe extern "C" fn initialize_pagebuilder_variables() {
+pub(crate) unsafe extern "C" fn initialize_pagebuilder_variables() {
     page_max_depth = 0;
 }
 
@@ -514,7 +514,7 @@ unsafe extern "C" fn fire_up(mut c: i32) {
 const AWFUL_BAD: i32 = MAX_HALFWORD; /* XXX redundant with xetex-linebreak.c */
 
 #[no_mangle]
-pub unsafe extern "C" fn build_page() {
+pub(crate) unsafe extern "C" fn build_page() {
     #[derive(Default)]
     struct Args {
         p: i32,

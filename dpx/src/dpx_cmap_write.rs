@@ -37,7 +37,7 @@ use crate::dpx_pdfobj::{pdf_copy_name, pdf_dict, pdf_stream, pdf_string, STREAM_
 use crate::shims::sprintf;
 use libc::{free, memcmp, memset, strlen};
 
-use crate::size_t;
+use crate::bridge::size_t;
 
 use super::dpx_cmap::mapDef;
 use super::dpx_cmap::CMap;
@@ -58,16 +58,16 @@ use super::dpx_cmap::CMap;
  */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct sbuf {
-    pub buf: *mut i8,
-    pub curptr: *mut i8,
-    pub limptr: *mut i8,
+pub(crate) struct sbuf {
+    pub(crate) buf: *mut i8,
+    pub(crate) curptr: *mut i8,
+    pub(crate) limptr: *mut i8,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_1 {
-    pub start: i32,
-    pub count: i32,
+pub(crate) struct C2RustUnnamed_1 {
+    pub(crate) start: i32,
+    pub(crate) count: i32,
 }
 unsafe fn block_count(mtab: *mut mapDef, mut c: i32) -> size_t {
     let mut count: size_t = 0i32 as size_t;
@@ -296,7 +296,7 @@ unsafe fn write_map(
     count as i32
 }
 
-pub unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
+pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
     let mut wbuf: sbuf = sbuf {
         buf: ptr::null_mut(),
         curptr: ptr::null_mut(),

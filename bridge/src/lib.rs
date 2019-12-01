@@ -15,7 +15,7 @@ use std::ptr::NonNull;
 
 extern "C" {
     #[no_mangle]
-    pub fn vsnprintf(_: *mut i8, _: u64, _: *const i8, _: ::std::ffi::VaList) -> i32;
+    pub(crate) fn vsnprintf(_: *mut i8, _: u64, _: *const i8, _: ::std::ffi::VaList) -> i32;
 }
 
 pub type size_t = usize;
@@ -29,8 +29,11 @@ pub type rust_input_handle_t = *mut libc::c_void;
 pub struct OutputHandleWrapper(NonNull<libc::c_void>);
 
 impl OutputHandleWrapper {
-    pub fn new(ptr: rust_output_handle_t) -> Option<Self> {
+    pub(crate) fn new(ptr: rust_output_handle_t) -> Option<Self> {
         NonNull::new(ptr).map(|nnp| Self(nnp))
+    }
+    pub fn as_ptr(&self) -> rust_output_handle_t {
+        self.0.as_ptr()
     }
 }
 
@@ -51,7 +54,13 @@ impl Write for OutputHandleWrapper {
 
 #[derive(Clone, PartialEq)]
 #[repr(transparent)]
-pub struct InputHandleWrapper(pub NonNull<libc::c_void>);
+pub struct InputHandleWrapper(pub(crate) NonNull<libc::c_void>);
+
+impl InputHandleWrapper {
+    pub fn as_ptr(&self) -> rust_input_handle_t {
+        self.0.as_ptr()
+    }
+}
 
 impl Read for InputHandleWrapper {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
@@ -74,7 +83,7 @@ impl Seek for InputHandleWrapper {
 }
 
 impl InputHandleWrapper {
-    pub fn new(ptr: rust_input_handle_t) -> Option<Self> {
+    pub(crate) fn new(ptr: rust_input_handle_t) -> Option<Self> {
         NonNull::new(ptr).map(|nnp| Self(nnp))
     }
 }
@@ -83,22 +92,22 @@ impl InputHandleWrapper {
 #[repr(C)]
 pub struct tt_bridge_api_t {
     pub context: *mut libc::c_void,
-    pub issue_warning: Option<unsafe extern "C" fn(_: *mut libc::c_void, _: *const i8) -> ()>,
-    pub issue_error: Option<unsafe extern "C" fn(_: *mut libc::c_void, _: *const i8) -> ()>,
+    pub issue_warning: Option<unsafe fn(_: *mut libc::c_void, _: *const i8) -> ()>,
+    pub issue_error: Option<unsafe fn(_: *mut libc::c_void, _: *const i8) -> ()>,
     pub get_file_md5:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: *const i8, _: *mut i8) -> i32>,
+        Option<unsafe fn(_: *mut libc::c_void, _: *const i8, _: *mut i8) -> i32>,
     pub get_data_md5: Option<
-        unsafe extern "C" fn(_: *mut libc::c_void, _: *const i8, _: size_t, _: *mut i8) -> i32,
+        unsafe fn(_: *mut libc::c_void, _: *const i8, _: size_t, _: *mut i8) -> i32,
     >,
     pub output_open: Option<
-        unsafe extern "C" fn(_: *mut libc::c_void, _: *const i8, _: i32) -> rust_output_handle_t,
+        unsafe fn(_: *mut libc::c_void, _: *const i8, _: i32) -> rust_output_handle_t,
     >,
     pub output_open_stdout:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void) -> rust_output_handle_t>,
+        Option<unsafe fn(_: *mut libc::c_void) -> rust_output_handle_t>,
     pub output_putc:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: rust_output_handle_t, _: i32) -> i32>,
+        Option<unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t, _: i32) -> i32>,
     pub output_write: Option<
-        unsafe extern "C" fn(
+        unsafe fn(
             _: *mut libc::c_void,
             _: rust_output_handle_t,
             _: *const i8,
@@ -106,11 +115,11 @@ pub struct tt_bridge_api_t {
         ) -> size_t,
     >,
     pub output_flush:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: rust_output_handle_t) -> i32>,
+        Option<unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t) -> i32>,
     pub output_close:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: rust_output_handle_t) -> i32>,
+        Option<unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t) -> i32>,
     pub input_open: Option<
-        unsafe extern "C" fn(
+        unsafe fn(
             _: *mut libc::c_void,
             _: *const i8,
             _: TTInputFormat,
@@ -118,11 +127,11 @@ pub struct tt_bridge_api_t {
         ) -> rust_input_handle_t,
     >,
     pub input_open_primary:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void) -> rust_input_handle_t>,
+        Option<unsafe fn(_: *mut libc::c_void) -> rust_input_handle_t>,
     pub input_get_size:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: rust_input_handle_t) -> size_t>,
+        Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> size_t>,
     pub input_seek: Option<
-        unsafe extern "C" fn(
+        unsafe fn(
             _: *mut libc::c_void,
             _: rust_input_handle_t,
             _: ssize_t,
@@ -131,7 +140,7 @@ pub struct tt_bridge_api_t {
         ) -> size_t,
     >,
     pub input_read: Option<
-        unsafe extern "C" fn(
+        unsafe fn(
             _: *mut libc::c_void,
             _: rust_input_handle_t,
             _: *mut i8,
@@ -139,11 +148,11 @@ pub struct tt_bridge_api_t {
         ) -> ssize_t,
     >,
     pub input_getc:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
+        Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
     pub input_ungetc:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: rust_input_handle_t, _: i32) -> i32>,
+        Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t, _: i32) -> i32>,
     pub input_close:
-        Option<unsafe extern "C" fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
+        Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
 }
 
 #[repr(C)]
@@ -196,7 +205,7 @@ where
     r
 }
 
-pub unsafe fn tt_get_current_bridge() -> Option<&'static tt_bridge_api_t> {
+pub(crate) unsafe fn tt_get_current_bridge() -> Option<&'static tt_bridge_api_t> {
     tectonic_global_bridge.as_ref()
 }
 
@@ -247,14 +256,14 @@ pub unsafe extern "C" fn ttstub_issue_error(mut format: *const i8, mut args: ...
         error_buf.as_mut_ptr() as *mut i8,
     );
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_get_file_md5(mut path: *const i8, mut digest: *mut i8) -> i32 {
+
+pub unsafe fn ttstub_get_file_md5(mut path: *const i8, mut digest: *mut i8) -> i32 {
     (*tectonic_global_bridge)
         .get_file_md5
         .expect("non-null function pointer")((*tectonic_global_bridge).context, path, digest)
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_get_data_md5(
+
+pub unsafe fn ttstub_get_data_md5(
     mut data: *const i8,
     mut len: size_t,
     mut digest: *mut i8,
@@ -265,8 +274,8 @@ pub unsafe extern "C" fn ttstub_get_data_md5(
         (*tectonic_global_bridge).context, data, len, digest
     )
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_output_open(
+
+pub unsafe fn ttstub_output_open(
     mut path: *const i8,
     mut is_gz: i32,
 ) -> Option<OutputHandleWrapper> {
@@ -278,16 +287,16 @@ pub unsafe extern "C" fn ttstub_output_open(
         is_gz,
     ))
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_output_open_stdout() -> Option<OutputHandleWrapper> {
+
+pub unsafe fn ttstub_output_open_stdout() -> Option<OutputHandleWrapper> {
     OutputHandleWrapper::new((*tectonic_global_bridge)
         .output_open_stdout
         .expect("non-null function pointer")(
         (*tectonic_global_bridge).context
     ))
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_output_putc(handle: &mut OutputHandleWrapper, mut c: i32) -> i32 {
+
+pub unsafe fn ttstub_output_putc(handle: &mut OutputHandleWrapper, mut c: i32) -> i32 {
     (*tectonic_global_bridge)
         .output_putc
         .expect("non-null function pointer")(
@@ -296,8 +305,8 @@ pub unsafe extern "C" fn ttstub_output_putc(handle: &mut OutputHandleWrapper, mu
         c,
     )
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_output_write(
+
+pub(crate) unsafe fn ttstub_output_write(
     mut handle: rust_output_handle_t,
     mut data: *const i8,
     mut len: size_t,
@@ -308,22 +317,22 @@ pub unsafe extern "C" fn ttstub_output_write(
         (*tectonic_global_bridge).context, handle, data, len
     )
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_output_flush(mut handle: rust_output_handle_t) -> i32 {
+
+pub(crate) unsafe fn ttstub_output_flush(mut handle: rust_output_handle_t) -> i32 {
     (*tectonic_global_bridge)
         .output_flush
         .expect("non-null function pointer")((*tectonic_global_bridge).context, handle)
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_output_close(mut handle: OutputHandleWrapper) -> i32 {
+
+pub unsafe fn ttstub_output_close(mut handle: OutputHandleWrapper) -> i32 {
     (*tectonic_global_bridge)
         .output_close
         .expect("non-null function pointer")(
         (*tectonic_global_bridge).context, handle.0.as_ptr()
     )
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_input_open(
+
+pub unsafe fn ttstub_input_open(
     mut path: *const i8,
     mut format: TTInputFormat,
     mut is_gz: i32,
@@ -337,24 +346,24 @@ pub unsafe extern "C" fn ttstub_input_open(
         is_gz,
     ))
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_input_open_primary() -> Option<InputHandleWrapper> {
+
+pub unsafe fn ttstub_input_open_primary() -> Option<InputHandleWrapper> {
     InputHandleWrapper::new((*tectonic_global_bridge)
         .input_open_primary
         .expect("non-null function pointer")(
         (*tectonic_global_bridge).context
     ))
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_input_get_size(handle: &mut InputHandleWrapper) -> size_t {
+
+pub unsafe fn ttstub_input_get_size(handle: &mut InputHandleWrapper) -> size_t {
     (*tectonic_global_bridge)
         .input_get_size
         .expect("non-null function pointer")(
         (*tectonic_global_bridge).context, handle.0.as_ptr()
     )
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_input_seek(
+
+pub(crate) unsafe fn ttstub_input_seek(
     mut handle: rust_input_handle_t,
     mut offset: ssize_t,
     mut whence: i32,
@@ -375,8 +384,7 @@ pub unsafe extern "C" fn ttstub_input_seek(
     }
     rv
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_input_read(
+pub unsafe fn ttstub_input_read(
     mut handle: rust_input_handle_t,
     mut data: *mut i8,
     mut len: size_t,
@@ -387,16 +395,16 @@ pub unsafe extern "C" fn ttstub_input_read(
         (*tectonic_global_bridge).context, handle, data, len
     )
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_input_getc(handle: &mut InputHandleWrapper) -> i32 {
+
+pub unsafe fn ttstub_input_getc(handle: &mut InputHandleWrapper) -> i32 {
     (*tectonic_global_bridge)
         .input_getc
         .expect("non-null function pointer")(
         (*tectonic_global_bridge).context, handle.0.as_ptr()
     )
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_input_ungetc(handle: &mut InputHandleWrapper, mut ch: i32) -> i32 {
+
+pub unsafe fn ttstub_input_ungetc(handle: &mut InputHandleWrapper, mut ch: i32) -> i32 {
     (*tectonic_global_bridge)
         .input_ungetc
         .expect("non-null function pointer")(
@@ -405,8 +413,8 @@ pub unsafe extern "C" fn ttstub_input_ungetc(handle: &mut InputHandleWrapper, mu
         ch,
     )
 }
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_input_close(mut handle: InputHandleWrapper) -> i32 {
+
+pub unsafe fn ttstub_input_close(mut handle: InputHandleWrapper) -> i32 {
     if (*tectonic_global_bridge)
         .input_close
         .expect("non-null function pointer")(
@@ -437,13 +445,13 @@ macro_rules! abort(
     }};
 );
 
-#[no_mangle]
-pub unsafe extern "C" fn tt_get_error_message() -> *const i8 {
+
+pub unsafe fn tt_get_error_message() -> *const i8 {
     error_buf.as_mut_ptr() as *mut i8
 }
 
 #[macro_use]
-pub mod macro_stub;
+pub(crate) mod macro_stub;
 pub mod stub_errno;
 
 pub trait DisplayExt {

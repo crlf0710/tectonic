@@ -34,156 +34,156 @@ use crate::warn;
 use super::dpx_mem::new;
 use super::dpx_sfnt::{sfnt_find_table_len, sfnt_find_table_pos, sfnt_locate_table};
 use crate::dpx_truetype::sfnt_table_info;
-use crate::ttstub_input_read;
+use crate::bridge::ttstub_input_read;
 
 use std::io::{Seek, SeekFrom};
 use std::ptr;
 
-pub type __ssize_t = i64;
-use crate::size_t;
-pub type Fixed = u32;
-pub type FWord = i16;
-pub type uFWord = u16;
+pub(crate) type __ssize_t = i64;
+use crate::bridge::size_t;
+pub(crate) type Fixed = u32;
+pub(crate) type FWord = i16;
+pub(crate) type uFWord = u16;
 
 use super::dpx_sfnt::{put_big_endian, sfnt};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct tt_head_table {
-    pub version: Fixed,
-    pub fontRevision: Fixed,
-    pub checkSumAdjustment: u32,
-    pub magicNumber: u32,
-    pub flags: u16,
-    pub unitsPerEm: u16,
-    pub created: [u8; 8],
-    pub modified: [u8; 8],
-    pub xMin: FWord,
-    pub yMin: FWord,
-    pub xMax: FWord,
-    pub yMax: FWord,
-    pub macStyle: u16,
-    pub lowestRecPPEM: u16,
-    pub fontDirectionHint: i16,
-    pub indexToLocFormat: i16,
-    pub glyphDataFormat: i16,
+pub(crate) struct tt_head_table {
+    pub(crate) version: Fixed,
+    pub(crate) fontRevision: Fixed,
+    pub(crate) checkSumAdjustment: u32,
+    pub(crate) magicNumber: u32,
+    pub(crate) flags: u16,
+    pub(crate) unitsPerEm: u16,
+    pub(crate) created: [u8; 8],
+    pub(crate) modified: [u8; 8],
+    pub(crate) xMin: FWord,
+    pub(crate) yMin: FWord,
+    pub(crate) xMax: FWord,
+    pub(crate) yMax: FWord,
+    pub(crate) macStyle: u16,
+    pub(crate) lowestRecPPEM: u16,
+    pub(crate) fontDirectionHint: i16,
+    pub(crate) indexToLocFormat: i16,
+    pub(crate) glyphDataFormat: i16,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct tt_hhea_table {
-    pub version: Fixed,
-    pub ascent: FWord,
-    pub descent: FWord,
-    pub lineGap: FWord,
-    pub advanceWidthMax: uFWord,
-    pub minLeftSideBearing: FWord,
-    pub minRightSideBearing: FWord,
-    pub xMaxExtent: FWord,
-    pub caretSlopeRise: i16,
-    pub caretSlopeRun: i16,
-    pub caretOffset: FWord,
-    pub reserved: [i16; 4],
-    pub metricDataFormat: i16,
-    pub numOfLongHorMetrics: u16,
-    pub numOfExSideBearings: u16,
+pub(crate) struct tt_hhea_table {
+    pub(crate) version: Fixed,
+    pub(crate) ascent: FWord,
+    pub(crate) descent: FWord,
+    pub(crate) lineGap: FWord,
+    pub(crate) advanceWidthMax: uFWord,
+    pub(crate) minLeftSideBearing: FWord,
+    pub(crate) minRightSideBearing: FWord,
+    pub(crate) xMaxExtent: FWord,
+    pub(crate) caretSlopeRise: i16,
+    pub(crate) caretSlopeRun: i16,
+    pub(crate) caretOffset: FWord,
+    pub(crate) reserved: [i16; 4],
+    pub(crate) metricDataFormat: i16,
+    pub(crate) numOfLongHorMetrics: u16,
+    pub(crate) numOfExSideBearings: u16,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct tt_vhea_table {
-    pub version: Fixed,
-    pub vertTypoAscender: i16,
-    pub vertTypoDescender: i16,
-    pub vertTypoLineGap: i16,
-    pub advanceHeightMax: i16,
-    pub minTopSideBearing: i16,
-    pub minBottomSideBearing: i16,
-    pub yMaxExtent: i16,
-    pub caretSlopeRise: i16,
-    pub caretSlopeRun: i16,
-    pub caretOffset: i16,
-    pub reserved: [i16; 4],
-    pub metricDataFormat: i16,
-    pub numOfLongVerMetrics: u16,
-    pub numOfExSideBearings: u16,
+pub(crate) struct tt_vhea_table {
+    pub(crate) version: Fixed,
+    pub(crate) vertTypoAscender: i16,
+    pub(crate) vertTypoDescender: i16,
+    pub(crate) vertTypoLineGap: i16,
+    pub(crate) advanceHeightMax: i16,
+    pub(crate) minTopSideBearing: i16,
+    pub(crate) minBottomSideBearing: i16,
+    pub(crate) yMaxExtent: i16,
+    pub(crate) caretSlopeRise: i16,
+    pub(crate) caretSlopeRun: i16,
+    pub(crate) caretOffset: i16,
+    pub(crate) reserved: [i16; 4],
+    pub(crate) metricDataFormat: i16,
+    pub(crate) numOfLongVerMetrics: u16,
+    pub(crate) numOfExSideBearings: u16,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct tt_maxp_table {
-    pub version: Fixed,
-    pub numGlyphs: u16,
-    pub maxPoints: u16,
-    pub maxContours: u16,
-    pub maxComponentPoints: u16,
-    pub maxComponentContours: u16,
-    pub maxZones: u16,
-    pub maxTwilightPoints: u16,
-    pub maxStorage: u16,
-    pub maxFunctionDefs: u16,
-    pub maxInstructionDefs: u16,
-    pub maxStackElements: u16,
-    pub maxSizeOfInstructions: u16,
-    pub maxComponentElements: u16,
-    pub maxComponentDepth: u16,
+pub(crate) struct tt_maxp_table {
+    pub(crate) version: Fixed,
+    pub(crate) numGlyphs: u16,
+    pub(crate) maxPoints: u16,
+    pub(crate) maxContours: u16,
+    pub(crate) maxComponentPoints: u16,
+    pub(crate) maxComponentContours: u16,
+    pub(crate) maxZones: u16,
+    pub(crate) maxTwilightPoints: u16,
+    pub(crate) maxStorage: u16,
+    pub(crate) maxFunctionDefs: u16,
+    pub(crate) maxInstructionDefs: u16,
+    pub(crate) maxStackElements: u16,
+    pub(crate) maxSizeOfInstructions: u16,
+    pub(crate) maxComponentElements: u16,
+    pub(crate) maxComponentDepth: u16,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct tt_os2__table {
-    pub version: u16,
-    pub xAvgCharWidth: i16,
-    pub usWeightClass: u16,
-    pub usWidthClass: u16,
-    pub fsType: i16,
-    pub ySubscriptXSize: i16,
-    pub ySubscriptYSize: i16,
-    pub ySubscriptXOffset: i16,
-    pub ySubscriptYOffset: i16,
-    pub ySuperscriptXSize: i16,
-    pub ySuperscriptYSize: i16,
-    pub ySuperscriptXOffset: i16,
-    pub ySuperscriptYOffset: i16,
-    pub yStrikeoutSize: i16,
-    pub yStrikeoutPosition: i16,
-    pub sFamilyClass: i16,
-    pub panose: [u8; 10],
-    pub ulUnicodeRange1: u32,
-    pub ulUnicodeRange2: u32,
-    pub ulUnicodeRange3: u32,
-    pub ulUnicodeRange4: u32,
-    pub achVendID: [i8; 4],
-    pub fsSelection: u16,
-    pub usFirstCharIndex: u16,
-    pub usLastCharIndex: u16,
-    pub sTypoAscender: i16,
-    pub sTypoDescender: i16,
-    pub sTypoLineGap: i16,
-    pub usWinAscent: u16,
-    pub usWinDescent: u16,
-    pub ulCodePageRange1: u32,
-    pub ulCodePageRange2: u32,
-    pub sxHeight: i16,
-    pub sCapHeight: i16,
-    pub usDefaultChar: u16,
-    pub usBreakChar: u16,
-    pub usMaxContext: u16,
+pub(crate) struct tt_os2__table {
+    pub(crate) version: u16,
+    pub(crate) xAvgCharWidth: i16,
+    pub(crate) usWeightClass: u16,
+    pub(crate) usWidthClass: u16,
+    pub(crate) fsType: i16,
+    pub(crate) ySubscriptXSize: i16,
+    pub(crate) ySubscriptYSize: i16,
+    pub(crate) ySubscriptXOffset: i16,
+    pub(crate) ySubscriptYOffset: i16,
+    pub(crate) ySuperscriptXSize: i16,
+    pub(crate) ySuperscriptYSize: i16,
+    pub(crate) ySuperscriptXOffset: i16,
+    pub(crate) ySuperscriptYOffset: i16,
+    pub(crate) yStrikeoutSize: i16,
+    pub(crate) yStrikeoutPosition: i16,
+    pub(crate) sFamilyClass: i16,
+    pub(crate) panose: [u8; 10],
+    pub(crate) ulUnicodeRange1: u32,
+    pub(crate) ulUnicodeRange2: u32,
+    pub(crate) ulUnicodeRange3: u32,
+    pub(crate) ulUnicodeRange4: u32,
+    pub(crate) achVendID: [i8; 4],
+    pub(crate) fsSelection: u16,
+    pub(crate) usFirstCharIndex: u16,
+    pub(crate) usLastCharIndex: u16,
+    pub(crate) sTypoAscender: i16,
+    pub(crate) sTypoDescender: i16,
+    pub(crate) sTypoLineGap: i16,
+    pub(crate) usWinAscent: u16,
+    pub(crate) usWinDescent: u16,
+    pub(crate) ulCodePageRange1: u32,
+    pub(crate) ulCodePageRange2: u32,
+    pub(crate) sxHeight: i16,
+    pub(crate) sCapHeight: i16,
+    pub(crate) usDefaultChar: u16,
+    pub(crate) usBreakChar: u16,
+    pub(crate) usMaxContext: u16,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct tt_vertOriginYMetrics {
-    pub glyphIndex: u16,
-    pub vertOriginY: i16,
+pub(crate) struct tt_vertOriginYMetrics {
+    pub(crate) glyphIndex: u16,
+    pub(crate) vertOriginY: i16,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct tt_VORG_table {
-    pub defaultVertOriginY: i16,
-    pub numVertOriginYMetrics: u16,
-    pub vertOriginYMetrics: *mut tt_vertOriginYMetrics,
+pub(crate) struct tt_VORG_table {
+    pub(crate) defaultVertOriginY: i16,
+    pub(crate) numVertOriginYMetrics: u16,
+    pub(crate) vertOriginYMetrics: *mut tt_vertOriginYMetrics,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct tt_longMetrics {
-    pub advance: u16,
-    pub sideBearing: i16,
+pub(crate) struct tt_longMetrics {
+    pub(crate) advance: u16,
+    pub(crate) sideBearing: i16,
 }
 /*
   tables contains information refered by other tables
@@ -193,7 +193,7 @@ pub struct tt_longMetrics {
   head->glyphDataFormat --> glyf
 */
 
-pub unsafe fn tt_pack_head_table(table: *mut tt_head_table) -> *mut i8 {
+pub(crate) unsafe fn tt_pack_head_table(table: *mut tt_head_table) -> *mut i8 {
     if table.is_null() {
         panic!("passed NULL pointer\n");
     }
@@ -249,7 +249,7 @@ pub unsafe fn tt_pack_head_table(table: *mut tt_head_table) -> *mut i8 {
     data
 }
 
-pub unsafe fn tt_read_head_table(sfont: *mut sfnt) -> *mut tt_head_table {
+pub(crate) unsafe fn tt_read_head_table(sfont: *mut sfnt) -> *mut tt_head_table {
     let mut table: *mut tt_head_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_head_table>() as u64)
         as u32) as *mut tt_head_table;
@@ -279,7 +279,7 @@ pub unsafe fn tt_read_head_table(sfont: *mut sfnt) -> *mut tt_head_table {
     table
 }
 
-pub unsafe fn tt_pack_maxp_table(table: *mut tt_maxp_table) -> *mut i8 {
+pub(crate) unsafe fn tt_pack_maxp_table(table: *mut tt_maxp_table) -> *mut i8 {
     let data = new((32u64 as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
         as *mut i8;
     let mut p = data;
@@ -338,7 +338,7 @@ pub unsafe fn tt_pack_maxp_table(table: *mut tt_maxp_table) -> *mut i8 {
     data
 }
 
-pub unsafe fn tt_read_maxp_table(sfont: *mut sfnt) -> *mut tt_maxp_table {
+pub(crate) unsafe fn tt_read_maxp_table(sfont: *mut sfnt) -> *mut tt_maxp_table {
     let mut table: *mut tt_maxp_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_maxp_table>() as u64)
         as u32) as *mut tt_maxp_table;
@@ -362,7 +362,7 @@ pub unsafe fn tt_read_maxp_table(sfont: *mut sfnt) -> *mut tt_maxp_table {
     table
 }
 
-pub unsafe fn tt_pack_hhea_table(table: *mut tt_hhea_table) -> *mut i8 {
+pub(crate) unsafe fn tt_pack_hhea_table(table: *mut tt_hhea_table) -> *mut i8 {
     let data = new((36u64 as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
         as *mut i8;
     let mut p = data;
@@ -412,7 +412,7 @@ pub unsafe fn tt_pack_hhea_table(table: *mut tt_hhea_table) -> *mut i8 {
     data
 }
 
-pub unsafe fn tt_read_hhea_table(sfont: *mut sfnt) -> *mut tt_hhea_table {
+pub(crate) unsafe fn tt_read_hhea_table(sfont: *mut sfnt) -> *mut tt_hhea_table {
     let mut table: *mut tt_hhea_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_hhea_table>() as u64)
         as u32) as *mut tt_hhea_table;
@@ -445,7 +445,7 @@ pub unsafe fn tt_read_hhea_table(sfont: *mut sfnt) -> *mut tt_hhea_table {
 }
 /* vhea */
 
-pub unsafe fn tt_read_vhea_table(sfont: *mut sfnt) -> *mut tt_vhea_table {
+pub(crate) unsafe fn tt_read_vhea_table(sfont: *mut sfnt) -> *mut tt_vhea_table {
     let mut table: *mut tt_vhea_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_vhea_table>() as u64)
         as u32) as *mut tt_vhea_table;
@@ -474,7 +474,7 @@ pub unsafe fn tt_read_vhea_table(sfont: *mut sfnt) -> *mut tt_vhea_table {
     table
 }
 
-pub unsafe fn tt_read_VORG_table(sfont: *mut sfnt) -> *mut tt_VORG_table {
+pub(crate) unsafe fn tt_read_VORG_table(sfont: *mut sfnt) -> *mut tt_VORG_table {
     let offset = sfnt_find_table_pos(sfont, b"VORG");
     let handle = &mut (*sfont).handle;
     if offset > 0_u32 {
@@ -512,7 +512,7 @@ pub unsafe fn tt_read_VORG_table(sfont: *mut sfnt) -> *mut tt_VORG_table {
  *  Reading/writing hmtx and vmtx depend on other tables, maxp and hhea/vhea.
  */
 
-pub unsafe fn tt_read_longMetrics(
+pub(crate) unsafe fn tt_read_longMetrics(
     sfont: *mut sfnt,
     numGlyphs: u16,
     numLongMetrics: u16,
@@ -539,7 +539,7 @@ pub unsafe fn tt_read_longMetrics(
 /* OS/2 table */
 /* this table may not exist */
 
-pub unsafe fn tt_read_os2__table(sfont: *mut sfnt) -> *mut tt_os2__table {
+pub(crate) unsafe fn tt_read_os2__table(sfont: *mut sfnt) -> *mut tt_os2__table {
     let table = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_os2__table>() as u64) as u32)
         as *mut tt_os2__table;
     let handle = &mut (*sfont).handle;
@@ -659,7 +659,7 @@ unsafe fn tt_get_name(
                 ))
                 .unwrap();
             ttstub_input_read(
-                handle.0.as_ptr(),
+                handle.as_ptr(),
                 dest as *mut u8 as *mut i8,
                 length as size_t,
             );
@@ -695,7 +695,7 @@ unsafe fn tt_get_name(
 /* OS/2 table */
 /* name table */
 
-pub unsafe fn tt_get_ps_fontname(sfont: *mut sfnt, dest: *mut i8, destlen: u16) -> u16 {
+pub(crate) unsafe fn tt_get_ps_fontname(sfont: *mut sfnt, dest: *mut i8, destlen: u16) -> u16 {
     /* First try Mac-Roman PS name and then Win-Unicode PS name */
     let mut namelen = tt_get_name(sfont, dest, destlen, 1_u16, 0_u16, 0_u16, 6_u16);
     if namelen as i32 != 0i32

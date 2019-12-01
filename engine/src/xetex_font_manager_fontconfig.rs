@@ -19,8 +19,8 @@ use freetype::freetype_sys::{
 use freetype::freetype_sys::{FT_Done_Face, FT_Get_Postscript_Name, FT_Init_FreeType, FT_New_Face};
 
 extern "C" {
-    pub type _FcPattern;
-    pub type _FcConfig;
+    pub(crate) type _FcPattern;
+    pub(crate) type _FcConfig;
     #[no_mangle]
     fn FcConfigGetCurrent() -> *mut FcConfig;
     #[no_mangle]
@@ -91,40 +91,40 @@ extern "C" {
     );
 }
 use crate::size_t;
-pub type __int16_t = libc::c_short;
-pub type __uint16_t = libc::c_ushort;
-pub type __int32_t = libc::c_int;
-pub type int16_t = __int16_t;
-pub type int32_t = __int32_t;
-pub type uint16_t = __uint16_t;
-pub type FcChar8 = libc::c_uchar;
-pub type FcBool = libc::c_int;
-pub type _FcResult = libc::c_uint;
-pub const FcResultOutOfMemory: _FcResult = 4;
-pub const FcResultNoId: _FcResult = 3;
-pub const FcResultTypeMismatch: _FcResult = 2;
-pub const FcResultNoMatch: _FcResult = 1;
-pub const FcResultMatch: _FcResult = 0;
-pub type FcResult = _FcResult;
-pub type FcPattern = _FcPattern;
+pub(crate) type __int16_t = libc::c_short;
+pub(crate) type __uint16_t = libc::c_ushort;
+pub(crate) type __int32_t = libc::c_int;
+pub(crate) type int16_t = __int16_t;
+pub(crate) type int32_t = __int32_t;
+pub(crate) type uint16_t = __uint16_t;
+pub(crate) type FcChar8 = libc::c_uchar;
+pub(crate) type FcBool = libc::c_int;
+pub(crate) type _FcResult = libc::c_uint;
+pub(crate) const FcResultOutOfMemory: _FcResult = 4;
+pub(crate) const FcResultNoId: _FcResult = 3;
+pub(crate) const FcResultTypeMismatch: _FcResult = 2;
+pub(crate) const FcResultNoMatch: _FcResult = 1;
+pub(crate) const FcResultMatch: _FcResult = 0;
+pub(crate) type FcResult = _FcResult;
+pub(crate) type FcPattern = _FcPattern;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct _FcFontSet {
-    pub nfont: libc::c_int,
-    pub sfont: libc::c_int,
-    pub fonts: *mut *mut FcPattern,
+pub(crate) struct _FcFontSet {
+    pub(crate) nfont: libc::c_int,
+    pub(crate) sfont: libc::c_int,
+    pub(crate) fonts: *mut *mut FcPattern,
 }
-pub type FcFontSet = _FcFontSet;
+pub(crate) type FcFontSet = _FcFontSet;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct _FcObjectSet {
-    pub nobject: libc::c_int,
-    pub sobject: libc::c_int,
-    pub objects: *mut *const libc::c_char,
+pub(crate) struct _FcObjectSet {
+    pub(crate) nobject: libc::c_int,
+    pub(crate) sobject: libc::c_int,
+    pub(crate) objects: *mut *const libc::c_char,
 }
-pub type FcObjectSet = _FcObjectSet;
-pub type FcConfig = _FcConfig;
-pub type PlatformFontRef = *mut FcPattern;
+pub(crate) type FcObjectSet = _FcObjectSet;
+pub(crate) type FcConfig = _FcConfig;
+pub(crate) type PlatformFontRef = *mut FcPattern;
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International
@@ -191,10 +191,10 @@ authorization from the copyright holders.
 \****************************************************************************/
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct XeTeXFontMgr_FC {
-    pub super_: XeTeXFontMgr,
-    pub allFonts: *mut FcFontSet,
-    pub cachedAll: bool,
+pub(crate) struct XeTeXFontMgr_FC {
+    pub(crate) super_: XeTeXFontMgr,
+    pub(crate) allFonts: *mut FcFontSet,
+    pub(crate) cachedAll: bool,
 }
 #[inline]
 unsafe extern "C" fn XeTeXFontMgrNameCollection_create() -> *mut XeTeXFontMgrNameCollection {
@@ -286,7 +286,7 @@ unsafe extern "C" fn convertToUtf8(
     return buffer2;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
     mut self_0: *mut XeTeXFontMgr,
     mut pat: *mut FcPattern,
 ) -> *mut XeTeXFontMgrNameCollection {
@@ -463,7 +463,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
     return names;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags(
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags(
     mut self_0: *mut XeTeXFontMgr,
     mut theFont: *mut XeTeXFontMgrFont,
 ) {
@@ -505,7 +505,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_cacheFamilyMembers(
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_cacheFamilyMembers(
     mut self_0: *mut XeTeXFontMgr,
     mut familyNames: *const CppStdListOfString,
 ) {
@@ -544,7 +544,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_cacheFamilyMembers(
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
     mut self_0: *mut XeTeXFontMgr,
     mut name: *const libc::c_char,
 ) {
@@ -662,7 +662,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
     CppStdString_delete(famName);
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_initialize(mut self_0: *mut XeTeXFontMgr) {
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_initialize(mut self_0: *mut XeTeXFontMgr) {
     let mut real_self: *mut XeTeXFontMgr_FC = self_0 as *mut XeTeXFontMgr_FC;
     if FcInit() == 0i32 {
         abort!("fontconfig initialization failed");
@@ -700,7 +700,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_initialize(mut self_0: *mut XeTeXFontMg
     (*real_self).cachedAll = 0i32 != 0;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_terminate(mut self_0: *mut XeTeXFontMgr) {
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_terminate(mut self_0: *mut XeTeXFontMgr) {
     let mut real_self: *mut XeTeXFontMgr_FC = self_0 as *mut XeTeXFontMgr_FC;
     FcFontSetDestroy((*real_self).allFonts);
     (*real_self).allFonts = 0 as *mut FcFontSet;
@@ -718,7 +718,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_terminate(mut self_0: *mut XeTeXFontMgr
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
     mut _self_0: *const XeTeXFontMgr,
     mut font: PlatformFontRef,
 ) -> *mut libc::c_char {
@@ -739,7 +739,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
     return path;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_ctor(mut self_0: *mut XeTeXFontMgr_FC) {
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_ctor(mut self_0: *mut XeTeXFontMgr_FC) {
     XeTeXFontMgr_base_ctor(&mut (*self_0).super_);
     (*self_0).super_.m_memfnInitialize =
         Some(XeTeXFontMgr_FC_initialize as unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ());
@@ -769,7 +769,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_ctor(mut self_0: *mut XeTeXFontMgr_FC) 
     );
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_FC_create() -> *mut XeTeXFontMgr_FC {
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_create() -> *mut XeTeXFontMgr_FC {
     let mut self_0: *mut XeTeXFontMgr_FC =
         malloc(::std::mem::size_of::<XeTeXFontMgr_FC>() as libc::c_ulong) as *mut XeTeXFontMgr_FC;
     XeTeXFontMgr_FC_ctor(self_0);

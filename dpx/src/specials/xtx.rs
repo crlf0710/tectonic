@@ -24,7 +24,7 @@
     non_snake_case,
 )]
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 
 use super::util::{spc_util_read_colorspec, spc_util_read_numbers};
 use crate::dpx_dpxutil::ParseCIdent;
@@ -63,7 +63,7 @@ use crate::dpx_pdfdev::TMatrix;
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 
-pub unsafe fn spc_handler_xtx_do_transform(
+pub(crate) unsafe fn spc_handler_xtx_do_transform(
     x_user: f64,
     y_user: f64,
     a: f64,
@@ -162,12 +162,12 @@ unsafe fn spc_handler_xtx_rotate(spe: *mut spc_env, mut args: *mut spc_arg) -> i
     )
 }
 
-pub unsafe fn spc_handler_xtx_gsave(mut _spe: *mut spc_env, mut _args: *mut spc_arg) -> i32 {
+pub(crate) unsafe fn spc_handler_xtx_gsave(mut _spe: *mut spc_env, mut _args: *mut spc_arg) -> i32 {
     pdf_dev_gsave();
     0i32
 }
 
-pub unsafe fn spc_handler_xtx_grestore(mut _spe: *mut spc_env, mut _args: *mut spc_arg) -> i32 {
+pub(crate) unsafe fn spc_handler_xtx_grestore(mut _spe: *mut spc_env, mut _args: *mut spc_arg) -> i32 {
     pdf_dev_grestore();
     /*
      * Unfortunately, the following line is necessary in case
@@ -423,12 +423,12 @@ const XTX_HANDLERS: [SpcHandler; 21] = [
         exec: Some(spc_handler_xtx_clipoverlay),
     },
 ];
-pub fn spc_xtx_check_special(mut buf: &[u8]) -> bool {
+pub(crate) fn spc_xtx_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
     buf.starts_with(b"x:")
 }
 
-pub unsafe fn spc_xtx_setup_handler(
+pub(crate) unsafe fn spc_xtx_setup_handler(
     mut sph: *mut SpcHandler,
     spe: *mut spc_env,
     mut ap: *mut spc_arg,

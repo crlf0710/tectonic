@@ -90,7 +90,7 @@ unsafe fn skip_comments(inbuf: *mut *mut u8, inbufend: *mut u8) {
 }
 /* NOTE: the input buffer must be null-terminated, i.e., *inbufend == 0 */
 
-pub unsafe fn pst_get_token(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut pst_obj {
+pub(crate) unsafe fn pst_get_token(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut pst_obj {
     let mut obj: *mut pst_obj = ptr::null_mut();
     assert!(*inbuf <= inbufend && *inbufend == 0);
     skip_white_spaces(inbuf, inbufend);

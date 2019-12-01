@@ -39,19 +39,19 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{is_char_node, is_non_discardable_node};
 
-pub type scaled_t = i32;
-pub type UTF16_code = u16;
-pub type UnicodeScalar = i32;
-pub type pool_pointer = i32;
-pub type str_number = i32;
-pub type packed_UTF16_code = u16;
-pub type small_number = i16;
-pub type internal_font_number = i32;
-pub type font_index = i32;
-pub type nine_bits = i32;
-pub type trie_pointer = i32;
-pub type trie_opcode = u16;
-pub type hyph_pointer = u16;
+pub(crate) type scaled_t = i32;
+pub(crate) type UTF16_code = u16;
+pub(crate) type UnicodeScalar = i32;
+pub(crate) type pool_pointer = i32;
+pub(crate) type str_number = i32;
+pub(crate) type packed_UTF16_code = u16;
+pub(crate) type small_number = i16;
+pub(crate) type internal_font_number = i32;
+pub(crate) type font_index = i32;
+pub(crate) type nine_bits = i32;
+pub(crate) type trie_pointer = i32;
+pub(crate) type trie_opcode = u16;
+pub(crate) type hyph_pointer = u16;
 
 const AWFUL_BAD: i32 = 0x3FFFFFFF;
 const VERY_LOOSE_FIT: usize = 0;
@@ -126,7 +126,7 @@ unsafe extern "C" fn get_native_usv(mut p: i32, mut i: i32) -> UnicodeScalar {
  * completion, `just_box` will point to the final box created.
  */
 #[no_mangle]
-pub unsafe extern "C" fn line_break(mut d: bool) {
+pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
     let mut current_block: u64; /* "this is for over/underfull box messages" */
     let mut auto_breaking: bool = false;
     let mut prev_p: i32 = 0;

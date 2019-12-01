@@ -14,11 +14,11 @@ use super::xetex_ini::{
     selector, str_pool, str_ptr, str_start, tally, term_offset, trick_buf, trick_count, write_file,
 };
 use super::xetex_ini::{memory_word, Selector};
-use crate::ttstub_output_putc;
+use bridge::ttstub_output_putc;
 
 use libc::strlen;
 
-pub type scaled_t = i32;
+pub(crate) type scaled_t = i32;
 
 /* tectonic/xetex-xetexd.h -- many, many XeTeX symbol definitions
    Copyright 2016-2018 The Tectonic Project
@@ -28,19 +28,19 @@ pub type scaled_t = i32;
 /* Array allocations. Add 1 to size to account for Pascal indexing convention. */
 /*11:*/
 /*18: */
-pub type UTF16_code = u16;
-pub type eight_bits = u8;
-pub type pool_pointer = i32;
-pub type str_number = i32;
-pub type packed_UTF16_code = u16;
-pub type small_number = i16;
+pub(crate) type UTF16_code = u16;
+pub(crate) type eight_bits = u8;
+pub(crate) type pool_pointer = i32;
+pub(crate) type str_number = i32;
+pub(crate) type packed_UTF16_code = u16;
+pub(crate) type small_number = i16;
 /* xetex-output */
 /* tectonic/output.c -- functions related to outputting messages
  * Copyright 2016 the Tectonic Project
  * Licensed under the MIT License.
 */
 #[no_mangle]
-pub unsafe extern "C" fn print_ln() {
+pub(crate) unsafe extern "C" fn print_ln() {
     match selector {
         Selector::TERM_AND_LOG => {
             ttstub_output_putc(rust_stdout.as_mut().unwrap(), '\n' as i32);
@@ -66,7 +66,7 @@ pub unsafe extern "C" fn print_ln() {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_raw_char(mut s: UTF16_code, mut incr_offset: bool) {
+pub(crate) unsafe extern "C" fn print_raw_char(mut s: UTF16_code, mut incr_offset: bool) {
     match selector {
         Selector::TERM_AND_LOG => {
             let stdout = rust_stdout.as_mut().unwrap();
@@ -126,7 +126,7 @@ pub unsafe extern "C" fn print_raw_char(mut s: UTF16_code, mut incr_offset: bool
     tally += 1;
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_char(mut s: i32) {
+pub(crate) unsafe extern "C" fn print_char(mut s: i32) {
     let mut l: small_number = 0;
     if (u8::from(selector) > u8::from(Selector::PSEUDO)) && !doing_special {
         if s >= 0x10000i32 {
@@ -217,7 +217,7 @@ pub unsafe extern "C" fn print_char(mut s: i32) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn print(mut s: i32) {
+pub(crate) unsafe extern "C" fn print(mut s: i32) {
     let mut nl: i32 = 0;
     if s >= str_ptr {
         return print_cstr(b"???\x00" as *const u8 as *const i8);
@@ -381,13 +381,13 @@ pub unsafe extern "C" fn print(mut s: i32) {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_cstr(mut str: *const i8) {
+pub(crate) unsafe extern "C" fn print_cstr(mut str: *const i8) {
     for i in 0..strlen(str) {
         print_char(*str.offset(i as isize) as i32);
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_nl(mut s: str_number) {
+pub(crate) unsafe extern "C" fn print_nl(mut s: str_number) {
     if term_offset > 0i32 && u8::from(selector) & 1 != 0
         || file_offset > 0i32 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
     {
@@ -396,7 +396,7 @@ pub unsafe extern "C" fn print_nl(mut s: str_number) {
     print(s);
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_nl_cstr(mut str: *const i8) {
+pub(crate) unsafe extern "C" fn print_nl_cstr(mut str: *const i8) {
     if term_offset > 0i32 && u8::from(selector) & 1 != 0
         || file_offset > 0i32 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
     {
@@ -405,7 +405,7 @@ pub unsafe extern "C" fn print_nl_cstr(mut str: *const i8) {
     print_cstr(str);
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_esc(mut s: str_number) {
+pub(crate) unsafe extern "C" fn print_esc(mut s: str_number) {
     let mut c: i32 = (*eqtb.offset(
         (1i32
             + (0x10ffffi32 + 1i32)
@@ -441,7 +441,7 @@ pub unsafe extern "C" fn print_esc(mut s: str_number) {
     print(s);
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_esc_cstr(mut s: *const i8) {
+pub(crate) unsafe extern "C" fn print_esc_cstr(mut s: *const i8) {
     let mut c: i32 = (*eqtb.offset(
         (1i32
             + (0x10ffffi32 + 1i32)
@@ -487,7 +487,7 @@ unsafe extern "C" fn print_the_digs(mut k: eight_bits) {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_int(mut n: i32) {
+pub(crate) unsafe extern "C" fn print_int(mut n: i32) {
     let mut k: u8 = 0_u8;
     let mut m: i32 = 0;
     if n < 0i32 {
@@ -518,7 +518,7 @@ pub unsafe extern "C" fn print_int(mut n: i32) {
     print_the_digs(k);
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_cs(mut p: i32) {
+pub(crate) unsafe extern "C" fn print_cs(mut p: i32) {
     if p < 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 {
         if p >= 1i32 + (0x10ffffi32 + 1i32) {
             if p == 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) {
@@ -609,7 +609,7 @@ pub unsafe extern "C" fn print_cs(mut p: i32) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn sprint_cs(mut p: i32) {
+pub(crate) unsafe extern "C" fn sprint_cs(mut p: i32) {
     if p < 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 {
         if p < 1i32 + (0x10ffffi32 + 1i32) {
             print_char(p - 1i32);
@@ -624,7 +624,7 @@ pub unsafe extern "C" fn sprint_cs(mut p: i32) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_file_name(mut n: i32, mut a: i32, mut e: i32) {
+pub(crate) unsafe extern "C" fn print_file_name(mut n: i32, mut a: i32, mut e: i32) {
     let mut must_quote: bool = false;
     let mut quote_char: i32 = 0i32;
     let mut j: pool_pointer = 0;
@@ -747,7 +747,7 @@ pub unsafe extern "C" fn print_file_name(mut n: i32, mut a: i32, mut e: i32) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_size(mut s: i32) {
+pub(crate) unsafe extern "C" fn print_size(mut s: i32) {
     if s == 0i32 {
         print_esc_cstr(b"textfont\x00" as *const u8 as *const i8);
     } else if s == 256i32 {
@@ -757,7 +757,7 @@ pub unsafe extern "C" fn print_size(mut s: i32) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_write_whatsit(mut s: *const i8, mut p: i32) {
+pub(crate) unsafe extern "C" fn print_write_whatsit(mut s: *const i8, mut p: i32) {
     print_esc_cstr(s);
     if (*mem.offset((p + 1i32) as isize)).b32.s0 < 16i32 {
         print_int((*mem.offset((p + 1i32) as isize)).b32.s0);
@@ -768,7 +768,7 @@ pub unsafe extern "C" fn print_write_whatsit(mut s: *const i8, mut p: i32) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_native_word(mut p: i32) {
+pub(crate) unsafe extern "C" fn print_native_word(mut p: i32) {
     let mut i: i32 = 0;
     let mut c: i32 = 0;
     let mut cc: i32 = 0;
@@ -798,7 +798,7 @@ pub unsafe extern "C" fn print_native_word(mut p: i32) {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_sa_num(mut q: i32) {
+pub(crate) unsafe extern "C" fn print_sa_num(mut q: i32) {
     let mut n: i32 = 0;
     if ((*mem.offset(q as isize)).b16.s1 as i32) < 128i32 {
         n = (*mem.offset((q + 1i32) as isize)).b32.s1
@@ -818,7 +818,7 @@ pub unsafe extern "C" fn print_sa_num(mut q: i32) {
     print_int(n);
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_file_line() {
+pub(crate) unsafe extern "C" fn print_file_line() {
     let mut level: i32 = in_open;
     while level > 0i32 && *full_source_filename_stack.offset(level as isize) == 0i32 {
         level -= 1
@@ -841,13 +841,13 @@ pub unsafe extern "C" fn print_file_line() {
 /*:251 */
 /*:1660*/
 #[no_mangle]
-pub unsafe extern "C" fn print_two(mut n: i32) {
+pub(crate) unsafe extern "C" fn print_two(mut n: i32) {
     n = n.abs() % 100i32;
     print_char('0' as i32 + n / 10i32);
     print_char('0' as i32 + n % 10i32);
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_hex(mut n: i32) {
+pub(crate) unsafe extern "C" fn print_hex(mut n: i32) {
     let mut k: u8 = 0_u8;
     print_char('\"' as i32);
     loop {
@@ -861,7 +861,7 @@ pub unsafe extern "C" fn print_hex(mut n: i32) {
     print_the_digs(k);
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_roman_int(mut n: i32) {
+pub(crate) unsafe extern "C" fn print_roman_int(mut n: i32) {
     let mut u: i32 = 0;
     let mut v: i32 = 0;
     let mut roman_data: *const i8 = b"m2d5c2l5x2v5i\x00" as *const u8 as *const i8;
@@ -892,7 +892,7 @@ pub unsafe extern "C" fn print_roman_int(mut n: i32) {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_current_string() {
+pub(crate) unsafe extern "C" fn print_current_string() {
     let mut j: pool_pointer = *str_start.offset((str_ptr - 0x10000i32) as isize);
     while j < pool_ptr {
         print_char(*str_pool.offset(j as isize) as i32);
@@ -900,7 +900,7 @@ pub unsafe extern "C" fn print_current_string() {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn print_scaled(mut s: scaled_t) {
+pub(crate) unsafe extern "C" fn print_scaled(mut s: scaled_t) {
     let mut delta: scaled_t = 0;
     if s < 0i32 {
         print_char('-' as i32);

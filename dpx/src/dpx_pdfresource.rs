@@ -28,7 +28,7 @@
 
 use crate::streq_ptr;
 use crate::warn;
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use std::ffi::CStr;
 use std::ptr;
 
@@ -39,26 +39,26 @@ use libc::{free, strcpy, strlen};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct pdf_res {
-    pub ident: *mut i8,
-    pub flags: i32,
-    pub category: i32,
-    pub cdata: *mut libc::c_void,
-    pub object: *mut pdf_obj,
-    pub reference: *mut pdf_obj,
+pub(crate) struct pdf_res {
+    pub(crate) ident: *mut i8,
+    pub(crate) flags: i32,
+    pub(crate) category: i32,
+    pub(crate) cdata: *mut libc::c_void,
+    pub(crate) object: *mut pdf_obj,
+    pub(crate) reference: *mut pdf_obj,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct res_cache {
-    pub count: i32,
-    pub capacity: i32,
-    pub resources: *mut pdf_res,
+pub(crate) struct res_cache {
+    pub(crate) count: i32,
+    pub(crate) capacity: i32,
+    pub(crate) resources: *mut pdf_res,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed {
-    pub name: *const i8,
-    pub cat_id: i32,
+pub(crate) struct C2RustUnnamed {
+    pub(crate) name: *const i8,
+    pub(crate) cat_id: i32,
 }
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -140,7 +140,7 @@ unsafe fn pdf_clean_resource(mut res: *mut pdf_res) {
     };
 }
 
-pub unsafe fn pdf_init_resources() {
+pub(crate) unsafe fn pdf_init_resources() {
     for i in 0..(::std::mem::size_of::<[C2RustUnnamed; 9]>() as u64)
         .wrapping_div(::std::mem::size_of::<C2RustUnnamed>() as u64) as usize
     {
@@ -150,7 +150,7 @@ pub unsafe fn pdf_init_resources() {
     }
 }
 
-pub unsafe fn pdf_close_resources() {
+pub(crate) unsafe fn pdf_close_resources() {
     for i in 0..(::std::mem::size_of::<[C2RustUnnamed; 9]>() as u64)
         .wrapping_div(::std::mem::size_of::<C2RustUnnamed>() as u64)
     {
@@ -176,7 +176,7 @@ unsafe fn get_category(category: *const i8) -> i32 {
     -1i32
 }
 
-pub unsafe fn pdf_defineresource(
+pub(crate) unsafe fn pdf_defineresource(
     category: *const i8,
     resname: *const i8,
     object: *mut pdf_obj,
@@ -247,7 +247,7 @@ pub unsafe fn pdf_defineresource(
     cat_id << 16i32 | res_id
 }
 
-pub unsafe fn pdf_findresource(category: *const i8, resname: *const i8) -> i32 {
+pub(crate) unsafe fn pdf_findresource(category: *const i8, resname: *const i8) -> i32 {
     assert!(!resname.is_null() && !category.is_null());
     let cat_id = get_category(category);
     if cat_id < 0i32 {
@@ -266,7 +266,7 @@ pub unsafe fn pdf_findresource(category: *const i8, resname: *const i8) -> i32 {
     -1i32
 }
 
-pub unsafe fn pdf_get_resource_reference(rc_id: i32) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_get_resource_reference(rc_id: i32) -> *mut pdf_obj {
     let cat_id = rc_id >> 16i32 & 0xffffi32;
     let res_id = rc_id & 0xffffi32;
     if cat_id < 0i32

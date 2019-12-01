@@ -11,8 +11,8 @@ use freetype::freetype_sys;
 use harfbuzz_sys::*;
 
 extern "C" {
-    pub type XeTeXFont_rec;
-    pub type XeTeXLayoutEngine_rec;
+    pub(crate) type XeTeXFont_rec;
+    pub(crate) type XeTeXLayoutEngine_rec;
     #[no_mangle]
     fn free(__ptr: *mut libc::c_void);
     #[no_mangle]
@@ -47,11 +47,11 @@ extern "C" {
         points: libc::c_float,
     ) -> libc::c_float;
 }
-pub type size_t = usize;
-pub type int32_t = i32;
-pub type uint32_t = u32;
+pub(crate) type size_t = usize;
+pub(crate) type int32_t = i32;
+pub(crate) type uint32_t = u32;
 
-pub const HB_OT_MATH_GLYPH_PART_FLAG_EXTENDER: hb_ot_math_glyph_part_flags_t = 1;
+pub(crate) const HB_OT_MATH_GLYPH_PART_FLAG_EXTENDER: hb_ot_math_glyph_part_flags_t = 1;
 
 /* tectonic/xetex-core.h: core XeTeX types and #includes.
    Copyright 2016 the Tectonic Project
@@ -64,33 +64,33 @@ pub const HB_OT_MATH_GLYPH_PART_FLAG_EXTENDER: hb_ot_math_glyph_part_flags_t = 1
 /* Endianness foo */
 /* our typedefs */
 
-pub type Fixed = i32;
-pub type XeTeXFont = *mut XeTeXFont_rec;
-pub type XeTeXLayoutEngine = *mut XeTeXLayoutEngine_rec;
+pub(crate) type Fixed = i32;
+pub(crate) type XeTeXFont = *mut XeTeXFont_rec;
+pub(crate) type XeTeXLayoutEngine = *mut XeTeXLayoutEngine_rec;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct GlyphAssembly {
-    pub count: libc::c_uint,
-    pub parts: *mut hb_ot_math_glyph_part_t,
+pub(crate) struct GlyphAssembly {
+    pub(crate) count: libc::c_uint,
+    pub(crate) parts: *mut hb_ot_math_glyph_part_t,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct XeTeXFontInst {
-    pub m_unitsPerEM: libc::c_ushort,
-    pub m_pointSize: libc::c_float,
-    pub m_ascent: libc::c_float,
-    pub m_descent: libc::c_float,
-    pub m_capHeight: libc::c_float,
-    pub m_xHeight: libc::c_float,
-    pub m_italicAngle: libc::c_float,
-    pub m_vertical: bool,
-    pub m_filename: *mut libc::c_char,
-    pub m_index: uint32_t,
-    pub m_ftFace: freetype_sys::FT_Face,
-    pub m_backingData: *mut freetype_sys::FT_Byte,
-    pub m_backingData2: *mut freetype_sys::FT_Byte,
-    pub m_hbFont: *mut hb_font_t,
-    pub m_subdtor: Option<unsafe extern "C" fn(_: *mut XeTeXFontInst) -> ()>,
+pub(crate) struct XeTeXFontInst {
+    pub(crate) m_unitsPerEM: libc::c_ushort,
+    pub(crate) m_pointSize: libc::c_float,
+    pub(crate) m_ascent: libc::c_float,
+    pub(crate) m_descent: libc::c_float,
+    pub(crate) m_capHeight: libc::c_float,
+    pub(crate) m_xHeight: libc::c_float,
+    pub(crate) m_italicAngle: libc::c_float,
+    pub(crate) m_vertical: bool,
+    pub(crate) m_filename: *mut libc::c_char,
+    pub(crate) m_index: uint32_t,
+    pub(crate) m_ftFace: freetype_sys::FT_Face,
+    pub(crate) m_backingData: *mut freetype_sys::FT_Byte,
+    pub(crate) m_backingData2: *mut freetype_sys::FT_Byte,
+    pub(crate) m_hbFont: *mut hb_font_t,
+    pub(crate) m_subdtor: Option<unsafe extern "C" fn(_: *mut XeTeXFontInst) -> ()>,
 }
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
@@ -125,7 +125,7 @@ use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
 #[no_mangle]
-pub unsafe extern "C" fn get_ot_math_constant(
+pub(crate) unsafe extern "C" fn get_ot_math_constant(
     mut f: libc::c_int,
     mut n: libc::c_int,
 ) -> libc::c_int {
@@ -152,7 +152,7 @@ pub unsafe extern "C" fn get_ot_math_constant(
 /* size of \.{\\atopwithdelims} delimiters in non-displays */
 /* height of fraction lines above the baseline */
 #[no_mangle]
-pub static mut TeX_sym_to_OT_map: [hb_ot_math_constant_t; 23] = [
+pub(crate) static mut TeX_sym_to_OT_map: [hb_ot_math_constant_t; 23] = [
     4294967295 as hb_ot_math_constant_t,
     4294967295 as hb_ot_math_constant_t,
     4294967295 as hb_ot_math_constant_t,
@@ -181,7 +181,7 @@ unsafe extern "C" fn min_int(mut a: libc::c_int, mut b: libc::c_int) -> libc::c_
     return if a < b { a } else { b };
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_native_mathsy_param(
+pub(crate) unsafe extern "C" fn get_native_mathsy_param(
     mut f: libc::c_int,
     mut n: libc::c_int,
 ) -> libc::c_int {
@@ -216,7 +216,7 @@ pub unsafe extern "C" fn get_native_mathsy_param(
 /* minimum baselineskip below displayed op */
 /* padding above and below displayed limits */
 #[no_mangle]
-pub static mut TeX_ext_to_OT_map: [hb_ot_math_constant_t; 14] = [
+pub(crate) static mut TeX_ext_to_OT_map: [hb_ot_math_constant_t; 14] = [
     4294967295 as hb_ot_math_constant_t,
     4294967295 as hb_ot_math_constant_t,
     4294967295 as hb_ot_math_constant_t,
@@ -233,7 +233,7 @@ pub static mut TeX_ext_to_OT_map: [hb_ot_math_constant_t; 14] = [
     HB_OT_MATH_CONSTANT_STACK_GAP_MIN,
 ];
 #[no_mangle]
-pub unsafe extern "C" fn get_native_mathex_param(
+pub(crate) unsafe extern "C" fn get_native_mathex_param(
     mut f: libc::c_int,
     mut n: libc::c_int,
 ) -> libc::c_int {
@@ -254,7 +254,7 @@ pub unsafe extern "C" fn get_native_mathex_param(
     return rval;
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_ot_math_variant(
+pub(crate) unsafe extern "C" fn get_ot_math_variant(
     mut f: libc::c_int,
     mut g: libc::c_int,
     mut v: libc::c_int,
@@ -296,7 +296,7 @@ pub unsafe extern "C" fn get_ot_math_variant(
     return rval as libc::c_int;
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_ot_assembly_ptr(
+pub(crate) unsafe extern "C" fn get_ot_assembly_ptr(
     mut f: libc::c_int,
     mut g: libc::c_int,
     mut horiz: libc::c_int,
@@ -348,7 +348,7 @@ pub unsafe extern "C" fn get_ot_assembly_ptr(
     return rval;
 }
 #[no_mangle]
-pub unsafe extern "C" fn free_ot_assembly(mut a: *mut GlyphAssembly) {
+pub(crate) unsafe extern "C" fn free_ot_assembly(mut a: *mut GlyphAssembly) {
     if a.is_null() {
         return;
     }
@@ -356,7 +356,7 @@ pub unsafe extern "C" fn free_ot_assembly(mut a: *mut GlyphAssembly) {
     free(a as *mut libc::c_void);
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_ot_math_ital_corr(
+pub(crate) unsafe extern "C" fn get_ot_math_ital_corr(
     mut f: libc::c_int,
     mut g: libc::c_int,
 ) -> libc::c_int {
@@ -372,7 +372,7 @@ pub unsafe extern "C" fn get_ot_math_ital_corr(
     return rval;
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_ot_math_accent_pos(
+pub(crate) unsafe extern "C" fn get_ot_math_accent_pos(
     mut f: libc::c_int,
     mut g: libc::c_int,
 ) -> libc::c_int {
@@ -388,7 +388,7 @@ pub unsafe extern "C" fn get_ot_math_accent_pos(
     return rval;
 }
 #[no_mangle]
-pub unsafe extern "C" fn ot_min_connector_overlap(mut f: libc::c_int) -> libc::c_int {
+pub(crate) unsafe extern "C" fn ot_min_connector_overlap(mut f: libc::c_int) -> libc::c_int {
     let mut rval: hb_position_t = 0i32;
     if *font_area.offset(f as isize) as libc::c_uint == 0xfffeu32 {
         let mut font: *mut XeTeXFontInst =
@@ -435,7 +435,7 @@ unsafe extern "C" fn glyph_depth(mut f: libc::c_int, mut g: libc::c_int) -> libc
     return rval;
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_ot_math_kern(
+pub(crate) unsafe extern "C" fn get_ot_math_kern(
     mut f: libc::c_int,
     mut g: libc::c_int,
     mut sf: libc::c_int,
@@ -531,18 +531,18 @@ pub unsafe extern "C" fn get_ot_math_kern(
     return 0i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn ot_part_count(mut a: *const GlyphAssembly) -> libc::c_int {
+pub(crate) unsafe extern "C" fn ot_part_count(mut a: *const GlyphAssembly) -> libc::c_int {
     return (*a).count as libc::c_int;
 }
 #[no_mangle]
-pub unsafe extern "C" fn ot_part_glyph(
+pub(crate) unsafe extern "C" fn ot_part_glyph(
     mut a: *const GlyphAssembly,
     mut i: libc::c_int,
 ) -> libc::c_int {
     return (*(*a).parts.offset(i as isize)).glyph as libc::c_int;
 }
 #[no_mangle]
-pub unsafe extern "C" fn ot_part_is_extender(
+pub(crate) unsafe extern "C" fn ot_part_is_extender(
     mut a: *const GlyphAssembly,
     mut i: libc::c_int,
 ) -> bool {
@@ -551,7 +551,7 @@ pub unsafe extern "C" fn ot_part_is_extender(
         != 0i32 as libc::c_uint;
 }
 #[no_mangle]
-pub unsafe extern "C" fn ot_part_start_connector(
+pub(crate) unsafe extern "C" fn ot_part_start_connector(
     mut f: libc::c_int,
     mut a: *const GlyphAssembly,
     mut i: libc::c_int,
@@ -569,7 +569,7 @@ pub unsafe extern "C" fn ot_part_start_connector(
     return rval;
 }
 #[no_mangle]
-pub unsafe extern "C" fn ot_part_end_connector(
+pub(crate) unsafe extern "C" fn ot_part_end_connector(
     mut f: libc::c_int,
     mut a: *const GlyphAssembly,
     mut i: libc::c_int,
@@ -618,7 +618,7 @@ use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
 #[no_mangle]
-pub unsafe extern "C" fn ot_part_full_advance(
+pub(crate) unsafe extern "C" fn ot_part_full_advance(
     mut f: libc::c_int,
     mut a: *const GlyphAssembly,
     mut i: libc::c_int,

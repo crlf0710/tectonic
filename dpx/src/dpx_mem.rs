@@ -29,9 +29,9 @@
 use libc::{free, malloc, realloc};
 use std::ptr;
 
-use crate::size_t;
+use crate::bridge::size_t;
 
-pub unsafe fn new(size: u32) -> *mut libc::c_void {
+pub(crate) unsafe fn new(size: u32) -> *mut libc::c_void {
     let result: *mut libc::c_void = malloc(size as _);
     if result.is_null() {
         panic!("Out of memory - asked for {} bytes\n", size);
@@ -39,7 +39,7 @@ pub unsafe fn new(size: u32) -> *mut libc::c_void {
     result
 }
 
-pub unsafe fn renew(mem: *mut libc::c_void, size: u32) -> *mut libc::c_void {
+pub(crate) unsafe fn renew(mem: *mut libc::c_void, size: u32) -> *mut libc::c_void {
     if size != 0 {
         let result: *mut libc::c_void = realloc(mem, size as _);
         if result.is_null() {
@@ -55,7 +55,7 @@ pub unsafe fn renew(mem: *mut libc::c_void, size: u32) -> *mut libc::c_void {
 
 extern "C" {
 
-    pub fn xstrdup(s: *const i8) -> *mut i8;
+    pub(crate) fn xstrdup(s: *const i8) -> *mut i8;
 
-    pub fn xmalloc(size: size_t) -> *mut libc::c_void;
+    pub(crate) fn xmalloc(size: size_t) -> *mut libc::c_void;
 }

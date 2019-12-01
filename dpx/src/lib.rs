@@ -7,7 +7,6 @@
 #![deny(clippy::reverse_range_loop)]
 
 extern crate tectonic_bridge as bridge;
-use bridge::*;
 
 #[macro_export]
 macro_rules! info(
@@ -59,13 +58,13 @@ macro_rules! warn(
             }
             writeln!(handle, concat!("warning: ", $fmt), $($arg)*).unwrap();
             let v = format!(concat!($fmt, "\x00"), $($arg)*);
-            unsafe{crate::ttstub_issue_warning_slice(v.as_bytes());}
+            unsafe{crate::bridge::ttstub_issue_warning_slice(v.as_bytes());}
             unsafe{_last_message_type = DPX_MESG_WARN;}
         }
     }};
 );
 
-pub trait Warn<E>: Sized {}
+pub(crate) trait Warn<E>: Sized {}
 
 fn isblank(c: libc::c_int) -> libc::c_int {
     (c == ' ' as _ || c == '\t' as _) as _
@@ -112,7 +111,7 @@ unsafe fn mfree(ptr: *mut libc::c_void) -> *mut libc::c_void {
 }
 
 use core::mem::MaybeUninit;
-pub trait FromLEByteSlice {
+pub(crate) trait FromLEByteSlice {
     fn from_le_byte_slice(b: &[u8]) -> Self;
 }
 impl FromLEByteSlice for u32 {
@@ -129,7 +128,7 @@ impl FromLEByteSlice for u16 {
         u16::from_le_bytes(dst)
     }
 }
-pub trait FromBEByteSlice {
+pub(crate) trait FromBEByteSlice {
     fn from_be_byte_slice(b: &[u8]) -> Self;
 }
 impl FromBEByteSlice for i32 {
@@ -154,68 +153,76 @@ impl FromBEByteSlice for u16 {
     }
 }
 
-pub mod dpx_agl;
-pub mod dpx_bmpimage;
-pub mod dpx_cff;
-pub mod dpx_cff_dict;
-pub mod dpx_cid;
-pub mod dpx_cidtype0;
-pub mod dpx_cidtype2;
-pub mod dpx_cmap;
-pub mod dpx_cmap_read;
-pub mod dpx_cmap_write;
-pub mod dpx_cs_type2;
-pub mod dpx_dpxconf;
-pub mod dpx_dpxcrypt;
-pub mod dpx_dpxfile;
-pub mod dpx_dpxutil;
-pub mod dpx_dvi;
-pub mod dpx_dvicodes;
-pub mod dpx_dvipdfmx;
-pub mod dpx_epdf;
-pub mod dpx_error;
-pub mod dpx_fontmap;
-pub mod dpx_jp2image;
-pub mod dpx_jpegimage;
-pub mod dpx_mem;
-pub mod dpx_mfileio;
-pub mod dpx_mpost;
-pub mod dpx_numbers;
-pub mod dpx_otl_opt;
-pub mod dpx_pdfcolor;
-pub mod dpx_pdfdev;
-pub mod dpx_pdfdoc;
-pub mod dpx_pdfdraw;
-pub mod dpx_pdfencoding;
-pub mod dpx_pdfencrypt;
-pub mod dpx_pdffont;
-pub mod dpx_pdfnames;
-pub mod dpx_pdfobj;
-pub mod dpx_pdfparse;
-pub mod dpx_pdfresource;
-pub mod dpx_pdfximage;
-pub mod dpx_pkfont;
-pub mod dpx_pngimage;
-pub mod dpx_pst;
-pub mod dpx_pst_obj;
-pub mod dpx_sfnt;
-pub mod dpx_subfont;
-pub mod dpx_t1_char;
-pub mod dpx_t1_load;
-pub mod dpx_tfm;
-pub mod dpx_truetype;
-pub mod dpx_tt_aux;
-pub mod dpx_tt_cmap;
-pub mod dpx_tt_glyf;
-pub mod dpx_tt_gsub;
-pub mod dpx_tt_post;
-pub mod dpx_tt_table;
-pub mod dpx_type0;
-pub mod dpx_type1;
-pub mod dpx_type1c;
-pub mod dpx_unicode;
-pub mod dpx_vf;
+pub(crate) mod dpx_agl;
+pub(crate) mod dpx_bmpimage;
+pub(crate) mod dpx_cff;
+pub(crate) mod dpx_cff_dict;
+pub(crate) mod dpx_cid;
+pub(crate) mod dpx_cidtype0;
+pub(crate) mod dpx_cidtype2;
+pub(crate) mod dpx_cmap;
+pub(crate) mod dpx_cmap_read;
+pub(crate) mod dpx_cmap_write;
+pub(crate) mod dpx_cs_type2;
+pub(crate) mod dpx_dpxconf;
+pub(crate) mod dpx_dpxcrypt;
+pub(crate) mod dpx_dpxfile;
+pub(crate) mod dpx_dpxutil;
+pub(crate) mod dpx_dvi;
+pub(crate) mod dpx_dvicodes;
+pub(crate) mod dpx_dvipdfmx;
+pub(crate) mod dpx_epdf;
+pub(crate) mod dpx_error;
+pub(crate) mod dpx_fontmap;
+pub(crate) mod dpx_jp2image;
+pub(crate) mod dpx_jpegimage;
+pub(crate) mod dpx_mem;
+pub(crate) mod dpx_mfileio;
+pub(crate) mod dpx_mpost;
+pub(crate) mod dpx_numbers;
+pub(crate) mod dpx_otl_opt;
+pub(crate) mod dpx_pdfcolor;
+pub(crate) mod dpx_pdfdev;
+pub(crate) mod dpx_pdfdoc;
+pub(crate) mod dpx_pdfdraw;
+pub(crate) mod dpx_pdfencoding;
+pub(crate) mod dpx_pdfencrypt;
+pub(crate) mod dpx_pdffont;
+pub(crate) mod dpx_pdfnames;
+pub(crate) mod dpx_pdfobj;
+pub(crate) mod dpx_pdfparse;
+pub(crate) mod dpx_pdfresource;
+pub(crate) mod dpx_pdfximage;
+pub(crate) mod dpx_pkfont;
+pub(crate) mod dpx_pngimage;
+pub(crate) mod dpx_pst;
+pub(crate) mod dpx_pst_obj;
+pub(crate) mod dpx_sfnt;
+pub(crate) mod dpx_subfont;
+pub(crate) mod dpx_t1_char;
+pub(crate) mod dpx_t1_load;
+pub(crate) mod dpx_tfm;
+pub(crate) mod dpx_truetype;
+pub(crate) mod dpx_tt_aux;
+pub(crate) mod dpx_tt_cmap;
+pub(crate) mod dpx_tt_glyf;
+pub(crate) mod dpx_tt_gsub;
+pub(crate) mod dpx_tt_post;
+pub(crate) mod dpx_tt_table;
+pub(crate) mod dpx_type0;
+pub(crate) mod dpx_type1;
+pub(crate) mod dpx_type1c;
+pub(crate) mod dpx_unicode;
+pub(crate) mod dpx_vf;
 mod shims;
-pub mod specials;
+pub(crate) mod specials;
 
 pub use crate::dpx_dvipdfmx::dvipdfmx_main;
+pub use crate::dpx_bmpimage::{bmp_get_bbox, check_for_bmp};
+pub use crate::dpx_jpegimage::{check_for_jpeg, jpeg_get_bbox};
+pub use crate::dpx_pdfdev::Corner;
+pub use crate::dpx_pdfdoc::{pdf_doc_get_page, pdf_doc_get_page_count};
+pub use crate::dpx_pdfdraw::pdf_dev_transform;
+pub use crate::dpx_pdfobj::{pdf_close, pdf_file, pdf_obj, pdf_open, pdf_release_obj};
+pub use crate::dpx_pngimage::{check_for_png, png_get_bbox};
+pub use crate::dpx_pdfobj::{pdf_files_close, pdf_files_init};

@@ -34,34 +34,34 @@ use crate::streq_ptr;
 use crate::warn;
 
 use super::dpx_mem::{new, xstrdup};
-use crate::ttstub_input_read;
+use crate::bridge::ttstub_input_read;
 use libc::free;
 
 use std::ptr;
 
-pub type __ssize_t = i64;
-use crate::size_t;
-pub type Fixed = u32;
-pub type FWord = i16;
+pub(crate) type __ssize_t = i64;
+use crate::bridge::size_t;
+pub(crate) type Fixed = u32;
+pub(crate) type FWord = i16;
 
 use super::dpx_sfnt::sfnt;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct tt_post_table {
-    pub Version: Fixed,
-    pub italicAngle: Fixed,
-    pub underlinePosition: FWord,
-    pub underlineThickness: FWord,
-    pub isFixedPitch: u32,
-    pub minMemType42: u32,
-    pub maxMemType42: u32,
-    pub minMemType1: u32,
-    pub maxMemType1: u32,
-    pub numberOfGlyphs: u16,
-    pub glyphNamePtr: *mut *const i8,
-    pub names: *mut *mut i8,
-    pub count: u16,
+pub(crate) struct tt_post_table {
+    pub(crate) Version: Fixed,
+    pub(crate) italicAngle: Fixed,
+    pub(crate) underlinePosition: FWord,
+    pub(crate) underlineThickness: FWord,
+    pub(crate) isFixedPitch: u32,
+    pub(crate) minMemType42: u32,
+    pub(crate) maxMemType42: u32,
+    pub(crate) minMemType1: u32,
+    pub(crate) maxMemType1: u32,
+    pub(crate) numberOfGlyphs: u16,
+    pub(crate) glyphNamePtr: *mut *const i8,
+    pub(crate) names: *mut *mut i8,
+    pub(crate) count: u16,
 }
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -118,7 +118,7 @@ unsafe fn read_v2_post_names(mut post: *mut tt_post_table, sfont: *mut sfnt) -> 
                     .wrapping_mul(::std::mem::size_of::<i8>() as u64)
                     as u32) as *mut i8;
                 ttstub_input_read(
-                    handle.0.as_ptr(),
+                    handle.as_ptr(),
                     *(*post).names.offset(i as isize),
                     len as size_t,
                 );
@@ -154,7 +154,7 @@ unsafe fn read_v2_post_names(mut post: *mut tt_post_table, sfont: *mut sfnt) -> 
     0i32
 }
 
-pub unsafe fn tt_read_post_table(sfont: *mut sfnt) -> *mut tt_post_table {
+pub(crate) unsafe fn tt_read_post_table(sfont: *mut sfnt) -> *mut tt_post_table {
     /* offset = */
     sfnt_locate_table(sfont, b"post"); /* Fixed */
     let mut post = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_post_table>() as u64) as u32)
@@ -193,7 +193,7 @@ pub unsafe fn tt_read_post_table(sfont: *mut sfnt) -> *mut tt_post_table {
     post
 }
 
-pub unsafe fn tt_lookup_post_table(post: *mut tt_post_table, glyphname: *const i8) -> u16 {
+pub(crate) unsafe fn tt_lookup_post_table(post: *mut tt_post_table, glyphname: *const i8) -> u16 {
     assert!(!post.is_null() && !glyphname.is_null());
     for gid in 0..(*post).count as u16 {
         if !(*(*post).glyphNamePtr.offset(gid as isize)).is_null()
@@ -205,7 +205,7 @@ pub unsafe fn tt_lookup_post_table(post: *mut tt_post_table, glyphname: *const i
     0
 }
 
-pub unsafe fn tt_get_glyphname(post: *mut tt_post_table, gid: u16) -> *mut i8 {
+pub(crate) unsafe fn tt_get_glyphname(post: *mut tt_post_table, gid: u16) -> *mut i8 {
     if (gid as i32) < (*post).count as i32
         && !(*(*post).glyphNamePtr.offset(gid as isize)).is_null()
     {
@@ -217,7 +217,7 @@ pub unsafe fn tt_get_glyphname(post: *mut tt_post_table, gid: u16) -> *mut i8 {
 /* Non-standard glyph names */
 /* Number of glyph names in names[] */
 
-pub unsafe fn tt_release_post_table(mut post: *mut tt_post_table) {
+pub(crate) unsafe fn tt_release_post_table(mut post: *mut tt_post_table) {
     assert!(!post.is_null());
     if !(*post).glyphNamePtr.is_null() && (*post).Version as u64 != 0x10000 {
         free((*post).glyphNamePtr as *mut libc::c_void);

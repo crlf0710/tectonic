@@ -13,10 +13,10 @@ Description:
 -------------------------------------------------------------------------*/
 
 extern "C" {
-    pub type Opaque_TECkit_Converter;
+    pub(crate) type Opaque_TECkit_Converter;
 
     #[no_mangle]
-    pub fn TECkit_CreateConverter(
+    pub(crate) fn TECkit_CreateConverter(
         mapping: *mut u8,
         mappingSize: u32,
         mapForward: u8,
@@ -25,7 +25,7 @@ extern "C" {
         converter: *mut TECkit_Converter,
     ) -> TECkit_Status;
     #[no_mangle]
-    pub fn TECkit_ConvertBuffer(
+    pub(crate) fn TECkit_ConvertBuffer(
         converter: TECkit_Converter,
         inBuffer: *const u8,
         inLength: u32,
@@ -37,6 +37,6 @@ extern "C" {
     ) -> TECkit_Status;
 }
 
-pub type TECkit_Status = i64;
+pub(crate) type TECkit_Status = i64;
 
-pub type TECkit_Converter = *mut Opaque_TECkit_Converter;
+pub(crate) type TECkit_Converter = *mut Opaque_TECkit_Converter;

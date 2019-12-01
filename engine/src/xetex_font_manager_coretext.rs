@@ -24,14 +24,14 @@ objc_foundation::object_struct!(NSFont);
 type id = *mut Object;
 
 extern "C" {
-    pub type __CFAllocator;
-    pub type __CFURL;
-    pub type __CTFontDescriptor;
-    pub type __CFString;
-    pub type __CFArray;
-    pub type __CFDictionary;
-    pub type __CFSet;
-    pub type __CTFont;
+    pub(crate) type __CFAllocator;
+    pub(crate) type __CFURL;
+    pub(crate) type __CTFontDescriptor;
+    pub(crate) type __CFString;
+    pub(crate) type __CFArray;
+    pub(crate) type __CFDictionary;
+    pub(crate) type __CFSet;
+    pub(crate) type __CTFont;
     #[no_mangle]
     fn free(_: *mut libc::c_void);
     #[no_mangle]
@@ -179,100 +179,100 @@ extern "C" {
     ) -> CFStringRef;
 }
 use crate::size_t;
-pub type int16_t = libc::c_short;
-pub type uint16_t = libc::c_ushort;
-pub type CFAllocatorRef = *const __CFAllocator;
-pub type CFURLRef = *const __CFURL;
-pub type CTFontDescriptorRef = *const __CTFontDescriptor;
-pub type UniChar = UInt16;
-pub type UInt16 = libc::c_ushort;
-pub type Boolean = libc::c_uchar;
-pub type UInt8 = libc::c_uchar;
-pub type UInt32 = libc::c_uint;
-pub type CFHashCode = libc::c_ulong;
-pub type CFIndex = libc::c_long;
-pub type CFTypeRef = *const libc::c_void;
-pub type CFStringRef = *const __CFString;
-pub type CFArrayRef = *const __CFArray;
-pub type CFDictionaryRetainCallBack =
+pub(crate) type int16_t = libc::c_short;
+pub(crate) type uint16_t = libc::c_ushort;
+pub(crate) type CFAllocatorRef = *const __CFAllocator;
+pub(crate) type CFURLRef = *const __CFURL;
+pub(crate) type CTFontDescriptorRef = *const __CTFontDescriptor;
+pub(crate) type UniChar = UInt16;
+pub(crate) type UInt16 = libc::c_ushort;
+pub(crate) type Boolean = libc::c_uchar;
+pub(crate) type UInt8 = libc::c_uchar;
+pub(crate) type UInt32 = libc::c_uint;
+pub(crate) type CFHashCode = libc::c_ulong;
+pub(crate) type CFIndex = libc::c_long;
+pub(crate) type CFTypeRef = *const libc::c_void;
+pub(crate) type CFStringRef = *const __CFString;
+pub(crate) type CFArrayRef = *const __CFArray;
+pub(crate) type CFDictionaryRetainCallBack =
     Option<unsafe extern "C" fn(_: CFAllocatorRef, _: *const libc::c_void) -> *const libc::c_void>;
-pub type CFDictionaryReleaseCallBack =
+pub(crate) type CFDictionaryReleaseCallBack =
     Option<unsafe extern "C" fn(_: CFAllocatorRef, _: *const libc::c_void) -> ()>;
-pub type CFDictionaryCopyDescriptionCallBack =
+pub(crate) type CFDictionaryCopyDescriptionCallBack =
     Option<unsafe extern "C" fn(_: *const libc::c_void) -> CFStringRef>;
-pub type CFDictionaryEqualCallBack =
+pub(crate) type CFDictionaryEqualCallBack =
     Option<unsafe extern "C" fn(_: *const libc::c_void, _: *const libc::c_void) -> Boolean>;
-pub type CFDictionaryHashCallBack =
+pub(crate) type CFDictionaryHashCallBack =
     Option<unsafe extern "C" fn(_: *const libc::c_void) -> CFHashCode>;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct CFDictionaryKeyCallBacks {
-    pub version: CFIndex,
-    pub retain: CFDictionaryRetainCallBack,
-    pub release: CFDictionaryReleaseCallBack,
-    pub copyDescription: CFDictionaryCopyDescriptionCallBack,
-    pub equal: CFDictionaryEqualCallBack,
-    pub hash: CFDictionaryHashCallBack,
+pub(crate) struct CFDictionaryKeyCallBacks {
+    pub(crate) version: CFIndex,
+    pub(crate) retain: CFDictionaryRetainCallBack,
+    pub(crate) release: CFDictionaryReleaseCallBack,
+    pub(crate) copyDescription: CFDictionaryCopyDescriptionCallBack,
+    pub(crate) equal: CFDictionaryEqualCallBack,
+    pub(crate) hash: CFDictionaryHashCallBack,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct CFDictionaryValueCallBacks {
-    pub version: CFIndex,
-    pub retain: CFDictionaryRetainCallBack,
-    pub release: CFDictionaryReleaseCallBack,
-    pub copyDescription: CFDictionaryCopyDescriptionCallBack,
-    pub equal: CFDictionaryEqualCallBack,
+pub(crate) struct CFDictionaryValueCallBacks {
+    pub(crate) version: CFIndex,
+    pub(crate) retain: CFDictionaryRetainCallBack,
+    pub(crate) release: CFDictionaryReleaseCallBack,
+    pub(crate) copyDescription: CFDictionaryCopyDescriptionCallBack,
+    pub(crate) equal: CFDictionaryEqualCallBack,
 }
-pub type CFDictionaryRef = *const __CFDictionary;
-pub type CFStringEncoding = UInt32;
-pub type C2RustUnnamed = libc::c_uint;
-pub const kCFStringEncodingUTF32LE: C2RustUnnamed = 469762304;
-pub const kCFStringEncodingUTF32BE: C2RustUnnamed = 402653440;
-pub const kCFStringEncodingUTF32: C2RustUnnamed = 201326848;
-pub const kCFStringEncodingUTF16LE: C2RustUnnamed = 335544576;
-pub const kCFStringEncodingUTF16BE: C2RustUnnamed = 268435712;
-pub const kCFStringEncodingUTF16: C2RustUnnamed = 256;
-pub const kCFStringEncodingNonLossyASCII: C2RustUnnamed = 3071;
-pub const kCFStringEncodingUTF8: C2RustUnnamed = 134217984;
-pub const kCFStringEncodingUnicode: C2RustUnnamed = 256;
-pub const kCFStringEncodingASCII: C2RustUnnamed = 1536;
-pub const kCFStringEncodingNextStepLatin: C2RustUnnamed = 2817;
-pub const kCFStringEncodingISOLatin1: C2RustUnnamed = 513;
-pub const kCFStringEncodingWindowsLatin1: C2RustUnnamed = 1280;
-pub const kCFStringEncodingMacRoman: C2RustUnnamed = 0;
-pub type CFSetRetainCallBack =
+pub(crate) type CFDictionaryRef = *const __CFDictionary;
+pub(crate) type CFStringEncoding = UInt32;
+pub(crate) type C2RustUnnamed = libc::c_uint;
+pub(crate) const kCFStringEncodingUTF32LE: C2RustUnnamed = 469762304;
+pub(crate) const kCFStringEncodingUTF32BE: C2RustUnnamed = 402653440;
+pub(crate) const kCFStringEncodingUTF32: C2RustUnnamed = 201326848;
+pub(crate) const kCFStringEncodingUTF16LE: C2RustUnnamed = 335544576;
+pub(crate) const kCFStringEncodingUTF16BE: C2RustUnnamed = 268435712;
+pub(crate) const kCFStringEncodingUTF16: C2RustUnnamed = 256;
+pub(crate) const kCFStringEncodingNonLossyASCII: C2RustUnnamed = 3071;
+pub(crate) const kCFStringEncodingUTF8: C2RustUnnamed = 134217984;
+pub(crate) const kCFStringEncodingUnicode: C2RustUnnamed = 256;
+pub(crate) const kCFStringEncodingASCII: C2RustUnnamed = 1536;
+pub(crate) const kCFStringEncodingNextStepLatin: C2RustUnnamed = 2817;
+pub(crate) const kCFStringEncodingISOLatin1: C2RustUnnamed = 513;
+pub(crate) const kCFStringEncodingWindowsLatin1: C2RustUnnamed = 1280;
+pub(crate) const kCFStringEncodingMacRoman: C2RustUnnamed = 0;
+pub(crate) type CFSetRetainCallBack =
     Option<unsafe extern "C" fn(_: CFAllocatorRef, _: *const libc::c_void) -> *const libc::c_void>;
-pub type CFSetReleaseCallBack =
+pub(crate) type CFSetReleaseCallBack =
     Option<unsafe extern "C" fn(_: CFAllocatorRef, _: *const libc::c_void) -> ()>;
-pub type CFSetCopyDescriptionCallBack =
+pub(crate) type CFSetCopyDescriptionCallBack =
     Option<unsafe extern "C" fn(_: *const libc::c_void) -> CFStringRef>;
-pub type CFSetEqualCallBack =
+pub(crate) type CFSetEqualCallBack =
     Option<unsafe extern "C" fn(_: *const libc::c_void, _: *const libc::c_void) -> Boolean>;
-pub type CFSetHashCallBack = Option<unsafe extern "C" fn(_: *const libc::c_void) -> CFHashCode>;
+pub(crate) type CFSetHashCallBack = Option<unsafe extern "C" fn(_: *const libc::c_void) -> CFHashCode>;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct CFSetCallBacks {
-    pub version: CFIndex,
-    pub retain: CFSetRetainCallBack,
-    pub release: CFSetReleaseCallBack,
-    pub copyDescription: CFSetCopyDescriptionCallBack,
-    pub equal: CFSetEqualCallBack,
-    pub hash: CFSetHashCallBack,
+pub(crate) struct CFSetCallBacks {
+    pub(crate) version: CFIndex,
+    pub(crate) retain: CFSetRetainCallBack,
+    pub(crate) release: CFSetReleaseCallBack,
+    pub(crate) copyDescription: CFSetCopyDescriptionCallBack,
+    pub(crate) equal: CFSetEqualCallBack,
+    pub(crate) hash: CFSetHashCallBack,
 }
-pub type CFSetRef = *const __CFSet;
-pub type CGFloat = libc::c_double;
+pub(crate) type CFSetRef = *const __CFSet;
+pub(crate) type CGFloat = libc::c_double;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct CGAffineTransform {
-    pub a: CGFloat,
-    pub b: CGFloat,
-    pub c: CGFloat,
-    pub d: CGFloat,
-    pub tx: CGFloat,
-    pub ty: CGFloat,
+pub(crate) struct CGAffineTransform {
+    pub(crate) a: CGFloat,
+    pub(crate) b: CGFloat,
+    pub(crate) c: CGFloat,
+    pub(crate) d: CGFloat,
+    pub(crate) tx: CGFloat,
+    pub(crate) ty: CGFloat,
 }
-pub type CTFontRef = *const __CTFont;
-pub type PlatformFontRef = CTFontDescriptorRef;
+pub(crate) type CTFontRef = *const __CTFont;
+pub(crate) type PlatformFontRef = CTFontDescriptorRef;
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International
@@ -307,78 +307,78 @@ authorization from the copyright holders.
 \****************************************************************************/
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct XeTeXFontMgrOpSizeRec {
-    pub designSize: libc::c_uint,
-    pub subFamilyID: libc::c_uint,
-    pub nameCode: libc::c_uint,
-    pub minSize: libc::c_uint,
-    pub maxSize: libc::c_uint,
+pub(crate) struct XeTeXFontMgrOpSizeRec {
+    pub(crate) designSize: libc::c_uint,
+    pub(crate) subFamilyID: libc::c_uint,
+    pub(crate) nameCode: libc::c_uint,
+    pub(crate) minSize: libc::c_uint,
+    pub(crate) maxSize: libc::c_uint,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct XeTeXFontMgrFamily {
-    pub styles: *mut CppStdMap<CString, NonNull<XeTeXFontMgrFont>>,
-    pub minWeight: uint16_t,
-    pub maxWeight: uint16_t,
-    pub minWidth: uint16_t,
-    pub maxWidth: uint16_t,
-    pub minSlant: int16_t,
-    pub maxSlant: int16_t,
+pub(crate) struct XeTeXFontMgrFamily {
+    pub(crate) styles: *mut CppStdMap<CString, NonNull<XeTeXFontMgrFont>>,
+    pub(crate) minWeight: uint16_t,
+    pub(crate) maxWeight: uint16_t,
+    pub(crate) minWidth: uint16_t,
+    pub(crate) maxWidth: uint16_t,
+    pub(crate) minSlant: int16_t,
+    pub(crate) maxSlant: int16_t,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct XeTeXFontMgrFont {
-    pub m_fullName: *mut CppStdString,
-    pub m_psName: *mut CppStdString,
-    pub m_familyName: *mut CppStdString,
-    pub m_styleName: *mut CppStdString,
-    pub parent: *mut XeTeXFontMgrFamily,
-    pub fontRef: PlatformFontRef,
-    pub opSizeInfo: XeTeXFontMgrOpSizeRec,
-    pub weight: uint16_t,
-    pub width: uint16_t,
-    pub slant: int16_t,
-    pub isReg: bool,
-    pub isBold: bool,
-    pub isItalic: bool,
+pub(crate) struct XeTeXFontMgrFont {
+    pub(crate) m_fullName: *mut CppStdString,
+    pub(crate) m_psName: *mut CppStdString,
+    pub(crate) m_familyName: *mut CppStdString,
+    pub(crate) m_styleName: *mut CppStdString,
+    pub(crate) parent: *mut XeTeXFontMgrFamily,
+    pub(crate) fontRef: PlatformFontRef,
+    pub(crate) opSizeInfo: XeTeXFontMgrOpSizeRec,
+    pub(crate) weight: uint16_t,
+    pub(crate) width: uint16_t,
+    pub(crate) slant: int16_t,
+    pub(crate) isReg: bool,
+    pub(crate) isBold: bool,
+    pub(crate) isItalic: bool,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct XeTeXFontMgrNameCollection {
-    pub m_familyNames: *mut CppStdListOfString,
-    pub m_styleNames: *mut CppStdListOfString,
-    pub m_fullNames: *mut CppStdListOfString,
-    pub m_psName: *mut CppStdString,
-    pub m_subFamily: *mut CppStdString,
+pub(crate) struct XeTeXFontMgrNameCollection {
+    pub(crate) m_familyNames: *mut CppStdListOfString,
+    pub(crate) m_styleNames: *mut CppStdListOfString,
+    pub(crate) m_fullNames: *mut CppStdListOfString,
+    pub(crate) m_psName: *mut CppStdString,
+    pub(crate) m_subFamily: *mut CppStdString,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct XeTeXFontMgr {
-    pub m_subdtor: Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ()>,
-    pub m_memfnInitialize: Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ()>,
-    pub m_memfnTerminate: Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ()>,
-    pub m_memfnGetPlatformFontDesc: Option<
+pub(crate) struct XeTeXFontMgr {
+    pub(crate) m_subdtor: Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ()>,
+    pub(crate) m_memfnInitialize: Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ()>,
+    pub(crate) m_memfnTerminate: Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ()>,
+    pub(crate) m_memfnGetPlatformFontDesc: Option<
         unsafe extern "C" fn(_: *const XeTeXFontMgr, _: PlatformFontRef) -> *mut libc::c_char,
     >,
-    pub m_memfnGetOpSizeRecAndStyleFlags:
+    pub(crate) m_memfnGetOpSizeRecAndStyleFlags:
         Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr, _: *mut XeTeXFontMgrFont) -> ()>,
-    pub m_memfnSearchForHostPlatformFonts:
+    pub(crate) m_memfnSearchForHostPlatformFonts:
         Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr, _: *const libc::c_char) -> ()>,
-    pub m_memfnReadNames: Option<
+    pub(crate) m_memfnReadNames: Option<
         unsafe extern "C" fn(
             _: *mut XeTeXFontMgr,
             _: PlatformFontRef,
         ) -> *mut XeTeXFontMgrNameCollection,
     >,
-    pub m_nameToFont: *mut CppStdMap<CString, NonNull<XeTeXFontMgrFont>>,
-    pub m_nameToFamily: *mut CppStdMap<CString, NonNull<XeTeXFontMgrFamily>>,
-    pub m_platformRefToFont: *mut CppStdMap<PlatformFontRef, NonNull<XeTeXFontMgrFont>>,
-    pub m_psNameToFont: *mut CppStdMap<CString, NonNull<XeTeXFontMgrFont>>,
+    pub(crate) m_nameToFont: *mut CppStdMap<CString, NonNull<XeTeXFontMgrFont>>,
+    pub(crate) m_nameToFamily: *mut CppStdMap<CString, NonNull<XeTeXFontMgrFamily>>,
+    pub(crate) m_platformRefToFont: *mut CppStdMap<PlatformFontRef, NonNull<XeTeXFontMgrFont>>,
+    pub(crate) m_psNameToFont: *mut CppStdMap<CString, NonNull<XeTeXFontMgrFont>>,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct XeTeXFontMgr_Mac {
-    pub super_: XeTeXFontMgr,
+pub(crate) struct XeTeXFontMgr_Mac {
+    pub(crate) super_: XeTeXFontMgr,
 }
 #[inline]
 unsafe extern "C" fn XeTeXFontMgrNameCollection_create() -> *mut XeTeXFontMgrNameCollection {
@@ -416,7 +416,7 @@ unsafe extern "C" fn XeTeXFontMgrNameCollection_delete(
     free(self_0 as *mut _);
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_findFontWithName(
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_findFontWithName(
     mut name: CFStringRef,
     mut key: CFStringRef,
 ) -> CTFontDescriptorRef {
@@ -453,7 +453,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_findFontWithName(
     return matched;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_Mac_appendNameToList(
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_appendNameToList(
     mut self_0: *mut XeTeXFontMgr,
     mut font: CTFontRef,
     mut nameList: *mut CppStdListOfString,
@@ -475,7 +475,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_appendNameToList(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_Mac_readNames(
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_readNames(
     mut self_0: *mut XeTeXFontMgr,
     mut fontRef: CTFontDescriptorRef,
 ) -> *mut XeTeXFontMgrNameCollection {
@@ -504,7 +504,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_readNames(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_Mac_addFontsToCaches(
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_addFontsToCaches(
     mut self_0: *mut XeTeXFontMgr,
     fonts: CFArrayRef,
 ) {
@@ -520,7 +520,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_addFontsToCaches(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_Mac_addFamilyToCaches(
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_addFamilyToCaches(
     mut self_0: *mut XeTeXFontMgr,
     mut familyRef: CTFontDescriptorRef,
 ) {
@@ -537,7 +537,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_addFamilyToCaches(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_Mac_addFontAndSiblingsToCaches(
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_addFontAndSiblingsToCaches(
     mut self_0: *mut XeTeXFontMgr,
     mut fontRef: CTFontDescriptorRef,
 ) {
@@ -558,7 +558,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_addFontAndSiblingsToCaches(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_Mac_searchForHostPlatformFonts(
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_searchForHostPlatformFonts(
     mut self_0: *mut XeTeXFontMgr,
     mut name: *const libc::c_char,
 ) {
@@ -635,22 +635,22 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_searchForHostPlatformFonts(
     };
 }
 #[no_mangle]
-pub static mut pool: *mut NSAutoreleasePool = ptr::null_mut();
+pub(crate) static mut pool: *mut NSAutoreleasePool = ptr::null_mut();
 
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_Mac_initialize(mut self_0: *mut XeTeXFontMgr) {
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_initialize(mut self_0: *mut XeTeXFontMgr) {
     pool = msg_send![class!(NSAutoreleasePool), new];
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_Mac_terminate(mut self_0: *mut XeTeXFontMgr) {
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_terminate(mut self_0: *mut XeTeXFontMgr) {
     if !pool.is_null() {
         let _: () = msg_send![pool, drain];
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_Mac_getPlatformFontDesc(
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_getPlatformFontDesc(
     mut self_0: *const XeTeXFontMgr,
     mut descriptor: PlatformFontRef,
 ) -> *mut libc::c_char {
@@ -684,7 +684,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_getPlatformFontDesc(
     return strdup(path);
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_Mac_ctor(mut self_0: *mut XeTeXFontMgr_Mac) {
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_ctor(mut self_0: *mut XeTeXFontMgr_Mac) {
     XeTeXFontMgr_base_ctor(&mut (*self_0).super_);
     (*self_0).super_.m_memfnInitialize =
         Some(XeTeXFontMgr_Mac_initialize as unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ());
@@ -710,7 +710,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_Mac_ctor(mut self_0: *mut XeTeXFontMgr_Mac
     );
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontMgr_Mac_create() -> *mut XeTeXFontMgr_Mac {
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_create() -> *mut XeTeXFontMgr_Mac {
     let mut self_0: *mut XeTeXFontMgr_Mac =
         malloc(::std::mem::size_of::<XeTeXFontMgr_Mac>() as libc::c_ulong) as *mut XeTeXFontMgr_Mac;
     XeTeXFontMgr_Mac_ctor(self_0);

@@ -11,7 +11,7 @@
 use std::io::Write;
 
 use crate::core_memory::{xmalloc, xmalloc_array, xrealloc};
-use crate::{
+use bridge::{
     ttstub_input_close, ttstub_input_getc, ttstub_input_open, ttstub_output_close,
     ttstub_output_open, ttstub_output_open_stdout, ttstub_output_putc,
 };
@@ -19,46 +19,44 @@ use libc::{free, strcpy, strlen};
 use std::panic;
 use std::ptr;
 
-use crate::size_t;
+use bridge::size_t;
 
-use crate::TTHistory;
-
-use crate::TTInputFormat;
+use bridge::{TTHistory, TTInputFormat};
 
 use bridge::{InputHandleWrapper, OutputHandleWrapper};
 
-pub type str_number = i32;
+pub(crate) type str_number = i32;
 /*22: */
-pub type pool_pointer = i32;
-pub type bib_number = usize;
+pub(crate) type pool_pointer = i32;
+pub(crate) type bib_number = usize;
 
 #[repr(C)]
-pub struct peekable_input_t {
-    pub handle: InputHandleWrapper,
-    pub peek_char: i32,
-    pub saw_eof: bool,
+pub(crate) struct peekable_input_t {
+    pub(crate) handle: InputHandleWrapper,
+    pub(crate) peek_char: i32,
+    pub(crate) saw_eof: bool,
 }
-pub type buf_pointer = i32;
-pub type lex_type = u8;
-pub type buf_type = *mut u8;
-pub type hash_loc = i32;
-pub type fn_class = u8;
-pub type str_ilk = u8;
-pub type hash_pointer = i32;
-pub type id_type = u8;
-pub type cite_number = i32;
-pub type str_ent_loc = i32;
-pub type stk_type = u8;
-pub type lit_stk_loc = i32;
-pub type int_ent_loc = i32;
-pub type field_loc = i32;
-pub type wiz_fn_loc = i32;
-pub type hash_ptr2 = i32;
-pub type fn_def_loc = i32;
-pub type aux_number = i32;
-pub type pds_len = u8;
-pub type pds_type = *const i8;
-pub type blt_in_range = i32;
+pub(crate) type buf_pointer = i32;
+pub(crate) type lex_type = u8;
+pub(crate) type buf_type = *mut u8;
+pub(crate) type hash_loc = i32;
+pub(crate) type fn_class = u8;
+pub(crate) type str_ilk = u8;
+pub(crate) type hash_pointer = i32;
+pub(crate) type id_type = u8;
+pub(crate) type cite_number = i32;
+pub(crate) type str_ent_loc = i32;
+pub(crate) type stk_type = u8;
+pub(crate) type lit_stk_loc = i32;
+pub(crate) type int_ent_loc = i32;
+pub(crate) type field_loc = i32;
+pub(crate) type wiz_fn_loc = i32;
+pub(crate) type hash_ptr2 = i32;
+pub(crate) type fn_def_loc = i32;
+pub(crate) type aux_number = i32;
+pub(crate) type pds_len = u8;
+pub(crate) type pds_type = *const i8;
+pub(crate) type blt_in_range = i32;
 
 const hash_base: i32 = 1;
 const quote_next_fn: i32 = hash_base - 1;
@@ -7325,7 +7323,7 @@ unsafe fn initialize(mut aux_file_name: *const i8) -> i32 {
    Licensed under the MIT License.
 */
 #[no_mangle]
-pub unsafe fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
+pub(crate) unsafe fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
     pool_size = POOL_SIZE;
     buf_size = BUF_SIZE;
     MAX_BIB_FILES = MAX_BIBFILES;

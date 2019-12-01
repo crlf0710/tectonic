@@ -28,7 +28,7 @@
 
 use euclid::point2;
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
@@ -59,17 +59,17 @@ use crate::shims::sprintf;
 use crate::streq_ptr;
 use libc::{free, strcpy};
 
-use crate::size_t;
+use crate::bridge::size_t;
 
 #[derive(Clone, Copy, PartialEq)]
-pub enum MotionState {
+pub(crate) enum MotionState {
     GRAPHICS_MODE = 1,
     TEXT_MODE = 2,
     STRING_MODE = 3,
 }
 
 #[derive(Clone, Copy, PartialEq)]
-pub enum TextWMode {
+pub(crate) enum TextWMode {
     HH = 0,
     HV = 1,
     VH = 4,
@@ -100,11 +100,11 @@ fn ROTATE_TEXT(m: TextWMode) -> bool {
     (m != TextWMode::HH) && (m != TextWMode::VV)
 }
 
-pub type spt_t = i32;
+pub(crate) type spt_t = i32;
 
-pub type TMatrix = euclid::Transform2D<f64, (), ()>;
+pub(crate) type TMatrix = euclid::Transform2D<f64, (), ()>;
 
-pub type Rect = euclid::Box2D<f64, ()>;
+pub(crate) type Rect = euclid::Box2D<f64, ()>;
 
 pub trait Corner {
     fn lower_left(&self) -> Point;
@@ -128,9 +128,9 @@ impl Corner for Rect {
 }
 
 /// Pointinate (point) in TeX document
-pub type Point = euclid::Point2D<f64, ()>;
+pub(crate) type Point = euclid::Point2D<f64, ()>;
 
-pub trait Equal {
+pub(crate) trait Equal {
     fn equal(&self, other: &Self) -> bool;
 }
 
@@ -142,16 +142,16 @@ impl Equal for Point {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct transform_info {
-    pub width: f64,
-    pub height: f64,
-    pub depth: f64,
-    pub matrix: TMatrix,
-    pub bbox: Rect,
-    pub flags: i32,
+pub(crate) struct transform_info {
+    pub(crate) width: f64,
+    pub(crate) height: f64,
+    pub(crate) depth: f64,
+    pub(crate) matrix: TMatrix,
+    pub(crate) bbox: Rect,
+    pub(crate) flags: i32,
 }
 impl transform_info {
-    pub const fn new() -> Self {
+    pub(crate) const fn new() -> Self {
         Self {
             width: 0.,
             height: 0.,
@@ -172,26 +172,26 @@ impl transform_info {
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct dev_font {
-    pub short_name: [i8; 7],
-    pub used_on_this_page: i32,
-    pub tex_name: *mut i8,
-    pub sptsize: spt_t,
-    pub font_id: i32,
-    pub enc_id: i32,
-    pub real_font_index: i32,
-    pub resource: *mut pdf_obj,
-    pub used_chars: *mut i8,
-    pub format: i32,
-    pub wmode: i32,
-    pub extend: f64,
-    pub slant: f64,
-    pub bold: f64,
-    pub mapc: i32,
-    pub ucs_group: i32,
-    pub ucs_plane: i32,
-    pub is_unicode: i32,
-    pub cff_charsets: *mut cff_charsets,
+pub(crate) struct dev_font {
+    pub(crate) short_name: [i8; 7],
+    pub(crate) used_on_this_page: i32,
+    pub(crate) tex_name: *mut i8,
+    pub(crate) sptsize: spt_t,
+    pub(crate) font_id: i32,
+    pub(crate) enc_id: i32,
+    pub(crate) real_font_index: i32,
+    pub(crate) resource: *mut pdf_obj,
+    pub(crate) used_chars: *mut i8,
+    pub(crate) format: i32,
+    pub(crate) wmode: i32,
+    pub(crate) extend: f64,
+    pub(crate) slant: f64,
+    pub(crate) bold: f64,
+    pub(crate) mapc: i32,
+    pub(crate) ucs_group: i32,
+    pub(crate) ucs_plane: i32,
+    pub(crate) is_unicode: i32,
+    pub(crate) cff_charsets: *mut cff_charsets,
 }
 use super::dpx_cff::cff_charsets;
 /*
@@ -199,39 +199,39 @@ use super::dpx_cff::cff_charsets;
  */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct DevUnit {
-    pub dvi2pts: f64,
-    pub min_bp_val: i32,
-    pub precision: i32,
+pub(crate) struct DevUnit {
+    pub(crate) dvi2pts: f64,
+    pub(crate) min_bp_val: i32,
+    pub(crate) precision: i32,
     /* Number of decimal digits (in fractional part) kept. */
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct TextState {
-    pub font_id: i32,
-    pub offset: spt_t,
-    pub ref_x: spt_t,
-    pub ref_y: spt_t,
-    pub raise: spt_t,
-    pub leading: spt_t,
-    pub matrix: FontMatrix,
-    pub bold_param: f64,
-    pub dir_mode: i32,
-    pub force_reset: i32,
-    pub is_mb: i32,
+pub(crate) struct TextState {
+    pub(crate) font_id: i32,
+    pub(crate) offset: spt_t,
+    pub(crate) ref_x: spt_t,
+    pub(crate) ref_y: spt_t,
+    pub(crate) raise: spt_t,
+    pub(crate) leading: spt_t,
+    pub(crate) matrix: FontMatrix,
+    pub(crate) bold_param: f64,
+    pub(crate) dir_mode: i32,
+    pub(crate) force_reset: i32,
+    pub(crate) is_mb: i32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct FontMatrix {
-    pub slant: f64,
-    pub extend: f64,
-    pub rotate: TextWMode,
+pub(crate) struct FontMatrix {
+    pub(crate) slant: f64,
+    pub(crate) extend: f64,
+    pub(crate) rotate: TextWMode,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct DevParam {
-    pub autorotate: i32,
-    pub colormode: i32,
+pub(crate) struct DevParam {
+    pub(crate) autorotate: i32,
+    pub(crate) colormode: i32,
 }
 /* Mapping types, MAP_IS_NAME is not supported. */
 /* Lookup flags */
@@ -248,12 +248,12 @@ use super::dpx_fontmap::fontmap_rec;
  * as directory separators. */
 static mut verbose: i32 = 0i32;
 
-pub unsafe fn pdf_dev_set_verbose(level: i32) {
+pub(crate) unsafe fn pdf_dev_set_verbose(level: i32) {
     verbose = level;
 }
 /* Not working yet... */
 
-pub unsafe fn pdf_dev_scale() -> f64 {
+pub(crate) unsafe fn pdf_dev_scale() -> f64 {
     1.0f64
 }
 static mut dev_unit: DevUnit = DevUnit {
@@ -262,7 +262,7 @@ static mut dev_unit: DevUnit = DevUnit {
     precision: 2i32,
 };
 
-pub unsafe fn dev_unit_dviunit() -> f64 {
+pub(crate) unsafe fn dev_unit_dviunit() -> f64 {
     1.0f64 / dev_unit.dvi2pts
 }
 static mut ten_pow: [u32; 10] = [
@@ -378,7 +378,7 @@ unsafe fn dev_sprint_bp(buf: &mut [u8], value: spt_t, error: *mut spt_t) -> usiz
     p_dtoa(value_in_bp, prec, buf)
 }
 /* They are affected by precision (set at device initialization). */
-pub fn pdf_sprint_matrix(buf: &mut [u8], M: &TMatrix) -> usize {
+pub(crate) fn pdf_sprint_matrix(buf: &mut [u8], M: &TMatrix) -> usize {
     let precision = unsafe { dev_unit.precision };
     let prec2: i32 = if precision + 2 < 8i32 {
         precision + 2
@@ -405,7 +405,7 @@ pub fn pdf_sprint_matrix(buf: &mut [u8], M: &TMatrix) -> usize {
     buf[len] = b'\x00';
     len
 }
-pub fn pdf_sprint_rect(buf: &mut [u8], rect: &Rect) -> usize {
+pub(crate) fn pdf_sprint_rect(buf: &mut [u8], rect: &Rect) -> usize {
     let precision = unsafe { dev_unit.precision };
     let mut len = p_dtoa(rect.min.x, precision, buf);
     buf[len] = b' ';
@@ -420,7 +420,7 @@ pub fn pdf_sprint_rect(buf: &mut [u8], rect: &Rect) -> usize {
     buf[len] = 0;
     len
 }
-pub fn pdf_sprint_coord(buf: &mut [u8], p: &Point) -> usize {
+pub(crate) fn pdf_sprint_coord(buf: &mut [u8], p: &Point) -> usize {
     let precision = unsafe { dev_unit.precision };
     let mut len = p_dtoa(p.x, precision, buf);
     buf[len] = b' ';
@@ -429,12 +429,12 @@ pub fn pdf_sprint_coord(buf: &mut [u8], p: &Point) -> usize {
     buf[len] = 0;
     len
 }
-pub fn pdf_sprint_length(buf: &mut [u8], value: f64) -> usize {
+pub(crate) fn pdf_sprint_length(buf: &mut [u8], value: f64) -> usize {
     let len = p_dtoa(value, unsafe { dev_unit.precision }, buf);
     buf[len] = 0;
     len
 }
-pub fn pdf_sprint_number(buf: &mut [u8], value: f64) -> usize {
+pub(crate) fn pdf_sprint_number(buf: &mut [u8], value: f64) -> usize {
     let len = p_dtoa(value, 8, buf);
     buf[len] = 0;
     len
@@ -598,7 +598,7 @@ unsafe fn text_mode() {
     text_state.offset = 0i32;
 }
 
-pub unsafe fn graphics_mode() {
+pub(crate) unsafe fn graphics_mode() {
     match motion_state {
         MotionState::GRAPHICS_MODE => {}
         MotionState::STRING_MODE | MotionState::TEXT_MODE => {
@@ -919,7 +919,7 @@ unsafe fn dev_set_font(font_id: i32) -> i32 {
 /* Access text state parameters.
  */
 
-pub unsafe fn pdf_dev_get_font_wmode(font_id: i32) -> i32 {
+pub(crate) unsafe fn pdf_dev_get_font_wmode(font_id: i32) -> i32 {
     let font = &mut *dev_fonts.offset(font_id as isize) as *mut dev_font;
     if !font.is_null() {
         return (*font).wmode;
@@ -1061,7 +1061,7 @@ static mut dev_coords: *mut Point = std::ptr::null_mut();
 static mut num_dev_coords: i32 = 0i32;
 static mut max_dev_coords: i32 = 0i32;
 
-pub unsafe fn pdf_dev_get_coord() -> Point {
+pub(crate) unsafe fn pdf_dev_get_coord() -> Point {
     if num_dev_coords > 0i32 {
         (*dev_coords.offset((num_dev_coords - 1i32) as isize))
     } else {
@@ -1069,7 +1069,7 @@ pub unsafe fn pdf_dev_get_coord() -> Point {
     }
 }
 
-pub unsafe fn pdf_dev_push_coord(xpos: f64, ypos: f64) {
+pub(crate) unsafe fn pdf_dev_push_coord(xpos: f64, ypos: f64) {
     if num_dev_coords >= max_dev_coords {
         max_dev_coords += 4i32;
         dev_coords = renew(
@@ -1083,7 +1083,7 @@ pub unsafe fn pdf_dev_push_coord(xpos: f64, ypos: f64) {
     num_dev_coords += 1;
 }
 
-pub unsafe fn pdf_dev_pop_coord() {
+pub(crate) unsafe fn pdf_dev_pop_coord() {
     if num_dev_coords > 0i32 {
         num_dev_coords -= 1
     };
@@ -1101,7 +1101,7 @@ pub unsafe fn pdf_dev_pop_coord() {
  * selectfont(font_name, point_size) and show_string(pos, string)
  */
 
-pub unsafe fn pdf_dev_set_string(
+pub(crate) unsafe fn pdf_dev_set_string(
     mut xpos: spt_t,
     mut ypos: spt_t,
     instr_ptr: *const libc::c_void,
@@ -1283,7 +1283,7 @@ pub unsafe fn pdf_dev_set_string(
     text_state.offset += width;
 }
 
-pub unsafe fn pdf_init_device(dvi2pts: f64, precision: i32, black_and_white: i32) {
+pub(crate) unsafe fn pdf_init_device(dvi2pts: f64, precision: i32, black_and_white: i32) {
     if precision < 0i32 || precision > 8i32 {
         warn!("Number of decimal digits out of range [0-{}].", 8i32);
     }
@@ -1314,7 +1314,7 @@ pub unsafe fn pdf_init_device(dvi2pts: f64, precision: i32, black_and_white: i32
     dev_coords = ptr::null_mut();
 }
 
-pub unsafe fn pdf_close_device() {
+pub(crate) unsafe fn pdf_close_device() {
     if !dev_fonts.is_null() {
         for i in 0..num_dev_fonts {
             free((*dev_fonts.offset(i as isize)).tex_name as *mut libc::c_void);
@@ -1337,7 +1337,7 @@ pub unsafe fn pdf_close_device() {
  * as the font stuff.
  */
 
-pub unsafe fn pdf_dev_reset_fonts(newpage: i32) {
+pub(crate) unsafe fn pdf_dev_reset_fonts(newpage: i32) {
     for i in 0..num_dev_fonts {
         (*dev_fonts.offset(i as isize)).used_on_this_page = 0i32;
     }
@@ -1351,13 +1351,13 @@ pub unsafe fn pdf_dev_reset_fonts(newpage: i32) {
     text_state.is_mb = 0i32;
 }
 
-pub unsafe fn pdf_dev_reset_color(force: i32) {
+pub(crate) unsafe fn pdf_dev_reset_color(force: i32) {
     let (sc, fc) = pdf_color_get_current();
     pdf_dev_set_color(sc, 0, force);
     pdf_dev_set_color(fc, 0x20, force);
 }
 
-pub unsafe fn pdf_dev_bop(M: &TMatrix) {
+pub(crate) unsafe fn pdf_dev_bop(M: &TMatrix) {
     graphics_mode();
     text_state.force_reset = 0i32;
     pdf_dev_gsave();
@@ -1366,7 +1366,7 @@ pub unsafe fn pdf_dev_bop(M: &TMatrix) {
     pdf_dev_reset_color(0i32);
 }
 
-pub unsafe fn pdf_dev_eop() {
+pub(crate) unsafe fn pdf_dev_eop() {
     graphics_mode();
     let depth = pdf_dev_current_depth();
     if depth != 1 {
@@ -1431,7 +1431,7 @@ unsafe fn print_fontmap(font_name: *const i8, mrec: *mut fontmap_rec) {
  * of the same font at different sizes.
  */
 
-pub unsafe fn pdf_dev_locate_font(font_name: &CStr, ptsize: spt_t) -> i32 {
+pub(crate) unsafe fn pdf_dev_locate_font(font_name: &CStr, ptsize: spt_t) -> i32 {
     /* found a dev_font that matches the request */
     if ptsize == 0i32 {
         panic!("pdf_dev_locate_font() called with the zero ptsize.");
@@ -1588,7 +1588,7 @@ unsafe fn dev_sprint_line(
     len
 }
 
-pub unsafe fn pdf_dev_set_rule(mut xpos: spt_t, mut ypos: spt_t, width: spt_t, height: spt_t) {
+pub(crate) unsafe fn pdf_dev_set_rule(mut xpos: spt_t, mut ypos: spt_t, width: spt_t, height: spt_t) {
     let mut len = 0_usize;
     if num_dev_coords > 0i32 {
         xpos -= ((*dev_coords.offset((num_dev_coords - 1i32) as isize)).x / dev_unit.dvi2pts)
@@ -1673,7 +1673,7 @@ pub unsafe fn pdf_dev_set_rule(mut xpos: spt_t, mut ypos: spt_t, width: spt_t, h
 }
 /* Rectangle in device space coordinate. */
 
-pub unsafe fn pdf_dev_set_rect(
+pub(crate) unsafe fn pdf_dev_set_rect(
     rect: &mut Rect,
     x_user: spt_t,
     y_user: spt_t,
@@ -1717,11 +1717,11 @@ pub unsafe fn pdf_dev_set_rect(
     *rect = Rect::new(point2(min_x, min_y), point2(max_x, max_y));
 }
 
-pub unsafe fn pdf_dev_get_dirmode() -> i32 {
+pub(crate) unsafe fn pdf_dev_get_dirmode() -> i32 {
     text_state.dir_mode
 }
 
-pub unsafe fn pdf_dev_set_dirmode(text_dir: i32) {
+pub(crate) unsafe fn pdf_dev_set_dirmode(text_dir: i32) {
     let font = if text_state.font_id < 0i32 {
         ptr::null_mut()
     } else {
@@ -1768,7 +1768,7 @@ unsafe fn dev_set_param_autorotate(auto_rotate: i32) {
     dev_param.autorotate = auto_rotate;
 }
 
-pub unsafe fn pdf_dev_get_param(param_type: i32) -> i32 {
+pub(crate) unsafe fn pdf_dev_get_param(param_type: i32) -> i32 {
     match param_type {
         1 => dev_param.autorotate,
         2 => dev_param.colormode,
@@ -1778,7 +1778,7 @@ pub unsafe fn pdf_dev_get_param(param_type: i32) -> i32 {
     }
 }
 
-pub unsafe fn pdf_dev_set_param(param_type: i32, value: i32) {
+pub(crate) unsafe fn pdf_dev_set_param(param_type: i32, value: i32) {
     match param_type {
         1 => {
             dev_set_param_autorotate(value);
@@ -1790,7 +1790,7 @@ pub unsafe fn pdf_dev_set_param(param_type: i32, value: i32) {
     };
 }
 
-pub unsafe fn pdf_dev_put_image(
+pub(crate) unsafe fn pdf_dev_put_image(
     id: i32,
     p: &mut transform_info,
     mut ref_x: f64,
@@ -1873,7 +1873,7 @@ pub unsafe fn pdf_dev_put_image(
     0i32
 }
 
-pub unsafe fn transform_info_clear(info: &mut transform_info) {
+pub(crate) unsafe fn transform_info_clear(info: &mut transform_info) {
     /* Physical dimensions */
     info.width = 0.;
     info.height = 0.;
@@ -1884,7 +1884,7 @@ pub unsafe fn transform_info_clear(info: &mut transform_info) {
     info.flags = 0;
 }
 
-pub unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count: i32) {
+pub(crate) unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count: i32) {
     let mut pdf_doc_enc = 1_usize;
     /* check whether we can use PDFDocEncoding for this string
     (we punt on the 0x80..0xA0 range that does not directly correspond to unicode)  */
@@ -2003,7 +2003,7 @@ pub unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count: i32) {
  * to terminate text section. pdf_dev_flushpath() and others call this.
  */
 
-pub unsafe fn pdf_dev_end_actualtext() {
+pub(crate) unsafe fn pdf_dev_end_actualtext() {
     graphics_mode();
     pdf_doc_add_page_content(b" EMC");
 }
@@ -2019,7 +2019,7 @@ pub unsafe fn pdf_dev_end_actualtext() {
 /* transform matrix */
 /* user_bbox */
 
-pub unsafe fn pdf_dev_reset_global_state() {
+pub(crate) unsafe fn pdf_dev_reset_global_state() {
     dev_fonts = ptr::null_mut();
     num_dev_fonts = 0i32;
     max_dev_fonts = 0i32;

@@ -29,7 +29,7 @@
 
 use euclid::point2;
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use std::ffi::{CStr, CString};
 use std::ptr;
 
@@ -68,14 +68,14 @@ use crate::dpx_pdfparse::{
 use crate::shims::sprintf;
 use libc::{atof, free, strtod};
 
-pub type __off_t = i64;
-pub type __off64_t = i64;
-use crate::size_t;
+pub(crate) type __off_t = i64;
+pub(crate) type __off64_t = i64;
+use crate::bridge::size_t;
 
-pub type spt_t = i32;
+pub(crate) type spt_t = i32;
 
 #[derive(Clone, Copy)]
-pub enum Opcode {
+pub(crate) enum Opcode {
     Add = 1,
     Sub = 2,
     Mul = 3,
@@ -149,16 +149,16 @@ pub enum Opcode {
 
 #[derive(Clone)]
 #[repr(C)]
-pub struct mp_font {
-    pub font_name: CString,
-    pub font_id: i32,
-    pub tfm_id: i32,
-    pub subfont_id: i32,
-    pub pt_size: f64,
+pub(crate) struct mp_font {
+    pub(crate) font_name: CString,
+    pub(crate) font_id: i32,
+    pub(crate) tfm_id: i32,
+    pub(crate) subfont_id: i32,
+    pub(crate) pt_size: f64,
 }
 struct operators {
-    pub token: &'static [u8],
-    pub opcode: Opcode,
+    pub(crate) token: &'static [u8],
+    pub(crate) opcode: Opcode,
 }
 impl operators {
     const fn new(token: &'static [u8], opcode: Opcode) -> Self {
@@ -252,7 +252,7 @@ unsafe fn is_fontname(token: &[u8]) -> bool {
     tfm_exists(token)
 }
 
-pub unsafe fn mps_scan_bbox(pp: *mut *const i8, endptr: *const i8, bbox: &mut Rect) -> i32 {
+pub(crate) unsafe fn mps_scan_bbox(pp: *mut *const i8, endptr: *const i8, bbox: &mut Rect) -> i32 {
     let mut values: [f64; 4] = [0.; 4];
     /* skip_white() skips lines starting '%'... */
     while *pp < endptr && libc::isspace(**pp as _) != 0 {
@@ -1339,16 +1339,16 @@ unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
     error
 }
 
-pub unsafe fn mps_eop_cleanup() {
+pub(crate) unsafe fn mps_eop_cleanup() {
     clear_fonts();
     do_clear();
 }
 
-pub unsafe fn mps_stack_depth() -> i32 {
+pub(crate) unsafe fn mps_stack_depth() -> i32 {
     STACK.len() as i32
 }
 
-pub unsafe fn mps_exec_inline(pp: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
+pub(crate) unsafe fn mps_exec_inline(pp: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
     /* Compatibility for dvipsk. */
     let dirmode = pdf_dev_get_dirmode();
     if dirmode != 0 {

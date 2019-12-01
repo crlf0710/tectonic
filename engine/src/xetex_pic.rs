@@ -22,44 +22,44 @@ use crate::xetex_output::{
 use crate::xetex_xetex0::{
     new_whatsit, pack_file_name, scan_decimal, scan_dimen, scan_file_name, scan_int, scan_keyword,
 };
-use crate::TTInputFormat;
-use crate::{ttstub_input_close, ttstub_input_open};
+use bridge::TTInputFormat;
+use bridge::{ttstub_input_close, ttstub_input_open};
 use bridge::InputHandleWrapper;
-use dpx::dpx_bmpimage::{bmp_get_bbox, check_for_bmp};
-use dpx::dpx_jpegimage::{check_for_jpeg, jpeg_get_bbox};
-use dpx::dpx_pdfdev::Corner;
-use dpx::dpx_pdfdoc::{pdf_doc_get_page, pdf_doc_get_page_count};
-use dpx::dpx_pdfdraw::pdf_dev_transform;
-use dpx::dpx_pdfobj::{pdf_close, pdf_file, pdf_obj, pdf_open, pdf_release_obj};
-use dpx::dpx_pngimage::{check_for_png, png_get_bbox};
+use dpx::{bmp_get_bbox, check_for_bmp};
+use dpx::{check_for_jpeg, jpeg_get_bbox};
+use dpx::Corner;
+use dpx::{pdf_doc_get_page, pdf_doc_get_page_count};
+use dpx::pdf_dev_transform;
+use dpx::{pdf_close, pdf_file, pdf_obj, pdf_open, pdf_release_obj};
+use dpx::{check_for_png, png_get_bbox};
 use libc::{free, memcpy, strlen};
-pub type scaled_t = i32;
-pub type Fixed = scaled_t;
-pub type str_number = i32;
-pub type small_number = i16;
+pub(crate) type scaled_t = i32;
+pub(crate) type Fixed = scaled_t;
+pub(crate) type str_number = i32;
+pub(crate) type small_number = i16;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct transform_t {
-    pub a: f64,
-    pub b: f64,
-    pub c: f64,
-    pub d: f64,
-    pub x: f64,
-    pub y: f64,
+pub(crate) struct transform_t {
+    pub(crate) a: f64,
+    pub(crate) b: f64,
+    pub(crate) c: f64,
+    pub(crate) d: f64,
+    pub(crate) x: f64,
+    pub(crate) y: f64,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct real_point {
-    pub x: f32,
-    pub y: f32,
+pub(crate) struct real_point {
+    pub(crate) x: f32,
+    pub(crate) y: f32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct real_rect {
-    pub x: f32,
-    pub y: f32,
-    pub wd: f32,
-    pub ht: f32,
+pub(crate) struct real_rect {
+    pub(crate) x: f32,
+    pub(crate) y: f32,
+    pub(crate) wd: f32,
+    pub(crate) ht: f32,
 }
 
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
@@ -85,7 +85,7 @@ pub struct real_rect {
 */
 
 #[no_mangle]
-pub unsafe extern "C" fn count_pdf_file_pages() -> i32 {
+pub(crate) unsafe extern "C" fn count_pdf_file_pages() -> i32 {
     let handle = ttstub_input_open(name_of_file, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
         return 0;
@@ -308,7 +308,7 @@ unsafe extern "C" fn transform_concat(mut t1: *mut transform_t, mut t2: *const t
     *t1 = r;
 }
 #[no_mangle]
-pub unsafe extern "C" fn load_picture(mut is_pdf: bool) {
+pub(crate) unsafe extern "C" fn load_picture(mut is_pdf: bool) {
     let mut pic_path: *mut i8 = 0 as *mut i8;
     let mut bounds: real_rect = real_rect {
         x: 0.,

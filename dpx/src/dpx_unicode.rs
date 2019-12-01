@@ -26,13 +26,13 @@
          non_upper_case_globals,
 )]
 
-use crate::size_t;
+use crate::bridge::size_t;
 
-pub unsafe fn UC_is_valid(ucv: i32) -> bool {
+pub(crate) unsafe fn UC_is_valid(ucv: i32) -> bool {
     !(ucv < 0i32 || ucv as i64 > 0x10ffff || ucv as i64 >= 0xd800 && ucv as i64 <= 0xdfff)
 }
 
-pub unsafe fn UC_UTF16BE_is_valid_string(mut p: *const u8, endptr: *const u8) -> bool {
+pub(crate) unsafe fn UC_UTF16BE_is_valid_string(mut p: *const u8, endptr: *const u8) -> bool {
     if p.offset(1) >= endptr {
         return false;
     }
@@ -45,7 +45,7 @@ pub unsafe fn UC_UTF16BE_is_valid_string(mut p: *const u8, endptr: *const u8) ->
     true
 }
 
-pub unsafe fn UC_UTF8_is_valid_string(mut p: *const u8, endptr: *const u8) -> bool {
+pub(crate) unsafe fn UC_UTF8_is_valid_string(mut p: *const u8, endptr: *const u8) -> bool {
     if p.offset(1) >= endptr {
         return false;
     }
@@ -58,7 +58,7 @@ pub unsafe fn UC_UTF8_is_valid_string(mut p: *const u8, endptr: *const u8) -> bo
     true
 }
 
-pub unsafe fn UC_UTF16BE_decode_char(pp: *mut *const u8, endptr: *const u8) -> i32 {
+pub(crate) unsafe fn UC_UTF16BE_decode_char(pp: *mut *const u8, endptr: *const u8) -> i32 {
     let mut p: *const u8 = *pp;
     let mut ucv;
     if p.offset(1) >= endptr {
@@ -84,7 +84,7 @@ pub unsafe fn UC_UTF16BE_decode_char(pp: *mut *const u8, endptr: *const u8) -> i
     ucv
 }
 
-pub unsafe fn UC_UTF16BE_encode_char(mut ucv: i32, pp: *mut *mut u8, endptr: *mut u8) -> size_t {
+pub(crate) unsafe fn UC_UTF16BE_encode_char(mut ucv: i32, pp: *mut *mut u8, endptr: *mut u8) -> size_t {
     let p: *mut u8 = *pp;
     let count = if ucv >= 0i32 && ucv <= 0xffffi32 {
         if p.offset(2) >= endptr {
@@ -117,7 +117,7 @@ pub unsafe fn UC_UTF16BE_encode_char(mut ucv: i32, pp: *mut *mut u8, endptr: *mu
     count as size_t
 }
 
-pub unsafe fn UC_UTF8_decode_char(pp: *mut *const u8, endptr: *const u8) -> i32 {
+pub(crate) unsafe fn UC_UTF8_decode_char(pp: *mut *const u8, endptr: *const u8) -> i32 {
     let mut p: *const u8 = *pp;
     let fresh0 = p;
     p = p.offset(1);
@@ -163,7 +163,7 @@ pub unsafe fn UC_UTF8_decode_char(pp: *mut *const u8, endptr: *const u8) -> i32 
     ucv
 }
 
-pub unsafe fn UC_UTF8_encode_char(ucv: i32, pp: *mut *mut u8, endptr: *mut u8) -> size_t {
+pub(crate) unsafe fn UC_UTF8_encode_char(ucv: i32, pp: *mut *mut u8, endptr: *mut u8) -> size_t {
     let p: *mut u8 = *pp;
     assert!(!pp.is_null() && !(*pp).is_null() && !endptr.is_null());
     if !UC_is_valid(ucv) {

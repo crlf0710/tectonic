@@ -79,7 +79,7 @@ unsafe fn spc_handler_background(spe: *mut spc_env, args: *mut spc_arg) -> i32 {
     }
 }
 
-pub fn spc_color_check_special(mut buf: &[u8]) -> bool {
+pub(crate) fn spc_color_check_special(mut buf: &[u8]) -> bool {
     buf.skip_blank();
     if let Some(q) = buf.parse_c_ident() {
         q.to_bytes() == b"color" || q.to_bytes() == b"background"
@@ -88,7 +88,7 @@ pub fn spc_color_check_special(mut buf: &[u8]) -> bool {
     }
 }
 
-pub unsafe fn spc_color_setup_handler(
+pub(crate) unsafe fn spc_color_setup_handler(
     mut sph: *mut SpcHandler,
     spe: *mut spc_env,
     mut ap: *mut spc_arg,

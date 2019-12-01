@@ -30,17 +30,17 @@ use std::io::{Read, Seek, SeekFrom};
 
 use super::dpx_mem::{new, xstrdup};
 use super::dpx_numbers::{tt_get_unsigned_pair, tt_get_unsigned_quad};
-use crate::{ttstub_input_close, ttstub_input_open};
+use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use libc::{free, remove, strcat, strcpy, strlen, strncmp, strrchr};
 
-pub type __ssize_t = i64;
+pub(crate) type __ssize_t = i64;
 
-use crate::TTInputFormat;
+use crate::bridge::TTInputFormat;
 
 use bridge::InputHandleWrapper;
 /* quasi-hack to get the primary input */
 
-pub static mut keep_cache: i32 = 0i32;
+pub(crate) static mut keep_cache: i32 = 0i32;
 
 static mut _SBUF: [u8; 128] = [0; 128];
 /*
@@ -128,7 +128,7 @@ unsafe fn ensuresuffix(basename: *const i8, sfx: *const i8) -> *mut i8 {
 /* tmp freed here */
 /* Tectonic-enabled I/O alternatives */
 
-pub unsafe fn dpx_tt_open(
+pub(crate) unsafe fn dpx_tt_open(
     filename: *const i8,
     suffix: *const i8,
     format: TTInputFormat,
@@ -145,7 +145,7 @@ pub unsafe fn dpx_tt_open(
  *   dvipdfm  (text file)
  */
 
-pub unsafe fn dpx_open_type1_file(filename: *const i8) -> Option<InputHandleWrapper> {
+pub(crate) unsafe fn dpx_open_type1_file(filename: *const i8) -> Option<InputHandleWrapper> {
     match ttstub_input_open(filename, TTInputFormat::TYPE1, 0) {
         Some(mut handle) => {
             if !check_stream_is_type1(&mut handle) {
@@ -159,7 +159,7 @@ pub unsafe fn dpx_open_type1_file(filename: *const i8) -> Option<InputHandleWrap
     }
 }
 
-pub unsafe fn dpx_open_truetype_file(filename: *const i8) -> Option<InputHandleWrapper> {
+pub(crate) unsafe fn dpx_open_truetype_file(filename: *const i8) -> Option<InputHandleWrapper> {
     match ttstub_input_open(filename, TTInputFormat::TRUETYPE, 0) {
         Some(mut handle) => {
             if !check_stream_is_truetype(&mut handle) {
@@ -173,7 +173,7 @@ pub unsafe fn dpx_open_truetype_file(filename: *const i8) -> Option<InputHandleW
     }
 }
 
-pub unsafe fn dpx_open_opentype_file(filename: *const i8) -> Option<InputHandleWrapper> {
+pub(crate) unsafe fn dpx_open_opentype_file(filename: *const i8) -> Option<InputHandleWrapper> {
     let q = ensuresuffix(filename, b".otf\x00" as *const u8 as *const i8);
     let handle = ttstub_input_open(q, TTInputFormat::OPENTYPE, 0i32);
     free(q as *mut libc::c_void);
@@ -190,7 +190,7 @@ pub unsafe fn dpx_open_opentype_file(filename: *const i8) -> Option<InputHandleW
     }
 }
 
-pub unsafe fn dpx_open_dfont_file(filename: *const i8) -> Option<InputHandleWrapper> {
+pub(crate) unsafe fn dpx_open_dfont_file(filename: *const i8) -> Option<InputHandleWrapper> {
     let q;
     let len: i32 = strlen(filename) as i32;
     if len > 6i32
@@ -226,7 +226,7 @@ pub unsafe fn dpx_open_dfont_file(filename: *const i8) -> Option<InputHandleWrap
     }
 }
 
-pub unsafe fn dpx_delete_old_cache(life: i32) {
+pub(crate) unsafe fn dpx_delete_old_cache(life: i32) {
     /* This used to delete files in tmpdir, but that code was ripped out since
      * it would have been annoying to port to Windows. */
     if life == -2i32 {
@@ -234,7 +234,7 @@ pub unsafe fn dpx_delete_old_cache(life: i32) {
     };
 }
 
-pub unsafe fn dpx_delete_temp_file(tmp: *mut i8, force: i32) {
+pub(crate) unsafe fn dpx_delete_temp_file(tmp: *mut i8, force: i32) {
     if tmp.is_null() {
         return;
     }
@@ -251,7 +251,7 @@ pub unsafe fn dpx_delete_temp_file(tmp: *mut i8, force: i32) {
  * Please modify as appropriate (see also pdfximage.c and dvipdfmx.c).
  */
 
-pub unsafe fn dpx_file_apply_filter(
+pub(crate) unsafe fn dpx_file_apply_filter(
     mut _cmdtmpl: *const i8,
     mut _input: *const i8,
     mut _output: *const i8,

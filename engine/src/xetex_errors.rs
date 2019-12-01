@@ -21,11 +21,11 @@ use crate::xetex_output::{
 };
 use crate::xetex_xetex0::{close_files_and_terminate, give_err_help, open_log_file, show_context};
 
-use crate::TTHistory;
+use crate::bridge::TTHistory;
 
-use super::xetex_ini::Selector;
+use crate::xetex_ini::Selector;
 
-pub type str_number = i32;
+pub(crate) type str_number = i32;
 /* tectonic/errors.c -- error handling
  * Copyright 2016 the Tectonic Project
  * Licensed under the MIT License.
@@ -63,7 +63,7 @@ unsafe extern "C" fn post_error_message(mut need_to_print_it: i32) {
     rust_stdout.as_mut().unwrap().flush().unwrap();
 }
 #[no_mangle]
-pub unsafe extern "C" fn error() {
+pub(crate) unsafe extern "C" fn error() {
     if (history as u32) < (TTHistory::ERROR_ISSUED as u32) {
         history = TTHistory::ERROR_ISSUED
     }
@@ -103,7 +103,7 @@ pub unsafe extern "C" fn error() {
     print_ln();
 }
 #[no_mangle]
-pub unsafe extern "C" fn fatal_error(mut s: *const i8) -> ! {
+pub(crate) unsafe extern "C" fn fatal_error(mut s: *const i8) -> ! {
     pre_error_message();
     print_cstr(b"Emergency stop\x00" as *const u8 as *const i8);
     print_nl_cstr(s);
@@ -112,7 +112,7 @@ pub unsafe extern "C" fn fatal_error(mut s: *const i8) -> ! {
     abort!("{}", CStr::from_ptr(s).display());
 }
 #[no_mangle]
-pub unsafe extern "C" fn overflow(mut s: *const i8, mut n: i32) -> ! {
+pub(crate) unsafe extern "C" fn overflow(mut s: *const i8, mut n: i32) -> ! {
     pre_error_message();
     print_cstr(b"TeX capacity exceeded, sorry [\x00" as *const u8 as *const i8);
     print_cstr(s);
@@ -126,7 +126,7 @@ pub unsafe extern "C" fn overflow(mut s: *const i8, mut n: i32) -> ! {
     panic!("halted on overflow()");
 }
 #[no_mangle]
-pub unsafe extern "C" fn confusion(mut s: *const i8) -> ! {
+pub(crate) unsafe extern "C" fn confusion(mut s: *const i8) -> ! {
     pre_error_message();
     if (history as u32) < (TTHistory::ERROR_ISSUED as u32) {
         print_cstr(b"This can\'t happen (\x00" as *const u8 as *const i8);
@@ -148,7 +148,7 @@ pub unsafe extern "C" fn confusion(mut s: *const i8) -> ! {
 }
 /* xetex-errors */
 #[no_mangle]
-pub unsafe extern "C" fn pdf_error(mut t: *const i8, mut p: *const i8) -> ! {
+pub(crate) unsafe extern "C" fn pdf_error(mut t: *const i8, mut p: *const i8) -> ! {
     pre_error_message();
     print_cstr(b"Error\x00" as *const u8 as *const i8);
     if !t.is_null() {

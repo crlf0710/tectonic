@@ -28,7 +28,7 @@
 
 use crate::mfree;
 use crate::streq_ptr;
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
@@ -56,10 +56,10 @@ use crate::dpx_pdfobj::{
     pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
-use crate::{ttstub_input_close, ttstub_input_open};
+use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use libc::{free, memset, strlen, strstr};
 
-use crate::TTInputFormat;
+use crate::bridge::TTInputFormat;
 
 use super::dpx_cff::cff_index;
 /* quasi-hack to get the primary input */
@@ -69,7 +69,7 @@ use super::dpx_cff::cff_index;
 /* size offset(0) */
 /* 1-byte unsigned number specifies the size
 of an Offset field or fields, range 1-4 */
-pub type l_offset = u32;
+pub(crate) type l_offset = u32;
 
 use super::dpx_cff::cff_font;
 /* format major version (starting at 1) */
@@ -84,7 +84,7 @@ use super::dpx_cff::cff_font;
 
 use super::dpx_cff::cff_charsets;
 /* 1, 2, 3, or 4-byte offset */
-pub type s_SID = u16;
+pub(crate) type s_SID = u16;
 use super::dpx_cff::cff_encoding;
 use super::dpx_cff::cff_map;
 use super::dpx_cff::cff_range1;
@@ -125,7 +125,7 @@ unsafe fn is_basefont(name: *const i8) -> bool {
     false
 }
 
-pub unsafe fn pdf_font_open_type1(font: *mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_open_type1(font: *mut pdf_font) -> i32 {
     let mut fontname: [i8; 128] = [0; 128];
     assert!(!font.is_null());
     let ident = pdf_font_get_ident(font);
@@ -644,7 +644,7 @@ unsafe fn write_fontfile(font: *mut pdf_font, cffont: &cff_font, pdfcharset: &pd
     offset as i32
 }
 
-pub unsafe fn pdf_font_load_type1(font: *mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_load_type1(font: *mut pdf_font) -> i32 {
     let mut enc_vec;
     assert!(!font.is_null());
     if !pdf_font_is_in_use(font) {

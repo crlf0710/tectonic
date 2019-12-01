@@ -26,23 +26,23 @@
     non_upper_case_globals,
 )]
 
-use crate::ttstub_output_open_stdout;
+use crate::bridge::ttstub_output_open_stdout;
 
 use bridge::OutputHandleWrapper;
-pub type message_type_t = _message_type;
-pub type _message_type = u32;
-pub const DPX_MESG_WARN: _message_type = 1;
-pub const DPX_MESG_INFO: _message_type = 0;
-pub static mut _last_message_type: message_type_t = DPX_MESG_INFO;
-pub static mut _dpx_quietness: i32 = 0i32;
+pub(crate) type message_type_t = _message_type;
+pub(crate) type _message_type = u32;
+pub(crate) const DPX_MESG_WARN: _message_type = 1;
+pub(crate) const DPX_MESG_INFO: _message_type = 0;
+pub(crate) static mut _last_message_type: message_type_t = DPX_MESG_INFO;
+pub(crate) static mut _dpx_quietness: i32 = 0i32;
 
-pub unsafe fn shut_up(quietness: i32) {
+pub(crate) unsafe fn shut_up(quietness: i32) {
     _dpx_quietness = quietness;
 }
-pub static mut _dpx_message_handle: Option<OutputHandleWrapper> = None;
+pub(crate) static mut _dpx_message_handle: Option<OutputHandleWrapper> = None;
 
 static mut _dpx_message_buf: [u8; 1024] = [0; 1024];
-pub fn _dpx_ensure_output_handle() {
+pub(crate) fn _dpx_ensure_output_handle() {
     if let Some(handle) = unsafe { ttstub_output_open_stdout() } {
         unsafe {
             _dpx_message_handle = Some(handle);

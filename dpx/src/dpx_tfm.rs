@@ -32,52 +32,52 @@ use super::dpx_numbers::{
 };
 use crate::mfree;
 use crate::streq_ptr;
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use crate::{info, warn};
 use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::tt_skip_bytes;
-use crate::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open};
+use crate::bridge::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open};
 use libc::{free, strcat, strcmp, strcpy, strlen, strrchr};
 
 use std::io::{Seek, SeekFrom};
 
-pub type __off_t = i64;
-pub type __ssize_t = i64;
-pub type off_t = __off_t;
+pub(crate) type __off_t = i64;
+pub(crate) type __ssize_t = i64;
+pub(crate) type off_t = __off_t;
 
-use crate::TTInputFormat;
+use crate::bridge::TTInputFormat;
 
 use bridge::InputHandleWrapper;
-pub type fixword = i32;
+pub(crate) type fixword = i32;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct font_metric {
-    pub tex_name: *mut i8,
-    pub designsize: fixword,
-    pub codingscheme: *mut i8,
-    pub fontdir: i32,
-    pub firstchar: i32,
-    pub lastchar: i32,
-    pub widths: *mut fixword,
-    pub heights: *mut fixword,
-    pub depths: *mut fixword,
-    pub charmap: C2RustUnnamed,
-    pub source: i32,
+pub(crate) struct font_metric {
+    pub(crate) tex_name: *mut i8,
+    pub(crate) designsize: fixword,
+    pub(crate) codingscheme: *mut i8,
+    pub(crate) fontdir: i32,
+    pub(crate) firstchar: i32,
+    pub(crate) lastchar: i32,
+    pub(crate) widths: *mut fixword,
+    pub(crate) heights: *mut fixword,
+    pub(crate) depths: *mut fixword,
+    pub(crate) charmap: C2RustUnnamed,
+    pub(crate) source: i32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed {
-    pub type_0: i32,
-    pub data: *mut libc::c_void,
+pub(crate) struct C2RustUnnamed {
+    pub(crate) type_0: i32,
+    pub(crate) data: *mut libc::c_void,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct coverage {
-    pub first_char: i32,
-    pub num_chars: i32,
+pub(crate) struct coverage {
+    pub(crate) first_char: i32,
+    pub(crate) num_chars: i32,
 }
 /* quasi-hack to get the primary input */
 /*
@@ -86,49 +86,49 @@ pub struct coverage {
  */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct tfm_font {
-    pub level: i32,
-    pub wlenfile: u32,
-    pub wlenheader: u32,
-    pub bc: u32,
-    pub ec: u32,
-    pub nwidths: u32,
-    pub nheights: u32,
-    pub ndepths: u32,
-    pub nitcor: u32,
-    pub nlig: u32,
-    pub nkern: u32,
-    pub nextens: u32,
-    pub nfonparm: u32,
-    pub fontdir: u32,
-    pub nco: u32,
-    pub ncw: u32,
-    pub npc: u32,
-    pub header: *mut fixword,
-    pub char_info: *mut u32,
-    pub width_index: *mut u16,
-    pub height_index: *mut u8,
-    pub depth_index: *mut u8,
-    pub width: *mut fixword,
-    pub height: *mut fixword,
-    pub depth: *mut fixword,
+pub(crate) struct tfm_font {
+    pub(crate) level: i32,
+    pub(crate) wlenfile: u32,
+    pub(crate) wlenheader: u32,
+    pub(crate) bc: u32,
+    pub(crate) ec: u32,
+    pub(crate) nwidths: u32,
+    pub(crate) nheights: u32,
+    pub(crate) ndepths: u32,
+    pub(crate) nitcor: u32,
+    pub(crate) nlig: u32,
+    pub(crate) nkern: u32,
+    pub(crate) nextens: u32,
+    pub(crate) nfonparm: u32,
+    pub(crate) fontdir: u32,
+    pub(crate) nco: u32,
+    pub(crate) ncw: u32,
+    pub(crate) npc: u32,
+    pub(crate) header: *mut fixword,
+    pub(crate) char_info: *mut u32,
+    pub(crate) width_index: *mut u16,
+    pub(crate) height_index: *mut u8,
+    pub(crate) depth_index: *mut u8,
+    pub(crate) width: *mut fixword,
+    pub(crate) height: *mut fixword,
+    pub(crate) depth: *mut fixword,
 }
 /*
  * All characters in the same range have same metrics.
  */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct range_map {
-    pub num_coverages: u16,
-    pub coverages: *mut coverage,
-    pub indices: *mut u16,
+pub(crate) struct range_map {
+    pub(crate) num_coverages: u16,
+    pub(crate) coverages: *mut coverage,
+    pub(crate) indices: *mut u16,
 }
 /* Special case of num_coverages = 1 */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct char_map {
-    pub coverage: coverage,
-    pub indices: *mut u16,
+pub(crate) struct char_map {
+    pub(crate) coverage: coverage,
+    pub(crate) indices: *mut u16,
 }
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -236,7 +236,7 @@ static mut fms: *mut font_metric = std::ptr::null_mut();
 static mut numfms: u32 = 0_u32;
 static mut max_fms: u32 = 0_u32;
 
-pub unsafe fn tfm_reset_global_state() {
+pub(crate) unsafe fn tfm_reset_global_state() {
     fms = ptr::null_mut();
     numfms = 0_u32;
     max_fms = 0_u32;
@@ -255,7 +255,7 @@ unsafe fn fms_need(n: u32) {
     };
 }
 
-pub unsafe fn tfm_set_verbose(level: i32) {
+pub(crate) unsafe fn tfm_set_verbose(level: i32) {
     verbose = level;
 }
 unsafe fn fread_fwords(words: *mut fixword, nmemb: u32, handle: &mut InputHandleWrapper) -> i32 {
@@ -704,7 +704,7 @@ unsafe fn read_tfm(
     tfm_font_clear(&mut tfm);
 }
 
-pub unsafe fn tfm_open(tfm_name: *const i8, must_exist: i32) -> i32 {
+pub(crate) unsafe fn tfm_open(tfm_name: *const i8, must_exist: i32) -> i32 {
     let mut tfm_handle = None;
     let mut format: i32 = 1i32;
     let ofm_name;
@@ -814,7 +814,7 @@ pub unsafe fn tfm_open(tfm_name: *const i8, must_exist: i32) -> i32 {
     fresh1 as i32
 }
 
-pub unsafe fn tfm_close_all() {
+pub(crate) unsafe fn tfm_close_all() {
     if !fms.is_null() {
         for i in 0..numfms {
             fm_clear(&mut *fms.offset(i as isize));
@@ -823,7 +823,7 @@ pub unsafe fn tfm_close_all() {
     };
 }
 
-pub unsafe fn tfm_get_fw_width(font_id: i32, ch: i32) -> fixword {
+pub(crate) unsafe fn tfm_get_fw_width(font_id: i32, ch: i32) -> fixword {
     let idx;
     if font_id < 0i32 || font_id as u32 >= numfms {
         panic!("TFM: Invalid TFM ID: {}", font_id);
@@ -851,7 +851,7 @@ pub unsafe fn tfm_get_fw_width(font_id: i32, ch: i32) -> fixword {
     *(*fm).widths.offset(idx as isize)
 }
 
-pub unsafe fn tfm_get_fw_height(font_id: i32, ch: i32) -> fixword {
+pub(crate) unsafe fn tfm_get_fw_height(font_id: i32, ch: i32) -> fixword {
     let idx;
     if font_id < 0i32 || font_id as u32 >= numfms {
         panic!("TFM: Invalid TFM ID: {}", font_id);
@@ -879,7 +879,7 @@ pub unsafe fn tfm_get_fw_height(font_id: i32, ch: i32) -> fixword {
     *(*fm).heights.offset(idx as isize)
 }
 
-pub unsafe fn tfm_get_fw_depth(font_id: i32, ch: i32) -> fixword {
+pub(crate) unsafe fn tfm_get_fw_depth(font_id: i32, ch: i32) -> fixword {
     let idx;
     if font_id < 0i32 || font_id as u32 >= numfms {
         panic!("TFM: Invalid TFM ID: {}", font_id);
@@ -911,12 +911,12 @@ pub unsafe fn tfm_get_fw_depth(font_id: i32, ch: i32) -> fixword {
  * as a (double) fraction of the design size.
  */
 
-pub unsafe fn tfm_get_width(font_id: i32, ch: i32) -> f64 {
+pub(crate) unsafe fn tfm_get_width(font_id: i32, ch: i32) -> f64 {
     tfm_get_fw_width(font_id, ch) as f64 / (1i32 << 20i32) as f64
 }
 /* tfm_string_xxx() do not work for OFM... */
 
-pub unsafe fn tfm_string_width(font_id: i32, s: *const u8, len: u32) -> fixword {
+pub(crate) unsafe fn tfm_string_width(font_id: i32, s: *const u8, len: u32) -> fixword {
     let mut result: fixword = 0i32;
     if font_id < 0i32 || font_id as u32 >= numfms {
         panic!("TFM: Invalid TFM ID: {}", font_id);
@@ -927,7 +927,7 @@ pub unsafe fn tfm_string_width(font_id: i32, s: *const u8, len: u32) -> fixword 
     result
 }
 
-pub unsafe fn tfm_get_design_size(font_id: i32) -> f64 {
+pub(crate) unsafe fn tfm_get_design_size(font_id: i32) -> f64 {
     if font_id < 0i32 || font_id as u32 >= numfms {
         panic!("TFM: Invalid TFM ID: {}", font_id);
     }
@@ -936,7 +936,7 @@ pub unsafe fn tfm_get_design_size(font_id: i32) -> f64 {
 }
 /* From TFM header */
 
-pub unsafe fn tfm_exists(tfm_name: &[u8]) -> bool {
+pub(crate) unsafe fn tfm_exists(tfm_name: &[u8]) -> bool {
     if tfm_name.is_empty() {
         return false;
     }
