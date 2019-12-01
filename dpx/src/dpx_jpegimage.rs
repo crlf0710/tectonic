@@ -36,7 +36,7 @@ use super::dpx_pdfcolor::{
     iccp_check_colorspace, iccp_get_rendering_intent, iccp_load_profile,
     pdf_get_colorspace_reference,
 };
-use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
+use super::dpx_pdfximage::pdf_ximage_set_image;
 use crate::bridge::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_read};
 use crate::dpx_pdfobj::{
     pdf_get_version, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj, STREAM_COMPRESS,
@@ -176,7 +176,6 @@ pub(crate) unsafe fn jpeg_include_image(
     ximage: *mut pdf_ximage,
     handle: &mut InputHandleWrapper,
 ) -> i32 {
-    let mut info = ximage_info::default();
     let mut j_info: JPEG_info = JPEG_info {
         height: 0,
         width: 0,
@@ -196,7 +195,7 @@ pub(crate) unsafe fn jpeg_include_image(
         return -1i32;
     }
     /* File position is 2 here... */
-    pdf_ximage_init_image_info(&mut info);
+    let mut info = ximage_info::init();
     JPEG_info_init(&mut j_info);
     if JPEG_scan_file(&mut j_info, handle) < 0i32 {
         warn!("{}: Not a JPEG file?", "JPEG");
@@ -275,12 +274,14 @@ pub(crate) unsafe fn jpeg_include_image(
     info.height = j_info.height as i32;
     info.bits_per_component = j_info.bits_per_component as i32;
     info.num_components = j_info.num_components as i32;
-    jpeg_get_density(&mut j_info, &mut info.xdensity, &mut info.ydensity);
+    let (xdensity, ydensity) = jpeg_get_density(&mut j_info);
+    info.xdensity = xdensity;
+    info.ydensity = ydensity;
     pdf_ximage_set_image(ximage, &mut info, stream.into_obj());
     JPEG_info_clear(&mut j_info);
     0i32
 }
-unsafe fn jpeg_get_density(mut j_info: *mut JPEG_info, xdensity: *mut f64, ydensity: *mut f64) {
+unsafe fn jpeg_get_density(mut j_info: *mut JPEG_info) -> (f64, f64) {
     /*
      * j_info->xdpi and j_info->ydpi are determined in most cases
      * in JPEG_scan_file(). FIXME: However, in some kinds of JPEG files,
@@ -292,8 +293,7 @@ unsafe fn jpeg_get_density(mut j_info: *mut JPEG_info, xdensity: *mut f64, ydens
         (*j_info).ydpi = 72.0f64;
         (*j_info).xdpi = (*j_info).ydpi
     }
-    *xdensity = 72.0f64 / (*j_info).xdpi;
-    *ydensity = 72.0f64 / (*j_info).ydpi;
+    (72. / (*j_info).xdpi, 72. / (*j_info).ydpi)
 }
 unsafe fn JPEG_info_init(mut j_info: *mut JPEG_info) {
     (*j_info).width = 0_u16;
@@ -1076,13 +1076,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
     }
 }
 
-pub unsafe fn jpeg_get_bbox(
-    handle: &mut InputHandleWrapper,
-    width: *mut u32,
-    height: *mut u32,
-    xdensity: *mut f64,
-    ydensity: *mut f64,
-) -> i32 {
+pub unsafe fn jpeg_get_bbox(handle: &mut InputHandleWrapper) -> Result<(u32, u32, f64, f64), ()> {
     let mut j_info: JPEG_info = JPEG_info {
         height: 0,
         width: 0,
@@ -1100,11 +1094,11 @@ pub unsafe fn jpeg_get_bbox(
     if JPEG_scan_file(&mut j_info, handle) < 0i32 {
         warn!("{}: Not a JPEG file?", "JPEG");
         JPEG_info_clear(&mut j_info);
-        return -1i32;
+        return Err(());
     }
-    *width = j_info.width as u32;
-    *height = j_info.height as u32;
-    jpeg_get_density(&mut j_info, xdensity, ydensity);
+    let width = j_info.width as u32;
+    let height = j_info.height as u32;
+    let (xdensity, ydensity) = jpeg_get_density(&mut j_info);
     JPEG_info_clear(&mut j_info);
-    0i32
+    Ok((width, height, xdensity, ydensity))
 }

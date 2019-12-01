@@ -57,7 +57,7 @@ use crate::bridge::TTInputFormat;
 use bridge::InputHandleWrapper;
 
 use super::dpx_pdfdev::{transform_info, Point, Rect, TMatrix};
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct ximage_info {
     pub(crate) flags: i32,
@@ -485,20 +485,24 @@ pub(crate) fn pdf_ximage_init_form_info(info: &mut xform_info) {
  *                determined in the process of decoding the JPEG2000 image.
  */
 
-pub(crate) fn pdf_ximage_init_image_info(info: &mut ximage_info) {
-    info.flags = 0; /* The width of the image, in samples */
-    info.width = 0; /* The height of the image, in samples */
-    info.height = 0;
-    info.bits_per_component = 0;
-    info.num_components = 0;
-    info.min_dpi = 0;
-    info.ydensity = 1.;
-    info.xdensity = info.ydensity;
+impl ximage_info {
+    pub(crate) fn init() -> Self {
+        Self {
+            flags: 0, /* The width of the image, in samples */
+            width: 0, /* The height of the image, in samples */
+            height: 0,
+            bits_per_component: 0,
+            num_components: 0,
+            min_dpi: 0,
+            ydensity: 1.,
+            xdensity: 1.,
+        }
+    }
 }
 
 pub(crate) unsafe fn pdf_ximage_set_image(
     mut I: *mut pdf_ximage,
-    image_info: &mut ximage_info,
+    image_info: &ximage_info,
     resource: *mut pdf_obj,
 ) {
     let info = image_info;

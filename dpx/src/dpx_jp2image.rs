@@ -30,7 +30,7 @@ use crate::warn;
 
 use super::dpx_mfileio::{file_size, seek_relative, work_buffer};
 use super::dpx_numbers::{get_unsigned_byte, get_unsigned_pair, get_unsigned_quad};
-use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
+use super::dpx_pdfximage::pdf_ximage_set_image;
 use crate::dpx_pdfobj::{pdf_get_version, pdf_stream, IntoObj};
 use libc::{fread, rewind, FILE};
 
@@ -312,7 +312,6 @@ pub(crate) unsafe fn check_for_jp2(fp: *mut FILE) -> i32 {
 
 pub(crate) unsafe fn jp2_include_image(ximage: *mut pdf_ximage, fp: *mut FILE) -> i32 {
     let mut smask: i32 = 0i32;
-    let mut info = ximage_info::default();
     let pdf_version = pdf_get_version();
     if pdf_version < 5_u32 {
         warn!(
@@ -321,7 +320,7 @@ pub(crate) unsafe fn jp2_include_image(ximage: *mut pdf_ximage, fp: *mut FILE) -
         );
         return -1i32;
     }
-    pdf_ximage_init_image_info(&mut info);
+    let mut info = ximage_info::init();
     rewind(fp);
     if scan_file(&mut info, &mut smask, fp) < 0i32 {
         warn!("JPEG2000: Reading JPEG 2000 file failed.");
@@ -359,8 +358,7 @@ pub(crate) unsafe fn jp2_get_bbox(
     ydensity: *mut f64,
 ) -> i32 {
     let mut smask: i32 = 0i32;
-    let mut info = ximage_info::default();
-    pdf_ximage_init_image_info(&mut info);
+    let mut info = ximage_info::init();
     rewind(fp);
     let r = scan_file(&mut info, &mut smask, fp);
     *width = info.width;
