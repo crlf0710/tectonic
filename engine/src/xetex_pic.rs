@@ -33,34 +33,15 @@ use dpx::{check_for_png, png_get_bbox};
 use dpx::{pdf_close, pdf_file, pdf_obj, pdf_open, pdf_release_obj};
 use dpx::{pdf_doc_get_page, pdf_doc_get_page_count};
 use libc::{free, memcpy, strlen};
-pub(crate) type scaled_t = i32;
-pub(crate) type Fixed = scaled_t;
-pub(crate) type str_number = i32;
-pub(crate) type small_number = i16;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct transform_t {
-    pub(crate) a: f64,
-    pub(crate) b: f64,
-    pub(crate) c: f64,
-    pub(crate) d: f64,
-    pub(crate) x: f64,
-    pub(crate) y: f64,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct real_point {
-    pub(crate) x: f32,
-    pub(crate) y: f32,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct real_rect {
-    pub(crate) x: f32,
-    pub(crate) y: f32,
-    pub(crate) wd: f32,
-    pub(crate) ht: f32,
-}
+pub type scaled_t = i32;
+pub type Fixed = scaled_t;
+pub type str_number = i32;
+pub type small_number = i16;
+
+use euclid::{point2, size2, Angle};
+type Transform = euclid::Transform2D<f64, (), ()>;
+type Point = euclid::Point2D<f32, ()>;
+type Rect = euclid::Rect<f32, ()>;
 
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
@@ -105,16 +86,14 @@ unsafe extern "C" fn pdf_get_rect(
     handle: InputHandleWrapper,
     mut page_num: i32,
     mut pdf_box: i32,
-    mut box_0: *mut real_rect,
-) -> i32 {
+) -> Result<Rect, ()> {
     let mut pages: i32 = 0;
     let mut dpx_options: i32 = 0;
     let mut pf: *mut pdf_file = 0 as *mut pdf_file;
-    let mut page: *mut pdf_obj = 0 as *mut pdf_obj;
     pf = pdf_open(filename, handle);
     if pf.is_null() {
         /* TODO: issue warning */
-        return -1i32;
+        return Err(());
     }
     pages = pdf_doc_get_page_count(pf);
     if page_num > pages {
@@ -156,63 +135,39 @@ unsafe extern "C" fn pdf_get_rect(
         bbox.min.y = p1.y.min(p2.y).min(p3.y).min(p4.y);
         bbox.max.x = p1.x.max(p2.x).max(p3.x).max(p4.x);
         bbox.max.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
-        (*box_0).x = (72.27 / 72. * bbox.min.x) as f32;
-        (*box_0).y = (72.27 / 72. * bbox.min.y) as f32;
-        (*box_0).wd = (72.27 / 72. * bbox.size().width) as f32;
-        (*box_0).ht = (72.27 / 72. * bbox.size().height) as f32;
-        0
+        Ok(Rect::new(
+            point2(
+                (72.27 / 72. * bbox.min.x) as f32,
+                (72.27 / 72. * bbox.min.y) as f32,
+            ),
+            size2(
+                (72.27 / 72. * bbox.size().width) as f32,
+                (72.27 / 72. * bbox.size().height) as f32,
+            ),
+        ))
     } else {
         pdf_close(pf);
         /* TODO: issue warning */
-        return -1i32;
+        Err(())
     }
 }
 unsafe extern "C" fn get_image_size_in_inches(
     handle: &mut InputHandleWrapper,
-    mut width: *mut f32,
-    mut height: *mut f32,
-) -> i32 {
-    let mut err: i32 = 1i32;
-    let mut width_pix: u32 = 0;
-    let mut height_pix: u32 = 0;
-    let mut xdensity: f64 = 0.;
-    let mut ydensity: f64 = 0.;
-    if check_for_jpeg(handle) != 0 {
-        err = jpeg_get_bbox(
-            handle,
-            &mut width_pix,
-            &mut height_pix,
-            &mut xdensity,
-            &mut ydensity,
-        )
+) -> Result<(f32, f32), i32> {
+    let (width_pix, height_pix, xdensity, ydensity) = if check_for_jpeg(handle) != 0 {
+        jpeg_get_bbox(handle).map_err(|_| -1)?
     } else if check_for_bmp(handle) {
-        err = bmp_get_bbox(
-            handle,
-            &mut width_pix,
-            &mut height_pix,
-            &mut xdensity,
-            &mut ydensity,
-        )
-        .map(|_| 0)
-        .unwrap_or(-1);
+        bmp_get_bbox(handle).map_err(|_| -1)?
     } else if check_for_png(handle) != 0 {
-        err = png_get_bbox(
-            handle,
-            &mut width_pix,
-            &mut height_pix,
-            &mut xdensity,
-            &mut ydensity,
-        )
-    }
-    if err != 0 {
-        *width = -1i32 as f32;
-        *height = -1i32 as f32;
-        return err;
-    }
+        png_get_bbox(handle).map_err(|_| -1)?
+    } else {
+        return Err(1);
+    };
     /* xdvipdfmx defines density = 72 / dpi, so ... */
-    *width = (width_pix as f64 * xdensity / 72i32 as f64) as f32;
-    *height = (height_pix as f64 * ydensity / 72i32 as f64) as f32;
-    0
+    Ok((
+        (width_pix as f64 * xdensity / 72.) as f32,
+        (height_pix as f64 * ydensity / 72.) as f32,
+    ))
 }
 /*
   pdfBoxType indicates which pdf bounding box to use (0 for \XeTeXpicfile)
@@ -223,124 +178,48 @@ unsafe extern "C" fn get_image_size_in_inches(
 */
 unsafe extern "C" fn find_pic_file(
     mut path: *mut *mut i8,
-    mut bounds: *mut real_rect,
     mut pdfBoxType: i32,
     mut page: i32,
-) -> i32 {
-    let mut err: i32 = -1i32;
+) -> Result<Rect, i32> {
     let handle = ttstub_input_open(name_of_file, TTInputFormat::PICT, 0i32);
-    (*bounds).ht = 0.0f64 as f32;
-    (*bounds).wd = (*bounds).ht;
-    (*bounds).y = (*bounds).wd;
-    (*bounds).x = (*bounds).y;
     if handle.is_none() {
-        return 1i32;
+        return Err(1);
     }
     let mut handle = handle.unwrap();
-    if pdfBoxType != 0i32 {
+    let bounds = if pdfBoxType != 0i32 {
         /* if cmd was \XeTeXpdffile, use xpdflib to read it */
-        err = pdf_get_rect(name_of_file, handle, page, pdfBoxType, bounds)
+        pdf_get_rect(name_of_file, handle, page, pdfBoxType).map_err(|_| -1)?
     } else {
-        err = get_image_size_in_inches(&mut handle, &mut (*bounds).wd, &mut (*bounds).ht);
-        (*bounds).wd = ((*bounds).wd as f64 * 72.27f64) as f32;
-        (*bounds).ht = ((*bounds).ht as f64 * 72.27f64) as f32;
-        ttstub_input_close(handle);
-    }
-    if err == 0i32 {
-        *path = xstrdup(name_of_file)
-    }
-    err
-}
-unsafe extern "C" fn transform_point(mut p: *mut real_point, mut t: *const transform_t) {
-    let mut r: real_point = real_point { x: 0., y: 0. };
-    r.x = ((*t).a * (*p).x as f64 + (*t).c * (*p).y as f64 + (*t).x) as f32;
-    r.y = ((*t).b * (*p).x as f64 + (*t).d * (*p).y as f64 + (*t).y) as f32;
-    *p = r;
-}
-unsafe extern "C" fn make_identity(mut t: *mut transform_t) {
-    (*t).a = 1.0f64;
-    (*t).b = 0.0f64;
-    (*t).c = 0.0f64;
-    (*t).d = 1.0f64;
-    (*t).x = 0.0f64;
-    (*t).y = 0.0f64;
-}
-unsafe extern "C" fn make_scale(mut t: *mut transform_t, mut xscale: f64, mut yscale: f64) {
-    (*t).a = xscale;
-    (*t).b = 0.0f64;
-    (*t).c = 0.0f64;
-    (*t).d = yscale;
-    (*t).x = 0.0f64;
-    (*t).y = 0.0f64;
-}
-unsafe extern "C" fn make_translation(mut t: *mut transform_t, mut dx: f64, mut dy: f64) {
-    (*t).a = 1.0f64;
-    (*t).b = 0.0f64;
-    (*t).c = 0.0f64;
-    (*t).d = 1.0f64;
-    (*t).x = dx;
-    (*t).y = dy;
-}
-unsafe extern "C" fn make_rotation(mut t: *mut transform_t, mut a: f64) {
-    let (s, c) = a.sin_cos();
-    (*t).a = c;
-    (*t).b = s;
-    (*t).c = -s;
-    (*t).d = c;
-    (*t).x = 0.;
-    (*t).y = 0.;
-}
-unsafe extern "C" fn transform_concat(mut t1: *mut transform_t, mut t2: *const transform_t) {
-    let mut r: transform_t = transform_t {
-        a: 0.,
-        b: 0.,
-        c: 0.,
-        d: 0.,
-        x: 0.,
-        y: 0.,
+        match get_image_size_in_inches(&mut handle) {
+            Ok((wd, ht)) => {
+                ttstub_input_close(handle);
+                Rect::from_size(size2(
+                    (wd as f64 * 72.27) as f32,
+                    (ht as f64 * 72.27) as f32,
+                ))
+            }
+            Err(e) => {
+                return Err(e);
+            }
+        }
     };
-    r.a = (*t1).a * (*t2).a + (*t1).b * (*t2).c + 0.0f64 * (*t2).x;
-    r.b = (*t1).a * (*t2).b + (*t1).b * (*t2).d + 0.0f64 * (*t2).y;
-    r.c = (*t1).c * (*t2).a + (*t1).d * (*t2).c + 0.0f64 * (*t2).x;
-    r.d = (*t1).c * (*t2).b + (*t1).d * (*t2).d + 0.0f64 * (*t2).y;
-    r.x = (*t1).x * (*t2).a + (*t1).y * (*t2).c + 1.0f64 * (*t2).x;
-    r.y = (*t1).x * (*t2).b + (*t1).y * (*t2).d + 1.0f64 * (*t2).y;
-    *t1 = r;
+    *path = xstrdup(name_of_file);
+    Ok(bounds)
 }
+
+fn to_points(r: &Rect) -> [Point; 4] {
+    [
+        r.min(),
+        point2(r.min_x(), r.max_y()),
+        r.max(),
+        point2(r.max_x(), r.min_y()),
+    ]
+}
+
 #[no_mangle]
 pub(crate) unsafe extern "C" fn load_picture(mut is_pdf: bool) {
     let mut pic_path: *mut i8 = 0 as *mut i8;
-    let mut bounds: real_rect = real_rect {
-        x: 0.,
-        y: 0.,
-        wd: 0.,
-        ht: 0.,
-    };
-    let mut t: transform_t = transform_t {
-        a: 0.,
-        b: 0.,
-        c: 0.,
-        d: 0.,
-        x: 0.,
-        y: 0.,
-    };
-    let mut t2: transform_t = transform_t {
-        a: 0.,
-        b: 0.,
-        c: 0.,
-        d: 0.,
-        x: 0.,
-        y: 0.,
-    };
-    let mut corners: [real_point; 4] = [real_point { x: 0., y: 0. }; 4];
-    let mut x_size_req: f64 = 0.;
-    let mut y_size_req: f64 = 0.;
     let mut check_keywords: bool = false;
-    let mut xmin: f64 = 0.;
-    let mut xmax: f64 = 0.;
-    let mut ymin: f64 = 0.;
-    let mut ymax: f64 = 0.;
-    let mut i: small_number = 0;
     let mut page: i32 = 0;
     let mut pdf_box_type: i32 = 0;
     let mut result: i32 = 0;
@@ -366,84 +245,41 @@ pub(crate) unsafe extern "C" fn load_picture(mut is_pdf: bool) {
             pdf_box_type = 5i32
         }
     }
-    if pdf_box_type == 6i32 {
-        result = find_pic_file(&mut pic_path, &mut bounds, 1i32, page)
+    let bounds = if pdf_box_type == 6i32 {
+        find_pic_file(&mut pic_path, 1i32, page)
     } else {
-        result = find_pic_file(&mut pic_path, &mut bounds, pdf_box_type, page)
+        find_pic_file(&mut pic_path, pdf_box_type, page)
     }
-    corners[0].x = bounds.x;
-    corners[0].y = bounds.y;
-    corners[1].x = corners[0].x;
-    corners[1].y = bounds.y + bounds.ht;
-    corners[2].x = bounds.x + bounds.wd;
-    corners[2].y = corners[1].y;
-    corners[3].x = corners[2].x;
-    corners[3].y = corners[0].y;
-    x_size_req = 0.0f64;
-    y_size_req = 0.0f64;
-    make_identity(&mut t);
+    .unwrap_or_else(|e| {
+        result = e;
+        Rect::zero()
+    });
+    let mut corners = bounds;
+    let mut x_size_req = 0_f64;
+    let mut y_size_req = 0_f64;
+    let mut t = Transform::identity();
     check_keywords = true;
     while check_keywords {
         if scan_keyword(b"scaled\x00" as *const u8 as *const i8) {
             scan_int();
-            if x_size_req == 0.0f64 && y_size_req == 0.0f64 {
-                make_scale(
-                    &mut t2,
-                    cur_val as f64 / 1000.0f64,
-                    cur_val as f64 / 1000.0f64,
-                );
-                let mut for_end: i32 = 0;
-                i = 0i32 as small_number;
-                for_end = 3i32;
-                if i as i32 <= for_end {
-                    loop {
-                        transform_point(&mut *corners.as_mut_ptr().offset(i as isize), &mut t2);
-                        let fresh0 = i;
-                        i = i + 1;
-                        if !((fresh0 as i32) < for_end) {
-                            break;
-                        }
-                    }
-                }
-                transform_concat(&mut t, &mut t2);
+            if x_size_req == 0. && y_size_req == 0. {
+                let t2 = Transform::create_scale(cur_val as f64 / 1000., cur_val as f64 / 1000.);
+                corners = t2.transform_rect(&corners.to_f64()).to_f32();
+                t = t.post_transform(&t2);
             }
         } else if scan_keyword(b"xscaled\x00" as *const u8 as *const i8) {
             scan_int();
-            if x_size_req == 0.0f64 && y_size_req == 0.0f64 {
-                make_scale(&mut t2, cur_val as f64 / 1000.0f64, 1.0f64);
-                let mut for_end_0: i32 = 0;
-                i = 0i32 as small_number;
-                for_end_0 = 3i32;
-                if i as i32 <= for_end_0 {
-                    loop {
-                        transform_point(&mut *corners.as_mut_ptr().offset(i as isize), &mut t2);
-                        let fresh1 = i;
-                        i = i + 1;
-                        if !((fresh1 as i32) < for_end_0) {
-                            break;
-                        }
-                    }
-                }
-                transform_concat(&mut t, &mut t2);
+            if x_size_req == 0. && y_size_req == 0. {
+                let t2 = Transform::create_scale(cur_val as f64 / 1000., 1.);
+                corners = t2.transform_rect(&corners.to_f64()).to_f32();
+                t = t.post_transform(&t2);
             }
         } else if scan_keyword(b"yscaled\x00" as *const u8 as *const i8) {
             scan_int();
             if x_size_req == 0.0f64 && y_size_req == 0.0f64 {
-                make_scale(&mut t2, 1.0f64, cur_val as f64 / 1000.0f64);
-                let mut for_end_1: i32 = 0;
-                i = 0i32 as small_number;
-                for_end_1 = 3i32;
-                if i as i32 <= for_end_1 {
-                    loop {
-                        transform_point(&mut *corners.as_mut_ptr().offset(i as isize), &mut t2);
-                        let fresh2 = i;
-                        i = i + 1;
-                        if !((fresh2 as i32) < for_end_1) {
-                            break;
-                        }
-                    }
-                }
-                transform_concat(&mut t, &mut t2);
+                let t2 = Transform::create_scale(1., cur_val as f64 / 1000.);
+                corners = t2.transform_rect(&corners.to_f64()).to_f32();
+                t = t.post_transform(&t2);
             }
         } else if scan_keyword(b"width\x00" as *const u8 as *const i8) {
             scan_dimen(false, false, false);
@@ -488,227 +324,64 @@ pub(crate) unsafe extern "C" fn load_picture(mut is_pdf: bool) {
         } else if scan_keyword(b"rotated\x00" as *const u8 as *const i8) {
             scan_decimal();
             if x_size_req != 0.0f64 || y_size_req != 0.0f64 {
-                xmin = 1000000.0f64;
-                xmax = -(xmin as i32) as f64;
-                ymin = xmin;
-                ymax = xmax;
-                let mut for_end_2: i32 = 0;
-                i = 0i32 as small_number;
-                for_end_2 = 3i32;
-                if i as i32 <= for_end_2 {
-                    loop {
-                        if (corners[i as usize].x as f64) < xmin {
-                            xmin = corners[i as usize].x as f64
-                        }
-                        if corners[i as usize].x as f64 > xmax {
-                            xmax = corners[i as usize].x as f64
-                        }
-                        if (corners[i as usize].y as f64) < ymin {
-                            ymin = corners[i as usize].y as f64
-                        }
-                        if corners[i as usize].y as f64 > ymax {
-                            ymax = corners[i as usize].y as f64
-                        }
-                        let fresh3 = i;
-                        i = i + 1;
-                        if !((fresh3 as i32) < for_end_2) {
-                            break;
-                        }
-                    }
-                }
-                if x_size_req == 0.0f64 {
-                    make_scale(
-                        &mut t2,
-                        y_size_req / (ymax - ymin),
-                        y_size_req / (ymax - ymin),
-                    );
+                let brect = Rect::from_points(&to_points(&corners));
+                let xmin = brect.min_x() as f64;
+                let ymin = brect.min_y() as f64;
+                let xmax = brect.max_x() as f64;
+                let ymax = brect.max_y() as f64;
+                let mut t2 = if x_size_req == 0. {
+                    Transform::create_scale(y_size_req / (ymax - ymin), y_size_req / (ymax - ymin))
                 } else if y_size_req == 0.0f64 {
-                    make_scale(
-                        &mut t2,
-                        x_size_req / (xmax - xmin),
-                        x_size_req / (xmax - xmin),
-                    );
+                    Transform::create_scale(x_size_req / (xmax - xmin), x_size_req / (xmax - xmin))
                 } else {
-                    make_scale(
-                        &mut t2,
-                        x_size_req / (xmax - xmin),
-                        y_size_req / (ymax - ymin),
-                    );
-                }
-                let mut for_end_3: i32 = 0;
-                i = 0i32 as small_number;
-                for_end_3 = 3i32;
-                if i as i32 <= for_end_3 {
-                    loop {
-                        transform_point(&mut *corners.as_mut_ptr().offset(i as isize), &mut t2);
-                        let fresh4 = i;
-                        i = i + 1;
-                        if !((fresh4 as i32) < for_end_3) {
-                            break;
-                        }
-                    }
-                }
+                    Transform::create_scale(x_size_req / (xmax - xmin), y_size_req / (ymax - ymin))
+                };
+
+                corners = t2.transform_rect(&corners.to_f64()).to_f32();
                 x_size_req = 0.0f64;
                 y_size_req = 0.0f64;
-                transform_concat(&mut t, &mut t2);
+                t = t.post_transform(&t2);
             }
-            make_rotation(
-                &mut t2,
-                Fix2D(cur_val) * 3.14159265358979323846f64 / 180.0f64,
-            );
-            let mut for_end_4: i32 = 0;
-            i = 0i32 as small_number;
-            for_end_4 = 3i32;
-            if i as i32 <= for_end_4 {
-                loop {
-                    transform_point(&mut *corners.as_mut_ptr().offset(i as isize), &mut t2);
-                    let fresh5 = i;
-                    i = i + 1;
-                    if !((fresh5 as i32) < for_end_4) {
-                        break;
-                    }
-                }
-            }
-            xmin = 1000000.0f64;
-            xmax = -(xmin as i32) as f64;
-            ymin = xmin;
-            ymax = xmax;
-            let mut for_end_5: i32 = 0;
-            i = 0i32 as small_number;
-            for_end_5 = 3i32;
-            if i as i32 <= for_end_5 {
-                loop {
-                    if (corners[i as usize].x as f64) < xmin {
-                        xmin = corners[i as usize].x as f64
-                    }
-                    if corners[i as usize].x as f64 > xmax {
-                        xmax = corners[i as usize].x as f64
-                    }
-                    if (corners[i as usize].y as f64) < ymin {
-                        ymin = corners[i as usize].y as f64
-                    }
-                    if corners[i as usize].y as f64 > ymax {
-                        ymax = corners[i as usize].y as f64
-                    }
-                    let fresh6 = i;
-                    i = i + 1;
-                    if !((fresh6 as i32) < for_end_5) {
-                        break;
-                    }
-                }
-            }
-            corners[0].x = xmin as f32;
-            corners[0].y = ymin as f32;
-            corners[1].x = xmin as f32;
-            corners[1].y = ymax as f32;
-            corners[2].x = xmax as f32;
-            corners[2].y = ymax as f32;
-            corners[3].x = xmax as f32;
-            corners[3].y = ymin as f32;
-            transform_concat(&mut t, &mut t2);
+            let mut t2 = Transform::create_rotation(Angle::degrees(Fix2D(cur_val)));
+
+            corners = t2.transform_rect(&corners.to_f64()).to_f32();
+            corners = Rect::from_points(&to_points(&corners));
+            t = t.post_transform(&t2);
         } else {
             check_keywords = false
         }
     }
     if x_size_req != 0.0f64 || y_size_req != 0.0f64 {
-        xmin = 1000000.0f64;
-        xmax = -(xmin as i32) as f64;
-        ymin = xmin;
-        ymax = xmax;
-        let mut for_end_6: i32 = 0;
-        i = 0i32 as small_number;
-        for_end_6 = 3i32;
-        if i as i32 <= for_end_6 {
-            loop {
-                if (corners[i as usize].x as f64) < xmin {
-                    xmin = corners[i as usize].x as f64
-                }
-                if corners[i as usize].x as f64 > xmax {
-                    xmax = corners[i as usize].x as f64
-                }
-                if (corners[i as usize].y as f64) < ymin {
-                    ymin = corners[i as usize].y as f64
-                }
-                if corners[i as usize].y as f64 > ymax {
-                    ymax = corners[i as usize].y as f64
-                }
-                let fresh7 = i;
-                i = i + 1;
-                if !((fresh7 as i32) < for_end_6) {
-                    break;
-                }
-            }
-        }
-        if x_size_req == 0.0f64 {
-            make_scale(
-                &mut t2,
-                y_size_req / (ymax - ymin),
-                y_size_req / (ymax - ymin),
-            );
+        let brect = Rect::from_points(&to_points(&corners));
+        let xmin = brect.min_x() as f64;
+        let ymin = brect.min_y() as f64;
+        let xmax = brect.max_x() as f64;
+        let ymax = brect.max_y() as f64;
+        let mut t2 = if x_size_req == 0.0f64 {
+            Transform::create_scale(y_size_req / (ymax - ymin), y_size_req / (ymax - ymin))
         } else if y_size_req == 0.0f64 {
-            make_scale(
-                &mut t2,
-                x_size_req / (xmax - xmin),
-                x_size_req / (xmax - xmin),
-            );
+            Transform::create_scale(x_size_req / (xmax - xmin), x_size_req / (xmax - xmin))
         } else {
-            make_scale(
-                &mut t2,
-                x_size_req / (xmax - xmin),
-                y_size_req / (ymax - ymin),
-            );
-        }
-        let mut for_end_7: i32 = 0;
-        i = 0i32 as small_number;
-        for_end_7 = 3i32;
-        if i as i32 <= for_end_7 {
-            loop {
-                transform_point(&mut *corners.as_mut_ptr().offset(i as isize), &mut t2);
-                let fresh8 = i;
-                i = i + 1;
-                if !((fresh8 as i32) < for_end_7) {
-                    break;
-                }
-            }
-        }
+            Transform::create_scale(x_size_req / (xmax - xmin), y_size_req / (ymax - ymin))
+        };
+
+        corners = t2.transform_rect(&corners.to_f64()).to_f32();
         x_size_req = 0.0f64;
         y_size_req = 0.0f64;
-        transform_concat(&mut t, &mut t2);
+        t = t.post_transform(&t2);
     }
-    xmin = 1000000.0f64;
-    xmax = -(xmin as i32) as f64;
-    ymin = xmin;
-    ymax = xmax;
-    let mut for_end_8: i32 = 0;
-    i = 0i32 as small_number;
-    for_end_8 = 3i32;
-    if i as i32 <= for_end_8 {
-        loop {
-            if (corners[i as usize].x as f64) < xmin {
-                xmin = corners[i as usize].x as f64
-            }
-            if corners[i as usize].x as f64 > xmax {
-                xmax = corners[i as usize].x as f64
-            }
-            if (corners[i as usize].y as f64) < ymin {
-                ymin = corners[i as usize].y as f64
-            }
-            if corners[i as usize].y as f64 > ymax {
-                ymax = corners[i as usize].y as f64
-            }
-            let fresh9 = i;
-            i = i + 1;
-            if !((fresh9 as i32) < for_end_8) {
-                break;
-            }
-        }
-    }
-    make_translation(
-        &mut t2,
-        (-(xmin as i32) * 72i32) as f64 / 72.27f64,
-        (-(ymin as i32) * 72i32) as f64 / 72.27f64,
+
+    let brect = Rect::from_points(&to_points(&corners));
+    let xmin = brect.min_x() as f64;
+    let ymin = brect.min_y() as f64;
+    let xmax = brect.max_x() as f64;
+    let ymax = brect.max_y() as f64;
+
+    let mut t2 = Transform::create_translation(
+        (-(xmin as i32) * 72i32) as f64 / 72.27,
+        (-(ymin as i32) * 72i32) as f64 / 72.27,
     );
-    transform_concat(&mut t, &mut t2);
+    t = t.post_transform(&t2);
     if result == 0i32 {
         new_whatsit(
             43i32 as small_number,
@@ -728,12 +401,12 @@ pub(crate) unsafe extern "C" fn load_picture(mut is_pdf: bool) {
         (*mem.offset((cur_list.tail + 1i32) as isize)).b32.s1 = D2Fix(xmax - xmin);
         (*mem.offset((cur_list.tail + 3i32) as isize)).b32.s1 = D2Fix(ymax - ymin);
         (*mem.offset((cur_list.tail + 2i32) as isize)).b32.s1 = 0i32;
-        (*mem.offset((cur_list.tail + 5i32) as isize)).b32.s0 = D2Fix(t.a);
-        (*mem.offset((cur_list.tail + 5i32) as isize)).b32.s1 = D2Fix(t.b);
-        (*mem.offset((cur_list.tail + 6i32) as isize)).b32.s0 = D2Fix(t.c);
-        (*mem.offset((cur_list.tail + 6i32) as isize)).b32.s1 = D2Fix(t.d);
-        (*mem.offset((cur_list.tail + 7i32) as isize)).b32.s0 = D2Fix(t.x);
-        (*mem.offset((cur_list.tail + 7i32) as isize)).b32.s1 = D2Fix(t.y);
+        (*mem.offset((cur_list.tail + 5i32) as isize)).b32.s0 = D2Fix(t.m11);
+        (*mem.offset((cur_list.tail + 5i32) as isize)).b32.s1 = D2Fix(t.m12);
+        (*mem.offset((cur_list.tail + 6i32) as isize)).b32.s0 = D2Fix(t.m21);
+        (*mem.offset((cur_list.tail + 6i32) as isize)).b32.s1 = D2Fix(t.m22);
+        (*mem.offset((cur_list.tail + 7i32) as isize)).b32.s0 = D2Fix(t.m31);
+        (*mem.offset((cur_list.tail + 7i32) as isize)).b32.s1 = D2Fix(t.m32);
         memcpy(
             &mut *mem.offset((cur_list.tail + 9i32) as isize) as *mut memory_word as *mut u8
                 as *mut libc::c_void,

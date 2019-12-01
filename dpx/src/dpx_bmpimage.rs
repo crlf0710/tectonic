@@ -28,7 +28,7 @@
 
 use super::dpx_mem::new;
 use super::dpx_numbers::tt_get_unsigned_byte;
-use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
+use super::dpx_pdfximage::pdf_ximage_set_image;
 use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{
     pdf_stream, pdf_stream_set_predictor, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
@@ -43,7 +43,7 @@ use crate::bridge::size_t;
 use bridge::InputHandleWrapper;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub(crate) struct hdr_info {
     pub(crate) offset: u32,
@@ -74,68 +74,42 @@ pub unsafe fn check_for_bmp(handle: &mut InputHandleWrapper) -> bool {
         true
     }
 }
-unsafe fn get_density(xdensity: *mut f64, ydensity: *mut f64, hdr: *mut hdr_info) {
-    if (*hdr).x_pix_per_meter > 0_u32 && (*hdr).y_pix_per_meter > 0_u32 {
+fn get_density(hdr: &hdr_info) -> (f64, f64) {
+    if hdr.x_pix_per_meter > 0 && hdr.y_pix_per_meter > 0 {
         /* 0 for undefined. FIXME */
-        *xdensity = 72.0f64 / ((*hdr).x_pix_per_meter as f64 * 0.0254f64);
-        *ydensity = 72.0f64 / ((*hdr).y_pix_per_meter as f64 * 0.0254f64)
+        (
+            72. / (hdr.x_pix_per_meter as f64 * 0.0254),
+            72. / (hdr.y_pix_per_meter as f64 * 0.0254),
+        )
     } else {
-        *xdensity = 1.0f64;
-        *ydensity = 1.0f64
-    };
+        (1., 1.)
+    }
 }
 
-pub unsafe fn bmp_get_bbox(
-    handle: &mut InputHandleWrapper,
-    width: *mut u32,
-    height: *mut u32,
-    xdensity: *mut f64,
-    ydensity: *mut f64,
-) -> Result<(), ()> {
-    let mut hdr: hdr_info = hdr_info {
-        offset: 0_u32,
-        hsize: 0_u32,
-        width: 0_u32,
-        height: 0i32,
-        compression: 0i32,
-        bit_count: 0_u16,
-        psize: 0i32,
-        x_pix_per_meter: 0_u32,
-        y_pix_per_meter: 0_u32,
-    };
+pub unsafe fn bmp_get_bbox(handle: &mut InputHandleWrapper) -> Result<(u32, u32, f64, f64), ()> {
     handle.seek(SeekFrom::Start(0)).unwrap();
-    let r = read_header(handle, &mut hdr);
-    *width = hdr.width;
-    *height = (if hdr.height < 0i32 {
+    let hdr = read_header(handle)?;
+    let width = hdr.width;
+    let height = (if hdr.height < 0 {
         -hdr.height
     } else {
         hdr.height
     }) as u32;
-    get_density(xdensity, ydensity, &mut hdr);
-    r
+    let (xdensity, ydensity) = get_density(&hdr);
+    Ok((width, height, xdensity, ydensity))
 }
 
 pub(crate) unsafe fn bmp_include_image(
     ximage: *mut pdf_ximage,
     handle: &mut InputHandleWrapper,
 ) -> Result<(), ()> {
-    let mut info = ximage_info::default();
-    let mut hdr: hdr_info = hdr_info {
-        offset: 0_u32,
-        hsize: 0_u32,
-        width: 0_u32,
-        height: 0i32,
-        compression: 0i32,
-        bit_count: 0_u16,
-        psize: 0i32,
-        x_pix_per_meter: 0_u32,
-        y_pix_per_meter: 0_u32,
-    };
     let num_palette;
-    pdf_ximage_init_image_info(&mut info);
+    let mut info = ximage_info::init();
     handle.seek(SeekFrom::Start(0)).unwrap();
-    read_header(handle, &mut hdr)?;
-    get_density(&mut info.xdensity, &mut info.ydensity, &mut hdr);
+    let hdr = read_header(handle)?;
+    let (xdensity, ydensity) = get_density(&hdr);
+    info.xdensity = xdensity;
+    info.ydensity = ydensity;
     info.width = hdr.width as i32;
     info.height = hdr.height;
     let flip = if info.height < 0 {
@@ -309,7 +283,7 @@ pub(crate) unsafe fn bmp_include_image(
 }
 
 use crate::FromLEByteSlice;
-unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> Result<(), ()> {
+unsafe fn read_header(handle: &mut InputHandleWrapper) -> Result<hdr_info, ()> {
     let mut buf: [u8; 142] = [0; 142];
     let p = &mut buf;
     if ttstub_input_read(
@@ -333,6 +307,7 @@ unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> Re
         return Err(());
     }
     let p = &mut p[4..];
+    let mut hdr = hdr_info::default();
     hdr.offset = u32::from_le_byte_slice(&p[..4]);
     let p = &mut p[4..];
     /* info header */
@@ -392,7 +367,7 @@ unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> Re
             return Err(());
         }
     }
-    Ok(())
+    Ok(hdr)
 }
 unsafe fn read_raster_rle8(
     data_ptr: *mut u8,

@@ -34,7 +34,7 @@ use crate::warn;
 
 use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
-use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
+use super::dpx_pdfximage::pdf_ximage_set_image;
 use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_get_version, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
@@ -95,9 +95,8 @@ pub(crate) unsafe fn png_include_image(
     ximage: *mut pdf_ximage,
     handle: &mut InputHandleWrapper,
 ) -> i32 {
-    let mut info = ximage_info::default();
     /* Libpng stuff */
-    pdf_ximage_init_image_info(&mut info);
+    let mut info = ximage_info::init();
     let mut intent = ptr::null_mut();
     let mut mask = intent;
     let mut colorspace = mask;
@@ -1102,13 +1101,7 @@ unsafe fn read_image_data(
     free(rows_p as *mut libc::c_void);
 }
 
-pub unsafe fn png_get_bbox(
-    handle: &mut InputHandleWrapper,
-    width: *mut u32,
-    height: *mut u32,
-    xdensity: *mut f64,
-    ydensity: *mut f64,
-) -> libc::c_int {
+pub unsafe fn png_get_bbox(handle: &mut InputHandleWrapper) -> Result<(u32, u32, f64, f64), ()> {
     handle.seek(SeekFrom::Start(0)).unwrap();
     let png = png_create_read_struct(
         b"1.6.37\x00" as *const u8 as *const i8,
@@ -1130,7 +1123,7 @@ pub unsafe fn png_get_bbox(
                 0 as png_infopp,
             );
         }
-        return -1i32;
+        return Err(());
     }
 
     let png = png.unwrap();
@@ -1141,16 +1134,16 @@ pub unsafe fn png_get_bbox(
     /* NOTE: could use png_set_sig_bytes() to tell libpng if we started at non-zero file offset */
     /* Read PNG info-header and get some info. */
     png_read_info(png, png_info);
-    *width = png_get_image_width(png, png_info);
-    *height = png_get_image_height(png, png_info);
+    let width = png_get_image_width(png, png_info);
+    let height = png_get_image_height(png, png_info);
     let xppm: png_uint_32 = png_get_x_pixels_per_meter(png, png_info);
     let yppm: png_uint_32 = png_get_y_pixels_per_meter(png, png_info);
-    *xdensity = if xppm != 0 {
+    let xdensity = if xppm != 0 {
         72.0f64 / 0.0254f64 / xppm as f64
     } else {
         1.0f64
     };
-    *ydensity = if yppm != 0 {
+    let ydensity = if yppm != 0 {
         72.0f64 / 0.0254f64 / yppm as f64
     } else {
         1.0f64
@@ -1162,5 +1155,5 @@ pub unsafe fn png_get_bbox(
         0 as png_infopp,
         0 as png_infopp,
     );
-    0i32
+    Ok((width, height, xdensity, ydensity))
 }
