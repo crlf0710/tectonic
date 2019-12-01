@@ -213,7 +213,7 @@ pub(crate) unsafe extern "C" fn ship_out(mut p: i32) {
             if job_name == 0 {
                 open_log_file();
             }
-            pack_job_name(output_file_extension);
+            pack_job_name(CStr::from_ptr(output_file_extension).to_bytes());
             dvi_file = ttstub_output_open(name_of_file, 0);
             if dvi_file.is_none() {
                 abort!(
@@ -1968,7 +1968,7 @@ pub(crate) unsafe extern "C" fn out_what(mut p: i32) {
             cur_area = (*mem.offset((p + 2) as isize)).b32.s0;
             cur_ext = (*mem.offset((p + 2) as isize)).b32.s1;
             if length(cur_ext) == 0 {
-                cur_ext = maketexstring(b".tex\x00" as *const u8 as *const i8)
+                cur_ext = maketexstring(b".tex")
             }
 
             pack_file_name(cur_name, cur_area, cur_ext);

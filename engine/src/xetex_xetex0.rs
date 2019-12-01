@@ -14856,7 +14856,7 @@ pub(crate) unsafe extern "C" fn scan_file_name() {
     name_in_progress = false;
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn pack_job_name(mut s: *const i8) {
+pub(crate) unsafe extern "C" fn pack_job_name(s: &[u8]) {
     cur_area = (65536 + 1i32 as i64) as str_number;
     cur_ext = maketexstring(s);
     cur_name = job_name;
@@ -14868,9 +14868,9 @@ pub(crate) unsafe extern "C" fn open_log_file() {
     let mut l: i32 = 0;
     let old_setting_0 = selector;
     if job_name == 0i32 {
-        job_name = maketexstring(b"texput\x00" as *const u8 as *const i8)
+        job_name = maketexstring(b"texput")
     }
-    pack_job_name(b".log\x00" as *const u8 as *const i8);
+    pack_job_name(b".log");
     log_file = ttstub_output_open(name_of_file, 0i32);
     if log_file.is_none() {
         abort!(
@@ -15157,7 +15157,8 @@ pub(crate) unsafe extern "C" fn start_input(mut primary_input_name: *const i8) {
     cur_input.name = make_name_string();
     *source_filename_stack.offset(in_open as isize) = cur_input.name;
     /* *This* variant is a TeX string made out of `name_of_input_file`. */
-    *full_source_filename_stack.offset(in_open as isize) = maketexstring(name_of_input_file);
+    *full_source_filename_stack.offset(in_open as isize) =
+        maketexstring(CStr::from_ptr(name_of_input_file).to_bytes());
     if cur_input.name == str_ptr - 1i32 {
         temp_str = search_string(cur_input.name);
         if temp_str > 0i32 {
@@ -23849,7 +23850,7 @@ pub(crate) unsafe extern "C" fn new_font(mut a: small_number) {
         t = (*hash.offset(u as isize)).s1
     } else if u >= 1i32 + (0x10ffffi32 + 1i32) {
         if u == 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) {
-            t = maketexstring(b"FONT\x00" as *const u8 as *const i8)
+            t = maketexstring(b"FONT")
         } else {
             t = u - (1i32 + (0x10ffffi32 + 1i32))
         }
