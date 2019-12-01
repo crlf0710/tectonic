@@ -37,11 +37,11 @@ use std::ptr;
 use bridge::TTInputFormat;
 
 #[cfg(not(target_os = "macos"))]
-mod imp {}
+pub(crate) mod imp {}
 
 #[cfg(target_os = "macos")]
 #[path = "xetex_font_info_coretext.rs"]
-mod imp;
+pub(crate) mod imp;
 
 extern crate libc;
 extern "C" {
@@ -128,11 +128,12 @@ pub(crate) type Fixed = i32;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct GlyphBBox {
-    pub(crate) xMin: libc::c_float,
-    pub(crate) yMin: libc::c_float,
-    pub(crate) xMax: libc::c_float,
-    pub(crate) yMax: libc::c_float,
+    pub(crate) xMin: f32,
+    pub(crate) yMin: f32,
+    pub(crate) xMax: f32,
+    pub(crate) yMax: f32,
 }
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXFontInst {

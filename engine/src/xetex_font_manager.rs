@@ -22,9 +22,6 @@ use crate::core_memory::xmalloc;
 
 use crate::xetex_layout_interface::collection_types::*;
 
-#[cfg(target_os = "macos")]
-use crate::xetex_layout_interface::__CTFontDescriptor;
-
 use freetype::freetype_sys;
 use harfbuzz_sys::{hb_face_t, hb_font_get_face, hb_font_t, hb_ot_layout_get_size_params};
 
@@ -105,9 +102,7 @@ pub(crate) type Fixed = i32;
 pub(crate) type PlatformFontRef = *mut FcPattern;
 
 #[cfg(target_os = "macos")]
-pub(crate) type PlatformFontRef = CTFontDescriptorRef;
-#[cfg(target_os = "macos")]
-pub(crate) type CTFontDescriptorRef = *const __CTFontDescriptor;
+pub(crate) type PlatformFontRef = imp::CTFontDescriptorRef;
 
 pub(crate) type XeTeXFont = *mut XeTeXFont_rec;
 /* ***************************************************************************\

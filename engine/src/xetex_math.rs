@@ -20,7 +20,7 @@ use crate::xetex_ini::{
     xtx_ligature_present, LR_problems, LR_ptr,
 };
 use crate::xetex_ini::{b16x4, b16x4_le_t, memory_word};
-use crate::xetex_layout_engine::*;
+use crate::xetex_layout_interface::*;
 use crate::xetex_linebreak::line_break;
 use crate::xetex_output::{
     print, print_char, print_cstr, print_esc_cstr, print_file_line, print_int, print_nl_cstr,

@@ -38,14 +38,14 @@ use crate::xetex_ini::{
 };
 use crate::xetex_output::{print_char, print_int, print_nl, print_raw_char};
 use crate::xetex_scaledmath::xn_over_d;
-use crate::xetex_texmfmp::gettexstring;
+use crate::xetex_texmfmp::{gettexstring, maketexstring};
 use crate::xetex_xetex0::{
     begin_diagnostic, end_diagnostic, font_feature_warning, font_mapping_warning,
     get_tracing_fonts_state,
 };
 
 use crate::stub_stdio::strcasecmp;
-use crate::xetex_layout_engine::*;
+use crate::xetex_layout_interface::*;
 use harfbuzz_sys::{hb_feature_t, hb_tag_from_string, hb_tag_t};
 use libc::{memcpy, strcat, strcpy, strdup, strlen, strncpy, strstr};
 
@@ -1372,7 +1372,7 @@ pub(crate) unsafe extern "C" fn gr_font_get_named(
     let mut rval: i64 = -1i32 as i64;
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
     match what {
-        10 => rval = findGraphiteFeatureNamed(engine, name_of_file, name_length),
+        10 => rval = findGraphiteFeatureNamed(engine, name_of_file, name_length) as _,
         _ => {}
     }
     rval as i32
@@ -1388,6 +1388,7 @@ pub(crate) unsafe extern "C" fn gr_font_get_named_1(
     match what {
         14 => {
             rval = findGraphiteFeatureSettingNamed(engine, param as u32, name_of_file, name_length)
+                as _
         }
         _ => {}
     }
