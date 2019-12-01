@@ -228,20 +228,20 @@ pub(crate) unsafe extern "C" fn load_picture(mut is_pdf: bool) {
     pdf_box_type = 0i32;
     page = 0i32;
     if is_pdf {
-        if scan_keyword(b"page\x00" as *const u8 as *const i8) {
+        if scan_keyword(b"page") {
             scan_int();
             page = cur_val
         }
         pdf_box_type = 6i32;
-        if scan_keyword(b"crop\x00" as *const u8 as *const i8) {
+        if scan_keyword(b"crop") {
             pdf_box_type = 1i32
-        } else if scan_keyword(b"media\x00" as *const u8 as *const i8) {
+        } else if scan_keyword(b"media") {
             pdf_box_type = 2i32
-        } else if scan_keyword(b"bleed\x00" as *const u8 as *const i8) {
+        } else if scan_keyword(b"bleed") {
             pdf_box_type = 3i32
-        } else if scan_keyword(b"trim\x00" as *const u8 as *const i8) {
+        } else if scan_keyword(b"trim") {
             pdf_box_type = 4i32
-        } else if scan_keyword(b"art\x00" as *const u8 as *const i8) {
+        } else if scan_keyword(b"art") {
             pdf_box_type = 5i32
         }
     }
@@ -260,68 +260,66 @@ pub(crate) unsafe extern "C" fn load_picture(mut is_pdf: bool) {
     let mut t = Transform::identity();
     check_keywords = true;
     while check_keywords {
-        if scan_keyword(b"scaled\x00" as *const u8 as *const i8) {
+        if scan_keyword(b"scaled") {
             scan_int();
             if x_size_req == 0. && y_size_req == 0. {
                 let t2 = Transform::create_scale(cur_val as f64 / 1000., cur_val as f64 / 1000.);
                 corners = t2.transform_rect(&corners.to_f64()).to_f32();
                 t = t.post_transform(&t2);
             }
-        } else if scan_keyword(b"xscaled\x00" as *const u8 as *const i8) {
+        } else if scan_keyword(b"xscaled") {
             scan_int();
             if x_size_req == 0. && y_size_req == 0. {
                 let t2 = Transform::create_scale(cur_val as f64 / 1000., 1.);
                 corners = t2.transform_rect(&corners.to_f64()).to_f32();
                 t = t.post_transform(&t2);
             }
-        } else if scan_keyword(b"yscaled\x00" as *const u8 as *const i8) {
+        } else if scan_keyword(b"yscaled") {
             scan_int();
             if x_size_req == 0.0f64 && y_size_req == 0.0f64 {
                 let t2 = Transform::create_scale(1., cur_val as f64 / 1000.);
                 corners = t2.transform_rect(&corners.to_f64()).to_f32();
                 t = t.post_transform(&t2);
             }
-        } else if scan_keyword(b"width\x00" as *const u8 as *const i8) {
+        } else if scan_keyword(b"width") {
             scan_dimen(false, false, false);
             if cur_val <= 0i32 {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Improper image \x00" as *const u8 as *const i8);
-                print_cstr(b"size (\x00" as *const u8 as *const i8);
+                print_cstr(b"Improper image ");
+                print_cstr(b"size (");
                 print_scaled(cur_val);
-                print_cstr(b"pt) will be ignored\x00" as *const u8 as *const i8);
+                print_cstr(b"pt) will be ignored");
                 help_ptr = 2_u8;
-                help_line[1] = b"I can\'t scale images to zero or negative sizes,\x00" as *const u8
-                    as *const i8;
-                help_line[0] = b"so I\'m ignoring this.\x00" as *const u8 as *const i8;
+                help_line[1] = b"I can\'t scale images to zero or negative sizes,";
+                help_line[0] = b"so I\'m ignoring this.";
                 error();
             } else {
                 x_size_req = Fix2D(cur_val)
             }
-        } else if scan_keyword(b"height\x00" as *const u8 as *const i8) {
+        } else if scan_keyword(b"height") {
             scan_dimen(false, false, false);
             if cur_val <= 0i32 {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Improper image \x00" as *const u8 as *const i8);
-                print_cstr(b"size (\x00" as *const u8 as *const i8);
+                print_cstr(b"Improper image ");
+                print_cstr(b"size (");
                 print_scaled(cur_val);
-                print_cstr(b"pt) will be ignored\x00" as *const u8 as *const i8);
+                print_cstr(b"pt) will be ignored");
                 help_ptr = 2_u8;
-                help_line[1] = b"I can\'t scale images to zero or negative sizes,\x00" as *const u8
-                    as *const i8;
-                help_line[0] = b"so I\'m ignoring this.\x00" as *const u8 as *const i8;
+                help_line[1] = b"I can\'t scale images to zero or negative sizes,";
+                help_line[0] = b"so I\'m ignoring this.";
                 error();
             } else {
                 y_size_req = Fix2D(cur_val)
             }
-        } else if scan_keyword(b"rotated\x00" as *const u8 as *const i8) {
+        } else if scan_keyword(b"rotated") {
             scan_decimal();
             if x_size_req != 0.0f64 || y_size_req != 0.0f64 {
                 let brect = Rect::from_points(&to_points(&corners));
@@ -418,21 +416,19 @@ pub(crate) unsafe extern "C" fn load_picture(mut is_pdf: bool) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Unable to load picture or PDF file \'\x00" as *const u8 as *const i8);
+        print_cstr(b"Unable to load picture or PDF file \'");
         print_file_name(cur_name, cur_area, cur_ext);
         print('\'' as i32);
         if result == -43i32 {
             help_ptr = 2_u8;
-            help_line[1] =
-                b"The requested image couldn\'t be read because\x00" as *const u8 as *const i8;
-            help_line[0] = b"the file was not found.\x00" as *const u8 as *const i8
+            help_line[1] = b"The requested image couldn\'t be read because";
+            help_line[0] = b"the file was not found."
         } else {
             help_ptr = 2_u8;
-            help_line[1] =
-                b"The requested image couldn\'t be read because\x00" as *const u8 as *const i8;
-            help_line[0] = b"it was not a recognized image format.\x00" as *const u8 as *const i8
+            help_line[1] = b"The requested image couldn\'t be read because";
+            help_line[0] = b"it was not a recognized image format."
         }
         error();
     };

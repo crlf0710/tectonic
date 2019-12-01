@@ -536,7 +536,7 @@ pub(crate) static mut history: TTHistory = TTHistory::SPOTLESS;
 #[no_mangle]
 pub(crate) static mut error_count: i8 = 0;
 #[no_mangle]
-pub(crate) static mut help_line: [*const i8; 6] = [ptr::null(); 6];
+pub(crate) static mut help_line: [&'static [u8]; 6] = [&[]; 6];
 #[no_mangle]
 pub(crate) static mut help_ptr: u8 = 0;
 #[no_mangle]
@@ -1090,7 +1090,7 @@ pub(crate) static mut if_stack: *mut i32 = ptr::null_mut();
 #[no_mangle]
 pub(crate) static mut max_reg_num: i32 = 0;
 #[no_mangle]
-pub(crate) static mut max_reg_help_line: *const i8 = ptr::null();
+pub(crate) static mut max_reg_help_line: &[u8] = &[];
 #[no_mangle]
 pub(crate) static mut sa_root: [i32; 8] = [0; 8];
 #[no_mangle]
@@ -1340,7 +1340,7 @@ unsafe extern "C" fn primitive(mut ident: *const i8, mut c: u16, mut o: i32) {
     if len > 1i32 {
         let mut s: str_number = maketexstring(ident);
         if first + len > buf_size + 1i32 {
-            overflow(b"buffer size\x00" as *const u8 as *const i8, buf_size);
+            overflow(b"buffer size", buf_size);
         }
         let mut i: i32 = 0i32;
         while i < len {
@@ -1382,17 +1382,11 @@ pub(crate) unsafe extern "C" fn new_trie_op(
         l = _trie_op_hash_array[(h as i64 - -35111) as usize];
         if l == 0i32 {
             if trie_op_ptr as i64 == 35111 {
-                overflow(
-                    b"pattern memory ops\x00" as *const u8 as *const i8,
-                    35111 as i32,
-                );
+                overflow(b"pattern memory ops", 35111 as i32);
             }
             u = trie_used[cur_lang as usize];
             if u as i64 == 65535 {
-                overflow(
-                    b"pattern memory ops per language\x00" as *const u8 as *const i8,
-                    (65535 - 0) as i32,
-                );
+                overflow(b"pattern memory ops per language", (65535 - 0) as i32);
             }
             trie_op_ptr += 1;
             u = u.wrapping_add(1);
@@ -1476,7 +1470,7 @@ pub(crate) unsafe extern "C" fn first_fit(mut p: trie_pointer) {
         h = z - c as i32;
         if trie_max < h + max_hyph_char {
             if trie_size <= h + max_hyph_char {
-                overflow(b"pattern memory\x00" as *const u8 as *const i8, trie_size);
+                overflow(b"pattern memory", trie_size);
             }
             loop {
                 trie_max += 1;
@@ -1604,11 +1598,11 @@ unsafe extern "C" fn new_patterns() {
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
                                 } else {
-                                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                    print_nl_cstr(b"! ");
                                 }
-                                print_cstr(b"Nonletter\x00" as *const u8 as *const i8);
+                                print_cstr(b"Nonletter");
                                 help_ptr = 1_u8;
-                                help_line[0] = b"(See Appendix H.)\x00" as *const u8 as *const i8;
+                                help_line[0] = b"(See Appendix H.)";
                                 error();
                             }
                         }
@@ -1665,10 +1659,7 @@ unsafe extern "C" fn new_patterns() {
                             if p == 0i32 || (c as i32) < *trie_c.offset(p as isize) as i32 {
                                 /*999:*/
                                 if trie_ptr == trie_size {
-                                    overflow(
-                                        b"pattern memory\x00" as *const u8 as *const i8,
-                                        trie_size,
-                                    );
+                                    overflow(b"pattern memory", trie_size);
                                 }
                                 trie_ptr += 1;
                                 *trie_r.offset(trie_ptr as isize) = p;
@@ -1688,11 +1679,11 @@ unsafe extern "C" fn new_patterns() {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
                             } else {
-                                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                print_nl_cstr(b"! ");
                             }
-                            print_cstr(b"Duplicate pattern\x00" as *const u8 as *const i8);
+                            print_cstr(b"Duplicate pattern");
                             help_ptr = 1_u8;
-                            help_line[0] = b"(See Appendix H.)\x00" as *const u8 as *const i8;
+                            help_line[0] = b"(See Appendix H.)";
                             error();
                         }
                         *trie_o.offset(q as isize) = v
@@ -1708,12 +1699,12 @@ unsafe extern "C" fn new_patterns() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(b"Bad \x00" as *const u8 as *const i8);
-                    print_esc_cstr(b"patterns\x00" as *const u8 as *const i8);
+                    print_cstr(b"Bad ");
+                    print_esc_cstr(b"patterns");
                     help_ptr = 1_u8;
-                    help_line[0] = b"(See Appendix H.)\x00" as *const u8 as *const i8;
+                    help_line[0] = b"(See Appendix H.)";
                     error();
                 }
             }
@@ -1735,7 +1726,7 @@ unsafe extern "C" fn new_patterns() {
                 /*:1644*/
                 /*999:*/
                 if trie_ptr == trie_size {
-                    overflow(b"pattern memory\x00" as *const u8 as *const i8, trie_size);
+                    overflow(b"pattern memory", trie_size);
                 }
                 trie_ptr += 1;
                 *trie_r.offset(trie_ptr as isize) = p;
@@ -1758,7 +1749,7 @@ unsafe extern "C" fn new_patterns() {
                     if p == 0i32 {
                         /*999:*/
                         if trie_ptr == trie_size {
-                            overflow(b"pattern memory\x00" as *const u8 as *const i8, trie_size);
+                            overflow(b"pattern memory", trie_size);
                             /*:987 */
                         }
                         trie_ptr += 1;
@@ -1792,13 +1783,12 @@ unsafe extern "C" fn new_patterns() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Too late for \x00" as *const u8 as *const i8);
-        print_esc_cstr(b"patterns\x00" as *const u8 as *const i8);
+        print_cstr(b"Too late for ");
+        print_esc_cstr(b"patterns");
         help_ptr = 1_u8;
-        help_line[0] =
-            b"All patterns must be given before typesetting begins.\x00" as *const u8 as *const i8;
+        help_line[0] = b"All patterns must be given before typesetting begins.";
         error();
         (*mem.offset((4999999i32 - 12i32) as isize)).b32.s1 = scan_toks(false, false);
         flush_list(def_ref);
@@ -2033,16 +2023,12 @@ unsafe extern "C" fn new_hyph_exceptions() {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
                             } else {
-                                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                print_nl_cstr(b"! ");
                             }
-                            print_cstr(b"Not a letter\x00" as *const u8 as *const i8);
+                            print_cstr(b"Not a letter");
                             help_ptr = 2_u8;
-                            help_line[1] =
-                                b"Letters in \\hyphenation words must have \\lccode>0.\x00"
-                                    as *const u8 as *const i8;
-                            help_line[0] = b"Proceed; I\'ll ignore the character I just read.\x00"
-                                as *const u8
-                                as *const i8;
+                            help_line[1] = b"Letters in \\hyphenation words must have \\lccode>0.";
+                            help_line[0] = b"Proceed; I\'ll ignore the character I just read.";
                             error();
                         } else if (n as i32) < max_hyphenatable_length() {
                             n += 1;
@@ -2076,16 +2062,14 @@ unsafe extern "C" fn new_hyph_exceptions() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(b"Improper \x00" as *const u8 as *const i8);
-                    print_esc_cstr(b"hyphenation\x00" as *const u8 as *const i8);
-                    print_cstr(b" will be flushed\x00" as *const u8 as *const i8);
+                    print_cstr(b"Improper ");
+                    print_esc_cstr(b"hyphenation");
+                    print_cstr(b" will be flushed");
                     help_ptr = 2_u8;
-                    help_line[1] = b"Hyphenation exceptions must contain only letters\x00"
-                        as *const u8 as *const i8;
-                    help_line[0] = b"and hyphens. But continue; I\'ll forgive and forget.\x00"
-                        as *const u8 as *const i8;
+                    help_line[1] = b"Hyphenation exceptions must contain only letters";
+                    help_line[0] = b"and hyphens. But continue; I\'ll forgive and forget.";
                     error();
                     continue 's_91;
                 }
@@ -2097,10 +2081,7 @@ unsafe extern "C" fn new_hyph_exceptions() {
                 n += 1;
                 hc[n as usize] = cur_lang as i32;
                 if pool_ptr + n as i32 > pool_size {
-                    overflow(
-                        b"pool size\x00" as *const u8 as *const i8,
-                        pool_size - init_pool_ptr,
-                    );
+                    overflow(b"pool size", pool_size - init_pool_ptr);
                 }
                 h = 0i32 as hyph_pointer;
                 j = 1_i16;
@@ -2118,10 +2099,7 @@ unsafe extern "C" fn new_hyph_exceptions() {
                     }
                 }
                 if hyph_count == hyph_size || hyph_next == 0i32 {
-                    overflow(
-                        b"exception dictionary\x00" as *const u8 as *const i8,
-                        hyph_size,
-                    );
+                    overflow(b"exception dictionary", hyph_size);
                 }
                 hyph_count += 1;
                 while *hyph_word.offset(h as isize) != 0i32 {
@@ -2206,15 +2184,14 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"You can\'t use a prefix with `\x00" as *const u8 as *const i8);
+            print_cstr(b"You can\'t use a prefix with `");
             print_cmd_chr(cur_cmd as u16, cur_chr);
             print_char('\'' as i32);
             help_ptr = 1_u8;
             help_line[0] =
-                b"I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.\x00"
-                    as *const u8 as *const i8;
+                b"I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.";
             back_error();
             return;
         }
@@ -2232,18 +2209,17 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"You can\'t use `\x00" as *const u8 as *const i8);
-        print_esc_cstr(b"long\x00" as *const u8 as *const i8);
-        print_cstr(b"\' or `\x00" as *const u8 as *const i8);
-        print_esc_cstr(b"outer\x00" as *const u8 as *const i8);
+        print_cstr(b"You can\'t use `");
+        print_esc_cstr(b"long");
+        print_cstr(b"\' or `");
+        print_esc_cstr(b"outer");
         help_ptr = 1_u8;
-        help_line[0] = b"I\'ll pretend you didn\'t say \\long or \\outer or \\protected here.\x00"
-            as *const u8 as *const i8;
-        print_cstr(b"\' or `\x00" as *const u8 as *const i8);
-        print_esc_cstr(b"protected\x00" as *const u8 as *const i8);
-        print_cstr(b"\' with `\x00" as *const u8 as *const i8);
+        help_line[0] = b"I\'ll pretend you didn\'t say \\long or \\outer or \\protected here.";
+        print_cstr(b"\' or `");
+        print_esc_cstr(b"protected");
+        print_cstr(b"\' with `");
         print_cmd_chr(cur_cmd as u16, cur_chr);
         print_char('\'' as i32);
         error();
@@ -2336,11 +2312,9 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                 scan_char_num();
                 if INTPAR(INT_PAR__tracing_char_sub_def) > 0 {
                     begin_diagnostic();
-                    print_nl_cstr(b"New character substitution: \x00" as
-                                      *const u8 as *const i8);
+                    print_nl_cstr(b"New character substitution: ");
                     print(p - CHAR_SUB_CODE_BASE);
-                    print_cstr(b" = \x00" as *const u8 as
-                                   *const i8);
+                    print_cstr(b" = ");
                     print(n);
                     print_char(' ' as i32);
                     print(cur_val);
@@ -2478,22 +2452,18 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
             j = cur_chr;
             scan_int();
             n = cur_val;
-            if !scan_keyword(b"to\x00" as *const u8 as *const i8) {
+            if !scan_keyword(b"to") {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as
-                                      *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Missing `to\' inserted\x00" as *const u8 as
-                               *const i8);
+                print_cstr(b"Missing `to\' inserted");
                 help_ptr = 2_u8;
                 help_line[1] =
-                    b"You should have said `\\read<number> to \\cs\'.\x00" as
-                        *const u8 as *const i8;
+                    b"You should have said `\\read<number> to \\cs\'.";
                 help_line[0] =
-                    b"I\'m going to look for the \\cs now.\x00" as *const u8
-                        as *const i8;
+                    b"I\'m going to look for the \\cs now.";
                 error();
             }
             get_r_token();
@@ -2762,24 +2732,19 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as
-                                      *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Invalid code (\x00" as *const u8 as
-                               *const i8);
+                print_cstr(b"Invalid code (");
                 print_int(cur_val);
                 if p < MATH_CODE_BASE {
-                    print_cstr(b"), should be in the range 0..\x00" as
-                                   *const u8 as *const i8);
+                    print_cstr(b"), should be in the range 0..");
                 } else {
-                    print_cstr(b"), should be at most \x00" as *const u8 as
-                                   *const i8);
+                    print_cstr(b"), should be at most ");
                 }
                 print_int(n);
                 help_ptr = 1_u8;
                 help_line[0] =
-                    b"I\'m going to use 0 instead of that illegal code value.\x00"
-                        as *const u8 as *const i8;
+                    b"I\'m going to use 0 instead of that illegal code value.";
                 error();
                 cur_val = 0i32
             }
@@ -2848,20 +2813,15 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as
-                                      *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Improper \x00" as *const u8 as
-                               *const i8);
-                print_esc_cstr(b"setbox\x00" as *const u8 as
-                                   *const i8);
+                print_cstr(b"Improper ");
+                print_esc_cstr(b"setbox");
                 help_ptr = 2_u8;
                 help_line[1] =
-                    b"Sorry, \\setbox is not allowed after \\halign in a display,\x00"
-                        as *const u8 as *const i8;
+                    b"Sorry, \\setbox is not allowed after \\halign in a display,";
                 help_line[0] =
-                    b"or between \\accent and an accented character.\x00" as
-                        *const u8 as *const i8;
+                    b"or between \\accent and an accented character.";
                 error();
             }
         }
@@ -2917,11 +2877,9 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as
-                                          *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(b"Patterns can be loaded only by INITEX\x00" as
-                                   *const u8 as *const i8);
+                    print_cstr(b"Patterns can be loaded only by INITEX");
                     help_ptr = 0_u8;
                     error();
                     loop  {
@@ -2968,7 +2926,7 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
         }
         DEF_FONT => { new_font(a); }
         SET_INTERACTION => { new_interaction(); }
-        _ => { confusion(b"prefix\x00" as *const u8 as *const i8); }
+        _ => { confusion(b"prefix"); }
     }
     /*1304:*/
     if after_token != 0 {
@@ -2991,11 +2949,11 @@ unsafe extern "C" fn store_fmt_file() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"You can\'t dump inside a group\x00" as *const u8 as *const i8);
+        print_cstr(b"You can\'t dump inside a group");
         help_ptr = 1_u8;
-        help_line[0] = b"`{...\\dump}\' is a no-no.\x00" as *const u8 as *const i8;
+        help_line[0] = b"`{...\\dump}\' is a no-no.";
         if interaction as i32 == 3i32 {
             interaction = 2_u8
         }
@@ -3008,7 +2966,7 @@ unsafe extern "C" fn store_fmt_file() {
         panic!("\\dump inside a group");
     }
     selector = Selector::NEW_STRING;
-    print_cstr(b" (preloaded format=\x00" as *const u8 as *const i8);
+    print_cstr(b" (preloaded format=");
     print(job_name);
     print_char(' ' as i32);
     print_int(INTPAR(INT_PAR__year));
@@ -3023,10 +2981,7 @@ unsafe extern "C" fn store_fmt_file() {
         selector = Selector::TERM_AND_LOG
     }
     if pool_ptr + 1 > pool_size {
-        overflow(
-            b"pool size\x00" as *const u8 as *const i8,
-            pool_size - init_pool_ptr,
-        );
+        overflow(b"pool size", pool_size - init_pool_ptr);
     }
     format_ident = make_string();
     pack_job_name(b".fmt\x00" as *const u8 as *const i8);
@@ -3039,11 +2994,11 @@ unsafe extern "C" fn store_fmt_file() {
     }
     let mut fmt_out_owner = fmt_out.unwrap();
     let fmt_out = &mut fmt_out_owner;
-    print_nl_cstr(b"Beginning to dump on file \x00" as *const u8 as *const i8);
+    print_nl_cstr(b"Beginning to dump on file ");
     print(make_name_string());
     str_ptr -= 1;
     pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
-    print_nl_cstr(b"\x00" as *const u8 as *const i8);
+    print_nl_cstr(b"");
     print(format_ident);
     /* Header */
     let mut x_val: i32 = 0x54544e43i32; /* TODO: can we move this farther up in this function? */
@@ -3127,7 +3082,7 @@ unsafe extern "C" fn store_fmt_file() {
     );
     print_ln();
     print_int(str_ptr);
-    print_cstr(b" strings of total length \x00" as *const u8 as *const i8);
+    print_cstr(b" strings of total length ");
     print_int(pool_ptr);
     /* "memory locations" */
     sort_avail();
@@ -3226,7 +3181,7 @@ unsafe extern "C" fn store_fmt_file() {
     );
     print_ln();
     print_int(x);
-    print_cstr(b" memory locations dumped; current usage is \x00" as *const u8 as *const i8);
+    print_cstr(b" memory locations dumped; current usage is ");
     print_int(var_used);
     print_char('&' as i32);
     print_int(dyn_used);
@@ -3445,7 +3400,7 @@ unsafe extern "C" fn store_fmt_file() {
     );
     print_ln();
     print_int(cs_count);
-    print_cstr(b" multiletter control sequences\x00" as *const u8 as *const i8);
+    print_cstr(b" multiletter control sequences");
     /* fonts */
     let mut x_val_24: i32 = fmem_ptr;
     do_dump(
@@ -3607,7 +3562,7 @@ unsafe extern "C" fn store_fmt_file() {
     );
     k = FONT_BASE;
     while k <= font_ptr {
-        print_nl_cstr(b"\\font\x00" as *const u8 as *const i8);
+        print_nl_cstr(b"\\font");
         print_esc((*hash.offset(FONT_ID_BASE as isize + k as isize)).s1);
         print_char('=' as i32);
         if *font_area.offset(k as isize) as u32 == 0xffffu32
@@ -3622,18 +3577,13 @@ unsafe extern "C" fn store_fmt_file() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(
-                b"Can\'t \\dump a format with native fonts or font-mappings\x00" as *const u8
-                    as *const i8,
-            );
+            print_cstr(b"Can\'t \\dump a format with native fonts or font-mappings");
             help_ptr = 3_u8;
-            help_line[2] =
-                b"You really, really don\'t want to do this.\x00" as *const u8 as *const i8;
-            help_line[1] = b"It won\'t work, and only confuses me.\x00" as *const u8 as *const i8;
-            help_line[0] = b"(Load them at runtime, not as part of the format file.)\x00"
-                as *const u8 as *const i8;
+            help_line[2] = b"You really, really don\'t want to do this.";
+            help_line[1] = b"It won\'t work, and only confuses me.";
+            help_line[0] = b"(Load them at runtime, not as part of the format file.)";
             error();
         } else {
             print_file_name(
@@ -3643,20 +3593,20 @@ unsafe extern "C" fn store_fmt_file() {
             );
         }
         if *font_size.offset(k as isize) != *font_dsize.offset(k as isize) {
-            print_cstr(b" at \x00" as *const u8 as *const i8);
+            print_cstr(b" at ");
             print_scaled(*font_size.offset(k as isize));
-            print_cstr(b"pt\x00" as *const u8 as *const i8);
+            print_cstr(b"pt");
         }
         k += 1
     }
     print_ln();
     print_int(fmem_ptr - 7i32);
-    print_cstr(b" words of font info for \x00" as *const u8 as *const i8);
+    print_cstr(b" words of font info for ");
     print_int(font_ptr - 0i32);
     if font_ptr != 0i32 + 1i32 {
-        print_cstr(b" preloaded fonts\x00" as *const u8 as *const i8);
+        print_cstr(b" preloaded fonts");
     } else {
-        print_cstr(b" preloaded font\x00" as *const u8 as *const i8);
+        print_cstr(b" preloaded font");
     }
     /* hyphenation info */
     let mut x_val_26: i32 = hyph_count;
@@ -3707,9 +3657,9 @@ unsafe extern "C" fn store_fmt_file() {
     print_ln();
     print_int(hyph_count);
     if hyph_count != 1i32 {
-        print_cstr(b" hyphenation exceptions\x00" as *const u8 as *const i8);
+        print_cstr(b" hyphenation exceptions");
     } else {
-        print_cstr(b" hyphenation exception\x00" as *const u8 as *const i8);
+        print_cstr(b" hyphenation exception");
     }
     if trie_not_ready {
         init_trie();
@@ -3778,23 +3728,23 @@ unsafe extern "C" fn store_fmt_file() {
         trie_op_ptr as size_t,
         fmt_out,
     );
-    print_nl_cstr(b"Hyphenation trie of length \x00" as *const u8 as *const i8);
+    print_nl_cstr(b"Hyphenation trie of length ");
     print_int(trie_max);
-    print_cstr(b" has \x00" as *const u8 as *const i8);
+    print_cstr(b" has ");
     print_int(trie_op_ptr);
     if trie_op_ptr != 1i32 {
-        print_cstr(b" ops\x00" as *const u8 as *const i8);
+        print_cstr(b" ops");
     } else {
-        print_cstr(b" op\x00" as *const u8 as *const i8);
+        print_cstr(b" op");
     }
-    print_cstr(b" out of \x00" as *const u8 as *const i8);
+    print_cstr(b" out of ");
     print_int(35111 as i32);
     k = BIGGEST_LANG;
     while k >= 0i32 {
         if trie_used[k as usize] as i32 > 0i32 {
-            print_nl_cstr(b"  \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"  ");
             print_int(trie_used[k as usize] as i32);
-            print_cstr(b" for language \x00" as *const u8 as *const i8);
+            print_cstr(b" for language ");
             print_int(k);
             let mut x_val_35: i32 = k;
             do_dump(
@@ -3930,8 +3880,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         x += 1
     }
     max_reg_num = 32767i32;
-    max_reg_help_line =
-        b"A register number must be between 0 and 32767.\x00" as *const u8 as *const i8;
+    max_reg_help_line = b"A register number must be between 0 and 32767.";
     /* "memory locations" */
     do_undump(
         &mut x as *mut i32 as *mut i8,
@@ -4925,27 +4874,27 @@ unsafe extern "C" fn final_cleanup() {
         }
     }
     while open_parens > 0i32 {
-        print_cstr(b" )\x00" as *const u8 as *const i8);
+        print_cstr(b" )");
         open_parens -= 1
     }
     if cur_level as i32 > 1i32 {
         print_nl('(' as i32);
-        print_esc_cstr(b"end occurred \x00" as *const u8 as *const i8);
-        print_cstr(b"inside a group at level \x00" as *const u8 as *const i8);
+        print_esc_cstr(b"end occurred ");
+        print_cstr(b"inside a group at level ");
         print_int(cur_level as i32 - 1i32);
         print_char(')' as i32);
         show_save_groups();
     }
     while cond_ptr != TEX_NULL {
         print_nl('(' as i32);
-        print_esc_cstr(b"end occurred \x00" as *const u8 as *const i8);
-        print_cstr(b"when \x00" as *const u8 as *const i8);
+        print_esc_cstr(b"end occurred ");
+        print_cstr(b"when ");
         print_cmd_chr(107_u16, cur_if as i32);
         if if_line != 0i32 {
-            print_cstr(b" on line \x00" as *const u8 as *const i8);
+            print_cstr(b" on line ");
             print_int(if_line);
         }
-        print_cstr(b" was incomplete)\x00" as *const u8 as *const i8);
+        print_cstr(b" was incomplete)");
         if_line = (*mem.offset((cond_ptr + 1i32) as isize)).b32.s1;
         cur_if = (*mem.offset(cond_ptr as isize)).b16.s0 as small_number;
         temp_ptr = cond_ptr;
@@ -4956,10 +4905,7 @@ unsafe extern "C" fn final_cleanup() {
         if history == TTHistory::WARNING_ISSUED || (interaction as i32) < 3i32 {
             if selector == Selector::TERM_AND_LOG {
                 selector = Selector::TERM_ONLY;
-                print_nl_cstr(
-                    b"(see the transcript file for additional information)\x00" as *const u8
-                        as *const i8,
-                );
+                print_nl_cstr(b"(see the transcript file for additional information)");
                 selector = Selector::TERM_AND_LOG
             }
         }
@@ -5005,7 +4951,7 @@ unsafe extern "C" fn final_cleanup() {
             store_fmt_file();
             return;
         }
-        print_nl_cstr(b"(\\dump is performed only by INITEX)\x00" as *const u8 as *const i8);
+        print_nl_cstr(b"(\\dump is performed only by INITEX)");
         return;
     };
 }
@@ -5416,8 +5362,7 @@ unsafe extern "C" fn initialize_more_initex_variables() {
     (*eqtb.offset(END_WRITE as isize)).b16.s1 = OUTER_CALL as _;
     (*eqtb.offset(END_WRITE as isize)).b32.s1 = TEX_NULL;
     max_reg_num = 32767;
-    max_reg_help_line =
-        b"A register number must be between 0 and 32767.\x00" as *const u8 as *const i8;
+    max_reg_help_line = b"A register number must be between 0 and 32767.";
     i = INT_VAL;
     while i <= INTER_CHAR_VAL {
         sa_root[i as usize] = TEX_NULL;
@@ -9664,8 +9609,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
             DISPLAY_WIDOW_PENALTIES_LOC,
         );
         max_reg_num = 32767i32;
-        max_reg_help_line =
-            b"A register number must be between 0 and 32767.\x00" as *const u8 as *const i8
+        max_reg_help_line = b"A register number must be between 0 and 32767.";
     }
     no_new_control_sequence = true;
     if !in_initex_mode {

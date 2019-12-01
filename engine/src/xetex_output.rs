@@ -8,6 +8,12 @@
     unused_mut
 )]
 
+use super::xetex_consts::{
+    INT_PAR__escape_char, INT_PAR__new_line_char, ACTIVE_BASE, BIGGEST_USV, CAT_CODE,
+    DIMEN_VAL_LIMIT, EQTB_SIZE, HASH_BASE, INTPAR, INT_BASE, LETTER, NULL_CS, SCRIPT_SIZE,
+    SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
+};
+
 use super::xetex_ini::{
     dig, doing_special, eqtb, eqtb_top, error_line, file_offset, full_source_filename_stack, hash,
     in_open, line, line_stack, log_file, max_print_line, mem, pool_ptr, pool_size, rust_stdout,
@@ -137,36 +143,7 @@ pub(crate) unsafe extern "C" fn print_char(mut s: i32) {
         }
         return;
     }
-    if s == (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 49i32) as isize,
-    ))
-    .b32
-    .s1
-    {
+    if s == INTPAR(INT_PAR__new_line_char) {
         /*:252 */
         if u8::from(selector) < u8::from(Selector::PSEUDO) {
             print_ln();
@@ -220,140 +197,31 @@ pub(crate) unsafe extern "C" fn print_char(mut s: i32) {
 pub(crate) unsafe extern "C" fn print(mut s: i32) {
     let mut nl: i32 = 0;
     if s >= str_ptr {
-        return print_cstr(b"???\x00" as *const u8 as *const i8);
+        return print_cstr(b"???");
     } else {
         if s < 0xffffi32 {
             if s < 0i32 {
-                return print_cstr(b"???\x00" as *const u8 as *const i8);
+                return print_cstr(b"???");
             } else {
                 if u8::from(selector) > u8::from(Selector::PSEUDO) {
                     print_char(s);
                     return;
                 }
-                if s == (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 49i32) as isize,
-                ))
-                .b32
-                .s1
-                {
+                if s == INTPAR(INT_PAR__new_line_char) {
                     /*:252 */
                     if u8::from(selector) < u8::from(Selector::PSEUDO) {
                         print_ln();
                         return;
                     }
                 }
-                nl = (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 49i32) as isize,
-                ))
-                .b32
-                .s1;
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 49i32) as isize,
-                ))
-                .b32
-                .s1 = -1i32;
+                nl = INTPAR(INT_PAR__new_line_char);
+                (*eqtb.offset((INT_BASE + INT_PAR__new_line_char) as isize))
+                    .b32
+                    .s1 = -1i32;
                 print_char(s);
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 49i32) as isize,
-                ))
-                .b32
-                .s1 = nl;
+                (*eqtb.offset((INT_BASE + INT_PAR__new_line_char) as isize))
+                    .b32
+                    .s1 = nl;
                 return;
             }
         }
@@ -381,9 +249,9 @@ pub(crate) unsafe extern "C" fn print(mut s: i32) {
     }
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn print_cstr(mut str: *const i8) {
-    for i in 0..strlen(str) {
-        print_char(*str.offset(i as isize) as i32);
+pub(crate) unsafe extern "C" fn print_cstr(slice: &[u8]) {
+    for &s in slice {
+        print_char(s as i32);
     }
 }
 #[no_mangle]
@@ -396,82 +264,26 @@ pub(crate) unsafe extern "C" fn print_nl(mut s: str_number) {
     print(s);
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn print_nl_cstr(mut str: *const i8) {
+pub(crate) unsafe extern "C" fn print_nl_cstr(slice: &[u8]) {
     if term_offset > 0i32 && u8::from(selector) & 1 != 0
         || file_offset > 0i32 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
     {
         print_ln();
     }
-    print_cstr(str);
+    print_cstr(slice);
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn print_esc(mut s: str_number) {
-    let mut c: i32 = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 45i32) as isize,
-    ))
-    .b32
-    .s1;
-    if c >= 0i32 && c <= 0x10ffffi32 {
+    let mut c = INTPAR(INT_PAR__escape_char);
+    if c >= 0i32 && c <= BIGGEST_USV {
         print_char(c);
     }
     print(s);
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn print_esc_cstr(mut s: *const i8) {
-    let mut c: i32 = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 45i32) as isize,
-    ))
-    .b32
-    .s1;
-    if c >= 0i32 && c <= 0x10ffffi32 {
+pub(crate) unsafe extern "C" fn print_esc_cstr(s: &[u8]) {
+    let mut c = INTPAR(INT_PAR__escape_char);
+    if c >= 0i32 && c <= BIGGEST_USV {
         print_char(c);
     }
     print_cstr(s);
@@ -519,90 +331,27 @@ pub(crate) unsafe extern "C" fn print_int(mut n: i32) {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn print_cs(mut p: i32) {
-    if p < 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 {
-        if p >= 1i32 + (0x10ffffi32 + 1i32) {
-            if p == 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) {
-                print_esc_cstr(b"csname\x00" as *const u8 as *const i8);
-                print_esc_cstr(b"endcsname\x00" as *const u8 as *const i8);
+    if p < HASH_BASE {
+        if p >= SINGLE_BASE {
+            if p == NULL_CS {
+                print_esc_cstr(b"csname");
+                print_esc_cstr(b"endcsname");
                 print_char(' ' as i32);
             } else {
-                print_esc(p - (1i32 + (0x10ffffi32 + 1i32)));
-                if (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (p - (1i32 + (0x10ffffi32 + 1i32)))) as isize,
-                ))
-                .b32
-                .s1 == 11i32
-                {
+                print_esc(p - SINGLE_BASE);
+                if CAT_CODE(p - SINGLE_BASE) == LETTER as _ {
                     print_char(' ' as i32);
                 }
             }
-        } else if p < 1i32 {
-            print_esc_cstr(b"IMPOSSIBLE.\x00" as *const u8 as *const i8);
+        } else if p < ACTIVE_BASE {
+            print_esc_cstr(b"IMPOSSIBLE.");
         } else {
             print_char(p - 1i32);
         }
-    } else if p
-        >= 1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-        && p <= 1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32)
-            + 23i32
-            + 256i32
-            - 1i32
-        || p > eqtb_top
-    {
-        print_esc_cstr(b"IMPOSSIBLE.\x00" as *const u8 as *const i8);
+    } else if p >= UNDEFINED_CONTROL_SEQUENCE && p <= EQTB_SIZE || p > eqtb_top {
+        print_esc_cstr(b"IMPOSSIBLE.");
     } else if (*hash.offset(p as isize)).s1 >= str_ptr {
-        print_esc_cstr(b"NONEXISTENT.\x00" as *const u8 as *const i8);
+        print_esc_cstr(b"NONEXISTENT.");
     } else {
         print_esc((*hash.offset(p as isize)).s1);
         print_char(' ' as i32);
@@ -610,14 +359,14 @@ pub(crate) unsafe extern "C" fn print_cs(mut p: i32) {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn sprint_cs(mut p: i32) {
-    if p < 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 {
-        if p < 1i32 + (0x10ffffi32 + 1i32) {
+    if p < HASH_BASE {
+        if p < SINGLE_BASE {
             print_char(p - 1i32);
-        } else if p < 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) {
-            print_esc(p - (1i32 + (0x10ffffi32 + 1i32)));
+        } else if p < NULL_CS {
+            print_esc(p - SINGLE_BASE);
         } else {
-            print_esc_cstr(b"csname\x00" as *const u8 as *const i8);
-            print_esc_cstr(b"endcsname\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"csname");
+            print_esc_cstr(b"endcsname");
         }
     } else {
         print_esc((*hash.offset(p as isize)).s1);
@@ -748,16 +497,16 @@ pub(crate) unsafe extern "C" fn print_file_name(mut n: i32, mut a: i32, mut e: i
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn print_size(mut s: i32) {
-    if s == 0i32 {
-        print_esc_cstr(b"textfont\x00" as *const u8 as *const i8);
-    } else if s == 256i32 {
-        print_esc_cstr(b"scriptfont\x00" as *const u8 as *const i8);
+    if s == TEXT_SIZE {
+        print_esc_cstr(b"textfont");
+    } else if s == SCRIPT_SIZE {
+        print_esc_cstr(b"scriptfont");
     } else {
-        print_esc_cstr(b"scriptscriptfont\x00" as *const u8 as *const i8);
+        print_esc_cstr(b"scriptscriptfont");
     };
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn print_write_whatsit(mut s: *const i8, mut p: i32) {
+pub(crate) unsafe extern "C" fn print_write_whatsit(s: &[u8], mut p: i32) {
     print_esc_cstr(s);
     if (*mem.offset((p + 1i32) as isize)).b32.s0 < 16i32 {
         print_int((*mem.offset((p + 1i32) as isize)).b32.s0);
@@ -800,7 +549,7 @@ pub(crate) unsafe extern "C" fn print_native_word(mut p: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn print_sa_num(mut q: i32) {
     let mut n: i32 = 0;
-    if ((*mem.offset(q as isize)).b16.s1 as i32) < 128i32 {
+    if ((*mem.offset(q as isize)).b16.s1 as i32) < DIMEN_VAL_LIMIT {
         n = (*mem.offset((q + 1i32) as isize)).b32.s1
     } else {
         n = (*mem.offset(q as isize)).b16.s1 as i32 % 64i32;
@@ -824,9 +573,9 @@ pub(crate) unsafe extern "C" fn print_file_line() {
         level -= 1
     }
     if level == 0i32 {
-        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"! ");
     } else {
-        print_nl_cstr(b"\x00" as *const u8 as *const i8);
+        print_nl_cstr(b"");
         print(*full_source_filename_stack.offset(level as isize));
         print(':' as i32);
         if level == in_open {
@@ -834,7 +583,7 @@ pub(crate) unsafe extern "C" fn print_file_line() {
         } else {
             print_int(*line_stack.offset((level + 1i32) as isize));
         }
-        print_cstr(b": \x00" as *const u8 as *const i8);
+        print_cstr(b": ");
     };
 }
 /*:251 */

@@ -47,7 +47,7 @@ unsafe extern "C" fn pre_error_message() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"! ");
     };
 }
 /*82: */
@@ -79,7 +79,7 @@ pub(crate) unsafe extern "C" fn error() {
      * error. */
     error_count += 1;
     if error_count as i32 == 100i32 {
-        print_nl_cstr(b"(That makes 100 errors; please try again.)\x00" as *const u8 as *const i8);
+        print_nl_cstr(b"(That makes 100 errors; please try again.)");
         history = TTHistory::FATAL_ERROR;
         post_error_message(0i32);
         panic!("halted after 100 potentially-recoverable errors");
@@ -103,60 +103,57 @@ pub(crate) unsafe extern "C" fn error() {
     print_ln();
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn fatal_error(mut s: *const i8) -> ! {
+pub(crate) unsafe extern "C" fn fatal_error(s: &[u8]) -> ! {
     pre_error_message();
-    print_cstr(b"Emergency stop\x00" as *const u8 as *const i8);
+    print_cstr(b"Emergency stop");
     print_nl_cstr(s);
     close_files_and_terminate();
     rust_stdout.as_mut().unwrap().flush().unwrap();
-    abort!("{}", CStr::from_ptr(s).display());
+    abort!("{}", s.display());
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn overflow(mut s: *const i8, mut n: i32) -> ! {
+pub(crate) unsafe extern "C" fn overflow(s: &[u8], mut n: i32) -> ! {
     pre_error_message();
-    print_cstr(b"TeX capacity exceeded, sorry [\x00" as *const u8 as *const i8);
+    print_cstr(b"TeX capacity exceeded, sorry [");
     print_cstr(s);
     print_char('=' as i32);
     print_int(n);
     print_char(']' as i32);
     help_ptr = 2_u8;
-    help_line[1] = b"If you really absolutely need more capacity,\x00" as *const u8 as *const i8;
-    help_line[0] = b"you can ask a wizard to enlarge me.\x00" as *const u8 as *const i8;
+    help_line[1] = b"If you really absolutely need more capacity,";
+    help_line[0] = b"you can ask a wizard to enlarge me.";
     post_error_message(1i32);
     panic!("halted on overflow()");
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn confusion(mut s: *const i8) -> ! {
+pub(crate) unsafe extern "C" fn confusion(s: &[u8]) -> ! {
     pre_error_message();
     if (history as u32) < (TTHistory::ERROR_ISSUED as u32) {
-        print_cstr(b"This can\'t happen (\x00" as *const u8 as *const i8);
+        print_cstr(b"This can\'t happen (");
         print_cstr(s);
         print_char(')' as i32);
         help_ptr = 1_u8;
-        help_line[0] = b"I\'m broken. Please show this to someone who can fix can fix\x00"
-            as *const u8 as *const i8
+        help_line[0] = b"I\'m broken. Please show this to someone who can fix can fix";
     } else {
-        print_cstr(b"I can\'t go on meeting you like this\x00" as *const u8 as *const i8);
+        print_cstr(b"I can\'t go on meeting you like this");
         help_ptr = 2_u8;
-        help_line[1] = b"One of your faux pas seems to have wounded me deeply...\x00" as *const u8
-            as *const i8;
-        help_line[0] = b"in fact, I\'m barely conscious. Please fix it and try again.\x00"
-            as *const u8 as *const i8
+        help_line[1] = b"One of your faux pas seems to have wounded me deeply...";
+        help_line[0] = b"in fact, I\'m barely conscious. Please fix it and try again.";
     }
     post_error_message(1i32);
     panic!("halted on confusion()");
 }
 /* xetex-errors */
 #[no_mangle]
-pub(crate) unsafe extern "C" fn pdf_error(mut t: *const i8, mut p: *const i8) -> ! {
+pub(crate) unsafe extern "C" fn pdf_error(t: &[u8], mut p: &[u8]) -> ! {
     pre_error_message();
-    print_cstr(b"Error\x00" as *const u8 as *const i8);
-    if !t.is_null() {
-        print_cstr(b" (\x00" as *const u8 as *const i8);
+    print_cstr(b"Error");
+    if !t.is_empty() {
+        print_cstr(b" (");
         print_cstr(t);
         print(')' as i32);
     }
-    print_cstr(b": \x00" as *const u8 as *const i8);
+    print_cstr(b": ");
     print_cstr(p);
     post_error_message(1i32);
     panic!("halted on pdf_error()");

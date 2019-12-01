@@ -133,7 +133,7 @@ pub(crate) unsafe fn cur_length() -> pool_pointer {
     pool_ptr - *str_start.offset((str_ptr - 65536i32) as isize)
 }
 unsafe extern "C" fn int_error(mut n: i32) {
-    print_cstr(b" (\x00" as *const u8 as *const i8);
+    print_cstr(b" (");
     print_int(n);
     print_char(')' as i32);
     error();
@@ -271,7 +271,7 @@ pub(crate) unsafe extern "C" fn show_token_list(mut p: i32, mut q: i32, mut l: i
             }
         }
         if p < hi_mem_min || p > mem_end {
-            print_esc_cstr(b"CLOBBERED.\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"CLOBBERED.");
             return;
         }
         if (*mem.offset(p as isize)).b32.s0 >= CS_TOKEN_FLAG {
@@ -280,7 +280,7 @@ pub(crate) unsafe extern "C" fn show_token_list(mut p: i32, mut q: i32, mut l: i
             m = (*mem.offset(p as isize)).b32.s0 / MAX_CHAR_VAL;
             c = (*mem.offset(p as isize)).b32.s0 % MAX_CHAR_VAL;
             if (*mem.offset(p as isize)).b32.s0 < 0 {
-                print_esc_cstr(b"BAD.\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"BAD.");
             } else {
                 /*306:*/
                 match m as u16 {
@@ -312,11 +312,11 @@ pub(crate) unsafe extern "C" fn show_token_list(mut p: i32, mut q: i32, mut l: i
                     }
                     END_MATCH => {
                         if c == 0 {
-                            print_cstr(b"->\x00" as *const u8 as *const i8);
+                            print_cstr(b"->");
                         }
                     }
                     _ => {
-                        print_esc_cstr(b"BAD.\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"BAD.");
                     }
                 }
             }
@@ -324,7 +324,7 @@ pub(crate) unsafe extern "C" fn show_token_list(mut p: i32, mut q: i32, mut l: i
         p = *LLIST_link(p as isize);
     }
     if p != TEX_NULL {
-        print_esc_cstr(b"ETC.\x00" as *const u8 as *const i8);
+        print_esc_cstr(b"ETC.");
     };
 }
 #[no_mangle]
@@ -333,19 +333,19 @@ pub(crate) unsafe extern "C" fn runaway() {
     if scanner_status as i32 > SKIPPING {
         match scanner_status as i32 {
             DEFINING => {
-                print_nl_cstr(b"Runaway definition\x00" as *const u8 as *const i8);
+                print_nl_cstr(b"Runaway definition");
                 p = def_ref
             }
             MATCHING => {
-                print_nl_cstr(b"Runaway argument\x00" as *const u8 as *const i8);
+                print_nl_cstr(b"Runaway argument");
                 p = 4999999i32 - 3i32
             }
             ALIGNING => {
-                print_nl_cstr(b"Runaway preamble\x00" as *const u8 as *const i8);
+                print_nl_cstr(b"Runaway preamble");
                 p = 4999999i32 - 4i32
             }
             ABSORBING => {
-                print_nl_cstr(b"Runaway text\x00" as *const u8 as *const i8);
+                print_nl_cstr(b"Runaway text");
                 p = def_ref
             }
             _ => {}
@@ -368,10 +368,7 @@ pub(crate) unsafe extern "C" fn get_avail() -> i32 {
         p = hi_mem_min;
         if is_char_node(lo_mem_max) {
             runaway();
-            overflow(
-                b"main memory size\x00" as *const u8 as *const i8,
-                MEM_TOP + 1,
-            );
+            overflow(b"main memory size", MEM_TOP + 1);
         }
     }
     (*mem.offset(p as isize)).b32.s1 = TEX_NULL;
@@ -472,10 +469,7 @@ pub(crate) unsafe extern "C" fn get_node(mut s: i32) -> i32 {
         }
         break 'restart;
     }
-    overflow(
-        b"main memory size\x00" as *const u8 as *const i8,
-        MEM_TOP + 1,
-    );
+    overflow(b"main memory size", MEM_TOP + 1);
 
     unsafe fn found(r: i32, s: i32) -> i32 {
         (*mem.offset(r as isize)).b32.s1 = TEX_NULL;
@@ -725,7 +719,7 @@ pub(crate) unsafe extern "C" fn short_display(mut p: i32) {
             /*183:*/
             match (*mem.offset(p as isize)).b16.s1 as i32 {
                 0 | 1 | 3 | 4 | 5 | 13 => {
-                    print_cstr(b"[]\x00" as *const u8 as *const i8);
+                    print_cstr(b"[]");
                 }
                 8 => match (*mem.offset(p as isize)).b16.s0 as i32 {
                     40 | 41 => {
@@ -750,7 +744,7 @@ pub(crate) unsafe extern "C" fn short_display(mut p: i32) {
                         print_native_word(p);
                     }
                     _ => {
-                        print_cstr(b"[]\x00" as *const u8 as *const i8);
+                        print_cstr(b"[]");
                     }
                 },
                 2 => {
@@ -763,7 +757,7 @@ pub(crate) unsafe extern "C" fn short_display(mut p: i32) {
                 }
                 9 => {
                     if (*mem.offset(p as isize)).b16.s0 as i32 >= 4i32 {
-                        print_cstr(b"[]\x00" as *const u8 as *const i8);
+                        print_cstr(b"[]");
                     } else {
                         print_char('$' as i32);
                     }
@@ -791,7 +785,7 @@ pub(crate) unsafe extern "C" fn short_display(mut p: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn print_font_and_char(mut p: i32) {
     if p > mem_end {
-        print_esc_cstr(b"CLOBBERED.\x00" as *const u8 as *const i8);
+        print_esc_cstr(b"CLOBBERED.");
     } else {
         if (*mem.offset(p as isize)).b16.s1 as i32 > font_max {
             print_char('*' as i32);
@@ -818,7 +812,7 @@ pub(crate) unsafe extern "C" fn print_font_and_char(mut p: i32) {
 pub(crate) unsafe extern "C" fn print_mark(mut p: i32) {
     print_char('{' as i32);
     if p < hi_mem_min || p > mem_end {
-        print_esc_cstr(b"CLOBBERED.\x00" as *const u8 as *const i8);
+        print_esc_cstr(b"CLOBBERED.");
     } else {
         show_token_list(
             (*mem.offset(p as isize)).b32.s1,
@@ -840,15 +834,15 @@ pub(crate) unsafe extern "C" fn print_rule_dimen(mut d: scaled_t) {
 pub(crate) unsafe extern "C" fn print_glue(mut d: scaled_t, mut order: i32, mut s: *const i8) {
     print_scaled(d);
     if order < 0i32 || order > 3i32 {
-        print_cstr(b"foul\x00" as *const u8 as *const i8);
+        print_cstr(b"foul");
     } else if order > 0i32 {
-        print_cstr(b"fil\x00" as *const u8 as *const i8);
+        print_cstr(b"fil");
         while order > 1i32 {
             print_char('l' as i32);
             order -= 1
         }
     } else if !s.is_null() {
-        print_cstr(s);
+        print_cstr(CStr::from_ptr(s).to_bytes());
     };
 }
 #[no_mangle]
@@ -858,10 +852,10 @@ pub(crate) unsafe extern "C" fn print_spec(mut p: i32, mut s: *const i8) {
     } else {
         print_scaled((*mem.offset((p + 1i32) as isize)).b32.s1);
         if !s.is_null() {
-            print_cstr(s);
+            print_cstr(CStr::from_ptr(s).to_bytes());
         }
         if (*mem.offset((p + 2i32) as isize)).b32.s1 != 0i32 {
-            print_cstr(b" plus \x00" as *const u8 as *const i8);
+            print_cstr(b" plus ");
             print_glue(
                 (*mem.offset((p + 2i32) as isize)).b32.s1,
                 (*mem.offset(p as isize)).b16.s1 as i32,
@@ -869,7 +863,7 @@ pub(crate) unsafe extern "C" fn print_spec(mut p: i32, mut s: *const i8) {
             );
         }
         if (*mem.offset((p + 3i32) as isize)).b32.s1 != 0i32 {
-            print_cstr(b" minus \x00" as *const u8 as *const i8);
+            print_cstr(b" minus ");
             print_glue(
                 (*mem.offset((p + 3i32) as isize)).b32.s1,
                 (*mem.offset(p as isize)).b16.s0 as i32,
@@ -881,7 +875,7 @@ pub(crate) unsafe extern "C" fn print_spec(mut p: i32, mut s: *const i8) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn print_fam_and_char(mut p: i32) {
     let mut c: i32 = 0;
-    print_esc_cstr(b"fam\x00" as *const u8 as *const i8);
+    print_esc_cstr(b"fam");
     print_int((*mem.offset(p as isize)).b16.s1 as i32 % 256i32 % 256i32);
     print_char(' ' as i32);
     c = ((*mem.offset(p as isize)).b16.s0 as i64
@@ -911,7 +905,7 @@ pub(crate) unsafe extern "C" fn print_delimiter(mut p: i32) {
 pub(crate) unsafe extern "C" fn print_subsidiary_data(mut p: i32, mut c: UTF16_code) {
     if cur_length() >= depth_threshold {
         if (*mem.offset(p as isize)).b32.s1 != 0i32 {
-            print_cstr(b" []\x00" as *const u8 as *const i8);
+            print_cstr(b" []");
         }
     } else {
         *str_pool.offset(pool_ptr as isize) = c;
@@ -930,7 +924,7 @@ pub(crate) unsafe extern "C" fn print_subsidiary_data(mut p: i32, mut c: UTF16_c
                 if (*mem.offset(p as isize)).b32.s0 == TEX_NULL {
                     print_ln();
                     print_current_string();
-                    print_cstr(b"{}\x00" as *const u8 as *const i8);
+                    print_cstr(b"{}");
                 } else {
                     show_info();
                 }
@@ -944,19 +938,19 @@ pub(crate) unsafe extern "C" fn print_subsidiary_data(mut p: i32, mut c: UTF16_c
 pub(crate) unsafe extern "C" fn print_style(mut c: i32) {
     match c / 2i32 {
         0 => {
-            print_esc_cstr(b"displaystyle\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"displaystyle");
         }
         1 => {
-            print_esc_cstr(b"textstyle\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"textstyle");
         }
         2 => {
-            print_esc_cstr(b"scriptstyle\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"scriptstyle");
         }
         3 => {
-            print_esc_cstr(b"scriptscriptstyle\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"scriptscriptstyle");
         }
         _ => {
-            print_cstr(b"Unknown style!\x00" as *const u8 as *const i8);
+            print_cstr(b"Unknown style!");
         }
     };
 }
@@ -964,64 +958,64 @@ pub(crate) unsafe extern "C" fn print_style(mut c: i32) {
 pub(crate) unsafe extern "C" fn print_skip_param(mut n: i32) {
     match n {
         0 => {
-            print_esc_cstr(b"lineskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"lineskip");
         }
         1 => {
-            print_esc_cstr(b"baselineskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"baselineskip");
         }
         2 => {
-            print_esc_cstr(b"parskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"parskip");
         }
         3 => {
-            print_esc_cstr(b"abovedisplayskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"abovedisplayskip");
         }
         4 => {
-            print_esc_cstr(b"belowdisplayskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"belowdisplayskip");
         }
         5 => {
-            print_esc_cstr(b"abovedisplayshortskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"abovedisplayshortskip");
         }
         6 => {
-            print_esc_cstr(b"belowdisplayshortskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"belowdisplayshortskip");
         }
         7 => {
-            print_esc_cstr(b"leftskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"leftskip");
         }
         8 => {
-            print_esc_cstr(b"rightskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"rightskip");
         }
         9 => {
-            print_esc_cstr(b"topskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"topskip");
         }
         10 => {
-            print_esc_cstr(b"splittopskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"splittopskip");
         }
         11 => {
-            print_esc_cstr(b"tabskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tabskip");
         }
         12 => {
-            print_esc_cstr(b"spaceskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"spaceskip");
         }
         13 => {
-            print_esc_cstr(b"xspaceskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"xspaceskip");
         }
         14 => {
-            print_esc_cstr(b"parfillskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"parfillskip");
         }
         15 => {
-            print_esc_cstr(b"XeTeXlinebreakskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"XeTeXlinebreakskip");
         }
         16 => {
-            print_esc_cstr(b"thinmuskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"thinmuskip");
         }
         17 => {
-            print_esc_cstr(b"medmuskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"medmuskip");
         }
         18 => {
-            print_esc_cstr(b"thickmuskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"thickmuskip");
         }
         _ => {
-            print_cstr(b"[unknown glue parameter!]\x00" as *const u8 as *const i8);
+            print_cstr(b"[unknown glue parameter!]");
         }
     };
 }
@@ -1032,7 +1026,7 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
     let mut g: f64 = 0.;
     if cur_length() > depth_threshold {
         if p > TEX_NULL {
-            print_cstr(b" []\x00" as *const u8 as *const i8);
+            print_cstr(b" []");
         }
         return;
     }
@@ -1041,12 +1035,12 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
         print_ln();
         print_current_string();
         if p > mem_end {
-            print_cstr(b"Bad link, display aborted.\x00" as *const u8 as *const i8);
+            print_cstr(b"Bad link, display aborted.");
             return;
         }
         n += 1;
         if n > breadth_max {
-            print_cstr(b"etc.\x00" as *const u8 as *const i8);
+            print_cstr(b"etc.");
             return;
         }
         if is_char_node(p) {
@@ -1059,23 +1053,23 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                     } else if (*mem.offset(p as isize)).b16.s1 as i32 == 1i32 {
                         print_esc('v' as i32);
                     } else {
-                        print_esc_cstr(b"unset\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"unset");
                     }
-                    print_cstr(b"box(\x00" as *const u8 as *const i8);
+                    print_cstr(b"box(");
                     print_scaled((*mem.offset((p + 3i32) as isize)).b32.s1);
                     print_char('+' as i32);
                     print_scaled((*mem.offset((p + 2i32) as isize)).b32.s1);
-                    print_cstr(b")x\x00" as *const u8 as *const i8);
+                    print_cstr(b")x");
                     print_scaled((*mem.offset((p + 1i32) as isize)).b32.s1);
                     if (*mem.offset(p as isize)).b16.s1 as i32 == 13i32 {
                         /*193:*/
                         if (*mem.offset(p as isize)).b16.s0 as i32 != 0i32 {
-                            print_cstr(b" (\x00" as *const u8 as *const i8);
+                            print_cstr(b" (");
                             print_int((*mem.offset(p as isize)).b16.s0 as i32 + 1i32);
-                            print_cstr(b" columns)\x00" as *const u8 as *const i8);
+                            print_cstr(b" columns)");
                         }
                         if (*mem.offset((p + 6i32) as isize)).b32.s1 != 0i32 {
-                            print_cstr(b", stretch \x00" as *const u8 as *const i8);
+                            print_cstr(b", stretch ");
                             print_glue(
                                 (*mem.offset((p + 6i32) as isize)).b32.s1,
                                 (*mem.offset((p + 5i32) as isize)).b16.s0 as i32,
@@ -1083,7 +1077,7 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                             );
                         }
                         if (*mem.offset((p + 4i32) as isize)).b32.s1 != 0i32 {
-                            print_cstr(b", shrink \x00" as *const u8 as *const i8);
+                            print_cstr(b", shrink ");
                             print_glue(
                                 (*mem.offset((p + 4i32) as isize)).b32.s1,
                                 (*mem.offset((p + 5i32) as isize)).b16.s1 as i32,
@@ -1093,15 +1087,15 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                     } else {
                         g = (*mem.offset((p + 6i32) as isize)).gr;
                         if g != 0.0f64 && (*mem.offset((p + 5i32) as isize)).b16.s1 as i32 != 0i32 {
-                            print_cstr(b", glue set \x00" as *const u8 as *const i8);
+                            print_cstr(b", glue set ");
                             if (*mem.offset((p + 5i32) as isize)).b16.s1 as i32 == 2i32 {
-                                print_cstr(b"- \x00" as *const u8 as *const i8);
+                                print_cstr(b"- ");
                             }
                             if g.abs() > 20000.0f64 {
                                 if g > 0.0f64 {
                                     print_char('>' as i32);
                                 } else {
-                                    print_cstr(b"< -\x00" as *const u8 as *const i8);
+                                    print_cstr(b"< -");
                                 }
                                 print_glue(
                                     (20000i32 as i64 * 65536) as scaled_t,
@@ -1117,14 +1111,14 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                             }
                         }
                         if (*mem.offset((p + 4i32) as isize)).b32.s1 != 0i32 {
-                            print_cstr(b", shifted \x00" as *const u8 as *const i8);
+                            print_cstr(b", shifted ");
                             print_scaled((*mem.offset((p + 4i32) as isize)).b32.s1);
                         }
                         /*1491:*/
                         if (*mem.offset(p as isize)).b16.s1 as i32 == 0i32
                             && (*mem.offset(p as isize)).b16.s0 as i32 == 2i32
                         {
-                            print_cstr(b", display\x00" as *const u8 as *const i8);
+                            print_cstr(b", display");
                         }
                     }
                     *str_pool.offset(pool_ptr as isize) = '.' as i32 as packed_UTF16_code;
@@ -1133,23 +1127,23 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                     pool_ptr -= 1
                 }
                 2 => {
-                    print_esc_cstr(b"rule(\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"rule(");
                     print_rule_dimen((*mem.offset((p + 3i32) as isize)).b32.s1);
                     print_char('+' as i32);
                     print_rule_dimen((*mem.offset((p + 2i32) as isize)).b32.s1);
-                    print_cstr(b")x\x00" as *const u8 as *const i8);
+                    print_cstr(b")x");
                     print_rule_dimen((*mem.offset((p + 1i32) as isize)).b32.s1);
                 }
                 3 => {
-                    print_esc_cstr(b"insert\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"insert");
                     print_int((*mem.offset(p as isize)).b16.s0 as i32);
-                    print_cstr(b", natural size \x00" as *const u8 as *const i8);
+                    print_cstr(b", natural size ");
                     print_scaled((*mem.offset((p + 3i32) as isize)).b32.s1);
-                    print_cstr(b"; split(\x00" as *const u8 as *const i8);
+                    print_cstr(b"; split(");
                     print_spec((*mem.offset((p + 4i32) as isize)).b32.s1, ptr::null());
                     print_char(',' as i32);
                     print_scaled((*mem.offset((p + 2i32) as isize)).b32.s1);
-                    print_cstr(b"); float cost \x00" as *const u8 as *const i8);
+                    print_cstr(b"); float cost ");
                     print_int((*mem.offset((p + 1i32) as isize)).b32.s1);
                     *str_pool.offset(pool_ptr as isize) = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
@@ -1158,7 +1152,7 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                 }
                 8 => match (*mem.offset(p as isize)).b16.s0 as i32 {
                     0 => {
-                        print_write_whatsit(b"openout\x00" as *const u8 as *const i8, p);
+                        print_write_whatsit(b"openout", p);
                         print_char('=' as i32);
                         print_file_name(
                             (*mem.offset((p + 1i32) as isize)).b32.s1,
@@ -1167,20 +1161,20 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                         );
                     }
                     1 => {
-                        print_write_whatsit(b"write\x00" as *const u8 as *const i8, p);
+                        print_write_whatsit(b"write", p);
                         print_mark((*mem.offset((p + 1i32) as isize)).b32.s1);
                     }
                     2 => {
-                        print_write_whatsit(b"closeout\x00" as *const u8 as *const i8, p);
+                        print_write_whatsit(b"closeout", p);
                     }
                     3 => {
-                        print_esc_cstr(b"special\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"special");
                         print_mark((*mem.offset((p + 1i32) as isize)).b32.s1);
                     }
                     4 => {
-                        print_esc_cstr(b"setlanguage\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"setlanguage");
                         print_int((*mem.offset((p + 1i32) as isize)).b32.s1);
-                        print_cstr(b" (hyphenmin \x00" as *const u8 as *const i8);
+                        print_cstr(b" (hyphenmin ");
                         print_int((*mem.offset((p + 1i32) as isize)).b16.s1 as i32);
                         print_char(',' as i32);
                         print_int((*mem.offset((p + 1i32) as isize)).b16.s0 as i32);
@@ -1217,16 +1211,16 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                             ))
                             .s1,
                         );
-                        print_cstr(b" glyph#\x00" as *const u8 as *const i8);
+                        print_cstr(b" glyph#");
                         print_int((*mem.offset((p + 4i32) as isize)).b16.s1 as i32);
                     }
                     43 | 44 => {
                         if (*mem.offset(p as isize)).b16.s0 as i32 == 43i32 {
-                            print_esc_cstr(b"XeTeXpicfile\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"XeTeXpicfile");
                         } else {
-                            print_esc_cstr(b"XeTeXpdffile\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"XeTeXpdffile");
                         }
-                        print_cstr(b"( \x00" as *const u8 as *const i8);
+                        print_cstr(b"( ");
                         i = 0i32;
                         while i < (*mem.offset((p + 4i32) as isize)).b16.s1 as i32 {
                             print_raw_char(
@@ -1241,37 +1235,37 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                         print('\"' as i32);
                     }
                     6 => {
-                        print_esc_cstr(b"pdfsavepos\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"pdfsavepos");
                     }
                     _ => {
-                        print_cstr(b"whatsit?\x00" as *const u8 as *const i8);
+                        print_cstr(b"whatsit?");
                     }
                 },
                 10 => {
                     if (*mem.offset(p as isize)).b16.s0 as i32 >= 100i32 {
                         /*198: */
-                        print_esc_cstr(b"\x00" as *const u8 as *const i8); /*:244 */
+                        print_esc_cstr(b""); /*:244 */
                         if (*mem.offset(p as isize)).b16.s0 as i32 == 101i32 {
                             print_char('c' as i32); /*214:*/
                         } else if (*mem.offset(p as isize)).b16.s0 as i32 == 102i32 {
                             print_char('x' as i32);
                         }
-                        print_cstr(b"leaders \x00" as *const u8 as *const i8);
+                        print_cstr(b"leaders ");
                         print_spec((*mem.offset((p + 1i32) as isize)).b32.s0, ptr::null());
                         *str_pool.offset(pool_ptr as isize) = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
                         show_node_list((*mem.offset((p + 1i32) as isize)).b32.s1);
                         pool_ptr -= 1
                     } else {
-                        print_esc_cstr(b"glue\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"glue");
                         if (*mem.offset(p as isize)).b16.s0 as i32 != 0i32 {
                             print_char('(' as i32);
                             if ((*mem.offset(p as isize)).b16.s0 as i32) < 98i32 {
                                 print_skip_param((*mem.offset(p as isize)).b16.s0 as i32 - 1i32);
                             } else if (*mem.offset(p as isize)).b16.s0 as i32 == 98i32 {
-                                print_esc_cstr(b"nonscript\x00" as *const u8 as *const i8);
+                                print_esc_cstr(b"nonscript");
                             } else {
-                                print_esc_cstr(b"mskip\x00" as *const u8 as *const i8);
+                                print_esc_cstr(b"mskip");
                             }
                             print_char(')' as i32);
                         }
@@ -1290,37 +1284,37 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                 }
                 11 => {
                     if (*mem.offset(p as isize)).b16.s0 as i32 != 99i32 {
-                        print_esc_cstr(b"kern\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"kern");
                         if (*mem.offset(p as isize)).b16.s0 as i32 != 0i32 {
                             print_char(' ' as i32);
                         }
                         print_scaled((*mem.offset((p + 1i32) as isize)).b32.s1);
                         if (*mem.offset(p as isize)).b16.s0 as i32 == 2i32 {
-                            print_cstr(b" (for accent)\x00" as *const u8 as *const i8);
+                            print_cstr(b" (for accent)");
                         } else if (*mem.offset(p as isize)).b16.s0 as i32 == 3i32 {
-                            print_cstr(b" (space adjustment)\x00" as *const u8 as *const i8);
+                            print_cstr(b" (space adjustment)");
                         }
                     } else {
-                        print_esc_cstr(b"mkern\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"mkern");
                         print_scaled((*mem.offset((p + 1i32) as isize)).b32.s1);
-                        print_cstr(b"mu\x00" as *const u8 as *const i8);
+                        print_cstr(b"mu");
                     }
                 }
                 40 => {
-                    print_esc_cstr(b"kern\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"kern");
                     print_scaled((*mem.offset((p + 1i32) as isize)).b32.s1);
                     if (*mem.offset(p as isize)).b16.s0 as i32 == 0i32 {
-                        print_cstr(b" (left margin)\x00" as *const u8 as *const i8);
+                        print_cstr(b" (left margin)");
                     } else {
-                        print_cstr(b" (right margin)\x00" as *const u8 as *const i8);
+                        print_cstr(b" (right margin)");
                     }
                 }
                 9 => {
                     if (*mem.offset(p as isize)).b16.s0 as i32 > 1i32 {
                         if (*mem.offset(p as isize)).b16.s0 as i32 & 1i32 != 0 {
-                            print_esc_cstr(b"end\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"end");
                         } else {
-                            print_esc_cstr(b"begin\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"begin");
                         }
                         if (*mem.offset(p as isize)).b16.s0 as i32 > 8i32 {
                             print_char('R' as i32);
@@ -1330,21 +1324,21 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                             print_char('M' as i32);
                         }
                     } else {
-                        print_esc_cstr(b"math\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"math");
                         if (*mem.offset(p as isize)).b16.s0 as i32 == 0i32 {
-                            print_cstr(b"on\x00" as *const u8 as *const i8);
+                            print_cstr(b"on");
                         } else {
-                            print_cstr(b"off\x00" as *const u8 as *const i8);
+                            print_cstr(b"off");
                         }
                         if (*mem.offset((p + 1i32) as isize)).b32.s1 != 0i32 {
-                            print_cstr(b", surrounded \x00" as *const u8 as *const i8);
+                            print_cstr(b", surrounded ");
                             print_scaled((*mem.offset((p + 1i32) as isize)).b32.s1);
                         }
                     }
                 }
                 6 => {
                     print_font_and_char(p + 1i32);
-                    print_cstr(b" (ligature \x00" as *const u8 as *const i8);
+                    print_cstr(b" (ligature ");
                     if (*mem.offset(p as isize)).b16.s0 as i32 > 1i32 {
                         print_char('|' as i32);
                     }
@@ -1356,13 +1350,13 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                     print_char(')' as i32);
                 }
                 12 => {
-                    print_esc_cstr(b"penalty \x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"penalty ");
                     print_int((*mem.offset((p + 1i32) as isize)).b32.s1);
                 }
                 7 => {
-                    print_esc_cstr(b"discretionary\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"discretionary");
                     if (*mem.offset(p as isize)).b16.s0 as i32 > 0i32 {
-                        print_cstr(b" replacing \x00" as *const u8 as *const i8);
+                        print_cstr(b" replacing ");
                         print_int((*mem.offset(p as isize)).b16.s0 as i32);
                     }
                     *str_pool.offset(pool_ptr as isize) = '.' as i32 as packed_UTF16_code;
@@ -1375,7 +1369,7 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                     pool_ptr -= 1
                 }
                 4 => {
-                    print_esc_cstr(b"mark\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"mark");
                     if (*mem.offset((p + 1i32) as isize)).b32.s0 != 0i32 {
                         print_char('s' as i32);
                         print_int((*mem.offset((p + 1i32) as isize)).b32.s0);
@@ -1383,9 +1377,9 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                     print_mark((*mem.offset((p + 1i32) as isize)).b32.s1);
                 }
                 5 => {
-                    print_esc_cstr(b"vadjust\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"vadjust");
                     if (*mem.offset(p as isize)).b16.s0 as i32 != 0i32 {
-                        print_cstr(b" pre \x00" as *const u8 as *const i8);
+                        print_cstr(b" pre ");
                     }
                     *str_pool.offset(pool_ptr as isize) = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
@@ -1396,7 +1390,7 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                     print_style((*mem.offset(p as isize)).b16.s0 as i32);
                 }
                 15 => {
-                    print_esc_cstr(b"mathchoice\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"mathchoice");
                     *str_pool.offset(pool_ptr as isize) = 'D' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list((*mem.offset((p + 1i32) as isize)).b32.s0);
@@ -1417,55 +1411,55 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 27 | 26 | 29 | 28 | 30 | 31 => {
                     match (*mem.offset(p as isize)).b16.s1 as i32 {
                         16 => {
-                            print_esc_cstr(b"mathord\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"mathord");
                         }
                         17 => {
-                            print_esc_cstr(b"mathop\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"mathop");
                         }
                         18 => {
-                            print_esc_cstr(b"mathbin\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"mathbin");
                         }
                         19 => {
-                            print_esc_cstr(b"mathrel\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"mathrel");
                         }
                         20 => {
-                            print_esc_cstr(b"mathopen\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"mathopen");
                         }
                         21 => {
-                            print_esc_cstr(b"mathclose\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"mathclose");
                         }
                         22 => {
-                            print_esc_cstr(b"mathpunct\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"mathpunct");
                         }
                         23 => {
-                            print_esc_cstr(b"mathinner\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"mathinner");
                         }
                         27 => {
-                            print_esc_cstr(b"overline\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"overline");
                         }
                         26 => {
-                            print_esc_cstr(b"underline\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"underline");
                         }
                         29 => {
-                            print_esc_cstr(b"vcenter\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"vcenter");
                         }
                         24 => {
-                            print_esc_cstr(b"radical\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"radical");
                             print_delimiter(p + 4i32);
                         }
                         28 => {
-                            print_esc_cstr(b"accent\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"accent");
                             print_fam_and_char(p + 4i32);
                         }
                         30 => {
-                            print_esc_cstr(b"left\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"left");
                             print_delimiter(p + 1i32);
                         }
                         31 => {
                             if (*mem.offset(p as isize)).b16.s0 as i32 == 0i32 {
-                                print_esc_cstr(b"right\x00" as *const u8 as *const i8);
+                                print_esc_cstr(b"right");
                             } else {
-                                print_esc_cstr(b"middle\x00" as *const u8 as *const i8);
+                                print_esc_cstr(b"middle");
                             }
                             print_delimiter(p + 1i32);
                         }
@@ -1474,9 +1468,9 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                     if ((*mem.offset(p as isize)).b16.s1 as i32) < 30i32 {
                         if (*mem.offset(p as isize)).b16.s0 as i32 != 0i32 {
                             if (*mem.offset(p as isize)).b16.s0 as i32 == 1i32 {
-                                print_esc_cstr(b"limits\x00" as *const u8 as *const i8);
+                                print_esc_cstr(b"limits");
                             } else {
-                                print_esc_cstr(b"nolimits\x00" as *const u8 as *const i8);
+                                print_esc_cstr(b"nolimits");
                             }
                         }
                         print_subsidiary_data(p + 1i32, '.' as i32 as UTF16_code);
@@ -1485,9 +1479,9 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                     print_subsidiary_data(p + 3i32, '_' as i32 as UTF16_code);
                 }
                 25 => {
-                    print_esc_cstr(b"fraction, thickness \x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"fraction, thickness ");
                     if (*mem.offset((p + 1i32) as isize)).b32.s1 == 0x40000000i32 {
-                        print_cstr(b"= default\x00" as *const u8 as *const i8);
+                        print_cstr(b"= default");
                     } else {
                         print_scaled((*mem.offset((p + 1i32) as isize)).b32.s1);
                     }
@@ -1502,7 +1496,7 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                                 * 65536
                             != 0i32 as i64
                     {
-                        print_cstr(b", left-delimiter \x00" as *const u8 as *const i8);
+                        print_cstr(b", left-delimiter ");
                         print_delimiter(p + 4i32);
                     }
                     if (*mem.offset((p + 5i32) as isize)).b16.s3 as i32 % 256i32 != 0i32
@@ -1516,14 +1510,14 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                                 * 65536
                             != 0i32 as i64
                     {
-                        print_cstr(b", right-delimiter \x00" as *const u8 as *const i8);
+                        print_cstr(b", right-delimiter ");
                         print_delimiter(p + 5i32);
                     }
                     print_subsidiary_data(p + 2i32, '\\' as i32 as UTF16_code);
                     print_subsidiary_data(p + 3i32, '/' as i32 as UTF16_code);
                 }
                 _ => {
-                    print_cstr(b"Unknown node type!\x00" as *const u8 as *const i8);
+                    print_cstr(b"Unknown node type!");
                 }
             }
         }
@@ -1687,7 +1681,7 @@ pub(crate) unsafe extern "C" fn flush_node_list(mut p: i32) {
                             free_node(p, 2i32);
                         }
                         _ => {
-                            confusion(b"ext3\x00" as *const u8 as *const i8);
+                            confusion(b"ext3");
                         }
                     }
                     current_block = 16791665189521845338;
@@ -1779,7 +1773,7 @@ pub(crate) unsafe extern "C" fn flush_node_list(mut p: i32) {
                     current_block = 16791665189521845338;
                 }
                 _ => {
-                    confusion(b"flushing\x00" as *const u8 as *const i8);
+                    confusion(b"flushing");
                 }
             }
             match current_block {
@@ -1880,7 +1874,7 @@ pub(crate) unsafe extern "C" fn copy_node_list(mut p: i32) -> i32 {
                     }
                     6 => r = get_node(2i32),
                     _ => {
-                        confusion(b"ext2\x00" as *const u8 as *const i8);
+                        confusion(b"ext2");
                     }
                 },
                 10 => {
@@ -1935,7 +1929,7 @@ pub(crate) unsafe extern "C" fn copy_node_list(mut p: i32) -> i32 {
                         copy_node_list((*mem.offset((p + 1i32) as isize)).b32.s1)
                 }
                 _ => {
-                    confusion(b"copying\x00" as *const u8 as *const i8);
+                    confusion(b"copying");
                 }
             }
         }
@@ -1958,28 +1952,28 @@ pub(crate) unsafe extern "C" fn print_mode(mut m: i32) {
     if m > 0i32 {
         match m / (102i32 + 1i32) {
             0 => {
-                print_cstr(b"vertical mode\x00" as *const u8 as *const i8);
+                print_cstr(b"vertical mode");
             }
             1 => {
-                print_cstr(b"horizontal mode\x00" as *const u8 as *const i8);
+                print_cstr(b"horizontal mode");
             }
             2 => {
-                print_cstr(b"display math mode\x00" as *const u8 as *const i8);
+                print_cstr(b"display math mode");
             }
             _ => {}
         }
     } else if m == 0i32 {
-        print_cstr(b"no mode\x00" as *const u8 as *const i8);
+        print_cstr(b"no mode");
     } else {
         match -m / (102i32 + 1i32) {
             0 => {
-                print_cstr(b"internal vertical mode\x00" as *const u8 as *const i8);
+                print_cstr(b"internal vertical mode");
             }
             1 => {
-                print_cstr(b"restricted horizontal mode\x00" as *const u8 as *const i8);
+                print_cstr(b"restricted horizontal mode");
             }
             2 => {
-                print_cstr(b"math mode\x00" as *const u8 as *const i8);
+                print_cstr(b"math mode");
             }
             _ => {}
         }
@@ -1990,28 +1984,28 @@ pub(crate) unsafe extern "C" fn print_in_mode(mut m: i32) {
     if m > 0i32 {
         match m / (102i32 + 1i32) {
             0 => {
-                print_cstr(b"\' in vertical mode\x00" as *const u8 as *const i8);
+                print_cstr(b"\' in vertical mode");
             }
             1 => {
-                print_cstr(b"\' in horizontal mode\x00" as *const u8 as *const i8);
+                print_cstr(b"\' in horizontal mode");
             }
             2 => {
-                print_cstr(b"\' in display math mode\x00" as *const u8 as *const i8);
+                print_cstr(b"\' in display math mode");
             }
             _ => {}
         }
     } else if m == 0i32 {
-        print_cstr(b"\' in no mode\x00" as *const u8 as *const i8);
+        print_cstr(b"\' in no mode");
     } else {
         match -m / (102i32 + 1i32) {
             0 => {
-                print_cstr(b"\' in internal vertical mode\x00" as *const u8 as *const i8);
+                print_cstr(b"\' in internal vertical mode");
             }
             1 => {
-                print_cstr(b"\' in restricted horizontal mode\x00" as *const u8 as *const i8);
+                print_cstr(b"\' in restricted horizontal mode");
             }
             2 => {
-                print_cstr(b"\' in math mode\x00" as *const u8 as *const i8);
+                print_cstr(b"\' in math mode");
             }
             _ => {}
         }
@@ -2022,10 +2016,7 @@ pub(crate) unsafe extern "C" fn push_nest() {
     if nest_ptr > max_nest_stack {
         max_nest_stack = nest_ptr;
         if nest_ptr == nest_size {
-            overflow(
-                b"semantic nest size\x00" as *const u8 as *const i8,
-                nest_size,
-            );
+            overflow(b"semantic nest size", nest_size);
         }
     }
     *nest.offset(nest_ptr as isize) = cur_list;
@@ -2054,7 +2045,7 @@ pub(crate) unsafe extern "C" fn show_activities() {
     let mut r: i32 = 0;
     let mut t: i32 = 0;
     *nest.offset(nest_ptr as isize) = cur_list;
-    print_nl_cstr(b"\x00" as *const u8 as *const i8);
+    print_nl_cstr(b"");
     print_ln();
     let mut for_end: i32 = 0;
     p = nest_ptr;
@@ -2063,15 +2054,15 @@ pub(crate) unsafe extern "C" fn show_activities() {
         loop {
             m = (*nest.offset(p as isize)).mode;
             a = (*nest.offset(p as isize)).aux;
-            print_nl_cstr(b"### \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"### ");
             print_mode(m as i32);
-            print_cstr(b" entered at line \x00" as *const u8 as *const i8);
+            print_cstr(b" entered at line ");
             print_int((*nest.offset(p as isize)).mode_line.abs());
             if m as i32 == 104i32 {
                 if (*nest.offset(p as isize)).prev_graf != 0x830000i32 {
-                    print_cstr(b" (language\x00" as *const u8 as *const i8);
+                    print_cstr(b" (language");
                     print_int(((*nest.offset(p as isize)).prev_graf as i64 % 65536) as i32);
-                    print_cstr(b":hyphenmin\x00" as *const u8 as *const i8);
+                    print_cstr(b":hyphenmin");
                     print_int((*nest.offset(p as isize)).prev_graf / 0x400000i32);
                     print_char(',' as i32);
                     print_int(
@@ -2081,27 +2072,27 @@ pub(crate) unsafe extern "C" fn show_activities() {
                 }
             }
             if (*nest.offset(p as isize)).mode_line < 0i32 {
-                print_cstr(b" (\\output routine)\x00" as *const u8 as *const i8);
+                print_cstr(b" (\\output routine)");
             }
             if p == 0i32 {
                 if 4999999i32 - 2i32 != page_tail {
-                    print_nl_cstr(b"### current page:\x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"### current page:");
                     if output_active {
-                        print_cstr(b" (held over for next output)\x00" as *const u8 as *const i8);
+                        print_cstr(b" (held over for next output)");
                     }
                     show_box((*mem.offset((4999999i32 - 2i32) as isize)).b32.s1);
                     if page_contents as i32 > 0i32 {
-                        print_nl_cstr(b"total height \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"total height ");
                         print_totals();
-                        print_nl_cstr(b" goal height \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b" goal height ");
                         print_scaled(page_so_far[0]);
                         r = (*mem.offset(4999999)).b32.s1;
                         while r != 4999999i32 {
                             print_ln();
-                            print_esc_cstr(b"insert\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"insert");
                             t = (*mem.offset(r as isize)).b16.s0 as i32;
                             print_int(t);
-                            print_cstr(b" adds \x00" as *const u8 as *const i8);
+                            print_cstr(b" adds ");
                             if (*eqtb.offset(
                                 (1i32
                                     + (0x10ffffi32 + 1i32)
@@ -2183,16 +2174,16 @@ pub(crate) unsafe extern "C" fn show_activities() {
                                         break;
                                     }
                                 }
-                                print_cstr(b", #\x00" as *const u8 as *const i8);
+                                print_cstr(b", #");
                                 print_int(t);
-                                print_cstr(b" might split\x00" as *const u8 as *const i8);
+                                print_cstr(b" might split");
                             }
                             r = (*mem.offset(r as isize)).b32.s1
                         }
                     }
                 }
                 if (*mem.offset((4999999i32 - 1i32) as isize)).b32.s1 != TEX_NULL {
-                    print_nl_cstr(b"### recent contributions:\x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"### recent contributions:");
                 }
             }
             show_box(
@@ -2202,35 +2193,35 @@ pub(crate) unsafe extern "C" fn show_activities() {
             );
             match (m as i32).abs() / (102i32 + 1i32) {
                 0 => {
-                    print_nl_cstr(b"prevdepth \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"prevdepth ");
                     if a.b32.s1 <= -65536000i32 {
-                        print_cstr(b"ignored\x00" as *const u8 as *const i8);
+                        print_cstr(b"ignored");
                     } else {
                         print_scaled(a.b32.s1);
                     }
                     if (*nest.offset(p as isize)).prev_graf != 0i32 {
-                        print_cstr(b", prevgraf \x00" as *const u8 as *const i8);
+                        print_cstr(b", prevgraf ");
                         print_int((*nest.offset(p as isize)).prev_graf);
                         if (*nest.offset(p as isize)).prev_graf != 1i32 {
-                            print_cstr(b" lines\x00" as *const u8 as *const i8);
+                            print_cstr(b" lines");
                         } else {
-                            print_cstr(b" line\x00" as *const u8 as *const i8);
+                            print_cstr(b" line");
                         }
                     }
                 }
                 1 => {
-                    print_nl_cstr(b"spacefactor \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"spacefactor ");
                     print_int(a.b32.s0);
                     if m as i32 > 0i32 {
                         if a.b32.s1 > 0i32 {
-                            print_cstr(b", current language \x00" as *const u8 as *const i8);
+                            print_cstr(b", current language ");
                             print_int(a.b32.s1);
                         }
                     }
                 }
                 2 => {
                     if a.b32.s1 != TEX_NULL {
-                        print_cstr(b"this will be denominator of:\x00" as *const u8 as *const i8);
+                        print_cstr(b"this will be denominator of:");
                         show_box(a.b32.s1);
                     }
                 }
@@ -2248,253 +2239,253 @@ pub(crate) unsafe extern "C" fn show_activities() {
 pub(crate) unsafe extern "C" fn print_param(mut n: i32) {
     match n {
         0 => {
-            print_esc_cstr(b"pretolerance\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"pretolerance");
         }
         1 => {
-            print_esc_cstr(b"tolerance\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tolerance");
         }
         2 => {
-            print_esc_cstr(b"linepenalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"linepenalty");
         }
         3 => {
-            print_esc_cstr(b"hyphenpenalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"hyphenpenalty");
         }
         4 => {
-            print_esc_cstr(b"exhyphenpenalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"exhyphenpenalty");
         }
         5 => {
-            print_esc_cstr(b"clubpenalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"clubpenalty");
         }
         6 => {
-            print_esc_cstr(b"widowpenalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"widowpenalty");
         }
         7 => {
-            print_esc_cstr(b"displaywidowpenalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"displaywidowpenalty");
         }
         8 => {
-            print_esc_cstr(b"brokenpenalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"brokenpenalty");
         }
         9 => {
-            print_esc_cstr(b"binoppenalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"binoppenalty");
         }
         10 => {
-            print_esc_cstr(b"relpenalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"relpenalty");
         }
         11 => {
-            print_esc_cstr(b"predisplaypenalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"predisplaypenalty");
         }
         12 => {
-            print_esc_cstr(b"postdisplaypenalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"postdisplaypenalty");
         }
         13 => {
-            print_esc_cstr(b"interlinepenalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"interlinepenalty");
         }
         14 => {
-            print_esc_cstr(b"doublehyphendemerits\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"doublehyphendemerits");
         }
         15 => {
-            print_esc_cstr(b"finalhyphendemerits\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"finalhyphendemerits");
         }
         16 => {
-            print_esc_cstr(b"adjdemerits\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"adjdemerits");
         }
         17 => {
-            print_esc_cstr(b"mag\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"mag");
         }
         18 => {
-            print_esc_cstr(b"delimiterfactor\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"delimiterfactor");
         }
         19 => {
-            print_esc_cstr(b"looseness\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"looseness");
         }
         20 => {
-            print_esc_cstr(b"time\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"time");
         }
         21 => {
-            print_esc_cstr(b"day\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"day");
         }
         22 => {
-            print_esc_cstr(b"month\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"month");
         }
         23 => {
-            print_esc_cstr(b"year\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"year");
         }
         24 => {
-            print_esc_cstr(b"showboxbreadth\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"showboxbreadth");
         }
         25 => {
-            print_esc_cstr(b"showboxdepth\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"showboxdepth");
         }
         26 => {
-            print_esc_cstr(b"hbadness\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"hbadness");
         }
         27 => {
-            print_esc_cstr(b"vbadness\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"vbadness");
         }
         28 => {
-            print_esc_cstr(b"pausing\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"pausing");
         }
         29 => {
-            print_esc_cstr(b"tracingonline\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tracingonline");
         }
         30 => {
-            print_esc_cstr(b"tracingmacros\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tracingmacros");
         }
         31 => {
-            print_esc_cstr(b"tracingstats\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tracingstats");
         }
         32 => {
-            print_esc_cstr(b"tracingparagraphs\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tracingparagraphs");
         }
         33 => {
-            print_esc_cstr(b"tracingpages\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tracingpages");
         }
         34 => {
-            print_esc_cstr(b"tracingoutput\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tracingoutput");
         }
         35 => {
-            print_esc_cstr(b"tracinglostchars\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tracinglostchars");
         }
         36 => {
-            print_esc_cstr(b"tracingcommands\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tracingcommands");
         }
         37 => {
-            print_esc_cstr(b"tracingrestores\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tracingrestores");
         }
         38 => {
-            print_esc_cstr(b"uchyph\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"uchyph");
         }
         39 => {
-            print_esc_cstr(b"outputpenalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"outputpenalty");
         }
         40 => {
-            print_esc_cstr(b"maxdeadcycles\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"maxdeadcycles");
         }
         41 => {
-            print_esc_cstr(b"hangafter\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"hangafter");
         }
         42 => {
-            print_esc_cstr(b"floatingpenalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"floatingpenalty");
         }
         43 => {
-            print_esc_cstr(b"globaldefs\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"globaldefs");
         }
         44 => {
-            print_esc_cstr(b"fam\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"fam");
         }
         45 => {
-            print_esc_cstr(b"escapechar\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"escapechar");
         }
         46 => {
-            print_esc_cstr(b"defaulthyphenchar\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"defaulthyphenchar");
         }
         47 => {
-            print_esc_cstr(b"defaultskewchar\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"defaultskewchar");
         }
         48 => {
-            print_esc_cstr(b"endlinechar\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"endlinechar");
         }
         49 => {
-            print_esc_cstr(b"newlinechar\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"newlinechar");
         }
         50 => {
-            print_esc_cstr(b"language\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"language");
         }
         51 => {
-            print_esc_cstr(b"lefthyphenmin\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"lefthyphenmin");
         }
         52 => {
-            print_esc_cstr(b"righthyphenmin\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"righthyphenmin");
         }
         53 => {
-            print_esc_cstr(b"holdinginserts\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"holdinginserts");
         }
         54 => {
-            print_esc_cstr(b"errorcontextlines\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"errorcontextlines");
         }
         55 => {
-            print_esc_cstr(b"charsubdefmin\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"charsubdefmin");
         }
         56 => {
-            print_esc_cstr(b"charsubdefmax\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"charsubdefmax");
         }
         57 => {
-            print_esc_cstr(b"tracingcharsubdef\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tracingcharsubdef");
         }
         69 => {
-            print_esc_cstr(b"XeTeXlinebreakpenalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"XeTeXlinebreakpenalty");
         }
         70 => {
-            print_esc_cstr(b"XeTeXprotrudechars\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"XeTeXprotrudechars");
         }
         83 => {
-            print_esc_cstr(b"synctex\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"synctex");
         }
         58 => {
-            print_esc_cstr(b"tracingassigns\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tracingassigns");
         }
         59 => {
-            print_esc_cstr(b"tracinggroups\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tracinggroups");
         }
         60 => {
-            print_esc_cstr(b"tracingifs\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tracingifs");
         }
         61 => {
-            print_esc_cstr(b"tracingscantokens\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tracingscantokens");
         }
         62 => {
-            print_esc_cstr(b"tracingnesting\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"tracingnesting");
         }
         63 => {
-            print_esc_cstr(b"predisplaydirection\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"predisplaydirection");
         }
         64 => {
-            print_esc_cstr(b"lastlinefit\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"lastlinefit");
         }
         65 => {
-            print_esc_cstr(b"savingvdiscards\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"savingvdiscards");
         }
         66 => {
-            print_esc_cstr(b"savinghyphcodes\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"savinghyphcodes");
         }
         67 => {
-            print_esc_cstr(b"suppressfontnotfounderror\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"suppressfontnotfounderror");
         }
         71 => {
-            print_esc_cstr(b"TeXXeTstate\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"TeXXeTstate");
         }
         73 => {
-            print_esc_cstr(b"XeTeXupwardsmode\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"XeTeXupwardsmode");
         }
         74 => {
-            print_esc_cstr(b"XeTeXuseglyphmetrics\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"XeTeXuseglyphmetrics");
         }
         75 => {
-            print_esc_cstr(b"XeTeXinterchartokenstate\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"XeTeXinterchartokenstate");
         }
         72 => {
-            print_esc_cstr(b"XeTeXdashbreakstate\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"XeTeXdashbreakstate");
         }
         76 => {
-            print_esc_cstr(b"XeTeXinputnormalization\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"XeTeXinputnormalization");
         }
         79 => {
-            print_esc_cstr(b"XeTeXtracingfonts\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"XeTeXtracingfonts");
         }
         80 => {
-            print_esc_cstr(b"XeTeXinterwordspaceshaping\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"XeTeXinterwordspaceshaping");
         }
         81 => {
-            print_esc_cstr(b"XeTeXgenerateactualtext\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"XeTeXgenerateactualtext");
         }
         82 => {
-            print_esc_cstr(b"XeTeXhyphenatablelength\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"XeTeXhyphenatablelength");
         }
         84 => {
-            print_esc_cstr(b"pdfoutput\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"pdfoutput");
         }
         _ => {
-            print_cstr(b"[unknown i32 parameter!]\x00" as *const u8 as *const i8);
+            print_cstr(b"[unknown i32 parameter!]");
         }
     };
 }
@@ -2540,7 +2531,7 @@ pub(crate) unsafe extern "C" fn begin_diagnostic() {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn end_diagnostic(mut blank_line: bool) {
-    print_nl_cstr(b"\x00" as *const u8 as *const i8);
+    print_nl_cstr(b"");
     if blank_line {
         print_ln();
     }
@@ -2550,76 +2541,76 @@ pub(crate) unsafe extern "C" fn end_diagnostic(mut blank_line: bool) {
 pub(crate) unsafe extern "C" fn print_length_param(mut n: i32) {
     match n {
         0 => {
-            print_esc_cstr(b"parindent\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"parindent");
         }
         1 => {
-            print_esc_cstr(b"mathsurround\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"mathsurround");
         }
         2 => {
-            print_esc_cstr(b"lineskiplimit\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"lineskiplimit");
         }
         3 => {
-            print_esc_cstr(b"hsize\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"hsize");
         }
         4 => {
-            print_esc_cstr(b"vsize\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"vsize");
         }
         5 => {
-            print_esc_cstr(b"maxdepth\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"maxdepth");
         }
         6 => {
-            print_esc_cstr(b"splitmaxdepth\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"splitmaxdepth");
         }
         7 => {
-            print_esc_cstr(b"boxmaxdepth\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"boxmaxdepth");
         }
         8 => {
-            print_esc_cstr(b"hfuzz\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"hfuzz");
         }
         9 => {
-            print_esc_cstr(b"vfuzz\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"vfuzz");
         }
         10 => {
-            print_esc_cstr(b"delimitershortfall\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"delimitershortfall");
         }
         11 => {
-            print_esc_cstr(b"nulldelimiterspace\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"nulldelimiterspace");
         }
         12 => {
-            print_esc_cstr(b"scriptspace\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"scriptspace");
         }
         13 => {
-            print_esc_cstr(b"predisplaysize\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"predisplaysize");
         }
         14 => {
-            print_esc_cstr(b"displaywidth\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"displaywidth");
         }
         15 => {
-            print_esc_cstr(b"displayindent\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"displayindent");
         }
         16 => {
-            print_esc_cstr(b"overfullrule\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"overfullrule");
         }
         17 => {
-            print_esc_cstr(b"hangindent\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"hangindent");
         }
         18 => {
-            print_esc_cstr(b"hoffset\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"hoffset");
         }
         19 => {
-            print_esc_cstr(b"voffset\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"voffset");
         }
         20 => {
-            print_esc_cstr(b"emergencystretch\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"emergencystretch");
         }
         21 => {
-            print_esc_cstr(b"pdfpagewidth\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"pdfpagewidth");
         }
         22 => {
-            print_esc_cstr(b"pdfpageheight\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"pdfpageheight");
         }
         _ => {
-            print_cstr(b"[unknown dimen parameter!]\x00" as *const u8 as *const i8);
+            print_cstr(b"[unknown dimen parameter!]");
         }
     };
 }
@@ -2630,7 +2621,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
     let mut quote_char: UTF16_code = 0;
     match cmd as i32 {
         1 => {
-            print_cstr(b"begin-group character \x00" as *const u8 as *const i8);
+            print_cstr(b"begin-group character ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
             } else {
@@ -2638,7 +2629,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         2 => {
-            print_cstr(b"end-group character \x00" as *const u8 as *const i8);
+            print_cstr(b"end-group character ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
             } else {
@@ -2646,7 +2637,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         3 => {
-            print_cstr(b"math shift character \x00" as *const u8 as *const i8);
+            print_cstr(b"math shift character ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
             } else {
@@ -2654,7 +2645,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         6 => {
-            print_cstr(b"macro parameter character \x00" as *const u8 as *const i8);
+            print_cstr(b"macro parameter character ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
             } else {
@@ -2662,7 +2653,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         7 => {
-            print_cstr(b"superscript character \x00" as *const u8 as *const i8);
+            print_cstr(b"superscript character ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
             } else {
@@ -2670,7 +2661,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         8 => {
-            print_cstr(b"subscript character \x00" as *const u8 as *const i8);
+            print_cstr(b"subscript character ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
             } else {
@@ -2678,10 +2669,10 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         9 => {
-            print_cstr(b"end of alignment template\x00" as *const u8 as *const i8);
+            print_cstr(b"end of alignment template");
         }
         10 => {
-            print_cstr(b"blank space \x00" as *const u8 as *const i8);
+            print_cstr(b"blank space ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
             } else {
@@ -2689,7 +2680,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         11 => {
-            print_cstr(b"the letter \x00" as *const u8 as *const i8);
+            print_cstr(b"the letter ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
             } else {
@@ -2697,7 +2688,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         12 => {
-            print_cstr(b"the character \x00" as *const u8 as *const i8);
+            print_cstr(b"the character ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
             } else {
@@ -2742,7 +2733,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                     + 19i32
                     + 256i32
             {
-                print_esc_cstr(b"skip\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"skip");
                 print_int(
                     chr_code
                         - (1i32
@@ -2757,7 +2748,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                             + 19i32),
                 );
             } else {
-                print_esc_cstr(b"muskip\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"muskip");
                 print_int(
                     chr_code
                         - (1i32
@@ -2790,7 +2781,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                     + 256i32
                     + 13i32
             {
-                print_esc_cstr(b"toks\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"toks");
                 print_int(
                     chr_code
                         - (1i32
@@ -2810,40 +2801,40 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             } else {
                 match chr_code {
                     2252772 => {
-                        print_esc_cstr(b"output\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"output");
                     }
                     2252773 => {
-                        print_esc_cstr(b"everypar\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"everypar");
                     }
                     2252774 => {
-                        print_esc_cstr(b"everymath\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"everymath");
                     }
                     2252775 => {
-                        print_esc_cstr(b"everydisplay\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"everydisplay");
                     }
                     2252776 => {
-                        print_esc_cstr(b"everyhbox\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"everyhbox");
                     }
                     2252777 => {
-                        print_esc_cstr(b"everyvbox\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"everyvbox");
                     }
                     2252778 => {
-                        print_esc_cstr(b"everyjob\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"everyjob");
                     }
                     2252779 => {
-                        print_esc_cstr(b"everycr\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"everycr");
                     }
                     2252781 => {
-                        print_esc_cstr(b"everyeof\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"everyeof");
                     }
                     2252782 => {
-                        print_esc_cstr(b"XeTeXinterchartoks\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"XeTeXinterchartoks");
                     }
                     2252783 => {
-                        print_esc_cstr(b"TectonicCodaTokens\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"TectonicCodaTokens");
                     }
                     _ => {
-                        print_esc_cstr(b"errhelp\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"errhelp");
                     }
                 }
             }
@@ -2904,7 +2895,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                             + (0x10ffffi32 + 1i32)),
                 );
             } else {
-                print_esc_cstr(b"count\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"count");
                 print_int(
                     chr_code
                         - (1i32
@@ -2997,7 +2988,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                             + (0x10ffffi32 + 1i32)),
                 );
             } else {
-                print_esc_cstr(b"dimen\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"dimen");
                 print_int(
                     chr_code
                         - (1i32
@@ -3032,240 +3023,240 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         45 => {
-            print_esc_cstr(b"accent\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"accent");
         }
         92 => {
-            print_esc_cstr(b"advance\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"advance");
         }
         40 => {
-            print_esc_cstr(b"afterassignment\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"afterassignment");
         }
         41 => {
-            print_esc_cstr(b"aftergroup\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"aftergroup");
         }
         78 => {
-            print_esc_cstr(b"fontdimen\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"fontdimen");
         }
         61 => {
-            print_esc_cstr(b"begingroup\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"begingroup");
         }
         42 => {
-            print_esc_cstr(b"penalty\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"penalty");
         }
         16 => {
-            print_esc_cstr(b"char\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"char");
         }
         109 => {
-            print_esc_cstr(b"csname\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"csname");
         }
         90 => {
-            print_esc_cstr(b"font\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"font");
         }
         15 => {
             if chr_code == 1i32 {
-                print_esc_cstr(b"Udelimiter\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"Udelimiter");
             } else {
-                print_esc_cstr(b"delimiter\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"delimiter");
             }
         }
         94 => {
-            print_esc_cstr(b"divide\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"divide");
         }
         67 => {
-            print_esc_cstr(b"endcsname\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"endcsname");
         }
         62 => {
-            print_esc_cstr(b"endgroup\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"endgroup");
         }
         64 => {
             print_esc(' ' as i32);
         }
         104 => {
             if chr_code == 0i32 {
-                print_esc_cstr(b"expandafter\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"expandafter");
             } else {
-                print_esc_cstr(b"unless\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"unless");
             }
         }
         32 => {
-            print_esc_cstr(b"halign\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"halign");
         }
         36 => {
-            print_esc_cstr(b"hrule\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"hrule");
         }
         39 => {
             if chr_code == 0i32 {
-                print_esc_cstr(b"ignorespaces\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"ignorespaces");
             } else {
-                print_esc_cstr(b"primitive\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"primitive");
             }
         }
         37 => {
-            print_esc_cstr(b"insert\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"insert");
         }
         44 => {
             print_esc('/' as i32);
         }
         18 => {
-            print_esc_cstr(b"mark\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"mark");
             if chr_code > 0i32 {
                 print_char('s' as i32);
             }
         }
         46 => {
             if chr_code == 1i32 {
-                print_esc_cstr(b"Umathaccent\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"Umathaccent");
             } else {
-                print_esc_cstr(b"mathaccent\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"mathaccent");
             }
         }
         17 => {
             if chr_code == 2i32 {
-                print_esc_cstr(b"Umathchar\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"Umathchar");
             } else if chr_code == 1i32 {
-                print_esc_cstr(b"Umathcharnum\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"Umathcharnum");
             } else {
-                print_esc_cstr(b"mathchar\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"mathchar");
             }
         }
         54 => {
-            print_esc_cstr(b"mathchoice\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"mathchoice");
         }
         93 => {
-            print_esc_cstr(b"multiply\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"multiply");
         }
         34 => {
-            print_esc_cstr(b"noalign\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"noalign");
         }
         65 => {
-            print_esc_cstr(b"noboundary\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"noboundary");
         }
         105 => {
             if chr_code == 0i32 {
-                print_esc_cstr(b"noexpand\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"noexpand");
             } else {
-                print_esc_cstr(b"primitive\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"primitive");
             }
         }
         55 => {
-            print_esc_cstr(b"nonscript\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"nonscript");
         }
         63 => {
-            print_esc_cstr(b"omit\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"omit");
         }
         66 => {
             if chr_code == 1i32 {
-                print_esc_cstr(b"Uradical\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"Uradical");
             } else {
-                print_esc_cstr(b"radical\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"radical");
             }
         }
         98 => {
             if chr_code == 0i32 {
-                print_esc_cstr(b"read\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"read");
             } else {
-                print_esc_cstr(b"readline\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"readline");
             }
         }
         0 => {
-            print_esc_cstr(b"relax\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"relax");
         }
         100 => {
-            print_esc_cstr(b"setbox\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"setbox");
         }
         81 => {
-            print_esc_cstr(b"prevgraf\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"prevgraf");
         }
         85 => match chr_code {
             2252771 => {
-                print_esc_cstr(b"parshape\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"parshape");
             }
             2253040 => {
-                print_esc_cstr(b"interlinepenalties\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"interlinepenalties");
             }
             2253041 => {
-                print_esc_cstr(b"clubpenalties\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"clubpenalties");
             }
             2253042 => {
-                print_esc_cstr(b"widowpenalties\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"widowpenalties");
             }
             2253043 => {
-                print_esc_cstr(b"displaywidowpenalties\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"displaywidowpenalties");
             }
             _ => {}
         },
         111 => {
             if chr_code == 0i32 {
-                print_esc_cstr(b"the\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"the");
             } else if chr_code == 1i32 {
-                print_esc_cstr(b"unexpanded\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"unexpanded");
             } else {
-                print_esc_cstr(b"detokenize\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"detokenize");
             }
         }
         72 => {
-            print_esc_cstr(b"toks\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"toks");
             if chr_code != 0i32 {
                 print_sa_num(chr_code);
             }
         }
         38 => {
-            print_esc_cstr(b"vadjust\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"vadjust");
         }
         33 => {
             if chr_code == 0i32 {
-                print_esc_cstr(b"valign\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"valign");
             } else {
                 match chr_code {
                     6 => {
-                        print_esc_cstr(b"beginL\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"beginL");
                     }
                     7 => {
-                        print_esc_cstr(b"endL\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"endL");
                     }
                     10 => {
-                        print_esc_cstr(b"beginR\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"beginR");
                     }
                     _ => {
-                        print_esc_cstr(b"endR\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"endR");
                     }
                 }
             }
         }
         56 => {
-            print_esc_cstr(b"vcenter\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"vcenter");
         }
         35 => {
-            print_esc_cstr(b"vrule\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"vrule");
         }
         13 => {
-            print_esc_cstr(b"par\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"par");
         }
         106 => {
             if chr_code == 0i32 {
-                print_esc_cstr(b"input\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"input");
             } else if chr_code == 2i32 {
-                print_esc_cstr(b"scantokens\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"scantokens");
             } else {
-                print_esc_cstr(b"endinput\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"endinput");
             }
         }
         112 => {
             match chr_code % 5i32 {
                 1 => {
-                    print_esc_cstr(b"firstmark\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"firstmark");
                 }
                 2 => {
-                    print_esc_cstr(b"botmark\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"botmark");
                 }
                 3 => {
-                    print_esc_cstr(b"splitfirstmark\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"splitfirstmark");
                 }
                 4 => {
-                    print_esc_cstr(b"splitbotmark\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"splitbotmark");
                 }
                 _ => {
-                    print_esc_cstr(b"topmark\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"topmark");
                 }
             }
             if chr_code >= 5i32 {
@@ -3281,13 +3272,13 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 chr_code = TEX_NULL
             }
             if cmd as i32 == 0i32 {
-                print_esc_cstr(b"count\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"count");
             } else if cmd as i32 == 1i32 {
-                print_esc_cstr(b"dimen\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"dimen");
             } else if cmd as i32 == 2i32 {
-                print_esc_cstr(b"skip\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"skip");
             } else {
-                print_esc_cstr(b"muskip\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"muskip");
             }
             if chr_code != TEX_NULL {
                 print_sa_num(chr_code);
@@ -3295,357 +3286,357 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         }
         80 => {
             if chr_code == 1i32 {
-                print_esc_cstr(b"prevdepth\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"prevdepth");
             } else {
-                print_esc_cstr(b"spacefactor\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"spacefactor");
             }
         }
         83 => {
             if chr_code == 0i32 {
-                print_esc_cstr(b"deadcycles\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"deadcycles");
             } else if chr_code == 2i32 {
-                print_esc_cstr(b"interactionmode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"interactionmode");
             } else {
-                print_esc_cstr(b"insertpenalties\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"insertpenalties");
             }
         }
         84 => {
             if chr_code == 1i32 {
-                print_esc_cstr(b"wd\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"wd");
             } else if chr_code == 3i32 {
-                print_esc_cstr(b"ht\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"ht");
             } else {
-                print_esc_cstr(b"dp\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"dp");
             }
         }
         71 => match chr_code {
             0 => {
-                print_esc_cstr(b"lastpenalty\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"lastpenalty");
             }
             1 => {
-                print_esc_cstr(b"lastkern\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"lastkern");
             }
             2 => {
-                print_esc_cstr(b"lastskip\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"lastskip");
             }
             4 => {
-                print_esc_cstr(b"inputlineno\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"inputlineno");
             }
             45 => {
-                print_esc_cstr(b"shellescape\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"shellescape");
             }
             3 => {
-                print_esc_cstr(b"lastnodetype\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"lastnodetype");
             }
             6 => {
-                print_esc_cstr(b"eTeXversion\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"eTeXversion");
             }
             14 => {
-                print_esc_cstr(b"XeTeXversion\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXversion");
             }
             15 => {
-                print_esc_cstr(b"XeTeXcountglyphs\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXcountglyphs");
             }
             16 => {
-                print_esc_cstr(b"XeTeXcountvariations\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXcountvariations");
             }
             17 => {
-                print_esc_cstr(b"XeTeXvariation\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXvariation");
             }
             18 => {
-                print_esc_cstr(b"XeTeXfindvariationbyname\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXfindvariationbyname");
             }
             19 => {
-                print_esc_cstr(b"XeTeXvariationmin\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXvariationmin");
             }
             20 => {
-                print_esc_cstr(b"XeTeXvariationmax\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXvariationmax");
             }
             21 => {
-                print_esc_cstr(b"XeTeXvariationdefault\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXvariationdefault");
             }
             22 => {
-                print_esc_cstr(b"XeTeXcountfeatures\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXcountfeatures");
             }
             23 => {
-                print_esc_cstr(b"XeTeXfeaturecode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXfeaturecode");
             }
             24 => {
-                print_esc_cstr(b"XeTeXfindfeaturebyname\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXfindfeaturebyname");
             }
             25 => {
-                print_esc_cstr(b"XeTeXisexclusivefeature\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXisexclusivefeature");
             }
             26 => {
-                print_esc_cstr(b"XeTeXcountselectors\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXcountselectors");
             }
             27 => {
-                print_esc_cstr(b"XeTeXselectorcode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXselectorcode");
             }
             28 => {
-                print_esc_cstr(b"XeTeXfindselectorbyname\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXfindselectorbyname");
             }
             29 => {
-                print_esc_cstr(b"XeTeXisdefaultselector\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXisdefaultselector");
             }
             30 => {
-                print_esc_cstr(b"XeTeXOTcountscripts\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXOTcountscripts");
             }
             31 => {
-                print_esc_cstr(b"XeTeXOTcountlanguages\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXOTcountlanguages");
             }
             32 => {
-                print_esc_cstr(b"XeTeXOTcountfeatures\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXOTcountfeatures");
             }
             33 => {
-                print_esc_cstr(b"XeTeXOTscripttag\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXOTscripttag");
             }
             34 => {
-                print_esc_cstr(b"XeTeXOTlanguagetag\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXOTlanguagetag");
             }
             35 => {
-                print_esc_cstr(b"XeTeXOTfeaturetag\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXOTfeaturetag");
             }
             36 => {
-                print_esc_cstr(b"XeTeXcharglyph\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXcharglyph");
             }
             37 => {
-                print_esc_cstr(b"XeTeXglyphindex\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXglyphindex");
             }
             47 => {
-                print_esc_cstr(b"XeTeXglyphbounds\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXglyphbounds");
             }
             38 => {
-                print_esc_cstr(b"XeTeXfonttype\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXfonttype");
             }
             39 => {
-                print_esc_cstr(b"XeTeXfirstfontchar\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXfirstfontchar");
             }
             40 => {
-                print_esc_cstr(b"XeTeXlastfontchar\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXlastfontchar");
             }
             41 => {
-                print_esc_cstr(b"pdflastxpos\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"pdflastxpos");
             }
             42 => {
-                print_esc_cstr(b"pdflastypos\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"pdflastypos");
             }
             46 => {
-                print_esc_cstr(b"XeTeXpdfpagecount\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXpdfpagecount");
             }
             7 => {
-                print_esc_cstr(b"currentgrouplevel\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"currentgrouplevel");
             }
             8 => {
-                print_esc_cstr(b"currentgrouptype\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"currentgrouptype");
             }
             9 => {
-                print_esc_cstr(b"currentiflevel\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"currentiflevel");
             }
             10 => {
-                print_esc_cstr(b"currentiftype\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"currentiftype");
             }
             11 => {
-                print_esc_cstr(b"currentifbranch\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"currentifbranch");
             }
             48 => {
-                print_esc_cstr(b"fontcharwd\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"fontcharwd");
             }
             49 => {
-                print_esc_cstr(b"fontcharht\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"fontcharht");
             }
             50 => {
-                print_esc_cstr(b"fontchardp\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"fontchardp");
             }
             51 => {
-                print_esc_cstr(b"fontcharic\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"fontcharic");
             }
             52 => {
-                print_esc_cstr(b"parshapelength\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"parshapelength");
             }
             53 => {
-                print_esc_cstr(b"parshapeindent\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"parshapeindent");
             }
             54 => {
-                print_esc_cstr(b"parshapedimen\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"parshapedimen");
             }
             59 => {
-                print_esc_cstr(b"numexpr\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"numexpr");
             }
             60 => {
-                print_esc_cstr(b"dimexpr\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"dimexpr");
             }
             61 => {
-                print_esc_cstr(b"glueexpr\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"glueexpr");
             }
             62 => {
-                print_esc_cstr(b"muexpr\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"muexpr");
             }
             12 => {
-                print_esc_cstr(b"gluestretchorder\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"gluestretchorder");
             }
             13 => {
-                print_esc_cstr(b"glueshrinkorder\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"glueshrinkorder");
             }
             55 => {
-                print_esc_cstr(b"gluestretch\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"gluestretch");
             }
             56 => {
-                print_esc_cstr(b"glueshrink\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"glueshrink");
             }
             57 => {
-                print_esc_cstr(b"mutoglue\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"mutoglue");
             }
             58 => {
-                print_esc_cstr(b"gluetomu\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"gluetomu");
             }
             _ => {
-                print_esc_cstr(b"badness\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"badness");
             }
         },
         110 => match chr_code {
             0 => {
-                print_esc_cstr(b"number\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"number");
             }
             1 => {
-                print_esc_cstr(b"romannumeral\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"romannumeral");
             }
             2 => {
-                print_esc_cstr(b"string\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"string");
             }
             3 => {
-                print_esc_cstr(b"meaning\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"meaning");
             }
             4 => {
-                print_esc_cstr(b"fontname\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"fontname");
             }
             43 => {
-                print_esc_cstr(b"strcmp\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"strcmp");
             }
             44 => {
-                print_esc_cstr(b"mdfivesum\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"mdfivesum");
             }
             11 => {
-                print_esc_cstr(b"leftmarginkern\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"leftmarginkern");
             }
             12 => {
-                print_esc_cstr(b"rightmarginkern\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"rightmarginkern");
             }
             5 => {
-                print_esc_cstr(b"eTeXrevision\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"eTeXrevision");
             }
             6 => {
-                print_esc_cstr(b"XeTeXrevision\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXrevision");
             }
             7 => {
-                print_esc_cstr(b"XeTeXvariationname\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXvariationname");
             }
             8 => {
-                print_esc_cstr(b"XeTeXfeaturename\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXfeaturename");
             }
             9 => {
-                print_esc_cstr(b"XeTeXselectorname\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXselectorname");
             }
             10 => {
-                print_esc_cstr(b"XeTeXglyphname\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXglyphname");
             }
             13 => {
-                print_esc_cstr(b"Uchar\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"Uchar");
             }
             14 => {
-                print_esc_cstr(b"Ucharcat\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"Ucharcat");
             }
             _ => {
-                print_esc_cstr(b"jobname\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"jobname");
             }
         },
         107 => {
             if chr_code >= 32i32 {
-                print_esc_cstr(b"unless\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"unless");
             }
             match chr_code % 32i32 {
                 1 => {
-                    print_esc_cstr(b"ifcat\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifcat");
                 }
                 2 => {
-                    print_esc_cstr(b"ifnum\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifnum");
                 }
                 3 => {
-                    print_esc_cstr(b"ifdim\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifdim");
                 }
                 4 => {
-                    print_esc_cstr(b"ifodd\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifodd");
                 }
                 5 => {
-                    print_esc_cstr(b"ifvmode\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifvmode");
                 }
                 6 => {
-                    print_esc_cstr(b"ifhmode\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifhmode");
                 }
                 7 => {
-                    print_esc_cstr(b"ifmmode\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifmmode");
                 }
                 8 => {
-                    print_esc_cstr(b"ifinner\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifinner");
                 }
                 9 => {
-                    print_esc_cstr(b"ifvoid\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifvoid");
                 }
                 10 => {
-                    print_esc_cstr(b"ifhbox\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifhbox");
                 }
                 11 => {
-                    print_esc_cstr(b"ifvbox\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifvbox");
                 }
                 12 => {
-                    print_esc_cstr(b"ifx\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifx");
                 }
                 13 => {
-                    print_esc_cstr(b"ifeof\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifeof");
                 }
                 14 => {
-                    print_esc_cstr(b"iftrue\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"iftrue");
                 }
                 15 => {
-                    print_esc_cstr(b"iffalse\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"iffalse");
                 }
                 16 => {
-                    print_esc_cstr(b"ifcase\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifcase");
                 }
                 21 => {
-                    print_esc_cstr(b"ifprimitive\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifprimitive");
                 }
                 17 => {
-                    print_esc_cstr(b"ifdefined\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifdefined");
                 }
                 18 => {
-                    print_esc_cstr(b"ifcsname\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifcsname");
                 }
                 19 => {
-                    print_esc_cstr(b"iffontchar\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"iffontchar");
                 }
                 20 => {
-                    print_esc_cstr(b"ifincsname\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"ifincsname");
                 }
                 _ => {
-                    print_esc_cstr(b"if\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"if");
                 }
             }
         }
         108 => {
             if chr_code == 2i32 {
-                print_esc_cstr(b"fi\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"fi");
             } else if chr_code == 4i32 {
-                print_esc_cstr(b"or\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"or");
             } else {
-                print_esc_cstr(b"else\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"else");
             }
         }
         4 => {
             if chr_code == 0x10ffffi32 + 2i32 {
-                print_esc_cstr(b"span\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"span");
             } else {
-                print_cstr(b"alignment tab character \x00" as *const u8 as *const i8);
+                print_cstr(b"alignment tab character ");
                 if (chr_code as i64) < 65536 {
                     print(chr_code);
                 } else {
@@ -3655,231 +3646,231 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         }
         5 => {
             if chr_code == 0x10ffffi32 + 3i32 {
-                print_esc_cstr(b"cr\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"cr");
             } else {
-                print_esc_cstr(b"crcr\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"crcr");
             }
         }
         82 => {
             match chr_code {
                 0 => {
                     /* genuine literal in WEB */
-                    print_esc_cstr(b"pagegoal\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"pagegoal");
                 }
                 1 => {
                     /* genuine literal in WEB */
-                    print_esc_cstr(b"pagetotal\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"pagetotal");
                 }
                 2 => {
                     /* genuine literal in WEB */
-                    print_esc_cstr(b"pagestretch\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"pagestretch");
                 }
                 3 => {
                     /* genuine literal in WEB */
-                    print_esc_cstr(b"pagefilstretch\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"pagefilstretch");
                 }
                 4 => {
                     /* genuine literal in WEB */
-                    print_esc_cstr(b"pagefillstretch\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"pagefillstretch");
                 }
                 5 => {
                     /* genuine literal in WEB */
-                    print_esc_cstr(b"pagefilllstretch\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"pagefilllstretch");
                 }
                 6 => {
                     /* genuine literal in WEB */
-                    print_esc_cstr(b"pageshrink\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"pageshrink");
                 }
                 _ => {
-                    print_esc_cstr(b"pagedepth\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"pagedepth");
                 }
             }
         }
         14 => {
             if chr_code == 1i32 {
-                print_esc_cstr(b"dump\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"dump");
             } else {
-                print_esc_cstr(b"end\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"end");
             }
         }
         26 => match chr_code {
             4 => {
-                print_esc_cstr(b"hskip\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"hskip");
             }
             0 => {
-                print_esc_cstr(b"hfil\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"hfil");
             }
             1 => {
-                print_esc_cstr(b"hfill\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"hfill");
             }
             2 => {
-                print_esc_cstr(b"hss\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"hss");
             }
             _ => {
-                print_esc_cstr(b"hfilneg\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"hfilneg");
             }
         },
         27 => match chr_code {
             4 => {
-                print_esc_cstr(b"vskip\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"vskip");
             }
             0 => {
-                print_esc_cstr(b"vfil\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"vfil");
             }
             1 => {
-                print_esc_cstr(b"vfill\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"vfill");
             }
             2 => {
-                print_esc_cstr(b"vss\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"vss");
             }
             _ => {
-                print_esc_cstr(b"vfilneg\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"vfilneg");
             }
         },
         28 => {
-            print_esc_cstr(b"mskip\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"mskip");
         }
         29 => {
-            print_esc_cstr(b"kern\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"kern");
         }
         30 => {
-            print_esc_cstr(b"mkern\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"mkern");
         }
         21 => {
             if chr_code == 1i32 {
-                print_esc_cstr(b"moveleft\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"moveleft");
             } else {
-                print_esc_cstr(b"moveright\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"moveright");
             }
         }
         22 => {
             if chr_code == 1i32 {
-                print_esc_cstr(b"raise\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"raise");
             } else {
-                print_esc_cstr(b"lower\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"lower");
             }
         }
         20 => match chr_code {
             0 => {
-                print_esc_cstr(b"box\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"box");
             }
             1 => {
-                print_esc_cstr(b"copy\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"copy");
             }
             2 => {
-                print_esc_cstr(b"lastbox\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"lastbox");
             }
             3 => {
-                print_esc_cstr(b"vsplit\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"vsplit");
             }
             4 => {
-                print_esc_cstr(b"vtop\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"vtop");
             }
             5 => {
-                print_esc_cstr(b"vbox\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"vbox");
             }
             _ => {
-                print_esc_cstr(b"hbox\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"hbox");
             }
         },
         31 => {
             if chr_code == 100i32 {
-                print_esc_cstr(b"leaders\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"leaders");
             } else if chr_code == 101i32 {
-                print_esc_cstr(b"cleaders\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"cleaders");
             } else if chr_code == 102i32 {
-                print_esc_cstr(b"xleaders\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"xleaders");
             } else {
-                print_esc_cstr(b"shipout\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"shipout");
             }
         }
         43 => {
             if chr_code == 0i32 {
-                print_esc_cstr(b"noindent\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"noindent");
             } else {
-                print_esc_cstr(b"indent\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"indent");
             }
         }
         25 => {
             if chr_code == 10i32 {
-                print_esc_cstr(b"unskip\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"unskip");
             } else if chr_code == 11i32 {
-                print_esc_cstr(b"unkern\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"unkern");
             } else {
-                print_esc_cstr(b"unpenalty\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"unpenalty");
             }
         }
         23 => {
             if chr_code == 1i32 {
-                print_esc_cstr(b"unhcopy\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"unhcopy");
             } else {
-                print_esc_cstr(b"unhbox\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"unhbox");
             }
         }
         24 => {
             if chr_code == 1i32 {
-                print_esc_cstr(b"unvcopy\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"unvcopy");
             } else if chr_code == 2i32 {
-                print_esc_cstr(b"pagediscards\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"pagediscards");
             } else if chr_code == 3i32 {
-                print_esc_cstr(b"splitdiscards\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"splitdiscards");
             } else {
-                print_esc_cstr(b"unvbox\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"unvbox");
             }
         }
         47 => {
             if chr_code == 1i32 {
                 print_esc('-' as i32);
             } else {
-                print_esc_cstr(b"discretionary\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"discretionary");
             }
         }
         48 => {
             if chr_code == 1i32 {
-                print_esc_cstr(b"leqno\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"leqno");
             } else {
-                print_esc_cstr(b"eqno\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"eqno");
             }
         }
         50 => match chr_code {
             16 => {
-                print_esc_cstr(b"mathord\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"mathord");
             }
             17 => {
-                print_esc_cstr(b"mathop\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"mathop");
             }
             18 => {
-                print_esc_cstr(b"mathbin\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"mathbin");
             }
             19 => {
-                print_esc_cstr(b"mathrel\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"mathrel");
             }
             20 => {
-                print_esc_cstr(b"mathopen\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"mathopen");
             }
             21 => {
-                print_esc_cstr(b"mathclose\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"mathclose");
             }
             22 => {
-                print_esc_cstr(b"mathpunct\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"mathpunct");
             }
             23 => {
-                print_esc_cstr(b"mathinner\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"mathinner");
             }
             26 => {
-                print_esc_cstr(b"underline\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"underline");
             }
             _ => {
-                print_esc_cstr(b"overline\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"overline");
             }
         },
         51 => {
             if chr_code == 1i32 {
-                print_esc_cstr(b"limits\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"limits");
             } else if chr_code == 2i32 {
-                print_esc_cstr(b"nolimits\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"nolimits");
             } else {
-                print_esc_cstr(b"displaylimits\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"displaylimits");
             }
         }
         53 => {
@@ -3887,104 +3878,104 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         }
         52 => match chr_code {
             1 => {
-                print_esc_cstr(b"over\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"over");
             }
             2 => {
-                print_esc_cstr(b"atop\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"atop");
             }
             3 => {
-                print_esc_cstr(b"abovewithdelims\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"abovewithdelims");
             }
             4 => {
-                print_esc_cstr(b"overwithdelims\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"overwithdelims");
             }
             5 => {
-                print_esc_cstr(b"atopwithdelims\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"atopwithdelims");
             }
             _ => {
-                print_esc_cstr(b"above\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"above");
             }
         },
         49 => {
             if chr_code == 30i32 {
-                print_esc_cstr(b"left\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"left");
             } else if chr_code == 1i32 {
-                print_esc_cstr(b"middle\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"middle");
             } else {
-                print_esc_cstr(b"right\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"right");
             }
         }
         95 => {
             if chr_code == 1i32 {
-                print_esc_cstr(b"long\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"long");
             } else if chr_code == 2i32 {
-                print_esc_cstr(b"outer\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"outer");
             } else if chr_code == 8i32 {
-                print_esc_cstr(b"protected\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"protected");
             } else {
-                print_esc_cstr(b"global\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"global");
             }
         }
         99 => {
             if chr_code == 0i32 {
-                print_esc_cstr(b"def\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"def");
             } else if chr_code == 1i32 {
-                print_esc_cstr(b"gdef\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"gdef");
             } else if chr_code == 2i32 {
-                print_esc_cstr(b"edef\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"edef");
             } else {
-                print_esc_cstr(b"xdef\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"xdef");
             }
         }
         96 => {
             if chr_code != 0i32 {
-                print_esc_cstr(b"futurelet\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"futurelet");
             } else {
-                print_esc_cstr(b"let\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"let");
             }
         }
         97 => match chr_code {
             0 => {
-                print_esc_cstr(b"chardef\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"chardef");
             }
             1 => {
-                print_esc_cstr(b"mathchardef\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"mathchardef");
             }
             9 => {
-                print_esc_cstr(b"Umathchardef\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"Umathchardef");
             }
             8 => {
-                print_esc_cstr(b"Umathcharnumdef\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"Umathcharnumdef");
             }
             2 => {
-                print_esc_cstr(b"countdef\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"countdef");
             }
             3 => {
-                print_esc_cstr(b"dimendef\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"dimendef");
             }
             4 => {
-                print_esc_cstr(b"skipdef\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"skipdef");
             }
             5 => {
-                print_esc_cstr(b"muskipdef\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"muskipdef");
             }
             7 => {
-                print_esc_cstr(b"charsubdef\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"charsubdef");
             }
             _ => {
-                print_esc_cstr(b"toksdef\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"toksdef");
             }
         },
         68 => {
-            print_esc_cstr(b"char\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"char");
             print_hex(chr_code);
         }
         69 => {
-            print_esc_cstr(b"mathchar\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"mathchar");
             print_hex(chr_code);
         }
         70 => {
-            print_esc_cstr(b"Umathchar\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"Umathchar");
             print_hex((chr_code as u32 >> 21i32 & 0x7_u32) as i32);
             print_hex((chr_code as u32 >> 24i32 & 0xff_u32) as i32);
             print_hex((chr_code as u32 & 0x1fffff_u32) as i32);
@@ -4010,7 +4001,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                     + 1i32
                     + 3i32 * 256i32
             {
-                print_esc_cstr(b"catcode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"catcode");
             } else if chr_code
                 == 1i32
                     + (0x10ffffi32 + 1i32)
@@ -4035,7 +4026,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                     + (0x10ffffi32 + 1i32)
                     + (0x10ffffi32 + 1i32)
             {
-                print_esc_cstr(b"mathcode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"mathcode");
             } else if chr_code
                 == 1i32
                     + (0x10ffffi32 + 1i32)
@@ -4057,7 +4048,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                     + 3i32 * 256i32
                     + (0x10ffffi32 + 1i32)
             {
-                print_esc_cstr(b"lccode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"lccode");
             } else if chr_code
                 == 1i32
                     + (0x10ffffi32 + 1i32)
@@ -4080,7 +4071,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                     + (0x10ffffi32 + 1i32)
                     + (0x10ffffi32 + 1i32)
             {
-                print_esc_cstr(b"uccode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"uccode");
             } else if chr_code
                 == 1i32
                     + (0x10ffffi32 + 1i32)
@@ -4104,9 +4095,9 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                     + (0x10ffffi32 + 1i32)
                     + (0x10ffffi32 + 1i32)
             {
-                print_esc_cstr(b"sfcode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"sfcode");
             } else {
-                print_esc_cstr(b"delcode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"delcode");
             }
         }
         87 => {
@@ -4133,7 +4124,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                     + (0x10ffffi32 + 1i32)
                     + (0x10ffffi32 + 1i32)
             {
-                print_esc_cstr(b"XeTeXcharclass\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXcharclass");
             } else if chr_code
                 == 1i32
                     + (0x10ffffi32 + 1i32)
@@ -4158,7 +4149,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                     + (0x10ffffi32 + 1i32)
                     + (0x10ffffi32 + 1i32)
             {
-                print_esc_cstr(b"Umathcodenum\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"Umathcodenum");
             } else if chr_code
                 == 1i32
                     + (0x10ffffi32 + 1i32)
@@ -4184,7 +4175,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                     + (0x10ffffi32 + 1i32)
                     + 1i32
             {
-                print_esc_cstr(b"Umathcode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"Umathcode");
             } else if chr_code
                 == 1i32
                     + (0x10ffffi32 + 1i32)
@@ -4213,9 +4204,9 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                     + 85i32
                     + 256i32
             {
-                print_esc_cstr(b"Udelcodenum\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"Udelcodenum");
             } else {
-                print_esc_cstr(b"Udelcode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"Udelcode");
             }
         }
         88 => {
@@ -4242,28 +4233,28 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         }
         101 => {
             if chr_code == 1i32 {
-                print_esc_cstr(b"patterns\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"patterns");
             } else {
-                print_esc_cstr(b"hyphenation\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"hyphenation");
             }
         }
         79 => match chr_code {
             0 => {
-                print_esc_cstr(b"hyphenchar\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"hyphenchar");
             }
             1 => {
-                print_esc_cstr(b"skewchar\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"skewchar");
             }
             2 => {
-                print_esc_cstr(b"lpcode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"lpcode");
             }
             3 => {
-                print_esc_cstr(b"rpcode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"rpcode");
             }
             _ => {}
         },
         89 => {
-            print_cstr(b"select font \x00" as *const u8 as *const i8);
+            print_cstr(b"select font ");
             font_name_str = *font_name.offset(chr_code as isize);
             if *font_area.offset(chr_code as isize) as u32 == 0xffffu32
                 || *font_area.offset(chr_code as isize) as u32 == 0xfffeu32
@@ -4288,37 +4279,37 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print(font_name_str);
             }
             if *font_size.offset(chr_code as isize) != *font_dsize.offset(chr_code as isize) {
-                print_cstr(b" at \x00" as *const u8 as *const i8);
+                print_cstr(b" at ");
                 print_scaled(*font_size.offset(chr_code as isize));
-                print_cstr(b"pt\x00" as *const u8 as *const i8);
+                print_cstr(b"pt");
             }
         }
         102 => match chr_code {
             0 => {
-                print_esc_cstr(b"batchmode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"batchmode");
             }
             1 => {
-                print_esc_cstr(b"nonstopmode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"nonstopmode");
             }
             2 => {
-                print_esc_cstr(b"scrollmode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"scrollmode");
             }
             _ => {
-                print_esc_cstr(b"errorstopmode\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"errorstopmode");
             }
         },
         60 => {
             if chr_code == 0i32 {
-                print_esc_cstr(b"closein\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"closein");
             } else {
-                print_esc_cstr(b"openin\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"openin");
             }
         }
         58 => {
             if chr_code == 0i32 {
-                print_esc_cstr(b"message\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"message");
             } else {
-                print_esc_cstr(b"errmessage\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"errmessage");
             }
         }
         57 => {
@@ -4343,36 +4334,36 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                     + 3i32 * 256i32
                     + (0x10ffffi32 + 1i32)
             {
-                print_esc_cstr(b"lowercase\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"lowercase");
             } else {
-                print_esc_cstr(b"uppercase\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"uppercase");
             }
         }
         19 => match chr_code {
             1 => {
-                print_esc_cstr(b"showbox\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"showbox");
             }
             2 => {
-                print_esc_cstr(b"showthe\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"showthe");
             }
             3 => {
-                print_esc_cstr(b"showlists\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"showlists");
             }
             4 => {
-                print_esc_cstr(b"showgroups\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"showgroups");
             }
             5 => {
-                print_esc_cstr(b"showtokens\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"showtokens");
             }
             6 => {
-                print_esc_cstr(b"showifs\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"showifs");
             }
             _ => {
-                print_esc_cstr(b"show\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"show");
             }
         },
         103 => {
-            print_cstr(b"undefined\x00" as *const u8 as *const i8);
+            print_cstr(b"undefined");
         }
         113 | 114 | 115 | 116 => {
             n = cmd as i32 - 113i32;
@@ -4384,68 +4375,68 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 n = n + 4i32
             }
             if n / 4i32 & 1i32 != 0 {
-                print_esc_cstr(b"protected\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"protected");
             }
             if n & 1i32 != 0 {
-                print_esc_cstr(b"long\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"long");
             }
             if n / 2i32 & 1i32 != 0 {
-                print_esc_cstr(b"outer\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"outer");
             }
             if n > 0i32 {
                 print_char(' ' as i32);
             }
-            print_cstr(b"macro\x00" as *const u8 as *const i8);
+            print_cstr(b"macro");
         }
         117 => {
-            print_esc_cstr(b"outer endtemplate\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"outer endtemplate");
         }
         59 => match chr_code {
             0 => {
-                print_esc_cstr(b"openout\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"openout");
             }
             1 => {
-                print_esc_cstr(b"write\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"write");
             }
             2 => {
-                print_esc_cstr(b"closeout\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"closeout");
             }
             3 => {
-                print_esc_cstr(b"special\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"special");
             }
             4 => {
-                print_esc_cstr(b"immediate\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"immediate");
             }
             5 => {
-                print_esc_cstr(b"setlanguage\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"setlanguage");
             }
             41 => {
-                print_esc_cstr(b"XeTeXpicfile\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXpicfile");
             }
             42 => {
-                print_esc_cstr(b"XeTeXpdffile\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXpdffile");
             }
             43 => {
-                print_esc_cstr(b"XeTeXglyph\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXglyph");
             }
             46 => {
-                print_esc_cstr(b"XeTeXlinebreaklocale\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXlinebreaklocale");
             }
             44 => {
-                print_esc_cstr(b"XeTeXinputencoding\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXinputencoding");
             }
             45 => {
-                print_esc_cstr(b"XeTeXdefaultencoding\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"XeTeXdefaultencoding");
             }
             6 => {
-                print_esc_cstr(b"pdfsavepos\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"pdfsavepos");
             }
             _ => {
-                print_cstr(b"[unknown extension!]\x00" as *const u8 as *const i8);
+                print_cstr(b"[unknown extension!]");
             }
         },
         _ => {
-            print_cstr(b"[unknown command code!]\x00" as *const u8 as *const i8);
+            print_cstr(b"[unknown command code!]");
         }
     };
 }
@@ -4454,13 +4445,13 @@ pub(crate) unsafe extern "C" fn not_aat_font_error(mut cmd: i32, mut c: i32, mut
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"! ");
     }
-    print_cstr(b"Cannot use \x00" as *const u8 as *const i8);
+    print_cstr(b"Cannot use ");
     print_cmd_chr(cmd as u16, c);
-    print_cstr(b" with \x00" as *const u8 as *const i8);
+    print_cstr(b" with ");
     print(*font_name.offset(f as isize));
-    print_cstr(b"; not an AAT font\x00" as *const u8 as *const i8);
+    print_cstr(b"; not an AAT font");
     error();
 }
 #[no_mangle]
@@ -4468,13 +4459,13 @@ pub(crate) unsafe extern "C" fn not_aat_gr_font_error(mut cmd: i32, mut c: i32, 
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"! ");
     }
-    print_cstr(b"Cannot use \x00" as *const u8 as *const i8);
+    print_cstr(b"Cannot use ");
     print_cmd_chr(cmd as u16, c);
-    print_cstr(b" with \x00" as *const u8 as *const i8);
+    print_cstr(b" with ");
     print(*font_name.offset(f as isize));
-    print_cstr(b"; not an AAT or Graphite font\x00" as *const u8 as *const i8);
+    print_cstr(b"; not an AAT or Graphite font");
     error();
 }
 #[no_mangle]
@@ -4482,13 +4473,13 @@ pub(crate) unsafe extern "C" fn not_ot_font_error(mut cmd: i32, mut c: i32, mut 
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"! ");
     }
-    print_cstr(b"Cannot use \x00" as *const u8 as *const i8);
+    print_cstr(b"Cannot use ");
     print_cmd_chr(cmd as u16, c);
-    print_cstr(b" with \x00" as *const u8 as *const i8);
+    print_cstr(b" with ");
     print(*font_name.offset(f as isize));
-    print_cstr(b"; not an OpenType Layout font\x00" as *const u8 as *const i8);
+    print_cstr(b"; not an OpenType Layout font");
     error();
 }
 #[no_mangle]
@@ -4496,13 +4487,13 @@ pub(crate) unsafe extern "C" fn not_native_font_error(mut cmd: i32, mut c: i32, 
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"! ");
     }
-    print_cstr(b"Cannot use \x00" as *const u8 as *const i8);
+    print_cstr(b"Cannot use ");
     print_cmd_chr(cmd as u16, c);
-    print_cstr(b" with \x00" as *const u8 as *const i8);
+    print_cstr(b" with ");
     print(*font_name.offset(f as isize));
-    print_cstr(b"; not a native platform font\x00" as *const u8 as *const i8);
+    print_cstr(b"; not a native platform font");
     error();
 }
 /*:1434*/
@@ -4620,10 +4611,7 @@ pub(crate) unsafe extern "C" fn id_lookup(mut j: i32, mut l: i32) -> i32 {
                             if hash_used
                                 == 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32
                             {
-                                overflow(
-                                    b"hash size\x00" as *const u8 as *const i8,
-                                    15000i32 + hash_extra,
-                                );
+                                overflow(b"hash size", 15000i32 + hash_extra);
                             }
                             hash_used -= 1;
                             if !((*hash.offset(hash_used as isize)).s1 != 0i32) {
@@ -4635,10 +4623,7 @@ pub(crate) unsafe extern "C" fn id_lookup(mut j: i32, mut l: i32) -> i32 {
                     }
                 }
                 if pool_ptr + ll > pool_size {
-                    overflow(
-                        b"pool size\x00" as *const u8 as *const i8,
-                        pool_size - init_pool_ptr,
-                    );
+                    overflow(b"pool size", pool_size - init_pool_ptr);
                 }
                 d = cur_length();
                 while pool_ptr > *str_start.offset((str_ptr - 65536i32) as isize) {
@@ -4739,10 +4724,7 @@ pub(crate) unsafe extern "C" fn prim_lookup(mut s: str_number) -> i32 {
                         if prim[p as usize].s1 > 0i32 {
                             loop {
                                 if prim_used == 1i32 {
-                                    overflow(
-                                        b"primitive size\x00" as *const u8 as *const i8,
-                                        500i32,
-                                    );
+                                    overflow(b"primitive size", 500i32);
                                 }
                                 prim_used -= 1;
                                 if prim[prim_used as usize].s1 == 0i32 {
@@ -4769,65 +4751,65 @@ pub(crate) unsafe extern "C" fn prim_lookup(mut s: str_number) -> i32 {
 pub(crate) unsafe extern "C" fn print_group(mut e: bool) {
     match cur_group as i32 {
         0 => {
-            print_cstr(b"bottom level\x00" as *const u8 as *const i8);
+            print_cstr(b"bottom level");
             return;
         }
         1 | 14 => {
             if cur_group as i32 == 14i32 {
-                print_cstr(b"semi \x00" as *const u8 as *const i8);
+                print_cstr(b"semi ");
             }
-            print_cstr(b"simple\x00" as *const u8 as *const i8);
+            print_cstr(b"simple");
         }
         2 | 3 => {
             if cur_group as i32 == 3i32 {
-                print_cstr(b"adjusted \x00" as *const u8 as *const i8);
+                print_cstr(b"adjusted ");
             }
-            print_cstr(b"hbox\x00" as *const u8 as *const i8);
+            print_cstr(b"hbox");
         }
         4 => {
-            print_cstr(b"vbox\x00" as *const u8 as *const i8);
+            print_cstr(b"vbox");
         }
         5 => {
-            print_cstr(b"vtop\x00" as *const u8 as *const i8);
+            print_cstr(b"vtop");
         }
         6 | 7 => {
             if cur_group as i32 == 7i32 {
-                print_cstr(b"no \x00" as *const u8 as *const i8);
+                print_cstr(b"no ");
             }
-            print_cstr(b"align\x00" as *const u8 as *const i8);
+            print_cstr(b"align");
         }
         8 => {
-            print_cstr(b"output\x00" as *const u8 as *const i8);
+            print_cstr(b"output");
         }
         10 => {
-            print_cstr(b"disc\x00" as *const u8 as *const i8);
+            print_cstr(b"disc");
         }
         11 => {
-            print_cstr(b"insert\x00" as *const u8 as *const i8);
+            print_cstr(b"insert");
         }
         12 => {
-            print_cstr(b"vcenter\x00" as *const u8 as *const i8);
+            print_cstr(b"vcenter");
         }
         9 | 13 | 15 | 16 => {
-            print_cstr(b"math\x00" as *const u8 as *const i8);
+            print_cstr(b"math");
             if cur_group as i32 == 13i32 {
-                print_cstr(b" choice\x00" as *const u8 as *const i8);
+                print_cstr(b" choice");
             } else if cur_group as i32 == 15i32 {
-                print_cstr(b" shift\x00" as *const u8 as *const i8);
+                print_cstr(b" shift");
             } else if cur_group as i32 == 16i32 {
-                print_cstr(b" left\x00" as *const u8 as *const i8);
+                print_cstr(b" left");
             }
         }
         _ => {}
     }
-    print_cstr(b" group (level \x00" as *const u8 as *const i8);
+    print_cstr(b" group (level ");
     print_int(cur_level as i32);
     print_char(')' as i32);
     if (*save_stack.offset((save_ptr - 1i32) as isize)).b32.s1 != 0i32 {
         if e {
-            print_cstr(b" entered at line \x00" as *const u8 as *const i8);
+            print_cstr(b" entered at line ");
         } else {
-            print_cstr(b" at line \x00" as *const u8 as *const i8);
+            print_cstr(b" at line ");
         }
         print_int((*save_stack.offset((save_ptr - 1i32) as isize)).b32.s1);
     };
@@ -4856,7 +4838,7 @@ pub(crate) unsafe extern "C" fn pseudo_input() -> bool {
             /*35: */
             cur_input.loc = first;
             cur_input.limit = last - 1i32;
-            overflow(b"buffer size\x00" as *const u8 as *const i8, buf_size);
+            overflow(b"buffer size", buf_size);
         }
         last = first;
         let mut for_end: i32 = 0;
@@ -4954,9 +4936,9 @@ pub(crate) unsafe extern "C" fn group_warning() {
         i -= 1
     }
     if w {
-        print_nl_cstr(b"Warning: end of \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"Warning: end of ");
         print_group(1i32 != 0);
-        print_cstr(b" of a different file\x00" as *const u8 as *const i8);
+        print_cstr(b" of a different file");
         print_ln();
         if (*eqtb.offset(
             (1i32
@@ -5047,13 +5029,13 @@ pub(crate) unsafe extern "C" fn if_warning() {
         i -= 1
     }
     if w {
-        print_nl_cstr(b"Warning: end of \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"Warning: end of ");
         print_cmd_chr(107_u16, cur_if as i32);
         if if_line != 0i32 {
-            print_cstr(b" entered on line \x00" as *const u8 as *const i8);
+            print_cstr(b" entered on line ");
             print_int(if_line);
         }
-        print_cstr(b" of a different file\x00" as *const u8 as *const i8);
+        print_cstr(b" of a different file");
         print_ln();
         if (*eqtb.offset(
             (1i32
@@ -5104,9 +5086,9 @@ pub(crate) unsafe extern "C" fn file_warning() {
     save_ptr = cur_boundary;
     while *grp_stack.offset(in_open as isize) != save_ptr {
         cur_level = cur_level.wrapping_sub(1);
-        print_nl_cstr(b"Warning: end of file when \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"Warning: end of file when ");
         print_group(1i32 != 0);
-        print_cstr(b" is incomplete\x00" as *const u8 as *const i8);
+        print_cstr(b" is incomplete");
         cur_group = (*save_stack.offset(save_ptr as isize)).b16.s0 as group_code;
         save_ptr = (*save_stack.offset(save_ptr as isize)).b32.s1
     }
@@ -5118,16 +5100,16 @@ pub(crate) unsafe extern "C" fn file_warning() {
     c = cur_if as u16;
     i = if_line;
     while *if_stack.offset(in_open as isize) != cond_ptr {
-        print_nl_cstr(b"Warning: end of file when \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"Warning: end of file when ");
         print_cmd_chr(107_u16, cur_if as i32);
         if if_limit as i32 == 2i32 {
-            print_esc_cstr(b"else\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"else");
         }
         if if_line != 0i32 {
-            print_cstr(b" entered on line \x00" as *const u8 as *const i8);
+            print_cstr(b" entered on line ");
             print_int(if_line);
         }
-        print_cstr(b" is incomplete\x00" as *const u8 as *const i8);
+        print_cstr(b" is incomplete");
         if_line = (*mem.offset((cond_ptr + 1i32) as isize)).b32.s1;
         cur_if = (*mem.offset(cond_ptr as isize)).b16.s0 as small_number;
         if_limit = (*mem.offset(cond_ptr as isize)).b16.s1 as u8;
@@ -5234,7 +5216,7 @@ pub(crate) unsafe extern "C" fn sa_save(mut p: i32) {
         if save_ptr > max_save_stack {
             max_save_stack = save_ptr;
             if max_save_stack > save_size - 7i32 {
-                overflow(b"save size\x00" as *const u8 as *const i8, save_size);
+                overflow(b"save size", save_size);
             }
         }
         (*save_stack.offset(save_ptr as isize)).b16.s1 = 4_u16;
@@ -5367,7 +5349,7 @@ pub(crate) unsafe extern "C" fn new_save_level(mut c: group_code) {
     if save_ptr > max_save_stack {
         max_save_stack = save_ptr;
         if max_save_stack > save_size - 7i32 {
-            overflow(b"save size\x00" as *const u8 as *const i8, save_size);
+            overflow(b"save size", save_size);
         }
     }
     (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 = line;
@@ -5376,7 +5358,7 @@ pub(crate) unsafe extern "C" fn new_save_level(mut c: group_code) {
     (*save_stack.offset(save_ptr as isize)).b16.s0 = cur_group as u16;
     (*save_stack.offset(save_ptr as isize)).b32.s1 = cur_boundary;
     if cur_level as i32 == 65535i32 {
-        overflow(b"grouping levels\x00" as *const u8 as *const i8, 65535i32);
+        overflow(b"grouping levels", 65535i32);
     }
     cur_boundary = save_ptr;
     cur_group = c;
@@ -5418,7 +5400,7 @@ pub(crate) unsafe extern "C" fn eq_save(mut p: i32, mut l: u16) {
     if save_ptr > max_save_stack {
         max_save_stack = save_ptr;
         if max_save_stack > save_size - 7i32 {
-            overflow(b"save size\x00" as *const u8 as *const i8, save_size);
+            overflow(b"save size", save_size);
         }
     }
     if l as i32 == 0i32 {
@@ -5579,7 +5561,7 @@ pub(crate) unsafe extern "C" fn save_for_after(mut t: i32) {
         if save_ptr > max_save_stack {
             max_save_stack = save_ptr;
             if max_save_stack > save_size - 7i32 {
-                overflow(b"save size\x00" as *const u8 as *const i8, save_size);
+                overflow(b"save size", save_size);
             }
         }
         (*save_stack.offset(save_ptr as isize)).b16.s1 = 2_u16;
@@ -5771,7 +5753,7 @@ pub(crate) unsafe extern "C" fn unsave() {
         cur_boundary = (*save_stack.offset(save_ptr as isize)).b32.s1;
         save_ptr -= 1
     } else {
-        confusion(b"curlevel\x00" as *const u8 as *const i8);
+        confusion(b"curlevel");
     };
 }
 #[no_mangle]
@@ -5810,9 +5792,9 @@ pub(crate) unsafe extern "C" fn prepare_mag() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Incompatible magnification (\x00" as *const u8 as *const i8);
+        print_cstr(b"Incompatible magnification (");
         print_int(
             (*eqtb.offset(
                 (1i32
@@ -5844,13 +5826,11 @@ pub(crate) unsafe extern "C" fn prepare_mag() {
             .b32
             .s1,
         );
-        print_cstr(b");\x00" as *const u8 as *const i8);
-        print_nl_cstr(b" the previous value will be retained\x00" as *const u8 as *const i8);
+        print_cstr(b");");
+        print_nl_cstr(b" the previous value will be retained");
         help_ptr = 2_u8;
-        help_line[1] = b"I can handle only one magnification ratio per job. So I\'ve\x00"
-            as *const u8 as *const i8;
-        help_line[0] = b"reverted to the magnification you used earlier on this run.\x00"
-            as *const u8 as *const i8;
+        help_line[1] = b"I can handle only one magnification ratio per job. So I\'ve";
+        help_line[0] = b"reverted to the magnification you used earlier on this run.";
         int_error(mag_set);
         geq_word_define(
             1i32 + (0x10ffffi32 + 1i32)
@@ -5943,12 +5923,11 @@ pub(crate) unsafe extern "C" fn prepare_mag() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Illegal magnification has been changed to 1000\x00" as *const u8 as *const i8);
+        print_cstr(b"Illegal magnification has been changed to 1000");
         help_ptr = 1_u8;
-        help_line[0] =
-            b"The magnification ratio must be between 1 and 32768.\x00" as *const u8 as *const i8;
+        help_line[0] = b"The magnification ratio must be between 1 and 32768.";
         int_error(
             (*eqtb.offset(
                 (1i32
@@ -6070,7 +6049,7 @@ pub(crate) unsafe extern "C" fn show_cur_cmd_chr() {
     print_nl('{' as i32);
     if cur_list.mode as i32 != shown_mode as i32 {
         print_mode(cur_list.mode as i32);
-        print_cstr(b": \x00" as *const u8 as *const i8);
+        print_cstr(b": ");
         shown_mode = cur_list.mode
     }
     print_cmd_chr(cur_cmd as u16, cur_chr);
@@ -6106,7 +6085,7 @@ pub(crate) unsafe extern "C" fn show_cur_cmd_chr() {
     {
         if cur_cmd as i32 >= 107i32 {
             if cur_cmd as i32 <= 108i32 {
-                print_cstr(b": \x00" as *const u8 as *const i8);
+                print_cstr(b": ");
                 if cur_cmd as i32 == 108i32 {
                     print_cmd_chr(107_u16, cur_if as i32);
                     print_char(' ' as i32);
@@ -6121,11 +6100,11 @@ pub(crate) unsafe extern "C" fn show_cur_cmd_chr() {
                     n += 1;
                     p = (*mem.offset(p as isize)).b32.s1
                 }
-                print_cstr(b"(level \x00" as *const u8 as *const i8);
+                print_cstr(b"(level ");
                 print_int(n);
                 print_char(')' as i32);
                 if l != 0i32 {
-                    print_cstr(b" entered on line \x00" as *const u8 as *const i8);
+                    print_cstr(b" entered on line ");
                     print_int(l);
                 }
             }
@@ -6201,12 +6180,12 @@ pub(crate) unsafe extern "C" fn show_context() {
                     if cur_input.name <= 17i32 {
                         if cur_input.name == 0i32 {
                             if base_ptr == 0i32 {
-                                print_nl_cstr(b"<*>\x00" as *const u8 as *const i8);
+                                print_nl_cstr(b"<*>");
                             } else {
-                                print_nl_cstr(b"<insert> \x00" as *const u8 as *const i8);
+                                print_nl_cstr(b"<insert> ");
                             }
                         } else {
-                            print_nl_cstr(b"<read \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<read ");
                             if cur_input.name == 17i32 {
                                 print_char('*' as i32);
                             } else {
@@ -6215,7 +6194,7 @@ pub(crate) unsafe extern "C" fn show_context() {
                             print_char('>' as i32);
                         }
                     } else {
-                        print_nl_cstr(b"l.\x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"l.");
                         if cur_input.index as i32 == in_open {
                             print_int(line);
                         } else {
@@ -6287,63 +6266,63 @@ pub(crate) unsafe extern "C" fn show_context() {
                 } else {
                     match cur_input.index as i32 {
                         0 => {
-                            print_nl_cstr(b"<argument> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<argument> ");
                         }
                         1 | 2 => {
-                            print_nl_cstr(b"<template> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<template> ");
                         }
                         3 | 4 => {
                             if cur_input.loc == TEX_NULL {
-                                print_nl_cstr(b"<recently read> \x00" as *const u8 as *const i8);
+                                print_nl_cstr(b"<recently read> ");
                             } else {
-                                print_nl_cstr(b"<to be read again> \x00" as *const u8 as *const i8);
+                                print_nl_cstr(b"<to be read again> ");
                             }
                         }
                         5 => {
-                            print_nl_cstr(b"<inserted text> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<inserted text> ");
                         }
                         6 => {
                             print_ln();
                             print_cs(cur_input.name);
                         }
                         7 => {
-                            print_nl_cstr(b"<output> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<output> ");
                         }
                         8 => {
-                            print_nl_cstr(b"<everypar> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<everypar> ");
                         }
                         9 => {
-                            print_nl_cstr(b"<everymath> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<everymath> ");
                         }
                         10 => {
-                            print_nl_cstr(b"<everydisplay> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<everydisplay> ");
                         }
                         11 => {
-                            print_nl_cstr(b"<everyhbox> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<everyhbox> ");
                         }
                         12 => {
-                            print_nl_cstr(b"<everyvbox> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<everyvbox> ");
                         }
                         13 => {
-                            print_nl_cstr(b"<everyjob> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<everyjob> ");
                         }
                         14 => {
-                            print_nl_cstr(b"<everycr> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<everycr> ");
                         }
                         15 => {
-                            print_nl_cstr(b"<mark> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<mark> ");
                         }
                         16 => {
-                            print_nl_cstr(b"<everyeof> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<everyeof> ");
                         }
                         17 => {
-                            print_nl_cstr(b"<XeTeXinterchartoks> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<XeTeXinterchartoks> ");
                         }
                         18 => {
-                            print_nl_cstr(b"<write> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<write> ");
                         }
                         19 => {
-                            print_nl_cstr(b"<TectonicCodaTokens> \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"<TectonicCodaTokens> ");
                         }
                         _ => {
                             print_nl('?' as i32);
@@ -6380,7 +6359,7 @@ pub(crate) unsafe extern "C" fn show_context() {
                     p = 0i32;
                     n = l + first_count
                 } else {
-                    print_cstr(b"...\x00" as *const u8 as *const i8);
+                    print_cstr(b"...");
                     p = l + first_count - half_error_line + 3i32;
                     n = half_error_line
                 }
@@ -6430,7 +6409,7 @@ pub(crate) unsafe extern "C" fn show_context() {
                     }
                 }
                 if m + n > error_line {
-                    print_cstr(b"...\x00" as *const u8 as *const i8);
+                    print_cstr(b"...");
                 }
                 nn += 1
             }
@@ -6465,7 +6444,7 @@ pub(crate) unsafe extern "C" fn show_context() {
             .b32
             .s1
         {
-            print_nl_cstr(b"...\x00" as *const u8 as *const i8);
+            print_nl_cstr(b"...");
             nn += 1
         }
         if bottom_line {
@@ -6480,10 +6459,7 @@ pub(crate) unsafe extern "C" fn begin_token_list(mut p: i32, mut t: u16) {
     if input_ptr > max_in_stack {
         max_in_stack = input_ptr;
         if input_ptr == stack_size {
-            overflow(
-                b"input stack size\x00" as *const u8 as *const i8,
-                stack_size,
-            );
+            overflow(b"input stack size", stack_size);
         }
     }
     *input_stack.offset(input_ptr as isize) = cur_input;
@@ -6529,13 +6505,13 @@ pub(crate) unsafe extern "C" fn begin_token_list(mut p: i32, mut t: u16) {
             .s1 > 1i32
             {
                 begin_diagnostic();
-                print_nl_cstr(b"\x00" as *const u8 as *const i8);
+                print_nl_cstr(b"");
                 match t as i32 {
                     15 => {
-                        print_esc_cstr(b"mark\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"mark");
                     }
                     18 => {
-                        print_esc_cstr(b"write\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"write");
                     }
                     _ => {
                         print_cmd_chr(
@@ -6558,7 +6534,7 @@ pub(crate) unsafe extern "C" fn begin_token_list(mut p: i32, mut t: u16) {
                         );
                     }
                 }
-                print_cstr(b"->\x00" as *const u8 as *const i8);
+                print_cstr(b"->");
                 token_show(p);
                 end_diagnostic(false);
             }
@@ -6585,9 +6561,7 @@ pub(crate) unsafe extern "C" fn end_token_list() {
         if align_state as i64 > 500000 {
             align_state = 0i32
         } else {
-            fatal_error(
-                b"(interwoven alignment preambles are not allowed)\x00" as *const u8 as *const i8,
-            );
+            fatal_error(b"(interwoven alignment preambles are not allowed)");
         }
     }
     input_ptr -= 1;
@@ -6614,10 +6588,7 @@ pub(crate) unsafe extern "C" fn back_input() {
     if input_ptr > max_in_stack {
         max_in_stack = input_ptr;
         if input_ptr == stack_size {
-            overflow(
-                b"input stack size\x00" as *const u8 as *const i8,
-                stack_size,
-            );
+            overflow(b"input stack size", stack_size);
         }
     }
     *input_stack.offset(input_ptr as isize) = cur_input;
@@ -6641,22 +6612,16 @@ pub(crate) unsafe extern "C" fn ins_error() {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn begin_file_reading() {
     if in_open == max_in_open {
-        overflow(
-            b"text input levels\x00" as *const u8 as *const i8,
-            max_in_open,
-        );
+        overflow(b"text input levels", max_in_open);
     }
     if first == buf_size {
-        overflow(b"buffer size\x00" as *const u8 as *const i8, buf_size);
+        overflow(b"buffer size", buf_size);
     }
     in_open += 1;
     if input_ptr > max_in_stack {
         max_in_stack = input_ptr;
         if input_ptr == stack_size {
-            overflow(
-                b"input stack size\x00" as *const u8 as *const i8,
-                stack_size,
-            );
+            overflow(b"input stack size", stack_size);
         }
     }
     *input_stack.offset(input_ptr as isize) = cur_input;
@@ -6708,31 +6673,31 @@ pub(crate) unsafe extern "C" fn check_outer_validity() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"File ended\x00" as *const u8 as *const i8);
+                print_cstr(b"File ended");
             } else {
                 cur_cs = 0i32;
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Forbidden control sequence found\x00" as *const u8 as *const i8);
+                print_cstr(b"Forbidden control sequence found");
             }
             p = get_avail();
             match scanner_status as i32 {
                 2 => {
-                    print_cstr(b" while scanning definition\x00" as *const u8 as *const i8);
+                    print_cstr(b" while scanning definition");
                     (*mem.offset(p as isize)).b32.s0 = 0x400000i32 + '}' as i32
                 }
                 3 => {
-                    print_cstr(b" while scanning use\x00" as *const u8 as *const i8);
+                    print_cstr(b" while scanning use");
                     (*mem.offset(p as isize)).b32.s0 = par_token;
                     long_state = 115_u8
                 }
                 4 => {
-                    print_cstr(b" while scanning preamble\x00" as *const u8 as *const i8);
+                    print_cstr(b" while scanning preamble");
                     (*mem.offset(p as isize)).b32.s0 = 0x400000i32 + '}' as i32;
                     q = p;
                     p = get_avail();
@@ -6747,46 +6712,38 @@ pub(crate) unsafe extern "C" fn check_outer_validity() {
                     align_state = -1000000i64 as i32
                 }
                 5 => {
-                    print_cstr(b" while scanning text\x00" as *const u8 as *const i8);
+                    print_cstr(b" while scanning text");
                     (*mem.offset(p as isize)).b32.s0 = 0x400000i32 + '}' as i32
                 }
                 _ => {}
             }
             begin_token_list(p, 5_u16);
-            print_cstr(b" of \x00" as *const u8 as *const i8);
+            print_cstr(b" of ");
             sprint_cs(warning_index);
             help_ptr = 4_u8;
-            help_line[3] =
-                b"I suspect you have forgotten a `}\', causing me\x00" as *const u8 as *const i8;
-            help_line[2] =
-                b"to read past where you wanted me to stop.\x00" as *const u8 as *const i8;
-            help_line[1] =
-                b"I\'ll try to recover; but if the error is serious,\x00" as *const u8 as *const i8;
-            help_line[0] = b"you\'d better type `E\' or `X\' now and fix your file.\x00"
-                as *const u8 as *const i8;
+            help_line[3] = b"I suspect you have forgotten a `}\', causing me";
+            help_line[2] = b"to read past where you wanted me to stop.";
+            help_line[1] = b"I\'ll try to recover; but if the error is serious,";
+            help_line[0] = b"you\'d better type `E\' or `X\' now and fix your file.";
             error();
         } else {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"Incomplete \x00" as *const u8 as *const i8);
+            print_cstr(b"Incomplete ");
             print_cmd_chr(107_u16, cur_if as i32);
-            print_cstr(b"; all text was ignored after line \x00" as *const u8 as *const i8);
+            print_cstr(b"; all text was ignored after line ");
             print_int(skip_line);
             help_ptr = 3_u8;
-            help_line[2] = b"A forbidden control sequence occurred in skipped text.\x00"
-                as *const u8 as *const i8;
-            help_line[1] = b"This kind of error happens when you say `\\if...\' and forget\x00"
-                as *const u8 as *const i8;
-            help_line[0] = b"the matching `\\fi\'. I\'ve inserted a `\\fi\'; this might work.\x00"
-                as *const u8 as *const i8;
+            help_line[2] = b"A forbidden control sequence occurred in skipped text.";
+            help_line[1] = b"This kind of error happens when you say `\\if...\' and forget";
+            help_line[0] = b"the matching `\\fi\'. I\'ve inserted a `\\fi\'; this might work.";
             if cur_cs != 0i32 {
                 cur_cs = 0i32
             } else {
-                help_line[2] = b"The file ended while I was skipping conditional text.\x00"
-                    as *const u8 as *const i8
+                help_line[2] = b"The file ended while I was skipping conditional text."
             }
             cur_tok = 0x1ffffffi32
                 + (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 4i32);
@@ -6956,21 +6913,13 @@ pub(crate) unsafe extern "C" fn get_next() {
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
                                 } else {
-                                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                    print_nl_cstr(b"! ");
                                 }
-                                print_cstr(
-                                    b"Text line contains an invalid character\x00" as *const u8
-                                        as *const i8,
-                                );
+                                print_cstr(b"Text line contains an invalid character");
                                 help_ptr = 2_u8;
                                 help_line[1] =
-                                    b"A funny symbol that I can\'t read has just been input.\x00"
-                                        as *const u8
-                                        as *const i8;
-                                help_line[0] =
-                                    b"Continue, and I\'ll forget that it ever happened.\x00"
-                                        as *const u8
-                                        as *const i8;
+                                    b"A funny symbol that I can\'t read has just been input.";
+                                help_line[0] = b"Continue, and I\'ll forget that it ever happened.";
                                 deletions_allowed = false;
                                 error();
                                 deletions_allowed = true;
@@ -7650,10 +7599,7 @@ pub(crate) unsafe extern "C" fn get_next() {
                                 if u8::from(selector) < u8::from(Selector::LOG_ONLY) {
                                     open_log_file();
                                 }
-                                fatal_error(
-                                    b"*** (job aborted, no legal \\end found)\x00" as *const u8
-                                        as *const i8,
-                                );
+                                fatal_error(b"*** (job aborted, no legal \\end found)");
                             }
                         }
                     }
@@ -7722,10 +7668,7 @@ pub(crate) unsafe extern "C" fn get_next() {
         if cur_cmd as i32 <= 5i32 && cur_cmd as i32 >= 4i32 && align_state == 0i32 {
             /*818:*/
             if scanner_status as i32 == 4i32 || cur_align == TEX_NULL {
-                fatal_error(
-                    b"(interwoven alignment preambles are not allowed)\x00" as *const u8
-                        as *const i8,
-                );
+                fatal_error(b"(interwoven alignment preambles are not allowed)");
             }
             cur_cmd = (*mem.offset((cur_align + 5i32) as isize)).b32.s0 as eight_bits;
             (*mem.offset((cur_align + 5i32) as isize)).b32.s0 = cur_chr;
@@ -7857,26 +7800,18 @@ pub(crate) unsafe extern "C" fn macro_call() {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
                             } else {
-                                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                print_nl_cstr(b"! ");
                             }
-                            print_cstr(b"Use of \x00" as *const u8 as *const i8);
+                            print_cstr(b"Use of ");
                             sprint_cs(warning_index);
-                            print_cstr(
-                                b" doesn\'t match its definition\x00" as *const u8 as *const i8,
-                            );
+                            print_cstr(b" doesn\'t match its definition");
                             help_ptr = 4_u8;
                             help_line[3] =
-                                b"If you say, e.g., `\\def\\a1{...}\', then you must always\x00"
-                                    as *const u8 as *const i8;
+                                b"If you say, e.g., `\\def\\a1{...}\', then you must always";
                             help_line[2] =
-                                b"put `1\' after `\\a\', since control sequence names are\x00"
-                                    as *const u8 as *const i8;
-                            help_line[1] =
-                                b"made up of letters only. The macro here has not been\x00"
-                                    as *const u8 as *const i8;
-                            help_line[0] =
-                                b"followed by the required stuff, so I\'m ignoring it.\x00"
-                                    as *const u8 as *const i8;
+                                b"put `1\' after `\\a\', since control sequence names are";
+                            help_line[1] = b"made up of letters only. The macro here has not been";
+                            help_line[0] = b"followed by the required stuff, so I\'m ignoring it.";
                             error();
                             current_block = 16670727159935121194;
                             break 's_135;
@@ -7923,26 +7858,18 @@ pub(crate) unsafe extern "C" fn macro_call() {
                                 if file_line_error_style_p != 0 {
                                     print_file_line(); /*413:*/
                                 } else {
-                                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                    print_nl_cstr(b"! ");
                                 }
-                                print_cstr(
-                                    b"Paragraph ended before \x00" as *const u8 as *const i8,
-                                );
+                                print_cstr(b"Paragraph ended before ");
                                 sprint_cs(warning_index);
-                                print_cstr(b" was complete\x00" as *const u8 as *const i8);
+                                print_cstr(b" was complete");
                                 help_ptr = 3_u8;
                                 help_line[2] =
-                                            b"I suspect you\'ve forgotten a `}\', causing me to apply this\x00"
-                                                as *const u8 as
-                                                *const i8;
+                                    b"I suspect you\'ve forgotten a `}\', causing me to apply this";
                                 help_line[1] =
-                                    b"control sequence to too much text. How can we recover?\x00"
-                                        as *const u8
-                                        as *const i8;
+                                    b"control sequence to too much text. How can we recover?";
                                 help_line[0] =
-                                            b"My plan is to forget the whole thing and hope for the best.\x00"
-                                                as *const u8 as
-                                                *const i8;
+                                    b"My plan is to forget the whole thing and hope for the best.";
                                 back_error();
                             }
                             pstack[n as usize] = (*mem.offset((4999999i32 - 3i32) as isize)).b32.s1;
@@ -7980,29 +7907,18 @@ pub(crate) unsafe extern "C" fn macro_call() {
                                             if file_line_error_style_p != 0 {
                                                 print_file_line();
                                             } else {
-                                                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                                print_nl_cstr(b"! ");
                                             }
-                                            print_cstr(
-                                                b"Paragraph ended before \x00" as *const u8
-                                                    as *const i8,
-                                            );
+                                            print_cstr(b"Paragraph ended before ");
                                             sprint_cs(warning_index);
-                                            print_cstr(
-                                                b" was complete\x00" as *const u8 as *const i8,
-                                            );
+                                            print_cstr(b" was complete");
                                             help_ptr = 3_u8;
                                             help_line[2] =
-                                                        b"I suspect you\'ve forgotten a `}\', causing me to apply this\x00"
-                                                            as *const u8 as
-                                                            *const i8;
+                                                        b"I suspect you\'ve forgotten a `}\', causing me to apply this";
                                             help_line[1] =
-                                                        b"control sequence to too much text. How can we recover?\x00"
-                                                            as *const u8 as
-                                                            *const i8;
+                                                        b"control sequence to too much text. How can we recover?";
                                             help_line[0] =
-                                                        b"My plan is to forget the whole thing and hope for the best.\x00"
-                                                            as *const u8 as
-                                                            *const i8;
+                                                        b"My plan is to forget the whole thing and hope for the best.";
                                             back_error();
                                         }
                                         pstack[n as usize] =
@@ -8039,30 +7955,23 @@ pub(crate) unsafe extern "C" fn macro_call() {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
                             } else {
-                                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                print_nl_cstr(b"! ");
                             }
-                            print_cstr(b"Argument of \x00" as *const u8 as *const i8);
+                            print_cstr(b"Argument of ");
                             sprint_cs(warning_index);
-                            print_cstr(b" has an extra }\x00" as *const u8 as *const i8);
+                            print_cstr(b" has an extra }");
                             help_ptr = 6_u8;
                             help_line[5] =
-                                b"I\'ve run across a `}\' that doesn\'t seem to match anything.\x00"
-                                    as *const u8 as *const i8;
+                                b"I\'ve run across a `}\' that doesn\'t seem to match anything.";
                             help_line[4] =
-                                b"For example, `\\def\\a#1{...}\' and `\\a}\' would produce\x00"
-                                    as *const u8 as *const i8;
+                                b"For example, `\\def\\a#1{...}\' and `\\a}\' would produce";
                             help_line[3] =
-                                b"this error. If you simply proceed now, the `\\par\' that\x00"
-                                    as *const u8 as *const i8;
-                            help_line[2] =
-                                b"I\'ve just inserted will cause me to report a runaway\x00"
-                                    as *const u8 as *const i8;
+                                b"this error. If you simply proceed now, the `\\par\' that";
+                            help_line[2] = b"I\'ve just inserted will cause me to report a runaway";
                             help_line[1] =
-                                b"argument that might be the root of the problem. But if\x00"
-                                    as *const u8 as *const i8;
+                                b"argument that might be the root of the problem. But if";
                             help_line[0] =
-                                b"your `}\' was spurious, just type `2\' and it will go away.\x00"
-                                    as *const u8 as *const i8;
+                                b"your `}\' was spurious, just type `2\' and it will go away.";
                             align_state += 1;
                             long_state = 113_u8;
                             cur_tok = par_token;
@@ -8141,7 +8050,7 @@ pub(crate) unsafe extern "C" fn macro_call() {
                     begin_diagnostic();
                     print_nl(match_chr as str_number);
                     print_int(n as i32);
-                    print_cstr(b"<-\x00" as *const u8 as *const i8);
+                    print_cstr(b"<-");
                     show_token_list(pstack[(n as i32 - 1i32) as usize], TEX_NULL, 1000i32);
                     end_diagnostic(false);
                 }
@@ -8169,10 +8078,7 @@ pub(crate) unsafe extern "C" fn macro_call() {
                 if param_ptr + n as i32 > max_param_stack {
                     max_param_stack = param_ptr + n as i32;
                     if max_param_stack > param_size {
-                        overflow(
-                            b"parameter stack size\x00" as *const u8 as *const i8,
-                            param_size,
-                        );
+                        overflow(b"parameter stack size", param_size);
                     }
                 }
                 m = 0i32;
@@ -8393,10 +8299,7 @@ pub(crate) unsafe extern "C" fn expand() {
     let mut save_scanner_status: small_number = 0;
     expand_depth_count += 1;
     if expand_depth_count >= expand_depth {
-        overflow(
-            b"expansion depth\x00" as *const u8 as *const i8,
-            expand_depth,
-        );
+        overflow(b"expansion depth", expand_depth);
     }
     cv_backup = cur_val;
     cvl_backup = cur_val_level as small_number;
@@ -8485,17 +8388,15 @@ pub(crate) unsafe extern "C" fn expand() {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
                             } else {
-                                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                print_nl_cstr(b"! ");
                             }
-                            print_cstr(b"You can\'t use `\x00" as *const u8 as *const i8);
-                            print_esc_cstr(b"unless\x00" as *const u8 as *const i8);
-                            print_cstr(b"\' before `\x00" as *const u8 as *const i8);
+                            print_cstr(b"You can\'t use `");
+                            print_esc_cstr(b"unless");
+                            print_cstr(b"\' before `");
                             print_cmd_chr(cur_cmd as u16, cur_chr);
                             print_char('\'' as i32);
                             help_ptr = 1_u8;
-                            help_line[0] = b"Continue, and I\'ll forget that it ever happened.\x00"
-                                as *const u8
-                                as *const i8;
+                            help_line[0] = b"Continue, and I\'ll forget that it ever happened.";
                             back_error();
                             break;
                         }
@@ -8582,16 +8483,14 @@ pub(crate) unsafe extern "C" fn expand() {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"! ");
                         }
-                        print_cstr(b"Missing \x00" as *const u8 as *const i8);
-                        print_esc_cstr(b"endcsname\x00" as *const u8 as *const i8);
-                        print_cstr(b" inserted\x00" as *const u8 as *const i8);
+                        print_cstr(b"Missing ");
+                        print_esc_cstr(b"endcsname");
+                        print_cstr(b" inserted");
                         help_ptr = 2_u8;
-                        help_line[1] = b"The control sequence marked <to be read again> should\x00"
-                            as *const u8 as *const i8;
-                        help_line[0] = b"not appear between \\csname and \\endcsname.\x00"
-                            as *const u8 as *const i8;
+                        help_line[1] = b"The control sequence marked <to be read again> should";
+                        help_line[0] = b"not appear between \\csname and \\endcsname.";
                         back_error();
                     }
                     is_in_csname = b;
@@ -8601,7 +8500,7 @@ pub(crate) unsafe extern "C" fn expand() {
                         if j >= max_buf_stack {
                             max_buf_stack = j + 1i32;
                             if max_buf_stack == buf_size {
-                                overflow(b"buffer size\x00" as *const u8 as *const i8, buf_size);
+                                overflow(b"buffer size", buf_size);
                             }
                         }
                         *buffer.offset(j as isize) = (*mem.offset(p as isize)).b32.s0 % 0x200000i32;
@@ -8709,14 +8608,12 @@ pub(crate) unsafe extern "C" fn expand() {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
                             } else {
-                                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                print_nl_cstr(b"! ");
                             }
-                            print_cstr(b"Extra \x00" as *const u8 as *const i8);
+                            print_cstr(b"Extra ");
                             print_cmd_chr(108_u16, cur_chr);
                             help_ptr = 1_u8;
-                            help_line[0] = b"I\'m ignoring this; it doesn\'t match any \\if.\x00"
-                                as *const u8
-                                as *const i8;
+                            help_line[0] = b"I\'m ignoring this; it doesn\'t match any \\if.";
                             error();
                         }
                     } else {
@@ -8755,20 +8652,15 @@ pub(crate) unsafe extern "C" fn expand() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(b"Undefined control sequence\x00" as *const u8 as *const i8);
+                    print_cstr(b"Undefined control sequence");
                     help_ptr = 5_u8;
-                    help_line[4] = b"The control sequence at the end of the top line\x00"
-                        as *const u8 as *const i8;
-                    help_line[3] = b"of your error message was never \\def\'ed. If you have\x00"
-                        as *const u8 as *const i8;
-                    help_line[2] = b"misspelled it (e.g., `\\hobx\'), type `I\' and the correct\x00"
-                        as *const u8 as *const i8;
-                    help_line[1] = b"spelling (e.g., `I\\hbox\'). Otherwise just continue,\x00"
-                        as *const u8 as *const i8;
-                    help_line[0] = b"and I\'ll forget about whatever was undefined.\x00"
-                        as *const u8 as *const i8;
+                    help_line[4] = b"The control sequence at the end of the top line";
+                    help_line[3] = b"of your error message was never \\def\'ed. If you have";
+                    help_line[2] = b"misspelled it (e.g., `\\hobx\'), type `I\' and the correct";
+                    help_line[1] = b"spelling (e.g., `I\\hbox\'). Otherwise just continue,";
+                    help_line[0] = b"and I\'ll forget about whatever was undefined.";
                     error();
                     break;
                 }
@@ -8841,18 +8733,14 @@ pub(crate) unsafe extern "C" fn scan_left_brace() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Missing { inserted\x00" as *const u8 as *const i8);
+        print_cstr(b"Missing { inserted");
         help_ptr = 4_u8;
-        help_line[3] =
-            b"A left brace was mandatory here, so I\'ve put one in.\x00" as *const u8 as *const i8;
-        help_line[2] = b"You might want to delete and/or insert some corrections\x00" as *const u8
-            as *const i8;
-        help_line[1] =
-            b"so that I will find a matching right brace soon.\x00" as *const u8 as *const i8;
-        help_line[0] = b"(If you\'re confused by all this, try typing `I}\' now.)\x00" as *const u8
-            as *const i8;
+        help_line[3] = b"A left brace was mandatory here, so I\'ve put one in.";
+        help_line[2] = b"You might want to delete and/or insert some corrections";
+        help_line[1] = b"so that I will find a matching right brace soon.";
+        help_line[0] = b"(If you\'re confused by all this, try typing `I}\' now.)";
         back_error();
         cur_tok = 0x200000i32 + '{' as i32;
         cur_cmd = 1i32 as eight_bits;
@@ -8873,13 +8761,13 @@ pub(crate) unsafe extern "C" fn scan_optional_equals() {
         back_input();
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_keyword(mut s: *const i8) -> bool {
-    let mut p: i32 = 4999999i32 - 13i32;
+
+pub(crate) unsafe fn scan_keyword(s: &[u8]) -> bool {
+    let mut p: i32 = BACKUP_HEAD;
     let mut q: i32 = 0;
     (*mem.offset(p as isize)).b32.s1 = TEX_NULL;
-    if strlen(s) == 1 {
-        let mut c: i8 = *s.offset(0);
+    if s.len() == 1 {
+        let mut c: i8 = s[0] as i8;
         loop {
             get_x_token();
             if cur_cs == 0i32 && (cur_chr == c as i32 || cur_chr == c as i32 - 32i32) {
@@ -8887,66 +8775,63 @@ pub(crate) unsafe extern "C" fn scan_keyword(mut s: *const i8) -> bool {
                 (*mem.offset(p as isize)).b32.s1 = q;
                 (*mem.offset(q as isize)).b32.s0 = cur_tok;
                 p = q;
-                flush_list((*mem.offset((4999999i32 - 13i32) as isize)).b32.s1);
+                flush_list((*mem.offset(BACKUP_HEAD as isize)).b32.s1);
                 return true;
             } else {
-                if cur_cmd as i32 != 10i32 || p != 4999999i32 - 13i32 {
+                if cur_cmd as i32 != SPACER as _ || p != BACKUP_HEAD {
                     back_input();
-                    if p != 4999999i32 - 13i32 {
-                        begin_token_list(
-                            (*mem.offset((4999999i32 - 13i32) as isize)).b32.s1,
-                            3_u16,
-                        );
+                    if p != BACKUP_HEAD {
+                        begin_token_list((*mem.offset(BACKUP_HEAD as isize)).b32.s1, BACKED_UP);
                     }
                     return false;
                 }
             }
         }
     }
-    let slen = strlen(s);
+    let slen = s.len();
     let mut i = 0;
     while i < slen {
         get_x_token();
         if cur_cs == 0i32
-            && (cur_chr == *s.offset(i as isize) as i32
-                || cur_chr == *s.offset(i as isize) as i32 - 32i32)
+            && (cur_chr == s[i as usize] as i8 as i32
+                || cur_chr == s[i as usize] as i8 as i32 - 32i32)
         {
             q = get_avail();
             (*mem.offset(p as isize)).b32.s1 = q;
             (*mem.offset(q as isize)).b32.s0 = cur_tok;
             p = q;
             i = i.wrapping_add(1)
-        } else if cur_cmd as i32 != 10i32 || p != 4999999i32 - 13i32 {
+        } else if cur_cmd as i32 != SPACER as _ || p != BACKUP_HEAD {
             back_input();
-            if p != 4999999i32 - 13i32 {
-                begin_token_list((*mem.offset((4999999i32 - 13i32) as isize)).b32.s1, 3_u16);
+            if p != BACKUP_HEAD {
+                begin_token_list((*mem.offset(BACKUP_HEAD as isize)).b32.s1, BACKED_UP);
             }
             return false;
         }
     }
-    flush_list((*mem.offset((4999999i32 - 13i32) as isize)).b32.s1);
+    flush_list((*mem.offset(BACKUP_HEAD as isize)).b32.s1);
     true
 }
+
 #[no_mangle]
 pub(crate) unsafe extern "C" fn mu_error() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"! ");
     }
-    print_cstr(b"Incompatible glue units\x00" as *const u8 as *const i8);
+    print_cstr(b"Incompatible glue units");
     help_ptr = 1_u8;
-    help_line[0] =
-        b"I\'m going to assume that 1mu=1pt when they\'re mixed.\x00" as *const u8 as *const i8;
+    help_line[0] = b"I\'m going to assume that 1mu=1pt when they\'re mixed.";
     error();
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn scan_glyph_number(mut f: internal_font_number) {
-    if scan_keyword(b"/\x00" as *const u8 as *const i8) {
+    if scan_keyword(b"/") {
         scan_and_pack_name();
         cur_val = map_glyph_to_index(f);
         cur_val_level = 0_u8
-    } else if scan_keyword(b"u\x00" as *const u8 as *const i8) {
+    } else if scan_keyword(b"u") {
         scan_char_num();
         cur_val = map_char_to_glyph(f, cur_val);
         cur_val_level = 0_u8
@@ -8961,13 +8846,12 @@ pub(crate) unsafe extern "C" fn scan_char_class() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Bad character class\x00" as *const u8 as *const i8);
+        print_cstr(b"Bad character class");
         help_ptr = 2_u8;
-        help_line[1] =
-            b"A character class must be between 0 and 4096.\x00" as *const u8 as *const i8;
-        help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+        help_line[1] = b"A character class must be between 0 and 4096.";
+        help_line[0] = b"I changed this one to zero.";
         int_error(cur_val);
         cur_val = 0i32
     };
@@ -8979,13 +8863,12 @@ pub(crate) unsafe extern "C" fn scan_char_class_not_ignored() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Bad character class\x00" as *const u8 as *const i8);
+        print_cstr(b"Bad character class");
         help_ptr = 2_u8;
-        help_line[1] = b"A class for inter-character transitions must be between 0 and 4095.\x00"
-            as *const u8 as *const i8;
-        help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+        help_line[1] = b"A class for inter-character transitions must be between 0 and 4095.";
+        help_line[0] = b"I changed this one to zero.";
         int_error(cur_val);
         cur_val = 0i32
     };
@@ -8997,13 +8880,12 @@ pub(crate) unsafe extern "C" fn scan_eight_bit_int() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Bad register code\x00" as *const u8 as *const i8);
+        print_cstr(b"Bad register code");
         help_ptr = 2_u8;
-        help_line[1] = b"A register code or char class must be between 0 and 255.\x00" as *const u8
-            as *const i8;
-        help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+        help_line[1] = b"A register code or char class must be between 0 and 255.";
+        help_line[0] = b"I changed this one to zero.";
         int_error(cur_val);
         cur_val = 0i32
     };
@@ -9015,13 +8897,12 @@ pub(crate) unsafe extern "C" fn scan_usv_num() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Bad character code\x00" as *const u8 as *const i8);
+        print_cstr(b"Bad character code");
         help_ptr = 2_u8;
-        help_line[1] =
-            b"A Unicode scalar value must be between 0 and \"10FFFF.\x00" as *const u8 as *const i8;
-        help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+        help_line[1] = b"A Unicode scalar value must be between 0 and \"10FFFF.";
+        help_line[0] = b"I changed this one to zero.";
         int_error(cur_val);
         cur_val = 0i32
     };
@@ -9033,13 +8914,12 @@ pub(crate) unsafe extern "C" fn scan_char_num() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Bad character code\x00" as *const u8 as *const i8);
+        print_cstr(b"Bad character code");
         help_ptr = 2_u8;
-        help_line[1] =
-            b"A character number must be between 0 and 65535.\x00" as *const u8 as *const i8;
-        help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+        help_line[1] = b"A character number must be between 0 and 65535.";
+        help_line[0] = b"I changed this one to zero.";
         int_error(cur_val);
         cur_val = 0i32
     };
@@ -9052,13 +8932,12 @@ pub(crate) unsafe extern "C" fn scan_xetex_math_char_int() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"Bad active XeTeX math code\x00" as *const u8 as *const i8);
+            print_cstr(b"Bad active XeTeX math code");
             help_ptr = 2_u8;
-            help_line[1] = b"Since I ignore class and family for active math chars,\x00"
-                as *const u8 as *const i8;
-            help_line[0] = b"I changed this one to \"1FFFFF.\x00" as *const u8 as *const i8;
+            help_line[1] = b"Since I ignore class and family for active math chars,";
+            help_line[0] = b"I changed this one to \"1FFFFF.";
             int_error(cur_val);
             cur_val = 0x1fffffi32
         }
@@ -9066,13 +8945,12 @@ pub(crate) unsafe extern "C" fn scan_xetex_math_char_int() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Bad XeTeX math character code\x00" as *const u8 as *const i8);
+        print_cstr(b"Bad XeTeX math character code");
         help_ptr = 2_u8;
-        help_line[1] = b"Since I expected a character number between 0 and \"10FFFF,\x00"
-            as *const u8 as *const i8;
-        help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+        help_line[1] = b"Since I expected a character number between 0 and \"10FFFF,";
+        help_line[0] = b"I changed this one to zero.";
         int_error(cur_val);
         cur_val = 0i32
     };
@@ -9416,13 +9294,12 @@ pub(crate) unsafe extern "C" fn scan_math_class_int() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Bad math class\x00" as *const u8 as *const i8);
+        print_cstr(b"Bad math class");
         help_ptr = 2_u8;
-        help_line[1] =
-            b"Since I expected to read a number between 0 and 7,\x00" as *const u8 as *const i8;
-        help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+        help_line[1] = b"Since I expected to read a number between 0 and 7,";
+        help_line[0] = b"I changed this one to zero.";
         int_error(cur_val);
         cur_val = 0i32
     };
@@ -9434,13 +9311,12 @@ pub(crate) unsafe extern "C" fn scan_math_fam_int() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Bad math family\x00" as *const u8 as *const i8);
+        print_cstr(b"Bad math family");
         help_ptr = 2_u8;
-        help_line[1] =
-            b"Since I expected to read a number between 0 and 255,\x00" as *const u8 as *const i8;
-        help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+        help_line[1] = b"Since I expected to read a number between 0 and 255,";
+        help_line[0] = b"I changed this one to zero.";
         int_error(cur_val);
         cur_val = 0i32
     };
@@ -9452,13 +9328,12 @@ pub(crate) unsafe extern "C" fn scan_four_bit_int() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Bad number\x00" as *const u8 as *const i8);
+        print_cstr(b"Bad number");
         help_ptr = 2_u8;
-        help_line[1] =
-            b"Since I expected to read a number between 0 and 15,\x00" as *const u8 as *const i8;
-        help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+        help_line[1] = b"Since I expected to read a number between 0 and 15,";
+        help_line[0] = b"I changed this one to zero.";
         int_error(cur_val);
         cur_val = 0i32
     };
@@ -9470,13 +9345,12 @@ pub(crate) unsafe extern "C" fn scan_fifteen_bit_int() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Bad mathchar\x00" as *const u8 as *const i8);
+        print_cstr(b"Bad mathchar");
         help_ptr = 2_u8;
-        help_line[1] =
-            b"A mathchar number must be between 0 and 32767.\x00" as *const u8 as *const i8;
-        help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+        help_line[1] = b"A mathchar number must be between 0 and 32767.";
+        help_line[0] = b"I changed this one to zero.";
         int_error(cur_val);
         cur_val = 0i32
     };
@@ -9488,13 +9362,12 @@ pub(crate) unsafe extern "C" fn scan_delimiter_int() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Bad delimiter code\x00" as *const u8 as *const i8);
+        print_cstr(b"Bad delimiter code");
         help_ptr = 2_u8;
-        help_line[1] = b"A numeric delimiter code must be between 0 and 2^{27}-1.\x00" as *const u8
-            as *const i8;
-        help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+        help_line[1] = b"A numeric delimiter code must be between 0 and 2^{27}-1.";
+        help_line[0] = b"I changed this one to zero.";
         int_error(cur_val);
         cur_val = 0i32
     };
@@ -9506,12 +9379,12 @@ pub(crate) unsafe extern "C" fn scan_register_num() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Bad register code\x00" as *const u8 as *const i8);
+        print_cstr(b"Bad register code");
         help_ptr = 2_u8;
         help_line[1] = max_reg_help_line;
-        help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+        help_line[0] = b"I changed this one to zero.";
         int_error(cur_val);
         cur_val = 0i32
     };
@@ -9523,13 +9396,12 @@ pub(crate) unsafe extern "C" fn scan_four_bit_int_or_18() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Bad number\x00" as *const u8 as *const i8);
+        print_cstr(b"Bad number");
         help_ptr = 2_u8;
-        help_line[1] =
-            b"Since I expected to read a number between 0 and 15,\x00" as *const u8 as *const i8;
-        help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+        help_line[1] = b"Since I expected to read a number between 0 and 15,";
+        help_line[0] = b"I changed this one to zero.";
         int_error(cur_val);
         cur_val = 0i32
     };
@@ -9606,12 +9478,12 @@ pub(crate) unsafe extern "C" fn scan_font_ident() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Missing font identifier\x00" as *const u8 as *const i8);
+        print_cstr(b"Missing font identifier");
         help_ptr = 2_u8;
-        help_line[1] = b"I was looking for a control sequence whose\x00" as *const u8 as *const i8;
-        help_line[0] = b"current meaning has been defined by \\font.\x00" as *const u8 as *const i8;
+        help_line[1] = b"I was looking for a control sequence whose";
+        help_line[0] = b"current meaning has been defined by \\font.";
         back_error();
         f = 0i32
     }
@@ -9644,7 +9516,7 @@ pub(crate) unsafe extern "C" fn find_font_dimen(mut writing: bool) {
                 /*599: */
                 {
                     if fmem_ptr == font_mem_size {
-                        overflow(b"font memory\x00" as *const u8 as *const i8, font_mem_size);
+                        overflow(b"font memory", font_mem_size);
                     }
                     (*font_info.offset(fmem_ptr as isize)).b32.s1 = 0i32;
                     fmem_ptr += 1;
@@ -9664,9 +9536,9 @@ pub(crate) unsafe extern "C" fn find_font_dimen(mut writing: bool) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Font \x00" as *const u8 as *const i8);
+        print_cstr(b"Font ");
         print_esc(
             (*hash.offset(
                 (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 12i32 + f)
@@ -9674,14 +9546,12 @@ pub(crate) unsafe extern "C" fn find_font_dimen(mut writing: bool) {
             ))
             .s1,
         );
-        print_cstr(b" has only \x00" as *const u8 as *const i8);
+        print_cstr(b" has only ");
         print_int(*font_params.offset(f as isize));
-        print_cstr(b" fontdimen parameters\x00" as *const u8 as *const i8);
+        print_cstr(b" fontdimen parameters");
         help_ptr = 2_u8;
-        help_line[1] =
-            b"To increase the number of font parameters, you must\x00" as *const u8 as *const i8;
-        help_line[0] = b"use \\fontdimen immediately after the \\font is loaded.\x00" as *const u8
-            as *const i8;
+        help_line[1] = b"To increase the number of font parameters, you must";
+        help_line[0] = b"use \\fontdimen immediately after the \\font is loaded.";
         error();
     };
 }
@@ -9767,13 +9637,12 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(b"Extended mathchar used as mathchar\x00" as *const u8 as *const i8);
+                    print_cstr(b"Extended mathchar used as mathchar");
                     help_ptr = 2_u8;
-                    help_line[1] = b"A mathchar number must be between 0 and \"7FFF.\x00"
-                        as *const u8 as *const i8;
-                    help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+                    help_line[1] = b"A mathchar number must be between 0 and \"7FFF.";
+                    help_line[0] = b"I changed this one to zero.";
                     int_error(cur_val1);
                     cur_val1 = 0i32
                 }
@@ -9846,13 +9715,12 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(b"Extended delcode used as delcode\x00" as *const u8 as *const i8);
+                    print_cstr(b"Extended delcode used as delcode");
                     help_ptr = 2_u8;
-                    help_line[1] = b"I can only go up to 2147483647=\'17777777777=\"7FFFFFFF,\x00"
-                        as *const u8 as *const i8;
-                    help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+                    help_line[1] = b"I can only go up to 2147483647=\'17777777777=\"7FFFFFFF,";
+                    help_line[0] = b"I changed this one to zero.";
                     error();
                     cur_val = 0i32;
                     cur_val_level = 0_u8
@@ -10046,17 +9914,12 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(
-                    b"Can\'t use \\Umathcode as a number (try \\Umathcodenum)\x00" as *const u8
-                        as *const i8,
-                );
+                print_cstr(b"Can\'t use \\Umathcode as a number (try \\Umathcodenum)");
                 help_ptr = 2_u8;
-                help_line[1] = b"\\Umathcode is for setting a mathcode from separate values;\x00"
-                    as *const u8 as *const i8;
-                help_line[0] = b"use \\Umathcodenum to access them as single values.\x00"
-                    as *const u8 as *const i8;
+                help_line[1] = b"\\Umathcode is for setting a mathcode from separate values;";
+                help_line[0] = b"use \\Umathcodenum to access them as single values.";
                 error();
                 cur_val = 0i32;
                 cur_val_level = 0_u8
@@ -10124,17 +9987,12 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(
-                    b"Can\'t use \\Udelcode as a number (try \\Udelcodenum)\x00" as *const u8
-                        as *const i8,
-                );
+                print_cstr(b"Can\'t use \\Udelcode as a number (try \\Udelcodenum)");
                 help_ptr = 2_u8;
-                help_line[1] = b"\\Udelcode is for setting a delcode from separate values;\x00"
-                    as *const u8 as *const i8;
-                help_line[0] = b"use \\Udelcodenum to access them as single values.\x00"
-                    as *const u8 as *const i8;
+                help_line[1] = b"\\Udelcode is for setting a delcode from separate values;";
+                help_line[0] = b"use \\Udelcodenum to access them as single values.";
                 error();
                 cur_val = 0i32;
                 cur_val_level = 0_u8
@@ -10145,16 +10003,13 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Missing number, treated as zero\x00" as *const u8 as *const i8);
+                print_cstr(b"Missing number, treated as zero");
                 help_ptr = 3_u8;
-                help_line[2] = b"A number should have been here; I inserted `0\'.\x00" as *const u8
-                    as *const i8;
-                help_line[1] = b"(If you can\'t figure out why I needed to see a number,\x00"
-                    as *const u8 as *const i8;
-                help_line[0] = b"look up `weird error\' in the index to The TeXbook.)\x00"
-                    as *const u8 as *const i8;
+                help_line[2] = b"A number should have been here; I inserted `0\'.";
+                help_line[1] = b"(If you can\'t figure out why I needed to see a number,";
+                help_line[0] = b"look up `weird error\' in the index to The TeXbook.)";
                 back_error();
                 cur_val = 0i32;
                 cur_val_level = 1_u8
@@ -10254,19 +10109,15 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Improper \x00" as *const u8 as *const i8);
+                print_cstr(b"Improper ");
                 print_cmd_chr(80_u16, m);
                 help_ptr = 4_u8;
-                help_line[3] = b"You can refer to \\spacefactor only in horizontal mode;\x00"
-                    as *const u8 as *const i8;
-                help_line[2] = b"you can refer to \\prevdepth only in vertical mode; and\x00"
-                    as *const u8 as *const i8;
-                help_line[1] = b"neither of these is meaningful inside \\write. So\x00" as *const u8
-                    as *const i8;
-                help_line[0] = b"I\'m forgetting what you said and using zero instead.\x00"
-                    as *const u8 as *const i8;
+                help_line[3] = b"You can refer to \\spacefactor only in horizontal mode;";
+                help_line[2] = b"you can refer to \\prevdepth only in vertical mode; and";
+                help_line[1] = b"neither of these is meaningful inside \\write. So";
+                help_line[0] = b"I\'m forgetting what you said and using zero instead.";
                 error();
                 if level as i32 != 5i32 {
                     cur_val = 0i32;
@@ -10717,15 +10568,12 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                                     if file_line_error_style_p != 0 {
                                         print_file_line();
                                     } else {
-                                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                        print_nl_cstr(b"! ");
                                     }
-                                    print_cstr(b"\\\\XeTeXglyphbounds requires an edge index from 1 to 4;\x00"
-                                                   as *const u8 as
-                                                   *const i8);
-                                    print_nl_cstr(
-                                        b"I don\'t know anything about edge \x00" as *const u8
-                                            as *const i8,
+                                    print_cstr(
+                                        b"\\\\XeTeXglyphbounds requires an edge index from 1 to 4;",
                                     );
+                                    print_nl_cstr(b"I don\'t know anything about edge ");
                                     print_int(n);
                                     error();
                                     cur_val = 0i32
@@ -11677,15 +11525,14 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"You can\'t use `\x00" as *const u8 as *const i8);
+            print_cstr(b"You can\'t use `");
             print_cmd_chr(cur_cmd as u16, cur_chr);
-            print_cstr(b"\' after \x00" as *const u8 as *const i8);
-            print_esc_cstr(b"the\x00" as *const u8 as *const i8);
+            print_cstr(b"\' after ");
+            print_esc_cstr(b"the");
             help_ptr = 1_u8;
-            help_line[0] = b"I\'m forgetting what you said and using zero instead.\x00" as *const u8
-                as *const i8;
+            help_line[0] = b"I\'m forgetting what you said and using zero instead.";
             error();
             cur_val = 0i32;
             if level as i32 != 5i32 {
@@ -11769,13 +11616,12 @@ pub(crate) unsafe extern "C" fn scan_int() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"Improper alphabetic constant\x00" as *const u8 as *const i8);
+            print_cstr(b"Improper alphabetic constant");
             help_ptr = 2_u8;
-            help_line[1] = b"A one-character control sequence belongs after a ` mark.\x00"
-                as *const u8 as *const i8;
-            help_line[0] = b"So I\'m essentially inserting \\0 here.\x00" as *const u8 as *const i8;
+            help_line[1] = b"A one-character control sequence belongs after a ` mark.";
+            help_line[0] = b"So I\'m essentially inserting \\0 here.";
             cur_val = '0' as i32;
             back_error();
         } else {
@@ -11829,14 +11675,12 @@ pub(crate) unsafe extern "C" fn scan_int() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(b"Number too big\x00" as *const u8 as *const i8);
+                    print_cstr(b"Number too big");
                     help_ptr = 2_u8;
-                    help_line[1] = b"I can only go up to 2147483647=\'17777777777=\"7FFFFFFF,\x00"
-                        as *const u8 as *const i8;
-                    help_line[0] = b"so I\'m using that number instead of yours.\x00" as *const u8
-                        as *const i8;
+                    help_line[1] = b"I can only go up to 2147483647=\'17777777777=\"7FFFFFFF,";
+                    help_line[0] = b"so I\'m using that number instead of yours.";
                     error();
                     cur_val = 0x7fffffffi32;
                     OK_so_far = false
@@ -11851,16 +11695,13 @@ pub(crate) unsafe extern "C" fn scan_int() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"Missing number, treated as zero\x00" as *const u8 as *const i8);
+            print_cstr(b"Missing number, treated as zero");
             help_ptr = 3_u8;
-            help_line[2] =
-                b"A number should have been here; I inserted `0\'.\x00" as *const u8 as *const i8;
-            help_line[1] = b"(If you can\'t figure out why I needed to see a number,\x00"
-                as *const u8 as *const i8;
-            help_line[0] = b"look up `weird error\' in the index to The TeXbook.)\x00" as *const u8
-                as *const i8;
+            help_line[2] = b"A number should have been here; I inserted `0\'.";
+            help_line[1] = b"(If you can\'t figure out why I needed to see a number,";
+            help_line[0] = b"look up `weird error\' in the index to The TeXbook.)";
             back_error();
         } else if cur_cmd as i32 != 10i32 {
             back_input();
@@ -12004,23 +11845,19 @@ pub(crate) unsafe extern "C" fn xetex_scan_dimen(
             if requires_units {
                 if inf {
                     /*473:*/
-                    if scan_keyword(b"fil\x00" as *const u8 as *const i8) {
+                    if scan_keyword(b"fil") {
                         cur_order = 1i32 as glue_ord;
-                        while scan_keyword(b"l\x00" as *const u8 as *const i8) {
+                        while scan_keyword(b"l") {
                             if cur_order as i32 == 3i32 {
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
                                 } else {
-                                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                    print_nl_cstr(b"! ");
                                 }
-                                print_cstr(
-                                    b"Illegal unit of measure (\x00" as *const u8 as *const i8,
-                                );
-                                print_cstr(b"replaced by filll)\x00" as *const u8 as *const i8);
+                                print_cstr(b"Illegal unit of measure (");
+                                print_cstr(b"replaced by filll)");
                                 help_ptr = 1_u8;
-                                help_line[0] = b"I dddon\'t go any higher than filll.\x00"
-                                    as *const u8
-                                    as *const i8;
+                                help_line[0] = b"I dddon\'t go any higher than filll.";
                                 error();
                             } else {
                                 cur_order = cur_order.wrapping_add(1)
@@ -12047,7 +11884,7 @@ pub(crate) unsafe extern "C" fn xetex_scan_dimen(
                             if mu {
                                 current_block = 17751730340908002208;
                             } else {
-                                if scan_keyword(b"em\x00" as *const u8 as *const i8) {
+                                if scan_keyword(b"em") {
                                     v = (*font_info.offset(
                                         (6i32
                                             + *param_base.offset(
@@ -12078,7 +11915,7 @@ pub(crate) unsafe extern "C" fn xetex_scan_dimen(
                                     .b32
                                     .s1;
                                     current_block = 5195798230510548452;
-                                } else if scan_keyword(b"ex\x00" as *const u8 as *const i8) {
+                                } else if scan_keyword(b"ex") {
                                     v = (*font_info.offset(
                                         (5i32
                                             + *param_base.offset(
@@ -12128,43 +11965,30 @@ pub(crate) unsafe extern "C" fn xetex_scan_dimen(
                                 _ => {
                                     if mu {
                                         /*475:*/
-                                        if scan_keyword(b"mu\x00" as *const u8 as *const i8) {
+                                        if scan_keyword(b"mu") {
                                             current_block = 6063453238281986051;
                                         } else {
                                             if file_line_error_style_p != 0 {
                                                 print_file_line();
                                             } else {
-                                                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                                print_nl_cstr(b"! ");
                                             }
-                                            print_cstr(
-                                                b"Illegal unit of measure (\x00" as *const u8
-                                                    as *const i8,
-                                            );
-                                            print_cstr(
-                                                b"mu inserted)\x00" as *const u8 as *const i8,
-                                            );
+                                            print_cstr(b"Illegal unit of measure (");
+                                            print_cstr(b"mu inserted)");
                                             help_ptr = 4_u8;
                                             help_line[3] =
-                                                b"The unit of measurement in math glue must be mu.\x00"
-                                                    as *const u8 as
-                                                    *const i8;
+                                                b"The unit of measurement in math glue must be mu.";
                                             help_line[2] =
-                                                b"To recover gracefully from this error, it\'s best to\x00"
-                                                    as *const u8 as
-                                                    *const i8;
+                                                b"To recover gracefully from this error, it\'s best to";
                                             help_line[1] =
-                                                b"delete the erroneous units; e.g., type `2\' to delete\x00"
-                                                    as *const u8 as
-                                                    *const i8;
+                                                b"delete the erroneous units; e.g., type `2\' to delete";
                                             help_line[0] =
-                                                b"two letters. (See Chapter 27 of The TeXbook.)\x00"
-                                                    as *const u8
-                                                    as *const i8;
+                                                b"two letters. (See Chapter 27 of The TeXbook.)";
                                             error();
                                             current_block = 6063453238281986051;
                                         }
                                     } else {
-                                        if scan_keyword(b"true\x00" as *const u8 as *const i8) {
+                                        if scan_keyword(b"true") {
                                             /*476:*/
                                             prepare_mag(); /* magic ratio consant */
                                             if (*eqtb.offset(
@@ -12271,103 +12095,70 @@ pub(crate) unsafe extern "C" fn xetex_scan_dimen(
                                                 f = (f as i64 % 65536) as i32
                                             }
                                         }
-                                        if scan_keyword(b"pt\x00" as *const u8 as *const i8) {
+                                        if scan_keyword(b"pt") {
                                             current_block = 6063453238281986051;
                                         } else {
-                                            if scan_keyword(b"in\x00" as *const u8 as *const i8) {
+                                            if scan_keyword(b"in") {
                                                 num = 7227i32;
                                                 denom = 100i32;
                                                 current_block = 15908231092227701503;
-                                            } else if scan_keyword(
-                                                b"pc\x00" as *const u8 as *const i8,
-                                            ) {
+                                            } else if scan_keyword(b"pc") {
                                                 num = 12i32;
                                                 denom = 1i32;
                                                 current_block = 15908231092227701503;
-                                            } else if scan_keyword(
-                                                b"cm\x00" as *const u8 as *const i8,
-                                            ) {
+                                            } else if scan_keyword(b"cm") {
                                                 num = 7227i32;
                                                 denom = 254i32;
                                                 current_block = 15908231092227701503;
                                             /* magic ratio consant */
-                                            } else if scan_keyword(
-                                                b"mm\x00" as *const u8 as *const i8,
-                                            ) {
+                                            } else if scan_keyword(b"mm") {
                                                 num = 7227i32;
                                                 denom = 2540i32;
                                                 current_block = 15908231092227701503;
                                             /* magic ratio consant */
                                             /* magic ratio consant */
-                                            } else if scan_keyword(
-                                                b"bp\x00" as *const u8 as *const i8,
-                                            ) {
+                                            } else if scan_keyword(b"bp") {
                                                 num = 7227i32;
                                                 denom = 7200i32;
                                                 current_block = 15908231092227701503;
                                             /* magic ratio consant */
                                             /* magic ratio consant */
-                                            } else if scan_keyword(
-                                                b"dd\x00" as *const u8 as *const i8,
-                                            ) {
+                                            } else if scan_keyword(b"dd") {
                                                 num = 1238i32;
                                                 denom = 1157i32;
                                                 current_block = 15908231092227701503;
                                             /* magic ratio consant */
                                             /* magic ratio consant */
-                                            } else if scan_keyword(
-                                                b"cc\x00" as *const u8 as *const i8,
-                                            ) {
+                                            } else if scan_keyword(b"cc") {
                                                 num = 14856i32;
                                                 denom = 1157i32;
                                                 current_block = 15908231092227701503;
                                             /* magic ratio consant */
                                             /* magic ratio consant */
-                                            } else if scan_keyword(
-                                                b"sp\x00" as *const u8 as *const i8,
-                                            ) {
+                                            } else if scan_keyword(b"sp") {
                                                 current_block = 8982780081639585757;
                                             /*478:*/
                                             } else {
                                                 if file_line_error_style_p != 0 {
                                                     print_file_line();
                                                 } else {
-                                                    print_nl_cstr(
-                                                        b"! \x00" as *const u8 as *const i8,
-                                                    );
+                                                    print_nl_cstr(b"! ");
                                                 }
-                                                print_cstr(
-                                                    b"Illegal unit of measure (\x00" as *const u8
-                                                        as *const i8,
-                                                );
-                                                print_cstr(
-                                                    b"pt inserted)\x00" as *const u8 as *const i8,
-                                                );
+                                                print_cstr(b"Illegal unit of measure (");
+                                                print_cstr(b"pt inserted)");
                                                 help_ptr = 6_u8;
                                                 help_line[5] =
-                                                    b"Dimensions can be in units of em, ex, in, pt, pc,\x00"
-                                                        as *const u8 as
-                                                        *const i8;
+                                                    b"Dimensions can be in units of em, ex, in, pt, pc,";
                                                 help_line[4] =
-                                                    b"cm, mm, dd, cc, bp, or sp; but yours is a new one!\x00"
-                                                        as *const u8 as
-                                                        *const i8;
+                                                    b"cm, mm, dd, cc, bp, or sp; but yours is a new one!";
                                                 help_line[3] =
-                                                    b"I\'ll assume that you meant to say pt, for printer\'s points.\x00"
-                                                        as *const u8 as
-                                                        *const i8;
+                                                    b"I\'ll assume that you meant to say pt, for printer\'s points.";
                                                 help_line[2] =
-                                                    b"To recover gracefully from this error, it\'s best to\x00"
-                                                        as *const u8 as
-                                                        *const i8;
+                                                    b"To recover gracefully from this error, it\'s best to";
                                                 help_line[1] =
-                                                    b"delete the erroneous units; e.g., type `2\' to delete\x00"
-                                                        as *const u8 as
-                                                        *const i8;
+                                                    b"delete the erroneous units; e.g., type `2\' to delete";
                                                 help_line[0] =
-                                                    b"two letters. (See Chapter 27 of The TeXbook.)\x00"
-                                                        as *const u8 as
-                                                        *const i8;
+                                                    b"two letters. (See Chapter 27 of The TeXbook.)";
                                                 error();
                                                 current_block = 6063453238281986051;
                                             }
@@ -12455,14 +12246,12 @@ pub(crate) unsafe extern "C" fn xetex_scan_dimen(
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Dimension too large\x00" as *const u8 as *const i8);
+        print_cstr(b"Dimension too large");
         help_ptr = 2_u8;
-        help_line[1] =
-            b"I can\'t work with sizes bigger than about 19 feet.\x00" as *const u8 as *const i8;
-        help_line[0] =
-            b"Continue and I\'ll use the largest value I can.\x00" as *const u8 as *const i8;
+        help_line[1] = b"I can\'t work with sizes bigger than about 19 feet.";
+        help_line[0] = b"Continue and I\'ll use the largest value I can.";
         error();
         cur_val = 0x3fffffffi32;
         arith_error = false
@@ -12526,12 +12315,12 @@ pub(crate) unsafe extern "C" fn scan_glue(mut level: small_number) {
     }
     q = new_spec(0i32);
     (*mem.offset((q + 1i32) as isize)).b32.s1 = cur_val;
-    if scan_keyword(b"plus\x00" as *const u8 as *const i8) {
+    if scan_keyword(b"plus") {
         scan_dimen(mu, true, false);
         (*mem.offset((q + 2i32) as isize)).b32.s1 = cur_val;
         (*mem.offset(q as isize)).b16.s1 = cur_order as u16
     }
-    if scan_keyword(b"minus\x00" as *const u8 as *const i8) {
+    if scan_keyword(b"minus") {
         scan_dimen(mu, true, false);
         (*mem.offset((q + 3i32) as isize)).b32.s1 = cur_val;
         (*mem.offset(q as isize)).b16.s0 = cur_order as u16
@@ -12798,15 +12587,12 @@ pub(crate) unsafe extern "C" fn scan_expr() {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"! ");
                         }
-                        print_cstr(
-                            b"Missing ) inserted for expression\x00" as *const u8 as *const i8,
-                        );
+                        print_cstr(b"Missing ) inserted for expression");
                         help_ptr = 1_u8;
                         help_line[0] =
-                            b"I was expecting to see `+\', `-\', `*\', `/\', or `)\'. Didn\'t.\x00"
-                                as *const u8 as *const i8;
+                            b"I was expecting to see `+\', `-\', `*\', `/\', or `)\'. Didn\'t.";
                         back_error();
                     }
                 }
@@ -13012,12 +12798,12 @@ pub(crate) unsafe extern "C" fn scan_expr() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Arithmetic overflow\x00" as *const u8 as *const i8);
+        print_cstr(b"Arithmetic overflow");
         help_ptr = 2_u8;
-        help_line[1] = b"I can\'t evaluate this expression,\x00" as *const u8 as *const i8;
-        help_line[0] = b"since the result is out of range.\x00" as *const u8 as *const i8;
+        help_line[1] = b"I can\'t evaluate this expression,";
+        help_line[0] = b"since the result is out of range.";
         error();
         if l as i32 >= 2i32 {
             delete_glue_ref(e);
@@ -13051,14 +12837,14 @@ pub(crate) unsafe extern "C" fn scan_rule_spec() -> i32 {
         (*mem.offset((q + 2i32) as isize)).b32.s1 = 0i32
     }
     loop {
-        if scan_keyword(b"width\x00" as *const u8 as *const i8) {
+        if scan_keyword(b"width") {
             scan_dimen(false, false, false);
             (*mem.offset((q + 1i32) as isize)).b32.s1 = cur_val
-        } else if scan_keyword(b"height\x00" as *const u8 as *const i8) {
+        } else if scan_keyword(b"height") {
             scan_dimen(false, false, false);
             (*mem.offset((q + 3i32) as isize)).b32.s1 = cur_val
         } else {
-            if !scan_keyword(b"depth\x00" as *const u8 as *const i8) {
+            if !scan_keyword(b"depth") {
                 break;
             }
             scan_dimen(false, false, false);
@@ -13138,10 +12924,7 @@ pub(crate) unsafe extern "C" fn pseudo_start() {
     selector = old_setting_0;
     flush_list((*mem.offset((4999999i32 - 3i32) as isize)).b32.s1);
     if pool_ptr + 1i32 > pool_size {
-        overflow(
-            b"pool size\x00" as *const u8 as *const i8,
-            pool_size - init_pool_ptr,
-        );
+        overflow(b"pool size", pool_size - init_pool_ptr);
     }
     s = make_string();
     *str_pool.offset(pool_ptr as isize) = ' ' as i32 as packed_UTF16_code;
@@ -13266,7 +13049,7 @@ pub(crate) unsafe extern "C" fn pseudo_start() {
             print_char(' ' as i32);
         }
         cur_input.name = 19i32;
-        print_cstr(b"( \x00" as *const u8 as *const i8);
+        print_cstr(b"( ");
         open_parens += 1;
         rust_stdout.as_mut().unwrap().flush().unwrap();
     } else {
@@ -13281,10 +13064,7 @@ pub(crate) unsafe extern "C" fn str_toks_cat(mut b: pool_pointer, mut cat: small
     let mut t: i32 = 0;
     let mut k: pool_pointer = 0;
     if pool_ptr + 1i32 > pool_size {
-        overflow(
-            b"pool size\x00" as *const u8 as *const i8,
-            pool_size - init_pool_ptr,
-        );
+        overflow(b"pool size", pool_size - init_pool_ptr);
     }
     p = 4999999i32 - 3i32;
     (*mem.offset(p as isize)).b32.s1 = TEX_NULL;
@@ -13393,7 +13173,7 @@ pub(crate) unsafe extern "C" fn the_toks() -> i32 {
             }
             1 => {
                 print_scaled(cur_val);
-                print_cstr(b"pt\x00" as *const u8 as *const i8);
+                print_cstr(b"pt");
             }
             2 => {
                 print_spec(cur_val, b"pt\x00" as *const u8 as *const i8);
@@ -13460,16 +13240,13 @@ pub(crate) unsafe extern "C" fn conv_toks() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Invalid code (\x00" as *const u8 as *const i8);
+                print_cstr(b"Invalid code (");
                 print_int(cur_val);
-                print_cstr(
-                    b"), should be in the ranges 1..4, 6..8, 10..12\x00" as *const u8 as *const i8,
-                );
+                print_cstr(b"), should be in the ranges 1..4, 6..8, 10..12");
                 help_ptr = 1_u8;
-                help_line[0] = b"I\'m going to use 12 instead of that illegal code value.\x00"
-                    as *const u8 as *const i8;
+                help_line[0] = b"I\'m going to use 12 instead of that illegal code value.";
                 error();
                 cat = 12i32 as small_number
             } else {
@@ -13503,13 +13280,12 @@ pub(crate) unsafe extern "C" fn conv_toks() {
             } else {
                 u = 0i32
             }
-            boolvar = scan_keyword(b"file\x00" as *const u8 as *const i8);
+            boolvar = scan_keyword(b"file");
             scan_pdf_ext_toks();
             if selector == Selector::NEW_STRING {
                 pdf_error(
-                    b"tokens\x00" as *const u8 as *const i8,
-                    b"tokens_to_string() called while selector = new_string\x00" as *const u8
-                        as *const i8,
+                    b"tokens",
+                    b"tokens_to_string() called while selector = new_string",
                 );
             }
             let old_setting_0 = selector;
@@ -13626,10 +13402,7 @@ pub(crate) unsafe extern "C" fn conv_toks() {
                 }
             }
             if p == TEX_NULL || (*mem.offset(p as isize)).b16.s1 as i32 != 0i32 {
-                pdf_error(
-                    b"marginkern\x00" as *const u8 as *const i8,
-                    b"a non-empty hbox expected\x00" as *const u8 as *const i8,
-                );
+                pdf_error(b"marginkern", b"a non-empty hbox expected");
             }
         }
         15 => {
@@ -13685,22 +13458,22 @@ pub(crate) unsafe extern "C" fn conv_toks() {
                 }
             }
             if *font_size.offset(cur_val as isize) != *font_dsize.offset(cur_val as isize) {
-                print_cstr(b" at \x00" as *const u8 as *const i8);
+                print_cstr(b" at ");
                 print_scaled(*font_size.offset(cur_val as isize));
-                print_cstr(b"pt\x00" as *const u8 as *const i8);
+                print_cstr(b"pt");
             }
         }
         13 | 14 => {
             print_char(cur_val);
         }
         5 => {
-            print_cstr(b".6\x00" as *const u8 as *const i8);
+            print_cstr(b".6");
         }
         43 => {
             print_int(cur_val);
         }
         6 => {
-            print_cstr(b".99998\x00" as *const u8 as *const i8);
+            print_cstr(b".99998");
         }
         7 => {
             match *font_area.offset(fnt as isize) as u32 {
@@ -13798,7 +13571,7 @@ pub(crate) unsafe extern "C" fn conv_toks() {
             } else {
                 print('0' as i32);
             }
-            print_cstr(b"pt\x00" as *const u8 as *const i8);
+            print_cstr(b"pt");
         }
         12 => {
             q = (*mem.offset((p + 5i32) as isize)).b32.s1;
@@ -13840,7 +13613,7 @@ pub(crate) unsafe extern "C" fn conv_toks() {
             } else {
                 print('0' as i32);
             }
-            print_cstr(b"pt\x00" as *const u8 as *const i8);
+            print_cstr(b"pt");
         }
         15 => {
             print_file_name(job_name, 0i32, 0i32);
@@ -13900,12 +13673,11 @@ pub(crate) unsafe extern "C" fn scan_toks(mut macro_def: bool, mut xpand: bool) 
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(b"You already have nine parameters\x00" as *const u8 as *const i8);
+                    print_cstr(b"You already have nine parameters");
                     help_ptr = 1_u8;
-                    help_line[0] = b"I\'m going to ignore the # sign you just used.\x00"
-                        as *const u8 as *const i8;
+                    help_line[0] = b"I\'m going to ignore the # sign you just used.";
                     error();
                 } else {
                     t += 1;
@@ -13913,18 +13685,13 @@ pub(crate) unsafe extern "C" fn scan_toks(mut macro_def: bool, mut xpand: bool) 
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"! ");
                         }
-                        print_cstr(
-                            b"Parameters must be numbered consecutively\x00" as *const u8
-                                as *const i8,
-                        );
+                        print_cstr(b"Parameters must be numbered consecutively");
                         help_ptr = 2_u8;
                         help_line[1] =
-                            b"I\'ve inserted the digit you should have used after the #.\x00"
-                                as *const u8 as *const i8;
-                        help_line[0] =
-                            b"Type `1\' to delete what you did use.\x00" as *const u8 as *const i8;
+                            b"I\'ve inserted the digit you should have used after the #.";
+                        help_line[0] = b"Type `1\' to delete what you did use.";
                         back_error();
                     }
                     cur_tok = s
@@ -13947,16 +13714,14 @@ pub(crate) unsafe extern "C" fn scan_toks(mut macro_def: bool, mut xpand: bool) 
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(b"Missing { inserted\x00" as *const u8 as *const i8);
+                    print_cstr(b"Missing { inserted");
                     align_state += 1;
                     help_ptr = 2_u8;
                     help_line[1] =
-                        b"Where was the left brace? You said something like `\\def\\a}\',\x00"
-                            as *const u8 as *const i8;
-                    help_line[0] = b"which I\'m going to interpret as `\\def\\a{}\'.\x00"
-                        as *const u8 as *const i8;
+                        b"Where was the left brace? You said something like `\\def\\a}\',";
+                    help_line[0] = b"which I\'m going to interpret as `\\def\\a{}\'.";
                     error();
                     current_block = 17047787784317322882;
                 } else {
@@ -14028,24 +13793,16 @@ pub(crate) unsafe extern "C" fn scan_toks(mut macro_def: bool, mut xpand: bool) 
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
                                 } else {
-                                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                    print_nl_cstr(b"! ");
                                 }
-                                print_cstr(
-                                    b"Illegal parameter number in definition of \x00" as *const u8
-                                        as *const i8,
-                                );
+                                print_cstr(b"Illegal parameter number in definition of ");
                                 sprint_cs(warning_index);
                                 help_ptr = 3_u8;
-                                help_line[2] = b"You meant to type ## instead of #, right?\x00"
-                                    as *const u8
-                                    as *const i8;
+                                help_line[2] = b"You meant to type ## instead of #, right?";
                                 help_line[1] =
-                                    b"Or maybe a } was forgotten somewhere earlier, and things\x00"
-                                        as *const u8
-                                        as *const i8;
+                                    b"Or maybe a } was forgotten somewhere earlier, and things";
                                 help_line[0] =
-                                    b"are all screwed up? I\'m going to assume that you meant ##.\x00"
-                                        as *const u8 as *const i8;
+                                    b"are all screwed up? I\'m going to assume that you meant ##.";
                                 back_error();
                                 cur_tok = s
                             } else {
@@ -14119,12 +13876,12 @@ pub(crate) unsafe extern "C" fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"File ended within \x00" as *const u8 as *const i8);
-                print_esc_cstr(b"read\x00" as *const u8 as *const i8);
+                print_cstr(b"File ended within ");
+                print_esc_cstr(b"read");
                 help_ptr = 1_u8;
-                help_line[0] = b"This \\read has unbalanced braces.\x00" as *const u8 as *const i8;
+                help_line[0] = b"This \\read has unbalanced braces.";
                 align_state = 1000000i64 as i32;
                 error();
             }
@@ -14334,7 +14091,7 @@ pub(crate) unsafe extern "C" fn change_if_limit(mut l: small_number, mut p: i32)
         q = cond_ptr;
         loop {
             if q == TEX_NULL {
-                confusion(b"if\x00" as *const u8 as *const i8);
+                confusion(b"if");
             }
             if (*mem.offset(q as isize)).b32.s1 == p {
                 (*mem.offset(q as isize)).b16.s1 = l as u16;
@@ -14486,13 +14243,12 @@ pub(crate) unsafe extern "C" fn conditional() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Missing = inserted for \x00" as *const u8 as *const i8);
+                print_cstr(b"Missing = inserted for ");
                 print_cmd_chr(107_u16, this_if as i32);
                 help_ptr = 1_u8;
-                help_line[0] = b"I was expecting to see `<\', `=\', or `>\'. Didn\'t.\x00"
-                    as *const u8 as *const i8;
+                help_line[0] = b"I was expecting to see `<\', `=\', or `>\'. Didn\'t.";
                 back_error();
                 r = '=' as i32 as u8
             }
@@ -14662,16 +14418,14 @@ pub(crate) unsafe extern "C" fn conditional() {
                 if file_line_error_style_p != 0 {
                     print_file_line(); /*:1556*/
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Missing \x00" as *const u8 as *const i8);
-                print_esc_cstr(b"endcsname\x00" as *const u8 as *const i8);
-                print_cstr(b" inserted\x00" as *const u8 as *const i8);
+                print_cstr(b"Missing ");
+                print_esc_cstr(b"endcsname");
+                print_cstr(b" inserted");
                 help_ptr = 2_u8;
-                help_line[1] = b"The control sequence marked <to be read again> should\x00"
-                    as *const u8 as *const i8;
-                help_line[0] =
-                    b"not appear between \\csname and \\endcsname.\x00" as *const u8 as *const i8;
+                help_line[1] = b"The control sequence marked <to be read again> should";
+                help_line[0] = b"not appear between \\csname and \\endcsname.";
                 back_error();
             }
             m = first;
@@ -14680,7 +14434,7 @@ pub(crate) unsafe extern "C" fn conditional() {
                 if m >= max_buf_stack {
                     max_buf_stack = m + 1i32;
                     if max_buf_stack == buf_size {
-                        overflow(b"buffer size\x00" as *const u8 as *const i8, buf_size);
+                        overflow(b"buffer size", buf_size);
                     }
                 }
                 *buffer.offset(m as isize) = (*mem.offset(p as isize)).b32.s0 % 0x200000i32;
@@ -14760,7 +14514,7 @@ pub(crate) unsafe extern "C" fn conditional() {
             .s1 > 1i32
             {
                 begin_diagnostic();
-                print_cstr(b"{case \x00" as *const u8 as *const i8);
+                print_cstr(b"{case ");
                 print_int(n);
                 print_char('}' as i32);
                 end_diagnostic(false);
@@ -14856,9 +14610,9 @@ pub(crate) unsafe extern "C" fn conditional() {
                 /*521:*/
                 begin_diagnostic();
                 if b {
-                    print_cstr(b"{true}\x00" as *const u8 as *const i8);
+                    print_cstr(b"{true}");
                 } else {
-                    print_cstr(b"{false}\x00" as *const u8 as *const i8);
+                    print_cstr(b"{false}");
                 }
                 end_diagnostic(false);
             }
@@ -14875,13 +14629,12 @@ pub(crate) unsafe extern "C" fn conditional() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(b"Extra \x00" as *const u8 as *const i8);
-                    print_esc_cstr(b"or\x00" as *const u8 as *const i8);
+                    print_cstr(b"Extra ");
+                    print_esc_cstr(b"or");
                     help_ptr = 1_u8;
-                    help_line[0] = b"I\'m ignoring this; it doesn\'t match any \\if.\x00"
-                        as *const u8 as *const i8;
+                    help_line[0] = b"I\'m ignoring this; it doesn\'t match any \\if.";
                     error();
                 } else if cur_chr == 2i32 {
                     /*515:*/
@@ -14942,10 +14695,7 @@ pub(crate) unsafe extern "C" fn more_name(mut c: UTF16_code) -> bool {
         return true;
     }
     if pool_ptr + 1i32 > pool_size {
-        overflow(
-            b"pool size\x00" as *const u8 as *const i8,
-            pool_size - init_pool_ptr,
-        );
+        overflow(b"pool size", pool_size - init_pool_ptr);
     }
     let fresh37 = pool_ptr;
     pool_ptr = pool_ptr + 1;
@@ -14963,10 +14713,7 @@ pub(crate) unsafe extern "C" fn end_name() {
     let mut temp_str: str_number = 0;
     let mut j: pool_pointer = 0;
     if str_ptr + 3i32 > max_strings {
-        overflow(
-            b"number of strings\x00" as *const u8 as *const i8,
-            max_strings - init_str_ptr,
-        );
+        overflow(b"number of strings", max_strings - init_str_ptr);
     }
     /* area_delimiter is the length from the start of the filename to the
      * directory seperator "/", which we use to construct the stringpool
@@ -15137,7 +14884,7 @@ pub(crate) unsafe extern "C" fn open_log_file() {
     *input_stack.offset(input_ptr as isize) = cur_input;
     /* Here we catch the log file up with anything that has already been
      * printed. The eqtb reference is end_line_char. */
-    print_nl_cstr(b"**\x00" as *const u8 as *const i8);
+    print_nl_cstr(b"**");
     l = (*input_stack.offset(0)).limit;
     if *buffer.offset(l as isize)
         == (*eqtb.offset(
@@ -15668,13 +15415,13 @@ pub(crate) unsafe extern "C" fn char_warning(mut f: internal_font_number, mut c:
             .s1 = 1i32
         }
         begin_diagnostic();
-        print_nl_cstr(b"Missing character: There is no \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"Missing character: There is no ");
         if (c as i64) < 65536 {
             print(c);
         } else {
             print_char(c);
         }
-        print_cstr(b" in font \x00" as *const u8 as *const i8);
+        print_cstr(b" in font ");
         print(*font_name.offset(f as isize));
         print_char('!' as i32);
         end_diagnostic(false);
@@ -15811,10 +15558,7 @@ pub(crate) unsafe extern "C" fn new_native_character(
     if !(*font_mapping.offset(f as isize)).is_null() {
         if c as i64 > 65535 {
             if pool_ptr + 2i32 > pool_size {
-                overflow(
-                    b"pool size\x00" as *const u8 as *const i8,
-                    pool_size - init_pool_ptr,
-                );
+                overflow(b"pool size", pool_size - init_pool_ptr);
             }
             *str_pool.offset(pool_ptr as isize) =
                 ((c as i64 - 65536) / 1024i32 as i64 + 0xd800i32 as i64) as packed_UTF16_code;
@@ -15824,10 +15568,7 @@ pub(crate) unsafe extern "C" fn new_native_character(
             pool_ptr += 1
         } else {
             if pool_ptr + 1i32 > pool_size {
-                overflow(
-                    b"pool size\x00" as *const u8 as *const i8,
-                    pool_size - init_pool_ptr,
-                );
+                overflow(b"pool size", pool_size - init_pool_ptr);
             }
             *str_pool.offset(pool_ptr as isize) = c as packed_UTF16_code;
             pool_ptr += 1
@@ -15961,21 +15702,21 @@ pub(crate) unsafe extern "C" fn font_feature_warning(
     mut setLen: i32,
 ) {
     begin_diagnostic();
-    print_nl_cstr(b"Unknown \x00" as *const u8 as *const i8);
+    print_nl_cstr(b"Unknown ");
     if setLen > 0i32 {
-        print_cstr(b"selector `\x00" as *const u8 as *const i8);
+        print_cstr(b"selector `");
         print_utf8_str(settingNameP as *const u8, setLen);
-        print_cstr(b"\' for \x00" as *const u8 as *const i8);
+        print_cstr(b"\' for ");
     }
-    print_cstr(b"feature `\x00" as *const u8 as *const i8);
+    print_cstr(b"feature `");
     print_utf8_str(featureNameP as *const u8, featLen);
-    print_cstr(b"\' in font `\x00" as *const u8 as *const i8);
+    print_cstr(b"\' in font `");
     let mut i: i32 = 0i32;
     while *name_of_file.offset(i as isize) as i32 != 0i32 {
         print_raw_char(*name_of_file.offset(i as isize) as UTF16_code, true);
         i += 1
     }
-    print_cstr(b"\'.\x00" as *const u8 as *const i8);
+    print_cstr(b"\'.");
     end_diagnostic(false);
 }
 #[no_mangle]
@@ -15986,12 +15727,12 @@ pub(crate) unsafe extern "C" fn font_mapping_warning(
 ) {
     begin_diagnostic();
     if warningType == 0i32 {
-        print_nl_cstr(b"Loaded mapping `\x00" as *const u8 as *const i8);
+        print_nl_cstr(b"Loaded mapping `");
     } else {
-        print_nl_cstr(b"Font mapping `\x00" as *const u8 as *const i8);
+        print_nl_cstr(b"Font mapping `");
     }
     print_utf8_str(mappingNameP as *const u8, mappingNameLen);
-    print_cstr(b"\' for font `\x00" as *const u8 as *const i8);
+    print_cstr(b"\' for font `");
     let mut i: i32 = 0i32;
     while *name_of_file.offset(i as isize) as i32 != 0i32 {
         print_raw_char(*name_of_file.offset(i as isize) as UTF16_code, true);
@@ -15999,16 +15740,14 @@ pub(crate) unsafe extern "C" fn font_mapping_warning(
     }
     match warningType {
         1 => {
-            print_cstr(b"\' not found.\x00" as *const u8 as *const i8);
+            print_cstr(b"\' not found.");
         }
         2 => {
-            print_cstr(b"\' not usable;\x00" as *const u8 as *const i8);
-            print_nl_cstr(
-                b"bad mapping file or incorrect mapping type.\x00" as *const u8 as *const i8,
-            );
+            print_cstr(b"\' not usable;");
+            print_nl_cstr(b"bad mapping file or incorrect mapping type.");
         }
         _ => {
-            print_cstr(b"\'.\x00" as *const u8 as *const i8);
+            print_cstr(b"\'.");
         }
     }
     end_diagnostic(false);
@@ -16016,16 +15755,13 @@ pub(crate) unsafe extern "C" fn font_mapping_warning(
 #[no_mangle]
 pub(crate) unsafe extern "C" fn graphite_warning() {
     begin_diagnostic();
-    print_nl_cstr(b"Font `\x00" as *const u8 as *const i8);
+    print_nl_cstr(b"Font `");
     let mut i: i32 = 0i32;
     while *name_of_file.offset(i as isize) as i32 != 0i32 {
         print_raw_char(*name_of_file.offset(i as isize) as UTF16_code, true);
         i += 1
     }
-    print_cstr(
-        b"\' does not support Graphite. Trying OpenType layout instead.\x00" as *const u8
-            as *const i8,
-    );
+    print_cstr(b"\' does not support Graphite. Trying OpenType layout instead.");
     end_diagnostic(false);
 }
 #[no_mangle]
@@ -16059,10 +15795,7 @@ pub(crate) unsafe extern "C" fn load_native_font(
         actual_size = loaded_font_design_size
     }
     if pool_ptr + name_length > pool_size {
-        overflow(
-            b"pool size\x00" as *const u8 as *const i8,
-            pool_size - init_pool_ptr,
-        );
+        overflow(b"pool size", pool_size - init_pool_ptr);
     }
     k = 0i32;
     while k < name_length {
@@ -16096,9 +15829,9 @@ pub(crate) unsafe extern "C" fn load_native_font(
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Font \x00" as *const u8 as *const i8);
+        print_cstr(b"Font ");
         sprint_cs(u);
         print_char('=' as i32);
         if file_name_quote_char as i32 != 0i32 {
@@ -16109,23 +15842,19 @@ pub(crate) unsafe extern "C" fn load_native_font(
             print_char(file_name_quote_char as i32);
         }
         if s >= 0i32 {
-            print_cstr(b" at \x00" as *const u8 as *const i8);
+            print_cstr(b" at ");
             print_scaled(s);
-            print_cstr(b"pt\x00" as *const u8 as *const i8);
+            print_cstr(b"pt");
         } else if s != -1000i32 {
-            print_cstr(b" scaled \x00" as *const u8 as *const i8);
+            print_cstr(b" scaled ");
             print_int(-s);
         }
-        print_cstr(b" not loaded: Not enough room left\x00" as *const u8 as *const i8);
+        print_cstr(b" not loaded: Not enough room left");
         help_ptr = 4_u8;
-        help_line[3] =
-            b"I\'m afraid I won\'t be able to make use of this font,\x00" as *const u8 as *const i8;
-        help_line[2] = b"because my memory for character-size data is too small.\x00" as *const u8
-            as *const i8;
-        help_line[1] =
-            b"If you\'re really stuck, ask a wizard to enlarge me.\x00" as *const u8 as *const i8;
-        help_line[0] = b"Or maybe try `I\\font<same font id>=<name of loaded font>\'.\x00"
-            as *const u8 as *const i8;
+        help_line[3] = b"I\'m afraid I won\'t be able to make use of this font,";
+        help_line[2] = b"because my memory for character-size data is too small.";
+        help_line[1] = b"If you\'re really stuck, ask a wizard to enlarge me.";
+        help_line[0] = b"Or maybe try `I\\font<same font id>=<name of loaded font>\'.";
         error();
         return 0i32;
     }
@@ -16556,14 +16285,14 @@ pub(crate) unsafe extern "C" fn do_locale_linebreaks(mut s: i32, mut len: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn bad_utf8_warning() {
     begin_diagnostic();
-    print_nl_cstr(b"Invalid UTF-8 byte or sequence\x00" as *const u8 as *const i8);
+    print_nl_cstr(b"Invalid UTF-8 byte or sequence");
     if cur_input.name == 0i32 {
-        print_cstr(b" in terminal input\x00" as *const u8 as *const i8);
+        print_cstr(b" in terminal input");
     } else {
-        print_cstr(b" at line \x00" as *const u8 as *const i8);
+        print_cstr(b" at line ");
         print_int(line);
     }
-    print_cstr(b" replaced by U+FFFD.\x00" as *const u8 as *const i8);
+    print_cstr(b" replaced by U+FFFD.");
     end_diagnostic(false);
 }
 #[no_mangle]
@@ -16680,16 +16409,16 @@ pub(crate) unsafe extern "C" fn read_font_info(
 
     if INTPAR(INT_PAR__xetex_tracing_fonts) > 0 {
         begin_diagnostic();
-        print_nl_cstr(b"Requested font \"\x00" as *const u8 as *const i8);
+        print_nl_cstr(b"Requested font \"");
         print_c_string(name_of_file);
         print('\"' as i32);
         if s < 0 {
-            print_cstr(b" scaled \x00" as *const u8 as *const i8);
+            print_cstr(b" scaled ");
             print_int(-s);
         } else {
-            print_cstr(b" at \x00" as *const u8 as *const i8);
+            print_cstr(b" at ");
             print_scaled(s);
-            print_cstr(b"pt\x00" as *const u8 as *const i8);
+            print_cstr(b"pt");
         }
         end_diagnostic(false);
     }
@@ -17162,9 +16891,9 @@ pub(crate) unsafe extern "C" fn read_font_info(
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"Font \x00" as *const u8 as *const i8);
+            print_cstr(b"Font ");
             sprint_cs(u);
             print_char('=' as i32);
             if file_name_quote_char as i32 != 0i32 {
@@ -17175,36 +16904,26 @@ pub(crate) unsafe extern "C" fn read_font_info(
                 print_char(file_name_quote_char as i32);
             }
             if s >= 0 {
-                print_cstr(b" at \x00" as *const u8 as *const i8);
+                print_cstr(b" at ");
                 print_scaled(s);
-                print_cstr(b"pt\x00" as *const u8 as *const i8);
+                print_cstr(b"pt");
             } else if s != -1000 {
-                print_cstr(b" scaled \x00" as *const u8 as *const i8);
+                print_cstr(b" scaled ");
                 print_int(-s);
             }
             if tfm_file.is_some() {
-                print_cstr(b" not loadable: Bad metric (TFM) file\x00" as *const u8 as *const i8);
+                print_cstr(b" not loadable: Bad metric (TFM) file");
             } else if name_too_long {
-                print_cstr(
-                    b" not loadable: Metric (TFM) file name too long\x00" as *const u8 as *const i8,
-                );
+                print_cstr(b" not loadable: Metric (TFM) file name too long");
             } else {
-                print_cstr(
-                    b" not loadable: Metric (TFM) file or installed font not found\x00" as *const u8
-                        as *const i8,
-                );
+                print_cstr(b" not loadable: Metric (TFM) file or installed font not found");
             }
             help_ptr = 5_u8;
-            help_line[4] = b"I wasn\'t able to read the size data for this font,\x00" as *const u8
-                as *const i8;
-            help_line[3] =
-                b"so I will ignore the font specification.\x00" as *const u8 as *const i8;
-            help_line[2] =
-                b"[Wizards can fix TFM files using TFtoPL/PLtoTF.]\x00" as *const u8 as *const i8;
-            help_line[1] =
-                b"You might try inserting a different font spec;\x00" as *const u8 as *const i8;
-            help_line[0] = b"e.g., type `I\\font<same font id>=<substitute font name>\'.\x00"
-                as *const u8 as *const i8;
+            help_line[4] = b"I wasn\'t able to read the size data for this font,";
+            help_line[3] = b"so I will ignore the font specification.";
+            help_line[2] = b"[Wizards can fix TFM files using TFtoPL/PLtoTF.]";
+            help_line[1] = b"You might try inserting a different font spec;";
+            help_line[0] = b"e.g., type `I\\font<same font id>=<substitute font name>\'.";
             error();
         }
         return done(tfm_file, g);
@@ -17221,13 +16940,11 @@ pub(crate) unsafe extern "C" fn read_font_info(
         if INTPAR(INT_PAR__xetex_tracing_fonts) > 0 {
             if g == FONT_BASE {
                 begin_diagnostic();
-                print_nl_cstr(
-                    b" -> font not found, using \"nullfont\"\x00" as *const u8 as *const i8,
-                );
+                print_nl_cstr(b" -> font not found, using \"nullfont\"");
                 end_diagnostic(false);
             } else if file_opened {
                 begin_diagnostic();
-                print_nl_cstr(b" -> \x00" as *const u8 as *const i8);
+                print_nl_cstr(b" -> ");
                 print_c_string(name_of_file);
                 end_diagnostic(false);
             }
@@ -17275,10 +16992,10 @@ pub(crate) unsafe extern "C" fn scan_spec(mut c: group_code, mut three_codes: bo
     if three_codes {
         s = (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1
     }
-    if scan_keyword(b"to\x00" as *const u8 as *const i8) {
+    if scan_keyword(b"to") {
         spec_code = 0_u8;
         current_block = 8515828400728868193;
-    } else if scan_keyword(b"spread\x00" as *const u8 as *const i8) {
+    } else if scan_keyword(b"spread") {
         spec_code = 1_u8;
         current_block = 8515828400728868193;
     } else {
@@ -17530,7 +17247,7 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
                         if (*mem.offset(p as isize)).b16.s1 as i32 == 5i32 {
                             if (*mem.offset(p as isize)).b16.s0 as i32 != 0i32 {
                                 if pre_adjust_tail == TEX_NULL {
-                                    confusion(b"pre vadjust\x00" as *const u8 as *const i8);
+                                    confusion(b"pre vadjust");
                                 }
                                 (*mem.offset(pre_adjust_tail as isize)).b32.s1 =
                                     (*mem.offset((p + 1i32) as isize)).b32.s1;
@@ -17539,7 +17256,7 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
                                 }
                             } else {
                                 if adjust_tail == TEX_NULL {
-                                    confusion(b"pre vadjust\x00" as *const u8 as *const i8);
+                                    confusion(b"pre vadjust");
                                 }
                                 (*mem.offset(adjust_tail as isize)).b32.s1 =
                                     (*mem.offset((p + 1i32) as isize)).b32.s1;
@@ -17896,11 +17613,11 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
                 {
                     print_ln();
                     if last_badness > 100i32 {
-                        print_nl_cstr(b"Underfull\x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"Underfull");
                     } else {
-                        print_nl_cstr(b"Loose\x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"Loose");
                     }
-                    print_cstr(b" \\hbox (badness \x00" as *const u8 as *const i8);
+                    print_cstr(b" \\hbox (badness ");
                     print_int(last_badness);
                     current_block = 13814253595362444008;
                 } else {
@@ -18105,9 +17822,9 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
                     .s1
                 }
                 print_ln();
-                print_nl_cstr(b"Overfull \\hbox (\x00" as *const u8 as *const i8);
+                print_nl_cstr(b"Overfull \\hbox (");
                 print_scaled(-x - total_shrink[0]);
-                print_cstr(b"pt too wide\x00" as *const u8 as *const i8);
+                print_cstr(b"pt too wide");
                 current_block = 13814253595362444008;
             } else {
                 current_block = 2380354494544673732;
@@ -18148,7 +17865,7 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
                     .s1
                 {
                     print_ln();
-                    print_nl_cstr(b"Tight \\hbox (badness \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"Tight \\hbox (badness ");
                     print_int(last_badness);
                     current_block = 13814253595362444008;
                 } else {
@@ -18165,20 +17882,18 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
         match current_block {
             13814253595362444008 => {
                 if output_active {
-                    print_cstr(
-                        b") has occurred while \\output is active\x00" as *const u8 as *const i8,
-                    );
+                    print_cstr(b") has occurred while \\output is active");
                 } else {
                     if pack_begin_line != 0i32 {
                         if pack_begin_line > 0i32 {
-                            print_cstr(b") in paragraph at lines \x00" as *const u8 as *const i8);
+                            print_cstr(b") in paragraph at lines ");
                         } else {
-                            print_cstr(b") in alignment at lines \x00" as *const u8 as *const i8);
+                            print_cstr(b") in alignment at lines ");
                         }
                         print_int(pack_begin_line.abs());
-                        print_cstr(b"--\x00" as *const u8 as *const i8);
+                        print_cstr(b"--");
                     } else {
-                        print_cstr(b") detected at line \x00" as *const u8 as *const i8);
+                        print_cstr(b") detected at line ");
                     }
                     print_int(line);
                 }
@@ -18245,11 +17960,11 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
                 }
                 if LR_problems > 0i32 {
                     print_ln();
-                    print_nl_cstr(b"\\endL or \\endR problem (\x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"\\endL or \\endR problem (");
                     print_int(LR_problems / 10000i32);
-                    print_cstr(b" missing, \x00" as *const u8 as *const i8);
+                    print_cstr(b" missing, ");
                     print_int(LR_problems % 10000i32);
-                    print_cstr(b" extra\x00" as *const u8 as *const i8);
+                    print_cstr(b" extra");
                     LR_problems = 0i32;
                     current_block = 13814253595362444008;
                 } else {
@@ -18258,7 +17973,7 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
                     (*mem.offset(temp_ptr as isize)).b32.s1 = avail;
                     avail = temp_ptr;
                     if LR_ptr != TEX_NULL {
-                        confusion(b"LR1\x00" as *const u8 as *const i8);
+                        confusion(b"LR1");
                     }
                     break;
                 }
@@ -18335,7 +18050,7 @@ pub(crate) unsafe extern "C" fn vpackage(
     while p != TEX_NULL {
         /*694: */
         if is_char_node(p) {
-            confusion(b"vpack\x00" as *const u8 as *const i8); /*701: */
+            confusion(b"vpack"); /*701: */
         } else {
             match (*mem.offset(p as isize)).b16.s1 as i32 {
                 0 | 1 | 2 | 13 => {
@@ -18461,11 +18176,11 @@ pub(crate) unsafe extern "C" fn vpackage(
                     {
                         print_ln();
                         if last_badness > 100i32 {
-                            print_nl_cstr(b"Underfull\x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"Underfull");
                         } else {
-                            print_nl_cstr(b"Loose\x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"Loose");
                         }
-                        print_cstr(b" \\vbox (badness \x00" as *const u8 as *const i8);
+                        print_cstr(b" \\vbox (badness ");
                         print_int(last_badness);
                         current_block = 13130523023485106979;
                     } else {
@@ -18565,9 +18280,9 @@ pub(crate) unsafe extern "C" fn vpackage(
                     .s1 < 100i32
                 {
                     print_ln();
-                    print_nl_cstr(b"Overfull \\vbox (\x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"Overfull \\vbox (");
                     print_scaled(-x - total_shrink[0]);
-                    print_cstr(b"pt too high\x00" as *const u8 as *const i8);
+                    print_cstr(b"pt too high");
                     current_block = 13130523023485106979;
                 } else {
                     current_block = 13281346226780081721;
@@ -18608,7 +18323,7 @@ pub(crate) unsafe extern "C" fn vpackage(
                         .s1
                     {
                         print_ln();
-                        print_nl_cstr(b"Tight \\vbox (badness \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"Tight \\vbox (badness ");
                         print_int(last_badness);
                         current_block = 13130523023485106979;
                     } else {
@@ -18625,16 +18340,14 @@ pub(crate) unsafe extern "C" fn vpackage(
             13281346226780081721 => {}
             _ => {
                 if output_active {
-                    print_cstr(
-                        b") has occurred while \\output is active\x00" as *const u8 as *const i8,
-                    );
+                    print_cstr(b") has occurred while \\output is active");
                 } else {
                     if pack_begin_line != 0i32 {
-                        print_cstr(b") in alignment at lines \x00" as *const u8 as *const i8);
+                        print_cstr(b") in alignment at lines ");
                         print_int(pack_begin_line.abs());
-                        print_cstr(b"--\x00" as *const u8 as *const i8);
+                        print_cstr(b"--");
                     } else {
-                        print_cstr(b") detected at line \x00" as *const u8 as *const i8);
+                        print_cstr(b") detected at line ");
                     }
                     print_int(line);
                     print_ln();
@@ -18859,9 +18572,7 @@ pub(crate) unsafe extern "C" fn get_preamble_token() {
             }
         }
         if cur_cmd as i32 == 9i32 {
-            fatal_error(
-                b"(interwoven alignment preambles are not allowed)\x00" as *const u8 as *const i8,
-            );
+            fatal_error(b"(interwoven alignment preambles are not allowed)");
         }
         if !(cur_cmd as i32 == 76i32
             && cur_chr
@@ -18953,18 +18664,15 @@ pub(crate) unsafe extern "C" fn init_align() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Improper \x00" as *const u8 as *const i8);
-        print_esc_cstr(b"halign\x00" as *const u8 as *const i8);
-        print_cstr(b" inside $$\'s\x00" as *const u8 as *const i8);
+        print_cstr(b"Improper ");
+        print_esc_cstr(b"halign");
+        print_cstr(b" inside $$\'s");
         help_ptr = 3_u8;
-        help_line[2] =
-            b"Displays can use special alignments (like \\eqalignno)\x00" as *const u8 as *const i8;
-        help_line[1] = b"only if nothing but the alignment itself is between $$\'s.\x00"
-            as *const u8 as *const i8;
-        help_line[0] = b"So I\'ve deleted the formulas that preceded this alignment.\x00"
-            as *const u8 as *const i8;
+        help_line[2] = b"Displays can use special alignments (like \\eqalignno)";
+        help_line[1] = b"only if nothing but the alignment itself is between $$\'s.";
+        help_line[0] = b"So I\'ve deleted the formulas that preceded this alignment.";
         error();
         flush_math();
     }
@@ -19004,18 +18712,13 @@ pub(crate) unsafe extern "C" fn init_align() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(
-                        b"Missing # inserted in alignment preamble\x00" as *const u8 as *const i8,
-                    );
+                    print_cstr(b"Missing # inserted in alignment preamble");
                     help_ptr = 3_u8;
-                    help_line[2] = b"There should be exactly one # between &\'s, when an\x00"
-                        as *const u8 as *const i8;
-                    help_line[1] = b"\\halign or \\valign is being set up. In this case you had\x00"
-                        as *const u8 as *const i8;
-                    help_line[0] = b"none, so I\'ve put one in; maybe that will work.\x00"
-                        as *const u8 as *const i8;
+                    help_line[2] = b"There should be exactly one # between &\'s, when an";
+                    help_line[1] = b"\\halign or \\valign is being set up. In this case you had";
+                    help_line[0] = b"none, so I\'ve put one in; maybe that will work.";
                     back_error();
                     break;
                 }
@@ -19042,16 +18745,13 @@ pub(crate) unsafe extern "C" fn init_align() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Only one # is allowed per tab\x00" as *const u8 as *const i8);
+                print_cstr(b"Only one # is allowed per tab");
                 help_ptr = 3_u8;
-                help_line[2] = b"There should be exactly one # between &\'s, when an\x00"
-                    as *const u8 as *const i8;
-                help_line[1] = b"\\halign or \\valign is being set up. In this case you had\x00"
-                    as *const u8 as *const i8;
-                help_line[0] = b"more than one, so I\'m ignoring all but the first.\x00"
-                    as *const u8 as *const i8;
+                help_line[2] = b"There should be exactly one # between &\'s, when an";
+                help_line[1] = b"\\halign or \\valign is being set up. In this case you had";
+                help_line[0] = b"more than one, so I\'m ignoring all but the first.";
                 error();
             } else {
                 (*mem.offset(p as isize)).b32.s1 = get_avail();
@@ -19164,16 +18864,14 @@ pub(crate) unsafe extern "C" fn fin_col() -> bool {
     let mut o: glue_ord = 0;
     let mut n: i32 = 0;
     if cur_align == TEX_NULL {
-        confusion(b"endv\x00" as *const u8 as *const i8);
+        confusion(b"endv");
     }
     q = (*mem.offset(cur_align as isize)).b32.s1;
     if q == TEX_NULL {
-        confusion(b"endv\x00" as *const u8 as *const i8);
+        confusion(b"endv");
     }
     if (align_state as i64) < 500000 {
-        fatal_error(
-            b"(interwoven alignment preambles are not allowed)\x00" as *const u8 as *const i8,
-        );
+        fatal_error(b"(interwoven alignment preambles are not allowed)");
     }
     p = (*mem.offset(q as isize)).b32.s1;
     if p == TEX_NULL && (*mem.offset((cur_align + 5i32) as isize)).b32.s0 < 0x10ffffi32 + 3i32 {
@@ -19213,17 +18911,14 @@ pub(crate) unsafe extern "C" fn fin_col() -> bool {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"Extra alignment tab has been changed to \x00" as *const u8 as *const i8);
-            print_esc_cstr(b"cr\x00" as *const u8 as *const i8);
+            print_cstr(b"Extra alignment tab has been changed to ");
+            print_esc_cstr(b"cr");
             help_ptr = 3_u8;
-            help_line[2] = b"You have given more \\span or & marks than there were\x00" as *const u8
-                as *const i8;
-            help_line[1] = b"in the preamble to the \\halign or \\valign now in progress.\x00"
-                as *const u8 as *const i8;
-            help_line[0] = b"So I\'ll assume that you meant to type \\cr instead.\x00" as *const u8
-                as *const i8;
+            help_line[2] = b"You have given more \\span or & marks than there were";
+            help_line[1] = b"in the preamble to the \\halign or \\valign now in progress.";
+            help_line[0] = b"So I\'ll assume that you meant to type \\cr instead.";
             (*mem.offset((cur_align + 5i32) as isize)).b32.s0 = 0x10ffffi32 + 3i32;
             error();
         }
@@ -19267,7 +18962,7 @@ pub(crate) unsafe extern "C" fn fin_col() -> bool {
                 }
             }
             if n > 65535i32 {
-                confusion(b"too many spans\x00" as *const u8 as *const i8);
+                confusion(b"too many spans");
             }
             q = cur_span;
             while (*mem.offset((*mem.offset(q as isize)).b32.s0 as isize))
@@ -19441,11 +19136,11 @@ pub(crate) unsafe extern "C" fn fin_align() {
         b32: b32x2 { s0: 0, s1: 0 },
     };
     if cur_group as i32 != 6i32 {
-        confusion(b"align1\x00" as *const u8 as *const i8);
+        confusion(b"align1");
     }
     unsave();
     if cur_group as i32 != 6i32 {
-        confusion(b"align0\x00" as *const u8 as *const i8);
+        confusion(b"align0");
     }
     unsave();
     if (*nest.offset((nest_ptr - 1i32) as isize)).mode as i32 == 207i32 {
@@ -19916,14 +19611,12 @@ pub(crate) unsafe extern "C" fn fin_align() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"Missing $$ inserted\x00" as *const u8 as *const i8);
+            print_cstr(b"Missing $$ inserted");
             help_ptr = 2_u8;
-            help_line[1] = b"Displays can use special alignments (like \\eqalignno)\x00"
-                as *const u8 as *const i8;
-            help_line[0] = b"only if nothing but the alignment itself is between $$\'s.\x00"
-                as *const u8 as *const i8;
+            help_line[1] = b"Displays can use special alignments (like \\eqalignno)";
+            help_line[0] = b"only if nothing but the alignment itself is between $$\'s.";
             back_error();
         } else {
             get_x_token();
@@ -19931,14 +19624,12 @@ pub(crate) unsafe extern "C" fn fin_align() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Display math should end with $$\x00" as *const u8 as *const i8);
+                print_cstr(b"Display math should end with $$");
                 help_ptr = 2_u8;
-                help_line[1] = b"The `$\' that I just saw supposedly matches a previous `$$\'.\x00"
-                    as *const u8 as *const i8;
-                help_line[0] = b"So I shall assume that you typed `$$\' both times.\x00"
-                    as *const u8 as *const i8;
+                help_line[1] = b"The `$\' that I just saw supposedly matches a previous `$$\'.";
+                help_line[0] = b"So I shall assume that you typed `$$\' both times.";
                 back_error();
             }
         }
@@ -20129,13 +19820,12 @@ pub(crate) unsafe extern "C" fn eTeX_enabled(mut b: bool, mut j: u16, mut k: i32
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Improper \x00" as *const u8 as *const i8);
+        print_cstr(b"Improper ");
         print_cmd_chr(j, k);
         help_ptr = 1_u8;
-        help_line[0] =
-            b"Sorry, this optional e-TeX feature has been disabled.\x00" as *const u8 as *const i8;
+        help_line[0] = b"Sorry, this optional e-TeX feature has been disabled.";
         error();
     }
     b
@@ -20151,7 +19841,7 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
     let mut a: i8 = 0;
     let mut i: i32 = 0;
     let mut j: u16 = 0;
-    let mut s: *const i8 = ptr::null();
+    let mut s: &[u8] = &[];
     p = nest_ptr;
     *nest.offset(p as isize) = cur_list;
     v = save_ptr;
@@ -20160,10 +19850,10 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
     save_ptr = cur_boundary;
     cur_level = cur_level.wrapping_sub(1);
     a = 1_i8;
-    print_nl_cstr(b"\x00" as *const u8 as *const i8);
+    print_nl_cstr(b"");
     print_ln();
     loop {
-        print_nl_cstr(b"### \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"### ");
         print_group(1i32 != 0);
         if cur_group as i32 == 0i32 {
             break;
@@ -20179,38 +19869,38 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
                 break;
             }
         }
-        print_cstr(b" (\x00" as *const u8 as *const i8);
+        print_cstr(b" (");
         match cur_group as i32 {
             1 => {
                 p += 1;
                 current_block = 11054735442240645164;
             }
             2 | 3 => {
-                s = b"hbox\x00" as *const u8 as *const i8;
+                s = b"hbox";
                 current_block = 6002151390280567665;
             }
             4 => {
-                s = b"vbox\x00" as *const u8 as *const i8;
+                s = b"vbox";
                 current_block = 6002151390280567665;
             }
             5 => {
-                s = b"vtop\x00" as *const u8 as *const i8;
+                s = b"vtop";
                 current_block = 6002151390280567665;
             }
             6 => {
                 if a as i32 == 0i32 {
                     if m as i32 == -1i32 {
-                        s = b"halign\x00" as *const u8 as *const i8
+                        s = b"halign"
                     } else {
-                        s = b"valign\x00" as *const u8 as *const i8
+                        s = b"valign"
                     }
                     a = 1_i8;
                     current_block = 17798259985923180687;
                 } else {
                     if a as i32 == 1i32 {
-                        print_cstr(b"align entry\x00" as *const u8 as *const i8);
+                        print_cstr(b"align entry");
                     } else {
-                        print_esc_cstr(b"cr\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"cr");
                     }
                     if p >= a as i32 {
                         p = p - a as i32
@@ -20222,11 +19912,11 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
             7 => {
                 p += 1;
                 a = -1_i8;
-                print_esc_cstr(b"noalign\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"noalign");
                 current_block = 11054735442240645164;
             }
             8 => {
-                print_esc_cstr(b"output\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"output");
                 current_block = 5407796692416645153;
             }
             9 => {
@@ -20234,14 +19924,14 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
             }
             10 | 13 => {
                 if cur_group as i32 == 10i32 {
-                    print_esc_cstr(b"discretionary\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"discretionary");
                 } else {
-                    print_esc_cstr(b"mathchoice\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"mathchoice");
                 }
                 i = 1i32;
                 while i <= 3i32 {
                     if i <= (*save_stack.offset((save_ptr - 2i32) as isize)).b32.s1 {
-                        print_cstr(b"{}\x00" as *const u8 as *const i8);
+                        print_cstr(b"{}");
                     }
                     i += 1
                 }
@@ -20249,20 +19939,20 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
             }
             11 => {
                 if (*save_stack.offset((save_ptr - 2i32) as isize)).b32.s1 == 255i32 {
-                    print_esc_cstr(b"vadjust\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"vadjust");
                 } else {
-                    print_esc_cstr(b"insert\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"insert");
                     print_int((*save_stack.offset((save_ptr - 2i32) as isize)).b32.s1);
                 }
                 current_block = 11054735442240645164;
             }
             12 => {
-                s = b"vcenter\x00" as *const u8 as *const i8;
+                s = b"vcenter";
                 current_block = 17798259985923180687;
             }
             14 => {
                 p += 1;
-                print_esc_cstr(b"begingroup\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"begingroup");
                 current_block = 5407796692416645153;
             }
             15 => {
@@ -20292,9 +19982,9 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
                     .s1 as i32
                     == 30i32
                 {
-                    print_esc_cstr(b"left\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"left");
                 } else {
-                    print_esc_cstr(b"middle\x00" as *const u8 as *const i8);
+                    print_esc_cstr(b"middle");
                 }
                 current_block = 5407796692416645153;
             }
@@ -20318,13 +20008,13 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
                             print_cmd_chr(j, 1i32);
                         }
                         print_scaled(i.abs());
-                        print_cstr(b"pt\x00" as *const u8 as *const i8);
+                        print_cstr(b"pt");
                     } else if i < 0x40010000i32 {
                         if i >= 0x40008000i32 {
-                            print_esc_cstr(b"global\x00" as *const u8 as *const i8);
+                            print_esc_cstr(b"global");
                             i = i - (0x40008000i32 - 0x40000000i32)
                         }
-                        print_esc_cstr(b"setbox\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"setbox");
                         print_int(i - 0x40000000i32);
                         print_char('=' as i32);
                     } else {
@@ -20341,12 +20031,12 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
                 if (*save_stack.offset((save_ptr - 2i32) as isize)).b32.s1 != 0i32 {
                     print_char(' ' as i32);
                     if (*save_stack.offset((save_ptr - 3i32) as isize)).b32.s1 == 0i32 {
-                        print_cstr(b"to\x00" as *const u8 as *const i8);
+                        print_cstr(b"to");
                     } else {
-                        print_cstr(b"spread\x00" as *const u8 as *const i8);
+                        print_cstr(b"spread");
                     }
                     print_scaled((*save_stack.offset((save_ptr - 2i32) as isize)).b32.s1);
-                    print_cstr(b"pt\x00" as *const u8 as *const i8);
+                    print_cstr(b"pt");
                 }
                 current_block = 11054735442240645164;
             }
@@ -20399,7 +20089,7 @@ pub(crate) unsafe extern "C" fn vert_break(mut p: i32, mut h: scaled_t, mut d: s
                     current_block = 15992561690600734426; /*:1010 */
                     match current_block {
                         5335814873276400744 => {
-                            confusion(b"vertbreak\x00" as *const u8 as *const i8);
+                            confusion(b"vertbreak");
                         }
                         15992561690600734426 => {
                             active_width[1] = active_width[1]
@@ -20490,7 +20180,7 @@ pub(crate) unsafe extern "C" fn vert_break(mut p: i32, mut h: scaled_t, mut d: s
                 }
                 _ => {
                     current_block = 5335814873276400744;
-                    confusion(b"vertbreak\x00" as *const u8 as *const i8);
+                    confusion(b"vertbreak");
                 }
             }
         }
@@ -20556,24 +20246,16 @@ pub(crate) unsafe extern "C" fn vert_break(mut p: i32, mut h: scaled_t, mut d: s
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                            print_nl_cstr(b"! ");
                         }
-                        print_cstr(
-                            b"Infinite glue shrinkage found in box being split\x00" as *const u8
-                                as *const i8,
-                        );
+                        print_cstr(b"Infinite glue shrinkage found in box being split");
                         help_ptr = 4_u8;
-                        help_line[3] = b"The box you are \\vsplitting contains some infinitely\x00"
-                            as *const u8 as *const i8;
+                        help_line[3] = b"The box you are \\vsplitting contains some infinitely";
                         help_line[2] =
-                            b"shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.\x00"
-                                as *const u8 as *const i8;
+                            b"shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.";
                         help_line[1] =
-                            b"Such glue doesn\'t belong there; but you can safely proceed,\x00"
-                                as *const u8 as *const i8;
-                        help_line[0] =
-                            b"since the offensive shrinkability has been made finite.\x00"
-                                as *const u8 as *const i8;
+                            b"Such glue doesn\'t belong there; but you can safely proceed,";
+                        help_line[0] = b"since the offensive shrinkability has been made finite.";
                         error();
                         r = new_spec(q);
                         (*mem.offset(r as isize)).b16.s0 = 0_u16;
@@ -20652,17 +20334,15 @@ pub(crate) unsafe extern "C" fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"\x00" as *const u8 as *const i8);
-        print_esc_cstr(b"vsplit\x00" as *const u8 as *const i8);
-        print_cstr(b" needs a \x00" as *const u8 as *const i8);
-        print_esc_cstr(b"vbox\x00" as *const u8 as *const i8);
+        print_cstr(b"");
+        print_esc_cstr(b"vsplit");
+        print_cstr(b" needs a ");
+        print_esc_cstr(b"vbox");
         help_ptr = 2_u8;
-        help_line[1] =
-            b"The box you are trying to split is an \\hbox.\x00" as *const u8 as *const i8;
-        help_line[0] =
-            b"I can\'t split such a box, so I\'ll leave it alone.\x00" as *const u8 as *const i8;
+        help_line[1] = b"The box you are trying to split is an \\hbox.";
+        help_line[0] = b"I can\'t split such a box, so I\'ll leave it alone.";
         error();
         return TEX_NULL;
     }
@@ -20862,27 +20542,27 @@ pub(crate) unsafe extern "C" fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
 pub(crate) unsafe extern "C" fn print_totals() {
     print_scaled(page_so_far[1]);
     if page_so_far[2] != 0i32 {
-        print_cstr(b" plus \x00" as *const u8 as *const i8);
+        print_cstr(b" plus ");
         print_scaled(page_so_far[2]);
-        print_cstr(b"\x00" as *const u8 as *const i8);
+        print_cstr(b"");
     }
     if page_so_far[3] != 0i32 {
-        print_cstr(b" plus \x00" as *const u8 as *const i8);
+        print_cstr(b" plus ");
         print_scaled(page_so_far[3]);
-        print_cstr(b"fil\x00" as *const u8 as *const i8);
+        print_cstr(b"fil");
     }
     if page_so_far[4] != 0i32 {
-        print_cstr(b" plus \x00" as *const u8 as *const i8);
+        print_cstr(b" plus ");
         print_scaled(page_so_far[4]);
-        print_cstr(b"fill\x00" as *const u8 as *const i8);
+        print_cstr(b"fill");
     }
     if page_so_far[5] != 0i32 {
-        print_cstr(b" plus \x00" as *const u8 as *const i8);
+        print_cstr(b" plus ");
         print_scaled(page_so_far[5]);
-        print_cstr(b"filll\x00" as *const u8 as *const i8);
+        print_cstr(b"filll");
     }
     if page_so_far[6] != 0i32 {
-        print_cstr(b" minus \x00" as *const u8 as *const i8);
+        print_cstr(b" minus ");
         print_scaled(page_so_far[6]);
     };
 }
@@ -20890,7 +20570,7 @@ pub(crate) unsafe extern "C" fn print_totals() {
 pub(crate) unsafe extern "C" fn box_error(mut n: eight_bits) {
     error();
     begin_diagnostic();
-    print_nl_cstr(b"The following box has been deleted:\x00" as *const u8 as *const i8);
+    print_nl_cstr(b"The following box has been deleted:");
     show_box(
         (*eqtb.offset(
             (1i32
@@ -21140,14 +20820,12 @@ pub(crate) unsafe extern "C" fn insert_dollar_sign() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"! ");
     }
-    print_cstr(b"Missing $ inserted\x00" as *const u8 as *const i8);
+    print_cstr(b"Missing $ inserted");
     help_ptr = 2_u8;
-    help_line[1] =
-        b"I\'ve inserted a begin-math/end-math symbol since I think\x00" as *const u8 as *const i8;
-    help_line[0] =
-        b"you left one out. Proceed, with fingers crossed.\x00" as *const u8 as *const i8;
+    help_line[1] = b"I\'ve inserted a begin-math/end-math symbol since I think";
+    help_line[0] = b"you left one out. Proceed, with fingers crossed.";
     ins_error();
 }
 #[no_mangle]
@@ -21155,9 +20833,9 @@ pub(crate) unsafe extern "C" fn you_cant() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"! ");
     }
-    print_cstr(b"You can\'t use `\x00" as *const u8 as *const i8);
+    print_cstr(b"You can\'t use `");
     print_cmd_chr(cur_cmd as u16, cur_chr);
     print_in_mode(cur_list.mode as i32);
 }
@@ -21165,13 +20843,10 @@ pub(crate) unsafe extern "C" fn you_cant() {
 pub(crate) unsafe extern "C" fn report_illegal_case() {
     you_cant();
     help_ptr = 4_u8;
-    help_line[3] =
-        b"Sorry, but I\'m not programmed to handle this case;\x00" as *const u8 as *const i8;
-    help_line[2] = b"I\'ll just pretend that you didn\'t ask for it.\x00" as *const u8 as *const i8;
-    help_line[1] =
-        b"If you\'re in the wrong mode, you might be able to\x00" as *const u8 as *const i8;
-    help_line[0] = b"return to the right one by typing `I}\' or `I$\' or `I\\par\'.\x00"
-        as *const u8 as *const i8;
+    help_line[3] = b"Sorry, but I\'m not programmed to handle this case;";
+    help_line[2] = b"I\'ll just pretend that you didn\'t ask for it.";
+    help_line[1] = b"If you\'re in the wrong mode, you might be able to";
+    help_line[0] = b"return to the right one by typing `I}\' or `I$\' or `I\\par\'.";
     error();
 }
 #[no_mangle]
@@ -21276,13 +20951,12 @@ pub(crate) unsafe extern "C" fn off_save() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Extra \x00" as *const u8 as *const i8);
+        print_cstr(b"Extra ");
         print_cmd_chr(cur_cmd as u16, cur_chr);
         help_ptr = 1_u8;
-        help_line[0] = b"Things are pretty mixed up, but I think the worst is over.\x00"
-            as *const u8 as *const i8;
+        help_line[0] = b"Things are pretty mixed up, but I think the worst is over.";
         error();
     } else {
         back_input();
@@ -21291,14 +20965,14 @@ pub(crate) unsafe extern "C" fn off_save() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Missing \x00" as *const u8 as *const i8);
+        print_cstr(b"Missing ");
         match cur_group as i32 {
             14 => {
                 (*mem.offset(p as isize)).b32.s0 = 0x1ffffffi32
                     + (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 2i32);
-                print_esc_cstr(b"endgroup\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"endgroup");
             }
             15 => {
                 (*mem.offset(p as isize)).b32.s0 = 0x600000i32 + '$' as i32;
@@ -21310,25 +20984,21 @@ pub(crate) unsafe extern "C" fn off_save() {
                 (*mem.offset(p as isize)).b32.s1 = get_avail();
                 p = (*mem.offset(p as isize)).b32.s1;
                 (*mem.offset(p as isize)).b32.s0 = 0x1800000i32 + '.' as i32;
-                print_esc_cstr(b"right.\x00" as *const u8 as *const i8);
+                print_esc_cstr(b"right.");
             }
             _ => {
                 (*mem.offset(p as isize)).b32.s0 = 0x400000i32 + '}' as i32;
                 print_char('}' as i32);
             }
         }
-        print_cstr(b" inserted\x00" as *const u8 as *const i8);
+        print_cstr(b" inserted");
         begin_token_list((*mem.offset((4999999i32 - 3i32) as isize)).b32.s1, 5_u16);
         help_ptr = 5_u8;
-        help_line[4] =
-            b"I\'ve inserted something that you may have forgotten.\x00" as *const u8 as *const i8;
-        help_line[3] = b"(See the <inserted text> above.)\x00" as *const u8 as *const i8;
-        help_line[2] =
-            b"With luck, this will get me unwedged. But if you\x00" as *const u8 as *const i8;
-        help_line[1] = b"really didn\'t forget anything, try typing `2\' now; then\x00" as *const u8
-            as *const i8;
-        help_line[0] = b"my insertion and my current dilemma will both disappear.\x00" as *const u8
-            as *const i8;
+        help_line[4] = b"I\'ve inserted something that you may have forgotten.";
+        help_line[3] = b"(See the <inserted text> above.)";
+        help_line[2] = b"With luck, this will get me unwedged. But if you";
+        help_line[1] = b"really didn\'t forget anything, try typing `2\' now; then";
+        help_line[0] = b"my insertion and my current dilemma will both disappear.";
         error();
     };
 }
@@ -21337,31 +21007,27 @@ pub(crate) unsafe extern "C" fn extra_right_brace() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"! ");
     }
-    print_cstr(b"Extra }, or forgotten \x00" as *const u8 as *const i8);
+    print_cstr(b"Extra }, or forgotten ");
     match cur_group as i32 {
         14 => {
-            print_esc_cstr(b"endgroup\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"endgroup");
         }
         15 => {
             print_char('$' as i32);
         }
         16 => {
-            print_esc_cstr(b"right\x00" as *const u8 as *const i8);
+            print_esc_cstr(b"right");
         }
         _ => {}
     }
     help_ptr = 5_u8;
-    help_line[4] = b"I\'ve deleted a group-closing symbol because it seems to be\x00" as *const u8
-        as *const i8;
-    help_line[3] = b"spurious, as in `$x}$\'. But perhaps the } is legitimate and\x00" as *const u8
-        as *const i8;
-    help_line[2] = b"you forgot something else, as in `\\hbox{$x}\'. In such cases\x00" as *const u8
-        as *const i8;
-    help_line[1] =
-        b"the way to recover is to insert both the forgotten and the\x00" as *const u8 as *const i8;
-    help_line[0] = b"deleted material, e.g., by typing `I$}\'.\x00" as *const u8 as *const i8;
+    help_line[4] = b"I\'ve deleted a group-closing symbol because it seems to be";
+    help_line[3] = b"spurious, as in `$x}$\'. But perhaps the } is legitimate and";
+    help_line[2] = b"you forgot something else, as in `\\hbox{$x}\'. In such cases";
+    help_line[1] = b"the way to recover is to insert both the forgotten and the";
+    help_line[0] = b"deleted material, e.g., by typing `I$}\'.";
     error();
     align_state += 1;
 }
@@ -21750,16 +21416,13 @@ pub(crate) unsafe extern "C" fn box_end(mut box_context: i32) {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Leaders not followed by proper glue\x00" as *const u8 as *const i8);
+                print_cstr(b"Leaders not followed by proper glue");
                 help_ptr = 3_u8;
-                help_line[2] = b"You should say `\\leaders <box or rule><hskip or vskip>\'.\x00"
-                    as *const u8 as *const i8;
-                help_line[1] = b"I found the <box or rule>, but there\'s no suitable\x00"
-                    as *const u8 as *const i8;
-                help_line[0] = b"<hskip or vskip>, so I\'m ignoring these leaders.\x00" as *const u8
-                    as *const i8;
+                help_line[2] = b"You should say `\\leaders <box or rule><hskip or vskip>\'.";
+                help_line[1] = b"I found the <box or rule>, but there\'s no suitable";
+                help_line[0] = b"<hskip or vskip>, so I\'m ignoring these leaders.";
                 back_error();
                 flush_node_list(cur_box);
             }
@@ -21879,15 +21542,13 @@ pub(crate) unsafe extern "C" fn begin_box(mut box_context: i32) {
             if (cur_list.mode as i32).abs() == 207i32 {
                 you_cant();
                 help_ptr = 1_u8;
-                help_line[0] = b"Sorry; this \\lastbox will be void.\x00" as *const u8 as *const i8;
+                help_line[0] = b"Sorry; this \\lastbox will be void.";
                 error();
             } else if cur_list.mode as i32 == 1i32 && cur_list.head == cur_list.tail {
                 you_cant();
                 help_ptr = 2_u8;
-                help_line[1] = b"Sorry...I usually can\'t take things from the current page.\x00"
-                    as *const u8 as *const i8;
-                help_line[0] =
-                    b"This \\lastbox will therefore be void.\x00" as *const u8 as *const i8;
+                help_line[1] = b"Sorry...I usually can\'t take things from the current page.";
+                help_line[0] = b"This \\lastbox will therefore be void.";
                 error();
             } else {
                 let mut current_block_79: u64;
@@ -21949,7 +21610,7 @@ pub(crate) unsafe extern "C" fn begin_box(mut box_context: i32) {
                                 (*mem.offset(tx as isize)).b32.s1 = TEX_NULL;
                                 if q == TEX_NULL {
                                     if fm {
-                                        confusion(b"tail1\x00" as *const u8 as *const i8);
+                                        confusion(b"tail1");
                                     } else {
                                         cur_list.tail = p
                                     }
@@ -21969,17 +21630,16 @@ pub(crate) unsafe extern "C" fn begin_box(mut box_context: i32) {
         3 => {
             scan_register_num();
             n = cur_val;
-            if !scan_keyword(b"to\x00" as *const u8 as *const i8) {
+            if !scan_keyword(b"to") {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Missing `to\' inserted\x00" as *const u8 as *const i8);
+                print_cstr(b"Missing `to\' inserted");
                 help_ptr = 2_u8;
-                help_line[1] = b"I\'m working on `\\vsplit<box number> to <dimen>\';\x00"
-                    as *const u8 as *const i8;
-                help_line[0] = b"will look for the <dimen> next.\x00" as *const u8 as *const i8;
+                help_line[1] = b"I\'m working on `\\vsplit<box number> to <dimen>\';";
+                help_line[0] = b"will look for the <dimen> next.";
                 error();
             }
             scan_dimen(false, false, false);
@@ -22110,16 +21770,13 @@ pub(crate) unsafe extern "C" fn scan_box(mut box_context: i32) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"A <box> was supposed to be here\x00" as *const u8 as *const i8);
+        print_cstr(b"A <box> was supposed to be here");
         help_ptr = 3_u8;
-        help_line[2] = b"I was expecting to see \\hbox or \\vbox or \\copy or \\box or\x00"
-            as *const u8 as *const i8;
-        help_line[1] = b"something like that. So you might find something missing in\x00"
-            as *const u8 as *const i8;
-        help_line[0] =
-            b"your output. But keep trying; you can fix this later.\x00" as *const u8 as *const i8;
+        help_line[2] = b"I was expecting to see \\hbox or \\vbox or \\copy or \\box or";
+        help_line[1] = b"something like that. So you might find something missing in";
+        help_line[0] = b"your output. But keep trying; you can fix this later.";
         back_error();
     };
 }
@@ -22629,16 +22286,14 @@ pub(crate) unsafe extern "C" fn head_for_vmode() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"You can\'t use `\x00" as *const u8 as *const i8);
-            print_esc_cstr(b"hrule\x00" as *const u8 as *const i8);
-            print_cstr(b"\' here except with leaders\x00" as *const u8 as *const i8);
+            print_cstr(b"You can\'t use `");
+            print_esc_cstr(b"hrule");
+            print_cstr(b"\' here except with leaders");
             help_ptr = 2_u8;
-            help_line[1] = b"To put a horizontal rule in an hbox or an alignment,\x00" as *const u8
-                as *const i8;
-            help_line[0] = b"you should use \\leaders or \\hrulefill (see The TeXbook).\x00"
-                as *const u8 as *const i8;
+            help_line[1] = b"To put a horizontal rule in an hbox or an alignment,";
+            help_line[0] = b"you should use \\leaders or \\hrulefill (see The TeXbook).";
             error();
         }
     } else {
@@ -22674,20 +22329,19 @@ pub(crate) unsafe extern "C" fn begin_insert_or_adjust() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"You can\'t \x00" as *const u8 as *const i8);
-            print_esc_cstr(b"insert\x00" as *const u8 as *const i8);
+            print_cstr(b"You can\'t ");
+            print_esc_cstr(b"insert");
             print_int(255i32);
             help_ptr = 1_u8;
-            help_line[0] =
-                b"I\'m changing to \\insert0; box 255 is special.\x00" as *const u8 as *const i8;
+            help_line[0] = b"I\'m changing to \\insert0; box 255 is special.";
             error();
             cur_val = 0i32
         }
     }
     (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 = cur_val;
-    if cur_cmd as i32 == 38i32 && scan_keyword(b"pre\x00" as *const u8 as *const i8) as i32 != 0 {
+    if cur_cmd as i32 == 38i32 && scan_keyword(b"pre") {
         (*save_stack.offset((save_ptr + 1i32) as isize)).b32.s1 = 1i32
     } else {
         (*save_stack.offset((save_ptr + 1i32) as isize)).b32.s1 = 0i32
@@ -22741,14 +22395,12 @@ pub(crate) unsafe extern "C" fn delete_last() {
         if cur_chr != 10i32 || last_glue != 0x3fffffffi32 {
             you_cant();
             help_ptr = 2_u8;
-            help_line[1] = b"Sorry...I usually can\'t take things from the current page.\x00"
-                as *const u8 as *const i8;
-            help_line[0] = b"Try `I\\vskip-\\lastskip\' instead.\x00" as *const u8 as *const i8;
+            help_line[1] = b"Sorry...I usually can\'t take things from the current page.";
+            help_line[0] = b"Try `I\\vskip-\\lastskip\' instead.";
             if cur_chr == 11i32 {
-                help_line[0] = b"Try `I\\kern-\\lastkern\' instead.\x00" as *const u8 as *const i8
+                help_line[0] = b"Try `I\\kern-\\lastkern\' instead."
             } else if cur_chr != 10i32 {
-                help_line[0] =
-                    b"Perhaps you can make the output routine do it.\x00" as *const u8 as *const i8
+                help_line[0] = b"Perhaps you can make the output routine do it."
             }
             error();
         }
@@ -22811,7 +22463,7 @@ pub(crate) unsafe extern "C" fn delete_last() {
                 (*mem.offset(tx as isize)).b32.s1 = TEX_NULL;
                 if q == TEX_NULL {
                     if fm {
-                        confusion(b"tail1\x00" as *const u8 as *const i8);
+                        confusion(b"tail1");
                     } else {
                         cur_list.tail = p
                     }
@@ -22878,15 +22530,13 @@ pub(crate) unsafe extern "C" fn unpackage() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"Incompatible list can\'t be unboxed\x00" as *const u8 as *const i8);
+            print_cstr(b"Incompatible list can\'t be unboxed");
             help_ptr = 3_u8;
-            help_line[2] = b"Sorry, Pandora. (You sneaky devil.)\x00" as *const u8 as *const i8;
-            help_line[1] = b"I refuse to unbox an \\hbox in vertical mode or vice versa.\x00"
-                as *const u8 as *const i8;
-            help_line[0] =
-                b"And I can\'t open any boxes in math mode.\x00" as *const u8 as *const i8;
+            help_line[2] = b"Sorry, Pandora. (You sneaky devil.)";
+            help_line[1] = b"I refuse to unbox an \\hbox in vertical mode or vice versa.";
+            help_line[0] = b"And I can\'t open any boxes in math mode.";
             error();
             return;
         }
@@ -23078,21 +22728,15 @@ pub(crate) unsafe extern "C" fn build_discretionary() {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
                             } else {
-                                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                print_nl_cstr(b"! ");
                             }
-                            print_cstr(
-                                b"Improper discretionary list\x00" as *const u8 as *const i8,
-                            );
+                            print_cstr(b"Improper discretionary list");
                             help_ptr = 1_u8;
                             help_line[0] =
-                                b"Discretionary lists must contain only boxes and kerns.\x00"
-                                    as *const u8 as *const i8;
+                                b"Discretionary lists must contain only boxes and kerns.";
                             error();
                             begin_diagnostic();
-                            print_nl_cstr(
-                                b"The following discretionary sublist has been deleted:\x00"
-                                    as *const u8 as *const i8,
-                            );
+                            print_nl_cstr(b"The following discretionary sublist has been deleted:");
                             show_box(p);
                             end_diagnostic(1i32 != 0);
                             flush_node_list(p);
@@ -23117,15 +22761,13 @@ pub(crate) unsafe extern "C" fn build_discretionary() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Illegal math \x00" as *const u8 as *const i8);
-                print_esc_cstr(b"discretionary\x00" as *const u8 as *const i8);
+                print_cstr(b"Illegal math ");
+                print_esc_cstr(b"discretionary");
                 help_ptr = 2_u8;
-                help_line[1] = b"Sorry: The third part of a discretionary break must be\x00"
-                    as *const u8 as *const i8;
-                help_line[0] = b"empty, in math formulas. I had to delete your third part.\x00"
-                    as *const u8 as *const i8;
+                help_line[1] = b"Sorry: The third part of a discretionary break must be";
+                help_line[0] = b"empty, in math formulas. I had to delete your third part.";
                 flush_node_list(p);
                 n = 0i32;
                 error();
@@ -23138,14 +22780,12 @@ pub(crate) unsafe extern "C" fn build_discretionary() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Discretionary list is too long\x00" as *const u8 as *const i8);
+                print_cstr(b"Discretionary list is too long");
                 help_ptr = 2_u8;
-                help_line[1] = b"Wow---I never thought anybody would tweak me here.\x00"
-                    as *const u8 as *const i8;
-                help_line[0] = b"You can\'t seriously need such a huge discretionary list?\x00"
-                    as *const u8 as *const i8;
+                help_line[1] = b"Wow---I never thought anybody would tweak me here.";
+                help_line[0] = b"You can\'t seriously need such a huge discretionary list?";
                 error();
             }
             if n > 0i32 {
@@ -23326,36 +22966,25 @@ pub(crate) unsafe extern "C" fn align_error() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Misplaced \x00" as *const u8 as *const i8);
+        print_cstr(b"Misplaced ");
         print_cmd_chr(cur_cmd as u16, cur_chr);
         if cur_tok == 0x800000i32 + 38i32 {
             help_ptr = 6_u8;
-            help_line[5] = b"I can\'t figure out why you would want to use a tab mark\x00"
-                as *const u8 as *const i8;
-            help_line[4] =
-                b"here. If you just want an ampersand, the remedy is\x00" as *const u8 as *const i8;
-            help_line[3] = b"simple: Just type `I\\&\' now. But if some right brace\x00"
-                as *const u8 as *const i8;
-            help_line[2] = b"up above has ended a previous alignment prematurely,\x00" as *const u8
-                as *const i8;
-            help_line[1] = b"you\'re probably due for more error messages, and you\x00" as *const u8
-                as *const i8;
-            help_line[0] = b"might try typing `S\' now just to see what is salvageable.\x00"
-                as *const u8 as *const i8
+            help_line[5] = b"I can\'t figure out why you would want to use a tab mark";
+            help_line[4] = b"here. If you just want an ampersand, the remedy is";
+            help_line[3] = b"simple: Just type `I\\&\' now. But if some right brace";
+            help_line[2] = b"up above has ended a previous alignment prematurely,";
+            help_line[1] = b"you\'re probably due for more error messages, and you";
+            help_line[0] = b"might try typing `S\' now just to see what is salvageable."
         } else {
             help_ptr = 5_u8;
-            help_line[4] = b"I can\'t figure out why you would want to use a tab mark\x00"
-                as *const u8 as *const i8;
-            help_line[3] = b"or \\cr or \\span just now. If something like a right brace\x00"
-                as *const u8 as *const i8;
-            help_line[2] = b"up above has ended a previous alignment prematurely,\x00" as *const u8
-                as *const i8;
-            help_line[1] = b"you\'re probably due for more error messages, and you\x00" as *const u8
-                as *const i8;
-            help_line[0] = b"might try typing `S\' now just to see what is salvageable.\x00"
-                as *const u8 as *const i8
+            help_line[4] = b"I can\'t figure out why you would want to use a tab mark";
+            help_line[3] = b"or \\cr or \\span just now. If something like a right brace";
+            help_line[2] = b"up above has ended a previous alignment prematurely,";
+            help_line[1] = b"you\'re probably due for more error messages, and you";
+            help_line[0] = b"might try typing `S\' now just to see what is salvageable."
         }
         error();
     } else {
@@ -23364,27 +22993,25 @@ pub(crate) unsafe extern "C" fn align_error() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"Missing { inserted\x00" as *const u8 as *const i8);
+            print_cstr(b"Missing { inserted");
             align_state += 1;
             cur_tok = 0x200000i32 + 123i32
         } else {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"Missing } inserted\x00" as *const u8 as *const i8);
+            print_cstr(b"Missing } inserted");
             align_state -= 1;
             cur_tok = 0x400000i32 + 125i32
         }
         help_ptr = 3_u8;
-        help_line[2] =
-            b"I\'ve put in what seems to be necessary to fix\x00" as *const u8 as *const i8;
-        help_line[1] =
-            b"the current column of the current alignment.\x00" as *const u8 as *const i8;
-        help_line[0] = b"Try to go on, since this might almost work.\x00" as *const u8 as *const i8;
+        help_line[2] = b"I\'ve put in what seems to be necessary to fix";
+        help_line[1] = b"the current column of the current alignment.";
+        help_line[0] = b"Try to go on, since this might almost work.";
         ins_error();
     };
 }
@@ -23393,15 +23020,13 @@ pub(crate) unsafe extern "C" fn no_align_error() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"! ");
     }
-    print_cstr(b"Misplaced \x00" as *const u8 as *const i8);
-    print_esc_cstr(b"noalign\x00" as *const u8 as *const i8);
+    print_cstr(b"Misplaced ");
+    print_esc_cstr(b"noalign");
     help_ptr = 2_u8;
-    help_line[1] =
-        b"I expect to see \\noalign only after the \\cr of\x00" as *const u8 as *const i8;
-    help_line[0] =
-        b"an alignment. Proceed, and I\'ll ignore this case.\x00" as *const u8 as *const i8;
+    help_line[1] = b"I expect to see \\noalign only after the \\cr of";
+    help_line[0] = b"an alignment. Proceed, and I\'ll ignore this case.";
     error();
 }
 #[no_mangle]
@@ -23409,15 +23034,13 @@ pub(crate) unsafe extern "C" fn omit_error() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"! ");
     }
-    print_cstr(b"Misplaced \x00" as *const u8 as *const i8);
-    print_esc_cstr(b"omit\x00" as *const u8 as *const i8);
+    print_cstr(b"Misplaced ");
+    print_esc_cstr(b"omit");
     help_ptr = 2_u8;
-    help_line[1] =
-        b"I expect to see \\omit only after tab marks or the \\cr of\x00" as *const u8 as *const i8;
-    help_line[0] =
-        b"an alignment. Proceed, and I\'ll ignore this case.\x00" as *const u8 as *const i8;
+    help_line[1] = b"I expect to see \\omit only after tab marks or the \\cr of";
+    help_line[0] = b"an alignment. Proceed, and I\'ll ignore this case.";
     error();
 }
 #[no_mangle]
@@ -23434,9 +23057,7 @@ pub(crate) unsafe extern "C" fn do_endv() {
         || (*input_stack.offset(base_ptr as isize)).loc != TEX_NULL
         || (*input_stack.offset(base_ptr as isize)).state as i32 != 0i32
     {
-        fatal_error(
-            b"(interwoven alignment preambles are not allowed)\x00" as *const u8 as *const i8,
-        );
+        fatal_error(b"(interwoven alignment preambles are not allowed)");
     }
     if cur_group as i32 == 6i32 {
         end_graf();
@@ -23452,13 +23073,12 @@ pub(crate) unsafe extern "C" fn cs_error() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"! ");
     }
-    print_cstr(b"Extra \x00" as *const u8 as *const i8);
-    print_esc_cstr(b"endcsname\x00" as *const u8 as *const i8);
+    print_cstr(b"Extra ");
+    print_esc_cstr(b"endcsname");
     help_ptr = 1_u8;
-    help_line[0] =
-        b"I\'m ignoring this, since I wasn\'t doing a \\csname.\x00" as *const u8 as *const i8;
+    help_line[0] = b"I\'m ignoring this, since I wasn\'t doing a \\csname.";
     error();
 }
 #[no_mangle]
@@ -23570,7 +23190,7 @@ pub(crate) unsafe extern "C" fn just_copy(mut p: i32, mut h: i32, mut t: i32) {
                         }
                         6 => r = get_node(2i32),
                         _ => {
-                            confusion(b"ext2\x00" as *const u8 as *const i8);
+                            confusion(b"ext2");
                         }
                     }
                     current_block_50 = 2500484646272006982;
@@ -23741,19 +23361,15 @@ pub(crate) unsafe extern "C" fn get_r_token() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Missing control sequence inserted\x00" as *const u8 as *const i8);
+        print_cstr(b"Missing control sequence inserted");
         help_ptr = 5_u8;
-        help_line[4] = b"Please don\'t say `\\def cs{...}\', say `\\def\\cs{...}\'.\x00"
-            as *const u8 as *const i8;
-        help_line[3] = b"I\'ve inserted an inaccessible control sequence so that your\x00"
-            as *const u8 as *const i8;
-        help_line[2] = b"definition will be completed without mixing me up too badly.\x00"
-            as *const u8 as *const i8;
-        help_line[1] =
-            b"You can recover graciously from this error, if you\'re\x00" as *const u8 as *const i8;
-        help_line[0] = b"careful; see exercise 27.2 in The TeXbook.\x00" as *const u8 as *const i8;
+        help_line[4] = b"Please don\'t say `\\def cs{...}\', say `\\def\\cs{...}\'.";
+        help_line[3] = b"I\'ve inserted an inaccessible control sequence so that your";
+        help_line[2] = b"definition will be completed without mixing me up too badly.";
+        help_line[1] = b"You can recover graciously from this error, if you\'re";
+        help_line[0] = b"careful; see exercise 27.2 in The TeXbook.";
         if cur_cs == 0i32 {
             back_input();
         }
@@ -23797,15 +23413,14 @@ pub(crate) unsafe extern "C" fn do_register_command(mut a: small_number) {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"You can\'t use `\x00" as *const u8 as *const i8);
+                print_cstr(b"You can\'t use `");
                 print_cmd_chr(cur_cmd as u16, cur_chr);
-                print_cstr(b"\' after \x00" as *const u8 as *const i8);
+                print_cstr(b"\' after ");
                 print_cmd_chr(q as u16, 0i32);
                 help_ptr = 1_u8;
-                help_line[0] = b"I\'m forgetting what you said and not changing anything.\x00"
-                    as *const u8 as *const i8;
+                help_line[0] = b"I\'m forgetting what you said and not changing anything.";
                 error();
                 return;
             }
@@ -23938,7 +23553,7 @@ pub(crate) unsafe extern "C" fn do_register_command(mut a: small_number) {
     if q == 91i32 {
         scan_optional_equals();
     } else {
-        scan_keyword(b"by\x00" as *const u8 as *const i8);
+        scan_keyword(b"by");
     }
     arith_error = false;
     if q < 93i32 {
@@ -24047,13 +23662,12 @@ pub(crate) unsafe extern "C" fn do_register_command(mut a: small_number) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Arithmetic overflow\x00" as *const u8 as *const i8);
+        print_cstr(b"Arithmetic overflow");
         help_ptr = 2_u8;
-        help_line[1] =
-            b"I can\'t carry out that multiplication or division,\x00" as *const u8 as *const i8;
-        help_line[0] = b"since the result is out of range.\x00" as *const u8 as *const i8;
+        help_line[1] = b"I can\'t carry out that multiplication or division,";
+        help_line[0] = b"since the result is out of range.";
         if p as i32 >= 2i32 {
             delete_glue_ref(cur_val);
         }
@@ -24104,12 +23718,11 @@ pub(crate) unsafe extern "C" fn alter_aux() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Bad space factor\x00" as *const u8 as *const i8);
+                print_cstr(b"Bad space factor");
                 help_ptr = 1_u8;
-                help_line[0] = b"I allow only values in the range 1..32767 here.\x00" as *const u8
-                    as *const i8;
+                help_line[0] = b"I allow only values in the range 1..32767 here.";
                 int_error(cur_val);
             } else {
                 cur_list.aux.b32.s0 = cur_val
@@ -24131,12 +23744,12 @@ pub(crate) unsafe extern "C" fn alter_prev_graf() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Bad \x00" as *const u8 as *const i8);
-        print_esc_cstr(b"prevgraf\x00" as *const u8 as *const i8);
+        print_cstr(b"Bad ");
+        print_esc_cstr(b"prevgraf");
         help_ptr = 1_u8;
-        help_line[0] = b"I allow only nonnegative values here.\x00" as *const u8 as *const i8;
+        help_line[0] = b"I allow only nonnegative values here.";
         int_error(cur_val);
     } else {
         (*nest.offset(p as isize)).prev_graf = cur_val;
@@ -24164,14 +23777,12 @@ pub(crate) unsafe extern "C" fn alter_integer() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"Bad interaction mode\x00" as *const u8 as *const i8);
+            print_cstr(b"Bad interaction mode");
             help_ptr = 2_u8;
-            help_line[1] =
-                b"Modes are 0=batch, 1=nonstop, 2=scroll, and\x00" as *const u8 as *const i8;
-            help_line[0] =
-                b"3=errorstop. Proceed, and I\'ll ignore this case.\x00" as *const u8 as *const i8;
+            help_line[1] = b"Modes are 0=batch, 1=nonstop, 2=scroll, and";
+            help_line[0] = b"3=errorstop. Proceed, and I\'ll ignore this case.";
             int_error(cur_val);
         } else {
             cur_chr = cur_val;
@@ -24245,14 +23856,11 @@ pub(crate) unsafe extern "C" fn new_font(mut a: small_number) {
     } else {
         let old_setting_0 = selector;
         selector = Selector::NEW_STRING;
-        print_cstr(b"FONT\x00" as *const u8 as *const i8);
+        print_cstr(b"FONT");
         print(u - 1i32);
         selector = old_setting_0;
         if pool_ptr + 1i32 > pool_size {
-            overflow(
-                b"pool size\x00" as *const u8 as *const i8,
-                pool_size - init_pool_ptr,
-            );
+            overflow(b"pool size", pool_size - init_pool_ptr);
         }
         t = make_string()
     }
@@ -24264,7 +23872,7 @@ pub(crate) unsafe extern "C" fn new_font(mut a: small_number) {
     scan_optional_equals();
     scan_file_name();
     name_in_progress = true;
-    if scan_keyword(b"at\x00" as *const u8 as *const i8) {
+    if scan_keyword(b"at") {
         /*1294: */
         scan_dimen(false, false, false); /*:1293 */
         s = cur_val; /*:79 */
@@ -24272,34 +23880,29 @@ pub(crate) unsafe extern "C" fn new_font(mut a: small_number) {
             if file_line_error_style_p != 0 {
                 print_file_line(); /*1318: */
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"Improper `at\' size (\x00" as *const u8 as *const i8);
+            print_cstr(b"Improper `at\' size (");
             print_scaled(s);
-            print_cstr(b"pt), replaced by 10pt\x00" as *const u8 as *const i8);
+            print_cstr(b"pt), replaced by 10pt");
             help_ptr = 2_u8;
-            help_line[1] =
-                b"I can only handle fonts at positive sizes that are\x00" as *const u8 as *const i8;
-            help_line[0] = b"less than 2048pt, so I\'ve changed what you said to 10pt.\x00"
-                as *const u8 as *const i8;
+            help_line[1] = b"I can only handle fonts at positive sizes that are";
+            help_line[0] = b"less than 2048pt, so I\'ve changed what you said to 10pt.";
             error();
             s = (10i32 as i64 * 65536) as scaled_t
         }
-    } else if scan_keyword(b"scaled\x00" as *const u8 as *const i8) {
+    } else if scan_keyword(b"scaled") {
         scan_int();
         s = -cur_val;
         if cur_val <= 0i32 || cur_val as i64 > 32768 {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(
-                b"Illegal magnification has been changed to 1000\x00" as *const u8 as *const i8,
-            );
+            print_cstr(b"Illegal magnification has been changed to 1000");
             help_ptr = 1_u8;
-            help_line[0] = b"The magnification ratio must be between 1 and 32768.\x00" as *const u8
-                as *const i8;
+            help_line[0] = b"The magnification ratio must be between 1 and 32768.";
             int_error(cur_val);
             s = -1000i32
         }
@@ -24409,10 +24012,7 @@ pub(crate) unsafe extern "C" fn issue_message() {
     selector = old_setting_0;
     flush_list(def_ref);
     if pool_ptr + 1i32 > pool_size {
-        overflow(
-            b"pool size\x00" as *const u8 as *const i8,
-            pool_size - init_pool_ptr,
-        );
+        overflow(b"pool size", pool_size - init_pool_ptr);
     }
     s = make_string();
     if c as i32 == 0i32 {
@@ -24428,9 +24028,9 @@ pub(crate) unsafe extern "C" fn issue_message() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"\x00" as *const u8 as *const i8);
+        print_cstr(b"");
         print(s);
         if (*eqtb.offset(
             (1i32
@@ -24453,20 +24053,16 @@ pub(crate) unsafe extern "C" fn issue_message() {
             use_err_help = true
         } else if long_help_seen {
             help_ptr = 1_u8;
-            help_line[0] = b"(That was another \\errmessage.)\x00" as *const u8 as *const i8
+            help_line[0] = b"(That was another \\errmessage.)"
         } else {
             if (interaction as i32) < 3i32 {
                 long_help_seen = true
             }
             help_ptr = 4_u8;
-            help_line[3] = b"This error message was generated by an \\errmessage\x00" as *const u8
-                as *const i8;
-            help_line[2] =
-                b"command, so I can\'t give any explicit help.\x00" as *const u8 as *const i8;
-            help_line[1] = b"Pretend that you\'re Hercule Poirot: Examine all clues,\x00"
-                as *const u8 as *const i8;
-            help_line[0] =
-                b"and deduce the truth by order and method.\x00" as *const u8 as *const i8
+            help_line[3] = b"This error message was generated by an \\errmessage";
+            help_line[2] = b"command, so I can\'t give any explicit help.";
+            help_line[1] = b"Pretend that you\'re Hercule Poirot: Examine all clues,";
+            help_line[0] = b"and deduce the truth by order and method."
         }
         error();
         use_err_help = false
@@ -24543,11 +24139,11 @@ pub(crate) unsafe extern "C" fn show_whatever() {
                 }
             }
             begin_diagnostic();
-            print_nl_cstr(b"> \\box\x00" as *const u8 as *const i8);
+            print_nl_cstr(b"> \\box");
             print_int(cur_val);
             print_char('=' as i32);
             if p == TEX_NULL {
-                print_cstr(b"void\x00" as *const u8 as *const i8);
+                print_cstr(b"void");
             } else {
                 show_box(p);
             }
@@ -24555,7 +24151,7 @@ pub(crate) unsafe extern "C" fn show_whatever() {
         }
         0 => {
             get_token();
-            print_nl_cstr(b"> \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"> ");
             if cur_cs != 0i32 {
                 sprint_cs(cur_cs);
                 print_char('=' as i32);
@@ -24570,11 +24166,11 @@ pub(crate) unsafe extern "C" fn show_whatever() {
         }
         6 => {
             begin_diagnostic();
-            print_nl_cstr(b"\x00" as *const u8 as *const i8);
+            print_nl_cstr(b"");
             print_ln();
             if cond_ptr == TEX_NULL {
-                print_nl_cstr(b"### \x00" as *const u8 as *const i8);
-                print_cstr(b"no active conditionals\x00" as *const u8 as *const i8);
+                print_nl_cstr(b"### ");
+                print_cstr(b"no active conditionals");
             } else {
                 p = cond_ptr;
                 n = 0i32;
@@ -24590,15 +24186,15 @@ pub(crate) unsafe extern "C" fn show_whatever() {
                 l = if_line;
                 m = if_limit;
                 loop {
-                    print_nl_cstr(b"### level \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"### level ");
                     print_int(n);
-                    print_cstr(b": \x00" as *const u8 as *const i8);
+                    print_cstr(b": ");
                     print_cmd_chr(107_u16, t as i32);
                     if m as i32 == 2i32 {
-                        print_esc_cstr(b"else\x00" as *const u8 as *const i8);
+                        print_esc_cstr(b"else");
                     }
                     if l != 0i32 {
-                        print_cstr(b" entered on line \x00" as *const u8 as *const i8);
+                        print_cstr(b" entered on line ");
                         print_int(l);
                     }
                     n -= 1;
@@ -24615,7 +24211,7 @@ pub(crate) unsafe extern "C" fn show_whatever() {
         }
         _ => {
             p = the_toks();
-            print_nl_cstr(b"> \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"> ");
             token_show(4999999i32 - 3i32);
             flush_list((*mem.offset((4999999i32 - 3i32) as isize)).b32.s1);
             current_block = 6249296489108783913;
@@ -24627,9 +24223,9 @@ pub(crate) unsafe extern "C" fn show_whatever() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"OK\x00" as *const u8 as *const i8);
+            print_cstr(b"OK");
             if selector == Selector::TERM_AND_LOG {
                 if (*eqtb.offset(
                     (1i32
@@ -24662,7 +24258,7 @@ pub(crate) unsafe extern "C" fn show_whatever() {
                 .s1 <= 0i32
                 {
                     selector = Selector::TERM_ONLY;
-                    print_cstr(b" (see the transcript file)\x00" as *const u8 as *const i8);
+                    print_cstr(b" (see the transcript file)");
                     selector = Selector::TERM_AND_LOG
                 }
             }
@@ -24703,24 +24299,16 @@ pub(crate) unsafe extern "C" fn show_whatever() {
     .s1 > 0i32
     {
         help_ptr = 3_u8;
-        help_line[2] = b"This isn\'t an error message; I\'m just \\showing something.\x00"
-            as *const u8 as *const i8;
-        help_line[1] =
-            b"Type `I\\show...\' to show more (e.g., \\show\\cs,\x00" as *const u8 as *const i8;
-        help_line[0] =
-            b"\\showthe\\count10, \\showbox255, \\showlists).\x00" as *const u8 as *const i8
+        help_line[2] = b"This isn\'t an error message; I\'m just \\showing something.";
+        help_line[1] = b"Type `I\\show...\' to show more (e.g., \\show\\cs,";
+        help_line[0] = b"\\showthe\\count10, \\showbox255, \\showlists)."
     } else {
         help_ptr = 5_u8;
-        help_line[4] = b"This isn\'t an error message; I\'m just \\showing something.\x00"
-            as *const u8 as *const i8;
-        help_line[3] =
-            b"Type `I\\show...\' to show more (e.g., \\show\\cs,\x00" as *const u8 as *const i8;
-        help_line[2] =
-            b"\\showthe\\count10, \\showbox255, \\showlists).\x00" as *const u8 as *const i8;
-        help_line[1] = b"And type `I\\tracingonline=1\\show...\' to show boxes and\x00" as *const u8
-            as *const i8;
-        help_line[0] = b"lists on your terminal as well as in the transcript file.\x00" as *const u8
-            as *const i8
+        help_line[4] = b"This isn\'t an error message; I\'m just \\showing something.";
+        help_line[3] = b"Type `I\\show...\' to show more (e.g., \\show\\cs,";
+        help_line[2] = b"\\showthe\\count10, \\showbox255, \\showlists).";
+        help_line[1] = b"And type `I\\tracingonline=1\\show...\' to show boxes and";
+        help_line[0] = b"lists on your terminal as well as in the transcript file."
     }
     error();
 }
@@ -24940,13 +24528,12 @@ pub(crate) unsafe extern "C" fn do_extension() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(b"Bad glyph number\x00" as *const u8 as *const i8);
+                    print_cstr(b"Bad glyph number");
                     help_ptr = 2_u8;
-                    help_line[1] = b"A glyph number must be between 0 and 65535.\x00" as *const u8
-                        as *const i8;
-                    help_line[0] = b"I changed this one to zero.\x00" as *const u8 as *const i8;
+                    help_line[1] = b"A glyph number must be between 0 and 65535.";
+                    help_line[0] = b"I changed this one to zero.";
                     int_error(cur_val);
                     cur_val = 0i32
                 }
@@ -25038,18 +24625,13 @@ pub(crate) unsafe extern "C" fn do_extension() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(
-                    b"Encoding mode `auto\' is not valid for \\XeTeXinputencoding\x00" as *const u8
-                        as *const i8,
-                );
+                print_cstr(b"Encoding mode `auto\' is not valid for \\XeTeXinputencoding");
                 help_ptr = 2_u8;
                 help_line[1] =
-                    b"You can\'t use `auto\' encoding here, only for \\XeTeXdefaultencoding.\x00"
-                        as *const u8 as *const i8;
-                help_line[0] = b"I\'ll ignore this and leave the current encoding unchanged.\x00"
-                    as *const u8 as *const i8;
+                    b"You can\'t use `auto\' encoding here, only for \\XeTeXdefaultencoding.";
+                help_line[0] = b"I\'ll ignore this and leave the current encoding unchanged.";
                 error();
             } else {
                 set_input_file_encoding(*input_file.offset(in_open as isize), i, j);
@@ -25185,7 +24767,7 @@ pub(crate) unsafe extern "C" fn do_extension() {
             new_whatsit(6i32 as small_number, 2i32 as small_number);
         }
         _ => {
-            confusion(b"ext1\x00" as *const u8 as *const i8);
+            confusion(b"ext1");
         }
     };
 }
@@ -25413,14 +24995,12 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"Too many }\'s\x00" as *const u8 as *const i8);
+            print_cstr(b"Too many }\'s");
             help_ptr = 2_u8;
-            help_line[1] =
-                b"You\'ve closed more groups than you opened.\x00" as *const u8 as *const i8;
-            help_line[0] = b"Such booboos are generally harmless, so keep going.\x00" as *const u8
-                as *const i8;
+            help_line[1] = b"You\'ve closed more groups than you opened.";
+            help_line[0] = b"Such booboos are generally harmless, so keep going.";
             error();
         }
         14 | 15 | 16 => {
@@ -25567,14 +25147,12 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Unbalanced output routine\x00" as *const u8 as *const i8);
+                print_cstr(b"Unbalanced output routine");
                 help_ptr = 2_u8;
-                help_line[1] = b"Your sneaky output routine has problematic {\'s and/or }\'s.\x00"
-                    as *const u8 as *const i8;
-                help_line[0] =
-                    b"I can\'t handle that very well; good luck.\x00" as *const u8 as *const i8;
+                help_line[1] = b"Your sneaky output routine has problematic {\'s and/or }\'s.";
+                help_line[0] = b"I can\'t handle that very well; good luck.";
                 error();
                 loop {
                     get_token();
@@ -25612,18 +25190,15 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Output routine didn\'t use all of \x00" as *const u8 as *const i8);
-                print_esc_cstr(b"box\x00" as *const u8 as *const i8);
+                print_cstr(b"Output routine didn\'t use all of ");
+                print_esc_cstr(b"box");
                 print_int(255i32);
                 help_ptr = 3_u8;
-                help_line[2] =
-                    b"Your \\output commands should empty \\box255,\x00" as *const u8 as *const i8;
-                help_line[1] =
-                    b"e.g., by saying `\\shipout\\box255\'.\x00" as *const u8 as *const i8;
-                help_line[0] =
-                    b"Proceed; I\'ll discard its present contents.\x00" as *const u8 as *const i8;
+                help_line[2] = b"Your \\output commands should empty \\box255,";
+                help_line[1] = b"e.g., by saying `\\shipout\\box255\'.";
+                help_line[0] = b"Proceed; I\'ll discard its present contents.";
                 box_error(255i32 as eight_bits);
             }
             if cur_list.tail != cur_list.head {
@@ -25657,14 +25232,13 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"Missing \x00" as *const u8 as *const i8);
-            print_esc_cstr(b"cr\x00" as *const u8 as *const i8);
-            print_cstr(b" inserted\x00" as *const u8 as *const i8);
+            print_cstr(b"Missing ");
+            print_esc_cstr(b"cr");
+            print_cstr(b" inserted");
             help_ptr = 1_u8;
-            help_line[0] = b"I\'m guessing that you meant to end an alignment here.\x00"
-                as *const u8 as *const i8;
+            help_line[0] = b"I\'m guessing that you meant to end an alignment here.";
             ins_error();
         }
         7 => {
@@ -25735,7 +25309,7 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
             }
         }
         _ => {
-            confusion(b"rightbrace\x00" as *const u8 as *const i8);
+            confusion(b"rightbrace");
         }
     };
 }
@@ -28606,7 +28180,7 @@ pub(crate) unsafe extern "C" fn close_files_and_terminate() {
         log_file = None;
         selector = u8::from(selector).wrapping_sub(2).into();
         if selector == Selector::TERM_ONLY {
-            print_nl_cstr(b"Transcript written on \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"Transcript written on ");
             print(texmf_log_name);
             print_char('.' as i32);
         }
@@ -28624,8 +28198,8 @@ pub(crate) unsafe extern "C" fn flush_str(mut s: str_number) {
 pub(crate) unsafe extern "C" fn tokens_to_string(mut p: i32) -> str_number {
     if selector == Selector::NEW_STRING {
         pdf_error(
-            b"tokens\x00" as *const u8 as *const i8,
-            b"tokens_to_string() called while selector = new_string\x00" as *const u8 as *const i8,
+            b"tokens",
+            b"tokens_to_string() called while selector = new_string",
         );
     }
     old_setting = selector;
@@ -28740,7 +28314,7 @@ pub(crate) unsafe extern "C" fn prune_page_top(mut p: i32, mut s: bool) -> i32 {
                 }
             }
             _ => {
-                confusion(b"pruning\x00" as *const u8 as *const i8);
+                confusion(b"pruning");
             }
         }
     }
