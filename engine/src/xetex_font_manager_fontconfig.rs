@@ -10,8 +10,6 @@
 
 use crate::stub_icu as icu;
 use crate::xetex_layout_interface::collection_types::*;
-use std::ffi::CString;
-use std::ptr::NonNull;
 
 use crate::freetype_sys_patch::{FT_Get_Sfnt_Name, FT_Get_Sfnt_Name_Count};
 use freetype::freetype_sys::{
@@ -33,9 +31,6 @@ extern "C" {
     fn strdup(_: *const libc::c_char) -> *mut libc::c_char;
     #[no_mangle]
     fn strchr(_: *const libc::c_char, _: libc::c_int) -> *mut libc::c_char;
-    /* The internal, C/C++ interface: */
-    #[no_mangle]
-    fn _tt_abort(format: *const libc::c_char, _: ...) -> !;
     #[no_mangle]
     fn FcFontSetDestroy(s: *mut FcFontSet);
     #[no_mangle]
@@ -670,10 +665,10 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
 pub unsafe extern "C" fn XeTeXFontMgr_FC_initialize(mut self_0: *mut XeTeXFontMgr) {
     let mut real_self: *mut XeTeXFontMgr_FC = self_0 as *mut XeTeXFontMgr_FC;
     if FcInit() == 0i32 {
-        _tt_abort(b"fontconfig initialization failed\x00" as *const u8 as *const libc::c_char);
+        abort!("fontconfig initialization failed");
     }
     if gFreeTypeLibrary.is_null() && FT_Init_FreeType(&mut gFreeTypeLibrary) != 0i32 {
-        _tt_abort(b"FreeType initialization failed\x00" as *const u8 as *const libc::c_char);
+        abort!("FreeType initialization failed");
     }
     let mut err: icu::UErrorCode = icu::U_ZERO_ERROR;
     macRomanConv = icu::ucnv_open(
@@ -683,7 +678,7 @@ pub unsafe extern "C" fn XeTeXFontMgr_FC_initialize(mut self_0: *mut XeTeXFontMg
     utf16beConv = icu::ucnv_open(b"UTF16BE\x00" as *const u8 as *const libc::c_char, &mut err);
     utf8Conv = icu::ucnv_open(b"UTF8\x00" as *const u8 as *const libc::c_char, &mut err);
     if err as u64 != 0 {
-        _tt_abort(b"cannot read font names\x00" as *const u8 as *const libc::c_char);
+        abort!("cannot read font names");
     }
     let mut pat: *mut FcPattern =
         FcNameParse(b":outline=true\x00" as *const u8 as *const libc::c_char as *const FcChar8);

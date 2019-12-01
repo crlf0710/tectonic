@@ -216,7 +216,7 @@ pub unsafe extern "C" fn ttstub_issue_warning(mut format: *const i8, mut args: .
     let mut ap: ::std::ffi::VaListImpl; /* Not ideal to (ab)use error_buf here */
     ap = args.clone(); /* Not ideal to (ab)use error_buf here */
     vsnprintf(
-        error_buf.as_mut_ptr(),
+        error_buf.as_mut_ptr() as *mut i8,
         1024i32 as u64,
         format,
         ap.as_va_list(),
@@ -225,7 +225,7 @@ pub unsafe extern "C" fn ttstub_issue_warning(mut format: *const i8, mut args: .
         .issue_warning
         .expect("non-null function pointer")(
         (*tectonic_global_bridge).context,
-        error_buf.as_mut_ptr(),
+        error_buf.as_mut_ptr() as *mut i8,
     );
 }
 pub unsafe fn ttstub_issue_warning_slice(buf: &[u8]) {
@@ -242,7 +242,7 @@ pub unsafe extern "C" fn ttstub_issue_error(mut format: *const i8, mut args: ...
     let mut ap: ::std::ffi::VaListImpl;
     ap = args.clone();
     vsnprintf(
-        error_buf.as_mut_ptr(),
+        error_buf.as_mut_ptr() as *mut i8,
         1024i32 as u64,
         format,
         ap.as_va_list(),
@@ -251,7 +251,7 @@ pub unsafe extern "C" fn ttstub_issue_error(mut format: *const i8, mut args: ...
         .issue_error
         .expect("non-null function pointer")(
         (*tectonic_global_bridge).context,
-        error_buf.as_mut_ptr(),
+        error_buf.as_mut_ptr() as *mut i8,
     );
 }
 #[no_mangle]
@@ -430,25 +430,47 @@ pub unsafe extern "C" fn ttstub_input_close(mut handle: InputHandleWrapper) -> i
  * probably be moved out into other files. */
 /* The global variable that represents the Rust API. Some fine day we'll get
  * rid of all of the globals ... */
-static mut error_buf: [i8; 1024] = [0; 1024];
+pub static mut error_buf: [u8; 1024] = [0; 1024];
+
+#[macro_export]
+macro_rules! abort(
+    ($($arg:tt)*) => {{
+        use std::io::Write;
+        let v = format!($($arg)*);
+        let len = v.as_bytes().len();
+        bridge::error_buf[..len].copy_from_slice(v.as_bytes());
+        bridge::error_buf[len] = 0;
+        panic!(v);
+    }};
+);
 
 #[no_mangle]
-pub unsafe extern "C" fn _tt_abort(mut format: *const i8, mut args: ...) -> ! {
-    let mut ap: ::std::ffi::VaListImpl;
-    ap = args.clone();
-    vsnprintf(
-        error_buf.as_mut_ptr(),
-        1024i32 as u64,
-        format,
-        ap.as_va_list(),
-    );
-    panic!("tt_abort")
-}
-#[no_mangle]
 pub unsafe extern "C" fn tt_get_error_message() -> *const i8 {
-    error_buf.as_mut_ptr()
+    error_buf.as_mut_ptr() as *mut i8
 }
 
 #[macro_use]
 pub mod macro_stub;
 pub mod stub_errno;
+
+pub trait DisplayExt {
+    type Adapter: core::fmt::Display;
+    fn display(self) -> Self::Adapter;
+}
+
+impl<'a> DisplayExt for &'a std::ffi::CStr {
+    type Adapter = std::borrow::Cow<'a, str>;
+    fn display(self) -> Self::Adapter {
+        self.to_string_lossy()
+    }
+}
+
+impl<'a> DisplayExt for &'a [u8] {
+    type Adapter = std::borrow::Cow<'a, str>;
+    fn display(self) -> Self::Adapter {
+        String::from_utf8_lossy(match self.iter().position(|&x| x == 0) {
+            Some(n) => &self[..n],
+            None => self,
+        })
+    }
+}

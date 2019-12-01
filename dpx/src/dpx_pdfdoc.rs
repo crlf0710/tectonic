@@ -1797,12 +1797,31 @@ pub unsafe fn pdf_doc_add_annot(
         || annbox.max.y > mediabox.max.y
     {
         warn!("Annotation out of page boundary.");
-        warn!("Current page\'s MediaBox: {}", mediabox.display(),);
-        warn!("Annotation: {}", annbox.display(),);
+
+        warn!(
+            "Current page\'s MediaBox: {}",
+            format!(
+                "[{}, {}, {}, {}]",
+                mediabox.min.x, mediabox.min.y, mediabox.max.x, mediabox.max.y
+            )
+        );
+        warn!(
+            "Annotation: {}",
+            format!(
+                "[{}, {}, {}, {}]",
+                annbox.min.x, annbox.min.y, annbox.max.x, annbox.max.y
+            )
+        );
         warn!("Maybe incorrect paper size specified.");
     }
     if annbox.min.x > annbox.max.x || annbox.min.y > annbox.max.y {
-        warn!("Rectangle with negative width/height: {}", annbox.display(),);
+        warn!(
+            "Rectangle with negative width/height: {}",
+            format!(
+                "[{}, {}, {}, {}]",
+                annbox.min.x, annbox.min.y, annbox.max.x, annbox.max.y
+            )
+        );
     }
     let mut rect_array = vec![];
     rect_array.push_obj(((annbox.min.x - annot_grow) / 0.001 + 0.5).floor() * 0.001);

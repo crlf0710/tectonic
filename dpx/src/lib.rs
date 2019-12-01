@@ -67,28 +67,6 @@ macro_rules! warn(
 
 pub trait Warn<E>: Sized {}
 
-trait DisplayExt {
-    type Adapter: core::fmt::Display;
-    fn display(self) -> Self::Adapter;
-}
-
-impl<'a> DisplayExt for &'a std::ffi::CStr {
-    type Adapter = std::borrow::Cow<'a, str>;
-    fn display(self) -> Self::Adapter {
-        self.to_string_lossy()
-    }
-}
-
-impl<'a> DisplayExt for &'a [u8] {
-    type Adapter = std::borrow::Cow<'a, str>;
-    fn display(self) -> Self::Adapter {
-        String::from_utf8_lossy(match self.iter().position(|&x| x == 0) {
-            Some(n) => &self[..n],
-            None => self,
-        })
-    }
-}
-
 fn isblank(c: libc::c_int) -> libc::c_int {
     (c == ' ' as _ || c == '\t' as _) as _
 }

@@ -8,6 +8,8 @@
     unused_mut
 )]
 
+use bridge::DisplayExt;
+use std::ffi::CStr;
 use std::io::Write;
 use std::ptr;
 
@@ -104,7 +106,6 @@ use crate::{
     ttstub_output_open, ttstub_output_putc,
 };
 use crate::{TTHistory, TTInputFormat};
-use bridge::_tt_abort;
 
 use libc::{free, memcpy, strcat, strcpy, strlen};
 
@@ -15109,9 +15110,9 @@ pub unsafe extern "C" fn open_log_file() {
     pack_job_name(b".log\x00" as *const u8 as *const i8);
     log_file = ttstub_output_open(name_of_file, 0i32);
     if log_file.is_none() {
-        _tt_abort(
-            b"cannot open log file output \"%s\"\x00" as *const u8 as *const i8,
-            name_of_file,
+        abort!(
+            "cannot open log file output \"{}\"",
+            CStr::from_ptr(name_of_file).display()
         );
     }
     texmf_log_name = make_name_string();
@@ -15368,9 +15369,9 @@ pub unsafe extern "C" fn start_input(mut primary_input_name: *const i8) {
         .s1,
     ) == 0
     {
-        _tt_abort(
-            b"failed to open input file \"%s\"\x00" as *const u8 as *const i8,
-            name_of_file,
+        abort!(
+            "failed to open input file \"{}\"",
+            CStr::from_ptr(name_of_file).display()
         );
     }
     /* Now re-encode `name_of_file` into the UTF-16 variable `name_of_file16`,
