@@ -79,7 +79,7 @@ use crate::{ttstub_input_close, ttstub_input_open};
 use libc::{free, strlen, strstr};
 
 pub type __ssize_t = i64;
-pub type size_t = u64;
+use crate::size_t;
 
 use super::{spc_arg, spc_env};
 
@@ -405,7 +405,7 @@ unsafe fn reencodestring(cmap: *mut CMap, instring: *mut pdf_obj) -> i32 {
         &mut obufcur,
         &mut obufleft,
     );
-    if inbufleft > 0i32 as u64 {
+    if inbufleft > 0 {
         return -1i32;
     }
     (*instring)

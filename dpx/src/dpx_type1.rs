@@ -59,8 +59,6 @@ use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
 use libc::{free, memset, strlen, strstr};
 
-pub type size_t = u64;
-
 use crate::TTInputFormat;
 
 use super::dpx_cff::cff_index;

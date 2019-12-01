@@ -50,10 +50,9 @@ use crate::{
 use dpx::dpx_pdfobj::{pdf_files_close, pdf_files_init};
 use libc::{free, memset, strcpy, strlen};
 
-pub type __ssize_t = i64;
 pub type uintptr_t = u64;
-pub type size_t = u64;
-pub type ssize_t = __ssize_t;
+pub type size_t = usize;
+pub type ssize_t = isize;
 /* tectonic/core-bridge.h: declarations of C/C++ => Rust bridge API
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
@@ -1281,7 +1280,7 @@ unsafe extern "C" fn do_undump(
     in_file: &mut InputHandleWrapper,
 ) {
     let mut r: ssize_t = ttstub_input_read(in_file.0.as_ptr(), p, item_size.wrapping_mul(nitems));
-    if r < 0i32 as i64 || r as size_t != item_size.wrapping_mul(nitems) {
+    if r < 0 || r as size_t != item_size.wrapping_mul(nitems) {
         abort!(
             "could not undump {} {}-byte item(s) from {}",
             nitems,
@@ -1392,7 +1391,7 @@ pub unsafe extern "C" fn new_trie_op(
             if u as i64 == 65535 {
                 overflow(
                     b"pattern memory ops per language\x00" as *const u8 as *const i8,
-                    (65535 - 0i32 as i64) as i32,
+                    (65535 - 0) as i32,
                 );
             }
             trie_op_ptr += 1;
@@ -3050,21 +3049,21 @@ unsafe extern "C" fn store_fmt_file() {
     let mut x_val: i32 = 0x54544e43i32; /* TODO: can we move this farther up in this function? */
     do_dump(
         &mut x_val as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     let mut x_val_0: i32 = FORMAT_SERIAL;
     do_dump(
         &mut x_val_0 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     let mut x_val_1: i32 = hash_high;
     do_dump(
         &mut x_val_1 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
@@ -3074,28 +3073,28 @@ unsafe extern "C" fn store_fmt_file() {
     let mut x_val_2: i32 = MEM_TOP;
     do_dump(
         &mut x_val_2 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     let mut x_val_3: i32 = EQTB_SIZE;
     do_dump(
         &mut x_val_3 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     let mut x_val_4: i32 = HASH_PRIME;
     do_dump(
         &mut x_val_4 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     let mut x_val_5: i32 = HYPH_PRIME;
     do_dump(
         &mut x_val_5 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
@@ -3103,26 +3102,26 @@ unsafe extern "C" fn store_fmt_file() {
     let mut x_val_6: i32 = pool_ptr;
     do_dump(
         &mut x_val_6 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     let mut x_val_7: i32 = str_ptr;
     do_dump(
         &mut x_val_7 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     do_dump(
         &mut *str_start.offset(0) as *mut pool_pointer as *mut i8,
-        ::std::mem::size_of::<pool_pointer>() as u64,
+        ::std::mem::size_of::<pool_pointer>() as _,
         (str_ptr - 65536i32 + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *str_pool.offset(0) as *mut packed_UTF16_code as *mut i8,
-        ::std::mem::size_of::<packed_UTF16_code>() as u64,
+        ::std::mem::size_of::<packed_UTF16_code>() as _,
         pool_ptr as size_t,
         fmt_out,
     );
@@ -3136,14 +3135,14 @@ unsafe extern "C" fn store_fmt_file() {
     let mut x_val_8: i32 = lo_mem_max;
     do_dump(
         &mut x_val_8 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     let mut x_val_9: i32 = rover;
     do_dump(
         &mut x_val_9 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
@@ -3152,7 +3151,7 @@ unsafe extern "C" fn store_fmt_file() {
         let mut x_val_10: i32 = sa_root[k as usize];
         do_dump(
             &mut x_val_10 as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as u64,
+            ::std::mem::size_of::<i32>() as _,
             1i32 as size_t,
             fmt_out,
         );
@@ -3164,7 +3163,7 @@ unsafe extern "C" fn store_fmt_file() {
     loop {
         do_dump(
             &mut *mem.offset(p as isize) as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as u64,
+            ::std::mem::size_of::<memory_word>() as _,
             (q + 2i32 - p) as size_t,
             fmt_out,
         );
@@ -3180,7 +3179,7 @@ unsafe extern "C" fn store_fmt_file() {
     dyn_used = mem_end + 1i32 - hi_mem_min;
     do_dump(
         &mut *mem.offset(p as isize) as *mut memory_word as *mut i8,
-        ::std::mem::size_of::<memory_word>() as u64,
+        ::std::mem::size_of::<memory_word>() as _,
         (lo_mem_max + 1i32 - p) as size_t,
         fmt_out,
     );
@@ -3188,20 +3187,20 @@ unsafe extern "C" fn store_fmt_file() {
     let mut x_val_11: i32 = hi_mem_min;
     do_dump(
         &mut x_val_11 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     let mut x_val_12: i32 = avail;
     do_dump(
         &mut x_val_12 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     do_dump(
         &mut *mem.offset(hi_mem_min as isize) as *mut memory_word as *mut i8,
-        ::std::mem::size_of::<memory_word>() as u64,
+        ::std::mem::size_of::<memory_word>() as _,
         (mem_end + 1i32 - hi_mem_min) as size_t,
         fmt_out,
     );
@@ -3214,14 +3213,14 @@ unsafe extern "C" fn store_fmt_file() {
     let mut x_val_13: i32 = var_used;
     do_dump(
         &mut x_val_13 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     let mut x_val_14: i32 = dyn_used;
     do_dump(
         &mut x_val_14 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
@@ -3275,13 +3274,13 @@ unsafe extern "C" fn store_fmt_file() {
         let mut x_val_15: i32 = l - k;
         do_dump(
             &mut x_val_15 as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as u64,
+            ::std::mem::size_of::<i32>() as _,
             1i32 as size_t,
             fmt_out,
         );
         do_dump(
             &mut *eqtb.offset(k as isize) as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as u64,
+            ::std::mem::size_of::<memory_word>() as _,
             (l - k) as size_t,
             fmt_out,
         );
@@ -3289,7 +3288,7 @@ unsafe extern "C" fn store_fmt_file() {
         let mut x_val_16: i32 = k - l;
         do_dump(
             &mut x_val_16 as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as u64,
+            ::std::mem::size_of::<i32>() as _,
             1i32 as size_t,
             fmt_out,
         );
@@ -3330,13 +3329,13 @@ unsafe extern "C" fn store_fmt_file() {
         let mut x_val_17: i32 = l - k;
         do_dump(
             &mut x_val_17 as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as u64,
+            ::std::mem::size_of::<i32>() as _,
             1i32 as size_t,
             fmt_out,
         );
         do_dump(
             &mut *eqtb.offset(k as isize) as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as u64,
+            ::std::mem::size_of::<memory_word>() as _,
             (l - k) as size_t,
             fmt_out,
         );
@@ -3344,7 +3343,7 @@ unsafe extern "C" fn store_fmt_file() {
         let mut x_val_18: i32 = k - l;
         do_dump(
             &mut x_val_18 as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as u64,
+            ::std::mem::size_of::<i32>() as _,
             1i32 as size_t,
             fmt_out,
         );
@@ -3355,7 +3354,7 @@ unsafe extern "C" fn store_fmt_file() {
     if hash_high > 0i32 {
         do_dump(
             &mut *eqtb.offset(EQTB_SIZE as isize + 1) as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as u64,
+            ::std::mem::size_of::<memory_word>() as _,
             hash_high as size_t,
             fmt_out,
         );
@@ -3363,14 +3362,14 @@ unsafe extern "C" fn store_fmt_file() {
     let mut x_val_19: i32 = par_loc;
     do_dump(
         &mut x_val_19 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     let mut x_val_20: i32 = write_loc;
     do_dump(
         &mut x_val_20 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
@@ -3378,7 +3377,7 @@ unsafe extern "C" fn store_fmt_file() {
     while p <= PRIM_SIZE {
         do_dump(
             &mut *prim.as_mut_ptr().offset(p as isize) as *mut b32x2 as *mut i8,
-            ::std::mem::size_of::<b32x2>() as u64,
+            ::std::mem::size_of::<b32x2>() as _,
             1i32 as size_t,
             fmt_out,
         );
@@ -3388,7 +3387,7 @@ unsafe extern "C" fn store_fmt_file() {
     while p <= PRIM_SIZE {
         do_dump(
             &mut *prim_eqtb.as_mut_ptr().offset(p as isize) as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as u64,
+            ::std::mem::size_of::<memory_word>() as _,
             1i32 as size_t,
             fmt_out,
         );
@@ -3398,7 +3397,7 @@ unsafe extern "C" fn store_fmt_file() {
     let mut x_val_21: i32 = hash_used;
     do_dump(
         &mut x_val_21 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
@@ -3409,13 +3408,13 @@ unsafe extern "C" fn store_fmt_file() {
             let mut x_val_22: i32 = p;
             do_dump(
                 &mut x_val_22 as *mut i32 as *mut i8,
-                ::std::mem::size_of::<i32>() as u64,
+                ::std::mem::size_of::<i32>() as _,
                 1i32 as size_t,
                 fmt_out,
             );
             do_dump(
                 &mut *hash.offset(p as isize) as *mut b32x2 as *mut i8,
-                ::std::mem::size_of::<b32x2>() as u64,
+                ::std::mem::size_of::<b32x2>() as _,
                 1i32 as size_t,
                 fmt_out,
             );
@@ -3425,14 +3424,14 @@ unsafe extern "C" fn store_fmt_file() {
     }
     do_dump(
         &mut *hash.offset((hash_used + 1i32) as isize) as *mut b32x2 as *mut i8,
-        ::std::mem::size_of::<b32x2>() as u64,
+        ::std::mem::size_of::<b32x2>() as _,
         ((UNDEFINED_CONTROL_SEQUENCE - 1) - hash_used) as _,
         fmt_out,
     );
     if hash_high > 0i32 {
         do_dump(
             &mut *hash.offset(EQTB_SIZE as isize + 1) as *mut b32x2 as *mut i8,
-            ::std::mem::size_of::<b32x2>() as u64,
+            ::std::mem::size_of::<b32x2>() as _,
             hash_high as size_t,
             fmt_out,
         );
@@ -3440,7 +3439,7 @@ unsafe extern "C" fn store_fmt_file() {
     let mut x_val_23: i32 = cs_count;
     do_dump(
         &mut x_val_23 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
@@ -3451,158 +3450,158 @@ unsafe extern "C" fn store_fmt_file() {
     let mut x_val_24: i32 = fmem_ptr;
     do_dump(
         &mut x_val_24 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     do_dump(
         &mut *font_info.offset(0) as *mut memory_word as *mut i8,
-        ::std::mem::size_of::<memory_word>() as u64,
+        ::std::mem::size_of::<memory_word>() as _,
         fmem_ptr as size_t,
         fmt_out,
     );
     let mut x_val_25: i32 = font_ptr;
     do_dump(
         &mut x_val_25 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     do_dump(
         &mut *font_check.offset(0) as *mut b16x4 as *mut i8,
-        ::std::mem::size_of::<b16x4>() as u64,
+        ::std::mem::size_of::<b16x4>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *font_size.offset(0) as *mut scaled_t as *mut i8,
-        ::std::mem::size_of::<scaled_t>() as u64,
+        ::std::mem::size_of::<scaled_t>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *font_dsize.offset(0) as *mut scaled_t as *mut i8,
-        ::std::mem::size_of::<scaled_t>() as u64,
+        ::std::mem::size_of::<scaled_t>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *font_params.offset(0) as *mut font_index as *mut i8,
-        ::std::mem::size_of::<font_index>() as u64,
+        ::std::mem::size_of::<font_index>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *hyphen_char.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *skew_char.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *font_name.offset(0) as *mut str_number as *mut i8,
-        ::std::mem::size_of::<str_number>() as u64,
+        ::std::mem::size_of::<str_number>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *font_area.offset(0) as *mut str_number as *mut i8,
-        ::std::mem::size_of::<str_number>() as u64,
+        ::std::mem::size_of::<str_number>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *font_bc.offset(0) as *mut UTF16_code as *mut i8,
-        ::std::mem::size_of::<UTF16_code>() as u64,
+        ::std::mem::size_of::<UTF16_code>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *font_ec.offset(0) as *mut UTF16_code as *mut i8,
-        ::std::mem::size_of::<UTF16_code>() as u64,
+        ::std::mem::size_of::<UTF16_code>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *char_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *width_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *height_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *depth_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *italic_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *lig_kern_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *kern_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *exten_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *param_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *font_glue.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *bchar_label.offset(0) as *mut font_index as *mut i8,
-        ::std::mem::size_of::<font_index>() as u64,
+        ::std::mem::size_of::<font_index>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *font_bchar.offset(0) as *mut nine_bits as *mut i8,
-        ::std::mem::size_of::<nine_bits>() as u64,
+        ::std::mem::size_of::<nine_bits>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *font_false_bchar.offset(0) as *mut nine_bits as *mut i8,
-        ::std::mem::size_of::<nine_bits>() as u64,
+        ::std::mem::size_of::<nine_bits>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
@@ -3663,7 +3662,7 @@ unsafe extern "C" fn store_fmt_file() {
     let mut x_val_26: i32 = hyph_count;
     do_dump(
         &mut x_val_26 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
@@ -3673,7 +3672,7 @@ unsafe extern "C" fn store_fmt_file() {
     let mut x_val_27: i32 = hyph_next;
     do_dump(
         &mut x_val_27 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
@@ -3684,21 +3683,21 @@ unsafe extern "C" fn store_fmt_file() {
                 (k as i64 + 65536 * *hyph_link.offset(k as isize) as i64) as i32;
             do_dump(
                 &mut x_val_28 as *mut i32 as *mut i8,
-                ::std::mem::size_of::<i32>() as u64,
+                ::std::mem::size_of::<i32>() as _,
                 1i32 as size_t,
                 fmt_out,
             );
             let mut x_val_29: i32 = *hyph_word.offset(k as isize);
             do_dump(
                 &mut x_val_29 as *mut i32 as *mut i8,
-                ::std::mem::size_of::<i32>() as u64,
+                ::std::mem::size_of::<i32>() as _,
                 1i32 as size_t,
                 fmt_out,
             );
             let mut x_val_30: i32 = *hyph_list.offset(k as isize);
             do_dump(
                 &mut x_val_30 as *mut i32 as *mut i8,
-                ::std::mem::size_of::<i32>() as u64,
+                ::std::mem::size_of::<i32>() as _,
                 1i32 as size_t,
                 fmt_out,
             );
@@ -3718,64 +3717,64 @@ unsafe extern "C" fn store_fmt_file() {
     let mut x_val_31: i32 = trie_max;
     do_dump(
         &mut x_val_31 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     let mut x_val_32: i32 = hyph_start;
     do_dump(
         &mut x_val_32 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     do_dump(
         &mut *trie_trl.offset(0) as *mut trie_pointer as *mut i8,
-        ::std::mem::size_of::<trie_pointer>() as u64,
+        ::std::mem::size_of::<trie_pointer>() as _,
         (trie_max + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *trie_tro.offset(0) as *mut trie_pointer as *mut i8,
-        ::std::mem::size_of::<trie_pointer>() as u64,
+        ::std::mem::size_of::<trie_pointer>() as _,
         (trie_max + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
         &mut *trie_trc.offset(0) as *mut u16 as *mut i8,
-        ::std::mem::size_of::<u16>() as u64,
+        ::std::mem::size_of::<u16>() as _,
         (trie_max + 1i32) as size_t,
         fmt_out,
     );
     let mut x_val_33: i32 = max_hyph_char;
     do_dump(
         &mut x_val_33 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     let mut x_val_34: i32 = trie_op_ptr;
     do_dump(
         &mut x_val_34 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
     do_dump(
         &mut *hyf_distance.as_mut_ptr().offset(1) as *mut small_number as *mut i8,
-        ::std::mem::size_of::<small_number>() as u64,
+        ::std::mem::size_of::<small_number>() as _,
         trie_op_ptr as size_t,
         fmt_out,
     );
     do_dump(
         &mut *hyf_num.as_mut_ptr().offset(1) as *mut small_number as *mut i8,
-        ::std::mem::size_of::<small_number>() as u64,
+        ::std::mem::size_of::<small_number>() as _,
         trie_op_ptr as size_t,
         fmt_out,
     );
     do_dump(
         &mut *hyf_next.as_mut_ptr().offset(1) as *mut trie_opcode as *mut i8,
-        ::std::mem::size_of::<trie_opcode>() as u64,
+        ::std::mem::size_of::<trie_opcode>() as _,
         trie_op_ptr as size_t,
         fmt_out,
     );
@@ -3800,14 +3799,14 @@ unsafe extern "C" fn store_fmt_file() {
             let mut x_val_35: i32 = k;
             do_dump(
                 &mut x_val_35 as *mut i32 as *mut i8,
-                ::std::mem::size_of::<i32>() as u64,
+                ::std::mem::size_of::<i32>() as _,
                 1i32 as size_t,
                 fmt_out,
             );
             let mut x_val_36: i32 = trie_used[k as usize] as i32;
             do_dump(
                 &mut x_val_36 as *mut i32 as *mut i8,
-                ::std::mem::size_of::<i32>() as u64,
+                ::std::mem::size_of::<i32>() as _,
                 1i32 as size_t,
                 fmt_out,
             );
@@ -3818,7 +3817,7 @@ unsafe extern "C" fn store_fmt_file() {
     let mut x_val_37: i32 = 0x29ai32; /*:1361*/
     do_dump(
         &mut x_val_37 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
@@ -3870,7 +3869,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     /* start reading the header */
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -3879,7 +3878,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -3894,7 +3893,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     /* hash table parameters */
     do_undump(
         &mut hash_high as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -3936,7 +3935,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     /* "memory locations" */
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -3950,7 +3949,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -3960,7 +3959,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -3970,7 +3969,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -3982,7 +3981,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -3998,7 +3997,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4018,7 +4017,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     let mut i: i32 = 0;
     do_undump(
         &mut *str_start.offset(0) as *mut pool_pointer as *mut i8,
-        ::std::mem::size_of::<pool_pointer>() as u64,
+        ::std::mem::size_of::<pool_pointer>() as _,
         (str_ptr - 65536i32 + 1i32) as size_t,
         fmt_in,
     );
@@ -4041,7 +4040,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     str_pool = xmalloc_array::<packed_UTF16_code>(pool_size as usize);
     do_undump(
         &mut *str_pool.offset(0) as *mut packed_UTF16_code as *mut i8,
-        ::std::mem::size_of::<packed_UTF16_code>() as u64,
+        ::std::mem::size_of::<packed_UTF16_code>() as _,
         pool_ptr as size_t,
         fmt_in,
     );
@@ -4052,7 +4051,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
      * much of the dynamic memory." */
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4063,7 +4062,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4079,7 +4078,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         }
         do_undump(
             &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as u64,
+            ::std::mem::size_of::<i32>() as _,
             1i32 as size_t,
             fmt_in,
         );
@@ -4095,7 +4094,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     loop {
         do_undump(
             &mut *mem.offset(p as isize) as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as u64,
+            ::std::mem::size_of::<memory_word>() as _,
             (q + 2i32 - p) as size_t,
             fmt_in,
         );
@@ -4113,13 +4112,13 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     do_undump(
         &mut *mem.offset(p as isize) as *mut memory_word as *mut i8,
-        ::std::mem::size_of::<memory_word>() as u64,
+        ::std::mem::size_of::<memory_word>() as _,
         (lo_mem_max + 1i32 - p) as size_t,
         fmt_in,
     );
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4130,7 +4129,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4144,19 +4143,19 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
     do_undump(
         &mut *mem.offset(hi_mem_min as isize) as *mut memory_word as *mut i8,
-        ::std::mem::size_of::<memory_word>() as u64,
+        ::std::mem::size_of::<memory_word>() as _,
         (mem_end + 1i32 - hi_mem_min) as size_t,
         fmt_in,
     );
     do_undump(
         &mut var_used as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
     do_undump(
         &mut dyn_used as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4172,7 +4171,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     loop {
         do_undump(
             &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as u64,
+            ::std::mem::size_of::<i32>() as _,
             1i32 as size_t,
             fmt_in,
         );
@@ -4182,7 +4181,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
         do_undump(
             &mut *eqtb.offset(k as isize) as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as u64,
+            ::std::mem::size_of::<memory_word>() as _,
             x as size_t,
             fmt_in,
         );
@@ -4190,7 +4189,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
         do_undump(
             &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as u64,
+            ::std::mem::size_of::<i32>() as _,
             1i32 as size_t,
             fmt_in,
         );
@@ -4211,14 +4210,14 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     if hash_high > 0i32 {
         do_undump(
             &mut *eqtb.offset(EQTB_SIZE as isize + 1) as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as u64,
+            ::std::mem::size_of::<memory_word>() as _,
             hash_high as size_t,
             fmt_in,
         );
     }
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4230,7 +4229,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     par_token = CS_TOKEN_FLAG + par_loc;
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4253,7 +4252,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     while p <= 500i32 {
         do_undump(
             &mut *prim.as_mut_ptr().offset(p as isize) as *mut b32x2 as *mut i8,
-            ::std::mem::size_of::<b32x2>() as u64,
+            ::std::mem::size_of::<b32x2>() as _,
             1i32 as size_t,
             fmt_in,
         );
@@ -4263,7 +4262,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     while p <= 500i32 {
         do_undump(
             &mut *prim_eqtb.as_mut_ptr().offset(p as isize) as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as u64,
+            ::std::mem::size_of::<memory_word>() as _,
             1i32 as size_t,
             fmt_in,
         );
@@ -4272,7 +4271,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4285,7 +4284,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     loop {
         do_undump(
             &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as u64,
+            ::std::mem::size_of::<i32>() as _,
             1i32 as size_t,
             fmt_in,
         );
@@ -4296,7 +4295,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         }
         do_undump(
             &mut *hash.offset(p as isize) as *mut b32x2 as *mut i8,
-            ::std::mem::size_of::<b32x2>() as u64,
+            ::std::mem::size_of::<b32x2>() as _,
             1i32 as size_t,
             fmt_in,
         );
@@ -4306,7 +4305,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     do_undump(
         &mut *hash.offset((hash_used + 1i32) as isize) as *mut b32x2 as *mut i8,
-        ::std::mem::size_of::<b32x2>() as u64,
+        ::std::mem::size_of::<b32x2>() as _,
         (1i32
             + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -4322,14 +4321,14 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     if hash_high > 0i32 {
         do_undump(
             &mut *hash.offset(EQTB_SIZE as isize + 1) as *mut b32x2 as *mut i8,
-            ::std::mem::size_of::<b32x2>() as u64,
+            ::std::mem::size_of::<b32x2>() as _,
             hash_high as size_t,
             fmt_in,
         );
     }
     do_undump(
         &mut cs_count as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4338,7 +4337,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4356,13 +4355,13 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     font_info = xmalloc_array::<memory_word>(font_mem_size as usize);
     do_undump(
         &mut *font_info.offset(0) as *mut memory_word as *mut i8,
-        ::std::mem::size_of::<memory_word>() as u64,
+        ::std::mem::size_of::<memory_word>() as _,
         fmem_ptr as size_t,
         fmt_in,
     );
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4410,26 +4409,26 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     do_undump(
         &mut *font_check.offset(0) as *mut b16x4 as *mut i8,
-        ::std::mem::size_of::<b16x4>() as u64,
+        ::std::mem::size_of::<b16x4>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
         &mut *font_size.offset(0) as *mut scaled_t as *mut i8,
-        ::std::mem::size_of::<scaled_t>() as u64,
+        ::std::mem::size_of::<scaled_t>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
         &mut *font_dsize.offset(0) as *mut scaled_t as *mut i8,
-        ::std::mem::size_of::<scaled_t>() as u64,
+        ::std::mem::size_of::<scaled_t>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     let mut i_0: i32 = 0;
     do_undump(
         &mut *font_params.offset(0) as *mut font_index as *mut i8,
-        ::std::mem::size_of::<font_index>() as u64,
+        ::std::mem::size_of::<font_index>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
@@ -4452,20 +4451,20 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     do_undump(
         &mut *hyphen_char.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
         &mut *skew_char.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     let mut i_1: i32 = 0;
     do_undump(
         &mut *font_name.offset(0) as *mut str_number as *mut i8,
-        ::std::mem::size_of::<str_number>() as u64,
+        ::std::mem::size_of::<str_number>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
@@ -4485,7 +4484,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     let mut i_2: i32 = 0;
     do_undump(
         &mut *font_area.offset(0) as *mut str_number as *mut i8,
-        ::std::mem::size_of::<str_number>() as u64,
+        ::std::mem::size_of::<str_number>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
@@ -4504,74 +4503,74 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     do_undump(
         &mut *font_bc.offset(0) as *mut UTF16_code as *mut i8,
-        ::std::mem::size_of::<UTF16_code>() as u64,
+        ::std::mem::size_of::<UTF16_code>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
         &mut *font_ec.offset(0) as *mut UTF16_code as *mut i8,
-        ::std::mem::size_of::<UTF16_code>() as u64,
+        ::std::mem::size_of::<UTF16_code>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
         &mut *char_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
         &mut *width_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
         &mut *height_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
         &mut *depth_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
         &mut *italic_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
         &mut *lig_kern_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
         &mut *kern_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
         &mut *exten_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
         &mut *param_base.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     let mut i_3: i32 = 0;
     do_undump(
         &mut *font_glue.offset(0) as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
@@ -4594,7 +4593,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     let mut i_4: i32 = 0;
     do_undump(
         &mut *bchar_label.offset(0) as *mut font_index as *mut i8,
-        ::std::mem::size_of::<font_index>() as u64,
+        ::std::mem::size_of::<font_index>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
@@ -4618,7 +4617,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     let mut i_5: i32 = 0;
     do_undump(
         &mut *font_bchar.offset(0) as *mut nine_bits as *mut i8,
-        ::std::mem::size_of::<nine_bits>() as u64,
+        ::std::mem::size_of::<nine_bits>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
@@ -4641,7 +4640,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     let mut i_6: i32 = 0;
     do_undump(
         &mut *font_false_bchar.offset(0) as *mut nine_bits as *mut i8,
-        ::std::mem::size_of::<nine_bits>() as u64,
+        ::std::mem::size_of::<nine_bits>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
@@ -4667,7 +4666,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4682,7 +4681,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4699,7 +4698,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     for _k in 1..=hyph_count {
         do_undump(
             &mut j as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as u64,
+            ::std::mem::size_of::<i32>() as _,
             1i32 as size_t,
             fmt_in,
         );
@@ -4718,7 +4717,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         *hyph_link.offset(j as isize) = hyph_next as hyph_pointer;
         do_undump(
             &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as u64,
+            ::std::mem::size_of::<i32>() as _,
             1i32 as size_t,
             fmt_in,
         );
@@ -4729,7 +4728,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         }
         do_undump(
             &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as u64,
+            ::std::mem::size_of::<i32>() as _,
             1i32 as size_t,
             fmt_in,
         );
@@ -4752,7 +4751,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4768,7 +4767,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4783,7 +4782,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     do_undump(
         &mut *trie_trl.offset(0) as *mut trie_pointer as *mut i8,
-        ::std::mem::size_of::<trie_pointer>() as u64,
+        ::std::mem::size_of::<trie_pointer>() as _,
         (j + 1i32) as size_t,
         fmt_in,
     );
@@ -4792,7 +4791,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     do_undump(
         &mut *trie_tro.offset(0) as *mut trie_pointer as *mut i8,
-        ::std::mem::size_of::<trie_pointer>() as u64,
+        ::std::mem::size_of::<trie_pointer>() as _,
         (j + 1i32) as size_t,
         fmt_in,
     );
@@ -4801,19 +4800,19 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     do_undump(
         &mut *trie_trc.offset(0) as *mut u16 as *mut i8,
-        ::std::mem::size_of::<u16>() as u64,
+        ::std::mem::size_of::<u16>() as _,
         (j + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
         &mut max_hyph_char as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -4829,20 +4828,20 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
     do_undump(
         &mut *hyf_distance.as_mut_ptr().offset(1) as *mut small_number as *mut i8,
-        ::std::mem::size_of::<small_number>() as u64,
+        ::std::mem::size_of::<small_number>() as _,
         j as size_t,
         fmt_in,
     );
     do_undump(
         &mut *hyf_num.as_mut_ptr().offset(1) as *mut small_number as *mut i8,
-        ::std::mem::size_of::<small_number>() as u64,
+        ::std::mem::size_of::<small_number>() as _,
         j as size_t,
         fmt_in,
     );
     let mut i_7: i32 = 0;
     do_undump(
         &mut *hyf_next.as_mut_ptr().offset(1) as *mut trie_opcode as *mut i8,
-        ::std::mem::size_of::<trie_opcode>() as u64,
+        ::std::mem::size_of::<trie_opcode>() as _,
         j as size_t,
         fmt_in,
     );
@@ -4872,7 +4871,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         }
         do_undump(
             &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as u64,
+            ::std::mem::size_of::<i32>() as _,
             1i32 as size_t,
             fmt_in,
         );
@@ -4883,7 +4882,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         }
         do_undump(
             &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as u64,
+            ::std::mem::size_of::<i32>() as _,
             1i32 as size_t,
             fmt_in,
         );
@@ -4900,7 +4899,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
     do_undump(
         &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as u64,
+        ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_in,
     );
@@ -5038,9 +5037,9 @@ unsafe extern "C" fn initialize_more_variables() {
     let mut z: hyph_pointer = 0;
     doing_special = false;
     native_text_size = 128i32;
-    native_text =
-        xmalloc((native_text_size as u64).wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64))
-            as *mut UTF16_code;
+    native_text = xmalloc(
+        (native_text_size as u64).wrapping_mul(::std::mem::size_of::<UTF16_code>() as _) as _,
+    ) as *mut UTF16_code;
     interaction = 3_u8;
     deletions_allowed = true;
     set_box_allowed = true;

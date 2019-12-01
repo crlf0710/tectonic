@@ -323,7 +323,7 @@ pub unsafe extern "C" fn u_open_in(
     if handle.is_none() {
         return 0i32;
     }
-    *f = xmalloc(::std::mem::size_of::<UFILE>() as u64) as *mut UFILE;
+    *f = xmalloc(::std::mem::size_of::<UFILE>() as _) as *mut UFILE;
     (**f).encodingMode = 0_i16;
     (**f).conversionData = 0 as *mut libc::c_void;
     (**f).savedChar = -1i32 as i64;
@@ -400,7 +400,7 @@ unsafe extern "C" fn apply_normalization(mut buf: *mut u32, mut len: i32, mut no
     status = teckit::TECkit_ConvertBuffer(
         *normPtr,
         buf as *mut u8,
-        (len as u64).wrapping_mul(::std::mem::size_of::<u32>() as u64) as u32,
+        (len as u64).wrapping_mul(::std::mem::size_of::<u32>() as _) as u32,
         &mut inUsed,
         &mut *buffer.offset(first as isize) as *mut UnicodeScalar as *mut u8,
         (::std::mem::size_of::<UnicodeScalar>() as u64).wrapping_mul((buf_size - first) as u64)
@@ -477,13 +477,13 @@ pub unsafe extern "C" fn input_line(mut f: *mut UFILE) -> i32 {
                 // NFD
                 if utf32Buf.is_null() {
                     utf32Buf =
-                        xcalloc(buf_size as size_t, ::std::mem::size_of::<u32>() as u64) as *mut u32
+                        xcalloc(buf_size as size_t, ::std::mem::size_of::<u32>() as _) as *mut u32
                 } // sets 'last' correctly
                 tmpLen = icu::ucnv_toAlgorithmic(
                     icu::UCNV_UTF32_LittleEndian,
                     cnv,
                     utf32Buf as *mut i8,
-                    (buf_size as u64).wrapping_mul(::std::mem::size_of::<u32>() as u64) as i32,
+                    (buf_size as u64).wrapping_mul(::std::mem::size_of::<u32>() as _) as i32,
                     byteBuffer,
                     bytesRead as i32,
                     &mut errorCode,
@@ -494,7 +494,7 @@ pub unsafe extern "C" fn input_line(mut f: *mut UFILE) -> i32 {
                 }
                 apply_normalization(
                     utf32Buf,
-                    (tmpLen as u64).wrapping_div(::std::mem::size_of::<u32>() as u64) as i32,
+                    (tmpLen as u64).wrapping_div(::std::mem::size_of::<u32>() as _) as i32,
                     norm,
                 );
             }
@@ -535,7 +535,7 @@ pub unsafe extern "C" fn input_line(mut f: *mut UFILE) -> i32 {
                 // read Unicode chars into utf32Buf as UTF32
                 if utf32Buf.is_null() {
                     utf32Buf =
-                        xcalloc(buf_size as size_t, ::std::mem::size_of::<u32>() as u64) as *mut u32
+                        xcalloc(buf_size as size_t, ::std::mem::size_of::<u32>() as _) as *mut u32
                 }
                 tmpLen = 0i32;
                 if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
@@ -735,7 +735,7 @@ pub unsafe extern "C" fn make_utf16_name() {
         free(name_of_file16 as *mut libc::c_void);
         name16len = name_length + 10i32;
         name_of_file16 =
-            xcalloc(name16len as size_t, ::std::mem::size_of::<u16>() as u64) as *mut UTF16_code
+            xcalloc(name16len as size_t, ::std::mem::size_of::<u16>() as _) as *mut UTF16_code
     }
     t = name_of_file16;
     while s < (name_of_file as *mut u8).offset(name_length as isize) {

@@ -45,7 +45,7 @@ use crate::dpx_pdfobj::{
 };
 use libc::free;
 
-pub type size_t = u64;
+use crate::size_t;
 pub type __compar_fn_t = Option<unsafe fn(_: *const libc::c_void, _: *const libc::c_void) -> i32>;
 
 use super::dpx_dpxutil::ht_iter;

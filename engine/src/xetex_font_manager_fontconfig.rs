@@ -90,13 +90,13 @@ extern "C" {
         theFont: *mut XeTeXFontMgrFont,
     );
 }
+use crate::size_t;
 pub type __int16_t = libc::c_short;
 pub type __uint16_t = libc::c_ushort;
 pub type __int32_t = libc::c_int;
 pub type int16_t = __int16_t;
 pub type int32_t = __int32_t;
 pub type uint16_t = __uint16_t;
-pub type size_t = libc::c_ulong;
 pub type FcChar8 = libc::c_uchar;
 pub type FcBool = libc::c_int;
 pub type _FcResult = libc::c_uint;

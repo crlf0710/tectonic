@@ -47,10 +47,7 @@ use super::dpx_tfm::tfm_open;
 use crate::{ttstub_input_close, ttstub_input_open, ttstub_input_read};
 use libc::{free, strcpy, strlen};
 
-pub type __off_t = i64;
-pub type __off64_t = i64;
-pub type __ssize_t = i64;
-pub type size_t = u64;
+use super::size_t;
 
 const VF_ID: u8 = 202;
 
@@ -172,7 +169,7 @@ unsafe fn read_a_char_def(
         let pkt = new((pkt_len as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
             as *mut u8;
         if ttstub_input_read(vf_handle.0.as_ptr(), pkt as *mut i8, pkt_len as size_t)
-            != pkt_len as i64
+            != pkt_len as isize
         {
             panic!("VF file ended prematurely.");
         }
@@ -214,17 +211,14 @@ unsafe fn read_a_font_def(vf_handle: &mut InputHandleWrapper, font_id: i32, this
         vf_handle.0.as_ptr(),
         (*dev_font).directory,
         dir_length as size_t,
-    ) != dir_length as i64
+    ) != dir_length as isize
     {
         panic!("directory read failed");
     }
     (*dev_font).name = new(((name_length + 1i32) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    if ttstub_input_read(
-        vf_handle.0.as_ptr(),
-        (*dev_font).name,
-        name_length as size_t,
-    ) != name_length as i64
+    if ttstub_input_read(vf_handle.0.as_ptr(), (*dev_font).name, name_length as usize)
+        != name_length as isize
     {
         panic!("directory read failed");
     }

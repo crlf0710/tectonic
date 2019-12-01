@@ -75,7 +75,7 @@ use crate::shims::sprintf;
 use crate::{ttstub_input_close, ttstub_input_open};
 use libc::{free, memcpy, strcmp, strcpy, strlen, strncmp, strncpy};
 
-pub type size_t = u64;
+use crate::size_t;
 
 use crate::TTInputFormat;
 
@@ -1505,7 +1505,7 @@ unsafe fn pdf_doc_init_names(mut p: *mut pdf_doc, check_gotos: i32) {
     (*p).root.names = ptr::null_mut();
     (*p).names = new(((::std::mem::size_of::<[*const i8; 10]>() as u64)
         .wrapping_div(::std::mem::size_of::<*const i8>() as u64)
-        .wrapping_add(1i32 as u64) as u32 as u64)
+        .wrapping_add(1) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<name_dict>() as u64) as u32)
         as *mut name_dict;
     for i in 0..(::std::mem::size_of::<[*const i8; 10]>() as u64)
@@ -2404,21 +2404,20 @@ pub unsafe fn pdf_open_document(
     /* Create a default name for thumbnail image files */
     if manual_thumb_enabled != 0 {
         let fn_len: size_t = strlen(filename) as _;
-        if fn_len > 4i32 as u64
+        if fn_len > 4
             && strncmp(
                 b".pdf\x00" as *const u8 as *const i8,
                 filename.offset(fn_len as isize).offset(-4),
                 4,
             ) == 0
         {
-            thumb_basename = new(
-                (fn_len.wrapping_sub(4i32 as u64).wrapping_add(1i32 as u64) as u32 as u64)
-                    .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32,
-            ) as *mut i8;
+            thumb_basename = new((fn_len.wrapping_sub(4).wrapping_add(1) as u32 as u64)
+                .wrapping_mul(::std::mem::size_of::<i8>() as u64)
+                as u32) as *mut i8;
             strncpy(thumb_basename, filename, fn_len.wrapping_sub(4) as _);
-            *thumb_basename.offset(fn_len.wrapping_sub(4i32 as u64) as isize) = 0_i8
+            *thumb_basename.offset(fn_len.wrapping_sub(4) as isize) = 0_i8
         } else {
-            thumb_basename = new((fn_len.wrapping_add(1i32 as u64) as u32 as u64)
+            thumb_basename = new((fn_len.wrapping_add(1) as u32 as u64)
                 .wrapping_mul(::std::mem::size_of::<i8>() as u64)
                 as u32) as *mut i8;
             strcpy(thumb_basename, filename);

@@ -45,7 +45,7 @@ use std::ptr;
 use std::slice;
 
 pub type __ssize_t = i64;
-pub type size_t = u64;
+use crate::size_t;
 
 use super::dpx_sfnt::{put_big_endian, sfnt};
 

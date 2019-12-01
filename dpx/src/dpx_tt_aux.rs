@@ -38,9 +38,6 @@ use crate::dpx_pdfobj::{pdf_dict, pdf_string, PushObj};
 use libc::free;
 use std::io::{Seek, SeekFrom};
 
-pub type __ssize_t = i64;
-pub type size_t = u64;
-
 use super::dpx_sfnt::sfnt;
 
 static mut verbose: i32 = 0i32;

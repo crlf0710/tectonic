@@ -59,7 +59,7 @@ use crate::shims::sprintf;
 use crate::streq_ptr;
 use libc::{free, strcpy};
 
-pub type size_t = u64;
+use crate::size_t;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum MotionState {
@@ -962,23 +962,20 @@ unsafe fn handle_multibyte_string(
         /* _FIXME_ */
         /* UCS-4 */
         if ctype == 1i32 {
-            if length.wrapping_mul(4i32 as u64) >= 4096i32 as u64 {
+            if length.wrapping_mul(4) >= 4096 {
                 warn!("Too long string...");
                 return -1i32;
             }
             for i in 0..length {
-                sbuf1[i.wrapping_mul(4i32 as u64) as usize] = (*font).ucs_group as u8;
-                sbuf1[i.wrapping_mul(4i32 as u64).wrapping_add(1i32 as u64) as usize] =
-                    (*font).ucs_plane as u8;
-                sbuf1[i.wrapping_mul(4i32 as u64).wrapping_add(2i32 as u64) as usize] =
-                    '\u{0}' as i32 as u8;
-                sbuf1[i.wrapping_mul(4i32 as u64).wrapping_add(3i32 as u64) as usize] =
-                    *p.offset(i as isize);
+                sbuf1[i.wrapping_mul(4) as usize] = (*font).ucs_group as u8;
+                sbuf1[i.wrapping_mul(4).wrapping_add(1) as usize] = (*font).ucs_plane as u8;
+                sbuf1[i.wrapping_mul(4).wrapping_add(2) as usize] = '\u{0}' as i32 as u8;
+                sbuf1[i.wrapping_mul(4).wrapping_add(3) as usize] = *p.offset(i as isize);
             }
-            length = (length as u64).wrapping_mul(4i32 as u64) as size_t as size_t
+            length = (length as u64).wrapping_mul(4) as size_t as size_t
         } else if ctype == 2i32 {
             let mut len: size_t = 0i32 as size_t;
-            if length.wrapping_mul(2i32 as u64) >= 4096i32 as u64 {
+            if length.wrapping_mul(2) >= 4096 {
                 warn!("Too long string...");
                 return -1i32;
             }
@@ -988,9 +985,8 @@ unsafe fn handle_multibyte_string(
                 if *p.offset(i as isize) as i32 & 0xf8i32 == 0xd8i32 {
                     /* Check for valid surrogate pair.  */
                     if *p.offset(i as isize) as i32 & 0xfci32 != 0xd8i32
-                        || i.wrapping_add(2i32 as u64) >= length
-                        || *p.offset(i.wrapping_add(2i32 as u64) as isize) as i32 & 0xfci32
-                            != 0xdci32
+                        || i.wrapping_add(2) >= length
+                        || *p.offset(i.wrapping_add(2) as isize) as i32 & 0xfci32 != 0xdci32
                     {
                         warn!(
                             "Invalid surrogate p[{}]={:02X}...",
@@ -1000,20 +996,19 @@ unsafe fn handle_multibyte_string(
                         return -1i32;
                     }
                     let c = ((*p.offset(i as isize) as i32 & 0x3i32) << 10i32
-                        | (*p.offset(i.wrapping_add(1i32 as u64) as isize) as i32) << 2i32
-                        | *p.offset(i.wrapping_add(2i32 as u64) as isize) as i32 & 0x3i32)
+                        | (*p.offset(i.wrapping_add(1) as isize) as i32) << 2i32
+                        | *p.offset(i.wrapping_add(2) as isize) as i32 & 0x3i32)
                         + 0x100i32;
-                    sbuf1[len.wrapping_add(1i32 as u64) as usize] = (c >> 8i32 & 0xffi32) as u8;
-                    sbuf1[len.wrapping_add(2i32 as u64) as usize] = (c & 0xffi32) as u8;
-                    i = (i as u64).wrapping_add(2i32 as u64) as size_t as size_t
+                    sbuf1[len.wrapping_add(1) as usize] = (c >> 8i32 & 0xffi32) as u8;
+                    sbuf1[len.wrapping_add(2) as usize] = (c & 0xffi32) as u8;
+                    i = (i as u64).wrapping_add(2) as size_t as size_t
                 } else {
-                    sbuf1[len.wrapping_add(1i32 as u64) as usize] = (*font).ucs_plane as u8;
-                    sbuf1[len.wrapping_add(2i32 as u64) as usize] = *p.offset(i as isize)
+                    sbuf1[len.wrapping_add(1) as usize] = (*font).ucs_plane as u8;
+                    sbuf1[len.wrapping_add(2) as usize] = *p.offset(i as isize)
                 }
-                sbuf1[len.wrapping_add(3i32 as u64) as usize] =
-                    *p.offset(i.wrapping_add(1i32 as u64) as isize);
-                i = (i as u64).wrapping_add(2i32 as u64) as size_t as size_t;
-                len = (len as u64).wrapping_add(4i32 as u64) as size_t as size_t
+                sbuf1[len.wrapping_add(3) as usize] = *p.offset(i.wrapping_add(1) as isize);
+                i = (i as u64).wrapping_add(2) as size_t as size_t;
+                len = (len as u64).wrapping_add(4) as size_t as size_t
             }
             length = len
         }
@@ -1022,16 +1017,15 @@ unsafe fn handle_multibyte_string(
         /* Omega workaround...
          * Translate single-byte chars to double byte code space.
          */
-        if length.wrapping_mul(2i32 as u64) >= 4096i32 as u64 {
+        if length.wrapping_mul(2) >= 4096 {
             warn!("Too long string...");
             return -1i32;
         }
         for i in 0..length {
-            sbuf1[i.wrapping_mul(2i32 as u64) as usize] = ((*font).mapc & 0xffi32) as u8;
-            sbuf1[i.wrapping_mul(2i32 as u64).wrapping_add(1i32 as u64) as usize] =
-                *p.offset(i as isize);
+            sbuf1[i.wrapping_mul(2) as usize] = ((*font).mapc & 0xffi32) as u8;
+            sbuf1[i.wrapping_mul(2).wrapping_add(1) as usize] = *p.offset(i as isize);
         }
-        length = (length as u64).wrapping_mul(2i32 as u64) as size_t as size_t;
+        length = (length as u64).wrapping_mul(2) as size_t as size_t;
         p = sbuf1.as_mut_ptr()
     }
     /*
@@ -1052,11 +1046,11 @@ unsafe fn handle_multibyte_string(
             &mut outbuf_0,
             &mut outbytesleft,
         );
-        if inbytesleft != 0i32 as u64 {
+        if inbytesleft != 0 {
             warn!("CMap conversion failed. ({} bytes remains)", inbytesleft,);
             return -1i32;
         }
-        length = (4096i32 as u64).wrapping_sub(outbytesleft);
+        length = (4096 as size_t).wrapping_sub(outbytesleft);
         p = sbuf0.as_mut_ptr()
     }
     *str_ptr = p;
@@ -1148,7 +1142,7 @@ pub unsafe fn pdf_dev_set_string(
         if !(*real_font).used_chars.is_null() {
             for i in (0..length).step_by(2) {
                 let cid: u16 = ((*str_ptr.offset(i as isize) as i32) << 8i32
-                    | *str_ptr.offset(i.wrapping_add(1i32 as u64) as isize) as i32)
+                    | *str_ptr.offset(i.wrapping_add(1) as isize) as i32)
                     as u16;
                 let ref mut fresh38 = *(*real_font).used_chars.offset((cid as i32 / 8i32) as isize);
                 *fresh38 = (*fresh38 as i32 | 1i32 << 7i32 - cid as i32 % 8i32) as i8;
@@ -1256,7 +1250,7 @@ pub unsafe fn pdf_dev_set_string(
         len = 0i32 as size_t
     }
     if text_state.is_mb != 0 {
-        if (4096i32 as u64).wrapping_sub(len) < (2i32 as u64).wrapping_mul(length) {
+        if (4096i32 as u64).wrapping_sub(len as _) < (2u64).wrapping_mul(length as _) {
             panic!("Buffer overflow...");
         }
         for i in 0..length {
@@ -1282,7 +1276,7 @@ pub unsafe fn pdf_dev_set_string(
             &mut format_buffer[len as usize..],
             str_ptr,
             length,
-        )) as size_t as size_t
+        ) as _) as size_t as size_t
     }
     /* I think if you really care about speed, you should avoid memcopy here. */
     pdf_doc_add_page_content(&format_buffer[..len as usize]); /* op: */

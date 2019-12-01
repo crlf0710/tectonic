@@ -16,7 +16,7 @@ use crate::xetex_ini::{
     str_start,
 };
 
-pub type size_t = u64;
+use crate::size_t;
 pub type UnicodeScalar = i32;
 pub type pool_pointer = i32;
 pub type str_number = i32;

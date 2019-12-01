@@ -19,7 +19,7 @@ use libc::{free, strcpy, strlen};
 use std::panic;
 use std::ptr;
 
-pub type size_t = u64;
+use crate::size_t;
 
 use crate::TTHistory;
 
@@ -442,28 +442,28 @@ unsafe fn print_confusion() {
 unsafe fn buffer_overflow() {
     buffer = xrealloc(
         buffer as *mut libc::c_void,
-        ((buf_size + 20000i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64),
+        ((buf_size + 20000i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as _,
     ) as *mut u8;
     sv_buffer = xrealloc(
         sv_buffer as *mut libc::c_void,
-        ((buf_size + 20000i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64),
+        ((buf_size + 20000i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as _,
     ) as *mut u8;
     ex_buf = xrealloc(
         ex_buf as *mut libc::c_void,
-        ((buf_size + 20000i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64),
+        ((buf_size + 20000i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as _,
     ) as *mut u8;
     out_buf = xrealloc(
         out_buf as *mut libc::c_void,
-        ((buf_size + 20000i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64),
+        ((buf_size + 20000i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as _,
     ) as *mut u8;
     name_tok = xrealloc(
         name_tok as *mut libc::c_void,
         ((buf_size + 20000i32 + 1i32) as u64)
-            .wrapping_mul(::std::mem::size_of::<buf_pointer>() as u64),
+            .wrapping_mul(::std::mem::size_of::<buf_pointer>() as u64) as _,
     ) as *mut buf_pointer;
     name_sep_char = xrealloc(
         name_sep_char as *mut libc::c_void,
-        ((buf_size + 20000i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64),
+        ((buf_size + 20000i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as _,
     ) as *mut u8;
     buf_size = buf_size + 20000i32;
 }
@@ -511,7 +511,7 @@ unsafe fn pool_overflow() {
     str_pool = xrealloc(
         str_pool as *mut libc::c_void,
         ((pool_size as i64 + 65000 + 1i32 as i64) as u64)
-            .wrapping_mul(::std::mem::size_of::<u8>() as u64),
+            .wrapping_mul(::std::mem::size_of::<u8>() as u64) as _,
     ) as *mut u8;
     pool_size = (pool_size as i64 + 65000) as i32;
 }
@@ -659,21 +659,22 @@ unsafe fn check_cite_overflow(mut last_cite: cite_number) {
         cite_list = xrealloc(
             cite_list as *mut libc::c_void,
             ((max_cites + 750i32 + 1i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+                .wrapping_mul(::std::mem::size_of::<str_number>() as u64) as _,
         ) as *mut str_number;
         type_list = xrealloc(
             type_list as *mut libc::c_void,
             ((max_cites + 750i32 + 1i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+                .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64) as _,
         ) as *mut hash_ptr2;
         entry_exists = xrealloc(
             entry_exists as *mut libc::c_void,
-            ((max_cites + 750i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<bool>() as u64),
+            ((max_cites + 750i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<bool>() as u64)
+                as _,
         ) as *mut bool;
         cite_info = xrealloc(
             cite_info as *mut libc::c_void,
             ((max_cites + 750i32 + 1i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+                .wrapping_mul(::std::mem::size_of::<str_number>() as u64) as _,
         ) as *mut str_number;
         max_cites = max_cites + 750i32;
         while last_cite < max_cites {
@@ -818,7 +819,7 @@ unsafe fn check_field_overflow(mut total_fields: i32) {
         field_info = xrealloc(
             field_info as *mut libc::c_void,
             ((total_fields + 17250i32 + 1i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+                .wrapping_mul(::std::mem::size_of::<str_number>() as u64) as _,
         ) as *mut str_number;
         max_fields = total_fields + 17250i32;
         let mut for_end: i32 = 0;
@@ -2056,7 +2057,8 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
     let mut impl_fn_loc: hash_loc = 0;
     single_fn_space = SINGLE_FN_SPACE;
     singl_function = xmalloc(
-        ((single_fn_space + 1i32) as u64).wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+        ((single_fn_space + 1i32) as u64).wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64)
+            as _,
     ) as *mut hash_ptr2;
     if !eat_bst_white_space() {
         eat_bst_print();
@@ -2099,7 +2101,8 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                     singl_function = xrealloc(
                         singl_function as *mut libc::c_void,
                         ((single_fn_space + 100i32 + 1i32) as u64)
-                            .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+                            .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64)
+                            as _,
                     ) as *mut hash_ptr2;
                     single_fn_space = single_fn_space + 100i32
                 }
@@ -2133,7 +2136,8 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                     singl_function = xrealloc(
                         singl_function as *mut libc::c_void,
                         ((single_fn_space + 100i32 + 1i32) as u64)
-                            .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+                            .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64)
+                            as _,
                     ) as *mut hash_ptr2;
                     single_fn_space = single_fn_space + 100i32
                 }
@@ -2165,7 +2169,8 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                         singl_function = xrealloc(
                             singl_function as *mut libc::c_void,
                             ((single_fn_space + 100i32 + 1i32) as u64)
-                                .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+                                .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64)
+                                as _,
                         ) as *mut hash_ptr2;
                         single_fn_space = single_fn_space + 100i32
                     }
@@ -2175,7 +2180,8 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                         singl_function = xrealloc(
                             singl_function as *mut libc::c_void,
                             ((single_fn_space + 100i32 + 1i32) as u64)
-                                .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+                                .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64)
+                                as _,
                         ) as *mut hash_ptr2;
                         single_fn_space = single_fn_space + 100i32
                     }
@@ -2198,7 +2204,8 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                     singl_function = xrealloc(
                         singl_function as *mut libc::c_void,
                         ((single_fn_space + 100i32 + 1i32) as u64)
-                            .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+                            .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64)
+                            as _,
                     ) as *mut hash_ptr2;
                     single_fn_space = single_fn_space + 100i32
                 }
@@ -2209,7 +2216,8 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                     singl_function = xrealloc(
                         singl_function as *mut libc::c_void,
                         ((single_fn_space + 100i32 + 1i32) as u64)
-                            .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+                            .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64)
+                            as _,
                     ) as *mut hash_ptr2;
                     single_fn_space = single_fn_space + 100i32
                 }
@@ -2242,7 +2250,8 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                         singl_function = xrealloc(
                             singl_function as *mut libc::c_void,
                             ((single_fn_space + 100i32 + 1i32) as u64)
-                                .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+                                .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64)
+                                as _,
                         ) as *mut hash_ptr2;
                         single_fn_space = single_fn_space + 100i32
                     }
@@ -2267,7 +2276,7 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
         singl_function = xrealloc(
             singl_function as *mut libc::c_void,
             ((single_fn_space + 100i32 + 1i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+                .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64) as _,
         ) as *mut hash_ptr2;
         single_fn_space = single_fn_space + 100i32
     }
@@ -2276,7 +2285,7 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
         wiz_functions = xrealloc(
             wiz_functions as *mut libc::c_void,
             ((wiz_fn_space + 3000i32 + 1i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+                .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64) as _,
         ) as *mut hash_ptr2;
         wiz_fn_space = wiz_fn_space + 3000i32
     }
@@ -3299,12 +3308,12 @@ unsafe fn push_lit_stk(mut push_lt: i32, mut push_type: stk_type) {
         lit_stack = xrealloc(
             lit_stack as *mut libc::c_void,
             ((lit_stk_size + 100i32 + 1i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<i32>() as u64),
+                .wrapping_mul(::std::mem::size_of::<i32>() as u64) as _,
         ) as *mut i32;
         lit_stk_type = xrealloc(
             lit_stk_type as *mut libc::c_void,
             ((lit_stk_size + 100i32 + 1i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<stk_type>() as u64),
+                .wrapping_mul(::std::mem::size_of::<stk_type>() as u64) as _,
         ) as *mut stk_type;
         lit_stk_size = lit_stk_size + 100i32
     }
@@ -5286,17 +5295,17 @@ unsafe fn aux_bib_data_command() {
             bib_list = xrealloc(
                 bib_list as *mut libc::c_void,
                 ((MAX_BIB_FILES + 20 + 1) as u64)
-                    .wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+                    .wrapping_mul(::std::mem::size_of::<str_number>() as u64) as _,
             ) as *mut str_number;
             /*bib_file = xrealloc(
                 bib_file as *mut libc::c_void,
                 ((MAX_BIB_FILES + 20 + 1) as u64)
-                    .wrapping_mul(::std::mem::size_of::<*mut peekable_input_t>() as u64),
+                    .wrapping_mul(::std::mem::size_of::<*mut peekable_input_t>() as u64) as _
             ) as *mut *mut peekable_input_t;*/
             s_preamble = xrealloc(
                 s_preamble as *mut libc::c_void,
                 ((MAX_BIB_FILES + 20 + 1) as u64)
-                    .wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+                    .wrapping_mul(::std::mem::size_of::<str_number>() as u64) as _,
             ) as *mut str_number;
             MAX_BIB_FILES += 20;
         }
@@ -6214,7 +6223,8 @@ unsafe fn get_bib_command_or_entry_and_process() {
                     bib_list = xrealloc(
                         bib_list as *mut libc::c_void,
                         ((MAX_BIB_FILES + 20 + 1) as u64)
-                            .wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+                            .wrapping_mul(::std::mem::size_of::<str_number>() as u64)
+                            as _,
                     ) as *mut str_number;
                     /*bib_file = xrealloc(
                         bib_file as *mut libc::c_void,
@@ -6224,7 +6234,8 @@ unsafe fn get_bib_command_or_entry_and_process() {
                     s_preamble = xrealloc(
                         s_preamble as *mut libc::c_void,
                         ((MAX_BIB_FILES + 20 + 1) as u64)
-                            .wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+                            .wrapping_mul(::std::mem::size_of::<str_number>() as u64)
+                            as _,
                     ) as *mut str_number;
                     MAX_BIB_FILES += 20;
                 }
@@ -6774,7 +6785,7 @@ unsafe fn bst_read_command() {
     }
     entry_ints = xmalloc(
         (((num_ent_ints + 1i32) * (num_cites + 1i32)) as u64)
-            .wrapping_mul(::std::mem::size_of::<i32>() as u64),
+            .wrapping_mul(::std::mem::size_of::<i32>() as u64) as _,
     ) as *mut i32;
     int_ent_ptr = 0i32;
     while int_ent_ptr < num_ent_ints * num_cites {
@@ -6783,7 +6794,7 @@ unsafe fn bst_read_command() {
     }
     entry_strs = xmalloc(
         (((num_ent_strs + 1i32) * (num_cites + 1i32) * (ent_str_size + 1i32)) as u64)
-            .wrapping_mul(::std::mem::size_of::<u8>() as u64),
+            .wrapping_mul(::std::mem::size_of::<u8>() as u64) as _,
     ) as *mut u8;
     str_ent_ptr = 0i32;
     while str_ent_ptr < num_ent_strs * num_cites {
@@ -6929,17 +6940,17 @@ unsafe fn bst_strings_command() {
             glb_str_ptr = xrealloc(
                 glb_str_ptr as *mut libc::c_void,
                 ((max_glob_strs + 10i32 + 1i32) as u64)
-                    .wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+                    .wrapping_mul(::std::mem::size_of::<str_number>() as u64) as _,
             ) as *mut str_number;
             global_strs = xrealloc(
                 global_strs as *mut libc::c_void,
                 (((max_glob_strs + 10i32) * (glob_str_size + 1i32)) as u64)
-                    .wrapping_mul(::std::mem::size_of::<u8>() as u64),
+                    .wrapping_mul(::std::mem::size_of::<u8>() as u64) as _,
             ) as *mut u8;
             glb_str_end = xrealloc(
                 glb_str_end as *mut libc::c_void,
                 ((max_glob_strs + 10i32 + 1i32) as u64)
-                    .wrapping_mul(::std::mem::size_of::<i32>() as u64),
+                    .wrapping_mul(::std::mem::size_of::<i32>() as u64) as _,
             ) as *mut i32;
             max_glob_strs = max_glob_strs + 10i32;
             str_glb_ptr = num_glb_strs;
@@ -7332,76 +7343,84 @@ pub unsafe fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
     entry_strs = ptr::null_mut();
     bib_file = Vec::with_capacity(MAX_BIB_FILES + 1);
     bib_list = xmalloc(
-        ((MAX_BIB_FILES + 1) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+        ((MAX_BIB_FILES + 1) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64) as _,
     ) as *mut str_number;
     wiz_functions = xmalloc(
-        ((wiz_fn_space + 1i32) as u64).wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+        ((wiz_fn_space + 1i32) as u64).wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64) as _,
     ) as *mut hash_ptr2;
     field_info = xmalloc(
-        ((max_fields + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+        ((max_fields + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64) as _,
     ) as *mut str_number;
     s_preamble = xmalloc(
-        ((MAX_BIB_FILES + 1) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+        ((MAX_BIB_FILES + 1) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64) as _,
     ) as *mut str_number;
-    str_pool = xmalloc(((pool_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64))
-        as *mut u8;
-    buffer = xmalloc(((buf_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64))
-        as buf_type;
-    sv_buffer = xmalloc(((buf_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64))
-        as buf_type;
-    ex_buf = xmalloc(((buf_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64))
-        as buf_type;
-    out_buf = xmalloc(((buf_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64))
-        as buf_type;
+    str_pool =
+        xmalloc(((pool_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as _)
+            as *mut u8;
+    buffer =
+        xmalloc(((buf_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as _)
+            as buf_type;
+    sv_buffer =
+        xmalloc(((buf_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as _)
+            as buf_type;
+    ex_buf =
+        xmalloc(((buf_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as _)
+            as buf_type;
+    out_buf =
+        xmalloc(((buf_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as _)
+            as buf_type;
     name_tok = xmalloc(
-        ((buf_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<buf_pointer>() as u64),
+        ((buf_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<buf_pointer>() as u64) as _,
     ) as *mut buf_pointer;
     name_sep_char =
-        xmalloc(((buf_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64))
+        xmalloc(((buf_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as _)
             as *mut u8;
-    glb_str_ptr =
-        xmalloc((max_glob_strs as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64))
-            as *mut str_number;
+    glb_str_ptr = xmalloc(
+        (max_glob_strs as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64) as _,
+    ) as *mut str_number;
     global_strs = xmalloc(
         ((max_glob_strs * (glob_str_size + 1i32)) as u64)
-            .wrapping_mul(::std::mem::size_of::<u8>() as u64),
+            .wrapping_mul(::std::mem::size_of::<u8>() as u64) as _,
     ) as *mut u8;
-    glb_str_end = xmalloc((max_glob_strs as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-        as *mut i32;
+    glb_str_end =
+        xmalloc((max_glob_strs as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64) as _)
+            as *mut i32;
     cite_list = xmalloc(
-        ((max_cites + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+        ((max_cites + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64) as _,
     ) as *mut str_number;
     type_list = xmalloc(
-        ((max_cites + 1i32) as u64).wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64),
+        ((max_cites + 1i32) as u64).wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64) as _,
     ) as *mut hash_ptr2;
-    entry_exists =
-        xmalloc(((max_cites + 1i32) as u64).wrapping_mul(::std::mem::size_of::<bool>() as u64))
-            as *mut bool;
+    entry_exists = xmalloc(
+        ((max_cites + 1i32) as u64).wrapping_mul(::std::mem::size_of::<bool>() as u64) as _,
+    ) as *mut bool;
     cite_info = xmalloc(
-        ((max_cites + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+        ((max_cites + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64) as _,
     ) as *mut str_number;
     str_start = xmalloc(
-        ((max_strings + 1i32) as u64).wrapping_mul(::std::mem::size_of::<pool_pointer>() as u64),
+        ((max_strings + 1i32) as u64).wrapping_mul(::std::mem::size_of::<pool_pointer>() as u64)
+            as _,
     ) as *mut pool_pointer;
     hash_next = xmalloc(
-        ((hash_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<hash_pointer>() as u64),
+        ((hash_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<hash_pointer>() as u64) as _,
     ) as *mut hash_pointer;
     hash_text = xmalloc(
-        ((hash_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64),
+        ((hash_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_number>() as u64) as _,
     ) as *mut str_number;
-    hash_ilk =
-        xmalloc(((hash_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_ilk>() as u64))
-            as *mut str_ilk;
-    ilk_info = xmalloc(((hash_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
-        as *mut i32;
-    fn_type =
-        xmalloc(((hash_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<fn_class>() as u64))
-            as *mut fn_class;
-    lit_stack =
-        xmalloc(((lit_stk_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64))
+    hash_ilk = xmalloc(
+        ((hash_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<str_ilk>() as u64) as _,
+    ) as *mut str_ilk;
+    ilk_info =
+        xmalloc(((hash_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64) as _)
             as *mut i32;
+    fn_type = xmalloc(
+        ((hash_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<fn_class>() as u64) as _,
+    ) as *mut fn_class;
+    lit_stack = xmalloc(
+        ((lit_stk_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64) as _,
+    ) as *mut i32;
     lit_stk_type = xmalloc(
-        ((lit_stk_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<stk_type>() as u64),
+        ((lit_stk_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<stk_type>() as u64) as _,
     ) as *mut stk_type;
     compute_hash_prime();
     if initialize(aux_file_name) != 0 {

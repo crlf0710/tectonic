@@ -576,7 +576,7 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
         (*self_0).m_backingData as *mut libc::c_char,
         sz,
     );
-    if r < 0 || r != sz as i64 {
+    if r < 0 || r != sz as _ {
         abort!("failed to read font file");
     }
     ttstub_input_close(handle);
@@ -616,7 +616,7 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
                 (*self_0).m_backingData2 as *mut libc::c_char,
                 sz,
             );
-            if r < 0 || r != sz as i64 {
+            if r < 0 || r != sz as _ {
                 abort!("failed to read AFM file");
             }
             ttstub_input_close(afm_handle);

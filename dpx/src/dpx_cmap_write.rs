@@ -37,7 +37,7 @@ use crate::dpx_pdfobj::{pdf_copy_name, pdf_dict, pdf_stream, pdf_string, STREAM_
 use crate::shims::sprintf;
 use libc::{free, memcmp, memset, strlen};
 
-pub type size_t = u64;
+use crate::size_t;
 
 use super::dpx_cmap::mapDef;
 use super::dpx_cmap::CMap;
@@ -71,7 +71,7 @@ pub struct C2RustUnnamed_1 {
 }
 unsafe fn block_count(mtab: *mut mapDef, mut c: i32) -> size_t {
     let mut count: size_t = 0i32 as size_t;
-    let n = (*mtab.offset(c as isize)).len.wrapping_sub(1i32 as u64);
+    let n = (*mtab.offset(c as isize)).len.wrapping_sub(1);
     c += 1i32;
     while c < 256i32 {
         if (*mtab.offset(c as isize)).flag & 1i32 << 4i32 != 0
@@ -137,14 +137,7 @@ unsafe fn write_map(
         *codestr.offset(depth as isize) = (c & 0xffi32 as u64) as u8;
         if (*mtab.offset(c as isize)).flag & 1i32 << 4i32 != 0 {
             let mtab1 = (*mtab.offset(c as isize)).next;
-            count = write_map(
-                mtab1,
-                count,
-                codestr,
-                depth.wrapping_add(1i32 as u64),
-                wbuf,
-                stream,
-            ) as size_t
+            count = write_map(mtab1, count, codestr, depth.wrapping_add(1), wbuf, stream) as size_t
         } else if if (*mtab.offset(c as isize)).flag & 0xfi32 != 0i32 {
             1i32
         } else {
@@ -154,11 +147,11 @@ unsafe fn write_map(
             match (*mtab.offset(c as isize)).flag & 0xfi32 {
                 1 | 4 => {
                     let block_length = block_count(mtab, c as i32);
-                    if block_length >= 2i32 as u64 {
+                    if block_length >= 2 {
                         blocks[num_blocks as usize].start = c as i32;
                         blocks[num_blocks as usize].count = block_length as i32;
                         num_blocks = num_blocks.wrapping_add(1);
-                        c = (c as u64).wrapping_add(block_length) as size_t as size_t
+                        c = (c as u64).wrapping_add(block_length as _) as _
                     } else {
                         let fresh0 = (*wbuf).curptr;
                         (*wbuf).curptr = (*wbuf).curptr.offset(1);
@@ -209,8 +202,8 @@ unsafe fn write_map(
             }
         }
         /* Flush if necessary */
-        if count >= 100i32 as u64 || (*wbuf).curptr >= (*wbuf).limptr {
-            if count > 100i32 as u64 {
+        if count >= 100 || (*wbuf).curptr >= (*wbuf).limptr {
+            if count > 100 {
                 panic!("Unexpected error....: {}", count,);
             }
             stream.add_str(&format!("{} beginbfchar\n", count));
@@ -224,8 +217,8 @@ unsafe fn write_map(
         }
         c = c.wrapping_add(1)
     }
-    if num_blocks > 0i32 as u64 {
-        if count > 0i32 as u64 {
+    if num_blocks > 0 {
+        if count > 0 {
             stream.add_str(&format!("{} beginbfchar\n", count));
             stream.add(
                 (*wbuf).buf as *const libc::c_void,
@@ -266,7 +259,7 @@ unsafe fn write_map(
                 );
             }
             sputx(
-                c.wrapping_add(blocks[i as usize].count as u64) as u8,
+                c.wrapping_add(blocks[i as usize].count as _) as u8,
                 &mut (*wbuf).curptr,
                 (*wbuf).limptr,
             );
@@ -373,7 +366,7 @@ pub unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
                 (*cmap)
                     .profile
                     .maxBytesIn
-                    .wrapping_add((*cmap).profile.maxBytesOut),
+                    .wrapping_add((*cmap).profile.maxBytesOut) as _,
             ) as isize),
         )
         .offset(16);
@@ -466,9 +459,9 @@ pub unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
             &mut wbuf,
             &mut stream,
         ) as size_t; /* Top node */
-        if count > 0i32 as u64 {
+        if count > 0 {
             /* Flush */
-            if count > 100i32 as u64 {
+            if count > 100 {
                 panic!("Unexpected error....: {}", count,);
             }
             stream.add_str(&format!("{} beginbfchar\n", count));

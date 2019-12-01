@@ -33,8 +33,6 @@ use libc::{free, memcpy, memset};
 use std::cmp::Ordering;
 use std::ptr;
 
-pub type size_t = u64;
-
 use super::dpx_cff::cff_index;
 #[derive(Copy, Clone)]
 #[repr(C)]

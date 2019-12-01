@@ -26,7 +26,7 @@
          non_upper_case_globals,
 )]
 
-pub type size_t = u64;
+use crate::size_t;
 
 pub unsafe fn UC_is_valid(ucv: i32) -> bool {
     !(ucv < 0i32 || ucv as i64 > 0x10ffff || ucv as i64 >= 0xd800 && ucv as i64 <= 0xdfff)

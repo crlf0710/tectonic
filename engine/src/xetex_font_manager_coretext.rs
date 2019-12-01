@@ -178,8 +178,7 @@ extern "C" {
         actualLanguage: *mut CFStringRef,
     ) -> CFStringRef;
 }
-pub type __darwin_size_t = libc::c_ulong;
-pub type size_t = __darwin_size_t;
+use crate::size_t;
 pub type int16_t = libc::c_short;
 pub type uint16_t = libc::c_ushort;
 pub type CFAllocatorRef = *const __CFAllocator;

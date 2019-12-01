@@ -40,7 +40,7 @@ use std::io::{Seek, SeekFrom};
 use std::ptr;
 
 pub type __ssize_t = i64;
-pub type size_t = u64;
+use crate::size_t;
 use bridge::InputHandleWrapper;
 #[derive(Copy, Clone)]
 #[repr(C)]

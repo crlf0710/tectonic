@@ -43,12 +43,10 @@ use crate::dpx_pdfobj::{
 use crate::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_read};
 use libc::{free, memcmp, memset};
 
+use crate::size_t;
+use bridge::InputHandleWrapper;
 use std::io::{Seek, SeekFrom};
 use std::ptr;
-
-pub type __ssize_t = i64;
-pub type size_t = u64;
-use bridge::InputHandleWrapper;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 pub const JM_SOI: JPEG_marker = 216;
@@ -163,7 +161,7 @@ pub unsafe fn check_for_jpeg(handle: &mut InputHandleWrapper) -> i32 {
         handle.0.as_ptr(),
         jpeg_sig.as_mut_ptr() as *mut i8,
         2i32 as size_t,
-    ) != 2i32 as i64
+    ) != 2
     {
         return 0i32;
     } else {
@@ -675,7 +673,7 @@ unsafe fn read_APP0_JFIF(j_info: *mut JPEG_info, handle: &mut InputHandleWrapper
     (*app_data).Ythumbnail = tt_get_unsigned_byte(handle);
     let thumb_data_len =
         (3i32 * (*app_data).Xthumbnail as i32 * (*app_data).Ythumbnail as i32) as size_t;
-    if thumb_data_len > 0i32 as u64 {
+    if thumb_data_len > 0 {
         (*app_data).thumbnail = new((thumb_data_len as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64)
             as u32) as *mut u8;
@@ -709,7 +707,7 @@ unsafe fn read_APP0_JFIF(j_info: *mut JPEG_info, handle: &mut InputHandleWrapper
             (*j_info).ydpi = 72.0f64
         }
     }
-    (9i32 as u64).wrapping_add(thumb_data_len)
+    (9i32 as u64).wrapping_add(thumb_data_len as _) as _
 }
 unsafe fn read_APP0_JFXX(handle: &mut InputHandleWrapper, length: size_t) -> size_t {
     tt_get_unsigned_byte(handle);
@@ -756,7 +754,7 @@ unsafe fn read_APP2_ICC(
         as *mut JPEG_APPn_ICC;
     (*app_data).seq_id = tt_get_unsigned_byte(handle);
     (*app_data).num_chunks = tt_get_unsigned_byte(handle);
-    (*app_data).length = length.wrapping_sub(2i32 as u64);
+    (*app_data).length = length.wrapping_sub(2);
     (*app_data).chunk = new(
         ((*app_data).length as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32
     ) as *mut u8;
@@ -853,17 +851,17 @@ unsafe fn JPEG_copy_stream(
         let length = ttstub_input_read(
             handle.0.as_ptr(),
             work_buffer.as_mut_ptr(),
-            if (1024i32 as u64) < total_size.wrapping_sub(pos) {
-                1024i32 as u64
+            if (1024i32 as u64) < (total_size as u64).wrapping_sub(pos) as _ {
+                1024
             } else {
-                total_size.wrapping_sub(pos)
+                (total_size as u64).wrapping_sub(pos) as _
             },
         ) as i32;
         if !(length > 0i32) {
             break;
         }
         stream.add(work_buffer.as_mut_ptr() as *const libc::c_void, length);
-        pos = (pos as u64).wrapping_add(length as u64) as size_t as size_t
+        pos = (pos as u64).wrapping_add(length as u64)
     }
     if found_SOFn != 0 {
         0i32
@@ -899,7 +897,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                             handle.0.as_ptr(),
                             app_sig.as_mut_ptr(),
                             5i32 as size_t,
-                        ) != 5i32 as i64
+                        ) != 5
                         {
                             return -1i32;
                         }
@@ -911,7 +909,8 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                         ) == 0
                         {
                             (*j_info).flags |= 1i32 << 0i32;
-                            length = (length as u64).wrapping_sub(read_APP0_JFIF(j_info, handle))
+                            length = (length as u64)
+                                .wrapping_sub(read_APP0_JFIF(j_info, handle) as _)
                                 as i32 as i32
                         } else if memcmp(
                             app_sig.as_mut_ptr() as *const libc::c_void,
@@ -919,9 +918,10 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                             5,
                         ) == 0
                         {
-                            length = (length as u64)
-                                .wrapping_sub(read_APP0_JFXX(handle, length as size_t))
-                                as i32 as i32
+                            length =
+                                (length as u64)
+                                    .wrapping_sub(read_APP0_JFXX(handle, length as size_t) as _)
+                                    as i32 as i32
                         }
                     }
                     handle.seek(SeekFrom::Current(length as i64)).unwrap();
@@ -932,7 +932,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                             handle.0.as_ptr(),
                             app_sig.as_mut_ptr(),
                             5i32 as size_t,
-                        ) != 5i32 as i64
+                        ) != 5
                         {
                             return -1i32;
                         }
@@ -948,7 +948,8 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                                 j_info,
                                 handle,
                                 length as size_t,
-                            )) as i32 as i32
+                            )
+                                as _) as i32 as i32
                         } else if memcmp(
                             app_sig.as_mut_ptr() as *const libc::c_void,
                             b"http:\x00" as *const u8 as *const i8 as *const libc::c_void,
@@ -960,7 +961,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                                 handle.0.as_ptr(),
                                 app_sig.as_mut_ptr(),
                                 24i32 as size_t,
-                            ) != 24i32 as i64
+                            ) != 24isize
                             {
                                 return -1i32;
                             }
@@ -977,7 +978,8 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                                     j_info,
                                     handle,
                                     length as size_t,
-                                )) as i32 as i32;
+                                )
+                                    as _) as i32 as i32;
                                 if count < 1024i32 {
                                     (*j_info).skipbits[(count / 8i32) as usize] =
                                         ((*j_info).skipbits[(count / 8i32) as usize] as i32
@@ -995,7 +997,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                             handle.0.as_ptr(),
                             app_sig.as_mut_ptr(),
                             12i32 as size_t,
-                        ) != 12i32 as i64
+                        ) != 12
                         {
                             return -1i32;
                         }
@@ -1011,7 +1013,8 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                                 j_info,
                                 handle,
                                 length as size_t,
-                            )) as i32 as i32;
+                            )
+                                as _) as i32 as i32;
                             if count < 1024i32 {
                                 (*j_info).skipbits[(count / 8i32) as usize] =
                                     ((*j_info).skipbits[(count / 8i32) as usize] as i32
@@ -1028,7 +1031,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                             handle.0.as_ptr(),
                             app_sig.as_mut_ptr(),
                             5i32 as size_t,
-                        ) != 5i32 as i64
+                        ) != 5
                         {
                             return -1i32;
                         }

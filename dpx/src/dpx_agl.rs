@@ -606,12 +606,12 @@ unsafe fn put_unicode_glyph(name: &[u8], dstpp: *mut *mut u8, limptr: *mut u8) -
     if p[1] != b'n' {
         p = &p[1..];
         let ucv = xtol(p);
-        len = ((len as u64) + UC_UTF16BE_encode_char(ucv, dstpp, limptr)) as i32;
+        len = ((len as u64) + UC_UTF16BE_encode_char(ucv, dstpp, limptr) as u64) as i32;
     } else {
         p = &p[3..];
         while !p.is_empty() {
             let ucv = xtol(&p[..4]);
-            len = ((len as u64) + UC_UTF16BE_encode_char(ucv, dstpp, limptr)) as i32;
+            len = ((len as u64) + UC_UTF16BE_encode_char(ucv, dstpp, limptr) as u64) as i32;
             p = &p[4..];
         }
     }
@@ -704,7 +704,7 @@ pub unsafe fn agl_sput_UTF16BE(
                         (*agln1).unicodes[i],
                         dstpp,
                         limptr,
-                    )) as i32 as i32;
+                    ) as u64) as i32 as i32;
                 }
             } else {
                 if verbose != 0 {

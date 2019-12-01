@@ -87,7 +87,7 @@ use libc::{free, memmove, memset, strcat, strcmp, strcpy, strlen, strstr};
 use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
-pub type size_t = u64;
+use crate::size_t;
 
 use super::dpx_cid::{cid_opt, CIDFont, CIDSysInfo};
 
