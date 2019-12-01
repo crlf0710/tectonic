@@ -22,7 +22,7 @@ use std::ptr;
 #[cfg(target_os = "macos")]
 use super::xetex_aatfont as aat;
 #[cfg(target_os = "macos")]
-use super::xetex_aatfont::cf_prelude::{
+use crate::cf_prelude::{
     kCFNumberFloatType, kCTFontAttributeName, kCTForegroundColorAttributeName,
     kCTVerticalFormsAttributeName, CFDictionaryGetValue, CFDictionaryRef, CFNumberGetValue,
     CFNumberRef, CFNumberType, CFRelease, CFTypeRef, CGAffineTransform, CGColorGetComponents,

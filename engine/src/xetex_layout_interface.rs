@@ -9,7 +9,7 @@
 use harfbuzz_sys::{hb_feature_t, hb_ot_math_glyph_part_t, hb_tag_t};
 
 #[cfg(target_os = "macos")]
-use crate::xetex_aatfont::cf_prelude::{CTFontDescriptorRef, CTFontRef};
+use crate::cf_prelude::{CTFontDescriptorRef, CTFontRef};
 
 #[cfg(not(target_os = "macos"))]
 pub(crate) type PlatformFontRef = *mut FcPattern;

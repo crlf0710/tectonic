@@ -24,14 +24,6 @@ objc_foundation::object_struct!(NSFont);
 type id = *mut Object;
 
 extern "C" {
-    pub(crate) type __CFAllocator;
-    pub(crate) type __CFURL;
-    pub(crate) type __CTFontDescriptor;
-    pub(crate) type __CFString;
-    pub(crate) type __CFArray;
-    pub(crate) type __CFDictionary;
-    pub(crate) type __CFSet;
-    pub(crate) type __CTFont;
     #[no_mangle]
     fn free(_: *mut libc::c_void);
     #[no_mangle]
@@ -58,222 +50,19 @@ extern "C" {
     );
     #[no_mangle]
     fn XeTeXFontMgr_base_ctor(self_0: *mut XeTeXFontMgr);
-    /* ***************************************************************************\
-     Part of the XeTeX typesetting system
-     Copyright (c) 1994-2008 by SIL International
-     Copyright (c) 2009 by Jonathan Kew
-     Copyright (c) 2012, 2013 by Jiang Jiang
-
-     SIL Author(s): Jonathan Kew
-
-    Permission is hereby granted, free of charge, to any person obtaining
-    a copy of this software and associated documentation files (the
-    "Software"), to deal in the Software without restriction, including
-    without limitation the rights to use, copy, modify, merge, publish,
-    distribute, sublicense, and/or sell copies of the Software, and to
-    permit persons to whom the Software is furnished to do so, subject to
-    the following conditions:
-
-    The above copyright notice and this permission notice shall be
-    included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-    NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE
-    FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-    CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-    WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Except as contained in this notice, the name of the copyright holders
-    shall not be used in advertising or otherwise to promote the sale,
-    use or other dealings in this Software without prior written
-    authorization from the copyright holders.
-    \****************************************************************************/
-    #[no_mangle]
-    static kCTFontURLAttribute: CFStringRef;
-    #[no_mangle]
-    static kCTFontFamilyNameKey: CFStringRef;
-    #[no_mangle]
-    static kCTFontNameAttribute: CFStringRef;
-    #[no_mangle]
-    static kCTFontStyleNameKey: CFStringRef;
-    #[no_mangle]
-    static kCTFontDisplayNameAttribute: CFStringRef;
-    #[no_mangle]
-    static kCTFontFamilyNameAttribute: CFStringRef;
-    #[no_mangle]
-    static kCTFontFullNameKey: CFStringRef;
-    #[no_mangle]
-    static kCFTypeSetCallBacks: CFSetCallBacks;
-    #[no_mangle]
-    fn CFURLGetFileSystemRepresentation(
-        url: CFURLRef,
-        resolveAgainstBase: Boolean,
-        buffer: *mut UInt8,
-        maxBufLen: CFIndex,
-    ) -> Boolean;
-    #[no_mangle]
-    static kCFTypeDictionaryKeyCallBacks: CFDictionaryKeyCallBacks;
-    #[no_mangle]
-    static kCFTypeDictionaryValueCallBacks: CFDictionaryValueCallBacks;
-    #[no_mangle]
-    fn CFStringCreateWithCString(
-        alloc: CFAllocatorRef,
-        cStr: *const libc::c_char,
-        encoding: CFStringEncoding,
-    ) -> CFStringRef;
-    #[no_mangle]
-    fn CFSetCreate(
-        allocator: CFAllocatorRef,
-        values: *mut *const libc::c_void,
-        numValues: CFIndex,
-        callBacks: *const CFSetCallBacks,
-    ) -> CFSetRef;
-    #[no_mangle]
-    fn CTFontCreateWithFontDescriptor(
-        descriptor: CTFontDescriptorRef,
-        size: CGFloat,
-        matrix: *const CGAffineTransform,
-    ) -> CTFontRef;
-    #[no_mangle]
-    fn CFArrayGetCount(theArray: CFArrayRef) -> CFIndex;
-    #[no_mangle]
-    fn CFDictionaryCreate(
-        allocator: CFAllocatorRef,
-        keys: *mut *const libc::c_void,
-        values: *mut *const libc::c_void,
-        numValues: CFIndex,
-        keyCallBacks: *const CFDictionaryKeyCallBacks,
-        valueCallBacks: *const CFDictionaryValueCallBacks,
-    ) -> CFDictionaryRef;
-    #[no_mangle]
-    fn CTFontDescriptorCreateWithAttributes(attributes: CFDictionaryRef) -> CTFontDescriptorRef;
-    #[no_mangle]
-    fn CFArrayGetValueAtIndex(theArray: CFArrayRef, idx: CFIndex) -> *const libc::c_void;
-    #[no_mangle]
-    fn CTFontDescriptorCreateMatchingFontDescriptors(
-        descriptor: CTFontDescriptorRef,
-        mandatoryAttributes: CFSetRef,
-    ) -> CFArrayRef;
-    #[no_mangle]
-    static kCFAllocatorDefault: CFAllocatorRef;
-    #[no_mangle]
-    fn CTFontCopyAttribute(font: CTFontRef, attribute: CFStringRef) -> CFTypeRef;
-    #[no_mangle]
-    fn CTFontDescriptorCopyAttribute(
-        descriptor: CTFontDescriptorRef,
-        attribute: CFStringRef,
-    ) -> CFTypeRef;
-    #[no_mangle]
-    fn CFRetain(cf: CFTypeRef) -> CFTypeRef;
-    #[no_mangle]
-    fn CFRelease(cf: CFTypeRef);
-    #[no_mangle]
-    fn CTFontCopyName(font: CTFontRef, nameKey: CFStringRef) -> CFStringRef;
-    #[no_mangle]
-    fn CTFontCopyLocalizedName(
-        font: CTFontRef,
-        nameKey: CFStringRef,
-        actualLanguage: *mut CFStringRef,
-    ) -> CFStringRef;
 }
 use crate::size_t;
 pub(crate) type int16_t = libc::c_short;
 pub(crate) type uint16_t = libc::c_ushort;
-pub(crate) type CFAllocatorRef = *const __CFAllocator;
-pub(crate) type CFURLRef = *const __CFURL;
-pub(crate) type CTFontDescriptorRef = *const __CTFontDescriptor;
 pub(crate) type UniChar = UInt16;
 pub(crate) type UInt16 = libc::c_ushort;
 pub(crate) type Boolean = libc::c_uchar;
 pub(crate) type UInt8 = libc::c_uchar;
 pub(crate) type UInt32 = libc::c_uint;
-pub(crate) type CFHashCode = libc::c_ulong;
-pub(crate) type CFIndex = libc::c_long;
-pub(crate) type CFTypeRef = *const libc::c_void;
-pub(crate) type CFStringRef = *const __CFString;
-pub(crate) type CFArrayRef = *const __CFArray;
-pub(crate) type CFDictionaryRetainCallBack =
-    Option<unsafe extern "C" fn(_: CFAllocatorRef, _: *const libc::c_void) -> *const libc::c_void>;
-pub(crate) type CFDictionaryReleaseCallBack =
-    Option<unsafe extern "C" fn(_: CFAllocatorRef, _: *const libc::c_void) -> ()>;
-pub(crate) type CFDictionaryCopyDescriptionCallBack =
-    Option<unsafe extern "C" fn(_: *const libc::c_void) -> CFStringRef>;
-pub(crate) type CFDictionaryEqualCallBack =
-    Option<unsafe extern "C" fn(_: *const libc::c_void, _: *const libc::c_void) -> Boolean>;
-pub(crate) type CFDictionaryHashCallBack =
-    Option<unsafe extern "C" fn(_: *const libc::c_void) -> CFHashCode>;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct CFDictionaryKeyCallBacks {
-    pub(crate) version: CFIndex,
-    pub(crate) retain: CFDictionaryRetainCallBack,
-    pub(crate) release: CFDictionaryReleaseCallBack,
-    pub(crate) copyDescription: CFDictionaryCopyDescriptionCallBack,
-    pub(crate) equal: CFDictionaryEqualCallBack,
-    pub(crate) hash: CFDictionaryHashCallBack,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct CFDictionaryValueCallBacks {
-    pub(crate) version: CFIndex,
-    pub(crate) retain: CFDictionaryRetainCallBack,
-    pub(crate) release: CFDictionaryReleaseCallBack,
-    pub(crate) copyDescription: CFDictionaryCopyDescriptionCallBack,
-    pub(crate) equal: CFDictionaryEqualCallBack,
-}
-pub(crate) type CFDictionaryRef = *const __CFDictionary;
-pub(crate) type CFStringEncoding = UInt32;
-pub(crate) type C2RustUnnamed = libc::c_uint;
-pub(crate) const kCFStringEncodingUTF32LE: C2RustUnnamed = 469762304;
-pub(crate) const kCFStringEncodingUTF32BE: C2RustUnnamed = 402653440;
-pub(crate) const kCFStringEncodingUTF32: C2RustUnnamed = 201326848;
-pub(crate) const kCFStringEncodingUTF16LE: C2RustUnnamed = 335544576;
-pub(crate) const kCFStringEncodingUTF16BE: C2RustUnnamed = 268435712;
-pub(crate) const kCFStringEncodingUTF16: C2RustUnnamed = 256;
-pub(crate) const kCFStringEncodingNonLossyASCII: C2RustUnnamed = 3071;
-pub(crate) const kCFStringEncodingUTF8: C2RustUnnamed = 134217984;
-pub(crate) const kCFStringEncodingUnicode: C2RustUnnamed = 256;
-pub(crate) const kCFStringEncodingASCII: C2RustUnnamed = 1536;
-pub(crate) const kCFStringEncodingNextStepLatin: C2RustUnnamed = 2817;
-pub(crate) const kCFStringEncodingISOLatin1: C2RustUnnamed = 513;
-pub(crate) const kCFStringEncodingWindowsLatin1: C2RustUnnamed = 1280;
-pub(crate) const kCFStringEncodingMacRoman: C2RustUnnamed = 0;
-pub(crate) type CFSetRetainCallBack =
-    Option<unsafe extern "C" fn(_: CFAllocatorRef, _: *const libc::c_void) -> *const libc::c_void>;
-pub(crate) type CFSetReleaseCallBack =
-    Option<unsafe extern "C" fn(_: CFAllocatorRef, _: *const libc::c_void) -> ()>;
-pub(crate) type CFSetCopyDescriptionCallBack =
-    Option<unsafe extern "C" fn(_: *const libc::c_void) -> CFStringRef>;
-pub(crate) type CFSetEqualCallBack =
-    Option<unsafe extern "C" fn(_: *const libc::c_void, _: *const libc::c_void) -> Boolean>;
-pub(crate) type CFSetHashCallBack =
-    Option<unsafe extern "C" fn(_: *const libc::c_void) -> CFHashCode>;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct CFSetCallBacks {
-    pub(crate) version: CFIndex,
-    pub(crate) retain: CFSetRetainCallBack,
-    pub(crate) release: CFSetReleaseCallBack,
-    pub(crate) copyDescription: CFSetCopyDescriptionCallBack,
-    pub(crate) equal: CFSetEqualCallBack,
-    pub(crate) hash: CFSetHashCallBack,
-}
-pub(crate) type CFSetRef = *const __CFSet;
-pub(crate) type CGFloat = libc::c_double;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct CGAffineTransform {
-    pub(crate) a: CGFloat,
-    pub(crate) b: CGFloat,
-    pub(crate) c: CGFloat,
-    pub(crate) d: CGFloat,
-    pub(crate) tx: CGFloat,
-    pub(crate) ty: CGFloat,
-}
-pub(crate) type CTFontRef = *const __CTFont;
-pub(crate) type PlatformFontRef = CTFontDescriptorRef;
+use crate::cf_prelude::*;
+
+use super::PlatformFontRef;
+
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International
