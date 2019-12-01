@@ -154,7 +154,11 @@ pub(crate) unsafe fn ht_lookup_table(
     ptr::null_mut()
 }
 
-pub(crate) unsafe fn ht_remove_table(mut ht: *mut ht_table, key: *const libc::c_void, keylen: i32) -> i32
+pub(crate) unsafe fn ht_remove_table(
+    mut ht: *mut ht_table,
+    key: *const libc::c_void,
+    keylen: i32,
+) -> i32
 /* returns 1 if the element was found and removed and 0 otherwise */ {
     assert!(!ht.is_null() && !key.is_null());
     let hkey = get_hash(key, keylen) as usize;

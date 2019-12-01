@@ -2334,8 +2334,7 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
             let data =
                 new((size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
                     as *mut u8;
-            if ttstub_input_read(handle.as_ptr(), data as *mut i8, size as size_t)
-                != size as isize
+            if ttstub_input_read(handle.as_ptr(), data as *mut i8, size as size_t) != size as isize
             {
                 panic!("reading file failed");
             }

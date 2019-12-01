@@ -20,14 +20,14 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
 
+use crate::bridge::TTInputFormat;
+use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_mfileio::tt_mfgets;
 use crate::dpx_mpost::mps_scan_bbox;
 use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear};
 use crate::dpx_pdfparse::SkipWhite;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
 use crate::spc_warn;
-use crate::bridge::TTInputFormat;
-use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use libc::strlen;
 use std::ptr;
 

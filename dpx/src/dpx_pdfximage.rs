@@ -28,8 +28,8 @@
 
 use euclid::point2;
 
-use crate::mfree;
 use crate::bridge::DisplayExt;
+use crate::mfree;
 use crate::{info, warn};
 use crate::{streq_ptr, strstartswith};
 use std::ffi::CStr;
@@ -42,10 +42,10 @@ use super::dpx_mem::{new, renew};
 use super::dpx_mfileio::{tt_mfgets, work_buffer};
 use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pngimage::{check_for_png, png_include_image};
+use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_epdf::pdf_include_page;
 use crate::dpx_pdfobj::{check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj};
 use crate::shims::sprintf;
-use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use libc::{free, memset, strcpy, strlen};
 
 use std::io::{Seek, SeekFrom};
@@ -774,7 +774,11 @@ unsafe fn scale_to_fit_F(T: &mut TMatrix, p: &mut transform_info, I: *mut pdf_xi
 }
 /* called from pdfdev.c and spc_html.c */
 
-pub(crate) unsafe fn pdf_ximage_scale_image(id: i32, r: &mut Rect, p: &mut transform_info) -> TMatrix
+pub(crate) unsafe fn pdf_ximage_scale_image(
+    id: i32,
+    r: &mut Rect,
+    p: &mut transform_info,
+) -> TMatrix
 /* argument from specials */ {
     let ic: *mut ic_ = &mut _ic;
     if id < 0i32 || id >= (*ic).count {

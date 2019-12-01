@@ -315,9 +315,16 @@ pub(crate) mod cf_prelude {
         #[no_mangle]
         pub(crate) fn CTFontGetCapHeight(font: CTFontRef) -> CGFloat;
         #[no_mangle]
-        pub(crate) fn CFStringGetCharacters(theString: CFStringRef, range: CFRange, buffer: *mut UniChar);
+        pub(crate) fn CFStringGetCharacters(
+            theString: CFStringRef,
+            range: CFRange,
+            buffer: *mut UniChar,
+        );
         #[no_mangle]
-        pub(crate) fn CFArrayGetValueAtIndex(theArray: CFArrayRef, idx: CFIndex) -> *const libc::c_void;
+        pub(crate) fn CFArrayGetValueAtIndex(
+            theArray: CFArrayRef,
+            idx: CFIndex,
+        ) -> *const libc::c_void;
         #[no_mangle]
         pub(crate) fn CTFontGetSize(font: CTFontRef) -> CGFloat;
         #[no_mangle]
@@ -781,7 +788,10 @@ unsafe fn mapCharToGlyphFromCTFont(mut font: CTFontRef, mut ch: UInt32) -> libc:
     return 0i32;
 }
 
-pub(crate) unsafe fn MapCharToGlyph_AAT(mut attributes: CFDictionaryRef, mut ch: UInt32) -> libc::c_int {
+pub(crate) unsafe fn MapCharToGlyph_AAT(
+    mut attributes: CFDictionaryRef,
+    mut ch: UInt32,
+) -> libc::c_int {
     let mut font: CTFontRef = font_from_attributes(attributes);
     return mapCharToGlyphFromCTFont(font, ch);
 }
@@ -1454,7 +1464,10 @@ pub(crate) unsafe extern "C" fn aat_get_font_metrics(
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn aat_font_get(mut what: i32, mut attributes: CFDictionaryRef) -> i32 {
+pub(crate) unsafe extern "C" fn aat_font_get(
+    mut what: i32,
+    mut attributes: CFDictionaryRef,
+) -> i32 {
     let mut rval: libc::c_int = -1i32;
     let mut font: CTFontRef = font_from_attributes(attributes);
     let mut list: CFArrayRef = ptr::null();

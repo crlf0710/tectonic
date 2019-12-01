@@ -46,7 +46,8 @@ use crate::dpx_pdfobj::{
 use libc::free;
 
 use crate::bridge::size_t;
-pub(crate) type __compar_fn_t = Option<unsafe fn(_: *const libc::c_void, _: *const libc::c_void) -> i32>;
+pub(crate) type __compar_fn_t =
+    Option<unsafe fn(_: *const libc::c_void, _: *const libc::c_void) -> i32>;
 
 use super::dpx_dpxutil::ht_iter;
 use super::dpx_dpxutil::ht_table;

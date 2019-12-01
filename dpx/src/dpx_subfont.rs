@@ -28,8 +28,8 @@
 
 use std::io::{Seek, SeekFrom};
 
-use crate::streq_ptr;
 use crate::bridge::DisplayExt;
+use crate::streq_ptr;
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;

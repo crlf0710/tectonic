@@ -609,7 +609,12 @@ unsafe fn preproc_password(passwd: *const i8, outbuf: *mut i8, V: i32) -> i32 {
     error
 }
 
-pub(crate) unsafe fn pdf_enc_set_passwd(bits: u32, perm: u32, oplain: *const i8, uplain: *const i8) {
+pub(crate) unsafe fn pdf_enc_set_passwd(
+    bits: u32,
+    perm: u32,
+    oplain: *const i8,
+    uplain: *const i8,
+) {
     let p = &mut sec_data;
     assert!(!oplain.is_null());
     assert!(!uplain.is_null());

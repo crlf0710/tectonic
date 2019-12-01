@@ -391,7 +391,10 @@ pub(crate) unsafe extern "C" fn load_tfm_font_mapping() -> *mut libc::c_void {
     rval
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn apply_tfm_font_mapping(mut cnv: *mut libc::c_void, mut c: i32) -> i32 {
+pub(crate) unsafe extern "C" fn apply_tfm_font_mapping(
+    mut cnv: *mut libc::c_void,
+    mut c: i32,
+) -> i32 {
     let mut in_0: UniChar = c as UniChar;
     let mut out: [u8; 2] = [0; 2];
     let mut inUsed: u32 = 0;
@@ -1199,7 +1202,10 @@ pub(crate) unsafe extern "C" fn find_native_font(
     rval
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn release_font_engine(mut engine: *mut libc::c_void, mut type_flag: i32) {
+pub(crate) unsafe extern "C" fn release_font_engine(
+    mut engine: *mut libc::c_void,
+    mut type_flag: i32,
+) {
     match type_flag as u32 {
         #[cfg(target_os = "macos")]
         0xffffu32 => {
@@ -1359,7 +1365,10 @@ pub(crate) unsafe extern "C" fn gr_print_font_name(
     };
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn gr_font_get_named(mut what: i32, mut pEngine: *mut libc::c_void) -> i32 {
+pub(crate) unsafe extern "C" fn gr_font_get_named(
+    mut what: i32,
+    mut pEngine: *mut libc::c_void,
+) -> i32 {
     let mut rval: i64 = -1i32 as i64;
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
     match what {
@@ -1801,7 +1810,11 @@ pub(crate) unsafe extern "C" fn get_native_char_sidebearings(
     *rsb = D2Fix(r as f64);
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn get_glyph_bounds(mut font: i32, mut edge: i32, mut gid: i32) -> scaled_t {
+pub(crate) unsafe extern "C" fn get_glyph_bounds(
+    mut font: i32,
+    mut edge: i32,
+    mut gid: i32,
+) -> scaled_t {
     /* edge codes 1,2,3,4 => L T R B */
     let mut a: f32 = 0.;
     let mut b: f32 = 0.;
@@ -2194,7 +2207,9 @@ pub(crate) unsafe extern "C" fn measure_native_node(
     };
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn real_get_native_italic_correction(mut pNode: *mut libc::c_void) -> Fixed {
+pub(crate) unsafe extern "C" fn real_get_native_italic_correction(
+    mut pNode: *mut libc::c_void,
+) -> Fixed {
     let mut node: *mut memory_word = pNode as *mut memory_word;
     let mut f: u32 = (*node.offset(4)).b16.s2 as u32;
     let mut n: u32 = (*node.offset(4)).b16.s0 as u32;

@@ -36,8 +36,8 @@ use super::dpx_tt_table::{
     tt_read_hhea_table, tt_read_longMetrics, tt_read_maxp_table, tt_read_os2__table,
     tt_read_vhea_table,
 };
-use crate::dpx_truetype::sfnt_table_info;
 use crate::bridge::ttstub_input_read;
+use crate::dpx_truetype::sfnt_table_info;
 use libc::{free, memcpy, memset};
 
 use std::io::{Seek, SeekFrom};

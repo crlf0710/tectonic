@@ -1588,7 +1588,12 @@ unsafe fn dev_sprint_line(
     len
 }
 
-pub(crate) unsafe fn pdf_dev_set_rule(mut xpos: spt_t, mut ypos: spt_t, width: spt_t, height: spt_t) {
+pub(crate) unsafe fn pdf_dev_set_rule(
+    mut xpos: spt_t,
+    mut ypos: spt_t,
+    width: spt_t,
+    height: spt_t,
+) {
     let mut len = 0_usize;
     if num_dev_coords > 0i32 {
         xpos -= ((*dev_coords.offset((num_dev_coords - 1i32) as isize)).x / dev_unit.dvi2pts)

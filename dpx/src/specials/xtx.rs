@@ -167,7 +167,10 @@ pub(crate) unsafe fn spc_handler_xtx_gsave(mut _spe: *mut spc_env, mut _args: *m
     0i32
 }
 
-pub(crate) unsafe fn spc_handler_xtx_grestore(mut _spe: *mut spc_env, mut _args: *mut spc_arg) -> i32 {
+pub(crate) unsafe fn spc_handler_xtx_grestore(
+    mut _spe: *mut spc_env,
+    mut _args: *mut spc_arg,
+) -> i32 {
     pdf_dev_grestore();
     /*
      * Unfortunately, the following line is necessary in case

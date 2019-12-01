@@ -28,8 +28,8 @@
 
 use euclid::point2;
 
-use crate::warn;
 use crate::bridge::DisplayExt;
+use crate::warn;
 use std::ffi::CStr;
 use std::ptr;
 

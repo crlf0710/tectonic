@@ -76,12 +76,12 @@ use super::dpx_tt_table::{
     tt_read_maxp_table, tt_read_os2__table, tt_read_vhea_table,
 };
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode};
+use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{
     pdf_copy_name, pdf_dict, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string,
     IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::dpx_truetype::sfnt_table_info;
-use crate::bridge::ttstub_input_read;
 use libc::{free, memmove, memset, strcat, strcmp, strcpy, strlen, strstr};
 
 use std::io::{Seek, SeekFrom};
@@ -1582,7 +1582,11 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
     CMap_cache_add(cmap)
 }
 
-pub(crate) unsafe fn t1_load_UnicodeCMap(font_name: *const i8, otl_tags: *const i8, wmode: i32) -> i32 {
+pub(crate) unsafe fn t1_load_UnicodeCMap(
+    font_name: *const i8,
+    otl_tags: *const i8,
+    wmode: i32,
+) -> i32 {
     if font_name.is_null() {
         return -1i32;
     }

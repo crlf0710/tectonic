@@ -976,7 +976,10 @@ pub(crate) unsafe fn pdf_remove_fontmap_record(kp: *const i8) -> i32 {
     0i32
 }
 
-pub(crate) unsafe fn pdf_insert_fontmap_record(kp: *const i8, vp: *const fontmap_rec) -> *mut fontmap_rec {
+pub(crate) unsafe fn pdf_insert_fontmap_record(
+    kp: *const i8,
+    vp: *const fontmap_rec,
+) -> *mut fontmap_rec {
     let mut sfd_name: *mut i8 = ptr::null_mut();
     if kp.is_null() || (vp.is_null() || (*vp).map_name.is_null() || (*vp).font_name.is_null()) {
         warn!("Invalid fontmap record...");

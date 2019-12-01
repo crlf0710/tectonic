@@ -192,7 +192,10 @@ unsafe extern "C" fn compare_paths(mut p1: *const i8, mut p2: *const i8) -> i32 
     ret
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn is_new_source(mut srcfilename: str_number, mut lineno: i32) -> bool {
+pub(crate) unsafe extern "C" fn is_new_source(
+    mut srcfilename: str_number,
+    mut lineno: i32,
+) -> bool {
     let mut name: *mut i8 = gettexstring(srcfilename);
     compare_paths(name, last_source_name) != 0i32 || lineno != last_lineno
 }

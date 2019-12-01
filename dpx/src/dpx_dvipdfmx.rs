@@ -43,9 +43,9 @@ use super::dpx_pdffont::{
     pdf_font_reset_unique_tag_state, pdf_font_set_deterministic_unique_tags, pdf_font_set_dpi,
 };
 use super::dpx_tt_aux::tt_aux_set_verbose;
+use crate::bridge::DisplayExt;
 use crate::dpx_pdfparse::parse_unsigned;
 use crate::info;
-use crate::bridge::DisplayExt;
 use std::ffi::CStr;
 use std::ptr;
 

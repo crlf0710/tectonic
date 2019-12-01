@@ -525,7 +525,11 @@ pub(crate) unsafe extern "C" fn new_rule() -> i32 {
     p
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn new_ligature(mut f: internal_font_number, mut c: u16, mut q: i32) -> i32 {
+pub(crate) unsafe extern "C" fn new_ligature(
+    mut f: internal_font_number,
+    mut c: u16,
+    mut q: i32,
+) -> i32 {
     let mut p: i32 = 0;
     p = get_node(2i32);
     (*mem.offset(p as isize)).b16.s1 = 6_u16;
@@ -9682,7 +9686,10 @@ pub(crate) unsafe extern "C" fn find_font_dimen(mut writing: bool) {
     };
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn scan_something_internal(mut level: small_number, mut negative: bool) {
+pub(crate) unsafe extern "C" fn scan_something_internal(
+    mut level: small_number,
+    mut negative: bool,
+) {
     let mut m: i32 = 0;
     let mut n: i32 = 0;
     let mut k: i32 = 0;
@@ -12589,7 +12596,12 @@ pub(crate) unsafe extern "C" fn quotient(mut n: i32, mut d: i32) -> i32 {
     a
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn fract(mut x: i32, mut n: i32, mut d: i32, mut max_answer: i32) -> i32 {
+pub(crate) unsafe extern "C" fn fract(
+    mut x: i32,
+    mut n: i32,
+    mut d: i32,
+    mut max_answer: i32,
+) -> i32 {
     let mut current_block: u64;
     let mut negative: bool = false;
     let mut a: i32 = 0;
@@ -15010,7 +15022,11 @@ pub(crate) unsafe extern "C" fn end_name() {
     };
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn pack_file_name(mut n: str_number, mut a: str_number, mut e: str_number) {
+pub(crate) unsafe extern "C" fn pack_file_name(
+    mut n: str_number,
+    mut a: str_number,
+    mut e: str_number,
+) {
     // Note that we populate the buffer in an order different than how the
     // arguments are passed to this function!
     let mut work_buffer: *mut i8 =
@@ -15519,7 +15535,10 @@ pub(crate) unsafe extern "C" fn start_input(mut primary_input_name: *const i8) {
     cur_input.loc = cur_input.start;
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn effective_char_info(mut f: internal_font_number, mut c: u16) -> b16x4 {
+pub(crate) unsafe extern "C" fn effective_char_info(
+    mut f: internal_font_number,
+    mut c: u16,
+) -> b16x4 {
     if !xtx_ligature_present && !(*font_mapping.offset(f as isize)).is_null() {
         c = apply_tfm_font_mapping(*font_mapping.offset(f as isize), c as i32) as u16
     }
@@ -15724,7 +15743,10 @@ pub(crate) unsafe extern "C" fn char_warning(mut f: internal_font_number, mut c:
     };
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn new_native_word_node(mut f: internal_font_number, mut n: i32) -> i32 {
+pub(crate) unsafe extern "C" fn new_native_word_node(
+    mut f: internal_font_number,
+    mut n: i32,
+) -> i32 {
     let mut l: i32 = 0;
     let mut q: i32 = 0;
     l = (6i32 as u64).wrapping_add(
@@ -17216,7 +17238,10 @@ pub(crate) unsafe extern "C" fn read_font_info(
     // return done(tfm_file_owner, g);
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn new_character(mut f: internal_font_number, mut c: UTF16_code) -> i32 {
+pub(crate) unsafe extern "C" fn new_character(
+    mut f: internal_font_number,
+    mut c: UTF16_code,
+) -> i32 {
     let mut p: i32 = 0;
     let mut ec: u16 = 0;
     if *font_area.offset(f as isize) as u32 == 0xffffu32
@@ -28722,7 +28747,11 @@ pub(crate) unsafe extern "C" fn prune_page_top(mut p: i32, mut s: bool) -> i32 {
     (*mem.offset((4999999i32 - 3i32) as isize)).b32.s1
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn do_marks(mut a: small_number, mut l: small_number, mut q: i32) -> bool {
+pub(crate) unsafe extern "C" fn do_marks(
+    mut a: small_number,
+    mut l: small_number,
+    mut q: i32,
+) -> bool {
     let mut i: small_number = 0;
     if (l as i32) < 4i32 {
         i = 0i32 as small_number;

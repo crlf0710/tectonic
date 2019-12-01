@@ -32,8 +32,8 @@ pub(crate) mod xtx;
 
 use euclid::point2;
 
-use crate::warn;
 use crate::bridge::DisplayExt;
+use crate::warn;
 use std::ffi::{CStr, CString};
 use std::ptr;
 

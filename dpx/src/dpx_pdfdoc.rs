@@ -28,9 +28,9 @@
 
 use euclid::point2;
 
+use crate::bridge::DisplayExt;
 use crate::mfree;
 use crate::streq_ptr;
-use crate::bridge::DisplayExt;
 use crate::{info, warn};
 use std::ffi::{CStr, CString};
 use std::ptr;
@@ -64,6 +64,7 @@ use super::dpx_pdfximage::{
     pdf_ximage_get_reference, pdf_ximage_init_form_info, pdf_ximage_set_verbose, XInfo,
 };
 use super::dpx_pngimage::check_for_png;
+use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_pdfobj::{
     pdf_compare_reference, pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj,
     pdf_obj, pdf_obj_typeof, pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj,
@@ -72,7 +73,6 @@ use crate::dpx_pdfobj::{
     PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
-use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use libc::{free, memcpy, strcmp, strcpy, strlen, strncmp, strncpy};
 
 use crate::bridge::size_t;
@@ -1550,7 +1550,11 @@ unsafe fn pdf_doc_init_names(mut p: *mut pdf_doc, check_gotos: i32) {
     );
 }
 
-pub(crate) unsafe fn pdf_doc_add_names(category: *const i8, key: &[u8], value: *mut pdf_obj) -> i32 {
+pub(crate) unsafe fn pdf_doc_add_names(
+    category: *const i8,
+    key: &[u8],
+    value: *mut pdf_obj,
+) -> i32 {
     let p: *mut pdf_doc = &mut pdoc;
     let mut i = 0;
     while !(*(*p).names.offset(i as isize)).category.is_null() {
@@ -1884,7 +1888,12 @@ unsafe fn find_bead(article: *mut pdf_article, bead_id: &[u8]) -> *mut pdf_bead 
     bead
 }
 
-pub(crate) unsafe fn pdf_doc_add_bead(article_id: *const i8, bead_id: &[u8], page_no: i32, rect: &Rect) {
+pub(crate) unsafe fn pdf_doc_add_bead(
+    article_id: *const i8,
+    bead_id: &[u8],
+    page_no: i32,
+    rect: &Rect,
+) {
     let p: *mut pdf_doc = &mut pdoc;
     if article_id.is_null() {
         panic!("No article identifier specified.");

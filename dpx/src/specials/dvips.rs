@@ -33,9 +33,9 @@ use crate::warn;
 use super::{spc_arg, spc_env};
 use crate::bridge::TTInputFormat;
 
+use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_pdfdraw::pdf_dev_concat;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
-use crate::bridge::{ttstub_input_close, ttstub_input_open};
 
 use super::util::spc_util_read_dimtrns;
 use crate::dpx_mem::xmalloc;

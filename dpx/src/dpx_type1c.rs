@@ -27,8 +27,8 @@
 )]
 
 use super::dpx_sfnt::{sfnt_close, sfnt_find_table_pos, sfnt_open, sfnt_read_table_directory};
-use crate::streq_ptr;
 use crate::bridge::DisplayExt;
+use crate::streq_ptr;
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
@@ -58,11 +58,11 @@ use super::dpx_pdffont::{
 };
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
+use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{
     pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
-use crate::bridge::ttstub_input_read;
 use libc::{free, strcmp, strlen};
 
 use crate::bridge::size_t;

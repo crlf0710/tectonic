@@ -29,9 +29,9 @@
 use super::dpx_numbers::{
     tt_get_positive_quad, tt_get_unsigned_byte, tt_get_unsigned_num, tt_get_unsigned_quad,
 };
+use crate::bridge::DisplayExt;
 use crate::streq_ptr;
 use crate::warn;
-use crate::bridge::DisplayExt;
 use std::ffi::CStr;
 use std::ptr;
 

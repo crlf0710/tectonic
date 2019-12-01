@@ -89,7 +89,8 @@ pub(crate) const FROZEN_PRIMITIVE: placeholdertype = (FROZEN_CONTROL_SEQUENCE + 
 pub(crate) const FROZEN_NULL_FONT: placeholdertype = (FROZEN_CONTROL_SEQUENCE + 12);
 /// nominally minus FONT_BASE, but that's 0
 pub(crate) const FONT_ID_BASE: placeholdertype = FROZEN_NULL_FONT;
-pub(crate) const UNDEFINED_CONTROL_SEQUENCE: placeholdertype = (FROZEN_NULL_FONT + MAX_FONT_MAX + 1);
+pub(crate) const UNDEFINED_CONTROL_SEQUENCE: placeholdertype =
+    (FROZEN_NULL_FONT + MAX_FONT_MAX + 1);
 
 /// "region 3": glue values
 pub(crate) const GLUE_BASE: placeholdertype = (UNDEFINED_CONTROL_SEQUENCE + 1);

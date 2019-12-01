@@ -26,9 +26,9 @@
     non_upper_case_globals
 )]
 
+use crate::bridge::DisplayExt;
 use crate::mfree;
 use crate::streq_ptr;
-use crate::bridge::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
@@ -52,11 +52,11 @@ use super::dpx_pdffont::{
 use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
 use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load_font};
 use super::dpx_tfm::{tfm_get_width, tfm_open};
+use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_pdfobj::{
     pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
-use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use libc::{free, memset, strlen, strstr};
 
 use crate::bridge::TTInputFormat;

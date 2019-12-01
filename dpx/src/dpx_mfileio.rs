@@ -72,7 +72,11 @@ pub(crate) static mut work_buffer_u8: [u8; 1024] = [0; 1024];
 /* Tectonic-enabled versions */
 /* Modified versions of the above functions based on the Tectonic I/O system. */
 
-pub(crate) unsafe fn tt_mfgets(buffer: *mut i8, length: i32, file: &mut InputHandleWrapper) -> *mut i8 {
+pub(crate) unsafe fn tt_mfgets(
+    buffer: *mut i8,
+    length: i32,
+    file: &mut InputHandleWrapper,
+) -> *mut i8 {
     let mut ch: i32 = 0i32;
     let mut i: i32 = 0i32;
     while i < length - 1i32

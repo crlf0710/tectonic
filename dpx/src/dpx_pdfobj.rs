@@ -42,11 +42,11 @@ use super::dpx_mfileio::{tt_mfgets, work_buffer, work_buffer_u8 as WORK_BUFFER};
 use super::dpx_pdfdev::pdf_sprint_number;
 use super::dpx_pdfencrypt::{pdf_enc_set_generation, pdf_enc_set_label, pdf_encrypt_data};
 use super::dpx_pdfparse::skip_white;
-use crate::shims::sprintf;
 use crate::bridge::{
     ttstub_input_get_size, ttstub_input_getc, ttstub_input_read, ttstub_input_ungetc,
     ttstub_output_close, ttstub_output_open, ttstub_output_open_stdout, ttstub_output_putc,
 };
+use crate::shims::sprintf;
 use libc::{atof, atoi, free, memcmp, memset, strlen, strtoul};
 
 use libz_sys as libz;
@@ -522,7 +522,11 @@ unsafe fn add_xref_entry(label: usize, typ: u8, field2: u32, field3: u16) {
     }
 }
 
-pub(crate) unsafe fn pdf_out_init(filename: *const i8, do_encryption: bool, enable_object_stream: bool) {
+pub(crate) unsafe fn pdf_out_init(
+    filename: *const i8,
+    do_encryption: bool,
+    enable_object_stream: bool,
+) {
     output_xref = vec![];
     pdf_max_ind_objects = 0;
     add_xref_entry(0, 0_u8, 0_u32, 0xffff_u16);

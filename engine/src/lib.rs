@@ -30,15 +30,13 @@ pub(crate) type off_t = __off_t;
 pub(crate) type ssize_t = isize;
 
 use bibtex::bibtex_main;
+use bridge::TTHistory;
 use dpx::dvipdfmx_main;
 use xetex_ini::tt_run_engine;
-use bridge::TTHistory;
 
 pub use bridge::tt_bridge_api_t;
 pub use bridge::tt_get_error_message;
 pub use xetex_engine_interface::tt_xetex_set_int_variable;
-
-
 
 pub unsafe fn tex_simple_main(
     mut api: *const tt_bridge_api_t,
@@ -99,7 +97,10 @@ mod core_memory {
     You should have received a copy of the GNU Lesser General Public License
     along with this library; if not, see <http://www.gnu.org/licenses/>.  */
     #[no_mangle]
-    pub(crate) unsafe extern "C" fn xcalloc(mut nelem: size_t, mut elsize: size_t) -> *mut libc::c_void {
+    pub(crate) unsafe extern "C" fn xcalloc(
+        mut nelem: size_t,
+        mut elsize: size_t,
+    ) -> *mut libc::c_void {
         let nelem = nelem as libc::size_t; //FIXME
         let elsize = elsize as libc::size_t; //FIXME
         let mut new_mem: *mut libc::c_void = libc::calloc(
@@ -246,7 +247,11 @@ pub(crate) mod freetype_sys_patch {
         pub(crate) fn FT_Get_Sfnt_Name_Count(face: FT_Face) -> FT_UInt;
 
         #[no_mangle]
-        pub(crate) fn FT_Get_Sfnt_Name(face: FT_Face, idx: FT_UInt, aname: *mut FT_SfntName) -> FT_Error;
+        pub(crate) fn FT_Get_Sfnt_Name(
+            face: FT_Face,
+            idx: FT_UInt,
+            aname: *mut FT_SfntName,
+        ) -> FT_Error;
     }
 
     pub(crate) const FT_SFNT_MAX: FT_Sfnt_Tag = 7;

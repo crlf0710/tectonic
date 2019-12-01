@@ -24,8 +24,8 @@
     non_snake_case,
 )]
 
-use crate::warn;
 use crate::bridge::DisplayExt;
+use crate::warn;
 use crate::SkipBlank;
 use std::ffi::CString;
 use std::ptr;

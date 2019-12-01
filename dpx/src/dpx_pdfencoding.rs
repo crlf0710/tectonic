@@ -26,8 +26,8 @@
     non_upper_case_globals,
 )]
 
-use crate::info;
 use crate::bridge::DisplayExt;
+use crate::info;
 use std::ffi::CStr;
 use std::io::Read;
 use std::ptr;
@@ -42,6 +42,7 @@ use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_mem::{new, renew};
+use crate::bridge::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open};
 use crate::dpx_pdfobj::{
     pdf_copy_name, pdf_dict, pdf_get_version, pdf_link_obj, pdf_obj, pdf_release_obj, pdf_stream,
     IntoObj, PushObj,
@@ -49,7 +50,6 @@ use crate::dpx_pdfobj::{
 use crate::dpx_pdfparse::{ParsePdfObj, SkipWhite};
 use crate::mfree;
 use crate::streq_ptr;
-use crate::bridge::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open};
 use libc::{free, memset, strcmp, strcpy, strlen};
 
 pub(crate) type __ssize_t = i64;

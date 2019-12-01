@@ -33,8 +33,8 @@ use crate::warn;
 
 use super::dpx_mem::new;
 use super::dpx_sfnt::{sfnt_find_table_len, sfnt_find_table_pos, sfnt_locate_table};
-use crate::dpx_truetype::sfnt_table_info;
 use crate::bridge::ttstub_input_read;
+use crate::dpx_truetype::sfnt_table_info;
 
 use std::io::{Seek, SeekFrom};
 use std::ptr;

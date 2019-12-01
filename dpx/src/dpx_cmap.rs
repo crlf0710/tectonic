@@ -26,9 +26,9 @@
     non_upper_case_globals,
 )]
 
+use crate::bridge::DisplayExt;
 use crate::mfree;
 use crate::streq_ptr;
-use crate::bridge::DisplayExt;
 use crate::{info, warn};
 use std::ffi::{CStr, CString};
 use std::ptr;
@@ -792,7 +792,12 @@ pub(crate) unsafe fn CMap_add_bfrange(
     0i32
 }
 
-pub(crate) unsafe fn CMap_add_cidchar(cmap: *mut CMap, src: *const u8, srcdim: size_t, dst: CID) -> i32 {
+pub(crate) unsafe fn CMap_add_cidchar(
+    cmap: *mut CMap,
+    src: *const u8,
+    srcdim: size_t,
+    dst: CID,
+) -> i32 {
     CMap_add_cidrange(cmap, src, src, srcdim, dst)
 }
 

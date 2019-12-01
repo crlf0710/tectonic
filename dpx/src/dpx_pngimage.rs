@@ -35,11 +35,11 @@ use crate::warn;
 use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
+use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_get_version, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
     pdf_stream_set_predictor, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
-use crate::bridge::ttstub_input_read;
 use libc::free;
 
 use std::io::{Seek, SeekFrom};
@@ -91,7 +91,10 @@ unsafe extern "C" fn _png_read(png_ptr: *mut png_struct, outbytes: *mut u8, n: u
     };
 }
 
-pub(crate) unsafe fn png_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandleWrapper) -> i32 {
+pub(crate) unsafe fn png_include_image(
+    ximage: *mut pdf_ximage,
+    handle: &mut InputHandleWrapper,
+) -> i32 {
     let mut info = ximage_info::default();
     /* Libpng stuff */
     pdf_ximage_init_image_info(&mut info);

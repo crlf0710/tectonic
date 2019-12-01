@@ -37,10 +37,10 @@ use super::dpx_pdfcolor::{
     pdf_get_colorspace_reference,
 };
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
+use crate::bridge::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_read};
 use crate::dpx_pdfobj::{
     pdf_get_version, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj, STREAM_COMPRESS,
 };
-use crate::bridge::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_read};
 use libc::{free, memcmp, memset};
 
 use crate::bridge::size_t;
@@ -172,7 +172,10 @@ pub unsafe fn check_for_jpeg(handle: &mut InputHandleWrapper) -> i32 {
     1i32
 }
 
-pub(crate) unsafe fn jpeg_include_image(ximage: *mut pdf_ximage, handle: &mut InputHandleWrapper) -> i32 {
+pub(crate) unsafe fn jpeg_include_image(
+    ximage: *mut pdf_ximage,
+    handle: &mut InputHandleWrapper,
+) -> i32 {
     let mut info = ximage_info::default();
     let mut j_info: JPEG_info = JPEG_info {
         height: 0,
@@ -893,11 +896,8 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                 }
                 224 => {
                     if length > 5i32 {
-                        if ttstub_input_read(
-                            handle.as_ptr(),
-                            app_sig.as_mut_ptr(),
-                            5i32 as size_t,
-                        ) != 5
+                        if ttstub_input_read(handle.as_ptr(), app_sig.as_mut_ptr(), 5i32 as size_t)
+                            != 5
                         {
                             return -1i32;
                         }
@@ -928,11 +928,8 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                 }
                 225 => {
                     if length > 5i32 {
-                        if ttstub_input_read(
-                            handle.as_ptr(),
-                            app_sig.as_mut_ptr(),
-                            5i32 as size_t,
-                        ) != 5
+                        if ttstub_input_read(handle.as_ptr(), app_sig.as_mut_ptr(), 5i32 as size_t)
+                            != 5
                         {
                             return -1i32;
                         }
@@ -993,11 +990,8 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                 }
                 226 => {
                     if length >= 14i32 {
-                        if ttstub_input_read(
-                            handle.as_ptr(),
-                            app_sig.as_mut_ptr(),
-                            12i32 as size_t,
-                        ) != 12
+                        if ttstub_input_read(handle.as_ptr(), app_sig.as_mut_ptr(), 12i32 as size_t)
+                            != 12
                         {
                             return -1i32;
                         }
@@ -1027,11 +1021,8 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                 }
                 238 => {
                     if length > 5i32 {
-                        if ttstub_input_read(
-                            handle.as_ptr(),
-                            app_sig.as_mut_ptr(),
-                            5i32 as size_t,
-                        ) != 5
+                        if ttstub_input_read(handle.as_ptr(), app_sig.as_mut_ptr(), 5i32 as size_t)
+                            != 5
                         {
                             return -1i32;
                         }

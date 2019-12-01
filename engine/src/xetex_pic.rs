@@ -22,16 +22,16 @@ use crate::xetex_output::{
 use crate::xetex_xetex0::{
     new_whatsit, pack_file_name, scan_decimal, scan_dimen, scan_file_name, scan_int, scan_keyword,
 };
+use bridge::InputHandleWrapper;
 use bridge::TTInputFormat;
 use bridge::{ttstub_input_close, ttstub_input_open};
-use bridge::InputHandleWrapper;
+use dpx::pdf_dev_transform;
+use dpx::Corner;
 use dpx::{bmp_get_bbox, check_for_bmp};
 use dpx::{check_for_jpeg, jpeg_get_bbox};
-use dpx::Corner;
-use dpx::{pdf_doc_get_page, pdf_doc_get_page_count};
-use dpx::pdf_dev_transform;
-use dpx::{pdf_close, pdf_file, pdf_obj, pdf_open, pdf_release_obj};
 use dpx::{check_for_png, png_get_bbox};
+use dpx::{pdf_close, pdf_file, pdf_obj, pdf_open, pdf_release_obj};
+use dpx::{pdf_doc_get_page, pdf_doc_get_page_count};
 use libc::{free, memcpy, strlen};
 pub(crate) type scaled_t = i32;
 pub(crate) type Fixed = scaled_t;

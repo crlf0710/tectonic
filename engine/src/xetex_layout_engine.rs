@@ -83,7 +83,11 @@ extern "C" {
     #[no_mangle]
     pub(crate) fn createFont(fontRef: PlatformFontRef, pointSize: Fixed) -> XeTeXFont;
     #[no_mangle]
-    pub(crate) fn getAscentAndDescent(engine: XeTeXLayoutEngine, ascent: *mut f32, descent: *mut f32);
+    pub(crate) fn getAscentAndDescent(
+        engine: XeTeXLayoutEngine,
+        ascent: *mut f32,
+        descent: *mut f32,
+    );
     #[no_mangle]
     pub(crate) fn setFontLayoutDir(font: XeTeXFont, vertical: i32);
     #[no_mangle]
@@ -143,9 +147,17 @@ extern "C" {
     #[no_mangle]
     pub(crate) fn getGlyphWidth(font: XeTeXFont, gid: u32) -> f32;
     #[no_mangle]
-    pub(crate) fn createFontFromFile(filename: *const i8, index: i32, pointSize: Fixed) -> XeTeXFont;
+    pub(crate) fn createFontFromFile(
+        filename: *const i8,
+        index: i32,
+        pointSize: Fixed,
+    ) -> XeTeXFont;
     #[no_mangle]
-    pub(crate) fn getCapAndXHeight(engine: XeTeXLayoutEngine, capheight: *mut f32, xheight: *mut f32);
+    pub(crate) fn getCapAndXHeight(
+        engine: XeTeXLayoutEngine,
+        capheight: *mut f32,
+        xheight: *mut f32,
+    );
     #[no_mangle]
     pub(crate) fn getEmboldenFactor(engine: XeTeXLayoutEngine) -> f32;
     #[no_mangle]
@@ -184,8 +196,11 @@ extern "C" {
     #[no_mangle]
     pub(crate) fn findNextGraphiteBreak() -> i32;
     #[no_mangle]
-    pub(crate) fn initGraphiteBreaking(engine: XeTeXLayoutEngine, txtPtr: *const u16, txtLen: i32)
-        -> bool;
+    pub(crate) fn initGraphiteBreaking(
+        engine: XeTeXLayoutEngine,
+        txtPtr: *const u16,
+        txtLen: i32,
+    ) -> bool;
     #[no_mangle]
     pub(crate) fn getFontCharRange(engine: XeTeXLayoutEngine, reqFirst: i32) -> i32;
     #[no_mangle]

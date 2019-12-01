@@ -29,10 +29,10 @@
 use super::dpx_mem::new;
 use super::dpx_numbers::tt_get_unsigned_byte;
 use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
+use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{
     pdf_stream, pdf_stream_set_predictor, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
-use crate::bridge::ttstub_input_read;
 use crate::warn;
 use libc::{free, memset};
 
@@ -535,11 +535,8 @@ unsafe fn read_raster_rle4(
                                 *fresh0 = (*fresh0 as i32 | b as i32 >> 4i32 & 0xfi32) as u8;
                                 *p = ((b as i32) << 4i32 & 0xf0i32) as u8;
                             }
-                        } else if ttstub_input_read(
-                            handle.as_ptr(),
-                            p as *mut i8,
-                            nbytes as size_t,
-                        ) != nbytes as isize
+                        } else if ttstub_input_read(handle.as_ptr(), p as *mut i8, nbytes as size_t)
+                            != nbytes as isize
                         {
                             return Err(());
                         }

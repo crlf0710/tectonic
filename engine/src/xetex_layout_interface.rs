@@ -605,7 +605,9 @@ unsafe extern "C" fn GlyphId_create(mut fontNum: libc::c_int, mut code: libc::c_
     return id;
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn getProtrusionFactor(mut side: libc::c_int) -> *mut ProtrusionFactor {
+pub(crate) unsafe extern "C" fn getProtrusionFactor(
+    mut side: libc::c_int,
+) -> *mut ProtrusionFactor {
     static mut leftProt: *mut ProtrusionFactor = ptr::null_mut();
     static mut rightProt: *mut ProtrusionFactor = ptr::null_mut();
     let mut container: *mut ProtrusionFactor = 0 as *mut ProtrusionFactor;
@@ -861,7 +863,10 @@ pub(crate) unsafe extern "C" fn countScripts(mut font: XeTeXFont) -> libc::c_uin
     return getLargerScriptListTable(font, 0 as *mut *mut hb_tag_t);
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn getIndScript(mut font: XeTeXFont, mut index: libc::c_uint) -> hb_tag_t {
+pub(crate) unsafe extern "C" fn getIndScript(
+    mut font: XeTeXFont,
+    mut index: libc::c_uint,
+) -> hb_tag_t {
     let mut rval: hb_tag_t = 0i32 as hb_tag_t;
     let mut scriptList: *mut hb_tag_t = 0 as *mut hb_tag_t;
     let mut scriptCount: libc::c_uint = getLargerScriptListTable(font, &mut scriptList);
@@ -873,7 +878,10 @@ pub(crate) unsafe extern "C" fn getIndScript(mut font: XeTeXFont, mut index: lib
     return rval;
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn countLanguages(mut font: XeTeXFont, mut script: hb_tag_t) -> libc::c_uint {
+pub(crate) unsafe extern "C" fn countLanguages(
+    mut font: XeTeXFont,
+    mut script: hb_tag_t,
+) -> libc::c_uint {
     let mut rval: libc::c_uint = 0i32 as libc::c_uint;
     let mut face: *mut hb_face_t =
         hb_font_get_face(XeTeXFontInst_getHbFont(font as *mut XeTeXFontInst));
@@ -1346,7 +1354,10 @@ pub(crate) unsafe extern "C" fn findGraphiteFeatureSettingNamed(
     return rval;
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn getGlyphWidth(mut font: XeTeXFont, mut gid: uint32_t) -> libc::c_float {
+pub(crate) unsafe extern "C" fn getGlyphWidth(
+    mut font: XeTeXFont,
+    mut gid: uint32_t,
+) -> libc::c_float {
     return XeTeXFontInst_getGlyphWidth(font as *mut XeTeXFontInst, gid as GlyphID);
 }
 #[no_mangle]
@@ -1565,7 +1576,10 @@ pub(crate) unsafe extern "C" fn layoutChars(
     return glyphCount;
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn getGlyphs(mut engine: XeTeXLayoutEngine, mut glyphs: *mut uint32_t) {
+pub(crate) unsafe extern "C" fn getGlyphs(
+    mut engine: XeTeXLayoutEngine,
+    mut glyphs: *mut uint32_t,
+) {
     let mut glyphCount: libc::c_int = hb_buffer_get_length((*engine).hbBuffer) as libc::c_int;
     let mut hbGlyphs: *mut hb_glyph_info_t =
         hb_buffer_get_glyph_infos((*engine).hbBuffer, 0 as *mut libc::c_uint);

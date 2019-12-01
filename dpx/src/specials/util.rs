@@ -27,12 +27,12 @@
 use euclid::point2;
 
 use super::{spc_arg, spc_env};
+use crate::bridge::DisplayExt;
 use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use crate::dpx_pdfcolor::PdfColor;
 use crate::dpx_pdfdev::{transform_info, Rect, TMatrix};
 use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
-use crate::bridge::DisplayExt;
 use crate::SkipBlank;
 use libc::atof;
 use std::ffi::CString;
@@ -42,7 +42,11 @@ use std::ffi::CString;
    Licensed under the MIT License.
 */
 
-pub(crate) unsafe fn spc_util_read_numbers(values: *mut f64, num_values: i32, args: *mut spc_arg) -> i32 {
+pub(crate) unsafe fn spc_util_read_numbers(
+    values: *mut f64,
+    num_values: i32,
+    args: *mut spc_arg,
+) -> i32 {
     (*args).cur.skip_blank();
     let mut count = 0;
     while count < num_values && !(*args).cur.is_empty() {

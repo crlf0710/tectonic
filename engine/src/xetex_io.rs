@@ -8,8 +8,11 @@
     unused_mut
 )]
 
+use crate::bridge::{
+    ttstub_input_close, ttstub_input_getc, ttstub_input_open, ttstub_input_open_primary,
+    ttstub_input_ungetc,
+};
 use crate::core_memory::{xcalloc, xmalloc, xstrdup};
-use bridge::stub_errno as errno;
 use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_ini::{
@@ -25,10 +28,7 @@ use crate::xetex_xetex0::{
     scan_optional_equals,
 };
 use crate::xetex_xetexd::print_c_string;
-use crate::bridge::{
-    ttstub_input_close, ttstub_input_getc, ttstub_input_open, ttstub_input_open_primary,
-    ttstub_input_ungetc,
-};
+use bridge::stub_errno as errno;
 use libc::{free, strlen};
 use std::io::{Seek, SeekFrom};
 

@@ -33,10 +33,10 @@ use std::ptr;
 use super::dpx_cff::{cff_add_string, cff_get_string};
 use super::dpx_mem::{new, renew};
 use super::dpx_mfileio::work_buffer;
+use crate::bridge::stub_errno as errno;
 use crate::mfree;
 use crate::shims::sprintf;
 use crate::streq_ptr;
-use crate::bridge::stub_errno as errno;
 use crate::warn;
 use libc::{free, memset, strcmp, strtod};
 

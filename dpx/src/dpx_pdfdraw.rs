@@ -65,16 +65,16 @@ pub(crate) struct pdf_gstate {
 #[derive(Clone)]
 pub(crate) struct pdf_path {
     pub(crate) path: Vec<pa_elem>, /* cm,  - */
-                            /* colorspace here */
-                            /* d,  D  */
-                            /* w,  LW */
-                            /* J,  LC */
-                            /* j,  LJ */
-                            /* M,  ML */
-                            /* i,  FL, 0 to 100 (0 for use device-default) */
-                            /* internal */
-                            /* bookkeeping the origin of the last transform applied */
-                            /* _PDF_DRAW_H_ */
+                                   /* colorspace here */
+                                   /* d,  D  */
+                                   /* w,  LW */
+                                   /* J,  LC */
+                                   /* j,  LJ */
+                                   /* M,  ML */
+                                   /* i,  FL, 0 to 100 (0 for use device-default) */
+                                   /* internal */
+                                   /* bookkeeping the origin of the last transform applied */
+                                   /* _PDF_DRAW_H_ */
 }
 
 impl pdf_path {

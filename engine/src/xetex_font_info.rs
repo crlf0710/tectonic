@@ -788,7 +788,9 @@ pub(crate) unsafe extern "C" fn XeTeXFontInst_mapCharToGlyph(
     return FT_Get_Char_Index((*self_0).m_ftFace, ch as FT_ULong) as GlyphID;
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontInst_getNumGlyphs(mut self_0: *const XeTeXFontInst) -> uint16_t {
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getNumGlyphs(
+    mut self_0: *const XeTeXFontInst,
+) -> uint16_t {
     return (*(*self_0).m_ftFace).num_glyphs as uint16_t;
 }
 #[no_mangle]
@@ -983,12 +985,16 @@ pub(crate) unsafe extern "C" fn XeTeXFontInst_getGlyphName(
     };
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontInst_getFirstCharCode(mut self_0: *mut XeTeXFontInst) -> UChar32 {
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getFirstCharCode(
+    mut self_0: *mut XeTeXFontInst,
+) -> UChar32 {
     let mut gindex: FT_UInt = 0;
     return FT_Get_First_Char((*self_0).m_ftFace, &mut gindex) as UChar32;
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontInst_getLastCharCode(mut self_0: *mut XeTeXFontInst) -> UChar32 {
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getLastCharCode(
+    mut self_0: *mut XeTeXFontInst,
+) -> UChar32 {
     let mut gindex: FT_UInt = 0;
     let mut ch: UChar32 = FT_Get_First_Char((*self_0).m_ftFace, &mut gindex) as UChar32;
     let mut prev: UChar32 = ch;
@@ -1001,7 +1007,9 @@ pub(crate) unsafe extern "C" fn XeTeXFontInst_getLastCharCode(mut self_0: *mut X
 
 #[no_mangle]
 //#[inline]
-pub(crate) unsafe extern "C" fn XeTeXFontInst_getHbFont(self_0: *const XeTeXFontInst) -> *mut hb_font_t {
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getHbFont(
+    self_0: *const XeTeXFontInst,
+) -> *mut hb_font_t {
     (*self_0).m_hbFont
 }
 

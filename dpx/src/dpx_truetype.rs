@@ -30,8 +30,8 @@ use super::dpx_sfnt::{
     dfont_open, sfnt_close, sfnt_create_FontFile_stream, sfnt_open, sfnt_read_table_directory,
     sfnt_require_table, sfnt_set_table,
 };
-use crate::streq_ptr;
 use crate::bridge::DisplayExt;
+use crate::streq_ptr;
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;

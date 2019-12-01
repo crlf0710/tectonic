@@ -30,10 +30,10 @@ use tectonic_bridge::ttstub_input_close;
 
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::{tt_get_unsigned_pair, tt_get_unsigned_quad};
+use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{pdf_stream, STREAM_COMPRESS};
 use crate::dpx_truetype::SfntTableInfo;
 use crate::mfree;
-use crate::bridge::ttstub_input_read;
 use libc::{free, memcpy};
 
 use std::io::{Seek, SeekFrom};

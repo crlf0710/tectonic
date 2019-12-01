@@ -26,9 +26,9 @@
     non_upper_case_globals,
 )]
 
+use crate::bridge::DisplayExt;
 use crate::streq_ptr;
 use crate::warn;
-use crate::bridge::DisplayExt;
 use std::ffi::CStr;
 use std::ptr;
 

@@ -39,6 +39,7 @@ use super::{
     spc_begin_annot, spc_clear_objects, spc_end_annot, spc_flush_object, spc_lookup_object,
     spc_push_object, spc_resume_annot, spc_suspend_annot,
 };
+use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_cmap::{CMap_cache_find, CMap_cache_get, CMap_decode};
 use crate::dpx_dpxutil::{
     ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table, ParseCIdent,
@@ -75,7 +76,6 @@ use crate::dpx_unicode::{
     UC_UTF16BE_encode_char, UC_UTF16BE_is_valid_string, UC_UTF8_decode_char,
     UC_UTF8_is_valid_string, UC_is_valid,
 };
-use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use libc::{free, strlen, strstr};
 
 pub(crate) type __ssize_t = i64;

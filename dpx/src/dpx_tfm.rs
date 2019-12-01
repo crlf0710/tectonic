@@ -30,9 +30,9 @@ use super::dpx_numbers::{
     tt_get_positive_quad, tt_get_signed_quad, tt_get_unsigned_byte, tt_get_unsigned_pair,
     tt_get_unsigned_quad,
 };
+use crate::bridge::DisplayExt;
 use crate::mfree;
 use crate::streq_ptr;
-use crate::bridge::DisplayExt;
 use crate::{info, warn};
 use std::ffi::{CStr, CString};
 use std::ptr;

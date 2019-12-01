@@ -38,8 +38,8 @@ use super::dpx_sfnt::{
     dfont_open, sfnt_close, sfnt_find_table_pos, sfnt_locate_table, sfnt_open,
     sfnt_read_table_directory,
 };
-use crate::mfree;
 use crate::bridge::size_t;
+use crate::mfree;
 use crate::warn;
 
 use super::dpx_cff::cff_close;
@@ -76,15 +76,15 @@ use super::dpx_tt_table::{
     tt_read_vhea_table,
 };
 use super::dpx_vf::{vf_close_all_fonts, vf_locate_font, vf_set_char, vf_set_verbose};
+use crate::bridge::{
+    ttstub_input_close, ttstub_input_get_size, ttstub_input_getc, ttstub_input_open,
+    ttstub_input_read, ttstub_input_ungetc,
+};
 use crate::dpx_dvicodes::*;
 use crate::dpx_pdfobj::{pdf_release_obj, pdf_string_value};
 use crate::dpx_truetype::sfnt_table_info;
 use crate::specials::{
     spc_exec_at_begin_page, spc_exec_at_end_page, spc_exec_special, spc_set_verbose,
-};
-use crate::bridge::{
-    ttstub_input_close, ttstub_input_get_size, ttstub_input_getc, ttstub_input_open,
-    ttstub_input_read, ttstub_input_ungetc,
 };
 
 use libc::{atof, free, memset, strncpy, strtol};
@@ -518,16 +518,14 @@ unsafe fn read_font_record(tex_id: u32) {
     let directory = new(
         ((dir_length + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
     ) as *mut i8;
-    if ttstub_input_read(handle.as_ptr(), directory, dir_length as size_t) != dir_length as isize
-    {
+    if ttstub_input_read(handle.as_ptr(), directory, dir_length as size_t) != dir_length as isize {
         panic!(invalid_signature);
     }
     *directory.offset(dir_length as isize) = '\u{0}' as i32 as i8;
     free(directory as *mut libc::c_void);
     let font_name = new(((name_length + 1i32) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    if ttstub_input_read(handle.as_ptr(), font_name, name_length as size_t)
-        != name_length as isize
+    if ttstub_input_read(handle.as_ptr(), font_name, name_length as size_t) != name_length as isize
     {
         panic!(invalid_signature);
     }

@@ -248,7 +248,8 @@ pub(crate) type CFSetCopyDescriptionCallBack =
     Option<unsafe extern "C" fn(_: *const libc::c_void) -> CFStringRef>;
 pub(crate) type CFSetEqualCallBack =
     Option<unsafe extern "C" fn(_: *const libc::c_void, _: *const libc::c_void) -> Boolean>;
-pub(crate) type CFSetHashCallBack = Option<unsafe extern "C" fn(_: *const libc::c_void) -> CFHashCode>;
+pub(crate) type CFSetHashCallBack =
+    Option<unsafe extern "C" fn(_: *const libc::c_void) -> CFHashCode>;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct CFSetCallBacks {

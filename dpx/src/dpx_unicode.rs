@@ -84,7 +84,11 @@ pub(crate) unsafe fn UC_UTF16BE_decode_char(pp: *mut *const u8, endptr: *const u
     ucv
 }
 
-pub(crate) unsafe fn UC_UTF16BE_encode_char(mut ucv: i32, pp: *mut *mut u8, endptr: *mut u8) -> size_t {
+pub(crate) unsafe fn UC_UTF16BE_encode_char(
+    mut ucv: i32,
+    pp: *mut *mut u8,
+    endptr: *mut u8,
+) -> size_t {
     let p: *mut u8 = *pp;
     let count = if ucv >= 0i32 && ucv <= 0xffffi32 {
         if p.offset(2) >= endptr {

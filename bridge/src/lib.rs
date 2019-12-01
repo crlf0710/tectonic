@@ -94,30 +94,19 @@ pub struct tt_bridge_api_t {
     pub context: *mut libc::c_void,
     pub issue_warning: Option<unsafe fn(_: *mut libc::c_void, _: *const i8) -> ()>,
     pub issue_error: Option<unsafe fn(_: *mut libc::c_void, _: *const i8) -> ()>,
-    pub get_file_md5:
-        Option<unsafe fn(_: *mut libc::c_void, _: *const i8, _: *mut i8) -> i32>,
-    pub get_data_md5: Option<
-        unsafe fn(_: *mut libc::c_void, _: *const i8, _: size_t, _: *mut i8) -> i32,
-    >,
-    pub output_open: Option<
-        unsafe fn(_: *mut libc::c_void, _: *const i8, _: i32) -> rust_output_handle_t,
-    >,
-    pub output_open_stdout:
-        Option<unsafe fn(_: *mut libc::c_void) -> rust_output_handle_t>,
+    pub get_file_md5: Option<unsafe fn(_: *mut libc::c_void, _: *const i8, _: *mut i8) -> i32>,
+    pub get_data_md5:
+        Option<unsafe fn(_: *mut libc::c_void, _: *const i8, _: size_t, _: *mut i8) -> i32>,
+    pub output_open:
+        Option<unsafe fn(_: *mut libc::c_void, _: *const i8, _: i32) -> rust_output_handle_t>,
+    pub output_open_stdout: Option<unsafe fn(_: *mut libc::c_void) -> rust_output_handle_t>,
     pub output_putc:
         Option<unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t, _: i32) -> i32>,
     pub output_write: Option<
-        unsafe fn(
-            _: *mut libc::c_void,
-            _: rust_output_handle_t,
-            _: *const i8,
-            _: size_t,
-        ) -> size_t,
+        unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t, _: *const i8, _: size_t) -> size_t,
     >,
-    pub output_flush:
-        Option<unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t) -> i32>,
-    pub output_close:
-        Option<unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t) -> i32>,
+    pub output_flush: Option<unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t) -> i32>,
+    pub output_close: Option<unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t) -> i32>,
     pub input_open: Option<
         unsafe fn(
             _: *mut libc::c_void,
@@ -126,10 +115,8 @@ pub struct tt_bridge_api_t {
             _: i32,
         ) -> rust_input_handle_t,
     >,
-    pub input_open_primary:
-        Option<unsafe fn(_: *mut libc::c_void) -> rust_input_handle_t>,
-    pub input_get_size:
-        Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> size_t>,
+    pub input_open_primary: Option<unsafe fn(_: *mut libc::c_void) -> rust_input_handle_t>,
+    pub input_get_size: Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> size_t>,
     pub input_seek: Option<
         unsafe fn(
             _: *mut libc::c_void,
@@ -140,19 +127,12 @@ pub struct tt_bridge_api_t {
         ) -> size_t,
     >,
     pub input_read: Option<
-        unsafe fn(
-            _: *mut libc::c_void,
-            _: rust_input_handle_t,
-            _: *mut i8,
-            _: size_t,
-        ) -> ssize_t,
+        unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t, _: *mut i8, _: size_t) -> ssize_t,
     >,
-    pub input_getc:
-        Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
+    pub input_getc: Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
     pub input_ungetc:
         Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t, _: i32) -> i32>,
-    pub input_close:
-        Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
+    pub input_close: Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
 }
 
 #[repr(C)]
@@ -444,7 +424,6 @@ macro_rules! abort(
         panic!(v);
     }};
 );
-
 
 pub unsafe fn tt_get_error_message() -> *const i8 {
     error_buf.as_mut_ptr() as *mut i8

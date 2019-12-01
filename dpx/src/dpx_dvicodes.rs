@@ -62,34 +62,34 @@ pub(crate) const XXX2: u8 = 240; /* Two byte operand */
 pub(crate) const XXX3: u8 = 241; /* Three byte operand */
 pub(crate) const XXX4: u8 = 242; /* Four byte operand (Knuth says TeX uses only XXX1 and XXX4 */
 pub(crate) const FNT_DEF1: u8 = 243; /* One byte font number, four byte checksum, four byte magnified size (DVI units),
-                              four byte designed size, single byte directory length, single byte name length,
-                              followed by complete name (area+name) */
+                                     four byte designed size, single byte directory length, single byte name length,
+                                     followed by complete name (area+name) */
 pub(crate) const FNT_DEF2: u8 = 244; /* Same for two byte font number */
 pub(crate) const FNT_DEF3: u8 = 245; /* Same for three byte font number */
 pub(crate) const FNT_DEF4: u8 = 246; /* Four byte font number (Knuth says signed) */
 pub(crate) const PRE: u8 = 247; /* Preamble:
-                         one byte DVI version (should be 2)
-                         four byte unsigned numerator
-                         four byte unsigned denominator -- one DVI unit = den/num*10^(-7) m
-                         four byte magnification (multiplied by 1000)
-                         one byte unsigned comment length followed by comment. */
+                                one byte DVI version (should be 2)
+                                four byte unsigned numerator
+                                four byte unsigned denominator -- one DVI unit = den/num*10^(-7) m
+                                four byte magnification (multiplied by 1000)
+                                one byte unsigned comment length followed by comment. */
 pub(crate) const DVI_ID: u8 = 2; /* ID Byte for current DVI file */
 pub(crate) const DVIV_ID: u8 = 3; /* with Ascii pTeX VW mode extension */
 pub(crate) const XDV_ID_OLD: u8 = 6; /* older XeTeX ".xdv" output that does not have XDV_TEXT_AND_GLYPHS */
 pub(crate) const XDV_ID: u8 = 7; /* XeTeX ".xdv" output that uses XDV opcodes below */
 pub(crate) const POST: u8 = 248; /* Postamble- -- similar to preamble
-                          four byte pointer to final bop
-                          four byte numerator
-                          four byte denominator
-                          four byte mag
-                          four byte maximum height (signed?)
-                          four byte maximum width
-                          two byte max stack depth required to process file
-                          two byte number of pages */
+                                 four byte pointer to final bop
+                                 four byte numerator
+                                 four byte denominator
+                                 four byte mag
+                                 four byte maximum height (signed?)
+                                 four byte maximum width
+                                 two byte max stack depth required to process file
+                                 two byte number of pages */
 pub(crate) const POST_POST: u8 = 249; /* End of postamble
-                               four byte pointer to POST command
-                               Version byte (same as preamble)
-                               Padded by four or more 223's to the end of the file. */
+                                      four byte pointer to POST command
+                                      Version byte (same as preamble)
+                                      Padded by four or more 223's to the end of the file. */
 pub(crate) const PADDING: u8 = 223;
 
 pub(crate) const BEGIN_REFLECT: u8 = 250; /* TeX-XeT begin_reflect */
