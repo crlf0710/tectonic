@@ -30,24 +30,24 @@
 //#ifndef DEFAULT_PAPER_NAME
 const DEFAULT_PAPER_NAME: &[u8] = b"a4";
 
-pub const fn defaultpapername() -> &'static [u8] {
+pub(crate) const fn defaultpapername() -> &'static [u8] {
     DEFAULT_PAPER_NAME
 }
-pub const fn systempapername() -> &'static [u8] {
+pub(crate) const fn systempapername() -> &'static [u8] {
     DEFAULT_PAPER_NAME
 }
 
-pub type __off_t = i64;
-pub type __off64_t = i64;
+pub(crate) type __off_t = i64;
+pub(crate) type __off64_t = i64;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct paper<'a> {
-    pub name: &'a [u8],
-    pub pswidth: f64,
-    pub psheight: f64,
+pub(crate) struct paper<'a> {
+    pub(crate) name: &'a [u8],
+    pub(crate) pswidth: f64,
+    pub(crate) psheight: f64,
 }
 
-pub static mut paperspecs: [paper; 21] = [
+pub(crate) static mut paperspecs: [paper; 21] = [
     paper {
         name: b"letter",
         pswidth: 612.,
@@ -155,7 +155,7 @@ pub static mut paperspecs: [paper; 21] = [
     },
 ];
 
-pub unsafe fn paperinfo(ppformat: &[u8]) -> Option<*const paper> {
+pub(crate) unsafe fn paperinfo(ppformat: &[u8]) -> Option<*const paper> {
     if ppformat.is_empty() {
         return None;
     }
@@ -169,7 +169,7 @@ pub unsafe fn paperinfo(ppformat: &[u8]) -> Option<*const paper> {
 /* HAVE_LIBPAPER */
 /* HAVE_LIBPAPER */
 /*
-pub unsafe fn dumppaperinfo() {
+pub(crate) unsafe fn dumppaperinfo() {
     for ppinfo in &paperspecs {
         let wd = ppinfo.pswidth;
         let ht = ppinfo.psheight;

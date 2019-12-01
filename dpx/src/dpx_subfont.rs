@@ -28,20 +28,20 @@
 
 use std::io::{Seek, SeekFrom};
 
+use crate::bridge::DisplayExt;
 use crate::streq_ptr;
-use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_mem::{new, renew};
 use super::dpx_mfileio::tt_mfgets;
-use crate::{ttstub_input_close, ttstub_input_open};
+use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use libc::{free, memcpy, strchr, strcmp, strcpy, strlen, strtol};
 
-pub type __ssize_t = i64;
+pub(crate) type __ssize_t = i64;
 
-use crate::TTInputFormat;
+use crate::bridge::TTInputFormat;
 
 use bridge::InputHandleWrapper;
 /* Don't forget fontmap reading now requires information
@@ -58,23 +58,23 @@ use bridge::InputHandleWrapper;
  */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct sfd_file_ {
-    pub ident: *mut i8,
-    pub sub_id: *mut *mut i8,
-    pub rec_id: *mut i32,
-    pub max_subfonts: i32,
-    pub num_subfonts: i32,
+pub(crate) struct sfd_file_ {
+    pub(crate) ident: *mut i8,
+    pub(crate) sub_id: *mut *mut i8,
+    pub(crate) rec_id: *mut i32,
+    pub(crate) max_subfonts: i32,
+    pub(crate) num_subfonts: i32,
 }
 /* Mapping table */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct sfd_rec_ {
-    pub vector: [u16; 256],
+pub(crate) struct sfd_rec_ {
+    pub(crate) vector: [u16; 256],
     /* 0 for undefined */
 }
 static mut verbose: i32 = 0i32;
 
-pub unsafe fn subfont_set_verbose(level: i32) {
+pub(crate) unsafe fn subfont_set_verbose(level: i32) {
     verbose = level;
 }
 unsafe fn init_sfd_file_(mut sfd: *mut sfd_file_) {
@@ -370,7 +370,7 @@ unsafe fn find_sfd_file(sfd_name: *const i8) -> i32 {
     id
 }
 
-pub unsafe fn sfd_get_subfont_ids(sfd_name: *const i8, num_ids: *mut i32) -> *mut *mut i8 {
+pub(crate) unsafe fn sfd_get_subfont_ids(sfd_name: *const i8, num_ids: *mut i32) -> *mut *mut i8 {
     if sfd_name.is_null() {
         return 0 as *mut *mut i8;
     }
@@ -387,7 +387,7 @@ pub unsafe fn sfd_get_subfont_ids(sfd_name: *const i8, num_ids: *mut i32) -> *mu
  * Mapping tables are actually read here.
  */
 
-pub unsafe fn sfd_load_record(sfd_name: *const i8, subfont_id: *const i8) -> i32 {
+pub(crate) unsafe fn sfd_load_record(sfd_name: *const i8, subfont_id: *const i8) -> i32 {
     let mut rec_id: i32 = -1i32;
     if sfd_name.is_null() || subfont_id.is_null() {
         return -1i32;
@@ -510,14 +510,14 @@ pub unsafe fn sfd_load_record(sfd_name: *const i8, subfont_id: *const i8) -> i32
 }
 /* Lookup mapping table */
 
-pub unsafe fn lookup_sfd_record(rec_id: i32, c: u8) -> u16 {
+pub(crate) unsafe fn lookup_sfd_record(rec_id: i32, c: u8) -> u16 {
     if sfd_record.is_null() || rec_id < 0i32 || rec_id >= num_sfd_records {
         panic!("Invalid subfont_id: {}", rec_id);
     }
     (*sfd_record.offset(rec_id as isize)).vector[c as usize]
 }
 
-pub unsafe fn release_sfd_record() {
+pub(crate) unsafe fn release_sfd_record() {
     if !sfd_record.is_null() {
         free(sfd_record as *mut libc::c_void);
     }

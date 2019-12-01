@@ -26,7 +26,7 @@
     non_upper_case_globals,
 )]
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use std::ffi::{CStr, CString};
 use std::ptr;
 
@@ -43,164 +43,164 @@ use libc::{free, memset};
 
 use std::io::{Seek, SeekFrom};
 
-pub type __ssize_t = i64;
-pub type Fixed = u32;
+pub(crate) type __ssize_t = i64;
+pub(crate) type Fixed = u32;
 
 use super::dpx_sfnt::sfnt;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct otl_gsub {
-    pub num_gsubs: i32,
-    pub select: i32,
-    pub first: *mut gsub_entry,
-    pub gsubs: [otl_gsub_tab; 32],
+pub(crate) struct otl_gsub {
+    pub(crate) num_gsubs: i32,
+    pub(crate) select: i32,
+    pub(crate) first: *mut gsub_entry,
+    pub(crate) gsubs: [otl_gsub_tab; 32],
     /* _TT_GSUB_H_ */
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct otl_gsub_tab {
-    pub script: *mut i8,
-    pub language: *mut i8,
-    pub feature: *mut i8,
-    pub num_subtables: i32,
-    pub subtables: *mut otl_gsub_subtab,
+pub(crate) struct otl_gsub_tab {
+    pub(crate) script: *mut i8,
+    pub(crate) language: *mut i8,
+    pub(crate) feature: *mut i8,
+    pub(crate) num_subtables: i32,
+    pub(crate) subtables: *mut otl_gsub_subtab,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct otl_gsub_subtab {
-    pub LookupType: u16,
-    pub SubstFormat: u16,
-    pub table: C2RustUnnamed,
+pub(crate) struct otl_gsub_subtab {
+    pub(crate) LookupType: u16,
+    pub(crate) SubstFormat: u16,
+    pub(crate) table: C2RustUnnamed,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub union C2RustUnnamed {
-    pub single1: *mut otl_gsub_single1,
-    pub single2: *mut otl_gsub_single2,
-    pub alternate1: *mut otl_gsub_alternate1,
-    pub ligature1: *mut otl_gsub_ligature1,
+pub(crate) union C2RustUnnamed {
+    pub(crate) single1: *mut otl_gsub_single1,
+    pub(crate) single2: *mut otl_gsub_single2,
+    pub(crate) alternate1: *mut otl_gsub_alternate1,
+    pub(crate) ligature1: *mut otl_gsub_ligature1,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct otl_gsub_ligature1 {
-    pub LigSetCount: u16,
-    pub LigatureSet: *mut otl_gsub_ligset,
-    pub coverage: clt_coverage,
+pub(crate) struct otl_gsub_ligature1 {
+    pub(crate) LigSetCount: u16,
+    pub(crate) LigatureSet: *mut otl_gsub_ligset,
+    pub(crate) coverage: clt_coverage,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct clt_coverage {
-    pub format: u16,
-    pub count: u16,
-    pub list: *mut GlyphID,
-    pub range: *mut clt_range,
+pub(crate) struct clt_coverage {
+    pub(crate) format: u16,
+    pub(crate) count: u16,
+    pub(crate) list: *mut GlyphID,
+    pub(crate) range: *mut clt_range,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct clt_range {
-    pub Start: GlyphID,
-    pub End: GlyphID,
-    pub StartCoverageIndex: u16,
+pub(crate) struct clt_range {
+    pub(crate) Start: GlyphID,
+    pub(crate) End: GlyphID,
+    pub(crate) StartCoverageIndex: u16,
 }
-pub type GlyphID = u16;
+pub(crate) type GlyphID = u16;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct otl_gsub_ligset {
-    pub LigatureCount: u16,
-    pub Ligature: *mut otl_gsub_ligtab,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct otl_gsub_ligtab {
-    pub LigGlyph: GlyphID,
-    pub CompCount: u16,
-    pub Component: *mut GlyphID,
+pub(crate) struct otl_gsub_ligset {
+    pub(crate) LigatureCount: u16,
+    pub(crate) Ligature: *mut otl_gsub_ligtab,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct otl_gsub_alternate1 {
-    pub AlternateSetCount: u16,
-    pub AlternateSet: *mut otl_gsub_altset,
-    pub coverage: clt_coverage,
+pub(crate) struct otl_gsub_ligtab {
+    pub(crate) LigGlyph: GlyphID,
+    pub(crate) CompCount: u16,
+    pub(crate) Component: *mut GlyphID,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct otl_gsub_altset {
-    pub GlyphCount: u16,
-    pub Alternate: *mut GlyphID,
+pub(crate) struct otl_gsub_alternate1 {
+    pub(crate) AlternateSetCount: u16,
+    pub(crate) AlternateSet: *mut otl_gsub_altset,
+    pub(crate) coverage: clt_coverage,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct otl_gsub_single2 {
-    pub GlyphCount: u16,
-    pub Substitute: *mut GlyphID,
-    pub coverage: clt_coverage,
+pub(crate) struct otl_gsub_altset {
+    pub(crate) GlyphCount: u16,
+    pub(crate) Alternate: *mut GlyphID,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct otl_gsub_single1 {
-    pub DeltaGlyphID: i16,
-    pub coverage: clt_coverage,
+pub(crate) struct otl_gsub_single2 {
+    pub(crate) GlyphCount: u16,
+    pub(crate) Substitute: *mut GlyphID,
+    pub(crate) coverage: clt_coverage,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct gsub_entry {
-    pub index: i32,
-    pub next: *mut gsub_entry,
+pub(crate) struct otl_gsub_single1 {
+    pub(crate) DeltaGlyphID: i16,
+    pub(crate) coverage: clt_coverage,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct clt_record {
-    pub tag: [i8; 5],
-    pub offset: Offset,
-}
-pub type Offset = u16;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct clt_record_list {
-    pub count: u16,
-    pub record: *mut clt_record,
+pub(crate) struct gsub_entry {
+    pub(crate) index: i32,
+    pub(crate) next: *mut gsub_entry,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct clt_number_list {
-    pub count: u16,
-    pub value: *mut u16,
+pub(crate) struct clt_record {
+    pub(crate) tag: [i8; 5],
+    pub(crate) offset: Offset,
+}
+pub(crate) type Offset = u16;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub(crate) struct clt_record_list {
+    pub(crate) count: u16,
+    pub(crate) record: *mut clt_record,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct clt_feature_table {
-    pub FeatureParams: Offset,
-    pub LookupListIndex: clt_number_list,
+pub(crate) struct clt_number_list {
+    pub(crate) count: u16,
+    pub(crate) value: *mut u16,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct clt_lookup_table {
-    pub LookupType: u16,
-    pub LookupFlag: u16,
-    pub SubTableList: clt_number_list,
+pub(crate) struct clt_feature_table {
+    pub(crate) FeatureParams: Offset,
+    pub(crate) LookupListIndex: clt_number_list,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct otl_gsub_header {
-    pub version: Fixed,
-    pub ScriptList: Offset,
-    pub FeatureList: Offset,
-    pub LookupList: Offset,
+pub(crate) struct clt_lookup_table {
+    pub(crate) LookupType: u16,
+    pub(crate) LookupFlag: u16,
+    pub(crate) SubTableList: clt_number_list,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct clt_script_table {
-    pub DefaultLangSys: Offset,
-    pub LangSysRecord: clt_record_list,
+pub(crate) struct otl_gsub_header {
+    pub(crate) version: Fixed,
+    pub(crate) ScriptList: Offset,
+    pub(crate) FeatureList: Offset,
+    pub(crate) LookupList: Offset,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct clt_langsys_table {
-    pub LookupOrder: Offset,
-    pub ReqFeatureIndex: u16,
-    pub FeatureIndex: clt_number_list,
+pub(crate) struct clt_script_table {
+    pub(crate) DefaultLangSys: Offset,
+    pub(crate) LangSysRecord: clt_record_list,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub(crate) struct clt_langsys_table {
+    pub(crate) LookupOrder: Offset,
+    pub(crate) ReqFeatureIndex: u16,
+    pub(crate) FeatureIndex: clt_number_list,
 }
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -211,7 +211,7 @@ pub struct clt_langsys_table {
  * as directory separators. */
 static mut verbose: i32 = 0i32;
 
-pub unsafe fn otl_gsub_set_verbose(level: i32) {
+pub(crate) unsafe fn otl_gsub_set_verbose(level: i32) {
     verbose = level;
 }
 unsafe fn clt_read_record(mut rec: *mut clt_record, sfont: *mut sfnt) -> i32 {
@@ -1204,7 +1204,7 @@ unsafe fn otl_gsub_apply_ligature(
     -1i32
 }
 
-pub unsafe fn otl_gsub_new() -> *mut otl_gsub {
+pub(crate) unsafe fn otl_gsub_new() -> *mut otl_gsub {
     let gsub_list =
         new((1_u64).wrapping_mul(::std::mem::size_of::<otl_gsub>() as u64) as u32) as *mut otl_gsub;
     (*gsub_list).num_gsubs = 0i32;
@@ -1222,7 +1222,7 @@ unsafe fn clear_chain(mut gsub_list: *mut otl_gsub) {
     (*gsub_list).first = ptr::null_mut();
 }
 
-pub unsafe fn otl_gsub_add_feat(
+pub(crate) unsafe fn otl_gsub_add_feat(
     mut gsub_list: *mut otl_gsub,
     script: &[u8],
     language: &[u8],
@@ -1313,7 +1313,7 @@ fn scan_otl_tag(otl_tags: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>), ()> {
     Ok((script, language, feature))
 }
 
-pub unsafe fn otl_gsub_release(gsub_list: *mut otl_gsub) {
+pub(crate) unsafe fn otl_gsub_release(gsub_list: *mut otl_gsub) {
     if gsub_list.is_null() {
         return;
     }
@@ -1345,7 +1345,7 @@ pub unsafe fn otl_gsub_release(gsub_list: *mut otl_gsub) {
     free(gsub_list as *mut libc::c_void);
 }
 
-pub unsafe fn otl_gsub_apply(gsub_list: *mut otl_gsub, gid: *mut u16) -> i32 {
+pub(crate) unsafe fn otl_gsub_apply(gsub_list: *mut otl_gsub, gid: *mut u16) -> i32 {
     let mut retval: i32 = -1i32;
     if gsub_list.is_null() || gid.is_null() {
         return retval;
@@ -1367,7 +1367,11 @@ pub unsafe fn otl_gsub_apply(gsub_list: *mut otl_gsub, gid: *mut u16) -> i32 {
     retval
 }
 
-pub unsafe fn otl_gsub_apply_alt(gsub_list: *mut otl_gsub, alt_idx: u16, gid: *mut u16) -> i32 {
+pub(crate) unsafe fn otl_gsub_apply_alt(
+    gsub_list: *mut otl_gsub,
+    alt_idx: u16,
+    gid: *mut u16,
+) -> i32 {
     let mut retval: i32 = -1i32;
     if gsub_list.is_null() || gid.is_null() {
         return retval;
@@ -1389,7 +1393,7 @@ pub unsafe fn otl_gsub_apply_alt(gsub_list: *mut otl_gsub, alt_idx: u16, gid: *m
     retval
 }
 
-pub unsafe fn otl_gsub_apply_lig(
+pub(crate) unsafe fn otl_gsub_apply_lig(
     gsub_list: *mut otl_gsub,
     gid_in: *mut u16,
     num_gids: u16,
@@ -1433,7 +1437,7 @@ unsafe fn gsub_find(
     -1i32
 }
 
-pub unsafe fn otl_gsub_select(
+pub(crate) unsafe fn otl_gsub_select(
     mut gsub_list: *mut otl_gsub,
     script: &[u8],
     language: &[u8],
@@ -1443,7 +1447,7 @@ pub unsafe fn otl_gsub_select(
     (*gsub_list).select
 }
 
-pub unsafe fn otl_gsub_set_chain(mut gsub_list: *mut otl_gsub, otl_tags: *const i8) -> i32 {
+pub(crate) unsafe fn otl_gsub_set_chain(mut gsub_list: *mut otl_gsub, otl_tags: *const i8) -> i32 {
     let mut prev: *mut gsub_entry = ptr::null_mut();
     clear_chain(gsub_list);
     for p in CStr::from_ptr(otl_tags).to_bytes().split(|&c| c == b':') {
@@ -1470,7 +1474,7 @@ pub unsafe fn otl_gsub_set_chain(mut gsub_list: *mut otl_gsub, otl_tags: *const 
     0i32
 }
 
-pub unsafe fn otl_gsub_add_feat_list(
+pub(crate) unsafe fn otl_gsub_add_feat_list(
     gsub_list: *mut otl_gsub,
     otl_tags: *const i8,
     sfont: *mut sfnt,
@@ -1492,7 +1496,7 @@ pub unsafe fn otl_gsub_add_feat_list(
 /* LookupType for GSUB */
 /* Handle a list of OTL features */
 
-pub unsafe fn otl_gsub_apply_chain(gsub_list: *mut otl_gsub, gid: *mut u16) -> i32 {
+pub(crate) unsafe fn otl_gsub_apply_chain(gsub_list: *mut otl_gsub, gid: *mut u16) -> i32 {
     let mut retval: i32 = -1i32;
     if gsub_list.is_null() || gid.is_null() {
         return retval;

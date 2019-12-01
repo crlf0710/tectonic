@@ -26,7 +26,7 @@
     non_upper_case_globals,
 )]
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use std::ffi::CStr;
 use std::ptr;
 
@@ -60,7 +60,7 @@ use crate::dpx_pdfobj::{
 };
 use libc::{free, memmove, memset, strcat, strcmp, strcpy, strlen, strncpy, strstr};
 
-use crate::size_t;
+use crate::bridge::size_t;
 
 use super::dpx_cid::{cid_opt, CIDFont, CIDSysInfo};
 
@@ -71,7 +71,7 @@ use super::dpx_tt_cmap::tt_cmap;
 /* CID (as 16-bit BE), Code ...    */
 /* Next Subtbl for LOOKUP_CONTINUE */
 
-pub type CID = u16;
+pub(crate) type CID = u16;
 /*
  * PDF viewer applications use following tables (CIDFontType 2)
  *
@@ -98,16 +98,16 @@ use super::dpx_tt_glyf::tt_glyphs;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_2 {
-    pub alt1: u16,
-    pub alt2: u16,
+pub(crate) struct C2RustUnnamed_2 {
+    pub(crate) alt1: u16,
+    pub(crate) alt2: u16,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_3 {
-    pub platform: u16,
-    pub encoding: u16,
-    pub pdfnames: [*const i8; 5],
+pub(crate) struct C2RustUnnamed_3 {
+    pub(crate) platform: u16,
+    pub(crate) encoding: u16,
+    pub(crate) pdfnames: [*const i8; 5],
 }
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -126,11 +126,11 @@ pub struct C2RustUnnamed_3 {
 static mut verbose: i32 = 0i32;
 static mut opt_flags: i32 = 0i32;
 
-pub unsafe fn CIDFont_type2_set_verbose(level: i32) {
+pub(crate) unsafe fn CIDFont_type2_set_verbose(level: i32) {
     verbose = level;
 }
 
-pub unsafe fn CIDFont_type2_set_flags(flags: i32) {
+pub(crate) unsafe fn CIDFont_type2_set_flags(flags: i32) {
     opt_flags = flags;
 }
 
@@ -632,7 +632,7 @@ unsafe fn cid_to_code(cmap: *mut CMap, cid: CID) -> i32 {
 }
 /* #define NO_GHOSTSCRIPT_BUG 1 */
 
-pub unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
+pub(crate) unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
     let cmap;
     let mut ttcmap: *mut tt_cmap = ptr::null_mut();
     let offset;
@@ -1070,7 +1070,7 @@ pub unsafe fn CIDFont_type2_dofont(font: *mut CIDFont) {
     };
 }
 
-pub unsafe fn CIDFont_type2_open(
+pub(crate) unsafe fn CIDFont_type2_open(
     mut font: *mut CIDFont,
     name: *const i8,
     cmap_csi: *mut CIDSysInfo,

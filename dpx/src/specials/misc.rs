@@ -20,14 +20,14 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
 
+use crate::bridge::TTInputFormat;
+use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_mfileio::tt_mfgets;
 use crate::dpx_mpost::mps_scan_bbox;
 use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear};
 use crate::dpx_pdfparse::SkipWhite;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
 use crate::spc_warn;
-use crate::TTInputFormat;
-use crate::{ttstub_input_close, ttstub_input_open};
 use libc::strlen;
 use std::ptr;
 
@@ -160,7 +160,7 @@ const MISC_HANDLERS: [SpcHandler; 6] = [
     },
 ];
 
-pub fn spc_misc_check_special(mut buf: &[u8]) -> bool {
+pub(crate) fn spc_misc_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
     for handler in MISC_HANDLERS.iter() {
         if buf.starts_with(handler.key) {
@@ -170,7 +170,7 @@ pub fn spc_misc_check_special(mut buf: &[u8]) -> bool {
     false
 }
 
-pub unsafe fn spc_misc_setup_handler(
+pub(crate) unsafe fn spc_misc_setup_handler(
     mut handle: *mut SpcHandler,
     spe: *mut spc_env,
     mut args: *mut spc_arg,

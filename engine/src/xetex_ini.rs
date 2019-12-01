@@ -43,22 +43,22 @@ use crate::xetex_xetex0::{
     scan_register_num, scan_toks, scan_usv_num, scan_xetex_math_char_int, show_cur_cmd_chr,
     show_save_groups, start_input, trap_zero_glue,
 };
-use crate::{
+use bridge::{
     ttstub_input_close, ttstub_input_open, ttstub_input_read, ttstub_output_close,
     ttstub_output_open, ttstub_output_open_stdout,
 };
-use dpx::dpx_pdfobj::{pdf_files_close, pdf_files_init};
+use dpx::{pdf_files_close, pdf_files_init};
 use libc::{free, memset, strcpy, strlen};
 
-pub type uintptr_t = u64;
-pub type size_t = usize;
-pub type ssize_t = isize;
+pub(crate) type uintptr_t = u64;
+pub(crate) type size_t = usize;
+pub(crate) type ssize_t = isize;
 /* tectonic/core-bridge.h: declarations of C/C++ => Rust bridge API
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
 */
 
-use crate::{TTHistory, TTInputFormat};
+use bridge::{TTHistory, TTInputFormat};
 
 use bridge::InputHandleWrapper;
 use bridge::OutputHandleWrapper;
@@ -73,11 +73,11 @@ use bridge::OutputHandleWrapper;
 /* harfbuzz */
 /* Endianness foo */
 /* our typedefs */
-pub type scaled_t = i32;
+pub(crate) type scaled_t = i32;
 
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq)]
-pub enum Selector {
+pub(crate) enum Selector {
     FILE_0,
     FILE_15,
     NO_PRINT,
@@ -135,19 +135,19 @@ const sup_pool_size: i32 = 40000000;
 const sup_font_mem_size: i32 = 147483647;
 const TRIE_OP_SIZE: i32 = 35111;
 /*18: */
-pub type UTF16_code = u16;
-pub type UTF8_code = u8;
-pub type UnicodeScalar = i32;
-pub type eight_bits = u8;
-pub type pool_pointer = i32;
-pub type str_number = i32;
-pub type packed_UTF16_code = u16;
-pub type small_number = i16;
+pub(crate) type UTF16_code = u16;
+pub(crate) type UTF8_code = u8;
+pub(crate) type UnicodeScalar = i32;
+pub(crate) type eight_bits = u8;
+pub(crate) type pool_pointer = i32;
+pub(crate) type str_number = i32;
+pub(crate) type packed_UTF16_code = u16;
+pub(crate) type small_number = i16;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct b32x2_le_t {
-    pub s0: i32,
-    pub s1: i32,
+pub(crate) struct b32x2_le_t {
+    pub(crate) s0: i32,
+    pub(crate) s1: i32,
 }
 /* The annoying `memory_word` type. We have to make sure the byte-swapping
  * that the (un)dumping routines do suffices to put things in the right place
@@ -181,23 +181,23 @@ pub struct b32x2_le_t {
  *   b16:   [m..s3...l] [m..s2...l] [m..s1...l] [m...s0..l]
  *
  */
-pub type b32x2 = b32x2_le_t;
+pub(crate) type b32x2 = b32x2_le_t;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct b16x4_le_t {
-    pub s0: u16,
-    pub s1: u16,
-    pub s2: u16,
-    pub s3: u16,
+pub(crate) struct b16x4_le_t {
+    pub(crate) s0: u16,
+    pub(crate) s1: u16,
+    pub(crate) s2: u16,
+    pub(crate) s3: u16,
 }
-pub type b16x4 = b16x4_le_t;
+pub(crate) type b16x4 = b16x4_le_t;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub union memory_word {
-    pub b32: b32x2,
-    pub b16: b16x4,
-    pub gr: f64,
-    pub ptr: *mut libc::c_void,
+pub(crate) union memory_word {
+    pub(crate) b32: b32x2,
+    pub(crate) b16: b16x4,
+    pub(crate) gr: f64,
+    pub(crate) ptr: *mut libc::c_void,
 }
 /* ## THE ORIGINAL SITUATION (archived for posterity)
  *
@@ -365,230 +365,230 @@ pub union memory_word {
 /* \botmarks<n> */
 /* \splitfirstmarks<n> */
 /* \splitbotmarks<n> */
-pub type glue_ord = u8;
+pub(crate) type glue_ord = u8;
 /* enum: normal .. filll */
-pub type group_code = u8;
-pub type internal_font_number = i32;
-pub type font_index = i32;
-pub type nine_bits = i32;
+pub(crate) type group_code = u8;
+pub(crate) type internal_font_number = i32;
+pub(crate) type font_index = i32;
+pub(crate) type nine_bits = i32;
 /* range: 0 .. 0x1FF */
-pub type trie_pointer = i32;
-pub type trie_opcode = u16;
-pub type hyph_pointer = u16;
-pub type save_pointer = i32;
+pub(crate) type trie_pointer = i32;
+pub(crate) type trie_opcode = u16;
+pub(crate) type hyph_pointer = u16;
+pub(crate) type save_pointer = i32;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct list_state_record {
-    pub mode: i16,
-    pub head: i32,
-    pub tail: i32,
-    pub eTeX_aux: i32,
-    pub prev_graf: i32,
-    pub mode_line: i32,
-    pub aux: memory_word,
+pub(crate) struct list_state_record {
+    pub(crate) mode: i16,
+    pub(crate) head: i32,
+    pub(crate) tail: i32,
+    pub(crate) eTeX_aux: i32,
+    pub(crate) prev_graf: i32,
+    pub(crate) mode_line: i32,
+    pub(crate) aux: memory_word,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct input_state_t {
-    pub state: u16,
-    pub index: u16,
-    pub start: i32,
-    pub loc: i32,
-    pub limit: i32,
-    pub name: i32,
-    pub synctex_tag: i32,
+pub(crate) struct input_state_t {
+    pub(crate) state: u16,
+    pub(crate) index: u16,
+    pub(crate) start: i32,
+    pub(crate) loc: i32,
+    pub(crate) limit: i32,
+    pub(crate) name: i32,
+    pub(crate) synctex_tag: i32,
 }
 /* tectonic/xetex-io.h: XeTeX-specific low-level I/O routines
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
 */
 
-pub use super::xetex_io::UFILE;
+pub(crate) use super::xetex_io::UFILE;
 /* xetex-ini.c: WEB initialization code translated to C
    Copyright 2016-2018 The Tectonic Project
    Licensed under the MIT License.
 */
 /* All the following variables are declared in xetex-xetexd.h */
 #[no_mangle]
-pub static mut eqtb: *mut memory_word = ptr::null_mut();
+pub(crate) static mut eqtb: *mut memory_word = ptr::null_mut();
 #[no_mangle]
-pub static mut bad: i32 = 0;
+pub(crate) static mut bad: i32 = 0;
 #[no_mangle]
-pub static mut name_of_file: *mut i8 = ptr::null_mut();
+pub(crate) static mut name_of_file: *mut i8 = ptr::null_mut();
 #[no_mangle]
-pub static mut name_of_file16: *mut UTF16_code = ptr::null_mut();
+pub(crate) static mut name_of_file16: *mut UTF16_code = ptr::null_mut();
 #[no_mangle]
-pub static mut name_length: i32 = 0;
+pub(crate) static mut name_length: i32 = 0;
 #[no_mangle]
-pub static mut name_length16: i32 = 0;
+pub(crate) static mut name_length16: i32 = 0;
 #[no_mangle]
-pub static mut buffer: *mut UnicodeScalar = ptr::null_mut();
+pub(crate) static mut buffer: *mut UnicodeScalar = ptr::null_mut();
 #[no_mangle]
-pub static mut first: i32 = 0;
+pub(crate) static mut first: i32 = 0;
 #[no_mangle]
-pub static mut last: i32 = 0;
+pub(crate) static mut last: i32 = 0;
 #[no_mangle]
-pub static mut max_buf_stack: i32 = 0;
+pub(crate) static mut max_buf_stack: i32 = 0;
 #[no_mangle]
-pub static mut in_initex_mode: bool = false;
+pub(crate) static mut in_initex_mode: bool = false;
 #[no_mangle]
-pub static mut error_line: i32 = 0;
+pub(crate) static mut error_line: i32 = 0;
 #[no_mangle]
-pub static mut half_error_line: i32 = 0;
+pub(crate) static mut half_error_line: i32 = 0;
 #[no_mangle]
-pub static mut max_print_line: i32 = 0;
+pub(crate) static mut max_print_line: i32 = 0;
 #[no_mangle]
-pub static mut max_strings: i32 = 0;
+pub(crate) static mut max_strings: i32 = 0;
 #[no_mangle]
-pub static mut strings_free: i32 = 0;
+pub(crate) static mut strings_free: i32 = 0;
 #[no_mangle]
-pub static mut string_vacancies: i32 = 0;
+pub(crate) static mut string_vacancies: i32 = 0;
 #[no_mangle]
-pub static mut pool_size: i32 = 0;
+pub(crate) static mut pool_size: i32 = 0;
 #[no_mangle]
-pub static mut pool_free: i32 = 0;
+pub(crate) static mut pool_free: i32 = 0;
 #[no_mangle]
-pub static mut font_mem_size: i32 = 0;
+pub(crate) static mut font_mem_size: i32 = 0;
 #[no_mangle]
-pub static mut font_max: i32 = 0;
+pub(crate) static mut font_max: i32 = 0;
 #[no_mangle]
-pub static mut hyph_size: i32 = 0;
+pub(crate) static mut hyph_size: i32 = 0;
 #[no_mangle]
-pub static mut trie_size: i32 = 0;
+pub(crate) static mut trie_size: i32 = 0;
 #[no_mangle]
-pub static mut buf_size: i32 = 0;
+pub(crate) static mut buf_size: i32 = 0;
 #[no_mangle]
-pub static mut stack_size: i32 = 0;
+pub(crate) static mut stack_size: i32 = 0;
 #[no_mangle]
-pub static mut max_in_open: i32 = 0;
+pub(crate) static mut max_in_open: i32 = 0;
 #[no_mangle]
-pub static mut param_size: i32 = 0;
+pub(crate) static mut param_size: i32 = 0;
 #[no_mangle]
-pub static mut nest_size: i32 = 0;
+pub(crate) static mut nest_size: i32 = 0;
 #[no_mangle]
-pub static mut save_size: i32 = 0;
+pub(crate) static mut save_size: i32 = 0;
 #[no_mangle]
-pub static mut expand_depth: i32 = 0;
+pub(crate) static mut expand_depth: i32 = 0;
 #[no_mangle]
-pub static mut file_line_error_style_p: i32 = 0;
+pub(crate) static mut file_line_error_style_p: i32 = 0;
 #[no_mangle]
-pub static mut halt_on_error_p: i32 = 0;
+pub(crate) static mut halt_on_error_p: i32 = 0;
 #[no_mangle]
-pub static mut quoted_filename: bool = false;
+pub(crate) static mut quoted_filename: bool = false;
 #[no_mangle]
-pub static mut insert_src_special_auto: bool = false;
+pub(crate) static mut insert_src_special_auto: bool = false;
 #[no_mangle]
-pub static mut insert_src_special_every_par: bool = false;
+pub(crate) static mut insert_src_special_every_par: bool = false;
 #[no_mangle]
-pub static mut insert_src_special_every_math: bool = false;
+pub(crate) static mut insert_src_special_every_math: bool = false;
 #[no_mangle]
-pub static mut insert_src_special_every_vbox: bool = false;
+pub(crate) static mut insert_src_special_every_vbox: bool = false;
 #[no_mangle]
-pub static mut str_pool: *mut packed_UTF16_code = ptr::null_mut();
+pub(crate) static mut str_pool: *mut packed_UTF16_code = ptr::null_mut();
 #[no_mangle]
-pub static mut str_start: *mut pool_pointer = ptr::null_mut();
+pub(crate) static mut str_start: *mut pool_pointer = ptr::null_mut();
 #[no_mangle]
-pub static mut pool_ptr: pool_pointer = 0;
+pub(crate) static mut pool_ptr: pool_pointer = 0;
 #[no_mangle]
-pub static mut str_ptr: str_number = 0;
+pub(crate) static mut str_ptr: str_number = 0;
 #[no_mangle]
-pub static mut init_pool_ptr: pool_pointer = 0;
+pub(crate) static mut init_pool_ptr: pool_pointer = 0;
 #[no_mangle]
-pub static mut init_str_ptr: str_number = 0;
+pub(crate) static mut init_str_ptr: str_number = 0;
 #[no_mangle]
-pub static mut rust_stdout: Option<OutputHandleWrapper> = None;
+pub(crate) static mut rust_stdout: Option<OutputHandleWrapper> = None;
 #[no_mangle]
-pub static mut log_file: Option<OutputHandleWrapper> = None;
+pub(crate) static mut log_file: Option<OutputHandleWrapper> = None;
 #[no_mangle]
-pub static mut selector: Selector = Selector::FILE_0;
+pub(crate) static mut selector: Selector = Selector::FILE_0;
 #[no_mangle]
-pub static mut dig: [u8; 23] = [0; 23];
+pub(crate) static mut dig: [u8; 23] = [0; 23];
 #[no_mangle]
-pub static mut tally: i32 = 0;
+pub(crate) static mut tally: i32 = 0;
 #[no_mangle]
-pub static mut term_offset: i32 = 0;
+pub(crate) static mut term_offset: i32 = 0;
 #[no_mangle]
-pub static mut file_offset: i32 = 0;
+pub(crate) static mut file_offset: i32 = 0;
 #[no_mangle]
-pub static mut trick_buf: [UTF16_code; 256] = [0; 256];
+pub(crate) static mut trick_buf: [UTF16_code; 256] = [0; 256];
 #[no_mangle]
-pub static mut trick_count: i32 = 0;
+pub(crate) static mut trick_count: i32 = 0;
 #[no_mangle]
-pub static mut first_count: i32 = 0;
+pub(crate) static mut first_count: i32 = 0;
 #[no_mangle]
-pub static mut doing_special: bool = false;
+pub(crate) static mut doing_special: bool = false;
 #[no_mangle]
-pub static mut native_text: *mut UTF16_code = ptr::null_mut();
+pub(crate) static mut native_text: *mut UTF16_code = ptr::null_mut();
 #[no_mangle]
-pub static mut native_text_size: i32 = 0;
+pub(crate) static mut native_text_size: i32 = 0;
 #[no_mangle]
-pub static mut native_len: i32 = 0;
+pub(crate) static mut native_len: i32 = 0;
 #[no_mangle]
-pub static mut save_native_len: i32 = 0;
+pub(crate) static mut save_native_len: i32 = 0;
 #[no_mangle]
-pub static mut interaction: u8 = 0;
+pub(crate) static mut interaction: u8 = 0;
 #[no_mangle]
-pub static mut deletions_allowed: bool = false;
+pub(crate) static mut deletions_allowed: bool = false;
 #[no_mangle]
-pub static mut set_box_allowed: bool = false;
+pub(crate) static mut set_box_allowed: bool = false;
 #[no_mangle]
-pub static mut history: TTHistory = TTHistory::SPOTLESS;
+pub(crate) static mut history: TTHistory = TTHistory::SPOTLESS;
 #[no_mangle]
-pub static mut error_count: i8 = 0;
+pub(crate) static mut error_count: i8 = 0;
 #[no_mangle]
-pub static mut help_line: [*const i8; 6] = [ptr::null(); 6];
+pub(crate) static mut help_line: [*const i8; 6] = [ptr::null(); 6];
 #[no_mangle]
-pub static mut help_ptr: u8 = 0;
+pub(crate) static mut help_ptr: u8 = 0;
 #[no_mangle]
-pub static mut use_err_help: bool = false;
+pub(crate) static mut use_err_help: bool = false;
 #[no_mangle]
-pub static mut arith_error: bool = false;
+pub(crate) static mut arith_error: bool = false;
 #[no_mangle]
-pub static mut tex_remainder: scaled_t = 0;
+pub(crate) static mut tex_remainder: scaled_t = 0;
 #[no_mangle]
-pub static mut temp_ptr: i32 = 0;
+pub(crate) static mut temp_ptr: i32 = 0;
 #[no_mangle]
-pub static mut mem: *mut memory_word = ptr::null_mut();
+pub(crate) static mut mem: *mut memory_word = ptr::null_mut();
 #[no_mangle]
-pub static mut lo_mem_max: i32 = 0;
+pub(crate) static mut lo_mem_max: i32 = 0;
 #[no_mangle]
 pub(crate) static mut hi_mem_min: i32 = 0;
 #[no_mangle]
-pub static mut var_used: i32 = 0;
+pub(crate) static mut var_used: i32 = 0;
 #[no_mangle]
-pub static mut dyn_used: i32 = 0;
+pub(crate) static mut dyn_used: i32 = 0;
 #[no_mangle]
-pub static mut avail: i32 = 0;
+pub(crate) static mut avail: i32 = 0;
 #[no_mangle]
-pub static mut mem_end: i32 = 0;
+pub(crate) static mut mem_end: i32 = 0;
 #[no_mangle]
-pub static mut rover: i32 = 0;
+pub(crate) static mut rover: i32 = 0;
 #[no_mangle]
-pub static mut last_leftmost_char: i32 = 0;
+pub(crate) static mut last_leftmost_char: i32 = 0;
 #[no_mangle]
-pub static mut last_rightmost_char: i32 = 0;
+pub(crate) static mut last_rightmost_char: i32 = 0;
 #[no_mangle]
-pub static mut hlist_stack: [i32; 513] = [0; 513];
+pub(crate) static mut hlist_stack: [i32; 513] = [0; 513];
 #[no_mangle]
-pub static mut hlist_stack_level: i16 = 0;
+pub(crate) static mut hlist_stack_level: i16 = 0;
 #[no_mangle]
-pub static mut first_p: i32 = 0;
+pub(crate) static mut first_p: i32 = 0;
 #[no_mangle]
-pub static mut global_prev_p: i32 = 0;
+pub(crate) static mut global_prev_p: i32 = 0;
 #[no_mangle]
-pub static mut font_in_short_display: i32 = 0;
+pub(crate) static mut font_in_short_display: i32 = 0;
 #[no_mangle]
-pub static mut depth_threshold: i32 = 0;
+pub(crate) static mut depth_threshold: i32 = 0;
 #[no_mangle]
-pub static mut breadth_max: i32 = 0;
+pub(crate) static mut breadth_max: i32 = 0;
 #[no_mangle]
-pub static mut nest: *mut list_state_record = ptr::null_mut();
+pub(crate) static mut nest: *mut list_state_record = ptr::null_mut();
 #[no_mangle]
-pub static mut nest_ptr: i32 = 0;
+pub(crate) static mut nest_ptr: i32 = 0;
 #[no_mangle]
-pub static mut max_nest_stack: i32 = 0;
+pub(crate) static mut max_nest_stack: i32 = 0;
 #[no_mangle]
-pub static mut cur_list: list_state_record = list_state_record {
+pub(crate) static mut cur_list: list_state_record = list_state_record {
     mode: 0,
     head: 0,
     tail: 0,
@@ -600,63 +600,63 @@ pub static mut cur_list: list_state_record = list_state_record {
     },
 };
 #[no_mangle]
-pub static mut shown_mode: i16 = 0;
+pub(crate) static mut shown_mode: i16 = 0;
 #[no_mangle]
-pub static mut old_setting: Selector = Selector::FILE_0;
+pub(crate) static mut old_setting: Selector = Selector::FILE_0;
 #[no_mangle]
-pub static mut hash: *mut b32x2 = ptr::null_mut();
+pub(crate) static mut hash: *mut b32x2 = ptr::null_mut();
 #[no_mangle]
-pub static mut hash_used: i32 = 0;
+pub(crate) static mut hash_used: i32 = 0;
 #[no_mangle]
-pub static mut hash_extra: i32 = 0;
+pub(crate) static mut hash_extra: i32 = 0;
 #[no_mangle]
-pub static mut hash_top: i32 = 0;
+pub(crate) static mut hash_top: i32 = 0;
 #[no_mangle]
-pub static mut eqtb_top: i32 = 0;
+pub(crate) static mut eqtb_top: i32 = 0;
 #[no_mangle]
-pub static mut hash_high: i32 = 0;
+pub(crate) static mut hash_high: i32 = 0;
 #[no_mangle]
-pub static mut no_new_control_sequence: bool = false;
+pub(crate) static mut no_new_control_sequence: bool = false;
 #[no_mangle]
-pub static mut cs_count: i32 = 0;
+pub(crate) static mut cs_count: i32 = 0;
 #[no_mangle]
-pub static mut prim: [b32x2; 501] = [b32x2 { s0: 0, s1: 0 }; 501];
+pub(crate) static mut prim: [b32x2; 501] = [b32x2 { s0: 0, s1: 0 }; 501];
 #[no_mangle]
-pub static mut prim_used: i32 = 0;
+pub(crate) static mut prim_used: i32 = 0;
 #[no_mangle]
-pub static mut prim_eqtb: [memory_word; 501] = [memory_word {
+pub(crate) static mut prim_eqtb: [memory_word; 501] = [memory_word {
     b32: b32x2 { s0: 0, s1: 0 },
 }; 501];
 #[no_mangle]
-pub static mut save_stack: *mut memory_word = ptr::null_mut();
+pub(crate) static mut save_stack: *mut memory_word = ptr::null_mut();
 #[no_mangle]
-pub static mut save_ptr: i32 = 0;
+pub(crate) static mut save_ptr: i32 = 0;
 #[no_mangle]
-pub static mut max_save_stack: i32 = 0;
+pub(crate) static mut max_save_stack: i32 = 0;
 #[no_mangle]
-pub static mut cur_level: u16 = 0;
+pub(crate) static mut cur_level: u16 = 0;
 #[no_mangle]
-pub static mut cur_group: group_code = 0;
+pub(crate) static mut cur_group: group_code = 0;
 #[no_mangle]
-pub static mut cur_boundary: i32 = 0;
+pub(crate) static mut cur_boundary: i32 = 0;
 #[no_mangle]
-pub static mut mag_set: i32 = 0;
+pub(crate) static mut mag_set: i32 = 0;
 #[no_mangle]
-pub static mut cur_cmd: eight_bits = 0;
+pub(crate) static mut cur_cmd: eight_bits = 0;
 #[no_mangle]
-pub static mut cur_chr: i32 = 0;
+pub(crate) static mut cur_chr: i32 = 0;
 #[no_mangle]
-pub static mut cur_cs: i32 = 0;
+pub(crate) static mut cur_cs: i32 = 0;
 #[no_mangle]
-pub static mut cur_tok: i32 = 0;
+pub(crate) static mut cur_tok: i32 = 0;
 #[no_mangle]
-pub static mut input_stack: *mut input_state_t = ptr::null_mut();
+pub(crate) static mut input_stack: *mut input_state_t = ptr::null_mut();
 #[no_mangle]
-pub static mut input_ptr: i32 = 0;
+pub(crate) static mut input_ptr: i32 = 0;
 #[no_mangle]
-pub static mut max_in_stack: i32 = 0;
+pub(crate) static mut max_in_stack: i32 = 0;
 #[no_mangle]
-pub static mut cur_input: input_state_t = input_state_t {
+pub(crate) static mut cur_input: input_state_t = input_state_t {
     state: 0,
     index: 0,
     start: 0,
@@ -666,488 +666,488 @@ pub static mut cur_input: input_state_t = input_state_t {
     synctex_tag: 0,
 };
 #[no_mangle]
-pub static mut in_open: i32 = 0;
+pub(crate) static mut in_open: i32 = 0;
 #[no_mangle]
-pub static mut open_parens: i32 = 0;
+pub(crate) static mut open_parens: i32 = 0;
 #[no_mangle]
-pub static mut input_file: *mut *mut UFILE = 0 as *const *mut UFILE as *mut *mut UFILE;
+pub(crate) static mut input_file: *mut *mut UFILE = 0 as *const *mut UFILE as *mut *mut UFILE;
 #[no_mangle]
-pub static mut line: i32 = 0;
+pub(crate) static mut line: i32 = 0;
 #[no_mangle]
-pub static mut line_stack: *mut i32 = ptr::null_mut();
+pub(crate) static mut line_stack: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut source_filename_stack: *mut str_number = ptr::null_mut();
+pub(crate) static mut source_filename_stack: *mut str_number = ptr::null_mut();
 #[no_mangle]
-pub static mut full_source_filename_stack: *mut str_number = ptr::null_mut();
+pub(crate) static mut full_source_filename_stack: *mut str_number = ptr::null_mut();
 #[no_mangle]
-pub static mut scanner_status: u8 = 0;
+pub(crate) static mut scanner_status: u8 = 0;
 #[no_mangle]
-pub static mut warning_index: i32 = 0;
+pub(crate) static mut warning_index: i32 = 0;
 #[no_mangle]
-pub static mut def_ref: i32 = 0;
+pub(crate) static mut def_ref: i32 = 0;
 #[no_mangle]
-pub static mut param_stack: *mut i32 = ptr::null_mut();
+pub(crate) static mut param_stack: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut param_ptr: i32 = 0;
+pub(crate) static mut param_ptr: i32 = 0;
 #[no_mangle]
-pub static mut max_param_stack: i32 = 0;
+pub(crate) static mut max_param_stack: i32 = 0;
 #[no_mangle]
-pub static mut align_state: i32 = 0;
+pub(crate) static mut align_state: i32 = 0;
 #[no_mangle]
-pub static mut base_ptr: i32 = 0;
+pub(crate) static mut base_ptr: i32 = 0;
 #[no_mangle]
-pub static mut par_loc: i32 = 0;
+pub(crate) static mut par_loc: i32 = 0;
 #[no_mangle]
-pub static mut par_token: i32 = 0;
+pub(crate) static mut par_token: i32 = 0;
 #[no_mangle]
-pub static mut force_eof: bool = false;
+pub(crate) static mut force_eof: bool = false;
 #[no_mangle]
-pub static mut expand_depth_count: i32 = 0;
+pub(crate) static mut expand_depth_count: i32 = 0;
 #[no_mangle]
-pub static mut is_in_csname: bool = false;
+pub(crate) static mut is_in_csname: bool = false;
 #[no_mangle]
-pub static mut cur_mark: [i32; 5] = [0; 5];
+pub(crate) static mut cur_mark: [i32; 5] = [0; 5];
 #[no_mangle]
-pub static mut long_state: u8 = 0;
+pub(crate) static mut long_state: u8 = 0;
 #[no_mangle]
-pub static mut pstack: [i32; 9] = [0; 9];
+pub(crate) static mut pstack: [i32; 9] = [0; 9];
 #[no_mangle]
-pub static mut cur_val: i32 = 0;
+pub(crate) static mut cur_val: i32 = 0;
 #[no_mangle]
-pub static mut cur_val1: i32 = 0;
+pub(crate) static mut cur_val1: i32 = 0;
 #[no_mangle]
-pub static mut cur_val_level: u8 = 0;
+pub(crate) static mut cur_val_level: u8 = 0;
 #[no_mangle]
-pub static mut radix: small_number = 0;
+pub(crate) static mut radix: small_number = 0;
 #[no_mangle]
-pub static mut cur_order: glue_ord = 0;
+pub(crate) static mut cur_order: glue_ord = 0;
 #[no_mangle]
-pub static mut read_file: [*mut UFILE; 16] = [ptr::null_mut(); 16];
+pub(crate) static mut read_file: [*mut UFILE; 16] = [ptr::null_mut(); 16];
 #[no_mangle]
-pub static mut read_open: [u8; 17] = [0; 17];
+pub(crate) static mut read_open: [u8; 17] = [0; 17];
 #[no_mangle]
-pub static mut cond_ptr: i32 = 0;
+pub(crate) static mut cond_ptr: i32 = 0;
 #[no_mangle]
-pub static mut if_limit: u8 = 0;
+pub(crate) static mut if_limit: u8 = 0;
 #[no_mangle]
-pub static mut cur_if: small_number = 0;
+pub(crate) static mut cur_if: small_number = 0;
 #[no_mangle]
-pub static mut if_line: i32 = 0;
+pub(crate) static mut if_line: i32 = 0;
 #[no_mangle]
-pub static mut skip_line: i32 = 0;
+pub(crate) static mut skip_line: i32 = 0;
 #[no_mangle]
-pub static mut cur_name: str_number = 0;
+pub(crate) static mut cur_name: str_number = 0;
 #[no_mangle]
-pub static mut cur_area: str_number = 0;
+pub(crate) static mut cur_area: str_number = 0;
 #[no_mangle]
-pub static mut cur_ext: str_number = 0;
+pub(crate) static mut cur_ext: str_number = 0;
 #[no_mangle]
-pub static mut area_delimiter: pool_pointer = 0;
+pub(crate) static mut area_delimiter: pool_pointer = 0;
 #[no_mangle]
-pub static mut ext_delimiter: pool_pointer = 0;
+pub(crate) static mut ext_delimiter: pool_pointer = 0;
 #[no_mangle]
-pub static mut file_name_quote_char: UTF16_code = 0;
+pub(crate) static mut file_name_quote_char: UTF16_code = 0;
 #[no_mangle]
-pub static mut format_default_length: i32 = 0;
+pub(crate) static mut format_default_length: i32 = 0;
 #[no_mangle]
-pub static mut TEX_format_default: *mut i8 = ptr::null_mut();
+pub(crate) static mut TEX_format_default: *mut i8 = ptr::null_mut();
 #[no_mangle]
-pub static mut name_in_progress: bool = false;
+pub(crate) static mut name_in_progress: bool = false;
 #[no_mangle]
-pub static mut job_name: str_number = 0;
+pub(crate) static mut job_name: str_number = 0;
 #[no_mangle]
-pub static mut log_opened: bool = false;
+pub(crate) static mut log_opened: bool = false;
 #[no_mangle]
-pub static mut output_file_extension: *const i8 = ptr::null();
+pub(crate) static mut output_file_extension: *const i8 = ptr::null();
 #[no_mangle]
-pub static mut texmf_log_name: str_number = 0;
+pub(crate) static mut texmf_log_name: str_number = 0;
 #[no_mangle]
-pub static mut font_info: *mut memory_word = ptr::null_mut();
+pub(crate) static mut font_info: *mut memory_word = ptr::null_mut();
 #[no_mangle]
-pub static mut fmem_ptr: font_index = 0;
+pub(crate) static mut fmem_ptr: font_index = 0;
 #[no_mangle]
-pub static mut font_ptr: internal_font_number = 0;
+pub(crate) static mut font_ptr: internal_font_number = 0;
 #[no_mangle]
-pub static mut font_check: *mut b16x4 = ptr::null_mut();
+pub(crate) static mut font_check: *mut b16x4 = ptr::null_mut();
 #[no_mangle]
-pub static mut font_size: *mut scaled_t = ptr::null_mut();
+pub(crate) static mut font_size: *mut scaled_t = ptr::null_mut();
 #[no_mangle]
-pub static mut font_dsize: *mut scaled_t = ptr::null_mut();
+pub(crate) static mut font_dsize: *mut scaled_t = ptr::null_mut();
 #[no_mangle]
-pub static mut font_params: *mut font_index = ptr::null_mut();
+pub(crate) static mut font_params: *mut font_index = ptr::null_mut();
 #[no_mangle]
-pub static mut font_name: *mut str_number = ptr::null_mut();
+pub(crate) static mut font_name: *mut str_number = ptr::null_mut();
 #[no_mangle]
-pub static mut font_area: *mut str_number = ptr::null_mut();
+pub(crate) static mut font_area: *mut str_number = ptr::null_mut();
 #[no_mangle]
-pub static mut font_bc: *mut UTF16_code = ptr::null_mut();
+pub(crate) static mut font_bc: *mut UTF16_code = ptr::null_mut();
 #[no_mangle]
-pub static mut font_ec: *mut UTF16_code = ptr::null_mut();
+pub(crate) static mut font_ec: *mut UTF16_code = ptr::null_mut();
 #[no_mangle]
-pub static mut font_glue: *mut i32 = ptr::null_mut();
+pub(crate) static mut font_glue: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut font_used: *mut bool = ptr::null_mut();
+pub(crate) static mut font_used: *mut bool = ptr::null_mut();
 #[no_mangle]
-pub static mut hyphen_char: *mut i32 = ptr::null_mut();
+pub(crate) static mut hyphen_char: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut skew_char: *mut i32 = ptr::null_mut();
+pub(crate) static mut skew_char: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut bchar_label: *mut font_index = ptr::null_mut();
+pub(crate) static mut bchar_label: *mut font_index = ptr::null_mut();
 #[no_mangle]
-pub static mut font_bchar: *mut nine_bits = ptr::null_mut();
+pub(crate) static mut font_bchar: *mut nine_bits = ptr::null_mut();
 #[no_mangle]
-pub static mut font_false_bchar: *mut nine_bits = ptr::null_mut();
+pub(crate) static mut font_false_bchar: *mut nine_bits = ptr::null_mut();
 #[no_mangle]
-pub static mut font_layout_engine: *mut *mut libc::c_void =
+pub(crate) static mut font_layout_engine: *mut *mut libc::c_void =
     0 as *const *mut libc::c_void as *mut *mut libc::c_void;
 #[no_mangle]
-pub static mut font_mapping: *mut *mut libc::c_void =
+pub(crate) static mut font_mapping: *mut *mut libc::c_void =
     0 as *const *mut libc::c_void as *mut *mut libc::c_void;
 #[no_mangle]
-pub static mut font_flags: *mut i8 = ptr::null_mut();
+pub(crate) static mut font_flags: *mut i8 = ptr::null_mut();
 #[no_mangle]
-pub static mut font_letter_space: *mut scaled_t = ptr::null_mut();
+pub(crate) static mut font_letter_space: *mut scaled_t = ptr::null_mut();
 #[no_mangle]
-pub static mut loaded_font_mapping: *mut libc::c_void = ptr::null_mut();
+pub(crate) static mut loaded_font_mapping: *mut libc::c_void = ptr::null_mut();
 #[no_mangle]
-pub static mut loaded_font_flags: i8 = 0;
+pub(crate) static mut loaded_font_flags: i8 = 0;
 #[no_mangle]
-pub static mut loaded_font_letter_space: scaled_t = 0;
+pub(crate) static mut loaded_font_letter_space: scaled_t = 0;
 #[no_mangle]
-pub static mut loaded_font_design_size: scaled_t = 0;
+pub(crate) static mut loaded_font_design_size: scaled_t = 0;
 #[no_mangle]
-pub static mut mapped_text: *mut UTF16_code = ptr::null_mut();
+pub(crate) static mut mapped_text: *mut UTF16_code = ptr::null_mut();
 #[no_mangle]
-pub static mut xdv_buffer: *mut i8 = ptr::null_mut();
+pub(crate) static mut xdv_buffer: *mut i8 = ptr::null_mut();
 #[no_mangle]
-pub static mut char_base: *mut i32 = ptr::null_mut();
+pub(crate) static mut char_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut width_base: *mut i32 = ptr::null_mut();
+pub(crate) static mut width_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut height_base: *mut i32 = ptr::null_mut();
+pub(crate) static mut height_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut depth_base: *mut i32 = ptr::null_mut();
+pub(crate) static mut depth_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut italic_base: *mut i32 = ptr::null_mut();
+pub(crate) static mut italic_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut lig_kern_base: *mut i32 = ptr::null_mut();
+pub(crate) static mut lig_kern_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut kern_base: *mut i32 = ptr::null_mut();
+pub(crate) static mut kern_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut exten_base: *mut i32 = ptr::null_mut();
+pub(crate) static mut exten_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut param_base: *mut i32 = ptr::null_mut();
+pub(crate) static mut param_base: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut null_character: b16x4 = b16x4 {
+pub(crate) static mut null_character: b16x4 = b16x4 {
     s0: 0,
     s1: 0,
     s2: 0,
     s3: 0,
 };
 #[no_mangle]
-pub static mut total_pages: i32 = 0;
+pub(crate) static mut total_pages: i32 = 0;
 #[no_mangle]
-pub static mut max_v: scaled_t = 0;
+pub(crate) static mut max_v: scaled_t = 0;
 #[no_mangle]
-pub static mut max_h: scaled_t = 0;
+pub(crate) static mut max_h: scaled_t = 0;
 #[no_mangle]
-pub static mut max_push: i32 = 0;
+pub(crate) static mut max_push: i32 = 0;
 #[no_mangle]
-pub static mut last_bop: i32 = 0;
+pub(crate) static mut last_bop: i32 = 0;
 #[no_mangle]
-pub static mut dead_cycles: i32 = 0;
+pub(crate) static mut dead_cycles: i32 = 0;
 #[no_mangle]
-pub static mut doing_leaders: bool = false;
+pub(crate) static mut doing_leaders: bool = false;
 #[no_mangle]
-pub static mut rule_ht: scaled_t = 0;
+pub(crate) static mut rule_ht: scaled_t = 0;
 #[no_mangle]
-pub static mut rule_dp: scaled_t = 0;
+pub(crate) static mut rule_dp: scaled_t = 0;
 #[no_mangle]
-pub static mut rule_wd: scaled_t = 0;
+pub(crate) static mut rule_wd: scaled_t = 0;
 #[no_mangle]
-pub static mut cur_h: scaled_t = 0;
+pub(crate) static mut cur_h: scaled_t = 0;
 #[no_mangle]
-pub static mut cur_v: scaled_t = 0;
+pub(crate) static mut cur_v: scaled_t = 0;
 #[no_mangle]
-pub static mut total_stretch: [scaled_t; 4] = [0; 4];
+pub(crate) static mut total_stretch: [scaled_t; 4] = [0; 4];
 #[no_mangle]
-pub static mut total_shrink: [scaled_t; 4] = [0; 4];
+pub(crate) static mut total_shrink: [scaled_t; 4] = [0; 4];
 #[no_mangle]
-pub static mut last_badness: i32 = 0;
+pub(crate) static mut last_badness: i32 = 0;
 #[no_mangle]
-pub static mut adjust_tail: i32 = 0;
+pub(crate) static mut adjust_tail: i32 = 0;
 #[no_mangle]
-pub static mut pre_adjust_tail: i32 = 0;
+pub(crate) static mut pre_adjust_tail: i32 = 0;
 #[no_mangle]
-pub static mut pack_begin_line: i32 = 0;
+pub(crate) static mut pack_begin_line: i32 = 0;
 #[no_mangle]
-pub static mut empty: b32x2 = b32x2 { s0: 0, s1: 0 };
+pub(crate) static mut empty: b32x2 = b32x2 { s0: 0, s1: 0 };
 #[no_mangle]
-pub static mut cur_f: internal_font_number = 0;
+pub(crate) static mut cur_f: internal_font_number = 0;
 #[no_mangle]
-pub static mut cur_c: i32 = 0;
+pub(crate) static mut cur_c: i32 = 0;
 #[no_mangle]
-pub static mut cur_i: b16x4 = b16x4 {
+pub(crate) static mut cur_i: b16x4 = b16x4 {
     s0: 0,
     s1: 0,
     s2: 0,
     s3: 0,
 };
 #[no_mangle]
-pub static mut cur_align: i32 = 0;
+pub(crate) static mut cur_align: i32 = 0;
 #[no_mangle]
-pub static mut cur_span: i32 = 0;
+pub(crate) static mut cur_span: i32 = 0;
 #[no_mangle]
-pub static mut cur_loop: i32 = 0;
+pub(crate) static mut cur_loop: i32 = 0;
 #[no_mangle]
-pub static mut align_ptr: i32 = 0;
+pub(crate) static mut align_ptr: i32 = 0;
 #[no_mangle]
-pub static mut cur_head: i32 = 0;
+pub(crate) static mut cur_head: i32 = 0;
 #[no_mangle]
-pub static mut cur_tail: i32 = 0;
+pub(crate) static mut cur_tail: i32 = 0;
 #[no_mangle]
-pub static mut cur_pre_head: i32 = 0;
+pub(crate) static mut cur_pre_head: i32 = 0;
 #[no_mangle]
-pub static mut cur_pre_tail: i32 = 0;
+pub(crate) static mut cur_pre_tail: i32 = 0;
 #[no_mangle]
-pub static mut just_box: i32 = 0;
+pub(crate) static mut just_box: i32 = 0;
 #[no_mangle]
-pub static mut active_width: [scaled_t; 7] = [0; 7];
+pub(crate) static mut active_width: [scaled_t; 7] = [0; 7];
 #[no_mangle]
-pub static mut hc: [i32; 4099] = [0; 4099];
+pub(crate) static mut hc: [i32; 4099] = [0; 4099];
 #[no_mangle]
-pub static mut hf: internal_font_number = 0;
+pub(crate) static mut hf: internal_font_number = 0;
 #[no_mangle]
-pub static mut hu: [i32; 4097] = [0; 4097];
+pub(crate) static mut hu: [i32; 4097] = [0; 4097];
 #[no_mangle]
-pub static mut cur_lang: u8 = 0;
+pub(crate) static mut cur_lang: u8 = 0;
 #[no_mangle]
-pub static mut max_hyph_char: i32 = 0;
+pub(crate) static mut max_hyph_char: i32 = 0;
 #[no_mangle]
-pub static mut hyf: [u8; 4097] = [0; 4097];
+pub(crate) static mut hyf: [u8; 4097] = [0; 4097];
 #[no_mangle]
-pub static mut init_list: i32 = 0;
+pub(crate) static mut init_list: i32 = 0;
 #[no_mangle]
-pub static mut init_lig: bool = false;
+pub(crate) static mut init_lig: bool = false;
 #[no_mangle]
-pub static mut init_lft: bool = false;
+pub(crate) static mut init_lft: bool = false;
 #[no_mangle]
-pub static mut hyphen_passed: small_number = 0;
+pub(crate) static mut hyphen_passed: small_number = 0;
 #[no_mangle]
-pub static mut cur_l: i32 = 0;
+pub(crate) static mut cur_l: i32 = 0;
 #[no_mangle]
-pub static mut cur_r: i32 = 0;
+pub(crate) static mut cur_r: i32 = 0;
 #[no_mangle]
-pub static mut cur_q: i32 = 0;
+pub(crate) static mut cur_q: i32 = 0;
 #[no_mangle]
-pub static mut lig_stack: i32 = 0;
+pub(crate) static mut lig_stack: i32 = 0;
 #[no_mangle]
-pub static mut ligature_present: bool = false;
+pub(crate) static mut ligature_present: bool = false;
 #[no_mangle]
-pub static mut lft_hit: bool = false;
+pub(crate) static mut lft_hit: bool = false;
 #[no_mangle]
-pub static mut rt_hit: bool = false;
+pub(crate) static mut rt_hit: bool = false;
 #[no_mangle]
-pub static mut trie_trl: *mut trie_pointer = ptr::null_mut();
+pub(crate) static mut trie_trl: *mut trie_pointer = ptr::null_mut();
 #[no_mangle]
-pub static mut trie_tro: *mut trie_pointer = ptr::null_mut();
+pub(crate) static mut trie_tro: *mut trie_pointer = ptr::null_mut();
 #[no_mangle]
-pub static mut trie_trc: *mut u16 = ptr::null_mut();
+pub(crate) static mut trie_trc: *mut u16 = ptr::null_mut();
 #[no_mangle]
-pub static mut hyf_distance: [small_number; 35112] = [0; 35112];
+pub(crate) static mut hyf_distance: [small_number; 35112] = [0; 35112];
 #[no_mangle]
-pub static mut hyf_num: [small_number; 35112] = [0; 35112];
+pub(crate) static mut hyf_num: [small_number; 35112] = [0; 35112];
 #[no_mangle]
-pub static mut hyf_next: [trie_opcode; 35112] = [0; 35112];
+pub(crate) static mut hyf_next: [trie_opcode; 35112] = [0; 35112];
 #[no_mangle]
-pub static mut op_start: [i32; 256] = [0; 256];
+pub(crate) static mut op_start: [i32; 256] = [0; 256];
 #[no_mangle]
-pub static mut hyph_word: *mut str_number = ptr::null_mut();
+pub(crate) static mut hyph_word: *mut str_number = ptr::null_mut();
 #[no_mangle]
-pub static mut hyph_list: *mut i32 = ptr::null_mut();
+pub(crate) static mut hyph_list: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut hyph_link: *mut hyph_pointer = ptr::null_mut();
+pub(crate) static mut hyph_link: *mut hyph_pointer = ptr::null_mut();
 #[no_mangle]
-pub static mut hyph_count: i32 = 0;
+pub(crate) static mut hyph_count: i32 = 0;
 #[no_mangle]
-pub static mut hyph_next: i32 = 0;
+pub(crate) static mut hyph_next: i32 = 0;
 #[no_mangle]
-pub static mut trie_used: [trie_opcode; 256] = [0; 256];
+pub(crate) static mut trie_used: [trie_opcode; 256] = [0; 256];
 #[no_mangle]
-pub static mut trie_op_lang: [u8; 35112] = [0; 35112];
+pub(crate) static mut trie_op_lang: [u8; 35112] = [0; 35112];
 #[no_mangle]
-pub static mut trie_op_val: [trie_opcode; 35112] = [0; 35112];
+pub(crate) static mut trie_op_val: [trie_opcode; 35112] = [0; 35112];
 #[no_mangle]
-pub static mut trie_op_ptr: i32 = 0;
+pub(crate) static mut trie_op_ptr: i32 = 0;
 #[no_mangle]
-pub static mut max_op_used: trie_opcode = 0;
+pub(crate) static mut max_op_used: trie_opcode = 0;
 #[no_mangle]
-pub static mut trie_c: *mut packed_UTF16_code = ptr::null_mut();
+pub(crate) static mut trie_c: *mut packed_UTF16_code = ptr::null_mut();
 #[no_mangle]
-pub static mut trie_o: *mut trie_opcode = ptr::null_mut();
+pub(crate) static mut trie_o: *mut trie_opcode = ptr::null_mut();
 #[no_mangle]
-pub static mut trie_l: *mut trie_pointer = ptr::null_mut();
+pub(crate) static mut trie_l: *mut trie_pointer = ptr::null_mut();
 #[no_mangle]
-pub static mut trie_r: *mut trie_pointer = ptr::null_mut();
+pub(crate) static mut trie_r: *mut trie_pointer = ptr::null_mut();
 #[no_mangle]
-pub static mut trie_ptr: trie_pointer = 0;
+pub(crate) static mut trie_ptr: trie_pointer = 0;
 #[no_mangle]
-pub static mut trie_hash: *mut trie_pointer = ptr::null_mut();
+pub(crate) static mut trie_hash: *mut trie_pointer = ptr::null_mut();
 #[no_mangle]
-pub static mut trie_taken: *mut bool = ptr::null_mut();
+pub(crate) static mut trie_taken: *mut bool = ptr::null_mut();
 #[no_mangle]
-pub static mut trie_min: [trie_pointer; 65536] = [0; 65536];
+pub(crate) static mut trie_min: [trie_pointer; 65536] = [0; 65536];
 #[no_mangle]
-pub static mut trie_max: trie_pointer = 0;
+pub(crate) static mut trie_max: trie_pointer = 0;
 #[no_mangle]
-pub static mut trie_not_ready: bool = false;
+pub(crate) static mut trie_not_ready: bool = false;
 #[no_mangle]
-pub static mut best_height_plus_depth: scaled_t = 0;
+pub(crate) static mut best_height_plus_depth: scaled_t = 0;
 #[no_mangle]
-pub static mut main_f: internal_font_number = 0;
+pub(crate) static mut main_f: internal_font_number = 0;
 #[no_mangle]
-pub static mut main_i: b16x4 = b16x4 {
+pub(crate) static mut main_i: b16x4 = b16x4 {
     s0: 0,
     s1: 0,
     s2: 0,
     s3: 0,
 };
 #[no_mangle]
-pub static mut main_j: b16x4 = b16x4 {
+pub(crate) static mut main_j: b16x4 = b16x4 {
     s0: 0,
     s1: 0,
     s2: 0,
     s3: 0,
 };
 #[no_mangle]
-pub static mut main_k: font_index = 0;
+pub(crate) static mut main_k: font_index = 0;
 #[no_mangle]
-pub static mut main_p: i32 = 0;
+pub(crate) static mut main_p: i32 = 0;
 #[no_mangle]
-pub static mut main_pp: i32 = 0;
+pub(crate) static mut main_pp: i32 = 0;
 #[no_mangle]
-pub static mut main_ppp: i32 = 0;
+pub(crate) static mut main_ppp: i32 = 0;
 #[no_mangle]
-pub static mut main_h: i32 = 0;
+pub(crate) static mut main_h: i32 = 0;
 #[no_mangle]
-pub static mut is_hyph: bool = false;
+pub(crate) static mut is_hyph: bool = false;
 #[no_mangle]
-pub static mut space_class: i32 = 0;
+pub(crate) static mut space_class: i32 = 0;
 #[no_mangle]
-pub static mut prev_class: i32 = 0;
+pub(crate) static mut prev_class: i32 = 0;
 #[no_mangle]
-pub static mut main_s: i32 = 0;
+pub(crate) static mut main_s: i32 = 0;
 #[no_mangle]
-pub static mut bchar: i32 = 0;
+pub(crate) static mut bchar: i32 = 0;
 #[no_mangle]
-pub static mut false_bchar: i32 = 0;
+pub(crate) static mut false_bchar: i32 = 0;
 #[no_mangle]
-pub static mut cancel_boundary: bool = false;
+pub(crate) static mut cancel_boundary: bool = false;
 #[no_mangle]
-pub static mut ins_disc: bool = false;
+pub(crate) static mut ins_disc: bool = false;
 #[no_mangle]
-pub static mut cur_box: i32 = 0;
+pub(crate) static mut cur_box: i32 = 0;
 #[no_mangle]
-pub static mut after_token: i32 = 0;
+pub(crate) static mut after_token: i32 = 0;
 #[no_mangle]
-pub static mut long_help_seen: bool = false;
+pub(crate) static mut long_help_seen: bool = false;
 #[no_mangle]
-pub static mut format_ident: str_number = 0;
+pub(crate) static mut format_ident: str_number = 0;
 #[no_mangle]
-pub static mut write_file: [Option<OutputHandleWrapper>; 16] = [
+pub(crate) static mut write_file: [Option<OutputHandleWrapper>; 16] = [
     None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
 ];
 #[no_mangle]
-pub static mut write_open: [bool; 18] = [false; 18];
+pub(crate) static mut write_open: [bool; 18] = [false; 18];
 #[no_mangle]
-pub static mut write_loc: i32 = 0;
+pub(crate) static mut write_loc: i32 = 0;
 #[no_mangle]
-pub static mut cur_page_width: scaled_t = 0;
+pub(crate) static mut cur_page_width: scaled_t = 0;
 #[no_mangle]
-pub static mut cur_page_height: scaled_t = 0;
+pub(crate) static mut cur_page_height: scaled_t = 0;
 #[no_mangle]
-pub static mut cur_h_offset: scaled_t = 0;
+pub(crate) static mut cur_h_offset: scaled_t = 0;
 #[no_mangle]
-pub static mut cur_v_offset: scaled_t = 0;
+pub(crate) static mut cur_v_offset: scaled_t = 0;
 #[no_mangle]
-pub static mut pdf_last_x_pos: i32 = 0;
+pub(crate) static mut pdf_last_x_pos: i32 = 0;
 #[no_mangle]
-pub static mut pdf_last_y_pos: i32 = 0;
+pub(crate) static mut pdf_last_y_pos: i32 = 0;
 #[no_mangle]
-pub static mut eof_seen: *mut bool = ptr::null_mut();
+pub(crate) static mut eof_seen: *mut bool = ptr::null_mut();
 #[no_mangle]
-pub static mut LR_ptr: i32 = 0;
+pub(crate) static mut LR_ptr: i32 = 0;
 #[no_mangle]
-pub static mut LR_problems: i32 = 0;
+pub(crate) static mut LR_problems: i32 = 0;
 #[no_mangle]
-pub static mut cur_dir: small_number = 0;
+pub(crate) static mut cur_dir: small_number = 0;
 #[no_mangle]
-pub static mut pseudo_files: i32 = 0;
+pub(crate) static mut pseudo_files: i32 = 0;
 #[no_mangle]
-pub static mut grp_stack: *mut save_pointer = ptr::null_mut();
+pub(crate) static mut grp_stack: *mut save_pointer = ptr::null_mut();
 #[no_mangle]
-pub static mut if_stack: *mut i32 = ptr::null_mut();
+pub(crate) static mut if_stack: *mut i32 = ptr::null_mut();
 #[no_mangle]
-pub static mut max_reg_num: i32 = 0;
+pub(crate) static mut max_reg_num: i32 = 0;
 #[no_mangle]
-pub static mut max_reg_help_line: *const i8 = ptr::null();
+pub(crate) static mut max_reg_help_line: *const i8 = ptr::null();
 #[no_mangle]
-pub static mut sa_root: [i32; 8] = [0; 8];
+pub(crate) static mut sa_root: [i32; 8] = [0; 8];
 #[no_mangle]
-pub static mut cur_ptr: i32 = 0;
+pub(crate) static mut cur_ptr: i32 = 0;
 #[no_mangle]
-pub static mut sa_null: memory_word = memory_word {
+pub(crate) static mut sa_null: memory_word = memory_word {
     b32: b32x2 { s0: 0, s1: 0 },
 };
 #[no_mangle]
-pub static mut sa_chain: i32 = 0;
+pub(crate) static mut sa_chain: i32 = 0;
 #[no_mangle]
-pub static mut sa_level: u16 = 0;
+pub(crate) static mut sa_level: u16 = 0;
 #[no_mangle]
-pub static mut hyph_start: trie_pointer = 0;
+pub(crate) static mut hyph_start: trie_pointer = 0;
 #[no_mangle]
-pub static mut hyph_index: trie_pointer = 0;
+pub(crate) static mut hyph_index: trie_pointer = 0;
 #[no_mangle]
-pub static mut disc_ptr: [i32; 4] = [0; 4];
+pub(crate) static mut disc_ptr: [i32; 4] = [0; 4];
 #[no_mangle]
-pub static mut edit_name_start: pool_pointer = 0;
+pub(crate) static mut edit_name_start: pool_pointer = 0;
 #[no_mangle]
-pub static mut stop_at_space: bool = false;
+pub(crate) static mut stop_at_space: bool = false;
 #[no_mangle]
-pub static mut native_font_type_flag: i32 = 0;
+pub(crate) static mut native_font_type_flag: i32 = 0;
 #[no_mangle]
-pub static mut xtx_ligature_present: bool = false;
+pub(crate) static mut xtx_ligature_present: bool = false;
 #[no_mangle]
-pub static mut delta: scaled_t = 0;
+pub(crate) static mut delta: scaled_t = 0;
 #[no_mangle]
-pub static mut synctex_enabled: i32 = 0;
+pub(crate) static mut synctex_enabled: i32 = 0;
 #[no_mangle]
-pub static mut used_tectonic_coda_tokens: bool = false;
+pub(crate) static mut used_tectonic_coda_tokens: bool = false;
 #[no_mangle]
-pub static mut semantic_pagination_enabled: bool = false;
+pub(crate) static mut semantic_pagination_enabled: bool = false;
 #[no_mangle]
-pub static mut gave_char_warning_help: bool = false;
+pub(crate) static mut gave_char_warning_help: bool = false;
 /* These ought to live in xetex-pagebuilder.c but are shared a lot: */
 #[no_mangle]
-pub static mut page_tail: i32 = 0;
+pub(crate) static mut page_tail: i32 = 0;
 #[no_mangle]
-pub static mut page_contents: u8 = 0;
+pub(crate) static mut page_contents: u8 = 0;
 #[no_mangle]
-pub static mut page_so_far: [scaled_t; 8] = [0; 8];
+pub(crate) static mut page_so_far: [scaled_t; 8] = [0; 8];
 #[no_mangle]
-pub static mut last_glue: i32 = 0;
+pub(crate) static mut last_glue: i32 = 0;
 #[no_mangle]
-pub static mut last_penalty: i32 = 0;
+pub(crate) static mut last_penalty: i32 = 0;
 #[no_mangle]
-pub static mut last_kern: scaled_t = 0;
+pub(crate) static mut last_kern: scaled_t = 0;
 #[no_mangle]
-pub static mut last_node_type: i32 = 0;
+pub(crate) static mut last_node_type: i32 = 0;
 #[no_mangle]
-pub static mut insert_penalties: i32 = 0;
+pub(crate) static mut insert_penalties: i32 = 0;
 #[no_mangle]
-pub static mut output_active: bool = false;
+pub(crate) static mut output_active: bool = false;
 #[no_mangle]
-pub static mut _xeq_level_array: [u16; 1114732] = [0; 1114732];
+pub(crate) static mut _xeq_level_array: [u16; 1114732] = [0; 1114732];
 static mut _trie_op_hash_array: [i32; 70223] = [0; 70223];
 static mut yhash: *mut b32x2 = ptr::null_mut();
 /* Read and write dump files.  As distributed, these files are
@@ -1279,7 +1279,7 @@ unsafe extern "C" fn do_undump(
     mut nitems: size_t,
     in_file: &mut InputHandleWrapper,
 ) {
-    let mut r: ssize_t = ttstub_input_read(in_file.0.as_ptr(), p, item_size.wrapping_mul(nitems));
+    let mut r: ssize_t = ttstub_input_read(in_file.as_ptr(), p, item_size.wrapping_mul(nitems));
     if r < 0 || r as size_t != item_size.wrapping_mul(nitems) {
         abort!(
             "could not undump {} {}-byte item(s) from {}",
@@ -1366,7 +1366,7 @@ unsafe extern "C" fn primitive(mut ident: *const i8, mut c: u16, mut o: i32) {
 /*:925*/
 /*977: */
 #[no_mangle]
-pub unsafe extern "C" fn new_trie_op(
+pub(crate) unsafe extern "C" fn new_trie_op(
     mut d: small_number,
     mut n: small_number,
     mut v: trie_opcode,
@@ -1423,7 +1423,7 @@ pub unsafe extern "C" fn new_trie_op(
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn trie_node(mut p: trie_pointer) -> trie_pointer {
+pub(crate) unsafe extern "C" fn trie_node(mut p: trie_pointer) -> trie_pointer {
     let mut h: trie_pointer = 0;
     let mut q: trie_pointer = 0;
     h = ((*trie_c.offset(p as isize) as u32
@@ -1452,7 +1452,7 @@ pub unsafe extern "C" fn trie_node(mut p: trie_pointer) -> trie_pointer {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn compress_trie(mut p: trie_pointer) -> trie_pointer {
+pub(crate) unsafe extern "C" fn compress_trie(mut p: trie_pointer) -> trie_pointer {
     if p == 0i32 {
         0i32
     } else {
@@ -1462,7 +1462,7 @@ pub unsafe extern "C" fn compress_trie(mut p: trie_pointer) -> trie_pointer {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn first_fit(mut p: trie_pointer) {
+pub(crate) unsafe extern "C" fn first_fit(mut p: trie_pointer) {
     let mut h: trie_pointer = 0;
     let mut z: trie_pointer = 0;
     let mut q: trie_pointer = 0;
@@ -1535,7 +1535,7 @@ pub unsafe extern "C" fn first_fit(mut p: trie_pointer) {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn trie_pack(mut p: trie_pointer) {
+pub(crate) unsafe extern "C" fn trie_pack(mut p: trie_pointer) {
     let mut q: trie_pointer = 0;
     loop {
         q = *trie_l.offset(p as isize);
@@ -1550,7 +1550,7 @@ pub unsafe extern "C" fn trie_pack(mut p: trie_pointer) {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn trie_fix(mut p: trie_pointer) {
+pub(crate) unsafe extern "C" fn trie_fix(mut p: trie_pointer) {
     let mut q: trie_pointer = 0;
     let mut c: UTF16_code = 0;
     let mut z: trie_pointer = 0;
@@ -1805,7 +1805,7 @@ unsafe extern "C" fn new_patterns() {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn init_trie() {
+pub(crate) unsafe extern "C" fn init_trie() {
     let mut p: trie_pointer = 0;
     let mut j: i32 = 0;
     let mut k: i32 = 0;
@@ -2180,7 +2180,7 @@ unsafe extern "C" fn new_hyph_exceptions() {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn prefixed_command() {
+pub(crate) unsafe extern "C" fn prefixed_command() {
     let mut current_block: u64;
     let mut a: small_number = 0;
     let mut f: internal_font_number = 0;
@@ -9013,7 +9013,7 @@ unsafe extern "C" fn get_strings_started() {
 /* Tectonic related functions */
 /*:1001*/
 #[no_mangle]
-pub unsafe extern "C" fn tt_run_engine(
+pub(crate) unsafe extern "C" fn tt_run_engine(
     mut dump_name: *const i8,
     mut input_file_name: *const i8,
 ) -> TTHistory {

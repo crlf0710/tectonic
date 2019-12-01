@@ -34,8 +34,8 @@ use super::dpx_pdfximage::{pdf_ximage_init_image_info, pdf_ximage_set_image};
 use crate::dpx_pdfobj::{pdf_get_version, pdf_stream, IntoObj};
 use libc::{fread, rewind, FILE};
 
-pub type __off_t = i64;
-pub type __off64_t = i64;
+pub(crate) type __off_t = i64;
+pub(crate) type __off64_t = i64;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 /* Label */
@@ -288,7 +288,7 @@ unsafe fn scan_file(info: &mut ximage_info, smask: *mut i32, fp: *mut FILE) -> i
     error
 }
 
-pub unsafe fn check_for_jp2(fp: *mut FILE) -> i32 {
+pub(crate) unsafe fn check_for_jp2(fp: *mut FILE) -> i32 {
     let mut lbox: u32 = 0;
     let mut tbox: u32 = 0;
     if fp.is_null() {
@@ -310,7 +310,7 @@ pub unsafe fn check_for_jp2(fp: *mut FILE) -> i32 {
     1i32
 }
 
-pub unsafe fn jp2_include_image(ximage: *mut pdf_ximage, fp: *mut FILE) -> i32 {
+pub(crate) unsafe fn jp2_include_image(ximage: *mut pdf_ximage, fp: *mut FILE) -> i32 {
     let mut smask: i32 = 0i32;
     let mut info = ximage_info::default();
     let pdf_version = pdf_get_version();
@@ -351,7 +351,7 @@ pub unsafe fn jp2_include_image(ximage: *mut pdf_ximage, fp: *mut FILE) -> i32 {
     0i32
 }
 
-pub unsafe fn jp2_get_bbox(
+pub(crate) unsafe fn jp2_get_bbox(
     fp: *mut FILE,
     width: *mut i32,
     height: *mut i32,

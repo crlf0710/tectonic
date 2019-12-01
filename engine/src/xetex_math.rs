@@ -40,7 +40,7 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::is_char_node;
 
-pub type scaled_t = i32;
+pub(crate) type scaled_t = i32;
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International
@@ -72,11 +72,11 @@ shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
-pub type UTF16_code = u16;
-pub type UnicodeScalar = i32;
-pub type eight_bits = u8;
-pub type str_number = i32;
-pub type small_number = i16;
+pub(crate) type UTF16_code = u16;
+pub(crate) type UnicodeScalar = i32;
+pub(crate) type eight_bits = u8;
+pub(crate) type str_number = i32;
+pub(crate) type small_number = i16;
 static mut null_delimiter: b16x4 = b16x4 {
     s0: 0,
     s1: 0,
@@ -89,14 +89,14 @@ static mut cur_size: i32 = 0;
 static mut cur_mu: scaled_t = 0;
 static mut mlist_penalties: bool = false;
 #[no_mangle]
-pub unsafe extern "C" fn initialize_math_variables() {
+pub(crate) unsafe extern "C" fn initialize_math_variables() {
     null_delimiter.s3 = 0_u16;
     null_delimiter.s2 = 0_u16;
     null_delimiter.s1 = 0_u16;
     null_delimiter.s0 = 0_u16;
 }
 #[no_mangle]
-pub unsafe extern "C" fn init_math() {
+pub(crate) unsafe extern "C" fn init_math() {
     let mut current_block: u64;
     let mut w: scaled_t = 0;
     let mut j: i32 = 0;
@@ -1144,7 +1144,7 @@ pub unsafe extern "C" fn init_math() {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn start_eq_no() {
+pub(crate) unsafe extern "C" fn start_eq_no() {
     (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 = cur_chr;
     save_ptr += 1;
     push_math(15i32 as group_code);
@@ -1219,7 +1219,7 @@ pub unsafe extern "C" fn start_eq_no() {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn math_limit_switch() {
+pub(crate) unsafe extern "C" fn math_limit_switch() {
     if cur_list.head != cur_list.tail {
         if (*mem.offset(cur_list.tail as isize)).b16.s1 as i32 == 17i32 {
             (*mem.offset(cur_list.tail as isize)).b16.s0 = cur_chr as u16;
@@ -1341,7 +1341,7 @@ unsafe extern "C" fn scan_delimiter(mut p: i32, mut r: bool) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn math_radical() {
+pub(crate) unsafe extern "C" fn math_radical() {
     (*mem.offset(cur_list.tail as isize)).b32.s1 = get_node(5i32);
     cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1;
     (*mem.offset(cur_list.tail as isize)).b16.s1 = 24_u16;
@@ -1353,7 +1353,7 @@ pub unsafe extern "C" fn math_radical() {
     scan_math(cur_list.tail + 1i32);
 }
 #[no_mangle]
-pub unsafe extern "C" fn math_ac() {
+pub(crate) unsafe extern "C" fn math_ac() {
     let mut c: i32 = 0;
     if cur_cmd as i32 == 45i32 {
         /*1201: */
@@ -1502,7 +1502,7 @@ pub unsafe extern "C" fn math_ac() {
     scan_math(cur_list.tail + 1i32);
 }
 #[no_mangle]
-pub unsafe extern "C" fn append_choices() {
+pub(crate) unsafe extern "C" fn append_choices() {
     (*mem.offset(cur_list.tail as isize)).b32.s1 = new_choice();
     cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1;
     save_ptr += 1;
@@ -1511,7 +1511,7 @@ pub unsafe extern "C" fn append_choices() {
     scan_left_brace();
 }
 #[no_mangle]
-pub unsafe extern "C" fn fin_mlist(mut p: i32) -> i32 {
+pub(crate) unsafe extern "C" fn fin_mlist(mut p: i32) -> i32 {
     let mut q: i32 = 0;
     if cur_list.aux.b32.s1 != -0xfffffffi32 {
         /*1220: */
@@ -1540,7 +1540,7 @@ pub unsafe extern "C" fn fin_mlist(mut p: i32) -> i32 {
     q
 }
 #[no_mangle]
-pub unsafe extern "C" fn build_choices() {
+pub(crate) unsafe extern "C" fn build_choices() {
     let mut p: i32 = 0;
     unsave();
     p = fin_mlist(-0xfffffffi32);
@@ -1561,7 +1561,7 @@ pub unsafe extern "C" fn build_choices() {
     scan_left_brace();
 }
 #[no_mangle]
-pub unsafe extern "C" fn sub_sup() {
+pub(crate) unsafe extern "C" fn sub_sup() {
     let mut t: small_number = 0;
     let mut p: i32 = 0;
     t = 0i32 as small_number;
@@ -1607,7 +1607,7 @@ pub unsafe extern "C" fn sub_sup() {
     scan_math(p);
 }
 #[no_mangle]
-pub unsafe extern "C" fn math_fraction() {
+pub(crate) unsafe extern "C" fn math_fraction() {
     let mut c: small_number = 0;
     c = cur_chr as small_number;
     if cur_list.aux.b32.s1 != -0xfffffffi32 {
@@ -1661,7 +1661,7 @@ pub unsafe extern "C" fn math_fraction() {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn math_left_right() {
+pub(crate) unsafe extern "C" fn math_left_right() {
     let mut t: small_number = 0;
     let mut p: i32 = 0;
     let mut q: i32 = 0;
@@ -1928,7 +1928,7 @@ unsafe extern "C" fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
     append_to_vlist(b);
 }
 #[no_mangle]
-pub unsafe extern "C" fn after_math() {
+pub(crate) unsafe extern "C" fn after_math() {
     let mut l: bool = false;
     let mut danger: bool = false;
     let mut m: i32 = 0;
@@ -3390,7 +3390,7 @@ pub unsafe extern "C" fn after_math() {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn resume_after_display() {
+pub(crate) unsafe extern "C" fn resume_after_display() {
     if cur_group as i32 != 15i32 {
         confusion(b"display\x00" as *const u8 as *const i8);
     }
@@ -4499,7 +4499,7 @@ unsafe extern "C" fn math_kern(mut p: i32, mut m: scaled_t) {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn flush_math() {
+pub(crate) unsafe extern "C" fn flush_math() {
     flush_node_list((*mem.offset(cur_list.head as isize)).b32.s1);
     flush_node_list(cur_list.aux.b32.s1);
     (*mem.offset(cur_list.head as isize)).b32.s1 = -0xfffffffi32;

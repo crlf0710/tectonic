@@ -30,7 +30,7 @@ use freetype::freetype_sys::{
     FT_Parameter, FT_Pointer, FT_Sfnt_Tag, FT_String, FT_UInt, FT_ULong, FT_Vector,
 };
 
-use crate::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub_input_read};
+use bridge::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub_input_read};
 
 use std::ptr;
 
@@ -88,18 +88,18 @@ extern "C" {
     #[no_mangle]
     fn Fix2D(f: Fixed) -> libc::c_double;
 }
-pub type size_t = usize;
-pub type int32_t = i32;
-pub type uint16_t = u16;
-pub type uint32_t = u32;
-pub type ssize_t = isize;
+pub(crate) type size_t = usize;
+pub(crate) type int32_t = i32;
+pub(crate) type uint16_t = u16;
+pub(crate) type uint32_t = u32;
+pub(crate) type ssize_t = isize;
 
-pub type UChar32 = int32_t;
+pub(crate) type UChar32 = int32_t;
 /* quasi-hack to get the primary input */
 /* */
 /* this #if 0 ... #endif clause is for documentation purposes */
 
-pub type hb_font_get_glyph_kerning_func_t = Option<
+pub(crate) type hb_font_get_glyph_kerning_func_t = Option<
     unsafe extern "C" fn(
         _: *mut hb_font_t,
         _: *mut libc::c_void,
@@ -108,8 +108,8 @@ pub type hb_font_get_glyph_kerning_func_t = Option<
         _: *mut libc::c_void,
     ) -> hb_position_t,
 >;
-pub type hb_font_get_glyph_h_kerning_func_t = hb_font_get_glyph_kerning_func_t;
-pub type hb_font_get_glyph_func_t = Option<
+pub(crate) type hb_font_get_glyph_h_kerning_func_t = hb_font_get_glyph_kerning_func_t;
+pub(crate) type hb_font_get_glyph_func_t = Option<
     unsafe extern "C" fn(
         _: *mut hb_font_t,
         _: *mut libc::c_void,
@@ -119,38 +119,38 @@ pub type hb_font_get_glyph_func_t = Option<
         _: *mut libc::c_void,
     ) -> hb_bool_t,
 >;
-pub type hb_font_get_glyph_v_kerning_func_t = hb_font_get_glyph_kerning_func_t;
+pub(crate) type hb_font_get_glyph_v_kerning_func_t = hb_font_get_glyph_kerning_func_t;
 
-pub type OTTag = uint32_t;
-pub type GlyphID = uint16_t;
+pub(crate) type OTTag = uint32_t;
+pub(crate) type GlyphID = uint16_t;
 
-pub type Fixed = i32;
+pub(crate) type Fixed = i32;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct GlyphBBox {
-    pub xMin: libc::c_float,
-    pub yMin: libc::c_float,
-    pub xMax: libc::c_float,
-    pub yMax: libc::c_float,
+pub(crate) struct GlyphBBox {
+    pub(crate) xMin: libc::c_float,
+    pub(crate) yMin: libc::c_float,
+    pub(crate) xMax: libc::c_float,
+    pub(crate) yMax: libc::c_float,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct XeTeXFontInst {
-    pub m_unitsPerEM: libc::c_ushort,
-    pub m_pointSize: libc::c_float,
-    pub m_ascent: libc::c_float,
-    pub m_descent: libc::c_float,
-    pub m_capHeight: libc::c_float,
-    pub m_xHeight: libc::c_float,
-    pub m_italicAngle: libc::c_float,
-    pub m_vertical: bool,
-    pub m_filename: *mut libc::c_char,
-    pub m_index: uint32_t,
-    pub m_ftFace: FT_Face,
-    pub m_backingData: *mut FT_Byte,
-    pub m_backingData2: *mut FT_Byte,
-    pub m_hbFont: *mut hb_font_t,
-    pub m_subdtor: Option<unsafe extern "C" fn(_: *mut XeTeXFontInst) -> ()>,
+pub(crate) struct XeTeXFontInst {
+    pub(crate) m_unitsPerEM: libc::c_ushort,
+    pub(crate) m_pointSize: libc::c_float,
+    pub(crate) m_ascent: libc::c_float,
+    pub(crate) m_descent: libc::c_float,
+    pub(crate) m_capHeight: libc::c_float,
+    pub(crate) m_xHeight: libc::c_float,
+    pub(crate) m_italicAngle: libc::c_float,
+    pub(crate) m_vertical: bool,
+    pub(crate) m_filename: *mut libc::c_char,
+    pub(crate) m_index: uint32_t,
+    pub(crate) m_ftFace: FT_Face,
+    pub(crate) m_backingData: *mut FT_Byte,
+    pub(crate) m_backingData2: *mut FT_Byte,
+    pub(crate) m_hbFont: *mut hb_font_t,
+    pub(crate) m_subdtor: Option<unsafe extern "C" fn(_: *mut XeTeXFontInst) -> ()>,
 }
 /*
  *   file name:  XeTeXFontInst.cpp
@@ -176,10 +176,10 @@ unsafe extern "C" fn xbasename(mut name: *const libc::c_char) -> *const libc::c_
     return base;
 }
 #[no_mangle]
-pub static mut gFreeTypeLibrary: FT_Library = 0 as FT_Library;
+pub(crate) static mut gFreeTypeLibrary: FT_Library = 0 as FT_Library;
 static mut hbFontFuncs: *mut hb_font_funcs_t = 0 as *mut hb_font_funcs_t;
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_base_ctor(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_base_ctor(
     mut self_0: *mut XeTeXFontInst,
     mut pathname: *const libc::c_char,
     mut index: libc::c_int,
@@ -206,7 +206,7 @@ pub unsafe extern "C" fn XeTeXFontInst_base_ctor(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_create(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_create(
     mut pathname: *const libc::c_char,
     mut index: libc::c_int,
     mut pointSize: libc::c_float,
@@ -218,7 +218,7 @@ pub unsafe extern "C" fn XeTeXFontInst_create(
     return self_0;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_delete(mut self_0: *mut XeTeXFontInst) {
+pub(crate) unsafe extern "C" fn XeTeXFontInst_delete(mut self_0: *mut XeTeXFontInst) {
     if self_0.is_null() {
         return;
     }
@@ -541,7 +541,7 @@ unsafe extern "C" fn _get_table(
     return blob;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_initialize(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_initialize(
     mut self_0: *mut XeTeXFontInst,
     mut pathname: *const libc::c_char,
     mut index: libc::c_int,
@@ -572,7 +572,7 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
     let mut sz = ttstub_input_get_size(&mut handle);
     (*self_0).m_backingData = xmalloc(sz as _) as *mut FT_Byte;
     let mut r = ttstub_input_read(
-        handle.0.as_ptr(),
+        handle.as_ptr(),
         (*self_0).m_backingData as *mut libc::c_char,
         sz,
     );
@@ -612,7 +612,7 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
             sz = ttstub_input_get_size(&mut afm_handle);
             (*self_0).m_backingData2 = xmalloc(sz as _) as *mut FT_Byte;
             r = ttstub_input_read(
-                afm_handle.0.as_ptr(),
+                afm_handle.as_ptr(),
                 (*self_0).m_backingData2 as *mut libc::c_char,
                 sz,
             );
@@ -693,14 +693,14 @@ pub unsafe extern "C" fn XeTeXFontInst_initialize(
     );
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_setLayoutDirVertical(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_setLayoutDirVertical(
     mut self_0: *mut XeTeXFontInst,
     mut vertical: bool,
 ) {
     (*self_0).m_vertical = vertical;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getFontTable(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getFontTable(
     mut self_0: *const XeTeXFontInst,
     mut tag: OTTag,
 ) -> *mut libc::c_void {
@@ -734,14 +734,14 @@ pub unsafe extern "C" fn XeTeXFontInst_getFontTable(
     return table;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getFontTableFT(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getFontTableFT(
     mut self_0: *const XeTeXFontInst,
     mut tag: FT_Sfnt_Tag,
 ) -> *mut libc::c_void {
     return FT_Get_Sfnt_Table((*self_0).m_ftFace, tag);
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getGlyphBounds(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getGlyphBounds(
     mut self_0: *mut XeTeXFontInst,
     mut gid: GlyphID,
     mut bbox: *mut GlyphBBox,
@@ -781,18 +781,20 @@ pub unsafe extern "C" fn XeTeXFontInst_getGlyphBounds(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_mapCharToGlyph(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_mapCharToGlyph(
     mut self_0: *const XeTeXFontInst,
     mut ch: UChar32,
 ) -> GlyphID {
     return FT_Get_Char_Index((*self_0).m_ftFace, ch as FT_ULong) as GlyphID;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getNumGlyphs(mut self_0: *const XeTeXFontInst) -> uint16_t {
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getNumGlyphs(
+    mut self_0: *const XeTeXFontInst,
+) -> uint16_t {
     return (*(*self_0).m_ftFace).num_glyphs as uint16_t;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getGlyphWidth(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getGlyphWidth(
     mut self_0: *mut XeTeXFontInst,
     mut gid: GlyphID,
 ) -> libc::c_float {
@@ -802,7 +804,7 @@ pub unsafe extern "C" fn XeTeXFontInst_getGlyphWidth(
     );
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getGlyphHeightDepth(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getGlyphHeightDepth(
     mut self_0: *mut XeTeXFontInst,
     mut gid: GlyphID,
     mut ht: *mut libc::c_float,
@@ -914,7 +916,7 @@ public:
 };
 */
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getGlyphSidebearings(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getGlyphSidebearings(
     mut self_0: *mut XeTeXFontInst,
     mut gid: GlyphID,
     mut lsb: *mut libc::c_float,
@@ -936,7 +938,7 @@ pub unsafe extern "C" fn XeTeXFontInst_getGlyphSidebearings(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getGlyphItalCorr(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getGlyphItalCorr(
     mut self_0: *mut XeTeXFontInst,
     mut gid: GlyphID,
 ) -> libc::c_float {
@@ -955,14 +957,14 @@ pub unsafe extern "C" fn XeTeXFontInst_getGlyphItalCorr(
     return rval;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_mapGlyphToIndex(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_mapGlyphToIndex(
     mut self_0: *const XeTeXFontInst,
     mut glyphName: *const libc::c_char,
 ) -> GlyphID {
     return FT_Get_Name_Index((*self_0).m_ftFace, glyphName as *mut libc::c_char) as GlyphID;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getGlyphName(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getGlyphName(
     mut self_0: *mut XeTeXFontInst,
     mut gid: GlyphID,
     mut nameLen: *mut libc::c_int,
@@ -983,12 +985,16 @@ pub unsafe extern "C" fn XeTeXFontInst_getGlyphName(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getFirstCharCode(mut self_0: *mut XeTeXFontInst) -> UChar32 {
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getFirstCharCode(
+    mut self_0: *mut XeTeXFontInst,
+) -> UChar32 {
     let mut gindex: FT_UInt = 0;
     return FT_Get_First_Char((*self_0).m_ftFace, &mut gindex) as UChar32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn XeTeXFontInst_getLastCharCode(mut self_0: *mut XeTeXFontInst) -> UChar32 {
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getLastCharCode(
+    mut self_0: *mut XeTeXFontInst,
+) -> UChar32 {
     let mut gindex: FT_UInt = 0;
     let mut ch: UChar32 = FT_Get_First_Char((*self_0).m_ftFace, &mut gindex) as UChar32;
     let mut prev: UChar32 = ch;
@@ -1001,13 +1007,15 @@ pub unsafe extern "C" fn XeTeXFontInst_getLastCharCode(mut self_0: *mut XeTeXFon
 
 #[no_mangle]
 //#[inline]
-pub unsafe extern "C" fn XeTeXFontInst_getHbFont(self_0: *const XeTeXFontInst) -> *mut hb_font_t {
+pub(crate) unsafe extern "C" fn XeTeXFontInst_getHbFont(
+    self_0: *const XeTeXFontInst,
+) -> *mut hb_font_t {
     (*self_0).m_hbFont
 }
 
 #[no_mangle]
 //#[inline]
-pub unsafe extern "C" fn XeTeXFontInst_unitsToPoints(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_unitsToPoints(
     self_0: *const XeTeXFontInst,
     units: libc::c_float,
 ) -> libc::c_float {
@@ -1016,7 +1024,7 @@ pub unsafe extern "C" fn XeTeXFontInst_unitsToPoints(
 
 #[no_mangle]
 //#[inline]
-pub unsafe extern "C" fn XeTeXFontInst_pointsToUnits(
+pub(crate) unsafe extern "C" fn XeTeXFontInst_pointsToUnits(
     self_0: *const XeTeXFontInst,
     points: libc::c_float,
 ) -> libc::c_float {

@@ -30,21 +30,21 @@
 use super::dpx_mem::new;
 use libc::{memcpy, memset, rand};
 
-use crate::size_t;
+use crate::bridge::size_t;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct ARC4_CONTEXT {
-    pub idx_i: i32,
-    pub idx_j: i32,
-    pub sbox: [u8; 256],
+pub(crate) struct ARC4_CONTEXT {
+    pub(crate) idx_i: i32,
+    pub(crate) idx_j: i32,
+    pub(crate) sbox: [u8; 256],
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct AES_CONTEXT {
-    pub nrounds: i32,
-    pub rk: [u32; 60],
-    pub iv: [u8; 16],
+pub(crate) struct AES_CONTEXT {
+    pub(crate) nrounds: i32,
+    pub(crate) rk: [u32; 60],
+    pub(crate) iv: [u8; 16],
 }
 unsafe fn _gcry_burn_stack(mut bytes: i32) {
     let mut buf: [i8; 64] = [0; 64];
@@ -268,7 +268,7 @@ unsafe fn do_encrypt_stream(
     (*ctx).idx_j = j;
 }
 
-pub unsafe fn ARC4(ctx: *mut ARC4_CONTEXT, len: u32, inbuf: *const u8, outbuf: *mut u8) {
+pub(crate) unsafe fn ARC4(ctx: *mut ARC4_CONTEXT, len: u32, inbuf: *const u8, outbuf: *mut u8) {
     do_encrypt_stream(ctx, outbuf, inbuf, len);
     _gcry_burn_stack(64i32);
 }
@@ -292,12 +292,12 @@ unsafe fn do_arcfour_setkey(mut ctx: *mut ARC4_CONTEXT, key: *const u8, keylen: 
     memset(karr.as_mut_ptr() as *mut libc::c_void, 0i32, 256);
 }
 
-pub unsafe fn ARC4_set_key(ctx: *mut ARC4_CONTEXT, keylen: u32, key: *const u8) {
+pub(crate) unsafe fn ARC4_set_key(ctx: *mut ARC4_CONTEXT, keylen: u32, key: *const u8) {
     do_arcfour_setkey(ctx, key, keylen);
     _gcry_burn_stack(300i32);
 }
 
-pub unsafe fn AES_ecb_encrypt(
+pub(crate) unsafe fn AES_ecb_encrypt(
     key: *const u8,
     key_len: size_t,
     plain: *const u8,
@@ -344,7 +344,7 @@ pub unsafe fn AES_ecb_encrypt(
 /* libgcrypt arcfour */
 /* NULL iv means here "use random IV". */
 
-pub unsafe fn AES_cbc_encrypt_tectonic(
+pub(crate) unsafe fn AES_cbc_encrypt_tectonic(
     key: *const u8,
     key_len: size_t,
     iv: *const u8,

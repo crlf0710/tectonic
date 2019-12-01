@@ -9,13 +9,13 @@
 )]
 
 use crate::xetex_ini::{arith_error, tex_remainder};
-pub type scaled_t = i32;
+pub(crate) type scaled_t = i32;
 /* tectonic/xetex-scaledmath.c: low-level math functions
    Copyright 2017 The Tectonic Project
    Licensed under the MIT License.
 */
 #[no_mangle]
-pub unsafe extern "C" fn tex_round(mut r: f64) -> i32 {
+pub(crate) unsafe extern "C" fn tex_round(mut r: f64) -> i32 {
     /* We must reproduce very particular rounding semantics to pass the TRIP
      * test. Specifically, values within the 32-bit range of TeX integers are
      * rounded to the nearest integer with half-integral values going away
@@ -52,14 +52,14 @@ pub unsafe extern "C" fn tex_round(mut r: f64) -> i32 {
     (r - 0.5f64) as i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn half(mut x: i32) -> i32 {
+pub(crate) unsafe extern "C" fn half(mut x: i32) -> i32 {
     if x & 1i32 != 0 {
         return (x + 1i32) / 2i32;
     }
     x / 2i32
 }
 #[no_mangle]
-pub unsafe extern "C" fn mult_and_add(
+pub(crate) unsafe extern "C" fn mult_and_add(
     mut n: i32,
     mut x: scaled_t,
     mut y: scaled_t,
@@ -79,7 +79,7 @@ pub unsafe extern "C" fn mult_and_add(
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn x_over_n(mut x: scaled_t, mut n: i32) -> scaled_t {
+pub(crate) unsafe extern "C" fn x_over_n(mut x: scaled_t, mut n: i32) -> scaled_t {
     if n == 0i32 {
         arith_error = true;
         tex_remainder = x;
@@ -106,7 +106,7 @@ pub unsafe extern "C" fn x_over_n(mut x: scaled_t, mut n: i32) -> scaled_t {
 /* xetex-pagebuilder */
 /* xetex-scaledmath */
 #[no_mangle]
-pub unsafe extern "C" fn xn_over_d(mut x: scaled_t, mut n: i32, mut d: i32) -> scaled_t {
+pub(crate) unsafe extern "C" fn xn_over_d(mut x: scaled_t, mut n: i32, mut d: i32) -> scaled_t {
     let mut positive: bool = false;
     let mut t: i32 = 0;
     let mut u: i32 = 0;
@@ -134,7 +134,11 @@ pub unsafe extern "C" fn xn_over_d(mut x: scaled_t, mut n: i32, mut d: i32) -> s
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn round_xn_over_d(mut x: scaled_t, mut n: i32, mut d: i32) -> scaled_t {
+pub(crate) unsafe extern "C" fn round_xn_over_d(
+    mut x: scaled_t,
+    mut n: i32,
+    mut d: i32,
+) -> scaled_t {
     let mut positive: bool = false;
     let mut t: i32 = 0;
     let mut u: i32 = 0;

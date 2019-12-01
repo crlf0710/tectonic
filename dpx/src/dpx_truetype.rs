@@ -30,8 +30,8 @@ use super::dpx_sfnt::{
     dfont_open, sfnt_close, sfnt_create_FontFile_stream, sfnt_open, sfnt_read_table_directory,
     sfnt_require_table, sfnt_set_table,
 };
+use crate::bridge::DisplayExt;
 use crate::streq_ptr;
-use crate::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
@@ -71,11 +71,11 @@ use super::dpx_tt_post::tt_post_table;
 
 use super::dpx_tt_cmap::tt_cmap;
 
-pub use sfnt_table_info::SfntTableInfo;
+pub(crate) use sfnt_table_info::SfntTableInfo;
 
 /// Tag consts for SfntTableInfo.
-pub mod sfnt_table_info {
-    pub type Tag = &'static [u8; 4];
+pub(crate) mod sfnt_table_info {
+    pub(crate) type Tag = &'static [u8; 4];
 
     /*
      * The 'name' table should be preserved since it contains copyright
@@ -91,43 +91,43 @@ pub mod sfnt_table_info {
      * not use 'OS/2' table, though...
      */
     #[derive(Copy, Clone)]
-    pub struct SfntTableInfo {
+    pub(crate) struct SfntTableInfo {
         name: Tag,
         must_exist: bool,
     }
 
     impl SfntTableInfo {
-        pub const fn new(name: Tag, must_exist: bool) -> Self {
+        pub(crate) const fn new(name: Tag, must_exist: bool) -> Self {
             SfntTableInfo { name, must_exist }
         }
 
-        pub const fn name(&self) -> Tag {
+        pub(crate) const fn name(&self) -> Tag {
             self.name
         }
 
         /// # Safety
         /// This function assumes the name is valid utf8.
-        pub unsafe fn name_str(&self) -> &str {
+        pub(crate) unsafe fn name_str(&self) -> &str {
             &std::str::from_utf8_unchecked(self.name)
         }
 
-        pub const fn must_exist(&self) -> bool {
+        pub(crate) const fn must_exist(&self) -> bool {
             self.must_exist
         }
     }
 
-    pub const OS_2: Tag = b"OS/2";
-    pub const HEAD: Tag = b"head";
-    pub const HHEA: Tag = b"hhea";
-    pub const LOCA: Tag = b"loca";
-    pub const MAXP: Tag = b"maxp";
-    pub const NAME: Tag = b"name";
-    pub const GLYF: Tag = b"glyf";
-    pub const HMTX: Tag = b"hmtx";
-    pub const FPGM: Tag = b"fpgm";
-    pub const CVT: Tag = b"cvt ";
-    pub const PREP: Tag = b"prep";
-    pub const CMAP: Tag = b"cmap";
+    pub(crate) const OS_2: Tag = b"OS/2";
+    pub(crate) const HEAD: Tag = b"head";
+    pub(crate) const HHEA: Tag = b"hhea";
+    pub(crate) const LOCA: Tag = b"loca";
+    pub(crate) const MAXP: Tag = b"maxp";
+    pub(crate) const NAME: Tag = b"name";
+    pub(crate) const GLYF: Tag = b"glyf";
+    pub(crate) const HMTX: Tag = b"hmtx";
+    pub(crate) const FPGM: Tag = b"fpgm";
+    pub(crate) const CVT: Tag = b"cvt ";
+    pub(crate) const PREP: Tag = b"prep";
+    pub(crate) const CMAP: Tag = b"cmap";
 }
 
 /* Acoid conflict with CHAR ... from <winnt.h>.  */
@@ -137,11 +137,11 @@ pub mod sfnt_table_info {
  */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct glyph_mapper {
-    pub codetogid: *mut tt_cmap,
-    pub gsub: *mut otl_gsub,
-    pub sfont: *mut sfnt,
-    pub nametogid: *mut tt_post_table,
+pub(crate) struct glyph_mapper {
+    pub(crate) codetogid: *mut tt_cmap,
+    pub(crate) gsub: *mut otl_gsub,
+    pub(crate) sfont: *mut sfnt,
+    pub(crate) nametogid: *mut tt_post_table,
 }
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -154,7 +154,7 @@ pub struct glyph_mapper {
 /* TrueType */
 /* Modifying this has no effect :P */
 
-pub unsafe fn pdf_font_open_truetype(font: *mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_open_truetype(font: *mut pdf_font) -> i32 {
     let mut embedding: i32 = 1i32;
     assert!(!font.is_null());
     let ident = pdf_font_get_ident(font); /* Must be embedded. */
@@ -1006,7 +1006,7 @@ unsafe fn do_custom_encoding(
     0i32
 }
 
-pub unsafe fn pdf_font_load_truetype(font: *mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_load_truetype(font: *mut pdf_font) -> i32 {
     let descriptor: *mut pdf_obj = pdf_font_get_descriptor(font);
     let ident: *mut i8 = pdf_font_get_ident(font);
     let encoding_id: i32 = pdf_font_get_encoding(font);

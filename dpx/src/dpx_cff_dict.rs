@@ -26,21 +26,21 @@
     non_upper_case_globals
 )]
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_cff::{cff_add_string, cff_get_string};
 use super::dpx_mem::{new, renew};
 use super::dpx_mfileio::work_buffer;
+use crate::bridge::stub_errno as errno;
 use crate::mfree;
 use crate::shims::sprintf;
 use crate::streq_ptr;
-use crate::stub_errno as errno;
 use crate::warn;
 use libc::{free, memset, strcmp, strtod};
 
-pub type s_SID = u16;
+pub(crate) type s_SID = u16;
 /* CFF Data Types */
 /* SID SID number */
 /* offset(0) */
@@ -57,9 +57,9 @@ use super::dpx_cff::cff_dict_entry;
 use super::dpx_cff::cff_font;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_2 {
-    pub opname: *const i8,
-    pub argtype: i32,
+pub(crate) struct C2RustUnnamed_2 {
+    pub(crate) opname: *const i8,
+    pub(crate) argtype: i32,
 }
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -69,7 +69,7 @@ pub struct C2RustUnnamed_2 {
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 
-pub unsafe fn cff_new_dict() -> *mut cff_dict {
+pub(crate) unsafe fn cff_new_dict() -> *mut cff_dict {
     let dict =
         new((1_u64).wrapping_mul(::std::mem::size_of::<cff_dict>() as u64) as u32) as *mut cff_dict;
     (*dict).max = 16i32;
@@ -80,7 +80,7 @@ pub unsafe fn cff_new_dict() -> *mut cff_dict {
     dict
 }
 
-pub unsafe fn cff_release_dict(dict: *mut cff_dict) {
+pub(crate) unsafe fn cff_release_dict(dict: *mut cff_dict) {
     if !dict.is_null() {
         if !(*dict).entries.is_null() {
             for i in 0..(*dict).count {
@@ -538,7 +538,7 @@ don't treat this as underflow (e.g. StemSnapV in TemporaLGCUni-Italic.otf) */
  *  ROS    : three numbers, SID, SID, and a number
  */
 
-pub unsafe fn cff_dict_unpack(mut data: *mut u8, endptr: *mut u8) -> *mut cff_dict {
+pub(crate) unsafe fn cff_dict_unpack(mut data: *mut u8, endptr: *mut u8) -> *mut cff_dict {
     let mut status: i32 = 0i32;
     stack_top = 0i32;
     let dict = cff_new_dict();
@@ -696,7 +696,7 @@ unsafe fn put_dict_entry(de: *mut cff_dict_entry, dest: &mut [u8]) -> usize {
     len
 }
 
-pub unsafe fn cff_dict_pack(dict: *mut cff_dict, dest: &mut [u8]) -> usize {
+pub(crate) unsafe fn cff_dict_pack(dict: *mut cff_dict, dest: &mut [u8]) -> usize {
     let mut len = 0_usize;
     for i in 0..(*dict).count as isize {
         if streq_ptr(
@@ -719,7 +719,7 @@ pub unsafe fn cff_dict_pack(dict: *mut cff_dict, dest: &mut [u8]) -> usize {
     len
 }
 
-pub unsafe fn cff_dict_add(mut dict: *mut cff_dict, key: *const i8, count: i32) {
+pub(crate) unsafe fn cff_dict_add(mut dict: *mut cff_dict, key: *const i8, count: i32) {
     let mut id = 0;
     while id < 22 + 39 {
         if !key.is_null()
@@ -770,7 +770,7 @@ pub unsafe fn cff_dict_add(mut dict: *mut cff_dict, key: *const i8, count: i32) 
     (*dict).count += 1i32;
 }
 
-pub unsafe fn cff_dict_remove(dict: *mut cff_dict, key: *const i8) {
+pub(crate) unsafe fn cff_dict_remove(dict: *mut cff_dict, key: *const i8) {
     for i in 0..(*dict).count {
         if streq_ptr(key, (*(*dict).entries.offset(i as isize)).key) {
             (*(*dict).entries.offset(i as isize)).count = 0i32;
@@ -781,7 +781,7 @@ pub unsafe fn cff_dict_remove(dict: *mut cff_dict, key: *const i8) {
     }
 }
 
-pub unsafe fn cff_dict_known(dict: *mut cff_dict, key: *const i8) -> bool {
+pub(crate) unsafe fn cff_dict_known(dict: *mut cff_dict, key: *const i8) -> bool {
     for i in 0..(*dict).count {
         if streq_ptr(key, (*(*dict).entries.offset(i as isize)).key) as i32 != 0
             && (*(*dict).entries.offset(i as isize)).count > 0i32
@@ -792,7 +792,7 @@ pub unsafe fn cff_dict_known(dict: *mut cff_dict, key: *const i8) -> bool {
     false
 }
 
-pub unsafe fn cff_dict_get(dict: *mut cff_dict, key: *const i8, idx: i32) -> f64 {
+pub(crate) unsafe fn cff_dict_get(dict: *mut cff_dict, key: *const i8, idx: i32) -> f64 {
     let mut value: f64 = 0.0f64;
     assert!(!key.is_null() && !dict.is_null());
     let mut i = 0;
@@ -820,7 +820,7 @@ pub unsafe fn cff_dict_get(dict: *mut cff_dict, key: *const i8, idx: i32) -> f64
     value
 }
 
-pub unsafe fn cff_dict_set(dict: *mut cff_dict, key: *const i8, idx: i32, value: f64) {
+pub(crate) unsafe fn cff_dict_set(dict: *mut cff_dict, key: *const i8, idx: i32, value: f64) {
     assert!(!dict.is_null() && !key.is_null());
     let mut i = 0;
     while i < (*dict).count {
@@ -847,7 +847,7 @@ pub unsafe fn cff_dict_set(dict: *mut cff_dict, key: *const i8, idx: i32, value:
 }
 /* decode/encode DICT */
 
-pub unsafe fn cff_dict_update(dict: *mut cff_dict, cff: &mut cff_font) {
+pub(crate) unsafe fn cff_dict_update(dict: *mut cff_dict, cff: &mut cff_font) {
     for i in 0..(*dict).count {
         if (*(*dict).entries.offset(i as isize)).count > 0i32 {
             let id = (*(*dict).entries.offset(i as isize)).id;

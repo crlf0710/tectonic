@@ -46,11 +46,11 @@ use super::dpx_pst_obj::pst_obj;
 use super::dpx_pst_obj::{
     pst_data_ptr, pst_getIV, pst_getSV, pst_length_of, pst_release_obj, pst_type_of,
 };
-use crate::{ttstub_input_get_size, ttstub_input_read};
+use crate::bridge::{ttstub_input_get_size, ttstub_input_read};
 use libc::{free, memcmp, memcpy, memmove, strcmp, strlen, strstr};
 
-pub type __ssize_t = i64;
-use crate::size_t;
+pub(crate) type __ssize_t = i64;
+use crate::bridge::size_t;
 use bridge::InputHandleWrapper;
 
 use super::dpx_cid::CIDSysInfo;
@@ -61,15 +61,15 @@ use super::dpx_cid::CIDSysInfo;
 
 use super::dpx_cmap::CMap;
 
-pub type CID = u16;
+pub(crate) type CID = u16;
 #[repr(C)]
-pub struct ifreader {
-    pub cursor: *mut u8,
-    pub endptr: *mut u8,
-    pub buf: *mut u8,
-    pub max: size_t,
-    pub handle: InputHandleWrapper,
-    pub unread: size_t,
+pub(crate) struct ifreader {
+    pub(crate) cursor: *mut u8,
+    pub(crate) endptr: *mut u8,
+    pub(crate) buf: *mut u8,
+    pub(crate) max: size_t,
+    pub(crate) handle: InputHandleWrapper,
+    pub(crate) unread: size_t,
 }
 static mut __verbose: i32 = 0i32;
 unsafe fn ifreader_create(
@@ -124,7 +124,7 @@ unsafe fn ifreader_read(mut reader: *mut ifreader, size: size_t) -> size_t {
         (*reader).cursor = (*reader).buf;
         (*reader).endptr = (*reader).buf.offset(bytesrem as isize);
         if ttstub_input_read(
-            (*reader).handle.0.as_ptr(),
+            (*reader).handle.as_ptr(),
             (*reader).endptr as *mut i8,
             bytesread,
         ) as u64
@@ -678,7 +678,7 @@ unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: *mut ifreader) -> i32 {
     error
 }
 
-pub unsafe fn CMap_parse_check_sig(handle: Option<&mut InputHandleWrapper>) -> i32 {
+pub(crate) unsafe fn CMap_parse_check_sig(handle: Option<&mut InputHandleWrapper>) -> i32 {
     let mut result: i32 = -1i32;
     let mut sig: [i8; 65] = [0; 65];
     if handle.is_none() {
@@ -686,7 +686,7 @@ pub unsafe fn CMap_parse_check_sig(handle: Option<&mut InputHandleWrapper>) -> i
     }
     let handle = handle.unwrap();
     handle.seek(SeekFrom::Start(0)).unwrap();
-    if ttstub_input_read(handle.0.as_ptr(), sig.as_mut_ptr(), 64i32 as size_t) != 64isize {
+    if ttstub_input_read(handle.as_ptr(), sig.as_mut_ptr(), 64i32 as size_t) != 64isize {
         result = -1i32
     } else {
         sig[64] = 0_i8;
@@ -705,7 +705,7 @@ pub unsafe fn CMap_parse_check_sig(handle: Option<&mut InputHandleWrapper>) -> i
     result
 }
 
-pub unsafe fn CMap_parse(cmap: *mut CMap, mut handle: InputHandleWrapper) -> i32 {
+pub(crate) unsafe fn CMap_parse(cmap: *mut CMap, mut handle: InputHandleWrapper) -> i32 {
     let mut status: i32 = 0i32;
     let mut tmpint: i32 = -1i32;
     assert!(!cmap.is_null());

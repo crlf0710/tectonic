@@ -30,7 +30,7 @@ use super::dpx_sfnt::{
     dfont_open, sfnt_close, sfnt_find_table_pos, sfnt_locate_table, sfnt_open,
     sfnt_read_table_directory,
 };
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
@@ -70,18 +70,18 @@ use libc::{free, memcpy, memset, strcpy, strlen};
 
 use std::io::{Seek, SeekFrom};
 
-pub type __ssize_t = i64;
+pub(crate) type __ssize_t = i64;
 use super::dpx_sfnt::sfnt;
-use crate::size_t;
+use crate::bridge::size_t;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct tt_cmap {
-    pub format: u16,
-    pub platform: u16,
-    pub encoding: u16,
-    pub language: u32,
-    pub map: *mut libc::c_void,
+pub(crate) struct tt_cmap {
+    pub(crate) format: u16,
+    pub(crate) platform: u16,
+    pub(crate) encoding: u16,
+    pub(crate) language: u32,
+    pub(crate) map: *mut libc::c_void,
 }
 
 use super::dpx_cid::CIDSysInfo;
@@ -93,9 +93,9 @@ use super::dpx_tt_post::tt_post_table;
 use super::dpx_cmap::CMap;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct cmap12 {
-    pub nGroups: u32,
-    pub groups: *mut charGroup,
+pub(crate) struct cmap12 {
+    pub(crate) nGroups: u32,
+    pub(crate) groups: *mut charGroup,
 }
 /* Format 8 and 10 not supported...
  *
@@ -109,18 +109,18 @@ pub struct cmap12 {
  */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct charGroup {
-    pub startCharCode: u32,
-    pub endCharCode: u32,
-    pub startGlyphID: u32,
+pub(crate) struct charGroup {
+    pub(crate) startCharCode: u32,
+    pub(crate) endCharCode: u32,
+    pub(crate) startGlyphID: u32,
 }
 /* format 6: trimmed table mapping */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct cmap6 {
-    pub firstCode: u16,
-    pub entryCount: u16,
-    pub glyphIndexArray: *mut u16,
+pub(crate) struct cmap6 {
+    pub(crate) firstCode: u16,
+    pub(crate) entryCount: u16,
+    pub(crate) glyphIndexArray: *mut u16,
 }
 /*
  * format 4: segment mapping to delta values
@@ -128,49 +128,49 @@ pub struct cmap6 {
  */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct cmap4 {
-    pub segCountX2: u16,
-    pub searchRange: u16,
-    pub entrySelector: u16,
-    pub rangeShift: u16,
-    pub endCount: *mut u16,
-    pub reservedPad: u16,
-    pub startCount: *mut u16,
-    pub idDelta: *mut u16,
-    pub idRangeOffset: *mut u16,
-    pub glyphIndexArray: *mut u16,
+pub(crate) struct cmap4 {
+    pub(crate) segCountX2: u16,
+    pub(crate) searchRange: u16,
+    pub(crate) entrySelector: u16,
+    pub(crate) rangeShift: u16,
+    pub(crate) endCount: *mut u16,
+    pub(crate) reservedPad: u16,
+    pub(crate) startCount: *mut u16,
+    pub(crate) idDelta: *mut u16,
+    pub(crate) idRangeOffset: *mut u16,
+    pub(crate) glyphIndexArray: *mut u16,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct cmap2 {
-    pub subHeaderKeys: [u16; 256],
-    pub subHeaders: *mut SubHeader,
-    pub glyphIndexArray: *mut u16,
+pub(crate) struct cmap2 {
+    pub(crate) subHeaderKeys: [u16; 256],
+    pub(crate) subHeaders: *mut SubHeader,
+    pub(crate) glyphIndexArray: *mut u16,
 }
 /* format 2: high-byte mapping through table */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct SubHeader {
-    pub firstCode: u16,
-    pub entryCount: u16,
-    pub idDelta: i16,
-    pub idRangeOffset: u16,
+pub(crate) struct SubHeader {
+    pub(crate) firstCode: u16,
+    pub(crate) entryCount: u16,
+    pub(crate) idDelta: i16,
+    pub(crate) idRangeOffset: u16,
 }
 /* format 0: byte encoding table */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct cmap0 {
-    pub glyphIndexArray: [u8; 256],
+pub(crate) struct cmap0 {
+    pub(crate) glyphIndexArray: [u8; 256],
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct cmap_plat_enc_rec {
-    pub platform: i16,
-    pub encoding: i16,
+pub(crate) struct cmap_plat_enc_rec {
+    pub(crate) platform: i16,
+    pub(crate) encoding: i16,
 }
 static mut verbose: i32 = 0i32;
 
-pub unsafe fn otf_cmap_set_verbose(level: i32) {
+pub(crate) unsafe fn otf_cmap_set_verbose(level: i32) {
     otl_gsub_set_verbose(level);
     verbose = level;
 }
@@ -446,7 +446,7 @@ unsafe fn lookup_cmap12(map: *mut cmap12, cccc: u32) -> u16 {
 }
 /* read cmap */
 
-pub unsafe fn tt_cmap_read(sfont: *mut sfnt, platform: u16, encoding: u16) -> *mut tt_cmap {
+pub(crate) unsafe fn tt_cmap_read(sfont: *mut sfnt, platform: u16, encoding: u16) -> *mut tt_cmap {
     let length;
     assert!(!sfont.is_null());
     let mut offset = sfnt_locate_table(sfont, sfnt_table_info::CMAP);
@@ -513,7 +513,7 @@ pub unsafe fn tt_cmap_read(sfont: *mut sfnt, platform: u16, encoding: u16) -> *m
     cmap
 }
 
-pub unsafe fn tt_cmap_release(cmap: *mut tt_cmap) {
+pub(crate) unsafe fn tt_cmap_release(cmap: *mut tt_cmap) {
     if !cmap.is_null() {
         if !(*cmap).map.is_null() {
             match (*cmap).format as i32 {
@@ -541,7 +541,7 @@ pub unsafe fn tt_cmap_release(cmap: *mut tt_cmap) {
     };
 }
 
-pub unsafe fn tt_cmap_lookup(cmap: *mut tt_cmap, cc: u32) -> u16 {
+pub(crate) unsafe fn tt_cmap_lookup(cmap: *mut tt_cmap, cc: u32) -> u16 {
     assert!(!cmap.is_null());
     if cc as i64 > 0xffff && ((*cmap).format as i32) < 12i32 {
         warn!("Four bytes charcode not supported in OpenType/TrueType cmap format 0...6.");
@@ -1234,7 +1234,7 @@ static mut cmap_plat_encs: [cmap_plat_enc_rec; 5] = [
     },
 ];
 
-pub unsafe fn otf_create_ToUnicode_stream(
+pub(crate) unsafe fn otf_create_ToUnicode_stream(
     font_name: *const i8,
     ttc_index: i32,
     used_chars: *const i8,
@@ -1427,7 +1427,7 @@ unsafe fn load_base_CMap(
 /* Indirect reference */
 /* CMap ID */
 
-pub unsafe fn otf_load_Unicode_CMap(
+pub(crate) unsafe fn otf_load_Unicode_CMap(
     map_name: *const i8,
     ttc_index: i32,
     otl_tags: *const i8,

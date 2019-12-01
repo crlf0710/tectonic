@@ -30,8 +30,8 @@ use std::ffi::CString;
 use std::io::Read;
 use std::ptr;
 
-use crate::DisplayExt;
-use crate::TTInputFormat;
+use crate::bridge::DisplayExt;
+use crate::bridge::TTInputFormat;
 use crate::{spc_warn, warn};
 
 use super::util::{spc_util_read_blahblah, spc_util_read_dimtrns, spc_util_read_pdfcolor};
@@ -39,6 +39,7 @@ use super::{
     spc_begin_annot, spc_clear_objects, spc_end_annot, spc_flush_object, spc_lookup_object,
     spc_push_object, spc_resume_annot, spc_suspend_annot,
 };
+use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_cmap::{CMap_cache_find, CMap_cache_get, CMap_decode};
 use crate::dpx_dpxutil::{
     ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table, ParseCIdent,
@@ -75,31 +76,30 @@ use crate::dpx_unicode::{
     UC_UTF16BE_encode_char, UC_UTF16BE_is_valid_string, UC_UTF8_decode_char,
     UC_UTF8_is_valid_string, UC_is_valid,
 };
-use crate::{ttstub_input_close, ttstub_input_open};
 use libc::{free, strlen, strstr};
 
-pub type __ssize_t = i64;
-use crate::size_t;
+pub(crate) type __ssize_t = i64;
+use crate::bridge::size_t;
 
 use super::{spc_arg, spc_env};
 
 use super::SpcHandler;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct spc_pdf_ {
-    pub annot_dict: *mut pdf_obj,
-    pub lowest_level: i32,
-    pub resourcemap: *mut ht_table,
-    pub cd: tounicode,
+pub(crate) struct spc_pdf_ {
+    pub(crate) annot_dict: *mut pdf_obj,
+    pub(crate) lowest_level: i32,
+    pub(crate) resourcemap: *mut ht_table,
+    pub(crate) cd: tounicode,
     /* quasi-hack to get the primary input */
     /* For to-UTF16-BE conversion :( */
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct tounicode {
-    pub cmap_id: i32,
-    pub unescape_backslash: i32,
-    pub taintkeys: *mut pdf_obj,
+pub(crate) struct tounicode {
+    pub(crate) cmap_id: i32,
+    pub(crate) unescape_backslash: i32,
+    pub(crate) taintkeys: *mut pdf_obj,
     /* An array of PDF names. */
 }
 
@@ -112,9 +112,9 @@ use crate::dpx_pdfximage::load_options;
 /* PLEASE REMOVE THIS */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct resource_map {
-    pub type_0: i32,
-    pub res_id: i32,
+pub(crate) struct resource_map {
+    pub(crate) type_0: i32,
+    pub(crate) res_id: i32,
 }
 use crate::dpx_cmap::CMap;
 
@@ -214,12 +214,12 @@ unsafe fn spc_handler_pdfm__clean(dp: *mut libc::c_void) -> i32 {
     0i32
 }
 
-pub unsafe fn spc_pdfm_at_begin_document() -> i32 {
+pub(crate) unsafe fn spc_pdfm_at_begin_document() -> i32 {
     let sd: *mut spc_pdf_ = &mut _PDF_STAT;
     spc_handler_pdfm__init(sd as *mut libc::c_void)
 }
 
-pub unsafe fn spc_pdfm_at_end_document() -> i32 {
+pub(crate) unsafe fn spc_pdfm_at_end_document() -> i32 {
     let sd: *mut spc_pdf_ = &mut _PDF_STAT;
     spc_handler_pdfm__clean(sd as *mut libc::c_void)
 }
@@ -543,7 +543,7 @@ unsafe fn modstrings(kp: &pdf_name, vp: *mut pdf_obj, dp: *mut libc::c_void) -> 
     r
 }
 
-pub trait ParsePdfDictU {
+pub(crate) trait ParsePdfDictU {
     fn parse_pdf_dict_with_tounicode(&mut self, cd: *mut tounicode) -> Option<*mut pdf_obj>;
 }
 
@@ -1961,12 +1961,12 @@ const PDFM_HANDLERS: [SpcHandler; 80] = [
         exec: Some(spc_handler_pdfm_do_nothing),
     },
 ];
-pub fn spc_pdfm_check_special(mut buf: &[u8]) -> bool {
+pub(crate) fn spc_pdfm_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
     buf.starts_with(b"pdf:")
 }
 
-pub unsafe fn spc_pdfm_setup_handler(
+pub(crate) unsafe fn spc_pdfm_setup_handler(
     mut sph: *mut SpcHandler,
     spe: *mut spc_env,
     mut ap: *mut spc_arg,

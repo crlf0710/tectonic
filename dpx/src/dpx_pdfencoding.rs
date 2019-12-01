@@ -26,8 +26,8 @@
     non_upper_case_globals,
 )]
 
+use crate::bridge::DisplayExt;
 use crate::info;
-use crate::DisplayExt;
 use std::ffi::CStr;
 use std::io::Read;
 use std::ptr;
@@ -42,6 +42,7 @@ use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_mem::{new, renew};
+use crate::bridge::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open};
 use crate::dpx_pdfobj::{
     pdf_copy_name, pdf_dict, pdf_get_version, pdf_link_obj, pdf_obj, pdf_release_obj, pdf_stream,
     IntoObj, PushObj,
@@ -49,31 +50,30 @@ use crate::dpx_pdfobj::{
 use crate::dpx_pdfparse::{ParsePdfObj, SkipWhite};
 use crate::mfree;
 use crate::streq_ptr;
-use crate::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open};
 use libc::{free, memset, strcmp, strcpy, strlen};
 
-pub type __ssize_t = i64;
-use crate::size_t;
+pub(crate) type __ssize_t = i64;
+use crate::bridge::size_t;
 
-use crate::TTInputFormat;
+use crate::bridge::TTInputFormat;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct pdf_encoding {
-    pub ident: *mut i8,
-    pub enc_name: *mut i8,
-    pub flags: i32,
-    pub glyphs: [*mut i8; 256],
-    pub is_used: [i8; 256],
-    pub baseenc: *mut pdf_encoding,
-    pub tounicode: *mut pdf_obj,
-    pub resource: *mut pdf_obj,
+pub(crate) struct pdf_encoding {
+    pub(crate) ident: *mut i8,
+    pub(crate) enc_name: *mut i8,
+    pub(crate) flags: i32,
+    pub(crate) glyphs: [*mut i8; 256],
+    pub(crate) is_used: [i8; 256],
+    pub(crate) baseenc: *mut pdf_encoding,
+    pub(crate) tounicode: *mut pdf_obj,
+    pub(crate) resource: *mut pdf_obj,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed {
-    pub count: i32,
-    pub capacity: i32,
-    pub encodings: *mut pdf_encoding,
+pub(crate) struct C2RustUnnamed {
+    pub(crate) count: i32,
+    pub(crate) capacity: i32,
+    pub(crate) encodings: *mut pdf_encoding,
 }
 use super::dpx_agl::agl_name;
 /* tectonic/core-memory.h: basic dynamic memory helpers
@@ -82,7 +82,7 @@ use super::dpx_agl::agl_name;
 */
 static mut verbose: u8 = 0_u8;
 
-pub unsafe fn pdf_encoding_set_verbose(level: i32) {
+pub(crate) unsafe fn pdf_encoding_set_verbose(level: i32) {
     verbose = level as u8;
 }
 unsafe fn pdf_init_encoding_struct(mut encoding: *mut pdf_encoding) {
@@ -327,7 +327,7 @@ static mut enc_cache: C2RustUnnamed = C2RustUnnamed {
     encodings: ptr::null_mut(),
 };
 
-pub unsafe fn pdf_init_encodings() {
+pub(crate) unsafe fn pdf_init_encodings() {
     enc_cache.count = 0i32;
     enc_cache.capacity = 3i32;
     enc_cache.encodings = new((enc_cache.capacity as u32 as u64)
@@ -449,7 +449,7 @@ unsafe fn pdf_encoding_new_encoding(
  * for all non-predefined encodings.
  */
 
-pub unsafe fn pdf_encoding_complete() {
+pub(crate) unsafe fn pdf_encoding_complete() {
     for enc_id in 0..enc_cache.count {
         if pdf_encoding_is_predefined(enc_id) == 0 {
             let mut encoding: *mut pdf_encoding =
@@ -483,7 +483,7 @@ pub unsafe fn pdf_encoding_complete() {
     }
 }
 
-pub unsafe fn pdf_close_encodings() {
+pub(crate) unsafe fn pdf_close_encodings() {
     if !enc_cache.encodings.is_null() {
         for enc_id in 0..enc_cache.count {
             let encoding = &mut *enc_cache.encodings.offset(enc_id as isize) as *mut pdf_encoding;
@@ -499,7 +499,7 @@ pub unsafe fn pdf_close_encodings() {
     enc_cache.capacity = 0i32;
 }
 
-pub unsafe fn pdf_encoding_findresource(enc_name: *const i8) -> i32 {
+pub(crate) unsafe fn pdf_encoding_findresource(enc_name: *const i8) -> i32 {
     assert!(!enc_name.is_null());
     for enc_id in 0..enc_cache.count {
         let encoding = &mut *enc_cache.encodings.offset(enc_id as isize) as *mut pdf_encoding;
@@ -519,7 +519,7 @@ pub unsafe fn pdf_encoding_findresource(enc_name: *const i8) -> i32 {
  * Pointer will change if other encoding is loaded...
  */
 
-pub unsafe fn pdf_encoding_get_encoding(enc_id: i32) -> *mut *mut i8 {
+pub(crate) unsafe fn pdf_encoding_get_encoding(enc_id: i32) -> *mut *mut i8 {
     if enc_id < 0i32 || enc_id >= enc_cache.count {
         panic!("Invalid encoding id: {}", enc_id);
     }
@@ -527,7 +527,7 @@ pub unsafe fn pdf_encoding_get_encoding(enc_id: i32) -> *mut *mut i8 {
     (*encoding).glyphs.as_mut_ptr()
 }
 
-pub unsafe fn pdf_get_encoding_obj(enc_id: i32) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_get_encoding_obj(enc_id: i32) -> *mut pdf_obj {
     if enc_id < 0i32 || enc_id >= enc_cache.count {
         panic!("Invalid encoding id: {}", enc_id);
     }
@@ -535,7 +535,7 @@ pub unsafe fn pdf_get_encoding_obj(enc_id: i32) -> *mut pdf_obj {
     (*encoding).resource
 }
 
-pub unsafe fn pdf_encoding_is_predefined(enc_id: i32) -> i32 {
+pub(crate) unsafe fn pdf_encoding_is_predefined(enc_id: i32) -> i32 {
     if enc_id < 0i32 || enc_id >= enc_cache.count {
         panic!("Invalid encoding id: {}", enc_id);
     }
@@ -547,7 +547,7 @@ pub unsafe fn pdf_encoding_is_predefined(enc_id: i32) -> i32 {
     };
 }
 
-pub unsafe fn pdf_encoding_used_by_type3(enc_id: i32) {
+pub(crate) unsafe fn pdf_encoding_used_by_type3(enc_id: i32) {
     if enc_id < 0i32 || enc_id >= enc_cache.count {
         panic!("Invalid encoding id: {}", enc_id);
     }
@@ -555,7 +555,7 @@ pub unsafe fn pdf_encoding_used_by_type3(enc_id: i32) {
     (*encoding).flags |= 1i32 << 1i32;
 }
 
-pub unsafe fn pdf_encoding_get_name(enc_id: i32) -> *mut i8 {
+pub(crate) unsafe fn pdf_encoding_get_name(enc_id: i32) -> *mut i8 {
     if enc_id < 0i32 || enc_id >= enc_cache.count {
         panic!("Invalid encoding id: {}", enc_id);
     }
@@ -566,7 +566,7 @@ static mut wbuf: [u8; 1024] = [0; 1024];
 static mut range_min: [u8; 1] = [0u32 as u8];
 static mut range_max: [u8; 1] = [0xffu32 as u8];
 
-pub unsafe fn pdf_encoding_add_usedchars(encoding_id: i32, is_used: *const i8) {
+pub(crate) unsafe fn pdf_encoding_add_usedchars(encoding_id: i32, is_used: *const i8) {
     if encoding_id < 0i32 || encoding_id >= enc_cache.count {
         panic!("Invalid encoding id: {}", encoding_id);
     }
@@ -581,7 +581,7 @@ pub unsafe fn pdf_encoding_add_usedchars(encoding_id: i32, is_used: *const i8) {
     }
 }
 
-pub unsafe fn pdf_encoding_get_tounicode(encoding_id: i32) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_encoding_get_tounicode(encoding_id: i32) -> *mut pdf_obj {
     if encoding_id < 0i32 || encoding_id >= enc_cache.count {
         panic!("Invalid encoding id: {}", encoding_id);
     }
@@ -598,7 +598,7 @@ pub unsafe fn pdf_encoding_get_tounicode(encoding_id: i32) -> *mut pdf_obj {
  * Tagged PDF) the one of PDF 1.5.
  */
 
-pub unsafe fn pdf_create_ToUnicode_CMap(
+pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
     enc_name: *const i8,
     enc_vec: *mut *mut i8,
     is_used: *const i8,
@@ -683,7 +683,7 @@ pub unsafe fn pdf_create_ToUnicode_CMap(
  * PDF stream object (not reference) returned.
  */
 
-pub unsafe fn pdf_load_ToUnicode_stream(ident: *const i8) -> Option<pdf_stream> {
+pub(crate) unsafe fn pdf_load_ToUnicode_stream(ident: *const i8) -> Option<pdf_stream> {
     let mut stream = None;
     if ident.is_null() {
         return None;

@@ -43,9 +43,9 @@ use super::dpx_pdffont::{
     pdf_font_reset_unique_tag_state, pdf_font_set_deterministic_unique_tags, pdf_font_set_dpi,
 };
 use super::dpx_tt_aux::tt_aux_set_verbose;
+use crate::bridge::DisplayExt;
 use crate::dpx_pdfparse::parse_unsigned;
 use crate::info;
-use crate::DisplayExt;
 use std::ffi::CStr;
 use std::ptr;
 
@@ -69,17 +69,17 @@ use crate::specials::{
 use libc::{atoi, free, strlen};
 use std::slice::from_raw_parts;
 
-pub type PageRange = page_range;
+pub(crate) type PageRange = page_range;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct page_range {
-    pub first: i32,
-    pub last: i32,
+pub(crate) struct page_range {
+    pub(crate) first: i32,
+    pub(crate) last: i32,
 }
 
-pub static mut is_xdv: i32 = 0i32;
+pub(crate) static mut is_xdv: i32 = 0i32;
 
-pub static mut translate_origin: i32 = 0i32;
+pub(crate) static mut translate_origin: i32 = 0i32;
 static mut ignore_colors: i8 = 0_i8;
 static mut annot_grow: f64 = 0.0f64;
 static mut bookmark_open: i32 = 0i32;
@@ -101,15 +101,15 @@ static mut key_bits: i32 = 40i32;
 static mut permission: i32 = 0x3ci32;
 /* Page device */
 
-pub static mut paper_width: f64 = 595.0f64;
+pub(crate) static mut paper_width: f64 = 595.0f64;
 
-pub static mut paper_height: f64 = 842.0f64;
+pub(crate) static mut paper_height: f64 = 842.0f64;
 static mut x_offset: f64 = 72.0f64;
 static mut y_offset: f64 = 72.0f64;
 
-pub static mut landscape_mode: i32 = 0i32;
+pub(crate) static mut landscape_mode: i32 = 0i32;
 
-pub static mut always_embed: i32 = 0i32;
+pub(crate) static mut always_embed: i32 = 0i32;
 unsafe fn select_paper(paperspec: &[u8]) {
     let mut error: i32 = 0i32;
     paper_width = 0.;

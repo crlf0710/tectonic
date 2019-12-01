@@ -18,17 +18,17 @@ use crate::xetex_ini::{
 };
 use crate::xetex_io::name_of_input_file;
 use crate::xetex_texmfmp::gettexstring;
-use crate::{ttstub_issue_error, ttstub_issue_warning, ttstub_output_close, ttstub_output_open};
+use bridge::{ttstub_issue_error, ttstub_issue_warning, ttstub_output_close, ttstub_output_open};
 use libc::{free, strcat, strcpy, strlen};
 use std::ptr;
 
 use crate::size_t;
 use bridge::OutputHandleWrapper;
-pub type scaled_t = i32;
-pub type str_number = i32;
+pub(crate) type scaled_t = i32;
+pub(crate) type str_number = i32;
 bitflags::bitflags! {
     #[repr(C)]
-    pub struct Flags: u32 {
+    pub(crate) struct Flags: u32 {
         const CONTENT_READY = 0b00000001;
         const OFF = 0b00000010;
         const NOT_VOID = 0b00000100;
@@ -39,23 +39,23 @@ bitflags::bitflags! {
 /* recorders know how to record a node */
 /*  Here are all the local variables gathered in one "synchronization context"  */
 #[repr(C)]
-pub struct Context {
-    pub file: Option<OutputHandleWrapper>,
-    pub root_name: *mut i8,
-    pub count: i32,
-    pub node: i32,
-    pub recorder: synctex_recorder_t,
-    pub tag: i32,
-    pub line: i32,
-    pub curh: i32,
-    pub curv: i32,
-    pub magnification: i32,
-    pub unit: i32,
-    pub total_length: usize,
-    pub lastv: i32,
-    pub form_depth: i32,
-    pub synctex_tag_counter: u32,
-    pub flags: Flags,
+pub(crate) struct Context {
+    pub(crate) file: Option<OutputHandleWrapper>,
+    pub(crate) root_name: *mut i8,
+    pub(crate) count: i32,
+    pub(crate) node: i32,
+    pub(crate) recorder: synctex_recorder_t,
+    pub(crate) tag: i32,
+    pub(crate) line: i32,
+    pub(crate) curh: i32,
+    pub(crate) curv: i32,
+    pub(crate) magnification: i32,
+    pub(crate) unit: i32,
+    pub(crate) total_length: usize,
+    pub(crate) lastv: i32,
+    pub(crate) form_depth: i32,
+    pub(crate) synctex_tag_counter: u32,
+    pub(crate) flags: Flags,
 }
 /*  For non-GCC compilation.  */
 /*  UNIT is the scale. TeX coordinates are very accurate and client won't need
@@ -154,7 +154,7 @@ Latest Revision: Wed Jul  1 08:17:50 UTC 2009
 /*  Send this message to init the synctex command value to the command line option.
  *  Sending this message too early will cause a bus error.  */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_init_command() {
+pub(crate) unsafe extern "C" fn synctex_init_command() {
     /* In the web2c implementations this dealt with the -synctex command line
      * argument. */
     /* Reset state */
@@ -352,7 +352,7 @@ unsafe extern "C" fn synctex_prepare_content() -> bool {
  *  contain any material meant to be typeset.
  */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_start_input() {
+pub(crate) unsafe extern "C" fn synctex_start_input() {
     if synctex_ctxt.flags.contains(Flags::OFF) {
         return;
     }
@@ -409,7 +409,7 @@ pub unsafe extern "C" fn synctex_start_input() {
  *  synctexterminate() is called when the TeX run terminates.
  */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_terminate(mut _log_opened: bool) {
+pub(crate) unsafe extern "C" fn synctex_terminate(mut _log_opened: bool) {
     if let Some(_file) = synctex_ctxt.file.as_mut() {
         /* We keep the file even if no tex output is produced
          * (synctex_ctxt.flags.not_void == 0). I assume that this means that there
@@ -426,7 +426,7 @@ pub unsafe extern "C" fn synctex_terminate(mut _log_opened: bool) {
  *  the very beginning of the ship_out procedure.
  */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_sheet(mut mag: i32) {
+pub(crate) unsafe extern "C" fn synctex_sheet(mut mag: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
         if (*eqtb.offset(
             (1i32
@@ -488,7 +488,7 @@ pub unsafe extern "C" fn synctex_sheet(mut mag: i32) {
  *  the very end of the ship_out procedure.
  */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_teehs() {
+pub(crate) unsafe extern "C" fn synctex_teehs() {
     if synctex_ctxt.flags.contains(Flags::OFF) || synctex_ctxt.file.is_none() {
         return;
     } /* not total_pages+1*/
@@ -514,7 +514,7 @@ pub unsafe extern "C" fn synctex_teehs() {
  *  by a synctex_tsilv, sent at the end of the vlist_out procedure.  p is the
  *  address of the vlist. We assume that p is really a vlist node! */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_vlist(mut this_box: i32) {
+pub(crate) unsafe extern "C" fn synctex_vlist(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || (*eqtb.offset(
             (1i32
@@ -566,7 +566,7 @@ pub unsafe extern "C" fn synctex_vlist(mut this_box: i32) {
  *  sent at the end of the vlist_out procedure in *TeX.web to balance a former
  *  synctex_vlist sent at the beginning of that procedure.    */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_tsilv(mut this_box: i32) {
+pub(crate) unsafe extern "C" fn synctex_tsilv(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || (*eqtb.offset(
             (1i32
@@ -615,7 +615,7 @@ pub unsafe extern "C" fn synctex_tsilv(mut this_box: i32) {
 /*  This message is sent when a void vlist will be shipped out.
  *  There is no need to balance a void vlist.  */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_void_vlist(mut p: i32, mut _this_box: i32) {
+pub(crate) unsafe extern "C" fn synctex_void_vlist(mut p: i32, mut _this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || (*eqtb.offset(
             (1i32
@@ -667,7 +667,7 @@ pub unsafe extern "C" fn synctex_void_vlist(mut p: i32, mut _this_box: i32) {
  *  by a synctex_tsilh, sent at the end of the hlist_out procedure.  p is the
  *  address of the hlist We assume that p is really an hlist node! */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_hlist(mut this_box: i32) {
+pub(crate) unsafe extern "C" fn synctex_hlist(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || (*eqtb.offset(
             (1i32
@@ -717,7 +717,7 @@ pub unsafe extern "C" fn synctex_hlist(mut this_box: i32) {
  *  sent at the end of the hlist_out procedure in *TeX.web to balance a former
  *  synctex_hlist sent at the beginning of that procedure.    */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_tsilh(mut this_box: i32) {
+pub(crate) unsafe extern "C" fn synctex_tsilh(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || (*eqtb.offset(
             (1i32
@@ -766,7 +766,7 @@ pub unsafe extern "C" fn synctex_tsilh(mut this_box: i32) {
 /*  This message is sent when a void hlist will be shipped out.
  *  There is no need to balance a void hlist.  */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_void_hlist(mut p: i32, mut _this_box: i32) {
+pub(crate) unsafe extern "C" fn synctex_void_hlist(mut p: i32, mut _this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || (*eqtb.offset(
             (1i32
@@ -823,7 +823,7 @@ pub unsafe extern "C" fn synctex_void_hlist(mut p: i32, mut _this_box: i32) {
 /*  glue code, this message is sent whenever an inline math node will ship out
 See: @ @<Output the non-|char_node| |p| for...  */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_math(mut p: i32, mut _this_box: i32) {
+pub(crate) unsafe extern "C" fn synctex_math(mut p: i32, mut _this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || (*eqtb.offset(
             (1i32
@@ -880,7 +880,7 @@ pub unsafe extern "C" fn synctex_math(mut p: i32, mut _this_box: i32) {
 /*  this message is sent whenever an horizontal glue node or rule node ships out
 See: move_past:...    */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_horizontal_rule_or_glue(mut p: i32, mut _this_box: i32) {
+pub(crate) unsafe extern "C" fn synctex_horizontal_rule_or_glue(mut p: i32, mut _this_box: i32) {
     match (*mem.offset(p as isize)).b16.s1 as i32 {
         2 => {
             if synctex_ctxt.flags.contains(Flags::OFF)
@@ -1032,7 +1032,7 @@ pub unsafe extern "C" fn synctex_horizontal_rule_or_glue(mut p: i32, mut _this_b
 /*  this message is sent whenever a kern node ships out
 See: @ @<Output the non-|char_node| |p| for...    */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_kern(mut p: i32, mut this_box: i32) {
+pub(crate) unsafe extern "C" fn synctex_kern(mut p: i32, mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || (*eqtb.offset(
             (1i32
@@ -1105,7 +1105,7 @@ pub unsafe extern "C" fn synctex_kern(mut p: i32, mut this_box: i32) {
 /*  this message should be sent to record information
 synchronously for the current location    */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_current() {
+pub(crate) unsafe extern "C" fn synctex_current() {
     /* magic pt/in conversion */
     if synctex_ctxt.flags.contains(Flags::OFF)
         || (*eqtb.offset(
@@ -1242,7 +1242,7 @@ unsafe extern "C" fn synctex_record_teehs(mut sheet: i32) -> i32 {
  *  the very beginning of the pdf_ship_out procedure.
  */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_pdfxform(mut p: i32) {
+pub(crate) unsafe extern "C" fn synctex_pdfxform(mut p: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
         if (*eqtb.offset(
             (1i32
@@ -1291,13 +1291,13 @@ pub unsafe extern "C" fn synctex_pdfxform(mut p: i32) {
  *  the very end of the ship_out procedure.
  */
 #[no_mangle]
-pub unsafe extern "C" fn synctex_mrofxfdp() {
+pub(crate) unsafe extern "C" fn synctex_mrofxfdp() {
     if !synctex_ctxt.file.is_none() {
         synctex_record_mrofxfdp();
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn synctex_pdfrefxform(mut objnum: i32) {
+pub(crate) unsafe extern "C" fn synctex_pdfrefxform(mut objnum: i32) {
     if !synctex_ctxt.file.is_none() {
         synctex_record_node_pdfrefxform(objnum);
     };

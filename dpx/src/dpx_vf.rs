@@ -29,9 +29,9 @@
 use super::dpx_numbers::{
     tt_get_positive_quad, tt_get_unsigned_byte, tt_get_unsigned_num, tt_get_unsigned_quad,
 };
+use crate::bridge::DisplayExt;
 use crate::streq_ptr;
 use crate::warn;
-use crate::DisplayExt;
 use std::ffi::CStr;
 use std::ptr;
 
@@ -44,42 +44,42 @@ use super::dpx_dvicodes::*;
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::{sqxfw, tt_skip_bytes};
 use super::dpx_tfm::tfm_open;
-use crate::{ttstub_input_close, ttstub_input_open, ttstub_input_read};
+use crate::bridge::{ttstub_input_close, ttstub_input_open, ttstub_input_read};
 use libc::{free, strcpy, strlen};
 
-use super::size_t;
+use crate::bridge::size_t;
 
 const VF_ID: u8 = 202;
 
-use crate::TTInputFormat;
+use crate::bridge::TTInputFormat;
 
 use bridge::InputHandleWrapper;
-pub type fixword = i32;
-pub type spt_t = i32;
+pub(crate) type fixword = i32;
+pub(crate) type spt_t = i32;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct vf {
-    pub tex_name: *mut i8,
-    pub ptsize: spt_t,
-    pub design_size: u32,
-    pub num_dev_fonts: u32,
-    pub max_dev_fonts: u32,
-    pub dev_fonts: *mut font_def,
-    pub ch_pkt: *mut *mut u8,
-    pub pkt_len: *mut u32,
-    pub num_chars: u32,
+pub(crate) struct vf {
+    pub(crate) tex_name: *mut i8,
+    pub(crate) ptsize: spt_t,
+    pub(crate) design_size: u32,
+    pub(crate) num_dev_fonts: u32,
+    pub(crate) max_dev_fonts: u32,
+    pub(crate) dev_fonts: *mut font_def,
+    pub(crate) ch_pkt: *mut *mut u8,
+    pub(crate) pkt_len: *mut u32,
+    pub(crate) num_chars: u32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct font_def {
-    pub font_id: i32,
-    pub checksum: u32,
-    pub size: u32,
-    pub design_size: u32,
-    pub directory: *mut i8,
-    pub name: *mut i8,
-    pub tfm_id: i32,
-    pub dev_id: i32,
+pub(crate) struct font_def {
+    pub(crate) font_id: i32,
+    pub(crate) checksum: u32,
+    pub(crate) size: u32,
+    pub(crate) design_size: u32,
+    pub(crate) directory: *mut i8,
+    pub(crate) name: *mut i8,
+    pub(crate) tfm_id: i32,
+    pub(crate) dev_id: i32,
     /* quasi-hack to get the primary input */
     /* id returned by DEV module */
 }
@@ -92,14 +92,14 @@ pub struct font_def {
  * as directory separators. */
 static mut verbose: u8 = 0_u8;
 
-pub unsafe fn vf_set_verbose(level: i32) {
+pub(crate) unsafe fn vf_set_verbose(level: i32) {
     verbose = level as u8;
 }
 static mut vf_fonts: *mut vf = std::ptr::null_mut();
 static mut num_vf_fonts: u32 = 0_u32;
 static mut max_vf_fonts: u32 = 0_u32;
 
-pub unsafe fn vf_reset_global_state() {
+pub(crate) unsafe fn vf_reset_global_state() {
     num_vf_fonts = 0_u32;
     max_vf_fonts = 0_u32;
     vf_fonts = ptr::null_mut();
@@ -168,7 +168,7 @@ unsafe fn read_a_char_def(
     if pkt_len > 0_u32 {
         let pkt = new((pkt_len as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
             as *mut u8;
-        if ttstub_input_read(vf_handle.0.as_ptr(), pkt as *mut i8, pkt_len as size_t)
+        if ttstub_input_read(vf_handle.as_ptr(), pkt as *mut i8, pkt_len as size_t)
             != pkt_len as isize
         {
             panic!("VF file ended prematurely.");
@@ -208,7 +208,7 @@ unsafe fn read_a_font_def(vf_handle: &mut InputHandleWrapper, font_id: i32, this
         ((dir_length + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
     ) as *mut i8;
     if ttstub_input_read(
-        vf_handle.0.as_ptr(),
+        vf_handle.as_ptr(),
         (*dev_font).directory,
         dir_length as size_t,
     ) != dir_length as isize
@@ -217,7 +217,7 @@ unsafe fn read_a_font_def(vf_handle: &mut InputHandleWrapper, font_id: i32, this
     }
     (*dev_font).name = new(((name_length + 1i32) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    if ttstub_input_read(vf_handle.0.as_ptr(), (*dev_font).name, name_length as usize)
+    if ttstub_input_read(vf_handle.as_ptr(), (*dev_font).name, name_length as usize)
         != name_length as isize
     {
         panic!("directory read failed");
@@ -284,7 +284,7 @@ the PDF file will never repeat a physical font name */
 /* Note: This code needs to be able to recurse */
 /* Global variables such as num_vf_fonts require careful attention */
 
-pub unsafe fn vf_locate_font(tex_name: *const i8, ptsize: spt_t) -> i32 {
+pub(crate) unsafe fn vf_locate_font(tex_name: *const i8, ptsize: spt_t) -> i32 {
     /* Has this name and ptsize already been loaded as a VF? */
     let mut i = 0;
     while (i as u32) < num_vf_fonts {
@@ -461,7 +461,7 @@ unsafe fn vf_xxx(len: i32, start: *mut *mut u8, end: *mut u8) {
     *start = (*start).offset(len as isize);
 }
 
-pub unsafe fn vf_set_char(ch: i32, vf_font: i32) {
+pub(crate) unsafe fn vf_set_char(ch: i32, vf_font: i32) {
     let mut start: *mut u8 = ptr::null_mut();
     let end;
     let mut default_font: i32 = -1i32;
@@ -599,7 +599,7 @@ pub unsafe fn vf_set_char(ch: i32, vf_font: i32) {
     };
 }
 
-pub unsafe fn vf_close_all_fonts() {
+pub(crate) unsafe fn vf_close_all_fonts() {
     for i in 0..num_vf_fonts {
         /* Release the packet for each character */
         if !(*vf_fonts.offset(i as isize)).ch_pkt.is_null() {

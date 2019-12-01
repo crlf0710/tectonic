@@ -24,7 +24,7 @@ non_camel_case_types,
 non_snake_case,
 )]
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use std::ffi::{CStr, CString};
 use std::ptr;
 
@@ -56,17 +56,17 @@ use super::SpcHandler;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct spc_html_ {
-    pub opts: C2RustUnnamed_0,
-    pub link_dict: *mut pdf_obj,
-    pub baseurl: *mut i8,
-    pub pending_type: i32,
+pub(crate) struct spc_html_ {
+    pub(crate) opts: C2RustUnnamed_0,
+    pub(crate) link_dict: *mut pdf_obj,
+    pub(crate) baseurl: *mut i8,
+    pub(crate) pending_type: i32,
 }
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_0 {
-    pub extensions: i32,
+pub(crate) struct C2RustUnnamed_0 {
+    pub(crate) extensions: i32,
 }
 
 use crate::dpx_pdfximage::load_options;
@@ -741,27 +741,27 @@ unsafe fn cvt_a_to_tmatrix<'a>(M: &mut TMatrix, buf: &'a [u8]) -> Result<&'a [u8
 }
 /* ENABLE_HTML_SVG_TRANSFORM */
 
-pub unsafe fn spc_html_at_begin_document() -> i32 {
+pub(crate) unsafe fn spc_html_at_begin_document() -> i32 {
     let sd: *mut spc_html_ = &mut _HTML_STATE;
     spc_handler_html__init(sd as *mut libc::c_void)
 }
 
-pub unsafe fn spc_html_at_begin_page() -> i32 {
+pub(crate) unsafe fn spc_html_at_begin_page() -> i32 {
     let sd: *mut spc_html_ = &mut _HTML_STATE;
     spc_handler_html__bophook(ptr::null_mut(), sd as *mut libc::c_void)
 }
 
-pub unsafe fn spc_html_at_end_page() -> i32 {
+pub(crate) unsafe fn spc_html_at_end_page() -> i32 {
     let sd: *mut spc_html_ = &mut _HTML_STATE;
     spc_handler_html__eophook(ptr::null_mut(), sd as *mut libc::c_void)
 }
 
-pub unsafe fn spc_html_at_end_document() -> i32 {
+pub(crate) unsafe fn spc_html_at_end_document() -> i32 {
     let sd: *mut spc_html_ = &mut _HTML_STATE;
     spc_handler_html__clean(ptr::null_mut(), sd as *mut libc::c_void)
 }
 
-pub fn spc_html_check_special(buf: &[u8]) -> bool {
+pub(crate) fn spc_html_check_special(buf: &[u8]) -> bool {
     let mut i = 0;
     for &p in buf {
         if unsafe { libc::isspace(p as _) == 0 } {
@@ -773,7 +773,7 @@ pub fn spc_html_check_special(buf: &[u8]) -> bool {
     buf.starts_with(b"html:")
 }
 
-pub unsafe fn spc_html_setup_handler(
+pub(crate) unsafe fn spc_html_setup_handler(
     mut sph: *mut SpcHandler,
     spe: *mut spc_env,
     mut ap: *mut spc_arg,

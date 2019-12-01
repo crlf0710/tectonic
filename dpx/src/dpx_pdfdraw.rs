@@ -47,44 +47,44 @@ use super::dpx_pdfdev::{Equal, Point, Rect, TMatrix};
 /* Graphics State */
 #[derive(Clone)]
 #[repr(C)]
-pub struct pdf_gstate {
-    pub cp: Point,
-    pub matrix: TMatrix,
-    pub strokecolor: PdfColor,
-    pub fillcolor: PdfColor,
-    pub linedash: LineDash,
-    pub linewidth: f64,
-    pub linecap: i32,
-    pub linejoin: i32,
-    pub miterlimit: f64,
-    pub flatness: i32,
-    pub path: pdf_path,
-    pub flags: i32,
-    pub pt_fixee: Point,
+pub(crate) struct pdf_gstate {
+    pub(crate) cp: Point,
+    pub(crate) matrix: TMatrix,
+    pub(crate) strokecolor: PdfColor,
+    pub(crate) fillcolor: PdfColor,
+    pub(crate) linedash: LineDash,
+    pub(crate) linewidth: f64,
+    pub(crate) linecap: i32,
+    pub(crate) linejoin: i32,
+    pub(crate) miterlimit: f64,
+    pub(crate) flatness: i32,
+    pub(crate) path: pdf_path,
+    pub(crate) flags: i32,
+    pub(crate) pt_fixee: Point,
 }
 #[derive(Clone)]
-pub struct pdf_path {
-    pub path: Vec<pa_elem>, /* cm,  - */
-                            /* colorspace here */
-                            /* d,  D  */
-                            /* w,  LW */
-                            /* J,  LC */
-                            /* j,  LJ */
-                            /* M,  ML */
-                            /* i,  FL, 0 to 100 (0 for use device-default) */
-                            /* internal */
-                            /* bookkeeping the origin of the last transform applied */
-                            /* _PDF_DRAW_H_ */
+pub(crate) struct pdf_path {
+    pub(crate) path: Vec<pa_elem>, /* cm,  - */
+                                   /* colorspace here */
+                                   /* d,  D  */
+                                   /* w,  LW */
+                                   /* J,  LC */
+                                   /* j,  LJ */
+                                   /* M,  ML */
+                                   /* i,  FL, 0 to 100 (0 for use device-default) */
+                                   /* internal */
+                                   /* bookkeeping the origin of the last transform applied */
+                                   /* _PDF_DRAW_H_ */
 }
 
 impl pdf_path {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self { path: vec![] }
     }
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.path.len()
     }
-    pub fn transform(&mut self, M: &TMatrix) -> i32 {
+    pub(crate) fn transform(&mut self, M: &TMatrix) -> i32 {
         for pe in self.path.iter_mut() {
             if pe.typ != PeType::TERMINATE {
                 for n in (0..pe.typ.n_pts()).rev() {
@@ -95,7 +95,7 @@ impl pdf_path {
         0
     }
     /* start new subpath */
-    pub fn moveto(&mut self, cp: &mut Point, p0: Point) -> i32 {
+    pub(crate) fn moveto(&mut self, cp: &mut Point, p0: Point) -> i32 {
         if !self.path.is_empty() {
             let len = self.len();
             let pe = &mut self.path[len - 1];
@@ -170,14 +170,14 @@ impl pdf_path {
         return &mut self.path[len - 1];
     }
     /* Path Construction */
-    pub fn lineto(&mut self, cp: &mut Point, p0: Point) -> i32 {
+    pub(crate) fn lineto(&mut self, cp: &mut Point, p0: Point) -> i32 {
         let pe = self.next_pe(cp);
         pe.typ = PeType::LINETO;
         *cp = p0;
         pe.p[0] = p0;
         0i32
     }
-    pub fn curveto(&mut self, cp: &mut Point, p0: Point, p1: Point, p2: Point) -> i32 {
+    pub(crate) fn curveto(&mut self, cp: &mut Point, p0: Point, p1: Point, p2: Point) -> i32 {
         let pe = self.next_pe(cp);
         if cp.equal(&p0) {
             pe.typ = PeType::CURVETO_V;
@@ -280,16 +280,16 @@ impl pdf_path {
 
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
-pub struct pa_elem {
-    pub typ: PeType,
-    pub p: [Point; 3],
+pub(crate) struct pa_elem {
+    pub(crate) typ: PeType,
+    pub(crate) p: [Point; 3],
 }
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
-pub struct LineDash {
-    pub num_dash: i32,
-    pub pattern: [f64; 16],
-    pub offset: f64,
+pub(crate) struct LineDash {
+    pub(crate) num_dash: i32,
+    pub(crate) pattern: [f64; 16],
+    pub(crate) offset: f64,
 }
 
 fn idtransform(M: &TMatrix, vec: Point) -> Option<Point> {
@@ -301,7 +301,7 @@ fn idtransform(M: &TMatrix, vec: Point) -> Option<Point> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum PeType {
+pub(crate) enum PeType {
     MOVETO = 0,
     LINETO = 1,
     CURVETO = 2,
@@ -318,7 +318,7 @@ impl Default for PeType {
 }
 
 impl PeType {
-    pub fn opchr(&self) -> i8 {
+    pub(crate) fn opchr(&self) -> i8 {
         use PeType::*;
         (match *self {
             MOVETO => b'm',
@@ -330,7 +330,7 @@ impl PeType {
             TERMINATE => b' ',
         }) as i8
     }
-    pub fn n_pts(&self) -> usize {
+    pub(crate) fn n_pts(&self) -> usize {
         use PeType::*;
         match *self {
             MOVETO => 1,
@@ -594,7 +594,7 @@ unsafe fn pdf_dev__flushpath(pa: &mut pdf_path, opchr: u8, rule: i32, ignore_rul
 }
 
 impl pdf_gstate {
-    pub fn init() -> Self {
+    pub(crate) fn init() -> Self {
         Self {
             cp: Point::zero(),
             matrix: TMatrix::identity(),
@@ -639,14 +639,14 @@ unsafe fn copy_a_gstate(gs1: &mut pdf_gstate, gs2: &pdf_gstate) {
     gs1.pt_fixee.y = gs2.pt_fixee.y;
 }
 
-pub unsafe fn pdf_dev_init_gstates() {
+pub(crate) unsafe fn pdf_dev_init_gstates() {
     let stack = unsafe { &mut gs_stack };
     *stack = vec![];
     let gs = pdf_gstate::init();
     stack.push(gs);
 }
 
-pub unsafe fn pdf_dev_clear_gstates() {
+pub(crate) unsafe fn pdf_dev_clear_gstates() {
     let stack = unsafe { &mut gs_stack };
 
     if stack.len() > 1 {
@@ -656,7 +656,7 @@ pub unsafe fn pdf_dev_clear_gstates() {
     *stack = vec![];
 }
 
-pub unsafe fn pdf_dev_gsave() -> i32 {
+pub(crate) unsafe fn pdf_dev_gsave() -> i32 {
     let stack = unsafe { &mut gs_stack };
     let gs0 = stack.last().unwrap();
 
@@ -668,7 +668,7 @@ pub unsafe fn pdf_dev_gsave() -> i32 {
     0i32
 }
 
-pub unsafe fn pdf_dev_grestore() -> i32 {
+pub(crate) unsafe fn pdf_dev_grestore() -> i32 {
     let stack = unsafe { &mut gs_stack };
     if stack.len() <= 1 {
         /* Initial state at bottom */
@@ -681,7 +681,7 @@ pub unsafe fn pdf_dev_grestore() -> i32 {
     0i32
 }
 
-pub unsafe fn pdf_dev_push_gstate() -> i32 {
+pub(crate) unsafe fn pdf_dev_push_gstate() -> i32 {
     let stack = unsafe { &mut gs_stack };
 
     let gs0 = pdf_gstate::init();
@@ -690,7 +690,7 @@ pub unsafe fn pdf_dev_push_gstate() -> i32 {
     0i32
 }
 
-pub unsafe fn pdf_dev_pop_gstate() -> i32 {
+pub(crate) unsafe fn pdf_dev_pop_gstate() -> i32 {
     let gss = unsafe { &mut gs_stack };
     if gss.len() <= 1 {
         /* Initial state at bottom */
@@ -701,13 +701,13 @@ pub unsafe fn pdf_dev_pop_gstate() -> i32 {
     0i32
 }
 
-pub fn pdf_dev_current_depth() -> usize {
+pub(crate) fn pdf_dev_current_depth() -> usize {
     let stack = unsafe { &gs_stack };
     stack.len() - 1
     /* 0 means initial state */
 }
 
-pub unsafe fn pdf_dev_grestore_to(depth: usize) {
+pub(crate) unsafe fn pdf_dev_grestore_to(depth: usize) {
     let gss = unsafe { &mut gs_stack }; /* op: Q */
     if gss.len() > depth + 1 {
         warn!("Closing pending transformations at end of page/XObject.");
@@ -719,14 +719,14 @@ pub unsafe fn pdf_dev_grestore_to(depth: usize) {
     pdf_dev_reset_fonts(0i32);
 }
 
-pub unsafe fn pdf_dev_currentpoint(p: &mut Point) -> i32 {
+pub(crate) unsafe fn pdf_dev_currentpoint(p: &mut Point) -> i32 {
     let gss = unsafe { &gs_stack };
     let gs = gss.last().unwrap();
     *p = gs.cp.clone();
     0i32
 }
 
-pub unsafe fn pdf_dev_currentmatrix() -> TMatrix {
+pub(crate) unsafe fn pdf_dev_currentmatrix() -> TMatrix {
     let gss = unsafe { &gs_stack };
     let gs = gss.last().unwrap();
     gs.matrix.clone()
@@ -738,7 +738,7 @@ pub unsafe fn pdf_dev_currentmatrix() -> TMatrix {
  *   the color is the same as the current graphics state color
  */
 
-pub unsafe fn pdf_dev_set_color(color: &PdfColor, mask: i8, force: i32) {
+pub(crate) unsafe fn pdf_dev_set_color(color: &PdfColor, mask: i8, force: i32) {
     let stack = unsafe { &mut gs_stack };
     let gs = stack.last_mut().unwrap();
     let current = if mask as i32 != 0 {
@@ -777,7 +777,7 @@ pub unsafe fn pdf_dev_set_color(color: &PdfColor, mask: i8, force: i32) {
     *current = color.clone();
 }
 
-pub unsafe fn pdf_dev_concat(M: &TMatrix) -> i32 {
+pub(crate) unsafe fn pdf_dev_concat(M: &TMatrix) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -831,7 +831,7 @@ pub unsafe fn pdf_dev_concat(M: &TMatrix) -> i32 {
  * name gs      --  name: res. name of ExtGState dict.
  */
 
-pub unsafe fn pdf_dev_setmiterlimit(mlimit: f64) -> i32 {
+pub(crate) unsafe fn pdf_dev_setmiterlimit(mlimit: f64) -> i32 {
     let gss = unsafe { &mut gs_stack }; /* op: M */
     let gs = gss.last_mut().unwrap(); /* op: J */
     let mut len = 0_usize; /* op: j */
@@ -851,7 +851,7 @@ pub unsafe fn pdf_dev_setmiterlimit(mlimit: f64) -> i32 {
     0i32
 }
 
-pub unsafe fn pdf_dev_setlinecap(capstyle: i32) -> i32 {
+pub(crate) unsafe fn pdf_dev_setlinecap(capstyle: i32) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let buf = &mut fmt_buf;
@@ -867,7 +867,7 @@ pub unsafe fn pdf_dev_setlinecap(capstyle: i32) -> i32 {
     0i32
 }
 
-pub unsafe fn pdf_dev_setlinejoin(joinstyle: i32) -> i32 {
+pub(crate) unsafe fn pdf_dev_setlinejoin(joinstyle: i32) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let buf = &mut fmt_buf;
@@ -883,7 +883,7 @@ pub unsafe fn pdf_dev_setlinejoin(joinstyle: i32) -> i32 {
     0i32
 }
 
-pub unsafe fn pdf_dev_setlinewidth(width: f64) -> i32 {
+pub(crate) unsafe fn pdf_dev_setlinewidth(width: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let mut len = 0_usize;
@@ -902,7 +902,7 @@ pub unsafe fn pdf_dev_setlinewidth(width: f64) -> i32 {
     0i32
 }
 
-pub unsafe fn pdf_dev_setdash(pattern: &[f64], offset: f64) -> i32 {
+pub(crate) unsafe fn pdf_dev_setdash(pattern: &[f64], offset: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let buf = &mut fmt_buf;
@@ -924,21 +924,21 @@ pub unsafe fn pdf_dev_setdash(pattern: &[f64], offset: f64) -> i32 {
 }
 /* ZSYUEDVEDEOF */
 
-pub unsafe fn pdf_dev_clip() -> i32 {
+pub(crate) unsafe fn pdf_dev_clip() -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     pdf_dev__flushpath(cpa, b'W', 0, 0)
 }
 
-pub unsafe fn pdf_dev_eoclip() -> i32 {
+pub(crate) unsafe fn pdf_dev_eoclip() -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     pdf_dev__flushpath(cpa, b'W', 1, 0)
 }
 
-pub unsafe fn pdf_dev_flushpath(p_op: u8, fill_rule: i32) -> i32 {
+pub(crate) unsafe fn pdf_dev_flushpath(p_op: u8, fill_rule: i32) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -952,7 +952,7 @@ pub unsafe fn pdf_dev_flushpath(p_op: u8, fill_rule: i32) -> i32 {
     error
 }
 
-pub unsafe fn pdf_dev_newpath() -> i32 {
+pub(crate) unsafe fn pdf_dev_newpath() -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let p = &mut gs.path;
@@ -964,7 +964,7 @@ pub unsafe fn pdf_dev_newpath() -> i32 {
     0i32
 }
 
-pub unsafe fn pdf_dev_moveto(x: f64, y: f64) -> i32 {
+pub(crate) unsafe fn pdf_dev_moveto(x: f64, y: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -973,7 +973,7 @@ pub unsafe fn pdf_dev_moveto(x: f64, y: f64) -> i32 {
     /* cpt updated */
 }
 
-pub unsafe fn pdf_dev_rmoveto(x: f64, y: f64) -> i32 {
+pub(crate) unsafe fn pdf_dev_rmoveto(x: f64, y: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -982,7 +982,7 @@ pub unsafe fn pdf_dev_rmoveto(x: f64, y: f64) -> i32 {
     /* cpt updated */
 }
 
-pub unsafe fn pdf_dev_lineto(x: f64, y: f64) -> i32 {
+pub(crate) unsafe fn pdf_dev_lineto(x: f64, y: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -990,7 +990,7 @@ pub unsafe fn pdf_dev_lineto(x: f64, y: f64) -> i32 {
     cpa.lineto(cpt, point2(x, y))
 }
 
-pub unsafe fn pdf_dev_rlineto(x: f64, y: f64) -> i32 {
+pub(crate) unsafe fn pdf_dev_rlineto(x: f64, y: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -998,7 +998,7 @@ pub unsafe fn pdf_dev_rlineto(x: f64, y: f64) -> i32 {
     cpa.lineto(cpt, point2(x + cpt.x, y + cpt.y))
 }
 
-pub unsafe fn pdf_dev_curveto(x0: f64, y0: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> i32 {
+pub(crate) unsafe fn pdf_dev_curveto(x0: f64, y0: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1009,7 +1009,7 @@ pub unsafe fn pdf_dev_curveto(x0: f64, y0: f64, x1: f64, y1: f64, x2: f64, y2: f
     cpa.curveto(cpt, p0, p1, p2)
 }
 
-pub unsafe fn pdf_dev_vcurveto(x0: f64, y0: f64, x1: f64, y1: f64) -> i32 {
+pub(crate) unsafe fn pdf_dev_vcurveto(x0: f64, y0: f64, x1: f64, y1: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1020,7 +1020,7 @@ pub unsafe fn pdf_dev_vcurveto(x0: f64, y0: f64, x1: f64, y1: f64) -> i32 {
     cpa.curveto(cpt, cpt_copy, p0, p1)
 }
 
-pub unsafe fn pdf_dev_ycurveto(x0: f64, y0: f64, x1: f64, y1: f64) -> i32 {
+pub(crate) unsafe fn pdf_dev_ycurveto(x0: f64, y0: f64, x1: f64, y1: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1030,7 +1030,7 @@ pub unsafe fn pdf_dev_ycurveto(x0: f64, y0: f64, x1: f64, y1: f64) -> i32 {
     cpa.curveto(cpt, p0, p1, p1)
 }
 
-pub unsafe fn pdf_dev_rcurveto(x0: f64, y0: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> i32 {
+pub(crate) unsafe fn pdf_dev_rcurveto(x0: f64, y0: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1041,7 +1041,7 @@ pub unsafe fn pdf_dev_rcurveto(x0: f64, y0: f64, x1: f64, y1: f64, x2: f64, y2: 
     cpa.curveto(cpt, p0, p1, p2)
 }
 
-pub unsafe fn pdf_dev_closepath() -> i32 {
+pub(crate) unsafe fn pdf_dev_closepath() -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpt = &mut gs.cp;
@@ -1049,7 +1049,7 @@ pub unsafe fn pdf_dev_closepath() -> i32 {
     pdf_path__closepath(cpa, cpt)
 }
 
-pub unsafe fn pdf_dev_dtransform(p: &mut Point, M: Option<&TMatrix>) {
+pub(crate) unsafe fn pdf_dev_dtransform(p: &mut Point, M: Option<&TMatrix>) {
     if let Some(m) = M {
         *p = m.transform_vector(p.to_vector()).to_point();
     } else {
@@ -1059,7 +1059,7 @@ pub unsafe fn pdf_dev_dtransform(p: &mut Point, M: Option<&TMatrix>) {
     }
 }
 
-pub unsafe fn pdf_dev_idtransform(p: &mut Point, M: Option<&TMatrix>) {
+pub(crate) unsafe fn pdf_dev_idtransform(p: &mut Point, M: Option<&TMatrix>) {
     if let Some(m) = M {
         *p = idtransform(m, *p).unwrap();
     } else {
@@ -1079,7 +1079,7 @@ pub unsafe fn pdf_dev_transform(p: &mut Point, M: Option<&TMatrix>) {
     }
 }
 
-pub unsafe fn pdf_dev_arc(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1: f64) -> i32 {
+pub(crate) unsafe fn pdf_dev_arc(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1088,7 +1088,7 @@ pub unsafe fn pdf_dev_arc(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1: f64) -> i32
 }
 /* *negative* arc */
 
-pub unsafe fn pdf_dev_arcn(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1: f64) -> i32 {
+pub(crate) unsafe fn pdf_dev_arcn(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1096,7 +1096,7 @@ pub unsafe fn pdf_dev_arcn(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1: f64) -> i3
     cpa.elliptarc(cpt, point2(c_x, c_y), r, r, 0.0f64, a_0, a_1, -1i32)
 }
 
-pub unsafe fn pdf_dev_arcx(
+pub(crate) unsafe fn pdf_dev_arcx(
     c_x: f64,
     c_y: f64,
     r_x: f64,
@@ -1114,7 +1114,7 @@ pub unsafe fn pdf_dev_arcx(
 }
 /* Required by Tpic */
 
-pub unsafe fn pdf_dev_bspline(x0: f64, y0: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> i32 {
+pub(crate) unsafe fn pdf_dev_bspline(x0: f64, y0: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
@@ -1125,18 +1125,18 @@ pub unsafe fn pdf_dev_bspline(x0: f64, y0: f64, x1: f64, y1: f64, x2: f64, y2: f
     cpa.curveto(cpt, p1, p2, p3)
 }
 
-pub fn pdf_dev_rectfill(r: &Rect) {
+pub(crate) fn pdf_dev_rectfill(r: &Rect) {
     unsafe {
         pdf_dev__rectshape(r, None, b'f');
     }
 }
-pub fn pdf_dev_rectclip(r: &Rect) {
+pub(crate) fn pdf_dev_rectclip(r: &Rect) {
     unsafe {
         pdf_dev__rectshape(r, None, b'W');
     }
 }
 
-pub fn pdf_dev_set_fixed_point(x: f64, y: f64) {
+pub(crate) fn pdf_dev_set_fixed_point(x: f64, y: f64) {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
     gs.pt_fixee = point2(x, y);
@@ -1154,7 +1154,7 @@ pub fn pdf_dev_set_fixed_point(x: f64, y: f64) {
  * We must remember current depth of nesting when starting a page or xform,
  * and must recover until that depth at the end of page/xform.
  */
-pub fn pdf_dev_get_fixed_point() -> Point {
+pub(crate) fn pdf_dev_get_fixed_point() -> Point {
     let gss = unsafe { &gs_stack };
     let gs = gss.last().unwrap();
     gs.pt_fixee.clone()

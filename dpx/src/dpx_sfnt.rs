@@ -30,48 +30,48 @@ use tectonic_bridge::ttstub_input_close;
 
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::{tt_get_unsigned_pair, tt_get_unsigned_quad};
+use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{pdf_stream, STREAM_COMPRESS};
 use crate::dpx_truetype::SfntTableInfo;
 use crate::mfree;
-use crate::ttstub_input_read;
 use libc::{free, memcpy};
 
 use std::io::{Seek, SeekFrom};
 use std::ptr;
 
-pub type __ssize_t = i64;
-use crate::size_t;
+pub(crate) type __ssize_t = i64;
+use crate::bridge::size_t;
 use bridge::InputHandleWrapper;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct sfnt_table {
-    pub tag: [u8; 4],
-    pub check_sum: u32,
-    pub offset: u32,
-    pub length: u32,
-    pub data: *mut i8,
+pub(crate) struct sfnt_table {
+    pub(crate) tag: [u8; 4],
+    pub(crate) check_sum: u32,
+    pub(crate) offset: u32,
+    pub(crate) length: u32,
+    pub(crate) data: *mut i8,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct sfnt_table_directory {
-    pub version: u32,
-    pub num_tables: u16,
-    pub search_range: u16,
-    pub entry_selector: u16,
-    pub range_shift: u16,
-    pub num_kept_tables: u16,
-    pub flags: *mut i8,
-    pub tables: *mut sfnt_table,
+pub(crate) struct sfnt_table_directory {
+    pub(crate) version: u32,
+    pub(crate) num_tables: u16,
+    pub(crate) search_range: u16,
+    pub(crate) entry_selector: u16,
+    pub(crate) range_shift: u16,
+    pub(crate) num_kept_tables: u16,
+    pub(crate) flags: *mut i8,
+    pub(crate) tables: *mut sfnt_table,
 }
 #[repr(C)]
-pub struct sfnt {
-    pub type_0: i32,
-    pub directory: *mut sfnt_table_directory,
-    pub handle: InputHandleWrapper,
-    pub offset: u32,
+pub(crate) struct sfnt {
+    pub(crate) type_0: i32,
+    pub(crate) directory: *mut sfnt_table_directory,
+    pub(crate) handle: InputHandleWrapper,
+    pub(crate) offset: u32,
 }
 
-pub unsafe fn sfnt_open(mut handle: InputHandleWrapper) -> *mut sfnt {
+pub(crate) unsafe fn sfnt_open(mut handle: InputHandleWrapper) -> *mut sfnt {
     handle.seek(SeekFrom::Start(0)).unwrap(); /* mbz */
     let sfont =
         new((1_u32 as u64).wrapping_mul(::std::mem::size_of::<sfnt>() as u64) as u32) as *mut sfnt; /* typefaces position */
@@ -92,7 +92,7 @@ pub unsafe fn sfnt_open(mut handle: InputHandleWrapper) -> *mut sfnt {
     sfont
 }
 
-pub unsafe fn dfont_open(mut handle: InputHandleWrapper, index: i32) -> *mut sfnt {
+pub(crate) unsafe fn dfont_open(mut handle: InputHandleWrapper, index: i32) -> *mut sfnt {
     let mut types_pos: u32 = 0;
     let mut res_pos: u32 = 0;
     let mut types_num: u16 = 0;
@@ -157,7 +157,7 @@ unsafe fn release_directory(td: *mut sfnt_table_directory) {
     };
 }
 
-pub unsafe fn sfnt_close(sfont: *mut sfnt) {
+pub(crate) unsafe fn sfnt_close(sfont: *mut sfnt) {
     if !sfont.is_null() {
         ttstub_input_close((*sfont).handle.clone()); // TODO: use drop
         if !(*sfont).directory.is_null() {
@@ -167,7 +167,7 @@ pub unsafe fn sfnt_close(sfont: *mut sfnt) {
     };
 }
 
-pub unsafe fn put_big_endian(s: *mut libc::c_void, mut q: i32, n: i32) -> i32 {
+pub(crate) unsafe fn put_big_endian(s: *mut libc::c_void, mut q: i32, n: i32) -> i32 {
     let p = s as *mut i8;
     for i in (0..n).rev() {
         *p.offset(i as isize) = (q & 0xffi32) as i8;
@@ -226,7 +226,7 @@ unsafe fn find_table_index(td: Option<&sfnt_table_directory>, tag: &[u8; 4]) -> 
         .unwrap_or(-1)
 }
 
-pub unsafe fn sfnt_set_table(
+pub(crate) unsafe fn sfnt_set_table(
     sfont: *mut sfnt,
     tag: &[u8; 4],
     data: *mut libc::c_void,
@@ -252,7 +252,7 @@ pub unsafe fn sfnt_set_table(
     *fresh0 = data as *mut i8;
 }
 
-pub unsafe fn sfnt_find_table_len(sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
+pub(crate) unsafe fn sfnt_find_table_len(sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
     assert!(!sfont.is_null());
     let td = (*sfont).directory;
     let idx = find_table_index(td.as_ref(), tag);
@@ -263,7 +263,7 @@ pub unsafe fn sfnt_find_table_len(sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
     }
 }
 
-pub unsafe fn sfnt_find_table_pos(sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
+pub(crate) unsafe fn sfnt_find_table_pos(sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
     assert!(!sfont.is_null());
     let td = (*sfont).directory;
     let idx = find_table_index(td.as_ref(), tag);
@@ -274,7 +274,7 @@ pub unsafe fn sfnt_find_table_pos(sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
     }
 }
 
-pub unsafe fn sfnt_locate_table(sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
+pub(crate) unsafe fn sfnt_locate_table(sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
     assert!(!sfont.is_null());
     let offset = sfnt_find_table_pos(sfont, tag);
     if offset == 0_u32 {
@@ -287,7 +287,7 @@ pub unsafe fn sfnt_locate_table(sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
     offset
 }
 
-pub unsafe fn sfnt_read_table_directory(mut sfont: *mut sfnt, offset: u32) -> i32 {
+pub(crate) unsafe fn sfnt_read_table_directory(mut sfont: *mut sfnt, offset: u32) -> i32 {
     assert!(!sfont.is_null());
     if !(*sfont).directory.is_null() {
         release_directory((*sfont).directory);
@@ -325,7 +325,7 @@ pub unsafe fn sfnt_read_table_directory(mut sfont: *mut sfnt, offset: u32) -> i3
     0i32
 }
 
-pub unsafe fn sfnt_require_table(sfont: &mut sfnt, table: &SfntTableInfo) -> Result<(), ()> {
+pub(crate) unsafe fn sfnt_require_table(sfont: &mut sfnt, table: &SfntTableInfo) -> Result<(), ()> {
     let mut td = (*sfont).directory.as_mut().unwrap();
     let idx = find_table_index(Some(td), table.name());
     if idx < 0 {
@@ -364,7 +364,7 @@ static mut padbytes: [u8; 4] = [0; 4];
 /* get_***_*** from numbers.h */
 /* table directory */
 
-pub unsafe fn sfnt_create_FontFile_stream(sfont: *mut sfnt) -> pdf_stream {
+pub(crate) unsafe fn sfnt_create_FontFile_stream(sfont: *mut sfnt) -> pdf_stream {
     let mut length;
     assert!(!sfont.is_null() && !(*sfont).directory.is_null());
     let mut stream = pdf_stream::new(STREAM_COMPRESS);
@@ -442,7 +442,7 @@ pub unsafe fn sfnt_create_FontFile_stream(sfont: *mut sfnt) -> pdf_stream {
                     .unwrap();
                 while length > 0i32 {
                     let nb_read = ttstub_input_read(
-                        (*sfont).handle.0.as_ptr(),
+                        (*sfont).handle.as_ptr(),
                         wbuf.as_mut_ptr() as *mut i8,
                         (if length < 1024i32 { length } else { 1024i32 }) as size_t,
                     ) as i32;

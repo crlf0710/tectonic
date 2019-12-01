@@ -26,7 +26,7 @@
     non_upper_case_globals,
 )]
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom, Write};
 
@@ -42,21 +42,21 @@ use super::dpx_mfileio::{tt_mfgets, work_buffer, work_buffer_u8 as WORK_BUFFER};
 use super::dpx_pdfdev::pdf_sprint_number;
 use super::dpx_pdfencrypt::{pdf_enc_set_generation, pdf_enc_set_label, pdf_encrypt_data};
 use super::dpx_pdfparse::skip_white;
-use crate::shims::sprintf;
-use crate::{
+use crate::bridge::{
     ttstub_input_get_size, ttstub_input_getc, ttstub_input_read, ttstub_input_ungetc,
     ttstub_output_close, ttstub_output_open, ttstub_output_open_stdout, ttstub_output_putc,
 };
+use crate::shims::sprintf;
 use libc::{atof, atoi, free, memcmp, memset, strlen, strtoul};
 
 use libz_sys as libz;
 
-pub type __ssize_t = i64;
-use crate::size_t;
+pub(crate) type __ssize_t = i64;
+use crate::bridge::size_t;
 use bridge::{InputHandleWrapper, OutputHandleWrapper};
 
-pub const STREAM_COMPRESS: i32 = (1 << 0);
-pub const STREAM_USE_PREDICTOR: i32 = (1 << 1);
+pub(crate) const STREAM_COMPRESS: i32 = (1 << 0);
+pub(crate) const STREAM_USE_PREDICTOR: i32 = (1 << 1);
 
 /// Objects with this flag will not be put into an object stream.
 /// For instance, all stream objects have this flag set.
@@ -65,30 +65,30 @@ const OBJ_NO_OBJSTM: i32 = (1 << 0);
 /// This implies OBJ_NO_OBJSTM if encryption is turned on.
 const OBJ_NO_ENCRYPT: i32 = (1 << 1);
 
-pub type ObjectId = (u32, u16);
+pub(crate) type ObjectId = (u32, u16);
 
 use super::dpx_dpxutil::ht_table;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct pdf_obj {
-    pub typ: i32,
-    pub id: ObjectId,
-    pub refcount: u32,
-    pub flags: i32,
-    pub data: *mut libc::c_void,
+    pub(crate) typ: i32,
+    pub(crate) id: ObjectId,
+    pub(crate) refcount: u32,
+    pub(crate) flags: i32,
+    pub(crate) data: *mut libc::c_void,
 }
 
 impl pdf_obj {
-    pub fn label(&self) -> u32 {
+    pub(crate) fn label(&self) -> u32 {
         self.id.0
     }
-    pub fn generation(&self) -> u16 {
+    pub(crate) fn generation(&self) -> u16 {
         self.id.1
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum PdfObjType {
+pub(crate) enum PdfObjType {
     BOOLEAN = 1,
     NUMBER = 2,
     STRING = 3,
@@ -123,71 +123,71 @@ impl From<i32> for PdfObjType {
 }
 
 impl pdf_obj {
-    pub fn is_bool(&self) -> bool {
+    pub(crate) fn is_bool(&self) -> bool {
         PdfObjType::from(self.typ) == PdfObjType::BOOLEAN
     }
-    pub fn is_number(&self) -> bool {
+    pub(crate) fn is_number(&self) -> bool {
         PdfObjType::from(self.typ) == PdfObjType::NUMBER
     }
-    pub fn is_string(&self) -> bool {
+    pub(crate) fn is_string(&self) -> bool {
         PdfObjType::from(self.typ) == PdfObjType::STRING
     }
-    pub fn is_name(&self) -> bool {
+    pub(crate) fn is_name(&self) -> bool {
         PdfObjType::from(self.typ) == PdfObjType::NAME
     }
-    pub fn is_array(&self) -> bool {
+    pub(crate) fn is_array(&self) -> bool {
         PdfObjType::from(self.typ) == PdfObjType::ARRAY
     }
-    pub fn is_dict(&self) -> bool {
+    pub(crate) fn is_dict(&self) -> bool {
         PdfObjType::from(self.typ) == PdfObjType::DICT
     }
-    pub fn is_stream(&self) -> bool {
+    pub(crate) fn is_stream(&self) -> bool {
         PdfObjType::from(self.typ) == PdfObjType::STREAM
     }
-    pub fn is_indirect(&self) -> bool {
+    pub(crate) fn is_indirect(&self) -> bool {
         PdfObjType::from(self.typ) == PdfObjType::INDIRECT
     }
-    pub unsafe fn as_bool(&self) -> bool {
+    pub(crate) unsafe fn as_bool(&self) -> bool {
         assert!(self.is_bool());
         (*(self.data as *const pdf_boolean)).value != 0
     }
-    pub unsafe fn as_f64(&self) -> f64 {
+    pub(crate) unsafe fn as_f64(&self) -> f64 {
         assert!(self.is_number());
         (*(self.data as *const pdf_number)).value
     }
-    pub unsafe fn as_dict(&self) -> &pdf_dict {
+    pub(crate) unsafe fn as_dict(&self) -> &pdf_dict {
         assert!(self.is_dict());
         &*(self.data as *const pdf_dict)
     }
-    pub unsafe fn as_dict_mut(&mut self) -> &mut pdf_dict {
+    pub(crate) unsafe fn as_dict_mut(&mut self) -> &mut pdf_dict {
         assert!(self.is_dict());
         &mut *(self.data as *mut pdf_dict)
     }
-    pub unsafe fn as_array(&self) -> &Vec<*mut Self> {
+    pub(crate) unsafe fn as_array(&self) -> &Vec<*mut Self> {
         assert!(self.is_array());
         &(*(self.data as *const pdf_array)).values
     }
-    pub unsafe fn as_array_mut(&mut self) -> &mut Vec<*mut Self> {
+    pub(crate) unsafe fn as_array_mut(&mut self) -> &mut Vec<*mut Self> {
         assert!(self.is_array());
         &mut (*(self.data as *mut pdf_array)).values
     }
-    pub unsafe fn as_stream(&self) -> &pdf_stream {
+    pub(crate) unsafe fn as_stream(&self) -> &pdf_stream {
         assert!(self.is_stream());
         &*(self.data as *const pdf_stream)
     }
-    pub unsafe fn as_stream_mut(&mut self) -> &mut pdf_stream {
+    pub(crate) unsafe fn as_stream_mut(&mut self) -> &mut pdf_stream {
         assert!(self.is_stream());
         &mut *(self.data as *mut pdf_stream)
     }
-    pub unsafe fn as_string(&self) -> &pdf_string {
+    pub(crate) unsafe fn as_string(&self) -> &pdf_string {
         assert!(self.is_string());
         &*(self.data as *const pdf_string)
     }
-    pub unsafe fn as_string_mut(&mut self) -> &mut pdf_string {
+    pub(crate) unsafe fn as_string_mut(&mut self) -> &mut pdf_string {
         assert!(self.is_string());
         &mut *(self.data as *mut pdf_string)
     }
-    pub fn as_name(&self) -> &CStr {
+    pub(crate) fn as_name(&self) -> &CStr {
         assert!(self.is_name());
         let data = self.data as *const pdf_name;
         unsafe { (*data).name.as_c_str() }
@@ -196,13 +196,13 @@ impl pdf_obj {
 
 #[repr(C)]
 pub struct pdf_file {
-    pub handle: InputHandleWrapper,
-    pub trailer: *mut pdf_obj,
-    pub xref_table: *mut xref_entry,
-    pub catalog: *mut pdf_obj,
-    pub num_obj: i32,
-    pub file_size: i32,
-    pub version: u32,
+    pub(crate) handle: InputHandleWrapper,
+    pub(crate) trailer: *mut pdf_obj,
+    pub(crate) xref_table: *mut xref_entry,
+    pub(crate) catalog: *mut pdf_obj,
+    pub(crate) num_obj: i32,
+    pub(crate) file_size: i32,
+    pub(crate) version: u32,
     /* External interface to pdf routines */
     /* Name does not include the / */
     /* pdf_add_dict requires key but pdf_add_array does not.
@@ -228,12 +228,12 @@ pub struct pdf_file {
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct xref_entry {
-    pub typ: u8,
-    pub field2: u32,
-    pub field3: u16,
-    pub direct: *mut pdf_obj,
-    pub indirect: *mut pdf_obj,
+pub(crate) struct xref_entry {
+    pub(crate) typ: u8,
+    pub(crate) field2: u32,
+    pub(crate) field3: u16,
+    pub(crate) direct: *mut pdf_obj,
+    pub(crate) indirect: *mut pdf_obj,
 }
 impl Default for xref_entry {
     fn default() -> Self {
@@ -250,29 +250,29 @@ impl Default for xref_entry {
 use indexmap::IndexMap;
 
 #[repr(C)]
-pub struct pdf_dict {
+pub(crate) struct pdf_dict {
     inner: IndexMap<pdf_name, *mut pdf_obj>,
 }
 #[derive(Clone)]
 #[repr(C)]
-pub struct pdf_stream {
-    pub dict: *mut pdf_obj,
-    pub content: Vec<u8>,
-    pub objstm_data: *mut i32,
-    pub _flags: i32,
-    pub decodeparms: decode_parms,
+pub(crate) struct pdf_stream {
+    pub(crate) dict: *mut pdf_obj,
+    pub(crate) content: Vec<u8>,
+    pub(crate) objstm_data: *mut i32,
+    pub(crate) _flags: i32,
+    pub(crate) decodeparms: decode_parms,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct decode_parms {
-    pub predictor: i32,
-    pub colors: i32,
-    pub bits_per_component: i32,
-    pub columns: i32,
+pub(crate) struct decode_parms {
+    pub(crate) predictor: i32,
+    pub(crate) colors: i32,
+    pub(crate) bits_per_component: i32,
+    pub(crate) columns: i32,
 }
 #[derive(Clone, PartialEq, Eq)]
 #[repr(C)]
-pub struct pdf_name {
+pub(crate) struct pdf_name {
     name: CString,
 }
 
@@ -287,14 +287,14 @@ impl std::hash::Hash for pdf_name {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct pdf_indirect {
-    pub pf: *mut pdf_file,
-    pub obj: *mut pdf_obj,
-    pub id: ObjectId,
+pub(crate) struct pdf_indirect {
+    pub(crate) pf: *mut pdf_file,
+    pub(crate) obj: *mut pdf_obj,
+    pub(crate) id: ObjectId,
 }
 
 impl pdf_indirect {
-    pub fn new(pf: *mut pdf_file, id: ObjectId) -> Self {
+    pub(crate) fn new(pf: *mut pdf_file, id: ObjectId) -> Self {
         Self {
             pf,
             obj: ptr::null_mut(),
@@ -305,22 +305,22 @@ impl pdf_indirect {
 
 #[derive(Clone)]
 #[repr(C)]
-pub struct pdf_array {
-    pub values: Vec<*mut pdf_obj>,
+pub(crate) struct pdf_array {
+    pub(crate) values: Vec<*mut pdf_obj>,
 }
 #[derive(Clone, PartialEq, Eq)]
 #[repr(C)]
-pub struct pdf_string {
-    pub string: Vec<u8>,
+pub(crate) struct pdf_string {
+    pub(crate) string: Vec<u8>,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct pdf_number {
-    pub value: f64,
+pub(crate) struct pdf_number {
+    pub(crate) value: f64,
 }
 
 // Must be replaced with std::convert::From
-pub trait IntoObj {
+pub(crate) trait IntoObj {
     fn into_obj(self) -> *mut pdf_obj;
 }
 impl IntoObj for *mut pdf_obj {
@@ -438,8 +438,8 @@ impl IntoObj for pdf_indirect {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct pdf_boolean {
-    pub value: i8,
+pub(crate) struct pdf_boolean {
+    pub(crate) value: i8,
 }
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -467,7 +467,7 @@ static mut verbose: i32 = 0i32;
 static mut compression_level: i8 = 9_i8;
 static mut compression_use_predictor: i8 = 1_i8;
 
-pub unsafe fn pdf_set_compression(level: i32) {
+pub(crate) unsafe fn pdf_set_compression(level: i32) {
     if cfg!(not(feature = "libz-sys")) {
         panic!(
             "You don\'t have compression compiled in. Possibly libz wasn\'t found by configure."
@@ -483,27 +483,27 @@ pub unsafe fn pdf_set_compression(level: i32) {
     };
 }
 
-pub unsafe fn pdf_set_use_predictor(bval: i32) {
+pub(crate) unsafe fn pdf_set_use_predictor(bval: i32) {
     compression_use_predictor = (if bval != 0 { 1i32 } else { 0i32 }) as i8;
 }
 static mut pdf_version: u32 = 5_u32;
 
-pub unsafe fn pdf_set_version(version: u32) {
+pub(crate) unsafe fn pdf_set_version(version: u32) {
     /* Don't forget to update CIDFont_stdcc_def[] in cid.c too! */
     if version >= 3_u32 && version <= 7_u32 {
         pdf_version = version
     };
 }
 
-pub unsafe fn pdf_get_version() -> u32 {
+pub(crate) unsafe fn pdf_get_version() -> u32 {
     pdf_version
 }
 
-pub unsafe fn pdf_obj_get_verbose() -> i32 {
+pub(crate) unsafe fn pdf_obj_get_verbose() -> i32 {
     verbose
 }
 
-pub unsafe fn pdf_obj_set_verbose(level: i32) {
+pub(crate) unsafe fn pdf_obj_set_verbose(level: i32) {
     verbose = level;
 }
 static mut current_objstm: *mut pdf_obj = ptr::null_mut(); // TODO: replace with Option<pdf_stream>
@@ -522,7 +522,11 @@ unsafe fn add_xref_entry(label: usize, typ: u8, field2: u32, field3: u16) {
     }
 }
 
-pub unsafe fn pdf_out_init(filename: *const i8, do_encryption: bool, enable_object_stream: bool) {
+pub(crate) unsafe fn pdf_out_init(
+    filename: *const i8,
+    do_encryption: bool,
+    enable_object_stream: bool,
+) {
     output_xref = vec![];
     pdf_max_ind_objects = 0;
     add_xref_entry(0, 0_u8, 0_u32, 0xffff_u16);
@@ -652,7 +656,7 @@ unsafe fn dump_xref_stream() {
     pdf_release_obj(xref_stream);
 }
 
-pub unsafe fn pdf_out_flush() {
+pub(crate) unsafe fn pdf_out_flush() {
     if let Some(handle) = pdf_output_handle.as_mut() {
         /* Flush current object stream */
         if !current_objstm.is_null() {
@@ -703,7 +707,7 @@ pub unsafe fn pdf_out_flush() {
     };
 }
 
-pub unsafe fn pdf_error_cleanup() {
+pub(crate) unsafe fn pdf_error_cleanup() {
     /*
      * This routine is the cleanup required for an abnormal exit.
      * For now, simply close the file.
@@ -713,7 +717,7 @@ pub unsafe fn pdf_error_cleanup() {
     };
 }
 
-pub unsafe fn pdf_set_root(mut object: *mut pdf_obj) {
+pub(crate) unsafe fn pdf_set_root(mut object: *mut pdf_obj) {
     if (*trailer_dict)
         .as_dict_mut()
         .set("Root", pdf_ref_obj(object))
@@ -730,7 +734,7 @@ pub unsafe fn pdf_set_root(mut object: *mut pdf_obj) {
         (*object).flags |= OBJ_NO_OBJSTM;
     };
 }
-pub unsafe fn pdf_set_info(object: *mut pdf_obj) {
+pub(crate) unsafe fn pdf_set_info(object: *mut pdf_obj) {
     if (*trailer_dict)
         .as_dict_mut()
         .set("Info", pdf_ref_obj(object))
@@ -739,12 +743,12 @@ pub unsafe fn pdf_set_info(object: *mut pdf_obj) {
         panic!("Info object already set!");
     };
 }
-pub unsafe fn pdf_set_id(id: Vec<*mut pdf_obj>) {
+pub(crate) unsafe fn pdf_set_id(id: Vec<*mut pdf_obj>) {
     if (*trailer_dict).as_dict_mut().set("ID", id) != 0 {
         panic!("ID already set!");
     };
 }
-pub unsafe fn pdf_set_encrypt(mut encrypt: *mut pdf_obj) {
+pub(crate) unsafe fn pdf_set_encrypt(mut encrypt: *mut pdf_obj) {
     if (*trailer_dict)
         .as_dict_mut()
         .set("Encrypt", pdf_ref_obj(encrypt))
@@ -818,7 +822,7 @@ unsafe fn pdf_new_obj(typ: PdfObjType) -> *mut pdf_obj {
     result
 }
 
-pub unsafe fn pdf_obj_typeof(object: *mut pdf_obj) -> PdfObjType {
+pub(crate) unsafe fn pdf_obj_typeof(object: *mut pdf_obj) -> PdfObjType {
     if (*object).typ <= 0i32 || (*object).typ > 10i32 {
         PdfObjType::OBJ_INVALID
     } else {
@@ -842,7 +846,7 @@ unsafe fn pdf_label_obj(mut object: *mut pdf_obj) {
  * The object dst must not yet have been labeled.
  */
 
-pub unsafe fn pdf_transfer_label(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) {
+pub(crate) unsafe fn pdf_transfer_label(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) {
     assert!(!dst.is_null() && (*dst).label() == 0 && !src.is_null());
     (*dst).id = (*src).id;
     (*src).id = (0, 0);
@@ -852,7 +856,7 @@ pub unsafe fn pdf_transfer_label(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) {
  * fear that somebody else will free it.
  */
 
-pub unsafe fn pdf_link_obj(mut object: *mut pdf_obj) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_link_obj(mut object: *mut pdf_obj) -> *mut pdf_obj {
     if object.is_null() || (*object).typ <= 0i32 || (*object).typ > 10i32 {
         panic!("pdf_link_obj(): passed invalid object.");
     }
@@ -860,7 +864,7 @@ pub unsafe fn pdf_link_obj(mut object: *mut pdf_obj) -> *mut pdf_obj {
     object
 }
 
-pub unsafe fn pdf_ref_obj(object: *mut pdf_obj) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_ref_obj(object: *mut pdf_obj) -> *mut pdf_obj {
     if object.is_null() || (*object).typ <= 0i32 || (*object).typ > 10i32 {
         panic!("pdf_ref_obj(): passed invalid object.");
     }
@@ -884,13 +888,13 @@ unsafe fn write_indirect(indirect: *mut pdf_indirect, handle: &mut OutputHandleW
  * for objects which are referenced before they are defined.
  */
 
-pub unsafe fn pdf_new_undefined() -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_new_undefined() -> *mut pdf_obj {
     let result = pdf_new_obj(PdfObjType::UNDEFINED);
     (*result).data = ptr::null_mut();
     result
 }
 
-pub unsafe fn pdf_new_null() -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_new_null() -> *mut pdf_obj {
     let result = pdf_new_obj(PdfObjType::NULL);
     (*result).data = ptr::null_mut();
     result
@@ -912,14 +916,14 @@ unsafe fn write_number(number: *mut pdf_number, handle: &mut OutputHandleWrapper
     pdf_out(handle, &format_buffer[..count]);
 }
 
-pub unsafe fn pdf_set_number(object: &mut pdf_obj, value: f64) {
+pub(crate) unsafe fn pdf_set_number(object: &mut pdf_obj, value: f64) {
     assert!((*object).is_number());
     let data = object.data as *mut pdf_number;
     (*data).value = value;
 }
 
 impl pdf_string {
-    pub fn new<K>(from: K) -> Self
+    pub(crate) fn new<K>(from: K) -> Self
     where
         K: AsRef<[u8]>,
     {
@@ -927,7 +931,7 @@ impl pdf_string {
         string.push(0);
         Self { string }
     }
-    pub unsafe fn new_from_ptr(ptr: *const libc::c_void, length: size_t) -> Self {
+    pub(crate) unsafe fn new_from_ptr(ptr: *const libc::c_void, length: size_t) -> Self {
         if ptr.is_null() {
             Self::new(&[])
         } else {
@@ -937,20 +941,20 @@ impl pdf_string {
             ))
         }
     }
-    pub fn set<K>(&mut self, from: K)
+    pub(crate) fn set<K>(&mut self, from: K)
     where
         K: AsRef<[u8]>,
     {
         self.string = Vec::from(from.as_ref());
         self.string.push(0);
     }
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.string.len() - 1
     }
-    pub fn to_bytes(&self) -> &[u8] {
+    pub(crate) fn to_bytes(&self) -> &[u8] {
         &self.string[..self.len()]
     }
-    pub fn to_bytes_without_nul(&self) -> &[u8] {
+    pub(crate) fn to_bytes_without_nul(&self) -> &[u8] {
         let pos = self
             .string
             .iter()
@@ -958,13 +962,13 @@ impl pdf_string {
             .unwrap_or(self.len());
         &self.string[..pos]
     }
-    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+    pub(crate) fn as_mut_slice(&mut self) -> &mut [u8] {
         let len = self.len();
         &mut self.string[..len]
     }
 }
 
-pub unsafe fn pdf_string_value(object: &pdf_obj) -> *mut libc::c_void {
+pub(crate) unsafe fn pdf_string_value(object: &pdf_obj) -> *mut libc::c_void {
     let data = object.as_string();
     if data.len() == 0 {
         ptr::null_mut()
@@ -973,7 +977,7 @@ pub unsafe fn pdf_string_value(object: &pdf_obj) -> *mut libc::c_void {
     }
 }
 
-pub unsafe fn pdf_string_length(object: &pdf_obj) -> u32 {
+pub(crate) unsafe fn pdf_string_length(object: &pdf_obj) -> u32 {
     let data = object.as_string();
     data.len() as u32
 }
@@ -982,7 +986,7 @@ pub unsafe fn pdf_string_length(object: &pdf_obj) -> u32 {
  * characters in an output string.
  */
 
-pub unsafe fn pdfobj_escape_str(buffer: &mut [u8], s: *const u8, len: size_t) -> size_t {
+pub(crate) unsafe fn pdfobj_escape_str(buffer: &mut [u8], s: *const u8, len: size_t) -> size_t {
     let bufsize = buffer.len();
     let mut result = 0;
     for i in 0..len {
@@ -1093,7 +1097,7 @@ unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
 }
 
 /* Name does *not* include the /. */
-pub unsafe fn pdf_copy_name(name: *const i8) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_copy_name(name: *const i8) -> *mut pdf_obj {
     let length = strlen(name);
     let slice = std::slice::from_raw_parts(name as *const u8, length as _);
     pdf_name::new(slice).into_obj()
@@ -1149,7 +1153,7 @@ unsafe fn write_array(array: *mut pdf_array, handle: &mut OutputHandleWrapper) {
     pdf_out_char(handle, b']');
 }
 impl pdf_array {
-    pub unsafe fn get(&self, idx: i32) -> Option<&pdf_obj> {
+    pub(crate) unsafe fn get(&self, idx: i32) -> Option<&pdf_obj> {
         let len = self.values.len();
         if idx < 0 {
             Some(&*self.values[len - (idx.abs() as usize)])
@@ -1159,7 +1163,7 @@ impl pdf_array {
             None
         }
     }
-    pub unsafe fn get_mut(&mut self, idx: i32) -> Option<&mut pdf_obj> {
+    pub(crate) unsafe fn get_mut(&mut self, idx: i32) -> Option<&mut pdf_obj> {
         let len = self.values.len();
         if idx < 0 {
             Some(&mut *self.values[len - (idx.abs() as usize)])
@@ -1172,7 +1176,7 @@ impl pdf_array {
 }
 
 impl pdf_array {
-    pub fn len(&self) -> u32 {
+    pub(crate) fn len(&self) -> u32 {
         self.values.len() as u32
     }
 }
@@ -1189,7 +1193,7 @@ impl Drop for pdf_array {
 }
 
 impl pdf_array {
-    pub fn push<O>(&mut self, object: O)
+    pub(crate) fn push<O>(&mut self, object: O)
     where
         O: IntoObj,
     {
@@ -1197,7 +1201,7 @@ impl pdf_array {
     }
 }
 
-pub trait PushObj {
+pub(crate) trait PushObj {
     fn push_obj<O>(&mut self, object: O)
     where
         O: IntoObj;
@@ -1231,7 +1235,7 @@ unsafe fn write_dict(dict: &pdf_dict, handle: &mut OutputHandleWrapper) {
 }
 
 impl pdf_dict {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             inner: IndexMap::new(),
         }
@@ -1251,7 +1255,7 @@ impl Drop for pdf_dict {
 impl pdf_dict {
     /* Array is ended by a node with NULL this pointer */
     /* pdf_add_dict returns 0 if the key is new and non-zero otherwise */
-    pub unsafe fn set<K, V>(&mut self, key: K, value: V) -> i32
+    pub(crate) unsafe fn set<K, V>(&mut self, key: K, value: V) -> i32
     where
         K: AsRef<[u8]>,
         V: IntoObj,
@@ -1270,7 +1274,7 @@ impl pdf_dict {
         }
     }
     /* pdf_merge_dict makes a link for each item in dict2 before stealing it */
-    pub unsafe fn merge(&mut self, dict2: &Self) {
+    pub(crate) unsafe fn merge(&mut self, dict2: &Self) {
         for (k, &v) in dict2.inner.iter() {
             self.set(k.to_bytes(), pdf_link_obj(v));
         }
@@ -1278,11 +1282,11 @@ impl pdf_dict {
 }
 
 impl pdf_name {
-    pub fn new<K: AsRef<[u8]>>(from: K) -> Self {
+    pub(crate) fn new<K: AsRef<[u8]>>(from: K) -> Self {
         let name = CString::new(from.as_ref()).unwrap();
         pdf_name { name }
     }
-    pub fn to_bytes(&self) -> &[u8] {
+    pub(crate) fn to_bytes(&self) -> &[u8] {
         self.name.to_bytes()
     }
 }
@@ -1294,7 +1298,7 @@ impl std::borrow::Borrow<[u8]> for pdf_name {
 }
 
 impl pdf_dict {
-    pub unsafe fn foreach(
+    pub(crate) unsafe fn foreach(
         &mut self,
         proc_0: Option<unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32>,
         pdata: *mut libc::c_void,
@@ -1322,13 +1326,13 @@ impl pdf_dict {
         error
     }
 
-    pub unsafe fn has<K>(&self, name: K) -> bool
+    pub(crate) unsafe fn has<K>(&self, name: K) -> bool
     where
         K: AsRef<[u8]>,
     {
         self.inner.contains_key(name.as_ref())
     }
-    pub unsafe fn get<K>(&self, name: K) -> Option<&pdf_obj>
+    pub(crate) unsafe fn get<K>(&self, name: K) -> Option<&pdf_obj>
     where
         K: AsRef<[u8]>,
     {
@@ -1337,7 +1341,7 @@ impl pdf_dict {
             None => None,
         }
     }
-    pub unsafe fn get_mut<K>(&mut self, name: K) -> Option<&mut pdf_obj>
+    pub(crate) unsafe fn get_mut<K>(&mut self, name: K) -> Option<&mut pdf_obj>
     where
         K: AsRef<[u8]>,
     {
@@ -1348,7 +1352,7 @@ impl pdf_dict {
     }
 }
 
-pub unsafe fn pdf_remove_dict<K>(dict: &mut pdf_obj, name: K)
+pub(crate) unsafe fn pdf_remove_dict<K>(dict: &mut pdf_obj, name: K)
 where
     K: AsRef<[u8]>,
 {
@@ -1359,7 +1363,7 @@ where
 }
 
 impl pdf_stream {
-    pub fn new(flags: i32) -> Self {
+    pub(crate) fn new(flags: i32) -> Self {
         Self {
             dict: unsafe { pdf_dict::new().into_obj() },
             _flags: flags,
@@ -1375,7 +1379,7 @@ impl pdf_stream {
     }
 }
 
-pub unsafe fn pdf_stream_set_predictor(
+pub(crate) unsafe fn pdf_stream_set_predictor(
     stream: *mut pdf_obj,
     predictor: i32,
     columns: i32,
@@ -1979,27 +1983,27 @@ impl Drop for pdf_stream {
 }
 
 impl pdf_stream {
-    pub fn get_dict(&self) -> &pdf_dict {
+    pub(crate) fn get_dict(&self) -> &pdf_dict {
         unsafe { (*self.dict).as_dict() }
     }
-    pub fn get_dict_mut(&mut self) -> &mut pdf_dict {
+    pub(crate) fn get_dict_mut(&mut self) -> &mut pdf_dict {
         unsafe { (*self.dict).as_dict_mut() }
     }
-    pub unsafe fn get_dict_obj(&mut self) -> &mut pdf_obj {
+    pub(crate) unsafe fn get_dict_obj(&mut self) -> &mut pdf_obj {
         &mut (*self.dict)
     }
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.content.len()
     }
 }
 
-pub unsafe fn pdf_stream_dataptr(stream: &pdf_obj) -> *const libc::c_void {
+pub(crate) unsafe fn pdf_stream_dataptr(stream: &pdf_obj) -> *const libc::c_void {
     assert!(stream.is_stream());
     let data = (*stream).data as *mut pdf_stream;
     (*data).content.as_ptr() as *const libc::c_void
 }
 
-pub unsafe fn pdf_stream_length(stream: &pdf_obj) -> i32 {
+pub(crate) unsafe fn pdf_stream_length(stream: &pdf_obj) -> i32 {
     assert!((*stream).is_stream());
     let data = (*stream).data as *mut pdf_stream;
     (*data).content.len() as i32
@@ -2015,20 +2019,20 @@ unsafe fn get_objstm_data(objstm: &pdf_obj) -> *mut i32 {
 }
 
 impl pdf_stream {
-    pub unsafe fn add(&mut self, stream_data: *const libc::c_void, length: i32) {
+    pub(crate) unsafe fn add(&mut self, stream_data: *const libc::c_void, length: i32) {
         if length < 1i32 {
             return;
         }
         let payload = std::slice::from_raw_parts(stream_data as *const u8, length as usize);
         self.add_slice(payload);
     }
-    pub fn add_slice(&mut self, slice: &[u8]) {
+    pub(crate) fn add_slice(&mut self, slice: &[u8]) {
         self.content.extend_from_slice(slice);
     }
 }
 
 impl pdf_stream {
-    pub fn add_str(&mut self, stream_data: &str) {
+    pub(crate) fn add_str(&mut self, stream_data: &str) {
         if !stream_data.is_empty() {
             self.content.extend_from_slice(stream_data.as_bytes());
         }
@@ -2036,7 +2040,7 @@ impl pdf_stream {
 }
 
 #[cfg(feature = "libz-sys")]
-pub unsafe fn pdf_add_stream_flate(dst: &mut pdf_stream, data: &[u8]) -> libc::c_int {
+pub(crate) unsafe fn pdf_add_stream_flate(dst: &mut pdf_stream, data: &[u8]) -> libc::c_int {
     const WBUF_SIZE: usize = 4096;
     let mut z: libz::z_stream = std::mem::zeroed();
     let mut wbuf = [0u8; WBUF_SIZE];
@@ -2482,7 +2486,7 @@ unsafe fn pdf_add_stream_flate_filtered(
     }
 }
 
-pub unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_stream) -> i32 {
+pub(crate) unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_stream) -> i32 {
     let mut error: i32 = 0i32;
     let stream_dict = (*(src as *mut pdf_stream)).get_dict_mut(); // TODO: fix hack
     let stream_data = &src.content;
@@ -2841,7 +2845,7 @@ unsafe fn find_xref(handle: &mut InputHandleWrapper, file_size: i32) -> i32 {
                 strlen(b"startxref\x00" as *const u8 as *const i8) as i32,
                 file_size - currentpos,
             );
-            ttstub_input_read(handle.0.as_ptr(), work_buffer.as_mut_ptr(), n as size_t);
+            ttstub_input_read(handle.as_ptr(), work_buffer.as_mut_ptr(), n as size_t);
             handle.seek(SeekFrom::Start(currentpos as u64)).unwrap();
             tries -= 1;
             if !(tries > 0i32
@@ -2939,7 +2943,7 @@ unsafe fn pdf_read_object(
         ((length + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
     ) as *mut i8;
     (*pf).handle.seek(SeekFrom::Start(offset as u64)).unwrap();
-    ttstub_input_read((*pf).handle.0.as_ptr(), buffer, length as size_t);
+    ttstub_input_read((*pf).handle.as_ptr(), buffer, length as size_t);
     let mut p = buffer as *const i8;
     let endptr = p.offset(length as isize);
     /* Check for obj_num and obj_gen */
@@ -3170,7 +3174,7 @@ unsafe fn pdf_new_ref(object: *mut pdf_obj) -> *mut pdf_obj {
 /* pdf_deref_obj always returns a link instead of the original   */
 /* It never return the null object, but the NULL pointer instead */
 
-pub unsafe fn pdf_deref_obj(obj: Option<&mut pdf_obj>) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_deref_obj(obj: Option<&mut pdf_obj>) -> *mut pdf_obj {
     let mut count = 30;
     let mut obj = match obj {
         None => ptr::null_mut(),
@@ -3718,17 +3722,17 @@ pub unsafe fn pdf_files_init() {
     );
 }
 
-pub unsafe fn pdf_file_get_version(pf: *mut pdf_file) -> u32 {
+pub(crate) unsafe fn pdf_file_get_version(pf: *mut pdf_file) -> u32 {
     assert!(!pf.is_null());
     (*pf).version
 }
 
-pub unsafe fn pdf_file_get_trailer(pf: *mut pdf_file) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_file_get_trailer(pf: *mut pdf_file) -> *mut pdf_obj {
     assert!(!pf.is_null());
     pdf_link_obj((*pf).trailer)
 }
 
-pub unsafe fn pdf_file_get_catalog(pf: *mut pdf_file) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_file_get_catalog(pf: *mut pdf_file) -> *mut pdf_obj {
     assert!(!pf.is_null());
     (*pf).catalog
 }
@@ -3845,7 +3849,7 @@ fn parse_pdf_version(handle: &mut InputHandleWrapper) -> Result<u32, ()> {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn check_for_pdf(handle: &mut InputHandleWrapper) -> bool {
+pub(crate) unsafe extern "C" fn check_for_pdf(handle: &mut InputHandleWrapper) -> bool {
     match parse_pdf_version(handle) {
         Ok(version) => {
             if version <= pdf_version {
@@ -3924,7 +3928,7 @@ unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
  * are imported several times.
  */
 
-pub unsafe fn pdf_import_object(object: *mut pdf_obj) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_import_object(object: *mut pdf_obj) -> *mut pdf_obj {
     match pdf_obj_typeof(object) {
         PdfObjType::INDIRECT => {
             if !(*((*object).data as *mut pdf_indirect)).pf.is_null() {
@@ -3981,14 +3985,14 @@ pub unsafe fn pdf_import_object(object: *mut pdf_obj) -> *mut pdf_obj {
 }
 /* returns 0 if indirect references point to the same object */
 
-pub unsafe fn pdf_compare_reference(ref1: *mut pdf_obj, ref2: *mut pdf_obj) -> i32 {
+pub(crate) unsafe fn pdf_compare_reference(ref1: *mut pdf_obj, ref2: *mut pdf_obj) -> i32 {
     assert!(!ref1.is_null() && (*ref1).is_indirect() && (!ref2.is_null() && (*ref2).is_indirect()));
     let data1 = (*ref1).data as *mut pdf_indirect;
     let data2 = (*ref2).data as *mut pdf_indirect;
     return ((*data1).pf != (*data2).pf || (*data1).id != (*data2).id) as i32;
 }
 
-pub unsafe fn pdf_obj_reset_global_state() {
+pub(crate) unsafe fn pdf_obj_reset_global_state() {
     pdf_output_handle = None;
     pdf_output_file_position = 0;
     pdf_output_line_position = 0;

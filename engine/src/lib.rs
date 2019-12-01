@@ -14,8 +14,6 @@
 extern crate tectonic_bridge as bridge;
 extern crate tectonic_dvipdfmx as dpx;
 
-pub use bridge::*;
-
 use std::ptr;
 
 // For the msg_send macro
@@ -25,18 +23,22 @@ extern crate objc;
 
 //use log::{info, warn};
 
-pub type __off_t = i64;
-pub type __off64_t = i64;
-pub type size_t = usize;
-pub type off_t = __off_t;
-pub type ssize_t = isize;
+pub(crate) type __off_t = i64;
+pub(crate) type __off64_t = i64;
+pub(crate) type size_t = usize;
+pub(crate) type off_t = __off_t;
+pub(crate) type ssize_t = isize;
 
 use bibtex::bibtex_main;
+use bridge::TTHistory;
 use dpx::dvipdfmx_main;
 use xetex_ini::tt_run_engine;
 
-#[no_mangle]
-pub unsafe extern "C" fn tex_simple_main(
+pub use bridge::tt_bridge_api_t;
+pub use bridge::tt_get_error_message;
+pub use xetex_engine_interface::tt_xetex_set_int_variable;
+
+pub unsafe fn tex_simple_main(
     mut api: *const tt_bridge_api_t,
     mut dump_name: *const i8,
     mut input_file_name: *const i8,
@@ -44,8 +46,8 @@ pub unsafe extern "C" fn tex_simple_main(
     bridge::tt_with_bridge(api, || tt_run_engine(dump_name, input_file_name) as i32)
         .unwrap_or(TTHistory::FATAL_ERROR as i32)
 }
-#[no_mangle]
-pub unsafe extern "C" fn dvipdfmx_simple_main(
+
+pub unsafe fn dvipdfmx_simple_main(
     mut api: *const tt_bridge_api_t,
     mut dviname: *const i8,
     mut pdfname: *const i8,
@@ -67,8 +69,8 @@ pub unsafe extern "C" fn dvipdfmx_simple_main(
     })
     .unwrap_or(99)
 }
-#[no_mangle]
-pub unsafe extern "C" fn bibtex_simple_main(
+
+pub unsafe fn bibtex_simple_main(
     mut api: *const tt_bridge_api_t,
     mut aux_file_name: *const i8,
 ) -> i32 {
@@ -95,7 +97,10 @@ mod core_memory {
     You should have received a copy of the GNU Lesser General Public License
     along with this library; if not, see <http://www.gnu.org/licenses/>.  */
     #[no_mangle]
-    pub unsafe extern "C" fn xcalloc(mut nelem: size_t, mut elsize: size_t) -> *mut libc::c_void {
+    pub(crate) unsafe extern "C" fn xcalloc(
+        mut nelem: size_t,
+        mut elsize: size_t,
+    ) -> *mut libc::c_void {
         let nelem = nelem as libc::size_t; //FIXME
         let elsize = elsize as libc::size_t; //FIXME
         let mut new_mem: *mut libc::c_void = libc::calloc(
@@ -111,7 +116,7 @@ mod core_memory {
         new_mem
     }
     #[no_mangle]
-    pub unsafe extern "C" fn xmalloc(mut size: size_t) -> *mut libc::c_void {
+    pub(crate) unsafe extern "C" fn xmalloc(mut size: size_t) -> *mut libc::c_void {
         let size = size as libc::size_t; //FIXME
 
         let mut new_mem: *mut libc::c_void = libc::malloc(if size != 0 { size } else { 1 });
@@ -121,7 +126,7 @@ mod core_memory {
         new_mem
     }
     #[no_mangle]
-    pub unsafe extern "C" fn xrealloc(
+    pub(crate) unsafe extern "C" fn xrealloc(
         mut old_ptr: *mut libc::c_void,
         mut size: size_t,
     ) -> *mut libc::c_void {
@@ -138,7 +143,7 @@ mod core_memory {
         new_mem
     }
     #[no_mangle]
-    pub unsafe extern "C" fn xstrdup(mut s: *const i8) -> *mut i8 {
+    pub(crate) unsafe extern "C" fn xstrdup(mut s: *const i8) -> *mut i8 {
         let mut new_string: *mut i8 = xmalloc(libc::strlen(s).wrapping_add(1) as size_t) as *mut i8;
         libc::strcpy(new_string, s)
     }
@@ -184,8 +189,6 @@ mod stub_icu;
 mod stub_stdio;
 mod stub_teckit;
 
-pub use xetex_engine_interface::tt_xetex_set_int_variable;
-
 #[inline]
 pub(crate) unsafe extern "C" fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8 {
     let length = libc::strlen(prefix);
@@ -217,14 +220,14 @@ pub(crate) mod freetype_sys_patch {
 
     extern "C" {
         #[no_mangle]
-        pub fn FT_Face_GetCharVariantIndex(
+        pub(crate) fn FT_Face_GetCharVariantIndex(
             face: FT_Face,
             charcode: FT_ULong,
             variantSelector: FT_ULong,
         ) -> FT_UInt;
 
         #[no_mangle]
-        pub fn FT_Get_Advance(
+        pub(crate) fn FT_Get_Advance(
             face: FT_Face,
             gindex: FT_UInt,
             load_flags: FT_Int32,
@@ -232,7 +235,7 @@ pub(crate) mod freetype_sys_patch {
         ) -> FT_Error;
 
         #[no_mangle]
-        pub fn FT_Load_Sfnt_Table(
+        pub(crate) fn FT_Load_Sfnt_Table(
             face: FT_Face,
             tag: FT_ULong,
             offset: FT_Long,
@@ -241,53 +244,57 @@ pub(crate) mod freetype_sys_patch {
         ) -> FT_Error;
 
         #[no_mangle]
-        pub fn FT_Get_Sfnt_Name_Count(face: FT_Face) -> FT_UInt;
+        pub(crate) fn FT_Get_Sfnt_Name_Count(face: FT_Face) -> FT_UInt;
 
         #[no_mangle]
-        pub fn FT_Get_Sfnt_Name(face: FT_Face, idx: FT_UInt, aname: *mut FT_SfntName) -> FT_Error;
+        pub(crate) fn FT_Get_Sfnt_Name(
+            face: FT_Face,
+            idx: FT_UInt,
+            aname: *mut FT_SfntName,
+        ) -> FT_Error;
     }
 
-    pub const FT_SFNT_MAX: FT_Sfnt_Tag = 7;
-    pub const FT_SFNT_PCLT: FT_Sfnt_Tag = 6;
-    pub const FT_SFNT_POST: FT_Sfnt_Tag = 5;
-    pub const FT_SFNT_VHEA: FT_Sfnt_Tag = 4;
-    pub const FT_SFNT_HHEA: FT_Sfnt_Tag = 3;
-    pub const FT_SFNT_OS2: FT_Sfnt_Tag = 2;
-    pub const FT_SFNT_MAXP: FT_Sfnt_Tag = 1;
-    pub const FT_SFNT_HEAD: FT_Sfnt_Tag = 0;
-
-    #[derive(Copy, Clone)]
-    #[repr(C)]
-    pub struct TT_Header_ {
-        pub Table_Version: FT_Fixed,
-        pub Font_Revision: FT_Fixed,
-        pub CheckSum_Adjust: FT_Long,
-        pub Magic_Number: FT_Long,
-        pub Flags: FT_UShort,
-        pub Units_Per_EM: FT_UShort,
-        pub Created: [FT_ULong; 2],
-        pub Modified: [FT_ULong; 2],
-        pub xMin: FT_Short,
-        pub yMin: FT_Short,
-        pub xMax: FT_Short,
-        pub yMax: FT_Short,
-        pub Mac_Style: FT_UShort,
-        pub Lowest_Rec_PPEM: FT_UShort,
-        pub Font_Direction: FT_Short,
-        pub Index_To_Loc_Format: FT_Short,
-        pub Glyph_Data_Format: FT_Short,
-    }
-    pub type TT_Header = TT_Header_;
+    pub(crate) const FT_SFNT_MAX: FT_Sfnt_Tag = 7;
+    pub(crate) const FT_SFNT_PCLT: FT_Sfnt_Tag = 6;
+    pub(crate) const FT_SFNT_POST: FT_Sfnt_Tag = 5;
+    pub(crate) const FT_SFNT_VHEA: FT_Sfnt_Tag = 4;
+    pub(crate) const FT_SFNT_HHEA: FT_Sfnt_Tag = 3;
+    pub(crate) const FT_SFNT_OS2: FT_Sfnt_Tag = 2;
+    pub(crate) const FT_SFNT_MAXP: FT_Sfnt_Tag = 1;
+    pub(crate) const FT_SFNT_HEAD: FT_Sfnt_Tag = 0;
 
     #[derive(Copy, Clone)]
     #[repr(C)]
-    pub struct FT_SfntName_ {
-        pub platform_id: FT_UShort,
-        pub encoding_id: FT_UShort,
-        pub language_id: FT_UShort,
-        pub name_id: FT_UShort,
-        pub string: *mut FT_Byte,
-        pub string_len: FT_UInt,
+    pub(crate) struct TT_Header_ {
+        pub(crate) Table_Version: FT_Fixed,
+        pub(crate) Font_Revision: FT_Fixed,
+        pub(crate) CheckSum_Adjust: FT_Long,
+        pub(crate) Magic_Number: FT_Long,
+        pub(crate) Flags: FT_UShort,
+        pub(crate) Units_Per_EM: FT_UShort,
+        pub(crate) Created: [FT_ULong; 2],
+        pub(crate) Modified: [FT_ULong; 2],
+        pub(crate) xMin: FT_Short,
+        pub(crate) yMin: FT_Short,
+        pub(crate) xMax: FT_Short,
+        pub(crate) yMax: FT_Short,
+        pub(crate) Mac_Style: FT_UShort,
+        pub(crate) Lowest_Rec_PPEM: FT_UShort,
+        pub(crate) Font_Direction: FT_Short,
+        pub(crate) Index_To_Loc_Format: FT_Short,
+        pub(crate) Glyph_Data_Format: FT_Short,
     }
-    pub type FT_SfntName = FT_SfntName_;
+    pub(crate) type TT_Header = TT_Header_;
+
+    #[derive(Copy, Clone)]
+    #[repr(C)]
+    pub(crate) struct FT_SfntName_ {
+        pub(crate) platform_id: FT_UShort,
+        pub(crate) encoding_id: FT_UShort,
+        pub(crate) language_id: FT_UShort,
+        pub(crate) name_id: FT_UShort,
+        pub(crate) string: *mut FT_Byte,
+        pub(crate) string_len: FT_UInt,
+    }
+    pub(crate) type FT_SfntName = FT_SfntName_;
 }

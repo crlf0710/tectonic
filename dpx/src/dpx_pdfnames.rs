@@ -45,25 +45,26 @@ use crate::dpx_pdfobj::{
 };
 use libc::free;
 
-use crate::size_t;
-pub type __compar_fn_t = Option<unsafe fn(_: *const libc::c_void, _: *const libc::c_void) -> i32>;
+use crate::bridge::size_t;
+pub(crate) type __compar_fn_t =
+    Option<unsafe fn(_: *const libc::c_void, _: *const libc::c_void) -> i32>;
 
 use super::dpx_dpxutil::ht_iter;
 use super::dpx_dpxutil::ht_table;
 /* Hash */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct obj_data {
-    pub object: *mut pdf_obj,
-    pub closed: i32,
+pub(crate) struct obj_data {
+    pub(crate) object: *mut pdf_obj,
+    pub(crate) closed: i32,
     /* 1 if object is closed */
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct named_object {
-    pub key: *mut i8,
-    pub keylen: i32,
-    pub value: *mut pdf_obj,
+pub(crate) struct named_object {
+    pub(crate) key: *mut i8,
+    pub(crate) keylen: i32,
+    pub(crate) value: *mut pdf_obj,
 }
 unsafe fn printable_key(key: *const i8, keylen: i32) -> String {
     let bytes = slice::from_raw_parts(key as *const u8, keylen as usize);
@@ -87,7 +88,7 @@ unsafe fn hval_free(hval: *mut libc::c_void) {
     free(value as *mut libc::c_void);
 }
 
-pub unsafe fn pdf_new_name_tree() -> *mut ht_table {
+pub(crate) unsafe fn pdf_new_name_tree() -> *mut ht_table {
     let names =
         new((1_u64).wrapping_mul(::std::mem::size_of::<ht_table>() as u64) as u32) as *mut ht_table;
     ht_init_table(
@@ -125,14 +126,14 @@ unsafe fn check_objects_defined(ht_tab: *mut ht_table) {
     };
 }
 
-pub unsafe fn pdf_delete_name_tree(names: *mut *mut ht_table) {
+pub(crate) unsafe fn pdf_delete_name_tree(names: *mut *mut ht_table) {
     assert!(!names.is_null() && !(*names).is_null());
     check_objects_defined(*names);
     ht_clear_table(*names);
     *names = mfree(*names as *mut libc::c_void) as *mut ht_table;
 }
 
-pub unsafe fn pdf_names_add_object(
+pub(crate) unsafe fn pdf_names_add_object(
     names: *mut ht_table,
     key: *const libc::c_void,
     keylen: i32,
@@ -171,7 +172,7 @@ pub unsafe fn pdf_names_add_object(
  * The following routine returns copies, not the original object.
  */
 
-pub unsafe fn pdf_names_lookup_reference(
+pub(crate) unsafe fn pdf_names_lookup_reference(
     names: *mut ht_table,
     key: *const libc::c_void,
     keylen: i32,
@@ -193,7 +194,7 @@ pub unsafe fn pdf_names_lookup_reference(
     pdf_ref_obj(object)
 }
 
-pub unsafe fn pdf_names_lookup_object(
+pub(crate) unsafe fn pdf_names_lookup_object(
     names: *mut ht_table,
     key: *const libc::c_void,
     keylen: i32,
@@ -209,7 +210,7 @@ pub unsafe fn pdf_names_lookup_object(
     (*value).object
 }
 
-pub unsafe fn pdf_names_close_object(
+pub(crate) unsafe fn pdf_names_close_object(
     names: *mut ht_table,
     key: *const libc::c_void,
     keylen: i32,
@@ -385,7 +386,7 @@ unsafe fn flat_table(
 /* Not actually tree... */
 /* Really create name tree... */
 
-pub unsafe fn pdf_names_create_tree(
+pub(crate) unsafe fn pdf_names_create_tree(
     names: *mut ht_table,
     count: *mut i32,
     filter: *mut ht_table,

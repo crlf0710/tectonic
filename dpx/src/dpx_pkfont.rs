@@ -28,8 +28,8 @@
 
 use euclid::point2;
 
+use crate::bridge::DisplayExt;
 use crate::warn;
-use crate::DisplayExt;
 use std::ffi::CStr;
 use std::ptr;
 
@@ -56,28 +56,28 @@ use crate::dpx_numbers::{
     get_unsigned_num, get_unsigned_pair, get_unsigned_triple, skip_bytes,
 };
 
-pub type __off_t = i64;
-pub type __off64_t = i64;
-use crate::size_t;
+pub(crate) type __off_t = i64;
+pub(crate) type __off64_t = i64;
+use crate::bridge::size_t;
 use libc::FILE;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct pk_header_ {
-    pub pkt_len: u32,
-    pub chrcode: i32,
-    pub wd: i32,
-    pub dx: i32,
-    pub dy: i32,
-    pub bm_wd: u32,
-    pub bm_ht: u32,
-    pub bm_hoff: i32,
-    pub bm_voff: i32,
-    pub dyn_f: i32,
-    pub run_color: i32,
+pub(crate) struct pk_header_ {
+    pub(crate) pkt_len: u32,
+    pub(crate) chrcode: i32,
+    pub(crate) wd: i32,
+    pub(crate) dx: i32,
+    pub(crate) dy: i32,
+    pub(crate) bm_wd: u32,
+    pub(crate) bm_ht: u32,
+    pub(crate) bm_hoff: i32,
+    pub(crate) bm_voff: i32,
+    pub(crate) dyn_f: i32,
+    pub(crate) run_color: i32,
 }
 static mut base_dpi: u32 = 600u32;
 
-pub unsafe fn PKFont_set_dpi(dpi: i32) {
+pub(crate) unsafe fn PKFont_set_dpi(dpi: i32) {
     if dpi <= 0i32 {
         panic!("Invalid DPI: {}\n", dpi);
     }
@@ -113,7 +113,7 @@ unsafe fn dpx_open_pk_font_at(_ident: *const i8, _dpi: u32) -> *mut FILE {
     fp
 }
 
-pub unsafe fn pdf_font_open_pkfont(font: *mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_open_pkfont(font: *mut pdf_font) -> i32 {
     let ident = pdf_font_get_ident(font);
     let point_size = pdf_font_get_param(font, 2i32);
     let encoding_id = pdf_font_get_encoding(font);
@@ -568,7 +568,7 @@ unsafe fn create_pk_CharProc_stream(
     stream
 }
 
-pub unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
     let mut widths: [f64; 256] = [0.; 256];
     let mut charavail: [i8; 256] = [0; 256];
     /* ENABLE_GLYPHENC */

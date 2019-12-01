@@ -22,7 +22,7 @@
 
 #![allow(non_snake_case)]
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::sget_unsigned_pair;
@@ -43,13 +43,13 @@ use std::ptr;
 use std::slice::from_raw_parts;
 
 #[derive(Debug)]
-pub enum PdfColorError {
+pub(crate) enum PdfColorError {
     InvalidValue { name: &'static str, value: f64 },
     EmptyName,
 }
 
 impl PdfColorError {
-    pub fn warn(&self) {
+    pub(crate) fn warn(&self) {
         warn!("{}", self);
     }
 }
@@ -68,18 +68,18 @@ impl fmt::Display for PdfColorError {
 impl Error for PdfColorError {}
 
 #[derive(PartialEq, Clone, Debug)]
-pub enum PdfColor {
+pub(crate) enum PdfColor {
     Gray(f64),
     Spot(CString, f64),
     Rgb(f64, f64, f64),
     Cmyk(f64, f64, f64, f64),
 }
 
-pub const WHITE: PdfColor = PdfColor::Gray(1.0);
-pub const BLACK: PdfColor = PdfColor::Gray(0.0);
+pub(crate) const WHITE: PdfColor = PdfColor::Gray(1.0);
+pub(crate) const BLACK: PdfColor = PdfColor::Gray(0.0);
 
 impl PdfColor {
-    pub fn from_gray(value: f64) -> Result<Self, PdfColorError> {
+    pub(crate) fn from_gray(value: f64) -> Result<Self, PdfColorError> {
         if value >= 0.0 && value <= 1.0 {
             Ok(Self::Gray(value))
         } else {
@@ -90,7 +90,7 @@ impl PdfColor {
         }
     }
 
-    pub fn from_rgb(r: f64, g: f64, b: f64) -> Result<Self, PdfColorError> {
+    pub(crate) fn from_rgb(r: f64, g: f64, b: f64) -> Result<Self, PdfColorError> {
         if r < 0.0 || r > 1.0 {
             Err(PdfColorError::InvalidValue {
                 name: "red",
@@ -111,7 +111,7 @@ impl PdfColor {
         }
     }
 
-    pub fn from_cmyk(c: f64, m: f64, y: f64, k: f64) -> Result<Self, PdfColorError> {
+    pub(crate) fn from_cmyk(c: f64, m: f64, y: f64, k: f64) -> Result<Self, PdfColorError> {
         if c < 0.0 || c > 1.0 {
             Err(PdfColorError::InvalidValue {
                 name: "cyan",
@@ -137,7 +137,7 @@ impl PdfColor {
         }
     }
 
-    pub fn from_spot(name: CString, c: f64) -> Result<Self, PdfColorError> {
+    pub(crate) fn from_spot(name: CString, c: f64) -> Result<Self, PdfColorError> {
         if c < 0.0 || c > 1.0 {
             Err(PdfColorError::InvalidValue {
                 name: "grade",
@@ -151,7 +151,7 @@ impl PdfColor {
     }
 
     /// Brighten up a color. f == 0 means no change, f == 1 means white.
-    pub fn brightened(self, f: f64) -> Self {
+    pub(crate) fn brightened(self, f: f64) -> Self {
         if f == 1.0 {
             WHITE
         } else {
@@ -172,7 +172,7 @@ impl PdfColor {
         }
     }
 
-    pub fn is_white(&self) -> bool {
+    pub(crate) fn is_white(&self) -> bool {
         match self {
             PdfColor::Spot(..) => false,
             PdfColor::Rgb(r, g, b) => [r, g, b].iter().all(|value| **value == 1.0),
@@ -181,7 +181,7 @@ impl PdfColor {
         }
     }
 
-    pub unsafe fn to_string(&self, buffer: *mut u8, mask: i8) -> usize {
+    pub(crate) unsafe fn to_string(&self, buffer: *mut u8, mask: i8) -> usize {
         let values_to_string = |values: &[f64]| {
             let mut len = 0isize;
             for value in values {
@@ -214,15 +214,15 @@ impl PdfColor {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct pdf_colorspace {
-    pub ident: *mut i8,
-    pub subtype: i32,
-    pub resource: *mut pdf_obj,
-    pub reference: *mut pdf_obj,
-    pub cdata: *mut iccbased_cdata,
+pub(crate) struct pdf_colorspace {
+    pub(crate) ident: *mut i8,
+    pub(crate) subtype: i32,
+    pub(crate) resource: *mut pdf_obj,
+    pub(crate) reference: *mut pdf_obj,
+    pub(crate) cdata: *mut iccbased_cdata,
 }
 #[allow(non_camel_case_types)]
-pub type iccSig = u32;
+pub(crate) type iccSig = u32;
 /*
  * In ICC profile stream dicrionary, there is /Range whose values must
  * "match the information in the profile". But where is those values in?
@@ -231,53 +231,53 @@ pub type iccSig = u32;
  */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct iccbased_cdata {
-    pub sig: i32,
-    pub checksum: [u8; 16],
-    pub colorspace: i32,
-    pub alternate: i32,
+pub(crate) struct iccbased_cdata {
+    pub(crate) sig: i32,
+    pub(crate) checksum: [u8; 16],
+    pub(crate) colorspace: i32,
+    pub(crate) alternate: i32,
     /* alternate colorspace (id), unused */
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct CspcCache {
-    pub count: u32,
-    pub capacity: u32,
-    pub colorspaces: *mut pdf_colorspace,
+pub(crate) struct CspcCache {
+    pub(crate) count: u32,
+    pub(crate) capacity: u32,
+    pub(crate) colorspaces: *mut pdf_colorspace,
 }
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
-pub struct iccHeader {
-    pub size: i32,
-    pub CMMType: iccSig,
-    pub version: i32,
-    pub devClass: iccSig,
-    pub colorSpace: iccSig,
-    pub PCS: iccSig,
-    pub creationDate: [i8; 12],
-    pub acsp: iccSig,
-    pub platform: iccSig,
-    pub flags: [i8; 4],
-    pub devMnfct: iccSig,
-    pub devModel: iccSig,
-    pub devAttr: [i8; 8],
-    pub intent: i32,
-    pub illuminant: iccXYZNumber,
-    pub creator: iccSig,
-    pub ID: [u8; 16],
+pub(crate) struct iccHeader {
+    pub(crate) size: i32,
+    pub(crate) CMMType: iccSig,
+    pub(crate) version: i32,
+    pub(crate) devClass: iccSig,
+    pub(crate) colorSpace: iccSig,
+    pub(crate) PCS: iccSig,
+    pub(crate) creationDate: [i8; 12],
+    pub(crate) acsp: iccSig,
+    pub(crate) platform: iccSig,
+    pub(crate) flags: [i8; 4],
+    pub(crate) devMnfct: iccSig,
+    pub(crate) devModel: iccSig,
+    pub(crate) devAttr: [i8; 8],
+    pub(crate) intent: i32,
+    pub(crate) illuminant: iccXYZNumber,
+    pub(crate) creator: iccSig,
+    pub(crate) ID: [u8; 16],
 }
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
-pub struct iccXYZNumber {
-    pub X: i32,
-    pub Y: i32,
-    pub Z: i32,
+pub(crate) struct iccXYZNumber {
+    pub(crate) X: i32,
+    pub(crate) Y: i32,
+    pub(crate) Z: i32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct IccVersion {
-    pub major: i32,
-    pub minor: i32,
+pub(crate) struct IccVersion {
+    pub(crate) major: i32,
+    pub(crate) minor: i32,
 }
 impl IccVersion {
     const fn new(major: i32, minor: i32) -> Self {
@@ -286,10 +286,10 @@ impl IccVersion {
 }
 #[derive(Clone)]
 #[repr(C)]
-pub struct ColorStack {
-    pub current: i32,
-    pub stroke: [PdfColor; 128],
-    pub fill: [PdfColor; 128],
+pub(crate) struct ColorStack {
+    pub(crate) current: i32,
+    pub(crate) stroke: [PdfColor; 128],
+    pub(crate) fill: [PdfColor; 128],
 }
 /* tectonic/core-memory.h: basic dynamic memory helpers
    Copyright 2016-2018 the Tectonic Project
@@ -299,7 +299,7 @@ pub struct ColorStack {
  */
 static mut VERBOSE: i32 = 0i32;
 
-pub unsafe fn pdf_color_set_verbose(level: i32) {
+pub(crate) unsafe fn pdf_color_set_verbose(level: i32) {
     VERBOSE = level;
 }
 
@@ -309,7 +309,7 @@ static mut COLOR_STACK: ColorStack = ColorStack {
     fill: [BLACK; 128],
 };
 
-pub unsafe fn pdf_color_clear_stack() {
+pub(crate) unsafe fn pdf_color_clear_stack() {
     if COLOR_STACK.current > 0 {
         warn!("You\'ve mistakenly made a global color change within nested colors.");
     }
@@ -325,13 +325,13 @@ pub unsafe fn pdf_color_clear_stack() {
     COLOR_STACK.fill[0] = BLACK;
 }
 
-pub unsafe fn pdf_color_set(sc: &PdfColor, fc: &PdfColor) {
+pub(crate) unsafe fn pdf_color_set(sc: &PdfColor, fc: &PdfColor) {
     COLOR_STACK.stroke[COLOR_STACK.current as usize] = sc.clone();
     COLOR_STACK.fill[COLOR_STACK.current as usize] = fc.clone();
     pdf_dev_reset_color(0);
 }
 
-pub unsafe fn pdf_color_push(sc: &mut PdfColor, fc: &PdfColor) {
+pub(crate) unsafe fn pdf_color_push(sc: &mut PdfColor, fc: &PdfColor) {
     if COLOR_STACK.current >= 128 - 1 {
         warn!("Color stack overflow. Just ignore.");
     } else {
@@ -340,7 +340,7 @@ pub unsafe fn pdf_color_push(sc: &mut PdfColor, fc: &PdfColor) {
     };
 }
 
-pub unsafe fn pdf_color_pop() {
+pub(crate) unsafe fn pdf_color_pop() {
     if COLOR_STACK.current <= 0 {
         warn!("Color stack underflow. Just ignore.");
     } else {
@@ -354,7 +354,7 @@ pub unsafe fn pdf_color_pop() {
 /* Color stack
  */
 
-pub unsafe fn pdf_color_get_current() -> (&'static mut PdfColor, &'static mut PdfColor) {
+pub(crate) unsafe fn pdf_color_get_current() -> (&'static mut PdfColor, &'static mut PdfColor) {
     (
         &mut COLOR_STACK.stroke[COLOR_STACK.current as usize],
         &mut COLOR_STACK.fill[COLOR_STACK.current as usize],
@@ -479,7 +479,7 @@ unsafe fn compare_iccbased(
     return -1i32; /* acsp */
 }
 
-pub unsafe fn iccp_check_colorspace(colortype: i32, profile: &[u8]) -> i32 {
+pub(crate) unsafe fn iccp_check_colorspace(colortype: i32, profile: &[u8]) -> i32 {
     if profile.len() < 128 {
         return -1i32;
     }
@@ -512,7 +512,7 @@ pub unsafe fn iccp_check_colorspace(colortype: i32, profile: &[u8]) -> i32 {
     0i32
 }
 
-pub unsafe fn iccp_get_rendering_intent(profile: &[u8]) -> *mut pdf_obj {
+pub(crate) unsafe fn iccp_get_rendering_intent(profile: &[u8]) -> *mut pdf_obj {
     if profile.len() < 128 {
         return ptr::null_mut();
     }
@@ -934,7 +934,7 @@ unsafe fn iccp_devClass_allowed(dev_class: i32) -> i32 {
     1i32
 }
 
-pub unsafe fn iccp_load_profile(ident: *const i8, profile: &[u8]) -> i32 {
+pub(crate) unsafe fn iccp_load_profile(ident: *const i8, profile: &[u8]) -> i32 {
     let mut cspc_id;
     let mut icch = iccHeader::default();
     let colorspace;
@@ -1149,7 +1149,7 @@ unsafe fn pdf_colorspace_defineresource(
     cspc_id
 }
 
-pub unsafe fn pdf_get_colorspace_reference(cspc_id: i32) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_get_colorspace_reference(cspc_id: i32) -> *mut pdf_obj {
     let mut colorspace =
         &mut *CSPC_CACHE.colorspaces.offset(cspc_id as isize) as *mut pdf_colorspace;
     if (*colorspace).reference.is_null() {
@@ -1160,7 +1160,7 @@ pub unsafe fn pdf_get_colorspace_reference(cspc_id: i32) -> *mut pdf_obj {
     pdf_link_obj((*colorspace).reference)
 }
 
-pub unsafe fn pdf_init_colors() {
+pub(crate) unsafe fn pdf_init_colors() {
     CSPC_CACHE.count = 0_u32;
     CSPC_CACHE.capacity = 0_u32;
     CSPC_CACHE.colorspaces = ptr::null_mut();
@@ -1168,7 +1168,7 @@ pub unsafe fn pdf_init_colors() {
 /* Not check size */
 /* returns colorspace ID */
 
-pub unsafe fn pdf_close_colors() {
+pub(crate) unsafe fn pdf_close_colors() {
     for i in 0..CSPC_CACHE.count {
         let colorspace = &mut *CSPC_CACHE.colorspaces.offset(i as isize);
         pdf_flush_colorspace(colorspace);

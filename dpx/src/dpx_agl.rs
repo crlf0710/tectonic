@@ -26,7 +26,7 @@
     non_upper_case_globals
 )]
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use crate::{info, warn};
 use std::ffi::{CStr, CString};
 use std::ptr;
@@ -37,30 +37,30 @@ use super::dpx_mem::new;
 use super::dpx_mfileio::tt_mfgets;
 use super::dpx_pdfparse::{parse_ident, skip_white};
 use super::dpx_unicode::{UC_UTF16BE_encode_char, UC_is_valid};
-use crate::ttstub_input_close;
+use crate::bridge::ttstub_input_close;
 use libc::{free, memcpy, strchr, strlen, strtol};
 
-pub type __ssize_t = i64;
+pub(crate) type __ssize_t = i64;
 
-use crate::TTInputFormat;
+use crate::bridge::TTInputFormat;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct agl_name {
-    pub name: *mut i8,
-    pub suffix: *mut i8,
-    pub n_components: i32,
-    pub unicodes: [i32; 16],
-    pub alternate: *mut agl_name,
-    pub is_predef: i32,
+pub(crate) struct agl_name {
+    pub(crate) name: *mut i8,
+    pub(crate) suffix: *mut i8,
+    pub(crate) n_components: i32,
+    pub(crate) unicodes: [i32; 16],
+    pub(crate) alternate: *mut agl_name,
+    pub(crate) is_predef: i32,
 }
 use super::dpx_dpxutil::ht_table;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_0 {
-    pub key: &'static [u8],
-    pub otl_tag: &'static [u8],
-    pub suffixes: &'static [&'static [u8]],
+pub(crate) struct C2RustUnnamed_0 {
+    pub(crate) key: &'static [u8],
+    pub(crate) otl_tag: &'static [u8],
+    pub(crate) suffixes: &'static [&'static [u8]],
 }
 /* quasi-hack to get the primary input */
 /* tectonic/core-strutils.h: miscellaneous C string utilities
@@ -72,7 +72,7 @@ pub struct C2RustUnnamed_0 {
  * as directory separators. */
 static mut verbose: i32 = 0i32;
 
-pub unsafe fn agl_set_verbose(level: i32) {
+pub(crate) unsafe fn agl_set_verbose(level: i32) {
     verbose = level;
 }
 unsafe fn agl_new_name() -> *mut agl_name {
@@ -97,7 +97,7 @@ unsafe fn agl_release_name(mut agln: *mut agl_name) {
         agln = next
     }
 }
-pub unsafe fn agl_chop_suffix(glyphname: &[u8]) -> (Option<CString>, Option<CString>) {
+pub(crate) unsafe fn agl_chop_suffix(glyphname: &[u8]) -> (Option<CString>, Option<CString>) {
     let name;
     let suffix;
     if let Some(len) = glyphname.iter().position(|&x| x == b'.') {
@@ -274,7 +274,7 @@ static mut VAR_LIST: [C2RustUnnamed_0; 13] = [
     },
 ];
 
-pub unsafe fn agl_suffix_to_otltag(suffix: &[u8]) -> Option<&'static [u8]> {
+pub(crate) unsafe fn agl_suffix_to_otltag(suffix: &[u8]) -> Option<&'static [u8]> {
     for vl in &VAR_LIST {
         for &vlsuffix in vl.suffixes {
             if suffix == vlsuffix {
@@ -346,7 +346,7 @@ unsafe fn hval_free(hval: *mut libc::c_void) {
     agl_release_name(hval as *mut agl_name);
 }
 
-pub unsafe fn agl_init_map() {
+pub(crate) unsafe fn agl_init_map() {
     ht_init_table(
         &mut aglmap,
         Some(hval_free as unsafe fn(_: *mut libc::c_void) -> ()),
@@ -360,7 +360,7 @@ pub unsafe fn agl_init_map() {
     };
 }
 
-pub unsafe fn agl_close_map() {
+pub(crate) unsafe fn agl_close_map() {
     ht_clear_table(&mut aglmap);
 }
 /*
@@ -498,7 +498,7 @@ unsafe fn agl_load_listfile(filename: *const i8, is_predef: i32) -> Result<u32, 
     Ok(count)
 }
 
-pub unsafe fn agl_lookup_list(glyphname: *const i8) -> *mut agl_name {
+pub(crate) unsafe fn agl_lookup_list(glyphname: *const i8) -> *mut agl_name {
     if glyphname.is_null() {
         return ptr::null_mut();
     }
@@ -508,7 +508,7 @@ pub unsafe fn agl_lookup_list(glyphname: *const i8) -> *mut agl_name {
         strlen(glyphname) as i32,
     ) as *mut agl_name
 }
-pub fn agl_name_is_unicode(glyphname: &[u8]) -> bool {
+pub(crate) fn agl_name_is_unicode(glyphname: &[u8]) -> bool {
     if glyphname.is_empty() {
         return false;
     }
@@ -543,7 +543,7 @@ pub fn agl_name_is_unicode(glyphname: &[u8]) -> bool {
     false
 }
 
-pub unsafe fn agl_name_convert_unicode(glyphname: *const i8) -> i32 {
+pub(crate) unsafe fn agl_name_convert_unicode(glyphname: *const i8) -> i32 {
     if !agl_name_is_unicode(CStr::from_ptr(glyphname).to_bytes()) {
         return -1i32;
     }
@@ -618,7 +618,7 @@ unsafe fn put_unicode_glyph(name: &[u8], dstpp: *mut *mut u8, limptr: *mut u8) -
     len
 }
 
-pub unsafe fn agl_sput_UTF16BE(
+pub(crate) unsafe fn agl_sput_UTF16BE(
     glyphstr: *const i8,
     dstpp: *mut *mut u8,
     limptr: *mut u8,
@@ -724,7 +724,11 @@ pub unsafe fn agl_sput_UTF16BE(
     len
 }
 
-pub unsafe fn agl_get_unicodes(glyphstr: *const i8, unicodes: *mut i32, max_unicodes: i32) -> i32 {
+pub(crate) unsafe fn agl_get_unicodes(
+    glyphstr: *const i8,
+    unicodes: *mut i32,
+    max_unicodes: i32,
+) -> i32 {
     let mut count: i32 = 0i32;
     let mut p = glyphstr;
     let mut endptr = strchr(p, '.' as i32) as *const i8;

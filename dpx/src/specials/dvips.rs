@@ -24,18 +24,18 @@
     non_snake_case,
 )]
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use std::ffi::{CStr, CString};
 use std::ptr;
 
 use crate::warn;
 
 use super::{spc_arg, spc_env};
-use crate::TTInputFormat;
+use crate::bridge::TTInputFormat;
 
+use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_pdfdraw::pdf_dev_concat;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
-use crate::{ttstub_input_close, ttstub_input_open};
 
 use super::util::spc_util_read_dimtrns;
 use crate::dpx_mem::xmalloc;
@@ -48,7 +48,7 @@ use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
 use libc::{free, strncpy};
 
-use crate::size_t;
+use crate::bridge::size_t;
 /* quasi-hack to get the primary input */
 
 use super::SpcHandler;
@@ -330,12 +330,12 @@ const DVIPS_HANDLERS: [SpcHandler; 10] = [
     },
 ];
 
-pub unsafe fn spc_dvips_at_begin_document() -> i32 {
+pub(crate) unsafe fn spc_dvips_at_begin_document() -> i32 {
     /* This function used to start the global_defs temp file. */
     0i32
 }
 
-pub unsafe fn spc_dvips_at_end_document() -> i32 {
+pub(crate) unsafe fn spc_dvips_at_end_document() -> i32 {
     for &elem in &PS_HEADERS {
         free(elem as *mut libc::c_void);
     }
@@ -343,16 +343,16 @@ pub unsafe fn spc_dvips_at_end_document() -> i32 {
     0
 }
 
-pub unsafe fn spc_dvips_at_begin_page() -> i32 {
+pub(crate) unsafe fn spc_dvips_at_begin_page() -> i32 {
     /* This function used do some things related to now-removed PSTricks functionality. */
     0i32
 }
 
-pub unsafe fn spc_dvips_at_end_page() -> i32 {
+pub(crate) unsafe fn spc_dvips_at_end_page() -> i32 {
     mps_eop_cleanup();
     0i32
 }
-pub fn spc_dvips_check_special(mut buf: &[u8]) -> bool {
+pub(crate) fn spc_dvips_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
     if buf.is_empty() {
         return false;
@@ -365,7 +365,7 @@ pub fn spc_dvips_check_special(mut buf: &[u8]) -> bool {
     false
 }
 
-pub unsafe fn spc_dvips_setup_handler(
+pub(crate) unsafe fn spc_dvips_setup_handler(
     mut handle: *mut SpcHandler,
     spe: *mut spc_env,
     mut args: *mut spc_arg,

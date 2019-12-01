@@ -44,12 +44,12 @@ const DVIPDFMX_HANDLERS: [SpcHandler; 1] = [SpcHandler {
     exec: Some(spc_handler_null),
 }];
 
-pub fn spc_dvipdfmx_check_special(mut buf: &[u8]) -> bool {
+pub(crate) fn spc_dvipdfmx_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
     buf.starts_with(b"dvipdfmx:")
 }
 
-pub unsafe fn spc_dvipdfmx_setup_handler(
+pub(crate) unsafe fn spc_dvipdfmx_setup_handler(
     mut sph: *mut SpcHandler,
     spe: *mut spc_env,
     mut ap: *mut spc_arg,

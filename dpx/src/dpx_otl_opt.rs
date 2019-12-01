@@ -26,8 +26,8 @@
     non_upper_case_globals,
 )]
 
+use crate::bridge::DisplayExt;
 use crate::warn;
-use crate::DisplayExt;
 use std::ffi::CStr;
 use std::ptr;
 
@@ -36,17 +36,17 @@ use libc::{free, memcpy, memset, strlen};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct otl_opt {
-    pub rule: *mut bt_node,
+pub(crate) struct otl_opt {
+    pub(crate) rule: *mut bt_node,
     /* _OTL_OPT_H_ */
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct bt_node {
-    pub flag: i32,
-    pub left: *mut bt_node,
-    pub right: *mut bt_node,
-    pub data: [i8; 4],
+pub(crate) struct bt_node {
+    pub(crate) flag: i32,
+    pub(crate) left: *mut bt_node,
+    pub(crate) right: *mut bt_node,
+    pub(crate) data: [i8; 4],
 }
 unsafe fn match_expr(expr: *mut bt_node, key: *const i8) -> i32 {
     let mut retval: i32 = 1i32;
@@ -197,14 +197,14 @@ unsafe fn parse_expr(pp: *mut *const i8, endptr: *const i8) -> *mut bt_node {
     root
 }
 
-pub unsafe fn otl_new_opt() -> *mut otl_opt {
+pub(crate) unsafe fn otl_new_opt() -> *mut otl_opt {
     let opt =
         new((1_u64).wrapping_mul(::std::mem::size_of::<otl_opt>() as u64) as u32) as *mut otl_opt;
     (*opt).rule = ptr::null_mut();
     opt as *mut otl_opt
 }
 
-pub unsafe fn otl_release_opt(mut opt: *mut otl_opt) {
+pub(crate) unsafe fn otl_release_opt(mut opt: *mut otl_opt) {
     if !(*opt).rule.is_null() {
         bt_release_tree((*opt).rule);
     }
@@ -212,7 +212,7 @@ pub unsafe fn otl_release_opt(mut opt: *mut otl_opt) {
     free(opt as *mut libc::c_void);
 }
 
-pub unsafe fn otl_parse_optstring(mut opt: *mut otl_opt, optstr: *const i8) -> i32 {
+pub(crate) unsafe fn otl_parse_optstring(mut opt: *mut otl_opt, optstr: *const i8) -> i32 {
     assert!(!opt.is_null());
     if !optstr.is_null() {
         let mut p = optstr as *const i8;
@@ -222,7 +222,7 @@ pub unsafe fn otl_parse_optstring(mut opt: *mut otl_opt, optstr: *const i8) -> i
     0i32
 }
 
-pub unsafe fn otl_match_optrule(opt: *mut otl_opt, tag: *const i8) -> i32 {
+pub(crate) unsafe fn otl_match_optrule(opt: *mut otl_opt, tag: *const i8) -> i32 {
     assert!(!tag.is_null());
     if opt.is_null() || (*opt).rule.is_null() {
         return 1i32;

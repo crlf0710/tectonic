@@ -26,7 +26,7 @@
     non_upper_case_globals,
 )]
 
-use crate::DisplayExt;
+use crate::bridge::DisplayExt;
 use crate::{info, warn};
 use std::ffi::CString;
 use std::ptr;
@@ -55,12 +55,12 @@ fn istokensep(c: &u8) -> bool {
 /* PDF */
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct ParserState {
-    pub tainted: i32,
+pub(crate) struct ParserState {
+    pub(crate) tainted: i32,
 }
 static mut parser_state: ParserState = ParserState { tainted: 0i32 };
 
-pub unsafe fn dump(start: *const i8, end: *const i8) {
+pub(crate) unsafe fn dump(start: *const i8, end: *const i8) {
     let mut p: *const i8 = start;
     info!("\nCurrent input buffer is -->");
     while p < end && p < start.offset(50) {
@@ -73,7 +73,7 @@ pub unsafe fn dump(start: *const i8, end: *const i8) {
     }
     info!("<--\n");
 }
-pub fn dump_slice(buf: &[u8]) {
+pub(crate) fn dump_slice(buf: &[u8]) {
     info!("\nCurrent input buffer is -->");
     if buf.len() > 50 {
         info!("{}...", buf[..50].display());
@@ -83,7 +83,7 @@ pub fn dump_slice(buf: &[u8]) {
     info!("<--\n");
 }
 
-pub unsafe fn pdfparse_skip_line(start: *mut *const i8, end: *const i8) {
+pub(crate) unsafe fn pdfparse_skip_line(start: *mut *const i8, end: *const i8) {
     while *start < end && **start as i32 != '\n' as i32 && **start as i32 != '\r' as i32 {
         *start = (*start).offset(1)
     }
@@ -100,7 +100,7 @@ pub unsafe fn pdfparse_skip_line(start: *mut *const i8, end: *const i8) {
     };
 }
 
-pub unsafe fn skip_white(start: *mut *const i8, end: *const i8) {
+pub(crate) unsafe fn skip_white(start: *mut *const i8, end: *const i8) {
     /*
      * The null (NUL; 0x00) character is a white-space character in PDF spec
      * but isspace(0x00) returns FALSE; on the other hand, the vertical tab
@@ -123,7 +123,7 @@ pub unsafe fn skip_white(start: *mut *const i8, end: *const i8) {
         }
     }
 }
-pub trait SkipWhite {
+pub(crate) trait SkipWhite {
     fn skip_white(&mut self);
     fn skip_line(&mut self);
 }
@@ -184,7 +184,7 @@ fn parsed_string_slice(buf: &[u8]) -> Option<CString> {
     }
 }
 
-pub unsafe fn parse_number(start: *mut *const i8, end: *const i8) -> *mut i8 {
+pub(crate) unsafe fn parse_number(start: *mut *const i8, end: *const i8) -> *mut i8 {
     skip_white(start, end);
     let mut p = *start;
     if p < end && (*p as i32 == '+' as i32 || *p as i32 == '-' as i32) {
@@ -204,7 +204,7 @@ pub unsafe fn parse_number(start: *mut *const i8, end: *const i8) -> *mut i8 {
     number
 }
 
-pub unsafe fn parse_unsigned(start: *mut *const i8, end: *const i8) -> *mut i8 {
+pub(crate) unsafe fn parse_unsigned(start: *mut *const i8, end: *const i8) -> *mut i8 {
     skip_white(start, end);
     let mut p = *start;
     while p < end {
@@ -244,20 +244,20 @@ fn parse_gen_ident_slice(buf: &mut &[u8], valid_chars: &[u8]) -> Option<CString>
     ident
 }
 
-pub unsafe fn parse_ident(start: *mut *const i8, end: *const i8) -> *mut i8 {
+pub(crate) unsafe fn parse_ident(start: *mut *const i8, end: *const i8) -> *mut i8 {
     const VALID_CHARS: &[u8] =
         b"!\"#$&\'*+,-.0123456789:;=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\\^_`abcdefghijklmnopqrstuvwxyz|~";
     parse_gen_ident(start, end, VALID_CHARS)
 }
 
-pub unsafe fn parse_opt_ident(start: *mut *const i8, end: *const i8) -> *mut i8 {
+pub(crate) unsafe fn parse_opt_ident(start: *mut *const i8, end: *const i8) -> *mut i8 {
     if *start < end && **start as i32 == '@' as i32 {
         *start = (*start).offset(1);
         return parse_ident(start, end);
     }
     ptr::null_mut()
 }
-pub trait ParseIdent {
+pub(crate) trait ParseIdent {
     fn parse_ident(&mut self) -> Option<CString>;
     fn parse_val_ident(&mut self) -> Option<CString>;
     fn parse_opt_ident(&mut self) -> Option<CString>;
@@ -333,7 +333,7 @@ unsafe fn try_pdf_reference(mut p: &[u8], pf: *mut pdf_file) -> Option<(*mut pdf
 
 /* Please remove this */
 
-pub unsafe fn parse_pdf_object(
+pub(crate) unsafe fn parse_pdf_object(
     pp: *mut *const i8,
     endptr: *const i8,
     pf: *mut pdf_file,
@@ -351,7 +351,7 @@ pub unsafe fn parse_pdf_object(
     }
 }
 
-pub trait ParsePdfObj {
+pub(crate) trait ParsePdfObj {
     fn parse_pdf_object(&mut self, pf: *mut pdf_file) -> Option<*mut pdf_obj>;
     fn parse_pdf_reference(&mut self) -> Option<*mut pdf_obj>;
     fn parse_pdf_stream(&mut self, dict: *mut pdf_obj) -> Option<*mut pdf_obj>;

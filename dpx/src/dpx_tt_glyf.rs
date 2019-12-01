@@ -36,47 +36,47 @@ use super::dpx_tt_table::{
     tt_read_hhea_table, tt_read_longMetrics, tt_read_maxp_table, tt_read_os2__table,
     tt_read_vhea_table,
 };
+use crate::bridge::ttstub_input_read;
 use crate::dpx_truetype::sfnt_table_info;
-use crate::ttstub_input_read;
 use libc::{free, memcpy, memset};
 
 use std::io::{Seek, SeekFrom};
 use std::ptr;
 use std::slice;
 
-pub type __ssize_t = i64;
-use crate::size_t;
+pub(crate) type __ssize_t = i64;
+use crate::bridge::size_t;
 
 use super::dpx_sfnt::{put_big_endian, sfnt};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct tt_glyph_desc {
-    pub gid: u16,
-    pub ogid: u16,
-    pub advw: u16,
-    pub advh: u16,
-    pub lsb: i16,
-    pub tsb: i16,
-    pub llx: i16,
-    pub lly: i16,
-    pub urx: i16,
-    pub ury: i16,
-    pub length: u32,
-    pub data: *mut u8,
+pub(crate) struct tt_glyph_desc {
+    pub(crate) gid: u16,
+    pub(crate) ogid: u16,
+    pub(crate) advw: u16,
+    pub(crate) advh: u16,
+    pub(crate) lsb: i16,
+    pub(crate) tsb: i16,
+    pub(crate) llx: i16,
+    pub(crate) lly: i16,
+    pub(crate) urx: i16,
+    pub(crate) ury: i16,
+    pub(crate) length: u32,
+    pub(crate) data: *mut u8,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct tt_glyphs {
-    pub num_glyphs: u16,
-    pub max_glyphs: u16,
-    pub last_gid: u16,
-    pub emsize: u16,
-    pub dw: u16,
-    pub default_advh: u16,
-    pub default_tsb: i16,
-    pub gd: *mut tt_glyph_desc,
-    pub used_slot: *mut u8,
+pub(crate) struct tt_glyphs {
+    pub(crate) num_glyphs: u16,
+    pub(crate) max_glyphs: u16,
+    pub(crate) last_gid: u16,
+    pub(crate) emsize: u16,
+    pub(crate) dw: u16,
+    pub(crate) default_advh: u16,
+    pub(crate) default_tsb: i16,
+    pub(crate) gd: *mut tt_glyph_desc,
+    pub(crate) used_slot: *mut u8,
 }
 
 unsafe fn find_empty_slot(g: *mut tt_glyphs) -> u16 {
@@ -97,7 +97,7 @@ unsafe fn find_empty_slot(g: *mut tt_glyphs) -> u16 {
     gid
 }
 
-pub unsafe fn tt_find_glyph(g: *mut tt_glyphs, gid: u16) -> u16 {
+pub(crate) unsafe fn tt_find_glyph(g: *mut tt_glyphs, gid: u16) -> u16 {
     let mut new_gid: u16 = 0_u16;
     assert!(!g.is_null());
     for idx in 0..(*g).num_glyphs as i32 {
@@ -109,7 +109,7 @@ pub unsafe fn tt_find_glyph(g: *mut tt_glyphs, gid: u16) -> u16 {
     new_gid
 }
 
-pub unsafe fn tt_get_index(g: *mut tt_glyphs, gid: u16) -> u16 {
+pub(crate) unsafe fn tt_get_index(g: *mut tt_glyphs, gid: u16) -> u16 {
     assert!(!g.is_null());
     let mut idx = 0_u16;
     while (idx as i32) < (*g).num_glyphs as i32 {
@@ -124,7 +124,7 @@ pub unsafe fn tt_get_index(g: *mut tt_glyphs, gid: u16) -> u16 {
     idx
 }
 
-pub unsafe fn tt_add_glyph(mut g: *mut tt_glyphs, gid: u16, new_gid: u16) -> u16 {
+pub(crate) unsafe fn tt_add_glyph(mut g: *mut tt_glyphs, gid: u16, new_gid: u16) -> u16 {
     assert!(!g.is_null());
     if *(*g).used_slot.offset((new_gid as i32 / 8i32) as isize) as i32
         & 1i32 << 7i32 - new_gid as i32 % 8i32
@@ -162,7 +162,7 @@ pub unsafe fn tt_add_glyph(mut g: *mut tt_glyphs, gid: u16, new_gid: u16) -> u16
  * Initialization
  */
 
-pub unsafe fn tt_build_init() -> *mut tt_glyphs {
+pub(crate) unsafe fn tt_build_init() -> *mut tt_glyphs {
     let g = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_glyphs>() as u64) as u32)
         as *mut tt_glyphs;
     (*g).num_glyphs = 0_u16;
@@ -179,7 +179,7 @@ pub unsafe fn tt_build_init() -> *mut tt_glyphs {
     g
 }
 
-pub unsafe fn tt_build_finish(g: *mut tt_glyphs) {
+pub(crate) unsafe fn tt_build_finish(g: *mut tt_glyphs) {
     if !g.is_null() {
         if !(*g).gd.is_null() {
             for idx in 0..(*g).num_glyphs as i32 {
@@ -192,7 +192,7 @@ pub unsafe fn tt_build_finish(g: *mut tt_glyphs) {
     };
 }
 
-pub unsafe fn tt_build_tables(sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
+pub(crate) unsafe fn tt_build_tables(sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
     /* some information available from other TrueType table */
     let vmtx;
     /* temp */
@@ -365,7 +365,7 @@ pub unsafe fn tt_build_tables(sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
             ) as isize);
             /* Read evrything else. */
             ttstub_input_read(
-                (*sfont).handle.0.as_ptr(),
+                (*sfont).handle.as_ptr(),
                 p as *mut i8,
                 len.wrapping_sub(10_u32) as size_t,
             );
@@ -620,7 +620,7 @@ pub unsafe fn tt_build_tables(sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
 /* default value */
 /* default value */
 
-pub unsafe fn tt_get_metrics(sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
+pub(crate) unsafe fn tt_get_metrics(sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
     let vmtx;
     /* temp */
     assert!(!g.is_null());

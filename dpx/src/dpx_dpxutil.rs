@@ -35,33 +35,33 @@ use libc::{free, memcmp, memcpy};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct ht_entry {
-    pub key: *mut i8,
-    pub keylen: i32,
-    pub value: *mut libc::c_void,
-    pub next: *mut ht_entry,
+pub(crate) struct ht_entry {
+    pub(crate) key: *mut i8,
+    pub(crate) keylen: i32,
+    pub(crate) value: *mut libc::c_void,
+    pub(crate) next: *mut ht_entry,
 }
-pub type hval_free_func = Option<unsafe fn(_: *mut libc::c_void) -> ()>;
+pub(crate) type hval_free_func = Option<unsafe fn(_: *mut libc::c_void) -> ()>;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct ht_table {
-    pub count: i32,
-    pub hval_free_fn: hval_free_func,
-    pub table: [*mut ht_entry; 503],
+pub(crate) struct ht_table {
+    pub(crate) count: i32,
+    pub(crate) hval_free_fn: hval_free_func,
+    pub(crate) table: [*mut ht_entry; 503],
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct ht_iter {
-    pub index: i32,
-    pub curr: *mut libc::c_void,
-    pub hash: *mut ht_table,
+pub(crate) struct ht_iter {
+    pub(crate) index: i32,
+    pub(crate) curr: *mut libc::c_void,
+    pub(crate) hash: *mut ht_table,
 }
 /* tectonic/core-memory.h: basic dynamic memory helpers
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
 */
 
-pub fn xtoi(c: u8) -> i32 {
+pub(crate) fn xtoi(c: u8) -> i32 {
     if c.is_ascii_digit() {
         return (c - b'0') as i32;
     }
@@ -74,7 +74,7 @@ pub fn xtoi(c: u8) -> i32 {
     -1
 }
 
-pub unsafe fn skip_white_spaces(s: *mut *mut u8, endptr: *mut u8) {
+pub(crate) unsafe fn skip_white_spaces(s: *mut *mut u8, endptr: *mut u8) {
     while *s < endptr {
         if !(**s as i32 == ' ' as i32
             || **s as i32 == '\t' as i32
@@ -89,7 +89,7 @@ pub unsafe fn skip_white_spaces(s: *mut *mut u8, endptr: *mut u8) {
     }
 }
 
-pub unsafe fn ht_init_table(mut ht: *mut ht_table, hval_free_fn: hval_free_func) {
+pub(crate) unsafe fn ht_init_table(mut ht: *mut ht_table, hval_free_fn: hval_free_func) {
     assert!(!ht.is_null());
     for i in 0..503 {
         (*ht).table[i] = ptr::null_mut();
@@ -98,7 +98,7 @@ pub unsafe fn ht_init_table(mut ht: *mut ht_table, hval_free_fn: hval_free_func)
     (*ht).hval_free_fn = hval_free_fn;
 }
 
-pub unsafe fn ht_clear_table(mut ht: *mut ht_table) {
+pub(crate) unsafe fn ht_clear_table(mut ht: *mut ht_table) {
     assert!(!ht.is_null());
     for i in 0..503 {
         let mut hent = (*ht).table[i];
@@ -121,7 +121,7 @@ pub unsafe fn ht_clear_table(mut ht: *mut ht_table) {
     (*ht).hval_free_fn = None;
 }
 
-pub unsafe fn ht_table_size(ht: *mut ht_table) -> i32 {
+pub(crate) unsafe fn ht_table_size(ht: *mut ht_table) -> i32 {
     assert!(!ht.is_null());
     (*ht).count
 }
@@ -135,7 +135,7 @@ unsafe fn get_hash(key: *const libc::c_void, keylen: i32) -> u32 {
     hkey.wrapping_rem(503_u32)
 }
 
-pub unsafe fn ht_lookup_table(
+pub(crate) unsafe fn ht_lookup_table(
     ht: *mut ht_table,
     key: *const libc::c_void,
     keylen: i32,
@@ -154,7 +154,11 @@ pub unsafe fn ht_lookup_table(
     ptr::null_mut()
 }
 
-pub unsafe fn ht_remove_table(mut ht: *mut ht_table, key: *const libc::c_void, keylen: i32) -> i32
+pub(crate) unsafe fn ht_remove_table(
+    mut ht: *mut ht_table,
+    key: *const libc::c_void,
+    keylen: i32,
+) -> i32
 /* returns 1 if the element was found and removed and 0 otherwise */ {
     assert!(!ht.is_null() && !key.is_null());
     let hkey = get_hash(key, keylen) as usize;
@@ -190,7 +194,7 @@ pub unsafe fn ht_remove_table(mut ht: *mut ht_table, key: *const libc::c_void, k
 }
 /* replace... */
 
-pub unsafe fn ht_insert_table(
+pub(crate) unsafe fn ht_insert_table(
     mut ht: *mut ht_table,
     key: *const libc::c_void,
     keylen: i32,
@@ -231,7 +235,7 @@ pub unsafe fn ht_insert_table(
     };
 }
 
-pub unsafe fn ht_append_table(
+pub(crate) unsafe fn ht_append_table(
     mut ht: *mut ht_table,
     key: *const libc::c_void,
     keylen: i32,
@@ -263,7 +267,7 @@ pub unsafe fn ht_append_table(
     (*ht).count += 1;
 }
 
-pub unsafe fn ht_set_iter(ht: *mut ht_table, mut iter: *mut ht_iter) -> i32 {
+pub(crate) unsafe fn ht_set_iter(ht: *mut ht_table, mut iter: *mut ht_iter) -> i32 {
     assert!(!ht.is_null() && !iter.is_null());
     for i in 0..503 {
         if !(*ht).table[i as usize].is_null() {
@@ -276,7 +280,7 @@ pub unsafe fn ht_set_iter(ht: *mut ht_table, mut iter: *mut ht_iter) -> i32 {
     -1i32
 }
 
-pub unsafe fn ht_clear_iter(mut iter: *mut ht_iter) {
+pub(crate) unsafe fn ht_clear_iter(mut iter: *mut ht_iter) {
     if !iter.is_null() {
         (*iter).index = 503i32;
         (*iter).curr = ptr::null_mut();
@@ -284,7 +288,7 @@ pub unsafe fn ht_clear_iter(mut iter: *mut ht_iter) {
     };
 }
 
-pub unsafe fn ht_iter_getkey(iter: *mut ht_iter, keylen: *mut i32) -> *mut i8 {
+pub(crate) unsafe fn ht_iter_getkey(iter: *mut ht_iter, keylen: *mut i32) -> *mut i8 {
     let hent = (*iter).curr as *mut ht_entry;
     if !iter.is_null() && !hent.is_null() {
         *keylen = (*hent).keylen;
@@ -295,7 +299,7 @@ pub unsafe fn ht_iter_getkey(iter: *mut ht_iter, keylen: *mut i32) -> *mut i8 {
     };
 }
 
-pub unsafe fn ht_iter_getval(iter: *mut ht_iter) -> *mut libc::c_void {
+pub(crate) unsafe fn ht_iter_getval(iter: *mut ht_iter) -> *mut libc::c_void {
     let hent = (*iter).curr as *mut ht_entry;
     if !iter.is_null() && !hent.is_null() {
         return (*hent).value;
@@ -304,7 +308,7 @@ pub unsafe fn ht_iter_getval(iter: *mut ht_iter) -> *mut libc::c_void {
     };
 }
 
-pub unsafe fn ht_iter_next(mut iter: *mut ht_iter) -> i32 {
+pub(crate) unsafe fn ht_iter_next(mut iter: *mut ht_iter) -> i32 {
     assert!(!iter.is_null());
     let ht = (*iter).hash;
     let mut hent = (*iter).curr as *mut ht_entry;
@@ -477,7 +481,7 @@ unsafe fn read_c_litstrc(q: *mut i8, len: i32, pp: *mut *const i8, endptr: *cons
     }
 }
 
-pub unsafe fn parse_c_string(pp: *mut *const i8, endptr: *const i8) -> *mut i8 {
+pub(crate) unsafe fn parse_c_string(pp: *mut *const i8, endptr: *const i8) -> *mut i8 {
     let mut q: *mut i8 = ptr::null_mut();
     let mut p: *const i8 = *pp;
     if p >= endptr || *p.offset(0) as u8 != b'\"' {
@@ -495,7 +499,7 @@ pub unsafe fn parse_c_string(pp: *mut *const i8, endptr: *const i8) -> *mut i8 {
     q
 }
 
-pub trait ParseCString {
+pub(crate) trait ParseCString {
     fn parse_c_string(&mut self) -> Option<CString>;
 }
 
@@ -661,7 +665,7 @@ impl ParseCString for &[u8] {
     }
 }
 
-pub trait ParseCIdent {
+pub(crate) trait ParseCIdent {
     fn parse_c_ident(&mut self) -> Option<CString>;
 }
 impl ParseCIdent for &[u8] {
@@ -682,7 +686,7 @@ impl ParseCIdent for &[u8] {
     }
 }
 
-pub unsafe fn parse_float_decimal(pp: *mut *const i8, endptr: *const i8) -> *mut i8 {
+pub(crate) unsafe fn parse_float_decimal(pp: *mut *const i8, endptr: *const i8) -> *mut i8 {
     let mut q: *mut i8 = ptr::null_mut();
     let mut p: *const i8 = *pp;
     if p >= endptr {
@@ -738,7 +742,7 @@ pub unsafe fn parse_float_decimal(pp: *mut *const i8, endptr: *const i8) -> *mut
     q
 }
 
-pub trait ParseFloatDecimal {
+pub(crate) trait ParseFloatDecimal {
     fn parse_float_decimal(&mut self) -> Option<CString>;
 }
 

@@ -27,12 +27,12 @@
 use euclid::point2;
 
 use super::{spc_arg, spc_env};
+use crate::bridge::DisplayExt;
 use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use crate::dpx_pdfcolor::PdfColor;
 use crate::dpx_pdfdev::{transform_info, Rect, TMatrix};
 use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
-use crate::DisplayExt;
 use crate::SkipBlank;
 use libc::atof;
 use std::ffi::CString;
@@ -42,7 +42,11 @@ use std::ffi::CString;
    Licensed under the MIT License.
 */
 
-pub unsafe fn spc_util_read_numbers(values: *mut f64, num_values: i32, args: *mut spc_arg) -> i32 {
+pub(crate) unsafe fn spc_util_read_numbers(
+    values: *mut f64,
+    num_values: i32,
+    args: *mut spc_arg,
+) -> i32 {
     (*args).cur.skip_blank();
     let mut count = 0;
     while count < num_values && !(*args).cur.is_empty() {
@@ -262,7 +266,7 @@ unsafe fn spc_read_color_pdf(spe: *mut spc_env, mut ap: *mut spc_arg) -> Result<
 }
 /* This is for reading *single* color specification. */
 
-pub unsafe fn spc_util_read_colorspec(
+pub(crate) unsafe fn spc_util_read_colorspec(
     spe: *mut spc_env,
     ap: *mut spc_arg,
     syntax: bool,
@@ -278,7 +282,7 @@ pub unsafe fn spc_util_read_colorspec(
     }
 }
 
-pub unsafe fn spc_util_read_pdfcolor(
+pub(crate) unsafe fn spc_util_read_pdfcolor(
     spe: *mut spc_env,
     ap: *mut spc_arg,
     defaultcolor: Option<&PdfColor>,
@@ -297,7 +301,7 @@ pub unsafe fn spc_util_read_pdfcolor(
     }
 }
 
-pub trait ReadLengthSpc {
+pub(crate) trait ReadLengthSpc {
     fn read_length(&mut self, spe: &spc_env) -> Result<f64, ()>;
 }
 impl ReadLengthSpc for &[u8] {
@@ -664,7 +668,7 @@ unsafe fn spc_read_dimtrns_pdfm(
     error
 }
 
-pub unsafe fn spc_util_read_dimtrns(
+pub(crate) unsafe fn spc_util_read_dimtrns(
     spe: *mut spc_env,
     ti: &mut transform_info,
     args: *mut spc_arg,
@@ -685,7 +689,7 @@ pub unsafe fn spc_util_read_dimtrns(
  * This is for reading *single* color specification.
  */
 
-pub unsafe fn spc_util_read_blahblah(
+pub(crate) unsafe fn spc_util_read_blahblah(
     spe: *mut spc_env,
     p: &mut transform_info,
     page_no: *mut i32,
