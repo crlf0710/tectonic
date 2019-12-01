@@ -30,7 +30,7 @@
 use super::dpx_mem::new;
 use libc::{memcpy, memset, rand};
 
-pub type size_t = u64;
+use crate::size_t;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -315,21 +315,18 @@ pub unsafe fn AES_ecb_encrypt(
     *cipher =
         new((*cipher_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
             as *mut u8;
-    (*ctx).nrounds = rijndaelSetupEncrypt(
-        (*ctx).rk.as_mut_ptr(),
-        key,
-        key_len.wrapping_mul(8i32 as u64) as i32,
-    );
+    (*ctx).nrounds =
+        rijndaelSetupEncrypt((*ctx).rk.as_mut_ptr(), key, key_len.wrapping_mul(8) as i32);
     let mut inptr = plain;
     let mut outptr = *cipher;
     let mut len = plain_len;
-    while len >= 16i32 as u64 {
+    while len >= 16 {
         rijndaelEncrypt((*ctx).rk.as_mut_ptr(), (*ctx).nrounds, inptr, outptr);
         inptr = inptr.offset(16);
         outptr = outptr.offset(16);
         len -= 16;
     }
-    if len > 0i32 as u64 {
+    if len > 0 {
         let mut block: [u8; 16] = [0; 16];
         memcpy(
             block.as_mut_ptr() as *mut libc::c_void,
@@ -381,24 +378,21 @@ pub unsafe fn AES_cbc_encrypt_tectonic(
      * of 16.
      */
     let padbytes = (if padding != 0 {
-        (16i32 as u64).wrapping_sub(plain_len.wrapping_rem(16i32 as u64))
-    } else if plain_len.wrapping_rem(16i32 as u64) != 0 {
-        (16i32 as u64).wrapping_sub(plain_len.wrapping_rem(16i32 as u64))
+        (16i32 as u64).wrapping_sub((plain_len as u64).wrapping_rem(16i32 as u64))
+    } else if plain_len.wrapping_rem(16) != 0 {
+        (16i32 as u64).wrapping_sub((plain_len as u64).wrapping_rem(16i32 as u64))
     } else {
         0i32 as u64
     }) as i32;
     /* We do NOT write IV to the output stream if IV is explicitly specified. */
     *cipher_len = plain_len
-        .wrapping_add((if !iv.is_null() { 0i32 } else { 16i32 }) as u64)
-        .wrapping_add(padbytes as u64);
+        .wrapping_add((if !iv.is_null() { 0i32 } else { 16i32 }) as usize)
+        .wrapping_add(padbytes as usize);
     *cipher =
         new((*cipher_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
             as *mut u8;
-    (*ctx).nrounds = rijndaelSetupEncrypt(
-        (*ctx).rk.as_mut_ptr(),
-        key,
-        key_len.wrapping_mul(8i32 as u64) as i32,
-    );
+    (*ctx).nrounds =
+        rijndaelSetupEncrypt((*ctx).rk.as_mut_ptr(), key, key_len.wrapping_mul(8) as i32);
     let mut inptr = plain;
     let mut outptr = *cipher;
     if iv.is_null() {
@@ -410,7 +404,7 @@ pub unsafe fn AES_cbc_encrypt_tectonic(
         outptr = outptr.offset(16)
     }
     let mut len = plain_len;
-    while len >= 16i32 as u64 {
+    while len >= 16 {
         for i in 0..16i32 as u64 {
             block[i as usize] =
                 (*inptr.offset(i as isize) as i32 ^ (*ctx).iv[i as usize] as i32) as u8;
@@ -430,7 +424,7 @@ pub unsafe fn AES_cbc_encrypt_tectonic(
         outptr = outptr.offset(16);
         len -= 16;
     }
-    if len > 0i32 as u64 || padding != 0 {
+    if len > 0 || padding != 0 {
         for i in 0..len {
             block[i as usize] =
                 (*inptr.offset(i as isize) as i32 ^ (*ctx).iv[i as usize] as i32) as u8;

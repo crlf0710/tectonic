@@ -18,8 +18,8 @@ extern "C" {
     pub fn vsnprintf(_: *mut i8, _: u64, _: *const i8, _: ::std::ffi::VaList) -> i32;
 }
 
-pub type size_t = u64;
-pub type ssize_t = i64;
+pub type size_t = usize;
+pub type ssize_t = isize;
 
 type rust_output_handle_t = *mut libc::c_void;
 pub type rust_input_handle_t = *mut libc::c_void;
@@ -37,10 +37,7 @@ impl OutputHandleWrapper {
 impl Write for OutputHandleWrapper {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         unsafe {
-            Ok(
-                ttstub_output_write(self.0.as_ptr(), buf.as_ptr() as *const i8, buf.len() as u64)
-                    as usize,
-            )
+            Ok(ttstub_output_write(self.0.as_ptr(), buf.as_ptr() as *const i8, buf.len()) as usize)
         }
     }
 
@@ -59,11 +56,7 @@ pub struct InputHandleWrapper(pub NonNull<libc::c_void>);
 impl Read for InputHandleWrapper {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         unsafe {
-            Ok(ttstub_input_read(
-                self.0.as_ptr(),
-                buf.as_mut_ptr() as *mut i8,
-                buf.len() as u64,
-            ) as usize)
+            Ok(ttstub_input_read(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len()) as usize)
         }
     }
 }

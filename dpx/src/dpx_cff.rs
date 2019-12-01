@@ -35,11 +35,10 @@ use super::dpx_numbers::{tt_get_unsigned_byte, tt_get_unsigned_pair};
 use crate::ttstub_input_read;
 use libc::{free, memcmp, memcpy, memmove, memset, strlen};
 
+use crate::size_t;
 use std::io::{Seek, SeekFrom};
 use std::ptr;
 
-pub type __ssize_t = i64;
-pub type size_t = u64;
 use bridge::InputHandleWrapper;
 /* CFF Data Types */
 /* SID SID number */
@@ -1330,7 +1329,7 @@ pub unsafe fn cff_add_string(mut cff: &mut cff_font, str: *const i8, unique: i32
             let size = (*(*strings).offset.offset((idx as i32 + 1i32) as isize))
                 .wrapping_sub(*(*strings).offset.offset(idx as isize));
             let offset = *(*strings).offset.offset(idx as isize);
-            if size as u64 == len
+            if size as usize == len as usize
                 && memcmp(
                     (*strings).data.offset(offset as isize).offset(-1) as *const libc::c_void,
                     str as *const libc::c_void,
@@ -1357,10 +1356,12 @@ pub unsafe fn cff_add_string(mut cff: &mut cff_font, str: *const i8, unique: i32
     let idx = (*strings).count;
     (*strings).count = ((*strings).count as i32 + 1i32) as u16;
     *(*strings).offset.offset((*strings).count as isize) =
-        (offset as u64).wrapping_add(len) as l_offset;
+        (offset as u64).wrapping_add(len as _) as l_offset;
     (*strings).data = renew(
         (*strings).data as *mut libc::c_void,
-        ((offset as u64).wrapping_add(len).wrapping_sub(1i32 as u64) as u32 as u64)
+        ((offset as u64)
+            .wrapping_add(len as _)
+            .wrapping_sub(1i32 as u64) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
     ) as *mut u8;
     memcpy(
@@ -2302,7 +2303,7 @@ pub unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
                     (size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
                 ) as *mut u8;
                 if ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t)
-                    != size as i64
+                    != size as isize
                 {
                     panic!("reading file failed");
                 }
@@ -2333,7 +2334,8 @@ pub unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
             let data =
                 new((size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
                     as *mut u8;
-            if ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t) != size as i64
+            if ttstub_input_read(handle.0.as_ptr(), data as *mut i8, size as size_t)
+                != size as isize
             {
                 panic!("reading file failed");
             }

@@ -39,7 +39,7 @@ use libc::{free, memset};
 use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
-pub type size_t = u64;
+use crate::size_t;
 use bridge::InputHandleWrapper;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
@@ -63,7 +63,7 @@ pub unsafe fn check_for_bmp(handle: &mut InputHandleWrapper) -> bool {
     if ttstub_input_read(
         handle.0.as_ptr(),
         sigbytes.as_mut_ptr() as *mut i8,
-        ::std::mem::size_of::<[u8; 2]>() as u64,
+        ::std::mem::size_of::<[u8; 2]>(),
     ) as u64
         != ::std::mem::size_of::<[u8; 2]>() as u64
         || sigbytes[0] as i32 != 'B' as i32
@@ -192,7 +192,7 @@ pub unsafe fn bmp_include_image(
                 handle.0.as_ptr(),
                 bgrq.as_mut_ptr() as *mut i8,
                 hdr.psize as size_t,
-            ) != hdr.psize as i64
+            ) != hdr.psize as isize
             {
                 warn!("Reading file failed...");
                 free(palette as *mut libc::c_void);
@@ -232,11 +232,11 @@ pub unsafe fn bmp_include_image(
         stream_data_ptr = new(((rowbytes * info.height + padding) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
             as *mut u8;
-        let mut n = 0i32;
+        let mut n = 0;
         while n < info.height {
             let p = stream_data_ptr.offset((n * rowbytes) as isize);
             if ttstub_input_read(handle.0.as_ptr(), p as *mut i8, dib_rowbytes as size_t)
-                != dib_rowbytes as i64
+                != dib_rowbytes as isize
             {
                 warn!("Reading BMP raster data failed...");
                 free(stream_data_ptr as *mut libc::c_void);
@@ -316,7 +316,7 @@ unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> Re
         handle.0.as_ptr(),
         p.as_mut_ptr() as *mut i8,
         (14i32 + 4i32) as size_t,
-    ) != (14i32 + 4i32) as i64
+    ) != (14i32 + 4i32) as isize
     {
         warn!("Could not read BMP file header...");
         return Err(());
@@ -342,7 +342,7 @@ unsafe fn read_header(handle: &mut InputHandleWrapper, hdr: &mut hdr_info) -> Re
         handle.0.as_ptr(),
         p.as_mut_ptr() as *mut i8,
         hdr.hsize.wrapping_sub(4_u32) as size_t,
-    ) != hdr.hsize.wrapping_sub(4_u32) as i64
+    ) != hdr.hsize.wrapping_sub(4_u32) as isize
     {
         warn!("Could not read BMP file header...");
         return Err(());
@@ -439,7 +439,7 @@ unsafe fn read_raster_rle8(
                             return Err(());
                         }
                         if ttstub_input_read(handle.0.as_ptr(), p as *mut i8, b1 as size_t)
-                            != b1 as i64
+                            != b1 as isize
                         {
                             return Err(());
                         }
@@ -539,7 +539,7 @@ unsafe fn read_raster_rle4(
                             handle.0.as_ptr(),
                             p as *mut i8,
                             nbytes as size_t,
-                        ) != nbytes as i64
+                        ) != nbytes as isize
                         {
                             return Err(());
                         }

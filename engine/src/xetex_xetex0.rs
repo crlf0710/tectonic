@@ -26705,7 +26705,7 @@ pub unsafe extern "C" fn main_control() {
                                     UTF16_code,
                                 >(
                                 )
-                                    as u64),
+                                    as u64) as _,
                             ) as *mut UTF16_code
                         }
                         *native_text.offset(native_len as isize) =
@@ -26725,7 +26725,7 @@ pub unsafe extern "C" fn main_control() {
                                     UTF16_code,
                                 >(
                                 )
-                                    as u64),
+                                    as u64) as _,
                             ) as *mut UTF16_code
                         }
                         *native_text.offset(native_len as isize) = cur_chr as UTF16_code;
@@ -26856,7 +26856,8 @@ pub unsafe extern "C" fn main_control() {
                         native_text = xrealloc(
                             native_text as *mut libc::c_void,
                             (native_text_size as u64)
-                                .wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64),
+                                .wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64)
+                                as _,
                         ) as *mut UTF16_code
                     }
                     main_h = 0i32;
@@ -27009,13 +27010,14 @@ pub unsafe extern "C" fn main_control() {
                                 main_h + (*mem.offset((main_pp + 4i32) as isize)).b16.s1 as i32;
                             while native_text_size <= native_len + main_k {
                                 native_text_size = native_text_size + 128i32;
-                                native_text =
-                                    xrealloc(
-                                        native_text as *mut libc::c_void,
-                                        (native_text_size as u64).wrapping_mul(
-                                            ::std::mem::size_of::<UTF16_code>() as u64,
-                                        ),
-                                    ) as *mut UTF16_code
+                                native_text = xrealloc(
+                                    native_text as *mut libc::c_void,
+                                    (native_text_size as u64).wrapping_mul(::std::mem::size_of::<
+                                        UTF16_code,
+                                    >(
+                                    )
+                                        as u64) as _,
+                                ) as *mut UTF16_code
                             }
                             save_native_len = native_len;
                             let mut for_end_1: i32 = 0;

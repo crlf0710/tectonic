@@ -50,7 +50,7 @@ use crate::{ttstub_input_get_size, ttstub_input_read};
 use libc::{free, memcmp, memcpy, memmove, strcmp, strlen, strstr};
 
 pub type __ssize_t = i64;
-pub type size_t = u64;
+use crate::size_t;
 use bridge::InputHandleWrapper;
 
 use super::dpx_cid::CIDSysInfo;
@@ -79,7 +79,7 @@ unsafe fn ifreader_create(
 ) -> *mut ifreader {
     let reader =
         new((1_u64).wrapping_mul(::std::mem::size_of::<ifreader>() as u64) as u32) as *mut ifreader;
-    (*reader).buf = new((bufsize.wrapping_add(1i32 as u64) as u32 as u64)
+    (*reader).buf = new((bufsize.wrapping_add(1) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
     (*reader).max = bufsize;
     (*reader).handle = handle;
@@ -105,12 +105,12 @@ unsafe fn ifreader_read(mut reader: *mut ifreader, size: size_t) -> size_t {
         }
         (*reader).buf = renew(
             (*reader).buf as *mut libc::c_void,
-            (size.wrapping_add(1i32 as u64) as u32 as u64)
-                .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
+            (size.wrapping_add(1) as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64)
+                as u32,
         ) as *mut u8;
         (*reader).max = size
     }
-    if (*reader).unread > 0i32 as u64 && bytesrem < size {
+    if (*reader).unread > 0 && bytesrem < size {
         bytesread = if (*reader).max.wrapping_sub(bytesrem) < (*reader).unread {
             (*reader).max.wrapping_sub(bytesrem)
         } else {
@@ -128,12 +128,13 @@ unsafe fn ifreader_read(mut reader: *mut ifreader, size: size_t) -> size_t {
             (*reader).endptr as *mut i8,
             bytesread,
         ) as u64
-            != bytesread
+            != bytesread as _
         {
             panic!("Reading file failed.");
         }
         (*reader).endptr = (*reader).endptr.offset(bytesread as isize);
-        (*reader).unread = ((*reader).unread as u64).wrapping_sub(bytesread) as size_t as size_t;
+        (*reader).unread =
+            ((*reader).unread as u64).wrapping_sub(bytesread as _) as size_t as size_t;
         if __verbose != 0 {
             info!(
                 "Reading more {} bytes ({} bytes remains in buffer)...\n",
@@ -277,7 +278,7 @@ unsafe fn do_notdefrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) 
         if !(fresh3 > 0i32) {
             break;
         }
-        if ifreader_read(input, (127i32 * 3i32) as size_t) == 0i32 as u64 {
+        if ifreader_read(input, (127i32 * 3i32) as size_t) == 0 {
             return -1i32;
         }
         if get_coderange(
@@ -323,7 +324,7 @@ unsafe fn do_bfrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i
         if !(fresh4 > 0i32) {
             break;
         }
-        if ifreader_read(input, (127i32 * 3i32) as size_t) == 0i32 as u64 {
+        if ifreader_read(input, (127i32 * 3i32) as size_t) == 0 {
             return -1i32;
         }
         if get_coderange(
@@ -380,7 +381,7 @@ unsafe fn do_cidrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> 
         if !(fresh5 > 0i32) {
             break;
         }
-        if ifreader_read(input, (127i32 * 3i32) as size_t) == 0i32 as u64 {
+        if ifreader_read(input, (127i32 * 3i32) as size_t) == 0 {
             return -1i32;
         }
         if get_coderange(
@@ -422,7 +423,7 @@ unsafe fn do_notdefchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -
         if !(fresh6 > 0i32) {
             break;
         }
-        if ifreader_read(input, (127i32 * 2i32) as size_t) == 0i32 as u64 {
+        if ifreader_read(input, (127i32 * 2i32) as size_t) == 0 {
             return -1i32;
         }
         let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr);
@@ -459,7 +460,7 @@ unsafe fn do_bfchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i3
         if !(fresh7 > 0i32) {
             break;
         }
-        if ifreader_read(input, (127i32 * 2i32) as size_t) == 0i32 as u64 {
+        if ifreader_read(input, (127i32 * 2i32) as size_t) == 0 {
             return -1i32;
         }
         let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr);
@@ -497,7 +498,7 @@ unsafe fn do_cidchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i
         if !(fresh8 > 0i32) {
             break;
         }
-        if ifreader_read(input, (127i32 * 2i32) as size_t) == 0i32 as u64 {
+        if ifreader_read(input, (127i32 * 2i32) as size_t) == 0 {
             return -1i32;
         }
         let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr);
@@ -685,7 +686,7 @@ pub unsafe fn CMap_parse_check_sig(handle: Option<&mut InputHandleWrapper>) -> i
     }
     let handle = handle.unwrap();
     handle.seek(SeekFrom::Start(0)).unwrap();
-    if ttstub_input_read(handle.0.as_ptr(), sig.as_mut_ptr(), 64i32 as size_t) != 64i32 as i64 {
+    if ttstub_input_read(handle.0.as_ptr(), sig.as_mut_ptr(), 64i32 as size_t) != 64isize {
         result = -1i32
     } else {
         sig[64] = 0_i8;

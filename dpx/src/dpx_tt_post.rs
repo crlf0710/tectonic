@@ -40,7 +40,7 @@ use libc::free;
 use std::ptr;
 
 pub type __ssize_t = i64;
-pub type size_t = u64;
+use crate::size_t;
 pub type Fixed = u32;
 pub type FWord = i16;
 

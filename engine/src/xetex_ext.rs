@@ -49,9 +49,8 @@ use crate::xetex_layout_engine::*;
 use harfbuzz_sys::{hb_feature_t, hb_tag_from_string, hb_tag_t};
 use libc::{memcpy, strcat, strcpy, strdup, strlen, strncpy, strstr};
 
-pub type __ssize_t = i64;
-pub type size_t = u64;
-pub type ssize_t = __ssize_t;
+pub type size_t = usize;
+pub type ssize_t = isize;
 
 use crate::TTInputFormat;
 
@@ -322,7 +321,7 @@ unsafe extern "C" fn load_mapping_file(
         let mut mappingSize: size_t = ttstub_input_get_size(&mut map);
         let mut mapping: *mut u8 = xmalloc(mappingSize) as *mut u8;
         let mut r: ssize_t = ttstub_input_read(map.0.as_ptr(), mapping as *mut i8, mappingSize);
-        if r < 0i32 as i64 || r as size_t != mappingSize {
+        if r < 0 || r as size_t != mappingSize {
             abort!(
                 "could not read mapping file \"{}\"",
                 CStr::from_ptr(buffer).display()
@@ -688,7 +687,7 @@ unsafe extern "C" fn loadOTfont(
     if reqEngine as i32 == 'O' as i32 || reqEngine as i32 == 'G' as i32 {
         shapers = xrealloc(
             shapers as *mut libc::c_void,
-            ((nShapers + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64),
+            ((nShapers + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64) as _,
         ) as *mut *mut i8;
         if reqEngine as i32 == 'O' as i32 {
             static mut ot_const: [i8; 3] = [111, 116, 0];
@@ -781,7 +780,8 @@ unsafe extern "C" fn loadOTfont(
                             shapers = xrealloc(
                                 shapers as *mut libc::c_void,
                                 ((nShapers + 1i32) as u64)
-                                    .wrapping_mul(::std::mem::size_of::<*mut i8>() as u64),
+                                    .wrapping_mul(::std::mem::size_of::<*mut i8>() as u64)
+                                    as _,
                             ) as *mut *mut i8;
                             /* some dumb systems have no strndup() */
                             let ref mut fresh10 = *shapers.offset(nShapers as isize);
@@ -818,7 +818,7 @@ unsafe extern "C" fn loadOTfont(
                                         features as *mut libc::c_void,
                                         ((nFeatures + 1i32) as u64).wrapping_mul(
                                             ::std::mem::size_of::<hb_feature_t>() as u64,
-                                        ),
+                                        ) as _,
                                     )
                                         as *mut hb_feature_t;
                                     (*features.offset(nFeatures as isize)).tag = tag;
@@ -843,7 +843,7 @@ unsafe extern "C" fn loadOTfont(
                                             features as *mut libc::c_void,
                                             ((nFeatures + 1i32) as u64).wrapping_mul(
                                                 ::std::mem::size_of::<hb_feature_t>() as u64,
-                                            ),
+                                            ) as _,
                                         )
                                             as *mut hb_feature_t;
                                         (*features.offset(nFeatures as isize)).tag = tag;
@@ -867,7 +867,7 @@ unsafe extern "C" fn loadOTfont(
                                             features as *mut libc::c_void,
                                             ((nFeatures + 1i32) as u64).wrapping_mul(
                                                 ::std::mem::size_of::<hb_feature_t>() as u64,
-                                            ),
+                                            ) as _,
                                         )
                                             as *mut hb_feature_t;
                                         (*features.offset(nFeatures as isize)).tag = tag;
@@ -932,7 +932,7 @@ unsafe extern "C" fn loadOTfont(
     if !shapers.is_null() {
         shapers = xrealloc(
             shapers as *mut libc::c_void,
-            ((nShapers + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64),
+            ((nShapers + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64) as _,
         ) as *mut *mut i8;
         let ref mut fresh11 = *shapers.offset(nShapers as isize);
         *fresh11 = 0 as *mut i8
@@ -2009,7 +2009,7 @@ pub unsafe extern "C" fn measure_native_node(
                 glyphIDs = locations.offset(totalGlyphCount as isize) as *mut u16;
                 glyphAdvances = xcalloc(
                     totalGlyphCount as size_t,
-                    ::std::mem::size_of::<Fixed>() as u64,
+                    ::std::mem::size_of::<Fixed>() as _,
                 ) as *mut Fixed;
                 totalGlyphCount = 0i32;
                 y = 0.0f64;
@@ -2026,14 +2026,12 @@ pub unsafe extern "C" fn measure_native_node(
                         txtLen,
                         dir as u32 == icu::UBIDI_RTL as i32 as u32,
                     );
-                    glyphs =
-                        xcalloc(nGlyphs as size_t, ::std::mem::size_of::<u32>() as u64) as *mut u32;
+                    glyphs = xcalloc(nGlyphs as size_t, ::std::mem::size_of::<u32>()) as *mut u32;
                     positions = xcalloc(
                         (nGlyphs + 1i32) as size_t,
-                        ::std::mem::size_of::<FloatPoint>() as u64,
+                        ::std::mem::size_of::<FloatPoint>(),
                     ) as *mut FloatPoint;
-                    advances =
-                        xcalloc(nGlyphs as size_t, ::std::mem::size_of::<f32>() as u64) as *mut f32;
+                    advances = xcalloc(nGlyphs as size_t, ::std::mem::size_of::<f32>()) as *mut f32;
                     getGlyphs(engine, glyphs);
                     getGlyphAdvances(engine, advances);
                     getGlyphPositions(engine, positions);
@@ -2073,18 +2071,12 @@ pub unsafe extern "C" fn measure_native_node(
                 txtLen,
                 dir as u32 == icu::UBIDI_RTL as i32 as u32,
             );
-            glyphs = xcalloc(
-                totalGlyphCount as size_t,
-                ::std::mem::size_of::<u32>() as u64,
-            ) as *mut u32;
+            glyphs = xcalloc(totalGlyphCount as size_t, ::std::mem::size_of::<u32>()) as *mut u32;
             positions = xcalloc(
                 (totalGlyphCount + 1i32) as size_t,
-                ::std::mem::size_of::<FloatPoint>() as u64,
+                ::std::mem::size_of::<FloatPoint>(),
             ) as *mut FloatPoint;
-            advances = xcalloc(
-                totalGlyphCount as size_t,
-                ::std::mem::size_of::<f32>() as u64,
-            ) as *mut f32;
+            advances = xcalloc(totalGlyphCount as size_t, ::std::mem::size_of::<f32>()) as *mut f32;
             getGlyphs(engine, glyphs);
             getGlyphAdvances(engine, advances);
             getGlyphPositions(engine, positions);
@@ -2093,10 +2085,8 @@ pub unsafe extern "C" fn measure_native_node(
                 glyph_info = xcalloc(totalGlyphCount as size_t, 10i32 as size_t);
                 locations = glyph_info as *mut FixedPoint;
                 glyphIDs = locations.offset(totalGlyphCount as isize) as *mut u16;
-                glyphAdvances = xcalloc(
-                    totalGlyphCount as size_t,
-                    ::std::mem::size_of::<Fixed>() as u64,
-                ) as *mut Fixed;
+                glyphAdvances = xcalloc(totalGlyphCount as size_t, ::std::mem::size_of::<Fixed>())
+                    as *mut Fixed;
                 i_0 = 0i32;
                 while i_0 < totalGlyphCount {
                     *glyphIDs.offset(i_0 as isize) = *glyphs.offset(i_0 as isize) as u16;

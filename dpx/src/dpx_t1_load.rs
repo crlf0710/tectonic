@@ -48,7 +48,7 @@ use libc::{free, memcpy, memmove, memset, strcmp, strcpy, strlen};
 use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
-pub type size_t = u64;
+use crate::size_t;
 use bridge::InputHandleWrapper;
 
 /* CFF Data Types */

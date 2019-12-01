@@ -58,7 +58,7 @@ use crate::dpx_numbers::{
 
 pub type __off_t = i64;
 pub type __off64_t = i64;
-pub type size_t = u64;
+use crate::size_t;
 use libc::FILE;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -658,7 +658,7 @@ pub unsafe fn pdf_font_load_pkfont(font: *mut pdf_font) -> i32 {
                     as u32) as *mut u8;
                 let bytesread =
                     fread(pkt_ptr as *mut libc::c_void, 1, pkh.pkt_len as _, fp) as size_t;
-                if bytesread != pkh.pkt_len as u64 {
+                if bytesread as u64 != pkh.pkt_len as u64 {
                     panic!(
                         "Only {} bytes PK packet read. (expected {} bytes)",
                         bytesread, pkh.pkt_len,

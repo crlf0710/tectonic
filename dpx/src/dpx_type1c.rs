@@ -65,10 +65,8 @@ use crate::shims::sprintf;
 use crate::ttstub_input_read;
 use libc::{free, strcmp, strlen};
 
+use crate::size_t;
 use std::io::{Seek, SeekFrom};
-
-pub type __ssize_t = i64;
-pub type size_t = u64;
 
 pub type l_offset = u32;
 use super::dpx_cff::cff_encoding;

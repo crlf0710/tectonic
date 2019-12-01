@@ -29,7 +29,7 @@
 use libc::{free, malloc, realloc};
 use std::ptr;
 
-pub type size_t = u64;
+use crate::size_t;
 
 pub unsafe fn new(size: u32) -> *mut libc::c_void {
     let result: *mut libc::c_void = malloc(size as _);

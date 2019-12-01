@@ -52,7 +52,7 @@ use libc::{atof, atoi, free, memcmp, memset, strlen, strtoul};
 use libz_sys as libz;
 
 pub type __ssize_t = i64;
-pub type size_t = u64;
+use crate::size_t;
 use bridge::{InputHandleWrapper, OutputHandleWrapper};
 
 pub const STREAM_COMPRESS: i32 = (1 << 0);
@@ -1057,7 +1057,7 @@ unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
      * If the string contains much escaped chars, then we write it as
      * ASCII hex string.
      */
-    if nescc as u64 > len.wrapping_div(3i32 as u64) {
+    if nescc as u64 > len.wrapping_div(3) as _ {
         pdf_out_char(handle, b'<');
         for i in 0..len {
             pdf_out_char(

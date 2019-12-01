@@ -71,8 +71,8 @@ use libc::{free, memcpy, memset, strcpy, strlen};
 use std::io::{Seek, SeekFrom};
 
 pub type __ssize_t = i64;
-pub type size_t = u64;
 use super::dpx_sfnt::sfnt;
+use crate::size_t;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -898,7 +898,8 @@ unsafe fn handle_subst_glyphs(
                                     unicodes[k as usize],
                                     &mut p,
                                     wbuf.as_mut_ptr().offset(1024),
-                                )) as size_t as size_t;
+                                )
+                                    as _) as size_t as size_t;
                             }
                             wbuf[0..2].copy_from_slice(&gid.to_be_bytes());
                             CMap_add_bfchar(
@@ -924,16 +925,16 @@ unsafe fn handle_subst_glyphs(
                             &mut outbuf,
                             &mut outbytesleft,
                         );
-                        if inbytesleft != 0i32 as u64 {
+                        if inbytesleft != 0 {
                             warn!("CMap conversion failed...");
                         } else {
-                            let len = ((1024i32 - 2i32) as u64).wrapping_sub(outbytesleft);
+                            let len = ((1024i32 - 2i32) as u64).wrapping_sub(outbytesleft as u64);
                             CMap_add_bfchar(
                                 cmap,
                                 wbuf.as_mut_ptr(),
                                 2i32 as size_t,
                                 wbuf.as_mut_ptr().offset(2),
-                                len,
+                                len as _,
                             );
                             count += 1;
                             if verbose > 0i32 {

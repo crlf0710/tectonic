@@ -48,7 +48,7 @@ use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
 use libc::{free, strncpy};
 
-pub type size_t = u64;
+use crate::size_t;
 /* quasi-hack to get the primary input */
 
 use super::SpcHandler;

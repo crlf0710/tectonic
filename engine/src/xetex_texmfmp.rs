@@ -19,7 +19,7 @@ use libc::{free, strlen};
 use std::env;
 use std::ptr;
 
-pub type size_t = u64;
+pub type size_t = usize;
 pub type str_number = i32;
 pub type packed_UTF16_code = u16;
 pub type UInt32 = u32;
@@ -56,7 +56,7 @@ pub fn get_date_and_time() -> (i32, i32, i32, i32) {
 }
 unsafe extern "C" fn checkpool_pointer(mut pool_ptr_0: pool_pointer, mut len: size_t) {
     assert!(
-        !((pool_ptr_0 as u64).wrapping_add(len) >= pool_size as u64),
+        !((pool_ptr_0 as u64).wrapping_add(len as u64) >= pool_size as u64),
         "string pool overflow [{} bytes]",
         pool_size,
     );

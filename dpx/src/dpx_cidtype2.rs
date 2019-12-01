@@ -60,7 +60,7 @@ use crate::dpx_pdfobj::{
 };
 use libc::{free, memmove, memset, strcat, strcmp, strcpy, strlen, strncpy, strstr};
 
-pub type size_t = u64;
+use crate::size_t;
 
 use super::dpx_cid::{cid_opt, CIDFont, CIDSysInfo};
 
@@ -601,16 +601,16 @@ unsafe fn cid_to_code(cmap: *mut CMap, cid: CID) -> i32 {
         &mut q,
         &mut outbytesleft,
     );
-    if inbytesleft != 0i32 as u64 {
+    if inbytesleft != 0 {
         return 0i32;
     } else {
-        if outbytesleft == 31i32 as u64 {
+        if outbytesleft == 31 {
             return outbuf[0] as i32;
         } else {
-            if outbytesleft == 30i32 as u64 {
+            if outbytesleft == 30 {
                 return (outbuf[0] as i32) << 8i32 | outbuf[1] as i32;
             } else {
-                if outbytesleft == 28i32 as u64 {
+                if outbytesleft == 28 {
                     /* We assume the output encoding is UTF-16. */
                     let hi: CID = u16::from_be_byte_slice(&outbuf[0..2]);
                     let lo: CID = u16::from_be_byte_slice(&outbuf[2..4]);

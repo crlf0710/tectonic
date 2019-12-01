@@ -22,7 +22,7 @@ use crate::{ttstub_issue_error, ttstub_issue_warning, ttstub_output_close, ttstu
 use libc::{free, strcat, strcpy, strlen};
 use std::ptr;
 
-pub type size_t = u64;
+use crate::size_t;
 use bridge::OutputHandleWrapper;
 pub type scaled_t = i32;
 pub type str_number = i32;

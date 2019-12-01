@@ -43,7 +43,7 @@ use md5::{Digest, Md5};
 use rand::prelude::*;
 use sha2::{Sha256, Sha384, Sha512};
 
-pub type size_t = u64;
+use crate::size_t;
 
 /* Encryption support
  *
@@ -389,7 +389,7 @@ unsafe fn compute_hash_V5(
             K.as_mut_ptr().offset(16),
             0i32,
             Kr,
-            K1_len.wrapping_mul(64i32 as u64),
+            K1_len.wrapping_mul(64) as _,
             &mut E,
             &mut E_len,
         );
@@ -425,7 +425,7 @@ unsafe fn compute_hash_V5(
             }
             _ => {}
         }
-        let c = *E.offset(E_len.wrapping_sub(1i32 as u64) as isize) as i32;
+        let c = *E.offset(E_len.wrapping_sub(1) as isize) as i32;
         free(E as *mut libc::c_void);
         if nround >= 64i32 && c <= nround - 32i32 {
             break;

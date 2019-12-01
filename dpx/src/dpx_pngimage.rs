@@ -44,9 +44,7 @@ use libc::free;
 
 use std::io::{Seek, SeekFrom};
 
-pub type __ssize_t = i64;
-pub type size_t = u64;
-pub type ssize_t = __ssize_t;
+use crate::size_t;
 use bridge::InputHandleWrapper;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
@@ -64,7 +62,7 @@ pub unsafe fn check_for_png(handle: &mut InputHandleWrapper) -> i32 {
     if ttstub_input_read(
         handle.0.as_ptr(),
         sigbytes.as_mut_ptr() as *mut i8,
-        ::std::mem::size_of::<[u8; 8]>() as u64,
+        ::std::mem::size_of::<[u8; 8]>(),
     ) as u64
         != ::std::mem::size_of::<[u8; 8]>() as u64
         || png_sig_cmp(
@@ -88,7 +86,7 @@ unsafe extern "C" fn _png_read(png_ptr: *mut png_struct, outbytes: *mut u8, n: u
     let png = png_ptr.as_ref().unwrap();
     let handle = png_get_io_ptr(png) as tectonic_bridge::rust_input_handle_t;
     let r = ttstub_input_read(handle, outbytes as *mut i8, n.try_into().unwrap());
-    if r < 0i32 as ssize_t || r as size_t != n.try_into().unwrap() {
+    if r < 0 || r as size_t != n.try_into().unwrap() {
         panic!("error reading PNG");
     };
 }

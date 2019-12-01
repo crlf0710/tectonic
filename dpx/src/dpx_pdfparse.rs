@@ -51,7 +51,6 @@ fn istokensep(c: &u8) -> bool {
     is_space(c) || is_delim(c)
 }
 
-pub type size_t = u64;
 /* pow() */
 /* PDF */
 #[derive(Copy, Clone)]
