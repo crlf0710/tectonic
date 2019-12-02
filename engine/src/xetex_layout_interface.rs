@@ -6,18 +6,56 @@
          unused_assignments,
          unused_mut)]
 
+use harfbuzz_sys::{hb_feature_t, hb_ot_math_glyph_part_t, hb_tag_t};
+
+#[cfg(target_os = "macos")]
+use crate::cf_prelude::{CTFontDescriptorRef, CTFontRef};
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) type PlatformFontRef = *mut FcPattern;
+#[cfg(target_os = "macos")]
+pub(crate) type PlatformFontRef = CTFontDescriptorRef;
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub(crate) struct GlyphAssembly {
+    pub(crate) count: u32,
+    pub(crate) parts: *mut hb_ot_math_glyph_part_t,
+}
+
+pub(crate) use crate::xetex_font_info::{Fixed, GlyphBBox};
+pub(crate) type scaled_t = i32;
+
+#[derive(Copy, Clone)]
+#[cfg_attr(not(target_os = "macos"), repr(C))]
+#[cfg_attr(target_os = "macos", repr(C, packed(2)))]
+pub(crate) struct FixedPoint {
+    pub(crate) x: Fixed,
+    pub(crate) y: Fixed,
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub(crate) struct FloatPoint {
+    pub(crate) x: f32,
+    pub(crate) y: f32,
+}
+
 use crate::core_memory::{xcalloc, xmalloc};
 use harfbuzz_sys::*;
 use std::ptr;
 
 use freetype::freetype_sys;
 
+#[path = "xetex_opentype_math.rs"]
+mod opentype_math;
+
+pub(crate) use opentype_math::*;
+
+use crate::core_memory::xstrdup;
+use libc::{free, malloc, strcmp, strdup, strlen, strncmp};
+
 extern "C" {
-    #[cfg(target_os = "macos")]
-    pub(crate) type __CTFontDescriptor;
-    #[cfg(target_os = "macos")]
-    pub(crate) type __CTFont;
-    pub(crate) type XeTeXFont_rec;
     pub(crate) type gr_face;
     pub(crate) type gr_font;
     pub(crate) type gr_feature_ref;
@@ -25,31 +63,6 @@ extern "C" {
     pub(crate) type gr_char_info;
     pub(crate) type gr_segment;
     pub(crate) type gr_slot;
-    /* ******************************************************************/
-    /* Glyph bounding box cache to speed up \XeTeXuseglyphmetrics mode */
-    /* ******************************************************************/
-    // key is combined value representing (font_id << 16) + glyph
-    // value is glyph bounding box in TeX points
-    #[no_mangle]
-    fn tan(_: libc::c_double) -> libc::c_double;
-    #[no_mangle]
-    fn malloc(_: libc::c_ulong) -> *mut libc::c_void;
-    #[no_mangle]
-    fn free(__ptr: *mut libc::c_void);
-    #[no_mangle]
-    fn strcmp(_: *const libc::c_char, _: *const libc::c_char) -> libc::c_int;
-    #[no_mangle]
-    fn strncmp(_: *const libc::c_char, _: *const libc::c_char, _: libc::c_ulong) -> libc::c_int;
-    #[no_mangle]
-    fn strdup(_: *const libc::c_char) -> *mut libc::c_char;
-    #[no_mangle]
-    fn strlen(_: *const libc::c_char) -> libc::c_ulong;
-    /* tectonic/core-memory.h: basic dynamic memory helpers
-       Copyright 2016-2018 the Tectonic Project
-       Licensed under the MIT License.
-    */
-    #[no_mangle]
-    fn xstrdup(s: *const libc::c_char) -> *mut libc::c_char;
     #[no_mangle]
     #[cfg(not(target_os = "macos"))]
     fn FcPatternGetInteger(
@@ -126,7 +139,7 @@ extern "C" {
         length: *mut gr_uint32,
     ) -> *mut libc::c_void;
     #[no_mangle]
-    fn gr_label_destroy(label: *mut libc::c_void);
+    pub(crate) fn gr_label_destroy(label: *mut libc::c_void);
     #[no_mangle]
     fn gr_cinfo_break_weight(p: *const gr_char_info) -> libc::c_int;
     #[no_mangle]
@@ -164,98 +177,26 @@ extern "C" {
     fn Fix2D(f: Fixed) -> libc::c_double;
     #[no_mangle]
     fn D2Fix(d: libc::c_double) -> Fixed;
-    #[no_mangle]
-    fn XeTeXFontMgr_GetFontManager() -> *mut XeTeXFontMgr;
-    #[no_mangle]
-    fn XeTeXFontMgr_Terminate();
-    #[no_mangle]
-    fn XeTeXFontMgr_Destroy();
-    #[no_mangle]
-    fn XeTeXFontInst_getGlyphItalCorr(self_0: *mut XeTeXFontInst, gid: GlyphID) -> libc::c_float;
-    #[no_mangle]
-    fn XeTeXFontInst_getNumGlyphs(self_0: *const XeTeXFontInst) -> uint16_t;
-    #[no_mangle]
-    fn XeTeXFontInst_getGlyphWidth(self_0: *mut XeTeXFontInst, gid: GlyphID) -> libc::c_float;
-    #[no_mangle]
-    fn XeTeXFontInst_getHbFont(self_0: *const XeTeXFontInst) -> *mut hb_font_t;
-    #[no_mangle]
-    fn XeTeXFontInst_getGlyphBounds(self_0: *mut XeTeXFontInst, gid: GlyphID, bbox: *mut GlyphBBox);
-    #[no_mangle]
-    fn XeTeXFontInst_getGlyphHeightDepth(
-        self_0: *mut XeTeXFontInst,
-        gid: GlyphID,
-        ht: *mut libc::c_float,
-        dp: *mut libc::c_float,
-    );
-    #[no_mangle]
-    fn XeTeXFontInst_getGlyphSidebearings(
-        self_0: *mut XeTeXFontInst,
-        gid: GlyphID,
-        lsb: *mut libc::c_float,
-        rsb: *mut libc::c_float,
-    );
-    #[no_mangle]
-    fn XeTeXFontMgr_findFont(
-        self_0: *mut XeTeXFontMgr,
-        name: *const libc::c_char,
-        variant: *mut libc::c_char,
-        ptSize: libc::c_double,
-    ) -> PlatformFontRef;
-    #[no_mangle]
-    fn XeTeXFontInst_getFontTable(self_0: *const XeTeXFontInst, tag: OTTag) -> *mut libc::c_void;
-    #[no_mangle]
-    fn XeTeXFontInst_mapCharToGlyph(self_0: *const XeTeXFontInst, ch: UChar32) -> GlyphID;
-    #[no_mangle]
-    fn XeTeXFontMgr_getDesignSize(self_0: *mut XeTeXFontMgr, font: XeTeXFont) -> libc::c_double;
-    #[no_mangle]
-    fn XeTeXFontMgr_getFullName(
-        self_0: *const XeTeXFontMgr,
-        font: PlatformFontRef,
-    ) -> *const libc::c_char;
-    #[no_mangle]
-    fn XeTeXFontMgr_getReqEngine(self_0: *const XeTeXFontMgr) -> libc::c_char;
-    #[no_mangle]
-    fn XeTeXFontMgr_setReqEngine(self_0: *const XeTeXFontMgr, reqEngine: libc::c_char);
-    #[no_mangle]
-    fn XeTeXFontInst_setLayoutDirVertical(self_0: *mut XeTeXFontInst, vertical: bool);
-    #[no_mangle]
-    fn XeTeXFontInst_delete(self_0: *mut XeTeXFontInst);
-    #[no_mangle]
-    fn XeTeXFontInst_create(
-        pathname: *const libc::c_char,
-        index: libc::c_int,
-        pointSize: libc::c_float,
-        status: *mut libc::c_int,
-    ) -> *mut XeTeXFontInst;
-    #[no_mangle]
-    #[cfg(target_os = "macos")]
-    fn XeTeXFontInst_Mac_create(
-        descriptor: CTFontDescriptorRef,
-        pointSize: libc::c_float,
-        status: *mut libc::c_int,
-    ) -> *mut XeTeXFontInst_Mac;
-    #[no_mangle]
-    fn XeTeXFontInst_unitsToPoints(
-        self_0: *const XeTeXFontInst,
-        units: libc::c_float,
-    ) -> libc::c_float;
-    #[no_mangle]
-    fn XeTeXFontInst_mapGlyphToIndex(
-        self_0: *const XeTeXFontInst,
-        glyphName: *const libc::c_char,
-    ) -> GlyphID;
-    #[no_mangle]
-    fn XeTeXFontInst_getGlyphName(
-        self_0: *mut XeTeXFontInst,
-        gid: GlyphID,
-        nameLen: *mut libc::c_int,
-    ) -> *const libc::c_char;
-    #[no_mangle]
-    fn XeTeXFontInst_getLastCharCode(self_0: *mut XeTeXFontInst) -> UChar32;
-    #[no_mangle]
-    fn XeTeXFontInst_getFirstCharCode(self_0: *mut XeTeXFontInst) -> UChar32;
-
 }
+
+pub(crate) use crate::xetex_font_manager::XeTeXFont;
+
+use crate::xetex_font_manager::{
+    XeTeXFontMgr_Destroy, XeTeXFontMgr_GetFontManager, XeTeXFontMgr_Terminate,
+    XeTeXFontMgr_findFont, XeTeXFontMgr_getDesignSize, XeTeXFontMgr_getFullName,
+    XeTeXFontMgr_getReqEngine, XeTeXFontMgr_setReqEngine,
+};
+
+use crate::xetex_font_info::XeTeXFontInst;
+
+use crate::xetex_font_info::{
+    XeTeXFontInst_getFirstCharCode, XeTeXFontInst_getFontTable, XeTeXFontInst_getGlyphBounds,
+    XeTeXFontInst_getGlyphHeightDepth, XeTeXFontInst_getGlyphItalCorr, XeTeXFontInst_getGlyphName,
+    XeTeXFontInst_getGlyphSidebearings, XeTeXFontInst_getGlyphWidth, XeTeXFontInst_getHbFont,
+    XeTeXFontInst_getLastCharCode, XeTeXFontInst_getNumGlyphs, XeTeXFontInst_mapCharToGlyph,
+    XeTeXFontInst_mapGlyphToIndex, XeTeXFontInst_pointsToUnits, XeTeXFontInst_setLayoutDirVertical,
+    XeTeXFontInst_unitsToPoints,
+};
 
 pub(crate) mod collection_types {
 
@@ -387,30 +328,6 @@ pub(crate) type hb_unicode_decompose_compatibility_func_t = Option<
 
 pub(crate) type OTTag = uint32_t;
 pub(crate) type GlyphID = uint16_t;
-pub(crate) type Fixed = i32;
-#[cfg(target_os = "macos")]
-pub(crate) type CTFontDescriptorRef = *const __CTFontDescriptor;
-#[cfg(target_os = "macos")]
-pub(crate) type CTFontRef = *const __CTFont;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct FloatPoint {
-    pub(crate) x: libc::c_float,
-    pub(crate) y: libc::c_float,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct GlyphBBox {
-    pub(crate) xMin: libc::c_float,
-    pub(crate) yMin: libc::c_float,
-    pub(crate) xMax: libc::c_float,
-    pub(crate) yMax: libc::c_float,
-}
-#[cfg(not(target_os = "macos"))]
-pub(crate) type PlatformFontRef = *mut FcPattern;
-#[cfg(target_os = "macos")]
-pub(crate) type PlatformFontRef = CTFontDescriptorRef;
-pub(crate) type XeTeXFont = *mut XeTeXFont_rec;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXLayoutEngine_rec {
@@ -428,25 +345,7 @@ pub(crate) struct XeTeXLayoutEngine_rec {
     pub(crate) embolden: libc::c_float,
     pub(crate) hbBuffer: *mut hb_buffer_t,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct XeTeXFontInst {
-    pub(crate) m_unitsPerEM: libc::c_ushort,
-    pub(crate) m_pointSize: libc::c_float,
-    pub(crate) m_ascent: libc::c_float,
-    pub(crate) m_descent: libc::c_float,
-    pub(crate) m_capHeight: libc::c_float,
-    pub(crate) m_xHeight: libc::c_float,
-    pub(crate) m_italicAngle: libc::c_float,
-    pub(crate) m_vertical: bool,
-    pub(crate) m_filename: *mut libc::c_char,
-    pub(crate) m_index: uint32_t,
-    pub(crate) m_ftFace: freetype_sys::FT_Face,
-    pub(crate) m_backingData: *mut freetype_sys::FT_Byte,
-    pub(crate) m_backingData2: *mut freetype_sys::FT_Byte,
-    pub(crate) m_hbFont: *mut hb_font_t,
-    pub(crate) m_subdtor: Option<unsafe extern "C" fn(_: *mut XeTeXFontInst) -> ()>,
-}
+
 pub(crate) type XeTeXLayoutEngine = *mut XeTeXLayoutEngine_rec;
 pub(crate) type gr_uint16 = libc::c_ushort;
 pub(crate) type gr_int16 = libc::c_short;
@@ -469,14 +368,6 @@ pub(crate) const gr_breakWhitespace: gr_break_weight = 10;
 pub(crate) const gr_breakNone: gr_break_weight = 0;
 
 pub(crate) type ProtrusionFactor = CppStdMap<GlyphId, libc::c_int>;
-#[cfg(target_os = "macos")]
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct XeTeXFontInst_Mac {
-    pub(crate) super_: XeTeXFontInst,
-    pub(crate) m_descriptor: CTFontDescriptorRef,
-    pub(crate) m_fontRef: CTFontRef,
-}
 
 use crate::xetex_font_manager::XeTeXFontMgr;
 
@@ -666,6 +557,7 @@ pub(crate) unsafe extern "C" fn createFont(
     mut fontRef: PlatformFontRef,
     mut pointSize: Fixed,
 ) -> XeTeXFont {
+    use crate::xetex_font_info::{XeTeXFontInst_create, XeTeXFontInst_delete};
     let mut status: libc::c_int = 0i32;
     let mut font: *mut XeTeXFontInst;
     #[cfg(not(target_os = "macos"))]
@@ -693,6 +585,8 @@ pub(crate) unsafe extern "C" fn createFont(
     }
     #[cfg(target_os = "macos")]
     {
+        use crate::xetex_font_info::imp::XeTeXFontInst_Mac;
+        use crate::xetex_font_info::imp::XeTeXFontInst_Mac_create;
         font = &mut (*(XeTeXFontInst_Mac_create
             as unsafe extern "C" fn(
                 _: CTFontDescriptorRef,
@@ -717,6 +611,7 @@ pub(crate) unsafe extern "C" fn createFontFromFile(
     mut index: libc::c_int,
     mut pointSize: Fixed,
 ) -> XeTeXFont {
+    use crate::xetex_font_info::{XeTeXFontInst_create, XeTeXFontInst_delete};
     let mut status: libc::c_int = 0i32;
     let mut font: *mut XeTeXFontInst = XeTeXFontInst_create(
         filename,
@@ -771,6 +666,7 @@ pub(crate) unsafe extern "C" fn getFontRef(mut engine: XeTeXLayoutEngine) -> Pla
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn deleteFont(mut font: XeTeXFont) {
+    use crate::xetex_font_info::XeTeXFontInst_delete;
     XeTeXFontInst_delete(font as *mut XeTeXFontInst);
 }
 #[no_mangle]
@@ -783,9 +679,7 @@ pub(crate) unsafe extern "C" fn getFontTablePtr(
 #[no_mangle]
 pub(crate) unsafe extern "C" fn getSlant(mut font: XeTeXFont) -> Fixed {
     let mut italAngle: libc::c_float = XeTeXFontInst_getItalicAngle(font as *mut XeTeXFontInst);
-    return D2Fix(tan(
-        -italAngle as libc::c_double * std::f64::consts::PI / 180.0f64
-    ));
+    return D2Fix((-italAngle as libc::c_double * std::f64::consts::PI / 180.0f64).tan());
 }
 unsafe extern "C" fn getLargerScriptListTable(
     mut font: XeTeXFont,
@@ -1307,7 +1201,7 @@ pub(crate) unsafe extern "C" fn findGraphiteFeatureNamed(
             gr_fref_label(feature, &mut langID, gr_utf8, &mut len);
             let mut label: *mut libc::c_char = xmalloc(len as size_t) as *mut libc::c_char;
             label = gr_fref_label(feature, &mut langID, gr_utf8, &mut len) as *mut libc::c_char;
-            if strncmp(label, name, namelength as libc::c_ulong) == 0i32 {
+            if strncmp(label, name, namelength as usize) == 0i32 {
                 rval = gr_fref_id(feature) as libc::c_long;
                 gr_label_destroy(label as *mut libc::c_void);
                 break;
@@ -1341,7 +1235,7 @@ pub(crate) unsafe extern "C" fn findGraphiteFeatureSettingNamed(
             let mut label: *mut libc::c_char = xmalloc(len as size_t) as *mut libc::c_char;
             label = gr_fref_value_label(feature, i as gr_uint16, &mut langID, gr_utf8, &mut len)
                 as *mut libc::c_char;
-            if strncmp(label, name, namelength as libc::c_ulong) == 0i32 {
+            if strncmp(label, name, namelength as usize) == 0i32 {
                 rval = gr_fref_value(feature, i as gr_uint16) as libc::c_long;
                 gr_label_destroy(label as *mut libc::c_void);
                 break;
@@ -1382,8 +1276,7 @@ pub(crate) unsafe extern "C" fn getEmboldenFactor(mut engine: XeTeXLayoutEngine)
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn XeTeXLayoutEngine_create() -> *mut XeTeXLayoutEngine_rec {
-    return malloc(::std::mem::size_of::<XeTeXLayoutEngine_rec>() as libc::c_ulong)
-        as *mut XeTeXLayoutEngine_rec;
+    return malloc(::std::mem::size_of::<XeTeXLayoutEngine_rec>()) as *mut XeTeXLayoutEngine_rec;
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn XeTeXLayoutEngine_delete(mut engine: *mut XeTeXLayoutEngine_rec) {
@@ -1429,6 +1322,7 @@ pub(crate) unsafe extern "C" fn createLayoutEngine(
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn deleteLayoutEngine(mut engine: XeTeXLayoutEngine) {
+    use crate::xetex_font_info::XeTeXFontInst_delete;
     hb_buffer_destroy((*engine).hbBuffer);
     XeTeXFontInst_delete((*engine).font);
     free((*engine).shaper as *mut libc::c_void);

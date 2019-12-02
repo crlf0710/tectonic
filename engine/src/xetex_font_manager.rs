@@ -22,9 +22,6 @@ use crate::core_memory::xmalloc;
 
 use crate::xetex_layout_interface::collection_types::*;
 
-#[cfg(target_os = "macos")]
-use crate::xetex_layout_interface::__CTFontDescriptor;
-
 use freetype::freetype_sys;
 use harfbuzz_sys::{hb_face_t, hb_font_get_face, hb_font_t, hb_ot_layout_get_size_params};
 
@@ -105,9 +102,7 @@ pub(crate) type Fixed = i32;
 pub(crate) type PlatformFontRef = *mut FcPattern;
 
 #[cfg(target_os = "macos")]
-pub(crate) type PlatformFontRef = CTFontDescriptorRef;
-#[cfg(target_os = "macos")]
-pub(crate) type CTFontDescriptorRef = *const __CTFontDescriptor;
+pub(crate) type PlatformFontRef = crate::cf_prelude::CTFontDescriptorRef;
 
 pub(crate) type XeTeXFont = *mut XeTeXFont_rec;
 /* ***************************************************************************\
@@ -269,26 +264,8 @@ authorization from the copyright holders.
  *
  *  originally based on PortableFontInstance.h from ICU
  */
-// create specific subclasses for each supported platform
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct XeTeXFontInst {
-    pub(crate) m_unitsPerEM: libc::c_ushort,
-    pub(crate) m_pointSize: libc::c_float,
-    pub(crate) m_ascent: libc::c_float,
-    pub(crate) m_descent: libc::c_float,
-    pub(crate) m_capHeight: libc::c_float,
-    pub(crate) m_xHeight: libc::c_float,
-    pub(crate) m_italicAngle: libc::c_float,
-    pub(crate) m_vertical: bool,
-    pub(crate) m_filename: *mut libc::c_char,
-    pub(crate) m_index: uint32_t,
-    pub(crate) m_ftFace: freetype_sys::FT_Face,
-    pub(crate) m_backingData: *mut freetype_sys::FT_Byte,
-    pub(crate) m_backingData2: *mut freetype_sys::FT_Byte,
-    pub(crate) m_hbFont: *mut hb_font_t,
-    pub(crate) m_subdtor: Option<unsafe extern "C" fn(_: *mut XeTeXFontInst) -> ()>,
-}
+use crate::xetex_font_info::XeTeXFontInst;
+
 #[inline]
 unsafe extern "C" fn XeTeXFontMgrFamily_create() -> *mut XeTeXFontMgrFamily {
     let mut self_0: *mut XeTeXFontMgrFamily =

@@ -10,42 +10,22 @@ use crate::core_memory::xmalloc;
 use freetype::freetype_sys;
 use harfbuzz_sys::*;
 
+use crate::xetex_layout_interface::{getFont, getGlyphHeightDepth, D2Fix, Fix2D};
+use crate::xetex_layout_interface::{Fixed, GlyphAssembly};
+use crate::xetex_layout_interface::{
+    XeTeXFont, XeTeXFontInst, XeTeXFontInst_getHbFont, XeTeXFontInst_pointsToUnits,
+    XeTeXFontInst_unitsToPoints, XeTeXLayoutEngine,
+};
+
 extern "C" {
-    pub(crate) type XeTeXFont_rec;
-    pub(crate) type XeTeXLayoutEngine_rec;
     #[no_mangle]
     fn free(__ptr: *mut libc::c_void);
-    #[no_mangle]
-    fn getFont(engine: XeTeXLayoutEngine) -> XeTeXFont;
-    #[no_mangle]
-    fn getGlyphHeightDepth(
-        engine: XeTeXLayoutEngine,
-        glyphID: uint32_t,
-        height: *mut libc::c_float,
-        depth: *mut libc::c_float,
-    );
-    #[no_mangle]
-    fn Fix2D(f: Fixed) -> libc::c_double;
-    #[no_mangle]
-    fn D2Fix(d: libc::c_double) -> Fixed;
     #[no_mangle]
     static mut font_layout_engine: *mut *mut libc::c_void;
     #[no_mangle]
     static mut font_area: *mut int32_t;
     #[no_mangle]
     static mut font_size: *mut int32_t;
-    #[no_mangle]
-    fn XeTeXFontInst_getHbFont(self_0: *const XeTeXFontInst) -> *mut hb_font_t;
-    #[no_mangle]
-    fn XeTeXFontInst_unitsToPoints(
-        self_0: *const XeTeXFontInst,
-        units: libc::c_float,
-    ) -> libc::c_float;
-    #[no_mangle]
-    fn XeTeXFontInst_pointsToUnits(
-        self_0: *const XeTeXFontInst,
-        points: libc::c_float,
-    ) -> libc::c_float;
 }
 pub(crate) type size_t = usize;
 pub(crate) type int32_t = i32;
@@ -64,34 +44,6 @@ pub(crate) const HB_OT_MATH_GLYPH_PART_FLAG_EXTENDER: hb_ot_math_glyph_part_flag
 /* Endianness foo */
 /* our typedefs */
 
-pub(crate) type Fixed = i32;
-pub(crate) type XeTeXFont = *mut XeTeXFont_rec;
-pub(crate) type XeTeXLayoutEngine = *mut XeTeXLayoutEngine_rec;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct GlyphAssembly {
-    pub(crate) count: libc::c_uint,
-    pub(crate) parts: *mut hb_ot_math_glyph_part_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct XeTeXFontInst {
-    pub(crate) m_unitsPerEM: libc::c_ushort,
-    pub(crate) m_pointSize: libc::c_float,
-    pub(crate) m_ascent: libc::c_float,
-    pub(crate) m_descent: libc::c_float,
-    pub(crate) m_capHeight: libc::c_float,
-    pub(crate) m_xHeight: libc::c_float,
-    pub(crate) m_italicAngle: libc::c_float,
-    pub(crate) m_vertical: bool,
-    pub(crate) m_filename: *mut libc::c_char,
-    pub(crate) m_index: uint32_t,
-    pub(crate) m_ftFace: freetype_sys::FT_Face,
-    pub(crate) m_backingData: *mut freetype_sys::FT_Byte,
-    pub(crate) m_backingData2: *mut freetype_sys::FT_Byte,
-    pub(crate) m_hbFont: *mut hb_font_t,
-    pub(crate) m_subdtor: Option<unsafe extern "C" fn(_: *mut XeTeXFontInst) -> ()>,
-}
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International

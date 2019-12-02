@@ -76,7 +76,7 @@ use crate::xetex_ini::{
 };
 use crate::xetex_ini::{b16x4, b32x2, memory_word, prefixed_command};
 use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding, u_close};
-use crate::xetex_layout_engine::*;
+use crate::xetex_layout_interface::*;
 use crate::xetex_linebreak::line_break;
 use crate::xetex_math::{
     after_math, append_choices, build_choices, fin_mlist, flush_math, init_math, math_ac,
