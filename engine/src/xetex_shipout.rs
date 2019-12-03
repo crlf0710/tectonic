@@ -114,9 +114,9 @@ pub(crate) unsafe extern "C" fn ship_out(mut p: i32) {
     }
 
     if INTPAR(INT_PAR__tracing_output) > 0 {
-        print_nl_cstr(b"\x00" as *const u8 as *const i8);
+        print_nl_cstr(b"");
         print_ln();
-        print_cstr(b"Completed box being shipped out\x00" as *const u8 as *const i8);
+        print_cstr(b"Completed box being shipped out");
     }
 
     if term_offset > max_print_line - 9 {
@@ -160,19 +160,17 @@ pub(crate) unsafe extern "C" fn ship_out(mut p: i32) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Huge page cannot be shipped out\x00" as *const u8 as *const i8);
+        print_cstr(b"Huge page cannot be shipped out");
         help_ptr = 2;
-        help_line[1] =
-            b"The page just created is more than 18 feet tall or\x00" as *const u8 as *const i8;
-        help_line[0] = b"more than 18 feet wide, so I suspect something went wrong.\x00"
-            as *const u8 as *const i8;
+        help_line[1] = b"The page just created is more than 18 feet tall or";
+        help_line[0] = b"more than 18 feet wide, so I suspect something went wrong.";
         error();
 
         if INTPAR(INT_PAR__tracing_output) <= 0 {
             begin_diagnostic();
-            print_nl_cstr(b"The following box has been deleted:\x00" as *const u8 as *const i8);
+            print_nl_cstr(b"The following box has been deleted:");
             show_box(p);
             end_diagnostic(1i32 != 0);
         }
@@ -215,7 +213,7 @@ pub(crate) unsafe extern "C" fn ship_out(mut p: i32) {
             if job_name == 0 {
                 open_log_file();
             }
-            pack_job_name(output_file_extension);
+            pack_job_name(CStr::from_ptr(output_file_extension).to_bytes());
             dvi_file = ttstub_output_open(name_of_file, 0);
             if dvi_file.is_none() {
                 abort!(
@@ -268,19 +266,19 @@ pub(crate) unsafe extern "C" fn ship_out(mut p: i32) {
 
         let old_setting = selector;
         selector = Selector::NEW_STRING;
-        print_cstr(b"pdf:pagesize \x00" as *const u8 as *const i8);
+        print_cstr(b"pdf:pagesize ");
         if DIMENPAR(DIMEN_PAR__pdf_page_width) <= 0 || DIMENPAR(DIMEN_PAR__pdf_page_height) <= 0 {
-            print_cstr(b"default\x00" as *const u8 as *const i8);
+            print_cstr(b"default");
         } else {
-            print_cstr(b"width\x00" as *const u8 as *const i8);
+            print_cstr(b"width");
             print(' ' as i32);
             print_scaled(DIMENPAR(DIMEN_PAR__pdf_page_width));
-            print_cstr(b"pt\x00" as *const u8 as *const i8);
+            print_cstr(b"pt");
             print(' ' as i32);
-            print_cstr(b"height\x00" as *const u8 as *const i8);
+            print_cstr(b"height");
             print(' ' as i32);
             print_scaled(DIMENPAR(DIMEN_PAR__pdf_page_height));
-            print_cstr(b"pt\x00" as *const u8 as *const i8);
+            print_cstr(b"pt");
         }
         selector = old_setting;
 
@@ -314,18 +312,18 @@ pub(crate) unsafe extern "C" fn ship_out(mut p: i32) {
 
     if LR_problems > 0 {
         print_ln();
-        print_nl_cstr(b"\\endL or \\endR problem (\x00" as *const u8 as *const i8);
+        print_nl_cstr(b"\\endL or \\endR problem (");
         print_int(LR_problems / 10000);
-        print_cstr(b" missing, \x00" as *const u8 as *const i8);
+        print_cstr(b" missing, ");
         print_int(LR_problems % 10000);
-        print_cstr(b" extra\x00" as *const u8 as *const i8);
+        print_cstr(b" extra");
         LR_problems = 0;
         print_char(')' as i32);
         print_ln();
     }
 
     if LR_ptr != TEX_NULL || cur_dir != LEFT_TO_RIGHT as _ {
-        confusion(b"LR3\x00" as *const u8 as *const i8);
+        confusion(b"LR3");
     }
 
     if INTPAR(INT_PAR__tracing_output) <= 0 {
@@ -499,10 +497,7 @@ unsafe extern "C" fn hlist_out() {
                      * and p to the last." */
                     if p != r {
                         if pool_ptr + k > pool_size {
-                            overflow(
-                                b"pool size\x00" as *const u8 as *const i8,
-                                pool_size - init_pool_ptr,
-                            );
+                            overflow(b"pool size", pool_size - init_pool_ptr);
                         }
                         k = 0i32;
                         q = r;
@@ -1369,7 +1364,7 @@ unsafe extern "C" fn vlist_out() {
         /*652: "Output node p and move to the next node, maintaining the
          * condition cur_h = left_edge" */
         if is_char_node(p) {
-            confusion(b"vlistout\x00" as *const u8 as *const i8);
+            confusion(b"vlistout");
         } else {
             /*653: "Output the non-char_node p" */
             match (*mem.offset(p as isize)).b16.s1 as i32 {
@@ -1839,7 +1834,7 @@ unsafe extern "C" fn reverse(
                             }
                         }
                         14 => {
-                            confusion(b"LR2\x00" as *const u8 as *const i8);
+                            confusion(b"LR2");
                         }
                         _ => {
                             current_block = 10883403804712335414;
@@ -1973,7 +1968,7 @@ pub(crate) unsafe extern "C" fn out_what(mut p: i32) {
             cur_area = (*mem.offset((p + 2) as isize)).b32.s0;
             cur_ext = (*mem.offset((p + 2) as isize)).b32.s1;
             if length(cur_ext) == 0 {
-                cur_ext = maketexstring(b".tex\x00" as *const u8 as *const i8)
+                cur_ext = maketexstring(b".tex")
             }
 
             pack_file_name(cur_name, cur_area, cur_ext);
@@ -1995,12 +1990,12 @@ pub(crate) unsafe extern "C" fn out_what(mut p: i32) {
                 } else {
                     selector = Selector::TERM_AND_LOG
                 }
-                print_nl_cstr(b"\\openout\x00" as *const u8 as *const i8);
+                print_nl_cstr(b"\\openout");
                 print_int(j as i32);
-                print_cstr(b" = `\x00" as *const u8 as *const i8);
+                print_cstr(b" = `");
                 print_file_name(cur_name, cur_area, cur_ext);
-                print_cstr(b"\'.\x00" as *const u8 as *const i8);
-                print_nl_cstr(b"\x00" as *const u8 as *const i8);
+                print_cstr(b"\'.");
+                print_nl_cstr(b"");
                 print_ln();
                 selector = old_setting
             }
@@ -2010,7 +2005,7 @@ pub(crate) unsafe extern "C" fn out_what(mut p: i32) {
         }
         LANGUAGE_NODE => {}
         _ => {
-            confusion(b"ext4\x00" as *const u8 as *const i8);
+            confusion(b"ext4");
         }
     };
 }
@@ -2309,10 +2304,7 @@ unsafe fn special_out(mut p: i32) {
     selector = old_setting;
 
     if pool_ptr + 1 > pool_size {
-        overflow(
-            b"pool size\x00" as *const u8 as *const i8,
-            pool_size - init_pool_ptr,
-        );
+        overflow(b"pool size", pool_size - init_pool_ptr);
     }
 
     if cur_length() < 256 {
@@ -2365,13 +2357,12 @@ unsafe extern "C" fn write_out(mut p: i32) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Unbalanced write command\x00" as *const u8 as *const i8);
+        print_cstr(b"Unbalanced write command");
         help_ptr = 2;
-        help_line[1] = b"On this page there\'s a \\write with fewer real {\'s than }\'s.\x00"
-            as *const u8 as *const i8;
-        help_line[0] = b"I can\'t handle that very well; good luck.\x00" as *const u8 as *const i8;
+        help_line[1] = b"On this page there\'s a \\write with fewer real {\'s than }\'s.";
+        help_line[0] = b"I can\'t handle that very well; good luck.";
         error();
 
         loop {
@@ -2395,7 +2386,7 @@ unsafe extern "C" fn write_out(mut p: i32) {
         if j == 17 && (selector == Selector::TERM_AND_LOG) {
             selector = Selector::LOG_ONLY
         }
-        print_nl_cstr(b"\x00" as *const u8 as *const i8);
+        print_nl_cstr(b"");
     }
 
     token_show(def_ref);
@@ -2412,7 +2403,7 @@ unsafe extern "C" fn write_out(mut p: i32) {
             selector = Selector::TERM_ONLY
         }
 
-        print_nl_cstr(b"runsystem(\x00" as *const u8 as *const i8);
+        print_nl_cstr(b"runsystem(");
         let mut d = 0;
         while d <= cur_length() - 1 {
             print(
@@ -2422,10 +2413,10 @@ unsafe extern "C" fn write_out(mut p: i32) {
             );
             d += 1
         }
-        print_cstr(b")...\x00" as *const u8 as *const i8);
-        print_cstr(b"disabled\x00" as *const u8 as *const i8);
+        print_cstr(b")...");
+        print_cstr(b"disabled");
         print_char('.' as i32);
-        print_nl_cstr(b"\x00" as *const u8 as *const i8);
+        print_nl_cstr(b"");
         print_ln();
         pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize)
     }
@@ -2447,8 +2438,8 @@ unsafe fn pic_out(mut p: i32) {
 
     let old_setting = selector;
     selector = Selector::NEW_STRING;
-    print_cstr(b"pdf:image \x00" as *const u8 as *const i8);
-    print_cstr(b"matrix \x00" as *const u8 as *const i8);
+    print_cstr(b"pdf:image ");
+    print_cstr(b"matrix ");
     print_scaled((*mem.offset((p + 5) as isize)).b32.s0);
     print(' ' as i32);
     print_scaled((*mem.offset((p + 5) as isize)).b32.s1);
@@ -2461,25 +2452,25 @@ unsafe fn pic_out(mut p: i32) {
     print(' ' as i32);
     print_scaled((*mem.offset((p + 7) as isize)).b32.s1);
     print(' ' as i32);
-    print_cstr(b"page \x00" as *const u8 as *const i8);
+    print_cstr(b"page ");
     print_int((*mem.offset((p + 4) as isize)).b16.s0 as i32);
     print(' ' as i32);
 
     match (*mem.offset((p + 8) as isize)).b16.s1 {
         1 => {
-            print_cstr(b"pagebox cropbox \x00" as *const u8 as *const i8);
+            print_cstr(b"pagebox cropbox ");
         }
         2 => {
-            print_cstr(b"pagebox mediabox \x00" as *const u8 as *const i8);
+            print_cstr(b"pagebox mediabox ");
         }
         3 => {
-            print_cstr(b"pagebox bleedbox \x00" as *const u8 as *const i8);
+            print_cstr(b"pagebox bleedbox ");
         }
         5 => {
-            print_cstr(b"pagebox artbox \x00" as *const u8 as *const i8);
+            print_cstr(b"pagebox artbox ");
         }
         4 => {
-            print_cstr(b"pagebox trimbox \x00" as *const u8 as *const i8);
+            print_cstr(b"pagebox trimbox ");
         }
         _ => {}
     }
@@ -2526,7 +2517,7 @@ pub(crate) unsafe extern "C" fn finalize_dvi_file() {
     }
 
     if total_pages == 0 {
-        print_nl_cstr(b"No pages of output.\x00" as *const u8 as *const i8);
+        print_nl_cstr(b"No pages of output.");
         return;
     }
 
@@ -2578,7 +2569,7 @@ pub(crate) unsafe extern "C" fn finalize_dvi_file() {
 
     if dvi_ptr > TEX_INFINITY - dvi_offset {
         cur_s = -2;
-        fatal_error(b"dvi length exceeds 0x7FFFFFFF\x00" as *const u8 as *const i8);
+        fatal_error(b"dvi length exceeds 0x7FFFFFFF");
     }
 
     if dvi_ptr > 0 {
@@ -2588,27 +2579,27 @@ pub(crate) unsafe extern "C" fn finalize_dvi_file() {
     let mut k = ttstub_output_close(dvi_file.take().unwrap()) as u8;
 
     if k == 0 {
-        print_nl_cstr(b"Output written on \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"Output written on ");
         print(output_file_name);
-        print_cstr(b" (\x00" as *const u8 as *const i8);
+        print_cstr(b" (");
         print_int(total_pages);
         if total_pages != 1i32 {
-            print_cstr(b" pages\x00" as *const u8 as *const i8);
+            print_cstr(b" pages");
         } else {
-            print_cstr(b" page\x00" as *const u8 as *const i8);
+            print_cstr(b" page");
         }
-        print_cstr(b", \x00" as *const u8 as *const i8);
+        print_cstr(b", ");
         print_int(dvi_offset + dvi_ptr);
-        print_cstr(b" bytes).\x00" as *const u8 as *const i8);
+        print_cstr(b" bytes).");
     } else {
-        print_nl_cstr(b"Error \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"Error ");
         print_int(k as i32);
-        print_cstr(b" (\x00" as *const u8 as *const i8);
+        print_cstr(b" (");
         print_c_string(strerror(k as i32));
-        print_cstr(b") generating output;\x00" as *const u8 as *const i8);
-        print_nl_cstr(b"file \x00" as *const u8 as *const i8);
+        print_cstr(b") generating output;");
+        print_nl_cstr(b"file ");
         print(output_file_name);
-        print_cstr(b" may not be valid.\x00" as *const u8 as *const i8);
+        print_cstr(b" may not be valid.");
         /* XeTeX adds history = OUTPUT_FAILURE = 4 here; I'm not implementing that. */
     };
 }
@@ -2629,7 +2620,7 @@ unsafe fn write_to_dvi(a: i32, b: i32) {
 unsafe fn dvi_swap() {
     if dvi_ptr > TEX_INFINITY - dvi_offset {
         cur_s = -2;
-        fatal_error(b"dvi length exceeds 0x7FFFFFFF\x00" as *const u8 as *const i8);
+        fatal_error(b"dvi length exceeds 0x7FFFFFFF");
     }
     if dvi_limit == DVI_BUF_SIZE {
         write_to_dvi(0, HALF_BUF - 1);

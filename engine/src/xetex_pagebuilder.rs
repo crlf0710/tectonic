@@ -80,14 +80,13 @@ unsafe extern "C" fn ensure_vbox(mut n: eight_bits) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+        print_nl_cstr(b"! ");
     }
-    print_cstr(b"Insertions can only be added to a vbox\x00" as *const u8 as *const i8);
+    print_cstr(b"Insertions can only be added to a vbox");
     help_ptr = 3;
-    help_line[2] = b"Tut tut: You\'re trying to \\insert into a\x00" as *const u8 as *const i8;
-    help_line[1] = b"\\box register that now contains an \\hbox.\x00" as *const u8 as *const i8;
-    help_line[0] =
-        b"Proceed, and I\'ll discard its present contents.\x00" as *const u8 as *const i8;
+    help_line[2] = b"Tut tut: You\'re trying to \\insert into a";
+    help_line[1] = b"\\box register that now contains an \\hbox.";
+    help_line[0] = b"Proceed, and I\'ll discard its present contents.";
     box_error(n);
 }
 
@@ -153,16 +152,14 @@ unsafe extern "C" fn fire_up(mut c: i32) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"\x00" as *const u8 as *const i8);
-        print_esc_cstr(b"box\x00" as *const u8 as *const i8);
-        print_cstr(b"255 is not void\x00" as *const u8 as *const i8);
+        print_cstr(b"");
+        print_esc_cstr(b"box");
+        print_cstr(b"255 is not void");
         help_ptr = 2;
-        help_line[1] = b"You shouldn\'t use \\box255 except in \\output routines.\x00" as *const u8
-            as *const i8;
-        help_line[0] =
-            b"Proceed, and I\'ll discard its present contents.\x00" as *const u8 as *const i8;
+        help_line[1] = b"You shouldn\'t use \\box255 except in \\output routines.";
+        help_line[0] = b"Proceed, and I\'ll discard its present contents.";
         box_error(255);
     }
     insert_penalties = 0; /* "this will count the number of insertions held over" */
@@ -446,18 +443,15 @@ unsafe extern "C" fn fire_up(mut c: i32) {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"Output loop---\x00" as *const u8 as *const i8);
+            print_cstr(b"Output loop---");
             print_int(dead_cycles);
-            print_cstr(b" consecutive dead cycles\x00" as *const u8 as *const i8);
+            print_cstr(b" consecutive dead cycles");
             help_ptr = 3;
-            help_line[2] = b"I\'ve concluded that your \\output is awry; it never does a\x00"
-                as *const u8 as *const i8;
-            help_line[1] = b"\\shipout, so I\'m shipping \\box255 out myself. Next time\x00"
-                as *const u8 as *const i8;
-            help_line[0] = b"increase \\maxdeadcycles if you want me to be more patient!\x00"
-                as *const u8 as *const i8;
+            help_line[2] = b"I\'ve concluded that your \\output is awry; it never does a";
+            help_line[1] = b"\\shipout, so I\'m shipping \\box255 out myself. Next time";
+            help_line[0] = b"increase \\maxdeadcycles if you want me to be more patient!";
             error();
         } else {
             /*1060: "Fire up the user's output routine and return" */
@@ -677,24 +671,18 @@ pub(crate) unsafe extern "C" fn build_page() {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! \x00" as *const u8 as
-                                              *const i8);
+                            print_nl_cstr(b"! ");
                         }
-                        print_cstr(b"Infinite glue shrinkage inserted from \x00"
-                                       as *const u8 as *const i8);
-                        print_esc_cstr(b"skip\x00" as *const u8 as
-                                           *const i8);
+                        print_cstr(b"Infinite glue shrinkage inserted from ");
+                        print_esc_cstr(b"skip");
                         print_int(n as i32);
                         help_ptr = 3;
                         help_line[2] =
-                            b"The correction glue for page breaking with insertions\x00"
-                                as *const u8 as *const i8;
+                            b"The correction glue for page breaking with insertions";
                         help_line[1] =
-                            b"must have finite shrinkability. But you may proceed,\x00"
-                                as *const u8 as *const i8;
+                            b"must have finite shrinkability. But you may proceed,";
                         help_line[0] =
-                            b"since the offensive shrinkability has been made finite.\x00"
-                                as *const u8 as *const i8;
+                            b"since the offensive shrinkability has been made finite.";
                         error();
                     }
                 }
@@ -777,7 +765,7 @@ pub(crate) unsafe extern "C" fn build_page() {
                 return contribute(slf);
             }
             _ => {
-                confusion(b"page\x00" as *const u8 as *const i8);
+                confusion(b"page");
             }
         }
 
@@ -869,23 +857,14 @@ pub(crate) unsafe extern "C" fn build_page() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(
-                        b"Infinite glue shrinkage found on current page\x00" as *const u8
-                            as *const i8,
-                    );
+                    print_cstr(b"Infinite glue shrinkage found on current page");
                     help_ptr = 4_u8;
-                    help_line[3] = b"The page about to be output contains some infinitely\x00"
-                        as *const u8 as *const i8;
-                    help_line[2] =
-                        b"shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.\x00"
-                            as *const u8 as *const i8;
-                    help_line[1] =
-                        b"Such glue doesn\'t belong there; but you can safely proceed,\x00"
-                            as *const u8 as *const i8;
-                    help_line[0] = b"since the offensive shrinkability has been made finite.\x00"
-                        as *const u8 as *const i8;
+                    help_line[3] = b"The page about to be output contains some infinitely";
+                    help_line[2] = b"shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.";
+                    help_line[1] = b"Such glue doesn\'t belong there; but you can safely proceed,";
+                    help_line[0] = b"since the offensive shrinkability has been made finite.";
                     error();
                     slf.r = new_spec(slf.q);
                     (*mem.offset(slf.r as isize)).b16.s0 = 0_u16;

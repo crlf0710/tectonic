@@ -62,30 +62,26 @@ unsafe extern "C" fn checkpool_pointer(mut pool_ptr_0: pool_pointer, mut len: si
     );
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn maketexstring(mut s: *const i8) -> i32 {
+pub(crate) unsafe extern "C" fn maketexstring(s: &[u8]) -> i32 {
     let mut rval: UInt32 = 0;
-    let mut cp: *const u8 = s as *const u8;
-    if s.is_null() || *s as i32 == 0i32 {
+    let mut cp = s;
+    if s.is_empty() {
         return (65536 + 1i32 as i64) as i32;
     }
-    let len = strlen(s);
+    let len = s.len();
     checkpool_pointer(pool_ptr, len as _);
-    loop {
-        let fresh0 = cp;
-        cp = cp.offset(1);
-        rval = *fresh0 as UInt32;
-        if !(rval != 0_u32) {
-            break;
-        }
+    while !cp.is_empty() {
+        rval = cp[0] as UInt32;
+        cp = &cp[1..];
         let mut extraBytes: UInt16 = bytesFromUTF8[rval as usize] as UInt16;
 
         assert!(extraBytes < 6);
         for _ in (1..=extraBytes).rev() {
             /* note: code falls through cases! */
             rval <<= 6i32; /* max UTF16->UTF8 expansion (code units, not bytes) */
-            if *cp != 0 {
-                rval += *cp as u32;
-                cp = cp.offset(1);
+            if !cp.is_empty() {
+                rval += cp[0] as u32;
+                cp = &cp[1..];
             }
         }
         rval = (rval as u32).wrapping_sub(offsetsFromUTF8[extraBytes as usize]) as UInt32 as UInt32;

@@ -272,7 +272,7 @@ pub(crate) unsafe extern "C" fn get_encoding_mode_and_info(mut info: *mut i32) -
         4i32
     } else {
         icu::ucnv_close(cnv);
-        *info = maketexstring(name_of_file);
+        *info = maketexstring(CStr::from_ptr(name_of_file).to_bytes());
         5i32
     }
 }

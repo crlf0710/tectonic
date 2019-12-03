@@ -536,7 +536,7 @@ pub(crate) static mut history: TTHistory = TTHistory::SPOTLESS;
 #[no_mangle]
 pub(crate) static mut error_count: i8 = 0;
 #[no_mangle]
-pub(crate) static mut help_line: [*const i8; 6] = [ptr::null(); 6];
+pub(crate) static mut help_line: [&'static [u8]; 6] = [&[]; 6];
 #[no_mangle]
 pub(crate) static mut help_ptr: u8 = 0;
 #[no_mangle]
@@ -1090,7 +1090,7 @@ pub(crate) static mut if_stack: *mut i32 = ptr::null_mut();
 #[no_mangle]
 pub(crate) static mut max_reg_num: i32 = 0;
 #[no_mangle]
-pub(crate) static mut max_reg_help_line: *const i8 = ptr::null();
+pub(crate) static mut max_reg_help_line: &[u8] = &[];
 #[no_mangle]
 pub(crate) static mut sa_root: [i32; 8] = [0; 8];
 #[no_mangle]
@@ -1334,18 +1334,16 @@ unsafe extern "C" fn sort_avail() {
 }
 /*:271*/
 /*276: */
-unsafe extern "C" fn primitive(mut ident: *const i8, mut c: u16, mut o: i32) {
+unsafe extern "C" fn primitive(ident: &[u8], mut c: u16, mut o: i32) {
     let mut prim_val: i32 = 0;
-    let mut len: i32 = strlen(ident) as i32;
+    let mut len = ident.len() as i32;
     if len > 1i32 {
         let mut s: str_number = maketexstring(ident);
         if first + len > buf_size + 1i32 {
-            overflow(b"buffer size\x00" as *const u8 as *const i8, buf_size);
+            overflow(b"buffer size", buf_size);
         }
-        let mut i: i32 = 0i32;
-        while i < len {
-            *buffer.offset((first + i) as isize) = *ident.offset(i as isize) as UnicodeScalar;
-            i += 1
+        for i in 0..len {
+            *buffer.offset((first + i) as isize) = ident[i as usize] as UnicodeScalar;
         }
         cur_val = id_lookup(first, len);
         str_ptr -= 1;
@@ -1353,8 +1351,8 @@ unsafe extern "C" fn primitive(mut ident: *const i8, mut c: u16, mut o: i32) {
         (*hash.offset(cur_val as isize)).s1 = s;
         prim_val = prim_lookup(s)
     } else {
-        cur_val = *ident.offset(0) as i32 + (1i32 + (0x10ffffi32 + 1i32));
-        prim_val = prim_lookup(*ident.offset(0) as str_number)
+        cur_val = ident[0] as i32 + (1i32 + (0x10ffffi32 + 1i32));
+        prim_val = prim_lookup(ident[0] as str_number)
     }
     (*eqtb.offset(cur_val as isize)).b16.s0 = 1_u16;
     (*eqtb.offset(cur_val as isize)).b16.s1 = c;
@@ -1382,17 +1380,11 @@ pub(crate) unsafe extern "C" fn new_trie_op(
         l = _trie_op_hash_array[(h as i64 - -35111) as usize];
         if l == 0i32 {
             if trie_op_ptr as i64 == 35111 {
-                overflow(
-                    b"pattern memory ops\x00" as *const u8 as *const i8,
-                    35111 as i32,
-                );
+                overflow(b"pattern memory ops", 35111 as i32);
             }
             u = trie_used[cur_lang as usize];
             if u as i64 == 65535 {
-                overflow(
-                    b"pattern memory ops per language\x00" as *const u8 as *const i8,
-                    (65535 - 0) as i32,
-                );
+                overflow(b"pattern memory ops per language", (65535 - 0) as i32);
             }
             trie_op_ptr += 1;
             u = u.wrapping_add(1);
@@ -1476,7 +1468,7 @@ pub(crate) unsafe extern "C" fn first_fit(mut p: trie_pointer) {
         h = z - c as i32;
         if trie_max < h + max_hyph_char {
             if trie_size <= h + max_hyph_char {
-                overflow(b"pattern memory\x00" as *const u8 as *const i8, trie_size);
+                overflow(b"pattern memory", trie_size);
             }
             loop {
                 trie_max += 1;
@@ -1604,11 +1596,11 @@ unsafe extern "C" fn new_patterns() {
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
                                 } else {
-                                    print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                    print_nl_cstr(b"! ");
                                 }
-                                print_cstr(b"Nonletter\x00" as *const u8 as *const i8);
+                                print_cstr(b"Nonletter");
                                 help_ptr = 1_u8;
-                                help_line[0] = b"(See Appendix H.)\x00" as *const u8 as *const i8;
+                                help_line[0] = b"(See Appendix H.)";
                                 error();
                             }
                         }
@@ -1665,10 +1657,7 @@ unsafe extern "C" fn new_patterns() {
                             if p == 0i32 || (c as i32) < *trie_c.offset(p as isize) as i32 {
                                 /*999:*/
                                 if trie_ptr == trie_size {
-                                    overflow(
-                                        b"pattern memory\x00" as *const u8 as *const i8,
-                                        trie_size,
-                                    );
+                                    overflow(b"pattern memory", trie_size);
                                 }
                                 trie_ptr += 1;
                                 *trie_r.offset(trie_ptr as isize) = p;
@@ -1688,11 +1677,11 @@ unsafe extern "C" fn new_patterns() {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
                             } else {
-                                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                print_nl_cstr(b"! ");
                             }
-                            print_cstr(b"Duplicate pattern\x00" as *const u8 as *const i8);
+                            print_cstr(b"Duplicate pattern");
                             help_ptr = 1_u8;
-                            help_line[0] = b"(See Appendix H.)\x00" as *const u8 as *const i8;
+                            help_line[0] = b"(See Appendix H.)";
                             error();
                         }
                         *trie_o.offset(q as isize) = v
@@ -1708,12 +1697,12 @@ unsafe extern "C" fn new_patterns() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(b"Bad \x00" as *const u8 as *const i8);
-                    print_esc_cstr(b"patterns\x00" as *const u8 as *const i8);
+                    print_cstr(b"Bad ");
+                    print_esc_cstr(b"patterns");
                     help_ptr = 1_u8;
-                    help_line[0] = b"(See Appendix H.)\x00" as *const u8 as *const i8;
+                    help_line[0] = b"(See Appendix H.)";
                     error();
                 }
             }
@@ -1735,7 +1724,7 @@ unsafe extern "C" fn new_patterns() {
                 /*:1644*/
                 /*999:*/
                 if trie_ptr == trie_size {
-                    overflow(b"pattern memory\x00" as *const u8 as *const i8, trie_size);
+                    overflow(b"pattern memory", trie_size);
                 }
                 trie_ptr += 1;
                 *trie_r.offset(trie_ptr as isize) = p;
@@ -1758,7 +1747,7 @@ unsafe extern "C" fn new_patterns() {
                     if p == 0i32 {
                         /*999:*/
                         if trie_ptr == trie_size {
-                            overflow(b"pattern memory\x00" as *const u8 as *const i8, trie_size);
+                            overflow(b"pattern memory", trie_size);
                             /*:987 */
                         }
                         trie_ptr += 1;
@@ -1792,13 +1781,12 @@ unsafe extern "C" fn new_patterns() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"Too late for \x00" as *const u8 as *const i8);
-        print_esc_cstr(b"patterns\x00" as *const u8 as *const i8);
+        print_cstr(b"Too late for ");
+        print_esc_cstr(b"patterns");
         help_ptr = 1_u8;
-        help_line[0] =
-            b"All patterns must be given before typesetting begins.\x00" as *const u8 as *const i8;
+        help_line[0] = b"All patterns must be given before typesetting begins.";
         error();
         (*mem.offset((4999999i32 - 12i32) as isize)).b32.s1 = scan_toks(false, false);
         flush_list(def_ref);
@@ -2033,16 +2021,12 @@ unsafe extern "C" fn new_hyph_exceptions() {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
                             } else {
-                                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                                print_nl_cstr(b"! ");
                             }
-                            print_cstr(b"Not a letter\x00" as *const u8 as *const i8);
+                            print_cstr(b"Not a letter");
                             help_ptr = 2_u8;
-                            help_line[1] =
-                                b"Letters in \\hyphenation words must have \\lccode>0.\x00"
-                                    as *const u8 as *const i8;
-                            help_line[0] = b"Proceed; I\'ll ignore the character I just read.\x00"
-                                as *const u8
-                                as *const i8;
+                            help_line[1] = b"Letters in \\hyphenation words must have \\lccode>0.";
+                            help_line[0] = b"Proceed; I\'ll ignore the character I just read.";
                             error();
                         } else if (n as i32) < max_hyphenatable_length() {
                             n += 1;
@@ -2076,16 +2060,14 @@ unsafe extern "C" fn new_hyph_exceptions() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(b"Improper \x00" as *const u8 as *const i8);
-                    print_esc_cstr(b"hyphenation\x00" as *const u8 as *const i8);
-                    print_cstr(b" will be flushed\x00" as *const u8 as *const i8);
+                    print_cstr(b"Improper ");
+                    print_esc_cstr(b"hyphenation");
+                    print_cstr(b" will be flushed");
                     help_ptr = 2_u8;
-                    help_line[1] = b"Hyphenation exceptions must contain only letters\x00"
-                        as *const u8 as *const i8;
-                    help_line[0] = b"and hyphens. But continue; I\'ll forgive and forget.\x00"
-                        as *const u8 as *const i8;
+                    help_line[1] = b"Hyphenation exceptions must contain only letters";
+                    help_line[0] = b"and hyphens. But continue; I\'ll forgive and forget.";
                     error();
                     continue 's_91;
                 }
@@ -2097,10 +2079,7 @@ unsafe extern "C" fn new_hyph_exceptions() {
                 n += 1;
                 hc[n as usize] = cur_lang as i32;
                 if pool_ptr + n as i32 > pool_size {
-                    overflow(
-                        b"pool size\x00" as *const u8 as *const i8,
-                        pool_size - init_pool_ptr,
-                    );
+                    overflow(b"pool size", pool_size - init_pool_ptr);
                 }
                 h = 0i32 as hyph_pointer;
                 j = 1_i16;
@@ -2118,10 +2097,7 @@ unsafe extern "C" fn new_hyph_exceptions() {
                     }
                 }
                 if hyph_count == hyph_size || hyph_next == 0i32 {
-                    overflow(
-                        b"exception dictionary\x00" as *const u8 as *const i8,
-                        hyph_size,
-                    );
+                    overflow(b"exception dictionary", hyph_size);
                 }
                 hyph_count += 1;
                 while *hyph_word.offset(h as isize) != 0i32 {
@@ -2206,15 +2182,14 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(b"You can\'t use a prefix with `\x00" as *const u8 as *const i8);
+            print_cstr(b"You can\'t use a prefix with `");
             print_cmd_chr(cur_cmd as u16, cur_chr);
             print_char('\'' as i32);
             help_ptr = 1_u8;
             help_line[0] =
-                b"I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.\x00"
-                    as *const u8 as *const i8;
+                b"I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.";
             back_error();
             return;
         }
@@ -2232,18 +2207,17 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"You can\'t use `\x00" as *const u8 as *const i8);
-        print_esc_cstr(b"long\x00" as *const u8 as *const i8);
-        print_cstr(b"\' or `\x00" as *const u8 as *const i8);
-        print_esc_cstr(b"outer\x00" as *const u8 as *const i8);
+        print_cstr(b"You can\'t use `");
+        print_esc_cstr(b"long");
+        print_cstr(b"\' or `");
+        print_esc_cstr(b"outer");
         help_ptr = 1_u8;
-        help_line[0] = b"I\'ll pretend you didn\'t say \\long or \\outer or \\protected here.\x00"
-            as *const u8 as *const i8;
-        print_cstr(b"\' or `\x00" as *const u8 as *const i8);
-        print_esc_cstr(b"protected\x00" as *const u8 as *const i8);
-        print_cstr(b"\' with `\x00" as *const u8 as *const i8);
+        help_line[0] = b"I\'ll pretend you didn\'t say \\long or \\outer or \\protected here.";
+        print_cstr(b"\' or `");
+        print_esc_cstr(b"protected");
+        print_cstr(b"\' with `");
         print_cmd_chr(cur_cmd as u16, cur_chr);
         print_char('\'' as i32);
         error();
@@ -2336,11 +2310,9 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                 scan_char_num();
                 if INTPAR(INT_PAR__tracing_char_sub_def) > 0 {
                     begin_diagnostic();
-                    print_nl_cstr(b"New character substitution: \x00" as
-                                      *const u8 as *const i8);
+                    print_nl_cstr(b"New character substitution: ");
                     print(p - CHAR_SUB_CODE_BASE);
-                    print_cstr(b" = \x00" as *const u8 as
-                                   *const i8);
+                    print_cstr(b" = ");
                     print(n);
                     print_char(' ' as i32);
                     print(cur_val);
@@ -2478,22 +2450,18 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
             j = cur_chr;
             scan_int();
             n = cur_val;
-            if !scan_keyword(b"to\x00" as *const u8 as *const i8) {
+            if !scan_keyword(b"to") {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as
-                                      *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Missing `to\' inserted\x00" as *const u8 as
-                               *const i8);
+                print_cstr(b"Missing `to\' inserted");
                 help_ptr = 2_u8;
                 help_line[1] =
-                    b"You should have said `\\read<number> to \\cs\'.\x00" as
-                        *const u8 as *const i8;
+                    b"You should have said `\\read<number> to \\cs\'.";
                 help_line[0] =
-                    b"I\'m going to look for the \\cs now.\x00" as *const u8
-                        as *const i8;
+                    b"I\'m going to look for the \\cs now.";
                 error();
             }
             get_r_token();
@@ -2762,24 +2730,19 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as
-                                      *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Invalid code (\x00" as *const u8 as
-                               *const i8);
+                print_cstr(b"Invalid code (");
                 print_int(cur_val);
                 if p < MATH_CODE_BASE {
-                    print_cstr(b"), should be in the range 0..\x00" as
-                                   *const u8 as *const i8);
+                    print_cstr(b"), should be in the range 0..");
                 } else {
-                    print_cstr(b"), should be at most \x00" as *const u8 as
-                                   *const i8);
+                    print_cstr(b"), should be at most ");
                 }
                 print_int(n);
                 help_ptr = 1_u8;
                 help_line[0] =
-                    b"I\'m going to use 0 instead of that illegal code value.\x00"
-                        as *const u8 as *const i8;
+                    b"I\'m going to use 0 instead of that illegal code value.";
                 error();
                 cur_val = 0i32
             }
@@ -2848,20 +2811,15 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! \x00" as *const u8 as
-                                      *const i8);
+                    print_nl_cstr(b"! ");
                 }
-                print_cstr(b"Improper \x00" as *const u8 as
-                               *const i8);
-                print_esc_cstr(b"setbox\x00" as *const u8 as
-                                   *const i8);
+                print_cstr(b"Improper ");
+                print_esc_cstr(b"setbox");
                 help_ptr = 2_u8;
                 help_line[1] =
-                    b"Sorry, \\setbox is not allowed after \\halign in a display,\x00"
-                        as *const u8 as *const i8;
+                    b"Sorry, \\setbox is not allowed after \\halign in a display,";
                 help_line[0] =
-                    b"or between \\accent and an accented character.\x00" as
-                        *const u8 as *const i8;
+                    b"or between \\accent and an accented character.";
                 error();
             }
         }
@@ -2917,11 +2875,9 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! \x00" as *const u8 as
-                                          *const i8);
+                        print_nl_cstr(b"! ");
                     }
-                    print_cstr(b"Patterns can be loaded only by INITEX\x00" as
-                                   *const u8 as *const i8);
+                    print_cstr(b"Patterns can be loaded only by INITEX");
                     help_ptr = 0_u8;
                     error();
                     loop  {
@@ -2968,7 +2924,7 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
         }
         DEF_FONT => { new_font(a); }
         SET_INTERACTION => { new_interaction(); }
-        _ => { confusion(b"prefix\x00" as *const u8 as *const i8); }
+        _ => { confusion(b"prefix"); }
     }
     /*1304:*/
     if after_token != 0 {
@@ -2991,11 +2947,11 @@ unsafe extern "C" fn store_fmt_file() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"! ");
         }
-        print_cstr(b"You can\'t dump inside a group\x00" as *const u8 as *const i8);
+        print_cstr(b"You can\'t dump inside a group");
         help_ptr = 1_u8;
-        help_line[0] = b"`{...\\dump}\' is a no-no.\x00" as *const u8 as *const i8;
+        help_line[0] = b"`{...\\dump}\' is a no-no.";
         if interaction as i32 == 3i32 {
             interaction = 2_u8
         }
@@ -3008,7 +2964,7 @@ unsafe extern "C" fn store_fmt_file() {
         panic!("\\dump inside a group");
     }
     selector = Selector::NEW_STRING;
-    print_cstr(b" (preloaded format=\x00" as *const u8 as *const i8);
+    print_cstr(b" (preloaded format=");
     print(job_name);
     print_char(' ' as i32);
     print_int(INTPAR(INT_PAR__year));
@@ -3023,13 +2979,10 @@ unsafe extern "C" fn store_fmt_file() {
         selector = Selector::TERM_AND_LOG
     }
     if pool_ptr + 1 > pool_size {
-        overflow(
-            b"pool size\x00" as *const u8 as *const i8,
-            pool_size - init_pool_ptr,
-        );
+        overflow(b"pool size", pool_size - init_pool_ptr);
     }
     format_ident = make_string();
-    pack_job_name(b".fmt\x00" as *const u8 as *const i8);
+    pack_job_name(b".fmt");
     let fmt_out = ttstub_output_open(name_of_file, 0i32);
     if fmt_out.is_none() {
         abort!(
@@ -3039,11 +2992,11 @@ unsafe extern "C" fn store_fmt_file() {
     }
     let mut fmt_out_owner = fmt_out.unwrap();
     let fmt_out = &mut fmt_out_owner;
-    print_nl_cstr(b"Beginning to dump on file \x00" as *const u8 as *const i8);
+    print_nl_cstr(b"Beginning to dump on file ");
     print(make_name_string());
     str_ptr -= 1;
     pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
-    print_nl_cstr(b"\x00" as *const u8 as *const i8);
+    print_nl_cstr(b"");
     print(format_ident);
     /* Header */
     let mut x_val: i32 = 0x54544e43i32; /* TODO: can we move this farther up in this function? */
@@ -3127,7 +3080,7 @@ unsafe extern "C" fn store_fmt_file() {
     );
     print_ln();
     print_int(str_ptr);
-    print_cstr(b" strings of total length \x00" as *const u8 as *const i8);
+    print_cstr(b" strings of total length ");
     print_int(pool_ptr);
     /* "memory locations" */
     sort_avail();
@@ -3226,7 +3179,7 @@ unsafe extern "C" fn store_fmt_file() {
     );
     print_ln();
     print_int(x);
-    print_cstr(b" memory locations dumped; current usage is \x00" as *const u8 as *const i8);
+    print_cstr(b" memory locations dumped; current usage is ");
     print_int(var_used);
     print_char('&' as i32);
     print_int(dyn_used);
@@ -3445,7 +3398,7 @@ unsafe extern "C" fn store_fmt_file() {
     );
     print_ln();
     print_int(cs_count);
-    print_cstr(b" multiletter control sequences\x00" as *const u8 as *const i8);
+    print_cstr(b" multiletter control sequences");
     /* fonts */
     let mut x_val_24: i32 = fmem_ptr;
     do_dump(
@@ -3607,7 +3560,7 @@ unsafe extern "C" fn store_fmt_file() {
     );
     k = FONT_BASE;
     while k <= font_ptr {
-        print_nl_cstr(b"\\font\x00" as *const u8 as *const i8);
+        print_nl_cstr(b"\\font");
         print_esc((*hash.offset(FONT_ID_BASE as isize + k as isize)).s1);
         print_char('=' as i32);
         if *font_area.offset(k as isize) as u32 == 0xffffu32
@@ -3622,18 +3575,13 @@ unsafe extern "C" fn store_fmt_file() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! \x00" as *const u8 as *const i8);
+                print_nl_cstr(b"! ");
             }
-            print_cstr(
-                b"Can\'t \\dump a format with native fonts or font-mappings\x00" as *const u8
-                    as *const i8,
-            );
+            print_cstr(b"Can\'t \\dump a format with native fonts or font-mappings");
             help_ptr = 3_u8;
-            help_line[2] =
-                b"You really, really don\'t want to do this.\x00" as *const u8 as *const i8;
-            help_line[1] = b"It won\'t work, and only confuses me.\x00" as *const u8 as *const i8;
-            help_line[0] = b"(Load them at runtime, not as part of the format file.)\x00"
-                as *const u8 as *const i8;
+            help_line[2] = b"You really, really don\'t want to do this.";
+            help_line[1] = b"It won\'t work, and only confuses me.";
+            help_line[0] = b"(Load them at runtime, not as part of the format file.)";
             error();
         } else {
             print_file_name(
@@ -3643,20 +3591,20 @@ unsafe extern "C" fn store_fmt_file() {
             );
         }
         if *font_size.offset(k as isize) != *font_dsize.offset(k as isize) {
-            print_cstr(b" at \x00" as *const u8 as *const i8);
+            print_cstr(b" at ");
             print_scaled(*font_size.offset(k as isize));
-            print_cstr(b"pt\x00" as *const u8 as *const i8);
+            print_cstr(b"pt");
         }
         k += 1
     }
     print_ln();
     print_int(fmem_ptr - 7i32);
-    print_cstr(b" words of font info for \x00" as *const u8 as *const i8);
+    print_cstr(b" words of font info for ");
     print_int(font_ptr - 0i32);
     if font_ptr != 0i32 + 1i32 {
-        print_cstr(b" preloaded fonts\x00" as *const u8 as *const i8);
+        print_cstr(b" preloaded fonts");
     } else {
-        print_cstr(b" preloaded font\x00" as *const u8 as *const i8);
+        print_cstr(b" preloaded font");
     }
     /* hyphenation info */
     let mut x_val_26: i32 = hyph_count;
@@ -3707,9 +3655,9 @@ unsafe extern "C" fn store_fmt_file() {
     print_ln();
     print_int(hyph_count);
     if hyph_count != 1i32 {
-        print_cstr(b" hyphenation exceptions\x00" as *const u8 as *const i8);
+        print_cstr(b" hyphenation exceptions");
     } else {
-        print_cstr(b" hyphenation exception\x00" as *const u8 as *const i8);
+        print_cstr(b" hyphenation exception");
     }
     if trie_not_ready {
         init_trie();
@@ -3778,23 +3726,23 @@ unsafe extern "C" fn store_fmt_file() {
         trie_op_ptr as size_t,
         fmt_out,
     );
-    print_nl_cstr(b"Hyphenation trie of length \x00" as *const u8 as *const i8);
+    print_nl_cstr(b"Hyphenation trie of length ");
     print_int(trie_max);
-    print_cstr(b" has \x00" as *const u8 as *const i8);
+    print_cstr(b" has ");
     print_int(trie_op_ptr);
     if trie_op_ptr != 1i32 {
-        print_cstr(b" ops\x00" as *const u8 as *const i8);
+        print_cstr(b" ops");
     } else {
-        print_cstr(b" op\x00" as *const u8 as *const i8);
+        print_cstr(b" op");
     }
-    print_cstr(b" out of \x00" as *const u8 as *const i8);
+    print_cstr(b" out of ");
     print_int(35111 as i32);
     k = BIGGEST_LANG;
     while k >= 0i32 {
         if trie_used[k as usize] as i32 > 0i32 {
-            print_nl_cstr(b"  \x00" as *const u8 as *const i8);
+            print_nl_cstr(b"  ");
             print_int(trie_used[k as usize] as i32);
-            print_cstr(b" for language \x00" as *const u8 as *const i8);
+            print_cstr(b" for language ");
             print_int(k);
             let mut x_val_35: i32 = k;
             do_dump(
@@ -3930,8 +3878,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         x += 1
     }
     max_reg_num = 32767i32;
-    max_reg_help_line =
-        b"A register number must be between 0 and 32767.\x00" as *const u8 as *const i8;
+    max_reg_help_line = b"A register number must be between 0 and 32767.";
     /* "memory locations" */
     do_undump(
         &mut x as *mut i32 as *mut i8,
@@ -4925,27 +4872,27 @@ unsafe extern "C" fn final_cleanup() {
         }
     }
     while open_parens > 0i32 {
-        print_cstr(b" )\x00" as *const u8 as *const i8);
+        print_cstr(b" )");
         open_parens -= 1
     }
     if cur_level as i32 > 1i32 {
         print_nl('(' as i32);
-        print_esc_cstr(b"end occurred \x00" as *const u8 as *const i8);
-        print_cstr(b"inside a group at level \x00" as *const u8 as *const i8);
+        print_esc_cstr(b"end occurred ");
+        print_cstr(b"inside a group at level ");
         print_int(cur_level as i32 - 1i32);
         print_char(')' as i32);
         show_save_groups();
     }
     while cond_ptr != TEX_NULL {
         print_nl('(' as i32);
-        print_esc_cstr(b"end occurred \x00" as *const u8 as *const i8);
-        print_cstr(b"when \x00" as *const u8 as *const i8);
+        print_esc_cstr(b"end occurred ");
+        print_cstr(b"when ");
         print_cmd_chr(107_u16, cur_if as i32);
         if if_line != 0i32 {
-            print_cstr(b" on line \x00" as *const u8 as *const i8);
+            print_cstr(b" on line ");
             print_int(if_line);
         }
-        print_cstr(b" was incomplete)\x00" as *const u8 as *const i8);
+        print_cstr(b" was incomplete)");
         if_line = (*mem.offset((cond_ptr + 1i32) as isize)).b32.s1;
         cur_if = (*mem.offset(cond_ptr as isize)).b16.s0 as small_number;
         temp_ptr = cond_ptr;
@@ -4956,10 +4903,7 @@ unsafe extern "C" fn final_cleanup() {
         if history == TTHistory::WARNING_ISSUED || (interaction as i32) < 3i32 {
             if selector == Selector::TERM_AND_LOG {
                 selector = Selector::TERM_ONLY;
-                print_nl_cstr(
-                    b"(see the transcript file for additional information)\x00" as *const u8
-                        as *const i8,
-                );
+                print_nl_cstr(b"(see the transcript file for additional information)");
                 selector = Selector::TERM_AND_LOG
             }
         }
@@ -5005,7 +4949,7 @@ unsafe extern "C" fn final_cleanup() {
             store_fmt_file();
             return;
         }
-        print_nl_cstr(b"(\\dump is performed only by INITEX)\x00" as *const u8 as *const i8);
+        print_nl_cstr(b"(\\dump is performed only by INITEX)");
         return;
     };
 }
@@ -5387,13 +5331,11 @@ unsafe extern "C" fn initialize_more_initex_variables() {
     hash_high = 0;
     cs_count = 0;
     (*eqtb.offset(FROZEN_DONT_EXPAND as isize)).b16.s1 = DONT_EXPAND as _;
-    (*hash.offset(FROZEN_DONT_EXPAND as isize)).s1 =
-        maketexstring(b"notexpanded:\x00" as *const u8 as *const i8);
+    (*hash.offset(FROZEN_DONT_EXPAND as isize)).s1 = maketexstring(b"notexpanded:");
     (*eqtb.offset(FROZEN_PRIMITIVE as isize)).b16.s1 = IGNORE_SPACES;
     (*eqtb.offset(FROZEN_PRIMITIVE as isize)).b32.s1 = 1;
     (*eqtb.offset(FROZEN_PRIMITIVE as isize)).b16.s0 = LEVEL_ONE as _;
-    (*hash.offset(FROZEN_PRIMITIVE as isize)).s1 =
-        maketexstring(b"primitive\x00" as *const u8 as *const i8);
+    (*hash.offset(FROZEN_PRIMITIVE as isize)).s1 = maketexstring(b"primitive");
     k = -(35111 as i32);
     while k as i64 <= 35111 {
         _trie_op_hash_array[(k as i64 - -35111) as usize] = 0i32;
@@ -5407,17 +5349,14 @@ unsafe extern "C" fn initialize_more_initex_variables() {
     max_op_used = 0i32 as trie_opcode;
     trie_op_ptr = 0i32;
     trie_not_ready = true;
-    (*hash.offset(FROZEN_PROTECTION as isize)).s1 =
-        maketexstring(b"inaccessible\x00" as *const u8 as *const i8);
-    format_ident = maketexstring(b" (INITEX)\x00" as *const u8 as *const i8);
-    (*hash.offset(END_WRITE as isize)).s1 =
-        maketexstring(b"endwrite\x00" as *const u8 as *const i8);
+    (*hash.offset(FROZEN_PROTECTION as isize)).s1 = maketexstring(b"inaccessible");
+    format_ident = maketexstring(b" (INITEX)");
+    (*hash.offset(END_WRITE as isize)).s1 = maketexstring(b"endwrite");
     (*eqtb.offset(END_WRITE as isize)).b16.s0 = LEVEL_ONE as _;
     (*eqtb.offset(END_WRITE as isize)).b16.s1 = OUTER_CALL as _;
     (*eqtb.offset(END_WRITE as isize)).b32.s1 = TEX_NULL;
     max_reg_num = 32767;
-    max_reg_help_line =
-        b"A register number must be between 0 and 32767.\x00" as *const u8 as *const i8;
+    max_reg_help_line = b"A register number must be between 0 and 32767.";
     i = INT_VAL;
     while i <= INTER_CHAR_VAL {
         sa_root[i as usize] = TEX_NULL;
@@ -5430,105 +5369,77 @@ unsafe extern "C" fn initialize_more_initex_variables() {
 unsafe extern "C" fn initialize_primitives() {
     no_new_control_sequence = false;
     first = 0i32;
+    primitive(b"lineskip", ASSIGN_GLUE, GLUE_BASE + GLUE_PAR__line_skip);
     primitive(
-        b"lineskip\x00" as *const u8 as *const i8,
-        ASSIGN_GLUE,
-        GLUE_BASE + GLUE_PAR__line_skip,
-    );
-    primitive(
-        b"baselineskip\x00" as *const u8 as *const i8,
+        b"baselineskip",
         ASSIGN_GLUE,
         GLUE_BASE + GLUE_PAR__baseline_skip,
     );
+    primitive(b"parskip", ASSIGN_GLUE, GLUE_BASE + GLUE_PAR__par_skip);
     primitive(
-        b"parskip\x00" as *const u8 as *const i8,
-        ASSIGN_GLUE,
-        GLUE_BASE + GLUE_PAR__par_skip,
-    );
-    primitive(
-        b"abovedisplayskip\x00" as *const u8 as *const i8,
+        b"abovedisplayskip",
         ASSIGN_GLUE,
         GLUE_BASE + GLUE_PAR__above_display_skip,
     );
     primitive(
-        b"belowdisplayskip\x00" as *const u8 as *const i8,
+        b"belowdisplayskip",
         ASSIGN_GLUE,
         GLUE_BASE + GLUE_PAR__below_display_skip,
     );
     primitive(
-        b"abovedisplayshortskip\x00" as *const u8 as *const i8,
+        b"abovedisplayshortskip",
         ASSIGN_GLUE,
         GLUE_BASE + GLUE_PAR__above_display_short_skip,
     );
     primitive(
-        b"belowdisplayshortskip\x00" as *const u8 as *const i8,
+        b"belowdisplayshortskip",
         ASSIGN_GLUE,
         GLUE_BASE + GLUE_PAR__below_display_short_skip,
     );
+    primitive(b"leftskip", ASSIGN_GLUE, GLUE_BASE + GLUE_PAR__left_skip);
+    primitive(b"rightskip", ASSIGN_GLUE, GLUE_BASE + GLUE_PAR__right_skip);
+    primitive(b"topskip", ASSIGN_GLUE, GLUE_BASE + GLUE_PAR__top_skip);
     primitive(
-        b"leftskip\x00" as *const u8 as *const i8,
-        ASSIGN_GLUE,
-        GLUE_BASE + GLUE_PAR__left_skip,
-    );
-    primitive(
-        b"rightskip\x00" as *const u8 as *const i8,
-        ASSIGN_GLUE,
-        GLUE_BASE + GLUE_PAR__right_skip,
-    );
-    primitive(
-        b"topskip\x00" as *const u8 as *const i8,
-        ASSIGN_GLUE,
-        GLUE_BASE + GLUE_PAR__top_skip,
-    );
-    primitive(
-        b"splittopskip\x00" as *const u8 as *const i8,
+        b"splittopskip",
         ASSIGN_GLUE,
         GLUE_BASE + GLUE_PAR__split_top_skip,
     );
+    primitive(b"tabskip", ASSIGN_GLUE, GLUE_BASE + GLUE_PAR__tab_skip);
+    primitive(b"spaceskip", ASSIGN_GLUE, GLUE_BASE + GLUE_PAR__space_skip);
     primitive(
-        b"tabskip\x00" as *const u8 as *const i8,
-        ASSIGN_GLUE,
-        GLUE_BASE + GLUE_PAR__tab_skip,
-    );
-    primitive(
-        b"spaceskip\x00" as *const u8 as *const i8,
-        ASSIGN_GLUE,
-        GLUE_BASE + GLUE_PAR__space_skip,
-    );
-    primitive(
-        b"xspaceskip\x00" as *const u8 as *const i8,
+        b"xspaceskip",
         ASSIGN_GLUE,
         GLUE_BASE + GLUE_PAR__xspace_skip,
     );
     primitive(
-        b"parfillskip\x00" as *const u8 as *const i8,
+        b"parfillskip",
         ASSIGN_GLUE,
         GLUE_BASE + GLUE_PAR__par_fill_skip,
     );
     primitive(
-        b"XeTeXlinebreakskip\x00" as *const u8 as *const i8,
+        b"XeTeXlinebreakskip",
         ASSIGN_GLUE,
         GLUE_BASE + GLUE_PAR__xetex_linebreak_skip,
     );
 
     primitive(
-        b"thinmuskip\x00" as *const u8 as *const i8,
+        b"thinmuskip",
         ASSIGN_MU_GLUE,
         GLUE_BASE + GLUE_PAR__thin_mu_skip,
     );
     primitive(
-        b"medmuskip\x00" as *const u8 as *const i8,
+        b"medmuskip",
         ASSIGN_MU_GLUE,
         GLUE_BASE + GLUE_PAR__med_mu_skip,
     );
     primitive(
-        b"thickmuskip\x00" as *const u8 as *const i8,
+        b"thickmuskip",
         ASSIGN_MU_GLUE,
         GLUE_BASE + GLUE_PAR__thick_mu_skip,
     );
 
     primitive(
-        b"output\x00" as *const u8 as *const i8,
+        b"output",
         73_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5544,7 +5455,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 1i32,
     );
     primitive(
-        b"everypar\x00" as *const u8 as *const i8,
+        b"everypar",
         73_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5560,7 +5471,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 2i32,
     );
     primitive(
-        b"everymath\x00" as *const u8 as *const i8,
+        b"everymath",
         73_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5576,7 +5487,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 3i32,
     );
     primitive(
-        b"everydisplay\x00" as *const u8 as *const i8,
+        b"everydisplay",
         73_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5592,7 +5503,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 4i32,
     );
     primitive(
-        b"everyhbox\x00" as *const u8 as *const i8,
+        b"everyhbox",
         73_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5608,7 +5519,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 5i32,
     );
     primitive(
-        b"everyvbox\x00" as *const u8 as *const i8,
+        b"everyvbox",
         73_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5624,7 +5535,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 6i32,
     );
     primitive(
-        b"everyjob\x00" as *const u8 as *const i8,
+        b"everyjob",
         73_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5640,7 +5551,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 7i32,
     );
     primitive(
-        b"everycr\x00" as *const u8 as *const i8,
+        b"everycr",
         73_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5656,7 +5567,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 8i32,
     );
     primitive(
-        b"errhelp\x00" as *const u8 as *const i8,
+        b"errhelp",
         73_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5672,7 +5583,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 9i32,
     );
     primitive(
-        b"everyeof\x00" as *const u8 as *const i8,
+        b"everyeof",
         73_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5688,7 +5599,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 10i32,
     );
     primitive(
-        b"XeTeXinterchartoks\x00" as *const u8 as *const i8,
+        b"XeTeXinterchartoks",
         73_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5704,7 +5615,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 11i32,
     );
     primitive(
-        b"TectonicCodaTokens\x00" as *const u8 as *const i8,
+        b"TectonicCodaTokens",
         73_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5720,7 +5631,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 12i32,
     );
     primitive(
-        b"pretolerance\x00" as *const u8 as *const i8,
+        b"pretolerance",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5748,7 +5659,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 0i32,
     );
     primitive(
-        b"tolerance\x00" as *const u8 as *const i8,
+        b"tolerance",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5776,7 +5687,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 1i32,
     );
     primitive(
-        b"linepenalty\x00" as *const u8 as *const i8,
+        b"linepenalty",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5804,7 +5715,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 2i32,
     );
     primitive(
-        b"hyphenpenalty\x00" as *const u8 as *const i8,
+        b"hyphenpenalty",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5832,7 +5743,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 3i32,
     );
     primitive(
-        b"exhyphenpenalty\x00" as *const u8 as *const i8,
+        b"exhyphenpenalty",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5860,7 +5771,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 4i32,
     );
     primitive(
-        b"clubpenalty\x00" as *const u8 as *const i8,
+        b"clubpenalty",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5888,7 +5799,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 5i32,
     );
     primitive(
-        b"widowpenalty\x00" as *const u8 as *const i8,
+        b"widowpenalty",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5916,7 +5827,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 6i32,
     );
     primitive(
-        b"displaywidowpenalty\x00" as *const u8 as *const i8,
+        b"displaywidowpenalty",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5944,7 +5855,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 7i32,
     );
     primitive(
-        b"brokenpenalty\x00" as *const u8 as *const i8,
+        b"brokenpenalty",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -5972,7 +5883,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 8i32,
     );
     primitive(
-        b"binoppenalty\x00" as *const u8 as *const i8,
+        b"binoppenalty",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6000,7 +5911,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 9i32,
     );
     primitive(
-        b"relpenalty\x00" as *const u8 as *const i8,
+        b"relpenalty",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6028,7 +5939,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 10i32,
     );
     primitive(
-        b"predisplaypenalty\x00" as *const u8 as *const i8,
+        b"predisplaypenalty",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6056,7 +5967,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 11i32,
     );
     primitive(
-        b"postdisplaypenalty\x00" as *const u8 as *const i8,
+        b"postdisplaypenalty",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6084,7 +5995,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 12i32,
     );
     primitive(
-        b"interlinepenalty\x00" as *const u8 as *const i8,
+        b"interlinepenalty",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6112,7 +6023,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 13i32,
     );
     primitive(
-        b"doublehyphendemerits\x00" as *const u8 as *const i8,
+        b"doublehyphendemerits",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6140,7 +6051,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 14i32,
     );
     primitive(
-        b"finalhyphendemerits\x00" as *const u8 as *const i8,
+        b"finalhyphendemerits",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6168,7 +6079,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 15i32,
     );
     primitive(
-        b"adjdemerits\x00" as *const u8 as *const i8,
+        b"adjdemerits",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6196,7 +6107,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 16i32,
     );
     primitive(
-        b"mag\x00" as *const u8 as *const i8,
+        b"mag",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6224,7 +6135,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 17i32,
     );
     primitive(
-        b"delimiterfactor\x00" as *const u8 as *const i8,
+        b"delimiterfactor",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6252,7 +6163,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 18i32,
     );
     primitive(
-        b"looseness\x00" as *const u8 as *const i8,
+        b"looseness",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6280,7 +6191,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 19i32,
     );
     primitive(
-        b"time\x00" as *const u8 as *const i8,
+        b"time",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6308,7 +6219,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 20i32,
     );
     primitive(
-        b"day\x00" as *const u8 as *const i8,
+        b"day",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6336,7 +6247,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 21i32,
     );
     primitive(
-        b"month\x00" as *const u8 as *const i8,
+        b"month",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6364,7 +6275,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 22i32,
     );
     primitive(
-        b"year\x00" as *const u8 as *const i8,
+        b"year",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6392,7 +6303,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 23i32,
     );
     primitive(
-        b"showboxbreadth\x00" as *const u8 as *const i8,
+        b"showboxbreadth",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6420,7 +6331,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 24i32,
     );
     primitive(
-        b"showboxdepth\x00" as *const u8 as *const i8,
+        b"showboxdepth",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6448,7 +6359,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 25i32,
     );
     primitive(
-        b"hbadness\x00" as *const u8 as *const i8,
+        b"hbadness",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6476,7 +6387,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 26i32,
     );
     primitive(
-        b"vbadness\x00" as *const u8 as *const i8,
+        b"vbadness",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6504,7 +6415,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 27i32,
     );
     primitive(
-        b"pausing\x00" as *const u8 as *const i8,
+        b"pausing",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6532,7 +6443,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 28i32,
     );
     primitive(
-        b"tracingonline\x00" as *const u8 as *const i8,
+        b"tracingonline",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6560,7 +6471,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 29i32,
     );
     primitive(
-        b"tracingmacros\x00" as *const u8 as *const i8,
+        b"tracingmacros",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6588,7 +6499,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 30i32,
     );
     primitive(
-        b"tracingstats\x00" as *const u8 as *const i8,
+        b"tracingstats",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6616,7 +6527,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 31i32,
     );
     primitive(
-        b"tracingparagraphs\x00" as *const u8 as *const i8,
+        b"tracingparagraphs",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6644,7 +6555,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 32i32,
     );
     primitive(
-        b"tracingpages\x00" as *const u8 as *const i8,
+        b"tracingpages",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6672,7 +6583,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 33i32,
     );
     primitive(
-        b"tracingoutput\x00" as *const u8 as *const i8,
+        b"tracingoutput",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6700,7 +6611,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 34i32,
     );
     primitive(
-        b"tracinglostchars\x00" as *const u8 as *const i8,
+        b"tracinglostchars",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6728,7 +6639,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 35i32,
     );
     primitive(
-        b"tracingcommands\x00" as *const u8 as *const i8,
+        b"tracingcommands",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6756,7 +6667,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 36i32,
     );
     primitive(
-        b"tracingrestores\x00" as *const u8 as *const i8,
+        b"tracingrestores",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6784,7 +6695,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 37i32,
     );
     primitive(
-        b"uchyph\x00" as *const u8 as *const i8,
+        b"uchyph",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6812,7 +6723,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 38i32,
     );
     primitive(
-        b"outputpenalty\x00" as *const u8 as *const i8,
+        b"outputpenalty",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6840,7 +6751,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 39i32,
     );
     primitive(
-        b"maxdeadcycles\x00" as *const u8 as *const i8,
+        b"maxdeadcycles",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6868,7 +6779,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 40i32,
     );
     primitive(
-        b"hangafter\x00" as *const u8 as *const i8,
+        b"hangafter",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6896,7 +6807,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 41i32,
     );
     primitive(
-        b"floatingpenalty\x00" as *const u8 as *const i8,
+        b"floatingpenalty",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6924,7 +6835,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 42i32,
     );
     primitive(
-        b"globaldefs\x00" as *const u8 as *const i8,
+        b"globaldefs",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6952,7 +6863,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 43i32,
     );
     primitive(
-        b"fam\x00" as *const u8 as *const i8,
+        b"fam",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -6980,7 +6891,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 44i32,
     );
     primitive(
-        b"escapechar\x00" as *const u8 as *const i8,
+        b"escapechar",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7008,7 +6919,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 45i32,
     );
     primitive(
-        b"defaulthyphenchar\x00" as *const u8 as *const i8,
+        b"defaulthyphenchar",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7036,7 +6947,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 46i32,
     );
     primitive(
-        b"defaultskewchar\x00" as *const u8 as *const i8,
+        b"defaultskewchar",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7064,7 +6975,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 47i32,
     );
     primitive(
-        b"endlinechar\x00" as *const u8 as *const i8,
+        b"endlinechar",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7092,7 +7003,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 48i32,
     );
     primitive(
-        b"newlinechar\x00" as *const u8 as *const i8,
+        b"newlinechar",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7120,7 +7031,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 49i32,
     );
     primitive(
-        b"language\x00" as *const u8 as *const i8,
+        b"language",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7148,7 +7059,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 50i32,
     );
     primitive(
-        b"lefthyphenmin\x00" as *const u8 as *const i8,
+        b"lefthyphenmin",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7176,7 +7087,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 51i32,
     );
     primitive(
-        b"righthyphenmin\x00" as *const u8 as *const i8,
+        b"righthyphenmin",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7204,7 +7115,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 52i32,
     );
     primitive(
-        b"holdinginserts\x00" as *const u8 as *const i8,
+        b"holdinginserts",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7232,7 +7143,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 53i32,
     );
     primitive(
-        b"errorcontextlines\x00" as *const u8 as *const i8,
+        b"errorcontextlines",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7260,7 +7171,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 54i32,
     );
     primitive(
-        b"XeTeXlinebreakpenalty\x00" as *const u8 as *const i8,
+        b"XeTeXlinebreakpenalty",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7288,7 +7199,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 69i32,
     );
     primitive(
-        b"XeTeXprotrudechars\x00" as *const u8 as *const i8,
+        b"XeTeXprotrudechars",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7316,7 +7227,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 70i32,
     );
     primitive(
-        b"parindent\x00" as *const u8 as *const i8,
+        b"parindent",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7347,7 +7258,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 0i32,
     );
     primitive(
-        b"mathsurround\x00" as *const u8 as *const i8,
+        b"mathsurround",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7378,7 +7289,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 1i32,
     );
     primitive(
-        b"lineskiplimit\x00" as *const u8 as *const i8,
+        b"lineskiplimit",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7409,7 +7320,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 2i32,
     );
     primitive(
-        b"hsize\x00" as *const u8 as *const i8,
+        b"hsize",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7440,7 +7351,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 3i32,
     );
     primitive(
-        b"vsize\x00" as *const u8 as *const i8,
+        b"vsize",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7471,7 +7382,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 4i32,
     );
     primitive(
-        b"maxdepth\x00" as *const u8 as *const i8,
+        b"maxdepth",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7502,7 +7413,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 5i32,
     );
     primitive(
-        b"splitmaxdepth\x00" as *const u8 as *const i8,
+        b"splitmaxdepth",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7533,7 +7444,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 6i32,
     );
     primitive(
-        b"boxmaxdepth\x00" as *const u8 as *const i8,
+        b"boxmaxdepth",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7564,7 +7475,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 7i32,
     );
     primitive(
-        b"hfuzz\x00" as *const u8 as *const i8,
+        b"hfuzz",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7595,7 +7506,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 8i32,
     );
     primitive(
-        b"vfuzz\x00" as *const u8 as *const i8,
+        b"vfuzz",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7626,7 +7537,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 9i32,
     );
     primitive(
-        b"delimitershortfall\x00" as *const u8 as *const i8,
+        b"delimitershortfall",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7657,7 +7568,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 10i32,
     );
     primitive(
-        b"nulldelimiterspace\x00" as *const u8 as *const i8,
+        b"nulldelimiterspace",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7688,7 +7599,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 11i32,
     );
     primitive(
-        b"scriptspace\x00" as *const u8 as *const i8,
+        b"scriptspace",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7719,7 +7630,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 12i32,
     );
     primitive(
-        b"predisplaysize\x00" as *const u8 as *const i8,
+        b"predisplaysize",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7750,7 +7661,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 13i32,
     );
     primitive(
-        b"displaywidth\x00" as *const u8 as *const i8,
+        b"displaywidth",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7781,7 +7692,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 14i32,
     );
     primitive(
-        b"displayindent\x00" as *const u8 as *const i8,
+        b"displayindent",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7812,7 +7723,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 15i32,
     );
     primitive(
-        b"overfullrule\x00" as *const u8 as *const i8,
+        b"overfullrule",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7843,7 +7754,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 16i32,
     );
     primitive(
-        b"hangindent\x00" as *const u8 as *const i8,
+        b"hangindent",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7874,7 +7785,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 17i32,
     );
     primitive(
-        b"hoffset\x00" as *const u8 as *const i8,
+        b"hoffset",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7905,7 +7816,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 18i32,
     );
     primitive(
-        b"voffset\x00" as *const u8 as *const i8,
+        b"voffset",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7936,7 +7847,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 19i32,
     );
     primitive(
-        b"emergencystretch\x00" as *const u8 as *const i8,
+        b"emergencystretch",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7967,7 +7878,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 20i32,
     );
     primitive(
-        b"pdfpagewidth\x00" as *const u8 as *const i8,
+        b"pdfpagewidth",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -7998,7 +7909,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 21i32,
     );
     primitive(
-        b"pdfpageheight\x00" as *const u8 as *const i8,
+        b"pdfpageheight",
         75_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8028,70 +7939,54 @@ unsafe extern "C" fn initialize_primitives() {
             + (0x10ffffi32 + 1i32)
             + 22i32,
     );
-    primitive(b" \x00" as *const u8 as *const i8, 64_u16, 0i32);
-    primitive(b"/\x00" as *const u8 as *const i8, 44_u16, 0i32);
-    primitive(b"accent\x00" as *const u8 as *const i8, 45_u16, 0i32);
-    primitive(b"advance\x00" as *const u8 as *const i8, 92_u16, 0i32);
-    primitive(
-        b"afterassignment\x00" as *const u8 as *const i8,
-        40_u16,
-        0i32,
-    );
-    primitive(b"aftergroup\x00" as *const u8 as *const i8, 41_u16, 0i32);
-    primitive(b"begingroup\x00" as *const u8 as *const i8, 61_u16, 0i32);
-    primitive(b"char\x00" as *const u8 as *const i8, 16_u16, 0i32);
-    primitive(b"csname\x00" as *const u8 as *const i8, 109_u16, 0i32);
-    primitive(b"delimiter\x00" as *const u8 as *const i8, 15_u16, 0i32);
-    primitive(
-        b"XeTeXdelimiter\x00" as *const u8 as *const i8,
-        15_u16,
-        1i32,
-    );
-    primitive(b"Udelimiter\x00" as *const u8 as *const i8, 15_u16, 1i32);
-    primitive(b"divide\x00" as *const u8 as *const i8, 94_u16, 0i32);
-    primitive(b"endcsname\x00" as *const u8 as *const i8, 67_u16, 0i32);
-    primitive(b"endgroup\x00" as *const u8 as *const i8, 62_u16, 0i32);
+    primitive(b" ", 64_u16, 0i32);
+    primitive(b"/", 44_u16, 0i32);
+    primitive(b"accent", 45_u16, 0i32);
+    primitive(b"advance", 92_u16, 0i32);
+    primitive(b"afterassignment", 40_u16, 0i32);
+    primitive(b"aftergroup", 41_u16, 0i32);
+    primitive(b"begingroup", 61_u16, 0i32);
+    primitive(b"char", 16_u16, 0i32);
+    primitive(b"csname", 109_u16, 0i32);
+    primitive(b"delimiter", 15_u16, 0i32);
+    primitive(b"XeTeXdelimiter", 15_u16, 1i32);
+    primitive(b"Udelimiter", 15_u16, 1i32);
+    primitive(b"divide", 94_u16, 0i32);
+    primitive(b"endcsname", 67_u16, 0i32);
+    primitive(b"endgroup", 62_u16, 0i32);
     (*hash.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 2i32) as isize,
     ))
-    .s1 = maketexstring(b"endgroup\x00" as *const u8 as *const i8);
+    .s1 = maketexstring(b"endgroup");
     *eqtb.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 2i32) as isize,
     ) = *eqtb.offset(cur_val as isize);
-    primitive(b"expandafter\x00" as *const u8 as *const i8, 104_u16, 0i32);
-    primitive(b"font\x00" as *const u8 as *const i8, 90_u16, 0i32);
-    primitive(b"fontdimen\x00" as *const u8 as *const i8, 78_u16, 0i32);
-    primitive(b"halign\x00" as *const u8 as *const i8, 32_u16, 0i32);
-    primitive(b"hrule\x00" as *const u8 as *const i8, 36_u16, 0i32);
-    primitive(b"ignorespaces\x00" as *const u8 as *const i8, 39_u16, 0i32);
-    primitive(b"insert\x00" as *const u8 as *const i8, 37_u16, 0i32);
-    primitive(b"mark\x00" as *const u8 as *const i8, 18_u16, 0i32);
-    primitive(b"mathaccent\x00" as *const u8 as *const i8, 46_u16, 0i32);
+    primitive(b"expandafter", 104_u16, 0i32);
+    primitive(b"font", 90_u16, 0i32);
+    primitive(b"fontdimen", 78_u16, 0i32);
+    primitive(b"halign", 32_u16, 0i32);
+    primitive(b"hrule", 36_u16, 0i32);
+    primitive(b"ignorespaces", 39_u16, 0i32);
+    primitive(b"insert", 37_u16, 0i32);
+    primitive(b"mark", 18_u16, 0i32);
+    primitive(b"mathaccent", 46_u16, 0i32);
+    primitive(b"XeTeXmathaccent", 46_u16, 1i32);
+    primitive(b"Umathaccent", 46_u16, 1i32);
+    primitive(b"mathchar", 17_u16, 0i32);
+    primitive(b"XeTeXmathcharnum", 17_u16, 1i32);
+    primitive(b"Umathcharnum", 17_u16, 1i32);
+    primitive(b"XeTeXmathchar", 17_u16, 2i32);
+    primitive(b"Umathchar", 17_u16, 2i32);
+    primitive(b"mathchoice", 54_u16, 0i32);
+    primitive(b"multiply", 93_u16, 0i32);
+    primitive(b"noalign", 34_u16, 0i32);
+    primitive(b"noboundary", 65_u16, 0i32);
+    primitive(b"noexpand", 105_u16, 0i32);
+    primitive(b"primitive", 105_u16, 1i32);
+    primitive(b"nonscript", 55_u16, 0i32);
+    primitive(b"omit", 63_u16, 0i32);
     primitive(
-        b"XeTeXmathaccent\x00" as *const u8 as *const i8,
-        46_u16,
-        1i32,
-    );
-    primitive(b"Umathaccent\x00" as *const u8 as *const i8, 46_u16, 1i32);
-    primitive(b"mathchar\x00" as *const u8 as *const i8, 17_u16, 0i32);
-    primitive(
-        b"XeTeXmathcharnum\x00" as *const u8 as *const i8,
-        17_u16,
-        1i32,
-    );
-    primitive(b"Umathcharnum\x00" as *const u8 as *const i8, 17_u16, 1i32);
-    primitive(b"XeTeXmathchar\x00" as *const u8 as *const i8, 17_u16, 2i32);
-    primitive(b"Umathchar\x00" as *const u8 as *const i8, 17_u16, 2i32);
-    primitive(b"mathchoice\x00" as *const u8 as *const i8, 54_u16, 0i32);
-    primitive(b"multiply\x00" as *const u8 as *const i8, 93_u16, 0i32);
-    primitive(b"noalign\x00" as *const u8 as *const i8, 34_u16, 0i32);
-    primitive(b"noboundary\x00" as *const u8 as *const i8, 65_u16, 0i32);
-    primitive(b"noexpand\x00" as *const u8 as *const i8, 105_u16, 0i32);
-    primitive(b"primitive\x00" as *const u8 as *const i8, 105_u16, 1i32);
-    primitive(b"nonscript\x00" as *const u8 as *const i8, 55_u16, 0i32);
-    primitive(b"omit\x00" as *const u8 as *const i8, 63_u16, 0i32);
-    primitive(
-        b"parshape\x00" as *const u8 as *const i8,
+        b"parshape",
         85_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8106,153 +8001,117 @@ unsafe extern "C" fn initialize_primitives() {
             + 256i32
             + 0i32,
     );
-    primitive(b"penalty\x00" as *const u8 as *const i8, 42_u16, 0i32);
-    primitive(b"prevgraf\x00" as *const u8 as *const i8, 81_u16, 0i32);
-    primitive(b"radical\x00" as *const u8 as *const i8, 66_u16, 0i32);
-    primitive(b"XeTeXradical\x00" as *const u8 as *const i8, 66_u16, 1i32);
-    primitive(b"Uradical\x00" as *const u8 as *const i8, 66_u16, 1i32);
-    primitive(b"read\x00" as *const u8 as *const i8, 98_u16, 0i32);
-    primitive(
-        b"relax\x00" as *const u8 as *const i8,
-        0_u16,
-        0x10ffffi32 + 1i32,
-    );
+    primitive(b"penalty", 42_u16, 0i32);
+    primitive(b"prevgraf", 81_u16, 0i32);
+    primitive(b"radical", 66_u16, 0i32);
+    primitive(b"XeTeXradical", 66_u16, 1i32);
+    primitive(b"Uradical", 66_u16, 1i32);
+    primitive(b"read", 98_u16, 0i32);
+    primitive(b"relax", 0_u16, 0x10ffffi32 + 1i32);
     (*hash.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 7i32) as isize,
     ))
-    .s1 = maketexstring(b"relax\x00" as *const u8 as *const i8);
+    .s1 = maketexstring(b"relax");
     *eqtb.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 7i32) as isize,
     ) = *eqtb.offset(cur_val as isize);
-    primitive(b"setbox\x00" as *const u8 as *const i8, 100_u16, 0i32);
-    primitive(b"the\x00" as *const u8 as *const i8, 111_u16, 0i32);
-    primitive(b"toks\x00" as *const u8 as *const i8, 72_u16, 0i32);
-    primitive(b"vadjust\x00" as *const u8 as *const i8, 38_u16, 0i32);
-    primitive(b"valign\x00" as *const u8 as *const i8, 33_u16, 0i32);
-    primitive(b"vcenter\x00" as *const u8 as *const i8, 56_u16, 0i32);
-    primitive(b"vrule\x00" as *const u8 as *const i8, 35_u16, 0i32);
-    primitive(
-        b"par\x00" as *const u8 as *const i8,
-        13_u16,
-        0x10ffffi32 + 1i32,
-    );
+    primitive(b"setbox", 100_u16, 0i32);
+    primitive(b"the", 111_u16, 0i32);
+    primitive(b"toks", 72_u16, 0i32);
+    primitive(b"vadjust", 38_u16, 0i32);
+    primitive(b"valign", 33_u16, 0i32);
+    primitive(b"vcenter", 56_u16, 0i32);
+    primitive(b"vrule", 35_u16, 0i32);
+    primitive(b"par", 13_u16, 0x10ffffi32 + 1i32);
     par_loc = cur_val;
     par_token = 0x1ffffffi32 + par_loc;
-    primitive(b"input\x00" as *const u8 as *const i8, 106_u16, 0i32);
-    primitive(b"endinput\x00" as *const u8 as *const i8, 106_u16, 1i32);
-    primitive(b"topmark\x00" as *const u8 as *const i8, 112_u16, 0i32);
-    primitive(b"firstmark\x00" as *const u8 as *const i8, 112_u16, 1i32);
-    primitive(b"botmark\x00" as *const u8 as *const i8, 112_u16, 2i32);
-    primitive(
-        b"splitfirstmark\x00" as *const u8 as *const i8,
-        112_u16,
-        3i32,
-    );
-    primitive(b"splitbotmark\x00" as *const u8 as *const i8, 112_u16, 4i32);
-    primitive(b"count\x00" as *const u8 as *const i8, 91_u16, 0i32);
-    primitive(b"dimen\x00" as *const u8 as *const i8, 91_u16, 1i32);
-    primitive(b"skip\x00" as *const u8 as *const i8, 91_u16, 2i32);
-    primitive(b"muskip\x00" as *const u8 as *const i8, 91_u16, 3i32);
-    primitive(b"spacefactor\x00" as *const u8 as *const i8, 80_u16, 104i32);
-    primitive(b"prevdepth\x00" as *const u8 as *const i8, 80_u16, 1i32);
-    primitive(b"deadcycles\x00" as *const u8 as *const i8, 83_u16, 0i32);
-    primitive(
-        b"insertpenalties\x00" as *const u8 as *const i8,
-        83_u16,
-        1i32,
-    );
-    primitive(b"wd\x00" as *const u8 as *const i8, 84_u16, 1i32);
-    primitive(b"ht\x00" as *const u8 as *const i8, 84_u16, 3i32);
-    primitive(b"dp\x00" as *const u8 as *const i8, 84_u16, 2i32);
-    primitive(b"lastpenalty\x00" as *const u8 as *const i8, 71_u16, 0i32);
-    primitive(b"lastkern\x00" as *const u8 as *const i8, 71_u16, 1i32);
-    primitive(b"lastskip\x00" as *const u8 as *const i8, 71_u16, 2i32);
-    primitive(b"inputlineno\x00" as *const u8 as *const i8, 71_u16, 4i32);
-    primitive(b"badness\x00" as *const u8 as *const i8, 71_u16, 5i32);
-    primitive(b"number\x00" as *const u8 as *const i8, 110_u16, 0i32);
-    primitive(b"romannumeral\x00" as *const u8 as *const i8, 110_u16, 1i32);
-    primitive(b"string\x00" as *const u8 as *const i8, 110_u16, 2i32);
-    primitive(b"meaning\x00" as *const u8 as *const i8, 110_u16, 3i32);
-    primitive(b"fontname\x00" as *const u8 as *const i8, 110_u16, 4i32);
-    primitive(b"jobname\x00" as *const u8 as *const i8, 110_u16, 15i32);
-    primitive(
-        b"leftmarginkern\x00" as *const u8 as *const i8,
-        110_u16,
-        11i32,
-    );
-    primitive(
-        b"rightmarginkern\x00" as *const u8 as *const i8,
-        110_u16,
-        12i32,
-    );
-    primitive(b"Uchar\x00" as *const u8 as *const i8, 110_u16, 13i32);
-    primitive(b"Ucharcat\x00" as *const u8 as *const i8, 110_u16, 14i32);
-    primitive(b"if\x00" as *const u8 as *const i8, 107_u16, 0i32);
-    primitive(b"ifcat\x00" as *const u8 as *const i8, 107_u16, 1i32);
-    primitive(b"ifnum\x00" as *const u8 as *const i8, 107_u16, 2i32);
-    primitive(b"ifdim\x00" as *const u8 as *const i8, 107_u16, 3i32);
-    primitive(b"ifodd\x00" as *const u8 as *const i8, 107_u16, 4i32);
-    primitive(b"ifvmode\x00" as *const u8 as *const i8, 107_u16, 5i32);
-    primitive(b"ifhmode\x00" as *const u8 as *const i8, 107_u16, 6i32);
-    primitive(b"ifmmode\x00" as *const u8 as *const i8, 107_u16, 7i32);
-    primitive(b"ifinner\x00" as *const u8 as *const i8, 107_u16, 8i32);
-    primitive(b"ifvoid\x00" as *const u8 as *const i8, 107_u16, 9i32);
-    primitive(b"ifhbox\x00" as *const u8 as *const i8, 107_u16, 10i32);
-    primitive(b"ifvbox\x00" as *const u8 as *const i8, 107_u16, 11i32);
-    primitive(b"ifx\x00" as *const u8 as *const i8, 107_u16, 12i32);
-    primitive(b"ifeof\x00" as *const u8 as *const i8, 107_u16, 13i32);
-    primitive(b"iftrue\x00" as *const u8 as *const i8, 107_u16, 14i32);
-    primitive(b"iffalse\x00" as *const u8 as *const i8, 107_u16, 15i32);
-    primitive(b"ifcase\x00" as *const u8 as *const i8, 107_u16, 16i32);
-    primitive(b"ifprimitive\x00" as *const u8 as *const i8, 107_u16, 21i32);
-    primitive(b"fi\x00" as *const u8 as *const i8, 108_u16, 2i32);
+    primitive(b"input", 106_u16, 0i32);
+    primitive(b"endinput", 106_u16, 1i32);
+    primitive(b"topmark", 112_u16, 0i32);
+    primitive(b"firstmark", 112_u16, 1i32);
+    primitive(b"botmark", 112_u16, 2i32);
+    primitive(b"splitfirstmark", 112_u16, 3i32);
+    primitive(b"splitbotmark", 112_u16, 4i32);
+    primitive(b"count", 91_u16, 0i32);
+    primitive(b"dimen", 91_u16, 1i32);
+    primitive(b"skip", 91_u16, 2i32);
+    primitive(b"muskip", 91_u16, 3i32);
+    primitive(b"spacefactor", 80_u16, 104i32);
+    primitive(b"prevdepth", 80_u16, 1i32);
+    primitive(b"deadcycles", 83_u16, 0i32);
+    primitive(b"insertpenalties", 83_u16, 1i32);
+    primitive(b"wd", 84_u16, 1i32);
+    primitive(b"ht", 84_u16, 3i32);
+    primitive(b"dp", 84_u16, 2i32);
+    primitive(b"lastpenalty", 71_u16, 0i32);
+    primitive(b"lastkern", 71_u16, 1i32);
+    primitive(b"lastskip", 71_u16, 2i32);
+    primitive(b"inputlineno", 71_u16, 4i32);
+    primitive(b"badness", 71_u16, 5i32);
+    primitive(b"number", 110_u16, 0i32);
+    primitive(b"romannumeral", 110_u16, 1i32);
+    primitive(b"string", 110_u16, 2i32);
+    primitive(b"meaning", 110_u16, 3i32);
+    primitive(b"fontname", 110_u16, 4i32);
+    primitive(b"jobname", 110_u16, 15i32);
+    primitive(b"leftmarginkern", 110_u16, 11i32);
+    primitive(b"rightmarginkern", 110_u16, 12i32);
+    primitive(b"Uchar", 110_u16, 13i32);
+    primitive(b"Ucharcat", 110_u16, 14i32);
+    primitive(b"if", 107_u16, 0i32);
+    primitive(b"ifcat", 107_u16, 1i32);
+    primitive(b"ifnum", 107_u16, 2i32);
+    primitive(b"ifdim", 107_u16, 3i32);
+    primitive(b"ifodd", 107_u16, 4i32);
+    primitive(b"ifvmode", 107_u16, 5i32);
+    primitive(b"ifhmode", 107_u16, 6i32);
+    primitive(b"ifmmode", 107_u16, 7i32);
+    primitive(b"ifinner", 107_u16, 8i32);
+    primitive(b"ifvoid", 107_u16, 9i32);
+    primitive(b"ifhbox", 107_u16, 10i32);
+    primitive(b"ifvbox", 107_u16, 11i32);
+    primitive(b"ifx", 107_u16, 12i32);
+    primitive(b"ifeof", 107_u16, 13i32);
+    primitive(b"iftrue", 107_u16, 14i32);
+    primitive(b"iffalse", 107_u16, 15i32);
+    primitive(b"ifcase", 107_u16, 16i32);
+    primitive(b"ifprimitive", 107_u16, 21i32);
+    primitive(b"fi", 108_u16, 2i32);
     (*hash.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 4i32) as isize,
     ))
-    .s1 = maketexstring(b"fi\x00" as *const u8 as *const i8);
+    .s1 = maketexstring(b"fi");
     *eqtb.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 4i32) as isize,
     ) = *eqtb.offset(cur_val as isize);
-    primitive(b"or\x00" as *const u8 as *const i8, 108_u16, 4i32);
-    primitive(b"else\x00" as *const u8 as *const i8, 108_u16, 3i32);
-    primitive(b"nullfont\x00" as *const u8 as *const i8, 89_u16, 0i32);
+    primitive(b"or", 108_u16, 4i32);
+    primitive(b"else", 108_u16, 3i32);
+    primitive(b"nullfont", 89_u16, 0i32);
     (*hash.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 12i32) as isize,
     ))
-    .s1 = maketexstring(b"nullfont\x00" as *const u8 as *const i8);
+    .s1 = maketexstring(b"nullfont");
     *eqtb.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 12i32) as isize,
     ) = *eqtb.offset(cur_val as isize);
-    primitive(
-        b"span\x00" as *const u8 as *const i8,
-        4_u16,
-        0x10ffffi32 + 2i32,
-    );
-    primitive(
-        b"cr\x00" as *const u8 as *const i8,
-        5_u16,
-        0x10ffffi32 + 3i32,
-    );
+    primitive(b"span", 4_u16, 0x10ffffi32 + 2i32);
+    primitive(b"cr", 5_u16, 0x10ffffi32 + 3i32);
     (*hash.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 1i32) as isize,
     ))
-    .s1 = maketexstring(b"cr\x00" as *const u8 as *const i8);
+    .s1 = maketexstring(b"cr");
     *eqtb.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 1i32) as isize,
     ) = *eqtb.offset(cur_val as isize);
-    primitive(
-        b"crcr\x00" as *const u8 as *const i8,
-        5_u16,
-        0x10ffffi32 + 4i32,
-    );
+    primitive(b"crcr", 5_u16, 0x10ffffi32 + 4i32);
     (*hash.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 5i32) as isize,
     ))
-    .s1 = maketexstring(b"endtemplate\x00" as *const u8 as *const i8);
+    .s1 = maketexstring(b"endtemplate");
     (*hash.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 6i32) as isize,
     ))
-    .s1 = maketexstring(b"endtemplate\x00" as *const u8 as *const i8);
+    .s1 = maketexstring(b"endtemplate");
     (*eqtb.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 6i32) as isize,
     ))
@@ -8278,159 +8137,111 @@ unsafe extern "C" fn initialize_primitives() {
     ))
     .b16
     .s1 = 117_u16;
-    primitive(b"pagegoal\x00" as *const u8 as *const i8, 82_u16, 0i32);
-    primitive(b"pagetotal\x00" as *const u8 as *const i8, 82_u16, 1i32);
-    primitive(b"pagestretch\x00" as *const u8 as *const i8, 82_u16, 2i32);
-    primitive(
-        b"pagefilstretch\x00" as *const u8 as *const i8,
-        82_u16,
-        3i32,
-    );
-    primitive(
-        b"pagefillstretch\x00" as *const u8 as *const i8,
-        82_u16,
-        4i32,
-    );
-    primitive(
-        b"pagefilllstretch\x00" as *const u8 as *const i8,
-        82_u16,
-        5i32,
-    );
-    primitive(b"pageshrink\x00" as *const u8 as *const i8, 82_u16, 6i32);
-    primitive(b"pagedepth\x00" as *const u8 as *const i8, 82_u16, 7i32);
-    primitive(b"end\x00" as *const u8 as *const i8, 14_u16, 0i32);
-    primitive(b"dump\x00" as *const u8 as *const i8, 14_u16, 1i32);
-    primitive(b"hskip\x00" as *const u8 as *const i8, 26_u16, 4i32);
-    primitive(b"hfil\x00" as *const u8 as *const i8, 26_u16, 0i32);
-    primitive(b"hfill\x00" as *const u8 as *const i8, 26_u16, 1i32);
-    primitive(b"hss\x00" as *const u8 as *const i8, 26_u16, 2i32);
-    primitive(b"hfilneg\x00" as *const u8 as *const i8, 26_u16, 3i32);
-    primitive(b"vskip\x00" as *const u8 as *const i8, 27_u16, 4i32);
-    primitive(b"vfil\x00" as *const u8 as *const i8, 27_u16, 0i32);
-    primitive(b"vfill\x00" as *const u8 as *const i8, 27_u16, 1i32);
-    primitive(b"vss\x00" as *const u8 as *const i8, 27_u16, 2i32);
-    primitive(b"vfilneg\x00" as *const u8 as *const i8, 27_u16, 3i32);
-    primitive(b"mskip\x00" as *const u8 as *const i8, 28_u16, 5i32);
-    primitive(b"kern\x00" as *const u8 as *const i8, 29_u16, 1i32);
-    primitive(b"mkern\x00" as *const u8 as *const i8, 30_u16, 99i32);
-    primitive(b"moveleft\x00" as *const u8 as *const i8, 21_u16, 1i32);
-    primitive(b"moveright\x00" as *const u8 as *const i8, 21_u16, 0i32);
-    primitive(b"raise\x00" as *const u8 as *const i8, 22_u16, 1i32);
-    primitive(b"lower\x00" as *const u8 as *const i8, 22_u16, 0i32);
-    primitive(b"box\x00" as *const u8 as *const i8, 20_u16, 0i32);
-    primitive(b"copy\x00" as *const u8 as *const i8, 20_u16, 1i32);
-    primitive(b"lastbox\x00" as *const u8 as *const i8, 20_u16, 2i32);
-    primitive(b"vsplit\x00" as *const u8 as *const i8, 20_u16, 3i32);
-    primitive(b"vtop\x00" as *const u8 as *const i8, 20_u16, 4i32);
-    primitive(b"vbox\x00" as *const u8 as *const i8, 20_u16, 4i32 + 1i32);
-    primitive(b"hbox\x00" as *const u8 as *const i8, 20_u16, 4i32 + 104i32);
-    primitive(
-        b"shipout\x00" as *const u8 as *const i8,
-        31_u16,
-        100i32 - 1i32,
-    );
-    primitive(b"leaders\x00" as *const u8 as *const i8, 31_u16, 100i32);
-    primitive(b"cleaders\x00" as *const u8 as *const i8, 31_u16, 101i32);
-    primitive(b"xleaders\x00" as *const u8 as *const i8, 31_u16, 102i32);
-    primitive(b"indent\x00" as *const u8 as *const i8, 43_u16, 1i32);
-    primitive(b"noindent\x00" as *const u8 as *const i8, 43_u16, 0i32);
-    primitive(b"unpenalty\x00" as *const u8 as *const i8, 25_u16, 12i32);
-    primitive(b"unkern\x00" as *const u8 as *const i8, 25_u16, 11i32);
-    primitive(b"unskip\x00" as *const u8 as *const i8, 25_u16, 10i32);
-    primitive(b"unhbox\x00" as *const u8 as *const i8, 23_u16, 0i32);
-    primitive(b"unhcopy\x00" as *const u8 as *const i8, 23_u16, 1i32);
-    primitive(b"unvbox\x00" as *const u8 as *const i8, 24_u16, 0i32);
-    primitive(b"unvcopy\x00" as *const u8 as *const i8, 24_u16, 1i32);
-    primitive(b"-\x00" as *const u8 as *const i8, 47_u16, 1i32);
-    primitive(b"discretionary\x00" as *const u8 as *const i8, 47_u16, 0i32);
-    primitive(b"eqno\x00" as *const u8 as *const i8, 48_u16, 0i32);
-    primitive(b"leqno\x00" as *const u8 as *const i8, 48_u16, 1i32);
-    primitive(b"mathord\x00" as *const u8 as *const i8, 50_u16, 16i32);
-    primitive(b"mathop\x00" as *const u8 as *const i8, 50_u16, 17i32);
-    primitive(b"mathbin\x00" as *const u8 as *const i8, 50_u16, 18i32);
-    primitive(b"mathrel\x00" as *const u8 as *const i8, 50_u16, 19i32);
-    primitive(b"mathopen\x00" as *const u8 as *const i8, 50_u16, 20i32);
-    primitive(b"mathclose\x00" as *const u8 as *const i8, 50_u16, 21i32);
-    primitive(b"mathpunct\x00" as *const u8 as *const i8, 50_u16, 22i32);
-    primitive(b"mathinner\x00" as *const u8 as *const i8, 50_u16, 23i32);
-    primitive(b"underline\x00" as *const u8 as *const i8, 50_u16, 26i32);
-    primitive(b"overline\x00" as *const u8 as *const i8, 50_u16, 27i32);
-    primitive(b"displaylimits\x00" as *const u8 as *const i8, 51_u16, 0i32);
-    primitive(b"limits\x00" as *const u8 as *const i8, 51_u16, 1i32);
-    primitive(b"nolimits\x00" as *const u8 as *const i8, 51_u16, 2i32);
-    primitive(b"displaystyle\x00" as *const u8 as *const i8, 53_u16, 0i32);
-    primitive(b"textstyle\x00" as *const u8 as *const i8, 53_u16, 2i32);
-    primitive(b"scriptstyle\x00" as *const u8 as *const i8, 53_u16, 4i32);
-    primitive(
-        b"scriptscriptstyle\x00" as *const u8 as *const i8,
-        53_u16,
-        6i32,
-    );
-    primitive(b"above\x00" as *const u8 as *const i8, 52_u16, 0i32);
-    primitive(b"over\x00" as *const u8 as *const i8, 52_u16, 1i32);
-    primitive(b"atop\x00" as *const u8 as *const i8, 52_u16, 2i32);
-    primitive(
-        b"abovewithdelims\x00" as *const u8 as *const i8,
-        52_u16,
-        3i32 + 0i32,
-    );
-    primitive(
-        b"overwithdelims\x00" as *const u8 as *const i8,
-        52_u16,
-        3i32 + 1i32,
-    );
-    primitive(
-        b"atopwithdelims\x00" as *const u8 as *const i8,
-        52_u16,
-        3i32 + 2i32,
-    );
-    primitive(b"left\x00" as *const u8 as *const i8, 49_u16, 30i32);
-    primitive(b"right\x00" as *const u8 as *const i8, 49_u16, 31i32);
+    primitive(b"pagegoal", 82_u16, 0i32);
+    primitive(b"pagetotal", 82_u16, 1i32);
+    primitive(b"pagestretch", 82_u16, 2i32);
+    primitive(b"pagefilstretch", 82_u16, 3i32);
+    primitive(b"pagefillstretch", 82_u16, 4i32);
+    primitive(b"pagefilllstretch", 82_u16, 5i32);
+    primitive(b"pageshrink", 82_u16, 6i32);
+    primitive(b"pagedepth", 82_u16, 7i32);
+    primitive(b"end", 14_u16, 0i32);
+    primitive(b"dump", 14_u16, 1i32);
+    primitive(b"hskip", 26_u16, 4i32);
+    primitive(b"hfil", 26_u16, 0i32);
+    primitive(b"hfill", 26_u16, 1i32);
+    primitive(b"hss", 26_u16, 2i32);
+    primitive(b"hfilneg", 26_u16, 3i32);
+    primitive(b"vskip", 27_u16, 4i32);
+    primitive(b"vfil", 27_u16, 0i32);
+    primitive(b"vfill", 27_u16, 1i32);
+    primitive(b"vss", 27_u16, 2i32);
+    primitive(b"vfilneg", 27_u16, 3i32);
+    primitive(b"mskip", 28_u16, 5i32);
+    primitive(b"kern", 29_u16, 1i32);
+    primitive(b"mkern", 30_u16, 99i32);
+    primitive(b"moveleft", 21_u16, 1i32);
+    primitive(b"moveright", 21_u16, 0i32);
+    primitive(b"raise", 22_u16, 1i32);
+    primitive(b"lower", 22_u16, 0i32);
+    primitive(b"box", 20_u16, 0i32);
+    primitive(b"copy", 20_u16, 1i32);
+    primitive(b"lastbox", 20_u16, 2i32);
+    primitive(b"vsplit", 20_u16, 3i32);
+    primitive(b"vtop", 20_u16, 4i32);
+    primitive(b"vbox", 20_u16, 4i32 + 1i32);
+    primitive(b"hbox", 20_u16, 4i32 + 104i32);
+    primitive(b"shipout", 31_u16, 100i32 - 1i32);
+    primitive(b"leaders", 31_u16, 100i32);
+    primitive(b"cleaders", 31_u16, 101i32);
+    primitive(b"xleaders", 31_u16, 102i32);
+    primitive(b"indent", 43_u16, 1i32);
+    primitive(b"noindent", 43_u16, 0i32);
+    primitive(b"unpenalty", 25_u16, 12i32);
+    primitive(b"unkern", 25_u16, 11i32);
+    primitive(b"unskip", 25_u16, 10i32);
+    primitive(b"unhbox", 23_u16, 0i32);
+    primitive(b"unhcopy", 23_u16, 1i32);
+    primitive(b"unvbox", 24_u16, 0i32);
+    primitive(b"unvcopy", 24_u16, 1i32);
+    primitive(b"-", 47_u16, 1i32);
+    primitive(b"discretionary", 47_u16, 0i32);
+    primitive(b"eqno", 48_u16, 0i32);
+    primitive(b"leqno", 48_u16, 1i32);
+    primitive(b"mathord", 50_u16, 16i32);
+    primitive(b"mathop", 50_u16, 17i32);
+    primitive(b"mathbin", 50_u16, 18i32);
+    primitive(b"mathrel", 50_u16, 19i32);
+    primitive(b"mathopen", 50_u16, 20i32);
+    primitive(b"mathclose", 50_u16, 21i32);
+    primitive(b"mathpunct", 50_u16, 22i32);
+    primitive(b"mathinner", 50_u16, 23i32);
+    primitive(b"underline", 50_u16, 26i32);
+    primitive(b"overline", 50_u16, 27i32);
+    primitive(b"displaylimits", 51_u16, 0i32);
+    primitive(b"limits", 51_u16, 1i32);
+    primitive(b"nolimits", 51_u16, 2i32);
+    primitive(b"displaystyle", 53_u16, 0i32);
+    primitive(b"textstyle", 53_u16, 2i32);
+    primitive(b"scriptstyle", 53_u16, 4i32);
+    primitive(b"scriptscriptstyle", 53_u16, 6i32);
+    primitive(b"above", 52_u16, 0i32);
+    primitive(b"over", 52_u16, 1i32);
+    primitive(b"atop", 52_u16, 2i32);
+    primitive(b"abovewithdelims", 52_u16, 3i32 + 0i32);
+    primitive(b"overwithdelims", 52_u16, 3i32 + 1i32);
+    primitive(b"atopwithdelims", 52_u16, 3i32 + 2i32);
+    primitive(b"left", 49_u16, 30i32);
+    primitive(b"right", 49_u16, 31i32);
     (*hash.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 3i32) as isize,
     ))
-    .s1 = maketexstring(b"right\x00" as *const u8 as *const i8);
+    .s1 = maketexstring(b"right");
     *eqtb.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 3i32) as isize,
     ) = *eqtb.offset(cur_val as isize);
-    primitive(b"long\x00" as *const u8 as *const i8, 95_u16, 1i32);
-    primitive(b"outer\x00" as *const u8 as *const i8, 95_u16, 2i32);
-    primitive(b"global\x00" as *const u8 as *const i8, 95_u16, 4i32);
-    primitive(b"def\x00" as *const u8 as *const i8, 99_u16, 0i32);
-    primitive(b"gdef\x00" as *const u8 as *const i8, 99_u16, 1i32);
-    primitive(b"edef\x00" as *const u8 as *const i8, 99_u16, 2i32);
-    primitive(b"xdef\x00" as *const u8 as *const i8, 99_u16, 3i32);
-    primitive(b"let\x00" as *const u8 as *const i8, 96_u16, 0i32);
+    primitive(b"long", 95_u16, 1i32);
+    primitive(b"outer", 95_u16, 2i32);
+    primitive(b"global", 95_u16, 4i32);
+    primitive(b"def", 99_u16, 0i32);
+    primitive(b"gdef", 99_u16, 1i32);
+    primitive(b"edef", 99_u16, 2i32);
+    primitive(b"xdef", 99_u16, 3i32);
+    primitive(b"let", 96_u16, 0i32);
+    primitive(b"futurelet", 96_u16, 0i32 + 1i32);
+    primitive(b"chardef", 97_u16, 0i32);
+    primitive(b"mathchardef", 97_u16, 1i32);
+    primitive(b"XeTeXmathcharnumdef", 97_u16, 8i32);
+    primitive(b"Umathcharnumdef", 97_u16, 8i32);
+    primitive(b"XeTeXmathchardef", 97_u16, 9i32);
+    primitive(b"Umathchardef", 97_u16, 9i32);
+    primitive(b"countdef", 97_u16, 2i32);
+    primitive(b"dimendef", 97_u16, 3i32);
+    primitive(b"skipdef", 97_u16, 4i32);
+    primitive(b"muskipdef", 97_u16, 5i32);
+    primitive(b"toksdef", 97_u16, 6i32);
     primitive(
-        b"futurelet\x00" as *const u8 as *const i8,
-        96_u16,
-        0i32 + 1i32,
-    );
-    primitive(b"chardef\x00" as *const u8 as *const i8, 97_u16, 0i32);
-    primitive(b"mathchardef\x00" as *const u8 as *const i8, 97_u16, 1i32);
-    primitive(
-        b"XeTeXmathcharnumdef\x00" as *const u8 as *const i8,
-        97_u16,
-        8i32,
-    );
-    primitive(
-        b"Umathcharnumdef\x00" as *const u8 as *const i8,
-        97_u16,
-        8i32,
-    );
-    primitive(
-        b"XeTeXmathchardef\x00" as *const u8 as *const i8,
-        97_u16,
-        9i32,
-    );
-    primitive(b"Umathchardef\x00" as *const u8 as *const i8, 97_u16, 9i32);
-    primitive(b"countdef\x00" as *const u8 as *const i8, 97_u16, 2i32);
-    primitive(b"dimendef\x00" as *const u8 as *const i8, 97_u16, 3i32);
-    primitive(b"skipdef\x00" as *const u8 as *const i8, 97_u16, 4i32);
-    primitive(b"muskipdef\x00" as *const u8 as *const i8, 97_u16, 5i32);
-    primitive(b"toksdef\x00" as *const u8 as *const i8, 97_u16, 6i32);
-    primitive(
-        b"catcode\x00" as *const u8 as *const i8,
+        b"catcode",
         86_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8451,7 +8262,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 3i32 * 256i32,
     );
     primitive(
-        b"mathcode\x00" as *const u8 as *const i8,
+        b"mathcode",
         86_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8476,7 +8287,7 @@ unsafe extern "C" fn initialize_primitives() {
             + (0x10ffffi32 + 1i32),
     );
     primitive(
-        b"XeTeXmathcodenum\x00" as *const u8 as *const i8,
+        b"XeTeXmathcodenum",
         87_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8501,7 +8312,7 @@ unsafe extern "C" fn initialize_primitives() {
             + (0x10ffffi32 + 1i32),
     );
     primitive(
-        b"Umathcodenum\x00" as *const u8 as *const i8,
+        b"Umathcodenum",
         87_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8526,7 +8337,7 @@ unsafe extern "C" fn initialize_primitives() {
             + (0x10ffffi32 + 1i32),
     );
     primitive(
-        b"XeTeXmathcode\x00" as *const u8 as *const i8,
+        b"XeTeXmathcode",
         87_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8552,7 +8363,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 1i32,
     );
     primitive(
-        b"Umathcode\x00" as *const u8 as *const i8,
+        b"Umathcode",
         87_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8578,7 +8389,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 1i32,
     );
     primitive(
-        b"lccode\x00" as *const u8 as *const i8,
+        b"lccode",
         86_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8600,7 +8411,7 @@ unsafe extern "C" fn initialize_primitives() {
             + (0x10ffffi32 + 1i32),
     );
     primitive(
-        b"uccode\x00" as *const u8 as *const i8,
+        b"uccode",
         86_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8623,7 +8434,7 @@ unsafe extern "C" fn initialize_primitives() {
             + (0x10ffffi32 + 1i32),
     );
     primitive(
-        b"sfcode\x00" as *const u8 as *const i8,
+        b"sfcode",
         86_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8647,7 +8458,7 @@ unsafe extern "C" fn initialize_primitives() {
             + (0x10ffffi32 + 1i32),
     );
     primitive(
-        b"XeTeXcharclass\x00" as *const u8 as *const i8,
+        b"XeTeXcharclass",
         87_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8671,7 +8482,7 @@ unsafe extern "C" fn initialize_primitives() {
             + (0x10ffffi32 + 1i32),
     );
     primitive(
-        b"delcode\x00" as *const u8 as *const i8,
+        b"delcode",
         86_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8700,7 +8511,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 256i32,
     );
     primitive(
-        b"XeTeXdelcodenum\x00" as *const u8 as *const i8,
+        b"XeTeXdelcodenum",
         87_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8729,7 +8540,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 256i32,
     );
     primitive(
-        b"Udelcodenum\x00" as *const u8 as *const i8,
+        b"Udelcodenum",
         87_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8758,7 +8569,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 256i32,
     );
     primitive(
-        b"XeTeXdelcode\x00" as *const u8 as *const i8,
+        b"XeTeXdelcode",
         87_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8788,7 +8599,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 1i32,
     );
     primitive(
-        b"Udelcode\x00" as *const u8 as *const i8,
+        b"Udelcode",
         87_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8818,7 +8629,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 1i32,
     );
     primitive(
-        b"textfont\x00" as *const u8 as *const i8,
+        b"textfont",
         88_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8839,7 +8650,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 0i32,
     );
     primitive(
-        b"scriptfont\x00" as *const u8 as *const i8,
+        b"scriptfont",
         88_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8860,7 +8671,7 @@ unsafe extern "C" fn initialize_primitives() {
             + 256i32,
     );
     primitive(
-        b"scriptscriptfont\x00" as *const u8 as *const i8,
+        b"scriptscriptfont",
         88_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8880,26 +8691,22 @@ unsafe extern "C" fn initialize_primitives() {
             + 1i32
             + 2i32 * 256i32,
     );
-    primitive(b"hyphenation\x00" as *const u8 as *const i8, 101_u16, 0i32);
-    primitive(b"patterns\x00" as *const u8 as *const i8, 101_u16, 1i32);
-    primitive(b"hyphenchar\x00" as *const u8 as *const i8, 79_u16, 0i32);
-    primitive(b"skewchar\x00" as *const u8 as *const i8, 79_u16, 1i32);
-    primitive(b"lpcode\x00" as *const u8 as *const i8, 79_u16, 2i32);
-    primitive(b"rpcode\x00" as *const u8 as *const i8, 79_u16, 3i32);
-    primitive(b"batchmode\x00" as *const u8 as *const i8, 102_u16, 0i32);
-    primitive(b"nonstopmode\x00" as *const u8 as *const i8, 102_u16, 1i32);
-    primitive(b"scrollmode\x00" as *const u8 as *const i8, 102_u16, 2i32);
+    primitive(b"hyphenation", 101_u16, 0i32);
+    primitive(b"patterns", 101_u16, 1i32);
+    primitive(b"hyphenchar", 79_u16, 0i32);
+    primitive(b"skewchar", 79_u16, 1i32);
+    primitive(b"lpcode", 79_u16, 2i32);
+    primitive(b"rpcode", 79_u16, 3i32);
+    primitive(b"batchmode", 102_u16, 0i32);
+    primitive(b"nonstopmode", 102_u16, 1i32);
+    primitive(b"scrollmode", 102_u16, 2i32);
+    primitive(b"errorstopmode", 102_u16, 3i32);
+    primitive(b"openin", 60_u16, 1i32);
+    primitive(b"closein", 60_u16, 0i32);
+    primitive(b"message", 58_u16, 0i32);
+    primitive(b"errmessage", 58_u16, 1i32);
     primitive(
-        b"errorstopmode\x00" as *const u8 as *const i8,
-        102_u16,
-        3i32,
-    );
-    primitive(b"openin\x00" as *const u8 as *const i8, 60_u16, 1i32);
-    primitive(b"closein\x00" as *const u8 as *const i8, 60_u16, 0i32);
-    primitive(b"message\x00" as *const u8 as *const i8, 58_u16, 0i32);
-    primitive(b"errmessage\x00" as *const u8 as *const i8, 58_u16, 1i32);
-    primitive(
-        b"lowercase\x00" as *const u8 as *const i8,
+        b"lowercase",
         57_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8921,7 +8728,7 @@ unsafe extern "C" fn initialize_primitives() {
             + (0x10ffffi32 + 1i32),
     );
     primitive(
-        b"uppercase\x00" as *const u8 as *const i8,
+        b"uppercase",
         57_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -8943,26 +8750,26 @@ unsafe extern "C" fn initialize_primitives() {
             + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32),
     );
-    primitive(b"show\x00" as *const u8 as *const i8, 19_u16, 0i32);
-    primitive(b"showbox\x00" as *const u8 as *const i8, 19_u16, 1i32);
-    primitive(b"showthe\x00" as *const u8 as *const i8, 19_u16, 2i32);
-    primitive(b"showlists\x00" as *const u8 as *const i8, 19_u16, 3i32);
-    primitive(b"openout\x00" as *const u8 as *const i8, 59_u16, 0i32);
-    primitive(b"write\x00" as *const u8 as *const i8, 59_u16, 1i32);
+    primitive(b"show", 19_u16, 0i32);
+    primitive(b"showbox", 19_u16, 1i32);
+    primitive(b"showthe", 19_u16, 2i32);
+    primitive(b"showlists", 19_u16, 3i32);
+    primitive(b"openout", 59_u16, 0i32);
+    primitive(b"write", 59_u16, 1i32);
     write_loc = cur_val;
-    primitive(b"closeout\x00" as *const u8 as *const i8, 59_u16, 2i32);
-    primitive(b"special\x00" as *const u8 as *const i8, 59_u16, 3i32);
+    primitive(b"closeout", 59_u16, 2i32);
+    primitive(b"special", 59_u16, 3i32);
     (*hash.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 10i32) as isize,
     ))
-    .s1 = maketexstring(b"special\x00" as *const u8 as *const i8);
+    .s1 = maketexstring(b"special");
     *eqtb.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 10i32) as isize,
     ) = *eqtb.offset(cur_val as isize);
-    primitive(b"immediate\x00" as *const u8 as *const i8, 59_u16, 4i32);
-    primitive(b"setlanguage\x00" as *const u8 as *const i8, 59_u16, 5i32);
+    primitive(b"immediate", 59_u16, 4i32);
+    primitive(b"setlanguage", 59_u16, 5i32);
     primitive(
-        b"synctex\x00" as *const u8 as *const i8,
+        b"synctex",
         74_u16,
         1i32 + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -9201,471 +9008,222 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     init_io();
     if in_initex_mode {
         no_new_control_sequence = false;
-        primitive(b"XeTeXpicfile\x00" as *const u8 as *const i8, 59_u16, 41i32);
-        primitive(b"XeTeXpdffile\x00" as *const u8 as *const i8, 59_u16, 42i32);
-        primitive(b"XeTeXglyph\x00" as *const u8 as *const i8, 59_u16, 43i32);
-        primitive(
-            b"XeTeXlinebreaklocale\x00" as *const u8 as *const i8,
-            59_u16,
-            46i32,
-        );
-        primitive(
-            b"pdfsavepos\x00" as *const u8 as *const i8,
-            59_u16,
-            6i32 + 0i32,
-        );
-        primitive(b"lastnodetype\x00" as *const u8 as *const i8, 71_u16, 3i32);
-        primitive(b"eTeXversion\x00" as *const u8 as *const i8, 71_u16, 6i32);
-        primitive(b"eTeXrevision\x00" as *const u8 as *const i8, 110_u16, 5i32);
-        primitive(b"XeTeXversion\x00" as *const u8 as *const i8, 71_u16, 14i32);
-        primitive(
-            b"XeTeXrevision\x00" as *const u8 as *const i8,
-            110_u16,
-            6i32,
-        );
-        primitive(
-            b"XeTeXcountglyphs\x00" as *const u8 as *const i8,
-            71_u16,
-            15i32,
-        );
-        primitive(
-            b"XeTeXcountvariations\x00" as *const u8 as *const i8,
-            71_u16,
-            16i32,
-        );
-        primitive(
-            b"XeTeXvariation\x00" as *const u8 as *const i8,
-            71_u16,
-            17i32,
-        );
-        primitive(
-            b"XeTeXfindvariationbyname\x00" as *const u8 as *const i8,
-            71_u16,
-            18i32,
-        );
-        primitive(
-            b"XeTeXvariationmin\x00" as *const u8 as *const i8,
-            71_u16,
-            19i32,
-        );
-        primitive(
-            b"XeTeXvariationmax\x00" as *const u8 as *const i8,
-            71_u16,
-            20i32,
-        );
-        primitive(
-            b"XeTeXvariationdefault\x00" as *const u8 as *const i8,
-            71_u16,
-            21i32,
-        );
-        primitive(
-            b"XeTeXcountfeatures\x00" as *const u8 as *const i8,
-            71_u16,
-            22i32,
-        );
-        primitive(
-            b"XeTeXfeaturecode\x00" as *const u8 as *const i8,
-            71_u16,
-            23i32,
-        );
-        primitive(
-            b"XeTeXfindfeaturebyname\x00" as *const u8 as *const i8,
-            71_u16,
-            24i32,
-        );
-        primitive(
-            b"XeTeXisexclusivefeature\x00" as *const u8 as *const i8,
-            71_u16,
-            25i32,
-        );
-        primitive(
-            b"XeTeXcountselectors\x00" as *const u8 as *const i8,
-            71_u16,
-            26i32,
-        );
-        primitive(
-            b"XeTeXselectorcode\x00" as *const u8 as *const i8,
-            71_u16,
-            27i32,
-        );
-        primitive(
-            b"XeTeXfindselectorbyname\x00" as *const u8 as *const i8,
-            71_u16,
-            28i32,
-        );
-        primitive(
-            b"XeTeXisdefaultselector\x00" as *const u8 as *const i8,
-            71_u16,
-            29i32,
-        );
-        primitive(
-            b"XeTeXvariationname\x00" as *const u8 as *const i8,
-            110_u16,
-            7i32,
-        );
-        primitive(
-            b"XeTeXfeaturename\x00" as *const u8 as *const i8,
-            110_u16,
-            8i32,
-        );
-        primitive(
-            b"XeTeXselectorname\x00" as *const u8 as *const i8,
-            110_u16,
-            9i32,
-        );
-        primitive(
-            b"XeTeXOTcountscripts\x00" as *const u8 as *const i8,
-            71_u16,
-            30i32,
-        );
-        primitive(
-            b"XeTeXOTcountlanguages\x00" as *const u8 as *const i8,
-            71_u16,
-            31i32,
-        );
-        primitive(
-            b"XeTeXOTcountfeatures\x00" as *const u8 as *const i8,
-            71_u16,
-            32i32,
-        );
-        primitive(
-            b"XeTeXOTscripttag\x00" as *const u8 as *const i8,
-            71_u16,
-            33i32,
-        );
-        primitive(
-            b"XeTeXOTlanguagetag\x00" as *const u8 as *const i8,
-            71_u16,
-            34i32,
-        );
-        primitive(
-            b"XeTeXOTfeaturetag\x00" as *const u8 as *const i8,
-            71_u16,
-            35i32,
-        );
-        primitive(
-            b"XeTeXcharglyph\x00" as *const u8 as *const i8,
-            71_u16,
-            36i32,
-        );
-        primitive(
-            b"XeTeXglyphindex\x00" as *const u8 as *const i8,
-            71_u16,
-            37i32,
-        );
-        primitive(
-            b"XeTeXglyphbounds\x00" as *const u8 as *const i8,
-            71_u16,
-            47i32,
-        );
-        primitive(
-            b"XeTeXglyphname\x00" as *const u8 as *const i8,
-            110_u16,
-            10i32,
-        );
-        primitive(
-            b"XeTeXfonttype\x00" as *const u8 as *const i8,
-            71_u16,
-            38i32,
-        );
-        primitive(
-            b"XeTeXfirstfontchar\x00" as *const u8 as *const i8,
-            71_u16,
-            39i32,
-        );
-        primitive(
-            b"XeTeXlastfontchar\x00" as *const u8 as *const i8,
-            71_u16,
-            40i32,
-        );
-        primitive(b"pdflastxpos\x00" as *const u8 as *const i8, 71_u16, 41i32);
-        primitive(b"pdflastypos\x00" as *const u8 as *const i8, 71_u16, 42i32);
-        primitive(b"strcmp\x00" as *const u8 as *const i8, 110_u16, 43i32);
-        primitive(b"mdfivesum\x00" as *const u8 as *const i8, 110_u16, 44i32);
-        primitive(
-            b"pdfmdfivesum\x00" as *const u8 as *const i8,
-            110_u16,
-            44i32,
-        );
-        primitive(b"shellescape\x00" as *const u8 as *const i8, 71_u16, 45i32);
-        primitive(
-            b"XeTeXpdfpagecount\x00" as *const u8 as *const i8,
-            71_u16,
-            46i32,
-        );
+        primitive(b"XeTeXpicfile", 59_u16, 41i32);
+        primitive(b"XeTeXpdffile", 59_u16, 42i32);
+        primitive(b"XeTeXglyph", 59_u16, 43i32);
+        primitive(b"XeTeXlinebreaklocale", 59_u16, 46i32);
+        primitive(b"pdfsavepos", 59_u16, 6i32 + 0i32);
+        primitive(b"lastnodetype", 71_u16, 3i32);
+        primitive(b"eTeXversion", 71_u16, 6i32);
+        primitive(b"eTeXrevision", 110_u16, 5i32);
+        primitive(b"XeTeXversion", 71_u16, 14i32);
+        primitive(b"XeTeXrevision", 110_u16, 6i32);
+        primitive(b"XeTeXcountglyphs", 71_u16, 15i32);
+        primitive(b"XeTeXcountvariations", 71_u16, 16i32);
+        primitive(b"XeTeXvariation", 71_u16, 17i32);
+        primitive(b"XeTeXfindvariationbyname", 71_u16, 18i32);
+        primitive(b"XeTeXvariationmin", 71_u16, 19i32);
+        primitive(b"XeTeXvariationmax", 71_u16, 20i32);
+        primitive(b"XeTeXvariationdefault", 71_u16, 21i32);
+        primitive(b"XeTeXcountfeatures", 71_u16, 22i32);
+        primitive(b"XeTeXfeaturecode", 71_u16, 23i32);
+        primitive(b"XeTeXfindfeaturebyname", 71_u16, 24i32);
+        primitive(b"XeTeXisexclusivefeature", 71_u16, 25i32);
+        primitive(b"XeTeXcountselectors", 71_u16, 26i32);
+        primitive(b"XeTeXselectorcode", 71_u16, 27i32);
+        primitive(b"XeTeXfindselectorbyname", 71_u16, 28i32);
+        primitive(b"XeTeXisdefaultselector", 71_u16, 29i32);
+        primitive(b"XeTeXvariationname", 110_u16, 7i32);
+        primitive(b"XeTeXfeaturename", 110_u16, 8i32);
+        primitive(b"XeTeXselectorname", 110_u16, 9i32);
+        primitive(b"XeTeXOTcountscripts", 71_u16, 30i32);
+        primitive(b"XeTeXOTcountlanguages", 71_u16, 31i32);
+        primitive(b"XeTeXOTcountfeatures", 71_u16, 32i32);
+        primitive(b"XeTeXOTscripttag", 71_u16, 33i32);
+        primitive(b"XeTeXOTlanguagetag", 71_u16, 34i32);
+        primitive(b"XeTeXOTfeaturetag", 71_u16, 35i32);
+        primitive(b"XeTeXcharglyph", 71_u16, 36i32);
+        primitive(b"XeTeXglyphindex", 71_u16, 37i32);
+        primitive(b"XeTeXglyphbounds", 71_u16, 47i32);
+        primitive(b"XeTeXglyphname", 110_u16, 10i32);
+        primitive(b"XeTeXfonttype", 71_u16, 38i32);
+        primitive(b"XeTeXfirstfontchar", 71_u16, 39i32);
+        primitive(b"XeTeXlastfontchar", 71_u16, 40i32);
+        primitive(b"pdflastxpos", 71_u16, 41i32);
+        primitive(b"pdflastypos", 71_u16, 42i32);
+        primitive(b"strcmp", 110_u16, 43i32);
+        primitive(b"mdfivesum", 110_u16, 44i32);
+        primitive(b"pdfmdfivesum", 110_u16, 44i32);
+        primitive(b"shellescape", 71_u16, 45i32);
+        primitive(b"XeTeXpdfpagecount", 71_u16, 46i32);
 
         primitive(
-            b"tracingassigns\x00" as *const u8 as *const i8,
+            b"tracingassigns",
             ASSIGN_INT,
             INT_BASE + INT_PAR__tracing_assigns,
         );
         primitive(
-            b"tracinggroups\x00" as *const u8 as *const i8,
+            b"tracinggroups",
             ASSIGN_INT,
             INT_BASE + INT_PAR__tracing_groups,
         );
+        primitive(b"tracingifs", ASSIGN_INT, INT_BASE + INT_PAR__tracing_ifs);
         primitive(
-            b"tracingifs\x00" as *const u8 as *const i8,
-            ASSIGN_INT,
-            INT_BASE + INT_PAR__tracing_ifs,
-        );
-        primitive(
-            b"tracingscantokens\x00" as *const u8 as *const i8,
+            b"tracingscantokens",
             ASSIGN_INT,
             INT_BASE + INT_PAR__tracing_scan_tokens,
         );
         primitive(
-            b"tracingnesting\x00" as *const u8 as *const i8,
+            b"tracingnesting",
             ASSIGN_INT,
             INT_BASE + INT_PAR__tracing_nesting,
         );
         primitive(
-            b"predisplaydirection\x00" as *const u8 as *const i8,
+            b"predisplaydirection",
             ASSIGN_INT,
             INT_BASE + INT_PAR__pre_display_correction,
         );
         primitive(
-            b"lastlinefit\x00" as *const u8 as *const i8,
+            b"lastlinefit",
             ASSIGN_INT,
             INT_BASE + INT_PAR__last_line_fit,
         );
         primitive(
-            b"savingvdiscards\x00" as *const u8 as *const i8,
+            b"savingvdiscards",
             ASSIGN_INT,
             INT_BASE + INT_PAR__saving_vdiscards,
         );
         primitive(
-            b"savinghyphcodes\x00" as *const u8 as *const i8,
+            b"savinghyphcodes",
             ASSIGN_INT,
             INT_BASE + INT_PAR__saving_hyphs,
         );
 
+        primitive(b"currentgrouplevel", 71_u16, 7i32);
+        primitive(b"currentgrouptype", 71_u16, 8i32);
+        primitive(b"currentiflevel", 71_u16, 9i32);
+        primitive(b"currentiftype", 71_u16, 10i32);
+        primitive(b"currentifbranch", 71_u16, 11i32);
+        primitive(b"fontcharwd", 71_u16, 48i32);
+        primitive(b"fontcharht", 71_u16, 49i32);
+        primitive(b"fontchardp", 71_u16, 50i32);
+        primitive(b"fontcharic", 71_u16, 51i32);
+        primitive(b"parshapelength", 71_u16, 52i32);
+        primitive(b"parshapeindent", 71_u16, 53i32);
+        primitive(b"parshapedimen", 71_u16, 54i32);
+        primitive(b"showgroups", 19_u16, 4i32);
+        primitive(b"showtokens", 19_u16, 5i32);
+        primitive(b"unexpanded", 111_u16, 1i32);
+        primitive(b"detokenize", 111_u16, 5i32);
+        primitive(b"showifs", 19_u16, 6i32);
+        primitive(b"interactionmode", 83_u16, 2i32);
+        primitive(b"middle", 49_u16, 1i32);
         primitive(
-            b"currentgrouplevel\x00" as *const u8 as *const i8,
-            71_u16,
-            7i32,
-        );
-        primitive(
-            b"currentgrouptype\x00" as *const u8 as *const i8,
-            71_u16,
-            8i32,
-        );
-        primitive(
-            b"currentiflevel\x00" as *const u8 as *const i8,
-            71_u16,
-            9i32,
-        );
-        primitive(
-            b"currentiftype\x00" as *const u8 as *const i8,
-            71_u16,
-            10i32,
-        );
-        primitive(
-            b"currentifbranch\x00" as *const u8 as *const i8,
-            71_u16,
-            11i32,
-        );
-        primitive(b"fontcharwd\x00" as *const u8 as *const i8, 71_u16, 48i32);
-        primitive(b"fontcharht\x00" as *const u8 as *const i8, 71_u16, 49i32);
-        primitive(b"fontchardp\x00" as *const u8 as *const i8, 71_u16, 50i32);
-        primitive(b"fontcharic\x00" as *const u8 as *const i8, 71_u16, 51i32);
-        primitive(
-            b"parshapelength\x00" as *const u8 as *const i8,
-            71_u16,
-            52i32,
-        );
-        primitive(
-            b"parshapeindent\x00" as *const u8 as *const i8,
-            71_u16,
-            53i32,
-        );
-        primitive(
-            b"parshapedimen\x00" as *const u8 as *const i8,
-            71_u16,
-            54i32,
-        );
-        primitive(b"showgroups\x00" as *const u8 as *const i8, 19_u16, 4i32);
-        primitive(b"showtokens\x00" as *const u8 as *const i8, 19_u16, 5i32);
-        primitive(b"unexpanded\x00" as *const u8 as *const i8, 111_u16, 1i32);
-        primitive(b"detokenize\x00" as *const u8 as *const i8, 111_u16, 5i32);
-        primitive(b"showifs\x00" as *const u8 as *const i8, 19_u16, 6i32);
-        primitive(
-            b"interactionmode\x00" as *const u8 as *const i8,
-            83_u16,
-            2i32,
-        );
-        primitive(b"middle\x00" as *const u8 as *const i8, 49_u16, 1i32);
-        primitive(
-            b"suppressfontnotfounderror\x00" as *const u8 as *const i8,
+            b"suppressfontnotfounderror",
             ASSIGN_INT,
             INT_BASE + INT_PAR__suppress_fontnotfound_error,
         );
 
+        primitive(b"TeXXeTstate", ASSIGN_INT, INT_BASE + INT_PAR__texxet);
         primitive(
-            b"TeXXeTstate\x00" as *const u8 as *const i8,
-            ASSIGN_INT,
-            INT_BASE + INT_PAR__texxet,
-        );
-        primitive(
-            b"XeTeXupwardsmode\x00" as *const u8 as *const i8,
+            b"XeTeXupwardsmode",
             ASSIGN_INT,
             INT_BASE + INT_PAR__xetex_upwards,
         );
         primitive(
-            b"XeTeXuseglyphmetrics\x00" as *const u8 as *const i8,
+            b"XeTeXuseglyphmetrics",
             ASSIGN_INT,
             INT_BASE + INT_PAR__xetex_use_glyph_metrics,
         );
         primitive(
-            b"XeTeXinterchartokenstate\x00" as *const u8 as *const i8,
+            b"XeTeXinterchartokenstate",
             ASSIGN_INT,
             INT_BASE + INT_PAR__xetex_inter_char_tokens,
         );
         primitive(
-            b"XeTeXdashbreakstate\x00" as *const u8 as *const i8,
+            b"XeTeXdashbreakstate",
             ASSIGN_INT,
             INT_BASE + INT_PAR__xetex_dash_break,
         );
         primitive(
-            b"XeTeXinputnormalization\x00" as *const u8 as *const i8,
+            b"XeTeXinputnormalization",
             ASSIGN_INT,
             INT_BASE + INT_PAR__xetex_input_normalization,
         );
         primitive(
-            b"XeTeXtracingfonts\x00" as *const u8 as *const i8,
+            b"XeTeXtracingfonts",
             ASSIGN_INT,
             INT_BASE + INT_PAR__xetex_tracing_fonts,
         );
         primitive(
-            b"XeTeXinterwordspaceshaping\x00" as *const u8 as *const i8,
+            b"XeTeXinterwordspaceshaping",
             ASSIGN_INT,
             INT_BASE + INT_PAR__xetex_interword_space_shaping,
         );
         primitive(
-            b"XeTeXgenerateactualtext\x00" as *const u8 as *const i8,
+            b"XeTeXgenerateactualtext",
             ASSIGN_INT,
             INT_BASE + INT_PAR__xetex_generate_actual_text,
         );
         primitive(
-            b"XeTeXhyphenatablelength\x00" as *const u8 as *const i8,
+            b"XeTeXhyphenatablelength",
             ASSIGN_INT,
             INT_BASE + INT_PAR__xetex_hyphenatable_length,
         );
-        primitive(
-            b"pdfoutput\x00" as *const u8 as *const i8,
-            ASSIGN_INT,
-            INT_BASE + INT_PAR__pdfoutput,
-        );
+        primitive(b"pdfoutput", ASSIGN_INT, INT_BASE + INT_PAR__pdfoutput);
 
         primitive(
-            b"XeTeXinputencoding\x00" as *const u8 as *const i8,
+            b"XeTeXinputencoding",
             EXTENSION,
             XETEX_INPUT_ENCODING_EXTENSION_CODE,
         );
         primitive(
-            b"XeTeXdefaultencoding\x00" as *const u8 as *const i8,
+            b"XeTeXdefaultencoding",
             EXTENSION,
             XETEX_DEFAULT_ENCODING_EXTENSION_CODE,
         );
 
-        primitive(b"beginL\x00" as *const u8 as *const i8, 33_u16, 6i32);
-        primitive(b"endL\x00" as *const u8 as *const i8, 33_u16, 7i32);
-        primitive(b"beginR\x00" as *const u8 as *const i8, 33_u16, 10i32);
-        primitive(b"endR\x00" as *const u8 as *const i8, 33_u16, 11i32);
-        primitive(b"scantokens\x00" as *const u8 as *const i8, 106_u16, 2i32);
-        primitive(b"readline\x00" as *const u8 as *const i8, 98_u16, 1i32);
-        primitive(b"unless\x00" as *const u8 as *const i8, 104_u16, 1i32);
-        primitive(b"ifdefined\x00" as *const u8 as *const i8, 107_u16, 17i32);
-        primitive(b"ifcsname\x00" as *const u8 as *const i8, 107_u16, 18i32);
-        primitive(b"iffontchar\x00" as *const u8 as *const i8, 107_u16, 19i32);
-        primitive(b"ifincsname\x00" as *const u8 as *const i8, 107_u16, 20i32);
-        primitive(b"protected\x00" as *const u8 as *const i8, 95_u16, 8i32);
-        primitive(
-            b"numexpr\x00" as *const u8 as *const i8,
-            71_u16,
-            59i32 + 0i32,
-        );
-        primitive(
-            b"dimexpr\x00" as *const u8 as *const i8,
-            71_u16,
-            59i32 + 1i32,
-        );
-        primitive(
-            b"glueexpr\x00" as *const u8 as *const i8,
-            71_u16,
-            59i32 + 2i32,
-        );
-        primitive(
-            b"muexpr\x00" as *const u8 as *const i8,
-            71_u16,
-            59i32 + 3i32,
-        );
-        primitive(
-            b"gluestretchorder\x00" as *const u8 as *const i8,
-            71_u16,
-            12i32,
-        );
-        primitive(
-            b"glueshrinkorder\x00" as *const u8 as *const i8,
-            71_u16,
-            13i32,
-        );
-        primitive(b"gluestretch\x00" as *const u8 as *const i8, 71_u16, 55i32);
-        primitive(b"glueshrink\x00" as *const u8 as *const i8, 71_u16, 56i32);
-        primitive(b"mutoglue\x00" as *const u8 as *const i8, 71_u16, 57i32);
-        primitive(b"gluetomu\x00" as *const u8 as *const i8, 71_u16, 58i32);
-        primitive(b"marks\x00" as *const u8 as *const i8, 18_u16, 5i32);
-        primitive(
-            b"topmarks\x00" as *const u8 as *const i8,
-            112_u16,
-            0i32 + 5i32,
-        );
-        primitive(
-            b"firstmarks\x00" as *const u8 as *const i8,
-            112_u16,
-            1i32 + 5i32,
-        );
-        primitive(
-            b"botmarks\x00" as *const u8 as *const i8,
-            112_u16,
-            2i32 + 5i32,
-        );
-        primitive(
-            b"splitfirstmarks\x00" as *const u8 as *const i8,
-            112_u16,
-            3i32 + 5i32,
-        );
-        primitive(
-            b"splitbotmarks\x00" as *const u8 as *const i8,
-            112_u16,
-            4i32 + 5i32,
-        );
-        primitive(b"pagediscards\x00" as *const u8 as *const i8, 24_u16, 2i32);
-        primitive(b"splitdiscards\x00" as *const u8 as *const i8, 24_u16, 3i32);
+        primitive(b"beginL", 33_u16, 6i32);
+        primitive(b"endL", 33_u16, 7i32);
+        primitive(b"beginR", 33_u16, 10i32);
+        primitive(b"endR", 33_u16, 11i32);
+        primitive(b"scantokens", 106_u16, 2i32);
+        primitive(b"readline", 98_u16, 1i32);
+        primitive(b"unless", 104_u16, 1i32);
+        primitive(b"ifdefined", 107_u16, 17i32);
+        primitive(b"ifcsname", 107_u16, 18i32);
+        primitive(b"iffontchar", 107_u16, 19i32);
+        primitive(b"ifincsname", 107_u16, 20i32);
+        primitive(b"protected", 95_u16, 8i32);
+        primitive(b"numexpr", 71_u16, 59i32 + 0i32);
+        primitive(b"dimexpr", 71_u16, 59i32 + 1i32);
+        primitive(b"glueexpr", 71_u16, 59i32 + 2i32);
+        primitive(b"muexpr", 71_u16, 59i32 + 3i32);
+        primitive(b"gluestretchorder", 71_u16, 12i32);
+        primitive(b"glueshrinkorder", 71_u16, 13i32);
+        primitive(b"gluestretch", 71_u16, 55i32);
+        primitive(b"glueshrink", 71_u16, 56i32);
+        primitive(b"mutoglue", 71_u16, 57i32);
+        primitive(b"gluetomu", 71_u16, 58i32);
+        primitive(b"marks", 18_u16, 5i32);
+        primitive(b"topmarks", 112_u16, 0i32 + 5i32);
+        primitive(b"firstmarks", 112_u16, 1i32 + 5i32);
+        primitive(b"botmarks", 112_u16, 2i32 + 5i32);
+        primitive(b"splitfirstmarks", 112_u16, 3i32 + 5i32);
+        primitive(b"splitbotmarks", 112_u16, 4i32 + 5i32);
+        primitive(b"pagediscards", 24_u16, 2i32);
+        primitive(b"splitdiscards", 24_u16, 3i32);
 
+        primitive(b"interlinepenalties", SET_SHAPE, INTER_LINE_PENALTIES_LOC);
+        primitive(b"clubpenalties", SET_SHAPE, CLUB_PENALTIES_LOC);
+        primitive(b"widowpenalties", SET_SHAPE, WIDOW_PENALTIES_LOC);
         primitive(
-            b"interlinepenalties\x00" as *const u8 as *const i8,
-            SET_SHAPE,
-            INTER_LINE_PENALTIES_LOC,
-        );
-        primitive(
-            b"clubpenalties\x00" as *const u8 as *const i8,
-            SET_SHAPE,
-            CLUB_PENALTIES_LOC,
-        );
-        primitive(
-            b"widowpenalties\x00" as *const u8 as *const i8,
-            SET_SHAPE,
-            WIDOW_PENALTIES_LOC,
-        );
-        primitive(
-            b"displaywidowpenalties\x00" as *const u8 as *const i8,
+            b"displaywidowpenalties",
             SET_SHAPE,
             DISPLAY_WIDOW_PENALTIES_LOC,
         );
         max_reg_num = 32767i32;
-        max_reg_help_line =
-            b"A register number must be between 0 and 32767.\x00" as *const u8 as *const i8
+        max_reg_help_line = b"A register number must be between 0 and 32767.";
     }
     no_new_control_sequence = true;
     if !in_initex_mode {
@@ -9736,7 +9294,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
         param_base = xcalloc_array(font_max as usize);
         font_ptr = 0i32;
         fmem_ptr = 7i32;
-        *font_name.offset(0) = maketexstring(b"nullfont\x00" as *const u8 as *const i8);
+        *font_name.offset(0) = maketexstring(b"nullfont");
         *font_area.offset(0) = (65536 + 1i32 as i64) as str_number;
         *hyphen_char.offset(0) = '-' as i32;
         *skew_char.offset(0) = -1i32;
