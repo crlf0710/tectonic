@@ -1755,7 +1755,7 @@ dependencies = [
 
 [[package]]
 name = "tectonic"
-version = "0.1.12"
+version = "0.1.13-dev"
 dependencies = [
  "app_dirs2",
  "cfg-if",
@@ -1800,7 +1800,7 @@ dependencies = [
 
 [[package]]
 name = "tectonic_cfg_support"
-version = "0.0.1"
+version = "0.0.2-dev"
 dependencies = [
  "lazy_static",
 ]
@@ -1858,7 +1858,7 @@ dependencies = [
 
 [[package]]
 name = "tectonic_xdv"
-version = "0.1.8"
+version = "0.1.9-dev"
 dependencies = [
  "byteorder",
  "clap",
