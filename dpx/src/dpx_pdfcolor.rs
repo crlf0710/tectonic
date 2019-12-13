@@ -22,16 +22,16 @@
 
 #![allow(non_snake_case)]
 
-use crate::bridge::DisplayExt;
-
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::sget_unsigned_pair;
 use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
+use crate::bridge::DisplayExt;
 use crate::dpx_pdfobj::{
     pdf_get_version, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj,
     PushObj, STREAM_COMPRESS,
 };
 use crate::mfree;
+use crate::shims::sprintf;
 use crate::{info, warn};
 use libc::{free, memcmp, memcpy, memset, strcmp, strcpy, strlen};
 use md5::{Digest, Md5};
@@ -180,22 +180,36 @@ impl PdfColor {
         }
     }
 
-    pub unsafe fn to_string(&self, mask: u8) -> String {
+    pub(crate) unsafe fn to_string(&self, mask: u8) -> String {
+        let format_float_with_printf_g = |value: f64| {
+            // TODO: refactor this ugly hack while preserving sematics of printf %g
+            let mut buf = String::from_utf8_lossy(&[0x41; 256]).into_owned();
+            let len = sprintf(
+                buf.as_mut_ptr() as *mut i8,
+                b"%g\0" as *const u8 as *const i8,
+                value,
+            ) as usize;
+            buf.truncate(len);
+            buf
+        };
+
         let values_to_string = |values: &[f64]| {
             let mut res = String::new();
             for value in values {
-                res += &format!(" {}", (value / 0.001 + 0.5).floor() * 0.001);
+                let value = (value / 0.001 + 0.5).floor() * 0.001;
+                res += " ";
+                res += &format_float_with_printf_g(value);
             }
             res
         };
 
         match self {
             PdfColor::Spot(name, c) => format!(
-                " /{} {}{} {} {}{}",
+                " /{} {} {} {} {}{}",
                 name.display(),
                 ('C' as u8 | mask) as char,
                 ('S' as u8 | mask) as char,
-                (c / 0.001 + 0.5).floor() * 0.001,
+                format_float_with_printf_g((c / 0.001 + 0.5).floor() * 0.001),
                 ('S' as u8 | mask) as char,
                 ('C' as u8 | mask) as char,
             ),
