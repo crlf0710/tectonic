@@ -123,7 +123,7 @@ unsafe fn is_basefont(name: *const i8) -> bool {
     false
 }
 
-pub unsafe fn pdf_font_open_type1(font: &mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_open_type1(font: &mut pdf_font) -> i32 {
     let mut fontname: [i8; 128] = [0; 128];
     let ident = &*font.ident;
     let ident_ = CString::new(ident).unwrap();
@@ -642,7 +642,7 @@ unsafe fn write_fontfile(font: &mut pdf_font, cffont: &cff_font, pdfcharset: &pd
     offset as i32
 }
 
-pub unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
     let mut enc_vec;
     if !pdf_font_is_in_use(font) {
         return 0i32;

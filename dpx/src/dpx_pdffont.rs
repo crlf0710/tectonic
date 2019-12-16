@@ -491,7 +491,7 @@ pub(crate) unsafe fn pdf_close_fonts() {
     agl_close_map();
 }
 
-pub unsafe fn pdf_font_findresource(
+pub(crate) unsafe fn pdf_font_findresource(
     tex_name: &str,
     font_scale: f64,
     mut mrec: *mut fontmap_rec,

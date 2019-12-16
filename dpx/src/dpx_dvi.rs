@@ -115,20 +115,20 @@ pub(crate) struct dvi_registers {
     pub(crate) d: u32,
 }
 #[derive(Clone)]
-pub struct font_def {
-    pub tex_id: u32,
-    pub point_size: spt_t,
-    pub design_size: spt_t,
-    pub font_name: String,
-    pub font_id: i32,
-    pub used: i32,
-    pub native: i32,
-    pub rgba_color: u32,
-    pub face_index: u32,
-    pub layout_dir: i32,
-    pub extend: i32,
-    pub slant: i32,
-    pub embolden: i32,
+pub(crate) struct font_def {
+    pub(crate) tex_id: u32,
+    pub(crate) point_size: spt_t,
+    pub(crate) design_size: spt_t,
+    pub(crate) font_name: String,
+    pub(crate) font_id: i32,
+    pub(crate) used: i32,
+    pub(crate) native: i32,
+    pub(crate) rgba_color: u32,
+    pub(crate) face_index: u32,
+    pub(crate) layout_dir: i32,
+    pub(crate) extend: i32,
+    pub(crate) slant: i32,
+    pub(crate) embolden: i32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -755,7 +755,7 @@ pub(crate) unsafe fn dvi_unit_size() -> f64 {
     dvi2pts
 }
 
-pub unsafe fn dvi_locate_font(tfm_name: &str, ptsize: spt_t) -> u32 {
+pub(crate) unsafe fn dvi_locate_font(tfm_name: &str, ptsize: spt_t) -> u32 {
     let mut subfont_id: i32 = -1i32;
     if verbose != 0 {
         info!("<{}@{:.2}pt", tfm_name, ptsize as f64 * dvi2pts,);

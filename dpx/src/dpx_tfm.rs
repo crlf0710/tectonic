@@ -704,7 +704,7 @@ unsafe fn read_tfm(
     tfm_font_clear(&mut tfm);
 }
 
-pub unsafe fn tfm_open(tfm_name: &str, must_exist: i32) -> i32 {
+pub(crate) unsafe fn tfm_open(tfm_name: &str, must_exist: i32) -> i32 {
     let tfm_name_ = CString::new(tfm_name).unwrap();
     let tfm_name = tfm_name_.as_ptr();
     let mut tfm_handle = None;

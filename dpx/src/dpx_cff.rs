@@ -35,8 +35,8 @@ use super::dpx_numbers::{tt_get_unsigned_byte, tt_get_unsigned_pair};
 use crate::bridge::ttstub_input_read;
 use libc::{free, memcmp, memcpy, memmove, memset, strlen};
 
-use std::ffi::CString;
 use crate::bridge::size_t;
+use std::ffi::CString;
 use std::io::{Seek, SeekFrom};
 use std::ptr;
 

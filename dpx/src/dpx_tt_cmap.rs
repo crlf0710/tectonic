@@ -1242,7 +1242,7 @@ static mut cmap_plat_encs: [cmap_plat_enc_rec; 5] = [
     },
 ];
 
-pub unsafe fn otf_create_ToUnicode_stream(
+pub(crate) unsafe fn otf_create_ToUnicode_stream(
     font_name: &str,
     ttc_index: i32,
     used_chars: *const i8,
@@ -1405,7 +1405,7 @@ unsafe fn load_base_CMap(
 /* Indirect reference */
 /* CMap ID */
 
-pub unsafe fn otf_load_Unicode_CMap(
+pub(crate) unsafe fn otf_load_Unicode_CMap(
     map_name: &str,
     ttc_index: i32,
     otl_tags: &str,

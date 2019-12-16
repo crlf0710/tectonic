@@ -284,7 +284,7 @@ the PDF file will never repeat a physical font name */
 /* Note: This code needs to be able to recurse */
 /* Global variables such as num_vf_fonts require careful attention */
 
-pub unsafe fn vf_locate_font(tex_name: &str, ptsize: spt_t) -> i32 {
+pub(crate) unsafe fn vf_locate_font(tex_name: &str, ptsize: spt_t) -> i32 {
     let tex_name_ = CString::new(tex_name).unwrap();
     let tex_name = tex_name_.as_ptr();
     /* Has this name and ptsize already been loaded as a VF? */

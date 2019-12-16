@@ -63,7 +63,6 @@ pub(crate) struct Type0Font {
 }
 use super::dpx_fontmap::fontmap_opt;
 
-
 static mut __verbose: i32 = 0i32;
 
 pub(crate) unsafe fn Type0Font_set_verbose(level: i32) {
@@ -278,7 +277,7 @@ pub(crate) unsafe fn Type0Font_cache_get(id: i32) -> *mut Type0Font {
     &mut *__cache[id as usize] as *mut Type0Font
 }
 
-pub unsafe fn Type0Font_cache_find(
+pub(crate) unsafe fn Type0Font_cache_find(
     map_name: &str,
     cmap_id: i32,
     fmap_opt: *mut fontmap_opt,

@@ -49,33 +49,33 @@ use crate::bridge::TTInputFormat;
 
 use bridge::InputHandleWrapper;
 #[derive(Clone)]
-pub struct fontmap_opt {
-    pub slant: f64,
-    pub extend: f64,
-    pub bold: f64,
-    pub mapc: i32,
-    pub flags: i32,
-    pub otl_tags: String,
-    pub tounicode: String,
-    pub cff_charsets: *mut libc::c_void,
-    pub design_size: f64,
-    pub charcoll: String,
-    pub index: i32,
-    pub style: i32,
-    pub stemv: i32,
+pub(crate) struct fontmap_opt {
+    pub(crate) slant: f64,
+    pub(crate) extend: f64,
+    pub(crate) bold: f64,
+    pub(crate) mapc: i32,
+    pub(crate) flags: i32,
+    pub(crate) otl_tags: String,
+    pub(crate) tounicode: String,
+    pub(crate) cff_charsets: *mut libc::c_void,
+    pub(crate) design_size: f64,
+    pub(crate) charcoll: String,
+    pub(crate) index: i32,
+    pub(crate) style: i32,
+    pub(crate) stemv: i32,
 }
 #[derive(Clone)]
-pub struct fontmap_rec {
-    pub map_name: String,
-    pub font_name: String,
-    pub enc_name: String,
-    pub charmap: C2RustUnnamed_0,
-    pub opt: fontmap_opt,
+pub(crate) struct fontmap_rec {
+    pub(crate) map_name: String,
+    pub(crate) font_name: String,
+    pub(crate) enc_name: String,
+    pub(crate) charmap: C2RustUnnamed_0,
+    pub(crate) opt: fontmap_opt,
 }
 #[derive(Clone)]
-pub struct C2RustUnnamed_0 {
-    pub sfd_name: String,
-    pub subfont_id: *mut i8,
+pub(crate) struct C2RustUnnamed_0 {
+    pub(crate) sfd_name: String,
+    pub(crate) subfont_id: *mut i8,
 }
 
 use super::dpx_dpxutil::ht_table;
@@ -789,7 +789,7 @@ unsafe fn make_subfont_name(
  * where 'ab' ... 'yz' is subfont IDs in SFD 'A'.
  */
 
-pub unsafe fn pdf_append_fontmap_record(kp: &str, vp: *const fontmap_rec) -> i32 {
+pub(crate) unsafe fn pdf_append_fontmap_record(kp: &str, vp: *const fontmap_rec) -> i32 {
     let mut sfd_name: *mut i8 = ptr::null_mut();
     if kp.is_empty() || (vp.is_null() || (*vp).map_name.is_empty() || (*vp).font_name.is_empty()) {
         warn!("Invalid fontmap record...");
@@ -860,7 +860,7 @@ pub unsafe fn pdf_append_fontmap_record(kp: &str, vp: *const fontmap_rec) -> i32
     0i32
 }
 
-pub unsafe fn pdf_remove_fontmap_record(kp: &str) -> i32 {
+pub(crate) unsafe fn pdf_remove_fontmap_record(kp: &str) -> i32 {
     let mut sfd_name: *mut i8 = ptr::null_mut();
     if kp.is_empty() {
         return -1i32;
@@ -915,7 +915,10 @@ pub unsafe fn pdf_remove_fontmap_record(kp: &str) -> i32 {
     0i32
 }
 
-pub unsafe fn pdf_insert_fontmap_record(kp: &str, vp: *const fontmap_rec) -> *mut fontmap_rec {
+pub(crate) unsafe fn pdf_insert_fontmap_record(
+    kp: &str,
+    vp: *const fontmap_rec,
+) -> *mut fontmap_rec {
     let kp_ = CString::new(kp).unwrap();
     let kp = kp_.as_ptr();
     let mut sfd_name: *mut i8 = ptr::null_mut();
@@ -1152,7 +1155,7 @@ pub(crate) unsafe fn pdf_load_fontmap_file(filename: &CStr, mode: i32) -> i32 {
     error
 }
 
-pub unsafe fn pdf_insert_native_fontmap_record(
+pub(crate) unsafe fn pdf_insert_native_fontmap_record(
     path: &str,
     index: u32,
     layout_dir: i32,
