@@ -216,7 +216,7 @@ pub(crate) unsafe fn pdf_font_open_truetype(font: &mut pdf_font) -> i32 {
              * "builtin" encoding means "MacRoman" here.
              */
             panic!(
-                "Font file=\"{}\" can\'t be embedded due to liscence restrictions.",
+                "Font file=\"{}\" can\'t be embedded due to license restrictions.",
                 ident
             );
             /* ENABLE_NOEMBED */

@@ -90,29 +90,26 @@ unsafe fn pdf_init_encoding_struct() -> pdf_encoding {
 /* Creates the PDF Encoding entry for the encoding.
  * If baseenc is non-null, it is used as BaseEncoding entry.
  */
-unsafe fn create_encoding_resource(encoding: &mut pdf_encoding, with_base: bool) -> *mut pdf_obj {
-    let baseenc = if with_base {
-        assert!(!encoding.baseenc.is_null());
-        Some(&mut *encoding.baseenc)
-    } else {
-        None
-    };
-
-    assert!(encoding.resource.is_null());
+unsafe fn create_encoding_resource(
+    encoding: *mut pdf_encoding,
+    baseenc: *mut pdf_encoding,
+) -> *mut pdf_obj {
+    assert!(!encoding.is_null());
+    assert!((*encoding).resource.is_null());
     if let Some(differences) = make_encoding_differences(
-        &mut encoding.glyphs,
-        if with_base {
-            Some(&mut (*encoding.baseenc).glyphs)
+        &mut (*encoding).glyphs,
+        if !baseenc.is_null() {
+            Some(&mut (*baseenc).glyphs)
         } else {
             None
         },
-        &mut encoding.is_used,
+        &mut (*encoding).is_used,
     ) {
         let resource = pdf_dict::new().into_obj();
-        if let Some(baseenc) = &baseenc {
+        if !baseenc.is_null() {
             (*resource)
                 .as_dict_mut()
-                .set("BaseEncoding", pdf_link_obj(baseenc.resource));
+                .set("BaseEncoding", pdf_link_obj((*baseenc).resource));
         }
         (*resource).as_dict_mut().set("Differences", differences);
         return resource;
@@ -128,9 +125,10 @@ unsafe fn create_encoding_resource(encoding: &mut pdf_encoding, with_base: bool)
          *
          * Actually these fonts will be ignored in pdffont.c.
          */
-        return match baseenc {
-            Some(baseenc) => pdf_link_obj(baseenc.resource),
-            None => ptr::null_mut(),
+        return if !baseenc.is_null() {
+            pdf_link_obj((*baseenc).resource)
+        } else {
+            ptr::null_mut()
         };
     };
 }
@@ -190,32 +188,28 @@ unsafe fn make_encoding_differences(
      *  Write all entries (except .notdef) if baseenc is unknown.
      *  If is_used is given, write only used entries.
      */
-    let mut differences = vec![];
+    let mut differences = Vec::new();
     for code in 0..256 {
         /* We skip NULL (= ".notdef"). Any character code mapped to ".notdef"
          * glyph should not be used in the document.
          */
         if is_used[code] == 0 || enc_vec[code].is_null() {
             skipping = true
+        } else if baseenc.is_none()
+            || baseenc.as_ref().unwrap()[code].is_null()
+            || strcmp(baseenc.as_ref().unwrap()[code], enc_vec[code]) != 0
+        {
+            /*
+             * Difference found.
+             */
+            if skipping {
+                differences.push_obj(code as f64);
+            }
+            differences.push(pdf_copy_name(enc_vec[code]));
+            skipping = false;
+            count += 1
         } else {
-            let mut differs = false;
-            if let Some(&mut baseenc) = &baseenc {
-                differs = baseenc[code].is_null() || strcmp(baseenc[code], enc_vec[code]) != 0;
-            }
-
-            if differs {
-                /*
-                 * Difference found.
-                 */
-                if skipping {
-                    differences.push_obj(code as f64);
-                }
-                differences.push(pdf_copy_name(enc_vec[code]));
-                skipping = false;
-                count += 1
-            } else {
-                skipping = true
-            }
+            skipping = true
         }
     }
     /*
@@ -401,7 +395,9 @@ unsafe fn pdf_encoding_new_encoding(
 
 pub(crate) unsafe fn pdf_encoding_complete() {
     for encoding in &mut enc_cache {
-        let encoding_is_predefined = encoding.flags & 1i32 << 0i32 != 0;
+        const FLAG_IS_PREDEFINED: i32 = 1;
+        const FLAG_USED_BY_TYPE3: i32 = 2;
+        let encoding_is_predefined = (encoding.flags & FLAG_IS_PREDEFINED) != 0;
         if !encoding_is_predefined {
             /* Section 5.5.4 of the PDF 1.5 reference says that the encoding
              * of a Type 3 font must be completely described by a Differences
@@ -409,10 +405,16 @@ pub(crate) unsafe fn pdf_encoding_complete() {
              * an incorrect implementation in Acrobat 4 and earlier. Hence,
              * we do use a base encodings for PDF versions >= 1.3.
              */
-            let with_base = (encoding.flags & 1i32 << 1i32 == 0 || pdf_get_version() >= 4)
-                && !encoding.baseenc.is_null();
+            let with_base = !(encoding.flags & FLAG_USED_BY_TYPE3 != 0) || pdf_get_version() >= 4;
             assert!(encoding.resource.is_null());
-            encoding.resource = create_encoding_resource(&mut *encoding, with_base);
+            encoding.resource = create_encoding_resource(
+                &mut **encoding as *mut _,
+                if with_base {
+                    encoding.baseenc
+                } else {
+                    ptr::null_mut()
+                },
+            );
             assert!(encoding.tounicode.is_null());
             encoding.tounicode = pdf_create_ToUnicode_CMap(
                 &encoding.enc_name,
@@ -459,7 +461,7 @@ pub(crate) unsafe fn pdf_get_encoding_obj(enc_id: i32) -> *mut pdf_obj {
     if enc_id < 0i32 || enc_id >= enc_cache.len() as i32 {
         panic!("Invalid encoding id: {}", enc_id);
     }
-    let encoding = &mut enc_cache[enc_id as usize];
+    let encoding = &mut *enc_cache[enc_id as usize];
     encoding.resource
 }
 
