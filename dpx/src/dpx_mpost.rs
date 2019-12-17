@@ -193,9 +193,9 @@ unsafe fn mp_setfont(font_name: &CStr, pt_size: f64) -> i32 {
     let mrec = pdf_lookup_fontmap_record(font_name.to_bytes());
     if !mrec.is_null()
         && !(*mrec).charmap.sfd_name.is_empty()
-        && !(*mrec).charmap.subfont_id.is_null()
+        && !(*mrec).charmap.subfont_id.is_empty()
     {
-        subfont_id = sfd_load_record(&(*mrec).charmap.sfd_name, (*mrec).charmap.subfont_id)
+        subfont_id = sfd_load_record(&(*mrec).charmap.sfd_name, &(*mrec).charmap.subfont_id)
     }
     /* See comments in dvi_locate_font() in dvi.c. */
     let name = if !mrec.is_null() && !(*mrec).map_name.is_empty() {

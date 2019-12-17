@@ -767,9 +767,9 @@ pub(crate) unsafe fn dvi_locate_font(tfm_name: &str, ptsize: spt_t) -> u32 {
     /* Load subfont mapping table */
     if !mrec.is_null()
         && !(*mrec).charmap.sfd_name.is_empty()
-        && !(*mrec).charmap.subfont_id.is_null()
+        && !(*mrec).charmap.subfont_id.is_empty()
     {
-        subfont_id = sfd_load_record(&(*mrec).charmap.sfd_name, (*mrec).charmap.subfont_id)
+        subfont_id = sfd_load_record(&(*mrec).charmap.sfd_name, &(*mrec).charmap.subfont_id)
     }
 
     let mut new_font = loaded_font {
@@ -882,7 +882,7 @@ pub(crate) unsafe fn dvi_locate_font(tfm_name: &str, ptsize: spt_t) -> u32 {
             let mrec1_0: *mut fontmap_rec = pdf_lookup_fontmap_record((*mrec).map_name.as_bytes()); // CHECK this is enough
             warn!(">> This font is mapped to an intermediate 16-bit font \"{}\" with SFD charmap=<{},{}>,",
                 (*mrec).map_name, (*mrec).charmap.sfd_name,
-                CStr::from_ptr((*mrec).charmap.subfont_id).display()
+                (*mrec).charmap.subfont_id
             );
             if mrec1_0.is_null() {
                 warn!(

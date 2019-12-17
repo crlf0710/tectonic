@@ -37,7 +37,7 @@ use std::ptr;
 use super::dpx_mem::{new, renew};
 use super::dpx_mfileio::tt_mfgets;
 use crate::bridge::{ttstub_input_close, ttstub_input_open};
-use libc::{free, memcpy, strchr, strcmp, strcpy, strlen, strtol};
+use libc::{free, memcpy, strchr, strcpy, strlen, strtol};
 
 pub(crate) type __ssize_t = i64;
 
@@ -389,9 +389,9 @@ pub unsafe fn sfd_get_subfont_ids(sfd_name: &str, num_ids: *mut i32) -> *mut *mu
  * Mapping tables are actually read here.
  */
 
-pub unsafe fn sfd_load_record(sfd_name: &str, subfont_id: *const i8) -> i32 {
+pub unsafe fn sfd_load_record(sfd_name: &str, subfont_id: &str) -> i32 {
     let mut rec_id: i32 = -1i32;
-    if sfd_name.is_empty() || subfont_id.is_null() {
+    if sfd_name.is_empty() || subfont_id.is_empty() {
         return -1i32;
     }
     let sfd_id = find_sfd_file(sfd_name);
@@ -401,13 +401,18 @@ pub unsafe fn sfd_load_record(sfd_name: &str, subfont_id: *const i8) -> i32 {
     let sfd = &mut *sfd_files.offset(sfd_id as isize) as *mut sfd_file_;
     /* Check if we already loaded mapping table. */
     let mut i = 0;
-    while i < (*sfd).num_subfonts && strcmp(*(*sfd).sub_id.offset(i as isize), subfont_id) != 0 {
+    while i < (*sfd).num_subfonts
+        && CStr::from_ptr(*(*sfd).sub_id.offset(i as isize))
+            .to_str()
+            .unwrap()
+            != subfont_id
+    {
         i += 1
     }
     if i == (*sfd).num_subfonts {
         warn!(
             "Subfont id=\"{}\" not exist in SFD file \"{}\"...",
-            CStr::from_ptr(subfont_id).display(),
+            subfont_id,
             CStr::from_ptr((*sfd).ident).display(),
         );
         return -1i32;
@@ -420,7 +425,7 @@ pub unsafe fn sfd_load_record(sfd_name: &str, subfont_id: *const i8) -> i32 {
         info!(
             "\nsubfont>> Loading SFD mapping table for <{},{}>...",
             CStr::from_ptr((*sfd).ident).display(),
-            CStr::from_ptr(subfont_id).display(),
+            subfont_id,
         );
     }
     /* reopen */
@@ -450,7 +455,7 @@ pub unsafe fn sfd_load_record(sfd_name: &str, subfont_id: *const i8) -> i32 {
         }
         *p = '\u{0}' as i32 as i8;
         p = p.offset(1);
-        if streq_ptr(q, subfont_id) {
+        if CStr::from_ptr(q).to_str().unwrap() == subfont_id {
             if num_sfd_records >= max_sfd_records {
                 max_sfd_records += 16i32;
                 sfd_record = renew(
@@ -474,7 +479,7 @@ pub unsafe fn sfd_load_record(sfd_name: &str, subfont_id: *const i8) -> i32 {
                 warn!(
                     "Error occured while reading SFD file: file=\"{}\" subfont_id=\"{}\"",
                     CStr::from_ptr((*sfd).ident).display(),
-                    CStr::from_ptr(subfont_id).display(),
+                    subfont_id,
                 );
             } else {
                 let fresh3 = num_sfd_records;
@@ -487,7 +492,7 @@ pub unsafe fn sfd_load_record(sfd_name: &str, subfont_id: *const i8) -> i32 {
         warn!(
             "Failed to load subfont mapping table for SFD=\"{}\" subfont_id=\"{}\"",
             CStr::from_ptr((*sfd).ident).display(),
-            CStr::from_ptr(subfont_id).display(),
+            subfont_id,
         );
     }
     *(*sfd).rec_id.offset(i as isize) = rec_id;
