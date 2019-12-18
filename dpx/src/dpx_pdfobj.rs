@@ -72,7 +72,7 @@ use super::dpx_dpxutil::ht_table;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct pdf_obj {
-    pub(crate) typ: i32,
+    pub(crate) typ: PdfObjType,
     pub(crate) id: ObjectId,
     pub(crate) refcount: u32,
     pub(crate) flags: i32,
@@ -101,26 +101,6 @@ pub(crate) enum PdfObjType {
     INDIRECT = 9,
     UNDEFINED = 10,
     OBJ_INVALID = 0,
-}
-
-impl From<i32> for PdfObjType {
-    fn from(t: i32) -> Self {
-        use PdfObjType::*;
-        match t {
-            1 => BOOLEAN,
-            2 => NUMBER,
-            3 => STRING,
-            4 => NAME,
-            5 => ARRAY,
-            6 => DICT,
-            7 => STREAM,
-            8 => NULL,
-            9 => INDIRECT,
-            10 => UNDEFINED,
-            0 => OBJ_INVALID,
-            _ => panic!("Invalid object type: {}", t),
-        }
-    }
 }
 
 impl pdf_obj {
@@ -795,14 +775,15 @@ unsafe fn pdf_out(handle: &mut OutputHandleWrapper, buffer: &[u8]) {
 }
 /*  returns 1 if a white-space character is necessary to separate
 an object of type1 followed by an object of type2              */
-unsafe fn pdf_need_white(type1: i32, type2: i32) -> i32 {
-    return !(type1 == 3i32
-        || type1 == 5i32
-        || type1 == 6i32
-        || type2 == 3i32
-        || type2 == 4i32
-        || type2 == 5i32
-        || type2 == 6i32) as i32;
+unsafe fn pdf_need_white(type1: PdfObjType, type2: PdfObjType) -> bool {
+    use PdfObjType::*;
+    return !(type1 == STRING
+        || type1 == ARRAY
+        || type1 == DICT
+        || type2 == STRING
+        || type2 == NAME
+        || type2 == ARRAY
+        || type2 == DICT);
 }
 unsafe fn pdf_out_white(handle: &mut OutputHandleWrapper) {
     if handle == pdf_output_handle.as_mut().unwrap() && pdf_output_line_position >= 80 {
@@ -814,7 +795,7 @@ unsafe fn pdf_out_white(handle: &mut OutputHandleWrapper) {
 unsafe fn pdf_new_obj(typ: PdfObjType) -> *mut pdf_obj {
     let result =
         new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_obj>() as u64) as u32) as *mut pdf_obj;
-    (*result).typ = typ as i32;
+    (*result).typ = typ;
     (*result).data = ptr::null_mut();
     (*result).id = (0, 0);
     (*result).refcount = 1_u32;
@@ -823,14 +804,11 @@ unsafe fn pdf_new_obj(typ: PdfObjType) -> *mut pdf_obj {
 }
 
 pub(crate) unsafe fn pdf_obj_typeof(object: *mut pdf_obj) -> PdfObjType {
-    if (*object).typ <= 0i32 || (*object).typ > 10i32 {
-        PdfObjType::OBJ_INVALID
-    } else {
-        PdfObjType::from((*object).typ)
-    }
+    (*object).typ
 }
+
 unsafe fn pdf_label_obj(mut object: *mut pdf_obj) {
-    if object.is_null() || (*object).typ <= 0i32 || (*object).typ > 10i32 {
+    if object.is_null() || (*object).typ == PdfObjType::OBJ_INVALID {
         panic!("pdf_label_obj(): passed invalid object.");
     }
     /*
@@ -857,7 +835,7 @@ pub(crate) unsafe fn pdf_transfer_label(mut dst: *mut pdf_obj, mut src: *mut pdf
  */
 
 pub(crate) unsafe fn pdf_link_obj(mut object: *mut pdf_obj) -> *mut pdf_obj {
-    if object.is_null() || (*object).typ <= 0i32 || (*object).typ > 10i32 {
+    if object.is_null() || (*object).typ == PdfObjType::OBJ_INVALID {
         panic!("pdf_link_obj(): passed invalid object.");
     }
     (*object).refcount += 1;
@@ -865,7 +843,7 @@ pub(crate) unsafe fn pdf_link_obj(mut object: *mut pdf_obj) -> *mut pdf_obj {
 }
 
 pub(crate) unsafe fn pdf_ref_obj(object: *mut pdf_obj) -> *mut pdf_obj {
-    if object.is_null() || (*object).typ <= 0i32 || (*object).typ > 10i32 {
+    if object.is_null() || (*object).typ == PdfObjType::OBJ_INVALID {
         panic!("pdf_ref_obj(): passed invalid object.");
     }
     if (*object).refcount == 0_u32 {
@@ -1136,11 +1114,11 @@ unsafe fn write_name(name: &pdf_name, handle: &mut OutputHandleWrapper) {
 unsafe fn write_array(array: *mut pdf_array, handle: &mut OutputHandleWrapper) {
     pdf_out_char(handle, b'[');
     if !(*array).values.is_empty() {
-        let mut type1: i32 = 10i32;
+        let mut type1 = PdfObjType::UNDEFINED;
         for i in 0..(*array).values.len() {
             if !(*array).values[i as usize].is_null() {
                 let type2 = (*(*array).values[i as usize]).typ;
-                if type1 != 10i32 && pdf_need_white(type1, type2) != 0 {
+                if type1 != PdfObjType::UNDEFINED && pdf_need_white(type1, type2) {
                     pdf_out_white(handle);
                 }
                 type1 = type2;
@@ -1226,7 +1204,7 @@ unsafe fn write_dict(dict: &pdf_dict, handle: &mut OutputHandleWrapper) {
     pdf_out(handle, b"<<");
     for (k, &v) in dict.inner.iter() {
         write_name(k, handle);
-        if pdf_need_white(4i32, (*v).typ) != 0 {
+        if pdf_need_white(PdfObjType::NAME, (*v).typ) {
             pdf_out_white(handle);
         }
         pdf_write_obj(v, handle);
@@ -1262,7 +1240,7 @@ impl pdf_dict {
     {
         let value = value.into_obj();
         /* It seems that NULL is sometimes used for null object... */
-        if !value.is_null() && (value.is_null() || (*value).typ <= 0i32 || (*value).typ > 10i32) {
+        if !value.is_null() && (*value).typ == PdfObjType::OBJ_INVALID {
             panic!("pdf_add_dict(): Passed invalid value");
         }
         /* If this key already exists, simply replace the value */
@@ -2570,13 +2548,15 @@ unsafe fn pdf_write_obj(object: *mut pdf_obj, handle: &mut OutputHandleWrapper) 
         return;
     }
     if object.is_null()
-        || (*object).typ <= 0i32
-        || (*object).typ > 10i32
-        || !object.is_null() && pdf_obj_typeof(object) == PdfObjType::UNDEFINED
+        || (*object).typ == PdfObjType::OBJ_INVALID
+        || (*object).typ == PdfObjType::UNDEFINED
     {
-        panic!("pdf_write_obj: Invalid object, type = {}\n", (*object).typ);
+        panic!(
+            "pdf_write_obj: Invalid object, type = {:?}\n",
+            (*object).typ
+        );
     }
-    match PdfObjType::from((*object).typ) {
+    match (*object).typ {
         PdfObjType::BOOLEAN => {
             write_boolean((*object).data as *mut pdf_boolean, handle);
         }
@@ -2696,10 +2676,9 @@ pub unsafe fn pdf_release_obj(mut object: *mut pdf_obj) {
     if object.is_null() {
         return;
     }
-    if object.is_null() || (*object).typ <= 0i32 || (*object).typ > 10i32 || (*object).refcount <= 0
-    {
+    if object.is_null() || (*object).typ == PdfObjType::OBJ_INVALID || (*object).refcount <= 0 {
         info!(
-            "\npdf_release_obj: object={:p}, type={}, refcount={}\n",
+            "\npdf_release_obj: object={:p}, type={:?}, refcount={}\n",
             object,
             (*object).typ,
             (*object).refcount,
@@ -2767,7 +2746,7 @@ pub unsafe fn pdf_release_obj(mut object: *mut pdf_obj) {
             PdfObjType::NULL | _ => {}
         }
         /* This might help detect freeing already freed objects */
-        (*object).typ = -1i32;
+        (*object).typ = PdfObjType::OBJ_INVALID;
         (*object).data = ptr::null_mut();
         free(object as *mut libc::c_void);
     };
@@ -3877,7 +3856,7 @@ unsafe fn import_dict(key: &pdf_name, value: *mut pdf_obj, pdata: *mut libc::c_v
     0i32
 }
 static mut loop_marker: pdf_obj = pdf_obj {
-    typ: 0i32,
+    typ: PdfObjType::OBJ_INVALID,
     id: (0, 0),
     refcount: 0_u32,
     flags: 0i32,
