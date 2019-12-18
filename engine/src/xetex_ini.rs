@@ -14,7 +14,7 @@ use std::io::Write;
 use std::ptr;
 
 use super::xetex_texmfmp::get_date_and_time;
-use crate::core_memory::{mfree, xcalloc, xcalloc_array, xmalloc, xmalloc_array};
+use crate::core_memory::{mfree, xcalloc_array, xmalloc, xmalloc_array};
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, overflow};
 use crate::xetex_ext::release_font_engine;

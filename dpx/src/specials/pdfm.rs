@@ -19,10 +19,7 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-)]
+#![allow(non_camel_case_types, non_snake_case)]
 
 use euclid::point2;
 
@@ -46,9 +43,8 @@ use crate::dpx_dpxutil::{
 };
 use crate::dpx_dvipdfmx::is_xdv;
 use crate::dpx_fontmap::{
-    is_pdfm_mapline, pdf_append_fontmap_record, pdf_clear_fontmap_record, pdf_init_fontmap_record,
-    pdf_insert_fontmap_record, pdf_load_fontmap_file, pdf_read_fontmap_line,
-    pdf_remove_fontmap_record,
+    is_pdfm_mapline, pdf_append_fontmap_record, pdf_init_fontmap_record, pdf_insert_fontmap_record,
+    pdf_load_fontmap_file, pdf_read_fontmap_line, pdf_remove_fontmap_record,
 };
 use crate::dpx_mem::new;
 use crate::dpx_mfileio::work_buffer_u8 as WORK_BUFFER;
@@ -104,8 +100,6 @@ pub(crate) struct tounicode {
 }
 
 use crate::dpx_dpxutil::ht_table;
-
-use crate::dpx_fontmap::fontmap_rec;
 
 use crate::dpx_pdfximage::load_options;
 
@@ -1537,7 +1531,7 @@ unsafe fn spc_handler_pdfm_mapline(spe: *mut spc_env, mut ap: *mut spc_arg) -> i
     match opchr {
         45 => {
             if let Some(map_name) = (*ap).cur.parse_ident() {
-                pdf_remove_fontmap_record(map_name.as_ptr());
+                pdf_remove_fontmap_record(&map_name.to_string_lossy());
             } else {
                 spc_warn!(spe, "Invalid fontmap line: Missing TFM name.");
                 error = -1i32
@@ -1546,11 +1540,9 @@ unsafe fn spc_handler_pdfm_mapline(spe: *mut spc_env, mut ap: *mut spc_arg) -> i
         _ => {
             BUFFER.copy_from_slice((*ap).cur);
             BUFFER[(*ap).cur.len()] = 0;
-            let mrec = new((1_u64).wrapping_mul(::std::mem::size_of::<fontmap_rec>() as u64) as u32)
-                as *mut fontmap_rec;
-            pdf_init_fontmap_record(mrec);
+            let mut mrec = pdf_init_fontmap_record();
             error = pdf_read_fontmap_line(
-                mrec,
+                &mut mrec,
                 BUFFER.as_mut_ptr() as *mut i8,
                 (*ap).cur.len() as i32,
                 is_pdfm_mapline(BUFFER.as_mut_ptr() as *mut i8),
@@ -1558,12 +1550,10 @@ unsafe fn spc_handler_pdfm_mapline(spe: *mut spc_env, mut ap: *mut spc_arg) -> i
             if error != 0 {
                 spc_warn!(spe, "Invalid fontmap line.");
             } else if opchr == b'+' {
-                pdf_append_fontmap_record((*mrec).map_name, mrec);
+                pdf_append_fontmap_record(&mrec.map_name, &mrec);
             } else {
-                pdf_insert_fontmap_record((*mrec).map_name, mrec);
+                pdf_insert_fontmap_record(&mrec.map_name, &mrec);
             }
-            pdf_clear_fontmap_record(mrec);
-            free(mrec as *mut libc::c_void);
         }
     }
     if error == 0 {

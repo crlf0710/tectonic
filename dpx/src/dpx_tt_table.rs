@@ -19,11 +19,7 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use super::dpx_numbers::{
     tt_get_signed_byte, tt_get_signed_pair, tt_get_unsigned_byte, tt_get_unsigned_pair,
@@ -36,6 +32,7 @@ use super::dpx_sfnt::{sfnt_find_table_len, sfnt_find_table_pos, sfnt_locate_tabl
 use crate::bridge::ttstub_input_read;
 use crate::dpx_truetype::sfnt_table_info;
 
+use std::ffi::CStr;
 use std::io::{Seek, SeekFrom};
 use std::ptr;
 
@@ -695,34 +692,63 @@ unsafe fn tt_get_name(
 /* OS/2 table */
 /* name table */
 
-pub(crate) unsafe fn tt_get_ps_fontname(sfont: *mut sfnt, dest: *mut i8, destlen: u16) -> u16 {
+pub(crate) unsafe fn tt_get_ps_fontname(sfont: *mut sfnt) -> Option<String> {
+    let mut dest = [0; 128];
     /* First try Mac-Roman PS name and then Win-Unicode PS name */
-    let mut namelen = tt_get_name(sfont, dest, destlen, 1_u16, 0_u16, 0_u16, 6_u16);
+    let mut namelen = tt_get_name(sfont, dest.as_mut_ptr(), 127, 1_u16, 0_u16, 0_u16, 6_u16);
     if namelen as i32 != 0i32
         || {
-            namelen = tt_get_name(sfont, dest, destlen, 3_u16, 1_u16, 0x409_u16, 6_u16);
+            namelen = tt_get_name(
+                sfont,
+                dest.as_mut_ptr(),
+                127,
+                3_u16,
+                1_u16,
+                0x409_u16,
+                6_u16,
+            );
             namelen as i32 != 0i32
         }
         || {
-            namelen = tt_get_name(sfont, dest, destlen, 3_u16, 5_u16, 0x412_u16, 6_u16);
+            namelen = tt_get_name(
+                sfont,
+                dest.as_mut_ptr(),
+                127,
+                3_u16,
+                5_u16,
+                0x412_u16,
+                6_u16,
+            );
             namelen as i32 != 0i32
         }
     {
-        return namelen;
+        return Some(CStr::from_ptr(dest.as_ptr()).to_str().unwrap().to_owned());
     }
     warn!("No valid PostScript name available");
     /*
       Workaround for some bad TTfonts:
       Language ID value 0xffffu for `accept any language ID'
     */
-    namelen = tt_get_name(sfont, dest, destlen, 1_u16, 0_u16, 0xffff_u16, 6_u16);
+    namelen = tt_get_name(
+        sfont,
+        dest.as_mut_ptr(),
+        127,
+        1_u16,
+        0_u16,
+        0xffff_u16,
+        6_u16,
+    );
     if namelen as i32 == 0i32 {
         /*
           Finally falling back to Mac Roman name field.
           Warning: Some bad Japanese TTfonts using SJIS encoded string in the
           Mac Roman name field.
         */
-        namelen = tt_get_name(sfont, dest, destlen, 1_u16, 0_u16, 0_u16, 1_u16)
+        namelen = tt_get_name(sfont, dest.as_mut_ptr(), 127, 1_u16, 0_u16, 0_u16, 1_u16)
     }
-    namelen
+    if namelen != 0 {
+        Some(CStr::from_ptr(dest.as_ptr()).to_str().unwrap().to_owned())
+    } else {
+        None
+    }
 }

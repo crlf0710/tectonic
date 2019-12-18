@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use super::dpx_numbers::{
@@ -704,7 +704,9 @@ unsafe fn read_tfm(
     tfm_font_clear(&mut tfm);
 }
 
-pub(crate) unsafe fn tfm_open(tfm_name: *const i8, must_exist: i32) -> i32 {
+pub(crate) unsafe fn tfm_open(tfm_name: &str, must_exist: i32) -> i32 {
+    let tfm_name_ = CString::new(tfm_name).unwrap();
+    let tfm_name = tfm_name_.as_ptr();
     let mut tfm_handle = None;
     let mut format: i32 = 1i32;
     let ofm_name;

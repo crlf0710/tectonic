@@ -36,6 +36,7 @@ use crate::bridge::ttstub_input_read;
 use libc::{free, memcmp, memcpy, memmove, memset, strlen};
 
 use crate::bridge::size_t;
+use std::ffi::CString;
 use std::io::{Seek, SeekFrom};
 use std::ptr;
 
@@ -952,7 +953,10 @@ pub(crate) unsafe fn cff_get_name(cff: &cff_font) -> *mut i8 {
     fontname
 }
 
-pub(crate) unsafe fn cff_set_name(mut cff: *mut cff_font, name: *mut i8) -> i32 {
+pub(crate) unsafe fn cff_set_name(mut cff: *mut cff_font, name: &str) -> i32 {
+    // TODO: refactor
+    let name_ = CString::new(name).unwrap();
+    let name = name_.as_ptr();
     if strlen(name) > 127 {
         panic!("FontName string length too large...");
     }

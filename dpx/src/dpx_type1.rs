@@ -30,7 +30,7 @@ use crate::bridge::DisplayExt;
 use crate::mfree;
 use crate::streq_ptr;
 use crate::{info, warn};
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_cff::{
@@ -44,10 +44,9 @@ use super::dpx_cff_dict::{
 use super::dpx_mem::{new, renew};
 use super::dpx_pdfencoding::{pdf_create_ToUnicode_CMap, pdf_encoding_get_encoding};
 use super::dpx_pdffont::{
-    pdf_font, pdf_font_get_descriptor, pdf_font_get_encoding, pdf_font_get_fontname,
-    pdf_font_get_ident, pdf_font_get_mapname, pdf_font_get_resource, pdf_font_get_uniqueTag,
-    pdf_font_get_usedchars, pdf_font_get_verbose, pdf_font_is_in_use, pdf_font_set_flags,
-    pdf_font_set_fontname, pdf_font_set_subtype,
+    pdf_font, pdf_font_get_descriptor, pdf_font_get_encoding, pdf_font_get_resource,
+    pdf_font_get_uniqueTag, pdf_font_get_usedchars, pdf_font_get_verbose, pdf_font_is_in_use,
+    pdf_font_set_flags, pdf_font_set_subtype,
 };
 use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
 use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load_font};
@@ -56,8 +55,7 @@ use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_pdfobj::{
     pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
-use crate::shims::sprintf;
-use libc::{free, memset, strlen, strstr};
+use libc::{free, memset, strlen};
 
 use crate::bridge::TTInputFormat;
 
@@ -125,16 +123,16 @@ unsafe fn is_basefont(name: *const i8) -> bool {
     false
 }
 
-pub(crate) unsafe fn pdf_font_open_type1(font: *mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_open_type1(font: &mut pdf_font) -> i32 {
     let mut fontname: [i8; 128] = [0; 128];
-    assert!(!font.is_null());
-    let ident = pdf_font_get_ident(font);
-    if is_basefont(ident) {
-        pdf_font_set_fontname(font, ident);
+    let ident = &*font.ident;
+    let ident_ = CString::new(ident).unwrap();
+    if is_basefont(ident_.as_ptr()) {
+        font.fontname = ident.to_owned();
         pdf_font_set_subtype(font, 0i32);
         pdf_font_set_flags(font, 1i32 << 0i32 | 1i32 << 2i32);
     } else {
-        let handle = ttstub_input_open(ident, TTInputFormat::TYPE1, 0i32);
+        let handle = ttstub_input_open(ident_.as_ptr(), TTInputFormat::TYPE1, 0i32);
         /* NOTE: skipping qcheck_filetype() call in dpx_find_type1_file but we
          * call is_pfb() in just a second anyway.
          */
@@ -144,18 +142,18 @@ pub(crate) unsafe fn pdf_font_open_type1(font: *mut pdf_font) -> i32 {
         let mut handle = handle.unwrap();
         memset(fontname.as_mut_ptr() as *mut libc::c_void, 0i32, 127 + 1);
         if !is_pfb(&mut handle) || t1_get_fontname(&mut handle, fontname.as_mut_ptr()) < 0i32 {
-            panic!(
-                "Failed to read Type 1 font \"{}\".",
-                CStr::from_ptr(ident).display(),
-            );
+            panic!("Failed to read Type 1 font \"{}\".", ident,);
         }
         ttstub_input_close(handle);
-        pdf_font_set_fontname(font, fontname.as_mut_ptr());
+        font.fontname = CStr::from_ptr(fontname.as_ptr())
+            .to_str()
+            .unwrap()
+            .to_owned();
         pdf_font_set_subtype(font, 0i32);
     }
     0i32
 }
-unsafe fn get_font_attr(font: *mut pdf_font, cffont: &cff_font) {
+unsafe fn get_font_attr(font: &mut pdf_font, cffont: &cff_font) {
     let italicangle;
     let mut flags: i32 = 0i32;
     static mut L_c: [*const i8; 5] = [
@@ -368,15 +366,15 @@ unsafe fn get_font_attr(font: *mut pdf_font, cffont: &cff_font) {
     {
         flags |= 1i32 << 0i32
     }
-    let fontname = pdf_font_get_fontname(font);
-    let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
-    if !fontname.is_null() && strstr(fontname, b"Sans\x00" as *const u8 as *const i8).is_null() {
+    let fontname = &*(&*font).fontname;
+    if !fontname.contains("Sans") {
         flags |= 1i32 << 1i32
     }
-    if !fontname.is_null() && !strstr(fontname, b"Caps\x00" as *const u8 as *const i8).is_null() {
+    if fontname.contains("Caps") {
         flags |= 1i32 << 17i32
     }
     flags |= 1i32 << 2i32;
+    let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
     descriptor.set("CapHeight", capheight);
     descriptor.set("Ascent", ascent);
     descriptor.set("Descent", descent);
@@ -385,7 +383,7 @@ unsafe fn get_font_attr(font: *mut pdf_font, cffont: &cff_font) {
     descriptor.set("Flags", flags as f64);
 }
 unsafe fn add_metrics(
-    font: *mut pdf_font,
+    font: &mut pdf_font,
     cffont: &cff_font,
     enc_vec: *mut *mut i8,
     widths: *mut f64,
@@ -393,7 +391,6 @@ unsafe fn add_metrics(
 ) {
     let mut firstchar;
     let mut lastchar;
-    let fontdict = pdf_font_get_resource(&mut *font).as_dict_mut();
     let descriptor = pdf_font_get_descriptor(font);
     let usedchars = pdf_font_get_usedchars(font);
     /*
@@ -452,7 +449,7 @@ unsafe fn add_metrics(
          * It's wrong to use TFM width here... We should warn if TFM width
          * and actual glyph width are different.
          */
-        let tfm_id = tfm_open(pdf_font_get_mapname(font), 0i32);
+        let tfm_id = tfm_open(&(&*font).map_name, 0i32);
         for code in firstchar..=lastchar {
             if *usedchars.offset(code as isize) != 0 {
                 let width;
@@ -472,7 +469,7 @@ unsafe fn add_metrics(
                     if diff.abs() > 1.0f64 {
                         warn!(
                             "Glyph width mismatch for TFM and font ({})",
-                            CStr::from_ptr(pdf_font_get_mapname(font)).display(),
+                            (&*font).map_name
                         );
                         warn!(
                             "TFM: {} vs. Type1 font: {}",
@@ -491,6 +488,7 @@ unsafe fn add_metrics(
     }
     let empty = tmp_array.is_empty();
     let tmp_array = tmp_array.into_obj();
+    let fontdict = pdf_font_get_resource(font).as_dict_mut(); /* Actually string object */
     if !empty {
         fontdict.set("Widths", pdf_ref_obj(tmp_array));
     }
@@ -498,7 +496,7 @@ unsafe fn add_metrics(
     fontdict.set("FirstChar", firstchar as f64);
     fontdict.set("LastChar", lastchar as f64);
 }
-unsafe fn write_fontfile(font: *mut pdf_font, cffont: &cff_font, pdfcharset: &pdf_stream) -> i32 {
+unsafe fn write_fontfile(font: &mut pdf_font, cffont: &cff_font, pdfcharset: &pdf_stream) -> i32 {
     let mut wbuf: [u8; 1024] = [0; 1024];
     let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
     let mut topdict = CffIndex::new(1);
@@ -644,29 +642,24 @@ unsafe fn write_fontfile(font: *mut pdf_font, cffont: &cff_font, pdfcharset: &pd
     offset as i32
 }
 
-pub(crate) unsafe fn pdf_font_load_type1(font: *mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
     let mut enc_vec;
-    assert!(!font.is_null());
     if !pdf_font_is_in_use(font) {
         return 0i32;
     }
     let verbose = pdf_font_get_verbose();
     let encoding_id = pdf_font_get_encoding(font);
-    let fontdict = pdf_font_get_resource(&mut *font).as_dict_mut(); /* Actually string object */
     pdf_font_get_descriptor(font);
     let usedchars = pdf_font_get_usedchars(font);
-    let ident = pdf_font_get_ident(font);
-    let fontname = pdf_font_get_fontname(font);
     let uniqueTag = pdf_font_get_uniqueTag(font);
-    if usedchars.is_null() || ident.is_null() || fontname.is_null() {
+    let ident = &*font.ident;
+    if usedchars.is_null() || ident.is_empty() || font.fontname.is_empty() {
         panic!("Type1: Unexpected error.");
     }
-    let handle = ttstub_input_open(ident, TTInputFormat::TYPE1, 0i32);
+    let ident_ = CString::new(ident).unwrap();
+    let handle = ttstub_input_open(ident_.as_ptr(), TTInputFormat::TYPE1, 0i32);
     if handle.is_none() {
-        panic!(
-            "Type1: Could not open Type1 font: {}",
-            CStr::from_ptr(ident).display(),
-        );
+        panic!("Type1: Could not open Type1 font: {}", ident);
     }
     let handle = handle.unwrap();
     if encoding_id >= 0i32 {
@@ -681,36 +674,25 @@ pub(crate) unsafe fn pdf_font_load_type1(font: *mut pdf_font) -> i32 {
     }
     let cffont = t1_load_font(enc_vec, 0i32, handle);
     if cffont.is_null() {
-        panic!(
-            "Could not load Type 1 font: {}",
-            CStr::from_ptr(ident).display(),
-        );
+        panic!("Could not load Type 1 font: {}", ident,);
     }
     let cffont = &mut *cffont;
-    let fullname =
-        new((strlen(fontname).wrapping_add(8)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-    sprintf(
-        fullname,
-        b"%6s+%s\x00" as *const u8 as *const i8,
-        uniqueTag,
-        fontname,
-    );
+    let fullname = format!("{}+{}", uniqueTag, font.fontname);
     /* Encoding related things. */
     if encoding_id >= 0i32 {
         enc_vec = pdf_encoding_get_encoding(encoding_id)
     } else {
         /* Create enc_vec and ToUnicode CMap for built-in encoding. */
+        let fontdict = pdf_font_get_resource(font).as_dict_mut(); /* Actually string object */
         if !fontdict.has("ToUnicode") {
-            if let Some(tounicode) = pdf_create_ToUnicode_CMap(fullname, enc_vec, usedchars) {
+            if let Some(tounicode) = pdf_create_ToUnicode_CMap(&fullname, enc_vec, usedchars) {
                 let tounicode = tounicode.into_obj();
                 fontdict.set("ToUnicode", pdf_ref_obj(tounicode));
                 pdf_release_obj(tounicode);
             }
         }
     }
-    cff_set_name(cffont, fullname);
-    free(fullname as *mut libc::c_void);
+    cff_set_name(cffont, &fullname);
     /* defaultWidthX, CapHeight, etc. */
     get_font_attr(font, cffont);
     let defaultwidth = if cff_dict_known(
@@ -773,7 +755,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: *mut pdf_font) -> i32 {
             if streq_ptr(glyph, b".notdef\x00" as *const u8 as *const i8) {
                 warn!(
                     "Character mapped to .notdef used in font: {}",
-                    CStr::from_ptr(fontname).display(),
+                    font.fontname
                 );
                 *usedchars.offset(code as isize) = 0_i8
             } else {
@@ -782,7 +764,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: *mut pdf_font) -> i32 {
                     warn!(
                         "Glyph \"{}\" missing in font \"{}\".",
                         CStr::from_ptr(glyph).display(),
-                        CStr::from_ptr(fontname).display(),
+                        font.fontname
                     );
                     *usedchars.offset(code as isize) = 0_i8
                 } else {

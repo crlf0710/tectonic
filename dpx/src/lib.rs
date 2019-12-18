@@ -66,8 +66,8 @@ macro_rules! warn(
 
 pub(crate) trait Warn<E>: Sized {}
 
-fn isblank(c: libc::c_int) -> libc::c_int {
-    (c == ' ' as _ || c == '\t' as _) as _
+fn isblank(c: libc::c_int) -> bool {
+    (c == ' ' as _ || c == '\t' as _)
 }
 
 trait SkipBlank {
@@ -78,7 +78,7 @@ impl SkipBlank for &[u8] {
     fn skip_blank(&mut self) {
         let mut i = 0;
         for &p in *self {
-            if !(p & !0x7f == 0 && crate::isblank(p as _) != 0) {
+            if !(p & !0x7f == 0 && crate::isblank(p as _)) {
                 break;
             }
             i += 1;

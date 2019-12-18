@@ -23,11 +23,8 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
-
-use crate::bridge::DisplayExt;
-use crate::mfree;
 use crate::streq_ptr;
 use crate::{info, warn};
 use std::ffi::{CStr, CString};
@@ -37,10 +34,10 @@ use super::dpx_cid::CSI_IDENTITY;
 use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_mem::{new, renew};
 use crate::bridge::{ttstub_input_close, ttstub_input_open};
-use libc::{free, memcmp, memcpy, memset, strcmp, strcpy, strlen};
+use libc::{free, memcmp, memcpy, memset, strcpy};
 
 use crate::bridge::size_t;
-
+use crate::bridge::DisplayExt;
 use crate::bridge::TTInputFormat;
 
 use super::dpx_cid::CIDSysInfo;
@@ -102,13 +99,7 @@ pub(crate) struct C2RustUnnamed_0 {
     pub(crate) ranges: *mut rangeDef,
 }
 pub(crate) type CID = u16;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct CMap_cache {
-    pub(crate) num: i32,
-    pub(crate) max: i32,
-    pub(crate) cmaps: *mut *mut CMap,
-}
+
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
@@ -143,38 +134,43 @@ pub(crate) unsafe fn CMap_set_silent(value: i32) {
     __silent = if value != 0 { 1i32 } else { 0i32 };
 }
 
-pub(crate) unsafe fn CMap_new() -> *mut CMap {
-    let cmap = new((1_u64).wrapping_mul(::std::mem::size_of::<CMap>() as u64) as u32) as *mut CMap;
-    (*cmap).name = ptr::null_mut();
-    (*cmap).type_0 = 1i32;
-    (*cmap).wmode = 0i32;
-    (*cmap).useCMap = ptr::null_mut();
-    (*cmap).CSI = ptr::null_mut();
-    (*cmap).profile.minBytesIn = 2i32 as size_t;
-    (*cmap).profile.maxBytesIn = 2i32 as size_t;
-    (*cmap).profile.minBytesOut = 2i32 as size_t;
-    (*cmap).profile.maxBytesOut = 2i32 as size_t;
-    (*cmap).flags = 0i32;
-    (*cmap).codespace.num = 0_u32;
-    (*cmap).codespace.max = 10_u32;
-    (*cmap).codespace.ranges =
-        new((10_u64).wrapping_mul(::std::mem::size_of::<rangeDef>() as u64) as u32)
-            as *mut rangeDef;
-    (*cmap).mapTbl = ptr::null_mut();
-    (*cmap).mapData =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<mapData>() as u64) as u32) as *mut mapData;
-    (*(*cmap).mapData).prev = ptr::null_mut();
-    (*(*cmap).mapData).pos = 0i32;
-    (*(*cmap).mapData).data =
-        new((4096_u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
-    (*cmap).reverseMap =
+pub(crate) unsafe fn CMap_new() -> CMap {
+    let profile = C2RustUnnamed {
+        minBytesIn: 2i32 as usize,
+        maxBytesIn: 2i32 as usize,
+        minBytesOut: 2i32 as usize,
+        maxBytesOut: 2i32 as usize,
+    };
+    let map_data = Box::into_raw(Box::new(mapData {
+        prev: ptr::null_mut(),
+        pos: 0i32,
+        data: new((4096_u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8,
+    }));
+    let reverse_map =
         new((65536_u64).wrapping_mul(::std::mem::size_of::<i32>() as u64) as u32) as *mut i32;
     memset(
-        (*cmap).reverseMap as *mut libc::c_void,
+        reverse_map as *mut libc::c_void,
         0i32,
         (65536usize).wrapping_mul(::std::mem::size_of::<i32>()),
     );
-    cmap
+
+    CMap {
+        profile,
+        name: ptr::null_mut(),
+        type_0: 1i32,
+        wmode: 0i32,
+        useCMap: ptr::null_mut(),
+        CSI: ptr::null_mut(),
+        flags: 0i32,
+        codespace: C2RustUnnamed_0 {
+            num: 0,
+            max: 10,
+            ranges: new(10 * ::std::mem::size_of::<rangeDef>() as u32) as *mut rangeDef,
+        },
+        mapTbl: ptr::null_mut(),
+        mapData: map_data,
+        reverseMap: reverse_map,
+    }
 }
 
 pub(crate) unsafe fn CMap_release(cmap: *mut CMap) {
@@ -183,8 +179,6 @@ pub(crate) unsafe fn CMap_release(cmap: *mut CMap) {
     }
     free((*cmap).name as *mut libc::c_void);
     if !(*cmap).CSI.is_null() {
-        free((*(*cmap).CSI).registry as *mut libc::c_void);
-        free((*(*cmap).CSI).ordering as *mut libc::c_void);
         free((*cmap).CSI as *mut libc::c_void);
     }
     free((*cmap).codespace.ranges as *mut libc::c_void);
@@ -199,7 +193,6 @@ pub(crate) unsafe fn CMap_release(cmap: *mut CMap) {
         map = prev
     }
     free((*cmap).reverseMap as *mut libc::c_void);
-    free(cmap as *mut libc::c_void);
 }
 
 pub(crate) unsafe fn CMap_is_Identity(cmap: *mut CMap) -> bool {
@@ -222,9 +215,7 @@ pub(crate) unsafe fn CMap_is_valid(cmap: *mut CMap) -> bool {
     if !(*cmap).useCMap.is_null() {
         let csi1 = CMap_get_CIDSysInfo(cmap);
         let csi2 = CMap_get_CIDSysInfo((*cmap).useCMap);
-        if strcmp((*csi1).registry, (*csi2).registry) != 0
-            || strcmp((*csi1).ordering, (*csi2).ordering) != 0
-        {
+        if (*csi1).registry != (*csi2).registry || (*csi1).ordering != (*csi2).ordering {
             warn!(
                 "CIDSystemInfo mismatched {} <--> {}",
                 CStr::from_ptr(CMap_get_name(cmap)).display(),
@@ -489,22 +480,10 @@ pub(crate) unsafe fn CMap_set_wmode(mut cmap: *mut CMap, wmode: i32) {
 pub(crate) unsafe fn CMap_set_CIDSysInfo(mut cmap: *mut CMap, csi: *const CIDSysInfo) {
     assert!(!cmap.is_null());
     if !(*cmap).CSI.is_null() {
-        free((*(*cmap).CSI).registry as *mut libc::c_void);
-        free((*(*cmap).CSI).ordering as *mut libc::c_void);
         free((*cmap).CSI as *mut libc::c_void);
     }
-    if !csi.is_null() && !(*csi).registry.is_null() && !(*csi).ordering.is_null() {
-        (*cmap).CSI =
-            new((1usize).wrapping_mul(::std::mem::size_of::<CIDSysInfo>()) as _) as *mut CIDSysInfo;
-        (*(*cmap).CSI).registry = new((strlen((*csi).registry).wrapping_add(1))
-            .wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-        strcpy((*(*cmap).CSI).registry, (*csi).registry);
-        (*(*cmap).CSI).ordering = new((strlen((*csi).ordering).wrapping_add(1))
-            .wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-        strcpy((*(*cmap).CSI).ordering, (*csi).ordering);
-        (*(*cmap).CSI).supplement = (*csi).supplement
+    if !csi.is_null() && !(*csi).registry.is_empty() && !(*csi).ordering.is_empty() {
+        (*cmap).CSI = Box::into_raw(Box::new((*csi).clone()));
     } else {
         warn!("Invalid CIDSystemInfo.");
         (*cmap).CSI = ptr::null_mut()
@@ -540,16 +519,12 @@ pub(crate) unsafe fn CMap_set_usecmap(mut cmap: *mut CMap, ucmap: *mut CMap) {
             CStr::from_ptr((*ucmap).name).display(),
         );
     }
-    if !(*cmap).CSI.is_null()
-        && !(*(*cmap).CSI).registry.is_null()
-        && !(*(*cmap).CSI).ordering.is_null()
-    {
-        if strcmp((*(*cmap).CSI).registry, (*(*ucmap).CSI).registry) != 0
-            || strcmp((*(*cmap).CSI).ordering, (*(*ucmap).CSI).ordering) != 0
+    if !(*cmap).CSI.is_null() {
+        if (*(*cmap).CSI).registry != (*(*ucmap).CSI).registry
+            || (*(*cmap).CSI).ordering != (*(*ucmap).CSI).ordering
         {
             panic!(
-                "{}: CMap {} required by {} have different CSI.",
-                "CMap",
+                "CMap: CMap {} required by {} have different CSI.",
                 CStr::from_ptr(CMap_get_name(cmap)).display(),
                 CStr::from_ptr(CMap_get_name(ucmap)).display(),
             );
@@ -1011,70 +986,58 @@ unsafe fn check_range(
     }
     0i32
 }
-static mut __cache: *mut CMap_cache = std::ptr::null_mut();
+
+// Note: The elements are boxed to be able
+// to get stable pointers to the cached data.
+// (CMap_cache_get returns *mut CMap)
+static mut __cache: Vec<Box<CMap>> = Vec::new();
 
 pub(crate) unsafe fn CMap_cache_init() {
     static mut range_min: [u8; 2] = [0; 2];
     static mut range_max: [u8; 2] = [0xff_u8, 0xff_u8];
-    if !__cache.is_null() {
-        panic!("{}: Already initialized.", "CMap",);
-    }
-    __cache = new((1_u64).wrapping_mul(::std::mem::size_of::<CMap_cache>() as u64) as u32)
-        as *mut CMap_cache;
-    (*__cache).max = 16u32 as i32;
-    (*__cache).cmaps = new(((*__cache).max as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<*mut CMap>() as u64) as u32)
-        as *mut *mut CMap;
-    (*__cache).num = 0i32;
+    __cache.clear();
     /* Create Identity mapping */
-    let ref mut fresh7 = *(*__cache).cmaps.offset(0);
-    *fresh7 = CMap_new();
-    CMap_set_name(*(*__cache).cmaps.offset(0), "Identity-H");
-    CMap_set_type(*(*__cache).cmaps.offset(0), 0i32);
-    CMap_set_wmode(*(*__cache).cmaps.offset(0), 0i32);
-    CMap_set_CIDSysInfo(*(*__cache).cmaps.offset(0), &mut CSI_IDENTITY);
+    __cache.push(Box::new(CMap_new()));
+    let cmap = &mut *__cache[0];
+    CMap_set_name(cmap, "Identity-H");
+    CMap_set_type(cmap, 0i32);
+    CMap_set_wmode(cmap, 0i32);
+    CMap_set_CIDSysInfo(cmap, &mut CSI_IDENTITY);
     CMap_add_codespacerange(
-        *(*__cache).cmaps.offset(0),
+        cmap,
         range_min.as_mut_ptr(),
         range_max.as_mut_ptr(),
         2i32 as size_t,
     );
-    let ref mut fresh8 = *(*__cache).cmaps.offset(1);
-    *fresh8 = CMap_new();
-    CMap_set_name(*(*__cache).cmaps.offset(1), "Identity-V");
-    CMap_set_type(*(*__cache).cmaps.offset(1), 0i32);
-    CMap_set_wmode(*(*__cache).cmaps.offset(1), 1i32);
-    CMap_set_CIDSysInfo(*(*__cache).cmaps.offset(1), &mut CSI_IDENTITY);
+
+    __cache.push(Box::new(CMap_new()));
+    let cmap = &mut *__cache[1];
+    CMap_set_name(cmap, "Identity-V");
+    CMap_set_type(cmap, 0i32);
+    CMap_set_wmode(cmap, 1i32);
+    CMap_set_CIDSysInfo(cmap, &mut CSI_IDENTITY);
     CMap_add_codespacerange(
-        *(*__cache).cmaps.offset(1),
+        cmap,
         range_min.as_mut_ptr(),
         range_max.as_mut_ptr(),
         2i32 as size_t,
     );
-    (*__cache).num += 2i32;
 }
 
 pub(crate) unsafe fn CMap_cache_get(id: i32) -> *mut CMap {
-    if __cache.is_null() {
-        panic!("{}: CMap cache not initialized.", "CMap",);
-    }
-    if id < 0i32 || id >= (*__cache).num {
+    if id < 0i32 || id >= __cache.len() as i32 {
         panic!("Invalid CMap ID {}", id);
     }
-    *(*__cache).cmaps.offset(id as isize)
+    &mut *__cache[id as usize]
 }
 
 pub(crate) unsafe fn CMap_cache_find(cmap_name_str: &str) -> i32 {
-    if __cache.is_null() {
-        CMap_cache_init();
-    }
-    assert!(!__cache.is_null());
     let cmap_name = CString::new(cmap_name_str).unwrap();
-    for id in 0..(*__cache).num {
+    for (id, cmap) in __cache.iter_mut().enumerate() {
         /* CMapName may be undefined when processing usecmap. */
-        let name = CMap_get_name(*(*__cache).cmaps.offset(id as isize));
+        let name = CMap_get_name(&mut **cmap);
         if !name.is_null() && streq_ptr(cmap_name.as_ptr(), name) as i32 != 0 {
-            return id;
+            return id as i32;
         }
     }
     let mut handle = ttstub_input_open(cmap_name.as_ptr(), TTInputFormat::CMAP, 0i32);
@@ -1089,34 +1052,26 @@ pub(crate) unsafe fn CMap_cache_find(cmap_name_str: &str) -> i32 {
     if __verbose != 0 {
         info!("(CMap:{}", cmap_name_str);
     }
-    if (*__cache).num >= (*__cache).max {
-        (*__cache).max = ((*__cache).max as u32).wrapping_add(16u32) as i32 as i32;
-        (*__cache).cmaps = renew(
-            (*__cache).cmaps as *mut libc::c_void,
-            ((*__cache).max as u32 as u64).wrapping_mul(::std::mem::size_of::<*mut CMap>() as u64)
-                as u32,
-        ) as *mut *mut CMap
-    }
-    let id = (*__cache).num;
-    (*__cache).num += 1;
-    let ref mut fresh9 = *(*__cache).cmaps.offset(id as isize);
-    *fresh9 = CMap_new();
-    if CMap_parse(*(*__cache).cmaps.offset(id as isize), handle) < 0i32 {
+
+    let id = (*__cache).len();
+
+    __cache.push(Box::new(CMap_new()));
+    if CMap_parse(&mut *__cache[id], handle) < 0i32 {
         panic!("{}: Parsing CMap file failed.", "CMap",);
     }
     if __verbose != 0 {
         info!(")");
     }
-    id
+    id as i32
 }
 
-pub(crate) unsafe fn CMap_cache_add(cmap: *mut CMap) -> i32 {
-    if !CMap_is_valid(cmap) {
+pub(crate) unsafe fn CMap_cache_add(mut cmap: Box<CMap>) -> i32 {
+    if !CMap_is_valid(&mut *cmap) {
         panic!("{}: Invalid CMap.", "CMap",);
     }
-    for id in 0..(*__cache).num {
-        let cmap_name0 = CMap_get_name(cmap);
-        let cmap_name1 = CMap_get_name(*(*__cache).cmaps.offset(id as isize));
+    for other in &mut __cache {
+        let cmap_name0 = CMap_get_name(&mut *cmap);
+        let cmap_name1 = CMap_get_name(&mut **other);
         if streq_ptr(cmap_name0, cmap_name1) {
             panic!(
                 "{}: CMap \"{}\" already defined.",
@@ -1125,19 +1080,9 @@ pub(crate) unsafe fn CMap_cache_add(cmap: *mut CMap) -> i32 {
             );
         }
     }
-    if (*__cache).num >= (*__cache).max {
-        (*__cache).max = ((*__cache).max as u32).wrapping_add(16u32) as i32 as i32;
-        (*__cache).cmaps = renew(
-            (*__cache).cmaps as *mut libc::c_void,
-            ((*__cache).max as u32 as u64).wrapping_mul(::std::mem::size_of::<*mut CMap>() as u64)
-                as u32,
-        ) as *mut *mut CMap
-    }
-    let id = (*__cache).num;
-    (*__cache).num += 1;
-    let ref mut fresh10 = *(*__cache).cmaps.offset(id as isize);
-    *fresh10 = cmap;
-    id
+
+    __cache.push(cmap);
+    __cache.len() as i32 - 1
 }
 /* Limits */
 /*
@@ -1147,11 +1092,8 @@ pub(crate) unsafe fn CMap_cache_add(cmap: *mut CMap) -> i32 {
 /* charName not supported */
 
 pub(crate) unsafe fn CMap_cache_close() {
-    if !__cache.is_null() {
-        for id in 0..(*__cache).num {
-            CMap_release(*(*__cache).cmaps.offset(id as isize));
-        }
-        free((*__cache).cmaps as *mut libc::c_void);
-        __cache = mfree(__cache as *mut libc::c_void) as *mut CMap_cache
-    };
+    for cmap in &mut __cache {
+        CMap_release(&mut **cmap);
+    }
+    __cache.clear();
 }

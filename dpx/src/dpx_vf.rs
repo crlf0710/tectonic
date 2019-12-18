@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use super::dpx_numbers::{
@@ -32,7 +32,7 @@ use super::dpx_numbers::{
 use crate::bridge::DisplayExt;
 use crate::streq_ptr;
 use crate::warn;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_dvi::{
@@ -226,9 +226,9 @@ unsafe fn read_a_font_def(vf_handle: &mut InputHandleWrapper, font_id: i32, this
     *(*dev_font).name.offset(name_length as isize) = 0_i8;
     let ref mut fresh5 = (*vf_fonts.offset(thisfont as isize)).num_dev_fonts;
     *fresh5 = (*fresh5).wrapping_add(1_u32);
-    (*dev_font).tfm_id = tfm_open((*dev_font).name, 1i32);
+    (*dev_font).tfm_id = tfm_open(&CStr::from_ptr((*dev_font).name).to_string_lossy(), 1i32);
     (*dev_font).dev_id = dvi_locate_font(
-        (*dev_font).name,
+        &CStr::from_ptr((*dev_font).name).to_string_lossy(),
         sqxfw(
             (*vf_fonts.offset(thisfont as isize)).ptsize,
             (*dev_font).size as fixword,
@@ -284,7 +284,9 @@ the PDF file will never repeat a physical font name */
 /* Note: This code needs to be able to recurse */
 /* Global variables such as num_vf_fonts require careful attention */
 
-pub(crate) unsafe fn vf_locate_font(tex_name: *const i8, ptsize: spt_t) -> i32 {
+pub(crate) unsafe fn vf_locate_font(tex_name: &str, ptsize: spt_t) -> i32 {
+    let tex_name_ = CString::new(tex_name).unwrap();
+    let tex_name = tex_name_.as_ptr();
     /* Has this name and ptsize already been loaded as a VF? */
     let mut i = 0;
     while (i as u32) < num_vf_fonts {

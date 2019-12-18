@@ -22,11 +22,10 @@
 
 #![allow(non_snake_case)]
 
-use crate::bridge::DisplayExt;
-
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::sget_unsigned_pair;
 use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
+use crate::bridge::DisplayExt;
 use crate::dpx_pdfobj::{
     pdf_get_version, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj,
     PushObj, STREAM_COMPRESS,
@@ -181,30 +180,39 @@ impl PdfColor {
         }
     }
 
-    pub(crate) unsafe fn to_string(&self, buffer: *mut u8, mask: i8) -> usize {
+    pub(crate) unsafe fn to_string(&self, mask: u8) -> String {
+        let format_float_with_printf_g = |value: f64| {
+            // TODO: refactor this ugly hack while preserving sematics of printf %g
+            let mut buf = String::from_utf8_lossy(&[0x41; 256]).into_owned();
+            let len = sprintf(
+                buf.as_mut_ptr() as *mut i8,
+                b"%g\0" as *const u8 as *const i8,
+                value,
+            ) as usize;
+            buf.truncate(len);
+            buf
+        };
+
         let values_to_string = |values: &[f64]| {
-            let mut len = 0isize;
+            let mut res = String::new();
             for value in values {
-                len += sprintf(
-                    buffer.offset(len) as *mut i8,
-                    b" %g\x00" as *const u8 as *const i8,
-                    (value / 0.001 + 0.5).floor() * 0.001,
-                ) as isize;
+                let value = (value / 0.001 + 0.5).floor() * 0.001;
+                res += " ";
+                res += &format_float_with_printf_g(value);
             }
-            len as usize
+            res
         };
 
         match self {
-            PdfColor::Spot(name, c) => sprintf(
-                buffer as *mut i8,
-                b" /%s %c%c %g %c%c\x00" as *const u8 as *const i8,
-                name.as_ptr(),
-                'C' as i32 | mask as i32,
-                'S' as i32 | mask as i32,
-                (c / 0.001 + 0.5).floor() * 0.001,
-                'S' as i32 | mask as i32,
-                'C' as i32 | mask as i32,
-            ) as usize,
+            PdfColor::Spot(name, c) => format!(
+                " /{} {} {} {} {}{}",
+                name.display(),
+                ('C' as u8 | mask) as char,
+                ('S' as u8 | mask) as char,
+                format_float_with_printf_g((c / 0.001 + 0.5).floor() * 0.001),
+                ('S' as u8 | mask) as char,
+                ('C' as u8 | mask) as char,
+            ),
             PdfColor::Cmyk(c, m, y, k) => values_to_string(&[*c, *m, *y, *k]),
             PdfColor::Rgb(r, g, b) => values_to_string(&[*r, *g, *b]),
             PdfColor::Gray(g) => values_to_string(&[*g]),

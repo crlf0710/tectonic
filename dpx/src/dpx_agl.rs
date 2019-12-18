@@ -351,11 +351,11 @@ pub(crate) unsafe fn agl_init_map() {
         &mut aglmap,
         Some(hval_free as unsafe fn(_: *mut libc::c_void) -> ()),
     );
-    agl_load_listfile(b"texglyphlist.txt\x00" as *const u8 as *const i8, 0);
-    if agl_load_listfile(b"pdfglyphlist.txt\x00" as *const u8 as *const i8, 1).is_err() {
+    agl_load_listfile("texglyphlist.txt", 0);
+    if agl_load_listfile("pdfglyphlist.txt", 1).is_err() {
         warn!("Failed to load AGL file \"{}\"...", "pdfglyphlist.txt");
     }
-    if agl_load_listfile(b"glyphlist.txt\x00" as *const u8 as *const i8, 0).is_err() {
+    if agl_load_listfile("glyphlist.txt", 0).is_err() {
         warn!("Failed to load AGL file \"{}\"...", "glyphlist.txt");
     };
 }
@@ -370,23 +370,19 @@ pub(crate) unsafe fn agl_close_map() {
  *  http://partners.adobe.com/asn/tech/type/unicodegn.jsp
  */
 /* Hash */
-unsafe fn agl_load_listfile(filename: *const i8, is_predef: i32) -> Result<u32, ()> {
+unsafe fn agl_load_listfile(filename: &str, is_predef: i32) -> Result<u32, ()> {
     let mut count: u32 = 0;
     let mut wbuf: [i8; 1024] = [0; 1024];
-    if filename.is_null() {
+    if filename.is_empty() {
         return Err(());
     }
-    let handle = dpx_tt_open(
-        filename,
-        b".txt\x00" as *const u8 as *const i8,
-        TTInputFormat::FONTMAP,
-    );
+    let handle = dpx_tt_open(filename, ".txt", TTInputFormat::FONTMAP);
     if handle.is_none() {
         return Err(());
     }
     let mut handle = handle.unwrap();
     if verbose != 0 {
-        info!("<AGL:{}", CStr::from_ptr(filename).display());
+        info!("<AGL:{}", filename);
     }
     loop {
         let mut p = tt_mfgets(wbuf.as_mut_ptr(), 1024i32, &mut handle) as *const i8;

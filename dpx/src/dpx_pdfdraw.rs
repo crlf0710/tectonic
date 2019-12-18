@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use euclid::point2;
@@ -738,10 +738,10 @@ pub(crate) unsafe fn pdf_dev_currentmatrix() -> TMatrix {
  *   the color is the same as the current graphics state color
  */
 
-pub(crate) unsafe fn pdf_dev_set_color(color: &PdfColor, mask: i8, force: i32) {
+pub(crate) unsafe fn pdf_dev_set_color(color: &PdfColor, mask: u8, force: i32) {
     let stack = unsafe { &mut gs_stack };
     let gs = stack.last_mut().unwrap();
-    let current = if mask as i32 != 0 {
+    let current = if mask != 0 {
         &mut gs.fillcolor
     } else {
         &mut gs.strokecolor
@@ -753,27 +753,32 @@ pub(crate) unsafe fn pdf_dev_set_color(color: &PdfColor, mask: i8, force: i32) {
         return;
     } /* op: RG K G rg k g etc. */
     graphics_mode(); /* Init to avoid compiler warning */
-    let mut len = color.to_string(fmt_buf.as_mut_ptr(), mask);
-    fmt_buf[len] = b' ';
-    len += 1;
-    match color {
+    let mut res = color.to_string(mask);
+    res += match color {
         PdfColor::Rgb(..) => {
-            fmt_buf[len] = b'R' | mask as u8;
-            len += 1;
-            fmt_buf[len] = b'G' | mask as u8;
-            len += 1;
+            if mask == 0 {
+                " RG"
+            } else {
+                " rg"
+            }
         }
         PdfColor::Cmyk(..) => {
-            fmt_buf[len] = b'K' | mask as u8;
-            len += 1;
+            if mask == 0 {
+                " K"
+            } else {
+                " k"
+            }
         }
         PdfColor::Gray(..) => {
-            fmt_buf[len] = b'G' | mask as u8;
-            len += 1;
+            if mask == 0 {
+                " G"
+            } else {
+                " g"
+            }
         }
-        _ => {}
-    }
-    pdf_doc_add_page_content(&fmt_buf[..len]);
+        _ => " ",
+    };
+    pdf_doc_add_page_content(res.as_bytes());
     *current = color.clone();
 }
 

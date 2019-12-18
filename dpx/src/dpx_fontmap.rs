@@ -23,15 +23,14 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use crate::bridge::DisplayExt;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_mfileio::work_buffer;
-use crate::mfree;
 use crate::{info, warn};
 use crate::{streq_ptr, strstartswith};
 
@@ -44,45 +43,39 @@ use super::dpx_mem::new;
 use super::dpx_mfileio::tt_mfgets;
 use super::dpx_subfont::{release_sfd_record, sfd_get_subfont_ids};
 use crate::bridge::ttstub_input_close;
-use libc::{
-    atof, atoi, free, memcmp, memcpy, strcat, strchr, strcmp, strcpy, strlen, strstr, strtol,
-    strtoul,
-};
+use libc::{atof, atoi, free, memcmp, memcpy, strcat, strchr, strcpy, strlen, strtol, strtoul};
 
 use crate::bridge::TTInputFormat;
 
 use bridge::InputHandleWrapper;
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct fontmap_opt {
     pub(crate) slant: f64,
     pub(crate) extend: f64,
     pub(crate) bold: f64,
     pub(crate) mapc: i32,
     pub(crate) flags: i32,
-    pub(crate) otl_tags: *mut i8,
-    pub(crate) tounicode: *mut i8,
+    pub(crate) otl_tags: String,
+    pub(crate) tounicode: String,
     pub(crate) cff_charsets: *mut libc::c_void,
     pub(crate) design_size: f64,
-    pub(crate) charcoll: *mut i8,
+    pub(crate) charcoll: String,
     pub(crate) index: i32,
     pub(crate) style: i32,
     pub(crate) stemv: i32,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct fontmap_rec {
-    pub(crate) map_name: *mut i8,
-    pub(crate) font_name: *mut i8,
-    pub(crate) enc_name: *mut i8,
+    pub(crate) map_name: String,
+    pub(crate) font_name: String,
+    pub(crate) enc_name: String,
     pub(crate) charmap: C2RustUnnamed_0,
     pub(crate) opt: fontmap_opt,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct C2RustUnnamed_0 {
-    pub(crate) sfd_name: *mut i8,
-    pub(crate) subfont_id: *mut i8,
+    pub(crate) sfd_name: String,
+    pub(crate) subfont_id: String,
 }
 
 use super::dpx_dpxutil::ht_table;
@@ -100,42 +93,36 @@ pub(crate) unsafe fn pdf_fontmap_set_verbose(level: i32) {
     verbose = level;
 }
 
-pub(crate) unsafe fn pdf_init_fontmap_record(mut mrec: *mut fontmap_rec) {
-    assert!(!mrec.is_null());
-    (*mrec).map_name = ptr::null_mut();
-    /* SFD char mapping */
-    (*mrec).charmap.sfd_name = ptr::null_mut();
-    (*mrec).charmap.subfont_id = ptr::null_mut();
-    /* for OFM */
-    (*mrec).opt.mapc = -1i32; /* compatibility */
-    (*mrec).font_name = ptr::null_mut(); /* not given explicitly by an option */
-    (*mrec).enc_name = ptr::null_mut();
-    (*mrec).opt.slant = 0.0f64;
-    (*mrec).opt.extend = 1.0f64;
-    (*mrec).opt.bold = 0.0f64;
-    (*mrec).opt.flags = 0i32;
-    (*mrec).opt.design_size = -1.0f64;
-    (*mrec).opt.tounicode = ptr::null_mut();
-    (*mrec).opt.otl_tags = ptr::null_mut();
-    (*mrec).opt.index = 0i32;
-    (*mrec).opt.charcoll = ptr::null_mut();
-    (*mrec).opt.style = 0i32;
-    (*mrec).opt.stemv = -1i32;
-    (*mrec).opt.cff_charsets = ptr::null_mut();
+pub(crate) unsafe fn pdf_init_fontmap_record() -> fontmap_rec {
+    fontmap_rec {
+        map_name: String::new(),
+        /* SFD char mapping */
+        charmap: C2RustUnnamed_0 {
+            sfd_name: String::new(),
+            subfont_id: String::new(),
+        },
+        /* for OFM */
+        font_name: String::new(), /* not given explicitly by an option */
+        enc_name: String::new(),
+
+        opt: fontmap_opt {
+            mapc: -1i32, /* compatibility */
+            slant: 0.0f64,
+            extend: 1.0f64,
+            bold: 0.0f64,
+            flags: 0i32,
+            design_size: -1.0f64,
+            tounicode: String::new(),
+            otl_tags: String::new(),
+            index: 0i32,
+            charcoll: String::new(),
+            style: 0i32,
+            stemv: -1i32,
+            cff_charsets: ptr::null_mut(),
+        },
+    }
 }
 
-pub(crate) unsafe fn pdf_clear_fontmap_record(mrec: *mut fontmap_rec) {
-    assert!(!mrec.is_null());
-    free((*mrec).map_name as *mut libc::c_void);
-    free((*mrec).charmap.sfd_name as *mut libc::c_void);
-    free((*mrec).charmap.subfont_id as *mut libc::c_void);
-    free((*mrec).enc_name as *mut libc::c_void);
-    free((*mrec).font_name as *mut libc::c_void);
-    free((*mrec).opt.tounicode as *mut libc::c_void);
-    free((*mrec).opt.otl_tags as *mut libc::c_void);
-    free((*mrec).opt.charcoll as *mut libc::c_void);
-    pdf_init_fontmap_record(mrec);
-}
 /* strdup: just returns NULL for NULL */
 unsafe fn mstrdup(s: *const i8) -> *mut i8 {
     if s.is_null() {
@@ -146,109 +133,66 @@ unsafe fn mstrdup(s: *const i8) -> *mut i8 {
     strcpy(r, s);
     r
 }
-unsafe fn pdf_copy_fontmap_record(mut dst: *mut fontmap_rec, src: *const fontmap_rec) {
-    assert!(!dst.is_null() && !src.is_null());
-    (*dst).map_name = mstrdup((*src).map_name);
-    (*dst).charmap.sfd_name = mstrdup((*src).charmap.sfd_name);
-    (*dst).charmap.subfont_id = mstrdup((*src).charmap.subfont_id);
-    (*dst).font_name = mstrdup((*src).font_name);
-    (*dst).enc_name = mstrdup((*src).enc_name);
-    (*dst).opt.slant = (*src).opt.slant;
-    (*dst).opt.extend = (*src).opt.extend;
-    (*dst).opt.bold = (*src).opt.bold;
-    (*dst).opt.flags = (*src).opt.flags;
-    (*dst).opt.mapc = (*src).opt.mapc;
-    (*dst).opt.tounicode = mstrdup((*src).opt.tounicode);
-    (*dst).opt.otl_tags = mstrdup((*src).opt.otl_tags);
-    (*dst).opt.index = (*src).opt.index;
-    (*dst).opt.charcoll = mstrdup((*src).opt.charcoll);
-    (*dst).opt.style = (*src).opt.style;
-    (*dst).opt.stemv = (*src).opt.stemv;
-    (*dst).opt.cff_charsets = (*src).opt.cff_charsets;
+unsafe fn pdf_copy_fontmap_record(src: *const fontmap_rec) -> fontmap_rec {
+    assert!(!src.is_null());
+    fontmap_rec {
+        map_name: (*src).map_name.clone(),
+        charmap: C2RustUnnamed_0 {
+            sfd_name: (*src).charmap.sfd_name.clone(),
+            subfont_id: (*src).charmap.subfont_id.clone(),
+        },
+        font_name: (*src).font_name.clone(),
+        enc_name: (*src).enc_name.clone(),
+        opt: fontmap_opt {
+            design_size: (*src).opt.design_size, // FIXME?: this was not copied before
+            slant: (*src).opt.slant,
+            extend: (*src).opt.extend,
+            bold: (*src).opt.bold,
+            flags: (*src).opt.flags,
+            mapc: (*src).opt.mapc,
+            tounicode: (*src).opt.tounicode.clone(),
+            otl_tags: (*src).opt.otl_tags.clone(),
+            index: (*src).opt.index,
+            charcoll: (*src).opt.charcoll.clone(),
+            style: (*src).opt.style,
+            stemv: (*src).opt.stemv,
+            cff_charsets: (*src).opt.cff_charsets,
+        },
+    }
 }
 unsafe fn hval_free(vp: *mut libc::c_void) {
     let mrec: *mut fontmap_rec = vp as *mut fontmap_rec;
-    pdf_clear_fontmap_record(mrec);
-    free(mrec as *mut libc::c_void);
+    Box::from_raw(mrec);
 }
 unsafe fn fill_in_defaults(mut mrec: *mut fontmap_rec, tex_name: &str) {
-    if !(*mrec).enc_name.is_null()
-        && (streq_ptr((*mrec).enc_name, b"default\x00" as *const u8 as *const i8) as i32 != 0
-            || streq_ptr((*mrec).enc_name, b"none\x00" as *const u8 as *const i8) as i32 != 0)
-    {
-        (*mrec).enc_name = mfree((*mrec).enc_name as *mut libc::c_void) as *mut i8
-    }
-    if !(*mrec).font_name.is_null()
-        && (streq_ptr((*mrec).font_name, b"default\x00" as *const u8 as *const i8) as i32 != 0
-            || streq_ptr((*mrec).font_name, b"none\x00" as *const u8 as *const i8) as i32 != 0)
-    {
-        (*mrec).font_name = mfree((*mrec).font_name as *mut libc::c_void) as *mut i8
+    if (*mrec).enc_name == "default" || (*mrec).enc_name == "none" {
+        (*mrec).enc_name.clear();
     }
 
-    let mut tex_name = tex_name.as_bytes().to_vec();
-    tex_name.push(0);
+    if (*mrec).font_name == "default" || (*mrec).font_name == "none" {
+        (*mrec).font_name.clear();
+    }
 
     /* We *must* fill font_name either explicitly or by default */
-    if (*mrec).font_name.is_null() {
-        (*mrec).font_name = new(tex_name.len() as u32 + 1) as *mut i8;
-        strcpy((*mrec).font_name, tex_name.as_ptr() as *const i8);
+    if (*mrec).font_name.is_empty() {
+        (*mrec).font_name = tex_name.to_owned();
     }
-    (*mrec).map_name = new(tex_name.len() as u32 + 1) as *mut i8;
-    strcpy((*mrec).map_name, tex_name.as_ptr() as *const i8);
+    (*mrec).map_name = tex_name.to_owned();
     /* Use "UCS" character collection for Unicode SFD
      * and Identity CMap combination. For backward
      * compatibility.
      */
-    if !(*mrec).charmap.sfd_name.is_null()
-        && !(*mrec).enc_name.is_null()
-        && (*mrec).opt.charcoll.is_null()
-    {
-        if (streq_ptr(
-            (*mrec).enc_name,
-            b"Identity-H\x00" as *const u8 as *const i8,
-        ) as i32
-            != 0
-            || streq_ptr(
-                (*mrec).enc_name,
-                b"Identity-V\x00" as *const u8 as *const i8,
-            ) as i32
-                != 0)
-            && (!strstr(
-                (*mrec).charmap.sfd_name,
-                b"Uni\x00" as *const u8 as *const i8,
-            )
-            .is_null()
-                || !strstr(
-                    (*mrec).charmap.sfd_name,
-                    b"UBig\x00" as *const u8 as *const i8,
-                )
-                .is_null()
-                || !strstr(
-                    (*mrec).charmap.sfd_name,
-                    b"UBg\x00" as *const u8 as *const i8,
-                )
-                .is_null()
-                || !strstr(
-                    (*mrec).charmap.sfd_name,
-                    b"UGB\x00" as *const u8 as *const i8,
-                )
-                .is_null()
-                || !strstr(
-                    (*mrec).charmap.sfd_name,
-                    b"UKS\x00" as *const u8 as *const i8,
-                )
-                .is_null()
-                || !strstr(
-                    (*mrec).charmap.sfd_name,
-                    b"UJIS\x00" as *const u8 as *const i8,
-                )
-                .is_null())
+    if (*mrec).opt.charcoll.is_empty() {
+        if ((*mrec).enc_name == "Identity-H" || (*mrec).enc_name == "Identity-V")
+            && ((*mrec).charmap.sfd_name.contains("Uni")
+                || (*mrec).charmap.sfd_name.contains("UBig")
+                || (*mrec).charmap.sfd_name.contains("UBg")
+                || (*mrec).charmap.sfd_name.contains("UBg")
+                || (*mrec).charmap.sfd_name.contains("UGB")
+                || (*mrec).charmap.sfd_name.contains("UKS")
+                || (*mrec).charmap.sfd_name.contains("UJIS"))
         {
-            (*mrec).opt.charcoll = new((strlen(b"UCS\x00" as *const u8 as *const i8)
-                .wrapping_add(1))
-            .wrapping_mul(::std::mem::size_of::<i8>()) as _)
-                as *mut i8; /* we don't have quoted string */
-            strcpy((*mrec).opt.charcoll, b"UCS\x00" as *const u8 as *const i8);
+            (*mrec).opt.charcoll = "UCS".to_owned();
         }
     };
 }
@@ -258,7 +202,7 @@ unsafe fn tt_readline(buf: *mut i8, buf_len: i32, handle: &mut InputHandleWrappe
     if p.is_null() {
         return ptr::null_mut();
     }
-    let q = strchr(p, '%' as i32);
+    let q = strchr(p, '%' as i32); /* we don't have quoted string */
     if !q.is_null() {
         *q = '\u{0}' as i32 as i8
     }
@@ -269,12 +213,23 @@ unsafe fn skip_blank(pp: *mut *const i8, endptr: *const i8) {
     if p.is_null() || p >= endptr {
         return;
     }
-    while p < endptr && (*p as i32 & !0x7fi32 == 0i32 && crate::isblank(*p as _) != 0) {
+    while p < endptr && (*p as i32 & !0x7fi32 == 0i32 && crate::isblank(*p as _)) {
         p = p.offset(1)
     }
     *pp = p;
 }
-unsafe fn parse_string_value(pp: *mut *const i8, endptr: *const i8) -> *mut i8 {
+
+unsafe fn parse_string_value(pp: *mut *const i8, endptr: *const i8) -> String {
+    let q = parse_string_value_(pp, endptr);
+    if q.is_null() {
+        return String::new();
+    }
+    let res = CStr::from_ptr(q).to_str().unwrap().to_owned();
+    free(q as *mut libc::c_void);
+    res
+}
+
+unsafe fn parse_string_value_(pp: *mut *const i8, endptr: *const i8) -> *mut i8 {
     let q;
     let mut p: *const i8 = *pp;
     if p.is_null() || p >= endptr {
@@ -388,14 +343,14 @@ unsafe fn fontmap_parse_mapdef_dpm(
         (*mrec).font_name = parse_string_value(&mut p, endptr);
         skip_blank(&mut p, endptr);
     }
-    if !(*mrec).font_name.is_null() {
+    if !(*mrec).font_name.is_empty() {
         /* Several options are encoded in font_name for
          * compatibility with dvipdfm.
          */
-        let tmp = strip_options((*mrec).font_name, &mut (*mrec).opt);
+        let font_name = CString::new(&*(*mrec).font_name).unwrap();
+        let tmp = strip_options(font_name.as_ptr(), &mut (*mrec).opt);
         if !tmp.is_null() {
-            free((*mrec).font_name as *mut libc::c_void);
-            (*mrec).font_name = tmp
+            (*mrec).font_name = CStr::from_ptr(tmp).to_str().unwrap().to_owned()
         }
     }
     skip_blank(&mut p, endptr);
@@ -489,8 +444,8 @@ unsafe fn fontmap_parse_mapdef_dpm(
             117 => {
                 /* ToUnicode */
                 let q = parse_string_value(&mut p, endptr);
-                if !q.is_null() {
-                    (*mrec).opt.tounicode = q
+                if !q.is_empty() {
+                    (*mrec).opt.tounicode = q;
                 } else {
                     warn!("Missing string value for option \'u\'.");
                     return -1i32;
@@ -509,8 +464,8 @@ unsafe fn fontmap_parse_mapdef_dpm(
             108 => {
                 /* 2017.4.15 back again */
                 let q = parse_string_value(&mut p, endptr);
-                if !q.is_null() {
-                    (*mrec).opt.otl_tags = q
+                if !q.is_empty() {
+                    (*mrec).opt.otl_tags = q;
                 } else {
                     warn!("Missing string value for option \'l\'.");
                     return -1i32;
@@ -555,34 +510,28 @@ unsafe fn fontmap_parse_mapdef_dpm(
                     p = p.offset(4);
                     skip_blank(&mut p, endptr);
                     let q = parse_string_value(&mut p, endptr);
-                    if q.is_null() {
+                    if q.is_empty() {
                         warn!("Missing value for option \'m\'.");
                         return -1i32;
                     }
-                    let mut r = strchr(q, ',' as i32);
-                    if r.is_null() {
-                        warn!(
-                            "Invalid value for option \'m\': {}",
-                            CStr::from_ptr(q).display(),
-                        );
-                        free(q as *mut libc::c_void);
+                    let comma = match q.find(',') {
+                        Some(idx) => idx,
+                        None => {
+                            warn!("Invalid value for option \'m\': {}", q,);
+                            return -1i32;
+                        }
+                    };
+                    let sfd_name = q[1..comma].to_owned();
+                    let mut subfont_id = &q[comma + 1..];
+                    while !subfont_id.is_empty() && crate::isblank(subfont_id.as_bytes()[0] as _) {
+                        subfont_id = &subfont_id[1..];
+                    }
+                    if subfont_id.is_empty() {
+                        warn!("Invalid value for option \'m\': {},", q);
                         return -1i32;
                     }
-                    *r = 0_i8;
-                    r = r.offset(1);
-                    let mut rr = r as *const i8;
-                    skip_blank(&mut rr, r.offset(strlen(r) as isize));
-                    if *rr as i32 == '\u{0}' as i32 {
-                        warn!(
-                            "Invalid value for option \'m\': {},",
-                            CStr::from_ptr(q).display()
-                        );
-                        free(q as *mut libc::c_void);
-                        return -1i32;
-                    }
-                    (*mrec).charmap.sfd_name = mstrdup(q);
-                    (*mrec).charmap.subfont_id = mstrdup(rr);
-                    free(q as *mut libc::c_void);
+                    (*mrec).charmap.sfd_name = sfd_name;
+                    (*mrec).charmap.subfont_id = subfont_id.to_owned();
                 } else if p.offset(4) < endptr
                     && memcmp(
                         p as *const libc::c_void,
@@ -616,9 +565,7 @@ unsafe fn fontmap_parse_mapdef_dpm(
             }
             119 => {
                 /* Writing mode (for unicode encoding) */
-                if (*mrec).enc_name.is_null()
-                    || strcmp((*mrec).enc_name, b"unicode\x00" as *const u8 as *const i8) != 0
-                {
+                if (*mrec).enc_name != "unicode" {
                     warn!("Fontmap option \'w\' meaningless for encoding other than \"unicode\".");
                     return -1i32;
                 }
@@ -667,8 +614,7 @@ unsafe fn fontmap_parse_mapdef_dps(
     /* However, pdftex.map allows a line without PostScript name. */
     if *p as i32 != '\"' as i32 && *p as i32 != '<' as i32 {
         if p < endptr {
-            let q = parse_string_value(&mut p, endptr);
-            free(q as *mut libc::c_void);
+            let _ = parse_string_value(&mut p, endptr);
             skip_blank(&mut p, endptr);
         } else {
             warn!("Missing a PostScript font name.");
@@ -692,18 +638,11 @@ unsafe fn fontmap_parse_mapdef_dps(
                 }
                 skip_blank(&mut p, endptr);
                 let q = parse_string_value(&mut p, endptr);
-                if !q.is_null() {
-                    let n: i32 = strlen(q) as i32;
-                    if n > 4i32
-                        && !strstartswith(
-                            q.offset(n as isize).offset(-4),
-                            b".enc\x00" as *const u8 as *const i8,
-                        )
-                        .is_null()
-                    {
-                        (*mrec).enc_name = q
+                if !q.is_empty() {
+                    if q.ends_with(".enc") {
+                        (*mrec).enc_name = q;
                     } else {
-                        (*mrec).font_name = q
+                        (*mrec).font_name = q;
                     }
                 }
                 skip_blank(&mut p, endptr);
@@ -713,7 +652,7 @@ unsafe fn fontmap_parse_mapdef_dps(
                 /* If we see <[ or <<, just ignore the second char instead
                 of doing as directed (define encoding file, fully embed); sorry.  */
                 /* Options */
-                let q = parse_string_value(&mut p, endptr);
+                let q = parse_string_value_(&mut p, endptr);
                 if !q.is_null() {
                     let mut r: *const i8 = q;
                     let e: *const i8 = q.offset(strlen(q) as isize);
@@ -722,7 +661,7 @@ unsafe fn fontmap_parse_mapdef_dps(
                         let mut s = parse_float_decimal(&mut r, e);
                         if !s.is_null() {
                             skip_blank(&mut r, e);
-                            let t = parse_string_value(&mut r, e);
+                            let t = parse_string_value_(&mut r, e);
                             if !t.is_null() {
                                 if streq_ptr(t, b"SlantFont\x00" as *const u8 as *const i8) {
                                     (*mrec).opt.slant = atof(s)
@@ -734,7 +673,7 @@ unsafe fn fontmap_parse_mapdef_dps(
                             }
                             free(s as *mut libc::c_void);
                         } else {
-                            s = parse_string_value(&mut r, e);
+                            s = parse_string_value_(&mut r, e);
                             if !s.is_null() {
                                 /* skip */
                                 free(s as *mut libc::c_void); /* including two '@' */
@@ -761,6 +700,7 @@ unsafe fn fontmap_parse_mapdef_dps(
 }
 static mut fontmap: *mut ht_table = std::ptr::null_mut();
 unsafe fn chop_sfd_name(tex_name: *const i8, sfd_name: *mut *mut i8) -> *mut i8 {
+    // TODO: rustify
     *sfd_name = ptr::null_mut();
     let mut p = strchr(tex_name, '@' as i32);
     if p.is_null() || *p.offset(1) as i32 == '\u{0}' as i32 || p == tex_name as *mut i8 {
@@ -847,22 +787,21 @@ unsafe fn make_subfont_name(
  * where 'ab' ... 'yz' is subfont IDs in SFD 'A'.
  */
 
-pub(crate) unsafe fn pdf_append_fontmap_record(kp: *const i8, vp: *const fontmap_rec) -> i32 {
+pub(crate) unsafe fn pdf_append_fontmap_record(kp: &str, vp: *const fontmap_rec) -> i32 {
     let mut sfd_name: *mut i8 = ptr::null_mut();
-    if kp.is_null() || (vp.is_null() || (*vp).map_name.is_null() || (*vp).font_name.is_null()) {
+    if kp.is_empty() || (vp.is_null() || (*vp).map_name.is_empty() || (*vp).font_name.is_empty()) {
         warn!("Invalid fontmap record...");
         return -1i32;
     }
     if verbose > 3i32 {
-        info!(
-            "fontmap>> append key=\"{}\"...",
-            CStr::from_ptr(kp).display()
-        );
+        info!("fontmap>> append key=\"{}\"...", kp);
     }
+    let kp_ = CString::new(kp).unwrap();
+    let kp = kp_.as_ptr();
     let fnt_name = chop_sfd_name(kp, &mut sfd_name); /* link to this entry */
     if !fnt_name.is_null() && !sfd_name.is_null() {
         let mut n: i32 = 0i32;
-        let subfont_ids = sfd_get_subfont_ids(sfd_name, &mut n);
+        let subfont_ids = sfd_get_subfont_ids(&CStr::from_ptr(sfd_name).to_string_lossy(), &mut n);
         if subfont_ids.is_null() {
             return -1i32;
         }
@@ -876,23 +815,24 @@ pub(crate) unsafe fn pdf_append_fontmap_record(kp: *const i8, vp: *const fontmap
             if tfm_name.is_null() {
                 continue;
             }
-            let mut mrec = ht_lookup_table(
+            let mrec = ht_lookup_table(
                 fontmap,
                 tfm_name as *const libc::c_void,
                 strlen(tfm_name) as i32,
             ) as *mut fontmap_rec;
             if mrec.is_null() {
-                mrec = new((1_u64).wrapping_mul(::std::mem::size_of::<fontmap_rec>() as u64) as u32)
-                    as *mut fontmap_rec;
-                pdf_init_fontmap_record(mrec);
-                (*mrec).map_name = mstrdup(kp);
-                (*mrec).charmap.sfd_name = mstrdup(sfd_name);
-                (*mrec).charmap.subfont_id = mstrdup(*subfont_ids.offset(n as isize));
+                let mut mrec = pdf_init_fontmap_record();
+                mrec.map_name = CStr::from_ptr(kp).to_str().unwrap().to_owned();
+                mrec.charmap.sfd_name = CStr::from_ptr(sfd_name).to_str().unwrap().to_owned();
+                mrec.charmap.subfont_id = CStr::from_ptr(*subfont_ids.offset(n as isize))
+                    .to_str()
+                    .unwrap()
+                    .to_owned();
                 ht_insert_table(
                     fontmap,
                     tfm_name as *const libc::c_void,
                     strlen(tfm_name) as i32,
-                    mrec as *mut libc::c_void,
+                    Box::into_raw(Box::new(mrec)) as *mut libc::c_void,
                 );
             }
             free(tfm_name as *mut libc::c_void);
@@ -900,14 +840,13 @@ pub(crate) unsafe fn pdf_append_fontmap_record(kp: *const i8, vp: *const fontmap
         free(fnt_name as *mut libc::c_void);
         free(sfd_name as *mut libc::c_void);
     }
-    let mut mrec =
+    let mrec =
         ht_lookup_table(fontmap, kp as *const libc::c_void, strlen(kp) as i32) as *mut fontmap_rec;
     if mrec.is_null() {
-        mrec = new((1_u64).wrapping_mul(::std::mem::size_of::<fontmap_rec>() as u64) as u32)
-            as *mut fontmap_rec;
-        pdf_copy_fontmap_record(mrec, vp);
-        if !(*mrec).map_name.is_null() && streq_ptr(kp, (*mrec).map_name) as i32 != 0 {
-            (*mrec).map_name = mfree((*mrec).map_name as *mut libc::c_void) as *mut i8
+        let mrec = Box::into_raw(Box::new(pdf_copy_fontmap_record(vp)));
+        let map_name = CString::new(&*(*mrec).map_name).unwrap();
+        if !(*mrec).map_name.is_empty() && streq_ptr(kp, map_name.as_ptr()) as i32 != 0 {
+            (*mrec).map_name.clear();
         }
         ht_insert_table(
             fontmap,
@@ -922,21 +861,22 @@ pub(crate) unsafe fn pdf_append_fontmap_record(kp: *const i8, vp: *const fontmap
     0i32
 }
 
-pub(crate) unsafe fn pdf_remove_fontmap_record(kp: *const i8) -> i32 {
+pub(crate) unsafe fn pdf_remove_fontmap_record(kp: &str) -> i32 {
     let mut sfd_name: *mut i8 = ptr::null_mut();
-    if kp.is_null() {
+    if kp.is_empty() {
         return -1i32;
     }
     if verbose > 3i32 {
-        info!(
-            "fontmap>> remove key=\"{}\"...",
-            CStr::from_ptr(kp).display()
-        );
+        info!("fontmap>> remove key=\"{}\"...", kp);
     }
+
+    let kp_ = CString::new(kp).unwrap();
+    let kp = kp_.as_ptr();
+
     let fnt_name = chop_sfd_name(kp, &mut sfd_name);
     if !fnt_name.is_null() && !sfd_name.is_null() {
         let mut n: i32 = 0i32;
-        let subfont_ids = sfd_get_subfont_ids(sfd_name, &mut n);
+        let subfont_ids = sfd_get_subfont_ids(&CStr::from_ptr(sfd_name).to_string_lossy(), &mut n);
         if subfont_ids.is_null() {
             return -1i32;
         }
@@ -977,11 +917,13 @@ pub(crate) unsafe fn pdf_remove_fontmap_record(kp: *const i8) -> i32 {
 }
 
 pub(crate) unsafe fn pdf_insert_fontmap_record(
-    kp: *const i8,
+    kp: &str,
     vp: *const fontmap_rec,
 ) -> *mut fontmap_rec {
+    let kp_ = CString::new(kp).unwrap();
+    let kp = kp_.as_ptr();
     let mut sfd_name: *mut i8 = ptr::null_mut();
-    if kp.is_null() || (vp.is_null() || (*vp).map_name.is_null() || (*vp).font_name.is_null()) {
+    if kp.is_null() || (vp.is_null() || (*vp).map_name.is_empty() || (*vp).font_name.is_empty()) {
         warn!("Invalid fontmap record...");
         return ptr::null_mut();
     }
@@ -994,7 +936,7 @@ pub(crate) unsafe fn pdf_insert_fontmap_record(
     let fnt_name = chop_sfd_name(kp, &mut sfd_name);
     if !fnt_name.is_null() && !sfd_name.is_null() {
         let mut n: i32 = 0i32;
-        let subfont_ids = sfd_get_subfont_ids(sfd_name, &mut n);
+        let subfont_ids = sfd_get_subfont_ids(&CStr::from_ptr(sfd_name).to_string_lossy(), &mut n);
         if subfont_ids.is_null() {
             warn!(
                 "Could not open SFD file: {}",
@@ -1023,28 +965,28 @@ pub(crate) unsafe fn pdf_insert_fontmap_record(
             if verbose > 3i32 {
                 info!(" {}", CStr::from_ptr(tfm_name).display());
             }
-            let mrec = new((1_u64).wrapping_mul(::std::mem::size_of::<fontmap_rec>() as u64) as u32)
-                as *mut fontmap_rec;
-            pdf_init_fontmap_record(mrec);
-            (*mrec).map_name = mstrdup(kp);
-            (*mrec).charmap.sfd_name = mstrdup(sfd_name);
-            (*mrec).charmap.subfont_id = mstrdup(*subfont_ids.offset(n as isize));
+            let mut mrec = pdf_init_fontmap_record();
+            mrec.map_name = CStr::from_ptr(kp).to_str().unwrap().to_owned();
+            mrec.charmap.sfd_name = CStr::from_ptr(sfd_name).to_str().unwrap().to_owned();
+            mrec.charmap.subfont_id = CStr::from_ptr(*subfont_ids.offset(n as isize))
+                .to_str()
+                .unwrap()
+                .to_owned();
             ht_insert_table(
                 fontmap,
                 tfm_name as *const libc::c_void,
                 strlen(tfm_name) as i32,
-                mrec as *mut libc::c_void,
+                Box::into_raw(Box::new(mrec)) as *mut libc::c_void,
             );
             free(tfm_name as *mut libc::c_void);
         }
         free(fnt_name as *mut libc::c_void);
         free(sfd_name as *mut libc::c_void);
     }
-    let mrec = new((1_u64).wrapping_mul(::std::mem::size_of::<fontmap_rec>() as u64) as u32)
-        as *mut fontmap_rec;
-    pdf_copy_fontmap_record(mrec, vp);
-    if !(*mrec).map_name.is_null() && streq_ptr(kp, (*mrec).map_name) as i32 != 0 {
-        (*mrec).map_name = mfree((*mrec).map_name as *mut libc::c_void) as *mut i8
+    let mrec = Box::into_raw(Box::new(pdf_copy_fontmap_record(vp)));
+    let map_name = CString::new(&*(*mrec).map_name).unwrap();
+    if streq_ptr(kp, map_name.as_ptr()) as i32 != 0 {
+        (*mrec).map_name.clear();
     }
     ht_insert_table(
         fontmap,
@@ -1071,11 +1013,11 @@ pub(crate) unsafe fn pdf_read_fontmap_line(
     if p >= endptr {
         return -1i32;
     }
-    let q = parse_string_value(&mut p, endptr);
+    let q = parse_string_value_(&mut p, endptr);
     if q.is_null() {
         return -1i32;
     }
-    let qstr = CStr::from_ptr(q).to_string_lossy().to_string();
+    let qstr = CStr::from_ptr(q).to_str().unwrap();
     let error = if format > 0i32 {
         /* DVIPDFM format */
         fontmap_parse_mapdef_dpm(mrec, p, endptr)
@@ -1087,17 +1029,16 @@ pub(crate) unsafe fn pdf_read_fontmap_line(
         let mut sfd_name: *mut i8 = ptr::null_mut();
         let fnt_name = chop_sfd_name(q, &mut sfd_name);
         if !fnt_name.is_null() && !sfd_name.is_null() {
-            if (*mrec).font_name.is_null() {
+            if (*mrec).font_name.is_empty() {
                 /* In the case of subfonts, the base name (before the character '@')
                  * will be used as a font_name by default.
                  * Otherwise tex_name will be used as a font_name by default.
                  */
-                (*mrec).font_name = fnt_name
-            } else {
-                free(fnt_name as *mut libc::c_void);
+                (*mrec).font_name = CStr::from_ptr(fnt_name).to_str().unwrap().to_owned();
             }
-            free((*mrec).charmap.sfd_name as *mut libc::c_void);
-            (*mrec).charmap.sfd_name = sfd_name
+            (*mrec).charmap.sfd_name = CStr::from_ptr(sfd_name).to_str().unwrap().to_owned();
+            free(sfd_name as *mut libc::c_void);
+            free(fnt_name as *mut libc::c_void);
         }
         fill_in_defaults(mrec, &qstr);
     }
@@ -1128,7 +1069,7 @@ pub(crate) unsafe fn is_pdfm_mapline(mline: *const i8) -> i32
             return 1i32;
         }
         n = n.wrapping_add(1);
-        while p < endptr && !(*p as i32 & !0x7fi32 == 0i32 && crate::isblank(*p as _) != 0) {
+        while p < endptr && !(*p as i32 & !0x7fi32 == 0i32 && crate::isblank(*p as _)) {
             p = p.offset(1)
         }
         skip_blank(&mut p, endptr);
@@ -1151,11 +1092,7 @@ pub(crate) unsafe fn pdf_load_fontmap_file(filename: &CStr, mode: i32) -> i32 {
     if verbose != 0 {
         info!("<FONTMAP:");
     }
-    let handle = dpx_tt_open(
-        filename.as_ptr(),
-        b".map\x00" as *const u8 as *const i8,
-        TTInputFormat::FONTMAP,
-    );
+    let handle = dpx_tt_open(&filename.to_string_lossy(), ".map", TTInputFormat::FONTMAP);
     if handle.is_none() {
         warn!("Couldn\'t open font map file \"{}\".", filename.display());
         return -1i32;
@@ -1186,11 +1123,9 @@ pub(crate) unsafe fn pdf_load_fontmap_file(filename: &CStr, mode: i32) -> i32 {
             );
         } else {
             format += m;
-            let mrec = new((1_u64).wrapping_mul(::std::mem::size_of::<fontmap_rec>() as u64) as u32)
-                as *mut fontmap_rec;
-            pdf_init_fontmap_record(mrec);
+            let mut mrec = pdf_init_fontmap_record();
             /* format > 0: DVIPDFM, format <= 0: DVIPS/pdfTeX */
-            error = pdf_read_fontmap_line(mrec, p, llen, format); // CHECK
+            error = pdf_read_fontmap_line(&mut mrec, p, llen, format); // CHECK
             if error != 0 {
                 warn!(
                     "Invalid map record in fontmap line {} from {}.",
@@ -1201,23 +1136,19 @@ pub(crate) unsafe fn pdf_load_fontmap_file(filename: &CStr, mode: i32) -> i32 {
                     "-- Ignore the current input buffer: {}",
                     CStr::from_ptr(p).display(),
                 );
-                pdf_clear_fontmap_record(mrec);
-                free(mrec as *mut libc::c_void);
             } else {
                 match mode {
                     0 => {
-                        pdf_insert_fontmap_record((*mrec).map_name, mrec);
+                        pdf_insert_fontmap_record(&mrec.map_name, &mrec);
                     }
                     43 => {
-                        pdf_append_fontmap_record((*mrec).map_name, mrec);
+                        pdf_append_fontmap_record(&mrec.map_name, &mrec);
                     }
                     45 => {
-                        pdf_remove_fontmap_record((*mrec).map_name);
+                        pdf_remove_fontmap_record(&mrec.map_name);
                     }
                     _ => {}
                 }
-                pdf_clear_fontmap_record(mrec);
-                free(mrec as *mut libc::c_void);
             }
         }
     }
@@ -1229,23 +1160,18 @@ pub(crate) unsafe fn pdf_load_fontmap_file(filename: &CStr, mode: i32) -> i32 {
 }
 
 pub(crate) unsafe fn pdf_insert_native_fontmap_record(
-    path: *const i8,
+    path: &str,
     index: u32,
     layout_dir: i32,
     extend: i32,
     slant: i32,
     embolden: i32,
 ) -> *mut fontmap_rec {
-    assert!(!path.is_null());
     let fontmap_key = format!(
         "{}/{}/{}/{}/{}/{}",
-        CStr::from_ptr(path).display(),
+        path,
         index,
-        if layout_dir == 0i32 {
-            'H' as i32
-        } else {
-            'V' as i32
-        },
+        if layout_dir == 0i32 { 'H' } else { 'V' },
         extend,
         slant,
         embolden,
@@ -1253,26 +1179,23 @@ pub(crate) unsafe fn pdf_insert_native_fontmap_record(
     if verbose != 0 {
         info!("<NATIVE-FONTMAP:{}", fontmap_key);
     }
-    let mrec = new((1_u64).wrapping_mul(::std::mem::size_of::<fontmap_rec>() as u64) as u32)
-        as *mut fontmap_rec;
-    pdf_init_fontmap_record(mrec);
-    (*mrec).enc_name = mstrdup(if layout_dir == 0i32 {
-        b"Identity-H\x00" as *const u8 as *const i8
+    let mut mrec = pdf_init_fontmap_record();
+    mrec.enc_name = (if layout_dir == 0 {
+        "Identity-H"
     } else {
-        b"Identity-V\x00" as *const u8 as *const i8
-    });
-    (*mrec).font_name = mstrdup(path);
-    (*mrec).opt.index = index as i32;
+        "Identity-V"
+    })
+    .to_owned();
+    mrec.font_name = path.to_owned();
+    mrec.opt.index = index as i32;
     if layout_dir != 0i32 {
-        (*mrec).opt.flags |= 1i32 << 2i32
+        mrec.opt.flags |= 1i32 << 2i32
     }
-    fill_in_defaults(mrec, &fontmap_key);
-    (*mrec).opt.extend = extend as f64 / 65536.0f64;
-    (*mrec).opt.slant = slant as f64 / 65536.0f64;
-    (*mrec).opt.bold = embolden as f64 / 65536.0f64;
-    let ret = pdf_insert_fontmap_record((*mrec).map_name, mrec);
-    pdf_clear_fontmap_record(mrec);
-    free(mrec as *mut libc::c_void);
+    fill_in_defaults(&mut mrec, &fontmap_key);
+    mrec.opt.extend = extend as f64 / 65536.0f64;
+    mrec.opt.slant = slant as f64 / 65536.0f64;
+    mrec.opt.bold = embolden as f64 / 65536.0f64;
+    let ret = pdf_insert_fontmap_record(&mrec.map_name, &mrec);
     if verbose != 0 {
         info!(">");
     }
@@ -1353,7 +1276,7 @@ unsafe fn strip_options(map_name: *const i8, mut opt: *mut fontmap_opt) -> *mut 
     let mut have_style: i32 = 0i32;
     assert!(!opt.is_null());
     let mut p = map_name;
-    (*opt).charcoll = ptr::null_mut();
+    (*opt).charcoll.clear();
     (*opt).index = 0i32;
     (*opt).style = 0i32;
     (*opt).flags = 0i32;
@@ -1410,7 +1333,10 @@ unsafe fn strip_options(map_name: *const i8, mut opt: *mut fontmap_opt) -> *mut 
     if have_csi != 0 {
         next = strchr(p, ',' as i32);
         if !next.is_null() {
-            (*opt).charcoll = substr(&mut p, ',' as i32 as i8);
+            (*opt).charcoll = CStr::from_ptr(substr(&mut p, ',' as i32 as i8))
+                .to_str()
+                .unwrap()
+                .to_owned();
             have_style = 1i32
         } else if *p.offset(0) as i32 == '\u{0}' as i32 {
             panic!(
@@ -1418,10 +1344,7 @@ unsafe fn strip_options(map_name: *const i8, mut opt: *mut fontmap_opt) -> *mut 
                 CStr::from_ptr(map_name).display()
             );
         } else {
-            (*opt).charcoll =
-                new((strlen(p).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-                    as *mut i8;
-            strcpy((*opt).charcoll, p);
+            (*opt).charcoll = CStr::from_ptr(p).to_str().unwrap().to_owned();
         }
     }
     if have_style != 0 {

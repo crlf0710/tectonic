@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use crate::bridge::DisplayExt;
@@ -65,6 +65,7 @@ const OBJ_NO_OBJSTM: i32 = (1 << 0);
 /// This implies OBJ_NO_OBJSTM if encryption is turned on.
 const OBJ_NO_ENCRYPT: i32 = (1 << 1);
 
+/// (label, generation)
 pub(crate) type ObjectId = (u32, u16);
 
 use super::dpx_dpxutil::ht_table;
@@ -271,9 +272,8 @@ pub(crate) struct decode_parms {
     pub(crate) columns: i32,
 }
 #[derive(Clone, PartialEq, Eq)]
-#[repr(C)]
 pub(crate) struct pdf_name {
-    name: CString,
+    pub(crate) name: CString,
 }
 
 impl std::hash::Hash for pdf_name {

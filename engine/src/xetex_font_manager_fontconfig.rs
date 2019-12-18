@@ -1,21 +1,19 @@
 #![cfg(not(target_os = "macos"))]
-
-#![allow(dead_code,
-         mutable_transmutes,
-         non_camel_case_types,
-         non_snake_case,
-         non_upper_case_globals,
-         unused_assignments,
-         unused_mut)]
+#![allow(
+    dead_code,
+    mutable_transmutes,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    unused_assignments,
+    unused_mut
+)]
 
 use crate::stub_icu as icu;
 use crate::xetex_layout_interface::collection_types::*;
 
 use crate::freetype_sys_patch::{FT_Get_Sfnt_Name, FT_Get_Sfnt_Name_Count};
-use freetype::freetype_sys::{
-    FT_Byte, FT_Error, FT_Face, FT_Fixed, FT_Glyph, FT_Int32, FT_Library, FT_Long, FT_Parameter,
-    FT_Pointer, FT_String, FT_UInt, FT_ULong,
-};
+use freetype::freetype_sys::{FT_Byte, FT_Face, FT_Library, FT_Long};
 use freetype::freetype_sys::{FT_Done_Face, FT_Get_Postscript_Name, FT_Init_FreeType, FT_New_Face};
 
 extern "C" {
