@@ -63,7 +63,7 @@ use super::dpx_pdfdev::{
 use super::dpx_pdfdoc::{
     pdf_doc_begin_page, pdf_doc_break_annot, pdf_doc_end_page, pdf_doc_expand_box,
 };
-use super::dpx_pdfparse::{dump_slice, ParsePdfObj, SkipWhite};
+use super::dpx_pdfparse::{dump, ParsePdfObj, SkipWhite};
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record, subfont_set_verbose};
 use super::dpx_t1_char::t1char_get_metrics;
 use super::dpx_t1_load::t1_load_font;
@@ -746,7 +746,7 @@ pub(crate) unsafe fn dvi_do_special(buffer: &[u8]) {
     let mag = dvi_tell_mag();
     if spc_exec_special(buffer, x_user, y_user, mag) < 0i32 {
         if verbose != 0 {
-            dump_slice(buffer);
+            dump(buffer);
         }
     };
 }

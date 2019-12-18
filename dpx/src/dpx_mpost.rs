@@ -55,7 +55,7 @@ use super::dpx_pdfdraw::{
     pdf_dev_rmoveto, pdf_dev_set_color, pdf_dev_setdash, pdf_dev_setlinecap, pdf_dev_setlinejoin,
     pdf_dev_setlinewidth, pdf_dev_setmiterlimit,
 };
-use super::dpx_pdfparse::dump_slice;
+use super::dpx_pdfparse::dump;
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record};
 use super::dpx_tfm::{tfm_exists, tfm_get_width, tfm_open, tfm_string_width};
 use crate::dpx_pdfobj::{
@@ -1256,7 +1256,7 @@ unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
                 && libc::isspace(start[pos] as _) == 0
             {
                 warn!("Unkown PostScript operator.");
-                dump_slice(&start[..pos]);
+                dump(&start[..pos]);
                 error = 1i32
             } else if STACK.push_checked(value).is_ok() {
                 *start = &start[pos..];

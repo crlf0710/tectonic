@@ -60,20 +60,7 @@ pub(crate) struct ParserState {
 }
 static mut parser_state: ParserState = ParserState { tainted: 0i32 };
 
-pub(crate) unsafe fn dump(start: *const i8, end: *const i8) {
-    let mut p: *const i8 = start;
-    info!("\nCurrent input buffer is -->");
-    while p < end && p < start.offset(50) {
-        let fresh0 = p;
-        p = p.offset(1);
-        info!("{}", char::from(*fresh0 as u8));
-    }
-    if p == start.offset(50) {
-        info!("...");
-    }
-    info!("<--\n");
-}
-pub(crate) fn dump_slice(buf: &[u8]) {
+pub(crate) fn dump(buf: &[u8]) {
     info!("\nCurrent input buffer is -->");
     if buf.len() > 50 {
         info!("{}...", buf[..50].display());
@@ -250,13 +237,6 @@ pub(crate) unsafe fn parse_ident(start: *mut *const i8, end: *const i8) -> *mut 
     parse_gen_ident(start, end, VALID_CHARS)
 }
 
-pub(crate) unsafe fn parse_opt_ident(start: *mut *const i8, end: *const i8) -> *mut i8 {
-    if *start < end && **start as i32 == '@' as i32 {
-        *start = (*start).offset(1);
-        return parse_ident(start, end);
-    }
-    ptr::null_mut()
-}
 pub(crate) trait ParseIdent {
     fn parse_ident(&mut self) -> Option<CString>;
     fn parse_val_ident(&mut self) -> Option<CString>;
@@ -428,12 +408,12 @@ impl ParsePdfObj for &[u8] {
             if result.is_none() {
                 // DEAD code
                 warn!("Could not find the named reference (@{}).", name.display(),);
-                dump_slice(save2);
+                dump(save2);
                 *self = save2
             }
         } else {
             warn!("Could not find a reference name.");
-            dump_slice(save2);
+            dump(save2);
             *self = save2;
             result = None;
         }

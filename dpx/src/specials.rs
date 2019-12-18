@@ -63,7 +63,7 @@ use super::dpx_pdfnames::{
     pdf_delete_name_tree, pdf_names_add_object, pdf_names_close_object, pdf_names_lookup_object,
     pdf_names_lookup_reference, pdf_new_name_tree,
 };
-use super::dpx_pdfparse::{dump_slice, SkipWhite};
+use super::dpx_pdfparse::{dump, SkipWhite};
 use super::specials::dvips::{
     spc_dvips_at_begin_document, spc_dvips_at_begin_page, spc_dvips_at_end_document,
     spc_dvips_at_end_page, spc_dvips_check_special, spc_dvips_setup_handler,
@@ -314,7 +314,7 @@ unsafe fn check_garbage(args: &mut spc_arg) {
     args.cur.skip_white();
     if !args.cur.is_empty() {
         warn!("Unparsed material at end of special ignored.");
-        dump_slice((*args).cur);
+        dump((*args).cur);
     };
 }
 const KNOWN_SPECIALS: [Special; 8] = [
@@ -543,7 +543,7 @@ pub(crate) unsafe fn spc_exec_special(buffer: &[u8], x_user: f64, y_user: f64, m
         exec: None,
     };
     if VERBOSE > 3 {
-        dump_slice(buffer);
+        dump(buffer);
     }
     init_special(
         &mut special,

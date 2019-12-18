@@ -31,14 +31,14 @@ use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_mfileio::work_buffer;
-use crate::{info, warn};
+use crate::{info, warn, SkipBlank};
 use crate::{streq_ptr, strstartswith};
 
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_dpxutil::{
     ht_clear_table, ht_init_table, ht_insert_table, ht_lookup_table, ht_remove_table,
 };
-use super::dpx_dpxutil::{parse_c_string, parse_float_decimal};
+use super::dpx_dpxutil::{ParseCString, ParseFloatDecimal};
 use super::dpx_mem::new;
 use super::dpx_mfileio::tt_mfgets;
 use super::dpx_subfont::{release_sfd_record, sfd_get_subfont_ids};
@@ -219,105 +219,102 @@ unsafe fn skip_blank(pp: *mut *const i8, endptr: *const i8) {
     *pp = p;
 }
 
-unsafe fn parse_string_value(pp: *mut *const i8, endptr: *const i8) -> String {
-    let q = parse_string_value_(pp, endptr);
-    if q.is_null() {
-        return String::new();
-    }
-    let res = CStr::from_ptr(q).to_str().unwrap().to_owned();
-    free(q as *mut libc::c_void);
-    res
+trait ParseStringValue {
+    fn parse_string_value(&mut self) -> String;
+    fn parse_string_value_(&mut self) -> Option<CString>;
 }
 
-unsafe fn parse_string_value_(pp: *mut *const i8, endptr: *const i8) -> *mut i8 {
-    let q;
-    let mut p: *const i8 = *pp;
-    if p.is_null() || p >= endptr {
-        return ptr::null_mut();
+impl ParseStringValue for &[u8] {
+    fn parse_string_value(&mut self) -> String {
+        if let Some(q) = self.parse_string_value_() {
+            q.into_string().unwrap()
+        } else {
+            String::new()
+        }
     }
-    if *p as i32 == '\"' as i32 {
-        q = parse_c_string(&mut p, endptr)
-    } else {
+    fn parse_string_value_(&mut self) -> Option<CString> {
+        let q;
+        let mut p = *self;
+        if p.is_empty() {
+            return None;
+        }
+        if p[0] == b'\"' {
+            q = p.parse_c_string();
+        } else {
+            let mut n = 0;
+            while !p.is_empty() && unsafe { libc::isspace(p[0] as _) } == 0 {
+                p = &p[1..];
+                n += 1;
+            }
+            if n == 0 {
+                return None;
+            }
+            q = Some(CString::new(&self[..n]).unwrap());
+        }
+        *self = p;
+        q
+    }
+}
+
+trait ParseIntegerValue {
+    fn parse_integer_value(&mut self, base: u8) -> Option<CString>;
+}
+
+impl ParseIntegerValue for &[u8] {
+    fn parse_integer_value(&mut self, mut base: u8) -> Option<CString> {
+        /* no preceeding spaces allowed */
+        let mut p = *self;
+        let mut has_sign = false;
+        let mut has_prefix = false;
+        assert!(base == 0 || base >= 2 && base <= 36);
+        if p.is_empty() {
+            return None;
+        }
+        if p[0] == b'-' || p[0] == b'+' {
+            p = &p[1..];
+            has_sign = true
+        }
+        if (base == 0 || base == 16) && p.len() >= 2 && p[0] == b'0' && p[1] == b'x' {
+            p = &p[2..];
+            has_prefix = true
+        }
+        if base == 0 {
+            if has_prefix {
+                base = 16
+            } else if !p.is_empty() && p[0] == b'0' {
+                base = 8
+            } else {
+                base = 10
+            }
+        }
         let mut n = 0;
-        while p < endptr && libc::isspace(*p as _) == 0 {
-            p = p.offset(1);
+        while !p.is_empty()
+            && (base <= 10 && p[0] >= b'0' && p[0] < b'0' + base
+                || base > 10
+                    && (p[0] >= b'0' && p[0] <= b'9'
+                        || p[0] >= b'a' && p[0] < b'a' + (base - 10)
+                        || p[0] >= b'A' && p[0] < b'A' + (base - 10)))
+        {
+            p = &p[1..];
             n += 1;
         }
-        if n == 0_u32 {
-            return ptr::null_mut();
+        if n == 0 {
+            return None;
         }
-        q = new(
-            (n.wrapping_add(1_u32) as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32,
-        ) as *mut i8;
-        memcpy(q as *mut libc::c_void, *pp as *const libc::c_void, n as _);
-        *q.offset(n as isize) = '\u{0}' as i32 as i8
-    }
-    *pp = p;
-    q
-}
-/* no preceeding spaces allowed */
-unsafe fn parse_integer_value(pp: *mut *const i8, endptr: *const i8, mut base: i32) -> *mut i8 {
-    let mut p: *const i8 = *pp;
-    let mut has_sign: i32 = 0i32;
-    let mut has_prefix: i32 = 0i32;
-    assert!(base == 0i32 || base >= 2i32 && base <= 36i32);
-    if p.is_null() || p >= endptr {
-        return ptr::null_mut();
-    }
-    if *p as i32 == '-' as i32 || *p as i32 == '+' as i32 {
-        p = p.offset(1);
-        has_sign = 1i32
-    }
-    if (base == 0i32 || base == 16i32)
-        && p.offset(2) <= endptr
-        && *p.offset(0) as i32 == '0' as i32
-        && *p.offset(1) as i32 == 'x' as i32
-    {
-        p = p.offset(2);
-        has_prefix = 1i32
-    }
-    if base == 0i32 {
-        if has_prefix != 0 {
-            base = 16i32
-        } else if p < endptr && *p as i32 == '0' as i32 {
-            base = 8i32
-        } else {
-            base = 10i32
+        if has_sign {
+            n += 1;
         }
+        if has_prefix {
+            n += 2;
+        }
+        let q = Some(CString::new(&self[..n]).unwrap());
+        *self = p;
+        q
     }
-    let mut n = 0;
-    while p < endptr
-        && (base <= 10i32 && *p as i32 >= '0' as i32 && (*p as i32) < '0' as i32 + base
-            || base > 10i32
-                && (*p as i32 >= '0' as i32 && *p as i32 <= '9' as i32
-                    || *p as i32 >= 'a' as i32 && (*p as i32) < 'a' as i32 + (base - 10i32)
-                    || *p as i32 >= 'A' as i32 && (*p as i32) < 'A' as i32 + (base - 10i32)))
-    {
-        p = p.offset(1);
-        n += 1
-    }
-    if n == 0i32 {
-        return ptr::null_mut();
-    }
-    if has_sign != 0 {
-        n += 1i32
-    }
-    if has_prefix != 0 {
-        n += 2i32
-    }
-    let q = new(((n + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-        as *mut i8;
-    memcpy(q as *mut libc::c_void, *pp as *const libc::c_void, n as _);
-    *q.offset(n as isize) = '\u{0}' as i32 as i8;
-    *pp = p;
-    q
 }
-unsafe fn fontmap_parse_mapdef_dpm(
-    mut mrec: *mut fontmap_rec,
-    mapdef: *const i8,
-    endptr: *const i8,
-) -> i32 {
-    let mut p: *const i8 = mapdef;
+
+unsafe fn fontmap_parse_mapdef_dpm(mut mrec: *mut fontmap_rec, mapdef: &[u8]) -> i32 {
+    let mut p = mapdef;
     /*
      * Parse record line in map file.  First two fields (after TeX font
      * name) are position specific.  Arguments start at the first token
@@ -330,18 +327,18 @@ unsafe fn fontmap_parse_mapdef_dpm(
      *   skip_white() skips '\r' and '\n' but they should terminate
      *   fontmap line here.
      */
-    skip_blank(&mut p, endptr);
+    p.skip_blank();
     /* encoding field */
-    if p < endptr && *p as i32 != '-' as i32 {
+    if !p.is_empty() && p[0] != b'-' {
         /* May be NULL */
-        (*mrec).enc_name = parse_string_value(&mut p, endptr);
-        skip_blank(&mut p, endptr);
+        (*mrec).enc_name = p.parse_string_value();
+        p.skip_blank();
     }
     /* fontname or font filename field */
-    if p < endptr && *p as i32 != '-' as i32 {
+    if !p.is_empty() && p[0] != b'-' {
         /* May be NULL */
-        (*mrec).font_name = parse_string_value(&mut p, endptr);
-        skip_blank(&mut p, endptr);
+        (*mrec).font_name = p.parse_string_value();
+        p.skip_blank();
     }
     if !(*mrec).font_name.is_empty() {
         /* Several options are encoded in font_name for
@@ -353,97 +350,79 @@ unsafe fn fontmap_parse_mapdef_dpm(
             (*mrec).font_name = CStr::from_ptr(tmp).to_str().unwrap().to_owned()
         }
     }
-    skip_blank(&mut p, endptr);
+    p.skip_blank();
     /* Parse any remaining arguments */
-    while p.offset(1) < endptr
-        && *p as i32 != '\r' as i32
-        && *p as i32 != '\n' as i32
-        && *p as i32 == '-' as i32
-    {
-        let mopt: i8 = *p.offset(1);
-        p = p.offset(2);
-        skip_blank(&mut p, endptr);
-        match mopt as i32 {
-            115 => {
+    while p.len() > 1 && p[0] != b'\r' && p[0] != b'\n' && p[0] == b'-' {
+        let mopt = p[1] as u8;
+        p = &p[2..];
+        p.skip_blank();
+        match mopt {
+            b's' => {
                 /* Slant option */
-                let q = parse_float_decimal(&mut p, endptr);
-                if q.is_null() {
+                if let Some(q) = p.parse_float_decimal() {
+                    (*mrec).opt.slant = atof(q.as_ptr());
+                } else {
                     warn!("Missing a number value for \'s\' option.");
                     return -1i32;
                 }
-                (*mrec).opt.slant = atof(q);
-                free(q as *mut libc::c_void);
             }
-            101 => {
+            b'e' => {
                 /* Extend option */
-                let q = parse_float_decimal(&mut p, endptr);
-                if q.is_null() {
+                if let Some(q) = p.parse_float_decimal() {
+                    (*mrec).opt.extend = atof(q.as_ptr());
+                    if (*mrec).opt.extend <= 0.0f64 {
+                        warn!("Invalid value for \'e\' option: {}", q.display());
+                        return -1i32;
+                    }
+                } else {
                     warn!("Missing a number value for \'e\' option.");
                     return -1i32;
                 }
-                (*mrec).opt.extend = atof(q);
-                if (*mrec).opt.extend <= 0.0f64 {
-                    warn!(
-                        "Invalid value for \'e\' option: {}",
-                        CStr::from_ptr(q).display(),
-                    );
-                    return -1i32;
-                }
-                free(q as *mut libc::c_void);
             }
-            98 => {
+            b'b' => {
                 /* Fake-bold option */
-                let q = parse_float_decimal(&mut p, endptr);
-                if q.is_null() {
+                if let Some(q) = p.parse_float_decimal() {
+                    (*mrec).opt.bold = atof(q.as_ptr());
+                    if (*mrec).opt.bold <= 0.0f64 {
+                        warn!("Invalid value for \'b\' option: {}", q.display());
+                        return -1i32;
+                    }
+                } else {
                     warn!("Missing a number value for \'b\' option.");
                     return -1i32;
                 }
-                (*mrec).opt.bold = atof(q);
-                if (*mrec).opt.bold <= 0.0f64 {
-                    warn!(
-                        "Invalid value for \'b\' option: {}",
-                        CStr::from_ptr(q).display(),
-                    );
-                    return -1i32;
-                }
-                free(q as *mut libc::c_void);
             }
-            114 => {}
-            105 => {
+            b'r' => {}
+            b'i' => {
                 /* TTC index */
-                let q = parse_integer_value(&mut p, endptr, 10i32);
-                if q.is_null() {
+                if let Some(q) = p.parse_integer_value(10) {
+                    (*mrec).opt.index = atoi(q.as_ptr());
+                    if (*mrec).opt.index < 0 {
+                        warn!("Invalid TTC index number: {}", q.display());
+                        return -1i32;
+                    }
+                } else {
                     warn!("Missing TTC index number...");
                     return -1i32;
                 }
-                (*mrec).opt.index = atoi(q);
-                if (*mrec).opt.index < 0i32 {
-                    warn!("Invalid TTC index number: {}", CStr::from_ptr(q).display(),);
-                    return -1i32;
-                }
-                free(q as *mut libc::c_void);
             }
-            112 => {
+            b'p' => {
                 /* UCS plane: just for testing */
-                let q = parse_integer_value(&mut p, endptr, 0i32);
-                if q.is_null() {
+                if let Some(q) = p.parse_integer_value(0) {
+                    let v = strtol(q.as_ptr(), 0 as *mut *mut i8, 0i32) as i32;
+                    if v < 0i32 || v > 16i32 {
+                        warn!("Invalid value for option \'p\': {}", q.display());
+                    } else {
+                        (*mrec).opt.mapc = v << 16i32
+                    }
+                } else {
                     warn!("Missing a number for \'p\' option.");
                     return -1i32;
                 }
-                let v = strtol(q, 0 as *mut *mut i8, 0i32) as i32;
-                if v < 0i32 || v > 16i32 {
-                    warn!(
-                        "Invalid value for option \'p\': {}",
-                        CStr::from_ptr(q).display(),
-                    );
-                } else {
-                    (*mrec).opt.mapc = v << 16i32
-                }
-                free(q as *mut libc::c_void);
             }
-            117 => {
+            b'u' => {
                 /* ToUnicode */
-                let q = parse_string_value(&mut p, endptr);
+                let q = p.parse_string_value();
                 if !q.is_empty() {
                     (*mrec).opt.tounicode = q;
                 } else {
@@ -451,19 +430,18 @@ unsafe fn fontmap_parse_mapdef_dpm(
                     return -1i32;
                 }
             }
-            118 => {
+            b'v' => {
                 /* StemV */
-                let q = parse_integer_value(&mut p, endptr, 10i32);
-                if q.is_null() {
+                if let Some(q) = p.parse_integer_value(10) {
+                    (*mrec).opt.stemv = strtol(q.as_ptr(), 0 as *mut *mut i8, 0i32) as i32;
+                } else {
                     warn!("Missing a number for \'v\' option.");
                     return -1i32;
                 }
-                (*mrec).opt.stemv = strtol(q, 0 as *mut *mut i8, 0i32) as i32;
-                free(q as *mut libc::c_void);
             }
-            108 => {
+            b'l' => {
                 /* 2017.4.15 back again */
-                let q = parse_string_value(&mut p, endptr);
+                let q = p.parse_string_value();
                 if !q.is_empty() {
                     (*mrec).opt.otl_tags = q;
                 } else {
@@ -471,45 +449,30 @@ unsafe fn fontmap_parse_mapdef_dpm(
                     return -1i32;
                 }
             }
-            109 => {
+            b'm' => {
                 /* Omega uses both single-byte and double-byte set_char command
                  * even for double-byte OFMs. This confuses CMap decoder.
                  */
                 /* Map single bytes char 0xab to double byte char 0xcdab  */
-                if p.offset(4) <= endptr
-                    && *p.offset(0) as i32 == '<' as i32
-                    && *p.offset(3) as i32 == '>' as i32
-                {
-                    p = p.offset(1);
-                    let q = parse_integer_value(&mut p, endptr, 16i32);
-                    if q.is_null() {
-                        warn!("Invalid value for option \'m\'.");
-                        return -1i32;
-                    } else {
-                        if p < endptr && *p as i32 != '>' as i32 {
-                            warn!(
-                                "Invalid value for option \'m\': {}",
-                                CStr::from_ptr(q).display(),
-                            );
-                            free(q as *mut libc::c_void);
+                if p.len() >= 4 && p[0] == b'<' && p[3] == b'>' {
+                    p = &p[1..];
+                    if let Some(q) = p.parse_integer_value(16) {
+                        if !p.is_empty() && p[0] != b'>' {
+                            warn!("Invalid value for option \'m\': {}", q.display());
                             return -1i32;
                         }
+                        let v = strtol(q.as_ptr(), 0 as *mut *mut i8, 16i32) as i32;
+                        (*mrec).opt.mapc = ((v << 8i32) as i64 & 0xff00) as i32;
+                        p = &p[1..];
+                    } else {
+                        warn!("Invalid value for option \'m\'.");
+                        return -1i32;
                     }
-                    let v = strtol(q, 0 as *mut *mut i8, 16i32) as i32;
-                    (*mrec).opt.mapc = ((v << 8i32) as i64 & 0xff00) as i32;
-                    free(q as *mut libc::c_void);
-                    p = p.offset(1)
-                } else if p.offset(4) <= endptr
-                    && memcmp(
-                        p as *const libc::c_void,
-                        b"sfd:\x00" as *const u8 as *const i8 as *const libc::c_void,
-                        strlen(b"sfd:\x00" as *const u8 as *const i8),
-                    ) == 0
-                {
+                } else if p.starts_with(b"sfd:") {
                     /* SFD mapping: sfd:Big5,00 */
-                    p = p.offset(4);
-                    skip_blank(&mut p, endptr);
-                    let q = parse_string_value(&mut p, endptr);
+                    p = &p[4..];
+                    p.skip_blank();
+                    let q = p.parse_string_value();
                     if q.is_empty() {
                         warn!("Missing value for option \'m\'.");
                         return -1i32;
@@ -532,112 +495,85 @@ unsafe fn fontmap_parse_mapdef_dpm(
                     }
                     (*mrec).charmap.sfd_name = sfd_name;
                     (*mrec).charmap.subfont_id = subfont_id.to_owned();
-                } else if p.offset(4) < endptr
-                    && memcmp(
-                        p as *const libc::c_void,
-                        b"pad:\x00" as *const u8 as *const i8 as *const libc::c_void,
-                        strlen(b"pad:\x00" as *const u8 as *const i8),
-                    ) == 0
-                {
-                    p = p.offset(4);
-                    skip_blank(&mut p, endptr);
-                    let q = parse_integer_value(&mut p, endptr, 16i32);
-                    if q.is_null() {
-                        warn!("Invalid value for option \'m\'.");
-                        return -1i32;
-                    } else {
-                        if p < endptr && libc::isspace(*p as _) == 0 {
-                            warn!(
-                                "Invalid value for option \'m\': {}",
-                                CStr::from_ptr(q).display(),
-                            );
-                            free(q as *mut libc::c_void);
+                } else if p.starts_with(b"pad:") {
+                    p = &p[4..];
+                    p.skip_blank();
+                    if let Some(q) = p.parse_integer_value(16) {
+                        if !p.is_empty() && libc::isspace(p[0] as _) == 0 {
+                            warn!("Invalid value for option \'m\': {}", q.display());
                             return -1i32;
                         }
+                        let v = strtol(q.as_ptr(), 0 as *mut *mut i8, 16i32) as i32;
+                        (*mrec).opt.mapc = ((v << 8i32) as i64 & 0xff00) as i32;
+                    } else {
+                        warn!("Invalid value for option \'m\'.");
+                        return -1i32;
                     }
-                    let v = strtol(q, 0 as *mut *mut i8, 16i32) as i32;
-                    (*mrec).opt.mapc = ((v << 8i32) as i64 & 0xff00) as i32;
-                    free(q as *mut libc::c_void);
                 } else {
                     warn!("Invalid value for option \'m\'.");
                     return -1i32;
                 }
             }
-            119 => {
+            b'w' => {
                 /* Writing mode (for unicode encoding) */
                 if (*mrec).enc_name != "unicode" {
                     warn!("Fontmap option \'w\' meaningless for encoding other than \"unicode\".");
                     return -1i32;
                 }
-                let q = parse_integer_value(&mut p, endptr, 10i32);
-                if q.is_null() {
+                if let Some(q) = p.parse_integer_value(10) {
+                    if atoi(q.as_ptr()) == 1 {
+                        (*mrec).opt.flags |= 1i32 << 2i32
+                    } else if atoi(q.as_ptr()) == 0i32 {
+                        (*mrec).opt.flags &= !(1i32 << 2i32)
+                    } else {
+                        warn!("Invalid value for option \'w\': {}", q.display());
+                    }
+                } else {
                     warn!("Missing wmode value...");
                     return -1i32;
                 }
-                if atoi(q) == 1i32 {
-                    (*mrec).opt.flags |= 1i32 << 2i32
-                } else if atoi(q) == 0i32 {
-                    (*mrec).opt.flags &= !(1i32 << 2i32)
-                } else {
-                    warn!(
-                        "Invalid value for option \'w\': {}",
-                        CStr::from_ptr(q).display(),
-                    );
-                }
-                free(q as *mut libc::c_void);
             }
             _ => {
-                warn!(
-                    "Unrecognized font map option: \'{}\'",
-                    char::from(mopt as u8),
-                );
+                warn!("Unrecognized font map option: \'{}\'", char::from(mopt),);
                 return -1i32;
             }
         }
-        skip_blank(&mut p, endptr);
+        p.skip_blank();
     }
-    if p < endptr && *p as i32 != '\r' as i32 && *p as i32 != '\n' as i32 {
-        warn!("Invalid char in fontmap line: {}", char::from(*p as u8),);
+    if !p.is_empty() && p[0] != b'\r' && p[0] != b'\n' {
+        warn!("Invalid char in fontmap line: {}", char::from(p[0]));
         return -1i32;
     }
     0i32
 }
 /* Parse record line in map file of DVIPS/pdfTeX format. */
-unsafe fn fontmap_parse_mapdef_dps(
-    mut mrec: *mut fontmap_rec,
-    mapdef: *const i8,
-    endptr: *const i8,
-) -> i32 {
-    let mut p: *const i8 = mapdef;
-    skip_blank(&mut p, endptr);
+unsafe fn fontmap_parse_mapdef_dps(mut mrec: *mut fontmap_rec, mapdef: &[u8]) -> i32 {
+    let mut p = mapdef;
+    p.skip_blank();
     /* The first field (after TFM name) must be PostScript name. */
     /* However, pdftex.map allows a line without PostScript name. */
-    if *p as i32 != '\"' as i32 && *p as i32 != '<' as i32 {
-        if p < endptr {
-            let _ = parse_string_value(&mut p, endptr);
-            skip_blank(&mut p, endptr);
+    if p[0] != b'\"' && p[0] != b'<' {
+        if !p.is_empty() {
+            let _ = p.parse_string_value();
+            p.skip_blank();
         } else {
             warn!("Missing a PostScript font name.");
             return -1i32;
         }
     }
-    if p >= endptr {
+    if p.is_empty() {
         return 0i32;
     }
     /* Parse any remaining arguments */
-    while p < endptr
-        && *p as i32 != '\r' as i32
-        && *p as i32 != '\n' as i32
-        && (*p as i32 == '<' as i32 || *p as i32 == '\"' as i32)
-    {
-        match *p as i32 {
-            60 => {
-                p = p.offset(1); /*skip */
-                if p < endptr && (*p as i32 == '[' as i32 || *p as i32 == '<' as i32) {
-                    p = p.offset(1)
+    while !p.is_empty() && p[0] != b'\r' && p[0] != b'\n' && (p[0] == b'<' || p[0] == b'\"') {
+        match p[0] {
+            b'<' => {
+                p = &p[1..]; /*skip */
+                if !p.is_empty() && (p[0] == b'[' || p[0] == b'<') {
+                    p = &p[1..];
                 }
-                skip_blank(&mut p, endptr);
-                let q = parse_string_value(&mut p, endptr);
+                p.skip_blank();
+                let q = p.parse_string_value();
                 if !q.is_empty() {
                     if q.ends_with(".enc") {
                         (*mrec).enc_name = q;
@@ -645,55 +581,44 @@ unsafe fn fontmap_parse_mapdef_dps(
                         (*mrec).font_name = q;
                     }
                 }
-                skip_blank(&mut p, endptr);
+                p.skip_blank();
             }
-            34 => {
+            b'"' => {
                 /* encoding or fontfile field */
                 /* If we see <[ or <<, just ignore the second char instead
                 of doing as directed (define encoding file, fully embed); sorry.  */
                 /* Options */
-                let q = parse_string_value_(&mut p, endptr);
-                if !q.is_null() {
-                    let mut r: *const i8 = q;
-                    let e: *const i8 = q.offset(strlen(q) as isize);
-                    skip_blank(&mut r, e);
-                    while r < e {
-                        let mut s = parse_float_decimal(&mut r, e);
-                        if !s.is_null() {
-                            skip_blank(&mut r, e);
-                            let t = parse_string_value_(&mut r, e);
-                            if !t.is_null() {
-                                if streq_ptr(t, b"SlantFont\x00" as *const u8 as *const i8) {
-                                    (*mrec).opt.slant = atof(s)
-                                } else if streq_ptr(t, b"ExtendFont\x00" as *const u8 as *const i8)
-                                {
-                                    (*mrec).opt.extend = atof(s)
+                if let Some(q) = p.parse_string_value_() {
+                    let mut r = q.to_bytes();
+                    p.skip_blank();
+                    while !r.is_empty() {
+                        if let Some(s) = r.parse_float_decimal() {
+                            r.skip_blank();
+                            if let Some(t) = r.parse_string_value_() {
+                                let t = t.to_bytes();
+                                if t == b"SlantFont" {
+                                    (*mrec).opt.slant = atof(s.as_ptr())
+                                } else if t == b"ExtendFont" {
+                                    (*mrec).opt.extend = atof(s.as_ptr())
                                 }
-                                free(t as *mut libc::c_void);
                             }
-                            free(s as *mut libc::c_void);
                         } else {
-                            s = parse_string_value_(&mut r, e);
-                            if !s.is_null() {
-                                /* skip */
-                                free(s as *mut libc::c_void); /* including two '@' */
-                            }
+                            let _ = r.parse_string_value_(); /* skip */
                         }
-                        skip_blank(&mut r, e);
+                        r.skip_blank();
                     }
-                    free(q as *mut libc::c_void);
                 }
-                skip_blank(&mut p, endptr);
+                p.skip_blank();
             }
             _ => {
-                warn!("Found an invalid entry: {}", CStr::from_ptr(p).display(),);
+                warn!("Found an invalid entry: {}", p.display());
                 return -1i32;
             }
         }
-        skip_blank(&mut p, endptr);
+        p.skip_blank();
     }
-    if p < endptr && *p as i32 != '\r' as i32 && *p as i32 != '\n' as i32 {
-        warn!("Invalid char in fontmap line: {}", char::from(*p as u8),);
+    if !p.is_empty() && p[0] != b'\r' && p[0] != b'\n' {
+        warn!("Invalid char in fontmap line: {}", char::from(p[0]));
         return -1i32;
     }
     0i32
@@ -1007,27 +932,27 @@ pub(crate) unsafe fn pdf_read_fontmap_line(
     format: i32,
 ) -> i32 {
     assert!(!mrec.is_null());
-    let mut p = mline;
-    let endptr = p.offset(mline_len as isize);
-    skip_blank(&mut p, endptr);
-    if p >= endptr {
+    let mut p = std::slice::from_raw_parts(mline as *const u8, mline_len as usize);
+    p.skip_blank();
+    if p.is_empty() {
         return -1i32;
     }
-    let q = parse_string_value_(&mut p, endptr);
-    if q.is_null() {
+    let q = p.parse_string_value_();
+    if q.is_none() {
         return -1i32;
     }
-    let qstr = CStr::from_ptr(q).to_str().unwrap();
+    let q = q.unwrap();
+    let qstr = q.to_str().unwrap();
     let error = if format > 0i32 {
         /* DVIPDFM format */
-        fontmap_parse_mapdef_dpm(mrec, p, endptr)
+        fontmap_parse_mapdef_dpm(mrec, p)
     } else {
         /* DVIPS/pdfTeX format */
-        fontmap_parse_mapdef_dps(mrec, p, endptr)
+        fontmap_parse_mapdef_dps(mrec, p)
     };
     if error == 0 {
         let mut sfd_name: *mut i8 = ptr::null_mut();
-        let fnt_name = chop_sfd_name(q, &mut sfd_name);
+        let fnt_name = chop_sfd_name(q.as_ptr(), &mut sfd_name);
         if !fnt_name.is_null() && !sfd_name.is_null() {
             if (*mrec).font_name.is_empty() {
                 /* In the case of subfonts, the base name (before the character '@')
@@ -1042,7 +967,6 @@ pub(crate) unsafe fn pdf_read_fontmap_line(
         }
         fill_in_defaults(mrec, &qstr);
     }
-    free(q as *mut libc::c_void);
     error
 }
 /* DVIPS/pdfTeX fontmap line if one of the following three cases found:
