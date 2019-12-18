@@ -257,10 +257,8 @@ unsafe fn safeputresdict(kp: &pdf_name, vp: *mut pdf_obj, dp: *mut libc::c_void)
     } else if (*vp).is_dict() {
         if let Some(dict) = dict {
             (*vp).as_dict_mut().foreach(
-                Some(
-                    safeputresdent
-                        as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
-                ),
+                safeputresdent
+                    as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                 dict as *mut pdf_obj as *mut libc::c_void,
             );
         } else {
@@ -316,14 +314,8 @@ unsafe fn spc_handler_pdfm_put(spe: *mut spc_env, ap: *mut spc_arg) -> i32 {
                 error = -1i32
             } else if ident.to_bytes() == b"resources" {
                 error = (*obj2).as_dict_mut().foreach(
-                    Some(
-                        safeputresdict
-                            as unsafe fn(
-                                _: &pdf_name,
-                                _: *mut pdf_obj,
-                                _: *mut libc::c_void,
-                            ) -> i32,
-                    ),
+                    safeputresdict
+                        as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                     obj1 as *mut libc::c_void,
                 )
             } else {
@@ -456,8 +448,7 @@ unsafe fn maybe_reencode_utf8(instring: *mut pdf_string) -> i32 {
             return -1i32;
         }
     }
-    (*instring)
-        .set(&wbuf[..(op.wrapping_offset_from(wbuf.as_ptr()) as usize)]);
+    (*instring).set(&wbuf[..(op.wrapping_offset_from(wbuf.as_ptr()) as usize)]);
     0i32
 }
 /* The purpose of this routine is to check if given string object is
@@ -510,19 +501,13 @@ unsafe fn modstrings(kp: &pdf_name, vp: *mut pdf_obj, dp: *mut libc::c_void) -> 
         }
         PdfObjVariant::DICT(vp) => {
             r = (*vp).foreach(
-                Some(
-                    modstrings
-                        as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
-                ),
+                modstrings as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                 dp,
             )
         }
         PdfObjVariant::STREAM(vp) => {
             r = (*vp).get_dict_mut().foreach(
-                Some(
-                    modstrings
-                        as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
-                ),
+                modstrings as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                 dp,
             )
         }
@@ -550,14 +535,8 @@ impl ParsePdfDictU for &[u8] {
         if let Some(d) = dict {
             unsafe {
                 (*d).as_dict_mut().foreach(
-                    Some(
-                        modstrings
-                            as unsafe fn(
-                                _: &pdf_name,
-                                _: *mut pdf_obj,
-                                _: *mut libc::c_void,
-                            ) -> i32,
-                    ),
+                    modstrings
+                        as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                     cd as *mut libc::c_void,
                 );
             }

@@ -102,6 +102,9 @@ impl pdf_obj {
 
 #[derive(Debug)]
 pub(crate) enum PdfObjVariant {
+    OBJ_INVALID,
+    UNDEFINED,
+    NULL,
     BOOLEAN(bool),
     NUMBER(*mut pdf_number),
     STRING(*mut pdf_string),
@@ -110,9 +113,6 @@ pub(crate) enum PdfObjVariant {
     DICT(*mut pdf_dict),
     STREAM(*mut pdf_stream),
     INDIRECT(*mut pdf_indirect),
-    NULL,
-    UNDEFINED,
-    OBJ_INVALID,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -180,7 +180,7 @@ impl pdf_obj {
         if let PdfObjVariant::DICT(v) = self.data {
             &mut *v
         } else {
-            panic!("invalid pdfobj::as_dict_mut");
+            panic!("pdfobj::as_dict_mut on {:?}", self.typ());
         }
     }
     pub(crate) unsafe fn as_array(&self) -> &Vec<*mut Self> {
@@ -1291,13 +1291,12 @@ impl std::borrow::Borrow<[u8]> for pdf_name {
 impl pdf_dict {
     pub(crate) unsafe fn foreach(
         &mut self,
-        proc_0: Option<unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32>,
+        f: unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
         pdata: *mut libc::c_void,
     ) -> i32 {
-        let proc = proc_0.expect("non-null function pointer");
         self.foreach_dict(
             |k, v, pdata| {
-                let e = proc(k, v, pdata);
+                let e = f(k, v, pdata);
                 e
             },
             pdata,
@@ -3935,10 +3934,8 @@ pub(crate) unsafe fn pdf_import_object(object: *mut pdf_obj) -> *mut pdf_obj {
         PdfObjVariant::DICT(v) => {
             let imported = pdf_dict::new().into_obj();
             if (&mut *v).foreach(
-                Some(
-                    import_dict
-                        as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
-                ),
+                import_dict
+                    as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                 imported as *mut libc::c_void,
             ) < 0i32
             {
