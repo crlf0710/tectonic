@@ -66,9 +66,9 @@ use super::dpx_pdfximage::{
 use super::dpx_pngimage::check_for_png;
 use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_pdfobj::{
-    pdf_compare_reference, pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj,
+    pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj,
     pdf_obj, pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict,
-    pdf_set_encrypt, pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream, pdf_stream_length,
+    pdf_set_encrypt, pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream,
     pdf_string, pdf_string_length, pdf_string_value, IntoObj, PdfObjType, PushObj, STREAM_COMPRESS,
 };
 use libc::{free, memcpy, strcmp, strcpy, strlen, strncmp, strncpy};
@@ -563,7 +563,7 @@ pub(crate) unsafe fn pdf_doc_add_page_resource(
     let resource_name = CStr::from_ptr(resource_name);
     let resources = pdf_doc_get_page_resources(p, category);
     if let Some(duplicate) = (*resources).as_dict_mut().get_mut(resource_name.to_bytes()) {
-        if pdf_compare_reference(duplicate, resource_ref) != 0 {
+        if (*duplicate).as_indirect().compare((*resource_ref).as_indirect()) {
             warn!(
                 "Conflicting page resource found (page: {}, category: {}, name: {}).",
                 pdf_doc_current_page_number(),
@@ -606,7 +606,7 @@ unsafe fn doc_flush_page(p: *mut pdf_doc, mut page: *mut pdf_page, parent_ref: *
         /* global bop */
         contents_array.push((*page).content_refs[0]);
         count = count.wrapping_add(1)
-    } else if !(*p).pages.bop.is_null() && pdf_stream_length(&*(*p).pages.bop) > 0i32 {
+    } else if !(*p).pages.bop.is_null() && (*(*p).pages.bop).as_stream().len() > 0 {
         contents_array.push(pdf_ref_obj((*p).pages.bop));
         count = count.wrapping_add(1)
     }
@@ -624,7 +624,7 @@ unsafe fn doc_flush_page(p: *mut pdf_doc, mut page: *mut pdf_page, parent_ref: *
         /* global eop */
         contents_array.push((*page).content_refs[3]);
         count = count.wrapping_add(1)
-    } else if !(*p).pages.eop.is_null() && pdf_stream_length(&*(*p).pages.eop) > 0i32 {
+    } else if !(*p).pages.eop.is_null() && (*(*p).pages.eop).as_stream().len() > 0 {
         contents_array.push(pdf_ref_obj((*p).pages.eop));
         count = count.wrapping_add(1)
     }
@@ -2221,7 +2221,7 @@ unsafe fn pdf_doc_finish_page(mut p: *mut pdf_doc) {
      * We keep bop itself but not reference to it since it is
      * expected to be small.
      */
-    if !(*p).pages.bop.is_null() && pdf_stream_length(&*(*p).pages.bop) > 0i32 {
+    if !(*p).pages.bop.is_null() && (*(*p).pages.bop).as_stream().len() > 0 {
         (*currentpage).content_refs[0] = pdf_ref_obj((*p).pages.bop)
     } else {
         (*currentpage).content_refs[0] = ptr::null_mut()
@@ -2230,7 +2230,7 @@ unsafe fn pdf_doc_finish_page(mut p: *mut pdf_doc) {
      * Current page background content stream.
      */
     if !(*currentpage).background.is_null() {
-        if pdf_stream_length(&*(*currentpage).background) > 0i32 {
+        if (*(*currentpage).background).as_stream().len() > 0 {
             (*currentpage).content_refs[1] = pdf_ref_obj((*currentpage).background);
             (*(*currentpage).background).as_stream_mut().add_str("\n");
         }
@@ -2247,7 +2247,7 @@ unsafe fn pdf_doc_finish_page(mut p: *mut pdf_doc) {
     /*
      * Global EOP content stream.
      */
-    if !(*p).pages.eop.is_null() && pdf_stream_length(&*(*p).pages.eop) > 0i32 {
+    if !(*p).pages.eop.is_null() && (*(*p).pages.eop).as_stream().len() > 0 {
         (*currentpage).content_refs[3] = pdf_ref_obj((*p).pages.eop)
     } else {
         (*currentpage).content_refs[3] = ptr::null_mut()

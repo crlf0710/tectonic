@@ -1991,9 +1991,6 @@ pub(crate) unsafe fn pdf_stream_dataptr(stream: &pdf_obj) -> *const libc::c_void
     stream.as_stream().content.as_ptr() as *const libc::c_void
 }
 
-pub(crate) unsafe fn pdf_stream_length(stream: &pdf_obj) -> i32 {
-    stream.as_stream().content.len() as i32
-}
 unsafe fn set_objstm_data(objstm: &mut pdf_obj, data: *mut i32) {
     objstm.as_stream_mut().objstm_data = data;
 }
@@ -2624,7 +2621,7 @@ unsafe fn pdf_add_objstm(objstm: &mut pdf_obj, object: &mut pdf_obj) -> i32 {
     *fresh15 += 1;
     let pos = *fresh15;
     *data.offset((2i32 * pos) as isize) = object.label() as i32;
-    *data.offset((2i32 * pos + 1i32) as isize) = pdf_stream_length(objstm);
+    *data.offset((2i32 * pos + 1i32) as isize) = objstm.as_stream().len() as i32;
     add_xref_entry(
         object.label() as usize,
         2_u8,
@@ -2998,7 +2995,7 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
                     if let Some(first_obj) = dict.get("First").filter(|&fo| (*fo).is_number()) {
                         let first = first_obj.as_f64() as i32;
                         /* reject object streams without object data */
-                        if !(first >= pdf_stream_length(&*objstm)) {
+                        if !(first >= (*objstm).as_stream().len() as i32) {
                             let mut header = new(((2i32 * (n + 1i32)) as u32 as u64)
                                 .wrapping_mul(::std::mem::size_of::<i32>() as u64)
                                 as u32) as *mut i32;
@@ -3118,15 +3115,14 @@ unsafe fn pdf_get_object(pf: *mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
             {
                 let objstm_slice = &(*objstm).as_stream().content;
 
-                let length = pdf_stream_length(&*objstm);
                 let pdfobj_start = first + *data.offset(2 * index as isize + 1);
                 let pdfobj_end = if index as i32 == n - 1 {
-                    length
+                    objstm_slice.len()
                 } else {
-                    first + *data.offset(2 * index as isize + 3)
+                    (first + *data.offset(2 * index as isize + 3)) as usize
                 };
 
-                let mut pdfobj_slice = &objstm_slice[pdfobj_start as usize..pdfobj_end as usize];
+                let mut pdfobj_slice = &objstm_slice[pdfobj_start as usize..pdfobj_end];
                 result = pdfobj_slice.parse_pdf_object(pf);
             }
         }
@@ -3484,7 +3480,7 @@ unsafe fn parse_xref_stream(pf: *mut pdf_file, xref_pos: i32, trailer: *mut *mut
                 .filter(|&so| (*so).is_number())
             {
                 let size = size_obj.as_f64() as u32;
-                let mut length = pdf_stream_length(&*xrefstm);
+                let mut length = (*xrefstm).as_stream().len() as i32;
                 let W_obj = (**trailer).as_dict().get("W").unwrap();
                 if !(!W_obj.is_array() || W_obj.as_array().len() != 3) {
                     let mut i = 0;
@@ -3965,11 +3961,10 @@ pub(crate) unsafe fn pdf_import_object(object: *mut pdf_obj) -> *mut pdf_obj {
 }
 /* returns 0 if indirect references point to the same object */
 
-pub(crate) unsafe fn pdf_compare_reference(ref1: *mut pdf_obj, ref2: *mut pdf_obj) -> i32 {
-    assert!(!ref1.is_null() && (*ref1).is_indirect() && (!ref2.is_null() && (*ref2).is_indirect()));
-    let data1 = (*ref1).as_indirect();
-    let data2 = (*ref2).as_indirect();
-    return ((*data1).pf != (*data2).pf || (*data1).id != (*data2).id) as i32;
+impl pdf_indirect {
+    pub(crate) unsafe fn compare(&self, ref2: &Self) -> bool {
+        self.pf != ref2.pf || self.id != ref2.id
+    }
 }
 
 pub(crate) unsafe fn pdf_obj_reset_global_state() {

@@ -54,7 +54,7 @@ use super::dpx_type0::{
 use super::dpx_type1::{pdf_font_load_type1, pdf_font_open_type1};
 use super::dpx_type1c::{pdf_font_load_type1c, pdf_font_open_type1c};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream_length,
+    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj,
     IntoObj,
 };
 use crate::{info, warn};
@@ -364,7 +364,7 @@ unsafe fn try_load_ToUnicode_CMap(font: &mut pdf_font) -> i32 {
         );
     } else if let Some(tounicode) = tounicode {
         let tounicode = tounicode.into_obj();
-        if pdf_stream_length(&*tounicode) > 0i32 {
+        if (*tounicode).as_stream().len() > 0 {
             fontdict
                 .as_dict_mut()
                 .set("ToUnicode", pdf_ref_obj(tounicode));
