@@ -19,10 +19,7 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-)]
+#![allow(non_camel_case_types, non_snake_case)]
 
 use crate::bridge::DisplayExt;
 use crate::warn;
@@ -679,10 +676,8 @@ unsafe fn spc_handler_tpic__setopts(spe: *mut spc_env, ap: *mut spc_arg) -> i32 
     let mut tp: *mut spc_tpic_ = &mut _TPIC_STATE;
     if let Some(mut dict) = spc_parse_kvpairs(ap) {
         let error = dict.foreach(
-            Some(
-                tpic_filter_getopts
-                    as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
-            ),
+            tpic_filter_getopts
+                as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
             tp as *mut libc::c_void,
         );
         if error == 0 {

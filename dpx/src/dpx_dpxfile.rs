@@ -129,7 +129,7 @@ unsafe fn ensuresuffix(basename: *const i8, sfx: *const i8) -> *mut i8 {
 /* tmp freed here */
 /* Tectonic-enabled I/O alternatives */
 
-pub unsafe fn dpx_tt_open(
+pub(crate) unsafe fn dpx_tt_open(
     filename: &str,
     suffix: &str,
     format: TTInputFormat,
@@ -150,7 +150,7 @@ pub unsafe fn dpx_tt_open(
  *   dvipdfm  (text file)
  */
 
-pub unsafe fn dpx_open_type1_file(filename: &str) -> Option<InputHandleWrapper> {
+pub(crate) unsafe fn dpx_open_type1_file(filename: &str) -> Option<InputHandleWrapper> {
     let filename_ = CString::new(filename).unwrap();
     let filename = filename_.as_ptr();
     match ttstub_input_open(filename, TTInputFormat::TYPE1, 0) {
@@ -166,7 +166,7 @@ pub unsafe fn dpx_open_type1_file(filename: &str) -> Option<InputHandleWrapper> 
     }
 }
 
-pub unsafe fn dpx_open_truetype_file(filename: &str) -> Option<InputHandleWrapper> {
+pub(crate) unsafe fn dpx_open_truetype_file(filename: &str) -> Option<InputHandleWrapper> {
     let filename_ = CString::new(filename).unwrap();
     let filename = filename_.as_ptr();
     match ttstub_input_open(filename, TTInputFormat::TRUETYPE, 0) {
@@ -182,7 +182,7 @@ pub unsafe fn dpx_open_truetype_file(filename: &str) -> Option<InputHandleWrappe
     }
 }
 
-pub unsafe fn dpx_open_opentype_file(filename: &str) -> Option<InputHandleWrapper> {
+pub(crate) unsafe fn dpx_open_opentype_file(filename: &str) -> Option<InputHandleWrapper> {
     let filename_ = CString::new(filename).unwrap();
     let filename = filename_.as_ptr();
     let q = ensuresuffix(filename, b".otf\x00" as *const u8 as *const i8);
@@ -201,7 +201,7 @@ pub unsafe fn dpx_open_opentype_file(filename: &str) -> Option<InputHandleWrappe
     }
 }
 
-pub unsafe fn dpx_open_dfont_file(filename: &str) -> Option<InputHandleWrapper> {
+pub(crate) unsafe fn dpx_open_dfont_file(filename: &str) -> Option<InputHandleWrapper> {
     let q;
     if filename.len() > 6 && !filename.ends_with(".dfont") {
         // FIXME: we might want to invert this

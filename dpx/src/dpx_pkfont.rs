@@ -109,7 +109,7 @@ unsafe fn dpx_open_pk_font_at(_ident: *const i8, _dpi: u32) -> *mut FILE {
     fp
 }
 
-pub unsafe fn pdf_font_open_pkfont(font: &mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_open_pkfont(font: &mut pdf_font) -> i32 {
     let point_size = pdf_font_get_param(font, 2i32);
     let encoding_id = pdf_font_get_encoding(font);
     let ident = &*font.ident;
@@ -565,7 +565,7 @@ unsafe fn create_pk_CharProc_stream(
     stream
 }
 
-pub unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
     let mut widths: [f64; 256] = [0.; 256];
     let mut charavail: [i8; 256] = [0; 256];
     /* ENABLE_GLYPHENC */

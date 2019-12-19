@@ -131,7 +131,7 @@ use super::dpx_cs_type2::cs_ginfo;
  */
 /* Font info. from OpenType tables */
 
-pub unsafe fn pdf_font_open_type1c(font: &mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_open_type1c(font: &mut pdf_font) -> i32 {
     let ident = &*(&*font).ident;
     let encoding_id = pdf_font_get_encoding(font);
     let handle = dpx_open_opentype_file(ident);
@@ -285,7 +285,7 @@ unsafe fn add_SimpleMetrics(
     fontdict.set("LastChar", lastchar as f64);
 }
 
-pub unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     let mut offset: i32 = 0i32;
     let mut ginfo = cs_ginfo::new();
     let mut widths: [f64; 256] = [0.; 256];

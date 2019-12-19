@@ -67,10 +67,9 @@ use super::dpx_pngimage::check_for_png;
 use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_pdfobj::{
     pdf_compare_reference, pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj,
-    pdf_obj, pdf_obj_typeof, pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj,
-    pdf_remove_dict, pdf_set_encrypt, pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream,
-    pdf_stream_length, pdf_string, pdf_string_length, pdf_string_value, IntoObj, PdfObjType,
-    PushObj, STREAM_COMPRESS,
+    pdf_obj, pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict,
+    pdf_set_encrypt, pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream, pdf_stream_length,
+    pdf_string, pdf_string_length, pdf_string_value, IntoObj, PdfObjType, PushObj, STREAM_COMPRESS,
 };
 use libc::{free, memcpy, strcmp, strcpy, strlen, strncmp, strncpy};
 
@@ -1583,7 +1582,7 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
      */
     let subtype = pdf_deref_obj((*annot_dict).as_dict_mut().get_mut("Subtype"));
     if !subtype.is_null() {
-        if !subtype.is_null() && pdf_obj_typeof(subtype) == PdfObjType::UNDEFINED {
+        if !subtype.is_null() && (&*subtype).typ() == PdfObjType::UNDEFINED {
             return undefined(subtype, A, S, D);
         } else if !(!subtype.is_null() && (*subtype).is_name()) {
             return error(subtype, A, S, D);
@@ -1595,19 +1594,19 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
     let mut dict = annot_dict;
     let mut key = "Dest";
     D = pdf_deref_obj((*annot_dict).as_dict_mut().get_mut(key));
-    if !D.is_null() && pdf_obj_typeof(D) == PdfObjType::UNDEFINED {
+    if !D.is_null() && (&*D).typ() == PdfObjType::UNDEFINED {
         return undefined(subtype, A, S, D);
     }
 
     A = pdf_deref_obj((*annot_dict).as_dict_mut().get_mut("A"));
     if !A.is_null() {
-        if !A.is_null() && pdf_obj_typeof(A) == PdfObjType::UNDEFINED {
+        if !A.is_null() && (&*A).typ() == PdfObjType::UNDEFINED {
             return undefined(subtype, A, S, D);
         } else if !D.is_null() || !(!A.is_null() && (*A).is_dict()) {
             return error(subtype, A, S, D);
         } else {
             S = pdf_deref_obj((*A).as_dict_mut().get_mut("S"));
-            if !S.is_null() && pdf_obj_typeof(S) == PdfObjType::UNDEFINED {
+            if !S.is_null() && (&*S).typ() == PdfObjType::UNDEFINED {
                 return undefined(subtype, A, S, D);
             } else if !(!S.is_null() && (*S).is_name()) {
                 return error(subtype, A, S, D);
@@ -1628,7 +1627,7 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
         )
     } else if !D.is_null() && (*D).is_array() {
         return cleanup(subtype, A, S, D);
-    } else if !D.is_null() && pdf_obj_typeof(D) == PdfObjType::UNDEFINED {
+    } else if !D.is_null() && (&*D).typ() == PdfObjType::UNDEFINED {
         return undefined(subtype, A, S, D);
     } else {
         return error(subtype, A, S, D);

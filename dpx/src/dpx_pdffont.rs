@@ -63,22 +63,22 @@ use libc::{free, memset, rand, srand};
 /* Options */
 use super::dpx_fontmap::fontmap_rec;
 #[derive(Clone)]
-pub struct pdf_font {
-    pub ident: String,
-    pub subtype: i32,
-    pub map_name: String,
-    pub encoding_id: i32,
-    pub font_id: i32,
-    pub index: i32,
-    pub fontname: String,
-    pub uniqueID: String,
-    pub reference: *mut pdf_obj,
-    pub resource: *mut pdf_obj,
-    pub descriptor: *mut pdf_obj,
-    pub usedchars: *mut i8,
-    pub flags: i32,
-    pub point_size: f64,
-    pub design_size: f64,
+pub(crate) struct pdf_font {
+    pub(crate) ident: String,
+    pub(crate) subtype: i32,
+    pub(crate) map_name: String,
+    pub(crate) encoding_id: i32,
+    pub(crate) font_id: i32,
+    pub(crate) index: i32,
+    pub(crate) fontname: String,
+    pub(crate) uniqueID: String,
+    pub(crate) reference: *mut pdf_obj,
+    pub(crate) resource: *mut pdf_obj,
+    pub(crate) descriptor: *mut pdf_obj,
+    pub(crate) usedchars: *mut i8,
+    pub(crate) flags: i32,
+    pub(crate) point_size: f64,
+    pub(crate) design_size: f64,
     /* _PDFFONT_H_ */
 }
 
@@ -161,7 +161,7 @@ pub(crate) unsafe fn pdf_font_set_deterministic_unique_tags(value: i32) {
     unique_tags_deterministic = value;
 }
 
-pub unsafe fn pdf_font_make_uniqueTag() -> String {
+pub(crate) unsafe fn pdf_font_make_uniqueTag() -> String {
     if unique_tags_deterministic != 0 {
         let tag_str = format!("{:06}", unique_tag_state);
         unique_tag_state += 1;
@@ -259,7 +259,7 @@ unsafe fn pdf_clean_font_struct(mut font: &mut pdf_font) {
 }
 static mut font_cache: Vec<pdf_font> = Vec::new();
 
-pub unsafe fn pdf_init_fonts() {
+pub(crate) unsafe fn pdf_init_fonts() {
     agl_init_map();
     CMap_cache_init();
     pdf_init_encodings();
@@ -267,7 +267,7 @@ pub unsafe fn pdf_init_fonts() {
     font_cache.clear();
 }
 
-pub unsafe fn pdf_get_font_reference(font_id: i32) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_get_font_reference(font_id: i32) -> *mut pdf_obj {
     if font_id < 0i32 || font_id >= font_cache.len() as _ {
         panic!("Invalid font ID: {}", font_id);
     }
@@ -283,7 +283,7 @@ pub unsafe fn pdf_get_font_reference(font_id: i32) -> *mut pdf_obj {
     pdf_link_obj(font.reference)
 }
 
-pub unsafe fn pdf_get_font_usedchars(font_id: i32) -> *mut i8 {
+pub(crate) unsafe fn pdf_get_font_usedchars(font_id: i32) -> *mut i8 {
     if font_id < 0i32 || font_id >= font_cache.len() as _ {
         panic!("Invalid font ID: {}", font_id);
     }
@@ -305,7 +305,7 @@ pub unsafe fn pdf_get_font_usedchars(font_id: i32) -> *mut i8 {
     };
 }
 
-pub unsafe fn pdf_get_font_wmode(font_id: i32) -> i32 {
+pub(crate) unsafe fn pdf_get_font_wmode(font_id: i32) -> i32 {
     if font_id < 0i32 || font_id >= font_cache.len() as i32 {
         panic!("Invalid font ID: {}", font_id);
     }
@@ -318,7 +318,7 @@ pub unsafe fn pdf_get_font_wmode(font_id: i32) -> i32 {
     };
 }
 
-pub unsafe fn pdf_get_font_subtype(font_id: i32) -> i32 {
+pub(crate) unsafe fn pdf_get_font_subtype(font_id: i32) -> i32 {
     if font_id < 0i32 || font_id >= font_cache.len() as i32 {
         panic!("Invalid font ID: {}", font_id);
     }
@@ -326,7 +326,7 @@ pub unsafe fn pdf_get_font_subtype(font_id: i32) -> i32 {
     font.subtype
 }
 
-pub unsafe fn pdf_get_font_encoding(font_id: i32) -> i32 {
+pub(crate) unsafe fn pdf_get_font_encoding(font_id: i32) -> i32 {
     if font_id < 0i32 || font_id >= font_cache.len() as i32 {
         panic!("Invalid font ID: {}", font_id);
     }
@@ -707,7 +707,7 @@ pub(crate) unsafe fn pdf_font_findresource(
     font_id
 }
 
-pub unsafe fn pdf_font_is_in_use(font: &mut pdf_font) -> bool {
+pub(crate) unsafe fn pdf_font_is_in_use(font: &mut pdf_font) -> bool {
     return if !font.reference.is_null() {
         1i32
     } else {
@@ -715,11 +715,11 @@ pub unsafe fn pdf_font_is_in_use(font: &mut pdf_font) -> bool {
     } != 0;
 }
 
-pub unsafe fn pdf_font_get_index(font: &mut pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_get_index(font: &mut pdf_font) -> i32 {
     font.index
 }
 
-pub unsafe fn pdf_font_get_resource(font: &mut pdf_font) -> &mut pdf_obj {
+pub(crate) unsafe fn pdf_font_get_resource(font: &mut pdf_font) -> &mut pdf_obj {
     if font.resource.is_null() {
         font.resource = pdf_dict::new().into_obj();
         (*font.resource).as_dict_mut().set("Type", "Font");
@@ -739,7 +739,7 @@ pub unsafe fn pdf_font_get_resource(font: &mut pdf_font) -> &mut pdf_obj {
     &mut *font.resource
 }
 
-pub unsafe fn pdf_font_get_descriptor(font: &mut pdf_font) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_font_get_descriptor(font: &mut pdf_font) -> *mut pdf_obj {
     if font.descriptor.is_null() {
         font.descriptor = pdf_dict::new().into_obj();
         (*font.descriptor)
@@ -749,19 +749,19 @@ pub unsafe fn pdf_font_get_descriptor(font: &mut pdf_font) -> *mut pdf_obj {
     font.descriptor
 }
 
-pub unsafe fn pdf_font_get_usedchars(font: &mut pdf_font) -> *mut i8 {
+pub(crate) unsafe fn pdf_font_get_usedchars(font: &mut pdf_font) -> *mut i8 {
     font.usedchars
 }
 
-pub unsafe fn pdf_font_get_encoding(font: &pdf_font) -> i32 {
+pub(crate) unsafe fn pdf_font_get_encoding(font: &pdf_font) -> i32 {
     font.encoding_id
 }
 
-pub unsafe fn pdf_font_get_flag(font: &mut pdf_font, mask: i32) -> i32 {
+pub(crate) unsafe fn pdf_font_get_flag(font: &mut pdf_font, mask: i32) -> i32 {
     return if font.flags & mask != 0 { 1i32 } else { 0i32 };
 }
 
-pub unsafe fn pdf_font_get_param(font: &mut pdf_font, param_type: i32) -> f64 {
+pub(crate) unsafe fn pdf_font_get_param(font: &mut pdf_font, param_type: i32) -> f64 {
     let mut param: f64 = 0.0f64;
     match param_type {
         1 => param = font.design_size,
@@ -771,14 +771,14 @@ pub unsafe fn pdf_font_get_param(font: &mut pdf_font, param_type: i32) -> f64 {
     param
 }
 
-pub unsafe fn pdf_font_get_uniqueTag(font: &mut pdf_font) -> String {
+pub(crate) unsafe fn pdf_font_get_uniqueTag(font: &mut pdf_font) -> String {
     if font.uniqueID == "" {
         font.uniqueID = pdf_font_make_uniqueTag();
     }
     font.uniqueID.clone()
 }
 
-pub unsafe fn pdf_font_set_subtype(mut font: &mut pdf_font, subtype: i32) -> i32 {
+pub(crate) unsafe fn pdf_font_set_subtype(mut font: &mut pdf_font, subtype: i32) -> i32 {
     font.subtype = subtype;
     0i32
 }
@@ -791,7 +791,7 @@ pub unsafe fn pdf_font_set_subtype(mut font: &mut pdf_font, subtype: i32) -> i32
 /* Each font drivers use the followings. */
 /* without unique tag */
 
-pub unsafe fn pdf_font_set_flags(mut font: &mut pdf_font, flags: i32) -> i32 {
+pub(crate) unsafe fn pdf_font_set_flags(mut font: &mut pdf_font, flags: i32) -> i32 {
     font.flags |= flags;
     0i32
 }

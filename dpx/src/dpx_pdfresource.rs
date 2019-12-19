@@ -175,7 +175,7 @@ unsafe fn get_category(category: *const i8) -> i32 {
     -1i32
 }
 
-pub unsafe fn pdf_defineresource(
+pub(crate) unsafe fn pdf_defineresource(
     category: &str,
     resname: &str,
     object: *mut pdf_obj,
@@ -243,7 +243,7 @@ pub unsafe fn pdf_defineresource(
     cat_id << 16i32 | res_id
 }
 
-pub unsafe fn pdf_findresource(category: &str, resname: &str) -> i32 {
+pub(crate) unsafe fn pdf_findresource(category: &str, resname: &str) -> i32 {
     let category_ = CString::new(category).unwrap();
     let resname_ = CString::new(resname).unwrap();
     let cat_id = get_category(category_.as_ptr());

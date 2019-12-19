@@ -63,8 +63,8 @@ use crate::dpx_pdfdoc::{
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_obj_typeof, pdf_release_obj, pdf_remove_dict,
-    pdf_stream, pdf_string, pdf_string_value, IntoObj, PdfObjType, STREAM_COMPRESS,
+    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_release_obj, pdf_remove_dict, pdf_stream,
+    pdf_string, pdf_string_value, IntoObj, PdfObjVariant, STREAM_COMPRESS,
 };
 use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
@@ -257,10 +257,8 @@ unsafe fn safeputresdict(kp: &pdf_name, vp: *mut pdf_obj, dp: *mut libc::c_void)
     } else if (*vp).is_dict() {
         if let Some(dict) = dict {
             (*vp).as_dict_mut().foreach(
-                Some(
-                    safeputresdent
-                        as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
-                ),
+                safeputresdent
+                    as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                 dict as *mut pdf_obj as *mut libc::c_void,
             );
         } else {
@@ -305,8 +303,8 @@ unsafe fn spc_handler_pdfm_put(spe: *mut spc_env, ap: *mut spc_arg) -> i32 {
         return -1i32;
     }
     let obj2 = obj2.unwrap();
-    match pdf_obj_typeof(obj1) {
-        PdfObjType::DICT => {
+    match (*obj1).data {
+        PdfObjVariant::DICT(..) => {
             if !(*obj2).is_dict() {
                 spc_warn!(
                     spe,
@@ -316,26 +314,17 @@ unsafe fn spc_handler_pdfm_put(spe: *mut spc_env, ap: *mut spc_arg) -> i32 {
                 error = -1i32
             } else if ident.to_bytes() == b"resources" {
                 error = (*obj2).as_dict_mut().foreach(
-                    Some(
-                        safeputresdict
-                            as unsafe fn(
-                                _: &pdf_name,
-                                _: *mut pdf_obj,
-                                _: *mut libc::c_void,
-                            ) -> i32,
-                    ),
+                    safeputresdict
+                        as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                     obj1 as *mut libc::c_void,
                 )
             } else {
                 (*obj1).as_dict_mut().merge((*obj2).as_dict());
             }
         }
-        PdfObjType::STREAM => {
+        PdfObjVariant::STREAM(obj1) => {
             if (*obj2).is_dict() {
-                (*obj1)
-                    .as_stream_mut()
-                    .get_dict_mut()
-                    .merge((*obj2).as_dict());
+                (*obj1).get_dict_mut().merge((*obj2).as_dict());
             } else if (*obj2).is_stream() {
                 spc_warn!(
                     spe,
@@ -352,12 +341,12 @@ unsafe fn spc_handler_pdfm_put(spe: *mut spc_env, ap: *mut spc_arg) -> i32 {
                 error = -1i32
             }
         }
-        PdfObjType::ARRAY => {
+        PdfObjVariant::ARRAY(obj1) => {
             /* dvipdfm */
-            (*obj1).as_array_mut().push(pdf_link_obj(obj2));
+            (*obj1).push(pdf_link_obj(obj2));
             while !(*ap).cur.is_empty() {
                 if let Some(obj3) = (*ap).cur.parse_pdf_object(ptr::null_mut()) {
-                    (*obj1).as_array_mut().push(obj3);
+                    (*obj1).push(obj3);
                     (*ap).cur.skip_white();
                 } else {
                     break;
@@ -380,12 +369,12 @@ unsafe fn spc_handler_pdfm_put(spe: *mut spc_env, ap: *mut spc_arg) -> i32 {
  * This feature is provided for convenience. TeX can't do
  * input encoding conversion.
  */
-unsafe fn reencodestring(cmap: *mut CMap, instring: *mut pdf_obj) -> i32 {
+unsafe fn reencodestring(cmap: *mut CMap, instring: *mut pdf_string) -> i32 {
     let mut wbuf: [u8; 4096] = [0; 4096];
     if cmap.is_null() || instring.is_null() {
         return 0i32;
     }
-    let slice = (*instring).as_string_mut().to_bytes();
+    let slice = (*instring).to_bytes();
     let mut inbufleft = slice.len() as size_t;
     let mut inbufcur = slice.as_ptr() as *const u8;
     wbuf[0] = 0xfe_u8;
@@ -402,19 +391,17 @@ unsafe fn reencodestring(cmap: *mut CMap, instring: *mut pdf_obj) -> i32 {
     if inbufleft > 0 {
         return -1i32;
     }
-    (*instring)
-        .as_string_mut()
-        .set(&wbuf[..(4096_usize - obufleft as usize)]);
+    (*instring).set(&wbuf[..(4096_usize - obufleft as usize)]);
     0i32
 }
-unsafe fn maybe_reencode_utf8(instring: *mut pdf_obj) -> i32 {
+unsafe fn maybe_reencode_utf8(instring: *mut pdf_string) -> i32 {
     let mut non_ascii: i32 = 0i32;
     let mut cp: *const u8;
     let mut wbuf: [u8; 4096] = [0; 4096];
     if instring.is_null() {
         return 0i32;
     }
-    let slice = (*instring).as_string_mut().as_mut_slice();
+    let slice = (*instring).as_mut_slice();
     let inlen = slice.len() as i32;
     let inbuf = slice.as_mut_ptr() as *mut u8;
     /* check if the input string is strictly ASCII */
@@ -461,9 +448,7 @@ unsafe fn maybe_reencode_utf8(instring: *mut pdf_obj) -> i32 {
             return -1i32;
         }
     }
-    (*instring)
-        .as_string_mut()
-        .set(&wbuf[..(op.wrapping_offset_from(wbuf.as_ptr()) as usize)]);
+    (*instring).set(&wbuf[..(op.wrapping_offset_from(wbuf.as_ptr()) as usize)]);
     0i32
 }
 /* The purpose of this routine is to check if given string object is
@@ -493,11 +478,11 @@ unsafe fn needreencode(kp: &pdf_name, vp: &pdf_string, cd: *mut tounicode) -> i3
 unsafe fn modstrings(kp: &pdf_name, vp: *mut pdf_obj, dp: *mut libc::c_void) -> i32 {
     let mut r: i32 = 0i32;
     let cd: *mut tounicode = dp as *mut tounicode;
-    match pdf_obj_typeof(vp) {
-        PdfObjType::STRING => {
+    match (*vp).data {
+        PdfObjVariant::STRING(vp) => {
             if !cd.is_null() && (*cd).cmap_id >= 0i32 && !(*cd).taintkeys.is_null() {
                 let cmap: *mut CMap = CMap_cache_get((*cd).cmap_id);
-                if needreencode(kp, (*vp).as_string(), cd) != 0 {
+                if needreencode(kp, &*vp, cd) != 0 {
                     r = reencodestring(cmap, vp)
                 }
             } else if is_xdv != 0 && !cd.is_null() && !(*cd).taintkeys.is_null() {
@@ -505,7 +490,7 @@ unsafe fn modstrings(kp: &pdf_name, vp: *mut pdf_obj, dp: *mut libc::c_void) -> 
                  * needreencode() is assumed to do a simple check if given string
                  * object is actually a text string.
                  */
-                if needreencode(kp, (*vp).as_string(), cd) != 0 {
+                if needreencode(kp, &*vp, cd) != 0 {
                     r = maybe_reencode_utf8(vp)
                 }
             }
@@ -514,21 +499,15 @@ unsafe fn modstrings(kp: &pdf_name, vp: *mut pdf_obj, dp: *mut libc::c_void) -> 
                 warn!("Failed to convert input string to UTF16...");
             }
         }
-        PdfObjType::DICT => {
-            r = (*vp).as_dict_mut().foreach(
-                Some(
-                    modstrings
-                        as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
-                ),
+        PdfObjVariant::DICT(vp) => {
+            r = (*vp).foreach(
+                modstrings as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                 dp,
             )
         }
-        PdfObjType::STREAM => {
-            r = (*vp).as_stream_mut().get_dict_mut().foreach(
-                Some(
-                    modstrings
-                        as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
-                ),
+        PdfObjVariant::STREAM(vp) => {
+            r = (*vp).get_dict_mut().foreach(
+                modstrings as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                 dp,
             )
         }
@@ -556,14 +535,8 @@ impl ParsePdfDictU for &[u8] {
         if let Some(d) = dict {
             unsafe {
                 (*d).as_dict_mut().foreach(
-                    Some(
-                        modstrings
-                            as unsafe fn(
-                                _: &pdf_name,
-                                _: *mut pdf_obj,
-                                _: *mut libc::c_void,
-                            ) -> i32,
-                    ),
+                    modstrings
+                        as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
                     cd as *mut libc::c_void,
                 );
             }

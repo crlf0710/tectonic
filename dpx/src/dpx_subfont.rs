@@ -372,7 +372,7 @@ unsafe fn find_sfd_file(sfd_name: &str) -> i32 {
     id
 }
 
-pub unsafe fn sfd_get_subfont_ids(sfd_name: &str, num_ids: *mut i32) -> *mut *mut i8 {
+pub(crate) unsafe fn sfd_get_subfont_ids(sfd_name: &str, num_ids: *mut i32) -> *mut *mut i8 {
     if sfd_name.is_empty() {
         return 0 as *mut *mut i8;
     }
@@ -389,7 +389,7 @@ pub unsafe fn sfd_get_subfont_ids(sfd_name: &str, num_ids: *mut i32) -> *mut *mu
  * Mapping tables are actually read here.
  */
 
-pub unsafe fn sfd_load_record(sfd_name: &str, subfont_id: &str) -> i32 {
+pub(crate) unsafe fn sfd_load_record(sfd_name: &str, subfont_id: &str) -> i32 {
     let mut rec_id: i32 = -1i32;
     if sfd_name.is_empty() || subfont_id.is_empty() {
         return -1i32;
