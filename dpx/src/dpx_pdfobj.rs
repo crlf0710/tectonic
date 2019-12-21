@@ -46,7 +46,6 @@ use crate::bridge::{
     ttstub_input_get_size, ttstub_input_getc, ttstub_input_read, ttstub_input_ungetc,
     ttstub_output_close, ttstub_output_open, ttstub_output_open_stdout, ttstub_output_putc,
 };
-use crate::shims::sprintf;
 use libc::{atof, atoi, free, memcmp, memset, strlen, strtoul};
 
 use libz_sys as libz;
@@ -577,10 +576,7 @@ pub(crate) unsafe fn pdf_out_init(
 unsafe fn dump_xref_table() {
     let handle = pdf_output_handle.as_mut().unwrap();
     pdf_out(handle, b"xref\n");
-    let out = format!("{} {}\n",
-        0,
-        next_label,
-    );
+    let out = format!("{} {}\n", 0, next_label);
     pdf_out(handle, out.as_bytes());
     /*
      * Every space counts.  The space after the 'f' and 'n' is * *essential*.
@@ -594,7 +590,7 @@ unsafe fn dump_xref_table() {
         }
         let out = format!("{:010} {:05} {} \n",
             output_xref[i].id.0,
-            output_xref[i].id.1 as i32,
+            output_xref[i].id.1,
             if typ != 0 {
                 'n'
             } else {
@@ -685,12 +681,8 @@ pub(crate) unsafe fn pdf_out_flush() {
         /* Done with xref table */
         output_xref = vec![];
         pdf_out(handle, b"startxref\n");
-        let length = sprintf(
-            format_buffer.as_mut_ptr() as *mut i8,
-            b"%u\n\x00" as *const u8 as *const i8,
-            startxref,
-        ) as usize;
-        pdf_out(handle, &format_buffer[..length]);
+        let out = format!("{}\n", startxref);
+        pdf_out(handle, out.as_bytes());
         pdf_out(handle, b"%%EOF\n");
         if verbose != 0 {
             if compression_level as i32 > 0i32 {
@@ -989,7 +981,6 @@ pub(crate) unsafe fn pdfobj_escape_str(buffer: &mut [u8], s: *const u8, len: siz
          * smaller size for most documents when zlib compressed.
          */
         if ch < 32 || ch > 126 {
-            /* Shouldn't use format_buffer[]. */
             buffer[result] = b'\\';
             result += 1;
             write!(&mut buffer[result..], "{:03o}", ch).unwrap();
@@ -2593,16 +2584,11 @@ unsafe fn pdf_flush_obj(object: *mut pdf_obj, handle: &mut OutputHandleWrapper) 
         1_u8,
         (pdf_output_file_position as u32, generation),
     );
-    let length = sprintf(
-        format_buffer.as_mut_ptr() as *mut i8,
-        b"%u %hu obj\n\x00" as *const u8 as *const i8,
-        label,
-        generation as i32,
-    ) as usize;
+    let out = format!("{} {} obj\n", label, generation);
     enc_mode = doc_enc_mode as i32 != 0 && (*object).flags & OBJ_NO_ENCRYPT == 0;
     pdf_enc_set_label(label);
     pdf_enc_set_generation(generation as u32);
-    pdf_out(handle, &format_buffer[..length]);
+    pdf_out(handle, out.as_bytes());
     pdf_write_obj(object, handle);
     pdf_out(handle, b"\nendobj\n");
 }
@@ -2646,16 +2632,11 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
         if !(fresh16 != 0) {
             break;
         }
-        let fresh17 = val;
+        let slice = format!("{} ", *val);
         val = val.offset(1);
-        let length = sprintf(
-            format_buffer.as_mut_ptr() as *mut i8,
-            b"%d \x00" as *const u8 as *const i8,
-            *fresh17,
-        ) as usize;
         (*objstm)
             .as_stream_mut()
-            .add_slice(&format_buffer[..length]);
+            .add_slice(slice.as_bytes());
     }
     let dict = (*objstm).as_stream_mut().get_dict_mut();
     dict.set("Type", "ObjStm");
@@ -2811,7 +2792,7 @@ unsafe fn find_xref(handle: &mut InputHandleWrapper, file_size: i32) -> i32 {
         } else {
             let currentpos = handle.seek(SeekFrom::Current(0)).unwrap() as i32;
             let n = core::cmp::min(
-                strlen(b"startxref\x00" as *const u8 as *const i8) as i32,
+                b"startxref".len() as i32,
                 file_size - currentpos,
             );
             ttstub_input_read(handle.as_ptr(), work_buffer.as_mut_ptr(), n as size_t);

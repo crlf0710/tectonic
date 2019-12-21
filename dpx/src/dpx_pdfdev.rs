@@ -38,7 +38,6 @@ use super::dpx_cmap::{CMap_cache_get, CMap_decode};
 use super::dpx_dvi::dvi_is_tracking_boxes;
 use super::dpx_fontmap::pdf_lookup_fontmap_record;
 use super::dpx_mem::{new, renew};
-use super::dpx_mfileio::work_buffer_u8 as work_buffer;
 use super::dpx_pdfcolor::{pdf_color_clear_stack, pdf_color_get_current};
 use super::dpx_pdfdoc::pdf_doc_expand_box;
 use super::dpx_pdfdoc::{pdf_doc_add_page_content, pdf_doc_add_page_resource};
@@ -897,19 +896,12 @@ unsafe fn dev_set_font(font_id: i32) -> i32 {
     format_buffer[fresh33 as usize] = b'f';
     pdf_doc_add_page_content(&format_buffer[..len]);
     if (*font).bold > 0.0f64 || (*font).bold != text_state.bold_param {
-        if (*font).bold <= 0.0f64 {
-            len = sprintf(
-                format_buffer.as_mut_ptr() as *mut i8,
-                b" 0 Tr\x00" as *const u8 as *const i8,
-            ) as usize
+        let content = if (*font).bold <= 0.0f64 {
+            " 0 Tr".to_string()
         } else {
-            len = sprintf(
-                format_buffer.as_mut_ptr() as *mut i8,
-                b" 2 Tr %.6f w\x00" as *const u8 as *const i8,
-                (*font).bold,
-            ) as usize
-        }
-        pdf_doc_add_page_content(&format_buffer[..len]);
+            format!(" 2 Tr {:.6} w", (*font).bold)
+        };
+        pdf_doc_add_page_content(content.as_bytes());
         /* op: Tr w */
     }
     text_state.bold_param = (*font).bold;
@@ -1831,12 +1823,8 @@ pub(crate) unsafe fn pdf_dev_put_image(
         pdf_dev_rectclip(&r); /* op: Do */
     }
     let res_name = pdf_ximage_get_resname(id);
-    let len = sprintf(
-        work_buffer.as_mut_ptr() as *mut i8,
-        b" /%s Do\x00" as *const u8 as *const i8,
-        res_name,
-    ) as usize;
-    pdf_doc_add_page_content(&work_buffer[..len]);
+    let content = format!(" /{} Do", CStr::from_ptr(res_name).display());
+    pdf_doc_add_page_content(content.as_bytes());
     pdf_dev_grestore();
     pdf_doc_add_page_resource("XObject", res_name, pdf_ximage_get_reference(id));
     if dvi_is_tracking_boxes() {
@@ -1908,55 +1896,32 @@ pub(crate) unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count:
         }
     }
     graphics_mode();
-    let mut len = sprintf(
-        work_buffer.as_mut_ptr() as *mut i8,
-        b"\n/Span<</ActualText(\x00" as *const u8 as *const i8,
-    );
+    let mut content = Vec::from(b"\n/Span<</ActualText(".as_ref());
     if pdf_doc_enc == 0 {
-        len += sprintf(
-            (work_buffer.as_mut_ptr() as *mut i8).offset(len as isize),
-            b"\xfe\xff\x00" as *const u8 as *const i8,
-        )
+        content.extend(b"\xfe\xff");
     }
-    pdf_doc_add_page_content(&work_buffer[..len as usize]);
+    pdf_doc_add_page_content(&content);
     loop {
-        let fresh69 = count;
-        count = count - 1;
-        if !(fresh69 > 0i32) {
+        if !(count > 0i32) {
             break;
         }
+        count -= 1;
         let s: [u8; 2] = (*unicodes).to_be_bytes();
-        len = 0i32;
+        let mut content = String::new();
         for i in pdf_doc_enc..2 {
             let c: u8 = s[i];
-            if c as i32 == '(' as i32 || c as i32 == ')' as i32 || c as i32 == '\\' as i32 {
-                len += sprintf(
-                    (work_buffer.as_mut_ptr() as *mut i8).offset(len as isize),
-                    b"\\%c\x00" as *const u8 as *const i8,
-                    c as i32,
-                )
+            if c == b'(' || c == b')' || c == b'\\' {
+                content += &format!("\\{}", char::from(c));
             } else if (c as i32) < ' ' as i32 {
-                len += sprintf(
-                    (work_buffer.as_mut_ptr() as *mut i8).offset(len as isize),
-                    b"\\%03o\x00" as *const u8 as *const i8,
-                    c as i32,
-                )
+                content += &format!("\\{:03o}", c);
             } else {
-                len += sprintf(
-                    (work_buffer.as_mut_ptr() as *mut i8).offset(len as isize),
-                    b"%c\x00" as *const u8 as *const i8,
-                    c as i32,
-                )
+                content += &format!("{}", char::from(c));
             }
         }
-        pdf_doc_add_page_content(&work_buffer[..len as usize]);
+        pdf_doc_add_page_content(content.as_bytes());
         unicodes = unicodes.offset(1)
     }
-    len = sprintf(
-        work_buffer.as_mut_ptr() as *mut i8,
-        b")>>BDC\x00" as *const u8 as *const i8,
-    );
-    pdf_doc_add_page_content(&work_buffer[..len as usize]);
+    pdf_doc_add_page_content(b")>>BDC");
 }
 /* Not in spt_t. */
 /* unit_conv: multiplier for input unit (spt_t) to bp conversion.
