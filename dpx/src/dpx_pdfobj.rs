@@ -588,14 +588,11 @@ unsafe fn dump_xref_table() {
         if typ > 1 {
             panic!("object type {} not allowed in xref table", char::from(typ));
         }
-        let out = format!("{:010} {:05} {} \n",
+        let out = format!(
+            "{:010} {:05} {} \n",
             output_xref[i].id.0,
             output_xref[i].id.1,
-            if typ != 0 {
-                'n'
-            } else {
-                'f'
-            },
+            if typ != 0 { 'n' } else { 'f' },
         );
         pdf_out(handle, out.as_bytes());
     }
@@ -2634,9 +2631,7 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
         }
         let slice = format!("{} ", *val);
         val = val.offset(1);
-        (*objstm)
-            .as_stream_mut()
-            .add_slice(slice.as_bytes());
+        (*objstm).as_stream_mut().add_slice(slice.as_bytes());
     }
     let dict = (*objstm).as_stream_mut().get_dict_mut();
     dict.set("Type", "ObjStm");
@@ -2791,10 +2786,7 @@ unsafe fn find_xref(handle: &mut InputHandleWrapper, file_size: i32) -> i32 {
             break;
         } else {
             let currentpos = handle.seek(SeekFrom::Current(0)).unwrap() as i32;
-            let n = core::cmp::min(
-                b"startxref".len() as i32,
-                file_size - currentpos,
-            );
+            let n = core::cmp::min(b"startxref".len() as i32, file_size - currentpos);
             ttstub_input_read(handle.as_ptr(), work_buffer.as_mut_ptr(), n as size_t);
             handle.seek(SeekFrom::Start(currentpos as u64)).unwrap();
             tries -= 1;

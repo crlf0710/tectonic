@@ -36,7 +36,6 @@ use crate::dpx_pdfdraw::{
     pdf_dev_set_fixed_point,
 };
 use crate::dpx_pdfparse::{ParseIdent, SkipWhite};
-use crate::shims::sprintf;
 use crate::spc_warn;
 
 use super::{spc_arg, spc_env};

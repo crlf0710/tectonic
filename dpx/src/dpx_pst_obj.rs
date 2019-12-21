@@ -36,13 +36,14 @@ use crate::shims::sprintf;
 use libc::{free, memcmp, memcpy, strcpy, strlen, strtod, strtol};
 use std::ptr;
 
+use super::dpx_pst::PstType;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct pst_obj {
-    pub(crate) type_0: pst_type,
+    pub(crate) type_0: PstType,
     pub(crate) data: *mut libc::c_void,
 }
-pub(crate) type pst_type = i32;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct pst_string {
@@ -72,7 +73,7 @@ pub(crate) struct pst_boolean {
 static mut pst_const_null: *const i8 = b"null\x00" as *const u8 as *const i8;
 static mut pst_const_mark: *const i8 = b"mark\x00" as *const u8 as *const i8;
 
-pub(crate) unsafe fn pst_new_obj(type_0: pst_type, data: *mut libc::c_void) -> *mut pst_obj {
+pub(crate) unsafe fn pst_new_obj(type_0: PstType, data: *mut libc::c_void) -> *mut pst_obj {
     let obj =
         new((1_u64).wrapping_mul(::std::mem::size_of::<pst_obj>() as u64) as u32) as *mut pst_obj;
     (*obj).type_0 = type_0;
@@ -85,38 +86,35 @@ pub(crate) unsafe fn pst_new_mark() -> *mut pst_obj {
         (strlen(pst_const_mark).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _,
     ) as *mut i8;
     strcpy(q, pst_const_mark);
-    pst_new_obj(7i32, q as *mut libc::c_void)
+    pst_new_obj(PstType::Mark, q as *mut libc::c_void)
 }
 
 pub(crate) unsafe fn pst_release_obj(obj: *mut pst_obj) {
     assert!(!obj.is_null());
     match (*obj).type_0 {
-        1 => {
+        PstType::Boolean => {
             pst_boolean_release((*obj).data as *mut pst_boolean);
         }
-        2 => {
+        PstType::Integer => {
             pst_integer_release((*obj).data as *mut pst_integer);
         }
-        3 => {
+        PstType::Real => {
             pst_real_release((*obj).data as *mut pst_real);
         }
-        6 => {
+        PstType::Name => {
             pst_name_release((*obj).data as *mut pst_name);
         }
-        5 => {
+        PstType::String => {
             pst_string_release((*obj).data as *mut pst_string);
         }
-        0 | 7 | -1 => {
+        PstType::Null | PstType::Mark | PstType::Unknown => {
             free((*obj).data);
-        }
-        _ => {
-            panic!("Unrecognized object type: {}", (*obj).type_0);
         }
     }
     free(obj as *mut libc::c_void);
 }
 
-pub(crate) unsafe fn pst_type_of(obj: *mut pst_obj) -> pst_type {
+pub(crate) unsafe fn pst_type_of(obj: *mut pst_obj) -> PstType {
     assert!(!obj.is_null());
     (*obj).type_0
 }
@@ -124,37 +122,31 @@ pub(crate) unsafe fn pst_type_of(obj: *mut pst_obj) -> pst_type {
 pub(crate) unsafe fn pst_length_of(obj: *mut pst_obj) -> i32 {
     assert!(!obj.is_null());
     match (*obj).type_0 {
-        1 => pst_boolean_length() as i32,
-        2 => pst_integer_length() as i32,
-        3 => pst_real_length() as i32,
-        6 => pst_name_length((*obj).data as *mut pst_name) as i32,
-        5 => pst_string_length((*obj).data as *mut pst_string) as i32,
-        0 | 7 => {
+        PstType::Boolean => pst_boolean_length() as i32,
+        PstType::Integer => pst_integer_length() as i32,
+        PstType::Real => pst_real_length() as i32,
+        PstType::Name => pst_name_length((*obj).data as *mut pst_name) as i32,
+        PstType::String => pst_string_length((*obj).data as *mut pst_string) as i32,
+        PstType::Null | PstType::Mark => {
             panic!("Operation not defined for this type of object.");
         }
-        -1 => strlen((*obj).data as *const i8) as i32,
-        _ => {
-            panic!("Unrecognized object type: {}", (*obj).type_0);
-        }
+        PstType::Unknown => strlen((*obj).data as *const i8) as i32,
     }
 }
 
 pub(crate) unsafe fn pst_getIV(obj: *mut pst_obj) -> i32 {
     assert!(!obj.is_null());
     match (*obj).type_0 {
-        1 => pst_boolean_IV((*obj).data as *mut pst_boolean),
-        2 => pst_integer_IV((*obj).data as *mut pst_integer),
-        3 => pst_real_IV((*obj).data as *mut pst_real),
-        6 => pst_name_IV(),
-        5 => pst_string_IV((*obj).data as *mut pst_string),
-        0 | 7 => {
+        PstType::Boolean => pst_boolean_IV((*obj).data as *mut pst_boolean),
+        PstType::Integer => pst_integer_IV((*obj).data as *mut pst_integer),
+        PstType::Real => pst_real_IV((*obj).data as *mut pst_real),
+        PstType::Name => pst_name_IV(),
+        PstType::String => pst_string_IV((*obj).data as *mut pst_string),
+        PstType::Null | PstType::Mark => {
             panic!("Operation not defined for this type of object.");
         }
-        -1 => {
+        PstType::Unknown => {
             panic!("Cannot convert object of type UNKNOWN to integer value.");
-        }
-        _ => {
-            panic!("Unrecognized object type: {}", (*obj).type_0);
         }
     }
 }
@@ -162,19 +154,16 @@ pub(crate) unsafe fn pst_getIV(obj: *mut pst_obj) -> i32 {
 pub(crate) unsafe fn pst_getRV(obj: *mut pst_obj) -> f64 {
     assert!(!obj.is_null());
     match (*obj).type_0 {
-        1 => pst_boolean_RV((*obj).data as *mut pst_boolean),
-        2 => pst_integer_RV((*obj).data as *mut pst_integer),
-        3 => pst_real_RV((*obj).data as *mut pst_real),
-        6 => pst_name_RV(),
-        5 => pst_string_RV((*obj).data as *mut pst_string),
-        0 | 7 => {
+        PstType::Boolean => pst_boolean_RV((*obj).data as *mut pst_boolean),
+        PstType::Integer => pst_integer_RV((*obj).data as *mut pst_integer),
+        PstType::Real => pst_real_RV((*obj).data as *mut pst_real),
+        PstType::Name => pst_name_RV(),
+        PstType::String => pst_string_RV((*obj).data as *mut pst_string),
+        PstType::Null | PstType::Mark => {
             panic!("Operation not defined for this type of object.");
         }
-        -1 => {
+        PstType::Unknown => {
             panic!("Cannot convert object of type UNKNOWN to real value.");
-        }
-        _ => {
-            panic!("Unrecognized object type: {}", (*obj).type_0);
         }
     }
 }
@@ -184,15 +173,15 @@ pub(crate) unsafe fn pst_getSV(obj: *mut pst_obj) -> *mut u8 {
     let sv;
     assert!(!obj.is_null());
     match (*obj).type_0 {
-        1 => sv = pst_boolean_SV((*obj).data as *mut pst_boolean),
-        2 => sv = pst_integer_SV((*obj).data as *mut pst_integer),
-        3 => sv = pst_real_SV((*obj).data as *mut pst_real),
-        6 => sv = pst_name_SV((*obj).data as *mut pst_name),
-        5 => sv = pst_string_SV((*obj).data as *mut pst_string),
-        0 | 7 => {
+        PstType::Boolean => sv = pst_boolean_SV((*obj).data as *mut pst_boolean),
+        PstType::Integer => sv = pst_integer_SV((*obj).data as *mut pst_integer),
+        PstType::Real => sv = pst_real_SV((*obj).data as *mut pst_real),
+        PstType::Name => sv = pst_name_SV((*obj).data as *mut pst_name),
+        PstType::String => sv = pst_string_SV((*obj).data as *mut pst_string),
+        PstType::Null | PstType::Mark => {
             panic!("Operation not defined for this type of object.");
         }
-        -1 => {
+        PstType::Unknown => {
             let len = strlen((*obj).data as *mut i8) as i32;
             if len > 0i32 {
                 sv = new(((len + 1i32) as u32 as u64)
@@ -204,9 +193,6 @@ pub(crate) unsafe fn pst_getSV(obj: *mut pst_obj) -> *mut u8 {
                 sv = ptr::null_mut()
             }
         }
-        _ => {
-            panic!("Unrecognized object type: {}", (*obj).type_0);
-        }
     }
     sv
 }
@@ -214,18 +200,15 @@ pub(crate) unsafe fn pst_getSV(obj: *mut pst_obj) -> *mut u8 {
 pub(crate) unsafe fn pst_data_ptr(obj: *mut pst_obj) -> *mut libc::c_void {
     assert!(!obj.is_null());
     (match (*obj).type_0 {
-        1 => pst_boolean_data_ptr((*obj).data as *mut pst_boolean) as *mut i8,
-        2 => pst_integer_data_ptr((*obj).data as *mut pst_integer) as *mut i8,
-        3 => pst_real_data_ptr((*obj).data as *mut pst_real) as *mut i8,
-        6 => pst_name_data_ptr((*obj).data as *mut pst_name) as *mut i8,
-        5 => pst_string_data_ptr((*obj).data as *mut pst_string) as *mut i8,
-        0 | 7 => {
+        PstType::Boolean => pst_boolean_data_ptr((*obj).data as *mut pst_boolean) as *mut i8,
+        PstType::Integer => pst_integer_data_ptr((*obj).data as *mut pst_integer) as *mut i8,
+        PstType::Real => pst_real_data_ptr((*obj).data as *mut pst_real) as *mut i8,
+        PstType::Name => pst_name_data_ptr((*obj).data as *mut pst_name) as *mut i8,
+        PstType::String => pst_string_data_ptr((*obj).data as *mut pst_string) as *mut i8,
+        PstType::Null | PstType::Mark => {
             panic!("Operation not defined for this type of object.");
         }
-        -1 => (*obj).data as *mut i8,
-        _ => {
-            panic!("Unrecognized object type: {}", (*obj).type_0);
-        }
+        PstType::Unknown => (*obj).data as *mut i8,
     }) as *mut libc::c_void
 }
 /* BOOLEAN */
@@ -304,7 +287,7 @@ pub(crate) unsafe fn pst_parse_boolean(inbuf: *mut *mut u8, inbufend: *mut u8) -
                 || *(*inbuf).offset(4) as i32 == '\u{0}' as i32))
     {
         *inbuf = (*inbuf).offset(4);
-        return pst_new_obj(1i32, pst_boolean_new(1_i8) as *mut libc::c_void);
+        return pst_new_obj(PstType::Boolean, pst_boolean_new(1_i8) as *mut libc::c_void);
     } else if (*inbuf).offset(5) <= inbufend
         && memcmp(
             *inbuf as *const libc::c_void,
@@ -330,7 +313,7 @@ pub(crate) unsafe fn pst_parse_boolean(inbuf: *mut *mut u8, inbufend: *mut u8) -
                 || *(*inbuf).offset(5) as i32 == '\u{0}' as i32))
     {
         *inbuf = (*inbuf).offset(5);
-        return pst_new_obj(1i32, pst_boolean_new(0_i8) as *mut libc::c_void);
+        return pst_new_obj(PstType::Boolean, pst_boolean_new(0_i8) as *mut libc::c_void);
     } else {
         return ptr::null_mut();
     };
@@ -367,7 +350,7 @@ pub(crate) unsafe fn pst_parse_null(inbuf: *mut *mut u8, inbufend: *mut u8) -> *
             (strlen(pst_const_null).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _
         ) as *mut i8;
         strcpy(q, pst_const_null);
-        return pst_new_obj(0i32, q as *mut libc::c_void);
+        return pst_new_obj(PstType::Null, q as *mut libc::c_void);
     } else {
         return ptr::null_mut();
     };
@@ -494,7 +477,7 @@ pub(crate) unsafe fn pst_parse_number(inbuf: *mut *mut u8, inbufend: *mut u8) ->
                     || *cur as i32 == '\u{0}' as i32))
         {
             *inbuf = cur;
-            return pst_new_obj(3i32, pst_real_new(dval) as *mut libc::c_void);
+            return pst_new_obj(PstType::Real, pst_real_new(dval) as *mut libc::c_void);
         }
     } else if cur != *inbuf
         && (cur == inbufend
@@ -517,7 +500,7 @@ pub(crate) unsafe fn pst_parse_number(inbuf: *mut *mut u8, inbufend: *mut u8) ->
     {
         /* integer */
         *inbuf = cur;
-        return pst_new_obj(2i32, pst_integer_new(lval) as *mut libc::c_void);
+        return pst_new_obj(PstType::Integer, pst_integer_new(lval) as *mut libc::c_void);
     } else {
         if lval >= 2i32
             && lval <= 36i32
@@ -557,7 +540,7 @@ pub(crate) unsafe fn pst_parse_number(inbuf: *mut *mut u8, inbufend: *mut u8) ->
                         || *cur as i32 == '\u{0}' as i32))
             {
                 *inbuf = cur;
-                return pst_new_obj(2i32, pst_integer_new(lval) as *mut libc::c_void);
+                return pst_new_obj(PstType::Integer, pst_integer_new(lval) as *mut libc::c_void);
             }
         }
     }
@@ -655,7 +638,7 @@ pub(crate) unsafe fn pst_parse_name(inbuf: *mut *mut u8, inbufend: *mut u8) -> *
     }
     *inbuf = cur;
     return pst_new_obj(
-        6i32,
+        PstType::Name,
         pst_name_new(wbuf.as_mut_ptr() as *mut i8) as *mut libc::c_void,
     );
 }
@@ -714,7 +697,7 @@ pub(crate) unsafe fn pst_parse_string(inbuf: *mut *mut u8, inbufend: *mut u8) ->
     } else {
         if **inbuf as i32 == '(' as i32 {
             return pst_new_obj(
-                5i32,
+                PstType::String,
                 pst_string_parse_literal(inbuf, inbufend) as *mut libc::c_void,
             );
         } else {
@@ -723,7 +706,7 @@ pub(crate) unsafe fn pst_parse_string(inbuf: *mut *mut u8, inbufend: *mut u8) ->
             } else {
                 if **inbuf as i32 == '<' as i32 {
                     return pst_new_obj(
-                        5i32,
+                        PstType::String,
                         pst_string_parse_hex(inbuf, inbufend) as *mut libc::c_void,
                     );
                 }

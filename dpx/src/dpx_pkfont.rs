@@ -517,14 +517,19 @@ unsafe fn create_pk_CharProc_stream(
     if (*pkh).bm_wd != 0_u32 && (*pkh).bm_ht != 0_u32 && pkt_len > 0_u32 {
         /* Otherwise we embed an empty stream :-( */
         /* Scale and translate origin to lower left corner for raster data */
-        let slice = format!("q\n{} 0 0 {} {} {} cm\n",
+        let slice = format!(
+            "q\n{} 0 0 {} {} {} cm\n",
             (*pkh).bm_wd,
             (*pkh).bm_ht,
             llx,
             lly,
         );
         stream.add_slice(slice.as_bytes());
-        let slice = format!("BI\n/W {}\n/H {}\n/IM true\n/BPC 1\nID ", (*pkh).bm_wd, (*pkh).bm_ht);
+        let slice = format!(
+            "BI\n/W {}\n/H {}\n/IM true\n/BPC 1\nID ",
+            (*pkh).bm_wd,
+            (*pkh).bm_ht
+        );
         stream.add_slice(slice.as_bytes());
         /* Add bitmap data */
         if (*pkh).dyn_f == 14i32 {

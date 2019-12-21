@@ -66,10 +66,10 @@ use super::dpx_pdfximage::{
 use super::dpx_pngimage::check_for_png;
 use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_pdfobj::{
-    pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj,
-    pdf_obj, pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict,
-    pdf_set_encrypt, pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream,
-    pdf_string, pdf_string_length, pdf_string_value, IntoObj, PdfObjType, PushObj, STREAM_COMPRESS,
+    pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_obj, pdf_out_flush,
+    pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id,
+    pdf_set_info, pdf_set_root, pdf_stream, pdf_string, pdf_string_length, pdf_string_value,
+    IntoObj, PdfObjType, PushObj, STREAM_COMPRESS,
 };
 use libc::{free, memcpy, strcmp, strcpy, strlen, strncmp, strncpy};
 
@@ -563,7 +563,10 @@ pub(crate) unsafe fn pdf_doc_add_page_resource(
     let resource_name = CStr::from_ptr(resource_name);
     let resources = pdf_doc_get_page_resources(p, category);
     if let Some(duplicate) = (*resources).as_dict_mut().get_mut(resource_name.to_bytes()) {
-        if (*duplicate).as_indirect().compare((*resource_ref).as_indirect()) {
+        if (*duplicate)
+            .as_indirect()
+            .compare((*resource_ref).as_indirect())
+        {
             warn!(
                 "Conflicting page resource found (page: {}, category: {}, name: {}).",
                 pdf_doc_current_page_number(),
