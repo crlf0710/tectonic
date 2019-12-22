@@ -145,13 +145,12 @@ unsafe fn check_next_token(input: *mut ifreader, key: *const i8) -> Result<(), (
         return Err(());
     }
     let token = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
-    let str = token.getSV() as *mut i8;
-    let cmp = if strcmp(str, key) != 0 {
+    let str = token.getSV().ok_or(())?;
+    let cmp = if strcmp(str.as_ptr(), key) != 0 {
         Err(())
     } else {
         Ok(())
     };
-    free(str as *mut libc::c_void);
     cmp
 }
 unsafe fn get_coderange(
@@ -531,11 +530,7 @@ unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: *mut ifreader) -> i32 {
                     error = -1i32
                 }
                 if error == 0 {
-                    csi.registry = CStr::from_ptr(tok2.getSV() as *const i8)
-                        .to_str()
-                        .unwrap()
-                        .to_owned()
-                        .into();
+                    csi.registry = tok2.getSV().unwrap().to_str().unwrap().to_owned().into();
                 }
             } else if tok1.typ() == PstType::Name
                 && memcmp(
@@ -557,11 +552,7 @@ unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: *mut ifreader) -> i32 {
                     error = -1i32
                 }
                 if error == 0 {
-                    csi.ordering = CStr::from_ptr(tok2.getSV() as *const i8)
-                        .to_str()
-                        .unwrap()
-                        .to_owned()
-                        .into();
+                    csi.ordering = tok2.getSV().unwrap().to_str().unwrap().to_owned().into();
                 }
             } else if tok1.typ() == PstType::Name
                 && memcmp(

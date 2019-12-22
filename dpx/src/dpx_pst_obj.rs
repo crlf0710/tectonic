@@ -26,6 +26,8 @@
     non_upper_case_globals,
 )]
 
+use std::ffi::CString;
+
 use super::dpx_dpxutil::skip_white_spaces;
 use crate::bridge::stub_errno as errno;
 use crate::warn;
@@ -160,7 +162,7 @@ impl pst_obj {
     }
     /* Length can be obtained by pst_length_of(). */
 
-    pub(crate) unsafe fn getSV(&self) -> *mut u8 {
+    pub(crate) unsafe fn getSV(&self) -> Option<CString> {
         let sv;
         match self.type_0 {
             PstType::Boolean => sv = pst_boolean_SV(self.data as *const pst_boolean),
@@ -172,15 +174,14 @@ impl pst_obj {
                 panic!("Operation not defined for this type of object.");
             }
             PstType::Unknown => {
-                let len = strlen(self.data as *const i8) as i32;
-                if len > 0i32 {
-                    sv = new(((len + 1i32) as u32 as u64)
-                        .wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                        as u32) as *mut u8;
-                    memcpy(sv as *mut libc::c_void, self.data, len as _);
-                    *sv.offset(len as isize) = '\u{0}' as i32 as u8
+                let len = strlen(self.data as *const i8) as usize;
+                if len > 0 {
+                    sv = Some(
+                        CString::new(std::slice::from_raw_parts(self.data as *const u8, len))
+                            .unwrap(),
+                    );
                 } else {
-                    sv = ptr::null_mut()
+                    sv = None
                 }
             }
         }
@@ -241,27 +242,13 @@ unsafe fn pst_boolean_RV(obj: *const pst_boolean) -> f64 {
     assert!(!obj.is_null());
     (*obj).value as f64
 }
-unsafe fn pst_boolean_SV(obj: *const pst_boolean) -> *mut u8 {
-    let str;
+unsafe fn pst_boolean_SV(obj: *const pst_boolean) -> Option<CString> {
     assert!(!obj.is_null());
-    if (*obj).value != 0 {
-        str = new((5_u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
-        memcpy(
-            str as *mut libc::c_void,
-            b"true\x00" as *const u8 as *const i8 as *const libc::c_void,
-            4,
-        );
-        *str.offset(4) = '\u{0}' as i32 as u8
+    Some(if (*obj).value != 0 {
+        CString::new("true").unwrap()
     } else {
-        str = new((6_u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
-        memcpy(
-            str as *mut libc::c_void,
-            b"false\x00" as *const u8 as *const i8 as *const libc::c_void,
-            5,
-        );
-        *str.offset(5) = '\u{0}' as i32 as u8
-    }
-    str
+        CString::new("false").unwrap()
+    })
 }
 unsafe fn pst_boolean_length() -> u32 {
     panic!("Operation not defined for this type of object.");
@@ -387,19 +374,9 @@ unsafe fn pst_integer_RV(obj: *const pst_integer) -> f64 {
     assert!(!obj.is_null());
     (*obj).value as f64
 }
-unsafe fn pst_integer_SV(obj: *const pst_integer) -> *mut u8 {
-    let mut fmt_buf: [i8; 15] = [0; 15];
+unsafe fn pst_integer_SV(obj: *const pst_integer) -> Option<CString> {
     assert!(!obj.is_null());
-    let len = sprintf(
-        fmt_buf.as_mut_ptr(),
-        b"%d\x00" as *const u8 as *const i8,
-        (*obj).value,
-    );
-    let value =
-        new(((len + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-            as *mut i8;
-    strcpy(value, fmt_buf.as_mut_ptr());
-    value as *mut u8
+    Some(CString::new(format!("{}", (*obj).value).as_bytes()).unwrap())
 }
 unsafe fn pst_integer_length() -> u32 {
     panic!("Operation not defined for this type of object.");
@@ -423,18 +400,15 @@ unsafe fn pst_real_RV(obj: *const pst_real) -> f64 {
     assert!(!obj.is_null());
     (*obj).value
 }
-unsafe fn pst_real_SV(obj: *const pst_real) -> *mut u8 {
-    let mut fmt_buf: [i8; 15] = [0; 15];
+unsafe fn pst_real_SV(obj: *const pst_real) -> Option<CString> {
+    let mut fmt_buf: [u8; 15] = [0; 15];
     assert!(!obj.is_null());
     let len = sprintf(
-        fmt_buf.as_mut_ptr(),
+        fmt_buf.as_mut_ptr() as *mut i8,
         b"%.5g\x00" as *const u8 as *const i8,
         (*obj).value,
-    );
-    let value =
-        new((len as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    strcpy(value, fmt_buf.as_mut_ptr());
-    value as *mut u8
+    ) as usize;
+    Some(CString::new(&fmt_buf[..len]).unwrap())
 }
 unsafe fn pst_real_length() -> u32 {
     panic!("Operation not defined for this type of object.");
@@ -661,12 +635,9 @@ unsafe fn pst_name_IV() -> i32 {
 unsafe fn pst_name_RV() -> f64 {
     panic!("Operation not defined for this type of object.");
 }
-unsafe fn pst_name_SV(obj: *const pst_name) -> *mut u8 {
-    let value =
-        new((strlen((*obj).value).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-    strcpy(value, (*obj).value);
-    value as *mut u8
+unsafe fn pst_name_SV(obj: *const pst_name) -> Option<CString> {
+    let len = strlen((*obj).value) as usize;
+    Some(CString::new(std::slice::from_raw_parts((*obj).value as *mut u8, len)).unwrap())
 }
 unsafe fn pst_name_length(obj: *const pst_name) -> u32 {
     assert!(!obj.is_null());
@@ -938,17 +909,15 @@ unsafe fn pst_string_RV(obj: *const pst_string) -> f64 {
     let rv = nobj.getRV();
     rv
 }
-unsafe fn pst_string_SV(obj: *const pst_string) -> *mut u8 {
+unsafe fn pst_string_SV(obj: *const pst_string) -> Option<CString> {
     assert!(!obj.is_null());
-    let str = new(((*obj).length.wrapping_add(1_u32) as u64)
-        .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
-    memcpy(
-        str as *mut libc::c_void,
-        (*obj).value as *const libc::c_void,
-        (*obj).length as _,
-    );
-    *str.offset((*obj).length as isize) = '\u{0}' as i32 as u8;
-    str
+    Some(
+        CString::new(std::slice::from_raw_parts(
+            (*obj).value as *mut u8,
+            (*obj).length as usize,
+        ))
+        .unwrap(),
+    )
 }
 unsafe fn pst_string_length(obj: *const pst_string) -> u32 {
     assert!(!obj.is_null());
