@@ -621,7 +621,7 @@ pub(crate) unsafe fn pdf_load_ToUnicode_stream(ident: &str) -> Option<pdf_stream
     }
     let handle = handle.unwrap();
     let mut cmap = CMap_new();
-    if CMap_parse(&mut cmap, handle) < 0i32 {
+    if CMap_parse(&mut cmap, handle).is_err() {
         warn!("Reading CMap file \"{}\" failed.", ident)
     } else {
         if verbose != 0 {

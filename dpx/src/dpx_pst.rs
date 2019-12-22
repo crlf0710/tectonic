@@ -29,11 +29,10 @@ use super::dpx_dpxutil::skip_white_spaces;
 use super::dpx_mem::new;
 use super::dpx_pst_obj::pst_obj;
 use super::dpx_pst_obj::{
-    pst_new_mark, pst_new_obj, pst_parse_boolean, pst_parse_name, pst_parse_null, pst_parse_number,
+    pst_new_mark, pst_parse_boolean, pst_parse_name, pst_parse_null, pst_parse_number,
     pst_parse_string,
 };
 use libc::memcpy;
-use std::ptr;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) enum PstType {
@@ -47,7 +46,7 @@ pub(crate) enum PstType {
     Mark = 7,
 }
 
-unsafe fn pst_parse_any(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut pst_obj {
+unsafe fn pst_parse_any(inbuf: *mut *mut u8, inbufend: *mut u8) -> pst_obj {
     let mut cur: *mut u8 = *inbuf;
     while cur < inbufend
         && !(cur == inbufend
@@ -81,7 +80,7 @@ unsafe fn pst_parse_any(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut pst_obj 
     );
     *data.offset(len as isize) = '\u{0}' as i32 as u8;
     *inbuf = cur;
-    pst_new_obj(PstType::Unknown, data as *mut libc::c_void)
+    pst_obj::new(PstType::Unknown, data as *mut libc::c_void)
 }
 unsafe fn skip_line(inbuf: *mut *mut u8, inbufend: *mut u8) {
     while *inbuf < inbufend && **inbuf as i32 != '\n' as i32 && **inbuf as i32 != '\r' as i32 {
@@ -102,29 +101,29 @@ unsafe fn skip_comments(inbuf: *mut *mut u8, inbufend: *mut u8) {
 }
 /* NOTE: the input buffer must be null-terminated, i.e., *inbufend == 0 */
 
-pub(crate) unsafe fn pst_get_token(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut pst_obj {
-    let mut obj: *mut pst_obj = ptr::null_mut();
+pub(crate) unsafe fn pst_get_token(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option<pst_obj> {
+    let mut obj = None;
     assert!(*inbuf <= inbufend && *inbufend == 0);
     skip_white_spaces(inbuf, inbufend);
     skip_comments(inbuf, inbufend);
     if *inbuf >= inbufend {
-        return ptr::null_mut();
+        return None;
     }
     let mut c = **inbuf;
     match c {
         b'/' => obj = pst_parse_name(inbuf, inbufend),
         b'[' | b'{' => {
             /* This is wrong */
-            obj = pst_new_mark();
+            obj = Some(pst_new_mark());
             *inbuf = (*inbuf).offset(1)
         }
         b'<' => {
             if (*inbuf).offset(1) >= inbufend {
-                return ptr::null_mut();
+                return None;
             }
             c = *(*inbuf).offset(1);
             if c as i32 == '<' as i32 {
-                obj = pst_new_mark();
+                obj = Some(pst_new_mark());
                 *inbuf = (*inbuf).offset(2)
             } else if (c as u8).is_ascii_hexdigit() {
                 obj = pst_parse_string(inbuf, inbufend)
@@ -143,7 +142,7 @@ pub(crate) unsafe fn pst_get_token(inbuf: *mut *mut u8, inbufend: *mut u8) -> *m
                 *mark.offset(0) = '>' as i32 as i8;
                 *mark.offset(1) = '>' as i32 as i8;
                 *mark.offset(2) = '\u{0}' as i32 as i8;
-                obj = pst_new_obj(PstType::Unknown, mark as *mut libc::c_void);
+                obj = Some(pst_obj::new(PstType::Unknown, mark as *mut libc::c_void));
                 *inbuf = (*inbuf).offset(2)
             }
         }
@@ -152,7 +151,7 @@ pub(crate) unsafe fn pst_get_token(inbuf: *mut *mut u8, inbufend: *mut u8) -> *m
                 new((2_u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
             *mark_0.offset(0) = c as i8;
             *mark_0.offset(1) = '\u{0}' as i32 as i8;
-            obj = pst_new_obj(PstType::Unknown, mark_0 as *mut libc::c_void);
+            obj = Some(pst_obj::new(PstType::Unknown, mark_0 as *mut libc::c_void));
             *inbuf = (*inbuf).offset(1)
         }
         _ => {
@@ -165,8 +164,5 @@ pub(crate) unsafe fn pst_get_token(inbuf: *mut *mut u8, inbufend: *mut u8) -> *m
             }
         }
     }
-    if obj.is_null() {
-        obj = pst_parse_any(inbuf, inbufend)
-    }
-    obj
+    obj.or_else(|| Some(pst_parse_any(inbuf, inbufend)))
 }
