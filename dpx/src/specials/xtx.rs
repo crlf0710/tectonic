@@ -29,7 +29,6 @@ use crate::dpx_fontmap::{
     is_pdfm_mapline, pdf_append_fontmap_record, pdf_init_fontmap_record, pdf_insert_fontmap_record,
     pdf_load_fontmap_file, pdf_read_fontmap_line, pdf_remove_fontmap_record,
 };
-use crate::dpx_mfileio::work_buffer_u8 as WORK_BUFFER;
 use crate::dpx_pdfdev::{pdf_dev_reset_color, pdf_dev_reset_fonts};
 use crate::dpx_pdfdoc::{pdf_doc_add_page_content, pdf_doc_set_bgcolor};
 use crate::dpx_pdfdraw::{
@@ -37,7 +36,6 @@ use crate::dpx_pdfdraw::{
     pdf_dev_set_fixed_point,
 };
 use crate::dpx_pdfparse::{ParseIdent, SkipWhite};
-use crate::shims::sprintf;
 use crate::spc_warn;
 
 use super::{spc_arg, spc_env};
@@ -296,13 +294,8 @@ unsafe fn spc_handler_xtx_renderingmode(spe: *mut spc_env, mut args: *mut spc_ar
         spc_warn!(spe, "Invalid text rendering mode {}.\n", value as i32,);
         return -1i32;
     }
-    sprintf(
-        WORK_BUFFER.as_mut_ptr() as *mut i8,
-        b" %d Tr\x00" as *const u8 as *const i8,
-        value as i32,
-    );
-    let pos = WORK_BUFFER.iter().position(|&x| x == 0).unwrap();
-    pdf_doc_add_page_content(&WORK_BUFFER[..pos]);
+    let content = format!(" {} Tr", value as i32);
+    pdf_doc_add_page_content(content.as_bytes());
     (*args).cur.skip_white();
     if !(*args).cur.is_empty() {
         pdf_doc_add_page_content(b" ");

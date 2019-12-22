@@ -37,7 +37,7 @@ use super::dpx_cff::{cff_add_string, cff_get_sid, cff_update_string};
 use super::dpx_cff::{cff_close, cff_new_index, cff_set_name};
 use super::dpx_cff_dict::{cff_dict_add, cff_dict_set, cff_new_dict};
 use super::dpx_mem::{new, renew, xstrdup};
-use super::dpx_pst::pst_get_token;
+use super::dpx_pst::{pst_get_token, PstType};
 use super::dpx_pst_obj::pst_obj;
 use super::dpx_pst_obj::{
     pst_data_ptr, pst_getIV, pst_getRV, pst_getSV, pst_release_obj, pst_type_of,
@@ -122,7 +122,7 @@ unsafe fn get_next_key(start: *mut *mut u8, end: *mut u8) -> *mut i8 {
         tok = pst_get_token(start, end);
         !tok.is_null()
     } {
-        if pst_type_of(tok) == 6i32 {
+        if pst_type_of(tok) == PstType::Name {
             key = pst_getSV(tok) as *mut i8;
             if !tok.is_null() {
                 pst_release_obj(tok);
@@ -143,7 +143,7 @@ unsafe fn seek_operator(start: *mut *mut u8, end: *mut u8, op: *const i8) -> i32
         !tok.is_null()
     } {
         if !tok.is_null()
-            && pst_type_of(tok) < 0i32
+            && pst_type_of(tok) == PstType::Unknown
             && !strstartswith(pst_data_ptr(tok) as *const i8, op).is_null()
         {
             break;
@@ -167,7 +167,7 @@ unsafe fn parse_svalue(start: *mut *mut u8, end: *mut u8, value: *mut *mut i8) -
     if tok.is_null() {
         return -1i32;
     } else {
-        if pst_type_of(tok) == 6i32 || pst_type_of(tok) == 5i32 {
+        if pst_type_of(tok) == PstType::Name || pst_type_of(tok) == PstType::String {
             *value = pst_getSV(tok) as *mut i8
         } else {
             if !tok.is_null() {
@@ -188,7 +188,7 @@ unsafe fn parse_bvalue(start: *mut *mut u8, end: *mut u8, value: *mut f64) -> i3
     if tok.is_null() {
         return -1i32;
     } else {
-        if pst_type_of(tok) == 1i32 {
+        if pst_type_of(tok) == PstType::Boolean {
             *value = pst_getIV(tok) as f64
         } else {
             if !tok.is_null() {
@@ -213,10 +213,10 @@ unsafe fn parse_nvalue(start: *mut *mut u8, end: *mut u8, value: *mut f64, max: 
     /*
      * All array elements must be numeric token. (ATM compatible)
      */
-    if (pst_type_of(tok) == 2i32 || pst_type_of(tok) == 3i32) && max > 0i32 {
+    if (pst_type_of(tok) == PstType::Integer || pst_type_of(tok) == PstType::Real) && max > 0i32 {
         *value.offset(0) = pst_getRV(tok);
         argn = 1i32
-    } else if pst_type_of(tok) == 7i32 {
+    } else if pst_type_of(tok) == PstType::Mark {
         /* It does not distinguish '[' and '{'... */
         if !tok.is_null() {
             pst_release_obj(tok);
@@ -227,7 +227,7 @@ unsafe fn parse_nvalue(start: *mut *mut u8, end: *mut u8, value: *mut f64, max: 
                 tok = pst_get_token(start, end);
                 !tok.is_null()
             }
-            && (pst_type_of(tok) == 2i32 || pst_type_of(tok) == 3i32)
+            && (pst_type_of(tok) == PstType::Integer || pst_type_of(tok) == PstType::Real)
             && argn < max
         {
             let fresh5 = argn;
@@ -242,14 +242,14 @@ unsafe fn parse_nvalue(start: *mut *mut u8, end: *mut u8, value: *mut f64, max: 
             return -1i32;
         }
         if !(!tok.is_null()
-            && pst_type_of(tok) < 0i32
+            && pst_type_of(tok) == PstType::Unknown
             && !strstartswith(
                 pst_data_ptr(tok) as *const i8,
                 b"]\x00" as *const u8 as *const i8,
             )
             .is_null())
             && !(!tok.is_null()
-                && pst_type_of(tok) < 0i32
+                && pst_type_of(tok) == PstType::Unknown
                 && !strstartswith(
                     pst_data_ptr(tok) as *const i8,
                     b"}\x00" as *const u8 as *const i8,
@@ -790,7 +790,7 @@ unsafe fn try_put_or_putinterval(enc_vec: *mut *mut i8, start: *mut *mut u8, end
     let mut num3: i32 = 0;
     let mut tok = pst_get_token(start, end);
     if tok.is_null()
-        || !(pst_type_of(tok) == 2i32)
+        || !(pst_type_of(tok) == PstType::Integer)
         || {
             num1 = pst_getIV(tok);
             num1 > 255i32
@@ -812,7 +812,7 @@ unsafe fn try_put_or_putinterval(enc_vec: *mut *mut i8, start: *mut *mut u8, end
         return -1i32;
     } else {
         if !tok.is_null()
-            && pst_type_of(tok) < 0i32
+            && pst_type_of(tok) == PstType::Unknown
             && !strstartswith(
                 pst_data_ptr(tok) as *const i8,
                 b"exch\x00" as *const u8 as *const i8,
@@ -826,7 +826,7 @@ unsafe fn try_put_or_putinterval(enc_vec: *mut *mut i8, start: *mut *mut u8, end
             }
             tok = pst_get_token(start, end);
             if tok.is_null()
-                || !(pst_type_of(tok) == 2i32)
+                || !(pst_type_of(tok) == PstType::Integer)
                 || {
                     num2 = pst_getIV(tok);
                     num2 > 255i32
@@ -845,7 +845,7 @@ unsafe fn try_put_or_putinterval(enc_vec: *mut *mut i8, start: *mut *mut u8, end
             }
             tok = pst_get_token(start, end);
             if !(!tok.is_null()
-                && pst_type_of(tok) < 0i32
+                && pst_type_of(tok) == PstType::Unknown
                 && !strstartswith(
                     pst_data_ptr(tok) as *const i8,
                     b"get\x00" as *const u8 as *const i8,
@@ -864,7 +864,7 @@ unsafe fn try_put_or_putinterval(enc_vec: *mut *mut i8, start: *mut *mut u8, end
             }
             tok = pst_get_token(start, end);
             if !(!tok.is_null()
-                && pst_type_of(tok) < 0i32
+                && pst_type_of(tok) == PstType::Unknown
                 && !strstartswith(
                     pst_data_ptr(tok) as *const i8,
                     b"put\x00" as *const u8 as *const i8,
@@ -884,7 +884,7 @@ unsafe fn try_put_or_putinterval(enc_vec: *mut *mut i8, start: *mut *mut u8, end
             free(*enc_vec.offset(num1 as isize) as *mut libc::c_void);
             let ref mut fresh6 = *enc_vec.offset(num1 as isize);
             *fresh6 = xstrdup(*enc_vec.offset(num2 as isize))
-        } else if pst_type_of(tok) == 2i32
+        } else if pst_type_of(tok) == PstType::Integer
             && {
                 num2 = pst_getIV(tok);
                 num2 + num1 <= 255i32
@@ -897,7 +897,7 @@ unsafe fn try_put_or_putinterval(enc_vec: *mut *mut i8, start: *mut *mut u8, end
             }
             tok = pst_get_token(start, end);
             if !(!tok.is_null()
-                && pst_type_of(tok) < 0i32
+                && pst_type_of(tok) == PstType::Unknown
                 && !strstartswith(
                     pst_data_ptr(tok) as *const i8,
                     b"getinterval\x00" as *const u8 as *const i8,
@@ -916,7 +916,7 @@ unsafe fn try_put_or_putinterval(enc_vec: *mut *mut i8, start: *mut *mut u8, end
             }
             tok = pst_get_token(start, end);
             if tok.is_null()
-                || !(pst_type_of(tok) == 2i32)
+                || !(pst_type_of(tok) == PstType::Integer)
                 || {
                     num3 = pst_getIV(tok);
                     num3 + num2 > 255i32
@@ -935,7 +935,7 @@ unsafe fn try_put_or_putinterval(enc_vec: *mut *mut i8, start: *mut *mut u8, end
             }
             tok = pst_get_token(start, end);
             if !(!tok.is_null()
-                && pst_type_of(tok) < 0i32
+                && pst_type_of(tok) == PstType::Unknown
                 && !strstartswith(
                     pst_data_ptr(tok) as *const i8,
                     b"exch\x00" as *const u8 as *const i8,
@@ -954,7 +954,7 @@ unsafe fn try_put_or_putinterval(enc_vec: *mut *mut i8, start: *mut *mut u8, end
             }
             tok = pst_get_token(start, end);
             if !(!tok.is_null()
-                && pst_type_of(tok) < 0i32
+                && pst_type_of(tok) == PstType::Unknown
                 && !strstartswith(
                     pst_data_ptr(tok) as *const i8,
                     b"putinterval\x00" as *const u8 as *const i8,
@@ -1005,7 +1005,7 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
      */
     let mut tok = pst_get_token(start, end);
     if !tok.is_null()
-        && pst_type_of(tok) < 0i32
+        && pst_type_of(tok) == PstType::Unknown
         && !strstartswith(
             pst_data_ptr(tok) as *const i8,
             b"StandardEncoding\x00" as *const u8 as *const i8,
@@ -1041,7 +1041,7 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
             }
         }
     } else if !tok.is_null()
-        && pst_type_of(tok) < 0i32
+        && pst_type_of(tok) == PstType::Unknown
         && !strstartswith(
             pst_data_ptr(tok) as *const i8,
             b"ISOLatin1Encoding\x00" as *const u8 as *const i8,
@@ -1077,7 +1077,7 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
             }
         }
     } else if !tok.is_null()
-        && pst_type_of(tok) < 0i32
+        && pst_type_of(tok) == PstType::Unknown
         && !strstartswith(
             pst_data_ptr(tok) as *const i8,
             b"ExpertEncoding\x00" as *const u8 as *const i8,
@@ -1114,14 +1114,14 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
             !tok.is_null()
         } {
             if !tok.is_null()
-                && pst_type_of(tok) < 0i32
+                && pst_type_of(tok) == PstType::Unknown
                 && !strstartswith(
                     pst_data_ptr(tok) as *const i8,
                     b"def\x00" as *const u8 as *const i8,
                 )
                 .is_null()
                 || !tok.is_null()
-                    && pst_type_of(tok) < 0i32
+                    && pst_type_of(tok) == PstType::Unknown
                     && !strstartswith(
                         pst_data_ptr(tok) as *const i8,
                         b"readonly\x00" as *const u8 as *const i8,
@@ -1134,7 +1134,7 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
                 }
                 break;
             } else if !(!tok.is_null()
-                && pst_type_of(tok) < 0i32
+                && pst_type_of(tok) == PstType::Unknown
                 && !strstartswith(
                     pst_data_ptr(tok) as *const i8,
                     b"dup\x00" as *const u8 as *const i8,
@@ -1156,7 +1156,7 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
                  */
                 tok = pst_get_token(start, end);
                 if !tok.is_null()
-                    && pst_type_of(tok) < 0i32
+                    && pst_type_of(tok) == PstType::Unknown
                     && !strstartswith(
                         pst_data_ptr(tok) as *const i8,
                         b"dup\x00" as *const u8 as *const i8,
@@ -1174,7 +1174,7 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
                         tok = ptr::null_mut()
                     }
                 } else if tok.is_null()
-                    || !(pst_type_of(tok) == 2i32)
+                    || !(pst_type_of(tok) == PstType::Integer)
                     || {
                         code = pst_getIV(tok);
                         code > 255i32
@@ -1191,7 +1191,7 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
                         //tok = ptr::null_mut()
                     }
                     tok = pst_get_token(start, end);
-                    if tok.is_null() || !(pst_type_of(tok) == 6i32) {
+                    if tok.is_null() || !(pst_type_of(tok) == PstType::Name) {
                         if !tok.is_null() {
                             pst_release_obj(tok);
                             tok = ptr::null_mut()
@@ -1208,7 +1208,7 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
                         }
                         tok = pst_get_token(start, end);
                         if !(!tok.is_null()
-                            && pst_type_of(tok) < 0i32
+                            && pst_type_of(tok) == PstType::Unknown
                             && !strstartswith(
                                 pst_data_ptr(tok) as *const i8,
                                 b"put\x00" as *const u8 as *const i8,
@@ -1245,7 +1245,7 @@ unsafe fn parse_subrs(
     let lengths;
     let mut data;
     let tok = pst_get_token(start, end);
-    if !(pst_type_of(tok) == 2i32) || pst_getIV(tok) < 0i32 {
+    if !(pst_type_of(tok) == PstType::Integer) || pst_getIV(tok) < 0i32 {
         warn!("Parsing Subrs failed.");
         if !tok.is_null() {
             pst_release_obj(tok);
@@ -1265,7 +1265,7 @@ unsafe fn parse_subrs(
     }
     let mut tok = pst_get_token(start, end);
     if !(!tok.is_null()
-        && pst_type_of(tok) < 0i32
+        && pst_type_of(tok) == PstType::Unknown
         && !strstartswith(
             pst_data_ptr(tok) as *const i8,
             b"array\x00" as *const u8 as *const i8,
@@ -1319,21 +1319,21 @@ unsafe fn parse_subrs(
             free(lengths as *mut libc::c_void);
             return -1i32;
         } else if !tok.is_null()
-            && pst_type_of(tok) < 0i32
+            && pst_type_of(tok) == PstType::Unknown
             && !strstartswith(
                 pst_data_ptr(tok) as *const i8,
                 b"ND\x00" as *const u8 as *const i8,
             )
             .is_null()
             || !tok.is_null()
-                && pst_type_of(tok) < 0i32
+                && pst_type_of(tok) == PstType::Unknown
                 && !strstartswith(
                     pst_data_ptr(tok) as *const i8,
                     b"|-\x00" as *const u8 as *const i8,
                 )
                 .is_null()
             || !tok.is_null()
-                && pst_type_of(tok) < 0i32
+                && pst_type_of(tok) == PstType::Unknown
                 && !strstartswith(
                     pst_data_ptr(tok) as *const i8,
                     b"def\x00" as *const u8 as *const i8,
@@ -1346,7 +1346,7 @@ unsafe fn parse_subrs(
             }
             break;
         } else if !(!tok.is_null()
-            && pst_type_of(tok) < 0i32
+            && pst_type_of(tok) == PstType::Unknown
             && !strstartswith(
                 pst_data_ptr(tok) as *const i8,
                 b"dup\x00" as *const u8 as *const i8,
@@ -1364,7 +1364,10 @@ unsafe fn parse_subrs(
             }
             /* Found "dup" */
             tok = pst_get_token(start, end);
-            if !(pst_type_of(tok) == 2i32) || pst_getIV(tok) < 0i32 || pst_getIV(tok) >= count {
+            if !(pst_type_of(tok) == PstType::Integer)
+                || pst_getIV(tok) < 0i32
+                || pst_getIV(tok) >= count
+            {
                 if !tok.is_null() {
                     pst_release_obj(tok);
                     //tok = ptr::null_mut()
@@ -1380,7 +1383,10 @@ unsafe fn parse_subrs(
                 //tok = ptr::null_mut()
             }
             tok = pst_get_token(start, end);
-            if !(pst_type_of(tok) == 2i32) || pst_getIV(tok) < 0i32 || pst_getIV(tok) > 65536i32 {
+            if !(pst_type_of(tok) == PstType::Integer)
+                || pst_getIV(tok) < 0i32
+                || pst_getIV(tok) > 65536i32
+            {
                 if !tok.is_null() {
                     pst_release_obj(tok);
                     //tok = ptr::null_mut()
@@ -1394,14 +1400,14 @@ unsafe fn parse_subrs(
             }
             tok = pst_get_token(start, end);
             if !(!tok.is_null()
-                && pst_type_of(tok) < 0i32
+                && pst_type_of(tok) == PstType::Unknown
                 && !strstartswith(
                     pst_data_ptr(tok) as *const i8,
                     b"RD\x00" as *const u8 as *const i8,
                 )
                 .is_null())
                 && !(!tok.is_null()
-                    && pst_type_of(tok) < 0i32
+                    && pst_type_of(tok) == PstType::Unknown
                     && !strstartswith(
                         pst_data_ptr(tok) as *const i8,
                         b"-|\x00" as *const u8 as *const i8,
@@ -1508,7 +1514,8 @@ unsafe fn parse_charstrings(
      *  - stack - ... /CharStrings dict
      */
     let mut tok = pst_get_token(start, end); /* .notdef must be at gid = 0 in CFF */
-    if !(pst_type_of(tok) == 2i32) || pst_getIV(tok) < 0i32 || pst_getIV(tok) > 64999i32 {
+    if !(pst_type_of(tok) == PstType::Integer) || pst_getIV(tok) < 0i32 || pst_getIV(tok) > 64999i32
+    {
         let s: *mut u8 = pst_getSV(tok);
         warn!(
             "Ignores non dict \"/CharStrings {} ...\"",
@@ -1568,7 +1575,7 @@ unsafe fn parse_charstrings(
         {
             font.is_notdef_notzero = 1i32
         }
-        if pst_type_of(tok) == 6i32 {
+        if pst_type_of(tok) == PstType::Name {
             if !tok.is_null() {
                 pst_release_obj(tok);
                 //tok = ptr::null_mut()
@@ -1598,7 +1605,10 @@ unsafe fn parse_charstrings(
              */
             free(glyph_name as *mut libc::c_void); /* start at 1 */
             tok = pst_get_token(start, end);
-            if !(pst_type_of(tok) == 2i32) || pst_getIV(tok) < 0i32 || pst_getIV(tok) > 65536i32 {
+            if !(pst_type_of(tok) == PstType::Integer)
+                || pst_getIV(tok) < 0i32
+                || pst_getIV(tok) > 65536i32
+            {
                 if !tok.is_null() {
                     pst_release_obj(tok);
                     //tok = ptr::null_mut()
@@ -1612,14 +1622,14 @@ unsafe fn parse_charstrings(
             }
             tok = pst_get_token(start, end);
             if !(!tok.is_null()
-                && pst_type_of(tok) < 0i32
+                && pst_type_of(tok) == PstType::Unknown
                 && !strstartswith(
                     pst_data_ptr(tok) as *const i8,
                     b"RD\x00" as *const u8 as *const i8,
                 )
                 .is_null())
                 && !(!tok.is_null()
-                    && pst_type_of(tok) < 0i32
+                    && pst_type_of(tok) == PstType::Unknown
                     && !strstartswith(
                         pst_data_ptr(tok) as *const i8,
                         b"-|\x00" as *const u8 as *const i8,
@@ -1715,14 +1725,14 @@ unsafe fn parse_charstrings(
             *start = (*start).offset(len as isize);
             tok = pst_get_token(start, end);
             if !(!tok.is_null()
-                && pst_type_of(tok) < 0i32
+                && pst_type_of(tok) == PstType::Unknown
                 && !strstartswith(
                     pst_data_ptr(tok) as *const i8,
                     b"ND\x00" as *const u8 as *const i8,
                 )
                 .is_null())
                 && !(!tok.is_null()
-                    && pst_type_of(tok) < 0i32
+                    && pst_type_of(tok) == PstType::Unknown
                     && !strstartswith(
                         pst_data_ptr(tok) as *const i8,
                         b"|-\x00" as *const u8 as *const i8,
@@ -1740,7 +1750,7 @@ unsafe fn parse_charstrings(
                 //tok = ptr::null_mut()
             }
             i += 1
-        } else if pst_type_of(tok) < 0i32
+        } else if pst_type_of(tok) == PstType::Unknown
             && streq_ptr(glyph_name, b"end\x00" as *const u8 as *const i8) as i32 != 0
         {
             if !tok.is_null() {

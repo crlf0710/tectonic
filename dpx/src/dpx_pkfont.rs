@@ -517,22 +517,20 @@ unsafe fn create_pk_CharProc_stream(
     if (*pkh).bm_wd != 0_u32 && (*pkh).bm_ht != 0_u32 && pkt_len > 0_u32 {
         /* Otherwise we embed an empty stream :-( */
         /* Scale and translate origin to lower left corner for raster data */
-        len = sprintf(
-            work_buffer.as_mut_ptr() as *mut i8,
-            b"q\n%u 0 0 %u %d %d cm\n\x00" as *const u8 as *const i8,
+        let slice = format!(
+            "q\n{} 0 0 {} {} {} cm\n",
             (*pkh).bm_wd,
             (*pkh).bm_ht,
             llx,
             lly,
-        ) as usize;
-        stream.add_slice(&work_buffer[..len]);
-        len = sprintf(
-            work_buffer.as_mut_ptr() as *mut i8,
-            b"BI\n/W %u\n/H %u\n/IM true\n/BPC 1\nID \x00" as *const u8 as *const i8,
+        );
+        stream.add_slice(slice.as_bytes());
+        let slice = format!(
+            "BI\n/W {}\n/H {}\n/IM true\n/BPC 1\nID ",
             (*pkh).bm_wd,
-            (*pkh).bm_ht,
-        ) as usize;
-        stream.add_slice(&work_buffer[..len]);
+            (*pkh).bm_ht
+        );
+        stream.add_slice(slice.as_bytes());
         /* Add bitmap data */
         if (*pkh).dyn_f == 14i32 {
             /* bitmap */
@@ -556,11 +554,7 @@ unsafe fn create_pk_CharProc_stream(
                 pkt_len,
             );
         }
-        len = sprintf(
-            work_buffer.as_mut_ptr() as *mut i8,
-            b"\nEI\nQ\x00" as *const u8 as *const i8,
-        ) as usize;
-        stream.add_slice(&work_buffer[..len]);
+        stream.add_slice(b"\nEI\nQ");
     }
     stream
 }
