@@ -4,7 +4,8 @@
 
 language: rust
 
-cache: false
+cache:
+  - cargo: true
 
 matrix:
   include:
@@ -17,7 +18,7 @@ matrix:
       osx_image: xcode10.2
       rust: nightly
     - os: windows
-      rust: nightly
+      rust: nightly-msvc
       env:
         - VS15=true
         - VCPKG_ROOT=${HOME}\\vcpkg
