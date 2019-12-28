@@ -1312,36 +1312,34 @@ unsafe extern "C" fn sort_avail() {
     let mut r: i32 = 0;
     let mut old_rover: i32 = 0;
     p = get_node(0x40000000i32);
-    p = MEM[(rover + 1i32) as usize].b32.s1;
-    MEM[(rover + 1i32) as usize].b32.s1 = 0x3fffffffi32;
+    p = MEM[(rover + 1) as usize].b32.s1;
+    MEM[(rover + 1) as usize].b32.s1 = 0x3fffffff;
     old_rover = rover;
     /*136: */
     while p != old_rover {
         if p < rover {
             q = p;
-            p = MEM[(q + 1i32) as usize].b32.s1;
-            MEM[(q + 1i32) as usize].b32.s1 = rover;
+            p = MEM[(q + 1) as usize].b32.s1;
+            MEM[(q + 1) as usize].b32.s1 = rover;
             rover = q
         } else {
             q = rover;
-            while MEM[(q + 1i32) as usize].b32.s1 < p {
-                q = MEM[(q + 1i32) as usize].b32.s1
+            while MEM[(q + 1) as usize].b32.s1 < p {
+                q = MEM[(q + 1) as usize].b32.s1
             }
-            r = MEM[(p + 1i32) as usize].b32.s1;
-            MEM[(p + 1i32) as usize].b32.s1 = MEM[(q + 1i32) as usize].b32.s1;
-            MEM[(q + 1i32) as usize].b32.s1 = p;
+            r = MEM[(p + 1) as usize].b32.s1;
+            MEM[(p + 1) as usize].b32.s1 = MEM[(q + 1) as usize].b32.s1;
+            MEM[(q + 1) as usize].b32.s1 = p;
             p = r
         }
     }
     p = rover;
-    while MEM[(p + 1i32) as usize].b32.s1 != 0x3fffffffi32 {
-        MEM[(MEM[(p + 1i32) as usize].b32.s1 + 1i32) as usize]
-            .b32
-            .s0 = p;
-        p = MEM[(p + 1i32) as usize].b32.s1
+    while MEM[(p + 1) as usize].b32.s1 != 0x3fffffff {
+        MEM[(MEM[(p + 1) as usize].b32.s1 + 1) as usize].b32.s0 = p;
+        p = MEM[(p + 1) as usize].b32.s1
     }
-    MEM[(p + 1i32) as usize].b32.s1 = rover;
-    MEM[(rover + 1i32) as usize].b32.s0 = p;
+    MEM[(p + 1) as usize].b32.s1 = rover;
+    MEM[(rover + 1) as usize].b32.s0 = p;
 }
 /*:271*/
 /*276: */
@@ -1799,7 +1797,7 @@ unsafe extern "C" fn new_patterns() {
         help_ptr = 1_u8;
         help_line[0] = b"All patterns must be given before typesetting begins.";
         error();
-        MEM[(4999999i32 - 12i32) as usize].b32.s1 = scan_toks(false, false);
+        MEM[(4999999 - 12) as usize].b32.s1 = scan_toks(false, false);
         flush_list(def_ref);
     };
 }
@@ -2303,7 +2301,7 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                 if cur_chr < 0i32 || cur_chr > 19i32 {
                     /* 19 = lo_mem_stat_max, I think */
                     let ref mut fresh13 =
-                        MEM[(cur_chr + 1i32) as usize].b32.s0;
+                        MEM[(cur_chr + 1) as usize].b32.s0;
                     *fresh13 += 1
                 }
             }
@@ -2406,7 +2404,7 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                             find_sa_element(j as small_number, cur_val,
                                             true);
                             let ref mut fresh14 =
-                                MEM[(cur_ptr + 1i32) as
+                                MEM[(cur_ptr + 1) as
                                                  usize].b32.s0;
                             *fresh14 += 1;
                             if j == 5i32 { j = 72i32 } else { j = 91i32 }
@@ -2532,13 +2530,13 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                                     q = TEX_NULL
                                 } else {
                                     q =
-                                        MEM[(cur_ptr + 1i32) as
+                                        MEM[(cur_ptr + 1) as
                                                          usize].b32.s1
                                 }
                             }
                         } else {
                             q =
-                                MEM[(cur_chr + 1i32) as
+                                MEM[(cur_chr + 1) as
                                                  usize].b32.s1
                         }
                     } else if cur_chr == LOCAL_BASE + LOCAL__xetex_inter_char {
@@ -2552,7 +2550,7 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                             q = TEX_NULL
                         } else {
                             q =
-                                MEM[(cur_ptr + 1i32) as
+                                MEM[(cur_ptr + 1) as
                                                  usize].b32.s1
                         }
                     } else { q = (*eqtb.offset(cur_chr as isize)).b32.s1 }
@@ -2851,7 +2849,7 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                 p = get_node(2i32 * n + 1i32);
                 MEM[p as usize].b32.s0 = n;
                 n = cur_val;
-                MEM[(p + 1i32) as usize].b32.s1 = n;
+                MEM[(p + 1) as usize].b32.s1 = n;
                 j = p + 2i32;
                 while j <= p + n + 1i32 {
                     scan_int();
@@ -2859,7 +2857,7 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                     j += 1
                 }
                 if n & 1i32 == 0 {
-                    MEM[(p + n + 2i32) as usize].b32.s1 = 0i32
+                    MEM[(p + n + 2) as usize].b32.s1 = 0
                 }
             } else {
                 p = get_node(2i32 * n + 1i32);
@@ -2867,10 +2865,10 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                 j = 1i32;
                 while j <= n {
                     scan_dimen(false, false, false);
-                    MEM[(p + 2i32 * j - 1i32) as usize].b32.s1 =
+                    MEM[(p + 2 * j - 1) as usize].b32.s1 =
                         cur_val;
                     scan_dimen(false, false, false);
-                    MEM[(p + 2i32 * j) as usize].b32.s1 = cur_val;
+                    MEM[(p + 2 * j) as usize].b32.s1 = cur_val;
                     j += 1
                 }
             }
@@ -3134,7 +3132,7 @@ unsafe extern "C" fn store_fmt_file() {
         x = x + q + 2i32 - p;
         var_used = var_used + q - p;
         p = q + MEM[q as usize].b32.s0;
-        q = MEM[(q + 1i32) as usize].b32.s1;
+        q = MEM[(q + 1) as usize].b32.s1;
         if !(q != rover) {
             break;
         }
@@ -4057,11 +4055,11 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         );
         p = q + MEM[q as usize].b32.s0;
         if p > lo_mem_max
-            || q >= MEM[(q + 1i32) as usize].b32.s1 && MEM[(q + 1i32) as usize].b32.s1 != rover
+            || q >= MEM[(q + 1) as usize].b32.s1 && MEM[(q + 1) as usize].b32.s1 != rover
         {
             bad_fmt();
         }
-        q = MEM[(q + 1i32) as usize].b32.s1;
+        q = MEM[(q + 1) as usize].b32.s1;
         if !(q != rover) {
             break;
         }
@@ -4902,7 +4900,7 @@ unsafe extern "C" fn final_cleanup() {
             print_int(if_line);
         }
         print_cstr(b" was incomplete)");
-        if_line = MEM[(cond_ptr + 1i32) as usize].b32.s1;
+        if_line = MEM[(cond_ptr + 1) as usize].b32.s1;
         cur_if = MEM[cond_ptr as usize].b16.s0 as small_number;
         temp_ptr = cond_ptr;
         cond_ptr = MEM[cond_ptr as usize].b32.s1;
@@ -5159,14 +5157,14 @@ unsafe extern "C" fn initialize_more_initex_variables() {
     let mut k: i32 = 0;
     k = 1i32;
     while k <= 19i32 {
-        MEM[k as usize].b32.s1 = 0i32;
+        MEM[k as usize].b32.s1 = 0;
         k += 1
     }
     k = 0i32;
     while k <= 19i32 {
-        MEM[k as usize].b32.s1 = TEX_NULL + 1i32;
-        MEM[k as usize].b16.s1 = 0_u16;
-        MEM[k as usize].b16.s0 = 0_u16;
+        MEM[k as usize].b32.s1 = TEX_NULL + 1;
+        MEM[k as usize].b16.s1 = 0;
+        MEM[k as usize].b16.s0 = 0;
         k += 4i32
     }
     MEM[6].b32.s1 = 65536 as i32;
@@ -5180,10 +5178,10 @@ unsafe extern "C" fn initialize_more_initex_variables() {
     MEM[18].b32.s1 = -65536 as i32;
     MEM[16].b16.s1 = 1_u16;
     rover = 20i32;
-    MEM[rover as usize].b32.s1 = 0x3fffffffi32;
-    MEM[rover as usize].b32.s0 = 1000i32;
-    MEM[(rover + 1i32) as usize].b32.s0 = rover;
-    MEM[(rover + 1i32) as usize].b32.s1 = rover;
+    MEM[rover as usize].b32.s1 = 0x3fffffff;
+    MEM[rover as usize].b32.s0 = 1000;
+    MEM[(rover + 1) as usize].b32.s0 = rover;
+    MEM[(rover + 1) as usize].b32.s1 = rover;
     lo_mem_max = rover + 1000i32;
     MEM[lo_mem_max as usize].b32.s1 = TEX_NULL;
     MEM[lo_mem_max as usize].b32.s0 = TEX_NULL;
@@ -5201,8 +5199,8 @@ unsafe extern "C" fn initialize_more_initex_variables() {
     MEM[PAGE_INS_HEAD as usize].b16.s0 = 255_u16;
     MEM[PAGE_INS_HEAD as usize].b16.s1 = SPLIT_UP as _;
     MEM[PAGE_INS_HEAD as usize].b32.s1 = PAGE_INS_HEAD;
-    MEM[(4999999i32 - 2i32) as usize].b16.s1 = 10_u16;
-    MEM[(4999999i32 - 2i32) as usize].b16.s0 = 0_u16;
+    MEM[(4999999 - 2) as usize].b16.s1 = 10;
+    MEM[(4999999 - 2) as usize].b16.s0 = 0;
     avail = TEX_NULL;
     mem_end = MEM_TOP;
     hi_mem_min = PRE_ADJUST_HEAD;

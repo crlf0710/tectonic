@@ -551,8 +551,8 @@ pub(crate) unsafe extern "C" fn synctex_vlist(mut this_box: i32) {
     } /*  0 to reset  */
     synctex_ctxt.node = this_box; /*  reset  */
     synctex_ctxt.recorder = None;
-    synctex_ctxt.tag = MEM[(this_box + 8i32 - 1i32) as usize].b32.s0;
-    synctex_ctxt.line = MEM[(this_box + 8i32 - 1i32) as usize].b32.s1;
+    synctex_ctxt.tag = MEM[(this_box + 8 - 1) as usize].b32.s0;
+    synctex_ctxt.line = MEM[(this_box + 8 - 1) as usize].b32.s1;
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_record_node_vlist(this_box);
@@ -603,8 +603,8 @@ pub(crate) unsafe extern "C" fn synctex_tsilv(mut this_box: i32) {
     }
     /*  Ignoring any pending info to be recorded  */
     synctex_ctxt.node = this_box; /*  0 to reset  */
-    synctex_ctxt.tag = MEM[(this_box + 8i32 - 1i32) as usize].b32.s0;
-    synctex_ctxt.line = MEM[(this_box + 8i32 - 1i32) as usize].b32.s1;
+    synctex_ctxt.tag = MEM[(this_box + 8 - 1) as usize].b32.s0;
+    synctex_ctxt.line = MEM[(this_box + 8 - 1) as usize].b32.s1;
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -651,8 +651,8 @@ pub(crate) unsafe extern "C" fn synctex_void_vlist(mut p: i32, mut _this_box: i3
         return;
     } /*  reset  */
     synctex_ctxt.node = p; /*  reset  */
-    synctex_ctxt.tag = MEM[(p + 8i32 - 1i32) as usize].b32.s0;
-    synctex_ctxt.line = MEM[(p + 8i32 - 1i32) as usize].b32.s1;
+    synctex_ctxt.tag = MEM[(p + 8 - 1) as usize].b32.s0;
+    synctex_ctxt.line = MEM[(p + 8 - 1) as usize].b32.s1;
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -703,8 +703,8 @@ pub(crate) unsafe extern "C" fn synctex_hlist(mut this_box: i32) {
         return;
     } /*  0 to reset  */
     synctex_ctxt.node = this_box; /*  reset  */
-    synctex_ctxt.tag = MEM[(this_box + 8i32 - 1i32) as usize].b32.s0;
-    synctex_ctxt.line = MEM[(this_box + 8i32 - 1i32) as usize].b32.s1;
+    synctex_ctxt.tag = MEM[(this_box + 8 - 1) as usize].b32.s0;
+    synctex_ctxt.line = MEM[(this_box + 8 - 1) as usize].b32.s1;
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -754,8 +754,8 @@ pub(crate) unsafe extern "C" fn synctex_tsilh(mut this_box: i32) {
     }
     /*  Ignoring any pending info to be recorded  */
     synctex_ctxt.node = this_box; /*  0 to force next node to be recorded!  */
-    synctex_ctxt.tag = MEM[(this_box + 8i32 - 1i32) as usize].b32.s0; /*  reset  */
-    synctex_ctxt.line = MEM[(this_box + 8i32 - 1i32) as usize].b32.s1;
+    synctex_ctxt.tag = MEM[(this_box + 8 - 1) as usize].b32.s0; /*  reset  */
+    synctex_ctxt.line = MEM[(this_box + 8 - 1) as usize].b32.s1;
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -808,8 +808,8 @@ pub(crate) unsafe extern "C" fn synctex_void_hlist(mut p: i32, mut _this_box: i3
         /*  0 to reset  */
     } /*  reset  */
     synctex_ctxt.node = p;
-    synctex_ctxt.tag = MEM[(p + 8i32 - 1i32) as usize].b32.s0;
-    synctex_ctxt.line = MEM[(p + 8i32 - 1i32) as usize].b32.s1;
+    synctex_ctxt.tag = MEM[(p + 8 - 1) as usize].b32.s0;
+    synctex_ctxt.line = MEM[(p + 8 - 1) as usize].b32.s1;
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -860,16 +860,16 @@ pub(crate) unsafe extern "C" fn synctex_math(mut p: i32, mut _this_box: i32) {
     }
     if synctex_ctxt.recorder.is_some()
         && (0i32 == synctex_ctxt.node
-            || MEM[(p + 3i32 - 1i32) as usize].b32.s0 != synctex_ctxt.tag
-            || MEM[(p + 3i32 - 1i32) as usize].b32.s1 != synctex_ctxt.line)
+            || MEM[(p + 3 - 1) as usize].b32.s0 != synctex_ctxt.tag
+            || MEM[(p + 3 - 1) as usize].b32.s1 != synctex_ctxt.line)
     {
         /*  the sync context did change  */
         synctex_ctxt.recorder.expect("non-null function pointer")(synctex_ctxt.node);
         /*  no need to record once more  */
     }
     synctex_ctxt.node = p;
-    synctex_ctxt.tag = MEM[(p + 3i32 - 1i32) as usize].b32.s0;
-    synctex_ctxt.line = MEM[(p + 3i32 - 1i32) as usize].b32.s1;
+    synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
+    synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -913,8 +913,8 @@ pub(crate) unsafe extern "C" fn synctex_horizontal_rule_or_glue(mut p: i32, mut 
                 ))
                 .b32
                 .s1 == 0
-                || 0i32 >= MEM[(p + 5i32 - 1i32) as usize].b32.s0
-                || 0i32 >= MEM[(p + 5i32 - 1i32) as usize].b32.s1
+                || 0i32 >= MEM[(p + 5 - 1) as usize].b32.s0
+                || 0i32 >= MEM[(p + 5 - 1) as usize].b32.s1
             {
                 return;
             }
@@ -950,8 +950,8 @@ pub(crate) unsafe extern "C" fn synctex_horizontal_rule_or_glue(mut p: i32, mut 
                 ))
                 .b32
                 .s1 == 0
-                || 0i32 >= MEM[(p + 3i32 - 1i32) as usize].b32.s0
-                || 0i32 >= MEM[(p + 3i32 - 1i32) as usize].b32.s1
+                || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s0
+                || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s1
             {
                 return;
             }
@@ -987,8 +987,8 @@ pub(crate) unsafe extern "C" fn synctex_horizontal_rule_or_glue(mut p: i32, mut 
                 ))
                 .b32
                 .s1 == 0
-                || 0i32 >= MEM[(p + 3i32 - 1i32) as usize].b32.s0
-                || 0i32 >= MEM[(p + 3i32 - 1i32) as usize].b32.s1
+                || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s0
+                || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s1
             {
                 return;
             }
@@ -1006,18 +1006,18 @@ pub(crate) unsafe extern "C" fn synctex_horizontal_rule_or_glue(mut p: i32, mut 
     synctex_ctxt.recorder = None;
     match MEM[p as usize].b16.s1 as i32 {
         2 => {
-            synctex_ctxt.tag = MEM[(p + 5i32 - 1i32) as usize].b32.s0;
-            synctex_ctxt.line = MEM[(p + 5i32 - 1i32) as usize].b32.s1;
+            synctex_ctxt.tag = MEM[(p + 5 - 1) as usize].b32.s0;
+            synctex_ctxt.line = MEM[(p + 5 - 1) as usize].b32.s1;
             synctex_record_node_rule(p);
         }
         10 => {
-            synctex_ctxt.tag = MEM[(p + 3i32 - 1i32) as usize].b32.s0;
-            synctex_ctxt.line = MEM[(p + 3i32 - 1i32) as usize].b32.s1;
+            synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
+            synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
             synctex_record_node_glue(p);
         }
         11 => {
-            synctex_ctxt.tag = MEM[(p + 3i32 - 1i32) as usize].b32.s0;
-            synctex_ctxt.line = MEM[(p + 3i32 - 1i32) as usize].b32.s1;
+            synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
+            synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
             synctex_record_node_kern(p);
         }
         _ => {

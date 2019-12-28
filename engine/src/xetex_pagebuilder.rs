@@ -180,7 +180,7 @@ unsafe extern "C" fn fire_up(mut c: i32) {
          * with them. */
         r = *LLIST_link(PAGE_INS_HEAD as isize);
         while r != PAGE_INS_HEAD {
-            if MEM[(r + 2i32) as usize].b32.s0 != TEX_NULL {
+            if MEM[(r + 2) as usize].b32.s0 != TEX_NULL {
                 n = *NODE_subtype(r as _) as _;
                 ensure_vbox(n);
 
@@ -193,7 +193,7 @@ unsafe extern "C" fn fire_up(mut c: i32) {
                     p = *LLIST_link(p as isize);
                 }
 
-                MEM[(r + 2i32) as usize].b32.s1 = p
+                MEM[(r + 2) as usize].b32.s1 = p
             }
             r = *LLIST_link(r as isize);
         }
@@ -214,45 +214,44 @@ unsafe extern "C" fn fire_up(mut c: i32) {
                 while *NODE_subtype(r as isize) != *NODE_subtype(p as isize) {
                     r = *LLIST_link(r as isize);
                 }
-                if MEM[(r + 2i32) as usize].b32.s0 == TEX_NULL {
+                if MEM[(r + 2) as usize].b32.s0 == TEX_NULL {
                     wait = true
                 } else {
                     wait = false;
 
-                    s = MEM[(r + 2i32) as usize].b32.s1;
-                    *LLIST_link(s as isize) = MEM[(p + 4i32) as usize].b32.s0;
-                    if MEM[(r + 2i32) as usize].b32.s0 == p {
+                    s = MEM[(r + 2) as usize].b32.s1;
+                    *LLIST_link(s as isize) = MEM[(p + 4) as usize].b32.s0;
+                    if MEM[(r + 2) as usize].b32.s0 == p {
                         /*1056: "Wrap up the box specified by node r,
                          * splitting node p if called for; set wait = true if
                          * node p holds a remainder after splitting" */
                         if *NODE_type(r as isize) == SPLIT_UP as _ {
-                            if MEM[(r + 1i32) as usize].b32.s0 == p
-                                && MEM[(r + 1i32) as usize].b32.s1 != -0xfffffffi32
+                            if MEM[(r + 1) as usize].b32.s0 == p
+                                && MEM[(r + 1) as usize].b32.s1 != -0xfffffff
                             {
-                                while *LLIST_link(s as isize) != MEM[(r + 1i32) as usize].b32.s1 {
+                                while *LLIST_link(s as isize) != MEM[(r + 1) as usize].b32.s1 {
                                     s = *LLIST_link(s as isize);
                                 }
                                 *LLIST_link(s as isize) = TEX_NULL;
-                                *GLUEPAR(GLUE_PAR__split_top_skip) =
-                                    MEM[(p + 4i32) as usize].b32.s1;
-                                MEM[(p + 4i32) as usize].b32.s0 =
-                                    prune_page_top(MEM[(r + 1i32) as usize].b32.s1, false);
-                                if MEM[(p + 4i32) as usize].b32.s0 != TEX_NULL {
+                                *GLUEPAR(GLUE_PAR__split_top_skip) = MEM[(p + 4) as usize].b32.s1;
+                                MEM[(p + 4) as usize].b32.s0 =
+                                    prune_page_top(MEM[(r + 1) as usize].b32.s1, false);
+                                if MEM[(p + 4) as usize].b32.s0 != TEX_NULL {
                                     temp_ptr = vpackage(
-                                        MEM[(p + 4i32) as usize].b32.s0,
+                                        MEM[(p + 4) as usize].b32.s0,
                                         0,
                                         ADDITIONAL as _,
                                         MAX_HALFWORD,
                                     );
-                                    MEM[(p + 3i32) as usize].b32.s1 =
-                                        MEM[(temp_ptr + 3i32) as usize].b32.s1
-                                            + MEM[(temp_ptr + 2i32) as usize].b32.s1;
+                                    MEM[(p + 3) as usize].b32.s1 =
+                                        MEM[(temp_ptr + 3) as usize].b32.s1
+                                            + MEM[(temp_ptr + 2) as usize].b32.s1;
                                     free_node(temp_ptr, BOX_NODE_SIZE);
                                     wait = true
                                 }
                             }
                         }
-                        MEM[(r + 2i32) as usize].b32.s0 = TEX_NULL;
+                        MEM[(r + 2) as usize].b32.s0 = TEX_NULL;
                         n = *NODE_subtype(r as isize) as _;
                         temp_ptr = MEM[((*eqtb.offset(
                             (1i32
@@ -285,7 +284,7 @@ unsafe extern "C" fn fire_up(mut c: i32) {
                         while *LLIST_link(s as isize) != TEX_NULL {
                             s = *LLIST_link(s as isize);
                         }
-                        MEM[(r + 2i32) as usize].b32.s1 = s
+                        MEM[(r + 2) as usize].b32.s1 = s
                     }
                 }
 
@@ -300,37 +299,37 @@ unsafe extern "C" fn fire_up(mut c: i32) {
                     q = p;
                     insert_penalties += 1
                 } else {
-                    delete_glue_ref(MEM[(p + 4i32) as usize].b32.s1);
+                    delete_glue_ref(MEM[(p + 4) as usize].b32.s1);
                     free_node(p, INS_NODE_SIZE);
                 }
                 p = prev_p /*:1057 */
             }
         } else if *NODE_type(p as isize) == MARK_NODE {
-            if MEM[(p + 1i32) as usize].b32.s0 != 0 {
+            if MEM[(p + 1) as usize].b32.s0 != 0 {
                 /*1618: "Update the current marks" */
-                find_sa_element(MARK_VAL as _, MEM[(p + 1i32) as usize].b32.s0, true);
-                if MEM[(cur_ptr + 1i32) as usize].b32.s1 == TEX_NULL {
-                    MEM[(cur_ptr + 1i32) as usize].b32.s1 = MEM[(p + 1i32) as usize].b32.s1;
-                    let ref mut fresh1 = MEM[MEM[(p + 1i32) as usize].b32.s1 as usize].b32.s0;
+                find_sa_element(MARK_VAL as _, MEM[(p + 1) as usize].b32.s0, true);
+                if MEM[(cur_ptr + 1) as usize].b32.s1 == TEX_NULL {
+                    MEM[(cur_ptr + 1) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
+                    let ref mut fresh1 = MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0;
                     *fresh1 += 1
                 }
-                if MEM[(cur_ptr + 2i32) as usize].b32.s0 != TEX_NULL {
-                    delete_token_ref(MEM[(cur_ptr + 2i32) as usize].b32.s0);
+                if MEM[(cur_ptr + 2) as usize].b32.s0 != TEX_NULL {
+                    delete_token_ref(MEM[(cur_ptr + 2) as usize].b32.s0);
                 }
-                MEM[(cur_ptr + 2i32) as usize].b32.s0 = MEM[(p + 1i32) as usize].b32.s1;
-                let ref mut fresh2 = MEM[MEM[(p + 1i32) as usize].b32.s1 as usize].b32.s0;
+                MEM[(cur_ptr + 2) as usize].b32.s0 = MEM[(p + 1) as usize].b32.s1;
+                let ref mut fresh2 = MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0;
                 *fresh2 += 1
             } else {
                 /*1051: "Update the values of first_mark and bot_mark" */
                 if cur_mark[FIRST_MARK_CODE as usize] == TEX_NULL {
-                    cur_mark[FIRST_MARK_CODE as usize] = MEM[(p + 1i32) as usize].b32.s1;
+                    cur_mark[FIRST_MARK_CODE as usize] = MEM[(p + 1) as usize].b32.s1;
                     let ref mut fresh3 = MEM[cur_mark[1] as usize].b32.s0;
                     *fresh3 += 1
                 }
                 if cur_mark[2] != TEX_NULL {
                     delete_token_ref(cur_mark[BOT_MARK_CODE as usize]);
                 }
-                cur_mark[BOT_MARK_CODE as usize] = MEM[(p + 1i32) as usize].b32.s1;
+                cur_mark[BOT_MARK_CODE as usize] = MEM[(p + 1) as usize].b32.s1;
                 let ref mut fresh4 = MEM[cur_mark[2] as usize].b32.s0;
                 *fresh4 += 1
             }
@@ -518,7 +517,7 @@ pub(crate) unsafe extern "C" fn build_page() {
             last_glue = MAX_HALFWORD;
 
             if *NODE_type(slf.p as isize) == PENALTY_NODE {
-                last_penalty = MEM[(slf.p + 1i32) as usize].b32.s1
+                last_penalty = MEM[(slf.p + 1) as usize].b32.s1
             } else if *NODE_type(slf.p as isize) == KERN_NODE {
                 last_kern = *BOX_width(slf.p as isize);
             }
@@ -600,7 +599,7 @@ pub(crate) unsafe extern "C" fn build_page() {
                 if page_contents < BOX_THERE as _ {
                     return done1(slf);
                 } else {
-                    slf.pi = MEM[(slf.p + 1i32) as usize].b32.s1;
+                    slf.pi = MEM[(slf.p + 1) as usize].b32.s1;
                 }
             }
             MARK_NODE => { return contribute(slf); }
@@ -636,7 +635,7 @@ pub(crate) unsafe extern "C" fn build_page() {
                         *BOX_height(slf.r as isize) = *BOX_height(BOX_REG(n as _) as isize) + *BOX_depth(BOX_REG(n as _) as isize);
                     }
 
-                    MEM[(slf.r + 2i32) as usize].b32.s0 = TEX_NULL;
+                    MEM[(slf.r + 2) as usize].b32.s0 = TEX_NULL;
                     slf.q = SKIP_REG(n as _);
 
                     let h: scaled_t = if COUNT_REG(n as _) == 1000 {
@@ -671,9 +670,9 @@ pub(crate) unsafe extern "C" fn build_page() {
 
                 if *NODE_type(slf.r as isize) == SPLIT_UP as _ {
                     insert_penalties +=
-                        MEM[(slf.p + 1i32) as usize].b32.s1
+                        MEM[(slf.p + 1) as usize].b32.s1
                 } else {
-                    MEM[(slf.r + 2i32) as usize].b32.s1 = slf.p;
+                    MEM[(slf.r + 2) as usize].b32.s1 = slf.p;
                     let delta: scaled_t =
                         page_so_far[0] - page_so_far[1] - page_so_far[7] +
                             page_so_far[6];
@@ -719,12 +718,12 @@ pub(crate) unsafe extern "C" fn build_page() {
                         }
 
                         slf.q =
-                            vert_break(MEM[(slf.p + 4i32) as
+                            vert_break(MEM[(slf.p + 4) as
                                                         usize].b32.s0, w,
-                                       MEM[(slf.p + 2i32) as
+                                       MEM[(slf.p + 2) as
                                                         usize].b32.s1);
                         let ref mut fresh9 =
-                            MEM[(slf.r + 3i32) as usize].b32.s1;
+                            MEM[(slf.r + 3) as usize].b32.s1;
                         *fresh9 += best_height_plus_depth;
 
                         if COUNT_REG(n as _) != 1000 {
@@ -733,14 +732,14 @@ pub(crate) unsafe extern "C" fn build_page() {
                         }
                         page_so_far[0] -= best_height_plus_depth;
                         *NODE_type(slf.r as isize) = SPLIT_UP as _;
-                        MEM[(slf.r + 1i32) as usize].b32.s1 = slf.q;
-                        MEM[(slf.r + 1i32) as usize].b32.s0 = slf.p;
+                        MEM[(slf.r + 1) as usize].b32.s1 = slf.q;
+                        MEM[(slf.r + 1) as usize].b32.s0 = slf.p;
 
                         if slf.q == TEX_NULL {
                             insert_penalties += EJECT_PENALTY;
                         } else if *NODE_type(slf.q as isize) == PENALTY_NODE {
                             insert_penalties +=
-                                MEM[(slf.q + 1i32) as usize].b32.s1
+                                MEM[(slf.q + 1) as usize].b32.s1
                         }
                     }
                 }
@@ -797,7 +796,7 @@ pub(crate) unsafe extern "C" fn build_page() {
                 slf.r = *LLIST_link(PAGE_INS_HEAD as isize);
 
                 while slf.r != PAGE_INS_HEAD {
-                    MEM[(slf.r + 2i32) as usize].b32.s0 = MEM[(slf.r + 2i32) as usize].b32.s1;
+                    MEM[(slf.r + 2) as usize].b32.s0 = MEM[(slf.r + 2) as usize].b32.s1;
                     slf.r = *LLIST_link(slf.r as isize);
                 }
             }
@@ -828,13 +827,11 @@ pub(crate) unsafe extern "C" fn build_page() {
             if *NODE_type(slf.p as isize) == KERN_NODE {
                 slf.q = slf.p
             } else {
-                slf.q = MEM[(slf.p + 1i32) as usize].b32.s0;
+                slf.q = MEM[(slf.p + 1) as usize].b32.s0;
                 page_so_far[(2i32 + MEM[slf.q as usize].b16.s1 as i32) as usize] +=
-                    MEM[(slf.q + 2i32) as usize].b32.s1;
-                page_so_far[6] += MEM[(slf.q + 3i32) as usize].b32.s1;
-                if MEM[slf.q as usize].b16.s0 as i32 != 0i32
-                    && MEM[(slf.q + 3i32) as usize].b32.s1 != 0i32
-                {
+                    MEM[(slf.q + 2) as usize].b32.s1;
+                page_so_far[6] += MEM[(slf.q + 3) as usize].b32.s1;
+                if MEM[slf.q as usize].b16.s0 as i32 != 0 && MEM[(slf.q + 3) as usize].b32.s1 != 0 {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
@@ -850,11 +847,11 @@ pub(crate) unsafe extern "C" fn build_page() {
                     slf.r = new_spec(slf.q);
                     MEM[slf.r as usize].b16.s0 = 0_u16;
                     delete_glue_ref(slf.q);
-                    MEM[(slf.p + 1i32) as usize].b32.s0 = slf.r;
+                    MEM[(slf.p + 1) as usize].b32.s0 = slf.r;
                     slf.q = slf.r
                 }
             }
-            page_so_far[1] += page_so_far[7] + MEM[(slf.q + 1i32) as usize].b32.s1;
+            page_so_far[1] += page_so_far[7] + MEM[(slf.q + 1) as usize].b32.s1;
             page_so_far[7] = 0i32;
             return contribute(slf);
         }
