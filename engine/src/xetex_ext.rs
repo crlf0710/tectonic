@@ -31,10 +31,10 @@ use crate::cf_prelude::{
 use crate::core_memory::{mfree, xcalloc, xmalloc, xrealloc, xstrdup};
 use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
-    depth_base, font_area, font_flags, font_info, font_layout_engine, font_letter_space,
-    height_base, loaded_font_design_size, loaded_font_flags, loaded_font_letter_space,
-    loaded_font_mapping, mapped_text, name_length, name_of_file, native_font_type_flag, param_base,
-    xdv_buffer,
+    depth_base, font_area, font_flags, font_layout_engine, font_letter_space, height_base,
+    loaded_font_design_size, loaded_font_flags, loaded_font_letter_space, loaded_font_mapping,
+    mapped_text, name_length, name_of_file, native_font_type_flag, param_base, xdv_buffer,
+    FONT_INFO,
 };
 use crate::xetex_output::{print_char, print_int, print_nl, print_raw_char};
 use crate::xetex_scaledmath::xn_over_d;
@@ -1745,7 +1745,7 @@ pub(crate) unsafe extern "C" fn get_native_char_height_depth(
     *height = D2Fix(ht as f64);
     *depth = D2Fix(dp as f64);
     /* snap to "known" zones for baseline, x-height, cap-height if within 4% of em-size */
-    fuzz = (*font_info.offset((6i32 + *param_base.offset(font as isize)) as isize))
+    fuzz = FONT_INFO[(6 + *param_base.offset(font as isize)) as usize]
         .b32
         .s1
         / 25i32;
@@ -1753,14 +1753,14 @@ pub(crate) unsafe extern "C" fn get_native_char_height_depth(
     snap_zone(height, 0i32, fuzz);
     snap_zone(
         height,
-        (*font_info.offset((5i32 + *param_base.offset(font as isize)) as isize))
+        FONT_INFO[(5 + *param_base.offset(font as isize)) as usize]
             .b32
             .s1,
         fuzz,
     );
     snap_zone(
         height,
-        (*font_info.offset((8i32 + *param_base.offset(font as isize)) as isize))
+        FONT_INFO[(8 + *param_base.offset(font as isize)) as usize]
             .b32
             .s1,
         fuzz,

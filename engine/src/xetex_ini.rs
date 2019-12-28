@@ -459,7 +459,7 @@ pub(crate) static mut pool_size: i32 = 0;
 #[no_mangle]
 pub(crate) static mut pool_free: i32 = 0;
 #[no_mangle]
-pub(crate) static mut font_mem_size: i32 = 0;
+pub(crate) static mut FONT_MEM_SIZE: usize = 0;
 #[no_mangle]
 pub(crate) static mut font_max: i32 = 0;
 #[no_mangle]
@@ -773,7 +773,7 @@ pub(crate) static mut output_file_extension: *const i8 = ptr::null();
 #[no_mangle]
 pub(crate) static mut texmf_log_name: str_number = 0;
 #[no_mangle]
-pub(crate) static mut font_info: *mut memory_word = ptr::null_mut();
+pub(crate) static mut FONT_INFO: Vec<memory_word> = Vec::new();
 #[no_mangle]
 pub(crate) static mut fmem_ptr: font_index = 0;
 #[no_mangle]
@@ -2902,7 +2902,7 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
             k = cur_val;
             scan_optional_equals();
             scan_dimen(false, false, false);
-            (*font_info.offset(k as isize)).b32.s1 = cur_val
+            FONT_INFO[k as usize].b32.s1 = cur_val
         }
         ASSIGN_FONT_INT => {
             n = cur_chr;
@@ -3417,7 +3417,7 @@ unsafe extern "C" fn store_fmt_file() {
         fmt_out,
     );
     do_dump(
-        &mut *font_info.offset(0) as *mut memory_word as *mut i8,
+        &mut FONT_INFO[0] as *mut memory_word as *mut i8,
         ::std::mem::size_of::<memory_word>() as _,
         fmem_ptr as size_t,
         fmt_out,
@@ -3812,7 +3812,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     let fmt_in = &mut fmt_in_owner;
     cur_input.loc = j;
     if in_initex_mode {
-        free(font_info as *mut libc::c_void);
+        FONT_INFO = Vec::new();
         free(str_pool as *mut libc::c_void);
         free(str_start as *mut libc::c_void);
         free(yhash as *mut libc::c_void);
@@ -4303,12 +4303,12 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
 
     fmem_ptr = x;
-    if fmem_ptr > font_mem_size {
-        font_mem_size = fmem_ptr
+    if fmem_ptr > FONT_MEM_SIZE as i32 {
+        FONT_MEM_SIZE = fmem_ptr as usize
     }
-    font_info = xmalloc_array::<memory_word>(font_mem_size as usize);
+    FONT_INFO = vec![memory_word::default(); FONT_MEM_SIZE + 1];
     do_undump(
-        &mut *font_info.offset(0) as *mut memory_word as *mut i8,
+        &mut FONT_INFO[0] as *mut memory_word as *mut i8,
         ::std::mem::size_of::<memory_word>() as _,
         fmem_ptr as size_t,
         fmt_in,
@@ -8851,7 +8851,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     pool_free = 47500i64 as i32;
     max_strings = 565536i64 as i32;
     strings_free = 100i32;
-    font_mem_size = 8000000i64 as i32;
+    FONT_MEM_SIZE = 8000000;
     font_max = 9000i32;
     trie_size = 1000000i64 as i32;
     hyph_size = 8191i32;
@@ -8905,7 +8905,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
         eqtb = xcalloc_array(eqtb_top as usize);
         str_start = xmalloc_array(max_strings as usize);
         str_pool = xmalloc_array(pool_size as usize);
-        font_info = xmalloc_array(font_mem_size as usize);
+        FONT_INFO = vec![memory_word::default(); FONT_MEM_SIZE + 1];
     }
     /* Sanity-check various invariants. */
     history = TTHistory::FATAL_ERROR;
@@ -9327,7 +9327,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
         *param_base.offset(0) = -1i32;
         font_k = 0i32;
         while font_k <= 6i32 {
-            (*font_info.offset(font_k as isize)).b32.s1 = 0i32;
+            FONT_INFO[font_k as usize].b32.s1 = 0i32;
             font_k += 1
         }
     }
@@ -9393,7 +9393,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     MEM = Vec::new();
     free(str_start as *mut libc::c_void);
     free(str_pool as *mut libc::c_void);
-    free(font_info as *mut libc::c_void);
+    FONT_INFO = Vec::new();
     free(font_mapping as *mut libc::c_void);
     free(font_layout_engine as *mut libc::c_void);
     free(font_flags as *mut libc::c_void);

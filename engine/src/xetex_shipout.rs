@@ -12,13 +12,13 @@ use crate::xetex_ini::{
     avail, char_base, cur_area, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_list, cur_name,
     cur_page_height, cur_page_width, cur_tok, cur_v, cur_v_offset, dead_cycles, def_ref,
     doing_leaders, doing_special, file_line_error_style_p, file_offset, font_area, font_bc,
-    font_check, font_dsize, font_ec, font_glue, font_info, font_letter_space, font_mapping,
-    font_name, font_ptr, font_size, font_used, help_line, help_ptr, init_pool_ptr, job_name,
-    last_bop, log_opened, max_h, max_print_line, max_push, max_v, name_of_file,
-    output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht,
-    rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool, str_ptr, str_start,
-    temp_ptr, term_offset, total_pages, width_base, write_file, write_loc, write_open, xdv_buffer,
-    xtx_ligature_present, LR_problems, LR_ptr, MEM,
+    font_check, font_dsize, font_ec, font_glue, font_letter_space, font_mapping, font_name,
+    font_ptr, font_size, font_used, help_line, help_ptr, init_pool_ptr, job_name, last_bop,
+    log_opened, max_h, max_print_line, max_push, max_v, name_of_file, output_file_extension,
+    pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht, rule_wd, rust_stdout,
+    selector, semantic_pagination_enabled, str_pool, str_ptr, str_start, temp_ptr, term_offset,
+    total_pages, width_base, write_file, write_loc, write_open, xdv_buffer, xtx_ligature_present,
+    LR_problems, LR_ptr, FONT_INFO, MEM,
 };
 use crate::xetex_ini::{memory_word, Selector};
 use crate::xetex_output::{
@@ -700,10 +700,10 @@ unsafe extern "C" fn hlist_out() {
                                c as i32 {
                             if *font_bc.offset(f as isize) as i32 <=
                                    c as i32 {
-                                if (*font_info.offset((*char_base.offset(f as
+                                if FONT_INFO[(*char_base.offset(f as
                                                                              isize)
                                                            + c as i32)
-                                                          as isize)).b16.s3 as
+                                                          as usize].b16.s3 as
                                        i32 > 0i32 {
                                     /* if (char_exists(orig_char_info(f)(c))) */
                                     if c as i32 >= 128i32 {
@@ -711,11 +711,11 @@ unsafe extern "C" fn hlist_out() {
                                     }
                                     dvi_out(c as u8);
                                     cur_h +=
-                                        (*font_info.offset((*width_base.offset(f
+                                        FONT_INFO[(*width_base.offset(f
                                                                                    as
                                                                                    isize)
                                                                 +
-                                                                (*font_info.offset((*char_base.offset(f
+                                                                FONT_INFO[(*char_base.offset(f
                                                                                                           as
                                                                                                           isize)
                                                                                         +
@@ -723,11 +723,11 @@ unsafe extern "C" fn hlist_out() {
                                                                                             as
                                                                                             i32)
                                                                                        as
-                                                                                       isize)).b16.s3
+                                                                                       usize].b16.s3
                                                                     as
                                                                     i32)
                                                                as
-                                                               isize)).b32.s1
+                                                               usize].b32.s1
                                 }
                             }
                         }
@@ -1696,18 +1696,14 @@ unsafe extern "C" fn reverse(
                     loop {
                         f = MEM[p as usize].b16.s1 as internal_font_number;
                         c = MEM[p as usize].b16.s0;
-                        cur_h += (*font_info.offset(
-                            (*width_base.offset(f as isize)
-                                + (*font_info.offset(
-                                    (*char_base.offset(f as isize)
-                                        + effective_char(1i32 != 0, f, c))
-                                        as isize,
-                                ))
+                        cur_h += FONT_INFO[(*width_base.offset(f as isize)
+                            + FONT_INFO[(*char_base.offset(f as isize)
+                                + effective_char(1i32 != 0, f, c))
+                                as usize]
                                 .b16
-                                .s3 as i32) as isize,
-                        ))
-                        .b32
-                        .s1;
+                                .s3 as i32) as usize]
+                            .b32
+                            .s1;
                         q = MEM[p as usize].b32.s1;
                         MEM[p as usize].b32.s1 = l;
                         l = p;

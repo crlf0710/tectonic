@@ -14,13 +14,13 @@ use crate::xetex_ext::measure_native_node;
 use crate::xetex_ini::{
     active_width, adjust_tail, arith_error, avail, bchar_label, char_base, cur_l, cur_lang,
     cur_list, cur_q, cur_r, eqtb, file_line_error_style_p, first_p, font_bchar,
-    font_in_short_display, font_info, global_prev_p, hc, help_line, help_ptr, hf, hi_mem_min,
-    hlist_stack, hlist_stack_level, hu, hyf, hyf_distance, hyf_next, hyf_num, hyph_index,
-    hyph_link, hyph_list, hyph_start, hyph_word, hyphen_char, hyphen_passed, init_lft, init_lig,
-    init_list, init_trie, just_box, kern_base, last_leftmost_char, last_rightmost_char, lft_hit,
-    lig_kern_base, lig_stack, ligature_present, max_hyph_char, op_start, pack_begin_line,
-    pre_adjust_tail, rt_hit, semantic_pagination_enabled, str_pool, str_start, temp_ptr,
-    trie_not_ready, trie_trc, trie_trl, trie_tro, width_base, xtx_ligature_present, MEM,
+    font_in_short_display, global_prev_p, hc, help_line, help_ptr, hf, hi_mem_min, hlist_stack,
+    hlist_stack_level, hu, hyf, hyf_distance, hyf_next, hyf_num, hyph_index, hyph_link, hyph_list,
+    hyph_start, hyph_word, hyphen_char, hyphen_passed, init_lft, init_lig, init_list, init_trie,
+    just_box, kern_base, last_leftmost_char, last_rightmost_char, lft_hit, lig_kern_base,
+    lig_stack, ligature_present, max_hyph_char, op_start, pack_begin_line, pre_adjust_tail, rt_hit,
+    semantic_pagination_enabled, str_pool, str_start, temp_ptr, trie_not_ready, trie_trc, trie_trl,
+    trie_tro, width_base, xtx_ligature_present, FONT_INFO, MEM,
 };
 use crate::xetex_ini::{b16x4, memory_word};
 use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
@@ -338,15 +338,12 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                     let mut eff_char: i32 = 0;
                     f = MEM[cur_p as usize].b16.s1 as internal_font_number;
                     eff_char = effective_char(1i32 != 0, f, MEM[cur_p as usize].b16.s0);
-                    active_width[1] += (*font_info.offset(
-                        (*width_base.offset(f as isize)
-                            + (*font_info
-                                .offset((*char_base.offset(f as isize) + eff_char) as isize))
+                    active_width[1] += FONT_INFO[(*width_base.offset(f as isize)
+                        + FONT_INFO[(*char_base.offset(f as isize) + eff_char) as usize]
                             .b16
-                            .s3 as i32) as isize,
-                    ))
-                    .b32
-                    .s1;
+                            .s3 as i32) as usize]
+                        .b32
+                        .s1;
                     cur_p = *LLIST_link(cur_p as isize);
                     if !is_char_node(cur_p) {
                         break;
@@ -1271,18 +1268,14 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                 6 => {
                     f = MEM[(cur_p + 1) as usize].b16.s1 as internal_font_number;
                     xtx_ligature_present = true;
-                    active_width[1] += (*font_info.offset(
-                        (*width_base.offset(f as isize)
-                            + (*font_info.offset(
-                                (*char_base.offset(f as isize)
-                                    + effective_char(true, f, MEM[(cur_p + 1) as usize].b16.s0))
-                                    as isize,
-                            ))
+                    active_width[1] += FONT_INFO[(*width_base.offset(f as isize)
+                        + FONT_INFO[(*char_base.offset(f as isize)
+                            + effective_char(true, f, MEM[(cur_p + 1) as usize].b16.s0))
+                            as usize]
                             .b16
-                            .s3 as i32) as isize,
-                    ))
-                    .b32
-                    .s1
+                            .s3 as i32) as usize]
+                        .b32
+                        .s1
                 }
                 DISC_NODE => {
                     /*898: try to break after a discretionary fragment, then goto done5 */
@@ -1298,16 +1291,14 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                                 let mut eff_char_0: i32 = 0; /*:898 big DISC_NODE case */
                                 f = MEM[s as usize].b16.s1 as internal_font_number;
                                 eff_char_0 = effective_char(1i32 != 0, f, MEM[s as usize].b16.s0);
-                                disc_width += (*font_info.offset(
-                                    (*width_base.offset(f as isize)
-                                        + (*font_info.offset(
-                                            (*char_base.offset(f as isize) + eff_char_0) as isize,
-                                        ))
+                                disc_width += FONT_INFO[(*width_base.offset(f as isize)
+                                    + FONT_INFO
+                                        [(*char_base.offset(f as isize) + eff_char_0) as usize]
                                         .b16
-                                        .s3 as i32) as isize,
-                                ))
-                                .b32
-                                .s1
+                                        .s3 as i32)
+                                    as usize]
+                                    .b32
+                                    .s1
                             } else {
                                 match MEM[s as usize].b16.s1 as i32 {
                                     6 => {
@@ -1316,19 +1307,15 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                                         xtx_ligature_present = true;
                                         eff_char_1 =
                                             effective_char(true, f, MEM[(s + 1) as usize].b16.s0);
-                                        disc_width += (*font_info.offset(
-                                            (*width_base.offset(f as isize)
-                                                + (*font_info.offset(
-                                                    (*char_base.offset(f as isize) + eff_char_1)
-                                                        as isize,
-                                                ))
+                                        disc_width += FONT_INFO[(*width_base.offset(f as isize)
+                                            + FONT_INFO[(*char_base.offset(f as isize) + eff_char_1)
+                                                as usize]
                                                 .b16
                                                 .s3
-                                                    as i32)
-                                                as isize,
-                                        ))
-                                        .b32
-                                        .s1
+                                                as i32)
+                                            as usize]
+                                            .b32
+                                            .s1
                                     }
                                     0 | 1 | 2 | 11 => disc_width += MEM[(s + 1) as usize].b32.s1,
                                     8 => {
@@ -1364,16 +1351,13 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                             let mut eff_char_2: i32 = 0;
                             f = MEM[s as usize].b16.s1 as internal_font_number;
                             eff_char_2 = effective_char(1i32 != 0, f, MEM[s as usize].b16.s0);
-                            active_width[1] += (*font_info.offset(
-                                (*width_base.offset(f as isize)
-                                    + (*font_info.offset(
-                                        (*char_base.offset(f as isize) + eff_char_2) as isize,
-                                    ))
+                            active_width[1] += FONT_INFO[(*width_base.offset(f as isize)
+                                + FONT_INFO[(*char_base.offset(f as isize) + eff_char_2) as usize]
                                     .b16
-                                    .s3 as i32) as isize,
-                            ))
-                            .b32
-                            .s1
+                                    .s3 as i32)
+                                as usize]
+                                .b32
+                                .s1
                         } else {
                             match MEM[s as usize].b16.s1 as i32 {
                                 6 => {
@@ -1382,19 +1366,14 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                                     xtx_ligature_present = true;
                                     eff_char_3 =
                                         effective_char(true, f, MEM[(s + 1) as usize].b16.s0);
-                                    active_width[1] += (*font_info.offset(
-                                        (*width_base.offset(f as isize)
-                                            + (*font_info.offset(
-                                                (*char_base.offset(f as isize) + eff_char_3)
-                                                    as isize,
-                                            ))
+                                    active_width[1] += FONT_INFO[(*width_base.offset(f as isize)
+                                        + FONT_INFO
+                                            [(*char_base.offset(f as isize) + eff_char_3) as usize]
                                             .b16
-                                            .s3
-                                                as i32)
-                                            as isize,
-                                    ))
-                                    .b32
-                                    .s1
+                                            .s3 as i32)
+                                        as usize]
+                                        .b32
+                                        .s1
                                 }
                                 0 | 1 | 2 | 11 => active_width[1] += MEM[(s + 1) as usize].b32.s1,
                                 8 => {
@@ -2180,19 +2159,15 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                                         f = MEM[v as usize].b16.s1 as internal_font_number;
                                         eff_char =
                                             effective_char(1i32 != 0, f, MEM[v as usize].b16.s0);
-                                        break_width[1] -= (*font_info.offset(
-                                            (*width_base.offset(f as isize)
-                                                + (*font_info.offset(
-                                                    (*char_base.offset(f as isize) + eff_char)
-                                                        as isize,
-                                                ))
+                                        break_width[1] -= FONT_INFO[(*width_base.offset(f as isize)
+                                            + FONT_INFO[(*char_base.offset(f as isize) + eff_char)
+                                                as usize]
                                                 .b16
                                                 .s3
-                                                    as i32)
-                                                as isize,
-                                        ))
-                                        .b32
-                                        .s1
+                                                as i32)
+                                            as usize]
+                                            .b32
+                                            .s1
                                     } else {
                                         match MEM[v as usize].b16.s1 as i32 {
                                             6 => {
@@ -2205,20 +2180,17 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                                                     f,
                                                     MEM[(v + 1) as usize].b16.s0,
                                                 );
-                                                break_width[1] -= (*font_info.offset(
-                                                    (*width_base.offset(f as isize)
-                                                        + (*font_info.offset(
-                                                            (*char_base.offset(f as isize)
-                                                                + eff_char_0)
-                                                                as isize,
-                                                        ))
+                                                break_width[1] -= FONT_INFO[(*width_base
+                                                    .offset(f as isize)
+                                                    + FONT_INFO[(*char_base.offset(f as isize)
+                                                        + eff_char_0)
+                                                        as usize]
                                                         .b16
                                                         .s3
-                                                            as i32)
-                                                        as isize,
-                                                ))
-                                                .b32
-                                                .s1
+                                                        as i32)
+                                                    as usize]
+                                                    .b32
+                                                    .s1
                                             }
                                             0 | 1 | 2 | 11 => {
                                                 break_width[1] -= MEM[(v + 1) as usize].b32.s1
@@ -2248,19 +2220,15 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                                         f = MEM[s as usize].b16.s1 as internal_font_number;
                                         eff_char_1 =
                                             effective_char(1i32 != 0, f, MEM[s as usize].b16.s0);
-                                        break_width[1] += (*font_info.offset(
-                                            (*width_base.offset(f as isize)
-                                                + (*font_info.offset(
-                                                    (*char_base.offset(f as isize) + eff_char_1)
-                                                        as isize,
-                                                ))
+                                        break_width[1] += FONT_INFO[(*width_base.offset(f as isize)
+                                            + FONT_INFO[(*char_base.offset(f as isize) + eff_char_1)
+                                                as usize]
                                                 .b16
                                                 .s3
-                                                    as i32)
-                                                as isize,
-                                        ))
-                                        .b32
-                                        .s1
+                                                as i32)
+                                            as usize]
+                                            .b32
+                                            .s1
                                     } else {
                                         match MEM[s as usize].b16.s1 as i32 {
                                             6 => {
@@ -2273,20 +2241,17 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                                                     f,
                                                     MEM[(s + 1) as usize].b16.s0,
                                                 );
-                                                break_width[1] += (*font_info.offset(
-                                                    (*width_base.offset(f as isize)
-                                                        + (*font_info.offset(
-                                                            (*char_base.offset(f as isize)
-                                                                + eff_char_2)
-                                                                as isize,
-                                                        ))
+                                                break_width[1] += FONT_INFO[(*width_base
+                                                    .offset(f as isize)
+                                                    + FONT_INFO[(*char_base.offset(f as isize)
+                                                        + eff_char_2)
+                                                        as usize]
                                                         .b16
                                                         .s3
-                                                            as i32)
-                                                        as isize,
-                                                ))
-                                                .b32
-                                                .s1
+                                                        as i32)
+                                                    as usize]
+                                                    .b32
+                                                    .s1
                                             }
                                             0 | 1 | 2 | 11 => {
                                                 break_width[1] += MEM[(s + 1) as usize].b32.s1
@@ -3594,26 +3559,24 @@ unsafe extern "C" fn reconstitute(
             if k == 0i32 {
                 current_block = 4939169394500275451;
             } else {
-                q = (*font_info.offset(k as isize)).b16;
+                q = FONT_INFO[k as usize].b16;
                 current_block = 1434579379687443766;
             }
         } else {
-            q = (*font_info.offset(
-                (*char_base.offset(hf as isize) + effective_char(1i32 != 0, hf, cur_l as u16))
-                    as isize,
-            ))
-            .b16;
+            q = FONT_INFO[(*char_base.offset(hf as isize)
+                + effective_char(1i32 != 0, hf, cur_l as u16)) as usize]
+                .b16;
             if q.s1 as i32 % 4i32 != 1i32 {
                 current_block = 4939169394500275451;
             } else {
                 k = *lig_kern_base.offset(hf as isize) + q.s0 as i32;
-                q = (*font_info.offset(k as isize)).b16;
+                q = FONT_INFO[k as usize].b16;
                 if q.s3 as i32 > 128i32 {
                     k = ((*lig_kern_base.offset(hf as isize) + 256i32 * q.s1 as i32 + q.s0 as i32)
                         as i64
                         + 32768
                         - (256i32 * 128i32) as i64) as font_index;
-                    q = (*font_info.offset(k as isize)).b16
+                    q = FONT_INFO[k as usize].b16
                 }
                 current_block = 1434579379687443766;
             }
@@ -3757,14 +3720,12 @@ unsafe extern "C" fn reconstitute(
                                         continue 'c_27176;
                                     }
                                 } else {
-                                    w = (*font_info.offset(
-                                        (*kern_base.offset(hf as isize)
-                                            + 256i32 * q.s1 as i32
-                                            + q.s0 as i32)
-                                            as isize,
-                                    ))
-                                    .b32
-                                    .s1;
+                                    w = FONT_INFO[(*kern_base.offset(hf as isize)
+                                        + 256i32 * q.s1 as i32
+                                        + q.s0 as i32)
+                                        as usize]
+                                        .b32
+                                        .s1;
                                     break;
                                 }
                             }
@@ -3778,7 +3739,7 @@ unsafe extern "C" fn reconstitute(
                         continue 'c_27176;
                     } else {
                         k = k + q.s3 as i32 + 1i32;
-                        q = (*font_info.offset(k as isize)).b16
+                        q = FONT_INFO[k as usize].b16
                     }
                 }
             }

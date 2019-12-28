@@ -13,11 +13,11 @@ use crate::xetex_ext::{map_char_to_glyph, measure_native_glyph, real_get_native_
 use crate::xetex_ini::{
     adjust_tail, avail, char_base, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i,
     cur_lang, cur_list, cur_val, cur_val1, depth_base, empty, eqtb, exten_base,
-    file_line_error_style_p, font_area, font_bc, font_ec, font_info, font_layout_engine,
-    font_params, height_base, help_line, help_ptr, insert_src_special_every_math, italic_base,
-    just_box, kern_base, lig_kern_base, nest_ptr, null_character, param_base, pre_adjust_tail,
-    save_ptr, save_stack, skew_char, temp_ptr, tex_remainder, total_shrink, width_base,
-    xtx_ligature_present, LR_problems, LR_ptr, MEM,
+    file_line_error_style_p, font_area, font_bc, font_ec, font_layout_engine, font_params,
+    height_base, help_line, help_ptr, insert_src_special_every_math, italic_base, just_box,
+    kern_base, lig_kern_base, nest_ptr, null_character, param_base, pre_adjust_tail, save_ptr,
+    save_stack, skew_char, temp_ptr, tex_remainder, total_shrink, width_base, xtx_ligature_present,
+    LR_problems, LR_ptr, FONT_INFO, MEM,
 };
 use crate::xetex_ini::{b16x4, b16x4_le_t, memory_word};
 use crate::xetex_layout_interface::*;
@@ -197,33 +197,31 @@ pub(crate) unsafe extern "C" fn init_math() {
                 cur_dir = 1i32 as small_number
             }
             v = v + 2i32
-                * (*font_info.offset(
-                    (6i32
-                        + *param_base.offset(
-                            (*eqtb.offset(
-                                (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32) as isize,
-                            ))
-                            .b32
-                            .s1 as isize,
-                        )) as isize,
-                ))
-                .b32
-                .s1;
+                * FONT_INFO[(6i32
+                    + *param_base.offset(
+                        (*eqtb.offset(
+                            (1i32
+                                + (0x10ffffi32 + 1i32)
+                                + (0x10ffffi32 + 1i32)
+                                + 1i32
+                                + 15000i32
+                                + 12i32
+                                + 9000i32
+                                + 1i32
+                                + 1i32
+                                + 19i32
+                                + 256i32
+                                + 256i32
+                                + 13i32
+                                + 256i32
+                                + 4i32
+                                + 256i32) as isize,
+                        ))
+                        .b32
+                        .s1 as isize,
+                    )) as usize]
+                    .b32
+                    .s1;
             if (*eqtb.offset(
                 (1i32
                     + (0x10ffffi32 + 1i32)
@@ -264,18 +262,14 @@ pub(crate) unsafe extern "C" fn init_math() {
                 loop {
                     if is_char_node(p) {
                         f = MEM[p as usize].b16.s1 as internal_font_number;
-                        d = (*font_info.offset(
-                            (*width_base.offset(f as isize)
-                                + (*font_info.offset(
-                                    (*char_base.offset(f as isize)
-                                        + effective_char(true, f, MEM[p as usize].b16.s0))
-                                        as isize,
-                                ))
+                        d = FONT_INFO[(*width_base.offset(f as isize)
+                            + FONT_INFO[(*char_base.offset(f as isize)
+                                + effective_char(true, f, MEM[p as usize].b16.s0))
+                                as usize]
                                 .b16
-                                .s3 as i32) as isize,
-                        ))
-                        .b32
-                        .s1;
+                                .s3 as i32) as usize]
+                            .b32
+                            .s1;
                         current_block = 9427725525305667067;
                         break;
                     } else {
@@ -3535,7 +3529,7 @@ unsafe extern "C" fn math_x_height(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 5i32)
     } else {
-        rval = (*font_info.offset((5i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(5 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -3572,7 +3566,7 @@ unsafe extern "C" fn math_quad(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 6i32)
     } else {
-        rval = (*font_info.offset((6i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(6 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -3609,7 +3603,7 @@ unsafe extern "C" fn num1(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 8i32)
     } else {
-        rval = (*font_info.offset((8i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(8 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -3646,7 +3640,7 @@ unsafe extern "C" fn num2(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 9i32)
     } else {
-        rval = (*font_info.offset((9i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(9 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -3683,7 +3677,7 @@ unsafe extern "C" fn num3(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 10i32)
     } else {
-        rval = (*font_info.offset((10i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(10 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -3720,7 +3714,7 @@ unsafe extern "C" fn denom1(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 11i32)
     } else {
-        rval = (*font_info.offset((11i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(11 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -3757,7 +3751,7 @@ unsafe extern "C" fn denom2(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 12i32)
     } else {
-        rval = (*font_info.offset((12i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(12 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -3794,7 +3788,7 @@ unsafe extern "C" fn sup1(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 13i32)
     } else {
-        rval = (*font_info.offset((13i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(13 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -3831,7 +3825,7 @@ unsafe extern "C" fn sup2(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 14i32)
     } else {
-        rval = (*font_info.offset((14i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(14 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -3868,7 +3862,7 @@ unsafe extern "C" fn sup3(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 15i32)
     } else {
-        rval = (*font_info.offset((15i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(15 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -3905,7 +3899,7 @@ unsafe extern "C" fn sub1(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 16i32)
     } else {
-        rval = (*font_info.offset((16i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(16 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -3942,7 +3936,7 @@ unsafe extern "C" fn sub2(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 17i32)
     } else {
-        rval = (*font_info.offset((17i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(17 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -3979,7 +3973,7 @@ unsafe extern "C" fn sup_drop(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 18i32)
     } else {
-        rval = (*font_info.offset((18i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(18 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -4016,7 +4010,7 @@ unsafe extern "C" fn sub_drop(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 19i32)
     } else {
-        rval = (*font_info.offset((19i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(19 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -4053,7 +4047,7 @@ unsafe extern "C" fn delim1(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 20i32)
     } else {
-        rval = (*font_info.offset((20i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(20 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -4090,7 +4084,7 @@ unsafe extern "C" fn delim2(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 21i32)
     } else {
-        rval = (*font_info.offset((21i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(21 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -4127,7 +4121,7 @@ unsafe extern "C" fn axis_height(mut size_code: i32) -> scaled_t {
     {
         rval = get_native_mathsy_param(f, 22i32)
     } else {
-        rval = (*font_info.offset((22i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(22 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -4164,7 +4158,7 @@ unsafe extern "C" fn default_rule_thickness() -> scaled_t {
     {
         rval = get_native_mathex_param(f, 8i32)
     } else {
-        rval = (*font_info.offset((8i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(8 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -4201,7 +4195,7 @@ unsafe extern "C" fn big_op_spacing1() -> scaled_t {
     {
         rval = get_native_mathex_param(f, 9i32)
     } else {
-        rval = (*font_info.offset((9i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(9 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -4238,7 +4232,7 @@ unsafe extern "C" fn big_op_spacing2() -> scaled_t {
     {
         rval = get_native_mathex_param(f, 10i32)
     } else {
-        rval = (*font_info.offset((10i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(10 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -4275,7 +4269,7 @@ unsafe extern "C" fn big_op_spacing3() -> scaled_t {
     {
         rval = get_native_mathex_param(f, 11i32)
     } else {
-        rval = (*font_info.offset((11i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(11 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -4312,7 +4306,7 @@ unsafe extern "C" fn big_op_spacing4() -> scaled_t {
     {
         rval = get_native_mathex_param(f, 12i32)
     } else {
-        rval = (*font_info.offset((12i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(12 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -4349,7 +4343,7 @@ unsafe extern "C" fn big_op_spacing5() -> scaled_t {
     {
         rval = get_native_mathex_param(f, 13i32)
     } else {
-        rval = (*font_info.offset((13i32 + *param_base.offset(f as isize)) as isize))
+        rval = FONT_INFO[(13 + *param_base.offset(f as isize)) as usize]
             .b32
             .s1
     }
@@ -4564,7 +4558,7 @@ unsafe extern "C" fn fetch(mut a: i32) {
         if cur_c >= *font_bc.offset(cur_f as isize) as i32
             && cur_c <= *font_ec.offset(cur_f as isize) as i32
         {
-            cur_i = (*font_info.offset((*char_base.offset(cur_f as isize) + cur_c) as isize)).b16
+            cur_i = FONT_INFO[(*char_base.offset(cur_f as isize) + cur_c) as usize].b16
         } else {
             cur_i = null_character
         }
@@ -4765,27 +4759,25 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
             fetch(q + 1i32);
             if cur_i.s1 as i32 % 4i32 == 1i32 {
                 a = *lig_kern_base.offset(cur_f as isize) + cur_i.s0 as i32;
-                cur_i = (*font_info.offset(a as isize)).b16;
+                cur_i = FONT_INFO[a as usize].b16;
                 if cur_i.s3 as i32 > 128i32 {
                     a = ((*lig_kern_base.offset(cur_f as isize)
                         + 256i32 * cur_i.s1 as i32
                         + cur_i.s0 as i32) as i64
                         + 32768
                         - (256i32 * 128i32) as i64) as i32;
-                    cur_i = (*font_info.offset(a as isize)).b16
+                    cur_i = FONT_INFO[a as usize].b16
                 }
                 loop {
                     if cur_i.s2 as i32 == *skew_char.offset(cur_f as isize) {
                         if cur_i.s1 as i32 >= 128i32 {
                             if cur_i.s3 as i32 <= 128i32 {
-                                s = (*font_info.offset(
-                                    (*kern_base.offset(cur_f as isize)
-                                        + 256i32 * cur_i.s1 as i32
-                                        + cur_i.s0 as i32)
-                                        as isize,
-                                ))
-                                .b32
-                                .s1
+                                s = FONT_INFO[(*kern_base.offset(cur_f as isize)
+                                    + 256i32 * cur_i.s1 as i32
+                                    + cur_i.s0 as i32)
+                                    as usize]
+                                    .b32
+                                    .s1
                             }
                         }
                         break;
@@ -4794,7 +4786,7 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
                             break;
                         }
                         a = a + cur_i.s3 as i32 + 1i32;
-                        cur_i = (*font_info.offset(a as isize)).b16
+                        cur_i = FONT_INFO[a as usize].b16
                     }
                 }
             }
@@ -4807,11 +4799,11 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
         h = MEM[(x + 3) as usize].b32.s1;
         while !(i.s1 as i32 % 4i32 != 2i32) {
             y = i.s0 as i32;
-            i = (*font_info.offset((*char_base.offset(f as isize) + y) as isize)).b16;
+            i = FONT_INFO[(*char_base.offset(f as isize) + y) as usize].b16;
             if !(i.s3 as i32 > 0i32) {
                 break;
             }
-            if (*font_info.offset((*width_base.offset(f as isize) + i.s3 as i32) as isize))
+            if FONT_INFO[(*width_base.offset(f as isize) + i.s3 as i32) as usize]
                 .b32
                 .s1
                 > w
@@ -4835,14 +4827,13 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
             } else {
                 delta = get_ot_math_constant(f, 6i32)
             }
-        } else if h
-            < (*font_info.offset((5i32 + *param_base.offset(f as isize)) as isize))
-                .b32
-                .s1
+        } else if h < FONT_INFO[(5 + *param_base.offset(f as isize)) as usize]
+            .b32
+            .s1
         {
             delta = h
         } else {
-            delta = (*font_info.offset((5i32 + *param_base.offset(f as isize)) as isize))
+            delta = FONT_INFO[(5 + *param_base.offset(f as isize)) as usize]
                 .b32
                 .s1
         }
@@ -5151,18 +5142,17 @@ unsafe extern "C" fn make_op(mut q: i32) -> scaled_t {
         {
             if (cur_style as i32) < 2i32 && cur_i.s1 as i32 % 4i32 == 2i32 {
                 c = cur_i.s0;
-                i = (*font_info.offset((*char_base.offset(cur_f as isize) + c as i32) as isize))
-                    .b16;
+                i = FONT_INFO[(*char_base.offset(cur_f as isize) + c as i32) as usize].b16;
                 if i.s3 as i32 > 0i32 {
                     cur_c = c as i32;
                     cur_i = i;
                     MEM[(q + 1) as usize].b16.s0 = c
                 }
             }
-            delta = (*font_info
-                .offset((*italic_base.offset(cur_f as isize) + cur_i.s1 as i32 / 4i32) as isize))
-            .b32
-            .s1
+            delta = FONT_INFO
+                [(*italic_base.offset(cur_f as isize) + cur_i.s1 as i32 / 4i32) as usize]
+                .b32
+                .s1
         }
         x = clean_box(q + 1i32, cur_style);
         if *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
@@ -5348,27 +5338,25 @@ unsafe extern "C" fn make_ord(mut q: i32) {
         }
         a = *lig_kern_base.offset(cur_f as isize) + cur_i.s0 as i32;
         cur_c = MEM[(p + 1) as usize].b16.s0 as i32;
-        cur_i = (*font_info.offset(a as isize)).b16;
+        cur_i = FONT_INFO[a as usize].b16;
         if cur_i.s3 as i32 > 128i32 {
             a = ((*lig_kern_base.offset(cur_f as isize)
                 + 256i32 * cur_i.s1 as i32
                 + cur_i.s0 as i32) as i64
                 + 32768
                 - (256i32 * 128i32) as i64) as i32;
-            cur_i = (*font_info.offset(a as isize)).b16
+            cur_i = FONT_INFO[a as usize].b16
         }
         loop {
             if cur_i.s2 as i32 == cur_c {
                 if cur_i.s3 as i32 <= 128i32 {
                     if cur_i.s1 as i32 >= 128i32 {
                         p = new_kern(
-                            (*font_info.offset(
-                                (*kern_base.offset(cur_f as isize)
-                                    + 256i32 * cur_i.s1 as i32
-                                    + cur_i.s0 as i32) as isize,
-                            ))
-                            .b32
-                            .s1,
+                            FONT_INFO[(*kern_base.offset(cur_f as isize)
+                                + 256i32 * cur_i.s1 as i32
+                                + cur_i.s0 as i32) as usize]
+                                .b32
+                                .s1,
                         );
                         MEM[p as usize].b32.s1 = MEM[q as usize].b32.s1;
                         MEM[q as usize].b32.s1 = p;
@@ -5410,7 +5398,7 @@ unsafe extern "C" fn make_ord(mut q: i32) {
                 return;
             }
             a = a + cur_i.s3 as i32 + 1i32;
-            cur_i = (*font_info.offset(a as isize)).b16
+            cur_i = FONT_INFO[a as usize].b16
         }
     }
 }
@@ -6204,18 +6192,17 @@ unsafe extern "C" fn mlist_to_hlist() {
                                 delta = 0i32
                             }
                         } else if cur_i.s3 as i32 > 0i32 {
-                            delta = (*font_info.offset(
-                                (*italic_base.offset(cur_f as isize) + cur_i.s1 as i32 / 4i32)
-                                    as isize,
-                            ))
-                            .b32
-                            .s1;
+                            delta = FONT_INFO[(*italic_base.offset(cur_f as isize)
+                                + cur_i.s1 as i32 / 4i32)
+                                as usize]
+                                .b32
+                                .s1;
                             p = new_character(cur_f, cur_c as UTF16_code);
                             if MEM[(q + 1) as usize].b32.s1 == 4
-                                && (*font_info
-                                    .offset((2i32 + *param_base.offset(cur_f as isize)) as isize))
-                                .b32
-                                .s1 != 0i32
+                                && FONT_INFO[(2i32 + *param_base.offset(cur_f as isize)) as usize]
+                                    .b32
+                                    .s1
+                                    != 0i32
                             {
                                 delta = 0i32
                             }
@@ -6648,9 +6635,8 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
                             && y as i32 <= *font_ec.offset(g as isize) as i32
                         {
                             loop {
-                                q = (*font_info
-                                    .offset((*char_base.offset(g as isize) + y as i32) as isize))
-                                .b16;
+                                q = FONT_INFO[(*char_base.offset(g as isize) + y as i32) as usize]
+                                    .b16;
                                 if !(q.s3 as i32 > 0i32) {
                                     break;
                                 }
@@ -6659,17 +6645,16 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
                                     c = y;
                                     break 's_62;
                                 } else {
-                                    u = (*font_info.offset(
-                                        (*height_base.offset(g as isize) + q.s2 as i32 / 16i32)
-                                            as isize,
-                                    ))
-                                    .b32
-                                    .s1 + (*font_info.offset(
-                                        (*depth_base.offset(g as isize) + q.s2 as i32 % 16i32)
-                                            as isize,
-                                    ))
-                                    .b32
-                                    .s1;
+                                    u = FONT_INFO[(*height_base.offset(g as isize)
+                                        + q.s2 as i32 / 16)
+                                        as usize]
+                                        .b32
+                                        .s1
+                                        + FONT_INFO[(*depth_base.offset(g as isize)
+                                            + q.s2 as i32 % 16)
+                                            as usize]
+                                            .b32
+                                            .s1;
                                     if u > w {
                                         f = g;
                                         c = y;
@@ -6710,22 +6695,20 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
                 /*739: */
                 b = new_null_box();
                 MEM[b as usize].b16.s1 = 1_u16;
-                r = (*font_info.offset((*exten_base.offset(f as isize) + q.s0 as i32) as isize))
-                    .b16;
+                r = FONT_INFO[(*exten_base.offset(f as isize) + q.s0 as i32) as usize].b16;
                 c = r.s0;
                 u = height_plus_depth(f, c);
                 w = 0i32;
-                q = (*font_info.offset(
-                    (*char_base.offset(f as isize) + effective_char(1i32 != 0, f, c)) as isize,
-                ))
-                .b16;
-                MEM[(b + 1) as usize].b32.s1 = (*font_info
-                    .offset((*width_base.offset(f as isize) + q.s3 as i32) as isize))
-                .b32
-                .s1 + (*font_info
-                    .offset((*italic_base.offset(f as isize) + q.s1 as i32 / 4i32) as isize))
-                .b32
-                .s1;
+                q = FONT_INFO
+                    [(*char_base.offset(f as isize) + effective_char(true, f, c)) as usize]
+                    .b16;
+                MEM[(b + 1) as usize].b32.s1 = FONT_INFO
+                    [(*width_base.offset(f as isize) + q.s3 as i32) as usize]
+                    .b32
+                    .s1
+                    + FONT_INFO[(*italic_base.offset(f as isize) + q.s1 as i32 / 4) as usize]
+                        .b32
+                        .s1;
                 c = r.s1;
                 if c as i32 != 0i32 {
                     w = w + height_plus_depth(f, c)
@@ -6875,26 +6858,24 @@ unsafe extern "C" fn char_box(mut f: internal_font_number, mut c: i32) -> i32 {
             MEM[(b + 2) as usize].b32.s1 = MEM[(p + 2) as usize].b32.s1
         }
     } else {
-        q = (*font_info.offset(
-            (*char_base.offset(f as isize) + effective_char(1i32 != 0, f, c as u16)) as isize,
-        ))
-        .b16;
+        q = FONT_INFO[(*char_base.offset(f as isize) + effective_char(true, f, c as u16)) as usize]
+            .b16;
         b = new_null_box();
-        MEM[(b + 1) as usize].b32.s1 = (*font_info
-            .offset((*width_base.offset(f as isize) + q.s3 as i32) as isize))
-        .b32
-        .s1 + (*font_info
-            .offset((*italic_base.offset(f as isize) + q.s1 as i32 / 4i32) as isize))
-        .b32
-        .s1;
-        MEM[(b + 3) as usize].b32.s1 = (*font_info
-            .offset((*height_base.offset(f as isize) + q.s2 as i32 / 16i32) as isize))
-        .b32
-        .s1;
-        MEM[(b + 2) as usize].b32.s1 = (*font_info
-            .offset((*depth_base.offset(f as isize) + q.s2 as i32 % 16i32) as isize))
-        .b32
-        .s1;
+        MEM[(b + 1) as usize].b32.s1 = FONT_INFO
+            [(*width_base.offset(f as isize) + q.s3 as i32) as usize]
+            .b32
+            .s1
+            + FONT_INFO[(*italic_base.offset(f as isize) + q.s1 as i32 / 4) as usize]
+                .b32
+                .s1;
+        MEM[(b + 3) as usize].b32.s1 = FONT_INFO
+            [(*height_base.offset(f as isize) + q.s2 as i32 / 16) as usize]
+            .b32
+            .s1;
+        MEM[(b + 2) as usize].b32.s1 = FONT_INFO
+            [(*depth_base.offset(f as isize) + q.s2 as i32 % 16) as usize]
+            .b32
+            .s1;
         p = get_avail();
         MEM[p as usize].b16.s0 = c as u16;
         MEM[p as usize].b16.s1 = f as u16
@@ -6910,13 +6891,12 @@ unsafe extern "C" fn stack_into_box(mut b: i32, mut f: internal_font_number, mut
     MEM[(b + 3) as usize].b32.s1 = MEM[(p + 3) as usize].b32.s1;
 }
 unsafe extern "C" fn height_plus_depth(mut f: internal_font_number, mut c: u16) -> scaled_t {
-    let mut q: b16x4 = (*font_info
-        .offset((*char_base.offset(f as isize) + effective_char(1i32 != 0, f, c)) as isize))
-    .b16;
-    (*font_info.offset((*height_base.offset(f as isize) + q.s2 as i32 / 16i32) as isize))
+    let mut q: b16x4 =
+        FONT_INFO[(*char_base.offset(f as isize) + effective_char(1i32 != 0, f, c)) as usize].b16;
+    FONT_INFO[(*height_base.offset(f as isize) + q.s2 as i32 / 16) as usize]
         .b32
         .s1
-        + (*font_info.offset((*depth_base.offset(f as isize) + q.s2 as i32 % 16i32) as isize))
+        + FONT_INFO[(*depth_base.offset(f as isize) + q.s2 as i32 % 16) as usize]
             .b32
             .s1
 }
@@ -7169,18 +7149,14 @@ unsafe extern "C" fn rebox(mut b: i32, mut w: scaled_t) -> i32 {
         p = MEM[(b + 5) as usize].b32.s1;
         if is_char_node(p) as i32 != 0 && MEM[p as usize].b32.s1 == -0xfffffff {
             f = MEM[p as usize].b16.s1 as internal_font_number;
-            v = (*font_info.offset(
-                (*width_base.offset(f as isize)
-                    + (*font_info.offset(
-                        (*char_base.offset(f as isize)
-                            + effective_char(1i32 != 0, f, MEM[p as usize].b16.s0))
-                            as isize,
-                    ))
+            v = FONT_INFO[(*width_base.offset(f as isize)
+                + FONT_INFO[(*char_base.offset(f as isize)
+                    + effective_char(1i32 != 0, f, MEM[p as usize].b16.s0))
+                    as usize]
                     .b16
-                    .s3 as i32) as isize,
-            ))
-            .b32
-            .s1;
+                    .s3 as i32) as usize]
+                .b32
+                .s1;
             if v != MEM[(b + 1) as usize].b32.s1 {
                 MEM[p as usize].b32.s1 = new_kern(MEM[(b + 1) as usize].b32.s1 - v)
             }
