@@ -15,12 +15,12 @@ use crate::xetex_ini::{
     active_width, adjust_tail, arith_error, avail, cur_l, cur_lang, cur_list, cur_q, cur_r,
     file_line_error_style_p, first_p, font_in_short_display, global_prev_p, hc, help_line,
     help_ptr, hf, hi_mem_min, hlist_stack, hlist_stack_level, hu, hyf, hyf_distance, hyf_next,
-    hyf_num, hyph_index, hyph_link, hyph_list, hyph_start, hyph_word, hyphen_passed, init_lft,
-    init_lig, init_list, init_trie, just_box, last_leftmost_char, last_rightmost_char, lft_hit,
-    lig_stack, ligature_present, max_hyph_char, op_start, pack_begin_line, pre_adjust_tail, rt_hit,
-    semantic_pagination_enabled, str_pool, str_start, temp_ptr, trie_not_ready, trie_trc, trie_trl,
-    trie_tro, xtx_ligature_present, BCHAR_LABEL, CHAR_BASE, EQTB, FONT_BCHAR, FONT_INFO,
-    HYPHEN_CHAR, KERN_BASE, LIG_KERN_BASE, MEM, WIDTH_BASE,
+    hyf_num, hyph_index, hyph_start, hyphen_passed, init_lft, init_lig, init_list, init_trie,
+    just_box, last_leftmost_char, last_rightmost_char, lft_hit, lig_stack, ligature_present,
+    max_hyph_char, op_start, pack_begin_line, pre_adjust_tail, rt_hit, semantic_pagination_enabled,
+    str_pool, str_start, temp_ptr, trie_not_ready, trie_trc, trie_trl, trie_tro,
+    xtx_ligature_present, BCHAR_LABEL, CHAR_BASE, EQTB, FONT_BCHAR, FONT_INFO, HYPHEN_CHAR,
+    HYPH_LINK, HYPH_LIST, HYPH_WORD, KERN_BASE, LIG_KERN_BASE, MEM, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, memory_word};
 use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
@@ -3093,7 +3093,7 @@ unsafe extern "C" fn hyphenate() {
         }
     }
     loop {
-        k = *hyph_word.offset(h as isize);
+        k = HYPH_WORD[h as usize];
         if k == 0i32 {
             current_block = 10027897684796195291;
             break;
@@ -3116,7 +3116,7 @@ unsafe extern "C" fn hyphenate() {
             match current_block {
                 1763490972649755258 => {}
                 _ => {
-                    s = *hyph_list.offset(h as isize);
+                    s = HYPH_LIST[h as usize];
                     while s != -0xfffffffi32 {
                         hyf[MEM[s as usize].b32.s0 as usize] = 1_u8;
                         s = MEM[s as usize].b32.s1
@@ -3127,7 +3127,7 @@ unsafe extern "C" fn hyphenate() {
                 }
             }
         }
-        h = *hyph_link.offset(h as isize);
+        h = HYPH_LINK[h as usize];
         if h as i32 == 0i32 {
             current_block = 10027897684796195291;
             break;

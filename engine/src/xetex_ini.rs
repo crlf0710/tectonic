@@ -463,7 +463,7 @@ pub(crate) static mut FONT_MEM_SIZE: usize = 0;
 #[no_mangle]
 pub(crate) static mut FONT_MAX: usize = 0;
 #[no_mangle]
-pub(crate) static mut hyph_size: i32 = 0;
+pub(crate) static mut HYPH_SIZE: usize = 0;
 #[no_mangle]
 pub(crate) static mut trie_size: i32 = 0;
 #[no_mangle]
@@ -973,15 +973,15 @@ pub(crate) static mut hyf_next: [trie_opcode; 35112] = [0; 35112];
 #[no_mangle]
 pub(crate) static mut op_start: [i32; 256] = [0; 256];
 #[no_mangle]
-pub(crate) static mut hyph_word: *mut str_number = ptr::null_mut();
+pub(crate) static mut HYPH_WORD: Vec<str_number> = Vec::new();
 #[no_mangle]
-pub(crate) static mut hyph_list: *mut i32 = ptr::null_mut();
+pub(crate) static mut HYPH_LIST: Vec<i32> = Vec::new();
 #[no_mangle]
-pub(crate) static mut hyph_link: *mut hyph_pointer = ptr::null_mut();
+pub(crate) static mut HYPH_LINK: Vec<hyph_pointer> = Vec::new();
 #[no_mangle]
-pub(crate) static mut hyph_count: i32 = 0;
+pub(crate) static mut HYPH_COUNT: usize = 0;
 #[no_mangle]
-pub(crate) static mut hyph_next: i32 = 0;
+pub(crate) static mut HYPH_NEXT: usize = 0;
 #[no_mangle]
 pub(crate) static mut trie_used: [trie_opcode; 256] = [0; 256];
 #[no_mangle]
@@ -2099,18 +2099,17 @@ unsafe extern "C" fn new_hyph_exceptions() {
                     j += 1
                 }
                 s = make_string();
-                if hyph_next <= 607i32 {
-                    while hyph_next > 0i32 && *hyph_word.offset((hyph_next - 1i32) as isize) > 0i32
-                    {
-                        hyph_next -= 1
+                if HYPH_NEXT <= 607 {
+                    while HYPH_NEXT > 0 && HYPH_WORD[HYPH_NEXT - 1] > 0i32 {
+                        HYPH_NEXT -= 1
                     }
                 }
-                if hyph_count == hyph_size || hyph_next == 0i32 {
-                    overflow(b"exception dictionary", hyph_size);
+                if HYPH_COUNT == HYPH_SIZE || HYPH_NEXT == 0 {
+                    overflow(b"exception dictionary", HYPH_SIZE as i32);
                 }
-                hyph_count += 1;
-                while *hyph_word.offset(h as isize) != 0i32 {
-                    k = *hyph_word.offset(h as isize);
+                HYPH_COUNT += 1;
+                while HYPH_WORD[h as usize] != 0i32 {
+                    k = HYPH_WORD[h as usize];
                     if !(length(k) != length(s)) {
                         u = *str_start.offset((k as i64 - 65536) as isize);
                         v = *str_start.offset((s as i64 - 65536) as isize);
@@ -2133,27 +2132,27 @@ unsafe extern "C" fn new_hyph_exceptions() {
                             _ => {
                                 str_ptr -= 1;
                                 pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
-                                s = *hyph_word.offset(h as isize);
-                                hyph_count -= 1;
+                                s = HYPH_WORD[h as usize];
+                                HYPH_COUNT -= 1;
                                 break;
                             }
                         }
                     }
                     /*:975*/
                     /*:976*/
-                    if *hyph_link.offset(h as isize) as i32 == 0i32 {
-                        *hyph_link.offset(h as isize) = hyph_next as hyph_pointer;
-                        if hyph_next >= hyph_size {
-                            hyph_next = 607i32
+                    if HYPH_LINK[h as usize] as i32 == 0 {
+                        HYPH_LINK[h as usize] = HYPH_NEXT as hyph_pointer;
+                        if HYPH_NEXT >= HYPH_SIZE {
+                            HYPH_NEXT = 607
                         }
-                        if hyph_next > 607i32 {
-                            hyph_next += 1
+                        if HYPH_NEXT > 607 {
+                            HYPH_NEXT += 1
                         }
                     }
-                    h = (*hyph_link.offset(h as isize) as i32 - 1i32) as hyph_pointer
+                    h = (HYPH_LINK[h as usize] as i32 - 1i32) as hyph_pointer
                 }
-                *hyph_word.offset(h as isize) = s;
-                *hyph_list.offset(h as isize) = p
+                HYPH_WORD[h as usize] = s;
+                HYPH_LIST[h as usize] = p
             }
             _ => {}
         }
@@ -3609,42 +3608,40 @@ unsafe extern "C" fn store_fmt_file() {
         print_cstr(b" preloaded font");
     }
     /* hyphenation info */
-    let mut x_val_26: i32 = hyph_count;
+    let mut x_val_26 = HYPH_COUNT as i32;
     do_dump(
         &mut x_val_26 as *mut i32 as *mut i8,
         ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
-    if hyph_next <= 607i32 {
-        hyph_next = hyph_size
+    if HYPH_NEXT <= 607 {
+        HYPH_NEXT = HYPH_SIZE
     }
-    let mut x_val_27: i32 = hyph_next;
+    let mut x_val_27 = HYPH_NEXT as i32;
     do_dump(
         &mut x_val_27 as *mut i32 as *mut i8,
         ::std::mem::size_of::<i32>() as _,
         1i32 as size_t,
         fmt_out,
     );
-    k = 0i32;
-    while k <= hyph_size {
-        if *hyph_word.offset(k as isize) != 0i32 {
-            let mut x_val_28: i32 =
-                (k as i64 + 65536 * *hyph_link.offset(k as isize) as i64) as i32;
+    for k in 0..=HYPH_SIZE {
+        if HYPH_WORD[k] != 0i32 {
+            let mut x_val_28: i32 = (k as i64 + 65536 * HYPH_LINK[k] as i64) as i32;
             do_dump(
                 &mut x_val_28 as *mut i32 as *mut i8,
                 ::std::mem::size_of::<i32>() as _,
                 1i32 as size_t,
                 fmt_out,
             );
-            let mut x_val_29: i32 = *hyph_word.offset(k as isize);
+            let mut x_val_29: i32 = HYPH_WORD[k];
             do_dump(
                 &mut x_val_29 as *mut i32 as *mut i8,
                 ::std::mem::size_of::<i32>() as _,
                 1i32 as size_t,
                 fmt_out,
             );
-            let mut x_val_30: i32 = *hyph_list.offset(k as isize);
+            let mut x_val_30: i32 = HYPH_LIST[k];
             do_dump(
                 &mut x_val_30 as *mut i32 as *mut i8,
                 ::std::mem::size_of::<i32>() as _,
@@ -3652,11 +3649,10 @@ unsafe extern "C" fn store_fmt_file() {
                 fmt_out,
             );
         }
-        k += 1
     }
     print_ln();
-    print_int(hyph_count);
-    if hyph_count != 1i32 {
+    print_int(HYPH_COUNT as i32);
+    if HYPH_COUNT != 1 {
         print_cstr(b" hyphenation exceptions");
     } else {
         print_cstr(b" hyphenation exception");
@@ -3739,7 +3735,7 @@ unsafe extern "C" fn store_fmt_file() {
     }
     print_cstr(b" out of ");
     print_int(35111 as i32);
-    k = BIGGEST_LANG;
+    let mut k = BIGGEST_LANG;
     while k >= 0i32 {
         if trie_used[k as usize] as i32 > 0i32 {
             print_nl_cstr(b"  ");
@@ -4618,10 +4614,10 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         bad_fmt();
     }
 
-    if x > hyph_size {
-        panic!("must increase hyph_size");
+    if x > HYPH_SIZE as i32 {
+        panic!("must increase HYPH_SIZE");
     }
-    hyph_count = x;
+    HYPH_COUNT = x as usize;
 
     do_undump(
         &mut x as *mut i32 as *mut i8,
@@ -4632,14 +4628,14 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     if x < HYPH_PRIME {
         bad_fmt();
     }
-    if x > hyph_size {
-        panic!("must increase hyph_size");
+    if x > HYPH_SIZE as i32 {
+        panic!("must increase HYPH_SIZE");
     }
-    hyph_next = x;
+    HYPH_NEXT = x as usize;
 
     j = 0;
 
-    for _k in 1..=hyph_count {
+    for _k in 1..=HYPH_COUNT {
         do_undump(
             &mut j as *mut i32 as *mut i8,
             ::std::mem::size_of::<i32>() as _,
@@ -4650,15 +4646,15 @@ unsafe extern "C" fn load_fmt_file() -> bool {
             bad_fmt();
         }
         if j > 65535 {
-            hyph_next = (j as i64 / 65536) as i32;
-            j = (j as i64 - hyph_next as i64 * 65536) as i32
+            HYPH_NEXT = (j as i64 / 65536) as usize;
+            j = (j as i64 - HYPH_NEXT as i64 * 65536) as i32
         } else {
-            hyph_next = 0
+            HYPH_NEXT = 0
         }
-        if j >= hyph_size || hyph_next > hyph_size {
+        if j >= HYPH_SIZE as i32 || HYPH_NEXT > HYPH_SIZE {
             bad_fmt();
         }
-        *hyph_link.offset(j as isize) = hyph_next as hyph_pointer;
+        HYPH_LINK[j as usize] = HYPH_NEXT as hyph_pointer;
         do_undump(
             &mut x as *mut i32 as *mut i8,
             ::std::mem::size_of::<i32>() as _,
@@ -4668,7 +4664,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         if x < 0 || x > str_ptr {
             bad_fmt();
         } else {
-            *hyph_word.offset(j as isize) = x;
+            HYPH_WORD[j as usize] = x;
         }
         do_undump(
             &mut x as *mut i32 as *mut i8,
@@ -4679,7 +4675,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         if x < MIN_HALFWORD || x > MAX_HALFWORD {
             bad_fmt();
         } else {
-            *hyph_list.offset(j as isize) = x;
+            HYPH_LIST[j as usize] = x;
         }
     }
     j += 1;
@@ -4687,11 +4683,11 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         j = HYPH_PRIME
     }
 
-    hyph_next = j;
-    if hyph_next >= hyph_size {
-        hyph_next = HYPH_PRIME
-    } else if hyph_next >= HYPH_PRIME {
-        hyph_next += 1
+    HYPH_NEXT = j as usize;
+    if HYPH_NEXT >= HYPH_SIZE {
+        HYPH_NEXT = HYPH_PRIME as usize
+    } else if HYPH_NEXT >= HYPH_PRIME as usize {
+        HYPH_NEXT += 1
     }
     do_undump(
         &mut x as *mut i32 as *mut i8,
@@ -5101,17 +5097,17 @@ unsafe extern "C" fn initialize_more_variables() {
     cur_pre_tail = TEX_NULL;
     cur_f = 0i32;
     max_hyph_char = 256i32;
-    z = 0i32 as hyph_pointer;
-    while z as i32 <= hyph_size {
-        *hyph_word.offset(z as isize) = 0i32;
-        *hyph_list.offset(z as isize) = TEX_NULL;
-        *hyph_link.offset(z as isize) = 0i32 as hyph_pointer;
+    z = 0 as hyph_pointer;
+    while z as usize <= HYPH_SIZE {
+        HYPH_WORD[z as usize] = 0;
+        HYPH_LIST[z as usize] = TEX_NULL;
+        HYPH_LINK[z as usize] = 0 as hyph_pointer;
         z = z.wrapping_add(1)
     }
-    hyph_count = 0i32;
-    hyph_next = 607i32 + 1i32;
-    if hyph_next > hyph_size {
-        hyph_next = 607i32
+    HYPH_COUNT = 0;
+    HYPH_NEXT = 607 + 1;
+    if HYPH_NEXT > HYPH_SIZE {
+        HYPH_NEXT = 607
     }
     output_active = false;
     insert_penalties = 0i32;
@@ -8823,7 +8819,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     FONT_MEM_SIZE = 8000000;
     FONT_MAX = 9000;
     trie_size = 1000000i64 as i32;
-    hyph_size = 8191i32;
+    HYPH_SIZE = 8191;
     buf_size = 200000i64 as i32;
     nest_size = 500i32;
     MAX_IN_OPEN = 15;
@@ -8848,9 +8844,9 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     SOURCE_FILENAME_STACK = vec![0; MAX_IN_OPEN + 1];
     FULL_SOURCE_FILENAME_STACK = vec![0; MAX_IN_OPEN + 1];
     PARAM_STACK = vec![0; PARAM_SIZE + 1];
-    hyph_word = xmalloc_array(hyph_size as usize);
-    hyph_list = xmalloc_array(hyph_size as usize);
-    hyph_link = xmalloc_array(hyph_size as usize);
+    HYPH_WORD = vec![0; HYPH_SIZE + 1];
+    HYPH_LIST = vec![0; HYPH_SIZE + 1];
+    HYPH_LINK = vec![0; HYPH_SIZE + 1];
 
     /* First bit of initex handling: more allocations. */
 
@@ -9351,9 +9347,9 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     SOURCE_FILENAME_STACK = Vec::new();
     FULL_SOURCE_FILENAME_STACK = Vec::new();
     PARAM_STACK = Vec::new();
-    free(hyph_word as *mut libc::c_void);
-    free(hyph_list as *mut libc::c_void);
-    free(hyph_link as *mut libc::c_void);
+    HYPH_WORD = Vec::new();
+    HYPH_LIST = Vec::new();
+    HYPH_LINK = Vec::new();
     // initialize_more_variables @ 3277
     free(native_text as *mut libc::c_void);
     // Free arrays allocated in load_fmt_file
