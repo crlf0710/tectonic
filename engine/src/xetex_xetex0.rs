@@ -594,18 +594,7 @@ pub(crate) unsafe extern "C" fn new_param_glue(mut n: small_number) -> i32 {
     MEM[p as usize].b16.s1 = 10_u16;
     MEM[p as usize].b16.s0 = (n as i32 + 1) as u16;
     MEM[(p + 1) as usize].b32.s1 = TEX_NULL;
-    q = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + n as i32) as usize]
-        .b32
-        .s1;
+    q = EQTB[(GLUE_BASE + n as i32) as usize].b32.s1;
     MEM[(p + 1) as usize].b32.s0 = q;
     let ref mut fresh2 = MEM[q as usize].b32.s1;
     *fresh2 += 1;
@@ -626,20 +615,7 @@ pub(crate) unsafe extern "C" fn new_glue(mut q: i32) -> i32 {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn new_skip_param(mut n: small_number) -> i32 {
     let mut p: i32 = 0;
-    temp_ptr = new_spec(
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + n as i32) as usize]
-            .b32
-            .s1,
-    );
+    temp_ptr = new_spec(EQTB[(GLUE_BASE + n as i32) as usize].b32.s1);
     p = new_glue(temp_ptr);
     MEM[temp_ptr as usize].b32.s1 = TEX_NULL;
     MEM[p as usize].b16.s0 = (n as i32 + 1) as u16;
@@ -691,17 +667,8 @@ pub(crate) unsafe extern "C" fn short_display(mut p: i32) {
                     } else {
                         /*279:*/
                         print_esc(
-                            (*hash.offset(
-                                (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + MEM[p as usize].b16.s1 as i32)
-                                    as isize,
-                            ))
-                            .s1,
+                            (*hash.offset((FONT_ID_BASE + MEM[p as usize].b16.s1 as i32) as isize))
+                                .s1,
                         );
                     }
                     print_char(' ' as i32);
@@ -720,14 +687,7 @@ pub(crate) unsafe extern "C" fn short_display(mut p: i32) {
                         if MEM[(p + 4) as usize].b16.s2 as i32 != font_in_short_display {
                             print_esc(
                                 (*hash.offset(
-                                    (1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + MEM[(p + 4) as usize].b16.s2 as i32)
-                                        as isize,
+                                    (FONT_ID_BASE + MEM[(p + 4) as usize].b16.s2 as i32) as isize,
                                 ))
                                 .s1,
                             );
@@ -784,18 +744,7 @@ pub(crate) unsafe extern "C" fn print_font_and_char(mut p: i32) {
             print_char('*' as i32);
         } else {
             /*279: */
-            print_esc(
-                (*hash.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + MEM[p as usize].b16.s1 as i32) as isize,
-                ))
-                .s1,
-            );
+            print_esc((*hash.offset((FONT_ID_BASE + MEM[p as usize].b16.s1 as i32) as isize)).s1);
         }
         print_char(' ' as i32);
         print(MEM[p as usize].b16.s0 as i32);
@@ -1171,14 +1120,7 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                     40 | 41 => {
                         print_esc(
                             (*hash.offset(
-                                (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + MEM[(p + 4) as usize].b16.s2 as i32)
-                                    as isize,
+                                (FONT_ID_BASE + MEM[(p + 4) as usize].b16.s2 as i32) as isize,
                             ))
                             .s1,
                         );
@@ -1188,14 +1130,7 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
                     42 => {
                         print_esc(
                             (*hash.offset(
-                                (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + MEM[(p + 4) as usize].b16.s2 as i32)
-                                    as isize,
+                                (FONT_ID_BASE + MEM[(p + 4) as usize].b16.s2 as i32) as isize,
                             ))
                             .s1,
                         );
@@ -1509,60 +1444,8 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn show_box(mut p: i32) {
-    depth_threshold = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 25i32) as usize]
-        .b32
-        .s1;
-    breadth_max = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 24i32) as usize]
-        .b32
-        .s1;
+    depth_threshold = EQTB[(INT_BASE + 25i32) as usize].b32.s1;
+    breadth_max = EQTB[(INT_BASE + 24i32) as usize].b32.s1;
     if breadth_max <= 0i32 {
         breadth_max = 5i32
     }
@@ -2040,67 +1923,11 @@ pub(crate) unsafe extern "C" fn show_activities() {
                             t = MEM[r as usize].b16.s0 as i32;
                             print_int(t);
                             print_cstr(b" adds ");
-                            if EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + 3i32 * 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 85i32
-                                + t) as usize]
-                                .b32
-                                .s1
-                                == 1000i32
-                            {
+                            if EQTB[(COUNT_BASE + t) as usize].b32.s1 == 1000i32 {
                                 t = MEM[(r + 3) as usize].b32.s1
                             } else {
                                 t = x_over_n(MEM[(r + 3) as usize].b32.s1, 1000)
-                                    * EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32
-                                        + 1i32
-                                        + 3i32 * 256i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 85i32
-                                        + t) as usize]
-                                        .b32
-                                        .s1
+                                    * EQTB[(COUNT_BASE + t) as usize].b32.s1
                             }
                             print_scaled(t);
                             if MEM[r as usize].b16.s1 as i32 == 1 {
@@ -2432,36 +2259,7 @@ pub(crate) unsafe extern "C" fn print_param(mut n: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn begin_diagnostic() {
     old_setting = selector;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 29i32) as usize]
-        .b32
-        .s1
-        <= 0i32
-        && selector == Selector::TERM_AND_LOG
-    {
+    if EQTB[(INT_BASE + 29i32) as usize].b32.s1 <= 0i32 && selector == Selector::TERM_AND_LOG {
         selector = (u8::from(selector) - 1).into();
         if history == TTHistory::SPOTLESS {
             history = TTHistory::WARNING_ISSUED
@@ -2705,38 +2503,9 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         73 => {
-            if chr_code
-                >= 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-            {
+            if chr_code >= LOCAL_BASE + 13i32 {
                 print_esc_cstr(b"toks");
-                print_int(
-                    chr_code
-                        - (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32),
-                );
+                print_int(chr_code - (LOCAL_BASE + 13i32));
             } else {
                 match chr_code {
                     2252772 => {
@@ -2779,186 +2548,19 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         74 => {
-            if chr_code
-                < 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-            {
-                print_param(
-                    chr_code
-                        - (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)),
-                );
+            if chr_code < COUNT_BASE {
+                print_param(chr_code - (INT_BASE));
             } else {
                 print_esc_cstr(b"count");
-                print_int(
-                    chr_code
-                        - (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 85i32),
-                );
+                print_int(chr_code - (COUNT_BASE));
             }
         }
         75 => {
-            if chr_code
-                < 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 23i32
-            {
-                print_length_param(
-                    chr_code
-                        - (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 85i32
-                            + 256i32
-                            + (0x10ffffi32 + 1i32)),
-                );
+            if chr_code < DIMEN_BASE + 23i32 {
+                print_length_param(chr_code - (DIMEN_BASE));
             } else {
                 print_esc_cstr(b"dimen");
-                print_int(
-                    chr_code
-                        - (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 85i32
-                            + 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + 23i32),
-                );
+                print_int(chr_code - (DIMEN_BASE + 23i32));
             }
         }
         45 => {
@@ -3920,255 +3522,37 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             print_hex((chr_code as u32 & 0x1fffff_u32) as i32);
         }
         86 => {
-            if chr_code
-                == 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-            {
+            if chr_code == MATH_FONT_BASE + 3i32 * 256i32 {
                 print_esc_cstr(b"catcode");
-            } else if chr_code
-                == 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-            {
+            } else if chr_code == MATH_CODE_BASE {
                 print_esc_cstr(b"mathcode");
-            } else if chr_code
-                == 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-            {
+            } else if chr_code == MATH_FONT_BASE + 3i32 * 256i32 + (0x10ffffi32 + 1i32) {
                 print_esc_cstr(b"lccode");
             } else if chr_code
-                == 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
+                == MATH_FONT_BASE + 3i32 * 256i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32)
             {
                 print_esc_cstr(b"uccode");
-            } else if chr_code
-                == 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-            {
+            } else if chr_code == SF_CODE_BASE {
                 print_esc_cstr(b"sfcode");
             } else {
                 print_esc_cstr(b"delcode");
             }
         }
         87 => {
-            if chr_code
-                == 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-            {
+            if chr_code == SF_CODE_BASE {
                 print_esc_cstr(b"XeTeXcharclass");
-            } else if chr_code
-                == 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-            {
+            } else if chr_code == MATH_CODE_BASE {
                 print_esc_cstr(b"Umathcodenum");
-            } else if chr_code
-                == 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-            {
+            } else if chr_code == MATH_CODE_BASE + 1i32 {
                 print_esc_cstr(b"Umathcode");
-            } else if chr_code
-                == 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-            {
+            } else if chr_code == DEL_CODE_BASE {
                 print_esc_cstr(b"Udelcodenum");
             } else {
                 print_esc_cstr(b"Udelcode");
             }
         }
         88 => {
-            print_size(
-                chr_code
-                    - (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32),
-            );
+            print_size(chr_code - (MATH_FONT_BASE));
         }
         101 => {
             if chr_code == 1i32 {
@@ -4252,27 +3636,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         57 => {
-            if chr_code
-                == 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-            {
+            if chr_code == MATH_FONT_BASE + 3i32 * 256i32 + (0x10ffffi32 + 1i32) {
                 print_esc_cstr(b"lowercase");
             } else {
                 print_esc_cstr(b"uppercase");
@@ -4479,68 +3843,9 @@ pub(crate) unsafe extern "C" fn id_lookup(mut j: i32, mut l: i32) -> i32 {
                 if (*hash.offset(p as isize)).s1 > 0i32 {
                     if hash_high < hash_extra {
                         hash_high += 1;
-                        (*hash.offset(p as isize)).s0 = hash_high
-                            + (1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + 3i32 * 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 85i32
-                                + 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + 23i32
-                                + 256i32
-                                - 1i32);
-                        p = hash_high
-                            + (1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + 3i32 * 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 85i32
-                                + 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + 23i32
-                                + 256i32
-                                - 1i32)
+                        (*hash.offset(p as isize)).s0 =
+                            hash_high + (DIMEN_BASE + 23i32 + 256i32 - 1i32);
+                        p = hash_high + (DIMEN_BASE + 23i32 + 256i32 - 1i32)
                     } else {
                         loop {
                             if hash_used
@@ -4827,35 +4132,7 @@ pub(crate) unsafe extern "C" fn group_warning() {
     let mut i = IN_OPEN;
     w = false;
     while GRP_STACK[i] == cur_boundary && i > 0 {
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 62i32) as usize]
-            .b32
-            .s1
-            > 0i32
-        {
+        if EQTB[(INT_BASE + 62i32) as usize].b32.s1 > 0i32 {
             while INPUT_STACK[BASE_PTR].state as i32 == 0i32
                 || INPUT_STACK[BASE_PTR].index as usize > i
             {
@@ -4873,35 +4150,7 @@ pub(crate) unsafe extern "C" fn group_warning() {
         print_group(1i32 != 0);
         print_cstr(b" of a different file");
         print_ln();
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 62i32) as usize]
-            .b32
-            .s1
-            > 1i32
-        {
+        if EQTB[(INT_BASE + 62i32) as usize].b32.s1 > 1i32 {
             show_context();
         }
         if history == TTHistory::SPOTLESS {
@@ -4917,35 +4166,7 @@ pub(crate) unsafe extern "C" fn if_warning() {
     let mut i = IN_OPEN;
     w = false;
     while IF_STACK[i] == cond_ptr {
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 62i32) as usize]
-            .b32
-            .s1
-            > 0i32
-        {
+        if EQTB[(INT_BASE + 62i32) as usize].b32.s1 > 0i32 {
             while INPUT_STACK[BASE_PTR].state as i32 == 0i32
                 || INPUT_STACK[BASE_PTR].index as usize > i
             {
@@ -4967,35 +4188,7 @@ pub(crate) unsafe extern "C" fn if_warning() {
         }
         print_cstr(b" of a different file");
         print_ln();
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 62i32) as usize]
-            .b32
-            .s1
-            > 1i32
-        {
+        if EQTB[(INT_BASE + 62i32) as usize].b32.s1 > 1i32 {
             show_context();
         }
         if history == TTHistory::SPOTLESS {
@@ -5049,35 +4242,7 @@ pub(crate) unsafe extern "C" fn file_warning() {
     cur_if = c as small_number;
     if_line = i;
     print_ln();
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 62i32) as usize]
-        .b32
-        .s1
-        > 1i32
-    {
+    if EQTB[(INT_BASE + 62i32) as usize].b32.s1 > 1i32 {
         show_context();
     }
     if history == TTHistory::SPOTLESS {
@@ -5357,86 +4522,9 @@ pub(crate) unsafe extern "C" fn eq_word_define(mut p: i32, mut w: i32) {
     if EQTB[p as usize].b32.s1 == w {
         return;
     }
-    if _xeq_level_array[(p
-        - (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32))) as usize] as i32
-        != cur_level as i32
-    {
-        eq_save(
-            p,
-            _xeq_level_array[(p
-                - (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32))) as usize],
-        );
-        _xeq_level_array[(p
-            - (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32))) as usize] = cur_level
+    if _xeq_level_array[(p - (INT_BASE)) as usize] as i32 != cur_level as i32 {
+        eq_save(p, _xeq_level_array[(p - (INT_BASE)) as usize]);
+        _xeq_level_array[(p - (INT_BASE)) as usize] = cur_level
     }
     EQTB[p as usize].b32.s1 = w;
 }
@@ -5450,31 +4538,7 @@ pub(crate) unsafe extern "C" fn geq_define(mut p: i32, mut t: u16, mut e: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn geq_word_define(mut p: i32, mut w: i32) {
     EQTB[p as usize].b32.s1 = w;
-    _xeq_level_array[(p
-        - (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32))) as usize] = 1_u16;
+    _xeq_level_array[(p - (INT_BASE)) as usize] = 1_u16;
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn save_for_after(mut t: i32) {
@@ -5546,122 +4610,16 @@ pub(crate) unsafe extern "C" fn unsave() {
                         + 9000i32
                         + 1i32) as usize];
                 }
-                if p < 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    || p > 1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 23i32
-                        + 256i32
-                        - 1i32
-                {
+                if p < INT_BASE || p > DIMEN_BASE + 23i32 + 256i32 - 1i32 {
                     if EQTB[p as usize].b16.s0 as i32 == 1i32 {
                         eq_destroy(SAVE_STACK[SAVE_PTR]);
                     } else {
                         eq_destroy(EQTB[p as usize]);
                         EQTB[p as usize] = SAVE_STACK[SAVE_PTR]
                     }
-                } else if _xeq_level_array[(p
-                    - (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)))
-                    as usize] as i32
-                    != 1i32
-                {
+                } else if _xeq_level_array[(p - (INT_BASE)) as usize] as i32 != 1i32 {
                     EQTB[p as usize] = SAVE_STACK[SAVE_PTR];
-                    _xeq_level_array[(p
-                        - (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)))
-                        as usize] = l
+                    _xeq_level_array[(p - (INT_BASE)) as usize] = l
                 }
             }
         }
@@ -5677,161 +4635,24 @@ pub(crate) unsafe extern "C" fn unsave() {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn prepare_mag() {
-    if mag_set > 0i32
-        && EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 17i32) as usize]
-            .b32
-            .s1
-            != mag_set
-    {
+    if mag_set > 0i32 && EQTB[(INT_BASE + 17i32) as usize].b32.s1 != mag_set {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Incompatible magnification (");
-        print_int(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 17i32) as usize]
-                .b32
-                .s1,
-        );
+        print_int(EQTB[(INT_BASE + 17i32) as usize].b32.s1);
         print_cstr(b");");
         print_nl_cstr(b" the previous value will be retained");
         help_ptr = 2_u8;
         help_line[1] = b"I can handle only one magnification ratio per job. So I\'ve";
         help_line[0] = b"reverted to the magnification you used earlier on this run.";
         int_error(mag_set);
-        geq_word_define(
-            1i32 + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 17i32,
-            mag_set,
-        );
+        geq_word_define(INT_BASE + 17i32, mag_set);
     }
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 17i32) as usize]
-        .b32
-        .s1
-        <= 0i32
-        || EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 17i32) as usize]
-            .b32
-            .s1 as i64
-            > 32768
+    if EQTB[(INT_BASE + 17i32) as usize].b32.s1 <= 0i32
+        || EQTB[(INT_BASE + 17i32) as usize].b32.s1 as i64 > 32768
     {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -5841,90 +4662,10 @@ pub(crate) unsafe extern "C" fn prepare_mag() {
         print_cstr(b"Illegal magnification has been changed to 1000");
         help_ptr = 1_u8;
         help_line[0] = b"The magnification ratio must be between 1 and 32768.";
-        int_error(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 17i32) as usize]
-                .b32
-                .s1,
-        );
-        geq_word_define(
-            1i32 + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 17i32,
-            1000i32,
-        );
+        int_error(EQTB[(INT_BASE + 17i32) as usize].b32.s1);
+        geq_word_define(INT_BASE + 17i32, 1000i32);
     }
-    mag_set = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 17i32) as usize]
-        .b32
-        .s1;
+    mag_set = EQTB[(INT_BASE + 17i32) as usize].b32.s1;
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn token_show(mut p: i32) {
@@ -5958,35 +4699,7 @@ pub(crate) unsafe extern "C" fn show_cur_cmd_chr() {
         shown_mode = cur_list.mode
     }
     print_cmd_chr(cur_cmd as u16, cur_chr);
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 60i32) as usize]
-        .b32
-        .s1
-        > 0i32
-    {
+    if EQTB[(INT_BASE + 60i32) as usize].b32.s1 > 0i32 {
         if cur_cmd as i32 >= 107i32 {
             if cur_cmd as i32 <= 108i32 {
                 print_cstr(b": ");
@@ -6041,34 +4754,7 @@ pub(crate) unsafe extern "C" fn show_context() {
         }
         if BASE_PTR == INPUT_PTR
             || bottom_line as i32 != 0
-            || nn
-                < EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 54i32) as usize]
-                    .b32
-                    .s1
+            || nn < EQTB[(INT_BASE + 54i32) as usize].b32.s1
         {
             /*324: */
             if BASE_PTR == INPUT_PTR
@@ -6109,33 +4795,7 @@ pub(crate) unsafe extern "C" fn show_context() {
                     selector = Selector::PSEUDO;
                     trick_count = 1000000i64 as i32;
                     if *buffer.offset(cur_input.limit as isize)
-                        == EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 48i32) as usize]
-                            .b32
-                            .s1
+                        == EQTB[(INT_BASE + 48i32) as usize].b32.s1
                     {
                         j = cur_input.limit
                     } else {
@@ -6313,35 +4973,7 @@ pub(crate) unsafe extern "C" fn show_context() {
                 }
                 nn += 1
             }
-        } else if nn
-            == EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 54i32) as usize]
-                .b32
-                .s1
-        {
+        } else if nn == EQTB[(INT_BASE + 54i32) as usize].b32.s1 {
             print_nl_cstr(b"...");
             nn += 1
         }
@@ -6372,35 +5004,7 @@ pub(crate) unsafe extern "C" fn begin_token_list(mut p: i32, mut t: u16) {
             cur_input.limit = PARAM_PTR as i32
         } else {
             cur_input.loc = MEM[p as usize].b32.s1;
-            if EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 30i32) as usize]
-                .b32
-                .s1
-                > 1i32
-            {
+            if EQTB[(INT_BASE + 30i32) as usize].b32.s1 > 1i32 {
                 begin_diagnostic();
                 print_nl_cstr(b"");
                 match t as i32 {
@@ -6642,8 +5246,7 @@ pub(crate) unsafe extern "C" fn check_outer_validity() {
             } else {
                 help_line[2] = b"The file ended while I was skipping conditional text."
             }
-            cur_tok = 0x1ffffffi32
-                + (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 4i32);
+            cur_tok = 0x1ffffffi32 + (FROZEN_CONTROL_SEQUENCE + 4i32);
             ins_error();
         }
         deletions_allowed = true
@@ -6682,25 +5285,7 @@ pub(crate) unsafe extern "C" fn get_next() {
                             (65536 + ((cur_chr - 0xd800i32) * 1024i32) as i64 + lower as i64) as i32
                     }
                     'c_65186: loop {
-                        cur_cmd = EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + cur_chr) as usize]
+                        cur_cmd = EQTB[(MATH_FONT_BASE + 3i32 * 256i32 + cur_chr) as usize]
                             .b32
                             .s1 as eight_bits;
                         match cur_input.state as i32 + cur_cmd as i32 {
@@ -6891,23 +5476,7 @@ pub(crate) unsafe extern "C" fn get_next() {
                             if cur_input.name <= 19i32 {
                                 if pseudo_input() {
                                     cur_input.limit = last
-                                } else if EQTB[(1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 10i32)
-                                    as usize]
-                                    .b32
-                                    .s1
-                                    != TEX_NULL
+                                } else if EQTB[(LOCAL_BASE + 10i32) as usize].b32.s1 != TEX_NULL
                                     && !EOF_SEEN[cur_input.index as usize]
                                 {
                                     cur_input.limit = first - 1i32;
@@ -6937,42 +5506,13 @@ pub(crate) unsafe extern "C" fn get_next() {
                                 }
                             } else if input_line(INPUT_FILE[cur_input.index as usize]) != 0 {
                                 cur_input.limit = last
-                            } else if EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 10i32) as usize]
-                                .b32
-                                .s1
-                                != TEX_NULL
+                            } else if EQTB[(LOCAL_BASE + 10i32) as usize].b32.s1 != TEX_NULL
                                 && !EOF_SEEN[cur_input.index as usize]
                             {
                                 cur_input.limit = first - 1i32;
                                 EOF_SEEN[cur_input.index as usize] = true;
                                 begin_token_list(
-                                    EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 10i32) as usize]
-                                        .b32
-                                        .s1,
+                                    EQTB[(LOCAL_BASE + 10i32) as usize].b32.s1,
                                     16_u16,
                                 );
                                 continue 'c_63502;
@@ -6981,35 +5521,7 @@ pub(crate) unsafe extern "C" fn get_next() {
                             }
                         }
                         if force_eof {
-                            if EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + 3i32 * 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 62i32) as usize]
-                                .b32
-                                .s1
-                                > 0i32
-                            {
+                            if EQTB[(INT_BASE + 62i32) as usize].b32.s1 > 0i32 {
                                 if GRP_STACK[IN_OPEN] != cur_boundary
                                     || IF_STACK[IN_OPEN] != cond_ptr
                                 {
@@ -7026,93 +5538,13 @@ pub(crate) unsafe extern "C" fn get_next() {
                             check_outer_validity();
                             continue 'c_63502;
                         } else {
-                            if EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + 3i32 * 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 48i32) as usize]
-                                .b32
-                                .s1
-                                < 0i32
-                                || EQTB[(1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + 3i32 * 256i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 48i32) as usize]
-                                    .b32
-                                    .s1
-                                    > 255i32
+                            if EQTB[(INT_BASE + 48i32) as usize].b32.s1 < 0i32
+                                || EQTB[(INT_BASE + 48i32) as usize].b32.s1 > 255i32
                             {
                                 cur_input.limit -= 1
                             } else {
-                                *buffer.offset(cur_input.limit as isize) = EQTB[(1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + 3i32 * 256i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 48i32)
-                                    as usize]
-                                    .b32
-                                    .s1
+                                *buffer.offset(cur_input.limit as isize) =
+                                    EQTB[(INT_BASE + 48i32) as usize].b32.s1
                             }
                             first = cur_input.limit + 1i32;
                             cur_input.loc = cur_input.start
@@ -7145,25 +5577,7 @@ pub(crate) unsafe extern "C" fn get_next() {
                             'c_65963: loop {
                                 k = cur_input.loc;
                                 cur_chr = *buffer.offset(k as isize);
-                                cat = EQTB[(1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + 3i32 * 256i32
-                                    + cur_chr) as usize]
+                                cat = EQTB[(CUR_FONT_LOC + 1i32 + 3i32 * 256i32 + cur_chr) as usize]
                                     .b32
                                     .s1 as u8;
                                 k += 1;
@@ -7179,26 +5593,8 @@ pub(crate) unsafe extern "C" fn get_next() {
                                     /*368:*/
                                     {
                                         cur_chr = *buffer.offset(k as isize);
-                                        cat = EQTB[(1i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + 1i32
-                                            + 15000i32
-                                            + 12i32
-                                            + 9000i32
-                                            + 1i32
-                                            + 1i32
-                                            + 19i32
-                                            + 256i32
-                                            + 256i32
-                                            + 13i32
-                                            + 256i32
-                                            + 4i32
-                                            + 256i32
-                                            + 1i32
-                                            + 3i32 * 256i32
-                                            + cur_chr)
-                                            as usize]
+                                        cat = EQTB
+                                            [(MATH_FONT_BASE + 3i32 * 256i32 + cur_chr) as usize]
                                             .b32
                                             .s1 as u8;
                                         k += 1;
@@ -7434,40 +5830,11 @@ pub(crate) unsafe extern "C" fn get_next() {
                          * variable to make sure it only gets inserted once. */
                         {
                             if !used_tectonic_coda_tokens
-                                && EQTB[(1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 12i32) as usize]
-                                    .b32
-                                    .s1
-                                    != TEX_NULL
+                                && EQTB[(LOCAL_BASE + 12i32) as usize].b32.s1 != TEX_NULL
                             {
                                 used_tectonic_coda_tokens = true; /* token list but no tokens left */
                                 begin_token_list(
-                                    EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 12i32) as usize]
-                                        .b32
-                                        .s1,
+                                    EQTB[(LOCAL_BASE + 12i32) as usize].b32.s1,
                                     19_u16,
                                 );
                                 continue;
@@ -7594,35 +5961,7 @@ pub(crate) unsafe extern "C" fn macro_call() {
     ref_count = cur_chr;
     r = MEM[ref_count as usize].b32.s1;
     n = 0i32 as small_number;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 30i32) as usize]
-        .b32
-        .s1
-        > 0i32
-    {
+    if EQTB[(INT_BASE + 30i32) as usize].b32.s1 > 0i32 {
         /*419:*/
         begin_diagnostic();
         print_ln();
@@ -7883,35 +6222,7 @@ pub(crate) unsafe extern "C" fn macro_call() {
                     pstack[n as usize] = MEM[(4999999 - 3) as usize].b32.s1
                 }
                 n += 1;
-                if EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 30i32) as usize]
-                    .b32
-                    .s1
-                    > 0i32
-                {
+                if EQTB[(INT_BASE + 30i32) as usize].b32.s1 > 0i32 {
                     begin_diagnostic();
                     print_nl(match_chr as str_number);
                     print_int(n as i32);
@@ -7963,8 +6274,7 @@ pub(crate) unsafe extern "C" fn macro_call() {
 pub(crate) unsafe extern "C" fn insert_relax() {
     cur_tok = 0x1ffffffi32 + cur_cs;
     back_input();
-    cur_tok = 0x1ffffffi32
-        + (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 7i32);
+    cur_tok = 0x1ffffffi32 + (FROZEN_CONTROL_SEQUENCE + 7i32);
     back_input();
     cur_input.index = 5_u16;
 }
@@ -8174,35 +6484,7 @@ pub(crate) unsafe extern "C" fn expand() {
     loop {
         if (cur_cmd as i32) < 113i32 {
             /*384:*/
-            if EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 36i32) as usize]
-                .b32
-                .s1
-                > 1i32
-            {
+            if EQTB[(INT_BASE + 36i32) as usize].b32.s1 > 1i32 {
                 show_cur_cmd_chr(); /*1612:*/
             }
             match cur_cmd as i32 {
@@ -8402,64 +6684,8 @@ pub(crate) unsafe extern "C" fn expand() {
                     break;
                 }
                 108 => {
-                    if EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 60i32) as usize]
-                        .b32
-                        .s1
-                        > 0i32
-                    {
-                        if EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 36i32) as usize]
-                            .b32
-                            .s1
-                            <= 1i32
-                        {
+                    if EQTB[(INT_BASE + 60i32) as usize].b32.s1 > 0i32 {
+                        if EQTB[(INT_BASE + 36i32) as usize].b32.s1 <= 1i32 {
                             show_cur_cmd_chr();
                         }
                     }
@@ -8531,8 +6757,7 @@ pub(crate) unsafe extern "C" fn expand() {
             if (cur_cmd as i32) < 117i32 {
                 macro_call();
             } else {
-                cur_tok = 0x1ffffffi32
-                    + (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 6i32);
+                cur_tok = 0x1ffffffi32 + (FROZEN_CONTROL_SEQUENCE + 6i32);
                 back_input();
             }
             break;
@@ -8556,8 +6781,7 @@ pub(crate) unsafe extern "C" fn get_x_token() {
             if (cur_cmd as i32) < 117i32 {
                 macro_call();
             } else {
-                cur_cs =
-                    1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 6i32;
+                cur_cs = FROZEN_CONTROL_SEQUENCE + 6i32;
                 cur_cmd = 9i32 as eight_bits;
                 break;
             }
@@ -8832,31 +7056,7 @@ pub(crate) unsafe extern "C" fn scan_math(mut p: i32) {
         loop {
             match cur_cmd as i32 {
                 11 | 12 | 68 => {
-                    c = EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + cur_chr) as usize]
-                        .b32
-                        .s1;
+                    c = EQTB[(MATH_CODE_BASE + cur_chr) as usize].b32.s1;
                     if !(c as u32 & 0x1fffff_u32 == 0x1fffff_u32) {
                         break 'c_118470;
                     }
@@ -8933,90 +7133,10 @@ pub(crate) unsafe extern "C" fn scan_math(mut p: i32) {
     MEM[p as usize].b32.s1 = 1;
     MEM[p as usize].b16.s0 = (c as i64 % 65536) as u16;
     if c as u32 >> 21i32 & 0x7_u32 == 7_u32
-        && (EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 44i32) as usize]
-            .b32
-            .s1
-            >= 0i32
-            && EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 44i32) as usize]
-                .b32
-                .s1
-                < 256i32)
+        && (EQTB[(INT_BASE + 44i32) as usize].b32.s1 >= 0i32
+            && EQTB[(INT_BASE + 44i32) as usize].b32.s1 < 256i32)
     {
-        MEM[p as usize].b16.s1 = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 44i32) as usize]
-            .b32
-            .s1 as u16
+        MEM[p as usize].b16.s1 = EQTB[(INT_BASE + 44i32) as usize].b32.s1 as u16
     } else {
         MEM[p as usize].b16.s1 = (c as u32 >> 24 & 0xff_u32) as u16
     }
@@ -9042,90 +7162,10 @@ pub(crate) unsafe extern "C" fn set_math_char(mut c: i32) {
         MEM[(p + 1) as usize].b16.s0 = (ch as i64 % 65536) as u16;
         MEM[(p + 1) as usize].b16.s1 = (c as u32 >> 24 & 0xff_u32) as u16;
         if c as u32 >> 21i32 & 0x7_u32 == 7_u32 {
-            if EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 44i32) as usize]
-                .b32
-                .s1
-                >= 0i32
-                && EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 44i32) as usize]
-                    .b32
-                    .s1
-                    < 256i32
+            if EQTB[(INT_BASE + 44i32) as usize].b32.s1 >= 0i32
+                && EQTB[(INT_BASE + 44i32) as usize].b32.s1 < 256i32
             {
-                MEM[(p + 1) as usize].b16.s1 = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 44i32) as usize]
-                    .b32
-                    .s1 as u16
+                MEM[(p + 1) as usize].b16.s1 = EQTB[(INT_BASE + 44i32) as usize].b32.s1 as u16
             }
             MEM[p as usize].b16.s1 = 16_u16
         } else {
@@ -9294,24 +7334,7 @@ pub(crate) unsafe extern "C" fn scan_font_ident() {
         }
     }
     if cur_cmd as i32 == 90i32 {
-        f = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32) as usize]
-            .b32
-            .s1
+        f = EQTB[(CUR_FONT_LOC) as usize].b32.s1
     } else if cur_cmd as i32 == 89i32 {
         f = cur_chr
     } else if cur_cmd as i32 == 88i32 {
@@ -9379,13 +7402,7 @@ pub(crate) unsafe extern "C" fn find_font_dimen(mut writing: bool) {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Font ");
-        print_esc(
-            (*hash.offset(
-                (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 12i32 + f)
-                    as isize,
-            ))
-            .s1,
-        );
+        print_esc((*hash.offset((FROZEN_CONTROL_SEQUENCE + 12i32 + f) as isize)).s1);
         print_cstr(b" has only ");
         print_int(FONT_PARAMS[f as usize]);
         print_cstr(b" fontdimen parameters");
@@ -9418,54 +7435,8 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
     match cur_cmd as i32 {
         86 => {
             scan_usv_num();
-            if m == 1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-            {
-                cur_val1 = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + cur_val) as usize]
-                    .b32
-                    .s1;
+            if m == MATH_CODE_BASE {
+                cur_val1 = EQTB[(MATH_CODE_BASE + cur_val) as usize].b32.s1;
                 if cur_val1 as u32 & 0x1fffff_u32 == 0x1fffff_u32 {
                     cur_val1 = 0x8000i32
                 } else if cur_val1 as u32 >> 21i32 & 0x7_u32 > 7_u32
@@ -9490,63 +7461,8 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                     .wrapping_add(cur_val1 as u32 & 0x1fffff_u32) as i32;
                 cur_val = cur_val1;
                 cur_val_level = 0_u8
-            } else if m
-                == 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-            {
-                cur_val1 = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + cur_val) as usize]
-                    .b32
-                    .s1;
+            } else if m == DEL_CODE_BASE {
+                cur_val1 = EQTB[(DEL_CODE_BASE + cur_val) as usize].b32.s1;
                 if cur_val1 >= 0x40000000i32 {
                     if file_line_error_style_p != 0 {
                         print_file_line();
@@ -9564,53 +7480,10 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                     cur_val = cur_val1;
                     cur_val_level = 0_u8
                 }
-            } else if m < 1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-            {
+            } else if m < SF_CODE_BASE {
                 cur_val = EQTB[(m + cur_val) as usize].b32.s1;
                 cur_val_level = 0_u8
-            } else if m < 1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-            {
+            } else if m < MATH_CODE_BASE {
                 cur_val = (EQTB[(m + cur_val) as usize].b32.s1 as i64 % 65536) as i32;
                 cur_val_level = 0_u8
             } else {
@@ -9620,129 +7493,13 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
         }
         87 => {
             scan_usv_num();
-            if m == 1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-            {
-                cur_val = (EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + cur_val) as usize]
-                    .b32
-                    .s1 as i64
-                    / 65536) as i32;
+            if m == SF_CODE_BASE {
+                cur_val = (EQTB[(SF_CODE_BASE + cur_val) as usize].b32.s1 as i64 / 65536) as i32;
                 cur_val_level = 0_u8
-            } else if m
-                == 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-            {
-                cur_val = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + cur_val) as usize]
-                    .b32
-                    .s1;
+            } else if m == MATH_CODE_BASE {
+                cur_val = EQTB[(MATH_CODE_BASE + cur_val) as usize].b32.s1;
                 cur_val_level = 0_u8
-            } else if m
-                == 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-            {
+            } else if m == MATH_CODE_BASE + 1i32 {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -9755,63 +7512,8 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                 error();
                 cur_val = 0i32;
                 cur_val_level = 0_u8
-            } else if m
-                == 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-            {
-                cur_val = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + cur_val) as usize]
-                    .b32
-                    .s1;
+            } else if m == DEL_CODE_BASE {
+                cur_val = EQTB[(DEL_CODE_BASE + cur_val) as usize].b32.s1;
                 cur_val_level = 0_u8
             } else {
                 if file_line_error_style_p != 0 {
@@ -9848,22 +7550,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                     if m == 0i32 {
                         scan_register_num();
                         if cur_val < 256i32 {
-                            cur_val = EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + cur_val) as usize]
-                                .b32
-                                .s1
+                            cur_val = EQTB[(LOCAL_BASE + 13i32 + cur_val) as usize].b32.s1
                         } else {
                             find_sa_element(5i32 as small_number, cur_val, false);
                             if cur_ptr == TEX_NULL {
@@ -9875,21 +7562,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                     } else {
                         cur_val = MEM[(m + 1) as usize].b32.s1
                     }
-                } else if cur_chr
-                    == 1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 11i32
-                {
+                } else if cur_chr == LOCAL_BASE + 11i32 {
                     scan_char_class_not_ignored();
                     cur_ptr = cur_val;
                     scan_char_class_not_ignored();
@@ -9906,13 +7579,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
             } else {
                 back_input();
                 scan_font_ident();
-                cur_val = 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + cur_val;
+                cur_val = FONT_ID_BASE + cur_val;
                 cur_val_level = 4_u8
             }
         }
@@ -9999,20 +7666,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
             cur_val_level = 1_u8
         }
         85 => {
-            if m > 1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 0i32
-            {
+            if m > LOCAL_BASE + 0i32 {
                 /*1654:*/
                 scan_int();
                 if EQTB[m as usize].b32.s1 == TEX_NULL || cur_val < 0i32 {
@@ -10023,40 +7677,10 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                     }
                     cur_val = MEM[(EQTB[m as usize].b32.s1 + cur_val + 1) as usize].b32.s1
                 }
-            } else if EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 0i32) as usize]
-                .b32
-                .s1
-                == TEX_NULL
-            {
+            } else if EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 == TEX_NULL {
                 cur_val = 0i32
             } else {
-                cur_val = MEM[EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 0i32) as usize]
-                    .b32
-                    .s1 as usize]
+                cur_val = MEM[EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 as usize]
                     .b32
                     .s0
             }
@@ -10065,24 +7689,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
         84 => {
             scan_register_num();
             if cur_val < 256i32 {
-                q = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + cur_val) as usize]
-                    .b32
-                    .s1
+                q = EQTB[(BOX_BASE + cur_val) as usize].b32.s1
             } else {
                 find_sa_element(4i32 as small_number, cur_val, false);
                 if cur_ptr == TEX_NULL {
@@ -10162,61 +7769,9 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                     }
                 } else {
                     match cur_val_level as i32 {
-                        0 => {
-                            cur_val = EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + 3i32 * 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 85i32
-                                + cur_val) as usize]
-                                .b32
-                                .s1
-                        }
+                        0 => cur_val = EQTB[(COUNT_BASE + cur_val) as usize].b32.s1,
                         1 => {
-                            cur_val = EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + 3i32 * 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
+                            cur_val = EQTB[(INT_BASE
                                 + 85i32
                                 + 256i32
                                 + (0x10ffffi32 + 1i32)
@@ -10317,44 +7872,9 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                     match m {
                         47 => {
                             /*1435:*/
-                            if FONT_AREA[EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32) as usize]
-                                .b32
-                                .s1 as usize] as u32
+                            if FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32
                                 == 0xffffu32
-                                || FONT_AREA[EQTB[(1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32)
-                                    as usize]
-                                    .b32
-                                    .s1 as usize] as u32
+                                || FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32
                                     == 0xfffeu32
                             {
                                 scan_int(); /* shellenabledp */
@@ -10375,25 +7895,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                                 } else {
                                     scan_int();
                                     cur_val = get_glyph_bounds(
-                                        EQTB[(1i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + 1i32
-                                            + 15000i32
-                                            + 12i32
-                                            + 9000i32
-                                            + 1i32
-                                            + 1i32
-                                            + 19i32
-                                            + 256i32
-                                            + 256i32
-                                            + 13i32
-                                            + 256i32
-                                            + 4i32
-                                            + 256i32)
-                                            as usize]
-                                            .b32
-                                            .s1,
+                                        EQTB[(CUR_FONT_LOC) as usize].b32.s1,
                                         n,
                                         cur_val,
                                     )
@@ -10402,25 +7904,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                                 not_native_font_error(
                                     71i32,
                                     m,
-                                    EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32)
-                                        as usize]
-                                        .b32
-                                        .s1,
+                                    EQTB[(CUR_FONT_LOC) as usize].b32.s1,
                                 );
                                 cur_val = 0i32
                             }
@@ -10483,22 +7967,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                         52 | 53 | 54 => {
                             q = cur_chr - 52i32;
                             scan_int();
-                            if EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 0i32) as usize]
-                                .b32
-                                .s1
-                                == TEX_NULL
+                            if EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 == TEX_NULL
                                 || cur_val <= 0i32
                             {
                                 cur_val = 0i32
@@ -10508,61 +7977,16 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                                     cur_val = (cur_val + q) / 2i32
                                 }
                                 if cur_val
-                                    > MEM[EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 0i32)
-                                        as usize]
-                                        .b32
-                                        .s1 as usize]
+                                    > MEM[EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 as usize]
                                         .b32
                                         .s0
                                 {
-                                    cur_val = MEM[EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 0i32)
-                                        as usize]
-                                        .b32
-                                        .s1
-                                        as usize]
+                                    cur_val = MEM
+                                        [EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 as usize]
                                         .b32
                                         .s0
                                 }
-                                cur_val = MEM[(EQTB[(1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 0i32)
-                                    as usize]
-                                    .b32
-                                    .s1
+                                cur_val = MEM[(EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1
                                     + 2i32 * cur_val
                                     - q) as usize]
                                     .b32
@@ -10936,183 +8360,36 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                             }
                         }
                         36 => {
-                            if FONT_AREA[EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32) as usize]
-                                .b32
-                                .s1 as usize] as u32
+                            if FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32
                                 == 0xffffu32
-                                || FONT_AREA[EQTB[(1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32)
-                                    as usize]
-                                    .b32
-                                    .s1 as usize] as u32
+                                || FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32
                                     == 0xfffeu32
                             {
                                 scan_int();
                                 n = cur_val;
-                                cur_val = map_char_to_glyph(
-                                    EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32)
-                                        as usize]
-                                        .b32
-                                        .s1,
-                                    n,
-                                )
+                                cur_val = map_char_to_glyph(EQTB[(CUR_FONT_LOC) as usize].b32.s1, n)
                             } else {
                                 not_native_font_error(
                                     71i32,
                                     m,
-                                    EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32)
-                                        as usize]
-                                        .b32
-                                        .s1,
+                                    EQTB[(CUR_FONT_LOC) as usize].b32.s1,
                                 );
                                 cur_val = 0i32
                             }
                         }
                         37 => {
-                            if FONT_AREA[EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32) as usize]
-                                .b32
-                                .s1 as usize] as u32
+                            if FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32
                                 == 0xffffu32
-                                || FONT_AREA[EQTB[(1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32)
-                                    as usize]
-                                    .b32
-                                    .s1 as usize] as u32
+                                || FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32
                                     == 0xfffeu32
                             {
                                 scan_and_pack_name();
-                                cur_val = map_glyph_to_index(
-                                    EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32)
-                                        as usize]
-                                        .b32
-                                        .s1,
-                                )
+                                cur_val = map_glyph_to_index(EQTB[(CUR_FONT_LOC) as usize].b32.s1)
                             } else {
                                 not_native_font_error(
                                     71i32,
                                     m,
-                                    EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32)
-                                        as usize]
-                                        .b32
-                                        .s1,
+                                    EQTB[(CUR_FONT_LOC) as usize].b32.s1,
                                 );
                                 cur_val = 0i32
                             }
@@ -11630,51 +8907,15 @@ pub(crate) unsafe extern "C" fn xetex_scan_dimen(
                                 current_block = 17751730340908002208;
                             } else {
                                 if scan_keyword(b"em") {
-                                    v = FONT_INFO[(6 + PARAM_BASE[EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32)
-                                        as usize]
-                                        .b32
-                                        .s1
-                                        as usize])
+                                    v = FONT_INFO[(6 + PARAM_BASE
+                                        [EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize])
                                         as usize]
                                         .b32
                                         .s1;
                                     current_block = 5195798230510548452;
                                 } else if scan_keyword(b"ex") {
-                                    v = FONT_INFO[(5 + PARAM_BASE[EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32)
-                                        as usize]
-                                        .b32
-                                        .s1
-                                        as usize])
+                                    v = FONT_INFO[(5 + PARAM_BASE
+                                        [EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize])
                                         as usize]
                                         .b32
                                         .s1;
@@ -11724,98 +8965,15 @@ pub(crate) unsafe extern "C" fn xetex_scan_dimen(
                                         if scan_keyword(b"true") {
                                             /*476:*/
                                             prepare_mag(); /* magic ratio consant */
-                                            if EQTB[(1i32
-                                                + (0x10ffffi32 + 1i32)
-                                                + (0x10ffffi32 + 1i32)
-                                                + 1i32
-                                                + 15000i32
-                                                + 12i32
-                                                + 9000i32
-                                                + 1i32
-                                                + 1i32
-                                                + 19i32
-                                                + 256i32
-                                                + 256i32
-                                                + 13i32
-                                                + 256i32
-                                                + 4i32
-                                                + 256i32
-                                                + 1i32
-                                                + 3i32 * 256i32
-                                                + (0x10ffffi32 + 1i32)
-                                                + (0x10ffffi32 + 1i32)
-                                                + (0x10ffffi32 + 1i32)
-                                                + (0x10ffffi32 + 1i32)
-                                                + (0x10ffffi32 + 1i32)
-                                                + (0x10ffffi32 + 1i32)
-                                                + 17i32)
-                                                as usize]
-                                                .b32
-                                                .s1
-                                                != 1000i32
-                                            {
+                                            if EQTB[(INT_BASE + 17i32) as usize].b32.s1 != 1000i32 {
                                                 cur_val = xn_over_d(
                                                     cur_val,
                                                     1000i32,
-                                                    EQTB[(1i32
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + 1i32
-                                                        + 15000i32
-                                                        + 12i32
-                                                        + 9000i32
-                                                        + 1i32
-                                                        + 1i32
-                                                        + 19i32
-                                                        + 256i32
-                                                        + 256i32
-                                                        + 13i32
-                                                        + 256i32
-                                                        + 4i32
-                                                        + 256i32
-                                                        + 1i32
-                                                        + 3i32 * 256i32
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + 17i32)
-                                                        as usize]
-                                                        .b32
-                                                        .s1,
+                                                    EQTB[(INT_BASE + 17i32) as usize].b32.s1,
                                                 ); /* magic ratio consant */
                                                 f = (((1000i32 * f) as i64
                                                     + 65536 * tex_remainder as i64)
-                                                    / EQTB[(1i32
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + 1i32
-                                                        + 15000i32
-                                                        + 12i32
-                                                        + 9000i32
-                                                        + 1i32
-                                                        + 1i32
-                                                        + 19i32
-                                                        + 256i32
-                                                        + 256i32
-                                                        + 13i32
-                                                        + 256i32
-                                                        + 4i32
-                                                        + 256i32
-                                                        + 1i32
-                                                        + 3i32 * 256i32
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + (0x10ffffi32 + 1i32)
-                                                        + 17i32)
-                                                        as usize]
-                                                        .b32
-                                                        .s1
+                                                    / EQTB[(INT_BASE + 17i32) as usize].b32.s1
                                                         as i64)
                                                     as i32;
                                                 cur_val =
@@ -12624,33 +9782,7 @@ pub(crate) unsafe extern "C" fn pseudo_start() {
     s = make_string();
     *str_pool.offset(pool_ptr as isize) = ' ' as i32 as packed_UTF16_code;
     l = *str_start.offset((s as i64 - 65536) as isize);
-    nl = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 49i32) as usize]
-        .b32
-        .s1;
+    nl = EQTB[(INT_BASE + 49i32) as usize].b32.s1;
     p = get_avail();
     q = p;
     while l < pool_ptr {
@@ -12706,35 +9838,7 @@ pub(crate) unsafe extern "C" fn pseudo_start() {
     line = 0i32;
     cur_input.limit = cur_input.start;
     cur_input.loc = cur_input.limit + 1i32;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 61i32) as usize]
-        .b32
-        .s1
-        > 0i32
-    {
+    if EQTB[(INT_BASE + 61i32) as usize].b32.s1 > 0i32 {
         if term_offset > max_print_line - 3i32 {
             print_ln();
         } else if term_offset > 0i32 || file_offset > 0i32 {
@@ -13061,24 +10165,7 @@ pub(crate) unsafe extern "C" fn conv_toks() {
         11 | 12 => {
             scan_register_num();
             if cur_val < 256i32 {
-                p = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + cur_val) as usize]
-                    .b32
-                    .s1
+                p = EQTB[(BOX_BASE + cur_val) as usize].b32.s1
             } else {
                 find_sa_element(4i32 as small_number, cur_val, false);
                 if cur_ptr == TEX_NULL {
@@ -13568,92 +10655,12 @@ pub(crate) unsafe extern "C" fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
             }
         }
         cur_input.limit = last;
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 48i32) as usize]
-            .b32
-            .s1
-            < 0i32
-            || EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 48i32) as usize]
-                .b32
-                .s1
-                > 255i32
+        if EQTB[(INT_BASE + 48i32) as usize].b32.s1 < 0i32
+            || EQTB[(INT_BASE + 48i32) as usize].b32.s1 > 255i32
         {
             cur_input.limit -= 1
         } else {
-            *buffer.offset(cur_input.limit as isize) = EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 48i32) as usize]
-                .b32
-                .s1
+            *buffer.offset(cur_input.limit as isize) = EQTB[(INT_BASE + 48i32) as usize].b32.s1
         }
         first = cur_input.limit + 1i32;
         cur_input.loc = cur_input.start;
@@ -13726,35 +10733,7 @@ pub(crate) unsafe extern "C" fn pass_text() {
         }
     }
     scanner_status = save_scanner_status as u8;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 60i32) as usize]
-        .b32
-        .s1
-        > 0i32
-    {
+    if EQTB[(INT_BASE + 60i32) as usize].b32.s1 > 0i32 {
         show_cur_cmd_chr();
     };
 }
@@ -13791,64 +10770,8 @@ pub(crate) unsafe extern "C" fn conditional() {
     let mut save_cond_ptr: i32 = 0;
     let mut this_if: small_number = 0;
     let mut is_unless: bool = false;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 60i32) as usize]
-        .b32
-        .s1
-        > 0i32
-    {
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 36i32) as usize]
-            .b32
-            .s1
-            <= 1i32
-        {
+    if EQTB[(INT_BASE + 60i32) as usize].b32.s1 > 0i32 {
+        if EQTB[(INT_BASE + 36i32) as usize].b32.s1 <= 1i32 {
             show_cur_cmd_chr();
         }
     }
@@ -13972,24 +10895,7 @@ pub(crate) unsafe extern "C" fn conditional() {
         9 | 10 | 11 => {
             scan_register_num();
             if cur_val < 256i32 {
-                p = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + cur_val) as usize]
-                    .b32
-                    .s1
+                p = EQTB[(BOX_BASE + cur_val) as usize].b32.s1
             } else {
                 find_sa_element(4i32 as small_number, cur_val, false);
                 if cur_ptr == TEX_NULL {
@@ -14150,35 +11056,7 @@ pub(crate) unsafe extern "C" fn conditional() {
         16 => {
             scan_int();
             n = cur_val;
-            if EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 36i32) as usize]
-                .b32
-                .s1
-                > 1i32
-            {
+            if EQTB[(INT_BASE + 36i32) as usize].b32.s1 > 1i32 {
                 begin_diagnostic();
                 print_cstr(b"{case ");
                 print_int(n);
@@ -14243,35 +11121,7 @@ pub(crate) unsafe extern "C" fn conditional() {
             if is_unless {
                 b = !b
             }
-            if EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 36i32) as usize]
-                .b32
-                .s1
-                > 1i32
-            {
+            if EQTB[(INT_BASE + 36i32) as usize].b32.s1 > 1i32 {
                 /*521:*/
                 begin_diagnostic();
                 if b {
@@ -14551,35 +11401,7 @@ pub(crate) unsafe extern "C" fn open_log_file() {
      * printed. The eqtb reference is end_line_char. */
     print_nl_cstr(b"**");
     l = INPUT_STACK[0].limit;
-    if *buffer.offset(l as isize)
-        == EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 48i32) as usize]
-            .b32
-            .s1
-    {
+    if *buffer.offset(l as isize) == EQTB[(INT_BASE + 48i32) as usize].b32.s1 {
         l -= 1
     }
     k = 1i32;
@@ -14735,60 +11557,8 @@ pub(crate) unsafe extern "C" fn start_input(mut primary_input_name: *const i8) {
         &mut INPUT_FILE[cur_input.index as usize],
         format,
         b"rb\x00" as *const u8 as *const i8,
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 77i32) as usize]
-            .b32
-            .s1,
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 78i32) as usize]
-            .b32
-            .s1,
+        EQTB[(INT_BASE + 77i32) as usize].b32.s1,
+        EQTB[(INT_BASE + 78i32) as usize].b32.s1,
     ) == 0
     {
         abort!(
@@ -14845,92 +11615,12 @@ pub(crate) unsafe extern "C" fn start_input(mut primary_input_name: *const i8) {
     line = 1i32;
     input_line(INPUT_FILE[cur_input.index as usize]);
     cur_input.limit = last;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 48i32) as usize]
-        .b32
-        .s1
-        < 0i32
-        || EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 48i32) as usize]
-            .b32
-            .s1
-            > 255i32
+    if EQTB[(INT_BASE + 48i32) as usize].b32.s1 < 0i32
+        || EQTB[(INT_BASE + 48i32) as usize].b32.s1 > 255i32
     {
         cur_input.limit -= 1
     } else {
-        *buffer.offset(cur_input.limit as isize) = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 48i32) as usize]
-            .b32
-            .s1
+        *buffer.offset(cur_input.limit as isize) = EQTB[(INT_BASE + 48i32) as usize].b32.s1
     }
     first = cur_input.limit + 1i32;
     cur_input.loc = cur_input.start;
@@ -14949,118 +11639,10 @@ pub(crate) unsafe extern "C" fn effective_char_info(
 #[no_mangle]
 pub(crate) unsafe extern "C" fn char_warning(mut f: internal_font_number, mut c: i32) {
     let mut old_setting_0: i32 = 0;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 35i32) as usize]
-        .b32
-        .s1
-        > 0i32
-    {
-        old_setting_0 = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 29i32) as usize]
-            .b32
-            .s1;
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 35i32) as usize]
-            .b32
-            .s1
-            > 1i32
-        {
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 29i32) as usize]
-                .b32
-                .s1 = 1i32
+    if EQTB[(INT_BASE + 35i32) as usize].b32.s1 > 0i32 {
+        old_setting_0 = EQTB[(INT_BASE + 29i32) as usize].b32.s1;
+        if EQTB[(INT_BASE + 35i32) as usize].b32.s1 > 1i32 {
+            EQTB[(INT_BASE + 29i32) as usize].b32.s1 = 1i32
         }
         begin_diagnostic();
         print_nl_cstr(b"Missing character: There is no ");
@@ -15073,33 +11655,7 @@ pub(crate) unsafe extern "C" fn char_warning(mut f: internal_font_number, mut c:
         print(FONT_NAME[f as usize]);
         print_char('!' as i32);
         end_diagnostic(false);
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 29i32) as usize]
-            .b32
-            .s1 = old_setting_0
+        EQTB[(INT_BASE + 29i32) as usize].b32.s1 = old_setting_0
     }
     let mut fn_0: *mut i8 = gettexstring(FONT_NAME[f as usize]);
     let mut chr: *mut i8 = 0 as *mut i8;
@@ -15151,35 +11707,7 @@ pub(crate) unsafe extern "C" fn new_native_word_node(
     ) as i32;
     q = get_node(l);
     MEM[q as usize].b16.s1 = 8_u16;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 81i32) as usize]
-        .b32
-        .s1
-        > 0i32
-    {
+    if EQTB[(INT_BASE + 81i32) as usize].b32.s1 > 0i32 {
         MEM[q as usize].b16.s0 = 41_u16
     } else {
         MEM[q as usize].b16.s0 = 40_u16
@@ -15251,35 +11779,7 @@ pub(crate) unsafe extern "C" fn new_native_character(
             i += 1
         }
     } else {
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 35i32) as usize]
-            .b32
-            .s1
-            > 0i32
-        {
+        if EQTB[(INT_BASE + 35i32) as usize].b32.s1 > 0i32 {
             if map_char_to_glyph(f, c) == 0i32 {
                 char_warning(f, c);
             }
@@ -15305,34 +11805,7 @@ pub(crate) unsafe extern "C" fn new_native_character(
     }
     measure_native_node(
         &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
-        (EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 74i32) as usize]
-            .b32
-            .s1
-            > 0i32) as i32,
+        (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
     );
     p
 }
@@ -15543,60 +12016,8 @@ pub(crate) unsafe extern "C" fn load_native_font(
     FONT_BC[font_ptr as usize] = 0 as UTF16_code;
     FONT_EC[font_ptr as usize] = 65535 as UTF16_code;
     *font_used.offset(font_ptr as isize) = false;
-    HYPHEN_CHAR[font_ptr as usize] = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 46i32) as usize]
-        .b32
-        .s1;
-    SKEW_CHAR[font_ptr as usize] = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 47i32) as usize]
-        .b32
-        .s1;
+    HYPHEN_CHAR[font_ptr as usize] = EQTB[(INT_BASE + 46i32) as usize].b32.s1;
+    SKEW_CHAR[font_ptr as usize] = EQTB[(INT_BASE + 47i32) as usize].b32.s1;
     PARAM_BASE[font_ptr as usize] = fmem_ptr - 1i32;
     let ref mut fresh51 = *font_layout_engine.offset(font_ptr as isize);
     *fresh51 = font_engine;
@@ -15656,36 +12077,7 @@ pub(crate) unsafe extern "C" fn do_locale_linebreaks(mut s: i32, mut len: i32) {
     let mut i: i32 = 0;
     let mut use_penalty: bool = false;
     let mut use_skip: bool = false;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 68i32) as usize]
-        .b32
-        .s1
-        == 0i32
-        || len == 1i32
-    {
+    if EQTB[(INT_BASE + 68i32) as usize].b32.s1 == 0i32 || len == 1i32 {
         MEM[cur_list.tail as usize].b32.s1 = new_native_word_node(main_f, len);
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         let mut for_end: i32 = 0;
@@ -15704,107 +12096,14 @@ pub(crate) unsafe extern "C" fn do_locale_linebreaks(mut s: i32, mut len: i32) {
         }
         measure_native_node(
             &mut MEM[cur_list.tail as usize] as *mut memory_word as *mut libc::c_void,
-            (EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 74i32) as usize]
-                .b32
-                .s1
-                > 0i32) as i32,
+            (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
         );
     } else {
-        use_skip = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 15i32) as usize]
-            .b32
-            .s1
-            != 0i32;
-        use_penalty = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 69i32) as usize]
-            .b32
-            .s1
-            != 0i32
-            || !use_skip;
+        use_skip = EQTB[(GLUE_BASE + 15i32) as usize].b32.s1 != 0i32;
+        use_penalty = EQTB[(INT_BASE + 69i32) as usize].b32.s1 != 0i32 || !use_skip;
         linebreak_start(
             main_f,
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 68i32) as usize]
-                .b32
-                .s1,
+            EQTB[(INT_BASE + 68i32) as usize].b32.s1,
             native_text.offset(s as isize),
             len,
         );
@@ -15815,35 +12114,8 @@ pub(crate) unsafe extern "C" fn do_locale_linebreaks(mut s: i32, mut len: i32) {
             if offs > 0i32 {
                 if prevOffs != 0i32 {
                     if use_penalty {
-                        MEM[cur_list.tail as usize].b32.s1 = new_penalty(
-                            EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + 3i32 * 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 69i32) as usize]
-                                .b32
-                                .s1,
-                        );
+                        MEM[cur_list.tail as usize].b32.s1 =
+                            new_penalty(EQTB[(INT_BASE + 69i32) as usize].b32.s1);
                         cur_list.tail = MEM[cur_list.tail as usize].b32.s1
                     }
                     if use_skip {
@@ -15870,34 +12142,7 @@ pub(crate) unsafe extern "C" fn do_locale_linebreaks(mut s: i32, mut len: i32) {
                 }
                 measure_native_node(
                     &mut MEM[cur_list.tail as usize] as *mut memory_word as *mut libc::c_void,
-                    (EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 74i32) as usize]
-                        .b32
-                        .s1
-                        > 0i32) as i32,
+                    (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
                 );
             }
             if offs < 0i32 {
@@ -15924,64 +12169,12 @@ pub(crate) unsafe extern "C" fn get_input_normalization_state() -> i32 {
     if EQTB.is_empty() {
         0
     } else {
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 76i32) as usize]
-            .b32
-            .s1
+        EQTB[(INT_BASE + 76i32) as usize].b32.s1
     }
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn get_tracing_fonts_state() -> i32 {
-    EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 79i32) as usize]
-        .b32
-        .s1
+    EQTB[(INT_BASE + 79i32) as usize].b32.s1
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn read_font_info(
@@ -16739,35 +12932,7 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
     total_shrink[2] = 0i32;
     total_stretch[3] = 0i32;
     total_shrink[3] = 0i32;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 71i32) as usize]
-        .b32
-        .s1
-        > 0i32
-    {
+    if EQTB[(INT_BASE + 71i32) as usize].b32.s1 > 0i32 {
         /*1497: */
         temp_ptr = get_avail();
         MEM[temp_ptr as usize].b32.s0 = 0;
@@ -16906,35 +13071,7 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
                 }
                 9 => {
                     x = x + MEM[(p + 1) as usize].b32.s1;
-                    if EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 71i32) as usize]
-                        .b32
-                        .s1
-                        > 0i32
-                    {
+                    if EQTB[(INT_BASE + 71i32) as usize].b32.s1 > 0i32 {
                         /*1498: */
                         if MEM[p as usize].b16.s0 as i32 & 1 != 0 {
                             if MEM[LR_ptr as usize].b32.s0
@@ -17065,34 +13202,7 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
                     p = MEM[q as usize].b32.s1;
                     measure_native_node(
                         &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
-                        (EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 74i32) as usize]
-                            .b32
-                            .s1
-                            > 0i32) as i32,
+                        (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
                     );
                 }
                 if MEM[(p + 3) as usize].b32.s1 > h {
@@ -17157,35 +13267,7 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
             if MEM[(r + 5) as usize].b32.s1 != TEX_NULL {
                 /*685: */
                 last_badness = badness(x, total_stretch[0]); /*normal *//*:690 */
-                if last_badness
-                    > EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 26i32) as usize]
-                        .b32
-                        .s1
-                {
+                if last_badness > EQTB[(INT_BASE + 26i32) as usize].b32.s1 {
                     print_ln();
                     if last_badness > 100i32 {
                         print_nl_cstr(b"Underfull");
@@ -17228,164 +13310,18 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
         {
             last_badness = 1000000i64 as i32;
             MEM[(r + 6) as usize].gr = 1.0f64;
-            if -x - total_shrink[0]
-                > EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 8i32) as usize]
-                    .b32
-                    .s1
-                || EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 26i32) as usize]
-                    .b32
-                    .s1
-                    < 100i32
+            if -x - total_shrink[0] > EQTB[(DIMEN_BASE + 8i32) as usize].b32.s1
+                || EQTB[(INT_BASE + 26i32) as usize].b32.s1 < 100i32
             {
-                if EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 16i32) as usize]
-                    .b32
-                    .s1
-                    > 0i32
-                    && -x - total_shrink[0]
-                        > EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 85i32
-                            + 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + 8i32) as usize]
-                            .b32
-                            .s1
+                if EQTB[(DIMEN_BASE + 16i32) as usize].b32.s1 > 0i32
+                    && -x - total_shrink[0] > EQTB[(DIMEN_BASE + 8i32) as usize].b32.s1
                 {
                     while MEM[q as usize].b32.s1 != TEX_NULL {
                         q = MEM[q as usize].b32.s1
                     }
                     MEM[q as usize].b32.s1 = new_rule();
-                    MEM[(MEM[q as usize].b32.s1 + 1) as usize].b32.s1 = EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 16i32)
-                        as usize]
-                        .b32
-                        .s1
+                    MEM[(MEM[q as usize].b32.s1 + 1) as usize].b32.s1 =
+                        EQTB[(DIMEN_BASE + 16i32) as usize].b32.s1
                 }
                 print_ln();
                 print_nl_cstr(b"Overfull \\hbox (");
@@ -17399,35 +13335,7 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
             if MEM[(r + 5) as usize].b32.s1 != TEX_NULL {
                 /*692: */
                 last_badness = badness(-x, total_shrink[0]);
-                if last_badness
-                    > EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 26i32) as usize]
-                        .b32
-                        .s1
-                {
+                if last_badness > EQTB[(INT_BASE + 26i32) as usize].b32.s1 {
                     print_ln();
                     print_nl_cstr(b"Tight \\hbox (badness ");
                     print_int(last_badness);
@@ -17471,35 +13379,7 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
                 current_block = 2380354494544673732;
             }
             _ => {
-                if !(EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 71i32) as usize]
-                    .b32
-                    .s1
-                    > 0i32)
-                {
+                if !(EQTB[(INT_BASE + 71i32) as usize].b32.s1 > 0i32) {
                     break;
                 }
                 /*1499: */
@@ -17563,35 +13443,7 @@ pub(crate) unsafe extern "C" fn vpackage(
     last_badness = 0i32;
     r = get_node(8i32);
     MEM[r as usize].b16.s1 = 1_u16;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 73i32) as usize]
-        .b32
-        .s1
-        > 0i32
-    {
+    if EQTB[(INT_BASE + 73i32) as usize].b32.s1 > 0i32 {
         MEM[r as usize].b16.s0 = 1_u16
     } else {
         MEM[r as usize].b16.s0 = 0_u16
@@ -17703,35 +13555,7 @@ pub(crate) unsafe extern "C" fn vpackage(
                 if MEM[(r + 5) as usize].b32.s1 != TEX_NULL {
                     /*699: */
                     last_badness = badness(x, total_stretch[0]); /*normal *//*:690 */
-                    if last_badness
-                        > EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 27i32) as usize]
-                            .b32
-                            .s1
-                    {
+                    if last_badness > EQTB[(INT_BASE + 27i32) as usize].b32.s1 {
                         print_ln();
                         if last_badness > 100i32 {
                             print_nl_cstr(b"Underfull");
@@ -17774,65 +13598,8 @@ pub(crate) unsafe extern "C" fn vpackage(
             {
                 last_badness = 1000000i64 as i32;
                 MEM[(r + 6) as usize].gr = 1.0f64;
-                if -x - total_shrink[0]
-                    > EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 9i32) as usize]
-                        .b32
-                        .s1
-                    || EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 27i32) as usize]
-                        .b32
-                        .s1
-                        < 100i32
+                if -x - total_shrink[0] > EQTB[(DIMEN_BASE + 9i32) as usize].b32.s1
+                    || EQTB[(INT_BASE + 27i32) as usize].b32.s1 < 100i32
                 {
                     print_ln();
                     print_nl_cstr(b"Overfull \\vbox (");
@@ -17846,35 +13613,7 @@ pub(crate) unsafe extern "C" fn vpackage(
                 if MEM[(r + 5) as usize].b32.s1 != TEX_NULL {
                     /*703: */
                     last_badness = badness(-x, total_shrink[0]);
-                    if last_badness
-                        > EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 27i32) as usize]
-                            .b32
-                            .s1
-                    {
+                    if last_badness > EQTB[(INT_BASE + 27i32) as usize].b32.s1 {
                         print_ln();
                         print_nl_cstr(b"Tight \\vbox (badness ");
                         print_int(last_badness);
@@ -17918,103 +13657,22 @@ pub(crate) unsafe extern "C" fn append_to_vlist(mut b: i32) {
     let mut d: scaled_t = 0;
     let mut p: i32 = 0;
     let mut upwards: bool = false;
-    upwards = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 73i32) as usize]
-        .b32
-        .s1
-        > 0i32;
+    upwards = EQTB[(INT_BASE + 73i32) as usize].b32.s1 > 0i32;
     if cur_list.aux.b32.s1 > -65536000i32 {
         if upwards {
-            d = MEM[(EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 1i32) as usize]
-                .b32
-                .s1
-                + 1i32) as usize]
+            d = MEM[(EQTB[(GLUE_BASE + 1i32) as usize].b32.s1 + 1i32) as usize]
                 .b32
                 .s1
                 - cur_list.aux.b32.s1
                 - MEM[(b + 2) as usize].b32.s1
         } else {
-            d = MEM[(EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 1i32) as usize]
-                .b32
-                .s1
-                + 1i32) as usize]
+            d = MEM[(EQTB[(GLUE_BASE + 1i32) as usize].b32.s1 + 1i32) as usize]
                 .b32
                 .s1
                 - cur_list.aux.b32.s1
                 - MEM[(b + 3) as usize].b32.s1
         }
-        if d < EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32)
-            + 2i32) as usize]
-            .b32
-            .s1
-        {
+        if d < EQTB[(DIMEN_BASE + 2i32) as usize].b32.s1 {
             p = new_param_glue(0i32 as small_number)
         } else {
             p = new_skip_param(1i32 as small_number);
@@ -18120,52 +13778,12 @@ pub(crate) unsafe extern "C" fn get_preamble_token() {
         if cur_cmd as i32 == 9i32 {
             fatal_error(b"(interwoven alignment preambles are not allowed)");
         }
-        if !(cur_cmd as i32 == 76i32
-            && cur_chr
-                == 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 11i32)
-        {
+        if !(cur_cmd as i32 == 76i32 && cur_chr == GLUE_BASE + 11i32) {
             break;
         }
         scan_optional_equals();
         scan_glue(2i32 as small_number);
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 43i32) as usize]
-            .b32
-            .s1
-            > 0i32
-        {
+        if EQTB[(INT_BASE + 43i32) as usize].b32.s1 > 0i32 {
             geq_define(
                 1i32 + (0x10ffffi32 + 1i32)
                     + (0x10ffffi32 + 1i32)
@@ -18305,47 +13923,13 @@ pub(crate) unsafe extern "C" fn init_align() {
         }
         MEM[p as usize].b32.s1 = get_avail();
         p = MEM[p as usize].b32.s1;
-        MEM[p as usize].b32.s0 = 0x1ffffff
-            + (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 5i32);
+        MEM[p as usize].b32.s0 = 0x1ffffff + (FROZEN_CONTROL_SEQUENCE + 5i32);
         MEM[(cur_align + 2) as usize].b32.s1 = MEM[(4999999 - 4) as usize].b32.s1
     }
     scanner_status = 0_u8;
     new_save_level(6i32 as group_code);
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 8i32) as usize]
-        .b32
-        .s1
-        != TEX_NULL
-    {
-        begin_token_list(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 8i32) as usize]
-                .b32
-                .s1,
-            14_u16,
-        );
+    if EQTB[(LOCAL_BASE + 8i32) as usize].b32.s1 != TEX_NULL {
+        begin_token_list(EQTB[(LOCAL_BASE + 8i32) as usize].b32.s1, 14_u16);
     }
     align_peek();
 }
@@ -18593,41 +14177,8 @@ pub(crate) unsafe extern "C" fn fin_row() {
     }
     MEM[p as usize].b16.s1 = 13_u16;
     MEM[(p + 6) as usize].b32.s1 = 0;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 8i32) as usize]
-        .b32
-        .s1
-        != TEX_NULL
-    {
-        begin_token_list(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 8i32) as usize]
-                .b32
-                .s1,
-            14_u16,
-        );
+    if EQTB[(LOCAL_BASE + 8i32) as usize].b32.s1 != TEX_NULL {
+        begin_token_list(EQTB[(LOCAL_BASE + 8i32) as usize].b32.s1, 14_u16);
     }
     align_peek();
 }
@@ -18656,36 +14207,7 @@ pub(crate) unsafe extern "C" fn fin_align() {
     }
     unsave();
     if (*nest.offset((nest_ptr - 1i32) as isize)).mode as i32 == 207i32 {
-        o = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32)
-            + 15i32) as usize]
-            .b32
-            .s1
+        o = EQTB[(DIMEN_BASE + 15i32) as usize].b32.s1
     } else {
         o = 0i32
     }
@@ -18760,101 +14282,14 @@ pub(crate) unsafe extern "C" fn fin_align() {
     SAVE_PTR -= 2;
     pack_begin_line = -cur_list.mode_line;
     if cur_list.mode as i32 == -1i32 {
-        rule_save = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32)
-            + 16i32) as usize]
-            .b32
-            .s1;
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32)
-            + 16i32) as usize]
-            .b32
-            .s1 = 0i32;
+        rule_save = EQTB[(DIMEN_BASE + 16i32) as usize].b32.s1;
+        EQTB[(DIMEN_BASE + 16i32) as usize].b32.s1 = 0i32;
         p = hpack(
             MEM[(4999999 - 8) as usize].b32.s1,
             SAVE_STACK[SAVE_PTR + 1].b32.s1,
             SAVE_STACK[SAVE_PTR + 0].b32.s1 as small_number,
         );
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32)
-            + 16i32) as usize]
-            .b32
-            .s1 = rule_save
+        EQTB[(DIMEN_BASE + 16i32) as usize].b32.s1 = rule_save
     } else {
         q = MEM[MEM[(4999999 - 8) as usize].b32.s1 as usize].b32.s1;
         loop {
@@ -19082,35 +14517,7 @@ pub(crate) unsafe extern "C" fn fin_align() {
         }
         flush_node_list(cur_list.eTeX_aux);
         pop_nest();
-        MEM[cur_list.tail as usize].b32.s1 = new_penalty(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 11i32) as usize]
-                .b32
-                .s1,
-        );
+        MEM[cur_list.tail as usize].b32.s1 = new_penalty(EQTB[(INT_BASE + 11i32) as usize].b32.s1);
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         MEM[cur_list.tail as usize].b32.s1 = new_param_glue(3 as small_number);
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
@@ -19118,35 +14525,7 @@ pub(crate) unsafe extern "C" fn fin_align() {
         if p != TEX_NULL {
             cur_list.tail = q
         }
-        MEM[cur_list.tail as usize].b32.s1 = new_penalty(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 12i32) as usize]
-                .b32
-                .s1,
-        );
+        MEM[cur_list.tail as usize].b32.s1 = new_penalty(EQTB[(INT_BASE + 12i32) as usize].b32.s1);
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         MEM[cur_list.tail as usize].b32.s1 = new_param_glue(4 as small_number);
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
@@ -19195,64 +14574,10 @@ pub(crate) unsafe extern "C" fn align_peek() {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn max_hyphenatable_length() -> i32 {
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 82i32) as usize]
-        .b32
-        .s1
-        > 4095i32
-    {
+    if EQTB[(INT_BASE + 82i32) as usize].b32.s1 > 4095i32 {
         return 4095i32;
     }
-    EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 82i32) as usize]
-        .b32
-        .s1
+    EQTB[(INT_BASE + 82i32) as usize].b32.s1
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn eTeX_enabled(mut b: bool, mut j: u16, mut k: i32) -> bool {
@@ -19709,24 +15034,7 @@ pub(crate) unsafe extern "C" fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
     let mut q: i32 = 0;
     cur_val = n;
     if cur_val < 256i32 {
-        v = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + cur_val) as usize]
-            .b32
-            .s1
+        v = EQTB[(BOX_BASE + cur_val) as usize].b32.s1
     } else {
         find_sa_element(4i32 as small_number, cur_val, false);
         if cur_ptr == TEX_NULL {
@@ -19770,36 +15078,7 @@ pub(crate) unsafe extern "C" fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
     q = vert_break(
         MEM[(v + 5) as usize].b32.s1,
         h,
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32)
-            + 6i32) as usize]
-            .b32
-            .s1,
+        EQTB[(DIMEN_BASE + 6i32) as usize].b32.s1,
     );
     p = MEM[(v + 5) as usize].b32.s1;
     if p == q {
@@ -19839,61 +15118,14 @@ pub(crate) unsafe extern "C" fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
             }
         }
     }
-    q = prune_page_top(
-        q,
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 65i32) as usize]
-            .b32
-            .s1
-            > 0i32,
-    );
+    q = prune_page_top(q, EQTB[(INT_BASE + 65i32) as usize].b32.s1 > 0i32);
     p = MEM[(v + 5) as usize].b32.s1;
     free_node(v, 8i32);
     if q != TEX_NULL {
         q = vpackage(q, 0i32, 1i32 as small_number, 0x3fffffffi32)
     }
     if cur_val < 256i32 {
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + cur_val) as usize]
-            .b32
-            .s1 = q
+        EQTB[(BOX_BASE + cur_val) as usize].b32.s1 = q
     } else {
         find_sa_element(4i32 as small_number, cur_val, false);
         if cur_ptr != TEX_NULL {
@@ -19907,36 +15139,7 @@ pub(crate) unsafe extern "C" fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
         p,
         h,
         0i32 as small_number,
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32)
-            + 6i32) as usize]
-            .b32
-            .s1,
+        EQTB[(DIMEN_BASE + 6i32) as usize].b32.s1,
     )
 }
 #[no_mangle]
@@ -19972,197 +15175,36 @@ pub(crate) unsafe extern "C" fn box_error(mut n: eight_bits) {
     error();
     begin_diagnostic();
     print_nl_cstr(b"The following box has been deleted:");
-    show_box(
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + n as i32) as usize]
-            .b32
-            .s1,
-    );
+    show_box(EQTB[(BOX_BASE + n as i32) as usize].b32.s1);
     end_diagnostic(1i32 != 0);
-    flush_node_list(
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + n as i32) as usize]
-            .b32
-            .s1,
-    );
-    EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + n as i32) as usize]
-        .b32
-        .s1 = TEX_NULL;
+    flush_node_list(EQTB[(BOX_BASE + n as i32) as usize].b32.s1);
+    EQTB[(BOX_BASE + n as i32) as usize].b32.s1 = TEX_NULL;
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn app_space() {
     let mut q: i32 = 0;
-    if cur_list.aux.b32.s0 >= 2000i32
-        && EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 13i32) as usize]
-            .b32
-            .s1
-            != 0i32
-    {
+    if cur_list.aux.b32.s0 >= 2000i32 && EQTB[(GLUE_BASE + 13i32) as usize].b32.s1 != 0i32 {
         q = new_param_glue(13i32 as small_number)
     } else {
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 12i32) as usize]
-            .b32
-            .s1
-            != 0i32
-        {
-            main_p = EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 12i32) as usize]
-                .b32
-                .s1
+        if EQTB[(GLUE_BASE + 12i32) as usize].b32.s1 != 0i32 {
+            main_p = EQTB[(GLUE_BASE + 12i32) as usize].b32.s1
         } else {
             /*1077: */
-            main_p = FONT_GLUE[EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32) as usize]
-                .b32
-                .s1 as usize]; /*:1079 */
+            main_p = FONT_GLUE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize]; /*:1079 */
             if main_p == TEX_NULL {
                 main_p = new_spec(0i32);
-                main_k = PARAM_BASE[EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32) as usize]
-                    .b32
-                    .s1 as usize]
-                    + 2;
+                main_k = PARAM_BASE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] + 2;
                 MEM[(main_p + 1) as usize].b32.s1 = FONT_INFO[main_k as usize].b32.s1;
                 MEM[(main_p + 2) as usize].b32.s1 = FONT_INFO[(main_k + 1i32) as usize].b32.s1;
                 MEM[(main_p + 3) as usize].b32.s1 = FONT_INFO[(main_k + 2i32) as usize].b32.s1;
-                FONT_GLUE[EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32) as usize]
-                    .b32
-                    .s1 as usize] = main_p
+                FONT_GLUE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] = main_p
             }
         }
         main_p = new_spec(main_p);
         if cur_list.aux.b32.s0 >= 2000i32 {
             MEM[(main_p + 1) as usize].b32.s1 = MEM[(main_p + 1) as usize].b32.s1
-                + FONT_INFO[(7 + PARAM_BASE[EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32) as usize]
-                    .b32
-                    .s1 as usize]) as usize]
+                + FONT_INFO
+                    [(7 + PARAM_BASE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize]) as usize]
                     .b32
                     .s1
         }
@@ -20236,36 +15278,7 @@ pub(crate) unsafe extern "C" fn its_all_over() -> bool {
         back_input();
         MEM[cur_list.tail as usize].b32.s1 = new_null_box();
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
-        MEM[(cur_list.tail + 1) as usize].b32.s1 = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32)
-            + 3i32) as usize]
-            .b32
-            .s1;
+        MEM[(cur_list.tail + 1) as usize].b32.s1 = EQTB[(DIMEN_BASE + 3i32) as usize].b32.s1;
         MEM[cur_list.tail as usize].b32.s1 = new_glue(8);
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         MEM[cur_list.tail as usize].b32.s1 = new_penalty(-0x40000000);
@@ -20337,8 +15350,7 @@ pub(crate) unsafe extern "C" fn off_save() {
         print_cstr(b"Missing ");
         match cur_group as i32 {
             14 => {
-                MEM[p as usize].b32.s0 = 0x1ffffff
-                    + (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 2i32);
+                MEM[p as usize].b32.s0 = 0x1ffffff + (FROZEN_CONTROL_SEQUENCE + 2i32);
                 print_esc_cstr(b"endgroup");
             }
             15 => {
@@ -20346,8 +15358,7 @@ pub(crate) unsafe extern "C" fn off_save() {
                 print_char('$' as i32);
             }
             16 => {
-                MEM[p as usize].b32.s0 = 0x1ffffff
-                    + (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 3i32);
+                MEM[p as usize].b32.s0 = 0x1ffffff + (FROZEN_CONTROL_SEQUENCE + 3i32);
                 MEM[p as usize].b32.s1 = get_avail();
                 p = MEM[p as usize].b32.s1;
                 MEM[p as usize].b32.s0 = 0x1800000 + '.' as i32;
@@ -20400,200 +15411,16 @@ pub(crate) unsafe extern "C" fn extra_right_brace() {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn normal_paragraph() {
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 19i32) as usize]
-        .b32
-        .s1
-        != 0i32
-    {
-        eq_word_define(
-            1i32 + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 19i32,
-            0i32,
-        );
+    if EQTB[(INT_BASE + 19i32) as usize].b32.s1 != 0i32 {
+        eq_word_define(INT_BASE + 19i32, 0i32);
     }
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 85i32
-        + 256i32
-        + (0x10ffffi32 + 1i32)
-        + 17i32) as usize]
-        .b32
-        .s1
-        != 0i32
-    {
-        eq_word_define(
-            1i32 + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 17i32,
-            0i32,
-        );
+    if EQTB[(DIMEN_BASE + 17i32) as usize].b32.s1 != 0i32 {
+        eq_word_define(DIMEN_BASE + 17i32, 0i32);
     }
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 41i32) as usize]
-        .b32
-        .s1
-        != 1i32
-    {
-        eq_word_define(
-            1i32 + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 41i32,
-            1i32,
-        );
+    if EQTB[(INT_BASE + 41i32) as usize].b32.s1 != 1i32 {
+        eq_word_define(INT_BASE + 41i32, 1i32);
     }
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 0i32) as usize]
-        .b32
-        .s1
-        != TEX_NULL
-    {
+    if EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 != TEX_NULL {
         eq_define(
             1i32 + (0x10ffffi32 + 1i32)
                 + (0x10ffffi32 + 1i32)
@@ -20611,25 +15438,7 @@ pub(crate) unsafe extern "C" fn normal_paragraph() {
             TEX_NULL,
         );
     }
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 0i32) as usize]
-        .b32
-        .s1
-        != TEX_NULL
-    {
+    if EQTB[(ETEX_PEN_BASE + 0i32) as usize].b32.s1 != TEX_NULL {
         eq_define(
             1i32 + (0x10ffffi32 + 1i32)
                 + (0x10ffffi32 + 1i32)
@@ -20805,24 +15614,7 @@ pub(crate) unsafe extern "C" fn begin_box(mut box_context: i32) {
         0 => {
             scan_register_num();
             if cur_val < 256i32 {
-                cur_box = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + cur_val) as usize]
-                    .b32
-                    .s1
+                cur_box = EQTB[(BOX_BASE + cur_val) as usize].b32.s1
             } else {
                 find_sa_element(4i32 as small_number, cur_val, false);
                 if cur_ptr == TEX_NULL {
@@ -20832,24 +15624,7 @@ pub(crate) unsafe extern "C" fn begin_box(mut box_context: i32) {
                 }
             }
             if cur_val < 256i32 {
-                EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + cur_val) as usize]
-                    .b32
-                    .s1 = TEX_NULL
+                EQTB[(BOX_BASE + cur_val) as usize].b32.s1 = TEX_NULL
             } else {
                 find_sa_element(4i32 as small_number, cur_val, false);
                 if cur_ptr != TEX_NULL {
@@ -20863,24 +15638,7 @@ pub(crate) unsafe extern "C" fn begin_box(mut box_context: i32) {
         1 => {
             scan_register_num();
             if cur_val < 256i32 {
-                q = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + cur_val) as usize]
-                    .b32
-                    .s1
+                q = EQTB[(BOX_BASE + cur_val) as usize].b32.s1
             } else {
                 find_sa_element(4i32 as small_number, cur_val, false);
                 if cur_ptr == TEX_NULL {
@@ -21017,79 +15775,13 @@ pub(crate) unsafe extern "C" fn begin_box(mut box_context: i32) {
             cur_list.mode = -k as i16;
             if k == 1i32 {
                 cur_list.aux.b32.s1 = -65536000i32;
-                if EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 6i32) as usize]
-                    .b32
-                    .s1
-                    != TEX_NULL
-                {
-                    begin_token_list(
-                        EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 6i32) as usize]
-                            .b32
-                            .s1,
-                        12_u16,
-                    );
+                if EQTB[(LOCAL_BASE + 6i32) as usize].b32.s1 != TEX_NULL {
+                    begin_token_list(EQTB[(LOCAL_BASE + 6i32) as usize].b32.s1, 12_u16);
                 }
             } else {
                 cur_list.aux.b32.s0 = 1000i32;
-                if EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 5i32) as usize]
-                    .b32
-                    .s1
-                    != TEX_NULL
-                {
-                    begin_token_list(
-                        EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 5i32) as usize]
-                            .b32
-                            .s1,
-                        11_u16,
-                    );
+                if EQTB[(LOCAL_BASE + 5i32) as usize].b32.s1 != TEX_NULL {
+                    begin_token_list(EQTB[(LOCAL_BASE + 5i32) as usize].b32.s1, 11_u16);
                 }
             }
             return;
@@ -21131,119 +15823,12 @@ pub(crate) unsafe extern "C" fn package(mut c: small_number) {
     let mut d: scaled_t = 0;
     let mut u: i32 = 0;
     let mut v: i32 = 0;
-    d = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 85i32
-        + 256i32
-        + (0x10ffffi32 + 1i32)
-        + 7i32) as usize]
-        .b32
-        .s1;
-    u = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 73i32) as usize]
-        .b32
-        .s1;
+    d = EQTB[(DIMEN_BASE + 7i32) as usize].b32.s1;
+    u = EQTB[(INT_BASE + 73i32) as usize].b32.s1;
     unsave();
     SAVE_PTR -= 3;
-    v = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 73i32) as usize]
-        .b32
-        .s1;
-    EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 73i32) as usize]
-        .b32
-        .s1 = u;
+    v = EQTB[(INT_BASE + 73i32) as usize].b32.s1;
+    EQTB[(INT_BASE + 73i32) as usize].b32.s1 = u;
     if cur_list.mode as i32 == -104i32 {
         cur_box = hpack(
             MEM[cur_list.head as usize].b32.s1,
@@ -21271,33 +15856,7 @@ pub(crate) unsafe extern "C" fn package(mut c: small_number) {
             MEM[(cur_box + 3) as usize].b32.s1 = h
         }
     }
-    EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 73i32) as usize]
-        .b32
-        .s1 = v;
+    EQTB[(INT_BASE + 73i32) as usize].b32.s1 = v;
     pop_nest();
     box_end(SAVE_STACK[SAVE_PTR + 0].b32.s1);
 }
@@ -21321,229 +15880,29 @@ pub(crate) unsafe extern "C" fn new_graf(mut indented: bool) {
     push_nest();
     cur_list.mode = 104_i16;
     cur_list.aux.b32.s0 = 1000i32;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 50i32) as usize]
-        .b32
-        .s1
-        <= 0i32
-    {
+    if EQTB[(INT_BASE + 50i32) as usize].b32.s1 <= 0i32 {
         cur_lang = 0_u8
-    } else if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 50i32) as usize]
-        .b32
-        .s1
-        > 255i32
-    {
+    } else if EQTB[(INT_BASE + 50i32) as usize].b32.s1 > 255i32 {
         cur_lang = 0_u8
     } else {
-        cur_lang = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 50i32) as usize]
-            .b32
-            .s1 as u8
+        cur_lang = EQTB[(INT_BASE + 50i32) as usize].b32.s1 as u8
     }
     cur_list.aux.b32.s1 = cur_lang as i32;
-    cur_list.prev_graf = ((norm_min(
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 51i32) as usize]
-            .b32
-            .s1,
-    ) as i32
-        * 64i32
-        + norm_min(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 52i32) as usize]
-                .b32
-                .s1,
-        ) as i32) as i64
+    cur_list.prev_graf = ((norm_min(EQTB[(INT_BASE + 51i32) as usize].b32.s1) as i32 * 64i32
+        + norm_min(EQTB[(INT_BASE + 52i32) as usize].b32.s1) as i32)
+        as i64
         * 65536
         + cur_lang as i64) as i32;
     if indented {
         cur_list.tail = new_null_box();
         MEM[cur_list.head as usize].b32.s1 = cur_list.tail;
-        MEM[(cur_list.tail + 1) as usize].b32.s1 = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32))
-            as usize]
-            .b32
-            .s1;
+        MEM[(cur_list.tail + 1) as usize].b32.s1 = EQTB[(DIMEN_BASE) as usize].b32.s1;
         if insert_src_special_every_par {
             insert_src_special();
         }
     }
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 2i32) as usize]
-        .b32
-        .s1
-        != TEX_NULL
-    {
-        begin_token_list(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 2i32) as usize]
-                .b32
-                .s1,
-            8_u16,
-        );
+    if EQTB[(LOCAL_BASE + 2i32) as usize].b32.s1 != TEX_NULL {
+        begin_token_list(EQTB[(LOCAL_BASE + 2i32) as usize].b32.s1, 8_u16);
     }
     if nest_ptr == 1i32 {
         build_page();
@@ -21555,35 +15914,7 @@ pub(crate) unsafe extern "C" fn indent_in_hmode() {
     let mut q: i32 = 0;
     if cur_chr > 0i32 {
         p = new_null_box();
-        MEM[(p + 1) as usize].b32.s1 = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32)) as usize]
-            .b32
-            .s1;
+        MEM[(p + 1) as usize].b32.s1 = EQTB[(DIMEN_BASE) as usize].b32.s1;
         if (cur_list.mode as i32).abs() == 104i32 {
             cur_list.aux.b32.s0 = 1000i32
         } else {
@@ -21807,24 +16138,7 @@ pub(crate) unsafe extern "C" fn unpackage() {
         c = cur_chr as u8;
         scan_register_num();
         if cur_val < 256i32 {
-            p = EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + cur_val) as usize]
-                .b32
-                .s1
+            p = EQTB[(BOX_BASE + cur_val) as usize].b32.s1
         } else {
             find_sa_element(4i32 as small_number, cur_val, false);
             if cur_ptr == TEX_NULL {
@@ -21858,24 +16172,7 @@ pub(crate) unsafe extern "C" fn unpackage() {
         } else {
             MEM[cur_list.tail as usize].b32.s1 = MEM[(p + 5) as usize].b32.s1;
             if cur_val < 256i32 {
-                EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + cur_val) as usize]
-                    .b32
-                    .s1 = TEX_NULL
+                EQTB[(BOX_BASE + cur_val) as usize].b32.s1 = TEX_NULL
             } else {
                 find_sa_element(4i32 as small_number, cur_val, false);
                 if cur_ptr != TEX_NULL {
@@ -21949,47 +16246,11 @@ pub(crate) unsafe extern "C" fn append_discretionary() {
     MEM[cur_list.tail as usize].b32.s1 = new_disc();
     cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
     if cur_chr == 1i32 {
-        c = HYPHEN_CHAR[EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32) as usize]
-            .b32
-            .s1 as usize];
+        c = HYPHEN_CHAR[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize];
         if c >= 0i32 {
             if c <= 0xffffi32 {
-                MEM[(cur_list.tail + 1) as usize].b32.s0 = new_character(
-                    EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32) as usize]
-                        .b32
-                        .s1,
-                    c as UTF16_code,
-                )
+                MEM[(cur_list.tail + 1) as usize].b32.s0 =
+                    new_character(EQTB[(CUR_FONT_LOC) as usize].b32.s1, c as UTF16_code)
             }
         }
     } else {
@@ -22122,24 +16383,7 @@ pub(crate) unsafe extern "C" fn make_accent() {
         s3: 0,
     };
     scan_char_num();
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32) as usize]
-        .b32
-        .s1;
+    f = EQTB[(CUR_FONT_LOC) as usize].b32.s1;
     p = new_character(f, cur_val as UTF16_code);
     if p != TEX_NULL {
         x = FONT_INFO[(5i32 + PARAM_BASE[f as usize]) as usize].b32.s1;
@@ -22161,24 +16405,7 @@ pub(crate) unsafe extern "C" fn make_accent() {
         }
         do_assignments();
         q = TEX_NULL;
-        f = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32) as usize]
-            .b32
-            .s1;
+        f = EQTB[(CUR_FONT_LOC) as usize].b32.s1;
         if cur_cmd as i32 == 11i32 || cur_cmd as i32 == 12i32 || cur_cmd as i32 == 68i32 {
             q = new_character(f, cur_chr as UTF16_code);
             cur_val = cur_chr
@@ -22575,38 +16802,7 @@ pub(crate) unsafe extern "C" fn get_r_token() {
         }
         if !(cur_cs == 0i32
             || cur_cs > EQTB_TOP as i32
-            || cur_cs > 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32
-                && cur_cs
-                    <= 1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 23i32
-                        + 256i32
-                        - 1i32)
+            || cur_cs > FROZEN_CONTROL_SEQUENCE && cur_cs <= DIMEN_BASE + 23i32 + 256i32 - 1i32)
         {
             break;
         }
@@ -22625,8 +16821,7 @@ pub(crate) unsafe extern "C" fn get_r_token() {
         if cur_cs == 0i32 {
             back_input();
         }
-        cur_tok = 0x1ffffffi32
-            + (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 0i32);
+        cur_tok = 0x1ffffffi32 + (FROZEN_CONTROL_SEQUENCE + 0i32);
         ins_error();
     }
 }
@@ -22697,65 +16892,8 @@ pub(crate) unsafe extern "C" fn do_register_command(mut a: small_number) {
                     e = true
                 } else {
                     match p as i32 {
-                        0 => {
-                            l = cur_val
-                                + (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + 3i32 * 256i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 85i32)
-                        }
-                        1 => {
-                            l = cur_val
-                                + (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + 3i32 * 256i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 85i32
-                                    + 256i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + 23i32)
-                        }
+                        0 => l = cur_val + (COUNT_BASE),
+                        1 => l = cur_val + (DIMEN_BASE + 23i32),
                         2 => {
                             l = cur_val
                                 + (1i32
@@ -23025,24 +17163,7 @@ pub(crate) unsafe extern "C" fn alter_box_dimen() {
     c = cur_chr as small_number;
     scan_register_num();
     if cur_val < 256i32 {
-        b = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + cur_val) as usize]
-            .b32
-            .s1
+        b = EQTB[(BOX_BASE + cur_val) as usize].b32.s1
     } else {
         find_sa_element(4i32 as small_number, cur_val, false);
         if cur_ptr == TEX_NULL {
@@ -23203,12 +17324,8 @@ pub(crate) unsafe extern "C" fn new_font(mut a: small_number) {
     } else {
         eq_define(u, 89_u16, f);
     }
-    EQTB[(1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 12i32 + f)
-        as usize] = EQTB[u as usize];
-    (*hash.offset(
-        (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 12i32 + f) as isize,
-    ))
-    .s1 = t;
+    EQTB[(FROZEN_CONTROL_SEQUENCE + 12i32 + f) as usize] = EQTB[u as usize];
+    (*hash.offset((FROZEN_CONTROL_SEQUENCE + 12i32 + f) as isize)).s1 = t;
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn new_interaction() {
@@ -23332,24 +17449,7 @@ pub(crate) unsafe extern "C" fn show_whatever() {
         1 => {
             scan_register_num();
             if cur_val < 256i32 {
-                p = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + cur_val) as usize]
-                    .b32
-                    .s1
+                p = EQTB[(BOX_BASE + cur_val) as usize].b32.s1
             } else {
                 find_sa_element(4i32 as small_number, cur_val, false);
                 if cur_ptr == TEX_NULL {
@@ -23447,35 +17547,7 @@ pub(crate) unsafe extern "C" fn show_whatever() {
             }
             print_cstr(b"OK");
             if selector == Selector::TERM_AND_LOG {
-                if EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 29i32) as usize]
-                    .b32
-                    .s1
-                    <= 0i32
-                {
+                if EQTB[(INT_BASE + 29i32) as usize].b32.s1 <= 0i32 {
                     selector = Selector::TERM_ONLY;
                     print_cstr(b" (see the transcript file)");
                     selector = Selector::TERM_AND_LOG
@@ -23487,35 +17559,7 @@ pub(crate) unsafe extern "C" fn show_whatever() {
     if (interaction as i32) < 3i32 {
         help_ptr = 0_u8;
         error_count -= 1
-    } else if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 29i32) as usize]
-        .b32
-        .s1
-        > 0i32
-    {
+    } else if EQTB[(INT_BASE + 29i32) as usize].b32.s1 > 0i32 {
         help_ptr = 3_u8;
         help_line[2] = b"This isn\'t an error message; I\'m just \\showing something.";
         help_line[1] = b"Type `I\\show...\' to show more (e.g., \\show\\cs,";
@@ -23609,64 +17653,10 @@ pub(crate) unsafe extern "C" fn do_extension() {
                     cur_list.aux.b32.s1 = cur_val
                 }
                 MEM[(cur_list.tail + 1) as usize].b32.s1 = cur_list.aux.b32.s1;
-                MEM[(cur_list.tail + 1) as usize].b16.s1 = norm_min(
-                    EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 51i32) as usize]
-                        .b32
-                        .s1,
-                ) as u16;
-                MEM[(cur_list.tail + 1) as usize].b16.s0 = norm_min(
-                    EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 52i32) as usize]
-                        .b32
-                        .s1,
-                ) as u16
+                MEM[(cur_list.tail + 1) as usize].b16.s1 =
+                    norm_min(EQTB[(INT_BASE + 51i32) as usize].b32.s1) as u16;
+                MEM[(cur_list.tail + 1) as usize].b16.s0 =
+                    norm_min(EQTB[(INT_BASE + 52i32) as usize].b32.s1) as u16
             }
         }
         41 => {
@@ -23689,44 +17679,8 @@ pub(crate) unsafe extern "C" fn do_extension() {
                 new_graf(1i32 != 0);
             } else if (cur_list.mode as i32).abs() == 207i32 {
                 report_illegal_case();
-            } else if FONT_AREA[EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32) as usize]
-                .b32
-                .s1 as usize] as u32
-                == 0xffffu32
-                || FONT_AREA[EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32) as usize]
-                    .b32
-                    .s1 as usize] as u32
-                    == 0xfffeu32
+            } else if FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32 == 0xffffu32
+                || FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32 == 0xfffeu32
             {
                 new_whatsit(42i32 as small_number, 5i32 as small_number);
                 scan_int();
@@ -23743,80 +17697,15 @@ pub(crate) unsafe extern "C" fn do_extension() {
                     int_error(cur_val);
                     cur_val = 0i32
                 }
-                MEM[(cur_list.tail + 4) as usize].b16.s2 = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32)
-                    as usize]
-                    .b32
-                    .s1 as u16;
+                MEM[(cur_list.tail + 4) as usize].b16.s2 =
+                    EQTB[(CUR_FONT_LOC) as usize].b32.s1 as u16;
                 MEM[(cur_list.tail + 4) as usize].b16.s1 = cur_val as u16;
                 measure_native_glyph(
                     &mut MEM[cur_list.tail as usize] as *mut memory_word as *mut libc::c_void,
-                    (EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 74i32) as usize]
-                        .b32
-                        .s1
-                        > 0i32) as i32,
+                    (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
                 );
             } else {
-                not_native_font_error(
-                    59i32,
-                    43i32,
-                    EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32) as usize]
-                        .b32
-                        .s1,
-                );
+                not_native_font_error(59i32, 43i32, EQTB[(CUR_FONT_LOC) as usize].b32.s1);
             }
         }
         44 => {
@@ -23841,119 +17730,15 @@ pub(crate) unsafe extern "C" fn do_extension() {
         45 => {
             scan_and_pack_name();
             i = get_encoding_mode_and_info(&mut j);
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 77i32) as usize]
-                .b32
-                .s1 = i;
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 78i32) as usize]
-                .b32
-                .s1 = j
+            EQTB[(INT_BASE + 77i32) as usize].b32.s1 = i;
+            EQTB[(INT_BASE + 78i32) as usize].b32.s1 = j
         }
         46 => {
             scan_file_name();
             if length(cur_name) == 0i32 {
-                EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 68i32) as usize]
-                    .b32
-                    .s1 = 0i32
+                EQTB[(INT_BASE + 68i32) as usize].b32.s1 = 0i32
             } else {
-                EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 68i32) as usize]
-                    .b32
-                    .s1 = cur_name
+                EQTB[(INT_BASE + 68i32) as usize].b32.s1 = cur_name
             }
         }
         6 => {
@@ -23967,157 +17752,21 @@ pub(crate) unsafe extern "C" fn do_extension() {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn fix_language() {
     let mut l: UTF16_code = 0;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 50i32) as usize]
-        .b32
-        .s1
-        <= 0i32
-    {
+    if EQTB[(INT_BASE + 50i32) as usize].b32.s1 <= 0i32 {
         l = 0i32 as UTF16_code
-    } else if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 50i32) as usize]
-        .b32
-        .s1
-        > 255i32
-    {
+    } else if EQTB[(INT_BASE + 50i32) as usize].b32.s1 > 255i32 {
         l = 0i32 as UTF16_code
     } else {
-        l = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 50i32) as usize]
-            .b32
-            .s1 as UTF16_code
+        l = EQTB[(INT_BASE + 50i32) as usize].b32.s1 as UTF16_code
     }
     if l as i32 != cur_list.aux.b32.s1 {
         new_whatsit(4i32 as small_number, 2i32 as small_number);
         MEM[(cur_list.tail + 1) as usize].b32.s1 = l as i32;
         cur_list.aux.b32.s1 = l as i32;
-        MEM[(cur_list.tail + 1) as usize].b16.s1 = norm_min(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 51i32) as usize]
-                .b32
-                .s1,
-        ) as u16;
-        MEM[(cur_list.tail + 1) as usize].b16.s0 = norm_min(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 52i32) as usize]
-                .b32
-                .s1,
-        ) as u16
+        MEM[(cur_list.tail + 1) as usize].b16.s1 =
+            norm_min(EQTB[(INT_BASE + 51i32) as usize].b32.s1) as u16;
+        MEM[(cur_list.tail + 1) as usize].b16.s0 =
+            norm_min(EQTB[(INT_BASE + 52i32) as usize].b32.s1) as u16
     };
 }
 #[no_mangle]
@@ -24130,8 +17779,7 @@ pub(crate) unsafe extern "C" fn insert_src_special() {
     {
         toklist = get_avail();
         p = toklist;
-        MEM[p as usize].b32.s0 = 0x1ffffff
-            + (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 10i32);
+        MEM[p as usize].b32.s0 = 0x1ffffff + (FROZEN_CONTROL_SEQUENCE + 10i32);
         MEM[p as usize].b32.s1 = get_avail();
         p = MEM[p as usize].b32.s1;
         MEM[p as usize].b32.s0 = 0x200000 + '{' as i32;
@@ -24203,77 +17851,11 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
         }
         11 => {
             end_graf();
-            q = EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 10i32) as usize]
-                .b32
-                .s1;
+            q = EQTB[(GLUE_BASE + 10i32) as usize].b32.s1;
             let ref mut fresh87 = MEM[q as usize].b32.s1;
             *fresh87 += 1;
-            d = EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 6i32) as usize]
-                .b32
-                .s1;
-            f = EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 42i32) as usize]
-                .b32
-                .s1;
+            d = EQTB[(DIMEN_BASE + 6i32) as usize].b32.s1;
+            f = EQTB[(INT_BASE + 42i32) as usize].b32.s1;
             unsave();
             SAVE_PTR -= 2;
             p = vpackage(
@@ -24334,26 +17916,7 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
             unsave();
             output_active = false;
             insert_penalties = 0i32;
-            if EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 255i32) as usize]
-                .b32
-                .s1
-                != TEX_NULL
-            {
+            if EQTB[(BOX_BASE + 255i32) as usize].b32.s1 != TEX_NULL {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -24391,8 +17954,7 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
         }
         6 => {
             back_input();
-            cur_tok = 0x1ffffffi32
-                + (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 1i32);
+            cur_tok = 0x1ffffffi32 + (FROZEN_CONTROL_SEQUENCE + 1i32);
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
@@ -24472,76 +18034,15 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
 pub(crate) unsafe extern "C" fn main_control() {
     let mut current_block: u64;
     let mut t: i32 = 0;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 7i32) as usize]
-        .b32
-        .s1
-        != TEX_NULL
-    {
-        begin_token_list(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 7i32) as usize]
-                .b32
-                .s1,
-            13_u16,
-        );
+    if EQTB[(LOCAL_BASE + 7i32) as usize].b32.s1 != TEX_NULL {
+        begin_token_list(EQTB[(LOCAL_BASE + 7i32) as usize].b32.s1, 13_u16);
     }
     'c_125208: loop {
         /* big_switch */
         get_x_token();
         loop {
             /*1066: */
-            if EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 36i32) as usize]
-                .b32
-                .s1
-                > 0i32
-            {
+            if EQTB[(INT_BASE + 36i32) as usize].b32.s1 > 0i32 {
                 show_cur_cmd_chr(); /*:1490 */
             }
             match (cur_list.mode as i32).abs() + cur_cmd as i32 {
@@ -24563,34 +18064,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                 }
                 _ => {
                     if (cur_list.mode as i32).abs() == 104i32 {
-                        if EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 75i32) as usize]
-                            .b32
-                            .s1
-                            > 0i32
+                        if EQTB[(INT_BASE + 75i32) as usize].b32.s1 > 0i32
                             && space_class != 4096i32
                             && prev_class != 4096i32 - 1i32
                         {
@@ -24821,34 +18295,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                         137 => {
                             if cur_chr > 0i32 {
                                 if eTeX_enabled(
-                                    EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32
-                                        + 1i32
-                                        + 3i32 * 256i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 71i32) as usize]
-                                        .b32
-                                        .s1
-                                        > 0i32,
+                                    EQTB[(INT_BASE + 71i32) as usize].b32.s1 > 0i32,
                                     cur_cmd as u16,
                                     cur_chr,
                                 ) {
@@ -24901,65 +18348,13 @@ pub(crate) unsafe extern "C" fn main_control() {
                             continue 'c_125208;
                         }
                         218 | 219 | 275 => {
-                            set_math_char(
-                                EQTB[(1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + 3i32 * 256i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + cur_chr) as usize]
-                                    .b32
-                                    .s1,
-                            );
+                            set_math_char(EQTB[(MATH_CODE_BASE + cur_chr) as usize].b32.s1);
                             continue 'c_125208;
                         }
                         223 => {
                             scan_char_num();
                             cur_chr = cur_val;
-                            set_math_char(
-                                EQTB[(1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + 3i32 * 256i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + cur_chr) as usize]
-                                    .b32
-                                    .s1,
-                            );
+                            set_math_char(EQTB[(MATH_CODE_BASE + cur_chr) as usize].b32.s1);
                             continue 'c_125208;
                         }
                         224 => {
@@ -25057,41 +18452,8 @@ pub(crate) unsafe extern "C" fn main_control() {
                             if insert_src_special_every_vbox {
                                 insert_src_special();
                             }
-                            if EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 6i32) as usize]
-                                .b32
-                                .s1
-                                != TEX_NULL
-                            {
-                                begin_token_list(
-                                    EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 6i32) as usize]
-                                        .b32
-                                        .s1,
-                                    12_u16,
-                                );
+                            if EQTB[(LOCAL_BASE + 6i32) as usize].b32.s1 != TEX_NULL {
+                                begin_token_list(EQTB[(LOCAL_BASE + 6i32) as usize].b32.s1, 12_u16);
                             }
                             continue 'c_125208;
                         }
@@ -25184,125 +18546,20 @@ pub(crate) unsafe extern "C" fn main_control() {
                 }
             }
             prev_class = 4096i32 - 1i32;
-            if FONT_AREA[EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32) as usize]
-                .b32
-                .s1 as usize] as u32
-                == 0xffffu32
-                || FONT_AREA[EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32) as usize]
-                    .b32
-                    .s1 as usize] as u32
-                    == 0xfffeu32
+            if FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32 == 0xffffu32
+                || FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32 == 0xfffeu32
             {
                 if cur_list.mode as i32 > 0i32 {
-                    if EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 50i32) as usize]
-                        .b32
-                        .s1
-                        != cur_list.aux.b32.s1
-                    {
+                    if EQTB[(INT_BASE + 50i32) as usize].b32.s1 != cur_list.aux.b32.s1 {
                         fix_language();
                     }
                 }
                 main_h = 0i32;
-                main_f = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32) as usize]
-                    .b32
-                    .s1;
+                main_f = EQTB[(CUR_FONT_LOC) as usize].b32.s1;
                 native_len = 0i32;
                 loop {
                     /*collect_native */
-                    main_s = (EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + cur_chr) as usize]
-                        .b32
-                        .s1 as i64
-                        % 65536) as i32;
+                    main_s = (EQTB[(SF_CODE_BASE + cur_chr) as usize].b32.s1 as i64 % 65536) as i32;
                     if main_s == 1000i32 {
                         cur_list.aux.b32.s0 = 1000i32
                     } else if main_s < 1000i32 {
@@ -25315,61 +18572,9 @@ pub(crate) unsafe extern "C" fn main_control() {
                         cur_list.aux.b32.s0 = main_s
                     }
                     cur_ptr = TEX_NULL;
-                    space_class = (EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + cur_chr) as usize]
-                        .b32
-                        .s1 as i64
-                        / 65536) as i32;
-                    if EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 75i32) as usize]
-                        .b32
-                        .s1
-                        > 0i32
-                        && space_class != 4096i32
-                    {
+                    space_class =
+                        (EQTB[(SF_CODE_BASE + cur_chr) as usize].b32.s1 as i64 / 65536) as i32;
+                    if EQTB[(INT_BASE + 75i32) as usize].b32.s1 > 0i32 && space_class != 4096i32 {
                         if prev_class == 4096i32 - 1i32 {
                             if cur_input.state as i32 != 0i32 || cur_input.index as i32 != 4i32 {
                                 find_sa_element(
@@ -25445,34 +18650,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                         native_len += 1
                     }
                     is_hyph = cur_chr == HYPHEN_CHAR[main_f as usize]
-                        || EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 72i32) as usize]
-                            .b32
-                            .s1
-                            > 0i32
+                        || EQTB[(INT_BASE + 72i32) as usize].b32.s1 > 0i32
                             && (cur_chr == 8212i32 || cur_chr == 8211i32);
                     if main_h == 0i32 && is_hyph as i32 != 0 {
                         main_h = native_len
@@ -25490,34 +18668,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                     if cur_cmd as i32 == 16i32 {
                         scan_usv_num();
                         cur_chr = cur_val
-                    } else if EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 75i32) as usize]
-                        .b32
-                        .s1
-                        > 0i32
+                    } else if EQTB[(INT_BASE + 75i32) as usize].b32.s1 > 0i32
                         && space_class != 4096i32
                         && prev_class != 4096i32 - 1i32
                     {
@@ -25580,35 +18731,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                             if main_h == 0i32
                                 && (*mapped_text.offset(main_p as isize) as i32
                                     == HYPHEN_CHAR[main_f as usize]
-                                    || EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32
-                                        + 1i32
-                                        + 3i32 * 256i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 72i32)
-                                        as usize]
-                                        .b32
-                                        .s1
-                                        > 0i32
+                                    || EQTB[(INT_BASE + 72i32) as usize].b32.s1 > 0i32
                                         && (*mapped_text.offset(main_p as isize) as i32 == 8212i32
                                             || *mapped_text.offset(main_p as isize) as i32
                                                 == 8211i32))
@@ -25623,35 +18746,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                         }
                     }
                 }
-                if EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 35i32) as usize]
-                    .b32
-                    .s1
-                    > 0i32
-                {
+                if EQTB[(INT_BASE + 35i32) as usize].b32.s1 > 0i32 {
                     temp_ptr = 0i32;
                     while temp_ptr < native_len {
                         main_k = *native_text.offset(temp_ptr as isize) as font_index;
@@ -25764,34 +18859,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                             while main_h < main_k
                                 && *native_text.offset((temp_ptr + main_h) as isize) as i32
                                     != HYPHEN_CHAR[main_f as usize]
-                                && (!(EQTB[(1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + 3i32 * 256i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 72i32) as usize]
-                                    .b32
-                                    .s1
-                                    > 0i32)
+                                && (!(EQTB[(INT_BASE + 72i32) as usize].b32.s1 > 0i32)
                                     || *native_text.offset((temp_ptr + main_h) as isize) as i32
                                         != 8212i32
                                         && *native_text.offset((temp_ptr + main_h) as isize) as i32
@@ -25817,34 +18885,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                             while main_h < main_k
                                 && *native_text.offset((temp_ptr + main_h) as isize) as i32
                                     != HYPHEN_CHAR[main_f as usize]
-                                && (!(EQTB[(1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + 3i32 * 256i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 72i32) as usize]
-                                    .b32
-                                    .s1
-                                    > 0i32)
+                                && (!(EQTB[(INT_BASE + 72i32) as usize].b32.s1 > 0i32)
                                     || *native_text.offset((temp_ptr + main_h) as isize) as i32
                                         != 8212i32
                                         && *native_text.offset((temp_ptr + main_h) as isize) as i32
@@ -25945,34 +18986,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                         measure_native_node(
                             &mut MEM[cur_list.tail as usize] as *mut memory_word
                                 as *mut libc::c_void,
-                            (EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + 3i32 * 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 74i32) as usize]
-                                .b32
-                                .s1
-                                > 0i32) as i32,
+                            (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
                         );
                         main_p = cur_list.head;
                         if main_p != main_pp {
@@ -26004,66 +19018,11 @@ pub(crate) unsafe extern "C" fn main_control() {
                         measure_native_node(
                             &mut MEM[cur_list.tail as usize] as *mut memory_word
                                 as *mut libc::c_void,
-                            (EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + 3i32 * 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 74i32) as usize]
-                                .b32
-                                .s1
-                                > 0i32) as i32,
+                            (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
                         );
                     }
                 }
-                if EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 80i32) as usize]
-                    .b32
-                    .s1
-                    > 0i32
-                {
+                if EQTB[(INT_BASE + 80i32) as usize].b32.s1 > 0i32 {
                     main_p = cur_list.head;
                     main_pp = TEX_NULL;
                     while main_p != cur_list.tail {
@@ -26159,35 +19118,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                                     measure_native_node(
                                         &mut MEM[temp_ptr as usize] as *mut memory_word
                                             as *mut libc::c_void,
-                                        (EQTB[(1i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + 1i32
-                                            + 15000i32
-                                            + 12i32
-                                            + 9000i32
-                                            + 1i32
-                                            + 1i32
-                                            + 19i32
-                                            + 256i32
-                                            + 256i32
-                                            + 13i32
-                                            + 256i32
-                                            + 4i32
-                                            + 256i32
-                                            + 1i32
-                                            + 3i32 * 256i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + 74i32)
-                                            as usize]
-                                            .b32
-                                            .s1
-                                            > 0i32) as i32,
+                                        (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
                                     );
                                     t = MEM[(temp_ptr + 1) as usize].b32.s1
                                         - MEM[(main_pp + 1) as usize].b32.s1
@@ -26213,31 +19144,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                     continue 'c_125208;
                 }
             } else {
-                main_s = (EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + cur_chr) as usize]
-                    .b32
-                    .s1 as i64
-                    % 65536) as i32;
+                main_s = (EQTB[(SF_CODE_BASE + cur_chr) as usize].b32.s1 as i64 % 65536) as i32;
                 if main_s == 1000i32 {
                     cur_list.aux.b32.s0 = 1000i32
                 } else if main_s < 1000i32 {
@@ -26250,61 +19157,9 @@ pub(crate) unsafe extern "C" fn main_control() {
                     cur_list.aux.b32.s0 = main_s
                 }
                 cur_ptr = TEX_NULL;
-                space_class = (EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + cur_chr) as usize]
-                    .b32
-                    .s1 as i64
-                    / 65536) as i32;
-                if EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 75i32) as usize]
-                    .b32
-                    .s1
-                    > 0i32
-                    && space_class != 4096i32
-                {
+                space_class =
+                    (EQTB[(SF_CODE_BASE + cur_chr) as usize].b32.s1 as i64 / 65536) as i32;
+                if EQTB[(INT_BASE + 75i32) as usize].b32.s1 > 0i32 && space_class != 4096i32 {
                     if prev_class == 4096i32 - 1i32 {
                         if cur_input.state as i32 != 0i32 || cur_input.index as i32 != 4i32 {
                             find_sa_element(
@@ -26343,56 +19198,11 @@ pub(crate) unsafe extern "C" fn main_control() {
                     }
                     prev_class = space_class
                 }
-                main_f = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32) as usize]
-                    .b32
-                    .s1;
+                main_f = EQTB[(CUR_FONT_LOC) as usize].b32.s1;
                 bchar = FONT_BCHAR[main_f as usize];
                 false_bchar = FONT_FALSE_BCHAR[main_f as usize];
                 if cur_list.mode as i32 > 0i32 {
-                    if EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 50i32) as usize]
-                        .b32
-                        .s1
-                        != cur_list.aux.b32.s1
-                    {
+                    if EQTB[(INT_BASE + 50i32) as usize].b32.s1 != cur_list.aux.b32.s1 {
                         fix_language();
                     }
                 }
@@ -26705,31 +19515,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                                     4700797278417140031 => {}
                                     _ => {
                                         /*main_loop_lookahead 1 */
-                                        main_s = (EQTB[(1i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + 1i32
-                                            + 15000i32
-                                            + 12i32
-                                            + 9000i32
-                                            + 1i32
-                                            + 1i32
-                                            + 19i32
-                                            + 256i32
-                                            + 256i32
-                                            + 13i32
-                                            + 256i32
-                                            + 4i32
-                                            + 256i32
-                                            + 1i32
-                                            + 3i32 * 256i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + cur_chr)
-                                            as usize]
-                                            .b32
-                                            .s1
+                                        main_s = (EQTB[(SF_CODE_BASE + cur_chr) as usize].b32.s1
                                             as i64
                                             % 65536)
                                             as i32; /*:1073 */
@@ -26745,63 +19531,11 @@ pub(crate) unsafe extern "C" fn main_control() {
                                             cur_list.aux.b32.s0 = main_s
                                         }
                                         cur_ptr = TEX_NULL;
-                                        space_class = (EQTB[(1i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + 1i32
-                                            + 15000i32
-                                            + 12i32
-                                            + 9000i32
-                                            + 1i32
-                                            + 1i32
-                                            + 19i32
-                                            + 256i32
-                                            + 256i32
-                                            + 13i32
-                                            + 256i32
-                                            + 4i32
-                                            + 256i32
-                                            + 1i32
-                                            + 3i32 * 256i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + cur_chr)
-                                            as usize]
-                                            .b32
-                                            .s1
-                                            as i64
-                                            / 65536)
-                                            as i32;
-                                        if EQTB[(1i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + 1i32
-                                            + 15000i32
-                                            + 12i32
-                                            + 9000i32
-                                            + 1i32
-                                            + 1i32
-                                            + 19i32
-                                            + 256i32
-                                            + 256i32
-                                            + 13i32
-                                            + 256i32
-                                            + 4i32
-                                            + 256i32
-                                            + 1i32
-                                            + 3i32 * 256i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + 75i32)
-                                            as usize]
-                                            .b32
-                                            .s1
-                                            > 0i32
+                                        space_class =
+                                            (EQTB[(SF_CODE_BASE + cur_chr) as usize].b32.s1 as i64
+                                                / 65536)
+                                                as i32;
+                                        if EQTB[(INT_BASE + 75i32) as usize].b32.s1 > 0i32
                                             && space_class != 4096i32
                                         {
                                             if prev_class == 4096i32 - 1i32 {
@@ -26997,34 +19731,7 @@ pub(crate) unsafe extern "C" fn main_control() {
             _ =>
             /*append_normal_space */
             {
-                if EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 75i32) as usize]
-                    .b32
-                    .s1
-                    > 0i32
+                if EQTB[(INT_BASE + 75i32) as usize].b32.s1 > 0i32
                     && space_class != 4096i32
                     && prev_class != 4096i32 - 1i32
                 {
@@ -27048,80 +19755,15 @@ pub(crate) unsafe extern "C" fn main_control() {
                         continue;
                     }
                 }
-                if EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 12i32) as usize]
-                    .b32
-                    .s1
-                    == 0i32
-                {
-                    main_p = FONT_GLUE[EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32) as usize]
-                        .b32
-                        .s1 as usize];
+                if EQTB[(GLUE_BASE + 12i32) as usize].b32.s1 == 0i32 {
+                    main_p = FONT_GLUE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize];
                     if main_p == TEX_NULL {
                         main_p = new_spec(0i32);
-                        main_k = PARAM_BASE[EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32) as usize]
-                            .b32
-                            .s1 as usize]
-                            + 2;
+                        main_k = PARAM_BASE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] + 2;
                         MEM[(main_p + 1) as usize].b32.s1 = FONT_INFO[main_k as usize].b32.s1;
                         MEM[(main_p + 2) as usize].b32.s1 = FONT_INFO[(main_k + 1) as usize].b32.s1;
                         MEM[(main_p + 3) as usize].b32.s1 = FONT_INFO[(main_k + 2) as usize].b32.s1;
-                        FONT_GLUE[EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32) as usize]
-                            .b32
-                            .s1 as usize] = main_p
+                        FONT_GLUE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] = main_p
                     }
                     temp_ptr = new_glue(main_p)
                 } else {
@@ -27135,23 +19777,7 @@ pub(crate) unsafe extern "C" fn main_control() {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn give_err_help() {
-    token_show(
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 9i32) as usize]
-            .b32
-            .s1,
-    );
+    token_show(EQTB[(LOCAL_BASE + 9i32) as usize].b32.s1);
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn close_files_and_terminate() {

@@ -253,25 +253,8 @@ unsafe extern "C" fn fire_up(mut c: i32) {
                         }
                         MEM[(r + 2) as usize].b32.s0 = TEX_NULL;
                         n = *NODE_subtype(r as isize) as _;
-                        temp_ptr = MEM[(EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + n as i32) as usize]
-                            .b32
-                            .s1
-                            + 5i32) as usize]
+                        temp_ptr = MEM
+                            [(EQTB[(BOX_BASE + n as i32) as usize].b32.s1 + 5i32) as usize]
                             .b32
                             .s1;
                         free_node(BOX_REG(n as _), BOX_NODE_SIZE);
