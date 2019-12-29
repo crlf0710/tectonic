@@ -37,42 +37,43 @@ use crate::xetex_ext::{
 };
 use crate::xetex_ini::{
     _xeq_level_array, active_width, adjust_tail, after_token, align_ptr, align_state,
-    area_delimiter, arith_error, avail, base_ptr, bchar, bchar_label, best_height_plus_depth,
-    breadth_max, buf_size, buffer, cancel_boundary, cond_ptr, cur_align, cur_area, cur_boundary,
-    cur_box, cur_chr, cur_cmd, cur_cs, cur_dir, cur_ext, cur_group, cur_head, cur_if, cur_input,
-    cur_l, cur_lang, cur_level, cur_list, cur_loop, cur_mark, cur_name, cur_order, cur_pre_head,
+    area_delimiter, arith_error, avail, bchar, bchar_label, best_height_plus_depth, breadth_max,
+    buf_size, buffer, cancel_boundary, cond_ptr, cur_align, cur_area, cur_boundary, cur_box,
+    cur_chr, cur_cmd, cur_cs, cur_dir, cur_ext, cur_group, cur_head, cur_if, cur_input, cur_l,
+    cur_lang, cur_level, cur_list, cur_loop, cur_mark, cur_name, cur_order, cur_pre_head,
     cur_pre_tail, cur_ptr, cur_q, cur_r, cur_span, cur_tail, cur_tok, cur_val, cur_val1,
     cur_val_level, dead_cycles, def_ref, deletions_allowed, depth_threshold, dig, disc_ptr, empty,
-    eof_seen, error_count, error_line, expand_depth, expand_depth_count, ext_delimiter,
-    false_bchar, file_line_error_style_p, file_name_quote_char, file_offset, first, first_count,
-    fmem_ptr, font_bc, font_bchar, font_check, font_dsize, font_ec, font_false_bchar, font_flags,
-    font_glue, font_in_short_display, font_layout_engine, font_letter_space, font_mapping,
-    font_name, font_ptr, font_size, font_used, force_eof, full_source_filename_stack,
-    gave_char_warning_help, grp_stack, half_error_line, hash, hash_extra, hash_high, hash_used,
-    help_line, help_ptr, hi_mem_min, history, hyphen_char, if_limit, if_line, if_stack, in_open,
-    init_pool_ptr, init_str_ptr, input_file, input_ptr, input_stack, ins_disc, insert_penalties,
+    error_count, error_line, expand_depth, expand_depth_count, ext_delimiter, false_bchar,
+    file_line_error_style_p, file_name_quote_char, file_offset, first, first_count, fmem_ptr,
+    font_bc, font_bchar, font_check, font_dsize, font_ec, font_false_bchar, font_flags, font_glue,
+    font_in_short_display, font_layout_engine, font_letter_space, font_mapping, font_name,
+    font_ptr, font_size, font_used, force_eof, gave_char_warning_help, half_error_line, hash,
+    hash_extra, hash_high, hash_used, help_line, help_ptr, hi_mem_min, history, hyphen_char,
+    if_limit, if_line, init_pool_ptr, init_str_ptr, ins_disc, insert_penalties,
     insert_src_special_auto, insert_src_special_every_par, insert_src_special_every_vbox,
     interaction, is_hyph, is_in_csname, job_name, last, last_badness, last_glue, last_kern,
     last_leftmost_char, last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack,
-    ligature_present, line, line_stack, lo_mem_max, loaded_font_design_size, loaded_font_flags,
+    ligature_present, line, lo_mem_max, loaded_font_design_size, loaded_font_flags,
     loaded_font_letter_space, loaded_font_mapping, log_file, log_opened, long_help_seen,
     long_state, mag_set, main_f, main_h, main_i, main_j, main_k, main_p, main_pp, main_ppp, main_s,
-    mapped_text, max_buf_stack, max_in_open, max_in_stack, max_nest_stack, max_param_stack,
-    max_print_line, max_reg_help_line, max_reg_num, max_save_stack, max_strings, mem_end,
-    name_in_progress, name_length, name_length16, name_of_file, name_of_file16,
-    native_font_type_flag, native_len, native_text, native_text_size, nest, nest_ptr, nest_size,
-    no_new_control_sequence, old_setting, open_parens, output_active, pack_begin_line,
-    page_contents, page_so_far, page_tail, par_loc, par_token, param_ptr, param_size, param_stack,
-    pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim,
-    prim_eqtb, prim_used, pseudo_files, pstack, quoted_filename, radix, read_file, read_open,
-    rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_null, sa_root, save_native_len, save_ptr,
-    scanner_status, selector, set_box_allowed, shown_mode, skew_char, skip_line,
-    source_filename_stack, space_class, stack_size, stop_at_space, str_pool, str_ptr, str_start,
-    tally, temp_ptr, term_offset, tex_remainder, texmf_log_name, total_shrink, total_stretch,
-    trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens, warning_index, write_file,
-    write_open, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB, EQTB_TOP,
-    EXTEN_BASE, FONT_AREA, FONT_INFO, FONT_MAX, FONT_MEM_SIZE, FONT_PARAMS, HEIGHT_BASE,
-    ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM, PARAM_BASE, SAVE_SIZE, SAVE_STACK, WIDTH_BASE,
+    mapped_text, max_buf_stack, max_nest_stack, max_param_stack, max_print_line, max_reg_help_line,
+    max_reg_num, max_strings, mem_end, name_in_progress, name_length, name_length16, name_of_file,
+    name_of_file16, native_font_type_flag, native_len, native_text, native_text_size, nest,
+    nest_ptr, nest_size, no_new_control_sequence, old_setting, open_parens, output_active,
+    pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token, param_ptr,
+    param_size, param_stack, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail,
+    prev_class, prim, prim_eqtb, prim_used, pseudo_files, pstack, quoted_filename, radix,
+    read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_null, sa_root,
+    save_native_len, scanner_status, selector, set_box_allowed, shown_mode, skew_char, skip_line,
+    space_class, stop_at_space, str_pool, str_ptr, str_start, tally, temp_ptr, term_offset,
+    tex_remainder, texmf_log_name, total_shrink, total_stretch, trick_buf, trick_count,
+    use_err_help, used_tectonic_coda_tokens, warning_index, write_file, write_open,
+    xtx_ligature_present, LR_problems, LR_ptr, BASE_PTR, CHAR_BASE, DEPTH_BASE, EOF_SEEN, EQTB,
+    EQTB_TOP, EXTEN_BASE, FONT_AREA, FONT_INFO, FONT_MAX, FONT_MEM_SIZE, FONT_PARAMS,
+    FULL_SOURCE_FILENAME_STACK, GRP_STACK, HEIGHT_BASE, IF_STACK, INPUT_FILE, INPUT_PTR,
+    INPUT_STACK, IN_OPEN, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN,
+    MAX_IN_STACK, MAX_SAVE_STACK, MEM, PARAM_BASE, SAVE_PTR, SAVE_SIZE, SAVE_STACK,
+    SOURCE_FILENAME_STACK, STACK_SIZE, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b32x2, memory_word, prefixed_command};
 use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding, u_close};
@@ -4739,13 +4740,13 @@ pub(crate) unsafe extern "C" fn print_group(mut e: bool) {
     print_cstr(b" group (level ");
     print_int(cur_level as i32);
     print_char(')' as i32);
-    if SAVE_STACK[(save_ptr - 1) as usize].b32.s1 != 0i32 {
+    if SAVE_STACK[SAVE_PTR - 1].b32.s1 != 0i32 {
         if e {
             print_cstr(b" entered at line ");
         } else {
             print_cstr(b" at line ");
         }
-        print_int(SAVE_STACK[(save_ptr - 1i32) as usize].b32.s1);
+        print_int(SAVE_STACK[SAVE_PTR - 1].b32.s1);
     };
 }
 /*:1448*/
@@ -4820,13 +4821,12 @@ pub(crate) unsafe extern "C" fn pseudo_close() {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn group_warning() {
-    let mut i: i32 = 0;
     let mut w: bool = false;
-    base_ptr = input_ptr;
-    *input_stack.offset(base_ptr as isize) = cur_input;
-    i = in_open;
+    BASE_PTR = INPUT_PTR;
+    INPUT_STACK[BASE_PTR] = cur_input;
+    let mut i = IN_OPEN;
     w = false;
-    while *grp_stack.offset(i as isize) == cur_boundary && i > 0i32 {
+    while GRP_STACK[i] == cur_boundary && i > 0 {
         if EQTB[(1i32
             + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -4856,17 +4856,17 @@ pub(crate) unsafe extern "C" fn group_warning() {
             .s1
             > 0i32
         {
-            while (*input_stack.offset(base_ptr as isize)).state as i32 == 0i32
-                || (*input_stack.offset(base_ptr as isize)).index as i32 > i
+            while INPUT_STACK[BASE_PTR].state as i32 == 0i32
+                || INPUT_STACK[BASE_PTR].index as usize > i
             {
-                base_ptr -= 1
+                BASE_PTR -= 1;
             }
-            if (*input_stack.offset(base_ptr as isize)).name > 17i32 {
+            if INPUT_STACK[BASE_PTR].name > 17i32 {
                 w = true
             }
         }
-        *grp_stack.offset(i as isize) = SAVE_STACK[save_ptr as usize].b32.s1;
-        i -= 1
+        GRP_STACK[i] = SAVE_STACK[SAVE_PTR].b32.s1;
+        i -= 1;
     }
     if w {
         print_nl_cstr(b"Warning: end of ");
@@ -4911,13 +4911,12 @@ pub(crate) unsafe extern "C" fn group_warning() {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn if_warning() {
-    let mut i: i32 = 0;
     let mut w: bool = false;
-    base_ptr = input_ptr;
-    *input_stack.offset(base_ptr as isize) = cur_input;
-    i = in_open;
+    BASE_PTR = INPUT_PTR;
+    INPUT_STACK[BASE_PTR] = cur_input;
+    let mut i = IN_OPEN;
     w = false;
-    while *if_stack.offset(i as isize) == cond_ptr {
+    while IF_STACK[i] == cond_ptr {
         if EQTB[(1i32
             + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -4947,17 +4946,17 @@ pub(crate) unsafe extern "C" fn if_warning() {
             .s1
             > 0i32
         {
-            while (*input_stack.offset(base_ptr as isize)).state as i32 == 0i32
-                || (*input_stack.offset(base_ptr as isize)).index as i32 > i
+            while INPUT_STACK[BASE_PTR].state as i32 == 0i32
+                || INPUT_STACK[BASE_PTR].index as usize > i
             {
-                base_ptr -= 1
+                BASE_PTR -= 1
             }
-            if (*input_stack.offset(base_ptr as isize)).name > 17i32 {
+            if INPUT_STACK[BASE_PTR].name > 17i32 {
                 w = true
             }
         }
-        *if_stack.offset(i as isize) = MEM[cond_ptr as usize].b32.s1;
-        i -= 1
+        IF_STACK[i] = MEM[cond_ptr as usize].b32.s1;
+        i -= 1;
     }
     if w {
         print_nl_cstr(b"Warning: end of ");
@@ -5010,26 +5009,26 @@ pub(crate) unsafe extern "C" fn file_warning() {
     let mut l: u16 = 0;
     let mut c: u16 = 0;
     let mut i: i32 = 0;
-    p = save_ptr;
+    p = SAVE_PTR as i32;
     l = cur_level;
     c = cur_group as u16;
-    save_ptr = cur_boundary;
-    while *grp_stack.offset(in_open as isize) != save_ptr {
+    SAVE_PTR = cur_boundary as usize;
+    while GRP_STACK[IN_OPEN] != SAVE_PTR as i32 {
         cur_level = cur_level.wrapping_sub(1);
         print_nl_cstr(b"Warning: end of file when ");
         print_group(1i32 != 0);
         print_cstr(b" is incomplete");
-        cur_group = SAVE_STACK[save_ptr as usize].b16.s0 as group_code;
-        save_ptr = SAVE_STACK[save_ptr as usize].b32.s1
+        cur_group = SAVE_STACK[SAVE_PTR].b16.s0 as group_code;
+        SAVE_PTR = SAVE_STACK[SAVE_PTR].b32.s1 as usize
     }
-    save_ptr = p;
+    SAVE_PTR = p as usize;
     cur_level = l;
     cur_group = c as group_code;
     p = cond_ptr;
     l = if_limit as u16;
     c = cur_if as u16;
     i = if_line;
-    while *if_stack.offset(in_open as isize) != cond_ptr {
+    while IF_STACK[IN_OPEN] != cond_ptr {
         print_nl_cstr(b"Warning: end of file when ");
         print_cmd_chr(107_u16, cur_if as i32);
         if if_limit as i32 == 2i32 {
@@ -5142,16 +5141,16 @@ pub(crate) unsafe extern "C" fn sa_save(mut p: i32) {
     let mut q: i32 = 0;
     let mut i: u16 = 0;
     if cur_level as i32 != sa_level as i32 {
-        if save_ptr > max_save_stack {
-            max_save_stack = save_ptr;
-            if max_save_stack > SAVE_SIZE as i32 - 7 {
+        if SAVE_PTR > MAX_SAVE_STACK {
+            MAX_SAVE_STACK = SAVE_PTR;
+            if MAX_SAVE_STACK > SAVE_SIZE - 7 {
                 overflow(b"save size", SAVE_SIZE as i32);
             }
         }
-        SAVE_STACK[save_ptr as usize].b16.s1 = 4_u16;
-        SAVE_STACK[save_ptr as usize].b16.s0 = sa_level;
-        SAVE_STACK[save_ptr as usize].b32.s1 = sa_chain;
-        save_ptr += 1;
+        SAVE_STACK[SAVE_PTR].b16.s1 = 4_u16;
+        SAVE_STACK[SAVE_PTR].b16.s0 = sa_level;
+        SAVE_STACK[SAVE_PTR].b32.s1 = sa_chain;
+        SAVE_PTR += 1;
         sa_chain = TEX_NULL;
         sa_level = cur_level
     }
@@ -5273,24 +5272,24 @@ pub(crate) unsafe extern "C" fn sa_restore() {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn new_save_level(mut c: group_code) {
-    if save_ptr > max_save_stack {
-        max_save_stack = save_ptr;
-        if max_save_stack > SAVE_SIZE as i32 - 7 {
+    if SAVE_PTR > MAX_SAVE_STACK {
+        MAX_SAVE_STACK = SAVE_PTR;
+        if MAX_SAVE_STACK > SAVE_SIZE - 7 {
             overflow(b"save size", SAVE_SIZE as i32);
         }
     }
-    SAVE_STACK[(save_ptr + 0i32) as usize].b32.s1 = line;
-    save_ptr += 1;
-    SAVE_STACK[save_ptr as usize].b16.s1 = 3_u16;
-    SAVE_STACK[save_ptr as usize].b16.s0 = cur_group as u16;
-    SAVE_STACK[save_ptr as usize].b32.s1 = cur_boundary;
+    SAVE_STACK[SAVE_PTR + 0].b32.s1 = line;
+    SAVE_PTR += 1;
+    SAVE_STACK[SAVE_PTR].b16.s1 = 3_u16;
+    SAVE_STACK[SAVE_PTR].b16.s0 = cur_group as u16;
+    SAVE_STACK[SAVE_PTR].b32.s1 = cur_boundary;
     if cur_level as i32 == 65535i32 {
         overflow(b"grouping levels", 65535i32);
     }
-    cur_boundary = save_ptr;
+    cur_boundary = SAVE_PTR as i32;
     cur_group = c;
     cur_level = cur_level.wrapping_add(1);
-    save_ptr += 1;
+    SAVE_PTR += 1;
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn eq_destroy(mut w: memory_word) {
@@ -5321,22 +5320,22 @@ pub(crate) unsafe extern "C" fn eq_destroy(mut w: memory_word) {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn eq_save(mut p: i32, mut l: u16) {
-    if save_ptr > max_save_stack {
-        max_save_stack = save_ptr;
-        if max_save_stack > SAVE_SIZE as i32 - 7 {
+    if SAVE_PTR > MAX_SAVE_STACK {
+        MAX_SAVE_STACK = SAVE_PTR;
+        if MAX_SAVE_STACK > SAVE_SIZE - 7 {
             overflow(b"save size", SAVE_SIZE as i32);
         }
     }
     if l as i32 == 0i32 {
-        SAVE_STACK[save_ptr as usize].b16.s1 = 1_u16
+        SAVE_STACK[SAVE_PTR].b16.s1 = 1_u16
     } else {
-        SAVE_STACK[save_ptr as usize] = EQTB[p as usize];
-        save_ptr += 1;
-        SAVE_STACK[save_ptr as usize].b16.s1 = 0_u16
+        SAVE_STACK[SAVE_PTR] = EQTB[p as usize];
+        SAVE_PTR += 1;
+        SAVE_STACK[SAVE_PTR].b16.s1 = 0_u16
     }
-    SAVE_STACK[save_ptr as usize].b16.s0 = l;
-    SAVE_STACK[save_ptr as usize].b32.s1 = p;
-    save_ptr += 1;
+    SAVE_STACK[SAVE_PTR].b16.s0 = l;
+    SAVE_STACK[SAVE_PTR].b32.s1 = p;
+    SAVE_PTR += 1;
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn eq_define(mut p: i32, mut t: u16, mut e: i32) {
@@ -5480,16 +5479,16 @@ pub(crate) unsafe extern "C" fn geq_word_define(mut p: i32, mut w: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn save_for_after(mut t: i32) {
     if cur_level as i32 > 1i32 {
-        if save_ptr > max_save_stack {
-            max_save_stack = save_ptr;
-            if max_save_stack > SAVE_SIZE as i32 - 7 {
+        if SAVE_PTR > MAX_SAVE_STACK {
+            MAX_SAVE_STACK = SAVE_PTR;
+            if MAX_SAVE_STACK > SAVE_SIZE - 7 {
                 overflow(b"save size", SAVE_SIZE as i32);
             }
         }
-        SAVE_STACK[save_ptr as usize].b16.s1 = 2_u16;
-        SAVE_STACK[save_ptr as usize].b16.s0 = 0_u16;
-        SAVE_STACK[save_ptr as usize].b32.s1 = t;
-        save_ptr += 1
+        SAVE_STACK[SAVE_PTR].b16.s1 = 2_u16;
+        SAVE_STACK[SAVE_PTR].b16.s0 = 0_u16;
+        SAVE_STACK[SAVE_PTR].b32.s1 = t;
+        SAVE_PTR += 1;
     };
 }
 #[no_mangle]
@@ -5502,12 +5501,12 @@ pub(crate) unsafe extern "C" fn unsave() {
     if cur_level as i32 > 1i32 {
         cur_level = cur_level.wrapping_sub(1);
         loop {
-            save_ptr -= 1;
-            if SAVE_STACK[save_ptr as usize].b16.s1 as i32 == 3i32 {
+            SAVE_PTR -= 1;
+            if SAVE_STACK[SAVE_PTR].b16.s1 as i32 == 3i32 {
                 break;
             }
-            p = SAVE_STACK[save_ptr as usize].b32.s1;
-            if SAVE_STACK[save_ptr as usize].b16.s1 as i32 == 2i32 {
+            p = SAVE_STACK[SAVE_PTR].b32.s1;
+            if SAVE_STACK[SAVE_PTR].b16.s1 as i32 == 2i32 {
                 /*338: */
                 t = cur_tok;
                 cur_tok = p;
@@ -5529,16 +5528,16 @@ pub(crate) unsafe extern "C" fn unsave() {
                     a = true
                 }
                 cur_tok = t
-            } else if SAVE_STACK[save_ptr as usize].b16.s1 as i32 == 4i32 {
+            } else if SAVE_STACK[SAVE_PTR].b16.s1 as i32 == 4i32 {
                 sa_restore();
                 sa_chain = p;
-                sa_level = SAVE_STACK[save_ptr as usize].b16.s0
+                sa_level = SAVE_STACK[SAVE_PTR].b16.s0
             } else {
-                if SAVE_STACK[save_ptr as usize].b16.s1 as i32 == 0i32 {
-                    l = SAVE_STACK[save_ptr as usize].b16.s0;
-                    save_ptr -= 1
+                if SAVE_STACK[SAVE_PTR].b16.s1 as i32 == 0i32 {
+                    l = SAVE_STACK[SAVE_PTR].b16.s0;
+                    SAVE_PTR -= 1;
                 } else {
-                    SAVE_STACK[save_ptr as usize] = EQTB[(1i32
+                    SAVE_STACK[SAVE_PTR] = EQTB[(1i32
                         + (0x10ffffi32 + 1i32)
                         + (0x10ffffi32 + 1i32)
                         + 1i32
@@ -5603,10 +5602,10 @@ pub(crate) unsafe extern "C" fn unsave() {
                         - 1i32
                 {
                     if EQTB[p as usize].b16.s0 as i32 == 1i32 {
-                        eq_destroy(SAVE_STACK[save_ptr as usize]);
+                        eq_destroy(SAVE_STACK[SAVE_PTR]);
                     } else {
                         eq_destroy(EQTB[p as usize]);
-                        EQTB[p as usize] = SAVE_STACK[save_ptr as usize]
+                        EQTB[p as usize] = SAVE_STACK[SAVE_PTR]
                     }
                 } else if _xeq_level_array[(p
                     - (1i32
@@ -5636,7 +5635,7 @@ pub(crate) unsafe extern "C" fn unsave() {
                     as usize] as i32
                     != 1i32
                 {
-                    EQTB[p as usize] = SAVE_STACK[save_ptr as usize];
+                    EQTB[p as usize] = SAVE_STACK[SAVE_PTR];
                     _xeq_level_array[(p
                         - (1i32
                             + (0x10ffffi32 + 1i32)
@@ -5666,12 +5665,12 @@ pub(crate) unsafe extern "C" fn unsave() {
                 }
             }
         }
-        if *grp_stack.offset(in_open as isize) == cur_boundary {
+        if GRP_STACK[IN_OPEN] == cur_boundary {
             group_warning();
         }
-        cur_group = SAVE_STACK[save_ptr as usize].b16.s0 as group_code;
-        cur_boundary = SAVE_STACK[save_ptr as usize].b32.s1;
-        save_ptr -= 1
+        cur_group = SAVE_STACK[SAVE_PTR].b16.s0 as group_code;
+        cur_boundary = SAVE_STACK[SAVE_PTR].b32.s1;
+        SAVE_PTR -= 1;
     } else {
         confusion(b"curlevel");
     };
@@ -6029,18 +6028,18 @@ pub(crate) unsafe extern "C" fn show_context() {
     let mut n: i32 = 0;
     let mut p: i32 = 0;
     let mut q: i32 = 0;
-    base_ptr = input_ptr;
-    *input_stack.offset(base_ptr as isize) = cur_input;
+    BASE_PTR = INPUT_PTR;
+    INPUT_STACK[BASE_PTR] = cur_input;
     nn = -1i32;
     bottom_line = false;
     loop {
-        cur_input = *input_stack.offset(base_ptr as isize);
+        cur_input = INPUT_STACK[BASE_PTR];
         if cur_input.state as i32 != 0i32 {
-            if cur_input.name > 19i32 || base_ptr == 0i32 {
+            if cur_input.name > 19i32 || BASE_PTR == 0 {
                 bottom_line = true
             }
         }
-        if base_ptr == input_ptr
+        if BASE_PTR == INPUT_PTR
             || bottom_line as i32 != 0
             || nn
                 < EQTB[(1i32
@@ -6072,7 +6071,7 @@ pub(crate) unsafe extern "C" fn show_context() {
                     .s1
         {
             /*324: */
-            if base_ptr == input_ptr
+            if BASE_PTR == INPUT_PTR
                 || cur_input.state as i32 != 0i32
                 || cur_input.index as i32 != 3i32
                 || cur_input.loc != TEX_NULL
@@ -6082,7 +6081,7 @@ pub(crate) unsafe extern "C" fn show_context() {
                 if cur_input.state as i32 != 0i32 {
                     if cur_input.name <= 17i32 {
                         if cur_input.name == 0i32 {
-                            if base_ptr == 0i32 {
+                            if BASE_PTR == 0 {
                                 print_nl_cstr(b"<*>");
                             } else {
                                 print_nl_cstr(b"<insert> ");
@@ -6098,10 +6097,10 @@ pub(crate) unsafe extern "C" fn show_context() {
                         }
                     } else {
                         print_nl_cstr(b"l.");
-                        if cur_input.index as i32 == in_open {
+                        if cur_input.index as usize == IN_OPEN {
                             print_int(line);
                         } else {
-                            print_int(*line_stack.offset((cur_input.index as i32 + 1i32) as isize));
+                            print_int(LINE_STACK[(cur_input.index as i32 + 1i32) as usize]);
                         }
                     }
                     print_char(' ' as i32);
@@ -6349,20 +6348,20 @@ pub(crate) unsafe extern "C" fn show_context() {
         if bottom_line {
             break;
         }
-        base_ptr -= 1
+        BASE_PTR -= 1
     }
-    cur_input = *input_stack.offset(input_ptr as isize);
+    cur_input = INPUT_STACK[INPUT_PTR];
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn begin_token_list(mut p: i32, mut t: u16) {
-    if input_ptr > max_in_stack {
-        max_in_stack = input_ptr;
-        if input_ptr == stack_size {
-            overflow(b"input stack size", stack_size);
+    if INPUT_PTR > MAX_IN_STACK {
+        MAX_IN_STACK = INPUT_PTR;
+        if INPUT_PTR == STACK_SIZE {
+            overflow(b"input stack size", STACK_SIZE as i32);
         }
     }
-    *input_stack.offset(input_ptr as isize) = cur_input;
-    input_ptr += 1;
+    INPUT_STACK[INPUT_PTR] = cur_input;
+    INPUT_PTR += 1;
     cur_input.state = 0_u16;
     cur_input.start = p;
     cur_input.index = t;
@@ -6462,8 +6461,8 @@ pub(crate) unsafe extern "C" fn end_token_list() {
             fatal_error(b"(interwoven alignment preambles are not allowed)");
         }
     }
-    input_ptr -= 1;
-    cur_input = *input_stack.offset(input_ptr as isize);
+    INPUT_PTR -= 1;
+    cur_input = INPUT_STACK[INPUT_PTR];
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn back_input() {
@@ -6483,14 +6482,14 @@ pub(crate) unsafe extern "C" fn back_input() {
             align_state += 1
         }
     }
-    if input_ptr > max_in_stack {
-        max_in_stack = input_ptr;
-        if input_ptr == stack_size {
-            overflow(b"input stack size", stack_size);
+    if INPUT_PTR > MAX_IN_STACK {
+        MAX_IN_STACK = INPUT_PTR;
+        if INPUT_PTR == STACK_SIZE {
+            overflow(b"input stack size", STACK_SIZE as i32);
         }
     }
-    *input_stack.offset(input_ptr as isize) = cur_input;
-    input_ptr += 1;
+    INPUT_STACK[INPUT_PTR] = cur_input;
+    INPUT_PTR += 1;
     cur_input.state = 0_u16;
     cur_input.start = p;
     cur_input.index = 3_u16;
@@ -6509,28 +6508,28 @@ pub(crate) unsafe extern "C" fn ins_error() {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn begin_file_reading() {
-    if in_open == max_in_open {
-        overflow(b"text input levels", max_in_open);
+    if IN_OPEN == MAX_IN_OPEN {
+        overflow(b"text input levels", MAX_IN_OPEN as i32);
     }
     if first == buf_size {
         overflow(b"buffer size", buf_size);
     }
-    in_open += 1;
-    if input_ptr > max_in_stack {
-        max_in_stack = input_ptr;
-        if input_ptr == stack_size {
-            overflow(b"input stack size", stack_size);
+    IN_OPEN += 1;
+    if INPUT_PTR > MAX_IN_STACK {
+        MAX_IN_STACK = INPUT_PTR;
+        if INPUT_PTR == STACK_SIZE {
+            overflow(b"input stack size", STACK_SIZE as i32);
         }
     }
-    *input_stack.offset(input_ptr as isize) = cur_input;
-    input_ptr += 1;
-    cur_input.index = in_open as u16;
-    *source_filename_stack.offset(cur_input.index as isize) = 0i32;
-    *full_source_filename_stack.offset(cur_input.index as isize) = 0i32;
-    *eof_seen.offset(cur_input.index as isize) = false;
-    *grp_stack.offset(cur_input.index as isize) = cur_boundary;
-    *if_stack.offset(cur_input.index as isize) = cond_ptr;
-    *line_stack.offset(cur_input.index as isize) = line;
+    INPUT_STACK[INPUT_PTR] = cur_input;
+    INPUT_PTR += 1;
+    cur_input.index = IN_OPEN as u16;
+    SOURCE_FILENAME_STACK[cur_input.index as usize] = 0;
+    FULL_SOURCE_FILENAME_STACK[cur_input.index as usize] = 0;
+    EOF_SEEN[cur_input.index as usize] = false;
+    GRP_STACK[cur_input.index as usize] = cur_boundary;
+    IF_STACK[cur_input.index as usize] = cond_ptr;
+    LINE_STACK[cur_input.index as usize] = line;
     cur_input.start = first;
     cur_input.state = 1_u16;
     cur_input.name = 0i32;
@@ -6539,15 +6538,15 @@ pub(crate) unsafe extern "C" fn begin_file_reading() {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn end_file_reading() {
     first = cur_input.start;
-    line = *line_stack.offset(cur_input.index as isize);
+    line = LINE_STACK[cur_input.index as usize];
     if cur_input.name == 18i32 || cur_input.name == 19i32 {
         pseudo_close();
     } else if cur_input.name > 17i32 {
-        u_close(*input_file.offset(cur_input.index as isize));
+        u_close(INPUT_FILE[cur_input.index as usize]);
     }
-    input_ptr -= 1;
-    cur_input = *input_stack.offset(input_ptr as isize);
-    in_open -= 1;
+    INPUT_PTR -= 1;
+    cur_input = INPUT_STACK[INPUT_PTR];
+    IN_OPEN -= 1;
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn check_outer_validity() {
@@ -6909,10 +6908,10 @@ pub(crate) unsafe extern "C" fn get_next() {
                                     .b32
                                     .s1
                                     != TEX_NULL
-                                    && !*eof_seen.offset(cur_input.index as isize)
+                                    && !EOF_SEEN[cur_input.index as usize]
                                 {
                                     cur_input.limit = first - 1i32;
-                                    *eof_seen.offset(cur_input.index as isize) = true;
+                                    EOF_SEEN[cur_input.index as usize] = true;
                                     begin_token_list(
                                         EQTB[(1i32
                                             + (0x10ffffi32 + 1i32)
@@ -6936,8 +6935,7 @@ pub(crate) unsafe extern "C" fn get_next() {
                                 } else {
                                     force_eof = true
                                 }
-                            } else if input_line(*input_file.offset(cur_input.index as isize)) != 0
-                            {
+                            } else if input_line(INPUT_FILE[cur_input.index as usize]) != 0 {
                                 cur_input.limit = last
                             } else if EQTB[(1i32
                                 + (0x10ffffi32 + 1i32)
@@ -6955,10 +6953,10 @@ pub(crate) unsafe extern "C" fn get_next() {
                                 .b32
                                 .s1
                                 != TEX_NULL
-                                && !*eof_seen.offset(cur_input.index as isize)
+                                && !EOF_SEEN[cur_input.index as usize]
                             {
                                 cur_input.limit = first - 1i32;
-                                *eof_seen.offset(cur_input.index as isize) = true;
+                                EOF_SEEN[cur_input.index as usize] = true;
                                 begin_token_list(
                                     EQTB[(1i32
                                         + (0x10ffffi32 + 1i32)
@@ -7012,8 +7010,8 @@ pub(crate) unsafe extern "C" fn get_next() {
                                 .s1
                                 > 0i32
                             {
-                                if *grp_stack.offset(in_open as isize) != cur_boundary
-                                    || *if_stack.offset(in_open as isize) != cond_ptr
+                                if GRP_STACK[IN_OPEN] != cur_boundary
+                                    || IF_STACK[IN_OPEN] != cond_ptr
                                 {
                                     file_warning();
                                 }
@@ -7125,7 +7123,7 @@ pub(crate) unsafe extern "C" fn get_next() {
                             cur_chr = 0i32;
                             return;
                         }
-                        if input_ptr > 0i32 {
+                        if INPUT_PTR > 0 {
                             current_block = 4001239642700071046;
                             break;
                         } else {
@@ -8484,7 +8482,7 @@ pub(crate) unsafe extern "C" fn expand() {
                         while cur_chr != 2i32 {
                             pass_text();
                         }
-                        if *if_stack.offset(in_open as isize) == cond_ptr {
+                        if IF_STACK[IN_OPEN] == cond_ptr {
                             if_warning();
                         }
                         p = cond_ptr;
@@ -8924,8 +8922,8 @@ pub(crate) unsafe extern "C" fn scan_math(mut p: i32) {
                 _ => {
                     back_input();
                     scan_left_brace();
-                    SAVE_STACK[(save_ptr + 0) as usize].b32.s1 = p;
-                    save_ptr += 1;
+                    SAVE_STACK[SAVE_PTR + 0].b32.s1 = p;
+                    SAVE_PTR += 1;
                     push_math(9i32 as group_code);
                     return;
                 }
@@ -14206,7 +14204,7 @@ pub(crate) unsafe extern "C" fn conditional() {
                     n -= 1
                 } else if cur_chr == 2i32 {
                     /*515:*/
-                    if *if_stack.offset(in_open as isize) == cond_ptr {
+                    if IF_STACK[IN_OPEN] == cond_ptr {
                         if_warning();
                     }
                     p = cond_ptr;
@@ -14310,7 +14308,7 @@ pub(crate) unsafe extern "C" fn conditional() {
                     error();
                 } else if cur_chr == 2i32 {
                     /*515:*/
-                    if *if_stack.offset(in_open as isize) == cond_ptr {
+                    if IF_STACK[IN_OPEN] == cond_ptr {
                         if_warning();
                     }
                     p = cond_ptr;
@@ -14326,7 +14324,7 @@ pub(crate) unsafe extern "C" fn conditional() {
     }
     if cur_chr == 2i32 {
         /*515:*/
-        if *if_stack.offset(in_open as isize) == cond_ptr {
+        if IF_STACK[IN_OPEN] == cond_ptr {
             if_warning();
         }
         p = cond_ptr;
@@ -14553,11 +14551,11 @@ pub(crate) unsafe extern "C" fn open_log_file() {
     texmf_log_name = make_name_string();
     selector = Selector::LOG_ONLY;
     log_opened = true;
-    *input_stack.offset(input_ptr as isize) = cur_input;
+    INPUT_STACK[INPUT_PTR] = cur_input;
     /* Here we catch the log file up with anything that has already been
      * printed. The eqtb reference is end_line_char. */
     print_nl_cstr(b"**");
-    l = (*input_stack.offset(0)).limit;
+    l = INPUT_STACK[0].limit;
     if *buffer.offset(l as isize)
         == EQTB[(1i32
             + (0x10ffffi32 + 1i32)
@@ -14739,7 +14737,7 @@ pub(crate) unsafe extern "C" fn start_input(mut primary_input_name: *const i8) {
      * from `name_of_file`. */
     begin_file_reading();
     if u_open_in(
-        &mut *input_file.offset(cur_input.index as isize),
+        &mut INPUT_FILE[cur_input.index as usize],
         format,
         b"rb\x00" as *const u8 as *const i8,
         EQTB[(1i32
@@ -14821,9 +14819,9 @@ pub(crate) unsafe extern "C" fn start_input(mut primary_input_name: *const i8) {
      * {begin,more,end}_name() trifecta to re-re-compute
      * `cur_{name,area,ext}`. */
     cur_input.name = make_name_string();
-    *source_filename_stack.offset(in_open as isize) = cur_input.name;
+    SOURCE_FILENAME_STACK[IN_OPEN] = cur_input.name;
     /* *This* variant is a TeX string made out of `name_of_input_file`. */
-    *full_source_filename_stack.offset(in_open as isize) =
+    FULL_SOURCE_FILENAME_STACK[IN_OPEN] =
         maketexstring(CStr::from_ptr(name_of_input_file).to_bytes());
     if cur_input.name == str_ptr - 1i32 {
         temp_str = search_string(cur_input.name);
@@ -14838,21 +14836,19 @@ pub(crate) unsafe extern "C" fn start_input(mut primary_input_name: *const i8) {
         job_name = cur_name; /* this is the "flush_string" macro which discards the most recent string */
         open_log_file(); /* "really a CFDictionaryRef or XeTeXLayoutEngine" */
     } /* = first_math_fontdimen (=10) + lastMathConstant (= radicalDegreeBottomRaisePercent = 55) */
-    if term_offset + length(*full_source_filename_stack.offset(in_open as isize))
-        > max_print_line - 2i32
-    {
+    if term_offset + length(FULL_SOURCE_FILENAME_STACK[IN_OPEN]) > max_print_line - 2i32 {
         print_ln();
     } else if term_offset > 0i32 || file_offset > 0i32 {
         print_char(' ' as i32);
     }
     print_char('(' as i32);
     open_parens += 1;
-    print(*full_source_filename_stack.offset(in_open as isize));
+    print(FULL_SOURCE_FILENAME_STACK[IN_OPEN]);
     rust_stdout.as_mut().unwrap().flush().unwrap();
     cur_input.state = 33_u16;
     synctex_start_input();
     line = 1i32;
-    input_line(*input_file.offset(cur_input.index as isize));
+    input_line(INPUT_FILE[cur_input.index as usize]);
     cur_input.limit = last;
     if EQTB[(1i32
         + (0x10ffffi32 + 1i32)
@@ -16600,7 +16596,7 @@ pub(crate) unsafe extern "C" fn scan_spec(mut c: group_code, mut three_codes: bo
     let mut s: i32 = 0;
     let mut spec_code: u8 = 0;
     if three_codes {
-        s = SAVE_STACK[(save_ptr + 0) as usize].b32.s1
+        s = SAVE_STACK[SAVE_PTR + 0].b32.s1
     }
     if scan_keyword(b"to") {
         spec_code = 0_u8;
@@ -16620,12 +16616,12 @@ pub(crate) unsafe extern "C" fn scan_spec(mut c: group_code, mut three_codes: bo
         _ => {}
     }
     if three_codes {
-        SAVE_STACK[(save_ptr + 0) as usize].b32.s1 = s;
-        save_ptr += 1
+        SAVE_STACK[SAVE_PTR + 0].b32.s1 = s;
+        SAVE_PTR += 1;
     }
-    SAVE_STACK[(save_ptr + 0) as usize].b32.s1 = spec_code as i32;
-    SAVE_STACK[(save_ptr + 1) as usize].b32.s1 = cur_val;
-    save_ptr = save_ptr + 2i32;
+    SAVE_STACK[SAVE_PTR + 0].b32.s1 = spec_code as i32;
+    SAVE_STACK[SAVE_PTR + 1].b32.s1 = cur_val;
+    SAVE_PTR += 2;
     new_save_level(c);
     scan_left_brace();
 }
@@ -18766,7 +18762,7 @@ pub(crate) unsafe extern "C" fn fin_align() {
             break;
         }
     }
-    save_ptr = save_ptr - 2i32;
+    SAVE_PTR -= 2;
     pack_begin_line = -cur_list.mode_line;
     if cur_list.mode as i32 == -1i32 {
         rule_save = EQTB[(1i32
@@ -18831,8 +18827,8 @@ pub(crate) unsafe extern "C" fn fin_align() {
             .s1 = 0i32;
         p = hpack(
             MEM[(4999999 - 8) as usize].b32.s1,
-            SAVE_STACK[(save_ptr + 1) as usize].b32.s1,
-            SAVE_STACK[(save_ptr + 0) as usize].b32.s1 as small_number,
+            SAVE_STACK[SAVE_PTR + 1].b32.s1,
+            SAVE_STACK[SAVE_PTR + 0].b32.s1 as small_number,
         );
         EQTB[(1i32
             + (0x10ffffi32 + 1i32)
@@ -18876,8 +18872,8 @@ pub(crate) unsafe extern "C" fn fin_align() {
         }
         p = vpackage(
             MEM[(4999999 - 8) as usize].b32.s1,
-            SAVE_STACK[(save_ptr + 1) as usize].b32.s1,
-            SAVE_STACK[(save_ptr + 0) as usize].b32.s1 as small_number,
+            SAVE_STACK[SAVE_PTR + 1].b32.s1,
+            SAVE_STACK[SAVE_PTR + 0].b32.s1 as small_number,
             0x3fffffffi32,
         );
         q = MEM[MEM[(4999999 - 8) as usize].b32.s1 as usize].b32.s1;
@@ -19293,10 +19289,10 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
     let mut s: &[u8] = &[];
     p = nest_ptr;
     *nest.offset(p as isize) = cur_list;
-    v = save_ptr;
+    v = SAVE_PTR as i32;
     l = cur_level;
     c = cur_group;
-    save_ptr = cur_boundary;
+    SAVE_PTR = cur_boundary as usize;
     cur_level = cur_level.wrapping_sub(1);
     a = 1_i8;
     print_nl_cstr(b"");
@@ -19379,7 +19375,7 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
                 }
                 i = 1i32;
                 while i <= 3i32 {
-                    if i <= SAVE_STACK[(save_ptr - 2) as usize].b32.s1 {
+                    if i <= SAVE_STACK[SAVE_PTR - 2].b32.s1 {
                         print_cstr(b"{}");
                     }
                     i += 1
@@ -19387,11 +19383,11 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
                 current_block = 11054735442240645164;
             }
             11 => {
-                if SAVE_STACK[(save_ptr - 2) as usize].b32.s1 == 255 {
+                if SAVE_STACK[SAVE_PTR - 2].b32.s1 == 255 {
                     print_esc_cstr(b"vadjust");
                 } else {
                     print_esc_cstr(b"insert");
-                    print_int(SAVE_STACK[(save_ptr - 2) as usize].b32.s1);
+                    print_int(SAVE_STACK[SAVE_PTR - 2].b32.s1);
                 }
                 current_block = 11054735442240645164;
             }
@@ -19409,7 +19405,7 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
                     print_char('$' as i32);
                     current_block = 17441561948628420366;
                 } else if (*nest.offset(p as isize)).mode as i32 == 207i32 {
-                    print_cmd_chr(48_u16, SAVE_STACK[(save_ptr - 2) as usize].b32.s1);
+                    print_cmd_chr(48_u16, SAVE_STACK[SAVE_PTR - 2].b32.s1);
                     current_block = 5407796692416645153;
                 } else {
                     current_block = 17441561948628420366;
@@ -19440,7 +19436,7 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
         }
         match current_block {
             6002151390280567665 => {
-                i = SAVE_STACK[(save_ptr - 4) as usize].b32.s1;
+                i = SAVE_STACK[SAVE_PTR - 4].b32.s1;
                 if i != 0i32 {
                     if i < 0x40000000i32 {
                         if ((*nest.offset(p as isize)).mode as i32).abs() == 1i32 {
@@ -19474,14 +19470,14 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
         match current_block {
             17798259985923180687 => {
                 print_esc_cstr(s);
-                if SAVE_STACK[(save_ptr - 2) as usize].b32.s1 != 0i32 {
+                if SAVE_STACK[SAVE_PTR - 2].b32.s1 != 0i32 {
                     print_char(' ' as i32);
-                    if SAVE_STACK[(save_ptr - 3) as usize].b32.s1 == 0i32 {
+                    if SAVE_STACK[SAVE_PTR - 3].b32.s1 == 0i32 {
                         print_cstr(b"to");
                     } else {
                         print_cstr(b"spread");
                     }
-                    print_scaled(SAVE_STACK[(save_ptr - 2) as usize].b32.s1);
+                    print_scaled(SAVE_STACK[SAVE_PTR - 2].b32.s1);
                     print_cstr(b"pt");
                 }
                 current_block = 11054735442240645164;
@@ -19496,10 +19492,10 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
         }
         print_char(')' as i32);
         cur_level = cur_level.wrapping_sub(1);
-        cur_group = SAVE_STACK[save_ptr as usize].b16.s0 as group_code;
-        save_ptr = SAVE_STACK[save_ptr as usize].b32.s1
+        cur_group = SAVE_STACK[SAVE_PTR].b16.s0 as group_code;
+        SAVE_PTR = SAVE_STACK[SAVE_PTR].b32.s1 as usize
     }
-    save_ptr = v;
+    SAVE_PTR = v as usize;
     cur_level = l;
     cur_group = c;
 }
@@ -21010,7 +21006,7 @@ pub(crate) unsafe extern "C" fn begin_box(mut box_context: i32) {
         }
         _ => {
             k = cur_chr - 4i32;
-            SAVE_STACK[(save_ptr + 0) as usize].b32.s1 = box_context;
+            SAVE_STACK[SAVE_PTR + 0].b32.s1 = box_context;
             if k == 104i32 {
                 if box_context < 0x40000000i32 && (cur_list.mode as i32).abs() == 1i32 {
                     scan_spec(3i32 as group_code, true);
@@ -21202,7 +21198,7 @@ pub(crate) unsafe extern "C" fn package(mut c: small_number) {
         .b32
         .s1;
     unsave();
-    save_ptr = save_ptr - 3i32;
+    SAVE_PTR -= 3;
     v = EQTB[(1i32
         + (0x10ffffi32 + 1i32)
         + (0x10ffffi32 + 1i32)
@@ -21260,14 +21256,14 @@ pub(crate) unsafe extern "C" fn package(mut c: small_number) {
     if cur_list.mode as i32 == -104i32 {
         cur_box = hpack(
             MEM[cur_list.head as usize].b32.s1,
-            SAVE_STACK[(save_ptr + 2) as usize].b32.s1,
-            SAVE_STACK[(save_ptr + 1) as usize].b32.s1 as small_number,
+            SAVE_STACK[SAVE_PTR + 2].b32.s1,
+            SAVE_STACK[SAVE_PTR + 1].b32.s1 as small_number,
         )
     } else {
         cur_box = vpackage(
             MEM[cur_list.head as usize].b32.s1,
-            SAVE_STACK[(save_ptr + 2) as usize].b32.s1,
-            SAVE_STACK[(save_ptr + 1) as usize].b32.s1 as small_number,
+            SAVE_STACK[SAVE_PTR + 2].b32.s1,
+            SAVE_STACK[SAVE_PTR + 1].b32.s1 as small_number,
             d,
         );
         if c as i32 == 4i32 {
@@ -21312,7 +21308,7 @@ pub(crate) unsafe extern "C" fn package(mut c: small_number) {
         .b32
         .s1 = v;
     pop_nest();
-    box_end(SAVE_STACK[(save_ptr + 0) as usize].b32.s1);
+    box_end(SAVE_STACK[SAVE_PTR + 0].b32.s1);
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn norm_min(mut h: i32) -> small_number {
@@ -21672,13 +21668,13 @@ pub(crate) unsafe extern "C" fn begin_insert_or_adjust() {
             cur_val = 0i32
         }
     }
-    SAVE_STACK[(save_ptr + 0) as usize].b32.s1 = cur_val;
+    SAVE_STACK[SAVE_PTR + 0].b32.s1 = cur_val;
     if cur_cmd as i32 == 38i32 && scan_keyword(b"pre") {
-        SAVE_STACK[(save_ptr + 1) as usize].b32.s1 = 1
+        SAVE_STACK[SAVE_PTR + 1].b32.s1 = 1
     } else {
-        SAVE_STACK[(save_ptr + 1) as usize].b32.s1 = 0
+        SAVE_STACK[SAVE_PTR + 1].b32.s1 = 0
     }
-    save_ptr = save_ptr + 2i32;
+    SAVE_PTR += 2;
     new_save_level(11i32 as group_code);
     scan_left_brace();
     normal_paragraph();
@@ -22008,8 +22004,8 @@ pub(crate) unsafe extern "C" fn append_discretionary() {
             }
         }
     } else {
-        save_ptr += 1;
-        SAVE_STACK[(save_ptr - 1) as usize].b32.s1 = 0;
+        SAVE_PTR += 1;
+        SAVE_STACK[SAVE_PTR - 1].b32.s1 = 0;
         new_save_level(10i32 as group_code);
         scan_left_brace();
         push_nest();
@@ -22064,7 +22060,7 @@ pub(crate) unsafe extern "C" fn build_discretionary() {
     }
     p = MEM[cur_list.head as usize].b32.s1;
     pop_nest();
-    match SAVE_STACK[(save_ptr - 1) as usize].b32.s1 {
+    match SAVE_STACK[SAVE_PTR - 1].b32.s1 {
         0 => MEM[(cur_list.tail + 1) as usize].b32.s0 = p,
         1 => MEM[(cur_list.tail + 1) as usize].b32.s1 = p,
         2 => {
@@ -22102,12 +22098,12 @@ pub(crate) unsafe extern "C" fn build_discretionary() {
             if n > 0i32 {
                 cur_list.tail = q
             }
-            save_ptr -= 1;
+            SAVE_PTR -= 1;
             return;
         }
         _ => {}
     }
-    let ref mut fresh79 = SAVE_STACK[(save_ptr - 1) as usize].b32.s1;
+    let ref mut fresh79 = SAVE_STACK[SAVE_PTR - 1].b32.s1;
     *fresh79 += 1;
     new_save_level(10i32 as group_code);
     scan_left_brace();
@@ -22335,17 +22331,17 @@ pub(crate) unsafe extern "C" fn omit_error() {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn do_endv() {
-    base_ptr = input_ptr;
-    *input_stack.offset(base_ptr as isize) = cur_input;
-    while (*input_stack.offset(base_ptr as isize)).index as i32 != 2i32
-        && (*input_stack.offset(base_ptr as isize)).loc == TEX_NULL
-        && (*input_stack.offset(base_ptr as isize)).state as i32 == 0i32
+    BASE_PTR = INPUT_PTR;
+    INPUT_STACK[BASE_PTR] = cur_input;
+    while INPUT_STACK[BASE_PTR].index as i32 != 2i32
+        && INPUT_STACK[BASE_PTR].loc == TEX_NULL
+        && INPUT_STACK[BASE_PTR].state as i32 == 0i32
     {
-        base_ptr -= 1
+        BASE_PTR -= 1
     }
-    if (*input_stack.offset(base_ptr as isize)).index as i32 != 2i32
-        || (*input_stack.offset(base_ptr as isize)).loc != TEX_NULL
-        || (*input_stack.offset(base_ptr as isize)).state as i32 != 0i32
+    if INPUT_STACK[BASE_PTR].index as i32 != 2i32
+        || INPUT_STACK[BASE_PTR].loc != TEX_NULL
+        || INPUT_STACK[BASE_PTR].state as i32 != 0i32
     {
         fatal_error(b"(interwoven alignment preambles are not allowed)");
     }
@@ -23850,7 +23846,7 @@ pub(crate) unsafe extern "C" fn do_extension() {
                 help_line[0] = b"I\'ll ignore this and leave the current encoding unchanged.";
                 error();
             } else {
-                set_input_file_encoding(*input_file.offset(in_open as isize), i, j);
+                set_input_file_encoding(INPUT_FILE[IN_OPEN], i, j);
             }
         }
         45 => {
@@ -24140,8 +24136,8 @@ pub(crate) unsafe extern "C" fn insert_src_special() {
     let mut toklist: i32 = 0;
     let mut p: i32 = 0;
     let mut q: i32 = 0;
-    if *source_filename_stack.offset(in_open as isize) > 0i32
-        && is_new_source(*source_filename_stack.offset(in_open as isize), line) as i32 != 0
+    if SOURCE_FILENAME_STACK[IN_OPEN] > 0i32
+        && is_new_source(SOURCE_FILENAME_STACK[IN_OPEN], line) as i32 != 0
     {
         toklist = get_avail();
         p = toklist;
@@ -24150,35 +24146,29 @@ pub(crate) unsafe extern "C" fn insert_src_special() {
         MEM[p as usize].b32.s1 = get_avail();
         p = MEM[p as usize].b32.s1;
         MEM[p as usize].b32.s0 = 0x200000 + '{' as i32;
-        q = str_toks(make_src_special(
-            *source_filename_stack.offset(in_open as isize),
-            line,
-        ));
+        q = str_toks(make_src_special(SOURCE_FILENAME_STACK[IN_OPEN], line));
         MEM[p as usize].b32.s1 = MEM[(4999999 - 3) as usize].b32.s1;
         p = q;
         MEM[p as usize].b32.s1 = get_avail();
         p = MEM[p as usize].b32.s1;
         MEM[p as usize].b32.s0 = 0x400000 + '}' as i32;
         begin_token_list(toklist, 5_u16);
-        remember_source_info(*source_filename_stack.offset(in_open as isize), line);
+        remember_source_info(SOURCE_FILENAME_STACK[IN_OPEN], line);
     };
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn append_src_special() {
-    if *source_filename_stack.offset(in_open as isize) > 0i32
-        && is_new_source(*source_filename_stack.offset(in_open as isize), line) as i32 != 0
+    if SOURCE_FILENAME_STACK[IN_OPEN] > 0
+        && is_new_source(SOURCE_FILENAME_STACK[IN_OPEN], line) as i32 != 0
     {
         new_whatsit(3i32 as small_number, 2i32 as small_number);
         MEM[(cur_list.tail + 1) as usize].b32.s0 = 0;
         def_ref = get_avail();
         MEM[def_ref as usize].b32.s0 = TEX_NULL;
-        str_toks(make_src_special(
-            *source_filename_stack.offset(in_open as isize),
-            line,
-        ));
+        str_toks(make_src_special(SOURCE_FILENAME_STACK[IN_OPEN], line));
         MEM[def_ref as usize].b32.s1 = MEM[(4999999 - 3) as usize].b32.s1;
         MEM[(cur_list.tail + 1) as usize].b32.s1 = def_ref;
-        remember_source_info(*source_filename_stack.offset(in_open as isize), line);
+        remember_source_info(SOURCE_FILENAME_STACK[IN_OPEN], line);
     };
 }
 #[no_mangle]
@@ -24296,7 +24286,7 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
                 .b32
                 .s1;
             unsave();
-            save_ptr = save_ptr - 2i32;
+            SAVE_PTR -= 2;
             p = vpackage(
                 MEM[cur_list.head as usize].b32.s1,
                 0i32,
@@ -24304,12 +24294,11 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
                 0x3fffffffi32,
             );
             pop_nest();
-            if SAVE_STACK[(save_ptr + 0) as usize].b32.s1 < 255 {
+            if SAVE_STACK[SAVE_PTR + 0].b32.s1 < 255 {
                 MEM[cur_list.tail as usize].b32.s1 = get_node(5);
                 cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
                 MEM[cur_list.tail as usize].b16.s1 = 3_u16;
-                MEM[cur_list.tail as usize].b16.s0 =
-                    SAVE_STACK[(save_ptr + 0) as usize].b32.s1 as u16;
+                MEM[cur_list.tail as usize].b16.s0 = SAVE_STACK[SAVE_PTR + 0].b32.s1 as u16;
                 MEM[(cur_list.tail + 3) as usize].b32.s1 =
                     MEM[(p + 3) as usize].b32.s1 + MEM[(p + 2) as usize].b32.s1;
                 MEM[(cur_list.tail + 4) as usize].b32.s0 = MEM[(p + 5) as usize].b32.s1;
@@ -24320,8 +24309,7 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
                 MEM[cur_list.tail as usize].b32.s1 = get_node(2);
                 cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
                 MEM[cur_list.tail as usize].b16.s1 = 5_u16;
-                MEM[cur_list.tail as usize].b16.s0 =
-                    SAVE_STACK[(save_ptr + 1) as usize].b32.s1 as u16;
+                MEM[cur_list.tail as usize].b16.s0 = SAVE_STACK[SAVE_PTR + 1].b32.s1 as u16;
                 MEM[(cur_list.tail + 1) as usize].b32.s1 = MEM[(p + 5) as usize].b32.s1;
                 delete_glue_ref(q);
             }
@@ -24436,11 +24424,11 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
         12 => {
             end_graf();
             unsave();
-            save_ptr = save_ptr - 2i32;
+            SAVE_PTR -= 2;
             p = vpackage(
                 MEM[cur_list.head as usize].b32.s1,
-                SAVE_STACK[(save_ptr + 1) as usize].b32.s1,
-                SAVE_STACK[(save_ptr + 0) as usize].b32.s1 as small_number,
+                SAVE_STACK[SAVE_PTR + 1].b32.s1,
+                SAVE_STACK[SAVE_PTR + 0].b32.s1 as small_number,
                 0x3fffffffi32,
             );
             pop_nest();
@@ -24455,26 +24443,22 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
         }
         9 => {
             unsave();
-            save_ptr -= 1;
-            MEM[SAVE_STACK[(save_ptr + 0) as usize].b32.s1 as usize]
-                .b32
-                .s1 = 3i32;
+            SAVE_PTR -= 1;
+            MEM[SAVE_STACK[SAVE_PTR + 0].b32.s1 as usize].b32.s1 = 3i32;
             p = fin_mlist(TEX_NULL);
-            MEM[SAVE_STACK[(save_ptr + 0) as usize].b32.s1 as usize]
-                .b32
-                .s0 = p;
+            MEM[SAVE_STACK[SAVE_PTR + 0].b32.s1 as usize].b32.s0 = p;
             if p != TEX_NULL {
                 if MEM[p as usize].b32.s1 == TEX_NULL {
                     if MEM[p as usize].b16.s1 as i32 == 16 {
                         if MEM[(p + 3) as usize].b32.s1 == 0 {
                             if MEM[(p + 2) as usize].b32.s1 == 0 {
-                                MEM[SAVE_STACK[(save_ptr + 0) as usize].b32.s1 as usize].b32 =
+                                MEM[SAVE_STACK[SAVE_PTR + 0].b32.s1 as usize].b32 =
                                     MEM[(p + 1) as usize].b32;
                                 free_node(p, 4i32);
                             }
                         }
                     } else if MEM[p as usize].b16.s1 as i32 == 28 {
-                        if SAVE_STACK[(save_ptr + 0) as usize].b32.s1 == cur_list.tail + 1i32 {
+                        if SAVE_STACK[SAVE_PTR + 0].b32.s1 == cur_list.tail + 1i32 {
                             if MEM[cur_list.tail as usize].b16.s1 as i32 == 16 {
                                 /*1222:*/
                                 q = cur_list.head;

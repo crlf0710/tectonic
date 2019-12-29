@@ -15,10 +15,9 @@ use super::xetex_consts::{
 };
 
 use super::xetex_ini::{
-    dig, doing_special, error_line, file_offset, full_source_filename_stack, hash, in_open, line,
-    line_stack, log_file, max_print_line, pool_ptr, pool_size, rust_stdout, selector, str_pool,
-    str_ptr, str_start, tally, term_offset, trick_buf, trick_count, write_file, EQTB, EQTB_TOP,
-    MEM,
+    dig, doing_special, error_line, file_offset, hash, line, log_file, max_print_line, pool_ptr,
+    pool_size, rust_stdout, selector, str_pool, str_ptr, str_start, tally, term_offset, trick_buf,
+    trick_count, write_file, EQTB, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
 use super::xetex_ini::{memory_word, Selector};
 use bridge::ttstub_output_putc;
@@ -561,20 +560,20 @@ pub(crate) unsafe extern "C" fn print_sa_num(mut q: i32) {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn print_file_line() {
-    let mut level: i32 = in_open;
-    while level > 0i32 && *full_source_filename_stack.offset(level as isize) == 0i32 {
+    let mut level = IN_OPEN;
+    while level > 0 && FULL_SOURCE_FILENAME_STACK[level] == 0 {
         level -= 1
     }
-    if level == 0i32 {
+    if level == 0 {
         print_nl_cstr(b"! ");
     } else {
         print_nl_cstr(b"");
-        print(*full_source_filename_stack.offset(level as isize));
+        print(FULL_SOURCE_FILENAME_STACK[level]);
         print(':' as i32);
-        if level == in_open {
+        if level == IN_OPEN {
             print_int(line);
         } else {
-            print_int(*line_stack.offset((level + 1i32) as isize));
+            print_int(LINE_STACK[level + 1]);
         }
         print_cstr(b": ");
     };

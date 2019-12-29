@@ -14,10 +14,10 @@ use crate::xetex_ini::{
     adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i, cur_lang,
     cur_list, cur_val, cur_val1, empty, file_line_error_style_p, font_bc, font_ec,
     font_layout_engine, help_line, help_ptr, insert_src_special_every_math, just_box, nest_ptr,
-    null_character, pre_adjust_tail, save_ptr, skew_char, temp_ptr, tex_remainder, total_shrink,
+    null_character, pre_adjust_tail, skew_char, temp_ptr, tex_remainder, total_shrink,
     xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB, EXTEN_BASE, FONT_AREA,
     FONT_INFO, FONT_PARAMS, HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM, PARAM_BASE,
-    SAVE_STACK, WIDTH_BASE,
+    SAVE_PTR, SAVE_STACK, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b16x4_le_t, memory_word};
 use crate::xetex_layout_interface::*;
@@ -1095,8 +1095,8 @@ pub(crate) unsafe extern "C" fn init_math() {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn start_eq_no() {
-    SAVE_STACK[(save_ptr + 0) as usize].b32.s1 = cur_chr;
-    save_ptr += 1;
+    SAVE_STACK[SAVE_PTR + 0].b32.s1 = cur_chr;
+    SAVE_PTR += 1;
     push_math(15i32 as group_code);
     eq_word_define(
         1i32 + (0x10ffffi32 + 1i32)
@@ -1436,8 +1436,8 @@ pub(crate) unsafe extern "C" fn math_ac() {
 pub(crate) unsafe extern "C" fn append_choices() {
     MEM[cur_list.tail as usize].b32.s1 = new_choice();
     cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
-    save_ptr += 1;
-    SAVE_STACK[(save_ptr - 1) as usize].b32.s1 = 0;
+    SAVE_PTR += 1;
+    SAVE_STACK[SAVE_PTR - 1].b32.s1 = 0;
     push_math(13i32 as group_code);
     scan_left_brace();
 }
@@ -1471,18 +1471,18 @@ pub(crate) unsafe extern "C" fn build_choices() {
     let mut p: i32 = 0;
     unsave();
     p = fin_mlist(-0xfffffffi32);
-    match SAVE_STACK[(save_ptr - 1) as usize].b32.s1 {
+    match SAVE_STACK[SAVE_PTR - 1].b32.s1 {
         0 => MEM[(cur_list.tail + 1) as usize].b32.s0 = p,
         1 => MEM[(cur_list.tail + 1) as usize].b32.s1 = p,
         2 => MEM[(cur_list.tail + 2) as usize].b32.s0 = p,
         3 => {
             MEM[(cur_list.tail + 2) as usize].b32.s1 = p;
-            save_ptr -= 1;
+            SAVE_PTR -= 1;
             return;
         }
         _ => {}
     }
-    let ref mut fresh0 = SAVE_STACK[(save_ptr - 1) as usize].b32.s1;
+    let ref mut fresh0 = SAVE_STACK[SAVE_PTR - 1].b32.s1;
     *fresh0 += 1;
     push_math(13i32 as group_code);
     scan_left_brace();
@@ -2317,8 +2317,8 @@ pub(crate) unsafe extern "C" fn after_math() {
         );
         MEM[a as usize].b16.s0 = 2_u16;
         unsave();
-        save_ptr -= 1;
-        if SAVE_STACK[(save_ptr + 0) as usize].b32.s1 == 1 {
+        SAVE_PTR -= 1;
+        if SAVE_STACK[SAVE_PTR + 0].b32.s1 == 1 {
             l = true
         }
         danger = false;

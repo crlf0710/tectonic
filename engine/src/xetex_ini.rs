@@ -398,7 +398,7 @@ pub(crate) struct list_state_record {
     pub(crate) mode_line: i32,
     pub(crate) aux: memory_word,
 }
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub(crate) struct input_state_t {
     pub(crate) state: u16,
@@ -469,9 +469,9 @@ pub(crate) static mut trie_size: i32 = 0;
 #[no_mangle]
 pub(crate) static mut buf_size: i32 = 0;
 #[no_mangle]
-pub(crate) static mut stack_size: i32 = 0;
+pub(crate) static mut STACK_SIZE: usize = 0;
 #[no_mangle]
-pub(crate) static mut max_in_open: i32 = 0;
+pub(crate) static mut MAX_IN_OPEN: usize = 0;
 #[no_mangle]
 pub(crate) static mut param_size: i32 = 0;
 #[no_mangle]
@@ -641,9 +641,9 @@ pub(crate) static mut prim_eqtb: [memory_word; 501] = [memory_word {
 #[no_mangle]
 pub(crate) static mut SAVE_STACK: Vec<memory_word> = Vec::new();
 #[no_mangle]
-pub(crate) static mut save_ptr: i32 = 0;
+pub(crate) static mut SAVE_PTR: usize = 0;
 #[no_mangle]
-pub(crate) static mut max_save_stack: i32 = 0;
+pub(crate) static mut MAX_SAVE_STACK: usize = 0;
 #[no_mangle]
 pub(crate) static mut cur_level: u16 = 0;
 #[no_mangle]
@@ -661,11 +661,11 @@ pub(crate) static mut cur_cs: i32 = 0;
 #[no_mangle]
 pub(crate) static mut cur_tok: i32 = 0;
 #[no_mangle]
-pub(crate) static mut input_stack: *mut input_state_t = ptr::null_mut();
+pub(crate) static mut INPUT_STACK: Vec<input_state_t> = Vec::new();
 #[no_mangle]
-pub(crate) static mut input_ptr: i32 = 0;
+pub(crate) static mut INPUT_PTR: usize = 0;
 #[no_mangle]
-pub(crate) static mut max_in_stack: i32 = 0;
+pub(crate) static mut MAX_IN_STACK: usize = 0;
 #[no_mangle]
 pub(crate) static mut cur_input: input_state_t = input_state_t {
     state: 0,
@@ -677,19 +677,19 @@ pub(crate) static mut cur_input: input_state_t = input_state_t {
     synctex_tag: 0,
 };
 #[no_mangle]
-pub(crate) static mut in_open: i32 = 0;
+pub(crate) static mut IN_OPEN: usize = 0;
 #[no_mangle]
 pub(crate) static mut open_parens: i32 = 0;
 #[no_mangle]
-pub(crate) static mut input_file: *mut *mut UFILE = 0 as *const *mut UFILE as *mut *mut UFILE;
+pub(crate) static mut INPUT_FILE: Vec<*mut UFILE> = Vec::new();
 #[no_mangle]
 pub(crate) static mut line: i32 = 0;
 #[no_mangle]
-pub(crate) static mut line_stack: *mut i32 = ptr::null_mut();
+pub(crate) static mut LINE_STACK: Vec<i32> = Vec::new();
 #[no_mangle]
-pub(crate) static mut source_filename_stack: *mut str_number = ptr::null_mut();
+pub(crate) static mut SOURCE_FILENAME_STACK: Vec<str_number> = Vec::new();
 #[no_mangle]
-pub(crate) static mut full_source_filename_stack: *mut str_number = ptr::null_mut();
+pub(crate) static mut FULL_SOURCE_FILENAME_STACK: Vec<str_number> = Vec::new();
 #[no_mangle]
 pub(crate) static mut scanner_status: u8 = 0;
 #[no_mangle]
@@ -705,7 +705,7 @@ pub(crate) static mut max_param_stack: i32 = 0;
 #[no_mangle]
 pub(crate) static mut align_state: i32 = 0;
 #[no_mangle]
-pub(crate) static mut base_ptr: i32 = 0;
+pub(crate) static mut BASE_PTR: usize = 0;
 #[no_mangle]
 pub(crate) static mut par_loc: i32 = 0;
 #[no_mangle]
@@ -1085,7 +1085,7 @@ pub(crate) static mut pdf_last_x_pos: i32 = 0;
 #[no_mangle]
 pub(crate) static mut pdf_last_y_pos: i32 = 0;
 #[no_mangle]
-pub(crate) static mut eof_seen: *mut bool = ptr::null_mut();
+pub(crate) static mut EOF_SEEN: Vec<bool> = Vec::new();
 #[no_mangle]
 pub(crate) static mut LR_ptr: i32 = 0;
 #[no_mangle]
@@ -1095,9 +1095,9 @@ pub(crate) static mut cur_dir: small_number = 0;
 #[no_mangle]
 pub(crate) static mut pseudo_files: i32 = 0;
 #[no_mangle]
-pub(crate) static mut grp_stack: *mut save_pointer = ptr::null_mut();
+pub(crate) static mut GRP_STACK: Vec<save_pointer> = Vec::new();
 #[no_mangle]
-pub(crate) static mut if_stack: *mut i32 = ptr::null_mut();
+pub(crate) static mut IF_STACK: Vec<i32> = Vec::new();
 #[no_mangle]
 pub(crate) static mut max_reg_num: i32 = 0;
 #[no_mangle]
@@ -2952,7 +2952,7 @@ unsafe extern "C" fn store_fmt_file() {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut x: i32 = 0;
-    if save_ptr != 0i32 {
+    if SAVE_PTR != 0 {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -4863,7 +4863,7 @@ unsafe extern "C" fn final_cleanup() {
     if job_name == 0i32 {
         open_log_file();
     }
-    while input_ptr > 0i32 {
+    while INPUT_PTR > 0 {
         if cur_input.state as i32 == 0i32 {
             end_token_list();
         } else {
@@ -4967,7 +4967,7 @@ unsafe extern "C" fn init_io() {
     stdin_ufile.skipNextLF = 0_i16;
     stdin_ufile.encodingMode = 1_i16;
     stdin_ufile.conversionData = 0 as *mut libc::c_void;
-    let ref mut fresh19 = *input_file.offset(0);
+    let ref mut fresh19 = INPUT_FILE[0];
     *fresh19 = &mut stdin_ufile;
     *buffer.offset(first as isize) = 0i32;
     last = first;
@@ -5050,11 +5050,11 @@ unsafe extern "C" fn initialize_more_variables() {
         prim_eqtb[k as usize] = prim_eqtb[0];
         k += 1
     }
-    save_ptr = 0i32;
+    SAVE_PTR = 0;
     cur_level = 1_u16;
     cur_group = 0i32 as group_code;
     cur_boundary = 0i32;
-    max_save_stack = 0i32;
+    MAX_SAVE_STACK = 0;
     mag_set = 0i32;
     expand_depth_count = 0i32;
     is_in_csname = false;
@@ -8828,10 +8828,10 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     hyph_size = 8191i32;
     buf_size = 200000i64 as i32;
     nest_size = 500i32;
-    max_in_open = 15i32;
+    MAX_IN_OPEN = 15;
     param_size = 10000i32;
     SAVE_SIZE = 80000;
-    stack_size = 5000i32;
+    STACK_SIZE = 5000;
     error_line = 79i32;
     half_error_line = 50i32;
     max_print_line = 79i32;
@@ -8841,14 +8841,14 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     buffer = xmalloc_array(buf_size as usize);
     nest = xmalloc_array(nest_size as usize);
     SAVE_STACK = vec![memory_word::default(); SAVE_SIZE + 1];
-    input_stack = xmalloc_array(stack_size as usize);
-    input_file = xmalloc_array(max_in_open as usize);
-    line_stack = xmalloc_array(max_in_open as usize);
-    eof_seen = xmalloc_array(max_in_open as usize);
-    grp_stack = xmalloc_array(max_in_open as usize);
-    if_stack = xmalloc_array(max_in_open as usize);
-    source_filename_stack = xmalloc_array(max_in_open as usize);
-    full_source_filename_stack = xmalloc_array(max_in_open as usize);
+    INPUT_STACK = vec![input_state_t::default(); STACK_SIZE + 1];
+    INPUT_FILE = vec![0 as *mut UFILE; MAX_IN_OPEN + 1];
+    LINE_STACK = vec![0; MAX_IN_OPEN + 1];
+    EOF_SEEN = vec![false; MAX_IN_OPEN + 1];
+    GRP_STACK = vec![0; MAX_IN_OPEN + 1];
+    IF_STACK = vec![0; MAX_IN_OPEN + 1];
+    SOURCE_FILENAME_STACK = vec![0; MAX_IN_OPEN + 1];
+    FULL_SOURCE_FILENAME_STACK = vec![0; MAX_IN_OPEN + 1];
     param_stack = xmalloc_array(param_size as usize);
     hyph_word = xmalloc_array(hyph_size as usize);
     hyph_list = xmalloc_array(hyph_size as usize);
@@ -8893,7 +8893,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     if HASH_PRIME > HASH_SIZE {
         bad = 5
     }
-    if max_in_open >= 128 {
+    if MAX_IN_OPEN >= 128 {
         bad = 6
     }
     if MEM_TOP < 267 {
@@ -8954,15 +8954,15 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     } else {
         output_file_extension = b".xdv\x00" as *const u8 as *const i8
     }
-    input_ptr = 0i32;
-    max_in_stack = 0i32;
-    *source_filename_stack.offset(0) = 0i32;
-    *full_source_filename_stack.offset(0) = 0i32;
-    in_open = 0i32;
+    INPUT_PTR = 0;
+    MAX_IN_STACK = 0;
+    SOURCE_FILENAME_STACK[0] = 0;
+    FULL_SOURCE_FILENAME_STACK[0] = 0;
+    IN_OPEN = 0;
     open_parens = 0i32;
     max_buf_stack = 0i32;
-    *grp_stack.offset(0) = 0i32;
-    *if_stack.offset(0) = TEX_NULL;
+    GRP_STACK[0] = 0;
+    IF_STACK[0] = TEX_NULL;
     param_ptr = 0i32;
     max_param_stack = 0i32;
     used_tectonic_coda_tokens = false;
@@ -9344,14 +9344,14 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     free(buffer as *mut libc::c_void);
     free(nest as *mut libc::c_void);
     SAVE_STACK = Vec::new();
-    free(input_stack as *mut libc::c_void);
-    free(input_file as *mut libc::c_void);
-    free(line_stack as *mut libc::c_void);
-    free(eof_seen as *mut libc::c_void);
-    free(grp_stack as *mut libc::c_void);
-    free(if_stack as *mut libc::c_void);
-    free(source_filename_stack as *mut libc::c_void);
-    free(full_source_filename_stack as *mut libc::c_void);
+    INPUT_STACK = Vec::new();
+    INPUT_FILE = Vec::new();
+    LINE_STACK = Vec::new();
+    EOF_SEEN = Vec::new();
+    GRP_STACK = Vec::new();
+    IF_STACK = Vec::new();
+    SOURCE_FILENAME_STACK = Vec::new();
+    FULL_SOURCE_FILENAME_STACK = Vec::new();
     free(param_stack as *mut libc::c_void);
     free(hyph_word as *mut libc::c_void);
     free(hyph_list as *mut libc::c_void);
