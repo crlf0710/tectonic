@@ -477,7 +477,7 @@ pub(crate) static mut param_size: i32 = 0;
 #[no_mangle]
 pub(crate) static mut nest_size: i32 = 0;
 #[no_mangle]
-pub(crate) static mut save_size: i32 = 0;
+pub(crate) static mut SAVE_SIZE: usize = 0;
 #[no_mangle]
 pub(crate) static mut expand_depth: i32 = 0;
 #[no_mangle]
@@ -639,7 +639,7 @@ pub(crate) static mut prim_eqtb: [memory_word; 501] = [memory_word {
     b32: b32x2 { s0: 0, s1: 0 },
 }; 501];
 #[no_mangle]
-pub(crate) static mut save_stack: *mut memory_word = ptr::null_mut();
+pub(crate) static mut SAVE_STACK: Vec<memory_word> = Vec::new();
 #[no_mangle]
 pub(crate) static mut save_ptr: i32 = 0;
 #[no_mangle]
@@ -789,7 +789,7 @@ pub(crate) static mut FONT_PARAMS: Vec<font_index> = Vec::new();
 #[no_mangle]
 pub(crate) static mut font_name: *mut str_number = ptr::null_mut();
 #[no_mangle]
-pub(crate) static mut font_area: *mut str_number = ptr::null_mut();
+pub(crate) static mut FONT_AREA: Vec<str_number> = Vec::new();
 #[no_mangle]
 pub(crate) static mut font_bc: *mut UTF16_code = ptr::null_mut();
 #[no_mangle]
@@ -2915,9 +2915,9 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                     *hyphen_char.offset(f as isize) = cur_val
                 } else { *skew_char.offset(f as isize) = cur_val }
             } else {
-                if *font_area.offset(f as isize) as u32 == 0xffffu32
+                if FONT_AREA[f as usize] as u32 == 0xffffu32
                        ||
-                       *font_area.offset(f as isize) as u32 ==
+                       FONT_AREA[f as usize] as u32 ==
                            0xfffeu32 {
                     scan_glyph_number(f);
                 } else { scan_char_num(); }
@@ -3465,7 +3465,7 @@ unsafe extern "C" fn store_fmt_file() {
         fmt_out,
     );
     do_dump(
-        &mut *font_area.offset(0) as *mut str_number as *mut i8,
+        &mut FONT_AREA[0] as *mut str_number as *mut i8,
         ::std::mem::size_of::<str_number>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
@@ -3565,8 +3565,8 @@ unsafe extern "C" fn store_fmt_file() {
         print_nl_cstr(b"\\font");
         print_esc((*hash.offset(FONT_ID_BASE as isize + k as isize)).s1);
         print_char('=' as i32);
-        if *font_area.offset(k as isize) as u32 == 0xffffu32
-            || *font_area.offset(k as isize) as u32 == 0xfffeu32
+        if FONT_AREA[k as usize] as u32 == 0xffffu32
+            || FONT_AREA[k as usize] as u32 == 0xfffeu32
             || !(*font_mapping.offset(k as isize)).is_null()
         {
             print_file_name(
@@ -3588,7 +3588,7 @@ unsafe extern "C" fn store_fmt_file() {
         } else {
             print_file_name(
                 *font_name.offset(k as isize),
-                *font_area.offset(k as isize),
+                FONT_AREA[k as usize],
                 (65536 + 1i32 as i64) as i32,
             );
         }
@@ -4329,7 +4329,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     font_dsize = xmalloc_array(FONT_MAX);
     FONT_PARAMS = vec![0; FONT_MAX + 1];
     font_name = xmalloc_array(FONT_MAX);
-    font_area = xmalloc_array(FONT_MAX);
+    FONT_AREA = vec![0; FONT_MAX + 1];
     font_bc = xmalloc_array(FONT_MAX);
     font_ec = xmalloc_array(FONT_MAX);
     font_glue = xmalloc_array(FONT_MAX);
@@ -4429,19 +4429,19 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     let mut i_2: i32 = 0;
     do_undump(
-        &mut *font_area.offset(0) as *mut str_number as *mut i8,
+        &mut FONT_AREA[0] as *mut str_number as *mut i8,
         ::std::mem::size_of::<str_number>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     i_2 = 0i32;
     while i_2 < font_ptr + 1i32 {
-        if *(&mut *font_area.offset(0) as *mut str_number).offset(i_2 as isize) > str_ptr {
+        if *(&mut FONT_AREA[0] as *mut str_number).offset(i_2 as isize) > str_ptr {
             panic!(
                 "Item {} (={}) of .fmt array at {:x} >{}",
                 i_2,
-                *(&mut *font_area.offset(0) as *mut str_number).offset(i_2 as isize) as uintptr_t,
-                &mut *font_area.offset(0) as *mut str_number as uintptr_t,
+                *(&mut FONT_AREA[0] as *mut str_number).offset(i_2 as isize) as uintptr_t,
+                &mut FONT_AREA[0] as *mut str_number as uintptr_t,
                 str_ptr as uintptr_t
             );
         }
@@ -8830,7 +8830,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     nest_size = 500i32;
     max_in_open = 15i32;
     param_size = 10000i32;
-    save_size = 80000i64 as i32;
+    SAVE_SIZE = 80000;
     stack_size = 5000i32;
     error_line = 79i32;
     half_error_line = 50i32;
@@ -8840,7 +8840,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     /* Allocate many of our big arrays. */
     buffer = xmalloc_array(buf_size as usize);
     nest = xmalloc_array(nest_size as usize);
-    save_stack = xmalloc_array(save_size as usize);
+    SAVE_STACK = vec![memory_word::default(); SAVE_SIZE + 1];
     input_stack = xmalloc_array(stack_size as usize);
     input_file = xmalloc_array(max_in_open as usize);
     line_stack = xmalloc_array(max_in_open as usize);
@@ -8908,7 +8908,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     if FONT_MAX as i32 > FONT_BASE + 9000 {
         bad = 16
     }
-    if save_size > MAX_HALFWORD || max_strings > MAX_HALFWORD {
+    if SAVE_SIZE as i32 > MAX_HALFWORD || max_strings > MAX_HALFWORD {
         bad = 17
     }
     if buf_size > MAX_HALFWORD {
@@ -9252,7 +9252,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
         font_dsize = xcalloc_array(FONT_MAX);
         FONT_PARAMS = vec![0; FONT_MAX + 1];
         font_name = xcalloc_array(FONT_MAX);
-        font_area = xcalloc_array(FONT_MAX);
+        FONT_AREA = vec![0; FONT_MAX + 1];
         font_bc = xcalloc_array(FONT_MAX);
         font_ec = xcalloc_array(FONT_MAX);
         font_glue = xcalloc_array(FONT_MAX);
@@ -9273,7 +9273,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
         font_ptr = 0i32;
         fmem_ptr = 7i32;
         *font_name.offset(0) = maketexstring(b"nullfont");
-        *font_area.offset(0) = (65536 + 1i32 as i64) as str_number;
+        FONT_AREA[0] = (65536 + 1i32 as i64) as str_number;
         *hyphen_char.offset(0) = '-' as i32;
         *skew_char.offset(0) = -1i32;
         *bchar_label.offset(0) = 0i32;
@@ -9333,7 +9333,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
         if !(*font_layout_engine.offset(font_k as isize)).is_null() {
             release_font_engine(
                 *font_layout_engine.offset(font_k as isize),
-                *font_area.offset(font_k as isize),
+                FONT_AREA[font_k as usize],
             );
             let ref mut fresh22 = *font_layout_engine.offset(font_k as isize);
             *fresh22 = 0 as *mut libc::c_void
@@ -9343,7 +9343,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     // Free the big allocated arrays
     free(buffer as *mut libc::c_void);
     free(nest as *mut libc::c_void);
-    free(save_stack as *mut libc::c_void);
+    SAVE_STACK = Vec::new();
     free(input_stack as *mut libc::c_void);
     free(input_file as *mut libc::c_void);
     free(line_stack as *mut libc::c_void);
@@ -9374,7 +9374,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     free(font_dsize as *mut libc::c_void);
     FONT_PARAMS = Vec::new();
     free(font_name as *mut libc::c_void);
-    free(font_area as *mut libc::c_void);
+    FONT_AREA = Vec::new();
     free(font_bc as *mut libc::c_void);
     free(font_ec as *mut libc::c_void);
     free(font_glue as *mut libc::c_void);

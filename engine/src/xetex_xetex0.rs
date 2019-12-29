@@ -45,9 +45,9 @@ use crate::xetex_ini::{
     cur_val_level, dead_cycles, def_ref, deletions_allowed, depth_threshold, dig, disc_ptr, empty,
     eof_seen, error_count, error_line, expand_depth, expand_depth_count, ext_delimiter,
     false_bchar, file_line_error_style_p, file_name_quote_char, file_offset, first, first_count,
-    fmem_ptr, font_area, font_bc, font_bchar, font_check, font_dsize, font_ec, font_false_bchar,
-    font_flags, font_glue, font_in_short_display, font_layout_engine, font_letter_space,
-    font_mapping, font_name, font_ptr, font_size, font_used, force_eof, full_source_filename_stack,
+    fmem_ptr, font_bc, font_bchar, font_check, font_dsize, font_ec, font_false_bchar, font_flags,
+    font_glue, font_in_short_display, font_layout_engine, font_letter_space, font_mapping,
+    font_name, font_ptr, font_size, font_used, force_eof, full_source_filename_stack,
     gave_char_warning_help, grp_stack, half_error_line, hash, hash_extra, hash_high, hash_used,
     help_line, help_ptr, hi_mem_min, history, hyphen_char, if_limit, if_line, if_stack, in_open,
     init_pool_ptr, init_str_ptr, input_file, input_ptr, input_stack, ins_disc, insert_penalties,
@@ -66,13 +66,13 @@ use crate::xetex_ini::{
     pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim,
     prim_eqtb, prim_used, pseudo_files, pstack, quoted_filename, radix, read_file, read_open,
     rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_null, sa_root, save_native_len, save_ptr,
-    save_size, save_stack, scanner_status, selector, set_box_allowed, shown_mode, skew_char,
-    skip_line, source_filename_stack, space_class, stack_size, stop_at_space, str_pool, str_ptr,
-    str_start, tally, temp_ptr, term_offset, tex_remainder, texmf_log_name, total_shrink,
-    total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens, warning_index,
-    write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB,
-    EQTB_TOP, EXTEN_BASE, FONT_INFO, FONT_MAX, FONT_MEM_SIZE, FONT_PARAMS, HEIGHT_BASE,
-    ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM, PARAM_BASE, WIDTH_BASE,
+    scanner_status, selector, set_box_allowed, shown_mode, skew_char, skip_line,
+    source_filename_stack, space_class, stack_size, stop_at_space, str_pool, str_ptr, str_start,
+    tally, temp_ptr, term_offset, tex_remainder, texmf_log_name, total_shrink, total_stretch,
+    trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens, warning_index, write_file,
+    write_open, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB, EQTB_TOP,
+    EXTEN_BASE, FONT_AREA, FONT_INFO, FONT_MAX, FONT_MEM_SIZE, FONT_PARAMS, HEIGHT_BASE,
+    ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM, PARAM_BASE, SAVE_SIZE, SAVE_STACK, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b32x2, memory_word, prefixed_command};
 use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding, u_close};
@@ -4194,8 +4194,8 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         89 => {
             print_cstr(b"select font ");
             font_name_str = *font_name.offset(chr_code as isize);
-            if *font_area.offset(chr_code as isize) as u32 == 0xffffu32
-                || *font_area.offset(chr_code as isize) as u32 == 0xfffeu32
+            if FONT_AREA[chr_code as usize] as u32 == 0xffffu32
+                || FONT_AREA[chr_code as usize] as u32 == 0xfffeu32
             {
                 let mut for_end: i32 = length(font_name_str) - 1i32;
                 quote_char = '\"' as i32 as UTF16_code;
@@ -4739,13 +4739,13 @@ pub(crate) unsafe extern "C" fn print_group(mut e: bool) {
     print_cstr(b" group (level ");
     print_int(cur_level as i32);
     print_char(')' as i32);
-    if (*save_stack.offset((save_ptr - 1i32) as isize)).b32.s1 != 0i32 {
+    if SAVE_STACK[(save_ptr - 1) as usize].b32.s1 != 0i32 {
         if e {
             print_cstr(b" entered at line ");
         } else {
             print_cstr(b" at line ");
         }
-        print_int((*save_stack.offset((save_ptr - 1i32) as isize)).b32.s1);
+        print_int(SAVE_STACK[(save_ptr - 1i32) as usize].b32.s1);
     };
 }
 /*:1448*/
@@ -4865,7 +4865,7 @@ pub(crate) unsafe extern "C" fn group_warning() {
                 w = true
             }
         }
-        *grp_stack.offset(i as isize) = (*save_stack.offset(save_ptr as isize)).b32.s1;
+        *grp_stack.offset(i as isize) = SAVE_STACK[save_ptr as usize].b32.s1;
         i -= 1
     }
     if w {
@@ -5019,8 +5019,8 @@ pub(crate) unsafe extern "C" fn file_warning() {
         print_nl_cstr(b"Warning: end of file when ");
         print_group(1i32 != 0);
         print_cstr(b" is incomplete");
-        cur_group = (*save_stack.offset(save_ptr as isize)).b16.s0 as group_code;
-        save_ptr = (*save_stack.offset(save_ptr as isize)).b32.s1
+        cur_group = SAVE_STACK[save_ptr as usize].b16.s0 as group_code;
+        save_ptr = SAVE_STACK[save_ptr as usize].b32.s1
     }
     save_ptr = p;
     cur_level = l;
@@ -5144,13 +5144,13 @@ pub(crate) unsafe extern "C" fn sa_save(mut p: i32) {
     if cur_level as i32 != sa_level as i32 {
         if save_ptr > max_save_stack {
             max_save_stack = save_ptr;
-            if max_save_stack > save_size - 7i32 {
-                overflow(b"save size", save_size);
+            if max_save_stack > SAVE_SIZE as i32 - 7 {
+                overflow(b"save size", SAVE_SIZE as i32);
             }
         }
-        (*save_stack.offset(save_ptr as isize)).b16.s1 = 4_u16;
-        (*save_stack.offset(save_ptr as isize)).b16.s0 = sa_level;
-        (*save_stack.offset(save_ptr as isize)).b32.s1 = sa_chain;
+        SAVE_STACK[save_ptr as usize].b16.s1 = 4_u16;
+        SAVE_STACK[save_ptr as usize].b16.s0 = sa_level;
+        SAVE_STACK[save_ptr as usize].b32.s1 = sa_chain;
         save_ptr += 1;
         sa_chain = TEX_NULL;
         sa_level = cur_level
@@ -5275,15 +5275,15 @@ pub(crate) unsafe extern "C" fn sa_restore() {
 pub(crate) unsafe extern "C" fn new_save_level(mut c: group_code) {
     if save_ptr > max_save_stack {
         max_save_stack = save_ptr;
-        if max_save_stack > save_size - 7i32 {
-            overflow(b"save size", save_size);
+        if max_save_stack > SAVE_SIZE as i32 - 7 {
+            overflow(b"save size", SAVE_SIZE as i32);
         }
     }
-    (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 = line;
+    SAVE_STACK[(save_ptr + 0i32) as usize].b32.s1 = line;
     save_ptr += 1;
-    (*save_stack.offset(save_ptr as isize)).b16.s1 = 3_u16;
-    (*save_stack.offset(save_ptr as isize)).b16.s0 = cur_group as u16;
-    (*save_stack.offset(save_ptr as isize)).b32.s1 = cur_boundary;
+    SAVE_STACK[save_ptr as usize].b16.s1 = 3_u16;
+    SAVE_STACK[save_ptr as usize].b16.s0 = cur_group as u16;
+    SAVE_STACK[save_ptr as usize].b32.s1 = cur_boundary;
     if cur_level as i32 == 65535i32 {
         overflow(b"grouping levels", 65535i32);
     }
@@ -5323,19 +5323,19 @@ pub(crate) unsafe extern "C" fn eq_destroy(mut w: memory_word) {
 pub(crate) unsafe extern "C" fn eq_save(mut p: i32, mut l: u16) {
     if save_ptr > max_save_stack {
         max_save_stack = save_ptr;
-        if max_save_stack > save_size - 7i32 {
-            overflow(b"save size", save_size);
+        if max_save_stack > SAVE_SIZE as i32 - 7 {
+            overflow(b"save size", SAVE_SIZE as i32);
         }
     }
     if l as i32 == 0i32 {
-        (*save_stack.offset(save_ptr as isize)).b16.s1 = 1_u16
+        SAVE_STACK[save_ptr as usize].b16.s1 = 1_u16
     } else {
-        *save_stack.offset(save_ptr as isize) = EQTB[p as usize];
+        SAVE_STACK[save_ptr as usize] = EQTB[p as usize];
         save_ptr += 1;
-        (*save_stack.offset(save_ptr as isize)).b16.s1 = 0_u16
+        SAVE_STACK[save_ptr as usize].b16.s1 = 0_u16
     }
-    (*save_stack.offset(save_ptr as isize)).b16.s0 = l;
-    (*save_stack.offset(save_ptr as isize)).b32.s1 = p;
+    SAVE_STACK[save_ptr as usize].b16.s0 = l;
+    SAVE_STACK[save_ptr as usize].b32.s1 = p;
     save_ptr += 1;
 }
 #[no_mangle]
@@ -5482,13 +5482,13 @@ pub(crate) unsafe extern "C" fn save_for_after(mut t: i32) {
     if cur_level as i32 > 1i32 {
         if save_ptr > max_save_stack {
             max_save_stack = save_ptr;
-            if max_save_stack > save_size - 7i32 {
-                overflow(b"save size", save_size);
+            if max_save_stack > SAVE_SIZE as i32 - 7 {
+                overflow(b"save size", SAVE_SIZE as i32);
             }
         }
-        (*save_stack.offset(save_ptr as isize)).b16.s1 = 2_u16;
-        (*save_stack.offset(save_ptr as isize)).b16.s0 = 0_u16;
-        (*save_stack.offset(save_ptr as isize)).b32.s1 = t;
+        SAVE_STACK[save_ptr as usize].b16.s1 = 2_u16;
+        SAVE_STACK[save_ptr as usize].b16.s0 = 0_u16;
+        SAVE_STACK[save_ptr as usize].b32.s1 = t;
         save_ptr += 1
     };
 }
@@ -5503,11 +5503,11 @@ pub(crate) unsafe extern "C" fn unsave() {
         cur_level = cur_level.wrapping_sub(1);
         loop {
             save_ptr -= 1;
-            if (*save_stack.offset(save_ptr as isize)).b16.s1 as i32 == 3i32 {
+            if SAVE_STACK[save_ptr as usize].b16.s1 as i32 == 3i32 {
                 break;
             }
-            p = (*save_stack.offset(save_ptr as isize)).b32.s1;
-            if (*save_stack.offset(save_ptr as isize)).b16.s1 as i32 == 2i32 {
+            p = SAVE_STACK[save_ptr as usize].b32.s1;
+            if SAVE_STACK[save_ptr as usize].b16.s1 as i32 == 2i32 {
                 /*338: */
                 t = cur_tok;
                 cur_tok = p;
@@ -5529,24 +5529,23 @@ pub(crate) unsafe extern "C" fn unsave() {
                     a = true
                 }
                 cur_tok = t
-            } else if (*save_stack.offset(save_ptr as isize)).b16.s1 as i32 == 4i32 {
+            } else if SAVE_STACK[save_ptr as usize].b16.s1 as i32 == 4i32 {
                 sa_restore();
                 sa_chain = p;
-                sa_level = (*save_stack.offset(save_ptr as isize)).b16.s0
+                sa_level = SAVE_STACK[save_ptr as usize].b16.s0
             } else {
-                if (*save_stack.offset(save_ptr as isize)).b16.s1 as i32 == 0i32 {
-                    l = (*save_stack.offset(save_ptr as isize)).b16.s0;
+                if SAVE_STACK[save_ptr as usize].b16.s1 as i32 == 0i32 {
+                    l = SAVE_STACK[save_ptr as usize].b16.s0;
                     save_ptr -= 1
                 } else {
-                    *save_stack.offset(save_ptr as isize) = EQTB[(1i32
+                    SAVE_STACK[save_ptr as usize] = EQTB[(1i32
                         + (0x10ffffi32 + 1i32)
                         + (0x10ffffi32 + 1i32)
                         + 1i32
                         + 15000i32
                         + 12i32
                         + 9000i32
-                        + 1i32)
-                        as usize];
+                        + 1i32) as usize];
                 }
                 if p < 1i32
                     + (0x10ffffi32 + 1i32)
@@ -5604,10 +5603,10 @@ pub(crate) unsafe extern "C" fn unsave() {
                         - 1i32
                 {
                     if EQTB[p as usize].b16.s0 as i32 == 1i32 {
-                        eq_destroy(*save_stack.offset(save_ptr as isize));
+                        eq_destroy(SAVE_STACK[save_ptr as usize]);
                     } else {
                         eq_destroy(EQTB[p as usize]);
-                        EQTB[p as usize] = *save_stack.offset(save_ptr as isize)
+                        EQTB[p as usize] = SAVE_STACK[save_ptr as usize]
                     }
                 } else if _xeq_level_array[(p
                     - (1i32
@@ -5637,7 +5636,7 @@ pub(crate) unsafe extern "C" fn unsave() {
                     as usize] as i32
                     != 1i32
                 {
-                    EQTB[p as usize] = *save_stack.offset(save_ptr as isize);
+                    EQTB[p as usize] = SAVE_STACK[save_ptr as usize];
                     _xeq_level_array[(p
                         - (1i32
                             + (0x10ffffi32 + 1i32)
@@ -5670,8 +5669,8 @@ pub(crate) unsafe extern "C" fn unsave() {
         if *grp_stack.offset(in_open as isize) == cur_boundary {
             group_warning();
         }
-        cur_group = (*save_stack.offset(save_ptr as isize)).b16.s0 as group_code;
-        cur_boundary = (*save_stack.offset(save_ptr as isize)).b32.s1;
+        cur_group = SAVE_STACK[save_ptr as usize].b16.s0 as group_code;
+        cur_boundary = SAVE_STACK[save_ptr as usize].b32.s1;
         save_ptr -= 1
     } else {
         confusion(b"curlevel");
@@ -8925,7 +8924,7 @@ pub(crate) unsafe extern "C" fn scan_math(mut p: i32) {
                 _ => {
                     back_input();
                     scan_left_brace();
-                    (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 = p;
+                    SAVE_STACK[(save_ptr + 0) as usize].b32.s1 = p;
                     save_ptr += 1;
                     push_math(9i32 as group_code);
                     return;
@@ -10125,8 +10124,8 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                 cur_val_level = 0_u8
             } else {
                 n = cur_val;
-                if *font_area.offset(n as isize) as u32 == 0xffffu32
-                    || *font_area.offset(n as isize) as u32 == 0xfffeu32
+                if FONT_AREA[n as usize] as u32 == 0xffffu32
+                    || FONT_AREA[n as usize] as u32 == 0xfffeu32
                 {
                     scan_glyph_number(n);
                 } else {
@@ -10324,8 +10323,26 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                     match m {
                         47 => {
                             /*1435:*/
-                            if *font_area.offset(
-                                EQTB[(1i32
+                            if FONT_AREA[EQTB[(1i32
+                                + (0x10ffffi32 + 1i32)
+                                + (0x10ffffi32 + 1i32)
+                                + 1i32
+                                + 15000i32
+                                + 12i32
+                                + 9000i32
+                                + 1i32
+                                + 1i32
+                                + 19i32
+                                + 256i32
+                                + 256i32
+                                + 13i32
+                                + 256i32
+                                + 4i32
+                                + 256i32) as usize]
+                                .b32
+                                .s1 as usize] as u32
+                                == 0xffffu32
+                                || FONT_AREA[EQTB[(1i32
                                     + (0x10ffffi32 + 1i32)
                                     + (0x10ffffi32 + 1i32)
                                     + 1i32
@@ -10340,31 +10357,10 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                                     + 13i32
                                     + 256i32
                                     + 4i32
-                                    + 256i32) as usize]
+                                    + 256i32)
+                                    as usize]
                                     .b32
-                                    .s1 as isize,
-                            ) as u32
-                                == 0xffffu32
-                                || *font_area.offset(
-                                    EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32) as usize]
-                                        .b32
-                                        .s1 as isize,
-                                ) as u32
+                                    .s1 as usize] as u32
                                     == 0xfffeu32
                             {
                                 scan_int(); /* shellenabledp */
@@ -10439,8 +10435,8 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                             scan_font_ident();
                             q = cur_val;
                             scan_usv_num();
-                            if *font_area.offset(q as isize) as u32 == 0xffffu32
-                                || *font_area.offset(q as isize) as u32 == 0xfffeu32
+                            if FONT_AREA[q as usize] as u32 == 0xffffu32
+                                || FONT_AREA[q as usize] as u32 == 0xfffeu32
                             {
                                 match m {
                                     48 => cur_val = getnativecharwd(q, cur_val),
@@ -10603,7 +10599,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                         15 => {
                             scan_font_ident();
                             n = cur_val;
-                            match *font_area.offset(n as isize) as u32 {
+                            match FONT_AREA[n as usize] as u32 {
                                 #[cfg(target_os = "macos")]
                                 0xffffu32 => {
                                     cur_val = aat::aat_font_get(
@@ -10623,7 +10619,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                         22 => {
                             scan_font_ident();
                             n = cur_val;
-                            match *font_area.offset(n as isize) as u32 {
+                            match FONT_AREA[n as usize] as u32 {
                                 #[cfg(target_os = "macos")]
                                 0xffffu32 => {
                                     cur_val = aat::aat_font_get(
@@ -10662,7 +10658,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                         23 | 25 | 26 => {
                             scan_font_ident();
                             n = cur_val;
-                            match *font_area.offset(n as isize) as u32 {
+                            match FONT_AREA[n as usize] as u32 {
                                 #[cfg(target_os = "macos")]
                                 0xffffu32 => {
                                     scan_int();
@@ -10706,7 +10702,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                         27 | 29 => {
                             scan_font_ident();
                             n = cur_val;
-                            match *font_area.offset(n as isize) as u32 {
+                            match FONT_AREA[n as usize] as u32 {
                                 #[cfg(target_os = "macos")]
                                 0xffffu32 => {
                                     scan_int();
@@ -10755,7 +10751,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                         18 => {
                             scan_font_ident();
                             n = cur_val;
-                            match *font_area.offset(n as isize) as u32 {
+                            match FONT_AREA[n as usize] as u32 {
                                 #[cfg(target_os = "macos")]
                                 0xffffu32 => {
                                     scan_and_pack_name();
@@ -10778,7 +10774,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                         24 => {
                             scan_font_ident();
                             n = cur_val;
-                            match *font_area.offset(n as isize) as u32 {
+                            match FONT_AREA[n as usize] as u32 {
                                 #[cfg(target_os = "macos")]
                                 0xffffu32 => {
                                     scan_and_pack_name();
@@ -10817,7 +10813,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                         28 => {
                             scan_font_ident();
                             n = cur_val;
-                            match *font_area.offset(n as isize) as u32 {
+                            match FONT_AREA[n as usize] as u32 {
                                 #[cfg(target_os = "macos")]
                                 0xffffu32 => {
                                     scan_int();
@@ -10864,7 +10860,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                         30 => {
                             scan_font_ident();
                             n = cur_val;
-                            if *font_area.offset(n as isize) as u32 == 0xfffeu32
+                            if FONT_AREA[n as usize] as u32 == 0xfffeu32
                                 && usingOpenType(
                                     *font_layout_engine.offset(n as isize) as XeTeXLayoutEngine
                                 ) as i32
@@ -10879,7 +10875,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                         31 | 33 => {
                             scan_font_ident();
                             n = cur_val;
-                            if *font_area.offset(n as isize) as u32 == 0xfffeu32
+                            if FONT_AREA[n as usize] as u32 == 0xfffeu32
                                 && usingOpenType(
                                     *font_layout_engine.offset(n as isize) as XeTeXLayoutEngine
                                 ) as i32
@@ -10899,7 +10895,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                         32 | 34 => {
                             scan_font_ident();
                             n = cur_val;
-                            if *font_area.offset(n as isize) as u32 == 0xfffeu32
+                            if FONT_AREA[n as usize] as u32 == 0xfffeu32
                                 && usingOpenType(
                                     *font_layout_engine.offset(n as isize) as XeTeXLayoutEngine
                                 ) as i32
@@ -10922,7 +10918,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                         35 => {
                             scan_font_ident();
                             n = cur_val;
-                            if *font_area.offset(n as isize) as u32 == 0xfffeu32
+                            if FONT_AREA[n as usize] as u32 == 0xfffeu32
                                 && usingOpenType(
                                     *font_layout_engine.offset(n as isize) as XeTeXLayoutEngine
                                 ) as i32
@@ -10946,8 +10942,26 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                             }
                         }
                         36 => {
-                            if *font_area.offset(
-                                EQTB[(1i32
+                            if FONT_AREA[EQTB[(1i32
+                                + (0x10ffffi32 + 1i32)
+                                + (0x10ffffi32 + 1i32)
+                                + 1i32
+                                + 15000i32
+                                + 12i32
+                                + 9000i32
+                                + 1i32
+                                + 1i32
+                                + 19i32
+                                + 256i32
+                                + 256i32
+                                + 13i32
+                                + 256i32
+                                + 4i32
+                                + 256i32) as usize]
+                                .b32
+                                .s1 as usize] as u32
+                                == 0xffffu32
+                                || FONT_AREA[EQTB[(1i32
                                     + (0x10ffffi32 + 1i32)
                                     + (0x10ffffi32 + 1i32)
                                     + 1i32
@@ -10962,31 +10976,10 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                                     + 13i32
                                     + 256i32
                                     + 4i32
-                                    + 256i32) as usize]
+                                    + 256i32)
+                                    as usize]
                                     .b32
-                                    .s1 as isize,
-                            ) as u32
-                                == 0xffffu32
-                                || *font_area.offset(
-                                    EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32) as usize]
-                                        .b32
-                                        .s1 as isize,
-                                ) as u32
+                                    .s1 as usize] as u32
                                     == 0xfffeu32
                             {
                                 scan_int();
@@ -11041,8 +11034,26 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                             }
                         }
                         37 => {
-                            if *font_area.offset(
-                                EQTB[(1i32
+                            if FONT_AREA[EQTB[(1i32
+                                + (0x10ffffi32 + 1i32)
+                                + (0x10ffffi32 + 1i32)
+                                + 1i32
+                                + 15000i32
+                                + 12i32
+                                + 9000i32
+                                + 1i32
+                                + 1i32
+                                + 19i32
+                                + 256i32
+                                + 256i32
+                                + 13i32
+                                + 256i32
+                                + 4i32
+                                + 256i32) as usize]
+                                .b32
+                                .s1 as usize] as u32
+                                == 0xffffu32
+                                || FONT_AREA[EQTB[(1i32
                                     + (0x10ffffi32 + 1i32)
                                     + (0x10ffffi32 + 1i32)
                                     + 1i32
@@ -11057,31 +11068,10 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                                     + 13i32
                                     + 256i32
                                     + 4i32
-                                    + 256i32) as usize]
+                                    + 256i32)
+                                    as usize]
                                     .b32
-                                    .s1 as isize,
-                            ) as u32
-                                == 0xffffu32
-                                || *font_area.offset(
-                                    EQTB[(1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32) as usize]
-                                        .b32
-                                        .s1 as isize,
-                                ) as u32
+                                    .s1 as usize] as u32
                                     == 0xfffeu32
                             {
                                 scan_and_pack_name();
@@ -11136,16 +11126,16 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                         38 => {
                             scan_font_ident();
                             n = cur_val;
-                            if *font_area.offset(n as isize) as u32 == 0xffffu32 {
+                            if FONT_AREA[n as usize] as u32 == 0xffffu32 {
                                 cur_val = 1i32
-                            } else if *font_area.offset(n as isize) as u32 == 0xfffeu32
+                            } else if FONT_AREA[n as usize] as u32 == 0xfffeu32
                                 && usingOpenType(
                                     *font_layout_engine.offset(n as isize) as XeTeXLayoutEngine
                                 ) as i32
                                     != 0
                             {
                                 cur_val = 2i32
-                            } else if *font_area.offset(n as isize) as u32 == 0xfffeu32
+                            } else if FONT_AREA[n as usize] as u32 == 0xfffeu32
                                 && usingGraphite(
                                     *font_layout_engine.offset(n as isize) as XeTeXLayoutEngine
                                 ) as i32
@@ -11159,8 +11149,8 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                         39 | 40 => {
                             scan_font_ident();
                             n = cur_val;
-                            if *font_area.offset(n as isize) as u32 == 0xffffu32
-                                || *font_area.offset(n as isize) as u32 == 0xfffeu32
+                            if FONT_AREA[n as usize] as u32 == 0xffffu32
+                                || FONT_AREA[n as usize] as u32 == 0xfffeu32
                             {
                                 cur_val = get_font_char_range(n, (m == 39i32) as i32)
                             } else if m == 39i32 {
@@ -13021,7 +13011,7 @@ pub(crate) unsafe extern "C" fn conv_toks() {
         7 => {
             scan_font_ident();
             fnt = cur_val;
-            if *font_area.offset(fnt as isize) as u32 == 0xffffu32 {
+            if FONT_AREA[fnt as usize] as u32 == 0xffffu32 {
                 scan_int();
                 arg1 = cur_val;
                 arg2 = 0i32
@@ -13032,8 +13022,8 @@ pub(crate) unsafe extern "C" fn conv_toks() {
         8 => {
             scan_font_ident();
             fnt = cur_val;
-            if *font_area.offset(fnt as isize) as u32 == 0xffffu32
-                || *font_area.offset(fnt as isize) as u32 == 0xfffeu32
+            if FONT_AREA[fnt as usize] as u32 == 0xffffu32
+                || FONT_AREA[fnt as usize] as u32 == 0xfffeu32
                     && usingGraphite(*font_layout_engine.offset(fnt as isize) as XeTeXLayoutEngine)
                         as i32
                         != 0
@@ -13048,8 +13038,8 @@ pub(crate) unsafe extern "C" fn conv_toks() {
         9 => {
             scan_font_ident();
             fnt = cur_val;
-            if *font_area.offset(fnt as isize) as u32 == 0xffffu32
-                || *font_area.offset(fnt as isize) as u32 == 0xfffeu32
+            if FONT_AREA[fnt as usize] as u32 == 0xffffu32
+                || FONT_AREA[fnt as usize] as u32 == 0xfffeu32
                     && usingGraphite(*font_layout_engine.offset(fnt as isize) as XeTeXLayoutEngine)
                         as i32
                         != 0
@@ -13065,8 +13055,8 @@ pub(crate) unsafe extern "C" fn conv_toks() {
         10 => {
             scan_font_ident();
             fnt = cur_val;
-            if *font_area.offset(fnt as isize) as u32 == 0xffffu32
-                || *font_area.offset(fnt as isize) as u32 == 0xfffeu32
+            if FONT_AREA[fnt as usize] as u32 == 0xffffu32
+                || FONT_AREA[fnt as usize] as u32 == 0xfffeu32
             {
                 scan_int();
                 arg1 = cur_val
@@ -13136,7 +13126,7 @@ pub(crate) unsafe extern "C" fn conv_toks() {
         }
         4 => {
             font_name_str = *font_name.offset(cur_val as isize);
-            match *font_area.offset(cur_val as isize) as u32 {
+            match FONT_AREA[cur_val as usize] as u32 {
                 0xffffu32 | 0xfffeu32 => {
                     quote_char = '\"' as i32 as UTF16_code;
                     i = 0i32 as small_number;
@@ -13178,7 +13168,7 @@ pub(crate) unsafe extern "C" fn conv_toks() {
             print_cstr(b".99998");
         }
         7 => {
-            match *font_area.offset(fnt as isize) as u32 {
+            match FONT_AREA[fnt as usize] as u32 {
                 #[cfg(target_os = "macos")]
                 0xffffu32 => {
                     aat::aat_print_font_name(
@@ -13198,7 +13188,7 @@ pub(crate) unsafe extern "C" fn conv_toks() {
             }
         }
         8 | 9 => {
-            match *font_area.offset(fnt as isize) as u32 {
+            match FONT_AREA[fnt as usize] as u32 {
                 #[cfg(target_os = "macos")]
                 0xffffu32 => {
                     aat::aat_print_font_name(
@@ -13228,7 +13218,7 @@ pub(crate) unsafe extern "C" fn conv_toks() {
                 _ => {}
             }
         }
-        10 => match *font_area.offset(fnt as isize) as u32 {
+        10 => match FONT_AREA[fnt as usize] as u32 {
             0xffffu32 | 0xfffeu32 => {
                 print_glyph_name(fnt, arg1);
             }
@@ -14147,8 +14137,8 @@ pub(crate) unsafe extern "C" fn conditional() {
             scan_font_ident();
             n = cur_val;
             scan_usv_num();
-            if *font_area.offset(n as isize) as u32 == 0xffffu32
-                || *font_area.offset(n as isize) as u32 == 0xfffeu32
+            if FONT_AREA[n as usize] as u32 == 0xffffu32
+                || FONT_AREA[n as usize] as u32 == 0xfffeu32
             {
                 b = map_char_to_glyph(n, cur_val) > 0i32
             } else if *font_bc.offset(n as isize) as i32 <= cur_val
@@ -15468,7 +15458,7 @@ pub(crate) unsafe extern "C" fn load_native_font(
     full_name = make_string();
     f = 0i32 + 1i32;
     while f <= font_ptr {
-        if *font_area.offset(f as isize) == native_font_type_flag
+        if FONT_AREA[f as usize] == native_font_type_flag
             && str_eq_str(*font_name.offset(f as isize), full_name) as i32 != 0
             && *font_size.offset(f as isize) == actual_size
         {
@@ -15520,7 +15510,7 @@ pub(crate) unsafe extern "C" fn load_native_font(
         return 0i32;
     }
     font_ptr += 1;
-    *font_area.offset(font_ptr as isize) = native_font_type_flag;
+    FONT_AREA[font_ptr as usize] = native_font_type_flag;
     *font_name.offset(font_ptr as isize) = full_name;
     (*font_check.offset(font_ptr as isize)).s3 = 0_u16;
     (*font_check.offset(font_ptr as isize)).s2 = 0_u16;
@@ -16484,7 +16474,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
     }
 
     *font_name.offset(f as isize) = nom;
-    *font_area.offset(f as isize) = aire;
+    FONT_AREA[f as usize] = aire;
     *font_bc.offset(f as isize) = bc as UTF16_code;
     *font_ec.offset(f as isize) = ec as UTF16_code;
     *font_glue.offset(f as isize) = TEX_NULL;
@@ -16583,9 +16573,7 @@ pub(crate) unsafe extern "C" fn new_character(
 ) -> i32 {
     let mut p: i32 = 0;
     let mut ec: u16 = 0;
-    if *font_area.offset(f as isize) as u32 == 0xffffu32
-        || *font_area.offset(f as isize) as u32 == 0xfffeu32
-    {
+    if FONT_AREA[f as usize] as u32 == 0xffffu32 || FONT_AREA[f as usize] as u32 == 0xfffeu32 {
         return new_native_character(f, c as UnicodeScalar);
     }
     ec = effective_char(false, f, c) as u16;
@@ -16612,7 +16600,7 @@ pub(crate) unsafe extern "C" fn scan_spec(mut c: group_code, mut three_codes: bo
     let mut s: i32 = 0;
     let mut spec_code: u8 = 0;
     if three_codes {
-        s = (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1
+        s = SAVE_STACK[(save_ptr + 0) as usize].b32.s1
     }
     if scan_keyword(b"to") {
         spec_code = 0_u8;
@@ -16632,11 +16620,11 @@ pub(crate) unsafe extern "C" fn scan_spec(mut c: group_code, mut three_codes: bo
         _ => {}
     }
     if three_codes {
-        (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 = s;
+        SAVE_STACK[(save_ptr + 0) as usize].b32.s1 = s;
         save_ptr += 1
     }
-    (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 = spec_code as i32;
-    (*save_stack.offset((save_ptr + 1i32) as isize)).b32.s1 = cur_val;
+    SAVE_STACK[(save_ptr + 0) as usize].b32.s1 = spec_code as i32;
+    SAVE_STACK[(save_ptr + 1) as usize].b32.s1 = cur_val;
     save_ptr = save_ptr + 2i32;
     new_save_level(c);
     scan_left_brace();
@@ -18843,8 +18831,8 @@ pub(crate) unsafe extern "C" fn fin_align() {
             .s1 = 0i32;
         p = hpack(
             MEM[(4999999 - 8) as usize].b32.s1,
-            (*save_stack.offset((save_ptr + 1i32) as isize)).b32.s1,
-            (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 as small_number,
+            SAVE_STACK[(save_ptr + 1) as usize].b32.s1,
+            SAVE_STACK[(save_ptr + 0) as usize].b32.s1 as small_number,
         );
         EQTB[(1i32
             + (0x10ffffi32 + 1i32)
@@ -18888,8 +18876,8 @@ pub(crate) unsafe extern "C" fn fin_align() {
         }
         p = vpackage(
             MEM[(4999999 - 8) as usize].b32.s1,
-            (*save_stack.offset((save_ptr + 1i32) as isize)).b32.s1,
-            (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 as small_number,
+            SAVE_STACK[(save_ptr + 1) as usize].b32.s1,
+            SAVE_STACK[(save_ptr + 0) as usize].b32.s1 as small_number,
             0x3fffffffi32,
         );
         q = MEM[MEM[(4999999 - 8) as usize].b32.s1 as usize].b32.s1;
@@ -19391,7 +19379,7 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
                 }
                 i = 1i32;
                 while i <= 3i32 {
-                    if i <= (*save_stack.offset((save_ptr - 2i32) as isize)).b32.s1 {
+                    if i <= SAVE_STACK[(save_ptr - 2) as usize].b32.s1 {
                         print_cstr(b"{}");
                     }
                     i += 1
@@ -19399,11 +19387,11 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
                 current_block = 11054735442240645164;
             }
             11 => {
-                if (*save_stack.offset((save_ptr - 2i32) as isize)).b32.s1 == 255i32 {
+                if SAVE_STACK[(save_ptr - 2) as usize].b32.s1 == 255 {
                     print_esc_cstr(b"vadjust");
                 } else {
                     print_esc_cstr(b"insert");
-                    print_int((*save_stack.offset((save_ptr - 2i32) as isize)).b32.s1);
+                    print_int(SAVE_STACK[(save_ptr - 2) as usize].b32.s1);
                 }
                 current_block = 11054735442240645164;
             }
@@ -19421,10 +19409,7 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
                     print_char('$' as i32);
                     current_block = 17441561948628420366;
                 } else if (*nest.offset(p as isize)).mode as i32 == 207i32 {
-                    print_cmd_chr(
-                        48_u16,
-                        (*save_stack.offset((save_ptr - 2i32) as isize)).b32.s1,
-                    );
+                    print_cmd_chr(48_u16, SAVE_STACK[(save_ptr - 2) as usize].b32.s1);
                     current_block = 5407796692416645153;
                 } else {
                     current_block = 17441561948628420366;
@@ -19455,7 +19440,7 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
         }
         match current_block {
             6002151390280567665 => {
-                i = (*save_stack.offset((save_ptr - 4i32) as isize)).b32.s1;
+                i = SAVE_STACK[(save_ptr - 4) as usize].b32.s1;
                 if i != 0i32 {
                     if i < 0x40000000i32 {
                         if ((*nest.offset(p as isize)).mode as i32).abs() == 1i32 {
@@ -19489,14 +19474,14 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
         match current_block {
             17798259985923180687 => {
                 print_esc_cstr(s);
-                if (*save_stack.offset((save_ptr - 2i32) as isize)).b32.s1 != 0i32 {
+                if SAVE_STACK[(save_ptr - 2) as usize].b32.s1 != 0i32 {
                     print_char(' ' as i32);
-                    if (*save_stack.offset((save_ptr - 3i32) as isize)).b32.s1 == 0i32 {
+                    if SAVE_STACK[(save_ptr - 3) as usize].b32.s1 == 0i32 {
                         print_cstr(b"to");
                     } else {
                         print_cstr(b"spread");
                     }
-                    print_scaled((*save_stack.offset((save_ptr - 2i32) as isize)).b32.s1);
+                    print_scaled(SAVE_STACK[(save_ptr - 2) as usize].b32.s1);
                     print_cstr(b"pt");
                 }
                 current_block = 11054735442240645164;
@@ -19511,8 +19496,8 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
         }
         print_char(')' as i32);
         cur_level = cur_level.wrapping_sub(1);
-        cur_group = (*save_stack.offset(save_ptr as isize)).b16.s0 as group_code;
-        save_ptr = (*save_stack.offset(save_ptr as isize)).b32.s1
+        cur_group = SAVE_STACK[save_ptr as usize].b16.s0 as group_code;
+        save_ptr = SAVE_STACK[save_ptr as usize].b32.s1
     }
     save_ptr = v;
     cur_level = l;
@@ -21025,7 +21010,7 @@ pub(crate) unsafe extern "C" fn begin_box(mut box_context: i32) {
         }
         _ => {
             k = cur_chr - 4i32;
-            (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 = box_context;
+            SAVE_STACK[(save_ptr + 0) as usize].b32.s1 = box_context;
             if k == 104i32 {
                 if box_context < 0x40000000i32 && (cur_list.mode as i32).abs() == 1i32 {
                     scan_spec(3i32 as group_code, true);
@@ -21275,14 +21260,14 @@ pub(crate) unsafe extern "C" fn package(mut c: small_number) {
     if cur_list.mode as i32 == -104i32 {
         cur_box = hpack(
             MEM[cur_list.head as usize].b32.s1,
-            (*save_stack.offset((save_ptr + 2i32) as isize)).b32.s1,
-            (*save_stack.offset((save_ptr + 1i32) as isize)).b32.s1 as small_number,
+            SAVE_STACK[(save_ptr + 2) as usize].b32.s1,
+            SAVE_STACK[(save_ptr + 1) as usize].b32.s1 as small_number,
         )
     } else {
         cur_box = vpackage(
             MEM[cur_list.head as usize].b32.s1,
-            (*save_stack.offset((save_ptr + 2i32) as isize)).b32.s1,
-            (*save_stack.offset((save_ptr + 1i32) as isize)).b32.s1 as small_number,
+            SAVE_STACK[(save_ptr + 2) as usize].b32.s1,
+            SAVE_STACK[(save_ptr + 1) as usize].b32.s1 as small_number,
             d,
         );
         if c as i32 == 4i32 {
@@ -21327,7 +21312,7 @@ pub(crate) unsafe extern "C" fn package(mut c: small_number) {
         .b32
         .s1 = v;
     pop_nest();
-    box_end((*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1);
+    box_end(SAVE_STACK[(save_ptr + 0) as usize].b32.s1);
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn norm_min(mut h: i32) -> small_number {
@@ -21687,11 +21672,11 @@ pub(crate) unsafe extern "C" fn begin_insert_or_adjust() {
             cur_val = 0i32
         }
     }
-    (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 = cur_val;
+    SAVE_STACK[(save_ptr + 0) as usize].b32.s1 = cur_val;
     if cur_cmd as i32 == 38i32 && scan_keyword(b"pre") {
-        (*save_stack.offset((save_ptr + 1i32) as isize)).b32.s1 = 1i32
+        SAVE_STACK[(save_ptr + 1) as usize].b32.s1 = 1
     } else {
-        (*save_stack.offset((save_ptr + 1i32) as isize)).b32.s1 = 0i32
+        SAVE_STACK[(save_ptr + 1) as usize].b32.s1 = 0
     }
     save_ptr = save_ptr + 2i32;
     new_save_level(11i32 as group_code);
@@ -22024,7 +22009,7 @@ pub(crate) unsafe extern "C" fn append_discretionary() {
         }
     } else {
         save_ptr += 1;
-        (*save_stack.offset((save_ptr - 1i32) as isize)).b32.s1 = 0i32;
+        SAVE_STACK[(save_ptr - 1) as usize].b32.s1 = 0;
         new_save_level(10i32 as group_code);
         scan_left_brace();
         push_nest();
@@ -22079,7 +22064,7 @@ pub(crate) unsafe extern "C" fn build_discretionary() {
     }
     p = MEM[cur_list.head as usize].b32.s1;
     pop_nest();
-    match (*save_stack.offset((save_ptr - 1i32) as isize)).b32.s1 {
+    match SAVE_STACK[(save_ptr - 1) as usize].b32.s1 {
         0 => MEM[(cur_list.tail + 1) as usize].b32.s0 = p,
         1 => MEM[(cur_list.tail + 1) as usize].b32.s1 = p,
         2 => {
@@ -22122,7 +22107,7 @@ pub(crate) unsafe extern "C" fn build_discretionary() {
         }
         _ => {}
     }
-    let ref mut fresh79 = (*save_stack.offset((save_ptr - 1i32) as isize)).b32.s1;
+    let ref mut fresh79 = SAVE_STACK[(save_ptr - 1) as usize].b32.s1;
     *fresh79 += 1;
     new_save_level(10i32 as group_code);
     scan_left_brace();
@@ -22174,9 +22159,7 @@ pub(crate) unsafe extern "C" fn make_accent() {
     if p != TEX_NULL {
         x = FONT_INFO[(5i32 + PARAM_BASE[f as usize]) as usize].b32.s1;
         s = FONT_INFO[(1i32 + PARAM_BASE[f as usize]) as usize].b32.s1 as f64 / 65536.0f64;
-        if *font_area.offset(f as isize) as u32 == 0xffffu32
-            || *font_area.offset(f as isize) as u32 == 0xfffeu32
-        {
+        if FONT_AREA[f as usize] as u32 == 0xffffu32 || FONT_AREA[f as usize] as u32 == 0xfffeu32 {
             a = MEM[(p + 1) as usize].b32.s1;
             if a == 0i32 {
                 get_native_char_sidebearings(f, cur_val, &mut lsb, &mut rsb);
@@ -22223,8 +22206,8 @@ pub(crate) unsafe extern "C" fn make_accent() {
         if q != TEX_NULL {
             /*1160: */
             t = FONT_INFO[(1 + PARAM_BASE[f as usize]) as usize].b32.s1 as f64 / 65536.0f64;
-            if *font_area.offset(f as isize) as u32 == 0xffffu32
-                || *font_area.offset(f as isize) as u32 == 0xfffeu32
+            if FONT_AREA[f as usize] as u32 == 0xffffu32
+                || FONT_AREA[f as usize] as u32 == 0xfffeu32
             {
                 w = MEM[(q + 1) as usize].b32.s1;
                 get_native_char_height_depth(f, cur_val, &mut h, &mut delta);
@@ -22244,8 +22227,8 @@ pub(crate) unsafe extern "C" fn make_accent() {
                 p = hpack(p, 0i32, 1i32 as small_number);
                 MEM[(p + 4) as usize].b32.s1 = x - h
             }
-            if (*font_area.offset(f as isize) as u32 == 0xffffu32
-                || *font_area.offset(f as isize) as u32 == 0xfffeu32)
+            if (FONT_AREA[f as usize] as u32 == 0xffffu32
+                || FONT_AREA[f as usize] as u32 == 0xfffeu32)
                 && a == 0i32
             {
                 delta = tex_round((w - lsb + rsb) as f64 / 2.0f64 + h as f64 * t - x as f64 * s)
@@ -23183,9 +23166,9 @@ pub(crate) unsafe extern "C" fn new_font(mut a: small_number) {
             _ => {
                 if str_eq_str(*font_name.offset(f as isize), cur_name) as i32 != 0
                     && (length(cur_area) == 0i32
-                        && (*font_area.offset(f as isize) as u32 == 0xffffu32
-                            || *font_area.offset(f as isize) as u32 == 0xfffeu32)
-                        || str_eq_str(*font_area.offset(f as isize), cur_area) as i32 != 0)
+                        && (FONT_AREA[f as usize] as u32 == 0xffffu32
+                            || FONT_AREA[f as usize] as u32 == 0xfffeu32)
+                        || str_eq_str(FONT_AREA[f as usize], cur_area) as i32 != 0)
                 {
                     if s > 0i32 {
                         if s == *font_size.offset(f as isize) {
@@ -23203,8 +23186,8 @@ pub(crate) unsafe extern "C" fn new_font(mut a: small_number) {
                 if str_eq_str(*font_name.offset(f as isize), make_string()) {
                     str_ptr -= 1;
                     pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
-                    if *font_area.offset(f as isize) as u32 == 0xffffu32
-                        || *font_area.offset(f as isize) as u32 == 0xfffeu32
+                    if FONT_AREA[f as usize] as u32 == 0xffffu32
+                        || FONT_AREA[f as usize] as u32 == 0xfffeu32
                     {
                         if s > 0i32 {
                             if s == *font_size.offset(f as isize) {
@@ -23721,8 +23704,26 @@ pub(crate) unsafe extern "C" fn do_extension() {
                 new_graf(1i32 != 0);
             } else if (cur_list.mode as i32).abs() == 207i32 {
                 report_illegal_case();
-            } else if *font_area.offset(
-                EQTB[(1i32
+            } else if FONT_AREA[EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32) as usize]
+                .b32
+                .s1 as usize] as u32
+                == 0xffffu32
+                || FONT_AREA[EQTB[(1i32
                     + (0x10ffffi32 + 1i32)
                     + (0x10ffffi32 + 1i32)
                     + 1i32
@@ -23739,29 +23740,7 @@ pub(crate) unsafe extern "C" fn do_extension() {
                     + 4i32
                     + 256i32) as usize]
                     .b32
-                    .s1 as isize,
-            ) as u32
-                == 0xffffu32
-                || *font_area.offset(
-                    EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32) as usize]
-                        .b32
-                        .s1 as isize,
-                ) as u32
+                    .s1 as usize] as u32
                     == 0xfffeu32
             {
                 new_whatsit(42i32 as small_number, 5i32 as small_number);
@@ -24325,12 +24304,12 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
                 0x3fffffffi32,
             );
             pop_nest();
-            if (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 < 255i32 {
+            if SAVE_STACK[(save_ptr + 0) as usize].b32.s1 < 255 {
                 MEM[cur_list.tail as usize].b32.s1 = get_node(5);
                 cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
                 MEM[cur_list.tail as usize].b16.s1 = 3_u16;
                 MEM[cur_list.tail as usize].b16.s0 =
-                    (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 as u16;
+                    SAVE_STACK[(save_ptr + 0) as usize].b32.s1 as u16;
                 MEM[(cur_list.tail + 3) as usize].b32.s1 =
                     MEM[(p + 3) as usize].b32.s1 + MEM[(p + 2) as usize].b32.s1;
                 MEM[(cur_list.tail + 4) as usize].b32.s0 = MEM[(p + 5) as usize].b32.s1;
@@ -24342,7 +24321,7 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
                 cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
                 MEM[cur_list.tail as usize].b16.s1 = 5_u16;
                 MEM[cur_list.tail as usize].b16.s0 =
-                    (*save_stack.offset((save_ptr + 1i32) as isize)).b32.s1 as u16;
+                    SAVE_STACK[(save_ptr + 1) as usize].b32.s1 as u16;
                 MEM[(cur_list.tail + 1) as usize].b32.s1 = MEM[(p + 5) as usize].b32.s1;
                 delete_glue_ref(q);
             }
@@ -24460,8 +24439,8 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
             save_ptr = save_ptr - 2i32;
             p = vpackage(
                 MEM[cur_list.head as usize].b32.s1,
-                (*save_stack.offset((save_ptr + 1i32) as isize)).b32.s1,
-                (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 as small_number,
+                SAVE_STACK[(save_ptr + 1) as usize].b32.s1,
+                SAVE_STACK[(save_ptr + 0) as usize].b32.s1 as small_number,
                 0x3fffffffi32,
             );
             pop_nest();
@@ -24477,11 +24456,11 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
         9 => {
             unsave();
             save_ptr -= 1;
-            MEM[(*save_stack.offset((save_ptr + 0) as isize)).b32.s1 as usize]
+            MEM[SAVE_STACK[(save_ptr + 0) as usize].b32.s1 as usize]
                 .b32
                 .s1 = 3i32;
             p = fin_mlist(TEX_NULL);
-            MEM[(*save_stack.offset((save_ptr + 0) as isize)).b32.s1 as usize]
+            MEM[SAVE_STACK[(save_ptr + 0) as usize].b32.s1 as usize]
                 .b32
                 .s0 = p;
             if p != TEX_NULL {
@@ -24489,16 +24468,13 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
                     if MEM[p as usize].b16.s1 as i32 == 16 {
                         if MEM[(p + 3) as usize].b32.s1 == 0 {
                             if MEM[(p + 2) as usize].b32.s1 == 0 {
-                                MEM[(*save_stack.offset((save_ptr + 0) as isize)).b32.s1
-                                    as usize]
-                                    .b32 = MEM[(p + 1) as usize].b32;
+                                MEM[SAVE_STACK[(save_ptr + 0) as usize].b32.s1 as usize].b32 =
+                                    MEM[(p + 1) as usize].b32;
                                 free_node(p, 4i32);
                             }
                         }
                     } else if MEM[p as usize].b16.s1 as i32 == 28 {
-                        if (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1
-                            == cur_list.tail + 1i32
-                        {
+                        if SAVE_STACK[(save_ptr + 0) as usize].b32.s1 == cur_list.tail + 1i32 {
                             if MEM[cur_list.tail as usize].b16.s1 as i32 == 16 {
                                 /*1222:*/
                                 q = cur_list.head;
@@ -25235,8 +25211,26 @@ pub(crate) unsafe extern "C" fn main_control() {
                 }
             }
             prev_class = 4096i32 - 1i32;
-            if *font_area.offset(
-                EQTB[(1i32
+            if FONT_AREA[EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32) as usize]
+                .b32
+                .s1 as usize] as u32
+                == 0xffffu32
+                || FONT_AREA[EQTB[(1i32
                     + (0x10ffffi32 + 1i32)
                     + (0x10ffffi32 + 1i32)
                     + 1i32
@@ -25253,29 +25247,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                     + 4i32
                     + 256i32) as usize]
                     .b32
-                    .s1 as isize,
-            ) as u32
-                == 0xffffu32
-                || *font_area.offset(
-                    EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32) as usize]
-                        .b32
-                        .s1 as isize,
-                ) as u32
+                    .s1 as usize] as u32
                     == 0xfffeu32
             {
                 if cur_list.mode as i32 > 0i32 {
