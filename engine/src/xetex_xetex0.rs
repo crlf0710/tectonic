@@ -38,41 +38,41 @@ use crate::xetex_ext::{
 use crate::xetex_ini::{
     _xeq_level_array, active_width, adjust_tail, after_token, align_ptr, align_state,
     area_delimiter, arith_error, avail, base_ptr, bchar, bchar_label, best_height_plus_depth,
-    breadth_max, buf_size, buffer, cancel_boundary, char_base, cond_ptr, cur_align, cur_area,
-    cur_boundary, cur_box, cur_chr, cur_cmd, cur_cs, cur_dir, cur_ext, cur_group, cur_head, cur_if,
-    cur_input, cur_l, cur_lang, cur_level, cur_list, cur_loop, cur_mark, cur_name, cur_order,
-    cur_pre_head, cur_pre_tail, cur_ptr, cur_q, cur_r, cur_span, cur_tail, cur_tok, cur_val,
-    cur_val1, cur_val_level, dead_cycles, def_ref, deletions_allowed, depth_base, depth_threshold,
-    dig, disc_ptr, empty, eof_seen, error_count, error_line, expand_depth, expand_depth_count,
-    ext_delimiter, exten_base, false_bchar, file_line_error_style_p, file_name_quote_char,
-    file_offset, first, first_count, fmem_ptr, font_area, font_bc, font_bchar, font_check,
-    font_dsize, font_ec, font_false_bchar, font_flags, font_glue, font_in_short_display,
-    font_layout_engine, font_letter_space, font_mapping, font_name, font_ptr, font_size, font_used,
-    force_eof, full_source_filename_stack, gave_char_warning_help, grp_stack, half_error_line,
-    hash, hash_extra, hash_high, hash_used, height_base, help_line, help_ptr, hi_mem_min, history,
-    hyphen_char, if_limit, if_line, if_stack, in_open, init_pool_ptr, init_str_ptr, input_file,
-    input_ptr, input_stack, ins_disc, insert_penalties, insert_src_special_auto,
-    insert_src_special_every_par, insert_src_special_every_vbox, interaction, is_hyph,
-    is_in_csname, italic_base, job_name, kern_base, last, last_badness, last_glue, last_kern,
-    last_leftmost_char, last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_kern_base,
-    lig_stack, ligature_present, line, line_stack, lo_mem_max, loaded_font_design_size,
-    loaded_font_flags, loaded_font_letter_space, loaded_font_mapping, log_file, log_opened,
-    long_help_seen, long_state, mag_set, main_f, main_h, main_i, main_j, main_k, main_p, main_pp,
-    main_ppp, main_s, mapped_text, max_buf_stack, max_in_open, max_in_stack, max_nest_stack,
-    max_param_stack, max_print_line, max_reg_help_line, max_reg_num, max_save_stack, max_strings,
-    mem_end, name_in_progress, name_length, name_length16, name_of_file, name_of_file16,
+    breadth_max, buf_size, buffer, cancel_boundary, cond_ptr, cur_align, cur_area, cur_boundary,
+    cur_box, cur_chr, cur_cmd, cur_cs, cur_dir, cur_ext, cur_group, cur_head, cur_if, cur_input,
+    cur_l, cur_lang, cur_level, cur_list, cur_loop, cur_mark, cur_name, cur_order, cur_pre_head,
+    cur_pre_tail, cur_ptr, cur_q, cur_r, cur_span, cur_tail, cur_tok, cur_val, cur_val1,
+    cur_val_level, dead_cycles, def_ref, deletions_allowed, depth_threshold, dig, disc_ptr, empty,
+    eof_seen, error_count, error_line, expand_depth, expand_depth_count, ext_delimiter,
+    false_bchar, file_line_error_style_p, file_name_quote_char, file_offset, first, first_count,
+    fmem_ptr, font_area, font_bc, font_bchar, font_check, font_dsize, font_ec, font_false_bchar,
+    font_flags, font_glue, font_in_short_display, font_layout_engine, font_letter_space,
+    font_mapping, font_name, font_ptr, font_size, font_used, force_eof, full_source_filename_stack,
+    gave_char_warning_help, grp_stack, half_error_line, hash, hash_extra, hash_high, hash_used,
+    help_line, help_ptr, hi_mem_min, history, hyphen_char, if_limit, if_line, if_stack, in_open,
+    init_pool_ptr, init_str_ptr, input_file, input_ptr, input_stack, ins_disc, insert_penalties,
+    insert_src_special_auto, insert_src_special_every_par, insert_src_special_every_vbox,
+    interaction, is_hyph, is_in_csname, job_name, last, last_badness, last_glue, last_kern,
+    last_leftmost_char, last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack,
+    ligature_present, line, line_stack, lo_mem_max, loaded_font_design_size, loaded_font_flags,
+    loaded_font_letter_space, loaded_font_mapping, log_file, log_opened, long_help_seen,
+    long_state, mag_set, main_f, main_h, main_i, main_j, main_k, main_p, main_pp, main_ppp, main_s,
+    mapped_text, max_buf_stack, max_in_open, max_in_stack, max_nest_stack, max_param_stack,
+    max_print_line, max_reg_help_line, max_reg_num, max_save_stack, max_strings, mem_end,
+    name_in_progress, name_length, name_length16, name_of_file, name_of_file16,
     native_font_type_flag, native_len, native_text, native_text_size, nest, nest_ptr, nest_size,
     no_new_control_sequence, old_setting, open_parens, output_active, pack_begin_line,
-    page_contents, page_so_far, page_tail, par_loc, par_token, param_base, param_ptr, param_size,
-    param_stack, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class,
-    prim, prim_eqtb, prim_used, pseudo_files, pstack, quoted_filename, radix, read_file, read_open,
+    page_contents, page_so_far, page_tail, par_loc, par_token, param_ptr, param_size, param_stack,
+    pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim,
+    prim_eqtb, prim_used, pseudo_files, pstack, quoted_filename, radix, read_file, read_open,
     rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_null, sa_root, save_native_len, save_ptr,
     save_size, save_stack, scanner_status, selector, set_box_allowed, shown_mode, skew_char,
     skip_line, source_filename_stack, space_class, stack_size, stop_at_space, str_pool, str_ptr,
     str_start, tally, temp_ptr, term_offset, tex_remainder, texmf_log_name, total_shrink,
     total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens, warning_index,
-    width_base, write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr, EQTB, EQTB_TOP,
-    FONT_INFO, FONT_MAX, FONT_MEM_SIZE, FONT_PARAMS, MEM,
+    write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB,
+    EQTB_TOP, EXTEN_BASE, FONT_INFO, FONT_MAX, FONT_MEM_SIZE, FONT_PARAMS, HEIGHT_BASE,
+    ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM, PARAM_BASE, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b32x2, memory_word, prefixed_command};
 use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding, u_close};
@@ -9376,7 +9376,7 @@ pub(crate) unsafe extern "C" fn find_font_dimen(mut writing: bool) {
                 cur_val = fmem_ptr - 1i32
             }
         } else {
-            cur_val = n + *param_base.offset(f as isize)
+            cur_val = n + PARAM_BASE[f as usize]
         }
     }
     if cur_val == fmem_ptr {
@@ -10452,34 +10452,33 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
                             } else if *font_bc.offset(q as isize) as i32 <= cur_val
                                 && *font_ec.offset(q as isize) as i32 >= cur_val
                             {
-                                i = FONT_INFO[(*char_base.offset(q as isize)
+                                i = FONT_INFO[(CHAR_BASE[q as usize]
                                     + effective_char(1i32 != 0, q, cur_val as u16))
                                     as usize]
                                     .b16;
                                 match m {
                                     48 => {
-                                        cur_val = FONT_INFO[(*width_base.offset(q as isize)
-                                            + i.s3 as i32)
-                                            as usize]
+                                        cur_val = FONT_INFO
+                                            [(WIDTH_BASE[q as usize] + i.s3 as i32) as usize]
                                             .b32
                                             .s1
                                     }
                                     49 => {
-                                        cur_val = FONT_INFO[(*height_base.offset(q as isize)
+                                        cur_val = FONT_INFO[(HEIGHT_BASE[q as usize]
                                             + i.s2 as i32 / 16i32)
                                             as usize]
                                             .b32
                                             .s1
                                     }
                                     50 => {
-                                        cur_val = FONT_INFO[(*depth_base.offset(q as isize)
+                                        cur_val = FONT_INFO[(DEPTH_BASE[q as usize]
                                             + i.s2 as i32 % 16i32)
                                             as usize]
                                             .b32
                                             .s1
                                     }
                                     51 => {
-                                        cur_val = FONT_INFO[(*italic_base.offset(q as isize)
+                                        cur_val = FONT_INFO[(ITALIC_BASE[q as usize]
                                             + i.s1 as i32 / 4i32)
                                             as usize]
                                             .b32
@@ -11647,57 +11646,51 @@ pub(crate) unsafe extern "C" fn xetex_scan_dimen(
                                 current_block = 17751730340908002208;
                             } else {
                                 if scan_keyword(b"em") {
-                                    v = FONT_INFO[(6i32
-                                        + *param_base.offset(
-                                            EQTB[(1i32
-                                                + (0x10ffffi32 + 1i32)
-                                                + (0x10ffffi32 + 1i32)
-                                                + 1i32
-                                                + 15000i32
-                                                + 12i32
-                                                + 9000i32
-                                                + 1i32
-                                                + 1i32
-                                                + 19i32
-                                                + 256i32
-                                                + 256i32
-                                                + 13i32
-                                                + 256i32
-                                                + 4i32
-                                                + 256i32)
-                                                as usize]
-                                                .b32
-                                                .s1
-                                                as isize,
-                                        ))
+                                    v = FONT_INFO[(6 + PARAM_BASE[EQTB[(1i32
+                                        + (0x10ffffi32 + 1i32)
+                                        + (0x10ffffi32 + 1i32)
+                                        + 1i32
+                                        + 15000i32
+                                        + 12i32
+                                        + 9000i32
+                                        + 1i32
+                                        + 1i32
+                                        + 19i32
+                                        + 256i32
+                                        + 256i32
+                                        + 13i32
+                                        + 256i32
+                                        + 4i32
+                                        + 256i32)
+                                        as usize]
+                                        .b32
+                                        .s1
+                                        as usize])
                                         as usize]
                                         .b32
                                         .s1;
                                     current_block = 5195798230510548452;
                                 } else if scan_keyword(b"ex") {
-                                    v = FONT_INFO[(5i32
-                                        + *param_base.offset(
-                                            EQTB[(1i32
-                                                + (0x10ffffi32 + 1i32)
-                                                + (0x10ffffi32 + 1i32)
-                                                + 1i32
-                                                + 15000i32
-                                                + 12i32
-                                                + 9000i32
-                                                + 1i32
-                                                + 1i32
-                                                + 19i32
-                                                + 256i32
-                                                + 256i32
-                                                + 13i32
-                                                + 256i32
-                                                + 4i32
-                                                + 256i32)
-                                                as usize]
-                                                .b32
-                                                .s1
-                                                as isize,
-                                        ))
+                                    v = FONT_INFO[(5 + PARAM_BASE[EQTB[(1i32
+                                        + (0x10ffffi32 + 1i32)
+                                        + (0x10ffffi32 + 1i32)
+                                        + 1i32
+                                        + 15000i32
+                                        + 12i32
+                                        + 9000i32
+                                        + 1i32
+                                        + 1i32
+                                        + 19i32
+                                        + 256i32
+                                        + 256i32
+                                        + 13i32
+                                        + 256i32
+                                        + 4i32
+                                        + 256i32)
+                                        as usize]
+                                        .b32
+                                        .s1
+                                        as usize])
                                         as usize]
                                         .b32
                                         .s1;
@@ -14161,8 +14154,7 @@ pub(crate) unsafe extern "C" fn conditional() {
             } else if *font_bc.offset(n as isize) as i32 <= cur_val
                 && *font_ec.offset(n as isize) as i32 >= cur_val
             {
-                b = FONT_INFO[(*char_base.offset(n as isize)
-                    + effective_char(1i32 != 0, n, cur_val as u16))
+                b = FONT_INFO[(CHAR_BASE[n as usize] + effective_char(1i32 != 0, n, cur_val as u16))
                     as usize]
                     .b16
                     .s3 as i32
@@ -14971,7 +14963,7 @@ pub(crate) unsafe extern "C" fn effective_char_info(
         c = apply_tfm_font_mapping(*font_mapping.offset(f as isize), c as i32) as u16
     }
     xtx_ligature_present = false;
-    FONT_INFO[(*char_base.offset(f as isize) + c as i32) as usize].b16
+    FONT_INFO[(CHAR_BASE[f as usize] + c as i32) as usize].b16
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn char_warning(mut f: internal_font_number, mut c: i32) {
@@ -15564,8 +15556,8 @@ pub(crate) unsafe extern "C" fn load_native_font(
             );
         }
     }
-    *height_base.offset(font_ptr as isize) = ascent;
-    *depth_base.offset(font_ptr as isize) = -descent;
+    HEIGHT_BASE[font_ptr as usize] = ascent;
+    DEPTH_BASE[font_ptr as usize] = -descent;
     FONT_PARAMS[font_ptr as usize] = num_font_dimens;
     *font_bc.offset(font_ptr as isize) = 0i32 as UTF16_code;
     *font_ec.offset(font_ptr as isize) = 65535 as UTF16_code;
@@ -15624,7 +15616,7 @@ pub(crate) unsafe extern "C" fn load_native_font(
         + 47i32) as usize]
         .b32
         .s1;
-    *param_base.offset(font_ptr as isize) = fmem_ptr - 1i32;
+    PARAM_BASE[font_ptr as usize] = fmem_ptr - 1i32;
     let ref mut fresh51 = *font_layout_engine.offset(font_ptr as isize);
     *fresh51 = font_engine;
     let ref mut fresh52 = *font_mapping.offset(font_ptr as isize);
@@ -16151,15 +16143,15 @@ pub(crate) unsafe extern "C" fn read_font_info(
     );
 
     f = font_ptr + 1;
-    *char_base.offset(f as isize) = fmem_ptr - bc;
-    *width_base.offset(f as isize) = *char_base.offset(f as isize) + ec + 1;
-    *height_base.offset(f as isize) = *width_base.offset(f as isize) + nw;
-    *depth_base.offset(f as isize) = *height_base.offset(f as isize) + nh;
-    *italic_base.offset(f as isize) = *depth_base.offset(f as isize) + nd;
-    *lig_kern_base.offset(f as isize) = *italic_base.offset(f as isize) + ni;
-    *kern_base.offset(f as isize) = *lig_kern_base.offset(f as isize) + nl - 256 * 128;
-    *exten_base.offset(f as isize) = *kern_base.offset(f as isize) + 256 * 128 + nk;
-    *param_base.offset(f as isize) = *exten_base.offset(f as isize) + ne;
+    CHAR_BASE[f as usize] = fmem_ptr - bc;
+    WIDTH_BASE[f as usize] = CHAR_BASE[f as usize] + ec + 1;
+    HEIGHT_BASE[f as usize] = WIDTH_BASE[f as usize] + nw;
+    DEPTH_BASE[f as usize] = HEIGHT_BASE[f as usize] + nh;
+    ITALIC_BASE[f as usize] = DEPTH_BASE[f as usize] + nd;
+    LIG_KERN_BASE[f as usize] = ITALIC_BASE[f as usize] + ni;
+    KERN_BASE[f as usize] = LIG_KERN_BASE[f as usize] + nl - 256 * 128;
+    EXTEN_BASE[f as usize] = KERN_BASE[f as usize] + 256 * 128 + nk;
+    PARAM_BASE[f as usize] = EXTEN_BASE[f as usize] + ne;
     if lh < 2 {
         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
@@ -16201,7 +16193,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
 
     k = fmem_ptr;
     loop {
-        if !(k <= *width_base.offset(f as isize) - 1i32) {
+        if !(k <= WIDTH_BASE[f as usize] - 1i32) {
             break;
         }
         a = ttstub_input_getc(tfm_file);
@@ -16240,7 +16232,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
                     if !(d < k + bc - fmem_ptr) {
                         break;
                     }
-                    qw = FONT_INFO[(*char_base.offset(f as isize) + d) as usize].b16;
+                    qw = FONT_INFO[(CHAR_BASE[f as usize] + d) as usize].b16;
                     if qw.s1 as i32 % 4 != LIST_TAG {
                         break;
                     }
@@ -16263,7 +16255,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
     beta = (256 / alpha) as u8;
     alpha = alpha * z;
 
-    for k in *width_base.offset(f as isize)..=*lig_kern_base.offset(f as isize) - 1 {
+    for k in WIDTH_BASE[f as usize]..=LIG_KERN_BASE[f as usize] - 1 {
         a = ttstub_input_getc(tfm_file);
         b = ttstub_input_getc(tfm_file);
         c = ttstub_input_getc(tfm_file);
@@ -16282,23 +16274,23 @@ pub(crate) unsafe extern "C" fn read_font_info(
         }
     }
 
-    if FONT_INFO[*width_base.offset(f as isize) as usize].b32.s1 != 0 {
+    if FONT_INFO[WIDTH_BASE[f as usize] as usize].b32.s1 != 0 {
         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
-    if FONT_INFO[*height_base.offset(f as isize) as usize].b32.s1 != 0 {
+    if FONT_INFO[HEIGHT_BASE[f as usize] as usize].b32.s1 != 0 {
         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
-    if FONT_INFO[*depth_base.offset(f as isize) as usize].b32.s1 != 0 {
+    if FONT_INFO[DEPTH_BASE[f as usize] as usize].b32.s1 != 0 {
         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
-    if FONT_INFO[*italic_base.offset(f as isize) as usize].b32.s1 != 0 {
+    if FONT_INFO[ITALIC_BASE[f as usize] as usize].b32.s1 != 0 {
         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
 
     bch_label = 32767;
     bchar_0 = 256;
     if nl > 0 {
-        for k in *lig_kern_base.offset(f as isize)..=*kern_base.offset(f as isize) + 256 * 128 - 1 {
+        for k in LIG_KERN_BASE[f as usize]..=KERN_BASE[f as usize] + 256 * 128 - 1 {
             a = ttstub_input_getc(tfm_file);
             qw.s3 = a as u16;
             b = ttstub_input_getc(tfm_file);
@@ -16316,7 +16308,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
                 if 256 * c + d >= nl {
                     return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                 }
-                if a == 255 && k == *lig_kern_base.offset(f as isize) {
+                if a == 255 && k == LIG_KERN_BASE[f as usize] {
                     bchar_0 = b as i16
                 }
             } else {
@@ -16325,7 +16317,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
                         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
 
-                    qw = FONT_INFO[(*char_base.offset(f as isize) + b) as usize].b16;
+                    qw = FONT_INFO[(CHAR_BASE[f as usize] + b) as usize].b16;
                     if !(qw.s3 > 0) {
                         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
@@ -16335,14 +16327,14 @@ pub(crate) unsafe extern "C" fn read_font_info(
                     if d < bc || d > ec {
                         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
-                    qw = FONT_INFO[(*char_base.offset(f as isize) + d) as usize].b16;
+                    qw = FONT_INFO[(CHAR_BASE[f as usize] + d) as usize].b16;
                     if !(qw.s3 > 0) {
                         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
                 } else if 256 * (c - 128) + d >= nk {
                     return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                 }
-                if a < 128 && k - *lig_kern_base.offset(f as isize) + a + 1i32 >= nl {
+                if a < 128 && k - LIG_KERN_BASE[f as usize] + a + 1i32 >= nl {
                     return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                 }
             }
@@ -16352,7 +16344,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
         }
     }
 
-    for k in *kern_base.offset(f as isize) + 256 * 128..=*exten_base.offset(f as isize) - 1 {
+    for k in KERN_BASE[f as usize] + 256 * 128..=EXTEN_BASE[f as usize] - 1 {
         a = ttstub_input_getc(tfm_file);
         b = ttstub_input_getc(tfm_file);
         c = ttstub_input_getc(tfm_file);
@@ -16370,7 +16362,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
         }
     }
 
-    for k in *exten_base.offset(f as isize)..=*param_base.offset(f as isize) - 1 {
+    for k in EXTEN_BASE[f as usize]..=PARAM_BASE[f as usize] - 1 {
         a = ttstub_input_getc(tfm_file);
         qw.s3 = a as u16;
         b = ttstub_input_getc(tfm_file);
@@ -16388,7 +16380,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
             if a < bc || a > ec {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
-            qw = FONT_INFO[(*char_base.offset(f as isize) + a) as usize].b16;
+            qw = FONT_INFO[(CHAR_BASE[f as usize] + a) as usize].b16;
             if !(qw.s3 as i32 > 0i32) {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
@@ -16398,7 +16390,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
             if b < bc || b > ec {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
-            qw = FONT_INFO[(*char_base.offset(f as isize) + b) as usize].b16;
+            qw = FONT_INFO[(CHAR_BASE[f as usize] + b) as usize].b16;
             if !(qw.s3 > 0) {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
@@ -16408,7 +16400,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
             if c < bc || c > ec {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
-            qw = FONT_INFO[(*char_base.offset(f as isize) + c) as usize].b16;
+            qw = FONT_INFO[(CHAR_BASE[f as usize] + c) as usize].b16;
             if !(qw.s3 > 0) {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
@@ -16417,7 +16409,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
         if d < bc || d > ec {
             return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
-        qw = FONT_INFO[(*char_base.offset(f as isize) + d) as usize].b16;
+        qw = FONT_INFO[(CHAR_BASE[f as usize] + d) as usize].b16;
         if !(qw.s3 > 0) {
             return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
@@ -16435,7 +16427,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
 
             sw = sw * 256 + ttstub_input_getc(tfm_file);
             sw = sw * 256 + ttstub_input_getc(tfm_file);
-            FONT_INFO[*param_base.offset(f as isize) as usize].b32.s1 =
+            FONT_INFO[PARAM_BASE[f as usize] as usize].b32.s1 =
                 sw * 16 + ttstub_input_getc(tfm_file) / 16
         } else {
             a = ttstub_input_getc(tfm_file);
@@ -16447,11 +16439,11 @@ pub(crate) unsafe extern "C" fn read_font_info(
             }
             sw = ((d * z / 256i32 + c * z) / 256i32 + b * z) / beta as i32;
             if a == 0 {
-                FONT_INFO[(*param_base.offset(f as isize) + k - 1i32) as usize]
+                FONT_INFO[(PARAM_BASE[f as usize] + k - 1i32) as usize]
                     .b32
                     .s1 = sw
             } else if a == 255 {
-                FONT_INFO[(*param_base.offset(f as isize) + k - 1i32) as usize]
+                FONT_INFO[(PARAM_BASE[f as usize] + k - 1i32) as usize]
                     .b32
                     .s1 = sw - alpha
             } else {
@@ -16461,7 +16453,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
     }
 
     for k in np + 1..=7 {
-        FONT_INFO[(*param_base.offset(f as isize) + k - 1i32) as usize]
+        FONT_INFO[(PARAM_BASE[f as usize] + k - 1i32) as usize]
             .b32
             .s1 = 0;
     }
@@ -16475,7 +16467,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
     *hyphen_char.offset(f as isize) = INTPAR(INT_PAR__default_hyphen_char);
     *skew_char.offset(f as isize) = INTPAR(INT_PAR__default_skew_char);
     if bch_label < nl {
-        *bchar_label.offset(f as isize) = bch_label + *lig_kern_base.offset(f as isize)
+        *bchar_label.offset(f as isize) = bch_label + LIG_KERN_BASE[f as usize]
     } else {
         *bchar_label.offset(f as isize) = NON_ADDRESS;
     }
@@ -16484,7 +16476,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
 
     if bchar_0 as i32 <= ec {
         if bchar_0 as i32 >= bc {
-            qw = FONT_INFO[(*char_base.offset(f as isize) + bchar_0 as i32) as usize].b16;
+            qw = FONT_INFO[(CHAR_BASE[f as usize] + bchar_0 as i32) as usize].b16;
             if qw.s3 as i32 > 0i32 {
                 *font_false_bchar.offset(f as isize) = 65536i32
             }
@@ -16496,7 +16488,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
     *font_bc.offset(f as isize) = bc as UTF16_code;
     *font_ec.offset(f as isize) = ec as UTF16_code;
     *font_glue.offset(f as isize) = TEX_NULL;
-    let ref mut fresh66 = *param_base.offset(f as isize);
+    let ref mut fresh66 = PARAM_BASE[f as usize];
     *fresh66 -= 1;
     fmem_ptr = fmem_ptr + lf;
     font_ptr = f;
@@ -16599,7 +16591,7 @@ pub(crate) unsafe extern "C" fn new_character(
     ec = effective_char(false, f, c) as u16;
     if *font_bc.offset(f as isize) as i32 <= ec as i32 {
         if *font_ec.offset(f as isize) as i32 >= ec as i32 {
-            if FONT_INFO[(*char_base.offset(f as isize) + ec as i32) as usize]
+            if FONT_INFO[(CHAR_BASE[f as usize] + ec as i32) as usize]
                 .b16
                 .s3 as i32
                 > 0i32
@@ -16669,9 +16661,7 @@ pub(crate) unsafe extern "C" fn char_pw(mut p: i32, mut side: small_number) -> s
         if !MEM[(p + 5) as usize].ptr.is_null() {
             f = MEM[(p + 4) as usize].b16.s2 as internal_font_number;
             return round_xn_over_d(
-                FONT_INFO[(6 + *param_base.offset(f as isize)) as usize]
-                    .b32
-                    .s1,
+                FONT_INFO[(6 + PARAM_BASE[f as usize]) as usize].b32.s1,
                 real_get_native_word_cp(
                     &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
                     side as i32,
@@ -16689,9 +16679,7 @@ pub(crate) unsafe extern "C" fn char_pw(mut p: i32, mut side: small_number) -> s
     {
         f = MEM[(p + 4) as usize].b16.s2 as internal_font_number;
         return round_xn_over_d(
-            FONT_INFO[(6 + *param_base.offset(f as isize)) as usize]
-                .b32
-                .s1,
+            FONT_INFO[(6 + PARAM_BASE[f as usize]) as usize].b32.s1,
             get_cp_code(f, MEM[(p + 4) as usize].b16.s1 as u32, side as i32),
             1000i32,
         );
@@ -16714,9 +16702,7 @@ pub(crate) unsafe extern "C" fn char_pw(mut p: i32, mut side: small_number) -> s
         return 0i32;
     }
     round_xn_over_d(
-        FONT_INFO[(6 + *param_base.offset(f as isize)) as usize]
-            .b32
-            .s1,
+        FONT_INFO[(6 + PARAM_BASE[f as usize]) as usize].b32.s1,
         c,
         1000i32,
     )
@@ -16816,20 +16802,20 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
             while is_char_node(p) {
                 /*677: */
                 f = MEM[p as usize].b16.s1 as internal_font_number;
-                i = FONT_INFO[(*char_base.offset(f as isize)
+                i = FONT_INFO[(CHAR_BASE[f as usize]
                     + effective_char(1i32 != 0, f, MEM[p as usize].b16.s0))
                     as usize]
                     .b16;
-                x = x + FONT_INFO[(*width_base.offset(f as isize) + i.s3 as i32) as usize]
+                x = x + FONT_INFO[(WIDTH_BASE[f as usize] + i.s3 as i32) as usize]
                     .b32
                     .s1;
-                s = FONT_INFO[(*height_base.offset(f as isize) + i.s2 as i32 / 16i32) as usize]
+                s = FONT_INFO[(HEIGHT_BASE[f as usize] + i.s2 as i32 / 16i32) as usize]
                     .b32
                     .s1;
                 if s > h {
                     h = s
                 }
-                s = FONT_INFO[(*depth_base.offset(f as isize) + i.s2 as i32 % 16i32) as usize]
+                s = FONT_INFO[(DEPTH_BASE[f as usize] + i.s2 as i32 % 16i32) as usize]
                     .b32
                     .s1;
                 if s > d {
@@ -20140,26 +20126,25 @@ pub(crate) unsafe extern "C" fn app_space() {
             ); /*:1079 */
             if main_p == TEX_NULL {
                 main_p = new_spec(0i32);
-                main_k = *param_base.offset(
-                    EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32) as usize]
-                        .b32
-                        .s1 as isize,
-                ) + 2i32;
+                main_k = PARAM_BASE[EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32) as usize]
+                    .b32
+                    .s1 as usize]
+                    + 2;
                 MEM[(main_p + 1) as usize].b32.s1 = FONT_INFO[main_k as usize].b32.s1;
                 MEM[(main_p + 2) as usize].b32.s1 = FONT_INFO[(main_k + 1i32) as usize].b32.s1;
                 MEM[(main_p + 3) as usize].b32.s1 = FONT_INFO[(main_k + 2i32) as usize].b32.s1;
@@ -20188,27 +20173,24 @@ pub(crate) unsafe extern "C" fn app_space() {
         main_p = new_spec(main_p);
         if cur_list.aux.b32.s0 >= 2000i32 {
             MEM[(main_p + 1) as usize].b32.s1 = MEM[(main_p + 1) as usize].b32.s1
-                + FONT_INFO[(7i32
-                    + *param_base.offset(
-                        EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32) as usize]
-                            .b32
-                            .s1 as isize,
-                    )) as usize]
+                + FONT_INFO[(7 + PARAM_BASE[EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32) as usize]
+                    .b32
+                    .s1 as usize]) as usize]
                     .b32
                     .s1
         }
@@ -21975,8 +21957,8 @@ pub(crate) unsafe extern "C" fn append_italic_correction() {
         }
         f = MEM[p as usize].b16.s1 as internal_font_number;
         MEM[cur_list.tail as usize].b32.s1 = new_kern(
-            FONT_INFO[(*italic_base.offset(f as isize)
-                + FONT_INFO[(*char_base.offset(f as isize)
+            FONT_INFO[(ITALIC_BASE[f as usize]
+                + FONT_INFO[(CHAR_BASE[f as usize]
                     + effective_char(1i32 != 0, f, MEM[p as usize].b16.s0))
                     as usize]
                     .b16
@@ -22190,13 +22172,8 @@ pub(crate) unsafe extern "C" fn make_accent() {
         .s1;
     p = new_character(f, cur_val as UTF16_code);
     if p != TEX_NULL {
-        x = FONT_INFO[(5i32 + *param_base.offset(f as isize)) as usize]
-            .b32
-            .s1;
-        s = FONT_INFO[(1i32 + *param_base.offset(f as isize)) as usize]
-            .b32
-            .s1 as f64
-            / 65536.0f64;
+        x = FONT_INFO[(5i32 + PARAM_BASE[f as usize]) as usize].b32.s1;
+        s = FONT_INFO[(1i32 + PARAM_BASE[f as usize]) as usize].b32.s1 as f64 / 65536.0f64;
         if *font_area.offset(f as isize) as u32 == 0xffffu32
             || *font_area.offset(f as isize) as u32 == 0xfffeu32
         {
@@ -22205,8 +22182,8 @@ pub(crate) unsafe extern "C" fn make_accent() {
                 get_native_char_sidebearings(f, cur_val, &mut lsb, &mut rsb);
             }
         } else {
-            a = FONT_INFO[(*width_base.offset(f as isize)
-                + FONT_INFO[(*char_base.offset(f as isize)
+            a = FONT_INFO[(WIDTH_BASE[f as usize]
+                + FONT_INFO[(CHAR_BASE[f as usize]
                     + effective_char(1i32 != 0, f, MEM[p as usize].b16.s0))
                     as usize]
                     .b16
@@ -22245,24 +22222,21 @@ pub(crate) unsafe extern "C" fn make_accent() {
         }
         if q != TEX_NULL {
             /*1160: */
-            t = FONT_INFO[(1 + *param_base.offset(f as isize)) as usize]
-                .b32
-                .s1 as f64
-                / 65536.0f64;
+            t = FONT_INFO[(1 + PARAM_BASE[f as usize]) as usize].b32.s1 as f64 / 65536.0f64;
             if *font_area.offset(f as isize) as u32 == 0xffffu32
                 || *font_area.offset(f as isize) as u32 == 0xfffeu32
             {
                 w = MEM[(q + 1) as usize].b32.s1;
                 get_native_char_height_depth(f, cur_val, &mut h, &mut delta);
             } else {
-                i = FONT_INFO[(*char_base.offset(f as isize)
+                i = FONT_INFO[(CHAR_BASE[f as usize]
                     + effective_char(1i32 != 0, f, MEM[q as usize].b16.s0))
                     as usize]
                     .b16;
-                w = FONT_INFO[(*width_base.offset(f as isize) + i.s3 as i32) as usize]
+                w = FONT_INFO[(WIDTH_BASE[f as usize] + i.s3 as i32) as usize]
                     .b32
                     .s1;
-                h = FONT_INFO[(*height_base.offset(f as isize) + i.s2 as i32 / 16i32) as usize]
+                h = FONT_INFO[(HEIGHT_BASE[f as usize] + i.s2 as i32 / 16i32) as usize]
                     .b32
                     .s1
             }
@@ -26589,7 +26563,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                                                 }
                                             }
                                             MEM[cur_list.tail as usize].b32.s1 = new_kern(
-                                                FONT_INFO[(*kern_base.offset(main_f as isize)
+                                                FONT_INFO[(KERN_BASE[main_f as usize]
                                                     + 256i32 * main_j.s1 as i32
                                                     + main_j.s0 as i32)
                                                     as usize]
@@ -26607,8 +26581,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                                             match main_j.s1 as i32 {
                                                 1 | 5 => {
                                                     cur_l = main_j.s0 as i32;
-                                                    main_i = FONT_INFO[(*char_base
-                                                        .offset(main_f as isize)
+                                                    main_i = FONT_INFO[(CHAR_BASE[main_f as usize]
                                                         + effective_char(
                                                             true,
                                                             main_f,
@@ -26682,8 +26655,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                                                     }
                                                     cur_q = cur_list.tail;
                                                     cur_l = main_j.s0 as i32;
-                                                    main_i = FONT_INFO[(*char_base
-                                                        .offset(main_f as isize)
+                                                    main_i = FONT_INFO[(CHAR_BASE[main_f as usize]
                                                         + effective_char(
                                                             true,
                                                             main_f,
@@ -27041,7 +27013,7 @@ pub(crate) unsafe extern "C" fn main_control() {
                                     temp_ptr = lig_stack;
                                     lig_stack = MEM[temp_ptr as usize].b32.s1;
                                     free_node(temp_ptr, 2i32);
-                                    main_i = FONT_INFO[(*char_base.offset(main_f as isize)
+                                    main_i = FONT_INFO[(CHAR_BASE[main_f as usize]
                                         + effective_char(1i32 != 0, main_f, cur_l as u16))
                                         as usize]
                                         .b16;
@@ -27060,13 +27032,13 @@ pub(crate) unsafe extern "C" fn main_control() {
                                 }
                             }
                         }
-                        main_k = *lig_kern_base.offset(main_f as isize) + main_i.s0 as i32;
+                        main_k = LIG_KERN_BASE[main_f as usize] + main_i.s0 as i32;
                         main_j = FONT_INFO[main_k as usize].b16;
                         if main_j.s3 as i32 <= 128i32 {
                             current_block = 11331079115679122507;
                             continue;
                         }
-                        main_k = ((*lig_kern_base.offset(main_f as isize)
+                        main_k = ((LIG_KERN_BASE[main_f as usize]
                             + 256i32 * main_j.s1 as i32
                             + main_j.s0 as i32) as i64
                             + 32768
@@ -27172,26 +27144,25 @@ pub(crate) unsafe extern "C" fn main_control() {
                     );
                     if main_p == TEX_NULL {
                         main_p = new_spec(0i32);
-                        main_k = *param_base.offset(
-                            EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32) as usize]
-                                .b32
-                                .s1 as isize,
-                        ) + 2i32;
+                        main_k = PARAM_BASE[EQTB[(1i32
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + 1i32
+                            + 15000i32
+                            + 12i32
+                            + 9000i32
+                            + 1i32
+                            + 1i32
+                            + 19i32
+                            + 256i32
+                            + 256i32
+                            + 13i32
+                            + 256i32
+                            + 4i32
+                            + 256i32) as usize]
+                            .b32
+                            .s1 as usize]
+                            + 2;
                         MEM[(main_p + 1) as usize].b32.s1 = FONT_INFO[main_k as usize].b32.s1;
                         MEM[(main_p + 2) as usize].b32.s1 = FONT_INFO[(main_k + 1) as usize].b32.s1;
                         MEM[(main_p + 3) as usize].b32.s1 = FONT_INFO[(main_k + 2) as usize].b32.s1;

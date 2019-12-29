@@ -31,10 +31,10 @@ use crate::cf_prelude::{
 use crate::core_memory::{mfree, xcalloc, xmalloc, xrealloc, xstrdup};
 use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
-    depth_base, font_area, font_flags, font_layout_engine, font_letter_space, height_base,
-    loaded_font_design_size, loaded_font_flags, loaded_font_letter_space, loaded_font_mapping,
-    mapped_text, name_length, name_of_file, native_font_type_flag, param_base, xdv_buffer,
-    FONT_INFO,
+    font_area, font_flags, font_layout_engine, font_letter_space, loaded_font_design_size,
+    loaded_font_flags, loaded_font_letter_space, loaded_font_mapping, mapped_text, name_length,
+    name_of_file, native_font_type_flag, xdv_buffer, DEPTH_BASE, FONT_INFO, HEIGHT_BASE,
+    PARAM_BASE,
 };
 use crate::xetex_output::{print_char, print_int, print_nl, print_raw_char};
 use crate::xetex_scaledmath::xn_over_d;
@@ -1745,24 +1745,17 @@ pub(crate) unsafe extern "C" fn get_native_char_height_depth(
     *height = D2Fix(ht as f64);
     *depth = D2Fix(dp as f64);
     /* snap to "known" zones for baseline, x-height, cap-height if within 4% of em-size */
-    fuzz = FONT_INFO[(6 + *param_base.offset(font as isize)) as usize]
-        .b32
-        .s1
-        / 25i32;
+    fuzz = FONT_INFO[(6 + PARAM_BASE[font as usize]) as usize].b32.s1 / 25i32;
     snap_zone(depth, 0i32, fuzz);
     snap_zone(height, 0i32, fuzz);
     snap_zone(
         height,
-        FONT_INFO[(5 + *param_base.offset(font as isize)) as usize]
-            .b32
-            .s1,
+        FONT_INFO[(5 + PARAM_BASE[font as usize]) as usize].b32.s1,
         fuzz,
     );
     snap_zone(
         height,
-        FONT_INFO[(8 + *param_base.offset(font as isize)) as usize]
-            .b32
-            .s1,
+        FONT_INFO[(8 + PARAM_BASE[font as usize]) as usize].b32.s1,
         fuzz,
     );
 }
@@ -2151,8 +2144,8 @@ pub(crate) unsafe extern "C" fn measure_native_node(
         /* for efficiency, height and depth are the font's ascent/descent,
         not true values based on the actual content of the word,
         unless use_glyph_metrics is non-zero */
-        (*node.offset(3)).b32.s1 = *height_base.offset(f as isize);
-        (*node.offset(2)).b32.s1 = *depth_base.offset(f as isize)
+        (*node.offset(3)).b32.s1 = HEIGHT_BASE[f as usize];
+        (*node.offset(2)).b32.s1 = DEPTH_BASE[f as usize]
     } else {
         /* this iterates over the glyph data whether it comes from AAT or OT layout */
         let mut locations_0: *mut FixedPoint = (*node.offset(5)).ptr as *mut FixedPoint; /* NB negative is upwards in locations[].y! */
@@ -2302,8 +2295,8 @@ pub(crate) unsafe extern "C" fn measure_native_glyph(
         (*node.offset(3)).b32.s1 = D2Fix(ht as f64);
         (*node.offset(2)).b32.s1 = D2Fix(dp as f64)
     } else {
-        (*node.offset(3)).b32.s1 = *height_base.offset(f as isize);
-        (*node.offset(2)).b32.s1 = *depth_base.offset(f as isize)
+        (*node.offset(3)).b32.s1 = HEIGHT_BASE[f as usize];
+        (*node.offset(2)).b32.s1 = DEPTH_BASE[f as usize]
     };
 }
 #[no_mangle]
