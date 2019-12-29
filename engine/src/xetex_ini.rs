@@ -461,7 +461,7 @@ pub(crate) static mut pool_free: i32 = 0;
 #[no_mangle]
 pub(crate) static mut FONT_MEM_SIZE: usize = 0;
 #[no_mangle]
-pub(crate) static mut font_max: i32 = 0;
+pub(crate) static mut FONT_MAX: usize = 0;
 #[no_mangle]
 pub(crate) static mut hyph_size: i32 = 0;
 #[no_mangle]
@@ -785,7 +785,7 @@ pub(crate) static mut font_size: *mut scaled_t = ptr::null_mut();
 #[no_mangle]
 pub(crate) static mut font_dsize: *mut scaled_t = ptr::null_mut();
 #[no_mangle]
-pub(crate) static mut font_params: *mut font_index = ptr::null_mut();
+pub(crate) static mut FONT_PARAMS: Vec<font_index> = Vec::new();
 #[no_mangle]
 pub(crate) static mut font_name: *mut str_number = ptr::null_mut();
 #[no_mangle]
@@ -3441,7 +3441,7 @@ unsafe extern "C" fn store_fmt_file() {
         fmt_out,
     );
     do_dump(
-        &mut *font_params.offset(0) as *mut font_index as *mut i8,
+        &mut FONT_PARAMS[0] as *mut font_index as *mut i8,
         ::std::mem::size_of::<font_index>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
@@ -4316,37 +4316,37 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         bad_fmt();
     }
     if x > FONT_BASE + MAX_FONT_MAX {
-        panic!("must increase font_max");
+        panic!("must increase FONT_MAX");
     }
 
     font_ptr = x;
-    font_mapping = xmalloc_array::<*mut libc::c_void>(font_max as usize);
-    font_layout_engine = xcalloc_array::<*mut libc::c_void>(font_max as usize);
-    font_flags = xmalloc_array(font_max as usize);
-    font_letter_space = xmalloc_array(font_max as usize);
-    font_check = xmalloc_array(font_max as usize);
-    font_size = xmalloc_array(font_max as usize);
-    font_dsize = xmalloc_array(font_max as usize);
-    font_params = xmalloc_array(font_max as usize);
-    font_name = xmalloc_array(font_max as usize);
-    font_area = xmalloc_array(font_max as usize);
-    font_bc = xmalloc_array(font_max as usize);
-    font_ec = xmalloc_array(font_max as usize);
-    font_glue = xmalloc_array(font_max as usize);
-    hyphen_char = xmalloc_array(font_max as usize);
-    skew_char = xmalloc_array(font_max as usize);
-    bchar_label = xmalloc_array(font_max as usize);
-    font_bchar = xmalloc_array(font_max as usize);
-    font_false_bchar = xmalloc_array::<nine_bits>(font_max as usize);
-    char_base = xmalloc_array(font_max as usize);
-    width_base = xmalloc_array(font_max as usize);
-    height_base = xmalloc_array(font_max as usize);
-    depth_base = xmalloc_array(font_max as usize);
-    italic_base = xmalloc_array(font_max as usize);
-    lig_kern_base = xmalloc_array(font_max as usize);
-    kern_base = xmalloc_array(font_max as usize);
-    exten_base = xmalloc_array(font_max as usize);
-    param_base = xmalloc_array(font_max as usize);
+    font_mapping = xmalloc_array::<*mut libc::c_void>(FONT_MAX);
+    font_layout_engine = xcalloc_array::<*mut libc::c_void>(FONT_MAX);
+    font_flags = xmalloc_array(FONT_MAX);
+    font_letter_space = xmalloc_array(FONT_MAX);
+    font_check = xmalloc_array(FONT_MAX);
+    font_size = xmalloc_array(FONT_MAX);
+    font_dsize = xmalloc_array(FONT_MAX);
+    FONT_PARAMS = vec![font_index::default(); FONT_MAX + 1];
+    font_name = xmalloc_array(FONT_MAX);
+    font_area = xmalloc_array(FONT_MAX);
+    font_bc = xmalloc_array(FONT_MAX);
+    font_ec = xmalloc_array(FONT_MAX);
+    font_glue = xmalloc_array(FONT_MAX);
+    hyphen_char = xmalloc_array(FONT_MAX);
+    skew_char = xmalloc_array(FONT_MAX);
+    bchar_label = xmalloc_array(FONT_MAX);
+    font_bchar = xmalloc_array(FONT_MAX);
+    font_false_bchar = xmalloc_array::<nine_bits>(FONT_MAX);
+    char_base = xmalloc_array(FONT_MAX);
+    width_base = xmalloc_array(FONT_MAX);
+    height_base = xmalloc_array(FONT_MAX);
+    depth_base = xmalloc_array(FONT_MAX);
+    italic_base = xmalloc_array(FONT_MAX);
+    lig_kern_base = xmalloc_array(FONT_MAX);
+    kern_base = xmalloc_array(FONT_MAX);
+    exten_base = xmalloc_array(FONT_MAX);
+    param_base = xmalloc_array(FONT_MAX);
 
     k = 0i32;
     while k <= font_ptr {
@@ -4374,22 +4374,21 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     );
     let mut i_0: i32 = 0;
     do_undump(
-        &mut *font_params.offset(0) as *mut font_index as *mut i8,
+        &mut FONT_PARAMS[0] as *mut font_index as *mut i8,
         ::std::mem::size_of::<font_index>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     i_0 = 0i32;
     while i_0 < font_ptr + 1i32 {
-        if *(&mut *font_params.offset(0) as *mut font_index).offset(i_0 as isize) < TEX_NULL
-            || *(&mut *font_params.offset(0) as *mut font_index).offset(i_0 as isize)
-                > 0x3fffffffi32
+        if *(&mut FONT_PARAMS[0] as *mut font_index).offset(i_0 as isize) < TEX_NULL
+            || *(&mut FONT_PARAMS[0] as *mut font_index).offset(i_0 as isize) > 0x3fffffffi32
         {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i_0,
-                *(&mut *font_params.offset(0) as *mut font_index).offset(i_0 as isize) as uintptr_t,
-                &mut *font_params.offset(0) as *mut font_index as uintptr_t,
+                *(&mut FONT_PARAMS[0] as *mut font_index).offset(i_0 as isize) as uintptr_t,
+                &mut FONT_PARAMS[0] as *mut font_index as uintptr_t,
                 TEX_NULL as uintptr_t,
                 0x3fffffffi32 as uintptr_t
             );
@@ -8824,7 +8823,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     max_strings = 565536i64 as i32;
     strings_free = 100i32;
     FONT_MEM_SIZE = 8000000;
-    font_max = 9000i32;
+    FONT_MAX = 9000;
     trie_size = 1000000i64 as i32;
     hyph_size = 8191i32;
     buf_size = 200000i64 as i32;
@@ -8906,7 +8905,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     if MAX_FONT_MAX < MIN_HALFWORD || MAX_FONT_MAX > MAX_HALFWORD {
         bad = 15
     }
-    if font_max > FONT_BASE + 9000 {
+    if FONT_MAX as i32 > FONT_BASE + 9000 {
         bad = 16
     }
     if save_size > MAX_HALFWORD || max_strings > MAX_HALFWORD {
@@ -9244,33 +9243,33 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
         trie_ptr = 0i32;
         *trie_r.offset(0) = 0i32;
         hyph_start = 0i32;
-        font_mapping = xcalloc_array::<*mut libc::c_void>(font_max as usize);
-        font_layout_engine = xcalloc_array::<*mut libc::c_void>(font_max as usize);
-        font_flags = xcalloc_array(font_max as usize);
-        font_letter_space = xcalloc_array(font_max as usize);
-        font_check = xcalloc_array(font_max as usize);
-        font_size = xcalloc_array(font_max as usize);
-        font_dsize = xcalloc_array(font_max as usize);
-        font_params = xcalloc_array(font_max as usize);
-        font_name = xcalloc_array(font_max as usize);
-        font_area = xcalloc_array(font_max as usize);
-        font_bc = xcalloc_array(font_max as usize);
-        font_ec = xcalloc_array(font_max as usize);
-        font_glue = xcalloc_array(font_max as usize);
-        hyphen_char = xcalloc_array(font_max as usize);
-        skew_char = xcalloc_array(font_max as usize);
-        bchar_label = xcalloc_array(font_max as usize);
-        font_bchar = xcalloc_array(font_max as usize);
-        font_false_bchar = xcalloc_array(font_max as usize);
-        char_base = xcalloc_array(font_max as usize);
-        width_base = xcalloc_array(font_max as usize);
-        height_base = xcalloc_array(font_max as usize);
-        depth_base = xcalloc_array(font_max as usize);
-        italic_base = xcalloc_array(font_max as usize);
-        lig_kern_base = xcalloc_array(font_max as usize);
-        kern_base = xcalloc_array(font_max as usize);
-        exten_base = xcalloc_array(font_max as usize);
-        param_base = xcalloc_array(font_max as usize);
+        font_mapping = xcalloc_array::<*mut libc::c_void>(FONT_MAX);
+        font_layout_engine = xcalloc_array::<*mut libc::c_void>(FONT_MAX);
+        font_flags = xcalloc_array(FONT_MAX);
+        font_letter_space = xcalloc_array(FONT_MAX);
+        font_check = xcalloc_array(FONT_MAX);
+        font_size = xcalloc_array(FONT_MAX);
+        font_dsize = xcalloc_array(FONT_MAX);
+        FONT_PARAMS = vec![font_index::default(); FONT_MAX + 1];
+        font_name = xcalloc_array(FONT_MAX);
+        font_area = xcalloc_array(FONT_MAX);
+        font_bc = xcalloc_array(FONT_MAX);
+        font_ec = xcalloc_array(FONT_MAX);
+        font_glue = xcalloc_array(FONT_MAX);
+        hyphen_char = xcalloc_array(FONT_MAX);
+        skew_char = xcalloc_array(FONT_MAX);
+        bchar_label = xcalloc_array(FONT_MAX);
+        font_bchar = xcalloc_array(FONT_MAX);
+        font_false_bchar = xcalloc_array(FONT_MAX);
+        char_base = xcalloc_array(FONT_MAX);
+        width_base = xcalloc_array(FONT_MAX);
+        height_base = xcalloc_array(FONT_MAX);
+        depth_base = xcalloc_array(FONT_MAX);
+        italic_base = xcalloc_array(FONT_MAX);
+        lig_kern_base = xcalloc_array(FONT_MAX);
+        kern_base = xcalloc_array(FONT_MAX);
+        exten_base = xcalloc_array(FONT_MAX);
+        param_base = xcalloc_array(FONT_MAX);
         font_ptr = 0i32;
         fmem_ptr = 7i32;
         *font_name.offset(0) = maketexstring(b"nullfont");
@@ -9293,7 +9292,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
         *kern_base.offset(0) = 0i32;
         *exten_base.offset(0) = 0i32;
         *font_glue.offset(0) = TEX_NULL;
-        *font_params.offset(0) = 7i32;
+        FONT_PARAMS[0] = 7i32;
         let ref mut fresh21 = *font_mapping.offset(0);
         *fresh21 = 0 as *mut libc::c_void;
         *param_base.offset(0) = -1i32;
@@ -9303,9 +9302,9 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
             font_k += 1
         }
     }
-    font_used = xmalloc_array(font_max as usize);
+    font_used = xmalloc_array(FONT_MAX);
     font_k = 0i32;
-    while font_k <= font_max {
+    while font_k <= FONT_MAX as i32 {
         *font_used.offset(font_k as isize) = false;
         font_k += 1
     }
@@ -9330,7 +9329,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     deinitialize_shipout_variables();
     destroy_font_manager();
     font_k = 0i32;
-    while font_k < font_max {
+    while font_k < FONT_MAX as i32 {
         if !(*font_layout_engine.offset(font_k as isize)).is_null() {
             release_font_engine(
                 *font_layout_engine.offset(font_k as isize),
@@ -9373,7 +9372,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     free(font_check as *mut libc::c_void);
     free(font_size as *mut libc::c_void);
     free(font_dsize as *mut libc::c_void);
-    free(font_params as *mut libc::c_void);
+    FONT_PARAMS = Vec::new();
     free(font_name as *mut libc::c_void);
     free(font_area as *mut libc::c_void);
     free(font_bc as *mut libc::c_void);

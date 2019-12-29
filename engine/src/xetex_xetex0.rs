@@ -47,32 +47,32 @@ use crate::xetex_ini::{
     ext_delimiter, exten_base, false_bchar, file_line_error_style_p, file_name_quote_char,
     file_offset, first, first_count, fmem_ptr, font_area, font_bc, font_bchar, font_check,
     font_dsize, font_ec, font_false_bchar, font_flags, font_glue, font_in_short_display,
-    font_layout_engine, font_letter_space, font_mapping, font_max, font_name, font_params,
-    font_ptr, font_size, font_used, force_eof, full_source_filename_stack, gave_char_warning_help,
-    grp_stack, half_error_line, hash, hash_extra, hash_high, hash_used, height_base, help_line,
-    help_ptr, hi_mem_min, history, hyphen_char, if_limit, if_line, if_stack, in_open,
-    init_pool_ptr, init_str_ptr, input_file, input_ptr, input_stack, ins_disc, insert_penalties,
-    insert_src_special_auto, insert_src_special_every_par, insert_src_special_every_vbox,
-    interaction, is_hyph, is_in_csname, italic_base, job_name, kern_base, last, last_badness,
-    last_glue, last_kern, last_leftmost_char, last_node_type, last_penalty, last_rightmost_char,
-    lft_hit, lig_kern_base, lig_stack, ligature_present, line, line_stack, lo_mem_max,
-    loaded_font_design_size, loaded_font_flags, loaded_font_letter_space, loaded_font_mapping,
-    log_file, log_opened, long_help_seen, long_state, mag_set, main_f, main_h, main_i, main_j,
-    main_k, main_p, main_pp, main_ppp, main_s, mapped_text, max_buf_stack, max_in_open,
-    max_in_stack, max_nest_stack, max_param_stack, max_print_line, max_reg_help_line, max_reg_num,
-    max_save_stack, max_strings, mem_end, name_in_progress, name_length, name_length16,
-    name_of_file, name_of_file16, native_font_type_flag, native_len, native_text, native_text_size,
-    nest, nest_ptr, nest_size, no_new_control_sequence, old_setting, open_parens, output_active,
-    pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token, param_base,
-    param_ptr, param_size, param_stack, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size,
-    pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used, pseudo_files, pstack, quoted_filename,
-    radix, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_null, sa_root,
-    save_native_len, save_ptr, save_size, save_stack, scanner_status, selector, set_box_allowed,
-    shown_mode, skew_char, skip_line, source_filename_stack, space_class, stack_size,
-    stop_at_space, str_pool, str_ptr, str_start, tally, temp_ptr, term_offset, tex_remainder,
-    texmf_log_name, total_shrink, total_stretch, trick_buf, trick_count, use_err_help,
-    used_tectonic_coda_tokens, warning_index, width_base, write_file, write_open,
-    xtx_ligature_present, LR_problems, LR_ptr, EQTB, EQTB_TOP, FONT_INFO, FONT_MEM_SIZE, MEM,
+    font_layout_engine, font_letter_space, font_mapping, font_name, font_ptr, font_size, font_used,
+    force_eof, full_source_filename_stack, gave_char_warning_help, grp_stack, half_error_line,
+    hash, hash_extra, hash_high, hash_used, height_base, help_line, help_ptr, hi_mem_min, history,
+    hyphen_char, if_limit, if_line, if_stack, in_open, init_pool_ptr, init_str_ptr, input_file,
+    input_ptr, input_stack, ins_disc, insert_penalties, insert_src_special_auto,
+    insert_src_special_every_par, insert_src_special_every_vbox, interaction, is_hyph,
+    is_in_csname, italic_base, job_name, kern_base, last, last_badness, last_glue, last_kern,
+    last_leftmost_char, last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_kern_base,
+    lig_stack, ligature_present, line, line_stack, lo_mem_max, loaded_font_design_size,
+    loaded_font_flags, loaded_font_letter_space, loaded_font_mapping, log_file, log_opened,
+    long_help_seen, long_state, mag_set, main_f, main_h, main_i, main_j, main_k, main_p, main_pp,
+    main_ppp, main_s, mapped_text, max_buf_stack, max_in_open, max_in_stack, max_nest_stack,
+    max_param_stack, max_print_line, max_reg_help_line, max_reg_num, max_save_stack, max_strings,
+    mem_end, name_in_progress, name_length, name_length16, name_of_file, name_of_file16,
+    native_font_type_flag, native_len, native_text, native_text_size, nest, nest_ptr, nest_size,
+    no_new_control_sequence, old_setting, open_parens, output_active, pack_begin_line,
+    page_contents, page_so_far, page_tail, par_loc, par_token, param_base, param_ptr, param_size,
+    param_stack, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class,
+    prim, prim_eqtb, prim_used, pseudo_files, pstack, quoted_filename, radix, read_file, read_open,
+    rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_null, sa_root, save_native_len, save_ptr,
+    save_size, save_stack, scanner_status, selector, set_box_allowed, shown_mode, skew_char,
+    skip_line, source_filename_stack, space_class, stack_size, stop_at_space, str_pool, str_ptr,
+    str_start, tally, temp_ptr, term_offset, tex_remainder, texmf_log_name, total_shrink,
+    total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens, warning_index,
+    width_base, write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr, EQTB, EQTB_TOP,
+    FONT_INFO, FONT_MAX, FONT_MEM_SIZE, FONT_PARAMS, MEM,
 };
 use crate::xetex_ini::{b16x4, b32x2, memory_word, prefixed_command};
 use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding, u_close};
@@ -685,7 +685,7 @@ pub(crate) unsafe extern "C" fn short_display(mut p: i32) {
         if is_char_node(p) {
             if p <= mem_end {
                 if MEM[p as usize].b16.s1 as i32 != font_in_short_display {
-                    if MEM[p as usize].b16.s1 as i32 > font_max {
+                    if MEM[p as usize].b16.s1 as i32 > FONT_MAX as i32 {
                         print_char('*' as i32);
                     } else {
                         /*279:*/
@@ -779,7 +779,7 @@ pub(crate) unsafe extern "C" fn print_font_and_char(mut p: i32) {
     if p > mem_end {
         print_esc_cstr(b"CLOBBERED.");
     } else {
-        if MEM[p as usize].b16.s1 as i32 > font_max {
+        if MEM[p as usize].b16.s1 as i32 > FONT_MAX as i32 {
             print_char('*' as i32);
         } else {
             /*279: */
@@ -9355,7 +9355,7 @@ pub(crate) unsafe extern "C" fn find_font_dimen(mut writing: bool) {
             delete_glue_ref(*font_glue.offset(f as isize));
             *font_glue.offset(f as isize) = TEX_NULL
         }
-        if n > *font_params.offset(f as isize) {
+        if n > FONT_PARAMS[f as usize] {
             if f < font_ptr {
                 cur_val = fmem_ptr
             } else {
@@ -9367,9 +9367,9 @@ pub(crate) unsafe extern "C" fn find_font_dimen(mut writing: bool) {
                     }
                     FONT_INFO[fmem_ptr as usize].b32.s1 = 0;
                     fmem_ptr += 1;
-                    let ref mut fresh34 = *font_params.offset(f as isize);
+                    let ref mut fresh34 = FONT_PARAMS[f as usize];
                     *fresh34 += 1;
-                    if n == *font_params.offset(f as isize) {
+                    if n == FONT_PARAMS[f as usize] {
                         break;
                     }
                 }
@@ -9394,7 +9394,7 @@ pub(crate) unsafe extern "C" fn find_font_dimen(mut writing: bool) {
             .s1,
         );
         print_cstr(b" has only ");
-        print_int(*font_params.offset(f as isize));
+        print_int(FONT_PARAMS[f as usize]);
         print_cstr(b" fontdimen parameters");
         help_ptr = 2_u8;
         help_line[1] = b"To increase the number of font parameters, you must";
@@ -15494,7 +15494,7 @@ pub(crate) unsafe extern "C" fn load_native_font(
     } else {
         num_font_dimens = 8i32
     }
-    if font_ptr == font_max || fmem_ptr + num_font_dimens > FONT_MEM_SIZE as i32 {
+    if font_ptr == FONT_MAX as i32 || fmem_ptr + num_font_dimens > FONT_MEM_SIZE as i32 {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -15566,7 +15566,7 @@ pub(crate) unsafe extern "C" fn load_native_font(
     }
     *height_base.offset(font_ptr as isize) = ascent;
     *depth_base.offset(font_ptr as isize) = -descent;
-    *font_params.offset(font_ptr as isize) = num_font_dimens;
+    FONT_PARAMS[font_ptr as usize] = num_font_dimens;
     *font_bc.offset(font_ptr as isize) = 0i32 as UTF16_code;
     *font_ec.offset(font_ptr as isize) = 65535 as UTF16_code;
     *font_used.offset(font_ptr as isize) = false;
@@ -16146,7 +16146,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
         lf = lf + 7 - np
     }
     assert!(
-        !(font_ptr == font_max || fmem_ptr + lf > FONT_MEM_SIZE as i32),
+        !(font_ptr == FONT_MAX as i32 || fmem_ptr + lf > FONT_MEM_SIZE as i32),
         "not enough memory to load another font"
     );
 
@@ -16467,9 +16467,9 @@ pub(crate) unsafe extern "C" fn read_font_info(
     }
 
     if np >= 7 {
-        *font_params.offset(f as isize) = np
+        FONT_PARAMS[f as usize] = np
     } else {
-        *font_params.offset(f as isize) = 7
+        FONT_PARAMS[f as usize] = 7
     }
 
     *hyphen_char.offset(f as isize) = INTPAR(INT_PAR__default_hyphen_char);

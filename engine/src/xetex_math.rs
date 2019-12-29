@@ -13,11 +13,11 @@ use crate::xetex_ext::{map_char_to_glyph, measure_native_glyph, real_get_native_
 use crate::xetex_ini::{
     adjust_tail, avail, char_base, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i,
     cur_lang, cur_list, cur_val, cur_val1, depth_base, empty, exten_base, file_line_error_style_p,
-    font_area, font_bc, font_ec, font_layout_engine, font_params, height_base, help_line, help_ptr,
+    font_area, font_bc, font_ec, font_layout_engine, height_base, help_line, help_ptr,
     insert_src_special_every_math, italic_base, just_box, kern_base, lig_kern_base, nest_ptr,
     null_character, param_base, pre_adjust_tail, save_ptr, save_stack, skew_char, temp_ptr,
     tex_remainder, total_shrink, width_base, xtx_ligature_present, LR_problems, LR_ptr, EQTB,
-    FONT_INFO, MEM,
+    FONT_INFO, FONT_PARAMS, MEM,
 };
 use crate::xetex_ini::{b16x4, b16x4_le_t, memory_word};
 use crate::xetex_layout_interface::*;
@@ -1860,28 +1860,27 @@ pub(crate) unsafe extern "C" fn after_math() {
     if cur_list.mode as i32 == 207i32 {
         j = cur_list.eTeX_aux
     }
-    if *font_params.offset(
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 2i32) as usize]
-            .b32
-            .s1 as isize,
-    ) < 22i32
+    if FONT_PARAMS[EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + 2i32) as usize]
+        .b32
+        .s1 as usize]
+        < 22i32
         && !(*font_area.offset(
             EQTB[(1i32
                 + (0x10ffffi32 + 1i32)
@@ -1930,28 +1929,27 @@ pub(crate) unsafe extern "C" fn after_math() {
                 ) as XeTeXLayoutEngine,
             ) as i32
                 != 0)
-        || *font_params.offset(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + (2i32 + 256i32)) as usize]
-                .b32
-                .s1 as isize,
-        ) < 22i32
+        || FONT_PARAMS[EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + (2i32 + 256i32)) as usize]
+            .b32
+            .s1 as usize]
+            < 22i32
             && !(*font_area.offset(
                 EQTB[(1i32
                     + (0x10ffffi32 + 1i32)
@@ -2000,28 +1998,27 @@ pub(crate) unsafe extern "C" fn after_math() {
                     ) as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
-        || *font_params.offset(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + (2i32 + 2i32 * 256i32)) as usize]
-                .b32
-                .s1 as isize,
-        ) < 22i32
+        || FONT_PARAMS[EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + (2i32 + 2i32 * 256i32)) as usize]
+            .b32
+            .s1 as usize]
+            < 22i32
             && !(*font_area.offset(
                 EQTB[(1i32
                     + (0x10ffffi32 + 1i32)
@@ -2084,28 +2081,27 @@ pub(crate) unsafe extern "C" fn after_math() {
         error();
         flush_math();
         danger = true
-    } else if *font_params.offset(
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (3i32 + 0i32)) as usize]
-            .b32
-            .s1 as isize,
-    ) < 13i32
+    } else if FONT_PARAMS[EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (3i32 + 0i32)) as usize]
+        .b32
+        .s1 as usize]
+        < 13i32
         && !(*font_area.offset(
             EQTB[(1i32
                 + (0x10ffffi32 + 1i32)
@@ -2154,28 +2150,27 @@ pub(crate) unsafe extern "C" fn after_math() {
                 ) as XeTeXLayoutEngine,
             ) as i32
                 != 0)
-        || *font_params.offset(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + (3i32 + 256i32)) as usize]
-                .b32
-                .s1 as isize,
-        ) < 13i32
+        || FONT_PARAMS[EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + (3i32 + 256i32)) as usize]
+            .b32
+            .s1 as usize]
+            < 13i32
             && !(*font_area.offset(
                 EQTB[(1i32
                     + (0x10ffffi32 + 1i32)
@@ -2224,28 +2219,27 @@ pub(crate) unsafe extern "C" fn after_math() {
                     ) as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
-        || *font_params.offset(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + (3i32 + 2i32 * 256i32)) as usize]
-                .b32
-                .s1 as isize,
-        ) < 13i32
+        || FONT_PARAMS[EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + (3i32 + 2i32 * 256i32)) as usize]
+            .b32
+            .s1 as usize]
+            < 13i32
             && !(*font_area.offset(
                 EQTB[(1i32
                     + (0x10ffffi32 + 1i32)
@@ -2345,28 +2339,27 @@ pub(crate) unsafe extern "C" fn after_math() {
         if cur_list.mode as i32 == 207i32 {
             j = cur_list.eTeX_aux
         }
-        if *font_params.offset(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 2i32) as usize]
-                .b32
-                .s1 as isize,
-        ) < 22i32
+        if FONT_PARAMS[EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 2i32) as usize]
+            .b32
+            .s1 as usize]
+            < 22i32
             && !(*font_area.offset(
                 EQTB[(1i32
                     + (0x10ffffi32 + 1i32)
@@ -2415,28 +2408,27 @@ pub(crate) unsafe extern "C" fn after_math() {
                     ) as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
-            || *font_params.offset(
-                EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + (2i32 + 256i32)) as usize]
-                    .b32
-                    .s1 as isize,
-            ) < 22i32
+            || FONT_PARAMS[EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + (2i32 + 256i32)) as usize]
+                .b32
+                .s1 as usize]
+                < 22i32
                 && !(*font_area.offset(
                     EQTB[(1i32
                         + (0x10ffffi32 + 1i32)
@@ -2485,28 +2477,27 @@ pub(crate) unsafe extern "C" fn after_math() {
                         ) as XeTeXLayoutEngine,
                     ) as i32
                         != 0)
-            || *font_params.offset(
-                EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + (2i32 + 2i32 * 256i32)) as usize]
-                    .b32
-                    .s1 as isize,
-            ) < 22i32
+            || FONT_PARAMS[EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + (2i32 + 2i32 * 256i32)) as usize]
+                .b32
+                .s1 as usize]
+                < 22i32
                 && !(*font_area.offset(
                     EQTB[(1i32
                         + (0x10ffffi32 + 1i32)
@@ -2569,28 +2560,27 @@ pub(crate) unsafe extern "C" fn after_math() {
             error();
             flush_math();
             danger = true
-        } else if *font_params.offset(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + (3i32 + 0i32)) as usize]
-                .b32
-                .s1 as isize,
-        ) < 13i32
+        } else if FONT_PARAMS[EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + (3i32 + 0i32)) as usize]
+            .b32
+            .s1 as usize]
+            < 13i32
             && !(*font_area.offset(
                 EQTB[(1i32
                     + (0x10ffffi32 + 1i32)
@@ -2639,28 +2629,27 @@ pub(crate) unsafe extern "C" fn after_math() {
                     ) as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
-            || *font_params.offset(
-                EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + (3i32 + 256i32)) as usize]
-                    .b32
-                    .s1 as isize,
-            ) < 13i32
+            || FONT_PARAMS[EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + (3i32 + 256i32)) as usize]
+                .b32
+                .s1 as usize]
+                < 13i32
                 && !(*font_area.offset(
                     EQTB[(1i32
                         + (0x10ffffi32 + 1i32)
@@ -2709,28 +2698,27 @@ pub(crate) unsafe extern "C" fn after_math() {
                         ) as XeTeXLayoutEngine,
                     ) as i32
                         != 0)
-            || *font_params.offset(
-                EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + (3i32 + 2i32 * 256i32)) as usize]
-                    .b32
-                    .s1 as isize,
-            ) < 13i32
+            || FONT_PARAMS[EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + (3i32 + 2i32 * 256i32)) as usize]
+                .b32
+                .s1 as usize]
+                < 13i32
                 && !(*font_area.offset(
                     EQTB[(1i32
                         + (0x10ffffi32 + 1i32)
