@@ -13,14 +13,14 @@ use crate::xetex_errors::{confusion, error, pdf_error};
 use crate::xetex_ext::measure_native_node;
 use crate::xetex_ini::{
     active_width, adjust_tail, arith_error, avail, bchar_label, char_base, cur_l, cur_lang,
-    cur_list, cur_q, cur_r, eqtb, file_line_error_style_p, first_p, font_bchar,
-    font_in_short_display, global_prev_p, hc, help_line, help_ptr, hf, hi_mem_min, hlist_stack,
-    hlist_stack_level, hu, hyf, hyf_distance, hyf_next, hyf_num, hyph_index, hyph_link, hyph_list,
-    hyph_start, hyph_word, hyphen_char, hyphen_passed, init_lft, init_lig, init_list, init_trie,
-    just_box, kern_base, last_leftmost_char, last_rightmost_char, lft_hit, lig_kern_base,
-    lig_stack, ligature_present, max_hyph_char, op_start, pack_begin_line, pre_adjust_tail, rt_hit,
-    semantic_pagination_enabled, str_pool, str_start, temp_ptr, trie_not_ready, trie_trc, trie_trl,
-    trie_tro, width_base, xtx_ligature_present, FONT_INFO, MEM,
+    cur_list, cur_q, cur_r, file_line_error_style_p, first_p, font_bchar, font_in_short_display,
+    global_prev_p, hc, help_line, help_ptr, hf, hi_mem_min, hlist_stack, hlist_stack_level, hu,
+    hyf, hyf_distance, hyf_next, hyf_num, hyph_index, hyph_link, hyph_list, hyph_start, hyph_word,
+    hyphen_char, hyphen_passed, init_lft, init_lig, init_list, init_trie, just_box, kern_base,
+    last_leftmost_char, last_rightmost_char, lft_hit, lig_kern_base, lig_stack, ligature_present,
+    max_hyph_char, op_start, pack_begin_line, pre_adjust_tail, rt_hit, semantic_pagination_enabled,
+    str_pool, str_start, temp_ptr, trie_not_ready, trie_trc, trie_trl, trie_tro, width_base,
+    xtx_ligature_present, EQTB, FONT_INFO, MEM,
 };
 use crate::xetex_ini::{b16x4, memory_word};
 use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
@@ -637,7 +637,7 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                                                                                                         *mut memory_word
                                                                                                         as
                                                                                                         *mut libc::c_void,
-                                                                                                    ((*eqtb.offset((1i32
+                                                                                                    (EQTB[(1i32
                                                                                                                         +
                                                                                                                         (0x10ffffi32
                                                                                                                              +
@@ -705,7 +705,7 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                                                                                                                         +
                                                                                                                         74i32)
                                                                                                                        as
-                                                                                                                       isize)).b32.s1
+                                                                                                                       usize].b32.s1
                                                                                                          >
                                                                                                          0i32)
                                                                                                         as
@@ -730,7 +730,7 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                                                                                                         *mut memory_word
                                                                                                         as
                                                                                                         *mut libc::c_void,
-                                                                                                    ((*eqtb.offset((1i32
+                                                                                                    (EQTB[(1i32
                                                                                                                         +
                                                                                                                         (0x10ffffi32
                                                                                                                              +
@@ -798,7 +798,7 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                                                                                                                         +
                                                                                                                         74i32)
                                                                                                                        as
-                                                                                                                       isize)).b32.s1
+                                                                                                                       usize].b32.s1
                                                                                                          >
                                                                                                          0i32)
                                                                                                         as
@@ -847,7 +847,7 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                                                                                                     *mut memory_word
                                                                                                     as
                                                                                                     *mut libc::c_void,
-                                                                                                ((*eqtb.offset((1i32
+                                                                                                (EQTB[(1i32
                                                                                                                     +
                                                                                                                     (0x10ffffi32
                                                                                                                          +
@@ -915,7 +915,7 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                                                                                                                     +
                                                                                                                     74i32)
                                                                                                                    as
-                                                                                                                   isize)).b32.s1
+                                                                                                                   usize].b32.s1
                                                                                                      >
                                                                                                      0i32)
                                                                                                     as
@@ -933,7 +933,7 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                                                                                                     *mut memory_word
                                                                                                     as
                                                                                                     *mut libc::c_void,
-                                                                                                ((*eqtb.offset((1i32
+                                                                                                (EQTB[(1i32
                                                                                                                     +
                                                                                                                     (0x10ffffi32
                                                                                                                          +
@@ -1001,7 +1001,7 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                                                                                                                     +
                                                                                                                     74i32)
                                                                                                                    as
-                                                                                                                   isize)).b32.s1
+                                                                                                                   usize].b32.s1
                                                                                                      >
                                                                                                      0i32)
                                                                                                     as
@@ -1574,7 +1574,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
         }
     }
     cur_line = cur_list.prev_graf + 1i32;
-    loop  {
+    loop {
         /* 909: justify the line ending at breakpoint cur_p and append it to
          * the current vertical list, with associated penalties and
          * insertions. The current line starts a TEMP_HEAD.link and ends at
@@ -1586,30 +1586,25 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
             if LR_ptr != TEX_NULL {
                 temp_ptr = LR_ptr;
                 r = q;
-                loop  {
-                    s =
-                        new_math(0i32,
-                                 (MEM[temp_ptr as usize].b32.s0 -
-                                      1i32) as small_number);
+                loop {
+                    s = new_math(0i32, (MEM[temp_ptr as usize].b32.s0 - 1i32) as small_number);
                     MEM[s as usize].b32.s1 = r;
                     r = s;
                     temp_ptr = MEM[temp_ptr as usize].b32.s1;
-                    if !(temp_ptr != -0xfffffffi32) { break ; }
+                    if !(temp_ptr != -0xfffffffi32) {
+                        break;
+                    }
                 }
                 MEM[(4999999 - 3) as usize].b32.s1 = r
             }
             while q != MEM[(cur_p + 1) as usize].b32.s1 {
-                if q < hi_mem_min &&
-                       MEM[q as usize].b16.s1 as i32 == 9
-                   {
+                if q < hi_mem_min && MEM[q as usize].b16.s1 as i32 == 9 {
                     /*1495:*/
-                    if MEM[q as usize].b16.s0 as i32 & 1
-                           != 0 {
-                        if LR_ptr != -0xfffffffi32 &&
-                               MEM[LR_ptr as usize].b32.s0 ==
-                                   4i32 *
-                                       (MEM[q as usize].b16.s0 as
-                                            i32 / 4i32) + 3i32 {
+                    if MEM[q as usize].b16.s0 as i32 & 1 != 0 {
+                        if LR_ptr != -0xfffffffi32
+                            && MEM[LR_ptr as usize].b32.s0
+                                == 4i32 * (MEM[q as usize].b16.s0 as i32 / 4i32) + 3i32
+                        {
                             temp_ptr = LR_ptr;
                             LR_ptr = MEM[temp_ptr as usize].b32.s1;
                             MEM[temp_ptr as usize].b32.s1 = avail;
@@ -1618,9 +1613,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
                     } else {
                         temp_ptr = get_avail();
                         MEM[temp_ptr as usize].b32.s0 =
-                            4i32 *
-                                (MEM[q as usize].b16.s0 as
-                                     i32 / 4i32) + 3i32;
+                            4i32 * (MEM[q as usize].b16.s0 as i32 / 4i32) + 3i32;
                         MEM[temp_ptr as usize].b32.s1 = LR_ptr;
                         LR_ptr = temp_ptr
                     }
@@ -1645,13 +1638,20 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
             delete_glue_ref(MEM[(q + 1) as usize].b32.s0);
             *GLUE_NODE_glue_ptr(q as isize) = *GLUEPAR(GLUE_PAR__right_skip);
             *NODE_subtype(q as isize) = GLUE_PAR__right_skip as u16 + 1;
-            let ref mut fresh5 =
-                MEM[(*eqtb.offset((1 + (0x10ffff + 1) +
-                                                (0x10ffffi32 + 1i32) + 1i32 +
-                                                15000i32 + 12i32 + 9000i32 +
-                                                1i32 + 1i32 + 8i32) as
-                                               isize)).b32.s1 as
-                                 usize].b32.s1;
+            let ref mut fresh5 = MEM[EQTB[(1
+                + (0x10ffff + 1)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 8i32) as usize]
+                .b32
+                .s1 as usize]
+                .b32
+                .s1;
             *fresh5 += 1;
             glue_break = true;
         } else if MEM[q as usize].b16.s1 as i32 == 7 {
@@ -1700,13 +1700,11 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
             MEM[(q + 1) as usize].b32.s1 = 0;
             if INTPAR(INT_PAR__texxet) > 0 {
                 /*1495:*/
-                if MEM[q as usize].b16.s0 as i32 & 1 != 0
-                   {
-                    if LR_ptr != TEX_NULL &&
-                           MEM[LR_ptr as usize].b32.s0 ==
-                               4i32 *
-                                   (MEM[q as usize].b16.s0 as
-                                        i32 / 4i32) + 3i32 {
+                if MEM[q as usize].b16.s0 as i32 & 1 != 0 {
+                    if LR_ptr != TEX_NULL
+                        && MEM[LR_ptr as usize].b32.s0
+                            == 4i32 * (MEM[q as usize].b16.s0 as i32 / 4i32) + 3i32
+                    {
                         temp_ptr = LR_ptr;
                         LR_ptr = MEM[temp_ptr as usize].b32.s1;
                         MEM[temp_ptr as usize].b32.s1 = avail;
@@ -1715,9 +1713,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
                 } else {
                     temp_ptr = get_avail();
                     MEM[temp_ptr as usize].b32.s0 =
-                        4i32 *
-                            (MEM[q as usize].b16.s0 as i32 /
-                                 4i32) + 3i32;
+                        4i32 * (MEM[q as usize].b16.s0 as i32 / 4i32) + 3i32;
                     MEM[temp_ptr as usize].b32.s1 = LR_ptr;
                     LR_ptr = temp_ptr
                 }
@@ -1727,36 +1723,29 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
          * the case of a discretionary break with non-empty pre_break -- then
          * q has been changed to the last node of the pre-break list" */
         if INTPAR(INT_PAR__xetex_protrude_chars) > 0 {
-            if disc_break as i32 != 0 &&
-                   (is_char_node(q) as i32 != 0 ||
-                        MEM[q as usize].b16.s1 as i32 !=
-                            7i32) {
+            if disc_break as i32 != 0
+                && (is_char_node(q) as i32 != 0 || MEM[q as usize].b16.s1 as i32 != 7i32)
+            {
                 p = q; /*:915*/
                 ptmp = p
             } else {
-                p =
-                    prev_rightmost(MEM[(4999999 - 3) as
-                                                    usize].b32.s1, q);
+                p = prev_rightmost(MEM[(4999999 - 3) as usize].b32.s1, q);
                 ptmp = p;
-                p =
-                    find_protchar_right(MEM[(4999999 - 3) as
-                                                         usize].b32.s1, p)
+                p = find_protchar_right(MEM[(4999999 - 3) as usize].b32.s1, p)
             }
             w = char_pw(p, 1i32 as small_number);
             if w != 0i32 {
-                k =
-                    new_margin_kern(-w, last_rightmost_char,
-                                    1i32 as small_number);
-                MEM[k as usize].b32.s1 =
-                    MEM[ptmp as usize].b32.s1;
+                k = new_margin_kern(-w, last_rightmost_char, 1i32 as small_number);
+                MEM[k as usize].b32.s1 = MEM[ptmp as usize].b32.s1;
                 MEM[ptmp as usize].b32.s1 = k;
-                if ptmp == q { q = MEM[q as usize].b32.s1 }
+                if ptmp == q {
+                    q = MEM[q as usize].b32.s1
+                }
             }
         }
         if !glue_break {
             r = new_param_glue(8i32 as small_number);
-            MEM[r as usize].b32.s1 =
-                MEM[q as usize].b32.s1;
+            MEM[r as usize].b32.s1 = MEM[q as usize].b32.s1;
             MEM[q as usize].b32.s1 = r;
             q = r
         }
@@ -1765,13 +1754,13 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
             if LR_ptr != TEX_NULL {
                 s = TEMP_HEAD;
                 r = MEM[s as usize].b32.s1;
-                while r != q { s = r; r = MEM[s as usize].b32.s1 }
+                while r != q {
+                    s = r;
+                    r = MEM[s as usize].b32.s1
+                }
                 r = LR_ptr;
                 while r != -0xfffffffi32 {
-                    temp_ptr =
-                        new_math(0i32,
-                                 MEM[r as usize].b32.s0 as
-                                     small_number);
+                    temp_ptr = new_math(0i32, MEM[r as usize].b32.s0 as small_number);
                     MEM[s as usize].b32.s1 = temp_ptr;
                     s = temp_ptr;
                     r = MEM[r as usize].b32.s1
@@ -1785,14 +1774,13 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
         q = MEM[(4999999 - 3) as usize].b32.s1;
         MEM[(4999999 - 3) as usize].b32.s1 = r;
         /* "at this point q is the leftmost node; all discardable nodes have been discarded */
+        
         if INTPAR(INT_PAR__xetex_protrude_chars) > 0 {
             p = q;
             p = find_protchar_left(p, false);
             w = char_pw(p, 0i32 as small_number);
             if w != 0i32 {
-                k =
-                    new_margin_kern(-w, last_leftmost_char,
-                                    0i32 as small_number);
+                k = new_margin_kern(-w, last_leftmost_char, 0i32 as small_number);
                 MEM[k as usize].b32.s1 = q;
                 q = k
             }
@@ -1812,10 +1800,12 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
             cur_indent = first_indent
         } else {
             /* These manual `mem` indices are in the original WEB code */
-            cur_width =
-                MEM[LOCAL(LOCAL__par_shape) as usize + 2* cur_line as usize].b32.s1;
-            cur_indent =
-                MEM[LOCAL(LOCAL__par_shape) as usize + 2* cur_line as usize - 1].b32.s1;
+            cur_width = MEM[LOCAL(LOCAL__par_shape) as usize + 2 * cur_line as usize]
+                .b32
+                .s1;
+            cur_indent = MEM[LOCAL(LOCAL__par_shape) as usize + 2 * cur_line as usize - 1]
+                .b32
+                .s1;
         }
         adjust_tail = ADJUST_HEAD;
         pre_adjust_tail = PRE_ADJUST_HEAD;
@@ -1830,26 +1820,35 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
         /* 917: append the new box to the current vertical list, followed
          * by any of its special nodes that were taken out */
         if 4999999i32 - 14i32 != pre_adjust_tail {
-            MEM[cur_list.tail as usize].b32.s1 =
-                MEM[(4999999 - 14) as usize].b32.s1; /*:917*/
+            MEM[cur_list.tail as usize].b32.s1 = MEM[(4999999 - 14) as usize].b32.s1; /*:917*/
             cur_list.tail = pre_adjust_tail
         }
         pre_adjust_tail = -0xfffffffi32;
         append_to_vlist(just_box);
         if 4999999i32 - 5i32 != adjust_tail {
-            MEM[cur_list.tail as usize].b32.s1 =
-                MEM[(4999999 - 5) as usize].b32.s1;
+            MEM[cur_list.tail as usize].b32.s1 = MEM[(4999999 - 5) as usize].b32.s1;
             cur_list.tail = adjust_tail
         }
         adjust_tail = -0xfffffffi32;
         /* 919: Set `pen` to all of the penalties relevant to this line. */
         if cur_line + 1i32 != best_line {
-            q =
-                (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                   (0x10ffffi32 + 1i32) + 1i32 + 15000i32 +
-                                   12i32 + 9000i32 + 1i32 + 1i32 + 19i32 +
-                                   256i32 + 256i32 + 13i32 + 256i32 + 0i32) as
-                                  isize)).b32.s1;
+            q = EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 0i32) as usize]
+                .b32
+                .s1;
             if q != -0xfffffffi32 {
                 r = cur_line;
                 if r > MEM[(q + 1) as usize].b32.s1 {
@@ -1857,26 +1856,51 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
                 }
                 pen = MEM[(q + r + 1) as usize].b32.s1
             } else {
-                pen =
-                    (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) + 1i32 + 15000i32
-                                       + 12i32 + 9000i32 + 1i32 + 1i32 + 19i32
-                                       + 256i32 + 256i32 + 13i32 + 256i32 +
-                                       4i32 + 256i32 + 1i32 + 3i32 * 256i32 +
-                                       (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) + 13i32) as
-                                      isize)).b32.s1
+                pen = EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + 3i32 * 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 13i32) as usize]
+                    .b32
+                    .s1
             }
-            q =
-                (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                   (0x10ffffi32 + 1i32) + 1i32 + 15000i32 +
-                                   12i32 + 9000i32 + 1i32 + 1i32 + 19i32 +
-                                   256i32 + 256i32 + 13i32 + 256i32 + 1i32) as
-                                  isize)).b32.s1;
+            q = EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 1i32) as usize]
+                .b32
+                .s1;
             if q != -0xfffffffi32 {
                 r = cur_line - cur_list.prev_graf;
                 if r > MEM[(q + 1) as usize].b32.s1 {
@@ -1884,34 +1908,70 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
                 }
                 pen += MEM[(q + r + 1) as usize].b32.s1
             } else if cur_line == cur_list.prev_graf + 1i32 {
-                pen +=
-                    (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) + 1i32 + 15000i32
-                                       + 12i32 + 9000i32 + 1i32 + 1i32 + 19i32
-                                       + 256i32 + 256i32 + 13i32 + 256i32 +
-                                       4i32 + 256i32 + 1i32 + 3i32 * 256i32 +
-                                       (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) + 5i32) as
-                                      isize)).b32.s1
+                pen += EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + 3i32 * 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 5i32) as usize]
+                    .b32
+                    .s1
             }
             if d {
-                q =
-                    (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) + 1i32 + 15000i32
-                                       + 12i32 + 9000i32 + 1i32 + 1i32 + 19i32
-                                       + 256i32 + 256i32 + 13i32 + 256i32 +
-                                       3i32) as isize)).b32.s1
+                q = EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 3i32) as usize]
+                    .b32
+                    .s1
             } else {
-                q =
-                    (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) + 1i32 + 15000i32
-                                       + 12i32 + 9000i32 + 1i32 + 1i32 + 19i32
-                                       + 256i32 + 256i32 + 13i32 + 256i32 +
-                                       2i32) as isize)).b32.s1
+                q = EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 2i32) as usize]
+                    .b32
+                    .s1
             }
             if q != -0xfffffffi32 {
                 r = best_line - cur_line - 1i32;
@@ -1921,51 +1981,91 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
                 pen += MEM[(q + r + 1) as usize].b32.s1
             } else if cur_line + 2i32 == best_line {
                 if d {
-                    pen +=
-                        (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                           (0x10ffffi32 + 1i32) + 1i32 +
-                                           15000i32 + 12i32 + 9000i32 + 1i32 +
-                                           1i32 + 19i32 + 256i32 + 256i32 +
-                                           13i32 + 256i32 + 4i32 + 256i32 +
-                                           1i32 + 3i32 * 256i32 +
-                                           (0x10ffffi32 + 1i32) +
-                                           (0x10ffffi32 + 1i32) +
-                                           (0x10ffffi32 + 1i32) +
-                                           (0x10ffffi32 + 1i32) +
-                                           (0x10ffffi32 + 1i32) +
-                                           (0x10ffffi32 + 1i32) + 7i32) as
-                                          isize)).b32.s1
+                    pen += EQTB[(1i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 1i32
+                        + 15000i32
+                        + 12i32
+                        + 9000i32
+                        + 1i32
+                        + 1i32
+                        + 19i32
+                        + 256i32
+                        + 256i32
+                        + 13i32
+                        + 256i32
+                        + 4i32
+                        + 256i32
+                        + 1i32
+                        + 3i32 * 256i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 7i32) as usize]
+                        .b32
+                        .s1
                 } else {
-                    pen +=
-                        (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                           (0x10ffffi32 + 1i32) + 1i32 +
-                                           15000i32 + 12i32 + 9000i32 + 1i32 +
-                                           1i32 + 19i32 + 256i32 + 256i32 +
-                                           13i32 + 256i32 + 4i32 + 256i32 +
-                                           1i32 + 3i32 * 256i32 +
-                                           (0x10ffffi32 + 1i32) +
-                                           (0x10ffffi32 + 1i32) +
-                                           (0x10ffffi32 + 1i32) +
-                                           (0x10ffffi32 + 1i32) +
-                                           (0x10ffffi32 + 1i32) +
-                                           (0x10ffffi32 + 1i32) + 6i32) as
-                                          isize)).b32.s1
+                    pen += EQTB[(1i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 1i32
+                        + 15000i32
+                        + 12i32
+                        + 9000i32
+                        + 1i32
+                        + 1i32
+                        + 19i32
+                        + 256i32
+                        + 256i32
+                        + 13i32
+                        + 256i32
+                        + 4i32
+                        + 256i32
+                        + 1i32
+                        + 3i32 * 256i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 6i32) as usize]
+                        .b32
+                        .s1
                 }
             }
             if disc_break {
-                pen +=
-                    (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) + 1i32 + 15000i32
-                                       + 12i32 + 9000i32 + 1i32 + 1i32 + 19i32
-                                       + 256i32 + 256i32 + 13i32 + 256i32 +
-                                       4i32 + 256i32 + 1i32 + 3i32 * 256i32 +
-                                       (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) +
-                                       (0x10ffffi32 + 1i32) + 8i32) as
-                                      isize)).b32.s1
+                pen += EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + 3i32 * 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 8i32) as usize]
+                    .b32
+                    .s1
             }
             if pen != 0i32 {
                 r = new_penalty(pen);
@@ -1983,59 +2083,69 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
                  * the beginning of the line, unless the node in question is
                  * the chosen breakpoint. */
                 r = 4999999i32 - 3i32;
-                loop  {
+                loop {
                     q = MEM[r as usize].b32.s1;
                     if q == MEM[(cur_p + 1) as usize].b32.s1 {
-                        break ;
+                        break;
                     }
-                    if is_char_node(q) { break ; }
-                    if is_non_discardable_node(q) { break ; }
-                    if MEM[q as usize].b16.s1 as i32 ==
-                           11i32 &&
-                           MEM[q as usize].b16.s0 as i32 !=
-                               1i32 &&
-                           MEM[q as usize].b16.s0 as i32 !=
-                               3i32 {
-                        break ;
+                    if is_char_node(q) {
+                        break;
+                    }
+                    if is_non_discardable_node(q) {
+                        break;
+                    }
+                    if MEM[q as usize].b16.s1 as i32 == 11i32
+                        && MEM[q as usize].b16.s0 as i32 != 1i32
+                        && MEM[q as usize].b16.s0 as i32 != 3i32
+                    {
+                        break;
                     }
                     r = q;
                     if MEM[q as usize].b16.s1 as i32 == 9
-                           &&
-                           (*eqtb.offset((1i32 + (0x10ffffi32 + 1i32) +
-                                              (0x10ffffi32 + 1i32) + 1i32 +
-                                              15000i32 + 12i32 + 9000i32 +
-                                              1i32 + 1i32 + 19i32 + 256i32 +
-                                              256i32 + 13i32 + 256i32 + 4i32 +
-                                              256i32 + 1i32 + 3i32 * 256i32 +
-                                              (0x10ffffi32 + 1i32) +
-                                              (0x10ffffi32 + 1i32) +
-                                              (0x10ffffi32 + 1i32) +
-                                              (0x10ffffi32 + 1i32) +
-                                              (0x10ffffi32 + 1i32) +
-                                              (0x10ffffi32 + 1i32) + 71i32) as
-                                             isize)).b32.s1 > 0i32 {
+                        && EQTB[(1i32
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + 1i32
+                            + 15000i32
+                            + 12i32
+                            + 9000i32
+                            + 1i32
+                            + 1i32
+                            + 19i32
+                            + 256i32
+                            + 256i32
+                            + 13i32
+                            + 256i32
+                            + 4i32
+                            + 256i32
+                            + 1i32
+                            + 3i32 * 256i32
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + 71i32) as usize]
+                            .b32
+                            .s1
+                            > 0i32
+                    {
                         /*1495:*/
-                        if MEM[q as usize].b16.s0 as i32 &
-                               1i32 != 0 {
-                            if LR_ptr != -0xfffffffi32 &&
-                                   MEM[LR_ptr as usize].b32.s0 ==
-                                       4i32 *
-                                           (MEM[q as usize].b16.s0
-                                                as i32 / 4i32) + 3i32
-                               {
+                        if MEM[q as usize].b16.s0 as i32 & 1i32 != 0 {
+                            if LR_ptr != -0xfffffffi32
+                                && MEM[LR_ptr as usize].b32.s0
+                                    == 4i32 * (MEM[q as usize].b16.s0 as i32 / 4i32) + 3i32
+                            {
                                 temp_ptr = LR_ptr;
-                                LR_ptr =
-                                    MEM[temp_ptr as usize].b32.s1;
-                                MEM[temp_ptr as usize].b32.s1 =
-                                    avail;
+                                LR_ptr = MEM[temp_ptr as usize].b32.s1;
+                                MEM[temp_ptr as usize].b32.s1 = avail;
                                 avail = temp_ptr
                             }
                         } else {
                             temp_ptr = get_avail();
                             MEM[temp_ptr as usize].b32.s0 =
-                                4i32 *
-                                    (MEM[q as usize].b16.s0 as
-                                         i32 / 4i32) + 3i32;
+                                4i32 * (MEM[q as usize].b16.s0 as i32 / 4i32) + 3i32;
                             MEM[temp_ptr as usize].b32.s1 = LR_ptr;
                             LR_ptr = temp_ptr
                         }
@@ -2043,13 +2153,14 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
                 }
                 if r != 4999999i32 - 3i32 {
                     MEM[r as usize].b32.s1 = -0xfffffff;
-                    flush_node_list(MEM[(4999999 - 3) as
-                                                     usize].b32.s1);
+                    flush_node_list(MEM[(4999999 - 3) as usize].b32.s1);
                     MEM[(4999999 - 3) as usize].b32.s1 = q
                 }
             }
         }
-        if !(cur_p != -0xfffffffi32) { break ; }
+        if !(cur_p != -0xfffffffi32) {
+            break;
+        }
     }
     if cur_line != best_line || MEM[(4999999 - 3) as usize].b32.s1 != -0xfffffff {
         confusion(b"line breaking");
@@ -2345,71 +2456,67 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                         prev_r = q
                     }
                     /* ... resuming 865 ... */
-                    if (*eqtb.offset(
-                        (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 16i32) as isize,
-                    ))
-                    .b32
-                    .s1
-                    .abs()
+                    if EQTB[(1i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 1i32
+                        + 15000i32
+                        + 12i32
+                        + 9000i32
+                        + 1i32
+                        + 1i32
+                        + 19i32
+                        + 256i32
+                        + 256i32
+                        + 13i32
+                        + 256i32
+                        + 4i32
+                        + 256i32
+                        + 1i32
+                        + 3i32 * 256i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 16i32) as usize]
+                        .b32
+                        .s1
+                        .abs()
                         >= 0x3fffffffi32 - minimum_demerits
                     {
                         minimum_demerits = 0x3fffffffi32 - 1i32
                     } else {
                         minimum_demerits = minimum_demerits
-                            + (*eqtb.offset(
-                                (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + 3i32 * 256i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 16i32) as isize,
-                            ))
-                            .b32
-                            .s1
-                            .abs()
+                            + EQTB[(1i32
+                                + (0x10ffffi32 + 1i32)
+                                + (0x10ffffi32 + 1i32)
+                                + 1i32
+                                + 15000i32
+                                + 12i32
+                                + 9000i32
+                                + 1i32
+                                + 1i32
+                                + 19i32
+                                + 256i32
+                                + 256i32
+                                + 13i32
+                                + 256i32
+                                + 4i32
+                                + 256i32
+                                + 1i32
+                                + 3i32 * 256i32
+                                + (0x10ffffi32 + 1i32)
+                                + (0x10ffffi32 + 1i32)
+                                + (0x10ffffi32 + 1i32)
+                                + (0x10ffffi32 + 1i32)
+                                + (0x10ffffi32 + 1i32)
+                                + (0x10ffffi32 + 1i32)
+                                + 16i32) as usize]
+                                .b32
+                                .s1
+                                .abs()
                     }
                     fit_class = 0_u8;
                     while fit_class as i32 <= 3i32 {
@@ -2468,8 +2575,26 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                     old_l = l;
                     if l > last_special_line {
                         line_width = second_width
-                    } else if (*eqtb.offset(
-                        (1i32
+                    } else if EQTB[(1i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 1i32
+                        + 15000i32
+                        + 12i32
+                        + 9000i32
+                        + 1i32
+                        + 1i32
+                        + 19i32
+                        + 256i32
+                        + 256i32
+                        + 0i32) as usize]
+                        .b32
+                        .s1
+                        == -0xfffffffi32
+                    {
+                        line_width = first_width
+                    } else {
+                        line_width = MEM[(EQTB[(1i32
                             + (0x10ffffi32 + 1i32)
                             + (0x10ffffi32 + 1i32)
                             + 1i32
@@ -2481,30 +2606,10 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                             + 19i32
                             + 256i32
                             + 256i32
-                            + 0i32) as isize,
-                    ))
-                    .b32
-                    .s1 == -0xfffffffi32
-                    {
-                        line_width = first_width
-                    } else {
-                        line_width = MEM[((*eqtb.offset(
-                            (1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 0i32) as isize,
-                        ))
-                        .b32
-                        .s1 + 2i32 * l) as usize]
+                            + 0i32) as usize]
+                            .b32
+                            .s1
+                            + 2i32 * l) as usize]
                             .b32
                             .s1
                     }
@@ -2525,35 +2630,34 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
             } else {
                 artificial_demerits = false;
                 shortfall = line_width - cur_active_width[1];
-                if (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 70i32) as isize,
-                ))
-                .b32
-                .s1 > 1i32
+                if EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + 3i32 * 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 70i32) as usize]
+                    .b32
+                    .s1
+                    > 1i32
                 {
                     shortfall = shortfall + total_pw(r, cur_p)
                 }
@@ -2593,69 +2697,66 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                                         MEM[(r + 4) as usize].b32.s1,
                                         0x3fffffffi32,
                                     );
-                                    if (*eqtb.offset(
-                                        (1i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + 1i32
-                                            + 15000i32
-                                            + 12i32
-                                            + 9000i32
-                                            + 1i32
-                                            + 1i32
-                                            + 19i32
-                                            + 256i32
-                                            + 256i32
-                                            + 13i32
-                                            + 256i32
-                                            + 4i32
-                                            + 256i32
-                                            + 1i32
-                                            + 3i32 * 256i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + 64i32)
-                                            as isize,
-                                    ))
-                                    .b32
-                                    .s1 < 1000i32
+                                    if EQTB[(1i32
+                                        + (0x10ffffi32 + 1i32)
+                                        + (0x10ffffi32 + 1i32)
+                                        + 1i32
+                                        + 15000i32
+                                        + 12i32
+                                        + 9000i32
+                                        + 1i32
+                                        + 1i32
+                                        + 19i32
+                                        + 256i32
+                                        + 256i32
+                                        + 13i32
+                                        + 256i32
+                                        + 4i32
+                                        + 256i32
+                                        + 1i32
+                                        + 3i32 * 256i32
+                                        + (0x10ffffi32 + 1i32)
+                                        + (0x10ffffi32 + 1i32)
+                                        + (0x10ffffi32 + 1i32)
+                                        + (0x10ffffi32 + 1i32)
+                                        + (0x10ffffi32 + 1i32)
+                                        + (0x10ffffi32 + 1i32)
+                                        + 64i32)
+                                        as usize]
+                                        .b32
+                                        .s1
+                                        < 1000i32
                                     {
                                         g = fract(
                                             g,
-                                            (*eqtb.offset(
-                                                (1i32
-                                                    + (0x10ffffi32 + 1i32)
-                                                    + (0x10ffffi32 + 1i32)
-                                                    + 1i32
-                                                    + 15000i32
-                                                    + 12i32
-                                                    + 9000i32
-                                                    + 1i32
-                                                    + 1i32
-                                                    + 19i32
-                                                    + 256i32
-                                                    + 256i32
-                                                    + 13i32
-                                                    + 256i32
-                                                    + 4i32
-                                                    + 256i32
-                                                    + 1i32
-                                                    + 3i32 * 256i32
-                                                    + (0x10ffffi32 + 1i32)
-                                                    + (0x10ffffi32 + 1i32)
-                                                    + (0x10ffffi32 + 1i32)
-                                                    + (0x10ffffi32 + 1i32)
-                                                    + (0x10ffffi32 + 1i32)
-                                                    + (0x10ffffi32 + 1i32)
-                                                    + 64i32)
-                                                    as isize,
-                                            ))
-                                            .b32
-                                            .s1,
+                                            EQTB[(1i32
+                                                + (0x10ffffi32 + 1i32)
+                                                + (0x10ffffi32 + 1i32)
+                                                + 1i32
+                                                + 15000i32
+                                                + 12i32
+                                                + 9000i32
+                                                + 1i32
+                                                + 1i32
+                                                + 19i32
+                                                + 256i32
+                                                + 256i32
+                                                + 13i32
+                                                + 256i32
+                                                + 4i32
+                                                + 256i32
+                                                + 1i32
+                                                + 3i32 * 256i32
+                                                + (0x10ffffi32 + 1i32)
+                                                + (0x10ffffi32 + 1i32)
+                                                + (0x10ffffi32 + 1i32)
+                                                + (0x10ffffi32 + 1i32)
+                                                + (0x10ffffi32 + 1i32)
+                                                + (0x10ffffi32 + 1i32)
+                                                + 64i32)
+                                                as usize]
+                                                .b32
+                                                .s1,
                                             1000i32,
                                             0x3fffffffi32,
                                         )
@@ -3174,35 +3275,34 @@ unsafe extern "C" fn hyphenate() {
                     }
                     measure_native_node(
                         &mut MEM[q as usize] as *mut memory_word as *mut libc::c_void,
-                        ((*eqtb.offset(
-                            (1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + 3i32 * 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 74i32) as isize,
-                        ))
-                        .b32
-                        .s1 > 0i32) as i32,
+                        (EQTB[(1i32
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + 1i32
+                            + 15000i32
+                            + 12i32
+                            + 9000i32
+                            + 1i32
+                            + 1i32
+                            + 19i32
+                            + 256i32
+                            + 256i32
+                            + 13i32
+                            + 256i32
+                            + 4i32
+                            + 256i32
+                            + 1i32
+                            + 3i32 * 256i32
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + 74i32) as usize]
+                            .b32
+                            .s1
+                            > 0i32) as i32,
                     );
                     MEM[s as usize].b32.s1 = q;
                     s = q;
@@ -3239,35 +3339,34 @@ unsafe extern "C" fn hyphenate() {
         }
         measure_native_node(
             &mut MEM[q as usize] as *mut memory_word as *mut libc::c_void,
-            ((*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 74i32) as isize,
-            ))
-            .b32
-            .s1 > 0i32) as i32,
+            (EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + 3i32 * 256i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 74i32) as usize]
+                .b32
+                .s1
+                > 0i32) as i32,
         );
         MEM[s as usize].b32.s1 = q;
         s = q;

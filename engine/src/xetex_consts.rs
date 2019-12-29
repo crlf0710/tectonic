@@ -1,4 +1,4 @@
-use crate::xetex_ini::eqtb;
+use crate::xetex_ini::EQTB;
 
 pub(crate) type placeholdertype = i32;
 pub(crate) const MIN_HALFWORD: placeholdertype = -0x0FFFFFFF;
@@ -117,17 +117,17 @@ pub(crate) const GLUE_PAR__thick_mu_skip: placeholdertype = 18;
 pub(crate) const GLUE_PARS: placeholdertype = 19;
 
 pub(crate) unsafe fn GLUEPAR(s: placeholdertype) -> *mut i32 {
-    &mut (*(eqtb.offset((GLUE_BASE + s) as isize))).b32.s1
+    &mut EQTB[(GLUE_BASE + s) as usize].b32.s1
 }
 
 pub(crate) const SKIP_BASE: placeholdertype = (GLUE_BASE + GLUE_PARS);
 pub(crate) unsafe fn SKIP_REG(n: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((SKIP_BASE + n) as isize))).b32.s1
+    EQTB[(SKIP_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const MU_SKIP_BASE: placeholdertype = (SKIP_BASE + NUMBER_REGS);
 pub(crate) unsafe fn MU_SKIP_REG(n: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((MU_SKIP_BASE + (n)) as isize))).b32.s1
+    EQTB[(MU_SKIP_BASE + (n)) as usize].b32.s1
 }
 
 /* "region 4": local halfword values like baselineskip. Some of these are
@@ -151,16 +151,16 @@ pub(crate) const LOCAL__TectonicCodaTokens: placeholdertype = 12;
 pub(crate) const NUM_LOCALS: placeholdertype = 13;
 
 pub(crate) unsafe fn LOCAL(n: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((LOCAL_BASE + n) as isize))).b32.s1
+    EQTB[(LOCAL_BASE + n) as usize].b32.s1
 }
 
 pub(crate) unsafe fn LOCAL_set(n: placeholdertype, m: placeholdertype) {
-    (*(eqtb.offset((LOCAL_BASE + n) as isize))).b32.s1 = m
+    EQTB[(LOCAL_BASE + n) as usize].b32.s1 = m
 }
 
 pub(crate) const TOKS_BASE: placeholdertype = (LOCAL_BASE + NUM_LOCALS);
 pub(crate) unsafe fn TOKS_REG(n: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((TOKS_BASE + n) as isize))).b32.s1
+    EQTB[(TOKS_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const ETEX_PEN_BASE: placeholdertype = (TOKS_BASE + NUMBER_REGS);
@@ -172,62 +172,62 @@ pub(crate) const ETEX_PENS: placeholdertype = (ETEX_PEN_BASE + 4);
 
 pub(crate) const BOX_BASE: placeholdertype = ETEX_PENS;
 pub(crate) unsafe fn BOX_REG(n: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((BOX_BASE + n) as isize))).b32.s1
+    EQTB[(BOX_BASE + n) as usize].b32.s1
 }
 pub(crate) unsafe fn BOX_REG_set(n: placeholdertype, m: placeholdertype) {
-    (*(eqtb.offset((BOX_BASE + n) as isize))).b32.s1 = m
+    EQTB[(BOX_BASE + n) as usize].b32.s1 = m
 }
 
 pub(crate) const CUR_FONT_LOC: placeholdertype = (BOX_BASE + NUMBER_REGS);
 pub(crate) const MATH_FONT_BASE: placeholdertype = (CUR_FONT_LOC + 1);
 
 pub(crate) unsafe fn MATH_FONT(n: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((MATH_FONT_BASE + n) as isize))).b32.s1
+    EQTB[(MATH_FONT_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const CAT_CODE_BASE: placeholdertype = (MATH_FONT_BASE + NUMBER_MATH_FONTS);
 pub(crate) unsafe fn CAT_CODE(n: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((CAT_CODE_BASE + n) as isize))).b32.s1
+    EQTB[(CAT_CODE_BASE + n) as usize].b32.s1
 }
 pub(crate) unsafe fn CAT_CODE_set(n: placeholdertype, m: placeholdertype) {
-    (*(eqtb.offset((CAT_CODE_BASE + n) as isize))).b32.s1 = m;
+    EQTB[(CAT_CODE_BASE + n) as usize].b32.s1 = m;
 }
 
 pub(crate) const LC_CODE_BASE: placeholdertype = (CAT_CODE_BASE + NUMBER_USVS);
 pub(crate) unsafe fn LC_CODE(n: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((LC_CODE_BASE + n) as isize))).b32.s1
+    EQTB[(LC_CODE_BASE + n) as usize].b32.s1
 }
 pub(crate) unsafe fn LC_CODE_set(n: placeholdertype, m: placeholdertype) {
-    (*(eqtb.offset((LC_CODE_BASE + n) as isize))).b32.s1 = m
+    EQTB[(LC_CODE_BASE + n) as usize].b32.s1 = m
 }
 
 pub(crate) const UC_CODE_BASE: placeholdertype = (LC_CODE_BASE + NUMBER_USVS);
 pub(crate) unsafe fn UC_CODE(n: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((UC_CODE_BASE + n) as isize))).b32.s1
+    EQTB[(UC_CODE_BASE + n) as usize].b32.s1
 }
 pub(crate) unsafe fn UC_CODE_set(n: placeholdertype, m: placeholdertype) {
-    (*(eqtb.offset((UC_CODE_BASE + n) as isize))).b32.s1 = m
+    EQTB[(UC_CODE_BASE + n) as usize].b32.s1 = m
 }
 
 pub(crate) const SF_CODE_BASE: placeholdertype = (UC_CODE_BASE + NUMBER_USVS);
 pub(crate) unsafe fn SF_CODE(n: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((SF_CODE_BASE + n) as isize))).b32.s1
+    EQTB[(SF_CODE_BASE + n) as usize].b32.s1
 }
 pub(crate) unsafe fn SF_CODE_set(n: placeholdertype, m: placeholdertype) {
-    (*(eqtb.offset((SF_CODE_BASE + n) as isize))).b32.s1 = m
+    EQTB[(SF_CODE_BASE + n) as usize].b32.s1 = m
 }
 
 pub(crate) const MATH_CODE_BASE: placeholdertype = (SF_CODE_BASE + NUMBER_USVS);
 pub(crate) unsafe fn MATH_CODE(n: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((MATH_CODE_BASE + n) as isize))).b32.s1
+    EQTB[(MATH_CODE_BASE + n) as usize].b32.s1
 }
 pub(crate) unsafe fn MATH_CODE_set(n: placeholdertype, m: placeholdertype) {
-    (*(eqtb.offset((MATH_CODE_BASE + n) as isize))).b32.s1 = m
+    EQTB[(MATH_CODE_BASE + n) as usize].b32.s1 = m
 }
 
 pub(crate) const CHAR_SUB_CODE_BASE: placeholdertype = (MATH_CODE_BASE + NUMBER_USVS);
 pub(crate) unsafe fn CHAR_SUB_CODE(n: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((CHAR_SUB_CODE_BASE + n) as isize))).b32.s1
+    EQTB[(CHAR_SUB_CODE_BASE + n) as usize].b32.s1
 }
 
 /* "region 5": current fullword integers like hyphenation penalty */
@@ -323,24 +323,24 @@ pub(crate) const INT_PAR__pdfoutput: placeholdertype = 84;
 pub(crate) const INT_PARS: placeholdertype = 85;
 
 pub(crate) unsafe fn INTPAR(x: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((INT_BASE + x) as isize))).b32.s1
+    EQTB[(INT_BASE + x) as usize].b32.s1
 }
 
 pub(crate) unsafe fn INTPAR_set(x: placeholdertype, y: placeholdertype) {
-    (*(eqtb.offset((INT_BASE + x) as isize))).b32.s1 = y;
+    EQTB[(INT_BASE + x) as usize].b32.s1 = y;
 }
 
 pub(crate) const COUNT_BASE: placeholdertype = (INT_BASE + INT_PARS);
 pub(crate) unsafe fn COUNT_REG(n: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((COUNT_BASE + n) as isize))).b32.s1
+    EQTB[(COUNT_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const DEL_CODE_BASE: placeholdertype = (COUNT_BASE + NUMBER_REGS);
 pub(crate) unsafe fn DEL_CODE(n: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((DEL_CODE_BASE + n) as isize))).b32.s1
+    EQTB[(DEL_CODE_BASE + n) as usize].b32.s1
 }
 pub(crate) unsafe fn DEL_CODE_set(n: placeholdertype, m: placeholdertype) {
-    (*(eqtb.offset((DEL_CODE_BASE + n) as isize))).b32.s1 = m
+    EQTB[(DEL_CODE_BASE + n) as usize].b32.s1 = m
 }
 
 /* "region 6": current fullword dimensions like hsize */
@@ -372,19 +372,15 @@ pub(crate) const DIMEN_PAR__pdf_page_height: placeholdertype = 22;
 pub(crate) const DIMEN_PARS: placeholdertype = 23;
 
 pub(crate) unsafe fn DIMENPAR(x: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((DIMEN_BASE + x as placeholdertype) as isize)))
-        .b32
-        .s1
+    EQTB[(DIMEN_BASE + x as placeholdertype) as usize].b32.s1
 }
 pub(crate) unsafe fn DIMENPAR_set(x: placeholdertype, y: placeholdertype) {
-    (*(eqtb.offset((DIMEN_BASE + x as placeholdertype) as isize)))
-        .b32
-        .s1 = y
+    EQTB[(DIMEN_BASE + x as placeholdertype) as usize].b32.s1 = y
 }
 
 pub(crate) const SCALED_BASE: placeholdertype = (DIMEN_BASE + DIMEN_PARS);
 pub(crate) unsafe fn SCALED_REG(n: placeholdertype) -> placeholdertype {
-    (*(eqtb.offset((SCALED_BASE + n) as isize))).b32.s1
+    EQTB[(SCALED_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const EQTB_SIZE: placeholdertype = (SCALED_BASE + NUMBER_REGS - 1);

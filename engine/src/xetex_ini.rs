@@ -421,7 +421,7 @@ pub(crate) use super::xetex_io::UFILE;
 */
 /* All the following variables are declared in xetex-xetexd.h */
 #[no_mangle]
-pub(crate) static mut eqtb: *mut memory_word = ptr::null_mut();
+pub(crate) static mut EQTB: Vec<memory_word> = Vec::new();
 #[no_mangle]
 pub(crate) static mut bad: i32 = 0;
 #[no_mangle]
@@ -623,7 +623,7 @@ pub(crate) static mut hash_extra: i32 = 0;
 #[no_mangle]
 pub(crate) static mut hash_top: i32 = 0;
 #[no_mangle]
-pub(crate) static mut eqtb_top: i32 = 0;
+pub(crate) static mut EQTB_TOP: usize = 0;
 #[no_mangle]
 pub(crate) static mut hash_high: i32 = 0;
 #[no_mangle]
@@ -1363,9 +1363,9 @@ unsafe extern "C" fn primitive(ident: &[u8], mut c: u16, mut o: i32) {
         cur_val = ident[0] as i32 + (1i32 + (0x10ffffi32 + 1i32));
         prim_val = prim_lookup(ident[0] as str_number)
     }
-    (*eqtb.offset(cur_val as isize)).b16.s0 = 1_u16;
-    (*eqtb.offset(cur_val as isize)).b16.s1 = c;
-    (*eqtb.offset(cur_val as isize)).b32.s1 = o;
+    EQTB[cur_val as usize].b16.s0 = 1_u16;
+    EQTB[cur_val as usize].b16.s1 = c;
+    EQTB[cur_val as usize].b32.s1 = o;
     prim_eqtb[prim_val as usize].b16.s0 = 1_u16;
     prim_eqtb[prim_val as usize].b16.s1 = c;
     prim_eqtb[prim_val as usize].b32.s1 = o;
@@ -2553,7 +2553,7 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                                 MEM[(cur_ptr + 1) as
                                                  usize].b32.s1
                         }
-                    } else { q = (*eqtb.offset(cur_chr as isize)).b32.s1 }
+                    } else { q = EQTB[cur_chr as usize].b32.s1 }
                     if q == TEX_NULL {
                         if e {
                             if a as i32 >= 4i32 {
@@ -2758,7 +2758,7 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
             if p < MATH_CODE_BASE {
                 if p >= SF_CODE_BASE {
                     n =
-                        ((*eqtb.offset(p as isize)).b32.s1 as i64 /
+                        (EQTB[p as usize].b32.s1 as i64 /
                              65536) as i32;
                     if a as i32 >= 4i32 {
                         geq_define(p, 122_u16,
@@ -3201,11 +3201,9 @@ unsafe extern "C" fn store_fmt_file() {
                 current_block = 7923086311623215889;
                 break;
             }
-            if (*eqtb.offset(j as isize)).b32.s1 == (*eqtb.offset((j + 1i32) as isize)).b32.s1
-                && (*eqtb.offset(j as isize)).b16.s1 as i32
-                    == (*eqtb.offset((j + 1i32) as isize)).b16.s1 as i32
-                && (*eqtb.offset(j as isize)).b16.s0 as i32
-                    == (*eqtb.offset((j + 1i32) as isize)).b16.s0 as i32
+            if EQTB[j as usize].b32.s1 == EQTB[(j + 1i32) as usize].b32.s1
+                && EQTB[j as usize].b16.s1 as i32 == EQTB[(j + 1i32) as usize].b16.s1 as i32
+                && EQTB[j as usize].b16.s0 as i32 == EQTB[(j + 1i32) as usize].b16.s0 as i32
             {
                 current_block = 8379985486002839332;
                 break;
@@ -3220,12 +3218,9 @@ unsafe extern "C" fn store_fmt_file() {
                 j += 1;
                 l = j;
                 while j < INT_BASE - 1 {
-                    if (*eqtb.offset(j as isize)).b32.s1
-                        != (*eqtb.offset((j + 1i32) as isize)).b32.s1
-                        || (*eqtb.offset(j as isize)).b16.s1 as i32
-                            != (*eqtb.offset((j + 1i32) as isize)).b16.s1 as i32
-                        || (*eqtb.offset(j as isize)).b16.s0 as i32
-                            != (*eqtb.offset((j + 1i32) as isize)).b16.s0 as i32
+                    if EQTB[j as usize].b32.s1 != EQTB[(j + 1i32) as usize].b32.s1
+                        || EQTB[j as usize].b16.s1 as i32 != EQTB[(j + 1i32) as usize].b16.s1 as i32
+                        || EQTB[j as usize].b16.s0 as i32 != EQTB[(j + 1i32) as usize].b16.s0 as i32
                     {
                         break;
                     }
@@ -3241,7 +3236,7 @@ unsafe extern "C" fn store_fmt_file() {
             fmt_out,
         );
         do_dump(
-            &mut *eqtb.offset(k as isize) as *mut memory_word as *mut i8,
+            &mut EQTB[k as usize] as *mut memory_word as *mut i8,
             ::std::mem::size_of::<memory_word>() as _,
             (l - k) as size_t,
             fmt_out,
@@ -3265,7 +3260,7 @@ unsafe extern "C" fn store_fmt_file() {
                 current_block = 10505255564575309249;
                 break;
             }
-            if (*eqtb.offset(j as isize)).b32.s1 == (*eqtb.offset((j + 1i32) as isize)).b32.s1 {
+            if EQTB[j as usize].b32.s1 == EQTB[(j + 1) as usize].b32.s1 {
                 current_block = 18329769178042496632;
                 break;
             }
@@ -3279,9 +3274,7 @@ unsafe extern "C" fn store_fmt_file() {
                 j += 1;
                 l = j;
                 while j < EQTB_SIZE {
-                    if (*eqtb.offset(j as isize)).b32.s1
-                        != (*eqtb.offset((j + 1i32) as isize)).b32.s1
-                    {
+                    if EQTB[j as usize].b32.s1 != EQTB[(j + 1) as usize].b32.s1 {
                         break;
                     }
                     j += 1
@@ -3296,7 +3289,7 @@ unsafe extern "C" fn store_fmt_file() {
             fmt_out,
         );
         do_dump(
-            &mut *eqtb.offset(k as isize) as *mut memory_word as *mut i8,
+            &mut EQTB[k as usize] as *mut memory_word as *mut i8,
             ::std::mem::size_of::<memory_word>() as _,
             (l - k) as size_t,
             fmt_out,
@@ -3315,7 +3308,7 @@ unsafe extern "C" fn store_fmt_file() {
     }
     if hash_high > 0i32 {
         do_dump(
-            &mut *eqtb.offset(EQTB_SIZE as isize + 1) as *mut memory_word as *mut i8,
+            &mut EQTB[EQTB_SIZE as usize + 1] as *mut memory_word as *mut i8,
             ::std::mem::size_of::<memory_word>() as _,
             hash_high as size_t,
             fmt_out,
@@ -3816,7 +3809,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         free(str_pool as *mut libc::c_void);
         free(str_start as *mut libc::c_void);
         free(yhash as *mut libc::c_void);
-        free(eqtb as *mut libc::c_void);
+        EQTB = Vec::new();
         MEM = Vec::new();
     }
     fn bad_fmt() -> ! {
@@ -3859,11 +3852,11 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     if hash_extra < hash_high {
         hash_extra = hash_high
     }
-    eqtb_top = EQTB_SIZE + hash_extra;
+    EQTB_TOP = (EQTB_SIZE + hash_extra) as usize;
     if hash_extra == 0i32 {
         hash_top = UNDEFINED_CONTROL_SEQUENCE;
     } else {
-        hash_top = eqtb_top
+        hash_top = EQTB_TOP as i32
     }
     yhash = xmalloc_array::<b32x2>((1 + hash_top - hash_offset) as usize);
     hash = yhash.offset(-514);
@@ -3876,13 +3869,13 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         x += 1
     }
 
-    eqtb = xmalloc_array::<memory_word>(eqtb_top as usize + 1);
-    (*eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize)).b16.s1 = UNDEFINED_CS as _;
-    (*eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize)).b32.s1 = TEX_NULL as _;
-    (*eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize)).b16.s0 = LEVEL_ZERO as _;
+    EQTB = vec![memory_word::default(); EQTB_TOP + 2];
+    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b16.s1 = UNDEFINED_CS as _;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b32.s1 = TEX_NULL as _;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b16.s0 = LEVEL_ZERO as _;
     x = EQTB_SIZE + 1;
-    while x <= eqtb_top {
-        *eqtb.offset(x as isize) = *eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize);
+    while x <= EQTB_TOP as i32 {
+        EQTB[x as usize] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
         x += 1
     }
     max_reg_num = 32767i32;
@@ -4134,7 +4127,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         }
 
         do_undump(
-            &mut *eqtb.offset(k as isize) as *mut memory_word as *mut i8,
+            &mut EQTB[k as usize] as *mut memory_word as *mut i8,
             ::std::mem::size_of::<memory_word>() as _,
             x as size_t,
             fmt_in,
@@ -4153,7 +4146,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
         j = k;
         while j <= k + x - 1 {
-            *eqtb.offset(j as isize) = *eqtb.offset((k - 1) as isize);
+            EQTB[j as usize] = EQTB[(k - 1) as usize];
             j += 1
         }
         k = k + x;
@@ -4163,7 +4156,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     if hash_high > 0i32 {
         do_undump(
-            &mut *eqtb.offset(EQTB_SIZE as isize + 1) as *mut memory_word as *mut i8,
+            &mut EQTB[EQTB_SIZE as usize + 1] as *mut memory_word as *mut i8,
             ::std::mem::size_of::<memory_word>() as _,
             hash_high as size_t,
             fmt_in,
@@ -5206,63 +5199,59 @@ unsafe extern "C" fn initialize_more_initex_variables() {
     hi_mem_min = PRE_ADJUST_HEAD;
     var_used = 20;
     dyn_used = HI_MEM_STAT_USAGE;
-    (*eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize)).b16.s1 = UNDEFINED_CS as _;
-    (*eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize)).b32.s1 = TEX_NULL;
-    (*eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize)).b16.s0 = LEVEL_ZERO as _;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b16.s1 = UNDEFINED_CS as _;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b32.s1 = TEX_NULL;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b16.s0 = LEVEL_ZERO as _;
     k = ACTIVE_BASE;
-    while k <= eqtb_top {
-        *eqtb.offset(k as isize) = *eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize);
+    while k <= EQTB_TOP as i32 {
+        EQTB[k as usize] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
         k += 1
     }
-    (*eqtb.offset(GLUE_BASE as isize)).b32.s1 = 0;
-    (*eqtb.offset(GLUE_BASE as isize)).b16.s0 = LEVEL_ONE as _;
-    (*eqtb.offset(GLUE_BASE as isize)).b16.s1 = GLUE_REF as _;
+    EQTB[GLUE_BASE as usize].b32.s1 = 0;
+    EQTB[GLUE_BASE as usize].b16.s0 = LEVEL_ONE as _;
+    EQTB[GLUE_BASE as usize].b16.s1 = GLUE_REF as _;
     k = GLUE_BASE;
     while k <= LOCAL_BASE {
-        *eqtb.offset(k as isize) = *eqtb.offset(GLUE_BASE as isize);
+        EQTB[k as usize] = EQTB[GLUE_BASE as usize];
         k += 1
     }
     let ref mut fresh20 = MEM[0].b32.s1;
     *fresh20 += 531i32;
     LOCAL_set(LOCAL__par_shape, TEX_NULL);
-    (*eqtb.offset(LOCAL_BASE as isize + LOCAL__par_shape as isize))
-        .b16
-        .s1 = SHAPE_REF as _;
-    (*eqtb.offset(LOCAL_BASE as isize + LOCAL__par_shape as isize))
-        .b16
-        .s0 = LEVEL_ONE as _;
+    EQTB[LOCAL_BASE as usize + LOCAL__par_shape as usize].b16.s1 = SHAPE_REF as _;
+    EQTB[LOCAL_BASE as usize + LOCAL__par_shape as usize].b16.s0 = LEVEL_ONE as _;
     k = ETEX_PEN_BASE;
     while k <= ETEX_PENS - 1 {
-        *eqtb.offset(k as isize) = *eqtb.offset(LOCAL_BASE as isize + LOCAL__par_shape as isize);
+        EQTB[k as usize] = EQTB[LOCAL_BASE as usize + LOCAL__par_shape as usize];
         k += 1
     }
     k = LOCAL_BASE + LOCAL__output_routine;
     while k <= TOKS_BASE + NUMBER_REGS - 1 {
-        *eqtb.offset(k as isize) = *eqtb.offset(UNDEFINED_CONTROL_SEQUENCE as isize);
+        EQTB[k as usize] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
         k += 1
     }
-    (*eqtb.offset(BOX_BASE as isize)).b32.s1 = TEX_NULL;
-    (*eqtb.offset(BOX_BASE as isize)).b16.s1 = BOX_REF as _;
-    (*eqtb.offset(BOX_BASE as isize)).b16.s0 = LEVEL_ONE as _;
+    EQTB[BOX_BASE as usize].b32.s1 = TEX_NULL;
+    EQTB[BOX_BASE as usize].b16.s1 = BOX_REF as _;
+    EQTB[BOX_BASE as usize].b16.s0 = LEVEL_ONE as _;
     k = BOX_BASE + 1;
     while k <= BOX_BASE + NUMBER_REGS - 1 {
-        *eqtb.offset(k as isize) = *eqtb.offset(BOX_BASE as _);
+        EQTB[k as usize] = EQTB[BOX_BASE as usize];
         k += 1
     }
-    (*eqtb.offset(CUR_FONT_LOC as isize)).b32.s1 = FONT_BASE;
-    (*eqtb.offset(CUR_FONT_LOC as isize)).b16.s1 = DATA as _;
-    (*eqtb.offset(CUR_FONT_LOC as isize)).b16.s0 = LEVEL_ONE as _;
+    EQTB[CUR_FONT_LOC as usize].b32.s1 = FONT_BASE;
+    EQTB[CUR_FONT_LOC as usize].b16.s1 = DATA as _;
+    EQTB[CUR_FONT_LOC as usize].b16.s0 = LEVEL_ONE as _;
     k = MATH_FONT_BASE;
     while k <= MATH_FONT_BASE + NUMBER_MATH_FONTS - 1 {
-        *eqtb.offset(k as isize) = *eqtb.offset(CUR_FONT_LOC as isize);
+        EQTB[k as usize] = EQTB[CUR_FONT_LOC as usize];
         k += 1
     }
-    (*eqtb.offset(CAT_CODE_BASE as isize)).b32.s1 = 0;
-    (*eqtb.offset(CAT_CODE_BASE as isize)).b16.s1 = DATA as _;
-    (*eqtb.offset(CAT_CODE_BASE as isize)).b16.s0 = LEVEL_ONE as _;
+    EQTB[CAT_CODE_BASE as usize].b32.s1 = 0;
+    EQTB[CAT_CODE_BASE as usize].b16.s1 = DATA as _;
+    EQTB[CAT_CODE_BASE as usize].b16.s0 = LEVEL_ONE as _;
     k = CAT_CODE_BASE + 1;
     while k <= INT_BASE - 1 {
-        *eqtb.offset(k as isize) = *eqtb.offset(CAT_CODE_BASE as isize);
+        EQTB[k as usize] = EQTB[CAT_CODE_BASE as usize];
         k += 1
     }
     k = 0;
@@ -5277,7 +5266,7 @@ unsafe extern "C" fn initialize_more_initex_variables() {
     CAT_CODE_set(92, ESCAPE as _);
     CAT_CODE_set(37, COMMENT as _);
     CAT_CODE_set(127, INVALID_CHAR as _);
-    (*eqtb.offset(CAT_CODE_BASE as isize)).b32.s1 = IGNORE as _;
+    EQTB[CAT_CODE_BASE as usize].b32.s1 = IGNORE as _;
     k = '0' as i32;
     while k <= '9' as i32 {
         MATH_CODE_set(
@@ -5311,7 +5300,7 @@ unsafe extern "C" fn initialize_more_initex_variables() {
     }
     k = INT_BASE;
     while k <= DEL_CODE_BASE - 1 {
-        (*eqtb.offset(k as isize)).b32.s1 = 0;
+        EQTB[k as usize].b32.s1 = 0;
         k += 1
     }
     INTPAR_set(INT_PAR__char_sub_def_min, 256);
@@ -5330,18 +5319,18 @@ unsafe extern "C" fn initialize_more_initex_variables() {
     DEL_CODE_set(46, 0);
     k = DIMEN_BASE;
     while k <= EQTB_SIZE {
-        (*eqtb.offset(k as isize)).b32.s1 = 0i32;
+        EQTB[k as usize].b32.s1 = 0i32;
         k += 1
     }
     prim_used = PRIM_SIZE;
     hash_used = FROZEN_CONTROL_SEQUENCE;
     hash_high = 0;
     cs_count = 0;
-    (*eqtb.offset(FROZEN_DONT_EXPAND as isize)).b16.s1 = DONT_EXPAND as _;
+    EQTB[FROZEN_DONT_EXPAND as usize].b16.s1 = DONT_EXPAND as _;
     (*hash.offset(FROZEN_DONT_EXPAND as isize)).s1 = maketexstring(b"notexpanded:");
-    (*eqtb.offset(FROZEN_PRIMITIVE as isize)).b16.s1 = IGNORE_SPACES;
-    (*eqtb.offset(FROZEN_PRIMITIVE as isize)).b32.s1 = 1;
-    (*eqtb.offset(FROZEN_PRIMITIVE as isize)).b16.s0 = LEVEL_ONE as _;
+    EQTB[FROZEN_PRIMITIVE as usize].b16.s1 = IGNORE_SPACES;
+    EQTB[FROZEN_PRIMITIVE as usize].b32.s1 = 1;
+    EQTB[FROZEN_PRIMITIVE as usize].b16.s0 = LEVEL_ONE as _;
     (*hash.offset(FROZEN_PRIMITIVE as isize)).s1 = maketexstring(b"primitive");
     k = -(35111 as i32);
     while k as i64 <= 35111 {
@@ -5359,9 +5348,9 @@ unsafe extern "C" fn initialize_more_initex_variables() {
     (*hash.offset(FROZEN_PROTECTION as isize)).s1 = maketexstring(b"inaccessible");
     format_ident = maketexstring(b" (INITEX)");
     (*hash.offset(END_WRITE as isize)).s1 = maketexstring(b"endwrite");
-    (*eqtb.offset(END_WRITE as isize)).b16.s0 = LEVEL_ONE as _;
-    (*eqtb.offset(END_WRITE as isize)).b16.s1 = OUTER_CALL as _;
-    (*eqtb.offset(END_WRITE as isize)).b32.s1 = TEX_NULL;
+    EQTB[END_WRITE as usize].b16.s0 = LEVEL_ONE as _;
+    EQTB[END_WRITE as usize].b16.s1 = OUTER_CALL as _;
+    EQTB[END_WRITE as usize].b32.s1 = TEX_NULL;
     max_reg_num = 32767;
     max_reg_help_line = b"A register number must be between 0 and 32767.";
     i = INT_VAL;
@@ -7965,9 +7954,8 @@ unsafe extern "C" fn initialize_primitives() {
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 2i32) as isize,
     ))
     .s1 = maketexstring(b"endgroup");
-    *eqtb.offset(
-        (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 2i32) as isize,
-    ) = *eqtb.offset(cur_val as isize);
+    EQTB[(1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 2i32) as usize] =
+        EQTB[cur_val as usize];
     primitive(b"expandafter", 104_u16, 0i32);
     primitive(b"font", 90_u16, 0i32);
     primitive(b"fontdimen", 78_u16, 0i32);
@@ -8019,9 +8007,8 @@ unsafe extern "C" fn initialize_primitives() {
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 7i32) as isize,
     ))
     .s1 = maketexstring(b"relax");
-    *eqtb.offset(
-        (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 7i32) as isize,
-    ) = *eqtb.offset(cur_val as isize);
+    EQTB[(1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 7i32) as usize] =
+        EQTB[cur_val as usize];
     primitive(b"setbox", 100_u16, 0i32);
     primitive(b"the", 111_u16, 0i32);
     primitive(b"toks", 72_u16, 0i32);
@@ -8088,9 +8075,8 @@ unsafe extern "C" fn initialize_primitives() {
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 4i32) as isize,
     ))
     .s1 = maketexstring(b"fi");
-    *eqtb.offset(
-        (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 4i32) as isize,
-    ) = *eqtb.offset(cur_val as isize);
+    EQTB[(1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 4i32) as usize] =
+        EQTB[cur_val as usize];
     primitive(b"or", 108_u16, 4i32);
     primitive(b"else", 108_u16, 3i32);
     primitive(b"nullfont", 89_u16, 0i32);
@@ -8098,18 +8084,16 @@ unsafe extern "C" fn initialize_primitives() {
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 12i32) as isize,
     ))
     .s1 = maketexstring(b"nullfont");
-    *eqtb.offset(
-        (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 12i32) as isize,
-    ) = *eqtb.offset(cur_val as isize);
+    EQTB[(1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 12i32) as usize] =
+        EQTB[cur_val as usize];
     primitive(b"span", 4_u16, 0x10ffffi32 + 2i32);
     primitive(b"cr", 5_u16, 0x10ffffi32 + 3i32);
     (*hash.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 1i32) as isize,
     ))
     .s1 = maketexstring(b"cr");
-    *eqtb.offset(
-        (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 1i32) as isize,
-    ) = *eqtb.offset(cur_val as isize);
+    EQTB[(1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 1i32) as usize] =
+        EQTB[cur_val as usize];
     primitive(b"crcr", 5_u16, 0x10ffffi32 + 4i32);
     (*hash.offset(
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 5i32) as isize,
@@ -8119,31 +8103,21 @@ unsafe extern "C" fn initialize_primitives() {
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 6i32) as isize,
     ))
     .s1 = maketexstring(b"endtemplate");
-    (*eqtb.offset(
-        (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 6i32) as isize,
-    ))
-    .b16
-    .s1 = 9_u16;
-    (*eqtb.offset(
-        (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 6i32) as isize,
-    ))
-    .b32
-    .s1 = 4999999i32 - 11i32;
-    (*eqtb.offset(
-        (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 6i32) as isize,
-    ))
-    .b16
-    .s0 = 1_u16;
-    *eqtb.offset(
-        (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 5i32) as isize,
-    ) = *eqtb.offset(
-        (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 6i32) as isize,
-    );
-    (*eqtb.offset(
-        (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 5i32) as isize,
-    ))
-    .b16
-    .s1 = 117_u16;
+    EQTB[(1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 6i32) as usize]
+        .b16
+        .s1 = 9_u16;
+    EQTB[(1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 6i32) as usize]
+        .b32
+        .s1 = 4999999i32 - 11i32;
+    EQTB[(1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 6i32) as usize]
+        .b16
+        .s0 = 1_u16;
+    EQTB[(1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 5i32) as usize] =
+        EQTB[(1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 6i32)
+            as usize];
+    EQTB[(1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 5i32) as usize]
+        .b16
+        .s1 = 117_u16;
     primitive(b"pagegoal", 82_u16, 0i32);
     primitive(b"pagetotal", 82_u16, 1i32);
     primitive(b"pagestretch", 82_u16, 2i32);
@@ -8224,9 +8198,8 @@ unsafe extern "C" fn initialize_primitives() {
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 3i32) as isize,
     ))
     .s1 = maketexstring(b"right");
-    *eqtb.offset(
-        (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 3i32) as isize,
-    ) = *eqtb.offset(cur_val as isize);
+    EQTB[(1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 3i32) as usize] =
+        EQTB[cur_val as usize];
     primitive(b"long", 95_u16, 1i32);
     primitive(b"outer", 95_u16, 2i32);
     primitive(b"global", 95_u16, 4i32);
@@ -8770,9 +8743,8 @@ unsafe extern "C" fn initialize_primitives() {
         (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 10i32) as isize,
     ))
     .s1 = maketexstring(b"special");
-    *eqtb.offset(
-        (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 10i32) as isize,
-    ) = *eqtb.offset(cur_val as isize);
+    EQTB[(1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 + 15000i32 + 10i32) as usize] =
+        EQTB[cur_val as usize];
     primitive(b"immediate", 59_u16, 4i32);
     primitive(b"setlanguage", 59_u16, 5i32);
     primitive(
@@ -8887,11 +8859,11 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
 
     if in_initex_mode {
         MEM = vec![memory_word::default(); MEM_TOP as usize + 2];
-        eqtb_top = EQTB_SIZE + hash_extra;
+        EQTB_TOP = (EQTB_SIZE + hash_extra) as usize;
         if hash_extra == 0 {
             hash_top = UNDEFINED_CONTROL_SEQUENCE;
         } else {
-            hash_top = eqtb_top
+            hash_top = EQTB_TOP as i32;
         }
         yhash = xmalloc_array((1 + hash_top - hash_offset) as usize);
         hash = yhash.offset(-514);
@@ -8902,7 +8874,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
             *hash.offset(hash_used as isize) = *hash.offset(HASH_BASE as isize);
             hash_used += 1
         }
-        eqtb = xcalloc_array(eqtb_top as usize);
+        EQTB = vec![memory_word::default(); EQTB_TOP + 1];
         str_start = xmalloc_array(max_strings as usize);
         str_pool = xmalloc_array(pool_size as usize);
         FONT_INFO = vec![memory_word::default(); FONT_MEM_SIZE + 1];
@@ -9389,7 +9361,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     free(native_text as *mut libc::c_void);
     // Free arrays allocated in load_fmt_file
     free(yhash as *mut libc::c_void);
-    free(eqtb as *mut libc::c_void);
+    EQTB = Vec::new();
     MEM = Vec::new();
     free(str_start as *mut libc::c_void);
     free(str_pool as *mut libc::c_void);

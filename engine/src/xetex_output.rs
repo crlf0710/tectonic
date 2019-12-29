@@ -15,9 +15,9 @@ use super::xetex_consts::{
 };
 
 use super::xetex_ini::{
-    dig, doing_special, eqtb, eqtb_top, error_line, file_offset, full_source_filename_stack, hash,
-    in_open, line, line_stack, log_file, max_print_line, pool_ptr, pool_size, rust_stdout,
-    selector, str_pool, str_ptr, str_start, tally, term_offset, trick_buf, trick_count, write_file,
+    dig, doing_special, error_line, file_offset, full_source_filename_stack, hash, in_open, line,
+    line_stack, log_file, max_print_line, pool_ptr, pool_size, rust_stdout, selector, str_pool,
+    str_ptr, str_start, tally, term_offset, trick_buf, trick_count, write_file, EQTB, EQTB_TOP,
     MEM,
 };
 use super::xetex_ini::{memory_word, Selector};
@@ -216,13 +216,9 @@ pub(crate) unsafe extern "C" fn print(mut s: i32) {
                     }
                 }
                 nl = INTPAR(INT_PAR__new_line_char);
-                (*eqtb.offset((INT_BASE + INT_PAR__new_line_char) as isize))
-                    .b32
-                    .s1 = -1i32;
+                EQTB[(INT_BASE + INT_PAR__new_line_char) as usize].b32.s1 = -1i32;
                 print_char(s);
-                (*eqtb.offset((INT_BASE + INT_PAR__new_line_char) as isize))
-                    .b32
-                    .s1 = nl;
+                EQTB[(INT_BASE + INT_PAR__new_line_char) as usize].b32.s1 = nl;
                 return;
             }
         }
@@ -349,7 +345,7 @@ pub(crate) unsafe extern "C" fn print_cs(mut p: i32) {
         } else {
             print_char(p - 1i32);
         }
-    } else if p >= UNDEFINED_CONTROL_SEQUENCE && p <= EQTB_SIZE || p > eqtb_top {
+    } else if p >= UNDEFINED_CONTROL_SEQUENCE && p <= EQTB_SIZE || p > EQTB_TOP as i32 {
         print_esc_cstr(b"IMPOSSIBLE.");
     } else if (*hash.offset(p as isize)).s1 >= str_ptr {
         print_esc_cstr(b"NONEXISTENT.");
