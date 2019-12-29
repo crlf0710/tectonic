@@ -12,12 +12,12 @@ use crate::xetex_errors::{confusion, error};
 use crate::xetex_ext::{map_char_to_glyph, measure_native_glyph, real_get_native_glyph};
 use crate::xetex_ini::{
     adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i, cur_lang,
-    cur_list, cur_val, cur_val1, empty, file_line_error_style_p, font_bc, font_ec,
-    font_layout_engine, help_line, help_ptr, insert_src_special_every_math, just_box, nest_ptr,
-    null_character, pre_adjust_tail, skew_char, temp_ptr, tex_remainder, total_shrink,
-    xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB, EXTEN_BASE, FONT_AREA,
-    FONT_INFO, FONT_PARAMS, HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM, PARAM_BASE,
-    SAVE_PTR, SAVE_STACK, WIDTH_BASE,
+    cur_list, cur_val, cur_val1, empty, file_line_error_style_p, font_layout_engine, help_line,
+    help_ptr, insert_src_special_every_math, just_box, nest_ptr, null_character, pre_adjust_tail,
+    temp_ptr, tex_remainder, total_shrink, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE,
+    DEPTH_BASE, EQTB, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_EC, FONT_INFO, FONT_PARAMS, HEIGHT_BASE,
+    ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM, PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR,
+    WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b16x4_le_t, memory_word};
 use crate::xetex_layout_interface::*;
@@ -4279,9 +4279,7 @@ unsafe extern "C" fn fetch(mut a: i32) {
     {
         cur_i = null_character
     } else {
-        if cur_c >= *font_bc.offset(cur_f as isize) as i32
-            && cur_c <= *font_ec.offset(cur_f as isize) as i32
-        {
+        if cur_c >= FONT_BC[cur_f as usize] as i32 && cur_c <= FONT_EC[cur_f as usize] as i32 {
             cur_i = FONT_INFO[(CHAR_BASE[cur_f as usize] + cur_c) as usize].b16
         } else {
             cur_i = null_character
@@ -4491,7 +4489,7 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
                     cur_i = FONT_INFO[a as usize].b16
                 }
                 loop {
-                    if cur_i.s2 as i32 == *skew_char.offset(cur_f as isize) {
+                    if cur_i.s2 as i32 == SKEW_CHAR[cur_f as usize] {
                         if cur_i.s1 as i32 >= 128i32 {
                             if cur_i.s3 as i32 <= 128i32 {
                                 s = FONT_INFO[(KERN_BASE[cur_f as usize]
@@ -6323,8 +6321,8 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
                         }
                     } else {
                         y = x;
-                        if y as i32 >= *font_bc.offset(g as isize) as i32
-                            && y as i32 <= *font_ec.offset(g as isize) as i32
+                        if y as i32 >= FONT_BC[g as usize] as i32
+                            && y as i32 <= FONT_EC[g as usize] as i32
                         {
                             loop {
                                 q = FONT_INFO[(CHAR_BASE[g as usize] + y as i32) as usize].b16;

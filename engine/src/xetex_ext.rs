@@ -31,9 +31,9 @@ use crate::cf_prelude::{
 use crate::core_memory::{mfree, xcalloc, xmalloc, xrealloc, xstrdup};
 use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
-    font_flags, font_layout_engine, font_letter_space, loaded_font_design_size, loaded_font_flags,
-    loaded_font_letter_space, loaded_font_mapping, mapped_text, name_length, name_of_file,
-    native_font_type_flag, xdv_buffer, DEPTH_BASE, FONT_AREA, FONT_INFO, HEIGHT_BASE, PARAM_BASE,
+    font_layout_engine, loaded_font_design_size, loaded_font_flags, loaded_font_letter_space,
+    loaded_font_mapping, mapped_text, name_length, name_of_file, native_font_type_flag, xdv_buffer,
+    DEPTH_BASE, FONT_AREA, FONT_FLAGS, FONT_INFO, FONT_LETTER_SPACE, HEIGHT_BASE, PARAM_BASE,
 };
 use crate::xetex_output::{print_char, print_int, print_nl, print_raw_char};
 use crate::xetex_scaledmath::xn_over_d;
@@ -1569,7 +1569,7 @@ pub(crate) unsafe extern "C" fn make_font_def(mut f: i32) -> i32 {
             filename = getFontFilename(engine, &mut index);
             assert!(!filename.is_null());
             rgba = getRgbValue(engine);
-            if *font_flags.offset(f as isize) as i32 & 0x2i32 != 0i32 {
+            if FONT_FLAGS[f as usize] as i32 & 0x2i32 != 0i32 {
                 flags = (flags as i32 | 0x100i32) as u16
             }
             extend = getExtendFactor(engine);
@@ -1590,7 +1590,7 @@ pub(crate) unsafe extern "C" fn make_font_def(mut f: i32) -> i32 {
     //      c[4]
      */
     fontDefLength = 4i32 + 2i32 + 1i32 + filenameLen as i32 + 4i32; /* face index */
-    if *font_flags.offset(f as isize) as i32 & 0x1i32 != 0i32 {
+    if FONT_FLAGS[f as usize] as i32 & 0x1i32 != 0i32 {
         fontDefLength += 4i32; /* 32-bit RGBA value */
         flags = (flags as i32 | 0x200i32) as u16
     }
@@ -1626,7 +1626,7 @@ pub(crate) unsafe extern "C" fn make_font_def(mut f: i32) -> i32 {
     cp = cp.offset(filenameLen as i32 as isize);
     *(cp as *mut u32) = SWAP32(index);
     cp = cp.offset(4);
-    if *font_flags.offset(f as isize) as i32 & 0x1i32 != 0i32 {
+    if FONT_FLAGS[f as usize] as i32 & 0x1i32 != 0i32 {
         *(cp as *mut u32) = SWAP32(rgba);
         cp = cp.offset(4)
     }
@@ -1843,9 +1843,9 @@ pub(crate) unsafe extern "C" fn getnativecharic(mut f: i32, mut c: i32) -> scale
     let mut rsb: scaled_t = 0;
     get_native_char_sidebearings(f, c, &mut lsb, &mut rsb);
     if rsb < 0i32 {
-        *font_letter_space.offset(f as isize) - rsb
+        FONT_LETTER_SPACE[f as usize] - rsb
     } else {
-        *font_letter_space.offset(f as isize)
+        FONT_LETTER_SPACE[f as usize]
     }
 }
 /* single-purpose metrics accessors */
@@ -2115,9 +2115,9 @@ pub(crate) unsafe extern "C" fn measure_native_node(
             free(advances as *mut libc::c_void);
         }
         icu::ubidi_close(pBiDi);
-        if *font_letter_space.offset(f as isize) != 0i32 {
+        if FONT_LETTER_SPACE[f as usize] != 0i32 {
             let mut lsDelta: Fixed = 0i32;
-            let mut lsUnit: Fixed = *font_letter_space.offset(f as isize);
+            let mut lsUnit: Fixed = FONT_LETTER_SPACE[f as usize];
             let mut i_1: i32 = 0;
             i_1 = 0i32;
             while i_1 < totalGlyphCount {
@@ -2215,14 +2215,14 @@ pub(crate) unsafe extern "C" fn real_get_native_italic_correction(
                 return D2Fix(aat::GetGlyphItalCorr_AAT(
                     *font_layout_engine.offset(f as isize) as CFDictionaryRef,
                     *glyphIDs.offset(n.wrapping_sub(1i32 as libc::c_uint) as isize),
-                )) + *font_letter_space.offset(f as isize);
+                )) + FONT_LETTER_SPACE[f as usize];
             }
             0xfffeu32 => {
                 return D2Fix(getGlyphItalCorr(
                     *font_layout_engine.offset(f as isize) as XeTeXLayoutEngine,
                     *glyphIDs.offset(n.wrapping_sub(1_u32) as isize) as u32,
                 ) as f64)
-                    + *font_letter_space.offset(f as isize);
+                    + FONT_LETTER_SPACE[f as usize];
             }
             _ => 0i32,
         }

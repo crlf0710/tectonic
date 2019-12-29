@@ -11,14 +11,14 @@ use crate::xetex_ext::{
 use crate::xetex_ini::{
     avail, cur_area, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_list, cur_name,
     cur_page_height, cur_page_width, cur_tok, cur_v, cur_v_offset, dead_cycles, def_ref,
-    doing_leaders, doing_special, file_line_error_style_p, file_offset, font_bc, font_check,
-    font_dsize, font_ec, font_glue, font_letter_space, font_mapping, font_name, font_ptr,
-    font_size, font_used, help_line, help_ptr, init_pool_ptr, job_name, last_bop, log_opened,
-    max_h, max_print_line, max_push, max_v, name_of_file, output_file_extension, pdf_last_x_pos,
+    doing_leaders, doing_special, file_line_error_style_p, file_offset, font_mapping, font_ptr,
+    font_used, help_line, help_ptr, init_pool_ptr, job_name, last_bop, log_opened, max_h,
+    max_print_line, max_push, max_v, name_of_file, output_file_extension, pdf_last_x_pos,
     pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht, rule_wd, rust_stdout, selector,
     semantic_pagination_enabled, str_pool, str_ptr, str_start, temp_ptr, term_offset, total_pages,
     write_file, write_loc, write_open, xdv_buffer, xtx_ligature_present, LR_problems, LR_ptr,
-    CHAR_BASE, FONT_AREA, FONT_INFO, MEM, WIDTH_BASE,
+    CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO,
+    FONT_LETTER_SPACE, FONT_NAME, FONT_SIZE, MEM, WIDTH_BASE,
 };
 use crate::xetex_ini::{memory_word, Selector};
 use crate::xetex_output::{
@@ -381,7 +381,7 @@ unsafe extern "C" fn hlist_out() {
                     && *NODE_type(p as isize) != WHATSIT_NODE
                     && (*NODE_subtype(p as isize) == NATIVE_WORD_NODE
                         || *NODE_subtype(p as isize) == NATIVE_WORD_NODE_AT)
-                    && *font_letter_space.offset(MEM[(p + 4) as usize].b16.s2 as isize) == 0
+                    && FONT_LETTER_SPACE[MEM[(p + 4) as usize].b16.s2 as usize] == 0
                 {
                     /* "got a word in an AAT font, might be the start of a run" */
                     r = p;
@@ -409,7 +409,7 @@ unsafe extern "C" fn hlist_out() {
                             && *GLUE_SPEC_shrink_order(q as isize) == NORMAL as _
                         {
                             if *GLUE_NODE_glue_ptr(q as isize)
-                                == *font_glue.offset(MEM[(r + 4) as usize].b16.s2 as isize)
+                                == FONT_GLUE[MEM[(r + 4) as usize].b16.s2 as usize]
                             {
                                 /* "Found a normal space; if the next node is
                                  * another word in the same font, we'll
@@ -696,9 +696,9 @@ unsafe extern "C" fn hlist_out() {
                             }
                             dvi_f = f
                         }
-                        if *font_ec.offset(f as isize) as i32 >=
+                        if FONT_EC[f as usize] as i32 >=
                                c as i32 {
-                            if *font_bc.offset(f as isize) as i32 <=
+                            if FONT_BC[f as usize] as i32 <=
                                    c as i32 {
                                 if FONT_INFO[(CHAR_BASE[f as usize]
                                                            + c as i32)
@@ -2005,27 +2005,26 @@ unsafe extern "C" fn dvi_font_def(f: internal_font_number) {
             dvi_out(((f - 1) / 256) as u8);
             dvi_out(((f - 1) % 256) as u8);
         }
-        dvi_out((*font_check.offset(f as isize)).s3 as u8);
-        dvi_out((*font_check.offset(f as isize)).s2 as u8);
-        dvi_out((*font_check.offset(f as isize)).s1 as u8);
-        dvi_out((*font_check.offset(f as isize)).s0 as u8);
-        dvi_four(*font_size.offset(f as isize));
-        dvi_four(*font_dsize.offset(f as isize));
+        dvi_out(FONT_CHECK[f as usize].s3 as u8);
+        dvi_out(FONT_CHECK[f as usize].s2 as u8);
+        dvi_out(FONT_CHECK[f as usize].s1 as u8);
+        dvi_out(FONT_CHECK[f as usize].s0 as u8);
+        dvi_four(FONT_SIZE[f as usize]);
+        dvi_four(FONT_DSIZE[f as usize]);
         dvi_out(length(FONT_AREA[f as usize]) as u8);
         l = 0;
-        k = *str_start.offset((*font_name.offset(f as isize) as i64 - 65536) as isize);
+        k = *str_start.offset((FONT_NAME[f as usize] as i64 - 65536) as isize);
 
         while l == 0i32
-            && k < *str_start
-                .offset(((*font_name.offset(f as isize) + 1i32) as i64 - 65536) as isize)
+            && k < *str_start.offset(((FONT_NAME[f as usize] + 1i32) as i64 - 65536) as isize)
         {
             if *str_pool.offset(k as isize) as i32 == ':' as i32 {
-                l = k - *str_start.offset((*font_name.offset(f as isize) as i64 - 65536) as isize)
+                l = k - *str_start.offset((FONT_NAME[f as usize] as i64 - 65536) as isize)
             }
             k += 1
         }
         if l == 0i32 {
-            l = length(*font_name.offset(f as isize))
+            l = length(FONT_NAME[f as usize])
         }
         dvi_out(l as u8);
         let mut for_end: i32 = 0;
@@ -2043,9 +2042,8 @@ unsafe extern "C" fn dvi_font_def(f: internal_font_number) {
             }
         }
         let mut for_end_0: i32 = 0;
-        k = *str_start.offset((*font_name.offset(f as isize) as i64 - 65536) as isize);
-        for_end_0 =
-            *str_start.offset((*font_name.offset(f as isize) as i64 - 65536) as isize) + l - 1i32;
+        k = *str_start.offset((FONT_NAME[f as usize] as i64 - 65536) as isize);
+        for_end_0 = *str_start.offset((FONT_NAME[f as usize] as i64 - 65536) as isize) + l - 1i32;
         if k <= for_end_0 {
             loop {
                 dvi_out(*str_pool.offset(k as isize) as u8);

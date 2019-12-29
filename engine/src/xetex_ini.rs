@@ -182,7 +182,7 @@ pub(crate) struct b32x2_le_t {
  *
  */
 pub(crate) type b32x2 = b32x2_le_t;
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub(crate) struct b16x4_le_t {
     pub(crate) s0: u16,
@@ -473,7 +473,7 @@ pub(crate) static mut STACK_SIZE: usize = 0;
 #[no_mangle]
 pub(crate) static mut MAX_IN_OPEN: usize = 0;
 #[no_mangle]
-pub(crate) static mut param_size: i32 = 0;
+pub(crate) static mut PARAM_SIZE: usize = 0;
 #[no_mangle]
 pub(crate) static mut nest_size: i32 = 0;
 #[no_mangle]
@@ -697,11 +697,11 @@ pub(crate) static mut warning_index: i32 = 0;
 #[no_mangle]
 pub(crate) static mut def_ref: i32 = 0;
 #[no_mangle]
-pub(crate) static mut param_stack: *mut i32 = ptr::null_mut();
+pub(crate) static mut PARAM_STACK: Vec<i32> = Vec::new();
 #[no_mangle]
-pub(crate) static mut param_ptr: i32 = 0;
+pub(crate) static mut PARAM_PTR: usize = 0;
 #[no_mangle]
-pub(crate) static mut max_param_stack: i32 = 0;
+pub(crate) static mut MAX_PARAM_STACK: usize = 0;
 #[no_mangle]
 pub(crate) static mut align_state: i32 = 0;
 #[no_mangle]
@@ -779,35 +779,35 @@ pub(crate) static mut fmem_ptr: font_index = 0;
 #[no_mangle]
 pub(crate) static mut font_ptr: internal_font_number = 0;
 #[no_mangle]
-pub(crate) static mut font_check: *mut b16x4 = ptr::null_mut();
+pub(crate) static mut FONT_CHECK: Vec<b16x4> = Vec::new();
 #[no_mangle]
-pub(crate) static mut font_size: *mut scaled_t = ptr::null_mut();
+pub(crate) static mut FONT_SIZE: Vec<scaled_t> = Vec::new();
 #[no_mangle]
-pub(crate) static mut font_dsize: *mut scaled_t = ptr::null_mut();
+pub(crate) static mut FONT_DSIZE: Vec<scaled_t> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_PARAMS: Vec<font_index> = Vec::new();
 #[no_mangle]
-pub(crate) static mut font_name: *mut str_number = ptr::null_mut();
+pub(crate) static mut FONT_NAME: Vec<str_number> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_AREA: Vec<str_number> = Vec::new();
 #[no_mangle]
-pub(crate) static mut font_bc: *mut UTF16_code = ptr::null_mut();
+pub(crate) static mut FONT_BC: Vec<UTF16_code> = Vec::new();
 #[no_mangle]
-pub(crate) static mut font_ec: *mut UTF16_code = ptr::null_mut();
+pub(crate) static mut FONT_EC: Vec<UTF16_code> = Vec::new();
 #[no_mangle]
-pub(crate) static mut font_glue: *mut i32 = ptr::null_mut();
+pub(crate) static mut FONT_GLUE: Vec<i32> = Vec::new();
 #[no_mangle]
 pub(crate) static mut font_used: *mut bool = ptr::null_mut();
 #[no_mangle]
-pub(crate) static mut hyphen_char: *mut i32 = ptr::null_mut();
+pub(crate) static mut HYPHEN_CHAR: Vec<i32> = Vec::new();
 #[no_mangle]
-pub(crate) static mut skew_char: *mut i32 = ptr::null_mut();
+pub(crate) static mut SKEW_CHAR: Vec<i32> = Vec::new();
 #[no_mangle]
-pub(crate) static mut bchar_label: *mut font_index = ptr::null_mut();
+pub(crate) static mut BCHAR_LABEL: Vec<font_index> = Vec::new();
 #[no_mangle]
-pub(crate) static mut font_bchar: *mut nine_bits = ptr::null_mut();
+pub(crate) static mut FONT_BCHAR: Vec<nine_bits> = Vec::new();
 #[no_mangle]
-pub(crate) static mut font_false_bchar: *mut nine_bits = ptr::null_mut();
+pub(crate) static mut FONT_FALSE_BCHAR: Vec<nine_bits> = Vec::new();
 #[no_mangle]
 pub(crate) static mut font_layout_engine: *mut *mut libc::c_void =
     0 as *const *mut libc::c_void as *mut *mut libc::c_void;
@@ -815,9 +815,9 @@ pub(crate) static mut font_layout_engine: *mut *mut libc::c_void =
 pub(crate) static mut font_mapping: *mut *mut libc::c_void =
     0 as *const *mut libc::c_void as *mut *mut libc::c_void;
 #[no_mangle]
-pub(crate) static mut font_flags: *mut i8 = ptr::null_mut();
+pub(crate) static mut FONT_FLAGS: Vec<i8> = Vec::new();
 #[no_mangle]
-pub(crate) static mut font_letter_space: *mut scaled_t = ptr::null_mut();
+pub(crate) static mut FONT_LETTER_SPACE: Vec<scaled_t> = Vec::new();
 #[no_mangle]
 pub(crate) static mut loaded_font_mapping: *mut libc::c_void = ptr::null_mut();
 #[no_mangle]
@@ -2912,8 +2912,8 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                 scan_optional_equals();
                 scan_int();
                 if n == 0i32 {
-                    *hyphen_char.offset(f as isize) = cur_val
-                } else { *skew_char.offset(f as isize) = cur_val }
+                    HYPHEN_CHAR[f as usize] = cur_val
+                } else { SKEW_CHAR[f as usize] = cur_val }
             } else {
                 if FONT_AREA[f as usize] as u32 == 0xffffu32
                        ||
@@ -3423,19 +3423,19 @@ unsafe extern "C" fn store_fmt_file() {
         fmt_out,
     );
     do_dump(
-        &mut *font_check.offset(0) as *mut b16x4 as *mut i8,
+        &mut FONT_CHECK[0] as *mut b16x4 as *mut i8,
         ::std::mem::size_of::<b16x4>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
-        &mut *font_size.offset(0) as *mut scaled_t as *mut i8,
+        &mut FONT_SIZE[0] as *mut scaled_t as *mut i8,
         ::std::mem::size_of::<scaled_t>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
-        &mut *font_dsize.offset(0) as *mut scaled_t as *mut i8,
+        &mut FONT_DSIZE[0] as *mut scaled_t as *mut i8,
         ::std::mem::size_of::<scaled_t>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
@@ -3447,19 +3447,19 @@ unsafe extern "C" fn store_fmt_file() {
         fmt_out,
     );
     do_dump(
-        &mut *hyphen_char.offset(0) as *mut i32 as *mut i8,
+        &mut HYPHEN_CHAR[0] as *mut i32 as *mut i8,
         ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
-        &mut *skew_char.offset(0) as *mut i32 as *mut i8,
+        &mut SKEW_CHAR[0] as *mut i32 as *mut i8,
         ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
-        &mut *font_name.offset(0) as *mut str_number as *mut i8,
+        &mut FONT_NAME[0] as *mut str_number as *mut i8,
         ::std::mem::size_of::<str_number>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
@@ -3471,13 +3471,13 @@ unsafe extern "C" fn store_fmt_file() {
         fmt_out,
     );
     do_dump(
-        &mut *font_bc.offset(0) as *mut UTF16_code as *mut i8,
+        &mut FONT_BC[0] as *mut UTF16_code as *mut i8,
         ::std::mem::size_of::<UTF16_code>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
-        &mut *font_ec.offset(0) as *mut UTF16_code as *mut i8,
+        &mut FONT_EC[0] as *mut UTF16_code as *mut i8,
         ::std::mem::size_of::<UTF16_code>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
@@ -3537,25 +3537,25 @@ unsafe extern "C" fn store_fmt_file() {
         fmt_out,
     );
     do_dump(
-        &mut *font_glue.offset(0) as *mut i32 as *mut i8,
+        &mut FONT_GLUE[0] as *mut i32 as *mut i8,
         ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
-        &mut *bchar_label.offset(0) as *mut font_index as *mut i8,
+        &mut BCHAR_LABEL[0] as *mut font_index as *mut i8,
         ::std::mem::size_of::<font_index>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
-        &mut *font_bchar.offset(0) as *mut nine_bits as *mut i8,
+        &mut FONT_BCHAR[0] as *mut nine_bits as *mut i8,
         ::std::mem::size_of::<nine_bits>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
     );
     do_dump(
-        &mut *font_false_bchar.offset(0) as *mut nine_bits as *mut i8,
+        &mut FONT_FALSE_BCHAR[0] as *mut nine_bits as *mut i8,
         ::std::mem::size_of::<nine_bits>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_out,
@@ -3570,7 +3570,7 @@ unsafe extern "C" fn store_fmt_file() {
             || !(*font_mapping.offset(k as isize)).is_null()
         {
             print_file_name(
-                *font_name.offset(k as isize),
+                FONT_NAME[k as usize],
                 (65536 + 1i32 as i64) as i32,
                 (65536 + 1i32 as i64) as i32,
             );
@@ -3587,14 +3587,14 @@ unsafe extern "C" fn store_fmt_file() {
             error();
         } else {
             print_file_name(
-                *font_name.offset(k as isize),
+                FONT_NAME[k as usize],
                 FONT_AREA[k as usize],
                 (65536 + 1i32 as i64) as i32,
             );
         }
-        if *font_size.offset(k as isize) != *font_dsize.offset(k as isize) {
+        if FONT_SIZE[k as usize] != FONT_DSIZE[k as usize] {
             print_cstr(b" at ");
-            print_scaled(*font_size.offset(k as isize));
+            print_scaled(FONT_SIZE[k as usize]);
             print_cstr(b"pt");
         }
         k += 1
@@ -4322,22 +4322,22 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     font_ptr = x;
     font_mapping = xmalloc_array::<*mut libc::c_void>(FONT_MAX);
     font_layout_engine = xcalloc_array::<*mut libc::c_void>(FONT_MAX);
-    font_flags = xmalloc_array(FONT_MAX);
-    font_letter_space = xmalloc_array(FONT_MAX);
-    font_check = xmalloc_array(FONT_MAX);
-    font_size = xmalloc_array(FONT_MAX);
-    font_dsize = xmalloc_array(FONT_MAX);
+    FONT_FLAGS = vec![0; FONT_MAX + 1];
+    FONT_LETTER_SPACE = vec![0; FONT_MAX + 1];
+    FONT_CHECK = vec![b16x4_le_t::default(); FONT_MAX + 1];
+    FONT_SIZE = vec![0; FONT_MAX + 1];
+    FONT_DSIZE = vec![0; FONT_MAX + 1];
     FONT_PARAMS = vec![0; FONT_MAX + 1];
-    font_name = xmalloc_array(FONT_MAX);
+    FONT_NAME = vec![0; FONT_MAX + 1];
     FONT_AREA = vec![0; FONT_MAX + 1];
-    font_bc = xmalloc_array(FONT_MAX);
-    font_ec = xmalloc_array(FONT_MAX);
-    font_glue = xmalloc_array(FONT_MAX);
-    hyphen_char = xmalloc_array(FONT_MAX);
-    skew_char = xmalloc_array(FONT_MAX);
-    bchar_label = xmalloc_array(FONT_MAX);
-    font_bchar = xmalloc_array(FONT_MAX);
-    font_false_bchar = xmalloc_array::<nine_bits>(FONT_MAX);
+    FONT_BC = vec![0; FONT_MAX + 1];
+    FONT_EC = vec![0; FONT_MAX + 1];
+    FONT_GLUE = vec![0; FONT_MAX + 1];
+    HYPHEN_CHAR = vec![0; FONT_MAX + 1];
+    SKEW_CHAR = vec![0; FONT_MAX + 1];
+    BCHAR_LABEL = vec![0; FONT_MAX + 1];
+    FONT_BCHAR = vec![0; FONT_MAX + 1];
+    FONT_FALSE_BCHAR = vec![0; FONT_MAX + 1];
     CHAR_BASE = vec![0; FONT_MAX + 1];
     WIDTH_BASE = vec![0; FONT_MAX + 1];
     HEIGHT_BASE = vec![0; FONT_MAX + 1];
@@ -4355,19 +4355,19 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         k += 1
     }
     do_undump(
-        &mut *font_check.offset(0) as *mut b16x4 as *mut i8,
+        &mut FONT_CHECK[0] as *mut b16x4 as *mut i8,
         ::std::mem::size_of::<b16x4>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
-        &mut *font_size.offset(0) as *mut scaled_t as *mut i8,
+        &mut FONT_SIZE[0] as *mut scaled_t as *mut i8,
         ::std::mem::size_of::<scaled_t>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
-        &mut *font_dsize.offset(0) as *mut scaled_t as *mut i8,
+        &mut FONT_DSIZE[0] as *mut scaled_t as *mut i8,
         ::std::mem::size_of::<scaled_t>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
@@ -4396,32 +4396,32 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         i_0 += 1
     }
     do_undump(
-        &mut *hyphen_char.offset(0) as *mut i32 as *mut i8,
+        &mut HYPHEN_CHAR[0] as *mut i32 as *mut i8,
         ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
-        &mut *skew_char.offset(0) as *mut i32 as *mut i8,
+        &mut SKEW_CHAR[0] as *mut i32 as *mut i8,
         ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     let mut i_1: i32 = 0;
     do_undump(
-        &mut *font_name.offset(0) as *mut str_number as *mut i8,
+        &mut FONT_NAME[0] as *mut str_number as *mut i8,
         ::std::mem::size_of::<str_number>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     i_1 = 0i32;
     while i_1 < font_ptr + 1i32 {
-        if *(&mut *font_name.offset(0) as *mut str_number).offset(i_1 as isize) > str_ptr {
+        if *(&mut FONT_NAME[0] as *mut str_number).offset(i_1 as isize) > str_ptr {
             panic!(
                 "Item {} (={}) of .fmt array at {:x} >{}",
                 i_1,
-                *(&mut *font_name.offset(0) as *mut str_number).offset(i_1 as isize) as uintptr_t,
-                &mut *font_name.offset(0) as *mut str_number as uintptr_t,
+                *(&mut FONT_NAME[0] as *mut str_number).offset(i_1 as isize) as uintptr_t,
+                &mut FONT_NAME[0] as *mut str_number as uintptr_t,
                 str_ptr as uintptr_t
             );
         }
@@ -4448,13 +4448,13 @@ unsafe extern "C" fn load_fmt_file() -> bool {
         i_2 += 1
     }
     do_undump(
-        &mut *font_bc.offset(0) as *mut UTF16_code as *mut i8,
+        &mut FONT_BC[0] as *mut UTF16_code as *mut i8,
         ::std::mem::size_of::<UTF16_code>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     do_undump(
-        &mut *font_ec.offset(0) as *mut UTF16_code as *mut i8,
+        &mut FONT_EC[0] as *mut UTF16_code as *mut i8,
         ::std::mem::size_of::<UTF16_code>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
@@ -4515,21 +4515,21 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     );
     let mut i_3: i32 = 0;
     do_undump(
-        &mut *font_glue.offset(0) as *mut i32 as *mut i8,
+        &mut FONT_GLUE[0] as *mut i32 as *mut i8,
         ::std::mem::size_of::<i32>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     i_3 = 0i32;
     while i_3 < font_ptr + 1i32 {
-        if *(&mut *font_glue.offset(0) as *mut i32).offset(i_3 as isize) < TEX_NULL
-            || *(&mut *font_glue.offset(0) as *mut i32).offset(i_3 as isize) > lo_mem_max
+        if *(&mut FONT_GLUE[0] as *mut i32).offset(i_3 as isize) < TEX_NULL
+            || *(&mut FONT_GLUE[0] as *mut i32).offset(i_3 as isize) > lo_mem_max
         {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i_3,
-                *(&mut *font_glue.offset(0) as *mut i32).offset(i_3 as isize) as uintptr_t,
-                &mut *font_glue.offset(0) as *mut i32 as uintptr_t,
+                *(&mut FONT_GLUE[0] as *mut i32).offset(i_3 as isize) as uintptr_t,
+                &mut FONT_GLUE[0] as *mut i32 as uintptr_t,
                 TEX_NULL as uintptr_t,
                 lo_mem_max as uintptr_t
             );
@@ -4538,22 +4538,21 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     let mut i_4: i32 = 0;
     do_undump(
-        &mut *bchar_label.offset(0) as *mut font_index as *mut i8,
+        &mut BCHAR_LABEL[0] as *mut font_index as *mut i8,
         ::std::mem::size_of::<font_index>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     i_4 = 0i32;
     while i_4 < font_ptr + 1i32 {
-        if *(&mut *bchar_label.offset(0) as *mut font_index).offset(i_4 as isize) < 0i32
-            || *(&mut *bchar_label.offset(0) as *mut font_index).offset(i_4 as isize)
-                > fmem_ptr - 1i32
+        if *(&mut BCHAR_LABEL[0] as *mut font_index).offset(i_4 as isize) < 0i32
+            || *(&mut BCHAR_LABEL[0] as *mut font_index).offset(i_4 as isize) > fmem_ptr - 1i32
         {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i_4,
-                *(&mut *bchar_label.offset(0) as *mut font_index).offset(i_4 as isize) as uintptr_t,
-                &mut *bchar_label.offset(0) as *mut font_index as uintptr_t,
+                *(&mut BCHAR_LABEL[0] as *mut font_index).offset(i_4 as isize) as uintptr_t,
+                &mut BCHAR_LABEL[0] as *mut font_index as uintptr_t,
                 0i32 as uintptr_t,
                 (fmem_ptr as uintptr_t).wrapping_sub(1i32 as u64)
             );
@@ -4562,21 +4561,21 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     let mut i_5: i32 = 0;
     do_undump(
-        &mut *font_bchar.offset(0) as *mut nine_bits as *mut i8,
+        &mut FONT_BCHAR[0] as *mut nine_bits as *mut i8,
         ::std::mem::size_of::<nine_bits>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     i_5 = 0i32;
     while i_5 < font_ptr + 1i32 {
-        if *(&mut *font_bchar.offset(0) as *mut nine_bits).offset(i_5 as isize) < 0i32
-            || *(&mut *font_bchar.offset(0) as *mut nine_bits).offset(i_5 as isize) > 65536i32
+        if *(&mut FONT_BCHAR[0] as *mut nine_bits).offset(i_5 as isize) < 0i32
+            || *(&mut FONT_BCHAR[0] as *mut nine_bits).offset(i_5 as isize) > 65536i32
         {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i_5,
-                *(&mut *font_bchar.offset(0) as *mut nine_bits).offset(i_5 as isize) as uintptr_t,
-                &mut *font_bchar.offset(0) as *mut nine_bits as uintptr_t,
+                *(&mut FONT_BCHAR[0] as *mut nine_bits).offset(i_5 as isize) as uintptr_t,
+                &mut FONT_BCHAR[0] as *mut nine_bits as uintptr_t,
                 0i32 as uintptr_t,
                 65536i32 as uintptr_t
             );
@@ -4585,22 +4584,21 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
     let mut i_6: i32 = 0;
     do_undump(
-        &mut *font_false_bchar.offset(0) as *mut nine_bits as *mut i8,
+        &mut FONT_FALSE_BCHAR[0] as *mut nine_bits as *mut i8,
         ::std::mem::size_of::<nine_bits>() as _,
         (font_ptr + 1i32) as size_t,
         fmt_in,
     );
     i_6 = 0i32;
     while i_6 < font_ptr + 1i32 {
-        if *(&mut *font_false_bchar.offset(0) as *mut nine_bits).offset(i_6 as isize) < 0i32
-            || *(&mut *font_false_bchar.offset(0) as *mut nine_bits).offset(i_6 as isize) > 65536i32
+        if *(&mut FONT_FALSE_BCHAR[0] as *mut nine_bits).offset(i_6 as isize) < 0i32
+            || *(&mut FONT_FALSE_BCHAR[0] as *mut nine_bits).offset(i_6 as isize) > 65536i32
         {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i_6,
-                *(&mut *font_false_bchar.offset(0) as *mut nine_bits).offset(i_6 as isize)
-                    as uintptr_t,
-                &mut *font_false_bchar.offset(0) as *mut nine_bits as uintptr_t,
+                *(&mut FONT_FALSE_BCHAR[0] as *mut nine_bits).offset(i_6 as isize) as uintptr_t,
+                &mut FONT_FALSE_BCHAR[0] as *mut nine_bits as uintptr_t,
                 0i32 as uintptr_t,
                 65536i32 as uintptr_t
             );
@@ -8829,7 +8827,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     buf_size = 200000i64 as i32;
     nest_size = 500i32;
     MAX_IN_OPEN = 15;
-    param_size = 10000i32;
+    PARAM_SIZE = 10000;
     SAVE_SIZE = 80000;
     STACK_SIZE = 5000;
     error_line = 79i32;
@@ -8849,7 +8847,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     IF_STACK = vec![0; MAX_IN_OPEN + 1];
     SOURCE_FILENAME_STACK = vec![0; MAX_IN_OPEN + 1];
     FULL_SOURCE_FILENAME_STACK = vec![0; MAX_IN_OPEN + 1];
-    param_stack = xmalloc_array(param_size as usize);
+    PARAM_STACK = vec![0; PARAM_SIZE + 1];
     hyph_word = xmalloc_array(hyph_size as usize);
     hyph_list = xmalloc_array(hyph_size as usize);
     hyph_link = xmalloc_array(hyph_size as usize);
@@ -8963,8 +8961,8 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     max_buf_stack = 0i32;
     GRP_STACK[0] = 0;
     IF_STACK[0] = TEX_NULL;
-    param_ptr = 0i32;
-    max_param_stack = 0i32;
+    PARAM_PTR = 0;
+    MAX_PARAM_STACK = 0;
     used_tectonic_coda_tokens = false;
     gave_char_warning_help = false;
     memset(
@@ -9245,22 +9243,22 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
         hyph_start = 0i32;
         font_mapping = xcalloc_array::<*mut libc::c_void>(FONT_MAX);
         font_layout_engine = xcalloc_array::<*mut libc::c_void>(FONT_MAX);
-        font_flags = xcalloc_array(FONT_MAX);
-        font_letter_space = xcalloc_array(FONT_MAX);
-        font_check = xcalloc_array(FONT_MAX);
-        font_size = xcalloc_array(FONT_MAX);
-        font_dsize = xcalloc_array(FONT_MAX);
+        FONT_FLAGS = vec![0; FONT_MAX + 1];
+        FONT_LETTER_SPACE = vec![0; FONT_MAX + 1];
+        FONT_CHECK = vec![b16x4_le_t::default(); FONT_MAX + 1];
+        FONT_SIZE = vec![0; FONT_MAX + 1];
+        FONT_DSIZE = vec![0; FONT_MAX + 1];
         FONT_PARAMS = vec![0; FONT_MAX + 1];
-        font_name = xcalloc_array(FONT_MAX);
+        FONT_NAME = vec![0; FONT_MAX + 1];
         FONT_AREA = vec![0; FONT_MAX + 1];
-        font_bc = xcalloc_array(FONT_MAX);
-        font_ec = xcalloc_array(FONT_MAX);
-        font_glue = xcalloc_array(FONT_MAX);
-        hyphen_char = xcalloc_array(FONT_MAX);
-        skew_char = xcalloc_array(FONT_MAX);
-        bchar_label = xcalloc_array(FONT_MAX);
-        font_bchar = xcalloc_array(FONT_MAX);
-        font_false_bchar = xcalloc_array(FONT_MAX);
+        FONT_BC = vec![0; FONT_MAX + 1];
+        FONT_EC = vec![0; FONT_MAX + 1];
+        FONT_GLUE = vec![0; FONT_MAX + 1];
+        HYPHEN_CHAR = vec![0; FONT_MAX + 1];
+        SKEW_CHAR = vec![0; FONT_MAX + 1];
+        BCHAR_LABEL = vec![0; FONT_MAX + 1];
+        FONT_BCHAR = vec![0; FONT_MAX + 1];
+        FONT_FALSE_BCHAR = vec![0; FONT_MAX + 1];
         CHAR_BASE = vec![0; FONT_MAX + 1];
         WIDTH_BASE = vec![0; FONT_MAX + 1];
         HEIGHT_BASE = vec![0; FONT_MAX + 1];
@@ -9272,17 +9270,17 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
         PARAM_BASE = vec![0; FONT_MAX + 1];
         font_ptr = 0i32;
         fmem_ptr = 7i32;
-        *font_name.offset(0) = maketexstring(b"nullfont");
+        FONT_NAME[0] = maketexstring(b"nullfont");
         FONT_AREA[0] = (65536 + 1i32 as i64) as str_number;
-        *hyphen_char.offset(0) = '-' as i32;
-        *skew_char.offset(0) = -1i32;
-        *bchar_label.offset(0) = 0i32;
-        *font_bchar.offset(0) = 65536i32;
-        *font_false_bchar.offset(0) = 65536i32;
-        *font_bc.offset(0) = 1i32 as UTF16_code;
-        *font_ec.offset(0) = 0i32 as UTF16_code;
-        *font_size.offset(0) = 0i32;
-        *font_dsize.offset(0) = 0i32;
+        HYPHEN_CHAR[0] = '-' as i32;
+        SKEW_CHAR[0] = -1;
+        BCHAR_LABEL[0] = 0;
+        FONT_BCHAR[0] = 65536;
+        FONT_FALSE_BCHAR[0] = 65536;
+        FONT_BC[0] = 1 as UTF16_code;
+        FONT_EC[0] = 0 as UTF16_code;
+        FONT_SIZE[0] = 0;
+        FONT_DSIZE[0] = 0;
         CHAR_BASE[0] = 0;
         WIDTH_BASE[0] = 0;
         HEIGHT_BASE[0] = 0;
@@ -9291,7 +9289,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
         LIG_KERN_BASE[0] = 0;
         KERN_BASE[0] = 0;
         EXTEN_BASE[0] = 0;
-        *font_glue.offset(0) = TEX_NULL;
+        FONT_GLUE[0] = TEX_NULL;
         FONT_PARAMS[0] = 7;
         let ref mut fresh21 = *font_mapping.offset(0);
         *fresh21 = 0 as *mut libc::c_void;
@@ -9352,7 +9350,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     IF_STACK = Vec::new();
     SOURCE_FILENAME_STACK = Vec::new();
     FULL_SOURCE_FILENAME_STACK = Vec::new();
-    free(param_stack as *mut libc::c_void);
+    PARAM_STACK = Vec::new();
     free(hyph_word as *mut libc::c_void);
     free(hyph_list as *mut libc::c_void);
     free(hyph_link as *mut libc::c_void);
@@ -9367,22 +9365,22 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     FONT_INFO = Vec::new();
     free(font_mapping as *mut libc::c_void);
     free(font_layout_engine as *mut libc::c_void);
-    free(font_flags as *mut libc::c_void);
-    free(font_letter_space as *mut libc::c_void);
-    free(font_check as *mut libc::c_void);
-    free(font_size as *mut libc::c_void);
-    free(font_dsize as *mut libc::c_void);
+    FONT_FLAGS = Vec::new();
+    FONT_LETTER_SPACE = Vec::new();
+    FONT_CHECK = Vec::new();
+    FONT_SIZE = Vec::new();
+    FONT_DSIZE = Vec::new();
     FONT_PARAMS = Vec::new();
-    free(font_name as *mut libc::c_void);
+    FONT_NAME = Vec::new();
     FONT_AREA = Vec::new();
-    free(font_bc as *mut libc::c_void);
-    free(font_ec as *mut libc::c_void);
-    free(font_glue as *mut libc::c_void);
-    free(hyphen_char as *mut libc::c_void);
-    free(skew_char as *mut libc::c_void);
-    free(bchar_label as *mut libc::c_void);
-    free(font_bchar as *mut libc::c_void);
-    free(font_false_bchar as *mut libc::c_void);
+    FONT_BC = Vec::new();
+    FONT_EC = Vec::new();
+    FONT_GLUE = Vec::new();
+    HYPHEN_CHAR = Vec::new();
+    SKEW_CHAR = Vec::new();
+    BCHAR_LABEL = Vec::new();
+    FONT_BCHAR = Vec::new();
+    FONT_FALSE_BCHAR = Vec::new();
     CHAR_BASE = Vec::new();
     WIDTH_BASE = Vec::new();
     HEIGHT_BASE = Vec::new();

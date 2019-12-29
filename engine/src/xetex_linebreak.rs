@@ -12,15 +12,15 @@ use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, pdf_error};
 use crate::xetex_ext::measure_native_node;
 use crate::xetex_ini::{
-    active_width, adjust_tail, arith_error, avail, bchar_label, cur_l, cur_lang, cur_list, cur_q,
-    cur_r, file_line_error_style_p, first_p, font_bchar, font_in_short_display, global_prev_p, hc,
-    help_line, help_ptr, hf, hi_mem_min, hlist_stack, hlist_stack_level, hu, hyf, hyf_distance,
-    hyf_next, hyf_num, hyph_index, hyph_link, hyph_list, hyph_start, hyph_word, hyphen_char,
-    hyphen_passed, init_lft, init_lig, init_list, init_trie, just_box, last_leftmost_char,
-    last_rightmost_char, lft_hit, lig_stack, ligature_present, max_hyph_char, op_start,
-    pack_begin_line, pre_adjust_tail, rt_hit, semantic_pagination_enabled, str_pool, str_start,
-    temp_ptr, trie_not_ready, trie_trc, trie_trl, trie_tro, xtx_ligature_present, CHAR_BASE, EQTB,
-    FONT_INFO, KERN_BASE, LIG_KERN_BASE, MEM, WIDTH_BASE,
+    active_width, adjust_tail, arith_error, avail, cur_l, cur_lang, cur_list, cur_q, cur_r,
+    file_line_error_style_p, first_p, font_in_short_display, global_prev_p, hc, help_line,
+    help_ptr, hf, hi_mem_min, hlist_stack, hlist_stack_level, hu, hyf, hyf_distance, hyf_next,
+    hyf_num, hyph_index, hyph_link, hyph_list, hyph_start, hyph_word, hyphen_passed, init_lft,
+    init_lig, init_list, init_trie, just_box, last_leftmost_char, last_rightmost_char, lft_hit,
+    lig_stack, ligature_present, max_hyph_char, op_start, pack_begin_line, pre_adjust_tail, rt_hit,
+    semantic_pagination_enabled, str_pool, str_start, temp_ptr, trie_not_ready, trie_trc, trie_trl,
+    trie_tro, xtx_ligature_present, BCHAR_LABEL, CHAR_BASE, EQTB, FONT_BCHAR, FONT_INFO,
+    HYPHEN_CHAR, KERN_BASE, LIG_KERN_BASE, MEM, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, memory_word};
 use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
@@ -497,7 +497,7 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                             match current_block {
                                 8166967358843938227 => {}
                                 _ => {
-                                    hyf_char = *hyphen_char.offset(hf as isize);
+                                    hyf_char = HYPHEN_CHAR[hf as usize];
                                     if !(hyf_char < 0i32) {
                                         if !(hyf_char > 0xffffi32) {
                                             ha = prev_s;
@@ -1150,8 +1150,7 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                                                             if MEM[s as usize].b16.s0 as i32 & 1
                                                                 != 0
                                                             {
-                                                                hyf_bchar =
-                                                                    *font_bchar.offset(hf as isize)
+                                                                hyf_bchar = FONT_BCHAR[hf as usize]
                                                             } else {
                                                                 hyf_bchar = 65536i32
                                                             }
@@ -1165,8 +1164,7 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                                                                 break;
                                                             }
                                                             hb = s;
-                                                            hyf_bchar =
-                                                                *font_bchar.offset(hf as isize)
+                                                            hyf_bchar = FONT_BCHAR[hf as usize]
                                                         }
                                                         s = MEM[s as usize].b32.s1
                                                     }
@@ -3481,8 +3479,8 @@ unsafe extern "C" fn hyphenate() {
                         avail = hyf_node
                     }
                     while l as i32 <= i as i32 {
-                        l = (reconstitute(l, i, *font_bchar.offset(hf as isize), 65536i32) as i32
-                            + 1i32) as i16;
+                        l = (reconstitute(l, i, FONT_BCHAR[hf as usize], 65536) as i32 + 1i32)
+                            as i16;
                         if MEM[(4999999 - 4) as usize].b32.s1 > -0xfffffff {
                             if minor_tail == -0xfffffffi32 {
                                 MEM[(r + 1) as usize].b32.s0 = MEM[(4999999 - 4) as usize].b32.s1
@@ -3503,7 +3501,7 @@ unsafe extern "C" fn hyphenate() {
                     minor_tail = -0xfffffffi32;
                     MEM[(r + 1) as usize].b32.s1 = -0xfffffff;
                     c_loc = 0_i16;
-                    if *bchar_label.offset(hf as isize) != 0i32 {
+                    if BCHAR_LABEL[hf as usize] != 0 {
                         l -= 1;
                         c = hu[l as usize];
                         c_loc = l;
@@ -3647,7 +3645,7 @@ unsafe extern "C" fn reconstitute(
     }
     'c_27176: loop {
         if cur_l == 65536i32 {
-            k = *bchar_label.offset(hf as isize);
+            k = BCHAR_LABEL[hf as usize];
             if k == 0i32 {
                 current_block = 4939169394500275451;
             } else {

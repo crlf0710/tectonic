@@ -19,7 +19,7 @@ use crate::xetex_layout_interface::{
 
 use libc::free;
 
-use crate::xetex_ini::{font_layout_engine, font_size, FONT_AREA};
+use crate::xetex_ini::{font_layout_engine, FONT_AREA, FONT_SIZE};
 
 pub(crate) type size_t = usize;
 pub(crate) type int32_t = i32;
@@ -133,12 +133,12 @@ pub(crate) unsafe extern "C" fn get_native_mathsy_param(
 ) -> libc::c_int {
     let mut rval: libc::c_int = 0i32;
     if n == 6i32 {
-        rval = *font_size.offset(f as isize)
+        rval = FONT_SIZE[f as usize];
     } else if n == 21i32 {
         // XXX not sure what OT parameter we should use here;
         // for now we use 1.5em, clamped to delim1 height
         rval = min_int(
-            (1.5f64 * *font_size.offset(f as isize) as libc::c_double) as libc::c_int,
+            (1.5f64 * FONT_SIZE[f as usize] as libc::c_double) as libc::c_int,
             get_native_mathsy_param(f, 20i32),
         )
     } else if n
@@ -185,7 +185,7 @@ pub(crate) unsafe extern "C" fn get_native_mathex_param(
 ) -> libc::c_int {
     let mut rval: libc::c_int = 0i32;
     if n == 6i32 {
-        rval = *font_size.offset(f as isize)
+        rval = FONT_SIZE[f as usize];
     } else if n
         < (::std::mem::size_of::<[hb_ot_math_constant_t; 14]>() as libc::c_ulong)
             .wrapping_div(::std::mem::size_of::<hb_ot_math_constant_t>() as libc::c_ulong)
