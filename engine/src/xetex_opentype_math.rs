@@ -70,7 +70,6 @@ shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
-#[no_mangle]
 pub(crate) unsafe fn get_ot_math_constant(mut f: libc::c_int, mut n: libc::c_int) -> libc::c_int {
     let mut constant: hb_ot_math_constant_t = n as hb_ot_math_constant_t;
     let mut rval: hb_position_t = 0i32;
@@ -122,7 +121,6 @@ pub(crate) static mut TeX_sym_to_OT_map: [hb_ot_math_constant_t; 23] = [
 unsafe extern "C" fn min_int(mut a: libc::c_int, mut b: libc::c_int) -> libc::c_int {
     return if a < b { a } else { b };
 }
-#[no_mangle]
 pub(crate) unsafe fn get_native_mathsy_param(
     mut f: libc::c_int,
     mut n: libc::c_int,
@@ -174,7 +172,6 @@ pub(crate) static mut TeX_ext_to_OT_map: [hb_ot_math_constant_t; 14] = [
     HB_OT_MATH_CONSTANT_LOWER_LIMIT_BASELINE_DROP_MIN,
     HB_OT_MATH_CONSTANT_STACK_GAP_MIN,
 ];
-#[no_mangle]
 pub(crate) unsafe fn get_native_mathex_param(
     mut f: libc::c_int,
     mut n: libc::c_int,
@@ -195,7 +192,6 @@ pub(crate) unsafe fn get_native_mathex_param(
     //  fprintf(stderr, " math_ex(%d, %d) returns %.3f\n", f, n, Fix2D(rval));
     return rval;
 }
-#[no_mangle]
 pub(crate) unsafe fn get_ot_math_variant(
     mut f: libc::c_int,
     mut g: libc::c_int,
@@ -236,7 +232,6 @@ pub(crate) unsafe fn get_ot_math_variant(
     }
     return rval as libc::c_int;
 }
-#[no_mangle]
 pub(crate) unsafe fn get_ot_assembly_ptr(
     mut f: libc::c_int,
     mut g: libc::c_int,
@@ -287,7 +282,6 @@ pub(crate) unsafe fn get_ot_assembly_ptr(
     }
     return rval;
 }
-#[no_mangle]
 pub(crate) unsafe fn free_ot_assembly(mut a: *mut GlyphAssembly) {
     if a.is_null() {
         return;
@@ -295,7 +289,6 @@ pub(crate) unsafe fn free_ot_assembly(mut a: *mut GlyphAssembly) {
     free((*a).parts as *mut libc::c_void);
     free(a as *mut libc::c_void);
 }
-#[no_mangle]
 pub(crate) unsafe fn get_ot_math_ital_corr(mut f: libc::c_int, mut g: libc::c_int) -> libc::c_int {
     let mut rval: hb_position_t = 0i32;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
@@ -307,7 +300,6 @@ pub(crate) unsafe fn get_ot_math_ital_corr(mut f: libc::c_int, mut g: libc::c_in
     }
     return rval;
 }
-#[no_mangle]
 pub(crate) unsafe fn get_ot_math_accent_pos(mut f: libc::c_int, mut g: libc::c_int) -> libc::c_int {
     let mut rval: hb_position_t = 0x7fffffffu64 as hb_position_t;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
@@ -319,7 +311,6 @@ pub(crate) unsafe fn get_ot_math_accent_pos(mut f: libc::c_int, mut g: libc::c_i
     }
     return rval;
 }
-#[no_mangle]
 pub(crate) unsafe fn ot_min_connector_overlap(mut f: libc::c_int) -> libc::c_int {
     let mut rval: hb_position_t = 0i32;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
@@ -362,7 +353,6 @@ unsafe extern "C" fn glyph_depth(mut f: libc::c_int, mut g: libc::c_int) -> libc
     }
     return rval;
 }
-#[no_mangle]
 pub(crate) unsafe fn get_ot_math_kern(
     mut f: libc::c_int,
     mut g: libc::c_int,
@@ -457,21 +447,17 @@ pub(crate) unsafe fn get_ot_math_kern(
     }
     return 0i32;
 }
-#[no_mangle]
 pub(crate) unsafe fn ot_part_count(mut a: *const GlyphAssembly) -> libc::c_int {
     return (*a).count as libc::c_int;
 }
-#[no_mangle]
 pub(crate) unsafe fn ot_part_glyph(mut a: *const GlyphAssembly, mut i: libc::c_int) -> libc::c_int {
     return (*(*a).parts.offset(i as isize)).glyph as libc::c_int;
 }
-#[no_mangle]
 pub(crate) unsafe fn ot_part_is_extender(mut a: *const GlyphAssembly, mut i: libc::c_int) -> bool {
     return (*(*a).parts.offset(i as isize)).flags as libc::c_uint
         & HB_OT_MATH_GLYPH_PART_FLAG_EXTENDER as libc::c_int as libc::c_uint
         != 0i32 as libc::c_uint;
 }
-#[no_mangle]
 pub(crate) unsafe fn ot_part_start_connector(
     mut f: libc::c_int,
     mut a: *const GlyphAssembly,
@@ -488,7 +474,6 @@ pub(crate) unsafe fn ot_part_start_connector(
     }
     return rval;
 }
-#[no_mangle]
 pub(crate) unsafe fn ot_part_end_connector(
     mut f: libc::c_int,
     mut a: *const GlyphAssembly,
@@ -536,7 +521,6 @@ shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
-#[no_mangle]
 pub(crate) unsafe fn ot_part_full_advance(
     mut f: libc::c_int,
     mut a: *const GlyphAssembly,

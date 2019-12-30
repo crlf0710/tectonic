@@ -45,7 +45,6 @@ pub(crate) type small_number = i16;
  * Copyright 2016 the Tectonic Project
  * Licensed under the MIT License.
 */
-#[no_mangle]
 pub(crate) unsafe fn print_ln() {
     match selector {
         Selector::TERM_AND_LOG => {
@@ -71,7 +70,6 @@ pub(crate) unsafe fn print_ln() {
         }
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn print_raw_char(mut s: UTF16_code, mut incr_offset: bool) {
     match selector {
         Selector::TERM_AND_LOG => {
@@ -131,7 +129,6 @@ pub(crate) unsafe fn print_raw_char(mut s: UTF16_code, mut incr_offset: bool) {
     }
     tally += 1;
 }
-#[no_mangle]
 pub(crate) unsafe fn print_char(mut s: i32) {
     let mut l: small_number = 0;
     if (u8::from(selector) > u8::from(Selector::PSEUDO)) && !doing_special {
@@ -193,7 +190,6 @@ pub(crate) unsafe fn print_char(mut s: i32) {
         print_raw_char((128i32 + s % 64i32) as UTF16_code, true);
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn print(mut s: i32) {
     let mut nl: i32 = 0;
     if s >= str_ptr {
@@ -244,13 +240,11 @@ pub(crate) unsafe fn print(mut s: i32) {
         i += 1
     }
 }
-#[no_mangle]
 pub(crate) unsafe fn print_cstr(slice: &[u8]) {
     for &s in slice {
         print_char(s as i32);
     }
 }
-#[no_mangle]
 pub(crate) unsafe fn print_nl(mut s: str_number) {
     if term_offset > 0i32 && u8::from(selector) & 1 != 0
         || file_offset > 0i32 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
@@ -259,7 +253,6 @@ pub(crate) unsafe fn print_nl(mut s: str_number) {
     }
     print(s);
 }
-#[no_mangle]
 pub(crate) unsafe fn print_nl_cstr(slice: &[u8]) {
     if term_offset > 0i32 && u8::from(selector) & 1 != 0
         || file_offset > 0i32 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
@@ -268,7 +261,6 @@ pub(crate) unsafe fn print_nl_cstr(slice: &[u8]) {
     }
     print_cstr(slice);
 }
-#[no_mangle]
 pub(crate) unsafe fn print_esc(mut s: str_number) {
     let mut c = INTPAR(INT_PAR__escape_char);
     if c >= 0i32 && c <= BIGGEST_USV {
@@ -276,7 +268,6 @@ pub(crate) unsafe fn print_esc(mut s: str_number) {
     }
     print(s);
 }
-#[no_mangle]
 pub(crate) unsafe fn print_esc_cstr(s: &[u8]) {
     let mut c = INTPAR(INT_PAR__escape_char);
     if c >= 0i32 && c <= BIGGEST_USV {
@@ -294,7 +285,6 @@ unsafe extern "C" fn print_the_digs(mut k: eight_bits) {
         }
     }
 }
-#[no_mangle]
 pub(crate) unsafe fn print_int(mut n: i32) {
     let mut k: u8 = 0_u8;
     let mut m: i32 = 0;
@@ -325,7 +315,6 @@ pub(crate) unsafe fn print_int(mut n: i32) {
     }
     print_the_digs(k);
 }
-#[no_mangle]
 pub(crate) unsafe fn print_cs(mut p: i32) {
     if p < HASH_BASE {
         if p >= SINGLE_BASE {
@@ -353,7 +342,6 @@ pub(crate) unsafe fn print_cs(mut p: i32) {
         print_char(' ' as i32);
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn sprint_cs(mut p: i32) {
     if p < HASH_BASE {
         if p < SINGLE_BASE {
@@ -368,7 +356,6 @@ pub(crate) unsafe fn sprint_cs(mut p: i32) {
         print_esc((*hash.offset(p as isize)).s1);
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn print_file_name(mut n: i32, mut a: i32, mut e: i32) {
     let mut must_quote: bool = false;
     let mut quote_char: i32 = 0i32;
@@ -491,7 +478,6 @@ pub(crate) unsafe fn print_file_name(mut n: i32, mut a: i32, mut e: i32) {
         print_char(quote_char);
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn print_size(mut s: i32) {
     if s == TEXT_SIZE {
         print_esc_cstr(b"textfont");
@@ -501,7 +487,6 @@ pub(crate) unsafe fn print_size(mut s: i32) {
         print_esc_cstr(b"scriptscriptfont");
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn print_write_whatsit(s: &[u8], mut p: i32) {
     print_esc_cstr(s);
     if MEM[(p + 1) as usize].b32.s0 < 16 {
@@ -512,7 +497,6 @@ pub(crate) unsafe fn print_write_whatsit(s: &[u8], mut p: i32) {
         print_char('-' as i32);
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn print_native_word(mut p: i32) {
     let mut i: i32 = 0;
     let mut c: i32 = 0;
@@ -541,7 +525,6 @@ pub(crate) unsafe fn print_native_word(mut p: i32) {
         i += 1
     }
 }
-#[no_mangle]
 pub(crate) unsafe fn print_sa_num(mut q: i32) {
     let mut n: i32 = 0;
     if (MEM[q as usize].b16.s1 as i32) < DIMEN_VAL_LIMIT {
@@ -558,7 +541,6 @@ pub(crate) unsafe fn print_sa_num(mut q: i32) {
     }
     print_int(n);
 }
-#[no_mangle]
 pub(crate) unsafe fn print_file_line() {
     let mut level = IN_OPEN;
     while level > 0 && FULL_SOURCE_FILENAME_STACK[level] == 0 {
@@ -581,13 +563,11 @@ pub(crate) unsafe fn print_file_line() {
 /*:251 */
 /*:251 */
 /*:1660*/
-#[no_mangle]
 pub(crate) unsafe fn print_two(mut n: i32) {
     n = n.abs() % 100i32;
     print_char('0' as i32 + n / 10i32);
     print_char('0' as i32 + n % 10i32);
 }
-#[no_mangle]
 pub(crate) unsafe fn print_hex(mut n: i32) {
     let mut k: u8 = 0_u8;
     print_char('\"' as i32);
@@ -601,7 +581,6 @@ pub(crate) unsafe fn print_hex(mut n: i32) {
     }
     print_the_digs(k);
 }
-#[no_mangle]
 pub(crate) unsafe fn print_roman_int(mut n: i32) {
     let mut u: i32 = 0;
     let mut v: i32 = 0;
@@ -632,7 +611,6 @@ pub(crate) unsafe fn print_roman_int(mut n: i32) {
         }
     }
 }
-#[no_mangle]
 pub(crate) unsafe fn print_current_string() {
     let mut j: pool_pointer = *str_start.offset((str_ptr - 0x10000i32) as isize);
     while j < pool_ptr {
@@ -640,7 +618,6 @@ pub(crate) unsafe fn print_current_string() {
         j += 1
     }
 }
-#[no_mangle]
 pub(crate) unsafe fn print_scaled(mut s: scaled_t) {
     let mut delta: scaled_t = 0;
     if s < 0i32 {

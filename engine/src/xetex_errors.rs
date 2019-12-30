@@ -62,7 +62,6 @@ unsafe extern "C" fn post_error_message(mut need_to_print_it: i32) {
     close_files_and_terminate();
     rust_stdout.as_mut().unwrap().flush().unwrap();
 }
-#[no_mangle]
 pub(crate) unsafe fn error() {
     if (history as u32) < (TTHistory::ERROR_ISSUED as u32) {
         history = TTHistory::ERROR_ISSUED
@@ -102,7 +101,6 @@ pub(crate) unsafe fn error() {
     }
     print_ln();
 }
-#[no_mangle]
 pub(crate) unsafe fn fatal_error(s: &[u8]) -> ! {
     pre_error_message();
     print_cstr(b"Emergency stop");
@@ -111,7 +109,6 @@ pub(crate) unsafe fn fatal_error(s: &[u8]) -> ! {
     rust_stdout.as_mut().unwrap().flush().unwrap();
     abort!("{}", s.display());
 }
-#[no_mangle]
 pub(crate) unsafe fn overflow(s: &[u8], mut n: i32) -> ! {
     pre_error_message();
     print_cstr(b"TeX capacity exceeded, sorry [");
@@ -125,7 +122,6 @@ pub(crate) unsafe fn overflow(s: &[u8], mut n: i32) -> ! {
     post_error_message(1i32);
     panic!("halted on overflow()");
 }
-#[no_mangle]
 pub(crate) unsafe fn confusion(s: &[u8]) -> ! {
     pre_error_message();
     if (history as u32) < (TTHistory::ERROR_ISSUED as u32) {
@@ -144,7 +140,6 @@ pub(crate) unsafe fn confusion(s: &[u8]) -> ! {
     panic!("halted on confusion()");
 }
 /* xetex-errors */
-#[no_mangle]
 pub(crate) unsafe fn pdf_error(t: &[u8], mut p: &[u8]) -> ! {
     pre_error_message();
     print_cstr(b"Error");

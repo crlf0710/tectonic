@@ -70,7 +70,6 @@ static mut dvi_v: scaled_t = 0;
 static mut dvi_f: internal_font_number = 0;
 static mut cur_s: i32 = 0;
 
-#[no_mangle]
 pub(crate) unsafe fn initialize_shipout_variables() {
     output_file_name = 0;
     dvi_buf = xmalloc_array(DVI_BUF_SIZE as usize + 1);
@@ -83,7 +82,6 @@ pub(crate) unsafe fn initialize_shipout_variables() {
     cur_s = -1;
 }
 
-#[no_mangle]
 pub(crate) unsafe fn deinitialize_shipout_variables() {
     free(dvi_buf as *mut _);
     dvi_buf = std::ptr::null_mut();
@@ -99,7 +97,6 @@ unsafe extern "C" fn dvi_out(c: u8) {
 }
 
 /*660: output the box `p` */
-#[no_mangle]
 pub(crate) unsafe fn ship_out(mut p: i32) {
     let mut page_loc: i32 = 0;
     let mut j: u8 = 0;
@@ -1886,7 +1883,6 @@ unsafe extern "C" fn reverse(
 }
 
 /*1506: Create a new edge node of subtype `s` and width `w` */
-#[no_mangle]
 pub(crate) unsafe fn new_edge(s: small_number, w: scaled_t) -> i32 {
     let p = get_node(EDGE_NODE_SIZE);
     *NODE_type(p as isize) = EDGE_NODE;
@@ -1896,7 +1892,6 @@ pub(crate) unsafe fn new_edge(s: small_number, w: scaled_t) -> i32 {
     p
 }
 
-#[no_mangle]
 pub(crate) unsafe fn out_what(mut p: i32) {
     let mut j: small_number;
     match MEM[p as usize].b16.s0 as i32 {
@@ -2458,7 +2453,6 @@ unsafe fn pic_out(mut p: i32) {
     pool_ptr = *str_start.offset((str_ptr - TOO_BIG_CHAR) as isize); /* discard the string we just made */
 }
 
-#[no_mangle]
 pub(crate) unsafe fn finalize_dvi_file() {
     while cur_s > -1 {
         if cur_s > 0 {

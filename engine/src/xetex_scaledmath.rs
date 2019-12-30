@@ -14,7 +14,6 @@ pub(crate) type scaled_t = i32;
    Copyright 2017 The Tectonic Project
    Licensed under the MIT License.
 */
-#[no_mangle]
 pub(crate) unsafe fn tex_round(mut r: f64) -> i32 {
     /* We must reproduce very particular rounding semantics to pass the TRIP
      * test. Specifically, values within the 32-bit range of TeX integers are
@@ -51,14 +50,12 @@ pub(crate) unsafe fn tex_round(mut r: f64) -> i32 {
     }
     (r - 0.5f64) as i32
 }
-#[no_mangle]
 pub(crate) unsafe fn half(mut x: i32) -> i32 {
     if x & 1i32 != 0 {
         return (x + 1i32) / 2i32;
     }
     x / 2i32
 }
-#[no_mangle]
 pub(crate) unsafe fn mult_and_add(
     mut n: i32,
     mut x: scaled_t,
@@ -78,7 +75,6 @@ pub(crate) unsafe fn mult_and_add(
         0i32
     }
 }
-#[no_mangle]
 pub(crate) unsafe fn x_over_n(mut x: scaled_t, mut n: i32) -> scaled_t {
     if n == 0i32 {
         arith_error = true;
@@ -105,7 +101,6 @@ pub(crate) unsafe fn x_over_n(mut x: scaled_t, mut n: i32) -> scaled_t {
 /* xetex-output */
 /* xetex-pagebuilder */
 /* xetex-scaledmath */
-#[no_mangle]
 pub(crate) unsafe fn xn_over_d(mut x: scaled_t, mut n: i32, mut d: i32) -> scaled_t {
     let mut positive: bool = false;
     let mut t: i32 = 0;
@@ -133,7 +128,6 @@ pub(crate) unsafe fn xn_over_d(mut x: scaled_t, mut n: i32, mut d: i32) -> scale
         -u
     }
 }
-#[no_mangle]
 pub(crate) unsafe fn round_xn_over_d(mut x: scaled_t, mut n: i32, mut d: i32) -> scaled_t {
     let mut positive: bool = false;
     let mut t: i32 = 0;

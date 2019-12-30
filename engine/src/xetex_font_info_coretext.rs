@@ -41,7 +41,6 @@ pub(crate) unsafe extern "C" fn XeTeXFontInst_Mac_dtor(mut self_0: *mut XeTeXFon
         CFRelease((*real_self).m_fontRef as CFTypeRef);
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn XeTeXFontInst_Mac_initialize(
     mut self_0: *mut XeTeXFontInst_Mac,
     mut status: *mut libc::c_int,
@@ -96,7 +95,6 @@ pub(crate) unsafe fn XeTeXFontInst_Mac_initialize(
         (*self_0).m_descriptor = 0 as CTFontDescriptorRef
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn XeTeXFontInst_Mac_ctor(
     mut self_0: *mut XeTeXFontInst_Mac,
     mut descriptor: CTFontDescriptorRef,

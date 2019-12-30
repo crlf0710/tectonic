@@ -89,14 +89,12 @@ static mut cur_style: small_number = 0;
 static mut cur_size: i32 = 0;
 static mut cur_mu: scaled_t = 0;
 static mut mlist_penalties: bool = false;
-#[no_mangle]
 pub(crate) unsafe fn initialize_math_variables() {
     null_delimiter.s3 = 0_u16;
     null_delimiter.s2 = 0_u16;
     null_delimiter.s1 = 0_u16;
     null_delimiter.s0 = 0_u16;
 }
-#[no_mangle]
 pub(crate) unsafe fn init_math() {
     let mut current_block: u64;
     let mut w: scaled_t = 0;
@@ -417,7 +415,6 @@ pub(crate) unsafe fn init_math() {
         }
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn start_eq_no() {
     SAVE_STACK[SAVE_PTR + 0].b32.s1 = cur_chr;
     SAVE_PTR += 1;
@@ -430,7 +427,6 @@ pub(crate) unsafe fn start_eq_no() {
         begin_token_list(EQTB[(LOCAL_BASE + 3i32) as usize].b32.s1, 9_u16);
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn math_limit_switch() {
     if cur_list.head != cur_list.tail {
         if MEM[cur_list.tail as usize].b16.s1 as i32 == 17 {
@@ -513,7 +509,6 @@ unsafe extern "C" fn scan_delimiter(mut p: i32, mut r: bool) {
         MEM[p as usize].b16.s0 = (cur_val % 0x100) as u16
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn math_radical() {
     MEM[cur_list.tail as usize].b32.s1 = get_node(5);
     cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
@@ -525,7 +520,6 @@ pub(crate) unsafe fn math_radical() {
     scan_delimiter(cur_list.tail + 4i32, true);
     scan_math(cur_list.tail + 1i32);
 }
-#[no_mangle]
 pub(crate) unsafe fn math_ac() {
     let mut c: i32 = 0;
     if cur_cmd as i32 == 45i32 {
@@ -587,7 +581,6 @@ pub(crate) unsafe fn math_ac() {
         as u16;
     scan_math(cur_list.tail + 1i32);
 }
-#[no_mangle]
 pub(crate) unsafe fn append_choices() {
     MEM[cur_list.tail as usize].b32.s1 = new_choice();
     cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
@@ -596,7 +589,6 @@ pub(crate) unsafe fn append_choices() {
     push_math(13i32 as group_code);
     scan_left_brace();
 }
-#[no_mangle]
 pub(crate) unsafe fn fin_mlist(mut p: i32) -> i32 {
     let mut q: i32 = 0;
     if cur_list.aux.b32.s1 != -0xfffffffi32 {
@@ -621,7 +613,6 @@ pub(crate) unsafe fn fin_mlist(mut p: i32) -> i32 {
     pop_nest();
     q
 }
-#[no_mangle]
 pub(crate) unsafe fn build_choices() {
     let mut p: i32 = 0;
     unsave();
@@ -641,7 +632,6 @@ pub(crate) unsafe fn build_choices() {
     push_math(13i32 as group_code);
     scan_left_brace();
 }
-#[no_mangle]
 pub(crate) unsafe fn sub_sup() {
     let mut t: small_number = 0;
     let mut p: i32 = 0;
@@ -685,7 +675,6 @@ pub(crate) unsafe fn sub_sup() {
     }
     scan_math(p);
 }
-#[no_mangle]
 pub(crate) unsafe fn math_fraction() {
     let mut c: small_number = 0;
     c = cur_chr as small_number;
@@ -735,7 +724,6 @@ pub(crate) unsafe fn math_fraction() {
         }
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn math_left_right() {
     let mut t: small_number = 0;
     let mut p: i32 = 0;
@@ -904,7 +892,6 @@ unsafe extern "C" fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
     }
     append_to_vlist(b);
 }
-#[no_mangle]
 pub(crate) unsafe fn after_math() {
     let mut l: bool = false;
     let mut danger: bool = false;
@@ -1327,7 +1314,6 @@ pub(crate) unsafe fn after_math() {
         resume_after_display();
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn resume_after_display() {
     if cur_group as i32 != 15i32 {
         confusion(b"display");
@@ -1738,7 +1724,6 @@ unsafe extern "C" fn math_kern(mut p: i32, mut m: scaled_t) {
         MEM[p as usize].b16.s0 = 1_u16
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn flush_math() {
     flush_node_list(MEM[cur_list.head as usize].b32.s1);
     flush_node_list(cur_list.aux.b32.s1);

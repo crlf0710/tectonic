@@ -538,7 +538,6 @@ unsafe fn ct_font_get_postscript_name(ctFontRef: CTFontRef, nameKey: CFStringRef
 thread_local!(static FREETYPE_LIBRARY: RefCell<FreeTypeLibrary> = RefCell::new(FreeTypeLibrary::init().unwrap()));
 
 // This needs to be linked from C++, hence extern "C"
-#[no_mangle]
 pub(crate) unsafe fn getFileNameFromCTFont(
     mut ctFontRef: CTFontRef,
     mut index: *mut u32,
@@ -1102,7 +1101,6 @@ pub(crate) unsafe fn loadAATfont(
 
 /* the metrics params here are really TeX 'scaled' (or MacOS 'Fixed') values, but that typedef isn't available every place this is included */
 /* these are here, not XeTeX_mac.c, because we need stubs on other platforms */
-#[no_mangle]
 pub(crate) unsafe fn aat_get_font_metrics(
     mut attributes: CFDictionaryRef,
     mut ascent: *mut i32,
@@ -1121,7 +1119,6 @@ pub(crate) unsafe fn aat_get_font_metrics(
     );
 }
 
-#[no_mangle]
 pub(crate) unsafe fn aat_font_get(mut what: i32, mut attributes: CFDictionaryRef) -> i32 {
     let mut rval: libc::c_int = -1i32;
     let mut font: CTFontRef = font_from_attributes(attributes);
@@ -1140,7 +1137,6 @@ pub(crate) unsafe fn aat_font_get(mut what: i32, mut attributes: CFDictionaryRef
     return rval;
 }
 
-#[no_mangle]
 pub(crate) unsafe fn aat_font_get_1(
     mut what: i32,
     mut attributes: CFDictionaryRef,
@@ -1215,7 +1211,6 @@ pub(crate) unsafe fn aat_font_get_1(
     return rval;
 }
 
-#[no_mangle]
 pub(crate) unsafe fn aat_font_get_2(
     mut what: i32,
     mut attributes: CFDictionaryRef,
@@ -1284,7 +1279,6 @@ pub(crate) unsafe fn aat_font_get_2(
     return rval;
 }
 
-#[no_mangle]
 pub(crate) unsafe fn aat_font_get_named(
     mut what: libc::c_int,
     mut attributes: CFDictionaryRef,
@@ -1317,7 +1311,6 @@ pub(crate) unsafe fn aat_font_get_named(
     return rval;
 }
 
-#[no_mangle]
 pub(crate) unsafe fn aat_font_get_named_1(
     mut what: i32,
     mut attributes: CFDictionaryRef,
@@ -1350,7 +1343,6 @@ pub(crate) unsafe fn aat_font_get_named_1(
     return rval;
 }
 
-#[no_mangle]
 pub(crate) unsafe fn aat_print_font_name(
     mut what: i32,
     mut attributes: CFDictionaryRef,

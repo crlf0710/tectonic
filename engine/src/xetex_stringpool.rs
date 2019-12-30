@@ -30,7 +30,6 @@ static mut string_constants: [*const i8; 3] = [
     b"\x00" as *const u8 as *const i8,
     std::ptr::null(),
 ];
-#[no_mangle]
 pub(crate) unsafe fn load_pool_strings(mut spare_size: i32) -> i32 {
     let mut s: *const i8 = std::ptr::null();
     let mut i: i32 = 0i32;
@@ -64,7 +63,6 @@ pub(crate) unsafe fn load_pool_strings(mut spare_size: i32) -> i32 {
     }
     g
 }
-#[no_mangle]
 pub(crate) unsafe fn length(mut s: str_number) -> i32 {
     if s as i64 >= 65536 {
         *str_start.offset(((s + 1i32) as i64 - 65536) as isize)
@@ -79,7 +77,6 @@ pub(crate) unsafe fn length(mut s: str_number) -> i32 {
         8
     }
 }
-#[no_mangle]
 pub(crate) unsafe fn make_string() -> str_number {
     if str_ptr == max_strings {
         overflow(b"number of strings", max_strings - init_str_ptr);
@@ -88,7 +85,6 @@ pub(crate) unsafe fn make_string() -> str_number {
     *str_start.offset((str_ptr - 65536i32) as isize) = pool_ptr;
     str_ptr - 1i32
 }
-#[no_mangle]
 pub(crate) unsafe fn append_str(mut s: str_number) {
     let mut i: i32 = 0;
     let mut j: pool_pointer = 0;
@@ -104,7 +100,6 @@ pub(crate) unsafe fn append_str(mut s: str_number) {
         i -= 1
     }
 }
-#[no_mangle]
 pub(crate) unsafe fn str_eq_buf(mut s: str_number, mut k: i32) -> bool {
     let mut j: pool_pointer = 0;
     j = *str_start.offset((s as i64 - 65536) as isize);
@@ -131,7 +126,6 @@ pub(crate) unsafe fn str_eq_buf(mut s: str_number, mut k: i32) -> bool {
     }
     true
 }
-#[no_mangle]
 pub(crate) unsafe fn str_eq_str(mut s: str_number, mut t: str_number) -> bool {
     let mut j: pool_pointer = 0;
     let mut k: pool_pointer = 0;
@@ -172,7 +166,6 @@ pub(crate) unsafe fn str_eq_str(mut s: str_number, mut t: str_number) -> bool {
     }
     true
 }
-#[no_mangle]
 pub(crate) unsafe fn search_string(mut search: str_number) -> str_number {
     let mut s: str_number = 0;
     let mut len: i32 = 0;
@@ -196,7 +189,6 @@ pub(crate) unsafe fn search_string(mut search: str_number) -> str_number {
    Copyright 2017 the Tectonic Project
    Licensed under the MIT License.
 */
-#[no_mangle]
 pub(crate) unsafe fn slow_make_string() -> str_number {
     let mut s: str_number = 0;
     let mut t: str_number = 0;

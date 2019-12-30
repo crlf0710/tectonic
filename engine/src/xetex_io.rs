@@ -232,7 +232,6 @@ pub(crate) struct UFILE {
 */
 #[no_mangle]
 pub(crate) static mut name_of_input_file: *mut i8 = ptr::null_mut();
-#[no_mangle]
 pub(crate) unsafe fn tt_xetex_open_input(mut filefmt: TTInputFormat) -> Option<InputHandleWrapper> {
     let handle = if filefmt == TTInputFormat::TECTONIC_PRIMARY {
         ttstub_input_open_primary()
@@ -272,7 +271,6 @@ pub(crate) static mut bytesFromUTF8: [u8; 256] = [
 ];
 #[no_mangle]
 pub(crate) static mut firstByteMark: [u8; 7] = [0, 0, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc];
-#[no_mangle]
 pub(crate) unsafe fn set_input_file_encoding(
     mut f: *mut UFILE,
     mut mode: i32,
@@ -307,7 +305,6 @@ pub(crate) unsafe fn set_input_file_encoding(
         _ => {}
     };
 }
-#[no_mangle]
 pub(crate) unsafe fn u_open_in(
     mut f: *mut *mut UFILE,
     mut filefmt: TTInputFormat,
@@ -413,7 +410,6 @@ unsafe extern "C" fn apply_normalization(mut buf: *mut u32, mut len: i32, mut no
         .wrapping_add((outUsed as u64).wrapping_div(::std::mem::size_of::<UnicodeScalar>() as u64))
         as i32;
 }
-#[no_mangle]
 pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> i32 {
     static mut byteBuffer: *mut i8 = ptr::null_mut();
     static mut utf32Buf: *mut u32 = ptr::null_mut();
@@ -613,7 +609,6 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> i32 {
     }
     1i32
 }
-#[no_mangle]
 pub(crate) unsafe fn u_close(mut f: *mut UFILE) {
     if f.is_null() || (*f).handle.is_none() {
         /* NULL handle is stdin/terminal file. Shouldn't happen but meh. */
@@ -625,7 +620,6 @@ pub(crate) unsafe fn u_close(mut f: *mut UFILE) {
     }
     free(f as *mut libc::c_void);
 }
-#[no_mangle]
 pub(crate) unsafe fn get_uni_c(mut f: *mut UFILE) -> i32 {
     let mut rval: i32 = 0;
     let mut c: i32 = 0;
@@ -723,7 +717,6 @@ pub(crate) unsafe fn get_uni_c(mut f: *mut UFILE) -> i32 {
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
 */
-#[no_mangle]
 pub(crate) unsafe fn make_utf16_name() {
     let mut s: *mut u8 = name_of_file as *mut u8;
     let mut rval: u32 = 0;
@@ -765,7 +758,6 @@ pub(crate) unsafe fn make_utf16_name() {
     }
     name_length16 = t.wrapping_offset_from(name_of_file16) as i64 as i32;
 }
-#[no_mangle]
 pub(crate) unsafe fn open_or_close_in() {
     use xetex_consts::*;
     let mut c: u8 = 0;
