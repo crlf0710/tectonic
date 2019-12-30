@@ -8,6 +8,7 @@
     unused_mut
 )]
 
+use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error};
 use crate::xetex_ext::{map_char_to_glyph, measure_native_glyph, real_get_native_glyph};
 use crate::xetex_ini::{
@@ -128,38 +129,12 @@ pub(crate) unsafe extern "C" fn init_math() {
         } else {
             line_break(1i32 != 0);
             /*1528: */
-            if EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 8i32) as usize]
-                .b32
-                .s1
-                == 0i32
-            {
+            if EQTB[(GLUE_BASE + 8i32) as usize].b32.s1 == 0i32 {
                 j = new_kern(0i32)
             } else {
                 j = new_param_glue(8i32 as small_number)
             } /*:1519 */
-            if EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 7i32) as usize]
-                .b32
-                .s1
-                == 0i32
-            {
+            if EQTB[(GLUE_BASE + 7i32) as usize].b32.s1 == 0i32 {
                 p = new_kern(0i32)
             } else {
                 p = new_param_glue(7i32 as small_number)
@@ -195,56 +170,11 @@ pub(crate) unsafe extern "C" fn init_math() {
                 cur_dir = 1i32 as small_number
             }
             v = v + 2i32
-                * FONT_INFO[(6i32
-                    + PARAM_BASE[EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32) as usize]
-                        .b32
-                        .s1 as usize]) as usize]
+                * FONT_INFO
+                    [(6i32 + PARAM_BASE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize]) as usize]
                     .b32
                     .s1;
-            if EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 71i32) as usize]
-                .b32
-                .s1
-                > 0i32
-            {
+            if EQTB[(INT_BASE + 71i32) as usize].b32.s1 > 0i32 {
                 /*1497: */
                 temp_ptr = get_avail(); /*1523:*/
                 MEM[temp_ptr as usize].b32.s0 = 0; /*:1398 */
@@ -290,35 +220,7 @@ pub(crate) unsafe extern "C" fn init_math() {
                             }
                             9 => {
                                 d = MEM[(p + 1) as usize].b32.s1;
-                                if EQTB[(1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + 3i32 * 256i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 71i32) as usize]
-                                    .b32
-                                    .s1
-                                    > 0i32
-                                {
+                                if EQTB[(INT_BASE + 71i32) as usize].b32.s1 > 0i32 {
                                     current_block = 13660591889533726445;
                                     break;
                                 } else {
@@ -445,35 +347,7 @@ pub(crate) unsafe extern "C" fn init_math() {
                 }
                 p = MEM[p as usize].b32.s1
             }
-            if EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 71i32) as usize]
-                .b32
-                .s1
-                > 0i32
-            {
+            if EQTB[(INT_BASE + 71i32) as usize].b32.s1 > 0i32 {
                 while LR_ptr != -0xfffffffi32 {
                     temp_ptr = LR_ptr;
                     LR_ptr = MEM[temp_ptr as usize].b32.s1;
@@ -488,536 +362,45 @@ pub(crate) unsafe extern "C" fn init_math() {
             cur_dir = 0i32 as small_number;
             flush_node_list(MEM[(4999999 - 3) as usize].b32.s1);
         }
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 0i32) as usize]
-            .b32
-            .s1
-            == -0xfffffffi32
-        {
-            if EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 17i32) as usize]
-                .b32
-                .s1
-                != 0i32
-                && (EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 41i32) as usize]
-                    .b32
-                    .s1
-                    >= 0i32
-                    && cur_list.prev_graf + 2i32
-                        > EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 41i32) as usize]
-                            .b32
-                            .s1
-                    || cur_list.prev_graf + 1i32
-                        < -EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 41i32) as usize]
-                            .b32
-                            .s1)
+        if EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 == -0xfffffffi32 {
+            if EQTB[(DIMEN_BASE + 17i32) as usize].b32.s1 != 0i32
+                && (EQTB[(INT_BASE + 41i32) as usize].b32.s1 >= 0i32
+                    && cur_list.prev_graf + 2i32 > EQTB[(INT_BASE + 41i32) as usize].b32.s1
+                    || cur_list.prev_graf + 1i32 < -EQTB[(INT_BASE + 41i32) as usize].b32.s1)
             {
-                l = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 3i32) as usize]
-                    .b32
-                    .s1
-                    - EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 17i32) as usize]
-                        .b32
-                        .s1
-                        .abs();
-                if EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 17i32) as usize]
-                    .b32
-                    .s1
-                    > 0i32
-                {
-                    s = EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 17i32) as usize]
-                        .b32
-                        .s1
+                l = EQTB[(DIMEN_BASE + 3i32) as usize].b32.s1
+                    - EQTB[(DIMEN_BASE + 17i32) as usize].b32.s1.abs();
+                if EQTB[(DIMEN_BASE + 17i32) as usize].b32.s1 > 0i32 {
+                    s = EQTB[(DIMEN_BASE + 17i32) as usize].b32.s1
                 } else {
                     s = 0i32
                 }
             } else {
-                l = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 3i32) as usize]
-                    .b32
-                    .s1;
+                l = EQTB[(DIMEN_BASE + 3i32) as usize].b32.s1;
                 s = 0i32
             }
         } else {
-            n = MEM[EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 0i32) as usize]
-                .b32
-                .s1 as usize]
+            n = MEM[EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 as usize]
                 .b32
                 .s0;
             if cur_list.prev_graf + 2i32 >= n {
-                p = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 0i32) as usize]
-                    .b32
-                    .s1
-                    + 2i32 * n
+                p = EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 + 2i32 * n
             } else {
-                p = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 0i32) as usize]
-                    .b32
-                    .s1
-                    + 2i32 * (cur_list.prev_graf + 2i32)
+                p = EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 + 2i32 * (cur_list.prev_graf + 2i32)
             }
             s = MEM[(p - 1) as usize].b32.s1;
             l = MEM[p as usize].b32.s1
         }
         push_math(15i32 as group_code);
         cur_list.mode = 207_i16;
-        eq_word_define(
-            1i32 + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 44i32,
-            -1i32,
-        );
-        eq_word_define(
-            1i32 + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 13i32,
-            w,
-        );
+        eq_word_define(INT_BASE + 44i32, -1i32);
+        eq_word_define(DIMEN_BASE + 13i32, w);
         cur_list.eTeX_aux = j;
-        eq_word_define(
-            1i32 + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 63i32,
-            x,
-        );
-        eq_word_define(
-            1i32 + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 14i32,
-            l,
-        );
-        eq_word_define(
-            1i32 + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 15i32,
-            s,
-        );
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 4i32) as usize]
-            .b32
-            .s1
-            != -0xfffffffi32
-        {
-            begin_token_list(
-                EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 4i32) as usize]
-                    .b32
-                    .s1,
-                10_u16,
-            );
+        eq_word_define(INT_BASE + 63i32, x);
+        eq_word_define(DIMEN_BASE + 14i32, l);
+        eq_word_define(DIMEN_BASE + 15i32, s);
+        if EQTB[(LOCAL_BASE + 4i32) as usize].b32.s1 != -0xfffffffi32 {
+            begin_token_list(EQTB[(LOCAL_BASE + 4i32) as usize].b32.s1, 10_u16);
         }
         if nest_ptr == 1i32 {
             build_page();
@@ -1025,71 +408,12 @@ pub(crate) unsafe extern "C" fn init_math() {
     } else {
         back_input();
         push_math(15i32 as group_code);
-        eq_word_define(
-            1i32 + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 44i32,
-            -1i32,
-        );
+        eq_word_define(INT_BASE + 44i32, -1i32);
         if insert_src_special_every_math {
             insert_src_special();
         }
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 3i32) as usize]
-            .b32
-            .s1
-            != -0xfffffffi32
-        {
-            begin_token_list(
-                EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 3i32) as usize]
-                    .b32
-                    .s1,
-                9_u16,
-            );
+        if EQTB[(LOCAL_BASE + 3i32) as usize].b32.s1 != -0xfffffffi32 {
+            begin_token_list(EQTB[(LOCAL_BASE + 3i32) as usize].b32.s1, 9_u16);
         }
     };
 }
@@ -1098,71 +422,12 @@ pub(crate) unsafe extern "C" fn start_eq_no() {
     SAVE_STACK[SAVE_PTR + 0].b32.s1 = cur_chr;
     SAVE_PTR += 1;
     push_math(15i32 as group_code);
-    eq_word_define(
-        1i32 + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 44i32,
-        -1i32,
-    );
+    eq_word_define(INT_BASE + 44i32, -1i32);
     if insert_src_special_every_math {
         insert_src_special();
     }
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 3i32) as usize]
-        .b32
-        .s1
-        != -0xfffffffi32
-    {
-        begin_token_list(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 3i32) as usize]
-                .b32
-                .s1,
-            9_u16,
-        );
+    if EQTB[(LOCAL_BASE + 3i32) as usize].b32.s1 != -0xfffffffi32 {
+        begin_token_list(EQTB[(LOCAL_BASE + 3i32) as usize].b32.s1, 9_u16);
     };
 }
 #[no_mangle]
@@ -1202,37 +467,7 @@ unsafe extern "C" fn scan_delimiter(mut p: i32, mut r: bool) {
             }
         }
         match cur_cmd as i32 {
-            11 | 12 => {
-                cur_val = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + cur_chr) as usize]
-                    .b32
-                    .s1
-            }
+            11 | 12 => cur_val = EQTB[(DEL_CODE_BASE + cur_chr) as usize].b32.s1,
             15 => {
                 if cur_chr == 1i32 {
                     cur_val1 = 0x40000000i32;
@@ -1340,90 +575,10 @@ pub(crate) unsafe extern "C" fn math_ac() {
     }
     MEM[(cur_list.tail + 4) as usize].b16.s0 = (cur_val as i64 % 65536) as u16;
     if cur_val as u32 >> 21i32 & 0x7_u32 == 7_u32
-        && (EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 44i32) as usize]
-            .b32
-            .s1
-            >= 0i32
-            && EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 44i32) as usize]
-                .b32
-                .s1
-                < 256i32)
+        && (EQTB[(INT_BASE + 44i32) as usize].b32.s1 >= 0i32
+            && EQTB[(INT_BASE + 44i32) as usize].b32.s1 < 256i32)
     {
-        MEM[(cur_list.tail + 4) as usize].b16.s1 = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 44i32) as usize]
-            .b32
-            .s1 as u16
+        MEM[(cur_list.tail + 4) as usize].b16.s1 = EQTB[(INT_BASE + 44i32) as usize].b32.s1 as u16
     } else {
         MEM[(cur_list.tail + 4) as usize].b16.s1 = (cur_val as u32 >> 24 & 0xff_u32) as u16
     }
@@ -1648,96 +803,12 @@ unsafe extern "C" fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
     let mut r: i32 = 0;
     let mut t: i32 = 0;
     let mut u: i32 = 0;
-    s = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 85i32
-        + 256i32
-        + (0x10ffffi32 + 1i32)
-        + 15i32) as usize]
-        .b32
-        .s1;
-    x = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 63i32) as usize]
-        .b32
-        .s1;
+    s = EQTB[(DIMEN_BASE + 15i32) as usize].b32.s1;
+    x = EQTB[(INT_BASE + 63i32) as usize].b32.s1;
     if x == 0i32 {
         MEM[(b + 4) as usize].b32.s1 = s + d
     } else {
-        z = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32)
-            + 14i32) as usize]
-            .b32
-            .s1;
+        z = EQTB[(DIMEN_BASE + 14i32) as usize].b32.s1;
         p = b;
         if x > 0i32 {
             e = z - d - MEM[(p + 1) as usize].b32.s1
@@ -1858,202 +929,34 @@ pub(crate) unsafe extern "C" fn after_math() {
     if cur_list.mode as i32 == 207i32 {
         j = cur_list.eTeX_aux
     }
-    if FONT_PARAMS[EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 2i32) as usize]
-        .b32
-        .s1 as usize]
-        < 22i32
-        && !(FONT_AREA[EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 2i32) as usize]
-            .b32
-            .s1 as usize] as u32
-            == 0xfffeu32
+    if FONT_PARAMS[EQTB[(MATH_FONT_BASE + 2i32) as usize].b32.s1 as usize] < 22i32
+        && !(FONT_AREA[EQTB[(MATH_FONT_BASE + 2i32) as usize].b32.s1 as usize] as u32 == 0xfffeu32
             && isOpenTypeMathFont(
-                *font_layout_engine.offset(
-                    EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 2i32) as usize]
-                        .b32
-                        .s1 as isize,
-                ) as XeTeXLayoutEngine,
+                *font_layout_engine.offset(EQTB[(MATH_FONT_BASE + 2i32) as usize].b32.s1 as isize)
+                    as XeTeXLayoutEngine,
             ) as i32
                 != 0)
-        || FONT_PARAMS[EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + 256i32)) as usize]
-            .b32
-            .s1 as usize]
-            < 22i32
-            && !(FONT_AREA[EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + (2i32 + 256i32)) as usize]
-                .b32
-                .s1 as usize] as u32
+        || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (2i32 + 256i32)) as usize].b32.s1 as usize] < 22i32
+            && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (2i32 + 256i32)) as usize].b32.s1 as usize]
+                as u32
                 == 0xfffeu32
                 && isOpenTypeMathFont(
-                    *font_layout_engine.offset(
-                        EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + (2i32 + 256i32)) as usize]
-                            .b32
-                            .s1 as isize,
-                    ) as XeTeXLayoutEngine,
+                    *font_layout_engine
+                        .offset(EQTB[(MATH_FONT_BASE + (2i32 + 256i32)) as usize].b32.s1 as isize)
+                        as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
-        || FONT_PARAMS[EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + 2i32 * 256i32)) as usize]
+        || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (2i32 + 2i32 * 256i32)) as usize]
             .b32
             .s1 as usize]
             < 22i32
-            && !(FONT_AREA[EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + (2i32 + 2i32 * 256i32)) as usize]
+            && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (2i32 + 2i32 * 256i32)) as usize]
                 .b32
                 .s1 as usize] as u32
                 == 0xfffeu32
                 && isOpenTypeMathFont(
                     *font_layout_engine.offset(
-                        EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + (2i32 + 2i32 * 256i32)) as usize]
+                        EQTB[(MATH_FONT_BASE + (2i32 + 2i32 * 256i32)) as usize]
                             .b32
                             .s1 as isize,
                     ) as XeTeXLayoutEngine,
@@ -2073,202 +976,36 @@ pub(crate) unsafe extern "C" fn after_math() {
         error();
         flush_math();
         danger = true
-    } else if FONT_PARAMS[EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (3i32 + 0i32)) as usize]
-        .b32
-        .s1 as usize]
-        < 13i32
-        && !(FONT_AREA[EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (3i32 + 0i32)) as usize]
-            .b32
-            .s1 as usize] as u32
+    } else if FONT_PARAMS[EQTB[(MATH_FONT_BASE + (3i32 + 0i32)) as usize].b32.s1 as usize] < 13i32
+        && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (3i32 + 0i32)) as usize].b32.s1 as usize] as u32
             == 0xfffeu32
             && isOpenTypeMathFont(
-                *font_layout_engine.offset(
-                    EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + (3i32 + 0i32)) as usize]
-                        .b32
-                        .s1 as isize,
-                ) as XeTeXLayoutEngine,
+                *font_layout_engine
+                    .offset(EQTB[(MATH_FONT_BASE + (3i32 + 0i32)) as usize].b32.s1 as isize)
+                    as XeTeXLayoutEngine,
             ) as i32
                 != 0)
-        || FONT_PARAMS[EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (3i32 + 256i32)) as usize]
-            .b32
-            .s1 as usize]
-            < 13i32
-            && !(FONT_AREA[EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + (3i32 + 256i32)) as usize]
-                .b32
-                .s1 as usize] as u32
+        || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (3i32 + 256i32)) as usize].b32.s1 as usize] < 13i32
+            && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (3i32 + 256i32)) as usize].b32.s1 as usize]
+                as u32
                 == 0xfffeu32
                 && isOpenTypeMathFont(
-                    *font_layout_engine.offset(
-                        EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + (3i32 + 256i32)) as usize]
-                            .b32
-                            .s1 as isize,
-                    ) as XeTeXLayoutEngine,
+                    *font_layout_engine
+                        .offset(EQTB[(MATH_FONT_BASE + (3i32 + 256i32)) as usize].b32.s1 as isize)
+                        as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
-        || FONT_PARAMS[EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (3i32 + 2i32 * 256i32)) as usize]
+        || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (3i32 + 2i32 * 256i32)) as usize]
             .b32
             .s1 as usize]
             < 13i32
-            && !(FONT_AREA[EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + (3i32 + 2i32 * 256i32)) as usize]
+            && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (3i32 + 2i32 * 256i32)) as usize]
                 .b32
                 .s1 as usize] as u32
                 == 0xfffeu32
                 && isOpenTypeMathFont(
                     *font_layout_engine.offset(
-                        EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + (3i32 + 2i32 * 256i32)) as usize]
+                        EQTB[(MATH_FONT_BASE + (3i32 + 2i32 * 256i32)) as usize]
                             .b32
                             .s1 as isize,
                     ) as XeTeXLayoutEngine,
@@ -2325,202 +1062,37 @@ pub(crate) unsafe extern "C" fn after_math() {
         if cur_list.mode as i32 == 207i32 {
             j = cur_list.eTeX_aux
         }
-        if FONT_PARAMS[EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 2i32) as usize]
-            .b32
-            .s1 as usize]
-            < 22i32
-            && !(FONT_AREA[EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 2i32) as usize]
-                .b32
-                .s1 as usize] as u32
+        if FONT_PARAMS[EQTB[(MATH_FONT_BASE + 2i32) as usize].b32.s1 as usize] < 22i32
+            && !(FONT_AREA[EQTB[(MATH_FONT_BASE + 2i32) as usize].b32.s1 as usize] as u32
                 == 0xfffeu32
                 && isOpenTypeMathFont(
-                    *font_layout_engine.offset(
-                        EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 2i32) as usize]
-                            .b32
-                            .s1 as isize,
-                    ) as XeTeXLayoutEngine,
+                    *font_layout_engine
+                        .offset(EQTB[(MATH_FONT_BASE + 2i32) as usize].b32.s1 as isize)
+                        as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
-            || FONT_PARAMS[EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + (2i32 + 256i32)) as usize]
-                .b32
-                .s1 as usize]
+            || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (2i32 + 256i32)) as usize].b32.s1 as usize]
                 < 22i32
-                && !(FONT_AREA[EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + (2i32 + 256i32)) as usize]
-                    .b32
-                    .s1 as usize] as u32
+                && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (2i32 + 256i32)) as usize].b32.s1 as usize]
+                    as u32
                     == 0xfffeu32
                     && isOpenTypeMathFont(
                         *font_layout_engine.offset(
-                            EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + (2i32 + 256i32)) as usize]
-                                .b32
-                                .s1 as isize,
+                            EQTB[(MATH_FONT_BASE + (2i32 + 256i32)) as usize].b32.s1 as isize,
                         ) as XeTeXLayoutEngine,
                     ) as i32
                         != 0)
-            || FONT_PARAMS[EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + (2i32 + 2i32 * 256i32)) as usize]
+            || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (2i32 + 2i32 * 256i32)) as usize]
                 .b32
                 .s1 as usize]
                 < 22i32
-                && !(FONT_AREA[EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + (2i32 + 2i32 * 256i32)) as usize]
+                && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (2i32 + 2i32 * 256i32)) as usize]
                     .b32
                     .s1 as usize] as u32
                     == 0xfffeu32
                     && isOpenTypeMathFont(
                         *font_layout_engine.offset(
-                            EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + (2i32 + 2i32 * 256i32)) as usize]
+                            EQTB[(MATH_FONT_BASE + (2i32 + 2i32 * 256i32)) as usize]
                                 .b32
                                 .s1 as isize,
                         ) as XeTeXLayoutEngine,
@@ -2540,114 +1112,20 @@ pub(crate) unsafe extern "C" fn after_math() {
             error();
             flush_math();
             danger = true
-        } else if FONT_PARAMS[EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (3i32 + 0i32)) as usize]
-            .b32
-            .s1 as usize]
+        } else if FONT_PARAMS[EQTB[(MATH_FONT_BASE + (3i32 + 0i32)) as usize].b32.s1 as usize]
             < 13i32
-            && !(FONT_AREA[EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + (3i32 + 0i32)) as usize]
-                .b32
-                .s1 as usize] as u32
+            && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (3i32 + 0i32)) as usize].b32.s1 as usize] as u32
                 == 0xfffeu32
                 && isOpenTypeMathFont(
-                    *font_layout_engine.offset(
-                        EQTB[(1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + (3i32 + 0i32)) as usize]
-                            .b32
-                            .s1 as isize,
-                    ) as XeTeXLayoutEngine,
+                    *font_layout_engine
+                        .offset(EQTB[(MATH_FONT_BASE + (3i32 + 0i32)) as usize].b32.s1 as isize)
+                        as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
-            || FONT_PARAMS[EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + (3i32 + 256i32)) as usize]
-                .b32
-                .s1 as usize]
+            || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (3i32 + 256i32)) as usize].b32.s1 as usize]
                 < 13i32
-                && !(FONT_AREA[EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + (3i32 + 256i32)) as usize]
-                    .b32
-                    .s1 as usize] as u32
+                && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (3i32 + 256i32)) as usize].b32.s1 as usize]
+                    as u32
                     == 0xfffeu32
                     && isOpenTypeMathFont(
                         *font_layout_engine.offset(
@@ -2674,68 +1152,17 @@ pub(crate) unsafe extern "C" fn after_math() {
                         ) as XeTeXLayoutEngine,
                     ) as i32
                         != 0)
-            || FONT_PARAMS[EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + (3i32 + 2i32 * 256i32)) as usize]
+            || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (3i32 + 2i32 * 256i32)) as usize]
                 .b32
                 .s1 as usize]
                 < 13i32
-                && !(FONT_AREA[EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + (3i32 + 2i32 * 256i32)) as usize]
+                && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (3i32 + 2i32 * 256i32)) as usize]
                     .b32
                     .s1 as usize] as u32
                     == 0xfffeu32
                     && isOpenTypeMathFont(
                         *font_layout_engine.offset(
-                            EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + (3i32 + 2i32 * 256i32)) as usize]
+                            EQTB[(MATH_FONT_BASE + (3i32 + 2i32 * 256i32)) as usize]
                                 .b32
                                 .s1 as isize,
                         ) as XeTeXLayoutEngine,
@@ -2764,36 +1191,7 @@ pub(crate) unsafe extern "C" fn after_math() {
     if m < 0i32 {
         /*1231: */
         MEM[cur_list.tail as usize].b32.s1 = new_math(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 1i32) as usize]
-                .b32
-                .s1,
+            EQTB[(DIMEN_BASE + 1i32) as usize].b32.s1,
             0i32 as small_number,
         );
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
@@ -2806,36 +1204,7 @@ pub(crate) unsafe extern "C" fn after_math() {
             cur_list.tail = MEM[cur_list.tail as usize].b32.s1
         }
         MEM[cur_list.tail as usize].b32.s1 = new_math(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 1i32) as usize]
-                .b32
-                .s1,
+            EQTB[(DIMEN_BASE + 1i32) as usize].b32.s1,
             1i32 as small_number,
         );
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
@@ -2872,95 +1241,9 @@ pub(crate) unsafe extern "C" fn after_math() {
         pre_t = pre_adjust_tail;
         pre_adjust_tail = -0xfffffffi32;
         w = MEM[(b + 1) as usize].b32.s1;
-        z = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32)
-            + 14i32) as usize]
-            .b32
-            .s1;
-        s = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32)
-            + 15i32) as usize]
-            .b32
-            .s1;
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 63i32) as usize]
-            .b32
-            .s1
-            < 0i32
-        {
+        z = EQTB[(DIMEN_BASE + 14i32) as usize].b32.s1;
+        s = EQTB[(DIMEN_BASE + 15i32) as usize].b32.s1;
+        if EQTB[(INT_BASE + 63i32) as usize].b32.s1 < 0i32 {
             s = -s - z
         }
         if a == -0xfffffffi32 || danger as i32 != 0 {
@@ -3001,69 +1284,9 @@ pub(crate) unsafe extern "C" fn after_math() {
                 }
             }
         }
-        MEM[cur_list.tail as usize].b32.s1 = new_penalty(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 11i32) as usize]
-                .b32
-                .s1,
-        );
+        MEM[cur_list.tail as usize].b32.s1 = new_penalty(EQTB[(INT_BASE + 11i32) as usize].b32.s1);
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
-        if d + s
-            <= EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 13i32) as usize]
-                .b32
-                .s1
-            || l as i32 != 0
-        {
+        if d + s <= EQTB[(DIMEN_BASE + 13i32) as usize].b32.s1 || l as i32 != 0 {
             g1 = 3i32 as small_number;
             g2 = 4i32 as small_number
         } else {
@@ -3106,35 +1329,7 @@ pub(crate) unsafe extern "C" fn after_math() {
             MEM[cur_list.tail as usize].b32.s1 = MEM[(4999999 - 14) as usize].b32.s1;
             cur_list.tail = pre_t
         }
-        MEM[cur_list.tail as usize].b32.s1 = new_penalty(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 12i32) as usize]
-                .b32
-                .s1,
-        );
+        MEM[cur_list.tail as usize].b32.s1 = new_penalty(EQTB[(INT_BASE + 12i32) as usize].b32.s1);
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         if g2 as i32 > 0i32 {
             MEM[cur_list.tail as usize].b32.s1 = new_param_glue(g2);
@@ -3154,155 +1349,17 @@ pub(crate) unsafe extern "C" fn resume_after_display() {
     push_nest();
     cur_list.mode = 104_i16;
     cur_list.aux.b32.s0 = 1000i32;
-    if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 50i32) as usize]
-        .b32
-        .s1
-        <= 0i32
-    {
+    if EQTB[(INT_BASE + 50i32) as usize].b32.s1 <= 0i32 {
         cur_lang = 0_u8
-    } else if EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + 3i32 * 256i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 50i32) as usize]
-        .b32
-        .s1
-        > 255i32
-    {
+    } else if EQTB[(INT_BASE + 50i32) as usize].b32.s1 > 255i32 {
         cur_lang = 0_u8
     } else {
-        cur_lang = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 50i32) as usize]
-            .b32
-            .s1 as u8
+        cur_lang = EQTB[(INT_BASE + 50i32) as usize].b32.s1 as u8
     }
     cur_list.aux.b32.s1 = cur_lang as i32;
-    cur_list.prev_graf = ((norm_min(
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 51i32) as usize]
-            .b32
-            .s1,
-    ) as i32
-        * 64i32
-        + norm_min(
-            EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 52i32) as usize]
-                .b32
-                .s1,
-        ) as i32) as i64
+    cur_list.prev_graf = ((norm_min(EQTB[(INT_BASE + 51i32) as usize].b32.s1) as i32 * 64i32
+        + norm_min(EQTB[(INT_BASE + 52i32) as usize].b32.s1) as i32)
+        as i64
         * 65536
         + cur_lang as i64) as i32;
     get_x_token();
@@ -3319,26 +1376,7 @@ pub(crate) unsafe extern "C" fn resume_after_display() {
 unsafe extern "C" fn math_x_height(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3352,26 +1390,7 @@ unsafe extern "C" fn math_x_height(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn math_quad(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3385,26 +1404,7 @@ unsafe extern "C" fn math_quad(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn num1(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3418,26 +1418,7 @@ unsafe extern "C" fn num1(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn num2(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3451,26 +1432,7 @@ unsafe extern "C" fn num2(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn num3(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3484,26 +1446,7 @@ unsafe extern "C" fn num3(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn denom1(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3517,26 +1460,7 @@ unsafe extern "C" fn denom1(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn denom2(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3550,26 +1474,7 @@ unsafe extern "C" fn denom2(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn sup1(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3583,26 +1488,7 @@ unsafe extern "C" fn sup1(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn sup2(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3616,26 +1502,7 @@ unsafe extern "C" fn sup2(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn sup3(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3649,26 +1516,7 @@ unsafe extern "C" fn sup3(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn sub1(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3682,26 +1530,7 @@ unsafe extern "C" fn sub1(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn sub2(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3715,26 +1544,7 @@ unsafe extern "C" fn sub2(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn sup_drop(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3748,26 +1558,7 @@ unsafe extern "C" fn sup_drop(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn sub_drop(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3781,26 +1572,7 @@ unsafe extern "C" fn sub_drop(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn delim1(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3814,26 +1586,7 @@ unsafe extern "C" fn delim1(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn delim2(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3847,26 +1600,7 @@ unsafe extern "C" fn delim2(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn axis_height(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (2i32 + size_code)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3880,26 +1614,7 @@ unsafe extern "C" fn axis_height(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn default_rule_thickness() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (3i32 + cur_size)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (3i32 + cur_size)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3913,26 +1628,7 @@ unsafe extern "C" fn default_rule_thickness() -> scaled_t {
 unsafe extern "C" fn big_op_spacing1() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (3i32 + cur_size)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (3i32 + cur_size)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3946,26 +1642,7 @@ unsafe extern "C" fn big_op_spacing1() -> scaled_t {
 unsafe extern "C" fn big_op_spacing2() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (3i32 + cur_size)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (3i32 + cur_size)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -3979,26 +1656,7 @@ unsafe extern "C" fn big_op_spacing2() -> scaled_t {
 unsafe extern "C" fn big_op_spacing3() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (3i32 + cur_size)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (3i32 + cur_size)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -4012,26 +1670,7 @@ unsafe extern "C" fn big_op_spacing3() -> scaled_t {
 unsafe extern "C" fn big_op_spacing4() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (3i32 + cur_size)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (3i32 + cur_size)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -4045,26 +1684,7 @@ unsafe extern "C" fn big_op_spacing4() -> scaled_t {
 unsafe extern "C" fn big_op_spacing5() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (3i32 + cur_size)) as usize]
-        .b32
-        .s1;
+    f = EQTB[(MATH_FONT_BASE + (3i32 + cur_size)) as usize].b32.s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
@@ -4231,24 +1851,7 @@ unsafe extern "C" fn clean_box(mut p: i32, mut s: small_number) -> i32 {
 }
 unsafe extern "C" fn fetch(mut a: i32) {
     cur_c = MEM[a as usize].b16.s0 as i32;
-    cur_f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (MEM[a as usize].b16.s1 as i32 % 256 + cur_size)) as usize]
+    cur_f = EQTB[(MATH_FONT_BASE + (MEM[a as usize].b16.s1 as i32 % 256 + cur_size)) as usize]
         .b32
         .s1;
     cur_c = (cur_c as i64 + (MEM[a as usize].b16.s1 as i32 / 256) as i64 * 65536) as i32;
@@ -4335,24 +1938,7 @@ unsafe extern "C" fn make_radical(mut q: i32) {
     let mut rule_thickness: scaled_t = 0;
     let mut delta: scaled_t = 0;
     let mut clr: scaled_t = 0;
-    f = EQTB[(1i32
-        + (0x10ffffi32 + 1i32)
-        + (0x10ffffi32 + 1i32)
-        + 1i32
-        + 15000i32
-        + 12i32
-        + 9000i32
-        + 1i32
-        + 1i32
-        + 19i32
-        + 256i32
-        + 256i32
-        + 13i32
-        + 256i32
-        + 4i32
-        + 256i32
-        + 1i32
-        + (MEM[(q + 4) as usize].b16.s3 as i32 % 256 + cur_size)) as usize]
+    f = EQTB[(MATH_FONT_BASE + (MEM[(q + 4) as usize].b16.s3 as i32 % 256 + cur_size)) as usize]
         .b32
         .s1;
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
@@ -5176,37 +2762,8 @@ unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
             (2i32 * (cur_style as i32 / 4i32) + 5i32) as small_number,
         );
         cur_f = save_f;
-        MEM[(x + 1) as usize].b32.s1 = MEM[(x + 1) as usize].b32.s1
-            + EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 12i32) as usize]
-                .b32
-                .s1;
+        MEM[(x + 1) as usize].b32.s1 =
+            MEM[(x + 1) as usize].b32.s1 + EQTB[(DIMEN_BASE + 12i32) as usize].b32.s1;
         if shift_down < sub1(cur_size) {
             shift_down = sub1(cur_size)
         }
@@ -5275,37 +2832,8 @@ unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
             (2i32 * (cur_style as i32 / 4i32) + 4i32 + cur_style as i32 % 2i32) as small_number,
         );
         cur_f = save_f;
-        MEM[(x + 1) as usize].b32.s1 = MEM[(x + 1) as usize].b32.s1
-            + EQTB[(1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 12i32) as usize]
-                .b32
-                .s1;
+        MEM[(x + 1) as usize].b32.s1 =
+            MEM[(x + 1) as usize].b32.s1 + EQTB[(DIMEN_BASE + 12i32) as usize].b32.s1;
         if cur_style as i32 & 1i32 != 0 {
             clr = sup3(cur_size)
         } else if (cur_style as i32) < 2i32 {
@@ -5383,37 +2911,8 @@ unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
                 (2i32 * (cur_style as i32 / 4i32) + 5i32) as small_number,
             );
             cur_f = save_f;
-            MEM[(y + 1) as usize].b32.s1 = MEM[(y + 1) as usize].b32.s1
-                + EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 12i32) as usize]
-                    .b32
-                    .s1;
+            MEM[(y + 1) as usize].b32.s1 =
+                MEM[(y + 1) as usize].b32.s1 + EQTB[(DIMEN_BASE + 12i32) as usize].b32.s1;
             if shift_down < sub2(cur_size) {
                 shift_down = sub2(cur_size)
             }
@@ -5578,65 +3077,8 @@ unsafe extern "C" fn make_left_right(
     if delta2 > delta1 {
         delta1 = delta2
     }
-    delta = delta1 / 500i32
-        * EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 18i32) as usize]
-            .b32
-            .s1;
-    delta2 = delta1 + delta1
-        - EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32)
-            + 10i32) as usize]
-            .b32
-            .s1;
+    delta = delta1 / 500i32 * EQTB[(INT_BASE + 18i32) as usize].b32.s1;
+    delta2 = delta1 + delta1 - EQTB[(DIMEN_BASE + 10i32) as usize].b32.s1;
     if delta < delta2 {
         delta = delta2
     }
@@ -6008,64 +3450,12 @@ unsafe extern "C" fn mlist_to_hlist() {
             }
             18 => {
                 t = 18i32 as small_number;
-                pen = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 9i32) as usize]
-                    .b32
-                    .s1;
+                pen = EQTB[(INT_BASE + 9i32) as usize].b32.s1;
                 current_block_236 = 15067367080042895309;
             }
             19 => {
                 t = 19i32 as small_number;
-                pen = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 10i32) as usize]
-                    .b32
-                    .s1;
+                pen = EQTB[(INT_BASE + 10i32) as usize].b32.s1;
                 current_block_236 = 15067367080042895309;
             }
             16 | 29 | 27 | 26 => {
@@ -6167,21 +3557,7 @@ unsafe extern "C" fn mlist_to_hlist() {
                         }
                     }
                     if x != 0i32 {
-                        y = math_glue(
-                            EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + x) as usize]
-                                .b32
-                                .s1,
-                            cur_mu,
-                        );
+                        y = math_glue(EQTB[(GLUE_BASE + x) as usize].b32.s1, cur_mu);
                         z = new_glue(y);
                         MEM[y as usize].b32.s1 = -0xfffffff;
                         MEM[p as usize].b32.s1 = z;
@@ -6269,26 +3645,7 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
             z = z + s + 256i32;
             loop {
                 z = z - 256i32;
-                g = EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + z) as usize]
-                    .b32
-                    .s1;
+                g = EQTB[(MATH_FONT_BASE + z) as usize].b32.s1;
                 if g != 0i32 {
                     /*734: */
                     if FONT_AREA[g as usize] as u32 == 0xfffeu32
@@ -6482,36 +3839,7 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
         }
     } else {
         b = new_null_box();
-        MEM[(b + 1) as usize].b32.s1 = EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 85i32
-            + 256i32
-            + (0x10ffffi32 + 1i32)
-            + 11i32) as usize]
-            .b32
-            .s1
+        MEM[(b + 1) as usize].b32.s1 = EQTB[(DIMEN_BASE + 11i32) as usize].b32.s1
     }
     MEM[(b + 4) as usize].b32.s1 =
         half(MEM[(b + 3) as usize].b32.s1 - MEM[(b + 2) as usize].b32.s1) - axis_height(s);

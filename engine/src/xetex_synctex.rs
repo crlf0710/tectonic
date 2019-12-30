@@ -12,6 +12,7 @@ use std::ffi::CStr;
 use std::io::Write;
 
 use crate::core_memory::{mfree, xmalloc, xrealloc, xstrdup};
+use crate::xetex_consts::INT_BASE;
 use crate::xetex_ini::{
     cur_h, cur_input, cur_v, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, total_pages,
     EQTB, MEM,
@@ -160,61 +161,9 @@ pub(crate) unsafe extern "C" fn synctex_init_command() {
     /* Reset state */
     synctex_ctxt = default_synctex_ctxt;
     if synctex_enabled != 0 {
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1 = 1i32
+        EQTB[(INT_BASE + 83i32) as usize].b32.s1 = 1i32
     } else {
-        EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1 = 0i32
+        EQTB[(INT_BASE + 83i32) as usize].b32.s1 = 0i32
         /* \synctex=0 : don't record stuff */
     };
 }
@@ -242,36 +191,7 @@ static mut synctex_suffix_gz: *const i8 = b".gz\x00" as *const u8 as *const i8;
 unsafe extern "C" fn synctex_dot_open() -> bool {
     let mut tmp: *mut i8 = ptr::null_mut();
     let mut the_name: *mut i8 = ptr::null_mut();
-    if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1
-            == 0
-    {
+    if synctex_ctxt.flags.contains(Flags::OFF) || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0 {
         return false;
     }
     if synctex_ctxt.file.is_some() {
@@ -423,34 +343,7 @@ pub(crate) unsafe extern "C" fn synctex_terminate(mut _log_opened: bool) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_sheet(mut mag: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1
-            != 0
+        if EQTB[(INT_BASE + 83i32) as usize].b32.s1 != 0
             && !synctex_ctxt.flags.contains(Flags::WARN)
         {
             synctex_ctxt.flags.insert(Flags::WARN);
@@ -510,34 +403,7 @@ pub(crate) unsafe extern "C" fn synctex_teehs() {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_vlist(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1
-            == 0
+        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -561,34 +427,7 @@ pub(crate) unsafe extern "C" fn synctex_vlist(mut this_box: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_tsilv(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1
-            == 0
+        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -609,34 +448,7 @@ pub(crate) unsafe extern "C" fn synctex_tsilv(mut this_box: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_void_vlist(mut p: i32, mut _this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1
-            == 0
+        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -660,34 +472,7 @@ pub(crate) unsafe extern "C" fn synctex_void_vlist(mut p: i32, mut _this_box: i3
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_hlist(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1
-            == 0
+        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -709,34 +494,7 @@ pub(crate) unsafe extern "C" fn synctex_hlist(mut this_box: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_tsilh(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1
-            == 0
+        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -757,34 +515,7 @@ pub(crate) unsafe extern "C" fn synctex_tsilh(mut this_box: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_void_hlist(mut p: i32, mut _this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1
-            == 0
+        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -813,34 +544,7 @@ See: @ @<Output the non-|char_node| |p| for...  */
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_math(mut p: i32, mut _this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1
-            == 0
+        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -871,34 +575,7 @@ pub(crate) unsafe extern "C" fn synctex_horizontal_rule_or_glue(mut p: i32, mut 
     match MEM[p as usize].b16.s1 as i32 {
         2 => {
             if synctex_ctxt.flags.contains(Flags::OFF)
-                || EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 83i32) as usize]
-                    .b32
-                    .s1
-                    == 0
+                || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
                 || 0i32 >= MEM[(p + 5 - 1) as usize].b32.s0
                 || 0i32 >= MEM[(p + 5 - 1) as usize].b32.s1
             {
@@ -907,34 +584,7 @@ pub(crate) unsafe extern "C" fn synctex_horizontal_rule_or_glue(mut p: i32, mut 
         }
         10 => {
             if synctex_ctxt.flags.contains(Flags::OFF)
-                || EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 83i32) as usize]
-                    .b32
-                    .s1
-                    == 0
+                || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
                 || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s0
                 || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s1
             {
@@ -943,34 +593,7 @@ pub(crate) unsafe extern "C" fn synctex_horizontal_rule_or_glue(mut p: i32, mut 
         }
         11 => {
             if synctex_ctxt.flags.contains(Flags::OFF)
-                || EQTB[(1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 83i32) as usize]
-                    .b32
-                    .s1
-                    == 0
+                || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
                 || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s0
                 || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s1
             {
@@ -1018,34 +641,7 @@ See: @ @<Output the non-|char_node| |p| for...    */
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_kern(mut p: i32, mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1
-            == 0
+        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
         || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s0
         || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s1
     {
@@ -1091,34 +687,7 @@ synchronously for the current location    */
 pub(crate) unsafe extern "C" fn synctex_current() {
     /* magic pt/in conversion */
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1
-            == 0
+        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -1226,34 +795,7 @@ unsafe extern "C" fn synctex_record_teehs(mut sheet: i32) -> i32 {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_pdfxform(mut p: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
-        if EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1
-            != 0
+        if EQTB[(INT_BASE + 83i32) as usize].b32.s1 != 0
             && !synctex_ctxt.flags.contains(Flags::WARN)
         {
             synctex_ctxt.flags.insert(Flags::WARN);
@@ -1287,34 +829,7 @@ pub(crate) unsafe extern "C" fn synctex_pdfrefxform(mut objnum: i32) {
 #[inline]
 unsafe extern "C" fn synctex_record_pdfxform(mut _form: i32) -> i32 {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1
-            == 0
+        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
         || synctex_ctxt.file.is_none()
     {
         return 0i32;
@@ -1353,34 +868,7 @@ unsafe extern "C" fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 83i32) as usize]
-            .b32
-            .s1
-            == 0
+        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
         || synctex_ctxt.file.is_none()
     {
         return 0i32;
