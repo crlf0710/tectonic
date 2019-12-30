@@ -1370,8 +1370,7 @@ unsafe extern "C" fn primitive(ident: &[u8], mut c: u16, mut o: i32) {
 }
 /*:925*/
 /*977: */
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_trie_op(
+pub(crate) unsafe fn new_trie_op(
     mut d: small_number,
     mut n: small_number,
     mut v: trie_opcode,
@@ -1421,8 +1420,7 @@ pub(crate) unsafe extern "C" fn new_trie_op(
         }
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn trie_node(mut p: trie_pointer) -> trie_pointer {
+pub(crate) unsafe fn trie_node(mut p: trie_pointer) -> trie_pointer {
     let mut h: trie_pointer = 0;
     let mut q: trie_pointer = 0;
     h = ((*trie_c.offset(p as isize) as u32
@@ -1450,8 +1448,7 @@ pub(crate) unsafe extern "C" fn trie_node(mut p: trie_pointer) -> trie_pointer {
         }
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn compress_trie(mut p: trie_pointer) -> trie_pointer {
+pub(crate) unsafe fn compress_trie(mut p: trie_pointer) -> trie_pointer {
     if p == 0i32 {
         0i32
     } else {
@@ -1460,8 +1457,7 @@ pub(crate) unsafe extern "C" fn compress_trie(mut p: trie_pointer) -> trie_point
         trie_node(p)
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn first_fit(mut p: trie_pointer) {
+pub(crate) unsafe fn first_fit(mut p: trie_pointer) {
     let mut h: trie_pointer = 0;
     let mut z: trie_pointer = 0;
     let mut q: trie_pointer = 0;
@@ -1533,8 +1529,7 @@ pub(crate) unsafe extern "C" fn first_fit(mut p: trie_pointer) {
         }
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn trie_pack(mut p: trie_pointer) {
+pub(crate) unsafe fn trie_pack(mut p: trie_pointer) {
     let mut q: trie_pointer = 0;
     loop {
         q = *trie_l.offset(p as isize);
@@ -1548,8 +1543,7 @@ pub(crate) unsafe extern "C" fn trie_pack(mut p: trie_pointer) {
         }
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn trie_fix(mut p: trie_pointer) {
+pub(crate) unsafe fn trie_fix(mut p: trie_pointer) {
     let mut q: trie_pointer = 0;
     let mut c: UTF16_code = 0;
     let mut z: trie_pointer = 0;
@@ -1799,8 +1793,7 @@ unsafe extern "C" fn new_patterns() {
         flush_list(def_ref);
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn init_trie() {
+pub(crate) unsafe fn init_trie() {
     let mut p: trie_pointer = 0;
     let mut j: i32 = 0;
     let mut k: i32 = 0;
@@ -2161,8 +2154,7 @@ unsafe extern "C" fn new_hyph_exceptions() {
         p = TEX_NULL
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn prefixed_command() {
+pub(crate) unsafe fn prefixed_command() {
     let mut current_block: u64;
     let mut a: small_number = 0;
     let mut f: internal_font_number = 0;
@@ -5844,8 +5836,7 @@ unsafe extern "C" fn get_strings_started() {
 /*41: The length of the current string in the pool */
 /* Tectonic related functions */
 /*:1001*/
-#[no_mangle]
-pub(crate) unsafe extern "C" fn tt_run_engine(
+pub(crate) unsafe fn tt_run_engine(
     mut dump_name: *const i8,
     mut input_file_name: *const i8,
 ) -> TTHistory {

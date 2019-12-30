@@ -61,8 +61,7 @@ unsafe extern "C" fn checkpool_pointer(mut pool_ptr_0: pool_pointer, mut len: si
         pool_size,
     );
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn maketexstring(s: &[u8]) -> i32 {
+pub(crate) unsafe fn maketexstring(s: &[u8]) -> i32 {
     let mut rval: UInt32 = 0;
     let mut cp = s;
     if s.is_empty() {
@@ -103,8 +102,7 @@ pub(crate) unsafe extern "C" fn maketexstring(s: &[u8]) -> i32 {
     }
     make_string()
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn gettexstring(mut s: str_number) -> *mut i8 {
+pub(crate) unsafe fn gettexstring(mut s: str_number) -> *mut i8 {
     let mut len: pool_pointer = 0;
     let mut i: pool_pointer = 0;
     let mut j: pool_pointer = 0;
@@ -187,22 +185,16 @@ unsafe extern "C" fn compare_paths(mut p1: *const i8, mut p2: *const i8) -> i32 
     };
     ret
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn is_new_source(
-    mut srcfilename: str_number,
-    mut lineno: i32,
-) -> bool {
+pub(crate) unsafe fn is_new_source(mut srcfilename: str_number, mut lineno: i32) -> bool {
     let mut name: *mut i8 = gettexstring(srcfilename);
     compare_paths(name, last_source_name) != 0i32 || lineno != last_lineno
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn remember_source_info(mut srcfilename: str_number, mut lineno: i32) {
+pub(crate) unsafe fn remember_source_info(mut srcfilename: str_number, mut lineno: i32) {
     free(last_source_name as *mut libc::c_void);
     last_source_name = gettexstring(srcfilename);
     last_lineno = lineno;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn make_src_special(
+pub(crate) unsafe fn make_src_special(
     mut srcfilename: str_number,
     mut lineno: i32,
 ) -> pool_pointer {
@@ -269,8 +261,7 @@ unsafe extern "C" fn convertStringToHexString(mut in_0: *const i8, mut out: *mut
     *out.offset(j as isize) = '\u{0}' as i32 as i8;
 }
 /* Functions originating in texmfmp.c */
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getmd5sum(mut s: str_number, mut file: bool) {
+pub(crate) unsafe fn getmd5sum(mut s: str_number, mut file: bool) {
     let mut digest: [i8; 16] = [0; 16];
     let mut outbuf: [i8; 33] = [0; 33];
     let mut xname: *mut i8 = ptr::null_mut();

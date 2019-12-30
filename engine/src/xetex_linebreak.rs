@@ -125,8 +125,7 @@ unsafe extern "C" fn get_native_usv(mut p: i32, mut i: i32) -> UnicodeScalar {
  * starting line number (0 unless we're continuing after display math). After
  * completion, `just_box` will point to the final box created.
  */
-#[no_mangle]
-pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
+pub(crate) unsafe fn line_break(mut d: bool) {
     let mut current_block: u64; /* "this is for over/underfull box messages" */
     let mut auto_breaking: bool = false;
     let mut prev_p: i32 = 0;

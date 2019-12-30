@@ -65,8 +65,7 @@ type Rect = euclid::Rect<f32, ()>;
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
 
-#[no_mangle]
-pub(crate) unsafe extern "C" fn count_pdf_file_pages() -> i32 {
+pub(crate) unsafe fn count_pdf_file_pages() -> i32 {
     let handle = ttstub_input_open(name_of_file, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
         return 0;
@@ -216,8 +215,7 @@ fn to_points(r: &Rect) -> [Point; 4] {
     ]
 }
 
-#[no_mangle]
-pub(crate) unsafe extern "C" fn load_picture(mut is_pdf: bool) {
+pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
     let mut pic_path: *mut i8 = 0 as *mut i8;
     let mut check_keywords: bool = false;
     let mut page: i32 = 0;

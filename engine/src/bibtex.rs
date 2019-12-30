@@ -7317,7 +7317,6 @@ unsafe fn initialize(mut aux_file_name: *const i8) -> i32 {
    Copyright 2017 the Tectonic Project
    Licensed under the MIT License.
 */
-#[no_mangle]
 pub(crate) unsafe fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
     pool_size = POOL_SIZE;
     buf_size = BUF_SIZE;

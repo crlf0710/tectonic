@@ -9,26 +9,25 @@
     unused_mut
 )]
 
+use super::{
+    XeTeXFontMgr_addToMaps, XeTeXFontMgr_appendToList, XeTeXFontMgr_base_ctor,
+    XeTeXFontMgr_base_getOpSizeRecAndStyleFlags, XeTeXFontMgr_prependToList,
+};
 use crate::stub_icu as icu;
+use crate::xetex_font_info::gFreeTypeLibrary;
 use crate::xetex_layout_interface::collection_types::*;
 
 use crate::freetype_sys_patch::{FT_Get_Sfnt_Name, FT_Get_Sfnt_Name_Count};
 use freetype::freetype_sys::{FT_Byte, FT_Face, FT_Library, FT_Long};
 use freetype::freetype_sys::{FT_Done_Face, FT_Get_Postscript_Name, FT_Init_FreeType, FT_New_Face};
 
+use libc::{free, malloc, strchr, strdup};
+
 extern "C" {
     pub(crate) type _FcPattern;
     pub(crate) type _FcConfig;
     #[no_mangle]
     fn FcConfigGetCurrent() -> *mut FcConfig;
-    #[no_mangle]
-    fn malloc(_: libc::c_ulong) -> *mut libc::c_void;
-    #[no_mangle]
-    fn free(__ptr: *mut libc::c_void);
-    #[no_mangle]
-    fn strdup(_: *const libc::c_char) -> *mut libc::c_char;
-    #[no_mangle]
-    fn strchr(_: *const libc::c_char, _: libc::c_int) -> *mut libc::c_char;
     #[no_mangle]
     fn FcFontSetDestroy(s: *mut FcFontSet);
     #[no_mangle]
@@ -58,35 +57,6 @@ extern "C" {
         n: libc::c_int,
         s: *mut *mut FcChar8,
     ) -> FcResult;
-    /* gFreeTypeLibrary is defined in xetex-XeTeXFontInst_FT2.cpp,
-     * also used in xetex-XeTeXFontMgr_FC.cpp and xetex-ext.c.  */
-    #[no_mangle]
-    static mut gFreeTypeLibrary: FT_Library;
-    #[no_mangle]
-    fn XeTeXFontMgr_base_ctor(self_0: *mut XeTeXFontMgr);
-    #[no_mangle]
-    fn XeTeXFontMgr_appendToList(
-        self_0: *mut XeTeXFontMgr,
-        list: *mut CppStdListOfString,
-        str: *const libc::c_char,
-    );
-    #[no_mangle]
-    fn XeTeXFontMgr_prependToList(
-        self_0: *mut XeTeXFontMgr,
-        list: *mut CppStdListOfString,
-        str: *const libc::c_char,
-    );
-    #[no_mangle]
-    fn XeTeXFontMgr_addToMaps(
-        self_0: *mut XeTeXFontMgr,
-        platformFont: PlatformFontRef,
-        names: *const XeTeXFontMgrNameCollection,
-    );
-    #[no_mangle]
-    fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
-        self_0: *mut XeTeXFontMgr,
-        theFont: *mut XeTeXFontMgrFont,
-    );
 }
 use crate::size_t;
 pub(crate) type __int16_t = libc::c_short;
@@ -196,9 +166,9 @@ pub(crate) struct XeTeXFontMgr_FC {
 }
 #[inline]
 unsafe extern "C" fn XeTeXFontMgrNameCollection_create() -> *mut XeTeXFontMgrNameCollection {
-    let mut self_0: *mut XeTeXFontMgrNameCollection =
-        malloc(::std::mem::size_of::<XeTeXFontMgrNameCollection>() as libc::c_ulong)
-            as *mut XeTeXFontMgrNameCollection;
+    let mut self_0: *mut XeTeXFontMgrNameCollection = malloc(::std::mem::size_of::<
+        XeTeXFontMgrNameCollection,
+    >()) as *mut XeTeXFontMgrNameCollection;
     (*self_0).m_familyNames = CppStdListOfString_create();
     (*self_0).m_styleNames = CppStdListOfString_create();
     (*self_0).m_fullNames = CppStdListOfString_create();
@@ -253,14 +223,10 @@ unsafe extern "C" fn convertToUtf8(
             free(buffer2 as *mut libc::c_void);
         }
         bufSize = 2i32 * len + 100i32;
-        buffer1 = malloc(
-            (::std::mem::size_of::<libc::c_char>() as libc::c_ulong)
-                .wrapping_mul(bufSize as libc::c_ulong),
-        ) as *mut libc::c_char;
-        buffer2 = malloc(
-            (::std::mem::size_of::<libc::c_char>() as libc::c_ulong)
-                .wrapping_mul(bufSize as libc::c_ulong),
-        ) as *mut libc::c_char
+        buffer1 = malloc((::std::mem::size_of::<libc::c_char>()).wrapping_mul(bufSize as usize))
+            as *mut libc::c_char;
+        buffer2 = malloc((::std::mem::size_of::<libc::c_char>()).wrapping_mul(bufSize as usize))
+            as *mut libc::c_char
     }
     let mut status: icu::UErrorCode = icu::U_ZERO_ERROR;
     len = icu::ucnv_toUChars(
@@ -769,7 +735,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_ctor(mut self_0: *mut XeTeXFontM
 #[no_mangle]
 pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_create() -> *mut XeTeXFontMgr_FC {
     let mut self_0: *mut XeTeXFontMgr_FC =
-        malloc(::std::mem::size_of::<XeTeXFontMgr_FC>() as libc::c_ulong) as *mut XeTeXFontMgr_FC;
+        malloc(::std::mem::size_of::<XeTeXFontMgr_FC>()) as *mut XeTeXFontMgr_FC;
     XeTeXFontMgr_FC_ctor(self_0);
     return self_0;
 }

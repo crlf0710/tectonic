@@ -53,6 +53,7 @@ mod opentype_math;
 pub(crate) use opentype_math::*;
 
 use crate::core_memory::xstrdup;
+use crate::xetex_ext::{D2Fix, Fix2D};
 use libc::{free, malloc, strcmp, strdup, strlen, strncmp};
 
 extern "C" {
@@ -173,10 +174,6 @@ extern "C" {
     fn hb_graphite2_font_get_gr_font(font: *mut hb_font_t) -> *mut gr_font;
     #[no_mangle]
     fn hb_icu_get_unicode_funcs() -> *mut hb_unicode_funcs_t;
-    #[no_mangle]
-    fn Fix2D(f: Fixed) -> libc::c_double;
-    #[no_mangle]
-    fn D2Fix(d: libc::c_double) -> Fixed;
 }
 
 pub(crate) use crate::xetex_font_manager::XeTeXFont;
@@ -452,16 +449,14 @@ unsafe extern "C" fn XeTeXFontInst_getFilename(
     *index = (*self_0).m_index;
     return (*self_0).m_filename;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGlyphBBoxCache() -> *mut CppStdMap<u32, GlyphBBox> {
+pub(crate) unsafe fn getGlyphBBoxCache() -> *mut CppStdMap<u32, GlyphBBox> {
     static mut cache: *mut CppStdMap<u32, GlyphBBox> = ptr::null_mut();
     if cache.is_null() {
         cache = CppStdMap_create()
     }
     return cache;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getCachedGlyphBBox(
+pub(crate) unsafe fn getCachedGlyphBBox(
     mut fontID: uint16_t,
     mut glyphID: uint16_t,
     mut bbox: *mut GlyphBBox,
@@ -475,8 +470,7 @@ pub(crate) unsafe extern "C" fn getCachedGlyphBBox(
         0
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn cacheGlyphBBox(
+pub(crate) unsafe fn cacheGlyphBBox(
     mut fontID: uint16_t,
     mut glyphID: uint16_t,
     mut bbox: *const GlyphBBox,
@@ -495,10 +489,7 @@ unsafe extern "C" fn GlyphId_create(mut fontNum: libc::c_int, mut code: libc::c_
     id.code = code;
     return id;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getProtrusionFactor(
-    mut side: libc::c_int,
-) -> *mut ProtrusionFactor {
+pub(crate) unsafe fn getProtrusionFactor(mut side: libc::c_int) -> *mut ProtrusionFactor {
     static mut leftProt: *mut ProtrusionFactor = ptr::null_mut();
     static mut rightProt: *mut ProtrusionFactor = ptr::null_mut();
     let mut container: *mut ProtrusionFactor = 0 as *mut ProtrusionFactor;
@@ -522,8 +513,7 @@ pub(crate) unsafe extern "C" fn getProtrusionFactor(
     }
     return container;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn set_cp_code(
+pub(crate) unsafe fn set_cp_code(
     mut fontNum: libc::c_int,
     mut code: libc::c_uint,
     mut side: libc::c_int,
@@ -533,8 +523,7 @@ pub(crate) unsafe extern "C" fn set_cp_code(
     let mut container: *mut ProtrusionFactor = getProtrusionFactor(side);
     CppStdMap_put(container, id, value);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn get_cp_code(
+pub(crate) unsafe fn get_cp_code(
     mut fontNum: libc::c_int,
     mut code: libc::c_uint,
     mut side: libc::c_int,
@@ -544,19 +533,13 @@ pub(crate) unsafe extern "C" fn get_cp_code(
     (*container).get(&id).cloned().unwrap_or(0)
 }
 /* ******************************************************************/
-#[no_mangle]
-pub(crate) unsafe extern "C" fn terminate_font_manager() {
+pub(crate) unsafe fn terminate_font_manager() {
     XeTeXFontMgr_Terminate();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn destroy_font_manager() {
+pub(crate) unsafe fn destroy_font_manager() {
     XeTeXFontMgr_Destroy();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn createFont(
-    mut fontRef: PlatformFontRef,
-    mut pointSize: Fixed,
-) -> XeTeXFont {
+pub(crate) unsafe fn createFont(mut fontRef: PlatformFontRef, mut pointSize: Fixed) -> XeTeXFont {
     use crate::xetex_font_info::{XeTeXFontInst_create, XeTeXFontInst_delete};
     let mut status: libc::c_int = 0i32;
     let mut font: *mut XeTeXFontInst;
@@ -593,9 +576,7 @@ pub(crate) unsafe extern "C" fn createFont(
                 _: libc::c_float,
                 _: *mut libc::c_int,
             ) -> *mut XeTeXFontInst_Mac)(
-            fontRef,
-            (Fix2D as unsafe extern "C" fn(_: Fixed) -> libc::c_double)(pointSize) as libc::c_float,
-            &mut status,
+            fontRef, Fix2D(pointSize) as libc::c_float, &mut status
         ))
         .super_;
     }
@@ -605,8 +586,7 @@ pub(crate) unsafe extern "C" fn createFont(
     }
     return font as XeTeXFont;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn createFontFromFile(
+pub(crate) unsafe fn createFontFromFile(
     mut filename: *const libc::c_char,
     mut index: libc::c_int,
     mut pointSize: Fixed,
@@ -625,59 +605,48 @@ pub(crate) unsafe extern "C" fn createFontFromFile(
     }
     return font as XeTeXFont;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn setFontLayoutDir(mut font: XeTeXFont, mut vertical: libc::c_int) {
+pub(crate) unsafe fn setFontLayoutDir(mut font: XeTeXFont, mut vertical: libc::c_int) {
     XeTeXFontInst_setLayoutDirVertical(font as *mut XeTeXFontInst, vertical != 0i32);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn findFontByName(
+pub(crate) unsafe fn findFontByName(
     mut name: *const libc::c_char,
     mut var: *mut libc::c_char,
     mut size: libc::c_double,
 ) -> PlatformFontRef {
     return XeTeXFontMgr_findFont(XeTeXFontMgr_GetFontManager(), name, var, size);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getReqEngine() -> libc::c_char {
+pub(crate) unsafe fn getReqEngine() -> libc::c_char {
     return XeTeXFontMgr_getReqEngine(XeTeXFontMgr_GetFontManager());
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn setReqEngine(mut reqEngine: libc::c_char) {
+pub(crate) unsafe fn setReqEngine(mut reqEngine: libc::c_char) {
     XeTeXFontMgr_setReqEngine(XeTeXFontMgr_GetFontManager(), reqEngine);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getFullName(mut fontRef: PlatformFontRef) -> *const libc::c_char {
+pub(crate) unsafe fn getFullName(mut fontRef: PlatformFontRef) -> *const libc::c_char {
     return XeTeXFontMgr_getFullName(XeTeXFontMgr_GetFontManager(), fontRef);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getDesignSize(mut font: XeTeXFont) -> libc::c_double {
+pub(crate) unsafe fn getDesignSize(mut font: XeTeXFont) -> libc::c_double {
     return XeTeXFontMgr_getDesignSize(XeTeXFontMgr_GetFontManager(), font);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getFontFilename(
+pub(crate) unsafe fn getFontFilename(
     mut engine: XeTeXLayoutEngine,
     mut index: *mut uint32_t,
 ) -> *mut libc::c_char {
     return xstrdup(XeTeXFontInst_getFilename((*engine).font, index));
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getFontRef(mut engine: XeTeXLayoutEngine) -> PlatformFontRef {
+pub(crate) unsafe fn getFontRef(mut engine: XeTeXLayoutEngine) -> PlatformFontRef {
     return (*engine).fontRef;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn deleteFont(mut font: XeTeXFont) {
+pub(crate) unsafe fn deleteFont(mut font: XeTeXFont) {
     use crate::xetex_font_info::XeTeXFontInst_delete;
     XeTeXFontInst_delete(font as *mut XeTeXFontInst);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getFontTablePtr(
+pub(crate) unsafe fn getFontTablePtr(
     mut font: XeTeXFont,
     mut tableTag: uint32_t,
 ) -> *mut libc::c_void {
     return XeTeXFontInst_getFontTable(font as *mut XeTeXFontInst, tableTag);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getSlant(mut font: XeTeXFont) -> Fixed {
+pub(crate) unsafe fn getSlant(mut font: XeTeXFont) -> Fixed {
     let mut italAngle: libc::c_float = XeTeXFontInst_getItalicAngle(font as *mut XeTeXFontInst);
     return D2Fix((-italAngle as libc::c_double * std::f64::consts::PI / 180.0f64).tan());
 }
@@ -752,15 +721,10 @@ unsafe extern "C" fn getLargerScriptListTable(
     }
     return rval;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn countScripts(mut font: XeTeXFont) -> libc::c_uint {
+pub(crate) unsafe fn countScripts(mut font: XeTeXFont) -> libc::c_uint {
     return getLargerScriptListTable(font, 0 as *mut *mut hb_tag_t);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getIndScript(
-    mut font: XeTeXFont,
-    mut index: libc::c_uint,
-) -> hb_tag_t {
+pub(crate) unsafe fn getIndScript(mut font: XeTeXFont, mut index: libc::c_uint) -> hb_tag_t {
     let mut rval: hb_tag_t = 0i32 as hb_tag_t;
     let mut scriptList: *mut hb_tag_t = 0 as *mut hb_tag_t;
     let mut scriptCount: libc::c_uint = getLargerScriptListTable(font, &mut scriptList);
@@ -771,11 +735,7 @@ pub(crate) unsafe extern "C" fn getIndScript(
     }
     return rval;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn countLanguages(
-    mut font: XeTeXFont,
-    mut script: hb_tag_t,
-) -> libc::c_uint {
+pub(crate) unsafe fn countLanguages(mut font: XeTeXFont, mut script: hb_tag_t) -> libc::c_uint {
     let mut rval: libc::c_uint = 0i32 as libc::c_uint;
     let mut face: *mut hb_face_t =
         hb_font_get_face(XeTeXFontInst_getHbFont(font as *mut XeTeXFontInst));
@@ -815,8 +775,7 @@ pub(crate) unsafe extern "C" fn countLanguages(
     }
     return rval;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getIndLanguage(
+pub(crate) unsafe fn getIndLanguage(
     mut font: XeTeXFont,
     mut script: hb_tag_t,
     mut index: libc::c_uint,
@@ -903,8 +862,7 @@ pub(crate) unsafe extern "C" fn getIndLanguage(
     }
     return rval;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn countFeatures(
+pub(crate) unsafe fn countFeatures(
     mut font: XeTeXFont,
     mut script: hb_tag_t,
     mut language: hb_tag_t,
@@ -952,8 +910,7 @@ pub(crate) unsafe extern "C" fn countFeatures(
     }
     return rval;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getIndFeature(
+pub(crate) unsafe fn getIndFeature(
     mut font: XeTeXFont,
     mut script: hb_tag_t,
     mut language: hb_tag_t,
@@ -1022,8 +979,7 @@ pub(crate) unsafe extern "C" fn getIndFeature(
     }
     return rval;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn countGraphiteFeatures(mut engine: XeTeXLayoutEngine) -> uint32_t {
+pub(crate) unsafe fn countGraphiteFeatures(mut engine: XeTeXLayoutEngine) -> uint32_t {
     let mut rval: uint32_t = 0i32 as uint32_t;
     let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
@@ -1032,8 +988,7 @@ pub(crate) unsafe extern "C" fn countGraphiteFeatures(mut engine: XeTeXLayoutEng
     }
     return rval;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGraphiteFeatureCode(
+pub(crate) unsafe fn getGraphiteFeatureCode(
     mut engine: XeTeXLayoutEngine,
     mut index: uint32_t,
 ) -> uint32_t {
@@ -1046,8 +1001,7 @@ pub(crate) unsafe extern "C" fn getGraphiteFeatureCode(
     }
     return rval;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn countGraphiteFeatureSettings(
+pub(crate) unsafe fn countGraphiteFeatureSettings(
     mut engine: XeTeXLayoutEngine,
     mut featureID: uint32_t,
 ) -> uint32_t {
@@ -1060,8 +1014,7 @@ pub(crate) unsafe extern "C" fn countGraphiteFeatureSettings(
     }
     return rval;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGraphiteFeatureSettingCode(
+pub(crate) unsafe fn getGraphiteFeatureSettingCode(
     mut engine: XeTeXLayoutEngine,
     mut featureID: uint32_t,
     mut index: uint32_t,
@@ -1075,8 +1028,7 @@ pub(crate) unsafe extern "C" fn getGraphiteFeatureSettingCode(
     }
     return rval;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGraphiteFeatureDefaultSetting(
+pub(crate) unsafe fn getGraphiteFeatureDefaultSetting(
     mut engine: XeTeXLayoutEngine,
     mut featureID: uint32_t,
 ) -> uint32_t {
@@ -1096,8 +1048,7 @@ pub(crate) unsafe extern "C" fn getGraphiteFeatureDefaultSetting(
     }
     return rval;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGraphiteFeatureLabel(
+pub(crate) unsafe fn getGraphiteFeatureLabel(
     mut engine: XeTeXLayoutEngine,
     mut featureID: uint32_t,
 ) -> *mut libc::c_char {
@@ -1111,8 +1062,7 @@ pub(crate) unsafe extern "C" fn getGraphiteFeatureLabel(
     }
     return 0 as *mut libc::c_char;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGraphiteFeatureSettingLabel(
+pub(crate) unsafe fn getGraphiteFeatureSettingLabel(
     mut engine: XeTeXLayoutEngine,
     mut featureID: uint32_t,
     mut settingID: uint32_t,
@@ -1134,8 +1084,7 @@ pub(crate) unsafe extern "C" fn getGraphiteFeatureSettingLabel(
     }
     return 0 as *mut libc::c_char;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn findGraphiteFeature(
+pub(crate) unsafe fn findGraphiteFeature(
     mut engine: XeTeXLayoutEngine,
     mut s: *const libc::c_char,
     mut e: *const libc::c_char,
@@ -1181,8 +1130,7 @@ pub(crate) unsafe extern "C" fn findGraphiteFeature(
     }
     return 1i32 != 0;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn findGraphiteFeatureNamed(
+pub(crate) unsafe fn findGraphiteFeatureNamed(
     mut engine: XeTeXLayoutEngine,
     mut name: *const libc::c_char,
     mut namelength: libc::c_int,
@@ -1213,8 +1161,7 @@ pub(crate) unsafe extern "C" fn findGraphiteFeatureNamed(
     }
     return rval;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn findGraphiteFeatureSettingNamed(
+pub(crate) unsafe fn findGraphiteFeatureSettingNamed(
     mut engine: XeTeXLayoutEngine,
     mut id: uint32_t,
     mut name: *const libc::c_char,
@@ -1247,43 +1194,31 @@ pub(crate) unsafe extern "C" fn findGraphiteFeatureSettingNamed(
     }
     return rval;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGlyphWidth(
-    mut font: XeTeXFont,
-    mut gid: uint32_t,
-) -> libc::c_float {
+pub(crate) unsafe fn getGlyphWidth(mut font: XeTeXFont, mut gid: uint32_t) -> libc::c_float {
     return XeTeXFontInst_getGlyphWidth(font as *mut XeTeXFontInst, gid as GlyphID);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn countGlyphs(mut font: XeTeXFont) -> libc::c_uint {
+pub(crate) unsafe fn countGlyphs(mut font: XeTeXFont) -> libc::c_uint {
     return XeTeXFontInst_getNumGlyphs(font as *mut XeTeXFontInst) as libc::c_uint;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getFont(mut engine: XeTeXLayoutEngine) -> XeTeXFont {
+pub(crate) unsafe fn getFont(mut engine: XeTeXLayoutEngine) -> XeTeXFont {
     return (*engine).font as XeTeXFont;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getExtendFactor(mut engine: XeTeXLayoutEngine) -> libc::c_float {
+pub(crate) unsafe fn getExtendFactor(mut engine: XeTeXLayoutEngine) -> libc::c_float {
     return (*engine).extend;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getSlantFactor(mut engine: XeTeXLayoutEngine) -> libc::c_float {
+pub(crate) unsafe fn getSlantFactor(mut engine: XeTeXLayoutEngine) -> libc::c_float {
     return (*engine).slant;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getEmboldenFactor(mut engine: XeTeXLayoutEngine) -> libc::c_float {
+pub(crate) unsafe fn getEmboldenFactor(mut engine: XeTeXLayoutEngine) -> libc::c_float {
     return (*engine).embolden;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXLayoutEngine_create() -> *mut XeTeXLayoutEngine_rec {
+pub(crate) unsafe fn XeTeXLayoutEngine_create() -> *mut XeTeXLayoutEngine_rec {
     return malloc(::std::mem::size_of::<XeTeXLayoutEngine_rec>()) as *mut XeTeXLayoutEngine_rec;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXLayoutEngine_delete(mut engine: *mut XeTeXLayoutEngine_rec) {
+pub(crate) unsafe fn XeTeXLayoutEngine_delete(mut engine: *mut XeTeXLayoutEngine_rec) {
     free(engine as *mut libc::c_void);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn createLayoutEngine(
+pub(crate) unsafe fn createLayoutEngine(
     mut fontRef: PlatformFontRef,
     mut font: XeTeXFont,
     mut script: hb_tag_t,
@@ -1320,8 +1255,7 @@ pub(crate) unsafe extern "C" fn createLayoutEngine(
     free(language as *mut libc::c_void);
     return result;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn deleteLayoutEngine(mut engine: XeTeXLayoutEngine) {
+pub(crate) unsafe fn deleteLayoutEngine(mut engine: XeTeXLayoutEngine) {
     use crate::xetex_font_info::XeTeXFontInst_delete;
     hb_buffer_destroy((*engine).hbBuffer);
     XeTeXFontInst_delete((*engine).font);
@@ -1358,8 +1292,7 @@ unsafe extern "C" fn _get_unicode_funcs() -> *mut hb_unicode_funcs_t {
     return ufuncs;
 }
 static mut hbUnicodeFuncs: *mut hb_unicode_funcs_t = ptr::null_mut();
-#[no_mangle]
-pub(crate) unsafe extern "C" fn layoutChars(
+pub(crate) unsafe fn layoutChars(
     mut engine: XeTeXLayoutEngine,
     mut chars: *mut uint16_t,
     mut offset: int32_t,
@@ -1469,11 +1402,7 @@ pub(crate) unsafe extern "C" fn layoutChars(
     let mut glyphCount: libc::c_int = hb_buffer_get_length((*engine).hbBuffer) as libc::c_int;
     return glyphCount;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGlyphs(
-    mut engine: XeTeXLayoutEngine,
-    mut glyphs: *mut uint32_t,
-) {
+pub(crate) unsafe fn getGlyphs(mut engine: XeTeXLayoutEngine, mut glyphs: *mut uint32_t) {
     let mut glyphCount: libc::c_int = hb_buffer_get_length((*engine).hbBuffer) as libc::c_int;
     let mut hbGlyphs: *mut hb_glyph_info_t =
         hb_buffer_get_glyph_infos((*engine).hbBuffer, 0 as *mut libc::c_uint);
@@ -1483,8 +1412,7 @@ pub(crate) unsafe extern "C" fn getGlyphs(
         i += 1
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGlyphAdvances(
+pub(crate) unsafe fn getGlyphAdvances(
     mut engine: XeTeXLayoutEngine,
     mut advances: *mut libc::c_float,
 ) {
@@ -1507,8 +1435,7 @@ pub(crate) unsafe extern "C" fn getGlyphAdvances(
         i += 1
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGlyphPositions(
+pub(crate) unsafe fn getGlyphPositions(
     mut engine: XeTeXLayoutEngine,
     mut positions: *mut FloatPoint,
 ) {
@@ -1563,12 +1490,10 @@ pub(crate) unsafe extern "C" fn getGlyphPositions(
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getPointSize(mut engine: XeTeXLayoutEngine) -> libc::c_float {
+pub(crate) unsafe fn getPointSize(mut engine: XeTeXLayoutEngine) -> libc::c_float {
     return XeTeXFontInst_getPointSize((*engine).font);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getAscentAndDescent(
+pub(crate) unsafe fn getAscentAndDescent(
     mut engine: XeTeXLayoutEngine,
     mut ascent: *mut libc::c_float,
     mut descent: *mut libc::c_float,
@@ -1576,8 +1501,7 @@ pub(crate) unsafe extern "C" fn getAscentAndDescent(
     *ascent = XeTeXFontInst_getAscent((*engine).font);
     *descent = XeTeXFontInst_getDescent((*engine).font);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getCapAndXHeight(
+pub(crate) unsafe fn getCapAndXHeight(
     mut engine: XeTeXLayoutEngine,
     mut capheight: *mut libc::c_float,
     mut xheight: *mut libc::c_float,
@@ -1585,8 +1509,7 @@ pub(crate) unsafe extern "C" fn getCapAndXHeight(
     *capheight = XeTeXFontInst_getCapHeight((*engine).font);
     *xheight = XeTeXFontInst_getXHeight((*engine).font);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getDefaultDirection(mut engine: XeTeXLayoutEngine) -> libc::c_int {
+pub(crate) unsafe fn getDefaultDirection(mut engine: XeTeXLayoutEngine) -> libc::c_int {
     let mut script: hb_script_t = hb_buffer_get_script((*engine).hbBuffer);
     if hb_script_get_horizontal_direction(script) as libc::c_uint
         == HB_DIRECTION_RTL as libc::c_int as libc::c_uint
@@ -1596,12 +1519,10 @@ pub(crate) unsafe extern "C" fn getDefaultDirection(mut engine: XeTeXLayoutEngin
         return 0xfei32;
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getRgbValue(mut engine: XeTeXLayoutEngine) -> uint32_t {
+pub(crate) unsafe fn getRgbValue(mut engine: XeTeXLayoutEngine) -> uint32_t {
     return (*engine).rgbValue;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGlyphBounds(
+pub(crate) unsafe fn getGlyphBounds(
     mut engine: XeTeXLayoutEngine,
     mut glyphID: uint32_t,
     mut bbox: *mut GlyphBBox,
@@ -1612,15 +1533,13 @@ pub(crate) unsafe extern "C" fn getGlyphBounds(
         (*bbox).xMax *= (*engine).extend
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGlyphWidthFromEngine(
+pub(crate) unsafe fn getGlyphWidthFromEngine(
     mut engine: XeTeXLayoutEngine,
     mut glyphID: uint32_t,
 ) -> libc::c_float {
     return (*engine).extend * XeTeXFontInst_getGlyphWidth((*engine).font, glyphID as GlyphID);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGlyphHeightDepth(
+pub(crate) unsafe fn getGlyphHeightDepth(
     mut engine: XeTeXLayoutEngine,
     mut glyphID: uint32_t,
     mut height: *mut libc::c_float,
@@ -1628,8 +1547,7 @@ pub(crate) unsafe extern "C" fn getGlyphHeightDepth(
 ) {
     XeTeXFontInst_getGlyphHeightDepth((*engine).font, glyphID as GlyphID, height, depth);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGlyphSidebearings(
+pub(crate) unsafe fn getGlyphSidebearings(
     mut engine: XeTeXLayoutEngine,
     mut glyphID: uint32_t,
     mut lsb: *mut libc::c_float,
@@ -1641,22 +1559,19 @@ pub(crate) unsafe extern "C" fn getGlyphSidebearings(
         *rsb *= (*engine).extend
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGlyphItalCorr(
+pub(crate) unsafe fn getGlyphItalCorr(
     mut engine: XeTeXLayoutEngine,
     mut glyphID: uint32_t,
 ) -> libc::c_float {
     return (*engine).extend * XeTeXFontInst_getGlyphItalCorr((*engine).font, glyphID as GlyphID);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn mapCharToGlyph(
+pub(crate) unsafe fn mapCharToGlyph(
     mut engine: XeTeXLayoutEngine,
     mut charCode: uint32_t,
 ) -> uint32_t {
     return XeTeXFontInst_mapCharToGlyph((*engine).font, charCode as UChar32) as uint32_t;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getFontCharRange(
+pub(crate) unsafe fn getFontCharRange(
     mut engine: XeTeXLayoutEngine,
     mut reqFirst: libc::c_int,
 ) -> libc::c_int {
@@ -1666,16 +1581,14 @@ pub(crate) unsafe extern "C" fn getFontCharRange(
         return XeTeXFontInst_getLastCharCode((*engine).font);
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn getGlyphName(
+pub(crate) unsafe fn getGlyphName(
     mut font: XeTeXFont,
     mut gid: uint16_t,
     mut len: *mut libc::c_int,
 ) -> *const libc::c_char {
     return XeTeXFontInst_getGlyphName(font as *mut XeTeXFontInst, gid, len);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn mapGlyphToIndex(
+pub(crate) unsafe fn mapGlyphToIndex(
     mut engine: XeTeXLayoutEngine,
     mut glyphName: *const libc::c_char,
 ) -> libc::c_int {
@@ -1684,8 +1597,7 @@ pub(crate) unsafe extern "C" fn mapGlyphToIndex(
 static mut grSegment: *mut gr_segment = 0 as *mut gr_segment;
 static mut grPrevSlot: *const gr_slot = 0 as *const gr_slot;
 static mut grTextLen: libc::c_int = 0;
-#[no_mangle]
-pub(crate) unsafe extern "C" fn initGraphiteBreaking(
+pub(crate) unsafe fn initGraphiteBreaking(
     mut engine: XeTeXLayoutEngine,
     mut txtPtr: *const uint16_t,
     mut txtLen: libc::c_int,
@@ -1737,8 +1649,7 @@ pub(crate) unsafe extern "C" fn initGraphiteBreaking(
     }
     return 0i32 != 0;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn findNextGraphiteBreak() -> libc::c_int {
+pub(crate) unsafe fn findNextGraphiteBreak() -> libc::c_int {
     let mut ret: libc::c_int = -1i32;
     if !grSegment.is_null() {
         if !grPrevSlot.is_null() && grPrevSlot != gr_seg_last_slot(grSegment) {
@@ -1801,8 +1712,7 @@ use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
 /* graphite interface functions... */
-#[no_mangle]
-pub(crate) unsafe extern "C" fn usingGraphite(mut engine: XeTeXLayoutEngine) -> bool {
+pub(crate) unsafe fn usingGraphite(mut engine: XeTeXLayoutEngine) -> bool {
     if !(*engine).shaper.is_null()
         && strcmp(
             b"graphite2\x00" as *const u8 as *const libc::c_char,
@@ -1814,8 +1724,7 @@ pub(crate) unsafe extern "C" fn usingGraphite(mut engine: XeTeXLayoutEngine) -> 
         return 0i32 != 0;
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn usingOpenType(mut engine: XeTeXLayoutEngine) -> bool {
+pub(crate) unsafe fn usingOpenType(mut engine: XeTeXLayoutEngine) -> bool {
     if (*engine).shaper.is_null()
         || strcmp(
             b"ot\x00" as *const u8 as *const libc::c_char,
@@ -1827,7 +1736,6 @@ pub(crate) unsafe extern "C" fn usingOpenType(mut engine: XeTeXLayoutEngine) -> 
         return 0i32 != 0;
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn isOpenTypeMathFont(mut engine: XeTeXLayoutEngine) -> bool {
+pub(crate) unsafe fn isOpenTypeMathFont(mut engine: XeTeXLayoutEngine) -> bool {
     return hb_ot_math_has_data(hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font))) != 0;
 }

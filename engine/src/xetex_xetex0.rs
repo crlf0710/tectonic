@@ -139,8 +139,7 @@ unsafe extern "C" fn int_error(mut n: i32) {
     print_char(')' as i32);
     error();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn badness(mut t: scaled_t, mut s: scaled_t) -> i32 {
+pub(crate) unsafe fn badness(mut t: scaled_t, mut s: scaled_t) -> i32 {
     if t == 0 {
         return 0;
     }
@@ -253,8 +252,7 @@ pub(crate) unsafe fn EDGE_NODE_edge_dist(p: isize) -> *mut i32 {
 
 /*:112*/
 /*118:*/
-#[no_mangle]
-pub(crate) unsafe extern "C" fn show_token_list(mut p: i32, mut q: i32, mut l: i32) {
+pub(crate) unsafe fn show_token_list(mut p: i32, mut q: i32, mut l: i32) {
     let mut m: i32 = 0;
     let mut c: i32 = 0;
     let mut match_chr: i32 = 0;
@@ -328,8 +326,7 @@ pub(crate) unsafe extern "C" fn show_token_list(mut p: i32, mut q: i32, mut l: i
         print_esc_cstr(b"ETC.");
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn runaway() {
+pub(crate) unsafe fn runaway() {
     let mut p: i32 = TEX_NULL;
     if scanner_status as i32 > SKIPPING {
         match scanner_status as i32 {
@@ -356,8 +353,7 @@ pub(crate) unsafe extern "C" fn runaway() {
         show_token_list(MEM[p as usize].b32.s1, TEX_NULL, error_line - 10);
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn get_avail() -> i32 {
+pub(crate) unsafe fn get_avail() -> i32 {
     let mut p = avail;
     if p != TEX_NULL {
         avail = *LLIST_link(avail as _);
@@ -375,8 +371,7 @@ pub(crate) unsafe extern "C" fn get_avail() -> i32 {
     MEM[p as usize].b32.s1 = TEX_NULL;
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn flush_list(mut p: i32) {
+pub(crate) unsafe fn flush_list(mut p: i32) {
     let mut q: i32 = 0;
     let mut r: i32 = 0;
     if p != TEX_NULL {
@@ -392,8 +387,7 @@ pub(crate) unsafe extern "C" fn flush_list(mut p: i32) {
         avail = p
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn get_node(mut s: i32) -> i32 {
+pub(crate) unsafe fn get_node(mut s: i32) -> i32 {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut r: i32 = 0;
@@ -478,8 +472,7 @@ pub(crate) unsafe extern "C" fn get_node(mut s: i32) -> i32 {
         return r;
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn free_node(mut p: i32, mut s: i32) {
+pub(crate) unsafe fn free_node(mut p: i32, mut s: i32) {
     let mut q: i32 = 0;
     MEM[p as usize].b32.s0 = s;
     MEM[p as usize].b32.s1 = 0x3fffffff;
@@ -489,8 +482,7 @@ pub(crate) unsafe extern "C" fn free_node(mut p: i32, mut s: i32) {
     MEM[(rover + 1) as usize].b32.s0 = p;
     MEM[(q + 1) as usize].b32.s1 = p;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_null_box() -> i32 {
+pub(crate) unsafe fn new_null_box() -> i32 {
     let mut p: i32 = 0;
     p = get_node(8i32);
     MEM[p as usize].b16.s1 = 0_u16;
@@ -505,8 +497,7 @@ pub(crate) unsafe extern "C" fn new_null_box() -> i32 {
     MEM[(p + 6) as usize].gr = 0.0f64;
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_rule() -> i32 {
+pub(crate) unsafe fn new_rule() -> i32 {
     let mut p: i32 = 0;
     p = get_node(5i32);
     MEM[p as usize].b16.s1 = 2_u16;
@@ -516,12 +507,7 @@ pub(crate) unsafe extern "C" fn new_rule() -> i32 {
     MEM[(p + 3) as usize].b32.s1 = -0x40000000;
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_ligature(
-    mut f: internal_font_number,
-    mut c: u16,
-    mut q: i32,
-) -> i32 {
+pub(crate) unsafe fn new_ligature(mut f: internal_font_number, mut c: u16, mut q: i32) -> i32 {
     let mut p: i32 = 0;
     p = get_node(2i32);
     MEM[p as usize].b16.s1 = 6_u16;
@@ -531,16 +517,14 @@ pub(crate) unsafe extern "C" fn new_ligature(
     MEM[p as usize].b16.s0 = 0_u16;
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_lig_item(mut c: u16) -> i32 {
+pub(crate) unsafe fn new_lig_item(mut c: u16) -> i32 {
     let mut p: i32 = 0;
     p = get_node(2i32);
     MEM[p as usize].b16.s0 = c;
     MEM[(p + 1) as usize].b32.s1 = TEX_NULL;
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_disc() -> i32 {
+pub(crate) unsafe fn new_disc() -> i32 {
     let mut p: i32 = 0;
     p = get_node(2i32);
     MEM[p as usize].b16.s1 = 7_u16;
@@ -549,8 +533,7 @@ pub(crate) unsafe extern "C" fn new_disc() -> i32 {
     MEM[(p + 1) as usize].b32.s1 = TEX_NULL;
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn copy_native_glyph_info(mut src: i32, mut dest: i32) {
+pub(crate) unsafe fn copy_native_glyph_info(mut src: i32, mut dest: i32) {
     let mut glyph_count: i32 = 0;
     if !MEM[(src + 5) as usize].ptr.is_null() {
         glyph_count = MEM[(src + 4) as usize].b16.s0 as i32;
@@ -565,8 +548,7 @@ pub(crate) unsafe extern "C" fn copy_native_glyph_info(mut src: i32, mut dest: i
         MEM[(dest + 4) as usize].b16.s0 = glyph_count as u16
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_math(mut w: scaled_t, mut s: small_number) -> i32 {
+pub(crate) unsafe fn new_math(mut w: scaled_t, mut s: small_number) -> i32 {
     let mut p: i32 = 0;
     p = get_node(3i32);
     MEM[p as usize].b16.s1 = 9_u16;
@@ -574,8 +556,7 @@ pub(crate) unsafe extern "C" fn new_math(mut w: scaled_t, mut s: small_number) -
     MEM[(p + 1) as usize].b32.s1 = w;
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_spec(mut p: i32) -> i32 {
+pub(crate) unsafe fn new_spec(mut p: i32) -> i32 {
     let mut q: i32 = 0;
     q = get_node(4i32);
     MEM[q as usize] = MEM[p as usize];
@@ -585,8 +566,7 @@ pub(crate) unsafe extern "C" fn new_spec(mut p: i32) -> i32 {
     MEM[(q + 3) as usize].b32.s1 = MEM[(p + 3) as usize].b32.s1;
     q
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_param_glue(mut n: small_number) -> i32 {
+pub(crate) unsafe fn new_param_glue(mut n: small_number) -> i32 {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     p = get_node(3i32);
@@ -598,8 +578,7 @@ pub(crate) unsafe extern "C" fn new_param_glue(mut n: small_number) -> i32 {
     MEM[q as usize].b32.s1 += 1;
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_glue(mut q: i32) -> i32 {
+pub(crate) unsafe fn new_glue(mut q: i32) -> i32 {
     let mut p: i32 = 0;
     p = get_node(3i32);
     MEM[p as usize].b16.s1 = 10_u16;
@@ -609,8 +588,7 @@ pub(crate) unsafe extern "C" fn new_glue(mut q: i32) -> i32 {
     MEM[q as usize].b32.s1 += 1;
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_skip_param(mut n: small_number) -> i32 {
+pub(crate) unsafe fn new_skip_param(mut n: small_number) -> i32 {
     let mut p: i32 = 0;
     temp_ptr = new_spec(EQTB[(GLUE_BASE + n as i32) as usize].b32.s1);
     p = new_glue(temp_ptr);
@@ -618,8 +596,7 @@ pub(crate) unsafe extern "C" fn new_skip_param(mut n: small_number) -> i32 {
     MEM[p as usize].b16.s0 = (n as i32 + 1) as u16;
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_kern(mut w: scaled_t) -> i32 {
+pub(crate) unsafe fn new_kern(mut w: scaled_t) -> i32 {
     let mut p: i32 = 0;
     p = get_node(3i32);
     MEM[p as usize].b16.s1 = 11_u16;
@@ -627,8 +604,7 @@ pub(crate) unsafe extern "C" fn new_kern(mut w: scaled_t) -> i32 {
     MEM[(p + 1) as usize].b32.s1 = w;
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_penalty(mut m: i32) -> i32 {
+pub(crate) unsafe fn new_penalty(mut m: i32) -> i32 {
     let mut p: i32 = 0;
     p = get_node(3i32);
     MEM[p as usize].b16.s1 = 12_u16;
@@ -637,8 +613,7 @@ pub(crate) unsafe extern "C" fn new_penalty(mut m: i32) -> i32 {
     p
 }
 /*:165*/
-#[no_mangle]
-pub(crate) unsafe extern "C" fn prev_rightmost(mut s: i32, mut e: i32) -> i32 {
+pub(crate) unsafe fn prev_rightmost(mut s: i32, mut e: i32) -> i32 {
     let mut p: i32 = 0;
     p = s;
     if p == TEX_NULL {
@@ -652,8 +627,7 @@ pub(crate) unsafe extern "C" fn prev_rightmost(mut s: i32, mut e: i32) -> i32 {
     }
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn short_display(mut p: i32) {
+pub(crate) unsafe fn short_display(mut p: i32) {
     let mut n: i32 = 0;
     while p > 0i32 {
         if is_char_node(p) {
@@ -732,8 +706,7 @@ pub(crate) unsafe extern "C" fn short_display(mut p: i32) {
         p = MEM[p as usize].b32.s1
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_font_and_char(mut p: i32) {
+pub(crate) unsafe fn print_font_and_char(mut p: i32) {
     if p > mem_end {
         print_esc_cstr(b"CLOBBERED.");
     } else {
@@ -747,8 +720,7 @@ pub(crate) unsafe extern "C" fn print_font_and_char(mut p: i32) {
         print(MEM[p as usize].b16.s0 as i32);
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_mark(mut p: i32) {
+pub(crate) unsafe fn print_mark(mut p: i32) {
     print_char('{' as i32);
     if p < hi_mem_min || p > mem_end {
         print_esc_cstr(b"CLOBBERED.");
@@ -757,16 +729,14 @@ pub(crate) unsafe extern "C" fn print_mark(mut p: i32) {
     }
     print_char('}' as i32);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_rule_dimen(mut d: scaled_t) {
+pub(crate) unsafe fn print_rule_dimen(mut d: scaled_t) {
     if d == -0x40000000i32 {
         print_char('*' as i32);
     } else {
         print_scaled(d);
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_glue(mut d: scaled_t, mut order: i32, mut s: *const i8) {
+pub(crate) unsafe fn print_glue(mut d: scaled_t, mut order: i32, mut s: *const i8) {
     print_scaled(d);
     if order < 0i32 || order > 3i32 {
         print_cstr(b"foul");
@@ -780,8 +750,7 @@ pub(crate) unsafe extern "C" fn print_glue(mut d: scaled_t, mut order: i32, mut 
         print_cstr(CStr::from_ptr(s).to_bytes());
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_spec(mut p: i32, mut s: *const i8) {
+pub(crate) unsafe fn print_spec(mut p: i32, mut s: *const i8) {
     if p < 0i32 || p >= lo_mem_max {
         print_char('*' as i32);
     } else {
@@ -807,8 +776,7 @@ pub(crate) unsafe extern "C" fn print_spec(mut p: i32, mut s: *const i8) {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_fam_and_char(mut p: i32) {
+pub(crate) unsafe fn print_fam_and_char(mut p: i32) {
     let mut c: i32 = 0;
     print_esc_cstr(b"fam");
     print_int(MEM[p as usize].b16.s1 as i32 % 256 % 256);
@@ -821,8 +789,7 @@ pub(crate) unsafe extern "C" fn print_fam_and_char(mut p: i32) {
         print_char(c);
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_delimiter(mut p: i32) {
+pub(crate) unsafe fn print_delimiter(mut p: i32) {
     let mut a: i32 = 0;
     a = ((MEM[p as usize].b16.s3 as i32 % 256 * 256) as i64
         + (MEM[p as usize].b16.s2 as i64 + (MEM[p as usize].b16.s3 as i32 / 256) as i64 * 65536))
@@ -836,8 +803,7 @@ pub(crate) unsafe extern "C" fn print_delimiter(mut p: i32) {
         print_hex(a);
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_subsidiary_data(mut p: i32, mut c: UTF16_code) {
+pub(crate) unsafe fn print_subsidiary_data(mut p: i32, mut c: UTF16_code) {
     if cur_length() >= depth_threshold {
         if MEM[p as usize].b32.s1 != 0 {
             print_cstr(b" []");
@@ -869,8 +835,7 @@ pub(crate) unsafe extern "C" fn print_subsidiary_data(mut p: i32, mut c: UTF16_c
         pool_ptr -= 1
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_style(mut c: i32) {
+pub(crate) unsafe fn print_style(mut c: i32) {
     match c / 2i32 {
         0 => {
             print_esc_cstr(b"displaystyle");
@@ -889,8 +854,7 @@ pub(crate) unsafe extern "C" fn print_style(mut c: i32) {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_skip_param(mut n: i32) {
+pub(crate) unsafe fn print_skip_param(mut n: i32) {
     match n {
         0 => {
             print_esc_cstr(b"lineskip");
@@ -954,8 +918,7 @@ pub(crate) unsafe extern "C" fn print_skip_param(mut n: i32) {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
+pub(crate) unsafe fn show_node_list(mut p: i32) {
     let mut n: i32 = 0;
     let mut i: i32 = 0;
     let mut g: f64 = 0.;
@@ -1439,8 +1402,7 @@ pub(crate) unsafe extern "C" fn show_node_list(mut p: i32) {
         p = MEM[p as usize].b32.s1
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn show_box(mut p: i32) {
+pub(crate) unsafe fn show_box(mut p: i32) {
     depth_threshold = EQTB[(INT_BASE + 25i32) as usize].b32.s1;
     breadth_max = EQTB[(INT_BASE + 24i32) as usize].b32.s1;
     if breadth_max <= 0i32 {
@@ -1452,30 +1414,26 @@ pub(crate) unsafe extern "C" fn show_box(mut p: i32) {
     show_node_list(p);
     print_ln();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn short_display_n(mut p: i32, mut m: i32) {
+pub(crate) unsafe fn short_display_n(mut p: i32, mut m: i32) {
     breadth_max = m;
     depth_threshold = pool_size - pool_ptr - 1i32;
     show_node_list(p);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn delete_token_ref(mut p: i32) {
+pub(crate) unsafe fn delete_token_ref(mut p: i32) {
     if MEM[p as usize].b32.s0 == TEX_NULL {
         flush_list(p);
     } else {
         MEM[p as usize].b32.s0 -= 1;
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn delete_glue_ref(mut p: i32) {
+pub(crate) unsafe fn delete_glue_ref(mut p: i32) {
     if MEM[p as usize].b32.s1 == TEX_NULL {
         free_node(p, 4i32);
     } else {
         MEM[p as usize].b32.s1 -= 1;
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn flush_node_list(mut p: i32) {
+pub(crate) unsafe fn flush_node_list(mut p: i32) {
     let mut current_block: u64;
     let mut q: i32 = 0;
     while p != TEX_NULL {
@@ -1634,8 +1592,7 @@ pub(crate) unsafe extern "C" fn flush_node_list(mut p: i32) {
         p = q
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn copy_node_list(mut p: i32) -> i32 {
+pub(crate) unsafe fn copy_node_list(mut p: i32) -> i32 {
     let mut h: i32 = 0;
     let mut q: i32 = 0;
     let mut r: i32 = 0;
@@ -1765,8 +1722,7 @@ pub(crate) unsafe extern "C" fn copy_node_list(mut p: i32) -> i32 {
     avail = h;
     q
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_mode(mut m: i32) {
+pub(crate) unsafe fn print_mode(mut m: i32) {
     if m > 0i32 {
         match m / (102i32 + 1i32) {
             0 => {
@@ -1797,8 +1753,7 @@ pub(crate) unsafe extern "C" fn print_mode(mut m: i32) {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_in_mode(mut m: i32) {
+pub(crate) unsafe fn print_in_mode(mut m: i32) {
     if m > 0i32 {
         match m / (102i32 + 1i32) {
             0 => {
@@ -1829,8 +1784,7 @@ pub(crate) unsafe extern "C" fn print_in_mode(mut m: i32) {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn push_nest() {
+pub(crate) unsafe fn push_nest() {
     if nest_ptr > max_nest_stack {
         max_nest_stack = nest_ptr;
         if nest_ptr == nest_size {
@@ -1845,15 +1799,13 @@ pub(crate) unsafe extern "C" fn push_nest() {
     cur_list.mode_line = line;
     cur_list.eTeX_aux = TEX_NULL;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn pop_nest() {
+pub(crate) unsafe fn pop_nest() {
     MEM[cur_list.head as usize].b32.s1 = avail;
     avail = cur_list.head;
     nest_ptr -= 1;
     cur_list = *nest.offset(nest_ptr as isize);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn show_activities() {
+pub(crate) unsafe fn show_activities() {
     let mut p: i32 = 0;
     let mut m: i16 = 0;
     let mut a: memory_word = memory_word {
@@ -1990,8 +1942,7 @@ pub(crate) unsafe extern "C" fn show_activities() {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_param(mut n: i32) {
+pub(crate) unsafe fn print_param(mut n: i32) {
     match n {
         0 => {
             print_esc_cstr(b"pretolerance");
@@ -2244,8 +2195,7 @@ pub(crate) unsafe extern "C" fn print_param(mut n: i32) {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn begin_diagnostic() {
+pub(crate) unsafe fn begin_diagnostic() {
     old_setting = selector;
     if EQTB[(INT_BASE + 29i32) as usize].b32.s1 <= 0i32 && selector == Selector::TERM_AND_LOG {
         selector = (u8::from(selector) - 1).into();
@@ -2254,16 +2204,14 @@ pub(crate) unsafe extern "C" fn begin_diagnostic() {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn end_diagnostic(mut blank_line: bool) {
+pub(crate) unsafe fn end_diagnostic(mut blank_line: bool) {
     print_nl_cstr(b"");
     if blank_line {
         print_ln();
     }
     selector = old_setting;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_length_param(mut n: i32) {
+pub(crate) unsafe fn print_length_param(mut n: i32) {
     match n {
         0 => {
             print_esc_cstr(b"parindent");
@@ -2339,8 +2287,7 @@ pub(crate) unsafe extern "C" fn print_length_param(mut n: i32) {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
+pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
     let mut n: i32 = 0;
     let mut font_name_str: str_number = 0;
     let mut quote_char: UTF16_code = 0;
@@ -3727,8 +3674,7 @@ pub(crate) unsafe extern "C" fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn not_aat_font_error(mut cmd: i32, mut c: i32, mut f: i32) {
+pub(crate) unsafe fn not_aat_font_error(mut cmd: i32, mut c: i32, mut f: i32) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -3741,8 +3687,7 @@ pub(crate) unsafe extern "C" fn not_aat_font_error(mut cmd: i32, mut c: i32, mut
     print_cstr(b"; not an AAT font");
     error();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn not_aat_gr_font_error(mut cmd: i32, mut c: i32, mut f: i32) {
+pub(crate) unsafe fn not_aat_gr_font_error(mut cmd: i32, mut c: i32, mut f: i32) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -3755,8 +3700,7 @@ pub(crate) unsafe extern "C" fn not_aat_gr_font_error(mut cmd: i32, mut c: i32, 
     print_cstr(b"; not an AAT or Graphite font");
     error();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn not_ot_font_error(mut cmd: i32, mut c: i32, mut f: i32) {
+pub(crate) unsafe fn not_ot_font_error(mut cmd: i32, mut c: i32, mut f: i32) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -3769,8 +3713,7 @@ pub(crate) unsafe extern "C" fn not_ot_font_error(mut cmd: i32, mut c: i32, mut 
     print_cstr(b"; not an OpenType Layout font");
     error();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn not_native_font_error(mut cmd: i32, mut c: i32, mut f: i32) {
+pub(crate) unsafe fn not_native_font_error(mut cmd: i32, mut c: i32, mut f: i32) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -3784,8 +3727,7 @@ pub(crate) unsafe extern "C" fn not_native_font_error(mut cmd: i32, mut c: i32, 
     error();
 }
 /*:1434*/
-#[no_mangle]
-pub(crate) unsafe extern "C" fn id_lookup(mut j: i32, mut l: i32) -> i32 {
+pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
     let mut h: i32 = 0; /*269:*/
     let mut d: i32 = 0;
     let mut p: i32 = 0;
@@ -3886,8 +3828,7 @@ pub(crate) unsafe extern "C" fn id_lookup(mut j: i32, mut l: i32) -> i32 {
     }
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn prim_lookup(mut s: str_number) -> i32 {
+pub(crate) unsafe fn prim_lookup(mut s: str_number) -> i32 {
     let mut current_block: u64;
     let mut h: i32 = 0;
     let mut p: i32 = 0;
@@ -3975,8 +3916,7 @@ pub(crate) unsafe extern "C" fn prim_lookup(mut s: str_number) -> i32 {
 }
 /*:276*/
 /*280: *//*296: */
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_group(mut e: bool) {
+pub(crate) unsafe fn print_group(mut e: bool) {
     match cur_group as i32 {
         0 => {
             print_cstr(b"bottom level");
@@ -4044,8 +3984,7 @@ pub(crate) unsafe extern "C" fn print_group(mut e: bool) {
 }
 /*:1448*/
 /*1449: */
-#[no_mangle]
-pub(crate) unsafe extern "C" fn pseudo_input() -> bool {
+pub(crate) unsafe fn pseudo_input() -> bool {
     let mut p: i32 = 0;
     let mut sz: i32 = 0;
     let mut w: b16x4 = b16x4 {
@@ -4097,8 +4036,7 @@ pub(crate) unsafe extern "C" fn pseudo_input() -> bool {
         true
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn pseudo_close() {
+pub(crate) unsafe fn pseudo_close() {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     p = MEM[pseudo_files as usize].b32.s1;
@@ -4112,8 +4050,7 @@ pub(crate) unsafe extern "C" fn pseudo_close() {
         free_node(p, MEM[p as usize].b32.s0);
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn group_warning() {
+pub(crate) unsafe fn group_warning() {
     let mut w: bool = false;
     BASE_PTR = INPUT_PTR;
     INPUT_STACK[BASE_PTR] = cur_input;
@@ -4146,8 +4083,7 @@ pub(crate) unsafe extern "C" fn group_warning() {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn if_warning() {
+pub(crate) unsafe fn if_warning() {
     let mut w: bool = false;
     BASE_PTR = INPUT_PTR;
     INPUT_STACK[BASE_PTR] = cur_input;
@@ -4184,8 +4120,7 @@ pub(crate) unsafe extern "C" fn if_warning() {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn file_warning() {
+pub(crate) unsafe fn file_warning() {
     let mut p: i32 = 0;
     let mut l: u16 = 0;
     let mut c: u16 = 0;
@@ -4237,8 +4172,7 @@ pub(crate) unsafe extern "C" fn file_warning() {
         history = TTHistory::WARNING_ISSUED
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn delete_sa_ref(mut q: i32) {
+pub(crate) unsafe fn delete_sa_ref(mut q: i32) {
     let mut p: i32 = 0;
     let mut i: small_number = 0;
     let mut s: small_number = 0;
@@ -4287,8 +4221,7 @@ pub(crate) unsafe extern "C" fn delete_sa_ref(mut q: i32) {
 }
 /*:1609*/
 /*1611: */
-#[no_mangle]
-pub(crate) unsafe extern "C" fn sa_save(mut p: i32) {
+pub(crate) unsafe fn sa_save(mut p: i32) {
     let mut q: i32 = 0;
     let mut i: u16 = 0;
     if cur_level as i32 != sa_level as i32 {
@@ -4326,8 +4259,7 @@ pub(crate) unsafe extern "C" fn sa_save(mut p: i32) {
     sa_chain = q;
     MEM[(p + 1) as usize].b32.s0 += 1;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn sa_destroy(mut p: i32) {
+pub(crate) unsafe fn sa_destroy(mut p: i32) {
     if (MEM[p as usize].b16.s1 as i32) < 256 {
         delete_glue_ref(MEM[(p + 1) as usize].b32.s1);
     } else if MEM[(p + 1) as usize].b32.s1 != TEX_NULL {
@@ -4338,8 +4270,7 @@ pub(crate) unsafe extern "C" fn sa_destroy(mut p: i32) {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn sa_def(mut p: i32, mut e: i32) {
+pub(crate) unsafe fn sa_def(mut p: i32, mut e: i32) {
     MEM[(p + 1) as usize].b32.s0 += 1;
     if MEM[(p + 1) as usize].b32.s1 == e {
         sa_destroy(p);
@@ -4354,8 +4285,7 @@ pub(crate) unsafe extern "C" fn sa_def(mut p: i32, mut e: i32) {
     }
     delete_sa_ref(p);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn sa_w_def(mut p: i32, mut w: i32) {
+pub(crate) unsafe fn sa_w_def(mut p: i32, mut w: i32) {
     MEM[(p + 1) as usize].b32.s0 += 1;
     if !(MEM[(p + 2) as usize].b32.s1 == w) {
         if MEM[p as usize].b16.s0 as i32 != cur_level as i32 {
@@ -4366,23 +4296,20 @@ pub(crate) unsafe extern "C" fn sa_w_def(mut p: i32, mut w: i32) {
     }
     delete_sa_ref(p);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn gsa_def(mut p: i32, mut e: i32) {
+pub(crate) unsafe fn gsa_def(mut p: i32, mut e: i32) {
     MEM[(p + 1) as usize].b32.s0 += 1;
     sa_destroy(p);
     MEM[p as usize].b16.s0 = 1_u16;
     MEM[(p + 1) as usize].b32.s1 = e;
     delete_sa_ref(p);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn gsa_w_def(mut p: i32, mut w: i32) {
+pub(crate) unsafe fn gsa_w_def(mut p: i32, mut w: i32) {
     MEM[(p + 1) as usize].b32.s0 += 1;
     MEM[p as usize].b16.s0 = 1_u16;
     MEM[(p + 2) as usize].b32.s1 = w;
     delete_sa_ref(p);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn sa_restore() {
+pub(crate) unsafe fn sa_restore() {
     let mut p: i32 = 0;
     loop {
         p = MEM[(sa_chain + 1) as usize].b32.s0;
@@ -4416,8 +4343,7 @@ pub(crate) unsafe extern "C" fn sa_restore() {
         }
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_save_level(mut c: group_code) {
+pub(crate) unsafe fn new_save_level(mut c: group_code) {
     if SAVE_PTR > MAX_SAVE_STACK {
         MAX_SAVE_STACK = SAVE_PTR;
         if MAX_SAVE_STACK > SAVE_SIZE - 7 {
@@ -4437,8 +4363,7 @@ pub(crate) unsafe extern "C" fn new_save_level(mut c: group_code) {
     cur_level = cur_level.wrapping_add(1);
     SAVE_PTR += 1;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn eq_destroy(mut w: memory_word) {
+pub(crate) unsafe fn eq_destroy(mut w: memory_word) {
     let mut q: i32 = 0;
     match w.b16.s1 as i32 {
         113 | 114 | 115 | 116 => {
@@ -4464,8 +4389,7 @@ pub(crate) unsafe extern "C" fn eq_destroy(mut w: memory_word) {
         _ => {}
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn eq_save(mut p: i32, mut l: u16) {
+pub(crate) unsafe fn eq_save(mut p: i32, mut l: u16) {
     if SAVE_PTR > MAX_SAVE_STACK {
         MAX_SAVE_STACK = SAVE_PTR;
         if MAX_SAVE_STACK > SAVE_SIZE - 7 {
@@ -4483,8 +4407,7 @@ pub(crate) unsafe extern "C" fn eq_save(mut p: i32, mut l: u16) {
     SAVE_STACK[SAVE_PTR].b32.s1 = p;
     SAVE_PTR += 1;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn eq_define(mut p: i32, mut t: u16, mut e: i32) {
+pub(crate) unsafe fn eq_define(mut p: i32, mut t: u16, mut e: i32) {
     if EQTB[p as usize].b16.s1 as i32 == t as i32 && EQTB[p as usize].b32.s1 == e {
         eq_destroy(EQTB[p as usize]);
         return;
@@ -4498,8 +4421,7 @@ pub(crate) unsafe extern "C" fn eq_define(mut p: i32, mut t: u16, mut e: i32) {
     EQTB[p as usize].b16.s1 = t;
     EQTB[p as usize].b32.s1 = e;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn eq_word_define(mut p: i32, mut w: i32) {
+pub(crate) unsafe fn eq_word_define(mut p: i32, mut w: i32) {
     if EQTB[p as usize].b32.s1 == w {
         return;
     }
@@ -4509,20 +4431,17 @@ pub(crate) unsafe extern "C" fn eq_word_define(mut p: i32, mut w: i32) {
     }
     EQTB[p as usize].b32.s1 = w;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn geq_define(mut p: i32, mut t: u16, mut e: i32) {
+pub(crate) unsafe fn geq_define(mut p: i32, mut t: u16, mut e: i32) {
     eq_destroy(EQTB[p as usize]);
     EQTB[p as usize].b16.s0 = 1_u16;
     EQTB[p as usize].b16.s1 = t;
     EQTB[p as usize].b32.s1 = e;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn geq_word_define(mut p: i32, mut w: i32) {
+pub(crate) unsafe fn geq_word_define(mut p: i32, mut w: i32) {
     EQTB[p as usize].b32.s1 = w;
     _xeq_level_array[(p - (INT_BASE)) as usize] = 1_u16;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn save_for_after(mut t: i32) {
+pub(crate) unsafe fn save_for_after(mut t: i32) {
     if cur_level as i32 > 1i32 {
         if SAVE_PTR > MAX_SAVE_STACK {
             MAX_SAVE_STACK = SAVE_PTR;
@@ -4536,8 +4455,7 @@ pub(crate) unsafe extern "C" fn save_for_after(mut t: i32) {
         SAVE_PTR += 1;
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn unsave() {
+pub(crate) unsafe fn unsave() {
     let mut p: i32 = 0;
     let mut l: u16 = 0_u16;
     let mut t: i32 = 0;
@@ -4614,8 +4532,7 @@ pub(crate) unsafe extern "C" fn unsave() {
         confusion(b"curlevel");
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn prepare_mag() {
+pub(crate) unsafe fn prepare_mag() {
     if mag_set > 0i32 && EQTB[(INT_BASE + 17i32) as usize].b32.s1 != mag_set {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -4648,14 +4565,12 @@ pub(crate) unsafe extern "C" fn prepare_mag() {
     }
     mag_set = EQTB[(INT_BASE + 17i32) as usize].b32.s1;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn token_show(mut p: i32) {
+pub(crate) unsafe fn token_show(mut p: i32) {
     if p != TEX_NULL {
         show_token_list(MEM[p as usize].b32.s1, TEX_NULL, 10000000i64 as i32);
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_meaning() {
+pub(crate) unsafe fn print_meaning() {
     print_cmd_chr(cur_cmd as u16, cur_chr);
     if cur_cmd as i32 >= 113i32 {
         print_char(':' as i32);
@@ -4667,8 +4582,7 @@ pub(crate) unsafe extern "C" fn print_meaning() {
         token_show(cur_mark[cur_chr as usize]);
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn show_cur_cmd_chr() {
+pub(crate) unsafe fn show_cur_cmd_chr() {
     let mut n: i32 = 0;
     let mut l: i32 = 0;
     let mut p: i32 = 0;
@@ -4711,8 +4625,7 @@ pub(crate) unsafe extern "C" fn show_cur_cmd_chr() {
     print_char('}' as i32);
     end_diagnostic(false);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn show_context() {
+pub(crate) unsafe fn show_context() {
     let mut nn: i32 = 0;
     let mut bottom_line: bool = false;
     let mut i: i32 = 0;
@@ -4965,8 +4878,7 @@ pub(crate) unsafe extern "C" fn show_context() {
     }
     cur_input = INPUT_STACK[INPUT_PTR];
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn begin_token_list(mut p: i32, mut t: u16) {
+pub(crate) unsafe fn begin_token_list(mut p: i32, mut t: u16) {
     if INPUT_PTR > MAX_IN_STACK {
         MAX_IN_STACK = INPUT_PTR;
         if INPUT_PTR == STACK_SIZE {
@@ -5024,8 +4936,7 @@ pub(crate) unsafe extern "C" fn begin_token_list(mut p: i32, mut t: u16) {
         cur_input.loc = p
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn end_token_list() {
+pub(crate) unsafe fn end_token_list() {
     if cur_input.index as i32 >= 3i32 {
         if cur_input.index as i32 <= 5i32 {
             flush_list(cur_input.start);
@@ -5048,8 +4959,7 @@ pub(crate) unsafe extern "C" fn end_token_list() {
     INPUT_PTR -= 1;
     cur_input = INPUT_STACK[INPUT_PTR];
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn back_input() {
+pub(crate) unsafe fn back_input() {
     let mut p: i32 = 0;
     while cur_input.state as i32 == 0i32
         && cur_input.loc == TEX_NULL
@@ -5079,19 +4989,16 @@ pub(crate) unsafe extern "C" fn back_input() {
     cur_input.index = 3_u16;
     cur_input.loc = p;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn back_error() {
+pub(crate) unsafe fn back_error() {
     back_input();
     error();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn ins_error() {
+pub(crate) unsafe fn ins_error() {
     back_input();
     cur_input.index = 5_u16;
     error();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn begin_file_reading() {
+pub(crate) unsafe fn begin_file_reading() {
     if IN_OPEN == MAX_IN_OPEN {
         overflow(b"text input levels", MAX_IN_OPEN as i32);
     }
@@ -5119,8 +5026,7 @@ pub(crate) unsafe extern "C" fn begin_file_reading() {
     cur_input.name = 0i32;
     cur_input.synctex_tag = 0i32;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn end_file_reading() {
+pub(crate) unsafe fn end_file_reading() {
     first = cur_input.start;
     line = LINE_STACK[cur_input.index as usize];
     if cur_input.name == 18i32 || cur_input.name == 19i32 {
@@ -5132,8 +5038,7 @@ pub(crate) unsafe extern "C" fn end_file_reading() {
     cur_input = INPUT_STACK[INPUT_PTR];
     IN_OPEN -= 1;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn check_outer_validity() {
+pub(crate) unsafe fn check_outer_validity() {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     if scanner_status as i32 != 0i32 {
@@ -5233,8 +5138,7 @@ pub(crate) unsafe extern "C" fn check_outer_validity() {
     };
 }
 /* These macros are kinda scary, but convenient */
-#[no_mangle]
-pub(crate) unsafe extern "C" fn get_next() {
+pub(crate) unsafe fn get_next() {
     let mut current_block: u64;
     let mut k: i32 = 0;
     let mut t: i32 = 0;
@@ -5906,8 +5810,7 @@ pub(crate) unsafe extern "C" fn get_next() {
         }
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn get_token() {
+pub(crate) unsafe fn get_token() {
     no_new_control_sequence = false;
     get_next();
     no_new_control_sequence = true;
@@ -5917,8 +5820,7 @@ pub(crate) unsafe extern "C" fn get_token() {
         cur_tok = 0x1ffffffi32 + cur_cs
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn macro_call() {
+pub(crate) unsafe fn macro_call() {
     let mut current_block: u64;
     let mut r: i32 = 0;
     let mut p: i32 = TEX_NULL;
@@ -6250,16 +6152,14 @@ pub(crate) unsafe extern "C" fn macro_call() {
     scanner_status = save_scanner_status as u8;
     warning_index = save_warning_index;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn insert_relax() {
+pub(crate) unsafe fn insert_relax() {
     cur_tok = 0x1ffffffi32 + cur_cs;
     back_input();
     cur_tok = 0x1ffffffi32 + (FROZEN_CONTROL_SEQUENCE + 7i32);
     back_input();
     cur_input.index = 5_u16;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_index(mut i: u16, mut q: i32) {
+pub(crate) unsafe fn new_index(mut i: u16, mut q: i32) {
     let mut k: small_number = 0;
     cur_ptr = get_node(33i32);
     MEM[cur_ptr as usize].b16.s1 = i;
@@ -6279,8 +6179,7 @@ pub(crate) unsafe extern "C" fn new_index(mut i: u16, mut q: i32) {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn find_sa_element(mut t: small_number, mut n: i32, mut w: bool) {
+pub(crate) unsafe fn find_sa_element(mut t: small_number, mut n: i32, mut w: bool) {
     let mut current_block: u64;
     let mut q: i32 = 0;
     let mut i: small_number = 0;
@@ -6433,8 +6332,7 @@ pub(crate) unsafe extern "C" fn find_sa_element(mut t: small_number, mut n: i32,
     }
     MEM[q as usize].b16.s0 += 1;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn expand() {
+pub(crate) unsafe fn expand() {
     let mut t: i32 = 0;
     let mut b: bool = false;
     let mut p: i32 = 0;
@@ -6745,8 +6643,7 @@ pub(crate) unsafe extern "C" fn expand() {
     MEM[(4999999 - 13) as usize].b32.s1 = backup_backup;
     expand_depth_count -= 1;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn get_x_token() {
+pub(crate) unsafe fn get_x_token() {
     loop {
         get_next();
         if cur_cmd as i32 <= 102i32 {
@@ -6770,8 +6667,7 @@ pub(crate) unsafe extern "C" fn get_x_token() {
         cur_tok = 0x1ffffffi32 + cur_cs
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn x_token() {
+pub(crate) unsafe fn x_token() {
     while cur_cmd as i32 > 102i32 {
         expand();
         get_next();
@@ -6782,8 +6678,7 @@ pub(crate) unsafe extern "C" fn x_token() {
         cur_tok = 0x1ffffffi32 + cur_cs
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_left_brace() {
+pub(crate) unsafe fn scan_left_brace() {
     loop {
         get_x_token();
         if !(cur_cmd as i32 == 10i32 || cur_cmd as i32 == 0i32) {
@@ -6809,8 +6704,7 @@ pub(crate) unsafe extern "C" fn scan_left_brace() {
         align_state += 1
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_optional_equals() {
+pub(crate) unsafe fn scan_optional_equals() {
     loop {
         get_x_token();
         if !(cur_cmd as i32 == 10i32) {
@@ -6874,8 +6768,7 @@ pub(crate) unsafe fn scan_keyword(s: &[u8]) -> bool {
     true
 }
 
-#[no_mangle]
-pub(crate) unsafe extern "C" fn mu_error() {
+pub(crate) unsafe fn mu_error() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -6886,8 +6779,7 @@ pub(crate) unsafe extern "C" fn mu_error() {
     help_line[0] = b"I\'m going to assume that 1mu=1pt when they\'re mixed.";
     error();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_glyph_number(mut f: internal_font_number) {
+pub(crate) unsafe fn scan_glyph_number(mut f: internal_font_number) {
     if scan_keyword(b"/") {
         scan_and_pack_name();
         cur_val = map_glyph_to_index(f);
@@ -6900,8 +6792,7 @@ pub(crate) unsafe extern "C" fn scan_glyph_number(mut f: internal_font_number) {
         scan_int();
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_char_class() {
+pub(crate) unsafe fn scan_char_class() {
     scan_int();
     if cur_val < 0i32 || cur_val > 4096i32 {
         if file_line_error_style_p != 0 {
@@ -6917,8 +6808,7 @@ pub(crate) unsafe extern "C" fn scan_char_class() {
         cur_val = 0i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_char_class_not_ignored() {
+pub(crate) unsafe fn scan_char_class_not_ignored() {
     scan_int();
     if cur_val < 0i32 || cur_val > 4096i32 {
         if file_line_error_style_p != 0 {
@@ -6934,8 +6824,7 @@ pub(crate) unsafe extern "C" fn scan_char_class_not_ignored() {
         cur_val = 0i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_eight_bit_int() {
+pub(crate) unsafe fn scan_eight_bit_int() {
     scan_int();
     if cur_val < 0i32 || cur_val > 255i32 {
         if file_line_error_style_p != 0 {
@@ -6951,8 +6840,7 @@ pub(crate) unsafe extern "C" fn scan_eight_bit_int() {
         cur_val = 0i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_usv_num() {
+pub(crate) unsafe fn scan_usv_num() {
     scan_int();
     if cur_val < 0i32 || cur_val > 0x10ffffi32 {
         if file_line_error_style_p != 0 {
@@ -6968,8 +6856,7 @@ pub(crate) unsafe extern "C" fn scan_usv_num() {
         cur_val = 0i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_char_num() {
+pub(crate) unsafe fn scan_char_num() {
     scan_int();
     if cur_val < 0i32 || cur_val > 0xffffi32 {
         if file_line_error_style_p != 0 {
@@ -6985,8 +6872,7 @@ pub(crate) unsafe extern "C" fn scan_char_num() {
         cur_val = 0i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_xetex_math_char_int() {
+pub(crate) unsafe fn scan_xetex_math_char_int() {
     scan_int();
     if cur_val as u32 & 0x1fffff_u32 == 0x1fffff_u32 {
         if cur_val != 0x1fffffi32 {
@@ -7016,8 +6902,7 @@ pub(crate) unsafe extern "C" fn scan_xetex_math_char_int() {
         cur_val = 0i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_math(mut p: i32) {
+pub(crate) unsafe fn scan_math(mut p: i32) {
     let mut c: i32 = 0;
     'c_118470: loop {
         loop
@@ -7119,8 +7004,7 @@ pub(crate) unsafe extern "C" fn scan_math(mut p: i32) {
         + (c as u32 & 0x1fffff_u32) as i64 / 65536 * 256i32 as i64)
         as u16;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn set_math_char(mut c: i32) {
+pub(crate) unsafe fn set_math_char(mut c: i32) {
     let mut p: i32 = 0;
     let mut ch: UnicodeScalar = 0;
     if c as u32 & 0x1fffff_u32 == 0x1fffff_u32 {
@@ -7152,8 +7036,7 @@ pub(crate) unsafe extern "C" fn set_math_char(mut c: i32) {
         cur_list.tail = p
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_math_class_int() {
+pub(crate) unsafe fn scan_math_class_int() {
     scan_int();
     if cur_val < 0i32 || cur_val > 7i32 {
         if file_line_error_style_p != 0 {
@@ -7169,8 +7052,7 @@ pub(crate) unsafe extern "C" fn scan_math_class_int() {
         cur_val = 0i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_math_fam_int() {
+pub(crate) unsafe fn scan_math_fam_int() {
     scan_int();
     if cur_val < 0i32 || cur_val > 256i32 - 1i32 {
         if file_line_error_style_p != 0 {
@@ -7186,8 +7068,7 @@ pub(crate) unsafe extern "C" fn scan_math_fam_int() {
         cur_val = 0i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_four_bit_int() {
+pub(crate) unsafe fn scan_four_bit_int() {
     scan_int();
     if cur_val < 0i32 || cur_val > 15i32 {
         if file_line_error_style_p != 0 {
@@ -7203,8 +7084,7 @@ pub(crate) unsafe extern "C" fn scan_four_bit_int() {
         cur_val = 0i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_fifteen_bit_int() {
+pub(crate) unsafe fn scan_fifteen_bit_int() {
     scan_int();
     if cur_val < 0i32 || cur_val > 32767i32 {
         if file_line_error_style_p != 0 {
@@ -7220,8 +7100,7 @@ pub(crate) unsafe extern "C" fn scan_fifteen_bit_int() {
         cur_val = 0i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_delimiter_int() {
+pub(crate) unsafe fn scan_delimiter_int() {
     scan_int();
     if cur_val < 0i32 || cur_val > 0x7ffffffi32 {
         if file_line_error_style_p != 0 {
@@ -7237,8 +7116,7 @@ pub(crate) unsafe extern "C" fn scan_delimiter_int() {
         cur_val = 0i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_register_num() {
+pub(crate) unsafe fn scan_register_num() {
     scan_int();
     if cur_val < 0i32 || cur_val > max_reg_num {
         if file_line_error_style_p != 0 {
@@ -7254,8 +7132,7 @@ pub(crate) unsafe extern "C" fn scan_register_num() {
         cur_val = 0i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_four_bit_int_or_18() {
+pub(crate) unsafe fn scan_four_bit_int_or_18() {
     scan_int();
     if cur_val < 0i32 || cur_val > 15i32 && cur_val != 18i32 {
         if file_line_error_style_p != 0 {
@@ -7271,8 +7148,7 @@ pub(crate) unsafe extern "C" fn scan_four_bit_int_or_18() {
         cur_val = 0i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn get_x_or_protected() {
+pub(crate) unsafe fn get_x_or_protected() {
     loop {
         get_token();
         if cur_cmd as i32 <= 102i32 {
@@ -7286,8 +7162,7 @@ pub(crate) unsafe extern "C" fn get_x_or_protected() {
         expand();
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn effective_char(
+pub(crate) unsafe fn effective_char(
     mut _err_p: bool,
     mut f: internal_font_number,
     mut c: u16,
@@ -7298,8 +7173,7 @@ pub(crate) unsafe extern "C" fn effective_char(
     xtx_ligature_present = false;
     c as i32
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_font_ident() {
+pub(crate) unsafe fn scan_font_ident() {
     let mut f: internal_font_number = 0;
     let mut m: i32 = 0;
     loop {
@@ -7331,8 +7205,7 @@ pub(crate) unsafe extern "C" fn scan_font_ident() {
     }
     cur_val = f;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn find_font_dimen(mut writing: bool) {
+pub(crate) unsafe fn find_font_dimen(mut writing: bool) {
     let mut f: internal_font_number = 0;
     let mut n: i32 = 0;
     scan_int();
@@ -7386,11 +7259,7 @@ pub(crate) unsafe extern "C" fn find_font_dimen(mut writing: bool) {
         error();
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_something_internal(
-    mut level: small_number,
-    mut negative: bool,
-) {
+pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negative: bool) {
     let mut m: i32 = 0;
     let mut n: i32 = 0;
     let mut k: i32 = 0;
@@ -8557,8 +8426,7 @@ pub(crate) unsafe extern "C" fn scan_something_internal(
         MEM[cur_val as usize].b32.s1 += 1
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_int() {
+pub(crate) unsafe fn scan_int() {
     let mut negative: bool = false;
     let mut m: i32 = 0;
     let mut d: small_number = 0;
@@ -8708,8 +8576,7 @@ unsafe extern "C" fn round_decimals(mut k: small_number) -> scaled_t {
     }
     (a + 1i32) / 2i32
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn xetex_scan_dimen(
+pub(crate) unsafe fn xetex_scan_dimen(
     mut mu: bool,
     mut inf: bool,
     mut shortcut: bool,
@@ -9113,16 +8980,13 @@ pub(crate) unsafe extern "C" fn xetex_scan_dimen(
         cur_val = -cur_val
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_dimen(mut mu: bool, mut inf: bool, mut shortcut: bool) {
+pub(crate) unsafe fn scan_dimen(mut mu: bool, mut inf: bool, mut shortcut: bool) {
     xetex_scan_dimen(mu, inf, shortcut, true);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_decimal() {
+pub(crate) unsafe fn scan_decimal() {
     xetex_scan_dimen(false, false, false, false);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_glue(mut level: small_number) {
+pub(crate) unsafe fn scan_glue(mut level: small_number) {
     let mut negative: bool = false;
     let mut q: i32 = 0;
     let mut mu: bool = false;
@@ -9181,8 +9045,7 @@ pub(crate) unsafe extern "C" fn scan_glue(mut level: small_number) {
     cur_val = q;
     /*:481*/
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn add_or_sub(
+pub(crate) unsafe fn add_or_sub(
     mut x: i32,
     mut y: i32,
     mut max_answer: i32,
@@ -9207,8 +9070,7 @@ pub(crate) unsafe extern "C" fn add_or_sub(
     }
     a
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn quotient(mut n: i32, mut d: i32) -> i32 {
+pub(crate) unsafe fn quotient(mut n: i32, mut d: i32) -> i32 {
     let mut negative: bool = false;
     let mut a: i32 = 0;
     if d == 0i32 {
@@ -9237,13 +9099,7 @@ pub(crate) unsafe extern "C" fn quotient(mut n: i32, mut d: i32) -> i32 {
     }
     a
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn fract(
-    mut x: i32,
-    mut n: i32,
-    mut d: i32,
-    mut max_answer: i32,
-) -> i32 {
+pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, mut max_answer: i32) -> i32 {
     let mut current_block: u64;
     let mut negative: bool = false;
     let mut a: i32 = 0;
@@ -9363,8 +9219,7 @@ pub(crate) unsafe extern "C" fn fract(
     }
     a
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_expr() {
+pub(crate) unsafe fn scan_expr() {
     let mut a: bool = false;
     let mut b: bool = false;
     let mut l: small_number = 0;
@@ -9637,16 +9492,13 @@ pub(crate) unsafe extern "C" fn scan_expr() {
     cur_val = e;
     cur_val_level = l as u8;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_normal_glue() {
+pub(crate) unsafe fn scan_normal_glue() {
     scan_glue(2i32 as small_number);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_mu_glue() {
+pub(crate) unsafe fn scan_mu_glue() {
     scan_glue(3i32 as small_number);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_rule_spec() -> i32 {
+pub(crate) unsafe fn scan_rule_spec() -> i32 {
     let mut q: i32 = 0;
     q = new_rule();
     if cur_cmd as i32 == 35i32 {
@@ -9672,8 +9524,7 @@ pub(crate) unsafe extern "C" fn scan_rule_spec() -> i32 {
     }
     q
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_general_text() {
+pub(crate) unsafe fn scan_general_text() {
     let mut s: u8 = 0;
     let mut w: i32 = 0;
     let mut d: i32 = 0;
@@ -9720,8 +9571,7 @@ pub(crate) unsafe extern "C" fn scan_general_text() {
     warning_index = w;
     def_ref = d;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn pseudo_start() {
+pub(crate) unsafe fn pseudo_start() {
     let mut s: str_number = 0;
     let mut l: pool_pointer = 0;
     let mut m: pool_pointer = 0;
@@ -9819,8 +9669,7 @@ pub(crate) unsafe extern "C" fn pseudo_start() {
         cur_input.synctex_tag = 0i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn str_toks_cat(mut b: pool_pointer, mut cat: small_number) -> i32 {
+pub(crate) unsafe fn str_toks_cat(mut b: pool_pointer, mut cat: small_number) -> i32 {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut t: i32 = 0;
@@ -9869,12 +9718,10 @@ pub(crate) unsafe extern "C" fn str_toks_cat(mut b: pool_pointer, mut cat: small
     pool_ptr = b;
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn str_toks(mut b: pool_pointer) -> i32 {
+pub(crate) unsafe fn str_toks(mut b: pool_pointer) -> i32 {
     str_toks_cat(b, 0i32 as small_number)
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn the_toks() -> i32 {
+pub(crate) unsafe fn the_toks() -> i32 {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut r: i32 = 0;
@@ -9951,13 +9798,11 @@ pub(crate) unsafe extern "C" fn the_toks() -> i32 {
         return str_toks(b);
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn ins_the_toks() {
+pub(crate) unsafe fn ins_the_toks() {
     MEM[(4999999 - 12) as usize].b32.s1 = the_toks();
     begin_token_list(MEM[(4999999 - 3) as usize].b32.s1, 5_u16);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn conv_toks() {
+pub(crate) unsafe fn conv_toks() {
     let mut save_warning_index: i32 = 0;
     let mut save_def_ref: i32 = 0;
     let mut boolvar: bool = false;
@@ -10353,8 +10198,7 @@ pub(crate) unsafe extern "C" fn conv_toks() {
     MEM[(4999999 - 12) as usize].b32.s1 = str_toks_cat(b, cat);
     begin_token_list(MEM[(4999999 - 3) as usize].b32.s1, 5_u16);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
+pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
     let mut current_block: u64;
     let mut t: i32 = 0;
     let mut s: i32 = 0;
@@ -10554,8 +10398,7 @@ pub(crate) unsafe extern "C" fn scan_toks(mut macro_def: bool, mut xpand: bool) 
     }
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
+pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut s: i32 = 0;
@@ -10669,8 +10512,7 @@ pub(crate) unsafe extern "C" fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
     scanner_status = 0_u8;
     align_state = s;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn pass_text() {
+pub(crate) unsafe fn pass_text() {
     let mut l: i32 = 0;
     let mut save_scanner_status: small_number = 0;
     save_scanner_status = scanner_status as small_number;
@@ -10695,8 +10537,7 @@ pub(crate) unsafe extern "C" fn pass_text() {
         show_cur_cmd_chr();
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn change_if_limit(mut l: small_number, mut p: i32) {
+pub(crate) unsafe fn change_if_limit(mut l: small_number, mut p: i32) {
     let mut q: i32 = 0;
     if p == cond_ptr {
         if_limit = l as u8
@@ -10714,8 +10555,7 @@ pub(crate) unsafe extern "C" fn change_if_limit(mut l: small_number, mut p: i32)
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn conditional() {
+pub(crate) unsafe fn conditional() {
     let mut current_block: u64;
     let mut b: bool = false;
     let mut e: bool = false;
@@ -11140,15 +10980,13 @@ pub(crate) unsafe extern "C" fn conditional() {
         if_limit = 2_u8
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn begin_name() {
+pub(crate) unsafe fn begin_name() {
     area_delimiter = 0i32;
     ext_delimiter = 0i32;
     quoted_filename = false;
     file_name_quote_char = 0i32 as UTF16_code;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn more_name(mut c: UTF16_code) -> bool {
+pub(crate) unsafe fn more_name(mut c: UTF16_code) -> bool {
     if stop_at_space as i32 != 0 && file_name_quote_char as i32 == 0i32 && c as i32 == ' ' as i32 {
         return false;
     }
@@ -11181,8 +11019,7 @@ pub(crate) unsafe extern "C" fn more_name(mut c: UTF16_code) -> bool {
     }
     true
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn end_name() {
+pub(crate) unsafe fn end_name() {
     let mut temp_str: str_number = 0;
     let mut j: pool_pointer = 0;
     if str_ptr + 3i32 > max_strings {
@@ -11241,12 +11078,7 @@ pub(crate) unsafe extern "C" fn end_name() {
         cur_ext = slow_make_string()
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn pack_file_name(
-    mut n: str_number,
-    mut a: str_number,
-    mut e: str_number,
-) {
+pub(crate) unsafe fn pack_file_name(mut n: str_number, mut a: str_number, mut e: str_number) {
     // Note that we populate the buffer in an order different than how the
     // arguments are passed to this function!
     let mut work_buffer: *mut i8 =
@@ -11267,8 +11099,7 @@ pub(crate) unsafe extern "C" fn pack_file_name(
     strcpy(name_of_file, work_buffer);
     free(work_buffer as *mut libc::c_void);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn make_name_string() -> str_number {
+pub(crate) unsafe fn make_name_string() -> str_number {
     let mut k: i32 = 0;
     let mut save_area_delimiter: pool_pointer = 0;
     let mut save_ext_delimiter: pool_pointer = 0;
@@ -11304,8 +11135,7 @@ pub(crate) unsafe extern "C" fn make_name_string() -> str_number {
     ext_delimiter = save_ext_delimiter;
     Result
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_file_name() {
+pub(crate) unsafe fn scan_file_name() {
     name_in_progress = true;
     begin_name();
     loop {
@@ -11328,15 +11158,13 @@ pub(crate) unsafe extern "C" fn scan_file_name() {
     end_name();
     name_in_progress = false;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn pack_job_name(s: &[u8]) {
+pub(crate) unsafe fn pack_job_name(s: &[u8]) {
     cur_area = (65536 + 1i32 as i64) as str_number;
     cur_ext = maketexstring(s);
     cur_name = job_name;
     pack_file_name(cur_name, cur_area, cur_ext);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn open_log_file() {
+pub(crate) unsafe fn open_log_file() {
     let mut k: i32 = 0;
     let mut l: i32 = 0;
     let old_setting_0 = selector;
@@ -11370,8 +11198,7 @@ pub(crate) unsafe extern "C" fn open_log_file() {
     print_ln();
     selector = (u8::from(old_setting_0) + 2).into();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn start_input(mut primary_input_name: *const i8) {
+pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     let mut format = TTInputFormat::TEX;
     let mut temp_str: str_number = 0;
     if !primary_input_name.is_null() {
@@ -11583,19 +11410,14 @@ pub(crate) unsafe extern "C" fn start_input(mut primary_input_name: *const i8) {
     first = cur_input.limit + 1i32;
     cur_input.loc = cur_input.start;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn effective_char_info(
-    mut f: internal_font_number,
-    mut c: u16,
-) -> b16x4 {
+pub(crate) unsafe fn effective_char_info(mut f: internal_font_number, mut c: u16) -> b16x4 {
     if !xtx_ligature_present && !(FONT_MAPPING[f as usize]).is_null() {
         c = apply_tfm_font_mapping(FONT_MAPPING[f as usize], c as i32) as u16
     }
     xtx_ligature_present = false;
     FONT_INFO[(CHAR_BASE[f as usize] + c as i32) as usize].b16
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn char_warning(mut f: internal_font_number, mut c: i32) {
+pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
     let mut old_setting_0: i32 = 0;
     if EQTB[(INT_BASE + 35i32) as usize].b32.s1 > 0i32 {
         old_setting_0 = EQTB[(INT_BASE + 29i32) as usize].b32.s1;
@@ -11649,11 +11471,7 @@ pub(crate) unsafe extern "C" fn char_warning(mut f: internal_font_number, mut c:
         gave_char_warning_help = true
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_native_word_node(
-    mut f: internal_font_number,
-    mut n: i32,
-) -> i32 {
+pub(crate) unsafe fn new_native_word_node(mut f: internal_font_number, mut n: i32) -> i32 {
     let mut l: i32 = 0;
     let mut q: i32 = 0;
     l = (6i32 as u64).wrapping_add(
@@ -11677,8 +11495,7 @@ pub(crate) unsafe extern "C" fn new_native_word_node(
     MEM[(q + 5) as usize].ptr = 0 as *mut libc::c_void;
     q
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_native_character(
+pub(crate) unsafe fn new_native_character(
     mut f: internal_font_number,
     mut c: UnicodeScalar,
 ) -> i32 {
@@ -11765,8 +11582,7 @@ pub(crate) unsafe extern "C" fn new_native_character(
     );
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn font_feature_warning(
+pub(crate) unsafe fn font_feature_warning(
     mut featureNameP: *const libc::c_void,
     mut featLen: i32,
     mut settingNameP: *const libc::c_void,
@@ -11790,8 +11606,7 @@ pub(crate) unsafe extern "C" fn font_feature_warning(
     print_cstr(b"\'.");
     end_diagnostic(false);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn font_mapping_warning(
+pub(crate) unsafe fn font_mapping_warning(
     mut mappingNameP: *const libc::c_void,
     mut mappingNameLen: i32,
     mut warningType: i32,
@@ -11823,8 +11638,7 @@ pub(crate) unsafe extern "C" fn font_mapping_warning(
     }
     end_diagnostic(false);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn graphite_warning() {
+pub(crate) unsafe fn graphite_warning() {
     begin_diagnostic();
     print_nl_cstr(b"Font `");
     let mut i: i32 = 0i32;
@@ -11835,8 +11649,7 @@ pub(crate) unsafe extern "C" fn graphite_warning() {
     print_cstr(b"\' does not support Graphite. Trying OpenType layout instead.");
     end_diagnostic(false);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn load_native_font(
+pub(crate) unsafe fn load_native_font(
     mut u: i32,
     mut nom: str_number,
     mut aire: str_number,
@@ -12023,8 +11836,7 @@ pub(crate) unsafe extern "C" fn load_native_font(
     FONT_FLAGS[font_ptr as usize] = loaded_font_flags;
     font_ptr
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn do_locale_linebreaks(mut s: i32, mut len: i32) {
+pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
     let mut offs: i32 = 0;
     let mut prevOffs: i32 = 0;
     let mut i: i32 = 0;
@@ -12104,8 +11916,7 @@ pub(crate) unsafe extern "C" fn do_locale_linebreaks(mut s: i32, mut len: i32) {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn bad_utf8_warning() {
+pub(crate) unsafe fn bad_utf8_warning() {
     begin_diagnostic();
     print_nl_cstr(b"Invalid UTF-8 byte or sequence");
     if cur_input.name == 0i32 {
@@ -12117,20 +11928,17 @@ pub(crate) unsafe extern "C" fn bad_utf8_warning() {
     print_cstr(b" replaced by U+FFFD.");
     end_diagnostic(false);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn get_input_normalization_state() -> i32 {
+pub(crate) unsafe fn get_input_normalization_state() -> i32 {
     if EQTB.is_empty() {
         0
     } else {
         EQTB[(INT_BASE + 76i32) as usize].b32.s1
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn get_tracing_fonts_state() -> i32 {
+pub(crate) unsafe fn get_tracing_fonts_state() -> i32 {
     EQTB[(INT_BASE + 79i32) as usize].b32.s1
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn read_font_info(
+pub(crate) unsafe fn read_font_info(
     mut u: i32,
     mut nom: str_number,
     mut aire: str_number,
@@ -12701,11 +12509,7 @@ pub(crate) unsafe extern "C" fn read_font_info(
     // unreachable
     // return done(tfm_file_owner, g);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_character(
-    mut f: internal_font_number,
-    mut c: UTF16_code,
-) -> i32 {
+pub(crate) unsafe fn new_character(mut f: internal_font_number, mut c: UTF16_code) -> i32 {
     let mut p: i32 = 0;
     let mut ec: u16 = 0;
     if FONT_AREA[f as usize] as u32 == 0xffffu32 || FONT_AREA[f as usize] as u32 == 0xfffeu32 {
@@ -12729,8 +12533,7 @@ pub(crate) unsafe extern "C" fn new_character(
     char_warning(f, c as i32);
     TEX_NULL
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_spec(mut c: group_code, mut three_codes: bool) {
+pub(crate) unsafe fn scan_spec(mut c: group_code, mut three_codes: bool) {
     let mut current_block: u64;
     let mut s: i32 = 0;
     let mut spec_code: u8 = 0;
@@ -12764,8 +12567,7 @@ pub(crate) unsafe extern "C" fn scan_spec(mut c: group_code, mut three_codes: bo
     new_save_level(c);
     scan_left_brace();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn char_pw(mut p: i32, mut side: small_number) -> scaled_t {
+pub(crate) unsafe fn char_pw(mut p: i32, mut side: small_number) -> scaled_t {
     let mut f: internal_font_number = 0;
     let mut c: i32 = 0;
     if side as i32 == 0i32 {
@@ -12830,12 +12632,7 @@ pub(crate) unsafe extern "C" fn char_pw(mut p: i32, mut side: small_number) -> s
         1000i32,
     )
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_margin_kern(
-    mut w: scaled_t,
-    mut _p: i32,
-    mut side: small_number,
-) -> i32 {
+pub(crate) unsafe fn new_margin_kern(mut w: scaled_t, mut _p: i32, mut side: small_number) -> i32 {
     let mut k: i32 = 0;
     k = get_node(3i32);
     MEM[k as usize].b16.s1 = 40_u16;
@@ -12843,8 +12640,7 @@ pub(crate) unsafe extern "C" fn new_margin_kern(
     MEM[(k + 1) as usize].b32.s1 = w;
     k
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> i32 {
+pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> i32 {
     let mut current_block: u64;
     let mut r: i32 = 0;
     let mut q: i32 = 0;
@@ -13376,8 +13172,7 @@ pub(crate) unsafe extern "C" fn hpack(mut p: i32, mut w: scaled_t, mut m: small_
     }
     r
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn vpackage(
+pub(crate) unsafe fn vpackage(
     mut p: i32,
     mut h: scaled_t,
     mut m: small_number,
@@ -13603,8 +13398,7 @@ pub(crate) unsafe extern "C" fn vpackage(
     }
     r
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn append_to_vlist(mut b: i32) {
+pub(crate) unsafe fn append_to_vlist(mut b: i32) {
     let mut d: scaled_t = 0;
     let mut p: i32 = 0;
     let mut upwards: bool = false;
@@ -13640,8 +13434,7 @@ pub(crate) unsafe extern "C" fn append_to_vlist(mut b: i32) {
         cur_list.aux.b32.s1 = MEM[(b + 2) as usize].b32.s1
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_noad() -> i32 {
+pub(crate) unsafe fn new_noad() -> i32 {
     let mut p: i32 = 0;
     p = get_node(4i32);
     MEM[p as usize].b16.s1 = 16_u16;
@@ -13651,8 +13444,7 @@ pub(crate) unsafe extern "C" fn new_noad() -> i32 {
     MEM[(p + 2) as usize].b32 = empty;
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_style(mut s: small_number) -> i32 {
+pub(crate) unsafe fn new_style(mut s: small_number) -> i32 {
     let mut p: i32 = 0;
     p = get_node(3i32);
     MEM[p as usize].b16.s1 = 14_u16;
@@ -13661,8 +13453,7 @@ pub(crate) unsafe extern "C" fn new_style(mut s: small_number) -> i32 {
     MEM[(p + 2) as usize].b32.s1 = 0;
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_choice() -> i32 {
+pub(crate) unsafe fn new_choice() -> i32 {
     let mut p: i32 = 0;
     p = get_node(3i32);
     MEM[p as usize].b16.s1 = 15_u16;
@@ -13673,12 +13464,10 @@ pub(crate) unsafe extern "C" fn new_choice() -> i32 {
     MEM[(p + 2) as usize].b32.s1 = TEX_NULL;
     p
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn show_info() {
+pub(crate) unsafe fn show_info() {
     show_node_list(MEM[temp_ptr as usize].b32.s0);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn push_alignment() {
+pub(crate) unsafe fn push_alignment() {
     let mut p: i32 = 0;
     p = get_node(6i32);
     MEM[p as usize].b32.s1 = align_ptr;
@@ -13695,8 +13484,7 @@ pub(crate) unsafe extern "C" fn push_alignment() {
     cur_head = get_avail();
     cur_pre_head = get_avail();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn pop_alignment() {
+pub(crate) unsafe fn pop_alignment() {
     let mut p: i32 = 0;
     MEM[cur_head as usize].b32.s1 = avail;
     avail = cur_head;
@@ -13715,8 +13503,7 @@ pub(crate) unsafe extern "C" fn pop_alignment() {
     align_ptr = MEM[p as usize].b32.s1;
     free_node(p, 6i32);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn get_preamble_token() {
+pub(crate) unsafe fn get_preamble_token() {
     loop {
         get_token();
         while cur_chr == 0x10ffffi32 + 2i32 && cur_cmd as i32 == 4i32 {
@@ -13765,8 +13552,7 @@ pub(crate) unsafe extern "C" fn get_preamble_token() {
         }
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn init_align() {
+pub(crate) unsafe fn init_align() {
     let mut save_cs_ptr: i32 = 0;
     let mut p: i32 = 0;
     save_cs_ptr = cur_cs;
@@ -13884,8 +13670,7 @@ pub(crate) unsafe extern "C" fn init_align() {
     }
     align_peek();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn init_span(mut p: i32) {
+pub(crate) unsafe fn init_span(mut p: i32) {
     push_nest();
     if cur_list.mode as i32 == -104i32 {
         cur_list.aux.b32.s0 = 1000i32
@@ -13895,8 +13680,7 @@ pub(crate) unsafe extern "C" fn init_span(mut p: i32) {
     }
     cur_span = p;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn init_row() {
+pub(crate) unsafe fn init_row() {
     push_nest();
     cur_list.mode = (-105i32 - cur_list.mode as i32) as i16;
     if cur_list.mode as i32 == -104i32 {
@@ -13916,8 +13700,7 @@ pub(crate) unsafe extern "C" fn init_row() {
     cur_pre_tail = cur_pre_head;
     init_span(cur_align);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn init_col() {
+pub(crate) unsafe fn init_col() {
     MEM[(cur_align + 5) as usize].b32.s0 = cur_cmd as i32;
     if cur_cmd as i32 == 63i32 {
         align_state = 0i32
@@ -13926,8 +13709,7 @@ pub(crate) unsafe extern "C" fn init_col() {
         begin_token_list(MEM[(cur_align + 3) as usize].b32.s1, 1_u16);
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn fin_col() -> bool {
+pub(crate) unsafe fn fin_col() -> bool {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut r: i32 = 0;
@@ -14095,8 +13877,7 @@ pub(crate) unsafe extern "C" fn fin_col() -> bool {
     init_col();
     false
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn fin_row() {
+pub(crate) unsafe fn fin_row() {
     let mut p: i32 = 0;
     if cur_list.mode as i32 == -104i32 {
         p = hpack(
@@ -14133,8 +13914,7 @@ pub(crate) unsafe extern "C" fn fin_row() {
     }
     align_peek();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn fin_align() {
+pub(crate) unsafe fn fin_align() {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut r: i32 = 0;
@@ -14491,8 +14271,7 @@ pub(crate) unsafe extern "C" fn fin_align() {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn align_peek() {
+pub(crate) unsafe fn align_peek() {
     loop {
         align_state = 1000000i64 as i32;
         loop {
@@ -14521,15 +14300,13 @@ pub(crate) unsafe extern "C" fn align_peek() {
         }
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn max_hyphenatable_length() -> i32 {
+pub(crate) unsafe fn max_hyphenatable_length() -> i32 {
     if EQTB[(INT_BASE + 82i32) as usize].b32.s1 > 4095i32 {
         return 4095i32;
     }
     EQTB[(INT_BASE + 82i32) as usize].b32.s1
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn eTeX_enabled(mut b: bool, mut j: u16, mut k: i32) -> bool {
+pub(crate) unsafe fn eTeX_enabled(mut b: bool, mut j: u16, mut k: i32) -> bool {
     if !b {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -14544,8 +14321,7 @@ pub(crate) unsafe extern "C" fn eTeX_enabled(mut b: bool, mut j: u16, mut k: i32
     }
     b
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn show_save_groups() {
+pub(crate) unsafe fn show_save_groups() {
     let mut current_block: u64;
     let mut p: i32 = 0;
     let mut m: i16 = 0;
@@ -14768,8 +14544,7 @@ pub(crate) unsafe extern "C" fn show_save_groups() {
     cur_level = l;
     cur_group = c;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) -> i32 {
+pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) -> i32 {
     let mut current_block: u64;
     let mut prev_p: i32 = 0;
     let mut q: i32 = 0;
@@ -14976,8 +14751,7 @@ pub(crate) unsafe extern "C" fn vert_break(mut p: i32, mut h: scaled_t, mut d: s
     }
     best_place
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
+pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
     let mut v: i32 = 0;
     let mut p: i32 = 0;
     let mut q: i32 = 0;
@@ -15087,8 +14861,7 @@ pub(crate) unsafe extern "C" fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
         EQTB[(DIMEN_BASE + 6i32) as usize].b32.s1,
     )
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn print_totals() {
+pub(crate) unsafe fn print_totals() {
     print_scaled(page_so_far[1]);
     if page_so_far[2] != 0i32 {
         print_cstr(b" plus ");
@@ -15115,8 +14888,7 @@ pub(crate) unsafe extern "C" fn print_totals() {
         print_scaled(page_so_far[6]);
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn box_error(mut n: eight_bits) {
+pub(crate) unsafe fn box_error(mut n: eight_bits) {
     error();
     begin_diagnostic();
     print_nl_cstr(b"The following box has been deleted:");
@@ -15125,8 +14897,7 @@ pub(crate) unsafe extern "C" fn box_error(mut n: eight_bits) {
     flush_node_list(EQTB[(BOX_BASE + n as i32) as usize].b32.s1);
     EQTB[(BOX_BASE + n as i32) as usize].b32.s1 = TEX_NULL;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn app_space() {
+pub(crate) unsafe fn app_space() {
     let mut q: i32 = 0;
     if cur_list.aux.b32.s0 >= 2000i32 && EQTB[(GLUE_BASE + 13i32) as usize].b32.s1 != 0i32 {
         q = new_param_glue(13i32 as small_number)
@@ -15169,8 +14940,7 @@ pub(crate) unsafe extern "C" fn app_space() {
     MEM[cur_list.tail as usize].b32.s1 = q;
     cur_list.tail = q;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn insert_dollar_sign() {
+pub(crate) unsafe fn insert_dollar_sign() {
     back_input();
     cur_tok = 0x600000i32 + 36i32;
     if file_line_error_style_p != 0 {
@@ -15184,8 +14954,7 @@ pub(crate) unsafe extern "C" fn insert_dollar_sign() {
     help_line[0] = b"you left one out. Proceed, with fingers crossed.";
     ins_error();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn you_cant() {
+pub(crate) unsafe fn you_cant() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -15195,8 +14964,7 @@ pub(crate) unsafe extern "C" fn you_cant() {
     print_cmd_chr(cur_cmd as u16, cur_chr);
     print_in_mode(cur_list.mode as i32);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn report_illegal_case() {
+pub(crate) unsafe fn report_illegal_case() {
     you_cant();
     help_ptr = 4_u8;
     help_line[3] = b"Sorry, but I\'m not programmed to handle this case;";
@@ -15205,8 +14973,7 @@ pub(crate) unsafe extern "C" fn report_illegal_case() {
     help_line[0] = b"return to the right one by typing `I}\' or `I$\' or `I\\par\'.";
     error();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn privileged() -> bool {
+pub(crate) unsafe fn privileged() -> bool {
     if cur_list.mode as i32 > 0i32 {
         true
     } else {
@@ -15214,8 +14981,7 @@ pub(crate) unsafe extern "C" fn privileged() -> bool {
         false
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn its_all_over() -> bool {
+pub(crate) unsafe fn its_all_over() -> bool {
     if privileged() {
         if 4999999i32 - 2i32 == page_tail && cur_list.head == cur_list.tail && dead_cycles == 0i32 {
             return true;
@@ -15232,8 +14998,7 @@ pub(crate) unsafe extern "C" fn its_all_over() -> bool {
     }
     false
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn append_glue() {
+pub(crate) unsafe fn append_glue() {
     let mut s: small_number = 0;
     s = cur_chr as small_number;
     match s as i32 {
@@ -15258,8 +15023,7 @@ pub(crate) unsafe extern "C" fn append_glue() {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn append_kern() {
+pub(crate) unsafe fn append_kern() {
     let mut s: u16 = 0;
     s = cur_chr as u16;
     scan_dimen(s as i32 == 99i32, false, false);
@@ -15267,8 +15031,7 @@ pub(crate) unsafe extern "C" fn append_kern() {
     cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
     MEM[cur_list.tail as usize].b16.s0 = s;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn off_save() {
+pub(crate) unsafe fn off_save() {
     let mut p: i32 = 0;
     if cur_group as i32 == 0i32 {
         /*1101:*/
@@ -15324,8 +15087,7 @@ pub(crate) unsafe extern "C" fn off_save() {
         error();
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn extra_right_brace() {
+pub(crate) unsafe fn extra_right_brace() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -15353,8 +15115,7 @@ pub(crate) unsafe extern "C" fn extra_right_brace() {
     error();
     align_state += 1;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn normal_paragraph() {
+pub(crate) unsafe fn normal_paragraph() {
     if EQTB[(INT_BASE + 19i32) as usize].b32.s1 != 0i32 {
         eq_word_define(INT_BASE + 19i32, 0i32);
     }
@@ -15409,8 +15170,7 @@ pub(crate) unsafe extern "C" fn normal_paragraph() {
  * a `\setbox<N>`; (3) GLOBAL_BOX_FLAG+N, signifying `\global\setbox<N>`; (4)
  * SHIP_OUT_FLAG, signifying `\shipout`; or (5) LEADER_FLAG+k, signifying (in
  * order) `\leaders`, `\cleaders`, or `\xleaders`. */
-#[no_mangle]
-pub(crate) unsafe extern "C" fn box_end(mut box_context: i32) {
+pub(crate) unsafe fn box_end(mut box_context: i32) {
     let mut p: i32 = 0;
     let mut a: small_number = 0;
     if box_context < 0x40000000i32 {
@@ -15544,8 +15304,7 @@ pub(crate) unsafe extern "C" fn box_end(mut box_context: i32) {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn begin_box(mut box_context: i32) {
+pub(crate) unsafe fn begin_box(mut box_context: i32) {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut r: i32 = 0;
@@ -15732,8 +15491,7 @@ pub(crate) unsafe extern "C" fn begin_box(mut box_context: i32) {
     }
     box_end(box_context);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_box(mut box_context: i32) {
+pub(crate) unsafe fn scan_box(mut box_context: i32) {
     loop {
         get_x_token();
         if !(cur_cmd as i32 == 10i32 || cur_cmd as i32 == 0i32) {
@@ -15759,8 +15517,7 @@ pub(crate) unsafe extern "C" fn scan_box(mut box_context: i32) {
         back_error();
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn package(mut c: small_number) {
+pub(crate) unsafe fn package(mut c: small_number) {
     let mut h: scaled_t = 0;
     let mut p: i32 = 0;
     let mut d: scaled_t = 0;
@@ -15803,8 +15560,7 @@ pub(crate) unsafe extern "C" fn package(mut c: small_number) {
     pop_nest();
     box_end(SAVE_STACK[SAVE_PTR + 0].b32.s1);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn norm_min(mut h: i32) -> small_number {
+pub(crate) unsafe fn norm_min(mut h: i32) -> small_number {
     (if h <= 0 {
         1
     } else if h >= 63i32 {
@@ -15813,8 +15569,7 @@ pub(crate) unsafe extern "C" fn norm_min(mut h: i32) -> small_number {
         h
     }) as small_number
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_graf(mut indented: bool) {
+pub(crate) unsafe fn new_graf(mut indented: bool) {
     cur_list.prev_graf = 0i32;
     if cur_list.mode as i32 == 1i32 || cur_list.head != cur_list.tail {
         MEM[cur_list.tail as usize].b32.s1 = new_param_glue(2 as small_number);
@@ -15851,8 +15606,7 @@ pub(crate) unsafe extern "C" fn new_graf(mut indented: bool) {
         build_page();
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn indent_in_hmode() {
+pub(crate) unsafe fn indent_in_hmode() {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     if cur_chr > 0i32 {
@@ -15870,8 +15624,7 @@ pub(crate) unsafe extern "C" fn indent_in_hmode() {
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn head_for_vmode() {
+pub(crate) unsafe fn head_for_vmode() {
     if (cur_list.mode as i32) < 0i32 {
         if cur_cmd as i32 != 36i32 {
             off_save();
@@ -15896,8 +15649,7 @@ pub(crate) unsafe extern "C" fn head_for_vmode() {
         cur_input.index = 5_u16
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn end_graf() {
+pub(crate) unsafe fn end_graf() {
     if cur_list.mode as i32 == 104i32 {
         if cur_list.head == cur_list.tail {
             pop_nest();
@@ -15912,8 +15664,7 @@ pub(crate) unsafe extern "C" fn end_graf() {
         error_count = 0_i8
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn begin_insert_or_adjust() {
+pub(crate) unsafe fn begin_insert_or_adjust() {
     if cur_cmd as i32 == 38i32 {
         cur_val = 255i32
     } else {
@@ -15947,8 +15698,7 @@ pub(crate) unsafe extern "C" fn begin_insert_or_adjust() {
     cur_list.mode = -1_i16;
     cur_list.aux.b32.s1 = -65536000i32;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn make_mark() {
+pub(crate) unsafe fn make_mark() {
     let mut p: i32 = 0;
     let mut c: i32 = 0;
     if cur_chr == 0i32 {
@@ -15966,8 +15716,7 @@ pub(crate) unsafe extern "C" fn make_mark() {
     MEM[cur_list.tail as usize].b32.s1 = p;
     cur_list.tail = p;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn append_penalty() {
+pub(crate) unsafe fn append_penalty() {
     scan_int();
     MEM[cur_list.tail as usize].b32.s1 = new_penalty(cur_val);
     cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
@@ -15975,8 +15724,7 @@ pub(crate) unsafe extern "C" fn append_penalty() {
         build_page();
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn delete_last() {
+pub(crate) unsafe fn delete_last() {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut r: i32 = 0;
@@ -16068,8 +15816,7 @@ pub(crate) unsafe extern "C" fn delete_last() {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn unpackage() {
+pub(crate) unsafe fn unpackage() {
     let mut p: i32 = 0;
     let mut r: i32 = 0;
     let mut c: u8 = 0;
@@ -16136,8 +15883,7 @@ pub(crate) unsafe extern "C" fn unpackage() {
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn append_italic_correction() {
+pub(crate) unsafe fn append_italic_correction() {
     let mut p: i32 = 0;
     let mut f: internal_font_number = 0;
     if cur_list.tail != cur_list.head {
@@ -16182,8 +15928,7 @@ pub(crate) unsafe extern "C" fn append_italic_correction() {
         MEM[cur_list.tail as usize].b16.s0 = 1_u16
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn append_discretionary() {
+pub(crate) unsafe fn append_discretionary() {
     let mut c: i32 = 0;
     MEM[cur_list.tail as usize].b32.s1 = new_disc();
     cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
@@ -16205,8 +15950,7 @@ pub(crate) unsafe extern "C" fn append_discretionary() {
         cur_list.aux.b32.s0 = 1000i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn build_discretionary() {
+pub(crate) unsafe fn build_discretionary() {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut n: i32 = 0;
@@ -16302,8 +16046,7 @@ pub(crate) unsafe extern "C" fn build_discretionary() {
     cur_list.mode = -104_i16;
     cur_list.aux.b32.s0 = 1000i32;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn make_accent() {
+pub(crate) unsafe fn make_accent() {
     let mut s: f64 = 0.;
     let mut t: f64 = 0.;
     let mut p: i32 = 0;
@@ -16402,8 +16145,7 @@ pub(crate) unsafe extern "C" fn make_accent() {
         cur_list.aux.b32.s0 = 1000i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn align_error() {
+pub(crate) unsafe fn align_error() {
     if align_state.abs() > 2i32 {
         /*1163: */
         if file_line_error_style_p != 0 {
@@ -16458,8 +16200,7 @@ pub(crate) unsafe extern "C" fn align_error() {
         ins_error();
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn no_align_error() {
+pub(crate) unsafe fn no_align_error() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -16472,8 +16213,7 @@ pub(crate) unsafe extern "C" fn no_align_error() {
     help_line[0] = b"an alignment. Proceed, and I\'ll ignore this case.";
     error();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn omit_error() {
+pub(crate) unsafe fn omit_error() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -16486,8 +16226,7 @@ pub(crate) unsafe extern "C" fn omit_error() {
     help_line[0] = b"an alignment. Proceed, and I\'ll ignore this case.";
     error();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn do_endv() {
+pub(crate) unsafe fn do_endv() {
     BASE_PTR = INPUT_PTR;
     INPUT_STACK[BASE_PTR] = cur_input;
     while INPUT_STACK[BASE_PTR].index as i32 != 2i32
@@ -16511,8 +16250,7 @@ pub(crate) unsafe extern "C" fn do_endv() {
         off_save();
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn cs_error() {
+pub(crate) unsafe fn cs_error() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -16524,15 +16262,13 @@ pub(crate) unsafe extern "C" fn cs_error() {
     help_line[0] = b"I\'m ignoring this, since I wasn\'t doing a \\csname.";
     error();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn push_math(mut c: group_code) {
+pub(crate) unsafe fn push_math(mut c: group_code) {
     push_nest();
     cur_list.mode = -207_i16;
     cur_list.aux.b32.s1 = TEX_NULL;
     new_save_level(c);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn just_copy(mut p: i32, mut h: i32, mut t: i32) {
+pub(crate) unsafe fn just_copy(mut p: i32, mut h: i32, mut t: i32) {
     let mut r: i32 = 0;
     let mut words: u8 = 0;
     while p != TEX_NULL {
@@ -16649,8 +16385,7 @@ pub(crate) unsafe extern "C" fn just_copy(mut p: i32, mut h: i32, mut t: i32) {
     }
     MEM[h as usize].b32.s1 = t;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn just_reverse(mut p: i32) {
+pub(crate) unsafe fn just_reverse(mut p: i32) {
     let mut l: i32 = 0;
     let mut t: i32 = 0;
     let mut q: i32 = 0;
@@ -16727,8 +16462,7 @@ pub(crate) unsafe extern "C" fn just_reverse(mut p: i32) {
     }
     MEM[(4999999 - 3) as usize].b32.s1 = l;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn get_r_token() {
+pub(crate) unsafe fn get_r_token() {
     loop {
         loop {
             get_token();
@@ -16761,8 +16495,7 @@ pub(crate) unsafe extern "C" fn get_r_token() {
         ins_error();
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn trap_zero_glue() {
+pub(crate) unsafe fn trap_zero_glue() {
     if MEM[(cur_val + 1) as usize].b32.s1 == 0
         && MEM[(cur_val + 2) as usize].b32.s1 == 0
         && MEM[(cur_val + 3) as usize].b32.s1 == 0
@@ -16772,8 +16505,7 @@ pub(crate) unsafe extern "C" fn trap_zero_glue() {
         cur_val = 0i32
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn do_register_command(mut a: small_number) {
+pub(crate) unsafe fn do_register_command(mut a: small_number) {
     let mut current_block: u64;
     let mut l: i32 = TEX_NULL;
     let mut q: i32 = 0;
@@ -17000,8 +16732,7 @@ pub(crate) unsafe extern "C" fn do_register_command(mut a: small_number) {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn alter_aux() {
+pub(crate) unsafe fn alter_aux() {
     let mut c: i32 = 0;
     if cur_chr != (cur_list.mode as i32).abs() {
         report_illegal_case();
@@ -17029,8 +16760,7 @@ pub(crate) unsafe extern "C" fn alter_aux() {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn alter_prev_graf() {
+pub(crate) unsafe fn alter_prev_graf() {
     let mut p: i32 = 0;
     *nest.offset(nest_ptr as isize) = cur_list;
     p = nest_ptr;
@@ -17055,16 +16785,14 @@ pub(crate) unsafe extern "C" fn alter_prev_graf() {
         cur_list = *nest.offset(nest_ptr as isize)
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn alter_page_so_far() {
+pub(crate) unsafe fn alter_page_so_far() {
     let mut c: u8 = 0;
     c = cur_chr as u8;
     scan_optional_equals();
     scan_dimen(false, false, false);
     page_so_far[c as usize] = cur_val;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn alter_integer() {
+pub(crate) unsafe fn alter_integer() {
     let mut c: small_number = 0;
     c = cur_chr as small_number;
     scan_optional_equals();
@@ -17091,8 +16819,7 @@ pub(crate) unsafe extern "C" fn alter_integer() {
         insert_penalties = cur_val
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn alter_box_dimen() {
+pub(crate) unsafe fn alter_box_dimen() {
     let mut c: small_number = 0;
     let mut b: i32 = 0;
     c = cur_chr as small_number;
@@ -17113,8 +16840,7 @@ pub(crate) unsafe extern "C" fn alter_box_dimen() {
         MEM[(b + c as i32) as usize].b32.s1 = cur_val
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_font(mut a: small_number) {
+pub(crate) unsafe fn new_font(mut a: small_number) {
     let mut current_block: u64;
     let mut u: i32 = 0;
     let mut s: scaled_t = 0;
@@ -17262,8 +16988,7 @@ pub(crate) unsafe extern "C" fn new_font(mut a: small_number) {
     EQTB[(FROZEN_CONTROL_SEQUENCE + 12i32 + f) as usize] = EQTB[u as usize];
     (*hash.offset((FROZEN_CONTROL_SEQUENCE + 12i32 + f) as isize)).s1 = t;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_interaction() {
+pub(crate) unsafe fn new_interaction() {
     print_ln();
     interaction = cur_chr as u8;
     if interaction as i32 == 0i32 {
@@ -17275,8 +17000,7 @@ pub(crate) unsafe extern "C" fn new_interaction() {
         selector = (u8::from(selector)).wrapping_add(2).into()
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn issue_message() {
+pub(crate) unsafe fn issue_message() {
     let mut c: u8 = 0;
     let mut s: str_number = 0;
     c = cur_chr as u8;
@@ -17344,8 +17068,7 @@ pub(crate) unsafe extern "C" fn issue_message() {
     str_ptr -= 1;
     pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn shift_case() {
+pub(crate) unsafe fn shift_case() {
     let mut b: i32 = 0;
     let mut p: i32 = 0;
     let mut t: i32 = 0;
@@ -17367,8 +17090,7 @@ pub(crate) unsafe extern "C" fn shift_case() {
     MEM[def_ref as usize].b32.s1 = avail;
     avail = def_ref;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn show_whatever() {
+pub(crate) unsafe fn show_whatever() {
     let mut current_block: u64;
     let mut p: i32 = 0;
     let mut t: small_number = 0;
@@ -17509,8 +17231,7 @@ pub(crate) unsafe extern "C" fn show_whatever() {
     }
     error();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_write_whatsit(mut w: small_number) {
+pub(crate) unsafe fn new_write_whatsit(mut w: small_number) {
     new_whatsit(cur_chr as small_number, w);
     if w as i32 != 2i32 {
         scan_four_bit_int();
@@ -17524,13 +17245,11 @@ pub(crate) unsafe extern "C" fn new_write_whatsit(mut w: small_number) {
     }
     MEM[(cur_list.tail + 1) as usize].b32.s0 = cur_val;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_and_pack_name() {
+pub(crate) unsafe fn scan_and_pack_name() {
     scan_file_name();
     pack_file_name(cur_name, cur_area, cur_ext);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn do_extension() {
+pub(crate) unsafe fn do_extension() {
     let mut i: i32 = 0;
     let mut j: i32 = 0;
     let mut k: i32 = 0;
@@ -17684,8 +17403,7 @@ pub(crate) unsafe extern "C" fn do_extension() {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn fix_language() {
+pub(crate) unsafe fn fix_language() {
     let mut l: UTF16_code = 0;
     if EQTB[(INT_BASE + 50i32) as usize].b32.s1 <= 0i32 {
         l = 0i32 as UTF16_code
@@ -17704,8 +17422,7 @@ pub(crate) unsafe extern "C" fn fix_language() {
             norm_min(EQTB[(INT_BASE + 52i32) as usize].b32.s1) as u16
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn insert_src_special() {
+pub(crate) unsafe fn insert_src_special() {
     let mut toklist: i32 = 0;
     let mut p: i32 = 0;
     let mut q: i32 = 0;
@@ -17728,8 +17445,7 @@ pub(crate) unsafe extern "C" fn insert_src_special() {
         remember_source_info(SOURCE_FILENAME_STACK[IN_OPEN], line);
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn append_src_special() {
+pub(crate) unsafe fn append_src_special() {
     if SOURCE_FILENAME_STACK[IN_OPEN] > 0
         && is_new_source(SOURCE_FILENAME_STACK[IN_OPEN], line) as i32 != 0
     {
@@ -17743,8 +17459,7 @@ pub(crate) unsafe extern "C" fn append_src_special() {
         remember_source_info(SOURCE_FILENAME_STACK[IN_OPEN], line);
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn handle_right_brace() {
+pub(crate) unsafe fn handle_right_brace() {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut d: scaled_t = 0;
@@ -17964,8 +17679,7 @@ pub(crate) unsafe extern "C" fn handle_right_brace() {
         }
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn main_control() {
+pub(crate) unsafe fn main_control() {
     let mut current_block: u64;
     let mut t: i32 = 0;
     if EQTB[(LOCAL_BASE + 7i32) as usize].b32.s1 != TEX_NULL {
@@ -19701,12 +19415,10 @@ pub(crate) unsafe extern "C" fn main_control() {
         }
     }
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn give_err_help() {
+pub(crate) unsafe fn give_err_help() {
     token_show(EQTB[(LOCAL_BASE + 9i32) as usize].b32.s1);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn close_files_and_terminate() {
+pub(crate) unsafe fn close_files_and_terminate() {
     let mut k: i32 = 0;
     terminate_font_manager();
     k = 0i32;
@@ -19731,15 +19443,13 @@ pub(crate) unsafe extern "C" fn close_files_and_terminate() {
     }
     print_ln();
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn flush_str(mut s: str_number) {
+pub(crate) unsafe fn flush_str(mut s: str_number) {
     if s == str_ptr - 1i32 {
         str_ptr -= 1;
         pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize)
     };
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn tokens_to_string(mut p: i32) -> str_number {
+pub(crate) unsafe fn tokens_to_string(mut p: i32) -> str_number {
     if selector == Selector::NEW_STRING {
         pdf_error(
             b"tokens",
@@ -19752,12 +19462,10 @@ pub(crate) unsafe extern "C" fn tokens_to_string(mut p: i32) -> str_number {
     selector = old_setting;
     make_string()
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn scan_pdf_ext_toks() {
+pub(crate) unsafe fn scan_pdf_ext_toks() {
     scan_toks(false, true);
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn compare_strings() {
+pub(crate) unsafe fn compare_strings() {
     let mut current_block: u64;
     let mut s1: str_number = 0;
     let mut s2: str_number = 0;
@@ -19809,8 +19517,7 @@ pub(crate) unsafe extern "C" fn compare_strings() {
     flush_str(s1);
     cur_val_level = 0_u8;
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn prune_page_top(mut p: i32, mut s: bool) -> i32 {
+pub(crate) unsafe fn prune_page_top(mut p: i32, mut s: bool) -> i32 {
     let mut prev_p: i32 = 0;
     let mut q: i32 = 0;
     let mut r: i32 = TEX_NULL;
@@ -19857,12 +19564,7 @@ pub(crate) unsafe extern "C" fn prune_page_top(mut p: i32, mut s: bool) -> i32 {
     }
     MEM[(4999999 - 3) as usize].b32.s1
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn do_marks(
-    mut a: small_number,
-    mut l: small_number,
-    mut q: i32,
-) -> bool {
+pub(crate) unsafe fn do_marks(mut a: small_number, mut l: small_number, mut q: i32) -> bool {
     let mut i: small_number = 0;
     if (l as i32) < 4i32 {
         i = 0i32 as small_number;
@@ -19953,8 +19655,7 @@ pub(crate) unsafe extern "C" fn do_marks(
     }
     q == TEX_NULL
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn do_assignments() {
+pub(crate) unsafe fn do_assignments() {
     loop {
         loop {
             get_x_token();
@@ -19971,8 +19672,7 @@ pub(crate) unsafe extern "C" fn do_assignments() {
     }
 }
 /* the former xetexcoerce.h: */
-#[no_mangle]
-pub(crate) unsafe extern "C" fn new_whatsit(mut s: small_number, mut w: small_number) {
+pub(crate) unsafe fn new_whatsit(mut s: small_number, mut w: small_number) {
     let mut p: i32 = 0;
     p = get_node(w as i32);
     MEM[p as usize].b16.s1 = 8_u16;
