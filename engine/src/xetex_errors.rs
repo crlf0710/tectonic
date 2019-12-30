@@ -9,7 +9,6 @@
 )]
 
 use bridge::DisplayExt;
-use std::ffi::CStr;
 use std::io::Write;
 
 use crate::xetex_ini::{

@@ -7,13 +7,12 @@
          unused_mut)]
 
 use crate::core_memory::xmalloc;
-use freetype::freetype_sys;
 use harfbuzz_sys::*;
 
+use crate::xetex_layout_interface::GlyphAssembly;
 use crate::xetex_layout_interface::{getFont, getGlyphHeightDepth, D2Fix, Fix2D};
-use crate::xetex_layout_interface::{Fixed, GlyphAssembly};
 use crate::xetex_layout_interface::{
-    XeTeXFont, XeTeXFontInst, XeTeXFontInst_getHbFont, XeTeXFontInst_pointsToUnits,
+    XeTeXFontInst, XeTeXFontInst_getHbFont, XeTeXFontInst_pointsToUnits,
     XeTeXFontInst_unitsToPoints, XeTeXLayoutEngine,
 };
 

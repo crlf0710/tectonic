@@ -45,8 +45,6 @@ use crate::core_memory::{xcalloc, xmalloc};
 use harfbuzz_sys::*;
 use std::ptr;
 
-use freetype::freetype_sys;
-
 #[path = "xetex_opentype_math.rs"]
 mod opentype_math;
 
@@ -366,8 +364,6 @@ pub(crate) const gr_breakNone: gr_break_weight = 0;
 
 pub(crate) type ProtrusionFactor = CppStdMap<GlyphId, libc::c_int>;
 
-use crate::xetex_font_manager::XeTeXFontMgr;
-
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International
@@ -507,9 +503,7 @@ pub(crate) unsafe fn getProtrusionFactor(mut side: libc::c_int) -> *mut Protrusi
             }
             container = rightProt
         }
-        _ => {
-            unreachable!();
-        }
+        _ => unreachable!(),
     }
     return container;
 }

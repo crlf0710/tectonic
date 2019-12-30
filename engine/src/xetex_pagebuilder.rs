@@ -719,9 +719,7 @@ pub(crate) unsafe fn build_page() {
                 }
                 return contribute(slf);
             }
-            _ => {
-                confusion(b"page");
-            }
+            _ => confusion(b"page"),
         }
 
         /*1040: "Check if node p is the new champion breakpoint; then if it is

@@ -197,9 +197,7 @@ unsafe extern "C" fn find_pic_file(
                     (ht as f64 * 72.27) as f32,
                 ))
             }
-            Err(e) => {
-                return Err(e);
-            }
+            Err(e) => return Err(e),
         }
     };
     *path = xstrdup(name_of_file);

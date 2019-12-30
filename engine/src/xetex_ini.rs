@@ -14,7 +14,7 @@ use std::io::Write;
 use std::ptr;
 
 use super::xetex_texmfmp::get_date_and_time;
-use crate::core_memory::{mfree, xcalloc_array, xmalloc, xmalloc_array};
+use crate::core_memory::{mfree, xmalloc, xmalloc_array};
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, overflow};
 use crate::xetex_ext::release_font_engine;
@@ -1251,9 +1251,7 @@ unsafe extern "C" fn swap_items(mut p: *mut i8, mut nitems: size_t, mut size: si
             p = p.offset(size as isize)
         },
         1 => {}
-        _ => {
-            abort!("can\'t swap a {}-byte item for (un)dumping", size);
-        }
+        _ => abort!("can\'t swap a {}-byte item for (un)dumping", size),
     };
 }
 /* not WORDS_BIGENDIAN */
@@ -3192,9 +3190,7 @@ unsafe extern "C" fn store_fmt_file() {
             j += 1
         }
         match current_block {
-            7923086311623215889 => {
-                l = INT_BASE;
-            }
+            7923086311623215889 => l = INT_BASE,
             _ => {
                 j += 1;
                 l = j;
@@ -3248,9 +3244,7 @@ unsafe extern "C" fn store_fmt_file() {
             j += 1
         }
         match current_block {
-            10505255564575309249 => {
-                l = EQTB_SIZE + 1;
-            }
+            10505255564575309249 => l = EQTB_SIZE + 1,
             _ => {
                 j += 1;
                 l = j;
