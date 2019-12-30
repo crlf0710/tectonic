@@ -7,34 +7,13 @@
          unused_assignments,
          unused_mut)]
 
+use crate::xetex_aatfont::getFileNameFromCTFont;
+use crate::xetex_font_info::{XeTeXFontInst_base_ctor, XeTeXFontInst_initialize};
 use freetype::freetype_sys;
 use harfbuzz_sys::hb_font_t;
+use libc::malloc;
 use std::ptr;
 
-extern crate libc;
-extern "C" {
-    #[no_mangle]
-    fn malloc(_: libc::c_ulong) -> *mut libc::c_void;
-    #[no_mangle]
-    fn xpc_debugger_api_misuse_info() -> *const libc::c_char;
-    #[no_mangle]
-    fn XeTeXFontInst_initialize(
-        self_0: *mut XeTeXFontInst,
-        pathname: *const libc::c_char,
-        index: libc::c_int,
-        status: *mut libc::c_int,
-    );
-    #[no_mangle]
-    fn XeTeXFontInst_base_ctor(
-        self_0: *mut XeTeXFontInst,
-        pathname: *const libc::c_char,
-        index: libc::c_int,
-        pointSize: libc::c_float,
-        status: *mut libc::c_int,
-    );
-    #[no_mangle]
-    fn getFileNameFromCTFont(ctFontRef: CTFontRef, index: *mut uint32_t) -> *mut libc::c_char;
-}
 pub(crate) type uint32_t = libc::c_uint;
 pub(crate) type UniChar = UInt16;
 pub(crate) type UInt16 = libc::c_ushort;
@@ -63,7 +42,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontInst_Mac_dtor(mut self_0: *mut XeTeXFon
     };
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontInst_Mac_initialize(
+pub(crate) unsafe fn XeTeXFontInst_Mac_initialize(
     mut self_0: *mut XeTeXFontInst_Mac,
     mut status: *mut libc::c_int,
 ) {
@@ -118,7 +97,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontInst_Mac_initialize(
     };
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontInst_Mac_ctor(
+pub(crate) unsafe fn XeTeXFontInst_Mac_ctor(
     mut self_0: *mut XeTeXFontInst_Mac,
     mut descriptor: CTFontDescriptorRef,
     mut pointSize: libc::c_float,
@@ -139,8 +118,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontInst_Mac_create(
     mut status: *mut libc::c_int,
 ) -> *mut XeTeXFontInst_Mac {
     let mut value: *mut XeTeXFontInst_Mac =
-        malloc(::std::mem::size_of::<XeTeXFontInst_Mac>() as libc::c_ulong)
-            as *mut XeTeXFontInst_Mac;
+        malloc(::std::mem::size_of::<XeTeXFontInst_Mac>()) as *mut XeTeXFontInst_Mac;
     XeTeXFontInst_Mac_ctor(value, descriptor, pointSize, status);
     return value;
 }

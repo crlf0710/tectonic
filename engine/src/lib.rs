@@ -97,10 +97,7 @@ mod core_memory {
     You should have received a copy of the GNU Lesser General Public License
     along with this library; if not, see <http://www.gnu.org/licenses/>.  */
     #[no_mangle]
-    pub(crate) unsafe extern "C" fn xcalloc(
-        mut nelem: size_t,
-        mut elsize: size_t,
-    ) -> *mut libc::c_void {
+    pub(crate) unsafe fn xcalloc(mut nelem: size_t, mut elsize: size_t) -> *mut libc::c_void {
         let nelem = nelem as libc::size_t; //FIXME
         let elsize = elsize as libc::size_t; //FIXME
         let mut new_mem: *mut libc::c_void = libc::calloc(
@@ -116,7 +113,7 @@ mod core_memory {
         new_mem
     }
     #[no_mangle]
-    pub(crate) unsafe extern "C" fn xmalloc(mut size: size_t) -> *mut libc::c_void {
+    pub(crate) unsafe fn xmalloc(mut size: size_t) -> *mut libc::c_void {
         let size = size as libc::size_t; //FIXME
 
         let mut new_mem: *mut libc::c_void = libc::malloc(if size != 0 { size } else { 1 });
@@ -126,7 +123,7 @@ mod core_memory {
         new_mem
     }
     #[no_mangle]
-    pub(crate) unsafe extern "C" fn xrealloc(
+    pub(crate) unsafe fn xrealloc(
         mut old_ptr: *mut libc::c_void,
         mut size: size_t,
     ) -> *mut libc::c_void {
@@ -143,13 +140,13 @@ mod core_memory {
         new_mem
     }
     #[no_mangle]
-    pub(crate) unsafe extern "C" fn xstrdup(mut s: *const i8) -> *mut i8 {
+    pub(crate) unsafe fn xstrdup(mut s: *const i8) -> *mut i8 {
         let mut new_string: *mut i8 = xmalloc(libc::strlen(s).wrapping_add(1) as size_t) as *mut i8;
         libc::strcpy(new_string, s)
     }
 
     #[inline]
-    pub(crate) unsafe extern "C" fn mfree(ptr: *mut libc::c_void) -> *mut libc::c_void {
+    pub(crate) unsafe fn mfree(ptr: *mut libc::c_void) -> *mut libc::c_void {
         libc::free(ptr);
         std::ptr::null_mut()
     }
@@ -190,7 +187,7 @@ mod stub_stdio;
 mod stub_teckit;
 
 #[inline]
-pub(crate) unsafe extern "C" fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8 {
+pub(crate) unsafe fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8 {
     let length = libc::strlen(prefix);
     if libc::strncmp(s, prefix, length) == 0i32 {
         return s.offset(length as isize);
@@ -199,7 +196,7 @@ pub(crate) unsafe extern "C" fn strstartswith(s: *const i8, prefix: *const i8) -
 }
 
 #[inline]
-pub(crate) unsafe extern "C" fn streq_ptr(s1: *const i8, s2: *const i8) -> bool {
+pub(crate) unsafe fn streq_ptr(s1: *const i8, s2: *const i8) -> bool {
     if !s1.is_null() && !s2.is_null() {
         return libc::strcmp(s1, s2) == 0i32;
     }

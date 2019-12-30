@@ -51,7 +51,7 @@ static mut page_max_depth: scaled_t = 0;
 /* XXX other variables belong here but pop up all over the code */
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn initialize_pagebuilder_variables() {
+pub(crate) unsafe fn initialize_pagebuilder_variables() {
     page_max_depth = 0;
 }
 
@@ -467,7 +467,7 @@ unsafe extern "C" fn fire_up(mut c: i32) {
 const AWFUL_BAD: i32 = MAX_HALFWORD; /* XXX redundant with xetex-linebreak.c */
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn build_page() {
+pub(crate) unsafe fn build_page() {
     #[derive(Default)]
     struct Args {
         p: i32,

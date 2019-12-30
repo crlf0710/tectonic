@@ -46,7 +46,7 @@ pub unsafe extern "C" fn tt_xetex_set_int_variable(mut var_name: *mut i8, mut va
     /* success */
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn tt_xetex_set_string_variable(
+pub(crate) unsafe fn tt_xetex_set_string_variable(
     mut _var_name: *mut i8,
     mut _value: *mut i8,
 ) -> i32 {

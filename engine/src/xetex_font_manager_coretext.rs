@@ -23,34 +23,14 @@ objc_foundation::object_struct!(NSFontManager);
 objc_foundation::object_struct!(NSFont);
 type id = *mut Object;
 
-extern "C" {
-    #[no_mangle]
-    fn free(_: *mut libc::c_void);
-    #[no_mangle]
-    fn malloc(_: libc::c_ulong) -> *mut libc::c_void;
-    #[no_mangle]
-    fn strchr(_: *const libc::c_char, _: libc::c_int) -> *mut libc::c_char;
-    #[no_mangle]
-    fn strlen(_: *const libc::c_char) -> libc::c_ulong;
-    #[no_mangle]
-    fn strdup(_: *const libc::c_char) -> *mut libc::c_char;
-    #[no_mangle]
-    fn xpc_debugger_api_misuse_info() -> *const libc::c_char;
-    #[no_mangle]
-    fn XeTeXFontMgr_addToMaps(
-        self_0: *mut XeTeXFontMgr,
-        platformFont: PlatformFontRef,
-        names: *const XeTeXFontMgrNameCollection,
-    );
-    #[no_mangle]
-    fn XeTeXFontMgr_appendToList(
-        self_0: *mut XeTeXFontMgr,
-        list: *mut CppStdListOfString,
-        str: *const libc::c_char,
-    );
-    #[no_mangle]
-    fn XeTeXFontMgr_base_ctor(self_0: *mut XeTeXFontMgr);
-}
+use super::{
+    XeTeXFontMgr, XeTeXFontMgrFamily, XeTeXFontMgrFont, XeTeXFontMgrNameCollection,
+    XeTeXFontMgrOpSizeRec, XeTeXFontMgr_addToMaps, XeTeXFontMgr_appendToList,
+    XeTeXFontMgr_base_ctor,
+};
+
+use libc::{free, malloc, strchr, strdup, strlen};
+
 use crate::size_t;
 pub(crate) type int16_t = libc::c_short;
 pub(crate) type uint16_t = libc::c_ushort;
@@ -95,76 +75,7 @@ shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct XeTeXFontMgrOpSizeRec {
-    pub(crate) designSize: libc::c_uint,
-    pub(crate) subFamilyID: libc::c_uint,
-    pub(crate) nameCode: libc::c_uint,
-    pub(crate) minSize: libc::c_uint,
-    pub(crate) maxSize: libc::c_uint,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct XeTeXFontMgrFamily {
-    pub(crate) styles: *mut CppStdMap<CString, NonNull<XeTeXFontMgrFont>>,
-    pub(crate) minWeight: uint16_t,
-    pub(crate) maxWeight: uint16_t,
-    pub(crate) minWidth: uint16_t,
-    pub(crate) maxWidth: uint16_t,
-    pub(crate) minSlant: int16_t,
-    pub(crate) maxSlant: int16_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct XeTeXFontMgrFont {
-    pub(crate) m_fullName: *mut CppStdString,
-    pub(crate) m_psName: *mut CppStdString,
-    pub(crate) m_familyName: *mut CppStdString,
-    pub(crate) m_styleName: *mut CppStdString,
-    pub(crate) parent: *mut XeTeXFontMgrFamily,
-    pub(crate) fontRef: PlatformFontRef,
-    pub(crate) opSizeInfo: XeTeXFontMgrOpSizeRec,
-    pub(crate) weight: uint16_t,
-    pub(crate) width: uint16_t,
-    pub(crate) slant: int16_t,
-    pub(crate) isReg: bool,
-    pub(crate) isBold: bool,
-    pub(crate) isItalic: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct XeTeXFontMgrNameCollection {
-    pub(crate) m_familyNames: *mut CppStdListOfString,
-    pub(crate) m_styleNames: *mut CppStdListOfString,
-    pub(crate) m_fullNames: *mut CppStdListOfString,
-    pub(crate) m_psName: *mut CppStdString,
-    pub(crate) m_subFamily: *mut CppStdString,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct XeTeXFontMgr {
-    pub(crate) m_subdtor: Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ()>,
-    pub(crate) m_memfnInitialize: Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ()>,
-    pub(crate) m_memfnTerminate: Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ()>,
-    pub(crate) m_memfnGetPlatformFontDesc: Option<
-        unsafe extern "C" fn(_: *const XeTeXFontMgr, _: PlatformFontRef) -> *mut libc::c_char,
-    >,
-    pub(crate) m_memfnGetOpSizeRecAndStyleFlags:
-        Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr, _: *mut XeTeXFontMgrFont) -> ()>,
-    pub(crate) m_memfnSearchForHostPlatformFonts:
-        Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr, _: *const libc::c_char) -> ()>,
-    pub(crate) m_memfnReadNames: Option<
-        unsafe extern "C" fn(
-            _: *mut XeTeXFontMgr,
-            _: PlatformFontRef,
-        ) -> *mut XeTeXFontMgrNameCollection,
-    >,
-    pub(crate) m_nameToFont: *mut CppStdMap<CString, NonNull<XeTeXFontMgrFont>>,
-    pub(crate) m_nameToFamily: *mut CppStdMap<CString, NonNull<XeTeXFontMgrFamily>>,
-    pub(crate) m_platformRefToFont: *mut CppStdMap<PlatformFontRef, NonNull<XeTeXFontMgrFont>>,
-    pub(crate) m_psNameToFont: *mut CppStdMap<CString, NonNull<XeTeXFontMgrFont>>,
-}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXFontMgr_Mac {
@@ -172,9 +83,9 @@ pub(crate) struct XeTeXFontMgr_Mac {
 }
 #[inline]
 unsafe extern "C" fn XeTeXFontMgrNameCollection_create() -> *mut XeTeXFontMgrNameCollection {
-    let mut self_0: *mut XeTeXFontMgrNameCollection =
-        malloc(::std::mem::size_of::<XeTeXFontMgrNameCollection>() as libc::c_ulong)
-            as *mut XeTeXFontMgrNameCollection;
+    let mut self_0: *mut XeTeXFontMgrNameCollection = malloc(::std::mem::size_of::<
+        XeTeXFontMgrNameCollection,
+    >()) as *mut XeTeXFontMgrNameCollection;
     (*self_0).m_familyNames = CppStdListOfString_create();
     (*self_0).m_styleNames = CppStdListOfString_create();
     (*self_0).m_fullNames = CppStdListOfString_create();
@@ -206,7 +117,7 @@ unsafe extern "C" fn XeTeXFontMgrNameCollection_delete(
     free(self_0 as *mut _);
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_findFontWithName(
+pub(crate) unsafe fn XeTeXFontMgr_findFontWithName(
     mut name: CFStringRef,
     mut key: CFStringRef,
 ) -> CTFontDescriptorRef {
@@ -243,7 +154,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_findFontWithName(
     return matched;
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_appendNameToList(
+pub(crate) unsafe fn XeTeXFontMgr_Mac_appendNameToList(
     mut self_0: *mut XeTeXFontMgr,
     mut font: CTFontRef,
     mut nameList: *mut CppStdListOfString,
@@ -294,7 +205,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_readNames(
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_addFontsToCaches(
+pub(crate) unsafe fn XeTeXFontMgr_Mac_addFontsToCaches(
     mut self_0: *mut XeTeXFontMgr,
     fonts: CFArrayRef,
 ) {
@@ -310,7 +221,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_addFontsToCaches(
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_addFamilyToCaches(
+pub(crate) unsafe fn XeTeXFontMgr_Mac_addFamilyToCaches(
     mut self_0: *mut XeTeXFontMgr,
     mut familyRef: CTFontDescriptorRef,
 ) {
@@ -327,7 +238,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_addFamilyToCaches(
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_addFontAndSiblingsToCaches(
+pub(crate) unsafe fn XeTeXFontMgr_Mac_addFontAndSiblingsToCaches(
     mut self_0: *mut XeTeXFontMgr,
     mut fontRef: CTFontDescriptorRef,
 ) {
@@ -377,7 +288,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_searchForHostPlatformFonts(
     } else {
         -1i32 as libc::c_long
     }) as libc::c_int;
-    if hyph > 0i32 && (hyph as libc::c_ulong) < strlen(name).wrapping_sub(1i32 as libc::c_ulong) {
+    if hyph > 0i32 && (hyph as usize) < strlen(name) - 1 {
         let mut family: *mut CppStdString = CppStdString_create();
         CppStdString_assign_n_chars(family, name, hyph as usize);
         let mut familyStr: CFStringRef = CFStringCreateWithCString(
@@ -464,7 +375,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_getPlatformFontDesc(
         }
         CFRelease(ctFont as CFTypeRef);
     }
-    if strlen(path) == 0i32 as libc::c_ulong {
+    if strlen(path) == 0 {
         free(path as *mut libc::c_void);
         path = ptr::null_mut()
     }
@@ -474,7 +385,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_getPlatformFontDesc(
     return strdup(path);
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_ctor(mut self_0: *mut XeTeXFontMgr_Mac) {
+pub(crate) unsafe fn XeTeXFontMgr_Mac_ctor(mut self_0: *mut XeTeXFontMgr_Mac) {
     XeTeXFontMgr_base_ctor(&mut (*self_0).super_);
     (*self_0).super_.m_memfnInitialize =
         Some(XeTeXFontMgr_Mac_initialize as unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ());
@@ -500,9 +411,9 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_ctor(mut self_0: *mut XeTeXFont
     );
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_create() -> *mut XeTeXFontMgr_Mac {
+pub(crate) unsafe fn XeTeXFontMgr_Mac_create() -> *mut XeTeXFontMgr_Mac {
     let mut self_0: *mut XeTeXFontMgr_Mac =
-        malloc(::std::mem::size_of::<XeTeXFontMgr_Mac>() as libc::c_ulong) as *mut XeTeXFontMgr_Mac;
+        malloc(::std::mem::size_of::<XeTeXFontMgr_Mac>()) as *mut XeTeXFontMgr_Mac;
     XeTeXFontMgr_Mac_ctor(self_0);
     return self_0;
 }
