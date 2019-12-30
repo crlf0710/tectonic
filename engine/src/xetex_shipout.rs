@@ -11,14 +11,14 @@ use crate::xetex_ext::{
 use crate::xetex_ini::{
     avail, cur_area, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_list, cur_name,
     cur_page_height, cur_page_width, cur_tok, cur_v, cur_v_offset, dead_cycles, def_ref,
-    doing_leaders, doing_special, file_line_error_style_p, file_offset, font_mapping, font_ptr,
-    font_used, help_line, help_ptr, init_pool_ptr, job_name, last_bop, log_opened, max_h,
-    max_print_line, max_push, max_v, name_of_file, output_file_extension, pdf_last_x_pos,
-    pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht, rule_wd, rust_stdout, selector,
-    semantic_pagination_enabled, str_pool, str_ptr, str_start, temp_ptr, term_offset, total_pages,
-    write_file, write_loc, write_open, xdv_buffer, xtx_ligature_present, LR_problems, LR_ptr,
-    CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO,
-    FONT_LETTER_SPACE, FONT_NAME, FONT_SIZE, MEM, WIDTH_BASE,
+    doing_leaders, doing_special, file_line_error_style_p, file_offset, font_ptr, font_used,
+    help_line, help_ptr, init_pool_ptr, job_name, last_bop, log_opened, max_h, max_print_line,
+    max_push, max_v, name_of_file, output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr,
+    pool_size, rule_dp, rule_ht, rule_wd, rust_stdout, selector, semantic_pagination_enabled,
+    str_pool, str_ptr, str_start, temp_ptr, term_offset, total_pages, write_file, write_loc,
+    write_open, xdv_buffer, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, FONT_AREA,
+    FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO, FONT_LETTER_SPACE,
+    FONT_MAPPING, FONT_NAME, FONT_SIZE, MEM, WIDTH_BASE,
 };
 use crate::xetex_ini::{memory_word, Selector};
 use crate::xetex_output::{
@@ -670,13 +670,8 @@ unsafe extern "C" fn hlist_out() {
                                 internal_font_number;
                         c = MEM[p as usize].b16.s0;
                         if p != 4999999i32 - 12i32 &&
-                               !(*font_mapping.offset(f as isize)).is_null() {
-                            c =
-                                apply_tfm_font_mapping(*font_mapping.offset(f
-                                                                                as
-                                                                                isize),
-                                                       c as i32) as
-                                    u16
+                               !(FONT_MAPPING[f as usize]).is_null() {
+                            c = apply_tfm_font_mapping(FONT_MAPPING[f as usize], c as i32) as u16;
                         }
                         if f != dvi_f {
                             /*643: "Change font dvi_f to f" */
@@ -1002,9 +997,7 @@ unsafe extern "C" fn hlist_out() {
                                     free_node(g,
                                               4i32); /* "will never match" */
                                 } else {
-                                    let ref mut fresh2 =
-                                        MEM[g as usize].b32.s1;
-                                    *fresh2 -= 1
+                                    MEM[g as usize].b32.s1 -= 1
                                 }
                                 if (MEM[p as usize].b16.s0 as
                                         i32) < 100i32 {
@@ -1769,8 +1762,7 @@ unsafe extern "C" fn reverse(
                                 if MEM[g as usize].b32.s1 == -0xfffffff {
                                     free_node(g, 4i32);
                                 } else {
-                                    let ref mut fresh3 = MEM[g as usize].b32.s1;
-                                    *fresh3 -= 1
+                                    MEM[g as usize].b32.s1 -= 1;
                                 }
                                 if (MEM[p as usize].b16.s0 as i32) < 100 {
                                     MEM[p as usize].b16.s1 = 11_u16;
@@ -1831,8 +1823,7 @@ unsafe extern "C" fn reverse(
                         avail = temp_ptr;
                         if n > -0xfffffffi32 {
                             n -= 1;
-                            let ref mut fresh4 = MEM[p as usize].b16.s0;
-                            *fresh4 = (*fresh4).wrapping_sub(1)
+                            MEM[p as usize].b16.s0 -= 1;
                         } else {
                             MEM[p as usize].b16.s1 = 11_u16;
                             if m > -0xfffffffi32 {
@@ -1856,8 +1847,7 @@ unsafe extern "C" fn reverse(
                     LR_ptr = temp_ptr;
                     if n > -0xfffffffi32 || MEM[p as usize].b16.s0 as i32 / 8 != cur_dir as i32 {
                         n += 1;
-                        let ref mut fresh5 = MEM[p as usize].b16.s0;
-                        *fresh5 = (*fresh5).wrapping_add(1)
+                        MEM[p as usize].b16.s0 += 1;
                     } else {
                         MEM[p as usize].b16.s1 = 11_u16;
                         m += 1

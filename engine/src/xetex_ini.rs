@@ -809,11 +809,9 @@ pub(crate) static mut FONT_BCHAR: Vec<nine_bits> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_FALSE_BCHAR: Vec<nine_bits> = Vec::new();
 #[no_mangle]
-pub(crate) static mut font_layout_engine: *mut *mut libc::c_void =
-    0 as *const *mut libc::c_void as *mut *mut libc::c_void;
+pub(crate) static mut FONT_LAYOUT_ENGINE: Vec<*mut libc::c_void> = Vec::new();
 #[no_mangle]
-pub(crate) static mut font_mapping: *mut *mut libc::c_void =
-    0 as *const *mut libc::c_void as *mut *mut libc::c_void;
+pub(crate) static mut FONT_MAPPING: Vec<*mut libc::c_void> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_FLAGS: Vec<i8> = Vec::new();
 #[no_mangle]
@@ -2293,15 +2291,12 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                 back_input();
             }
             if cur_cmd as i32 >= 113i32 {
-                let ref mut fresh12 = MEM[cur_chr as usize].b32.s0;
-                *fresh12 += 1
+                MEM[cur_chr as usize].b32.s0 += 1
             } else if cur_cmd as i32 == 91i32 ||
                           cur_cmd as i32 == 72i32 {
                 if cur_chr < 0i32 || cur_chr > 19i32 {
                     /* 19 = lo_mem_stat_max, I think */
-                    let ref mut fresh13 =
-                        MEM[(cur_chr + 1) as usize].b32.s0;
-                    *fresh13 += 1
+                    MEM[(cur_chr + 1) as usize].b32.s0 += 1;
                 }
             }
             if a as i32 >= 4i32 {
@@ -2402,10 +2397,7 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                             if j > MU_VAL { j = TOK_VAL }
                             find_sa_element(j as small_number, cur_val,
                                             true);
-                            let ref mut fresh14 =
-                                MEM[(cur_ptr + 1) as
-                                                 usize].b32.s0;
-                            *fresh14 += 1;
+                            MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
                             if j == 5i32 { j = 72i32 } else { j = 91i32 }
                             if a as i32 >= 4i32 {
                                 geq_define(p, j as u16, cur_ptr);
@@ -2564,9 +2556,7 @@ pub(crate) unsafe extern "C" fn prefixed_command() {
                             eq_define(p, 103_u16, TEX_NULL);
                         }
                     } else {
-                        let ref mut fresh15 =
-                            MEM[q as usize].b32.s0;
-                        *fresh15 += 1;
+                        MEM[q as usize].b32.s0 += 1;
                         if e {
                             if a as i32 >= 4i32 {
                                 gsa_def(p, q);
@@ -3566,7 +3556,7 @@ unsafe extern "C" fn store_fmt_file() {
         print_char('=' as i32);
         if FONT_AREA[k as usize] as u32 == 0xffffu32
             || FONT_AREA[k as usize] as u32 == 0xfffeu32
-            || !(*font_mapping.offset(k as isize)).is_null()
+            || !(FONT_MAPPING[k as usize]).is_null()
         {
             print_file_name(
                 FONT_NAME[k as usize],
@@ -4316,8 +4306,8 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     }
 
     font_ptr = x;
-    font_mapping = xmalloc_array::<*mut libc::c_void>(FONT_MAX);
-    font_layout_engine = xcalloc_array::<*mut libc::c_void>(FONT_MAX);
+    FONT_MAPPING = vec![0 as *mut libc::c_void; FONT_MAX + 1];
+    FONT_LAYOUT_ENGINE = vec![0 as *mut libc::c_void; FONT_MAX + 1];
     FONT_FLAGS = vec![0; FONT_MAX + 1];
     FONT_LETTER_SPACE = vec![0; FONT_MAX + 1];
     FONT_CHECK = vec![b16x4_le_t::default(); FONT_MAX + 1];
@@ -4346,8 +4336,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
 
     k = 0i32;
     while k <= font_ptr {
-        let ref mut fresh16 = *font_mapping.offset(k as isize);
-        *fresh16 = 0 as *mut libc::c_void;
+        FONT_MAPPING[k as usize] = 0 as *mut libc::c_void;
         k += 1
     }
     do_undump(
@@ -4961,8 +4950,7 @@ unsafe extern "C" fn init_io() {
     stdin_ufile.skipNextLF = 0_i16;
     stdin_ufile.encodingMode = 1_i16;
     stdin_ufile.conversionData = 0 as *mut libc::c_void;
-    let ref mut fresh19 = INPUT_FILE[0];
-    *fresh19 = &mut stdin_ufile;
+    INPUT_FILE[0] = &mut stdin_ufile;
     *buffer.offset(first as isize) = 0i32;
     last = first;
     cur_input.loc = first;
@@ -5184,8 +5172,7 @@ unsafe extern "C" fn initialize_more_initex_variables() {
         EQTB[k as usize] = EQTB[GLUE_BASE as usize];
         k += 1
     }
-    let ref mut fresh20 = MEM[0].b32.s1;
-    *fresh20 += 531i32;
+    MEM[0].b32.s1 += 531i32;
     LOCAL_set(LOCAL__par_shape, TEX_NULL);
     EQTB[LOCAL_BASE as usize + LOCAL__par_shape as usize].b16.s1 = SHAPE_REF as _;
     EQTB[LOCAL_BASE as usize + LOCAL__par_shape as usize].b16.s0 = LEVEL_ONE as _;
@@ -6303,8 +6290,8 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
         trie_ptr = 0i32;
         *trie_r.offset(0) = 0i32;
         hyph_start = 0i32;
-        font_mapping = xcalloc_array::<*mut libc::c_void>(FONT_MAX);
-        font_layout_engine = xcalloc_array::<*mut libc::c_void>(FONT_MAX);
+        FONT_MAPPING = vec![0 as *mut libc::c_void; FONT_MAX + 1];
+        FONT_LAYOUT_ENGINE = vec![0 as *mut libc::c_void; FONT_MAX + 1];
         FONT_FLAGS = vec![0; FONT_MAX + 1];
         FONT_LETTER_SPACE = vec![0; FONT_MAX + 1];
         FONT_CHECK = vec![b16x4_le_t::default(); FONT_MAX + 1];
@@ -6353,8 +6340,7 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
         EXTEN_BASE[0] = 0;
         FONT_GLUE[0] = TEX_NULL;
         FONT_PARAMS[0] = 7;
-        let ref mut fresh21 = *font_mapping.offset(0);
-        *fresh21 = 0 as *mut libc::c_void;
+        FONT_MAPPING[0] = 0 as *mut libc::c_void;
         PARAM_BASE[0] = -1;
         font_k = 0i32;
         while font_k <= 6i32 {
@@ -6390,13 +6376,12 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     destroy_font_manager();
     font_k = 0i32;
     while font_k < FONT_MAX as i32 {
-        if !(*font_layout_engine.offset(font_k as isize)).is_null() {
+        if !(FONT_LAYOUT_ENGINE[font_k as usize]).is_null() {
             release_font_engine(
-                *font_layout_engine.offset(font_k as isize),
+                FONT_LAYOUT_ENGINE[font_k as usize],
                 FONT_AREA[font_k as usize],
             );
-            let ref mut fresh22 = *font_layout_engine.offset(font_k as isize);
-            *fresh22 = 0 as *mut libc::c_void
+            FONT_LAYOUT_ENGINE[font_k as usize] = 0 as *mut libc::c_void
         }
         font_k += 1
     }
@@ -6425,8 +6410,8 @@ pub(crate) unsafe extern "C" fn tt_run_engine(
     free(str_start as *mut libc::c_void);
     free(str_pool as *mut libc::c_void);
     FONT_INFO = Vec::new();
-    free(font_mapping as *mut libc::c_void);
-    free(font_layout_engine as *mut libc::c_void);
+    FONT_MAPPING = Vec::new();
+    FONT_LAYOUT_ENGINE = Vec::new();
     FONT_FLAGS = Vec::new();
     FONT_LETTER_SPACE = Vec::new();
     FONT_CHECK = Vec::new();

@@ -292,28 +292,24 @@ unsafe extern "C" fn fire_up(mut c: i32) {
                 find_sa_element(MARK_VAL as _, MEM[(p + 1) as usize].b32.s0, true);
                 if MEM[(cur_ptr + 1) as usize].b32.s1 == TEX_NULL {
                     MEM[(cur_ptr + 1) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
-                    let ref mut fresh1 = MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0;
-                    *fresh1 += 1
+                    MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1;
                 }
                 if MEM[(cur_ptr + 2) as usize].b32.s0 != TEX_NULL {
                     delete_token_ref(MEM[(cur_ptr + 2) as usize].b32.s0);
                 }
                 MEM[(cur_ptr + 2) as usize].b32.s0 = MEM[(p + 1) as usize].b32.s1;
-                let ref mut fresh2 = MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0;
-                *fresh2 += 1
+                MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1;
             } else {
                 /*1051: "Update the values of first_mark and bot_mark" */
                 if cur_mark[FIRST_MARK_CODE as usize] == TEX_NULL {
                     cur_mark[FIRST_MARK_CODE as usize] = MEM[(p + 1) as usize].b32.s1;
-                    let ref mut fresh3 = MEM[cur_mark[1] as usize].b32.s0;
-                    *fresh3 += 1
+                    MEM[cur_mark[1] as usize].b32.s0 += 1;
                 }
                 if cur_mark[2] != TEX_NULL {
                     delete_token_ref(cur_mark[BOT_MARK_CODE as usize]);
                 }
                 cur_mark[BOT_MARK_CODE as usize] = MEM[(p + 1) as usize].b32.s1;
-                let ref mut fresh4 = MEM[cur_mark[2] as usize].b32.s0;
-                *fresh4 += 1
+                MEM[cur_mark[2] as usize].b32.s0 += 1;
             }
         }
 
@@ -704,9 +700,7 @@ pub(crate) unsafe extern "C" fn build_page() {
                                                         usize].b32.s0, w,
                                        MEM[(slf.p + 2) as
                                                         usize].b32.s1);
-                        let ref mut fresh9 =
-                            MEM[(slf.r + 3) as usize].b32.s1;
-                        *fresh9 += best_height_plus_depth;
+                        MEM[(slf.r + 3) as usize].b32.s1 += best_height_plus_depth;
 
                         if COUNT_REG(n as _) != 1000 {
                             best_height_plus_depth =
