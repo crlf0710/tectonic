@@ -18,7 +18,7 @@ use crate::xetex_font_info::gFreeTypeLibrary;
 use crate::xetex_layout_interface::collection_types::*;
 
 use crate::freetype_sys_patch::{FT_Get_Sfnt_Name, FT_Get_Sfnt_Name_Count};
-use freetype::freetype_sys::{FT_Byte, FT_Face, FT_Library, FT_Long};
+use freetype::freetype_sys::{FT_Byte, FT_Face, FT_Long};
 use freetype::freetype_sys::{FT_Done_Face, FT_Get_Postscript_Name, FT_Init_FreeType, FT_New_Face};
 
 use libc::{free, malloc, strchr, strdup};
@@ -58,7 +58,6 @@ extern "C" {
         s: *mut *mut FcChar8,
     ) -> FcResult;
 }
-use crate::size_t;
 pub(crate) type __int16_t = libc::c_short;
 pub(crate) type __uint16_t = libc::c_ushort;
 pub(crate) type __int32_t = libc::c_int;

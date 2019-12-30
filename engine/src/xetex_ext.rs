@@ -1188,12 +1188,8 @@ pub(crate) unsafe fn find_native_font(
 pub(crate) unsafe fn release_font_engine(mut engine: *mut libc::c_void, mut type_flag: i32) {
     match type_flag as u32 {
         #[cfg(target_os = "macos")]
-        0xffffu32 => {
-            CFRelease(engine as CFDictionaryRef as CFTypeRef);
-        }
-        0xfffeu32 => {
-            deleteLayoutEngine(engine as XeTeXLayoutEngine);
-        }
+        0xffffu32 => CFRelease(engine as CFDictionaryRef as CFTypeRef),
+        0xfffeu32 => deleteLayoutEngine(engine as XeTeXLayoutEngine),
         _ => {}
     }
 }
@@ -1545,9 +1541,7 @@ pub(crate) unsafe fn make_font_def(mut f: i32) -> i32 {
             embolden = getEmboldenFactor(engine);
             size = D2Fix(getPointSize(engine) as f64)
         }
-        _ => {
-            panic!("bad native font flag in `make_font_def`");
-        }
+        _ => panic!("bad native font flag in `make_font_def`"),
     }
     filenameLen = strlen(filename) as u8;
     /* parameters after internal font ID:
@@ -1703,9 +1697,7 @@ pub(crate) unsafe fn get_native_char_height_depth(
             let mut gid: i32 = mapCharToGlyph(engine, ch as u32) as i32;
             getGlyphHeightDepth(engine, gid as u32, &mut ht, &mut dp);
         }
-        _ => {
-            panic!("bad native font flag in `get_native_char_height_depth`");
-        }
+        _ => panic!("bad native font flag in `get_native_char_height_depth`"),
     }
     *height = D2Fix(ht as f64);
     *depth = D2Fix(dp as f64);
@@ -1758,9 +1750,7 @@ pub(crate) unsafe fn get_native_char_sidebearings(
             let mut gid: i32 = mapCharToGlyph(engine, ch as u32) as i32;
             getGlyphSidebearings(engine, gid as u32, &mut l, &mut r);
         }
-        _ => {
-            panic!("bad native font flag in `get_native_char_side_bearings`");
-        }
+        _ => panic!("bad native font flag in `get_native_char_side_bearings`"),
     }
     *lsb = D2Fix(l as f64);
     *rsb = D2Fix(r as f64);
@@ -1789,9 +1779,7 @@ pub(crate) unsafe fn get_glyph_bounds(mut font: i32, mut edge: i32, mut gid: i32
                 getGlyphHeightDepth(engine, gid as u32, &mut a, &mut b);
             }
         }
-        _ => {
-            abort!("bad native font flag in `get_glyph_bounds`");
-        }
+        _ => abort!("bad native font flag in `get_glyph_bounds`"),
     }
     D2Fix((if edge <= 2i32 { a } else { b }) as f64)
 }
@@ -1820,9 +1808,7 @@ pub(crate) unsafe fn getnativecharwd(mut f: i32, mut c: i32) -> scaled_t {
             let mut gid: i32 = mapCharToGlyph(engine, c as u32) as i32;
             wd = D2Fix(getGlyphWidthFromEngine(engine, gid as u32) as f64)
         }
-        _ => {
-            panic!("bad native font flag in `get_native_char_wd`");
-        }
+        _ => panic!("bad native font flag in `get_native_char_wd`"),
     }
     wd
 }
@@ -2223,9 +2209,7 @@ pub(crate) unsafe fn measure_native_glyph(
                 getGlyphHeightDepth(engine, gid as u32, &mut ht, &mut dp);
             }
         }
-        _ => {
-            panic!("bad native font flag in `measure_native_glyph`");
-        }
+        _ => panic!("bad native font flag in `measure_native_glyph`"),
     }
     if use_glyph_metrics != 0 {
         (*node.offset(3)).b32.s1 = D2Fix(ht as f64);
@@ -2253,9 +2237,7 @@ pub(crate) unsafe fn map_char_to_glyph(mut font: i32, mut ch: i32) -> i32 {
                 ch as u32,
             ) as i32;
         }
-        _ => {
-            panic!("bad native font flag in `map_char_to_glyph`");
-        }
+        _ => panic!("bad native font flag in `map_char_to_glyph`"),
     }
 }
 pub(crate) unsafe fn map_glyph_to_index(mut font: i32) -> i32
@@ -2274,9 +2256,7 @@ pub(crate) unsafe fn map_glyph_to_index(mut font: i32) -> i32
                 name_of_file,
             );
         }
-        _ => {
-            panic!("bad native font flag in `map_glyph_to_index`");
-        }
+        _ => panic!("bad native font flag in `map_glyph_to_index`"),
     }
 }
 pub(crate) unsafe fn get_font_char_range(mut font: i32, mut first: i32) -> i32 {
@@ -2294,9 +2274,7 @@ pub(crate) unsafe fn get_font_char_range(mut font: i32, mut first: i32) -> i32 {
                 first,
             );
         }
-        _ => {
-            panic!("bad native font flag in `get_font_char_range\'`");
-        }
+        _ => panic!("bad native font flag in `get_font_char_range\'`"),
     }
 }
 pub(crate) unsafe fn D2Fix(mut d: f64) -> Fixed {
@@ -2313,16 +2291,14 @@ pub(crate) unsafe fn print_glyph_name(mut font: i32, mut gid: i32) {
     match FONT_AREA[font as usize] as u32 {
         #[cfg(target_os = "macos")]
         0xffffu32 => {
-            s = aat::GetGlyphNameFromCTFont(aat::font_from_integer(font), gid as u16, &mut len);
+            s = aat::GetGlyphNameFromCTFont(aat::font_from_integer(font), gid as u16, &mut len)
         }
         0xfffeu32 => {
             let mut engine: XeTeXLayoutEngine =
                 FONT_LAYOUT_ENGINE[font as usize] as XeTeXLayoutEngine;
             s = getGlyphName(getFont(engine), gid as u16, &mut len);
         }
-        _ => {
-            panic!("bad native font flag in `print_glyph_name`");
-        }
+        _ => panic!("bad native font flag in `print_glyph_name`"),
     }
     loop {
         let fresh33 = len;

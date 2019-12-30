@@ -1461,9 +1461,7 @@ unsafe extern "C" fn vlist_out() {
                             pdf_last_x_pos = cur_h + cur_h_offset;
                             pdf_last_y_pos = cur_page_height - cur_v - cur_v_offset
                         }
-                        _ => {
-                            out_what(p);
-                        }
+                        _ => out_what(p),
                     }
                     current_block = 5241535548500397784;
                 }
@@ -1596,9 +1594,7 @@ unsafe extern "C" fn vlist_out() {
                     }
                     current_block = 5241535548500397784;
                 }
-                _ => {
-                    current_block = 5241535548500397784;
-                }
+                _ => current_block = 5241535548500397784,
             }
             match current_block {
                 9653381107620864133 => {
@@ -1798,9 +1794,7 @@ unsafe extern "C" fn reverse(
                                 break;
                             }
                         }
-                        14 => {
-                            confusion(b"LR2");
-                        }
+                        14 => confusion(b"LR2"),
                         _ => {
                             current_block = 10883403804712335414;
                             break;
@@ -1956,13 +1950,9 @@ pub(crate) unsafe fn out_what(mut p: i32) {
                 selector = old_setting
             }
         }
-        SPECIAL_NODE => {
-            special_out(p);
-        }
+        SPECIAL_NODE => special_out(p),
         LANGUAGE_NODE => {}
-        _ => {
-            confusion(b"ext4");
-        }
+        _ => confusion(b"ext4"),
     };
 }
 
@@ -2202,9 +2192,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
                 current_block = 18026793543132934442;
             }
             match current_block {
-                14567512515169274304 => {
-                    dvi_out((w / 256i32) as u8);
-                }
+                14567512515169274304 => dvi_out((w / 256i32) as u8),
                 _ => {}
             }
             dvi_out((w % 256i32) as u8);
@@ -2406,21 +2394,11 @@ unsafe fn pic_out(mut p: i32) {
     print(' ' as i32);
 
     match MEM[(p + 8) as usize].b16.s1 {
-        1 => {
-            print_cstr(b"pagebox cropbox ");
-        }
-        2 => {
-            print_cstr(b"pagebox mediabox ");
-        }
-        3 => {
-            print_cstr(b"pagebox bleedbox ");
-        }
-        5 => {
-            print_cstr(b"pagebox artbox ");
-        }
-        4 => {
-            print_cstr(b"pagebox trimbox ");
-        }
+        1 => print_cstr(b"pagebox cropbox "),
+        2 => print_cstr(b"pagebox mediabox "),
+        3 => print_cstr(b"pagebox bleedbox "),
+        5 => print_cstr(b"pagebox artbox "),
+        4 => print_cstr(b"pagebox trimbox "),
         _ => {}
     }
 

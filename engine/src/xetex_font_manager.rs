@@ -29,11 +29,10 @@ use crate::xetex_output::{print_char, print_nl};
 use crate::xetex_xetex0::{begin_diagnostic, end_diagnostic, get_tracing_fonts_state};
 
 #[cfg(not(target_os = "macos"))]
-use self::imp::{XeTeXFontMgr_FC, XeTeXFontMgr_FC_create};
+use self::imp::XeTeXFontMgr_FC_create;
 #[cfg(target_os = "macos")]
-use self::imp::{XeTeXFontMgr_Mac, XeTeXFontMgr_Mac_create};
+use self::imp::XeTeXFontMgr_Mac_create;
 
-use freetype::freetype_sys;
 use harfbuzz_sys::{hb_face_t, hb_font_get_face, hb_font_t, hb_ot_layout_get_size_params};
 
 use libc::{free, malloc, strchr, strcpy, strlen, strncmp};

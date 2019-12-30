@@ -3221,9 +3221,7 @@ unsafe extern "C" fn mlist_to_hlist() {
                     current_block = 12027452349022962373;
                     break;
                 }
-                _ => {
-                    confusion(b"mlist1");
-                }
+                _ => confusion(b"mlist1"),
             }
         }
         match current_block {
@@ -3304,9 +3302,7 @@ unsafe extern "C" fn mlist_to_hlist() {
                             1i32 as small_number,
                         )
                     }
-                    _ => {
-                        confusion(b"mlist2");
-                    }
+                    _ => confusion(b"mlist2"),
                 }
                 MEM[(q + 1) as usize].b32.s1 = p;
                 if MEM[(q + 3) as usize].b32.s1 == 0 && MEM[(q + 2) as usize].b32.s1 == 0 {
@@ -3388,9 +3384,7 @@ unsafe extern "C" fn mlist_to_hlist() {
                 pen = EQTB[(INT_BASE + 10i32) as usize].b32.s1;
                 current_block_236 = 15067367080042895309;
             }
-            16 | 29 | 27 | 26 => {
-                current_block_236 = 15067367080042895309;
-            }
+            16 | 29 | 27 | 26 => current_block_236 = 15067367080042895309,
             24 => {
                 s = 5i32 as small_number;
                 current_block_236 = 15067367080042895309;
@@ -3426,9 +3420,7 @@ unsafe extern "C" fn mlist_to_hlist() {
                 MEM[p as usize].b32.s1 = -0xfffffff;
                 current_block_236 = 7344615536999694015;
             }
-            _ => {
-                confusion(b"mlist3");
-            }
+            _ => confusion(b"mlist3"),
         }
         match current_block_236 {
             15067367080042895309 => {

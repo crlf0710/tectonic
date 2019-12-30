@@ -23,7 +23,6 @@ use bridge::{ttstub_issue_error, ttstub_issue_warning, ttstub_output_close, ttst
 use libc::{free, strcat, strcpy, strlen};
 use std::ptr;
 
-use crate::size_t;
 use bridge::OutputHandleWrapper;
 pub(crate) type scaled_t = i32;
 pub(crate) type str_number = i32;

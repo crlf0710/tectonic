@@ -351,7 +351,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             }
             match *NODE_type(cur_p as isize) {
                 HLIST_NODE | VLIST_NODE | RULE_NODE => {
-                    active_width[1] += *BOX_width(cur_p as isize);
+                    active_width[1] += *BOX_width(cur_p as isize)
                 }
                 WHATSIT_NODE => {
                     if *NODE_subtype(cur_p as isize) == LANGUAGE_NODE as _ {
@@ -1326,9 +1326,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                             confusion(b"disc3a");
                                         }
                                     }
-                                    _ => {
-                                        confusion(b"disc3");
-                                    }
+                                    _ => confusion(b"disc3"),
                                 }
                             }
                             s = MEM[s as usize].b32.s1;
@@ -1383,9 +1381,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         confusion(b"disc4a");
                                     }
                                 }
-                                _ => {
-                                    confusion(b"disc4");
-                                }
+                                _ => confusion(b"disc4"),
                             }
                         }
                         r -= 1;
@@ -1407,13 +1403,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     }
                     active_width[1] += MEM[(cur_p + 1) as usize].b32.s1
                 }
-                12 => {
-                    try_break(MEM[(cur_p + 1) as usize].b32.s1, 0 as small_number);
-                }
+                12 => try_break(MEM[(cur_p + 1) as usize].b32.s1, 0 as small_number),
                 4 | 3 | 5 => {}
-                _ => {
-                    confusion(b"paragraph");
-                }
+                _ => confusion(b"paragraph"),
             }
             global_prev_p = cur_p;
             prev_p = global_prev_p;
@@ -2088,9 +2080,7 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                                                     confusion(b"disc1a");
                                                 }
                                             }
-                                            _ => {
-                                                confusion(b"disc1");
-                                            }
+                                            _ => confusion(b"disc1"),
                                         }
                                     }
                                 }
@@ -2147,9 +2137,7 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                                                     confusion(b"disc2a");
                                                 }
                                             }
-                                            _ => {
-                                                confusion(b"disc2");
-                                            }
+                                            _ => confusion(b"disc2"),
                                         }
                                     }
                                     s = MEM[s as usize].b32.s1
@@ -2180,9 +2168,7 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                                     }
                                     break_width[1] -= MEM[(s + 1) as usize].b32.s1
                                 }
-                                _ => {
-                                    break;
-                                }
+                                _ => break,
                             }
                             s = MEM[s as usize].b32.s1
                         }

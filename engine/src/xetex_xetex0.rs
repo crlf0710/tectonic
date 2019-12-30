@@ -14,7 +14,6 @@ use std::io::Write;
 use std::ptr;
 
 use super::xetex_ini::Selector;
-pub(crate) use super::xetex_io::UFILE;
 use super::xetex_io::{
     bytesFromUTF8, make_utf16_name, name_of_input_file, offsetsFromUTF8, tt_xetex_open_input,
     u_open_in,
@@ -284,9 +283,7 @@ pub(crate) unsafe fn show_token_list(mut p: i32, mut q: i32, mut l: i32) {
                 /*306:*/
                 match m as u16 {
                     LEFT_BRACE | RIGHT_BRACE | MATH_SHIFT | TAB_MARK | SUP_MARK | SUB_MARK
-                    | SPACER | LETTER | OTHER_CHAR => {
-                        print_char(c);
-                    }
+                    | SPACER | LETTER | OTHER_CHAR => print_char(c),
                     MAC_PARAM => {
                         print_char(c);
                         print_char(c);
@@ -314,9 +311,7 @@ pub(crate) unsafe fn show_token_list(mut p: i32, mut q: i32, mut l: i32) {
                             print_cstr(b"->");
                         }
                     }
-                    _ => {
-                        print_esc_cstr(b"BAD.");
-                    }
+                    _ => print_esc_cstr(b"BAD."),
                 }
             }
         }
@@ -650,9 +645,7 @@ pub(crate) unsafe fn short_display(mut p: i32) {
         } else {
             /*183:*/
             match MEM[p as usize].b16.s1 as i32 {
-                0 | 1 | 3 | 4 | 5 | 13 => {
-                    print_cstr(b"[]");
-                }
+                0 | 1 | 3 | 4 | 5 | 13 => print_cstr(b"[]"),
                 8 => match MEM[p as usize].b16.s0 as i32 {
                     40 | 41 => {
                         if MEM[(p + 4) as usize].b16.s2 as i32 != font_in_short_display {
@@ -667,13 +660,9 @@ pub(crate) unsafe fn short_display(mut p: i32) {
                         }
                         print_native_word(p);
                     }
-                    _ => {
-                        print_cstr(b"[]");
-                    }
+                    _ => print_cstr(b"[]"),
                 },
-                2 => {
-                    print_char('|' as i32);
-                }
+                2 => print_char('|' as i32),
                 10 => {
                     if MEM[(p + 1) as usize].b32.s0 != 0 {
                         print_char(' ' as i32);
@@ -686,9 +675,7 @@ pub(crate) unsafe fn short_display(mut p: i32) {
                         print_char('$' as i32);
                     }
                 }
-                6 => {
-                    short_display(MEM[(p + 1) as usize].b32.s1);
-                }
+                6 => short_display(MEM[(p + 1) as usize].b32.s1),
                 7 => {
                     short_display(MEM[(p + 1) as usize].b32.s0);
                     short_display(MEM[(p + 1) as usize].b32.s1);
@@ -818,9 +805,7 @@ pub(crate) unsafe fn print_subsidiary_data(mut p: i32, mut c: UTF16_code) {
                 print_current_string();
                 print_fam_and_char(p);
             }
-            2 => {
-                show_info();
-            }
+            2 => show_info(),
             3 => {
                 if MEM[p as usize].b32.s0 == TEX_NULL {
                     print_ln();
@@ -837,85 +822,35 @@ pub(crate) unsafe fn print_subsidiary_data(mut p: i32, mut c: UTF16_code) {
 }
 pub(crate) unsafe fn print_style(mut c: i32) {
     match c / 2i32 {
-        0 => {
-            print_esc_cstr(b"displaystyle");
-        }
-        1 => {
-            print_esc_cstr(b"textstyle");
-        }
-        2 => {
-            print_esc_cstr(b"scriptstyle");
-        }
-        3 => {
-            print_esc_cstr(b"scriptscriptstyle");
-        }
-        _ => {
-            print_cstr(b"Unknown style!");
-        }
+        0 => print_esc_cstr(b"displaystyle"),
+        1 => print_esc_cstr(b"textstyle"),
+        2 => print_esc_cstr(b"scriptstyle"),
+        3 => print_esc_cstr(b"scriptscriptstyle"),
+        _ => print_cstr(b"Unknown style!"),
     };
 }
 pub(crate) unsafe fn print_skip_param(mut n: i32) {
     match n {
-        0 => {
-            print_esc_cstr(b"lineskip");
-        }
-        1 => {
-            print_esc_cstr(b"baselineskip");
-        }
-        2 => {
-            print_esc_cstr(b"parskip");
-        }
-        3 => {
-            print_esc_cstr(b"abovedisplayskip");
-        }
-        4 => {
-            print_esc_cstr(b"belowdisplayskip");
-        }
-        5 => {
-            print_esc_cstr(b"abovedisplayshortskip");
-        }
-        6 => {
-            print_esc_cstr(b"belowdisplayshortskip");
-        }
-        7 => {
-            print_esc_cstr(b"leftskip");
-        }
-        8 => {
-            print_esc_cstr(b"rightskip");
-        }
-        9 => {
-            print_esc_cstr(b"topskip");
-        }
-        10 => {
-            print_esc_cstr(b"splittopskip");
-        }
-        11 => {
-            print_esc_cstr(b"tabskip");
-        }
-        12 => {
-            print_esc_cstr(b"spaceskip");
-        }
-        13 => {
-            print_esc_cstr(b"xspaceskip");
-        }
-        14 => {
-            print_esc_cstr(b"parfillskip");
-        }
-        15 => {
-            print_esc_cstr(b"XeTeXlinebreakskip");
-        }
-        16 => {
-            print_esc_cstr(b"thinmuskip");
-        }
-        17 => {
-            print_esc_cstr(b"medmuskip");
-        }
-        18 => {
-            print_esc_cstr(b"thickmuskip");
-        }
-        _ => {
-            print_cstr(b"[unknown glue parameter!]");
-        }
+        0 => print_esc_cstr(b"lineskip"),
+        1 => print_esc_cstr(b"baselineskip"),
+        2 => print_esc_cstr(b"parskip"),
+        3 => print_esc_cstr(b"abovedisplayskip"),
+        4 => print_esc_cstr(b"belowdisplayskip"),
+        5 => print_esc_cstr(b"abovedisplayshortskip"),
+        6 => print_esc_cstr(b"belowdisplayshortskip"),
+        7 => print_esc_cstr(b"leftskip"),
+        8 => print_esc_cstr(b"rightskip"),
+        9 => print_esc_cstr(b"topskip"),
+        10 => print_esc_cstr(b"splittopskip"),
+        11 => print_esc_cstr(b"tabskip"),
+        12 => print_esc_cstr(b"spaceskip"),
+        13 => print_esc_cstr(b"xspaceskip"),
+        14 => print_esc_cstr(b"parfillskip"),
+        15 => print_esc_cstr(b"XeTeXlinebreakskip"),
+        16 => print_esc_cstr(b"thinmuskip"),
+        17 => print_esc_cstr(b"medmuskip"),
+        18 => print_esc_cstr(b"thickmuskip"),
+        _ => print_cstr(b"[unknown glue parameter!]"),
     };
 }
 pub(crate) unsafe fn show_node_list(mut p: i32) {
@@ -1061,9 +996,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                         print_write_whatsit(b"write", p);
                         print_mark(MEM[(p + 1) as usize].b32.s1);
                     }
-                    2 => {
-                        print_write_whatsit(b"closeout", p);
-                    }
+                    2 => print_write_whatsit(b"closeout", p),
                     3 => {
                         print_esc_cstr(b"special");
                         print_mark(MEM[(p + 1) as usize].b32.s1);
@@ -1116,12 +1049,8 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                         }
                         print('\"' as i32);
                     }
-                    6 => {
-                        print_esc_cstr(b"pdfsavepos");
-                    }
-                    _ => {
-                        print_cstr(b"whatsit?");
-                    }
+                    6 => print_esc_cstr(b"pdfsavepos"),
+                    _ => print_cstr(b"whatsit?"),
                 },
                 10 => {
                     if MEM[p as usize].b16.s0 as i32 >= 100 {
@@ -1268,9 +1197,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                     show_node_list(MEM[(p + 1) as usize].b32.s1);
                     pool_ptr -= 1
                 }
-                14 => {
-                    print_style(MEM[p as usize].b16.s0 as i32);
-                }
+                14 => print_style(MEM[p as usize].b16.s0 as i32),
                 15 => {
                     print_esc_cstr(b"mathchoice");
                     *str_pool.offset(pool_ptr as isize) = 'D' as i32 as packed_UTF16_code;
@@ -1292,39 +1219,17 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                 }
                 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 27 | 26 | 29 | 28 | 30 | 31 => {
                     match MEM[p as usize].b16.s1 as i32 {
-                        16 => {
-                            print_esc_cstr(b"mathord");
-                        }
-                        17 => {
-                            print_esc_cstr(b"mathop");
-                        }
-                        18 => {
-                            print_esc_cstr(b"mathbin");
-                        }
-                        19 => {
-                            print_esc_cstr(b"mathrel");
-                        }
-                        20 => {
-                            print_esc_cstr(b"mathopen");
-                        }
-                        21 => {
-                            print_esc_cstr(b"mathclose");
-                        }
-                        22 => {
-                            print_esc_cstr(b"mathpunct");
-                        }
-                        23 => {
-                            print_esc_cstr(b"mathinner");
-                        }
-                        27 => {
-                            print_esc_cstr(b"overline");
-                        }
-                        26 => {
-                            print_esc_cstr(b"underline");
-                        }
-                        29 => {
-                            print_esc_cstr(b"vcenter");
-                        }
+                        16 => print_esc_cstr(b"mathord"),
+                        17 => print_esc_cstr(b"mathop"),
+                        18 => print_esc_cstr(b"mathbin"),
+                        19 => print_esc_cstr(b"mathrel"),
+                        20 => print_esc_cstr(b"mathopen"),
+                        21 => print_esc_cstr(b"mathclose"),
+                        22 => print_esc_cstr(b"mathpunct"),
+                        23 => print_esc_cstr(b"mathinner"),
+                        27 => print_esc_cstr(b"overline"),
+                        26 => print_esc_cstr(b"underline"),
+                        29 => print_esc_cstr(b"vcenter"),
                         24 => {
                             print_esc_cstr(b"radical");
                             print_delimiter(p + 4i32);
@@ -1394,9 +1299,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                     print_subsidiary_data(p + 2i32, '\\' as i32 as UTF16_code);
                     print_subsidiary_data(p + 3i32, '/' as i32 as UTF16_code);
                 }
-                _ => {
-                    print_cstr(b"Unknown node type!");
-                }
+                _ => print_cstr(b"Unknown node type!"),
             }
         }
         p = MEM[p as usize].b32.s1
@@ -1460,16 +1363,12 @@ pub(crate) unsafe fn flush_node_list(mut p: i32) {
                 }
                 8 => {
                     match MEM[p as usize].b16.s0 as i32 {
-                        0 => {
-                            free_node(p, 3i32);
-                        }
+                        0 => free_node(p, 3i32),
                         1 | 3 => {
                             delete_token_ref(MEM[(p + 1) as usize].b32.s1);
                             free_node(p, 2i32);
                         }
-                        2 | 4 => {
-                            free_node(p, 2i32);
-                        }
+                        2 | 4 => free_node(p, 2i32),
                         40 | 41 => {
                             if !MEM[(p + 5) as usize].ptr.is_null() {
                                 MEM[(p + 5) as usize].ptr = mfree(MEM[(p + 5) as usize].ptr);
@@ -1477,9 +1376,7 @@ pub(crate) unsafe fn flush_node_list(mut p: i32) {
                             }
                             free_node(p, MEM[(p + 4) as usize].b16.s3 as i32);
                         }
-                        42 => {
-                            free_node(p, 5i32);
-                        }
+                        42 => free_node(p, 5i32),
                         43 | 44 => {
                             free_node(
                                 p,
@@ -1491,12 +1388,8 @@ pub(crate) unsafe fn flush_node_list(mut p: i32) {
                                 ) as i32,
                             );
                         }
-                        6 => {
-                            free_node(p, 2i32);
-                        }
-                        _ => {
-                            confusion(b"ext3");
-                        }
+                        6 => free_node(p, 2i32),
+                        _ => confusion(b"ext3"),
                     }
                     current_block = 16791665189521845338;
                 }
@@ -1578,15 +1471,11 @@ pub(crate) unsafe fn flush_node_list(mut p: i32) {
                     free_node(p, 6i32);
                     current_block = 16791665189521845338;
                 }
-                _ => {
-                    confusion(b"flushing");
-                }
+                _ => confusion(b"flushing"),
             }
             match current_block {
                 16791665189521845338 => {}
-                _ => {
-                    free_node(p, 2i32);
-                }
+                _ => free_node(p, 2i32),
             }
         }
         p = q
@@ -1664,9 +1553,7 @@ pub(crate) unsafe fn copy_node_list(mut p: i32) -> i32 {
                         r = get_node(words as i32)
                     }
                     6 => r = get_node(2i32),
-                    _ => {
-                        confusion(b"ext2");
-                    }
+                    _ => confusion(b"ext2"),
                 },
                 10 => {
                     r = get_node(3i32);
@@ -1703,9 +1590,7 @@ pub(crate) unsafe fn copy_node_list(mut p: i32) -> i32 {
                     r = get_node(2i32);
                     MEM[(r + 1) as usize].b32.s1 = copy_node_list(MEM[(p + 1) as usize].b32.s1)
                 }
-                _ => {
-                    confusion(b"copying");
-                }
+                _ => confusion(b"copying"),
             }
         }
         while words as i32 > 0i32 {
@@ -1725,30 +1610,18 @@ pub(crate) unsafe fn copy_node_list(mut p: i32) -> i32 {
 pub(crate) unsafe fn print_mode(mut m: i32) {
     if m > 0i32 {
         match m / (102i32 + 1i32) {
-            0 => {
-                print_cstr(b"vertical mode");
-            }
-            1 => {
-                print_cstr(b"horizontal mode");
-            }
-            2 => {
-                print_cstr(b"display math mode");
-            }
+            0 => print_cstr(b"vertical mode"),
+            1 => print_cstr(b"horizontal mode"),
+            2 => print_cstr(b"display math mode"),
             _ => {}
         }
     } else if m == 0i32 {
         print_cstr(b"no mode");
     } else {
         match -m / (102i32 + 1i32) {
-            0 => {
-                print_cstr(b"internal vertical mode");
-            }
-            1 => {
-                print_cstr(b"restricted horizontal mode");
-            }
-            2 => {
-                print_cstr(b"math mode");
-            }
+            0 => print_cstr(b"internal vertical mode"),
+            1 => print_cstr(b"restricted horizontal mode"),
+            2 => print_cstr(b"math mode"),
             _ => {}
         }
     };
@@ -1756,30 +1629,18 @@ pub(crate) unsafe fn print_mode(mut m: i32) {
 pub(crate) unsafe fn print_in_mode(mut m: i32) {
     if m > 0i32 {
         match m / (102i32 + 1i32) {
-            0 => {
-                print_cstr(b"\' in vertical mode");
-            }
-            1 => {
-                print_cstr(b"\' in horizontal mode");
-            }
-            2 => {
-                print_cstr(b"\' in display math mode");
-            }
+            0 => print_cstr(b"\' in vertical mode"),
+            1 => print_cstr(b"\' in horizontal mode"),
+            2 => print_cstr(b"\' in display math mode"),
             _ => {}
         }
     } else if m == 0i32 {
         print_cstr(b"\' in no mode");
     } else {
         match -m / (102i32 + 1i32) {
-            0 => {
-                print_cstr(b"\' in internal vertical mode");
-            }
-            1 => {
-                print_cstr(b"\' in restricted horizontal mode");
-            }
-            2 => {
-                print_cstr(b"\' in math mode");
-            }
+            0 => print_cstr(b"\' in internal vertical mode"),
+            1 => print_cstr(b"\' in restricted horizontal mode"),
+            2 => print_cstr(b"\' in math mode"),
             _ => {}
         }
     };
@@ -1944,255 +1805,89 @@ pub(crate) unsafe fn show_activities() {
 }
 pub(crate) unsafe fn print_param(mut n: i32) {
     match n {
-        0 => {
-            print_esc_cstr(b"pretolerance");
-        }
-        1 => {
-            print_esc_cstr(b"tolerance");
-        }
-        2 => {
-            print_esc_cstr(b"linepenalty");
-        }
-        3 => {
-            print_esc_cstr(b"hyphenpenalty");
-        }
-        4 => {
-            print_esc_cstr(b"exhyphenpenalty");
-        }
-        5 => {
-            print_esc_cstr(b"clubpenalty");
-        }
-        6 => {
-            print_esc_cstr(b"widowpenalty");
-        }
-        7 => {
-            print_esc_cstr(b"displaywidowpenalty");
-        }
-        8 => {
-            print_esc_cstr(b"brokenpenalty");
-        }
-        9 => {
-            print_esc_cstr(b"binoppenalty");
-        }
-        10 => {
-            print_esc_cstr(b"relpenalty");
-        }
-        11 => {
-            print_esc_cstr(b"predisplaypenalty");
-        }
-        12 => {
-            print_esc_cstr(b"postdisplaypenalty");
-        }
-        13 => {
-            print_esc_cstr(b"interlinepenalty");
-        }
-        14 => {
-            print_esc_cstr(b"doublehyphendemerits");
-        }
-        15 => {
-            print_esc_cstr(b"finalhyphendemerits");
-        }
-        16 => {
-            print_esc_cstr(b"adjdemerits");
-        }
-        17 => {
-            print_esc_cstr(b"mag");
-        }
-        18 => {
-            print_esc_cstr(b"delimiterfactor");
-        }
-        19 => {
-            print_esc_cstr(b"looseness");
-        }
-        20 => {
-            print_esc_cstr(b"time");
-        }
-        21 => {
-            print_esc_cstr(b"day");
-        }
-        22 => {
-            print_esc_cstr(b"month");
-        }
-        23 => {
-            print_esc_cstr(b"year");
-        }
-        24 => {
-            print_esc_cstr(b"showboxbreadth");
-        }
-        25 => {
-            print_esc_cstr(b"showboxdepth");
-        }
-        26 => {
-            print_esc_cstr(b"hbadness");
-        }
-        27 => {
-            print_esc_cstr(b"vbadness");
-        }
-        28 => {
-            print_esc_cstr(b"pausing");
-        }
-        29 => {
-            print_esc_cstr(b"tracingonline");
-        }
-        30 => {
-            print_esc_cstr(b"tracingmacros");
-        }
-        31 => {
-            print_esc_cstr(b"tracingstats");
-        }
-        32 => {
-            print_esc_cstr(b"tracingparagraphs");
-        }
-        33 => {
-            print_esc_cstr(b"tracingpages");
-        }
-        34 => {
-            print_esc_cstr(b"tracingoutput");
-        }
-        35 => {
-            print_esc_cstr(b"tracinglostchars");
-        }
-        36 => {
-            print_esc_cstr(b"tracingcommands");
-        }
-        37 => {
-            print_esc_cstr(b"tracingrestores");
-        }
-        38 => {
-            print_esc_cstr(b"uchyph");
-        }
-        39 => {
-            print_esc_cstr(b"outputpenalty");
-        }
-        40 => {
-            print_esc_cstr(b"maxdeadcycles");
-        }
-        41 => {
-            print_esc_cstr(b"hangafter");
-        }
-        42 => {
-            print_esc_cstr(b"floatingpenalty");
-        }
-        43 => {
-            print_esc_cstr(b"globaldefs");
-        }
-        44 => {
-            print_esc_cstr(b"fam");
-        }
-        45 => {
-            print_esc_cstr(b"escapechar");
-        }
-        46 => {
-            print_esc_cstr(b"defaulthyphenchar");
-        }
-        47 => {
-            print_esc_cstr(b"defaultskewchar");
-        }
-        48 => {
-            print_esc_cstr(b"endlinechar");
-        }
-        49 => {
-            print_esc_cstr(b"newlinechar");
-        }
-        50 => {
-            print_esc_cstr(b"language");
-        }
-        51 => {
-            print_esc_cstr(b"lefthyphenmin");
-        }
-        52 => {
-            print_esc_cstr(b"righthyphenmin");
-        }
-        53 => {
-            print_esc_cstr(b"holdinginserts");
-        }
-        54 => {
-            print_esc_cstr(b"errorcontextlines");
-        }
-        55 => {
-            print_esc_cstr(b"charsubdefmin");
-        }
-        56 => {
-            print_esc_cstr(b"charsubdefmax");
-        }
-        57 => {
-            print_esc_cstr(b"tracingcharsubdef");
-        }
-        69 => {
-            print_esc_cstr(b"XeTeXlinebreakpenalty");
-        }
-        70 => {
-            print_esc_cstr(b"XeTeXprotrudechars");
-        }
-        83 => {
-            print_esc_cstr(b"synctex");
-        }
-        58 => {
-            print_esc_cstr(b"tracingassigns");
-        }
-        59 => {
-            print_esc_cstr(b"tracinggroups");
-        }
-        60 => {
-            print_esc_cstr(b"tracingifs");
-        }
-        61 => {
-            print_esc_cstr(b"tracingscantokens");
-        }
-        62 => {
-            print_esc_cstr(b"tracingnesting");
-        }
-        63 => {
-            print_esc_cstr(b"predisplaydirection");
-        }
-        64 => {
-            print_esc_cstr(b"lastlinefit");
-        }
-        65 => {
-            print_esc_cstr(b"savingvdiscards");
-        }
-        66 => {
-            print_esc_cstr(b"savinghyphcodes");
-        }
-        67 => {
-            print_esc_cstr(b"suppressfontnotfounderror");
-        }
-        71 => {
-            print_esc_cstr(b"TeXXeTstate");
-        }
-        73 => {
-            print_esc_cstr(b"XeTeXupwardsmode");
-        }
-        74 => {
-            print_esc_cstr(b"XeTeXuseglyphmetrics");
-        }
-        75 => {
-            print_esc_cstr(b"XeTeXinterchartokenstate");
-        }
-        72 => {
-            print_esc_cstr(b"XeTeXdashbreakstate");
-        }
-        76 => {
-            print_esc_cstr(b"XeTeXinputnormalization");
-        }
-        79 => {
-            print_esc_cstr(b"XeTeXtracingfonts");
-        }
-        80 => {
-            print_esc_cstr(b"XeTeXinterwordspaceshaping");
-        }
-        81 => {
-            print_esc_cstr(b"XeTeXgenerateactualtext");
-        }
-        82 => {
-            print_esc_cstr(b"XeTeXhyphenatablelength");
-        }
-        84 => {
-            print_esc_cstr(b"pdfoutput");
-        }
-        _ => {
-            print_cstr(b"[unknown i32 parameter!]");
-        }
+        0 => print_esc_cstr(b"pretolerance"),
+        1 => print_esc_cstr(b"tolerance"),
+        2 => print_esc_cstr(b"linepenalty"),
+        3 => print_esc_cstr(b"hyphenpenalty"),
+        4 => print_esc_cstr(b"exhyphenpenalty"),
+        5 => print_esc_cstr(b"clubpenalty"),
+        6 => print_esc_cstr(b"widowpenalty"),
+        7 => print_esc_cstr(b"displaywidowpenalty"),
+        8 => print_esc_cstr(b"brokenpenalty"),
+        9 => print_esc_cstr(b"binoppenalty"),
+        10 => print_esc_cstr(b"relpenalty"),
+        11 => print_esc_cstr(b"predisplaypenalty"),
+        12 => print_esc_cstr(b"postdisplaypenalty"),
+        13 => print_esc_cstr(b"interlinepenalty"),
+        14 => print_esc_cstr(b"doublehyphendemerits"),
+        15 => print_esc_cstr(b"finalhyphendemerits"),
+        16 => print_esc_cstr(b"adjdemerits"),
+        17 => print_esc_cstr(b"mag"),
+        18 => print_esc_cstr(b"delimiterfactor"),
+        19 => print_esc_cstr(b"looseness"),
+        20 => print_esc_cstr(b"time"),
+        21 => print_esc_cstr(b"day"),
+        22 => print_esc_cstr(b"month"),
+        23 => print_esc_cstr(b"year"),
+        24 => print_esc_cstr(b"showboxbreadth"),
+        25 => print_esc_cstr(b"showboxdepth"),
+        26 => print_esc_cstr(b"hbadness"),
+        27 => print_esc_cstr(b"vbadness"),
+        28 => print_esc_cstr(b"pausing"),
+        29 => print_esc_cstr(b"tracingonline"),
+        30 => print_esc_cstr(b"tracingmacros"),
+        31 => print_esc_cstr(b"tracingstats"),
+        32 => print_esc_cstr(b"tracingparagraphs"),
+        33 => print_esc_cstr(b"tracingpages"),
+        34 => print_esc_cstr(b"tracingoutput"),
+        35 => print_esc_cstr(b"tracinglostchars"),
+        36 => print_esc_cstr(b"tracingcommands"),
+        37 => print_esc_cstr(b"tracingrestores"),
+        38 => print_esc_cstr(b"uchyph"),
+        39 => print_esc_cstr(b"outputpenalty"),
+        40 => print_esc_cstr(b"maxdeadcycles"),
+        41 => print_esc_cstr(b"hangafter"),
+        42 => print_esc_cstr(b"floatingpenalty"),
+        43 => print_esc_cstr(b"globaldefs"),
+        44 => print_esc_cstr(b"fam"),
+        45 => print_esc_cstr(b"escapechar"),
+        46 => print_esc_cstr(b"defaulthyphenchar"),
+        47 => print_esc_cstr(b"defaultskewchar"),
+        48 => print_esc_cstr(b"endlinechar"),
+        49 => print_esc_cstr(b"newlinechar"),
+        50 => print_esc_cstr(b"language"),
+        51 => print_esc_cstr(b"lefthyphenmin"),
+        52 => print_esc_cstr(b"righthyphenmin"),
+        53 => print_esc_cstr(b"holdinginserts"),
+        54 => print_esc_cstr(b"errorcontextlines"),
+        55 => print_esc_cstr(b"charsubdefmin"),
+        56 => print_esc_cstr(b"charsubdefmax"),
+        57 => print_esc_cstr(b"tracingcharsubdef"),
+        69 => print_esc_cstr(b"XeTeXlinebreakpenalty"),
+        70 => print_esc_cstr(b"XeTeXprotrudechars"),
+        83 => print_esc_cstr(b"synctex"),
+        58 => print_esc_cstr(b"tracingassigns"),
+        59 => print_esc_cstr(b"tracinggroups"),
+        60 => print_esc_cstr(b"tracingifs"),
+        61 => print_esc_cstr(b"tracingscantokens"),
+        62 => print_esc_cstr(b"tracingnesting"),
+        63 => print_esc_cstr(b"predisplaydirection"),
+        64 => print_esc_cstr(b"lastlinefit"),
+        65 => print_esc_cstr(b"savingvdiscards"),
+        66 => print_esc_cstr(b"savinghyphcodes"),
+        67 => print_esc_cstr(b"suppressfontnotfounderror"),
+        71 => print_esc_cstr(b"TeXXeTstate"),
+        73 => print_esc_cstr(b"XeTeXupwardsmode"),
+        74 => print_esc_cstr(b"XeTeXuseglyphmetrics"),
+        75 => print_esc_cstr(b"XeTeXinterchartokenstate"),
+        72 => print_esc_cstr(b"XeTeXdashbreakstate"),
+        76 => print_esc_cstr(b"XeTeXinputnormalization"),
+        79 => print_esc_cstr(b"XeTeXtracingfonts"),
+        80 => print_esc_cstr(b"XeTeXinterwordspaceshaping"),
+        81 => print_esc_cstr(b"XeTeXgenerateactualtext"),
+        82 => print_esc_cstr(b"XeTeXhyphenatablelength"),
+        84 => print_esc_cstr(b"pdfoutput"),
+        _ => print_cstr(b"[unknown i32 parameter!]"),
     };
 }
 pub(crate) unsafe fn begin_diagnostic() {
@@ -2213,78 +1908,30 @@ pub(crate) unsafe fn end_diagnostic(mut blank_line: bool) {
 }
 pub(crate) unsafe fn print_length_param(mut n: i32) {
     match n {
-        0 => {
-            print_esc_cstr(b"parindent");
-        }
-        1 => {
-            print_esc_cstr(b"mathsurround");
-        }
-        2 => {
-            print_esc_cstr(b"lineskiplimit");
-        }
-        3 => {
-            print_esc_cstr(b"hsize");
-        }
-        4 => {
-            print_esc_cstr(b"vsize");
-        }
-        5 => {
-            print_esc_cstr(b"maxdepth");
-        }
-        6 => {
-            print_esc_cstr(b"splitmaxdepth");
-        }
-        7 => {
-            print_esc_cstr(b"boxmaxdepth");
-        }
-        8 => {
-            print_esc_cstr(b"hfuzz");
-        }
-        9 => {
-            print_esc_cstr(b"vfuzz");
-        }
-        10 => {
-            print_esc_cstr(b"delimitershortfall");
-        }
-        11 => {
-            print_esc_cstr(b"nulldelimiterspace");
-        }
-        12 => {
-            print_esc_cstr(b"scriptspace");
-        }
-        13 => {
-            print_esc_cstr(b"predisplaysize");
-        }
-        14 => {
-            print_esc_cstr(b"displaywidth");
-        }
-        15 => {
-            print_esc_cstr(b"displayindent");
-        }
-        16 => {
-            print_esc_cstr(b"overfullrule");
-        }
-        17 => {
-            print_esc_cstr(b"hangindent");
-        }
-        18 => {
-            print_esc_cstr(b"hoffset");
-        }
-        19 => {
-            print_esc_cstr(b"voffset");
-        }
-        20 => {
-            print_esc_cstr(b"emergencystretch");
-        }
-        21 => {
-            print_esc_cstr(b"pdfpagewidth");
-        }
-        22 => {
-            print_esc_cstr(b"pdfpageheight");
-        }
-        _ => {
-            print_cstr(b"[unknown dimen parameter!]");
-        }
+        0 => print_esc_cstr(b"parindent"),
+        1 => print_esc_cstr(b"mathsurround"),
+        2 => print_esc_cstr(b"lineskiplimit"),
+        3 => print_esc_cstr(b"hsize"),
+        4 => print_esc_cstr(b"vsize"),
+        5 => print_esc_cstr(b"maxdepth"),
+        6 => print_esc_cstr(b"splitmaxdepth"),
+        7 => print_esc_cstr(b"boxmaxdepth"),
+        8 => print_esc_cstr(b"hfuzz"),
+        9 => print_esc_cstr(b"vfuzz"),
+        10 => print_esc_cstr(b"delimitershortfall"),
+        11 => print_esc_cstr(b"nulldelimiterspace"),
+        12 => print_esc_cstr(b"scriptspace"),
+        13 => print_esc_cstr(b"predisplaysize"),
+        14 => print_esc_cstr(b"displaywidth"),
+        15 => print_esc_cstr(b"displayindent"),
+        16 => print_esc_cstr(b"overfullrule"),
+        17 => print_esc_cstr(b"hangindent"),
+        18 => print_esc_cstr(b"hoffset"),
+        19 => print_esc_cstr(b"voffset"),
+        20 => print_esc_cstr(b"emergencystretch"),
+        21 => print_esc_cstr(b"pdfpagewidth"),
+        22 => print_esc_cstr(b"pdfpageheight"),
+        _ => print_cstr(b"[unknown dimen parameter!]"),
     };
 }
 pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
@@ -2340,9 +1987,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_char(chr_code);
             }
         }
-        9 => {
-            print_cstr(b"end of alignment template");
-        }
+        9 => print_cstr(b"end of alignment template"),
         10 => {
             print_cstr(b"blank space ");
             if (chr_code as i64) < 65536 {
@@ -2443,42 +2088,18 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_int(chr_code - (LOCAL_BASE + 13i32));
             } else {
                 match chr_code {
-                    2252772 => {
-                        print_esc_cstr(b"output");
-                    }
-                    2252773 => {
-                        print_esc_cstr(b"everypar");
-                    }
-                    2252774 => {
-                        print_esc_cstr(b"everymath");
-                    }
-                    2252775 => {
-                        print_esc_cstr(b"everydisplay");
-                    }
-                    2252776 => {
-                        print_esc_cstr(b"everyhbox");
-                    }
-                    2252777 => {
-                        print_esc_cstr(b"everyvbox");
-                    }
-                    2252778 => {
-                        print_esc_cstr(b"everyjob");
-                    }
-                    2252779 => {
-                        print_esc_cstr(b"everycr");
-                    }
-                    2252781 => {
-                        print_esc_cstr(b"everyeof");
-                    }
-                    2252782 => {
-                        print_esc_cstr(b"XeTeXinterchartoks");
-                    }
-                    2252783 => {
-                        print_esc_cstr(b"TectonicCodaTokens");
-                    }
-                    _ => {
-                        print_esc_cstr(b"errhelp");
-                    }
+                    2252772 => print_esc_cstr(b"output"),
+                    2252773 => print_esc_cstr(b"everypar"),
+                    2252774 => print_esc_cstr(b"everymath"),
+                    2252775 => print_esc_cstr(b"everydisplay"),
+                    2252776 => print_esc_cstr(b"everyhbox"),
+                    2252777 => print_esc_cstr(b"everyvbox"),
+                    2252778 => print_esc_cstr(b"everyjob"),
+                    2252779 => print_esc_cstr(b"everycr"),
+                    2252781 => print_esc_cstr(b"everyeof"),
+                    2252782 => print_esc_cstr(b"XeTeXinterchartoks"),
+                    2252783 => print_esc_cstr(b"TectonicCodaTokens"),
+                    _ => print_esc_cstr(b"errhelp"),
                 }
             }
         }
@@ -2498,36 +2119,16 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_int(chr_code - (DIMEN_BASE + 23i32));
             }
         }
-        45 => {
-            print_esc_cstr(b"accent");
-        }
-        92 => {
-            print_esc_cstr(b"advance");
-        }
-        40 => {
-            print_esc_cstr(b"afterassignment");
-        }
-        41 => {
-            print_esc_cstr(b"aftergroup");
-        }
-        78 => {
-            print_esc_cstr(b"fontdimen");
-        }
-        61 => {
-            print_esc_cstr(b"begingroup");
-        }
-        42 => {
-            print_esc_cstr(b"penalty");
-        }
-        16 => {
-            print_esc_cstr(b"char");
-        }
-        109 => {
-            print_esc_cstr(b"csname");
-        }
-        90 => {
-            print_esc_cstr(b"font");
-        }
+        45 => print_esc_cstr(b"accent"),
+        92 => print_esc_cstr(b"advance"),
+        40 => print_esc_cstr(b"afterassignment"),
+        41 => print_esc_cstr(b"aftergroup"),
+        78 => print_esc_cstr(b"fontdimen"),
+        61 => print_esc_cstr(b"begingroup"),
+        42 => print_esc_cstr(b"penalty"),
+        16 => print_esc_cstr(b"char"),
+        109 => print_esc_cstr(b"csname"),
+        90 => print_esc_cstr(b"font"),
         15 => {
             if chr_code == 1i32 {
                 print_esc_cstr(b"Udelimiter");
@@ -2535,18 +2136,10 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_esc_cstr(b"delimiter");
             }
         }
-        94 => {
-            print_esc_cstr(b"divide");
-        }
-        67 => {
-            print_esc_cstr(b"endcsname");
-        }
-        62 => {
-            print_esc_cstr(b"endgroup");
-        }
-        64 => {
-            print_esc(' ' as i32);
-        }
+        94 => print_esc_cstr(b"divide"),
+        67 => print_esc_cstr(b"endcsname"),
+        62 => print_esc_cstr(b"endgroup"),
+        64 => print_esc(' ' as i32),
         104 => {
             if chr_code == 0i32 {
                 print_esc_cstr(b"expandafter");
@@ -2554,12 +2147,8 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_esc_cstr(b"unless");
             }
         }
-        32 => {
-            print_esc_cstr(b"halign");
-        }
-        36 => {
-            print_esc_cstr(b"hrule");
-        }
+        32 => print_esc_cstr(b"halign"),
+        36 => print_esc_cstr(b"hrule"),
         39 => {
             if chr_code == 0i32 {
                 print_esc_cstr(b"ignorespaces");
@@ -2567,12 +2156,8 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_esc_cstr(b"primitive");
             }
         }
-        37 => {
-            print_esc_cstr(b"insert");
-        }
-        44 => {
-            print_esc('/' as i32);
-        }
+        37 => print_esc_cstr(b"insert"),
+        44 => print_esc('/' as i32),
         18 => {
             print_esc_cstr(b"mark");
             if chr_code > 0i32 {
@@ -2595,18 +2180,10 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_esc_cstr(b"mathchar");
             }
         }
-        54 => {
-            print_esc_cstr(b"mathchoice");
-        }
-        93 => {
-            print_esc_cstr(b"multiply");
-        }
-        34 => {
-            print_esc_cstr(b"noalign");
-        }
-        65 => {
-            print_esc_cstr(b"noboundary");
-        }
+        54 => print_esc_cstr(b"mathchoice"),
+        93 => print_esc_cstr(b"multiply"),
+        34 => print_esc_cstr(b"noalign"),
+        65 => print_esc_cstr(b"noboundary"),
         105 => {
             if chr_code == 0i32 {
                 print_esc_cstr(b"noexpand");
@@ -2614,12 +2191,8 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_esc_cstr(b"primitive");
             }
         }
-        55 => {
-            print_esc_cstr(b"nonscript");
-        }
-        63 => {
-            print_esc_cstr(b"omit");
-        }
+        55 => print_esc_cstr(b"nonscript"),
+        63 => print_esc_cstr(b"omit"),
         66 => {
             if chr_code == 1i32 {
                 print_esc_cstr(b"Uradical");
@@ -2634,31 +2207,15 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_esc_cstr(b"readline");
             }
         }
-        0 => {
-            print_esc_cstr(b"relax");
-        }
-        100 => {
-            print_esc_cstr(b"setbox");
-        }
-        81 => {
-            print_esc_cstr(b"prevgraf");
-        }
+        0 => print_esc_cstr(b"relax"),
+        100 => print_esc_cstr(b"setbox"),
+        81 => print_esc_cstr(b"prevgraf"),
         85 => match chr_code {
-            2252771 => {
-                print_esc_cstr(b"parshape");
-            }
-            2253040 => {
-                print_esc_cstr(b"interlinepenalties");
-            }
-            2253041 => {
-                print_esc_cstr(b"clubpenalties");
-            }
-            2253042 => {
-                print_esc_cstr(b"widowpenalties");
-            }
-            2253043 => {
-                print_esc_cstr(b"displaywidowpenalties");
-            }
+            2252771 => print_esc_cstr(b"parshape"),
+            2253040 => print_esc_cstr(b"interlinepenalties"),
+            2253041 => print_esc_cstr(b"clubpenalties"),
+            2253042 => print_esc_cstr(b"widowpenalties"),
+            2253043 => print_esc_cstr(b"displaywidowpenalties"),
             _ => {}
         },
         111 => {
@@ -2676,38 +2233,22 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_sa_num(chr_code);
             }
         }
-        38 => {
-            print_esc_cstr(b"vadjust");
-        }
+        38 => print_esc_cstr(b"vadjust"),
         33 => {
             if chr_code == 0i32 {
                 print_esc_cstr(b"valign");
             } else {
                 match chr_code {
-                    6 => {
-                        print_esc_cstr(b"beginL");
-                    }
-                    7 => {
-                        print_esc_cstr(b"endL");
-                    }
-                    10 => {
-                        print_esc_cstr(b"beginR");
-                    }
-                    _ => {
-                        print_esc_cstr(b"endR");
-                    }
+                    6 => print_esc_cstr(b"beginL"),
+                    7 => print_esc_cstr(b"endL"),
+                    10 => print_esc_cstr(b"beginR"),
+                    _ => print_esc_cstr(b"endR"),
                 }
             }
         }
-        56 => {
-            print_esc_cstr(b"vcenter");
-        }
-        35 => {
-            print_esc_cstr(b"vrule");
-        }
-        13 => {
-            print_esc_cstr(b"par");
-        }
+        56 => print_esc_cstr(b"vcenter"),
+        35 => print_esc_cstr(b"vrule"),
+        13 => print_esc_cstr(b"par"),
         106 => {
             if chr_code == 0i32 {
                 print_esc_cstr(b"input");
@@ -2719,21 +2260,11 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         }
         112 => {
             match chr_code % 5i32 {
-                1 => {
-                    print_esc_cstr(b"firstmark");
-                }
-                2 => {
-                    print_esc_cstr(b"botmark");
-                }
-                3 => {
-                    print_esc_cstr(b"splitfirstmark");
-                }
-                4 => {
-                    print_esc_cstr(b"splitbotmark");
-                }
-                _ => {
-                    print_esc_cstr(b"topmark");
-                }
+                1 => print_esc_cstr(b"firstmark"),
+                2 => print_esc_cstr(b"botmark"),
+                3 => print_esc_cstr(b"splitfirstmark"),
+                4 => print_esc_cstr(b"splitbotmark"),
+                _ => print_esc_cstr(b"topmark"),
             }
             if chr_code >= 5i32 {
                 print_char('s' as i32);
@@ -2786,317 +2317,115 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         71 => match chr_code {
-            0 => {
-                print_esc_cstr(b"lastpenalty");
-            }
-            1 => {
-                print_esc_cstr(b"lastkern");
-            }
-            2 => {
-                print_esc_cstr(b"lastskip");
-            }
-            4 => {
-                print_esc_cstr(b"inputlineno");
-            }
-            45 => {
-                print_esc_cstr(b"shellescape");
-            }
-            3 => {
-                print_esc_cstr(b"lastnodetype");
-            }
-            6 => {
-                print_esc_cstr(b"eTeXversion");
-            }
-            14 => {
-                print_esc_cstr(b"XeTeXversion");
-            }
-            15 => {
-                print_esc_cstr(b"XeTeXcountglyphs");
-            }
-            16 => {
-                print_esc_cstr(b"XeTeXcountvariations");
-            }
-            17 => {
-                print_esc_cstr(b"XeTeXvariation");
-            }
-            18 => {
-                print_esc_cstr(b"XeTeXfindvariationbyname");
-            }
-            19 => {
-                print_esc_cstr(b"XeTeXvariationmin");
-            }
-            20 => {
-                print_esc_cstr(b"XeTeXvariationmax");
-            }
-            21 => {
-                print_esc_cstr(b"XeTeXvariationdefault");
-            }
-            22 => {
-                print_esc_cstr(b"XeTeXcountfeatures");
-            }
-            23 => {
-                print_esc_cstr(b"XeTeXfeaturecode");
-            }
-            24 => {
-                print_esc_cstr(b"XeTeXfindfeaturebyname");
-            }
-            25 => {
-                print_esc_cstr(b"XeTeXisexclusivefeature");
-            }
-            26 => {
-                print_esc_cstr(b"XeTeXcountselectors");
-            }
-            27 => {
-                print_esc_cstr(b"XeTeXselectorcode");
-            }
-            28 => {
-                print_esc_cstr(b"XeTeXfindselectorbyname");
-            }
-            29 => {
-                print_esc_cstr(b"XeTeXisdefaultselector");
-            }
-            30 => {
-                print_esc_cstr(b"XeTeXOTcountscripts");
-            }
-            31 => {
-                print_esc_cstr(b"XeTeXOTcountlanguages");
-            }
-            32 => {
-                print_esc_cstr(b"XeTeXOTcountfeatures");
-            }
-            33 => {
-                print_esc_cstr(b"XeTeXOTscripttag");
-            }
-            34 => {
-                print_esc_cstr(b"XeTeXOTlanguagetag");
-            }
-            35 => {
-                print_esc_cstr(b"XeTeXOTfeaturetag");
-            }
-            36 => {
-                print_esc_cstr(b"XeTeXcharglyph");
-            }
-            37 => {
-                print_esc_cstr(b"XeTeXglyphindex");
-            }
-            47 => {
-                print_esc_cstr(b"XeTeXglyphbounds");
-            }
-            38 => {
-                print_esc_cstr(b"XeTeXfonttype");
-            }
-            39 => {
-                print_esc_cstr(b"XeTeXfirstfontchar");
-            }
-            40 => {
-                print_esc_cstr(b"XeTeXlastfontchar");
-            }
-            41 => {
-                print_esc_cstr(b"pdflastxpos");
-            }
-            42 => {
-                print_esc_cstr(b"pdflastypos");
-            }
-            46 => {
-                print_esc_cstr(b"XeTeXpdfpagecount");
-            }
-            7 => {
-                print_esc_cstr(b"currentgrouplevel");
-            }
-            8 => {
-                print_esc_cstr(b"currentgrouptype");
-            }
-            9 => {
-                print_esc_cstr(b"currentiflevel");
-            }
-            10 => {
-                print_esc_cstr(b"currentiftype");
-            }
-            11 => {
-                print_esc_cstr(b"currentifbranch");
-            }
-            48 => {
-                print_esc_cstr(b"fontcharwd");
-            }
-            49 => {
-                print_esc_cstr(b"fontcharht");
-            }
-            50 => {
-                print_esc_cstr(b"fontchardp");
-            }
-            51 => {
-                print_esc_cstr(b"fontcharic");
-            }
-            52 => {
-                print_esc_cstr(b"parshapelength");
-            }
-            53 => {
-                print_esc_cstr(b"parshapeindent");
-            }
-            54 => {
-                print_esc_cstr(b"parshapedimen");
-            }
-            59 => {
-                print_esc_cstr(b"numexpr");
-            }
-            60 => {
-                print_esc_cstr(b"dimexpr");
-            }
-            61 => {
-                print_esc_cstr(b"glueexpr");
-            }
-            62 => {
-                print_esc_cstr(b"muexpr");
-            }
-            12 => {
-                print_esc_cstr(b"gluestretchorder");
-            }
-            13 => {
-                print_esc_cstr(b"glueshrinkorder");
-            }
-            55 => {
-                print_esc_cstr(b"gluestretch");
-            }
-            56 => {
-                print_esc_cstr(b"glueshrink");
-            }
-            57 => {
-                print_esc_cstr(b"mutoglue");
-            }
-            58 => {
-                print_esc_cstr(b"gluetomu");
-            }
-            _ => {
-                print_esc_cstr(b"badness");
-            }
+            0 => print_esc_cstr(b"lastpenalty"),
+            1 => print_esc_cstr(b"lastkern"),
+            2 => print_esc_cstr(b"lastskip"),
+            4 => print_esc_cstr(b"inputlineno"),
+            45 => print_esc_cstr(b"shellescape"),
+            3 => print_esc_cstr(b"lastnodetype"),
+            6 => print_esc_cstr(b"eTeXversion"),
+            14 => print_esc_cstr(b"XeTeXversion"),
+            15 => print_esc_cstr(b"XeTeXcountglyphs"),
+            16 => print_esc_cstr(b"XeTeXcountvariations"),
+            17 => print_esc_cstr(b"XeTeXvariation"),
+            18 => print_esc_cstr(b"XeTeXfindvariationbyname"),
+            19 => print_esc_cstr(b"XeTeXvariationmin"),
+            20 => print_esc_cstr(b"XeTeXvariationmax"),
+            21 => print_esc_cstr(b"XeTeXvariationdefault"),
+            22 => print_esc_cstr(b"XeTeXcountfeatures"),
+            23 => print_esc_cstr(b"XeTeXfeaturecode"),
+            24 => print_esc_cstr(b"XeTeXfindfeaturebyname"),
+            25 => print_esc_cstr(b"XeTeXisexclusivefeature"),
+            26 => print_esc_cstr(b"XeTeXcountselectors"),
+            27 => print_esc_cstr(b"XeTeXselectorcode"),
+            28 => print_esc_cstr(b"XeTeXfindselectorbyname"),
+            29 => print_esc_cstr(b"XeTeXisdefaultselector"),
+            30 => print_esc_cstr(b"XeTeXOTcountscripts"),
+            31 => print_esc_cstr(b"XeTeXOTcountlanguages"),
+            32 => print_esc_cstr(b"XeTeXOTcountfeatures"),
+            33 => print_esc_cstr(b"XeTeXOTscripttag"),
+            34 => print_esc_cstr(b"XeTeXOTlanguagetag"),
+            35 => print_esc_cstr(b"XeTeXOTfeaturetag"),
+            36 => print_esc_cstr(b"XeTeXcharglyph"),
+            37 => print_esc_cstr(b"XeTeXglyphindex"),
+            47 => print_esc_cstr(b"XeTeXglyphbounds"),
+            38 => print_esc_cstr(b"XeTeXfonttype"),
+            39 => print_esc_cstr(b"XeTeXfirstfontchar"),
+            40 => print_esc_cstr(b"XeTeXlastfontchar"),
+            41 => print_esc_cstr(b"pdflastxpos"),
+            42 => print_esc_cstr(b"pdflastypos"),
+            46 => print_esc_cstr(b"XeTeXpdfpagecount"),
+            7 => print_esc_cstr(b"currentgrouplevel"),
+            8 => print_esc_cstr(b"currentgrouptype"),
+            9 => print_esc_cstr(b"currentiflevel"),
+            10 => print_esc_cstr(b"currentiftype"),
+            11 => print_esc_cstr(b"currentifbranch"),
+            48 => print_esc_cstr(b"fontcharwd"),
+            49 => print_esc_cstr(b"fontcharht"),
+            50 => print_esc_cstr(b"fontchardp"),
+            51 => print_esc_cstr(b"fontcharic"),
+            52 => print_esc_cstr(b"parshapelength"),
+            53 => print_esc_cstr(b"parshapeindent"),
+            54 => print_esc_cstr(b"parshapedimen"),
+            59 => print_esc_cstr(b"numexpr"),
+            60 => print_esc_cstr(b"dimexpr"),
+            61 => print_esc_cstr(b"glueexpr"),
+            62 => print_esc_cstr(b"muexpr"),
+            12 => print_esc_cstr(b"gluestretchorder"),
+            13 => print_esc_cstr(b"glueshrinkorder"),
+            55 => print_esc_cstr(b"gluestretch"),
+            56 => print_esc_cstr(b"glueshrink"),
+            57 => print_esc_cstr(b"mutoglue"),
+            58 => print_esc_cstr(b"gluetomu"),
+            _ => print_esc_cstr(b"badness"),
         },
         110 => match chr_code {
-            0 => {
-                print_esc_cstr(b"number");
-            }
-            1 => {
-                print_esc_cstr(b"romannumeral");
-            }
-            2 => {
-                print_esc_cstr(b"string");
-            }
-            3 => {
-                print_esc_cstr(b"meaning");
-            }
-            4 => {
-                print_esc_cstr(b"fontname");
-            }
-            43 => {
-                print_esc_cstr(b"strcmp");
-            }
-            44 => {
-                print_esc_cstr(b"mdfivesum");
-            }
-            11 => {
-                print_esc_cstr(b"leftmarginkern");
-            }
-            12 => {
-                print_esc_cstr(b"rightmarginkern");
-            }
-            5 => {
-                print_esc_cstr(b"eTeXrevision");
-            }
-            6 => {
-                print_esc_cstr(b"XeTeXrevision");
-            }
-            7 => {
-                print_esc_cstr(b"XeTeXvariationname");
-            }
-            8 => {
-                print_esc_cstr(b"XeTeXfeaturename");
-            }
-            9 => {
-                print_esc_cstr(b"XeTeXselectorname");
-            }
-            10 => {
-                print_esc_cstr(b"XeTeXglyphname");
-            }
-            13 => {
-                print_esc_cstr(b"Uchar");
-            }
-            14 => {
-                print_esc_cstr(b"Ucharcat");
-            }
-            _ => {
-                print_esc_cstr(b"jobname");
-            }
+            0 => print_esc_cstr(b"number"),
+            1 => print_esc_cstr(b"romannumeral"),
+            2 => print_esc_cstr(b"string"),
+            3 => print_esc_cstr(b"meaning"),
+            4 => print_esc_cstr(b"fontname"),
+            43 => print_esc_cstr(b"strcmp"),
+            44 => print_esc_cstr(b"mdfivesum"),
+            11 => print_esc_cstr(b"leftmarginkern"),
+            12 => print_esc_cstr(b"rightmarginkern"),
+            5 => print_esc_cstr(b"eTeXrevision"),
+            6 => print_esc_cstr(b"XeTeXrevision"),
+            7 => print_esc_cstr(b"XeTeXvariationname"),
+            8 => print_esc_cstr(b"XeTeXfeaturename"),
+            9 => print_esc_cstr(b"XeTeXselectorname"),
+            10 => print_esc_cstr(b"XeTeXglyphname"),
+            13 => print_esc_cstr(b"Uchar"),
+            14 => print_esc_cstr(b"Ucharcat"),
+            _ => print_esc_cstr(b"jobname"),
         },
         107 => {
             if chr_code >= 32i32 {
                 print_esc_cstr(b"unless");
             }
             match chr_code % 32i32 {
-                1 => {
-                    print_esc_cstr(b"ifcat");
-                }
-                2 => {
-                    print_esc_cstr(b"ifnum");
-                }
-                3 => {
-                    print_esc_cstr(b"ifdim");
-                }
-                4 => {
-                    print_esc_cstr(b"ifodd");
-                }
-                5 => {
-                    print_esc_cstr(b"ifvmode");
-                }
-                6 => {
-                    print_esc_cstr(b"ifhmode");
-                }
-                7 => {
-                    print_esc_cstr(b"ifmmode");
-                }
-                8 => {
-                    print_esc_cstr(b"ifinner");
-                }
-                9 => {
-                    print_esc_cstr(b"ifvoid");
-                }
-                10 => {
-                    print_esc_cstr(b"ifhbox");
-                }
-                11 => {
-                    print_esc_cstr(b"ifvbox");
-                }
-                12 => {
-                    print_esc_cstr(b"ifx");
-                }
-                13 => {
-                    print_esc_cstr(b"ifeof");
-                }
-                14 => {
-                    print_esc_cstr(b"iftrue");
-                }
-                15 => {
-                    print_esc_cstr(b"iffalse");
-                }
-                16 => {
-                    print_esc_cstr(b"ifcase");
-                }
-                21 => {
-                    print_esc_cstr(b"ifprimitive");
-                }
-                17 => {
-                    print_esc_cstr(b"ifdefined");
-                }
-                18 => {
-                    print_esc_cstr(b"ifcsname");
-                }
-                19 => {
-                    print_esc_cstr(b"iffontchar");
-                }
-                20 => {
-                    print_esc_cstr(b"ifincsname");
-                }
-                _ => {
-                    print_esc_cstr(b"if");
-                }
+                1 => print_esc_cstr(b"ifcat"),
+                2 => print_esc_cstr(b"ifnum"),
+                3 => print_esc_cstr(b"ifdim"),
+                4 => print_esc_cstr(b"ifodd"),
+                5 => print_esc_cstr(b"ifvmode"),
+                6 => print_esc_cstr(b"ifhmode"),
+                7 => print_esc_cstr(b"ifmmode"),
+                8 => print_esc_cstr(b"ifinner"),
+                9 => print_esc_cstr(b"ifvoid"),
+                10 => print_esc_cstr(b"ifhbox"),
+                11 => print_esc_cstr(b"ifvbox"),
+                12 => print_esc_cstr(b"ifx"),
+                13 => print_esc_cstr(b"ifeof"),
+                14 => print_esc_cstr(b"iftrue"),
+                15 => print_esc_cstr(b"iffalse"),
+                16 => print_esc_cstr(b"ifcase"),
+                21 => print_esc_cstr(b"ifprimitive"),
+                17 => print_esc_cstr(b"ifdefined"),
+                18 => print_esc_cstr(b"ifcsname"),
+                19 => print_esc_cstr(b"iffontchar"),
+                20 => print_esc_cstr(b"ifincsname"),
+                _ => print_esc_cstr(b"if"),
             }
         }
         108 => {
@@ -3157,9 +2486,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                     /* genuine literal in WEB */
                     print_esc_cstr(b"pageshrink");
                 }
-                _ => {
-                    print_esc_cstr(b"pagedepth");
-                }
+                _ => print_esc_cstr(b"pagedepth"),
             }
         }
         14 => {
@@ -3170,48 +2497,22 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         26 => match chr_code {
-            4 => {
-                print_esc_cstr(b"hskip");
-            }
-            0 => {
-                print_esc_cstr(b"hfil");
-            }
-            1 => {
-                print_esc_cstr(b"hfill");
-            }
-            2 => {
-                print_esc_cstr(b"hss");
-            }
-            _ => {
-                print_esc_cstr(b"hfilneg");
-            }
+            4 => print_esc_cstr(b"hskip"),
+            0 => print_esc_cstr(b"hfil"),
+            1 => print_esc_cstr(b"hfill"),
+            2 => print_esc_cstr(b"hss"),
+            _ => print_esc_cstr(b"hfilneg"),
         },
         27 => match chr_code {
-            4 => {
-                print_esc_cstr(b"vskip");
-            }
-            0 => {
-                print_esc_cstr(b"vfil");
-            }
-            1 => {
-                print_esc_cstr(b"vfill");
-            }
-            2 => {
-                print_esc_cstr(b"vss");
-            }
-            _ => {
-                print_esc_cstr(b"vfilneg");
-            }
+            4 => print_esc_cstr(b"vskip"),
+            0 => print_esc_cstr(b"vfil"),
+            1 => print_esc_cstr(b"vfill"),
+            2 => print_esc_cstr(b"vss"),
+            _ => print_esc_cstr(b"vfilneg"),
         },
-        28 => {
-            print_esc_cstr(b"mskip");
-        }
-        29 => {
-            print_esc_cstr(b"kern");
-        }
-        30 => {
-            print_esc_cstr(b"mkern");
-        }
+        28 => print_esc_cstr(b"mskip"),
+        29 => print_esc_cstr(b"kern"),
+        30 => print_esc_cstr(b"mkern"),
         21 => {
             if chr_code == 1i32 {
                 print_esc_cstr(b"moveleft");
@@ -3227,27 +2528,13 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         20 => match chr_code {
-            0 => {
-                print_esc_cstr(b"box");
-            }
-            1 => {
-                print_esc_cstr(b"copy");
-            }
-            2 => {
-                print_esc_cstr(b"lastbox");
-            }
-            3 => {
-                print_esc_cstr(b"vsplit");
-            }
-            4 => {
-                print_esc_cstr(b"vtop");
-            }
-            5 => {
-                print_esc_cstr(b"vbox");
-            }
-            _ => {
-                print_esc_cstr(b"hbox");
-            }
+            0 => print_esc_cstr(b"box"),
+            1 => print_esc_cstr(b"copy"),
+            2 => print_esc_cstr(b"lastbox"),
+            3 => print_esc_cstr(b"vsplit"),
+            4 => print_esc_cstr(b"vtop"),
+            5 => print_esc_cstr(b"vbox"),
+            _ => print_esc_cstr(b"hbox"),
         },
         31 => {
             if chr_code == 100i32 {
@@ -3309,36 +2596,16 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         50 => match chr_code {
-            16 => {
-                print_esc_cstr(b"mathord");
-            }
-            17 => {
-                print_esc_cstr(b"mathop");
-            }
-            18 => {
-                print_esc_cstr(b"mathbin");
-            }
-            19 => {
-                print_esc_cstr(b"mathrel");
-            }
-            20 => {
-                print_esc_cstr(b"mathopen");
-            }
-            21 => {
-                print_esc_cstr(b"mathclose");
-            }
-            22 => {
-                print_esc_cstr(b"mathpunct");
-            }
-            23 => {
-                print_esc_cstr(b"mathinner");
-            }
-            26 => {
-                print_esc_cstr(b"underline");
-            }
-            _ => {
-                print_esc_cstr(b"overline");
-            }
+            16 => print_esc_cstr(b"mathord"),
+            17 => print_esc_cstr(b"mathop"),
+            18 => print_esc_cstr(b"mathbin"),
+            19 => print_esc_cstr(b"mathrel"),
+            20 => print_esc_cstr(b"mathopen"),
+            21 => print_esc_cstr(b"mathclose"),
+            22 => print_esc_cstr(b"mathpunct"),
+            23 => print_esc_cstr(b"mathinner"),
+            26 => print_esc_cstr(b"underline"),
+            _ => print_esc_cstr(b"overline"),
         },
         51 => {
             if chr_code == 1i32 {
@@ -3349,28 +2616,14 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_esc_cstr(b"displaylimits");
             }
         }
-        53 => {
-            print_style(chr_code);
-        }
+        53 => print_style(chr_code),
         52 => match chr_code {
-            1 => {
-                print_esc_cstr(b"over");
-            }
-            2 => {
-                print_esc_cstr(b"atop");
-            }
-            3 => {
-                print_esc_cstr(b"abovewithdelims");
-            }
-            4 => {
-                print_esc_cstr(b"overwithdelims");
-            }
-            5 => {
-                print_esc_cstr(b"atopwithdelims");
-            }
-            _ => {
-                print_esc_cstr(b"above");
-            }
+            1 => print_esc_cstr(b"over"),
+            2 => print_esc_cstr(b"atop"),
+            3 => print_esc_cstr(b"abovewithdelims"),
+            4 => print_esc_cstr(b"overwithdelims"),
+            5 => print_esc_cstr(b"atopwithdelims"),
+            _ => print_esc_cstr(b"above"),
         },
         49 => {
             if chr_code == 30i32 {
@@ -3411,36 +2664,16 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         97 => match chr_code {
-            0 => {
-                print_esc_cstr(b"chardef");
-            }
-            1 => {
-                print_esc_cstr(b"mathchardef");
-            }
-            9 => {
-                print_esc_cstr(b"Umathchardef");
-            }
-            8 => {
-                print_esc_cstr(b"Umathcharnumdef");
-            }
-            2 => {
-                print_esc_cstr(b"countdef");
-            }
-            3 => {
-                print_esc_cstr(b"dimendef");
-            }
-            4 => {
-                print_esc_cstr(b"skipdef");
-            }
-            5 => {
-                print_esc_cstr(b"muskipdef");
-            }
-            7 => {
-                print_esc_cstr(b"charsubdef");
-            }
-            _ => {
-                print_esc_cstr(b"toksdef");
-            }
+            0 => print_esc_cstr(b"chardef"),
+            1 => print_esc_cstr(b"mathchardef"),
+            9 => print_esc_cstr(b"Umathchardef"),
+            8 => print_esc_cstr(b"Umathcharnumdef"),
+            2 => print_esc_cstr(b"countdef"),
+            3 => print_esc_cstr(b"dimendef"),
+            4 => print_esc_cstr(b"skipdef"),
+            5 => print_esc_cstr(b"muskipdef"),
+            7 => print_esc_cstr(b"charsubdef"),
+            _ => print_esc_cstr(b"toksdef"),
         },
         68 => {
             print_esc_cstr(b"char");
@@ -3486,9 +2719,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_esc_cstr(b"Udelcode");
             }
         }
-        88 => {
-            print_size(chr_code - (MATH_FONT_BASE));
-        }
+        88 => print_size(chr_code - (MATH_FONT_BASE)),
         101 => {
             if chr_code == 1i32 {
                 print_esc_cstr(b"patterns");
@@ -3497,18 +2728,10 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         79 => match chr_code {
-            0 => {
-                print_esc_cstr(b"hyphenchar");
-            }
-            1 => {
-                print_esc_cstr(b"skewchar");
-            }
-            2 => {
-                print_esc_cstr(b"lpcode");
-            }
-            3 => {
-                print_esc_cstr(b"rpcode");
-            }
+            0 => print_esc_cstr(b"hyphenchar"),
+            1 => print_esc_cstr(b"skewchar"),
+            2 => print_esc_cstr(b"lpcode"),
+            3 => print_esc_cstr(b"rpcode"),
             _ => {}
         },
         89 => {
@@ -3543,18 +2766,10 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         102 => match chr_code {
-            0 => {
-                print_esc_cstr(b"batchmode");
-            }
-            1 => {
-                print_esc_cstr(b"nonstopmode");
-            }
-            2 => {
-                print_esc_cstr(b"scrollmode");
-            }
-            _ => {
-                print_esc_cstr(b"errorstopmode");
-            }
+            0 => print_esc_cstr(b"batchmode"),
+            1 => print_esc_cstr(b"nonstopmode"),
+            2 => print_esc_cstr(b"scrollmode"),
+            _ => print_esc_cstr(b"errorstopmode"),
         },
         60 => {
             if chr_code == 0i32 {
@@ -3578,31 +2793,15 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         19 => match chr_code {
-            1 => {
-                print_esc_cstr(b"showbox");
-            }
-            2 => {
-                print_esc_cstr(b"showthe");
-            }
-            3 => {
-                print_esc_cstr(b"showlists");
-            }
-            4 => {
-                print_esc_cstr(b"showgroups");
-            }
-            5 => {
-                print_esc_cstr(b"showtokens");
-            }
-            6 => {
-                print_esc_cstr(b"showifs");
-            }
-            _ => {
-                print_esc_cstr(b"show");
-            }
+            1 => print_esc_cstr(b"showbox"),
+            2 => print_esc_cstr(b"showthe"),
+            3 => print_esc_cstr(b"showlists"),
+            4 => print_esc_cstr(b"showgroups"),
+            5 => print_esc_cstr(b"showtokens"),
+            6 => print_esc_cstr(b"showifs"),
+            _ => print_esc_cstr(b"show"),
         },
-        103 => {
-            print_cstr(b"undefined");
-        }
+        103 => print_cstr(b"undefined"),
         113 | 114 | 115 | 116 => {
             n = cmd as i32 - 113i32;
             if MEM[MEM[chr_code as usize].b32.s1 as usize].b32.s0 == 0x1c00000 + 1 {
@@ -3622,56 +2821,24 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
             print_cstr(b"macro");
         }
-        117 => {
-            print_esc_cstr(b"outer endtemplate");
-        }
+        117 => print_esc_cstr(b"outer endtemplate"),
         59 => match chr_code {
-            0 => {
-                print_esc_cstr(b"openout");
-            }
-            1 => {
-                print_esc_cstr(b"write");
-            }
-            2 => {
-                print_esc_cstr(b"closeout");
-            }
-            3 => {
-                print_esc_cstr(b"special");
-            }
-            4 => {
-                print_esc_cstr(b"immediate");
-            }
-            5 => {
-                print_esc_cstr(b"setlanguage");
-            }
-            41 => {
-                print_esc_cstr(b"XeTeXpicfile");
-            }
-            42 => {
-                print_esc_cstr(b"XeTeXpdffile");
-            }
-            43 => {
-                print_esc_cstr(b"XeTeXglyph");
-            }
-            46 => {
-                print_esc_cstr(b"XeTeXlinebreaklocale");
-            }
-            44 => {
-                print_esc_cstr(b"XeTeXinputencoding");
-            }
-            45 => {
-                print_esc_cstr(b"XeTeXdefaultencoding");
-            }
-            6 => {
-                print_esc_cstr(b"pdfsavepos");
-            }
-            _ => {
-                print_cstr(b"[unknown extension!]");
-            }
+            0 => print_esc_cstr(b"openout"),
+            1 => print_esc_cstr(b"write"),
+            2 => print_esc_cstr(b"closeout"),
+            3 => print_esc_cstr(b"special"),
+            4 => print_esc_cstr(b"immediate"),
+            5 => print_esc_cstr(b"setlanguage"),
+            41 => print_esc_cstr(b"XeTeXpicfile"),
+            42 => print_esc_cstr(b"XeTeXpdffile"),
+            43 => print_esc_cstr(b"XeTeXglyph"),
+            46 => print_esc_cstr(b"XeTeXlinebreaklocale"),
+            44 => print_esc_cstr(b"XeTeXinputencoding"),
+            45 => print_esc_cstr(b"XeTeXdefaultencoding"),
+            6 => print_esc_cstr(b"pdfsavepos"),
+            _ => print_cstr(b"[unknown extension!]"),
         },
-        _ => {
-            print_cstr(b"[unknown command code!]");
-        }
+        _ => print_cstr(b"[unknown command code!]"),
     };
 }
 pub(crate) unsafe fn not_aat_font_error(mut cmd: i32, mut c: i32, mut f: i32) {
@@ -3934,30 +3101,18 @@ pub(crate) unsafe fn print_group(mut e: bool) {
             }
             print_cstr(b"hbox");
         }
-        4 => {
-            print_cstr(b"vbox");
-        }
-        5 => {
-            print_cstr(b"vtop");
-        }
+        4 => print_cstr(b"vbox"),
+        5 => print_cstr(b"vtop"),
         6 | 7 => {
             if cur_group as i32 == 7i32 {
                 print_cstr(b"no ");
             }
             print_cstr(b"align");
         }
-        8 => {
-            print_cstr(b"output");
-        }
-        10 => {
-            print_cstr(b"disc");
-        }
-        11 => {
-            print_cstr(b"insert");
-        }
-        12 => {
-            print_cstr(b"vcenter");
-        }
+        8 => print_cstr(b"output"),
+        10 => print_cstr(b"disc"),
+        11 => print_cstr(b"insert"),
+        12 => print_cstr(b"vcenter"),
         9 | 13 | 15 | 16 => {
             print_cstr(b"math");
             if cur_group as i32 == 13i32 {
@@ -4366,21 +3521,15 @@ pub(crate) unsafe fn new_save_level(mut c: group_code) {
 pub(crate) unsafe fn eq_destroy(mut w: memory_word) {
     let mut q: i32 = 0;
     match w.b16.s1 as i32 {
-        113 | 114 | 115 | 116 => {
-            delete_token_ref(w.b32.s1);
-        }
-        119 => {
-            delete_glue_ref(w.b32.s1);
-        }
+        113 | 114 | 115 | 116 => delete_token_ref(w.b32.s1),
+        119 => delete_glue_ref(w.b32.s1),
         120 => {
             q = w.b32.s1;
             if q != TEX_NULL {
                 free_node(q, MEM[q as usize].b32.s0 + MEM[q as usize].b32.s0 + 1);
             }
         }
-        121 => {
-            flush_node_list(w.b32.s1);
-        }
+        121 => flush_node_list(w.b32.s1),
         72 | 91 => {
             if w.b32.s1 < 0i32 || w.b32.s1 > 19i32 {
                 delete_sa_ref(w.b32.s1);
@@ -4719,12 +3868,8 @@ pub(crate) unsafe fn show_context() {
                     }
                 } else {
                     match cur_input.index as i32 {
-                        0 => {
-                            print_nl_cstr(b"<argument> ");
-                        }
-                        1 | 2 => {
-                            print_nl_cstr(b"<template> ");
-                        }
+                        0 => print_nl_cstr(b"<argument> "),
+                        1 | 2 => print_nl_cstr(b"<template> "),
                         3 | 4 => {
                             if cur_input.loc == TEX_NULL {
                                 print_nl_cstr(b"<recently read> ");
@@ -4732,55 +3877,25 @@ pub(crate) unsafe fn show_context() {
                                 print_nl_cstr(b"<to be read again> ");
                             }
                         }
-                        5 => {
-                            print_nl_cstr(b"<inserted text> ");
-                        }
+                        5 => print_nl_cstr(b"<inserted text> "),
                         6 => {
                             print_ln();
                             print_cs(cur_input.name);
                         }
-                        7 => {
-                            print_nl_cstr(b"<output> ");
-                        }
-                        8 => {
-                            print_nl_cstr(b"<everypar> ");
-                        }
-                        9 => {
-                            print_nl_cstr(b"<everymath> ");
-                        }
-                        10 => {
-                            print_nl_cstr(b"<everydisplay> ");
-                        }
-                        11 => {
-                            print_nl_cstr(b"<everyhbox> ");
-                        }
-                        12 => {
-                            print_nl_cstr(b"<everyvbox> ");
-                        }
-                        13 => {
-                            print_nl_cstr(b"<everyjob> ");
-                        }
-                        14 => {
-                            print_nl_cstr(b"<everycr> ");
-                        }
-                        15 => {
-                            print_nl_cstr(b"<mark> ");
-                        }
-                        16 => {
-                            print_nl_cstr(b"<everyeof> ");
-                        }
-                        17 => {
-                            print_nl_cstr(b"<XeTeXinterchartoks> ");
-                        }
-                        18 => {
-                            print_nl_cstr(b"<write> ");
-                        }
-                        19 => {
-                            print_nl_cstr(b"<TectonicCodaTokens> ");
-                        }
-                        _ => {
-                            print_nl('?' as i32);
-                        }
+                        7 => print_nl_cstr(b"<output> "),
+                        8 => print_nl_cstr(b"<everypar> "),
+                        9 => print_nl_cstr(b"<everymath> "),
+                        10 => print_nl_cstr(b"<everydisplay> "),
+                        11 => print_nl_cstr(b"<everyhbox> "),
+                        12 => print_nl_cstr(b"<everyvbox> "),
+                        13 => print_nl_cstr(b"<everyjob> "),
+                        14 => print_nl_cstr(b"<everycr> "),
+                        15 => print_nl_cstr(b"<mark> "),
+                        16 => print_nl_cstr(b"<everyeof> "),
+                        17 => print_nl_cstr(b"<XeTeXinterchartoks> "),
+                        18 => print_nl_cstr(b"<write> "),
+                        19 => print_nl_cstr(b"<TectonicCodaTokens> "),
+                        _ => print_nl('?' as i32),
                     }
                     l = tally;
                     tally = 0i32;
@@ -4900,12 +4015,8 @@ pub(crate) unsafe fn begin_token_list(mut p: i32, mut t: u16) {
                 begin_diagnostic();
                 print_nl_cstr(b"");
                 match t as i32 {
-                    15 => {
-                        print_esc_cstr(b"mark");
-                    }
-                    18 => {
-                        print_esc_cstr(b"write");
-                    }
+                    15 => print_esc_cstr(b"mark"),
+                    18 => print_esc_cstr(b"write"),
                     _ => {
                         print_cmd_chr(
                             73_u16,
@@ -5173,9 +4284,7 @@ pub(crate) unsafe fn get_next() {
                             .b32
                             .s1 as eight_bits;
                         match cur_input.state as i32 + cur_cmd as i32 {
-                            10 | 26 | 42 | 27 | 43 => {
-                                break;
-                            }
+                            10 | 26 | 42 | 27 | 43 => break,
                             1 | 17 | 33 => {
                                 if cur_input.loc > cur_input.limit {
                                     current_block = 17833034027772472439;
@@ -7886,9 +6995,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                     )
                                 }
                                 #[cfg(not(target_os = "macos"))]
-                                0xffffu32 => {
-                                    cur_val = -1;
-                                }
+                                0xffffu32 => cur_val = -1,
                                 0xfffeu32 => {
                                     if usingGraphite(
                                         FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
@@ -7901,9 +7008,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                         cur_val = 0;
                                     }
                                 }
-                                _ => {
-                                    cur_val = 0;
-                                }
+                                _ => cur_val = 0,
                             }
                         }
                         17 | 19 | 20 | 21 | 16 => {
@@ -9777,9 +8882,7 @@ pub(crate) unsafe fn the_toks() -> i32 {
         selector = Selector::NEW_STRING;
         b = pool_ptr;
         match cur_val_level as i32 {
-            0 => {
-                print_int(cur_val);
-            }
+            0 => print_int(cur_val),
             1 => {
                 print_scaled(cur_val);
                 print_cstr(b"pt");
@@ -9824,21 +8927,15 @@ pub(crate) unsafe fn conv_toks() {
     cat = 0i32 as small_number;
     c = cur_chr as small_number;
     match c as i32 {
-        0 | 1 => {
-            scan_int();
-        }
+        0 | 1 => scan_int(),
         2 | 3 => {
             save_scanner_status = scanner_status as small_number;
             scanner_status = 0_u8;
             get_token();
             scanner_status = save_scanner_status as u8
         }
-        4 => {
-            scan_font_ident();
-        }
-        13 => {
-            scan_usv_num();
-        }
+        4 => scan_font_ident(),
+        13 => scan_usv_num(),
         14 => {
             scan_usv_num();
             saved_chr = cur_val;
@@ -9998,12 +9095,8 @@ pub(crate) unsafe fn conv_toks() {
     selector = Selector::NEW_STRING;
     b = pool_ptr;
     match c as i32 {
-        0 => {
-            print_int(cur_val);
-        }
-        1 => {
-            print_roman_int(cur_val);
-        }
+        0 => print_int(cur_val),
+        1 => print_roman_int(cur_val),
         2 => {
             if cur_cs != 0i32 {
                 sprint_cs(cur_cs);
@@ -10011,9 +9104,7 @@ pub(crate) unsafe fn conv_toks() {
                 print_char(cur_chr);
             }
         }
-        3 => {
-            print_meaning();
-        }
+        3 => print_meaning(),
         4 => {
             font_name_str = FONT_NAME[cur_val as usize];
             match FONT_AREA[cur_val as usize] as u32 {
@@ -10035,9 +9126,7 @@ pub(crate) unsafe fn conv_toks() {
                     print(font_name_str);
                     print_char(quote_char as i32);
                 }
-                _ => {
-                    print(font_name_str);
-                }
+                _ => print(font_name_str),
             }
             if FONT_SIZE[cur_val as usize] != FONT_DSIZE[cur_val as usize] {
                 print_cstr(b" at ");
@@ -10045,18 +9134,10 @@ pub(crate) unsafe fn conv_toks() {
                 print_cstr(b"pt");
             }
         }
-        13 | 14 => {
-            print_char(cur_val);
-        }
-        5 => {
-            print_cstr(b".6");
-        }
-        43 => {
-            print_int(cur_val);
-        }
-        6 => {
-            print_cstr(b".99998");
-        }
+        13 | 14 => print_char(cur_val),
+        5 => print_cstr(b".6"),
+        43 => print_int(cur_val),
+        6 => print_cstr(b".99998"),
         7 => {
             match FONT_AREA[fnt as usize] as u32 {
                 #[cfg(target_os = "macos")]
@@ -10103,9 +9184,7 @@ pub(crate) unsafe fn conv_toks() {
             }
         }
         10 => match FONT_AREA[fnt as usize] as u32 {
-            0xffffu32 | 0xfffeu32 => {
-                print_glyph_name(fnt, arg1);
-            }
+            0xffffu32 | 0xfffeu32 => print_glyph_name(fnt, arg1),
             _ => {}
         },
         11 => {
@@ -10189,9 +9268,7 @@ pub(crate) unsafe fn conv_toks() {
             }
             print_cstr(b"pt");
         }
-        15 => {
-            print_file_name(job_name, 0i32, 0i32);
-        }
+        15 => print_file_name(job_name, 0i32, 0i32),
         _ => {}
     }
     selector = old_setting_0;
@@ -10910,9 +9987,7 @@ pub(crate) unsafe fn conditional() {
                 && cur_chr == prim_eqtb[m as usize].b32.s1;
             current_block = 16915215315900843183;
         }
-        _ => {
-            current_block = 16915215315900843183;
-        }
+        _ => current_block = 16915215315900843183,
     }
     match current_block {
         16915215315900843183 => {
@@ -11239,21 +10314,11 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
                     }
                     current_block_21 = 7676382540965064243;
                 }
-                4 => {
-                    current_block_21 = 7676382540965064243;
-                }
-                3 => {
-                    current_block_21 = 13258898395114305131;
-                }
-                2 => {
-                    current_block_21 = 10625751394499422232;
-                }
-                1 => {
-                    current_block_21 = 4051951890355284227;
-                }
-                0 | _ => {
-                    current_block_21 = 14818589718467733107;
-                }
+                4 => current_block_21 = 7676382540965064243,
+                3 => current_block_21 = 13258898395114305131,
+                2 => current_block_21 = 10625751394499422232,
+                1 => current_block_21 = 4051951890355284227,
+                0 | _ => current_block_21 = 14818589718467733107,
             }
             match current_block_21 {
                 7676382540965064243 => {
@@ -11625,16 +10690,12 @@ pub(crate) unsafe fn font_mapping_warning(
         i += 1
     }
     match warningType {
-        1 => {
-            print_cstr(b"\' not found.");
-        }
+        1 => print_cstr(b"\' not found."),
         2 => {
             print_cstr(b"\' not usable;");
             print_nl_cstr(b"bad mapping file or incorrect mapping type.");
         }
-        _ => {
-            print_cstr(b"\'.");
-        }
+        _ => print_cstr(b"\'."),
     }
     end_diagnostic(false);
 }
@@ -12552,9 +11613,7 @@ pub(crate) unsafe fn scan_spec(mut c: group_code, mut three_codes: bool) {
         current_block = 4427475217998452135;
     }
     match current_block {
-        8515828400728868193 => {
-            scan_dimen(false, false, false);
-        }
+        8515828400728868193 => scan_dimen(false, false, false),
         _ => {}
     }
     if three_codes {
@@ -14409,9 +13468,7 @@ pub(crate) unsafe fn show_save_groups() {
                 print_esc_cstr(b"output");
                 current_block = 5407796692416645153;
             }
-            9 => {
-                current_block = 11054735442240645164;
-            }
+            9 => current_block = 11054735442240645164,
             10 | 13 => {
                 if cur_group as i32 == 10i32 {
                     print_esc_cstr(b"discretionary");
@@ -14475,9 +13532,7 @@ pub(crate) unsafe fn show_save_groups() {
                 }
                 current_block = 5407796692416645153;
             }
-            _ => {
-                current_block = 6002151390280567665;
-            }
+            _ => current_block = 6002151390280567665,
         }
         match current_block {
             6002151390280567665 => {
@@ -14530,9 +13585,7 @@ pub(crate) unsafe fn show_save_groups() {
             _ => {}
         }
         match current_block {
-            11054735442240645164 => {
-                print_char('{' as i32);
-            }
+            11054735442240645164 => print_char('{' as i32),
             _ => {}
         }
         print_char(')' as i32);
@@ -14574,9 +13627,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                 0 | 1 | 2 => {
                     current_block = 15992561690600734426; /*:1010 */
                     match current_block {
-                        5335814873276400744 => {
-                            confusion(b"vertbreak");
-                        }
+                        5335814873276400744 => confusion(b"vertbreak"),
                         15992561690600734426 => {
                             active_width[1] =
                                 active_width[1] + prev_dp + MEM[(p + 3) as usize].b32.s1;
@@ -14652,9 +13703,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     pi = MEM[(p + 1) as usize].b32.s1;
                     current_block = 9007357115414505193;
                 }
-                4 | 3 => {
-                    current_block = 10249009913728301645;
-                }
+                4 | 3 => current_block = 10249009913728301645,
                 _ => {
                     current_block = 5335814873276400744;
                     confusion(b"vertbreak");
@@ -15006,12 +14055,8 @@ pub(crate) unsafe fn append_glue() {
         1 => cur_val = 8i32,
         2 => cur_val = 12i32,
         3 => cur_val = 16i32,
-        4 => {
-            scan_glue(2i32 as small_number);
-        }
-        5 => {
-            scan_glue(3i32 as small_number);
-        }
+        4 => scan_glue(2i32 as small_number),
+        5 => scan_glue(3i32 as small_number),
         _ => {}
     }
     MEM[cur_list.tail as usize].b32.s1 = new_glue(cur_val);
@@ -15095,15 +14140,9 @@ pub(crate) unsafe fn extra_right_brace() {
     }
     print_cstr(b"Extra }, or forgotten ");
     match cur_group as i32 {
-        14 => {
-            print_esc_cstr(b"endgroup");
-        }
-        15 => {
-            print_char('$' as i32);
-        }
-        16 => {
-            print_esc_cstr(b"right");
-        }
+        14 => print_esc_cstr(b"endgroup"),
+        15 => print_char('$' as i32),
+        16 => print_esc_cstr(b"right"),
         _ => {}
     }
     help_ptr = 5_u8;
@@ -16353,15 +15392,11 @@ pub(crate) unsafe fn just_copy(mut p: i32, mut h: i32, mut t: i32) {
                             r = get_node(words as i32)
                         }
                         6 => r = get_node(2i32),
-                        _ => {
-                            confusion(b"ext2");
-                        }
+                        _ => confusion(b"ext2"),
                     }
                     current_block_50 = 2500484646272006982;
                 }
-                _ => {
-                    current_block_50 = 17768496421797376910;
-                }
+                _ => current_block_50 = 17768496421797376910,
             }
         }
         match current_block_50 {
@@ -17395,12 +16430,8 @@ pub(crate) unsafe fn do_extension() {
                 EQTB[(INT_BASE + 68i32) as usize].b32.s1 = cur_name
             }
         }
-        6 => {
-            new_whatsit(6i32 as small_number, 2i32 as small_number);
-        }
-        _ => {
-            confusion(b"ext1");
-        }
+        6 => new_whatsit(6i32 as small_number, 2i32 as small_number),
+        _ => confusion(b"ext1"),
     };
 }
 pub(crate) unsafe fn fix_language() {
@@ -17465,9 +16496,7 @@ pub(crate) unsafe fn handle_right_brace() {
     let mut d: scaled_t = 0;
     let mut f: i32 = 0;
     match cur_group as i32 {
-        1 => {
-            unsave();
-        }
+        1 => unsave(),
         0 => {
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -17480,12 +16509,8 @@ pub(crate) unsafe fn handle_right_brace() {
             help_line[0] = b"Such booboos are generally harmless, so keep going.";
             error();
         }
-        14 | 15 | 16 => {
-            extra_right_brace();
-        }
-        2 => {
-            package(0i32 as small_number);
-        }
+        14 | 15 | 16 => extra_right_brace(),
+        2 => package(0i32 as small_number),
         3 => {
             adjust_tail = 4999999i32 - 5i32;
             pre_adjust_tail = 4999999i32 - 14i32;
@@ -17598,9 +16623,7 @@ pub(crate) unsafe fn handle_right_brace() {
             pop_nest();
             build_page();
         }
-        10 => {
-            build_discretionary();
-        }
+        10 => build_discretionary(),
         6 => {
             back_input();
             cur_tok = 0x1ffffffi32 + (FROZEN_CONTROL_SEQUENCE + 1i32);
@@ -17638,9 +16661,7 @@ pub(crate) unsafe fn handle_right_brace() {
             MEM[(cur_list.tail + 1) as usize].b32.s1 = 2;
             MEM[(cur_list.tail + 1) as usize].b32.s0 = p
         }
-        13 => {
-            build_choices();
-        }
+        13 => build_choices(),
         9 => {
             unsave();
             SAVE_PTR -= 1;
@@ -17674,9 +16695,7 @@ pub(crate) unsafe fn handle_right_brace() {
                 }
             }
         }
-        _ => {
-            confusion(b"rightbrace");
-        }
+        _ => confusion(b"rightbrace"),
     };
 }
 pub(crate) unsafe fn main_control() {
@@ -18181,9 +17200,7 @@ pub(crate) unsafe fn main_control() {
                             do_extension();
                             continue 'c_125208;
                         }
-                        1 | 104 | 207 | 11 | 217 | 272 | _ => {
-                            continue 'c_125208;
-                        }
+                        1 | 104 | 207 | 11 | 217 | 272 | _ => continue 'c_125208,
                     }
                 }
             }
@@ -19365,9 +18382,7 @@ pub(crate) unsafe fn main_control() {
             }
         }
         match current_block {
-            11459959175219260272 => {
-                app_space();
-            }
+            11459959175219260272 => app_space(),
             _ =>
             /*append_normal_space */
             {
@@ -19557,9 +18572,7 @@ pub(crate) unsafe fn prune_page_top(mut p: i32, mut s: bool) -> i32 {
                     flush_node_list(q);
                 }
             }
-            _ => {
-                confusion(b"pruning");
-            }
+            _ => confusion(b"pruning"),
         }
     }
     MEM[(4999999 - 3) as usize].b32.s1

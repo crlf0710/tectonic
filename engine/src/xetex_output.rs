@@ -22,8 +22,6 @@ use super::xetex_ini::{
 use super::xetex_ini::{memory_word, Selector};
 use bridge::ttstub_output_putc;
 
-use libc::strlen;
-
 pub(crate) type scaled_t = i32;
 
 /* tectonic/xetex-xetexd.h -- many, many XeTeX symbol definitions

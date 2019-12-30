@@ -597,12 +597,8 @@ unsafe fn aux_err_print() {
 unsafe fn aux_err_illegal_another_print(cmd_num: i32) {
     log!("Illegal, another \\bib");
     match cmd_num {
-        0 => {
-            log!("data");
-        }
-        1 => {
-            log!("style");
-        }
+        0 => log!("data"),
+        1 => log!("style"),
         _ => {
             log!("Illegal auxiliary-file command");
             print_confusion();
@@ -716,36 +712,16 @@ unsafe fn unknwn_function_class_confusion() {
 }
 unsafe fn print_fn_class(fn_loc_0: hash_loc) {
     match *fn_type.offset(fn_loc_0 as isize) as i32 {
-        0 => {
-            log!("built-in");
-        }
-        1 => {
-            log!("wizard-defined");
-        }
-        2 => {
-            log!("integer-literal");
-        }
-        3 => {
-            log!("string-literal");
-        }
-        4 => {
-            log!("field");
-        }
-        5 => {
-            log!("integer-entry-variable");
-        }
-        6 => {
-            log!("string-entry-variable");
-        }
-        7 => {
-            log!("integer-global-variable");
-        }
-        8 => {
-            log!("string-global-variable");
-        }
-        _ => {
-            unknwn_function_class_confusion();
-        }
+        0 => log!("built-in"),
+        1 => log!("wizard-defined"),
+        2 => log!("integer-literal"),
+        3 => log!("string-literal"),
+        4 => log!("field"),
+        5 => log!("integer-entry-variable"),
+        6 => log!("string-entry-variable"),
+        7 => log!("integer-global-variable"),
+        8 => log!("string-global-variable"),
+        _ => unknwn_function_class_confusion(),
     };
 }
 /*:159*/
@@ -940,9 +916,7 @@ unsafe fn unknwn_literal_confusion() {
 }
 unsafe fn print_stk_lit(mut stk_lt: i32, mut stk_tp: stk_type) {
     match stk_tp as i32 {
-        0 => {
-            log!("{} is an integer literal", stk_lt);
-        }
+        0 => log!("{} is an integer literal", stk_lt),
         1 => {
             putc_log('\"' as i32);
             print_a_pool_str(stk_lt);
@@ -958,19 +932,13 @@ unsafe fn print_stk_lit(mut stk_lt: i32, mut stk_tp: stk_type) {
             print_a_pool_str(stk_lt);
             log!("\' is a missing field");
         }
-        4 => {
-            illegl_literal_confusion();
-        }
-        _ => {
-            unknwn_literal_confusion();
-        }
+        4 => illegl_literal_confusion(),
+        _ => unknwn_literal_confusion(),
     };
 }
 unsafe fn print_lit(mut stk_lt: i32, mut stk_tp: stk_type) {
     match stk_tp as i32 {
-        0 => {
-            log!("{}\n", stk_lt);
-        }
+        0 => log!("{}\n", stk_lt),
         1 => {
             print_a_pool_str(stk_lt);
             putc_log('\n' as i32);
@@ -983,12 +951,8 @@ unsafe fn print_lit(mut stk_lt: i32, mut stk_tp: stk_type) {
             print_a_pool_str(stk_lt);
             putc_log('\n' as i32);
         }
-        4 => {
-            illegl_literal_confusion();
-        }
-        _ => {
-            unknwn_literal_confusion();
-        }
+        4 => illegl_literal_confusion(),
+        _ => unknwn_literal_confusion(),
     };
 }
 unsafe fn output_bbl_line() {
@@ -2685,9 +2649,7 @@ unsafe fn scan_and_store_the_field_value_and_eat_white() -> bool {
                     *ilk_info.offset(cur_macro_loc as isize) =
                         *hash_text.offset(field_val_loc as isize)
                 }
-                _ => {
-                    bib_cmd_confusion();
-                }
+                _ => bib_cmd_confusion(),
             }
         } else {
             field_ptr = entry_cite_ptr * num_fields + *ilk_info.offset(field_name_loc as isize);
@@ -3341,21 +3303,11 @@ unsafe fn print_wrong_stk_lit(mut stk_lt: i32, mut stk_tp1: stk_type, mut stk_tp
         /*stk_empty */
         print_stk_lit(stk_lt, stk_tp1);
         match stk_tp2 as i32 {
-            0 => {
-                log!(", not an integer,");
-            }
-            1 => {
-                log!(", not a string,");
-            }
-            2 => {
-                log!(", not a function,");
-            }
-            3 | 4 => {
-                illegl_literal_confusion();
-            }
-            _ => {
-                unknwn_literal_confusion();
-            }
+            0 => log!(", not an integer,"),
+            1 => log!(", not a string,"),
+            2 => log!(", not a function,"),
+            3 | 4 => illegl_literal_confusion(),
+            _ => unknwn_literal_confusion(),
         }
         bst_ex_warn_print();
     };
@@ -4010,9 +3962,7 @@ unsafe fn x_change_case() {
                                                     }
                                                 }
                                                 3 => {}
-                                                _ => {
-                                                    case_conversion_confusion();
-                                                }
+                                                _ => case_conversion_confusion(),
                                             }
                                         }
                                         ex_buf_xptr = ex_buf_ptr;
@@ -4048,9 +3998,7 @@ unsafe fn x_change_case() {
                                                 );
                                             }
                                             3 => {}
-                                            _ => {
-                                                case_conversion_confusion();
-                                            }
+                                            _ => case_conversion_confusion(),
                                         }
                                     }
                                     ex_buf_ptr = ex_buf_ptr - 1i32
@@ -4089,16 +4037,10 @@ unsafe fn x_change_case() {
                             prev_colon = false
                         }
                     }
-                    1 => {
-                        lower_case(ex_buf, ex_buf_ptr, 1i32);
-                    }
-                    2 => {
-                        upper_case(ex_buf, ex_buf_ptr, 1i32);
-                    }
+                    1 => lower_case(ex_buf, ex_buf_ptr, 1i32),
+                    2 => upper_case(ex_buf, ex_buf_ptr, 1i32),
                     3 => {}
-                    _ => {
-                        case_conversion_confusion();
-                    }
+                    _ => case_conversion_confusion(),
                 }
             }
             ex_buf_ptr = ex_buf_ptr + 1i32
@@ -4184,12 +4126,8 @@ unsafe fn x_empty() {
             }
             push_lit_stk(1i32, 0i32 as stk_type);
         }
-        3 => {
-            push_lit_stk(1i32, 0i32 as stk_type);
-        }
-        4 => {
-            push_lit_stk(0i32, 0i32 as stk_type);
-        }
+        3 => push_lit_stk(1i32, 0i32 as stk_type),
+        4 => push_lit_stk(0i32, 0i32 as stk_type),
         _ => {
             print_stk_lit(pop_lit1, pop_typ1);
             log!(", not a string or missing field,");
@@ -4965,30 +4903,14 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
     let mut wiz_ptr: wiz_fn_loc = 0;
     match *fn_type.offset(ex_fn_loc as isize) as i32 {
         0 => match *ilk_info.offset(ex_fn_loc as isize) {
-            0 => {
-                x_equals();
-            }
-            1 => {
-                x_greater_than();
-            }
-            2 => {
-                x_less_than();
-            }
-            3 => {
-                x_plus();
-            }
-            4 => {
-                x_minus();
-            }
-            5 => {
-                x_concatenate();
-            }
-            6 => {
-                x_gets();
-            }
-            7 => {
-                x_add_period();
-            }
+            0 => x_equals(),
+            1 => x_greater_than(),
+            2 => x_less_than(),
+            3 => x_plus(),
+            4 => x_minus(),
+            5 => x_concatenate(),
+            6 => x_gets(),
+            7 => x_add_period(),
             8 => {
                 if !mess_with_entries {
                     bst_cant_mess_with_entries_print();
@@ -4998,24 +4920,12 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                     execute_fn(*type_list.offset(cite_ptr as isize));
                 }
             }
-            9 => {
-                x_change_case();
-            }
-            10 => {
-                x_chr_to_int();
-            }
-            11 => {
-                x_cite();
-            }
-            12 => {
-                x_duplicate();
-            }
-            13 => {
-                x_empty();
-            }
-            14 => {
-                x_format_name();
-            }
+            9 => x_change_case(),
+            10 => x_chr_to_int(),
+            11 => x_cite(),
+            12 => x_duplicate(),
+            13 => x_empty(),
+            14 => x_format_name(),
             15 => {
                 pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
                 pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
@@ -5032,58 +4942,24 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                     execute_fn(pop_lit1);
                 }
             }
-            16 => {
-                x_int_to_chr();
-            }
-            17 => {
-                x_int_to_str();
-            }
-            18 => {
-                x_missing();
-            }
-            19 => {
-                output_bbl_line();
-            }
-            20 => {
-                x_num_names();
-            }
-            21 => {
-                pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
-            }
-            22 => {
-                x_preamble();
-            }
-            23 => {
-                x_purify();
-            }
-            24 => {
-                x_quote();
-            }
+            16 => x_int_to_chr(),
+            17 => x_int_to_str(),
+            18 => x_missing(),
+            19 => output_bbl_line(),
+            20 => x_num_names(),
+            21 => pop_lit_stk(&mut pop_lit1, &mut pop_typ1),
+            22 => x_preamble(),
+            23 => x_purify(),
+            24 => x_quote(),
             25 => {}
-            26 => {
-                pop_whole_stack();
-            }
-            27 => {
-                x_substring();
-            }
-            28 => {
-                x_swap();
-            }
-            29 => {
-                x_text_length();
-            }
-            30 => {
-                x_text_prefix();
-            }
-            31 => {
-                pop_top_and_print();
-            }
-            32 => {
-                x_type();
-            }
-            33 => {
-                x_warning();
-            }
+            26 => pop_whole_stack(),
+            27 => x_substring(),
+            28 => x_swap(),
+            29 => x_text_length(),
+            30 => x_text_prefix(),
+            31 => pop_top_and_print(),
+            32 => x_type(),
+            33 => x_warning(),
             34 => {
                 pop_lit_stk(&mut r_pop_lt1, &mut r_pop_tp1);
                 pop_lit_stk(&mut r_pop_lt2, &mut r_pop_tp2);
@@ -5107,12 +4983,8 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                     }
                 }
             }
-            35 => {
-                x_width();
-            }
-            36 => {
-                x_write();
-            }
+            35 => x_width(),
+            36 => x_write(),
             _ => {
                 log!("Unknown built-in function");
                 print_confusion();
@@ -5131,12 +5003,8 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                 wiz_ptr = wiz_ptr + 1i32
             }
         }
-        2 => {
-            push_lit_stk(*ilk_info.offset(ex_fn_loc as isize), 0i32 as stk_type);
-        }
-        3 => {
-            push_lit_stk(*hash_text.offset(ex_fn_loc as isize), 1i32 as stk_type);
-        }
+        2 => push_lit_stk(*ilk_info.offset(ex_fn_loc as isize), 0i32 as stk_type),
+        3 => push_lit_stk(*hash_text.offset(ex_fn_loc as isize), 1i32 as stk_type),
         4 => {
             if !mess_with_entries {
                 bst_cant_mess_with_entries_print();
@@ -5187,9 +5055,7 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                 add_pool_buf_and_push();
             }
         }
-        7 => {
-            push_lit_stk(*ilk_info.offset(ex_fn_loc as isize), 0i32 as stk_type);
-        }
+        7 => push_lit_stk(*ilk_info.offset(ex_fn_loc as isize), 0i32 as stk_type),
         8 => {
             str_glb_ptr = *ilk_info.offset(ex_fn_loc as isize);
             if *glb_str_ptr.offset(str_glb_ptr as isize) > 0i32 {
@@ -5208,9 +5074,7 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                 push_lit_stk(make_string(), 1i32 as stk_type);
             }
         }
-        _ => {
-            unknwn_function_class_confusion();
-        }
+        _ => unknwn_function_class_confusion(),
     };
 }
 unsafe fn get_the_top_level_aux_file_name(mut aux_file_name: *const i8) -> i32 {
@@ -5560,18 +5424,10 @@ unsafe fn get_aux_command_and_process() {
     ) as isize);
     if hash_found {
         match command_num {
-            0 => {
-                aux_bib_data_command();
-            }
-            1 => {
-                aux_bib_style_command();
-            }
-            2 => {
-                aux_citation_command();
-            }
-            3 => {
-                aux_input_command();
-            }
+            0 => aux_bib_data_command(),
+            1 => aux_bib_style_command(),
+            2 => aux_citation_command(),
+            3 => aux_input_command(),
             _ => {
                 log!("Unknown auxiliary-file command");
                 print_confusion();
@@ -6335,9 +6191,7 @@ unsafe fn get_bib_command_or_entry_and_process() {
                 buf_ptr2 = buf_ptr2 + 1i32;
                 return;
             }
-            _ => {
-                bib_cmd_confusion();
-            }
+            _ => bib_cmd_confusion(),
         }
     } else {
         entry_type_loc = str_lookup(
@@ -6987,36 +6841,16 @@ unsafe fn get_bst_command_and_process() {
         return;
     }
     match command_num {
-        0 => {
-            bst_entry_command();
-        }
-        1 => {
-            bst_execute_command();
-        }
-        2 => {
-            bst_function_command();
-        }
-        3 => {
-            bst_integers_command();
-        }
-        4 => {
-            bst_iterate_command();
-        }
-        5 => {
-            bst_macro_command();
-        }
-        6 => {
-            bst_read_command();
-        }
-        7 => {
-            bst_reverse_command();
-        }
-        8 => {
-            bst_sort_command();
-        }
-        9 => {
-            bst_strings_command();
-        }
+        0 => bst_entry_command(),
+        1 => bst_execute_command(),
+        2 => bst_function_command(),
+        3 => bst_integers_command(),
+        4 => bst_iterate_command(),
+        5 => bst_macro_command(),
+        6 => bst_read_command(),
+        7 => bst_reverse_command(),
+        8 => bst_sort_command(),
+        9 => bst_strings_command(),
         _ => {
             log!("Unknown style-file command");
             print_confusion();
@@ -7496,9 +7330,7 @@ pub(crate) unsafe fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
                 log!("(There were {} error messages)\n", err_count,);
             }
         }
-        TTHistory::FATAL_ERROR => {
-            log!("(That was a fatal error)\n");
-        }
+        TTHistory::FATAL_ERROR => log!("(That was a fatal error)\n"),
     }
     ttstub_output_close(log_file.take().unwrap());
     history
