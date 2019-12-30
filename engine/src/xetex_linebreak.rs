@@ -389,7 +389,7 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
                     }
                     q = *GLUE_NODE_glue_ptr(cur_p as isize);
                     if MEM[q as usize].b16.s0 as i32 != 0 && MEM[(q + 3) as usize].b32.s1 != 0 {
-                        let ref mut fresh3 = MEM[(cur_p + 1) as usize].b32.s0;
+                        let fresh3 = &mut MEM[(cur_p + 1) as usize].b32.s0;
                         *fresh3 = finite_shrink(q);
                         q = *fresh3
                     }
@@ -1510,8 +1510,8 @@ pub(crate) unsafe extern "C" fn line_break(mut d: bool) {
         } else {
             q = new_spec(MEM[(last_line_fill + 1) as usize].b32.s0);
             delete_glue_ref(MEM[(last_line_fill + 1) as usize].b32.s0);
-            let ref mut fresh4 = MEM[(q + 1) as usize].b32.s1;
-            *fresh4 += MEM[(best_bet + 3) as usize].b32.s1 - MEM[(best_bet + 4) as usize].b32.s1;
+            MEM[(q + 1) as usize].b32.s1 +=
+                MEM[(best_bet + 3) as usize].b32.s1 - MEM[(best_bet + 4) as usize].b32.s1;
             MEM[(q + 2) as usize].b32.s1 = 0;
             MEM[(last_line_fill + 1) as usize].b32.s0 = q
         }
@@ -1634,7 +1634,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
             delete_glue_ref(MEM[(q + 1) as usize].b32.s0);
             *GLUE_NODE_glue_ptr(q as isize) = *GLUEPAR(GLUE_PAR__right_skip);
             *NODE_subtype(q as isize) = GLUE_PAR__right_skip as u16 + 1;
-            let ref mut fresh5 = MEM[EQTB[(1
+            MEM[EQTB[(1
                 + (0x10ffff + 1)
                 + (0x10ffffi32 + 1i32)
                 + 1i32
@@ -1647,8 +1647,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
                 .b32
                 .s1 as usize]
                 .b32
-                .s1;
-            *fresh5 += 1;
+                .s1 += 1;
             glue_break = true;
         } else if MEM[q as usize].b16.s1 as i32 == 7 {
             /*911:*/
@@ -2191,18 +2190,13 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                     }
                     /*872: "Insert a delta node to prepare for breaks at cur_p" */
                     if MEM[prev_r as usize].b16.s1 as i32 == 2 {
-                        let ref mut fresh6 = MEM[(prev_r + 1) as usize].b32.s1; /* this is unused */
-                        *fresh6 += -cur_active_width[1] + break_width[1];
-                        let ref mut fresh7 = MEM[(prev_r + 2) as usize].b32.s1;
-                        *fresh7 += -cur_active_width[2] + break_width[2];
-                        let ref mut fresh8 = MEM[(prev_r + 3) as usize].b32.s1;
-                        *fresh8 += -cur_active_width[3] + break_width[3];
-                        let ref mut fresh9 = MEM[(prev_r + 4) as usize].b32.s1;
-                        *fresh9 += -cur_active_width[4] + break_width[4];
-                        let ref mut fresh10 = MEM[(prev_r + 5) as usize].b32.s1;
-                        *fresh10 += -cur_active_width[5] + break_width[5];
-                        let ref mut fresh11 = MEM[(prev_r + 6) as usize].b32.s1;
-                        *fresh11 += -cur_active_width[6] + break_width[6]
+                        /* this is unused */
+                        MEM[(prev_r + 1) as usize].b32.s1 += -cur_active_width[1] + break_width[1];
+                        MEM[(prev_r + 2) as usize].b32.s1 += -cur_active_width[2] + break_width[2];
+                        MEM[(prev_r + 3) as usize].b32.s1 += -cur_active_width[3] + break_width[3];
+                        MEM[(prev_r + 4) as usize].b32.s1 += -cur_active_width[4] + break_width[4];
+                        MEM[(prev_r + 5) as usize].b32.s1 += -cur_active_width[5] + break_width[5];
+                        MEM[(prev_r + 6) as usize].b32.s1 += -cur_active_width[6] + break_width[6]
                     } else if prev_r == 4999999i32 - 7i32 {
                         active_width[1] = break_width[1];
                         active_width[2] = break_width[2];
@@ -2635,18 +2629,12 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                     cur_active_width[4] += MEM[(r + 4) as usize].b32.s1;
                     cur_active_width[5] += MEM[(r + 5) as usize].b32.s1;
                     cur_active_width[6] += MEM[(r + 6) as usize].b32.s1;
-                    let ref mut fresh12 = MEM[(prev_r + 1) as usize].b32.s1;
-                    *fresh12 += MEM[(r + 1) as usize].b32.s1;
-                    let ref mut fresh13 = MEM[(prev_r + 2) as usize].b32.s1;
-                    *fresh13 += MEM[(r + 2) as usize].b32.s1;
-                    let ref mut fresh14 = MEM[(prev_r + 4) as usize].b32.s1;
-                    *fresh14 += MEM[(r + 3) as usize].b32.s1;
-                    let ref mut fresh15 = MEM[(prev_r + 4) as usize].b32.s1;
-                    *fresh15 += MEM[(r + 4) as usize].b32.s1;
-                    let ref mut fresh16 = MEM[(prev_r + 5) as usize].b32.s1;
-                    *fresh16 += MEM[(r + 5) as usize].b32.s1;
-                    let ref mut fresh17 = MEM[(prev_r + 6) as usize].b32.s1;
-                    *fresh17 += MEM[(r + 6) as usize].b32.s1;
+                    MEM[(prev_r + 1) as usize].b32.s1 += MEM[(r + 1) as usize].b32.s1;
+                    MEM[(prev_r + 2) as usize].b32.s1 += MEM[(r + 2) as usize].b32.s1;
+                    MEM[(prev_r + 4) as usize].b32.s1 += MEM[(r + 3) as usize].b32.s1;
+                    MEM[(prev_r + 4) as usize].b32.s1 += MEM[(r + 4) as usize].b32.s1;
+                    MEM[(prev_r + 5) as usize].b32.s1 += MEM[(r + 5) as usize].b32.s1;
+                    MEM[(prev_r + 6) as usize].b32.s1 += MEM[(r + 6) as usize].b32.s1;
                     MEM[prev_r as usize].b32.s1 = MEM[r as usize].b32.s1;
                     free_node(r, 7i32);
                 }
@@ -3399,8 +3387,7 @@ unsafe extern "C" fn reconstitute(
             }
             if rt_hit {
                 if lig_stack == -0xfffffffi32 {
-                    let ref mut fresh28 = MEM[p as usize].b16.s0;
-                    *fresh28 = (*fresh28).wrapping_add(1);
+                    MEM[p as usize].b16.s0 += 1;
                     rt_hit = false
                 }
             }
