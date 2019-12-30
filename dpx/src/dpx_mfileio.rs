@@ -30,43 +30,9 @@ use crate::bridge::{ttstub_input_getc, ttstub_input_ungetc};
 
 use std::ptr;
 
-use libc::{fseek, ftell, rewind, FILE};
-pub(crate) type __off_t = i64;
-pub(crate) type __off64_t = i64;
 use bridge::InputHandleWrapper;
-unsafe fn os_error() {
-    panic!("io:  An OS command failed that should not have.\n");
-}
 
-pub(crate) unsafe fn seek_relative(file: *mut FILE, pos: i32) {
-    if fseek(file, pos as _, 1i32) != 0 {
-        os_error();
-    };
-}
-unsafe fn seek_end(file: *mut FILE) {
-    if fseek(file, 0, 2i32) != 0 {
-        os_error();
-    };
-}
-unsafe fn tell_position(file: *mut FILE) -> i32 {
-    let size = ftell(file);
-    if size < 0 {
-        os_error();
-    }
-    if size as i64 > 0x7fffffffi32 as i64 {
-        panic!("ftell: file size {} exceeds 0x7fffffff.\n", size);
-    }
-    size as i32
-}
-
-pub(crate) unsafe fn file_size(file: *mut FILE) -> i32 {
-    seek_end(file);
-    let size = tell_position(file);
-    rewind(file);
-    size
-}
 /* Note: this is really just a random array used in other files. */
-
 pub(crate) static mut work_buffer: [i8; 1024] = [0; 1024];
 pub(crate) static mut work_buffer_u8: [u8; 1024] = [0; 1024];
 /* Tectonic-enabled versions */

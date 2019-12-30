@@ -123,16 +123,6 @@ pub(crate) unsafe fn pdf_init_fontmap_record() -> fontmap_rec {
     }
 }
 
-/* strdup: just returns NULL for NULL */
-unsafe fn mstrdup(s: *const i8) -> *mut i8 {
-    if s.is_null() {
-        return ptr::null_mut();
-    }
-    let r =
-        new((strlen(s).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-    strcpy(r, s);
-    r
-}
 unsafe fn pdf_copy_fontmap_record(src: *const fontmap_rec) -> fontmap_rec {
     assert!(!src.is_null());
     fontmap_rec {

@@ -48,17 +48,17 @@ use crate::dpx_pdfobj::{
     STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
-use libc::{fclose, fgetc, fopen, fread, free, memset};
+use libc::{free, memset};
 
 use crate::dpx_numbers::{
     get_positive_quad, get_signed_byte, get_signed_pair, get_signed_quad, get_unsigned_byte,
     get_unsigned_num, get_unsigned_pair, get_unsigned_triple, skip_bytes,
 };
 
-pub(crate) type __off_t = i64;
-pub(crate) type __off64_t = i64;
-use crate::bridge::size_t;
-use libc::FILE;
+use crate::bridge::InputHandleWrapper;
+use crate::bridge::{ttstub_input_open, TTInputFormat};
+use std::io::Read;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct pk_header_ {
@@ -98,15 +98,13 @@ unsafe fn truedpi(ident: &str, point_size: f64, bdpi: u32) -> u32 {
     }
     dpi
 }
-unsafe fn dpx_open_pk_font_at(_ident: *const i8, _dpi: u32) -> *mut FILE {
+unsafe fn dpx_open_pk_font_at(_ident: *const i8, _dpi: u32) -> Option<InputHandleWrapper> {
     /*kpse_glyph_file_type kpse_file_info;*/
     let fqpn = ptr::null_mut::<i8>(); /*kpse_find_glyph(ident, dpi, kpse_pk_format, &kpse_file_info);*/
     if fqpn.is_null() {
-        return ptr::null_mut();
+        return None;
     }
-    let fp = fopen(fqpn, b"rb\x00" as *const u8 as *const i8);
-    free(fqpn as *mut libc::c_void);
-    fp
+    ttstub_input_open(fqpn, TTInputFormat::PK, 0)
 }
 
 pub(crate) unsafe fn pdf_font_open_pkfont(font: &mut pdf_font) -> i32 {
@@ -118,11 +116,11 @@ pub(crate) unsafe fn pdf_font_open_pkfont(font: &mut pdf_font) -> i32 {
     }
     let ident_ = CString::new(ident).unwrap();
     let dpi = truedpi(ident, point_size, base_dpi);
-    let fp = dpx_open_pk_font_at(ident_.as_ptr(), dpi);
-    if fp.is_null() {
+    if let Some(fp) = dpx_open_pk_font_at(ident_.as_ptr(), dpi) {
+        fp.close();
+    } else {
         return -1i32;
     }
-    fclose(fp);
     /* Type 3 fonts doesn't have FontName.
      * FontFamily is recommended for PDF 1.5.
      */
@@ -397,9 +395,9 @@ unsafe fn pk_decode_bitmap(
     }
     0i32
 }
-unsafe fn do_preamble(fp: *mut FILE) {
+unsafe fn do_preamble(fp: &mut InputHandleWrapper) {
     /* Check for id byte */
-    if fgetc(fp) == 89i32 {
+    if get_unsigned_byte(fp) == 89 {
         /* Skip comment */
         skip_bytes(get_unsigned_byte(fp) as u32, fp);
         /* Skip other header info.  It's normally used for verifying this
@@ -409,7 +407,11 @@ unsafe fn do_preamble(fp: *mut FILE) {
         panic!("embed_pk_font: PK ID byte is incorrect.  Are you sure this is a PK file?");
     };
 }
-unsafe fn read_pk_char_header(mut h: *mut pk_header_, opcode: u8, fp: *mut FILE) -> i32 {
+unsafe fn read_pk_char_header(
+    mut h: *mut pk_header_,
+    opcode: u8,
+    fp: &mut InputHandleWrapper,
+) -> i32 {
     assert!(!h.is_null());
     if opcode as i32 & 4i32 == 0i32 {
         /* short */
@@ -579,13 +581,10 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
     assert!(!ident.is_empty() && !usedchars.is_null() && point_size > 0.0f64);
     let ident_ = CString::new(ident).unwrap();
     let dpi = truedpi(ident, point_size, base_dpi);
-    let fp = dpx_open_pk_font_at(ident_.as_ptr(), dpi);
-    if fp.is_null() {
-        panic!(
-            "Could not find/open PK font file: {} (at {}dpi)",
-            ident, dpi,
-        );
-    }
+    let mut fp = dpx_open_pk_font_at(ident_.as_ptr(), dpi).expect(&format!(
+        "Could not find/open PK font file: {} (at {}dpi)",
+        ident, dpi
+    ));
     memset(charavail.as_mut_ptr() as *mut libc::c_void, 0i32, 256);
     let mut charprocs = pdf_dict::new();
     /* Include bitmap as 72dpi image:
@@ -598,11 +597,11 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
         point2(core::f64::NEG_INFINITY, core::f64::NEG_INFINITY),
     );
     loop {
-        let opcode = fgetc(fp);
-        if !(opcode >= 0i32 && opcode != 245i32) {
+        let opcode = get_unsigned_byte(&mut fp);
+        if !(opcode >= 0 && opcode != 245) {
             break;
         }
-        if opcode < 240i32 {
+        if opcode < 240 {
             let mut pkh: pk_header_ = pk_header_ {
                 pkt_len: 0,
                 chrcode: 0,
@@ -616,7 +615,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
                 dyn_f: 0,
                 run_color: 0,
             };
-            let error = read_pk_char_header(&mut pkh, opcode as u8, fp);
+            let error = read_pk_char_header(&mut pkh, opcode as u8, &mut fp);
             if error != 0 {
                 panic!("Error in reading PK character header.");
             } else {
@@ -628,7 +627,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
                 }
             }
             if *usedchars.offset((pkh.chrcode & 0xffi32) as isize) == 0 {
-                skip_bytes(pkh.pkt_len, fp);
+                skip_bytes(pkh.pkt_len, &mut fp);
             } else {
                 let mut charname;
                 /* Charwidth in PDF units */
@@ -643,21 +642,21 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
                 bbox.min.y = bbox.min.y.min(pkh.bm_voff as f64 - pkh.bm_ht as f64);
                 bbox.max.x = bbox.max.x.max(pkh.bm_wd as f64 - pkh.bm_hoff as f64);
                 bbox.max.y = bbox.max.y.max(pkh.bm_voff as f64);
-                let pkt_ptr = new((pkh.pkt_len as u64)
-                    .wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                    as u32) as *mut u8;
-                let bytesread =
-                    fread(pkt_ptr as *mut libc::c_void, 1, pkh.pkt_len as _, fp) as size_t;
+                let mut pkt_ptr = vec![0u8; pkh.pkt_len as usize];
+                let bytesread = fp.read(&mut pkt_ptr).unwrap();
                 if bytesread as u64 != pkh.pkt_len as u64 {
                     panic!(
                         "Only {} bytes PK packet read. (expected {} bytes)",
                         bytesread, pkh.pkt_len,
                     );
                 }
-                let charproc =
-                    create_pk_CharProc_stream(&mut pkh, charwidth, pkt_ptr, bytesread as u32)
-                        .into_obj();
-                free(pkt_ptr as *mut libc::c_void);
+                let charproc = create_pk_CharProc_stream(
+                    &mut pkh,
+                    charwidth,
+                    pkt_ptr.as_mut_ptr(),
+                    bytesread as u32,
+                )
+                .into_obj();
                 if encoding_id >= 0i32 && !enc_vec.is_null() {
                     charname = *enc_vec.offset((pkh.chrcode & 0xffi32) as isize);
                     if charname.is_null() {
@@ -688,24 +687,24 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
         } else {
             match opcode {
                 240 | 241 | 242 | 243 => {
-                    let len: i32 = get_unsigned_num(fp, (opcode - 240i32) as u8) as i32;
+                    let len: i32 = get_unsigned_num(&mut fp, (opcode as i32 - 240i32) as u8) as i32;
                     if len < 0i32 {
                         warn!("PK: Special with {} bytes???", len);
                     } else {
-                        skip_bytes(len as u32, fp);
+                        skip_bytes(len as u32, &mut fp);
                     }
                 }
                 244 => {
-                    skip_bytes(4_u32, fp);
+                    skip_bytes(4_u32, &mut fp);
                 }
                 247 => {
-                    do_preamble(fp);
+                    do_preamble(&mut fp);
                 }
                 246 | _ => {}
             }
         }
     }
-    fclose(fp);
+    fp.close();
     /* Check if we really got all glyphs needed. */
     for code in 0..256 {
         if *usedchars.offset(code as isize) as i32 != 0 && charavail[code as usize] == 0 {

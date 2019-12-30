@@ -19,8 +19,6 @@ use libc::{free, strcpy, strlen};
 use std::panic;
 use std::ptr;
 
-use bridge::size_t;
-
 use bridge::{TTHistory, TTInputFormat};
 
 use bridge::{InputHandleWrapper, OutputHandleWrapper};
@@ -86,12 +84,9 @@ unsafe fn peekable_open(
         saw_eof: false,
     })
 }
-unsafe fn peekable_close(peekable: Option<peekable_input_t>) -> i32 {
-    let mut _rv: i32 = 0;
+unsafe fn peekable_close(peekable: Option<peekable_input_t>) {
     if let Some(peekable_input_t { handle, .. }) = peekable {
         ttstub_input_close(handle)
-    } else {
-        return 0;
     }
 }
 unsafe fn peekable_getc(peekable: &mut peekable_input_t) -> i32 {

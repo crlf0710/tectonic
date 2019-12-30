@@ -60,6 +60,10 @@ impl InputHandleWrapper {
     pub fn as_ptr(&self) -> rust_input_handle_t {
         self.0.as_ptr()
     }
+
+    pub fn close(self) {
+        unsafe { ttstub_input_close(self) }
+    }
 }
 
 impl Read for InputHandleWrapper {
@@ -147,6 +151,7 @@ pub enum TTHistory {
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum TTInputFormat {
+    PK = 1,
     TFM = 3,
     AFM = 4,
     BIB = 6,
@@ -394,7 +399,7 @@ pub unsafe fn ttstub_input_ungetc(handle: &mut InputHandleWrapper, mut ch: i32) 
     )
 }
 
-pub unsafe fn ttstub_input_close(mut handle: InputHandleWrapper) -> i32 {
+pub unsafe fn ttstub_input_close(mut handle: InputHandleWrapper) {
     if (*tectonic_global_bridge)
         .input_close
         .expect("non-null function pointer")(
@@ -404,7 +409,6 @@ pub unsafe fn ttstub_input_close(mut handle: InputHandleWrapper) -> i32 {
         // Nonzero return value indicates a serious internal error.
         panic!("ttstub_input_close");
     }
-    0i32
 }
 
 /* TODO: these are needed for the various *_main routines which should

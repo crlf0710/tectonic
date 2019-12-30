@@ -23,23 +23,23 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use crate::warn;
 
-use super::dpx_mfileio::{file_size, seek_relative, work_buffer};
 use super::dpx_numbers::{get_unsigned_byte, get_unsigned_pair, get_unsigned_quad};
 use super::dpx_pdfximage::pdf_ximage_set_image;
+use crate::bridge::{ttstub_input_get_size, InputHandleWrapper};
 use crate::dpx_pdfobj::{pdf_get_version, pdf_stream, IntoObj};
-use libc::{fread, rewind, FILE};
+use std::io::{Read, Seek, SeekFrom};
 
 pub(crate) type __off_t = i64;
 pub(crate) type __off64_t = i64;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 /* Label */
-unsafe fn read_box_hdr(fp: *mut FILE, lbox: *mut u32, tbox: *mut u32) -> u32 {
+unsafe fn read_box_hdr(fp: &mut InputHandleWrapper, lbox: *mut u32, tbox: *mut u32) -> u32 {
     let mut bytesread: u32 = 0_u32;
     *lbox = get_unsigned_quad(fp);
     *tbox = get_unsigned_quad(fp);
@@ -55,7 +55,7 @@ unsafe fn read_box_hdr(fp: *mut FILE, lbox: *mut u32, tbox: *mut u32) -> u32 {
     }
     bytesread
 }
-unsafe fn check_jp___box(fp: *mut FILE) -> i32 {
+unsafe fn check_jp___box(fp: &mut InputHandleWrapper) -> i32 {
     if get_unsigned_quad(fp) != 0xc_u32 {
         return 0i32;
     }
@@ -68,7 +68,7 @@ unsafe fn check_jp___box(fp: *mut FILE) -> i32 {
     }
     1i32
 }
-unsafe fn check_ftyp_data(fp: *mut FILE, mut size: u32) -> i32 {
+unsafe fn check_ftyp_data(fp: &mut InputHandleWrapper, mut size: u32) -> i32 {
     let mut supported: i32 = 0i32;
     let BR = get_unsigned_quad(fp);
     size = size.wrapping_sub(4_u32);
@@ -76,12 +76,12 @@ unsafe fn check_ftyp_data(fp: *mut FILE, mut size: u32) -> i32 {
     get_unsigned_quad(fp);
     size = size.wrapping_sub(4_u32);
     match BR {
-        1785737760 => {
+        0x6a703220 => {
             /* "jp2 " ... supported */
-            seek_relative(fp, size as i32);
+            fp.seek(SeekFrom::Current(size as i64)).unwrap();
             supported = 1i32
         }
-        1785755680 => {
+        0x6a707820 => {
             /* "jpx " ... baseline subset supported */
             while size > 0_u32 {
                 let CLi = get_unsigned_quad(fp);
@@ -93,13 +93,13 @@ unsafe fn check_ftyp_data(fp: *mut FILE, mut size: u32) -> i32 {
         }
         _ => {
             warn!("JPEG2000: Unknown JPEG 2000 File Type box Brand field value.");
-            seek_relative(fp, size as i32);
+            fp.seek(SeekFrom::Current(size as i64)).unwrap();
             supported = 0i32
         }
     }
     supported
 }
-unsafe fn read_res__data(info: &mut ximage_info, fp: *mut FILE, mut _size: u32) {
+unsafe fn read_res__data(info: &mut ximage_info, fp: &mut InputHandleWrapper, mut _size: u32) {
     let VR_N = get_unsigned_pair(fp) as u32;
     let VR_D = get_unsigned_pair(fp) as u32;
     let HR_N = get_unsigned_pair(fp) as u32;
@@ -109,7 +109,7 @@ unsafe fn read_res__data(info: &mut ximage_info, fp: *mut FILE, mut _size: u32) 
     info.xdensity = 72. / (HR_N as f64 / HR_D as f64 * (10f64).powf(HR_E as f64) * 0.0254);
     info.ydensity = 72. / (VR_N as f64 / VR_D as f64 * (10f64).powf(VR_E as f64) * 0.0254);
 }
-unsafe fn scan_res_(info: &mut ximage_info, fp: *mut FILE, mut size: u32) -> i32 {
+unsafe fn scan_res_(info: &mut ximage_info, fp: &mut InputHandleWrapper, mut size: u32) -> i32 {
     let mut lbox: u32 = 0;
     let mut tbox: u32 = 0;
     let mut have_resd: i32 = 0i32;
@@ -120,20 +120,22 @@ unsafe fn scan_res_(info: &mut ximage_info, fp: *mut FILE, mut size: u32) -> i32
             break;
         } else {
             match tbox {
-                1919251299 => {
+                0x72657363 => {
                     if have_resd == 0 {
                         read_res__data(info, fp, lbox.wrapping_sub(len));
                     } else {
-                        seek_relative(fp, lbox.wrapping_sub(len) as i32);
+                        fp.seek(SeekFrom::Current(lbox.wrapping_sub(len) as i64))
+                            .unwrap();
                     }
                 }
-                1919251300 => {
+                0x72657364 => {
                     read_res__data(info, fp, lbox.wrapping_sub(len));
                     have_resd = 1i32
                 }
                 _ => {
                     warn!("JPEG2000: Unknown JPEG 2000 box type in Resolution box.");
-                    seek_relative(fp, lbox.wrapping_sub(len) as i32);
+                    fp.seek(SeekFrom::Current(lbox.wrapping_sub(len) as i64))
+                        .unwrap();
                 }
             }
             size = size.wrapping_sub(lbox)
@@ -149,7 +151,12 @@ unsafe fn scan_res_(info: &mut ximage_info, fp: *mut FILE, mut size: u32) -> i32
  * contains opacity channel. However, OpenJPEG (and maybe most of JPEG 2000 coders?)
  * does not write Channel Definition box so transparency will be ignored.
  */
-unsafe fn scan_cdef(_info: &mut ximage_info, smask: *mut i32, fp: *mut FILE, size: u32) -> i32 {
+unsafe fn scan_cdef(
+    _info: &mut ximage_info,
+    smask: *mut i32,
+    fp: &mut InputHandleWrapper,
+    size: u32,
+) -> i32 {
     let mut opacity_channels: i32 = 0i32; /* Cn */
     let mut have_type0: i32 = 0i32; /* must be 0 for SMask */
     *smask = 0i32;
@@ -181,7 +188,12 @@ unsafe fn scan_cdef(_info: &mut ximage_info, smask: *mut i32, fp: *mut FILE, siz
     }
     0i32
 }
-unsafe fn scan_jp2h(info: &mut ximage_info, smask: *mut i32, fp: *mut FILE, mut size: u32) -> i32 {
+unsafe fn scan_jp2h(
+    info: &mut ximage_info,
+    smask: *mut i32,
+    fp: &mut InputHandleWrapper,
+    mut size: u32,
+) -> i32 {
     let mut error: i32 = 0i32;
     let mut have_ihdr: i32 = 0i32;
     let mut lbox: u32 = 0;
@@ -211,11 +223,13 @@ unsafe fn scan_jp2h(info: &mut ximage_info, smask: *mut i32, fp: *mut FILE, mut 
                 1919251232 => error = scan_res_(info, fp, lbox.wrapping_sub(len)),
                 1667523942 => error = scan_cdef(info, smask, fp, lbox.wrapping_sub(len)),
                 1651532643 | 1668246642 | 1885564018 | 1668112752 | 1818389536 => {
-                    seek_relative(fp, lbox.wrapping_sub(len) as i32);
+                    fp.seek(SeekFrom::Current(lbox.wrapping_sub(len) as i64))
+                        .unwrap();
                 }
                 _ => {
                     warn!("JPEG2000: Unknown JPEG 2000 box in JP2 Header box.");
-                    seek_relative(fp, lbox.wrapping_sub(len) as i32);
+                    fp.seek(SeekFrom::Current(lbox.wrapping_sub(len) as i64))
+                        .unwrap();
                     error = -1i32
                 }
             }
@@ -231,18 +245,18 @@ unsafe fn scan_jp2h(info: &mut ximage_info, smask: *mut i32, fp: *mut FILE, mut 
         -1i32
     };
 }
-unsafe fn scan_file(info: &mut ximage_info, smask: *mut i32, fp: *mut FILE) -> i32 {
+unsafe fn scan_file(info: &mut ximage_info, smask: *mut i32, fp: &mut InputHandleWrapper) -> i32 {
     let mut error: i32 = 0i32;
     let mut have_jp2h: i32 = 0i32;
     let mut lbox: u32 = 0;
     let mut tbox: u32 = 0;
-    let mut size = file_size(fp);
+    let mut size = ttstub_input_get_size(fp);
     /* Should have already been checked before. */
     /* JPEG 2000 Singature box */
     if check_jp___box(fp) == 0 {
         return -1i32;
     }
-    size -= 12i32;
+    size -= 12;
     /* File Type box shall immediately follow */
     let mut len = read_box_hdr(fp, &mut lbox, &mut tbox);
     if tbox != 0x66747970_u32 {
@@ -251,9 +265,9 @@ unsafe fn scan_file(info: &mut ximage_info, smask: *mut i32, fp: *mut FILE) -> i
     if check_ftyp_data(fp, lbox.wrapping_sub(len)) == 0 {
         return -1i32;
     }
-    size = (size as u32).wrapping_sub(lbox) as i32 as i32;
+    size -= lbox as usize;
     /* Search for JP2 Header box */
-    while size > 0i32 && error == 0 {
+    while size > 0 && error == 0 {
         len = read_box_hdr(fp, &mut lbox, &mut tbox);
         if lbox == 0_u32 {
             lbox = size as u32
@@ -268,13 +282,15 @@ unsafe fn scan_file(info: &mut ximage_info, smask: *mut i32, fp: *mut FILE) -> i
                 if have_jp2h == 0 {
                     warn!("JPEG2000: JPEG 2000 Codestream box found before JP2 Header box.");
                 }
-                seek_relative(fp, lbox.wrapping_sub(len) as i32);
+                fp.seek(SeekFrom::Current(lbox.wrapping_sub(len) as i64))
+                    .unwrap();
             }
             _ => {
-                seek_relative(fp, lbox.wrapping_sub(len) as i32);
+                fp.seek(SeekFrom::Current(lbox.wrapping_sub(len) as i64))
+                    .unwrap();
             }
         }
-        size = (size as u32).wrapping_sub(lbox) as i32 as i32
+        size -= lbox as usize
     }
     /* From ISO/IEC 15444-2 M.9.2.7
      * The JP2 Header box shall be found in the file before the first
@@ -288,13 +304,10 @@ unsafe fn scan_file(info: &mut ximage_info, smask: *mut i32, fp: *mut FILE) -> i
     error
 }
 
-pub(crate) unsafe fn check_for_jp2(fp: *mut FILE) -> i32 {
+pub(crate) unsafe fn check_for_jp2(fp: &mut InputHandleWrapper) -> i32 {
     let mut lbox: u32 = 0;
     let mut tbox: u32 = 0;
-    if fp.is_null() {
-        return 0i32;
-    }
-    rewind(fp);
+    fp.seek(SeekFrom::Start(0)).unwrap();
     /* JPEG 2000 Singature box */
     if check_jp___box(fp) == 0 {
         return 0i32;
@@ -310,7 +323,10 @@ pub(crate) unsafe fn check_for_jp2(fp: *mut FILE) -> i32 {
     1i32
 }
 
-pub(crate) unsafe fn jp2_include_image(ximage: *mut pdf_ximage, fp: *mut FILE) -> i32 {
+pub(crate) unsafe fn jp2_include_image(
+    ximage: *mut pdf_ximage,
+    fp: &mut InputHandleWrapper,
+) -> i32 {
     let mut smask: i32 = 0i32;
     let pdf_version = pdf_get_version();
     if pdf_version < 5_u32 {
@@ -321,7 +337,7 @@ pub(crate) unsafe fn jp2_include_image(ximage: *mut pdf_ximage, fp: *mut FILE) -
         return -1i32;
     }
     let mut info = ximage_info::init();
-    rewind(fp);
+    fp.seek(SeekFrom::Start(0)).unwrap();
     if scan_file(&mut info, &mut smask, fp) < 0i32 {
         warn!("JPEG2000: Reading JPEG 2000 file failed.");
         return -1i32;
@@ -333,25 +349,21 @@ pub(crate) unsafe fn jp2_include_image(ximage: *mut pdf_ximage, fp: *mut FILE) -
         stream_dict.set("SMaskInData", 1_f64);
     }
     /* Read whole file */
-    rewind(fp);
+    fp.seek(SeekFrom::Start(0)).unwrap();
+    let mut buffer = vec![0u8; 1024];
     loop {
-        let nb_read = fread(
-            work_buffer.as_mut_ptr() as *mut libc::c_void,
-            ::std::mem::size_of::<i8>(),
-            1024,
-            fp,
-        ) as i32;
-        if !(nb_read > 0i32) {
+        let nb_read = fp.read(&mut buffer).unwrap_or(0);
+        if nb_read == 0 {
             break;
         }
-        stream.add(work_buffer.as_mut_ptr() as *const libc::c_void, nb_read);
+        stream.add(buffer.as_mut_ptr() as *const libc::c_void, nb_read as i32);
     }
     pdf_ximage_set_image(ximage, &mut info, stream.into_obj());
     0i32
 }
 
 pub(crate) unsafe fn jp2_get_bbox(
-    fp: *mut FILE,
+    fp: &mut InputHandleWrapper,
     width: *mut i32,
     height: *mut i32,
     xdensity: *mut f64,
@@ -359,7 +371,7 @@ pub(crate) unsafe fn jp2_get_bbox(
 ) -> i32 {
     let mut smask: i32 = 0i32;
     let mut info = ximage_info::init();
-    rewind(fp);
+    fp.seek(SeekFrom::Start(0)).unwrap();
     let r = scan_file(&mut info, &mut smask, fp);
     *width = info.width;
     *height = info.height;

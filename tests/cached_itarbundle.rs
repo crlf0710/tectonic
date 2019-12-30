@@ -274,7 +274,7 @@ fn test_full_session() {
             sess_builder.format_cache_path(tempdir.path());
 
             let mut sess = sess_builder.create(&mut status).unwrap();
-            sess.run(&mut status).unwrap();
+            sess.run(&mut status).expect("failed to run session");
         };
 
         // Run tectonic twice
