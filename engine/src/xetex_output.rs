@@ -15,9 +15,9 @@ use super::xetex_consts::{
 };
 
 use super::xetex_ini::{
-    dig, doing_special, eqtb, eqtb_top, error_line, file_offset, full_source_filename_stack, hash,
-    in_open, line, line_stack, log_file, max_print_line, mem, pool_ptr, pool_size, rust_stdout,
-    selector, str_pool, str_ptr, str_start, tally, term_offset, trick_buf, trick_count, write_file,
+    dig, doing_special, error_line, file_offset, hash, line, log_file, max_print_line, pool_ptr,
+    pool_size, rust_stdout, selector, str_pool, str_ptr, str_start, tally, term_offset, trick_buf,
+    trick_count, write_file, EQTB, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
 use super::xetex_ini::{memory_word, Selector};
 use bridge::ttstub_output_putc;
@@ -215,13 +215,9 @@ pub(crate) unsafe extern "C" fn print(mut s: i32) {
                     }
                 }
                 nl = INTPAR(INT_PAR__new_line_char);
-                (*eqtb.offset((INT_BASE + INT_PAR__new_line_char) as isize))
-                    .b32
-                    .s1 = -1i32;
+                EQTB[(INT_BASE + INT_PAR__new_line_char) as usize].b32.s1 = -1i32;
                 print_char(s);
-                (*eqtb.offset((INT_BASE + INT_PAR__new_line_char) as isize))
-                    .b32
-                    .s1 = nl;
+                EQTB[(INT_BASE + INT_PAR__new_line_char) as usize].b32.s1 = nl;
                 return;
             }
         }
@@ -348,7 +344,7 @@ pub(crate) unsafe extern "C" fn print_cs(mut p: i32) {
         } else {
             print_char(p - 1i32);
         }
-    } else if p >= UNDEFINED_CONTROL_SEQUENCE && p <= EQTB_SIZE || p > eqtb_top {
+    } else if p >= UNDEFINED_CONTROL_SEQUENCE && p <= EQTB_SIZE || p > EQTB_TOP as i32 {
         print_esc_cstr(b"IMPOSSIBLE.");
     } else if (*hash.offset(p as isize)).s1 >= str_ptr {
         print_esc_cstr(b"NONEXISTENT.");
@@ -508,9 +504,9 @@ pub(crate) unsafe extern "C" fn print_size(mut s: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn print_write_whatsit(s: &[u8], mut p: i32) {
     print_esc_cstr(s);
-    if (*mem.offset((p + 1i32) as isize)).b32.s0 < 16i32 {
-        print_int((*mem.offset((p + 1i32) as isize)).b32.s0);
-    } else if (*mem.offset((p + 1i32) as isize)).b32.s0 == 16i32 {
+    if MEM[(p + 1) as usize].b32.s0 < 16 {
+        print_int(MEM[(p + 1) as usize].b32.s0);
+    } else if MEM[(p + 1) as usize].b32.s0 == 16 {
         print_char('*' as i32);
     } else {
         print_char('-' as i32);
@@ -521,14 +517,13 @@ pub(crate) unsafe extern "C" fn print_native_word(mut p: i32) {
     let mut i: i32 = 0;
     let mut c: i32 = 0;
     let mut cc: i32 = 0;
-    let mut for_end: i32 = (*mem.offset((p + 4i32) as isize)).b16.s1 as i32 - 1i32;
+    let mut for_end: i32 = MEM[(p + 4) as usize].b16.s1 as i32 - 1;
     i = 0i32;
     while i <= for_end {
-        c = *(&mut *mem.offset((p + 6i32) as isize) as *mut memory_word as *mut u16)
-            .offset(i as isize) as i32;
+        c = *(&mut MEM[(p + 6) as usize] as *mut memory_word as *mut u16).offset(i as isize) as i32;
         if c >= 0xd800i32 && c < 0xdc00i32 {
-            if i < (*mem.offset((p + 4i32) as isize)).b16.s1 as i32 - 1i32 {
-                cc = *(&mut *mem.offset((p + 6i32) as isize) as *mut memory_word as *mut u16)
+            if i < MEM[(p + 4) as usize].b16.s1 as i32 - 1 {
+                cc = *(&mut MEM[(p + 6) as usize] as *mut memory_word as *mut u16)
                     .offset((i + 1i32) as isize) as i32;
                 if cc >= 0xdc00i32 && cc < 0xe000i32 {
                     c = 0x10000i32 + (c - 0xd800i32) * 1024i32 + (cc - 0xdc00i32);
@@ -549,39 +544,36 @@ pub(crate) unsafe extern "C" fn print_native_word(mut p: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn print_sa_num(mut q: i32) {
     let mut n: i32 = 0;
-    if ((*mem.offset(q as isize)).b16.s1 as i32) < DIMEN_VAL_LIMIT {
-        n = (*mem.offset((q + 1i32) as isize)).b32.s1
+    if (MEM[q as usize].b16.s1 as i32) < DIMEN_VAL_LIMIT {
+        n = MEM[(q + 1) as usize].b32.s1
     } else {
-        n = (*mem.offset(q as isize)).b16.s1 as i32 % 64i32;
-        q = (*mem.offset(q as isize)).b32.s1;
-        n = n + 64i32 * (*mem.offset(q as isize)).b16.s1 as i32;
-        q = (*mem.offset(q as isize)).b32.s1;
-        n = n + 64i32
-            * 64i32
-            * ((*mem.offset(q as isize)).b16.s1 as i32
-                + 64i32
-                    * (*mem.offset((*mem.offset(q as isize)).b32.s1 as isize))
-                        .b16
-                        .s1 as i32)
+        n = MEM[q as usize].b16.s1 as i32 % 64;
+        q = MEM[q as usize].b32.s1;
+        n = n + 64 * MEM[q as usize].b16.s1 as i32;
+        q = MEM[q as usize].b32.s1;
+        n = n + 64
+            * 64
+            * (MEM[q as usize].b16.s1 as i32
+                + 64 * MEM[MEM[q as usize].b32.s1 as usize].b16.s1 as i32)
     }
     print_int(n);
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn print_file_line() {
-    let mut level: i32 = in_open;
-    while level > 0i32 && *full_source_filename_stack.offset(level as isize) == 0i32 {
+    let mut level = IN_OPEN;
+    while level > 0 && FULL_SOURCE_FILENAME_STACK[level] == 0 {
         level -= 1
     }
-    if level == 0i32 {
+    if level == 0 {
         print_nl_cstr(b"! ");
     } else {
         print_nl_cstr(b"");
-        print(*full_source_filename_stack.offset(level as isize));
+        print(FULL_SOURCE_FILENAME_STACK[level]);
         print(':' as i32);
-        if level == in_open {
+        if level == IN_OPEN {
             print_int(line);
         } else {
-            print_int(*line_stack.offset((level + 1i32) as isize));
+            print_int(LINE_STACK[level + 1]);
         }
         print_cstr(b": ");
     };

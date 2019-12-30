@@ -13,8 +13,8 @@ use std::io::Write;
 
 use crate::core_memory::{mfree, xmalloc, xrealloc, xstrdup};
 use crate::xetex_ini::{
-    cur_h, cur_input, cur_v, eqtb, job_name, mem, rule_dp, rule_ht, rule_wd, synctex_enabled,
-    total_pages,
+    cur_h, cur_input, cur_v, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, total_pages,
+    EQTB, MEM,
 };
 use crate::xetex_io::name_of_input_file;
 use crate::xetex_texmfmp::gettexstring;
@@ -160,65 +160,61 @@ pub(crate) unsafe extern "C" fn synctex_init_command() {
     /* Reset state */
     synctex_ctxt = default_synctex_ctxt;
     if synctex_enabled != 0 {
-        (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 = 1i32
+        EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1 = 1i32
     } else {
-        (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 = 0i32
+        EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1 = 0i32
         /* \synctex=0 : don't record stuff */
     };
 }
@@ -247,35 +243,34 @@ unsafe extern "C" fn synctex_dot_open() -> bool {
     let mut tmp: *mut i8 = ptr::null_mut();
     let mut the_name: *mut i8 = ptr::null_mut();
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 == 0
+        || EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1
+            == 0
     {
         return false;
     }
@@ -428,35 +423,34 @@ pub(crate) unsafe extern "C" fn synctex_terminate(mut _log_opened: bool) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_sheet(mut mag: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
-        if (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 != 0
+        if EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1
+            != 0
             && !synctex_ctxt.flags.contains(Flags::WARN)
         {
             synctex_ctxt.flags.insert(Flags::WARN);
@@ -516,43 +510,42 @@ pub(crate) unsafe extern "C" fn synctex_teehs() {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_vlist(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 == 0
+        || EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1
+            == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     } /*  0 to reset  */
     synctex_ctxt.node = this_box; /*  reset  */
     synctex_ctxt.recorder = None;
-    synctex_ctxt.tag = (*mem.offset((this_box + 8i32 - 1i32) as isize)).b32.s0;
-    synctex_ctxt.line = (*mem.offset((this_box + 8i32 - 1i32) as isize)).b32.s1;
+    synctex_ctxt.tag = MEM[(this_box + 8 - 1) as usize].b32.s0;
+    synctex_ctxt.line = MEM[(this_box + 8 - 1) as usize].b32.s1;
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_record_node_vlist(this_box);
@@ -568,43 +561,42 @@ pub(crate) unsafe extern "C" fn synctex_vlist(mut this_box: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_tsilv(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 == 0
+        || EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1
+            == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     }
     /*  Ignoring any pending info to be recorded  */
     synctex_ctxt.node = this_box; /*  0 to reset  */
-    synctex_ctxt.tag = (*mem.offset((this_box + 8i32 - 1i32) as isize)).b32.s0;
-    synctex_ctxt.line = (*mem.offset((this_box + 8i32 - 1i32) as isize)).b32.s1;
+    synctex_ctxt.tag = MEM[(this_box + 8 - 1) as usize].b32.s0;
+    synctex_ctxt.line = MEM[(this_box + 8 - 1) as usize].b32.s1;
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -617,42 +609,41 @@ pub(crate) unsafe extern "C" fn synctex_tsilv(mut this_box: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_void_vlist(mut p: i32, mut _this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 == 0
+        || EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1
+            == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     } /*  reset  */
     synctex_ctxt.node = p; /*  reset  */
-    synctex_ctxt.tag = (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s0;
-    synctex_ctxt.line = (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s1;
+    synctex_ctxt.tag = MEM[(p + 8 - 1) as usize].b32.s0;
+    synctex_ctxt.line = MEM[(p + 8 - 1) as usize].b32.s1;
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -669,42 +660,41 @@ pub(crate) unsafe extern "C" fn synctex_void_vlist(mut p: i32, mut _this_box: i3
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_hlist(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 == 0
+        || EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1
+            == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     } /*  0 to reset  */
     synctex_ctxt.node = this_box; /*  reset  */
-    synctex_ctxt.tag = (*mem.offset((this_box + 8i32 - 1i32) as isize)).b32.s0;
-    synctex_ctxt.line = (*mem.offset((this_box + 8i32 - 1i32) as isize)).b32.s1;
+    synctex_ctxt.tag = MEM[(this_box + 8 - 1) as usize].b32.s0;
+    synctex_ctxt.line = MEM[(this_box + 8 - 1) as usize].b32.s1;
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -719,43 +709,42 @@ pub(crate) unsafe extern "C" fn synctex_hlist(mut this_box: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_tsilh(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 == 0
+        || EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1
+            == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     }
     /*  Ignoring any pending info to be recorded  */
     synctex_ctxt.node = this_box; /*  0 to force next node to be recorded!  */
-    synctex_ctxt.tag = (*mem.offset((this_box + 8i32 - 1i32) as isize)).b32.s0; /*  reset  */
-    synctex_ctxt.line = (*mem.offset((this_box + 8i32 - 1i32) as isize)).b32.s1;
+    synctex_ctxt.tag = MEM[(this_box + 8 - 1) as usize].b32.s0; /*  reset  */
+    synctex_ctxt.line = MEM[(this_box + 8 - 1) as usize].b32.s1;
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -768,35 +757,34 @@ pub(crate) unsafe extern "C" fn synctex_tsilh(mut this_box: i32) {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_void_hlist(mut p: i32, mut _this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 == 0
+        || EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1
+            == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -808,8 +796,8 @@ pub(crate) unsafe extern "C" fn synctex_void_hlist(mut p: i32, mut _this_box: i3
         /*  0 to reset  */
     } /*  reset  */
     synctex_ctxt.node = p;
-    synctex_ctxt.tag = (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s0;
-    synctex_ctxt.line = (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s1;
+    synctex_ctxt.tag = MEM[(p + 8 - 1) as usize].b32.s0;
+    synctex_ctxt.line = MEM[(p + 8 - 1) as usize].b32.s1;
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -825,51 +813,50 @@ See: @ @<Output the non-|char_node| |p| for...  */
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_math(mut p: i32, mut _this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 == 0
+        || EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1
+            == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     }
     if synctex_ctxt.recorder.is_some()
         && (0i32 == synctex_ctxt.node
-            || (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0 != synctex_ctxt.tag
-            || (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1 != synctex_ctxt.line)
+            || MEM[(p + 3 - 1) as usize].b32.s0 != synctex_ctxt.tag
+            || MEM[(p + 3 - 1) as usize].b32.s1 != synctex_ctxt.line)
     {
         /*  the sync context did change  */
         synctex_ctxt.recorder.expect("non-null function pointer")(synctex_ctxt.node);
         /*  no need to record once more  */
     }
     synctex_ctxt.node = p;
-    synctex_ctxt.tag = (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0;
-    synctex_ctxt.line = (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1;
+    synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
+    synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -881,114 +868,111 @@ pub(crate) unsafe extern "C" fn synctex_math(mut p: i32, mut _this_box: i32) {
 See: move_past:...    */
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_horizontal_rule_or_glue(mut p: i32, mut _this_box: i32) {
-    match (*mem.offset(p as isize)).b16.s1 as i32 {
+    match MEM[p as usize].b16.s1 as i32 {
         2 => {
             if synctex_ctxt.flags.contains(Flags::OFF)
-                || (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 83i32) as isize,
-                ))
-                .b32
-                .s1 == 0
-                || 0i32 >= (*mem.offset((p + 5i32 - 1i32) as isize)).b32.s0
-                || 0i32 >= (*mem.offset((p + 5i32 - 1i32) as isize)).b32.s1
+                || EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + 3i32 * 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 83i32) as usize]
+                    .b32
+                    .s1
+                    == 0
+                || 0i32 >= MEM[(p + 5 - 1) as usize].b32.s0
+                || 0i32 >= MEM[(p + 5 - 1) as usize].b32.s1
             {
                 return;
             }
         }
         10 => {
             if synctex_ctxt.flags.contains(Flags::OFF)
-                || (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 83i32) as isize,
-                ))
-                .b32
-                .s1 == 0
-                || 0i32 >= (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0
-                || 0i32 >= (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1
+                || EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + 3i32 * 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 83i32) as usize]
+                    .b32
+                    .s1
+                    == 0
+                || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s0
+                || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s1
             {
                 return;
             }
         }
         11 => {
             if synctex_ctxt.flags.contains(Flags::OFF)
-                || (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 83i32) as isize,
-                ))
-                .b32
-                .s1 == 0
-                || 0i32 >= (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0
-                || 0i32 >= (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1
+                || EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + 3i32 * 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 83i32) as usize]
+                    .b32
+                    .s1
+                    == 0
+                || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s0
+                || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s1
             {
                 return;
             }
@@ -996,7 +980,7 @@ pub(crate) unsafe extern "C" fn synctex_horizontal_rule_or_glue(mut p: i32, mut 
         _ => {
             ttstub_issue_error(
                 b"unknown node type %d in SyncTeX\x00" as *const u8 as *const i8,
-                (*mem.offset(p as isize)).b16.s1 as i32,
+                MEM[p as usize].b16.s1 as i32,
             ); /*  always record synchronously: maybe some text is outside the box  */
         }
     } /*  always record synchronously: maybe some text is outside the box  */
@@ -1004,26 +988,26 @@ pub(crate) unsafe extern "C" fn synctex_horizontal_rule_or_glue(mut p: i32, mut 
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
-    match (*mem.offset(p as isize)).b16.s1 as i32 {
+    match MEM[p as usize].b16.s1 as i32 {
         2 => {
-            synctex_ctxt.tag = (*mem.offset((p + 5i32 - 1i32) as isize)).b32.s0;
-            synctex_ctxt.line = (*mem.offset((p + 5i32 - 1i32) as isize)).b32.s1;
+            synctex_ctxt.tag = MEM[(p + 5 - 1) as usize].b32.s0;
+            synctex_ctxt.line = MEM[(p + 5 - 1) as usize].b32.s1;
             synctex_record_node_rule(p);
         }
         10 => {
-            synctex_ctxt.tag = (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0;
-            synctex_ctxt.line = (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1;
+            synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
+            synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
             synctex_record_node_glue(p);
         }
         11 => {
-            synctex_ctxt.tag = (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0;
-            synctex_ctxt.line = (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1;
+            synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
+            synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
             synctex_record_node_kern(p);
         }
         _ => {
             ttstub_issue_error(
                 b"unknown node type %d in SyncTeX\x00" as *const u8 as *const i8,
-                (*mem.offset(p as isize)).b16.s1 as i32,
+                MEM[p as usize].b16.s1 as i32,
             );
         }
     };
@@ -1034,43 +1018,42 @@ See: @ @<Output the non-|char_node| |p| for...    */
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_kern(mut p: i32, mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 == 0
-        || 0i32 >= (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0
-        || 0i32 >= (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1
+        || EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1
+            == 0
+        || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s0
+        || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s1
     {
         return;
     }
     if 0i32 == synctex_ctxt.node
-        || (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0 != synctex_ctxt.tag
-        || (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1 != synctex_ctxt.line
+        || MEM[(p + 3 - 1) as usize].b32.s0 != synctex_ctxt.tag
+        || MEM[(p + 3 - 1) as usize].b32.s1 != synctex_ctxt.line
     {
         /*  the sync context has changed  */
         if synctex_ctxt.recorder.is_some() {
@@ -1080,14 +1063,14 @@ pub(crate) unsafe extern "C" fn synctex_kern(mut p: i32, mut this_box: i32) {
         if synctex_ctxt.node == this_box {
             /* first node in the list */
             synctex_ctxt.node = p;
-            synctex_ctxt.tag = (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0;
-            synctex_ctxt.line = (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1;
+            synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
+            synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
             synctex_ctxt.recorder =
                 Some(synctex_record_node_kern as unsafe extern "C" fn(_: i32) -> ())
         } else {
             synctex_ctxt.node = p;
-            synctex_ctxt.tag = (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0;
-            synctex_ctxt.line = (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1;
+            synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
+            synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
             synctex_ctxt.recorder = None;
             /*  always record when the context has just changed
              *  and when not the first node  */
@@ -1096,8 +1079,8 @@ pub(crate) unsafe extern "C" fn synctex_kern(mut p: i32, mut this_box: i32) {
     } else {
         /*  just update the geometry and type (for future improvements)  */
         synctex_ctxt.node = p;
-        synctex_ctxt.tag = (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0;
-        synctex_ctxt.line = (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1;
+        synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
+        synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
         synctex_ctxt.recorder = Some(synctex_record_node_kern as unsafe extern "C" fn(_: i32) -> ())
     };
 }
@@ -1108,35 +1091,34 @@ synchronously for the current location    */
 pub(crate) unsafe extern "C" fn synctex_current() {
     /* magic pt/in conversion */
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 == 0
+        || EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1
+            == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -1244,35 +1226,34 @@ unsafe extern "C" fn synctex_record_teehs(mut sheet: i32) -> i32 {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn synctex_pdfxform(mut p: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
-        if (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 != 0
+        if EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1
+            != 0
             && !synctex_ctxt.flags.contains(Flags::WARN)
         {
             synctex_ctxt.flags.insert(Flags::WARN);
@@ -1306,35 +1287,34 @@ pub(crate) unsafe extern "C" fn synctex_pdfrefxform(mut objnum: i32) {
 #[inline]
 unsafe extern "C" fn synctex_record_pdfxform(mut _form: i32) -> i32 {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 == 0
+        || EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1
+            == 0
         || synctex_ctxt.file.is_none()
     {
         return 0i32;
@@ -1373,35 +1353,34 @@ unsafe extern "C" fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 83i32) as isize,
-        ))
-        .b32
-        .s1 == 0
+        || EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 83i32) as usize]
+            .b32
+            .s1
+            == 0
         || synctex_ctxt.file.is_none()
     {
         return 0i32;
@@ -1426,13 +1405,13 @@ unsafe extern "C" fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
 unsafe extern "C" fn synctex_record_node_void_vlist(mut p: i32) {
     let s = format!(
         "v{},{}:{},{}:{},{},{}\n",
-        (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s0,
-        (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s1,
+        MEM[(p + 8 - 1) as usize].b32.s0,
+        MEM[(p + 8 - 1) as usize].b32.s1,
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
-        (*mem.offset((p + 1i32) as isize)).b32.s1 / synctex_ctxt.unit,
-        (*mem.offset((p + 3i32) as isize)).b32.s1 / synctex_ctxt.unit,
-        (*mem.offset((p + 2i32) as isize)).b32.s1 / synctex_ctxt.unit,
+        MEM[(p + 1) as usize].b32.s1 / synctex_ctxt.unit,
+        MEM[(p + 3) as usize].b32.s1 / synctex_ctxt.unit,
+        MEM[(p + 2) as usize].b32.s1 / synctex_ctxt.unit,
     );
     synctex_ctxt.lastv = cur_v + 4736287i32;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -1447,13 +1426,13 @@ unsafe extern "C" fn synctex_record_node_vlist(mut p: i32) {
     synctex_ctxt.flags.insert(Flags::NOT_VOID);
     let s = format!(
         "[{},{}:{},{}:{},{},{}\n",
-        (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s0,
-        (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s1,
+        MEM[(p + 8 - 1) as usize].b32.s0,
+        MEM[(p + 8 - 1) as usize].b32.s1,
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
-        (*mem.offset((p + 1i32) as isize)).b32.s1 / synctex_ctxt.unit,
-        (*mem.offset((p + 3i32) as isize)).b32.s1 / synctex_ctxt.unit,
-        (*mem.offset((p + 2i32) as isize)).b32.s1 / synctex_ctxt.unit,
+        MEM[(p + 1) as usize].b32.s1 / synctex_ctxt.unit,
+        MEM[(p + 3) as usize].b32.s1 / synctex_ctxt.unit,
+        MEM[(p + 2) as usize].b32.s1 / synctex_ctxt.unit,
     );
     synctex_ctxt.lastv = cur_v + 4736287i32;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -1476,13 +1455,13 @@ unsafe extern "C" fn synctex_record_node_tsilv(mut _p: i32) {
 unsafe extern "C" fn synctex_record_node_void_hlist(mut p: i32) {
     let s = format!(
         "h{},{}:{},{}:{},{},{}\n",
-        (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s0,
-        (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s1,
+        MEM[(p + 8 - 1) as usize].b32.s0,
+        MEM[(p + 8 - 1) as usize].b32.s1,
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
-        (*mem.offset((p + 1i32) as isize)).b32.s1 / synctex_ctxt.unit,
-        (*mem.offset((p + 3i32) as isize)).b32.s1 / synctex_ctxt.unit,
-        (*mem.offset((p + 2i32) as isize)).b32.s1 / synctex_ctxt.unit,
+        MEM[(p + 1) as usize].b32.s1 / synctex_ctxt.unit,
+        MEM[(p + 3) as usize].b32.s1 / synctex_ctxt.unit,
+        MEM[(p + 2) as usize].b32.s1 / synctex_ctxt.unit,
     );
     synctex_ctxt.lastv = cur_v + 4736287i32;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -1497,13 +1476,13 @@ unsafe extern "C" fn synctex_record_node_hlist(mut p: i32) {
     synctex_ctxt.flags.insert(Flags::NOT_VOID);
     let s = format!(
         "({},{}:{},{}:{},{},{}\n",
-        (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s0,
-        (*mem.offset((p + 8i32 - 1i32) as isize)).b32.s1,
+        MEM[(p + 8 - 1) as usize].b32.s0,
+        MEM[(p + 8 - 1) as usize].b32.s1,
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
-        (*mem.offset((p + 1i32) as isize)).b32.s1 / synctex_ctxt.unit,
-        (*mem.offset((p + 3i32) as isize)).b32.s1 / synctex_ctxt.unit,
-        (*mem.offset((p + 2i32) as isize)).b32.s1 / synctex_ctxt.unit,
+        MEM[(p + 1) as usize].b32.s1 / synctex_ctxt.unit,
+        MEM[(p + 3) as usize].b32.s1 / synctex_ctxt.unit,
+        MEM[(p + 2) as usize].b32.s1 / synctex_ctxt.unit,
     );
     synctex_ctxt.lastv = cur_v + 4736287i32;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -1557,8 +1536,8 @@ unsafe extern "C" fn synctex_record_postamble() -> i32 {
 unsafe extern "C" fn synctex_record_node_glue(mut p: i32) {
     let s = format!(
         "g{},{}:{},{}\n",
-        (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0,
-        (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1,
+        MEM[(p + 3 - 1) as usize].b32.s0,
+        MEM[(p + 3 - 1) as usize].b32.s1,
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
     );
@@ -1574,11 +1553,11 @@ unsafe extern "C" fn synctex_record_node_glue(mut p: i32) {
 unsafe extern "C" fn synctex_record_node_kern(mut p: i32) {
     let s = format!(
         "k{},{}:{},{}:{}\n",
-        (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0,
-        (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1,
+        MEM[(p + 3 - 1) as usize].b32.s0,
+        MEM[(p + 3 - 1) as usize].b32.s1,
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
-        (*mem.offset((p + 1i32) as isize)).b32.s1 / synctex_ctxt.unit,
+        MEM[(p + 1) as usize].b32.s1 / synctex_ctxt.unit,
     );
     synctex_ctxt.lastv = cur_v + 4736287i32;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -1592,8 +1571,8 @@ unsafe extern "C" fn synctex_record_node_kern(mut p: i32) {
 unsafe extern "C" fn synctex_record_node_rule(mut p: i32) {
     let s = format!(
         "r{},{}:{},{}:{},{},{}\n",
-        (*mem.offset((p + 5i32 - 1i32) as isize)).b32.s0,
-        (*mem.offset((p + 5i32 - 1i32) as isize)).b32.s1,
+        MEM[(p + 5 - 1) as usize].b32.s0,
+        MEM[(p + 5 - 1) as usize].b32.s1,
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
         rule_wd / synctex_ctxt.unit,
@@ -1611,8 +1590,8 @@ unsafe extern "C" fn synctex_record_node_rule(mut p: i32) {
 unsafe extern "C" fn synctex_record_node_math(mut p: i32) {
     let s = format!(
         "${},{}:{},{}\n",
-        (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s0,
-        (*mem.offset((p + 3i32 - 1i32) as isize)).b32.s1,
+        MEM[(p + 3 - 1) as usize].b32.s0,
+        MEM[(p + 3 - 1) as usize].b32.s1,
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit
     );

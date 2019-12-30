@@ -2,8 +2,8 @@ use crate::{xetex_ini, xetex_output};
 
 #[inline]
 pub(crate) unsafe extern "C" fn is_non_discardable_node(p: i32) -> bool {
-    use xetex_ini::mem;
-    ((*mem.offset(p as isize)).b16.s1 as i32) < 9i32
+    use xetex_ini::MEM;
+    (MEM[p as usize].b16.s1 as i32) < 9
 }
 
 #[inline]

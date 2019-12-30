@@ -14,7 +14,7 @@ use crate::xetex_ext::{D2Fix, Fix2D};
 use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
     cur_area, cur_ext, cur_list, cur_name, cur_val, file_line_error_style_p, help_line, help_ptr,
-    mem, name_of_file,
+    name_of_file, MEM,
 };
 use crate::xetex_output::{
     print, print_cstr, print_file_line, print_file_name, print_nl_cstr, print_scaled,
@@ -391,22 +391,22 @@ pub(crate) unsafe extern "C" fn load_picture(mut is_pdf: bool) {
             ) as small_number,
         );
         if is_pdf {
-            (*mem.offset(cur_list.tail as isize)).b16.s0 = 44_u16
+            MEM[cur_list.tail as usize].b16.s0 = 44
         }
-        (*mem.offset((cur_list.tail + 4i32) as isize)).b16.s1 = strlen(pic_path) as u16;
-        (*mem.offset((cur_list.tail + 4i32) as isize)).b16.s0 = page as u16;
-        (*mem.offset((cur_list.tail + 8i32) as isize)).b16.s1 = pdf_box_type as u16;
-        (*mem.offset((cur_list.tail + 1i32) as isize)).b32.s1 = D2Fix(xmax - xmin);
-        (*mem.offset((cur_list.tail + 3i32) as isize)).b32.s1 = D2Fix(ymax - ymin);
-        (*mem.offset((cur_list.tail + 2i32) as isize)).b32.s1 = 0i32;
-        (*mem.offset((cur_list.tail + 5i32) as isize)).b32.s0 = D2Fix(t.m11);
-        (*mem.offset((cur_list.tail + 5i32) as isize)).b32.s1 = D2Fix(t.m12);
-        (*mem.offset((cur_list.tail + 6i32) as isize)).b32.s0 = D2Fix(t.m21);
-        (*mem.offset((cur_list.tail + 6i32) as isize)).b32.s1 = D2Fix(t.m22);
-        (*mem.offset((cur_list.tail + 7i32) as isize)).b32.s0 = D2Fix(t.m31);
-        (*mem.offset((cur_list.tail + 7i32) as isize)).b32.s1 = D2Fix(t.m32);
+        MEM[(cur_list.tail + 4) as usize].b16.s1 = strlen(pic_path) as u16;
+        MEM[(cur_list.tail + 4) as usize].b16.s0 = page as u16;
+        MEM[(cur_list.tail + 8) as usize].b16.s1 = pdf_box_type as u16;
+        MEM[(cur_list.tail + 1) as usize].b32.s1 = D2Fix(xmax - xmin);
+        MEM[(cur_list.tail + 3) as usize].b32.s1 = D2Fix(ymax - ymin);
+        MEM[(cur_list.tail + 2) as usize].b32.s1 = 0;
+        MEM[(cur_list.tail + 5) as usize].b32.s0 = D2Fix(t.m11);
+        MEM[(cur_list.tail + 5) as usize].b32.s1 = D2Fix(t.m12);
+        MEM[(cur_list.tail + 6) as usize].b32.s0 = D2Fix(t.m21);
+        MEM[(cur_list.tail + 6) as usize].b32.s1 = D2Fix(t.m22);
+        MEM[(cur_list.tail + 7) as usize].b32.s0 = D2Fix(t.m31);
+        MEM[(cur_list.tail + 7) as usize].b32.s1 = D2Fix(t.m32);
         memcpy(
-            &mut *mem.offset((cur_list.tail + 9i32) as isize) as *mut memory_word as *mut u8
+            &mut MEM[(cur_list.tail + 9) as usize] as *mut memory_word as *mut u8
                 as *mut libc::c_void,
             pic_path as *const libc::c_void,
             strlen(pic_path),

@@ -11,13 +11,13 @@
 use crate::xetex_errors::{confusion, error};
 use crate::xetex_ext::{map_char_to_glyph, measure_native_glyph, real_get_native_glyph};
 use crate::xetex_ini::{
-    adjust_tail, avail, char_base, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i,
-    cur_lang, cur_list, cur_val, cur_val1, depth_base, empty, eqtb, exten_base,
-    file_line_error_style_p, font_area, font_bc, font_ec, font_info, font_layout_engine,
-    font_params, height_base, help_line, help_ptr, insert_src_special_every_math, italic_base,
-    just_box, kern_base, lig_kern_base, mem, nest_ptr, null_character, param_base, pre_adjust_tail,
-    save_ptr, save_stack, skew_char, temp_ptr, tex_remainder, total_shrink, width_base,
-    xtx_ligature_present, LR_problems, LR_ptr,
+    adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i, cur_lang,
+    cur_list, cur_val, cur_val1, empty, file_line_error_style_p, font_layout_engine, help_line,
+    help_ptr, insert_src_special_every_math, just_box, nest_ptr, null_character, pre_adjust_tail,
+    temp_ptr, tex_remainder, total_shrink, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE,
+    DEPTH_BASE, EQTB, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_EC, FONT_INFO, FONT_PARAMS, HEIGHT_BASE,
+    ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM, PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR,
+    WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b16x4_le_t, memory_word};
 use crate::xetex_layout_interface::*;
@@ -119,7 +119,7 @@ pub(crate) unsafe extern "C" fn init_math() {
             pop_nest();
             if cur_list.eTeX_aux == -0xfffffffi32 {
                 x = 0i32
-            } else if (*mem.offset(cur_list.eTeX_aux as isize)).b32.s0 >= 8i32 {
+            } else if MEM[cur_list.eTeX_aux as usize].b32.s0 >= 8 {
                 x = -1i32
             } else {
                 x = 1i32
@@ -128,84 +128,169 @@ pub(crate) unsafe extern "C" fn init_math() {
         } else {
             line_break(1i32 != 0);
             /*1528: */
-            if (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 8i32) as isize,
-            ))
-            .b32
-            .s1 == 0i32
+            if EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 8i32) as usize]
+                .b32
+                .s1
+                == 0i32
             {
                 j = new_kern(0i32)
             } else {
                 j = new_param_glue(8i32 as small_number)
             } /*:1519 */
-            if (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 7i32) as isize,
-            ))
-            .b32
-            .s1 == 0i32
+            if EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 7i32) as usize]
+                .b32
+                .s1
+                == 0i32
             {
                 p = new_kern(0i32)
             } else {
                 p = new_param_glue(7i32 as small_number)
             }
-            (*mem.offset(p as isize)).b32.s1 = j;
+            MEM[p as usize].b32.s1 = j;
             j = new_null_box();
-            (*mem.offset((j + 1i32) as isize)).b32.s1 =
-                (*mem.offset((just_box + 1i32) as isize)).b32.s1;
-            (*mem.offset((j + 4i32) as isize)).b32.s1 =
-                (*mem.offset((just_box + 4i32) as isize)).b32.s1;
-            (*mem.offset((j + 5i32) as isize)).b32.s1 = p;
-            (*mem.offset((j + 5i32) as isize)).b16.s0 =
-                (*mem.offset((just_box + 5i32) as isize)).b16.s0;
-            (*mem.offset((j + 5i32) as isize)).b16.s1 =
-                (*mem.offset((just_box + 5i32) as isize)).b16.s1;
-            (*mem.offset((j + 6i32) as isize)).gr = (*mem.offset((just_box + 6i32) as isize)).gr;
-            v = (*mem.offset((just_box + 4i32) as isize)).b32.s1;
+            MEM[(j + 1) as usize].b32.s1 = MEM[(just_box + 1) as usize].b32.s1;
+            MEM[(j + 4) as usize].b32.s1 = MEM[(just_box + 4) as usize].b32.s1;
+            MEM[(j + 5) as usize].b32.s1 = p;
+            MEM[(j + 5) as usize].b16.s0 = MEM[(just_box + 5) as usize].b16.s0;
+            MEM[(j + 5) as usize].b16.s1 = MEM[(just_box + 5) as usize].b16.s1;
+            MEM[(j + 6) as usize].gr = MEM[(just_box + 6) as usize].gr;
+            v = MEM[(just_box + 4) as usize].b32.s1;
             if cur_list.eTeX_aux == -0xfffffffi32 {
                 x = 0i32
-            } else if (*mem.offset(cur_list.eTeX_aux as isize)).b32.s0 >= 8i32 {
+            } else if MEM[cur_list.eTeX_aux as usize].b32.s0 >= 8 {
                 x = -1i32
             } else {
                 x = 1i32
             }
             if x >= 0i32 {
-                p = (*mem.offset((just_box + 5i32) as isize)).b32.s1;
-                (*mem.offset((4999999i32 - 3i32) as isize)).b32.s1 = -0xfffffffi32
+                p = MEM[(just_box + 5) as usize].b32.s1;
+                MEM[(4999999 - 3) as usize].b32.s1 = -0xfffffff
             } else {
-                v = -v - (*mem.offset((just_box + 1i32) as isize)).b32.s1;
+                v = -v - MEM[(just_box + 1) as usize].b32.s1;
                 p = new_math(0i32, 6i32 as small_number);
-                (*mem.offset((4999999i32 - 3i32) as isize)).b32.s1 = p;
+                MEM[(4999999 - 3) as usize].b32.s1 = p;
                 just_copy(
-                    (*mem.offset((just_box + 5i32) as isize)).b32.s1,
+                    MEM[(just_box + 5) as usize].b32.s1,
                     p,
                     new_math(0i32, 7i32 as small_number),
                 );
                 cur_dir = 1i32 as small_number
             }
             v = v + 2i32
-                * (*font_info.offset(
-                    (6i32
-                        + *param_base.offset(
-                            (*eqtb.offset(
-                                (1i32
+                * FONT_INFO[(6i32
+                    + PARAM_BASE[EQTB[(1i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 1i32
+                        + 15000i32
+                        + 12i32
+                        + 9000i32
+                        + 1i32
+                        + 1i32
+                        + 19i32
+                        + 256i32
+                        + 256i32
+                        + 13i32
+                        + 256i32
+                        + 4i32
+                        + 256i32) as usize]
+                        .b32
+                        .s1 as usize]) as usize]
+                    .b32
+                    .s1;
+            if EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + 3i32 * 256i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 71i32) as usize]
+                .b32
+                .s1
+                > 0i32
+            {
+                /*1497: */
+                temp_ptr = get_avail(); /*1523:*/
+                MEM[temp_ptr as usize].b32.s0 = 0; /*:1398 */
+                MEM[temp_ptr as usize].b32.s1 = LR_ptr;
+                LR_ptr = temp_ptr
+            }
+            while p != -0xfffffffi32 {
+                loop {
+                    if is_char_node(p) {
+                        f = MEM[p as usize].b16.s1 as internal_font_number;
+                        d = FONT_INFO[(WIDTH_BASE[f as usize]
+                            + FONT_INFO[(CHAR_BASE[f as usize]
+                                + effective_char(true, f, MEM[p as usize].b16.s0))
+                                as usize]
+                                .b16
+                                .s3 as i32) as usize]
+                            .b32
+                            .s1;
+                        current_block = 9427725525305667067;
+                        break;
+                    } else {
+                        match MEM[p as usize].b16.s1 as i32 {
+                            0 | 1 | 2 => {
+                                d = MEM[(p + 1) as usize].b32.s1;
+                                current_block = 9427725525305667067;
+                                break;
+                            }
+                            6 => {
+                                MEM[(4999999 - 12) as usize] = MEM[(p + 1) as usize];
+                                MEM[(4999999 - 12) as usize].b32.s1 = MEM[p as usize].b32.s1;
+                                p = 4999999i32 - 12i32;
+                                xtx_ligature_present = true
+                            }
+                            11 => {
+                                d = MEM[(p + 1) as usize].b32.s1;
+                                current_block = 1677945370889843322;
+                                break;
+                            }
+                            40 => {
+                                d = MEM[(p + 1) as usize].b32.s1;
+                                current_block = 1677945370889843322;
+                                break;
+                            }
+                            9 => {
+                                d = MEM[(p + 1) as usize].b32.s1;
+                                if EQTB[(1i32
                                     + (0x10ffffi32 + 1i32)
                                     + (0x10ffffi32 + 1i32)
                                     + 1i32
@@ -220,124 +305,19 @@ pub(crate) unsafe extern "C" fn init_math() {
                                     + 13i32
                                     + 256i32
                                     + 4i32
-                                    + 256i32) as isize,
-                            ))
-                            .b32
-                            .s1 as isize,
-                        )) as isize,
-                ))
-                .b32
-                .s1;
-            if (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 71i32) as isize,
-            ))
-            .b32
-            .s1 > 0i32
-            {
-                /*1497: */
-                temp_ptr = get_avail(); /*1523:*/
-                (*mem.offset(temp_ptr as isize)).b32.s0 = 0i32; /*:1398 */
-                (*mem.offset(temp_ptr as isize)).b32.s1 = LR_ptr;
-                LR_ptr = temp_ptr
-            }
-            while p != -0xfffffffi32 {
-                loop {
-                    if is_char_node(p) {
-                        f = (*mem.offset(p as isize)).b16.s1 as internal_font_number;
-                        d = (*font_info.offset(
-                            (*width_base.offset(f as isize)
-                                + (*font_info.offset(
-                                    (*char_base.offset(f as isize)
-                                        + effective_char(true, f, (*mem.offset(p as isize)).b16.s0))
-                                        as isize,
-                                ))
-                                .b16
-                                .s3 as i32) as isize,
-                        ))
-                        .b32
-                        .s1;
-                        current_block = 9427725525305667067;
-                        break;
-                    } else {
-                        match (*mem.offset(p as isize)).b16.s1 as i32 {
-                            0 | 1 | 2 => {
-                                d = (*mem.offset((p + 1i32) as isize)).b32.s1;
-                                current_block = 9427725525305667067;
-                                break;
-                            }
-                            6 => {
-                                *mem.offset((4999999i32 - 12i32) as isize) =
-                                    *mem.offset((p + 1i32) as isize);
-                                (*mem.offset((4999999i32 - 12i32) as isize)).b32.s1 =
-                                    (*mem.offset(p as isize)).b32.s1;
-                                p = 4999999i32 - 12i32;
-                                xtx_ligature_present = true
-                            }
-                            11 => {
-                                d = (*mem.offset((p + 1i32) as isize)).b32.s1;
-                                current_block = 1677945370889843322;
-                                break;
-                            }
-                            40 => {
-                                d = (*mem.offset((p + 1i32) as isize)).b32.s1;
-                                current_block = 1677945370889843322;
-                                break;
-                            }
-                            9 => {
-                                d = (*mem.offset((p + 1i32) as isize)).b32.s1;
-                                if (*eqtb.offset(
-                                    (1i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 1i32
-                                        + 15000i32
-                                        + 12i32
-                                        + 9000i32
-                                        + 1i32
-                                        + 1i32
-                                        + 19i32
-                                        + 256i32
-                                        + 256i32
-                                        + 13i32
-                                        + 256i32
-                                        + 4i32
-                                        + 256i32
-                                        + 1i32
-                                        + 3i32 * 256i32
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + (0x10ffffi32 + 1i32)
-                                        + 71i32) as isize,
-                                ))
-                                .b32
-                                .s1 > 0i32
+                                    + 256i32
+                                    + 1i32
+                                    + 3i32 * 256i32
+                                    + (0x10ffffi32 + 1i32)
+                                    + (0x10ffffi32 + 1i32)
+                                    + (0x10ffffi32 + 1i32)
+                                    + (0x10ffffi32 + 1i32)
+                                    + (0x10ffffi32 + 1i32)
+                                    + (0x10ffffi32 + 1i32)
+                                    + 71i32) as usize]
+                                    .b32
+                                    .s1
+                                    > 0i32
                                 {
                                     current_block = 13660591889533726445;
                                     break;
@@ -347,32 +327,30 @@ pub(crate) unsafe extern "C" fn init_math() {
                                 }
                             }
                             14 => {
-                                d = (*mem.offset((p + 1i32) as isize)).b32.s1;
-                                cur_dir = (*mem.offset(p as isize)).b16.s0 as small_number;
+                                d = MEM[(p + 1) as usize].b32.s1;
+                                cur_dir = MEM[p as usize].b16.s0 as small_number;
                                 current_block = 1677945370889843322;
                                 break;
                             }
                             10 => {
-                                q = (*mem.offset((p + 1i32) as isize)).b32.s0;
-                                d = (*mem.offset((q + 1i32) as isize)).b32.s1;
-                                if (*mem.offset((just_box + 5i32) as isize)).b16.s1 as i32 == 1i32 {
-                                    if (*mem.offset((just_box + 5i32) as isize)).b16.s0 as i32
-                                        == (*mem.offset(q as isize)).b16.s1 as i32
-                                        && (*mem.offset((q + 2i32) as isize)).b32.s1 != 0i32
+                                q = MEM[(p + 1) as usize].b32.s0;
+                                d = MEM[(q + 1) as usize].b32.s1;
+                                if MEM[(just_box + 5) as usize].b16.s1 as i32 == 1 {
+                                    if MEM[(just_box + 5) as usize].b16.s0 as i32
+                                        == MEM[q as usize].b16.s1 as i32
+                                        && MEM[(q + 2) as usize].b32.s1 != 0
                                     {
                                         v = 0x3fffffffi32
                                     }
-                                } else if (*mem.offset((just_box + 5i32) as isize)).b16.s1 as i32
-                                    == 2i32
-                                {
-                                    if (*mem.offset((just_box + 5i32) as isize)).b16.s0 as i32
-                                        == (*mem.offset(q as isize)).b16.s0 as i32
-                                        && (*mem.offset((q + 3i32) as isize)).b32.s1 != 0i32
+                                } else if MEM[(just_box + 5) as usize].b16.s1 as i32 == 2 {
+                                    if MEM[(just_box + 5) as usize].b16.s0 as i32
+                                        == MEM[q as usize].b16.s0 as i32
+                                        && MEM[(q + 3) as usize].b32.s1 != 0
                                     {
                                         v = 0x3fffffffi32
                                     }
                                 }
-                                if (*mem.offset(p as isize)).b16.s0 as i32 >= 100i32 {
+                                if MEM[p as usize].b16.s0 as i32 >= 100 {
                                     current_block = 9427725525305667067;
                                     break;
                                 } else {
@@ -381,11 +359,11 @@ pub(crate) unsafe extern "C" fn init_math() {
                                 }
                             }
                             8 => {
-                                if (*mem.offset(p as isize)).b16.s0 as i32 == 40i32
-                                    || (*mem.offset(p as isize)).b16.s0 as i32 == 41i32
-                                    || (*mem.offset(p as isize)).b16.s0 as i32 == 42i32
-                                    || (*mem.offset(p as isize)).b16.s0 as i32 == 43i32
-                                    || (*mem.offset(p as isize)).b16.s0 as i32 == 44i32
+                                if MEM[p as usize].b16.s0 as i32 == 40
+                                    || MEM[p as usize].b16.s0 as i32 == 41
+                                    || MEM[p as usize].b16.s0 as i32 == 42
+                                    || MEM[p as usize].b16.s0 as i32 == 43
+                                    || MEM[p as usize].b16.s0 as i32 == 44
                                 {
                                     current_block = 11064061988481400464;
                                     break;
@@ -404,7 +382,7 @@ pub(crate) unsafe extern "C" fn init_math() {
                 }
                 match current_block {
                     2631791190359682872 => {
-                        if (*mem.offset(p as isize)).b16.s0 as i32 >= 4i32 {
+                        if MEM[p as usize].b16.s0 as i32 >= 4 {
                             w = 0x3fffffffi32;
                             break;
                         } else {
@@ -414,25 +392,25 @@ pub(crate) unsafe extern "C" fn init_math() {
                     13660591889533726445 =>
                     /*1525: */
                     {
-                        if (*mem.offset(p as isize)).b16.s0 as i32 & 1i32 != 0 {
-                            if (*mem.offset(LR_ptr as isize)).b32.s0
-                                == 4i32 * ((*mem.offset(p as isize)).b16.s0 as i32 / 4i32) + 3i32
+                        if MEM[p as usize].b16.s0 as i32 & 1 != 0 {
+                            if MEM[LR_ptr as usize].b32.s0
+                                == 4i32 * (MEM[p as usize].b16.s0 as i32 / 4) + 3
                             {
                                 temp_ptr = LR_ptr;
-                                LR_ptr = (*mem.offset(temp_ptr as isize)).b32.s1;
-                                (*mem.offset(temp_ptr as isize)).b32.s1 = avail;
+                                LR_ptr = MEM[temp_ptr as usize].b32.s1;
+                                MEM[temp_ptr as usize].b32.s1 = avail;
                                 avail = temp_ptr
-                            } else if (*mem.offset(p as isize)).b16.s0 as i32 > 4i32 {
+                            } else if MEM[p as usize].b16.s0 as i32 > 4 {
                                 w = 0x3fffffffi32;
                                 break;
                             }
                         } else {
                             temp_ptr = get_avail();
-                            (*mem.offset(temp_ptr as isize)).b32.s0 =
-                                4i32 * ((*mem.offset(p as isize)).b16.s0 as i32 / 4i32) + 3i32;
-                            (*mem.offset(temp_ptr as isize)).b32.s1 = LR_ptr;
+                            MEM[temp_ptr as usize].b32.s0 =
+                                4i32 * (MEM[p as usize].b16.s0 as i32 / 4) + 3;
+                            MEM[temp_ptr as usize].b32.s1 = LR_ptr;
                             LR_ptr = temp_ptr;
-                            if (*mem.offset(p as isize)).b16.s0 as i32 / 8i32 != cur_dir as i32 {
+                            if MEM[p as usize].b16.s0 as i32 / 8 != cur_dir as i32 {
                                 just_reverse(p);
                                 p = 4999999i32 - 3i32
                             }
@@ -444,7 +422,7 @@ pub(crate) unsafe extern "C" fn init_math() {
                         current_block = 1677945370889843322;
                     }
                     11064061988481400464 => {
-                        d = (*mem.offset((p + 1i32) as isize)).b32.s1;
+                        d = MEM[(p + 1) as usize].b32.s1;
                         current_block = 9427725525305667067;
                     }
                     _ => {}
@@ -465,10 +443,100 @@ pub(crate) unsafe extern "C" fn init_math() {
                         }
                     }
                 }
-                p = (*mem.offset(p as isize)).b32.s1
+                p = MEM[p as usize].b32.s1
             }
-            if (*eqtb.offset(
-                (1i32
+            if EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + 3i32 * 256i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 71i32) as usize]
+                .b32
+                .s1
+                > 0i32
+            {
+                while LR_ptr != -0xfffffffi32 {
+                    temp_ptr = LR_ptr;
+                    LR_ptr = MEM[temp_ptr as usize].b32.s1;
+                    MEM[temp_ptr as usize].b32.s1 = avail;
+                    avail = temp_ptr
+                }
+                if LR_problems != 0i32 {
+                    w = 0x3fffffffi32;
+                    LR_problems = 0i32
+                }
+            }
+            cur_dir = 0i32 as small_number;
+            flush_node_list(MEM[(4999999 - 3) as usize].b32.s1);
+        }
+        if EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 0i32) as usize]
+            .b32
+            .s1
+            == -0xfffffffi32
+        {
+            if EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + 3i32 * 256i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 85i32
+                + 256i32
+                + (0x10ffffi32 + 1i32)
+                + 17i32) as usize]
+                .b32
+                .s1
+                != 0i32
+                && (EQTB[(1i32
                     + (0x10ffffi32 + 1i32)
                     + (0x10ffffi32 + 1i32)
                     + 1i32
@@ -492,45 +560,68 @@ pub(crate) unsafe extern "C" fn init_math() {
                     + (0x10ffffi32 + 1i32)
                     + (0x10ffffi32 + 1i32)
                     + (0x10ffffi32 + 1i32)
-                    + 71i32) as isize,
-            ))
-            .b32
-            .s1 > 0i32
+                    + 41i32) as usize]
+                    .b32
+                    .s1
+                    >= 0i32
+                    && cur_list.prev_graf + 2i32
+                        > EQTB[(1i32
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + 1i32
+                            + 15000i32
+                            + 12i32
+                            + 9000i32
+                            + 1i32
+                            + 1i32
+                            + 19i32
+                            + 256i32
+                            + 256i32
+                            + 13i32
+                            + 256i32
+                            + 4i32
+                            + 256i32
+                            + 1i32
+                            + 3i32 * 256i32
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + 41i32) as usize]
+                            .b32
+                            .s1
+                    || cur_list.prev_graf + 1i32
+                        < -EQTB[(1i32
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + 1i32
+                            + 15000i32
+                            + 12i32
+                            + 9000i32
+                            + 1i32
+                            + 1i32
+                            + 19i32
+                            + 256i32
+                            + 256i32
+                            + 13i32
+                            + 256i32
+                            + 4i32
+                            + 256i32
+                            + 1i32
+                            + 3i32 * 256i32
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + 41i32) as usize]
+                            .b32
+                            .s1)
             {
-                while LR_ptr != -0xfffffffi32 {
-                    temp_ptr = LR_ptr;
-                    LR_ptr = (*mem.offset(temp_ptr as isize)).b32.s1;
-                    (*mem.offset(temp_ptr as isize)).b32.s1 = avail;
-                    avail = temp_ptr
-                }
-                if LR_problems != 0i32 {
-                    w = 0x3fffffffi32;
-                    LR_problems = 0i32
-                }
-            }
-            cur_dir = 0i32 as small_number;
-            flush_node_list((*mem.offset((4999999i32 - 3i32) as isize)).b32.s1);
-        }
-        if (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 0i32) as isize,
-        ))
-        .b32
-        .s1 == -0xfffffffi32
-        {
-            if (*eqtb.offset(
-                (1i32
+                l = EQTB[(1i32
                     + (0x10ffffi32 + 1i32)
                     + (0x10ffffi32 + 1i32)
                     + 1i32
@@ -557,328 +648,193 @@ pub(crate) unsafe extern "C" fn init_math() {
                     + 85i32
                     + 256i32
                     + (0x10ffffi32 + 1i32)
-                    + 17i32) as isize,
-            ))
-            .b32
-            .s1 != 0i32
-                && ((*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 41i32) as isize,
-                ))
-                .b32
-                .s1 >= 0i32
-                    && cur_list.prev_graf + 2i32
-                        > (*eqtb.offset(
-                            (1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + 3i32 * 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 41i32) as isize,
-                        ))
-                        .b32
-                        .s1
-                    || cur_list.prev_graf + 1i32
-                        < -(*eqtb.offset(
-                            (1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + 3i32 * 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 41i32) as isize,
-                        ))
-                        .b32
-                        .s1)
-            {
-                l = (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 3i32) as isize,
-                ))
-                .b32
-                .s1 - (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 17i32) as isize,
-                ))
-                .b32
-                .s1
-                .abs();
-                if (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 17i32) as isize,
-                ))
-                .b32
-                .s1 > 0i32
-                {
-                    s = (*eqtb.offset(
-                        (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + 3i32 * 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 85i32
-                            + 256i32
-                            + (0x10ffffi32 + 1i32)
-                            + 17i32) as isize,
-                    ))
+                    + 3i32) as usize]
                     .b32
                     .s1
+                    - EQTB[(1i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 1i32
+                        + 15000i32
+                        + 12i32
+                        + 9000i32
+                        + 1i32
+                        + 1i32
+                        + 19i32
+                        + 256i32
+                        + 256i32
+                        + 13i32
+                        + 256i32
+                        + 4i32
+                        + 256i32
+                        + 1i32
+                        + 3i32 * 256i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 85i32
+                        + 256i32
+                        + (0x10ffffi32 + 1i32)
+                        + 17i32) as usize]
+                        .b32
+                        .s1
+                        .abs();
+                if EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + 3i32 * 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 85i32
+                    + 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + 17i32) as usize]
+                    .b32
+                    .s1
+                    > 0i32
+                {
+                    s = EQTB[(1i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 1i32
+                        + 15000i32
+                        + 12i32
+                        + 9000i32
+                        + 1i32
+                        + 1i32
+                        + 19i32
+                        + 256i32
+                        + 256i32
+                        + 13i32
+                        + 256i32
+                        + 4i32
+                        + 256i32
+                        + 1i32
+                        + 3i32 * 256i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 85i32
+                        + 256i32
+                        + (0x10ffffi32 + 1i32)
+                        + 17i32) as usize]
+                        .b32
+                        .s1
                 } else {
                     s = 0i32
                 }
             } else {
-                l = (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 3i32) as isize,
-                ))
-                .b32
-                .s1;
+                l = EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + 3i32 * 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 85i32
+                    + 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + 3i32) as usize]
+                    .b32
+                    .s1;
                 s = 0i32
             }
         } else {
-            n = (*mem.offset(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 0i32) as isize,
-                ))
+            n = MEM[EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 0i32) as usize]
                 .b32
-                .s1 as isize,
-            ))
-            .b32
-            .s0;
+                .s1 as usize]
+                .b32
+                .s0;
             if cur_list.prev_graf + 2i32 >= n {
-                p = (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 0i32) as isize,
-                ))
-                .b32
-                .s1 + 2i32 * n
+                p = EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 0i32) as usize]
+                    .b32
+                    .s1
+                    + 2i32 * n
             } else {
-                p = (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 0i32) as isize,
-                ))
-                .b32
-                .s1 + 2i32 * (cur_list.prev_graf + 2i32)
+                p = EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 0i32) as usize]
+                    .b32
+                    .s1
+                    + 2i32 * (cur_list.prev_graf + 2i32)
             }
-            s = (*mem.offset((p - 1i32) as isize)).b32.s1;
-            l = (*mem.offset(p as isize)).b32.s1
+            s = MEM[(p - 1) as usize].b32.s1;
+            l = MEM[p as usize].b32.s1
         }
         push_math(15i32 as group_code);
         cur_list.mode = 207_i16;
@@ -1027,42 +983,39 @@ pub(crate) unsafe extern "C" fn init_math() {
                 + 15i32,
             s,
         );
-        if (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 4i32) as isize,
-        ))
-        .b32
-        .s1 != -0xfffffffi32
+        if EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 4i32) as usize]
+            .b32
+            .s1
+            != -0xfffffffi32
         {
             begin_token_list(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 4i32) as isize,
-                ))
-                .b32
-                .s1,
+                EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 4i32) as usize]
+                    .b32
+                    .s1,
                 10_u16,
             );
         }
@@ -1102,42 +1055,39 @@ pub(crate) unsafe extern "C" fn init_math() {
         if insert_src_special_every_math {
             insert_src_special();
         }
-        if (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 3i32) as isize,
-        ))
-        .b32
-        .s1 != -0xfffffffi32
+        if EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 3i32) as usize]
+            .b32
+            .s1
+            != -0xfffffffi32
         {
             begin_token_list(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 3i32) as isize,
-                ))
-                .b32
-                .s1,
+                EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 3i32) as usize]
+                    .b32
+                    .s1,
                 9_u16,
             );
         }
@@ -1145,8 +1095,8 @@ pub(crate) unsafe extern "C" fn init_math() {
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn start_eq_no() {
-    (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 = cur_chr;
-    save_ptr += 1;
+    SAVE_STACK[SAVE_PTR + 0].b32.s1 = cur_chr;
+    SAVE_PTR += 1;
     push_math(15i32 as group_code);
     eq_word_define(
         1i32 + (0x10ffffi32 + 1i32)
@@ -1178,42 +1128,39 @@ pub(crate) unsafe extern "C" fn start_eq_no() {
     if insert_src_special_every_math {
         insert_src_special();
     }
-    if (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 3i32) as isize,
-    ))
-    .b32
-    .s1 != -0xfffffffi32
+    if EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 3i32) as usize]
+        .b32
+        .s1
+        != -0xfffffffi32
     {
         begin_token_list(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 3i32) as isize,
-            ))
-            .b32
-            .s1,
+            EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 3i32) as usize]
+                .b32
+                .s1,
             9_u16,
         );
     };
@@ -1221,8 +1168,8 @@ pub(crate) unsafe extern "C" fn start_eq_no() {
 #[no_mangle]
 pub(crate) unsafe extern "C" fn math_limit_switch() {
     if cur_list.head != cur_list.tail {
-        if (*mem.offset(cur_list.tail as isize)).b16.s1 as i32 == 17i32 {
-            (*mem.offset(cur_list.tail as isize)).b16.s0 = cur_chr as u16;
+        if MEM[cur_list.tail as usize].b16.s1 as i32 == 17 {
+            MEM[cur_list.tail as usize].b16.s0 = cur_chr as u16;
             return;
         }
     }
@@ -1256,37 +1203,35 @@ unsafe extern "C" fn scan_delimiter(mut p: i32, mut r: bool) {
         }
         match cur_cmd as i32 {
             11 | 12 => {
-                cur_val = (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + cur_chr) as isize,
-                ))
-                .b32
-                .s1
+                cur_val = EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + 3i32 * 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 85i32
+                    + 256i32
+                    + cur_chr) as usize]
+                    .b32
+                    .s1
             }
             15 => {
                 if cur_chr == 1i32 {
@@ -1321,27 +1266,27 @@ unsafe extern "C" fn scan_delimiter(mut p: i32, mut r: bool) {
         cur_val = 0i32
     }
     if cur_val >= 0x40000000i32 {
-        (*mem.offset(p as isize)).b16.s3 = (cur_val % 0x200000i32 / 0x10000i32 * 0x100i32
-            + cur_val / 0x200000i32 % 0x100i32) as u16;
-        (*mem.offset(p as isize)).b16.s2 = (cur_val % 0x10000i32) as u16;
-        (*mem.offset(p as isize)).b16.s1 = 0_u16;
-        (*mem.offset(p as isize)).b16.s0 = 0_u16
+        MEM[p as usize].b16.s3 =
+            (cur_val % 0x200000 / 0x10000 * 0x100 + cur_val / 0x200000i32 % 0x100i32) as u16;
+        MEM[p as usize].b16.s2 = (cur_val % 0x10000) as u16;
+        MEM[p as usize].b16.s1 = 0_u16;
+        MEM[p as usize].b16.s0 = 0_u16
     } else {
-        (*mem.offset(p as isize)).b16.s3 = (cur_val / 0x100000i32 % 16i32) as u16;
-        (*mem.offset(p as isize)).b16.s2 = (cur_val / 0x1000i32 % 0x100i32) as u16;
-        (*mem.offset(p as isize)).b16.s1 = (cur_val / 0x100i32 % 16i32) as u16;
-        (*mem.offset(p as isize)).b16.s0 = (cur_val % 0x100i32) as u16
+        MEM[p as usize].b16.s3 = (cur_val / 0x100000 % 16) as u16;
+        MEM[p as usize].b16.s2 = (cur_val / 0x1000 % 0x100) as u16;
+        MEM[p as usize].b16.s1 = (cur_val / 0x100 % 16) as u16;
+        MEM[p as usize].b16.s0 = (cur_val % 0x100) as u16
     };
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn math_radical() {
-    (*mem.offset(cur_list.tail as isize)).b32.s1 = get_node(5i32);
-    cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1;
-    (*mem.offset(cur_list.tail as isize)).b16.s1 = 24_u16;
-    (*mem.offset(cur_list.tail as isize)).b16.s0 = 0_u16;
-    (*mem.offset((cur_list.tail + 1i32) as isize)).b32 = empty;
-    (*mem.offset((cur_list.tail + 3i32) as isize)).b32 = empty;
-    (*mem.offset((cur_list.tail + 2i32) as isize)).b32 = empty;
+    MEM[cur_list.tail as usize].b32.s1 = get_node(5);
+    cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
+    MEM[cur_list.tail as usize].b16.s1 = 24_u16;
+    MEM[cur_list.tail as usize].b16.s0 = 0_u16;
+    MEM[(cur_list.tail + 1) as usize].b32 = empty;
+    MEM[(cur_list.tail + 3) as usize].b32 = empty;
+    MEM[(cur_list.tail + 2) as usize].b32 = empty;
     scan_delimiter(cur_list.tail + 4i32, true);
     scan_math(cur_list.tail + 1i32);
 }
@@ -1363,22 +1308,22 @@ pub(crate) unsafe extern "C" fn math_ac() {
         help_line[0] = b"(Accents are not the same in formulas as they are in text.)";
         error();
     }
-    (*mem.offset(cur_list.tail as isize)).b32.s1 = get_node(5i32);
-    cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1;
-    (*mem.offset(cur_list.tail as isize)).b16.s1 = 28_u16;
-    (*mem.offset(cur_list.tail as isize)).b16.s0 = 0_u16;
-    (*mem.offset((cur_list.tail + 1i32) as isize)).b32 = empty;
-    (*mem.offset((cur_list.tail + 3i32) as isize)).b32 = empty;
-    (*mem.offset((cur_list.tail + 2i32) as isize)).b32 = empty;
-    (*mem.offset((cur_list.tail + 4i32) as isize)).b32.s1 = 1i32;
+    MEM[cur_list.tail as usize].b32.s1 = get_node(5);
+    cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
+    MEM[cur_list.tail as usize].b16.s1 = 28_u16;
+    MEM[cur_list.tail as usize].b16.s0 = 0_u16;
+    MEM[(cur_list.tail + 1) as usize].b32 = empty;
+    MEM[(cur_list.tail + 3) as usize].b32 = empty;
+    MEM[(cur_list.tail + 2) as usize].b32 = empty;
+    MEM[(cur_list.tail + 4) as usize].b32.s1 = 1;
     if cur_chr == 1i32 {
         if scan_keyword(b"fixed") {
-            (*mem.offset(cur_list.tail as isize)).b16.s0 = 1_u16
+            MEM[cur_list.tail as usize].b16.s0 = 1_u16
         } else if scan_keyword(b"bottom") {
             if scan_keyword(b"fixed") {
-                (*mem.offset(cur_list.tail as isize)).b16.s0 = (2i32 + 1i32) as u16
+                MEM[cur_list.tail as usize].b16.s0 = (2 + 1) as u16
             } else {
-                (*mem.offset(cur_list.tail as isize)).b16.s0 = 2_u16
+                MEM[cur_list.tail as usize].b16.s0 = 2_u16
             }
         }
         scan_math_class_int();
@@ -1393,69 +1338,37 @@ pub(crate) unsafe extern "C" fn math_ac() {
             .wrapping_add(((cur_val % 4096i32 / 256i32) as u32 & 0xff_u32) << 24i32)
             .wrapping_add((cur_val % 256i32) as u32) as i32
     }
-    (*mem.offset((cur_list.tail + 4i32) as isize)).b16.s0 = (cur_val as i64 % 65536) as u16;
+    MEM[(cur_list.tail + 4) as usize].b16.s0 = (cur_val as i64 % 65536) as u16;
     if cur_val as u32 >> 21i32 & 0x7_u32 == 7_u32
-        && ((*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 44i32) as isize,
-        ))
-        .b32
-        .s1 >= 0i32
-            && (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 44i32) as isize,
-            ))
+        && (EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 44i32) as usize]
             .b32
-            .s1 < 256i32)
-    {
-        (*mem.offset((cur_list.tail + 4i32) as isize)).b16.s1 = (*eqtb.offset(
-            (1i32
+            .s1
+            >= 0i32
+            && EQTB[(1i32
                 + (0x10ffffi32 + 1i32)
                 + (0x10ffffi32 + 1i32)
                 + 1i32
@@ -1479,25 +1392,52 @@ pub(crate) unsafe extern "C" fn math_ac() {
                 + (0x10ffffi32 + 1i32)
                 + (0x10ffffi32 + 1i32)
                 + (0x10ffffi32 + 1i32)
-                + 44i32) as isize,
-        ))
-        .b32
-        .s1 as u16
+                + 44i32) as usize]
+                .b32
+                .s1
+                < 256i32)
+    {
+        MEM[(cur_list.tail + 4) as usize].b16.s1 = EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 44i32) as usize]
+            .b32
+            .s1 as u16
     } else {
-        (*mem.offset((cur_list.tail + 4i32) as isize)).b16.s1 =
-            (cur_val as u32 >> 24i32 & 0xff_u32) as u16
+        MEM[(cur_list.tail + 4) as usize].b16.s1 = (cur_val as u32 >> 24 & 0xff_u32) as u16
     }
-    (*mem.offset((cur_list.tail + 4i32) as isize)).b16.s1 =
-        ((*mem.offset((cur_list.tail + 4i32) as isize)).b16.s1 as i64
-            + (cur_val as u32 & 0x1fffff_u32) as i64 / 65536 * 256i32 as i64) as u16;
+    MEM[(cur_list.tail + 4) as usize].b16.s1 = (MEM[(cur_list.tail + 4) as usize].b16.s1 as i64
+        + (cur_val as u32 & 0x1fffff_u32) as i64 / 65536 * 256i32 as i64)
+        as u16;
     scan_math(cur_list.tail + 1i32);
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn append_choices() {
-    (*mem.offset(cur_list.tail as isize)).b32.s1 = new_choice();
-    cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1;
-    save_ptr += 1;
-    (*save_stack.offset((save_ptr - 1i32) as isize)).b32.s1 = 0i32;
+    MEM[cur_list.tail as usize].b32.s1 = new_choice();
+    cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
+    SAVE_PTR += 1;
+    SAVE_STACK[SAVE_PTR - 1].b32.s1 = 0;
     push_math(13i32 as group_code);
     scan_left_brace();
 }
@@ -1506,26 +1446,22 @@ pub(crate) unsafe extern "C" fn fin_mlist(mut p: i32) -> i32 {
     let mut q: i32 = 0;
     if cur_list.aux.b32.s1 != -0xfffffffi32 {
         /*1220: */
-        (*mem.offset((cur_list.aux.b32.s1 + 3i32) as isize)).b32.s1 = 3i32;
-        (*mem.offset((cur_list.aux.b32.s1 + 3i32) as isize)).b32.s0 =
-            (*mem.offset(cur_list.head as isize)).b32.s1;
+        MEM[(cur_list.aux.b32.s1 + 3) as usize].b32.s1 = 3;
+        MEM[(cur_list.aux.b32.s1 + 3) as usize].b32.s0 = MEM[cur_list.head as usize].b32.s1;
         if p == -0xfffffffi32 {
             q = cur_list.aux.b32.s1
         } else {
-            q = (*mem.offset((cur_list.aux.b32.s1 + 2i32) as isize)).b32.s0;
-            if (*mem.offset(q as isize)).b16.s1 as i32 != 30i32
-                || cur_list.eTeX_aux == -0xfffffffi32
-            {
+            q = MEM[(cur_list.aux.b32.s1 + 2) as usize].b32.s0;
+            if MEM[q as usize].b16.s1 as i32 != 30 || cur_list.eTeX_aux == -0xfffffff {
                 confusion(b"right");
             }
-            (*mem.offset((cur_list.aux.b32.s1 + 2i32) as isize)).b32.s0 =
-                (*mem.offset(cur_list.eTeX_aux as isize)).b32.s1;
-            (*mem.offset(cur_list.eTeX_aux as isize)).b32.s1 = cur_list.aux.b32.s1;
-            (*mem.offset(cur_list.aux.b32.s1 as isize)).b32.s1 = p
+            MEM[(cur_list.aux.b32.s1 + 2) as usize].b32.s0 = MEM[cur_list.eTeX_aux as usize].b32.s1;
+            MEM[cur_list.eTeX_aux as usize].b32.s1 = cur_list.aux.b32.s1;
+            MEM[cur_list.aux.b32.s1 as usize].b32.s1 = p
         }
     } else {
-        (*mem.offset(cur_list.tail as isize)).b32.s1 = p;
-        q = (*mem.offset(cur_list.head as isize)).b32.s1
+        MEM[cur_list.tail as usize].b32.s1 = p;
+        q = MEM[cur_list.head as usize].b32.s1
     }
     pop_nest();
     q
@@ -1535,18 +1471,18 @@ pub(crate) unsafe extern "C" fn build_choices() {
     let mut p: i32 = 0;
     unsave();
     p = fin_mlist(-0xfffffffi32);
-    match (*save_stack.offset((save_ptr - 1i32) as isize)).b32.s1 {
-        0 => (*mem.offset((cur_list.tail + 1i32) as isize)).b32.s0 = p,
-        1 => (*mem.offset((cur_list.tail + 1i32) as isize)).b32.s1 = p,
-        2 => (*mem.offset((cur_list.tail + 2i32) as isize)).b32.s0 = p,
+    match SAVE_STACK[SAVE_PTR - 1].b32.s1 {
+        0 => MEM[(cur_list.tail + 1) as usize].b32.s0 = p,
+        1 => MEM[(cur_list.tail + 1) as usize].b32.s1 = p,
+        2 => MEM[(cur_list.tail + 2) as usize].b32.s0 = p,
         3 => {
-            (*mem.offset((cur_list.tail + 2i32) as isize)).b32.s1 = p;
-            save_ptr -= 1;
+            MEM[(cur_list.tail + 2) as usize].b32.s1 = p;
+            SAVE_PTR -= 1;
             return;
         }
         _ => {}
     }
-    let ref mut fresh0 = (*save_stack.offset((save_ptr - 1i32) as isize)).b32.s1;
+    let ref mut fresh0 = SAVE_STACK[SAVE_PTR - 1].b32.s1;
     *fresh0 += 1;
     push_math(13i32 as group_code);
     scan_left_brace();
@@ -1558,17 +1494,17 @@ pub(crate) unsafe extern "C" fn sub_sup() {
     t = 0i32 as small_number;
     p = -0xfffffffi32;
     if cur_list.tail != cur_list.head {
-        if (*mem.offset(cur_list.tail as isize)).b16.s1 as i32 >= 16i32
-            && ((*mem.offset(cur_list.tail as isize)).b16.s1 as i32) < 30i32
+        if MEM[cur_list.tail as usize].b16.s1 as i32 >= 16
+            && (MEM[cur_list.tail as usize].b16.s1 as i32) < 30
         {
             p = cur_list.tail + 2i32 + cur_cmd as i32 - 7i32;
-            t = (*mem.offset(p as isize)).b32.s1 as small_number
+            t = MEM[p as usize].b32.s1 as small_number
         }
     }
     if p == -0xfffffffi32 || t as i32 != 0i32 {
         /*1212: */
-        (*mem.offset(cur_list.tail as isize)).b32.s1 = new_noad();
-        cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1;
+        MEM[cur_list.tail as usize].b32.s1 = new_noad();
+        cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         p = cur_list.tail + 2i32 + cur_cmd as i32 - 7i32;
         if t as i32 != 0i32 {
             if cur_cmd as i32 == 7i32 {
@@ -1621,15 +1557,14 @@ pub(crate) unsafe extern "C" fn math_fraction() {
         error();
     } else {
         cur_list.aux.b32.s1 = get_node(6i32);
-        (*mem.offset(cur_list.aux.b32.s1 as isize)).b16.s1 = 25_u16;
-        (*mem.offset(cur_list.aux.b32.s1 as isize)).b16.s0 = 0_u16;
-        (*mem.offset((cur_list.aux.b32.s1 + 2i32) as isize)).b32.s1 = 3i32;
-        (*mem.offset((cur_list.aux.b32.s1 + 2i32) as isize)).b32.s0 =
-            (*mem.offset(cur_list.head as isize)).b32.s1;
-        (*mem.offset((cur_list.aux.b32.s1 + 3i32) as isize)).b32 = empty;
-        (*mem.offset((cur_list.aux.b32.s1 + 4i32) as isize)).b16 = null_delimiter;
-        (*mem.offset((cur_list.aux.b32.s1 + 5i32) as isize)).b16 = null_delimiter;
-        (*mem.offset(cur_list.head as isize)).b32.s1 = -0xfffffffi32;
+        MEM[cur_list.aux.b32.s1 as usize].b16.s1 = 25_u16;
+        MEM[cur_list.aux.b32.s1 as usize].b16.s0 = 0_u16;
+        MEM[(cur_list.aux.b32.s1 + 2) as usize].b32.s1 = 3;
+        MEM[(cur_list.aux.b32.s1 + 2) as usize].b32.s0 = MEM[cur_list.head as usize].b32.s1;
+        MEM[(cur_list.aux.b32.s1 + 3) as usize].b32 = empty;
+        MEM[(cur_list.aux.b32.s1 + 4) as usize].b16 = null_delimiter;
+        MEM[(cur_list.aux.b32.s1 + 5) as usize].b16 = null_delimiter;
+        MEM[cur_list.head as usize].b32.s1 = -0xfffffff;
         cur_list.tail = cur_list.head;
         if c as i32 >= 3i32 {
             scan_delimiter(cur_list.aux.b32.s1 + 4i32, false);
@@ -1638,10 +1573,10 @@ pub(crate) unsafe extern "C" fn math_fraction() {
         match c as i32 % 3i32 {
             0 => {
                 scan_dimen(false, false, false);
-                (*mem.offset((cur_list.aux.b32.s1 + 1i32) as isize)).b32.s1 = cur_val
+                MEM[(cur_list.aux.b32.s1 + 1) as usize].b32.s1 = cur_val
             }
-            1 => (*mem.offset((cur_list.aux.b32.s1 + 1i32) as isize)).b32.s1 = 0x40000000i32,
-            2 => (*mem.offset((cur_list.aux.b32.s1 + 1i32) as isize)).b32.s1 = 0i32,
+            1 => MEM[(cur_list.aux.b32.s1 + 1) as usize].b32.s1 = 0x40000000,
+            2 => MEM[(cur_list.aux.b32.s1 + 1) as usize].b32.s1 = 0,
             _ => {}
         }
     };
@@ -1677,11 +1612,11 @@ pub(crate) unsafe extern "C" fn math_left_right() {
         }
     } else {
         p = new_noad();
-        (*mem.offset(p as isize)).b16.s1 = t as u16;
+        MEM[p as usize].b16.s1 = t as u16;
         scan_delimiter(p + 1i32, false);
         if t as i32 == 1i32 {
-            (*mem.offset(p as isize)).b16.s1 = 31_u16;
-            (*mem.offset(p as isize)).b16.s0 = 1_u16
+            MEM[p as usize].b16.s1 = 31_u16;
+            MEM[p as usize].b16.s0 = 1_u16
         }
         if t as i32 == 30i32 {
             q = p
@@ -1691,15 +1626,15 @@ pub(crate) unsafe extern "C" fn math_left_right() {
         }
         if t as i32 != 31i32 {
             push_math(16i32 as group_code);
-            (*mem.offset(cur_list.head as isize)).b32.s1 = q;
+            MEM[cur_list.head as usize].b32.s1 = q;
             cur_list.tail = p;
             cur_list.eTeX_aux = p
         } else {
-            (*mem.offset(cur_list.tail as isize)).b32.s1 = new_noad();
-            cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1;
-            (*mem.offset(cur_list.tail as isize)).b16.s1 = 23_u16;
-            (*mem.offset((cur_list.tail + 1i32) as isize)).b32.s1 = 3i32;
-            (*mem.offset((cur_list.tail + 1i32) as isize)).b32.s0 = q
+            MEM[cur_list.tail as usize].b32.s1 = new_noad();
+            cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
+            MEM[cur_list.tail as usize].b16.s1 = 23_u16;
+            MEM[(cur_list.tail + 1) as usize].b32.s1 = 3;
+            MEM[(cur_list.tail + 1) as usize].b32.s0 = q
         }
     };
 }
@@ -1713,8 +1648,67 @@ unsafe extern "C" fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
     let mut r: i32 = 0;
     let mut t: i32 = 0;
     let mut u: i32 = 0;
-    s = (*eqtb.offset(
-        (1i32
+    s = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + 3i32 * 256i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 85i32
+        + 256i32
+        + (0x10ffffi32 + 1i32)
+        + 15i32) as usize]
+        .b32
+        .s1;
+    x = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + 3i32 * 256i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 63i32) as usize]
+        .b32
+        .s1;
+    if x == 0i32 {
+        MEM[(b + 4) as usize].b32.s1 = s + d
+    } else {
+        z = EQTB[(1i32
             + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
             + 1i32
@@ -1741,93 +1735,28 @@ unsafe extern "C" fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
             + 85i32
             + 256i32
             + (0x10ffffi32 + 1i32)
-            + 15i32) as isize,
-    ))
-    .b32
-    .s1;
-    x = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 63i32) as isize,
-    ))
-    .b32
-    .s1;
-    if x == 0i32 {
-        (*mem.offset((b + 4i32) as isize)).b32.s1 = s + d
-    } else {
-        z = (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 14i32) as isize,
-        ))
-        .b32
-        .s1;
+            + 14i32) as usize]
+            .b32
+            .s1;
         p = b;
         if x > 0i32 {
-            e = z - d - (*mem.offset((p + 1i32) as isize)).b32.s1
+            e = z - d - MEM[(p + 1) as usize].b32.s1
         } else {
             e = d;
-            d = z - e - (*mem.offset((p + 1i32) as isize)).b32.s1
+            d = z - e - MEM[(p + 1) as usize].b32.s1
         }
         if j != -0xfffffffi32 {
             b = copy_node_list(j);
-            (*mem.offset((b + 3i32) as isize)).b32.s1 = (*mem.offset((p + 3i32) as isize)).b32.s1;
-            (*mem.offset((b + 2i32) as isize)).b32.s1 = (*mem.offset((p + 2i32) as isize)).b32.s1;
-            s = s - (*mem.offset((b + 4i32) as isize)).b32.s1;
+            MEM[(b + 3) as usize].b32.s1 = MEM[(p + 3) as usize].b32.s1;
+            MEM[(b + 2) as usize].b32.s1 = MEM[(p + 2) as usize].b32.s1;
+            s = s - MEM[(b + 4) as usize].b32.s1;
             d = d + s;
-            e = e + (*mem.offset((b + 1i32) as isize)).b32.s1 - z - s
+            e = e + MEM[(b + 1) as usize].b32.s1 - z - s
         }
-        if (*mem.offset(p as isize)).b16.s0 as i32 == 2i32 {
+        if MEM[p as usize].b16.s0 as i32 == 2 {
             q = p
         } else {
-            r = (*mem.offset((p + 5i32) as isize)).b32.s1;
+            r = MEM[(p + 5) as usize].b32.s1;
             free_node(p, 8i32);
             if r == -0xfffffffi32 {
                 confusion(b"LR4");
@@ -1836,7 +1765,7 @@ unsafe extern "C" fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
                 p = r;
                 loop {
                     q = r;
-                    r = (*mem.offset(r as isize)).b32.s1;
+                    r = MEM[r as usize].b32.s1;
                     if r == -0xfffffffi32 {
                         break;
                     }
@@ -1845,8 +1774,8 @@ unsafe extern "C" fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
                 p = -0xfffffffi32;
                 q = r;
                 loop {
-                    t = (*mem.offset(r as isize)).b32.s1;
-                    (*mem.offset(r as isize)).b32.s1 = p;
+                    t = MEM[r as usize].b32.s1;
+                    MEM[r as usize].b32.s1 = p;
                     p = r;
                     r = t;
                     if r == -0xfffffffi32 {
@@ -1859,53 +1788,47 @@ unsafe extern "C" fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
             r = new_kern(0i32);
             t = new_kern(0i32)
         } else {
-            r = (*mem.offset((b + 5i32) as isize)).b32.s1;
-            t = (*mem.offset(r as isize)).b32.s1
+            r = MEM[(b + 5) as usize].b32.s1;
+            t = MEM[r as usize].b32.s1
         }
         u = new_math(0i32, 3i32 as small_number);
-        if (*mem.offset(t as isize)).b16.s1 as i32 == 10i32 {
+        if MEM[t as usize].b16.s1 as i32 == 10 {
             j = new_skip_param(8i32 as small_number);
-            (*mem.offset(q as isize)).b32.s1 = j;
-            (*mem.offset(j as isize)).b32.s1 = u;
-            j = (*mem.offset((t + 1i32) as isize)).b32.s0;
-            (*mem.offset(temp_ptr as isize)).b16.s1 = (*mem.offset(j as isize)).b16.s1;
-            (*mem.offset(temp_ptr as isize)).b16.s0 = (*mem.offset(j as isize)).b16.s0;
-            (*mem.offset((temp_ptr + 1i32) as isize)).b32.s1 =
-                e - (*mem.offset((j + 1i32) as isize)).b32.s1;
-            (*mem.offset((temp_ptr + 2i32) as isize)).b32.s1 =
-                -(*mem.offset((j + 2i32) as isize)).b32.s1;
-            (*mem.offset((temp_ptr + 3i32) as isize)).b32.s1 =
-                -(*mem.offset((j + 3i32) as isize)).b32.s1;
-            (*mem.offset(u as isize)).b32.s1 = t
+            MEM[q as usize].b32.s1 = j;
+            MEM[j as usize].b32.s1 = u;
+            j = MEM[(t + 1) as usize].b32.s0;
+            MEM[temp_ptr as usize].b16.s1 = MEM[j as usize].b16.s1;
+            MEM[temp_ptr as usize].b16.s0 = MEM[j as usize].b16.s0;
+            MEM[(temp_ptr + 1) as usize].b32.s1 = e - MEM[(j + 1) as usize].b32.s1;
+            MEM[(temp_ptr + 2) as usize].b32.s1 = -MEM[(j + 2) as usize].b32.s1;
+            MEM[(temp_ptr + 3) as usize].b32.s1 = -MEM[(j + 3) as usize].b32.s1;
+            MEM[u as usize].b32.s1 = t
         } else {
-            (*mem.offset((t + 1i32) as isize)).b32.s1 = e;
-            (*mem.offset(t as isize)).b32.s1 = u;
-            (*mem.offset(q as isize)).b32.s1 = t
+            MEM[(t + 1) as usize].b32.s1 = e;
+            MEM[t as usize].b32.s1 = u;
+            MEM[q as usize].b32.s1 = t
         }
         u = new_math(0i32, 2i32 as small_number);
-        if (*mem.offset(r as isize)).b16.s1 as i32 == 10i32 {
+        if MEM[r as usize].b16.s1 as i32 == 10 {
             j = new_skip_param(7i32 as small_number);
-            (*mem.offset(u as isize)).b32.s1 = j;
-            (*mem.offset(j as isize)).b32.s1 = p;
-            j = (*mem.offset((r + 1i32) as isize)).b32.s0;
-            (*mem.offset(temp_ptr as isize)).b16.s1 = (*mem.offset(j as isize)).b16.s1;
-            (*mem.offset(temp_ptr as isize)).b16.s0 = (*mem.offset(j as isize)).b16.s0;
-            (*mem.offset((temp_ptr + 1i32) as isize)).b32.s1 =
-                d - (*mem.offset((j + 1i32) as isize)).b32.s1;
-            (*mem.offset((temp_ptr + 2i32) as isize)).b32.s1 =
-                -(*mem.offset((j + 2i32) as isize)).b32.s1;
-            (*mem.offset((temp_ptr + 3i32) as isize)).b32.s1 =
-                -(*mem.offset((j + 3i32) as isize)).b32.s1;
-            (*mem.offset(r as isize)).b32.s1 = u
+            MEM[u as usize].b32.s1 = j;
+            MEM[j as usize].b32.s1 = p;
+            j = MEM[(r + 1) as usize].b32.s0;
+            MEM[temp_ptr as usize].b16.s1 = MEM[j as usize].b16.s1;
+            MEM[temp_ptr as usize].b16.s0 = MEM[j as usize].b16.s0;
+            MEM[(temp_ptr + 1) as usize].b32.s1 = d - MEM[(j + 1) as usize].b32.s1;
+            MEM[(temp_ptr + 2) as usize].b32.s1 = -MEM[(j + 2) as usize].b32.s1;
+            MEM[(temp_ptr + 3) as usize].b32.s1 = -MEM[(j + 3) as usize].b32.s1;
+            MEM[r as usize].b32.s1 = u
         } else {
-            (*mem.offset((r + 1i32) as isize)).b32.s1 = d;
-            (*mem.offset(r as isize)).b32.s1 = p;
-            (*mem.offset(u as isize)).b32.s1 = r;
+            MEM[(r + 1) as usize].b32.s1 = d;
+            MEM[r as usize].b32.s1 = p;
+            MEM[u as usize].b32.s1 = r;
             if j == -0xfffffffi32 {
                 b = hpack(u, 0i32, 1i32 as small_number);
-                (*mem.offset((b + 4i32) as isize)).b32.s1 = s
+                MEM[(b + 4) as usize].b32.s1 = s
             } else {
-                (*mem.offset((b + 5i32) as isize)).b32.s1 = u
+                MEM[(b + 5) as usize].b32.s1 = u
             }
         }
     }
@@ -1935,9 +1858,95 @@ pub(crate) unsafe extern "C" fn after_math() {
     if cur_list.mode as i32 == 207i32 {
         j = cur_list.eTeX_aux
     }
-    if *font_params.offset(
-        (*eqtb.offset(
-            (1i32
+    if FONT_PARAMS[EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + 2i32) as usize]
+        .b32
+        .s1 as usize]
+        < 22i32
+        && !(FONT_AREA[EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 2i32) as usize]
+            .b32
+            .s1 as usize] as u32
+            == 0xfffeu32
+            && isOpenTypeMathFont(
+                *font_layout_engine.offset(
+                    EQTB[(1i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 1i32
+                        + 15000i32
+                        + 12i32
+                        + 9000i32
+                        + 1i32
+                        + 1i32
+                        + 19i32
+                        + 256i32
+                        + 256i32
+                        + 13i32
+                        + 256i32
+                        + 4i32
+                        + 256i32
+                        + 1i32
+                        + 2i32) as usize]
+                        .b32
+                        .s1 as isize,
+                ) as XeTeXLayoutEngine,
+            ) as i32
+                != 0)
+        || FONT_PARAMS[EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + (2i32 + 256i32)) as usize]
+            .b32
+            .s1 as usize]
+            < 22i32
+            && !(FONT_AREA[EQTB[(1i32
                 + (0x10ffffi32 + 1i32)
                 + (0x10ffffi32 + 1i32)
                 + 1i32
@@ -1954,40 +1963,13 @@ pub(crate) unsafe extern "C" fn after_math() {
                 + 4i32
                 + 256i32
                 + 1i32
-                + 2i32) as isize,
-        ))
-        .b32
-        .s1 as isize,
-    ) < 22i32
-        && !(*font_area.offset(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 2i32) as isize,
-            ))
-            .b32
-            .s1 as isize,
-        ) as u32
-            == 0xfffeu32
-            && isOpenTypeMathFont(
-                *font_layout_engine.offset(
-                    (*eqtb.offset(
-                        (1i32
+                + (2i32 + 256i32)) as usize]
+                .b32
+                .s1 as usize] as u32
+                == 0xfffeu32
+                && isOpenTypeMathFont(
+                    *font_layout_engine.offset(
+                        EQTB[(1i32
                             + (0x10ffffi32 + 1i32)
                             + (0x10ffffi32 + 1i32)
                             + 1i32
@@ -2004,162 +1986,76 @@ pub(crate) unsafe extern "C" fn after_math() {
                             + 4i32
                             + 256i32
                             + 1i32
-                            + 2i32) as isize,
-                    ))
-                    .b32
-                    .s1 as isize,
-                ) as XeTeXLayoutEngine,
-            ) as i32
-                != 0)
-        || *font_params.offset(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + (2i32 + 256i32)) as isize,
-            ))
-            .b32
-            .s1 as isize,
-        ) < 22i32
-            && !(*font_area.offset(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + (2i32 + 256i32)) as isize,
-                ))
-                .b32
-                .s1 as isize,
-            ) as u32
-                == 0xfffeu32
-                && isOpenTypeMathFont(
-                    *font_layout_engine.offset(
-                        (*eqtb.offset(
-                            (1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + (2i32 + 256i32)) as isize,
-                        ))
-                        .b32
-                        .s1 as isize,
+                            + (2i32 + 256i32)) as usize]
+                            .b32
+                            .s1 as isize,
                     ) as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
-        || *font_params.offset(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + (2i32 + 2i32 * 256i32)) as isize,
-            ))
+        || FONT_PARAMS[EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + (2i32 + 2i32 * 256i32)) as usize]
             .b32
-            .s1 as isize,
-        ) < 22i32
-            && !(*font_area.offset(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + (2i32 + 2i32 * 256i32)) as isize,
-                ))
+            .s1 as usize]
+            < 22i32
+            && !(FONT_AREA[EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + (2i32 + 2i32 * 256i32)) as usize]
                 .b32
-                .s1 as isize,
-            ) as u32
+                .s1 as usize] as u32
                 == 0xfffeu32
                 && isOpenTypeMathFont(
                     *font_layout_engine.offset(
-                        (*eqtb.offset(
-                            (1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + (2i32 + 2i32 * 256i32)) as isize,
-                        ))
-                        .b32
-                        .s1 as isize,
+                        EQTB[(1i32
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + 1i32
+                            + 15000i32
+                            + 12i32
+                            + 9000i32
+                            + 1i32
+                            + 1i32
+                            + 19i32
+                            + 256i32
+                            + 256i32
+                            + 13i32
+                            + 256i32
+                            + 4i32
+                            + 256i32
+                            + 1i32
+                            + (2i32 + 2i32 * 256i32)) as usize]
+                            .b32
+                            .s1 as isize,
                     ) as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
@@ -2177,9 +2073,95 @@ pub(crate) unsafe extern "C" fn after_math() {
         error();
         flush_math();
         danger = true
-    } else if *font_params.offset(
-        (*eqtb.offset(
-            (1i32
+    } else if FONT_PARAMS[EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (3i32 + 0i32)) as usize]
+        .b32
+        .s1 as usize]
+        < 13i32
+        && !(FONT_AREA[EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + (3i32 + 0i32)) as usize]
+            .b32
+            .s1 as usize] as u32
+            == 0xfffeu32
+            && isOpenTypeMathFont(
+                *font_layout_engine.offset(
+                    EQTB[(1i32
+                        + (0x10ffffi32 + 1i32)
+                        + (0x10ffffi32 + 1i32)
+                        + 1i32
+                        + 15000i32
+                        + 12i32
+                        + 9000i32
+                        + 1i32
+                        + 1i32
+                        + 19i32
+                        + 256i32
+                        + 256i32
+                        + 13i32
+                        + 256i32
+                        + 4i32
+                        + 256i32
+                        + 1i32
+                        + (3i32 + 0i32)) as usize]
+                        .b32
+                        .s1 as isize,
+                ) as XeTeXLayoutEngine,
+            ) as i32
+                != 0)
+        || FONT_PARAMS[EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + (3i32 + 256i32)) as usize]
+            .b32
+            .s1 as usize]
+            < 13i32
+            && !(FONT_AREA[EQTB[(1i32
                 + (0x10ffffi32 + 1i32)
                 + (0x10ffffi32 + 1i32)
                 + 1i32
@@ -2196,40 +2178,13 @@ pub(crate) unsafe extern "C" fn after_math() {
                 + 4i32
                 + 256i32
                 + 1i32
-                + (3i32 + 0i32)) as isize,
-        ))
-        .b32
-        .s1 as isize,
-    ) < 13i32
-        && !(*font_area.offset(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + (3i32 + 0i32)) as isize,
-            ))
-            .b32
-            .s1 as isize,
-        ) as u32
-            == 0xfffeu32
-            && isOpenTypeMathFont(
-                *font_layout_engine.offset(
-                    (*eqtb.offset(
-                        (1i32
+                + (3i32 + 256i32)) as usize]
+                .b32
+                .s1 as usize] as u32
+                == 0xfffeu32
+                && isOpenTypeMathFont(
+                    *font_layout_engine.offset(
+                        EQTB[(1i32
                             + (0x10ffffi32 + 1i32)
                             + (0x10ffffi32 + 1i32)
                             + 1i32
@@ -2246,162 +2201,76 @@ pub(crate) unsafe extern "C" fn after_math() {
                             + 4i32
                             + 256i32
                             + 1i32
-                            + (3i32 + 0i32)) as isize,
-                    ))
-                    .b32
-                    .s1 as isize,
-                ) as XeTeXLayoutEngine,
-            ) as i32
-                != 0)
-        || *font_params.offset(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + (3i32 + 256i32)) as isize,
-            ))
-            .b32
-            .s1 as isize,
-        ) < 13i32
-            && !(*font_area.offset(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + (3i32 + 256i32)) as isize,
-                ))
-                .b32
-                .s1 as isize,
-            ) as u32
-                == 0xfffeu32
-                && isOpenTypeMathFont(
-                    *font_layout_engine.offset(
-                        (*eqtb.offset(
-                            (1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + (3i32 + 256i32)) as isize,
-                        ))
-                        .b32
-                        .s1 as isize,
+                            + (3i32 + 256i32)) as usize]
+                            .b32
+                            .s1 as isize,
                     ) as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
-        || *font_params.offset(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + (3i32 + 2i32 * 256i32)) as isize,
-            ))
+        || FONT_PARAMS[EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + (3i32 + 2i32 * 256i32)) as usize]
             .b32
-            .s1 as isize,
-        ) < 13i32
-            && !(*font_area.offset(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + (3i32 + 2i32 * 256i32)) as isize,
-                ))
+            .s1 as usize]
+            < 13i32
+            && !(FONT_AREA[EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + (3i32 + 2i32 * 256i32)) as usize]
                 .b32
-                .s1 as isize,
-            ) as u32
+                .s1 as usize] as u32
                 == 0xfffeu32
                 && isOpenTypeMathFont(
                     *font_layout_engine.offset(
-                        (*eqtb.offset(
-                            (1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + 256i32
-                                + 13i32
-                                + 256i32
-                                + 4i32
-                                + 256i32
-                                + 1i32
-                                + (3i32 + 2i32 * 256i32)) as isize,
-                        ))
-                        .b32
-                        .s1 as isize,
+                        EQTB[(1i32
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + 1i32
+                            + 15000i32
+                            + 12i32
+                            + 9000i32
+                            + 1i32
+                            + 1i32
+                            + 19i32
+                            + 256i32
+                            + 256i32
+                            + 13i32
+                            + 256i32
+                            + 4i32
+                            + 256i32
+                            + 1i32
+                            + (3i32 + 2i32 * 256i32)) as usize]
+                            .b32
+                            .s1 as isize,
                     ) as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
@@ -2442,23 +2311,109 @@ pub(crate) unsafe extern "C" fn after_math() {
         mlist_penalties = false;
         mlist_to_hlist();
         a = hpack(
-            (*mem.offset((4999999i32 - 3i32) as isize)).b32.s1,
+            MEM[(4999999 - 3) as usize].b32.s1,
             0i32,
             1i32 as small_number,
         );
-        (*mem.offset(a as isize)).b16.s0 = 2_u16;
+        MEM[a as usize].b16.s0 = 2_u16;
         unsave();
-        save_ptr -= 1;
-        if (*save_stack.offset((save_ptr + 0i32) as isize)).b32.s1 == 1i32 {
+        SAVE_PTR -= 1;
+        if SAVE_STACK[SAVE_PTR + 0].b32.s1 == 1 {
             l = true
         }
         danger = false;
         if cur_list.mode as i32 == 207i32 {
             j = cur_list.eTeX_aux
         }
-        if *font_params.offset(
-            (*eqtb.offset(
-                (1i32
+        if FONT_PARAMS[EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 2i32) as usize]
+            .b32
+            .s1 as usize]
+            < 22i32
+            && !(FONT_AREA[EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + 2i32) as usize]
+                .b32
+                .s1 as usize] as u32
+                == 0xfffeu32
+                && isOpenTypeMathFont(
+                    *font_layout_engine.offset(
+                        EQTB[(1i32
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + 1i32
+                            + 15000i32
+                            + 12i32
+                            + 9000i32
+                            + 1i32
+                            + 1i32
+                            + 19i32
+                            + 256i32
+                            + 256i32
+                            + 13i32
+                            + 256i32
+                            + 4i32
+                            + 256i32
+                            + 1i32
+                            + 2i32) as usize]
+                            .b32
+                            .s1 as isize,
+                    ) as XeTeXLayoutEngine,
+                ) as i32
+                    != 0)
+            || FONT_PARAMS[EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + (2i32 + 256i32)) as usize]
+                .b32
+                .s1 as usize]
+                < 22i32
+                && !(FONT_AREA[EQTB[(1i32
                     + (0x10ffffi32 + 1i32)
                     + (0x10ffffi32 + 1i32)
                     + 1i32
@@ -2475,40 +2430,13 @@ pub(crate) unsafe extern "C" fn after_math() {
                     + 4i32
                     + 256i32
                     + 1i32
-                    + 2i32) as isize,
-            ))
-            .b32
-            .s1 as isize,
-        ) < 22i32
-            && !(*font_area.offset(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 2i32) as isize,
-                ))
-                .b32
-                .s1 as isize,
-            ) as u32
-                == 0xfffeu32
-                && isOpenTypeMathFont(
-                    *font_layout_engine.offset(
-                        (*eqtb.offset(
-                            (1i32
+                    + (2i32 + 256i32)) as usize]
+                    .b32
+                    .s1 as usize] as u32
+                    == 0xfffeu32
+                    && isOpenTypeMathFont(
+                        *font_layout_engine.offset(
+                            EQTB[(1i32
                                 + (0x10ffffi32 + 1i32)
                                 + (0x10ffffi32 + 1i32)
                                 + 1i32
@@ -2525,163 +2453,76 @@ pub(crate) unsafe extern "C" fn after_math() {
                                 + 4i32
                                 + 256i32
                                 + 1i32
-                                + 2i32) as isize,
-                        ))
-                        .b32
-                        .s1 as isize,
-                    ) as XeTeXLayoutEngine,
-                ) as i32
-                    != 0)
-            || *font_params.offset(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + (2i32 + 256i32)) as isize,
-                ))
-                .b32
-                .s1 as isize,
-            ) < 22i32
-                && !(*font_area.offset(
-                    (*eqtb.offset(
-                        (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + (2i32 + 256i32)) as isize,
-                    ))
-                    .b32
-                    .s1 as isize,
-                ) as u32
-                    == 0xfffeu32
-                    && isOpenTypeMathFont(
-                        *font_layout_engine.offset(
-                            (*eqtb.offset(
-                                (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + (2i32 + 256i32)) as isize,
-                            ))
-                            .b32
-                            .s1 as isize,
+                                + (2i32 + 256i32)) as usize]
+                                .b32
+                                .s1 as isize,
                         ) as XeTeXLayoutEngine,
                     ) as i32
                         != 0)
-            || *font_params.offset(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + (2i32 + 2i32 * 256i32)) as isize,
-                ))
+            || FONT_PARAMS[EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + (2i32 + 2i32 * 256i32)) as usize]
                 .b32
-                .s1 as isize,
-            ) < 22i32
-                && !(*font_area.offset(
-                    (*eqtb.offset(
-                        (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + (2i32 + 2i32 * 256i32)) as isize,
-                    ))
+                .s1 as usize]
+                < 22i32
+                && !(FONT_AREA[EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + (2i32 + 2i32 * 256i32)) as usize]
                     .b32
-                    .s1 as isize,
-                ) as u32
+                    .s1 as usize] as u32
                     == 0xfffeu32
                     && isOpenTypeMathFont(
                         *font_layout_engine.offset(
-                            (*eqtb.offset(
-                                (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + (2i32 + 2i32 * 256i32))
-                                    as isize,
-                            ))
-                            .b32
-                            .s1 as isize,
+                            EQTB[(1i32
+                                + (0x10ffffi32 + 1i32)
+                                + (0x10ffffi32 + 1i32)
+                                + 1i32
+                                + 15000i32
+                                + 12i32
+                                + 9000i32
+                                + 1i32
+                                + 1i32
+                                + 19i32
+                                + 256i32
+                                + 256i32
+                                + 13i32
+                                + 256i32
+                                + 4i32
+                                + 256i32
+                                + 1i32
+                                + (2i32 + 2i32 * 256i32)) as usize]
+                                .b32
+                                .s1 as isize,
                         ) as XeTeXLayoutEngine,
                     ) as i32
                         != 0)
@@ -2699,9 +2540,95 @@ pub(crate) unsafe extern "C" fn after_math() {
             error();
             flush_math();
             danger = true
-        } else if *font_params.offset(
-            (*eqtb.offset(
-                (1i32
+        } else if FONT_PARAMS[EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + (3i32 + 0i32)) as usize]
+            .b32
+            .s1 as usize]
+            < 13i32
+            && !(FONT_AREA[EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + (3i32 + 0i32)) as usize]
+                .b32
+                .s1 as usize] as u32
+                == 0xfffeu32
+                && isOpenTypeMathFont(
+                    *font_layout_engine.offset(
+                        EQTB[(1i32
+                            + (0x10ffffi32 + 1i32)
+                            + (0x10ffffi32 + 1i32)
+                            + 1i32
+                            + 15000i32
+                            + 12i32
+                            + 9000i32
+                            + 1i32
+                            + 1i32
+                            + 19i32
+                            + 256i32
+                            + 256i32
+                            + 13i32
+                            + 256i32
+                            + 4i32
+                            + 256i32
+                            + 1i32
+                            + (3i32 + 0i32)) as usize]
+                            .b32
+                            .s1 as isize,
+                    ) as XeTeXLayoutEngine,
+                ) as i32
+                    != 0)
+            || FONT_PARAMS[EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + (3i32 + 256i32)) as usize]
+                .b32
+                .s1 as usize]
+                < 13i32
+                && !(FONT_AREA[EQTB[(1i32
                     + (0x10ffffi32 + 1i32)
                     + (0x10ffffi32 + 1i32)
                     + 1i32
@@ -2718,40 +2645,13 @@ pub(crate) unsafe extern "C" fn after_math() {
                     + 4i32
                     + 256i32
                     + 1i32
-                    + (3i32 + 0i32)) as isize,
-            ))
-            .b32
-            .s1 as isize,
-        ) < 13i32
-            && !(*font_area.offset(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + (3i32 + 0i32)) as isize,
-                ))
-                .b32
-                .s1 as isize,
-            ) as u32
-                == 0xfffeu32
-                && isOpenTypeMathFont(
-                    *font_layout_engine.offset(
-                        (*eqtb.offset(
-                            (1i32
+                    + (3i32 + 256i32)) as usize]
+                    .b32
+                    .s1 as usize] as u32
+                    == 0xfffeu32
+                    && isOpenTypeMathFont(
+                        *font_layout_engine.offset(
+                            EQTB[(1i32
                                 + (0x10ffffi32 + 1i32)
                                 + (0x10ffffi32 + 1i32)
                                 + 1i32
@@ -2768,163 +2668,76 @@ pub(crate) unsafe extern "C" fn after_math() {
                                 + 4i32
                                 + 256i32
                                 + 1i32
-                                + (3i32 + 0i32)) as isize,
-                        ))
-                        .b32
-                        .s1 as isize,
-                    ) as XeTeXLayoutEngine,
-                ) as i32
-                    != 0)
-            || *font_params.offset(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + (3i32 + 256i32)) as isize,
-                ))
-                .b32
-                .s1 as isize,
-            ) < 13i32
-                && !(*font_area.offset(
-                    (*eqtb.offset(
-                        (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + (3i32 + 256i32)) as isize,
-                    ))
-                    .b32
-                    .s1 as isize,
-                ) as u32
-                    == 0xfffeu32
-                    && isOpenTypeMathFont(
-                        *font_layout_engine.offset(
-                            (*eqtb.offset(
-                                (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + (3i32 + 256i32)) as isize,
-                            ))
-                            .b32
-                            .s1 as isize,
+                                + (3i32 + 256i32)) as usize]
+                                .b32
+                                .s1 as isize,
                         ) as XeTeXLayoutEngine,
                     ) as i32
                         != 0)
-            || *font_params.offset(
-                (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + (3i32 + 2i32 * 256i32)) as isize,
-                ))
+            || FONT_PARAMS[EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + (3i32 + 2i32 * 256i32)) as usize]
                 .b32
-                .s1 as isize,
-            ) < 13i32
-                && !(*font_area.offset(
-                    (*eqtb.offset(
-                        (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 12i32
-                            + 9000i32
-                            + 1i32
-                            + 1i32
-                            + 19i32
-                            + 256i32
-                            + 256i32
-                            + 13i32
-                            + 256i32
-                            + 4i32
-                            + 256i32
-                            + 1i32
-                            + (3i32 + 2i32 * 256i32)) as isize,
-                    ))
+                .s1 as usize]
+                < 13i32
+                && !(FONT_AREA[EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + (3i32 + 2i32 * 256i32)) as usize]
                     .b32
-                    .s1 as isize,
-                ) as u32
+                    .s1 as usize] as u32
                     == 0xfffeu32
                     && isOpenTypeMathFont(
                         *font_layout_engine.offset(
-                            (*eqtb.offset(
-                                (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32
-                                    + 13i32
-                                    + 256i32
-                                    + 4i32
-                                    + 256i32
-                                    + 1i32
-                                    + (3i32 + 2i32 * 256i32))
-                                    as isize,
-                            ))
-                            .b32
-                            .s1 as isize,
+                            EQTB[(1i32
+                                + (0x10ffffi32 + 1i32)
+                                + (0x10ffffi32 + 1i32)
+                                + 1i32
+                                + 15000i32
+                                + 12i32
+                                + 9000i32
+                                + 1i32
+                                + 1i32
+                                + 19i32
+                                + 256i32
+                                + 256i32
+                                + 13i32
+                                + 256i32
+                                + 4i32
+                                + 256i32
+                                + 1i32
+                                + (3i32 + 2i32 * 256i32)) as usize]
+                                .b32
+                                .s1 as isize,
                         ) as XeTeXLayoutEngine,
                     ) as i32
                         != 0)
@@ -2950,87 +2763,82 @@ pub(crate) unsafe extern "C" fn after_math() {
     }
     if m < 0i32 {
         /*1231: */
-        (*mem.offset(cur_list.tail as isize)).b32.s1 = new_math(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32) as isize,
-            ))
-            .b32
-            .s1,
+        MEM[cur_list.tail as usize].b32.s1 = new_math(
+            EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + 3i32 * 256i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 85i32
+                + 256i32
+                + (0x10ffffi32 + 1i32)
+                + 1i32) as usize]
+                .b32
+                .s1,
             0i32 as small_number,
         );
-        cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1;
+        cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         cur_mlist = p;
         cur_style = 2i32 as small_number;
         mlist_penalties = cur_list.mode as i32 > 0i32;
         mlist_to_hlist();
-        (*mem.offset(cur_list.tail as isize)).b32.s1 =
-            (*mem.offset((4999999i32 - 3i32) as isize)).b32.s1;
-        while (*mem.offset(cur_list.tail as isize)).b32.s1 != -0xfffffffi32 {
-            cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1
+        MEM[cur_list.tail as usize].b32.s1 = MEM[(4999999 - 3) as usize].b32.s1;
+        while MEM[cur_list.tail as usize].b32.s1 != -0xfffffff {
+            cur_list.tail = MEM[cur_list.tail as usize].b32.s1
         }
-        (*mem.offset(cur_list.tail as isize)).b32.s1 = new_math(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32) as isize,
-            ))
-            .b32
-            .s1,
+        MEM[cur_list.tail as usize].b32.s1 = new_math(
+            EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + 3i32 * 256i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 85i32
+                + 256i32
+                + (0x10ffffi32 + 1i32)
+                + 1i32) as usize]
+                .b32
+                .s1,
             1i32 as small_number,
         );
-        cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1;
+        cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         cur_list.aux.b32.s0 = 1000i32;
         unsave();
     } else {
@@ -3054,109 +2862,104 @@ pub(crate) unsafe extern "C" fn after_math() {
         cur_style = 0i32 as small_number;
         mlist_penalties = false;
         mlist_to_hlist();
-        p = (*mem.offset((4999999i32 - 3i32) as isize)).b32.s1;
+        p = MEM[(4999999 - 3) as usize].b32.s1;
         adjust_tail = 4999999i32 - 5i32;
         pre_adjust_tail = 4999999i32 - 14i32;
         b = hpack(p, 0i32, 1i32 as small_number);
-        p = (*mem.offset((b + 5i32) as isize)).b32.s1;
+        p = MEM[(b + 5) as usize].b32.s1;
         t = adjust_tail;
         adjust_tail = -0xfffffffi32;
         pre_t = pre_adjust_tail;
         pre_adjust_tail = -0xfffffffi32;
-        w = (*mem.offset((b + 1i32) as isize)).b32.s1;
-        z = (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 14i32) as isize,
-        ))
-        .b32
-        .s1;
-        s = (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 15i32) as isize,
-        ))
-        .b32
-        .s1;
-        if (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 63i32) as isize,
-        ))
-        .b32
-        .s1 < 0i32
+        w = MEM[(b + 1) as usize].b32.s1;
+        z = EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 85i32
+            + 256i32
+            + (0x10ffffi32 + 1i32)
+            + 14i32) as usize]
+            .b32
+            .s1;
+        s = EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 85i32
+            + 256i32
+            + (0x10ffffi32 + 1i32)
+            + 15i32) as usize]
+            .b32
+            .s1;
+        if EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 63i32) as usize]
+            .b32
+            .s1
+            < 0i32
         {
             s = -s - z
         }
@@ -3164,7 +2967,7 @@ pub(crate) unsafe extern "C" fn after_math() {
             e = 0i32;
             q = 0i32
         } else {
-            e = (*mem.offset((a + 1i32) as isize)).b32.s1;
+            e = MEM[(a + 1) as usize].b32.s1;
             q = e + math_quad(0i32)
         }
         if w + q > z {
@@ -3184,85 +2987,81 @@ pub(crate) unsafe extern "C" fn after_math() {
                     b = hpack(p, z, 0i32 as small_number)
                 }
             }
-            w = (*mem.offset((b + 1i32) as isize)).b32.s1
+            w = MEM[(b + 1) as usize].b32.s1
         }
-        (*mem.offset(b as isize)).b16.s0 = 2_u16;
+        MEM[b as usize].b16.s0 = 2_u16;
         d = half(z - w);
         if e > 0i32 && d < 2i32 * e {
             d = half(z - w - e);
             if p != -0xfffffffi32 {
                 if !is_char_node(p) {
-                    if (*mem.offset(p as isize)).b16.s1 as i32 == 10i32 {
+                    if MEM[p as usize].b16.s1 as i32 == 10 {
                         d = 0i32
                     }
                 }
             }
         }
-        (*mem.offset(cur_list.tail as isize)).b32.s1 = new_penalty(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 11i32) as isize,
-            ))
-            .b32
-            .s1,
+        MEM[cur_list.tail as usize].b32.s1 = new_penalty(
+            EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + 3i32 * 256i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 11i32) as usize]
+                .b32
+                .s1,
         );
-        cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1;
+        cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         if d + s
-            <= (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 13i32) as isize,
-            ))
-            .b32
-            .s1
+            <= EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + 3i32 * 256i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 85i32
+                + 256i32
+                + (0x10ffffi32 + 1i32)
+                + 13i32) as usize]
+                .b32
+                .s1
             || l as i32 != 0
         {
             g1 = 3i32 as small_number;
@@ -3273,77 +3072,73 @@ pub(crate) unsafe extern "C" fn after_math() {
         }
         if l as i32 != 0 && e == 0i32 {
             app_display(j, a, 0i32);
-            (*mem.offset(cur_list.tail as isize)).b32.s1 = new_penalty(10000i32);
-            cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1
+            MEM[cur_list.tail as usize].b32.s1 = new_penalty(10000);
+            cur_list.tail = MEM[cur_list.tail as usize].b32.s1
         } else {
-            (*mem.offset(cur_list.tail as isize)).b32.s1 = new_param_glue(g1);
-            cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1
+            MEM[cur_list.tail as usize].b32.s1 = new_param_glue(g1);
+            cur_list.tail = MEM[cur_list.tail as usize].b32.s1
         }
         if e != 0i32 {
             r = new_kern(z - w - e - d);
             if l {
-                (*mem.offset(a as isize)).b32.s1 = r;
-                (*mem.offset(r as isize)).b32.s1 = b;
+                MEM[a as usize].b32.s1 = r;
+                MEM[r as usize].b32.s1 = b;
                 b = a;
                 d = 0i32
             } else {
-                (*mem.offset(b as isize)).b32.s1 = r;
-                (*mem.offset(r as isize)).b32.s1 = a
+                MEM[b as usize].b32.s1 = r;
+                MEM[r as usize].b32.s1 = a
             }
             b = hpack(b, 0i32, 1i32 as small_number)
         }
         app_display(j, b, d);
         if a != -0xfffffffi32 && e == 0i32 && !l {
-            (*mem.offset(cur_list.tail as isize)).b32.s1 = new_penalty(10000i32);
-            cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1;
-            app_display(j, a, z - (*mem.offset((a + 1i32) as isize)).b32.s1);
+            MEM[cur_list.tail as usize].b32.s1 = new_penalty(10000);
+            cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
+            app_display(j, a, z - MEM[(a + 1) as usize].b32.s1);
             g2 = 0i32 as small_number
         }
         if t != 4999999i32 - 5i32 {
-            (*mem.offset(cur_list.tail as isize)).b32.s1 =
-                (*mem.offset((4999999i32 - 5i32) as isize)).b32.s1;
+            MEM[cur_list.tail as usize].b32.s1 = MEM[(4999999 - 5) as usize].b32.s1;
             cur_list.tail = t
         }
         if pre_t != 4999999i32 - 14i32 {
-            (*mem.offset(cur_list.tail as isize)).b32.s1 =
-                (*mem.offset((4999999i32 - 14i32) as isize)).b32.s1;
+            MEM[cur_list.tail as usize].b32.s1 = MEM[(4999999 - 14) as usize].b32.s1;
             cur_list.tail = pre_t
         }
-        (*mem.offset(cur_list.tail as isize)).b32.s1 = new_penalty(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 12i32) as isize,
-            ))
-            .b32
-            .s1,
+        MEM[cur_list.tail as usize].b32.s1 = new_penalty(
+            EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + 3i32 * 256i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 12i32) as usize]
+                .b32
+                .s1,
         );
-        cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1;
+        cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         if g2 as i32 > 0i32 {
-            (*mem.offset(cur_list.tail as isize)).b32.s1 = new_param_glue(g2);
-            cur_list.tail = (*mem.offset(cur_list.tail as isize)).b32.s1
+            MEM[cur_list.tail as usize].b32.s1 = new_param_glue(g2);
+            cur_list.tail = MEM[cur_list.tail as usize].b32.s1
         }
         flush_node_list(j);
         resume_after_display();
@@ -3359,103 +3154,128 @@ pub(crate) unsafe extern "C" fn resume_after_display() {
     push_nest();
     cur_list.mode = 104_i16;
     cur_list.aux.b32.s0 = 1000i32;
-    if (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 50i32) as isize,
-    ))
-    .b32
-    .s1 <= 0i32
+    if EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + 3i32 * 256i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 50i32) as usize]
+        .b32
+        .s1
+        <= 0i32
     {
         cur_lang = 0_u8
-    } else if (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + 3i32 * 256i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 50i32) as isize,
-    ))
-    .b32
-    .s1 > 255i32
+    } else if EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + 3i32 * 256i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 50i32) as usize]
+        .b32
+        .s1
+        > 255i32
     {
         cur_lang = 0_u8
     } else {
-        cur_lang = (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 50i32) as isize,
-        ))
-        .b32
-        .s1 as u8
+        cur_lang = EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 50i32) as usize]
+            .b32
+            .s1 as u8
     }
     cur_list.aux.b32.s1 = cur_lang as i32;
     cur_list.prev_graf = ((norm_min(
-        (*eqtb.offset(
-            (1i32
+        EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 51i32) as usize]
+            .b32
+            .s1,
+    ) as i32
+        * 64i32
+        + norm_min(
+            EQTB[(1i32
                 + (0x10ffffi32 + 1i32)
                 + (0x10ffffi32 + 1i32)
                 + 1i32
@@ -3479,42 +3299,9 @@ pub(crate) unsafe extern "C" fn resume_after_display() {
                 + (0x10ffffi32 + 1i32)
                 + (0x10ffffi32 + 1i32)
                 + (0x10ffffi32 + 1i32)
-                + 51i32) as isize,
-        ))
-        .b32
-        .s1,
-    ) as i32
-        * 64i32
-        + norm_min(
-            (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 52i32) as isize,
-            ))
-            .b32
-            .s1,
+                + 52i32) as usize]
+                .b32
+                .s1,
         ) as i32) as i64
         * 65536
         + cur_lang as i64) as i32;
@@ -3532,870 +3319,778 @@ pub(crate) unsafe extern "C" fn resume_after_display() {
 unsafe extern "C" fn math_x_height(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 5i32)
     } else {
-        rval = (*font_info.offset((5i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(5 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn math_quad(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 6i32)
     } else {
-        rval = (*font_info.offset((6i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(6 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn num1(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 8i32)
     } else {
-        rval = (*font_info.offset((8i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(8 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn num2(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 9i32)
     } else {
-        rval = (*font_info.offset((9i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(9 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn num3(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 10i32)
     } else {
-        rval = (*font_info.offset((10i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(10 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn denom1(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 11i32)
     } else {
-        rval = (*font_info.offset((11i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(11 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn denom2(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 12i32)
     } else {
-        rval = (*font_info.offset((12i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(12 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn sup1(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 13i32)
     } else {
-        rval = (*font_info.offset((13i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(13 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn sup2(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 14i32)
     } else {
-        rval = (*font_info.offset((14i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(14 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn sup3(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 15i32)
     } else {
-        rval = (*font_info.offset((15i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(15 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn sub1(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 16i32)
     } else {
-        rval = (*font_info.offset((16i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(16 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn sub2(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 17i32)
     } else {
-        rval = (*font_info.offset((17i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(17 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn sup_drop(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 18i32)
     } else {
-        rval = (*font_info.offset((18i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(18 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn sub_drop(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 19i32)
     } else {
-        rval = (*font_info.offset((19i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(19 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn delim1(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 20i32)
     } else {
-        rval = (*font_info.offset((20i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(20 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn delim2(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 21i32)
     } else {
-        rval = (*font_info.offset((21i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(21 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn axis_height(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (2i32 + size_code)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (2i32 + size_code)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathsy_param(f, 22i32)
     } else {
-        rval = (*font_info.offset((22i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(22 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn default_rule_thickness() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (3i32 + cur_size)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (3i32 + cur_size)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathex_param(f, 8i32)
     } else {
-        rval = (*font_info.offset((8i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(8 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn big_op_spacing1() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (3i32 + cur_size)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (3i32 + cur_size)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathex_param(f, 9i32)
     } else {
-        rval = (*font_info.offset((9i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(9 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn big_op_spacing2() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (3i32 + cur_size)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (3i32 + cur_size)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathex_param(f, 10i32)
     } else {
-        rval = (*font_info.offset((10i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(10 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn big_op_spacing3() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (3i32 + cur_size)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (3i32 + cur_size)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathex_param(f, 11i32)
     } else {
-        rval = (*font_info.offset((11i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(11 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn big_op_spacing4() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (3i32 + cur_size)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (3i32 + cur_size)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathex_param(f, 12i32)
     } else {
-        rval = (*font_info.offset((12i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(12 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn big_op_spacing5() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + (3i32 + cur_size)) as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (3i32 + cur_size)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
         rval = get_native_mathex_param(f, 13i32)
     } else {
-        rval = (*font_info.offset((13i32 + *param_base.offset(f as isize)) as isize))
-            .b32
-            .s1
+        rval = FONT_INFO[(13 + PARAM_BASE[f as usize]) as usize].b32.s1
     }
     rval
 }
 unsafe extern "C" fn fraction_rule(mut t: scaled_t) -> i32 {
     let mut p: i32 = 0;
     p = new_rule();
-    (*mem.offset((p + 3i32) as isize)).b32.s1 = t;
-    (*mem.offset((p + 2i32) as isize)).b32.s1 = 0i32;
+    MEM[(p + 3) as usize].b32.s1 = t;
+    MEM[(p + 2) as usize].b32.s1 = 0;
     p
 }
 unsafe extern "C" fn overbar(mut b: i32, mut k: scaled_t, mut t: scaled_t) -> i32 {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     p = new_kern(k);
-    (*mem.offset(p as isize)).b32.s1 = b;
+    MEM[p as usize].b32.s1 = b;
     q = fraction_rule(t);
-    (*mem.offset(q as isize)).b32.s1 = p;
+    MEM[q as usize].b32.s1 = p;
     p = new_kern(t);
-    (*mem.offset(p as isize)).b32.s1 = q;
+    MEM[p as usize].b32.s1 = q;
     vpackage(p, 0i32, 1i32 as small_number, 0x3fffffffi32)
 }
 unsafe extern "C" fn math_glue(mut g: i32, mut m: scaled_t) -> i32 {
@@ -4409,60 +4104,60 @@ unsafe extern "C" fn math_glue(mut g: i32, mut m: scaled_t) -> i32 {
         f = (f as i64 + 65536) as scaled_t
     }
     p = get_node(4i32);
-    (*mem.offset((p + 1i32) as isize)).b32.s1 = mult_and_add(
+    MEM[(p + 1) as usize].b32.s1 = mult_and_add(
         n,
-        (*mem.offset((g + 1i32) as isize)).b32.s1,
-        xn_over_d((*mem.offset((g + 1i32) as isize)).b32.s1, f, 65536 as i32),
+        MEM[(g + 1) as usize].b32.s1,
+        xn_over_d(MEM[(g + 1) as usize].b32.s1, f, 65536 as i32),
         0x3fffffffi32,
     );
-    (*mem.offset(p as isize)).b16.s1 = (*mem.offset(g as isize)).b16.s1;
-    if (*mem.offset(p as isize)).b16.s1 as i32 == 0i32 {
-        (*mem.offset((p + 2i32) as isize)).b32.s1 = mult_and_add(
+    MEM[p as usize].b16.s1 = MEM[g as usize].b16.s1;
+    if MEM[p as usize].b16.s1 as i32 == 0 {
+        MEM[(p + 2) as usize].b32.s1 = mult_and_add(
             n,
-            (*mem.offset((g + 2i32) as isize)).b32.s1,
-            xn_over_d((*mem.offset((g + 2i32) as isize)).b32.s1, f, 65536 as i32),
+            MEM[(g + 2) as usize].b32.s1,
+            xn_over_d(MEM[(g + 2) as usize].b32.s1, f, 65536 as i32),
             0x3fffffffi32,
         )
     } else {
-        (*mem.offset((p + 2i32) as isize)).b32.s1 = (*mem.offset((g + 2i32) as isize)).b32.s1
+        MEM[(p + 2) as usize].b32.s1 = MEM[(g + 2) as usize].b32.s1
     }
-    (*mem.offset(p as isize)).b16.s0 = (*mem.offset(g as isize)).b16.s0;
-    if (*mem.offset(p as isize)).b16.s0 as i32 == 0i32 {
-        (*mem.offset((p + 3i32) as isize)).b32.s1 = mult_and_add(
+    MEM[p as usize].b16.s0 = MEM[g as usize].b16.s0;
+    if MEM[p as usize].b16.s0 as i32 == 0 {
+        MEM[(p + 3) as usize].b32.s1 = mult_and_add(
             n,
-            (*mem.offset((g + 3i32) as isize)).b32.s1,
-            xn_over_d((*mem.offset((g + 3i32) as isize)).b32.s1, f, 65536 as i32),
+            MEM[(g + 3) as usize].b32.s1,
+            xn_over_d(MEM[(g + 3) as usize].b32.s1, f, 65536 as i32),
             0x3fffffffi32,
         )
     } else {
-        (*mem.offset((p + 3i32) as isize)).b32.s1 = (*mem.offset((g + 3i32) as isize)).b32.s1
+        MEM[(p + 3) as usize].b32.s1 = MEM[(g + 3) as usize].b32.s1
     }
     p
 }
 unsafe extern "C" fn math_kern(mut p: i32, mut m: scaled_t) {
     let mut n: i32 = 0;
     let mut f: scaled_t = 0;
-    if (*mem.offset(p as isize)).b16.s0 as i32 == 99i32 {
+    if MEM[p as usize].b16.s0 as i32 == 99 {
         n = x_over_n(m, 65536 as i32);
         f = tex_remainder;
         if f < 0i32 {
             n -= 1;
             f = (f as i64 + 65536) as scaled_t
         }
-        (*mem.offset((p + 1i32) as isize)).b32.s1 = mult_and_add(
+        MEM[(p + 1) as usize].b32.s1 = mult_and_add(
             n,
-            (*mem.offset((p + 1i32) as isize)).b32.s1,
-            xn_over_d((*mem.offset((p + 1i32) as isize)).b32.s1, f, 65536 as i32),
+            MEM[(p + 1) as usize].b32.s1,
+            xn_over_d(MEM[(p + 1) as usize].b32.s1, f, 65536 as i32),
             0x3fffffffi32,
         );
-        (*mem.offset(p as isize)).b16.s0 = 1_u16
+        MEM[p as usize].b16.s0 = 1_u16
     };
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn flush_math() {
-    flush_node_list((*mem.offset(cur_list.head as isize)).b32.s1);
+    flush_node_list(MEM[cur_list.head as usize].b32.s1);
     flush_node_list(cur_list.aux.b32.s1);
-    (*mem.offset(cur_list.head as isize)).b32.s1 = -0xfffffffi32;
+    MEM[cur_list.head as usize].b32.s1 = -0xfffffff;
     cur_list.tail = cur_list.head;
     cur_list.aux.b32.s1 = -0xfffffffi32;
 }
@@ -4472,18 +4167,18 @@ unsafe extern "C" fn clean_box(mut p: i32, mut s: small_number) -> i32 {
     let mut save_style: small_number = 0;
     let mut x: i32 = 0;
     let mut r: i32 = 0;
-    match (*mem.offset(p as isize)).b32.s1 {
+    match MEM[p as usize].b32.s1 {
         1 => {
             cur_mlist = new_noad();
-            *mem.offset((cur_mlist + 1i32) as isize) = *mem.offset(p as isize);
+            MEM[(cur_mlist + 1) as usize] = MEM[p as usize];
             current_block = 12209867499936983673;
         }
         2 => {
-            q = (*mem.offset(p as isize)).b32.s0;
+            q = MEM[p as usize].b32.s0;
             current_block = 3089856285952541829;
         }
         3 => {
-            cur_mlist = (*mem.offset(p as isize)).b32.s0;
+            cur_mlist = MEM[p as usize].b32.s0;
             current_block = 12209867499936983673;
         }
         _ => {
@@ -4497,7 +4192,7 @@ unsafe extern "C" fn clean_box(mut p: i32, mut s: small_number) -> i32 {
             cur_style = s;
             mlist_penalties = false;
             mlist_to_hlist();
-            q = (*mem.offset((4999999i32 - 3i32) as isize)).b32.s1;
+            q = MEM[(4999999 - 3) as usize].b32.s1;
             cur_style = save_style;
             if (cur_style as i32) < 4i32 {
                 cur_size = 0i32
@@ -4510,23 +4205,23 @@ unsafe extern "C" fn clean_box(mut p: i32, mut s: small_number) -> i32 {
     }
     if is_char_node(q) as i32 != 0 || q == -0xfffffffi32 {
         x = hpack(q, 0i32, 1i32 as small_number)
-    } else if (*mem.offset(q as isize)).b32.s1 == -0xfffffffi32
-        && (*mem.offset(q as isize)).b16.s1 as i32 <= 1i32
-        && (*mem.offset((q + 4i32) as isize)).b32.s1 == 0i32
+    } else if MEM[q as usize].b32.s1 == -0xfffffff
+        && MEM[q as usize].b16.s1 as i32 <= 1
+        && MEM[(q + 4) as usize].b32.s1 == 0
     {
         x = q
     } else {
         x = hpack(q, 0i32, 1i32 as small_number)
     }
-    q = (*mem.offset((x + 5i32) as isize)).b32.s1;
+    q = MEM[(x + 5) as usize].b32.s1;
     if is_char_node(q) {
-        r = (*mem.offset(q as isize)).b32.s1;
+        r = MEM[q as usize].b32.s1;
         if r != -0xfffffffi32 {
-            if (*mem.offset(r as isize)).b32.s1 == -0xfffffffi32 {
+            if MEM[r as usize].b32.s1 == -0xfffffff {
                 if !is_char_node(r) {
-                    if (*mem.offset(r as isize)).b16.s1 as i32 == 11i32 {
+                    if MEM[r as usize].b16.s1 as i32 == 11 {
                         free_node(r, 3i32);
-                        (*mem.offset(q as isize)).b32.s1 = -0xfffffffi32
+                        MEM[q as usize].b32.s1 = -0xfffffff
                     }
                 }
             }
@@ -4535,31 +4230,28 @@ unsafe extern "C" fn clean_box(mut p: i32, mut s: small_number) -> i32 {
     x
 }
 unsafe extern "C" fn fetch(mut a: i32) {
-    cur_c = (*mem.offset(a as isize)).b16.s0 as i32;
-    cur_f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + ((*mem.offset(a as isize)).b16.s1 as i32 % 256i32 + cur_size)) as isize,
-    ))
-    .b32
-    .s1;
-    cur_c =
-        (cur_c as i64 + ((*mem.offset(a as isize)).b16.s1 as i32 / 256i32) as i64 * 65536) as i32;
+    cur_c = MEM[a as usize].b16.s0 as i32;
+    cur_f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (MEM[a as usize].b16.s1 as i32 % 256 + cur_size)) as usize]
+        .b32
+        .s1;
+    cur_c = (cur_c as i64 + (MEM[a as usize].b16.s1 as i32 / 256) as i64 * 65536) as i32;
     if cur_f == 0i32 {
         /*749: */
         if file_line_error_style_p != 0 {
@@ -4570,7 +4262,7 @@ unsafe extern "C" fn fetch(mut a: i32) {
         print_cstr(b"");
         print_size(cur_size);
         print_char(' ' as i32);
-        print_int((*mem.offset(a as isize)).b16.s1 as i32 % 256i32);
+        print_int(MEM[a as usize].b16.s1 as i32 % 256);
         print_cstr(b" is undefined (character ");
         print(cur_c);
         print_char(')' as i32);
@@ -4581,27 +4273,25 @@ unsafe extern "C" fn fetch(mut a: i32) {
         help_line[0] = b"and I\'ll try to forget that I needed that character.";
         error();
         cur_i = null_character;
-        (*mem.offset(a as isize)).b32.s1 = 0i32
-    } else if *font_area.offset(cur_f as isize) as u32 == 0xffffu32
-        || *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
+        MEM[a as usize].b32.s1 = 0
+    } else if FONT_AREA[cur_f as usize] as u32 == 0xffffu32
+        || FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
     {
         cur_i = null_character
     } else {
-        if cur_c >= *font_bc.offset(cur_f as isize) as i32
-            && cur_c <= *font_ec.offset(cur_f as isize) as i32
-        {
-            cur_i = (*font_info.offset((*char_base.offset(cur_f as isize) + cur_c) as isize)).b16
+        if cur_c >= FONT_BC[cur_f as usize] as i32 && cur_c <= FONT_EC[cur_f as usize] as i32 {
+            cur_i = FONT_INFO[(CHAR_BASE[cur_f as usize] + cur_c) as usize].b16
         } else {
             cur_i = null_character
         }
         if !(cur_i.s3 as i32 > 0i32) {
             char_warning(cur_f, cur_c);
-            (*mem.offset(a as isize)).b32.s1 = 0i32
+            MEM[a as usize].b32.s1 = 0
         }
     };
 }
 unsafe extern "C" fn make_over(mut q: i32) {
-    (*mem.offset((q + 1i32) as isize)).b32.s0 = overbar(
+    MEM[(q + 1) as usize].b32.s0 = overbar(
         clean_box(
             q + 1i32,
             (2i32 * (cur_style as i32 / 2i32) + 1i32) as small_number,
@@ -4609,7 +4299,7 @@ unsafe extern "C" fn make_over(mut q: i32) {
         3i32 * default_rule_thickness(),
         default_rule_thickness(),
     );
-    (*mem.offset((q + 1i32) as isize)).b32.s1 = 2i32;
+    MEM[(q + 1) as usize].b32.s1 = 2;
 }
 unsafe extern "C" fn make_under(mut q: i32) {
     let mut p: i32 = 0;
@@ -4618,27 +4308,25 @@ unsafe extern "C" fn make_under(mut q: i32) {
     let mut delta: scaled_t = 0;
     x = clean_box(q + 1i32, cur_style);
     p = new_kern(3i32 * default_rule_thickness());
-    (*mem.offset(x as isize)).b32.s1 = p;
-    (*mem.offset(p as isize)).b32.s1 = fraction_rule(default_rule_thickness());
+    MEM[x as usize].b32.s1 = p;
+    MEM[p as usize].b32.s1 = fraction_rule(default_rule_thickness());
     y = vpackage(x, 0i32, 1i32 as small_number, 0x3fffffffi32);
-    delta = (*mem.offset((y + 3i32) as isize)).b32.s1
-        + (*mem.offset((y + 2i32) as isize)).b32.s1
-        + default_rule_thickness();
-    (*mem.offset((y + 3i32) as isize)).b32.s1 = (*mem.offset((x + 3i32) as isize)).b32.s1;
-    (*mem.offset((y + 2i32) as isize)).b32.s1 = delta - (*mem.offset((y + 3i32) as isize)).b32.s1;
-    (*mem.offset((q + 1i32) as isize)).b32.s0 = y;
-    (*mem.offset((q + 1i32) as isize)).b32.s1 = 2i32;
+    delta = MEM[(y + 3) as usize].b32.s1 + MEM[(y + 2) as usize].b32.s1 + default_rule_thickness();
+    MEM[(y + 3) as usize].b32.s1 = MEM[(x + 3) as usize].b32.s1;
+    MEM[(y + 2) as usize].b32.s1 = delta - MEM[(y + 3) as usize].b32.s1;
+    MEM[(q + 1) as usize].b32.s0 = y;
+    MEM[(q + 1) as usize].b32.s1 = 2;
 }
 unsafe extern "C" fn make_vcenter(mut q: i32) {
     let mut v: i32 = 0;
     let mut delta: scaled_t = 0;
-    v = (*mem.offset((q + 1i32) as isize)).b32.s0;
-    if (*mem.offset(v as isize)).b16.s1 as i32 != 1i32 {
+    v = MEM[(q + 1) as usize].b32.s0;
+    if MEM[v as usize].b16.s1 as i32 != 1 {
         confusion(b"vcenter");
     }
-    delta = (*mem.offset((v + 3i32) as isize)).b32.s1 + (*mem.offset((v + 2i32) as isize)).b32.s1;
-    (*mem.offset((v + 3i32) as isize)).b32.s1 = axis_height(cur_size) + half(delta);
-    (*mem.offset((v + 2i32) as isize)).b32.s1 = delta - (*mem.offset((v + 3i32) as isize)).b32.s1;
+    delta = MEM[(v + 3) as usize].b32.s1 + MEM[(v + 2) as usize].b32.s1;
+    MEM[(v + 3) as usize].b32.s1 = axis_height(cur_size) + half(delta);
+    MEM[(v + 2) as usize].b32.s1 = delta - MEM[(v + 3) as usize].b32.s1;
 }
 unsafe extern "C" fn make_radical(mut q: i32) {
     let mut x: i32 = 0;
@@ -4647,30 +4335,27 @@ unsafe extern "C" fn make_radical(mut q: i32) {
     let mut rule_thickness: scaled_t = 0;
     let mut delta: scaled_t = 0;
     let mut clr: scaled_t = 0;
-    f = (*eqtb.offset(
-        (1i32
-            + (0x10ffffi32 + 1i32)
-            + (0x10ffffi32 + 1i32)
-            + 1i32
-            + 15000i32
-            + 12i32
-            + 9000i32
-            + 1i32
-            + 1i32
-            + 19i32
-            + 256i32
-            + 256i32
-            + 13i32
-            + 256i32
-            + 4i32
-            + 256i32
-            + 1i32
-            + ((*mem.offset((q + 4i32) as isize)).b16.s3 as i32 % 256i32 + cur_size))
-            as isize,
-    ))
-    .b32
-    .s1;
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    f = EQTB[(1i32
+        + (0x10ffffi32 + 1i32)
+        + (0x10ffffi32 + 1i32)
+        + 1i32
+        + 15000i32
+        + 12i32
+        + 9000i32
+        + 1i32
+        + 1i32
+        + 19i32
+        + 256i32
+        + 256i32
+        + 13i32
+        + 256i32
+        + 4i32
+        + 256i32
+        + 1i32
+        + (MEM[(q + 4) as usize].b16.s3 as i32 % 256 + cur_size)) as usize]
+        .b32
+        .s1;
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
@@ -4682,7 +4367,7 @@ unsafe extern "C" fn make_radical(mut q: i32) {
         q + 1i32,
         (2i32 * (cur_style as i32 / 2i32) + 1i32) as small_number,
     );
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
@@ -4700,48 +4385,42 @@ unsafe extern "C" fn make_radical(mut q: i32) {
     y = var_delimiter(
         q + 4i32,
         cur_size,
-        (*mem.offset((x + 3i32) as isize)).b32.s1
-            + (*mem.offset((x + 2i32) as isize)).b32.s1
-            + clr
-            + rule_thickness,
+        MEM[(x + 3) as usize].b32.s1 + MEM[(x + 2) as usize].b32.s1 + clr + rule_thickness,
     );
-    if *font_area.offset(f as isize) as u32 == 0xfffeu32
+    if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
             != 0
     {
-        (*mem.offset((y + 2i32) as isize)).b32.s1 = (*mem.offset((y + 3i32) as isize)).b32.s1
-            + (*mem.offset((y + 2i32) as isize)).b32.s1
-            - rule_thickness;
-        (*mem.offset((y + 3i32) as isize)).b32.s1 = rule_thickness
+        MEM[(y + 2) as usize].b32.s1 =
+            MEM[(y + 3) as usize].b32.s1 + MEM[(y + 2) as usize].b32.s1 - rule_thickness;
+        MEM[(y + 3) as usize].b32.s1 = rule_thickness
     }
-    delta = (*mem.offset((y + 2i32) as isize)).b32.s1
-        - ((*mem.offset((x + 3i32) as isize)).b32.s1
-            + (*mem.offset((x + 2i32) as isize)).b32.s1
-            + clr);
+    delta = MEM[(y + 2) as usize].b32.s1
+        - (MEM[(x + 3) as usize].b32.s1 + MEM[(x + 2) as usize].b32.s1 + clr);
     if delta > 0i32 {
         clr = clr + half(delta)
     }
-    (*mem.offset((y + 4i32) as isize)).b32.s1 = -((*mem.offset((x + 3i32) as isize)).b32.s1 + clr);
-    (*mem.offset(y as isize)).b32.s1 = overbar(x, clr, (*mem.offset((y + 3i32) as isize)).b32.s1);
-    (*mem.offset((q + 1i32) as isize)).b32.s0 = hpack(y, 0i32, 1i32 as small_number);
-    (*mem.offset((q + 1i32) as isize)).b32.s1 = 2i32;
+    MEM[(y + 4) as usize].b32.s1 = -(MEM[(x + 3) as usize].b32.s1 + clr);
+    MEM[y as usize].b32.s1 = overbar(x, clr, MEM[(y + 3) as usize].b32.s1);
+    MEM[(q + 1) as usize].b32.s0 = hpack(y, 0, 1 as small_number);
+    MEM[(q + 1) as usize].b32.s1 = 2;
 }
 unsafe extern "C" fn compute_ot_math_accent_pos(mut p: i32) -> scaled_t {
     let mut q: i32 = 0;
     let mut r: i32 = 0;
     let mut s: scaled_t = 0;
     let mut g: scaled_t = 0;
-    if (*mem.offset((p + 1i32) as isize)).b32.s1 == 1i32 {
+    if MEM[(p + 1) as usize].b32.s1 == 1 {
         fetch(p + 1i32);
         q = new_native_character(cur_f, cur_c);
         g = real_get_native_glyph(
-            &mut *mem.offset(q as isize) as *mut memory_word as *mut libc::c_void,
+            &mut MEM[q as usize] as *mut memory_word as *mut libc::c_void,
             0_u32,
         ) as scaled_t;
         s = get_ot_math_accent_pos(cur_f, g)
-    } else if (*mem.offset((p + 1i32) as isize)).b32.s1 == 3i32 {
-        r = (*mem.offset((p + 1i32) as isize)).b32.s0;
-        if r != -0xfffffffi32 && (*mem.offset(r as isize)).b16.s1 as i32 == 28i32 {
+    } else if MEM[(p + 1) as usize].b32.s1 == 3 {
+        r = MEM[(p + 1) as usize].b32.s0;
+        if r != -0xfffffffi32 && MEM[r as usize].b16.s1 as i32 == 28 {
             s = compute_ot_math_accent_pos(r)
         } else {
             s = 0x7fffffffi32
@@ -4775,14 +4454,12 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
     fetch(q + 4i32);
     x = -0xfffffffi32;
     ot_assembly_ptr = 0 as *mut libc::c_void;
-    if *font_area.offset(cur_f as isize) as u32 == 0xffffu32
-        || *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
+    if FONT_AREA[cur_f as usize] as u32 == 0xffffu32
+        || FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
     {
         c = cur_c;
         f = cur_f;
-        if !((*mem.offset(q as isize)).b16.s0 as i32 == 2i32
-            || (*mem.offset(q as isize)).b16.s0 as i32 == 2i32 + 1i32)
-        {
+        if !(MEM[q as usize].b16.s0 as i32 == 2 || MEM[q as usize].b16.s0 as i32 == 2 + 1) {
             s = compute_ot_math_accent_pos(q)
         } else {
             s = 0i32
@@ -4791,38 +4468,36 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
             q + 1i32,
             (2i32 * (cur_style as i32 / 2i32) + 1i32) as small_number,
         );
-        w = (*mem.offset((x + 1i32) as isize)).b32.s1;
-        h = (*mem.offset((x + 3i32) as isize)).b32.s1
+        w = MEM[(x + 1) as usize].b32.s1;
+        h = MEM[(x + 3) as usize].b32.s1
     } else if cur_i.s3 as i32 > 0i32 {
         i = cur_i;
         c = cur_c;
         f = cur_f;
         s = 0i32;
-        if (*mem.offset((q + 1i32) as isize)).b32.s1 == 1i32 {
+        if MEM[(q + 1) as usize].b32.s1 == 1 {
             fetch(q + 1i32);
             if cur_i.s1 as i32 % 4i32 == 1i32 {
-                a = *lig_kern_base.offset(cur_f as isize) + cur_i.s0 as i32;
-                cur_i = (*font_info.offset(a as isize)).b16;
+                a = LIG_KERN_BASE[cur_f as usize] + cur_i.s0 as i32;
+                cur_i = FONT_INFO[a as usize].b16;
                 if cur_i.s3 as i32 > 128i32 {
-                    a = ((*lig_kern_base.offset(cur_f as isize)
+                    a = ((LIG_KERN_BASE[cur_f as usize]
                         + 256i32 * cur_i.s1 as i32
                         + cur_i.s0 as i32) as i64
                         + 32768
                         - (256i32 * 128i32) as i64) as i32;
-                    cur_i = (*font_info.offset(a as isize)).b16
+                    cur_i = FONT_INFO[a as usize].b16
                 }
                 loop {
-                    if cur_i.s2 as i32 == *skew_char.offset(cur_f as isize) {
+                    if cur_i.s2 as i32 == SKEW_CHAR[cur_f as usize] {
                         if cur_i.s1 as i32 >= 128i32 {
                             if cur_i.s3 as i32 <= 128i32 {
-                                s = (*font_info.offset(
-                                    (*kern_base.offset(cur_f as isize)
-                                        + 256i32 * cur_i.s1 as i32
-                                        + cur_i.s0 as i32)
-                                        as isize,
-                                ))
-                                .b32
-                                .s1
+                                s = FONT_INFO[(KERN_BASE[cur_f as usize]
+                                    + 256i32 * cur_i.s1 as i32
+                                    + cur_i.s0 as i32)
+                                    as usize]
+                                    .b32
+                                    .s1
                             }
                         }
                         break;
@@ -4831,7 +4506,7 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
                             break;
                         }
                         a = a + cur_i.s3 as i32 + 1i32;
-                        cur_i = (*font_info.offset(a as isize)).b16
+                        cur_i = FONT_INFO[a as usize].b16
                     }
                 }
             }
@@ -4840,15 +4515,15 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
             q + 1i32,
             (2i32 * (cur_style as i32 / 2i32) + 1i32) as small_number,
         );
-        w = (*mem.offset((x + 1i32) as isize)).b32.s1;
-        h = (*mem.offset((x + 3i32) as isize)).b32.s1;
+        w = MEM[(x + 1) as usize].b32.s1;
+        h = MEM[(x + 3) as usize].b32.s1;
         while !(i.s1 as i32 % 4i32 != 2i32) {
             y = i.s0 as i32;
-            i = (*font_info.offset((*char_base.offset(f as isize) + y) as isize)).b16;
+            i = FONT_INFO[(CHAR_BASE[f as usize] + y) as usize].b16;
             if !(i.s3 as i32 > 0i32) {
                 break;
             }
-            if (*font_info.offset((*width_base.offset(f as isize) + i.s3 as i32) as isize))
+            if FONT_INFO[(WIDTH_BASE[f as usize] + i.s3 as i32) as usize]
                 .b32
                 .s1
                 > w
@@ -4860,88 +4535,74 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
     }
     /*:767*/
     if x != -0xfffffffi32 {
-        if *font_area.offset(f as isize) as u32 == 0xfffeu32
+        if FONT_AREA[f as usize] as u32 == 0xfffeu32
             && isOpenTypeMathFont(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine)
                 as i32
                 != 0
         {
-            if (*mem.offset(q as isize)).b16.s0 as i32 == 2i32
-                || (*mem.offset(q as isize)).b16.s0 as i32 == 2i32 + 1i32
-            {
+            if MEM[q as usize].b16.s0 as i32 == 2 || MEM[q as usize].b16.s0 as i32 == 2 + 1 {
                 delta = 0i32
             } else if h < get_ot_math_constant(f, 6i32) {
                 delta = h
             } else {
                 delta = get_ot_math_constant(f, 6i32)
             }
-        } else if h
-            < (*font_info.offset((5i32 + *param_base.offset(f as isize)) as isize))
-                .b32
-                .s1
-        {
+        } else if h < FONT_INFO[(5 + PARAM_BASE[f as usize]) as usize].b32.s1 {
             delta = h
         } else {
-            delta = (*font_info.offset((5i32 + *param_base.offset(f as isize)) as isize))
-                .b32
-                .s1
+            delta = FONT_INFO[(5 + PARAM_BASE[f as usize]) as usize].b32.s1
         }
-        if (*mem.offset((q + 2i32) as isize)).b32.s1 != 0i32
-            || (*mem.offset((q + 3i32) as isize)).b32.s1 != 0i32
-        {
-            if (*mem.offset((q + 1i32) as isize)).b32.s1 == 1i32 {
+        if MEM[(q + 2) as usize].b32.s1 != 0 || MEM[(q + 3) as usize].b32.s1 != 0 {
+            if MEM[(q + 1) as usize].b32.s1 == 1 {
                 /*769: */
                 flush_node_list(x);
                 x = new_noad();
-                *mem.offset((x + 1i32) as isize) = *mem.offset((q + 1i32) as isize);
-                *mem.offset((x + 2i32) as isize) = *mem.offset((q + 2i32) as isize);
-                *mem.offset((x + 3i32) as isize) = *mem.offset((q + 3i32) as isize);
-                (*mem.offset((q + 2i32) as isize)).b32 = empty;
-                (*mem.offset((q + 3i32) as isize)).b32 = empty;
-                (*mem.offset((q + 1i32) as isize)).b32.s1 = 3i32;
-                (*mem.offset((q + 1i32) as isize)).b32.s0 = x;
+                MEM[(x + 1) as usize] = MEM[(q + 1) as usize];
+                MEM[(x + 2) as usize] = MEM[(q + 2) as usize];
+                MEM[(x + 3) as usize] = MEM[(q + 3) as usize];
+                MEM[(q + 2) as usize].b32 = empty;
+                MEM[(q + 3) as usize].b32 = empty;
+                MEM[(q + 1) as usize].b32.s1 = 3;
+                MEM[(q + 1) as usize].b32.s0 = x;
                 x = clean_box(q + 1i32, cur_style);
-                delta = delta + (*mem.offset((x + 3i32) as isize)).b32.s1 - h;
-                h = (*mem.offset((x + 3i32) as isize)).b32.s1
+                delta = delta + MEM[(x + 3) as usize].b32.s1 - h;
+                h = MEM[(x + 3) as usize].b32.s1
             }
         }
         y = char_box(f, c);
-        if *font_area.offset(f as isize) as u32 == 0xffffu32
-            || *font_area.offset(f as isize) as u32 == 0xfffeu32
-        {
+        if FONT_AREA[f as usize] as u32 == 0xffffu32 || FONT_AREA[f as usize] as u32 == 0xfffeu32 {
             p = get_node(5i32);
-            (*mem.offset(p as isize)).b16.s1 = 8_u16;
-            (*mem.offset(p as isize)).b16.s0 = 42_u16;
-            (*mem.offset((p + 4i32) as isize)).b16.s2 = f as u16;
-            (*mem.offset((p + 4i32) as isize)).b16.s1 = real_get_native_glyph(
-                &mut *mem.offset((*mem.offset((y + 5i32) as isize)).b32.s1 as isize)
-                    as *mut memory_word as *mut libc::c_void,
+            MEM[p as usize].b16.s1 = 8_u16;
+            MEM[p as usize].b16.s0 = 42_u16;
+            MEM[(p + 4) as usize].b16.s2 = f as u16;
+            MEM[(p + 4) as usize].b16.s1 = real_get_native_glyph(
+                &mut MEM[MEM[(y + 5) as usize].b32.s1 as usize] as *mut memory_word
+                    as *mut libc::c_void,
                 0_u32,
             );
             measure_native_glyph(
-                &mut *mem.offset(p as isize) as *mut memory_word as *mut libc::c_void,
+                &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
                 1i32,
             );
             free_node(
-                (*mem.offset((y + 5i32) as isize)).b32.s1,
-                (*mem.offset(((*mem.offset((y + 5i32) as isize)).b32.s1 + 4i32) as isize))
-                    .b16
-                    .s3 as i32,
+                MEM[(y + 5) as usize].b32.s1,
+                MEM[(MEM[(y + 5) as usize].b32.s1 + 4) as usize].b16.s3 as i32,
             );
-            (*mem.offset((y + 5i32) as isize)).b32.s1 = p;
-            if (*mem.offset(q as isize)).b16.s0 as i32 & 1i32 != 0 {
+            MEM[(y + 5) as usize].b32.s1 = p;
+            if MEM[q as usize].b16.s0 as i32 & 1 != 0 {
                 measure_native_glyph(
-                    &mut *mem.offset(p as isize) as *mut memory_word as *mut libc::c_void,
+                    &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
                     1i32,
                 );
             } else {
-                c = (*mem.offset((p + 4i32) as isize)).b16.s1 as i32;
+                c = MEM[(p + 4) as usize].b16.s1 as i32;
                 a = 0i32;
                 loop {
                     g = get_ot_math_variant(f, c, a, &mut w2, 1i32);
                     if w2 > 0i32 && w2 <= w {
-                        (*mem.offset((p + 4i32) as isize)).b16.s1 = g as u16;
+                        MEM[(p + 4) as usize].b16.s1 = g as u16;
                         measure_native_glyph(
-                            &mut *mem.offset(p as isize) as *mut memory_word as *mut libc::c_void,
+                            &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
                             1i32,
                         );
                         a += 1
@@ -4955,74 +4616,68 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
                     if !ot_assembly_ptr.is_null() {
                         free_node(p, 5i32);
                         p = build_opentype_assembly(f, ot_assembly_ptr, w, true);
-                        (*mem.offset((y + 5i32) as isize)).b32.s1 = p
+                        MEM[(y + 5) as usize].b32.s1 = p
                     }
                 } else {
                     measure_native_glyph(
-                        &mut *mem.offset(p as isize) as *mut memory_word as *mut libc::c_void,
+                        &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
                         1i32,
                     );
                 }
             }
-            (*mem.offset((y + 1i32) as isize)).b32.s1 = (*mem.offset((p + 1i32) as isize)).b32.s1;
-            (*mem.offset((y + 3i32) as isize)).b32.s1 = (*mem.offset((p + 3i32) as isize)).b32.s1;
-            (*mem.offset((y + 2i32) as isize)).b32.s1 = (*mem.offset((p + 2i32) as isize)).b32.s1;
-            if (*mem.offset(q as isize)).b16.s0 as i32 == 2i32
-                || (*mem.offset(q as isize)).b16.s0 as i32 == 2i32 + 1i32
-            {
-                if (*mem.offset((y + 3i32) as isize)).b32.s1 < 0i32 {
-                    (*mem.offset((y + 3i32) as isize)).b32.s1 = 0i32
+            MEM[(y + 1) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
+            MEM[(y + 3) as usize].b32.s1 = MEM[(p + 3) as usize].b32.s1;
+            MEM[(y + 2) as usize].b32.s1 = MEM[(p + 2) as usize].b32.s1;
+            if MEM[q as usize].b16.s0 as i32 == 2 || MEM[q as usize].b16.s0 as i32 == 2 + 1 {
+                if MEM[(y + 3) as usize].b32.s1 < 0 {
+                    MEM[(y + 3) as usize].b32.s1 = 0
                 }
-            } else if (*mem.offset((y + 2i32) as isize)).b32.s1 < 0i32 {
-                (*mem.offset((y + 2i32) as isize)).b32.s1 = 0i32
+            } else if MEM[(y + 2) as usize].b32.s1 < 0 {
+                MEM[(y + 2) as usize].b32.s1 = 0
             }
             if p != -0xfffffffi32
                 && !is_char_node(p)
-                && (*mem.offset(p as isize)).b16.s1 as i32 == 8i32
-                && (*mem.offset(p as isize)).b16.s0 as i32 == 42i32
+                && MEM[p as usize].b16.s1 as i32 == 8
+                && MEM[p as usize].b16.s0 as i32 == 42
             {
-                sa = get_ot_math_accent_pos(f, (*mem.offset((p + 4i32) as isize)).b16.s1 as i32);
+                sa = get_ot_math_accent_pos(f, MEM[(p + 4) as usize].b16.s1 as i32);
                 if sa == 0x7fffffffi32 {
-                    sa = half((*mem.offset((y + 1i32) as isize)).b32.s1)
+                    sa = half(MEM[(y + 1) as usize].b32.s1)
                 }
             } else {
-                sa = half((*mem.offset((y + 1i32) as isize)).b32.s1)
+                sa = half(MEM[(y + 1) as usize].b32.s1)
             }
-            if (*mem.offset(q as isize)).b16.s0 as i32 == 2i32
-                || (*mem.offset(q as isize)).b16.s0 as i32 == 2i32 + 1i32
+            if MEM[q as usize].b16.s0 as i32 == 2
+                || MEM[q as usize].b16.s0 as i32 == 2 + 1
                 || s == 0x7fffffffi32
             {
                 s = half(w)
             }
-            (*mem.offset((y + 4i32) as isize)).b32.s1 = s - sa
+            MEM[(y + 4) as usize].b32.s1 = s - sa
         } else {
-            (*mem.offset((y + 4i32) as isize)).b32.s1 =
-                s + half(w - (*mem.offset((y + 1i32) as isize)).b32.s1)
+            MEM[(y + 4) as usize].b32.s1 = s + half(w - MEM[(y + 1) as usize].b32.s1)
         }
-        (*mem.offset((y + 1i32) as isize)).b32.s1 = 0i32;
-        if (*mem.offset(q as isize)).b16.s0 as i32 == 2i32
-            || (*mem.offset(q as isize)).b16.s0 as i32 == 2i32 + 1i32
-        {
-            (*mem.offset(x as isize)).b32.s1 = y;
+        MEM[(y + 1) as usize].b32.s1 = 0;
+        if MEM[q as usize].b16.s0 as i32 == 2 || MEM[q as usize].b16.s0 as i32 == 2 + 1 {
+            MEM[x as usize].b32.s1 = y;
             y = vpackage(x, 0i32, 1i32 as small_number, 0x3fffffffi32);
-            (*mem.offset((y + 4i32) as isize)).b32.s1 =
-                -(h - (*mem.offset((y + 3i32) as isize)).b32.s1)
+            MEM[(y + 4) as usize].b32.s1 = -(h - MEM[(y + 3) as usize].b32.s1)
         } else {
             p = new_kern(-delta);
-            (*mem.offset(p as isize)).b32.s1 = x;
-            (*mem.offset(y as isize)).b32.s1 = p;
+            MEM[p as usize].b32.s1 = x;
+            MEM[y as usize].b32.s1 = p;
             y = vpackage(y, 0i32, 1i32 as small_number, 0x3fffffffi32);
-            if (*mem.offset((y + 3i32) as isize)).b32.s1 < h {
+            if MEM[(y + 3) as usize].b32.s1 < h {
                 /*765: */
-                p = new_kern(h - (*mem.offset((y + 3i32) as isize)).b32.s1); /*773:*/
-                (*mem.offset(p as isize)).b32.s1 = (*mem.offset((y + 5i32) as isize)).b32.s1;
-                (*mem.offset((y + 5i32) as isize)).b32.s1 = p;
-                (*mem.offset((y + 3i32) as isize)).b32.s1 = h
+                p = new_kern(h - MEM[(y + 3) as usize].b32.s1); /*773:*/
+                MEM[p as usize].b32.s1 = MEM[(y + 5) as usize].b32.s1;
+                MEM[(y + 5) as usize].b32.s1 = p;
+                MEM[(y + 3) as usize].b32.s1 = h
             }
         }
-        (*mem.offset((y + 1i32) as isize)).b32.s1 = (*mem.offset((x + 1i32) as isize)).b32.s1;
-        (*mem.offset((q + 1i32) as isize)).b32.s0 = y;
-        (*mem.offset((q + 1i32) as isize)).b32.s1 = 2i32
+        MEM[(y + 1) as usize].b32.s1 = MEM[(x + 1) as usize].b32.s1;
+        MEM[(q + 1) as usize].b32.s0 = y;
+        MEM[(q + 1) as usize].b32.s1 = 2
     }
     free_ot_assembly(ot_assembly_ptr as *mut GlyphAssembly);
 }
@@ -5038,8 +4693,8 @@ unsafe extern "C" fn make_fraction(mut q: i32) {
     let mut shift_up: scaled_t = 0;
     let mut shift_down: scaled_t = 0;
     let mut clr: scaled_t = 0;
-    if (*mem.offset((q + 1i32) as isize)).b32.s1 == 0x40000000i32 {
-        (*mem.offset((q + 1i32) as isize)).b32.s1 = default_rule_thickness()
+    if MEM[(q + 1) as usize].b32.s1 == 0x40000000 {
+        MEM[(q + 1) as usize].b32.s1 = default_rule_thickness()
     }
     x = clean_box(
         q + 2i32,
@@ -5050,25 +4705,25 @@ unsafe extern "C" fn make_fraction(mut q: i32) {
         (2i32 * (cur_style as i32 / 2i32) + 3i32 - 2i32 * (cur_style as i32 / 6i32))
             as small_number,
     );
-    if (*mem.offset((x + 1i32) as isize)).b32.s1 < (*mem.offset((z + 1i32) as isize)).b32.s1 {
-        x = rebox(x, (*mem.offset((z + 1i32) as isize)).b32.s1)
+    if MEM[(x + 1) as usize].b32.s1 < MEM[(z + 1) as usize].b32.s1 {
+        x = rebox(x, MEM[(z + 1) as usize].b32.s1)
     } else {
-        z = rebox(z, (*mem.offset((x + 1i32) as isize)).b32.s1)
+        z = rebox(z, MEM[(x + 1) as usize].b32.s1)
     }
     if (cur_style as i32) < 2i32 {
         shift_up = num1(cur_size);
         shift_down = denom1(cur_size)
     } else {
         shift_down = denom2(cur_size);
-        if (*mem.offset((q + 1i32) as isize)).b32.s1 != 0i32 {
+        if MEM[(q + 1) as usize].b32.s1 != 0 {
             shift_up = num2(cur_size)
         } else {
             shift_up = num3(cur_size)
         }
     }
-    if (*mem.offset((q + 1i32) as isize)).b32.s1 == 0i32 {
+    if MEM[(q + 1) as usize].b32.s1 == 0 {
         /*772:*/
-        if *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
+        if FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
             && isOpenTypeMathFont(*font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine)
                 as i32
                 != 0
@@ -5085,53 +4740,45 @@ unsafe extern "C" fn make_fraction(mut q: i32) {
         } /*:774*/
         delta = half(
             clr - (shift_up
-                - (*mem.offset((x + 2i32) as isize)).b32.s1
-                - ((*mem.offset((z + 3i32) as isize)).b32.s1 - shift_down)),
+                - MEM[(x + 2) as usize].b32.s1
+                - (MEM[(z + 3) as usize].b32.s1 - shift_down)),
         );
         if delta > 0i32 {
             shift_up = shift_up + delta;
             shift_down = shift_down + delta
         }
     } else {
-        if *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
+        if FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
             && isOpenTypeMathFont(*font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine)
                 as i32
                 != 0
         {
-            delta = half((*mem.offset((q + 1i32) as isize)).b32.s1);
+            delta = half(MEM[(q + 1) as usize].b32.s1);
             if (cur_style as i32) < 2i32 {
                 clr = get_ot_math_constant(cur_f, 37i32)
             } else {
                 clr = get_ot_math_constant(cur_f, 36i32)
             }
-            delta1 = clr
-                - (shift_up
-                    - (*mem.offset((x + 2i32) as isize)).b32.s1
-                    - (axis_height(cur_size) + delta));
+            delta1 =
+                clr - (shift_up - MEM[(x + 2) as usize].b32.s1 - (axis_height(cur_size) + delta));
             if (cur_style as i32) < 2i32 {
                 clr = get_ot_math_constant(cur_f, 40i32)
             } else {
                 clr = get_ot_math_constant(cur_f, 39i32)
             }
-            delta2 = clr
-                - (axis_height(cur_size)
-                    - delta
-                    - ((*mem.offset((z + 3i32) as isize)).b32.s1 - shift_down))
+            delta2 =
+                clr - (axis_height(cur_size) - delta - (MEM[(z + 3) as usize].b32.s1 - shift_down))
         } else {
             if (cur_style as i32) < 2i32 {
-                clr = 3i32 * (*mem.offset((q + 1i32) as isize)).b32.s1
+                clr = 3i32 * MEM[(q + 1) as usize].b32.s1
             } else {
-                clr = (*mem.offset((q + 1i32) as isize)).b32.s1
+                clr = MEM[(q + 1) as usize].b32.s1
             }
-            delta = half((*mem.offset((q + 1i32) as isize)).b32.s1);
-            delta1 = clr
-                - (shift_up
-                    - (*mem.offset((x + 2i32) as isize)).b32.s1
-                    - (axis_height(cur_size) + delta));
-            delta2 = clr
-                - (axis_height(cur_size)
-                    - delta
-                    - ((*mem.offset((z + 3i32) as isize)).b32.s1 - shift_down))
+            delta = half(MEM[(q + 1) as usize].b32.s1);
+            delta1 =
+                clr - (shift_up - MEM[(x + 2) as usize].b32.s1 - (axis_height(cur_size) + delta));
+            delta2 =
+                clr - (axis_height(cur_size) - delta - (MEM[(z + 3) as usize].b32.s1 - shift_down))
         }
         if delta1 > 0i32 {
             shift_up = shift_up + delta1
@@ -5141,45 +4788,35 @@ unsafe extern "C" fn make_fraction(mut q: i32) {
         }
     }
     v = new_null_box();
-    (*mem.offset(v as isize)).b16.s1 = 1_u16;
-    (*mem.offset((v + 3i32) as isize)).b32.s1 =
-        shift_up + (*mem.offset((x + 3i32) as isize)).b32.s1;
-    (*mem.offset((v + 2i32) as isize)).b32.s1 =
-        (*mem.offset((z + 2i32) as isize)).b32.s1 + shift_down;
-    (*mem.offset((v + 1i32) as isize)).b32.s1 = (*mem.offset((x + 1i32) as isize)).b32.s1;
-    if (*mem.offset((q + 1i32) as isize)).b32.s1 == 0i32 {
+    MEM[v as usize].b16.s1 = 1_u16;
+    MEM[(v + 3) as usize].b32.s1 = shift_up + MEM[(x + 3) as usize].b32.s1;
+    MEM[(v + 2) as usize].b32.s1 = MEM[(z + 2) as usize].b32.s1 + shift_down;
+    MEM[(v + 1) as usize].b32.s1 = MEM[(x + 1) as usize].b32.s1;
+    if MEM[(q + 1) as usize].b32.s1 == 0 {
         p = new_kern(
-            shift_up
-                - (*mem.offset((x + 2i32) as isize)).b32.s1
-                - ((*mem.offset((z + 3i32) as isize)).b32.s1 - shift_down),
+            shift_up - MEM[(x + 2) as usize].b32.s1 - (MEM[(z + 3) as usize].b32.s1 - shift_down),
         );
-        (*mem.offset(p as isize)).b32.s1 = z
+        MEM[p as usize].b32.s1 = z
     } else {
-        y = fraction_rule((*mem.offset((q + 1i32) as isize)).b32.s1);
-        p = new_kern(
-            axis_height(cur_size)
-                - delta
-                - ((*mem.offset((z + 3i32) as isize)).b32.s1 - shift_down),
-        );
-        (*mem.offset(y as isize)).b32.s1 = p;
-        (*mem.offset(p as isize)).b32.s1 = z;
-        p = new_kern(
-            shift_up - (*mem.offset((x + 2i32) as isize)).b32.s1 - (axis_height(cur_size) + delta),
-        );
-        (*mem.offset(p as isize)).b32.s1 = y
+        y = fraction_rule(MEM[(q + 1) as usize].b32.s1);
+        p = new_kern(axis_height(cur_size) - delta - (MEM[(z + 3) as usize].b32.s1 - shift_down));
+        MEM[y as usize].b32.s1 = p;
+        MEM[p as usize].b32.s1 = z;
+        p = new_kern(shift_up - MEM[(x + 2) as usize].b32.s1 - (axis_height(cur_size) + delta));
+        MEM[p as usize].b32.s1 = y
     }
-    (*mem.offset(x as isize)).b32.s1 = p;
-    (*mem.offset((v + 5i32) as isize)).b32.s1 = x;
+    MEM[x as usize].b32.s1 = p;
+    MEM[(v + 5) as usize].b32.s1 = x;
     if (cur_style as i32) < 2i32 {
         delta = delim1(cur_size)
     } else {
         delta = delim2(cur_size)
     }
     x = var_delimiter(q + 4i32, cur_size, delta);
-    (*mem.offset(x as isize)).b32.s1 = v;
+    MEM[x as usize].b32.s1 = v;
     z = var_delimiter(q + 5i32, cur_size, delta);
-    (*mem.offset(v as isize)).b32.s1 = z;
-    (*mem.offset((q + 1i32) as isize)).b32.s1 = hpack(x, 0i32, 1i32 as small_number);
+    MEM[v as usize].b32.s1 = z;
+    MEM[(q + 1) as usize].b32.s1 = hpack(x, 0, 1 as small_number);
     /*:775*/
 }
 unsafe extern "C" fn make_op(mut q: i32) -> scaled_t {
@@ -5204,68 +4841,62 @@ unsafe extern "C" fn make_op(mut q: i32) -> scaled_t {
     let mut g: i32 = 0;
     let mut ot_assembly_ptr: *mut libc::c_void = 0 as *mut libc::c_void;
     let mut save_f: internal_font_number = 0;
-    if (*mem.offset(q as isize)).b16.s0 as i32 == 0i32 && (cur_style as i32) < 2i32 {
-        (*mem.offset(q as isize)).b16.s0 = 1_u16
+    if MEM[q as usize].b16.s0 as i32 == 0 && (cur_style as i32) < 2 {
+        MEM[q as usize].b16.s0 = 1_u16
     }
     delta = 0i32;
     ot_assembly_ptr = 0 as *mut libc::c_void;
-    if (*mem.offset((q + 1i32) as isize)).b32.s1 == 1i32 {
+    if MEM[(q + 1) as usize].b32.s1 == 1 {
         fetch(q + 1i32);
-        if !(*font_area.offset(cur_f as isize) as u32 == 0xfffeu32
+        if !(FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
             && usingOpenType(*font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine)
                 as i32
                 != 0)
         {
             if (cur_style as i32) < 2i32 && cur_i.s1 as i32 % 4i32 == 2i32 {
                 c = cur_i.s0;
-                i = (*font_info.offset((*char_base.offset(cur_f as isize) + c as i32) as isize))
-                    .b16;
+                i = FONT_INFO[(CHAR_BASE[cur_f as usize] + c as i32) as usize].b16;
                 if i.s3 as i32 > 0i32 {
                     cur_c = c as i32;
                     cur_i = i;
-                    (*mem.offset((q + 1i32) as isize)).b16.s0 = c
+                    MEM[(q + 1) as usize].b16.s0 = c
                 }
             }
-            delta = (*font_info
-                .offset((*italic_base.offset(cur_f as isize) + cur_i.s1 as i32 / 4i32) as isize))
-            .b32
-            .s1
+            delta = FONT_INFO[(ITALIC_BASE[cur_f as usize] + cur_i.s1 as i32 / 4i32) as usize]
+                .b32
+                .s1
         }
         x = clean_box(q + 1i32, cur_style);
-        if *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
+        if FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
             && isOpenTypeMathFont(*font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine)
                 as i32
                 != 0
         {
-            p = (*mem.offset((x + 5i32) as isize)).b32.s1;
+            p = MEM[(x + 5) as usize].b32.s1;
             if p != -0xfffffffi32
                 && !is_char_node(p)
-                && (*mem.offset(p as isize)).b16.s1 as i32 == 8i32
-                && (*mem.offset(p as isize)).b16.s0 as i32 == 42i32
+                && MEM[p as usize].b16.s1 as i32 == 8
+                && MEM[p as usize].b16.s0 as i32 == 42
             {
                 let mut current_block_41: u64;
                 if (cur_style as i32) < 2i32 {
                     h1 = get_ot_math_constant(cur_f, 3i32);
                     if (h1 as f64)
-                        < (((*mem.offset((p + 3i32) as isize)).b32.s1
-                            + (*mem.offset((p + 2i32) as isize)).b32.s1)
-                            * 5i32) as f64
-                            / 4i32 as f64
+                        < ((MEM[(p + 3) as usize].b32.s1 + MEM[(p + 2) as usize].b32.s1) * 5) as f64
+                            / 4_f64
                     {
-                        h1 = ((((*mem.offset((p + 3i32) as isize)).b32.s1
-                            + (*mem.offset((p + 2i32) as isize)).b32.s1)
-                            * 5i32) as f64
-                            / 4i32 as f64) as scaled_t
+                        h1 = (((MEM[(p + 3) as usize].b32.s1 + MEM[(p + 2) as usize].b32.s1) * 5)
+                            as f64
+                            / 4_f64) as scaled_t
                     }
-                    c = (*mem.offset((p + 4i32) as isize)).b16.s1;
+                    c = MEM[(p + 4) as usize].b16.s1;
                     n = 0i32;
                     loop {
                         g = get_ot_math_variant(cur_f, c as i32, n, &mut h2, 0i32);
                         if h2 > 0i32 {
-                            (*mem.offset((p + 4i32) as isize)).b16.s1 = g as u16;
+                            MEM[(p + 4) as usize].b16.s1 = g as u16;
                             measure_native_glyph(
-                                &mut *mem.offset(p as isize) as *mut memory_word
-                                    as *mut libc::c_void,
+                                &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
                                 1i32,
                             );
                         }
@@ -5279,7 +4910,7 @@ unsafe extern "C" fn make_op(mut q: i32) -> scaled_t {
                         if !ot_assembly_ptr.is_null() {
                             free_node(p, 5i32);
                             p = build_opentype_assembly(cur_f, ot_assembly_ptr, h1, false);
-                            (*mem.offset((x + 5i32) as isize)).b32.s1 = p;
+                            MEM[(x + 5) as usize].b32.s1 = p;
                             delta = 0i32;
                             current_block_41 = 18116816373875863516;
                         } else {
@@ -5287,7 +4918,7 @@ unsafe extern "C" fn make_op(mut q: i32) -> scaled_t {
                         }
                     } else {
                         measure_native_glyph(
-                            &mut *mem.offset(p as isize) as *mut memory_word as *mut libc::c_void,
+                            &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
                             1i32,
                         );
                         current_block_41 = 6717214610478484138;
@@ -5297,35 +4928,26 @@ unsafe extern "C" fn make_op(mut q: i32) -> scaled_t {
                 }
                 match current_block_41 {
                     6717214610478484138 => {
-                        delta = get_ot_math_ital_corr(
-                            cur_f,
-                            (*mem.offset((p + 4i32) as isize)).b16.s1 as i32,
-                        )
+                        delta = get_ot_math_ital_corr(cur_f, MEM[(p + 4) as usize].b16.s1 as i32)
                     }
                     _ => {}
                 }
-                (*mem.offset((x + 1i32) as isize)).b32.s1 =
-                    (*mem.offset((p + 1i32) as isize)).b32.s1;
-                (*mem.offset((x + 3i32) as isize)).b32.s1 =
-                    (*mem.offset((p + 3i32) as isize)).b32.s1;
-                (*mem.offset((x + 2i32) as isize)).b32.s1 =
-                    (*mem.offset((p + 2i32) as isize)).b32.s1
+                MEM[(x + 1) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
+                MEM[(x + 3) as usize].b32.s1 = MEM[(p + 3) as usize].b32.s1;
+                MEM[(x + 2) as usize].b32.s1 = MEM[(p + 2) as usize].b32.s1
             }
         }
-        if (*mem.offset((q + 3i32) as isize)).b32.s1 != 0i32
-            && (*mem.offset(q as isize)).b16.s0 as i32 != 1i32
-        {
-            (*mem.offset((x + 1i32) as isize)).b32.s1 =
-                (*mem.offset((x + 1i32) as isize)).b32.s1 - delta
+        if MEM[(q + 3) as usize].b32.s1 != 0 && MEM[q as usize].b16.s0 as i32 != 1 {
+            MEM[(x + 1) as usize].b32.s1 = MEM[(x + 1) as usize].b32.s1 - delta
         }
-        (*mem.offset((x + 4i32) as isize)).b32.s1 = half(
-            (*mem.offset((x + 3i32) as isize)).b32.s1 - (*mem.offset((x + 2i32) as isize)).b32.s1,
-        ) - axis_height(cur_size);
-        (*mem.offset((q + 1i32) as isize)).b32.s1 = 2i32;
-        (*mem.offset((q + 1i32) as isize)).b32.s0 = x
+        MEM[(x + 4) as usize].b32.s1 =
+            half(MEM[(x + 3) as usize].b32.s1 - MEM[(x + 2) as usize].b32.s1)
+                - axis_height(cur_size);
+        MEM[(q + 1) as usize].b32.s1 = 2;
+        MEM[(q + 1) as usize].b32.s0 = x
     }
     save_f = cur_f;
-    if (*mem.offset(q as isize)).b16.s0 as i32 == 1i32 {
+    if MEM[q as usize].b16.s0 as i32 == 1 {
         /*777: */
         x = clean_box(
             q + 2i32,
@@ -5337,61 +4959,61 @@ unsafe extern "C" fn make_op(mut q: i32) -> scaled_t {
             (2i32 * (cur_style as i32 / 4i32) + 5i32) as small_number,
         );
         v = new_null_box();
-        (*mem.offset(v as isize)).b16.s1 = 1_u16;
-        (*mem.offset((v + 1i32) as isize)).b32.s1 = (*mem.offset((y + 1i32) as isize)).b32.s1;
-        if (*mem.offset((x + 1i32) as isize)).b32.s1 > (*mem.offset((v + 1i32) as isize)).b32.s1 {
-            (*mem.offset((v + 1i32) as isize)).b32.s1 = (*mem.offset((x + 1i32) as isize)).b32.s1
+        MEM[v as usize].b16.s1 = 1_u16;
+        MEM[(v + 1) as usize].b32.s1 = MEM[(y + 1) as usize].b32.s1;
+        if MEM[(x + 1) as usize].b32.s1 > MEM[(v + 1) as usize].b32.s1 {
+            MEM[(v + 1) as usize].b32.s1 = MEM[(x + 1) as usize].b32.s1
         }
-        if (*mem.offset((z + 1i32) as isize)).b32.s1 > (*mem.offset((v + 1i32) as isize)).b32.s1 {
-            (*mem.offset((v + 1i32) as isize)).b32.s1 = (*mem.offset((z + 1i32) as isize)).b32.s1
+        if MEM[(z + 1) as usize].b32.s1 > MEM[(v + 1) as usize].b32.s1 {
+            MEM[(v + 1) as usize].b32.s1 = MEM[(z + 1) as usize].b32.s1
         }
-        x = rebox(x, (*mem.offset((v + 1i32) as isize)).b32.s1);
-        y = rebox(y, (*mem.offset((v + 1i32) as isize)).b32.s1);
-        z = rebox(z, (*mem.offset((v + 1i32) as isize)).b32.s1);
-        (*mem.offset((x + 4i32) as isize)).b32.s1 = half(delta);
-        (*mem.offset((z + 4i32) as isize)).b32.s1 = -(*mem.offset((x + 4i32) as isize)).b32.s1;
-        (*mem.offset((v + 3i32) as isize)).b32.s1 = (*mem.offset((y + 3i32) as isize)).b32.s1;
-        (*mem.offset((v + 2i32) as isize)).b32.s1 = (*mem.offset((y + 2i32) as isize)).b32.s1;
+        x = rebox(x, MEM[(v + 1) as usize].b32.s1);
+        y = rebox(y, MEM[(v + 1) as usize].b32.s1);
+        z = rebox(z, MEM[(v + 1) as usize].b32.s1);
+        MEM[(x + 4) as usize].b32.s1 = half(delta);
+        MEM[(z + 4) as usize].b32.s1 = -MEM[(x + 4) as usize].b32.s1;
+        MEM[(v + 3) as usize].b32.s1 = MEM[(y + 3) as usize].b32.s1;
+        MEM[(v + 2) as usize].b32.s1 = MEM[(y + 2) as usize].b32.s1;
         cur_f = save_f;
-        if (*mem.offset((q + 2i32) as isize)).b32.s1 == 0i32 {
+        if MEM[(q + 2) as usize].b32.s1 == 0 {
             free_node(x, 8i32);
-            (*mem.offset((v + 5i32) as isize)).b32.s1 = y
+            MEM[(v + 5) as usize].b32.s1 = y
         } else {
-            shift_up = big_op_spacing3() - (*mem.offset((x + 2i32) as isize)).b32.s1;
+            shift_up = big_op_spacing3() - MEM[(x + 2) as usize].b32.s1;
             if shift_up < big_op_spacing1() {
                 shift_up = big_op_spacing1()
             }
             p = new_kern(shift_up);
-            (*mem.offset(p as isize)).b32.s1 = y;
-            (*mem.offset(x as isize)).b32.s1 = p;
+            MEM[p as usize].b32.s1 = y;
+            MEM[x as usize].b32.s1 = p;
             p = new_kern(big_op_spacing5());
-            (*mem.offset(p as isize)).b32.s1 = x;
-            (*mem.offset((v + 5i32) as isize)).b32.s1 = p;
-            (*mem.offset((v + 3i32) as isize)).b32.s1 = (*mem.offset((v + 3i32) as isize)).b32.s1
+            MEM[p as usize].b32.s1 = x;
+            MEM[(v + 5) as usize].b32.s1 = p;
+            MEM[(v + 3) as usize].b32.s1 = MEM[(v + 3) as usize].b32.s1
                 + big_op_spacing5()
-                + (*mem.offset((x + 3i32) as isize)).b32.s1
-                + (*mem.offset((x + 2i32) as isize)).b32.s1
+                + MEM[(x + 3) as usize].b32.s1
+                + MEM[(x + 2) as usize].b32.s1
                 + shift_up
         }
-        if (*mem.offset((q + 3i32) as isize)).b32.s1 == 0i32 {
+        if MEM[(q + 3) as usize].b32.s1 == 0 {
             free_node(z, 8i32);
         } else {
-            shift_down = big_op_spacing4() - (*mem.offset((z + 3i32) as isize)).b32.s1;
+            shift_down = big_op_spacing4() - MEM[(z + 3) as usize].b32.s1;
             if shift_down < big_op_spacing2() {
                 shift_down = big_op_spacing2()
             }
             p = new_kern(shift_down);
-            (*mem.offset(y as isize)).b32.s1 = p;
-            (*mem.offset(p as isize)).b32.s1 = z;
+            MEM[y as usize].b32.s1 = p;
+            MEM[p as usize].b32.s1 = z;
             p = new_kern(big_op_spacing5());
-            (*mem.offset(z as isize)).b32.s1 = p;
-            (*mem.offset((v + 2i32) as isize)).b32.s1 = (*mem.offset((v + 2i32) as isize)).b32.s1
+            MEM[z as usize].b32.s1 = p;
+            MEM[(v + 2) as usize].b32.s1 = MEM[(v + 2) as usize].b32.s1
                 + big_op_spacing5()
-                + (*mem.offset((z + 3i32) as isize)).b32.s1
-                + (*mem.offset((z + 2i32) as isize)).b32.s1
+                + MEM[(z + 3) as usize].b32.s1
+                + MEM[(z + 2) as usize].b32.s1
                 + shift_down
         }
-        (*mem.offset((q + 1i32) as isize)).b32.s1 = v
+        MEM[(q + 1) as usize].b32.s1 = v
     }
     free_ot_assembly(ot_assembly_ptr as *mut GlyphAssembly);
     delta
@@ -5400,92 +5022,85 @@ unsafe extern "C" fn make_ord(mut q: i32) {
     let mut a: i32 = 0;
     let mut p: i32 = 0;
     let mut r: i32 = 0;
-    while (*mem.offset((q + 3i32) as isize)).b32.s1 == 0i32 {
-        if !((*mem.offset((q + 2i32) as isize)).b32.s1 == 0i32) {
+    while MEM[(q + 3) as usize].b32.s1 == 0 {
+        if !(MEM[(q + 2) as usize].b32.s1 == 0) {
             break;
         }
-        if !((*mem.offset((q + 1i32) as isize)).b32.s1 == 1i32) {
+        if !(MEM[(q + 1) as usize].b32.s1 == 1) {
             break;
         }
-        p = (*mem.offset(q as isize)).b32.s1;
+        p = MEM[q as usize].b32.s1;
         if !(p != -0xfffffffi32) {
             break;
         }
-        if !((*mem.offset(p as isize)).b16.s1 as i32 >= 16i32
-            && (*mem.offset(p as isize)).b16.s1 as i32 <= 22i32)
+        if !(MEM[p as usize].b16.s1 as i32 >= 16 && MEM[p as usize].b16.s1 as i32 <= 22) {
+            break;
+        }
+        if !(MEM[(p + 1) as usize].b32.s1 == 1) {
+            break;
+        }
+        if !(MEM[(p + 1) as usize].b16.s1 as i32 % 256 == MEM[(q + 1) as usize].b16.s1 as i32 % 256)
         {
             break;
         }
-        if !((*mem.offset((p + 1i32) as isize)).b32.s1 == 1i32) {
-            break;
-        }
-        if !((*mem.offset((p + 1i32) as isize)).b16.s1 as i32 % 256i32
-            == (*mem.offset((q + 1i32) as isize)).b16.s1 as i32 % 256i32)
-        {
-            break;
-        }
-        (*mem.offset((q + 1i32) as isize)).b32.s1 = 4i32;
+        MEM[(q + 1) as usize].b32.s1 = 4;
         fetch(q + 1i32);
         if !(cur_i.s1 as i32 % 4i32 == 1i32) {
             break;
         }
-        a = *lig_kern_base.offset(cur_f as isize) + cur_i.s0 as i32;
-        cur_c = (*mem.offset((p + 1i32) as isize)).b16.s0 as i32;
-        cur_i = (*font_info.offset(a as isize)).b16;
+        a = LIG_KERN_BASE[cur_f as usize] + cur_i.s0 as i32;
+        cur_c = MEM[(p + 1) as usize].b16.s0 as i32;
+        cur_i = FONT_INFO[a as usize].b16;
         if cur_i.s3 as i32 > 128i32 {
-            a = ((*lig_kern_base.offset(cur_f as isize)
-                + 256i32 * cur_i.s1 as i32
-                + cur_i.s0 as i32) as i64
+            a = ((LIG_KERN_BASE[cur_f as usize] + 256i32 * cur_i.s1 as i32 + cur_i.s0 as i32)
+                as i64
                 + 32768
                 - (256i32 * 128i32) as i64) as i32;
-            cur_i = (*font_info.offset(a as isize)).b16
+            cur_i = FONT_INFO[a as usize].b16
         }
         loop {
             if cur_i.s2 as i32 == cur_c {
                 if cur_i.s3 as i32 <= 128i32 {
                     if cur_i.s1 as i32 >= 128i32 {
                         p = new_kern(
-                            (*font_info.offset(
-                                (*kern_base.offset(cur_f as isize)
-                                    + 256i32 * cur_i.s1 as i32
-                                    + cur_i.s0 as i32) as isize,
-                            ))
-                            .b32
-                            .s1,
+                            FONT_INFO[(KERN_BASE[cur_f as usize]
+                                + 256i32 * cur_i.s1 as i32
+                                + cur_i.s0 as i32) as usize]
+                                .b32
+                                .s1,
                         );
-                        (*mem.offset(p as isize)).b32.s1 = (*mem.offset(q as isize)).b32.s1;
-                        (*mem.offset(q as isize)).b32.s1 = p;
+                        MEM[p as usize].b32.s1 = MEM[q as usize].b32.s1;
+                        MEM[q as usize].b32.s1 = p;
                         return;
                     } else {
                         match cur_i.s1 as i32 {
-                            1 | 5 => (*mem.offset((q + 1i32) as isize)).b16.s0 = cur_i.s0,
-                            2 | 6 => (*mem.offset((p + 1i32) as isize)).b16.s0 = cur_i.s0,
+                            1 | 5 => MEM[(q + 1) as usize].b16.s0 = cur_i.s0,
+                            2 | 6 => MEM[(p + 1) as usize].b16.s0 = cur_i.s0,
                             3 | 7 | 11 => {
                                 r = new_noad();
-                                (*mem.offset((r + 1i32) as isize)).b16.s0 = cur_i.s0;
-                                (*mem.offset((r + 1i32) as isize)).b16.s1 =
-                                    ((*mem.offset((q + 1i32) as isize)).b16.s1 as i32 % 256i32)
-                                        as u16;
-                                (*mem.offset(q as isize)).b32.s1 = r;
-                                (*mem.offset(r as isize)).b32.s1 = p;
+                                MEM[(r + 1) as usize].b16.s0 = cur_i.s0;
+                                MEM[(r + 1) as usize].b16.s1 =
+                                    (MEM[(q + 1) as usize].b16.s1 as i32 % 256) as u16;
+                                MEM[q as usize].b32.s1 = r;
+                                MEM[r as usize].b32.s1 = p;
                                 if (cur_i.s1 as i32) < 11i32 {
-                                    (*mem.offset((r + 1i32) as isize)).b32.s1 = 1i32
+                                    MEM[(r + 1) as usize].b32.s1 = 1
                                 } else {
-                                    (*mem.offset((r + 1i32) as isize)).b32.s1 = 4i32
+                                    MEM[(r + 1) as usize].b32.s1 = 4
                                 }
                             }
                             _ => {
-                                (*mem.offset(q as isize)).b32.s1 = (*mem.offset(p as isize)).b32.s1;
-                                (*mem.offset((q + 1i32) as isize)).b16.s0 = cur_i.s0;
-                                *mem.offset((q + 3i32) as isize) = *mem.offset((p + 3i32) as isize);
-                                *mem.offset((q + 2i32) as isize) = *mem.offset((p + 2i32) as isize);
+                                MEM[q as usize].b32.s1 = MEM[p as usize].b32.s1;
+                                MEM[(q + 1) as usize].b16.s0 = cur_i.s0;
+                                MEM[(q + 3) as usize] = MEM[(p + 3) as usize];
+                                MEM[(q + 2) as usize] = MEM[(p + 2) as usize];
                                 free_node(p, 4i32);
                             }
                         }
                         if cur_i.s1 as i32 > 3i32 {
                             return;
                         }
-                        (*mem.offset((q + 1i32) as isize)).b32.s1 = 1i32;
+                        MEM[(q + 1) as usize].b32.s1 = 1;
                         break;
                     }
                 }
@@ -5494,7 +5109,7 @@ unsafe extern "C" fn make_ord(mut q: i32) {
                 return;
             }
             a = a + cur_i.s3 as i32 + 1i32;
-            cur_i = (*font_info.offset(a as isize)).b16
+            cur_i = FONT_INFO[a as usize].b16
         }
     }
 }
@@ -5502,16 +5117,16 @@ unsafe extern "C" fn attach_hkern_to_new_hlist(mut q: i32, mut delta: scaled_t) 
     let mut y: i32 = 0;
     let mut z: i32 = 0;
     z = new_kern(delta);
-    if (*mem.offset((q + 1i32) as isize)).b32.s1 == -0xfffffffi32 {
-        (*mem.offset((q + 1i32) as isize)).b32.s1 = z
+    if MEM[(q + 1) as usize].b32.s1 == -0xfffffff {
+        MEM[(q + 1) as usize].b32.s1 = z
     } else {
-        y = (*mem.offset((q + 1i32) as isize)).b32.s1;
-        while (*mem.offset(y as isize)).b32.s1 != -0xfffffffi32 {
-            y = (*mem.offset(y as isize)).b32.s1
+        y = MEM[(q + 1) as usize].b32.s1;
+        while MEM[y as usize].b32.s1 != -0xfffffff {
+            y = MEM[y as usize].b32.s1
         }
-        (*mem.offset(y as isize)).b32.s1 = z
+        MEM[y as usize].b32.s1 = z
     }
-    (*mem.offset((q + 1i32) as isize)).b32.s1
+    MEM[(q + 1) as usize].b32.s1
 }
 unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
     let mut p: i32 = 0;
@@ -5528,7 +5143,7 @@ unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
     let mut script_f: internal_font_number = 0;
     let mut t: i32 = 0;
     let mut save_f: internal_font_number = 0;
-    p = (*mem.offset((q + 1i32) as isize)).b32.s1;
+    p = MEM[(q + 1) as usize].b32.s1;
     script_c = -0xfffffffi32;
     script_g = 0_u16;
     script_f = 0i32;
@@ -5537,8 +5152,8 @@ unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
     if is_char_node(p) as i32 != 0
         || p != -0xfffffffi32
             && !is_char_node(p)
-            && (*mem.offset(p as isize)).b16.s1 as i32 == 8i32
-            && (*mem.offset(p as isize)).b16.s0 as i32 == 42i32
+            && MEM[p as usize].b16.s1 as i32 == 8
+            && MEM[p as usize].b16.s0 as i32 == 42
     {
         shift_up = 0i32;
         shift_down = 0i32
@@ -5549,11 +5164,11 @@ unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
         } else {
             t = 2i32 * 256i32
         }
-        shift_up = (*mem.offset((z + 3i32) as isize)).b32.s1 - sup_drop(t);
-        shift_down = (*mem.offset((z + 2i32) as isize)).b32.s1 + sub_drop(t);
+        shift_up = MEM[(z + 3) as usize].b32.s1 - sup_drop(t);
+        shift_down = MEM[(z + 2) as usize].b32.s1 + sub_drop(t);
         free_node(z, 8i32);
     }
-    if (*mem.offset((q + 2i32) as isize)).b32.s1 == 0i32 {
+    if MEM[(q + 2) as usize].b32.s1 == 0 {
         /*784: */
         save_f = cur_f;
         x = clean_box(
@@ -5561,452 +5176,8 @@ unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
             (2i32 * (cur_style as i32 / 4i32) + 5i32) as small_number,
         );
         cur_f = save_f;
-        (*mem.offset((x + 1i32) as isize)).b32.s1 = (*mem.offset((x + 1i32) as isize)).b32.s1
-            + (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 12i32) as isize,
-            ))
-            .b32
-            .s1;
-        if shift_down < sub1(cur_size) {
-            shift_down = sub1(cur_size)
-        }
-        if *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
-            && isOpenTypeMathFont(*font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine)
-                as i32
-                != 0
-        {
-            clr = (*mem.offset((x + 3i32) as isize)).b32.s1 - get_ot_math_constant(cur_f, 9i32)
-        } else {
-            clr = (*mem.offset((x + 3i32) as isize)).b32.s1
-                - (math_x_height(cur_size) * 4i32).abs() / 5i32
-        }
-        if shift_down < clr {
-            shift_down = clr
-        }
-        (*mem.offset((x + 4i32) as isize)).b32.s1 = shift_down;
-        if *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
-            && isOpenTypeMathFont(*font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine)
-                as i32
-                != 0
-        {
-            /*787: */
-            if (*mem.offset((q + 3i32) as isize)).b32.s1 == 1i32 {
-                save_f = cur_f;
-                fetch(q + 3i32);
-                if *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
-                    && isOpenTypeMathFont(
-                        *font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine
-                    ) as i32
-                        != 0
-                {
-                    script_c = new_native_character(cur_f, cur_c);
-                    script_g = real_get_native_glyph(
-                        &mut *mem.offset(script_c as isize) as *mut memory_word
-                            as *mut libc::c_void,
-                        0_u32,
-                    );
-                    script_f = cur_f
-                } else {
-                    script_g = 0_u16;
-                    script_f = 0i32
-                }
-                cur_f = save_f
-            }
-            if p != -0xfffffffi32
-                && !is_char_node(p)
-                && (*mem.offset(p as isize)).b16.s1 as i32 == 8i32
-                && (*mem.offset(p as isize)).b16.s0 as i32 == 42i32
-            {
-                sub_kern = get_ot_math_kern(
-                    (*mem.offset((p + 4i32) as isize)).b16.s2 as i32,
-                    (*mem.offset((p + 4i32) as isize)).b16.s1 as i32,
-                    script_f,
-                    script_g as i32,
-                    1i32,
-                    shift_down,
-                )
-            }
-            if sub_kern != 0i32 {
-                p = attach_hkern_to_new_hlist(q, sub_kern)
-            }
-        }
-    } else {
-        save_f = cur_f;
-        x = clean_box(
-            q + 2i32,
-            (2i32 * (cur_style as i32 / 4i32) + 4i32 + cur_style as i32 % 2i32) as small_number,
-        );
-        cur_f = save_f;
-        (*mem.offset((x + 1i32) as isize)).b32.s1 = (*mem.offset((x + 1i32) as isize)).b32.s1
-            + (*eqtb.offset(
-                (1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
-                    + 1i32
-                    + 19i32
-                    + 256i32
-                    + 256i32
-                    + 13i32
-                    + 256i32
-                    + 4i32
-                    + 256i32
-                    + 1i32
-                    + 3i32 * 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 85i32
-                    + 256i32
-                    + (0x10ffffi32 + 1i32)
-                    + 12i32) as isize,
-            ))
-            .b32
-            .s1;
-        if cur_style as i32 & 1i32 != 0 {
-            clr = sup3(cur_size)
-        } else if (cur_style as i32) < 2i32 {
-            clr = sup1(cur_size)
-        } else {
-            clr = sup2(cur_size)
-        }
-        if shift_up < clr {
-            shift_up = clr
-        }
-        if *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
-            && isOpenTypeMathFont(*font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine)
-                as i32
-                != 0
-        {
-            clr = (*mem.offset((x + 2i32) as isize)).b32.s1 + get_ot_math_constant(cur_f, 13i32)
-        } else {
-            clr = (*mem.offset((x + 2i32) as isize)).b32.s1 + math_x_height(cur_size).abs() / 4i32
-        }
-        if shift_up < clr {
-            shift_up = clr
-        }
-        if *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
-            && isOpenTypeMathFont(*font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine)
-                as i32
-                != 0
-        {
-            /*788: */
-            if (*mem.offset((q + 2i32) as isize)).b32.s1 == 1i32 {
-                save_f = cur_f;
-                fetch(q + 2i32);
-                if *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
-                    && isOpenTypeMathFont(
-                        *font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine
-                    ) as i32
-                        != 0
-                {
-                    script_c = new_native_character(cur_f, cur_c);
-                    script_g = real_get_native_glyph(
-                        &mut *mem.offset(script_c as isize) as *mut memory_word
-                            as *mut libc::c_void,
-                        0_u32,
-                    );
-                    script_f = cur_f
-                } else {
-                    script_g = 0_u16;
-                    script_f = 0i32
-                }
-                cur_f = save_f
-            }
-            if p != -0xfffffffi32
-                && !is_char_node(p)
-                && (*mem.offset(p as isize)).b16.s1 as i32 == 8i32
-                && (*mem.offset(p as isize)).b16.s0 as i32 == 42i32
-            {
-                sup_kern = get_ot_math_kern(
-                    (*mem.offset((p + 4i32) as isize)).b16.s2 as i32,
-                    (*mem.offset((p + 4i32) as isize)).b16.s1 as i32,
-                    script_f,
-                    script_g as i32,
-                    0i32,
-                    shift_up,
-                )
-            }
-            if sup_kern != 0i32 && (*mem.offset((q + 3i32) as isize)).b32.s1 == 0i32 {
-                p = attach_hkern_to_new_hlist(q, sup_kern)
-            }
-        }
-        if (*mem.offset((q + 3i32) as isize)).b32.s1 == 0i32 {
-            (*mem.offset((x + 4i32) as isize)).b32.s1 = -shift_up
-        } else {
-            /*786: */
-            save_f = cur_f;
-            y = clean_box(
-                q + 3i32,
-                (2i32 * (cur_style as i32 / 4i32) + 5i32) as small_number,
-            );
-            cur_f = save_f;
-            (*mem.offset((y + 1i32) as isize)).b32.s1 = (*mem.offset((y + 1i32) as isize)).b32.s1
-                + (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 85i32
-                        + 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + 12i32) as isize,
-                ))
-                .b32
-                .s1;
-            if shift_down < sub2(cur_size) {
-                shift_down = sub2(cur_size)
-            }
-            if *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
-                && isOpenTypeMathFont(
-                    *font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine
-                ) as i32
-                    != 0
-            {
-                clr = get_ot_math_constant(cur_f, 15i32)
-                    - (shift_up
-                        - (*mem.offset((x + 2i32) as isize)).b32.s1
-                        - ((*mem.offset((y + 3i32) as isize)).b32.s1 - shift_down))
-            } else {
-                clr = 4i32 * default_rule_thickness()
-                    - (shift_up
-                        - (*mem.offset((x + 2i32) as isize)).b32.s1
-                        - ((*mem.offset((y + 3i32) as isize)).b32.s1 - shift_down))
-            }
-            if clr > 0i32 {
-                shift_down = shift_down + clr;
-                if *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
-                    && isOpenTypeMathFont(
-                        *font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine
-                    ) as i32
-                        != 0
-                {
-                    clr = get_ot_math_constant(cur_f, 16i32)
-                        - (shift_up - (*mem.offset((x + 2i32) as isize)).b32.s1)
-                } else {
-                    clr = (math_x_height(cur_size) * 4i32).abs() / 5i32
-                        - (shift_up - (*mem.offset((x + 2i32) as isize)).b32.s1)
-                }
-                if clr > 0i32 {
-                    shift_up = shift_up + clr;
-                    shift_down = shift_down - clr
-                }
-            }
-            if *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
-                && isOpenTypeMathFont(
-                    *font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine
-                ) as i32
-                    != 0
-            {
-                if (*mem.offset((q + 3i32) as isize)).b32.s1 == 1i32 {
-                    save_f = cur_f;
-                    fetch(q + 3i32);
-                    if *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
-                        && isOpenTypeMathFont(
-                            *font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine
-                        ) as i32
-                            != 0
-                    {
-                        script_c = new_native_character(cur_f, cur_c);
-                        script_g = real_get_native_glyph(
-                            &mut *mem.offset(script_c as isize) as *mut memory_word
-                                as *mut libc::c_void,
-                            0_u32,
-                        );
-                        script_f = cur_f
-                    } else {
-                        script_g = 0_u16;
-                        script_f = 0i32
-                    }
-                    cur_f = save_f
-                }
-                if p != -0xfffffffi32
-                    && !is_char_node(p)
-                    && (*mem.offset(p as isize)).b16.s1 as i32 == 8i32
-                    && (*mem.offset(p as isize)).b16.s0 as i32 == 42i32
-                {
-                    sub_kern = get_ot_math_kern(
-                        (*mem.offset((p + 4i32) as isize)).b16.s2 as i32,
-                        (*mem.offset((p + 4i32) as isize)).b16.s1 as i32,
-                        script_f,
-                        script_g as i32,
-                        1i32,
-                        shift_down,
-                    )
-                }
-                if sub_kern != 0i32 {
-                    p = attach_hkern_to_new_hlist(q, sub_kern)
-                }
-                if (*mem.offset((q + 2i32) as isize)).b32.s1 == 1i32 {
-                    save_f = cur_f;
-                    fetch(q + 2i32);
-                    if *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
-                        && isOpenTypeMathFont(
-                            *font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine
-                        ) as i32
-                            != 0
-                    {
-                        script_c = new_native_character(cur_f, cur_c);
-                        script_g = real_get_native_glyph(
-                            &mut *mem.offset(script_c as isize) as *mut memory_word
-                                as *mut libc::c_void,
-                            0_u32,
-                        );
-                        script_f = cur_f
-                    } else {
-                        script_g = 0_u16;
-                        script_f = 0i32
-                    }
-                    cur_f = save_f
-                }
-                if p != -0xfffffffi32
-                    && !is_char_node(p)
-                    && (*mem.offset(p as isize)).b16.s1 as i32 == 8i32
-                    && (*mem.offset(p as isize)).b16.s0 as i32 == 42i32
-                {
-                    sup_kern = get_ot_math_kern(
-                        (*mem.offset((p + 4i32) as isize)).b16.s2 as i32,
-                        (*mem.offset((p + 4i32) as isize)).b16.s1 as i32,
-                        script_f,
-                        script_g as i32,
-                        0i32,
-                        shift_up,
-                    )
-                }
-                if sup_kern != 0i32 && (*mem.offset((q + 3i32) as isize)).b32.s1 == 0i32 {
-                    p = attach_hkern_to_new_hlist(q, sup_kern)
-                }
-            }
-            (*mem.offset((x + 4i32) as isize)).b32.s1 = sup_kern + delta - sub_kern;
-            p = new_kern(
-                shift_up
-                    - (*mem.offset((x + 2i32) as isize)).b32.s1
-                    - ((*mem.offset((y + 3i32) as isize)).b32.s1 - shift_down),
-            );
-            (*mem.offset(x as isize)).b32.s1 = p;
-            (*mem.offset(p as isize)).b32.s1 = y;
-            x = vpackage(x, 0i32, 1i32 as small_number, 0x3fffffffi32);
-            (*mem.offset((x + 4i32) as isize)).b32.s1 = shift_down
-        }
-    }
-    if (*mem.offset((q + 1i32) as isize)).b32.s1 == -0xfffffffi32 {
-        (*mem.offset((q + 1i32) as isize)).b32.s1 = x
-    } else {
-        p = (*mem.offset((q + 1i32) as isize)).b32.s1;
-        while (*mem.offset(p as isize)).b32.s1 != -0xfffffffi32 {
-            p = (*mem.offset(p as isize)).b32.s1
-        }
-        (*mem.offset(p as isize)).b32.s1 = x
-    };
-}
-unsafe extern "C" fn make_left_right(
-    mut q: i32,
-    mut style: small_number,
-    mut max_d: scaled_t,
-    mut max_h: scaled_t,
-) -> small_number {
-    let mut delta: scaled_t = 0;
-    let mut delta1: scaled_t = 0;
-    let mut delta2: scaled_t = 0;
-    cur_style = style;
-    if (cur_style as i32) < 4i32 {
-        cur_size = 0i32
-    } else {
-        cur_size = 256i32 * ((cur_style as i32 - 2i32) / 2i32)
-    }
-    cur_mu = x_over_n(math_quad(cur_size), 18i32);
-    delta2 = max_d + axis_height(cur_size);
-    delta1 = max_h + max_d - delta2;
-    if delta2 > delta1 {
-        delta1 = delta2
-    }
-    delta = delta1 / 500i32
-        * (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 18i32) as isize,
-        ))
-        .b32
-        .s1;
-    delta2 = delta1 + delta1
-        - (*eqtb.offset(
-            (1i32
+        MEM[(x + 1) as usize].b32.s1 = MEM[(x + 1) as usize].b32.s1
+            + EQTB[(1i32
                 + (0x10ffffi32 + 1i32)
                 + (0x10ffffi32 + 1i32)
                 + 1i32
@@ -6033,15 +5204,444 @@ unsafe extern "C" fn make_left_right(
                 + 85i32
                 + 256i32
                 + (0x10ffffi32 + 1i32)
-                + 10i32) as isize,
-        ))
-        .b32
-        .s1;
+                + 12i32) as usize]
+                .b32
+                .s1;
+        if shift_down < sub1(cur_size) {
+            shift_down = sub1(cur_size)
+        }
+        if FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
+            && isOpenTypeMathFont(*font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine)
+                as i32
+                != 0
+        {
+            clr = MEM[(x + 3) as usize].b32.s1 - get_ot_math_constant(cur_f, 9)
+        } else {
+            clr = MEM[(x + 3) as usize].b32.s1 - (math_x_height(cur_size) * 4).abs() / 5
+        }
+        if shift_down < clr {
+            shift_down = clr
+        }
+        MEM[(x + 4) as usize].b32.s1 = shift_down;
+        if FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
+            && isOpenTypeMathFont(*font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine)
+                as i32
+                != 0
+        {
+            /*787: */
+            if MEM[(q + 3) as usize].b32.s1 == 1 {
+                save_f = cur_f;
+                fetch(q + 3i32);
+                if FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
+                    && isOpenTypeMathFont(
+                        *font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine
+                    ) as i32
+                        != 0
+                {
+                    script_c = new_native_character(cur_f, cur_c);
+                    script_g = real_get_native_glyph(
+                        &mut MEM[script_c as usize] as *mut memory_word as *mut libc::c_void,
+                        0_u32,
+                    );
+                    script_f = cur_f
+                } else {
+                    script_g = 0_u16;
+                    script_f = 0i32
+                }
+                cur_f = save_f
+            }
+            if p != -0xfffffffi32
+                && !is_char_node(p)
+                && MEM[p as usize].b16.s1 as i32 == 8
+                && MEM[p as usize].b16.s0 as i32 == 42
+            {
+                sub_kern = get_ot_math_kern(
+                    MEM[(p + 4) as usize].b16.s2 as i32,
+                    MEM[(p + 4) as usize].b16.s1 as i32,
+                    script_f,
+                    script_g as i32,
+                    1i32,
+                    shift_down,
+                )
+            }
+            if sub_kern != 0i32 {
+                p = attach_hkern_to_new_hlist(q, sub_kern)
+            }
+        }
+    } else {
+        save_f = cur_f;
+        x = clean_box(
+            q + 2i32,
+            (2i32 * (cur_style as i32 / 4i32) + 4i32 + cur_style as i32 % 2i32) as small_number,
+        );
+        cur_f = save_f;
+        MEM[(x + 1) as usize].b32.s1 = MEM[(x + 1) as usize].b32.s1
+            + EQTB[(1i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 1i32
+                + 15000i32
+                + 12i32
+                + 9000i32
+                + 1i32
+                + 1i32
+                + 19i32
+                + 256i32
+                + 256i32
+                + 13i32
+                + 256i32
+                + 4i32
+                + 256i32
+                + 1i32
+                + 3i32 * 256i32
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + (0x10ffffi32 + 1i32)
+                + 85i32
+                + 256i32
+                + (0x10ffffi32 + 1i32)
+                + 12i32) as usize]
+                .b32
+                .s1;
+        if cur_style as i32 & 1i32 != 0 {
+            clr = sup3(cur_size)
+        } else if (cur_style as i32) < 2i32 {
+            clr = sup1(cur_size)
+        } else {
+            clr = sup2(cur_size)
+        }
+        if shift_up < clr {
+            shift_up = clr
+        }
+        if FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
+            && isOpenTypeMathFont(*font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine)
+                as i32
+                != 0
+        {
+            clr = MEM[(x + 2) as usize].b32.s1 + get_ot_math_constant(cur_f, 13)
+        } else {
+            clr = MEM[(x + 2) as usize].b32.s1 + math_x_height(cur_size).abs() / 4
+        }
+        if shift_up < clr {
+            shift_up = clr
+        }
+        if FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
+            && isOpenTypeMathFont(*font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine)
+                as i32
+                != 0
+        {
+            /*788: */
+            if MEM[(q + 2) as usize].b32.s1 == 1 {
+                save_f = cur_f;
+                fetch(q + 2i32);
+                if FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
+                    && isOpenTypeMathFont(
+                        *font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine
+                    ) as i32
+                        != 0
+                {
+                    script_c = new_native_character(cur_f, cur_c);
+                    script_g = real_get_native_glyph(
+                        &mut MEM[script_c as usize] as *mut memory_word as *mut libc::c_void,
+                        0_u32,
+                    );
+                    script_f = cur_f
+                } else {
+                    script_g = 0_u16;
+                    script_f = 0i32
+                }
+                cur_f = save_f
+            }
+            if p != -0xfffffffi32
+                && !is_char_node(p)
+                && MEM[p as usize].b16.s1 as i32 == 8
+                && MEM[p as usize].b16.s0 as i32 == 42
+            {
+                sup_kern = get_ot_math_kern(
+                    MEM[(p + 4) as usize].b16.s2 as i32,
+                    MEM[(p + 4) as usize].b16.s1 as i32,
+                    script_f,
+                    script_g as i32,
+                    0i32,
+                    shift_up,
+                )
+            }
+            if sup_kern != 0i32 && MEM[(q + 3) as usize].b32.s1 == 0 {
+                p = attach_hkern_to_new_hlist(q, sup_kern)
+            }
+        }
+        if MEM[(q + 3) as usize].b32.s1 == 0 {
+            MEM[(x + 4) as usize].b32.s1 = -shift_up
+        } else {
+            /*786: */
+            save_f = cur_f;
+            y = clean_box(
+                q + 3i32,
+                (2i32 * (cur_style as i32 / 4i32) + 5i32) as small_number,
+            );
+            cur_f = save_f;
+            MEM[(y + 1) as usize].b32.s1 = MEM[(y + 1) as usize].b32.s1
+                + EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + 3i32 * 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 85i32
+                    + 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + 12i32) as usize]
+                    .b32
+                    .s1;
+            if shift_down < sub2(cur_size) {
+                shift_down = sub2(cur_size)
+            }
+            if FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
+                && isOpenTypeMathFont(
+                    *font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine
+                ) as i32
+                    != 0
+            {
+                clr = get_ot_math_constant(cur_f, 15i32)
+                    - (shift_up
+                        - MEM[(x + 2) as usize].b32.s1
+                        - (MEM[(y + 3) as usize].b32.s1 - shift_down))
+            } else {
+                clr = 4i32 * default_rule_thickness()
+                    - (shift_up
+                        - MEM[(x + 2) as usize].b32.s1
+                        - (MEM[(y + 3) as usize].b32.s1 - shift_down))
+            }
+            if clr > 0i32 {
+                shift_down = shift_down + clr;
+                if FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
+                    && isOpenTypeMathFont(
+                        *font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine
+                    ) as i32
+                        != 0
+                {
+                    clr = get_ot_math_constant(cur_f, 16i32)
+                        - (shift_up - MEM[(x + 2) as usize].b32.s1)
+                } else {
+                    clr = (math_x_height(cur_size) * 4i32).abs() / 5i32
+                        - (shift_up - MEM[(x + 2) as usize].b32.s1)
+                }
+                if clr > 0i32 {
+                    shift_up = shift_up + clr;
+                    shift_down = shift_down - clr
+                }
+            }
+            if FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
+                && isOpenTypeMathFont(
+                    *font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine
+                ) as i32
+                    != 0
+            {
+                if MEM[(q + 3) as usize].b32.s1 == 1 {
+                    save_f = cur_f;
+                    fetch(q + 3i32);
+                    if FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
+                        && isOpenTypeMathFont(
+                            *font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine
+                        ) as i32
+                            != 0
+                    {
+                        script_c = new_native_character(cur_f, cur_c);
+                        script_g = real_get_native_glyph(
+                            &mut MEM[script_c as usize] as *mut memory_word as *mut libc::c_void,
+                            0_u32,
+                        );
+                        script_f = cur_f
+                    } else {
+                        script_g = 0_u16;
+                        script_f = 0i32
+                    }
+                    cur_f = save_f
+                }
+                if p != -0xfffffffi32
+                    && !is_char_node(p)
+                    && MEM[p as usize].b16.s1 as i32 == 8
+                    && MEM[p as usize].b16.s0 as i32 == 42
+                {
+                    sub_kern = get_ot_math_kern(
+                        MEM[(p + 4) as usize].b16.s2 as i32,
+                        MEM[(p + 4) as usize].b16.s1 as i32,
+                        script_f,
+                        script_g as i32,
+                        1i32,
+                        shift_down,
+                    )
+                }
+                if sub_kern != 0i32 {
+                    p = attach_hkern_to_new_hlist(q, sub_kern)
+                }
+                if MEM[(q + 2) as usize].b32.s1 == 1 {
+                    save_f = cur_f;
+                    fetch(q + 2i32);
+                    if FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
+                        && isOpenTypeMathFont(
+                            *font_layout_engine.offset(cur_f as isize) as XeTeXLayoutEngine
+                        ) as i32
+                            != 0
+                    {
+                        script_c = new_native_character(cur_f, cur_c);
+                        script_g = real_get_native_glyph(
+                            &mut MEM[script_c as usize] as *mut memory_word as *mut libc::c_void,
+                            0_u32,
+                        );
+                        script_f = cur_f
+                    } else {
+                        script_g = 0_u16;
+                        script_f = 0i32
+                    }
+                    cur_f = save_f
+                }
+                if p != -0xfffffffi32
+                    && !is_char_node(p)
+                    && MEM[p as usize].b16.s1 as i32 == 8
+                    && MEM[p as usize].b16.s0 as i32 == 42
+                {
+                    sup_kern = get_ot_math_kern(
+                        MEM[(p + 4) as usize].b16.s2 as i32,
+                        MEM[(p + 4) as usize].b16.s1 as i32,
+                        script_f,
+                        script_g as i32,
+                        0i32,
+                        shift_up,
+                    )
+                }
+                if sup_kern != 0i32 && MEM[(q + 3) as usize].b32.s1 == 0 {
+                    p = attach_hkern_to_new_hlist(q, sup_kern)
+                }
+            }
+            MEM[(x + 4) as usize].b32.s1 = sup_kern + delta - sub_kern;
+            p = new_kern(
+                shift_up
+                    - MEM[(x + 2) as usize].b32.s1
+                    - (MEM[(y + 3) as usize].b32.s1 - shift_down),
+            );
+            MEM[x as usize].b32.s1 = p;
+            MEM[p as usize].b32.s1 = y;
+            x = vpackage(x, 0i32, 1i32 as small_number, 0x3fffffffi32);
+            MEM[(x + 4) as usize].b32.s1 = shift_down
+        }
+    }
+    if MEM[(q + 1) as usize].b32.s1 == -0xfffffff {
+        MEM[(q + 1) as usize].b32.s1 = x
+    } else {
+        p = MEM[(q + 1) as usize].b32.s1;
+        while MEM[p as usize].b32.s1 != -0xfffffff {
+            p = MEM[p as usize].b32.s1
+        }
+        MEM[p as usize].b32.s1 = x
+    };
+}
+unsafe extern "C" fn make_left_right(
+    mut q: i32,
+    mut style: small_number,
+    mut max_d: scaled_t,
+    mut max_h: scaled_t,
+) -> small_number {
+    let mut delta: scaled_t = 0;
+    let mut delta1: scaled_t = 0;
+    let mut delta2: scaled_t = 0;
+    cur_style = style;
+    if (cur_style as i32) < 4i32 {
+        cur_size = 0i32
+    } else {
+        cur_size = 256i32 * ((cur_style as i32 - 2i32) / 2i32)
+    }
+    cur_mu = x_over_n(math_quad(cur_size), 18i32);
+    delta2 = max_d + axis_height(cur_size);
+    delta1 = max_h + max_d - delta2;
+    if delta2 > delta1 {
+        delta1 = delta2
+    }
+    delta = delta1 / 500i32
+        * EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 18i32) as usize]
+            .b32
+            .s1;
+    delta2 = delta1 + delta1
+        - EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 85i32
+            + 256i32
+            + (0x10ffffi32 + 1i32)
+            + 10i32) as usize]
+            .b32
+            .s1;
     if delta < delta2 {
         delta = delta2
     }
-    (*mem.offset((q + 1i32) as isize)).b32.s1 = var_delimiter(q + 1i32, cur_size, delta);
-    ((*mem.offset(q as isize)).b16.s1 as i32 - (30i32 - 20i32)) as small_number
+    MEM[(q + 1) as usize].b32.s1 = var_delimiter(q + 1, cur_size, delta);
+    (MEM[q as usize].b16.s1 as i32 - (30 - 20)) as small_number
 }
 unsafe extern "C" fn mlist_to_hlist() {
     let mut current_block: u64;
@@ -6081,7 +5681,7 @@ unsafe extern "C" fn mlist_to_hlist() {
         /*753: */
         {
             delta = 0i32; /*:755 */
-            match (*mem.offset(q as isize)).b16.s1 as i32 {
+            match MEM[q as usize].b16.s1 as i32 {
                 18 => {
                     match r_type as i32 {
                         18 | 17 | 19 | 20 | 22 | 30 => {}
@@ -6090,13 +5690,13 @@ unsafe extern "C" fn mlist_to_hlist() {
                             break;
                         }
                     }
-                    (*mem.offset(q as isize)).b16.s1 = 16_u16
+                    MEM[q as usize].b16.s1 = 16_u16
                 }
                 19 | 21 | 22 | 31 => {
                     if r_type as i32 == 18i32 {
-                        (*mem.offset(r as isize)).b16.s1 = 16_u16
+                        MEM[r as usize].b16.s1 = 16_u16
                     }
-                    if (*mem.offset(q as isize)).b16.s1 as i32 == 31i32 {
+                    if MEM[q as usize].b16.s1 as i32 == 31 {
                         current_block = 2476306051584715158;
                         break;
                     } else {
@@ -6115,7 +5715,7 @@ unsafe extern "C" fn mlist_to_hlist() {
                 }
                 17 => {
                     delta = make_op(q);
-                    if (*mem.offset(q as isize)).b16.s0 as i32 == 1i32 {
+                    if MEM[q as usize].b16.s0 as i32 == 1 {
                         current_block = 454865348394072936;
                         break;
                     } else {
@@ -6158,7 +5758,7 @@ unsafe extern "C" fn mlist_to_hlist() {
                     break;
                 }
                 14 => {
-                    cur_style = (*mem.offset(q as isize)).b16.s0 as small_number;
+                    cur_style = MEM[q as usize].b16.s0 as small_number;
                     if (cur_style as i32) < 4i32 {
                         cur_size = 0i32
                     } else {
@@ -6171,38 +5771,38 @@ unsafe extern "C" fn mlist_to_hlist() {
                 15 => {
                     match cur_style as i32 / 2i32 {
                         0 => {
-                            p = (*mem.offset((q + 1i32) as isize)).b32.s0;
-                            (*mem.offset((q + 1i32) as isize)).b32.s0 = -0xfffffffi32
+                            p = MEM[(q + 1) as usize].b32.s0;
+                            MEM[(q + 1) as usize].b32.s0 = -0xfffffff
                         }
                         1 => {
-                            p = (*mem.offset((q + 1i32) as isize)).b32.s1;
-                            (*mem.offset((q + 1i32) as isize)).b32.s1 = -0xfffffffi32
+                            p = MEM[(q + 1) as usize].b32.s1;
+                            MEM[(q + 1) as usize].b32.s1 = -0xfffffff
                         }
                         2 => {
-                            p = (*mem.offset((q + 2i32) as isize)).b32.s0;
-                            (*mem.offset((q + 2i32) as isize)).b32.s0 = -0xfffffffi32
+                            p = MEM[(q + 2) as usize].b32.s0;
+                            MEM[(q + 2) as usize].b32.s0 = -0xfffffff
                         }
                         3 => {
-                            p = (*mem.offset((q + 2i32) as isize)).b32.s1;
-                            (*mem.offset((q + 2i32) as isize)).b32.s1 = -0xfffffffi32
+                            p = MEM[(q + 2) as usize].b32.s1;
+                            MEM[(q + 2) as usize].b32.s1 = -0xfffffff
                         }
                         _ => {}
                     }
-                    flush_node_list((*mem.offset((q + 1i32) as isize)).b32.s0);
-                    flush_node_list((*mem.offset((q + 1i32) as isize)).b32.s1);
-                    flush_node_list((*mem.offset((q + 2i32) as isize)).b32.s0);
-                    flush_node_list((*mem.offset((q + 2i32) as isize)).b32.s1);
-                    (*mem.offset(q as isize)).b16.s1 = 14_u16;
-                    (*mem.offset(q as isize)).b16.s0 = cur_style as u16;
-                    (*mem.offset((q + 1i32) as isize)).b32.s1 = 0i32;
-                    (*mem.offset((q + 2i32) as isize)).b32.s1 = 0i32;
+                    flush_node_list(MEM[(q + 1) as usize].b32.s0);
+                    flush_node_list(MEM[(q + 1) as usize].b32.s1);
+                    flush_node_list(MEM[(q + 2) as usize].b32.s0);
+                    flush_node_list(MEM[(q + 2) as usize].b32.s1);
+                    MEM[q as usize].b16.s1 = 14_u16;
+                    MEM[q as usize].b16.s0 = cur_style as u16;
+                    MEM[(q + 1) as usize].b32.s1 = 0;
+                    MEM[(q + 2) as usize].b32.s1 = 0;
                     if p != -0xfffffffi32 {
-                        z = (*mem.offset(q as isize)).b32.s1;
-                        (*mem.offset(q as isize)).b32.s1 = p;
-                        while (*mem.offset(p as isize)).b32.s1 != -0xfffffffi32 {
-                            p = (*mem.offset(p as isize)).b32.s1
+                        z = MEM[q as usize].b32.s1;
+                        MEM[q as usize].b32.s1 = p;
+                        while MEM[p as usize].b32.s1 != -0xfffffff {
+                            p = MEM[p as usize].b32.s1
                         }
-                        (*mem.offset(p as isize)).b32.s1 = z
+                        MEM[p as usize].b32.s1 = z
                     }
                     current_block = 12027452349022962373;
                     break;
@@ -6212,30 +5812,30 @@ unsafe extern "C" fn mlist_to_hlist() {
                     break;
                 }
                 2 => {
-                    if (*mem.offset((q + 3i32) as isize)).b32.s1 > max_h {
-                        max_h = (*mem.offset((q + 3i32) as isize)).b32.s1
+                    if MEM[(q + 3) as usize].b32.s1 > max_h {
+                        max_h = MEM[(q + 3) as usize].b32.s1
                     }
-                    if (*mem.offset((q + 2i32) as isize)).b32.s1 > max_d {
-                        max_d = (*mem.offset((q + 2i32) as isize)).b32.s1
+                    if MEM[(q + 2) as usize].b32.s1 > max_d {
+                        max_d = MEM[(q + 2) as usize].b32.s1
                     }
                     current_block = 12027452349022962373;
                     break;
                 }
                 10 => {
-                    if (*mem.offset(q as isize)).b16.s0 as i32 == 99i32 {
-                        x = (*mem.offset((q + 1i32) as isize)).b32.s0;
+                    if MEM[q as usize].b16.s0 as i32 == 99 {
+                        x = MEM[(q + 1) as usize].b32.s0;
                         y = math_glue(x, cur_mu);
                         delete_glue_ref(x);
-                        (*mem.offset((q + 1i32) as isize)).b32.s0 = y;
-                        (*mem.offset(q as isize)).b16.s0 = 0_u16
-                    } else if cur_size != 0i32 && (*mem.offset(q as isize)).b16.s0 as i32 == 98i32 {
-                        p = (*mem.offset(q as isize)).b32.s1;
+                        MEM[(q + 1) as usize].b32.s0 = y;
+                        MEM[q as usize].b16.s0 = 0_u16
+                    } else if cur_size != 0i32 && MEM[q as usize].b16.s0 as i32 == 98 {
+                        p = MEM[q as usize].b32.s1;
                         if p != -0xfffffffi32 {
-                            if (*mem.offset(p as isize)).b16.s1 as i32 == 10i32
-                                || (*mem.offset(p as isize)).b16.s1 as i32 == 11i32
+                            if MEM[p as usize].b16.s1 as i32 == 10
+                                || MEM[p as usize].b16.s1 as i32 == 11
                             {
-                                (*mem.offset(q as isize)).b32.s1 = (*mem.offset(p as isize)).b32.s1;
-                                (*mem.offset(p as isize)).b32.s1 = -0xfffffffi32;
+                                MEM[q as usize].b32.s1 = MEM[p as usize].b32.s1;
+                                MEM[p as usize].b32.s1 = -0xfffffff;
                                 flush_node_list(p);
                             }
                         }
@@ -6255,34 +5855,30 @@ unsafe extern "C" fn mlist_to_hlist() {
         }
         match current_block {
             1677945370889843322 => {
-                match (*mem.offset((q + 1i32) as isize)).b32.s1 {
+                match MEM[(q + 1) as usize].b32.s1 {
                     1 | 4 => {
                         fetch(q + 1i32);
-                        if *font_area.offset(cur_f as isize) as u32 == 0xffffu32
-                            || *font_area.offset(cur_f as isize) as u32 == 0xfffeu32
+                        if FONT_AREA[cur_f as usize] as u32 == 0xffffu32
+                            || FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
                         {
                             z = new_native_character(cur_f, cur_c);
                             p = get_node(5i32);
-                            (*mem.offset(p as isize)).b16.s1 = 8_u16;
-                            (*mem.offset(p as isize)).b16.s0 = 42_u16;
-                            (*mem.offset((p + 4i32) as isize)).b16.s2 = cur_f as u16;
-                            (*mem.offset((p + 4i32) as isize)).b16.s1 = real_get_native_glyph(
-                                &mut *mem.offset(z as isize) as *mut memory_word
-                                    as *mut libc::c_void,
+                            MEM[p as usize].b16.s1 = 8_u16;
+                            MEM[p as usize].b16.s0 = 42_u16;
+                            MEM[(p + 4) as usize].b16.s2 = cur_f as u16;
+                            MEM[(p + 4) as usize].b16.s1 = real_get_native_glyph(
+                                &mut MEM[z as usize] as *mut memory_word as *mut libc::c_void,
                                 0_u32,
                             );
                             measure_native_glyph(
-                                &mut *mem.offset(p as isize) as *mut memory_word
-                                    as *mut libc::c_void,
+                                &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
                                 1i32,
                             );
-                            free_node(z, (*mem.offset((z + 4i32) as isize)).b16.s3 as i32);
-                            delta = get_ot_math_ital_corr(
-                                cur_f,
-                                (*mem.offset((p + 4i32) as isize)).b16.s1 as i32,
-                            );
-                            if (*mem.offset((q + 1i32) as isize)).b32.s1 == 4i32
-                                && !(*font_area.offset(cur_f as isize) as u32 == 0xfffeu32
+                            free_node(z, MEM[(z + 4) as usize].b16.s3 as i32);
+                            delta =
+                                get_ot_math_ital_corr(cur_f, MEM[(p + 4) as usize].b16.s1 as i32);
+                            if MEM[(q + 1) as usize].b32.s1 == 4
+                                && !(FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
                                     && isOpenTypeMathFont(
                                         *font_layout_engine.offset(cur_f as isize)
                                             as XeTeXLayoutEngine,
@@ -6292,28 +5888,24 @@ unsafe extern "C" fn mlist_to_hlist() {
                             {
                                 delta = 0i32
                             }
-                            if (*mem.offset((q + 3i32) as isize)).b32.s1 == 0i32 && delta != 0i32 {
-                                (*mem.offset(p as isize)).b32.s1 = new_kern(delta);
+                            if MEM[(q + 3) as usize].b32.s1 == 0 && delta != 0 {
+                                MEM[p as usize].b32.s1 = new_kern(delta);
                                 delta = 0i32
                             }
                         } else if cur_i.s3 as i32 > 0i32 {
-                            delta = (*font_info.offset(
-                                (*italic_base.offset(cur_f as isize) + cur_i.s1 as i32 / 4i32)
-                                    as isize,
-                            ))
-                            .b32
-                            .s1;
-                            p = new_character(cur_f, cur_c as UTF16_code);
-                            if (*mem.offset((q + 1i32) as isize)).b32.s1 == 4i32
-                                && (*font_info
-                                    .offset((2i32 + *param_base.offset(cur_f as isize)) as isize))
+                            delta = FONT_INFO
+                                [(ITALIC_BASE[cur_f as usize] + cur_i.s1 as i32 / 4i32) as usize]
                                 .b32
-                                .s1 != 0i32
+                                .s1;
+                            p = new_character(cur_f, cur_c as UTF16_code);
+                            if MEM[(q + 1) as usize].b32.s1 == 4
+                                && FONT_INFO[(2 + PARAM_BASE[cur_f as usize]) as usize].b32.s1
+                                    != 0i32
                             {
                                 delta = 0i32
                             }
-                            if (*mem.offset((q + 3i32) as isize)).b32.s1 == 0i32 && delta != 0i32 {
-                                (*mem.offset(p as isize)).b32.s1 = new_kern(delta);
+                            if MEM[(q + 3) as usize].b32.s1 == 0 && delta != 0 {
+                                MEM[p as usize].b32.s1 = new_kern(delta);
                                 delta = 0i32
                             }
                         } else {
@@ -6321,9 +5913,9 @@ unsafe extern "C" fn mlist_to_hlist() {
                         }
                     }
                     0 => p = -0xfffffffi32,
-                    2 => p = (*mem.offset((q + 1i32) as isize)).b32.s0,
+                    2 => p = MEM[(q + 1) as usize].b32.s0,
                     3 => {
-                        cur_mlist = (*mem.offset((q + 1i32) as isize)).b32.s0;
+                        cur_mlist = MEM[(q + 1) as usize].b32.s0;
                         save_style = cur_style;
                         mlist_penalties = false;
                         mlist_to_hlist();
@@ -6335,7 +5927,7 @@ unsafe extern "C" fn mlist_to_hlist() {
                         }
                         cur_mu = x_over_n(math_quad(cur_size), 18i32);
                         p = hpack(
-                            (*mem.offset((4999999i32 - 3i32) as isize)).b32.s1,
+                            MEM[(4999999 - 3) as usize].b32.s1,
                             0i32,
                             1i32 as small_number,
                         )
@@ -6344,10 +5936,8 @@ unsafe extern "C" fn mlist_to_hlist() {
                         confusion(b"mlist2");
                     }
                 }
-                (*mem.offset((q + 1i32) as isize)).b32.s1 = p;
-                if (*mem.offset((q + 3i32) as isize)).b32.s1 == 0i32
-                    && (*mem.offset((q + 2i32) as isize)).b32.s1 == 0i32
-                {
+                MEM[(q + 1) as usize].b32.s1 = p;
+                if MEM[(q + 3) as usize].b32.s1 == 0 && MEM[(q + 2) as usize].b32.s1 == 0 {
                     current_block = 454865348394072936;
                 } else {
                     make_scripts(q, delta);
@@ -6359,16 +5949,12 @@ unsafe extern "C" fn mlist_to_hlist() {
         match current_block {
             454865348394072936 => {
                 /*check_dimensions */
-                z = hpack(
-                    (*mem.offset((q + 1i32) as isize)).b32.s1,
-                    0i32,
-                    1i32 as small_number,
-                );
-                if (*mem.offset((z + 3i32) as isize)).b32.s1 > max_h {
-                    max_h = (*mem.offset((z + 3i32) as isize)).b32.s1
+                z = hpack(MEM[(q + 1) as usize].b32.s1, 0, 1 as small_number);
+                if MEM[(z + 3) as usize].b32.s1 > max_h {
+                    max_h = MEM[(z + 3) as usize].b32.s1
                 }
-                if (*mem.offset((z + 2i32) as isize)).b32.s1 > max_d {
-                    max_d = (*mem.offset((z + 2i32) as isize)).b32.s1
+                if MEM[(z + 2) as usize].b32.s1 > max_d {
+                    max_d = MEM[(z + 2) as usize].b32.s1
                 }
                 free_node(z, 8i32);
                 current_block = 2476306051584715158;
@@ -6379,7 +5965,7 @@ unsafe extern "C" fn mlist_to_hlist() {
             2476306051584715158 => {
                 /*done_with_noad */
                 r = q;
-                r_type = (*mem.offset(r as isize)).b16.s1 as small_number;
+                r_type = MEM[r as usize].b16.s1 as small_number;
                 if r_type as i32 == 31i32 {
                     r_type = 30i32 as small_number;
                     cur_style = style;
@@ -6394,13 +5980,13 @@ unsafe extern "C" fn mlist_to_hlist() {
             _ => {}
         }
         /*done_with_node */
-        q = (*mem.offset(q as isize)).b32.s1
+        q = MEM[q as usize].b32.s1
     } /*ord_noad *//*:755 */
     if r_type as i32 == 18i32 {
-        (*mem.offset(r as isize)).b16.s1 = 16_u16
+        MEM[r as usize].b16.s1 = 16_u16
     }
     p = 4999999i32 - 3i32;
-    (*mem.offset(p as isize)).b32.s1 = -0xfffffffi32;
+    MEM[p as usize].b32.s1 = -0xfffffff;
     q = mlist;
     r_type = 0i32 as small_number;
     cur_style = style;
@@ -6415,75 +6001,71 @@ unsafe extern "C" fn mlist_to_hlist() {
         t = 16i32 as small_number;
         s = 4i32 as small_number;
         pen = 10000i32;
-        match (*mem.offset(q as isize)).b16.s1 as i32 {
+        match MEM[q as usize].b16.s1 as i32 {
             17 | 20 | 21 | 22 | 23 => {
-                t = (*mem.offset(q as isize)).b16.s1 as small_number;
+                t = MEM[q as usize].b16.s1 as small_number;
                 current_block_236 = 15067367080042895309;
             }
             18 => {
                 t = 18i32 as small_number;
-                pen = (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 9i32) as isize,
-                ))
-                .b32
-                .s1;
+                pen = EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + 3i32 * 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 9i32) as usize]
+                    .b32
+                    .s1;
                 current_block_236 = 15067367080042895309;
             }
             19 => {
                 t = 19i32 as small_number;
-                pen = (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + 3i32 * 256i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 10i32) as isize,
-                ))
-                .b32
-                .s1;
+                pen = EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + 3i32 * 256i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 10i32) as usize]
+                    .b32
+                    .s1;
                 current_block_236 = 15067367080042895309;
             }
             16 | 29 | 27 | 26 => {
@@ -6507,7 +6089,7 @@ unsafe extern "C" fn mlist_to_hlist() {
                 current_block_236 = 15067367080042895309;
             }
             14 => {
-                cur_style = (*mem.offset(q as isize)).b16.s0 as small_number;
+                cur_style = MEM[q as usize].b16.s0 as small_number;
                 s = 3i32 as small_number;
                 if (cur_style as i32) < 4i32 {
                     cur_size = 0i32
@@ -6518,10 +6100,10 @@ unsafe extern "C" fn mlist_to_hlist() {
                 current_block_236 = 11920828421623439930;
             }
             8 | 12 | 2 | 7 | 5 | 3 | 4 | 10 | 11 => {
-                (*mem.offset(p as isize)).b32.s1 = q;
+                MEM[p as usize].b32.s1 = q;
                 p = q;
-                q = (*mem.offset(q as isize)).b32.s1;
-                (*mem.offset(p as isize)).b32.s1 = -0xfffffffi32;
+                q = MEM[q as usize].b32.s1;
+                MEM[p as usize].b32.s1 = -0xfffffff;
                 current_block_236 = 7344615536999694015;
             }
             _ => {
@@ -6586,55 +6168,51 @@ unsafe extern "C" fn mlist_to_hlist() {
                     }
                     if x != 0i32 {
                         y = math_glue(
-                            (*eqtb.offset(
-                                (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + x) as isize,
-                            ))
-                            .b32
-                            .s1,
+                            EQTB[(1i32
+                                + (0x10ffffi32 + 1i32)
+                                + (0x10ffffi32 + 1i32)
+                                + 1i32
+                                + 15000i32
+                                + 12i32
+                                + 9000i32
+                                + 1i32
+                                + 1i32
+                                + x) as usize]
+                                .b32
+                                .s1,
                             cur_mu,
                         );
                         z = new_glue(y);
-                        (*mem.offset(y as isize)).b32.s1 = -0xfffffffi32;
-                        (*mem.offset(p as isize)).b32.s1 = z;
+                        MEM[y as usize].b32.s1 = -0xfffffff;
+                        MEM[p as usize].b32.s1 = z;
                         p = z;
-                        (*mem.offset(z as isize)).b16.s0 = (x + 1i32) as u16
+                        MEM[z as usize].b16.s0 = (x + 1) as u16
                     }
                 }
-                if (*mem.offset((q + 1i32) as isize)).b32.s1 != -0xfffffffi32 {
-                    (*mem.offset(p as isize)).b32.s1 = (*mem.offset((q + 1i32) as isize)).b32.s1;
+                if MEM[(q + 1) as usize].b32.s1 != -0xfffffff {
+                    MEM[p as usize].b32.s1 = MEM[(q + 1) as usize].b32.s1;
                     loop {
-                        p = (*mem.offset(p as isize)).b32.s1;
-                        if (*mem.offset(p as isize)).b32.s1 == -0xfffffffi32 {
+                        p = MEM[p as usize].b32.s1;
+                        if MEM[p as usize].b32.s1 == -0xfffffff {
                             break;
                         }
                     }
                 }
                 if penalties {
-                    if (*mem.offset(q as isize)).b32.s1 != -0xfffffffi32 {
+                    if MEM[q as usize].b32.s1 != -0xfffffff {
                         if pen < 10000i32 {
-                            r_type = (*mem.offset((*mem.offset(q as isize)).b32.s1 as isize))
-                                .b16
-                                .s1 as small_number;
+                            r_type = MEM[MEM[q as usize].b32.s1 as usize].b16.s1 as small_number;
                             if r_type as i32 != 12i32 {
                                 if r_type as i32 != 19i32 {
                                     z = new_penalty(pen);
-                                    (*mem.offset(p as isize)).b32.s1 = z;
+                                    MEM[p as usize].b32.s1 = z;
                                     p = z
                                 }
                             }
                         }
                     }
                 }
-                if (*mem.offset(q as isize)).b16.s1 as i32 == 31i32 {
+                if MEM[q as usize].b16.s1 as i32 == 31 {
                     t = 20i32 as small_number
                 }
                 r_type = t;
@@ -6646,7 +6224,7 @@ unsafe extern "C" fn mlist_to_hlist() {
             11920828421623439930 => {
                 /*delete_q */
                 r = q;
-                q = (*mem.offset(q as isize)).b32.s1;
+                q = MEM[q as usize].b32.s1;
                 free_node(r, s as i32);
             }
             _ => {}
@@ -6682,40 +6260,38 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
     f = 0i32;
     w = 0i32;
     large_attempt = false;
-    z = (*mem.offset(d as isize)).b16.s3 as i32 % 256i32;
-    x = ((*mem.offset(d as isize)).b16.s2 as i64
-        + ((*mem.offset(d as isize)).b16.s3 as i32 / 256i32) as i64 * 65536) as u16;
+    z = MEM[d as usize].b16.s3 as i32 % 256;
+    x = (MEM[d as usize].b16.s2 as i64 + (MEM[d as usize].b16.s3 as i32 / 256) as i64 * 65536)
+        as u16;
     ot_assembly_ptr = 0 as *mut libc::c_void;
     's_62: loop {
         if z != 0i32 || x as i32 != 0i32 {
             z = z + s + 256i32;
             loop {
                 z = z - 256i32;
-                g = (*eqtb.offset(
-                    (1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32
-                        + 1i32
-                        + 19i32
-                        + 256i32
-                        + 256i32
-                        + 13i32
-                        + 256i32
-                        + 4i32
-                        + 256i32
-                        + 1i32
-                        + z) as isize,
-                ))
-                .b32
-                .s1;
+                g = EQTB[(1i32
+                    + (0x10ffffi32 + 1i32)
+                    + (0x10ffffi32 + 1i32)
+                    + 1i32
+                    + 15000i32
+                    + 12i32
+                    + 9000i32
+                    + 1i32
+                    + 1i32
+                    + 19i32
+                    + 256i32
+                    + 256i32
+                    + 13i32
+                    + 256i32
+                    + 4i32
+                    + 256i32
+                    + 1i32
+                    + z) as usize]
+                    .b32
+                    .s1;
                 if g != 0i32 {
                     /*734: */
-                    if *font_area.offset(g as isize) as u32 == 0xfffeu32
+                    if FONT_AREA[g as usize] as u32 == 0xfffeu32
                         && usingOpenType(*font_layout_engine.offset(g as isize) as XeTeXLayoutEngine)
                             as i32
                             != 0
@@ -6745,13 +6321,11 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
                         }
                     } else {
                         y = x;
-                        if y as i32 >= *font_bc.offset(g as isize) as i32
-                            && y as i32 <= *font_ec.offset(g as isize) as i32
+                        if y as i32 >= FONT_BC[g as usize] as i32
+                            && y as i32 <= FONT_EC[g as usize] as i32
                         {
                             loop {
-                                q = (*font_info
-                                    .offset((*char_base.offset(g as isize) + y as i32) as isize))
-                                .b16;
+                                q = FONT_INFO[(CHAR_BASE[g as usize] + y as i32) as usize].b16;
                                 if !(q.s3 as i32 > 0i32) {
                                     break;
                                 }
@@ -6760,17 +6334,14 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
                                     c = y;
                                     break 's_62;
                                 } else {
-                                    u = (*font_info.offset(
-                                        (*height_base.offset(g as isize) + q.s2 as i32 / 16i32)
-                                            as isize,
-                                    ))
-                                    .b32
-                                    .s1 + (*font_info.offset(
-                                        (*depth_base.offset(g as isize) + q.s2 as i32 % 16i32)
-                                            as isize,
-                                    ))
-                                    .b32
-                                    .s1;
+                                    u = FONT_INFO
+                                        [(HEIGHT_BASE[g as usize] + q.s2 as i32 / 16) as usize]
+                                        .b32
+                                        .s1
+                                        + FONT_INFO
+                                            [(DEPTH_BASE[g as usize] + q.s2 as i32 % 16) as usize]
+                                            .b32
+                                            .s1;
                                     if u > w {
                                         f = g;
                                         c = y;
@@ -6797,12 +6368,12 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
             break;
         }
         large_attempt = true;
-        z = (*mem.offset(d as isize)).b16.s1 as i32 % 256i32;
-        x = ((*mem.offset(d as isize)).b16.s0 as i64
-            + ((*mem.offset(d as isize)).b16.s1 as i32 / 256i32) as i64 * 65536) as u16
+        z = MEM[d as usize].b16.s1 as i32 % 256;
+        x = (MEM[d as usize].b16.s0 as i64 + (MEM[d as usize].b16.s1 as i32 / 256) as i64 * 65536)
+            as u16
     }
     if f != 0i32 {
-        if !(*font_area.offset(f as isize) as u32 == 0xfffeu32
+        if !(FONT_AREA[f as usize] as u32 == 0xfffeu32
             && usingOpenType(*font_layout_engine.offset(f as isize) as XeTeXLayoutEngine) as i32
                 != 0)
         {
@@ -6810,23 +6381,19 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
             if q.s1 as i32 % 4i32 == 3i32 {
                 /*739: */
                 b = new_null_box();
-                (*mem.offset(b as isize)).b16.s1 = 1_u16;
-                r = (*font_info.offset((*exten_base.offset(f as isize) + q.s0 as i32) as isize))
-                    .b16;
+                MEM[b as usize].b16.s1 = 1_u16;
+                r = FONT_INFO[(EXTEN_BASE[f as usize] + q.s0 as i32) as usize].b16;
                 c = r.s0;
                 u = height_plus_depth(f, c);
                 w = 0i32;
-                q = (*font_info.offset(
-                    (*char_base.offset(f as isize) + effective_char(1i32 != 0, f, c)) as isize,
-                ))
-                .b16;
-                (*mem.offset((b + 1i32) as isize)).b32.s1 = (*font_info
-                    .offset((*width_base.offset(f as isize) + q.s3 as i32) as isize))
-                .b32
-                .s1 + (*font_info
-                    .offset((*italic_base.offset(f as isize) + q.s1 as i32 / 4i32) as isize))
-                .b32
-                .s1;
+                q = FONT_INFO[(CHAR_BASE[f as usize] + effective_char(true, f, c)) as usize].b16;
+                MEM[(b + 1) as usize].b32.s1 = FONT_INFO
+                    [(WIDTH_BASE[f as usize] + q.s3 as i32) as usize]
+                    .b32
+                    .s1
+                    + FONT_INFO[(ITALIC_BASE[f as usize] + q.s1 as i32 / 4) as usize]
+                        .b32
+                        .s1;
                 c = r.s1;
                 if c as i32 != 0i32 {
                     w = w + height_plus_depth(f, c)
@@ -6889,8 +6456,7 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
                 if c as i32 != 0i32 {
                     stack_into_box(b, f, c);
                 }
-                (*mem.offset((b + 2i32) as isize)).b32.s1 =
-                    w - (*mem.offset((b + 3i32) as isize)).b32.s1
+                MEM[(b + 2) as usize].b32.s1 = w - MEM[(b + 3) as usize].b32.s1
             } else {
                 b = char_box(f, c as i32)
             }
@@ -6899,76 +6465,56 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
             b = build_opentype_assembly(f, ot_assembly_ptr, v, false)
         } else {
             b = new_null_box();
-            (*mem.offset(b as isize)).b16.s1 = 1_u16;
-            (*mem.offset((b + 5i32) as isize)).b32.s1 = get_node(5i32);
-            (*mem.offset((*mem.offset((b + 5i32) as isize)).b32.s1 as isize))
-                .b16
-                .s1 = 8_u16;
-            (*mem.offset((*mem.offset((b + 5i32) as isize)).b32.s1 as isize))
-                .b16
-                .s0 = 42_u16;
-            (*mem.offset(((*mem.offset((b + 5i32) as isize)).b32.s1 + 4i32) as isize))
-                .b16
-                .s2 = f as u16;
-            (*mem.offset(((*mem.offset((b + 5i32) as isize)).b32.s1 + 4i32) as isize))
-                .b16
-                .s1 = c;
+            MEM[b as usize].b16.s1 = 1_u16;
+            MEM[(b + 5) as usize].b32.s1 = get_node(5);
+            MEM[MEM[(b + 5) as usize].b32.s1 as usize].b16.s1 = 8_u16;
+            MEM[MEM[(b + 5) as usize].b32.s1 as usize].b16.s0 = 42_u16;
+            MEM[(MEM[(b + 5) as usize].b32.s1 + 4) as usize].b16.s2 = f as u16;
+            MEM[(MEM[(b + 5) as usize].b32.s1 + 4) as usize].b16.s1 = c;
             measure_native_glyph(
-                &mut *mem.offset((*mem.offset((b + 5i32) as isize)).b32.s1 as isize)
-                    as *mut memory_word as *mut libc::c_void,
+                &mut MEM[MEM[(b + 5) as usize].b32.s1 as usize] as *mut memory_word
+                    as *mut libc::c_void,
                 1i32,
             );
-            (*mem.offset((b + 1i32) as isize)).b32.s1 = (*mem
-                .offset(((*mem.offset((b + 5i32) as isize)).b32.s1 + 1i32) as isize))
-            .b32
-            .s1;
-            (*mem.offset((b + 3i32) as isize)).b32.s1 = (*mem
-                .offset(((*mem.offset((b + 5i32) as isize)).b32.s1 + 3i32) as isize))
-            .b32
-            .s1;
-            (*mem.offset((b + 2i32) as isize)).b32.s1 = (*mem
-                .offset(((*mem.offset((b + 5i32) as isize)).b32.s1 + 2i32) as isize))
-            .b32
-            .s1
+            MEM[(b + 1) as usize].b32.s1 = MEM[(MEM[(b + 5) as usize].b32.s1 + 1) as usize].b32.s1;
+            MEM[(b + 3) as usize].b32.s1 = MEM[(MEM[(b + 5) as usize].b32.s1 + 3) as usize].b32.s1;
+            MEM[(b + 2) as usize].b32.s1 = MEM[(MEM[(b + 5) as usize].b32.s1 + 2) as usize].b32.s1
         }
     } else {
         b = new_null_box();
-        (*mem.offset((b + 1i32) as isize)).b32.s1 = (*eqtb.offset(
-            (1i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 1i32
-                + 15000i32
-                + 12i32
-                + 9000i32
-                + 1i32
-                + 1i32
-                + 19i32
-                + 256i32
-                + 256i32
-                + 13i32
-                + 256i32
-                + 4i32
-                + 256i32
-                + 1i32
-                + 3i32 * 256i32
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + (0x10ffffi32 + 1i32)
-                + 85i32
-                + 256i32
-                + (0x10ffffi32 + 1i32)
-                + 11i32) as isize,
-        ))
-        .b32
-        .s1
+        MEM[(b + 1) as usize].b32.s1 = EQTB[(1i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 1i32
+            + 15000i32
+            + 12i32
+            + 9000i32
+            + 1i32
+            + 1i32
+            + 19i32
+            + 256i32
+            + 256i32
+            + 13i32
+            + 256i32
+            + 4i32
+            + 256i32
+            + 1i32
+            + 3i32 * 256i32
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + (0x10ffffi32 + 1i32)
+            + 85i32
+            + 256i32
+            + (0x10ffffi32 + 1i32)
+            + 11i32) as usize]
+            .b32
+            .s1
     }
-    (*mem.offset((b + 4i32) as isize)).b32.s1 =
-        half((*mem.offset((b + 3i32) as isize)).b32.s1 - (*mem.offset((b + 2i32) as isize)).b32.s1)
-            - axis_height(s);
+    MEM[(b + 4) as usize].b32.s1 =
+        half(MEM[(b + 3) as usize].b32.s1 - MEM[(b + 2) as usize].b32.s1) - axis_height(s);
     free_ot_assembly(ot_assembly_ptr as *mut GlyphAssembly);
     b
 }
@@ -6981,62 +6527,55 @@ unsafe extern "C" fn char_box(mut f: internal_font_number, mut c: i32) -> i32 {
     };
     let mut b: i32 = 0;
     let mut p: i32 = 0;
-    if *font_area.offset(f as isize) as u32 == 0xffffu32
-        || *font_area.offset(f as isize) as u32 == 0xfffeu32
-    {
+    if FONT_AREA[f as usize] as u32 == 0xffffu32 || FONT_AREA[f as usize] as u32 == 0xfffeu32 {
         b = new_null_box();
         p = new_native_character(f, c);
-        (*mem.offset((b + 5i32) as isize)).b32.s1 = p;
-        (*mem.offset((b + 3i32) as isize)).b32.s1 = (*mem.offset((p + 3i32) as isize)).b32.s1;
-        (*mem.offset((b + 1i32) as isize)).b32.s1 = (*mem.offset((p + 1i32) as isize)).b32.s1;
-        if (*mem.offset((p + 2i32) as isize)).b32.s1 < 0i32 {
-            (*mem.offset((b + 2i32) as isize)).b32.s1 = 0i32
+        MEM[(b + 5) as usize].b32.s1 = p;
+        MEM[(b + 3) as usize].b32.s1 = MEM[(p + 3) as usize].b32.s1;
+        MEM[(b + 1) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
+        if MEM[(p + 2) as usize].b32.s1 < 0 {
+            MEM[(b + 2) as usize].b32.s1 = 0
         } else {
-            (*mem.offset((b + 2i32) as isize)).b32.s1 = (*mem.offset((p + 2i32) as isize)).b32.s1
+            MEM[(b + 2) as usize].b32.s1 = MEM[(p + 2) as usize].b32.s1
         }
     } else {
-        q = (*font_info.offset(
-            (*char_base.offset(f as isize) + effective_char(1i32 != 0, f, c as u16)) as isize,
-        ))
-        .b16;
+        q = FONT_INFO[(CHAR_BASE[f as usize] + effective_char(true, f, c as u16)) as usize].b16;
         b = new_null_box();
-        (*mem.offset((b + 1i32) as isize)).b32.s1 = (*font_info
-            .offset((*width_base.offset(f as isize) + q.s3 as i32) as isize))
-        .b32
-        .s1 + (*font_info
-            .offset((*italic_base.offset(f as isize) + q.s1 as i32 / 4i32) as isize))
-        .b32
-        .s1;
-        (*mem.offset((b + 3i32) as isize)).b32.s1 = (*font_info
-            .offset((*height_base.offset(f as isize) + q.s2 as i32 / 16i32) as isize))
-        .b32
-        .s1;
-        (*mem.offset((b + 2i32) as isize)).b32.s1 = (*font_info
-            .offset((*depth_base.offset(f as isize) + q.s2 as i32 % 16i32) as isize))
-        .b32
-        .s1;
+        MEM[(b + 1) as usize].b32.s1 = FONT_INFO[(WIDTH_BASE[f as usize] + q.s3 as i32) as usize]
+            .b32
+            .s1
+            + FONT_INFO[(ITALIC_BASE[f as usize] + q.s1 as i32 / 4) as usize]
+                .b32
+                .s1;
+        MEM[(b + 3) as usize].b32.s1 = FONT_INFO
+            [(HEIGHT_BASE[f as usize] + q.s2 as i32 / 16) as usize]
+            .b32
+            .s1;
+        MEM[(b + 2) as usize].b32.s1 = FONT_INFO
+            [(DEPTH_BASE[f as usize] + q.s2 as i32 % 16) as usize]
+            .b32
+            .s1;
         p = get_avail();
-        (*mem.offset(p as isize)).b16.s0 = c as u16;
-        (*mem.offset(p as isize)).b16.s1 = f as u16
+        MEM[p as usize].b16.s0 = c as u16;
+        MEM[p as usize].b16.s1 = f as u16
     }
-    (*mem.offset((b + 5i32) as isize)).b32.s1 = p;
+    MEM[(b + 5) as usize].b32.s1 = p;
     b
 }
 unsafe extern "C" fn stack_into_box(mut b: i32, mut f: internal_font_number, mut c: u16) {
     let mut p: i32 = 0;
     p = char_box(f, c as i32);
-    (*mem.offset(p as isize)).b32.s1 = (*mem.offset((b + 5i32) as isize)).b32.s1;
-    (*mem.offset((b + 5i32) as isize)).b32.s1 = p;
-    (*mem.offset((b + 3i32) as isize)).b32.s1 = (*mem.offset((p + 3i32) as isize)).b32.s1;
+    MEM[p as usize].b32.s1 = MEM[(b + 5) as usize].b32.s1;
+    MEM[(b + 5) as usize].b32.s1 = p;
+    MEM[(b + 3) as usize].b32.s1 = MEM[(p + 3) as usize].b32.s1;
 }
 unsafe extern "C" fn height_plus_depth(mut f: internal_font_number, mut c: u16) -> scaled_t {
-    let mut q: b16x4 = (*font_info
-        .offset((*char_base.offset(f as isize) + effective_char(1i32 != 0, f, c)) as isize))
-    .b16;
-    (*font_info.offset((*height_base.offset(f as isize) + q.s2 as i32 / 16i32) as isize))
+    let mut q: b16x4 =
+        FONT_INFO[(CHAR_BASE[f as usize] + effective_char(1i32 != 0, f, c)) as usize].b16;
+    FONT_INFO[(HEIGHT_BASE[f as usize] + q.s2 as i32 / 16) as usize]
         .b32
         .s1
-        + (*font_info.offset((*depth_base.offset(f as isize) + q.s2 as i32 % 16i32) as isize))
+        + FONT_INFO[(DEPTH_BASE[f as usize] + q.s2 as i32 % 16) as usize]
             .b32
             .s1
 }
@@ -7044,40 +6583,36 @@ unsafe extern "C" fn stack_glyph_into_box(mut b: i32, mut f: internal_font_numbe
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     p = get_node(5i32);
-    (*mem.offset(p as isize)).b16.s1 = 8_u16;
-    (*mem.offset(p as isize)).b16.s0 = 42_u16;
-    (*mem.offset((p + 4i32) as isize)).b16.s2 = f as u16;
-    (*mem.offset((p + 4i32) as isize)).b16.s1 = g as u16;
+    MEM[p as usize].b16.s1 = 8_u16;
+    MEM[p as usize].b16.s0 = 42_u16;
+    MEM[(p + 4) as usize].b16.s2 = f as u16;
+    MEM[(p + 4) as usize].b16.s1 = g as u16;
     measure_native_glyph(
-        &mut *mem.offset(p as isize) as *mut memory_word as *mut libc::c_void,
+        &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
         1i32,
     );
-    if (*mem.offset(b as isize)).b16.s1 as i32 == 0i32 {
-        q = (*mem.offset((b + 5i32) as isize)).b32.s1;
+    if MEM[b as usize].b16.s1 as i32 == 0 {
+        q = MEM[(b + 5) as usize].b32.s1;
         if q == -0xfffffffi32 {
-            (*mem.offset((b + 5i32) as isize)).b32.s1 = p
+            MEM[(b + 5) as usize].b32.s1 = p
         } else {
-            while (*mem.offset(q as isize)).b32.s1 != -0xfffffffi32 {
-                q = (*mem.offset(q as isize)).b32.s1
+            while MEM[q as usize].b32.s1 != -0xfffffff {
+                q = MEM[q as usize].b32.s1
             }
-            (*mem.offset(q as isize)).b32.s1 = p;
-            if (*mem.offset((b + 3i32) as isize)).b32.s1 < (*mem.offset((p + 3i32) as isize)).b32.s1
-            {
-                (*mem.offset((b + 3i32) as isize)).b32.s1 =
-                    (*mem.offset((p + 3i32) as isize)).b32.s1
+            MEM[q as usize].b32.s1 = p;
+            if MEM[(b + 3) as usize].b32.s1 < MEM[(p + 3) as usize].b32.s1 {
+                MEM[(b + 3) as usize].b32.s1 = MEM[(p + 3) as usize].b32.s1
             }
-            if (*mem.offset((b + 2i32) as isize)).b32.s1 < (*mem.offset((p + 2i32) as isize)).b32.s1
-            {
-                (*mem.offset((b + 2i32) as isize)).b32.s1 =
-                    (*mem.offset((p + 2i32) as isize)).b32.s1
+            if MEM[(b + 2) as usize].b32.s1 < MEM[(p + 2) as usize].b32.s1 {
+                MEM[(b + 2) as usize].b32.s1 = MEM[(p + 2) as usize].b32.s1
             }
         }
     } else {
-        (*mem.offset(p as isize)).b32.s1 = (*mem.offset((b + 5i32) as isize)).b32.s1;
-        (*mem.offset((b + 5i32) as isize)).b32.s1 = p;
-        (*mem.offset((b + 3i32) as isize)).b32.s1 = (*mem.offset((p + 3i32) as isize)).b32.s1;
-        if (*mem.offset((b + 1i32) as isize)).b32.s1 < (*mem.offset((p + 1i32) as isize)).b32.s1 {
-            (*mem.offset((b + 1i32) as isize)).b32.s1 = (*mem.offset((p + 1i32) as isize)).b32.s1
+        MEM[p as usize].b32.s1 = MEM[(b + 5) as usize].b32.s1;
+        MEM[(b + 5) as usize].b32.s1 = p;
+        MEM[(b + 3) as usize].b32.s1 = MEM[(p + 3) as usize].b32.s1;
+        if MEM[(b + 1) as usize].b32.s1 < MEM[(p + 1) as usize].b32.s1 {
+            MEM[(b + 1) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1
         }
     };
 }
@@ -7085,24 +6620,24 @@ unsafe extern "C" fn stack_glue_into_box(mut b: i32, mut min: scaled_t, mut max:
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     q = new_spec(0i32);
-    (*mem.offset((q + 1i32) as isize)).b32.s1 = min;
-    (*mem.offset((q + 2i32) as isize)).b32.s1 = max - min;
+    MEM[(q + 1) as usize].b32.s1 = min;
+    MEM[(q + 2) as usize].b32.s1 = max - min;
     p = new_glue(q);
-    if (*mem.offset(b as isize)).b16.s1 as i32 == 0i32 {
-        q = (*mem.offset((b + 5i32) as isize)).b32.s1;
+    if MEM[b as usize].b16.s1 as i32 == 0 {
+        q = MEM[(b + 5) as usize].b32.s1;
         if q == -0xfffffffi32 {
-            (*mem.offset((b + 5i32) as isize)).b32.s1 = p
+            MEM[(b + 5) as usize].b32.s1 = p
         } else {
-            while (*mem.offset(q as isize)).b32.s1 != -0xfffffffi32 {
-                q = (*mem.offset(q as isize)).b32.s1
+            while MEM[q as usize].b32.s1 != -0xfffffff {
+                q = MEM[q as usize].b32.s1
             }
-            (*mem.offset(q as isize)).b32.s1 = p
+            MEM[q as usize].b32.s1 = p
         }
     } else {
-        (*mem.offset(p as isize)).b32.s1 = (*mem.offset((b + 5i32) as isize)).b32.s1;
-        (*mem.offset((b + 5i32) as isize)).b32.s1 = p;
-        (*mem.offset((b + 3i32) as isize)).b32.s1 = (*mem.offset((p + 3i32) as isize)).b32.s1;
-        (*mem.offset((b + 1i32) as isize)).b32.s1 = (*mem.offset((p + 1i32) as isize)).b32.s1
+        MEM[p as usize].b32.s1 = MEM[(b + 5) as usize].b32.s1;
+        MEM[(b + 5) as usize].b32.s1 = p;
+        MEM[(b + 3) as usize].b32.s1 = MEM[(p + 3) as usize].b32.s1;
+        MEM[(b + 1) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1
     };
 }
 unsafe extern "C" fn build_opentype_assembly(
@@ -7127,9 +6662,9 @@ unsafe extern "C" fn build_opentype_assembly(
     let mut str: scaled_t = 0;
     b = new_null_box();
     if horiz {
-        (*mem.offset(b as isize)).b16.s1 = 0_u16
+        MEM[b as usize].b16.s1 = 0_u16
     } else {
-        (*mem.offset(b as isize)).b16.s1 = 1_u16
+        MEM[b as usize].b16.s1 = 1_u16
     }
     n = -1i32;
     no_extenders = true;
@@ -7245,29 +6780,21 @@ unsafe extern "C" fn build_opentype_assembly(
             }
         }
     }
-    p = (*mem.offset((b + 5i32) as isize)).b32.s1;
+    p = MEM[(b + 5) as usize].b32.s1;
     nat = 0i32;
     str = 0i32;
     while p != -0xfffffffi32 {
-        if (*mem.offset(p as isize)).b16.s1 as i32 == 8i32 {
+        if MEM[p as usize].b16.s1 as i32 == 8 {
             if horiz {
-                nat = nat + (*mem.offset((p + 1i32) as isize)).b32.s1
+                nat = nat + MEM[(p + 1) as usize].b32.s1
             } else {
-                nat = nat
-                    + (*mem.offset((p + 3i32) as isize)).b32.s1
-                    + (*mem.offset((p + 2i32) as isize)).b32.s1
+                nat = nat + MEM[(p + 3) as usize].b32.s1 + MEM[(p + 2) as usize].b32.s1
             }
-        } else if (*mem.offset(p as isize)).b16.s1 as i32 == 10i32 {
-            nat = nat
-                + (*mem.offset(((*mem.offset((p + 1i32) as isize)).b32.s0 + 1i32) as isize))
-                    .b32
-                    .s1;
-            str = str
-                + (*mem.offset(((*mem.offset((p + 1i32) as isize)).b32.s0 + 2i32) as isize))
-                    .b32
-                    .s1
+        } else if MEM[p as usize].b16.s1 as i32 == 10 {
+            nat = nat + MEM[(MEM[(p + 1) as usize].b32.s0 + 1) as usize].b32.s1;
+            str = str + MEM[(MEM[(p + 1) as usize].b32.s0 + 2) as usize].b32.s1
         }
-        p = (*mem.offset(p as isize)).b32.s1
+        p = MEM[p as usize].b32.s1
     }
     o = 0i32;
     if s > nat && str > 0i32 {
@@ -7275,20 +6802,18 @@ unsafe extern "C" fn build_opentype_assembly(
         if o > str {
             o = str
         }
-        (*mem.offset((b + 5i32) as isize)).b16.s0 = 0_u16;
-        (*mem.offset((b + 5i32) as isize)).b16.s1 = 1_u16;
-        (*mem.offset((b + 6i32) as isize)).gr = o as f64 / str as f64;
+        MEM[(b + 5) as usize].b16.s0 = 0_u16;
+        MEM[(b + 5) as usize].b16.s1 = 1_u16;
+        MEM[(b + 6) as usize].gr = o as f64 / str as f64;
         if horiz {
-            (*mem.offset((b + 1i32) as isize)).b32.s1 =
-                nat + tex_round(str as f64 * (*mem.offset((b + 6i32) as isize)).gr)
+            MEM[(b + 1) as usize].b32.s1 = nat + tex_round(str as f64 * MEM[(b + 6) as usize].gr)
         } else {
-            (*mem.offset((b + 3i32) as isize)).b32.s1 =
-                nat + tex_round(str as f64 * (*mem.offset((b + 6i32) as isize)).gr)
+            MEM[(b + 3) as usize].b32.s1 = nat + tex_round(str as f64 * MEM[(b + 6) as usize].gr)
         }
     } else if horiz {
-        (*mem.offset((b + 1i32) as isize)).b32.s1 = nat
+        MEM[(b + 1) as usize].b32.s1 = nat
     } else {
-        (*mem.offset((b + 3i32) as isize)).b32.s1 = nat
+        MEM[(b + 3) as usize].b32.s1 = nat
     }
     b
 }
@@ -7296,42 +6821,35 @@ unsafe extern "C" fn rebox(mut b: i32, mut w: scaled_t) -> i32 {
     let mut p: i32 = 0;
     let mut f: internal_font_number = 0;
     let mut v: scaled_t = 0;
-    if (*mem.offset((b + 1i32) as isize)).b32.s1 != w
-        && (*mem.offset((b + 5i32) as isize)).b32.s1 != -0xfffffffi32
-    {
-        if (*mem.offset(b as isize)).b16.s1 as i32 == 1i32 {
+    if MEM[(b + 1) as usize].b32.s1 != w && MEM[(b + 5) as usize].b32.s1 != -0xfffffff {
+        if MEM[b as usize].b16.s1 as i32 == 1 {
             b = hpack(b, 0i32, 1i32 as small_number)
         }
-        p = (*mem.offset((b + 5i32) as isize)).b32.s1;
-        if is_char_node(p) as i32 != 0 && (*mem.offset(p as isize)).b32.s1 == -0xfffffffi32 {
-            f = (*mem.offset(p as isize)).b16.s1 as internal_font_number;
-            v = (*font_info.offset(
-                (*width_base.offset(f as isize)
-                    + (*font_info.offset(
-                        (*char_base.offset(f as isize)
-                            + effective_char(1i32 != 0, f, (*mem.offset(p as isize)).b16.s0))
-                            as isize,
-                    ))
+        p = MEM[(b + 5) as usize].b32.s1;
+        if is_char_node(p) as i32 != 0 && MEM[p as usize].b32.s1 == -0xfffffff {
+            f = MEM[p as usize].b16.s1 as internal_font_number;
+            v = FONT_INFO[(WIDTH_BASE[f as usize]
+                + FONT_INFO[(CHAR_BASE[f as usize]
+                    + effective_char(1i32 != 0, f, MEM[p as usize].b16.s0))
+                    as usize]
                     .b16
-                    .s3 as i32) as isize,
-            ))
-            .b32
-            .s1;
-            if v != (*mem.offset((b + 1i32) as isize)).b32.s1 {
-                (*mem.offset(p as isize)).b32.s1 =
-                    new_kern((*mem.offset((b + 1i32) as isize)).b32.s1 - v)
+                    .s3 as i32) as usize]
+                .b32
+                .s1;
+            if v != MEM[(b + 1) as usize].b32.s1 {
+                MEM[p as usize].b32.s1 = new_kern(MEM[(b + 1) as usize].b32.s1 - v)
             }
         }
         free_node(b, 8i32);
         b = new_glue(12i32);
-        (*mem.offset(b as isize)).b32.s1 = p;
-        while (*mem.offset(p as isize)).b32.s1 != -0xfffffffi32 {
-            p = (*mem.offset(p as isize)).b32.s1
+        MEM[b as usize].b32.s1 = p;
+        while MEM[p as usize].b32.s1 != -0xfffffff {
+            p = MEM[p as usize].b32.s1
         }
-        (*mem.offset(p as isize)).b32.s1 = new_glue(12i32);
+        MEM[p as usize].b32.s1 = new_glue(12);
         hpack(b, w, 0i32 as small_number)
     } else {
-        (*mem.offset((b + 1i32) as isize)).b32.s1 = w;
+        MEM[(b + 1) as usize].b32.s1 = w;
         b
     }
 }
