@@ -35,8 +35,8 @@ use crate::spc_warn;
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 
-unsafe fn spc_handler_null(mut _spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
-    (*args).cur = &[];
+unsafe fn spc_handler_null(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+    args.cur = &[];
     0i32
 }
 const DVIPDFMX_HANDLERS: [SpcHandler; 1] = [SpcHandler {
@@ -50,26 +50,25 @@ pub(crate) fn spc_dvipdfmx_check_special(mut buf: &[u8]) -> bool {
 }
 
 pub(crate) unsafe fn spc_dvipdfmx_setup_handler(
-    mut sph: *mut SpcHandler,
-    spe: *mut spc_env,
-    mut ap: *mut spc_arg,
+    sph: &mut SpcHandler,
+    spe: &mut spc_env,
+    ap: &mut spc_arg,
 ) -> i32 {
     let mut error: i32 = -1i32;
-    assert!(!sph.is_null() && !spe.is_null() && !ap.is_null());
-    (*ap).cur.skip_white();
-    if !(*ap).cur.starts_with(b"dvipdfmx:") {
+    ap.cur.skip_white();
+    if !ap.cur.starts_with(b"dvipdfmx:") {
         spc_warn!(spe, "Not dvipdfmx: special???");
         return -1i32;
     }
-    (*ap).cur = &(*ap).cur[b"dvipdfmx:".len()..];
-    (*ap).cur.skip_white();
-    if let Some(q) = (*ap).cur.parse_c_ident() {
+    ap.cur = &ap.cur[b"dvipdfmx:".len()..];
+    ap.cur.skip_white();
+    if let Some(q) = ap.cur.parse_c_ident() {
         for handler in DVIPDFMX_HANDLERS.iter() {
             if q.to_bytes() == handler.key {
-                (*ap).command = Some(handler.key);
-                (*sph).key = b"dvipdfmx:";
-                (*sph).exec = handler.exec;
-                (*ap).cur.skip_white();
+                ap.command = Some(handler.key);
+                sph.key = b"dvipdfmx:";
+                sph.exec = handler.exec;
+                ap.cur.skip_white();
                 error = 0i32;
                 break;
             }
