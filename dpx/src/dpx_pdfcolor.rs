@@ -32,14 +32,13 @@ use crate::dpx_pdfobj::{
 };
 use crate::mfree;
 use crate::shims::sprintf;
-use crate::{info, warn};
+use crate::{info, warn, FromBEByteSlice};
 use libc::{free, memcmp, memcpy, memset, strcmp, strcpy, strlen};
 use md5::{Digest, Md5};
 use std::error::Error;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::ptr;
-use std::slice::from_raw_parts;
 
 #[derive(Debug)]
 pub(crate) enum PdfColorError {
@@ -395,13 +394,11 @@ unsafe fn iccp_version_supported(major: i32, minor: i32) -> i32 {
     }
     0i32
 }
-unsafe fn str2iccSig(s: *const libc::c_void) -> iccSig {
-    let p = s as *const i8;
-    return ((*p.offset(0) as i32) << 24i32
-        | (*p.offset(1) as i32) << 16i32
-        | (*p.offset(2) as i32) << 8i32
-        | *p.offset(3) as i32) as iccSig;
+
+fn str2iccSig(p: &[u8]) -> iccSig {
+    u32::from_be_byte_slice(p)
 }
+
 unsafe fn iccp_init_iccHeader(icch: &mut iccHeader) {
     icch.size = 0i32;
     icch.CMMType = 0i32 as iccSig;
@@ -414,7 +411,7 @@ unsafe fn iccp_init_iccHeader(icch: &mut iccHeader) {
         0i32,
         12,
     );
-    icch.acsp = str2iccSig(b"ascp\x00" as *const u8 as *const i8 as *const libc::c_void);
+    icch.acsp = str2iccSig(b"ascp");
     icch.platform = 0i32 as iccSig;
     memset(icch.flags.as_mut_ptr() as *mut libc::c_void, 0i32, 4);
     icch.devMnfct = 0i32 as iccSig;
@@ -491,27 +488,20 @@ pub(crate) unsafe fn iccp_check_colorspace(colortype: i32, profile: &[u8]) -> i3
     if profile.len() < 128 {
         return -1i32;
     }
-    let p = profile.as_ptr();
-    let colorspace = str2iccSig(p.offset(16) as *const libc::c_void);
+    let colorspace = str2iccSig(&profile[16..20]);
     match colortype {
         3 | -3 => {
-            if colorspace
-                != str2iccSig(b"RGB \x00" as *const u8 as *const i8 as *const libc::c_void)
-            {
+            if colorspace != str2iccSig(b"RGB ") {
                 return -1i32;
             }
         }
         1 | -1 => {
-            if colorspace
-                != str2iccSig(b"GRAY\x00" as *const u8 as *const i8 as *const libc::c_void)
-            {
+            if colorspace != str2iccSig(b"GRAY") {
                 return -1i32;
             }
         }
         -4 => {
-            if colorspace
-                != str2iccSig(b"CMYK\x00" as *const u8 as *const i8 as *const libc::c_void)
-            {
+            if colorspace != str2iccSig(b"CMYK") {
                 return -1i32;
             }
         }
@@ -543,131 +533,108 @@ pub(crate) unsafe fn iccp_get_rendering_intent(profile: &[u8]) -> *mut pdf_obj {
         }
     }
 }
-unsafe fn iccp_unpack_header(
-    icch: &mut iccHeader,
-    profile: *const libc::c_void,
-    proflen: i32,
-    check_size: i32,
-) -> i32 {
+unsafe fn iccp_unpack_header(icch: &mut iccHeader, profile: &[u8], check_size: i32) -> i32 {
+    let proflen = profile.len();
     if check_size != 0 {
-        if profile.is_null() || proflen < 128i32 || proflen % 4i32 != 0i32 {
+        if proflen < 128 || proflen % 4 != 0 {
             warn!("Profile size: {}", proflen);
             return -1i32;
         }
     }
-    let mut p = profile as *const u8;
-    let endptr = p.offset(128);
-    icch.size = (*p.offset(0) as i32) << 24i32
-        | (*p.offset(1) as i32) << 16i32
-        | (*p.offset(2) as i32) << 8i32
-        | *p.offset(3) as i32;
+    let mut p = &profile[..128];
+    icch.size = u32::from_be_byte_slice(&p[..4]) as i32;
     if check_size != 0 {
-        if icch.size != proflen {
-            warn!("ICC Profile size: {}(header) != {}", icch.size, proflen,);
+        if icch.size != proflen as i32 {
+            warn!("ICC Profile size: {}(header) != {}", icch.size, proflen);
             return -1i32;
         }
     }
-    p = p.offset(4);
-    icch.CMMType = str2iccSig(p as *const libc::c_void);
-    p = p.offset(4);
-    icch.version = (*p.offset(0) as i32) << 24i32
-        | (*p.offset(1) as i32) << 16i32
-        | (*p.offset(2) as i32) << 8i32
-        | *p.offset(3) as i32;
-    p = p.offset(4);
-    icch.devClass = str2iccSig(p as *const libc::c_void);
-    p = p.offset(4);
-    icch.colorSpace = str2iccSig(p as *const libc::c_void);
-    p = p.offset(4);
-    icch.PCS = str2iccSig(p as *const libc::c_void);
-    p = p.offset(4);
+    p = &p[4..];
+    icch.CMMType = str2iccSig(&p[..4]);
+    p = &p[4..];
+    icch.version = u32::from_be_byte_slice(&p[..4]) as i32;
+    p = &p[4..];
+    icch.devClass = str2iccSig(&p[..4]);
+    p = &p[4..];
+    icch.colorSpace = str2iccSig(&p[..4]);
+    p = &p[4..];
+    icch.PCS = str2iccSig(&p[..4]);
+    p = &p[4..];
     memcpy(
         icch.creationDate.as_mut_ptr() as *mut libc::c_void,
-        p as *const libc::c_void,
+        p.as_ptr() as *const libc::c_void,
         12,
     );
-    p = p.offset(12);
-    icch.acsp = str2iccSig(p as *const libc::c_void);
-    if icch.acsp != str2iccSig(b"acsp\x00" as *const u8 as *const i8 as *const libc::c_void) {
+    p = &p[12..];
+    icch.acsp = str2iccSig(&p[..4]);
+    if icch.acsp != str2iccSig(b"acsp") {
         warn!(
             "Invalid ICC profile: not \"acsp\" - {}{}{}{} ",
-            char::from(*p.offset(0)),
-            char::from(*p.offset(1)),
-            char::from(*p.offset(2)),
-            char::from(*p.offset(3)),
+            char::from(p[0]),
+            char::from(p[1]),
+            char::from(p[2]),
+            char::from(p[3]),
         );
         return -1i32;
     }
-    p = p.offset(4);
-    icch.platform = str2iccSig(p as *const libc::c_void);
-    p = p.offset(4);
+    p = &p[4..];
+    icch.platform = str2iccSig(&p[..4]);
+    p = &p[4..];
     memcpy(
         icch.flags.as_mut_ptr() as *mut libc::c_void,
-        p as *const libc::c_void,
+        p.as_ptr() as *const libc::c_void,
         4,
     );
-    p = p.offset(4);
-    icch.devMnfct = str2iccSig(p as *const libc::c_void);
-    p = p.offset(4);
-    icch.devModel = str2iccSig(p as *const libc::c_void);
-    p = p.offset(4);
+    p = &p[4..];
+    icch.devMnfct = str2iccSig(&p[..4]);
+    p = &p[4..];
+    icch.devModel = str2iccSig(&p[..4]);
+    p = &p[4..];
     memcpy(
         icch.devAttr.as_mut_ptr() as *mut libc::c_void,
-        p as *const libc::c_void,
+        p.as_ptr() as *const libc::c_void,
         8,
     );
-    p = p.offset(8);
-    icch.intent = (*p.offset(0) as i32) << 24i32
-        | (*p.offset(1) as i32) << 16i32
-        | (*p.offset(2) as i32) << 8i32
-        | *p.offset(3) as i32;
-    p = p.offset(4);
-    icch.illuminant.X = (*p.offset(0) as i32) << 24i32
-        | (*p.offset(1) as i32) << 16i32
-        | (*p.offset(2) as i32) << 8i32
-        | *p.offset(3) as i32;
-    p = p.offset(4);
-    icch.illuminant.Y = (*p.offset(0) as i32) << 24i32
-        | (*p.offset(1) as i32) << 16i32
-        | (*p.offset(2) as i32) << 8i32
-        | *p.offset(3) as i32;
-    p = p.offset(4);
-    icch.illuminant.Z = (*p.offset(0) as i32) << 24i32
-        | (*p.offset(1) as i32) << 16i32
-        | (*p.offset(2) as i32) << 8i32
-        | *p.offset(3) as i32;
-    p = p.offset(4);
-    icch.creator = str2iccSig(p as *const libc::c_void);
-    p = p.offset(4);
+    p = &p[8..];
+    icch.intent = u32::from_be_byte_slice(&p[..4]) as i32;
+    p = &p[4..];
+    icch.illuminant.X = u32::from_be_byte_slice(&p[..4]) as i32;
+    p = &p[4..];
+    icch.illuminant.Y = u32::from_be_byte_slice(&p[..4]) as i32;
+    p = &p[4..];
+    icch.illuminant.Z = u32::from_be_byte_slice(&p[..4]) as i32;
+    p = &p[4..];
+    icch.creator = str2iccSig(&p[..4]);
+    p = &p[4..];
     memcpy(
         icch.ID.as_mut_ptr() as *mut libc::c_void,
-        p as *const libc::c_void,
+        p.as_ptr() as *const libc::c_void,
         16,
     );
-    p = p.offset(16);
+    p = &p[16..];
     /* 28 bytes reserved - must be set to zeros */
-    while p < endptr {
-        if *p as i32 != '\u{0}' as i32 {
+    while !p.is_empty() {
+        if p[0] != 0 {
             warn!(
                 "Reserved pad not zero: {:02x} (at offset {} in ICC profile header.)",
-                *p as i32,
-                128i32 - endptr.wrapping_offset_from(p) as i64 as i32,
+                p[0],
+                128 - p.len(),
             );
             return -1i32;
         }
-        p = p.offset(1)
+        p = &p[1..];
     }
     0i32
 }
-unsafe fn iccp_get_checksum(profile: *const u8, proflen: usize) -> [u8; 16] {
+unsafe fn iccp_get_checksum(profile: &[u8]) -> [u8; 16] {
     let mut md5 = Md5::new();
-    md5.input(from_raw_parts(profile.offset(0), 56));
+    md5.input(&profile[..56]);
     md5.input(&[0u8; 12]);
-    md5.input(from_raw_parts(profile.offset(68), 16));
+    md5.input(&profile[68..84]);
     md5.input(&[0u8; 16]);
-    md5.input(from_raw_parts(profile.offset(100), 28));
+    md5.input(&profile[100..128]);
     /* body */
-    md5.input(from_raw_parts(profile.offset(128), proflen - 128));
+    md5.input(&profile[128..]);
     md5.result().into()
 }
 
@@ -929,13 +896,10 @@ unsafe fn print_iccp_header(icch: &mut iccHeader, checksum: *mut u8) {
 }
 unsafe fn iccp_devClass_allowed(dev_class: i32) -> i32 {
     let _colormode = pdf_dev_get_param(2i32); // TODO: check
-    if dev_class as u32 != str2iccSig(b"scnr\x00" as *const u8 as *const i8 as *const libc::c_void)
-        && dev_class as u32
-            != str2iccSig(b"mntr\x00" as *const u8 as *const i8 as *const libc::c_void)
-        && dev_class as u32
-            != str2iccSig(b"prtr\x00" as *const u8 as *const i8 as *const libc::c_void)
-        && dev_class as u32
-            != str2iccSig(b"spac\x00" as *const u8 as *const i8 as *const libc::c_void)
+    if dev_class as u32 != str2iccSig(b"scnr")
+        && dev_class as u32 != str2iccSig(b"mntr")
+        && dev_class as u32 != str2iccSig(b"prtr")
+        && dev_class as u32 != str2iccSig(b"spac")
     {
         return 0i32;
     }
@@ -947,13 +911,7 @@ pub(crate) unsafe fn iccp_load_profile(ident: *const i8, profile: &[u8]) -> i32 
     let mut icch = iccHeader::default();
     let colorspace;
     iccp_init_iccHeader(&mut icch);
-    if iccp_unpack_header(
-        &mut icch,
-        profile.as_ptr() as *const libc::c_void,
-        profile.len() as i32,
-        1i32,
-    ) < 0i32
-    {
+    if iccp_unpack_header(&mut icch, profile, 1i32) < 0i32 {
         /* check size */
         warn!(
             "Invalid ICC profile header in \"{}\"",
@@ -980,22 +938,18 @@ pub(crate) unsafe fn iccp_load_profile(ident: *const i8, profile: &[u8]) -> i32 
         print_iccp_header(&mut icch, ptr::null_mut());
         return -1i32;
     }
-    if icch.colorSpace == str2iccSig(b"RGB \x00" as *const u8 as *const i8 as *const libc::c_void) {
+    if icch.colorSpace == str2iccSig(b"RGB ") {
         colorspace = -3i32
-    } else if icch.colorSpace
-        == str2iccSig(b"GRAY\x00" as *const u8 as *const i8 as *const libc::c_void)
-    {
+    } else if icch.colorSpace == str2iccSig(b"GRAY") {
         colorspace = -1i32
-    } else if icch.colorSpace
-        == str2iccSig(b"CMYK\x00" as *const u8 as *const i8 as *const libc::c_void)
-    {
+    } else if icch.colorSpace == str2iccSig(b"CMYK") {
         colorspace = -4i32
     } else {
         warn!("Unsupported input color space.");
         print_iccp_header(&mut icch, ptr::null_mut());
         return -1i32;
     }
-    let mut checksum = iccp_get_checksum(profile.as_ptr(), profile.len());
+    let mut checksum = iccp_get_checksum(profile);
     if memcmp(
         icch.ID.as_mut_ptr() as *const libc::c_void,
         NULLBYTES16.as_mut_ptr() as *const libc::c_void,

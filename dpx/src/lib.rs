@@ -27,10 +27,12 @@ macro_rules! info(
     }};
 );
 
+fn spe_do_nothing(_spe: &specials::spc_env) {}
+
 #[macro_export]
 macro_rules! spc_warn(
     ($spe:ident, $($arg:tt)*) => {{
-        let _spe = $spe;
+        $crate::spe_do_nothing($spe);
         warn!($($arg)*);
     }};
 );

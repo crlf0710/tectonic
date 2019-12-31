@@ -62,7 +62,7 @@ fn parse_postscriptbox_special(buf: &str) -> Result<(f64, f64, String), ()> {
 }
 
 /* quasi-hack to get the primary input */
-unsafe fn spc_handler_postscriptbox(spe: *mut spc_env, mut ap: *mut spc_arg) -> i32 {
+unsafe fn spc_handler_postscriptbox(spe: &mut spc_env, ap: &mut spc_arg) -> i32 {
     let mut ti = transform_info::new();
     let options: load_options = load_options {
         page_no: 1i32,
@@ -70,8 +70,7 @@ unsafe fn spc_handler_postscriptbox(spe: *mut spc_env, mut ap: *mut spc_arg) -> 
         dict: ptr::null_mut(),
     };
     let mut buf: [u8; 512] = [0; 512];
-    assert!(!spe.is_null() && !ap.is_null());
-    if (*ap).cur.is_empty() {
+    if ap.cur.is_empty() {
         spc_warn!(
             spe,
             "No width/height/filename given for postscriptbox special."
@@ -79,9 +78,9 @@ unsafe fn spc_handler_postscriptbox(spe: *mut spc_env, mut ap: *mut spc_arg) -> 
         return -1i32;
     }
     /* input is not NULL terminated */
-    let len = (*ap).cur.len();
+    let len = ap.cur.len();
     let len = if 511 < len { 511 } else { len };
-    buf[..len].copy_from_slice(&(*ap).cur[..len]);
+    buf[..len].copy_from_slice(&ap.cur[..len]);
     buf[len] = 0;
     transform_info_clear(&mut ti);
 
@@ -99,7 +98,7 @@ unsafe fn spc_handler_postscriptbox(spe: *mut spc_env, mut ap: *mut spc_arg) -> 
         return -1i32;
     }
 
-    (*ap).cur = &[];
+    ap.cur = &[];
     ti.width *= 72.0f64 / 72.27f64;
     ti.height *= 72.0f64 / 72.27f64;
     let handle = ttstub_input_open(filename.as_ptr() as *const i8, TTInputFormat::PICT, 0i32);
@@ -126,11 +125,11 @@ unsafe fn spc_handler_postscriptbox(spe: *mut spc_env, mut ap: *mut spc_arg) -> 
         spc_warn!(spe, "Failed to load image file: {}", filename,);
         return -1i32;
     }
-    pdf_dev_put_image(form_id, &mut ti, (*spe).x_user, (*spe).y_user);
+    pdf_dev_put_image(form_id, &mut ti, spe.x_user, spe.y_user);
     0i32
 }
-unsafe fn spc_handler_null(mut _spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
-    (*args).cur = &[];
+unsafe fn spc_handler_null(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+    args.cur = &[];
     0i32
 }
 const MISC_HANDLERS: [SpcHandler; 6] = [
@@ -171,23 +170,22 @@ pub(crate) fn spc_misc_check_special(mut buf: &[u8]) -> bool {
 }
 
 pub(crate) unsafe fn spc_misc_setup_handler(
-    mut handle: *mut SpcHandler,
-    spe: *mut spc_env,
-    mut args: *mut spc_arg,
+    handle: &mut SpcHandler,
+    _spe: &mut spc_env,
+    args: &mut spc_arg,
 ) -> i32 {
-    assert!(!handle.is_null() && !spe.is_null() && !args.is_null());
-    (*args).cur.skip_white();
-    let key = (*args).cur;
+    args.cur.skip_white();
+    let key = args.cur;
     let mut keylen = 0;
-    for &c in (*args).cur {
+    for &c in args.cur {
         if !(c as u8).is_ascii_alphabetic() {
             break;
         }
         keylen += 1;
     }
-    (*args).cur = &(*args).cur[keylen..];
-    if !(*args).cur.is_empty() && (*args).cur[0] == b':' {
-        (*args).cur = &(*args).cur[1..];
+    args.cur = &args.cur[keylen..];
+    if !args.cur.is_empty() && args.cur[0] == b':' {
+        args.cur = &args.cur[1..];
         keylen += 1;
     }
     if keylen < 1 {
@@ -195,8 +193,8 @@ pub(crate) unsafe fn spc_misc_setup_handler(
     }
     for handler in MISC_HANDLERS.iter() {
         if keylen == handler.key.len() && &key[..keylen] == handler.key {
-            (*args).cur.skip_white();
-            (*args).command = Some(handler.key);
+            args.cur.skip_white();
+            args.command = Some(handler.key);
             (*handle).key = b"???:";
             (*handle).exec = handler.exec;
             return 0i32;

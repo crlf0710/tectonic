@@ -91,7 +91,7 @@ pub(crate) struct spc_arg<'a> {
 #[repr(C)]
 pub(crate) struct SpcHandler {
     pub(crate) key: &'static [u8],
-    pub(crate) exec: Option<unsafe fn(_: *mut spc_env, _: *mut spc_arg) -> i32>,
+    pub(crate) exec: Option<unsafe fn(_: &mut spc_env, _: &mut spc_arg) -> i32>,
 }
 
 use super::dpx_dpxutil::ht_table;
@@ -105,7 +105,7 @@ pub(crate) struct Special {
     pub(crate) bophk_func: Option<unsafe fn() -> i32>,
     pub(crate) eophk_func: Option<unsafe fn() -> i32>,
     pub(crate) check_func: fn(_: &[u8]) -> bool,
-    pub(crate) setup_func: unsafe fn(_: *mut SpcHandler, _: *mut spc_env, _: *mut spc_arg) -> i32,
+    pub(crate) setup_func: unsafe fn(_: &mut SpcHandler, _: &mut spc_env, _: &mut spc_arg) -> i32,
 }
 static mut VERBOSE: i32 = 0i32;
 pub(crate) unsafe fn spc_set_verbose(level: i32) {
@@ -114,22 +114,22 @@ pub(crate) unsafe fn spc_set_verbose(level: i32) {
 /* This is currently just to make other spc_xxx to not directly
  * call dvi_xxx.
  */
-pub(crate) unsafe fn spc_begin_annot(mut _spe: *mut spc_env, dict: *mut pdf_obj) -> i32 {
+pub(crate) unsafe fn spc_begin_annot(mut _spe: &mut spc_env, dict: *mut pdf_obj) -> i32 {
     pdf_doc_begin_annot(dict); /* Tell dvi interpreter to handle line-break. */
     dvi_tag_depth();
     0i32
 }
-pub(crate) unsafe fn spc_end_annot(mut _spe: *mut spc_env) -> i32 {
+pub(crate) unsafe fn spc_end_annot(mut _spe: &mut spc_env) -> i32 {
     dvi_untag_depth();
     pdf_doc_end_annot();
     0i32
 }
-pub(crate) unsafe fn spc_resume_annot(mut _spe: *mut spc_env) -> i32 {
+pub(crate) unsafe fn spc_resume_annot(mut _spe: &mut spc_env) -> i32 {
     dvi_link_annot(1i32);
     0i32
 }
 
-pub(crate) unsafe fn spc_suspend_annot(mut _spe: *mut spc_env) -> i32 {
+pub(crate) unsafe fn spc_suspend_annot(mut _spe: &mut spc_env) -> i32 {
     dvi_link_annot(0i32);
     0i32
 }
@@ -281,9 +281,8 @@ pub(crate) unsafe fn spc_clear_objects() {
     pdf_delete_name_tree(&mut NAMED_OBJECTS);
     NAMED_OBJECTS = pdf_new_name_tree();
 }
-unsafe fn spc_handler_unknown(spe: *mut spc_env, mut args: *mut spc_arg) -> i32 {
-    assert!(!spe.is_null() && !args.is_null());
-    (*args).cur = &[];
+unsafe fn spc_handler_unknown(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+    args.cur = &[];
     -1i32
 }
 unsafe fn init_special<'a, 'b>(
@@ -314,7 +313,7 @@ unsafe fn check_garbage(args: &mut spc_arg) {
     args.cur.skip_white();
     if !args.cur.is_empty() {
         warn!("Unparsed material at end of special ignored.");
-        dump((*args).cur);
+        dump(args.cur);
     };
 }
 const KNOWN_SPECIALS: [Special; 8] = [
@@ -433,15 +432,15 @@ pub(crate) unsafe fn spc_exec_at_end_document() -> i32 {
     }
     error
 }
-unsafe fn print_error(name: *const i8, spe: *mut spc_env, mut ap: *mut spc_arg) {
+unsafe fn print_error(name: *const i8, spe: &mut spc_env, ap: &mut spc_arg) {
     let mut ebuf: [u8; 64] = [0; 64];
-    let pg: i32 = (*spe).pg;
-    let mut c = point2((*spe).x_user, (*spe).y_user);
+    let pg: i32 = spe.pg;
+    let mut c = point2(spe.x_user, spe.y_user);
     pdf_dev_transform(&mut c, None);
-    if (*ap).command.is_some() && !name.is_null() {
+    if ap.command.is_some() && !name.is_null() {
         warn!(
             "Interpreting special command {} ({}) failed.",
-            (*ap).command.unwrap().display(),
+            ap.command.unwrap().display(),
             CStr::from_ptr(name).display(),
         );
         warn!(
@@ -450,7 +449,7 @@ unsafe fn print_error(name: *const i8, spe: *mut spc_env, mut ap: *mut spc_arg) 
         );
     }
     let mut i = 0;
-    for &b in (*ap).base {
+    for &b in ap.base {
         if i >= 63 {
             break;
         }
@@ -469,7 +468,7 @@ unsafe fn print_error(name: *const i8, spe: *mut spc_env, mut ap: *mut spc_arg) 
         }
     }
     ebuf[i] = 0;
-    if !(*ap).cur.is_empty() {
+    if !ap.cur.is_empty() {
         loop {
             let fresh1 = i;
             i = i - 1;
@@ -483,9 +482,9 @@ unsafe fn print_error(name: *const i8, spe: *mut spc_env, mut ap: *mut spc_arg) 
         ">> xxx \"{}\"",
         CStr::from_ptr(ebuf.as_ptr() as *const i8).display()
     );
-    if !(*ap).cur.is_empty() {
+    if !ap.cur.is_empty() {
         i = 0;
-        for &b in (*ap).cur {
+        for &b in ap.cur {
             if i >= 63 {
                 break;
             }
@@ -504,7 +503,7 @@ unsafe fn print_error(name: *const i8, spe: *mut spc_env, mut ap: *mut spc_arg) 
             }
         }
         ebuf[i] = 0;
-        if !(*ap).cur.is_empty() {
+        if !ap.cur.is_empty() {
             loop {
                 let fresh3 = i;
                 i = i - 1;
@@ -518,7 +517,7 @@ unsafe fn print_error(name: *const i8, spe: *mut spc_env, mut ap: *mut spc_arg) 
             ">> Reading special command stopped around >>{}<<",
             CStr::from_ptr(ebuf.as_ptr() as *const i8).display()
         );
-        (*ap).cur = &[];
+        ap.cur = &[];
     };
 }
 /* current page in PDF */

@@ -1270,22 +1270,22 @@ impl std::borrow::Borrow<[u8]> for pdf_name {
 }
 
 impl pdf_dict {
-    pub(crate) unsafe fn foreach(
+    pub(crate) unsafe fn foreach<T>(
         &mut self,
-        f: unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
-        pdata: *mut libc::c_void,
+        f: unsafe fn(_: &pdf_name, _: &mut pdf_obj, _: &mut T) -> i32,
+        pdata: &mut T,
     ) -> i32 {
         self.foreach_dict(
             |k, v, pdata| {
-                let e = f(k, v, pdata);
+                let e = f(k, &mut *v, pdata);
                 e
             },
             pdata,
         )
     }
-    fn foreach_dict<F>(&mut self, f: F, pdata: *mut libc::c_void) -> i32
+    fn foreach_dict<F, T>(&mut self, f: F, pdata: &mut T) -> i32
     where
-        F: Fn(&pdf_name, *mut pdf_obj, *mut libc::c_void) -> i32,
+        F: Fn(&pdf_name, *mut pdf_obj, &mut T) -> i32,
     {
         let mut error: i32 = 0i32;
         for (k, &v) in self.inner.iter() {
@@ -3805,13 +3805,12 @@ pub(crate) unsafe extern "C" fn check_for_pdf(handle: &mut InputHandleWrapper) -
 }
 
 #[inline]
-unsafe fn import_dict(key: &pdf_name, value: *mut pdf_obj, pdata: *mut libc::c_void) -> i32 {
-    let copy = &mut *(pdata as *mut pdf_obj);
+unsafe fn import_dict(key: &pdf_name, value: &mut pdf_obj, pdata: &mut pdf_dict) -> i32 {
     let tmp = pdf_import_object(value);
     if tmp.is_null() {
         return -1i32;
     }
-    copy.as_dict_mut().set(key.to_bytes(), tmp); // TODO: check
+    pdata.set(key.to_bytes(), tmp); // TODO: check
     0i32
 }
 static mut loop_marker: pdf_obj = pdf_obj {
@@ -3887,17 +3886,11 @@ pub(crate) unsafe fn pdf_import_object(object: *mut pdf_obj) -> *mut pdf_obj {
             imported.into_obj()
         }
         PdfObjVariant::DICT(v) => {
-            let imported = pdf_dict::new().into_obj();
-            if (&mut *v).foreach(
-                import_dict
-                    as unsafe fn(_: &pdf_name, _: *mut pdf_obj, _: *mut libc::c_void) -> i32,
-                imported as *mut libc::c_void,
-            ) < 0i32
-            {
-                pdf_release_obj(imported);
+            let mut imported = pdf_dict::new();
+            if (&mut *v).foreach(import_dict, &mut imported) < 0i32 {
                 return ptr::null_mut();
             }
-            imported
+            imported.into_obj()
         }
         PdfObjVariant::ARRAY(v) => {
             let mut imported = vec![];
