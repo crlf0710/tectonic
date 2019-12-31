@@ -443,15 +443,15 @@ unsafe fn do_clear() -> i32 {
 unsafe fn pop_get_numbers(values: &mut [f64]) -> i32 {
     let mut count = values.len();
     loop {
-        let fresh1 = count;
-        count -= 1;
-        if !(fresh1 > 0) {
+        if count == 0 {
             break;
         }
+        count -= 1;
         if let Some(tmp) = STACK.pop() {
             if !(*tmp).is_number() {
                 warn!("mpost: Not a number!");
                 pdf_release_obj(tmp);
+                count += 1;
                 break;
             } else {
                 values[count] = (*tmp).as_f64();
@@ -459,10 +459,11 @@ unsafe fn pop_get_numbers(values: &mut [f64]) -> i32 {
             }
         } else {
             warn!("mpost: Stack underflow.");
+            count += 1;
             break;
         }
     }
-    (count + 1) as i32
+    count as i32
 }
 unsafe fn cvr_array(array: *mut pdf_obj, values: &mut [f64]) -> i32 {
     let mut count = values.len();
