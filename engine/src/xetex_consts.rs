@@ -73,61 +73,64 @@ pub(crate) const SINGLE_BASE: placeholdertype = (ACTIVE_BASE + NUMBER_USVS);
 pub(crate) const NULL_CS: placeholdertype = (SINGLE_BASE + NUMBER_USVS);
 /// "region 2": hash table
 pub(crate) const HASH_BASE: placeholdertype = (NULL_CS + 1);
-pub(crate) const FROZEN_CONTROL_SEQUENCE: placeholdertype = (HASH_BASE + HASH_SIZE);
-pub(crate) const FROZEN_PROTECTION: placeholdertype = (FROZEN_CONTROL_SEQUENCE + 0);
-pub(crate) const FROZEN_CR: placeholdertype = (FROZEN_CONTROL_SEQUENCE + 1);
-pub(crate) const FROZEN_END_GROUP: placeholdertype = (FROZEN_CONTROL_SEQUENCE + 2);
-pub(crate) const FROZEN_RIGHT: placeholdertype = (FROZEN_CONTROL_SEQUENCE + 3);
-pub(crate) const FROZEN_FI: placeholdertype = (FROZEN_CONTROL_SEQUENCE + 4);
-pub(crate) const FROZEN_END_TEMPLATE: placeholdertype = (FROZEN_CONTROL_SEQUENCE + 5);
-pub(crate) const FROZEN_ENDV: placeholdertype = (FROZEN_CONTROL_SEQUENCE + 6);
-pub(crate) const FROZEN_RELAX: placeholdertype = (FROZEN_CONTROL_SEQUENCE + 7);
-pub(crate) const END_WRITE: placeholdertype = (FROZEN_CONTROL_SEQUENCE + 8);
-pub(crate) const FROZEN_DONT_EXPAND: placeholdertype = (FROZEN_CONTROL_SEQUENCE + 9);
-pub(crate) const FROZEN_SPECIAL: placeholdertype = (FROZEN_CONTROL_SEQUENCE + 10);
-pub(crate) const FROZEN_PRIMITIVE: placeholdertype = (FROZEN_CONTROL_SEQUENCE + 11);
-pub(crate) const FROZEN_NULL_FONT: placeholdertype = (FROZEN_CONTROL_SEQUENCE + 12);
+pub(crate) const FROZEN_CONTROL_SEQUENCE: usize = (HASH_BASE + HASH_SIZE) as usize;
+pub(crate) const FROZEN_PROTECTION: usize = FROZEN_CONTROL_SEQUENCE + 0;
+pub(crate) const FROZEN_CR: usize = FROZEN_CONTROL_SEQUENCE + 1;
+pub(crate) const FROZEN_END_GROUP: usize = FROZEN_CONTROL_SEQUENCE + 2;
+pub(crate) const FROZEN_RIGHT: usize = FROZEN_CONTROL_SEQUENCE + 3;
+pub(crate) const FROZEN_FI: usize = FROZEN_CONTROL_SEQUENCE + 4;
+pub(crate) const FROZEN_END_TEMPLATE: usize = FROZEN_CONTROL_SEQUENCE + 5;
+pub(crate) const FROZEN_ENDV: usize = FROZEN_CONTROL_SEQUENCE + 6;
+pub(crate) const FROZEN_RELAX: usize = FROZEN_CONTROL_SEQUENCE + 7;
+pub(crate) const END_WRITE: usize = FROZEN_CONTROL_SEQUENCE + 8;
+pub(crate) const FROZEN_DONT_EXPAND: usize = FROZEN_CONTROL_SEQUENCE + 9;
+pub(crate) const FROZEN_SPECIAL: usize = FROZEN_CONTROL_SEQUENCE + 10;
+pub(crate) const FROZEN_PRIMITIVE: usize = FROZEN_CONTROL_SEQUENCE + 11;
+pub(crate) const FROZEN_NULL_FONT: usize = FROZEN_CONTROL_SEQUENCE + 12;
 /// nominally minus FONT_BASE, but that's 0
-pub(crate) const FONT_ID_BASE: placeholdertype = FROZEN_NULL_FONT;
+pub(crate) const FONT_ID_BASE: placeholdertype = FROZEN_NULL_FONT as i32;
 pub(crate) const UNDEFINED_CONTROL_SEQUENCE: placeholdertype =
-    (FROZEN_NULL_FONT + MAX_FONT_MAX + 1);
+    (FROZEN_NULL_FONT as i32 + MAX_FONT_MAX + 1);
 
 /// "region 3": glue values
 pub(crate) const GLUE_BASE: placeholdertype = (UNDEFINED_CONTROL_SEQUENCE + 1);
 
-pub(crate) const GLUE_PAR__line_skip: placeholdertype = 0;
-pub(crate) const GLUE_PAR__baseline_skip: placeholdertype = 1;
-pub(crate) const GLUE_PAR__par_skip: placeholdertype = 2;
-pub(crate) const GLUE_PAR__above_display_skip: placeholdertype = 3;
-pub(crate) const GLUE_PAR__below_display_skip: placeholdertype = 4;
-pub(crate) const GLUE_PAR__above_display_short_skip: placeholdertype = 5;
-pub(crate) const GLUE_PAR__below_display_short_skip: placeholdertype = 6;
-pub(crate) const GLUE_PAR__left_skip: placeholdertype = 7;
-pub(crate) const GLUE_PAR__right_skip: placeholdertype = 8;
-pub(crate) const GLUE_PAR__top_skip: placeholdertype = 9;
-pub(crate) const GLUE_PAR__split_top_skip: placeholdertype = 10;
-pub(crate) const GLUE_PAR__tab_skip: placeholdertype = 11;
-pub(crate) const GLUE_PAR__space_skip: placeholdertype = 12;
-pub(crate) const GLUE_PAR__xspace_skip: placeholdertype = 13;
-pub(crate) const GLUE_PAR__par_fill_skip: placeholdertype = 14;
-pub(crate) const GLUE_PAR__xetex_linebreak_skip: placeholdertype = 15;
-pub(crate) const GLUE_PAR__thin_mu_skip: placeholdertype = 16;
-pub(crate) const GLUE_PAR__med_mu_skip: placeholdertype = 17;
-pub(crate) const GLUE_PAR__thick_mu_skip: placeholdertype = 18;
+#[repr(i32)]
+pub(crate) enum GluePar {
+    line_skip = 0,
+    baseline_skip = 1,
+    par_skip = 2,
+    above_display_skip = 3,
+    below_display_skip = 4,
+    above_display_short_skip = 5,
+    below_display_short_skip = 6,
+    left_skip = 7,
+    right_skip = 8,
+    top_skip = 9,
+    split_top_skip = 10,
+    tab_skip = 11,
+    space_skip = 12,
+    xspace_skip = 13,
+    par_fill_skip = 14,
+    xetex_linebreak_skip = 15,
+    thin_mu_skip = 16,
+    med_mu_skip = 17,
+    thick_mu_skip = 18,
+}
 pub(crate) const GLUE_PARS: placeholdertype = 19;
 
-pub(crate) unsafe fn GLUEPAR(s: placeholdertype) -> *mut i32 {
-    &mut EQTB[(GLUE_BASE + s) as usize].b32.s1
+pub(crate) unsafe fn GLUEPAR(s: GluePar) -> &'static mut i32 {
+    &mut EQTB[(GLUE_BASE + s as i32) as usize].b32.s1
 }
 
 pub(crate) const SKIP_BASE: placeholdertype = (GLUE_BASE + GLUE_PARS);
-pub(crate) unsafe fn SKIP_REG(n: placeholdertype) -> placeholdertype {
-    EQTB[(SKIP_BASE + n) as usize].b32.s1
+pub(crate) unsafe fn SKIP_REG(n: placeholdertype) -> &'static mut i32 {
+    &mut EQTB[(SKIP_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const MU_SKIP_BASE: placeholdertype = (SKIP_BASE + NUMBER_REGS);
-pub(crate) unsafe fn MU_SKIP_REG(n: placeholdertype) -> placeholdertype {
-    EQTB[(MU_SKIP_BASE + (n)) as usize].b32.s1
+pub(crate) unsafe fn MU_SKIP_REG(n: placeholdertype) -> &'static mut i32 {
+    &mut EQTB[(MU_SKIP_BASE + (n)) as usize].b32.s1
 }
 
 /* "region 4": local halfword values like baselineskip. Some of these are
@@ -135,32 +138,31 @@ pub(crate) unsafe fn MU_SKIP_REG(n: placeholdertype) -> placeholdertype {
 
 pub(crate) const LOCAL_BASE: placeholdertype = (MU_SKIP_BASE + NUMBER_REGS);
 
-pub(crate) const LOCAL__par_shape: placeholdertype = 0;
-pub(crate) const LOCAL__output_routine: placeholdertype = 1;
-pub(crate) const LOCAL__every_par: placeholdertype = 2;
-pub(crate) const LOCAL__every_math: placeholdertype = 3;
-pub(crate) const LOCAL__every_display: placeholdertype = 4;
-pub(crate) const LOCAL__every_hbox: placeholdertype = 5;
-pub(crate) const LOCAL__every_vbox: placeholdertype = 6;
-pub(crate) const LOCAL__every_job: placeholdertype = 7;
-pub(crate) const LOCAL__every_cr: placeholdertype = 8;
-pub(crate) const LOCAL__err_help: placeholdertype = 9;
-pub(crate) const LOCAL__every_eof: placeholdertype = 10;
-pub(crate) const LOCAL__xetex_inter_char: placeholdertype = 11;
-pub(crate) const LOCAL__TectonicCodaTokens: placeholdertype = 12;
+#[repr(i32)]
+pub(crate) enum Local {
+    par_shape = 0,
+    output_routine = 1,
+    every_par = 2,
+    every_math = 3,
+    every_display = 4,
+    every_hbox = 5,
+    every_vbox = 6,
+    every_job = 7,
+    every_cr = 8,
+    err_help = 9,
+    every_eof = 10,
+    xetex_inter_char = 11,
+    TectonicCodaTokens = 12,
+}
 pub(crate) const NUM_LOCALS: placeholdertype = 13;
 
-pub(crate) unsafe fn LOCAL(n: placeholdertype) -> placeholdertype {
-    EQTB[(LOCAL_BASE + n) as usize].b32.s1
-}
-
-pub(crate) unsafe fn LOCAL_set(n: placeholdertype, m: placeholdertype) {
-    EQTB[(LOCAL_BASE + n) as usize].b32.s1 = m
+pub(crate) fn LOCAL(n: Local) -> &'static mut i32 {
+    unsafe { &mut EQTB[(LOCAL_BASE + n as i32) as usize].b32.s1 }
 }
 
 pub(crate) const TOKS_BASE: placeholdertype = (LOCAL_BASE + NUM_LOCALS);
-pub(crate) unsafe fn TOKS_REG(n: placeholdertype) -> placeholdertype {
-    EQTB[(TOKS_BASE + n) as usize].b32.s1
+pub(crate) unsafe fn TOKS_REG(n: placeholdertype) -> &'static mut i32 {
+    &mut EQTB[(TOKS_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const ETEX_PEN_BASE: placeholdertype = (TOKS_BASE + NUMBER_REGS);
@@ -171,216 +173,196 @@ pub(crate) const DISPLAY_WIDOW_PENALTIES_LOC: placeholdertype = (ETEX_PEN_BASE +
 pub(crate) const ETEX_PENS: placeholdertype = (ETEX_PEN_BASE + 4);
 
 pub(crate) const BOX_BASE: placeholdertype = ETEX_PENS;
-pub(crate) unsafe fn BOX_REG(n: placeholdertype) -> placeholdertype {
-    EQTB[(BOX_BASE + n) as usize].b32.s1
-}
-pub(crate) unsafe fn BOX_REG_set(n: placeholdertype, m: placeholdertype) {
-    EQTB[(BOX_BASE + n) as usize].b32.s1 = m
+pub(crate) unsafe fn BOX_REG(n: placeholdertype) -> &'static mut i32 {
+    &mut EQTB[(BOX_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const CUR_FONT_LOC: placeholdertype = (BOX_BASE + NUMBER_REGS);
 pub(crate) const MATH_FONT_BASE: placeholdertype = (CUR_FONT_LOC + 1);
 
-pub(crate) unsafe fn MATH_FONT(n: placeholdertype) -> placeholdertype {
-    EQTB[(MATH_FONT_BASE + n) as usize].b32.s1
+pub(crate) unsafe fn MATH_FONT(n: placeholdertype) -> &'static mut i32 {
+    &mut EQTB[(MATH_FONT_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const CAT_CODE_BASE: placeholdertype = (MATH_FONT_BASE + NUMBER_MATH_FONTS);
-pub(crate) unsafe fn CAT_CODE(n: placeholdertype) -> placeholdertype {
-    EQTB[(CAT_CODE_BASE + n) as usize].b32.s1
-}
-pub(crate) unsafe fn CAT_CODE_set(n: placeholdertype, m: placeholdertype) {
-    EQTB[(CAT_CODE_BASE + n) as usize].b32.s1 = m;
+pub(crate) unsafe fn CAT_CODE(n: placeholdertype) -> &'static mut i32 {
+    &mut EQTB[(CAT_CODE_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const LC_CODE_BASE: placeholdertype = (CAT_CODE_BASE + NUMBER_USVS);
-pub(crate) unsafe fn LC_CODE(n: placeholdertype) -> placeholdertype {
-    EQTB[(LC_CODE_BASE + n) as usize].b32.s1
-}
-pub(crate) unsafe fn LC_CODE_set(n: placeholdertype, m: placeholdertype) {
-    EQTB[(LC_CODE_BASE + n) as usize].b32.s1 = m
+pub(crate) unsafe fn LC_CODE(n: placeholdertype) -> &'static mut i32 {
+    &mut EQTB[(LC_CODE_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const UC_CODE_BASE: placeholdertype = (LC_CODE_BASE + NUMBER_USVS);
-pub(crate) unsafe fn UC_CODE(n: placeholdertype) -> placeholdertype {
-    EQTB[(UC_CODE_BASE + n) as usize].b32.s1
-}
-pub(crate) unsafe fn UC_CODE_set(n: placeholdertype, m: placeholdertype) {
-    EQTB[(UC_CODE_BASE + n) as usize].b32.s1 = m
+pub(crate) unsafe fn UC_CODE(n: placeholdertype) -> &'static mut i32 {
+    &mut EQTB[(UC_CODE_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const SF_CODE_BASE: placeholdertype = (UC_CODE_BASE + NUMBER_USVS);
-pub(crate) unsafe fn SF_CODE(n: placeholdertype) -> placeholdertype {
-    EQTB[(SF_CODE_BASE + n) as usize].b32.s1
-}
-pub(crate) unsafe fn SF_CODE_set(n: placeholdertype, m: placeholdertype) {
-    EQTB[(SF_CODE_BASE + n) as usize].b32.s1 = m
+pub(crate) unsafe fn SF_CODE(n: placeholdertype) -> &'static mut i32 {
+    &mut EQTB[(SF_CODE_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const MATH_CODE_BASE: placeholdertype = (SF_CODE_BASE + NUMBER_USVS);
-pub(crate) unsafe fn MATH_CODE(n: placeholdertype) -> placeholdertype {
-    EQTB[(MATH_CODE_BASE + n) as usize].b32.s1
-}
-pub(crate) unsafe fn MATH_CODE_set(n: placeholdertype, m: placeholdertype) {
-    EQTB[(MATH_CODE_BASE + n) as usize].b32.s1 = m
+pub(crate) unsafe fn MATH_CODE(n: placeholdertype) -> &'static mut i32 {
+    &mut EQTB[(MATH_CODE_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const CHAR_SUB_CODE_BASE: placeholdertype = (MATH_CODE_BASE + NUMBER_USVS);
-pub(crate) unsafe fn CHAR_SUB_CODE(n: placeholdertype) -> placeholdertype {
-    EQTB[(CHAR_SUB_CODE_BASE + n) as usize].b32.s1
+pub(crate) unsafe fn CHAR_SUB_CODE(n: placeholdertype) -> &'static mut i32 {
+    &mut EQTB[(CHAR_SUB_CODE_BASE + n) as usize].b32.s1
 }
 
 /* "region 5": current fullword integers like hyphenation penalty */
 
 pub(crate) const INT_BASE: placeholdertype = (CHAR_SUB_CODE_BASE + NUMBER_USVS);
-pub(crate) const INT_PAR__pretolerance: placeholdertype = 0;
-pub(crate) const INT_PAR__tolerance: placeholdertype = 1;
-pub(crate) const INT_PAR__line_penalty: placeholdertype = 2;
-pub(crate) const INT_PAR__hyphen_penalty: placeholdertype = 3;
-pub(crate) const INT_PAR__ex_hyphen_penalty: placeholdertype = 4;
-pub(crate) const INT_PAR__club_penalty: placeholdertype = 5;
-pub(crate) const INT_PAR__widow_penalty: placeholdertype = 6;
-pub(crate) const INT_PAR__display_widow_penalty: placeholdertype = 7;
-pub(crate) const INT_PAR__broken_penalty: placeholdertype = 8;
-pub(crate) const INT_PAR__bin_op_penalty: placeholdertype = 9;
-pub(crate) const INT_PAR__rel_penalty: placeholdertype = 10;
-pub(crate) const INT_PAR__pre_display_penalty: placeholdertype = 11;
-pub(crate) const INT_PAR__post_display_penalty: placeholdertype = 12;
-pub(crate) const INT_PAR__inter_line_penalty: placeholdertype = 13;
-pub(crate) const INT_PAR__double_hyphen_demerits: placeholdertype = 14;
-pub(crate) const INT_PAR__final_hyphen_demerits: placeholdertype = 15;
-pub(crate) const INT_PAR__adj_demerits: placeholdertype = 16;
-pub(crate) const INT_PAR__mag: placeholdertype = 17;
-pub(crate) const INT_PAR__delimiter_factor: placeholdertype = 18;
-pub(crate) const INT_PAR__looseness: placeholdertype = 19;
-pub(crate) const INT_PAR__time: placeholdertype = 20;
-pub(crate) const INT_PAR__day: placeholdertype = 21;
-pub(crate) const INT_PAR__month: placeholdertype = 22;
-pub(crate) const INT_PAR__year: placeholdertype = 23;
-pub(crate) const INT_PAR__show_box_breadth: placeholdertype = 24;
-pub(crate) const INT_PAR__show_box_depth: placeholdertype = 25;
-pub(crate) const INT_PAR__hbadness: placeholdertype = 26;
-pub(crate) const INT_PAR__vbadness: placeholdertype = 27;
-pub(crate) const INT_PAR__pausing: placeholdertype = 28;
-pub(crate) const INT_PAR__tracing_online: placeholdertype = 29;
-pub(crate) const INT_PAR__tracing_macros: placeholdertype = 30;
-pub(crate) const INT_PAR__tracing_stats: placeholdertype = 31;
-pub(crate) const INT_PAR__tracing_paragraphs: placeholdertype = 32;
-pub(crate) const INT_PAR__tracing_pages: placeholdertype = 33;
-pub(crate) const INT_PAR__tracing_output: placeholdertype = 34;
-pub(crate) const INT_PAR__tracing_lost_chars: placeholdertype = 35;
-pub(crate) const INT_PAR__tracing_commands: placeholdertype = 36;
-pub(crate) const INT_PAR__tracing_restores: placeholdertype = 37;
-pub(crate) const INT_PAR__uc_hyph: placeholdertype = 38;
-pub(crate) const INT_PAR__output_penalty: placeholdertype = 39;
-pub(crate) const INT_PAR__max_dead_cycles: placeholdertype = 40;
-pub(crate) const INT_PAR__hang_after: placeholdertype = 41;
-pub(crate) const INT_PAR__floating_penalty: placeholdertype = 42;
-pub(crate) const INT_PAR__global_defs: placeholdertype = 43;
-pub(crate) const INT_PAR__cur_fam: placeholdertype = 44;
-pub(crate) const INT_PAR__escape_char: placeholdertype = 45;
-pub(crate) const INT_PAR__default_hyphen_char: placeholdertype = 46;
-pub(crate) const INT_PAR__default_skew_char: placeholdertype = 47;
-pub(crate) const INT_PAR__end_line_char: placeholdertype = 48;
-pub(crate) const INT_PAR__new_line_char: placeholdertype = 49;
-pub(crate) const INT_PAR__language: placeholdertype = 50;
-pub(crate) const INT_PAR__left_hyphen_min: placeholdertype = 51;
-pub(crate) const INT_PAR__right_hyphen_min: placeholdertype = 52;
-pub(crate) const INT_PAR__holding_inserts: placeholdertype = 53;
-pub(crate) const INT_PAR__error_context_lines: placeholdertype = 54;
-/// TEX_INT_PARS = WEB2C_INT_BASE
-pub(crate) const INT_PAR__char_sub_def_min: placeholdertype = 55;
-pub(crate) const INT_PAR__char_sub_def_max: placeholdertype = 56;
-pub(crate) const INT_PAR__tracing_char_sub_def: placeholdertype = 57;
-/// = WEB2C_INT_PARS = ETEX_INT_BASE
-pub(crate) const INT_PAR__tracing_assigns: placeholdertype = 58;
-pub(crate) const INT_PAR__tracing_groups: placeholdertype = 59;
-pub(crate) const INT_PAR__tracing_ifs: placeholdertype = 60;
-pub(crate) const INT_PAR__tracing_scan_tokens: placeholdertype = 61;
-pub(crate) const INT_PAR__tracing_nesting: placeholdertype = 62;
-pub(crate) const INT_PAR__pre_display_correction: placeholdertype = 63;
-pub(crate) const INT_PAR__last_line_fit: placeholdertype = 64;
-pub(crate) const INT_PAR__saving_vdiscards: placeholdertype = 65;
-pub(crate) const INT_PAR__saving_hyphs: placeholdertype = 66;
-pub(crate) const INT_PAR__suppress_fontnotfound_error: placeholdertype = 67;
-pub(crate) const INT_PAR__xetex_linebreak_locale: placeholdertype = 68;
-pub(crate) const INT_PAR__xetex_linebreak_penalty: placeholdertype = 69;
-pub(crate) const INT_PAR__xetex_protrude_chars: placeholdertype = 70;
-pub(crate) const INT_PAR__texxet: placeholdertype = 71;
-pub(crate) const INT_PAR__xetex_dash_break: placeholdertype = 72;
-pub(crate) const INT_PAR__xetex_upwards: placeholdertype = 73;
-pub(crate) const INT_PAR__xetex_use_glyph_metrics: placeholdertype = 74;
-pub(crate) const INT_PAR__xetex_inter_char_tokens: placeholdertype = 75;
-pub(crate) const INT_PAR__xetex_input_normalization: placeholdertype = 76;
-pub(crate) const INT_PAR__xetex_default_input_mode: placeholdertype = 77;
-pub(crate) const INT_PAR__xetex_default_input_encoding: placeholdertype = 78;
-pub(crate) const INT_PAR__xetex_tracing_fonts: placeholdertype = 79;
-pub(crate) const INT_PAR__xetex_interword_space_shaping: placeholdertype = 80;
-pub(crate) const INT_PAR__xetex_generate_actual_text: placeholdertype = 81;
-pub(crate) const INT_PAR__xetex_hyphenatable_length: placeholdertype = 82;
-pub(crate) const INT_PAR__synctex: placeholdertype = 83;
-pub(crate) const INT_PAR__pdfoutput: placeholdertype = 84;
+
+#[repr(i32)]
+pub(crate) enum IntPar {
+    pretolerance = 0,
+    tolerance = 1,
+    line_penalty = 2,
+    hyphen_penalty = 3,
+    ex_hyphen_penalty = 4,
+    club_penalty = 5,
+    widow_penalty = 6,
+    display_widow_penalty = 7,
+    broken_penalty = 8,
+    bin_op_penalty = 9,
+    rel_penalty = 10,
+    pre_display_penalty = 11,
+    post_display_penalty = 12,
+    inter_line_penalty = 13,
+    double_hyphen_demerits = 14,
+    final_hyphen_demerits = 15,
+    adj_demerits = 16,
+    mag = 17,
+    delimiter_factor = 18,
+    looseness = 19,
+    time = 20,
+    day = 21,
+    month = 22,
+    year = 23,
+    show_box_breadth = 24,
+    show_box_depth = 25,
+    hbadness = 26,
+    vbadness = 27,
+    pausing = 28,
+    tracing_online = 29,
+    tracing_macros = 30,
+    tracing_stats = 31,
+    tracing_paragraphs = 32,
+    tracing_pages = 33,
+    tracing_output = 34,
+    tracing_lost_chars = 35,
+    tracing_commands = 36,
+    tracing_restores = 37,
+    uc_hyph = 38,
+    output_penalty = 39,
+    max_dead_cycles = 40,
+    hang_after = 41,
+    floating_penalty = 42,
+    global_defs = 43,
+    cur_fam = 44,
+    escape_char = 45,
+    default_hyphen_char = 46,
+    default_skew_char = 47,
+    end_line_char = 48,
+    new_line_char = 49,
+    language = 50,
+    left_hyphen_min = 51,
+    right_hyphen_min = 52,
+    holding_inserts = 53,
+    error_context_lines = 54,
+    /// TEX_INT_PARS = WEB2C_INT_BASE
+    char_sub_def_min = 55,
+    char_sub_def_max = 56,
+    tracing_char_sub_def = 57,
+    /// = WEB2C_INT_PARS = ETEX_INT_BASE
+    tracing_assigns = 58,
+    tracing_groups = 59,
+    tracing_ifs = 60,
+    tracing_scan_tokens = 61,
+    tracing_nesting = 62,
+    pre_display_correction = 63,
+    last_line_fit = 64,
+    saving_vdiscards = 65,
+    saving_hyphs = 66,
+    suppress_fontnotfound_error = 67,
+    xetex_linebreak_locale = 68,
+    xetex_linebreak_penalty = 69,
+    xetex_protrude_chars = 70,
+    texxet = 71,
+    xetex_dash_break = 72,
+    xetex_upwards = 73,
+    xetex_use_glyph_metrics = 74,
+    xetex_inter_char_tokens = 75,
+    xetex_input_normalization = 76,
+    xetex_default_input_mode = 77,
+    xetex_default_input_encoding = 78,
+    xetex_tracing_fonts = 79,
+    xetex_interword_space_shaping = 80,
+    xetex_generate_actual_text = 81,
+    xetex_hyphenatable_length = 82,
+    synctex = 83,
+    pdfoutput = 84,
+}
 pub(crate) const INT_PARS: placeholdertype = 85;
 
-pub(crate) unsafe fn INTPAR(x: placeholdertype) -> placeholdertype {
-    EQTB[(INT_BASE + x) as usize].b32.s1
-}
-
-pub(crate) unsafe fn INTPAR_set(x: placeholdertype, y: placeholdertype) {
-    EQTB[(INT_BASE + x) as usize].b32.s1 = y;
+pub(crate) unsafe fn INTPAR(x: IntPar) -> &'static mut i32 {
+    &mut EQTB[(INT_BASE + x as i32) as usize].b32.s1
 }
 
 pub(crate) const COUNT_BASE: placeholdertype = (INT_BASE + INT_PARS);
-pub(crate) unsafe fn COUNT_REG(n: placeholdertype) -> placeholdertype {
-    EQTB[(COUNT_BASE + n) as usize].b32.s1
+pub(crate) unsafe fn COUNT_REG(n: placeholdertype) -> &'static mut i32 {
+    &mut EQTB[(COUNT_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const DEL_CODE_BASE: placeholdertype = (COUNT_BASE + NUMBER_REGS);
-pub(crate) unsafe fn DEL_CODE(n: placeholdertype) -> placeholdertype {
-    EQTB[(DEL_CODE_BASE + n) as usize].b32.s1
-}
-pub(crate) unsafe fn DEL_CODE_set(n: placeholdertype, m: placeholdertype) {
-    EQTB[(DEL_CODE_BASE + n) as usize].b32.s1 = m
+pub(crate) unsafe fn DEL_CODE(n: placeholdertype) -> &'static mut i32 {
+    &mut EQTB[(DEL_CODE_BASE + n) as usize].b32.s1
 }
 
 /* "region 6": current fullword dimensions like hsize */
 
 pub(crate) const DIMEN_BASE: placeholdertype = (DEL_CODE_BASE + NUMBER_USVS);
-pub(crate) const DIMEN_PAR__par_indent: placeholdertype = 0;
-pub(crate) const DIMEN_PAR__math_surround: placeholdertype = 1;
-pub(crate) const DIMEN_PAR__line_skip_limit: placeholdertype = 2;
-pub(crate) const DIMEN_PAR__hsize: placeholdertype = 3;
-pub(crate) const DIMEN_PAR__vsize: placeholdertype = 4;
-pub(crate) const DIMEN_PAR__max_depth: placeholdertype = 5;
-pub(crate) const DIMEN_PAR__split_max_depth: placeholdertype = 6;
-pub(crate) const DIMEN_PAR__box_max_depth: placeholdertype = 7;
-pub(crate) const DIMEN_PAR__hfuzz: placeholdertype = 8;
-pub(crate) const DIMEN_PAR__vfuzz: placeholdertype = 9;
-pub(crate) const DIMEN_PAR__delimiter_shortfall: placeholdertype = 10;
-pub(crate) const DIMEN_PAR__null_delimiter_space: placeholdertype = 11;
-pub(crate) const DIMEN_PAR__script_space: placeholdertype = 12;
-pub(crate) const DIMEN_PAR__pre_display_size: placeholdertype = 13;
-pub(crate) const DIMEN_PAR__display_width: placeholdertype = 14;
-pub(crate) const DIMEN_PAR__display_indent: placeholdertype = 15;
-pub(crate) const DIMEN_PAR__overfull_rule: placeholdertype = 16;
-pub(crate) const DIMEN_PAR__hang_indent: placeholdertype = 17;
-pub(crate) const DIMEN_PAR__h_offset: placeholdertype = 18;
-pub(crate) const DIMEN_PAR__v_offset: placeholdertype = 19;
-pub(crate) const DIMEN_PAR__emergency_stretch: placeholdertype = 20;
-pub(crate) const DIMEN_PAR__pdf_page_width: placeholdertype = 21;
-pub(crate) const DIMEN_PAR__pdf_page_height: placeholdertype = 22;
+
+#[repr(i32)]
+pub(crate) enum DimenPar {
+    par_indent = 0,
+    math_surround = 1,
+    line_skip_limit = 2,
+    hsize = 3,
+    vsize = 4,
+    max_depth = 5,
+    split_max_depth = 6,
+    box_max_depth = 7,
+    hfuzz = 8,
+    vfuzz = 9,
+    delimiter_shortfall = 10,
+    null_delimiter_space = 11,
+    script_space = 12,
+    pre_display_size = 13,
+    display_width = 14,
+    display_indent = 15,
+    overfull_rule = 16,
+    hang_indent = 17,
+    h_offset = 18,
+    v_offset = 19,
+    emergency_stretch = 20,
+    pdf_page_width = 21,
+    pdf_page_height = 22,
+}
 pub(crate) const DIMEN_PARS: placeholdertype = 23;
 
-pub(crate) unsafe fn DIMENPAR(x: placeholdertype) -> placeholdertype {
-    EQTB[(DIMEN_BASE + x as placeholdertype) as usize].b32.s1
-}
-pub(crate) unsafe fn DIMENPAR_set(x: placeholdertype, y: placeholdertype) {
-    EQTB[(DIMEN_BASE + x as placeholdertype) as usize].b32.s1 = y
+pub(crate) fn DIMENPAR(x: DimenPar) -> &'static mut i32 {
+    unsafe { &mut EQTB[(DIMEN_BASE + x as i32) as usize].b32.s1 }
 }
 
 pub(crate) const SCALED_BASE: placeholdertype = (DIMEN_BASE + DIMEN_PARS);
-pub(crate) unsafe fn SCALED_REG(n: placeholdertype) -> placeholdertype {
-    EQTB[(SCALED_BASE + n) as usize].b32.s1
+pub(crate) unsafe fn SCALED_REG(n: placeholdertype) -> &'static mut i32 {
+    &mut EQTB[(SCALED_BASE + n) as usize].b32.s1
 }
 
 pub(crate) const EQTB_SIZE: placeholdertype = (SCALED_BASE + NUMBER_REGS - 1);

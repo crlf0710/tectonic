@@ -778,8 +778,8 @@ pub(crate) unsafe fn open_or_close_in() {
             &mut *read_file.as_mut_ptr().offset(n as isize),
             TTInputFormat::TEX,
             b"rb\x00" as *const u8 as *const i8,
-            INTPAR(INT_PAR__xetex_default_input_mode),
-            INTPAR(INT_PAR__xetex_default_input_encoding),
+            *INTPAR(IntPar::xetex_default_input_mode),
+            *INTPAR(IntPar::xetex_default_input_encoding),
         ) != 0
         {
             make_utf16_name();

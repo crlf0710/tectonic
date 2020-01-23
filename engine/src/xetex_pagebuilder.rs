@@ -23,11 +23,13 @@ use crate::xetex_xetex0::{
     badness, begin_token_list, box_error, delete_glue_ref, delete_token_ref, do_marks,
     find_sa_element, flush_node_list, free_node, geq_word_define, get_node, new_null_box,
     new_save_level, new_skip_param, new_spec, normal_paragraph, prune_page_top, push_nest,
-    scan_left_brace, vert_break, vpackage, BOX_depth, BOX_height, BOX_width, GLUE_NODE_glue_ptr,
+    scan_left_brace, vert_break, vpackage,
+};
+use crate::xetex_xetexd::{
+    is_non_discardable_node, BOX_depth, BOX_height, BOX_width, GLUE_NODE_glue_ptr,
     GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order,
     LLIST_link, NODE_subtype, NODE_type, PENALTY_NODE_penalty,
 };
-use crate::xetex_xetexd::is_non_discardable_node;
 
 pub(crate) type scaled_t = i32;
 pub(crate) type eight_bits = u8;
@@ -56,8 +58,8 @@ pub(crate) unsafe fn initialize_pagebuilder_variables() {
 
 unsafe extern "C" fn freeze_page_specs(mut s: small_number) {
     page_contents = s as _;
-    page_so_far[0] = DIMENPAR(DIMEN_PAR__vsize);
-    page_max_depth = DIMENPAR(DIMEN_PAR__max_depth);
+    page_so_far[0] = *DIMENPAR(DimenPar::vsize);
+    page_max_depth = *DIMENPAR(DimenPar::max_depth);
     page_so_far[7] = 0;
     page_so_far[1] = 0;
     page_so_far[2] = 0;
@@ -69,7 +71,7 @@ unsafe extern "C" fn freeze_page_specs(mut s: small_number) {
 }
 
 unsafe extern "C" fn ensure_vbox(mut n: eight_bits) {
-    let p = BOX_REG(n as _);
+    let p = *BOX_REG(n as _);
     if p == TEX_NULL {
         return;
     }
@@ -108,12 +110,12 @@ unsafe extern "C" fn fire_up(mut c: i32) {
     /*1048: "Set the value of output_penalty" */
     if *NODE_type(best_page_break as isize) == PENALTY_NODE {
         geq_word_define(
-            INT_BASE + INT_PAR__output_penalty,
+            INT_BASE + IntPar::output_penalty as i32,
             *PENALTY_NODE_penalty(best_page_break as isize),
         );
         *PENALTY_NODE_penalty(best_page_break as isize) = INF_PENALTY;
     } else {
-        geq_word_define(INT_BASE + INT_PAR__output_penalty, INF_PENALTY);
+        geq_word_define(INT_BASE + IntPar::output_penalty as i32, INF_PENALTY);
     }
 
     /* ... resuming 1047 ... "We set the values of top_mark, first_mark, and
@@ -146,7 +148,7 @@ unsafe extern "C" fn fire_up(mut c: i32) {
     if c == best_page_break {
         best_page_break = TEX_NULL; /* "c not yet linked in" */
     }
-    if BOX_REG(255) != TEX_NULL {
+    if *BOX_REG(255) != TEX_NULL {
         /*1050:*/
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -162,12 +164,12 @@ unsafe extern "C" fn fire_up(mut c: i32) {
         box_error(255);
     }
     insert_penalties = 0; /* "this will count the number of insertions held over" */
-    save_split_top_skip = *GLUEPAR(GLUE_PAR__split_top_skip);
+    save_split_top_skip = *GLUEPAR(GluePar::split_top_skip);
 
     /* Tectonic: in semantic pagination mode, we act as if holding_inserts is
      * always active. */
 
-    let process_inserts = INTPAR(INT_PAR__holding_inserts) <= 0 && !semantic_pagination_enabled;
+    let process_inserts = *INTPAR(IntPar::holding_inserts) <= 0 && !semantic_pagination_enabled;
 
     if process_inserts {
         /*1053: "Prepare all the boxes involved in insertions to act as
@@ -183,11 +185,11 @@ unsafe extern "C" fn fire_up(mut c: i32) {
                 n = *NODE_subtype(r as _) as _;
                 ensure_vbox(n);
 
-                if BOX_REG(n as _) == TEX_NULL {
-                    BOX_REG_set(n as _, new_null_box());
+                if *BOX_REG(n as _) == TEX_NULL {
+                    *BOX_REG(n as _) = new_null_box();
                 }
 
-                p = BOX_REG(n as _) + 5; /* 5 = list_offset, "position of the list inside the box" */
+                p = *BOX_REG(n as _) + 5; /* 5 = list_offset, "position of the list inside the box" */
                 while *LLIST_link(p as isize) != TEX_NULL {
                     p = *LLIST_link(p as isize);
                 }
@@ -232,7 +234,7 @@ unsafe extern "C" fn fire_up(mut c: i32) {
                                     s = *LLIST_link(s as isize);
                                 }
                                 *LLIST_link(s as isize) = TEX_NULL;
-                                *GLUEPAR(GLUE_PAR__split_top_skip) = MEM[(p + 4) as usize].b32.s1;
+                                *GLUEPAR(GluePar::split_top_skip) = MEM[(p + 4) as usize].b32.s1;
                                 MEM[(p + 4) as usize].b32.s0 =
                                     prune_page_top(MEM[(r + 1) as usize].b32.s1, false);
                                 if MEM[(p + 4) as usize].b32.s0 != TEX_NULL {
@@ -256,11 +258,9 @@ unsafe extern "C" fn fire_up(mut c: i32) {
                             [(EQTB[(BOX_BASE + n as i32) as usize].b32.s1 + 5i32) as usize]
                             .b32
                             .s1;
-                        free_node(BOX_REG(n as _), BOX_NODE_SIZE);
-                        BOX_REG_set(
-                            n as _,
-                            vpackage(temp_ptr, 0i32, 1i32 as small_number, 0x3fffffffi32),
-                        );
+                        free_node(*BOX_REG(n as _), BOX_NODE_SIZE);
+                        *BOX_REG(n as _) =
+                            vpackage(temp_ptr, 0i32, 1i32 as small_number, 0x3fffffffi32);
                     } else {
                         while *LLIST_link(s as isize) != TEX_NULL {
                             s = *LLIST_link(s as isize);
@@ -315,7 +315,7 @@ unsafe extern "C" fn fire_up(mut c: i32) {
         prev_p = p;
         p = *LLIST_link(prev_p as isize);
     }
-    *GLUEPAR(GLUE_PAR__split_top_skip) = save_split_top_skip;
+    *GLUEPAR(GluePar::split_top_skip) = save_split_top_skip;
 
     /*1052: "Break the current page at node p, put it in box 255, and put the
      * remaining nodes on the contribution list". */
@@ -333,21 +333,18 @@ unsafe extern "C" fn fire_up(mut c: i32) {
     }
 
     /* Temporarily futz some variables to inhibit error messages */
-    save_vbadness = INTPAR(INT_PAR__vbadness);
-    INTPAR_set(INT_PAR__vbadness, INF_BAD);
-    save_vfuzz = DIMENPAR(DIMEN_PAR__vfuzz);
-    DIMENPAR_set(DIMEN_PAR__vfuzz, MAX_HALFWORD);
-    BOX_REG_set(
-        255,
-        vpackage(
-            *LLIST_link(PAGE_HEAD as isize),
-            best_size,
-            EXACTLY as _,
-            page_max_depth,
-        ),
+    save_vbadness = *INTPAR(IntPar::vbadness);
+    *INTPAR(IntPar::vbadness) = INF_BAD;
+    save_vfuzz = *DIMENPAR(DimenPar::vfuzz);
+    *DIMENPAR(DimenPar::vfuzz) = MAX_HALFWORD;
+    *BOX_REG(255) = vpackage(
+        *LLIST_link(PAGE_HEAD as isize),
+        best_size,
+        EXACTLY as _,
+        page_max_depth,
     );
-    INTPAR_set(INT_PAR__vbadness, save_vbadness);
-    DIMENPAR_set(DIMEN_PAR__vfuzz, save_vfuzz);
+    *INTPAR(IntPar::vbadness) = save_vbadness;
+    *DIMENPAR(DimenPar::vfuzz) = save_vfuzz;
 
     if last_glue != MAX_HALFWORD {
         delete_glue_ref(last_glue);
@@ -395,8 +392,8 @@ unsafe extern "C" fn fire_up(mut c: i32) {
 
     /* Tectonic: in semantic pagination mode, ignore the output routine. */
 
-    if LOCAL(LOCAL__output_routine) != TEX_NULL && !semantic_pagination_enabled {
-        if dead_cycles >= INTPAR(INT_PAR__max_dead_cycles) {
+    if *LOCAL(Local::output_routine) != TEX_NULL && !semantic_pagination_enabled {
+        if dead_cycles >= *INTPAR(IntPar::max_dead_cycles) {
             /*1059: "Explain that too many dead cycles have happened in a row." */
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -419,7 +416,7 @@ unsafe extern "C" fn fire_up(mut c: i32) {
             cur_list.mode = -VMODE as _;
             cur_list.aux.b32.s1 = IGNORE_DEPTH; /* this is `prev_depth` */
             cur_list.mode_line = -line;
-            begin_token_list(LOCAL(LOCAL__output_routine), OUTPUT_TEXT);
+            begin_token_list(*LOCAL(Local::output_routine), OUTPUT_TEXT);
             new_save_level(OUTPUT_GROUP as _);
             normal_paragraph();
             scan_left_brace();
@@ -446,8 +443,8 @@ unsafe extern "C" fn fire_up(mut c: i32) {
 
     flush_node_list(disc_ptr[LAST_BOX_CODE as usize]);
     disc_ptr[LAST_BOX_CODE as usize] = TEX_NULL;
-    ship_out(BOX_REG(255));
-    BOX_REG_set(255, TEX_NULL);
+    ship_out(*BOX_REG(255));
+    *BOX_REG(255) = TEX_NULL;
 }
 
 /*1029: "When TeX has appended new material in vertical mode, it calls the
@@ -528,7 +525,7 @@ pub(crate) unsafe fn build_page() {
                         freeze_page_specs(BOX_THERE as _);
                     } else { page_contents = BOX_THERE as _}
 
-                    slf.q = new_skip_param(GLUE_PAR__top_skip as _); /* "now temp_ptr = glue_ptr(q) */
+                    slf.q = new_skip_param(GluePar::top_skip as _); /* "now temp_ptr = glue_ptr(q) */
 
                     if *BOX_width(temp_ptr as isize) > *BOX_height(slf.p as isize) {
                         *BOX_width(temp_ptr as isize) -= *BOX_height(slf.p as isize);
@@ -605,19 +602,19 @@ pub(crate) unsafe fn build_page() {
                     *NODE_type(slf.r as isize) = INSERTING as _;
                     ensure_vbox(n);
 
-                    if BOX_REG(n as _) == TEX_NULL {
+                    if *BOX_REG(n as _) == TEX_NULL {
                         *BOX_height(slf.r as isize) = 0;
                     } else {
-                        *BOX_height(slf.r as isize) = *BOX_height(BOX_REG(n as _) as isize) + *BOX_depth(BOX_REG(n as _) as isize);
+                        *BOX_height(slf.r as isize) = *BOX_height(*BOX_REG(n as _) as isize) + *BOX_depth(*BOX_REG(n as _) as isize);
                     }
 
                     MEM[(slf.r + 2) as usize].b32.s0 = TEX_NULL;
-                    slf.q = SKIP_REG(n as _);
+                    slf.q = *SKIP_REG(n as _);
 
-                    let h: scaled_t = if COUNT_REG(n as _) == 1000 {
+                    let h: scaled_t = if *COUNT_REG(n as _) == 1000 {
                         *BOX_height(slf.r as isize)
                     } else {
-                        x_over_n(*BOX_height(slf.r as isize), 1000) * COUNT_REG(n as _)
+                        x_over_n(*BOX_height(slf.r as isize), 1000) * *COUNT_REG(n as _)
                     };
 
                     page_so_far[0] -= h + *BOX_width(slf.q as isize);
@@ -653,14 +650,14 @@ pub(crate) unsafe fn build_page() {
                         page_so_far[0] - page_so_far[1] - page_so_far[7] +
                             page_so_far[6];
 
-                    let h: scaled_t = if COUNT_REG(n as _) == 1000 {
+                    let h: scaled_t = if *COUNT_REG(n as _) == 1000 {
                         *BOX_height(slf.p as isize)
                     } else {
-                        x_over_n(*BOX_height(slf.p as isize), 1000) * COUNT_REG(n as _)
+                        x_over_n(*BOX_height(slf.p as isize), 1000) * *COUNT_REG(n as _)
                     };
 
                     if (h <= 0 || h <= delta) &&
-                        *BOX_height(slf.p as isize) + *BOX_height(slf.r as isize) <= SCALED_REG(n as _) {
+                        *BOX_height(slf.p as isize) + *BOX_height(slf.r as isize) <= *SCALED_REG(n as _) {
                         page_so_far[0] -= h;
                         *BOX_height(slf.r as isize) += *BOX_height(slf.p as isize);
                     } else {
@@ -677,20 +674,20 @@ pub(crate) unsafe fn build_page() {
                          * `\count n` over 1000.) Now we will choose the best way
                          * to break the vlist of the insertion, using the same
                          * criteria as in the `\vsplit` operation." */
-                        let mut w: scaled_t = if COUNT_REG(n as _) <= 0 {
+                        let mut w: scaled_t = if *COUNT_REG(n as _) <= 0 {
                             MAX_HALFWORD
                         } else {
                             let mut w =
                                 page_so_far[0] - page_so_far[1] -
                                     page_so_far[7];
-                            if COUNT_REG(n as _) != 1000 {
-                                w = x_over_n(w, COUNT_REG(n as _))* 1000;
+                            if *COUNT_REG(n as _) != 1000 {
+                                w = x_over_n(w, *COUNT_REG(n as _))* 1000;
                             }
                             w
                         };
 
-                        if w > SCALED_REG(n as _) - *BOX_height(slf.r as isize) {
-                            w = SCALED_REG(n as _) - *BOX_height(slf.r as isize);
+                        if w > *SCALED_REG(n as _) - *BOX_height(slf.r as isize) {
+                            w = *SCALED_REG(n as _) - *BOX_height(slf.r as isize);
                         }
 
                         slf.q =
@@ -700,9 +697,9 @@ pub(crate) unsafe fn build_page() {
                                                         usize].b32.s1);
                         MEM[(slf.r + 3) as usize].b32.s1 += best_height_plus_depth;
 
-                        if COUNT_REG(n as _) != 1000 {
+                        if *COUNT_REG(n as _) != 1000 {
                             best_height_plus_depth =
-                                x_over_n(best_height_plus_depth, 1000i32) * COUNT_REG(n as _);
+                                x_over_n(best_height_plus_depth, 1000i32) * *COUNT_REG(n as _);
                         }
                         page_so_far[0] -= best_height_plus_depth;
                         *NODE_type(slf.r as isize) = SPLIT_UP as _;
@@ -850,7 +847,7 @@ pub(crate) unsafe fn build_page() {
             *LLIST_link(CONTRIB_HEAD as isize) = *LLIST_link(slf.p as isize);
             *LLIST_link(slf.p as isize) = TEX_NULL;
 
-            if INTPAR(INT_PAR__saving_vdiscards) <= 0 {
+            if *INTPAR(IntPar::saving_vdiscards) <= 0 {
                 flush_node_list(slf.p);
             } else {
                 /* `disc_ptr[LAST_BOX_CODE]` is `tail_page_disc`, the last item

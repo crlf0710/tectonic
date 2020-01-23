@@ -10,7 +10,9 @@
 
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error};
-use crate::xetex_ext::{map_char_to_glyph, measure_native_glyph, real_get_native_glyph};
+use crate::xetex_ext::{
+    map_char_to_glyph, measure_native_glyph, real_get_native_glyph, OTGR_FONT_FLAG,
+};
 use crate::xetex_ini::{
     adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i, cur_lang,
     cur_list, cur_val, cur_val1, empty, file_line_error_style_p, help_line, help_ptr,
@@ -39,7 +41,7 @@ use crate::xetex_xetex0::{
     scan_delimiter_int, scan_dimen, scan_fifteen_bit_int, scan_keyword, scan_left_brace, scan_math,
     scan_math_class_int, scan_math_fam_int, scan_usv_num, unsave, vpackage,
 };
-use crate::xetex_xetexd::is_char_node;
+use crate::xetex_xetexd::{is_char_node, BOX_glue_set, CHAR_NODE_font, LLIST_link};
 
 pub(crate) type scaled_t = i32;
 /* ***************************************************************************\
@@ -108,81 +110,86 @@ pub(crate) unsafe fn init_math() {
     let mut n: i32 = 0;
     let mut v: scaled_t = 0;
     let mut d: scaled_t = 0;
+
     get_token();
-    if cur_cmd as i32 == 3i32 && cur_list.mode as i32 > 0i32 {
-        /*1180: */
-        j = -0xfffffffi32;
-        w = -0x3fffffffi32;
+
+    if cur_cmd as u16 == MATH_SHIFT && cur_list.mode as i32 > 0 {
+        // 1180:
+        j = TEX_NULL;
+        w = -MAX_HALFWORD;
         if cur_list.head == cur_list.tail {
-            /*1520: */
+            // 1520:
             pop_nest();
-            if cur_list.eTeX_aux == -0xfffffffi32 {
-                x = 0i32
-            } else if MEM[cur_list.eTeX_aux as usize].b32.s0 >= 8 {
-                x = -1i32
+            if cur_list.eTeX_aux == TEX_NULL {
+                x = 0
+            } else if MEM[cur_list.eTeX_aux as usize].b32.s0 >= R_CODE {
+                x = -1
             } else {
-                x = 1i32
+                x = 1; // :1519
             }
-        /*:1519 */
         } else {
-            line_break(1i32 != 0);
-            /*1528: */
-            if EQTB[(GLUE_BASE + 8i32) as usize].b32.s1 == 0i32 {
-                j = new_kern(0i32)
+            line_break(true);
+            // 1528:
+            if *GLUEPAR(GluePar::right_skip) == 0 {
+                j = new_kern(0)
             } else {
-                j = new_param_glue(8i32 as small_number)
-            } /*:1519 */
-            if EQTB[(GLUE_BASE + 7i32) as usize].b32.s1 == 0i32 {
-                p = new_kern(0i32)
-            } else {
-                p = new_param_glue(7i32 as small_number)
+                j = new_param_glue(GluePar::right_skip as small_number)
             }
+
+            if *GLUEPAR(GluePar::left_skip) == 0 {
+                p = new_kern(0)
+            } else {
+                p = new_param_glue(GluePar::left_skip as small_number)
+            }
+
             MEM[p as usize].b32.s1 = j;
+
             j = new_null_box();
             MEM[(j + 1) as usize].b32.s1 = MEM[(just_box + 1) as usize].b32.s1;
             MEM[(j + 4) as usize].b32.s1 = MEM[(just_box + 4) as usize].b32.s1;
             MEM[(j + 5) as usize].b32.s1 = p;
             MEM[(j + 5) as usize].b16.s0 = MEM[(just_box + 5) as usize].b16.s0;
             MEM[(j + 5) as usize].b16.s1 = MEM[(just_box + 5) as usize].b16.s1;
-            MEM[(j + 6) as usize].gr = MEM[(just_box + 6) as usize].gr;
+            *BOX_glue_set(j) = *BOX_glue_set(just_box);
+
             v = MEM[(just_box + 4) as usize].b32.s1;
-            if cur_list.eTeX_aux == -0xfffffffi32 {
-                x = 0i32
-            } else if MEM[cur_list.eTeX_aux as usize].b32.s0 >= 8 {
-                x = -1i32
+            if cur_list.eTeX_aux == TEX_NULL {
+                x = 0;
+            } else if MEM[cur_list.eTeX_aux as usize].b32.s0 >= R_CODE {
+                x = -1;
             } else {
-                x = 1i32
+                x = 1; // :1519
             }
             if x >= 0i32 {
                 p = MEM[(just_box + 5) as usize].b32.s1;
-                MEM[(4999999 - 3) as usize].b32.s1 = -0xfffffff
+                MEM[TEMP_HEAD as usize].b32.s1 = TEX_NULL
             } else {
                 v = -v - MEM[(just_box + 1) as usize].b32.s1;
-                p = new_math(0i32, 6i32 as small_number);
-                MEM[(4999999 - 3) as usize].b32.s1 = p;
+                p = new_math(0i32, BEGIN_L_CODE as small_number);
+                MEM[TEMP_HEAD as usize].b32.s1 = p;
                 just_copy(
                     MEM[(just_box + 5) as usize].b32.s1,
                     p,
-                    new_math(0i32, 7i32 as small_number),
+                    new_math(0i32, END_L_CODE as small_number),
                 );
-                cur_dir = 1i32 as small_number
+                cur_dir = RIGHT_TO_LEFT as small_number
             }
             v = v + 2i32
-                * FONT_INFO
-                    [(6i32 + PARAM_BASE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize]) as usize]
+                * FONT_INFO[(QUAD_CODE + PARAM_BASE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize])
+                    as usize]
                     .b32
                     .s1;
-            if EQTB[(INT_BASE + 71i32) as usize].b32.s1 > 0i32 {
-                /*1497: */
+            if *INTPAR(IntPar::texxet) > 0i32 {
+                // 1497:
                 temp_ptr = get_avail(); /*1523:*/
-                MEM[temp_ptr as usize].b32.s0 = 0; /*:1398 */
+                MEM[temp_ptr as usize].b32.s0 = BEFORE; /*:1398 */
                 MEM[temp_ptr as usize].b32.s1 = LR_ptr;
                 LR_ptr = temp_ptr
             }
-            while p != -0xfffffffi32 {
+            while p != TEX_NULL {
                 loop {
                     if is_char_node(p) {
-                        f = MEM[p as usize].b16.s1 as internal_font_number;
+                        f = *CHAR_NODE_font(p) as internal_font_number;
                         d = FONT_INFO[(WIDTH_BASE[f as usize]
                             + FONT_INFO[(CHAR_BASE[f as usize]
                                 + effective_char(true, f, MEM[p as usize].b16.s0))
@@ -201,9 +208,9 @@ pub(crate) unsafe fn init_math() {
                                 break;
                             }
                             6 => {
-                                MEM[(4999999 - 12) as usize] = MEM[(p + 1) as usize];
-                                MEM[(4999999 - 12) as usize].b32.s1 = MEM[p as usize].b32.s1;
-                                p = 4999999i32 - 12i32;
+                                MEM[GARBAGE as usize] = MEM[(p + 1) as usize];
+                                MEM[GARBAGE as usize].b32.s1 = MEM[p as usize].b32.s1;
+                                p = GARBAGE;
                                 xtx_ligature_present = true
                             }
                             11 => {
@@ -218,7 +225,7 @@ pub(crate) unsafe fn init_math() {
                             }
                             9 => {
                                 d = MEM[(p + 1) as usize].b32.s1;
-                                if EQTB[(INT_BASE + 71i32) as usize].b32.s1 > 0i32 {
+                                if *INTPAR(IntPar::texxet) > 0i32 {
                                     current_block = 13660591889533726445;
                                     break;
                                 } else {
@@ -235,14 +242,14 @@ pub(crate) unsafe fn init_math() {
                             10 => {
                                 q = MEM[(p + 1) as usize].b32.s0;
                                 d = MEM[(q + 1) as usize].b32.s1;
-                                if MEM[(just_box + 5) as usize].b16.s1 as i32 == 1 {
+                                if MEM[(just_box + 5) as usize].b16.s1 as i32 == STRETCHING {
                                     if MEM[(just_box + 5) as usize].b16.s0 as i32
                                         == MEM[q as usize].b16.s1 as i32
                                         && MEM[(q + 2) as usize].b32.s1 != 0
                                     {
                                         v = 0x3fffffffi32
                                     }
-                                } else if MEM[(just_box + 5) as usize].b16.s1 as i32 == 2 {
+                                } else if MEM[(just_box + 5) as usize].b16.s1 as i32 == SHRINKING {
                                     if MEM[(just_box + 5) as usize].b16.s0 as i32
                                         == MEM[q as usize].b16.s0 as i32
                                         && MEM[(q + 3) as usize].b32.s1 != 0
@@ -259,11 +266,11 @@ pub(crate) unsafe fn init_math() {
                                 }
                             }
                             8 => {
-                                if MEM[p as usize].b16.s0 as i32 == 40
-                                    || MEM[p as usize].b16.s0 as i32 == 41
-                                    || MEM[p as usize].b16.s0 as i32 == 42
-                                    || MEM[p as usize].b16.s0 as i32 == 43
-                                    || MEM[p as usize].b16.s0 as i32 == 44
+                                if MEM[p as usize].b16.s0 == NATIVE_WORD_NODE
+                                    || MEM[p as usize].b16.s0 == NATIVE_WORD_NODE_AT
+                                    || MEM[p as usize].b16.s0 == GLYPH_NODE
+                                    || MEM[p as usize].b16.s0 == PIC_NODE
+                                    || MEM[p as usize].b16.s0 == PDF_NODE
                                 {
                                     current_block = 11064061988481400464;
                                     break;
@@ -329,107 +336,104 @@ pub(crate) unsafe fn init_math() {
                 }
                 match current_block {
                     1677945370889843322 => {
-                        if v < 0x3fffffffi32 {
+                        if v < MAX_HALFWORD {
                             v = v + d
                         }
                     }
                     _ => {
-                        if v < 0x3fffffffi32 {
+                        if v < MAX_HALFWORD {
                             v = v + d;
                             w = v
                         } else {
-                            w = 0x3fffffffi32;
+                            w = MAX_HALFWORD;
                             break;
                         }
                     }
                 }
-                p = MEM[p as usize].b32.s1
+                p = *LLIST_link(p as isize);
             }
-            if EQTB[(INT_BASE + 71i32) as usize].b32.s1 > 0i32 {
-                while LR_ptr != -0xfffffffi32 {
+            if *INTPAR(IntPar::texxet) > 0 {
+                while LR_ptr != TEX_NULL {
                     temp_ptr = LR_ptr;
                     LR_ptr = MEM[temp_ptr as usize].b32.s1;
                     MEM[temp_ptr as usize].b32.s1 = avail;
                     avail = temp_ptr
                 }
-                if LR_problems != 0i32 {
-                    w = 0x3fffffffi32;
-                    LR_problems = 0i32
+                if LR_problems != 0 {
+                    w = MAX_HALFWORD;
+                    LR_problems = 0
                 }
             }
-            cur_dir = 0i32 as small_number;
-            flush_node_list(MEM[(4999999 - 3) as usize].b32.s1);
+            cur_dir = LEFT_TO_RIGHT as small_number;
+            flush_node_list(MEM[TEMP_HEAD as usize].b32.s1);
         }
-        if EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 == -0xfffffffi32 {
-            if EQTB[(DIMEN_BASE + 17i32) as usize].b32.s1 != 0i32
-                && (EQTB[(INT_BASE + 41i32) as usize].b32.s1 >= 0i32
-                    && cur_list.prev_graf + 2i32 > EQTB[(INT_BASE + 41i32) as usize].b32.s1
-                    || cur_list.prev_graf + 1i32 < -EQTB[(INT_BASE + 41i32) as usize].b32.s1)
+        if *LOCAL(Local::par_shape) == TEX_NULL {
+            if *DIMENPAR(DimenPar::hang_indent) != 0
+                && (*INTPAR(IntPar::hang_after) >= 0
+                    && cur_list.prev_graf + 2 > *INTPAR(IntPar::hang_after)
+                    || cur_list.prev_graf + 1 < -(*INTPAR(IntPar::hang_after) as i32))
             {
-                l = EQTB[(DIMEN_BASE + 3i32) as usize].b32.s1
-                    - EQTB[(DIMEN_BASE + 17i32) as usize].b32.s1.abs();
-                if EQTB[(DIMEN_BASE + 17i32) as usize].b32.s1 > 0i32 {
-                    s = EQTB[(DIMEN_BASE + 17i32) as usize].b32.s1
+                l = *DIMENPAR(DimenPar::hsize) - (*DIMENPAR(DimenPar::hang_indent)).abs();
+                if *DIMENPAR(DimenPar::hang_indent) > 0 {
+                    s = *DIMENPAR(DimenPar::hang_indent)
                 } else {
-                    s = 0i32
+                    s = 0
                 }
             } else {
-                l = EQTB[(DIMEN_BASE + 3i32) as usize].b32.s1;
-                s = 0i32
+                l = *DIMENPAR(DimenPar::hsize);
+                s = 0
             }
         } else {
-            n = MEM[EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 as usize]
-                .b32
-                .s0;
-            if cur_list.prev_graf + 2i32 >= n {
-                p = EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 + 2i32 * n
+            n = MEM[*LOCAL(Local::par_shape) as usize].b32.s0;
+            if cur_list.prev_graf + 2 >= n {
+                p = *LOCAL(Local::par_shape) + 2 * n
             } else {
-                p = EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 + 2i32 * (cur_list.prev_graf + 2i32)
+                p = *LOCAL(Local::par_shape) + 2 * (cur_list.prev_graf + 2i32)
             }
             s = MEM[(p - 1) as usize].b32.s1;
             l = MEM[p as usize].b32.s1
         }
-        push_math(15i32 as group_code);
-        cur_list.mode = 207_i16;
-        eq_word_define(INT_BASE + 44i32, -1i32);
-        eq_word_define(DIMEN_BASE + 13i32, w);
+        push_math(MATH_SHIFT_GROUP as group_code);
+        cur_list.mode = MMODE as i16;
+        eq_word_define(INT_BASE + IntPar::cur_fam as i32, -1i32);
+        eq_word_define(DIMEN_BASE + DimenPar::pre_display_size as i32, w);
         cur_list.eTeX_aux = j;
-        eq_word_define(INT_BASE + 63i32, x);
-        eq_word_define(DIMEN_BASE + 14i32, l);
-        eq_word_define(DIMEN_BASE + 15i32, s);
-        if EQTB[(LOCAL_BASE + 4i32) as usize].b32.s1 != -0xfffffffi32 {
-            begin_token_list(EQTB[(LOCAL_BASE + 4i32) as usize].b32.s1, 10_u16);
+        eq_word_define(INT_BASE + IntPar::pre_display_correction as i32, x);
+        eq_word_define(DIMEN_BASE + DimenPar::display_width as i32, l);
+        eq_word_define(DIMEN_BASE + DimenPar::display_indent as i32, s);
+        if *LOCAL(Local::every_display) != TEX_NULL {
+            begin_token_list(*LOCAL(Local::every_display), EVERY_DISPLAY_TEXT);
         }
-        if nest_ptr == 1i32 {
+        if nest_ptr == 1 {
             build_page();
         }
     } else {
         back_input();
-        push_math(15i32 as group_code);
-        eq_word_define(INT_BASE + 44i32, -1i32);
+        push_math(MATH_SHIFT_GROUP as group_code);
+        eq_word_define(INT_BASE + IntPar::cur_fam as i32, -1);
         if insert_src_special_every_math {
             insert_src_special();
         }
-        if EQTB[(LOCAL_BASE + 3i32) as usize].b32.s1 != -0xfffffffi32 {
-            begin_token_list(EQTB[(LOCAL_BASE + 3i32) as usize].b32.s1, 9_u16);
+        if *LOCAL(Local::every_math) != TEX_NULL {
+            begin_token_list(*LOCAL(Local::every_math), EVERY_MATH_TEXT);
         }
     };
 }
 pub(crate) unsafe fn start_eq_no() {
     SAVE_STACK[SAVE_PTR + 0].b32.s1 = cur_chr;
     SAVE_PTR += 1;
-    push_math(15i32 as group_code);
-    eq_word_define(INT_BASE + 44i32, -1i32);
+    push_math(MATH_SHIFT_GROUP as group_code);
+    eq_word_define(INT_BASE + IntPar::cur_fam as i32, -1);
     if insert_src_special_every_math {
         insert_src_special();
     }
-    if EQTB[(LOCAL_BASE + 3i32) as usize].b32.s1 != -0xfffffffi32 {
-        begin_token_list(EQTB[(LOCAL_BASE + 3i32) as usize].b32.s1, 9_u16);
+    if *LOCAL(Local::every_math) != TEX_NULL {
+        begin_token_list(*LOCAL(Local::every_math), EVERY_MATH_TEXT);
     };
 }
 pub(crate) unsafe fn math_limit_switch() {
     if cur_list.head != cur_list.tail {
-        if MEM[cur_list.tail as usize].b16.s1 as i32 == 17 {
+        if MEM[cur_list.tail as usize].b16.s1 as i32 == OP_NOAD {
             MEM[cur_list.tail as usize].b16.s0 = cur_chr as u16;
             return;
         }
@@ -446,10 +450,10 @@ pub(crate) unsafe fn math_limit_switch() {
 }
 unsafe extern "C" fn scan_delimiter(mut p: i32, mut r: bool) {
     if r {
-        if cur_chr == 1i32 {
-            cur_val1 = 0x40000000i32;
+        if cur_chr == 1 {
+            cur_val1 = 0x40000000;
             scan_math_fam_int();
-            cur_val1 += cur_val * 0x200000i32;
+            cur_val1 += cur_val * 0x200000;
             scan_usv_num();
             cur_val += cur_val1
         } else {
@@ -458,35 +462,35 @@ unsafe extern "C" fn scan_delimiter(mut p: i32, mut r: bool) {
     } else {
         loop {
             get_x_token();
-            if !(cur_cmd as i32 == 10i32 || cur_cmd as i32 == 0i32) {
+            if !(cur_cmd as u16 == SPACER || cur_cmd as u16 == RELAX) {
                 break;
             }
         }
-        match cur_cmd as i32 {
-            11 | 12 => cur_val = EQTB[(DEL_CODE_BASE + cur_chr) as usize].b32.s1,
-            15 => {
-                if cur_chr == 1i32 {
-                    cur_val1 = 0x40000000i32;
+        match cur_cmd as u16 {
+            LETTER | OTHER_CHAR => cur_val = EQTB[(DEL_CODE_BASE + cur_chr) as usize].b32.s1,
+            DELIM_NUM => {
+                if cur_chr == 1 {
+                    cur_val1 = 0x40000000;
                     scan_math_class_int();
                     scan_math_fam_int();
-                    cur_val1 += cur_val * 0x20000i32;
+                    cur_val1 += cur_val * 0x20000;
                     scan_usv_num();
                     cur_val += cur_val1
                 } else {
                     scan_delimiter_int();
                 }
             }
-            _ => cur_val = -1i32,
+            _ => cur_val = -1,
         }
     }
-    if cur_val < 0i32 {
+    if cur_val < 0 {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Missing delimiter (. inserted)");
-        help_ptr = 6_u8;
+        help_ptr = 6;
         help_line[5] = b"I was expecting to see something like `(\' or `\\{\' or";
         help_line[4] = b"`\\}\' here. If you typed, e.g., `{\' instead of `\\{\', you";
         help_line[3] = b"should probably delete the `{\' by typing `1\' now, so that";
@@ -510,10 +514,10 @@ unsafe extern "C" fn scan_delimiter(mut p: i32, mut r: bool) {
     };
 }
 pub(crate) unsafe fn math_radical() {
-    MEM[cur_list.tail as usize].b32.s1 = get_node(5);
+    MEM[cur_list.tail as usize].b32.s1 = get_node(RADICAL_NOAD_SIZE);
     cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
-    MEM[cur_list.tail as usize].b16.s1 = 24_u16;
-    MEM[cur_list.tail as usize].b16.s0 = 0_u16;
+    MEM[cur_list.tail as usize].b16.s1 = RADICAL_NOAD as u16;
+    MEM[cur_list.tail as usize].b16.s0 = NORMAL as u16;
     MEM[(cur_list.tail + 1) as usize].b32 = empty;
     MEM[(cur_list.tail + 3) as usize].b32 = empty;
     MEM[(cur_list.tail + 2) as usize].b32 = empty;
@@ -522,7 +526,7 @@ pub(crate) unsafe fn math_radical() {
 }
 pub(crate) unsafe fn math_ac() {
     let mut c: i32 = 0;
-    if cur_cmd as i32 == 45i32 {
+    if cur_cmd == ACCENT as u8 {
         /*1201: */
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -537,22 +541,22 @@ pub(crate) unsafe fn math_ac() {
         help_line[0] = b"(Accents are not the same in formulas as they are in text.)";
         error();
     }
-    MEM[cur_list.tail as usize].b32.s1 = get_node(5);
+    MEM[cur_list.tail as usize].b32.s1 = get_node(ACCENT_NOAD_SIZE);
     cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
-    MEM[cur_list.tail as usize].b16.s1 = 28_u16;
-    MEM[cur_list.tail as usize].b16.s0 = 0_u16;
+    MEM[cur_list.tail as usize].b16.s1 = ACCENT_NOAD as u16;
+    MEM[cur_list.tail as usize].b16.s0 = NORMAL as u16;
     MEM[(cur_list.tail + 1) as usize].b32 = empty;
     MEM[(cur_list.tail + 3) as usize].b32 = empty;
     MEM[(cur_list.tail + 2) as usize].b32 = empty;
-    MEM[(cur_list.tail + 4) as usize].b32.s1 = 1;
+    MEM[(cur_list.tail + 4) as usize].b32.s1 = MATH_CHAR;
     if cur_chr == 1i32 {
         if scan_keyword(b"fixed") {
-            MEM[cur_list.tail as usize].b16.s0 = 1_u16
+            MEM[cur_list.tail as usize].b16.s0 = FIXED_ACC as u16;
         } else if scan_keyword(b"bottom") {
             if scan_keyword(b"fixed") {
-                MEM[cur_list.tail as usize].b16.s0 = (2 + 1) as u16
+                MEM[cur_list.tail as usize].b16.s0 = (BOTTOM_ACC + 1) as u16;
             } else {
-                MEM[cur_list.tail as usize].b16.s0 = 2_u16
+                MEM[cur_list.tail as usize].b16.s0 = BOTTOM_ACC as u16;
             }
         }
         scan_math_class_int();
@@ -569,10 +573,9 @@ pub(crate) unsafe fn math_ac() {
     }
     MEM[(cur_list.tail + 4) as usize].b16.s0 = (cur_val as i64 % 65536) as u16;
     if cur_val as u32 >> 21i32 & 0x7_u32 == 7_u32
-        && (EQTB[(INT_BASE + 44i32) as usize].b32.s1 >= 0i32
-            && EQTB[(INT_BASE + 44i32) as usize].b32.s1 < 256i32)
+        && (*INTPAR(IntPar::cur_fam) >= 0i32 && *INTPAR(IntPar::cur_fam) < NUMBER_MATH_FAMILIES)
     {
-        MEM[(cur_list.tail + 4) as usize].b16.s1 = EQTB[(INT_BASE + 44i32) as usize].b32.s1 as u16
+        MEM[(cur_list.tail + 4) as usize].b16.s1 = *INTPAR(IntPar::cur_fam) as u16
     } else {
         MEM[(cur_list.tail + 4) as usize].b16.s1 = (cur_val as u32 >> 24 & 0xff_u32) as u16
     }
@@ -586,20 +589,20 @@ pub(crate) unsafe fn append_choices() {
     cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
     SAVE_PTR += 1;
     SAVE_STACK[SAVE_PTR - 1].b32.s1 = 0;
-    push_math(13i32 as group_code);
+    push_math(MATH_CHOICE_GROUP as group_code);
     scan_left_brace();
 }
 pub(crate) unsafe fn fin_mlist(mut p: i32) -> i32 {
     let mut q: i32 = 0;
-    if cur_list.aux.b32.s1 != -0xfffffffi32 {
+    if cur_list.aux.b32.s1 != TEX_NULL {
         /*1220: */
-        MEM[(cur_list.aux.b32.s1 + 3) as usize].b32.s1 = 3;
+        MEM[(cur_list.aux.b32.s1 + 3) as usize].b32.s1 = SUB_MLIST;
         MEM[(cur_list.aux.b32.s1 + 3) as usize].b32.s0 = MEM[cur_list.head as usize].b32.s1;
-        if p == -0xfffffffi32 {
+        if p == TEX_NULL {
             q = cur_list.aux.b32.s1
         } else {
             q = MEM[(cur_list.aux.b32.s1 + 2) as usize].b32.s0;
-            if MEM[q as usize].b16.s1 as i32 != 30 || cur_list.eTeX_aux == -0xfffffff {
+            if MEM[q as usize].b16.s1 as i32 != 30 || cur_list.eTeX_aux == TEX_NULL {
                 confusion(b"right");
             }
             MEM[(cur_list.aux.b32.s1 + 2) as usize].b32.s0 = MEM[cur_list.eTeX_aux as usize].b32.s1;
@@ -616,7 +619,7 @@ pub(crate) unsafe fn fin_mlist(mut p: i32) -> i32 {
 pub(crate) unsafe fn build_choices() {
     let mut p: i32 = 0;
     unsave();
-    p = fin_mlist(-0xfffffffi32);
+    p = fin_mlist(TEX_NULL);
     match SAVE_STACK[SAVE_PTR - 1].b32.s1 {
         0 => MEM[(cur_list.tail + 1) as usize].b32.s0 = p,
         1 => MEM[(cur_list.tail + 1) as usize].b32.s1 = p,
@@ -629,36 +632,36 @@ pub(crate) unsafe fn build_choices() {
         _ => {}
     }
     SAVE_STACK[SAVE_PTR - 1].b32.s1 += 1;
-    push_math(13i32 as group_code);
+    push_math(MATH_CHOICE_GROUP as group_code);
     scan_left_brace();
 }
 pub(crate) unsafe fn sub_sup() {
     let mut t: small_number = 0;
     let mut p: i32 = 0;
-    t = 0i32 as small_number;
-    p = -0xfffffffi32;
+    t = EMPTY as small_number;
+    p = TEX_NULL;
     if cur_list.tail != cur_list.head {
-        if MEM[cur_list.tail as usize].b16.s1 as i32 >= 16
-            && (MEM[cur_list.tail as usize].b16.s1 as i32) < 30
+        if MEM[cur_list.tail as usize].b16.s1 as i32 >= ORD_NOAD
+            && (MEM[cur_list.tail as usize].b16.s1 as i32) < LEFT_NOAD
         {
             p = cur_list.tail + 2i32 + cur_cmd as i32 - 7i32;
             t = MEM[p as usize].b32.s1 as small_number
         }
     }
-    if p == -0xfffffffi32 || t as i32 != 0i32 {
+    if p == TEX_NULL || t as i32 != EMPTY {
         /*1212: */
         MEM[cur_list.tail as usize].b32.s1 = new_noad();
-        cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
-        p = cur_list.tail + 2i32 + cur_cmd as i32 - 7i32;
-        if t as i32 != 0i32 {
-            if cur_cmd as i32 == 7i32 {
+        cur_list.tail = *LLIST_link(cur_list.tail as isize);
+        p = cur_list.tail + 2 + cur_cmd as i32 - 7;
+        if t as i32 != EMPTY {
+            if cur_cmd as u16 == SUP_MARK {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
                     print_nl_cstr(b"! ");
                 }
                 print_cstr(b"Double superscript");
-                help_ptr = 1_u8;
+                help_ptr = 1;
                 help_line[0] = b"I treat `x^1^2\' essentially like `x^1{}^2\'."
             } else {
                 if file_line_error_style_p != 0 {
@@ -678,13 +681,13 @@ pub(crate) unsafe fn sub_sup() {
 pub(crate) unsafe fn math_fraction() {
     let mut c: small_number = 0;
     c = cur_chr as small_number;
-    if cur_list.aux.b32.s1 != -0xfffffffi32 {
+    if cur_list.aux.b32.s1 != TEX_NULL {
         /*1218:*/
-        if c as i32 >= 3i32 {
-            scan_delimiter(4999999i32 - 12i32, false);
-            scan_delimiter(4999999i32 - 12i32, false);
+        if c as i32 >= DELIMITED_CODE {
+            scan_delimiter(GARBAGE, false);
+            scan_delimiter(GARBAGE, false);
         }
-        if c as i32 % 3i32 == 0i32 {
+        if c as i32 % DELIMITED_CODE == ABOVE_CODE {
             scan_dimen(false, false, false);
         }
         if file_line_error_style_p != 0 {
@@ -699,27 +702,27 @@ pub(crate) unsafe fn math_fraction() {
         help_line[0] = b"means `{x \\over y} \\over z\' or `x \\over {y \\over z}\'.";
         error();
     } else {
-        cur_list.aux.b32.s1 = get_node(6i32);
-        MEM[cur_list.aux.b32.s1 as usize].b16.s1 = 25_u16;
-        MEM[cur_list.aux.b32.s1 as usize].b16.s0 = 0_u16;
-        MEM[(cur_list.aux.b32.s1 + 2) as usize].b32.s1 = 3;
+        cur_list.aux.b32.s1 = get_node(FRACTION_NOAD_SIZE);
+        MEM[cur_list.aux.b32.s1 as usize].b16.s1 = FRACTION_NOAD as u16;
+        MEM[cur_list.aux.b32.s1 as usize].b16.s0 = NORMAL as u16;
+        MEM[(cur_list.aux.b32.s1 + 2) as usize].b32.s1 = SUB_MLIST;
         MEM[(cur_list.aux.b32.s1 + 2) as usize].b32.s0 = MEM[cur_list.head as usize].b32.s1;
         MEM[(cur_list.aux.b32.s1 + 3) as usize].b32 = empty;
         MEM[(cur_list.aux.b32.s1 + 4) as usize].b16 = null_delimiter;
         MEM[(cur_list.aux.b32.s1 + 5) as usize].b16 = null_delimiter;
-        MEM[cur_list.head as usize].b32.s1 = -0xfffffff;
+        MEM[cur_list.head as usize].b32.s1 = TEX_NULL;
         cur_list.tail = cur_list.head;
-        if c as i32 >= 3i32 {
+        if c as i32 >= DELIMITED_CODE {
             scan_delimiter(cur_list.aux.b32.s1 + 4i32, false);
             scan_delimiter(cur_list.aux.b32.s1 + 5i32, false);
         }
-        match c as i32 % 3i32 {
-            0 => {
+        match c as i32 % DELIMITED_CODE {
+            ABOVE_CODE => {
                 scan_dimen(false, false, false);
                 MEM[(cur_list.aux.b32.s1 + 1) as usize].b32.s1 = cur_val
             }
-            1 => MEM[(cur_list.aux.b32.s1 + 1) as usize].b32.s1 = 0x40000000,
-            2 => MEM[(cur_list.aux.b32.s1 + 1) as usize].b32.s1 = 0,
+            OVER_CODE => MEM[(cur_list.aux.b32.s1 + 1) as usize].b32.s1 = DEFAULT_CODE,
+            ATOP_CODE => MEM[(cur_list.aux.b32.s1 + 1) as usize].b32.s1 = 0,
             _ => {}
         }
     };
@@ -729,10 +732,10 @@ pub(crate) unsafe fn math_left_right() {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     t = cur_chr as small_number;
-    if t as i32 != 30i32 && cur_group as i32 != 16i32 {
+    if t as i32 != LEFT_NOAD && cur_group as i32 != MATH_LEFT_GROUP {
         /*1227: */
-        if cur_group as i32 == 15i32 {
-            scan_delimiter(4999999i32 - 12i32, false); /*:1530 */
+        if cur_group as i32 == MATH_SHIFT_GROUP {
+            scan_delimiter(GARBAGE, false); /*:1530 */
             if file_line_error_style_p != 0 {
                 print_file_line(); /*:1530 */
             } else {
@@ -757,25 +760,25 @@ pub(crate) unsafe fn math_left_right() {
         MEM[p as usize].b16.s1 = t as u16;
         scan_delimiter(p + 1i32, false);
         if t as i32 == 1i32 {
-            MEM[p as usize].b16.s1 = 31_u16;
-            MEM[p as usize].b16.s0 = 1_u16
+            MEM[p as usize].b16.s1 = RIGHT_NOAD as u16;
+            MEM[p as usize].b16.s0 = 1;
         }
-        if t as i32 == 30i32 {
+        if t as i32 == LEFT_NOAD {
             q = p
         } else {
             q = fin_mlist(p);
             unsave();
         }
-        if t as i32 != 31i32 {
-            push_math(16i32 as group_code);
+        if t as i32 != RIGHT_NOAD {
+            push_math(MATH_LEFT_GROUP as group_code);
             MEM[cur_list.head as usize].b32.s1 = q;
             cur_list.tail = p;
             cur_list.eTeX_aux = p
         } else {
             MEM[cur_list.tail as usize].b32.s1 = new_noad();
             cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
-            MEM[cur_list.tail as usize].b16.s1 = 23_u16;
-            MEM[(cur_list.tail + 1) as usize].b32.s1 = 3;
+            MEM[cur_list.tail as usize].b16.s1 = INNER_NOAD as u16;
+            MEM[(cur_list.tail + 1) as usize].b32.s1 = SUB_MLIST;
             MEM[(cur_list.tail + 1) as usize].b32.s0 = q
         }
     };
@@ -790,12 +793,12 @@ unsafe extern "C" fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
     let mut r: i32 = 0;
     let mut t: i32 = 0;
     let mut u: i32 = 0;
-    s = EQTB[(DIMEN_BASE + 15i32) as usize].b32.s1;
-    x = EQTB[(INT_BASE + 63i32) as usize].b32.s1;
+    s = *DIMENPAR(DimenPar::display_indent);
+    x = *INTPAR(IntPar::pre_display_correction);
     if x == 0i32 {
         MEM[(b + 4) as usize].b32.s1 = s + d
     } else {
-        z = EQTB[(DIMEN_BASE + 14i32) as usize].b32.s1;
+        z = *DIMENPAR(DimenPar::display_width);
         p = b;
         if x > 0i32 {
             e = z - d - MEM[(p + 1) as usize].b32.s1
@@ -803,7 +806,7 @@ unsafe extern "C" fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
             e = d;
             d = z - e - MEM[(p + 1) as usize].b32.s1
         }
-        if j != -0xfffffffi32 {
+        if j != TEX_NULL {
             b = copy_node_list(j);
             MEM[(b + 3) as usize].b32.s1 = MEM[(p + 3) as usize].b32.s1;
             MEM[(b + 2) as usize].b32.s1 = MEM[(p + 2) as usize].b32.s1;
@@ -815,43 +818,43 @@ unsafe extern "C" fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
             q = p
         } else {
             r = MEM[(p + 5) as usize].b32.s1;
-            free_node(p, 8i32);
-            if r == -0xfffffffi32 {
+            free_node(p, BOX_NODE_SIZE);
+            if r == TEX_NULL {
                 confusion(b"LR4");
             }
             if x > 0i32 {
                 p = r;
                 loop {
                     q = r;
-                    r = MEM[r as usize].b32.s1;
-                    if r == -0xfffffffi32 {
+                    r = *LLIST_link(r as isize);
+                    if r == TEX_NULL {
                         break;
                     }
                 }
             } else {
-                p = -0xfffffffi32;
+                p = TEX_NULL;
                 q = r;
                 loop {
                     t = MEM[r as usize].b32.s1;
                     MEM[r as usize].b32.s1 = p;
                     p = r;
                     r = t;
-                    if r == -0xfffffffi32 {
+                    if r == TEX_NULL {
                         break;
                     }
                 }
             }
         }
-        if j == -0xfffffffi32 {
-            r = new_kern(0i32);
-            t = new_kern(0i32)
+        if j == TEX_NULL {
+            r = new_kern(0);
+            t = new_kern(0)
         } else {
             r = MEM[(b + 5) as usize].b32.s1;
             t = MEM[r as usize].b32.s1
         }
-        u = new_math(0i32, 3i32 as small_number);
-        if MEM[t as usize].b16.s1 as i32 == 10 {
-            j = new_skip_param(8i32 as small_number);
+        u = new_math(0i32, END_M_CODE as small_number);
+        if MEM[t as usize].b16.s1 == GLUE_NODE {
+            j = new_skip_param(GluePar::right_skip as small_number);
             MEM[q as usize].b32.s1 = j;
             MEM[j as usize].b32.s1 = u;
             j = MEM[(t + 1) as usize].b32.s0;
@@ -866,9 +869,9 @@ unsafe extern "C" fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
             MEM[t as usize].b32.s1 = u;
             MEM[q as usize].b32.s1 = t
         }
-        u = new_math(0i32, 2i32 as small_number);
-        if MEM[r as usize].b16.s1 as i32 == 10 {
-            j = new_skip_param(7i32 as small_number);
+        u = new_math(0, BEGIN_M_CODE as small_number);
+        if MEM[r as usize].b16.s1 == GLUE_NODE {
+            j = new_skip_param(GluePar::left_skip as small_number);
             MEM[u as usize].b32.s1 = j;
             MEM[j as usize].b32.s1 = p;
             j = MEM[(r + 1) as usize].b32.s0;
@@ -882,8 +885,8 @@ unsafe extern "C" fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
             MEM[(r + 1) as usize].b32.s1 = d;
             MEM[r as usize].b32.s1 = p;
             MEM[u as usize].b32.s1 = r;
-            if j == -0xfffffffi32 {
-                b = hpack(u, 0i32, 1i32 as small_number);
+            if j == TEX_NULL {
+                b = hpack(u, 0i32, ADDITIONAL as small_number);
                 MEM[(b + 4) as usize].b32.s1 = s
             } else {
                 MEM[(b + 5) as usize].b32.s1 = u
@@ -910,40 +913,29 @@ pub(crate) unsafe fn after_math() {
     let mut r: i32 = 0;
     let mut t: i32 = 0;
     let mut pre_t: i32 = 0;
-    let mut j: i32 = -0xfffffffi32;
+    let mut j: i32 = TEX_NULL;
+
     danger = false;
-    if cur_list.mode as i32 == 207i32 {
-        j = cur_list.eTeX_aux
+
+    if cur_list.mode as i32 == MMODE {
+        j = cur_list.eTeX_aux; // :1530
     }
-    if FONT_PARAMS[EQTB[(MATH_FONT_BASE + 2i32) as usize].b32.s1 as usize] < 22i32
-        && !(FONT_AREA[EQTB[(MATH_FONT_BASE + 2i32) as usize].b32.s1 as usize] as u32 == 0xfffeu32
-            && isOpenTypeMathFont(
-                FONT_LAYOUT_ENGINE[EQTB[(MATH_FONT_BASE + 2i32) as usize].b32.s1 as usize]
-                    as XeTeXLayoutEngine,
-            ) as i32
+    if FONT_PARAMS[*MATH_FONT(2) as usize] < TOTAL_MATHSY_PARAMS
+        && !(FONT_AREA[*MATH_FONT(2) as usize] as u32 == OTGR_FONT_FLAG
+            && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[*MATH_FONT(2) as usize] as XeTeXLayoutEngine)
+                as i32
                 != 0)
-        || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (2i32 + 256i32)) as usize].b32.s1 as usize] < 22i32
-            && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (2i32 + 256i32)) as usize].b32.s1 as usize]
-                as u32
-                == 0xfffeu32
+        || FONT_PARAMS[*MATH_FONT(2 + SCRIPT_SIZE) as usize] < TOTAL_MATHSY_PARAMS
+            && !(FONT_AREA[*MATH_FONT(2 + SCRIPT_SIZE) as usize] as u32 == OTGR_FONT_FLAG
                 && isOpenTypeMathFont(
-                    FONT_LAYOUT_ENGINE
-                        [EQTB[(MATH_FONT_BASE + (2i32 + 256i32)) as usize].b32.s1 as usize]
-                        as XeTeXLayoutEngine,
+                    FONT_LAYOUT_ENGINE[*MATH_FONT(2 + SCRIPT_SIZE) as usize] as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
-        || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (2i32 + 2i32 * 256i32)) as usize]
-            .b32
-            .s1 as usize]
-            < 22i32
-            && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (2i32 + 2i32 * 256i32)) as usize]
-                .b32
-                .s1 as usize] as u32
-                == 0xfffeu32
+        || FONT_PARAMS[*MATH_FONT(2 + SCRIPT_SCRIPT_SIZE) as usize] < TOTAL_MATHSY_PARAMS
+            && !(FONT_AREA[*MATH_FONT(2 + SCRIPT_SCRIPT_SIZE) as usize] as u32 == OTGR_FONT_FLAG
                 && isOpenTypeMathFont(
-                    FONT_LAYOUT_ENGINE[EQTB[(MATH_FONT_BASE + (2i32 + 2i32 * 256i32)) as usize]
-                        .b32
-                        .s1 as usize] as XeTeXLayoutEngine,
+                    FONT_LAYOUT_ENGINE[*MATH_FONT(2 + SCRIPT_SCRIPT_SIZE) as usize]
+                        as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
     {
@@ -953,6 +945,7 @@ pub(crate) unsafe fn after_math() {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Math formula deleted: Insufficient symbol fonts");
+
         help_ptr = 3_u8;
         help_line[2] = b"Sorry, but I can\'t typeset math unless \\textfont 2";
         help_line[1] = b"and \\scriptfont 2 and \\scriptscriptfont 2 have all";
@@ -960,36 +953,23 @@ pub(crate) unsafe fn after_math() {
         error();
         flush_math();
         danger = true
-    } else if FONT_PARAMS[EQTB[(MATH_FONT_BASE + (3i32 + 0i32)) as usize].b32.s1 as usize] < 13i32
-        && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (3i32 + 0i32)) as usize].b32.s1 as usize] as u32
-            == 0xfffeu32
+    } else if FONT_PARAMS[*MATH_FONT(3i32 + 0i32) as usize] < TOTAL_MATHEX_PARAMS
+        && !(FONT_AREA[*MATH_FONT(3i32 + 0i32) as usize] as u32 == 0xfffeu32
             && isOpenTypeMathFont(
-                FONT_LAYOUT_ENGINE[EQTB[(MATH_FONT_BASE + (3i32 + 0i32)) as usize].b32.s1 as usize]
-                    as XeTeXLayoutEngine,
+                FONT_LAYOUT_ENGINE[*MATH_FONT(3i32 + 0i32) as usize] as XeTeXLayoutEngine,
             ) as i32
                 != 0)
-        || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (3i32 + 256i32)) as usize].b32.s1 as usize] < 13i32
-            && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (3i32 + 256i32)) as usize].b32.s1 as usize]
-                as u32
-                == 0xfffeu32
+        || FONT_PARAMS[*MATH_FONT(3i32 + 256i32) as usize] < TOTAL_MATHEX_PARAMS
+            && !(FONT_AREA[*MATH_FONT(3i32 + 256i32) as usize] as u32 == 0xfffeu32
                 && isOpenTypeMathFont(
-                    FONT_LAYOUT_ENGINE
-                        [EQTB[(MATH_FONT_BASE + (3i32 + 256i32)) as usize].b32.s1 as usize]
-                        as XeTeXLayoutEngine,
+                    FONT_LAYOUT_ENGINE[*MATH_FONT(3i32 + 256i32) as usize] as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
-        || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (3i32 + 2i32 * 256i32)) as usize]
-            .b32
-            .s1 as usize]
-            < 13i32
-            && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (3i32 + 2i32 * 256i32)) as usize]
-                .b32
-                .s1 as usize] as u32
-                == 0xfffeu32
+        || FONT_PARAMS[*MATH_FONT(3i32 + 2i32 * 256i32) as usize] < TOTAL_MATHEX_PARAMS
+            && !(FONT_AREA[*MATH_FONT(3i32 + 2i32 * 256i32) as usize] as u32 == 0xfffeu32
                 && isOpenTypeMathFont(
-                    FONT_LAYOUT_ENGINE[EQTB[(MATH_FONT_BASE + (3i32 + 2i32 * 256i32)) as usize]
-                        .b32
-                        .s1 as usize] as XeTeXLayoutEngine,
+                    FONT_LAYOUT_ENGINE[*MATH_FONT(3i32 + 2i32 * 256i32) as usize]
+                        as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
     {
@@ -1009,7 +989,7 @@ pub(crate) unsafe fn after_math() {
     }
     m = cur_list.mode as i32;
     l = false;
-    p = fin_mlist(-0xfffffffi32);
+    p = fin_mlist(TEX_NULL);
     if cur_list.mode as i32 == -m {
         get_x_token();
         if cur_cmd as i32 != 3i32 {
@@ -1043,37 +1023,23 @@ pub(crate) unsafe fn after_math() {
         if cur_list.mode as i32 == 207i32 {
             j = cur_list.eTeX_aux
         }
-        if FONT_PARAMS[EQTB[(MATH_FONT_BASE + 2i32) as usize].b32.s1 as usize] < 22i32
-            && !(FONT_AREA[EQTB[(MATH_FONT_BASE + 2i32) as usize].b32.s1 as usize] as u32
-                == 0xfffeu32
+        if FONT_PARAMS[*MATH_FONT(2) as usize] < 22i32
+            && !(FONT_AREA[*MATH_FONT(2) as usize] as u32 == 0xfffeu32
                 && isOpenTypeMathFont(
-                    FONT_LAYOUT_ENGINE[EQTB[(MATH_FONT_BASE + 2i32) as usize].b32.s1 as usize]
-                        as XeTeXLayoutEngine,
+                    FONT_LAYOUT_ENGINE[*MATH_FONT(2) as usize] as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
-            || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (2i32 + 256i32)) as usize].b32.s1 as usize]
-                < 22i32
-                && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (2i32 + 256i32)) as usize].b32.s1 as usize]
-                    as u32
-                    == 0xfffeu32
+            || FONT_PARAMS[*MATH_FONT(2i32 + 256i32) as usize] < 22i32
+                && !(FONT_AREA[*MATH_FONT(2i32 + 256i32) as usize] as u32 == 0xfffeu32
                     && isOpenTypeMathFont(
-                        FONT_LAYOUT_ENGINE
-                            [EQTB[(MATH_FONT_BASE + (2i32 + 256i32)) as usize].b32.s1 as usize]
-                            as XeTeXLayoutEngine,
+                        FONT_LAYOUT_ENGINE[*MATH_FONT(2i32 + 256i32) as usize] as XeTeXLayoutEngine,
                     ) as i32
                         != 0)
-            || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (2i32 + 2i32 * 256i32)) as usize]
-                .b32
-                .s1 as usize]
-                < 22i32
-                && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (2i32 + 2i32 * 256i32)) as usize]
-                    .b32
-                    .s1 as usize] as u32
-                    == 0xfffeu32
+            || FONT_PARAMS[*MATH_FONT(2i32 + 2i32 * 256i32) as usize] < 22i32
+                && !(FONT_AREA[*MATH_FONT(2i32 + 2i32 * 256i32) as usize] as u32 == 0xfffeu32
                     && isOpenTypeMathFont(
-                        FONT_LAYOUT_ENGINE[EQTB[(MATH_FONT_BASE + (2i32 + 2i32 * 256i32)) as usize]
-                            .b32
-                            .s1 as usize] as XeTeXLayoutEngine,
+                        FONT_LAYOUT_ENGINE[*MATH_FONT(2i32 + 2i32 * 256i32) as usize]
+                            as XeTeXLayoutEngine,
                     ) as i32
                         != 0)
         {
@@ -1090,21 +1056,14 @@ pub(crate) unsafe fn after_math() {
             error();
             flush_math();
             danger = true
-        } else if FONT_PARAMS[EQTB[(MATH_FONT_BASE + (3i32 + 0i32)) as usize].b32.s1 as usize]
-            < 13i32
-            && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (3i32 + 0i32)) as usize].b32.s1 as usize] as u32
-                == 0xfffeu32
+        } else if FONT_PARAMS[*MATH_FONT(3i32 + 0i32) as usize] < 13i32
+            && !(FONT_AREA[*MATH_FONT(3i32 + 0i32) as usize] as u32 == 0xfffeu32
                 && isOpenTypeMathFont(
-                    FONT_LAYOUT_ENGINE
-                        [EQTB[(MATH_FONT_BASE + (3i32 + 0i32)) as usize].b32.s1 as usize]
-                        as XeTeXLayoutEngine,
+                    FONT_LAYOUT_ENGINE[*MATH_FONT(3i32 + 0i32) as usize] as XeTeXLayoutEngine,
                 ) as i32
                     != 0)
-            || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (3i32 + 256i32)) as usize].b32.s1 as usize]
-                < 13i32
-                && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (3i32 + 256i32)) as usize].b32.s1 as usize]
-                    as u32
-                    == 0xfffeu32
+            || FONT_PARAMS[*MATH_FONT(3i32 + 256i32) as usize] < 13i32
+                && !(FONT_AREA[*MATH_FONT(3i32 + 256i32) as usize] as u32 == 0xfffeu32
                     && isOpenTypeMathFont(
                         FONT_LAYOUT_ENGINE[EQTB[(1i32
                             + (0x10ffffi32 + 1i32)
@@ -1129,18 +1088,11 @@ pub(crate) unsafe fn after_math() {
                             .s1 as usize] as XeTeXLayoutEngine,
                     ) as i32
                         != 0)
-            || FONT_PARAMS[EQTB[(MATH_FONT_BASE + (3i32 + 2i32 * 256i32)) as usize]
-                .b32
-                .s1 as usize]
-                < 13i32
-                && !(FONT_AREA[EQTB[(MATH_FONT_BASE + (3i32 + 2i32 * 256i32)) as usize]
-                    .b32
-                    .s1 as usize] as u32
-                    == 0xfffeu32
+            || FONT_PARAMS[*MATH_FONT(3i32 + 2i32 * 256i32) as usize] < 13i32
+                && !(FONT_AREA[*MATH_FONT(3i32 + 2i32 * 256i32) as usize] as u32 == 0xfffeu32
                     && isOpenTypeMathFont(
-                        FONT_LAYOUT_ENGINE[EQTB[(MATH_FONT_BASE + (3i32 + 2i32 * 256i32)) as usize]
-                            .b32
-                            .s1 as usize] as XeTeXLayoutEngine,
+                        FONT_LAYOUT_ENGINE[*MATH_FONT(3i32 + 2i32 * 256i32) as usize]
+                            as XeTeXLayoutEngine,
                     ) as i32
                         != 0)
         {
@@ -1159,16 +1111,14 @@ pub(crate) unsafe fn after_math() {
             danger = true
         }
         m = cur_list.mode as i32;
-        p = fin_mlist(-0xfffffffi32)
+        p = fin_mlist(TEX_NULL)
     } else {
-        a = -0xfffffffi32
+        a = TEX_NULL
     }
     if m < 0i32 {
         /*1231: */
-        MEM[cur_list.tail as usize].b32.s1 = new_math(
-            EQTB[(DIMEN_BASE + 1i32) as usize].b32.s1,
-            0i32 as small_number,
-        );
+        MEM[cur_list.tail as usize].b32.s1 =
+            new_math(*DIMENPAR(DimenPar::math_surround), 0i32 as small_number);
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         cur_mlist = p;
         cur_style = 2i32 as small_number;
@@ -1178,15 +1128,13 @@ pub(crate) unsafe fn after_math() {
         while MEM[cur_list.tail as usize].b32.s1 != -0xfffffff {
             cur_list.tail = MEM[cur_list.tail as usize].b32.s1
         }
-        MEM[cur_list.tail as usize].b32.s1 = new_math(
-            EQTB[(DIMEN_BASE + 1i32) as usize].b32.s1,
-            1i32 as small_number,
-        );
+        MEM[cur_list.tail as usize].b32.s1 =
+            new_math(*DIMENPAR(DimenPar::math_surround), 1i32 as small_number);
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         cur_list.aux.b32.s0 = 1000i32;
         unsave();
     } else {
-        if a == -0xfffffffi32 {
+        if a == TEX_NULL {
             /*1232: */
             get_x_token();
             if cur_cmd as i32 != 3i32 {
@@ -1212,16 +1160,16 @@ pub(crate) unsafe fn after_math() {
         b = hpack(p, 0i32, 1i32 as small_number);
         p = MEM[(b + 5) as usize].b32.s1;
         t = adjust_tail;
-        adjust_tail = -0xfffffffi32;
+        adjust_tail = TEX_NULL;
         pre_t = pre_adjust_tail;
-        pre_adjust_tail = -0xfffffffi32;
+        pre_adjust_tail = TEX_NULL;
         w = MEM[(b + 1) as usize].b32.s1;
-        z = EQTB[(DIMEN_BASE + 14i32) as usize].b32.s1;
-        s = EQTB[(DIMEN_BASE + 15i32) as usize].b32.s1;
-        if EQTB[(INT_BASE + 63i32) as usize].b32.s1 < 0i32 {
+        z = *DIMENPAR(DimenPar::display_width);
+        s = *DIMENPAR(DimenPar::display_indent);
+        if *INTPAR(IntPar::pre_display_correction) < 0i32 {
             s = -s - z
         }
-        if a == -0xfffffffi32 || danger as i32 != 0 {
+        if a == TEX_NULL || danger as i32 != 0 {
             e = 0i32;
             q = 0i32
         } else {
@@ -1251,7 +1199,7 @@ pub(crate) unsafe fn after_math() {
         d = half(z - w);
         if e > 0i32 && d < 2i32 * e {
             d = half(z - w - e);
-            if p != -0xfffffffi32 {
+            if p != TEX_NULL {
                 if !is_char_node(p) {
                     if MEM[p as usize].b16.s1 as i32 == 10 {
                         d = 0i32
@@ -1259,9 +1207,9 @@ pub(crate) unsafe fn after_math() {
                 }
             }
         }
-        MEM[cur_list.tail as usize].b32.s1 = new_penalty(EQTB[(INT_BASE + 11i32) as usize].b32.s1);
+        MEM[cur_list.tail as usize].b32.s1 = new_penalty(*INTPAR(IntPar::pre_display_penalty));
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
-        if d + s <= EQTB[(DIMEN_BASE + 13i32) as usize].b32.s1 || l as i32 != 0 {
+        if d + s <= *DIMENPAR(DimenPar::pre_display_size) || l as i32 != 0 {
             g1 = 3i32 as small_number;
             g2 = 4i32 as small_number
         } else {
@@ -1290,7 +1238,7 @@ pub(crate) unsafe fn after_math() {
             b = hpack(b, 0i32, 1i32 as small_number)
         }
         app_display(j, b, d);
-        if a != -0xfffffffi32 && e == 0i32 && !l {
+        if a != TEX_NULL && e == 0i32 && !l {
             MEM[cur_list.tail as usize].b32.s1 = new_penalty(10000);
             cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
             app_display(j, a, z - MEM[(a + 1) as usize].b32.s1);
@@ -1304,7 +1252,7 @@ pub(crate) unsafe fn after_math() {
             MEM[cur_list.tail as usize].b32.s1 = MEM[(4999999 - 14) as usize].b32.s1;
             cur_list.tail = pre_t
         }
-        MEM[cur_list.tail as usize].b32.s1 = new_penalty(EQTB[(INT_BASE + 12i32) as usize].b32.s1);
+        MEM[cur_list.tail as usize].b32.s1 = new_penalty(*INTPAR(IntPar::post_display_penalty));
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         if g2 as i32 > 0i32 {
             MEM[cur_list.tail as usize].b32.s1 = new_param_glue(g2);
@@ -1323,17 +1271,16 @@ pub(crate) unsafe fn resume_after_display() {
     push_nest();
     cur_list.mode = 104_i16;
     cur_list.aux.b32.s0 = 1000i32;
-    if EQTB[(INT_BASE + 50i32) as usize].b32.s1 <= 0i32 {
+    if *INTPAR(IntPar::language) <= 0i32 {
         cur_lang = 0_u8
-    } else if EQTB[(INT_BASE + 50i32) as usize].b32.s1 > 255i32 {
+    } else if *INTPAR(IntPar::language) > 255i32 {
         cur_lang = 0_u8
     } else {
-        cur_lang = EQTB[(INT_BASE + 50i32) as usize].b32.s1 as u8
+        cur_lang = *INTPAR(IntPar::language) as u8
     }
     cur_list.aux.b32.s1 = cur_lang as i32;
-    cur_list.prev_graf = ((norm_min(EQTB[(INT_BASE + 51i32) as usize].b32.s1) as i32 * 64i32
-        + norm_min(EQTB[(INT_BASE + 52i32) as usize].b32.s1) as i32)
-        as i64
+    cur_list.prev_graf = ((norm_min(*INTPAR(IntPar::left_hyphen_min)) as i32 * 64i32
+        + norm_min(*INTPAR(IntPar::right_hyphen_min)) as i32) as i64
         * 65536
         + cur_lang as i64) as i32;
     get_x_token();
@@ -1350,7 +1297,7 @@ pub(crate) unsafe fn resume_after_display() {
 unsafe extern "C" fn math_x_height(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1363,7 +1310,7 @@ unsafe extern "C" fn math_x_height(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn math_quad(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1376,7 +1323,7 @@ unsafe extern "C" fn math_quad(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn num1(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1389,7 +1336,7 @@ unsafe extern "C" fn num1(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn num2(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1402,7 +1349,7 @@ unsafe extern "C" fn num2(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn num3(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1415,7 +1362,7 @@ unsafe extern "C" fn num3(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn denom1(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1428,7 +1375,7 @@ unsafe extern "C" fn denom1(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn denom2(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1441,7 +1388,7 @@ unsafe extern "C" fn denom2(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn sup1(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1454,7 +1401,7 @@ unsafe extern "C" fn sup1(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn sup2(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1467,7 +1414,7 @@ unsafe extern "C" fn sup2(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn sup3(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1480,7 +1427,7 @@ unsafe extern "C" fn sup3(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn sub1(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1493,7 +1440,7 @@ unsafe extern "C" fn sub1(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn sub2(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1506,7 +1453,7 @@ unsafe extern "C" fn sub2(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn sup_drop(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1519,7 +1466,7 @@ unsafe extern "C" fn sup_drop(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn sub_drop(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1532,7 +1479,7 @@ unsafe extern "C" fn sub_drop(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn delim1(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1545,7 +1492,7 @@ unsafe extern "C" fn delim1(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn delim2(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1558,7 +1505,7 @@ unsafe extern "C" fn delim2(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn axis_height(mut size_code: i32) -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (2i32 + size_code)) as usize].b32.s1;
+    f = *MATH_FONT(2 + size_code);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1571,7 +1518,7 @@ unsafe extern "C" fn axis_height(mut size_code: i32) -> scaled_t {
 unsafe extern "C" fn default_rule_thickness() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (3i32 + cur_size)) as usize].b32.s1;
+    f = *MATH_FONT(3 + cur_size);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1584,7 +1531,7 @@ unsafe extern "C" fn default_rule_thickness() -> scaled_t {
 unsafe extern "C" fn big_op_spacing1() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (3i32 + cur_size)) as usize].b32.s1;
+    f = *MATH_FONT(3 + cur_size);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1597,7 +1544,7 @@ unsafe extern "C" fn big_op_spacing1() -> scaled_t {
 unsafe extern "C" fn big_op_spacing2() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (3i32 + cur_size)) as usize].b32.s1;
+    f = *MATH_FONT(3 + cur_size);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1610,7 +1557,7 @@ unsafe extern "C" fn big_op_spacing2() -> scaled_t {
 unsafe extern "C" fn big_op_spacing3() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (3i32 + cur_size)) as usize].b32.s1;
+    f = *MATH_FONT(3 + cur_size);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1623,7 +1570,7 @@ unsafe extern "C" fn big_op_spacing3() -> scaled_t {
 unsafe extern "C" fn big_op_spacing4() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (3i32 + cur_size)) as usize].b32.s1;
+    f = *MATH_FONT(3 + cur_size);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1636,7 +1583,7 @@ unsafe extern "C" fn big_op_spacing4() -> scaled_t {
 unsafe extern "C" fn big_op_spacing5() -> scaled_t {
     let mut f: i32 = 0;
     let mut rval: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (3i32 + cur_size)) as usize].b32.s1;
+    f = *MATH_FONT(3 + cur_size);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1729,7 +1676,7 @@ pub(crate) unsafe fn flush_math() {
     flush_node_list(cur_list.aux.b32.s1);
     MEM[cur_list.head as usize].b32.s1 = -0xfffffff;
     cur_list.tail = cur_list.head;
-    cur_list.aux.b32.s1 = -0xfffffffi32;
+    cur_list.aux.b32.s1 = TEX_NULL;
 }
 unsafe extern "C" fn clean_box(mut p: i32, mut s: small_number) -> i32 {
     let mut current_block: u64;
@@ -1773,7 +1720,7 @@ unsafe extern "C" fn clean_box(mut p: i32, mut s: small_number) -> i32 {
         }
         _ => {}
     }
-    if is_char_node(q) as i32 != 0 || q == -0xfffffffi32 {
+    if is_char_node(q) as i32 != 0 || q == TEX_NULL {
         x = hpack(q, 0i32, 1i32 as small_number)
     } else if MEM[q as usize].b32.s1 == -0xfffffff
         && MEM[q as usize].b16.s1 as i32 <= 1
@@ -1786,7 +1733,7 @@ unsafe extern "C" fn clean_box(mut p: i32, mut s: small_number) -> i32 {
     q = MEM[(x + 5) as usize].b32.s1;
     if is_char_node(q) {
         r = MEM[q as usize].b32.s1;
-        if r != -0xfffffffi32 {
+        if r != TEX_NULL {
             if MEM[r as usize].b32.s1 == -0xfffffff {
                 if !is_char_node(r) {
                     if MEM[r as usize].b16.s1 as i32 == 11 {
@@ -1801,9 +1748,7 @@ unsafe extern "C" fn clean_box(mut p: i32, mut s: small_number) -> i32 {
 }
 unsafe extern "C" fn fetch(mut a: i32) {
     cur_c = MEM[a as usize].b16.s0 as i32;
-    cur_f = EQTB[(MATH_FONT_BASE + (MEM[a as usize].b16.s1 as i32 % 256 + cur_size)) as usize]
-        .b32
-        .s1;
+    cur_f = *MATH_FONT(MEM[a as usize].b16.s1 as i32 % 256 + cur_size);
     cur_c = (cur_c as i64 + (MEM[a as usize].b16.s1 as i32 / 256) as i64 * 65536) as i32;
     if cur_f == 0i32 {
         /*749: */
@@ -1888,9 +1833,7 @@ unsafe extern "C" fn make_radical(mut q: i32) {
     let mut rule_thickness: scaled_t = 0;
     let mut delta: scaled_t = 0;
     let mut clr: scaled_t = 0;
-    f = EQTB[(MATH_FONT_BASE + (MEM[(q + 4) as usize].b16.s3 as i32 % 256 + cur_size)) as usize]
-        .b32
-        .s1;
+    f = *MATH_FONT(MEM[(q + 4) as usize].b16.s3 as i32 % 256 + cur_size);
     if FONT_AREA[f as usize] as u32 == 0xfffeu32
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
     {
@@ -1953,7 +1896,7 @@ unsafe extern "C" fn compute_ot_math_accent_pos(mut p: i32) -> scaled_t {
         s = get_ot_math_accent_pos(cur_f, g)
     } else if MEM[(p + 1) as usize].b32.s1 == 3 {
         r = MEM[(p + 1) as usize].b32.s0;
-        if r != -0xfffffffi32 && MEM[r as usize].b16.s1 as i32 == 28 {
+        if r != TEX_NULL && MEM[r as usize].b16.s1 as i32 == 28 {
             s = compute_ot_math_accent_pos(r)
         } else {
             s = 0x7fffffffi32
@@ -1985,7 +1928,7 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
     let mut w2: scaled_t = 0;
     let mut ot_assembly_ptr: *mut libc::c_void = 0 as *mut libc::c_void;
     fetch(q + 4i32);
-    x = -0xfffffffi32;
+    x = TEX_NULL;
     ot_assembly_ptr = 0 as *mut libc::c_void;
     if FONT_AREA[cur_f as usize] as u32 == 0xffffu32
         || FONT_AREA[cur_f as usize] as u32 == 0xfffeu32
@@ -2067,7 +2010,7 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
         }
     }
     /*:767*/
-    if x != -0xfffffffi32 {
+    if x != TEX_NULL {
         if FONT_AREA[f as usize] as u32 == 0xfffeu32
             && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as i32 != 0
         {
@@ -2166,7 +2109,7 @@ unsafe extern "C" fn make_math_accent(mut q: i32) {
             } else if MEM[(y + 2) as usize].b32.s1 < 0 {
                 MEM[(y + 2) as usize].b32.s1 = 0
             }
-            if p != -0xfffffffi32
+            if p != TEX_NULL
                 && !is_char_node(p)
                 && MEM[p as usize].b16.s1 as i32 == 8
                 && MEM[p as usize].b16.s0 as i32 == 42
@@ -2399,7 +2342,7 @@ unsafe extern "C" fn make_op(mut q: i32) -> scaled_t {
                 != 0
         {
             p = MEM[(x + 5) as usize].b32.s1;
-            if p != -0xfffffffi32
+            if p != TEX_NULL
                 && !is_char_node(p)
                 && MEM[p as usize].b16.s1 as i32 == 8
                 && MEM[p as usize].b16.s0 as i32 == 42
@@ -2556,7 +2499,7 @@ unsafe extern "C" fn make_ord(mut q: i32) {
             break;
         }
         p = MEM[q as usize].b32.s1;
-        if !(p != -0xfffffffi32) {
+        if !(p != TEX_NULL) {
             break;
         }
         if !(MEM[p as usize].b16.s1 as i32 >= 16 && MEM[p as usize].b16.s1 as i32 <= 22) {
@@ -2670,13 +2613,13 @@ unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
     let mut t: i32 = 0;
     let mut save_f: internal_font_number = 0;
     p = MEM[(q + 1) as usize].b32.s1;
-    script_c = -0xfffffffi32;
+    script_c = TEX_NULL;
     script_g = 0_u16;
     script_f = 0i32;
     sup_kern = 0i32;
     sub_kern = 0i32;
     if is_char_node(p) as i32 != 0
-        || p != -0xfffffffi32
+        || p != TEX_NULL
             && !is_char_node(p)
             && MEM[p as usize].b16.s1 as i32 == 8
             && MEM[p as usize].b16.s0 as i32 == 42
@@ -2703,7 +2646,7 @@ unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
         );
         cur_f = save_f;
         MEM[(x + 1) as usize].b32.s1 =
-            MEM[(x + 1) as usize].b32.s1 + EQTB[(DIMEN_BASE + 12i32) as usize].b32.s1;
+            MEM[(x + 1) as usize].b32.s1 + *DIMENPAR(DimenPar::script_space);
         if shift_down < sub1(cur_size) {
             shift_down = sub1(cur_size)
         }
@@ -2744,7 +2687,7 @@ unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
                 }
                 cur_f = save_f
             }
-            if p != -0xfffffffi32
+            if p != TEX_NULL
                 && !is_char_node(p)
                 && MEM[p as usize].b16.s1 as i32 == 8
                 && MEM[p as usize].b16.s0 as i32 == 42
@@ -2770,7 +2713,7 @@ unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
         );
         cur_f = save_f;
         MEM[(x + 1) as usize].b32.s1 =
-            MEM[(x + 1) as usize].b32.s1 + EQTB[(DIMEN_BASE + 12i32) as usize].b32.s1;
+            MEM[(x + 1) as usize].b32.s1 + *DIMENPAR(DimenPar::script_space);
         if cur_style as i32 & 1i32 != 0 {
             clr = sup3(cur_size)
         } else if (cur_style as i32) < 2i32 {
@@ -2817,7 +2760,7 @@ unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
                 }
                 cur_f = save_f
             }
-            if p != -0xfffffffi32
+            if p != TEX_NULL
                 && !is_char_node(p)
                 && MEM[p as usize].b16.s1 as i32 == 8
                 && MEM[p as usize].b16.s0 as i32 == 42
@@ -2846,7 +2789,7 @@ unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
             );
             cur_f = save_f;
             MEM[(y + 1) as usize].b32.s1 =
-                MEM[(y + 1) as usize].b32.s1 + EQTB[(DIMEN_BASE + 12i32) as usize].b32.s1;
+                MEM[(y + 1) as usize].b32.s1 + *DIMENPAR(DimenPar::script_space);
             if shift_down < sub2(cur_size) {
                 shift_down = sub2(cur_size)
             }
@@ -2909,7 +2852,7 @@ unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
                     }
                     cur_f = save_f
                 }
-                if p != -0xfffffffi32
+                if p != TEX_NULL
                     && !is_char_node(p)
                     && MEM[p as usize].b16.s1 as i32 == 8
                     && MEM[p as usize].b16.s0 as i32 == 42
@@ -2947,7 +2890,7 @@ unsafe extern "C" fn make_scripts(mut q: i32, mut delta: scaled_t) {
                     }
                     cur_f = save_f
                 }
-                if p != -0xfffffffi32
+                if p != TEX_NULL
                     && !is_char_node(p)
                     && MEM[p as usize].b16.s1 as i32 == 8
                     && MEM[p as usize].b16.s0 as i32 == 42
@@ -3008,8 +2951,8 @@ unsafe extern "C" fn make_left_right(
     if delta2 > delta1 {
         delta1 = delta2
     }
-    delta = delta1 / 500i32 * EQTB[(INT_BASE + 18i32) as usize].b32.s1;
-    delta2 = delta1 + delta1 - EQTB[(DIMEN_BASE + 10i32) as usize].b32.s1;
+    delta = delta1 / 500i32 * *INTPAR(IntPar::delimiter_factor);
+    delta2 = delta1 + delta1 - *DIMENPAR(DimenPar::delimiter_shortfall);
     if delta < delta2 {
         delta = delta2
     }
@@ -3026,7 +2969,7 @@ unsafe extern "C" fn mlist_to_hlist() {
     let mut r: i32 = 0;
     let mut r_type: small_number = 0;
     let mut t: small_number = 0;
-    let mut p: i32 = -0xfffffffi32;
+    let mut p: i32 = TEX_NULL;
     let mut x: i32 = 0;
     let mut y: i32 = 0;
     let mut z: i32 = 0;
@@ -3039,7 +2982,7 @@ unsafe extern "C" fn mlist_to_hlist() {
     penalties = mlist_penalties;
     style = cur_style;
     q = mlist;
-    r = -0xfffffffi32;
+    r = TEX_NULL;
     r_type = 17i32 as small_number;
     max_h = 0i32;
     max_d = 0i32;
@@ -3049,7 +2992,7 @@ unsafe extern "C" fn mlist_to_hlist() {
         cur_size = 256i32 * ((cur_style as i32 - 2i32) / 2i32)
     }
     cur_mu = x_over_n(math_quad(cur_size), 18i32);
-    while q != -0xfffffffi32 {
+    while q != TEX_NULL {
         loop
         /*753: */
         {
@@ -3169,7 +3112,7 @@ unsafe extern "C" fn mlist_to_hlist() {
                     MEM[q as usize].b16.s0 = cur_style as u16;
                     MEM[(q + 1) as usize].b32.s1 = 0;
                     MEM[(q + 2) as usize].b32.s1 = 0;
-                    if p != -0xfffffffi32 {
+                    if p != TEX_NULL {
                         z = MEM[q as usize].b32.s1;
                         MEM[q as usize].b32.s1 = p;
                         while MEM[p as usize].b32.s1 != -0xfffffff {
@@ -3203,7 +3146,7 @@ unsafe extern "C" fn mlist_to_hlist() {
                         MEM[q as usize].b16.s0 = 0_u16
                     } else if cur_size != 0i32 && MEM[q as usize].b16.s0 as i32 == 98 {
                         p = MEM[q as usize].b32.s1;
-                        if p != -0xfffffffi32 {
+                        if p != TEX_NULL {
                             if MEM[p as usize].b16.s1 as i32 == 10
                                 || MEM[p as usize].b16.s1 as i32 == 11
                             {
@@ -3279,10 +3222,10 @@ unsafe extern "C" fn mlist_to_hlist() {
                                 delta = 0i32
                             }
                         } else {
-                            p = -0xfffffffi32
+                            p = TEX_NULL
                         }
                     }
-                    0 => p = -0xfffffffi32,
+                    0 => p = TEX_NULL,
                     2 => p = MEM[(q + 1) as usize].b32.s0,
                     3 => {
                         cur_mlist = MEM[(q + 1) as usize].b32.s0;
@@ -3364,7 +3307,7 @@ unsafe extern "C" fn mlist_to_hlist() {
         cur_size = 256i32 * ((cur_style as i32 - 2i32) / 2i32)
     }
     cur_mu = x_over_n(math_quad(cur_size), 18i32);
-    while q != -0xfffffffi32 {
+    while q != TEX_NULL {
         let mut current_block_236: u64;
         t = 16i32 as small_number;
         s = 4i32 as small_number;
@@ -3376,12 +3319,12 @@ unsafe extern "C" fn mlist_to_hlist() {
             }
             18 => {
                 t = 18i32 as small_number;
-                pen = EQTB[(INT_BASE + 9i32) as usize].b32.s1;
+                pen = *INTPAR(IntPar::bin_op_penalty);
                 current_block_236 = 15067367080042895309;
             }
             19 => {
                 t = 19i32 as small_number;
-                pen = EQTB[(INT_BASE + 10i32) as usize].b32.s1;
+                pen = *INTPAR(IntPar::rel_penalty);
                 current_block_236 = 15067367080042895309;
             }
             16 | 29 | 27 | 26 => current_block_236 = 15067367080042895309,
@@ -3567,7 +3510,7 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
             z = z + s + 256i32;
             loop {
                 z = z - 256i32;
-                g = EQTB[(MATH_FONT_BASE + z) as usize].b32.s1;
+                g = *MATH_FONT(z);
                 if g != 0i32 {
                     /*734: */
                     if FONT_AREA[g as usize] as u32 == 0xfffeu32
@@ -3759,7 +3702,7 @@ unsafe extern "C" fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i
         }
     } else {
         b = new_null_box();
-        MEM[(b + 1) as usize].b32.s1 = EQTB[(DIMEN_BASE + 11i32) as usize].b32.s1
+        MEM[(b + 1) as usize].b32.s1 = *DIMENPAR(DimenPar::null_delimiter_space)
     }
     MEM[(b + 4) as usize].b32.s1 =
         half(MEM[(b + 3) as usize].b32.s1 - MEM[(b + 2) as usize].b32.s1) - axis_height(s);
@@ -3841,7 +3784,7 @@ unsafe extern "C" fn stack_glyph_into_box(mut b: i32, mut f: internal_font_numbe
     );
     if MEM[b as usize].b16.s1 as i32 == 0 {
         q = MEM[(b + 5) as usize].b32.s1;
-        if q == -0xfffffffi32 {
+        if q == TEX_NULL {
             MEM[(b + 5) as usize].b32.s1 = p
         } else {
             while MEM[q as usize].b32.s1 != -0xfffffff {
@@ -3873,7 +3816,7 @@ unsafe extern "C" fn stack_glue_into_box(mut b: i32, mut min: scaled_t, mut max:
     p = new_glue(q);
     if MEM[b as usize].b16.s1 as i32 == 0 {
         q = MEM[(b + 5) as usize].b32.s1;
-        if q == -0xfffffffi32 {
+        if q == TEX_NULL {
             MEM[(b + 5) as usize].b32.s1 = p
         } else {
             while MEM[q as usize].b32.s1 != -0xfffffff {
@@ -4031,7 +3974,7 @@ unsafe extern "C" fn build_opentype_assembly(
     p = MEM[(b + 5) as usize].b32.s1;
     nat = 0i32;
     str = 0i32;
-    while p != -0xfffffffi32 {
+    while p != TEX_NULL {
         if MEM[p as usize].b16.s1 as i32 == 8 {
             if horiz {
                 nat = nat + MEM[(p + 1) as usize].b32.s1

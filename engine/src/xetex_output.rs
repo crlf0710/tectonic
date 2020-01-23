@@ -9,15 +9,14 @@
 )]
 
 use super::xetex_consts::{
-    INT_PAR__escape_char, INT_PAR__new_line_char, ACTIVE_BASE, BIGGEST_USV, CAT_CODE,
-    DIMEN_VAL_LIMIT, EQTB_SIZE, HASH_BASE, INTPAR, INT_BASE, LETTER, NULL_CS, SCRIPT_SIZE,
-    SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
+    IntPar, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT, EQTB_SIZE, HASH_BASE, INTPAR,
+    LETTER, NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
 };
 
 use super::xetex_ini::{
     dig, doing_special, error_line, file_offset, hash, line, log_file, max_print_line, pool_ptr,
     pool_size, rust_stdout, selector, str_pool, str_ptr, str_start, tally, term_offset, trick_buf,
-    trick_count, write_file, EQTB, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
+    trick_count, write_file, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
 use super::xetex_ini::{memory_word, Selector};
 use bridge::ttstub_output_putc;
@@ -138,7 +137,7 @@ pub(crate) unsafe fn print_char(mut s: i32) {
         }
         return;
     }
-    if s == INTPAR(INT_PAR__new_line_char) {
+    if s == *INTPAR(IntPar::new_line_char) {
         /*:252 */
         if u8::from(selector) < u8::from(Selector::PSEUDO) {
             print_ln();
@@ -201,17 +200,17 @@ pub(crate) unsafe fn print(mut s: i32) {
                     print_char(s);
                     return;
                 }
-                if s == INTPAR(INT_PAR__new_line_char) {
+                if s == *INTPAR(IntPar::new_line_char) {
                     /*:252 */
                     if u8::from(selector) < u8::from(Selector::PSEUDO) {
                         print_ln();
                         return;
                     }
                 }
-                nl = INTPAR(INT_PAR__new_line_char);
-                EQTB[(INT_BASE + INT_PAR__new_line_char) as usize].b32.s1 = -1i32;
+                nl = *INTPAR(IntPar::new_line_char);
+                *INTPAR(IntPar::new_line_char) = -1i32;
                 print_char(s);
-                EQTB[(INT_BASE + INT_PAR__new_line_char) as usize].b32.s1 = nl;
+                *INTPAR(IntPar::new_line_char) = nl;
                 return;
             }
         }
@@ -260,14 +259,14 @@ pub(crate) unsafe fn print_nl_cstr(slice: &[u8]) {
     print_cstr(slice);
 }
 pub(crate) unsafe fn print_esc(mut s: str_number) {
-    let mut c = INTPAR(INT_PAR__escape_char);
+    let mut c = *INTPAR(IntPar::escape_char);
     if c >= 0i32 && c <= BIGGEST_USV {
         print_char(c);
     }
     print(s);
 }
 pub(crate) unsafe fn print_esc_cstr(s: &[u8]) {
-    let mut c = INTPAR(INT_PAR__escape_char);
+    let mut c = *INTPAR(IntPar::escape_char);
     if c >= 0i32 && c <= BIGGEST_USV {
         print_char(c);
     }
@@ -322,7 +321,7 @@ pub(crate) unsafe fn print_cs(mut p: i32) {
                 print_char(' ' as i32);
             } else {
                 print_esc(p - SINGLE_BASE);
-                if CAT_CODE(p - SINGLE_BASE) == LETTER as _ {
+                if *CAT_CODE(p - SINGLE_BASE) == LETTER as _ {
                     print_char(' ' as i32);
                 }
             }
