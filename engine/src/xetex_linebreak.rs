@@ -32,12 +32,11 @@ use crate::xetex_xetex0::{
     new_native_character, new_native_word_node, new_param_glue, new_penalty, new_spec, pop_nest,
     prev_rightmost,
 };
-use crate::xetex_xetex0::{
-    BOX_width, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order,
-    GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LLIST_info, LLIST_link, NODE_subtype, NODE_type,
-    PENALTY_NODE_penalty,
+use crate::xetex_xetexd::{
+    is_char_node, is_non_discardable_node, BOX_width, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr,
+    GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order,
+    LLIST_info, LLIST_link, NODE_subtype, NODE_type, PENALTY_NODE_penalty,
 };
-use crate::xetex_xetexd::{is_char_node, is_non_discardable_node};
 
 pub(crate) type scaled_t = i32;
 pub(crate) type UTF16_code = u16;
@@ -158,7 +157,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         *PENALTY_NODE_penalty(cur_list.tail as isize) = INF_PENALTY;
     }
 
-    *LLIST_link(cur_list.tail as isize) = new_param_glue(GLUE_PAR__par_fill_skip as _);
+    *LLIST_link(cur_list.tail as isize) = new_param_glue(GluePar::par_fill_skip as _);
     last_line_fill = *LLIST_link(cur_list.tail as isize);
 
     /* Yet more initialization of various kinds */
@@ -171,19 +170,19 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     no_shrink_error_yet = true;
 
-    if *GLUE_SPEC_shrink_order(*GLUEPAR(GLUE_PAR__left_skip) as isize) != NORMAL as _
-        && *GLUE_SPEC_shrink(*GLUEPAR(GLUE_PAR__left_skip) as isize) != 0
+    if *GLUE_SPEC_shrink_order(*GLUEPAR(GluePar::left_skip) as isize) != NORMAL as _
+        && *GLUE_SPEC_shrink(*GLUEPAR(GluePar::left_skip) as isize) != 0
     {
-        *GLUEPAR(GLUE_PAR__left_skip) = finite_shrink(*GLUEPAR(GLUE_PAR__left_skip));
+        *GLUEPAR(GluePar::left_skip) = finite_shrink(*GLUEPAR(GluePar::left_skip));
     }
-    if *GLUE_SPEC_shrink_order(*GLUEPAR(GLUE_PAR__right_skip) as isize) != NORMAL as _
-        && *GLUE_SPEC_shrink(*GLUEPAR(GLUE_PAR__right_skip) as isize) != 0
+    if *GLUE_SPEC_shrink_order(*GLUEPAR(GluePar::right_skip) as isize) != NORMAL as _
+        && *GLUE_SPEC_shrink(*GLUEPAR(GluePar::right_skip) as isize) != 0
     {
-        *GLUEPAR(GLUE_PAR__right_skip) = finite_shrink(*GLUEPAR(GLUE_PAR__right_skip));
+        *GLUEPAR(GluePar::right_skip) = finite_shrink(*GLUEPAR(GluePar::right_skip));
     }
 
-    q = *GLUEPAR(GLUE_PAR__left_skip);
-    r = *GLUEPAR(GLUE_PAR__right_skip);
+    q = *GLUEPAR(GluePar::left_skip);
+    r = *GLUEPAR(GluePar::right_skip);
     background[1] = *BOX_width(q as isize) + *BOX_width(r as isize);
     background[2] = 0;
     background[3] = 0;
@@ -197,7 +196,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     do_last_line_fit = false; /*863:*/
     active_node_size = ACTIVE_NODE_SIZE_NORMAL as _;
-    if INTPAR(INT_PAR__last_line_fit) > 0 {
+    if *INTPAR(IntPar::last_line_fit) > 0 {
         q = *GLUE_NODE_glue_ptr(last_line_fill as isize);
         if *GLUE_SPEC_stretch(q as isize) > 0 && *GLUE_SPEC_stretch_order(q as isize) > NORMAL as _
         {
@@ -220,47 +219,49 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     /* Prep relating to par_shape (877) */
 
-    if LOCAL(LOCAL__par_shape) == TEX_NULL {
-        if DIMENPAR(DIMEN_PAR__hang_indent) == 0 {
+    if *LOCAL(Local::par_shape) == TEX_NULL {
+        if *DIMENPAR(DimenPar::hang_indent) == 0 {
             last_special_line = 0;
-            second_width = DIMENPAR(DIMEN_PAR__hsize);
+            second_width = *DIMENPAR(DimenPar::hsize);
             second_indent = 0;
         } else {
             /*878:*/
-            last_special_line = INTPAR(INT_PAR__hang_after).abs();
+            last_special_line = (*INTPAR(IntPar::hang_after)).abs();
 
-            if INTPAR(INT_PAR__hang_after) < 0 {
-                first_width = DIMENPAR(DIMEN_PAR__hsize) - DIMENPAR(DIMEN_PAR__hang_indent).abs();
-                if DIMENPAR(DIMEN_PAR__hang_indent) >= 0 {
-                    first_indent = DIMENPAR(DIMEN_PAR__hang_indent);
+            if *INTPAR(IntPar::hang_after) < 0 {
+                first_width = *DIMENPAR(DimenPar::hsize) - (*DIMENPAR(DimenPar::hang_indent)).abs();
+                if *DIMENPAR(DimenPar::hang_indent) >= 0 {
+                    first_indent = *DIMENPAR(DimenPar::hang_indent);
                 } else {
                     first_indent = 0;
                 }
-                second_width = DIMENPAR(DIMEN_PAR__hsize);
+                second_width = *DIMENPAR(DimenPar::hsize);
                 second_indent = 0;
             } else {
-                first_width = DIMENPAR(DIMEN_PAR__hsize);
+                first_width = *DIMENPAR(DimenPar::hsize);
                 first_indent = 0;
-                second_width = DIMENPAR(DIMEN_PAR__hsize) - DIMENPAR(DIMEN_PAR__hang_indent).abs();
-                if DIMENPAR(DIMEN_PAR__hang_indent) >= 0 {
-                    second_indent = DIMENPAR(DIMEN_PAR__hang_indent);
+                second_width =
+                    *DIMENPAR(DimenPar::hsize) - (*DIMENPAR(DimenPar::hang_indent)).abs();
+                if *DIMENPAR(DimenPar::hang_indent) >= 0 {
+                    second_indent = *DIMENPAR(DimenPar::hang_indent);
                 } else {
                     second_indent = 0;
                 }
             }
         }
     } else {
-        last_special_line = *LLIST_info(LOCAL(LOCAL__par_shape) as isize) - 1;
+        last_special_line = *LLIST_info(*LOCAL(Local::par_shape) as isize) - 1;
         /* These direct `mem` accesses are in the original WEB code */
-        second_width = MEM[LOCAL(LOCAL__par_shape) as usize + 2 * (last_special_line as usize + 1)]
+        second_width = MEM
+            [*LOCAL(Local::par_shape) as usize + 2 * (last_special_line as usize + 1)]
             .b32
             .s1;
-        second_indent = MEM[LOCAL(LOCAL__par_shape) as usize + 2 * last_special_line as usize + 1]
+        second_indent = MEM[*LOCAL(Local::par_shape) as usize + 2 * last_special_line as usize + 1]
             .b32
             .s1;
     }
 
-    if INTPAR(INT_PAR__looseness) == 0 {
+    if *INTPAR(IntPar::looseness) == 0 {
         easy_line = last_special_line
     } else {
         easy_line = MAX_HALFWORD; /*:877*/
@@ -268,14 +269,14 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     /* Start finding optimal breakpoints (892) */
 
-    threshold = INTPAR(INT_PAR__pretolerance);
+    threshold = *INTPAR(IntPar::pretolerance);
     if threshold >= 0 {
         second_pass = false;
         final_pass = false
     } else {
-        threshold = INTPAR(INT_PAR__tolerance);
+        threshold = *INTPAR(IntPar::tolerance);
         second_pass = true;
-        final_pass = DIMENPAR(DIMEN_PAR__emergency_stretch) <= 0;
+        final_pass = *DIMENPAR(DimenPar::emergency_stretch) <= 0;
     }
     loop {
         if threshold > INF_BAD {
@@ -437,7 +438,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         l = 0i32;
                                         while l < MEM[(s + 4) as usize].b16.s1 as i32 {
                                             c = get_native_usv(s, l);
-                                            if LC_CODE(c) != 0 {
+                                            if *LC_CODE(c) != 0 {
                                                 hf = MEM[(s + 4) as usize].b16.s2
                                                     as internal_font_number;
                                                 prev_s = s;
@@ -470,7 +471,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 match current_block {
                                     11202235766349324107 => {
                                         if hyph_index == 0i32 || c > 255i32 {
-                                            hc[0] = LC_CODE(c);
+                                            hc[0] = *LC_CODE(c);
                                         } else if *trie_trc.offset((hyph_index + c) as isize) as i32
                                             != c
                                         {
@@ -479,7 +480,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                             hc[0] = *trie_tro.offset((hyph_index + c) as isize)
                                         }
                                         if hc[0] != 0i32 {
-                                            if hc[0] == c || INTPAR(INT_PAR__uc_hyph) > 0 {
+                                            if hc[0] == c || *INTPAR(IntPar::uc_hyph) > 0 {
                                                 current_block = 16581706250867416845;
                                                 break;
                                             } else {
@@ -560,7 +561,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                     if hyph_index == 0i32
                                                                         || c > 255i32
                                                                     {
-                                                                        hc[0] = LC_CODE(c);
+                                                                        hc[0] = *LC_CODE(c);
                                                                     } else if *trie_trc.offset(
                                                                         (hyph_index + c) as isize,
                                                                     )
@@ -1066,7 +1067,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                 MEM[s as usize].b16.s0 as i32;
                                                             c = hyf_bchar;
                                                             if hyph_index == 0i32 || c > 255i32 {
-                                                                hc[0] = LC_CODE(c);
+                                                                hc[0] = *LC_CODE(c);
                                                             } else if *trie_trc
                                                                 .offset((hyph_index + c) as isize)
                                                                 as i32
@@ -1115,7 +1116,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                     as UnicodeScalar;
                                                                 if hyph_index == 0i32 || c > 255i32
                                                                 {
-                                                                    hc[0] = LC_CODE(c);
+                                                                    hc[0] = *LC_CODE(c);
                                                                 } else if *trie_trc.offset(
                                                                     (hyph_index + c) as isize,
                                                                 )
@@ -1280,7 +1281,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     disc_width = 0;
 
                     if s == TEX_NULL {
-                        try_break(INTPAR(INT_PAR__ex_hyphen_penalty), HYPHENATED as _);
+                        try_break(*INTPAR(IntPar::ex_hyphen_penalty), HYPHENATED as _);
                     } else {
                         loop {
                             /*899:*/
@@ -1335,7 +1336,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             }
                         }
                         active_width[1] += disc_width;
-                        try_break(INTPAR(INT_PAR__hyphen_penalty), HYPHENATED as _);
+                        try_break(*INTPAR(IntPar::hyphen_penalty), HYPHENATED as _);
                         active_width[1] -= disc_width
                     }
                     r = MEM[cur_p as usize].b16.s0 as i32;
@@ -1432,7 +1433,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     }
                 }
                 best_line = MEM[(best_bet + 1) as usize].b32.s0;
-                if INTPAR(INT_PAR__looseness) == 0 {
+                if *INTPAR(IntPar::looseness) == 0 {
                     break;
                 }
 
@@ -1442,9 +1443,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 loop {
                     if MEM[r as usize].b16.s1 as i32 != 2 {
                         line_diff = MEM[(r + 1) as usize].b32.s0 - best_line;
-                        if line_diff < actual_looseness && INTPAR(INT_PAR__looseness) <= line_diff
+                        if line_diff < actual_looseness && *INTPAR(IntPar::looseness) <= line_diff
                             || line_diff > actual_looseness
-                                && INTPAR(INT_PAR__looseness) >= line_diff
+                                && *INTPAR(IntPar::looseness) >= line_diff
                         {
                             best_bet = r;
                             actual_looseness = line_diff;
@@ -1462,7 +1463,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     }
                 }
                 best_line = MEM[(best_bet + 1) as usize].b32.s0;
-                if actual_looseness == INTPAR(INT_PAR__looseness) || final_pass {
+                if actual_looseness == *INTPAR(IntPar::looseness) || final_pass {
                     break;
                 }
             }
@@ -1486,11 +1487,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         }
         /* ... resuming 892 ... */
         if !second_pass {
-            threshold = INTPAR(INT_PAR__tolerance);
+            threshold = *INTPAR(IntPar::tolerance);
             second_pass = true;
-            final_pass = DIMENPAR(DIMEN_PAR__emergency_stretch) <= 0;
+            final_pass = *DIMENPAR(DimenPar::emergency_stretch) <= 0;
         } else {
-            background[2] = background[2] + DIMENPAR(DIMEN_PAR__emergency_stretch);
+            background[2] = background[2] + *DIMENPAR(DimenPar::emergency_stretch);
             final_pass = true;
         }
     }
@@ -1567,7 +1568,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
          * insertions. The current line starts a TEMP_HEAD.link and ends at
          * cur_p.cur_break.
          **/
-        if INTPAR(INT_PAR__texxet) > 0 {
+        if *INTPAR(IntPar::texxet) > 0 {
             /*1494:*/
             q = MEM[TEMP_HEAD as usize].b32.s1;
             if LR_ptr != TEX_NULL {
@@ -1623,8 +1624,8 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
             }
         } else if MEM[q as usize].b16.s1 as i32 == 10 {
             delete_glue_ref(MEM[(q + 1) as usize].b32.s0);
-            *GLUE_NODE_glue_ptr(q as isize) = *GLUEPAR(GLUE_PAR__right_skip);
-            *NODE_subtype(q as isize) = GLUE_PAR__right_skip as u16 + 1;
+            *GLUE_NODE_glue_ptr(q as isize) = *GLUEPAR(GluePar::right_skip);
+            *NODE_subtype(q as isize) = GluePar::right_skip as u16 + 1;
             MEM[EQTB[(1
                 + (0x10ffff + 1)
                 + (0x10ffffi32 + 1i32)
@@ -1684,7 +1685,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
             MEM[(q + 1) as usize].b32.s1 = 0
         } else if MEM[q as usize].b16.s1 as i32 == 9 {
             MEM[(q + 1) as usize].b32.s1 = 0;
-            if INTPAR(INT_PAR__texxet) > 0 {
+            if *INTPAR(IntPar::texxet) > 0 {
                 /*1495:*/
                 if MEM[q as usize].b16.s0 as i32 & 1 != 0 {
                     if LR_ptr != TEX_NULL
@@ -1708,7 +1709,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
         /* "at this point q is the rightmost breakpoint; the only exception is
          * the case of a discretionary break with non-empty pre_break -- then
          * q has been changed to the last node of the pre-break list" */
-        if INTPAR(INT_PAR__xetex_protrude_chars) > 0 {
+        if *INTPAR(IntPar::xetex_protrude_chars) > 0 {
             if disc_break as i32 != 0
                 && (is_char_node(q) as i32 != 0 || MEM[q as usize].b16.s1 as i32 != 7i32)
             {
@@ -1735,7 +1736,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
             MEM[q as usize].b32.s1 = r;
             q = r
         }
-        if INTPAR(INT_PAR__texxet) > 0 {
+        if *INTPAR(IntPar::texxet) > 0 {
             /*1496:*/
             if LR_ptr != TEX_NULL {
                 s = TEMP_HEAD;
@@ -1761,7 +1762,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
         MEM[(4999999 - 3) as usize].b32.s1 = r;
         /* "at this point q is the leftmost node; all discardable nodes have been discarded */
         
-        if INTPAR(INT_PAR__xetex_protrude_chars) > 0 {
+        if *INTPAR(IntPar::xetex_protrude_chars) > 0 {
             p = q;
             p = find_protchar_left(p, false);
             w = char_pw(p, 0i32 as small_number);
@@ -1771,7 +1772,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
                 q = k
             }
         }
-        if *GLUEPAR(GLUE_PAR__left_skip) != 0 {
+        if *GLUEPAR(GluePar::left_skip) != 0 {
             r = new_param_glue(7i32 as small_number);
             MEM[r as usize].b32.s1 = q;
             q = r
@@ -1781,15 +1782,15 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
         if cur_line > last_special_line {
             cur_width = second_width;
             cur_indent = second_indent
-        } else if LOCAL(LOCAL__par_shape) == TEX_NULL {
+        } else if *LOCAL(Local::par_shape) == TEX_NULL {
             cur_width = first_width;
             cur_indent = first_indent
         } else {
             /* These manual `mem` indices are in the original WEB code */
-            cur_width = MEM[LOCAL(LOCAL__par_shape) as usize + 2 * cur_line as usize]
+            cur_width = MEM[*LOCAL(Local::par_shape) as usize + 2 * cur_line as usize]
                 .b32
                 .s1;
-            cur_indent = MEM[LOCAL(LOCAL__par_shape) as usize + 2 * cur_line as usize - 1]
+            cur_indent = MEM[*LOCAL(Local::par_shape) as usize + 2 * cur_line as usize - 1]
                 .b32
                 .s1;
         }
@@ -1826,7 +1827,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
                 }
                 pen = MEM[(q + r + 1) as usize].b32.s1
             } else {
-                pen = EQTB[(INT_BASE + 13i32) as usize].b32.s1
+                pen = *INTPAR(IntPar::inter_line_penalty)
             }
             q = EQTB[(ETEX_PEN_BASE + 1i32) as usize].b32.s1;
             if q != -0xfffffffi32 {
@@ -1836,7 +1837,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
                 }
                 pen += MEM[(q + r + 1) as usize].b32.s1
             } else if cur_line == cur_list.prev_graf + 1i32 {
-                pen += EQTB[(INT_BASE + 5i32) as usize].b32.s1
+                pen += *INTPAR(IntPar::club_penalty)
             }
             if d {
                 q = EQTB[(ETEX_PEN_BASE + 3i32) as usize].b32.s1
@@ -1851,13 +1852,13 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
                 pen += MEM[(q + r + 1) as usize].b32.s1
             } else if cur_line + 2i32 == best_line {
                 if d {
-                    pen += EQTB[(INT_BASE + 7i32) as usize].b32.s1
+                    pen += *INTPAR(IntPar::display_widow_penalty)
                 } else {
-                    pen += EQTB[(INT_BASE + 6i32) as usize].b32.s1
+                    pen += *INTPAR(IntPar::widow_penalty)
                 }
             }
             if disc_break {
-                pen += EQTB[(INT_BASE + 8i32) as usize].b32.s1
+                pen += *INTPAR(IntPar::broken_penalty)
             }
             if pen != 0i32 {
                 r = new_penalty(pen);
@@ -1893,9 +1894,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
                         break;
                     }
                     r = q;
-                    if MEM[q as usize].b16.s1 as i32 == 9
-                        && EQTB[(INT_BASE + 71i32) as usize].b32.s1 > 0i32
-                    {
+                    if MEM[q as usize].b16.s1 as i32 == 9 && *INTPAR(IntPar::texxet) > 0i32 {
                         /*1495:*/
                         if MEM[q as usize].b16.s0 as i32 & 1i32 != 0 {
                             if LR_ptr != -0xfffffffi32
@@ -2205,13 +2204,10 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                         prev_r = q
                     }
                     /* ... resuming 865 ... */
-                    if EQTB[(INT_BASE + 16i32) as usize].b32.s1.abs()
-                        >= 0x3fffffffi32 - minimum_demerits
-                    {
+                    if (*INTPAR(IntPar::adj_demerits)).abs() >= 0x3fffffffi32 - minimum_demerits {
                         minimum_demerits = 0x3fffffffi32 - 1i32
                     } else {
-                        minimum_demerits =
-                            minimum_demerits + EQTB[(INT_BASE + 16i32) as usize].b32.s1.abs()
+                        minimum_demerits = minimum_demerits + (*INTPAR(IntPar::adj_demerits)).abs()
                     }
                     fit_class = 0_u8;
                     while fit_class as i32 <= 3i32 {
@@ -2270,13 +2266,10 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                     old_l = l;
                     if l > last_special_line {
                         line_width = second_width
-                    } else if EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 == -0xfffffffi32 {
+                    } else if *LOCAL(Local::par_shape) == -0xfffffffi32 {
                         line_width = first_width
                     } else {
-                        line_width = MEM
-                            [(EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 + 2i32 * l) as usize]
-                            .b32
-                            .s1
+                        line_width = MEM[(*LOCAL(Local::par_shape) + 2i32 * l) as usize].b32.s1
                     }
                     /* this mem access is in the WEB */
                 }
@@ -2295,7 +2288,7 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
             } else {
                 artificial_demerits = false;
                 shortfall = line_width - cur_active_width[1];
-                if EQTB[(INT_BASE + 70i32) as usize].b32.s1 > 1i32 {
+                if *INTPAR(IntPar::xetex_protrude_chars) > 1i32 {
                     shortfall = shortfall + total_pw(r, cur_p)
                 }
             }
@@ -2334,10 +2327,10 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                                         MEM[(r + 4) as usize].b32.s1,
                                         0x3fffffffi32,
                                     );
-                                    if EQTB[(INT_BASE + 64i32) as usize].b32.s1 < 1000i32 {
+                                    if *INTPAR(IntPar::last_line_fit) < 1000i32 {
                                         g = fract(
                                             g,
-                                            EQTB[(INT_BASE + 64i32) as usize].b32.s1,
+                                            *INTPAR(IntPar::last_line_fit),
                                             1000i32,
                                             0x3fffffffi32,
                                         )
@@ -2527,7 +2520,7 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                         d = 0i32
                     } else {
                         /*888: "Compute the demerits, d, from r to cur_p" */
-                        d = INTPAR(INT_PAR__line_penalty) + b;
+                        d = *INTPAR(IntPar::line_penalty) + b;
                         if d.abs() >= 10000 {
                             d = 100000000;
                         /* algorithmic constant */
@@ -2543,13 +2536,13 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
                         }
                         if break_type as i32 == 1i32 && MEM[r as usize].b16.s1 as i32 == 1 {
                             if cur_p != TEX_NULL {
-                                d = d + INTPAR(INT_PAR__double_hyphen_demerits);
+                                d = d + *INTPAR(IntPar::double_hyphen_demerits);
                             } else {
-                                d = d + INTPAR(INT_PAR__final_hyphen_demerits);
+                                d = d + *INTPAR(IntPar::final_hyphen_demerits);
                             }
                         }
                         if (fit_class as i32 - MEM[r as usize].b16.s0 as i32).abs() > 1 {
-                            d = d + INTPAR(INT_PAR__adj_demerits);
+                            d = d + *INTPAR(IntPar::adj_demerits);
                         }
                     }
                     /* resuming 884: */
@@ -2850,7 +2843,7 @@ unsafe extern "C" fn hyphenate() {
                     }
                     measure_native_node(
                         &mut MEM[q as usize] as *mut memory_word as *mut libc::c_void,
-                        (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
+                        (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
                     );
                     MEM[s as usize].b32.s1 = q;
                     s = q;
@@ -2887,7 +2880,7 @@ unsafe extern "C" fn hyphenate() {
         }
         measure_native_node(
             &mut MEM[q as usize] as *mut memory_word as *mut libc::c_void,
-            (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
+            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
         );
         MEM[s as usize].b32.s1 = q;
         s = q;

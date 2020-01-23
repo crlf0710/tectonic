@@ -12,10 +12,9 @@ use std::ffi::CStr;
 use std::io::Write;
 
 use crate::core_memory::{mfree, xmalloc, xrealloc, xstrdup};
-use crate::xetex_consts::INT_BASE;
+use crate::xetex_consts::{IntPar, INTPAR};
 use crate::xetex_ini::{
-    cur_h, cur_input, cur_v, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, total_pages,
-    EQTB, MEM,
+    cur_h, cur_input, cur_v, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, total_pages, MEM,
 };
 use crate::xetex_io::name_of_input_file;
 use crate::xetex_texmfmp::gettexstring;
@@ -159,9 +158,9 @@ pub(crate) unsafe fn synctex_init_command() {
     /* Reset state */
     synctex_ctxt = default_synctex_ctxt;
     if synctex_enabled != 0 {
-        EQTB[(INT_BASE + 83i32) as usize].b32.s1 = 1i32
+        *INTPAR(IntPar::synctex) = 1i32
     } else {
-        EQTB[(INT_BASE + 83i32) as usize].b32.s1 = 0i32
+        *INTPAR(IntPar::synctex) = 0i32
         /* \synctex=0 : don't record stuff */
     };
 }
@@ -189,7 +188,7 @@ static mut synctex_suffix_gz: *const i8 = b".gz\x00" as *const u8 as *const i8;
 unsafe extern "C" fn synctex_dot_open() -> bool {
     let mut tmp: *mut i8 = ptr::null_mut();
     let mut the_name: *mut i8 = ptr::null_mut();
-    if synctex_ctxt.flags.contains(Flags::OFF) || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0 {
+    if synctex_ctxt.flags.contains(Flags::OFF) || *INTPAR(IntPar::synctex) == 0 {
         return false;
     }
     if synctex_ctxt.file.is_some() {
@@ -338,9 +337,7 @@ pub(crate) unsafe fn synctex_terminate(mut _log_opened: bool) {
  */
 pub(crate) unsafe fn synctex_sheet(mut mag: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
-        if EQTB[(INT_BASE + 83i32) as usize].b32.s1 != 0
-            && !synctex_ctxt.flags.contains(Flags::WARN)
-        {
+        if *INTPAR(IntPar::synctex) != 0 && !synctex_ctxt.flags.contains(Flags::WARN) {
             synctex_ctxt.flags.insert(Flags::WARN);
             ttstub_issue_warning(
                 b"SyncTeX was disabled -- changing the value of \\synctex has no effect\x00"
@@ -396,7 +393,7 @@ pub(crate) unsafe fn synctex_teehs() {
  *  address of the vlist. We assume that p is really a vlist node! */
 pub(crate) unsafe fn synctex_vlist(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -419,7 +416,7 @@ pub(crate) unsafe fn synctex_vlist(mut this_box: i32) {
  *  synctex_vlist sent at the beginning of that procedure.    */
 pub(crate) unsafe fn synctex_tsilv(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -439,7 +436,7 @@ pub(crate) unsafe fn synctex_tsilv(mut this_box: i32) {
  *  There is no need to balance a void vlist.  */
 pub(crate) unsafe fn synctex_void_vlist(mut p: i32, mut _this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -462,7 +459,7 @@ pub(crate) unsafe fn synctex_void_vlist(mut p: i32, mut _this_box: i32) {
  *  address of the hlist We assume that p is really an hlist node! */
 pub(crate) unsafe fn synctex_hlist(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -483,7 +480,7 @@ pub(crate) unsafe fn synctex_hlist(mut this_box: i32) {
  *  synctex_hlist sent at the beginning of that procedure.    */
 pub(crate) unsafe fn synctex_tsilh(mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -503,7 +500,7 @@ pub(crate) unsafe fn synctex_tsilh(mut this_box: i32) {
  *  There is no need to balance a void hlist.  */
 pub(crate) unsafe fn synctex_void_hlist(mut p: i32, mut _this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -531,7 +528,7 @@ pub(crate) unsafe fn synctex_void_hlist(mut p: i32, mut _this_box: i32) {
 See: @ @<Output the non-|char_node| |p| for...  */
 pub(crate) unsafe fn synctex_math(mut p: i32, mut _this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -561,7 +558,7 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(mut p: i32, mut _this_box: 
     match MEM[p as usize].b16.s1 as i32 {
         2 => {
             if synctex_ctxt.flags.contains(Flags::OFF)
-                || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+                || *INTPAR(IntPar::synctex) == 0
                 || 0i32 >= MEM[(p + 5 - 1) as usize].b32.s0
                 || 0i32 >= MEM[(p + 5 - 1) as usize].b32.s1
             {
@@ -570,7 +567,7 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(mut p: i32, mut _this_box: 
         }
         10 => {
             if synctex_ctxt.flags.contains(Flags::OFF)
-                || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+                || *INTPAR(IntPar::synctex) == 0
                 || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s0
                 || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s1
             {
@@ -579,7 +576,7 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(mut p: i32, mut _this_box: 
         }
         11 => {
             if synctex_ctxt.flags.contains(Flags::OFF)
-                || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+                || *INTPAR(IntPar::synctex) == 0
                 || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s0
                 || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s1
             {
@@ -626,7 +623,7 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(mut p: i32, mut _this_box: 
 See: @ @<Output the non-|char_node| |p| for...    */
 pub(crate) unsafe fn synctex_kern(mut p: i32, mut this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s0
         || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s1
     {
@@ -671,7 +668,7 @@ synchronously for the current location    */
 pub(crate) unsafe fn synctex_current() {
     /* magic pt/in conversion */
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -778,9 +775,7 @@ unsafe extern "C" fn synctex_record_teehs(mut sheet: i32) -> i32 {
  */
 pub(crate) unsafe fn synctex_pdfxform(mut p: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
-        if EQTB[(INT_BASE + 83i32) as usize].b32.s1 != 0
-            && !synctex_ctxt.flags.contains(Flags::WARN)
-        {
+        if *INTPAR(IntPar::synctex) != 0 && !synctex_ctxt.flags.contains(Flags::WARN) {
             synctex_ctxt.flags.insert(Flags::WARN);
             ttstub_issue_warning(
                 b"SyncTeX was disabled - changing the value of \\synctex has no effect\x00"
@@ -810,7 +805,7 @@ pub(crate) unsafe fn synctex_pdfrefxform(mut objnum: i32) {
 #[inline]
 unsafe extern "C" fn synctex_record_pdfxform(mut _form: i32) -> i32 {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return 0i32;
@@ -849,7 +844,7 @@ unsafe extern "C" fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return 0i32;

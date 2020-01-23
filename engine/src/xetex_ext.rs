@@ -49,6 +49,9 @@ use crate::xetex_layout_interface::*;
 use harfbuzz_sys::{hb_feature_t, hb_tag_from_string, hb_tag_t};
 use libc::{memcpy, strcat, strcpy, strdup, strlen, strncpy, strstr};
 
+pub(crate) const AAT_FONT_FLAG: u32 = 0xFFFF;
+pub(crate) const OTGR_FONT_FLAG: u32 = 0xFFFE;
+
 pub(crate) type size_t = usize;
 pub(crate) type ssize_t = isize;
 

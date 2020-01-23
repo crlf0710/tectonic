@@ -39,11 +39,13 @@ use crate::xetex_xetex0::{
     internal_font_number, make_name_string, new_kern, new_math, new_native_word_node,
     open_log_file, pack_file_name, pack_job_name, packed_UTF16_code, pool_pointer, prepare_mag,
     scaled_t, scan_toks, show_box, show_token_list, small_number, str_number, token_show,
-    BOX_depth, BOX_glue_order, BOX_glue_sign, BOX_height, BOX_list_ptr, BOX_width,
-    EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr, GLUE_SPEC_shrink_order, LLIST_link, NODE_subtype,
-    NODE_type, UTF16_code,
+    UTF16_code,
 };
-use crate::xetex_xetexd::{is_char_node, print_c_string};
+use crate::xetex_xetexd::{
+    is_char_node, print_c_string, BOX_depth, BOX_glue_order, BOX_glue_sign, BOX_height,
+    BOX_list_ptr, BOX_width, EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr, GLUE_SPEC_shrink_order,
+    LLIST_link, NODE_subtype, NODE_type,
+};
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::{free, strerror, strlen};
 
@@ -104,13 +106,13 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
     let mut l: u8 = 0;
     let mut output_comment: *const i8 = b"tectonic\x00" as *const u8 as *const i8;
 
-    synctex_sheet(INTPAR(INT_PAR__mag));
+    synctex_sheet(*INTPAR(IntPar::mag));
 
     if job_name == 0 {
         open_log_file();
     }
 
-    if INTPAR(INT_PAR__tracing_output) > 0 {
+    if *INTPAR(IntPar::tracing_output) > 0 {
         print_nl_cstr(b"");
         print_ln();
         print_cstr(b"Completed box being shipped out");
@@ -124,12 +126,12 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
 
     print_char('[' as i32);
     j = 9;
-    while j > 0 && COUNT_REG(j as _) == 0 {
+    while j > 0 && *COUNT_REG(j as _) == 0 {
         j -= 1;
     }
 
     for k in 0..=j {
-        print_int(COUNT_REG(k as _));
+        print_int(*COUNT_REG(k as _));
         if k < j {
             print_char('.' as i32);
         }
@@ -137,7 +139,7 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
 
     rust_stdout.as_mut().unwrap().flush().unwrap();
 
-    if INTPAR(INT_PAR__tracing_output) > 0 {
+    if *INTPAR(IntPar::tracing_output) > 0 {
         print_char(']' as i32);
         begin_diagnostic();
         show_box(p);
@@ -150,9 +152,9 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
 
     if *BOX_height(p as isize) > MAX_HALFWORD
         || *BOX_depth(p as isize) > MAX_HALFWORD
-        || *BOX_height(p as isize) + *BOX_depth(p as isize) + DIMENPAR(DIMEN_PAR__v_offset)
+        || *BOX_height(p as isize) + *BOX_depth(p as isize) + *DIMENPAR(DimenPar::v_offset)
             > MAX_HALFWORD
-        || *BOX_width(p as isize) + DIMENPAR(DIMEN_PAR__h_offset) > MAX_HALFWORD
+        || *BOX_width(p as isize) + *DIMENPAR(DimenPar::h_offset) > MAX_HALFWORD
     {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -165,41 +167,41 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
         help_line[0] = b"more than 18 feet wide, so I suspect something went wrong.";
         error();
 
-        if INTPAR(INT_PAR__tracing_output) <= 0 {
+        if *INTPAR(IntPar::tracing_output) <= 0 {
             begin_diagnostic();
             print_nl_cstr(b"The following box has been deleted:");
             show_box(p);
             end_diagnostic(1i32 != 0);
         }
     } else {
-        if *BOX_height(p as isize) + *BOX_depth(p as isize) + DIMENPAR(DIMEN_PAR__v_offset) > max_v
+        if *BOX_height(p as isize) + *BOX_depth(p as isize) + *DIMENPAR(DimenPar::v_offset) > max_v
         {
             max_v =
-                *BOX_height(p as isize) + *BOX_depth(p as isize) + DIMENPAR(DIMEN_PAR__v_offset);
+                *BOX_height(p as isize) + *BOX_depth(p as isize) + *DIMENPAR(DimenPar::v_offset);
         }
-        if *BOX_width(p as isize) + DIMENPAR(DIMEN_PAR__h_offset) > max_h {
-            max_h = *BOX_width(p as isize) + DIMENPAR(DIMEN_PAR__h_offset);
+        if *BOX_width(p as isize) + *DIMENPAR(DimenPar::h_offset) > max_h {
+            max_h = *BOX_width(p as isize) + *DIMENPAR(DimenPar::h_offset);
         }
 
         /*637: "Initialize variables as ship_out begins." */
 
         dvi_h = 0;
         dvi_v = 0;
-        cur_h = DIMENPAR(DIMEN_PAR__h_offset);
+        cur_h = *DIMENPAR(DimenPar::h_offset);
         dvi_f = 0;
 
         /*1405: "Calculate page dimensions and margins" */
         /* 4736287 = round(0xFFFF * 72.27) ; i.e., 1 inch expressed as a scaled_t */
-        cur_h_offset = DIMENPAR(DIMEN_PAR__h_offset) + 4736287;
-        cur_v_offset = DIMENPAR(DIMEN_PAR__v_offset) + 4736287;
+        cur_h_offset = *DIMENPAR(DimenPar::h_offset) + 4736287;
+        cur_v_offset = *DIMENPAR(DimenPar::v_offset) + 4736287;
 
-        if DIMENPAR(DIMEN_PAR__pdf_page_width) != 0 {
-            cur_page_width = DIMENPAR(DIMEN_PAR__pdf_page_width);
+        if *DIMENPAR(DimenPar::pdf_page_width) != 0 {
+            cur_page_width = *DIMENPAR(DimenPar::pdf_page_width);
         } else {
             cur_page_width = *BOX_width(p as isize) + 2 * cur_h_offset;
         }
-        if DIMENPAR(DIMEN_PAR__pdf_page_height) != 0 {
-            cur_page_height = DIMENPAR(DIMEN_PAR__pdf_page_height);
+        if *DIMENPAR(DimenPar::pdf_page_height) != 0 {
+            cur_page_height = *DIMENPAR(DimenPar::pdf_page_height);
         } else {
             cur_page_height = *BOX_height(p as isize) + *BOX_depth(p as isize) + 2 * cur_v_offset;
         }
@@ -235,7 +237,7 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
             dvi_four(473628672); /* magic values: conversion ratio for sp */
 
             prepare_mag();
-            dvi_four(INTPAR(INT_PAR__mag));
+            dvi_four(*INTPAR(IntPar::mag));
 
             l = strlen(output_comment) as u8;
             dvi_out(l);
@@ -253,7 +255,7 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
         dvi_out(BOP as _);
 
         for k in 0..10 {
-            dvi_four(COUNT_REG(k));
+            dvi_four(*COUNT_REG(k));
         }
 
         dvi_four(last_bop);
@@ -264,17 +266,17 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
         let old_setting = selector;
         selector = Selector::NEW_STRING;
         print_cstr(b"pdf:pagesize ");
-        if DIMENPAR(DIMEN_PAR__pdf_page_width) <= 0 || DIMENPAR(DIMEN_PAR__pdf_page_height) <= 0 {
+        if *DIMENPAR(DimenPar::pdf_page_width) <= 0 || *DIMENPAR(DimenPar::pdf_page_height) <= 0 {
             print_cstr(b"default");
         } else {
             print_cstr(b"width");
             print(' ' as i32);
-            print_scaled(DIMENPAR(DIMEN_PAR__pdf_page_width));
+            print_scaled(*DIMENPAR(DimenPar::pdf_page_width));
             print_cstr(b"pt");
             print(' ' as i32);
             print_cstr(b"height");
             print(' ' as i32);
-            print_scaled(DIMENPAR(DIMEN_PAR__pdf_page_height));
+            print_scaled(*DIMENPAR(DimenPar::pdf_page_height));
             print_cstr(b"pt");
         }
         selector = old_setting;
@@ -292,7 +294,7 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
 
         /* Done with the synthesized special. The meat: emit this page box. */
 
-        cur_v = *BOX_height(p as isize) + DIMENPAR(DIMEN_PAR__v_offset); /*"Does this need changing for upwards mode???"*/
+        cur_v = *BOX_height(p as isize) + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
         temp_ptr = p;
         if *NODE_type(p as isize) == VLIST_NODE {
             vlist_out();
@@ -323,7 +325,7 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
         confusion(b"LR3");
     }
 
-    if INTPAR(INT_PAR__tracing_output) <= 0 {
+    if *INTPAR(IntPar::tracing_output) <= 0 {
         print_char(']' as i32);
     }
 
@@ -363,7 +365,7 @@ unsafe extern "C" fn hlist_out() {
     let mut g_order: glue_ord = *BOX_glue_order(this_box as _) as _;
     let mut g_sign: u8 = *BOX_glue_sign(this_box as _) as _;
 
-    if INTPAR(INT_PAR__xetex_interword_space_shaping) > 1 {
+    if *INTPAR(IntPar::xetex_interword_space_shaping) > 1 {
         /*640: "Extra stuff for justifiable AAT text..." "Merge sequences of
          * words using native fonts and inter-word spaces into single
          * nodes" */
@@ -1935,7 +1937,7 @@ pub(crate) unsafe fn out_what(mut p: i32) {
 
             if log_opened {
                 let old_setting = selector;
-                if INTPAR(INT_PAR__tracing_online) <= 0 {
+                if *INTPAR(IntPar::tracing_online) <= 0 {
                     selector = Selector::LOG_ONLY
                 } else {
                     selector = Selector::TERM_AND_LOG
@@ -2276,7 +2278,7 @@ unsafe extern "C" fn write_out(mut p: i32) {
     MEM[q as usize].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
     let mut r = get_avail();
     MEM[q as usize].b32.s1 = r;
-    MEM[r as usize].b32.s0 = CS_TOKEN_FLAG + END_WRITE;
+    MEM[r as usize].b32.s0 = CS_TOKEN_FLAG + END_WRITE as i32;
     begin_token_list(q, INSERTED);
     begin_token_list(MEM[(p + 1) as usize].b32.s1, WRITE_TEXT);
     q = get_avail();
@@ -2289,7 +2291,7 @@ unsafe extern "C" fn write_out(mut p: i32) {
     q = scan_toks(false, true);
     get_token();
 
-    if cur_tok != CS_TOKEN_FLAG + END_WRITE {
+    if cur_tok != CS_TOKEN_FLAG + END_WRITE as i32 {
         /*1412:*/
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -2304,7 +2306,7 @@ unsafe extern "C" fn write_out(mut p: i32) {
 
         loop {
             get_token();
-            if !(cur_tok != CS_TOKEN_FLAG + END_WRITE) {
+            if !(cur_tok != CS_TOKEN_FLAG + END_WRITE as i32) {
                 break;
             }
         }
@@ -2331,7 +2333,7 @@ unsafe extern "C" fn write_out(mut p: i32) {
     flush_list(def_ref);
 
     if j == 18 {
-        if INTPAR(INT_PAR__tracing_online) <= 0 {
+        if *INTPAR(IntPar::tracing_online) <= 0 {
             selector = Selector::LOG_ONLY
         } else {
             selector = Selector::TERM_AND_LOG
@@ -2458,7 +2460,7 @@ pub(crate) unsafe fn finalize_dvi_file() {
     dvi_four(25400000); /* magic values: conversion ratio for sp */
     dvi_four(473628672i64 as i32); /* magic values: conversion ratio for sp */
     prepare_mag();
-    dvi_four(INTPAR(INT_PAR__mag));
+    dvi_four(*INTPAR(IntPar::mag));
     dvi_four(max_v);
     dvi_four(max_h);
     dvi_out((max_push / 256) as u8);

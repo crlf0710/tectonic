@@ -100,7 +100,7 @@ use crate::xetex_synctex::{synctex_start_input, synctex_terminate};
 use crate::xetex_texmfmp::{
     getmd5sum, gettexstring, is_new_source, make_src_special, maketexstring, remember_source_info,
 };
-use crate::xetex_xetexd::{is_char_node, is_non_discardable_node, print_c_string};
+use crate::xetex_xetexd::{is_char_node, is_non_discardable_node, print_c_string, LLIST_link};
 use bridge::{
     ttstub_input_close, ttstub_input_getc, ttstub_issue_warning, ttstub_output_close,
     ttstub_output_open, ttstub_output_putc,
@@ -160,93 +160,6 @@ pub(crate) unsafe fn badness(mut t: scaled_t, mut s: scaled_t) -> i32 {
         return INF_BAD;
     }
     (r * r * r + 0x20000i32) / 0x40000i32
-}
-
-pub(crate) unsafe fn LLIST_link(p: isize) -> *mut i32 {
-    &mut MEM[p as usize].b32.s1
-}
-pub(crate) unsafe fn LLIST_info(p: isize) -> *mut i32 {
-    &mut MEM[p as usize].b32.s0
-}
-
-/// half of LLIST_info(p)
-pub(crate) unsafe fn NODE_type(p: isize) -> *mut u16 {
-    &mut MEM[p as usize].b16.s1
-}
-/// the other half of LLIST_info(p)
-pub(crate) unsafe fn NODE_subtype(p: isize) -> *mut u16 {
-    &mut MEM[p as usize].b16.s0
-}
-/// aka "llink" in doubly-linked list
-pub(crate) unsafe fn GLUE_NODE_glue_ptr(p: isize) -> *mut i32 {
-    &mut MEM[(p + 1) as usize].b32.s0
-}
-/// aka "rlink" in double-linked list
-pub(crate) unsafe fn GLUE_NODE_leader_ptr(p: isize) -> *mut i32 {
-    &mut MEM[(p + 1) as usize].b32.s1
-}
-/// was originally the `mem[x+1].int` field
-pub(crate) unsafe fn PENALTY_NODE_penalty(p: isize) -> *mut i32 {
-    &mut MEM[(p + 1) as usize].b32.s1
-}
-
-/// aka "type" of a node
-pub(crate) unsafe fn GLUE_SPEC_stretch_order(p: isize) -> *mut u16 {
-    &mut MEM[p as usize].b16.s1
-}
-/// aka "subtype" of a node
-pub(crate) unsafe fn GLUE_SPEC_shrink_order(p: isize) -> *mut u16 {
-    &mut MEM[p as usize].b16.s0
-}
-/// a scaled
-pub(crate) unsafe fn GLUE_SPEC_stretch(p: isize) -> *mut i32 {
-    &mut MEM[(p + 2) as usize].b32.s1
-}
-/// a scaled
-pub(crate) unsafe fn GLUE_SPEC_shrink(p: isize) -> *mut i32 {
-    &mut MEM[(p + 3) as usize].b32.s1
-}
-
-/// subtype; records L/R direction mode
-pub(crate) unsafe fn BOX_lr_mode(p: isize) -> *mut u16 {
-    &mut MEM[p as usize].b16.s0
-}
-/// a scaled; 1 <=> WEB const `width_offset`
-pub(crate) unsafe fn BOX_width(p: isize) -> *mut i32 {
-    &mut MEM[(p + 1) as usize].b32.s1
-}
-/// a scaled; 2 <=> WEB const `depth_offset`
-pub(crate) unsafe fn BOX_depth(p: isize) -> *mut i32 {
-    &mut MEM[(p + 2) as usize].b32.s1
-}
-/// a scaled; 3 <=> WEB const `height_offset`
-pub(crate) unsafe fn BOX_height(p: isize) -> *mut i32 {
-    &mut MEM[(p + 3) as usize].b32.s1
-}
-/// a scaled
-pub(crate) unsafe fn BOX_shift_amount(p: isize) -> *mut i32 {
-    &mut MEM[(p + 4) as usize].b32.s1
-}
-/// aka `link` of p+5
-pub(crate) unsafe fn BOX_list_ptr(p: isize) -> *mut i32 {
-    &mut MEM[(p + 5) as usize].b32.s1
-}
-/// aka `type` of p+5
-pub(crate) unsafe fn BOX_glue_sign(p: isize) -> *mut u16 {
-    &mut MEM[(p + 5) as usize].b16.s1
-}
-/// aka `subtype` of p+5
-pub(crate) unsafe fn BOX_glue_order(p: isize) -> *mut u16 {
-    &mut MEM[(p + 5) as usize].b16.s0
-}
-/// the glue ratio
-pub(crate) unsafe fn BOX_glue_set(p: isize) -> *mut f64 {
-    &mut MEM[(p + 6) as usize].gr
-}
-
-/// "new left_edge position relative to cur_h"
-pub(crate) unsafe fn EDGE_NODE_edge_dist(p: isize) -> *mut i32 {
-    &mut MEM[(p + 2) as usize].b32.s1
 }
 
 /*:112*/
@@ -1306,8 +1219,8 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
     }
 }
 pub(crate) unsafe fn show_box(mut p: i32) {
-    depth_threshold = EQTB[(INT_BASE + 25i32) as usize].b32.s1;
-    breadth_max = EQTB[(INT_BASE + 24i32) as usize].b32.s1;
+    depth_threshold = *INTPAR(IntPar::show_box_depth);
+    breadth_max = *INTPAR(IntPar::show_box_breadth);
     if breadth_max <= 0i32 {
         breadth_max = 5i32
     }
@@ -1892,7 +1805,7 @@ pub(crate) unsafe fn print_param(mut n: i32) {
 }
 pub(crate) unsafe fn begin_diagnostic() {
     old_setting = selector;
-    if EQTB[(INT_BASE + 29i32) as usize].b32.s1 <= 0i32 && selector == Selector::TERM_AND_LOG {
+    if *INTPAR(IntPar::tracing_online) <= 0i32 && selector == Selector::TERM_AND_LOG {
         selector = (u8::from(selector) - 1).into();
         if history == TTHistory::SPOTLESS {
             history = TTHistory::WARNING_ISSUED
@@ -2083,9 +1996,9 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         73 => {
-            if chr_code >= LOCAL_BASE + 13i32 {
+            if chr_code >= TOKS_BASE {
                 print_esc_cstr(b"toks");
-                print_int(chr_code - (LOCAL_BASE + 13i32));
+                print_int(chr_code - TOKS_BASE);
             } else {
                 match chr_code {
                     2252772 => print_esc_cstr(b"output"),
@@ -2105,18 +2018,18 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         }
         74 => {
             if chr_code < COUNT_BASE {
-                print_param(chr_code - (INT_BASE));
+                print_param(chr_code - INT_BASE);
             } else {
                 print_esc_cstr(b"count");
-                print_int(chr_code - (COUNT_BASE));
+                print_int(chr_code - COUNT_BASE);
             }
         }
         75 => {
-            if chr_code < DIMEN_BASE + 23i32 {
-                print_length_param(chr_code - (DIMEN_BASE));
+            if chr_code < SCALED_BASE {
+                print_length_param(chr_code - DIMEN_BASE);
             } else {
                 print_esc_cstr(b"dimen");
-                print_int(chr_code - (DIMEN_BASE + 23i32));
+                print_int(chr_code - SCALED_BASE);
             }
         }
         45 => print_esc_cstr(b"accent"),
@@ -2928,21 +2841,13 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
         }
         if (*hash.offset(p as isize)).s0 == 0i32 {
             if no_new_control_sequence {
-                p = 1i32
-                    + (0x10ffffi32 + 1i32)
-                    + (0x10ffffi32 + 1i32)
-                    + 1i32
-                    + 15000i32
-                    + 12i32
-                    + 9000i32
-                    + 1i32
+                p = UNDEFINED_CONTROL_SEQUENCE
             } else {
                 if (*hash.offset(p as isize)).s1 > 0i32 {
                     if hash_high < hash_extra {
                         hash_high += 1;
-                        (*hash.offset(p as isize)).s0 =
-                            hash_high + (DIMEN_BASE + 23i32 + 256i32 - 1i32);
-                        p = hash_high + (DIMEN_BASE + 23i32 + 256i32 - 1i32)
+                        (*hash.offset(p as isize)).s0 = hash_high + EQTB_SIZE;
+                        p = hash_high + EQTB_SIZE
                     } else {
                         loop {
                             if hash_used
@@ -3212,7 +3117,7 @@ pub(crate) unsafe fn group_warning() {
     let mut i = IN_OPEN;
     w = false;
     while GRP_STACK[i] == cur_boundary && i > 0 {
-        if EQTB[(INT_BASE + 62i32) as usize].b32.s1 > 0i32 {
+        if *INTPAR(IntPar::tracing_nesting) > 0i32 {
             while INPUT_STACK[BASE_PTR].state as i32 == 0i32
                 || INPUT_STACK[BASE_PTR].index as usize > i
             {
@@ -3230,7 +3135,7 @@ pub(crate) unsafe fn group_warning() {
         print_group(1i32 != 0);
         print_cstr(b" of a different file");
         print_ln();
-        if EQTB[(INT_BASE + 62i32) as usize].b32.s1 > 1i32 {
+        if *INTPAR(IntPar::tracing_nesting) > 1i32 {
             show_context();
         }
         if history == TTHistory::SPOTLESS {
@@ -3245,7 +3150,7 @@ pub(crate) unsafe fn if_warning() {
     let mut i = IN_OPEN;
     w = false;
     while IF_STACK[i] == cond_ptr {
-        if EQTB[(INT_BASE + 62i32) as usize].b32.s1 > 0i32 {
+        if *INTPAR(IntPar::tracing_nesting) > 0i32 {
             while INPUT_STACK[BASE_PTR].state as i32 == 0i32
                 || INPUT_STACK[BASE_PTR].index as usize > i
             {
@@ -3267,7 +3172,7 @@ pub(crate) unsafe fn if_warning() {
         }
         print_cstr(b" of a different file");
         print_ln();
-        if EQTB[(INT_BASE + 62i32) as usize].b32.s1 > 1i32 {
+        if *INTPAR(IntPar::tracing_nesting) > 1i32 {
             show_context();
         }
         if history == TTHistory::SPOTLESS {
@@ -3320,7 +3225,7 @@ pub(crate) unsafe fn file_warning() {
     cur_if = c as small_number;
     if_line = i;
     print_ln();
-    if EQTB[(INT_BASE + 62i32) as usize].b32.s1 > 1i32 {
+    if *INTPAR(IntPar::tracing_nesting) > 1i32 {
         show_context();
     }
     if history == TTHistory::SPOTLESS {
@@ -3658,7 +3563,7 @@ pub(crate) unsafe fn unsave() {
                         + 9000i32
                         + 1i32) as usize];
                 }
-                if p < INT_BASE || p > DIMEN_BASE + 23i32 + 256i32 - 1i32 {
+                if p < INT_BASE || p > EQTB_SIZE {
                     if EQTB[p as usize].b16.s0 as i32 == 1i32 {
                         eq_destroy(SAVE_STACK[SAVE_PTR]);
                     } else {
@@ -3682,25 +3587,23 @@ pub(crate) unsafe fn unsave() {
     };
 }
 pub(crate) unsafe fn prepare_mag() {
-    if mag_set > 0i32 && EQTB[(INT_BASE + 17i32) as usize].b32.s1 != mag_set {
+    if mag_set > 0i32 && *INTPAR(IntPar::mag) != mag_set {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Incompatible magnification (");
-        print_int(EQTB[(INT_BASE + 17i32) as usize].b32.s1);
+        print_int(*INTPAR(IntPar::mag));
         print_cstr(b");");
         print_nl_cstr(b" the previous value will be retained");
         help_ptr = 2_u8;
         help_line[1] = b"I can handle only one magnification ratio per job. So I\'ve";
         help_line[0] = b"reverted to the magnification you used earlier on this run.";
         int_error(mag_set);
-        geq_word_define(INT_BASE + 17i32, mag_set);
+        geq_word_define(INT_BASE + IntPar::mag as i32, mag_set);
     }
-    if EQTB[(INT_BASE + 17i32) as usize].b32.s1 <= 0i32
-        || EQTB[(INT_BASE + 17i32) as usize].b32.s1 as i64 > 32768
-    {
+    if *INTPAR(IntPar::mag) <= 0i32 || *INTPAR(IntPar::mag) as i64 > 32768 {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -3709,10 +3612,10 @@ pub(crate) unsafe fn prepare_mag() {
         print_cstr(b"Illegal magnification has been changed to 1000");
         help_ptr = 1_u8;
         help_line[0] = b"The magnification ratio must be between 1 and 32768.";
-        int_error(EQTB[(INT_BASE + 17i32) as usize].b32.s1);
-        geq_word_define(INT_BASE + 17i32, 1000i32);
+        int_error(*INTPAR(IntPar::mag));
+        geq_word_define(INT_BASE + IntPar::mag as i32, 1000i32);
     }
-    mag_set = EQTB[(INT_BASE + 17i32) as usize].b32.s1;
+    mag_set = *INTPAR(IntPar::mag);
 }
 pub(crate) unsafe fn token_show(mut p: i32) {
     if p != TEX_NULL {
@@ -3743,7 +3646,7 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
         shown_mode = cur_list.mode
     }
     print_cmd_chr(cur_cmd as u16, cur_chr);
-    if EQTB[(INT_BASE + 60i32) as usize].b32.s1 > 0i32 {
+    if *INTPAR(IntPar::tracing_ifs) > 0i32 {
         if cur_cmd as i32 >= 107i32 {
             if cur_cmd as i32 <= 108i32 {
                 print_cstr(b": ");
@@ -3797,7 +3700,7 @@ pub(crate) unsafe fn show_context() {
         }
         if BASE_PTR == INPUT_PTR
             || bottom_line as i32 != 0
-            || nn < EQTB[(INT_BASE + 54i32) as usize].b32.s1
+            || nn < *INTPAR(IntPar::error_context_lines)
         {
             /*324: */
             if BASE_PTR == INPUT_PTR
@@ -3837,9 +3740,7 @@ pub(crate) unsafe fn show_context() {
                     tally = 0i32;
                     selector = Selector::PSEUDO;
                     trick_count = 1000000i64 as i32;
-                    if *buffer.offset(cur_input.limit as isize)
-                        == EQTB[(INT_BASE + 48i32) as usize].b32.s1
-                    {
+                    if *buffer.offset(cur_input.limit as isize) == *INTPAR(IntPar::end_line_char) {
                         j = cur_input.limit
                     } else {
                         j = cur_input.limit + 1i32
@@ -3982,7 +3883,7 @@ pub(crate) unsafe fn show_context() {
                 }
                 nn += 1
             }
-        } else if nn == EQTB[(INT_BASE + 54i32) as usize].b32.s1 {
+        } else if nn == *INTPAR(IntPar::error_context_lines) {
             print_nl_cstr(b"...");
             nn += 1
         }
@@ -4011,7 +3912,7 @@ pub(crate) unsafe fn begin_token_list(mut p: i32, mut t: u16) {
             cur_input.limit = PARAM_PTR as i32
         } else {
             cur_input.loc = MEM[p as usize].b32.s1;
-            if EQTB[(INT_BASE + 30i32) as usize].b32.s1 > 1i32 {
+            if *INTPAR(IntPar::tracing_macros) > 1i32 {
                 begin_diagnostic();
                 print_nl_cstr(b"");
                 match t as i32 {
@@ -4242,7 +4143,7 @@ pub(crate) unsafe fn check_outer_validity() {
             } else {
                 help_line[2] = b"The file ended while I was skipping conditional text."
             }
-            cur_tok = 0x1ffffffi32 + (FROZEN_CONTROL_SEQUENCE + 4i32);
+            cur_tok = 0x1ffffffi32 + FROZEN_FI as i32;
             ins_error();
         }
         deletions_allowed = true
@@ -4280,9 +4181,7 @@ pub(crate) unsafe fn get_next() {
                             (65536 + ((cur_chr - 0xd800i32) * 1024i32) as i64 + lower as i64) as i32
                     }
                     'c_65186: loop {
-                        cur_cmd = EQTB[(MATH_FONT_BASE + 3i32 * 256i32 + cur_chr) as usize]
-                            .b32
-                            .s1 as eight_bits;
+                        cur_cmd = *MATH_FONT(3i32 * 256i32 + cur_chr) as eight_bits;
                         match cur_input.state as i32 + cur_cmd as i32 {
                             10 | 26 | 42 | 27 | 43 => break,
                             1 | 17 | 33 => {
@@ -4469,7 +4368,7 @@ pub(crate) unsafe fn get_next() {
                             if cur_input.name <= 19i32 {
                                 if pseudo_input() {
                                     cur_input.limit = last
-                                } else if EQTB[(LOCAL_BASE + 10i32) as usize].b32.s1 != TEX_NULL
+                                } else if *LOCAL(Local::every_eof) != TEX_NULL
                                     && !EOF_SEEN[cur_input.index as usize]
                                 {
                                     cur_input.limit = first - 1i32;
@@ -4499,22 +4398,19 @@ pub(crate) unsafe fn get_next() {
                                 }
                             } else if input_line(INPUT_FILE[cur_input.index as usize]) != 0 {
                                 cur_input.limit = last
-                            } else if EQTB[(LOCAL_BASE + 10i32) as usize].b32.s1 != TEX_NULL
+                            } else if *LOCAL(Local::every_eof) != TEX_NULL
                                 && !EOF_SEEN[cur_input.index as usize]
                             {
                                 cur_input.limit = first - 1i32;
                                 EOF_SEEN[cur_input.index as usize] = true;
-                                begin_token_list(
-                                    EQTB[(LOCAL_BASE + 10i32) as usize].b32.s1,
-                                    16_u16,
-                                );
+                                begin_token_list(*LOCAL(Local::every_eof), 16_u16);
                                 continue 'c_63502;
                             } else {
                                 force_eof = true
                             }
                         }
                         if force_eof {
-                            if EQTB[(INT_BASE + 62i32) as usize].b32.s1 > 0i32 {
+                            if *INTPAR(IntPar::tracing_nesting) > 0i32 {
                                 if GRP_STACK[IN_OPEN] != cur_boundary
                                     || IF_STACK[IN_OPEN] != cond_ptr
                                 {
@@ -4531,13 +4427,13 @@ pub(crate) unsafe fn get_next() {
                             check_outer_validity();
                             continue 'c_63502;
                         } else {
-                            if EQTB[(INT_BASE + 48i32) as usize].b32.s1 < 0i32
-                                || EQTB[(INT_BASE + 48i32) as usize].b32.s1 > 255i32
+                            if *INTPAR(IntPar::end_line_char) < 0i32
+                                || *INTPAR(IntPar::end_line_char) > 255i32
                             {
                                 cur_input.limit -= 1
                             } else {
                                 *buffer.offset(cur_input.limit as isize) =
-                                    EQTB[(INT_BASE + 48i32) as usize].b32.s1
+                                    *INTPAR(IntPar::end_line_char)
                             }
                             first = cur_input.limit + 1i32;
                             cur_input.loc = cur_input.start
@@ -4586,10 +4482,7 @@ pub(crate) unsafe fn get_next() {
                                     /*368:*/
                                     {
                                         cur_chr = *buffer.offset(k as isize);
-                                        cat = EQTB
-                                            [(MATH_FONT_BASE + 3i32 * 256i32 + cur_chr) as usize]
-                                            .b32
-                                            .s1 as u8;
+                                        cat = *MATH_FONT(3i32 * 256i32 + cur_chr) as u8;
                                         k += 1;
                                         if !(cat as i32 == 11i32 && k <= cur_input.limit) {
                                             break;
@@ -4823,13 +4716,10 @@ pub(crate) unsafe fn get_next() {
                          * variable to make sure it only gets inserted once. */
                         {
                             if !used_tectonic_coda_tokens
-                                && EQTB[(LOCAL_BASE + 12i32) as usize].b32.s1 != TEX_NULL
+                                && *LOCAL(Local::TectonicCodaTokens) != TEX_NULL
                             {
                                 used_tectonic_coda_tokens = true; /* token list but no tokens left */
-                                begin_token_list(
-                                    EQTB[(LOCAL_BASE + 12i32) as usize].b32.s1,
-                                    19_u16,
-                                );
+                                begin_token_list(*LOCAL(Local::TectonicCodaTokens), 19_u16);
                                 continue;
                             } else {
                                 if u8::from(selector) < u8::from(Selector::LOG_ONLY) {
@@ -4952,7 +4842,7 @@ pub(crate) unsafe fn macro_call() {
     ref_count = cur_chr;
     r = MEM[ref_count as usize].b32.s1;
     n = 0i32 as small_number;
-    if EQTB[(INT_BASE + 30i32) as usize].b32.s1 > 0i32 {
+    if *INTPAR(IntPar::tracing_macros) > 0i32 {
         /*419:*/
         begin_diagnostic();
         print_ln();
@@ -5213,7 +5103,7 @@ pub(crate) unsafe fn macro_call() {
                     pstack[n as usize] = MEM[(4999999 - 3) as usize].b32.s1
                 }
                 n += 1;
-                if EQTB[(INT_BASE + 30i32) as usize].b32.s1 > 0i32 {
+                if *INTPAR(IntPar::tracing_macros) > 0i32 {
                     begin_diagnostic();
                     print_nl(match_chr as str_number);
                     print_int(n as i32);
@@ -5264,7 +5154,7 @@ pub(crate) unsafe fn macro_call() {
 pub(crate) unsafe fn insert_relax() {
     cur_tok = 0x1ffffffi32 + cur_cs;
     back_input();
-    cur_tok = 0x1ffffffi32 + (FROZEN_CONTROL_SEQUENCE + 7i32);
+    cur_tok = 0x1ffffffi32 + FROZEN_RELAX as i32;
     back_input();
     cur_input.index = 5_u16;
 }
@@ -5466,7 +5356,7 @@ pub(crate) unsafe fn expand() {
     loop {
         if (cur_cmd as i32) < 113i32 {
             /*384:*/
-            if EQTB[(INT_BASE + 36i32) as usize].b32.s1 > 1i32 {
+            if *INTPAR(IntPar::tracing_commands) > 1i32 {
                 show_cur_cmd_chr(); /*1612:*/
             }
             match cur_cmd as i32 {
@@ -5666,8 +5556,8 @@ pub(crate) unsafe fn expand() {
                     break;
                 }
                 108 => {
-                    if EQTB[(INT_BASE + 60i32) as usize].b32.s1 > 0i32 {
-                        if EQTB[(INT_BASE + 36i32) as usize].b32.s1 <= 1i32 {
+                    if *INTPAR(IntPar::tracing_ifs) > 0i32 {
+                        if *INTPAR(IntPar::tracing_commands) <= 1i32 {
                             show_cur_cmd_chr();
                         }
                     }
@@ -5739,7 +5629,7 @@ pub(crate) unsafe fn expand() {
             if (cur_cmd as i32) < 117i32 {
                 macro_call();
             } else {
-                cur_tok = 0x1ffffffi32 + (FROZEN_CONTROL_SEQUENCE + 6i32);
+                cur_tok = 0x1ffffffi32 + FROZEN_ENDV as i32;
                 back_input();
             }
             break;
@@ -5762,7 +5652,7 @@ pub(crate) unsafe fn get_x_token() {
             if (cur_cmd as i32) < 117i32 {
                 macro_call();
             } else {
-                cur_cs = FROZEN_CONTROL_SEQUENCE + 6i32;
+                cur_cs = FROZEN_ENDV as i32;
                 cur_cmd = 9i32 as eight_bits;
                 break;
             }
@@ -6093,7 +5983,7 @@ pub(crate) unsafe fn scan_math(mut p: i32) {
                     scan_left_brace();
                     SAVE_STACK[SAVE_PTR + 0].b32.s1 = p;
                     SAVE_PTR += 1;
-                    push_math(9i32 as group_code);
+                    push_math(9 as group_code);
                     return;
                 }
             }
@@ -6102,10 +5992,9 @@ pub(crate) unsafe fn scan_math(mut p: i32) {
     MEM[p as usize].b32.s1 = 1;
     MEM[p as usize].b16.s0 = (c as i64 % 65536) as u16;
     if c as u32 >> 21i32 & 0x7_u32 == 7_u32
-        && (EQTB[(INT_BASE + 44i32) as usize].b32.s1 >= 0i32
-            && EQTB[(INT_BASE + 44i32) as usize].b32.s1 < 256i32)
+        && (*INTPAR(IntPar::cur_fam) >= 0i32 && *INTPAR(IntPar::cur_fam) < 256i32)
     {
-        MEM[p as usize].b16.s1 = EQTB[(INT_BASE + 44i32) as usize].b32.s1 as u16
+        MEM[p as usize].b16.s1 = *INTPAR(IntPar::cur_fam) as u16
     } else {
         MEM[p as usize].b16.s1 = (c as u32 >> 24 & 0xff_u32) as u16
     }
@@ -6130,10 +6019,8 @@ pub(crate) unsafe fn set_math_char(mut c: i32) {
         MEM[(p + 1) as usize].b16.s0 = (ch as i64 % 65536) as u16;
         MEM[(p + 1) as usize].b16.s1 = (c as u32 >> 24 & 0xff_u32) as u16;
         if c as u32 >> 21i32 & 0x7_u32 == 7_u32 {
-            if EQTB[(INT_BASE + 44i32) as usize].b32.s1 >= 0i32
-                && EQTB[(INT_BASE + 44i32) as usize].b32.s1 < 256i32
-            {
-                MEM[(p + 1) as usize].b16.s1 = EQTB[(INT_BASE + 44i32) as usize].b32.s1 as u16
+            if *INTPAR(IntPar::cur_fam) >= 0i32 && *INTPAR(IntPar::cur_fam) < 256i32 {
+                MEM[(p + 1) as usize].b16.s1 = *INTPAR(IntPar::cur_fam) as u16
             }
             MEM[p as usize].b16.s1 = 16_u16
         } else {
@@ -6358,7 +6245,7 @@ pub(crate) unsafe fn find_font_dimen(mut writing: bool) {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Font ");
-        print_esc((*hash.offset((FROZEN_CONTROL_SEQUENCE + 12i32 + f) as isize)).s1);
+        print_esc((*hash.offset((FROZEN_NULL_FONT as i32 + f) as isize)).s1);
         print_cstr(b" has only ");
         print_int(FONT_PARAMS[f as usize]);
         print_cstr(b" fontdimen parameters");
@@ -6502,7 +6389,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     if m == 0i32 {
                         scan_register_num();
                         if cur_val < 256i32 {
-                            cur_val = EQTB[(LOCAL_BASE + 13i32 + cur_val) as usize].b32.s1
+                            cur_val = EQTB[(TOKS_BASE + cur_val) as usize].b32.s1
                         } else {
                             find_sa_element(5i32 as small_number, cur_val, false);
                             if cur_ptr == TEX_NULL {
@@ -6514,7 +6401,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     } else {
                         cur_val = MEM[(m + 1) as usize].b32.s1
                     }
-                } else if cur_chr == LOCAL_BASE + 11i32 {
+                } else if cur_chr == LOCAL_BASE + Local::xetex_inter_char as i32 {
                     scan_char_class_not_ignored();
                     cur_ptr = cur_val;
                     scan_char_class_not_ignored();
@@ -6618,7 +6505,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
             cur_val_level = 1_u8
         }
         85 => {
-            if m > LOCAL_BASE + 0i32 {
+            if m > LOCAL_BASE + Local::par_shape as i32 {
                 /*1654:*/
                 scan_int();
                 if EQTB[m as usize].b32.s1 == TEX_NULL || cur_val < 0i32 {
@@ -6629,12 +6516,10 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     }
                     cur_val = MEM[(EQTB[m as usize].b32.s1 + cur_val + 1) as usize].b32.s1
                 }
-            } else if EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 == TEX_NULL {
+            } else if *LOCAL(Local::par_shape) == TEX_NULL {
                 cur_val = 0i32
             } else {
-                cur_val = MEM[EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 as usize]
-                    .b32
-                    .s0
+                cur_val = MEM[*LOCAL(Local::par_shape) as usize].b32.s0
             }
             cur_val_level = 0_u8
         }
@@ -6919,28 +6804,18 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                         52 | 53 | 54 => {
                             q = cur_chr - 52i32;
                             scan_int();
-                            if EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 == TEX_NULL
-                                || cur_val <= 0i32
-                            {
+                            if *LOCAL(Local::par_shape) == TEX_NULL || cur_val <= 0i32 {
                                 cur_val = 0i32
                             } else {
                                 if q == 2i32 {
                                     q = cur_val % 2i32;
                                     cur_val = (cur_val + q) / 2i32
                                 }
-                                if cur_val
-                                    > MEM[EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 as usize]
-                                        .b32
-                                        .s0
-                                {
-                                    cur_val = MEM
-                                        [EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 as usize]
-                                        .b32
-                                        .s0
+                                if cur_val > MEM[*LOCAL(Local::par_shape) as usize].b32.s0 {
+                                    cur_val = MEM[*LOCAL(Local::par_shape) as usize].b32.s0
                                 }
-                                cur_val = MEM[(EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1
-                                    + 2i32 * cur_val
-                                    - q) as usize]
+                                cur_val = MEM
+                                    [(*LOCAL(Local::par_shape) + 2i32 * cur_val - q) as usize]
                                     .b32
                                     .s1
                             }
@@ -7904,16 +7779,15 @@ pub(crate) unsafe fn xetex_scan_dimen(
                                         if scan_keyword(b"true") {
                                             /*476:*/
                                             prepare_mag(); /* magic ratio consant */
-                                            if EQTB[(INT_BASE + 17i32) as usize].b32.s1 != 1000i32 {
+                                            if *INTPAR(IntPar::mag) != 1000i32 {
                                                 cur_val = xn_over_d(
                                                     cur_val,
                                                     1000i32,
-                                                    EQTB[(INT_BASE + 17i32) as usize].b32.s1,
+                                                    *INTPAR(IntPar::mag),
                                                 ); /* magic ratio consant */
                                                 f = (((1000i32 * f) as i64
                                                     + 65536 * tex_remainder as i64)
-                                                    / EQTB[(INT_BASE + 17i32) as usize].b32.s1
-                                                        as i64)
+                                                    / *INTPAR(IntPar::mag) as i64)
                                                     as i32;
                                                 cur_val =
                                                     (cur_val as i64 + f as i64 / 65536) as i32;
@@ -8703,7 +8577,7 @@ pub(crate) unsafe fn pseudo_start() {
     s = make_string();
     *str_pool.offset(pool_ptr as isize) = ' ' as i32 as packed_UTF16_code;
     l = *str_start.offset((s as i64 - 65536) as isize);
-    nl = EQTB[(INT_BASE + 49i32) as usize].b32.s1;
+    nl = *INTPAR(IntPar::new_line_char);
     p = get_avail();
     q = p;
     while l < pool_ptr {
@@ -8759,7 +8633,7 @@ pub(crate) unsafe fn pseudo_start() {
     line = 0i32;
     cur_input.limit = cur_input.start;
     cur_input.loc = cur_input.limit + 1i32;
-    if EQTB[(INT_BASE + 61i32) as usize].b32.s1 > 0i32 {
+    if *INTPAR(IntPar::tracing_scan_tokens) > 0i32 {
         if term_offset > max_print_line - 3i32 {
             print_ln();
         } else if term_offset > 0i32 || file_offset > 0i32 {
@@ -9533,12 +9407,10 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
             }
         }
         cur_input.limit = last;
-        if EQTB[(INT_BASE + 48i32) as usize].b32.s1 < 0i32
-            || EQTB[(INT_BASE + 48i32) as usize].b32.s1 > 255i32
-        {
+        if *INTPAR(IntPar::end_line_char) < 0i32 || *INTPAR(IntPar::end_line_char) > 255i32 {
             cur_input.limit -= 1
         } else {
-            *buffer.offset(cur_input.limit as isize) = EQTB[(INT_BASE + 48i32) as usize].b32.s1
+            *buffer.offset(cur_input.limit as isize) = *INTPAR(IntPar::end_line_char)
         }
         first = cur_input.limit + 1i32;
         cur_input.loc = cur_input.start;
@@ -9610,7 +9482,7 @@ pub(crate) unsafe fn pass_text() {
         }
     }
     scanner_status = save_scanner_status as u8;
-    if EQTB[(INT_BASE + 60i32) as usize].b32.s1 > 0i32 {
+    if *INTPAR(IntPar::tracing_ifs) > 0i32 {
         show_cur_cmd_chr();
     };
 }
@@ -9645,8 +9517,8 @@ pub(crate) unsafe fn conditional() {
     let mut save_cond_ptr: i32 = 0;
     let mut this_if: small_number = 0;
     let mut is_unless: bool = false;
-    if EQTB[(INT_BASE + 60i32) as usize].b32.s1 > 0i32 {
-        if EQTB[(INT_BASE + 36i32) as usize].b32.s1 <= 1i32 {
+    if *INTPAR(IntPar::tracing_ifs) > 0i32 {
+        if *INTPAR(IntPar::tracing_commands) <= 1i32 {
             show_cur_cmd_chr();
         }
     }
@@ -9931,7 +9803,7 @@ pub(crate) unsafe fn conditional() {
         16 => {
             scan_int();
             n = cur_val;
-            if EQTB[(INT_BASE + 36i32) as usize].b32.s1 > 1i32 {
+            if *INTPAR(IntPar::tracing_commands) > 1i32 {
                 begin_diagnostic();
                 print_cstr(b"{case ");
                 print_int(n);
@@ -9994,7 +9866,7 @@ pub(crate) unsafe fn conditional() {
             if is_unless {
                 b = !b
             }
-            if EQTB[(INT_BASE + 36i32) as usize].b32.s1 > 1i32 {
+            if *INTPAR(IntPar::tracing_commands) > 1i32 {
                 /*521:*/
                 begin_diagnostic();
                 if b {
@@ -10262,7 +10134,7 @@ pub(crate) unsafe fn open_log_file() {
      * printed. The eqtb reference is end_line_char. */
     print_nl_cstr(b"**");
     l = INPUT_STACK[0].limit;
-    if *buffer.offset(l as isize) == EQTB[(INT_BASE + 48i32) as usize].b32.s1 {
+    if *buffer.offset(l as isize) == *INTPAR(IntPar::end_line_char) {
         l -= 1
     }
     k = 1i32;
@@ -10407,8 +10279,8 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
         &mut INPUT_FILE[cur_input.index as usize],
         format,
         b"rb\x00" as *const u8 as *const i8,
-        EQTB[(INT_BASE + 77i32) as usize].b32.s1,
-        EQTB[(INT_BASE + 78i32) as usize].b32.s1,
+        *INTPAR(IntPar::xetex_default_input_mode),
+        *INTPAR(IntPar::xetex_default_input_encoding),
     ) == 0
     {
         abort!(
@@ -10465,12 +10337,10 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     line = 1i32;
     input_line(INPUT_FILE[cur_input.index as usize]);
     cur_input.limit = last;
-    if EQTB[(INT_BASE + 48i32) as usize].b32.s1 < 0i32
-        || EQTB[(INT_BASE + 48i32) as usize].b32.s1 > 255i32
-    {
+    if *INTPAR(IntPar::end_line_char) < 0i32 || *INTPAR(IntPar::end_line_char) > 255i32 {
         cur_input.limit -= 1
     } else {
-        *buffer.offset(cur_input.limit as isize) = EQTB[(INT_BASE + 48i32) as usize].b32.s1
+        *buffer.offset(cur_input.limit as isize) = *INTPAR(IntPar::end_line_char)
     }
     first = cur_input.limit + 1i32;
     cur_input.loc = cur_input.start;
@@ -10484,10 +10354,10 @@ pub(crate) unsafe fn effective_char_info(mut f: internal_font_number, mut c: u16
 }
 pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
     let mut old_setting_0: i32 = 0;
-    if EQTB[(INT_BASE + 35i32) as usize].b32.s1 > 0i32 {
-        old_setting_0 = EQTB[(INT_BASE + 29i32) as usize].b32.s1;
-        if EQTB[(INT_BASE + 35i32) as usize].b32.s1 > 1i32 {
-            EQTB[(INT_BASE + 29i32) as usize].b32.s1 = 1i32
+    if *INTPAR(IntPar::tracing_lost_chars) > 0i32 {
+        old_setting_0 = *INTPAR(IntPar::tracing_online);
+        if *INTPAR(IntPar::tracing_lost_chars) > 1i32 {
+            *INTPAR(IntPar::tracing_online) = 1i32
         }
         begin_diagnostic();
         print_nl_cstr(b"Missing character: There is no ");
@@ -10500,7 +10370,7 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
         print(FONT_NAME[f as usize]);
         print_char('!' as i32);
         end_diagnostic(false);
-        EQTB[(INT_BASE + 29i32) as usize].b32.s1 = old_setting_0
+        *INTPAR(IntPar::tracing_online) = old_setting_0
     }
     let mut fn_0: *mut i8 = gettexstring(FONT_NAME[f as usize]);
     let mut chr: *mut i8 = 0 as *mut i8;
@@ -10548,7 +10418,7 @@ pub(crate) unsafe fn new_native_word_node(mut f: internal_font_number, mut n: i3
     ) as i32;
     q = get_node(l);
     MEM[q as usize].b16.s1 = 8_u16;
-    if EQTB[(INT_BASE + 81i32) as usize].b32.s1 > 0i32 {
+    if *INTPAR(IntPar::xetex_generate_actual_text) > 0i32 {
         MEM[q as usize].b16.s0 = 41_u16
     } else {
         MEM[q as usize].b16.s0 = 40_u16
@@ -10618,7 +10488,7 @@ pub(crate) unsafe fn new_native_character(
             i += 1
         }
     } else {
-        if EQTB[(INT_BASE + 35i32) as usize].b32.s1 > 0i32 {
+        if *INTPAR(IntPar::tracing_lost_chars) > 0i32 {
             if map_char_to_glyph(f, c) == 0i32 {
                 char_warning(f, c);
             }
@@ -10643,7 +10513,7 @@ pub(crate) unsafe fn new_native_character(
     }
     measure_native_node(
         &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
-        (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
+        (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
     );
     p
 }
@@ -10846,8 +10716,8 @@ pub(crate) unsafe fn load_native_font(
     FONT_BC[font_ptr as usize] = 0 as UTF16_code;
     FONT_EC[font_ptr as usize] = 65535 as UTF16_code;
     *font_used.offset(font_ptr as isize) = false;
-    HYPHEN_CHAR[font_ptr as usize] = EQTB[(INT_BASE + 46i32) as usize].b32.s1;
-    SKEW_CHAR[font_ptr as usize] = EQTB[(INT_BASE + 47i32) as usize].b32.s1;
+    HYPHEN_CHAR[font_ptr as usize] = *INTPAR(IntPar::default_hyphen_char);
+    SKEW_CHAR[font_ptr as usize] = *INTPAR(IntPar::default_skew_char);
     PARAM_BASE[font_ptr as usize] = fmem_ptr - 1i32;
     FONT_LAYOUT_ENGINE[font_ptr as usize] = font_engine;
     FONT_MAPPING[font_ptr as usize] = 0 as *mut libc::c_void;
@@ -10903,7 +10773,7 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
     let mut i: i32 = 0;
     let mut use_penalty: bool = false;
     let mut use_skip: bool = false;
-    if EQTB[(INT_BASE + 68i32) as usize].b32.s1 == 0i32 || len == 1i32 {
+    if *INTPAR(IntPar::xetex_linebreak_locale) == 0i32 || len == 1i32 {
         MEM[cur_list.tail as usize].b32.s1 = new_native_word_node(main_f, len);
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         let mut for_end: i32 = 0;
@@ -10922,14 +10792,14 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
         }
         measure_native_node(
             &mut MEM[cur_list.tail as usize] as *mut memory_word as *mut libc::c_void,
-            (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
+            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
         );
     } else {
-        use_skip = EQTB[(GLUE_BASE + 15i32) as usize].b32.s1 != 0i32;
-        use_penalty = EQTB[(INT_BASE + 69i32) as usize].b32.s1 != 0i32 || !use_skip;
+        use_skip = *GLUEPAR(GluePar::xetex_linebreak_skip) != 0i32;
+        use_penalty = *INTPAR(IntPar::xetex_linebreak_penalty) != 0i32 || !use_skip;
         linebreak_start(
             main_f,
-            EQTB[(INT_BASE + 68i32) as usize].b32.s1,
+            *INTPAR(IntPar::xetex_linebreak_locale),
             native_text.offset(s as isize),
             len,
         );
@@ -10941,7 +10811,7 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
                 if prevOffs != 0i32 {
                     if use_penalty {
                         MEM[cur_list.tail as usize].b32.s1 =
-                            new_penalty(EQTB[(INT_BASE + 69i32) as usize].b32.s1);
+                            new_penalty(*INTPAR(IntPar::xetex_linebreak_penalty));
                         cur_list.tail = MEM[cur_list.tail as usize].b32.s1
                     }
                     if use_skip {
@@ -10968,7 +10838,7 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
                 }
                 measure_native_node(
                     &mut MEM[cur_list.tail as usize] as *mut memory_word as *mut libc::c_void,
-                    (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
+                    (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
                 );
             }
             if offs < 0i32 {
@@ -10993,11 +10863,11 @@ pub(crate) unsafe fn get_input_normalization_state() -> i32 {
     if EQTB.is_empty() {
         0
     } else {
-        EQTB[(INT_BASE + 76i32) as usize].b32.s1
+        *INTPAR(IntPar::xetex_input_normalization)
     }
 }
 pub(crate) unsafe fn get_tracing_fonts_state() -> i32 {
-    EQTB[(INT_BASE + 79i32) as usize].b32.s1
+    *INTPAR(IntPar::xetex_tracing_fonts)
 }
 pub(crate) unsafe fn read_font_info(
     mut u: i32,
@@ -11042,7 +10912,7 @@ pub(crate) unsafe fn read_font_info(
 
     pack_file_name(nom, aire, cur_ext);
 
-    if INTPAR(INT_PAR__xetex_tracing_fonts) > 0 {
+    if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
         begin_diagnostic();
         print_nl_cstr(b"Requested font \"");
         print_c_string(name_of_file);
@@ -11460,8 +11330,8 @@ pub(crate) unsafe fn read_font_info(
         FONT_PARAMS[f as usize] = 7
     }
 
-    HYPHEN_CHAR[f as usize] = INTPAR(INT_PAR__default_hyphen_char);
-    SKEW_CHAR[f as usize] = INTPAR(INT_PAR__default_skew_char);
+    HYPHEN_CHAR[f as usize] = *INTPAR(IntPar::default_hyphen_char);
+    SKEW_CHAR[f as usize] = *INTPAR(IntPar::default_skew_char);
     if bch_label < nl {
         BCHAR_LABEL[f as usize] = bch_label + LIG_KERN_BASE[f as usize]
     } else {
@@ -11502,7 +11372,7 @@ pub(crate) unsafe fn read_font_info(
         s: i32,
         name_too_long: bool,
     ) -> i32 {
-        if INTPAR(INT_PAR__suppress_fontnotfound_error) == 0 {
+        if *INTPAR(IntPar::suppress_fontnotfound_error) == 0 {
             /* NOTE: must preserve this path to keep passing the TRIP tests */
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -11553,7 +11423,7 @@ pub(crate) unsafe fn read_font_info(
             ttstub_input_close(handle);
         }
 
-        if INTPAR(INT_PAR__xetex_tracing_fonts) > 0 {
+        if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
             if g == FONT_BASE {
                 begin_diagnostic();
                 print_nl_cstr(b" -> font not found, using \"nullfont\"");
@@ -11738,7 +11608,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
     total_shrink[2] = 0i32;
     total_stretch[3] = 0i32;
     total_shrink[3] = 0i32;
-    if EQTB[(INT_BASE + 71i32) as usize].b32.s1 > 0i32 {
+    if *INTPAR(IntPar::texxet) > 0i32 {
         /*1497: */
         temp_ptr = get_avail();
         MEM[temp_ptr as usize].b32.s0 = 0;
@@ -11877,7 +11747,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
                 }
                 9 => {
                     x = x + MEM[(p + 1) as usize].b32.s1;
-                    if EQTB[(INT_BASE + 71i32) as usize].b32.s1 > 0i32 {
+                    if *INTPAR(IntPar::texxet) > 0i32 {
                         /*1498: */
                         if MEM[p as usize].b16.s0 as i32 & 1 != 0 {
                             if MEM[LR_ptr as usize].b32.s0
@@ -12008,7 +11878,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
                     p = MEM[q as usize].b32.s1;
                     measure_native_node(
                         &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
-                        (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
+                        (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
                     );
                 }
                 if MEM[(p + 3) as usize].b32.s1 > h {
@@ -12073,7 +11943,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
             if MEM[(r + 5) as usize].b32.s1 != TEX_NULL {
                 /*685: */
                 last_badness = badness(x, total_stretch[0]); /*normal *//*:690 */
-                if last_badness > EQTB[(INT_BASE + 26i32) as usize].b32.s1 {
+                if last_badness > *INTPAR(IntPar::hbadness) {
                     print_ln();
                     if last_badness > 100i32 {
                         print_nl_cstr(b"Underfull");
@@ -12116,18 +11986,18 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
         {
             last_badness = 1000000i64 as i32;
             MEM[(r + 6) as usize].gr = 1.0f64;
-            if -x - total_shrink[0] > EQTB[(DIMEN_BASE + 8i32) as usize].b32.s1
-                || EQTB[(INT_BASE + 26i32) as usize].b32.s1 < 100i32
+            if -x - total_shrink[0] > *DIMENPAR(DimenPar::hfuzz)
+                || *INTPAR(IntPar::hbadness) < 100i32
             {
-                if EQTB[(DIMEN_BASE + 16i32) as usize].b32.s1 > 0i32
-                    && -x - total_shrink[0] > EQTB[(DIMEN_BASE + 8i32) as usize].b32.s1
+                if *DIMENPAR(DimenPar::overfull_rule) > 0i32
+                    && -x - total_shrink[0] > *DIMENPAR(DimenPar::hfuzz)
                 {
                     while MEM[q as usize].b32.s1 != TEX_NULL {
                         q = MEM[q as usize].b32.s1
                     }
                     MEM[q as usize].b32.s1 = new_rule();
                     MEM[(MEM[q as usize].b32.s1 + 1) as usize].b32.s1 =
-                        EQTB[(DIMEN_BASE + 16i32) as usize].b32.s1
+                        *DIMENPAR(DimenPar::overfull_rule)
                 }
                 print_ln();
                 print_nl_cstr(b"Overfull \\hbox (");
@@ -12141,7 +12011,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
             if MEM[(r + 5) as usize].b32.s1 != TEX_NULL {
                 /*692: */
                 last_badness = badness(-x, total_shrink[0]);
-                if last_badness > EQTB[(INT_BASE + 26i32) as usize].b32.s1 {
+                if last_badness > *INTPAR(IntPar::hbadness) {
                     print_ln();
                     print_nl_cstr(b"Tight \\hbox (badness ");
                     print_int(last_badness);
@@ -12185,7 +12055,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
                 current_block = 2380354494544673732;
             }
             _ => {
-                if !(EQTB[(INT_BASE + 71i32) as usize].b32.s1 > 0i32) {
+                if !(*INTPAR(IntPar::texxet) > 0i32) {
                     break;
                 }
                 /*1499: */
@@ -12248,7 +12118,7 @@ pub(crate) unsafe fn vpackage(
     last_badness = 0i32;
     r = get_node(8i32);
     MEM[r as usize].b16.s1 = 1_u16;
-    if EQTB[(INT_BASE + 73i32) as usize].b32.s1 > 0i32 {
+    if *INTPAR(IntPar::xetex_upwards) > 0i32 {
         MEM[r as usize].b16.s0 = 1_u16
     } else {
         MEM[r as usize].b16.s0 = 0_u16
@@ -12360,7 +12230,7 @@ pub(crate) unsafe fn vpackage(
                 if MEM[(r + 5) as usize].b32.s1 != TEX_NULL {
                     /*699: */
                     last_badness = badness(x, total_stretch[0]); /*normal *//*:690 */
-                    if last_badness > EQTB[(INT_BASE + 27i32) as usize].b32.s1 {
+                    if last_badness > *INTPAR(IntPar::vbadness) {
                         print_ln();
                         if last_badness > 100i32 {
                             print_nl_cstr(b"Underfull");
@@ -12403,8 +12273,8 @@ pub(crate) unsafe fn vpackage(
             {
                 last_badness = 1000000i64 as i32;
                 MEM[(r + 6) as usize].gr = 1.0f64;
-                if -x - total_shrink[0] > EQTB[(DIMEN_BASE + 9i32) as usize].b32.s1
-                    || EQTB[(INT_BASE + 27i32) as usize].b32.s1 < 100i32
+                if -x - total_shrink[0] > *DIMENPAR(DimenPar::vfuzz)
+                    || *INTPAR(IntPar::vbadness) < 100i32
                 {
                     print_ln();
                     print_nl_cstr(b"Overfull \\vbox (");
@@ -12418,7 +12288,7 @@ pub(crate) unsafe fn vpackage(
                 if MEM[(r + 5) as usize].b32.s1 != TEX_NULL {
                     /*703: */
                     last_badness = badness(-x, total_shrink[0]);
-                    if last_badness > EQTB[(INT_BASE + 27i32) as usize].b32.s1 {
+                    if last_badness > *INTPAR(IntPar::vbadness) {
                         print_ln();
                         print_nl_cstr(b"Tight \\vbox (badness ");
                         print_int(last_badness);
@@ -12461,22 +12331,22 @@ pub(crate) unsafe fn append_to_vlist(mut b: i32) {
     let mut d: scaled_t = 0;
     let mut p: i32 = 0;
     let mut upwards: bool = false;
-    upwards = EQTB[(INT_BASE + 73i32) as usize].b32.s1 > 0i32;
+    upwards = *INTPAR(IntPar::xetex_upwards) > 0i32;
     if cur_list.aux.b32.s1 > -65536000i32 {
         if upwards {
-            d = MEM[(EQTB[(GLUE_BASE + 1i32) as usize].b32.s1 + 1i32) as usize]
+            d = MEM[(*GLUEPAR(GluePar::baseline_skip) + 1i32) as usize]
                 .b32
                 .s1
                 - cur_list.aux.b32.s1
                 - MEM[(b + 2) as usize].b32.s1
         } else {
-            d = MEM[(EQTB[(GLUE_BASE + 1i32) as usize].b32.s1 + 1i32) as usize]
+            d = MEM[(*GLUEPAR(GluePar::baseline_skip) + 1i32) as usize]
                 .b32
                 .s1
                 - cur_list.aux.b32.s1
                 - MEM[(b + 3) as usize].b32.s1
         }
-        if d < EQTB[(DIMEN_BASE + 2i32) as usize].b32.s1 {
+        if d < *DIMENPAR(DimenPar::line_skip_limit) {
             p = new_param_glue(0i32 as small_number)
         } else {
             p = new_skip_param(1i32 as small_number);
@@ -12575,12 +12445,12 @@ pub(crate) unsafe fn get_preamble_token() {
         if cur_cmd as i32 == 9i32 {
             fatal_error(b"(interwoven alignment preambles are not allowed)");
         }
-        if !(cur_cmd as i32 == 76i32 && cur_chr == GLUE_BASE + 11i32) {
+        if !(cur_cmd as i32 == 76i32 && cur_chr == GLUE_BASE + GluePar::tab_skip as i32) {
             break;
         }
         scan_optional_equals();
         scan_glue(2i32 as small_number);
-        if EQTB[(INT_BASE + 43i32) as usize].b32.s1 > 0i32 {
+        if *INTPAR(IntPar::global_defs) > 0i32 {
             geq_define(
                 1i32 + (0x10ffffi32 + 1i32)
                     + (0x10ffffi32 + 1i32)
@@ -12719,13 +12589,13 @@ pub(crate) unsafe fn init_align() {
         }
         MEM[p as usize].b32.s1 = get_avail();
         p = MEM[p as usize].b32.s1;
-        MEM[p as usize].b32.s0 = 0x1ffffff + (FROZEN_CONTROL_SEQUENCE + 5i32);
+        MEM[p as usize].b32.s0 = 0x1ffffff + FROZEN_END_TEMPLATE as i32;
         MEM[(cur_align + 2) as usize].b32.s1 = MEM[(4999999 - 4) as usize].b32.s1
     }
     scanner_status = 0_u8;
     new_save_level(6i32 as group_code);
-    if EQTB[(LOCAL_BASE + 8i32) as usize].b32.s1 != TEX_NULL {
-        begin_token_list(EQTB[(LOCAL_BASE + 8i32) as usize].b32.s1, 14_u16);
+    if *LOCAL(Local::every_cr) != TEX_NULL {
+        begin_token_list(*LOCAL(Local::every_cr), 14_u16);
     }
     align_peek();
 }
@@ -12968,8 +12838,8 @@ pub(crate) unsafe fn fin_row() {
     }
     MEM[p as usize].b16.s1 = 13_u16;
     MEM[(p + 6) as usize].b32.s1 = 0;
-    if EQTB[(LOCAL_BASE + 8i32) as usize].b32.s1 != TEX_NULL {
-        begin_token_list(EQTB[(LOCAL_BASE + 8i32) as usize].b32.s1, 14_u16);
+    if *LOCAL(Local::every_cr) != TEX_NULL {
+        begin_token_list(*LOCAL(Local::every_cr), 14_u16);
     }
     align_peek();
 }
@@ -12997,7 +12867,7 @@ pub(crate) unsafe fn fin_align() {
     }
     unsave();
     if (*nest.offset((nest_ptr - 1i32) as isize)).mode as i32 == 207i32 {
-        o = EQTB[(DIMEN_BASE + 15i32) as usize].b32.s1
+        o = *DIMENPAR(DimenPar::display_indent)
     } else {
         o = 0i32
     }
@@ -13070,14 +12940,14 @@ pub(crate) unsafe fn fin_align() {
     SAVE_PTR -= 2;
     pack_begin_line = -cur_list.mode_line;
     if cur_list.mode as i32 == -1i32 {
-        rule_save = EQTB[(DIMEN_BASE + 16i32) as usize].b32.s1;
-        EQTB[(DIMEN_BASE + 16i32) as usize].b32.s1 = 0i32;
+        rule_save = *DIMENPAR(DimenPar::overfull_rule);
+        *DIMENPAR(DimenPar::overfull_rule) = 0i32;
         p = hpack(
             MEM[(4999999 - 8) as usize].b32.s1,
             SAVE_STACK[SAVE_PTR + 1].b32.s1,
             SAVE_STACK[SAVE_PTR + 0].b32.s1 as small_number,
         );
-        EQTB[(DIMEN_BASE + 16i32) as usize].b32.s1 = rule_save
+        *DIMENPAR(DimenPar::overfull_rule) = rule_save
     } else {
         q = MEM[MEM[(4999999 - 8) as usize].b32.s1 as usize].b32.s1;
         loop {
@@ -13305,7 +13175,7 @@ pub(crate) unsafe fn fin_align() {
         }
         flush_node_list(cur_list.eTeX_aux);
         pop_nest();
-        MEM[cur_list.tail as usize].b32.s1 = new_penalty(EQTB[(INT_BASE + 11i32) as usize].b32.s1);
+        MEM[cur_list.tail as usize].b32.s1 = new_penalty(*INTPAR(IntPar::pre_display_penalty));
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         MEM[cur_list.tail as usize].b32.s1 = new_param_glue(3 as small_number);
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
@@ -13313,7 +13183,7 @@ pub(crate) unsafe fn fin_align() {
         if p != TEX_NULL {
             cur_list.tail = q
         }
-        MEM[cur_list.tail as usize].b32.s1 = new_penalty(EQTB[(INT_BASE + 12i32) as usize].b32.s1);
+        MEM[cur_list.tail as usize].b32.s1 = new_penalty(*INTPAR(IntPar::post_display_penalty));
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         MEM[cur_list.tail as usize].b32.s1 = new_param_glue(4 as small_number);
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
@@ -13360,10 +13230,10 @@ pub(crate) unsafe fn align_peek() {
     }
 }
 pub(crate) unsafe fn max_hyphenatable_length() -> i32 {
-    if EQTB[(INT_BASE + 82i32) as usize].b32.s1 > 4095i32 {
+    if *INTPAR(IntPar::xetex_hyphenatable_length) > 4095i32 {
         return 4095i32;
     }
-    EQTB[(INT_BASE + 82i32) as usize].b32.s1
+    *INTPAR(IntPar::xetex_hyphenatable_length)
 }
 pub(crate) unsafe fn eTeX_enabled(mut b: bool, mut j: u16, mut k: i32) -> bool {
     if !b {
@@ -13850,7 +13720,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
     q = vert_break(
         MEM[(v + 5) as usize].b32.s1,
         h,
-        EQTB[(DIMEN_BASE + 6i32) as usize].b32.s1,
+        *DIMENPAR(DimenPar::split_max_depth),
     );
     p = MEM[(v + 5) as usize].b32.s1;
     if p == q {
@@ -13887,7 +13757,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
             }
         }
     }
-    q = prune_page_top(q, EQTB[(INT_BASE + 65i32) as usize].b32.s1 > 0i32);
+    q = prune_page_top(q, *INTPAR(IntPar::saving_vdiscards) > 0i32);
     p = MEM[(v + 5) as usize].b32.s1;
     free_node(v, 8i32);
     if q != TEX_NULL {
@@ -13907,7 +13777,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
         p,
         h,
         0i32 as small_number,
-        EQTB[(DIMEN_BASE + 6i32) as usize].b32.s1,
+        *DIMENPAR(DimenPar::split_max_depth),
     )
 }
 pub(crate) unsafe fn print_totals() {
@@ -13948,11 +13818,11 @@ pub(crate) unsafe fn box_error(mut n: eight_bits) {
 }
 pub(crate) unsafe fn app_space() {
     let mut q: i32 = 0;
-    if cur_list.aux.b32.s0 >= 2000i32 && EQTB[(GLUE_BASE + 13i32) as usize].b32.s1 != 0i32 {
+    if cur_list.aux.b32.s0 >= 2000i32 && *GLUEPAR(GluePar::xspace_skip) != 0i32 {
         q = new_param_glue(13i32 as small_number)
     } else {
-        if EQTB[(GLUE_BASE + 12i32) as usize].b32.s1 != 0i32 {
-            main_p = EQTB[(GLUE_BASE + 12i32) as usize].b32.s1
+        if *GLUEPAR(GluePar::space_skip) != 0i32 {
+            main_p = *GLUEPAR(GluePar::space_skip)
         } else {
             /*1077: */
             main_p = FONT_GLUE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize]; /*:1079 */
@@ -14038,7 +13908,7 @@ pub(crate) unsafe fn its_all_over() -> bool {
         back_input();
         MEM[cur_list.tail as usize].b32.s1 = new_null_box();
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
-        MEM[(cur_list.tail + 1) as usize].b32.s1 = EQTB[(DIMEN_BASE + 3i32) as usize].b32.s1;
+        MEM[(cur_list.tail + 1) as usize].b32.s1 = *DIMENPAR(DimenPar::hsize);
         MEM[cur_list.tail as usize].b32.s1 = new_glue(8);
         cur_list.tail = MEM[cur_list.tail as usize].b32.s1;
         MEM[cur_list.tail as usize].b32.s1 = new_penalty(-0x40000000);
@@ -14102,7 +13972,7 @@ pub(crate) unsafe fn off_save() {
         print_cstr(b"Missing ");
         match cur_group as i32 {
             14 => {
-                MEM[p as usize].b32.s0 = 0x1ffffff + (FROZEN_CONTROL_SEQUENCE + 2i32);
+                MEM[p as usize].b32.s0 = 0x1ffffff + FROZEN_END_GROUP as i32;
                 print_esc_cstr(b"endgroup");
             }
             15 => {
@@ -14110,7 +13980,7 @@ pub(crate) unsafe fn off_save() {
                 print_char('$' as i32);
             }
             16 => {
-                MEM[p as usize].b32.s0 = 0x1ffffff + (FROZEN_CONTROL_SEQUENCE + 3i32);
+                MEM[p as usize].b32.s0 = 0x1ffffff + FROZEN_RIGHT as i32;
                 MEM[p as usize].b32.s1 = get_avail();
                 p = MEM[p as usize].b32.s1;
                 MEM[p as usize].b32.s0 = 0x1800000 + '.' as i32;
@@ -14155,16 +14025,16 @@ pub(crate) unsafe fn extra_right_brace() {
     align_state += 1;
 }
 pub(crate) unsafe fn normal_paragraph() {
-    if EQTB[(INT_BASE + 19i32) as usize].b32.s1 != 0i32 {
-        eq_word_define(INT_BASE + 19i32, 0i32);
+    if *INTPAR(IntPar::looseness) != 0i32 {
+        eq_word_define(INT_BASE + IntPar::looseness as i32, 0i32);
     }
-    if EQTB[(DIMEN_BASE + 17i32) as usize].b32.s1 != 0i32 {
-        eq_word_define(DIMEN_BASE + 17i32, 0i32);
+    if *DIMENPAR(DimenPar::hang_indent) != 0i32 {
+        eq_word_define(DIMEN_BASE + DimenPar::hang_indent as i32, 0i32);
     }
-    if EQTB[(INT_BASE + 41i32) as usize].b32.s1 != 1i32 {
-        eq_word_define(INT_BASE + 41i32, 1i32);
+    if *INTPAR(IntPar::hang_after) != 1i32 {
+        eq_word_define(INT_BASE + IntPar::hang_after as i32, 1i32);
     }
-    if EQTB[(LOCAL_BASE + 0i32) as usize].b32.s1 != TEX_NULL {
+    if *LOCAL(Local::par_shape) != TEX_NULL {
         eq_define(
             1i32 + (0x10ffffi32 + 1i32)
                 + (0x10ffffi32 + 1i32)
@@ -14516,13 +14386,13 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
             cur_list.mode = -k as i16;
             if k == 1i32 {
                 cur_list.aux.b32.s1 = -65536000i32;
-                if EQTB[(LOCAL_BASE + 6i32) as usize].b32.s1 != TEX_NULL {
-                    begin_token_list(EQTB[(LOCAL_BASE + 6i32) as usize].b32.s1, 12_u16);
+                if *LOCAL(Local::every_vbox) != TEX_NULL {
+                    begin_token_list(*LOCAL(Local::every_vbox), 12_u16);
                 }
             } else {
                 cur_list.aux.b32.s0 = 1000i32;
-                if EQTB[(LOCAL_BASE + 5i32) as usize].b32.s1 != TEX_NULL {
-                    begin_token_list(EQTB[(LOCAL_BASE + 5i32) as usize].b32.s1, 11_u16);
+                if *LOCAL(Local::every_hbox) != TEX_NULL {
+                    begin_token_list(*LOCAL(Local::every_hbox), 11_u16);
                 }
             }
             return;
@@ -14562,12 +14432,12 @@ pub(crate) unsafe fn package(mut c: small_number) {
     let mut d: scaled_t = 0;
     let mut u: i32 = 0;
     let mut v: i32 = 0;
-    d = EQTB[(DIMEN_BASE + 7i32) as usize].b32.s1;
-    u = EQTB[(INT_BASE + 73i32) as usize].b32.s1;
+    d = *DIMENPAR(DimenPar::box_max_depth);
+    u = *INTPAR(IntPar::xetex_upwards);
     unsave();
     SAVE_PTR -= 3;
-    v = EQTB[(INT_BASE + 73i32) as usize].b32.s1;
-    EQTB[(INT_BASE + 73i32) as usize].b32.s1 = u;
+    v = *INTPAR(IntPar::xetex_upwards);
+    *INTPAR(IntPar::xetex_upwards) = u;
     if cur_list.mode as i32 == -104i32 {
         cur_box = hpack(
             MEM[cur_list.head as usize].b32.s1,
@@ -14595,7 +14465,7 @@ pub(crate) unsafe fn package(mut c: small_number) {
             MEM[(cur_box + 3) as usize].b32.s1 = h
         }
     }
-    EQTB[(INT_BASE + 73i32) as usize].b32.s1 = v;
+    *INTPAR(IntPar::xetex_upwards) = v;
     pop_nest();
     box_end(SAVE_STACK[SAVE_PTR + 0].b32.s1);
 }
@@ -14617,17 +14487,16 @@ pub(crate) unsafe fn new_graf(mut indented: bool) {
     push_nest();
     cur_list.mode = 104_i16;
     cur_list.aux.b32.s0 = 1000i32;
-    if EQTB[(INT_BASE + 50i32) as usize].b32.s1 <= 0i32 {
+    if *INTPAR(IntPar::language) <= 0i32 {
         cur_lang = 0_u8
-    } else if EQTB[(INT_BASE + 50i32) as usize].b32.s1 > 255i32 {
+    } else if *INTPAR(IntPar::language) > 255i32 {
         cur_lang = 0_u8
     } else {
-        cur_lang = EQTB[(INT_BASE + 50i32) as usize].b32.s1 as u8
+        cur_lang = *INTPAR(IntPar::language) as u8
     }
     cur_list.aux.b32.s1 = cur_lang as i32;
-    cur_list.prev_graf = ((norm_min(EQTB[(INT_BASE + 51i32) as usize].b32.s1) as i32 * 64i32
-        + norm_min(EQTB[(INT_BASE + 52i32) as usize].b32.s1) as i32)
-        as i64
+    cur_list.prev_graf = ((norm_min(*INTPAR(IntPar::left_hyphen_min)) as i32 * 64i32
+        + norm_min(*INTPAR(IntPar::right_hyphen_min)) as i32) as i64
         * 65536
         + cur_lang as i64) as i32;
     if indented {
@@ -14638,8 +14507,8 @@ pub(crate) unsafe fn new_graf(mut indented: bool) {
             insert_src_special();
         }
     }
-    if EQTB[(LOCAL_BASE + 2i32) as usize].b32.s1 != TEX_NULL {
-        begin_token_list(EQTB[(LOCAL_BASE + 2i32) as usize].b32.s1, 8_u16);
+    if *LOCAL(Local::every_par) != TEX_NULL {
+        begin_token_list(*LOCAL(Local::every_par), 8_u16);
     }
     if nest_ptr == 1i32 {
         build_page();
@@ -15507,7 +15376,7 @@ pub(crate) unsafe fn get_r_token() {
         }
         if !(cur_cs == 0i32
             || cur_cs > EQTB_TOP as i32
-            || cur_cs > FROZEN_CONTROL_SEQUENCE && cur_cs <= DIMEN_BASE + 23i32 + 256i32 - 1i32)
+            || cur_cs > FROZEN_CONTROL_SEQUENCE as i32 && cur_cs <= EQTB_SIZE)
         {
             break;
         }
@@ -15526,7 +15395,7 @@ pub(crate) unsafe fn get_r_token() {
         if cur_cs == 0i32 {
             back_input();
         }
-        cur_tok = 0x1ffffffi32 + (FROZEN_CONTROL_SEQUENCE + 0i32);
+        cur_tok = 0x1ffffffi32 + FROZEN_PROTECTION as i32;
         ins_error();
     }
 }
@@ -15594,8 +15463,8 @@ pub(crate) unsafe fn do_register_command(mut a: small_number) {
                     e = true
                 } else {
                     match p as i32 {
-                        0 => l = cur_val + (COUNT_BASE),
-                        1 => l = cur_val + (DIMEN_BASE + 23i32),
+                        0 => l = cur_val + COUNT_BASE,
+                        1 => l = cur_val + SCALED_BASE,
                         2 => {
                             l = cur_val
                                 + (1i32
@@ -16020,8 +15889,8 @@ pub(crate) unsafe fn new_font(mut a: small_number) {
     } else {
         eq_define(u, 89_u16, f);
     }
-    EQTB[(FROZEN_CONTROL_SEQUENCE + 12i32 + f) as usize] = EQTB[u as usize];
-    (*hash.offset((FROZEN_CONTROL_SEQUENCE + 12i32 + f) as isize)).s1 = t;
+    EQTB[(FROZEN_NULL_FONT as i32 + f) as usize] = EQTB[u as usize];
+    (*hash.offset((FROZEN_NULL_FONT as i32 + f) as isize)).s1 = t;
 }
 pub(crate) unsafe fn new_interaction() {
     print_ln();
@@ -16239,7 +16108,7 @@ pub(crate) unsafe fn show_whatever() {
             }
             print_cstr(b"OK");
             if selector == Selector::TERM_AND_LOG {
-                if EQTB[(INT_BASE + 29i32) as usize].b32.s1 <= 0i32 {
+                if *INTPAR(IntPar::tracing_online) <= 0i32 {
                     selector = Selector::TERM_ONLY;
                     print_cstr(b" (see the transcript file)");
                     selector = Selector::TERM_AND_LOG
@@ -16251,7 +16120,7 @@ pub(crate) unsafe fn show_whatever() {
     if (interaction as i32) < 3i32 {
         help_ptr = 0_u8;
         error_count -= 1
-    } else if EQTB[(INT_BASE + 29i32) as usize].b32.s1 > 0i32 {
+    } else if *INTPAR(IntPar::tracing_online) > 0i32 {
         help_ptr = 3_u8;
         help_line[2] = b"This isn\'t an error message; I\'m just \\showing something.";
         help_line[1] = b"Type `I\\show...\' to show more (e.g., \\show\\cs,";
@@ -16343,9 +16212,9 @@ pub(crate) unsafe fn do_extension() {
                 }
                 MEM[(cur_list.tail + 1) as usize].b32.s1 = cur_list.aux.b32.s1;
                 MEM[(cur_list.tail + 1) as usize].b16.s1 =
-                    norm_min(EQTB[(INT_BASE + 51i32) as usize].b32.s1) as u16;
+                    norm_min(*INTPAR(IntPar::left_hyphen_min)) as u16;
                 MEM[(cur_list.tail + 1) as usize].b16.s0 =
-                    norm_min(EQTB[(INT_BASE + 52i32) as usize].b32.s1) as u16
+                    norm_min(*INTPAR(IntPar::right_hyphen_min)) as u16
             }
         }
         41 => {
@@ -16391,7 +16260,7 @@ pub(crate) unsafe fn do_extension() {
                 MEM[(cur_list.tail + 4) as usize].b16.s1 = cur_val as u16;
                 measure_native_glyph(
                     &mut MEM[cur_list.tail as usize] as *mut memory_word as *mut libc::c_void,
-                    (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
+                    (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
                 );
             } else {
                 not_native_font_error(59i32, 43i32, EQTB[(CUR_FONT_LOC) as usize].b32.s1);
@@ -16419,15 +16288,15 @@ pub(crate) unsafe fn do_extension() {
         45 => {
             scan_and_pack_name();
             i = get_encoding_mode_and_info(&mut j);
-            EQTB[(INT_BASE + 77i32) as usize].b32.s1 = i;
-            EQTB[(INT_BASE + 78i32) as usize].b32.s1 = j
+            *INTPAR(IntPar::xetex_default_input_mode) = i;
+            *INTPAR(IntPar::xetex_default_input_encoding) = j
         }
         46 => {
             scan_file_name();
             if length(cur_name) == 0i32 {
-                EQTB[(INT_BASE + 68i32) as usize].b32.s1 = 0i32
+                *INTPAR(IntPar::xetex_linebreak_locale) = 0i32
             } else {
-                EQTB[(INT_BASE + 68i32) as usize].b32.s1 = cur_name
+                *INTPAR(IntPar::xetex_linebreak_locale) = cur_name
             }
         }
         6 => new_whatsit(6i32 as small_number, 2i32 as small_number),
@@ -16436,21 +16305,21 @@ pub(crate) unsafe fn do_extension() {
 }
 pub(crate) unsafe fn fix_language() {
     let mut l: UTF16_code = 0;
-    if EQTB[(INT_BASE + 50i32) as usize].b32.s1 <= 0i32 {
+    if *INTPAR(IntPar::language) <= 0i32 {
         l = 0i32 as UTF16_code
-    } else if EQTB[(INT_BASE + 50i32) as usize].b32.s1 > 255i32 {
+    } else if *INTPAR(IntPar::language) > 255i32 {
         l = 0i32 as UTF16_code
     } else {
-        l = EQTB[(INT_BASE + 50i32) as usize].b32.s1 as UTF16_code
+        l = *INTPAR(IntPar::language) as UTF16_code
     }
     if l as i32 != cur_list.aux.b32.s1 {
         new_whatsit(4i32 as small_number, 2i32 as small_number);
         MEM[(cur_list.tail + 1) as usize].b32.s1 = l as i32;
         cur_list.aux.b32.s1 = l as i32;
         MEM[(cur_list.tail + 1) as usize].b16.s1 =
-            norm_min(EQTB[(INT_BASE + 51i32) as usize].b32.s1) as u16;
+            norm_min(*INTPAR(IntPar::left_hyphen_min)) as u16;
         MEM[(cur_list.tail + 1) as usize].b16.s0 =
-            norm_min(EQTB[(INT_BASE + 52i32) as usize].b32.s1) as u16
+            norm_min(*INTPAR(IntPar::right_hyphen_min)) as u16
     };
 }
 pub(crate) unsafe fn insert_src_special() {
@@ -16462,7 +16331,7 @@ pub(crate) unsafe fn insert_src_special() {
     {
         toklist = get_avail();
         p = toklist;
-        MEM[p as usize].b32.s0 = 0x1ffffff + (FROZEN_CONTROL_SEQUENCE + 10i32);
+        MEM[p as usize].b32.s0 = 0x1ffffff + FROZEN_SPECIAL as i32;
         MEM[p as usize].b32.s1 = get_avail();
         p = MEM[p as usize].b32.s1;
         MEM[p as usize].b32.s0 = 0x200000 + '{' as i32;
@@ -16526,10 +16395,10 @@ pub(crate) unsafe fn handle_right_brace() {
         }
         11 => {
             end_graf();
-            q = EQTB[(GLUE_BASE + 10i32) as usize].b32.s1;
+            q = *GLUEPAR(GluePar::split_top_skip);
             MEM[q as usize].b32.s1 += 1;
-            d = EQTB[(DIMEN_BASE + 6i32) as usize].b32.s1;
-            f = EQTB[(INT_BASE + 42i32) as usize].b32.s1;
+            d = *DIMENPAR(DimenPar::split_max_depth);
+            f = *INTPAR(IntPar::floating_penalty);
             unsave();
             SAVE_PTR -= 2;
             p = vpackage(
@@ -16626,7 +16495,7 @@ pub(crate) unsafe fn handle_right_brace() {
         10 => build_discretionary(),
         6 => {
             back_input();
-            cur_tok = 0x1ffffffi32 + (FROZEN_CONTROL_SEQUENCE + 1i32);
+            cur_tok = 0x1ffffffi32 + FROZEN_CR as i32;
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
@@ -16701,15 +16570,15 @@ pub(crate) unsafe fn handle_right_brace() {
 pub(crate) unsafe fn main_control() {
     let mut current_block: u64;
     let mut t: i32 = 0;
-    if EQTB[(LOCAL_BASE + 7i32) as usize].b32.s1 != TEX_NULL {
-        begin_token_list(EQTB[(LOCAL_BASE + 7i32) as usize].b32.s1, 13_u16);
+    if *LOCAL(Local::every_job) != TEX_NULL {
+        begin_token_list(*LOCAL(Local::every_job), 13_u16);
     }
     'c_125208: loop {
         /* big_switch */
         get_x_token();
         loop {
             /*1066: */
-            if EQTB[(INT_BASE + 36i32) as usize].b32.s1 > 0i32 {
+            if *INTPAR(IntPar::tracing_commands) > 0i32 {
                 show_cur_cmd_chr(); /*:1490 */
             }
             match (cur_list.mode as i32).abs() + cur_cmd as i32 {
@@ -16731,7 +16600,7 @@ pub(crate) unsafe fn main_control() {
                 }
                 _ => {
                     if (cur_list.mode as i32).abs() == 104i32 {
-                        if EQTB[(INT_BASE + 75i32) as usize].b32.s1 > 0i32
+                        if *INTPAR(IntPar::xetex_inter_char_tokens) > 0i32
                             && space_class != 4096i32
                             && prev_class != 4096i32 - 1i32
                         {
@@ -16962,7 +16831,7 @@ pub(crate) unsafe fn main_control() {
                         137 => {
                             if cur_chr > 0i32 {
                                 if eTeX_enabled(
-                                    EQTB[(INT_BASE + 71i32) as usize].b32.s1 > 0i32,
+                                    *INTPAR(IntPar::texxet) > 0i32,
                                     cur_cmd as u16,
                                     cur_chr,
                                 ) {
@@ -17119,8 +16988,8 @@ pub(crate) unsafe fn main_control() {
                             if insert_src_special_every_vbox {
                                 insert_src_special();
                             }
-                            if EQTB[(LOCAL_BASE + 6i32) as usize].b32.s1 != TEX_NULL {
-                                begin_token_list(EQTB[(LOCAL_BASE + 6i32) as usize].b32.s1, 12_u16);
+                            if *LOCAL(Local::every_vbox) != TEX_NULL {
+                                begin_token_list(*LOCAL(Local::every_vbox), 12_u16);
                             }
                             continue 'c_125208;
                         }
@@ -17215,7 +17084,7 @@ pub(crate) unsafe fn main_control() {
                 || FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32 == 0xfffeu32
             {
                 if cur_list.mode as i32 > 0i32 {
-                    if EQTB[(INT_BASE + 50i32) as usize].b32.s1 != cur_list.aux.b32.s1 {
+                    if *INTPAR(IntPar::language) != cur_list.aux.b32.s1 {
                         fix_language();
                     }
                 }
@@ -17239,7 +17108,7 @@ pub(crate) unsafe fn main_control() {
                     cur_ptr = TEX_NULL;
                     space_class =
                         (EQTB[(SF_CODE_BASE + cur_chr) as usize].b32.s1 as i64 / 65536) as i32;
-                    if EQTB[(INT_BASE + 75i32) as usize].b32.s1 > 0i32 && space_class != 4096i32 {
+                    if *INTPAR(IntPar::xetex_inter_char_tokens) > 0i32 && space_class != 4096i32 {
                         if prev_class == 4096i32 - 1i32 {
                             if cur_input.state as i32 != 0i32 || cur_input.index as i32 != 4i32 {
                                 find_sa_element(
@@ -17315,7 +17184,7 @@ pub(crate) unsafe fn main_control() {
                         native_len += 1
                     }
                     is_hyph = cur_chr == HYPHEN_CHAR[main_f as usize]
-                        || EQTB[(INT_BASE + 72i32) as usize].b32.s1 > 0i32
+                        || *INTPAR(IntPar::xetex_dash_break) > 0i32
                             && (cur_chr == 8212i32 || cur_chr == 8211i32);
                     if main_h == 0i32 && is_hyph as i32 != 0 {
                         main_h = native_len
@@ -17333,7 +17202,7 @@ pub(crate) unsafe fn main_control() {
                     if cur_cmd as i32 == 16i32 {
                         scan_usv_num();
                         cur_chr = cur_val
-                    } else if EQTB[(INT_BASE + 75i32) as usize].b32.s1 > 0i32
+                    } else if *INTPAR(IntPar::xetex_inter_char_tokens) > 0i32
                         && space_class != 4096i32
                         && prev_class != 4096i32 - 1i32
                     {
@@ -17392,7 +17261,7 @@ pub(crate) unsafe fn main_control() {
                             if main_h == 0i32
                                 && (*mapped_text.offset(main_p as isize) as i32
                                     == HYPHEN_CHAR[main_f as usize]
-                                    || EQTB[(INT_BASE + 72i32) as usize].b32.s1 > 0i32
+                                    || *INTPAR(IntPar::xetex_dash_break) > 0i32
                                         && (*mapped_text.offset(main_p as isize) as i32 == 8212i32
                                             || *mapped_text.offset(main_p as isize) as i32
                                                 == 8211i32))
@@ -17407,7 +17276,7 @@ pub(crate) unsafe fn main_control() {
                         }
                     }
                 }
-                if EQTB[(INT_BASE + 35i32) as usize].b32.s1 > 0i32 {
+                if *INTPAR(IntPar::tracing_lost_chars) > 0i32 {
                     temp_ptr = 0i32;
                     while temp_ptr < native_len {
                         main_k = *native_text.offset(temp_ptr as isize) as font_index;
@@ -17520,7 +17389,7 @@ pub(crate) unsafe fn main_control() {
                             while main_h < main_k
                                 && *native_text.offset((temp_ptr + main_h) as isize) as i32
                                     != HYPHEN_CHAR[main_f as usize]
-                                && (!(EQTB[(INT_BASE + 72i32) as usize].b32.s1 > 0i32)
+                                && (!(*INTPAR(IntPar::xetex_dash_break) > 0i32)
                                     || *native_text.offset((temp_ptr + main_h) as isize) as i32
                                         != 8212i32
                                         && *native_text.offset((temp_ptr + main_h) as isize) as i32
@@ -17546,7 +17415,7 @@ pub(crate) unsafe fn main_control() {
                             while main_h < main_k
                                 && *native_text.offset((temp_ptr + main_h) as isize) as i32
                                     != HYPHEN_CHAR[main_f as usize]
-                                && (!(EQTB[(INT_BASE + 72i32) as usize].b32.s1 > 0i32)
+                                && (!(*INTPAR(IntPar::xetex_dash_break) > 0i32)
                                     || *native_text.offset((temp_ptr + main_h) as isize) as i32
                                         != 8212i32
                                         && *native_text.offset((temp_ptr + main_h) as isize) as i32
@@ -17647,7 +17516,7 @@ pub(crate) unsafe fn main_control() {
                         measure_native_node(
                             &mut MEM[cur_list.tail as usize] as *mut memory_word
                                 as *mut libc::c_void,
-                            (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
+                            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
                         );
                         main_p = cur_list.head;
                         if main_p != main_pp {
@@ -17679,11 +17548,11 @@ pub(crate) unsafe fn main_control() {
                         measure_native_node(
                             &mut MEM[cur_list.tail as usize] as *mut memory_word
                                 as *mut libc::c_void,
-                            (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
+                            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
                         );
                     }
                 }
-                if EQTB[(INT_BASE + 80i32) as usize].b32.s1 > 0i32 {
+                if *INTPAR(IntPar::xetex_interword_space_shaping) > 0i32 {
                     main_p = cur_list.head;
                     main_pp = TEX_NULL;
                     while main_p != cur_list.tail {
@@ -17779,7 +17648,7 @@ pub(crate) unsafe fn main_control() {
                                     measure_native_node(
                                         &mut MEM[temp_ptr as usize] as *mut memory_word
                                             as *mut libc::c_void,
-                                        (EQTB[(INT_BASE + 74i32) as usize].b32.s1 > 0i32) as i32,
+                                        (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
                                     );
                                     t = MEM[(temp_ptr + 1) as usize].b32.s1
                                         - MEM[(main_pp + 1) as usize].b32.s1
@@ -17820,7 +17689,7 @@ pub(crate) unsafe fn main_control() {
                 cur_ptr = TEX_NULL;
                 space_class =
                     (EQTB[(SF_CODE_BASE + cur_chr) as usize].b32.s1 as i64 / 65536) as i32;
-                if EQTB[(INT_BASE + 75i32) as usize].b32.s1 > 0i32 && space_class != 4096i32 {
+                if *INTPAR(IntPar::xetex_inter_char_tokens) > 0i32 && space_class != 4096i32 {
                     if prev_class == 4096i32 - 1i32 {
                         if cur_input.state as i32 != 0i32 || cur_input.index as i32 != 4i32 {
                             find_sa_element(
@@ -17863,7 +17732,7 @@ pub(crate) unsafe fn main_control() {
                 bchar = FONT_BCHAR[main_f as usize];
                 false_bchar = FONT_FALSE_BCHAR[main_f as usize];
                 if cur_list.mode as i32 > 0i32 {
-                    if EQTB[(INT_BASE + 50i32) as usize].b32.s1 != cur_list.aux.b32.s1 {
+                    if *INTPAR(IntPar::language) != cur_list.aux.b32.s1 {
                         fix_language();
                     }
                 }
@@ -18194,7 +18063,7 @@ pub(crate) unsafe fn main_control() {
                                             (EQTB[(SF_CODE_BASE + cur_chr) as usize].b32.s1 as i64
                                                 / 65536)
                                                 as i32;
-                                        if EQTB[(INT_BASE + 75i32) as usize].b32.s1 > 0i32
+                                        if *INTPAR(IntPar::xetex_inter_char_tokens) > 0i32
                                             && space_class != 4096i32
                                         {
                                             if prev_class == 4096i32 - 1i32 {
@@ -18386,7 +18255,7 @@ pub(crate) unsafe fn main_control() {
             _ =>
             /*append_normal_space */
             {
-                if EQTB[(INT_BASE + 75i32) as usize].b32.s1 > 0i32
+                if *INTPAR(IntPar::xetex_inter_char_tokens) > 0i32
                     && space_class != 4096i32
                     && prev_class != 4096i32 - 1i32
                 {
@@ -18410,7 +18279,7 @@ pub(crate) unsafe fn main_control() {
                         continue;
                     }
                 }
-                if EQTB[(GLUE_BASE + 12i32) as usize].b32.s1 == 0i32 {
+                if *GLUEPAR(GluePar::space_skip) == 0i32 {
                     main_p = FONT_GLUE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize];
                     if main_p == TEX_NULL {
                         main_p = new_spec(0i32);
@@ -18431,7 +18300,7 @@ pub(crate) unsafe fn main_control() {
     }
 }
 pub(crate) unsafe fn give_err_help() {
-    token_show(EQTB[(LOCAL_BASE + 9i32) as usize].b32.s1);
+    token_show(*LOCAL(Local::err_help));
 }
 pub(crate) unsafe fn close_files_and_terminate() {
     let mut k: i32 = 0;
