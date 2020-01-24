@@ -450,22 +450,22 @@ pub(crate) const RADICAL_NOAD_SIZE: placeholdertype = 5;
 pub(crate) const FRACTION_NOAD_SIZE: placeholdertype = 6;
 
 /* MATH_COMP and others */
-pub(crate) const ORD_NOAD: placeholdertype = 16;
-pub(crate) const OP_NOAD: placeholdertype = 17;
-pub(crate) const BIN_NOAD: placeholdertype = 18;
-pub(crate) const REL_NOAD: placeholdertype = 19;
-pub(crate) const OPEN_NOAD: placeholdertype = 20;
-pub(crate) const CLOSE_NOAD: placeholdertype = 21;
-pub(crate) const PUNCT_NOAD: placeholdertype = 22;
-pub(crate) const INNER_NOAD: placeholdertype = 23;
-pub(crate) const RADICAL_NOAD: placeholdertype = 24;
-pub(crate) const FRACTION_NOAD: placeholdertype = 25;
-pub(crate) const UNDER_NOAD: placeholdertype = 26;
-pub(crate) const OVER_NOAD: placeholdertype = 27;
-pub(crate) const ACCENT_NOAD: placeholdertype = 28;
-pub(crate) const VCENTER_NOAD: placeholdertype = 29;
-pub(crate) const LEFT_NOAD: placeholdertype = 30;
-pub(crate) const RIGHT_NOAD: placeholdertype = 31;
+pub(crate) const ORD_NOAD: u16 = 16;
+pub(crate) const OP_NOAD: u16 = 17;
+pub(crate) const BIN_NOAD: u16 = 18;
+pub(crate) const REL_NOAD: u16 = 19;
+pub(crate) const OPEN_NOAD: u16 = 20;
+pub(crate) const CLOSE_NOAD: u16 = 21;
+pub(crate) const PUNCT_NOAD: u16 = 22;
+pub(crate) const INNER_NOAD: u16 = 23;
+pub(crate) const RADICAL_NOAD: u16 = 24;
+pub(crate) const FRACTION_NOAD: u16 = 25;
+pub(crate) const UNDER_NOAD: u16 = 26;
+pub(crate) const OVER_NOAD: u16 = 27;
+pub(crate) const ACCENT_NOAD: u16 = 28;
+pub(crate) const VCENTER_NOAD: u16 = 29;
+pub(crate) const LEFT_NOAD: u16 = 30;
+pub(crate) const RIGHT_NOAD: u16 = 31;
 
 /* args to TOP_BOT_MARK */
 pub(crate) const TOP_MARK_CODE: placeholdertype = 0;
