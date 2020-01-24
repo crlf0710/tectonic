@@ -5997,16 +5997,16 @@ unsafe extern "C" fn initialize_primitives() {
     primitive(b"eqno", EQ_NO, 0);
     primitive(b"leqno", EQ_NO, 1);
 
-    primitive(b"mathord", MATH_COMP, ORD_NOAD);
-    primitive(b"mathop", MATH_COMP, OP_NOAD);
-    primitive(b"mathbin", MATH_COMP, BIN_NOAD);
-    primitive(b"mathrel", MATH_COMP, REL_NOAD);
-    primitive(b"mathopen", MATH_COMP, OPEN_NOAD);
-    primitive(b"mathclose", MATH_COMP, CLOSE_NOAD);
-    primitive(b"mathpunct", MATH_COMP, PUNCT_NOAD);
-    primitive(b"mathinner", MATH_COMP, INNER_NOAD);
-    primitive(b"underline", MATH_COMP, UNDER_NOAD);
-    primitive(b"overline", MATH_COMP, OVER_NOAD);
+    primitive(b"mathord", MATH_COMP, ORD_NOAD as i32);
+    primitive(b"mathop", MATH_COMP, OP_NOAD as i32);
+    primitive(b"mathbin", MATH_COMP, BIN_NOAD as i32);
+    primitive(b"mathrel", MATH_COMP, REL_NOAD as i32);
+    primitive(b"mathopen", MATH_COMP, OPEN_NOAD as i32);
+    primitive(b"mathclose", MATH_COMP, CLOSE_NOAD as i32);
+    primitive(b"mathpunct", MATH_COMP, PUNCT_NOAD as i32);
+    primitive(b"mathinner", MATH_COMP, INNER_NOAD as i32);
+    primitive(b"underline", MATH_COMP, UNDER_NOAD as i32);
+    primitive(b"overline", MATH_COMP, OVER_NOAD as i32);
 
     primitive(b"displaylimits", LIMIT_SWITCH, NORMAL);
     primitive(b"limits", LIMIT_SWITCH, LIMITS);
@@ -6024,8 +6024,8 @@ unsafe extern "C" fn initialize_primitives() {
     primitive(b"overwithdelims", ABOVE, DELIMITED_CODE + 1);
     primitive(b"atopwithdelims", ABOVE, DELIMITED_CODE + 2);
 
-    primitive(b"left", LEFT_RIGHT, LEFT_NOAD);
-    primitive(b"right", LEFT_RIGHT, RIGHT_NOAD);
+    primitive(b"left", LEFT_RIGHT, LEFT_NOAD as i32);
+    primitive(b"right", LEFT_RIGHT, RIGHT_NOAD as i32);
     (*hash.offset(FROZEN_RIGHT as isize)).s1 = maketexstring(b"right");
     EQTB[FROZEN_RIGHT] = EQTB[cur_val as usize];
 
