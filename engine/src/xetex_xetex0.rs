@@ -132,7 +132,7 @@ pub(crate) type save_pointer = i32;
 pub(crate) unsafe fn cur_length() -> pool_pointer {
     pool_ptr - *str_start.offset((str_ptr - 65536i32) as isize)
 }
-unsafe extern "C" fn int_error(mut n: i32) {
+unsafe fn int_error(mut n: i32) {
     print_cstr(b" (");
     print_int(n);
     print_char(')' as i32);
@@ -7548,7 +7548,7 @@ pub(crate) unsafe fn scan_int() {
         cur_val = -cur_val
     };
 }
-unsafe extern "C" fn round_decimals(mut k: small_number) -> scaled_t {
+unsafe fn round_decimals(mut k: small_number) -> scaled_t {
     let mut a: i32 = 0i32;
     while k as i32 > 0i32 {
         k -= 1;

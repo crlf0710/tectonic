@@ -272,7 +272,7 @@ pub(crate) unsafe fn print_esc_cstr(s: &[u8]) {
     }
     print_cstr(s);
 }
-unsafe extern "C" fn print_the_digs(mut k: eight_bits) {
+unsafe fn print_the_digs(mut k: eight_bits) {
     while k as i32 > 0i32 {
         k = k.wrapping_sub(1);
         if (dig[k as usize] as i32) < 10i32 {

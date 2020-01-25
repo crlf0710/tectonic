@@ -56,7 +56,7 @@ pub(crate) unsafe fn initialize_pagebuilder_variables() {
     page_max_depth = 0;
 }
 
-unsafe extern "C" fn freeze_page_specs(mut s: small_number) {
+unsafe fn freeze_page_specs(mut s: small_number) {
     page_contents = s as _;
     page_so_far[0] = *DIMENPAR(DimenPar::vsize);
     page_max_depth = *DIMENPAR(DimenPar::max_depth);
@@ -70,7 +70,7 @@ unsafe extern "C" fn freeze_page_specs(mut s: small_number) {
     least_page_cost = MAX_HALFWORD;
 }
 
-unsafe extern "C" fn ensure_vbox(mut n: eight_bits) {
+unsafe fn ensure_vbox(mut n: eight_bits) {
     let p = *BOX_REG(n as _);
     if p == TEX_NULL {
         return;
@@ -96,7 +96,7 @@ unsafe extern "C" fn ensure_vbox(mut n: eight_bits) {
  * simple ships out the page. There is one parameter, `c`, which represents
  * the node that was being contributed to the page when the decision to force
  * an output was made." */
-unsafe extern "C" fn fire_up(mut c: i32) {
+unsafe fn fire_up(mut c: i32) {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut r: i32 = 0;
