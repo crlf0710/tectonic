@@ -30,7 +30,7 @@ pub(crate) type str_number = i32;
  * Licensed under the MIT License.
 */
 /* WEBby error-handling code: */
-unsafe extern "C" fn pre_error_message() {
+unsafe fn pre_error_message() {
     /* FKA normalize_selector(): */
     if log_opened {
         selector = Selector::TERM_AND_LOG
@@ -50,7 +50,7 @@ unsafe extern "C" fn pre_error_message() {
     };
 }
 /*82: */
-unsafe extern "C" fn post_error_message(mut need_to_print_it: i32) {
+unsafe fn post_error_message(mut need_to_print_it: i32) {
     if interaction as i32 == 3i32 {
         interaction = 2_u8
     }

@@ -1170,7 +1170,7 @@ none of the standard formats do that.  */
 `temp'.  */
 /* Make the NITEMS items pointed at by P, each of size SIZE, be the
 opposite-endianness of whatever they are now.  */
-unsafe extern "C" fn swap_items(mut p: *mut i8, mut nitems: size_t, mut size: size_t) {
+unsafe fn swap_items(mut p: *mut i8, mut nitems: size_t, mut size: size_t) {
     let mut temp: i8 = 0;
     match size {
         16 => loop {
@@ -1258,7 +1258,7 @@ unsafe extern "C" fn swap_items(mut p: *mut i8, mut nitems: size_t, mut size: si
 /* Here we write NITEMS items, each item being ITEM_SIZE bytes long.
 The pointer to the stuff to write is P, and we write to the file
 OUT_FILE.  */
-unsafe extern "C" fn do_dump(
+unsafe fn do_dump(
     mut p: *mut i8,
     mut item_size: size_t,
     mut nitems: size_t,
@@ -1280,7 +1280,7 @@ unsafe extern "C" fn do_dump(
     swap_items(p, nitems, item_size);
 }
 /* Here is the dual of the writing routine.  */
-unsafe extern "C" fn do_undump(
+unsafe fn do_undump(
     mut p: *mut i8,
     mut item_size: size_t,
     mut nitems: size_t,
@@ -1302,7 +1302,7 @@ const hash_offset: i32 = 514;
 
 /*:134*/
 /*135: */
-unsafe extern "C" fn sort_avail() {
+unsafe fn sort_avail() {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut r: i32 = 0;
@@ -1339,7 +1339,7 @@ unsafe extern "C" fn sort_avail() {
 }
 /*:271*/
 /*276: */
-unsafe extern "C" fn primitive(ident: &[u8], mut c: u16, mut o: i32) {
+unsafe fn primitive(ident: &[u8], mut c: u16, mut o: i32) {
     let mut prim_val: i32 = 0;
     let mut len = ident.len() as i32;
     if len > 1i32 {
@@ -1561,7 +1561,7 @@ pub(crate) unsafe fn trie_fix(mut p: trie_pointer) {
         }
     }
 }
-unsafe extern "C" fn new_patterns() {
+unsafe fn new_patterns() {
     let mut k: i16 = 0;
     let mut l: i16 = 0;
     let mut digit_sensed: bool = false;
@@ -1963,7 +1963,7 @@ pub(crate) unsafe fn init_trie() {
     trie_not_ready = false;
 }
 /*:1001*/
-unsafe extern "C" fn new_hyph_exceptions() {
+unsafe fn new_hyph_exceptions() {
     let mut current_block: u64;
     let mut n: i16 = 0;
     let mut j: i16 = 0;
@@ -2923,7 +2923,7 @@ pub(crate) unsafe fn prefixed_command() {
 }
 /*:1328*/
 /*1337:*/
-unsafe extern "C" fn store_fmt_file() {
+unsafe fn store_fmt_file() {
     let mut current_block: u64;
     let mut j: i32 = 0;
     let mut k: i32 = 0;
@@ -3746,13 +3746,13 @@ unsafe extern "C" fn store_fmt_file() {
     *INTPAR(IntPar::tracing_stats) = 0;
     ttstub_output_close(fmt_out_owner);
 }
-unsafe extern "C" fn pack_buffered_name(mut _n: small_number, mut _a: i32, mut _b: i32) {
+unsafe fn pack_buffered_name(mut _n: small_number, mut _a: i32, mut _b: i32) {
     free(name_of_file as *mut libc::c_void);
     name_of_file = xmalloc_array(format_default_length as usize + 1);
     strcpy(name_of_file, TEX_format_default);
     name_length = strlen(name_of_file) as i32;
 }
-unsafe extern "C" fn load_fmt_file() -> bool {
+unsafe fn load_fmt_file() -> bool {
     let mut _current_block: u64;
     let mut j: i32 = 0;
     let mut k: i32 = 0;
@@ -4826,7 +4826,7 @@ unsafe extern "C" fn load_fmt_file() -> bool {
     return true;
 }
 
-unsafe extern "C" fn final_cleanup() {
+unsafe fn final_cleanup() {
     let mut c: small_number = 0;
     c = cur_chr as small_number;
     if job_name == 0i32 {
@@ -4929,7 +4929,7 @@ static mut stdin_ufile: UFILE = UFILE {
     encodingMode: 0,
     conversionData: ptr::null_mut(),
 };
-unsafe extern "C" fn init_io() {
+unsafe fn init_io() {
     /* This is largely vestigial at this point */
     stdin_ufile.handle = None;
     stdin_ufile.savedChar = -1i32 as i64;
@@ -4943,7 +4943,7 @@ unsafe extern "C" fn init_io() {
     cur_input.limit = last;
     first = last + 1i32;
 }
-unsafe extern "C" fn initialize_more_variables() {
+unsafe fn initialize_more_variables() {
     let mut k: i32 = 0;
     let mut z: hyph_pointer = 0;
     doing_special = false;
@@ -5088,7 +5088,7 @@ unsafe extern "C" fn initialize_more_variables() {
     edit_name_start = 0i32;
     stop_at_space = true;
 }
-unsafe extern "C" fn initialize_more_initex_variables() {
+unsafe fn initialize_more_initex_variables() {
     let mut i: i32 = 0;
     let mut k: i32 = 0;
     k = 1i32;
@@ -5295,7 +5295,7 @@ unsafe extern "C" fn initialize_more_initex_variables() {
 }
 /*:1370*/
 /*1371: */
-unsafe extern "C" fn initialize_primitives() {
+unsafe fn initialize_primitives() {
     no_new_control_sequence = false;
     first = 0i32;
     primitive(
@@ -6121,7 +6121,7 @@ unsafe extern "C" fn initialize_primitives() {
     primitive(b"synctex", ASSIGN_INT, INT_BASE + IntPar::synctex as i32);
     no_new_control_sequence = true;
 }
-unsafe extern "C" fn get_strings_started() {
+unsafe fn get_strings_started() {
     pool_ptr = 0i32;
     str_ptr = 0i32;
     *str_start.offset(0) = 0i32;

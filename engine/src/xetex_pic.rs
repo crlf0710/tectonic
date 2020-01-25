@@ -80,7 +80,7 @@ pub(crate) unsafe fn count_pdf_file_pages() -> i32 {
     pdf_close(pf);
     pages
 }
-unsafe extern "C" fn pdf_get_rect(
+unsafe fn pdf_get_rect(
     mut filename: *mut i8,
     handle: InputHandleWrapper,
     mut page_num: i32,
@@ -150,9 +150,7 @@ unsafe extern "C" fn pdf_get_rect(
         Err(())
     }
 }
-unsafe extern "C" fn get_image_size_in_inches(
-    handle: &mut InputHandleWrapper,
-) -> Result<(f32, f32), i32> {
+unsafe fn get_image_size_in_inches(handle: &mut InputHandleWrapper) -> Result<(f32, f32), i32> {
     let (width_pix, height_pix, xdensity, ydensity) = if check_for_jpeg(handle) != 0 {
         jpeg_get_bbox(handle).map_err(|_| -1)?
     } else if check_for_bmp(handle) {
@@ -175,7 +173,7 @@ unsafe extern "C" fn get_image_size_in_inches(
   return full path in *path
   return bounds (tex points) in *bounds
 */
-unsafe extern "C" fn find_pic_file(
+unsafe fn find_pic_file(
     mut path: *mut *mut i8,
     mut pdfBoxType: i32,
     mut page: i32,

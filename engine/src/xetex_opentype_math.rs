@@ -117,7 +117,7 @@ pub(crate) static mut TeX_sym_to_OT_map: [hb_ot_math_constant_t; 23] = [
     4294967295 as hb_ot_math_constant_t,
     HB_OT_MATH_CONSTANT_AXIS_HEIGHT,
 ];
-unsafe extern "C" fn min_int(mut a: libc::c_int, mut b: libc::c_int) -> libc::c_int {
+unsafe fn min_int(mut a: libc::c_int, mut b: libc::c_int) -> libc::c_int {
     return if a < b { a } else { b };
 }
 pub(crate) unsafe fn get_native_mathsy_param(
@@ -321,7 +321,7 @@ pub(crate) unsafe fn ot_min_connector_overlap(mut f: libc::c_int) -> libc::c_int
     }
     return rval;
 }
-unsafe extern "C" fn getMathKernAt(
+unsafe fn getMathKernAt(
     mut f: libc::c_int,
     mut g: libc::c_int,
     mut side: hb_ot_math_kern_t,
@@ -336,7 +336,7 @@ unsafe extern "C" fn getMathKernAt(
     }
     return rval;
 }
-unsafe extern "C" fn glyph_height(mut f: libc::c_int, mut g: libc::c_int) -> libc::c_float {
+unsafe fn glyph_height(mut f: libc::c_int, mut g: libc::c_int) -> libc::c_float {
     let mut rval: libc::c_float = 0.0f64 as libc::c_float;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let mut engine: XeTeXLayoutEngine = FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine;
@@ -344,7 +344,7 @@ unsafe extern "C" fn glyph_height(mut f: libc::c_int, mut g: libc::c_int) -> lib
     }
     return rval;
 }
-unsafe extern "C" fn glyph_depth(mut f: libc::c_int, mut g: libc::c_int) -> libc::c_float {
+unsafe fn glyph_depth(mut f: libc::c_int, mut g: libc::c_int) -> libc::c_float {
     let mut rval: libc::c_float = 0.0f64 as libc::c_float;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let mut engine: XeTeXLayoutEngine = FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine;

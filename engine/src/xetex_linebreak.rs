@@ -101,7 +101,7 @@ static mut fill_width: [scaled_t; 3] = [0; 3];
 static mut best_pl_short: [scaled_t; 4] = [0; 4];
 static mut best_pl_glue: [scaled_t; 4] = [0; 4];
 #[inline]
-unsafe extern "C" fn get_native_usv(mut p: i32, mut i: i32) -> UnicodeScalar {
+unsafe fn get_native_usv(mut p: i32, mut i: i32) -> UnicodeScalar {
     let mut c: u16 =
         *(&mut MEM[(p + 6) as usize] as *mut memory_word as *mut u16).offset(i as isize);
     if c as i32 >= 0xd800i32 && (c as i32) < 0xdc00i32 {
@@ -1531,7 +1531,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 }
 /* This was just separated out to prevent line_break() from becoming
  * proposterously long. */
-unsafe extern "C" fn post_line_break(mut d: bool) {
+unsafe fn post_line_break(mut d: bool) {
     let mut q: i32 = 0;
     let mut r: i32 = 0;
     let mut s: i32 = 0;
@@ -1943,7 +1943,7 @@ unsafe extern "C" fn post_line_break(mut d: bool) {
  * or UNHYPHENATED, depending on whether or not the current break is at a
  * disc_node. The end of a paragraph is also regarded as hyphenated; this case
  * is distinguishable by the condition cur_p = null." */
-unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
+unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
     let mut current_block: u64;
     let mut r: i32 = 0;
     let mut prev_r: i32 = 0;
@@ -2620,7 +2620,7 @@ unsafe extern "C" fn try_break(mut pi: i32, mut break_type: small_number) {
         }
     }
 }
-unsafe extern "C" fn hyphenate() {
+unsafe fn hyphenate() {
     let mut current_block: u64;
     let mut i: i16 = 0;
     let mut j: i16 = 0;
@@ -3088,7 +3088,7 @@ unsafe extern "C" fn hyphenate() {
         flush_list(init_list);
     };
 }
-unsafe extern "C" fn finite_shrink(mut p: i32) -> i32 {
+unsafe fn finite_shrink(mut p: i32) -> i32 {
     let mut q: i32 = 0;
     if no_shrink_error_yet {
         no_shrink_error_yet = false;
@@ -3111,7 +3111,7 @@ unsafe extern "C" fn finite_shrink(mut p: i32) -> i32 {
     delete_glue_ref(p);
     q
 }
-unsafe extern "C" fn reconstitute(
+unsafe fn reconstitute(
     mut j: small_number,
     mut n: small_number,
     mut bchar: i32,
@@ -3410,7 +3410,7 @@ unsafe extern "C" fn reconstitute(
     }
     j
 }
-unsafe extern "C" fn total_pw(mut q: i32, mut p: i32) -> scaled_t {
+unsafe fn total_pw(mut q: i32, mut p: i32) -> scaled_t {
     let mut l: i32 = 0;
     let mut r: i32 = 0;
     let mut n: i32 = 0;
@@ -3449,7 +3449,7 @@ unsafe extern "C" fn total_pw(mut q: i32, mut p: i32) -> scaled_t {
     l = find_protchar_left(l, true);
     char_pw(l, 0) + char_pw(r, 1)
 }
-unsafe extern "C" fn find_protchar_left(mut l: i32, mut d: bool) -> i32 {
+unsafe fn find_protchar_left(mut l: i32, mut d: bool) -> i32 {
     let mut t: i32 = 0;
     let mut run: bool = false;
     if MEM[l as usize].b32.s1 != -0xfffffff
@@ -3514,7 +3514,7 @@ unsafe extern "C" fn find_protchar_left(mut l: i32, mut d: bool) -> i32 {
     }
     l
 }
-unsafe extern "C" fn find_protchar_right(mut l: i32, mut r: i32) -> i32 {
+unsafe fn find_protchar_right(mut l: i32, mut r: i32) -> i32 {
     let mut t: i32 = 0;
     let mut run: bool = false;
     if r == -0xfffffffi32 {
@@ -3573,14 +3573,14 @@ unsafe extern "C" fn find_protchar_right(mut l: i32, mut r: i32) -> i32 {
     }
     r
 }
-unsafe extern "C" fn push_node(mut p: i32) {
+unsafe fn push_node(mut p: i32) {
     if hlist_stack_level as i32 > 512i32 {
         pdf_error(b"push_node", b"stack overflow");
     }
     hlist_stack[hlist_stack_level as usize] = p;
     hlist_stack_level = (hlist_stack_level as i32 + 1i32) as i16;
 }
-unsafe extern "C" fn pop_node() -> i32 {
+unsafe fn pop_node() -> i32 {
     hlist_stack_level = (hlist_stack_level as i32 - 1i32) as i16;
     if (hlist_stack_level as i32) < 0i32 {
         pdf_error(b"pop_node", b"stack underflow (internal error)");

@@ -90,7 +90,7 @@ pub(crate) unsafe fn deinitialize_shipout_variables() {
 }
 
 #[inline]
-unsafe extern "C" fn dvi_out(c: u8) {
+unsafe fn dvi_out(c: u8) {
     *dvi_buf.offset(dvi_ptr as isize) = c;
     dvi_ptr += 1;
     if dvi_ptr == dvi_limit {
@@ -336,7 +336,7 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
 }
 
 /*639: Output an hlist */
-unsafe extern "C" fn hlist_out() {
+unsafe fn hlist_out() {
     let mut current_block: u64;
     let mut base_line: scaled_t = 0;
     let mut left_edge: scaled_t = 0;
@@ -1297,7 +1297,7 @@ unsafe extern "C" fn hlist_out() {
 /*651: "When vlist_out is called, its duty is to output the box represented by
  * the vlist_node pointed to by temp_ptr. The reference point of that box has
  * coordinates (cur_h, cur_v)." */
-unsafe extern "C" fn vlist_out() {
+unsafe fn vlist_out() {
     let mut current_block: u64;
     let mut left_edge: scaled_t = 0;
     let mut top_edge: scaled_t = 0;
@@ -1649,7 +1649,7 @@ unsafe extern "C" fn vlist_out() {
  * glue rounding state variables, to be updated by this function. We remove
  * nodes from the original list and add them to the head of the new one."
  */
-unsafe extern "C" fn reverse(
+unsafe fn reverse(
     mut this_box: i32,
     mut t: i32,
     mut cur_g: *mut scaled_t,
@@ -1968,7 +1968,7 @@ unsafe fn dvi_native_font_def(f: internal_font_number) {
     }
 }
 
-unsafe extern "C" fn dvi_font_def(f: internal_font_number) {
+unsafe fn dvi_font_def(f: internal_font_number) {
     let mut k: pool_pointer = 0;
     let mut l: i32 = 0;
     if FONT_AREA[f as usize] as u32 == 0xffffu32 || FONT_AREA[f as usize] as u32 == 0xfffeu32 {
@@ -2203,7 +2203,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
     };
 }
 
-unsafe extern "C" fn prune_movements(l: i32) {
+unsafe fn prune_movements(l: i32) {
     while down_ptr != TEX_NULL {
         if MEM[(down_ptr + 2) as usize].b32.s1 < l {
             break;
@@ -2273,7 +2273,7 @@ unsafe fn special_out(mut p: i32) {
     doing_special = false;
 }
 
-unsafe extern "C" fn write_out(mut p: i32) {
+unsafe fn write_out(mut p: i32) {
     let mut q = get_avail();
     MEM[q as usize].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
     let mut r = get_avail();

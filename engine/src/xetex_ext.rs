@@ -108,12 +108,12 @@ authorization from the copyright holders.
 \****************************************************************************/
 
 #[inline]
-unsafe extern "C" fn SWAP16(p: u16) -> u16 {
+unsafe fn SWAP16(p: u16) -> u16 {
     ((p as i32 >> 8i32) + ((p as i32) << 8i32)) as u16
 }
 
 #[inline]
-unsafe extern "C" fn SWAP32(p: u32) -> u32 {
+unsafe fn SWAP32(p: u32) -> u32 {
     (p >> 24i32)
         .wrapping_add(p >> 8i32 & 0xff00_u32)
         .wrapping_add(p << 8i32 & 0xff0000_u32)
@@ -303,7 +303,7 @@ pub(crate) unsafe fn print_chars(mut string: *const u16, mut len: i32) {
     }
 }
 
-unsafe extern "C" fn load_mapping_file(
+unsafe fn load_mapping_file(
     mut s: *const i8,
     mut e: *const i8,
     mut byteMapping: i8,
@@ -441,7 +441,7 @@ pub(crate) unsafe fn read_double(mut s: *mut *const i8) -> f64 {
         val
     }
 }
-unsafe extern "C" fn read_tag_with_param(mut cp: *const i8, mut param: *mut i32) -> hb_tag_t {
+unsafe fn read_tag_with_param(mut cp: *const i8, mut param: *mut i32) -> hb_tag_t {
     let mut cp2: *const i8 = ptr::null();
     let mut tag: hb_tag_t = 0;
     cp2 = cp;
@@ -603,7 +603,7 @@ pub(crate) unsafe fn readCommonFeatures(
     }
     0i32
 }
-unsafe extern "C" fn readFeatureNumber(
+unsafe fn readFeatureNumber(
     mut s: *const i8,
     mut e: *const i8,
     mut f: *mut hb_tag_t,
@@ -648,7 +648,7 @@ unsafe extern "C" fn readFeatureNumber(
     }
     true
 }
-unsafe extern "C" fn loadOTfont(
+unsafe fn loadOTfont(
     mut fontRef: PlatformFontRef,
     mut font: XeTeXFont,
     mut scaled_size: Fixed,
@@ -954,7 +954,7 @@ unsafe extern "C" fn loadOTfont(
     engine as *mut libc::c_void
 }
 
-unsafe extern "C" fn splitFontName(
+unsafe fn splitFontName(
     mut name: *mut i8,
     mut var: *mut *mut i8,
     mut feat: *mut *mut i8,
@@ -1363,7 +1363,7 @@ pub(crate) unsafe fn gr_font_get_named_1(
     rval as i32
 }
 #[cfg(target_os = "macos")]
-unsafe extern "C" fn cgColorToRGBA32(mut color: CGColorRef) -> u32 {
+unsafe fn cgColorToRGBA32(mut color: CGColorRef) -> u32 {
     let mut components: *const CGFloat = CGColorGetComponents(color);
     let mut rval: u32 = (*components.offset(0) * 255.0f64 + 0.5f64) as u8 as u32;
     rval <<= 8i32;
@@ -1667,11 +1667,7 @@ pub(crate) unsafe fn apply_mapping(
         }
     }
 }
-unsafe extern "C" fn snap_zone(
-    mut value: *mut scaled_t,
-    mut snap_value: scaled_t,
-    mut fuzz: scaled_t,
-) {
+unsafe fn snap_zone(mut value: *mut scaled_t, mut snap_value: scaled_t, mut fuzz: scaled_t) {
     let mut difference: scaled_t = *value - snap_value;
     if difference <= fuzz && difference >= -fuzz {
         *value = snap_value

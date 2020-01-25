@@ -78,7 +78,7 @@ pub(crate) struct Context {
  *  for dvi mode, we'll have to record the 1in offset in both directions,
  *  eventually modified by the magnification.
  */
-type synctex_recorder_t = Option<unsafe extern "C" fn(_: i32) -> ()>;
+type synctex_recorder_t = Option<unsafe fn(_: i32) -> ()>;
 
 const default_synctex_ctxt: Context = Context {
     file: None,
@@ -100,7 +100,7 @@ const default_synctex_ctxt: Context = Context {
 };
 static mut synctex_ctxt: Context = default_synctex_ctxt;
 
-unsafe extern "C" fn get_current_name() -> *mut i8 {
+unsafe fn get_current_name() -> *mut i8 {
     /* This used to always make the pathname absolute but I'm getting rid of
      * that since it ends up adding dependencies on a bunch of functions I
      * don't want to have to deal with. */
@@ -167,7 +167,7 @@ pub(crate) unsafe fn synctex_init_command() {
 /*  Free all memory used, close the file if any,
  *  It is sent locally when there is a problem with synctex output.
  *  It is sent by pdftex when a fatal error occurred in pdftex.web. */
-unsafe extern "C" fn synctexabort() {
+unsafe fn synctexabort() {
     if let Some(_file) = synctex_ctxt.file.as_mut() {
         ttstub_output_close(synctex_ctxt.file.take().unwrap());
     }
@@ -185,7 +185,7 @@ static mut synctex_suffix_gz: *const i8 = b".gz\x00" as *const u8 as *const i8;
  *  For example foo-i.synctex would contain input synchronization
  *  information for page i alone.
  */
-unsafe extern "C" fn synctex_dot_open() -> bool {
+unsafe fn synctex_dot_open() -> bool {
     let mut tmp: *mut i8 = ptr::null_mut();
     let mut the_name: *mut i8 = ptr::null_mut();
     if synctex_ctxt.flags.contains(Flags::OFF) || *INTPAR(IntPar::synctex) == 0 {
@@ -233,7 +233,7 @@ unsafe extern "C" fn synctex_dot_open() -> bool {
  *  only once there is an opportunity to know whether
  *  in pdf or dvi mode.
  */
-unsafe extern "C" fn synctex_prepare_content() -> bool {
+unsafe fn synctex_prepare_content() -> bool {
     if synctex_ctxt.flags.contains(Flags::CONTENT_READY) {
         return synctex_ctxt.file.is_some();
     }
@@ -643,8 +643,7 @@ pub(crate) unsafe fn synctex_kern(mut p: i32, mut this_box: i32) {
             synctex_ctxt.node = p;
             synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
             synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
-            synctex_ctxt.recorder =
-                Some(synctex_record_node_kern as unsafe extern "C" fn(_: i32) -> ())
+            synctex_ctxt.recorder = Some(synctex_record_node_kern as unsafe fn(_: i32) -> ())
         } else {
             synctex_ctxt.node = p;
             synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
@@ -659,7 +658,7 @@ pub(crate) unsafe fn synctex_kern(mut p: i32, mut this_box: i32) {
         synctex_ctxt.node = p;
         synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
         synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
-        synctex_ctxt.recorder = Some(synctex_record_node_kern as unsafe extern "C" fn(_: i32) -> ())
+        synctex_ctxt.recorder = Some(synctex_record_node_kern as unsafe fn(_: i32) -> ())
     };
 }
 /*  For debugging purpose only    */
@@ -688,7 +687,7 @@ pub(crate) unsafe fn synctex_current() {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_settings() -> i32 {
+unsafe fn synctex_record_settings() -> i32 {
     if synctex_ctxt.file.is_none() {
         return 0i32;
     }
@@ -704,7 +703,7 @@ unsafe extern "C" fn synctex_record_settings() -> i32 {
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_preamble() -> i32 {
+unsafe fn synctex_record_preamble() -> i32 {
     let s = format!("SyncTeX Version:{}\n", 1,);
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length = len;
@@ -714,7 +713,7 @@ unsafe extern "C" fn synctex_record_preamble() -> i32 {
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_input(mut tag: i32, mut name: *mut i8) -> i32 {
+unsafe fn synctex_record_input(mut tag: i32, mut name: *mut i8) -> i32 {
     let s = format!("Input:{}:{}\n", tag, CStr::from_ptr(name).to_string_lossy(),);
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
@@ -724,7 +723,7 @@ unsafe extern "C" fn synctex_record_input(mut tag: i32, mut name: *mut i8) -> i3
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_anchor() -> i32 {
+unsafe fn synctex_record_anchor() -> i32 {
     let s = format!("!{}\n", synctex_ctxt.total_length,);
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length = len;
@@ -735,7 +734,7 @@ unsafe extern "C" fn synctex_record_anchor() -> i32 {
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_content() -> i32 {
+unsafe fn synctex_record_content() -> i32 {
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(b"Content:\n") {
         synctex_ctxt.total_length += len;
         return 0i32;
@@ -744,7 +743,7 @@ unsafe extern "C" fn synctex_record_content() -> i32 {
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_sheet(mut sheet: i32) -> i32 {
+unsafe fn synctex_record_sheet(mut sheet: i32) -> i32 {
     if 0i32 == synctex_record_anchor() {
         let s = format!("{{{}\n", sheet,);
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -758,7 +757,7 @@ unsafe extern "C" fn synctex_record_sheet(mut sheet: i32) -> i32 {
 }
 /*  Recording a "}..." or a ">" line  */
 #[inline]
-unsafe extern "C" fn synctex_record_teehs(mut sheet: i32) -> i32 {
+unsafe fn synctex_record_teehs(mut sheet: i32) -> i32 {
     if 0i32 == synctex_record_anchor() {
         let s = format!("}}{}\n", sheet,);
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -803,7 +802,7 @@ pub(crate) unsafe fn synctex_pdfrefxform(mut objnum: i32) {
 }
 /*  Recording a "<..." line  */
 #[inline]
-unsafe extern "C" fn synctex_record_pdfxform(mut _form: i32) -> i32 {
+unsafe fn synctex_record_pdfxform(mut _form: i32) -> i32 {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
@@ -824,7 +823,7 @@ unsafe extern "C" fn synctex_record_pdfxform(mut _form: i32) -> i32 {
 }
 /*  Recording a ">" line  */
 #[inline]
-unsafe extern "C" fn synctex_record_mrofxfdp() -> i32 {
+unsafe fn synctex_record_mrofxfdp() -> i32 {
     if 0i32 == synctex_record_anchor() {
         /* XXX Tectonic: mistake here in original source, no %d in format string */
         synctex_ctxt.form_depth -= 1;
@@ -839,7 +838,7 @@ unsafe extern "C" fn synctex_record_mrofxfdp() -> i32 {
 }
 /*  Recording a "f..." line  */
 #[inline]
-unsafe extern "C" fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
+unsafe fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
 /* UNUSED form JL */ {
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
@@ -866,7 +865,7 @@ unsafe extern "C" fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_void_vlist(mut p: i32) {
+unsafe fn synctex_record_node_void_vlist(mut p: i32) {
     let s = format!(
         "v{},{}:{},{}:{},{},{}\n",
         MEM[(p + 8 - 1) as usize].b32.s0,
@@ -886,7 +885,7 @@ unsafe extern "C" fn synctex_record_node_void_vlist(mut p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_vlist(mut p: i32) {
+unsafe fn synctex_record_node_vlist(mut p: i32) {
     synctex_ctxt.flags.insert(Flags::NOT_VOID);
     let s = format!(
         "[{},{}:{},{}:{},{},{}\n",
@@ -907,7 +906,7 @@ unsafe extern "C" fn synctex_record_node_vlist(mut p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_tsilv(mut _p: i32) {
+unsafe fn synctex_record_node_tsilv(mut _p: i32) {
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(b"]\n") {
         synctex_ctxt.total_length += len
     /* is it correct that synctex_ctxt.count is not incremented here? */
@@ -916,7 +915,7 @@ unsafe extern "C" fn synctex_record_node_tsilv(mut _p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_void_hlist(mut p: i32) {
+unsafe fn synctex_record_node_void_hlist(mut p: i32) {
     let s = format!(
         "h{},{}:{},{}:{},{},{}\n",
         MEM[(p + 8 - 1) as usize].b32.s0,
@@ -936,7 +935,7 @@ unsafe extern "C" fn synctex_record_node_void_hlist(mut p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_hlist(mut p: i32) {
+unsafe fn synctex_record_node_hlist(mut p: i32) {
     synctex_ctxt.flags.insert(Flags::NOT_VOID);
     let s = format!(
         "({},{}:{},{}:{},{},{}\n",
@@ -957,7 +956,7 @@ unsafe extern "C" fn synctex_record_node_hlist(mut p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_tsilh(mut _p: i32) {
+unsafe fn synctex_record_node_tsilh(mut _p: i32) {
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(b")\n") {
         synctex_ctxt.total_length += len;
         synctex_ctxt.count += 1
@@ -966,7 +965,7 @@ unsafe extern "C" fn synctex_record_node_tsilh(mut _p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_count() -> i32 {
+unsafe fn synctex_record_count() -> i32 {
     let s = format!("Count:{}\n", synctex_ctxt.count,);
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
@@ -976,7 +975,7 @@ unsafe extern "C" fn synctex_record_count() -> i32 {
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_postamble() -> i32 {
+unsafe fn synctex_record_postamble() -> i32 {
     if 0i32 == synctex_record_anchor() {
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(b"Postamble:\n") {
             synctex_ctxt.total_length += len;
@@ -997,7 +996,7 @@ unsafe extern "C" fn synctex_record_postamble() -> i32 {
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_glue(mut p: i32) {
+unsafe fn synctex_record_node_glue(mut p: i32) {
     let s = format!(
         "g{},{}:{},{}\n",
         MEM[(p + 3 - 1) as usize].b32.s0,
@@ -1014,7 +1013,7 @@ unsafe extern "C" fn synctex_record_node_glue(mut p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_kern(mut p: i32) {
+unsafe fn synctex_record_node_kern(mut p: i32) {
     let s = format!(
         "k{},{}:{},{}:{}\n",
         MEM[(p + 3 - 1) as usize].b32.s0,
@@ -1032,7 +1031,7 @@ unsafe extern "C" fn synctex_record_node_kern(mut p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_rule(mut p: i32) {
+unsafe fn synctex_record_node_rule(mut p: i32) {
     let s = format!(
         "r{},{}:{},{}:{},{},{}\n",
         MEM[(p + 5 - 1) as usize].b32.s0,
@@ -1051,7 +1050,7 @@ unsafe extern "C" fn synctex_record_node_rule(mut p: i32) {
         synctexabort();
     };
 }
-unsafe extern "C" fn synctex_record_node_math(mut p: i32) {
+unsafe fn synctex_record_node_math(mut p: i32) {
     let s = format!(
         "${},{}:{},{}\n",
         MEM[(p + 3 - 1) as usize].b32.s0,

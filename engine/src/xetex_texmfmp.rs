@@ -54,7 +54,7 @@ pub(crate) fn get_date_and_time() -> (i32, i32, i32, i32) {
 
     (minutes as _, day as _, month as _, year)
 }
-unsafe extern "C" fn checkpool_pointer(mut pool_ptr_0: pool_pointer, mut len: size_t) {
+unsafe fn checkpool_pointer(mut pool_ptr_0: pool_pointer, mut len: size_t) {
     assert!(
         !((pool_ptr_0 as u64).wrapping_add(len as u64) >= pool_size as u64),
         "string pool overflow [{} bytes]",
@@ -164,7 +164,7 @@ pub(crate) unsafe fn gettexstring(mut s: str_number) -> *mut i8 {
     *name.offset(j as isize) = 0_i8;
     name
 }
-unsafe extern "C" fn compare_paths(mut p1: *const i8, mut p2: *const i8) -> i32 {
+unsafe fn compare_paths(mut p1: *const i8, mut p2: *const i8) -> i32 {
     let mut ret: i32 = 0;
     loop {
         ret = *p1 as i32 - *p2 as i32;
@@ -240,7 +240,7 @@ pub(crate) unsafe fn make_src_special(
  * hexadecimal encoded;
  * sizeof(out) should be at least lin*2+1.
  */
-unsafe extern "C" fn convertStringToHexString(mut in_0: *const i8, mut out: *mut i8, mut lin: i32) {
+unsafe fn convertStringToHexString(mut in_0: *const i8, mut out: *mut i8, mut lin: i32) {
     static mut hexchars: [i8; 17] = [
         48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 0,
     ];
