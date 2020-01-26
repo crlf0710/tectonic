@@ -307,7 +307,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
             if !(FT_Get_Sfnt_Name(face, i, &mut nameRec) != 0i32) {
                 match nameRec.name_id as libc::c_int {
                     4 | 1 | 2 | 16 | 17 => {
-                        let mut preferredName: bool = 0i32 != 0;
+                        let mut preferredName = false;
                         if nameRec.platform_id as libc::c_int == 1i32
                             && nameRec.encoding_id as libc::c_int == 0i32
                             && nameRec.language_id as libc::c_int == 0i32
@@ -317,7 +317,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
                                 nameRec.string,
                                 nameRec.string_len as libc::c_int,
                             );
-                            preferredName = 1i32 != 0
+                            preferredName = true
                         } else if nameRec.platform_id as libc::c_int == 0i32
                             || nameRec.platform_id as libc::c_int == 3i32
                         {
@@ -660,7 +660,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_initialize(mut self_0: *mut XeTe
     (*real_self).allFonts = FcFontList(FcConfigGetCurrent(), pat, os);
     FcObjectSetDestroy(os);
     FcPatternDestroy(pat);
-    (*real_self).cachedAll = 0i32 != 0;
+    (*real_self).cachedAll = false;
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_terminate(mut self_0: *mut XeTeXFontMgr) {

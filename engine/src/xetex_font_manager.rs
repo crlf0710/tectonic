@@ -242,9 +242,9 @@ unsafe extern "C" fn XeTeXFontMgrFont_create(mut ref_0: PlatformFontRef) -> *mut
     (*self_0).weight = 0i32 as uint16_t;
     (*self_0).width = 0i32 as uint16_t;
     (*self_0).slant = 0i32 as int16_t;
-    (*self_0).isReg = 0i32 != 0;
-    (*self_0).isBold = 0i32 != 0;
-    (*self_0).isItalic = 0i32 != 0;
+    (*self_0).isReg = false;
+    (*self_0).isBold = false;
+    (*self_0).isItalic = false;
     (*self_0).opSizeInfo.subFamilyID = 0i32 as libc::c_uint;
     (*self_0).opSizeInfo.designSize = 100i32 as libc::c_uint;
     return self_0;
@@ -327,7 +327,7 @@ pub(crate) static mut XeTeXFontMgr_sReqEngine: libc::c_char = 0i32 as libc::c_ch
 /* use our own fmax function because it seems to be missing on certain platforms
 (solaris2.9, at least) */
 #[inline]
-unsafe extern "C" fn my_fmax(mut x: libc::c_double, mut y: libc::c_double) -> libc::c_double {
+unsafe extern "C" fn my_fmax(mut x: f64, mut y: f64) -> f64 {
     return if x > y { x } else { y };
 }
 pub(crate) unsafe fn XeTeXFontMgr_GetFontManager() -> *mut XeTeXFontMgr {
@@ -392,7 +392,7 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
     mut self_0: *mut XeTeXFontMgr,
     mut name: *const libc::c_char,
     mut variant: *mut libc::c_char,
-    mut ptSize: libc::c_double,
+    mut ptSize: f64,
 ) -> PlatformFontRef {
     // 1st arg is name as specified by user (C string, UTF-8)
     // 2nd is /B/I/AAT/OT/ICU/GR/S=## qualifiers
@@ -514,8 +514,8 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
     // if there are variant requests, try to apply them
     // and delete B, I, and S=... codes from the string, just retain /engine option
     XeTeXFontMgr_sReqEngine = 0i32 as libc::c_char;
-    let mut reqBold: bool = 0i32 != 0;
-    let mut reqItal: bool = 0i32 != 0;
+    let mut reqBold = false;
+    let mut reqItal = false;
     if !variant.is_null() {
         let mut varString: *mut CppStdString = CppStdString_create();
         let mut cp: *mut libc::c_char = variant;
@@ -588,17 +588,15 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
                 }
                 ptSize = 0.0f64;
                 while *cp as libc::c_int >= '0' as i32 && *cp as libc::c_int <= '9' as i32 {
-                    ptSize = ptSize * 10i32 as libc::c_double
-                        + *cp as libc::c_int as libc::c_double
-                        - '0' as i32 as libc::c_double;
+                    ptSize = ptSize * 10i32 as f64 + *cp as libc::c_int as f64 - '0' as i32 as f64;
                     cp = cp.offset(1)
                 }
                 if *cp as libc::c_int == '.' as i32 {
-                    let mut dec: libc::c_double = 1.0f64;
+                    let mut dec: f64 = 1.0f64;
                     cp = cp.offset(1);
                     while *cp as libc::c_int >= '0' as i32 && *cp as libc::c_int <= '9' as i32 {
                         dec = dec * 10.0f64;
-                        ptSize = ptSize + (*cp as libc::c_int - '0' as i32) as libc::c_double / dec;
+                        ptSize = ptSize + (*cp as libc::c_int - '0' as i32) as f64 / dec;
                         cp = cp.offset(1)
                     }
                 }
@@ -607,13 +605,13 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
                 /* if the code is "B" or "I", we skip putting it in varString */
                 {
                     if *cp as libc::c_int == 'B' as i32 {
-                        reqBold = 1i32 != 0;
+                        reqBold = true;
                         cp = cp.offset(1)
                     } else {
                         if !(*cp as libc::c_int == 'I' as i32) {
                             break;
                         }
-                        reqItal = 1i32 != 0;
+                        reqItal = true;
                         cp = cp.offset(1)
                     }
                 }
@@ -750,23 +748,23 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
     }
     // if there's optical size info, try to apply it
     if ptSize < 0.0f64 {
-        ptSize = dsize as libc::c_double / 10.0f64
+        ptSize = dsize as f64 / 10.0f64
     } // convert to decipoints for comparison with the opSize values
     if !font.is_null() && (*font).opSizeInfo.subFamilyID != 0i32 as libc::c_uint && ptSize > 0.0f64
     {
         ptSize = ptSize * 10.0f64;
-        let mut bestMismatch: libc::c_double = my_fmax(
-            (*font).opSizeInfo.minSize as libc::c_double - ptSize,
-            ptSize - (*font).opSizeInfo.maxSize as libc::c_double,
+        let mut bestMismatch: f64 = my_fmax(
+            (*font).opSizeInfo.minSize as f64 - ptSize,
+            ptSize - (*font).opSizeInfo.maxSize as f64,
         );
         if bestMismatch > 0.0f64 {
             let mut bestMatch_1: *mut XeTeXFontMgrFont = font;
             for (_, v) in (*(*parent).styles).iter() {
                 let style_font_ptr = v.as_ptr();
                 if !((*style_font_ptr).opSizeInfo.subFamilyID != (*font).opSizeInfo.subFamilyID) {
-                    let mut mismatch: libc::c_double = my_fmax(
-                        (*style_font_ptr).opSizeInfo.minSize as libc::c_double - ptSize,
-                        ptSize - (*style_font_ptr).opSizeInfo.maxSize as libc::c_double,
+                    let mut mismatch: f64 = my_fmax(
+                        (*style_font_ptr).opSizeInfo.minSize as f64 - ptSize,
+                        ptSize - (*style_font_ptr).opSizeInfo.maxSize as f64,
                     );
                     if mismatch < bestMismatch {
                         bestMatch_1 = style_font_ptr;
@@ -909,12 +907,12 @@ pub(crate) unsafe fn XeTeXFontMgr_getOpSize(
 pub(crate) unsafe fn XeTeXFontMgr_getDesignSize(
     mut self_0: *mut XeTeXFontMgr,
     mut font: XeTeXFont,
-) -> libc::c_double {
+) -> f64 {
     let mut pSizeRec: *mut XeTeXFontMgrOpSizeRec = XeTeXFontMgr_getOpSize(self_0, font);
     if pSizeRec.is_null() {
         return 10.0f64;
     }
-    let mut result: libc::c_double = (*pSizeRec).designSize as libc::c_double / 10.0f64;
+    let mut result: f64 = (*pSizeRec).designSize as f64 / 10.0f64;
     free(pSizeRec as *mut libc::c_void);
     return result;
 }
@@ -961,10 +959,10 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
         if !headTable.is_null() {
             let mut ms: uint16_t = (*headTable).Mac_Style;
             if ms as libc::c_int & 1i32 << 0i32 != 0i32 {
-                (*theFont).isBold = 1i32 != 0
+                (*theFont).isBold = true
             }
             if ms as libc::c_int & 1i32 << 1i32 != 0i32 {
-                (*theFont).isItalic = 1i32 != 0
+                (*theFont).isItalic = true
             }
         }
         let mut postTable: *const TT_Postscript =

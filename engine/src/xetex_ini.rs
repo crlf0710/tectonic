@@ -43,6 +43,7 @@ use crate::xetex_xetex0::{
     scan_register_num, scan_toks, scan_usv_num, scan_xetex_math_char_int, show_cur_cmd_chr,
     show_save_groups, start_input, trap_zero_glue,
 };
+use crate::xetex_xetexd::LLIST_link;
 use bridge::{
     ttstub_input_close, ttstub_input_open, ttstub_input_read, ttstub_output_close,
     ttstub_output_open, ttstub_output_open_stdout,
@@ -2243,7 +2244,7 @@ pub(crate) unsafe fn prefixed_command() {
             e = cur_chr >= 2i32;
             get_r_token();
             p = cur_cs;
-            q = scan_toks(1i32 != 0, e);
+            q = scan_toks(true, e);
             if j != 0i32 {
                 q = get_avail();
                 MEM[q as usize].b32.s0 = j;
@@ -3149,7 +3150,7 @@ unsafe fn store_fmt_file() {
     p = avail;
     while p != TEX_NULL {
         dyn_used -= 1;
-        p = MEM[p as usize].b32.s1
+        p = *LLIST_link(p as isize)
     }
     let mut x_val_13: i32 = var_used;
     do_dump(
@@ -6008,7 +6009,7 @@ unsafe fn initialize_primitives() {
     primitive(b"underline", MATH_COMP, UNDER_NOAD as i32);
     primitive(b"overline", MATH_COMP, OVER_NOAD as i32);
 
-    primitive(b"displaylimits", LIMIT_SWITCH, NORMAL);
+    primitive(b"displaylimits", LIMIT_SWITCH, NORMAL as i32);
     primitive(b"limits", LIMIT_SWITCH, LIMITS);
     primitive(b"nolimits", LIMIT_SWITCH, NO_LIMITS);
 
@@ -6036,8 +6037,8 @@ unsafe fn initialize_primitives() {
     primitive(b"gdef", DEF, 1);
     primitive(b"edef", DEF, 2);
     primitive(b"xdef", DEF, 3);
-    primitive(b"let", LET, NORMAL);
-    primitive(b"futurelet", LET, NORMAL + 1);
+    primitive(b"let", LET, NORMAL as i32);
+    primitive(b"futurelet", LET, NORMAL as i32 + 1);
 
     primitive(b"chardef", SHORTHAND_DEF, CHAR_DEF_CODE);
     primitive(b"mathchardef", SHORTHAND_DEF, MATH_CHAR_DEF_CODE);

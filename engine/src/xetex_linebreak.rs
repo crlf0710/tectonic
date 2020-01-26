@@ -337,7 +337,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 loop {
                     let mut eff_char: i32 = 0;
                     f = MEM[cur_p as usize].b16.s1 as internal_font_number;
-                    eff_char = effective_char(1i32 != 0, f, MEM[cur_p as usize].b16.s0);
+                    eff_char = effective_char(true, f, MEM[cur_p as usize].b16.s0);
                     active_width[1] += FONT_INFO[(WIDTH_BASE[f as usize]
                         + FONT_INFO[(CHAR_BASE[f as usize] + eff_char) as usize]
                             .b16
@@ -1288,7 +1288,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             if is_char_node(s) {
                                 let mut eff_char_0: i32 = 0; /*:898 big DISC_NODE case */
                                 f = MEM[s as usize].b16.s1 as internal_font_number;
-                                eff_char_0 = effective_char(1i32 != 0, f, MEM[s as usize].b16.s0);
+                                eff_char_0 = effective_char(true, f, MEM[s as usize].b16.s0);
                                 disc_width += FONT_INFO[(WIDTH_BASE[f as usize]
                                     + FONT_INFO[(CHAR_BASE[f as usize] + eff_char_0) as usize]
                                         .b16
@@ -1345,7 +1345,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         if is_char_node(s) {
                             let mut eff_char_2: i32 = 0;
                             f = MEM[s as usize].b16.s1 as internal_font_number;
-                            eff_char_2 = effective_char(1i32 != 0, f, MEM[s as usize].b16.s0);
+                            eff_char_2 = effective_char(true, f, MEM[s as usize].b16.s0);
                             active_width[1] += FONT_INFO[(WIDTH_BASE[f as usize]
                                 + FONT_INFO[(CHAR_BASE[f as usize] + eff_char_2) as usize]
                                     .b16
@@ -1667,7 +1667,7 @@ unsafe fn post_line_break(mut d: bool) {
                 MEM[s as usize].b32.s1 = r;
                 r = MEM[(q + 1) as usize].b32.s1;
                 MEM[(q + 1) as usize].b32.s1 = -0xfffffff;
-                post_disc_break = 1i32 != 0
+                post_disc_break = true
             }
             if MEM[(q + 1) as usize].b32.s0 != -0xfffffff {
                 /*914:*/
@@ -1680,7 +1680,7 @@ unsafe fn post_line_break(mut d: bool) {
                 q = s
             }
             MEM[q as usize].b32.s1 = r;
-            disc_break = 1i32 != 0
+            disc_break = true
         } else if MEM[q as usize].b16.s1 as i32 == 11 {
             MEM[(q + 1) as usize].b32.s1 = 0
         } else if MEM[q as usize].b16.s1 as i32 == 9 {
@@ -1975,7 +1975,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
         }
         pi = -10000i32
     }
-    no_break_yet = 1i32 != 0;
+    no_break_yet = true;
     prev_r = 4999999i32 - 7i32;
     old_l = 0i32;
     cur_active_width[1] = active_width[1];
@@ -2032,8 +2032,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                     if is_char_node(v) {
                                         let mut eff_char: i32 = 0;
                                         f = MEM[v as usize].b16.s1 as internal_font_number;
-                                        eff_char =
-                                            effective_char(1i32 != 0, f, MEM[v as usize].b16.s0);
+                                        eff_char = effective_char(true, f, MEM[v as usize].b16.s0);
                                         break_width[1] -= FONT_INFO[(WIDTH_BASE[f as usize]
                                             + FONT_INFO[(CHAR_BASE[f as usize] + eff_char) as usize]
                                                 .b16
@@ -2048,9 +2047,9 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                                 let mut eff_char_0: i32 = 0;
                                                 f = MEM[(v + 1) as usize].b16.s1
                                                     as internal_font_number;
-                                                xtx_ligature_present = 1i32 != 0;
+                                                xtx_ligature_present = true;
                                                 eff_char_0 = effective_char(
-                                                    1i32 != 0,
+                                                    true,
                                                     f,
                                                     MEM[(v + 1) as usize].b16.s0,
                                                 );
@@ -2089,7 +2088,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                         let mut eff_char_1: i32 = 0;
                                         f = MEM[s as usize].b16.s1 as internal_font_number;
                                         eff_char_1 =
-                                            effective_char(1i32 != 0, f, MEM[s as usize].b16.s0);
+                                            effective_char(true, f, MEM[s as usize].b16.s0);
                                         break_width[1] += FONT_INFO[(WIDTH_BASE[f as usize]
                                             + FONT_INFO
                                                 [(CHAR_BASE[f as usize] + eff_char_1) as usize]
@@ -2105,9 +2104,9 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                                 let mut eff_char_2: i32 = 0;
                                                 f = MEM[(s + 1) as usize].b16.s1
                                                     as internal_font_number;
-                                                xtx_ligature_present = 1i32 != 0;
+                                                xtx_ligature_present = true;
                                                 eff_char_2 = effective_char(
-                                                    1i32 != 0,
+                                                    true,
                                                     f,
                                                     MEM[(s + 1) as usize].b16.s0,
                                                 );
@@ -2283,7 +2282,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
              */
             if semantic_pagination_enabled {
                 line_width = cur_active_width[1];
-                artificial_demerits = 1i32 != 0;
+                artificial_demerits = true;
                 shortfall = 0i32
             } else {
                 artificial_demerits = false;
@@ -2492,7 +2491,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                     && MEM[r as usize].b32.s1 == 4999999 - 7
                     && prev_r == 4999999i32 - 7i32
                 {
-                    artificial_demerits = 1i32 != 0;
+                    artificial_demerits = true;
                     current_block = 8298116646536739282;
                 } else if b > threshold {
                     current_block = 4955522990288899513;
@@ -2511,7 +2510,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                 if b > threshold {
                     continue;
                 }
-                node_r_stays_active = 1i32 != 0;
+                node_r_stays_active = true;
                 current_block = 14114736409816581360;
             }
             match current_block {
@@ -2908,7 +2907,7 @@ unsafe fn hyphenate() {
                 current_block = 6826215413708131726;
             } else {
                 init_list = MEM[(ha + 1) as usize].b32.s1;
-                init_lig = 1i32 != 0;
+                init_lig = true;
                 init_lft = MEM[ha as usize].b16.s0 as i32 > 1;
                 hu[0] = MEM[(ha + 1) as usize].b16.s0 as i32;
                 if init_list == -0xfffffffi32 {
@@ -3147,7 +3146,7 @@ unsafe fn reconstitute(
             t = MEM[t as usize].b32.s1;
             MEM[t as usize].b16.s1 = hf as u16;
             MEM[t as usize].b16.s0 = MEM[p as usize].b16.s0;
-            p = MEM[p as usize].b32.s1
+            p = *LLIST_link(p as isize)
         }
     } else if cur_l < 65536i32 {
         MEM[t as usize].b32.s1 = get_avail();
@@ -3177,7 +3176,7 @@ unsafe fn reconstitute(
             }
         } else {
             q = FONT_INFO
-                [(CHAR_BASE[hf as usize] + effective_char(1i32 != 0, hf, cur_l as u16)) as usize]
+                [(CHAR_BASE[hf as usize] + effective_char(true, hf, cur_l as u16)) as usize]
                 .b16;
             if q.s1 as i32 % 4i32 != 1i32 {
                 current_block = 4939169394500275451;
@@ -3218,17 +3217,17 @@ unsafe fn reconstitute(
                                 if (q.s1 as i32) < 128i32 {
                                     /*946: */
                                     if cur_l == 65536i32 {
-                                        lft_hit = 1i32 != 0
+                                        lft_hit = true
                                     }
                                     if j as i32 == n as i32 {
                                         if lig_stack == -0xfffffffi32 {
-                                            rt_hit = 1i32 != 0
+                                            rt_hit = true
                                         }
                                     }
                                     match q.s1 as i32 {
                                         1 | 5 => {
                                             cur_l = q.s0 as i32;
-                                            ligature_present = 1i32 != 0
+                                            ligature_present = true
                                         }
                                         2 | 6 => {
                                             cur_r = q.s0 as i32;
@@ -3270,11 +3269,11 @@ unsafe fn reconstitute(
                                             }
                                             cur_q = t;
                                             cur_l = q.s0 as i32;
-                                            ligature_present = 1i32 != 0
+                                            ligature_present = true
                                         }
                                         _ => {
                                             cur_l = q.s0 as i32;
-                                            ligature_present = 1i32 != 0;
+                                            ligature_present = true;
                                             if lig_stack > -0xfffffffi32 {
                                                 if MEM[(lig_stack + 1) as usize].b32.s1
                                                     > -0xfffffffi32
@@ -3384,7 +3383,7 @@ unsafe fn reconstitute(
         }
         cur_q = t;
         cur_l = MEM[lig_stack as usize].b16.s0 as i32;
-        ligature_present = 1i32 != 0;
+        ligature_present = true;
         if MEM[(lig_stack + 1) as usize].b32.s1 > -0xfffffff {
             MEM[t as usize].b32.s1 = MEM[(lig_stack + 1) as usize].b32.s1;
             t = MEM[t as usize].b32.s1;
@@ -3468,7 +3467,7 @@ unsafe fn find_protchar_left(mut l: i32, mut d: bool) -> i32 {
         }
     }
     hlist_stack_level = 0_i16;
-    run = 1i32 != 0;
+    run = true;
     loop {
         t = l;
         while run as i32 != 0
@@ -3521,7 +3520,7 @@ unsafe fn find_protchar_right(mut l: i32, mut r: i32) -> i32 {
         return -0xfffffffi32;
     }
     hlist_stack_level = 0_i16;
-    run = 1i32 != 0;
+    run = true;
     loop {
         t = r;
         while run as i32 != 0

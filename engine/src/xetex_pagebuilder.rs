@@ -14,7 +14,7 @@ use crate::xetex_ini::{
     best_height_plus_depth, cur_list, cur_mark, cur_ptr, dead_cycles, disc_ptr,
     file_line_error_style_p, help_line, help_ptr, insert_penalties, last_glue, last_kern,
     last_node_type, last_penalty, line, nest, nest_ptr, output_active, page_contents, page_so_far,
-    page_tail, sa_root, semantic_pagination_enabled, temp_ptr, EQTB, MEM,
+    page_tail, sa_root, semantic_pagination_enabled, temp_ptr, MEM,
 };
 use crate::xetex_output::{print_cstr, print_esc_cstr, print_file_line, print_int, print_nl_cstr};
 use crate::xetex_scaledmath::x_over_n;
@@ -103,7 +103,7 @@ unsafe fn fire_up(mut c: i32) {
     let mut s: i32 = 0;
     let mut prev_p: i32 = 0;
     let mut n: u8 = 0;
-    let mut wait: bool = false;
+    let mut wait = false;
     let mut save_vbadness: i32 = 0;
     let mut save_vfuzz: scaled_t = 0;
     let mut save_split_top_skip: i32 = 0;
@@ -254,10 +254,7 @@ unsafe fn fire_up(mut c: i32) {
                         }
                         MEM[(r + 2) as usize].b32.s0 = TEX_NULL;
                         n = *NODE_subtype(r as isize) as _;
-                        temp_ptr = MEM
-                            [(EQTB[(BOX_BASE + n as i32) as usize].b32.s1 + 5i32) as usize]
-                            .b32
-                            .s1;
+                        temp_ptr = MEM[(*BOX_REG(n as i32) + 5) as usize].b32.s1;
                         free_node(*BOX_REG(n as _), BOX_NODE_SIZE);
                         *BOX_REG(n as _) =
                             vpackage(temp_ptr, 0i32, 1i32 as small_number, 0x3fffffffi32);

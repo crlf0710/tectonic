@@ -76,7 +76,7 @@ pub(crate) unsafe fn XeTeXFontInst_Mac_initialize(
     CFRelease(attributes as CFTypeRef);
     (*self_0).m_fontRef = CTFontCreateWithFontDescriptor(
         (*self_0).m_descriptor,
-        (*self_0).super_.m_pointSize as libc::c_double * 72.0f64 / 72.27f64,
+        (*self_0).super_.m_pointSize as f64 * 72.0f64 / 72.27f64,
         ptr::null(),
     );
     if !(*self_0).m_fontRef.is_null() {
@@ -98,7 +98,7 @@ pub(crate) unsafe fn XeTeXFontInst_Mac_initialize(
 pub(crate) unsafe fn XeTeXFontInst_Mac_ctor(
     mut self_0: *mut XeTeXFontInst_Mac,
     mut descriptor: CTFontDescriptorRef,
-    mut pointSize: libc::c_float,
+    mut pointSize: f32,
     mut status: *mut libc::c_int,
 ) {
     XeTeXFontInst_base_ctor(&mut (*self_0).super_, ptr::null(), 0i32, pointSize, status);
@@ -112,7 +112,7 @@ pub(crate) unsafe fn XeTeXFontInst_Mac_ctor(
 #[no_mangle]
 pub(crate) unsafe extern "C" fn XeTeXFontInst_Mac_create(
     mut descriptor: CTFontDescriptorRef,
-    mut pointSize: libc::c_float,
+    mut pointSize: f32,
     mut status: *mut libc::c_int,
 ) -> *mut XeTeXFontInst_Mac {
     let mut value: *mut XeTeXFontInst_Mac =
