@@ -294,7 +294,7 @@ pub(crate) unsafe fn set_input_file_encoding(
                 print_c_string(b" creating Unicode converter for `\x00" as *const u8 as *const i8);
                 print_c_string(name);
                 print_c_string(b"\'; reading as raw bytes\x00" as *const u8 as *const i8);
-                end_diagnostic(1i32 != 0);
+                end_diagnostic(true);
                 (*f).encodingMode = 4_i16
             } else {
                 (*f).encodingMode = 5_i16;
@@ -365,7 +365,7 @@ unsafe extern "C" fn conversion_error(mut errcode: i32) {
     print_c_string(b"nicode conversion failed (ICU error code = \x00" as *const u8 as *const i8);
     print_int(errcode);
     print_c_string(b") discarding any remaining text\x00" as *const u8 as *const i8);
-    end_diagnostic(1i32 != 0);
+    end_diagnostic(true);
 }
 unsafe extern "C" fn apply_normalization(mut buf: *mut u32, mut len: i32, mut norm: i32) {
     static mut normalizers: [teckit::TECkit_Converter; 2] =

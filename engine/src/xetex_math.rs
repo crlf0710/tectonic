@@ -1548,7 +1548,7 @@ unsafe fn math_glue(mut g: i32, mut m: scaled_t) -> i32 {
         MAX_HALFWORD,
     );
     MEM[p as usize].b16.s1 = MEM[g as usize].b16.s1;
-    if MEM[p as usize].b16.s1 as i32 == NORMAL {
+    if MEM[p as usize].b16.s1 == NORMAL {
         MEM[(p + 2) as usize].b32.s1 = mult_and_add(
             n,
             MEM[(g + 2) as usize].b32.s1,
@@ -1559,7 +1559,7 @@ unsafe fn math_glue(mut g: i32, mut m: scaled_t) -> i32 {
         MEM[(p + 2) as usize].b32.s1 = MEM[(g + 2) as usize].b32.s1
     }
     MEM[p as usize].b16.s0 = MEM[g as usize].b16.s0;
-    if *GLUE_SPEC_shrink_order(p as isize) as i32 == NORMAL {
+    if *GLUE_SPEC_shrink_order(p as isize) == NORMAL {
         MEM[(p + 3) as usize].b32.s1 = mult_and_add(
             n,
             MEM[(g + 3) as usize].b32.s1,
@@ -2180,7 +2180,7 @@ unsafe fn make_fraction(mut q: i32) {
     // :775
 }
 unsafe fn make_op(mut q: i32) -> scaled_t {
-    if MEM[q as usize].b16.s0 as i32 == NORMAL && (cur_style as i32) < TEXT_STYLE {
+    if MEM[q as usize].b16.s0 == NORMAL && (cur_style as i32) < TEXT_STYLE {
         MEM[q as usize].b16.s0 = LIMITS as u16;
     }
     let mut delta = 0;
@@ -2775,7 +2775,7 @@ unsafe fn make_scripts(mut q: i32, mut delta: scaled_t) {
     } else {
         p = MEM[(q + 1) as usize].b32.s1;
         while MEM[p as usize].b32.s1 != TEX_NULL {
-            p = MEM[p as usize].b32.s1
+            p = *LLIST_link(p as isize)
         }
         MEM[p as usize].b32.s1 = x
     };
@@ -3284,7 +3284,7 @@ unsafe fn mlist_to_hlist() {
                 if MEM[(q + 1) as usize].b32.s1 != TEX_NULL {
                     MEM[p as usize].b32.s1 = MEM[(q + 1) as usize].b32.s1;
                     loop {
-                        p = MEM[p as usize].b32.s1;
+                        p = *LLIST_link(p as isize);
                         if MEM[p as usize].b32.s1 == TEX_NULL {
                             break;
                         }
@@ -3812,7 +3812,7 @@ unsafe fn build_opentype_assembly(
             nat = nat + MEM[(MEM[(p + 1) as usize].b32.s0 + 1) as usize].b32.s1;
             str = str + MEM[(MEM[(p + 1) as usize].b32.s0 + 2) as usize].b32.s1
         }
-        p = MEM[p as usize].b32.s1
+        p = *LLIST_link(p as isize)
     }
     o = 0;
     if s > nat && str > 0 {
@@ -3862,7 +3862,7 @@ unsafe fn rebox(mut b: i32, mut w: scaled_t) -> i32 {
         b = new_glue(12);
         MEM[b as usize].b32.s1 = p;
         while MEM[p as usize].b32.s1 != TEX_NULL {
-            p = MEM[p as usize].b32.s1
+            p = *LLIST_link(p as isize)
         }
         MEM[p as usize].b32.s1 = new_glue(12);
         hpack(b, w, EXACTLY as small_number)

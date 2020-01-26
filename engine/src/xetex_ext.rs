@@ -199,7 +199,7 @@ pub(crate) unsafe fn linebreak_start(
             );
             print_c_string(locale);
             print_c_string(b"\'; trying default locale `en_us\'.\x00" as *const u8 as *const i8);
-            end_diagnostic(1i32 != 0);
+            end_diagnostic(true);
             if !brkIter.is_null() {
                 icu::ubrk_close(brkIter);
             }
@@ -267,7 +267,7 @@ pub(crate) unsafe fn get_encoding_mode_and_info(mut info: *mut i32) -> i32 {
         print_c_string(b"nknown encoding `\x00" as *const u8 as *const i8);
         print_c_string(name_of_file);
         print_c_string(b"\'; reading as raw bytes\x00" as *const u8 as *const i8);
-        end_diagnostic(1i32 != 0);
+        end_diagnostic(true);
         4i32
     } else {
         icu::ucnv_close(cnv);
@@ -1090,7 +1090,7 @@ pub(crate) unsafe fn find_native_font(
                 print_nl(' ' as i32);
                 print_c_string(b"-> \x00" as *const u8 as *const i8);
                 print_c_string(nameString.offset(1));
-                end_diagnostic(0i32 != 0);
+                end_diagnostic(false);
             }
         }
     } else {
@@ -1512,8 +1512,8 @@ pub(crate) unsafe fn make_font_def(mut f: i32) -> i32 {
                 rgba = cgColorToRGBA32(color)
             }
             t = CTFontGetMatrix(font);
-            extend = t.a as libc::c_float;
-            slant = t.c as libc::c_float;
+            extend = t.a as f32;
+            slant = t.c as f32;
             emboldenNumber = CFDictionaryGetValue(
                 attributes,
                 aat::getkXeTeXEmboldenAttributeName() as *const libc::c_void,
@@ -1522,7 +1522,7 @@ pub(crate) unsafe fn make_font_def(mut f: i32) -> i32 {
                 CFNumberGetValue(
                     emboldenNumber,
                     kCFNumberFloatType as libc::c_int as CFNumberType,
-                    &mut embolden as *mut libc::c_float as *mut libc::c_void,
+                    &mut embolden as *mut f32 as *mut libc::c_void,
                 );
             }
             fSize = CTFontGetSize(font);

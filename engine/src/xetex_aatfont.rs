@@ -92,15 +92,15 @@ authorization from the copyright holders.
  * additional plain C extensions for XeTeX - MacOS-specific routines
  */
 #[inline]
-unsafe fn TeXtoPSPoints(mut pts: libc::c_double) -> libc::c_double {
+unsafe fn TeXtoPSPoints(mut pts: f64) -> f64 {
     return pts * 72.0f64 / 72.27f64;
 }
 #[inline]
-unsafe fn PStoTeXPoints(mut pts: libc::c_double) -> libc::c_double {
+unsafe fn PStoTeXPoints(mut pts: f64) -> f64 {
     return pts * 72.27f64 / 72.0f64;
 }
 #[inline]
-unsafe fn FixedPStoTeXPoints(mut pts: libc::c_double) -> Fixed {
+unsafe fn FixedPStoTeXPoints(mut pts: f64) -> Fixed {
     return D2Fix(PStoTeXPoints(pts));
 }
 
@@ -239,7 +239,7 @@ pub(crate) unsafe fn do_aat_layout(mut p: *mut libc::c_void, mut justify: libc::
                 totalGlyphCount += 1;
                 j += 1
             }
-            width += FixedPStoTeXPoints(runWidth) as libc::c_double;
+            width += FixedPStoTeXPoints(runWidth) as f64;
             free(glyphs as *mut libc::c_void);
             free(positions as *mut libc::c_void);
             free(advances as *mut libc::c_void);
@@ -322,7 +322,7 @@ pub(crate) unsafe fn GetGlyphBBox_AAT(
     return getGlyphBBoxFromCTFont(font, gid, bbox);
 }
 
-unsafe fn getGlyphWidthFromCTFont(mut font: CTFontRef, mut gid: UInt16) -> libc::c_double {
+unsafe fn getGlyphWidthFromCTFont(mut font: CTFontRef, mut gid: UInt16) -> f64 {
     return PStoTeXPoints(CTFontGetAdvancesForGlyphs(
         font,
         kCTFontOrientationHorizontal,
@@ -333,10 +333,7 @@ unsafe fn getGlyphWidthFromCTFont(mut font: CTFontRef, mut gid: UInt16) -> libc:
 }
 
 /// returns TeX points
-pub(crate) unsafe fn GetGlyphWidth_AAT(
-    mut attributes: CFDictionaryRef,
-    mut gid: UInt16,
-) -> libc::c_double {
+pub(crate) unsafe fn GetGlyphWidth_AAT(mut attributes: CFDictionaryRef, mut gid: UInt16) -> f64 {
     let mut font: CTFontRef = font_from_attributes(attributes);
     return getGlyphWidthFromCTFont(font, gid);
 }
@@ -368,7 +365,7 @@ pub(crate) unsafe fn GetGlyphSidebearings_AAT(
 ) {
     let mut font: CTFontRef = font_from_attributes(attributes);
     let mut advances: [CGSize; 1] = [CGSizeMake(0i32 as CGFloat, 0i32 as CGFloat)];
-    let mut advance: libc::c_double = CTFontGetAdvancesForGlyphs(
+    let mut advance: f64 = CTFontGetAdvancesForGlyphs(
         font,
         kCTFontOrientationDefault,
         &mut gid as *mut UInt16 as *const CGGlyph,
@@ -383,7 +380,7 @@ pub(crate) unsafe fn GetGlyphSidebearings_AAT(
     };
     getGlyphBBoxFromCTFont(font, gid, &mut bbox);
     *lsb = bbox.xMin;
-    *rsb = (PStoTeXPoints(advance) - bbox.xMax as libc::c_double) as libc::c_float;
+    *rsb = (PStoTeXPoints(advance) - bbox.xMax as f64) as libc::c_float;
 }
 #[inline]
 unsafe fn CGSizeMake(mut width: CGFloat, mut height: CGFloat) -> CGSize {
@@ -396,13 +393,10 @@ unsafe fn CGSizeMake(mut width: CGFloat, mut height: CGFloat) -> CGSize {
     return size;
 }
 
-pub(crate) unsafe fn GetGlyphItalCorr_AAT(
-    mut attributes: CFDictionaryRef,
-    mut gid: UInt16,
-) -> libc::c_double {
+pub(crate) unsafe fn GetGlyphItalCorr_AAT(mut attributes: CFDictionaryRef, mut gid: UInt16) -> f64 {
     let mut font: CTFontRef = font_from_attributes(attributes);
     let mut advances: [CGSize; 1] = [CGSizeMake(0i32 as CGFloat, 0i32 as CGFloat)];
-    let mut advance: libc::c_double = CTFontGetAdvancesForGlyphs(
+    let mut advance: f64 = CTFontGetAdvancesForGlyphs(
         font,
         kCTFontOrientationDefault,
         &mut gid as *mut UInt16 as *const CGGlyph,
@@ -416,10 +410,10 @@ pub(crate) unsafe fn GetGlyphItalCorr_AAT(
         yMax: 0.,
     };
     getGlyphBBoxFromCTFont(font, gid, &mut bbox);
-    if bbox.xMax as libc::c_double > PStoTeXPoints(advance) {
-        return bbox.xMax as libc::c_double - PStoTeXPoints(advance);
+    if bbox.xMax as f64 > PStoTeXPoints(advance) {
+        return bbox.xMax as f64 - PStoTeXPoints(advance);
     }
-    return 0i32 as libc::c_double;
+    return 0i32 as f64;
 }
 unsafe fn mapCharToGlyphFromCTFont(mut font: CTFontRef, mut ch: UInt32) -> libc::c_int {
     let mut glyphs: [CGGlyph; 2] = [0i32 as CGGlyph, 0];
@@ -762,7 +756,7 @@ pub(crate) unsafe fn loadAATfont(
     };
     let mut cascadeList: CFMutableArrayRef = 0 as CFMutableArrayRef;
     let mut lastResort: CTFontDescriptorRef = 0 as CTFontDescriptorRef;
-    let mut tracking: libc::c_double = 0.0f64;
+    let mut tracking: f64 = 0.0f64;
     let mut extend: libc::c_float = 1.0f64 as libc::c_float;
     let mut slant: libc::c_float = 0.0f64 as libc::c_float;
     let mut embolden: libc::c_float = 0.0f64 as libc::c_float;
@@ -929,7 +923,7 @@ pub(crate) unsafe fn loadAATfont(
                                 trackingNumber = CFNumberCreate(
                                     0 as CFAllocatorRef,
                                     kCFNumberDoubleType as libc::c_int as CFNumberType,
-                                    &mut tracking as *mut libc::c_double as *const libc::c_void,
+                                    &mut tracking as *mut f64 as *const libc::c_void,
                                 );
                                 CFDictionaryAddValue(
                                     stringAttributes,
@@ -1023,12 +1017,11 @@ pub(crate) unsafe fn loadAATfont(
         CFRelease(featureSettings as CFTypeRef);
     }
     if loaded_font_flags as libc::c_int & 0x1i32 != 0i32 {
-        let mut red: CGFloat = ((rgbValue & 0xff000000u32) >> 24i32) as libc::c_double / 255.0f64;
+        let mut red: CGFloat = ((rgbValue & 0xff000000u32) >> 24i32) as f64 / 255.0f64;
         let mut green: CGFloat =
-            ((rgbValue & 0xff0000i32 as libc::c_uint) >> 16i32) as libc::c_double / 255.0f64;
-        let mut blue: CGFloat =
-            ((rgbValue & 0xff00i32 as libc::c_uint) >> 8i32) as libc::c_double / 255.0f64;
-        let mut alpha: CGFloat = (rgbValue & 0xffi32 as libc::c_uint) as libc::c_double / 255.0f64;
+            ((rgbValue & 0xff0000i32 as libc::c_uint) >> 16i32) as f64 / 255.0f64;
+        let mut blue: CGFloat = ((rgbValue & 0xff00i32 as libc::c_uint) >> 8i32) as f64 / 255.0f64;
+        let mut alpha: CGFloat = (rgbValue & 0xffi32 as libc::c_uint) as f64 / 255.0f64;
         // this wrapper CGColor is already at retain count zero
         let mut color = CGColor::rgb(red, green, blue, alpha);
         CFDictionaryAddValue(
@@ -1038,7 +1031,7 @@ pub(crate) unsafe fn loadAATfont(
         );
     }
     matrix = CGAffineTransformIdentity;
-    if extend as libc::c_double != 1.0f64 || slant as libc::c_double != 0.0f64 {
+    if extend as f64 != 1.0f64 || slant as f64 != 0.0f64 {
         matrix = CGAffineTransform::new(
             extend as CGFloat,
             0i32 as CGFloat,
@@ -1048,9 +1041,9 @@ pub(crate) unsafe fn loadAATfont(
             0i32 as CGFloat,
         )
     }
-    if embolden as libc::c_double != 0.0f64 {
+    if embolden as f64 != 0.0f64 {
         let mut emboldenNumber: CFNumberRef = 0 as CFNumberRef;
-        embolden = (embolden as libc::c_double * Fix2D(scaled_size) / 100.0f64) as libc::c_float;
+        embolden = (embolden as f64 * Fix2D(scaled_size) / 100.0f64) as libc::c_float;
         emboldenNumber = CFNumberCreate(
             0 as CFAllocatorRef,
             kCFNumberFloatType as libc::c_int as CFNumberType,
@@ -1063,9 +1056,8 @@ pub(crate) unsafe fn loadAATfont(
         );
         CFRelease(emboldenNumber as CFTypeRef);
     }
-    if letterspace as libc::c_double != 0.0f64 {
-        loaded_font_letter_space =
-            (letterspace as libc::c_double / 100.0f64 * scaled_size as libc::c_double) as scaled_t
+    if letterspace as f64 != 0.0f64 {
+        loaded_font_letter_space = (letterspace as f64 / 100.0f64 * scaled_size as f64) as scaled_t
     }
     // Disable Core Text font fallback (cascading) with only the last resort font
     // in the cascade list.

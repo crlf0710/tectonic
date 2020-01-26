@@ -178,10 +178,12 @@ pub(crate) unsafe fn PENALTY_NODE_penalty(p: isize) -> &'static mut i32 {
  * info. */
 #define SYNCTEX_tag(p, nodesize) mem[(p) + nodesize - SYNCTEX_FIELD_SIZE].b32.s0
 #define SYNCTEX_line(p, nodesize) mem[(p) + nodesize - SYNCTEX_FIELD_SIZE].b32.s1
-
-#define GLUE_SPEC_ref_count(p) mem[p].b32.s1 /* aka "link" of a link-list node */
 */
 
+/// aka "link" of a link-list node
+pub(crate) unsafe fn GLUE_SPEC_ref_count(p: isize) -> &'static mut i32 {
+    &mut MEM[p as usize].b32.s1
+}
 /// aka "type" of a node
 pub(crate) unsafe fn GLUE_SPEC_stretch_order(p: isize) -> &'static mut u16 {
     &mut MEM[p as usize].b16.s1

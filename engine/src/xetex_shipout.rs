@@ -171,7 +171,7 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
             begin_diagnostic();
             print_nl_cstr(b"The following box has been deleted:");
             show_box(p);
-            end_diagnostic(1i32 != 0);
+            end_diagnostic(true);
         }
     } else {
         if *BOX_height(p as isize) + *BOX_depth(p as isize) + *DIMENPAR(DimenPar::v_offset) > max_v
@@ -1685,7 +1685,7 @@ unsafe fn reverse(
                         c = MEM[p as usize].b16.s0;
                         cur_h += FONT_INFO[(WIDTH_BASE[f as usize]
                             + FONT_INFO
-                                [(CHAR_BASE[f as usize] + effective_char(1i32 != 0, f, c)) as usize]
+                                [(CHAR_BASE[f as usize] + effective_char(true, f, c)) as usize]
                                 .b16
                                 .s3 as i32) as usize]
                             .b32

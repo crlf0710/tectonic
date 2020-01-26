@@ -95,7 +95,7 @@ pub(crate) const UNDEFINED_CONTROL_SEQUENCE: placeholdertype =
 /// "region 3": glue values
 pub(crate) const GLUE_BASE: placeholdertype = (UNDEFINED_CONTROL_SEQUENCE + 1);
 
-#[repr(i32)]
+#[repr(u16)]
 pub(crate) enum GluePar {
     line_skip = 0,
     baseline_skip = 1,
@@ -117,6 +117,35 @@ pub(crate) enum GluePar {
     med_mu_skip = 17,
     thick_mu_skip = 18,
 }
+
+impl From<u16> for GluePar {
+    fn from(n: u16) -> Self {
+        use GluePar::*;
+        match n {
+            0 => line_skip,
+            1 => baseline_skip,
+            2 => par_skip,
+            3 => above_display_skip,
+            4 => below_display_skip,
+            5 => above_display_short_skip,
+            6 => below_display_short_skip,
+            7 => left_skip,
+            8 => right_skip,
+            9 => top_skip,
+            10 => split_top_skip,
+            11 => tab_skip,
+            12 => space_skip,
+            13 => xspace_skip,
+            14 => par_fill_skip,
+            15 => xetex_linebreak_skip,
+            16 => thin_mu_skip,
+            17 => med_mu_skip,
+            18 => thick_mu_skip,
+            _ => panic!(b"[unknown glue parameter!]"),
+        }
+    }
+}
+
 pub(crate) const GLUE_PARS: placeholdertype = 19;
 
 pub(crate) unsafe fn GLUEPAR(s: GluePar) -> &'static mut i32 {
@@ -479,7 +508,7 @@ pub(crate) const BEFORE: placeholdertype = 0;
 pub(crate) const AFTER: placeholdertype = 1;
 pub(crate) const BEGIN_M_CODE: placeholdertype = 2;
 pub(crate) const END_M_CODE: placeholdertype = 3;
-pub(crate) const L_CODE: placeholdertype = 4;
+pub(crate) const L_CODE: u16 = 4;
 pub(crate) const R_CODE: placeholdertype = 8;
 
 pub(crate) const EXPR_NONE: placeholdertype = 0;
@@ -519,12 +548,12 @@ pub(crate) const LIST_TAG: placeholdertype = 2;
 pub(crate) const EXT_TAG: placeholdertype = 3;
 
 /* scanner_status values: */
-pub(crate) const NORMAL: placeholdertype = 0;
-pub(crate) const SKIPPING: placeholdertype = 1;
-pub(crate) const DEFINING: placeholdertype = 2;
-pub(crate) const MATCHING: placeholdertype = 3;
-pub(crate) const ALIGNING: placeholdertype = 4;
-pub(crate) const ABSORBING: placeholdertype = 5;
+pub(crate) const NORMAL: u16 = 0;
+pub(crate) const SKIPPING: u16 = 1;
+pub(crate) const DEFINING: u16 = 2;
+pub(crate) const MATCHING: u16 = 3;
+pub(crate) const ALIGNING: u16 = 4;
+pub(crate) const ABSORBING: u16 = 5;
 
 /* commands */
 
