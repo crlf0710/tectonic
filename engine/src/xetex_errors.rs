@@ -108,12 +108,12 @@ pub(crate) unsafe fn fatal_error(s: &[u8]) -> ! {
     rust_stdout.as_mut().unwrap().flush().unwrap();
     abort!("{}", s.display());
 }
-pub(crate) unsafe fn overflow(s: &[u8], mut n: i32) -> ! {
+pub(crate) unsafe fn overflow(s: &[u8], n: usize) -> ! {
     pre_error_message();
     print_cstr(b"TeX capacity exceeded, sorry [");
     print_cstr(s);
     print_char('=' as i32);
-    print_int(n);
+    print_int(n as i32);
     print_char(']' as i32);
     help_ptr = 2_u8;
     help_line[1] = b"If you really absolutely need more capacity,";

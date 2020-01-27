@@ -1341,12 +1341,12 @@ unsafe fn sort_avail() {
 /*:271*/
 /*276: */
 unsafe fn primitive(ident: &[u8], mut c: u16, mut o: i32) {
-    let mut prim_val: i32 = 0;
+    let mut prim_val = 0;
     let mut len = ident.len() as i32;
-    if len > 1i32 {
+    if len > 1 {
         let mut s: str_number = maketexstring(ident);
-        if first + len > buf_size + 1i32 {
-            overflow(b"buffer size", buf_size);
+        if first + len > buf_size + 1 {
+            overflow(b"buffer size", buf_size as usize);
         }
         for i in 0..len {
             *buffer.offset((first + i) as isize) = ident[i as usize] as UnicodeScalar;
@@ -1385,11 +1385,11 @@ pub(crate) unsafe fn new_trie_op(
         l = _trie_op_hash_array[(h as i64 - -35111) as usize];
         if l == 0i32 {
             if trie_op_ptr as i64 == 35111 {
-                overflow(b"pattern memory ops", 35111 as i32);
+                overflow(b"pattern memory ops", 35111);
             }
             u = trie_used[cur_lang as usize];
             if u as i64 == 65535 {
-                overflow(b"pattern memory ops per language", (65535 - 0) as i32);
+                overflow(b"pattern memory ops per language", 65535 - 0);
             }
             trie_op_ptr += 1;
             u = u.wrapping_add(1);
@@ -1470,7 +1470,7 @@ pub(crate) unsafe fn first_fit(mut p: trie_pointer) {
         h = z - c as i32;
         if trie_max < h + max_hyph_char {
             if trie_size <= h + max_hyph_char {
-                overflow(b"pattern memory", trie_size);
+                overflow(b"pattern memory", trie_size as usize);
             }
             loop {
                 trie_max += 1;
@@ -1657,7 +1657,7 @@ unsafe fn new_patterns() {
                             if p == 0i32 || (c as i32) < *trie_c.offset(p as isize) as i32 {
                                 /*999:*/
                                 if trie_ptr == trie_size {
-                                    overflow(b"pattern memory", trie_size);
+                                    overflow(b"pattern memory", trie_size as usize);
                                 }
                                 trie_ptr += 1;
                                 *trie_r.offset(trie_ptr as isize) = p;
@@ -1724,7 +1724,7 @@ unsafe fn new_patterns() {
                 /*:1644*/
                 /*999:*/
                 if trie_ptr == trie_size {
-                    overflow(b"pattern memory", trie_size);
+                    overflow(b"pattern memory", trie_size as usize);
                 }
                 trie_ptr += 1;
                 *trie_r.offset(trie_ptr as isize) = p;
@@ -1747,7 +1747,7 @@ unsafe fn new_patterns() {
                     if p == 0i32 {
                         /*999:*/
                         if trie_ptr == trie_size {
-                            overflow(b"pattern memory", trie_size);
+                            overflow(b"pattern memory", trie_size as usize);
                             /*:987 */
                         }
                         trie_ptr += 1;
@@ -2078,7 +2078,7 @@ unsafe fn new_hyph_exceptions() {
                 n += 1;
                 hc[n as usize] = cur_lang as i32;
                 if pool_ptr + n as i32 > pool_size {
-                    overflow(b"pool size", pool_size - init_pool_ptr);
+                    overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
                 }
                 h = 0i32 as hyph_pointer;
                 j = 1_i16;
@@ -2095,7 +2095,7 @@ unsafe fn new_hyph_exceptions() {
                     }
                 }
                 if HYPH_COUNT == HYPH_SIZE || HYPH_NEXT == 0 {
-                    overflow(b"exception dictionary", HYPH_SIZE as i32);
+                    overflow(b"exception dictionary", HYPH_SIZE);
                 }
                 HYPH_COUNT += 1;
                 while HYPH_WORD[h as usize] != 0i32 {
@@ -2232,9 +2232,9 @@ pub(crate) unsafe fn prefixed_command() {
         SET_FONT => {
             /*1252:*/
             if a as i32 >= 4i32 {
-                geq_define(CUR_FONT_LOC, DATA as _, cur_chr);
+                geq_define(CUR_FONT_LOC as i32, DATA as _, cur_chr);
             } else {
-                eq_define(CUR_FONT_LOC, DATA as _, cur_chr);
+                eq_define(CUR_FONT_LOC as i32, DATA as _, cur_chr);
             }
         }
         DEF => {
@@ -2297,7 +2297,7 @@ pub(crate) unsafe fn prefixed_command() {
         SHORTHAND_DEF => {
             if cur_chr == 7i32 {
                 scan_char_num();
-                p = CHAR_SUB_CODE_BASE + cur_val;
+                p = CHAR_SUB_CODE_BASE as i32 + cur_val;
                 scan_optional_equals();
                 scan_char_num();
                 n = cur_val;
@@ -2305,7 +2305,7 @@ pub(crate) unsafe fn prefixed_command() {
                 if *INTPAR(IntPar::tracing_char_sub_def) > 0 {
                     begin_diagnostic();
                     print_nl_cstr(b"New character substitution: ");
-                    print(p - CHAR_SUB_CODE_BASE);
+                    print(p - CHAR_SUB_CODE_BASE as i32);
                     print_cstr(b" = ");
                     print(n);
                     print_char(' ' as i32);
@@ -2316,18 +2316,18 @@ pub(crate) unsafe fn prefixed_command() {
                 if a as i32 >= 4i32 {
                     geq_define(p, 122_u16, n);
                 } else { eq_define(p, 122_u16, n); }
-                if p - CHAR_SUB_CODE_BASE < *INTPAR(IntPar::char_sub_def_min) {
+                if (p - CHAR_SUB_CODE_BASE as i32) < *INTPAR(IntPar::char_sub_def_min) {
                     if a as i32 >= 4i32 {
-                        geq_word_define(INT_BASE + IntPar::char_sub_def_min as i32, p - CHAR_SUB_CODE_BASE);
+                        geq_word_define(INT_BASE + IntPar::char_sub_def_min as i32, p - CHAR_SUB_CODE_BASE as i32);
                     } else {
-                        eq_word_define(INT_BASE + IntPar::char_sub_def_min as i32, p - CHAR_SUB_CODE_BASE);
+                        eq_word_define(INT_BASE + IntPar::char_sub_def_min as i32, p - CHAR_SUB_CODE_BASE as i32);
                     }
                 }
-                if p - CHAR_SUB_CODE_BASE < *INTPAR(IntPar::char_sub_def_max) {
+                if (p - CHAR_SUB_CODE_BASE as i32) < *INTPAR(IntPar::char_sub_def_max) {
                     if a as i32 >= 4i32 {
-                        geq_word_define(INT_BASE + IntPar::char_sub_def_max as i32, p - CHAR_SUB_CODE_BASE);
+                        geq_word_define(INT_BASE + IntPar::char_sub_def_max as i32, p - CHAR_SUB_CODE_BASE as i32);
                     } else {
-                        eq_word_define(INT_BASE + IntPar::char_sub_def_max as i32, p - CHAR_SUB_CODE_BASE);
+                        eq_word_define(INT_BASE + IntPar::char_sub_def_max as i32, p - CHAR_SUB_CODE_BASE as i32);
                     }
                 }
             } else {
@@ -2508,7 +2508,7 @@ pub(crate) unsafe fn prefixed_command() {
                                 find_sa_element(5i32 as small_number, cur_val,
                                                 0i32 !=
                                                     0); /* "extended delimiter code family */
-                                if cur_ptr == TEX_NULL {
+                                if cur_ptr.is_texnull() {
                                     q = TEX_NULL
                                 } else {
                                     q =
@@ -2528,7 +2528,7 @@ pub(crate) unsafe fn prefixed_command() {
                         find_sa_element(6i32 as small_number,
                                         cur_ptr * 4096i32 + cur_val,
                                         false);
-                        if cur_ptr == TEX_NULL {
+                        if cur_ptr.is_texnull() {
                             q = TEX_NULL
                         } else {
                             q =
@@ -2536,7 +2536,7 @@ pub(crate) unsafe fn prefixed_command() {
                                                  usize].b32.s1
                         }
                     } else { q = EQTB[cur_chr as usize].b32.s1 }
-                    if q == TEX_NULL {
+                    if q.is_texnull() {
                         if e {
                             if a as i32 >= 4i32 {
                                 gsa_def(p, TEX_NULL);
@@ -2565,7 +2565,7 @@ pub(crate) unsafe fn prefixed_command() {
                     back_input();
                     cur_cs = q;
                     q = scan_toks(false, false);
-                    if MEM[def_ref as usize].b32.s1 == TEX_NULL {
+                    if MEM[def_ref as usize].b32.s1.is_texnull() {
                         if e {
                             if a as i32 >= 4i32 {
                                 gsa_def(p, TEX_NULL);
@@ -2630,7 +2630,7 @@ pub(crate) unsafe fn prefixed_command() {
             } else { eq_define(p, 119_u16, cur_val); }
         }
         XETEX_DEF_CODE => {
-            if cur_chr == SF_CODE_BASE {
+            if cur_chr == SF_CODE_BASE as i32 {
                 p = cur_chr;
                 scan_usv_num();
                 p = p + cur_val;
@@ -2646,7 +2646,7 @@ pub(crate) unsafe fn prefixed_command() {
                               (cur_val as i64 * 65536 +
                                    n as i64) as i32);
                 }
-            } else if cur_chr == MATH_CODE_BASE {
+            } else if cur_chr == MATH_CODE_BASE as i32 {
                 p = cur_chr;
                 scan_usv_num();
                 p = p + cur_val;
@@ -2655,7 +2655,7 @@ pub(crate) unsafe fn prefixed_command() {
                 if a as i32 >= 4i32 {
                     geq_define(p, 122_u16, cur_val);
                 } else { eq_define(p, 122_u16, cur_val); }
-            } else if cur_chr == MATH_CODE_BASE + 1 {
+            } else if cur_chr == MATH_CODE_BASE as i32 + 1 {
                 p = cur_chr - 1i32;
                 scan_usv_num();
                 p = p + cur_val;
@@ -2701,15 +2701,15 @@ pub(crate) unsafe fn prefixed_command() {
             }
         }
     DEF_CODE => {
-            if cur_chr == CAT_CODE_BASE {
+            if cur_chr == CAT_CODE_BASE as i32 {
                 n = 15i32
-            } else if cur_chr == MATH_CODE_BASE {
+            } else if cur_chr == MATH_CODE_BASE as i32 {
                 n = 0x8000i32
-            } else if cur_chr == SF_CODE_BASE {
+            } else if cur_chr == SF_CODE_BASE as i32 {
                 n = 0x7fffi32
             } else if cur_chr == DEL_CODE_BASE {
                 n = 0xffffffi32
-            } else { n = BIGGEST_USV }
+            } else { n = BIGGEST_USV as i32 }
             p = cur_chr;
             scan_usv_num();
             p = p + cur_val;
@@ -2723,7 +2723,7 @@ pub(crate) unsafe fn prefixed_command() {
                 }
                 print_cstr(b"Invalid code (");
                 print_int(cur_val);
-                if p < MATH_CODE_BASE {
+                if p < MATH_CODE_BASE as i32 {
                     print_cstr(b"), should be in the range 0..");
                 } else {
                     print_cstr(b"), should be at most ");
@@ -2735,8 +2735,8 @@ pub(crate) unsafe fn prefixed_command() {
                 error();
                 cur_val = 0i32
             }
-            if p < MATH_CODE_BASE {
-                if p >= SF_CODE_BASE {
+            if p < MATH_CODE_BASE as i32 {
+                if p >= SF_CODE_BASE as i32 {
                     n =
                         (EQTB[p as usize].b32.s1 as i64 /
                              65536) as i32;
@@ -2968,7 +2968,7 @@ unsafe fn store_fmt_file() {
         selector = Selector::TERM_AND_LOG
     }
     if pool_ptr + 1 > pool_size {
-        overflow(b"pool size", pool_size - init_pool_ptr);
+        overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
     }
     format_ident = make_string();
     pack_job_name(b".fmt");
@@ -3009,10 +3009,10 @@ unsafe fn store_fmt_file() {
         1i32 as size_t,
         fmt_out,
     );
-    while pseudo_files != TEX_NULL {
+    while !pseudo_files.is_texnull() {
         pseudo_close();
     }
-    let mut x_val_2: i32 = MEM_TOP;
+    let mut x_val_2 = MEM_TOP as i32;
     do_dump(
         &mut x_val_2 as *mut i32 as *mut i8,
         ::std::mem::size_of::<i32>() as _,
@@ -3148,7 +3148,7 @@ unsafe fn store_fmt_file() {
     );
     x = x + mem_end + 1i32 - hi_mem_min;
     p = avail;
-    while p != TEX_NULL {
+    while !p.is_texnull() {
         dyn_used -= 1;
         p = *LLIST_link(p as isize)
     }
@@ -3860,12 +3860,12 @@ unsafe fn load_fmt_file() -> bool {
         1i32 as size_t,
         fmt_in,
     );
-    if x != MEM_TOP {
+    if x != MEM_TOP as i32 {
         bad_fmt();
     }
-    cur_list.head = CONTRIB_HEAD;
-    cur_list.tail = CONTRIB_HEAD;
-    page_tail = PAGE_HEAD;
+    cur_list.head = CONTRIB_HEAD as i32;
+    cur_list.tail = CONTRIB_HEAD as i32;
+    page_tail = PAGE_HEAD as i32;
     MEM = vec![memory_word::default(); MEM_TOP as usize + 2];
 
     do_undump(
@@ -3976,7 +3976,7 @@ unsafe fn load_fmt_file() -> bool {
         1i32 as size_t,
         fmt_in,
     );
-    if x < 1019 || x > MEM_TOP - HI_MEM_STAT_USAGE {
+    if x < 1019 || x > MEM_TOP as i32 - HI_MEM_STAT_USAGE {
         bad_fmt();
     } else {
         lo_mem_max = x;
@@ -4042,7 +4042,7 @@ unsafe fn load_fmt_file() -> bool {
         1i32 as size_t,
         fmt_in,
     );
-    if x < lo_mem_max + 1 || x > PRE_ADJUST_HEAD {
+    if x < lo_mem_max + 1 || x > PRE_ADJUST_HEAD as i32 {
         bad_fmt();
     } else {
         hi_mem_min = x;
@@ -4053,13 +4053,13 @@ unsafe fn load_fmt_file() -> bool {
         1i32 as size_t,
         fmt_in,
     );
-    if x < MIN_HALFWORD || x > MEM_TOP {
+    if x < MIN_HALFWORD || x > MEM_TOP as i32 {
         bad_fmt();
     } else {
         avail = x;
     }
 
-    mem_end = MEM_TOP;
+    mem_end = MEM_TOP as i32;
 
     do_undump(
         &mut MEM[hi_mem_min as usize] as *mut memory_word as *mut i8,
@@ -4852,7 +4852,7 @@ unsafe fn final_cleanup() {
         print_char(')' as i32);
         show_save_groups();
     }
-    while cond_ptr != TEX_NULL {
+    while !cond_ptr.is_texnull() {
         print_nl('(' as i32);
         print_esc_cstr(b"end occurred ");
         print_cstr(b"when ");
@@ -4884,7 +4884,7 @@ unsafe fn final_cleanup() {
             for_end = 4i32;
             if c as i32 <= for_end {
                 loop {
-                    if cur_mark[c as usize] != TEX_NULL {
+                    if !cur_mark[c as usize].is_texnull() {
                         delete_token_ref(cur_mark[c as usize]);
                     }
                     let fresh17 = c;
@@ -4894,7 +4894,7 @@ unsafe fn final_cleanup() {
                     }
                 }
             }
-            if sa_root[7] != TEX_NULL {
+            if !sa_root[7].is_texnull() {
                 if do_marks(3i32 as small_number, 0i32 as small_number, sa_root[7]) {
                     sa_root[7] = TEX_NULL
                 }
@@ -4961,15 +4961,15 @@ unsafe fn initialize_more_variables() {
     nest_ptr = 0i32;
     max_nest_stack = 0i32;
     cur_list.mode = VMODE as _;
-    cur_list.head = CONTRIB_HEAD;
-    cur_list.tail = CONTRIB_HEAD;
+    cur_list.head = CONTRIB_HEAD as i32;
+    cur_list.tail = CONTRIB_HEAD as i32;
     cur_list.eTeX_aux = TEX_NULL;
     cur_list.aux.b32.s1 = IGNORE_DEPTH;
     cur_list.mode_line = 0i32;
     cur_list.prev_graf = 0i32;
     shown_mode = 0_i16;
     page_contents = EMPTY as _;
-    page_tail = PAGE_HEAD;
+    page_tail = PAGE_HEAD as i32;
     last_glue = MAX_HALFWORD;
     last_penalty = 0i32;
     last_kern = 0i32;
@@ -5090,19 +5090,13 @@ unsafe fn initialize_more_variables() {
     stop_at_space = true;
 }
 unsafe fn initialize_more_initex_variables() {
-    let mut i: i32 = 0;
-    let mut k: i32 = 0;
-    k = 1i32;
-    while k <= 19i32 {
+    for k in 1..=19 {
         MEM[k as usize].b32.s1 = 0;
-        k += 1
     }
-    k = 0i32;
-    while k <= 19i32 {
+    for k in (0..=19).step_by(4) {
         MEM[k as usize].b32.s1 = TEX_NULL + 1;
         MEM[k as usize].b16.s1 = 0;
         MEM[k as usize].b16.s0 = 0;
-        k += 4i32
     }
     MEM[6].b32.s1 = 65536 as i32;
     MEM[4].b16.s1 = 1_u16;
@@ -5122,10 +5116,8 @@ unsafe fn initialize_more_initex_variables() {
     lo_mem_max = rover + 1000i32;
     MEM[lo_mem_max as usize].b32.s1 = TEX_NULL;
     MEM[lo_mem_max as usize].b32.s0 = TEX_NULL;
-    k = PRE_ADJUST_HEAD;
-    while k <= MEM_TOP {
-        MEM[k as usize] = MEM[lo_mem_max as usize];
-        k += 1
+    for k in PRE_ADJUST_HEAD..=MEM_TOP {
+        MEM[k] = MEM[lo_mem_max as usize];
     }
     MEM[(OMIT_TEMPLATE) as usize].b32.s0 = CS_TOKEN_FLAG + FROZEN_END_TEMPLATE as i32;
     MEM[END_SPAN as usize].b32.s1 = std::u16::MAX as i32 + 1;
@@ -5133,90 +5125,71 @@ unsafe fn initialize_more_initex_variables() {
     MEM[ACTIVE_LIST as usize].b16.s1 = HYPHENATED as _;
     MEM[(ACTIVE_LIST + 1) as usize].b32.s0 = MAX_HALFWORD;
     MEM[ACTIVE_LIST as usize].b16.s0 = 0_u16;
-    MEM[PAGE_INS_HEAD as usize].b16.s0 = 255_u16;
-    MEM[PAGE_INS_HEAD as usize].b16.s1 = SPLIT_UP as _;
-    MEM[PAGE_INS_HEAD as usize].b32.s1 = PAGE_INS_HEAD;
+    MEM[PAGE_INS_HEAD].b16.s0 = 255_u16;
+    MEM[PAGE_INS_HEAD].b16.s1 = SPLIT_UP as _;
+    MEM[PAGE_INS_HEAD].b32.s1 = PAGE_INS_HEAD as i32;
     MEM[(4999999 - 2) as usize].b16.s1 = 10;
     MEM[(4999999 - 2) as usize].b16.s0 = 0;
     avail = TEX_NULL;
-    mem_end = MEM_TOP;
-    hi_mem_min = PRE_ADJUST_HEAD;
+    mem_end = MEM_TOP as i32;
+    hi_mem_min = PRE_ADJUST_HEAD as i32;
     var_used = 20;
     dyn_used = HI_MEM_STAT_USAGE;
     EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b16.s1 = UNDEFINED_CS as _;
     EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b32.s1 = TEX_NULL;
     EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b16.s0 = LEVEL_ZERO as _;
-    k = ACTIVE_BASE;
-    while k <= EQTB_TOP as i32 {
+    for k in ACTIVE_BASE..=EQTB_TOP as i32 {
         EQTB[k as usize] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
-        k += 1
     }
     EQTB[GLUE_BASE as usize].b32.s1 = 0;
     EQTB[GLUE_BASE as usize].b16.s0 = LEVEL_ONE as _;
     EQTB[GLUE_BASE as usize].b16.s1 = GLUE_REF as _;
-    k = GLUE_BASE;
-    while k <= LOCAL_BASE {
+    for k in GLUE_BASE..=LOCAL_BASE {
         EQTB[k as usize] = EQTB[GLUE_BASE as usize];
-        k += 1
     }
     MEM[0].b32.s1 += 531i32;
     *LOCAL(Local::par_shape) = TEX_NULL;
     EQTB[LOCAL_BASE as usize + Local::par_shape as usize].b16.s1 = SHAPE_REF as _;
     EQTB[LOCAL_BASE as usize + Local::par_shape as usize].b16.s0 = LEVEL_ONE as _;
-    k = ETEX_PEN_BASE;
-    while k <= ETEX_PENS - 1 {
+    for k in ETEX_PEN_BASE..=(ETEX_PENS - 1) {
         EQTB[k as usize] = EQTB[LOCAL_BASE as usize + Local::par_shape as usize];
-        k += 1
     }
-    k = LOCAL_BASE + Local::output_routine as i32;
-    while k <= TOKS_BASE + NUMBER_REGS - 1 {
+    for k in (LOCAL_BASE + Local::output_routine as i32)..=(TOKS_BASE + NUMBER_REGS as i32 - 1) {
         EQTB[k as usize] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
-        k += 1
     }
-    EQTB[BOX_BASE as usize].b32.s1 = TEX_NULL;
-    EQTB[BOX_BASE as usize].b16.s1 = BOX_REF as _;
-    EQTB[BOX_BASE as usize].b16.s0 = LEVEL_ONE as _;
-    k = BOX_BASE + 1;
-    while k <= BOX_BASE + NUMBER_REGS - 1 {
-        EQTB[k as usize] = EQTB[BOX_BASE as usize];
-        k += 1
+    EQTB[BOX_BASE].b32.s1 = TEX_NULL;
+    EQTB[BOX_BASE].b16.s1 = BOX_REF as _;
+    EQTB[BOX_BASE].b16.s0 = LEVEL_ONE as _;
+    for k in (BOX_BASE + 1)..=(BOX_BASE + NUMBER_REGS - 1) {
+        EQTB[k] = EQTB[BOX_BASE];
     }
-    EQTB[CUR_FONT_LOC as usize].b32.s1 = FONT_BASE;
-    EQTB[CUR_FONT_LOC as usize].b16.s1 = DATA as _;
-    EQTB[CUR_FONT_LOC as usize].b16.s0 = LEVEL_ONE as _;
-    k = MATH_FONT_BASE;
-    while k <= MATH_FONT_BASE + NUMBER_MATH_FONTS - 1 {
-        EQTB[k as usize] = EQTB[CUR_FONT_LOC as usize];
-        k += 1
+    EQTB[CUR_FONT_LOC].b32.s1 = FONT_BASE;
+    EQTB[CUR_FONT_LOC].b16.s1 = DATA as _;
+    EQTB[CUR_FONT_LOC].b16.s0 = LEVEL_ONE as _;
+    for k in MATH_FONT_BASE..=(MATH_FONT_BASE + NUMBER_MATH_FONTS - 1) {
+        EQTB[k] = EQTB[CUR_FONT_LOC];
     }
-    EQTB[CAT_CODE_BASE as usize].b32.s1 = 0;
-    EQTB[CAT_CODE_BASE as usize].b16.s1 = DATA as _;
-    EQTB[CAT_CODE_BASE as usize].b16.s0 = LEVEL_ONE as _;
-    k = CAT_CODE_BASE + 1;
-    while k <= INT_BASE - 1 {
-        EQTB[k as usize] = EQTB[CAT_CODE_BASE as usize];
-        k += 1
+    EQTB[CAT_CODE_BASE].b32.s1 = 0;
+    EQTB[CAT_CODE_BASE].b16.s1 = DATA as _;
+    EQTB[CAT_CODE_BASE].b16.s0 = LEVEL_ONE as _;
+    for k in (CAT_CODE_BASE + 1)..=(INT_BASE as usize - 1) {
+        EQTB[k] = EQTB[CAT_CODE_BASE];
     }
-    k = 0;
-    while k <= NUMBER_USVS - 1 {
+    for k in 0..=(NUMBER_USVS as i32 - 1) {
         *CAT_CODE(k) = OTHER_CHAR as _;
         *MATH_CODE(k) = k;
         *SF_CODE(k) = 1000;
-        k += 1
     }
     *CAT_CODE(13) = CAR_RET as _;
     *CAT_CODE(32) = SPACER as _;
     *CAT_CODE(92) = ESCAPE as _;
     *CAT_CODE(37) = COMMENT as _;
     *CAT_CODE(127) = INVALID_CHAR as _;
-    EQTB[CAT_CODE_BASE as usize].b32.s1 = IGNORE as _;
-    k = '0' as i32;
-    while k <= '9' as i32 {
+    EQTB[CAT_CODE_BASE].b32.s1 = IGNORE as _;
+    for k in ('0' as i32)..=('9' as i32) {
         *MATH_CODE(k) = (k as u32).wrapping_add((7_u32 & 0x7_u32) << 21i32) as i32;
-        k += 1
     }
-    k = 'A' as i32;
-    while k <= 'Z' as i32 {
+    for k in ('A' as i32)..=('Z' as i32) {
         *CAT_CODE(k) = LETTER as _;
         *CAT_CODE(k + 32) = LETTER as _;
         *MATH_CODE(k) = (k as u32)
@@ -5230,12 +5203,9 @@ unsafe fn initialize_more_initex_variables() {
         *UC_CODE(k) = k;
         *UC_CODE(k + 32) = k;
         *SF_CODE(k) = 999;
-        k += 1
     }
-    k = INT_BASE;
-    while k <= DEL_CODE_BASE - 1 {
+    for k in INT_BASE..=(DEL_CODE_BASE - 1) {
         EQTB[k as usize].b32.s1 = 0;
-        k += 1
     }
     *INTPAR(IntPar::char_sub_def_min) = 256;
     *INTPAR(IntPar::char_sub_def_max) = -1;
@@ -5245,16 +5215,12 @@ unsafe fn initialize_more_initex_variables() {
     *INTPAR(IntPar::max_dead_cycles) = 25;
     *INTPAR(IntPar::escape_char) = '\\' as i32;
     *INTPAR(IntPar::end_line_char) = CARRIAGE_RETURN;
-    k = 0;
-    while k <= NUMBER_USVS - 1i32 {
-        *DEL_CODE(k) = -1;
-        k += 1
+    for k in 0..=(NUMBER_USVS - 1) {
+        *DEL_CODE(k as i32) = -1;
     }
     *DEL_CODE(46) = 0;
-    k = DIMEN_BASE;
-    while k <= EQTB_SIZE {
-        EQTB[k as usize].b32.s1 = 0i32;
-        k += 1
+    for k in DIMEN_BASE..=EQTB_SIZE {
+        EQTB[k as usize].b32.s1 = 0;
     }
     prim_used = PRIM_SIZE;
     hash_used = FROZEN_CONTROL_SEQUENCE as i32;
@@ -5266,15 +5232,11 @@ unsafe fn initialize_more_initex_variables() {
     EQTB[FROZEN_PRIMITIVE as usize].b32.s1 = 1;
     EQTB[FROZEN_PRIMITIVE as usize].b16.s0 = LEVEL_ONE as _;
     (*hash.offset(FROZEN_PRIMITIVE as isize)).s1 = maketexstring(b"primitive");
-    k = -(35111 as i32);
-    while k as i64 <= 35111 {
+    for k in (-35111_i32)..=35111 {
         _trie_op_hash_array[(k as i64 - -35111) as usize] = 0i32;
-        k += 1
     }
-    k = 0i32;
-    while k <= 255i32 {
-        trie_used[k as usize] = 0i32 as trie_opcode;
-        k += 1
+    for k in 0..=255 {
+        trie_used[k as usize] = 0 as trie_opcode;
     }
     max_op_used = 0i32 as trie_opcode;
     trie_op_ptr = 0i32;
@@ -5287,10 +5249,8 @@ unsafe fn initialize_more_initex_variables() {
     EQTB[END_WRITE as usize].b32.s1 = TEX_NULL;
     max_reg_num = 32767;
     max_reg_help_line = b"A register number must be between 0 and 32767.";
-    i = INT_VAL;
-    while i <= INTER_CHAR_VAL {
+    for i in INT_VAL..=INTER_CHAR_VAL {
         sa_root[i as usize] = TEX_NULL;
-        i += 1
     }
     *INTPAR(IntPar::xetex_hyphenatable_length) = 63;
 }
@@ -5963,7 +5923,7 @@ unsafe fn initialize_primitives() {
     primitive(b"mskip", MSKIP, MSKIP_CODE);
 
     primitive(b"kern", KERN, EXPLICIT);
-    primitive(b"mkern", MKERN, MU_GLUE);
+    primitive(b"mkern", MKERN, MU_GLUE as i32);
     primitive(b"moveleft", HMOVE, 1);
     primitive(b"moveright", HMOVE, 0);
     primitive(b"raise", VMOVE, 1);
@@ -5977,10 +5937,10 @@ unsafe fn initialize_primitives() {
     primitive(b"vbox", MAKE_BOX, VTOP_CODE + 1);
     primitive(b"hbox", MAKE_BOX, VTOP_CODE + 104);
 
-    primitive(b"shipout", LEADER_SHIP, A_LEADERS - 1);
-    primitive(b"leaders", LEADER_SHIP, A_LEADERS);
-    primitive(b"cleaders", LEADER_SHIP, C_LEADERS);
-    primitive(b"xleaders", LEADER_SHIP, X_LEADERS);
+    primitive(b"shipout", LEADER_SHIP, A_LEADERS as i32 - 1);
+    primitive(b"leaders", LEADER_SHIP, A_LEADERS as i32);
+    primitive(b"cleaders", LEADER_SHIP, C_LEADERS as i32);
+    primitive(b"xleaders", LEADER_SHIP, X_LEADERS as i32);
 
     primitive(b"indent", START_PAR, 1);
     primitive(b"noindent", START_PAR, 0);
@@ -6010,8 +5970,8 @@ unsafe fn initialize_primitives() {
     primitive(b"overline", MATH_COMP, OVER_NOAD as i32);
 
     primitive(b"displaylimits", LIMIT_SWITCH, NORMAL as i32);
-    primitive(b"limits", LIMIT_SWITCH, LIMITS);
-    primitive(b"nolimits", LIMIT_SWITCH, NO_LIMITS);
+    primitive(b"limits", LIMIT_SWITCH, LIMITS as i32);
+    primitive(b"nolimits", LIMIT_SWITCH, NO_LIMITS as i32);
 
     primitive(b"displaystyle", MATH_STYLE, DISPLAY_STYLE);
     primitive(b"textstyle", MATH_STYLE, TEXT_STYLE);
@@ -6060,28 +6020,32 @@ unsafe fn initialize_primitives() {
     primitive(b"muskipdef", SHORTHAND_DEF, MU_SKIP_DEF_CODE);
     primitive(b"toksdef", SHORTHAND_DEF, TOKS_DEF_CODE);
 
-    primitive(b"catcode", DEF_CODE, CAT_CODE_BASE);
-    primitive(b"mathcode", DEF_CODE, MATH_CODE_BASE);
-    primitive(b"XeTeXmathcodenum", XETEX_DEF_CODE, MATH_CODE_BASE);
-    primitive(b"Umathcodenum", XETEX_DEF_CODE, MATH_CODE_BASE);
-    primitive(b"XeTeXmathcode", XETEX_DEF_CODE, MATH_CODE_BASE + 1);
-    primitive(b"Umathcode", XETEX_DEF_CODE, MATH_CODE_BASE + 1);
-    primitive(b"lccode", DEF_CODE, LC_CODE_BASE);
-    primitive(b"uccode", DEF_CODE, UC_CODE_BASE);
-    primitive(b"sfcode", DEF_CODE, SF_CODE_BASE);
-    primitive(b"XeTeXcharclass", XETEX_DEF_CODE, SF_CODE_BASE);
+    primitive(b"catcode", DEF_CODE, CAT_CODE_BASE as i32);
+    primitive(b"mathcode", DEF_CODE, MATH_CODE_BASE as i32);
+    primitive(b"XeTeXmathcodenum", XETEX_DEF_CODE, MATH_CODE_BASE as i32);
+    primitive(b"Umathcodenum", XETEX_DEF_CODE, MATH_CODE_BASE as i32);
+    primitive(b"XeTeXmathcode", XETEX_DEF_CODE, MATH_CODE_BASE as i32 + 1);
+    primitive(b"Umathcode", XETEX_DEF_CODE, MATH_CODE_BASE as i32 + 1);
+    primitive(b"lccode", DEF_CODE, LC_CODE_BASE as i32);
+    primitive(b"uccode", DEF_CODE, UC_CODE_BASE as i32);
+    primitive(b"sfcode", DEF_CODE, SF_CODE_BASE as i32);
+    primitive(b"XeTeXcharclass", XETEX_DEF_CODE, SF_CODE_BASE as i32);
     primitive(b"delcode", DEF_CODE, DEL_CODE_BASE);
     primitive(b"XeTeXdelcodenum", XETEX_DEF_CODE, DEL_CODE_BASE);
     primitive(b"Udelcodenum", XETEX_DEF_CODE, DEL_CODE_BASE);
     primitive(b"XeTeXdelcode", XETEX_DEF_CODE, DEL_CODE_BASE + 1);
     primitive(b"Udelcode", XETEX_DEF_CODE, DEL_CODE_BASE + 1);
 
-    primitive(b"textfont", DEF_FAMILY, MATH_FONT_BASE + TEXT_SIZE);
-    primitive(b"scriptfont", DEF_FAMILY, MATH_FONT_BASE + SCRIPT_SIZE);
+    primitive(b"textfont", DEF_FAMILY, MATH_FONT_BASE as i32 + TEXT_SIZE);
+    primitive(
+        b"scriptfont",
+        DEF_FAMILY,
+        MATH_FONT_BASE as i32 + SCRIPT_SIZE,
+    );
     primitive(
         b"scriptscriptfont",
         DEF_FAMILY,
-        MATH_FONT_BASE + SCRIPT_SCRIPT_SIZE,
+        MATH_FONT_BASE as i32 + SCRIPT_SCRIPT_SIZE,
     );
 
     primitive(b"hyphenation", HYPH_DATA, 0);
@@ -6101,23 +6065,23 @@ unsafe fn initialize_primitives() {
     primitive(b"closein", IN_STREAM, 0);
     primitive(b"message", MESSAGE, 0);
     primitive(b"errmessage", MESSAGE, 1);
-    primitive(b"lowercase", CASE_SHIFT, LC_CODE_BASE);
-    primitive(b"uppercase", CASE_SHIFT, UC_CODE_BASE);
+    primitive(b"lowercase", CASE_SHIFT, LC_CODE_BASE as i32);
+    primitive(b"uppercase", CASE_SHIFT, UC_CODE_BASE as i32);
 
     primitive(b"show", XRAY, SHOW_CODE);
     primitive(b"showbox", XRAY, SHOW_BOX_CODE);
     primitive(b"showthe", XRAY, SHOW_THE_CODE);
     primitive(b"showlists", XRAY, SHOW_LISTS);
 
-    primitive(b"openout", EXTENSION, OPEN_NODE);
-    primitive(b"write", EXTENSION, WRITE_NODE);
+    primitive(b"openout", EXTENSION, OPEN_NODE as i32);
+    primitive(b"write", EXTENSION, WRITE_NODE as i32);
     write_loc = cur_val;
-    primitive(b"closeout", EXTENSION, CLOSE_NODE);
-    primitive(b"special", EXTENSION, SPECIAL_NODE);
+    primitive(b"closeout", EXTENSION, CLOSE_NODE as i32);
+    primitive(b"special", EXTENSION, SPECIAL_NODE as i32);
     (*hash.offset(FROZEN_SPECIAL as isize)).s1 = maketexstring(b"special");
     EQTB[FROZEN_SPECIAL] = EQTB[cur_val as usize];
-    primitive(b"immediate", EXTENSION, IMMEDIATE_CODE);
-    primitive(b"setlanguage", EXTENSION, SET_LANGUAGE_CODE);
+    primitive(b"immediate", EXTENSION, IMMEDIATE_CODE as i32);
+    primitive(b"setlanguage", EXTENSION, SET_LANGUAGE_CODE as i32);
 
     primitive(b"synctex", ASSIGN_INT, INT_BASE + IntPar::synctex as i32);
     no_new_control_sequence = true;
@@ -6268,7 +6232,7 @@ pub(crate) unsafe fn tt_run_engine(
     if format_default_length > std::i32::MAX {
         bad = 31
     }
-    if 2 * MAX_HALFWORD < MEM_TOP {
+    if 2 * MAX_HALFWORD < MEM_TOP as i32 {
         bad = 41
     }
     if bad > 0 {
@@ -6340,7 +6304,11 @@ pub(crate) unsafe fn tt_run_engine(
             EXTENSION,
             XETEX_LINEBREAK_LOCALE_EXTENSION_CODE,
         );
-        primitive(b"pdfsavepos", EXTENSION, PDFTEX_FIRST_EXTENSION_CODE + 0);
+        primitive(
+            b"pdfsavepos",
+            EXTENSION,
+            PDFTEX_FIRST_EXTENSION_CODE as i32 + 0,
+        );
 
         primitive(b"lastnodetype", LAST_ITEM, LAST_NODE_TYPE_CODE);
         primitive(b"eTeXversion", LAST_ITEM, ETEX_VERSION_CODE);

@@ -260,14 +260,14 @@ pub(crate) unsafe fn print_nl_cstr(slice: &[u8]) {
 }
 pub(crate) unsafe fn print_esc(mut s: str_number) {
     let mut c = *INTPAR(IntPar::escape_char);
-    if c >= 0i32 && c <= BIGGEST_USV {
+    if c >= 0i32 && c <= BIGGEST_USV as i32 {
         print_char(c);
     }
     print(s);
 }
 pub(crate) unsafe fn print_esc_cstr(s: &[u8]) {
     let mut c = *INTPAR(IntPar::escape_char);
-    if c >= 0i32 && c <= BIGGEST_USV {
+    if c >= 0i32 && c <= BIGGEST_USV as i32 {
         print_char(c);
     }
     print_cstr(s);

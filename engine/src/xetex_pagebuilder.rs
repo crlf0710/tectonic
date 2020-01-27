@@ -72,7 +72,7 @@ unsafe fn freeze_page_specs(mut s: small_number) {
 
 unsafe fn ensure_vbox(mut n: eight_bits) {
     let p = *BOX_REG(n as _);
-    if p == TEX_NULL {
+    if p.is_texnull() {
         return;
     }
     if *NODE_type(p as isize) != HLIST_NODE {
@@ -126,13 +126,13 @@ unsafe fn fire_up(mut c: i32) {
      * beyond the default one -- a "mark class" being a concept introduced in
      * e-TeX. */
 
-    if sa_root[MARK_VAL as usize] != TEX_NULL {
+    if !sa_root[MARK_VAL as usize].is_texnull() {
         if do_marks(FIRE_UP_INIT as _, 0, sa_root[MARK_VAL as usize]) {
             sa_root[7] = TEX_NULL;
         }
     }
-    if cur_mark[BOT_MARK_CODE as usize] != TEX_NULL {
-        if cur_mark[TOP_MARK_CODE as usize] != TEX_NULL {
+    if !cur_mark[BOT_MARK_CODE as usize].is_texnull() {
+        if !cur_mark[TOP_MARK_CODE as usize].is_texnull() {
             delete_token_ref(cur_mark[TOP_MARK_CODE as usize]);
         }
         cur_mark[TOP_MARK_CODE as usize] = cur_mark[BOT_MARK_CODE as usize];
@@ -148,7 +148,7 @@ unsafe fn fire_up(mut c: i32) {
     if c == best_page_break {
         best_page_break = TEX_NULL; /* "c not yet linked in" */
     }
-    if *BOX_REG(255) != TEX_NULL {
+    if !BOX_REG(255).is_texnull() {
         /*1050:*/
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -180,17 +180,17 @@ unsafe fn fire_up(mut c: i32) {
          * the expectation that the output routine will do something clever
          * with them. */
         r = *LLIST_link(PAGE_INS_HEAD as isize);
-        while r != PAGE_INS_HEAD {
-            if MEM[(r + 2) as usize].b32.s0 != TEX_NULL {
+        while r != PAGE_INS_HEAD as i32 {
+            if !MEM[(r + 2) as usize].b32.s0.is_texnull() {
                 n = *NODE_subtype(r as _) as _;
                 ensure_vbox(n);
 
-                if *BOX_REG(n as _) == TEX_NULL {
+                if BOX_REG(n as _).is_texnull() {
                     *BOX_REG(n as _) = new_null_box();
                 }
 
                 p = *BOX_REG(n as _) + 5; /* 5 = list_offset, "position of the list inside the box" */
-                while *LLIST_link(p as isize) != TEX_NULL {
+                while !LLIST_link(p as isize).is_texnull() {
                     p = *LLIST_link(p as isize);
                 }
 
@@ -199,9 +199,9 @@ unsafe fn fire_up(mut c: i32) {
             r = *LLIST_link(r as isize);
         }
     }
-    q = HOLD_HEAD;
+    q = HOLD_HEAD as i32;
     *LLIST_link(q as isize) = TEX_NULL;
-    prev_p = PAGE_HEAD;
+    prev_p = PAGE_HEAD as i32;
     p = *LLIST_link(prev_p as isize);
 
     while p != best_page_break {
@@ -215,7 +215,7 @@ unsafe fn fire_up(mut c: i32) {
                 while *NODE_subtype(r as isize) != *NODE_subtype(p as isize) {
                     r = *LLIST_link(r as isize);
                 }
-                if MEM[(r + 2) as usize].b32.s0 == TEX_NULL {
+                if MEM[(r + 2) as usize].b32.s0.is_texnull() {
                     wait = true
                 } else {
                     wait = false;
@@ -237,7 +237,7 @@ unsafe fn fire_up(mut c: i32) {
                                 *GLUEPAR(GluePar::split_top_skip) = MEM[(p + 4) as usize].b32.s1;
                                 MEM[(p + 4) as usize].b32.s0 =
                                     prune_page_top(MEM[(r + 1) as usize].b32.s1, false);
-                                if MEM[(p + 4) as usize].b32.s0 != TEX_NULL {
+                                if !MEM[(p + 4) as usize].b32.s0.is_texnull() {
                                     temp_ptr = vpackage(
                                         MEM[(p + 4) as usize].b32.s0,
                                         0,
@@ -254,12 +254,12 @@ unsafe fn fire_up(mut c: i32) {
                         }
                         MEM[(r + 2) as usize].b32.s0 = TEX_NULL;
                         n = *NODE_subtype(r as isize) as _;
-                        temp_ptr = MEM[(*BOX_REG(n as i32) + 5) as usize].b32.s1;
+                        temp_ptr = MEM[(*BOX_REG(n as usize) + 5) as usize].b32.s1;
                         free_node(*BOX_REG(n as _), BOX_NODE_SIZE);
                         *BOX_REG(n as _) =
                             vpackage(temp_ptr, 0i32, 1i32 as small_number, 0x3fffffffi32);
                     } else {
-                        while *LLIST_link(s as isize) != TEX_NULL {
+                        while !LLIST_link(s as isize).is_texnull() {
                             s = *LLIST_link(s as isize);
                         }
                         MEM[(r + 2) as usize].b32.s1 = s
@@ -286,22 +286,22 @@ unsafe fn fire_up(mut c: i32) {
             if MEM[(p + 1) as usize].b32.s0 != 0 {
                 /*1618: "Update the current marks" */
                 find_sa_element(MARK_VAL as _, MEM[(p + 1) as usize].b32.s0, true);
-                if MEM[(cur_ptr + 1) as usize].b32.s1 == TEX_NULL {
+                if MEM[(cur_ptr + 1) as usize].b32.s1.is_texnull() {
                     MEM[(cur_ptr + 1) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
                     MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1;
                 }
-                if MEM[(cur_ptr + 2) as usize].b32.s0 != TEX_NULL {
+                if !MEM[(cur_ptr + 2) as usize].b32.s0.is_texnull() {
                     delete_token_ref(MEM[(cur_ptr + 2) as usize].b32.s0);
                 }
                 MEM[(cur_ptr + 2) as usize].b32.s0 = MEM[(p + 1) as usize].b32.s1;
                 MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1;
             } else {
                 /*1051: "Update the values of first_mark and bot_mark" */
-                if cur_mark[FIRST_MARK_CODE as usize] == TEX_NULL {
+                if cur_mark[FIRST_MARK_CODE as usize].is_texnull() {
                     cur_mark[FIRST_MARK_CODE as usize] = MEM[(p + 1) as usize].b32.s1;
                     MEM[cur_mark[1] as usize].b32.s0 += 1;
                 }
-                if cur_mark[2] != TEX_NULL {
+                if !cur_mark[2].is_texnull() {
                     delete_token_ref(cur_mark[BOT_MARK_CODE as usize]);
                 }
                 cur_mark[BOT_MARK_CODE as usize] = MEM[(p + 1) as usize].b32.s1;
@@ -316,8 +316,8 @@ unsafe fn fire_up(mut c: i32) {
 
     /*1052: "Break the current page at node p, put it in box 255, and put the
      * remaining nodes on the contribution list". */
-    if p != TEX_NULL {
-        if *LLIST_link(CONTRIB_HEAD as isize) == TEX_NULL {
+    if !p.is_texnull() {
+        if LLIST_link(CONTRIB_HEAD as isize).is_texnull() {
             if nest_ptr == 0 {
                 cur_list.tail = page_tail
             } else {
@@ -349,7 +349,7 @@ unsafe fn fire_up(mut c: i32) {
 
     /*1026: "Start a new current page" */
     page_contents = EMPTY as _;
-    page_tail = PAGE_HEAD;
+    page_tail = PAGE_HEAD as i32;
     *LLIST_link(PAGE_HEAD as isize) = TEX_NULL;
     last_glue = MAX_HALFWORD;
     last_penalty = 0;
@@ -358,30 +358,30 @@ unsafe fn fire_up(mut c: i32) {
     page_so_far[7] = 0;
     page_max_depth = 0;
 
-    if q != HOLD_HEAD {
+    if q != HOLD_HEAD as i32 {
         *LLIST_link(PAGE_HEAD as isize) = *LLIST_link(HOLD_HEAD as isize);
         page_tail = q
     }
 
     /*1054: "Delete the page-insertion nodes" */
     r = *LLIST_link(PAGE_INS_HEAD as isize);
-    while r != PAGE_INS_HEAD {
+    while r != PAGE_INS_HEAD as i32 {
         q = *LLIST_link(r as isize);
         free_node(r, PAGE_INS_NODE_SIZE);
         r = q
     }
 
-    *LLIST_link(PAGE_INS_HEAD as isize) = PAGE_INS_HEAD;
+    *LLIST_link(PAGE_INS_HEAD as isize) = PAGE_INS_HEAD as i32;
 
     /* ... resuming 1047 ... */
 
-    if sa_root[MARK_VAL as usize] != TEX_NULL {
+    if !sa_root[MARK_VAL as usize].is_texnull() {
         if do_marks(FIRE_UP_DONE as _, 0, sa_root[MARK_VAL as usize]) {
             sa_root[MARK_VAL as usize] = TEX_NULL;
         }
     }
-    if cur_mark[TOP_MARK_CODE as usize] != TEX_NULL
-        && cur_mark[FIRST_MARK_CODE as usize] == TEX_NULL
+    if !cur_mark[TOP_MARK_CODE as usize].is_texnull()
+        && cur_mark[FIRST_MARK_CODE as usize].is_texnull()
     {
         cur_mark[FIRST_MARK_CODE as usize] = cur_mark[TOP_MARK_CODE as usize];
         MEM[cur_mark[0] as usize].b32.s0 += 1;
@@ -389,7 +389,7 @@ unsafe fn fire_up(mut c: i32) {
 
     /* Tectonic: in semantic pagination mode, ignore the output routine. */
 
-    if *LOCAL(Local::output_routine) != TEX_NULL && !semantic_pagination_enabled {
+    if !LOCAL(Local::output_routine).is_texnull() && !semantic_pagination_enabled {
         if dead_cycles >= *INTPAR(IntPar::max_dead_cycles) {
             /*1059: "Explain that too many dead cycles have happened in a row." */
             if file_line_error_style_p != 0 {
@@ -422,8 +422,8 @@ unsafe fn fire_up(mut c: i32) {
     }
 
     /*1058: "Perform the default output routine." */
-    if *LLIST_link(PAGE_HEAD as isize) != TEX_NULL {
-        if *LLIST_link(CONTRIB_HEAD as isize) == TEX_NULL {
+    if !LLIST_link(PAGE_HEAD as isize).is_texnull() {
+        if LLIST_link(CONTRIB_HEAD as isize).is_texnull() {
             if nest_ptr == 0 {
                 cur_list.tail = page_tail
             } else {
@@ -435,7 +435,7 @@ unsafe fn fire_up(mut c: i32) {
 
         *LLIST_link(CONTRIB_HEAD as isize) = *LLIST_link(PAGE_HEAD as isize);
         *LLIST_link(PAGE_HEAD as isize) = TEX_NULL;
-        page_tail = PAGE_HEAD;
+        page_tail = PAGE_HEAD as i32;
     }
 
     flush_node_list(disc_ptr[LAST_BOX_CODE as usize]);
@@ -559,7 +559,7 @@ pub(crate) unsafe fn build_page() {
             KERN_NODE => {
                 if page_contents  < BOX_THERE as _ {
                     return done1(slf);
-                } else if *LLIST_link(slf.p as isize) == TEX_NULL {
+                } else if LLIST_link(slf.p as isize).is_texnull() {
                     return (slf, true)
                 } else if *NODE_type(*LLIST_link(slf.p as isize) as isize) == GLUE_NODE {
                     slf.pi = 0;
@@ -580,7 +580,7 @@ pub(crate) unsafe fn build_page() {
                 }
 
                 let n = *NODE_subtype(slf.p as isize) as u8;
-                slf.r = PAGE_INS_HEAD;
+                slf.r = PAGE_INS_HEAD as i32;
 
                 while n as u16 >= *NODE_subtype(*LLIST_link(slf.r as isize) as isize) {
                     slf.r = *LLIST_link(slf.r as isize);
@@ -599,7 +599,7 @@ pub(crate) unsafe fn build_page() {
                     *NODE_type(slf.r as isize) = INSERTING as _;
                     ensure_vbox(n);
 
-                    if *BOX_REG(n as _) == TEX_NULL {
+                    if BOX_REG(n as _).is_texnull() {
                         *BOX_height(slf.r as isize) = 0;
                     } else {
                         *BOX_height(slf.r as isize) = *BOX_height(*BOX_REG(n as _) as isize) + *BOX_depth(*BOX_REG(n as _) as isize);
@@ -703,7 +703,7 @@ pub(crate) unsafe fn build_page() {
                         MEM[(slf.r + 1) as usize].b32.s1 = slf.q;
                         MEM[(slf.r + 1) as usize].b32.s0 = slf.p;
 
-                        if slf.q == TEX_NULL {
+                        if slf.q.is_texnull() {
                             insert_penalties += EJECT_PENALTY;
                         } else if *NODE_type(slf.q as isize) == PENALTY_NODE {
                             insert_penalties +=
@@ -761,7 +761,7 @@ pub(crate) unsafe fn build_page() {
                 least_page_cost = c;
                 slf.r = *LLIST_link(PAGE_INS_HEAD as isize);
 
-                while slf.r != PAGE_INS_HEAD {
+                while slf.r != PAGE_INS_HEAD as i32 {
                     MEM[(slf.r + 2) as usize].b32.s0 = MEM[(slf.r + 2) as usize].b32.s1;
                     slf.r = *LLIST_link(slf.r as isize);
                 }
@@ -852,7 +852,7 @@ pub(crate) unsafe fn build_page() {
                  * `page_disc`, the first item removed by the page builder.
                  * `disc_ptr[VSPLIT_CODE]` is `split_disc`, the first item removed
                  * by \vsplit. */
-                if disc_ptr[LAST_BOX_CODE as usize] == TEX_NULL {
+                if disc_ptr[LAST_BOX_CODE as usize].is_texnull() {
                     disc_ptr[LAST_BOX_CODE as usize] = slf.p
                 } else {
                     *LLIST_link(disc_ptr[COPY_CODE as usize] as isize) = slf.p;
@@ -863,7 +863,7 @@ pub(crate) unsafe fn build_page() {
         }
     }
 
-    if *LLIST_link(CONTRIB_HEAD as isize) == TEX_NULL || output_active as i32 != 0 {
+    if LLIST_link(CONTRIB_HEAD as isize).is_texnull() || output_active as i32 != 0 {
         return;
     }
 
@@ -875,14 +875,14 @@ pub(crate) unsafe fn build_page() {
         if halt {
             return;
         };
-        if !(*LLIST_link(CONTRIB_HEAD as isize) != TEX_NULL) {
+        if LLIST_link(CONTRIB_HEAD as isize).is_texnull() {
             break;
         }
     }
     if nest_ptr == 0 {
-        cur_list.tail = CONTRIB_HEAD; /* "vertical mode" */
+        cur_list.tail = CONTRIB_HEAD as i32; /* "vertical mode" */
     } else {
-        (*nest.offset(0)).tail = CONTRIB_HEAD; /* "other modes" */
+        (*nest.offset(0)).tail = CONTRIB_HEAD as i32; /* "other modes" */
     };
     /* "other modes" */
 }
