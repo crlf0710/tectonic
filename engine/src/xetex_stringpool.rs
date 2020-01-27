@@ -78,7 +78,7 @@ pub(crate) unsafe fn length(mut s: str_number) -> i32 {
 }
 pub(crate) unsafe fn make_string() -> str_number {
     if str_ptr == max_strings {
-        overflow(b"number of strings", max_strings - init_str_ptr);
+        overflow(b"number of strings", (max_strings - init_str_ptr) as usize);
     }
     str_ptr += 1;
     *str_start.offset((str_ptr - 65536i32) as isize) = pool_ptr;
@@ -89,7 +89,7 @@ pub(crate) unsafe fn append_str(mut s: str_number) {
     let mut j: pool_pointer = 0;
     i = length(s);
     if pool_ptr + i > pool_size {
-        overflow(b"pool size", pool_size - init_pool_ptr);
+        overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
     }
     j = *str_start.offset((s as i64 - 65536) as isize);
     while i > 0i32 {

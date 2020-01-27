@@ -321,7 +321,7 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
         print_ln();
     }
 
-    if LR_ptr != TEX_NULL || cur_dir != LEFT_TO_RIGHT as _ {
+    if !LR_ptr.is_texnull() || cur_dir != LEFT_TO_RIGHT as _ {
         confusion(b"LR3");
     }
 
@@ -373,9 +373,9 @@ unsafe fn hlist_out() {
         p = *BOX_list_ptr(this_box as _);
         prev_p = this_box + 5; /* this gets the list within the box */
 
-        while p != TEX_NULL {
-            if *LLIST_link(p as isize) != TEX_NULL {
-                if p != TEX_NULL
+        while !p.is_texnull() {
+            if !LLIST_link(p as isize).is_texnull() {
+                if !p.is_texnull()
                     && !is_char_node(p)
                     && *NODE_type(p as isize) != WHATSIT_NODE
                     && (*NODE_subtype(p as isize) == NATIVE_WORD_NODE
@@ -390,7 +390,7 @@ unsafe fn hlist_out() {
                         /*641: "Advance `q` past ignorable nodes." This test is
                          * mostly `node_is_invisible_to_interword_space`. 641 is
                          * reused a few times here. */
-                        while q != TEX_NULL
+                        while !q.is_texnull()
                             && !is_char_node(q)
                             && (*NODE_type(q as isize) == PENALTY_NODE
                                 || *NODE_type(q as isize) == INS_NODE
@@ -401,7 +401,7 @@ unsafe fn hlist_out() {
                         {
                             q = *LLIST_link(q as isize);
                         }
-                        if !(q != TEX_NULL && !is_char_node(q)) {
+                        if !(!q.is_texnull() && !is_char_node(q)) {
                             break;
                         }
                         if *NODE_type(q as isize) == GLUE_NODE
@@ -415,7 +415,7 @@ unsafe fn hlist_out() {
                                  * merge." */
                                 q = *LLIST_link(q as isize);
 
-                                while q != TEX_NULL
+                                while !q.is_texnull()
                                     && !is_char_node(q)
                                     && (*NODE_type(q as isize) == PENALTY_NODE
                                         || *NODE_type(q as isize) == INS_NODE
@@ -427,7 +427,7 @@ unsafe fn hlist_out() {
                                     q = *LLIST_link(q as isize);
                                 }
 
-                                if q != TEX_NULL
+                                if !q.is_texnull()
                                     && !is_char_node(q)
                                     && *NODE_type(q as isize) == WHATSIT_NODE
                                     && (*NODE_subtype(q as isize) == NATIVE_WORD_NODE
@@ -443,7 +443,7 @@ unsafe fn hlist_out() {
                             } else {
                                 q = *LLIST_link(q as isize);
                             }
-                            if !(q != TEX_NULL
+                            if !(!q.is_texnull()
                                 && !is_char_node(q)
                                 && *NODE_type(q as isize) == KERN_NODE
                                 && *NODE_subtype(q as isize) == SPACE_ADJUSTMENT as _)
@@ -494,7 +494,7 @@ unsafe fn hlist_out() {
                      * and p to the last." */
                     if p != r {
                         if pool_ptr + k > pool_size {
-                            overflow(b"pool size", pool_size - init_pool_ptr);
+                            overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
                         }
                         k = 0i32;
                         q = r;
@@ -1890,14 +1890,14 @@ pub(crate) unsafe fn new_edge(s: small_number, w: scaled_t) -> i32 {
 
 pub(crate) unsafe fn out_what(mut p: i32) {
     let mut j: small_number;
-    match MEM[p as usize].b16.s0 as i32 {
+    match MEM[p as usize].b16.s0 {
         OPEN_NODE | WRITE_NODE | CLOSE_NODE => {
             if doing_leaders {
                 return;
             }
 
             j = MEM[(p + 1) as usize].b32.s0 as small_number;
-            if MEM[p as usize].b16.s0 as i32 == WRITE_NODE {
+            if MEM[p as usize].b16.s0 == WRITE_NODE {
                 write_out(p);
                 return;
             }
@@ -1906,7 +1906,7 @@ pub(crate) unsafe fn out_what(mut p: i32) {
                 ttstub_output_close(write_file[j as usize].take().unwrap());
             }
 
-            if MEM[p as usize].b16.s0 as i32 == CLOSE_NODE {
+            if MEM[p as usize].b16.s0 == CLOSE_NODE {
                 write_open[j as usize] = false;
                 return;
             }
@@ -2204,7 +2204,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
 }
 
 unsafe fn prune_movements(l: i32) {
-    while down_ptr != TEX_NULL {
+    while !down_ptr.is_texnull() {
         if MEM[(down_ptr + 2) as usize].b32.s1 < l {
             break;
         }
@@ -2213,7 +2213,7 @@ unsafe fn prune_movements(l: i32) {
         down_ptr = MEM[p as usize].b32.s1;
         free_node(p, MOVEMENT_NODE_SIZE);
     }
-    while right_ptr != TEX_NULL {
+    while !right_ptr.is_texnull() {
         if MEM[(right_ptr + 2) as usize].b32.s1 < l {
             return;
         }
@@ -2243,7 +2243,7 @@ unsafe fn special_out(mut p: i32) {
     selector = old_setting;
 
     if pool_ptr + 1 > pool_size {
-        overflow(b"pool size", pool_size - init_pool_ptr);
+        overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
     }
 
     if cur_length() < 256 {

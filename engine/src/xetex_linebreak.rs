@@ -57,7 +57,7 @@ const VERY_LOOSE_FIT: usize = 0;
 const LOOSE_FIT: usize = 1;
 const DECENT_FIT: usize = 2;
 const TIGHT_FIT: usize = 3;
-const LAST_ACTIVE: i32 = ACTIVE_LIST;
+const LAST_ACTIVE: usize = ACTIVE_LIST;
 
 static mut passive: i32 = 0;
 static mut cur_active_width: [scaled_t; 7] = [0; 7];
@@ -219,7 +219,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     /* Prep relating to par_shape (877) */
 
-    if *LOCAL(Local::par_shape) == TEX_NULL {
+    if LOCAL(Local::par_shape).is_texnull() {
         if *DIMENPAR(DimenPar::hang_indent) == 0 {
             last_special_line = 0;
             second_width = *DIMENPAR(DimenPar::hsize);
@@ -299,7 +299,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         q = get_node(active_node_size as i32);
         *NODE_type(q as isize) = UNHYPHENATED as _;
         MEM[q as usize].b16.s0 = DECENT_FIT as _;
-        *LLIST_link(q as isize) = LAST_ACTIVE;
+        *LLIST_link(q as isize) = LAST_ACTIVE as i32;
         MEM[(q + 1) as usize].b32.s1 = TEX_NULL;
         MEM[(q + 1) as usize].b32.s0 = cur_list.prev_graf + 1;
         MEM[(q + 2) as usize].b32.s1 = 0;
@@ -325,7 +325,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         prev_p = global_prev_p;
         first_p = cur_p;
 
-        while cur_p != TEX_NULL && *LLIST_link(ACTIVE_LIST as isize) != LAST_ACTIVE {
+        while !cur_p.is_texnull() && *LLIST_link(ACTIVE_LIST as isize) != LAST_ACTIVE as i32 {
             /*895: "Call try_break if cur_p is a legal breakpoint; on the
              * second pass, also try to hyphenate the next word, if cur_p is a
              * glue node; then advance cur_p to the next node of the paragraph
@@ -1280,7 +1280,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     s = MEM[(cur_p + 1) as usize].b32.s0;
                     disc_width = 0;
 
-                    if s == TEX_NULL {
+                    if s.is_texnull() {
                         try_break(*INTPAR(IntPar::ex_hyphen_penalty), HYPHENATED as _);
                     } else {
                         loop {
@@ -1412,11 +1412,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             prev_p = global_prev_p;
             cur_p = MEM[cur_p as usize].b32.s1
         }
-        if cur_p == TEX_NULL {
+        if cur_p.is_texnull() {
             /*902: "Try the final line break at the end of the paragraph, and
              * goto done if the desired breakpoints have been found." */
             try_break(EJECT_PENALTY, HYPHENATED as _);
-            if *LLIST_link(ACTIVE_LIST as isize) != LAST_ACTIVE {
+            if *LLIST_link(ACTIVE_LIST as isize) != LAST_ACTIVE as i32 {
                 /*903:*/
                 r = *LLIST_link(ACTIVE_LIST as isize);
                 fewest_demerits = MAX_HALFWORD;
@@ -1428,7 +1428,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         }
                     }
                     r = *LLIST_link(r as isize);
-                    if !(r != LAST_ACTIVE) {
+                    if !(r != LAST_ACTIVE as i32) {
                         break;
                     }
                 }
@@ -1571,7 +1571,7 @@ unsafe fn post_line_break(mut d: bool) {
         if *INTPAR(IntPar::texxet) > 0 {
             /*1494:*/
             q = MEM[TEMP_HEAD as usize].b32.s1;
-            if LR_ptr != TEX_NULL {
+            if !LR_ptr.is_texnull() {
                 temp_ptr = LR_ptr;
                 r = q;
                 loop {
@@ -1617,9 +1617,9 @@ unsafe fn post_line_break(mut d: bool) {
         post_disc_break = false;
         glue_break = false;
 
-        if q == TEX_NULL {
-            q = TEMP_HEAD;
-            while *LLIST_link(q as isize) != TEX_NULL {
+        if q.is_texnull() {
+            q = TEMP_HEAD as i32;
+            while !LLIST_link(q as isize).is_texnull() {
                 q = *LLIST_link(q as isize);
             }
         } else if MEM[q as usize].b16.s1 as i32 == 10 {
@@ -1688,7 +1688,7 @@ unsafe fn post_line_break(mut d: bool) {
             if *INTPAR(IntPar::texxet) > 0 {
                 /*1495:*/
                 if MEM[q as usize].b16.s0 as i32 & 1 != 0 {
-                    if LR_ptr != TEX_NULL
+                    if !LR_ptr.is_texnull()
                         && MEM[LR_ptr as usize].b32.s0
                             == 4i32 * (MEM[q as usize].b16.s0 as i32 / 4i32) + 3i32
                     {
@@ -1738,8 +1738,8 @@ unsafe fn post_line_break(mut d: bool) {
         }
         if *INTPAR(IntPar::texxet) > 0 {
             /*1496:*/
-            if LR_ptr != TEX_NULL {
-                s = TEMP_HEAD;
+            if !LR_ptr.is_texnull() {
+                s = TEMP_HEAD as i32;
                 r = MEM[s as usize].b32.s1;
                 while r != q {
                     s = r;
@@ -1782,7 +1782,7 @@ unsafe fn post_line_break(mut d: bool) {
         if cur_line > last_special_line {
             cur_width = second_width;
             cur_indent = second_indent
-        } else if *LOCAL(Local::par_shape) == TEX_NULL {
+        } else if LOCAL(Local::par_shape).is_texnull() {
             cur_width = first_width;
             cur_indent = first_indent
         } else {
@@ -1794,8 +1794,8 @@ unsafe fn post_line_break(mut d: bool) {
                 .b32
                 .s1;
         }
-        adjust_tail = ADJUST_HEAD;
-        pre_adjust_tail = PRE_ADJUST_HEAD;
+        adjust_tail = ADJUST_HEAD as i32;
+        pre_adjust_tail = PRE_ADJUST_HEAD as i32;
         /* Tectonic: in semantic pagination mode, set each "line" (really the
          * whole paragraph) at its natural width. */
         if semantic_pagination_enabled {
@@ -2534,7 +2534,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                             }
                         }
                         if break_type as i32 == 1i32 && MEM[r as usize].b16.s1 as i32 == 1 {
-                            if cur_p != TEX_NULL {
+                            if !cur_p.is_texnull() {
                                 d = d + *INTPAR(IntPar::double_hyphen_demerits);
                             } else {
                                 d = d + *INTPAR(IntPar::final_hyphen_demerits);

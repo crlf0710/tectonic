@@ -1,3 +1,4 @@
+use crate::xetex_consts::SYNCTEX_FIELD_SIZE;
 use crate::xetex_ini::MEM;
 use crate::{xetex_ini, xetex_output};
 
@@ -124,8 +125,14 @@ pub(crate) unsafe fn GLUE_NODE_leader_ptr(p: isize) -> &'static mut i32 {
 
 /*
 #define INSERTION_NODE_float_cost(p) mem[(p) + 1].b32.s1 /* "the floating_penalty to be used" */
-#define INSERTION_NODE_split_top_ptr(p) mem[(p) + 4].b32.s1 /* a glue pointer */
-#define INSERTION_NODE_ins_ptr(p) mem[(p) + 4].b32.s0 /* a pointer to a vlist */
+*/
+
+/// a glue pointer
+pub(crate) unsafe fn INSERTION_NODE_split_top_ptr(p: i32) -> &'static mut i32 {
+    &mut MEM[(p + 4) as usize].b32.s1
+}
+
+/*#define INSERTION_NODE_ins_ptr(p) mem[(p) + 4].b32.s0 /* a pointer to a vlist */
 
 #define LANGUAGE_NODE_what_lang(p) mem[(p) + 1].b32.s1 /* language number, 0..255 */
 #define LANGUAGE_NODE_what_lhm(p) mem[(p) + 1].b16.s1 /* "minimum left fragment, range 1..63" */
@@ -141,13 +148,23 @@ pub(crate) unsafe fn GLUE_NODE_leader_ptr(p: isize) -> &'static mut i32 {
 /* To check: do these really only apply to MATH_NODEs? */
 #define MATH_NODE_lr_dir(p) (NODE_subtype(p) / R_CODE)
 #define MATH_NODE_end_lr_type(p) (L_CODE * (NODE_subtype(p) / L_CODE) + END_M_CODE)
-
-#define NATIVE_NODE_size(p) mem[(p) + 4].b16.s3
+*/
+pub(crate) unsafe fn NATIVE_NODE_size(p: i32) -> &'static mut u16 {
+    &mut MEM[p as usize + 4].b16.s3
+}
+/*
 #define NATIVE_NODE_font(p) mem[(p) + 4].b16.s2
 #define NATIVE_NODE_length(p) mem[(p) + 4].b16.s1 /* number of UTF16 items in the text */
 #define NATIVE_NODE_glyph(p) mem[(p) + 4].b16.s1 /* ... or the glyph number, if subtype==GLYPH_NODE */
-#define NATIVE_NODE_glyph_count(p) mem[(p) + 4].b16.s0
-#define NATIVE_NODE_glyph_info_ptr(p) mem[(p) + 5].ptr
+*/
+
+pub(crate) unsafe fn NATIVE_NODE_glyph_count(p: i32) -> &'static mut u16 {
+    &mut MEM[p as usize + 4].b16.s0
+}
+pub(crate) unsafe fn NATIVE_NODE_glyph_info_ptr(p: i32) -> &'static mut *mut core::ffi::c_void {
+    &mut MEM[p as usize + 5].ptr
+}
+/*
 #define NATIVE_NODE_text(p) ((unsigned short *) &mem[(p) + NATIVE_NODE_SIZE])
 
 #define PAGE_INS_NODE_broken_ptr(p) mem[(p) + 1].b32.s1 /* "an insertion for this class will break here if anywhere" */
@@ -172,13 +189,17 @@ pub(crate) unsafe fn PENALTY_NODE_penalty(p: isize) -> &'static mut i32 {
 #define PIC_NODE_total_size(p) (PIC_NODE_SIZE + (PIC_NODE_path_len(p) + sizeof(memory_word) - 1) / sizeof(memory_word))
 
 #define WRITE_NODE_tokens(p) mem[(p) + 1].b32.s1 /* "reference count of token list to write" */
-
+*/
 /* Synctex hacks various nodes to add an extra word at the end to store its
  * information, hence the need to know the node size to get the synctex
  * info. */
-#define SYNCTEX_tag(p, nodesize) mem[(p) + nodesize - SYNCTEX_FIELD_SIZE].b32.s0
-#define SYNCTEX_line(p, nodesize) mem[(p) + nodesize - SYNCTEX_FIELD_SIZE].b32.s1
-*/
+
+pub(crate) unsafe fn SYNCTEX_tag(p: i32, nodesize: i32) -> &'static mut i32 {
+    &mut MEM[(p + nodesize - SYNCTEX_FIELD_SIZE) as usize].b32.s0
+}
+pub(crate) unsafe fn SYNCTEX_line(p: i32, nodesize: i32) -> &'static mut i32 {
+    &mut MEM[(p + nodesize - SYNCTEX_FIELD_SIZE) as usize].b32.s1
+}
 
 /// aka "link" of a link-list node
 pub(crate) unsafe fn GLUE_SPEC_ref_count(p: isize) -> &'static mut i32 {
