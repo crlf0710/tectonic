@@ -13,8 +13,8 @@ use crate::xetex_errors::{confusion, error};
 use crate::xetex_ini::{
     best_height_plus_depth, cur_list, cur_mark, cur_ptr, dead_cycles, disc_ptr,
     file_line_error_style_p, help_line, help_ptr, insert_penalties, last_glue, last_kern,
-    last_node_type, last_penalty, line, nest, nest_ptr, output_active, page_contents, page_so_far,
-    page_tail, sa_root, semantic_pagination_enabled, temp_ptr, MEM,
+    last_node_type, last_penalty, line, output_active, page_contents, page_so_far, page_tail,
+    sa_root, semantic_pagination_enabled, temp_ptr, MEM, NEST, NEST_PTR,
 };
 use crate::xetex_output::{print_cstr, print_esc_cstr, print_file_line, print_int, print_nl_cstr};
 use crate::xetex_scaledmath::x_over_n;
@@ -318,10 +318,10 @@ unsafe fn fire_up(mut c: i32) {
      * remaining nodes on the contribution list". */
     if !p.is_texnull() {
         if LLIST_link(CONTRIB_HEAD as isize).is_texnull() {
-            if nest_ptr == 0 {
+            if NEST_PTR == 0 {
                 cur_list.tail = page_tail
             } else {
-                (*nest.offset(0)).tail = page_tail
+                NEST[0].tail = page_tail
             }
         }
         *LLIST_link(page_tail as isize) = *LLIST_link(CONTRIB_HEAD as isize);
@@ -424,10 +424,10 @@ unsafe fn fire_up(mut c: i32) {
     /*1058: "Perform the default output routine." */
     if !LLIST_link(PAGE_HEAD as isize).is_texnull() {
         if LLIST_link(CONTRIB_HEAD as isize).is_texnull() {
-            if nest_ptr == 0 {
+            if NEST_PTR == 0 {
                 cur_list.tail = page_tail
             } else {
-                (*nest.offset(0)).tail = page_tail
+                NEST[0].tail = page_tail
             }
         } else {
             *LLIST_link(page_tail as isize) = *LLIST_link(CONTRIB_HEAD as isize);
@@ -879,10 +879,10 @@ pub(crate) unsafe fn build_page() {
             break;
         }
     }
-    if nest_ptr == 0 {
+    if NEST_PTR == 0 {
         cur_list.tail = CONTRIB_HEAD as i32; /* "vertical mode" */
     } else {
-        (*nest.offset(0)).tail = CONTRIB_HEAD as i32; /* "other modes" */
+        NEST[0].tail = CONTRIB_HEAD as i32; /* "other modes" */
     };
     /* "other modes" */
 }

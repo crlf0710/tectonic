@@ -388,7 +388,7 @@ pub(crate) type trie_pointer = i32;
 pub(crate) type trie_opcode = u16;
 pub(crate) type hyph_pointer = u16;
 pub(crate) type save_pointer = i32;
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub(crate) struct list_state_record {
     pub(crate) mode: i16,
@@ -476,7 +476,7 @@ pub(crate) static mut MAX_IN_OPEN: usize = 0;
 #[no_mangle]
 pub(crate) static mut PARAM_SIZE: usize = 0;
 #[no_mangle]
-pub(crate) static mut nest_size: i32 = 0;
+pub(crate) static mut NEST_SIZE: usize = 0;
 #[no_mangle]
 pub(crate) static mut SAVE_SIZE: usize = 0;
 #[no_mangle]
@@ -594,11 +594,11 @@ pub(crate) static mut depth_threshold: i32 = 0;
 #[no_mangle]
 pub(crate) static mut breadth_max: i32 = 0;
 #[no_mangle]
-pub(crate) static mut nest: *mut list_state_record = ptr::null_mut();
+pub(crate) static mut NEST: Vec<list_state_record> = Vec::new();
 #[no_mangle]
-pub(crate) static mut nest_ptr: i32 = 0;
+pub(crate) static mut NEST_PTR: usize = 0;
 #[no_mangle]
-pub(crate) static mut max_nest_stack: i32 = 0;
+pub(crate) static mut MAX_NEST_STACK: usize = 0;
 #[no_mangle]
 pub(crate) static mut cur_list: list_state_record = list_state_record {
     mode: 0,
@@ -4958,8 +4958,8 @@ unsafe fn initialize_more_variables() {
     error_count = 0_i8;
     help_ptr = 0_u8;
     use_err_help = false;
-    nest_ptr = 0i32;
-    max_nest_stack = 0i32;
+    NEST_PTR = 0;
+    MAX_NEST_STACK = 0;
     cur_list.mode = VMODE as _;
     cur_list.head = CONTRIB_HEAD as i32;
     cur_list.tail = CONTRIB_HEAD as i32;
@@ -6136,7 +6136,7 @@ pub(crate) unsafe fn tt_run_engine(
     trie_size = 1000000i64 as i32;
     HYPH_SIZE = 8191;
     BUF_SIZE = 200000;
-    nest_size = 500i32;
+    NEST_SIZE = 500;
     MAX_IN_OPEN = 15;
     PARAM_SIZE = 10000;
     SAVE_SIZE = 80000;
@@ -6148,7 +6148,7 @@ pub(crate) unsafe fn tt_run_engine(
     expand_depth = 10000i32;
     /* Allocate many of our big arrays. */
     BUFFER = vec![0; BUF_SIZE + 1];
-    nest = xmalloc_array(nest_size as usize);
+    NEST = vec![list_state_record::default(); NEST_SIZE + 1];
     SAVE_STACK = vec![memory_word::default(); SAVE_SIZE + 1];
     INPUT_STACK = vec![input_state_t::default(); STACK_SIZE + 1];
     INPUT_FILE = vec![0 as *mut UFILE; MAX_IN_OPEN + 1];
@@ -6733,7 +6733,7 @@ pub(crate) unsafe fn tt_run_engine(
     }
     // Free the big allocated arrays
     BUFFER = Vec::new();
-    free(nest as *mut libc::c_void);
+    NEST = Vec::new();
     SAVE_STACK = Vec::new();
     INPUT_STACK = Vec::new();
     INPUT_FILE = Vec::new();
