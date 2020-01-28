@@ -113,7 +113,7 @@ pub(crate) unsafe fn print_raw_char(mut s: UTF16_code, mut incr_offset: bool) {
         }
         Selector::NEW_STRING => {
             if pool_ptr < pool_size {
-                *str_pool.offset(pool_ptr as isize) = s;
+                str_pool[pool_ptr as usize] = s;
                 pool_ptr += 1
             }
         }
@@ -216,23 +216,23 @@ pub(crate) unsafe fn print(mut s: i32) {
         }
     }
     let mut pool_idx: i32 = s - 0x10000i32;
-    let mut i: pool_pointer = *str_start.offset(pool_idx as isize);
-    while i < *str_start.offset((pool_idx + 1i32) as isize) {
-        if *str_pool.offset(i as isize) as i32 >= 0xd800i32
-            && (*str_pool.offset(i as isize) as i32) < 0xdc00i32
-            && i + 1i32 < *str_start.offset((pool_idx + 1i32) as isize)
-            && *str_pool.offset((i + 1i32) as isize) as i32 >= 0xdc00i32
-            && (*str_pool.offset((i + 1i32) as isize) as i32) < 0xe000i32
+    let mut i: pool_pointer = str_start[pool_idx as usize];
+    while i < str_start[(pool_idx + 1) as usize] {
+        if str_pool[i as usize] as i32 >= 0xd800i32
+            && (str_pool[i as usize] as i32) < 0xdc00i32
+            && i + 1 < str_start[(pool_idx + 1) as usize]
+            && str_pool[(i + 1i32) as usize] as i32 >= 0xdc00i32
+            && (str_pool[(i + 1i32) as usize] as i32) < 0xe000i32
         {
             print_char(
                 0x10000i32
-                    + (*str_pool.offset(i as isize) as i32 - 0xd800i32) * 1024i32
-                    + *str_pool.offset((i + 1i32) as isize) as i32
+                    + (str_pool[i as usize] as i32 - 0xd800i32) * 1024i32
+                    + str_pool[(i + 1i32) as usize] as i32
                     - 0xdc00i32,
             );
             i += 1
         } else {
-            print_char(*str_pool.offset(i as isize) as i32);
+            print_char(str_pool[i as usize] as i32);
         }
         i += 1
     }
@@ -358,49 +358,46 @@ pub(crate) unsafe fn print_file_name(mut n: i32, mut a: i32, mut e: i32) {
     let mut quote_char: i32 = 0i32;
     let mut j: pool_pointer = 0;
     if a != 0i32 {
-        j = *str_start.offset((a - 0x10000i32) as isize);
-        while (!must_quote || quote_char == 0i32)
-            && j < *str_start.offset((a + 1i32 - 0x10000i32) as isize)
+        j = str_start[(a - 0x10000i32) as usize];
+        while (!must_quote || quote_char == 0i32) && j < str_start[(a + 1i32 - 0x10000i32) as usize]
         {
-            if *str_pool.offset(j as isize) as i32 == ' ' as i32 {
+            if str_pool[j as usize] as i32 == ' ' as i32 {
                 must_quote = true
-            } else if *str_pool.offset(j as isize) as i32 == '\"' as i32
-                || *str_pool.offset(j as isize) as i32 == '\'' as i32
+            } else if str_pool[j as usize] as i32 == '\"' as i32
+                || str_pool[j as usize] as i32 == '\'' as i32
             {
                 must_quote = true;
-                quote_char = 73i32 - *str_pool.offset(j as isize) as i32
+                quote_char = 73i32 - str_pool[j as usize] as i32
             }
             j += 1
         }
     }
     if n != 0i32 {
-        j = *str_start.offset((n - 0x10000i32) as isize);
-        while (!must_quote || quote_char == 0i32)
-            && j < *str_start.offset((n + 1i32 - 0x10000i32) as isize)
+        j = str_start[(n - 0x10000i32) as usize];
+        while (!must_quote || quote_char == 0i32) && j < str_start[(n + 1i32 - 0x10000i32) as usize]
         {
-            if *str_pool.offset(j as isize) as i32 == ' ' as i32 {
+            if str_pool[j as usize] as i32 == ' ' as i32 {
                 must_quote = true
-            } else if *str_pool.offset(j as isize) as i32 == '\"' as i32
-                || *str_pool.offset(j as isize) as i32 == '\'' as i32
+            } else if str_pool[j as usize] as i32 == '\"' as i32
+                || str_pool[j as usize] as i32 == '\'' as i32
             {
                 must_quote = true;
-                quote_char = 73i32 - *str_pool.offset(j as isize) as i32
+                quote_char = 73i32 - str_pool[j as usize] as i32
             }
             j += 1
         }
     }
     if e != 0i32 {
-        j = *str_start.offset((e - 0x10000i32) as isize);
-        while (!must_quote || quote_char == 0i32)
-            && j < *str_start.offset((e + 1i32 - 0x10000i32) as isize)
+        j = str_start[(e - 0x10000i32) as usize];
+        while (!must_quote || quote_char == 0i32) && j < str_start[(e + 1i32 - 0x10000i32) as usize]
         {
-            if *str_pool.offset(j as isize) as i32 == ' ' as i32 {
+            if str_pool[j as usize] as i32 == ' ' as i32 {
                 must_quote = true
-            } else if *str_pool.offset(j as isize) as i32 == '\"' as i32
-                || *str_pool.offset(j as isize) as i32 == '\'' as i32
+            } else if str_pool[j as usize] as i32 == '\"' as i32
+                || str_pool[j as usize] as i32 == '\'' as i32
             {
                 must_quote = true;
-                quote_char = 73i32 - *str_pool.offset(j as isize) as i32
+                quote_char = 73i32 - str_pool[j as usize] as i32
             }
             j += 1
         }
@@ -413,16 +410,16 @@ pub(crate) unsafe fn print_file_name(mut n: i32, mut a: i32, mut e: i32) {
     }
     if a != 0i32 {
         let mut for_end: i32 = 0;
-        j = *str_start.offset((a - 0x10000i32) as isize);
-        for_end = *str_start.offset((a + 1i32 - 0x10000i32) as isize) - 1i32;
+        j = str_start[(a - 0x10000i32) as usize];
+        for_end = str_start[(a + 1i32 - 0x10000i32) as usize] - 1i32;
         if j <= for_end {
             loop {
-                if *str_pool.offset(j as isize) as i32 == quote_char {
+                if str_pool[j as usize] as i32 == quote_char {
                     print(quote_char);
                     quote_char = 73i32 - quote_char;
                     print(quote_char);
                 }
-                print(*str_pool.offset(j as isize) as i32);
+                print(str_pool[j as usize] as i32);
                 let fresh0 = j;
                 j = j + 1;
                 if !(fresh0 < for_end) {
@@ -433,16 +430,16 @@ pub(crate) unsafe fn print_file_name(mut n: i32, mut a: i32, mut e: i32) {
     }
     if n != 0i32 {
         let mut for_end_0: i32 = 0;
-        j = *str_start.offset((n - 0x10000i32) as isize);
-        for_end_0 = *str_start.offset((n + 1i32 - 0x10000i32) as isize) - 1i32;
+        j = str_start[(n - 0x10000i32) as usize];
+        for_end_0 = str_start[(n + 1i32 - 0x10000i32) as usize] - 1i32;
         if j <= for_end_0 {
             loop {
-                if *str_pool.offset(j as isize) as i32 == quote_char {
+                if str_pool[j as usize] as i32 == quote_char {
                     print(quote_char);
                     quote_char = 73i32 - quote_char;
                     print(quote_char);
                 }
-                print(*str_pool.offset(j as isize) as i32);
+                print(str_pool[j as usize] as i32);
                 let fresh1 = j;
                 j = j + 1;
                 if !(fresh1 < for_end_0) {
@@ -453,16 +450,16 @@ pub(crate) unsafe fn print_file_name(mut n: i32, mut a: i32, mut e: i32) {
     }
     if e != 0i32 {
         let mut for_end_1: i32 = 0;
-        j = *str_start.offset((e - 0x10000i32) as isize);
-        for_end_1 = *str_start.offset((e + 1i32 - 0x10000i32) as isize) - 1i32;
+        j = str_start[(e - 0x10000i32) as usize];
+        for_end_1 = str_start[(e + 1i32 - 0x10000i32) as usize] - 1i32;
         if j <= for_end_1 {
             loop {
-                if *str_pool.offset(j as isize) as i32 == quote_char {
+                if str_pool[j as usize] as i32 == quote_char {
                     print(quote_char);
                     quote_char = 73i32 - quote_char;
                     print(quote_char);
                 }
-                print(*str_pool.offset(j as isize) as i32);
+                print(str_pool[j as usize] as i32);
                 let fresh2 = j;
                 j = j + 1;
                 if !(fresh2 < for_end_1) {
@@ -609,9 +606,9 @@ pub(crate) unsafe fn print_roman_int(mut n: i32) {
     }
 }
 pub(crate) unsafe fn print_current_string() {
-    let mut j: pool_pointer = *str_start.offset((str_ptr - 0x10000i32) as isize);
+    let mut j: pool_pointer = str_start[(str_ptr - 0x10000) as usize];
     while j < pool_ptr {
-        print_char(*str_pool.offset(j as isize) as i32);
+        print_char(str_pool[j as usize] as i32);
         j += 1
     }
 }

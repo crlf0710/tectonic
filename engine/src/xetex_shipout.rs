@@ -11,14 +11,14 @@ use crate::xetex_ext::{
 use crate::xetex_ini::{
     avail, cur_area, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_list, cur_name,
     cur_page_height, cur_page_width, cur_tok, cur_v, cur_v_offset, dead_cycles, def_ref,
-    doing_leaders, doing_special, file_line_error_style_p, file_offset, font_ptr, font_used,
-    help_line, help_ptr, init_pool_ptr, job_name, last_bop, log_opened, max_h, max_print_line,
-    max_push, max_v, name_of_file, output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr,
+    doing_leaders, doing_special, file_line_error_style_p, file_offset, font_used, help_line,
+    help_ptr, init_pool_ptr, job_name, last_bop, log_opened, max_h, max_print_line, max_push,
+    max_v, name_of_file, output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr,
     pool_size, rule_dp, rule_ht, rule_wd, rust_stdout, selector, semantic_pagination_enabled,
-    str_pool, str_ptr, str_start, temp_ptr, term_offset, total_pages, write_file, write_loc,
-    write_open, xdv_buffer, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, FONT_AREA,
-    FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO, FONT_LETTER_SPACE,
-    FONT_MAPPING, FONT_NAME, FONT_SIZE, MEM, WIDTH_BASE,
+    str_pool, str_ptr, str_start, temp_ptr, term_offset, write_file, write_loc, write_open,
+    xdv_buffer, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC,
+    FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO, FONT_LETTER_SPACE, FONT_MAPPING,
+    FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
 };
 use crate::xetex_ini::{memory_word, Selector};
 use crate::xetex_output::{
@@ -225,7 +225,7 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
 
         /* First page? Emit preamble items. */
 
-        if total_pages == 0 {
+        if TOTAL_PAGES == 0 {
             dvi_out(PRE as _);
             if semantic_pagination_enabled {
                 dvi_out(SPX_ID_BYTE as _);
@@ -284,13 +284,13 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
         dvi_out(XXX1 as _);
         dvi_out(cur_length() as u8);
 
-        s = *str_start.offset((str_ptr - TOO_BIG_CHAR) as isize);
+        s = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
         while s < pool_ptr {
-            dvi_out(*str_pool.offset(s as isize) as u8);
+            dvi_out(str_pool[s as usize] as u8);
             s += 1
         }
 
-        pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
+        pool_ptr = str_start[(str_ptr - 65536) as usize];
 
         /* Done with the synthesized special. The meat: emit this page box. */
 
@@ -303,7 +303,7 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
         }
 
         dvi_out(EOP as _);
-        total_pages += 1;
+        TOTAL_PAGES += 1;
         cur_s = -1;
     }
 
@@ -505,18 +505,17 @@ unsafe fn hlist_out() {
                                 {
                                     j = 0i32;
                                     while j < MEM[(q + 4) as usize].b16.s1 as i32 {
-                                        *str_pool.offset(pool_ptr as isize) =
-                                            *(&mut MEM[(q + 6) as usize] as *mut memory_word
-                                                as *mut u16)
-                                                .offset(j as isize);
+                                        str_pool[pool_ptr as usize] = *(&mut MEM[(q + 6) as usize]
+                                            as *mut memory_word
+                                            as *mut u16)
+                                            .offset(j as isize);
                                         pool_ptr += 1;
                                         j += 1
                                     }
                                     k += MEM[(q + 1) as usize].b32.s1
                                 }
                             } else if MEM[q as usize].b16.s1 as i32 == 10 {
-                                *str_pool.offset(pool_ptr as isize) =
-                                    ' ' as i32 as packed_UTF16_code;
+                                str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
                                 pool_ptr += 1;
                                 g = MEM[(q + 1) as usize].b32.s0;
                                 k += MEM[(g + 1) as usize].b32.s1;
@@ -551,9 +550,8 @@ unsafe fn hlist_out() {
                         j = 0i32;
                         while j < cur_length() {
                             *(&mut MEM[(q + 6) as usize] as *mut memory_word as *mut u16)
-                                .offset(j as isize) = *str_pool.offset(
-                                (*str_start.offset((str_ptr - 65536i32) as isize) + j) as isize,
-                            );
+                                .offset(j as isize) =
+                                str_pool[(str_start[(str_ptr - 65536) as usize] + j) as usize];
                             j += 1
                         }
                         /* "Link q into the list in place of r...p" */
@@ -589,7 +587,7 @@ unsafe fn hlist_out() {
                             p = MEM[p as usize].b32.s1
                         }
                         flush_node_list(r);
-                        pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
+                        pool_ptr = str_start[(str_ptr - 65536) as usize];
                         p = q
                     }
                 }
@@ -669,8 +667,8 @@ unsafe fn hlist_out() {
                                 internal_font_number;
                         c = MEM[p as usize].b16.s0;
                         if p != 4999999i32 - 12i32 &&
-                               !(FONT_MAPPING[f as usize]).is_null() {
-                            c = apply_tfm_font_mapping(FONT_MAPPING[f as usize], c as i32) as u16;
+                               !(FONT_MAPPING[f]).is_null() {
+                            c = apply_tfm_font_mapping(FONT_MAPPING[f], c as i32) as u16;
                         }
                         if f != dvi_f {
                             /*643: "Change font dvi_f to f" */
@@ -678,23 +676,23 @@ unsafe fn hlist_out() {
                                 dvi_font_def(f);
                                 *font_used.offset(f as isize) = true
                             }
-                            if f <= 64i32 {
-                                dvi_out((f + 171i32 - 1i32) as u8);
-                            } else if f <= 256i32 {
-                                dvi_out(235i32 as u8);
-                                dvi_out((f - 1i32) as u8);
+                            if f <= 64 {
+                                dvi_out((f + 171 - 1) as u8);
+                            } else if f <= 256 {
+                                dvi_out(235 as u8);
+                                dvi_out((f - 1) as u8);
                             } else {
-                                dvi_out((235i32 + 1i32) as u8);
-                                dvi_out(((f - 1i32) / 256i32) as u8);
-                                dvi_out(((f - 1i32) % 256i32) as u8);
+                                dvi_out((235 + 1) as u8);
+                                dvi_out(((f - 1) / 256) as u8);
+                                dvi_out(((f - 1) % 256) as u8);
                             }
                             dvi_f = f
                         }
-                        if FONT_EC[f as usize] as i32 >=
+                        if FONT_EC[f] as i32 >=
                                c as i32 {
-                            if FONT_BC[f as usize] as i32 <=
+                            if FONT_BC[f] as i32 <=
                                    c as i32 {
-                                if FONT_INFO[(CHAR_BASE[f as usize]
+                                if FONT_INFO[(CHAR_BASE[f]
                                                            + c as i32)
                                                           as usize].b16.s3 as
                                        i32 > 0i32 {
@@ -807,18 +805,18 @@ unsafe fn hlist_out() {
                                             *font_used.offset(f as isize) =
                                                 true
                                         }
-                                        if f <= 64i32 {
-                                            dvi_out((f + 170i32) as
+                                        if f <= 64 {
+                                            dvi_out((f + 170) as
                                                         u8);
-                                        } else if f <= 256i32 {
-                                            dvi_out(235i32 as u8);
-                                            dvi_out((f - 1i32) as u8);
+                                        } else if f <= 256 {
+                                            dvi_out(235 as u8);
+                                            dvi_out((f - 1) as u8);
                                         } else {
-                                            dvi_out((235i32 + 1i32) as
+                                            dvi_out((235 + 1) as
                                                         u8);
-                                            dvi_out(((f - 1i32) / 256i32) as
+                                            dvi_out(((f - 1) / 256) as
                                                         u8);
-                                            dvi_out(((f - 1i32) % 256i32) as
+                                            dvi_out(((f - 1) % 256) as
                                                         u8);
                                         }
                                         dvi_f = f
@@ -1428,23 +1426,23 @@ unsafe fn vlist_out() {
                                     dvi_font_def(f); /* width */
                                     *font_used.offset(f as isize) = true
                                 } /* glyph count */
-                                if f <= 64i32 {
-                                    dvi_out((f + 170i32) as u8); /* x offset as fixed-point */
-                                } else if f <= 256i32 {
-                                    dvi_out(235i32 as u8); /* y offset as fixed-point */
-                                    dvi_out((f - 1i32) as u8);
+                                if f <= 64 {
+                                    dvi_out((f + 170) as u8); /* x offset as fixed-point */
+                                } else if f <= 256 {
+                                    dvi_out(235 as u8); /* y offset as fixed-point */
+                                    dvi_out((f - 1) as u8);
                                 } else {
-                                    dvi_out((235i32 + 1i32) as u8);
-                                    dvi_out(((f - 1i32) / 256i32) as u8);
-                                    dvi_out(((f - 1i32) % 256i32) as u8);
+                                    dvi_out((235 + 1) as u8);
+                                    dvi_out(((f - 1) / 256) as u8);
+                                    dvi_out(((f - 1) % 256) as u8);
                                 }
                                 dvi_f = f
                             }
-                            dvi_out(253i32 as u8);
-                            dvi_four(0i32);
-                            dvi_two(1i32 as UTF16_code);
-                            dvi_four(0i32);
-                            dvi_four(0i32);
+                            dvi_out(253 as u8);
+                            dvi_four(0);
+                            dvi_two(1 as UTF16_code);
+                            dvi_four(0);
+                            dvi_four(0);
                             dvi_two(MEM[(p + 4) as usize].b16.s1);
                             cur_v += MEM[(p + 2) as usize].b32.s1;
                             cur_h = left_edge
@@ -1683,9 +1681,8 @@ unsafe fn reverse(
                     loop {
                         f = MEM[p as usize].b16.s1 as internal_font_number;
                         c = MEM[p as usize].b16.s0;
-                        cur_h += FONT_INFO[(WIDTH_BASE[f as usize]
-                            + FONT_INFO
-                                [(CHAR_BASE[f as usize] + effective_char(true, f, c)) as usize]
+                        cur_h += FONT_INFO[(WIDTH_BASE[f]
+                            + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c)) as usize]
                                 .b16
                                 .s3 as i32) as usize]
                             .b32
@@ -1960,7 +1957,7 @@ pub(crate) unsafe fn out_what(mut p: i32) {
 
 unsafe fn dvi_native_font_def(f: internal_font_number) {
     dvi_out(DEFINE_NATIVE_FONT as _);
-    dvi_four(f - 1);
+    dvi_four(f as i32 - 1);
     let font_def_length = make_font_def(f);
 
     for i in 0..font_def_length {
@@ -1971,7 +1968,7 @@ unsafe fn dvi_native_font_def(f: internal_font_number) {
 unsafe fn dvi_font_def(f: internal_font_number) {
     let mut k: pool_pointer = 0;
     let mut l: i32 = 0;
-    if FONT_AREA[f as usize] as u32 == 0xffffu32 || FONT_AREA[f as usize] as u32 == 0xfffeu32 {
+    if FONT_AREA[f] as u32 == 0xffffu32 || FONT_AREA[f] as u32 == 0xfffeu32 {
         dvi_native_font_def(f);
     } else {
         if f <= 256 {
@@ -1982,35 +1979,32 @@ unsafe fn dvi_font_def(f: internal_font_number) {
             dvi_out(((f - 1) / 256) as u8);
             dvi_out(((f - 1) % 256) as u8);
         }
-        dvi_out(FONT_CHECK[f as usize].s3 as u8);
-        dvi_out(FONT_CHECK[f as usize].s2 as u8);
-        dvi_out(FONT_CHECK[f as usize].s1 as u8);
-        dvi_out(FONT_CHECK[f as usize].s0 as u8);
-        dvi_four(FONT_SIZE[f as usize]);
-        dvi_four(FONT_DSIZE[f as usize]);
-        dvi_out(length(FONT_AREA[f as usize]) as u8);
+        dvi_out(FONT_CHECK[f].s3 as u8);
+        dvi_out(FONT_CHECK[f].s2 as u8);
+        dvi_out(FONT_CHECK[f].s1 as u8);
+        dvi_out(FONT_CHECK[f].s0 as u8);
+        dvi_four(FONT_SIZE[f]);
+        dvi_four(FONT_DSIZE[f]);
+        dvi_out(length(FONT_AREA[f]) as u8);
         l = 0;
-        k = *str_start.offset((FONT_NAME[f as usize] as i64 - 65536) as isize);
+        k = str_start[(FONT_NAME[f] as i64 - 65536) as usize];
 
-        while l == 0i32
-            && k < *str_start.offset(((FONT_NAME[f as usize] + 1i32) as i64 - 65536) as isize)
-        {
-            if *str_pool.offset(k as isize) as i32 == ':' as i32 {
-                l = k - *str_start.offset((FONT_NAME[f as usize] as i64 - 65536) as isize)
+        while l == 0i32 && k < str_start[((FONT_NAME[f] + 1i32) as i64 - 65536) as usize] {
+            if str_pool[k as usize] as i32 == ':' as i32 {
+                l = k - str_start[(FONT_NAME[f] as i64 - 65536) as usize]
             }
             k += 1
         }
         if l == 0i32 {
-            l = length(FONT_NAME[f as usize])
+            l = length(FONT_NAME[f])
         }
         dvi_out(l as u8);
         let mut for_end: i32 = 0;
-        k = *str_start.offset((FONT_AREA[f as usize] as i64 - 65536) as isize);
-        for_end =
-            *str_start.offset(((FONT_AREA[f as usize] + 1i32) as i64 - 65536) as isize) - 1i32;
+        k = str_start[(FONT_AREA[f] as i64 - 65536) as usize];
+        for_end = str_start[((FONT_AREA[f] + 1i32) as i64 - 65536) as usize] - 1i32;
         if k <= for_end {
             loop {
-                dvi_out(*str_pool.offset(k as isize) as u8);
+                dvi_out(str_pool[k as usize] as u8);
                 let fresh6 = k;
                 k = k + 1;
                 if !(fresh6 < for_end) {
@@ -2019,11 +2013,11 @@ unsafe fn dvi_font_def(f: internal_font_number) {
             }
         }
         let mut for_end_0: i32 = 0;
-        k = *str_start.offset((FONT_NAME[f as usize] as i64 - 65536) as isize);
-        for_end_0 = *str_start.offset((FONT_NAME[f as usize] as i64 - 65536) as isize) + l - 1i32;
+        k = str_start[(FONT_NAME[f] as i64 - 65536) as usize];
+        for_end_0 = str_start[(FONT_NAME[f] as i64 - 65536) as usize] + l - 1i32;
         if k <= for_end_0 {
             loop {
-                dvi_out(*str_pool.offset(k as isize) as u8);
+                dvi_out(str_pool[k as usize] as u8);
                 let fresh7 = k;
                 k = k + 1;
                 if !(fresh7 < for_end_0) {
@@ -2256,11 +2250,11 @@ unsafe fn special_out(mut p: i32) {
 
     {
         let mut for_end: i32 = 0;
-        let mut k = *str_start.offset((str_ptr - TOO_BIG_CHAR) as isize);
+        let mut k = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
         for_end = pool_ptr - 1;
         if k <= for_end {
             loop {
-                dvi_out(*str_pool.offset(k as isize) as u8);
+                dvi_out(str_pool[k as usize] as u8);
                 let fresh8 = k;
                 k = k + 1;
                 if !(fresh8 < for_end) {
@@ -2269,7 +2263,7 @@ unsafe fn special_out(mut p: i32) {
             }
         }
     }
-    pool_ptr = *str_start.offset((str_ptr - TOO_BIG_CHAR) as isize);
+    pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
     doing_special = false;
 }
 
@@ -2345,11 +2339,7 @@ unsafe fn write_out(mut p: i32) {
         print_nl_cstr(b"runsystem(");
         let mut d = 0;
         while d <= cur_length() - 1 {
-            print(
-                *str_pool
-                    .offset((*str_start.offset((str_ptr - TOO_BIG_CHAR) as isize) + d) as isize)
-                    as i32,
-            );
+            print(str_pool[(str_start[(str_ptr - TOO_BIG_CHAR) as usize] + d) as usize] as i32);
             d += 1
         }
         print_cstr(b")...");
@@ -2357,7 +2347,7 @@ unsafe fn write_out(mut p: i32) {
         print_char('.' as i32);
         print_nl_cstr(b"");
         print_ln();
-        pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize)
+        pool_ptr = str_start[(str_ptr - 65536) as usize]
     }
     selector = old_setting;
 }
@@ -2425,12 +2415,12 @@ unsafe fn pic_out(mut p: i32) {
         dvi_four(cur_length());
     }
 
-    let mut k = *str_start.offset((str_ptr - TOO_BIG_CHAR) as isize);
+    let mut k = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
     while k < pool_ptr {
-        dvi_out(*str_pool.offset(k as isize) as u8);
+        dvi_out(str_pool[k as usize] as u8);
         k += 1
     }
-    pool_ptr = *str_start.offset((str_ptr - TOO_BIG_CHAR) as isize); /* discard the string we just made */
+    pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]; /* discard the string we just made */
 }
 
 pub(crate) unsafe fn finalize_dvi_file() {
@@ -2439,12 +2429,12 @@ pub(crate) unsafe fn finalize_dvi_file() {
             dvi_out(POP as u8);
         } else {
             dvi_out(EOP as u8);
-            total_pages += 1
+            TOTAL_PAGES += 1
         }
         cur_s -= 1
     }
 
-    if total_pages == 0 {
+    if TOTAL_PAGES == 0 {
         print_nl_cstr(b"No pages of output.");
         return;
     }
@@ -2465,14 +2455,14 @@ pub(crate) unsafe fn finalize_dvi_file() {
     dvi_four(max_h);
     dvi_out((max_push / 256) as u8);
     dvi_out((max_push % 256) as u8);
-    dvi_out((total_pages / 256i32 % 256i32) as u8);
-    dvi_out((total_pages % 256i32) as u8);
+    dvi_out((TOTAL_PAGES / 256 % 256) as u8);
+    dvi_out((TOTAL_PAGES % 256) as u8);
 
-    while font_ptr > 0i32 {
-        if *font_used.offset(font_ptr as isize) {
-            dvi_font_def(font_ptr);
+    while FONT_PTR > 0 {
+        if *font_used.offset(FONT_PTR as isize) {
+            dvi_font_def(FONT_PTR);
         }
-        font_ptr -= 1
+        FONT_PTR -= 1
     }
 
     dvi_out(POST_POST as u8);
@@ -2510,8 +2500,8 @@ pub(crate) unsafe fn finalize_dvi_file() {
         print_nl_cstr(b"Output written on ");
         print(output_file_name);
         print_cstr(b" (");
-        print_int(total_pages);
-        if total_pages != 1i32 {
+        print_int(TOTAL_PAGES as i32);
+        if TOTAL_PAGES != 1 {
             print_cstr(b" pages");
         } else {
             print_cstr(b" page");
