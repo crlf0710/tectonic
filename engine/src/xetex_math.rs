@@ -18,11 +18,11 @@ use crate::xetex_ext::{
 use crate::xetex_ini::{
     adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i, cur_lang,
     cur_list, cur_val, cur_val1, empty, file_line_error_style_p, help_line, help_ptr,
-    insert_src_special_every_math, just_box, nest_ptr, null_character, pre_adjust_tail, temp_ptr,
+    insert_src_special_every_math, just_box, null_character, pre_adjust_tail, temp_ptr,
     tex_remainder, total_shrink, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE,
     EQTB, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_EC, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_PARAMS,
-    HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM, PARAM_BASE, SAVE_PTR, SAVE_STACK,
-    SKEW_CHAR, WIDTH_BASE,
+    HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM, NEST_PTR, PARAM_BASE, SAVE_PTR,
+    SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b16x4_le_t, memory_word};
 use crate::xetex_layout_interface::*;
@@ -409,7 +409,7 @@ pub(crate) unsafe fn init_math() {
         if !LOCAL(Local::every_display).is_texnull() {
             begin_token_list(*LOCAL(Local::every_display), EVERY_DISPLAY_TEXT);
         }
-        if nest_ptr == 1 {
+        if NEST_PTR == 1 {
             build_page();
         }
     } else {
@@ -1281,7 +1281,7 @@ pub(crate) unsafe fn resume_after_display() {
     if cur_cmd as u16 != SPACER {
         back_input();
     }
-    if nest_ptr == 1 {
+    if NEST_PTR == 1 {
         build_page();
     };
 }

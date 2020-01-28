@@ -53,24 +53,24 @@ use crate::xetex_ini::{
     lo_mem_max, loaded_font_design_size, loaded_font_flags, loaded_font_letter_space,
     loaded_font_mapping, log_file, log_opened, long_help_seen, long_state, mag_set, main_f, main_h,
     main_i, main_j, main_k, main_p, main_pp, main_ppp, main_s, mapped_text, max_buf_stack,
-    max_nest_stack, max_print_line, max_reg_help_line, max_reg_num, max_strings, mem_end,
-    name_in_progress, name_length, name_length16, name_of_file, name_of_file16,
-    native_font_type_flag, native_len, native_text, native_text_size, nest, nest_ptr, nest_size,
-    no_new_control_sequence, old_setting, open_parens, output_active, pack_begin_line,
-    page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos, pdf_last_y_pos,
-    pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used, pseudo_files,
-    pstack, quoted_filename, radix, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain,
-    sa_level, sa_null, sa_root, save_native_len, scanner_status, selector, set_box_allowed,
-    shown_mode, skip_line, space_class, stop_at_space, str_pool, str_ptr, str_start, tally,
-    temp_ptr, term_offset, tex_remainder, texmf_log_name, total_shrink, total_stretch, trick_buf,
-    trick_count, use_err_help, used_tectonic_coda_tokens, warning_index, write_file, write_open,
-    xtx_ligature_present, LR_problems, LR_ptr, BASE_PTR, BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE,
-    DEPTH_BASE, EOF_SEEN, EQTB, EQTB_TOP, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_CHECK,
-    FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_FLAGS, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE,
-    FONT_LETTER_SPACE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_SIZE,
-    FULL_SOURCE_FILENAME_STACK, GRP_STACK, HEIGHT_BASE, HYPHEN_CHAR, IF_STACK, INPUT_FILE,
-    INPUT_PTR, INPUT_STACK, IN_OPEN, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, LINE_STACK,
-    MAX_IN_OPEN, MAX_IN_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, PARAM_BASE, PARAM_PTR,
+    max_print_line, max_reg_help_line, max_reg_num, max_strings, mem_end, name_in_progress,
+    name_length, name_length16, name_of_file, name_of_file16, native_font_type_flag, native_len,
+    native_text, native_text_size, no_new_control_sequence, old_setting, open_parens,
+    output_active, pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token,
+    pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim,
+    prim_eqtb, prim_used, pseudo_files, pstack, quoted_filename, radix, read_file, read_open,
+    rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_null, sa_root, save_native_len,
+    scanner_status, selector, set_box_allowed, shown_mode, skip_line, space_class, stop_at_space,
+    str_pool, str_ptr, str_start, tally, temp_ptr, term_offset, tex_remainder, texmf_log_name,
+    total_shrink, total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens,
+    warning_index, write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr, BASE_PTR,
+    BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE, DEPTH_BASE, EOF_SEEN, EQTB, EQTB_TOP, EXTEN_BASE,
+    FONT_AREA, FONT_BC, FONT_BCHAR, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_FLAGS,
+    FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_MAX,
+    FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK,
+    HEIGHT_BASE, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, ITALIC_BASE,
+    KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK,
+    MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR,
     PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK,
     STACK_SIZE, WIDTH_BASE,
 };
@@ -1547,14 +1547,14 @@ pub(crate) unsafe fn print_in_mode(mut m: i32) {
     };
 }
 pub(crate) unsafe fn push_nest() {
-    if nest_ptr > max_nest_stack {
-        max_nest_stack = nest_ptr;
-        if nest_ptr == nest_size {
-            overflow(b"semantic nest size", nest_size as usize);
+    if NEST_PTR > MAX_NEST_STACK {
+        MAX_NEST_STACK = NEST_PTR;
+        if NEST_PTR == NEST_SIZE {
+            overflow(b"semantic nest size", NEST_SIZE);
         }
     }
-    *nest.offset(nest_ptr as isize) = cur_list;
-    nest_ptr += 1;
+    NEST[NEST_PTR] = cur_list;
+    NEST_PTR += 1;
     cur_list.head = get_avail();
     cur_list.tail = cur_list.head;
     cur_list.prev_graf = 0i32;
@@ -1564,38 +1564,35 @@ pub(crate) unsafe fn push_nest() {
 pub(crate) unsafe fn pop_nest() {
     MEM[cur_list.head as usize].b32.s1 = avail;
     avail = cur_list.head;
-    nest_ptr -= 1;
-    cur_list = *nest.offset(nest_ptr as isize);
+    NEST_PTR -= 1;
+    cur_list = NEST[NEST_PTR];
 }
 pub(crate) unsafe fn show_activities() {
-    *nest.offset(nest_ptr as isize) = cur_list;
+    NEST[NEST_PTR] = cur_list;
     print_nl_cstr(b"");
     print_ln();
-    let mut for_end: i32 = 0;
-    let mut p = nest_ptr;
-    for_end = 0i32;
+    let mut p = NEST_PTR;
+    let for_end = 0;
     if p >= for_end {
         loop {
-            let mut m = (*nest.offset(p as isize)).mode;
-            let a = (*nest.offset(p as isize)).aux;
+            let mut m = NEST[p as usize].mode;
+            let a = NEST[p as usize].aux;
             print_nl_cstr(b"### ");
             print_mode(m as i32);
             print_cstr(b" entered at line ");
-            print_int((*nest.offset(p as isize)).mode_line.abs());
+            print_int(NEST[p as usize].mode_line.abs());
             if m as i32 == HMODE {
-                if (*nest.offset(p as isize)).prev_graf != 0x830000i32 {
+                if NEST[p as usize].prev_graf != 0x830000i32 {
                     print_cstr(b" (language");
-                    print_int(((*nest.offset(p as isize)).prev_graf as i64 % 65536) as i32);
+                    print_int((NEST[p as usize].prev_graf as i64 % 65536) as i32);
                     print_cstr(b":hyphenmin");
-                    print_int((*nest.offset(p as isize)).prev_graf / 0x400000i32);
+                    print_int(NEST[p as usize].prev_graf / 0x400000i32);
                     print_char(',' as i32);
-                    print_int(
-                        ((*nest.offset(p as isize)).prev_graf as i64 / 65536 % 64i32 as i64) as i32,
-                    );
+                    print_int((NEST[p as usize].prev_graf as i64 / 65536 % 64i32 as i64) as i32);
                     print_char(')' as i32);
                 }
             }
-            if (*nest.offset(p as isize)).mode_line < 0i32 {
+            if NEST[p as usize].mode_line < 0i32 {
                 print_cstr(b" (\\output routine)");
             }
             if p == 0 {
@@ -1650,7 +1647,7 @@ pub(crate) unsafe fn show_activities() {
                     print_nl_cstr(b"### recent contributions:");
                 }
             }
-            show_box(MEM[(*nest.offset(p as isize)).head as usize].b32.s1);
+            show_box(MEM[NEST[p as usize].head as usize].b32.s1);
             match (m as i32).abs() / (102i32 + 1i32) {
                 0 => {
                     print_nl_cstr(b"prevdepth ");
@@ -1659,10 +1656,10 @@ pub(crate) unsafe fn show_activities() {
                     } else {
                         print_scaled(a.b32.s1);
                     }
-                    if (*nest.offset(p as isize)).prev_graf != 0i32 {
+                    if NEST[p as usize].prev_graf != 0i32 {
                         print_cstr(b", prevgraf ");
-                        print_int((*nest.offset(p as isize)).prev_graf);
-                        if (*nest.offset(p as isize)).prev_graf != 1i32 {
+                        print_int(NEST[p as usize].prev_graf);
+                        if NEST[p as usize].prev_graf != 1i32 {
                             print_cstr(b" lines");
                         } else {
                             print_cstr(b" line");
@@ -1687,11 +1684,10 @@ pub(crate) unsafe fn show_activities() {
                 }
                 _ => {}
             }
-            let fresh13 = p;
-            p = p - 1;
-            if !(fresh13 > for_end) {
+            if !(p > for_end) {
                 break;
             }
+            p -= 1;
         }
     };
 }
@@ -6225,7 +6221,6 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
         s2: 0,
         s3: 0,
     };
-    let mut p: i32 = 0;
     m = cur_chr;
     match cur_cmd as i32 {
         86 => {
@@ -6429,12 +6424,12 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 cur_val = 0i32;
                 cur_val_level = 0_u8
             } else {
-                *nest.offset(nest_ptr as isize) = cur_list;
-                p = nest_ptr;
-                while ((*nest.offset(p as isize)).mode as i32).abs() != 1i32 {
+                NEST[NEST_PTR] = cur_list;
+                let mut p = NEST_PTR;
+                while (NEST[p].mode as i32).abs() != 1i32 {
                     p -= 1
                 }
-                cur_val = (*nest.offset(p as isize)).prev_graf;
+                cur_val = NEST[p].prev_graf;
                 cur_val_level = 0_u8
             }
         }
@@ -12464,7 +12459,7 @@ pub(crate) unsafe fn init_align() {
     push_nest();
     if cur_list.mode as i32 == 207i32 {
         cur_list.mode = -1_i16;
-        cur_list.aux.b32.s1 = (*nest.offset((nest_ptr - 2i32) as isize)).aux.b32.s1
+        cur_list.aux.b32.s1 = NEST[NEST_PTR - 2].aux.b32.s1
     } else if cur_list.mode as i32 > 0i32 {
         cur_list.mode = -(cur_list.mode as i32) as i16
         /*:804*/
@@ -12822,7 +12817,7 @@ pub(crate) unsafe fn fin_align() {
         confusion(b"align0");
     }
     unsave();
-    if (*nest.offset((nest_ptr - 1i32) as isize)).mode as i32 == 207i32 {
+    if NEST[(NEST_PTR - 1) as usize].mode as i32 == 207i32 {
         o = *DIMENPAR(DimenPar::display_indent)
     } else {
         o = 0i32
@@ -12940,7 +12935,7 @@ pub(crate) unsafe fn fin_align() {
                 if cur_list.mode as i32 == -1i32 {
                     MEM[q as usize].b16.s1 = 0_u16;
                     MEM[(q + 1) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
-                    if (*nest.offset((nest_ptr - 1i32) as isize)).mode as i32 == 207i32 {
+                    if NEST[(NEST_PTR - 1) as usize].mode as i32 == 207i32 {
                         MEM[q as usize].b16.s0 = 2_u16
                     }
                 } else {
@@ -13208,7 +13203,6 @@ pub(crate) unsafe fn eTeX_enabled(mut b: bool, mut j: u16, mut k: i32) -> bool {
 }
 pub(crate) unsafe fn show_save_groups() {
     let mut current_block: u64;
-    let mut p: i32 = 0;
     let mut m: i16 = 0;
     let mut v: save_pointer = 0;
     let mut l: u16 = 0;
@@ -13217,8 +13211,8 @@ pub(crate) unsafe fn show_save_groups() {
     let mut i: i32 = 0;
     let mut j: u16 = 0;
     let mut s: &[u8] = &[];
-    p = nest_ptr;
-    *nest.offset(p as isize) = cur_list;
+    let mut p = NEST_PTR;
+    NEST[p] = cur_list;
     v = SAVE_PTR as i32;
     l = cur_level;
     c = cur_group;
@@ -13234,8 +13228,8 @@ pub(crate) unsafe fn show_save_groups() {
             break;
         }
         loop {
-            m = (*nest.offset(p as isize)).mode;
-            if p > 0i32 {
+            m = NEST[p].mode;
+            if p > 0 {
                 p -= 1
             } else {
                 m = 1_i16
@@ -13272,13 +13266,13 @@ pub(crate) unsafe fn show_save_groups() {
                     a = 1_i8;
                     current_block = 17798259985923180687;
                 } else {
-                    if a as i32 == 1i32 {
+                    if a == 1 {
                         print_cstr(b"align entry");
                     } else {
                         print_esc_cstr(b"cr");
                     }
-                    if p >= a as i32 {
-                        p = p - a as i32
+                    if p as i32 >= a as i32 {
+                        p = (p as i32 - a as i32) as usize
                     }
                     a = 0_i8;
                     current_block = 5407796692416645153;
@@ -13332,7 +13326,7 @@ pub(crate) unsafe fn show_save_groups() {
                 if m as i32 == 207i32 {
                     print_char('$' as i32);
                     current_block = 17441561948628420366;
-                } else if (*nest.offset(p as isize)).mode as i32 == 207i32 {
+                } else if NEST[p].mode as i32 == 207i32 {
                     print_cmd_chr(48_u16, SAVE_STACK[SAVE_PTR - 2].b32.s1);
                     current_block = 5407796692416645153;
                 } else {
@@ -13347,11 +13341,7 @@ pub(crate) unsafe fn show_save_groups() {
                 }
             }
             16 => {
-                if MEM[(*nest.offset((p + 1) as isize)).eTeX_aux as usize]
-                    .b16
-                    .s1 as i32
-                    == 30i32
-                {
+                if MEM[NEST[p + 1].eTeX_aux as usize].b16.s1 as i32 == 30i32 {
                     print_esc_cstr(b"left");
                 } else {
                     print_esc_cstr(b"middle");
@@ -13365,7 +13355,7 @@ pub(crate) unsafe fn show_save_groups() {
                 i = SAVE_STACK[SAVE_PTR - 4].b32.s1;
                 if i != 0i32 {
                     if i < 0x40000000i32 {
-                        if ((*nest.offset(p as isize)).mode as i32).abs() == 1i32 {
+                        if (NEST[p].mode as i32).abs() == 1i32 {
                             j = 21_u16
                         } else {
                             j = 22_u16
@@ -14466,7 +14456,7 @@ pub(crate) unsafe fn new_graf(mut indented: bool) {
     if !LOCAL(Local::every_par).is_texnull() {
         begin_token_list(*LOCAL(Local::every_par), 8_u16);
     }
-    if nest_ptr == 1i32 {
+    if NEST_PTR == 1 {
         build_page();
     };
 }
@@ -15621,10 +15611,9 @@ pub(crate) unsafe fn alter_aux() {
     };
 }
 pub(crate) unsafe fn alter_prev_graf() {
-    let mut p: i32 = 0;
-    *nest.offset(nest_ptr as isize) = cur_list;
-    p = nest_ptr;
-    while ((*nest.offset(p as isize)).mode as i32).abs() != 1i32 {
+    NEST[NEST_PTR] = cur_list;
+    let mut p = NEST_PTR;
+    while (NEST[p as usize].mode as i32).abs() != 1i32 {
         p -= 1
     }
     scan_optional_equals();
@@ -15641,8 +15630,8 @@ pub(crate) unsafe fn alter_prev_graf() {
         help_line[0] = b"I allow only nonnegative values here.";
         int_error(cur_val);
     } else {
-        (*nest.offset(p as isize)).prev_graf = cur_val;
-        cur_list = *nest.offset(nest_ptr as isize)
+        NEST[p as usize].prev_graf = cur_val;
+        cur_list = NEST[NEST_PTR]
     };
 }
 pub(crate) unsafe fn alter_page_so_far() {
@@ -16384,7 +16373,7 @@ pub(crate) unsafe fn handle_right_brace() {
                 delete_glue_ref(q);
             }
             free_node(p, 8i32);
-            if nest_ptr == 0i32 {
+            if NEST_PTR == 0 {
                 build_page();
             }
         }
@@ -16436,7 +16425,7 @@ pub(crate) unsafe fn handle_right_brace() {
             }
             if !MEM[(4999999 - 2) as usize].b32.s1.is_texnull() {
                 if MEM[(4999999 - 1) as usize].b32.s1.is_texnull() {
-                    (*nest.offset(0)).tail = page_tail
+                    NEST[0].tail = page_tail
                 }
                 MEM[page_tail as usize].b32.s1 = MEM[(4999999 - 1) as usize].b32.s1;
                 MEM[(4999999 - 1) as usize].b32.s1 = MEM[(4999999 - 2) as usize].b32.s1;
