@@ -14,7 +14,7 @@ use std::io::Write;
 use crate::core_memory::{mfree, xmalloc, xrealloc, xstrdup};
 use crate::xetex_consts::{IntPar, INTPAR};
 use crate::xetex_ini::{
-    cur_h, cur_input, cur_v, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, total_pages, MEM,
+    cur_h, cur_input, cur_v, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, MEM, TOTAL_PAGES,
 };
 use crate::xetex_io::name_of_input_file;
 use crate::xetex_texmfmp::gettexstring;
@@ -351,13 +351,13 @@ pub(crate) unsafe fn synctex_sheet(mut mag: i32) {
          *  or it was activated with the \synctex macro and the first page is already shipped out.
          *  Second possibility: tries to open the .synctex, useful if synchronization was enabled
          *  from the source file and not from the CLI. */
-        if total_pages == 0i32 {
+        if TOTAL_PAGES == 0 {
             /*  Now it is time to properly set up the scale factor. */
             if mag > 0i32 {
                 synctex_ctxt.magnification = mag
             }
         }
-        synctex_record_sheet(total_pages + 1i32);
+        synctex_record_sheet(TOTAL_PAGES + 1);
     };
 }
 /*  Recording the "}..." line.  In *tex.web, use synctex_teehs at
@@ -369,8 +369,8 @@ pub(crate) unsafe fn synctex_sheet(mut mag: i32) {
 pub(crate) unsafe fn synctex_teehs() {
     if synctex_ctxt.flags.contains(Flags::OFF) || synctex_ctxt.file.is_none() {
         return;
-    } /* not total_pages+1*/
-    synctex_record_teehs(total_pages);
+    } /* not TOTAL_PAGES+1*/
+    synctex_record_teehs(TOTAL_PAGES);
 }
 /*  This message is sent when a vlist will be shipped out, more precisely at
  *  the beginning of the vlist_out procedure in *TeX.web.  It will be balanced
@@ -743,9 +743,9 @@ unsafe fn synctex_record_content() -> i32 {
     -1i32
 }
 #[inline]
-unsafe fn synctex_record_sheet(mut sheet: i32) -> i32 {
+unsafe fn synctex_record_sheet(mut sheet: usize) -> i32 {
     if 0i32 == synctex_record_anchor() {
-        let s = format!("{{{}\n", sheet,);
+        let s = format!("{{{}\n", sheet);
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
             synctex_ctxt.total_length += len;
             synctex_ctxt.count += 1;
@@ -757,9 +757,9 @@ unsafe fn synctex_record_sheet(mut sheet: i32) -> i32 {
 }
 /*  Recording a "}..." or a ">" line  */
 #[inline]
-unsafe fn synctex_record_teehs(mut sheet: i32) -> i32 {
+unsafe fn synctex_record_teehs(mut sheet: usize) -> i32 {
     if 0i32 == synctex_record_anchor() {
-        let s = format!("}}{}\n", sheet,);
+        let s = format!("}}{}\n", sheet);
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
             synctex_ctxt.total_length += len;
             synctex_ctxt.count += 1;

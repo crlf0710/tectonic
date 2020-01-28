@@ -55,7 +55,7 @@ pub(crate) unsafe fn load_pool_strings(mut spare_size: i32) -> i32 {
             s = s.offset(1);
             let fresh3 = pool_ptr;
             pool_ptr = pool_ptr + 1;
-            *str_pool.offset(fresh3 as isize) = *fresh2 as packed_UTF16_code
+            str_pool[fresh3 as usize] = *fresh2 as packed_UTF16_code
         }
         g = make_string()
         /* Returns 0 on error. */
@@ -64,8 +64,7 @@ pub(crate) unsafe fn load_pool_strings(mut spare_size: i32) -> i32 {
 }
 pub(crate) unsafe fn length(mut s: str_number) -> i32 {
     if s as i64 >= 65536 {
-        *str_start.offset(((s + 1i32) as i64 - 65536) as isize)
-            - *str_start.offset((s as i64 - 65536) as isize)
+        str_start[((s + 1i32) as i64 - 65536) as usize] - str_start[(s as i64 - 65536) as usize]
     } else if s >= 32i32 && s < 127i32 {
         1
     } else if s <= 127i32 {
@@ -77,12 +76,12 @@ pub(crate) unsafe fn length(mut s: str_number) -> i32 {
     }
 }
 pub(crate) unsafe fn make_string() -> str_number {
-    if str_ptr == max_strings {
-        overflow(b"number of strings", (max_strings - init_str_ptr) as usize);
+    if str_ptr == max_strings as i32 {
+        overflow(b"number of strings", max_strings - init_str_ptr as usize);
     }
     str_ptr += 1;
-    *str_start.offset((str_ptr - 65536i32) as isize) = pool_ptr;
-    str_ptr - 1i32
+    str_start[(str_ptr - 65536) as usize] = pool_ptr;
+    str_ptr - 1
 }
 pub(crate) unsafe fn append_str(mut s: str_number) {
     let mut i: i32 = 0;
@@ -91,9 +90,9 @@ pub(crate) unsafe fn append_str(mut s: str_number) {
     if pool_ptr + i > pool_size {
         overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
     }
-    j = *str_start.offset((s as i64 - 65536) as isize);
+    j = str_start[(s as i64 - 65536) as usize];
     while i > 0i32 {
-        *str_pool.offset(pool_ptr as isize) = *str_pool.offset(j as isize);
+        str_pool[pool_ptr as usize] = str_pool[j as usize];
         pool_ptr += 1;
         j += 1;
         i -= 1
@@ -101,15 +100,15 @@ pub(crate) unsafe fn append_str(mut s: str_number) {
 }
 pub(crate) unsafe fn str_eq_buf(mut s: str_number, mut k: i32) -> bool {
     let mut j: pool_pointer = 0;
-    j = *str_start.offset((s as i64 - 65536) as isize);
-    while j < *str_start.offset(((s + 1i32) as i64 - 65536) as isize) {
+    j = str_start[(s as i64 - 65536) as usize];
+    while j < str_start[((s + 1i32) as i64 - 65536) as usize] {
         if BUFFER[k as usize] as i64 >= 65536 {
-            if *str_pool.offset(j as isize) as i64
+            if str_pool[j as usize] as i64
                 != 55296 + (BUFFER[k as usize] as i64 - 65536) / 1024 as i64
             {
                 return false;
             } else {
-                if *str_pool.offset((j + 1i32) as isize) as i64
+                if str_pool[(j + 1i32) as usize] as i64
                     != 56320 + (BUFFER[k as usize] as i64 - 65536) % 1024 as i64
                 {
                     return false;
@@ -117,7 +116,7 @@ pub(crate) unsafe fn str_eq_buf(mut s: str_number, mut k: i32) -> bool {
                     j += 1
                 }
             }
-        } else if *str_pool.offset(j as isize) as i32 != BUFFER[k as usize] {
+        } else if str_pool[j as usize] as i32 != BUFFER[k as usize] {
             return false;
         }
         j += 1;
@@ -137,26 +136,23 @@ pub(crate) unsafe fn str_eq_str(mut s: str_number, mut t: str_number) -> bool {
                 if s != t {
                     return false;
                 }
-            } else if s
-                != *str_pool.offset(*str_start.offset((t as i64 - 65536) as isize) as isize) as i32
-            {
+            } else if s != str_pool[str_start[(t as i64 - 65536) as usize] as usize] as i32 {
                 return false;
             }
         } else if (t as i64) < 65536 {
-            if *str_pool.offset(*str_start.offset((s as i64 - 65536) as isize) as isize) as i32 != t
-            {
+            if str_pool[str_start[(s as i64 - 65536) as usize] as usize] as i32 != t {
                 return false;
             }
-        } else if *str_pool.offset(*str_start.offset((s as i64 - 65536) as isize) as isize) as i32
-            != *str_pool.offset(*str_start.offset((t as i64 - 65536) as isize) as isize) as i32
+        } else if str_pool[str_start[(s as i64 - 65536) as usize] as usize] as i32
+            != str_pool[str_start[(t as i64 - 65536) as usize] as usize] as i32
         {
             return false;
         }
     } else {
-        j = *str_start.offset((s as i64 - 65536) as isize);
-        k = *str_start.offset((t as i64 - 65536) as isize);
-        while j < *str_start.offset(((s + 1i32) as i64 - 65536) as isize) {
-            if *str_pool.offset(j as isize) as i32 != *str_pool.offset(k as isize) as i32 {
+        j = str_start[(s as i64 - 65536) as usize];
+        k = str_start[(t as i64 - 65536) as usize];
+        while j < str_start[((s + 1i32) as i64 - 65536) as usize] {
+            if str_pool[j as usize] as i32 != str_pool[k as usize] as i32 {
                 return false;
             }
             j += 1;
@@ -195,7 +191,7 @@ pub(crate) unsafe fn slow_make_string() -> str_number {
     s = search_string(t);
     if s > 0i32 {
         str_ptr -= 1;
-        pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
+        pool_ptr = str_start[(str_ptr - 65536) as usize];
         return s;
     }
     t

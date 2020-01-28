@@ -44,9 +44,9 @@ use crate::xetex_ini::{
     deletions_allowed, depth_threshold, dig, disc_ptr, empty, error_count, error_line,
     expand_depth, expand_depth_count, ext_delimiter, false_bchar, file_line_error_style_p,
     file_name_quote_char, file_offset, first, first_count, fmem_ptr, font_in_short_display,
-    font_ptr, font_used, force_eof, gave_char_warning_help, half_error_line, hash, hash_extra,
-    hash_high, hash_used, help_line, help_ptr, hi_mem_min, history, if_limit, if_line,
-    init_pool_ptr, init_str_ptr, ins_disc, insert_penalties, insert_src_special_auto,
+    font_used, force_eof, gave_char_warning_help, half_error_line, hash, hash_extra, hash_high,
+    hash_used, help_line, help_ptr, hi_mem_min, history, if_limit, if_line, init_pool_ptr,
+    init_str_ptr, ins_disc, insert_penalties, insert_src_special_auto,
     insert_src_special_every_par, insert_src_special_every_vbox, interaction, is_hyph,
     is_in_csname, job_name, last, last_badness, last_glue, last_kern, last_leftmost_char,
     last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack, ligature_present, line,
@@ -67,9 +67,9 @@ use crate::xetex_ini::{
     BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE, DEPTH_BASE, EOF_SEEN, EQTB, EQTB_TOP, EXTEN_BASE,
     FONT_AREA, FONT_BC, FONT_BCHAR, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_FLAGS,
     FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_MAX,
-    FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK,
-    HEIGHT_BASE, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, ITALIC_BASE,
-    KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK,
+    FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK,
+    GRP_STACK, HEIGHT_BASE, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN,
+    ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK,
     MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR,
     PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK,
     STACK_SIZE, WIDTH_BASE,
@@ -123,14 +123,14 @@ pub(crate) type packed_UTF16_code = u16;
 pub(crate) type small_number = i16;
 pub(crate) type glue_ord = u8;
 pub(crate) type group_code = u8;
-pub(crate) type internal_font_number = i32;
+pub(crate) type internal_font_number = usize;
 pub(crate) type font_index = i32;
 pub(crate) type nine_bits = i32;
 pub(crate) type save_pointer = i32;
 
 #[inline]
 pub(crate) unsafe fn cur_length() -> pool_pointer {
-    pool_ptr - *str_start.offset((str_ptr - 65536i32) as isize)
+    pool_ptr - str_start[(str_ptr - 65536) as usize]
 }
 unsafe fn int_error(mut n: i32) {
     print_cstr(b" (");
@@ -692,7 +692,7 @@ pub(crate) unsafe fn print_subsidiary_data(mut p: i32, mut c: UTF16_code) {
             print_cstr(b" []");
         }
     } else {
-        *str_pool.offset(pool_ptr as isize) = c;
+        str_pool[pool_ptr as usize] = c;
         pool_ptr += 1;
         temp_ptr = p;
         match MEM[p as usize].b32.s1 {
@@ -850,7 +850,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                             print_cstr(b", display");
                         }
                     }
-                    *str_pool.offset(pool_ptr as isize) = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(MEM[(p + 5) as usize].b32.s1);
                     pool_ptr -= 1
@@ -874,7 +874,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                     print_scaled(MEM[(p + 2) as usize].b32.s1);
                     print_cstr(b"); float cost ");
                     print_int(MEM[(p + 1) as usize].b32.s1);
-                    *str_pool.offset(pool_ptr as isize) = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(MEM[(p + 4) as usize].b32.s0);
                     pool_ptr -= 1
@@ -958,7 +958,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                         }
                         print_cstr(b"leaders ");
                         print_spec(MEM[(p + 1) as usize].b32.s0, ptr::null());
-                        *str_pool.offset(pool_ptr as isize) = '.' as i32 as packed_UTF16_code;
+                        str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
                         show_node_list(MEM[(p + 1) as usize].b32.s1);
                         pool_ptr -= 1
@@ -1065,11 +1065,11 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                         print_cstr(b" replacing ");
                         print_int(MEM[p as usize].b16.s0 as i32);
                     }
-                    *str_pool.offset(pool_ptr as isize) = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(MEM[(p + 1) as usize].b32.s0);
                     pool_ptr -= 1;
-                    *str_pool.offset(pool_ptr as isize) = '|' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr as usize] = '|' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(MEM[(p + 1) as usize].b32.s1);
                     pool_ptr -= 1
@@ -1087,7 +1087,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                     if MEM[p as usize].b16.s0 as i32 != 0 {
                         print_cstr(b" pre ");
                     }
-                    *str_pool.offset(pool_ptr as isize) = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(MEM[(p + 1) as usize].b32.s1);
                     pool_ptr -= 1
@@ -1095,19 +1095,19 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                 STYLE_NODE => print_style(MEM[p as usize].b16.s0 as i32),
                 CHOICE_NODE => {
                     print_esc_cstr(b"mathchoice");
-                    *str_pool.offset(pool_ptr as isize) = 'D' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr as usize] = 'D' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(MEM[(p + 1) as usize].b32.s0);
                     pool_ptr -= 1;
-                    *str_pool.offset(pool_ptr as isize) = 'T' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr as usize] = 'T' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(MEM[(p + 1) as usize].b32.s1);
                     pool_ptr -= 1;
-                    *str_pool.offset(pool_ptr as isize) = 'S' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr as usize] = 'S' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(MEM[(p + 2) as usize].b32.s0);
                     pool_ptr -= 1;
-                    *str_pool.offset(pool_ptr as isize) = 's' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr as usize] = 's' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(MEM[(p + 2) as usize].b32.s1);
                     pool_ptr -= 1
@@ -2630,9 +2630,8 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 quote_char = '\"' as i32 as UTF16_code;
                 n = 0i32;
                 while n <= for_end {
-                    if *str_pool.offset(
-                        (*str_start.offset((font_name_str as i64 - 65536) as isize) + n) as isize,
-                    ) as i32
+                    if str_pool[(str_start[(font_name_str as i64 - 65536) as usize] + n) as usize]
+                        as i32
                         == '\"' as i32
                     {
                         quote_char = '\'' as i32 as UTF16_code
@@ -2727,7 +2726,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         _ => print_cstr(b"[unknown command code!]"),
     };
 }
-pub(crate) unsafe fn not_aat_font_error(mut cmd: i32, mut c: i32, mut f: i32) {
+pub(crate) unsafe fn not_aat_font_error(mut cmd: i32, mut c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -2736,11 +2735,11 @@ pub(crate) unsafe fn not_aat_font_error(mut cmd: i32, mut c: i32, mut f: i32) {
     print_cstr(b"Cannot use ");
     print_cmd_chr(cmd as u16, c);
     print_cstr(b" with ");
-    print(FONT_NAME[f as usize]);
+    print(FONT_NAME[f]);
     print_cstr(b"; not an AAT font");
     error();
 }
-pub(crate) unsafe fn not_aat_gr_font_error(mut cmd: i32, mut c: i32, mut f: i32) {
+pub(crate) unsafe fn not_aat_gr_font_error(mut cmd: i32, mut c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -2749,11 +2748,11 @@ pub(crate) unsafe fn not_aat_gr_font_error(mut cmd: i32, mut c: i32, mut f: i32)
     print_cstr(b"Cannot use ");
     print_cmd_chr(cmd as u16, c);
     print_cstr(b" with ");
-    print(FONT_NAME[f as usize]);
+    print(FONT_NAME[f]);
     print_cstr(b"; not an AAT or Graphite font");
     error();
 }
-pub(crate) unsafe fn not_ot_font_error(mut cmd: i32, mut c: i32, mut f: i32) {
+pub(crate) unsafe fn not_ot_font_error(mut cmd: i32, mut c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -2762,11 +2761,11 @@ pub(crate) unsafe fn not_ot_font_error(mut cmd: i32, mut c: i32, mut f: i32) {
     print_cstr(b"Cannot use ");
     print_cmd_chr(cmd as u16, c);
     print_cstr(b" with ");
-    print(FONT_NAME[f as usize]);
+    print(FONT_NAME[f]);
     print_cstr(b"; not an OpenType Layout font");
     error();
 }
-pub(crate) unsafe fn not_native_font_error(mut cmd: i32, mut c: i32, mut f: i32) {
+pub(crate) unsafe fn not_native_font_error(mut cmd: i32, mut c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -2775,7 +2774,7 @@ pub(crate) unsafe fn not_native_font_error(mut cmd: i32, mut c: i32, mut f: i32)
     print_cstr(b"Cannot use ");
     print_cmd_chr(cmd as u16, c);
     print_cstr(b" with ");
-    print(FONT_NAME[f as usize]);
+    print(FONT_NAME[f]);
     print_cstr(b"; not a native platform font");
     error();
 }
@@ -2841,22 +2840,21 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
                     overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
                 }
                 d = cur_length();
-                while pool_ptr > *str_start.offset((str_ptr - 65536i32) as isize) {
+                while pool_ptr > str_start[(str_ptr - 65536) as usize] {
                     pool_ptr -= 1;
-                    *str_pool.offset((pool_ptr + l) as isize) = *str_pool.offset(pool_ptr as isize)
+                    str_pool[(pool_ptr + l) as usize] = str_pool[pool_ptr as usize]
                 }
                 k = j;
                 while k <= j + l - 1i32 {
                     if (BUFFER[k as usize] as i64) < 65536 {
-                        *str_pool.offset(pool_ptr as isize) =
-                            BUFFER[k as usize] as packed_UTF16_code;
+                        str_pool[pool_ptr as usize] = BUFFER[k as usize] as packed_UTF16_code;
                         pool_ptr += 1
                     } else {
-                        *str_pool.offset(pool_ptr as isize) = (0xd800i32 as i64
+                        str_pool[pool_ptr as usize] = (0xd800i32 as i64
                             + (BUFFER[k as usize] as i64 - 65536) / 1024i32 as i64)
                             as packed_UTF16_code;
                         pool_ptr += 1;
-                        *str_pool.offset(pool_ptr as isize) = (0xdc00i32 as i64
+                        str_pool[pool_ptr as usize] = (0xdc00i32 as i64
                             + (BUFFER[k as usize] as i64 - 65536) % 1024i32 as i64)
                             as packed_UTF16_code;
                         pool_ptr += 1
@@ -2889,19 +2887,19 @@ pub(crate) unsafe fn prim_lookup(mut s: str_number) -> i32 {
             current_block = 11307063007268554308;
         }
     } else {
-        j = *str_start.offset((s as i64 - 65536) as isize);
+        j = str_start[(s as i64 - 65536) as usize];
         if s == str_ptr {
             l = cur_length()
         } else {
             l = length(s)
         }
-        h = *str_pool.offset(j as isize) as i32;
+        h = str_pool[j as usize] as i32;
         let mut for_end: i32 = 0;
         k = j + 1i32;
         for_end = j + l - 1i32;
         if k <= for_end {
             loop {
-                h = h + h + *str_pool.offset(k as isize) as i32;
+                h = h + h + str_pool[k as usize] as i32;
                 while h >= 431i32 {
                     h = h - 431i32
                 }
@@ -6115,8 +6113,8 @@ pub(crate) unsafe fn effective_char(
     mut f: internal_font_number,
     mut c: u16,
 ) -> i32 {
-    if !xtx_ligature_present && !(FONT_MAPPING[f as usize]).is_null() {
-        c = apply_tfm_font_mapping(FONT_MAPPING[f as usize], c as i32) as u16
+    if !xtx_ligature_present && !(FONT_MAPPING[f]).is_null() {
+        c = apply_tfm_font_mapping(FONT_MAPPING[f], c as i32) as u16
     }
     xtx_ligature_present = false;
     c as i32
@@ -6131,13 +6129,13 @@ pub(crate) unsafe fn scan_font_ident() {
         }
     }
     if cur_cmd as i32 == 90i32 {
-        f = EQTB[(CUR_FONT_LOC) as usize].b32.s1
+        f = EQTB[CUR_FONT_LOC].b32.s1 as usize;
     } else if cur_cmd as i32 == 89i32 {
-        f = cur_chr
+        f = cur_chr as usize;
     } else if cur_cmd as i32 == 88i32 {
         m = cur_chr;
         scan_math_fam_int();
-        f = EQTB[(m + cur_val) as usize].b32.s1
+        f = EQTB[(m + cur_val) as usize].b32.s1 as usize
     } else {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -6149,26 +6147,25 @@ pub(crate) unsafe fn scan_font_ident() {
         help_line[1] = b"I was looking for a control sequence whose";
         help_line[0] = b"current meaning has been defined by \\font.";
         back_error();
-        f = 0i32
+        f = 0;
     }
-    cur_val = f;
+    cur_val = f as i32;
 }
 pub(crate) unsafe fn find_font_dimen(mut writing: bool) {
-    let mut f: internal_font_number = 0;
     let mut n: i32 = 0;
     scan_int();
     n = cur_val;
     scan_font_ident();
-    f = cur_val;
-    if n <= 0i32 {
+    let mut f = cur_val as usize;
+    if n <= 0 {
         cur_val = fmem_ptr
     } else {
-        if writing as i32 != 0 && n <= 4i32 && n >= 2i32 && !FONT_GLUE[f as usize].is_texnull() {
-            delete_glue_ref(FONT_GLUE[f as usize]);
-            FONT_GLUE[f as usize] = TEX_NULL
+        if writing as i32 != 0 && n <= 4i32 && n >= 2i32 && !FONT_GLUE[f].is_texnull() {
+            delete_glue_ref(FONT_GLUE[f]);
+            FONT_GLUE[f] = TEX_NULL
         }
-        if n > FONT_PARAMS[f as usize] {
-            if f < font_ptr {
+        if n > FONT_PARAMS[f] {
+            if f < FONT_PTR {
                 cur_val = fmem_ptr
             } else {
                 loop
@@ -6179,15 +6176,15 @@ pub(crate) unsafe fn find_font_dimen(mut writing: bool) {
                     }
                     FONT_INFO[fmem_ptr as usize].b32.s1 = 0;
                     fmem_ptr += 1;
-                    FONT_PARAMS[f as usize] += 1;
-                    if n == FONT_PARAMS[f as usize] {
+                    FONT_PARAMS[f] += 1;
+                    if n == FONT_PARAMS[f] {
                         break;
                     }
                 }
                 cur_val = fmem_ptr - 1i32
             }
         } else {
-            cur_val = n + PARAM_BASE[f as usize]
+            cur_val = n + PARAM_BASE[f]
         }
     }
     if cur_val == fmem_ptr {
@@ -6197,9 +6194,9 @@ pub(crate) unsafe fn find_font_dimen(mut writing: bool) {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Font ");
-        print_esc((*hash.offset((FROZEN_NULL_FONT as i32 + f) as isize)).s1);
+        print_esc((*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1);
         print_cstr(b" has only ");
-        print_int(FONT_PARAMS[f as usize]);
+        print_int(FONT_PARAMS[f]);
         print_cstr(b" fontdimen parameters");
         help_ptr = 2_u8;
         help_line[1] = b"To increase the number of font parameters, you must";
@@ -6516,18 +6513,18 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 if FONT_AREA[n as usize] as u32 == 0xffffu32
                     || FONT_AREA[n as usize] as u32 == 0xfffeu32
                 {
-                    scan_glyph_number(n);
+                    scan_glyph_number(n as usize);
                 } else {
                     scan_char_num();
                 }
                 k = cur_val;
                 match m {
                     2 => {
-                        cur_val = get_cp_code(n, k as u32, 0i32);
+                        cur_val = get_cp_code(n as usize, k as u32, 0i32);
                         cur_val_level = 0_u8
                     }
                     3 => {
-                        cur_val = get_cp_code(n, k as u32, 1i32);
+                        cur_val = get_cp_code(n as usize, k as u32, 1i32);
                         cur_val_level = 0_u8
                     }
                     _ => {}
@@ -6660,14 +6657,12 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     match m {
                         47 => {
                             /*1435:*/
-                            if FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32
-                                == 0xffffu32
-                                || FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32
-                                    == 0xfffeu32
+                            if FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xffffu32
+                                || FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xfffeu32
                             {
                                 scan_int(); /* shellenabledp */
                                 n = cur_val;
-                                if n < 1i32 || n > 4i32 {
+                                if n < 1 || n > 4 {
                                     if file_line_error_style_p != 0 {
                                         print_file_line();
                                     } else {
@@ -6683,17 +6678,13 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                 } else {
                                     scan_int();
                                     cur_val = get_glyph_bounds(
-                                        EQTB[(CUR_FONT_LOC) as usize].b32.s1,
+                                        EQTB[CUR_FONT_LOC].b32.s1 as usize,
                                         n,
                                         cur_val,
                                     )
                                 }
                             } else {
-                                not_native_font_error(
-                                    71i32,
-                                    m,
-                                    EQTB[(CUR_FONT_LOC) as usize].b32.s1,
-                                );
+                                not_native_font_error(71, m, EQTB[CUR_FONT_LOC].b32.s1 as usize);
                                 cur_val = 0i32
                             }
                         }
@@ -6705,17 +6696,17 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                 || FONT_AREA[q as usize] as u32 == 0xfffeu32
                             {
                                 match m {
-                                    48 => cur_val = getnativecharwd(q, cur_val),
-                                    49 => cur_val = getnativecharht(q, cur_val),
-                                    50 => cur_val = getnativechardp(q, cur_val),
-                                    51 => cur_val = getnativecharic(q, cur_val),
+                                    48 => cur_val = getnativecharwd(q as usize, cur_val),
+                                    49 => cur_val = getnativecharht(q as usize, cur_val),
+                                    50 => cur_val = getnativechardp(q as usize, cur_val),
+                                    51 => cur_val = getnativecharic(q as usize, cur_val),
                                     _ => {}
                                 }
                             } else if FONT_BC[q as usize] as i32 <= cur_val
                                 && FONT_EC[q as usize] as i32 >= cur_val
                             {
                                 i = FONT_INFO[(CHAR_BASE[q as usize]
-                                    + effective_char(true, q, cur_val as u16))
+                                    + effective_char(true, q as usize, cur_val as u16))
                                     as usize]
                                     .b16;
                                 match m {
@@ -6876,12 +6867,12 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                             k,
                                         )
                                     } else {
-                                        not_aat_gr_font_error(71i32, m, n);
+                                        not_aat_gr_font_error(71, m, n as usize);
                                         cur_val = -1i32
                                     }
                                 }
                                 _ => {
-                                    not_aat_gr_font_error(71i32, m, n);
+                                    not_aat_gr_font_error(71, m, n as usize);
                                     cur_val = -1i32
                                 }
                             }
@@ -6925,12 +6916,12 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                             cur_val,
                                         )
                                     } else {
-                                        not_aat_gr_font_error(71i32, m, n);
+                                        not_aat_gr_font_error(71, m, n as usize);
                                         cur_val = -1i32
                                     }
                                 }
                                 _ => {
-                                    not_aat_gr_font_error(71i32, m, n);
+                                    not_aat_gr_font_error(71, m, n as usize);
                                     cur_val = -1i32
                                 }
                             }
@@ -6953,7 +6944,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                     cur_val = -1;
                                 }
                                 _ => {
-                                    not_aat_font_error(71i32, m, n);
+                                    not_aat_font_error(71, m, n as usize);
                                     cur_val = -1i32
                                 }
                             }
@@ -6987,12 +6978,12 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                             FONT_LAYOUT_ENGINE[n as usize],
                                         )
                                     } else {
-                                        not_aat_gr_font_error(71i32, m, n);
+                                        not_aat_gr_font_error(71, m, n as usize);
                                         cur_val = -1i32
                                     }
                                 }
                                 _ => {
-                                    not_aat_gr_font_error(71i32, m, n);
+                                    not_aat_gr_font_error(71, m, n as usize);
                                     cur_val = -1i32
                                 }
                             }
@@ -7034,12 +7025,12 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                             k,
                                         )
                                     } else {
-                                        not_aat_gr_font_error(71i32, m, n);
+                                        not_aat_gr_font_error(71, m, n as usize);
                                         cur_val = -1i32
                                     }
                                 }
                                 _ => {
-                                    not_aat_gr_font_error(71i32, m, n);
+                                    not_aat_gr_font_error(71, m, n as usize);
                                     cur_val = -1i32
                                 }
                             }
@@ -7074,7 +7065,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                     cur_val,
                                 )
                             } else {
-                                not_ot_font_error(71i32, m, n);
+                                not_ot_font_error(71, m, n as usize);
                                 cur_val = -1i32
                             }
                         }
@@ -7097,7 +7088,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                     cur_val,
                                 )
                             } else {
-                                not_ot_font_error(71i32, m, n);
+                                not_ot_font_error(71, m, n as usize);
                                 cur_val = -1i32
                             }
                         }
@@ -7123,42 +7114,30 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                     cur_val,
                                 )
                             } else {
-                                not_ot_font_error(71i32, m, n);
+                                not_ot_font_error(71i32, m, n as usize);
                                 cur_val = -1i32
                             }
                         }
                         36 => {
-                            if FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32
-                                == 0xffffu32
-                                || FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32
-                                    == 0xfffeu32
+                            if FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xffffu32
+                                || FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xfffeu32
                             {
                                 scan_int();
                                 n = cur_val;
-                                cur_val = map_char_to_glyph(EQTB[(CUR_FONT_LOC) as usize].b32.s1, n)
+                                cur_val = map_char_to_glyph(EQTB[CUR_FONT_LOC].b32.s1 as usize, n)
                             } else {
-                                not_native_font_error(
-                                    71i32,
-                                    m,
-                                    EQTB[(CUR_FONT_LOC) as usize].b32.s1,
-                                );
+                                not_native_font_error(71, m, EQTB[CUR_FONT_LOC].b32.s1 as usize);
                                 cur_val = 0i32
                             }
                         }
                         37 => {
-                            if FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32
-                                == 0xffffu32
-                                || FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32
-                                    == 0xfffeu32
+                            if FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xffffu32
+                                || FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xfffeu32
                             {
                                 scan_and_pack_name();
-                                cur_val = map_glyph_to_index(EQTB[(CUR_FONT_LOC) as usize].b32.s1)
+                                cur_val = map_glyph_to_index(EQTB[CUR_FONT_LOC].b32.s1 as usize)
                             } else {
-                                not_native_font_error(
-                                    71i32,
-                                    m,
-                                    EQTB[(CUR_FONT_LOC) as usize].b32.s1,
-                                );
+                                not_native_font_error(71, m, EQTB[CUR_FONT_LOC].b32.s1 as usize);
                                 cur_val = 0i32
                             }
                         }
@@ -7191,7 +7170,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                             if FONT_AREA[n as usize] as u32 == 0xffffu32
                                 || FONT_AREA[n as usize] as u32 == 0xfffeu32
                             {
-                                cur_val = get_font_char_range(n, (m == 39i32) as i32)
+                                cur_val = get_font_char_range(n as usize, (m == 39i32) as i32)
                             } else if m == 39i32 {
                                 cur_val = FONT_BC[n as usize] as i32
                             } else {
@@ -7673,14 +7652,14 @@ pub(crate) unsafe fn xetex_scan_dimen(
                             } else {
                                 if scan_keyword(b"em") {
                                     v = FONT_INFO[(6 + PARAM_BASE
-                                        [EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize])
+                                        [EQTB[CUR_FONT_LOC].b32.s1 as usize])
                                         as usize]
                                         .b32
                                         .s1;
                                     current_block = 5195798230510548452;
                                 } else if scan_keyword(b"ex") {
                                     v = FONT_INFO[(5 + PARAM_BASE
-                                        [EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize])
+                                        [EQTB[CUR_FONT_LOC].b32.s1 as usize])
                                         as usize]
                                         .b32
                                         .s1;
@@ -8526,52 +8505,52 @@ pub(crate) unsafe fn pseudo_start() {
         overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
     }
     s = make_string();
-    *str_pool.offset(pool_ptr as isize) = ' ' as i32 as packed_UTF16_code;
-    l = *str_start.offset((s as i64 - 65536) as isize);
+    str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
+    l = str_start[(s as i64 - 65536) as usize];
     nl = *INTPAR(IntPar::new_line_char);
     p = get_avail();
     q = p;
     while l < pool_ptr {
         m = l;
-        while l < pool_ptr && *str_pool.offset(l as isize) as i32 != nl {
+        while l < pool_ptr && str_pool[l as usize] as i32 != nl {
             l += 1
         }
-        sz = (l - m + 7i32) / 4i32;
-        if sz == 1i32 {
-            sz = 2i32
+        sz = (l - m + 7) / 4;
+        if sz == 1 {
+            sz = 2
         }
         r = get_node(sz);
         MEM[q as usize].b32.s1 = r;
         q = r;
         MEM[q as usize].b32.s0 = sz;
-        while sz > 2i32 {
+        while sz > 2 {
             sz -= 1;
             r += 1;
-            w.s3 = *str_pool.offset(m as isize);
-            w.s2 = *str_pool.offset((m + 1i32) as isize);
-            w.s1 = *str_pool.offset((m + 2i32) as isize);
-            w.s0 = *str_pool.offset((m + 3i32) as isize);
+            w.s3 = str_pool[m as usize];
+            w.s2 = str_pool[(m + 1) as usize];
+            w.s1 = str_pool[(m + 2) as usize];
+            w.s0 = str_pool[(m + 3) as usize];
             MEM[r as usize].b16 = w;
-            m = m + 4i32
+            m = m + 4
         }
         w.s3 = ' ' as i32 as u16;
         w.s2 = ' ' as i32 as u16;
         w.s1 = ' ' as i32 as u16;
         w.s0 = ' ' as i32 as u16;
         if l > m {
-            w.s3 = *str_pool.offset(m as isize);
-            if l > m + 1i32 {
-                w.s2 = *str_pool.offset((m + 1i32) as isize);
-                if l > m + 2i32 {
-                    w.s1 = *str_pool.offset((m + 2i32) as isize);
-                    if l > m + 3i32 {
-                        w.s0 = *str_pool.offset((m + 3i32) as isize)
+            w.s3 = str_pool[m as usize];
+            if l > m + 1 {
+                w.s2 = str_pool[(m + 1) as usize];
+                if l > m + 2 {
+                    w.s1 = str_pool[(m + 2) as usize];
+                    if l > m + 3 {
+                        w.s0 = str_pool[(m + 3) as usize]
                     }
                 }
             }
         }
         MEM[(r + 1) as usize].b16 = w;
-        if *str_pool.offset(l as isize) as i32 == nl {
+        if str_pool[l as usize] as i32 == nl {
             l += 1
         }
     }
@@ -8579,24 +8558,24 @@ pub(crate) unsafe fn pseudo_start() {
     MEM[p as usize].b32.s1 = pseudo_files;
     pseudo_files = p;
     str_ptr -= 1;
-    pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
+    pool_ptr = str_start[(str_ptr - 65536) as usize];
     begin_file_reading();
-    line = 0i32;
+    line = 0;
     cur_input.limit = cur_input.start;
-    cur_input.loc = cur_input.limit + 1i32;
-    if *INTPAR(IntPar::tracing_scan_tokens) > 0i32 {
-        if term_offset > max_print_line - 3i32 {
+    cur_input.loc = cur_input.limit + 1;
+    if *INTPAR(IntPar::tracing_scan_tokens) > 0 {
+        if term_offset > max_print_line - 3 {
             print_ln();
-        } else if term_offset > 0i32 || file_offset > 0i32 {
+        } else if term_offset > 0 || file_offset > 0 {
             print_char(' ' as i32);
         }
-        cur_input.name = 19i32;
+        cur_input.name = 19;
         print_cstr(b"( ");
         open_parens += 1;
         rust_stdout.as_mut().unwrap().flush().unwrap();
     } else {
-        cur_input.name = 18i32;
-        cur_input.synctex_tag = 0i32
+        cur_input.name = 18;
+        cur_input.synctex_tag = 0;
     };
 }
 pub(crate) unsafe fn str_toks_cat(mut b: pool_pointer, mut cat: small_number) -> i32 {
@@ -8611,21 +8590,20 @@ pub(crate) unsafe fn str_toks_cat(mut b: pool_pointer, mut cat: small_number) ->
     MEM[p as usize].b32.s1 = TEX_NULL;
     k = b;
     while k < pool_ptr {
-        t = *str_pool.offset(k as isize) as i32;
+        t = str_pool[k as usize] as i32;
         if t == ' ' as i32 && cat as i32 == 0i32 {
             t = 0x1400020i32
         } else {
             if t >= 0xd800i32
                 && t < 0xdc00i32
                 && k + 1i32 < pool_ptr
-                && *str_pool.offset((k + 1i32) as isize) as i32 >= 0xdc00i32
-                && (*str_pool.offset((k + 1i32) as isize) as i32) < 0xe000i32
+                && str_pool[(k + 1i32) as usize] as i32 >= 0xdc00i32
+                && (str_pool[(k + 1i32) as usize] as i32) < 0xe000i32
             {
                 k += 1;
                 t = (65536
                     + ((t - 0xd800i32) * 1024i32) as i64
-                    + (*str_pool.offset(k as isize) as i32 - 0xdc00i32) as i64)
-                    as i32
+                    + (str_pool[k as usize] as i32 - 0xdc00i32) as i64) as i32
             }
             if cat as i32 == 0i32 {
                 t = 0x1800000i32 + t
@@ -8739,7 +8717,7 @@ pub(crate) unsafe fn conv_toks() {
     let mut c: small_number = 0;
     let mut save_scanner_status: small_number = 0;
     let mut b: pool_pointer = 0;
-    let mut fnt: i32 = 0i32;
+    let mut fnt: usize = 0;
     let mut arg1: i32 = 0i32;
     let mut arg2: i32 = 0i32;
     let mut font_name_str: str_number = 0;
@@ -8787,7 +8765,7 @@ pub(crate) unsafe fn conv_toks() {
             save_scanner_status = scanner_status as small_number;
             save_warning_index = warning_index;
             save_def_ref = def_ref;
-            if *str_start.offset((str_ptr - 65536i32) as isize) < pool_ptr {
+            if str_start[(str_ptr - 65536) as usize] < pool_ptr {
                 u = make_string()
             } else {
                 u = 0i32
@@ -8804,7 +8782,7 @@ pub(crate) unsafe fn conv_toks() {
             save_scanner_status = scanner_status as small_number;
             save_warning_index = warning_index;
             save_def_ref = def_ref;
-            if *str_start.offset((str_ptr - 65536i32) as isize) < pool_ptr {
+            if str_start[(str_ptr - 65536) as usize] < pool_ptr {
                 u = make_string()
             } else {
                 u = 0i32
@@ -8829,30 +8807,30 @@ pub(crate) unsafe fn conv_toks() {
             b = pool_ptr;
             getmd5sum(s, boolvar);
             MEM[(4999999 - 12) as usize].b32.s1 = str_toks(b);
-            if s == str_ptr - 1i32 {
+            if s == str_ptr - 1 {
                 str_ptr -= 1;
-                pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize)
+                pool_ptr = str_start[(str_ptr - 65536) as usize]
             }
             begin_token_list(MEM[(4999999 - 3) as usize].b32.s1, 5_u16);
-            if u != 0i32 {
+            if u != 0 {
                 str_ptr -= 1
             }
             return;
         }
         7 => {
             scan_font_ident();
-            fnt = cur_val;
+            fnt = cur_val as usize;
             if FONT_AREA[fnt as usize] as u32 == 0xffffu32 {
                 scan_int();
                 arg1 = cur_val;
-                arg2 = 0i32
+                arg2 = 0
             } else {
                 not_aat_font_error(110i32, c as i32, fnt);
             }
         }
         8 => {
             scan_font_ident();
-            fnt = cur_val;
+            fnt = cur_val as usize;
             if FONT_AREA[fnt as usize] as u32 == 0xffffu32
                 || FONT_AREA[fnt as usize] as u32 == 0xfffeu32
                     && usingGraphite(FONT_LAYOUT_ENGINE[fnt as usize] as XeTeXLayoutEngine) as i32
@@ -8867,7 +8845,7 @@ pub(crate) unsafe fn conv_toks() {
         }
         9 => {
             scan_font_ident();
-            fnt = cur_val;
+            fnt = cur_val as usize;
             if FONT_AREA[fnt as usize] as u32 == 0xffffu32
                 || FONT_AREA[fnt as usize] as u32 == 0xfffeu32
                     && usingGraphite(FONT_LAYOUT_ENGINE[fnt as usize] as XeTeXLayoutEngine) as i32
@@ -8883,14 +8861,14 @@ pub(crate) unsafe fn conv_toks() {
         }
         10 => {
             scan_font_ident();
-            fnt = cur_val;
+            fnt = cur_val as usize;
             if FONT_AREA[fnt as usize] as u32 == 0xffffu32
                 || FONT_AREA[fnt as usize] as u32 == 0xfffeu32
             {
                 scan_int();
                 arg1 = cur_val
             } else {
-                not_native_font_error(110i32, c as i32, fnt);
+                not_native_font_error(110, c as i32, fnt);
             }
         }
         11 | 12 => {
@@ -8937,10 +8915,8 @@ pub(crate) unsafe fn conv_toks() {
                     quote_char = '\"' as i32 as UTF16_code;
                     i = 0i32 as small_number;
                     while i as i32 <= length(font_name_str) - 1i32 {
-                        if *str_pool.offset(
-                            (*str_start.offset((font_name_str as i64 - 65536) as isize) + i as i32)
-                                as isize,
-                        ) as i32
+                        if str_pool[(str_start[(font_name_str as i64 - 65536) as usize] + i as i32)
+                            as usize] as i32
                             == '\"' as i32
                         {
                             quote_char = '\'' as i32 as UTF16_code
@@ -9738,11 +9714,12 @@ pub(crate) unsafe fn conditional() {
             if FONT_AREA[n as usize] as u32 == 0xffffu32
                 || FONT_AREA[n as usize] as u32 == 0xfffeu32
             {
-                b = map_char_to_glyph(n, cur_val) > 0i32
+                b = map_char_to_glyph(n as usize, cur_val) > 0i32
             } else if FONT_BC[n as usize] as i32 <= cur_val && FONT_EC[n as usize] as i32 >= cur_val
             {
-                b = FONT_INFO
-                    [(CHAR_BASE[n as usize] + effective_char(true, n, cur_val as u16)) as usize]
+                b = FONT_INFO[(CHAR_BASE[n as usize]
+                    + effective_char(true, n as usize, cur_val as u16))
+                    as usize]
                     .b16
                     .s3 as i32
                     > 0i32
@@ -9908,7 +9885,7 @@ pub(crate) unsafe fn more_name(mut c: UTF16_code) -> bool {
     }
     let fresh37 = pool_ptr;
     pool_ptr = pool_ptr + 1;
-    *str_pool.offset(fresh37 as isize) = c;
+    str_pool[fresh37 as usize] = c;
     if c as i32 == '/' as i32 {
         area_delimiter = cur_length();
         ext_delimiter = 0i32
@@ -9920,27 +9897,27 @@ pub(crate) unsafe fn more_name(mut c: UTF16_code) -> bool {
 pub(crate) unsafe fn end_name() {
     let mut temp_str: str_number = 0;
     let mut j: pool_pointer = 0;
-    if str_ptr + 3i32 > max_strings {
-        overflow(b"number of strings", (max_strings - init_str_ptr) as usize);
+    if str_ptr + 3 > max_strings as i32 {
+        overflow(b"number of strings", max_strings - init_str_ptr as usize);
     }
     /* area_delimiter is the length from the start of the filename to the
      * directory seperator "/", which we use to construct the stringpool
      * string `cur_area`. If there was already a string in the stringpool for
      * the area, reuse it. */
-    if area_delimiter == 0i32 {
-        cur_area = (65536 + 1i32 as i64) as str_number
+    if area_delimiter == 0 {
+        cur_area = (65536 + 1 as i64) as str_number
     } else {
         cur_area = str_ptr;
-        *str_start.offset(((str_ptr + 1i32) as i64 - 65536) as isize) =
-            *str_start.offset((str_ptr - 65536i32) as isize) + area_delimiter;
+        str_start[((str_ptr + 1) as i64 - 65536) as usize] =
+            str_start[(str_ptr - 65536) as usize] + area_delimiter;
         str_ptr += 1;
         temp_str = search_string(cur_area);
-        if temp_str > 0i32 {
+        if temp_str > 0 {
             cur_area = temp_str;
             str_ptr -= 1;
-            j = *str_start.offset(((str_ptr + 1i32) as i64 - 65536) as isize);
-            while j <= pool_ptr - 1i32 {
-                *str_pool.offset((j - area_delimiter) as isize) = *str_pool.offset(j as isize);
+            j = str_start[((str_ptr + 1) as i64 - 65536) as usize];
+            while j <= pool_ptr - 1 {
+                str_pool[(j - area_delimiter) as usize] = str_pool[j as usize];
                 j += 1
             }
             pool_ptr = pool_ptr - area_delimiter
@@ -9949,15 +9926,13 @@ pub(crate) unsafe fn end_name() {
     /* ext_delimiter is the length from the start of the filename to the
      * extension '.' delimiter, which we use to construct the stringpool
      * strings `cur_ext` and `cur_name`. */
-    if ext_delimiter == 0i32 {
-        cur_ext = (65536 + 1i32 as i64) as str_number;
+    if ext_delimiter == 0 {
+        cur_ext = (65536 + 1 as i64) as str_number;
         cur_name = slow_make_string()
     } else {
         cur_name = str_ptr;
-        *str_start.offset(((str_ptr + 1i32) as i64 - 65536) as isize) =
-            *str_start.offset((str_ptr - 65536i32) as isize) + ext_delimiter
-                - area_delimiter
-                - 1i32;
+        str_start[((str_ptr + 1) as i64 - 65536) as usize] =
+            str_start[(str_ptr - 65536) as usize] + ext_delimiter - area_delimiter - 1;
         str_ptr += 1;
         cur_ext = make_string();
         str_ptr -= 1;
@@ -9965,10 +9940,10 @@ pub(crate) unsafe fn end_name() {
         if temp_str > 0i32 {
             cur_name = temp_str;
             str_ptr -= 1;
-            j = *str_start.offset(((str_ptr + 1i32) as i64 - 65536) as isize);
+            j = str_start[((str_ptr + 1) as i64 - 65536) as usize];
             while j <= pool_ptr - 1i32 {
-                *str_pool.offset((j - ext_delimiter + area_delimiter + 1i32) as isize) =
-                    *str_pool.offset(j as isize);
+                str_pool[(j - ext_delimiter + area_delimiter + 1i32) as usize] =
+                    str_pool[j as usize];
                 j += 1
             }
             pool_ptr = pool_ptr - ext_delimiter + area_delimiter + 1i32
@@ -10003,7 +9978,7 @@ pub(crate) unsafe fn make_name_string() -> str_number {
     let mut save_ext_delimiter: pool_pointer = 0;
     let mut save_name_in_progress: bool = false;
     let mut save_stop_at_space: bool = false;
-    if pool_ptr + name_length > pool_size || str_ptr == max_strings || cur_length() > 0i32 {
+    if pool_ptr + name_length > pool_size || str_ptr == max_strings as i32 || cur_length() > 0 {
         return '?' as i32;
     }
     make_utf16_name();
@@ -10011,7 +9986,7 @@ pub(crate) unsafe fn make_name_string() -> str_number {
     while k < name_length16 {
         let fresh38 = pool_ptr;
         pool_ptr = pool_ptr + 1;
-        *str_pool.offset(fresh38 as isize) = *name_of_file16.offset(k as isize);
+        str_pool[fresh38 as usize] = *name_of_file16.offset(k as isize);
         k += 1
     }
     let mut Result: str_number = make_string();
@@ -10195,16 +10170,16 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
                 rval = (rval as u32).wrapping_sub(0x10000_u32) as u32 as u32;
                 let fresh45 = pool_ptr;
                 pool_ptr = pool_ptr + 1;
-                *str_pool.offset(fresh45 as isize) =
+                str_pool[fresh45 as usize] =
                     (0xd800_u32).wrapping_add(rval.wrapping_div(0x400_u32)) as packed_UTF16_code;
                 let fresh46 = pool_ptr;
                 pool_ptr = pool_ptr + 1;
-                *str_pool.offset(fresh46 as isize) =
+                str_pool[fresh46 as usize] =
                     (0xdc00_u32).wrapping_add(rval.wrapping_rem(0x400_u32)) as packed_UTF16_code
             } else {
                 let fresh47 = pool_ptr;
                 pool_ptr = pool_ptr + 1;
-                *str_pool.offset(fresh47 as isize) = rval as packed_UTF16_code
+                str_pool[fresh47 as usize] = rval as packed_UTF16_code
             }
             if rval == '/' as i32 as u32 {
                 area_delimiter = cur_length();
@@ -10261,12 +10236,12 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     /* *This* variant is a TeX string made out of `name_of_input_file`. */
     FULL_SOURCE_FILENAME_STACK[IN_OPEN] =
         maketexstring(CStr::from_ptr(name_of_input_file).to_bytes());
-    if cur_input.name == str_ptr - 1i32 {
+    if cur_input.name == str_ptr - 1 {
         temp_str = search_string(cur_input.name);
         if temp_str > 0i32 {
             cur_input.name = temp_str;
             str_ptr -= 1;
-            pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize)
+            pool_ptr = str_start[(str_ptr - 65536) as usize]
         }
     }
     /* Finally we start really doing stuff with the newly-opened file. */
@@ -10297,11 +10272,11 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     cur_input.loc = cur_input.start;
 }
 pub(crate) unsafe fn effective_char_info(mut f: internal_font_number, mut c: u16) -> b16x4 {
-    if !xtx_ligature_present && !(FONT_MAPPING[f as usize]).is_null() {
-        c = apply_tfm_font_mapping(FONT_MAPPING[f as usize], c as i32) as u16
+    if !xtx_ligature_present && !(FONT_MAPPING[f]).is_null() {
+        c = apply_tfm_font_mapping(FONT_MAPPING[f], c as i32) as u16
     }
     xtx_ligature_present = false;
-    FONT_INFO[(CHAR_BASE[f as usize] + c as i32) as usize].b16
+    FONT_INFO[(CHAR_BASE[f] + c as i32) as usize].b16
 }
 pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
     let mut old_setting_0: i32 = 0;
@@ -10318,12 +10293,12 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
             print_char(c);
         }
         print_cstr(b" in font ");
-        print(FONT_NAME[f as usize]);
+        print(FONT_NAME[f]);
         print_char('!' as i32);
         end_diagnostic(false);
         *INTPAR(IntPar::tracing_online) = old_setting_0
     }
-    let mut fn_0: *mut i8 = gettexstring(FONT_NAME[f as usize]);
+    let mut fn_0: *mut i8 = gettexstring(FONT_NAME[f]);
     let mut chr: *mut i8 = 0 as *mut i8;
     let prev_selector = selector;
     let mut s: i32 = 0;
@@ -10337,7 +10312,7 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
     s = make_string();
     chr = gettexstring(s);
     str_ptr -= 1;
-    pool_ptr = *str_start.offset((str_ptr - 0x10000i32) as isize);
+    pool_ptr = str_start[(str_ptr - 0x10000) as usize];
     ttstub_issue_warning(
         b"could not represent character \"%s\" in font \"%s\"\x00" as *const u8 as *const i8,
         chr,
@@ -10388,30 +10363,30 @@ pub(crate) unsafe fn new_native_character(
     let mut p: i32 = 0;
     let mut i: i32 = 0;
     let mut len: i32 = 0;
-    if !(FONT_MAPPING[f as usize]).is_null() {
+    if !(FONT_MAPPING[f]).is_null() {
         if c as i64 > 65535 {
             if pool_ptr + 2i32 > pool_size {
                 overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
             }
-            *str_pool.offset(pool_ptr as isize) =
+            str_pool[pool_ptr as usize] =
                 ((c as i64 - 65536) / 1024i32 as i64 + 0xd800i32 as i64) as packed_UTF16_code;
             pool_ptr += 1;
-            *str_pool.offset(pool_ptr as isize) =
+            str_pool[pool_ptr as usize] =
                 ((c as i64 - 65536) % 1024i32 as i64 + 0xdc00i32 as i64) as packed_UTF16_code;
             pool_ptr += 1
         } else {
             if pool_ptr + 1i32 > pool_size {
                 overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
             }
-            *str_pool.offset(pool_ptr as isize) = c as packed_UTF16_code;
+            str_pool[pool_ptr as usize] = c as packed_UTF16_code;
             pool_ptr += 1
         }
         len = apply_mapping(
-            FONT_MAPPING[f as usize],
-            &mut *str_pool.offset(*str_start.offset((str_ptr - 65536i32) as isize) as isize),
+            FONT_MAPPING[f],
+            &mut str_pool[str_start[(str_ptr - 65536) as usize] as usize],
             cur_length(),
         );
-        pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
+        pool_ptr = str_start[(str_ptr - 65536) as usize];
         i = 0i32;
         while i < len {
             if *mapped_text.offset(i as isize) as i32 >= 0xd800i32
@@ -10536,7 +10511,7 @@ pub(crate) unsafe fn load_native_font(
     mut nom: str_number,
     mut aire: str_number,
     mut s: scaled_t,
-) -> internal_font_number {
+) -> usize {
     let mut k: i32 = 0;
     let mut num_font_dimens: i32 = 0;
     let mut font_engine: *mut libc::c_void = 0 as *mut libc::c_void;
@@ -10547,11 +10522,10 @@ pub(crate) unsafe fn load_native_font(
     let mut font_slant: scaled_t = 0;
     let mut x_ht: scaled_t = 0;
     let mut cap_ht: scaled_t = 0;
-    let mut f: internal_font_number = 0;
     let mut full_name: str_number = 0;
     font_engine = find_native_font(name_of_file, s);
     if font_engine.is_null() {
-        return 0i32;
+        return 0;
     }
     if s >= 0i32 {
         actual_size = s
@@ -10567,22 +10541,20 @@ pub(crate) unsafe fn load_native_font(
     while k < name_length {
         let fresh50 = pool_ptr;
         pool_ptr = pool_ptr + 1;
-        *str_pool.offset(fresh50 as isize) = *name_of_file.offset(k as isize) as packed_UTF16_code;
+        str_pool[fresh50 as usize] = *name_of_file.offset(k as isize) as packed_UTF16_code;
         k += 1
     }
     full_name = make_string();
-    f = 0i32 + 1i32;
-    while f <= font_ptr {
-        if FONT_AREA[f as usize] == native_font_type_flag
-            && str_eq_str(FONT_NAME[f as usize], full_name) as i32 != 0
-            && FONT_SIZE[f as usize] == actual_size
+    for f in (0 + 1)..=FONT_PTR {
+        if FONT_AREA[f] == native_font_type_flag
+            && str_eq_str(FONT_NAME[f], full_name) as i32 != 0
+            && FONT_SIZE[f] == actual_size
         {
             release_font_engine(font_engine, native_font_type_flag);
             str_ptr -= 1;
-            pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
+            pool_ptr = str_start[(str_ptr - 65536) as usize];
             return f;
         }
-        f += 1
     }
     if native_font_type_flag as u32 == 0xfffeu32
         && isOpenTypeMathFont(font_engine as XeTeXLayoutEngine) as i32 != 0
@@ -10591,7 +10563,7 @@ pub(crate) unsafe fn load_native_font(
     } else {
         num_font_dimens = 8i32
     }
-    if font_ptr == FONT_MAX as i32 || fmem_ptr + num_font_dimens > FONT_MEM_SIZE as i32 {
+    if FONT_PTR == FONT_MAX || fmem_ptr + num_font_dimens > FONT_MEM_SIZE as i32 {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -10622,18 +10594,18 @@ pub(crate) unsafe fn load_native_font(
         help_line[1] = b"If you\'re really stuck, ask a wizard to enlarge me.";
         help_line[0] = b"Or maybe try `I\\font<same font id>=<name of loaded font>\'.";
         error();
-        return 0i32;
+        return 0;
     }
-    font_ptr += 1;
-    FONT_AREA[font_ptr as usize] = native_font_type_flag;
-    FONT_NAME[font_ptr as usize] = full_name;
-    FONT_CHECK[font_ptr as usize].s3 = 0_u16;
-    FONT_CHECK[font_ptr as usize].s2 = 0_u16;
-    FONT_CHECK[font_ptr as usize].s1 = 0_u16;
-    FONT_CHECK[font_ptr as usize].s0 = 0_u16;
-    FONT_GLUE[font_ptr as usize] = TEX_NULL;
-    FONT_DSIZE[font_ptr as usize] = loaded_font_design_size;
-    FONT_SIZE[font_ptr as usize] = actual_size;
+    FONT_PTR += 1;
+    FONT_AREA[FONT_PTR] = native_font_type_flag;
+    FONT_NAME[FONT_PTR] = full_name;
+    FONT_CHECK[FONT_PTR].s3 = 0_u16;
+    FONT_CHECK[FONT_PTR].s2 = 0_u16;
+    FONT_CHECK[FONT_PTR].s1 = 0_u16;
+    FONT_CHECK[FONT_PTR].s0 = 0_u16;
+    FONT_GLUE[FONT_PTR] = TEX_NULL;
+    FONT_DSIZE[FONT_PTR] = loaded_font_design_size;
+    FONT_SIZE[FONT_PTR] = actual_size;
     match native_font_type_flag as u32 {
         #[cfg(target_os = "macos")]
         0xffffu32 => {
@@ -10661,20 +10633,20 @@ pub(crate) unsafe fn load_native_font(
             );
         }
     }
-    HEIGHT_BASE[font_ptr as usize] = ascent;
-    DEPTH_BASE[font_ptr as usize] = -descent;
-    FONT_PARAMS[font_ptr as usize] = num_font_dimens;
-    FONT_BC[font_ptr as usize] = 0 as UTF16_code;
-    FONT_EC[font_ptr as usize] = 65535 as UTF16_code;
-    *font_used.offset(font_ptr as isize) = false;
-    HYPHEN_CHAR[font_ptr as usize] = *INTPAR(IntPar::default_hyphen_char);
-    SKEW_CHAR[font_ptr as usize] = *INTPAR(IntPar::default_skew_char);
-    PARAM_BASE[font_ptr as usize] = fmem_ptr - 1i32;
-    FONT_LAYOUT_ENGINE[font_ptr as usize] = font_engine;
-    FONT_MAPPING[font_ptr as usize] = 0 as *mut libc::c_void;
-    FONT_LETTER_SPACE[font_ptr as usize] = loaded_font_letter_space;
+    HEIGHT_BASE[FONT_PTR] = ascent;
+    DEPTH_BASE[FONT_PTR] = -descent;
+    FONT_PARAMS[FONT_PTR] = num_font_dimens;
+    FONT_BC[FONT_PTR] = 0 as UTF16_code;
+    FONT_EC[FONT_PTR] = 65535 as UTF16_code;
+    *font_used.offset(FONT_PTR as isize) = false;
+    HYPHEN_CHAR[FONT_PTR] = *INTPAR(IntPar::default_hyphen_char);
+    SKEW_CHAR[FONT_PTR] = *INTPAR(IntPar::default_skew_char);
+    PARAM_BASE[FONT_PTR] = fmem_ptr - 1i32;
+    FONT_LAYOUT_ENGINE[FONT_PTR] = font_engine;
+    FONT_MAPPING[FONT_PTR] = 0 as *mut libc::c_void;
+    FONT_LETTER_SPACE[FONT_PTR] = loaded_font_letter_space;
     /* "measure the width of the space character and set up font parameters" */
-    p = new_native_character(font_ptr, ' ' as i32); /* space_stretch */
+    p = new_native_character(FONT_PTR, ' ' as i32); /* space_stretch */
     s = MEM[(p + 1) as usize].b32.s1 + loaded_font_letter_space; /* space_shrink */
     free_node(p, MEM[(p + 4) as usize].b16.s3 as i32); /* quad */
     let fresh53 = fmem_ptr; /* extra_space */
@@ -10694,7 +10666,7 @@ pub(crate) unsafe fn load_native_font(
     FONT_INFO[fresh57 as usize].b32.s1 = x_ht;
     let fresh58 = fmem_ptr;
     fmem_ptr = fmem_ptr + 1;
-    FONT_INFO[fresh58 as usize].b32.s1 = FONT_SIZE[font_ptr as usize];
+    FONT_INFO[fresh58 as usize].b32.s1 = FONT_SIZE[FONT_PTR];
     let fresh59 = fmem_ptr;
     fmem_ptr = fmem_ptr + 1;
     FONT_INFO[fresh59 as usize].b32.s1 = s / 3;
@@ -10710,13 +10682,13 @@ pub(crate) unsafe fn load_native_font(
             /* 55 = lastMathConstant */
             let fresh62 = fmem_ptr; /*:582*/
             fmem_ptr = fmem_ptr + 1;
-            FONT_INFO[fresh62 as usize].b32.s1 = get_ot_math_constant(font_ptr, k);
+            FONT_INFO[fresh62 as usize].b32.s1 = get_ot_math_constant(FONT_PTR, k);
             k += 1
         }
     }
-    FONT_MAPPING[font_ptr as usize] = loaded_font_mapping;
-    FONT_FLAGS[font_ptr as usize] = loaded_font_flags;
-    font_ptr
+    FONT_MAPPING[FONT_PTR] = loaded_font_mapping;
+    FONT_FLAGS[FONT_PTR] = loaded_font_flags;
+    FONT_PTR
 }
 pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
     let mut offs: i32 = 0;
@@ -10859,7 +10831,7 @@ pub(crate) unsafe fn read_font_info(
     let mut alpha: i32 = 0;
     let mut beta: u8 = 0;
 
-    g = FONT_BASE;
+    g = FONT_BASE as usize;
 
     pack_file_name(nom, aire, cur_ext);
 
@@ -10881,7 +10853,7 @@ pub(crate) unsafe fn read_font_info(
 
     if quoted_filename {
         g = load_native_font(u, nom, aire, s);
-        if g != FONT_BASE {
+        if g != FONT_BASE as usize {
             return done(None, g);
         }
     }
@@ -10897,7 +10869,7 @@ pub(crate) unsafe fn read_font_info(
     if tfm_file_owner.is_none() {
         if !quoted_filename {
             g = load_native_font(u, nom, aire, s);
-            if g != FONT_BASE {
+            if g != FONT_BASE as usize {
                 return done(None, g);
             }
         }
@@ -10955,20 +10927,20 @@ pub(crate) unsafe fn read_font_info(
         lf = lf + 7 - np
     }
     assert!(
-        !(font_ptr == FONT_MAX as i32 || fmem_ptr + lf > FONT_MEM_SIZE as i32),
+        !(FONT_PTR == FONT_MAX || fmem_ptr + lf > FONT_MEM_SIZE as i32),
         "not enough memory to load another font"
     );
 
-    f = font_ptr + 1;
-    CHAR_BASE[f as usize] = fmem_ptr - bc;
-    WIDTH_BASE[f as usize] = CHAR_BASE[f as usize] + ec + 1;
-    HEIGHT_BASE[f as usize] = WIDTH_BASE[f as usize] + nw;
-    DEPTH_BASE[f as usize] = HEIGHT_BASE[f as usize] + nh;
-    ITALIC_BASE[f as usize] = DEPTH_BASE[f as usize] + nd;
-    LIG_KERN_BASE[f as usize] = ITALIC_BASE[f as usize] + ni;
-    KERN_BASE[f as usize] = LIG_KERN_BASE[f as usize] + nl - 256 * 128;
-    EXTEN_BASE[f as usize] = KERN_BASE[f as usize] + 256 * 128 + nk;
-    PARAM_BASE[f as usize] = EXTEN_BASE[f as usize] + ne;
+    f = FONT_PTR + 1;
+    CHAR_BASE[f] = fmem_ptr - bc;
+    WIDTH_BASE[f] = CHAR_BASE[f] + ec + 1;
+    HEIGHT_BASE[f] = WIDTH_BASE[f] + nw;
+    DEPTH_BASE[f] = HEIGHT_BASE[f] + nh;
+    ITALIC_BASE[f] = DEPTH_BASE[f] + nd;
+    LIG_KERN_BASE[f] = ITALIC_BASE[f] + ni;
+    KERN_BASE[f] = LIG_KERN_BASE[f] + nl - 256 * 128;
+    EXTEN_BASE[f] = KERN_BASE[f] + 256 * 128 + nk;
+    PARAM_BASE[f] = EXTEN_BASE[f] + ne;
     if lh < 2 {
         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
@@ -10998,7 +10970,7 @@ pub(crate) unsafe fn read_font_info(
         ttstub_input_getc(tfm_file);
         lh -= 1
     }
-    FONT_DSIZE[f as usize] = z;
+    FONT_DSIZE[f] = z;
     if s != -1000 {
         if s >= 0 {
             z = s
@@ -11006,11 +10978,11 @@ pub(crate) unsafe fn read_font_info(
             z = xn_over_d(z, -s, 1000)
         }
     }
-    FONT_SIZE[f as usize] = z;
+    FONT_SIZE[f] = z;
 
     k = fmem_ptr;
     loop {
-        if !(k <= WIDTH_BASE[f as usize] - 1i32) {
+        if !(k <= WIDTH_BASE[f] - 1i32) {
             break;
         }
         a = ttstub_input_getc(tfm_file);
@@ -11049,7 +11021,7 @@ pub(crate) unsafe fn read_font_info(
                     if !(d < k + bc - fmem_ptr) {
                         break;
                     }
-                    qw = FONT_INFO[(CHAR_BASE[f as usize] + d) as usize].b16;
+                    qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
                     if qw.s1 as i32 % 4 != LIST_TAG {
                         break;
                     }
@@ -11072,7 +11044,7 @@ pub(crate) unsafe fn read_font_info(
     beta = (256 / alpha) as u8;
     alpha = alpha * z;
 
-    for k in WIDTH_BASE[f as usize]..=LIG_KERN_BASE[f as usize] - 1 {
+    for k in WIDTH_BASE[f]..=LIG_KERN_BASE[f] - 1 {
         a = ttstub_input_getc(tfm_file);
         b = ttstub_input_getc(tfm_file);
         c = ttstub_input_getc(tfm_file);
@@ -11091,23 +11063,23 @@ pub(crate) unsafe fn read_font_info(
         }
     }
 
-    if FONT_INFO[WIDTH_BASE[f as usize] as usize].b32.s1 != 0 {
+    if FONT_INFO[WIDTH_BASE[f] as usize].b32.s1 != 0 {
         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
-    if FONT_INFO[HEIGHT_BASE[f as usize] as usize].b32.s1 != 0 {
+    if FONT_INFO[HEIGHT_BASE[f] as usize].b32.s1 != 0 {
         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
-    if FONT_INFO[DEPTH_BASE[f as usize] as usize].b32.s1 != 0 {
+    if FONT_INFO[DEPTH_BASE[f] as usize].b32.s1 != 0 {
         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
-    if FONT_INFO[ITALIC_BASE[f as usize] as usize].b32.s1 != 0 {
+    if FONT_INFO[ITALIC_BASE[f] as usize].b32.s1 != 0 {
         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
 
     bch_label = 32767;
     bchar_0 = 256;
     if nl > 0 {
-        for k in LIG_KERN_BASE[f as usize]..=KERN_BASE[f as usize] + 256 * 128 - 1 {
+        for k in LIG_KERN_BASE[f]..=KERN_BASE[f] + 256 * 128 - 1 {
             a = ttstub_input_getc(tfm_file);
             qw.s3 = a as u16;
             b = ttstub_input_getc(tfm_file);
@@ -11125,7 +11097,7 @@ pub(crate) unsafe fn read_font_info(
                 if 256 * c + d >= nl {
                     return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                 }
-                if a == 255 && k == LIG_KERN_BASE[f as usize] {
+                if a == 255 && k == LIG_KERN_BASE[f] {
                     bchar_0 = b as i16
                 }
             } else {
@@ -11134,7 +11106,7 @@ pub(crate) unsafe fn read_font_info(
                         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
 
-                    qw = FONT_INFO[(CHAR_BASE[f as usize] + b) as usize].b16;
+                    qw = FONT_INFO[(CHAR_BASE[f] + b) as usize].b16;
                     if !(qw.s3 > 0) {
                         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
@@ -11144,14 +11116,14 @@ pub(crate) unsafe fn read_font_info(
                     if d < bc || d > ec {
                         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
-                    qw = FONT_INFO[(CHAR_BASE[f as usize] + d) as usize].b16;
+                    qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
                     if !(qw.s3 > 0) {
                         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
                 } else if 256 * (c - 128) + d >= nk {
                     return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                 }
-                if a < 128 && k - LIG_KERN_BASE[f as usize] + a + 1i32 >= nl {
+                if a < 128 && k - LIG_KERN_BASE[f] + a + 1i32 >= nl {
                     return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                 }
             }
@@ -11161,7 +11133,7 @@ pub(crate) unsafe fn read_font_info(
         }
     }
 
-    for k in KERN_BASE[f as usize] + 256 * 128..=EXTEN_BASE[f as usize] - 1 {
+    for k in KERN_BASE[f] + 256 * 128..=EXTEN_BASE[f] - 1 {
         a = ttstub_input_getc(tfm_file);
         b = ttstub_input_getc(tfm_file);
         c = ttstub_input_getc(tfm_file);
@@ -11179,7 +11151,7 @@ pub(crate) unsafe fn read_font_info(
         }
     }
 
-    for k in EXTEN_BASE[f as usize]..=PARAM_BASE[f as usize] - 1 {
+    for k in EXTEN_BASE[f]..=PARAM_BASE[f] - 1 {
         a = ttstub_input_getc(tfm_file);
         qw.s3 = a as u16;
         b = ttstub_input_getc(tfm_file);
@@ -11197,7 +11169,7 @@ pub(crate) unsafe fn read_font_info(
             if a < bc || a > ec {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
-            qw = FONT_INFO[(CHAR_BASE[f as usize] + a) as usize].b16;
+            qw = FONT_INFO[(CHAR_BASE[f] + a) as usize].b16;
             if !(qw.s3 as i32 > 0i32) {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
@@ -11207,7 +11179,7 @@ pub(crate) unsafe fn read_font_info(
             if b < bc || b > ec {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
-            qw = FONT_INFO[(CHAR_BASE[f as usize] + b) as usize].b16;
+            qw = FONT_INFO[(CHAR_BASE[f] + b) as usize].b16;
             if !(qw.s3 > 0) {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
@@ -11217,7 +11189,7 @@ pub(crate) unsafe fn read_font_info(
             if c < bc || c > ec {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
-            qw = FONT_INFO[(CHAR_BASE[f as usize] + c) as usize].b16;
+            qw = FONT_INFO[(CHAR_BASE[f] + c) as usize].b16;
             if !(qw.s3 > 0) {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
@@ -11226,7 +11198,7 @@ pub(crate) unsafe fn read_font_info(
         if d < bc || d > ec {
             return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
-        qw = FONT_INFO[(CHAR_BASE[f as usize] + d) as usize].b16;
+        qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
         if !(qw.s3 > 0) {
             return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
@@ -11244,8 +11216,7 @@ pub(crate) unsafe fn read_font_info(
 
             sw = sw * 256 + ttstub_input_getc(tfm_file);
             sw = sw * 256 + ttstub_input_getc(tfm_file);
-            FONT_INFO[PARAM_BASE[f as usize] as usize].b32.s1 =
-                sw * 16 + ttstub_input_getc(tfm_file) / 16
+            FONT_INFO[PARAM_BASE[f] as usize].b32.s1 = sw * 16 + ttstub_input_getc(tfm_file) / 16
         } else {
             a = ttstub_input_getc(tfm_file);
             b = ttstub_input_getc(tfm_file);
@@ -11256,13 +11227,9 @@ pub(crate) unsafe fn read_font_info(
             }
             sw = ((d * z / 256i32 + c * z) / 256i32 + b * z) / beta as i32;
             if a == 0 {
-                FONT_INFO[(PARAM_BASE[f as usize] + k - 1i32) as usize]
-                    .b32
-                    .s1 = sw
+                FONT_INFO[(PARAM_BASE[f] + k - 1i32) as usize].b32.s1 = sw
             } else if a == 255 {
-                FONT_INFO[(PARAM_BASE[f as usize] + k - 1i32) as usize]
-                    .b32
-                    .s1 = sw - alpha
+                FONT_INFO[(PARAM_BASE[f] + k - 1i32) as usize].b32.s1 = sw - alpha
             } else {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
@@ -11270,59 +11237,57 @@ pub(crate) unsafe fn read_font_info(
     }
 
     for k in np + 1..=7 {
-        FONT_INFO[(PARAM_BASE[f as usize] + k - 1i32) as usize]
-            .b32
-            .s1 = 0;
+        FONT_INFO[(PARAM_BASE[f] + k - 1i32) as usize].b32.s1 = 0;
     }
 
     if np >= 7 {
-        FONT_PARAMS[f as usize] = np
+        FONT_PARAMS[f] = np
     } else {
-        FONT_PARAMS[f as usize] = 7
+        FONT_PARAMS[f] = 7
     }
 
-    HYPHEN_CHAR[f as usize] = *INTPAR(IntPar::default_hyphen_char);
-    SKEW_CHAR[f as usize] = *INTPAR(IntPar::default_skew_char);
+    HYPHEN_CHAR[f] = *INTPAR(IntPar::default_hyphen_char);
+    SKEW_CHAR[f] = *INTPAR(IntPar::default_skew_char);
     if bch_label < nl {
-        BCHAR_LABEL[f as usize] = bch_label + LIG_KERN_BASE[f as usize]
+        BCHAR_LABEL[f] = bch_label + LIG_KERN_BASE[f]
     } else {
-        BCHAR_LABEL[f as usize] = NON_ADDRESS;
+        BCHAR_LABEL[f] = NON_ADDRESS;
     }
-    FONT_BCHAR[f as usize] = bchar_0 as _;
-    FONT_FALSE_BCHAR[f as usize] = bchar_0 as nine_bits;
+    FONT_BCHAR[f] = bchar_0 as _;
+    FONT_FALSE_BCHAR[f] = bchar_0 as nine_bits;
 
     if bchar_0 as i32 <= ec {
         if bchar_0 as i32 >= bc {
-            qw = FONT_INFO[(CHAR_BASE[f as usize] + bchar_0 as i32) as usize].b16;
+            qw = FONT_INFO[(CHAR_BASE[f] + bchar_0 as i32) as usize].b16;
             if qw.s3 as i32 > 0i32 {
-                FONT_FALSE_BCHAR[f as usize] = 65536
+                FONT_FALSE_BCHAR[f] = 65536
             }
         }
     }
 
-    FONT_NAME[f as usize] = nom;
-    FONT_AREA[f as usize] = aire;
-    FONT_BC[f as usize] = bc as UTF16_code;
-    FONT_EC[f as usize] = ec as UTF16_code;
-    FONT_GLUE[f as usize] = TEX_NULL;
-    PARAM_BASE[f as usize] -= 1;
+    FONT_NAME[f] = nom;
+    FONT_AREA[f] = aire;
+    FONT_BC[f] = bc as UTF16_code;
+    FONT_EC[f] = ec as UTF16_code;
+    FONT_GLUE[f] = TEX_NULL;
+    PARAM_BASE[f] -= 1;
     fmem_ptr = fmem_ptr + lf;
-    font_ptr = f;
+    FONT_PTR = f;
     g = f;
-    FONT_MAPPING[f as usize] = load_tfm_font_mapping();
+    FONT_MAPPING[f] = load_tfm_font_mapping();
 
     return done(tfm_file_owner, g);
 
     /// Called on error
     unsafe fn bad_tfm(
         tfm_file: Option<InputHandleWrapper>,
-        g: i32,
+        g: usize,
         u: i32,
         nom: i32,
         aire: i32,
         s: i32,
         name_too_long: bool,
-    ) -> i32 {
+    ) -> usize {
         if *INTPAR(IntPar::suppress_fontnotfound_error) == 0 {
             /* NOTE: must preserve this path to keep passing the TRIP tests */
             if file_line_error_style_p != 0 {
@@ -11368,14 +11333,14 @@ pub(crate) unsafe fn read_font_info(
     // unreachable
     // return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
 
-    unsafe fn done(tfm_file: Option<InputHandleWrapper>, g: i32) -> i32 {
+    unsafe fn done(tfm_file: Option<InputHandleWrapper>, g: usize) -> usize {
         let file_opened = tfm_file.is_some();
         if let Some(handle) = tfm_file {
             ttstub_input_close(handle);
         }
 
         if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
-            if g == FONT_BASE {
+            if g == FONT_BASE as usize {
                 begin_diagnostic();
                 print_nl_cstr(b" -> font not found, using \"nullfont\"");
                 end_diagnostic(false);
@@ -11394,17 +11359,13 @@ pub(crate) unsafe fn read_font_info(
 pub(crate) unsafe fn new_character(mut f: internal_font_number, mut c: UTF16_code) -> i32 {
     let mut p: i32 = 0;
     let mut ec: u16 = 0;
-    if FONT_AREA[f as usize] as u32 == 0xffffu32 || FONT_AREA[f as usize] as u32 == 0xfffeu32 {
+    if FONT_AREA[f] as u32 == 0xffffu32 || FONT_AREA[f] as u32 == 0xfffeu32 {
         return new_native_character(f, c as UnicodeScalar);
     }
     ec = effective_char(false, f, c) as u16;
-    if FONT_BC[f as usize] as i32 <= ec as i32 {
-        if FONT_EC[f as usize] as i32 >= ec as i32 {
-            if FONT_INFO[(CHAR_BASE[f as usize] + ec as i32) as usize]
-                .b16
-                .s3 as i32
-                > 0i32
-            {
+    if FONT_BC[f] as i32 <= ec as i32 {
+        if FONT_EC[f] as i32 >= ec as i32 {
+            if FONT_INFO[(CHAR_BASE[f] + ec as i32) as usize].b16.s3 as i32 > 0i32 {
                 p = get_avail();
                 MEM[p as usize].b16.s1 = f as u16;
                 MEM[p as usize].b16.s0 = c;
@@ -11466,7 +11427,7 @@ pub(crate) unsafe fn char_pw(mut p: i32, mut side: small_number) -> scaled_t {
         if !MEM[(p + 5) as usize].ptr.is_null() {
             f = MEM[(p + 4) as usize].b16.s2 as internal_font_number;
             return round_xn_over_d(
-                FONT_INFO[(6 + PARAM_BASE[f as usize]) as usize].b32.s1,
+                FONT_INFO[(6 + PARAM_BASE[f]) as usize].b32.s1,
                 real_get_native_word_cp(
                     &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
                     side as i32,
@@ -11484,7 +11445,7 @@ pub(crate) unsafe fn char_pw(mut p: i32, mut side: small_number) -> scaled_t {
     {
         f = MEM[(p + 4) as usize].b16.s2 as internal_font_number;
         return round_xn_over_d(
-            FONT_INFO[(6 + PARAM_BASE[f as usize]) as usize].b32.s1,
+            FONT_INFO[(6 + PARAM_BASE[f]) as usize].b32.s1,
             get_cp_code(f, MEM[(p + 4) as usize].b16.s1 as u32, side as i32),
             1000i32,
         );
@@ -11506,11 +11467,7 @@ pub(crate) unsafe fn char_pw(mut p: i32, mut side: small_number) -> scaled_t {
     if c == 0i32 {
         return 0i32;
     }
-    round_xn_over_d(
-        FONT_INFO[(6 + PARAM_BASE[f as usize]) as usize].b32.s1,
-        c,
-        1000i32,
-    )
+    round_xn_over_d(FONT_INFO[(6 + PARAM_BASE[f]) as usize].b32.s1, c, 1000i32)
 }
 pub(crate) unsafe fn new_margin_kern(mut w: scaled_t, mut _p: i32, mut side: small_number) -> i32 {
     let mut k: i32 = 0;
@@ -11573,20 +11530,17 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
             while is_char_node(p) {
                 /*677: */
                 f = MEM[p as usize].b16.s1 as internal_font_number;
-                i = FONT_INFO[(CHAR_BASE[f as usize]
-                    + effective_char(true, f, MEM[p as usize].b16.s0))
-                    as usize]
+                i = FONT_INFO
+                    [(CHAR_BASE[f] + effective_char(true, f, MEM[p as usize].b16.s0)) as usize]
                     .b16;
-                x = x + FONT_INFO[(WIDTH_BASE[f as usize] + i.s3 as i32) as usize]
-                    .b32
-                    .s1;
-                s = FONT_INFO[(HEIGHT_BASE[f as usize] + i.s2 as i32 / 16i32) as usize]
+                x = x + FONT_INFO[(WIDTH_BASE[f] + i.s3 as i32) as usize].b32.s1;
+                s = FONT_INFO[(HEIGHT_BASE[f] + i.s2 as i32 / 16i32) as usize]
                     .b32
                     .s1;
                 if s > h {
                     h = s
                 }
-                s = FONT_INFO[(DEPTH_BASE[f as usize] + i.s2 as i32 % 16i32) as usize]
+                s = FONT_INFO[(DEPTH_BASE[f] + i.s2 as i32 % 16i32) as usize]
                     .b32
                     .s1;
                 if s > d {
@@ -13771,21 +13725,20 @@ pub(crate) unsafe fn app_space() {
             main_p = *GLUEPAR(GluePar::space_skip)
         } else {
             /*1077: */
-            main_p = FONT_GLUE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize]; /*:1079 */
+            main_p = FONT_GLUE[EQTB[CUR_FONT_LOC].b32.s1 as usize]; /*:1079 */
             if main_p.is_texnull() {
                 main_p = new_spec(0i32);
-                main_k = PARAM_BASE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] + 2;
+                main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].b32.s1 as usize] + 2;
                 MEM[(main_p + 1) as usize].b32.s1 = FONT_INFO[main_k as usize].b32.s1;
                 MEM[(main_p + 2) as usize].b32.s1 = FONT_INFO[(main_k + 1i32) as usize].b32.s1;
                 MEM[(main_p + 3) as usize].b32.s1 = FONT_INFO[(main_k + 2i32) as usize].b32.s1;
-                FONT_GLUE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] = main_p
+                FONT_GLUE[EQTB[CUR_FONT_LOC].b32.s1 as usize] = main_p
             }
         }
         main_p = new_spec(main_p);
         if cur_list.aux.b32.s0 >= 2000i32 {
             MEM[(main_p + 1) as usize].b32.s1 = MEM[(main_p + 1) as usize].b32.s1
-                + FONT_INFO
-                    [(7 + PARAM_BASE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize]) as usize]
+                + FONT_INFO[(7 + PARAM_BASE[EQTB[CUR_FONT_LOC].b32.s1 as usize]) as usize]
                     .b32
                     .s1
         }
@@ -14768,10 +14721,9 @@ pub(crate) unsafe fn append_italic_correction() {
         }
         f = MEM[p as usize].b16.s1 as internal_font_number;
         MEM[cur_list.tail as usize].b32.s1 = new_kern(
-            FONT_INFO[(ITALIC_BASE[f as usize]
-                + FONT_INFO[(CHAR_BASE[f as usize]
-                    + effective_char(true, f, MEM[p as usize].b16.s0))
-                    as usize]
+            FONT_INFO[(ITALIC_BASE[f]
+                + FONT_INFO
+                    [(CHAR_BASE[f] + effective_char(true, f, MEM[p as usize].b16.s0)) as usize]
                     .b16
                     .s1 as i32
                     / 4i32) as usize]
@@ -14787,11 +14739,11 @@ pub(crate) unsafe fn append_discretionary() {
     MEM[cur_list.tail as usize].b32.s1 = new_disc();
     cur_list.tail = *LLIST_link(cur_list.tail as isize);
     if cur_chr == 1i32 {
-        c = HYPHEN_CHAR[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize];
+        c = HYPHEN_CHAR[EQTB[CUR_FONT_LOC].b32.s1 as usize];
         if c >= 0i32 {
             if c <= 0xffffi32 {
                 MEM[(cur_list.tail + 1) as usize].b32.s0 =
-                    new_character(EQTB[(CUR_FONT_LOC) as usize].b32.s1, c as UTF16_code)
+                    new_character(EQTB[CUR_FONT_LOC].b32.s1 as usize, c as UTF16_code)
             }
         }
     } else {
@@ -14921,21 +14873,20 @@ pub(crate) unsafe fn make_accent() {
         s3: 0,
     };
     scan_char_num();
-    f = EQTB[(CUR_FONT_LOC) as usize].b32.s1;
+    f = EQTB[CUR_FONT_LOC].b32.s1 as usize;
     p = new_character(f, cur_val as UTF16_code);
     if !p.is_texnull() {
-        x = FONT_INFO[(5i32 + PARAM_BASE[f as usize]) as usize].b32.s1;
-        s = FONT_INFO[(1i32 + PARAM_BASE[f as usize]) as usize].b32.s1 as f64 / 65536.0f64;
-        if FONT_AREA[f as usize] as u32 == 0xffffu32 || FONT_AREA[f as usize] as u32 == 0xfffeu32 {
+        x = FONT_INFO[(5i32 + PARAM_BASE[f]) as usize].b32.s1;
+        s = FONT_INFO[(1i32 + PARAM_BASE[f]) as usize].b32.s1 as f64 / 65536.0f64;
+        if FONT_AREA[f] as u32 == 0xffffu32 || FONT_AREA[f] as u32 == 0xfffeu32 {
             a = MEM[(p + 1) as usize].b32.s1;
             if a == 0i32 {
                 get_native_char_sidebearings(f, cur_val, &mut lsb, &mut rsb);
             }
         } else {
-            a = FONT_INFO[(WIDTH_BASE[f as usize]
-                + FONT_INFO[(CHAR_BASE[f as usize]
-                    + effective_char(true, f, MEM[p as usize].b16.s0))
-                    as usize]
+            a = FONT_INFO[(WIDTH_BASE[f]
+                + FONT_INFO
+                    [(CHAR_BASE[f] + effective_char(true, f, MEM[p as usize].b16.s0)) as usize]
                     .b16
                     .s3 as i32) as usize]
                 .b32
@@ -14943,7 +14894,7 @@ pub(crate) unsafe fn make_accent() {
         }
         do_assignments();
         q = TEX_NULL;
-        f = EQTB[(CUR_FONT_LOC) as usize].b32.s1;
+        f = EQTB[CUR_FONT_LOC].b32.s1 as usize;
         if cur_cmd as i32 == 11i32 || cur_cmd as i32 == 12i32 || cur_cmd as i32 == 68i32 {
             q = new_character(f, cur_chr as UTF16_code);
             cur_val = cur_chr
@@ -14955,21 +14906,16 @@ pub(crate) unsafe fn make_accent() {
         }
         if !q.is_texnull() {
             /*1160: */
-            t = FONT_INFO[(1 + PARAM_BASE[f as usize]) as usize].b32.s1 as f64 / 65536.0f64;
-            if FONT_AREA[f as usize] as u32 == 0xffffu32
-                || FONT_AREA[f as usize] as u32 == 0xfffeu32
-            {
+            t = FONT_INFO[(1 + PARAM_BASE[f]) as usize].b32.s1 as f64 / 65536.0f64;
+            if FONT_AREA[f] as u32 == 0xffffu32 || FONT_AREA[f] as u32 == 0xfffeu32 {
                 w = MEM[(q + 1) as usize].b32.s1;
                 get_native_char_height_depth(f, cur_val, &mut h, &mut delta);
             } else {
-                i = FONT_INFO[(CHAR_BASE[f as usize]
-                    + effective_char(true, f, MEM[q as usize].b16.s0))
-                    as usize]
+                i = FONT_INFO
+                    [(CHAR_BASE[f] + effective_char(true, f, MEM[q as usize].b16.s0)) as usize]
                     .b16;
-                w = FONT_INFO[(WIDTH_BASE[f as usize] + i.s3 as i32) as usize]
-                    .b32
-                    .s1;
-                h = FONT_INFO[(HEIGHT_BASE[f as usize] + i.s2 as i32 / 16i32) as usize]
+                w = FONT_INFO[(WIDTH_BASE[f] + i.s3 as i32) as usize].b32.s1;
+                h = FONT_INFO[(HEIGHT_BASE[f] + i.s2 as i32 / 16i32) as usize]
                     .b32
                     .s1
             }
@@ -14977,10 +14923,7 @@ pub(crate) unsafe fn make_accent() {
                 p = hpack(p, 0i32, 1i32 as small_number);
                 MEM[(p + 4) as usize].b32.s1 = x - h
             }
-            if (FONT_AREA[f as usize] as u32 == 0xffffu32
-                || FONT_AREA[f as usize] as u32 == 0xfffeu32)
-                && a == 0i32
-            {
+            if (FONT_AREA[f] as u32 == 0xffffu32 || FONT_AREA[f] as u32 == 0xfffeu32) && a == 0i32 {
                 delta = tex_round((w - lsb + rsb) as f64 / 2.0f64 + h as f64 * t - x as f64 * s)
             } else {
                 delta = tex_round((w - a) as f64 / 2.0f64 + h as f64 * t - x as f64 * s)
@@ -15693,7 +15636,6 @@ pub(crate) unsafe fn new_font(mut a: small_number) {
     let mut current_block: u64;
     let mut u: i32 = 0;
     let mut s: scaled_t = 0;
-    let mut f: internal_font_number = 0;
     let mut t: str_number = 0;
     if job_name == 0i32 {
         open_log_file();
@@ -15765,9 +15707,8 @@ pub(crate) unsafe fn new_font(mut a: small_number) {
         s = -1000i32
     }
     name_in_progress = false;
-    let mut for_end: i32 = 0;
-    f = 0i32 + 1i32;
-    for_end = font_ptr;
+    let mut f = 0 + 1;
+    let mut for_end = FONT_PTR;
     if f <= for_end {
         current_block = 17075014677070940716;
     } else {
@@ -15780,44 +15721,37 @@ pub(crate) unsafe fn new_font(mut a: small_number) {
                 break;
             }
             _ => {
-                if str_eq_str(FONT_NAME[f as usize], cur_name) as i32 != 0
+                if str_eq_str(FONT_NAME[f], cur_name) as i32 != 0
                     && (length(cur_area) == 0i32
-                        && (FONT_AREA[f as usize] as u32 == 0xffffu32
-                            || FONT_AREA[f as usize] as u32 == 0xfffeu32)
-                        || str_eq_str(FONT_AREA[f as usize], cur_area) as i32 != 0)
+                        && (FONT_AREA[f] as u32 == 0xffffu32 || FONT_AREA[f] as u32 == 0xfffeu32)
+                        || str_eq_str(FONT_AREA[f], cur_area) as i32 != 0)
                 {
                     if s > 0i32 {
-                        if s == FONT_SIZE[f as usize] {
+                        if s == FONT_SIZE[f] {
                             break;
                         }
-                    } else if FONT_SIZE[f as usize]
-                        == xn_over_d(FONT_DSIZE[f as usize], -s, 1000i32)
-                    {
+                    } else if FONT_SIZE[f] == xn_over_d(FONT_DSIZE[f], -s, 1000i32) {
                         break;
                     }
                 }
                 append_str(cur_area);
                 append_str(cur_name);
                 append_str(cur_ext);
-                if str_eq_str(FONT_NAME[f as usize], make_string()) {
+                if str_eq_str(FONT_NAME[f], make_string()) {
                     str_ptr -= 1;
-                    pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
-                    if FONT_AREA[f as usize] as u32 == 0xffffu32
-                        || FONT_AREA[f as usize] as u32 == 0xfffeu32
-                    {
+                    pool_ptr = str_start[(str_ptr - 65536) as usize];
+                    if FONT_AREA[f] as u32 == 0xffffu32 || FONT_AREA[f] as u32 == 0xfffeu32 {
                         if s > 0i32 {
-                            if s == FONT_SIZE[f as usize] {
+                            if s == FONT_SIZE[f] {
                                 break;
                             }
-                        } else if FONT_SIZE[f as usize]
-                            == xn_over_d(FONT_DSIZE[f as usize], -s, 1000i32)
-                        {
+                        } else if FONT_SIZE[f] == xn_over_d(FONT_DSIZE[f], -s, 1000i32) {
                             break;
                         }
                     }
                 } else {
                     str_ptr -= 1;
-                    pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize)
+                    pool_ptr = str_start[(str_ptr - 65536) as usize]
                 }
                 let fresh86 = f;
                 f = f + 1;
@@ -15830,12 +15764,12 @@ pub(crate) unsafe fn new_font(mut a: small_number) {
         }
     }
     if a as i32 >= 4i32 {
-        geq_define(u, 89_u16, f);
+        geq_define(u, 89_u16, f as i32);
     } else {
-        eq_define(u, 89_u16, f);
+        eq_define(u, 89_u16, f as i32);
     }
-    EQTB[(FROZEN_NULL_FONT as i32 + f) as usize] = EQTB[u as usize];
-    (*hash.offset((FROZEN_NULL_FONT as i32 + f) as isize)).s1 = t;
+    EQTB[(FROZEN_NULL_FONT + f) as usize] = EQTB[u as usize];
+    (*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1 = t;
 }
 pub(crate) unsafe fn new_interaction() {
     print_ln();
@@ -15915,7 +15849,7 @@ pub(crate) unsafe fn issue_message() {
         use_err_help = false
     }
     str_ptr -= 1;
-    pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
+    pool_ptr = str_start[(str_ptr - 65536) as usize];
 }
 pub(crate) unsafe fn shift_case() {
     let mut b: i32 = 0;
@@ -16182,8 +16116,8 @@ pub(crate) unsafe fn do_extension() {
                 new_graf(true);
             } else if (cur_list.mode as i32).abs() == 207i32 {
                 report_illegal_case();
-            } else if FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32 == 0xffffu32
-                || FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32 == 0xfffeu32
+            } else if FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xffffu32
+                || FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xfffeu32
             {
                 new_whatsit(42i32 as small_number, 5i32 as small_number);
                 scan_int();
@@ -16200,15 +16134,14 @@ pub(crate) unsafe fn do_extension() {
                     int_error(cur_val);
                     cur_val = 0i32
                 }
-                MEM[(cur_list.tail + 4) as usize].b16.s2 =
-                    EQTB[(CUR_FONT_LOC) as usize].b32.s1 as u16;
+                MEM[(cur_list.tail + 4) as usize].b16.s2 = EQTB[CUR_FONT_LOC].b32.s1 as u16;
                 MEM[(cur_list.tail + 4) as usize].b16.s1 = cur_val as u16;
                 measure_native_glyph(
                     &mut MEM[cur_list.tail as usize] as *mut memory_word as *mut libc::c_void,
                     (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
                 );
             } else {
-                not_native_font_error(59i32, 43i32, EQTB[(CUR_FONT_LOC) as usize].b32.s1);
+                not_native_font_error(59i32, 43i32, EQTB[CUR_FONT_LOC].b32.s1 as usize);
             }
         }
         44 => {
@@ -17025,8 +16958,8 @@ pub(crate) unsafe fn main_control() {
                 }
             }
             prev_class = 4096i32 - 1i32;
-            if FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32 == 0xffffu32
-                || FONT_AREA[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] as u32 == 0xfffeu32
+            if FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xffffu32
+                || FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xfffeu32
             {
                 if cur_list.mode as i32 > 0i32 {
                     if *INTPAR(IntPar::language) != cur_list.aux.b32.s1 {
@@ -17034,7 +16967,7 @@ pub(crate) unsafe fn main_control() {
                     }
                 }
                 main_h = 0i32;
-                main_f = EQTB[(CUR_FONT_LOC) as usize].b32.s1;
+                main_f = EQTB[CUR_FONT_LOC].b32.s1 as usize;
                 native_len = 0i32;
                 loop {
                     /*collect_native */
@@ -17275,7 +17208,7 @@ pub(crate) unsafe fn main_control() {
                             && MEM[main_pp as usize].b16.s1 as i32 == 8
                             && (MEM[main_pp as usize].b16.s0 as i32 == 40
                                 || MEM[main_pp as usize].b16.s0 as i32 == 41)
-                            && MEM[(main_pp + 4) as usize].b16.s2 as i32 == main_f
+                            && MEM[(main_pp + 4) as usize].b16.s2 as usize == main_f
                             && main_ppp != main_pp
                             && !is_char_node(main_ppp)
                             && MEM[main_ppp as usize].b16.s1 as i32 != 7
@@ -17411,7 +17344,7 @@ pub(crate) unsafe fn main_control() {
                         && MEM[main_pp as usize].b16.s1 as i32 == 8
                         && (MEM[main_pp as usize].b16.s0 as i32 == 40
                             || MEM[main_pp as usize].b16.s0 as i32 == 41)
-                        && MEM[(main_pp + 4) as usize].b16.s2 as i32 == main_f
+                        && MEM[(main_pp + 4) as usize].b16.s2 as usize == main_f
                         && main_ppp != main_pp
                         && !is_char_node(main_ppp)
                         && MEM[main_ppp as usize].b16.s1 as i32 != 7
@@ -17511,7 +17444,7 @@ pub(crate) unsafe fn main_control() {
                         main_p = MEM[main_p as usize].b32.s1
                     }
                     if !main_pp.is_texnull() {
-                        if MEM[(main_pp + 4) as usize].b16.s2 as i32 == main_f {
+                        if MEM[(main_pp + 4) as usize].b16.s2 as usize == main_f {
                             main_p = MEM[main_pp as usize].b32.s1;
                             while !is_char_node(main_p)
                                 && (MEM[main_p as usize].b16.s1 as i32 == 12
@@ -17671,7 +17604,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     prev_class = space_class
                 }
-                main_f = EQTB[(CUR_FONT_LOC) as usize].b32.s1;
+                main_f = EQTB[CUR_FONT_LOC].b32.s1 as usize;
                 bchar = FONT_BCHAR[main_f as usize];
                 false_bchar = FONT_FALSE_BCHAR[main_f as usize];
                 if cur_list.mode as i32 > 0i32 {
@@ -18217,14 +18150,14 @@ pub(crate) unsafe fn main_control() {
                     }
                 }
                 if *GLUEPAR(GluePar::space_skip) == 0i32 {
-                    main_p = FONT_GLUE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize];
+                    main_p = FONT_GLUE[EQTB[CUR_FONT_LOC].b32.s1 as usize];
                     if main_p.is_texnull() {
                         main_p = new_spec(0i32);
-                        main_k = PARAM_BASE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] + 2;
+                        main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].b32.s1 as usize] + 2;
                         MEM[(main_p + 1) as usize].b32.s1 = FONT_INFO[main_k as usize].b32.s1;
                         MEM[(main_p + 2) as usize].b32.s1 = FONT_INFO[(main_k + 1) as usize].b32.s1;
                         MEM[(main_p + 3) as usize].b32.s1 = FONT_INFO[(main_k + 2) as usize].b32.s1;
-                        FONT_GLUE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize] = main_p
+                        FONT_GLUE[EQTB[CUR_FONT_LOC].b32.s1 as usize] = main_p
                     }
                     temp_ptr = new_glue(main_p)
                 } else {
@@ -18265,9 +18198,9 @@ pub(crate) unsafe fn close_files_and_terminate() {
     print_ln();
 }
 pub(crate) unsafe fn flush_str(mut s: str_number) {
-    if s == str_ptr - 1i32 {
+    if s == str_ptr - 1 {
         str_ptr -= 1;
-        pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize)
+        pool_ptr = str_start[(str_ptr - 65536) as usize]
     };
 }
 pub(crate) unsafe fn tokens_to_string(mut p: i32) -> str_number {
@@ -18300,20 +18233,20 @@ pub(crate) unsafe fn compare_strings() {
     scan_toks(false, true);
     s2 = tokens_to_string(def_ref);
     delete_token_ref(def_ref);
-    i1 = *str_start.offset((s1 as i64 - 65536) as isize);
-    j1 = *str_start.offset(((s1 + 1i32) as i64 - 65536) as isize);
-    i2 = *str_start.offset((s2 as i64 - 65536) as isize);
-    j2 = *str_start.offset(((s2 + 1i32) as i64 - 65536) as isize);
+    i1 = str_start[(s1 as i64 - 65536) as usize];
+    j1 = str_start[((s1 + 1i32) as i64 - 65536) as usize];
+    i2 = str_start[(s2 as i64 - 65536) as usize];
+    j2 = str_start[((s2 + 1i32) as i64 - 65536) as usize];
     loop {
         if !(i1 < j1 && i2 < j2) {
             current_block = 12124785117276362961;
             break;
         }
-        if (*str_pool.offset(i1 as isize) as i32) < *str_pool.offset(i2 as isize) as i32 {
+        if (str_pool[i1 as usize] as i32) < str_pool[i2 as usize] as i32 {
             cur_val = -1i32;
             current_block = 11833780966967478830;
             break;
-        } else if *str_pool.offset(i1 as isize) as i32 > *str_pool.offset(i2 as isize) as i32 {
+        } else if str_pool[i1 as usize] as i32 > str_pool[i2 as usize] as i32 {
             cur_val = 1i32;
             current_block = 11833780966967478830;
             break;

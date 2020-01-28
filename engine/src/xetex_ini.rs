@@ -10,7 +10,7 @@
 
 use bridge::DisplayExt;
 use std::ffi::CStr;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::ptr;
 
 use super::xetex_texmfmp::get_date_and_time;
@@ -45,8 +45,8 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::LLIST_link;
 use bridge::{
-    ttstub_input_close, ttstub_input_open, ttstub_input_read, ttstub_output_close,
-    ttstub_output_open, ttstub_output_open_stdout,
+    ttstub_input_close, ttstub_input_open, ttstub_output_close, ttstub_output_open,
+    ttstub_output_open_stdout,
 };
 use dpx::{pdf_files_close, pdf_files_init};
 use libc::{free, strcpy, strlen};
@@ -380,7 +380,7 @@ impl Default for memory_word {
 pub(crate) type glue_ord = u8;
 /* enum: normal .. filll */
 pub(crate) type group_code = u8;
-pub(crate) type internal_font_number = i32;
+pub(crate) type internal_font_number = usize;
 pub(crate) type font_index = i32;
 pub(crate) type nine_bits = i32;
 /* range: 0 .. 0x1FF */
@@ -450,7 +450,7 @@ pub(crate) static mut half_error_line: i32 = 0;
 #[no_mangle]
 pub(crate) static mut max_print_line: i32 = 0;
 #[no_mangle]
-pub(crate) static mut max_strings: i32 = 0;
+pub(crate) static mut max_strings: usize = 0;
 #[no_mangle]
 pub(crate) static mut strings_free: i32 = 0;
 #[no_mangle]
@@ -496,9 +496,9 @@ pub(crate) static mut insert_src_special_every_math: bool = false;
 #[no_mangle]
 pub(crate) static mut insert_src_special_every_vbox: bool = false;
 #[no_mangle]
-pub(crate) static mut str_pool: *mut packed_UTF16_code = ptr::null_mut();
+pub(crate) static mut str_pool: Vec<packed_UTF16_code> = Vec::new();
 #[no_mangle]
-pub(crate) static mut str_start: *mut pool_pointer = ptr::null_mut();
+pub(crate) static mut str_start: Vec<pool_pointer> = Vec::new();
 #[no_mangle]
 pub(crate) static mut pool_ptr: pool_pointer = 0;
 #[no_mangle]
@@ -778,7 +778,7 @@ pub(crate) static mut FONT_INFO: Vec<memory_word> = Vec::new();
 #[no_mangle]
 pub(crate) static mut fmem_ptr: font_index = 0;
 #[no_mangle]
-pub(crate) static mut font_ptr: internal_font_number = 0;
+pub(crate) static mut FONT_PTR: usize = 0;
 #[no_mangle]
 pub(crate) static mut FONT_CHECK: Vec<b16x4> = Vec::new();
 #[no_mangle]
@@ -847,15 +847,15 @@ pub(crate) static mut KERN_BASE: Vec<i32> = Vec::new();
 pub(crate) static mut EXTEN_BASE: Vec<i32> = Vec::new();
 #[no_mangle]
 pub(crate) static mut PARAM_BASE: Vec<i32> = Vec::new();
-#[no_mangle]
-pub(crate) static mut null_character: b16x4 = b16x4 {
+
+pub(crate) const NULL_CHARACTER: b16x4 = b16x4 {
     s0: 0,
     s1: 0,
     s2: 0,
     s3: 0,
 };
 #[no_mangle]
-pub(crate) static mut total_pages: i32 = 0;
+pub(crate) static mut TOTAL_PAGES: usize = 0;
 #[no_mangle]
 pub(crate) static mut max_v: scaled_t = 0;
 #[no_mangle]
@@ -1160,144 +1160,6 @@ pub(crate) static mut output_active: bool = false;
 pub(crate) static mut _xeq_level_array: [u16; 1114732] = [0; 1114732];
 static mut _trie_op_hash_array: [i32; 70223] = [0; 70223];
 static mut yhash: *mut b32x2 = ptr::null_mut();
-/* Read and write dump files.  As distributed, these files are
-architecture dependent; specifically, BigEndian and LittleEndian
-architectures produce different files.  These routines always output
-BigEndian files.  This still does not guarantee them to be
-architecture-independent, because it is possible to make a format
-that dumps a glue ratio, i.e., a floating-point number.  Fortunately,
-none of the standard formats do that.  */
-/* This macro is always invoked as a statement.  It assumes a variable
-`temp'.  */
-/* Make the NITEMS items pointed at by P, each of size SIZE, be the
-opposite-endianness of whatever they are now.  */
-unsafe fn swap_items(mut p: *mut i8, mut nitems: size_t, mut size: size_t) {
-    let mut temp: i8 = 0;
-    match size {
-        16 => loop {
-            let fresh0 = nitems;
-            nitems = nitems.wrapping_sub(1);
-            if !(fresh0 != 0) {
-                break;
-            }
-            temp = *p.offset(0);
-            *p.offset(0) = *p.offset(15);
-            *p.offset(15) = temp;
-            temp = *p.offset(1);
-            *p.offset(1) = *p.offset(14);
-            *p.offset(14) = temp;
-            temp = *p.offset(2);
-            *p.offset(2) = *p.offset(13);
-            *p.offset(13) = temp;
-            temp = *p.offset(3);
-            *p.offset(3) = *p.offset(12);
-            *p.offset(12) = temp;
-            temp = *p.offset(4);
-            *p.offset(4) = *p.offset(11);
-            *p.offset(11) = temp;
-            temp = *p.offset(5);
-            *p.offset(5) = *p.offset(10);
-            *p.offset(10) = temp;
-            temp = *p.offset(6);
-            *p.offset(6) = *p.offset(9);
-            *p.offset(9) = temp;
-            temp = *p.offset(7);
-            *p.offset(7) = *p.offset(8);
-            *p.offset(8) = temp;
-            p = p.offset(size as isize)
-        },
-        8 => loop {
-            let fresh1 = nitems;
-            nitems = nitems.wrapping_sub(1);
-            if !(fresh1 != 0) {
-                break;
-            }
-            temp = *p.offset(0);
-            *p.offset(0) = *p.offset(7);
-            *p.offset(7) = temp;
-            temp = *p.offset(1);
-            *p.offset(1) = *p.offset(6);
-            *p.offset(6) = temp;
-            temp = *p.offset(2);
-            *p.offset(2) = *p.offset(5);
-            *p.offset(5) = temp;
-            temp = *p.offset(3);
-            *p.offset(3) = *p.offset(4);
-            *p.offset(4) = temp;
-            p = p.offset(size as isize)
-        },
-        4 => loop {
-            let fresh2 = nitems;
-            nitems = nitems.wrapping_sub(1);
-            if !(fresh2 != 0) {
-                break;
-            }
-            temp = *p.offset(0);
-            *p.offset(0) = *p.offset(3);
-            *p.offset(3) = temp;
-            temp = *p.offset(1);
-            *p.offset(1) = *p.offset(2);
-            *p.offset(2) = temp;
-            p = p.offset(size as isize)
-        },
-        2 => loop {
-            let fresh3 = nitems;
-            nitems = nitems.wrapping_sub(1);
-            if !(fresh3 != 0) {
-                break;
-            }
-            temp = *p.offset(0);
-            *p.offset(0) = *p.offset(1);
-            *p.offset(1) = temp;
-            p = p.offset(size as isize)
-        },
-        1 => {}
-        _ => abort!("can\'t swap a {}-byte item for (un)dumping", size),
-    };
-}
-/* not WORDS_BIGENDIAN */
-/* Here we write NITEMS items, each item being ITEM_SIZE bytes long.
-The pointer to the stuff to write is P, and we write to the file
-OUT_FILE.  */
-unsafe fn do_dump(
-    mut p: *mut i8,
-    mut item_size: size_t,
-    mut nitems: size_t,
-    mut out_file: &mut OutputHandleWrapper,
-) {
-    swap_items(p, nitems, item_size);
-    let mut v = Vec::new();
-    for i in 0..(item_size * nitems) as isize {
-        v.push(*p.offset(i) as u8);
-    }
-    out_file.write(&v).expect(&format!(
-        "could not write {} {}-byte item(s) to {}",
-        nitems,
-        item_size,
-        CStr::from_ptr(name_of_file).to_string_lossy(),
-    ));
-    /* Have to restore the old contents of memory, since some of it might
-    get used again.  */
-    swap_items(p, nitems, item_size);
-}
-/* Here is the dual of the writing routine.  */
-unsafe fn do_undump(
-    mut p: *mut i8,
-    mut item_size: size_t,
-    mut nitems: size_t,
-    in_file: &mut InputHandleWrapper,
-) {
-    let mut r: ssize_t = ttstub_input_read(in_file.as_ptr(), p, item_size.wrapping_mul(nitems));
-    if r < 0 || r as size_t != item_size.wrapping_mul(nitems) {
-        abort!(
-            "could not undump {} {}-byte item(s) from {}",
-            nitems,
-            item_size,
-            CStr::from_ptr(name_of_file).display()
-        );
-    }
-    swap_items(p, nitems, item_size);
-}
 
 const hash_offset: i32 = 514;
 
@@ -1353,7 +1215,7 @@ unsafe fn primitive(ident: &[u8], mut c: u16, mut o: i32) {
         }
         cur_val = id_lookup(first, len);
         str_ptr -= 1;
-        pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
+        pool_ptr = str_start[(str_ptr - 65536) as usize];
         (*hash.offset(cur_val as isize)).s1 = s;
         prim_val = prim_lookup(s)
     } else {
@@ -2084,7 +1946,7 @@ unsafe fn new_hyph_exceptions() {
                 j = 1_i16;
                 while j as i32 <= n as i32 {
                     h = ((h as i32 + h as i32 + hc[j as usize]) % 607i32) as hyph_pointer;
-                    *str_pool.offset(pool_ptr as isize) = hc[j as usize] as packed_UTF16_code;
+                    str_pool[pool_ptr as usize] = hc[j as usize] as packed_UTF16_code;
                     pool_ptr += 1;
                     j += 1
                 }
@@ -2101,18 +1963,16 @@ unsafe fn new_hyph_exceptions() {
                 while HYPH_WORD[h as usize] != 0i32 {
                     k = HYPH_WORD[h as usize];
                     if !(length(k) != length(s)) {
-                        u = *str_start.offset((k as i64 - 65536) as isize);
-                        v = *str_start.offset((s as i64 - 65536) as isize);
+                        u = str_start[(k as i64 - 65536) as usize];
+                        v = str_start[(s as i64 - 65536) as usize];
                         loop {
-                            if *str_pool.offset(u as isize) as i32
-                                != *str_pool.offset(v as isize) as i32
-                            {
+                            if str_pool[u as usize] as i32 != str_pool[v as usize] as i32 {
                                 current_block = 876886731760051519;
                                 break;
                             }
                             u += 1;
                             v += 1;
-                            if !(u != *str_start.offset(((k + 1i32) as i64 - 65536) as isize)) {
+                            if !(u != str_start[((k + 1i32) as i64 - 65536) as usize]) {
                                 current_block = 8732226822098929438;
                                 break;
                             }
@@ -2121,7 +1981,7 @@ unsafe fn new_hyph_exceptions() {
                             876886731760051519 => {}
                             _ => {
                                 str_ptr -= 1;
-                                pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
+                                pool_ptr = str_start[(str_ptr - 65536) as usize];
                                 s = HYPH_WORD[h as usize];
                                 HYPH_COUNT -= 1;
                                 break;
@@ -2887,17 +2747,17 @@ pub(crate) unsafe fn prefixed_command() {
         ASSIGN_FONT_INT => {
             n = cur_chr;
             scan_font_ident();
-            f = cur_val;
+            f = cur_val as usize;
             if n < 2i32 {
                 scan_optional_equals();
                 scan_int();
                 if n == 0i32 {
-                    HYPHEN_CHAR[f as usize] = cur_val
-                } else { SKEW_CHAR[f as usize] = cur_val }
+                    HYPHEN_CHAR[f] = cur_val
+                } else { SKEW_CHAR[f] = cur_val }
             } else {
-                if FONT_AREA[f as usize] as u32 == 0xffffu32
+                if FONT_AREA[f] as u32 == 0xffffu32
                        ||
-                       FONT_AREA[f as usize] as u32 ==
+                       FONT_AREA[f] as u32 ==
                            0xfffeu32 {
                     scan_glyph_number(f);
                 } else { scan_char_num(); }
@@ -2984,89 +2844,26 @@ unsafe fn store_fmt_file() {
     print_nl_cstr(b"Beginning to dump on file ");
     print(make_name_string());
     str_ptr -= 1;
-    pool_ptr = *str_start.offset((str_ptr - 65536i32) as isize);
+    pool_ptr = str_start[(str_ptr - 65536) as usize];
     print_nl_cstr(b"");
     print(format_ident);
     /* Header */
-    let mut x_val: i32 = 0x54544e43i32; /* TODO: can we move this farther up in this function? */
-    do_dump(
-        &mut x_val as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    let mut x_val_0: i32 = FORMAT_SERIAL;
-    do_dump(
-        &mut x_val_0 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    let mut x_val_1: i32 = hash_high;
-    do_dump(
-        &mut x_val_1 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
+    /* TODO: can we move this farther up in this function? */
+    fmt_out.dump_one(0x54544e43i32);
+    fmt_out.dump_one(FORMAT_SERIAL);
+    fmt_out.dump_one(hash_high);
     while !pseudo_files.is_texnull() {
         pseudo_close();
     }
-    let mut x_val_2 = MEM_TOP as i32;
-    do_dump(
-        &mut x_val_2 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    let mut x_val_3: i32 = EQTB_SIZE;
-    do_dump(
-        &mut x_val_3 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    let mut x_val_4: i32 = HASH_PRIME;
-    do_dump(
-        &mut x_val_4 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    let mut x_val_5: i32 = HYPH_PRIME;
-    do_dump(
-        &mut x_val_5 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
+    fmt_out.dump_one(MEM_TOP as i32);
+    fmt_out.dump_one(EQTB_SIZE);
+    fmt_out.dump_one(HASH_PRIME);
+    fmt_out.dump_one(HYPH_PRIME);
     /* string pool */
-    let mut x_val_6: i32 = pool_ptr;
-    do_dump(
-        &mut x_val_6 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    let mut x_val_7: i32 = str_ptr;
-    do_dump(
-        &mut x_val_7 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut *str_start.offset(0) as *mut pool_pointer as *mut i8,
-        ::std::mem::size_of::<pool_pointer>() as _,
-        (str_ptr - 65536i32 + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut *str_pool.offset(0) as *mut packed_UTF16_code as *mut i8,
-        ::std::mem::size_of::<packed_UTF16_code>() as _,
-        pool_ptr as size_t,
-        fmt_out,
-    );
+    fmt_out.dump_one(pool_ptr);
+    fmt_out.dump_one(str_ptr);
+    fmt_out.dump(&str_start[..(str_ptr - 65536 + 1) as usize]);
+    fmt_out.dump(&str_pool[..(pool_ptr as usize)]);
     print_ln();
     print_int(str_ptr);
     print_cstr(b" strings of total length ");
@@ -3074,42 +2871,19 @@ unsafe fn store_fmt_file() {
     /* "memory locations" */
     sort_avail();
     var_used = 0i32;
-    let mut x_val_8: i32 = lo_mem_max;
-    do_dump(
-        &mut x_val_8 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    let mut x_val_9: i32 = rover;
-    do_dump(
-        &mut x_val_9 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
+    fmt_out.dump_one(lo_mem_max);
+    fmt_out.dump_one(rover);
     k = 0i32;
     while k <= 6i32 {
-        let mut x_val_10: i32 = sa_root[k as usize];
-        do_dump(
-            &mut x_val_10 as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as _,
-            1i32 as size_t,
-            fmt_out,
-        );
+        fmt_out.dump_one(sa_root[k as usize]);
         k += 1
     }
     p = 0i32;
     q = rover;
     x = 0i32;
     loop {
-        do_dump(
-            &mut MEM[p as usize] as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as _,
-            (q + 2i32 - p) as size_t,
-            fmt_out,
-        );
-        x = x + q + 2i32 - p;
+        fmt_out.dump(&MEM[p as usize..(q + 2) as usize]);
+        x = x + q + 2 - p;
         var_used = var_used + q - p;
         p = q + MEM[q as usize].b32.s0;
         q = MEM[(q + 1) as usize].b32.s1;
@@ -3118,54 +2892,20 @@ unsafe fn store_fmt_file() {
         }
     }
     var_used = var_used + lo_mem_max - p;
-    dyn_used = mem_end + 1i32 - hi_mem_min;
-    do_dump(
-        &mut MEM[p as usize] as *mut memory_word as *mut i8,
-        ::std::mem::size_of::<memory_word>() as _,
-        (lo_mem_max + 1i32 - p) as size_t,
-        fmt_out,
-    );
-    x = x + lo_mem_max + 1i32 - p;
-    let mut x_val_11: i32 = hi_mem_min;
-    do_dump(
-        &mut x_val_11 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    let mut x_val_12: i32 = avail;
-    do_dump(
-        &mut x_val_12 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut MEM[hi_mem_min as usize] as *mut memory_word as *mut i8,
-        ::std::mem::size_of::<memory_word>() as _,
-        (mem_end + 1i32 - hi_mem_min) as size_t,
-        fmt_out,
-    );
-    x = x + mem_end + 1i32 - hi_mem_min;
+    dyn_used = mem_end + 1 - hi_mem_min;
+    fmt_out.dump(&MEM[p as usize..(lo_mem_max + 1) as usize]);
+    x = x + lo_mem_max + 1 - p;
+    fmt_out.dump_one(hi_mem_min as i32);
+    fmt_out.dump_one(avail as i32);
+    fmt_out.dump(&MEM[hi_mem_min as usize..(mem_end + 1) as usize]);
+    x = x + mem_end + 1 - hi_mem_min;
     p = avail;
     while !p.is_texnull() {
         dyn_used -= 1;
         p = *LLIST_link(p as isize)
     }
-    let mut x_val_13: i32 = var_used;
-    do_dump(
-        &mut x_val_13 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    let mut x_val_14: i32 = dyn_used;
-    do_dump(
-        &mut x_val_14 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
+    fmt_out.dump_one(var_used as i32);
+    fmt_out.dump_one(dyn_used as i32);
     print_ln();
     print_int(x);
     print_cstr(b" memory locations dumped; current usage is ");
@@ -3206,27 +2946,10 @@ unsafe fn store_fmt_file() {
                 }
             }
         }
-        let mut x_val_15: i32 = l - k;
-        do_dump(
-            &mut x_val_15 as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as _,
-            1i32 as size_t,
-            fmt_out,
-        );
-        do_dump(
-            &mut EQTB[k as usize] as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as _,
-            (l - k) as size_t,
-            fmt_out,
-        );
+        fmt_out.dump_one((l - k) as i32);
+        fmt_out.dump(&EQTB[k as usize..l as usize]);
         k = j + 1i32;
-        let mut x_val_16: i32 = k - l;
-        do_dump(
-            &mut x_val_16 as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as _,
-            1i32 as size_t,
-            fmt_out,
-        );
+        fmt_out.dump_one((k - l) as i32);
         if !(k != INT_BASE) {
             break;
         }
@@ -3257,296 +2980,93 @@ unsafe fn store_fmt_file() {
                 }
             }
         }
-        let mut x_val_17: i32 = l - k;
-        do_dump(
-            &mut x_val_17 as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as _,
-            1i32 as size_t,
-            fmt_out,
-        );
-        do_dump(
-            &mut EQTB[k as usize] as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as _,
-            (l - k) as size_t,
-            fmt_out,
-        );
+        fmt_out.dump_one((l - k) as i32);
+        fmt_out.dump(&EQTB[k as usize..l as usize]);
         k = j + 1i32;
-        let mut x_val_18: i32 = k - l;
-        do_dump(
-            &mut x_val_18 as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as _,
-            1i32 as size_t,
-            fmt_out,
-        );
+        fmt_out.dump_one((k - l) as i32);
         if !(k <= EQTB_SIZE) {
             break;
         }
     }
-    if hash_high > 0i32 {
-        do_dump(
-            &mut EQTB[EQTB_SIZE as usize + 1] as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as _,
-            hash_high as size_t,
-            fmt_out,
-        );
+    if hash_high > 0 {
+        fmt_out.dump(&EQTB[EQTB_SIZE as usize + 1..EQTB_SIZE as usize + 1 + hash_high as usize]);
     }
-    let mut x_val_19: i32 = par_loc;
-    do_dump(
-        &mut x_val_19 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    let mut x_val_20: i32 = write_loc;
-    do_dump(
-        &mut x_val_20 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
+    fmt_out.dump_one(par_loc as i32);
+    fmt_out.dump_one(write_loc as i32);
     p = 0i32;
     while p <= PRIM_SIZE {
-        do_dump(
-            &mut *prim.as_mut_ptr().offset(p as isize) as *mut b32x2 as *mut i8,
-            ::std::mem::size_of::<b32x2>() as _,
-            1i32 as size_t,
-            fmt_out,
-        );
+        fmt_out.dump_one(prim[p as usize]);
         p += 1
     }
     p = 0i32;
     while p <= PRIM_SIZE {
-        do_dump(
-            &mut *prim_eqtb.as_mut_ptr().offset(p as isize) as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as _,
-            1i32 as size_t,
-            fmt_out,
-        );
+        fmt_out.dump_one(prim_eqtb[p as usize]);
         p += 1
     }
     /* control sequences */
-    let mut x_val_21: i32 = hash_used;
-    do_dump(
-        &mut x_val_21 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
+    fmt_out.dump_one(hash_used as i32);
     cs_count = (FROZEN_CONTROL_SEQUENCE as i32 - 1) - hash_used + hash_high;
     p = HASH_BASE;
     while p <= hash_used {
         if (*hash.offset(p as isize)).s1 != 0i32 {
-            let mut x_val_22: i32 = p;
-            do_dump(
-                &mut x_val_22 as *mut i32 as *mut i8,
-                ::std::mem::size_of::<i32>() as _,
-                1i32 as size_t,
-                fmt_out,
-            );
-            do_dump(
-                &mut *hash.offset(p as isize) as *mut b32x2 as *mut i8,
-                ::std::mem::size_of::<b32x2>() as _,
-                1i32 as size_t,
-                fmt_out,
-            );
+            fmt_out.dump_one(p as i32);
+            fmt_out.dump_one(*hash.offset(p as isize));
             cs_count += 1
         }
         p += 1
     }
-    do_dump(
-        &mut *hash.offset((hash_used + 1i32) as isize) as *mut b32x2 as *mut i8,
-        ::std::mem::size_of::<b32x2>() as _,
+    let dump_slice = std::slice::from_raw_parts(
+        hash.offset((hash_used + 1i32) as isize),
         ((UNDEFINED_CONTROL_SEQUENCE - 1) - hash_used) as _,
-        fmt_out,
     );
-    if hash_high > 0i32 {
-        do_dump(
-            &mut *hash.offset(EQTB_SIZE as isize + 1) as *mut b32x2 as *mut i8,
-            ::std::mem::size_of::<b32x2>() as _,
-            hash_high as size_t,
-            fmt_out,
-        );
+    fmt_out.dump(dump_slice);
+    if hash_high > 0 {
+        let dump_slice =
+            std::slice::from_raw_parts(hash.offset(EQTB_SIZE as isize + 1), hash_high as usize);
+        fmt_out.dump(dump_slice);
     }
-    let mut x_val_23: i32 = cs_count;
-    do_dump(
-        &mut x_val_23 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
+    fmt_out.dump_one(cs_count);
     print_ln();
     print_int(cs_count);
     print_cstr(b" multiletter control sequences");
     /* fonts */
-    let mut x_val_24: i32 = fmem_ptr;
-    do_dump(
-        &mut x_val_24 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut FONT_INFO[0] as *mut memory_word as *mut i8,
-        ::std::mem::size_of::<memory_word>() as _,
-        fmem_ptr as size_t,
-        fmt_out,
-    );
-    let mut x_val_25: i32 = font_ptr;
-    do_dump(
-        &mut x_val_25 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut FONT_CHECK[0] as *mut b16x4 as *mut i8,
-        ::std::mem::size_of::<b16x4>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut FONT_SIZE[0] as *mut scaled_t as *mut i8,
-        ::std::mem::size_of::<scaled_t>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut FONT_DSIZE[0] as *mut scaled_t as *mut i8,
-        ::std::mem::size_of::<scaled_t>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut FONT_PARAMS[0] as *mut font_index as *mut i8,
-        ::std::mem::size_of::<font_index>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut HYPHEN_CHAR[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut SKEW_CHAR[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut FONT_NAME[0] as *mut str_number as *mut i8,
-        ::std::mem::size_of::<str_number>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut FONT_AREA[0] as *mut str_number as *mut i8,
-        ::std::mem::size_of::<str_number>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut FONT_BC[0] as *mut UTF16_code as *mut i8,
-        ::std::mem::size_of::<UTF16_code>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut FONT_EC[0] as *mut UTF16_code as *mut i8,
-        ::std::mem::size_of::<UTF16_code>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut CHAR_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut WIDTH_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut HEIGHT_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut DEPTH_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut ITALIC_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut LIG_KERN_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut KERN_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut EXTEN_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut PARAM_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut FONT_GLUE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut BCHAR_LABEL[0] as *mut font_index as *mut i8,
-        ::std::mem::size_of::<font_index>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut FONT_BCHAR[0] as *mut nine_bits as *mut i8,
-        ::std::mem::size_of::<nine_bits>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut FONT_FALSE_BCHAR[0] as *mut nine_bits as *mut i8,
-        ::std::mem::size_of::<nine_bits>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_out,
-    );
-    k = FONT_BASE;
-    while k <= font_ptr {
+    fmt_out.dump_one(fmem_ptr as i32);
+    fmt_out.dump(&FONT_INFO[..fmem_ptr as usize]);
+    fmt_out.dump_one(FONT_PTR as i32);
+    fmt_out.dump(&FONT_CHECK[..FONT_PTR + 1]);
+    fmt_out.dump(&FONT_SIZE[..FONT_PTR + 1]);
+    fmt_out.dump(&FONT_DSIZE[..FONT_PTR + 1]);
+    fmt_out.dump(&FONT_PARAMS[..FONT_PTR + 1]);
+    fmt_out.dump(&HYPHEN_CHAR[..FONT_PTR + 1]);
+    fmt_out.dump(&SKEW_CHAR[..FONT_PTR + 1]);
+    fmt_out.dump(&FONT_NAME[..FONT_PTR + 1]);
+    fmt_out.dump(&FONT_AREA[..FONT_PTR + 1]);
+    fmt_out.dump(&FONT_BC[..FONT_PTR + 1]);
+    fmt_out.dump(&FONT_EC[..FONT_PTR + 1]);
+    fmt_out.dump(&CHAR_BASE[..FONT_PTR + 1]);
+    fmt_out.dump(&WIDTH_BASE[..FONT_PTR + 1]);
+    fmt_out.dump(&HEIGHT_BASE[..FONT_PTR + 1]);
+    fmt_out.dump(&DEPTH_BASE[..FONT_PTR + 1]);
+    fmt_out.dump(&ITALIC_BASE[..FONT_PTR + 1]);
+    fmt_out.dump(&LIG_KERN_BASE[..FONT_PTR + 1]);
+    fmt_out.dump(&KERN_BASE[..FONT_PTR + 1]);
+    fmt_out.dump(&EXTEN_BASE[..FONT_PTR + 1]);
+    fmt_out.dump(&PARAM_BASE[..FONT_PTR + 1]);
+    fmt_out.dump(&FONT_GLUE[..FONT_PTR + 1]);
+    fmt_out.dump(&BCHAR_LABEL[..FONT_PTR + 1]);
+    fmt_out.dump(&FONT_BCHAR[..FONT_PTR + 1]);
+    fmt_out.dump(&FONT_FALSE_BCHAR[..FONT_PTR + 1]);
+    let mut k = FONT_BASE as usize;
+    while k <= FONT_PTR {
         print_nl_cstr(b"\\font");
         print_esc((*hash.offset(FONT_ID_BASE as isize + k as isize)).s1);
         print_char('=' as i32);
-        if FONT_AREA[k as usize] as u32 == 0xffffu32
-            || FONT_AREA[k as usize] as u32 == 0xfffeu32
-            || !(FONT_MAPPING[k as usize]).is_null()
+        if FONT_AREA[k] as u32 == 0xffffu32
+            || FONT_AREA[k] as u32 == 0xfffeu32
+            || !(FONT_MAPPING[k]).is_null()
         {
             print_file_name(
-                FONT_NAME[k as usize],
+                FONT_NAME[k],
                 (65536 + 1i32 as i64) as i32,
                 (65536 + 1i32 as i64) as i32,
             );
@@ -3562,15 +3082,11 @@ unsafe fn store_fmt_file() {
             help_line[0] = b"(Load them at runtime, not as part of the format file.)";
             error();
         } else {
-            print_file_name(
-                FONT_NAME[k as usize],
-                FONT_AREA[k as usize],
-                (65536 + 1i32 as i64) as i32,
-            );
+            print_file_name(FONT_NAME[k], FONT_AREA[k], (65536 + 1i32 as i64) as i32);
         }
-        if FONT_SIZE[k as usize] != FONT_DSIZE[k as usize] {
+        if FONT_SIZE[k] != FONT_DSIZE[k] {
             print_cstr(b" at ");
-            print_scaled(FONT_SIZE[k as usize]);
+            print_scaled(FONT_SIZE[k]);
             print_cstr(b"pt");
         }
         k += 1
@@ -3578,53 +3094,23 @@ unsafe fn store_fmt_file() {
     print_ln();
     print_int(fmem_ptr - 7i32);
     print_cstr(b" words of font info for ");
-    print_int(font_ptr - 0i32);
-    if font_ptr != 0i32 + 1i32 {
+    print_int(FONT_PTR as i32 - 0);
+    if FONT_PTR != 0 + 1 {
         print_cstr(b" preloaded fonts");
     } else {
         print_cstr(b" preloaded font");
     }
     /* hyphenation info */
-    let mut x_val_26 = HYPH_COUNT as i32;
-    do_dump(
-        &mut x_val_26 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
+    fmt_out.dump_one(HYPH_COUNT as i32);
     if HYPH_NEXT <= 607 {
         HYPH_NEXT = HYPH_SIZE
     }
-    let mut x_val_27 = HYPH_NEXT as i32;
-    do_dump(
-        &mut x_val_27 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
+    fmt_out.dump_one(HYPH_NEXT as i32);
     for k in 0..=HYPH_SIZE {
         if HYPH_WORD[k] != 0i32 {
-            let mut x_val_28: i32 = (k as i64 + 65536 * HYPH_LINK[k] as i64) as i32;
-            do_dump(
-                &mut x_val_28 as *mut i32 as *mut i8,
-                ::std::mem::size_of::<i32>() as _,
-                1i32 as size_t,
-                fmt_out,
-            );
-            let mut x_val_29: i32 = HYPH_WORD[k];
-            do_dump(
-                &mut x_val_29 as *mut i32 as *mut i8,
-                ::std::mem::size_of::<i32>() as _,
-                1i32 as size_t,
-                fmt_out,
-            );
-            let mut x_val_30: i32 = HYPH_LIST[k];
-            do_dump(
-                &mut x_val_30 as *mut i32 as *mut i8,
-                ::std::mem::size_of::<i32>() as _,
-                1i32 as size_t,
-                fmt_out,
-            );
+            fmt_out.dump_one((k as i64 + 65536 * HYPH_LINK[k] as i64) as i32);
+            fmt_out.dump_one(HYPH_WORD[k]);
+            fmt_out.dump_one(HYPH_LIST[k]);
         }
     }
     print_ln();
@@ -3637,70 +3123,19 @@ unsafe fn store_fmt_file() {
     if trie_not_ready {
         init_trie();
     }
-    let mut x_val_31: i32 = trie_max;
-    do_dump(
-        &mut x_val_31 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    let mut x_val_32: i32 = hyph_start;
-    do_dump(
-        &mut x_val_32 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut *trie_trl.offset(0) as *mut trie_pointer as *mut i8,
-        ::std::mem::size_of::<trie_pointer>() as _,
-        (trie_max + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut *trie_tro.offset(0) as *mut trie_pointer as *mut i8,
-        ::std::mem::size_of::<trie_pointer>() as _,
-        (trie_max + 1i32) as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut *trie_trc.offset(0) as *mut u16 as *mut i8,
-        ::std::mem::size_of::<u16>() as _,
-        (trie_max + 1i32) as size_t,
-        fmt_out,
-    );
-    let mut x_val_33: i32 = max_hyph_char;
-    do_dump(
-        &mut x_val_33 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    let mut x_val_34: i32 = trie_op_ptr;
-    do_dump(
-        &mut x_val_34 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut *hyf_distance.as_mut_ptr().offset(1) as *mut small_number as *mut i8,
-        ::std::mem::size_of::<small_number>() as _,
-        trie_op_ptr as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut *hyf_num.as_mut_ptr().offset(1) as *mut small_number as *mut i8,
-        ::std::mem::size_of::<small_number>() as _,
-        trie_op_ptr as size_t,
-        fmt_out,
-    );
-    do_dump(
-        &mut *hyf_next.as_mut_ptr().offset(1) as *mut trie_opcode as *mut i8,
-        ::std::mem::size_of::<trie_opcode>() as _,
-        trie_op_ptr as size_t,
-        fmt_out,
-    );
+    fmt_out.dump_one(trie_max);
+    fmt_out.dump_one(hyph_start);
+    let dump_slice = std::slice::from_raw_parts(trie_trl, (trie_max + 1) as usize);
+    fmt_out.dump(dump_slice);
+    let dump_slice = std::slice::from_raw_parts(trie_tro, (trie_max + 1) as usize);
+    fmt_out.dump(dump_slice);
+    let dump_slice = std::slice::from_raw_parts(trie_trc, (trie_max + 1) as usize);
+    fmt_out.dump(dump_slice);
+    fmt_out.dump_one(max_hyph_char);
+    fmt_out.dump_one(trie_op_ptr as i32);
+    fmt_out.dump(&hyf_distance[1..trie_op_ptr as usize + 1]);
+    fmt_out.dump(&hyf_num[1..trie_op_ptr as usize + 1]);
+    fmt_out.dump(&hyf_next[1..trie_op_ptr as usize + 1]);
     print_nl_cstr(b"Hyphenation trie of length ");
     print_int(trie_max);
     print_cstr(b" has ");
@@ -3719,31 +3154,13 @@ unsafe fn store_fmt_file() {
             print_int(trie_used[k as usize] as i32);
             print_cstr(b" for language ");
             print_int(k);
-            let mut x_val_35: i32 = k;
-            do_dump(
-                &mut x_val_35 as *mut i32 as *mut i8,
-                ::std::mem::size_of::<i32>() as _,
-                1i32 as size_t,
-                fmt_out,
-            );
-            let mut x_val_36: i32 = trie_used[k as usize] as i32;
-            do_dump(
-                &mut x_val_36 as *mut i32 as *mut i8,
-                ::std::mem::size_of::<i32>() as _,
-                1i32 as size_t,
-                fmt_out,
-            );
+            fmt_out.dump_one(k as i32);
+            fmt_out.dump_one(trie_used[k as usize] as i32);
         }
         k -= 1
     }
     /* footer */
-    let mut x_val_37: i32 = 0x29ai32; /*:1361*/
-    do_dump(
-        &mut x_val_37 as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_out,
-    );
+    fmt_out.dump_one(0x29ai32); /*:1361*/
     *INTPAR(IntPar::tracing_stats) = 0;
     ttstub_output_close(fmt_out_owner);
 }
@@ -3779,8 +3196,8 @@ unsafe fn load_fmt_file() -> bool {
     cur_input.loc = j;
     if in_initex_mode {
         FONT_INFO = Vec::new();
-        free(str_pool as *mut libc::c_void);
-        free(str_start as *mut libc::c_void);
+        str_pool = Vec::new();
+        str_start = Vec::new();
         free(yhash as *mut libc::c_void);
         EQTB = Vec::new();
         MEM = Vec::new();
@@ -3789,21 +3206,11 @@ unsafe fn load_fmt_file() -> bool {
         panic!("fatal format file error");
     };
     /* start reading the header */
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x != FORMAT_HEADER_MAGIC {
         bad_fmt();
     }
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x != FORMAT_SERIAL {
         abort!(
             "format file \"{}\" is of the wrong version: expected {}, found {}",
@@ -3813,12 +3220,7 @@ unsafe fn load_fmt_file() -> bool {
         );
     }
     /* hash table parameters */
-    do_undump(
-        &mut hash_high as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut hash_high);
     if hash_high < 0 || hash_high > sup_hash_extra {
         bad_fmt();
     }
@@ -3854,12 +3256,7 @@ unsafe fn load_fmt_file() -> bool {
     max_reg_num = 32767i32;
     max_reg_help_line = b"A register number must be between 0 and 32767.";
     /* "memory locations" */
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x != MEM_TOP as i32 {
         bad_fmt();
     }
@@ -3868,44 +3265,24 @@ unsafe fn load_fmt_file() -> bool {
     page_tail = PAGE_HEAD as i32;
     MEM = vec![memory_word::default(); MEM_TOP as usize + 2];
 
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x != EQTB_SIZE {
         bad_fmt();
     }
 
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x != HASH_PRIME {
         bad_fmt();
     }
 
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x != HYPH_PRIME {
         bad_fmt();
     }
 
     /* string pool */
 
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x < 0 {
         bad_fmt();
     }
@@ -3916,12 +3293,7 @@ unsafe fn load_fmt_file() -> bool {
     if pool_size < pool_ptr + pool_free {
         pool_size = pool_ptr + pool_free
     }
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x < 0 {
         bad_fmt();
     }
@@ -3930,63 +3302,41 @@ unsafe fn load_fmt_file() -> bool {
     }
     str_ptr = x;
 
-    if max_strings < str_ptr + strings_free {
-        max_strings = str_ptr + strings_free
+    if (max_strings as i32) < str_ptr + strings_free {
+        max_strings = (str_ptr + strings_free) as usize
     }
 
-    str_start = xmalloc_array::<pool_pointer>(max_strings as usize);
+    str_start = vec![pool_pointer::default(); max_strings + 1];
     let mut i: i32 = 0;
-    do_undump(
-        &mut *str_start.offset(0) as *mut pool_pointer as *mut i8,
-        ::std::mem::size_of::<pool_pointer>() as _,
-        (str_ptr - 65536i32 + 1i32) as size_t,
-        fmt_in,
-    );
-    i = 0i32;
-    while i < str_ptr - 65536i32 + 1i32 {
-        if *(&mut *str_start.offset(0) as *mut pool_pointer).offset(i as isize) < 0i32
-            || *(&mut *str_start.offset(0) as *mut pool_pointer).offset(i as isize) > pool_ptr
-        {
+    fmt_in.undump(&mut str_start[..(str_ptr - 65536 + 1) as usize]);
+    i = 0;
+    while i < str_ptr - 65536 + 1 {
+        if str_start[i as usize] < 0 || str_start[i as usize] > pool_ptr {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i,
-                *(&mut *str_start.offset(0) as *mut pool_pointer).offset(i as isize) as uintptr_t,
-                &mut *str_start.offset(0) as *mut pool_pointer as uintptr_t,
-                0i32 as uintptr_t,
+                str_start[i as usize] as uintptr_t,
+                &mut str_start[0] as *mut pool_pointer as uintptr_t,
+                0 as uintptr_t,
                 pool_ptr as uintptr_t
             );
         }
         i += 1
     }
-    str_pool = xmalloc_array::<packed_UTF16_code>(pool_size as usize);
-    do_undump(
-        &mut *str_pool.offset(0) as *mut packed_UTF16_code as *mut i8,
-        ::std::mem::size_of::<packed_UTF16_code>() as _,
-        pool_ptr as size_t,
-        fmt_in,
-    );
+    str_pool = vec![0; pool_size as usize + 1];
+    fmt_in.undump(&mut str_pool[..pool_ptr as usize]);
     init_str_ptr = str_ptr;
     init_pool_ptr = pool_ptr;
     /* "By sorting the list of available spaces in the variable-size portion
      * of |mem|, we are usually able to get by without having to dump very
      * much of the dynamic memory." */
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x < 1019 || x > MEM_TOP as i32 - HI_MEM_STAT_USAGE {
         bad_fmt();
     } else {
         lo_mem_max = x;
     }
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x < 20 || x > lo_mem_max {
         bad_fmt();
     } else {
@@ -3997,12 +3347,7 @@ unsafe fn load_fmt_file() -> bool {
         if !(k <= INTER_CHAR_VAL) {
             break;
         }
-        do_undump(
-            &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as _,
-            1i32 as size_t,
-            fmt_in,
-        );
+        fmt_in.undump_one(&mut x);
         if x < TEX_NULL || x > lo_mem_max {
             bad_fmt();
         } else {
@@ -4013,12 +3358,7 @@ unsafe fn load_fmt_file() -> bool {
     p = 0i32;
     q = rover;
     loop {
-        do_undump(
-            &mut MEM[p as usize] as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as _,
-            (q + 2i32 - p) as size_t,
-            fmt_in,
-        );
+        fmt_in.undump(&mut MEM[p as usize..(q + 2) as usize]);
         p = q + MEM[q as usize].b32.s0;
         if p > lo_mem_max
             || q >= MEM[(q + 1) as usize].b32.s1 && MEM[(q + 1) as usize].b32.s1 != rover
@@ -4030,29 +3370,14 @@ unsafe fn load_fmt_file() -> bool {
             break;
         }
     }
-    do_undump(
-        &mut MEM[p as usize] as *mut memory_word as *mut i8,
-        ::std::mem::size_of::<memory_word>() as _,
-        (lo_mem_max + 1i32 - p) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump(&mut MEM[p as usize..(lo_mem_max + 1) as usize]);
+    fmt_in.undump_one(&mut x);
     if x < lo_mem_max + 1 || x > PRE_ADJUST_HEAD as i32 {
         bad_fmt();
     } else {
         hi_mem_min = x;
     }
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x < MIN_HALFWORD || x > MEM_TOP as i32 {
         bad_fmt();
     } else {
@@ -4061,24 +3386,9 @@ unsafe fn load_fmt_file() -> bool {
 
     mem_end = MEM_TOP as i32;
 
-    do_undump(
-        &mut MEM[hi_mem_min as usize] as *mut memory_word as *mut i8,
-        ::std::mem::size_of::<memory_word>() as _,
-        (mem_end + 1i32 - hi_mem_min) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut var_used as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut dyn_used as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump(&mut MEM[hi_mem_min as usize..(mem_end + 1) as usize]);
+    fmt_in.undump_one(&mut var_used);
+    fmt_in.undump_one(&mut dyn_used);
     /* equivalents table / primitives
      *
      * "The table of equivalents usually contains repeated information, so we
@@ -4089,30 +3399,15 @@ unsafe fn load_fmt_file() -> bool {
      */
     k = ACTIVE_BASE;
     loop {
-        do_undump(
-            &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as _,
-            1i32 as size_t,
-            fmt_in,
-        );
+        fmt_in.undump_one(&mut x);
         if x < 1 || k + x > EQTB_SIZE + 1 {
             bad_fmt();
         }
 
-        do_undump(
-            &mut EQTB[k as usize] as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as _,
-            x as size_t,
-            fmt_in,
-        );
+        fmt_in.undump(&mut EQTB[k as usize..(k + x) as usize]);
         k = k + x;
 
-        do_undump(
-            &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as _,
-            1i32 as size_t,
-            fmt_in,
-        );
+        fmt_in.undump_one(&mut x);
         if x < 0i32 || k + x > EQTB_SIZE + 1 {
             bad_fmt();
         }
@@ -4128,31 +3423,17 @@ unsafe fn load_fmt_file() -> bool {
         }
     }
     if hash_high > 0i32 {
-        do_undump(
-            &mut EQTB[EQTB_SIZE as usize + 1] as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as _,
-            hash_high as size_t,
-            fmt_in,
-        );
+        fmt_in
+            .undump(&mut EQTB[EQTB_SIZE as usize + 1..EQTB_SIZE as usize + 1 + hash_high as usize]);
     }
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x < HASH_BASE || x > hash_top {
         bad_fmt();
     } else {
         par_loc = x;
     }
     par_token = CS_TOKEN_FLAG + par_loc;
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x < HASH_BASE || x > hash_top {
         bad_fmt();
     } else {
@@ -4170,31 +3451,16 @@ unsafe fn load_fmt_file() -> bool {
 
     p = 0i32;
     while p <= 500i32 {
-        do_undump(
-            &mut *prim.as_mut_ptr().offset(p as isize) as *mut b32x2 as *mut i8,
-            ::std::mem::size_of::<b32x2>() as _,
-            1i32 as size_t,
-            fmt_in,
-        );
+        fmt_in.undump_one(&mut prim[p as usize]);
         p += 1
     }
     p = 0i32;
     while p <= 500i32 {
-        do_undump(
-            &mut *prim_eqtb.as_mut_ptr().offset(p as isize) as *mut memory_word as *mut i8,
-            ::std::mem::size_of::<memory_word>() as _,
-            1i32 as size_t,
-            fmt_in,
-        );
+        fmt_in.undump_one(&mut prim_eqtb[p as usize]);
         p += 1
     }
 
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x < HASH_BASE || x > FROZEN_CONTROL_SEQUENCE as i32 {
         bad_fmt();
     } else {
@@ -4202,30 +3468,19 @@ unsafe fn load_fmt_file() -> bool {
     }
     p = HASH_BASE - 1;
     loop {
-        do_undump(
-            &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as _,
-            1i32 as size_t,
-            fmt_in,
-        );
+        fmt_in.undump_one(&mut x);
         if x < p + 1 || x > hash_used {
             bad_fmt();
         } else {
             p = x;
         }
-        do_undump(
-            &mut *hash.offset(p as isize) as *mut b32x2 as *mut i8,
-            ::std::mem::size_of::<b32x2>() as _,
-            1i32 as size_t,
-            fmt_in,
-        );
+        fmt_in.undump_one(&mut *hash.offset(p as isize));
         if !(p != hash_used) {
             break;
         }
     }
-    do_undump(
-        &mut *hash.offset((hash_used + 1i32) as isize) as *mut b32x2 as *mut i8,
-        ::std::mem::size_of::<b32x2>() as _,
+    let undump_slice = std::slice::from_raw_parts_mut(
+        hash.offset((hash_used + 1i32) as isize),
         (1i32
             + (0x10ffffi32 + 1i32)
             + (0x10ffffi32 + 1i32)
@@ -4235,32 +3490,19 @@ unsafe fn load_fmt_file() -> bool {
             + 9000i32
             + 1i32
             - 1i32
-            - hash_used) as size_t,
-        fmt_in,
+            - hash_used) as usize,
     );
+    fmt_in.undump(undump_slice);
     if hash_high > 0i32 {
-        do_undump(
-            &mut *hash.offset(EQTB_SIZE as isize + 1) as *mut b32x2 as *mut i8,
-            ::std::mem::size_of::<b32x2>() as _,
-            hash_high as size_t,
-            fmt_in,
-        );
+        let undump_slice =
+            std::slice::from_raw_parts_mut(hash.offset(EQTB_SIZE as isize + 1), hash_high as usize);
+        fmt_in.undump(undump_slice);
     }
-    do_undump(
-        &mut cs_count as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut cs_count);
 
     /* font info */
 
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x < 7 {
         bad_fmt();
     }
@@ -4273,18 +3515,8 @@ unsafe fn load_fmt_file() -> bool {
         FONT_MEM_SIZE = fmem_ptr as usize
     }
     FONT_INFO = vec![memory_word::default(); FONT_MEM_SIZE + 1];
-    do_undump(
-        &mut FONT_INFO[0] as *mut memory_word as *mut i8,
-        ::std::mem::size_of::<memory_word>() as _,
-        fmem_ptr as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump(&mut FONT_INFO[..fmem_ptr as usize]);
+    fmt_in.undump_one(&mut x);
     if x < FONT_BASE {
         bad_fmt();
     }
@@ -4292,7 +3524,7 @@ unsafe fn load_fmt_file() -> bool {
         panic!("must increase FONT_MAX");
     }
 
-    font_ptr = x;
+    FONT_PTR = x as usize;
     FONT_MAPPING = vec![0 as *mut libc::c_void; FONT_MAX + 1];
     FONT_LAYOUT_ENGINE = vec![0 as *mut libc::c_void; FONT_MAX + 1];
     FONT_FLAGS = vec![0; FONT_MAX + 1];
@@ -4321,271 +3553,118 @@ unsafe fn load_fmt_file() -> bool {
     EXTEN_BASE = vec![0; FONT_MAX + 1];
     PARAM_BASE = vec![0; FONT_MAX + 1];
 
-    k = 0i32;
-    while k <= font_ptr {
+    for k in 0..=FONT_PTR {
         FONT_MAPPING[k as usize] = 0 as *mut libc::c_void;
-        k += 1
     }
-    do_undump(
-        &mut FONT_CHECK[0] as *mut b16x4 as *mut i8,
-        ::std::mem::size_of::<b16x4>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut FONT_SIZE[0] as *mut scaled_t as *mut i8,
-        ::std::mem::size_of::<scaled_t>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut FONT_DSIZE[0] as *mut scaled_t as *mut i8,
-        ::std::mem::size_of::<scaled_t>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    let mut i_0: i32 = 0;
-    do_undump(
-        &mut FONT_PARAMS[0] as *mut font_index as *mut i8,
-        ::std::mem::size_of::<font_index>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    i_0 = 0i32;
-    while i_0 < font_ptr + 1i32 {
-        if *(&mut FONT_PARAMS[0] as *mut font_index).offset(i_0 as isize) < TEX_NULL
-            || *(&mut FONT_PARAMS[0] as *mut font_index).offset(i_0 as isize) > 0x3fffffffi32
-        {
+    fmt_in.undump(&mut FONT_CHECK[..FONT_PTR + 1]);
+    fmt_in.undump(&mut FONT_SIZE[..FONT_PTR + 1]);
+    fmt_in.undump(&mut FONT_DSIZE[..FONT_PTR + 1]);
+    fmt_in.undump(&mut FONT_PARAMS[..FONT_PTR + 1]);
+    for i_0 in 0..FONT_PTR + 1 {
+        if FONT_PARAMS[i_0] < TEX_NULL || FONT_PARAMS[i_0] > 0x3fffffff {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i_0,
-                *(&mut FONT_PARAMS[0] as *mut font_index).offset(i_0 as isize) as uintptr_t,
-                &mut FONT_PARAMS[0] as *mut font_index as uintptr_t,
-                TEX_NULL as uintptr_t,
-                0x3fffffffi32 as uintptr_t
+                FONT_PARAMS[i_0],
+                FONT_PARAMS.as_ptr() as uintptr_t,
+                TEX_NULL,
+                0x3fffffff
             );
         }
-        i_0 += 1
     }
-    do_undump(
-        &mut HYPHEN_CHAR[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut SKEW_CHAR[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    let mut i_1: i32 = 0;
-    do_undump(
-        &mut FONT_NAME[0] as *mut str_number as *mut i8,
-        ::std::mem::size_of::<str_number>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    i_1 = 0i32;
-    while i_1 < font_ptr + 1i32 {
-        if *(&mut FONT_NAME[0] as *mut str_number).offset(i_1 as isize) > str_ptr {
+    fmt_in.undump(&mut HYPHEN_CHAR[..FONT_PTR + 1]);
+    fmt_in.undump(&mut SKEW_CHAR[..FONT_PTR + 1]);
+    fmt_in.undump(&mut FONT_NAME[..FONT_PTR + 1]);
+    for i_1 in 0..FONT_PTR + 1 {
+        if FONT_NAME[i_1] > str_ptr {
             panic!(
                 "Item {} (={}) of .fmt array at {:x} >{}",
                 i_1,
-                *(&mut FONT_NAME[0] as *mut str_number).offset(i_1 as isize) as uintptr_t,
-                &mut FONT_NAME[0] as *mut str_number as uintptr_t,
-                str_ptr as uintptr_t
+                FONT_NAME[i_1],
+                FONT_NAME.as_ptr() as uintptr_t,
+                str_ptr
             );
         }
-        i_1 += 1
     }
-    let mut i_2: i32 = 0;
-    do_undump(
-        &mut FONT_AREA[0] as *mut str_number as *mut i8,
-        ::std::mem::size_of::<str_number>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    i_2 = 0i32;
-    while i_2 < font_ptr + 1i32 {
-        if *(&mut FONT_AREA[0] as *mut str_number).offset(i_2 as isize) > str_ptr {
+    fmt_in.undump(&mut FONT_AREA[..FONT_PTR + 1]);
+    for i_2 in 0..FONT_PTR + 1 {
+        if FONT_AREA[i_2] > str_ptr {
             panic!(
                 "Item {} (={}) of .fmt array at {:x} >{}",
                 i_2,
-                *(&mut FONT_AREA[0] as *mut str_number).offset(i_2 as isize) as uintptr_t,
-                &mut FONT_AREA[0] as *mut str_number as uintptr_t,
-                str_ptr as uintptr_t
+                FONT_AREA[i_2],
+                FONT_AREA.as_ptr() as uintptr_t,
+                str_ptr
             );
         }
-        i_2 += 1
     }
-    do_undump(
-        &mut FONT_BC[0] as *mut UTF16_code as *mut i8,
-        ::std::mem::size_of::<UTF16_code>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut FONT_EC[0] as *mut UTF16_code as *mut i8,
-        ::std::mem::size_of::<UTF16_code>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut CHAR_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut WIDTH_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut HEIGHT_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut DEPTH_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut ITALIC_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut LIG_KERN_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut KERN_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut EXTEN_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut PARAM_BASE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    let mut i_3: i32 = 0;
-    do_undump(
-        &mut FONT_GLUE[0] as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    i_3 = 0i32;
-    while i_3 < font_ptr + 1i32 {
-        if *(&mut FONT_GLUE[0] as *mut i32).offset(i_3 as isize) < TEX_NULL
-            || *(&mut FONT_GLUE[0] as *mut i32).offset(i_3 as isize) > lo_mem_max
-        {
+    fmt_in.undump(&mut FONT_BC[..FONT_PTR + 1]);
+    fmt_in.undump(&mut FONT_EC[..FONT_PTR + 1]);
+    fmt_in.undump(&mut CHAR_BASE[..FONT_PTR + 1]);
+    fmt_in.undump(&mut WIDTH_BASE[..FONT_PTR + 1]);
+    fmt_in.undump(&mut HEIGHT_BASE[..FONT_PTR + 1]);
+    fmt_in.undump(&mut DEPTH_BASE[..FONT_PTR + 1]);
+    fmt_in.undump(&mut ITALIC_BASE[..FONT_PTR + 1]);
+    fmt_in.undump(&mut LIG_KERN_BASE[..FONT_PTR + 1]);
+    fmt_in.undump(&mut KERN_BASE[..FONT_PTR + 1]);
+    fmt_in.undump(&mut EXTEN_BASE[..FONT_PTR + 1]);
+    fmt_in.undump(&mut PARAM_BASE[..FONT_PTR + 1]);
+    fmt_in.undump(&mut FONT_GLUE[..FONT_PTR + 1]);
+    for i_3 in 0..FONT_PTR + 1 {
+        if FONT_GLUE[i_3] < TEX_NULL || FONT_GLUE[i_3] > lo_mem_max {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i_3,
-                *(&mut FONT_GLUE[0] as *mut i32).offset(i_3 as isize) as uintptr_t,
-                &mut FONT_GLUE[0] as *mut i32 as uintptr_t,
-                TEX_NULL as uintptr_t,
-                lo_mem_max as uintptr_t
+                FONT_GLUE[i_3],
+                FONT_GLUE.as_ptr() as uintptr_t,
+                TEX_NULL,
+                lo_mem_max
             );
         }
-        i_3 += 1
     }
-    let mut i_4: i32 = 0;
-    do_undump(
-        &mut BCHAR_LABEL[0] as *mut font_index as *mut i8,
-        ::std::mem::size_of::<font_index>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    i_4 = 0i32;
-    while i_4 < font_ptr + 1i32 {
-        if *(&mut BCHAR_LABEL[0] as *mut font_index).offset(i_4 as isize) < 0i32
-            || *(&mut BCHAR_LABEL[0] as *mut font_index).offset(i_4 as isize) > fmem_ptr - 1i32
-        {
+    fmt_in.undump(&mut BCHAR_LABEL[..FONT_PTR + 1]);
+    for i_4 in 0..FONT_PTR + 1 {
+        if BCHAR_LABEL[i_4] < 0 || BCHAR_LABEL[i_4] > fmem_ptr - 1 {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i_4,
-                *(&mut BCHAR_LABEL[0] as *mut font_index).offset(i_4 as isize) as uintptr_t,
-                &mut BCHAR_LABEL[0] as *mut font_index as uintptr_t,
-                0i32 as uintptr_t,
-                (fmem_ptr as uintptr_t).wrapping_sub(1i32 as u64)
+                BCHAR_LABEL[i_4],
+                BCHAR_LABEL.as_ptr() as uintptr_t,
+                0,
+                fmem_ptr - 1
             );
         }
-        i_4 += 1
     }
-    let mut i_5: i32 = 0;
-    do_undump(
-        &mut FONT_BCHAR[0] as *mut nine_bits as *mut i8,
-        ::std::mem::size_of::<nine_bits>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    i_5 = 0i32;
-    while i_5 < font_ptr + 1i32 {
-        if *(&mut FONT_BCHAR[0] as *mut nine_bits).offset(i_5 as isize) < 0i32
-            || *(&mut FONT_BCHAR[0] as *mut nine_bits).offset(i_5 as isize) > 65536i32
-        {
+    fmt_in.undump(&mut FONT_BCHAR[..FONT_PTR + 1]);
+    for i_5 in 0..FONT_PTR + 1 {
+        if FONT_BCHAR[i_5] < 0 || FONT_BCHAR[i_5] > 65536 {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i_5,
-                *(&mut FONT_BCHAR[0] as *mut nine_bits).offset(i_5 as isize) as uintptr_t,
-                &mut FONT_BCHAR[0] as *mut nine_bits as uintptr_t,
-                0i32 as uintptr_t,
-                65536i32 as uintptr_t
+                FONT_BCHAR[i_5],
+                FONT_BCHAR.as_ptr() as uintptr_t,
+                0,
+                65536
             );
         }
-        i_5 += 1
     }
-    let mut i_6: i32 = 0;
-    do_undump(
-        &mut FONT_FALSE_BCHAR[0] as *mut nine_bits as *mut i8,
-        ::std::mem::size_of::<nine_bits>() as _,
-        (font_ptr + 1i32) as size_t,
-        fmt_in,
-    );
-    i_6 = 0i32;
-    while i_6 < font_ptr + 1i32 {
-        if *(&mut FONT_FALSE_BCHAR[0] as *mut nine_bits).offset(i_6 as isize) < 0i32
-            || *(&mut FONT_FALSE_BCHAR[0] as *mut nine_bits).offset(i_6 as isize) > 65536i32
-        {
+    fmt_in.undump(&mut FONT_FALSE_BCHAR[..FONT_PTR + 1]);
+    for i_6 in 0..FONT_PTR + 1 {
+        if FONT_FALSE_BCHAR[i_6] < 0 || FONT_FALSE_BCHAR[i_6] > 65536 {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i_6,
-                *(&mut FONT_FALSE_BCHAR[0] as *mut nine_bits).offset(i_6 as isize) as uintptr_t,
-                &mut FONT_FALSE_BCHAR[0] as *mut nine_bits as uintptr_t,
-                0i32 as uintptr_t,
-                65536i32 as uintptr_t
+                FONT_FALSE_BCHAR[i_6],
+                FONT_FALSE_BCHAR.as_ptr() as uintptr_t,
+                0,
+                65536
             );
         }
-        i_6 += 1
     }
 
     /* hyphenations */
 
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x < 0 {
         bad_fmt();
     }
@@ -4595,12 +3674,7 @@ unsafe fn load_fmt_file() -> bool {
     }
     HYPH_COUNT = x as usize;
 
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x < HYPH_PRIME {
         bad_fmt();
     }
@@ -4612,12 +3686,7 @@ unsafe fn load_fmt_file() -> bool {
     j = 0;
 
     for _k in 1..=HYPH_COUNT {
-        do_undump(
-            &mut j as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as _,
-            1i32 as size_t,
-            fmt_in,
-        );
+        fmt_in.undump_one(&mut j);
         if j < 0i32 {
             bad_fmt();
         }
@@ -4631,23 +3700,13 @@ unsafe fn load_fmt_file() -> bool {
             bad_fmt();
         }
         HYPH_LINK[j as usize] = HYPH_NEXT as hyph_pointer;
-        do_undump(
-            &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as _,
-            1i32 as size_t,
-            fmt_in,
-        );
+        fmt_in.undump_one(&mut x);
         if x < 0 || x > str_ptr {
             bad_fmt();
         } else {
             HYPH_WORD[j as usize] = x;
         }
-        do_undump(
-            &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as _,
-            1i32 as size_t,
-            fmt_in,
-        );
+        fmt_in.undump_one(&mut x);
         if x < MIN_HALFWORD || x > MAX_HALFWORD {
             bad_fmt();
         } else {
@@ -4665,12 +3724,7 @@ unsafe fn load_fmt_file() -> bool {
     } else if HYPH_NEXT >= HYPH_PRIME as usize {
         HYPH_NEXT += 1
     }
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x < 0 {
         bad_fmt();
     }
@@ -4681,12 +3735,7 @@ unsafe fn load_fmt_file() -> bool {
     j = x;
     trie_max = j;
 
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x < 0 || x > j {
         bad_fmt();
     } else {
@@ -4696,42 +3745,20 @@ unsafe fn load_fmt_file() -> bool {
     if trie_trl.is_null() {
         trie_trl = xmalloc_array(j as usize + 1);
     }
-    do_undump(
-        &mut *trie_trl.offset(0) as *mut trie_pointer as *mut i8,
-        ::std::mem::size_of::<trie_pointer>() as _,
-        (j + 1i32) as size_t,
-        fmt_in,
-    );
+    let undump_slice = std::slice::from_raw_parts_mut(trie_trl, (j + 1) as usize);
+    fmt_in.undump(undump_slice);
     if trie_tro.is_null() {
         trie_tro = xmalloc_array(j as usize + 1);
     }
-    do_undump(
-        &mut *trie_tro.offset(0) as *mut trie_pointer as *mut i8,
-        ::std::mem::size_of::<trie_pointer>() as _,
-        (j + 1i32) as size_t,
-        fmt_in,
-    );
+    let undump_slice = std::slice::from_raw_parts_mut(trie_tro, (j + 1) as usize);
+    fmt_in.undump(undump_slice);
     if trie_trc.is_null() {
         trie_trc = xmalloc_array(j as usize + 1);
     }
-    do_undump(
-        &mut *trie_trc.offset(0) as *mut u16 as *mut i8,
-        ::std::mem::size_of::<u16>() as _,
-        (j + 1i32) as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut max_hyph_char as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    let undump_slice = std::slice::from_raw_parts_mut(trie_trc, (j + 1) as usize);
+    fmt_in.undump(undump_slice);
+    fmt_in.undump_one(&mut max_hyph_char);
+    fmt_in.undump_one(&mut x);
     if x < 0 {
         bad_fmt();
     }
@@ -4742,35 +3769,16 @@ unsafe fn load_fmt_file() -> bool {
     j = x;
     trie_op_ptr = j;
 
-    do_undump(
-        &mut *hyf_distance.as_mut_ptr().offset(1) as *mut small_number as *mut i8,
-        ::std::mem::size_of::<small_number>() as _,
-        j as size_t,
-        fmt_in,
-    );
-    do_undump(
-        &mut *hyf_num.as_mut_ptr().offset(1) as *mut small_number as *mut i8,
-        ::std::mem::size_of::<small_number>() as _,
-        j as size_t,
-        fmt_in,
-    );
-    let mut i_7: i32 = 0;
-    do_undump(
-        &mut *hyf_next.as_mut_ptr().offset(1) as *mut trie_opcode as *mut i8,
-        ::std::mem::size_of::<trie_opcode>() as _,
-        j as size_t,
-        fmt_in,
-    );
-    i_7 = 0i32;
-    while i_7 < j {
-        if *(&mut *hyf_next.as_mut_ptr().offset(1) as *mut trie_opcode).offset(i_7 as isize) as i64
-            > 65535
-        {
+    fmt_in.undump(&mut hyf_distance[1..(j + 1) as usize]);
+    fmt_in.undump(&mut hyf_num[1..(j + 1) as usize]);
+    fmt_in.undump(&mut hyf_next[1..(j + 1) as usize]);
+    let mut i_7 = 0;
+    while i_7 < j as usize {
+        if hyf_next[1 + i_7] as i64 > 65535 {
             panic!(
                 "Item {} (={}) of .fmt array at {:x} >{}",
                 i_7,
-                *(&mut *hyf_next.as_mut_ptr().offset(1) as *mut trie_opcode).offset(i_7 as isize)
-                    as uintptr_t,
+                hyf_next[1 + i_7] as uintptr_t,
                 &mut *hyf_next.as_mut_ptr().offset(1) as *mut trie_opcode as uintptr_t,
                 65535 as uintptr_t
             );
@@ -4780,28 +3788,18 @@ unsafe fn load_fmt_file() -> bool {
     for k in 0..=BIGGEST_LANG {
         trie_used[k as usize] = 0;
     }
-    k = BIGGEST_LANG + 1;
+    let mut k = BIGGEST_LANG + 1;
     loop {
         if !(j > 0) {
             break;
         }
-        do_undump(
-            &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as _,
-            1i32 as size_t,
-            fmt_in,
-        );
+        fmt_in.undump_one(&mut x);
         if x < 0i32 || x > k - 1i32 {
             bad_fmt();
         } else {
             k = x;
         }
-        do_undump(
-            &mut x as *mut i32 as *mut i8,
-            ::std::mem::size_of::<i32>() as _,
-            1i32 as size_t,
-            fmt_in,
-        );
+        fmt_in.undump_one(&mut x);
         if x < 1 || x > j {
             bad_fmt();
         }
@@ -4813,12 +3811,7 @@ unsafe fn load_fmt_file() -> bool {
 
     /* trailer */
 
-    do_undump(
-        &mut x as *mut i32 as *mut i8,
-        ::std::mem::size_of::<i32>() as _,
-        1i32 as size_t,
-        fmt_in,
-    );
+    fmt_in.undump_one(&mut x);
     if x != FORMAT_FOOTER_MAGIC {
         bad_fmt();
     }
@@ -5021,11 +4014,7 @@ unsafe fn initialize_more_variables() {
     if_limit = 0_u8;
     cur_if = 0i32 as small_number;
     if_line = 0i32;
-    null_character.s3 = 0_u16;
-    null_character.s2 = 0_u16;
-    null_character.s1 = 0_u16;
-    null_character.s0 = 0_u16;
-    total_pages = 0i32;
+    TOTAL_PAGES = 0;
     max_v = 0i32;
     max_h = 0i32;
     max_push = 0i32;
@@ -5046,7 +4035,7 @@ unsafe fn initialize_more_variables() {
     cur_tail = TEX_NULL;
     cur_pre_head = TEX_NULL;
     cur_pre_tail = TEX_NULL;
-    cur_f = 0i32;
+    cur_f = 0;
     max_hyph_char = 256i32;
     z = 0 as hyph_pointer;
     while z as usize <= HYPH_SIZE {
@@ -6087,9 +5076,9 @@ unsafe fn initialize_primitives() {
     no_new_control_sequence = true;
 }
 unsafe fn get_strings_started() {
-    pool_ptr = 0i32;
-    str_ptr = 0i32;
-    *str_start.offset(0) = 0i32;
+    pool_ptr = 0;
+    str_ptr = 0;
+    str_start[0] = 0;
     str_ptr = TOO_BIG_CHAR;
     if load_pool_strings(pool_size - string_vacancies) == 0 {
         panic!("must increase pool_size");
@@ -6129,7 +5118,7 @@ pub(crate) unsafe fn tt_run_engine(
     pool_size = 6250000i64 as i32;
     string_vacancies = 90000i64 as i32;
     pool_free = 47500i64 as i32;
-    max_strings = 565536i64 as i32;
+    max_strings = 565536;
     strings_free = 100i32;
     FONT_MEM_SIZE = 8000000;
     FONT_MAX = 9000;
@@ -6183,8 +5172,8 @@ pub(crate) unsafe fn tt_run_engine(
             hash_used += 1
         }
         EQTB = vec![memory_word::default(); EQTB_TOP + 1];
-        str_start = xmalloc_array(max_strings as usize);
-        str_pool = xmalloc_array(pool_size as usize);
+        str_start = vec![pool_pointer::default(); max_strings + 1];
+        str_pool = vec![0; pool_size as usize + 1];
         FONT_INFO = vec![memory_word::default(); FONT_MEM_SIZE + 1];
     }
     /* Sanity-check various invariants. */
@@ -6217,7 +5206,7 @@ pub(crate) unsafe fn tt_run_engine(
     if FONT_MAX as i32 > FONT_BASE + 9000 {
         bad = 16
     }
-    if SAVE_SIZE as i32 > MAX_HALFWORD || max_strings > MAX_HALFWORD {
+    if SAVE_SIZE as i32 > MAX_HALFWORD || max_strings as i32 > MAX_HALFWORD {
         bad = 17
     }
     if BUF_SIZE > MAX_HALFWORD as usize {
@@ -6663,10 +5652,10 @@ pub(crate) unsafe fn tt_run_engine(
         KERN_BASE = vec![0; FONT_MAX + 1];
         EXTEN_BASE = vec![0; FONT_MAX + 1];
         PARAM_BASE = vec![0; FONT_MAX + 1];
-        font_ptr = 0i32;
+        FONT_PTR = 0;
         fmem_ptr = 7i32;
         FONT_NAME[0] = maketexstring(b"nullfont");
-        FONT_AREA[0] = (65536 + 1i32 as i64) as str_number;
+        FONT_AREA[0] = (65536 + 1) as str_number;
         HYPHEN_CHAR[0] = '-' as i32;
         SKEW_CHAR[0] = -1;
         BCHAR_LABEL[0] = 0;
@@ -6753,8 +5742,8 @@ pub(crate) unsafe fn tt_run_engine(
     free(yhash as *mut libc::c_void);
     EQTB = Vec::new();
     MEM = Vec::new();
-    free(str_start as *mut libc::c_void);
-    free(str_pool as *mut libc::c_void);
+    str_start = Vec::new();
+    str_pool = Vec::new();
     FONT_INFO = Vec::new();
     FONT_MAPPING = Vec::new();
     FONT_LAYOUT_ENGINE = Vec::new();
@@ -6787,4 +5776,128 @@ pub(crate) unsafe fn tt_run_engine(
     trie_tro = mfree(trie_tro as *mut libc::c_void) as *mut trie_pointer;
     trie_trc = mfree(trie_trc as *mut libc::c_void) as *mut u16;
     history
+}
+
+trait AsU8Slice {
+    unsafe fn as_u8_slice(&self, num: usize) -> &[u8];
+    unsafe fn as_u8_slice_mut(&mut self, num: usize) -> &mut [u8];
+}
+trait ToU8Slice {
+    unsafe fn to_u8_slice(&self) -> &[u8];
+    unsafe fn to_u8_slice_mut(&mut self) -> &mut [u8];
+}
+macro_rules! slice {
+    ( $( $x:ty ),* ) => {
+        $(
+            impl AsU8Slice for $x {
+                unsafe fn as_u8_slice(&self, num: usize) -> &[u8] {
+                    let p = self as *const Self as *const u8;
+                    let item_size = std::mem::size_of::<Self>();
+                    unsafe { std::slice::from_raw_parts(p, item_size * num) }
+                }
+                unsafe fn as_u8_slice_mut(&mut self, num: usize) -> &mut [u8] {
+                    let p = self as *mut Self as *mut u8;
+                    let item_size = std::mem::size_of::<Self>();
+                    unsafe { std::slice::from_raw_parts_mut(p, item_size * num) }
+                }
+            }
+            impl ToU8Slice for [$x] {
+                unsafe fn to_u8_slice(&self) -> &[u8] {
+                    let p = self.as_ptr() as *const u8;
+                    let item_size = std::mem::size_of::<$x>();
+                    unsafe { std::slice::from_raw_parts(p, item_size * self.len()) }
+                }
+                unsafe fn to_u8_slice_mut(&mut self) -> &mut [u8] {
+                    let p = self.as_mut_ptr() as *mut u8;
+                    let item_size = std::mem::size_of::<$x>();
+                    unsafe { std::slice::from_raw_parts_mut(p, item_size * self.len()) }
+                }
+            }
+        )*
+    };
+}
+
+slice!(i32, memory_word, b32x2, b16x4, UTF16_code, small_number);
+
+/* Read and write dump files.  As distributed, these files are
+architecture dependent; specifically, BigEndian and LittleEndian
+architectures produce different files.  These routines always output
+BigEndian files.  This still does not guarantee them to be
+architecture-independent, because it is possible to make a format
+that dumps a glue ratio, i.e., a floating-point number.  Fortunately,
+none of the standard formats do that.  */
+
+// TODO: optimize
+trait Dump {
+    fn dump<T>(&mut self, p: &[T])
+    where
+        [T]: ToU8Slice;
+    fn dump_one<T>(&mut self, p: T)
+    where
+        T: Copy,
+        [T]: ToU8Slice,
+    {
+        let slice = unsafe { std::slice::from_raw_parts(&p, 1) };
+        self.dump(slice);
+    }
+}
+
+impl Dump for OutputHandleWrapper {
+    fn dump<T>(&mut self, p: &[T])
+    where
+        [T]: ToU8Slice,
+    {
+        let nitems = p.len();
+        let p = unsafe { p.to_u8_slice() };
+        let item_size = std::mem::size_of::<T>();
+        let mut v = Vec::with_capacity(item_size * nitems);
+        for i in p.chunks(item_size) {
+            v.extend(i.iter().rev());
+        }
+
+        self.write(&v).expect(&format!(
+            "could not write {} {}-byte item(s) to {}",
+            nitems,
+            item_size,
+            unsafe { CStr::from_ptr(name_of_file).to_string_lossy() },
+        ));
+    }
+}
+
+trait UnDump {
+    fn undump<T>(&mut self, p: &mut [T])
+    where
+        [T]: ToU8Slice;
+    fn undump_one<T>(&mut self, p: &mut T)
+    where
+        [T]: ToU8Slice,
+    {
+        let slice = unsafe { std::slice::from_raw_parts_mut(p, 1) };
+        self.undump(slice);
+    }
+}
+impl UnDump for InputHandleWrapper {
+    fn undump<T>(&mut self, p: &mut [T])
+    where
+        [T]: ToU8Slice,
+    {
+        let nitems = p.len();
+        let item_size = std::mem::size_of::<T>();
+        let mut v = vec![0; item_size * nitems];
+        if self.read_exact(v.as_mut_slice()).is_err() {
+            unsafe {
+                abort!(
+                    "could not undump {} {}-byte item(s) from {}",
+                    nitems,
+                    item_size,
+                    CStr::from_ptr(name_of_file).display()
+                );
+            }
+        }
+        for i in v.chunks_mut(item_size) {
+            i.reverse();
+        }
+        let p = unsafe { p.to_u8_slice_mut() };
+        p.copy_from_slice(v.as_slice());
+    }
 }

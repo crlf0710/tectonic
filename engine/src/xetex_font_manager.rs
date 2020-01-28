@@ -415,8 +415,8 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
     loaded_font_design_size = 655360i64 as Fixed;
     for pass in 0..2i32 {
         // try full name as given
-        if let Some(name_font_ptr) = (*(*self_0).m_nameToFont).get(&nameStr).cloned() {
-            font = name_font_ptr.as_ptr();
+        if let Some(name_FONT_PTR) = (*(*self_0).m_nameToFont).get(&nameStr).cloned() {
+            font = name_FONT_PTR.as_ptr();
             if (*font).opSizeInfo.designSize != 0i32 as libc::c_uint {
                 dsize = (*font).opSizeInfo.designSize as libc::c_int
             }
@@ -441,9 +441,9 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
                     nameStr_cstr.offset(hyph as isize).offset(1),
                     (nameStr_len - hyph - 1i32) as size_t,
                 );
-                if let Some(style_font_ptr) = (*(*family_ptr.as_ptr()).styles).get(&style).cloned()
+                if let Some(style_FONT_PTR) = (*(*family_ptr.as_ptr()).styles).get(&style).cloned()
                 {
-                    font = style_font_ptr.as_ptr();
+                    font = style_FONT_PTR.as_ptr();
                     if (*font).opSizeInfo.designSize != 0i32 as libc::c_uint {
                         dsize = (*font).opSizeInfo.designSize as libc::c_int
                     }
@@ -452,8 +452,8 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
             }
         }
         // try as PostScript name
-        if let Some(ps_font_ptr) = (*(*self_0).m_psNameToFont).get(&nameStr).cloned() {
-            font = ps_font_ptr.as_ptr();
+        if let Some(ps_FONT_PTR) = (*(*self_0).m_psNameToFont).get(&nameStr).cloned() {
+            font = ps_FONT_PTR.as_ptr();
             if (*font).opSizeInfo.designSize != 0i32 as libc::c_uint {
                 dsize = (*font).opSizeInfo.designSize as libc::c_int
             }
@@ -486,8 +486,8 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
                     use std::ffi::CStr;
                     let style: &[u8] = *style;
                     let style = CStr::from_ptr(style.as_ptr() as *const i8);
-                    if let Some(style_font_ptr) = (*(*family_ptr).styles).get(style) {
-                        font = style_font_ptr.as_ptr();
+                    if let Some(style_FONT_PTR) = (*(*family_ptr).styles).get(style) {
+                        font = style_FONT_PTR.as_ptr();
                         break 'style_name_loop;
                     }
                 }
@@ -669,19 +669,19 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
                 // maybe slant values weren't present; try the style bits as a fallback
                 bestMatch = 0 as *mut XeTeXFontMgrFont;
                 for (_, v) in (*(*parent).styles).iter() {
-                    let style_font_ptr = v.as_ptr();
-                    if (*style_font_ptr).isItalic == !(*font).isItalic {
+                    let style_FONT_PTR = v.as_ptr();
+                    if (*style_FONT_PTR).isItalic == !(*font).isItalic {
                         if (*parent).minWeight != (*parent).maxWeight {
                             // weight info was available, so try to match that
                             if bestMatch.is_null()
-                                || XeTeXFontMgr_weightAndWidthDiff(self_0, style_font_ptr, font)
+                                || XeTeXFontMgr_weightAndWidthDiff(self_0, style_FONT_PTR, font)
                                     < XeTeXFontMgr_weightAndWidthDiff(self_0, bestMatch, font)
                             {
-                                bestMatch = style_font_ptr;
+                                bestMatch = style_FONT_PTR;
                             }
-                        } else if bestMatch.is_null() && (*style_font_ptr).isBold == (*font).isBold
+                        } else if bestMatch.is_null() && (*style_FONT_PTR).isBold == (*font).isBold
                         {
-                            bestMatch = style_font_ptr;
+                            bestMatch = style_FONT_PTR;
                             break;
                             // no weight info, so try matching style bits
                             // found a match, no need to look further as we can't distinguish!
@@ -712,12 +712,12 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
                     // double-check the italic flag, as we can't trust slant values
                     let mut newBest_0: *mut XeTeXFontMgrFont = 0 as *mut XeTeXFontMgrFont;
                     for (_, v) in (*(*parent).styles).iter() {
-                        let style_font_ptr = v.as_ptr();
-                        if (*style_font_ptr).isItalic == (*font).isItalic {
+                        let style_FONT_PTR = v.as_ptr();
+                        if (*style_FONT_PTR).isItalic == (*font).isItalic {
                             if newBest_0.is_null()
                                 || XeTeXFontMgr_weightAndWidthDiff(
                                     self_0,
-                                    style_font_ptr,
+                                    style_FONT_PTR,
                                     bestMatch_0,
                                 ) < XeTeXFontMgr_weightAndWidthDiff(
                                     self_0,
@@ -725,7 +725,7 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
                                     bestMatch_0,
                                 )
                             {
-                                newBest_0 = style_font_ptr;
+                                newBest_0 = style_FONT_PTR;
                             }
                         }
                     }
@@ -736,9 +736,9 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
             }
             if bestMatch_0 == font && !(*font).isBold {
                 for (_, v) in (*(*parent).styles).iter() {
-                    let style_font_ptr = v.as_ptr();
-                    if (*style_font_ptr).isItalic == (*font).isItalic && (*style_font_ptr).isBold {
-                        bestMatch_0 = style_font_ptr;
+                    let style_FONT_PTR = v.as_ptr();
+                    if (*style_FONT_PTR).isItalic == (*font).isItalic && (*style_FONT_PTR).isBold {
+                        bestMatch_0 = style_FONT_PTR;
                         break;
                     }
                 }
@@ -760,14 +760,14 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
         if bestMismatch > 0.0f64 {
             let mut bestMatch_1: *mut XeTeXFontMgrFont = font;
             for (_, v) in (*(*parent).styles).iter() {
-                let style_font_ptr = v.as_ptr();
-                if !((*style_font_ptr).opSizeInfo.subFamilyID != (*font).opSizeInfo.subFamilyID) {
+                let style_FONT_PTR = v.as_ptr();
+                if !((*style_FONT_PTR).opSizeInfo.subFamilyID != (*font).opSizeInfo.subFamilyID) {
                     let mut mismatch: f64 = my_fmax(
-                        (*style_font_ptr).opSizeInfo.minSize as f64 - ptSize,
-                        ptSize - (*style_font_ptr).opSizeInfo.maxSize as f64,
+                        (*style_FONT_PTR).opSizeInfo.minSize as f64 - ptSize,
+                        ptSize - (*style_FONT_PTR).opSizeInfo.maxSize as f64,
                     );
                     if mismatch < bestMismatch {
-                        bestMatch_1 = style_font_ptr;
+                        bestMatch_1 = style_FONT_PTR;
                         bestMismatch = mismatch
                     }
                     if bestMismatch <= 0.0f64 {
@@ -810,17 +810,17 @@ pub(crate) unsafe fn XeTeXFontMgr_getFullName(
 ) -> *const libc::c_char {
     // return the full name of the font, suitable for use in XeTeX source
     // without requiring style qualifiers
-    let font_ptr = if let Some(font_ptr) = (*(*self_0).m_platformRefToFont).get(&font).cloned() {
-        font_ptr
+    let FONT_PTR = if let Some(FONT_PTR) = (*(*self_0).m_platformRefToFont).get(&font).cloned() {
+        FONT_PTR
     } else {
         abort!("internal error {} in XeTeXFontMgr", 2i32,);
     };
-    let font_ptr = font_ptr.as_ptr();
+    let FONT_PTR = FONT_PTR.as_ptr();
 
-    if !(*font_ptr).m_fullName.is_null() {
-        return CppStdString_cstr((*font_ptr).m_fullName);
+    if !(*FONT_PTR).m_fullName.is_null() {
+        return CppStdString_cstr((*FONT_PTR).m_fullName);
     }
-    return CppStdString_cstr((*font_ptr).m_psName);
+    return CppStdString_cstr((*FONT_PTR).m_psName);
 }
 pub(crate) unsafe fn XeTeXFontMgr_weightAndWidthDiff(
     mut _self_0: *const XeTeXFontMgr,

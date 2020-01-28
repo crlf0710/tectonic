@@ -45,7 +45,7 @@ pub(crate) type pool_pointer = i32;
 pub(crate) type str_number = i32;
 pub(crate) type packed_UTF16_code = u16;
 pub(crate) type small_number = i16;
-pub(crate) type internal_font_number = i32;
+pub(crate) type internal_font_number = usize;
 pub(crate) type font_index = i32;
 pub(crate) type nine_bits = i32;
 pub(crate) type trie_pointer = i32;
@@ -1060,7 +1060,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                     hn = 0i32 as small_number;
                                                     's_1342: loop {
                                                         if is_char_node(s) {
-                                                            if MEM[s as usize].b16.s1 as i32 != hf {
+                                                            if MEM[s as usize].b16.s1 as usize != hf
+                                                            {
                                                                 break;
                                                             }
                                                             hyf_bchar =
@@ -1100,7 +1101,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                         {
                                                             /*932: move the characters of a ligature node to hu and hc; but goto done3
                                                              * if they are not all letters. */
-                                                            if MEM[(s + 1) as usize].b16.s1 as i32
+                                                            if MEM[(s + 1) as usize].b16.s1 as usize
                                                                 != hf
                                                             {
                                                                 break;
@@ -2676,9 +2677,9 @@ unsafe fn hyphenate() {
         }
         if length(k) == hn as i32 {
             j = 1_i16;
-            u = *str_start.offset((k as i64 - 65536) as isize);
+            u = str_start[(k as i64 - 65536) as usize];
             loop {
-                if *str_pool.offset(u as isize) as i32 != hc[j as usize] {
+                if str_pool[u as usize] as i32 != hc[j as usize] {
                     current_block = 1763490972649755258;
                     break;
                 }
@@ -2894,7 +2895,7 @@ unsafe fn hyphenate() {
         MEM[ha as usize].b32.s1 = -0xfffffff;
         bchar = hyf_bchar;
         if is_char_node(ha) {
-            if MEM[ha as usize].b16.s1 as i32 != hf {
+            if MEM[ha as usize].b16.s1 as usize != hf {
                 current_block = 6826215413708131726;
             } else {
                 init_list = ha;
@@ -2903,7 +2904,7 @@ unsafe fn hyphenate() {
                 current_block = 6662862405959679103;
             }
         } else if MEM[ha as usize].b16.s1 as i32 == 6 {
-            if MEM[(ha + 1) as usize].b16.s1 as i32 != hf {
+            if MEM[(ha + 1) as usize].b16.s1 as usize != hf {
                 current_block = 6826215413708131726;
             } else {
                 init_list = MEM[(ha + 1) as usize].b32.s1;

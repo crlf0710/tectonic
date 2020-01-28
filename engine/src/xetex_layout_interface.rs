@@ -474,13 +474,11 @@ pub(crate) unsafe fn cacheGlyphBBox(
     CppStdMap_put(sGlyphBoxes, key, *bbox);
 }
 #[inline]
-unsafe extern "C" fn GlyphId_create(mut fontNum: libc::c_int, mut code: libc::c_uint) -> GlyphId {
+unsafe extern "C" fn GlyphId_create(mut fontNum: usize, mut code: libc::c_uint) -> GlyphId {
     let mut id: GlyphId = GlyphId {
-        fontNum: 0,
-        code: 0,
+        fontNum: fontNum as libc::c_int,
+        code,
     };
-    id.fontNum = fontNum;
-    id.code = code;
     return id;
 }
 pub(crate) unsafe fn getProtrusionFactor(mut side: libc::c_int) -> *mut ProtrusionFactor {
@@ -506,7 +504,7 @@ pub(crate) unsafe fn getProtrusionFactor(mut side: libc::c_int) -> *mut Protrusi
     return container;
 }
 pub(crate) unsafe fn set_cp_code(
-    mut fontNum: libc::c_int,
+    mut fontNum: usize,
     mut code: libc::c_uint,
     mut side: libc::c_int,
     mut value: libc::c_int,
@@ -516,7 +514,7 @@ pub(crate) unsafe fn set_cp_code(
     CppStdMap_put(container, id, value);
 }
 pub(crate) unsafe fn get_cp_code(
-    mut fontNum: libc::c_int,
+    mut fontNum: usize,
     mut code: libc::c_uint,
     mut side: libc::c_int,
 ) -> libc::c_int {
