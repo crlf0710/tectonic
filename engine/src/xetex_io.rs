@@ -16,9 +16,9 @@ use crate::core_memory::{xcalloc, xmalloc, xstrdup};
 use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_ini::{
-    buf_size, buffer, cur_area, cur_chr, cur_ext, cur_name, cur_val, first, last, max_buf_stack,
-    name_in_progress, name_length, name_length16, name_of_file, name_of_file16, read_file,
-    read_open, stop_at_space,
+    cur_area, cur_chr, cur_ext, cur_name, cur_val, first, last, max_buf_stack, name_in_progress,
+    name_length, name_length16, name_of_file, name_of_file16, read_file, read_open, stop_at_space,
+    BUFFER, BUF_SIZE,
 };
 use crate::xetex_output::{print_int, print_nl};
 use crate::xetex_texmfmp::gettexstring;
@@ -354,10 +354,7 @@ pub(crate) unsafe fn u_open_in(
     1i32
 }
 unsafe extern "C" fn buffer_overflow() {
-    panic!(
-        "unable to read an entire line (buf_size={})",
-        buf_size as u32,
-    );
+    panic!("unable to read an entire line (buf_size={})", BUF_SIZE,);
 }
 unsafe extern "C" fn conversion_error(mut errcode: i32) {
     begin_diagnostic();
@@ -397,9 +394,9 @@ unsafe extern "C" fn apply_normalization(mut buf: *mut u32, mut len: i32, mut no
         buf as *mut u8,
         (len as u64).wrapping_mul(::std::mem::size_of::<u32>() as _) as u32,
         &mut inUsed,
-        &mut *buffer.offset(first as isize) as *mut UnicodeScalar as *mut u8,
-        (::std::mem::size_of::<UnicodeScalar>() as u64).wrapping_mul((buf_size - first) as u64)
-            as u32,
+        &mut BUFFER[first as usize] as *mut UnicodeScalar as *mut u8,
+        (::std::mem::size_of::<UnicodeScalar>() as u64)
+            .wrapping_mul((BUF_SIZE as i32 - first) as u64) as u32,
         &mut outUsed,
         1i32 as u8,
     );
@@ -427,7 +424,7 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> i32 {
         let mut outLen: i32 = 0;
         let mut errorCode: UErrorCode = U_ZERO_ERROR;
         if byteBuffer.is_null() {
-            byteBuffer = xmalloc((buf_size + 1i32) as size_t) as *mut i8
+            byteBuffer = xmalloc((BUF_SIZE + 1) as size_t) as *mut i8
         }
         /* Recognize either LF or CR as a line terminator; skip initial LF if prev line ended with CR.  */
         let handle = (*f).handle.as_mut().unwrap();
@@ -444,7 +441,7 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> i32 {
             *byteBuffer.offset(fresh1 as isize) = i as i8
         }
         if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
-            while bytesRead < buf_size as u32
+            while bytesRead < BUF_SIZE as u32
                 && {
                     i = ttstub_input_getc(handle);
                     i != -1i32
@@ -471,13 +468,13 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> i32 {
                 // NFD
                 if utf32Buf.is_null() {
                     utf32Buf =
-                        xcalloc(buf_size as size_t, ::std::mem::size_of::<u32>() as _) as *mut u32
+                        xcalloc(BUF_SIZE as size_t, ::std::mem::size_of::<u32>() as _) as *mut u32
                 } // sets 'last' correctly
                 tmpLen = icu::ucnv_toAlgorithmic(
                     icu::UCNV_UTF32_LittleEndian,
                     cnv,
                     utf32Buf as *mut i8,
-                    (buf_size as u64).wrapping_mul(::std::mem::size_of::<u32>() as _) as i32,
+                    (BUF_SIZE as u64).wrapping_mul(::std::mem::size_of::<u32>() as _) as i32,
                     byteBuffer,
                     bytesRead as i32,
                     &mut errorCode,
@@ -497,9 +494,9 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> i32 {
                 outLen = icu::ucnv_toAlgorithmic(
                     icu::UCNV_UTF32_LittleEndian,
                     cnv,
-                    &mut *buffer.offset(first as isize) as *mut UnicodeScalar as *mut i8,
+                    &mut BUFFER[first as usize] as *mut UnicodeScalar as *mut i8,
                     (::std::mem::size_of::<UnicodeScalar>() as u64)
-                        .wrapping_mul((buf_size - first) as u64) as i32,
+                        .wrapping_mul((BUF_SIZE as i32 - first) as u64) as i32,
                     byteBuffer,
                     bytesRead as i32,
                     &mut errorCode,
@@ -529,7 +526,7 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> i32 {
                 // read Unicode chars into utf32Buf as UTF32
                 if utf32Buf.is_null() {
                     utf32Buf =
-                        xcalloc(buf_size as size_t, ::std::mem::size_of::<u32>() as _) as *mut u32
+                        xcalloc(BUF_SIZE as size_t, ::std::mem::size_of::<u32>() as _) as *mut u32
                 }
                 tmpLen = 0i32;
                 if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
@@ -538,7 +535,7 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> i32 {
                     *utf32Buf.offset(fresh3 as isize) = i as u32
                 }
                 if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
-                    while tmpLen < buf_size
+                    while tmpLen < BUF_SIZE as i32
                         && {
                             i = get_uni_c(f);
                             i != -1i32
@@ -562,13 +559,13 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> i32 {
             }
             _ => {
                 // none
-                if last < buf_size && i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
+                if last < BUF_SIZE as i32 && i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
                     let fresh5 = last;
                     last = last + 1;
-                    *buffer.offset(fresh5 as isize) = i
+                    BUFFER[fresh5 as usize] = i
                 }
                 if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
-                    while last < buf_size
+                    while last < BUF_SIZE as i32
                         && {
                             i = get_uni_c(f);
                             i != -1i32
@@ -578,7 +575,7 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> i32 {
                     {
                         let fresh6 = last;
                         last = last + 1;
-                        *buffer.offset(fresh6 as isize) = i
+                        BUFFER[fresh6 as usize] = i
                     }
                 }
                 if i == -1i32 && errno::errno() != errno::EINTR && last == first {
@@ -595,15 +592,15 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> i32 {
     if i == '\r' as i32 {
         (*f).skipNextLF = 1_i16
     }
-    *buffer.offset(last as isize) = ' ' as i32;
+    BUFFER[last as usize] = ' ' as i32;
     if last >= max_buf_stack {
         max_buf_stack = last
     }
     /* Trim trailing space or EOL characters.  */
     while last > first
-        && (*buffer.offset((last - 1i32) as isize) == ' ' as i32
-            || *buffer.offset((last - 1i32) as isize) == '\r' as i32
-            || *buffer.offset((last - 1i32) as isize) == '\n' as i32)
+        && (BUFFER[(last - 1) as usize] == ' ' as i32
+            || BUFFER[(last - 1) as usize] == '\r' as i32
+            || BUFFER[(last - 1) as usize] == '\n' as i32)
     {
         last -= 1
     }

@@ -36,17 +36,17 @@ use crate::xetex_ext::{
 };
 use crate::xetex_ini::{
     _xeq_level_array, active_width, adjust_tail, after_token, align_ptr, align_state,
-    area_delimiter, arith_error, avail, bchar, best_height_plus_depth, breadth_max, buf_size,
-    buffer, cancel_boundary, cond_ptr, cur_align, cur_area, cur_boundary, cur_box, cur_chr,
-    cur_cmd, cur_cs, cur_dir, cur_ext, cur_group, cur_head, cur_if, cur_input, cur_l, cur_lang,
-    cur_level, cur_list, cur_loop, cur_mark, cur_name, cur_order, cur_pre_head, cur_pre_tail,
-    cur_ptr, cur_q, cur_r, cur_span, cur_tail, cur_tok, cur_val, cur_val1, cur_val_level,
-    dead_cycles, def_ref, deletions_allowed, depth_threshold, dig, disc_ptr, empty, error_count,
-    error_line, expand_depth, expand_depth_count, ext_delimiter, false_bchar,
-    file_line_error_style_p, file_name_quote_char, file_offset, first, first_count, fmem_ptr,
-    font_in_short_display, font_ptr, font_used, force_eof, gave_char_warning_help, half_error_line,
-    hash, hash_extra, hash_high, hash_used, help_line, help_ptr, hi_mem_min, history, if_limit,
-    if_line, init_pool_ptr, init_str_ptr, ins_disc, insert_penalties, insert_src_special_auto,
+    area_delimiter, arith_error, avail, bchar, best_height_plus_depth, breadth_max,
+    cancel_boundary, cond_ptr, cur_align, cur_area, cur_boundary, cur_box, cur_chr, cur_cmd,
+    cur_cs, cur_dir, cur_ext, cur_group, cur_head, cur_if, cur_input, cur_l, cur_lang, cur_level,
+    cur_list, cur_loop, cur_mark, cur_name, cur_order, cur_pre_head, cur_pre_tail, cur_ptr, cur_q,
+    cur_r, cur_span, cur_tail, cur_tok, cur_val, cur_val1, cur_val_level, dead_cycles, def_ref,
+    deletions_allowed, depth_threshold, dig, disc_ptr, empty, error_count, error_line,
+    expand_depth, expand_depth_count, ext_delimiter, false_bchar, file_line_error_style_p,
+    file_name_quote_char, file_offset, first, first_count, fmem_ptr, font_in_short_display,
+    font_ptr, font_used, force_eof, gave_char_warning_help, half_error_line, hash, hash_extra,
+    hash_high, hash_used, help_line, help_ptr, hi_mem_min, history, if_limit, if_line,
+    init_pool_ptr, init_str_ptr, ins_disc, insert_penalties, insert_src_special_auto,
     insert_src_special_every_par, insert_src_special_every_vbox, interaction, is_hyph,
     is_in_csname, job_name, last, last_badness, last_glue, last_kern, last_leftmost_char,
     last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack, ligature_present, line,
@@ -64,9 +64,9 @@ use crate::xetex_ini::{
     shown_mode, skip_line, space_class, stop_at_space, str_pool, str_ptr, str_start, tally,
     temp_ptr, term_offset, tex_remainder, texmf_log_name, total_shrink, total_stretch, trick_buf,
     trick_count, use_err_help, used_tectonic_coda_tokens, warning_index, write_file, write_open,
-    xtx_ligature_present, LR_problems, LR_ptr, BASE_PTR, BCHAR_LABEL, CHAR_BASE, DEPTH_BASE,
-    EOF_SEEN, EQTB, EQTB_TOP, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_CHECK, FONT_DSIZE,
-    FONT_EC, FONT_FALSE_BCHAR, FONT_FLAGS, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE,
+    xtx_ligature_present, LR_problems, LR_ptr, BASE_PTR, BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE,
+    DEPTH_BASE, EOF_SEEN, EQTB, EQTB_TOP, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_CHECK,
+    FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_FLAGS, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE,
     FONT_LETTER_SPACE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_SIZE,
     FULL_SOURCE_FILENAME_STACK, GRP_STACK, HEIGHT_BASE, HYPHEN_CHAR, IF_STACK, INPUT_FILE,
     INPUT_PTR, INPUT_STACK, IN_OPEN, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, LINE_STACK,
@@ -2793,7 +2793,7 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
     h = 0i32;
     k = j;
     while k <= j + l - 1i32 {
-        h = h + h + *buffer.offset(k as isize);
+        h = h + h + BUFFER[k as usize];
         while h >= 8501i32 {
             h = h - 8501i32
         }
@@ -2803,7 +2803,7 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
     ll = l;
     d = 0i32;
     while d <= l - 1i32 {
-        if *buffer.offset((j + d) as isize) as i64 >= 65536 {
+        if BUFFER[(j + d) as usize] as i64 >= 65536 {
             ll += 1
         }
         d += 1
@@ -2851,17 +2851,17 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
                 }
                 k = j;
                 while k <= j + l - 1i32 {
-                    if (*buffer.offset(k as isize) as i64) < 65536 {
+                    if (BUFFER[k as usize] as i64) < 65536 {
                         *str_pool.offset(pool_ptr as isize) =
-                            *buffer.offset(k as isize) as packed_UTF16_code;
+                            BUFFER[k as usize] as packed_UTF16_code;
                         pool_ptr += 1
                     } else {
                         *str_pool.offset(pool_ptr as isize) = (0xd800i32 as i64
-                            + (*buffer.offset(k as isize) as i64 - 65536) / 1024i32 as i64)
+                            + (BUFFER[k as usize] as i64 - 65536) / 1024i32 as i64)
                             as packed_UTF16_code;
                         pool_ptr += 1;
                         *str_pool.offset(pool_ptr as isize) = (0xdc00i32 as i64
-                            + (*buffer.offset(k as isize) as i64 - 65536) % 1024i32 as i64)
+                            + (BUFFER[k as usize] as i64 - 65536) % 1024i32 as i64)
                             as packed_UTF16_code;
                         pool_ptr += 1
                     }
@@ -3038,11 +3038,11 @@ pub(crate) unsafe fn pseudo_input() -> bool {
     } else {
         MEM[pseudo_files as usize].b32.s0 = MEM[p as usize].b32.s1;
         sz = MEM[p as usize].b32.s0;
-        if 4i32 * sz - 3i32 >= buf_size - last {
+        if 4 * sz - 3 >= BUF_SIZE as i32 - last {
             /*35: */
             cur_input.loc = first;
             cur_input.limit = last - 1i32;
-            overflow(b"buffer size", buf_size as usize);
+            overflow(b"buffer size", BUF_SIZE);
         }
         last = first;
         let mut for_end: i32 = 0;
@@ -3051,10 +3051,10 @@ pub(crate) unsafe fn pseudo_input() -> bool {
         if r <= for_end {
             loop {
                 w = MEM[r as usize].b16;
-                *buffer.offset(last as isize) = w.s3 as UnicodeScalar;
-                *buffer.offset((last + 1i32) as isize) = w.s2 as UnicodeScalar;
-                *buffer.offset((last + 2i32) as isize) = w.s1 as UnicodeScalar;
-                *buffer.offset((last + 3i32) as isize) = w.s0 as UnicodeScalar;
+                BUFFER[last as usize] = w.s3 as UnicodeScalar;
+                BUFFER[(last + 1i32) as usize] = w.s2 as UnicodeScalar;
+                BUFFER[(last + 2i32) as usize] = w.s1 as UnicodeScalar;
+                BUFFER[(last + 3i32) as usize] = w.s0 as UnicodeScalar;
                 last = last + 4i32;
                 let fresh15 = r;
                 r = r + 1;
@@ -3066,7 +3066,7 @@ pub(crate) unsafe fn pseudo_input() -> bool {
         if last >= max_buf_stack {
             max_buf_stack = last + 1i32
         }
-        while last > first && *buffer.offset((last - 1i32) as isize) == ' ' as i32 {
+        while last > first && BUFFER[(last - 1i32) as usize] == ' ' as i32 {
             last -= 1
         }
         free_node(p, sz);
@@ -3717,7 +3717,7 @@ pub(crate) unsafe fn show_context() {
                     tally = 0i32;
                     selector = Selector::PSEUDO;
                     trick_count = 1000000i64 as i32;
-                    if *buffer.offset(cur_input.limit as isize) == *INTPAR(IntPar::end_line_char) {
+                    if BUFFER[cur_input.limit as usize] == *INTPAR(IntPar::end_line_char) {
                         j = cur_input.limit
                     } else {
                         j = cur_input.limit + 1i32
@@ -3735,7 +3735,7 @@ pub(crate) unsafe fn show_context() {
                                         trick_count = error_line
                                     }
                                 }
-                                print_char(*buffer.offset(i as isize));
+                                print_char(BUFFER[i as usize]);
                                 let fresh23 = i;
                                 i = i + 1;
                                 if !(fresh23 < for_end) {
@@ -3991,8 +3991,8 @@ pub(crate) unsafe fn begin_file_reading() {
     if IN_OPEN == MAX_IN_OPEN {
         overflow(b"text input levels", MAX_IN_OPEN);
     }
-    if first == buf_size {
-        overflow(b"buffer size", buf_size as usize);
+    if first as usize == BUF_SIZE {
+        overflow(b"buffer size", BUF_SIZE);
     }
     IN_OPEN += 1;
     if INPUT_PTR > MAX_IN_STACK {
@@ -4144,15 +4144,15 @@ pub(crate) unsafe fn get_next() {
             /*357:*/
             {
                 if cur_input.loc <= cur_input.limit {
-                    cur_chr = *buffer.offset(cur_input.loc as isize);
+                    cur_chr = BUFFER[cur_input.loc as usize];
                     cur_input.loc += 1;
                     if cur_chr >= 0xd800i32
                         && cur_chr < 0xdc00i32
                         && cur_input.loc <= cur_input.limit
-                        && *buffer.offset(cur_input.loc as isize) >= 0xdc00i32
-                        && *buffer.offset(cur_input.loc as isize) < 0xe000i32
+                        && BUFFER[cur_input.loc as usize] >= 0xdc00i32
+                        && BUFFER[cur_input.loc as usize] < 0xe000i32
                     {
-                        lower = (*buffer.offset(cur_input.loc as isize) - 0xdc00i32) as UTF16_code;
+                        lower = (BUFFER[cur_input.loc as usize] - 0xdc00i32) as UTF16_code;
                         cur_input.loc += 1;
                         cur_chr =
                             (65536 + ((cur_chr - 0xd800i32) * 1024i32) as i64 + lower as i64) as i32
@@ -4182,7 +4182,7 @@ pub(crate) unsafe fn get_next() {
                                 break 'c_63807;
                             }
                             8 | 24 | 40 => {
-                                if !(cur_chr == *buffer.offset(cur_input.loc as isize)) {
+                                if !(cur_chr == BUFFER[cur_input.loc as usize]) {
                                     current_block = 8567661057257693057;
                                     break 'c_63807;
                                 }
@@ -4195,32 +4195,27 @@ pub(crate) unsafe fn get_next() {
                                     && cur_input.loc + 2i32 * sup_count as i32 - 2i32
                                         <= cur_input.limit
                                     && cur_chr
-                                        == *buffer.offset(
-                                            (cur_input.loc + sup_count as i32 - 1i32) as isize,
-                                        )
+                                        == BUFFER[(cur_input.loc + sup_count as i32 - 1) as usize]
                                 {
                                     sup_count += 1
                                 }
                                 d = 1i32 as small_number;
                                 while d as i32 <= sup_count as i32 {
-                                    if !(*buffer.offset(
-                                        (cur_input.loc + sup_count as i32 - 2i32 + d as i32)
-                                            as isize,
-                                    ) >= '0' as i32
-                                        && *buffer.offset(
-                                            (cur_input.loc + sup_count as i32 - 2i32 + d as i32)
-                                                as isize,
-                                        ) <= '9' as i32
-                                        || *buffer.offset(
-                                            (cur_input.loc + sup_count as i32 - 2i32 + d as i32)
-                                                as isize,
-                                        ) >= 'a' as i32
-                                            && *buffer.offset(
-                                                (cur_input.loc + sup_count as i32 - 2i32 + d as i32)
-                                                    as isize,
-                                            ) <= 'f' as i32)
+                                    if !(BUFFER[(cur_input.loc + sup_count as i32 - 2 + d as i32)
+                                        as usize]
+                                        >= '0' as i32
+                                        && BUFFER[(cur_input.loc + sup_count as i32 - 2 + d as i32)
+                                            as usize]
+                                            <= '9' as i32
+                                        || BUFFER[(cur_input.loc + sup_count as i32 - 2 + d as i32)
+                                            as usize]
+                                            >= 'a' as i32
+                                            && BUFFER[(cur_input.loc + sup_count as i32 - 2
+                                                + d as i32)
+                                                as usize]
+                                                <= 'f' as i32)
                                     {
-                                        c = *buffer.offset((cur_input.loc + 1i32) as isize);
+                                        c = BUFFER[(cur_input.loc + 1i32) as usize];
                                         if !(c < 128i32) {
                                             current_block = 8567661057257693057;
                                             break 'c_63807;
@@ -4239,10 +4234,8 @@ pub(crate) unsafe fn get_next() {
                                 cur_chr = 0i32;
                                 d = 1i32 as small_number;
                                 while d as i32 <= sup_count as i32 {
-                                    c = *buffer.offset(
-                                        (cur_input.loc + sup_count as i32 - 2i32 + d as i32)
-                                            as isize,
-                                    );
+                                    c = BUFFER[(cur_input.loc + sup_count as i32 - 2 + d as i32)
+                                        as usize];
                                     if c <= '9' as i32 {
                                         cur_chr = 16i32 * cur_chr + c - '0' as i32
                                     } else {
@@ -4251,7 +4244,7 @@ pub(crate) unsafe fn get_next() {
                                     d += 1
                                 }
                                 if cur_chr > 0x10ffffi32 {
-                                    cur_chr = *buffer.offset(cur_input.loc as isize);
+                                    cur_chr = BUFFER[cur_input.loc as usize];
                                     current_block = 8567661057257693057;
                                     break 'c_63807;
                                 } else {
@@ -4409,8 +4402,7 @@ pub(crate) unsafe fn get_next() {
                             {
                                 cur_input.limit -= 1
                             } else {
-                                *buffer.offset(cur_input.limit as isize) =
-                                    *INTPAR(IntPar::end_line_char)
+                                BUFFER[cur_input.limit as usize] = *INTPAR(IntPar::end_line_char)
                             }
                             first = cur_input.limit + 1i32;
                             cur_input.loc = cur_input.start
@@ -4442,7 +4434,7 @@ pub(crate) unsafe fn get_next() {
                         7720778817628725688 => {
                             'c_65963: loop {
                                 k = cur_input.loc;
-                                cur_chr = *buffer.offset(k as isize);
+                                cur_chr = BUFFER[k as usize];
                                 cat = EQTB[CAT_CODE_BASE + cur_chr as usize].b32.s1 as u8;
                                 k += 1;
                                 if cat as i32 == 11i32 {
@@ -4456,7 +4448,7 @@ pub(crate) unsafe fn get_next() {
                                     loop
                                     /*368:*/
                                     {
-                                        cur_chr = *buffer.offset(k as isize);
+                                        cur_chr = BUFFER[k as usize];
                                         cat = *CAT_CODE(cur_chr) as u8;
                                         k += 1;
                                         if !(cat as i32 == 11i32 && k <= cur_input.limit) {
@@ -4464,7 +4456,7 @@ pub(crate) unsafe fn get_next() {
                                         }
                                     }
                                     if !(cat as i32 == 7i32
-                                        && *buffer.offset(k as isize) == cur_chr
+                                        && BUFFER[k as usize] == cur_chr
                                         && k < cur_input.limit)
                                     {
                                         current_block = 5873035170358615968;
@@ -4478,8 +4470,7 @@ pub(crate) unsafe fn get_next() {
                                     sup_count = 2i32 as small_number;
                                     while (sup_count as i32) < 6i32
                                         && k + 2i32 * sup_count as i32 - 2i32 <= cur_input.limit
-                                        && *buffer.offset((k + sup_count as i32 - 1i32) as isize)
-                                            == cur_chr
+                                        && BUFFER[(k + sup_count as i32 - 1i32) as usize] == cur_chr
                                     {
                                         sup_count += 1
                                     }
@@ -4490,33 +4481,31 @@ pub(crate) unsafe fn get_next() {
                                     sup_count_save = sup_count as i32;
                                     d = 1i32 as small_number;
                                     while d as i32 <= sup_count_save {
-                                        if !(*buffer.offset(
-                                            (k + sup_count as i32 - 2i32 + d as i32) as isize,
-                                        ) >= '0' as i32
-                                            && *buffer.offset(
-                                                (k + sup_count as i32 - 2i32 + d as i32) as isize,
-                                            ) <= '9' as i32
-                                            || *buffer.offset(
-                                                (k + sup_count as i32 - 2i32 + d as i32) as isize,
-                                            ) >= 'a' as i32
-                                                && *buffer.offset(
-                                                    (k + sup_count as i32 - 2i32 + d as i32)
-                                                        as isize,
-                                                ) <= 'f' as i32)
+                                        if !(BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize]
+                                            >= '0' as i32
+                                            && BUFFER
+                                                [(k + sup_count as i32 - 2 + d as i32) as usize]
+                                                <= '9' as i32
+                                            || BUFFER
+                                                [(k + sup_count as i32 - 2 + d as i32) as usize]
+                                                >= 'a' as i32
+                                                && BUFFER[(k + sup_count as i32 - 2 + d as i32)
+                                                    as usize]
+                                                    <= 'f' as i32)
                                         {
                                             /* Non-hex: do it old style */
-                                            c = *buffer.offset((k + 1i32) as isize);
+                                            c = BUFFER[(k + 1i32) as usize];
                                             if c < 128i32 {
                                                 if c < 64i32 {
-                                                    *buffer.offset((k - 1i32) as isize) = c + 64i32
+                                                    BUFFER[(k - 1i32) as usize] = c + 64i32
                                                 } else {
-                                                    *buffer.offset((k - 1i32) as isize) = c - 64i32
+                                                    BUFFER[(k - 1i32) as usize] = c - 64i32
                                                 }
                                                 d = 2i32 as small_number;
                                                 cur_input.limit = cur_input.limit - d as i32;
                                                 while k <= cur_input.limit {
-                                                    *buffer.offset(k as isize) =
-                                                        *buffer.offset((k + d as i32) as isize);
+                                                    BUFFER[k as usize] =
+                                                        BUFFER[(k + d as i32) as usize];
                                                     k += 1
                                                 }
                                                 continue 'c_65963;
@@ -4533,9 +4522,7 @@ pub(crate) unsafe fn get_next() {
                                     cur_chr = 0i32;
                                     d = 1i32 as small_number;
                                     while d as i32 <= sup_count as i32 {
-                                        c = *buffer.offset(
-                                            (k + sup_count as i32 - 2i32 + d as i32) as isize,
-                                        );
+                                        c = BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize];
                                         if c <= '9' as i32 {
                                             cur_chr = 16i32 * cur_chr + c - '0' as i32
                                         } else {
@@ -4544,22 +4531,21 @@ pub(crate) unsafe fn get_next() {
                                         d += 1
                                     }
                                     if cur_chr > 0x10ffffi32 {
-                                        cur_chr = *buffer.offset(k as isize);
+                                        cur_chr = BUFFER[k as usize];
                                         current_block = 5873035170358615968;
                                         break;
                                     } else {
-                                        *buffer.offset((k - 1i32) as isize) = cur_chr;
+                                        BUFFER[(k - 1i32) as usize] = cur_chr;
                                         d = (2i32 * sup_count as i32 - 1i32) as small_number;
                                         cur_input.limit = cur_input.limit - d as i32;
                                         while k <= cur_input.limit {
-                                            *buffer.offset(k as isize) =
-                                                *buffer.offset((k + d as i32) as isize);
+                                            BUFFER[k as usize] = BUFFER[(k + d as i32) as usize];
                                             k += 1
                                         }
                                     }
                                 } else {
                                     if !(cat as i32 == 7i32
-                                        && *buffer.offset(k as isize) == cur_chr
+                                        && BUFFER[k as usize] == cur_chr
                                         && k < cur_input.limit)
                                     {
                                         current_block = 1604201581803946138;
@@ -4569,40 +4555,37 @@ pub(crate) unsafe fn get_next() {
                                     sup_count = 2i32 as small_number;
                                     while (sup_count as i32) < 6i32
                                         && k + 2i32 * sup_count as i32 - 2i32 <= cur_input.limit
-                                        && *buffer.offset((k + sup_count as i32 - 1i32) as isize)
-                                            == cur_chr
+                                        && BUFFER[(k + sup_count as i32 - 1i32) as usize] == cur_chr
                                     {
                                         sup_count += 1
                                     }
                                     sup_count_save_0 = sup_count as i32;
                                     d = 1i32 as small_number;
                                     while d as i32 <= sup_count_save_0 {
-                                        if !(*buffer.offset(
-                                            (k + sup_count as i32 - 2i32 + d as i32) as isize,
-                                        ) >= '0' as i32
-                                            && *buffer.offset(
-                                                (k + sup_count as i32 - 2i32 + d as i32) as isize,
-                                            ) <= '9' as i32
-                                            || *buffer.offset(
-                                                (k + sup_count as i32 - 2i32 + d as i32) as isize,
-                                            ) >= 'a' as i32
-                                                && *buffer.offset(
-                                                    (k + sup_count as i32 - 2i32 + d as i32)
-                                                        as isize,
-                                                ) <= 'f' as i32)
+                                        if !(BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize]
+                                            >= '0' as i32
+                                            && BUFFER
+                                                [(k + sup_count as i32 - 2 + d as i32) as usize]
+                                                <= '9' as i32
+                                            || BUFFER
+                                                [(k + sup_count as i32 - 2 + d as i32) as usize]
+                                                >= 'a' as i32
+                                                && BUFFER[(k + sup_count as i32 - 2 + d as i32)
+                                                    as usize]
+                                                    <= 'f' as i32)
                                         {
-                                            c = *buffer.offset((k + 1i32) as isize);
+                                            c = BUFFER[(k + 1i32) as usize];
                                             if c < 128i32 {
                                                 if c < 64i32 {
-                                                    *buffer.offset((k - 1i32) as isize) = c + 64i32
+                                                    BUFFER[(k - 1i32) as usize] = c + 64i32
                                                 } else {
-                                                    *buffer.offset((k - 1i32) as isize) = c - 64i32
+                                                    BUFFER[(k - 1i32) as usize] = c - 64i32
                                                 }
                                                 d = 2i32 as small_number;
                                                 cur_input.limit = cur_input.limit - d as i32;
                                                 while k <= cur_input.limit {
-                                                    *buffer.offset(k as isize) =
-                                                        *buffer.offset((k + d as i32) as isize);
+                                                    BUFFER[k as usize] =
+                                                        BUFFER[(k + d as i32) as usize];
                                                     k += 1
                                                 }
                                                 continue 'c_65963;
@@ -4619,9 +4602,8 @@ pub(crate) unsafe fn get_next() {
                                     cur_chr = 0i32;
                                     d = 1i32 as small_number;
                                     while d as i32 <= sup_count as i32 {
-                                        c = *buffer.offset(
-                                            (k + sup_count as i32 - 2i32 + d as i32) as isize,
-                                        );
+                                        c = BUFFER
+                                            [(k + sup_count as i32 - 2i32 + d as i32) as usize];
                                         if c <= '9' as i32 {
                                             cur_chr = 16i32 * cur_chr + c - '0' as i32
                                         } else {
@@ -4630,16 +4612,15 @@ pub(crate) unsafe fn get_next() {
                                         d += 1
                                     }
                                     if cur_chr > 0x10ffffi32 {
-                                        cur_chr = *buffer.offset(k as isize);
+                                        cur_chr = BUFFER[k as usize];
                                         current_block = 1604201581803946138;
                                         break;
                                     } else {
-                                        *buffer.offset((k - 1i32) as isize) = cur_chr;
+                                        BUFFER[(k - 1i32) as usize] = cur_chr;
                                         d = (2i32 * sup_count as i32 - 1i32) as small_number;
                                         cur_input.limit = cur_input.limit - d as i32;
                                         while k <= cur_input.limit {
-                                            *buffer.offset(k as isize) =
-                                                *buffer.offset((k + d as i32) as isize);
+                                            BUFFER[k as usize] = BUFFER[(k + d as i32) as usize];
                                             k += 1
                                         }
                                     }
@@ -4663,13 +4644,13 @@ pub(crate) unsafe fn get_next() {
                             match current_block {
                                 10802200937357087535 => {}
                                 _ => {
-                                    if *buffer.offset(cur_input.loc as isize) as i64 > 65535 {
+                                    if BUFFER[cur_input.loc as usize] as i64 > 65535 {
                                         cur_cs = id_lookup(cur_input.loc, 1i32);
                                         cur_input.loc += 1
                                     } else {
                                         cur_cs = 1i32
                                             + (0x10ffffi32 + 1i32)
-                                            + *buffer.offset(cur_input.loc as isize);
+                                            + BUFFER[cur_input.loc as usize];
                                         cur_input.loc += 1
                                     }
                                     current_block = 10802200937357087535;
@@ -5492,22 +5473,22 @@ pub(crate) unsafe fn expand() {
                     while !p.is_texnull() {
                         if j >= max_buf_stack {
                             max_buf_stack = j + 1i32;
-                            if max_buf_stack == buf_size {
-                                overflow(b"buffer size", buf_size as usize);
+                            if max_buf_stack as usize == BUF_SIZE {
+                                overflow(b"buffer size", BUF_SIZE);
                             }
                         }
-                        *buffer.offset(j as isize) = MEM[p as usize].b32.s0 % 0x200000;
+                        BUFFER[j as usize] = MEM[p as usize].b32.s0 % 0x200000;
                         j += 1;
                         p = *LLIST_link(p as isize)
                     }
-                    if j > first + 1i32 || *buffer.offset(first as isize) as i64 > 65535 {
+                    if j > first + 1i32 || BUFFER[first as usize] as i64 > 65535 {
                         no_new_control_sequence = false;
                         cur_cs = id_lookup(first, j - first);
                         no_new_control_sequence = true
                     } else if j == first {
                         cur_cs = 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32)
                     } else {
-                        cur_cs = 1i32 + (0x10ffffi32 + 1i32) + *buffer.offset(first as isize)
+                        cur_cs = 1i32 + (0x10ffffi32 + 1i32) + BUFFER[first as usize]
                         /*:392*/
                     }
                     flush_list(r);
@@ -9385,14 +9366,14 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
         if *INTPAR(IntPar::end_line_char) < 0i32 || *INTPAR(IntPar::end_line_char) > 255i32 {
             cur_input.limit -= 1
         } else {
-            *buffer.offset(cur_input.limit as isize) = *INTPAR(IntPar::end_line_char)
+            BUFFER[cur_input.limit as usize] = *INTPAR(IntPar::end_line_char)
         }
         first = cur_input.limit + 1i32;
         cur_input.loc = cur_input.start;
         cur_input.state = 33_u16;
         if j == 1i32 {
             while cur_input.loc <= cur_input.limit {
-                cur_chr = *buffer.offset(cur_input.loc as isize);
+                cur_chr = BUFFER[cur_input.loc as usize];
                 cur_input.loc += 1;
                 if cur_chr == ' ' as i32 {
                     cur_tok = 0x1400020i32
@@ -9731,18 +9712,18 @@ pub(crate) unsafe fn conditional() {
             while !p.is_texnull() {
                 if m >= max_buf_stack {
                     max_buf_stack = m + 1i32;
-                    if max_buf_stack == buf_size {
-                        overflow(b"buffer size", buf_size as usize);
+                    if max_buf_stack as usize == BUF_SIZE {
+                        overflow(b"buffer size", BUF_SIZE);
                     }
                 }
-                *buffer.offset(m as isize) = MEM[p as usize].b32.s0 % 0x200000;
+                BUFFER[m as usize] = MEM[p as usize].b32.s0 % 0x200000;
                 m += 1;
                 p = *LLIST_link(p as isize)
             }
             if m == first {
                 cur_cs = 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32)
             } else if m == first + 1i32 {
-                cur_cs = 1i32 + (0x10ffffi32 + 1i32) + *buffer.offset(first as isize)
+                cur_cs = 1i32 + (0x10ffffi32 + 1i32) + BUFFER[first as usize]
             } else {
                 cur_cs = id_lookup(first, m - first)
             }
@@ -10109,12 +10090,12 @@ pub(crate) unsafe fn open_log_file() {
      * printed. The eqtb reference is end_line_char. */
     print_nl_cstr(b"**");
     l = INPUT_STACK[0].limit;
-    if *buffer.offset(l as isize) == *INTPAR(IntPar::end_line_char) {
+    if BUFFER[l as usize] == *INTPAR(IntPar::end_line_char) {
         l -= 1
     }
     k = 1i32;
     while k <= l {
-        print(*buffer.offset(k as isize));
+        print(BUFFER[k as usize]);
         k += 1
     }
     print_ln();
@@ -10315,7 +10296,7 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     if *INTPAR(IntPar::end_line_char) < 0i32 || *INTPAR(IntPar::end_line_char) > 255i32 {
         cur_input.limit -= 1
     } else {
-        *buffer.offset(cur_input.limit as isize) = *INTPAR(IntPar::end_line_char)
+        BUFFER[cur_input.limit as usize] = *INTPAR(IntPar::end_line_char)
     }
     first = cur_input.limit + 1i32;
     cur_input.loc = cur_input.start;
@@ -15924,7 +15905,8 @@ pub(crate) unsafe fn issue_message() {
             + 256i32
             + 9i32) as usize]
             .b32
-            .s1.is_texnull()
+            .s1
+            .is_texnull()
         {
             use_err_help = true
         } else if long_help_seen {

@@ -49,7 +49,7 @@ use bridge::{
     ttstub_output_open, ttstub_output_open_stdout,
 };
 use dpx::{pdf_files_close, pdf_files_init};
-use libc::{free, memset, strcpy, strlen};
+use libc::{free, strcpy, strlen};
 
 pub(crate) type uintptr_t = u64;
 pub(crate) type size_t = usize;
@@ -434,7 +434,7 @@ pub(crate) static mut name_length: i32 = 0;
 #[no_mangle]
 pub(crate) static mut name_length16: i32 = 0;
 #[no_mangle]
-pub(crate) static mut buffer: *mut UnicodeScalar = ptr::null_mut();
+pub(crate) static mut BUFFER: Vec<UnicodeScalar> = Vec::new();
 #[no_mangle]
 pub(crate) static mut first: i32 = 0;
 #[no_mangle]
@@ -468,7 +468,7 @@ pub(crate) static mut HYPH_SIZE: usize = 0;
 #[no_mangle]
 pub(crate) static mut trie_size: i32 = 0;
 #[no_mangle]
-pub(crate) static mut buf_size: i32 = 0;
+pub(crate) static mut BUF_SIZE: usize = 0;
 #[no_mangle]
 pub(crate) static mut STACK_SIZE: usize = 0;
 #[no_mangle]
@@ -1345,11 +1345,11 @@ unsafe fn primitive(ident: &[u8], mut c: u16, mut o: i32) {
     let mut len = ident.len() as i32;
     if len > 1 {
         let mut s: str_number = maketexstring(ident);
-        if first + len > buf_size + 1 {
-            overflow(b"buffer size", buf_size as usize);
+        if first + len > BUF_SIZE as i32 + 1 {
+            overflow(b"buffer size", BUF_SIZE);
         }
         for i in 0..len {
-            *buffer.offset((first + i) as isize) = ident[i as usize] as UnicodeScalar;
+            BUFFER[(first + i) as usize] = ident[i as usize] as UnicodeScalar;
         }
         cur_val = id_lookup(first, len);
         str_ptr -= 1;
@@ -4938,7 +4938,7 @@ unsafe fn init_io() {
     stdin_ufile.encodingMode = 1_i16;
     stdin_ufile.conversionData = 0 as *mut libc::c_void;
     INPUT_FILE[0] = &mut stdin_ufile;
-    *buffer.offset(first as isize) = 0i32;
+    BUFFER[first as usize] = 0;
     last = first;
     cur_input.loc = first;
     cur_input.limit = last;
@@ -6135,7 +6135,7 @@ pub(crate) unsafe fn tt_run_engine(
     FONT_MAX = 9000;
     trie_size = 1000000i64 as i32;
     HYPH_SIZE = 8191;
-    buf_size = 200000i64 as i32;
+    BUF_SIZE = 200000;
     nest_size = 500i32;
     MAX_IN_OPEN = 15;
     PARAM_SIZE = 10000;
@@ -6147,7 +6147,7 @@ pub(crate) unsafe fn tt_run_engine(
     hash_extra = 600000i64 as i32;
     expand_depth = 10000i32;
     /* Allocate many of our big arrays. */
-    buffer = xmalloc_array(buf_size as usize);
+    BUFFER = vec![0; BUF_SIZE + 1];
     nest = xmalloc_array(nest_size as usize);
     SAVE_STACK = vec![memory_word::default(); SAVE_SIZE + 1];
     INPUT_STACK = vec![input_state_t::default(); STACK_SIZE + 1];
@@ -6220,7 +6220,7 @@ pub(crate) unsafe fn tt_run_engine(
     if SAVE_SIZE as i32 > MAX_HALFWORD || max_strings > MAX_HALFWORD {
         bad = 17
     }
-    if buf_size > MAX_HALFWORD {
+    if BUF_SIZE > MAX_HALFWORD as usize {
         bad = 18
     }
     if CS_TOKEN_FLAG + EQTB_SIZE + hash_extra > MAX_HALFWORD {
@@ -6276,11 +6276,11 @@ pub(crate) unsafe fn tt_run_engine(
     MAX_PARAM_STACK = 0;
     used_tectonic_coda_tokens = false;
     gave_char_warning_help = false;
-    memset(
+    /*memset(
         buffer as *mut libc::c_void,
         0i32,
-        (buf_size as usize).wrapping_mul(::std::mem::size_of::<UnicodeScalar>()),
-    );
+        (BUF_SIZE as usize).wrapping_mul(::std::mem::size_of::<UnicodeScalar>()),
+    );*/
     first = 0i32;
     scanner_status = 0_u8;
     warning_index = TEX_NULL;
@@ -6605,7 +6605,7 @@ pub(crate) unsafe fn tt_run_engine(
     if *INTPAR(IntPar::end_line_char) < 0 || *INTPAR(IntPar::end_line_char) < BIGGEST_CHAR {
         cur_input.limit -= 1
     } else {
-        *buffer.offset(cur_input.limit as isize) = *INTPAR(IntPar::end_line_char);
+        BUFFER[cur_input.limit as usize] = *INTPAR(IntPar::end_line_char);
     }
     if in_initex_mode {
         /* TeX initializes with the real date and time, but for format file
@@ -6732,7 +6732,7 @@ pub(crate) unsafe fn tt_run_engine(
         font_k += 1
     }
     // Free the big allocated arrays
-    free(buffer as *mut libc::c_void);
+    BUFFER = Vec::new();
     free(nest as *mut libc::c_void);
     SAVE_STACK = Vec::new();
     INPUT_STACK = Vec::new();
