@@ -216,7 +216,14 @@ pub(crate) unsafe fn print(mut s: i32) {
         }
     }
     let mut pool_idx: i32 = s - 0x10000i32;
-    let mut i: pool_pointer = str_start[pool_idx as usize];
+
+    // TODO: fix this bug workaround
+    let mut i = if pool_idx as usize > crate::xetex_ini::max_strings {
+        0
+    } else {
+        str_start[pool_idx as usize]
+    };
+
     while i < str_start[(pool_idx + 1) as usize] {
         if str_pool[i as usize] as i32 >= 0xd800i32
             && (str_pool[i as usize] as i32) < 0xdc00i32
