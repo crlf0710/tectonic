@@ -109,8 +109,8 @@ unsafe fn font_from_attributes(mut attributes: CFDictionaryRef) -> CTFontRef {
         as CTFontRef;
 }
 
-pub(crate) unsafe fn font_from_integer(mut font: int32_t) -> CTFontRef {
-    let mut attributes: CFDictionaryRef = FONT_LAYOUT_ENGINE[font as usize] as CFDictionaryRef;
+pub(crate) unsafe fn font_from_integer(mut font: usize) -> CTFontRef {
+    let mut attributes: CFDictionaryRef = FONT_LAYOUT_ENGINE[font] as CFDictionaryRef;
     return font_from_attributes(attributes);
 }
 
