@@ -4117,8 +4117,8 @@ unsafe fn initialize_more_initex_variables() {
     MEM[PAGE_INS_HEAD].b16.s0 = 255_u16;
     MEM[PAGE_INS_HEAD].b16.s1 = SPLIT_UP as _;
     MEM[PAGE_INS_HEAD].b32.s1 = PAGE_INS_HEAD as i32;
-    MEM[(4999999 - 2) as usize].b16.s1 = 10;
-    MEM[(4999999 - 2) as usize].b16.s0 = 0;
+    MEM[PAGE_HEAD as usize].b16.s1 = 10;
+    MEM[PAGE_HEAD as usize].b16.s0 = 0;
     avail = TEX_NULL;
     mem_end = MEM_TOP as i32;
     hi_mem_min = PRE_ADJUST_HEAD as i32;
