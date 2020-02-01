@@ -2966,12 +2966,6 @@ pub(crate) unsafe fn print_group(mut e: bool) {
 pub(crate) unsafe fn pseudo_input() -> bool {
     let mut p: i32 = 0;
     let mut sz: i32 = 0;
-    let mut w: b16x4 = b16x4 {
-        s0: 0,
-        s1: 0,
-        s2: 0,
-        s3: 0,
-    };
     let mut r: i32 = 0;
     last = first;
     p = MEM[pseudo_files as usize].b32.s0;
@@ -2983,21 +2977,21 @@ pub(crate) unsafe fn pseudo_input() -> bool {
         if 4 * sz - 3 >= BUF_SIZE as i32 - last {
             /*35: */
             cur_input.loc = first;
-            cur_input.limit = last - 1i32;
+            cur_input.limit = last - 1;
             overflow(b"buffer size", BUF_SIZE);
         }
         last = first;
         let mut for_end: i32 = 0;
-        r = p + 1i32;
-        for_end = p + sz - 1i32;
+        r = p + 1;
+        for_end = p + sz - 1;
         if r <= for_end {
             loop {
-                w = MEM[r as usize].b16;
+                let w = MEM[r as usize].b16;
                 BUFFER[last as usize] = w.s3 as UnicodeScalar;
-                BUFFER[(last + 1i32) as usize] = w.s2 as UnicodeScalar;
-                BUFFER[(last + 2i32) as usize] = w.s1 as UnicodeScalar;
-                BUFFER[(last + 3i32) as usize] = w.s0 as UnicodeScalar;
-                last = last + 4i32;
+                BUFFER[(last + 1) as usize] = w.s2 as UnicodeScalar;
+                BUFFER[(last + 2) as usize] = w.s1 as UnicodeScalar;
+                BUFFER[(last + 3) as usize] = w.s0 as UnicodeScalar;
+                last = last + 4;
                 let fresh15 = r;
                 r = r + 1;
                 if !(fresh15 < for_end) {
@@ -3006,9 +3000,9 @@ pub(crate) unsafe fn pseudo_input() -> bool {
             }
         }
         if last >= max_buf_stack {
-            max_buf_stack = last + 1i32
+            max_buf_stack = last + 1
         }
-        while last > first && BUFFER[(last - 1i32) as usize] == ' ' as i32 {
+        while last > first && BUFFER[(last - 1) as usize] == ' ' as i32 {
             last -= 1
         }
         free_node(p, sz);
@@ -3037,12 +3031,12 @@ pub(crate) unsafe fn group_warning() {
     w = false;
     while GRP_STACK[i] == cur_boundary && i > 0 {
         if *INTPAR(IntPar::tracing_nesting) > 0i32 {
-            while INPUT_STACK[BASE_PTR].state as i32 == 0i32
+            while INPUT_STACK[BASE_PTR].state == TOKEN_LIST
                 || INPUT_STACK[BASE_PTR].index as usize > i
             {
                 BASE_PTR -= 1;
             }
-            if INPUT_STACK[BASE_PTR].name > 17i32 {
+            if INPUT_STACK[BASE_PTR].name > 17 {
                 w = true
             }
         }
@@ -3054,7 +3048,7 @@ pub(crate) unsafe fn group_warning() {
         print_group(true);
         print_cstr(b" of a different file");
         print_ln();
-        if *INTPAR(IntPar::tracing_nesting) > 1i32 {
+        if *INTPAR(IntPar::tracing_nesting) > 1 {
             show_context();
         }
         if history == TTHistory::SPOTLESS {
@@ -3069,13 +3063,13 @@ pub(crate) unsafe fn if_warning() {
     let mut i = IN_OPEN;
     w = false;
     while IF_STACK[i] == cond_ptr {
-        if *INTPAR(IntPar::tracing_nesting) > 0i32 {
-            while INPUT_STACK[BASE_PTR].state as i32 == 0i32
+        if *INTPAR(IntPar::tracing_nesting) > 0 {
+            while INPUT_STACK[BASE_PTR].state == TOKEN_LIST
                 || INPUT_STACK[BASE_PTR].index as usize > i
             {
                 BASE_PTR -= 1
             }
-            if INPUT_STACK[BASE_PTR].name > 17i32 {
+            if INPUT_STACK[BASE_PTR].name > 17 {
                 w = true
             }
         }
@@ -3108,7 +3102,7 @@ pub(crate) unsafe fn file_warning() {
     let c = cur_group;
     SAVE_PTR = cur_boundary as usize;
     while GRP_STACK[IN_OPEN] != SAVE_PTR as i32 {
-        cur_level = cur_level.wrapping_sub(1);
+        cur_level -= 1;
         print_nl_cstr(b"Warning: end of file when ");
         print_group(true);
         print_cstr(b" is incomplete");
@@ -3124,11 +3118,11 @@ pub(crate) unsafe fn file_warning() {
     i = if_line;
     while IF_STACK[IN_OPEN] != cond_ptr {
         print_nl_cstr(b"Warning: end of file when ");
-        print_cmd_chr(107_u16, cur_if as i32);
-        if if_limit as i32 == 2i32 {
+        print_cmd_chr(IF_TEST, cur_if as i32);
+        if if_limit as i32 == FI_CODE {
             print_esc_cstr(b"else");
         }
-        if if_line != 0i32 {
+        if if_line != 0 {
             print_cstr(b" entered on line ");
             print_int(if_line);
         }
@@ -3136,14 +3130,14 @@ pub(crate) unsafe fn file_warning() {
         if_line = MEM[(cond_ptr + 1) as usize].b32.s1;
         cur_if = MEM[cond_ptr as usize].b16.s0 as small_number;
         if_limit = MEM[cond_ptr as usize].b16.s1 as u8;
-        cond_ptr = MEM[cond_ptr as usize].b32.s1
+        cond_ptr = *LLIST_link(cond_ptr as isize);
     }
     cond_ptr = p;
     if_limit = l as u8;
     cur_if = c as small_number;
     if_line = i;
     print_ln();
-    if *INTPAR(IntPar::tracing_nesting) > 1i32 {
+    if *INTPAR(IntPar::tracing_nesting) > 1 {
         show_context();
     }
     if history == TTHistory::SPOTLESS {
@@ -3158,23 +3152,23 @@ pub(crate) unsafe fn delete_sa_ref(mut q: i32) {
     if !MEM[(q + 1) as usize].b32.s0.is_texnull() {
         return;
     }
-    if (MEM[q as usize].b16.s1 as i32) < 128 {
+    if MEM[q as usize].b16.s1 < DIMEN_VAL_LIMIT {
         if MEM[(q + 2) as usize].b32.s1 == 0 {
-            s = 3i32 as small_number
+            s = WORD_NODE_SIZE as small_number
         } else {
             return;
         }
     } else {
-        if (MEM[q as usize].b16.s1 as i32) < 256 {
+        if MEM[q as usize].b16.s1 < MU_VAL_LIMIT {
             if MEM[(q + 1) as usize].b32.s1 == 0 {
-                delete_glue_ref(0i32);
+                delete_glue_ref(0);
             } else {
                 return;
             }
         } else if !MEM[(q + 1) as usize].b32.s1.is_texnull() {
             return;
         }
-        s = 2i32 as small_number
+        s = POINTER_NODE_SIZE as small_number
     }
     loop {
         i = (MEM[q as usize].b16.s1 as i32 % 64) as small_number;
@@ -3185,13 +3179,13 @@ pub(crate) unsafe fn delete_sa_ref(mut q: i32) {
             sa_root[i as usize] = TEX_NULL;
             return;
         }
-        if i as i32 & 1i32 != 0 {
+        if i as i32 & 1 != 0 {
             MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = TEX_NULL
         } else {
             MEM[(q + i as i32 / 2 + 1) as usize].b32.s0 = TEX_NULL
         }
         MEM[q as usize].b16.s0 -= 1;
-        s = 33i32 as small_number;
+        s = INDEX_NODE_SIZE as small_number;
         if MEM[q as usize].b16.s0 as i32 > 0 {
             break;
         }
@@ -3209,7 +3203,7 @@ pub(crate) unsafe fn sa_save(mut p: i32) {
                 overflow(b"save size", SAVE_SIZE);
             }
         }
-        SAVE_STACK[SAVE_PTR].b16.s1 = 4_u16;
+        SAVE_STACK[SAVE_PTR].b16.s1 = RESTORE_SA;
         SAVE_STACK[SAVE_PTR].b16.s0 = sa_level;
         SAVE_STACK[SAVE_PTR].b32.s1 = sa_chain;
         SAVE_PTR += 1;
@@ -3217,17 +3211,17 @@ pub(crate) unsafe fn sa_save(mut p: i32) {
         sa_level = cur_level
     }
     i = MEM[p as usize].b16.s1;
-    if (i as i32) < 128i32 {
+    if i < DIMEN_VAL_LIMIT {
         if MEM[(p + 2) as usize].b32.s1 == 0 {
-            q = get_node(2i32);
-            i = 384_u16
+            q = get_node(POINTER_NODE_SIZE);
+            i = TOK_VAL_LIMIT
         } else {
-            q = get_node(3i32);
+            q = get_node(WORD_NODE_SIZE);
             MEM[(q + 2) as usize].b32.s1 = MEM[(p + 2) as usize].b32.s1
         }
         MEM[(q + 1) as usize].b32.s1 = TEX_NULL
     } else {
-        q = get_node(2i32);
+        q = get_node(POINTER_NODE_SIZE);
         MEM[(q + 1) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1
     }
     MEM[(q + 1) as usize].b32.s0 = p;
@@ -3237,18 +3231,18 @@ pub(crate) unsafe fn sa_save(mut p: i32) {
     sa_chain = q;
     MEM[(p + 1) as usize].b32.s0 += 1;
 }
-pub(crate) unsafe fn sa_destroy(mut p: i32) {
-    if (MEM[p as usize].b16.s1 as i32) < 256 {
+pub(crate) unsafe fn sa_destroy(p: i32) {
+    if MEM[p as usize].b16.s1 < MU_VAL_LIMIT {
         delete_glue_ref(MEM[(p + 1) as usize].b32.s1);
     } else if !MEM[(p + 1) as usize].b32.s1.is_texnull() {
-        if (MEM[p as usize].b16.s1 as i32) < 320 {
+        if MEM[p as usize].b16.s1 < BOX_VAL_LIMIT {
             flush_node_list(MEM[(p + 1) as usize].b32.s1);
         } else {
             delete_token_ref(MEM[(p + 1) as usize].b32.s1);
         }
     };
 }
-pub(crate) unsafe fn sa_def(mut p: i32, mut e: i32) {
+pub(crate) unsafe fn sa_def(p: i32, e: i32) {
     MEM[(p + 1) as usize].b32.s0 += 1;
     if MEM[(p + 1) as usize].b32.s1 == e {
         sa_destroy(p);
@@ -3274,16 +3268,16 @@ pub(crate) unsafe fn sa_w_def(mut p: i32, mut w: i32) {
     }
     delete_sa_ref(p);
 }
-pub(crate) unsafe fn gsa_def(mut p: i32, mut e: i32) {
+pub(crate) unsafe fn gsa_def(p: i32, e: i32) {
     MEM[(p + 1) as usize].b32.s0 += 1;
     sa_destroy(p);
-    MEM[p as usize].b16.s0 = 1_u16;
+    MEM[p as usize].b16.s0 = LEVEL_ONE;
     MEM[(p + 1) as usize].b32.s1 = e;
     delete_sa_ref(p);
 }
-pub(crate) unsafe fn gsa_w_def(mut p: i32, mut w: i32) {
+pub(crate) unsafe fn gsa_w_def(p: i32, w: i32) {
     MEM[(p + 1) as usize].b32.s0 += 1;
-    MEM[p as usize].b16.s0 = 1_u16;
+    MEM[p as usize].b16.s0 = LEVEL_ONE;
     MEM[(p + 2) as usize].b32.s1 = w;
     delete_sa_ref(p);
 }
@@ -3291,13 +3285,13 @@ pub(crate) unsafe fn sa_restore() {
     let mut p: i32 = 0;
     loop {
         p = MEM[(sa_chain + 1) as usize].b32.s0;
-        if MEM[p as usize].b16.s0 as i32 == 1 {
-            if MEM[p as usize].b16.s1 as i32 >= 128 {
+        if MEM[p as usize].b16.s0 == LEVEL_ONE {
+            if MEM[p as usize].b16.s1 >= DIMEN_VAL_LIMIT {
                 sa_destroy(sa_chain);
             }
         } else {
-            if (MEM[p as usize].b16.s1 as i32) < 128 {
-                if (MEM[sa_chain as usize].b16.s1 as i32) < 128 {
+            if MEM[p as usize].b16.s1 < DIMEN_VAL_LIMIT {
+                if MEM[sa_chain as usize].b16.s1 < DIMEN_VAL_LIMIT {
                     MEM[(p + 2) as usize].b32.s1 = MEM[(sa_chain + 2) as usize].b32.s1
                 } else {
                     MEM[(p + 2) as usize].b32.s1 = 0
@@ -3311,10 +3305,10 @@ pub(crate) unsafe fn sa_restore() {
         delete_sa_ref(p);
         p = sa_chain;
         sa_chain = MEM[p as usize].b32.s1;
-        if (MEM[p as usize].b16.s1 as i32) < 128 {
-            free_node(p, 3i32);
+        if MEM[p as usize].b16.s1 < DIMEN_VAL_LIMIT {
+            free_node(p, WORD_NODE_SIZE);
         } else {
-            free_node(p, 2i32);
+            free_node(p, POINTER_NODE_SIZE);
         }
         if sa_chain.is_texnull() {
             break;
@@ -3330,15 +3324,15 @@ pub(crate) unsafe fn new_save_level(c: GroupCode) {
     }
     SAVE_STACK[SAVE_PTR + 0].b32.s1 = line;
     SAVE_PTR += 1;
-    SAVE_STACK[SAVE_PTR].b16.s1 = 3_u16;
+    SAVE_STACK[SAVE_PTR].b16.s1 = LEVEL_BOUNDARY;
     SAVE_STACK[SAVE_PTR].b16.s0 = cur_group as u16;
     SAVE_STACK[SAVE_PTR].b32.s1 = cur_boundary;
-    if cur_level as i32 == 65535 {
-        overflow(b"grouping levels", 65535);
+    if cur_level == u16::max_value() {
+        overflow(b"grouping levels", u16::max_value() as usize);
     }
     cur_boundary = SAVE_PTR as i32;
     cur_group = c;
-    cur_level = cur_level.wrapping_add(1);
+    cur_level += 1;
     SAVE_PTR += 1;
 }
 pub(crate) unsafe fn eq_destroy(mut w: memory_word) {
@@ -3354,39 +3348,39 @@ pub(crate) unsafe fn eq_destroy(mut w: memory_word) {
         }
         121 => flush_node_list(w.b32.s1),
         72 | 91 => {
-            if w.b32.s1 < 0i32 || w.b32.s1 > 19i32 {
+            if w.b32.s1 < 0 || w.b32.s1 > 19 {
                 delete_sa_ref(w.b32.s1);
             }
         }
         _ => {}
     };
 }
-pub(crate) unsafe fn eq_save(mut p: i32, mut l: u16) {
+pub(crate) unsafe fn eq_save(p: i32, l: u16) {
     if SAVE_PTR > MAX_SAVE_STACK {
         MAX_SAVE_STACK = SAVE_PTR;
         if MAX_SAVE_STACK > SAVE_SIZE - 7 {
             overflow(b"save size", SAVE_SIZE);
         }
     }
-    if l as i32 == 0i32 {
-        SAVE_STACK[SAVE_PTR].b16.s1 = 1_u16
+    if l == LEVEL_ZERO {
+        SAVE_STACK[SAVE_PTR].b16.s1 = RESTORE_ZERO
     } else {
         SAVE_STACK[SAVE_PTR] = EQTB[p as usize];
         SAVE_PTR += 1;
-        SAVE_STACK[SAVE_PTR].b16.s1 = 0_u16
+        SAVE_STACK[SAVE_PTR].b16.s1 = RESTORE_OLD_VALUE
     }
     SAVE_STACK[SAVE_PTR].b16.s0 = l;
     SAVE_STACK[SAVE_PTR].b32.s1 = p;
     SAVE_PTR += 1;
 }
-pub(crate) unsafe fn eq_define(mut p: i32, mut t: u16, mut e: i32) {
+pub(crate) unsafe fn eq_define(p: i32, t: u16, e: i32) {
     if EQTB[p as usize].b16.s1 as i32 == t as i32 && EQTB[p as usize].b32.s1 == e {
         eq_destroy(EQTB[p as usize]);
         return;
     }
     if EQTB[p as usize].b16.s0 as i32 == cur_level as i32 {
         eq_destroy(EQTB[p as usize]);
-    } else if cur_level as i32 > 1i32 {
+    } else if cur_level > LEVEL_ONE {
         eq_save(p, EQTB[p as usize].b16.s0);
     }
     EQTB[p as usize].b16.s0 = cur_level;
@@ -3405,43 +3399,43 @@ pub(crate) unsafe fn eq_word_define(mut p: i32, mut w: i32) {
 }
 pub(crate) unsafe fn geq_define(mut p: i32, mut t: u16, mut e: i32) {
     eq_destroy(EQTB[p as usize]);
-    EQTB[p as usize].b16.s0 = 1_u16;
+    EQTB[p as usize].b16.s0 = LEVEL_ONE;
     EQTB[p as usize].b16.s1 = t;
     EQTB[p as usize].b32.s1 = e;
 }
 pub(crate) unsafe fn geq_word_define(mut p: i32, mut w: i32) {
     EQTB[p as usize].b32.s1 = w;
-    _xeq_level_array[(p - (INT_BASE)) as usize] = 1_u16;
+    _xeq_level_array[(p - (INT_BASE)) as usize] = LEVEL_ONE;
 }
 pub(crate) unsafe fn save_for_after(mut t: i32) {
-    if cur_level as i32 > 1i32 {
+    if cur_level > LEVEL_ONE {
         if SAVE_PTR > MAX_SAVE_STACK {
             MAX_SAVE_STACK = SAVE_PTR;
             if MAX_SAVE_STACK > SAVE_SIZE - 7 {
                 overflow(b"save size", SAVE_SIZE);
             }
         }
-        SAVE_STACK[SAVE_PTR].b16.s1 = 2_u16;
-        SAVE_STACK[SAVE_PTR].b16.s0 = 0_u16;
+        SAVE_STACK[SAVE_PTR].b16.s1 = INSERT_TOKEN;
+        SAVE_STACK[SAVE_PTR].b16.s0 = LEVEL_ZERO;
         SAVE_STACK[SAVE_PTR].b32.s1 = t;
         SAVE_PTR += 1;
     };
 }
 pub(crate) unsafe fn unsave() {
     let mut p: i32 = 0;
-    let mut l: u16 = 0_u16;
+    let mut l = 0_u16;
     let mut t: i32 = 0;
     let mut a: bool = false;
     a = false;
-    if cur_level as i32 > 1i32 {
-        cur_level = cur_level.wrapping_sub(1);
+    if cur_level > LEVEL_ONE {
+        cur_level -= 1;
         loop {
             SAVE_PTR -= 1;
-            if SAVE_STACK[SAVE_PTR].b16.s1 as i32 == 3i32 {
+            if SAVE_STACK[SAVE_PTR].b16.s1 == LEVEL_BOUNDARY {
                 break;
             }
             p = SAVE_STACK[SAVE_PTR].b32.s1;
-            if SAVE_STACK[SAVE_PTR].b16.s1 as i32 == 2i32 {
+            if SAVE_STACK[SAVE_PTR].b16.s1 == INSERT_TOKEN {
                 /*338: */
                 t = cur_tok;
                 cur_tok = p;
@@ -3451,8 +3445,8 @@ pub(crate) unsafe fn unsave() {
                     MEM[p as usize].b32.s1 = cur_input.loc;
                     cur_input.loc = p;
                     cur_input.start = p;
-                    if cur_tok < 0x600000i32 {
-                        if cur_tok < 0x400000i32 {
+                    if cur_tok < RIGHT_BRACE_LIMIT {
+                        if cur_tok < LEFT_BRACE_LIMIT {
                             align_state -= 1
                         } else {
                             align_state += 1
@@ -3463,32 +3457,25 @@ pub(crate) unsafe fn unsave() {
                     a = true
                 }
                 cur_tok = t
-            } else if SAVE_STACK[SAVE_PTR].b16.s1 as i32 == 4i32 {
+            } else if SAVE_STACK[SAVE_PTR].b16.s1 == RESTORE_SA {
                 sa_restore();
                 sa_chain = p;
                 sa_level = SAVE_STACK[SAVE_PTR].b16.s0
             } else {
-                if SAVE_STACK[SAVE_PTR].b16.s1 as i32 == 0i32 {
+                if SAVE_STACK[SAVE_PTR].b16.s1 == RESTORE_OLD_VALUE {
                     l = SAVE_STACK[SAVE_PTR].b16.s0;
                     SAVE_PTR -= 1;
                 } else {
-                    SAVE_STACK[SAVE_PTR] = EQTB[(1i32
-                        + (0x10ffffi32 + 1i32)
-                        + (0x10ffffi32 + 1i32)
-                        + 1i32
-                        + 15000i32
-                        + 12i32
-                        + 9000i32
-                        + 1i32) as usize];
+                    SAVE_STACK[SAVE_PTR] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
                 }
                 if p < INT_BASE || p > EQTB_SIZE {
-                    if EQTB[p as usize].b16.s0 as i32 == 1i32 {
+                    if EQTB[p as usize].b16.s0 == LEVEL_ONE {
                         eq_destroy(SAVE_STACK[SAVE_PTR]);
                     } else {
                         eq_destroy(EQTB[p as usize]);
                         EQTB[p as usize] = SAVE_STACK[SAVE_PTR]
                     }
-                } else if _xeq_level_array[(p - (INT_BASE)) as usize] as i32 != 1i32 {
+                } else if _xeq_level_array[(p - (INT_BASE)) as usize] != LEVEL_ONE {
                     EQTB[p as usize] = SAVE_STACK[SAVE_PTR];
                     _xeq_level_array[(p - (INT_BASE)) as usize] = l
                 }
@@ -3505,7 +3492,7 @@ pub(crate) unsafe fn unsave() {
     };
 }
 pub(crate) unsafe fn prepare_mag() {
-    if mag_set > 0i32 && *INTPAR(IntPar::mag) != mag_set {
+    if mag_set > 0 && *INTPAR(IntPar::mag) != mag_set {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -3515,38 +3502,40 @@ pub(crate) unsafe fn prepare_mag() {
         print_int(*INTPAR(IntPar::mag));
         print_cstr(b");");
         print_nl_cstr(b" the previous value will be retained");
-        help_ptr = 2_u8;
+
+        help_ptr = 2;
         help_line[1] = b"I can handle only one magnification ratio per job. So I\'ve";
         help_line[0] = b"reverted to the magnification you used earlier on this run.";
         int_error(mag_set);
         geq_word_define(INT_BASE + IntPar::mag as i32, mag_set);
     }
-    if *INTPAR(IntPar::mag) <= 0i32 || *INTPAR(IntPar::mag) as i64 > 32768 {
+    if *INTPAR(IntPar::mag) <= 0 || *INTPAR(IntPar::mag) as i64 > 32768 {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Illegal magnification has been changed to 1000");
-        help_ptr = 1_u8;
+
+        help_ptr = 1;
         help_line[0] = b"The magnification ratio must be between 1 and 32768.";
         int_error(*INTPAR(IntPar::mag));
-        geq_word_define(INT_BASE + IntPar::mag as i32, 1000i32);
+        geq_word_define(INT_BASE + IntPar::mag as i32, 1000);
     }
     mag_set = *INTPAR(IntPar::mag);
 }
 pub(crate) unsafe fn token_show(mut p: i32) {
     if !p.is_texnull() {
-        show_token_list(MEM[p as usize].b32.s1, TEX_NULL, 10000000i64 as i32);
+        show_token_list(MEM[p as usize].b32.s1, TEX_NULL, 10000000);
     };
 }
 pub(crate) unsafe fn print_meaning() {
     print_cmd_chr(cur_cmd as u16, cur_chr);
-    if cur_cmd as i32 >= 113i32 {
+    if cur_cmd as u16 >= CALL {
         print_char(':' as i32);
         print_ln();
         token_show(cur_chr);
-    } else if cur_cmd as i32 == 112i32 && cur_chr < 5i32 {
+    } else if cur_cmd as u16 == TOP_BOT_MARK && cur_chr < 5 {
         print_char(':' as i32);
         print_ln();
         token_show(cur_mark[cur_chr as usize]);
@@ -3564,17 +3553,17 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
         shown_mode = cur_list.mode
     }
     print_cmd_chr(cur_cmd as u16, cur_chr);
-    if *INTPAR(IntPar::tracing_ifs) > 0i32 {
-        if cur_cmd as i32 >= 107i32 {
-            if cur_cmd as i32 <= 108i32 {
+    if *INTPAR(IntPar::tracing_ifs) > 0 {
+        if cur_cmd as u16 >= IF_TEST {
+            if cur_cmd as u16 <= FI_OR_ELSE {
                 print_cstr(b": ");
-                if cur_cmd as i32 == 108i32 {
-                    print_cmd_chr(107_u16, cur_if as i32);
+                if cur_cmd as u16 == FI_OR_ELSE {
+                    print_cmd_chr(IF_TEST, cur_if as i32);
                     print_char(' ' as i32);
-                    n = 0i32;
+                    n = 0;
                     l = if_line
                 } else {
-                    n = 1i32;
+                    n = 1;
                     l = line
                 }
                 p = cond_ptr;
@@ -3585,7 +3574,7 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
                 print_cstr(b"(level ");
                 print_int(n);
                 print_char(')' as i32);
-                if l != 0i32 {
+                if l != 0 {
                     print_cstr(b" entered on line ");
                     print_int(l);
                 }
@@ -3607,12 +3596,12 @@ pub(crate) unsafe fn show_context() {
     let mut q: i32 = 0;
     BASE_PTR = INPUT_PTR;
     INPUT_STACK[BASE_PTR] = cur_input;
-    nn = -1i32;
+    nn = -1;
     bottom_line = false;
     loop {
         cur_input = INPUT_STACK[BASE_PTR];
-        if cur_input.state as i32 != 0i32 {
-            if cur_input.name > 19i32 || BASE_PTR == 0 {
+        if cur_input.state != TOKEN_LIST {
+            if cur_input.name > 19 || BASE_PTR == 0 {
                 bottom_line = true
             }
         }
@@ -3622,15 +3611,15 @@ pub(crate) unsafe fn show_context() {
         {
             /*324: */
             if BASE_PTR == INPUT_PTR
-                || cur_input.state as i32 != 0i32
-                || cur_input.index as i32 != 3i32
+                || cur_input.state != TOKEN_LIST
+                || cur_input.index != BACKED_UP
                 || !cur_input.loc.is_texnull()
             {
                 tally = 0i32;
                 let old_setting_0 = selector;
-                if cur_input.state as i32 != 0i32 {
-                    if cur_input.name <= 17i32 {
-                        if cur_input.name == 0i32 {
+                if cur_input.state != TOKEN_LIST {
+                    if cur_input.name <= 17 {
+                        if cur_input.name == 0 {
                             if BASE_PTR == 0 {
                                 print_nl_cstr(b"<*>");
                             } else {
@@ -3638,10 +3627,10 @@ pub(crate) unsafe fn show_context() {
                             }
                         } else {
                             print_nl_cstr(b"<read ");
-                            if cur_input.name == 17i32 {
+                            if cur_input.name == 17 {
                                 print_char('*' as i32);
                             } else {
-                                print_int(cur_input.name - 1i32);
+                                print_int(cur_input.name - 1);
                             }
                             print_char('>' as i32);
                         }
@@ -3650,28 +3639,28 @@ pub(crate) unsafe fn show_context() {
                         if cur_input.index as usize == IN_OPEN {
                             print_int(line);
                         } else {
-                            print_int(LINE_STACK[(cur_input.index as i32 + 1i32) as usize]);
+                            print_int(LINE_STACK[(cur_input.index as i32 + 1) as usize]);
                         }
                     }
                     print_char(' ' as i32);
                     l = tally;
-                    tally = 0i32;
+                    tally = 0;
                     selector = Selector::PSEUDO;
-                    trick_count = 1000000i64 as i32;
+                    trick_count = 1000000;
                     if BUFFER[cur_input.limit as usize] == *INTPAR(IntPar::end_line_char) {
                         j = cur_input.limit
                     } else {
-                        j = cur_input.limit + 1i32
+                        j = cur_input.limit + 1
                     }
-                    if j > 0i32 {
+                    if j > 0 {
                         let mut for_end: i32 = 0;
                         i = cur_input.start;
-                        for_end = j - 1i32;
+                        for_end = j - 1;
                         if i <= for_end {
                             loop {
                                 if i == cur_input.loc {
                                     first_count = tally;
-                                    trick_count = tally + 1i32 + error_line - half_error_line;
+                                    trick_count = tally + 1 + error_line - half_error_line;
                                     if trick_count < error_line {
                                         trick_count = error_line
                                     }
@@ -3686,54 +3675,54 @@ pub(crate) unsafe fn show_context() {
                         }
                     }
                 } else {
-                    match cur_input.index as i32 {
-                        0 => print_nl_cstr(b"<argument> "),
-                        1 | 2 => print_nl_cstr(b"<template> "),
-                        3 | 4 => {
+                    match cur_input.index {
+                        PARAMETER => print_nl_cstr(b"<argument> "),
+                        U_TEMPLATE | V_TEMPLATE => print_nl_cstr(b"<template> "),
+                        BACKED_UP | BACKED_UP_CHAR => {
                             if cur_input.loc.is_texnull() {
                                 print_nl_cstr(b"<recently read> ");
                             } else {
                                 print_nl_cstr(b"<to be read again> ");
                             }
                         }
-                        5 => print_nl_cstr(b"<inserted text> "),
-                        6 => {
+                        INSERTED => print_nl_cstr(b"<inserted text> "),
+                        MACRO => {
                             print_ln();
                             print_cs(cur_input.name);
                         }
-                        7 => print_nl_cstr(b"<output> "),
-                        8 => print_nl_cstr(b"<everypar> "),
-                        9 => print_nl_cstr(b"<everymath> "),
-                        10 => print_nl_cstr(b"<everydisplay> "),
-                        11 => print_nl_cstr(b"<everyhbox> "),
-                        12 => print_nl_cstr(b"<everyvbox> "),
-                        13 => print_nl_cstr(b"<everyjob> "),
-                        14 => print_nl_cstr(b"<everycr> "),
-                        15 => print_nl_cstr(b"<mark> "),
-                        16 => print_nl_cstr(b"<everyeof> "),
-                        17 => print_nl_cstr(b"<XeTeXinterchartoks> "),
-                        18 => print_nl_cstr(b"<write> "),
-                        19 => print_nl_cstr(b"<TectonicCodaTokens> "),
+                        OUTPUT_TEXT => print_nl_cstr(b"<output> "),
+                        EVERY_PAR_TEXT => print_nl_cstr(b"<everypar> "),
+                        EVERY_MATH_TEXT => print_nl_cstr(b"<everymath> "),
+                        EVERY_DISPLAY_TEXT => print_nl_cstr(b"<everydisplay> "),
+                        EVERY_HBOX_TEXT => print_nl_cstr(b"<everyhbox> "),
+                        EVERY_VBOX_TEXT => print_nl_cstr(b"<everyvbox> "),
+                        EVERY_JOB_TEXT => print_nl_cstr(b"<everyjob> "),
+                        EVERY_CR_TEXT => print_nl_cstr(b"<everycr> "),
+                        MARK_TEXT => print_nl_cstr(b"<mark> "),
+                        EVERY_EOF_TEXT => print_nl_cstr(b"<everyeof> "),
+                        INTER_CHAR_TEXT => print_nl_cstr(b"<XeTeXinterchartoks> "),
+                        WRITE_TEXT => print_nl_cstr(b"<write> "),
+                        TECTONIC_CODA_TEXT => print_nl_cstr(b"<TectonicCodaTokens> "),
                         _ => print_nl('?' as i32),
                     }
                     l = tally;
                     tally = 0i32;
                     selector = Selector::PSEUDO;
-                    trick_count = 1000000i64 as i32;
-                    if (cur_input.index as i32) < 6i32 {
-                        show_token_list(cur_input.start, cur_input.loc, 100000i64 as i32);
+                    trick_count = 1_000_000;
+                    if cur_input.index < MACRO {
+                        show_token_list(cur_input.start, cur_input.loc, 100000);
                     } else {
                         show_token_list(
                             MEM[cur_input.start as usize].b32.s1,
                             cur_input.loc,
-                            100000i64 as i32,
+                            100_000,
                         );
                     }
                 }
                 selector = old_setting_0;
-                if trick_count as i64 == 1000000 {
+                if trick_count == 1_000_000 {
                     first_count = tally;
-                    trick_count = tally + 1i32 + error_line - half_error_line;
+                    trick_count = tally + 1 + error_line - half_error_line;
                     if trick_count < error_line {
                         trick_count = error_line
                     }
@@ -3744,16 +3733,16 @@ pub(crate) unsafe fn show_context() {
                     m = trick_count - first_count
                 }
                 if l + first_count <= half_error_line {
-                    p = 0i32;
+                    p = 0;
                     n = l + first_count
                 } else {
                     print_cstr(b"...");
-                    p = l + first_count - half_error_line + 3i32;
+                    p = l + first_count - half_error_line + 3;
                     n = half_error_line
                 }
                 let mut for_end_0: i32 = 0;
                 q = p;
-                for_end_0 = first_count - 1i32;
+                for_end_0 = first_count - 1;
                 if q <= for_end_0 {
                     loop {
                         print_raw_char(trick_buf[(q % error_line) as usize], true);
@@ -3766,7 +3755,7 @@ pub(crate) unsafe fn show_context() {
                 }
                 print_ln();
                 let mut for_end_1: i32 = 0;
-                q = 1i32;
+                q = 1;
                 for_end_1 = n;
                 if q <= for_end_1 {
                     loop {
@@ -3812,7 +3801,7 @@ pub(crate) unsafe fn show_context() {
     }
     cur_input = INPUT_STACK[INPUT_PTR];
 }
-pub(crate) unsafe fn begin_token_list(mut p: i32, mut t: u16) {
+pub(crate) unsafe fn begin_token_list(p: i32, t: u16) {
     if INPUT_PTR > MAX_IN_STACK {
         MAX_IN_STACK = INPUT_PTR;
         if INPUT_PTR == STACK_SIZE {
@@ -3824,36 +3813,23 @@ pub(crate) unsafe fn begin_token_list(mut p: i32, mut t: u16) {
     cur_input.state = 0_u16;
     cur_input.start = p;
     cur_input.index = t;
-    if t as i32 >= 6i32 {
+    if t >= MACRO {
         MEM[p as usize].b32.s0 += 1;
-        if t as i32 == 6i32 {
+        if t == MACRO {
             cur_input.limit = PARAM_PTR as i32
         } else {
             cur_input.loc = MEM[p as usize].b32.s1;
             if *INTPAR(IntPar::tracing_macros) > 1i32 {
                 begin_diagnostic();
                 print_nl_cstr(b"");
-                match t as i32 {
-                    15 => print_esc_cstr(b"mark"),
-                    18 => print_esc_cstr(b"write"),
+                match t {
+                    MARK_TEXT => print_esc_cstr(b"mark"),
+                    WRITE_TEXT => print_esc_cstr(b"write"),
                     _ => {
                         print_cmd_chr(
-                            73_u16,
-                            t as i32
-                                + (1i32
-                                    + (0x10ffffi32 + 1i32)
-                                    + (0x10ffffi32 + 1i32)
-                                    + 1i32
-                                    + 15000i32
-                                    + 12i32
-                                    + 9000i32
-                                    + 1i32
-                                    + 1i32
-                                    + 19i32
-                                    + 256i32
-                                    + 256i32)
-                                + 1i32
-                                - 7i32,
+                            ASSIGN_TOKS,
+                            (t as i32) + LOCAL_BASE + (Local::output_routine as i32)
+                                - (OUTPUT_TEXT) as i32,
                         );
                     }
                 }
@@ -3867,21 +3843,21 @@ pub(crate) unsafe fn begin_token_list(mut p: i32, mut t: u16) {
     };
 }
 pub(crate) unsafe fn end_token_list() {
-    if cur_input.index as i32 >= 3i32 {
-        if cur_input.index as i32 <= 5i32 {
+    if cur_input.index >= BACKED_UP {
+        if cur_input.index <= INSERTED {
             flush_list(cur_input.start);
         } else {
             delete_token_ref(cur_input.start);
-            if cur_input.index as i32 == 6i32 {
+            if cur_input.index == MACRO {
                 while PARAM_PTR as i32 > cur_input.limit {
                     PARAM_PTR -= 1;
                     flush_list(PARAM_STACK[PARAM_PTR]);
                 }
             }
         }
-    } else if cur_input.index as i32 == 1i32 {
-        if align_state as i64 > 500000 {
-            align_state = 0i32
+    } else if cur_input.index == U_TEMPLATE {
+        if align_state > 500000 {
+            align_state = 0
         } else {
             fatal_error(b"(interwoven alignment preambles are not allowed)");
         }
@@ -3891,16 +3867,16 @@ pub(crate) unsafe fn end_token_list() {
 }
 pub(crate) unsafe fn back_input() {
     let mut p: i32 = 0;
-    while cur_input.state as i32 == 0i32
+    while cur_input.state == TOKEN_LIST
         && cur_input.loc.is_texnull()
-        && cur_input.index as i32 != 2i32
+        && cur_input.index != V_TEMPLATE
     {
         end_token_list();
     }
     p = get_avail();
     MEM[p as usize].b32.s0 = cur_tok;
-    if cur_tok < 0x600000i32 {
-        if cur_tok < 0x400000i32 {
+    if cur_tok < RIGHT_BRACE_LIMIT {
+        if cur_tok < LEFT_BRACE_LIMIT {
             align_state -= 1
         } else {
             align_state += 1
@@ -3914,9 +3890,9 @@ pub(crate) unsafe fn back_input() {
     }
     INPUT_STACK[INPUT_PTR] = cur_input;
     INPUT_PTR += 1;
-    cur_input.state = 0_u16;
+    cur_input.state = TOKEN_LIST;
     cur_input.start = p;
-    cur_input.index = 3_u16;
+    cur_input.index = BACKED_UP;
     cur_input.loc = p;
 }
 pub(crate) unsafe fn back_error() {
@@ -3925,7 +3901,7 @@ pub(crate) unsafe fn back_error() {
 }
 pub(crate) unsafe fn ins_error() {
     back_input();
-    cur_input.index = 5_u16;
+    cur_input.index = INSERTED;
     error();
 }
 pub(crate) unsafe fn begin_file_reading() {
@@ -3952,16 +3928,16 @@ pub(crate) unsafe fn begin_file_reading() {
     IF_STACK[cur_input.index as usize] = cond_ptr;
     LINE_STACK[cur_input.index as usize] = line;
     cur_input.start = first;
-    cur_input.state = 1_u16;
-    cur_input.name = 0i32;
-    cur_input.synctex_tag = 0i32;
+    cur_input.state = MID_LINE;
+    cur_input.name = 0;
+    cur_input.synctex_tag = 0;
 }
 pub(crate) unsafe fn end_file_reading() {
     first = cur_input.start;
     line = LINE_STACK[cur_input.index as usize];
-    if cur_input.name == 18i32 || cur_input.name == 19i32 {
+    if cur_input.name == 18 || cur_input.name == 19 {
         pseudo_close();
-    } else if cur_input.name > 17i32 {
+    } else if cur_input.name > 17 {
         u_close(INPUT_FILE[cur_input.index as usize]);
     }
     INPUT_PTR -= 1;
@@ -3971,21 +3947,21 @@ pub(crate) unsafe fn end_file_reading() {
 pub(crate) unsafe fn check_outer_validity() {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
-    if scanner_status as i32 != 0i32 {
+    if scanner_status as u16 != NORMAL {
         deletions_allowed = false;
-        if cur_cs != 0i32 {
-            if cur_input.state as i32 == 0i32 || cur_input.name < 1i32 || cur_input.name > 17i32 {
+        if cur_cs != 0 {
+            if cur_input.state == TOKEN_LIST || cur_input.name < 1 || cur_input.name > 17 {
                 p = get_avail();
-                MEM[p as usize].b32.s0 = 0x1ffffff + cur_cs;
-                begin_token_list(p, 3_u16);
+                MEM[p as usize].b32.s0 = CS_TOKEN_FLAG + cur_cs;
+                begin_token_list(p, BACKED_UP);
             }
-            cur_cmd = 10i32 as eight_bits;
+            cur_cmd = SPACER as eight_bits;
             cur_chr = ' ' as i32
         }
-        if scanner_status as i32 > 1i32 {
+        if scanner_status as u16 > SKIPPING {
             /*350:*/
             runaway();
-            if cur_cs == 0i32 {
+            if cur_cs == 0 {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -3993,7 +3969,7 @@ pub(crate) unsafe fn check_outer_validity() {
                 }
                 print_cstr(b"File ended");
             } else {
-                cur_cs = 0i32;
+                cur_cs = 0;
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -4002,41 +3978,35 @@ pub(crate) unsafe fn check_outer_validity() {
                 print_cstr(b"Forbidden control sequence found");
             }
             p = get_avail();
-            match scanner_status as i32 {
-                2 => {
+            match scanner_status as u16 {
+                DEFINING => {
                     print_cstr(b" while scanning definition");
-                    MEM[p as usize].b32.s0 = 0x400000 + '}' as i32
+                    MEM[p as usize].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32
                 }
-                3 => {
+                MATCHING => {
                     print_cstr(b" while scanning use");
                     MEM[p as usize].b32.s0 = par_token;
-                    long_state = 115_u8
+                    long_state = OUTER_CALL as u8
                 }
-                4 => {
+                ALIGNING => {
                     print_cstr(b" while scanning preamble");
-                    MEM[p as usize].b32.s0 = 0x400000 + '}' as i32;
+                    MEM[p as usize].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
                     q = p;
                     p = get_avail();
                     MEM[p as usize].b32.s1 = q;
-                    MEM[p as usize].b32.s0 = 0x1ffffff
-                        + (1i32
-                            + (0x10ffffi32 + 1i32)
-                            + (0x10ffffi32 + 1i32)
-                            + 1i32
-                            + 15000i32
-                            + 1i32);
-                    align_state = -1000000i64 as i32
+                    MEM[p as usize].b32.s0 = CS_TOKEN_FLAG + FROZEN_CR as i32;
+                    align_state = -1_000_000;
                 }
-                5 => {
+                ABSORBING => {
                     print_cstr(b" while scanning text");
-                    MEM[p as usize].b32.s0 = 0x400000 + '}' as i32
+                    MEM[p as usize].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32
                 }
                 _ => {}
             }
-            begin_token_list(p, 5_u16);
+            begin_token_list(p, INSERTED);
             print_cstr(b" of ");
             sprint_cs(warning_index);
-            help_ptr = 4_u8;
+            help_ptr = 4;
             help_line[3] = b"I suspect you have forgotten a `}\', causing me";
             help_line[2] = b"to read past where you wanted me to stop.";
             help_line[1] = b"I\'ll try to recover; but if the error is serious,";
@@ -4049,19 +4019,19 @@ pub(crate) unsafe fn check_outer_validity() {
                 print_nl_cstr(b"! ");
             }
             print_cstr(b"Incomplete ");
-            print_cmd_chr(107_u16, cur_if as i32);
+            print_cmd_chr(IF_TEST, cur_if as i32);
             print_cstr(b"; all text was ignored after line ");
             print_int(skip_line);
-            help_ptr = 3_u8;
+            help_ptr = 3;
             help_line[2] = b"A forbidden control sequence occurred in skipped text.";
             help_line[1] = b"This kind of error happens when you say `\\if...\' and forget";
             help_line[0] = b"the matching `\\fi\'. I\'ve inserted a `\\fi\'; this might work.";
-            if cur_cs != 0i32 {
-                cur_cs = 0i32
+            if cur_cs != 0 {
+                cur_cs = 0
             } else {
                 help_line[2] = b"The file ended while I was skipping conditional text."
             }
-            cur_tok = 0x1ffffffi32 + FROZEN_FI as i32;
+            cur_tok = CS_TOKEN_FLAG + FROZEN_FI as i32;
             ins_error();
         }
         deletions_allowed = true
