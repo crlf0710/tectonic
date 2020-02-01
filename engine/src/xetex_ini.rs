@@ -5285,13 +5285,13 @@ pub(crate) unsafe fn tt_run_engine(
     if in_initex_mode {
         no_new_control_sequence = false;
 
-        primitive(b"XeTeXpicfile", EXTENSION, PIC_FILE_CODE);
-        primitive(b"XeTeXpdffile", EXTENSION, PDF_FILE_CODE);
-        primitive(b"XeTeXglyph", EXTENSION, GLYPH_CODE);
+        primitive(b"XeTeXpicfile", EXTENSION, PIC_FILE_CODE as i32);
+        primitive(b"XeTeXpdffile", EXTENSION, PDF_FILE_CODE as i32);
+        primitive(b"XeTeXglyph", EXTENSION, GLYPH_CODE as i32);
         primitive(
             b"XeTeXlinebreaklocale",
             EXTENSION,
-            XETEX_LINEBREAK_LOCALE_EXTENSION_CODE,
+            XETEX_LINEBREAK_LOCALE_EXTENSION_CODE as i32,
         );
         primitive(
             b"pdfsavepos",
@@ -5529,12 +5529,12 @@ pub(crate) unsafe fn tt_run_engine(
         primitive(
             b"XeTeXinputencoding",
             EXTENSION,
-            XETEX_INPUT_ENCODING_EXTENSION_CODE,
+            XETEX_INPUT_ENCODING_EXTENSION_CODE as i32,
         );
         primitive(
             b"XeTeXdefaultencoding",
             EXTENSION,
-            XETEX_DEFAULT_ENCODING_EXTENSION_CODE,
+            XETEX_DEFAULT_ENCODING_EXTENSION_CODE as i32,
         );
 
         primitive(b"beginL", VALIGN, BEGIN_L_CODE);
