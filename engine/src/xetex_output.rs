@@ -320,7 +320,7 @@ pub(crate) unsafe fn print_int(mut n: i32) {
     print_the_digs(k);
 }
 pub(crate) unsafe fn print_cs(mut p: i32) {
-    if p < HASH_BASE {
+    if p < HASH_BASE as i32 {
         if p >= SINGLE_BASE {
             if p == NULL_CS {
                 print_esc_cstr(b"csname");
@@ -347,7 +347,7 @@ pub(crate) unsafe fn print_cs(mut p: i32) {
     };
 }
 pub(crate) unsafe fn sprint_cs(mut p: i32) {
-    if p < HASH_BASE {
+    if p < HASH_BASE as i32 {
         if p < SINGLE_BASE {
             print_char(p - 1i32);
         } else if p < NULL_CS {

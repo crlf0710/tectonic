@@ -36,12 +36,12 @@ use crate::xetex_scaledmath::{half, mult_and_add, tex_round, x_over_n, xn_over_d
 use crate::xetex_xetex0::{
     append_to_vlist, back_error, back_input, begin_token_list, char_warning, copy_node_list,
     delete_glue_ref, effective_char, eq_word_define, flush_node_list, free_node, get_avail,
-    get_node, get_token, get_x_token, group_code, hpack, insert_src_special, internal_font_number,
-    just_copy, just_reverse, new_character, new_choice, new_glue, new_kern, new_math,
-    new_native_character, new_noad, new_null_box, new_param_glue, new_penalty, new_rule,
-    new_skip_param, new_spec, norm_min, off_save, pop_nest, push_math, push_nest,
-    scan_delimiter_int, scan_dimen, scan_fifteen_bit_int, scan_keyword, scan_left_brace, scan_math,
-    scan_math_class_int, scan_math_fam_int, scan_usv_num, unsave, vpackage,
+    get_node, get_token, get_x_token, hpack, insert_src_special, internal_font_number, just_copy,
+    just_reverse, new_character, new_choice, new_glue, new_kern, new_math, new_native_character,
+    new_noad, new_null_box, new_param_glue, new_penalty, new_rule, new_skip_param, new_spec,
+    norm_min, off_save, pop_nest, push_math, push_nest, scan_delimiter_int, scan_dimen,
+    scan_fifteen_bit_int, scan_keyword, scan_left_brace, scan_math, scan_math_class_int,
+    scan_math_fam_int, scan_usv_num, unsave, vpackage,
 };
 use crate::xetex_xetexd::{
     is_char_node, BOX_glue_set, CHAR_NODE_font, GLUE_SPEC_shrink_order, LLIST_link, NODE_subtype,
@@ -398,7 +398,7 @@ pub(crate) unsafe fn init_math() {
             s = MEM[(p - 1) as usize].b32.s1;
             l = MEM[p as usize].b32.s1
         }
-        push_math(MATH_SHIFT_GROUP as group_code);
+        push_math(GroupCode::MATH_SHIFT);
         cur_list.mode = MMODE as i16;
         eq_word_define(INT_BASE + IntPar::cur_fam as i32, -1i32);
         eq_word_define(DIMEN_BASE + DimenPar::pre_display_size as i32, w);
@@ -414,7 +414,7 @@ pub(crate) unsafe fn init_math() {
         }
     } else {
         back_input();
-        push_math(MATH_SHIFT_GROUP as group_code);
+        push_math(GroupCode::MATH_SHIFT);
         eq_word_define(INT_BASE + IntPar::cur_fam as i32, -1);
         if insert_src_special_every_math {
             insert_src_special();
@@ -427,7 +427,7 @@ pub(crate) unsafe fn init_math() {
 pub(crate) unsafe fn start_eq_no() {
     SAVE_STACK[SAVE_PTR + 0].b32.s1 = cur_chr;
     SAVE_PTR += 1;
-    push_math(MATH_SHIFT_GROUP as group_code);
+    push_math(GroupCode::MATH_SHIFT);
     eq_word_define(INT_BASE + IntPar::cur_fam as i32, -1);
     if insert_src_special_every_math {
         insert_src_special();
@@ -594,7 +594,7 @@ pub(crate) unsafe fn append_choices() {
     cur_list.tail = *LLIST_link(cur_list.tail as isize);
     SAVE_PTR += 1;
     SAVE_STACK[SAVE_PTR - 1].b32.s1 = 0;
-    push_math(MATH_CHOICE_GROUP as group_code);
+    push_math(GroupCode::MATH_CHOICE);
     scan_left_brace();
 }
 pub(crate) unsafe fn fin_mlist(mut p: i32) -> i32 {
@@ -637,7 +637,7 @@ pub(crate) unsafe fn build_choices() {
         _ => {}
     }
     SAVE_STACK[SAVE_PTR - 1].b32.s1 += 1;
-    push_math(MATH_CHOICE_GROUP as group_code);
+    push_math(GroupCode::MATH_CHOICE);
     scan_left_brace();
 }
 pub(crate) unsafe fn sub_sup() {
@@ -737,9 +737,9 @@ pub(crate) unsafe fn math_left_right() {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     t = cur_chr as small_number;
-    if t as u16 != LEFT_NOAD && cur_group as i32 != MATH_LEFT_GROUP {
+    if t as u16 != LEFT_NOAD && cur_group != GroupCode::MATH_LEFT {
         /*1227: */
-        if cur_group as i32 == MATH_SHIFT_GROUP {
+        if cur_group == GroupCode::MATH_SHIFT {
             scan_delimiter(GARBAGE as i32, false); /*:1530 */
             if file_line_error_style_p != 0 {
                 print_file_line(); /*:1530 */
@@ -775,7 +775,7 @@ pub(crate) unsafe fn math_left_right() {
             unsave();
         }
         if t as u16 != RIGHT_NOAD {
-            push_math(MATH_LEFT_GROUP as group_code);
+            push_math(GroupCode::MATH_LEFT);
             MEM[cur_list.head as usize].b32.s1 = q;
             cur_list.tail = p;
             cur_list.eTeX_aux = p
@@ -1257,7 +1257,7 @@ pub(crate) unsafe fn after_math() {
     };
 }
 pub(crate) unsafe fn resume_after_display() {
-    if cur_group as i32 != MATH_SHIFT_GROUP {
+    if cur_group != GroupCode::MATH_SHIFT {
         confusion(b"display");
     }
     unsave();

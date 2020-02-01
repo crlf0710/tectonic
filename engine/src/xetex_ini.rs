@@ -379,7 +379,6 @@ impl Default for memory_word {
 /* \splitbotmarks<n> */
 pub(crate) type glue_ord = u8;
 /* enum: normal .. filll */
-pub(crate) type group_code = u8;
 pub(crate) type internal_font_number = usize;
 pub(crate) type font_index = i32;
 pub(crate) type nine_bits = i32;
@@ -648,7 +647,7 @@ pub(crate) static mut MAX_SAVE_STACK: usize = 0;
 #[no_mangle]
 pub(crate) static mut cur_level: u16 = 0;
 #[no_mangle]
-pub(crate) static mut cur_group: group_code = 0;
+pub(crate) static mut cur_group: GroupCode = GroupCode::BOTTOM_LEVEL;
 #[no_mangle]
 pub(crate) static mut cur_boundary: i32 = 0;
 #[no_mangle]
@@ -2993,27 +2992,21 @@ unsafe fn store_fmt_file() {
     }
     fmt_out.dump_one(par_loc as i32);
     fmt_out.dump_one(write_loc as i32);
-    p = 0i32;
-    while p <= PRIM_SIZE {
-        fmt_out.dump_one(prim[p as usize]);
-        p += 1
+    for p in 0..=PRIM_SIZE as usize {
+        fmt_out.dump_one(prim[p]);
     }
-    p = 0i32;
-    while p <= PRIM_SIZE {
-        fmt_out.dump_one(prim_eqtb[p as usize]);
-        p += 1
+    for p in 0..=PRIM_SIZE as usize {
+        fmt_out.dump_one(prim_eqtb[p]);
     }
     /* control sequences */
     fmt_out.dump_one(hash_used as i32);
     cs_count = (FROZEN_CONTROL_SEQUENCE as i32 - 1) - hash_used + hash_high;
-    p = HASH_BASE;
-    while p <= hash_used {
-        if (*hash.offset(p as isize)).s1 != 0i32 {
+    for p in (HASH_BASE as i32)..=hash_used {
+        if (*hash.offset(p as isize)).s1 != 0 {
             fmt_out.dump_one(p as i32);
             fmt_out.dump_one(*hash.offset(p as isize));
-            cs_count += 1
+            cs_count += 1;
         }
-        p += 1
     }
     let dump_slice = std::slice::from_raw_parts(
         hash.offset((hash_used + 1i32) as isize),
@@ -3427,14 +3420,14 @@ unsafe fn load_fmt_file() -> bool {
             .undump(&mut EQTB[EQTB_SIZE as usize + 1..EQTB_SIZE as usize + 1 + hash_high as usize]);
     }
     fmt_in.undump_one(&mut x);
-    if x < HASH_BASE || x > hash_top {
+    if x < HASH_BASE as i32 || x > hash_top {
         bad_fmt();
     } else {
         par_loc = x;
     }
     par_token = CS_TOKEN_FLAG + par_loc;
     fmt_in.undump_one(&mut x);
-    if x < HASH_BASE || x > hash_top {
+    if x < HASH_BASE as i32 || x > hash_top {
         bad_fmt();
     } else {
         write_loc = x;
@@ -3461,12 +3454,12 @@ unsafe fn load_fmt_file() -> bool {
     }
 
     fmt_in.undump_one(&mut x);
-    if x < HASH_BASE || x > FROZEN_CONTROL_SEQUENCE as i32 {
+    if x < HASH_BASE as i32 || x > FROZEN_CONTROL_SEQUENCE as i32 {
         bad_fmt();
     } else {
         hash_used = x;
     }
-    p = HASH_BASE - 1;
+    p = HASH_BASE as i32 - 1;
     loop {
         fmt_in.undump_one(&mut x);
         if x < p + 1 || x > hash_used {
@@ -3990,7 +3983,7 @@ unsafe fn initialize_more_variables() {
     }
     SAVE_PTR = 0;
     cur_level = 1_u16;
-    cur_group = 0i32 as group_code;
+    cur_group = GroupCode::BOTTOM_LEVEL;
     cur_boundary = 0i32;
     MAX_SAVE_STACK = 0;
     mag_set = 0i32;
@@ -5166,7 +5159,7 @@ pub(crate) unsafe fn tt_run_engine(
         hash = yhash.offset(-514);
         (*hash.offset((HASH_BASE) as isize)).s0 = 0;
         (*hash.offset((HASH_BASE) as isize)).s1 = 0;
-        hash_used = HASH_BASE + 1;
+        hash_used = HASH_BASE as i32 + 1;
         while hash_used <= hash_top {
             *hash.offset(hash_used as isize) = *hash.offset(HASH_BASE as isize);
             hash_used += 1
@@ -5188,7 +5181,7 @@ pub(crate) unsafe fn tt_run_engine(
     if 1100 > MEM_TOP {
         bad = 4
     }
-    if HASH_PRIME > HASH_SIZE {
+    if HASH_PRIME > HASH_SIZE as i32 {
         bad = 5
     }
     if MAX_IN_OPEN >= 128 {
@@ -5215,7 +5208,7 @@ pub(crate) unsafe fn tt_run_engine(
     if CS_TOKEN_FLAG + EQTB_SIZE + hash_extra > MAX_HALFWORD {
         bad = 21
     }
-    if 514i32 < 0 || 514i32 > HASH_BASE {
+    if 514 < 0 || 514 > HASH_BASE {
         bad = 42
     }
     if format_default_length > std::i32::MAX {

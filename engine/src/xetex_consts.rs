@@ -40,7 +40,7 @@ pub(crate) const TOO_BIG_USV: placeholdertype = (BIGGEST_USV as i32 + 1);
 /* Various buffer sizes */
 
 /// max number of control sequences
-pub(crate) const HASH_SIZE: placeholdertype = 15000;
+pub(crate) const HASH_SIZE: usize = 15000;
 /// "a prime number equal to about 85% of hash_size
 pub(crate) const HASH_PRIME: placeholdertype = 8501;
 
@@ -84,8 +84,8 @@ pub(crate) const ACTIVE_BASE: placeholdertype = 1;
 pub(crate) const SINGLE_BASE: placeholdertype = (ACTIVE_BASE + NUMBER_USVS as i32);
 pub(crate) const NULL_CS: placeholdertype = (SINGLE_BASE + NUMBER_USVS as i32);
 /// "region 2": hash table
-pub(crate) const HASH_BASE: placeholdertype = (NULL_CS + 1);
-pub(crate) const FROZEN_CONTROL_SEQUENCE: usize = (HASH_BASE + HASH_SIZE) as usize;
+pub(crate) const HASH_BASE: usize = (NULL_CS + 1) as usize;
+pub(crate) const FROZEN_CONTROL_SEQUENCE: usize = HASH_BASE + HASH_SIZE;
 pub(crate) const FROZEN_PROTECTION: usize = FROZEN_CONTROL_SEQUENCE + 0;
 pub(crate) const FROZEN_CR: usize = FROZEN_CONTROL_SEQUENCE + 1;
 pub(crate) const FROZEN_END_GROUP: usize = FROZEN_CONTROL_SEQUENCE + 2;
@@ -108,6 +108,7 @@ pub(crate) const UNDEFINED_CONTROL_SEQUENCE: placeholdertype =
 pub(crate) const GLUE_BASE: placeholdertype = (UNDEFINED_CONTROL_SEQUENCE + 1);
 
 #[repr(u16)]
+#[derive(Clone, Copy, PartialEq)]
 pub(crate) enum GluePar {
     line_skip = 0,
     baseline_skip = 1,
@@ -162,6 +163,7 @@ pub(crate) unsafe fn MU_SKIP_REG(n: placeholdertype) -> &'static mut i32 {
 pub(crate) const LOCAL_BASE: placeholdertype = (MU_SKIP_BASE + NUMBER_REGS as i32);
 
 #[repr(i32)]
+#[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Local {
     par_shape = 0,
     output_routine = 1,
@@ -177,6 +179,17 @@ pub(crate) enum Local {
     xetex_inter_char = 11,
     TectonicCodaTokens = 12,
 }
+impl TryFrom<i32> for Local {
+    type Error = &'static [u8];
+    fn try_from(n: i32) -> Result<Self, Self::Error> {
+        if (n as u32) > 12 {
+            Err(b"errhelp")
+        } else {
+            Ok(unsafe { mem::transmute(n) })
+        }
+    }
+}
+
 pub(crate) const NUM_LOCALS: placeholdertype = 13;
 
 pub(crate) fn LOCAL(n: Local) -> &'static mut i32 {
@@ -242,6 +255,7 @@ pub(crate) unsafe fn CHAR_SUB_CODE(n: placeholdertype) -> &'static mut i32 {
 pub(crate) const INT_BASE: placeholdertype = (CHAR_SUB_CODE_BASE as i32 + NUMBER_USVS as i32);
 
 #[repr(i32)]
+#[derive(Clone, Copy, PartialEq)]
 pub(crate) enum IntPar {
     pretolerance = 0,
     tolerance = 1,
@@ -363,6 +377,7 @@ pub(crate) unsafe fn DEL_CODE(n: placeholdertype) -> &'static mut i32 {
 pub(crate) const DIMEN_BASE: placeholdertype = (DEL_CODE_BASE + NUMBER_USVS as i32);
 
 #[repr(i32)]
+#[derive(Clone, Copy, PartialEq)]
 pub(crate) enum DimenPar {
     par_indent = 0,
     math_surround = 1,
@@ -534,23 +549,33 @@ pub(crate) const EXPR_MULT: placeholdertype = 3;
 pub(crate) const EXPR_DIV: placeholdertype = 4;
 pub(crate) const EXPR_SCALE: placeholdertype = 5;
 
-pub(crate) const BOTTOM_LEVEL: placeholdertype = 0;
-pub(crate) const SIMPLE_GROUP: placeholdertype = 1;
-pub(crate) const HBOX_GROUP: placeholdertype = 2;
-pub(crate) const ADJUSTED_HBOX_GROUP: placeholdertype = 3;
-pub(crate) const VBOX_GROUP: placeholdertype = 4;
-pub(crate) const VTOP_GROUP: placeholdertype = 5;
-pub(crate) const ALIGN_GROUP: placeholdertype = 6;
-pub(crate) const NO_ALIGN_GROUP: placeholdertype = 7;
-pub(crate) const OUTPUT_GROUP: placeholdertype = 8;
-pub(crate) const MATH_GROUP: placeholdertype = 9;
-pub(crate) const DISC_GROUP: placeholdertype = 10;
-pub(crate) const INSERT_GROUP: placeholdertype = 11;
-pub(crate) const VCENTER_GROUP: placeholdertype = 12;
-pub(crate) const MATH_CHOICE_GROUP: placeholdertype = 13;
-pub(crate) const SEMI_SIMPLE_GROUP: placeholdertype = 14;
-pub(crate) const MATH_SHIFT_GROUP: placeholdertype = 15;
-pub(crate) const MATH_LEFT_GROUP: placeholdertype = 16;
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum GroupCode {
+    BOTTOM_LEVEL = 0,
+    SIMPLE = 1,
+    HBOX = 2,
+    ADJUSTED_HBOX = 3,
+    VBOX = 4,
+    VTOP = 5,
+    ALIGN = 6,
+    NO_ALIGN = 7,
+    OUTPUT = 8,
+    MATH = 9,
+    DISC = 10,
+    INSERT = 11,
+    VCENTER = 12,
+    MATH_CHOICE = 13,
+    SEMI_SIMPLE = 14,
+    MATH_SHIFT = 15,
+    MATH_LEFT = 16,
+}
+impl From<u16> for GroupCode {
+    fn from(n: u16) -> Self {
+        assert!(n < 17);
+        unsafe { mem::transmute(n as u8) }
+    }
+}
 
 pub(crate) const SUP_CMD: placeholdertype = 0;
 pub(crate) const SUB_CMD: placeholdertype = 1;
