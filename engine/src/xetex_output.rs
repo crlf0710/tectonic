@@ -528,7 +528,7 @@ pub(crate) unsafe fn print_native_word(mut p: i32) {
 }
 pub(crate) unsafe fn print_sa_num(mut q: i32) {
     let mut n: i32 = 0;
-    if (MEM[q as usize].b16.s1 as i32) < DIMEN_VAL_LIMIT {
+    if MEM[q as usize].b16.s1 < DIMEN_VAL_LIMIT {
         n = MEM[(q + 1) as usize].b32.s1
     } else {
         n = MEM[q as usize].b16.s1 as i32 % 64;

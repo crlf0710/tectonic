@@ -428,8 +428,8 @@ pub(crate) unsafe fn SCALED_REG(n: placeholdertype) -> &'static mut i32 {
 pub(crate) const EQTB_SIZE: placeholdertype = (SCALED_BASE + NUMBER_REGS as i32 - 1);
 
 /// "really" MIN_QUARTERWORD
-pub(crate) const LEVEL_ZERO: placeholdertype = 0;
-pub(crate) const LEVEL_ONE: placeholdertype = 1;
+pub(crate) const LEVEL_ZERO: u16 = 0;
+pub(crate) const LEVEL_ONE: u16 = 1;
 
 /* SET_INTERACTION */
 pub(crate) const BATCH_MODE: placeholdertype = 0;
@@ -958,7 +958,7 @@ pub(crate) const WRITE_TEXT: u16 = 18;
 pub(crate) const TECTONIC_CODA_TEXT: u16 = 19;
 
 /* input state */
-pub(crate) const MID_LINE: placeholdertype = 1;
+pub(crate) const MID_LINE: u16 = 1;
 pub(crate) const SKIP_BLANKS: placeholdertype = 17;
 pub(crate) const NEW_LINE: placeholdertype = 33;
 
@@ -997,8 +997,8 @@ pub(crate) const EXACTLY: placeholdertype = 0;
 pub(crate) const FONT_BASE: placeholdertype = 0;
 pub(crate) const INSERTING: placeholdertype = 0;
 pub(crate) const NON_ADDRESS: placeholdertype = 0;
-pub(crate) const RESTORE_OLD_VALUE: placeholdertype = 0;
-pub(crate) const TOKEN_LIST: placeholdertype = 0;
+pub(crate) const RESTORE_OLD_VALUE: u16 = 0;
+pub(crate) const TOKEN_LIST: u16 = 0;
 pub(crate) const UNDEFINED_PRIMITIVE: placeholdertype = 0;
 pub(crate) const UNHYPHENATED: placeholdertype = 0;
 pub(crate) const ADDITIONAL: placeholdertype = 1;
@@ -1008,7 +1008,7 @@ pub(crate) const HYPHENATED: placeholdertype = 1;
 pub(crate) const JUST_OPEN: placeholdertype = 1;
 pub(crate) const MATH_CHAR: placeholdertype = 1;
 pub(crate) const PRIM_BASE: placeholdertype = 1;
-pub(crate) const RESTORE_ZERO: placeholdertype = 1;
+pub(crate) const RESTORE_ZERO: u16 = 1;
 pub(crate) const REVERSED: placeholdertype = 1;
 pub(crate) const SLANT_CODE: placeholdertype = 1;
 pub(crate) const SPLIT_UP: placeholdertype = 1;
@@ -1019,18 +1019,18 @@ pub(crate) const BOTTOM_ACC: u16 = 2;
 pub(crate) const CLOSED: placeholdertype = 2;
 pub(crate) const DLIST: u16 = 2;
 pub(crate) const ETEX_VERSION: placeholdertype = 2;
-pub(crate) const INSERT_TOKEN: placeholdertype = 2;
+pub(crate) const INSERT_TOKEN: u16 = 2;
 pub(crate) const SHRINKING: u16 = 2;
 pub(crate) const SPACE_CODE: placeholdertype = 2;
 pub(crate) const SUB_BOX: placeholdertype = 2;
 pub(crate) const DISPLAYOPERATORMINHEIGHT: placeholdertype = 3;
-pub(crate) const LEVEL_BOUNDARY: placeholdertype = 3;
+pub(crate) const LEVEL_BOUNDARY: u16 = 3;
 // pub(crate) const MATH_SHIFT: placeholdertype = 3;
 pub(crate) const SPACE_ADJUSTMENT: u16 = 3;
 pub(crate) const SUB_MLIST: placeholdertype = 3;
 pub(crate) const IDENT_VAL: placeholdertype = 4;
 pub(crate) const MATH_TEXT_CHAR: placeholdertype = 4;
-pub(crate) const RESTORE_SA: placeholdertype = 4;
+pub(crate) const RESTORE_SA: u16 = 4;
 pub(crate) const SPACE_SHRINK_CODE: placeholdertype = 4;
 // pub(crate) const OUT_PARAM: placeholdertype = 5;
 pub(crate) const TOK_VAL: placeholdertype = 5;
@@ -1087,13 +1087,13 @@ pub(crate) const GLUE_REF: placeholdertype = 119;
 pub(crate) const SHAPE_REF: placeholdertype = 120;
 pub(crate) const BOX_REF: placeholdertype = 121;
 pub(crate) const DATA: placeholdertype = 122;
-pub(crate) const DIMEN_VAL_LIMIT: placeholdertype = 128;
+pub(crate) const DIMEN_VAL_LIMIT: u16 = 128;
 pub(crate) const MMODE: placeholdertype = 207;
 pub(crate) const BIGGEST_LANG: placeholdertype = 255;
-pub(crate) const MU_VAL_LIMIT: placeholdertype = 256;
+pub(crate) const MU_VAL_LIMIT: u16 = 256;
 pub(crate) const TOO_BIG_LANG: placeholdertype = 256;
-pub(crate) const BOX_VAL_LIMIT: placeholdertype = 320;
-pub(crate) const TOK_VAL_LIMIT: placeholdertype = 384;
+pub(crate) const BOX_VAL_LIMIT: u16 = 320;
+pub(crate) const TOK_VAL_LIMIT: u16 = 384;
 pub(crate) const PRIM_PRIME: placeholdertype = 431;
 pub(crate) const PRIM_SIZE: placeholdertype = 500;
 pub(crate) const MAX_HLIST_STACK: placeholdertype = 512;
