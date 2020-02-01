@@ -1,3 +1,6 @@
+use std::convert::TryFrom;
+use std::mem;
+
 use crate::xetex_ini::EQTB;
 
 pub trait IsTexNull {
@@ -126,31 +129,13 @@ pub(crate) enum GluePar {
     med_mu_skip = 17,
     thick_mu_skip = 18,
 }
-
-impl From<u16> for GluePar {
-    fn from(n: u16) -> Self {
-        use GluePar::*;
-        match n {
-            0 => line_skip,
-            1 => baseline_skip,
-            2 => par_skip,
-            3 => above_display_skip,
-            4 => below_display_skip,
-            5 => above_display_short_skip,
-            6 => below_display_short_skip,
-            7 => left_skip,
-            8 => right_skip,
-            9 => top_skip,
-            10 => split_top_skip,
-            11 => tab_skip,
-            12 => space_skip,
-            13 => xspace_skip,
-            14 => par_fill_skip,
-            15 => xetex_linebreak_skip,
-            16 => thin_mu_skip,
-            17 => med_mu_skip,
-            18 => thick_mu_skip,
-            _ => panic!(b"[unknown glue parameter!]"),
+impl TryFrom<u16> for GluePar {
+    type Error = &'static [u8];
+    fn try_from(n: u16) -> Result<Self, Self::Error> {
+        if n > 18 {
+            Err(b"[unknown glue parameter!]")
+        } else {
+            Ok(unsafe { mem::transmute(n) })
         }
     }
 }
@@ -346,96 +331,13 @@ pub(crate) enum IntPar {
     synctex = 83,
     pdfoutput = 84,
 }
-impl From<i32> for IntPar {
-    fn from(n: i32) -> Self {
-        use IntPar::*;
-        match n {
-            0 => pretolerance,
-            1 => tolerance,
-            2 => line_penalty,
-            3 => hyphen_penalty,
-            4 => ex_hyphen_penalty,
-            5 => club_penalty,
-            6 => widow_penalty,
-            7 => display_widow_penalty,
-            8 => broken_penalty,
-            9 => bin_op_penalty,
-            10 => rel_penalty,
-            11 => pre_display_penalty,
-            12 => post_display_penalty,
-            13 => inter_line_penalty,
-            14 => double_hyphen_demerits,
-            15 => final_hyphen_demerits,
-            16 => adj_demerits,
-            17 => mag,
-            18 => delimiter_factor,
-            19 => looseness,
-            20 => time,
-            21 => day,
-            22 => month,
-            23 => year,
-            24 => show_box_breadth,
-            25 => show_box_depth,
-            26 => hbadness,
-            27 => vbadness,
-            28 => pausing,
-            29 => tracing_online,
-            30 => tracing_macros,
-            31 => tracing_stats,
-            32 => tracing_paragraphs,
-            33 => tracing_pages,
-            34 => tracing_output,
-            35 => tracing_lost_chars,
-            36 => tracing_commands,
-            37 => tracing_restores,
-            38 => uc_hyph,
-            39 => output_penalty,
-            40 => max_dead_cycles,
-            41 => hang_after,
-            42 => floating_penalty,
-            43 => global_defs,
-            44 => cur_fam,
-            45 => escape_char,
-            46 => default_hyphen_char,
-            47 => default_skew_char,
-            48 => end_line_char,
-            49 => new_line_char,
-            50 => language,
-            51 => left_hyphen_min,
-            52 => right_hyphen_min,
-            53 => holding_inserts,
-            54 => error_context_lines,
-            55 => char_sub_def_min,
-            56 => char_sub_def_max,
-            57 => tracing_char_sub_def,
-            58 => tracing_assigns,
-            59 => tracing_groups,
-            60 => tracing_ifs,
-            61 => tracing_scan_tokens,
-            62 => tracing_nesting,
-            63 => pre_display_correction,
-            64 => last_line_fit,
-            65 => saving_vdiscards,
-            66 => saving_hyphs,
-            67 => suppress_fontnotfound_error,
-            68 => xetex_linebreak_locale,
-            69 => xetex_linebreak_penalty,
-            70 => xetex_protrude_chars,
-            71 => texxet,
-            72 => xetex_dash_break,
-            73 => xetex_upwards,
-            74 => xetex_use_glyph_metrics,
-            75 => xetex_inter_char_tokens,
-            76 => xetex_input_normalization,
-            77 => xetex_default_input_mode,
-            78 => xetex_default_input_encoding,
-            79 => xetex_tracing_fonts,
-            80 => xetex_interword_space_shaping,
-            81 => xetex_generate_actual_text,
-            82 => xetex_hyphenatable_length,
-            83 => synctex,
-            84 => pdfoutput,
-            _ => panic!(b"[unknown i32 parameter!]"),
+impl TryFrom<i32> for IntPar {
+    type Error = &'static [u8];
+    fn try_from(n: i32) -> Result<Self, Self::Error> {
+        if (n as u32) > 84 {
+            Err(b"[unknown i32 parameter!]")
+        } else {
+            Ok(unsafe { mem::transmute(n) })
         }
     }
 }
@@ -486,34 +388,13 @@ pub(crate) enum DimenPar {
     pdf_page_width = 21,
     pdf_page_height = 22,
 }
-impl From<i32> for DimenPar {
-    fn from(n: i32) -> Self {
-        use DimenPar::*;
-        match n {
-            0 => par_indent,
-            1 => math_surround,
-            2 => line_skip_limit,
-            3 => hsize,
-            4 => vsize,
-            5 => max_depth,
-            6 => split_max_depth,
-            7 => box_max_depth,
-            8 => hfuzz,
-            9 => vfuzz,
-            10 => delimiter_shortfall,
-            11 => null_delimiter_space,
-            12 => script_space,
-            13 => pre_display_size,
-            14 => display_width,
-            15 => display_indent,
-            16 => overfull_rule,
-            17 => hang_indent,
-            18 => h_offset,
-            19 => v_offset,
-            20 => emergency_stretch,
-            21 => pdf_page_width,
-            22 => pdf_page_height,
-            _ => panic!(b"[unknown dimen parameter!]"),
+impl TryFrom<i32> for DimenPar {
+    type Error = &'static [u8];
+    fn try_from(n: i32) -> Result<Self, Self::Error> {
+        if (n as u32) > 22 {
+            Err(b"[unknown dimen parameter!]")
+        } else {
+            Ok(unsafe { mem::transmute(n) })
         }
     }
 }
@@ -1014,14 +895,14 @@ pub(crate) const SET_LANGUAGE_CODE: u16 = 5;
 pub(crate) const PDFTEX_FIRST_EXTENSION_CODE: u16 = 6;
 pub(crate) const PDF_SAVE_POS_NODE: u16 = 6;
 /// not to be confused with PIC_NODE = 43!
-pub(crate) const PIC_FILE_CODE: placeholdertype = 41;
+pub(crate) const PIC_FILE_CODE: u16 = 41;
 /// not to be confused with PDF_NODE = 44!
-pub(crate) const PDF_FILE_CODE: placeholdertype = 42;
+pub(crate) const PDF_FILE_CODE: u16 = 42;
 /// not to be confused with GLYPH_NODE = 42!
-pub(crate) const GLYPH_CODE: placeholdertype = 43;
-pub(crate) const XETEX_INPUT_ENCODING_EXTENSION_CODE: placeholdertype = 44;
-pub(crate) const XETEX_DEFAULT_ENCODING_EXTENSION_CODE: placeholdertype = 45;
-pub(crate) const XETEX_LINEBREAK_LOCALE_EXTENSION_CODE: placeholdertype = 46;
+pub(crate) const GLYPH_CODE: u16 = 43;
+pub(crate) const XETEX_INPUT_ENCODING_EXTENSION_CODE: u16 = 44;
+pub(crate) const XETEX_DEFAULT_ENCODING_EXTENSION_CODE: u16 = 45;
+pub(crate) const XETEX_LINEBREAK_LOCALE_EXTENSION_CODE: u16 = 46;
 
 /* VALIGN overloads */
 pub(crate) const BEGIN_L_CODE: placeholdertype = 6;
@@ -1169,13 +1050,13 @@ pub(crate) const ETEX_MU: placeholdertype = 58;
 pub(crate) const COND_MATH_GLUE: u16 = 98;
 pub(crate) const MU_GLUE: u16 = 99;
 pub(crate) const MAX_COMMAND: placeholdertype = 102;
-pub(crate) const UNDEFINED_CS: placeholdertype = 103;
+pub(crate) const UNDEFINED_CS: u16 = 103;
 pub(crate) const HMODE: placeholdertype = 104;
-pub(crate) const CALL: placeholdertype = 113;
-pub(crate) const LONG_CALL: placeholdertype = 114;
-pub(crate) const OUTER_CALL: placeholdertype = 115;
-pub(crate) const LONG_OUTER_CALL: placeholdertype = 116;
-pub(crate) const END_TEMPLATE: placeholdertype = 117;
+pub(crate) const CALL: u16 = 113;
+pub(crate) const LONG_CALL: u16 = 114;
+pub(crate) const OUTER_CALL: u16 = 115;
+pub(crate) const LONG_OUTER_CALL: u16 = 116;
+pub(crate) const END_TEMPLATE: u16 = 117;
 pub(crate) const DONT_EXPAND: placeholdertype = 118;
 pub(crate) const GLUE_REF: placeholdertype = 119;
 pub(crate) const SHAPE_REF: placeholdertype = 120;
@@ -1264,7 +1145,7 @@ pub(crate) const MARKS_CODE: placeholdertype = 5;
 
 pub(crate) const IGNORE_DEPTH: placeholdertype = -65536000;
 
-pub(crate) const MIDDLE_NOAD: placeholdertype = 1;
+pub(crate) const MIDDLE_NOAD: u16 = 1;
 
 /* movement() */
 pub(crate) const MOV_NONE_SEEN: placeholdertype = 0;
