@@ -1923,26 +1923,18 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_esc_cstr(b"toks");
                 print_int(chr_code - TOKS_BASE);
             } else {
-                match chr_code {
-                    c if c == LOCAL_BASE + Local::output_routine as i32 => {
-                        print_esc_cstr(b"output")
-                    }
-                    c if c == LOCAL_BASE + Local::every_par as i32 => print_esc_cstr(b"everypar"),
-                    c if c == LOCAL_BASE + Local::every_math as i32 => print_esc_cstr(b"everymath"),
-                    c if c == LOCAL_BASE + Local::every_display as i32 => {
-                        print_esc_cstr(b"everydisplay")
-                    }
-                    c if c == LOCAL_BASE + Local::every_hbox as i32 => print_esc_cstr(b"everyhbox"),
-                    c if c == LOCAL_BASE + Local::every_vbox as i32 => print_esc_cstr(b"everyvbox"),
-                    c if c == LOCAL_BASE + Local::every_job as i32 => print_esc_cstr(b"everyjob"),
-                    c if c == LOCAL_BASE + Local::every_cr as i32 => print_esc_cstr(b"everycr"),
-                    c if c == LOCAL_BASE + Local::every_eof as i32 => print_esc_cstr(b"everyeof"),
-                    c if c == LOCAL_BASE + Local::xetex_inter_char as i32 => {
-                        print_esc_cstr(b"XeTeXinterchartoks")
-                    }
-                    c if c == LOCAL_BASE + Local::TectonicCodaTokens as i32 => {
-                        print_esc_cstr(b"TectonicCodaTokens")
-                    }
+                match Local::try_from(chr_code - LOCAL_BASE) {
+                    Ok(Local::output_routine) => print_esc_cstr(b"output"),
+                    Ok(Local::every_par) => print_esc_cstr(b"everypar"),
+                    Ok(Local::every_math) => print_esc_cstr(b"everymath"),
+                    Ok(Local::every_display) => print_esc_cstr(b"everydisplay"),
+                    Ok(Local::every_hbox) => print_esc_cstr(b"everyhbox"),
+                    Ok(Local::every_vbox) => print_esc_cstr(b"everyvbox"),
+                    Ok(Local::every_job) => print_esc_cstr(b"everyjob"),
+                    Ok(Local::every_cr) => print_esc_cstr(b"everycr"),
+                    Ok(Local::every_eof) => print_esc_cstr(b"everyeof"),
+                    Ok(Local::xetex_inter_char) => print_esc_cstr(b"XeTeXinterchartoks"),
+                    Ok(Local::TectonicCodaTokens) => print_esc_cstr(b"TectonicCodaTokens"),
                     _ => print_esc_cstr(b"errhelp"),
                 }
             }
@@ -2733,7 +2725,7 @@ pub(crate) unsafe fn not_ot_font_error(mut cmd: i32, mut c: i32, f: usize) {
     print_cstr(b"; not an OpenType Layout font");
     error();
 }
-pub(crate) unsafe fn not_native_font_error(mut cmd: i32, mut c: i32, f: usize) {
+pub(crate) unsafe fn not_native_font_error(cmd: i32, c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -2749,54 +2741,46 @@ pub(crate) unsafe fn not_native_font_error(mut cmd: i32, mut c: i32, f: usize) {
 /*:1434*/
 pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
     let mut h: i32 = 0; /*269:*/
-    let mut d: i32 = 0;
     let mut p: i32 = 0;
-    let mut k: i32 = 0;
     let mut ll: i32 = 0;
     h = 0i32;
-    k = j;
-    while k <= j + l - 1i32 {
+    for k in j..=j + l - 1 {
         h = h + h + BUFFER[k as usize];
-        while h >= 8501i32 {
-            h = h - 8501i32
+        while h >= HASH_PRIME {
+            h = h - 8501;
         }
-        k += 1
     }
-    p = h + (1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32);
+    p = h + HASH_BASE as i32;
     ll = l;
-    d = 0i32;
-    while d <= l - 1i32 {
+    for d in 0..=l - 1 {
         if BUFFER[(j + d) as usize] as i64 >= 65536 {
             ll += 1
         }
-        d += 1
     }
     loop {
-        if (*hash.offset(p as isize)).s1 > 0i32 {
+        if (*hash.offset(p as isize)).s1 > 0 {
             if length((*hash.offset(p as isize)).s1) == ll {
                 if str_eq_buf((*hash.offset(p as isize)).s1, j) {
                     break;
                 }
             }
         }
-        if (*hash.offset(p as isize)).s0 == 0i32 {
+        if (*hash.offset(p as isize)).s0 == 0 {
             if no_new_control_sequence {
                 p = UNDEFINED_CONTROL_SEQUENCE
             } else {
-                if (*hash.offset(p as isize)).s1 > 0i32 {
+                if (*hash.offset(p as isize)).s1 > 0 {
                     if hash_high < hash_extra {
                         hash_high += 1;
                         (*hash.offset(p as isize)).s0 = hash_high + EQTB_SIZE;
                         p = hash_high + EQTB_SIZE
                     } else {
                         loop {
-                            if hash_used
-                                == 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32
-                            {
-                                overflow(b"hash size", 15000 + hash_extra as usize);
+                            if hash_used == HASH_BASE as i32 {
+                                overflow(b"hash size", HASH_SIZE + hash_extra as usize);
                             }
                             hash_used -= 1;
-                            if !((*hash.offset(hash_used as isize)).s1 != 0i32) {
+                            if !((*hash.offset(hash_used as isize)).s1 != 0) {
                                 break;
                             }
                         }
@@ -2807,27 +2791,25 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
                 if pool_ptr + ll > pool_size {
                     overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
                 }
-                d = cur_length();
-                while pool_ptr > str_start[(str_ptr - 65536) as usize] {
+                let d = cur_length();
+                while pool_ptr > str_start[(str_ptr - TOO_BIG_CHAR) as usize] {
                     pool_ptr -= 1;
                     str_pool[(pool_ptr + l) as usize] = str_pool[pool_ptr as usize]
                 }
-                k = j;
-                while k <= j + l - 1i32 {
+                for k in j..=j + l - 1 {
                     if (BUFFER[k as usize] as i64) < 65536 {
                         str_pool[pool_ptr as usize] = BUFFER[k as usize] as packed_UTF16_code;
                         pool_ptr += 1
                     } else {
-                        str_pool[pool_ptr as usize] = (0xd800i32 as i64
-                            + (BUFFER[k as usize] as i64 - 65536) / 1024i32 as i64)
+                        str_pool[pool_ptr as usize] = (0xd800_i64
+                            + (BUFFER[k as usize] as i64 - 65536) / 1024)
                             as packed_UTF16_code;
                         pool_ptr += 1;
-                        str_pool[pool_ptr as usize] = (0xdc00i32 as i64
-                            + (BUFFER[k as usize] as i64 - 65536) % 1024i32 as i64)
+                        str_pool[pool_ptr as usize] = (0xdc00_i64
+                            + (BUFFER[k as usize] as i64 - 65536) % 1024)
                             as packed_UTF16_code;
                         pool_ptr += 1
                     }
-                    k += 1
                 }
                 (*hash.offset(p as isize)).s1 = make_string();
                 pool_ptr += d
@@ -2845,13 +2827,13 @@ pub(crate) unsafe fn prim_lookup(mut s: str_number) -> i32 {
     let mut p: i32 = 0;
     let mut k: i32 = 0;
     let mut j: i32 = 0;
-    let mut l: i32 = 0i32;
-    if s <= 0xffffi32 {
-        if s < 0i32 {
-            p = 0i32;
+    let mut l: i32 = 0;
+    if s <= BIGGEST_CHAR {
+        if s < 0 {
+            p = UNDEFINED_PRIMITIVE;
             current_block = 12583739755984661121;
         } else {
-            p = s % 431i32 + 1i32;
+            p = (s % PRIM_PRIME) + 1;
             current_block = 11307063007268554308;
         }
     } else {
@@ -2863,22 +2845,21 @@ pub(crate) unsafe fn prim_lookup(mut s: str_number) -> i32 {
         }
         h = str_pool[j as usize] as i32;
         let mut for_end: i32 = 0;
-        k = j + 1i32;
-        for_end = j + l - 1i32;
+        k = j + 1;
+        for_end = j + l - 1;
         if k <= for_end {
             loop {
                 h = h + h + str_pool[k as usize] as i32;
-                while h >= 431i32 {
-                    h = h - 431i32
+                while h >= PRIM_PRIME {
+                    h = h - 431
                 }
-                let fresh14 = k;
-                k = k + 1;
-                if !(fresh14 < for_end) {
+                if !(k < for_end) {
                     break;
                 }
+                k = k + 1;
             }
         }
-        p = h + 1i32;
+        p = h + 1;
         current_block = 11307063007268554308;
     }
     loop {
@@ -2886,28 +2867,28 @@ pub(crate) unsafe fn prim_lookup(mut s: str_number) -> i32 {
             12583739755984661121 => return p,
             _ => {
                 if prim[p as usize].s1 as i64 > 65536 {
-                    if length(prim[p as usize].s1) - 1i32 == l {
-                        if str_eq_str(prim[p as usize].s1 - 1i32, s) {
+                    if length(prim[p as usize].s1) - 1 == l {
+                        if str_eq_str(prim[p as usize].s1 - 1, s) {
                             current_block = 12583739755984661121;
                             continue;
                         }
                     }
-                } else if prim[p as usize].s1 == 1i32 + s {
+                } else if prim[p as usize].s1 == 1 + s {
                     current_block = 12583739755984661121;
                     continue;
                 }
                 if prim[p as usize].s0 == 0i32 {
                     if no_new_control_sequence {
-                        p = 0i32
+                        p = UNDEFINED_PRIMITIVE
                     } else {
                         /*272:*/
-                        if prim[p as usize].s1 > 0i32 {
+                        if prim[p as usize].s1 > 0 {
                             loop {
-                                if prim_used == 1i32 {
-                                    overflow(b"primitive size", 500);
+                                if prim_used == PRIM_BASE {
+                                    overflow(b"primitive size", PRIM_SIZE as usize);
                                 }
                                 prim_used -= 1;
-                                if prim[prim_used as usize].s1 == 0i32 {
+                                if prim[prim_used as usize].s1 == 0 {
                                     break;
                                 }
                             }
@@ -2928,51 +2909,50 @@ pub(crate) unsafe fn prim_lookup(mut s: str_number) -> i32 {
 /*:276*/
 /*280: *//*296: */
 pub(crate) unsafe fn print_group(mut e: bool) {
-    match cur_group as i32 {
-        0 => {
+    match cur_group {
+        GroupCode::BOTTOM_LEVEL => {
             print_cstr(b"bottom level");
             return;
         }
-        1 | 14 => {
-            if cur_group as i32 == 14i32 {
+        GroupCode::SIMPLE | GroupCode::SEMI_SIMPLE => {
+            if cur_group == GroupCode::SEMI_SIMPLE {
                 print_cstr(b"semi ");
             }
             print_cstr(b"simple");
         }
-        2 | 3 => {
-            if cur_group as i32 == 3i32 {
+        GroupCode::HBOX | GroupCode::ADJUSTED_HBOX => {
+            if cur_group == GroupCode::ADJUSTED_HBOX {
                 print_cstr(b"adjusted ");
             }
             print_cstr(b"hbox");
         }
-        4 => print_cstr(b"vbox"),
-        5 => print_cstr(b"vtop"),
-        6 | 7 => {
-            if cur_group as i32 == 7i32 {
+        GroupCode::VBOX => print_cstr(b"vbox"),
+        GroupCode::VTOP => print_cstr(b"vtop"),
+        GroupCode::ALIGN | GroupCode::NO_ALIGN => {
+            if cur_group == GroupCode::NO_ALIGN {
                 print_cstr(b"no ");
             }
             print_cstr(b"align");
         }
-        8 => print_cstr(b"output"),
-        10 => print_cstr(b"disc"),
-        11 => print_cstr(b"insert"),
-        12 => print_cstr(b"vcenter"),
-        9 | 13 | 15 | 16 => {
+        GroupCode::OUTPUT => print_cstr(b"output"),
+        GroupCode::DISC => print_cstr(b"disc"),
+        GroupCode::INSERT => print_cstr(b"insert"),
+        GroupCode::VCENTER => print_cstr(b"vcenter"),
+        GroupCode::MATH | GroupCode::MATH_CHOICE | GroupCode::MATH_SHIFT | GroupCode::MATH_LEFT => {
             print_cstr(b"math");
-            if cur_group as i32 == 13i32 {
+            if cur_group == GroupCode::MATH_CHOICE {
                 print_cstr(b" choice");
-            } else if cur_group as i32 == 15i32 {
+            } else if cur_group == GroupCode::MATH_SHIFT {
                 print_cstr(b" shift");
-            } else if cur_group as i32 == 16i32 {
+            } else if cur_group == GroupCode::MATH_LEFT {
                 print_cstr(b" left");
             }
         }
-        _ => {}
     }
     print_cstr(b" group (level ");
     print_int(cur_level as i32);
     print_char(')' as i32);
-    if SAVE_STACK[SAVE_PTR - 1].b32.s1 != 0i32 {
+    if SAVE_STACK[SAVE_PTR - 1].b32.s1 != 0 {
         if e {
             print_cstr(b" entered at line ");
         } else {
@@ -3122,26 +3102,25 @@ pub(crate) unsafe fn if_warning() {
 pub(crate) unsafe fn file_warning() {
     let mut p: i32 = 0;
     let mut l: u16 = 0;
-    let mut c: u16 = 0;
     let mut i: i32 = 0;
     p = SAVE_PTR as i32;
     l = cur_level;
-    c = cur_group as u16;
+    let c = cur_group;
     SAVE_PTR = cur_boundary as usize;
     while GRP_STACK[IN_OPEN] != SAVE_PTR as i32 {
         cur_level = cur_level.wrapping_sub(1);
         print_nl_cstr(b"Warning: end of file when ");
         print_group(true);
         print_cstr(b" is incomplete");
-        cur_group = SAVE_STACK[SAVE_PTR].b16.s0 as group_code;
+        cur_group = GroupCode::from(SAVE_STACK[SAVE_PTR].b16.s0);
         SAVE_PTR = SAVE_STACK[SAVE_PTR].b32.s1 as usize
     }
     SAVE_PTR = p as usize;
     cur_level = l;
-    cur_group = c as group_code;
+    cur_group = c;
     p = cond_ptr;
     l = if_limit as u16;
-    c = cur_if as u16;
+    let c = cur_if as u16;
     i = if_line;
     while IF_STACK[IN_OPEN] != cond_ptr {
         print_nl_cstr(b"Warning: end of file when ");
@@ -3342,7 +3321,7 @@ pub(crate) unsafe fn sa_restore() {
         }
     }
 }
-pub(crate) unsafe fn new_save_level(mut c: group_code) {
+pub(crate) unsafe fn new_save_level(c: GroupCode) {
     if SAVE_PTR > MAX_SAVE_STACK {
         MAX_SAVE_STACK = SAVE_PTR;
         if MAX_SAVE_STACK > SAVE_SIZE - 7 {
@@ -3518,7 +3497,7 @@ pub(crate) unsafe fn unsave() {
         if GRP_STACK[IN_OPEN] == cur_boundary {
             group_warning();
         }
-        cur_group = SAVE_STACK[SAVE_PTR].b16.s0 as group_code;
+        cur_group = GroupCode::from(SAVE_STACK[SAVE_PTR].b16.s0);
         cur_boundary = SAVE_STACK[SAVE_PTR].b32.s1;
         SAVE_PTR -= 1;
     } else {
@@ -5901,7 +5880,7 @@ pub(crate) unsafe fn scan_math(mut p: i32) {
                     scan_left_brace();
                     SAVE_STACK[SAVE_PTR + 0].b32.s1 = p;
                     SAVE_PTR += 1;
-                    push_math(9 as group_code);
+                    push_math(GroupCode::MATH);
                     return;
                 }
             }
@@ -11344,7 +11323,7 @@ pub(crate) unsafe fn new_character(mut f: internal_font_number, mut c: UTF16_cod
     char_warning(f, c as i32);
     TEX_NULL
 }
-pub(crate) unsafe fn scan_spec(mut c: group_code, mut three_codes: bool) {
+pub(crate) unsafe fn scan_spec(c: GroupCode, mut three_codes: bool) {
     let mut current_block: u64;
     let mut s: i32 = 0;
     let mut spec_code: u8 = 0;
@@ -12386,7 +12365,7 @@ pub(crate) unsafe fn init_align() {
         cur_list.mode = -(cur_list.mode as i32) as i16
         /*:804*/
     }
-    scan_spec(6i32 as group_code, false);
+    scan_spec(GroupCode::ALIGN, false);
     MEM[(4999999 - 8) as usize].b32.s1 = TEX_NULL;
     cur_align = 4999999i32 - 8i32;
     cur_loop = TEX_NULL;
@@ -12466,7 +12445,7 @@ pub(crate) unsafe fn init_align() {
         MEM[(cur_align + 2) as usize].b32.s1 = MEM[(4999999 - 4) as usize].b32.s1
     }
     scanner_status = 0_u8;
-    new_save_level(6i32 as group_code);
+    new_save_level(GroupCode::ALIGN);
     if !LOCAL(Local::every_cr).is_texnull() {
         begin_token_list(*LOCAL(Local::every_cr), 14_u16);
     }
@@ -12579,7 +12558,7 @@ pub(crate) unsafe fn fin_col() -> bool {
     }
     if MEM[(cur_align + 5) as usize].b32.s0 != 0x10ffff + 2 {
         unsave();
-        new_save_level(6i32 as group_code);
+        new_save_level(GroupCode::ALIGN);
         if cur_list.mode as i32 == -104i32 {
             adjust_tail = cur_tail;
             pre_adjust_tail = cur_pre_tail;
@@ -13084,7 +13063,7 @@ pub(crate) unsafe fn align_peek() {
         }
         if cur_cmd as i32 == 34i32 {
             scan_left_brace();
-            new_save_level(7i32 as group_code);
+            new_save_level(GroupCode::NO_ALIGN);
             if cur_list.mode as i32 == -1i32 {
                 normal_paragraph();
             }
@@ -13128,7 +13107,6 @@ pub(crate) unsafe fn show_save_groups() {
     let mut m: i16 = 0;
     let mut v: save_pointer = 0;
     let mut l: u16 = 0;
-    let mut c: group_code = 0;
     let mut a: i8 = 0;
     let mut i: i32 = 0;
     let mut j: u16 = 0;
@@ -13137,7 +13115,7 @@ pub(crate) unsafe fn show_save_groups() {
     NEST[p] = cur_list;
     v = SAVE_PTR as i32;
     l = cur_level;
-    c = cur_group;
+    let c = cur_group;
     SAVE_PTR = cur_boundary as usize;
     cur_level = cur_level.wrapping_sub(1);
     a = 1_i8;
@@ -13328,7 +13306,7 @@ pub(crate) unsafe fn show_save_groups() {
         }
         print_char(')' as i32);
         cur_level = cur_level.wrapping_sub(1);
-        cur_group = SAVE_STACK[SAVE_PTR].b16.s0 as group_code;
+        cur_group = GroupCode::from(SAVE_STACK[SAVE_PTR].b16.s0);
         SAVE_PTR = SAVE_STACK[SAVE_PTR].b32.s1 as usize
     }
     SAVE_PTR = v as usize;
@@ -14237,15 +14215,15 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
             SAVE_STACK[SAVE_PTR + 0].b32.s1 = box_context;
             if k == 104i32 {
                 if box_context < 0x40000000i32 && (cur_list.mode as i32).abs() == 1i32 {
-                    scan_spec(3i32 as group_code, true);
+                    scan_spec(GroupCode::ADJUSTED_HBOX, true);
                 } else {
-                    scan_spec(2i32 as group_code, true);
+                    scan_spec(GroupCode::HBOX, true);
                 }
             } else {
                 if k == 1i32 {
-                    scan_spec(4i32 as group_code, true);
+                    scan_spec(GroupCode::VBOX, true);
                 } else {
-                    scan_spec(5i32 as group_code, true);
+                    scan_spec(GroupCode::VTOP, true);
                     k = 1i32
                 }
                 normal_paragraph();
@@ -14467,7 +14445,7 @@ pub(crate) unsafe fn begin_insert_or_adjust() {
         SAVE_STACK[SAVE_PTR + 1].b32.s1 = 0
     }
     SAVE_PTR += 2;
-    new_save_level(11i32 as group_code);
+    new_save_level(GroupCode::INSERT);
     scan_left_brace();
     normal_paragraph();
     push_nest();
@@ -14718,7 +14696,7 @@ pub(crate) unsafe fn append_discretionary() {
     } else {
         SAVE_PTR += 1;
         SAVE_STACK[SAVE_PTR - 1].b32.s1 = 0;
-        new_save_level(10i32 as group_code);
+        new_save_level(GroupCode::DISC);
         scan_left_brace();
         push_nest();
         cur_list.mode = -104_i16;
@@ -14815,7 +14793,7 @@ pub(crate) unsafe fn build_discretionary() {
         _ => {}
     }
     SAVE_STACK[SAVE_PTR - 1].b32.s1 += 1;
-    new_save_level(10i32 as group_code);
+    new_save_level(GroupCode::DISC);
     scan_left_brace();
     push_nest();
     cur_list.mode = -104_i16;
@@ -15028,7 +15006,7 @@ pub(crate) unsafe fn cs_error() {
     help_line[0] = b"I\'m ignoring this, since I wasn\'t doing a \\csname.";
     error();
 }
-pub(crate) unsafe fn push_math(mut c: group_code) {
+pub(crate) unsafe fn push_math(c: GroupCode) {
     push_nest();
     cur_list.mode = -207_i16;
     cur_list.aux.b32.s1 = TEX_NULL;
@@ -16551,11 +16529,11 @@ pub(crate) unsafe fn main_control() {
                             continue 'c_125208;
                         }
                         2 | 105 => {
-                            new_save_level(1i32 as group_code);
+                            new_save_level(GroupCode::SIMPLE);
                             continue 'c_125208;
                         }
                         62 | 165 | 268 => {
-                            new_save_level(14i32 as group_code);
+                            new_save_level(GroupCode::SEMI_SIMPLE);
                             continue 'c_125208;
                         }
                         63 | 166 | 269 => {
@@ -16827,7 +16805,7 @@ pub(crate) unsafe fn main_control() {
                             continue 'c_125208;
                         }
                         263 => {
-                            scan_spec(12i32 as group_code, false);
+                            scan_spec(GroupCode::VCENTER, false);
                             normal_paragraph();
                             push_nest();
                             cur_list.mode = -1_i16;
