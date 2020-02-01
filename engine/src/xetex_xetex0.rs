@@ -730,26 +730,27 @@ pub(crate) unsafe fn print_style(mut c: i32) {
     };
 }
 pub(crate) unsafe fn print_skip_param(n: GluePar) {
+    use GluePar::*;
     match n {
-        GluePar::line_skip => print_esc_cstr(b"lineskip"),
-        GluePar::baseline_skip => print_esc_cstr(b"baselineskip"),
-        GluePar::par_skip => print_esc_cstr(b"parskip"),
-        GluePar::above_display_skip => print_esc_cstr(b"abovedisplayskip"),
-        GluePar::below_display_skip => print_esc_cstr(b"belowdisplayskip"),
-        GluePar::above_display_short_skip => print_esc_cstr(b"abovedisplayshortskip"),
-        GluePar::below_display_short_skip => print_esc_cstr(b"belowdisplayshortskip"),
-        GluePar::left_skip => print_esc_cstr(b"leftskip"),
-        GluePar::right_skip => print_esc_cstr(b"rightskip"),
-        GluePar::top_skip => print_esc_cstr(b"topskip"),
-        GluePar::split_top_skip => print_esc_cstr(b"splittopskip"),
-        GluePar::tab_skip => print_esc_cstr(b"tabskip"),
-        GluePar::space_skip => print_esc_cstr(b"spaceskip"),
-        GluePar::xspace_skip => print_esc_cstr(b"xspaceskip"),
-        GluePar::par_fill_skip => print_esc_cstr(b"parfillskip"),
-        GluePar::xetex_linebreak_skip => print_esc_cstr(b"XeTeXlinebreakskip"),
-        GluePar::thin_mu_skip => print_esc_cstr(b"thinmuskip"),
-        GluePar::med_mu_skip => print_esc_cstr(b"medmuskip"),
-        GluePar::thick_mu_skip => print_esc_cstr(b"thickmuskip"),
+        line_skip => print_esc_cstr(b"lineskip"),
+        baseline_skip => print_esc_cstr(b"baselineskip"),
+        par_skip => print_esc_cstr(b"parskip"),
+        above_display_skip => print_esc_cstr(b"abovedisplayskip"),
+        below_display_skip => print_esc_cstr(b"belowdisplayskip"),
+        above_display_short_skip => print_esc_cstr(b"abovedisplayshortskip"),
+        below_display_short_skip => print_esc_cstr(b"belowdisplayshortskip"),
+        left_skip => print_esc_cstr(b"leftskip"),
+        right_skip => print_esc_cstr(b"rightskip"),
+        top_skip => print_esc_cstr(b"topskip"),
+        split_top_skip => print_esc_cstr(b"splittopskip"),
+        tab_skip => print_esc_cstr(b"tabskip"),
+        space_skip => print_esc_cstr(b"spaceskip"),
+        xspace_skip => print_esc_cstr(b"xspaceskip"),
+        par_fill_skip => print_esc_cstr(b"parfillskip"),
+        xetex_linebreak_skip => print_esc_cstr(b"XeTeXlinebreakskip"),
+        thin_mu_skip => print_esc_cstr(b"thinmuskip"),
+        med_mu_skip => print_esc_cstr(b"medmuskip"),
+        thick_mu_skip => print_esc_cstr(b"thickmuskip"),
     };
 }
 pub(crate) unsafe fn show_node_list(mut p: i32) {
@@ -1571,28 +1572,28 @@ pub(crate) unsafe fn show_activities() {
     NEST[NEST_PTR] = cur_list;
     print_nl_cstr(b"");
     print_ln();
-    let mut p = NEST_PTR;
+    let mut p = NEST_PTR as usize;
     let for_end = 0;
     if p >= for_end {
         loop {
-            let mut m = NEST[p as usize].mode;
-            let a = NEST[p as usize].aux;
+            let mut m = NEST[p].mode;
+            let a = NEST[p].aux;
             print_nl_cstr(b"### ");
             print_mode(m as i32);
             print_cstr(b" entered at line ");
-            print_int(NEST[p as usize].mode_line.abs());
+            print_int(NEST[p].mode_line.abs());
             if m as i32 == HMODE {
-                if NEST[p as usize].prev_graf != 0x830000i32 {
+                if NEST[p].prev_graf != 0x830000 {
                     print_cstr(b" (language");
-                    print_int((NEST[p as usize].prev_graf as i64 % 65536) as i32);
+                    print_int((NEST[p].prev_graf as i64 % 65536) as i32);
                     print_cstr(b":hyphenmin");
-                    print_int(NEST[p as usize].prev_graf / 0x400000i32);
+                    print_int(NEST[p].prev_graf / 0x400000);
                     print_char(',' as i32);
-                    print_int((NEST[p as usize].prev_graf as i64 / 65536 % 64i32 as i64) as i32);
+                    print_int((NEST[p].prev_graf as i64 / 65536 % 64) as i32);
                     print_char(')' as i32);
                 }
             }
-            if NEST[p as usize].mode_line < 0i32 {
+            if NEST[p].mode_line < 0 {
                 print_cstr(b" (\\output routine)");
             }
             if p == 0 {
@@ -1614,24 +1615,23 @@ pub(crate) unsafe fn show_activities() {
                             let mut t = MEM[r].b16.s0 as i32;
                             print_int(t);
                             print_cstr(b" adds ");
-                            if EQTB[(COUNT_BASE + t) as usize].b32.s1 == 1000i32 {
+                            if *COUNT_REG(t) == 1000 {
                                 t = MEM[r + 3].b32.s1
                             } else {
-                                t = x_over_n(MEM[r + 3].b32.s1, 1000)
-                                    * EQTB[(COUNT_BASE + t) as usize].b32.s1
+                                t = x_over_n(MEM[r + 3].b32.s1, 1000) * *COUNT_REG(t)
                             }
                             print_scaled(t);
-                            if MEM[r].b16.s1 as i32 == 1 {
-                                let mut q = 4999999i32 - 2i32;
-                                t = 0i32;
+                            if MEM[r].b16.s1 as i32 == SPLIT_UP {
+                                let mut q = PAGE_HEAD;
+                                t = 0;
                                 loop {
-                                    q = MEM[q as usize].b32.s1;
-                                    if MEM[q as usize].b16.s1 as i32 == 3
-                                        && MEM[q as usize].b16.s0 as i32 == MEM[r].b16.s0 as i32
+                                    q = *LLIST_link(q as isize) as usize;
+                                    if MEM[q].b16.s1 as i32 == 3
+                                        && MEM[q].b16.s0 as i32 == MEM[r].b16.s0 as i32
                                     {
                                         t += 1
                                     }
-                                    if q == MEM[r + 1].b32.s0 {
+                                    if q == MEM[r + 1].b32.s0 as usize {
                                         break;
                                     }
                                 }
@@ -1643,23 +1643,23 @@ pub(crate) unsafe fn show_activities() {
                         }
                     }
                 }
-                if !MEM[(4999999 - 1) as usize].b32.s1.is_texnull() {
+                if !MEM[CONTRIB_HEAD].b32.s1.is_texnull() {
                     print_nl_cstr(b"### recent contributions:");
                 }
             }
-            show_box(MEM[NEST[p as usize].head as usize].b32.s1);
-            match (m as i32).abs() / (102i32 + 1i32) {
+            show_box(MEM[NEST[p].head as usize].b32.s1);
+            match (m as i32).abs() / (MAX_COMMAND + 1) {
                 0 => {
                     print_nl_cstr(b"prevdepth ");
-                    if a.b32.s1 <= -65536000i32 {
+                    if a.b32.s1 <= IGNORE_DEPTH {
                         print_cstr(b"ignored");
                     } else {
                         print_scaled(a.b32.s1);
                     }
-                    if NEST[p as usize].prev_graf != 0i32 {
+                    if NEST[p].prev_graf != 0 {
                         print_cstr(b", prevgraf ");
-                        print_int(NEST[p as usize].prev_graf);
-                        if NEST[p as usize].prev_graf != 1i32 {
+                        print_int(NEST[p].prev_graf);
+                        if NEST[p].prev_graf != 1 {
                             print_cstr(b" lines");
                         } else {
                             print_cstr(b" line");
@@ -1669,8 +1669,8 @@ pub(crate) unsafe fn show_activities() {
                 1 => {
                     print_nl_cstr(b"spacefactor ");
                     print_int(a.b32.s0);
-                    if m as i32 > 0i32 {
-                        if a.b32.s1 > 0i32 {
+                    if m as i32 > 0 {
+                        if a.b32.s1 > 0 {
                             print_cstr(b", current language ");
                             print_int(a.b32.s1);
                         }
@@ -1691,96 +1691,97 @@ pub(crate) unsafe fn show_activities() {
         }
     };
 }
-pub(crate) unsafe fn print_param(mut n: i32) {
+pub(crate) unsafe fn print_param(n: IntPar) {
+    use IntPar::*;
     match n {
-        0 => print_esc_cstr(b"pretolerance"),
-        1 => print_esc_cstr(b"tolerance"),
-        2 => print_esc_cstr(b"linepenalty"),
-        3 => print_esc_cstr(b"hyphenpenalty"),
-        4 => print_esc_cstr(b"exhyphenpenalty"),
-        5 => print_esc_cstr(b"clubpenalty"),
-        6 => print_esc_cstr(b"widowpenalty"),
-        7 => print_esc_cstr(b"displaywidowpenalty"),
-        8 => print_esc_cstr(b"brokenpenalty"),
-        9 => print_esc_cstr(b"binoppenalty"),
-        10 => print_esc_cstr(b"relpenalty"),
-        11 => print_esc_cstr(b"predisplaypenalty"),
-        12 => print_esc_cstr(b"postdisplaypenalty"),
-        13 => print_esc_cstr(b"interlinepenalty"),
-        14 => print_esc_cstr(b"doublehyphendemerits"),
-        15 => print_esc_cstr(b"finalhyphendemerits"),
-        16 => print_esc_cstr(b"adjdemerits"),
-        17 => print_esc_cstr(b"mag"),
-        18 => print_esc_cstr(b"delimiterfactor"),
-        19 => print_esc_cstr(b"looseness"),
-        20 => print_esc_cstr(b"time"),
-        21 => print_esc_cstr(b"day"),
-        22 => print_esc_cstr(b"month"),
-        23 => print_esc_cstr(b"year"),
-        24 => print_esc_cstr(b"showboxbreadth"),
-        25 => print_esc_cstr(b"showboxdepth"),
-        26 => print_esc_cstr(b"hbadness"),
-        27 => print_esc_cstr(b"vbadness"),
-        28 => print_esc_cstr(b"pausing"),
-        29 => print_esc_cstr(b"tracingonline"),
-        30 => print_esc_cstr(b"tracingmacros"),
-        31 => print_esc_cstr(b"tracingstats"),
-        32 => print_esc_cstr(b"tracingparagraphs"),
-        33 => print_esc_cstr(b"tracingpages"),
-        34 => print_esc_cstr(b"tracingoutput"),
-        35 => print_esc_cstr(b"tracinglostchars"),
-        36 => print_esc_cstr(b"tracingcommands"),
-        37 => print_esc_cstr(b"tracingrestores"),
-        38 => print_esc_cstr(b"uchyph"),
-        39 => print_esc_cstr(b"outputpenalty"),
-        40 => print_esc_cstr(b"maxdeadcycles"),
-        41 => print_esc_cstr(b"hangafter"),
-        42 => print_esc_cstr(b"floatingpenalty"),
-        43 => print_esc_cstr(b"globaldefs"),
-        44 => print_esc_cstr(b"fam"),
-        45 => print_esc_cstr(b"escapechar"),
-        46 => print_esc_cstr(b"defaulthyphenchar"),
-        47 => print_esc_cstr(b"defaultskewchar"),
-        48 => print_esc_cstr(b"endlinechar"),
-        49 => print_esc_cstr(b"newlinechar"),
-        50 => print_esc_cstr(b"language"),
-        51 => print_esc_cstr(b"lefthyphenmin"),
-        52 => print_esc_cstr(b"righthyphenmin"),
-        53 => print_esc_cstr(b"holdinginserts"),
-        54 => print_esc_cstr(b"errorcontextlines"),
-        55 => print_esc_cstr(b"charsubdefmin"),
-        56 => print_esc_cstr(b"charsubdefmax"),
-        57 => print_esc_cstr(b"tracingcharsubdef"),
-        69 => print_esc_cstr(b"XeTeXlinebreakpenalty"),
-        70 => print_esc_cstr(b"XeTeXprotrudechars"),
-        83 => print_esc_cstr(b"synctex"),
-        58 => print_esc_cstr(b"tracingassigns"),
-        59 => print_esc_cstr(b"tracinggroups"),
-        60 => print_esc_cstr(b"tracingifs"),
-        61 => print_esc_cstr(b"tracingscantokens"),
-        62 => print_esc_cstr(b"tracingnesting"),
-        63 => print_esc_cstr(b"predisplaydirection"),
-        64 => print_esc_cstr(b"lastlinefit"),
-        65 => print_esc_cstr(b"savingvdiscards"),
-        66 => print_esc_cstr(b"savinghyphcodes"),
-        67 => print_esc_cstr(b"suppressfontnotfounderror"),
-        71 => print_esc_cstr(b"TeXXeTstate"),
-        73 => print_esc_cstr(b"XeTeXupwardsmode"),
-        74 => print_esc_cstr(b"XeTeXuseglyphmetrics"),
-        75 => print_esc_cstr(b"XeTeXinterchartokenstate"),
-        72 => print_esc_cstr(b"XeTeXdashbreakstate"),
-        76 => print_esc_cstr(b"XeTeXinputnormalization"),
-        79 => print_esc_cstr(b"XeTeXtracingfonts"),
-        80 => print_esc_cstr(b"XeTeXinterwordspaceshaping"),
-        81 => print_esc_cstr(b"XeTeXgenerateactualtext"),
-        82 => print_esc_cstr(b"XeTeXhyphenatablelength"),
-        84 => print_esc_cstr(b"pdfoutput"),
-        _ => print_cstr(b"[unknown i32 parameter!]"),
+        pretolerance => print_esc_cstr(b"pretolerance"),
+        tolerance => print_esc_cstr(b"tolerance"),
+        line_penalty => print_esc_cstr(b"linepenalty"),
+        hyphen_penalty => print_esc_cstr(b"hyphenpenalty"),
+        ex_hyphen_penalty => print_esc_cstr(b"exhyphenpenalty"),
+        club_penalty => print_esc_cstr(b"clubpenalty"),
+        widow_penalty => print_esc_cstr(b"widowpenalty"),
+        display_widow_penalty => print_esc_cstr(b"displaywidowpenalty"),
+        broken_penalty => print_esc_cstr(b"brokenpenalty"),
+        bin_op_penalty => print_esc_cstr(b"binoppenalty"),
+        rel_penalty => print_esc_cstr(b"relpenalty"),
+        pre_display_penalty => print_esc_cstr(b"predisplaypenalty"),
+        post_display_penalty => print_esc_cstr(b"postdisplaypenalty"),
+        inter_line_penalty => print_esc_cstr(b"interlinepenalty"),
+        double_hyphen_demerits => print_esc_cstr(b"doublehyphendemerits"),
+        final_hyphen_demerits => print_esc_cstr(b"finalhyphendemerits"),
+        adj_demerits => print_esc_cstr(b"adjdemerits"),
+        mag => print_esc_cstr(b"mag"),
+        delimiter_factor => print_esc_cstr(b"delimiterfactor"),
+        looseness => print_esc_cstr(b"looseness"),
+        time => print_esc_cstr(b"time"),
+        day => print_esc_cstr(b"day"),
+        month => print_esc_cstr(b"month"),
+        year => print_esc_cstr(b"year"),
+        show_box_breadth => print_esc_cstr(b"showboxbreadth"),
+        show_box_depth => print_esc_cstr(b"showboxdepth"),
+        hbadness => print_esc_cstr(b"hbadness"),
+        vbadness => print_esc_cstr(b"vbadness"),
+        pausing => print_esc_cstr(b"pausing"),
+        tracing_online => print_esc_cstr(b"tracingonline"),
+        tracing_macros => print_esc_cstr(b"tracingmacros"),
+        tracing_stats => print_esc_cstr(b"tracingstats"),
+        tracing_paragraphs => print_esc_cstr(b"tracingparagraphs"),
+        tracing_pages => print_esc_cstr(b"tracingpages"),
+        tracing_output => print_esc_cstr(b"tracingoutput"),
+        tracing_lost_chars => print_esc_cstr(b"tracinglostchars"),
+        tracing_commands => print_esc_cstr(b"tracingcommands"),
+        tracing_restores => print_esc_cstr(b"tracingrestores"),
+        uc_hyph => print_esc_cstr(b"uchyph"),
+        output_penalty => print_esc_cstr(b"outputpenalty"),
+        max_dead_cycles => print_esc_cstr(b"maxdeadcycles"),
+        hang_after => print_esc_cstr(b"hangafter"),
+        floating_penalty => print_esc_cstr(b"floatingpenalty"),
+        global_defs => print_esc_cstr(b"globaldefs"),
+        cur_fam => print_esc_cstr(b"fam"),
+        escape_char => print_esc_cstr(b"escapechar"),
+        default_hyphen_char => print_esc_cstr(b"defaulthyphenchar"),
+        default_skew_char => print_esc_cstr(b"defaultskewchar"),
+        end_line_char => print_esc_cstr(b"endlinechar"),
+        new_line_char => print_esc_cstr(b"newlinechar"),
+        language => print_esc_cstr(b"language"),
+        left_hyphen_min => print_esc_cstr(b"lefthyphenmin"),
+        right_hyphen_min => print_esc_cstr(b"righthyphenmin"),
+        holding_inserts => print_esc_cstr(b"holdinginserts"),
+        error_context_lines => print_esc_cstr(b"errorcontextlines"),
+        char_sub_def_min => print_esc_cstr(b"charsubdefmin"),
+        char_sub_def_max => print_esc_cstr(b"charsubdefmax"),
+        tracing_char_sub_def => print_esc_cstr(b"tracingcharsubdef"),
+        xetex_linebreak_penalty => print_esc_cstr(b"XeTeXlinebreakpenalty"),
+        xetex_protrude_chars => print_esc_cstr(b"XeTeXprotrudechars"),
+        synctex => print_esc_cstr(b"synctex"),
+        tracing_assigns => print_esc_cstr(b"tracingassigns"),
+        tracing_groups => print_esc_cstr(b"tracinggroups"),
+        tracing_ifs => print_esc_cstr(b"tracingifs"),
+        tracing_scan_tokens => print_esc_cstr(b"tracingscantokens"),
+        tracing_nesting => print_esc_cstr(b"tracingnesting"),
+        pre_display_correction => print_esc_cstr(b"predisplaydirection"),
+        last_line_fit => print_esc_cstr(b"lastlinefit"),
+        saving_vdiscards => print_esc_cstr(b"savingvdiscards"),
+        saving_hyphs => print_esc_cstr(b"savinghyphcodes"),
+        suppress_fontnotfound_error => print_esc_cstr(b"suppressfontnotfounderror"),
+        texxet => print_esc_cstr(b"TeXXeTstate"),
+        xetex_upwards => print_esc_cstr(b"XeTeXupwardsmode"),
+        xetex_use_glyph_metrics => print_esc_cstr(b"XeTeXuseglyphmetrics"),
+        xetex_inter_char_tokens => print_esc_cstr(b"XeTeXinterchartokenstate"),
+        xetex_dash_break => print_esc_cstr(b"XeTeXdashbreakstate"),
+        xetex_input_normalization => print_esc_cstr(b"XeTeXinputnormalization"),
+        xetex_tracing_fonts => print_esc_cstr(b"XeTeXtracingfonts"),
+        xetex_interword_space_shaping => print_esc_cstr(b"XeTeXinterwordspaceshaping"),
+        xetex_generate_actual_text => print_esc_cstr(b"XeTeXgenerateactualtext"),
+        xetex_hyphenatable_length => print_esc_cstr(b"XeTeXhyphenatablelength"),
+        pdfoutput => print_esc_cstr(b"pdfoutput"),
+        _ => print_cstr(b"[unknown i32 parameter!]"), // NOTE: several parameters not covered
     };
 }
 pub(crate) unsafe fn begin_diagnostic() {
     old_setting = selector;
-    if *INTPAR(IntPar::tracing_online) <= 0i32 && selector == Selector::TERM_AND_LOG {
+    if *INTPAR(IntPar::tracing_online) <= 0 && selector == Selector::TERM_AND_LOG {
         selector = (u8::from(selector) - 1).into();
         if history == TTHistory::SPOTLESS {
             history = TTHistory::WARNING_ISSUED
@@ -1794,33 +1795,33 @@ pub(crate) unsafe fn end_diagnostic(mut blank_line: bool) {
     }
     selector = old_setting;
 }
-pub(crate) unsafe fn print_length_param(mut n: i32) {
+pub(crate) unsafe fn print_length_param(mut n: DimenPar) {
+    use DimenPar::*;
     match n {
-        0 => print_esc_cstr(b"parindent"),
-        1 => print_esc_cstr(b"mathsurround"),
-        2 => print_esc_cstr(b"lineskiplimit"),
-        3 => print_esc_cstr(b"hsize"),
-        4 => print_esc_cstr(b"vsize"),
-        5 => print_esc_cstr(b"maxdepth"),
-        6 => print_esc_cstr(b"splitmaxdepth"),
-        7 => print_esc_cstr(b"boxmaxdepth"),
-        8 => print_esc_cstr(b"hfuzz"),
-        9 => print_esc_cstr(b"vfuzz"),
-        10 => print_esc_cstr(b"delimitershortfall"),
-        11 => print_esc_cstr(b"nulldelimiterspace"),
-        12 => print_esc_cstr(b"scriptspace"),
-        13 => print_esc_cstr(b"predisplaysize"),
-        14 => print_esc_cstr(b"displaywidth"),
-        15 => print_esc_cstr(b"displayindent"),
-        16 => print_esc_cstr(b"overfullrule"),
-        17 => print_esc_cstr(b"hangindent"),
-        18 => print_esc_cstr(b"hoffset"),
-        19 => print_esc_cstr(b"voffset"),
-        20 => print_esc_cstr(b"emergencystretch"),
-        21 => print_esc_cstr(b"pdfpagewidth"),
-        22 => print_esc_cstr(b"pdfpageheight"),
-        _ => print_cstr(b"[unknown dimen parameter!]"),
-    };
+        par_indent => print_esc_cstr(b"parindent"),
+        math_surround => print_esc_cstr(b"mathsurround"),
+        line_skip_limit => print_esc_cstr(b"lineskiplimit"),
+        hsize => print_esc_cstr(b"hsize"),
+        vsize => print_esc_cstr(b"vsize"),
+        max_depth => print_esc_cstr(b"maxdepth"),
+        split_max_depth => print_esc_cstr(b"splitmaxdepth"),
+        box_max_depth => print_esc_cstr(b"boxmaxdepth"),
+        hfuzz => print_esc_cstr(b"hfuzz"),
+        vfuzz => print_esc_cstr(b"vfuzz"),
+        delimiter_shortfall => print_esc_cstr(b"delimitershortfall"),
+        null_delimiter_space => print_esc_cstr(b"nulldelimiterspace"),
+        script_space => print_esc_cstr(b"scriptspace"),
+        pre_display_size => print_esc_cstr(b"predisplaysize"),
+        display_width => print_esc_cstr(b"displaywidth"),
+        display_indent => print_esc_cstr(b"displayindent"),
+        overfull_rule => print_esc_cstr(b"overfullrule"),
+        hang_indent => print_esc_cstr(b"hangindent"),
+        h_offset => print_esc_cstr(b"hoffset"),
+        v_offset => print_esc_cstr(b"voffset"),
+        emergency_stretch => print_esc_cstr(b"emergencystretch"),
+        pdf_page_width => print_esc_cstr(b"pdfpagewidth"),
+        pdf_page_height => print_esc_cstr(b"pdfpageheight"),
+    }
 }
 pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
     let mut n: i32 = 0;
@@ -1993,7 +1994,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         }
         74 => {
             if chr_code < COUNT_BASE {
-                print_param(chr_code - INT_BASE);
+                print_param(IntPar::from(chr_code - INT_BASE));
             } else {
                 print_esc_cstr(b"count");
                 print_int(chr_code - COUNT_BASE);
@@ -2001,7 +2002,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         }
         75 => {
             if chr_code < SCALED_BASE {
-                print_length_param(chr_code - DIMEN_BASE);
+                print_length_param(DimenPar::from(chr_code - DIMEN_BASE));
             } else {
                 print_esc_cstr(b"dimen");
                 print_int(chr_code - SCALED_BASE);
@@ -6554,7 +6555,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     }
                 } else {
                     match cur_val_level as i32 {
-                        0 => cur_val = EQTB[(COUNT_BASE + cur_val) as usize].b32.s1,
+                        0 => cur_val = *COUNT_REG(cur_val),
                         1 => {
                             cur_val = EQTB[(INT_BASE
                                 + 85i32
@@ -13801,7 +13802,8 @@ pub(crate) unsafe fn privileged() -> bool {
 }
 pub(crate) unsafe fn its_all_over() -> bool {
     if privileged() {
-        if 4999999i32 - 2i32 == page_tail && cur_list.head == cur_list.tail && dead_cycles == 0i32 {
+        if PAGE_HEAD == page_tail as usize && cur_list.head == cur_list.tail && dead_cycles == 0i32
+        {
             return true;
         }
         back_input();
@@ -16356,14 +16358,14 @@ pub(crate) unsafe fn handle_right_brace() {
                 MEM[page_tail as usize].b32.s1 = MEM[cur_list.head as usize].b32.s1;
                 page_tail = cur_list.tail
             }
-            if !MEM[(4999999 - 2) as usize].b32.s1.is_texnull() {
-                if MEM[(4999999 - 1) as usize].b32.s1.is_texnull() {
+            if !MEM[PAGE_HEAD].b32.s1.is_texnull() {
+                if MEM[CONTRIB_HEAD].b32.s1.is_texnull() {
                     NEST[0].tail = page_tail
                 }
-                MEM[page_tail as usize].b32.s1 = MEM[(4999999 - 1) as usize].b32.s1;
-                MEM[(4999999 - 1) as usize].b32.s1 = MEM[(4999999 - 2) as usize].b32.s1;
-                MEM[(4999999 - 2) as usize].b32.s1 = TEX_NULL;
-                page_tail = 4999999i32 - 2i32
+                MEM[page_tail as usize].b32.s1 = MEM[CONTRIB_HEAD].b32.s1;
+                MEM[CONTRIB_HEAD].b32.s1 = MEM[PAGE_HEAD].b32.s1;
+                MEM[PAGE_HEAD].b32.s1 = TEX_NULL;
+                page_tail = PAGE_HEAD as i32
             }
             flush_node_list(disc_ptr[2]);
             disc_ptr[2] = TEX_NULL;
