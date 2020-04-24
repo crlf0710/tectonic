@@ -34,8 +34,8 @@ pub(crate) const DEFAULT_CODE: placeholdertype = 0x40000000;
 /// must be <= max_quarterword
 pub(crate) const BIGGEST_CHAR: placeholdertype = 0xFFFF;
 pub(crate) const BIGGEST_USV: usize = 0x10FFFF;
-pub(crate) const NUMBER_USVS: usize = (BIGGEST_USV + 1);
-pub(crate) const TOO_BIG_USV: placeholdertype = (BIGGEST_USV as i32 + 1);
+pub(crate) const NUMBER_USVS: usize = BIGGEST_USV + 1;
+pub(crate) const TOO_BIG_USV: placeholdertype = BIGGEST_USV as i32 + 1;
 
 /* Various buffer sizes */
 
@@ -49,8 +49,8 @@ pub(crate) const MAX_FONT_MAX: placeholdertype = 9000;
 pub(crate) const NUMBER_MATH_FAMILIES: placeholdertype = 256;
 pub(crate) const TEXT_SIZE: placeholdertype = 0;
 pub(crate) const SCRIPT_SIZE: placeholdertype = NUMBER_MATH_FAMILIES;
-pub(crate) const SCRIPT_SCRIPT_SIZE: placeholdertype = (2 * NUMBER_MATH_FAMILIES);
-pub(crate) const NUMBER_MATH_FONTS: usize = (3 * NUMBER_MATH_FAMILIES as usize);
+pub(crate) const SCRIPT_SCRIPT_SIZE: placeholdertype = 2 * NUMBER_MATH_FAMILIES;
+pub(crate) const NUMBER_MATH_FONTS: usize = 3 * NUMBER_MATH_FAMILIES as usize;
 
 pub(crate) const NUMBER_REGS: usize = 256;
 
@@ -60,29 +60,29 @@ pub(crate) const MEM_TOP: usize = 4999999;
 
 /* fixed locations in the "mem" array */
 pub(crate) const PAGE_INS_HEAD: usize = MEM_TOP;
-pub(crate) const CONTRIB_HEAD: usize = (MEM_TOP - 1);
-pub(crate) const PAGE_HEAD: usize = (MEM_TOP - 2);
-pub(crate) const TEMP_HEAD: usize = (MEM_TOP - 3);
-pub(crate) const HOLD_HEAD: usize = (MEM_TOP - 4);
-pub(crate) const ADJUST_HEAD: usize = (MEM_TOP - 5);
+pub(crate) const CONTRIB_HEAD: usize = MEM_TOP - 1;
+pub(crate) const PAGE_HEAD: usize = MEM_TOP - 2;
+pub(crate) const TEMP_HEAD: usize = MEM_TOP - 3;
+pub(crate) const HOLD_HEAD: usize = MEM_TOP - 4;
+pub(crate) const ADJUST_HEAD: usize = MEM_TOP - 5;
 /// note: two words
-pub(crate) const ACTIVE_LIST: usize = (MEM_TOP - 7);
-pub(crate) const ALIGN_HEAD: usize = (MEM_TOP - 8);
-pub(crate) const END_SPAN: usize = (MEM_TOP - 9);
-pub(crate) const OMIT_TEMPLATE: usize = (MEM_TOP - 10);
-pub(crate) const NULL_LIST: usize = (MEM_TOP - 11);
-pub(crate) const LIG_TRICK: usize = (MEM_TOP - 12);
+pub(crate) const ACTIVE_LIST: usize = MEM_TOP - 7;
+pub(crate) const ALIGN_HEAD: usize = MEM_TOP - 8;
+pub(crate) const END_SPAN: usize = MEM_TOP - 9;
+pub(crate) const OMIT_TEMPLATE: usize = MEM_TOP - 10;
+pub(crate) const NULL_LIST: usize = MEM_TOP - 11;
+pub(crate) const LIG_TRICK: usize = MEM_TOP - 12;
 /// note: same as LIG_TRICK
-pub(crate) const GARBAGE: usize = (MEM_TOP - 12);
-pub(crate) const BACKUP_HEAD: usize = (MEM_TOP - 13);
-pub(crate) const PRE_ADJUST_HEAD: usize = (MEM_TOP - 14);
+pub(crate) const GARBAGE: usize = MEM_TOP - 12;
+pub(crate) const BACKUP_HEAD: usize = MEM_TOP - 13;
+pub(crate) const PRE_ADJUST_HEAD: usize = MEM_TOP - 14;
 
 /* equivalents table offsets */
 
 /// "region 1": active character equivalents
 pub(crate) const ACTIVE_BASE: placeholdertype = 1;
-pub(crate) const SINGLE_BASE: placeholdertype = (ACTIVE_BASE + NUMBER_USVS as i32);
-pub(crate) const NULL_CS: placeholdertype = (SINGLE_BASE + NUMBER_USVS as i32);
+pub(crate) const SINGLE_BASE: placeholdertype = ACTIVE_BASE + NUMBER_USVS as i32;
+pub(crate) const NULL_CS: placeholdertype = SINGLE_BASE + NUMBER_USVS as i32;
 /// "region 2": hash table
 pub(crate) const HASH_BASE: usize = (NULL_CS + 1) as usize;
 pub(crate) const FROZEN_CONTROL_SEQUENCE: usize = HASH_BASE + HASH_SIZE;
@@ -102,10 +102,10 @@ pub(crate) const FROZEN_NULL_FONT: usize = FROZEN_CONTROL_SEQUENCE + 12;
 /// nominally minus FONT_BASE, but that's 0
 pub(crate) const FONT_ID_BASE: placeholdertype = FROZEN_NULL_FONT as i32;
 pub(crate) const UNDEFINED_CONTROL_SEQUENCE: placeholdertype =
-    (FROZEN_NULL_FONT as i32 + MAX_FONT_MAX + 1);
+    FROZEN_NULL_FONT as i32 + MAX_FONT_MAX + 1;
 
 /// "region 3": glue values
-pub(crate) const GLUE_BASE: placeholdertype = (UNDEFINED_CONTROL_SEQUENCE + 1);
+pub(crate) const GLUE_BASE: placeholdertype = UNDEFINED_CONTROL_SEQUENCE + 1;
 
 #[repr(u16)]
 #[derive(Clone, Copy, PartialEq)]
@@ -147,12 +147,12 @@ pub(crate) unsafe fn GLUEPAR(s: GluePar) -> &'static mut i32 {
     &mut EQTB[(GLUE_BASE + s as i32) as usize].b32.s1
 }
 
-pub(crate) const SKIP_BASE: placeholdertype = (GLUE_BASE + GLUE_PARS);
+pub(crate) const SKIP_BASE: placeholdertype = GLUE_BASE + GLUE_PARS;
 pub(crate) unsafe fn SKIP_REG(n: placeholdertype) -> &'static mut i32 {
     &mut EQTB[(SKIP_BASE + n) as usize].b32.s1
 }
 
-pub(crate) const MU_SKIP_BASE: placeholdertype = (SKIP_BASE + NUMBER_REGS as i32);
+pub(crate) const MU_SKIP_BASE: placeholdertype = SKIP_BASE + NUMBER_REGS as i32;
 pub(crate) unsafe fn MU_SKIP_REG(n: placeholdertype) -> &'static mut i32 {
     &mut EQTB[(MU_SKIP_BASE + (n)) as usize].b32.s1
 }
@@ -160,7 +160,7 @@ pub(crate) unsafe fn MU_SKIP_REG(n: placeholdertype) -> &'static mut i32 {
 /* "region 4": local halfword values like baselineskip. Some of these are
  * used as arguments to ASSIGN_TOKS, SET_SHAPE, etc. */
 
-pub(crate) const LOCAL_BASE: placeholdertype = (MU_SKIP_BASE + NUMBER_REGS as i32);
+pub(crate) const LOCAL_BASE: placeholdertype = MU_SKIP_BASE + NUMBER_REGS as i32;
 
 #[repr(i32)]
 #[derive(Clone, Copy, PartialEq)]
@@ -196,63 +196,63 @@ pub(crate) fn LOCAL(n: Local) -> &'static mut i32 {
     unsafe { &mut EQTB[(LOCAL_BASE + n as i32) as usize].b32.s1 }
 }
 
-pub(crate) const TOKS_BASE: placeholdertype = (LOCAL_BASE + NUM_LOCALS);
+pub(crate) const TOKS_BASE: placeholdertype = LOCAL_BASE + NUM_LOCALS;
 pub(crate) unsafe fn TOKS_REG(n: placeholdertype) -> &'static mut i32 {
     &mut EQTB[(TOKS_BASE + n) as usize].b32.s1
 }
 
-pub(crate) const ETEX_PEN_BASE: placeholdertype = (TOKS_BASE + NUMBER_REGS as i32);
-pub(crate) const INTER_LINE_PENALTIES_LOC: placeholdertype = (ETEX_PEN_BASE + 0);
-pub(crate) const CLUB_PENALTIES_LOC: placeholdertype = (ETEX_PEN_BASE + 1);
-pub(crate) const WIDOW_PENALTIES_LOC: placeholdertype = (ETEX_PEN_BASE + 2);
-pub(crate) const DISPLAY_WIDOW_PENALTIES_LOC: placeholdertype = (ETEX_PEN_BASE + 3);
-pub(crate) const ETEX_PENS: placeholdertype = (ETEX_PEN_BASE + 4);
+pub(crate) const ETEX_PEN_BASE: placeholdertype = TOKS_BASE + NUMBER_REGS as i32;
+pub(crate) const INTER_LINE_PENALTIES_LOC: placeholdertype = ETEX_PEN_BASE + 0;
+pub(crate) const CLUB_PENALTIES_LOC: placeholdertype = ETEX_PEN_BASE + 1;
+pub(crate) const WIDOW_PENALTIES_LOC: placeholdertype = ETEX_PEN_BASE + 2;
+pub(crate) const DISPLAY_WIDOW_PENALTIES_LOC: placeholdertype = ETEX_PEN_BASE + 3;
+pub(crate) const ETEX_PENS: placeholdertype = ETEX_PEN_BASE + 4;
 
 pub(crate) const BOX_BASE: usize = ETEX_PENS as usize;
 pub(crate) unsafe fn BOX_REG(n: usize) -> &'static mut i32 {
     &mut EQTB[BOX_BASE + n].b32.s1
 }
 
-pub(crate) const CUR_FONT_LOC: usize = (BOX_BASE + NUMBER_REGS);
-pub(crate) const MATH_FONT_BASE: usize = (CUR_FONT_LOC + 1);
+pub(crate) const CUR_FONT_LOC: usize = BOX_BASE + NUMBER_REGS;
+pub(crate) const MATH_FONT_BASE: usize = CUR_FONT_LOC + 1;
 
 pub(crate) unsafe fn MATH_FONT(n: placeholdertype) -> &'static mut i32 {
     &mut EQTB[MATH_FONT_BASE + n as usize].b32.s1
 }
 
-pub(crate) const CAT_CODE_BASE: usize = (MATH_FONT_BASE + NUMBER_MATH_FONTS);
+pub(crate) const CAT_CODE_BASE: usize = MATH_FONT_BASE + NUMBER_MATH_FONTS;
 pub(crate) unsafe fn CAT_CODE(n: placeholdertype) -> &'static mut i32 {
     &mut EQTB[CAT_CODE_BASE + n as usize].b32.s1
 }
 
-pub(crate) const LC_CODE_BASE: usize = (CAT_CODE_BASE + NUMBER_USVS);
+pub(crate) const LC_CODE_BASE: usize = CAT_CODE_BASE + NUMBER_USVS;
 pub(crate) unsafe fn LC_CODE(n: placeholdertype) -> &'static mut i32 {
     &mut EQTB[LC_CODE_BASE + n as usize].b32.s1
 }
 
-pub(crate) const UC_CODE_BASE: usize = (LC_CODE_BASE + NUMBER_USVS);
+pub(crate) const UC_CODE_BASE: usize = LC_CODE_BASE + NUMBER_USVS;
 pub(crate) unsafe fn UC_CODE(n: placeholdertype) -> &'static mut i32 {
     &mut EQTB[UC_CODE_BASE + n as usize].b32.s1
 }
 
-pub(crate) const SF_CODE_BASE: usize = (UC_CODE_BASE + NUMBER_USVS);
+pub(crate) const SF_CODE_BASE: usize = UC_CODE_BASE + NUMBER_USVS;
 pub(crate) unsafe fn SF_CODE(n: placeholdertype) -> &'static mut i32 {
     &mut EQTB[SF_CODE_BASE + n as usize].b32.s1
 }
 
-pub(crate) const MATH_CODE_BASE: usize = (SF_CODE_BASE + NUMBER_USVS);
+pub(crate) const MATH_CODE_BASE: usize = SF_CODE_BASE + NUMBER_USVS;
 pub(crate) unsafe fn MATH_CODE(n: placeholdertype) -> &'static mut i32 {
     &mut EQTB[MATH_CODE_BASE + n as usize].b32.s1
 }
 
-pub(crate) const CHAR_SUB_CODE_BASE: usize = (MATH_CODE_BASE + NUMBER_USVS);
+pub(crate) const CHAR_SUB_CODE_BASE: usize = MATH_CODE_BASE + NUMBER_USVS;
 pub(crate) unsafe fn CHAR_SUB_CODE(n: placeholdertype) -> &'static mut i32 {
     &mut EQTB[CHAR_SUB_CODE_BASE + n as usize].b32.s1
 }
 
 /* "region 5": current fullword integers like hyphenation penalty */
 
-pub(crate) const INT_BASE: placeholdertype = (CHAR_SUB_CODE_BASE as i32 + NUMBER_USVS as i32);
+pub(crate) const INT_BASE: placeholdertype = CHAR_SUB_CODE_BASE as i32 + NUMBER_USVS as i32;
 
 #[repr(i32)]
 #[derive(Clone, Copy, PartialEq)]
@@ -362,19 +362,19 @@ pub(crate) unsafe fn INTPAR(x: IntPar) -> &'static mut i32 {
     &mut EQTB[(INT_BASE + x as i32) as usize].b32.s1
 }
 
-pub(crate) const COUNT_BASE: placeholdertype = (INT_BASE + INT_PARS);
+pub(crate) const COUNT_BASE: placeholdertype = INT_BASE + INT_PARS;
 pub(crate) unsafe fn COUNT_REG(n: placeholdertype) -> &'static mut i32 {
     &mut EQTB[(COUNT_BASE + n) as usize].b32.s1
 }
 
-pub(crate) const DEL_CODE_BASE: placeholdertype = (COUNT_BASE + NUMBER_REGS as i32);
+pub(crate) const DEL_CODE_BASE: placeholdertype = COUNT_BASE + NUMBER_REGS as i32;
 pub(crate) unsafe fn DEL_CODE(n: placeholdertype) -> &'static mut i32 {
     &mut EQTB[(DEL_CODE_BASE + n) as usize].b32.s1
 }
 
 /* "region 6": current fullword dimensions like hsize */
 
-pub(crate) const DIMEN_BASE: placeholdertype = (DEL_CODE_BASE + NUMBER_USVS as i32);
+pub(crate) const DIMEN_BASE: placeholdertype = DEL_CODE_BASE + NUMBER_USVS as i32;
 
 #[repr(i32)]
 #[derive(Clone, Copy, PartialEq)]
@@ -420,12 +420,12 @@ pub(crate) fn DIMENPAR(x: DimenPar) -> &'static mut i32 {
     unsafe { &mut EQTB[(DIMEN_BASE + x as i32) as usize].b32.s1 }
 }
 
-pub(crate) const SCALED_BASE: placeholdertype = (DIMEN_BASE + DIMEN_PARS);
+pub(crate) const SCALED_BASE: placeholdertype = DIMEN_BASE + DIMEN_PARS;
 pub(crate) unsafe fn SCALED_REG(n: placeholdertype) -> &'static mut i32 {
     &mut EQTB[(SCALED_BASE + n) as usize].b32.s1
 }
 
-pub(crate) const EQTB_SIZE: placeholdertype = (SCALED_BASE + NUMBER_REGS as i32 - 1);
+pub(crate) const EQTB_SIZE: placeholdertype = SCALED_BASE + NUMBER_REGS as i32 - 1;
 
 /// "really" MIN_QUARTERWORD
 pub(crate) const LEVEL_ZERO: u16 = 0;
@@ -847,9 +847,9 @@ pub(crate) const ELSE_CODE: placeholdertype = 3;
 pub(crate) const OR_CODE: placeholdertype = 4;
 
 /* special args for TAB_MARK, CAR_RET */
-pub(crate) const SPAN_CODE: placeholdertype = (BIGGEST_USV as i32 + 2);
-pub(crate) const CR_CODE: placeholdertype = (BIGGEST_USV as i32 + 3);
-pub(crate) const CR_CR_CODE: placeholdertype = (BIGGEST_USV as i32 + 4);
+pub(crate) const SPAN_CODE: placeholdertype = BIGGEST_USV as i32 + 2;
+pub(crate) const CR_CODE: placeholdertype = BIGGEST_USV as i32 + 3;
+pub(crate) const CR_CR_CODE: placeholdertype = BIGGEST_USV as i32 + 4;
 
 /* HSKIP, VSKIP, MSKIP */
 pub(crate) const FIL_CODE: placeholdertype = 0;
@@ -1105,7 +1105,7 @@ pub(crate) const INF_BAD: placeholdertype = 10000;
 pub(crate) const INF_PENALTY: placeholdertype = 10000;
 pub(crate) const DEFAULT_RULE: placeholdertype = 26214;
 pub(crate) const TOO_BIG_CHAR: placeholdertype = 65536;
-pub(crate) const NO_EXPAND_FLAG: placeholdertype = (BIGGEST_USV as i32 + 2);
+pub(crate) const NO_EXPAND_FLAG: placeholdertype = BIGGEST_USV as i32 + 2;
 
 pub(crate) const ACTIVE_MATH_CHAR: placeholdertype = 0x1FFFFF;
 
@@ -1138,16 +1138,16 @@ pub(crate) const OTHER_TOKEN: placeholdertype = 0x1800000;
 pub(crate) const MATCH_TOKEN: placeholdertype = 0x1A00000;
 /// END_MATCH << 21
 pub(crate) const END_MATCH_TOKEN: placeholdertype = 0x1C00000;
-pub(crate) const PROTECTED_TOKEN: placeholdertype = (END_MATCH_TOKEN + 1);
+pub(crate) const PROTECTED_TOKEN: placeholdertype = END_MATCH_TOKEN + 1;
 
-pub(crate) const A_TOKEN: placeholdertype = (LETTER_TOKEN + 'A' as placeholdertype);
-pub(crate) const OTHER_A_TOKEN: placeholdertype = (OTHER_TOKEN + 'A' as placeholdertype);
-pub(crate) const HEX_TOKEN: placeholdertype = (OTHER_TOKEN + '"' as placeholdertype);
-pub(crate) const OCTAL_TOKEN: placeholdertype = (OTHER_TOKEN + '\'' as placeholdertype);
-pub(crate) const CONTINENTAL_POINT_TOKEN: placeholdertype = (OTHER_TOKEN + ',' as placeholdertype);
-pub(crate) const POINT_TOKEN: placeholdertype = (OTHER_TOKEN + '.' as placeholdertype);
-pub(crate) const ZERO_TOKEN: placeholdertype = (OTHER_TOKEN + '0' as placeholdertype);
-pub(crate) const ALPHA_TOKEN: placeholdertype = (OTHER_TOKEN + '`' as placeholdertype);
+pub(crate) const A_TOKEN: placeholdertype = LETTER_TOKEN + 'A' as placeholdertype;
+pub(crate) const OTHER_A_TOKEN: placeholdertype = OTHER_TOKEN + 'A' as placeholdertype;
+pub(crate) const HEX_TOKEN: placeholdertype = OTHER_TOKEN + '"' as placeholdertype;
+pub(crate) const OCTAL_TOKEN: placeholdertype = OTHER_TOKEN + '\'' as placeholdertype;
+pub(crate) const CONTINENTAL_POINT_TOKEN: placeholdertype = OTHER_TOKEN + ',' as placeholdertype;
+pub(crate) const POINT_TOKEN: placeholdertype = OTHER_TOKEN + '.' as placeholdertype;
+pub(crate) const ZERO_TOKEN: placeholdertype = OTHER_TOKEN + '0' as placeholdertype;
+pub(crate) const ALPHA_TOKEN: placeholdertype = OTHER_TOKEN + '`' as placeholdertype;
 
 pub(crate) const BOX_FLAG: placeholdertype = 0x40000000;
 pub(crate) const GLOBAL_BOX_FLAG: placeholdertype = 0x40008000;
