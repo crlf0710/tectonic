@@ -42,6 +42,13 @@ use crate::dpx_pdfobj::{
 };
 use libc::free;
 
+extern "C" {
+    // Should be removed once fixed upstream
+    #[no_mangle]
+    fn png_destroy_info_struct(png_ptr: png_const_structrp, info_ptr_ptr: png_infopp);
+}
+pub type png_const_structrp = *const png_struct;
+
 use std::io::{Seek, SeekFrom};
 
 use crate::bridge::size_t;
