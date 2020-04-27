@@ -2244,7 +2244,7 @@ pub(crate) unsafe fn prefixed_command() {
                         scan_register_num();
                         if cur_val > 255 {
                             j = n - 2;
-                            if j > MU_VAL { j = TOK_VAL }
+                            if j > MU_VAL as i32 { j = TOK_VAL as i32 }
                             find_sa_element(j as small_number, cur_val,
                                             true);
                             MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
@@ -3335,7 +3335,7 @@ unsafe fn load_fmt_file() -> bool {
     } else {
         rover = x;
     }
-    k = INT_VAL;
+    k = INT_VAL as i32;
     loop {
         if !(k <= INTER_CHAR_VAL) {
             break;
@@ -4231,8 +4231,8 @@ unsafe fn initialize_more_initex_variables() {
     EQTB[END_WRITE as usize].b32.s1 = TEX_NULL;
     max_reg_num = 32767;
     max_reg_help_line = b"A register number must be between 0 and 32767.";
-    for i in INT_VAL..=INTER_CHAR_VAL {
-        sa_root[i as usize] = TEX_NULL;
+    for i in (INT_VAL as usize)..=(INTER_CHAR_VAL as usize) {
+        sa_root[i] = TEX_NULL;
     }
     *INTPAR(IntPar::xetex_hyphenatable_length) = 63;
 }
@@ -4820,9 +4820,9 @@ unsafe fn initialize_primitives() {
     primitive(b"ht", SET_BOX_DIMEN, HEIGHT_OFFSET);
     primitive(b"dp", SET_BOX_DIMEN, DEPTH_OFFSET);
 
-    primitive(b"lastpenalty", LAST_ITEM, INT_VAL);
-    primitive(b"lastkern", LAST_ITEM, DIMEN_VAL);
-    primitive(b"lastskip", LAST_ITEM, GLUE_VAL);
+    primitive(b"lastpenalty", LAST_ITEM, INT_VAL as i32);
+    primitive(b"lastkern", LAST_ITEM, DIMEN_VAL as i32);
+    primitive(b"lastskip", LAST_ITEM, GLUE_VAL as i32);
     primitive(b"inputlineno", LAST_ITEM, INPUT_LINE_NO_CODE);
     primitive(b"badness", LAST_ITEM, BADNESS_CODE);
 
@@ -5292,7 +5292,7 @@ pub(crate) unsafe fn tt_run_engine(
             PDFTEX_FIRST_EXTENSION_CODE as i32 + 0,
         );
 
-        primitive(b"lastnodetype", LAST_ITEM, LAST_NODE_TYPE_CODE);
+        primitive(b"lastnodetype", LAST_ITEM, LAST_NODE_TYPE_CODE as i32);
         primitive(b"eTeXversion", LAST_ITEM, ETEX_VERSION_CODE);
 
         primitive(b"eTeXrevision", CONVERT, ETEX_REVISION_CODE);

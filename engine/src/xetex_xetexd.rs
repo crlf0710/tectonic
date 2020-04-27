@@ -222,12 +222,34 @@ pub(crate) unsafe fn GLUE_SPEC_shrink(p: isize) -> &'static mut i32 {
     &mut MEM[(p + 3) as usize].b32.s1
 }
 
+use super::xetex_ini::{
+    b16x4, CHAR_BASE, DEPTH_BASE, FONT_INFO, HEIGHT_BASE, ITALIC_BASE, WIDTH_BASE,
+};
+pub(crate) unsafe fn FONT_CHARACTER_INFO(f: usize, c: usize) -> b16x4 {
+    FONT_INFO[CHAR_BASE[f] as usize + c].b16
+}
+
+pub(crate) unsafe fn FONT_CHARINFO_WIDTH(f: usize, info: b16x4) -> &'static mut i32 {
+    &mut FONT_INFO[(WIDTH_BASE[f] + (info.s3 as i32)) as usize]
+        .b32
+        .s1
+}
+pub(crate) unsafe fn FONT_CHARINFO_HEIGHT(f: usize, info: b16x4) -> &'static mut i32 {
+    &mut FONT_INFO[(HEIGHT_BASE[f] + ((info.s2 / 16) as i32)) as usize]
+        .b32
+        .s1
+}
+pub(crate) unsafe fn FONT_CHARINFO_DEPTH(f: usize, info: b16x4) -> &'static mut i32 {
+    &mut FONT_INFO[(DEPTH_BASE[f] + ((info.s2 % 16) as i32)) as usize]
+        .b32
+        .s1
+}
+pub(crate) unsafe fn FONT_CHARINFO_ITALCORR(f: usize, info: b16x4) -> &'static mut i32 {
+    &mut FONT_INFO[(ITALIC_BASE[f] + ((info.s1 / 4) as i32)) as usize]
+        .b32
+        .s1
+}
 /*
-#define FONT_CHARACTER_INFO(f, c) font_info[char_base[f] + (c)].b16
-#define FONT_CHARINFO_WIDTH(f, info) font_info[width_base[f] + (info).s3].b32.s1
-#define FONT_CHARINFO_HEIGHT(f, info) font_info[height_base[f] + (info).s2 / 16].b32.s1
-#define FONT_CHARINFO_DEPTH(f, info) font_info[depth_base[f] + (info).s2 % 16].b32.s1
-#define FONT_CHARINFO_ITALCORR(f, info) font_info[italic_base[f] + (info).s1 / 4].b32.s1
 #define FONT_CHARACTER_WIDTH(f, c) FONT_CHARINFO_WIDTH(f, FONT_CHARACTER_INFO(f, c))
 
 #define TOKEN_LIST_ref_count(p) mem[p].b32.s0

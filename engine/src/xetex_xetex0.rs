@@ -2120,11 +2120,11 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 cmd = chr_code as u16;
                 chr_code = TEX_NULL
             }
-            if cmd as i32 == INT_VAL {
+            if cmd == INT_VAL as u16 {
                 print_esc_cstr(b"count");
-            } else if cmd as i32 == DIMEN_VAL {
+            } else if cmd == DIMEN_VAL as u16 {
                 print_esc_cstr(b"dimen");
-            } else if cmd as i32 == GLUE_VAL {
+            } else if cmd == GLUE_VAL as u16 {
                 print_esc_cstr(b"skip");
             } else {
                 print_esc_cstr(b"muskip");
@@ -2159,12 +2159,12 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         LAST_ITEM => match chr_code {
-            INT_VAL => print_esc_cstr(b"lastpenalty"),
-            DIMEN_VAL => print_esc_cstr(b"lastkern"),
-            GLUE_VAL => print_esc_cstr(b"lastskip"),
+            0 => print_esc_cstr(b"lastpenalty"), // INT_VAL
+            1 => print_esc_cstr(b"lastkern"),    // DIMEN_VAL
+            2 => print_esc_cstr(b"lastskip"),    // GLUE_VAL
             INPUT_LINE_NO_CODE => print_esc_cstr(b"inputlineno"),
             PDF_SHELL_ESCAPE_CODE => print_esc_cstr(b"shellescape"),
-            LAST_NODE_TYPE_CODE => print_esc_cstr(b"lastnodetype"),
+            3 => print_esc_cstr(b"lastnodetype"), // LAST_NODE_TYPE_CODE
             ETEX_VERSION_CODE => print_esc_cstr(b"eTeXversion"),
             XETEX_VERSION_CODE => print_esc_cstr(b"XeTeXversion"),
             XETEX_COUNT_GLYPHS_CODE => print_esc_cstr(b"XeTeXcountglyphs"),
@@ -2686,53 +2686,53 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         _ => print_cstr(b"[unknown command code!]"),
     };
 }
-pub(crate) unsafe fn not_aat_font_error(mut cmd: i32, mut c: i32, f: usize) {
+pub(crate) unsafe fn not_aat_font_error(cmd: u16, mut c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
         print_nl_cstr(b"! ");
     }
     print_cstr(b"Cannot use ");
-    print_cmd_chr(cmd as u16, c);
+    print_cmd_chr(cmd, c);
     print_cstr(b" with ");
     print(FONT_NAME[f]);
     print_cstr(b"; not an AAT font");
     error();
 }
-pub(crate) unsafe fn not_aat_gr_font_error(mut cmd: i32, mut c: i32, f: usize) {
+pub(crate) unsafe fn not_aat_gr_font_error(cmd: u16, mut c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
         print_nl_cstr(b"! ");
     }
     print_cstr(b"Cannot use ");
-    print_cmd_chr(cmd as u16, c);
+    print_cmd_chr(cmd, c);
     print_cstr(b" with ");
     print(FONT_NAME[f]);
     print_cstr(b"; not an AAT or Graphite font");
     error();
 }
-pub(crate) unsafe fn not_ot_font_error(mut cmd: i32, mut c: i32, f: usize) {
+pub(crate) unsafe fn not_ot_font_error(cmd: u16, mut c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
         print_nl_cstr(b"! ");
     }
     print_cstr(b"Cannot use ");
-    print_cmd_chr(cmd as u16, c);
+    print_cmd_chr(cmd, c);
     print_cstr(b" with ");
     print(FONT_NAME[f]);
     print_cstr(b"; not an OpenType Layout font");
     error();
 }
-pub(crate) unsafe fn not_native_font_error(cmd: i32, c: i32, f: usize) {
+pub(crate) unsafe fn not_native_font_error(cmd: u16, c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
         print_nl_cstr(b"! ");
     }
     print_cstr(b"Cannot use ");
-    print_cmd_chr(cmd as u16, c);
+    print_cmd_chr(cmd, c);
     print_cstr(b" with ");
     print(FONT_NAME[f]);
     print_cstr(b"; not a native platform font");
@@ -5177,7 +5177,7 @@ pub(crate) unsafe fn find_sa_element(mut t: small_number, mut n: i32, mut w: boo
             MEM[(cur_ptr + 1) as usize].b32.s1 = n
         } else {
             cur_ptr = get_node(POINTER_NODE_SIZE);
-            if t as i32 <= MU_VAL {
+            if t <= MU_VAL as i16 {
                 MEM[(cur_ptr + 1) as usize].b32.s1 = 0;
                 MEM[0].b32.s1 += 1;
             } else {
@@ -6131,11 +6131,11 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
             scan_usv_num();
             if m == MATH_CODE_BASE as i32 {
                 cur_val1 = *MATH_CODE(cur_val);
-                if cur_val1 as u32 & 0x1fffff_u32 == ACTIVE_MATH_CHAR as u32 {
+                if math_char(cur_val1) == ACTIVE_MATH_CHAR as u32 {
                     cur_val1 = 0x8000;
-                } else if cur_val1 as u32 >> 21i32 & 0x7_u32 > 7
-                    || cur_val1 as u32 >> 24i32 & 0xff_u32 > 15
-                    || cur_val1 as u32 & 0x1fffff_u32 > 255
+                } else if math_class(cur_val1) > 7
+                    || math_fam(cur_val1) > 15
+                    || math_char(cur_val1) > 255
                 {
                     if file_line_error_style_p != 0 {
                         print_file_line();
@@ -6143,56 +6143,55 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                         print_nl_cstr(b"! ");
                     }
                     print_cstr(b"Extended mathchar used as mathchar");
-                    help_ptr = 2_u8;
+                    help_ptr = 2;
                     help_line[1] = b"A mathchar number must be between 0 and \"7FFF.";
                     help_line[0] = b"I changed this one to zero.";
                     int_error(cur_val1);
-                    cur_val1 = 0i32
+                    cur_val1 = 0;
                 }
-                cur_val1 = (cur_val1 as u32 >> 21i32 & 0x7_u32)
-                    .wrapping_mul(0x1000_u32)
-                    .wrapping_add((cur_val1 as u32 >> 24i32 & 0xff_u32).wrapping_mul(0x100_u32))
-                    .wrapping_add(cur_val1 as u32 & 0x1fffff_u32) as i32;
+                cur_val1 = (math_class(cur_val1) * 0x1000
+                    + math_fam(cur_val1) * 0x100
+                    + math_char(cur_val1)) as i32;
                 cur_val = cur_val1;
-                cur_val_level = 0_u8
+                cur_val_level = INT_VAL
             } else if m == DEL_CODE_BASE {
                 cur_val1 = EQTB[(DEL_CODE_BASE + cur_val) as usize].b32.s1;
-                if cur_val1 >= 0x40000000i32 {
+                if cur_val1 >= 0x40000000 {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
                         print_nl_cstr(b"! ");
                     }
                     print_cstr(b"Extended delcode used as delcode");
-                    help_ptr = 2_u8;
+                    help_ptr = 2;
                     help_line[1] = b"I can only go up to 2147483647=\'17777777777=\"7FFFFFFF,";
                     help_line[0] = b"I changed this one to zero.";
                     error();
-                    cur_val = 0i32;
-                    cur_val_level = 0_u8
+                    cur_val = 0;
+                    cur_val_level = INT_VAL;
                 } else {
                     cur_val = cur_val1;
-                    cur_val_level = 0_u8
+                    cur_val_level = INT_VAL;
                 }
             } else if m < SF_CODE_BASE as i32 {
                 cur_val = EQTB[(m + cur_val) as usize].b32.s1;
-                cur_val_level = 0_u8
+                cur_val_level = INT_VAL;
             } else if m < MATH_CODE_BASE as i32 {
                 cur_val = (EQTB[(m + cur_val) as usize].b32.s1 as i64 % 65536) as i32;
-                cur_val_level = 0_u8
+                cur_val_level = INT_VAL;
             } else {
                 cur_val = EQTB[(m + cur_val) as usize].b32.s1;
-                cur_val_level = 0_u8
+                cur_val_level = INT_VAL;
             }
         }
-        87 => {
+        XETEX_DEF_CODE => {
             scan_usv_num();
             if m == SF_CODE_BASE as i32 {
                 cur_val = (*SF_CODE(cur_val) as i64 / 65536) as i32;
-                cur_val_level = 0_u8
+                cur_val_level = INT_VAL
             } else if m == MATH_CODE_BASE as i32 {
                 cur_val = *MATH_CODE(cur_val);
-                cur_val_level = 0_u8
+                cur_val_level = INT_VAL
             } else if m == MATH_CODE_BASE as i32 + 1 {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -6200,15 +6199,15 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     print_nl_cstr(b"! ");
                 }
                 print_cstr(b"Can\'t use \\Umathcode as a number (try \\Umathcodenum)");
-                help_ptr = 2_u8;
+                help_ptr = 2;
                 help_line[1] = b"\\Umathcode is for setting a mathcode from separate values;";
                 help_line[0] = b"use \\Umathcodenum to access them as single values.";
                 error();
-                cur_val = 0i32;
-                cur_val_level = 0_u8
+                cur_val = 0;
+                cur_val_level = INT_VAL;
             } else if m == DEL_CODE_BASE {
                 cur_val = EQTB[(DEL_CODE_BASE + cur_val) as usize].b32.s1;
-                cur_val_level = 0_u8
+                cur_val_level = INT_VAL;
             } else {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -6216,37 +6215,37 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     print_nl_cstr(b"! ");
                 }
                 print_cstr(b"Can\'t use \\Udelcode as a number (try \\Udelcodenum)");
-                help_ptr = 2_u8;
+                help_ptr = 2;
                 help_line[1] = b"\\Udelcode is for setting a delcode from separate values;";
                 help_line[0] = b"use \\Udelcodenum to access them as single values.";
                 error();
-                cur_val = 0i32;
-                cur_val_level = 0_u8
+                cur_val = 0;
+                cur_val_level = INT_VAL;
             }
         }
-        72 | 73 | 88 | 89 | 90 => {
-            if level as i32 != 5i32 {
+        TOKS_REGISTER | ASSIGN_TOKS | DEF_FAMILY | SET_FONT | DEF_FONT => {
+            if level != TOK_VAL as i16 {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
                     print_nl_cstr(b"! ");
                 }
                 print_cstr(b"Missing number, treated as zero");
-                help_ptr = 3_u8;
+                help_ptr = 3;
                 help_line[2] = b"A number should have been here; I inserted `0\'.";
                 help_line[1] = b"(If you can\'t figure out why I needed to see a number,";
                 help_line[0] = b"look up `weird error\' in the index to The TeXbook.)";
                 back_error();
-                cur_val = 0i32;
-                cur_val_level = 1_u8
-            } else if cur_cmd as i32 <= 73i32 {
-                if (cur_cmd as i32) < 73i32 {
+                cur_val = 0;
+                cur_val_level = DIMEN_VAL;
+            } else if cur_cmd <= ASSIGN_TOKS as u8 {
+                if cur_cmd < ASSIGN_TOKS as u8 {
                     if m == 0i32 {
                         scan_register_num();
-                        if cur_val < 256i32 {
+                        if cur_val < 256 {
                             cur_val = EQTB[(TOKS_BASE + cur_val) as usize].b32.s1
                         } else {
-                            find_sa_element(5i32 as small_number, cur_val, false);
+                            find_sa_element(TOK_VAL as small_number, cur_val, false);
                             if cur_ptr.is_texnull() {
                                 cur_val = TEX_NULL
                             } else {
@@ -6260,40 +6259,44 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     scan_char_class_not_ignored();
                     cur_ptr = cur_val;
                     scan_char_class_not_ignored();
-                    find_sa_element(6i32 as small_number, cur_ptr * 4096i32 + cur_val, false);
+                    find_sa_element(
+                        INTER_CHAR_VAL as small_number,
+                        cur_ptr * CHAR_CLASS_LIMIT + cur_val,
+                        false,
+                    );
                     if cur_ptr.is_texnull() {
-                        cur_val = TEX_NULL
+                        cur_val = TEX_NULL;
                     } else {
                         cur_val = MEM[(cur_ptr + 1) as usize].b32.s1
                     }
                 } else {
                     cur_val = EQTB[m as usize].b32.s1
                 }
-                cur_val_level = 5_u8
+                cur_val_level = TOK_VAL;
             } else {
                 back_input();
                 scan_font_ident();
                 cur_val = FONT_ID_BASE + cur_val;
-                cur_val_level = 4_u8
+                cur_val_level = IDENT_VAL;
             }
         }
-        74 => {
+        ASSIGN_INT => {
             cur_val = EQTB[m as usize].b32.s1;
-            cur_val_level = 0_u8
+            cur_val_level = INT_VAL;
         }
-        75 => {
+        ASSIGN_DIMEN => {
             cur_val = EQTB[m as usize].b32.s1;
-            cur_val_level = 1_u8
+            cur_val_level = DIMEN_VAL;
         }
-        76 => {
+        ASSIGN_GLUE => {
             cur_val = EQTB[m as usize].b32.s1;
-            cur_val_level = 2_u8
+            cur_val_level = GLUE_VAL;
         }
-        77 => {
+        ASSIGN_MU_GLUE => {
             cur_val = EQTB[m as usize].b32.s1;
-            cur_val_level = 3_u8
+            cur_val_level = MU_VAL;
         }
-        80 => {
+        SET_AUX => {
             if (cur_list.mode as i32).abs() != m {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -6301,70 +6304,70 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     print_nl_cstr(b"! ");
                 }
                 print_cstr(b"Improper ");
-                print_cmd_chr(80_u16, m);
-                help_ptr = 4_u8;
+                print_cmd_chr(SET_AUX, m);
+                help_ptr = 4;
                 help_line[3] = b"You can refer to \\spacefactor only in horizontal mode;";
                 help_line[2] = b"you can refer to \\prevdepth only in vertical mode; and";
                 help_line[1] = b"neither of these is meaningful inside \\write. So";
                 help_line[0] = b"I\'m forgetting what you said and using zero instead.";
                 error();
-                if level as i32 != 5i32 {
-                    cur_val = 0i32;
-                    cur_val_level = 1_u8
+                if level != TOK_VAL as i16 {
+                    cur_val = 0;
+                    cur_val_level = DIMEN_VAL;
                 } else {
-                    cur_val = 0i32;
-                    cur_val_level = 0_u8
+                    cur_val = 0;
+                    cur_val_level = INT_VAL;
                 }
-            } else if m == 1i32 {
+            } else if m == VMODE {
                 cur_val = cur_list.aux.b32.s1;
-                cur_val_level = 1_u8
+                cur_val_level = DIMEN_VAL;
             } else {
                 cur_val = cur_list.aux.b32.s0;
-                cur_val_level = 0_u8
+                cur_val_level = INT_VAL;
             }
         }
-        81 => {
-            if cur_list.mode as i32 == 0i32 {
-                cur_val = 0i32;
-                cur_val_level = 0_u8
+        SET_PREV_GRAF => {
+            if cur_list.mode as i32 == 0 {
+                cur_val = 0;
+                cur_val_level = INT_VAL
             } else {
                 NEST[NEST_PTR] = cur_list;
                 let mut p = NEST_PTR;
-                while (NEST[p].mode as i32).abs() != 1i32 {
+                while (NEST[p].mode as i32).abs() != VMODE {
                     p -= 1
                 }
                 cur_val = NEST[p].prev_graf;
-                cur_val_level = 0_u8
+                cur_val_level = INT_VAL
             }
         }
-        83 => {
-            if m == 0i32 {
+        SET_PAGE_INT => {
+            if m == 0 {
                 cur_val = dead_cycles
-            } else if m == 2i32 {
+            } else if m == 2 {
                 cur_val = interaction as i32
             } else {
                 cur_val = insert_penalties
             }
-            cur_val_level = 0_u8
+            cur_val_level = INT_VAL
         }
-        82 => {
-            if page_contents as i32 == 0i32 && !output_active {
-                if m == 0i32 {
-                    cur_val = 0x3fffffffi32
+        SET_PAGE_DIMEN => {
+            if page_contents as i32 == EMPTY && !output_active {
+                if m == 0 {
+                    cur_val = MAX_HALFWORD;
                 } else {
-                    cur_val = 0i32
+                    cur_val = 0;
                 }
             } else {
                 cur_val = page_so_far[m as usize]
             }
-            cur_val_level = 1_u8
+            cur_val_level = DIMEN_VAL
         }
-        85 => {
+        SET_SHAPE => {
             if m > LOCAL_BASE + Local::par_shape as i32 {
                 /*1654:*/
                 scan_int();
-                if EQTB[m as usize].b32.s1.is_texnull() || cur_val < 0i32 {
-                    cur_val = 0i32
+                if EQTB[m as usize].b32.s1.is_texnull() || cur_val < 0 {
+                    cur_val = 0;
                 } else {
                     if cur_val > MEM[(EQTB[m as usize].b32.s1 + 1) as usize].b32.s1 {
                         cur_val = MEM[(EQTB[m as usize].b32.s1 + 1) as usize].b32.s1
@@ -6372,18 +6375,18 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     cur_val = MEM[(EQTB[m as usize].b32.s1 + cur_val + 1) as usize].b32.s1
                 }
             } else if LOCAL(Local::par_shape).is_texnull() {
-                cur_val = 0i32
+                cur_val = 0;
             } else {
                 cur_val = MEM[*LOCAL(Local::par_shape) as usize].b32.s0
             }
-            cur_val_level = 0_u8
+            cur_val_level = INT_VAL;
         }
-        84 => {
+        SET_BOX_DIMEN => {
             scan_register_num();
             if cur_val < 256 {
                 q = *BOX_REG(cur_val as usize)
             } else {
-                find_sa_element(4i32 as small_number, cur_val, false);
+                find_sa_element(4, cur_val, false);
                 if cur_ptr.is_texnull() {
                     q = TEX_NULL
                 } else {
@@ -6391,34 +6394,34 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 }
             }
             if q.is_texnull() {
-                cur_val = 0i32
+                cur_val = 0;
             } else {
                 cur_val = MEM[(q + m) as usize].b32.s1
             }
-            cur_val_level = 1_u8
+            cur_val_level = DIMEN_VAL
         }
-        68 | 69 => {
+        CHAR_GIVEN | MATH_GIVEN => {
             cur_val = cur_chr;
-            cur_val_level = 0_u8
+            cur_val_level = INT_VAL
         }
-        78 => {
+        ASSIGN_FONT_DIMEN => {
             find_font_dimen(false);
             FONT_INFO[fmem_ptr as usize].b32.s1 = 0;
             cur_val = FONT_INFO[cur_val as usize].b32.s1;
-            cur_val_level = 1_u8
+            cur_val_level = DIMEN_VAL
         }
-        79 => {
+        ASSIGN_FONT_INT => {
             scan_font_ident();
-            if m == 0i32 {
+            if m == 0 {
                 cur_val = HYPHEN_CHAR[cur_val as usize];
-                cur_val_level = 0_u8
-            } else if m == 1i32 {
+                cur_val_level = INT_VAL
+            } else if m == 1 {
                 cur_val = SKEW_CHAR[cur_val as usize];
-                cur_val_level = 0_u8
+                cur_val_level = INT_VAL
             } else {
                 n = cur_val;
-                if FONT_AREA[n as usize] as u32 == 0xffffu32
-                    || FONT_AREA[n as usize] as u32 == 0xfffeu32
+                if FONT_AREA[n as usize] as u32 == AAT_FONT_FLAG
+                    || FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                 {
                     scan_glyph_number(n as usize);
                 } else {
@@ -6426,23 +6429,23 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 }
                 k = cur_val;
                 match m {
-                    2 => {
-                        cur_val = get_cp_code(n as usize, k as u32, 0i32);
-                        cur_val_level = 0_u8
+                    LP_CODE_BASE => {
+                        cur_val = get_cp_code(n as usize, k as u32, LEFT_SIDE);
+                        cur_val_level = INT_VAL
                     }
-                    3 => {
-                        cur_val = get_cp_code(n as usize, k as u32, 1i32);
-                        cur_val_level = 0_u8
+                    RP_CODE_BASE => {
+                        cur_val = get_cp_code(n as usize, k as u32, RIGHT_SIDE);
+                        cur_val_level = INT_VAL
                     }
                     _ => {}
                 }
             }
         }
-        91 => {
-            if m < 0i32 || m > 19i32 {
+        REGISTER => {
+            if m < 0 || m > 19 {
                 /* 19 = "lo_mem_stat_max" */
                 cur_val_level = (MEM[m as usize].b16.s1 as i32 / 64) as u8;
-                if (cur_val_level as i32) < 2i32 {
+                if cur_val_level < GLUE_VAL {
                     cur_val = MEM[(m + 2) as usize].b32.s1
                 } else {
                     cur_val = MEM[(m + 1) as usize].b32.s1
@@ -6450,102 +6453,64 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
             } else {
                 scan_register_num();
                 cur_val_level = m as u8;
-                if cur_val > 255i32 {
+                if cur_val > 255 {
                     find_sa_element(cur_val_level as small_number, cur_val, false);
                     if cur_ptr.is_texnull() {
-                        cur_val = 0i32
-                    } else if (cur_val_level as i32) < 2i32 {
+                        cur_val = 0;
+                    } else if cur_val_level < GLUE_VAL {
                         cur_val = MEM[(cur_ptr + 2) as usize].b32.s1
                     } else {
                         cur_val = MEM[(cur_ptr + 1) as usize].b32.s1
                     }
                 } else {
-                    match cur_val_level as i32 {
-                        0 => cur_val = *COUNT_REG(cur_val),
-                        1 => {
-                            cur_val = EQTB[(INT_BASE
-                                + 85i32
-                                + 256i32
-                                + (0x10ffffi32 + 1i32)
-                                + 23i32
-                                + cur_val) as usize]
-                                .b32
-                                .s1
-                        }
-                        2 => {
-                            cur_val = EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + cur_val) as usize]
-                                .b32
-                                .s1
-                        }
-                        3 => {
-                            cur_val = EQTB[(1i32
-                                + (0x10ffffi32 + 1i32)
-                                + (0x10ffffi32 + 1i32)
-                                + 1i32
-                                + 15000i32
-                                + 12i32
-                                + 9000i32
-                                + 1i32
-                                + 1i32
-                                + 19i32
-                                + 256i32
-                                + cur_val) as usize]
-                                .b32
-                                .s1
-                        }
+                    match cur_val_level {
+                        INT_VAL => cur_val = *COUNT_REG(cur_val),
+                        DIMEN_VAL => cur_val = *SCALED_REG(cur_val),
+                        GLUE_VAL => cur_val = *SKIP_REG(cur_val),
+                        MU_VAL => cur_val = *MU_SKIP_REG(cur_val),
                         _ => {}
                     }
                 }
             }
         }
-        71 => {
-            if m >= 4i32 {
-                if m >= 57i32 {
+        LAST_ITEM => {
+            if m >= INPUT_LINE_NO_CODE {
+                if m >= ETEX_GLUE {
                     /*1568:*/
-                    if m < 58i32 {
+                    if m < ETEX_MU {
                         match m {
-                            57 => {
+                            MU_TO_GLUE_CODE => {
                                 /*1595:*/
                                 scan_mu_glue();
                             }
                             _ => {}
                         }
-                        cur_val_level = 2_u8
-                    } else if m < 59i32 {
+                        cur_val_level = GLUE_VAL
+                    } else if m < ETEX_EXPR {
                         match m {
-                            58 => {
+                            GLUE_TO_MU_CODE => {
                                 /*1596:*/
                                 scan_normal_glue(); /* if(m >= XETEX_DIM) */
                             }
                             _ => {}
                         }
-                        cur_val_level = 3_u8
+                        cur_val_level = MU_VAL;
                     } else {
-                        cur_val_level = (m - 59i32) as u8;
+                        cur_val_level = (m - ETEX_EXPR) as u8;
                         scan_expr();
                     }
                     while cur_val_level as i32 > level as i32 {
-                        if cur_val_level as i32 == 2i32 {
+                        if cur_val_level == GLUE_VAL {
                             m = cur_val;
                             cur_val = MEM[(m + 1) as usize].b32.s1;
                             delete_glue_ref(m);
-                        } else if cur_val_level as i32 == 3i32 {
+                        } else if cur_val_level == MU_VAL {
                             mu_error();
                         }
-                        cur_val_level = cur_val_level.wrapping_sub(1)
+                        cur_val_level -= 1;
                     }
                     if negative {
-                        if cur_val_level as i32 >= 2i32 {
+                        if cur_val_level >= GLUE_VAL {
                             m = cur_val;
                             cur_val = new_spec(m);
                             delete_glue_ref(m);
@@ -6560,12 +6525,13 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     }
                     return;
                 }
-                if m >= 47i32 {
+                if m >= XETEX_DIM {
                     match m {
-                        47 => {
+                        XETEX_GLYPH_BOUNDS_CODE => {
                             /*1435:*/
-                            if FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xffffu32
-                                || FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xfffeu32
+                            if FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == AAT_FONT_FLAG
+                                || FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32
+                                    == OTGR_FONT_FLAG
                             {
                                 scan_int(); /* shellenabledp */
                                 n = cur_val;
@@ -6581,7 +6547,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                     print_nl_cstr(b"I don\'t know anything about edge ");
                                     print_int(n);
                                     error();
-                                    cur_val = 0i32
+                                    cur_val = 0;
                                 } else {
                                     scan_int();
                                     cur_val = get_glyph_bounds(
@@ -6591,89 +6557,86 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                     )
                                 }
                             } else {
-                                not_native_font_error(71, m, EQTB[CUR_FONT_LOC].b32.s1 as usize);
-                                cur_val = 0i32
+                                not_native_font_error(
+                                    LAST_ITEM,
+                                    m,
+                                    EQTB[CUR_FONT_LOC].b32.s1 as usize,
+                                );
+                                cur_val = 0;
                             }
                         }
-                        48 | 49 | 50 | 51 => {
+                        FONT_CHAR_WD_CODE | FONT_CHAR_HT_CODE | FONT_CHAR_DP_CODE
+                        | FONT_CHAR_IC_CODE => {
                             scan_font_ident();
                             q = cur_val;
                             scan_usv_num();
-                            if FONT_AREA[q as usize] as u32 == 0xffffu32
-                                || FONT_AREA[q as usize] as u32 == 0xfffeu32
+                            if FONT_AREA[q as usize] as u32 == AAT_FONT_FLAG
+                                || FONT_AREA[q as usize] as u32 == OTGR_FONT_FLAG
                             {
                                 match m {
-                                    48 => cur_val = getnativecharwd(q as usize, cur_val),
-                                    49 => cur_val = getnativecharht(q as usize, cur_val),
-                                    50 => cur_val = getnativechardp(q as usize, cur_val),
-                                    51 => cur_val = getnativecharic(q as usize, cur_val),
+                                    FONT_CHAR_WD_CODE => {
+                                        cur_val = getnativecharwd(q as usize, cur_val)
+                                    }
+                                    FONT_CHAR_HT_CODE => {
+                                        cur_val = getnativecharht(q as usize, cur_val)
+                                    }
+                                    FONT_CHAR_DP_CODE => {
+                                        cur_val = getnativechardp(q as usize, cur_val)
+                                    }
+                                    FONT_CHAR_IC_CODE => {
+                                        cur_val = getnativecharic(q as usize, cur_val)
+                                    }
                                     _ => {}
                                 }
                             } else if FONT_BC[q as usize] as i32 <= cur_val
                                 && FONT_EC[q as usize] as i32 >= cur_val
                             {
-                                i = FONT_INFO[(CHAR_BASE[q as usize]
-                                    + effective_char(true, q as usize, cur_val as u16))
-                                    as usize]
-                                    .b16;
+                                i = FONT_CHARACTER_INFO(
+                                    q as usize,
+                                    effective_char(true, q as usize, cur_val as u16) as usize,
+                                );
                                 match m {
-                                    48 => {
-                                        cur_val = FONT_INFO
-                                            [(WIDTH_BASE[q as usize] + i.s3 as i32) as usize]
-                                            .b32
-                                            .s1
+                                    FONT_CHAR_WD_CODE => {
+                                        cur_val = *FONT_CHARINFO_WIDTH(q as usize, i);
                                     }
-                                    49 => {
-                                        cur_val = FONT_INFO[(HEIGHT_BASE[q as usize]
-                                            + i.s2 as i32 / 16i32)
-                                            as usize]
-                                            .b32
-                                            .s1
+                                    FONT_CHAR_HT_CODE => {
+                                        cur_val = *FONT_CHARINFO_HEIGHT(q as usize, i);
                                     }
-                                    50 => {
-                                        cur_val = FONT_INFO[(DEPTH_BASE[q as usize]
-                                            + i.s2 as i32 % 16i32)
-                                            as usize]
-                                            .b32
-                                            .s1
+                                    FONT_CHAR_DP_CODE => {
+                                        cur_val = *FONT_CHARINFO_DEPTH(q as usize, i);
                                     }
-                                    51 => {
-                                        cur_val = FONT_INFO[(ITALIC_BASE[q as usize]
-                                            + i.s1 as i32 / 4i32)
-                                            as usize]
-                                            .b32
-                                            .s1
+                                    FONT_CHAR_IC_CODE => {
+                                        cur_val = *FONT_CHARINFO_ITALCORR(q as usize, i);
                                     }
                                     _ => {}
                                 }
                             } else {
-                                cur_val = 0i32
+                                cur_val = 0;
                             }
                         }
-                        52 | 53 | 54 => {
-                            q = cur_chr - 52i32;
+                        PAR_SHAPE_LENGTH_CODE | PAR_SHAPE_INDENT_CODE | PAR_SHAPE_DIMEN_CODE => {
+                            q = cur_chr - PAR_SHAPE_LENGTH_CODE;
                             scan_int();
-                            if LOCAL(Local::par_shape).is_texnull() || cur_val <= 0i32 {
-                                cur_val = 0i32
+                            if LOCAL(Local::par_shape).is_texnull() || cur_val <= 0 {
+                                cur_val = 0;
                             } else {
-                                if q == 2i32 {
-                                    q = cur_val % 2i32;
-                                    cur_val = (cur_val + q) / 2i32
+                                if q == 2 {
+                                    q = cur_val % 2;
+                                    cur_val = (cur_val + q) / 2;
                                 }
                                 if cur_val > MEM[*LOCAL(Local::par_shape) as usize].b32.s0 {
                                     cur_val = MEM[*LOCAL(Local::par_shape) as usize].b32.s0
                                 }
-                                cur_val = MEM
-                                    [(*LOCAL(Local::par_shape) + 2i32 * cur_val - q) as usize]
+                                cur_val = MEM[(*LOCAL(Local::par_shape) + 2 * cur_val - q) as usize]
                                     .b32
                                     .s1
                             }
-                            cur_val_level = 1_u8
+                            cur_val_level = DIMEN_VAL
                         }
-                        55 | 56 => {
+                        GLUE_STRETCH_CODE | GLUE_SHRINK_CODE => {
                             scan_normal_glue();
                             q = cur_val;
-                            if m == 55i32 {
+                            if m == GLUE_STRETCH_CODE {
                                 cur_val = MEM[(q + 2) as usize].b32.s1
                             } else {
                                 cur_val = MEM[(q + 3) as usize].b32.s1
@@ -6682,45 +6645,45 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                         }
                         _ => {}
                     }
-                    cur_val_level = 1_u8
+                    cur_val_level = DIMEN_VAL
                 } else {
                     match m {
-                        4 => cur_val = line,
-                        5 => cur_val = last_badness,
-                        45 => cur_val = 0i32,
-                        6 => cur_val = 2i32,
-                        14 => cur_val = 0i32,
-                        15 => {
+                        INPUT_LINE_NO_CODE => cur_val = line,
+                        BADNESS_CODE => cur_val = last_badness,
+                        PDF_SHELL_ESCAPE_CODE => cur_val = 0,
+                        ETEX_VERSION_CODE => cur_val = ETEX_VERSION,
+                        XETEX_VERSION_CODE => cur_val = XETEX_VERSION,
+                        XETEX_COUNT_GLYPHS_CODE => {
                             scan_font_ident();
                             n = cur_val;
                             match FONT_AREA[n as usize] as u32 {
                                 #[cfg(target_os = "macos")]
-                                0xffffu32 => {
+                                AAT_FONT_FLAG => {
                                     cur_val = aat::aat_font_get(
-                                        m - 14i32,
+                                        m - 14,
                                         (FONT_LAYOUT_ENGINE[n as usize]) as _,
                                     )
                                 }
-                                0xfffeu32 => {
-                                    cur_val = ot_font_get(m - 14i32, FONT_LAYOUT_ENGINE[n as usize])
+                                OTGR_FONT_FLAG => {
+                                    cur_val = ot_font_get(m - 14, FONT_LAYOUT_ENGINE[n as usize])
                                 }
-                                _ => cur_val = 0i32,
+                                _ => cur_val = 0,
                             }
                         }
-                        22 => {
+                        XETEX_COUNT_FEATURES_CODE => {
                             scan_font_ident();
                             n = cur_val;
                             match FONT_AREA[n as usize] as u32 {
                                 #[cfg(target_os = "macos")]
-                                0xffffu32 => {
+                                AAT_FONT_FLAG => {
                                     cur_val = aat::aat_font_get(
                                         m - 14i32,
                                         (FONT_LAYOUT_ENGINE[n as usize]) as _,
                                     )
                                 }
                                 #[cfg(not(target_os = "macos"))]
-                                0xffffu32 => cur_val = -1,
-                                0xfffeu32 => {
+                                AAT_FONT_FLAG => cur_val = -1,
+                                OTGR_FONT_FLAG => {
                                     if usingGraphite(
                                         FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
                                     ) as i32
@@ -6735,32 +6698,38 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                 _ => cur_val = 0,
                             }
                         }
-                        17 | 19 | 20 | 21 | 16 => {
+                        XETEX_VARIATION_CODE
+                        | XETEX_VARIATION_MIN_CODE
+                        | XETEX_VARIATION_MAX_CODE
+                        | XETEX_VARIATION_DEFAULT_CODE
+                        | XETEX_COUNT_VARIATIONS_CODE => {
                             scan_font_ident();
                             n = cur_val;
-                            cur_val = 0i32
+                            cur_val = 0;
                         }
-                        23 | 25 | 26 => {
+                        XETEX_FEATURE_CODE_CODE
+                        | XETEX_IS_EXCLUSIVE_FEATURE_CODE
+                        | XETEX_COUNT_SELECTORS_CODE => {
                             scan_font_ident();
                             n = cur_val;
                             match FONT_AREA[n as usize] as u32 {
                                 #[cfg(target_os = "macos")]
-                                0xffffu32 => {
+                                AAT_FONT_FLAG => {
                                     scan_int();
                                     k = cur_val;
                                     cur_val = aat::aat_font_get_1(
-                                        m - 14i32,
+                                        m - 14,
                                         (FONT_LAYOUT_ENGINE[n as usize]) as _,
                                         k,
                                     )
                                 }
                                 #[cfg(not(target_os = "macos"))]
-                                0xffffu32 => {
+                                AAT_FONT_FLAG => {
                                     scan_int();
                                     k = cur_val;
                                     cur_val = -1;
                                 }
-                                0xfffeu32 => {
+                                OTGR_FONT_FLAG => {
                                     if usingGraphite(
                                         FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
                                     ) as i32
@@ -6768,46 +6737,43 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                     {
                                         scan_int();
                                         k = cur_val;
-                                        cur_val = ot_font_get_1(
-                                            m - 14i32,
-                                            FONT_LAYOUT_ENGINE[n as usize],
-                                            k,
-                                        )
+                                        cur_val =
+                                            ot_font_get_1(m - 14, FONT_LAYOUT_ENGINE[n as usize], k)
                                     } else {
-                                        not_aat_gr_font_error(71, m, n as usize);
-                                        cur_val = -1i32
+                                        not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                        cur_val = -1;
                                     }
                                 }
                                 _ => {
-                                    not_aat_gr_font_error(71, m, n as usize);
-                                    cur_val = -1i32
+                                    not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                    cur_val = -1;
                                 }
                             }
                         }
-                        27 | 29 => {
+                        XETEX_SELECTOR_CODE_CODE | XETEX_IS_DEFAULT_SELECTOR_CODE => {
                             scan_font_ident();
                             n = cur_val;
                             match FONT_AREA[n as usize] as u32 {
                                 #[cfg(target_os = "macos")]
-                                0xffffu32 => {
+                                AAT_FONT_FLAG => {
                                     scan_int();
                                     k = cur_val;
                                     scan_int();
                                     cur_val = aat::aat_font_get_2(
-                                        m - 14i32,
+                                        m - 14,
                                         (FONT_LAYOUT_ENGINE[n as usize]) as _,
                                         k,
                                         cur_val,
                                     )
                                 }
                                 #[cfg(not(target_os = "macos"))]
-                                0xffffu32 => {
+                                AAT_FONT_FLAG => {
                                     scan_int();
                                     k = cur_val;
                                     scan_int();
                                     cur_val = -1;
                                 }
-                                0xfffeu32 => {
+                                OTGR_FONT_FLAG => {
                                     if usingGraphite(
                                         FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
                                     ) as i32
@@ -6817,63 +6783,63 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                         k = cur_val;
                                         scan_int();
                                         cur_val = ot_font_get_2(
-                                            m - 14i32,
+                                            m - 14,
                                             FONT_LAYOUT_ENGINE[n as usize],
                                             k,
                                             cur_val,
                                         )
                                     } else {
-                                        not_aat_gr_font_error(71, m, n as usize);
-                                        cur_val = -1i32
+                                        not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                        cur_val = -1;
                                     }
                                 }
                                 _ => {
-                                    not_aat_gr_font_error(71, m, n as usize);
-                                    cur_val = -1i32
+                                    not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                    cur_val = -1;
                                 }
                             }
                         }
-                        18 => {
+                        XETEX_FIND_VARIATION_BY_NAME_CODE => {
                             scan_font_ident();
                             n = cur_val;
                             match FONT_AREA[n as usize] as u32 {
                                 #[cfg(target_os = "macos")]
-                                0xffffu32 => {
+                                AAT_FONT_FLAG => {
                                     scan_and_pack_name();
                                     cur_val = aat::aat_font_get_named(
-                                        m - 14i32,
+                                        m - 14,
                                         (FONT_LAYOUT_ENGINE[n as usize]) as _,
                                     );
                                 }
                                 #[cfg(not(target_os = "macos"))]
-                                0xffffu32 => {
+                                AAT_FONT_FLAG => {
                                     scan_and_pack_name();
                                     cur_val = -1;
                                 }
                                 _ => {
-                                    not_aat_font_error(71, m, n as usize);
-                                    cur_val = -1i32
+                                    not_aat_font_error(LAST_ITEM, m, n as usize);
+                                    cur_val = -1;
                                 }
                             }
                         }
-                        24 => {
+                        XETEX_FIND_FEATURE_BY_NAME_CODE => {
                             scan_font_ident();
                             n = cur_val;
                             match FONT_AREA[n as usize] as u32 {
                                 #[cfg(target_os = "macos")]
-                                0xffffu32 => {
+                                AAT_FONT_FLAG => {
                                     scan_and_pack_name();
                                     cur_val = aat::aat_font_get_named(
-                                        m - 14i32,
+                                        m - 14,
                                         (FONT_LAYOUT_ENGINE[n as usize]) as _,
                                     );
                                 }
                                 #[cfg(not(target_os = "macos"))]
-                                0xffffu32 => {
+                                AAT_FONT_FLAG => {
                                     scan_and_pack_name();
                                     cur_val = -1;
                                 }
-                                0xfffeu32 => {
+                                OTGR_FONT_FLAG => {
                                     if usingGraphite(
                                         FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
                                     ) as i32
@@ -6881,43 +6847,43 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                     {
                                         scan_and_pack_name();
                                         cur_val = gr_font_get_named(
-                                            m - 14i32,
+                                            m - 14,
                                             FONT_LAYOUT_ENGINE[n as usize],
                                         )
                                     } else {
-                                        not_aat_gr_font_error(71, m, n as usize);
-                                        cur_val = -1i32
+                                        not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                        cur_val = -1;
                                     }
                                 }
                                 _ => {
-                                    not_aat_gr_font_error(71, m, n as usize);
-                                    cur_val = -1i32
+                                    not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                    cur_val = -1;
                                 }
                             }
                         }
-                        28 => {
+                        XETEX_FIND_SELECTOR_BY_NAME_CODE => {
                             scan_font_ident();
                             n = cur_val;
                             match FONT_AREA[n as usize] as u32 {
                                 #[cfg(target_os = "macos")]
-                                0xffffu32 => {
+                                AAT_FONT_FLAG => {
                                     scan_int();
                                     k = cur_val;
                                     scan_and_pack_name();
                                     cur_val = aat::aat_font_get_named_1(
-                                        m - 14i32,
+                                        m - 14,
                                         (FONT_LAYOUT_ENGINE[n as usize]) as _,
                                         k,
                                     );
                                 }
                                 #[cfg(not(target_os = "macos"))]
-                                0xffffu32 => {
+                                AAT_FONT_FLAG => {
                                     scan_int();
                                     k = cur_val;
                                     scan_and_pack_name();
                                     cur_val = -1;
                                 }
-                                0xfffeu32 => {
+                                OTGR_FONT_FLAG => {
                                     if usingGraphite(
                                         FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
                                     ) as i32
@@ -6927,59 +6893,56 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                         k = cur_val;
                                         scan_and_pack_name();
                                         cur_val = gr_font_get_named_1(
-                                            m - 14i32,
+                                            m - 14,
                                             FONT_LAYOUT_ENGINE[n as usize],
                                             k,
                                         )
                                     } else {
-                                        not_aat_gr_font_error(71, m, n as usize);
-                                        cur_val = -1i32
+                                        not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                        cur_val = -1;
                                     }
                                 }
                                 _ => {
-                                    not_aat_gr_font_error(71, m, n as usize);
-                                    cur_val = -1i32
+                                    not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                    cur_val = -1;
                                 }
                             }
                         }
-                        30 => {
+                        XETEX_OT_COUNT_SCRIPTS_CODE => {
                             scan_font_ident();
                             n = cur_val;
-                            if FONT_AREA[n as usize] as u32 == 0xfffeu32
+                            if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingOpenType(
                                     FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
                                 ) as i32
                                     != 0
                             {
-                                cur_val = ot_font_get(m - 14i32, FONT_LAYOUT_ENGINE[n as usize])
+                                cur_val = ot_font_get(m - 14, FONT_LAYOUT_ENGINE[n as usize])
                             } else {
-                                cur_val = 0i32
+                                cur_val = 0;
                             }
                         }
-                        31 | 33 => {
+                        XETEX_OT_COUNT_LANGUAGES_CODE | XETEX_OT_SCRIPT_CODE => {
                             scan_font_ident();
                             n = cur_val;
-                            if FONT_AREA[n as usize] as u32 == 0xfffeu32
+                            if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingOpenType(
                                     FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
                                 ) as i32
                                     != 0
                             {
                                 scan_int();
-                                cur_val = ot_font_get_1(
-                                    m - 14i32,
-                                    FONT_LAYOUT_ENGINE[n as usize],
-                                    cur_val,
-                                )
+                                cur_val =
+                                    ot_font_get_1(m - 14, FONT_LAYOUT_ENGINE[n as usize], cur_val)
                             } else {
-                                not_ot_font_error(71, m, n as usize);
-                                cur_val = -1i32
+                                not_ot_font_error(LAST_ITEM, m, n as usize);
+                                cur_val = -1;
                             }
                         }
-                        32 | 34 => {
+                        XETEX_OT_COUNT_FEATURES_CODE | XETEX_OT_LANGUAGE_CODE => {
                             scan_font_ident();
                             n = cur_val;
-                            if FONT_AREA[n as usize] as u32 == 0xfffeu32
+                            if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingOpenType(
                                     FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
                                 ) as i32
@@ -6989,20 +6952,20 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                 k = cur_val;
                                 scan_int();
                                 cur_val = ot_font_get_2(
-                                    m - 14i32,
+                                    m - 14,
                                     FONT_LAYOUT_ENGINE[n as usize],
                                     k,
                                     cur_val,
                                 )
                             } else {
-                                not_ot_font_error(71, m, n as usize);
-                                cur_val = -1i32
+                                not_ot_font_error(LAST_ITEM, m, n as usize);
+                                cur_val = -1;
                             }
                         }
-                        35 => {
+                        XETEX_OT_FEATURE_CODE => {
                             scan_font_ident();
                             n = cur_val;
-                            if FONT_AREA[n as usize] as u32 == 0xfffeu32
+                            if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingOpenType(
                                     FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
                                 ) as i32
@@ -7014,114 +6977,127 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                 kk = cur_val;
                                 scan_int();
                                 cur_val = ot_font_get_3(
-                                    m - 14i32,
+                                    m - 14,
                                     FONT_LAYOUT_ENGINE[n as usize],
                                     k,
                                     kk,
                                     cur_val,
                                 )
                             } else {
-                                not_ot_font_error(71i32, m, n as usize);
-                                cur_val = -1i32
+                                not_ot_font_error(LAST_ITEM, m, n as usize);
+                                cur_val = -1;
                             }
                         }
-                        36 => {
-                            if FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xffffu32
-                                || FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xfffeu32
+                        XETEX_MAP_CHAR_TO_GLYPH_CODE => {
+                            if FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == AAT_FONT_FLAG
+                                || FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32
+                                    == OTGR_FONT_FLAG
                             {
                                 scan_int();
                                 n = cur_val;
                                 cur_val = map_char_to_glyph(EQTB[CUR_FONT_LOC].b32.s1 as usize, n)
                             } else {
-                                not_native_font_error(71, m, EQTB[CUR_FONT_LOC].b32.s1 as usize);
-                                cur_val = 0i32
+                                not_native_font_error(
+                                    LAST_ITEM,
+                                    m,
+                                    EQTB[CUR_FONT_LOC].b32.s1 as usize,
+                                );
+                                cur_val = 0;
                             }
                         }
-                        37 => {
-                            if FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xffffu32
-                                || FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xfffeu32
+                        XETEX_GLYPH_INDEX_CODE => {
+                            if FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == AAT_FONT_FLAG
+                                || FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32
+                                    == OTGR_FONT_FLAG
                             {
                                 scan_and_pack_name();
                                 cur_val = map_glyph_to_index(EQTB[CUR_FONT_LOC].b32.s1 as usize)
                             } else {
-                                not_native_font_error(71, m, EQTB[CUR_FONT_LOC].b32.s1 as usize);
-                                cur_val = 0i32
+                                not_native_font_error(
+                                    LAST_ITEM,
+                                    m,
+                                    EQTB[CUR_FONT_LOC].b32.s1 as usize,
+                                );
+                                cur_val = 0;
                             }
                         }
-                        38 => {
+                        XETEX_FONT_TYPE_CODE => {
                             scan_font_ident();
                             n = cur_val;
-                            if FONT_AREA[n as usize] as u32 == 0xffffu32 {
-                                cur_val = 1i32
-                            } else if FONT_AREA[n as usize] as u32 == 0xfffeu32
+                            if FONT_AREA[n as usize] as u32 == AAT_FONT_FLAG {
+                                cur_val = 1;
+                            } else if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingOpenType(
                                     FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
                                 ) as i32
                                     != 0
                             {
-                                cur_val = 2i32
-                            } else if FONT_AREA[n as usize] as u32 == 0xfffeu32
+                                cur_val = 2;
+                            } else if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingGraphite(
                                     FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
                                 ) as i32
                                     != 0
                             {
-                                cur_val = 3i32
+                                cur_val = 3;
                             } else {
-                                cur_val = 0i32
+                                cur_val = 0;
                             }
                         }
-                        39 | 40 => {
+                        XETEX_FIRST_CHAR_CODE | XETEX_LAST_CHAR_CODE => {
                             scan_font_ident();
                             n = cur_val;
-                            if FONT_AREA[n as usize] as u32 == 0xffffu32
-                                || FONT_AREA[n as usize] as u32 == 0xfffeu32
+                            if FONT_AREA[n as usize] as u32 == AAT_FONT_FLAG
+                                || FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                             {
-                                cur_val = get_font_char_range(n as usize, (m == 39i32) as i32)
-                            } else if m == 39i32 {
+                                cur_val = get_font_char_range(
+                                    n as usize,
+                                    (m == XETEX_FIRST_CHAR_CODE) as i32,
+                                )
+                            } else if m == XETEX_FIRST_CHAR_CODE {
                                 cur_val = FONT_BC[n as usize] as i32
                             } else {
                                 cur_val = FONT_EC[n as usize] as i32
                             }
                         }
-                        41 => cur_val = pdf_last_x_pos,
-                        42 => cur_val = pdf_last_y_pos,
-                        46 => {
+                        PDF_LAST_X_POS_CODE => cur_val = pdf_last_x_pos,
+                        PDF_LAST_Y_POS_CODE => cur_val = pdf_last_y_pos,
+                        XETEX_PDF_PAGE_COUNT_CODE => {
                             scan_and_pack_name();
                             cur_val = count_pdf_file_pages()
                         }
-                        7 => cur_val = cur_level as i32 - 1i32,
-                        8 => cur_val = cur_group as i32,
-                        9 => {
+                        CURRENT_GROUP_LEVEL_CODE => cur_val = cur_level as i32 - 1,
+                        CURRENT_GROUP_TYPE_CODE => cur_val = cur_group as i32,
+                        CURRENT_IF_LEVEL_CODE => {
                             q = cond_ptr;
-                            cur_val = 0i32;
+                            cur_val = 0;
                             while !q.is_texnull() {
                                 cur_val += 1;
-                                q = MEM[q as usize].b32.s1
+                                q = *LLIST_link(q as isize)
                             }
                         }
-                        10 => {
+                        CURRENT_IF_TYPE_CODE => {
                             if cond_ptr.is_texnull() {
-                                cur_val = 0i32
-                            } else if (cur_if as i32) < 32i32 {
-                                cur_val = cur_if as i32 + 1i32
+                                cur_val = 0;
+                            } else if (cur_if as i32) < UNLESS_CODE {
+                                cur_val = cur_if as i32 + 1;
                             } else {
-                                cur_val = -(cur_if as i32 - 31i32)
+                                cur_val = -(cur_if as i32 - 31)
                             }
                         }
-                        11 => {
-                            if if_limit as i32 == 4i32 || if_limit as i32 == 3i32 {
-                                cur_val = 1i32
-                            } else if if_limit as i32 == 2i32 {
-                                cur_val = -1i32
+                        CURRENT_IF_BRANCH_CODE => {
+                            if if_limit as i32 == OR_CODE || if_limit as i32 == ELSE_CODE {
+                                cur_val = 1;
+                            } else if if_limit as i32 == FI_CODE {
+                                cur_val = -1;
                             } else {
-                                cur_val = 0i32
+                                cur_val = 0;
                             }
                         }
-                        12 | 13 => {
+                        GLUE_STRETCH_ORDER_CODE | GLUE_SHRINK_ORDER_CODE => {
                             scan_normal_glue();
                             q = cur_val;
-                            if m == 12i32 {
+                            if m == GLUE_STRETCH_ORDER_CODE {
                                 cur_val = MEM[q as usize].b16.s1 as i32
                             } else {
                                 cur_val = MEM[q as usize].b16.s0 as i32
@@ -7130,13 +7106,14 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                         }
                         _ => {}
                     }
-                    cur_val_level = 0_u8
+                    cur_val_level = INT_VAL;
                 }
             } else {
-                cur_val = 0i32;
+                cur_val = 0;
                 tx = cur_list.tail;
                 if tx < hi_mem_min {
-                    if MEM[tx as usize].b16.s1 as i32 == 9 && MEM[tx as usize].b16.s0 as i32 == 3 {
+                    if MEM[tx as usize].b16.s1 == MATH_NODE && MEM[tx as usize].b16.s0 == END_M_CODE
+                    {
                         r = cur_list.head;
                         loop {
                             q = r;
@@ -7148,53 +7125,53 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                         tx = q
                     }
                 }
-                if cur_chr == 3i32 {
-                    cur_val_level = 0_u8;
-                    if tx == cur_list.head || cur_list.mode as i32 == 0i32 {
-                        cur_val = -1i32
+                if cur_chr == LAST_NODE_TYPE_CODE as i32 {
+                    cur_val_level = INT_VAL;
+                    if tx == cur_list.head || cur_list.mode as i32 == 0 {
+                        cur_val = -1;
                     }
                 } else {
                     cur_val_level = cur_chr as u8
                 }
-                if tx < hi_mem_min && cur_list.mode as i32 != 0i32 {
-                    match cur_chr {
-                        0 => {
-                            if MEM[tx as usize].b16.s1 as i32 == 12 {
-                                cur_val = MEM[(tx + 1) as usize].b32.s1
+                if tx < hi_mem_min && cur_list.mode as i32 != 0 {
+                    match cur_chr as u8 {
+                        INT_VAL => {
+                            if *NODE_type(tx as isize) == PENALTY_NODE {
+                                cur_val = MEM[(tx + 1) as usize].b32.s1;
                             }
                         }
-                        1 => {
-                            if MEM[tx as usize].b16.s1 as i32 == 11 {
-                                cur_val = MEM[(tx + 1) as usize].b32.s1
+                        DIMEN_VAL => {
+                            if *NODE_type(tx as isize) == KERN_NODE {
+                                cur_val = MEM[(tx + 1) as usize].b32.s1;
                             }
                         }
-                        2 => {
-                            if MEM[tx as usize].b16.s1 as i32 == 10 {
+                        GLUE_VAL => {
+                            if *NODE_type(tx as isize) == GLUE_NODE {
                                 cur_val = MEM[(tx + 1) as usize].b32.s0;
-                                if MEM[tx as usize].b16.s0 as i32 == 99 {
-                                    cur_val_level = 3_u8
+                                if MEM[tx as usize].b16.s0 == MU_GLUE {
+                                    cur_val_level = MU_VAL;
                                 }
                             }
                         }
-                        3 => {
-                            if MEM[tx as usize].b16.s1 as i32 <= 13 {
-                                cur_val = MEM[tx as usize].b16.s1 as i32 + 1
+                        LAST_NODE_TYPE_CODE => {
+                            if *NODE_type(tx as isize) <= UNSET_NODE {
+                                cur_val = MEM[tx as usize].b16.s1 as i32 + 1;
                             } else {
-                                cur_val = 13i32 + 2i32
+                                cur_val = UNSET_NODE as i32 + 2;
                             }
                         }
                         _ => {}
                     }
-                } else if cur_list.mode as i32 == 1i32 && tx == cur_list.head {
-                    match cur_chr {
-                        0 => cur_val = last_penalty,
-                        1 => cur_val = last_kern,
-                        2 => {
-                            if last_glue != 0x3fffffffi32 {
+                } else if cur_list.mode as i32 == VMODE && tx == cur_list.head {
+                    match cur_chr as u8 {
+                        INT_VAL => cur_val = last_penalty,
+                        DIMEN_VAL => cur_val = last_kern,
+                        GLUE_VAL => {
+                            if last_glue != MAX_HALFWORD {
                                 cur_val = last_glue
                             }
                         }
-                        3 => cur_val = last_node_type,
+                        LAST_NODE_TYPE_CODE => cur_val = last_node_type,
                         _ => {}
                     }
                 }
@@ -7210,28 +7187,28 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
             print_cmd_chr(cur_cmd as u16, cur_chr);
             print_cstr(b"\' after ");
             print_esc_cstr(b"the");
-            help_ptr = 1_u8;
+            help_ptr = 1;
             help_line[0] = b"I\'m forgetting what you said and using zero instead.";
             error();
-            cur_val = 0i32;
-            if level as i32 != 5i32 {
-                cur_val_level = 1_u8
+            cur_val = 0;
+            if level != TOK_VAL as i16 {
+                cur_val_level = DIMEN_VAL;
             } else {
-                cur_val_level = 0_u8
+                cur_val_level = INT_VAL;
             }
         }
     }
     while cur_val_level as i32 > level as i32 {
         /*447:*/
-        if cur_val_level as i32 == 2i32 {
+        if cur_val_level == GLUE_VAL {
             cur_val = MEM[(cur_val + 1) as usize].b32.s1
-        } else if cur_val_level as i32 == 3i32 {
+        } else if cur_val_level == MU_VAL {
             mu_error();
         }
-        cur_val_level = cur_val_level.wrapping_sub(1)
+        cur_val_level -= 1;
     }
     if negative {
-        if cur_val_level as i32 >= 2i32 {
+        if cur_val_level >= GLUE_VAL {
             cur_val = new_spec(cur_val);
             MEM[(cur_val + 1) as usize].b32.s1 = -MEM[(cur_val + 1) as usize].b32.s1;
             MEM[(cur_val + 2) as usize].b32.s1 = -MEM[(cur_val + 2) as usize].b32.s1;
@@ -7239,8 +7216,8 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
         } else {
             cur_val = -cur_val
         }
-    } else if cur_val_level as i32 >= 2i32 && cur_val_level as i32 <= 3i32 {
-        MEM[cur_val as usize].b32.s1 += 1
+    } else if cur_val_level >= GLUE_VAL && cur_val_level <= MU_VAL {
+        MEM[cur_val as usize].b32.s1 += 1;
     };
 }
 pub(crate) unsafe fn scan_int() {
@@ -8729,7 +8706,7 @@ pub(crate) unsafe fn conv_toks() {
                 arg1 = cur_val;
                 arg2 = 0
             } else {
-                not_aat_font_error(110i32, c as i32, fnt);
+                not_aat_font_error(110, c as i32, fnt);
             }
         }
         8 => {
@@ -8744,7 +8721,7 @@ pub(crate) unsafe fn conv_toks() {
                 arg1 = cur_val;
                 arg2 = 0i32
             } else {
-                not_aat_gr_font_error(110i32, c as i32, fnt);
+                not_aat_gr_font_error(110, c as i32, fnt);
             }
         }
         9 => {
@@ -8760,7 +8737,7 @@ pub(crate) unsafe fn conv_toks() {
                 scan_int();
                 arg2 = cur_val
             } else {
-                not_aat_gr_font_error(110i32, c as i32, fnt);
+                not_aat_gr_font_error(110, c as i32, fnt);
             }
         }
         10 => {
@@ -16045,7 +16022,7 @@ pub(crate) unsafe fn do_extension() {
                     (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
                 );
             } else {
-                not_native_font_error(59i32, 43i32, EQTB[CUR_FONT_LOC].b32.s1 as usize);
+                not_native_font_error(59, 43i32, EQTB[CUR_FONT_LOC].b32.s1 as usize);
             }
         }
         44 => {
