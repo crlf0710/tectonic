@@ -258,3 +258,16 @@ pub(crate) unsafe fn print_c_string(mut str: *const i8) {
         xetex_output::print_char(*fresh0 as i32);
     }
 }
+
+pub(crate) fn math_fam(x: i32) -> u32 {
+    x as u32 >> 24 & 0xff
+}
+pub(crate) fn math_class(x: i32) -> u32 {
+    x as u32 >> 21 & 0x7
+}
+pub(crate) fn math_char(x: i32) -> u32 {
+    x as u32 & 0x1fffff
+}
+/* calculate pieces to assign to a math code */
+//#define set_family(x) (((unsigned)(x) & 0xFF) << 24)
+//#define set_class(x)  (((unsigned)(x) & 0x07) << 21)

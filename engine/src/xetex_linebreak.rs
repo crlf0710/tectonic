@@ -1571,7 +1571,7 @@ unsafe fn post_line_break(mut d: bool) {
          **/
         if *INTPAR(IntPar::texxet) > 0 {
             /*1494:*/
-            q = MEM[TEMP_HEAD as usize].b32.s1;
+            q = MEM[TEMP_HEAD].b32.s1;
             if !LR_ptr.is_texnull() {
                 temp_ptr = LR_ptr;
                 r = q;
@@ -1584,7 +1584,7 @@ unsafe fn post_line_break(mut d: bool) {
                         break;
                     }
                 }
-                MEM[(4999999 - 3) as usize].b32.s1 = r
+                MEM[TEMP_HEAD].b32.s1 = r
             }
             while q != MEM[(cur_p + 1) as usize].b32.s1 {
                 if q < hi_mem_min && MEM[q as usize].b16.s1 as i32 == 9 {
@@ -1717,9 +1717,9 @@ unsafe fn post_line_break(mut d: bool) {
                 p = q; /*:915*/
                 ptmp = p
             } else {
-                p = prev_rightmost(MEM[(4999999 - 3) as usize].b32.s1, q);
+                p = prev_rightmost(MEM[TEMP_HEAD].b32.s1, q);
                 ptmp = p;
-                p = find_protchar_right(MEM[(4999999 - 3) as usize].b32.s1, p)
+                p = find_protchar_right(MEM[TEMP_HEAD].b32.s1, p)
             }
             w = char_pw(p, 1i32 as small_number);
             if w != 0i32 {
@@ -1759,8 +1759,8 @@ unsafe fn post_line_break(mut d: bool) {
         /* 916: Put \leftskip at the left and detach this line. */
         r = MEM[q as usize].b32.s1;
         MEM[q as usize].b32.s1 = -0xfffffff;
-        q = MEM[(4999999 - 3) as usize].b32.s1;
-        MEM[(4999999 - 3) as usize].b32.s1 = r;
+        q = MEM[TEMP_HEAD].b32.s1;
+        MEM[TEMP_HEAD].b32.s1 = r;
         /* "at this point q is the leftmost node; all discardable nodes have been discarded */
         
         if *INTPAR(IntPar::xetex_protrude_chars) > 0 {
@@ -1876,9 +1876,9 @@ unsafe fn post_line_break(mut d: bool) {
                  * line". Delete glues, penalties, kerns, and math nodes at
                  * the beginning of the line, unless the node in question is
                  * the chosen breakpoint. */
-                r = 4999999i32 - 3i32;
+                let mut r = TEMP_HEAD;
                 loop {
-                    q = MEM[r as usize].b32.s1;
+                    q = MEM[r].b32.s1;
                     if q == MEM[(cur_p + 1) as usize].b32.s1 {
                         break;
                     }
@@ -1894,7 +1894,7 @@ unsafe fn post_line_break(mut d: bool) {
                     {
                         break;
                     }
-                    r = q;
+                    r = q as usize;
                     if MEM[q as usize].b16.s1 as i32 == 9 && *INTPAR(IntPar::texxet) > 0i32 {
                         /*1495:*/
                         if MEM[q as usize].b16.s0 as i32 & 1i32 != 0 {
@@ -1916,10 +1916,10 @@ unsafe fn post_line_break(mut d: bool) {
                         }
                     }
                 }
-                if r != 4999999i32 - 3i32 {
-                    MEM[r as usize].b32.s1 = -0xfffffff;
-                    flush_node_list(MEM[(4999999 - 3) as usize].b32.s1);
-                    MEM[(4999999 - 3) as usize].b32.s1 = q
+                if r != TEMP_HEAD {
+                    MEM[r].b32.s1 = -0xfffffff;
+                    flush_node_list(MEM[TEMP_HEAD].b32.s1);
+                    MEM[TEMP_HEAD].b32.s1 = q
                 }
             }
         }
@@ -1927,7 +1927,7 @@ unsafe fn post_line_break(mut d: bool) {
             break;
         }
     }
-    if cur_line != best_line || MEM[(4999999 - 3) as usize].b32.s1 != -0xfffffff {
+    if cur_line != best_line || MEM[TEMP_HEAD].b32.s1 != -0xfffffff {
         confusion(b"line breaking");
     }
     cur_list.prev_graf = best_line - 1i32;

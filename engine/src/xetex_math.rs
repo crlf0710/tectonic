@@ -167,11 +167,11 @@ pub(crate) unsafe fn init_math() {
             };
             if x >= 0 {
                 p = MEM[(just_box + 5) as usize].b32.s1;
-                MEM[TEMP_HEAD as usize].b32.s1 = TEX_NULL
+                MEM[TEMP_HEAD].b32.s1 = TEX_NULL
             } else {
                 v = -v - MEM[(just_box + 1) as usize].b32.s1;
                 p = new_math(0, BEGIN_L_CODE as small_number);
-                MEM[TEMP_HEAD as usize].b32.s1 = p;
+                MEM[TEMP_HEAD].b32.s1 = p;
                 just_copy(
                     MEM[(just_box + 5) as usize].b32.s1,
                     p,
@@ -370,7 +370,7 @@ pub(crate) unsafe fn init_math() {
                 }
             }
             cur_dir = LEFT_TO_RIGHT as small_number;
-            flush_node_list(MEM[TEMP_HEAD as usize].b32.s1);
+            flush_node_list(MEM[TEMP_HEAD].b32.s1);
         }
         if LOCAL(Local::par_shape).is_texnull() {
             if *DIMENPAR(DimenPar::hang_indent) != 0
@@ -1015,11 +1015,7 @@ pub(crate) unsafe fn after_math() {
         cur_style = TEXT_STYLE as small_number;
         mlist_penalties = false;
         mlist_to_hlist();
-        a = hpack(
-            MEM[TEMP_HEAD as usize].b32.s1,
-            0,
-            ADDITIONAL as small_number,
-        );
+        a = hpack(MEM[TEMP_HEAD].b32.s1, 0, ADDITIONAL as small_number);
         MEM[a as usize].b16.s0 = DLIST as u16;
         unsave();
         SAVE_PTR -= 1;
@@ -1117,7 +1113,7 @@ pub(crate) unsafe fn after_math() {
         cur_style = TEXT_STYLE as small_number;
         mlist_penalties = cur_list.mode as i32 > 0;
         mlist_to_hlist();
-        MEM[cur_list.tail as usize].b32.s1 = MEM[TEMP_HEAD as usize].b32.s1;
+        MEM[cur_list.tail as usize].b32.s1 = MEM[TEMP_HEAD].b32.s1;
         while !MEM[cur_list.tail as usize].b32.s1.is_texnull() {
             cur_list.tail = *LLIST_link(cur_list.tail as isize)
         }
@@ -1148,7 +1144,7 @@ pub(crate) unsafe fn after_math() {
         cur_style = DISPLAY_STYLE as small_number;
         mlist_penalties = false;
         mlist_to_hlist();
-        p = MEM[TEMP_HEAD as usize].b32.s1;
+        p = MEM[TEMP_HEAD].b32.s1;
         adjust_tail = ADJUST_HEAD as i32;
         pre_adjust_tail = PRE_ADJUST_HEAD as i32;
         b = hpack(p, 0, ADDITIONAL as small_number);
@@ -1618,7 +1614,7 @@ unsafe fn clean_box(mut p: i32, mut s: small_number) -> i32 {
     cur_style = s;
     mlist_penalties = false;
     mlist_to_hlist();
-    let q = MEM[TEMP_HEAD as usize].b32.s1;
+    let q = MEM[TEMP_HEAD].b32.s1;
     cur_style = save_style;
     if (cur_style as i32) < SCRIPT_STYLE {
         cur_size = TEXT_SIZE;
@@ -3066,11 +3062,7 @@ unsafe fn mlist_to_hlist() {
                             cur_size = SCRIPT_SIZE * ((cur_style as i32 - 2) / 2)
                         }
                         cur_mu = x_over_n(math_quad(cur_size), 18i32);
-                        p = hpack(
-                            MEM[TEMP_HEAD as usize].b32.s1,
-                            0i32,
-                            ADDITIONAL as small_number,
-                        )
+                        p = hpack(MEM[TEMP_HEAD].b32.s1, 0i32, ADDITIONAL as small_number)
                     }
                     _ => confusion(b"mlist2"),
                 }
