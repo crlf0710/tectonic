@@ -817,34 +817,34 @@ pub(crate) const PDF_STRCMP_CODE: placeholdertype = 43;
 pub(crate) const PDF_MDFIVE_SUM_CODE: placeholdertype = 44;
 
 /* args to IF_TEST */
-pub(crate) const IF_CHAR_CODE: placeholdertype = 0;
-pub(crate) const IF_CODE: placeholdertype = 1;
-pub(crate) const IF_CAT_CODE: placeholdertype = 1;
-pub(crate) const IF_INT_CODE: placeholdertype = 2;
-pub(crate) const IF_DIM_CODE: placeholdertype = 3;
-pub(crate) const IF_ODD_CODE: placeholdertype = 4;
-pub(crate) const IF_VMODE_CODE: placeholdertype = 5;
-pub(crate) const IF_HMODE_CODE: placeholdertype = 6;
-pub(crate) const IF_MMODE_CODE: placeholdertype = 7;
-pub(crate) const IF_INNER_CODE: placeholdertype = 8;
-pub(crate) const IF_VOID_CODE: placeholdertype = 9;
-pub(crate) const IF_HBOX_CODE: placeholdertype = 10;
-pub(crate) const IF_VBOX_CODE: placeholdertype = 11;
-pub(crate) const IFX_CODE: placeholdertype = 12;
-pub(crate) const IF_EOF_CODE: placeholdertype = 13;
-pub(crate) const IF_TRUE_CODE: placeholdertype = 14;
-pub(crate) const IF_FALSE_CODE: placeholdertype = 15;
-pub(crate) const IF_CASE_CODE: placeholdertype = 16;
-pub(crate) const IF_DEF_CODE: placeholdertype = 17;
-pub(crate) const IF_CS_CODE: placeholdertype = 18;
-pub(crate) const IF_FONT_CHAR_CODE: placeholdertype = 19;
-pub(crate) const IF_IN_CSNAME_CODE: placeholdertype = 20;
-pub(crate) const IF_PRIMITIVE_CODE: placeholdertype = 21;
+pub(crate) const IF_CHAR_CODE: i16 = 0;
+pub(crate) const IF_CODE: u8 = 1;
+pub(crate) const IF_CAT_CODE: i16 = 1;
+pub(crate) const IF_INT_CODE: i16 = 2;
+pub(crate) const IF_DIM_CODE: i16 = 3;
+pub(crate) const IF_ODD_CODE: i16 = 4;
+pub(crate) const IF_VMODE_CODE: i16 = 5;
+pub(crate) const IF_HMODE_CODE: i16 = 6;
+pub(crate) const IF_MMODE_CODE: i16 = 7;
+pub(crate) const IF_INNER_CODE: i16 = 8;
+pub(crate) const IF_VOID_CODE: i16 = 9;
+pub(crate) const IF_HBOX_CODE: i16 = 10;
+pub(crate) const IF_VBOX_CODE: i16 = 11;
+pub(crate) const IFX_CODE: i16 = 12;
+pub(crate) const IF_EOF_CODE: i16 = 13;
+pub(crate) const IF_TRUE_CODE: i16 = 14;
+pub(crate) const IF_FALSE_CODE: i16 = 15;
+pub(crate) const IF_CASE_CODE: i16 = 16;
+pub(crate) const IF_DEF_CODE: i16 = 17;
+pub(crate) const IF_CS_CODE: i16 = 18;
+pub(crate) const IF_FONT_CHAR_CODE: i16 = 19;
+pub(crate) const IF_IN_CSNAME_CODE: i16 = 20;
+pub(crate) const IF_PRIMITIVE_CODE: i16 = 21;
 
 /* args to FI_OR_ELSE */
-pub(crate) const FI_CODE: placeholdertype = 2;
-pub(crate) const ELSE_CODE: placeholdertype = 3;
-pub(crate) const OR_CODE: placeholdertype = 4;
+pub(crate) const FI_CODE: u8 = 2;
+pub(crate) const ELSE_CODE: u8 = 3;
+pub(crate) const OR_CODE: u8 = 4;
 
 /* special args for TAB_MARK, CAR_RET */
 pub(crate) const SPAN_CODE: placeholdertype = BIGGEST_USV as i32 + 2;
@@ -960,7 +960,7 @@ pub(crate) const TECTONIC_CODA_TEXT: u16 = 19;
 /* input state */
 pub(crate) const MID_LINE: u16 = 1;
 pub(crate) const SKIP_BLANKS: placeholdertype = 17;
-pub(crate) const NEW_LINE: placeholdertype = 33;
+pub(crate) const NEW_LINE: u16 = 33;
 
 /* DVI format codes */
 pub(crate) const XDV_ID_BYTE: placeholdertype = 7;
@@ -1016,7 +1016,7 @@ pub(crate) const STRETCHING: u16 = 1;
 pub(crate) const VMODE: placeholdertype = 1;
 pub(crate) const ACC_KERN: u16 = 2;
 pub(crate) const BOTTOM_ACC: u16 = 2;
-pub(crate) const CLOSED: placeholdertype = 2;
+pub(crate) const CLOSED: u8 = 2;
 pub(crate) const DLIST: u16 = 2;
 pub(crate) const ETEX_VERSION: placeholdertype = 2;
 pub(crate) const INSERT_TOKEN: u16 = 2;

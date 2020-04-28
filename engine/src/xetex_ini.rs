@@ -4837,30 +4837,30 @@ unsafe fn initialize_primitives() {
     primitive(b"Uchar", CONVERT, XETEX_UCHAR_CODE);
     primitive(b"Ucharcat", CONVERT, XETEX_UCHARCAT_CODE);
 
-    primitive(b"if", IF_TEST, IF_CHAR_CODE);
-    primitive(b"ifcat", IF_TEST, IF_CAT_CODE);
-    primitive(b"ifnum", IF_TEST, IF_INT_CODE);
-    primitive(b"ifdim", IF_TEST, IF_DIM_CODE);
-    primitive(b"ifodd", IF_TEST, IF_ODD_CODE);
-    primitive(b"ifvmode", IF_TEST, IF_VMODE_CODE);
-    primitive(b"ifhmode", IF_TEST, IF_HMODE_CODE);
-    primitive(b"ifmmode", IF_TEST, IF_MMODE_CODE);
-    primitive(b"ifinner", IF_TEST, IF_INNER_CODE);
-    primitive(b"ifvoid", IF_TEST, IF_VOID_CODE);
-    primitive(b"ifhbox", IF_TEST, IF_HBOX_CODE);
-    primitive(b"ifvbox", IF_TEST, IF_VBOX_CODE);
-    primitive(b"ifx", IF_TEST, IFX_CODE);
-    primitive(b"ifeof", IF_TEST, IF_EOF_CODE);
-    primitive(b"iftrue", IF_TEST, IF_TRUE_CODE);
-    primitive(b"iffalse", IF_TEST, IF_FALSE_CODE);
-    primitive(b"ifcase", IF_TEST, IF_CASE_CODE);
-    primitive(b"ifprimitive", IF_TEST, IF_PRIMITIVE_CODE);
+    primitive(b"if", IF_TEST, IF_CHAR_CODE as i32);
+    primitive(b"ifcat", IF_TEST, IF_CAT_CODE as i32);
+    primitive(b"ifnum", IF_TEST, IF_INT_CODE as i32);
+    primitive(b"ifdim", IF_TEST, IF_DIM_CODE as i32);
+    primitive(b"ifodd", IF_TEST, IF_ODD_CODE as i32);
+    primitive(b"ifvmode", IF_TEST, IF_VMODE_CODE as i32);
+    primitive(b"ifhmode", IF_TEST, IF_HMODE_CODE as i32);
+    primitive(b"ifmmode", IF_TEST, IF_MMODE_CODE as i32);
+    primitive(b"ifinner", IF_TEST, IF_INNER_CODE as i32);
+    primitive(b"ifvoid", IF_TEST, IF_VOID_CODE as i32);
+    primitive(b"ifhbox", IF_TEST, IF_HBOX_CODE as i32);
+    primitive(b"ifvbox", IF_TEST, IF_VBOX_CODE as i32);
+    primitive(b"ifx", IF_TEST, IFX_CODE as i32);
+    primitive(b"ifeof", IF_TEST, IF_EOF_CODE as i32);
+    primitive(b"iftrue", IF_TEST, IF_TRUE_CODE as i32);
+    primitive(b"iffalse", IF_TEST, IF_FALSE_CODE as i32);
+    primitive(b"ifcase", IF_TEST, IF_CASE_CODE as i32);
+    primitive(b"ifprimitive", IF_TEST, IF_PRIMITIVE_CODE as i32);
 
-    primitive(b"fi", FI_OR_ELSE, FI_CODE);
+    primitive(b"fi", FI_OR_ELSE, FI_CODE as i32);
     (*hash.offset(FROZEN_FI as isize)).s1 = maketexstring(b"fi");
     EQTB[FROZEN_FI] = EQTB[cur_val as usize];
-    primitive(b"or", FI_OR_ELSE, OR_CODE);
-    primitive(b"else", FI_OR_ELSE, ELSE_CODE);
+    primitive(b"or", FI_OR_ELSE, OR_CODE as i32);
+    primitive(b"else", FI_OR_ELSE, ELSE_CODE as i32);
 
     primitive(b"nullfont", SET_FONT, FONT_BASE);
     (*hash.offset(FROZEN_NULL_FONT as isize)).s1 = maketexstring(b"nullfont");
@@ -5539,10 +5539,10 @@ pub(crate) unsafe fn tt_run_engine(
         primitive(b"readline", READ_TO_CS, 1);
         primitive(b"unless", EXPAND_AFTER, 1);
 
-        primitive(b"ifdefined", IF_TEST, IF_DEF_CODE);
-        primitive(b"ifcsname", IF_TEST, IF_CS_CODE);
-        primitive(b"iffontchar", IF_TEST, IF_FONT_CHAR_CODE);
-        primitive(b"ifincsname", IF_TEST, IF_IN_CSNAME_CODE);
+        primitive(b"ifdefined", IF_TEST, IF_DEF_CODE as i32);
+        primitive(b"ifcsname", IF_TEST, IF_CS_CODE as i32);
+        primitive(b"iffontchar", IF_TEST, IF_FONT_CHAR_CODE as i32);
+        primitive(b"ifincsname", IF_TEST, IF_IN_CSNAME_CODE as i32);
 
         primitive(b"protected", PREFIX, 8);
 

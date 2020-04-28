@@ -94,6 +94,7 @@ use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
 use crate::xetex_scaledmath::{mult_and_add, round_xn_over_d, tex_round, x_over_n, xn_over_d};
 use crate::xetex_shipout::{finalize_dvi_file, new_edge, out_what, ship_out};
+use crate::xetex_stringpool::EMPTY_STRING;
 use crate::xetex_stringpool::{
     append_str, length, make_string, search_string, slow_make_string, str_eq_buf, str_eq_str,
 };
@@ -106,6 +107,7 @@ use bridge::{
     ttstub_input_close, ttstub_input_getc, ttstub_issue_warning, ttstub_output_close,
     ttstub_output_open, ttstub_output_putc,
 };
+
 use bridge::{TTHistory, TTInputFormat};
 
 use libc::{free, memcpy, strcat, strcpy, strlen};
@@ -2246,7 +2248,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             if chr_code >= UNLESS_CODE {
                 print_esc_cstr(b"unless");
             }
-            match chr_code % UNLESS_CODE {
+            match (chr_code % UNLESS_CODE) as i16 {
                 IF_CAT_CODE => print_esc_cstr(b"ifcat"),
                 IF_INT_CODE => print_esc_cstr(b"ifnum"),
                 IF_DIM_CODE => print_esc_cstr(b"ifdim"),
@@ -2272,9 +2274,9 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         FI_OR_ELSE => {
-            if chr_code == FI_CODE {
+            if chr_code == FI_CODE as i32 {
                 print_esc_cstr(b"fi");
-            } else if chr_code == OR_CODE {
+            } else if chr_code == OR_CODE as i32 {
                 print_esc_cstr(b"or");
             } else {
                 print_esc_cstr(b"else");
@@ -3116,7 +3118,7 @@ pub(crate) unsafe fn file_warning() {
     while IF_STACK[IN_OPEN] != cond_ptr {
         print_nl_cstr(b"Warning: end of file when ");
         print_cmd_chr(IF_TEST, cur_if as i32);
-        if if_limit as i32 == FI_CODE {
+        if if_limit == FI_CODE {
             print_esc_cstr(b"else");
         }
         if if_line != 0 {
@@ -5262,7 +5264,7 @@ pub(crate) unsafe fn expand() {
                         break;
                     } else {
                         get_token();
-                        if cur_cmd as u16 == IF_TEST && cur_chr != IF_CASE_CODE {
+                        if cur_cmd as u16 == IF_TEST && cur_chr != IF_CASE_CODE as i32 {
                             cur_chr = cur_chr + UNLESS_CODE
                         } else {
                             if file_line_error_style_p != 0 {
@@ -5412,7 +5414,7 @@ pub(crate) unsafe fn expand() {
                         }
                     }
                     if cur_chr > if_limit as i32 {
-                        if if_limit as i32 == IF_CODE {
+                        if if_limit == IF_CODE {
                             insert_relax();
                         } else {
                             if file_line_error_style_p != 0 {
@@ -5427,7 +5429,7 @@ pub(crate) unsafe fn expand() {
                             error();
                         }
                     } else {
-                        while cur_chr != FI_CODE {
+                        while cur_chr != FI_CODE as i32 {
                             pass_text();
                         }
                         if IF_STACK[IN_OPEN] == cond_ptr {
@@ -7083,9 +7085,9 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                             }
                         }
                         CURRENT_IF_BRANCH_CODE => {
-                            if if_limit as i32 == OR_CODE || if_limit as i32 == ELSE_CODE {
+                            if if_limit == OR_CODE || if_limit == ELSE_CODE {
                                 cur_val = 1;
-                            } else if if_limit as i32 == FI_CODE {
+                            } else if if_limit == FI_CODE {
                                 cur_val = -1;
                             } else {
                                 cur_val = 0;
@@ -8895,6 +8897,18 @@ pub(crate) unsafe fn conv_toks() {
     begin_token_list(MEM[TEMP_HEAD].b32.s1, INSERTED);
 }
 pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
+    unsafe fn found(p: i32, hash_brace: i32) -> i32 {
+        scanner_status = NORMAL as u8;
+        if hash_brace != 0 {
+            let q = get_avail();
+            MEM[p as usize].b32.s1 = q;
+            MEM[q as usize].b32.s0 = hash_brace;
+            q
+        } else {
+            p
+        }
+    }
+
     let mut current_block: u64;
     let mut s: i32 = 0;
     let mut q: i32 = 0;
@@ -8989,7 +9003,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
                         b"Where was the left brace? You said something like `\\def\\a}\',";
                     help_line[0] = b"which I\'m going to interpret as `\\def\\a{}\'.";
                     error();
-                    current_block = 17047787784317322882;
+                    return found(p, hash_brace);
                 } else {
                     current_block = 2723324002591448311;
                 }
@@ -9038,7 +9052,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
                     } else {
                         unbalance -= 1;
                         if unbalance == 0 {
-                            break;
+                            return found(p, hash_brace);
                         }
                     }
                 } else if cur_cmd == MAC_PARAM as u8 {
@@ -9081,57 +9095,50 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
         }
         _ => {}
     }
-    scanner_status = NORMAL as u8;
-    if hash_brace != 0 {
-        q = get_avail();
-        MEM[p as usize].b32.s1 = q;
-        MEM[q as usize].b32.s0 = hash_brace;
-        p = q
-    }
-    p
+    found(p, hash_brace)
 }
 pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut s: i32 = 0;
     let mut m: small_number = 0;
-    scanner_status = 2_u8;
+    scanner_status = DEFINING as u8;
     warning_index = r;
     def_ref = get_avail();
     MEM[def_ref as usize].b32.s0 = TEX_NULL;
     p = def_ref;
     q = get_avail();
     MEM[p as usize].b32.s1 = q;
-    MEM[q as usize].b32.s0 = 0x1c00000;
+    MEM[q as usize].b32.s0 = END_MATCH_TOKEN;
     p = q;
-    if n < 0i32 || n > 15i32 {
-        m = 16i32 as small_number
+    if n < 0 || n > 15 {
+        m = 16;
     } else {
         m = n as small_number
     }
     s = align_state;
-    align_state = 1000000i64 as i32;
+    align_state = 1000000;
     loop {
         /*502:*/
         begin_file_reading();
-        cur_input.name = m as i32 + 1i32;
+        cur_input.name = m as i32 + 1;
         assert!(
             read_open[m as usize] as i32 != 2,
             /*503:*/
             "terminal input forbidden"
         );
         /*505:*/
-        if read_open[m as usize] as i32 == 1i32 {
+        if read_open[m as usize] == CLOSED {
             /*504:*/
-            if input_line(read_file[m as usize]) != 0 {
-                read_open[m as usize] = 0_u8
+            if input_line(read_file[m as usize]) != JUST_OPEN {
+                read_open[m as usize] = NORMAL as u8;
             } else {
                 u_close(read_file[m as usize]);
-                read_open[m as usize] = 2_u8
+                read_open[m as usize] = CLOSED;
             }
         } else if input_line(read_file[m as usize]) == 0 {
             u_close(read_file[m as usize]);
-            read_open[m as usize] = 2_u8;
+            read_open[m as usize] = CLOSED;
             if align_state as i64 != 1000000 {
                 runaway();
                 if file_line_error_style_p != 0 {
@@ -9143,27 +9150,27 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
                 print_esc_cstr(b"read");
                 help_ptr = 1_u8;
                 help_line[0] = b"This \\read has unbalanced braces.";
-                align_state = 1000000i64 as i32;
+                align_state = 1000000;
                 error();
             }
         }
         cur_input.limit = last;
-        if *INTPAR(IntPar::end_line_char) < 0i32 || *INTPAR(IntPar::end_line_char) > 255i32 {
+        if *INTPAR(IntPar::end_line_char) < 0 || *INTPAR(IntPar::end_line_char) > 255 {
             cur_input.limit -= 1
         } else {
             BUFFER[cur_input.limit as usize] = *INTPAR(IntPar::end_line_char)
         }
-        first = cur_input.limit + 1i32;
+        first = cur_input.limit + 1;
         cur_input.loc = cur_input.start;
-        cur_input.state = 33_u16;
-        if j == 1i32 {
+        cur_input.state = NEW_LINE;
+        if j == 1 {
             while cur_input.loc <= cur_input.limit {
                 cur_chr = BUFFER[cur_input.loc as usize];
                 cur_input.loc += 1;
                 if cur_chr == ' ' as i32 {
-                    cur_tok = 0x1400020i32
+                    cur_tok = SPACE_TOKEN
                 } else {
-                    cur_tok = cur_chr + 0x1800000i32
+                    cur_tok = cur_chr + OTHER_TOKEN
                 }
                 q = get_avail();
                 MEM[p as usize].b32.s1 = q;
@@ -9173,17 +9180,17 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
         } else {
             loop {
                 get_token();
-                if cur_tok == 0i32 {
+                if cur_tok == 0 {
                     break;
                 }
                 if (align_state as i64) < 1000000 {
                     loop {
                         get_token();
-                        if !(cur_tok != 0i32) {
+                        if !(cur_tok != 0) {
                             break;
                         }
                     }
-                    align_state = 1000000i64 as i32;
+                    align_state = 1000000;
                     break;
                 } else {
                     q = get_avail();
@@ -9199,38 +9206,38 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
         }
     }
     cur_val = def_ref;
-    scanner_status = 0_u8;
+    scanner_status = NORMAL as u8;
     align_state = s;
 }
 pub(crate) unsafe fn pass_text() {
     let mut l: i32 = 0;
     let mut save_scanner_status: small_number = 0;
     save_scanner_status = scanner_status as small_number;
-    scanner_status = 1_u8;
-    l = 0i32;
+    scanner_status = SKIPPING as u8;
+    l = 0;
     skip_line = line;
     loop {
         get_next();
-        if cur_cmd as i32 == 108i32 {
-            if l == 0i32 {
+        if cur_cmd == FI_OR_ELSE as u8 {
+            if l == 0 {
                 break;
             }
-            if cur_chr == 2i32 {
-                l -= 1
+            if cur_chr == FI_CODE as i32 {
+                l -= 1;
             }
-        } else if cur_cmd as i32 == 107i32 {
-            l += 1
+        } else if cur_cmd == IF_TEST as u8 {
+            l += 1;
         }
     }
     scanner_status = save_scanner_status as u8;
-    if *INTPAR(IntPar::tracing_ifs) > 0i32 {
+    if *INTPAR(IntPar::tracing_ifs) > 0 {
         show_cur_cmd_chr();
     };
 }
-pub(crate) unsafe fn change_if_limit(mut l: small_number, mut p: i32) {
+pub(crate) unsafe fn change_if_limit(l: u8, mut p: i32) {
     let mut q: i32 = 0;
     if p == cond_ptr {
-        if_limit = l as u8
+        if_limit = l;
     } else {
         q = cond_ptr;
         loop {
@@ -9241,7 +9248,7 @@ pub(crate) unsafe fn change_if_limit(mut l: small_number, mut p: i32) {
                 MEM[q as usize].b16.s1 = l as u16;
                 return;
             }
-            q = MEM[q as usize].b32.s1
+            q = *LLIST_link(q as isize);
         }
     };
 }
@@ -9252,55 +9259,51 @@ pub(crate) unsafe fn conditional() {
     let mut r: u8 = 0;
     let mut m: i32 = 0;
     let mut n: i32 = 0;
-    let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut save_scanner_status: small_number = 0;
-    let mut save_cond_ptr: i32 = 0;
-    let mut this_if: small_number = 0;
-    let mut is_unless: bool = false;
-    if *INTPAR(IntPar::tracing_ifs) > 0i32 {
-        if *INTPAR(IntPar::tracing_commands) <= 1i32 {
+    if *INTPAR(IntPar::tracing_ifs) > 0 {
+        if *INTPAR(IntPar::tracing_commands) <= 1 {
             show_cur_cmd_chr();
         }
     }
-    p = get_node(2i32);
+    let mut p = get_node(IF_NODE_SIZE);
     MEM[p as usize].b32.s1 = cond_ptr;
     MEM[p as usize].b16.s1 = if_limit as u16;
     MEM[p as usize].b16.s0 = cur_if as u16;
     MEM[(p + 1) as usize].b32.s1 = if_line;
     cond_ptr = p;
     cur_if = cur_chr as small_number;
-    if_limit = 1_u8;
+    if_limit = IF_CODE;
     if_line = line;
-    save_cond_ptr = cond_ptr;
-    is_unless = cur_chr >= 32i32;
-    this_if = (cur_chr % 32i32) as small_number;
-    match this_if as i32 {
-        0 | 1 => {
+    let mut save_cond_ptr = cond_ptr;
+    let mut is_unless = cur_chr >= UNLESS_CODE;
+    let mut this_if = (cur_chr % UNLESS_CODE) as small_number;
+    match this_if {
+        IF_CHAR_CODE | IF_CAT_CODE => {
             get_x_token();
-            if cur_cmd as i32 == 0i32 {
-                if cur_chr == 0x10ffffi32 + 2i32 {
-                    cur_cmd = 13i32 as eight_bits;
-                    cur_chr = cur_tok - (0x1ffffffi32 + 1i32)
+            if cur_cmd == RELAX as u8 {
+                if cur_chr == NO_EXPAND_FLAG {
+                    cur_cmd = ACTIVE_CHAR as u8;
+                    cur_chr = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE)
                 }
             }
-            if cur_cmd as i32 > 13i32 || cur_chr > 0x10ffffi32 {
-                m = 0i32;
-                n = 0x10ffffi32 + 1i32
+            if cur_cmd > ACTIVE_CHAR as u8 || cur_chr > BIGGEST_USV as i32 {
+                m = RELAX as i32;
+                n = TOO_BIG_USV;
             } else {
                 m = cur_cmd as i32;
                 n = cur_chr
             }
             get_x_token();
-            if cur_cmd as i32 == 0i32 {
-                if cur_chr == 0x10ffffi32 + 2i32 {
-                    cur_cmd = 13i32 as eight_bits;
-                    cur_chr = cur_tok - (0x1ffffffi32 + 1i32)
+            if cur_cmd == RELAX as u8 {
+                if cur_chr == NO_EXPAND_FLAG {
+                    cur_cmd = ACTIVE_CHAR as u8;
+                    cur_chr = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE)
                 }
             }
-            if cur_cmd as i32 > 13i32 || cur_chr > 0x10ffffi32 {
-                cur_cmd = 0i32 as eight_bits;
-                cur_chr = 0x10ffffi32 + 1i32
+            if cur_cmd > ACTIVE_CHAR as u8 || cur_chr > BIGGEST_USV as i32 {
+                cur_cmd = RELAX as u8;
+                cur_chr = TOO_BIG_USV;
             }
             if this_if as i32 == 0i32 {
                 b = n == cur_chr
@@ -9309,7 +9312,7 @@ pub(crate) unsafe fn conditional() {
             }
             current_block = 16915215315900843183;
         }
-        2 | 3 => {
+        IF_INT_CODE | IF_DIM_CODE => {
             if this_if as i32 == 2i32 {
                 scan_int();
             } else {
@@ -9318,12 +9321,12 @@ pub(crate) unsafe fn conditional() {
             n = cur_val;
             loop {
                 get_x_token();
-                if !(cur_cmd as i32 == 10i32) {
+                if !(cur_cmd == SPACER as u8) {
                     break;
                 }
             }
-            if cur_tok >= 0x1800000i32 + 60i32 && cur_tok <= 0x1800000i32 + 62i32 {
-                r = (cur_tok - 0x1800000i32) as u8
+            if cur_tok >= OTHER_TOKEN + 60 && cur_tok <= OTHER_TOKEN + 62 {
+                r = (cur_tok - OTHER_TOKEN) as u8
             } else {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -9331,18 +9334,18 @@ pub(crate) unsafe fn conditional() {
                     print_nl_cstr(b"! ");
                 }
                 print_cstr(b"Missing = inserted for ");
-                print_cmd_chr(107_u16, this_if as i32);
-                help_ptr = 1_u8;
+                print_cmd_chr(IF_TEST, this_if as i32);
+                help_ptr = 1;
                 help_line[0] = b"I was expecting to see `<\', `=\', or `>\'. Didn\'t.";
                 back_error();
-                r = '=' as i32 as u8
+                r = b'=';
             }
-            if this_if as i32 == 2i32 {
+            if this_if == IF_INT_CODE as i16 {
                 scan_int();
             } else {
                 scan_dimen(false, false, false);
             }
-            match r as i32 {
+            match r {
                 60 => {
                     /*"<"*/
                     b = n < cur_val
@@ -9359,53 +9362,53 @@ pub(crate) unsafe fn conditional() {
             } /*527:*/
             current_block = 16915215315900843183; /* !shellenabledp */
         }
-        4 => {
+        IF_ODD_CODE => {
             scan_int();
             b = cur_val & 1i32 != 0;
             current_block = 16915215315900843183;
         }
-        5 => {
-            b = (cur_list.mode as i32).abs() == 1i32;
+        IF_VMODE_CODE => {
+            b = (cur_list.mode as i32).abs() == VMODE;
             current_block = 16915215315900843183;
         }
-        6 => {
-            b = (cur_list.mode as i32).abs() == 104i32;
+        IF_HMODE_CODE => {
+            b = (cur_list.mode as i32).abs() == HMODE;
             current_block = 16915215315900843183;
         }
-        7 => {
-            b = (cur_list.mode as i32).abs() == 207i32;
+        IF_MMODE_CODE => {
+            b = (cur_list.mode as i32).abs() == MMODE;
             current_block = 16915215315900843183;
         }
-        8 => {
-            b = (cur_list.mode as i32) < 0i32;
+        IF_INNER_CODE => {
+            b = (cur_list.mode as i32) < 0;
             current_block = 16915215315900843183;
         }
-        9 | 10 | 11 => {
+        IF_VOID_CODE | IF_HBOX_CODE | IF_VBOX_CODE => {
             scan_register_num();
             if cur_val < 256 {
                 p = *BOX_REG(cur_val as usize)
             } else {
-                find_sa_element(4i32 as small_number, cur_val, false);
+                find_sa_element(4, cur_val, false);
                 if cur_ptr.is_texnull() {
                     p = TEX_NULL
                 } else {
                     p = MEM[(cur_ptr + 1) as usize].b32.s1
                 }
             }
-            if this_if as i32 == 9i32 {
+            if this_if == IF_VOID_CODE {
                 b = p.is_texnull()
             } else if p.is_texnull() {
                 b = false
-            } else if this_if as i32 == 10i32 {
-                b = MEM[p as usize].b16.s1 as i32 == 0
+            } else if this_if == IF_HBOX_CODE {
+                b = *NODE_type(p as isize) == HLIST_NODE;
             } else {
-                b = MEM[p as usize].b16.s1 as i32 == 1
+                b = *NODE_type(p as isize) == VLIST_NODE;
             }
             current_block = 16915215315900843183;
         }
-        12 => {
+        IFX_CODE => {
             save_scanner_status = scanner_status as small_number;
-            scanner_status = 0_u8;
+            scanner_status = NORMAL as u8;
             get_next();
             n = cur_cs;
             p = cur_cmd as i32;
@@ -9413,7 +9416,7 @@ pub(crate) unsafe fn conditional() {
             get_next();
             if cur_cmd as i32 != p {
                 b = false
-            } else if (cur_cmd as i32) < 113i32 {
+            } else if cur_cmd < CALL as u8 {
                 b = cur_chr == q
             } else {
                 p = MEM[cur_chr as usize].b32.s1;
@@ -9426,7 +9429,7 @@ pub(crate) unsafe fn conditional() {
                             p = TEX_NULL
                         } else {
                             p = *LLIST_link(p as isize);
-                            q = MEM[q as usize].b32.s1
+                            q = *LLIST_link(q as isize);
                         }
                     }
                     b = p.is_texnull() && q.is_texnull()
@@ -9435,49 +9438,49 @@ pub(crate) unsafe fn conditional() {
             scanner_status = save_scanner_status as u8;
             current_block = 16915215315900843183;
         }
-        13 => {
+        IF_EOF_CODE => {
             scan_four_bit_int_or_18();
-            if cur_val == 18i32 {
-                b = true
+            b = if cur_val == 18 {
+                true
             } else {
-                b = read_open[cur_val as usize] as i32 == 2i32
-            }
+                read_open[cur_val as usize] == CLOSED
+            };
             current_block = 16915215315900843183;
         }
-        14 => {
+        IF_TRUE_CODE => {
             b = true;
             current_block = 16915215315900843183;
         }
-        15 => {
+        IF_FALSE_CODE => {
             b = false;
             current_block = 16915215315900843183;
         }
-        17 => {
+        IF_DEF_CODE => {
             save_scanner_status = scanner_status as small_number;
-            scanner_status = 0_u8;
+            scanner_status = NORMAL as u8;
             get_next();
-            b = cur_cmd as i32 != 103i32;
+            b = cur_cmd != UNDEFINED_CS as u8;
             scanner_status = save_scanner_status as u8;
             current_block = 16915215315900843183;
         }
-        18 => {
+        IF_CS_CODE => {
             n = get_avail();
             p = n;
             e = is_in_csname;
             is_in_csname = true;
             loop {
                 get_x_token();
-                if cur_cs == 0i32 {
+                if cur_cs == 0 {
                     q = get_avail();
                     MEM[p as usize].b32.s1 = q;
                     MEM[q as usize].b32.s0 = cur_tok;
                     p = q
                 }
-                if !(cur_cs == 0i32) {
+                if !(cur_cs == 0) {
                     break;
                 }
             }
-            if cur_cmd as i32 != 67i32 {
+            if cur_cmd != END_CS_NAME as u8 {
                 /*391:*/
                 if file_line_error_style_p != 0 {
                     print_file_line(); /*:1556*/
@@ -9487,7 +9490,7 @@ pub(crate) unsafe fn conditional() {
                 print_cstr(b"Missing ");
                 print_esc_cstr(b"endcsname");
                 print_cstr(b" inserted");
-                help_ptr = 2_u8;
+                help_ptr = 2;
                 help_line[1] = b"The control sequence marked <to be read again> should";
                 help_line[0] = b"not appear between \\csname and \\endcsname.";
                 back_error();
@@ -9501,51 +9504,51 @@ pub(crate) unsafe fn conditional() {
                         overflow(b"buffer size", BUF_SIZE);
                     }
                 }
-                BUFFER[m as usize] = MEM[p as usize].b32.s0 % 0x200000;
+                BUFFER[m as usize] = MEM[p as usize].b32.s0 % MAX_CHAR_VAL;
                 m += 1;
                 p = *LLIST_link(p as isize)
             }
-            if m == first {
-                cur_cs = 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32)
+            cur_cs = if m == first {
+                NULL_CS
             } else if m == first + 1i32 {
-                cur_cs = 1i32 + (0x10ffffi32 + 1i32) + BUFFER[first as usize]
+                SINGLE_BASE + BUFFER[first as usize]
             } else {
-                cur_cs = id_lookup(first, m - first)
-            }
+                id_lookup(first, m - first)
+            };
+
             flush_list(n);
-            b = EQTB[cur_cs as usize].b16.s1 as i32 != 103i32;
+            b = EQTB[cur_cs as usize].b16.s1 != UNDEFINED_CS;
             is_in_csname = e;
             current_block = 16915215315900843183;
         }
-        20 => {
+        IF_IN_CSNAME_CODE => {
             b = is_in_csname;
             current_block = 16915215315900843183;
         }
-        19 => {
+        IF_FONT_CHAR_CODE => {
             scan_font_ident();
             n = cur_val;
             scan_usv_num();
-            if FONT_AREA[n as usize] as u32 == 0xffffu32
-                || FONT_AREA[n as usize] as u32 == 0xfffeu32
+            b = if FONT_AREA[n as usize] as u32 == AAT_FONT_FLAG
+                || FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
             {
-                b = map_char_to_glyph(n as usize, cur_val) > 0i32
+                map_char_to_glyph(n as usize, cur_val) > 0
             } else if FONT_BC[n as usize] as i32 <= cur_val && FONT_EC[n as usize] as i32 >= cur_val
             {
-                b = FONT_INFO[(CHAR_BASE[n as usize]
-                    + effective_char(true, n as usize, cur_val as u16))
-                    as usize]
-                    .b16
-                    .s3 as i32
-                    > 0i32
+                FONT_CHARACTER_INFO(
+                    n as usize,
+                    effective_char(true, n as usize, cur_val as u16) as usize,
+                )
+                .s3 > 0
             } else {
-                b = false
-            }
+                false
+            };
             current_block = 16915215315900843183;
         }
-        16 => {
+        IF_CASE_CODE => {
             scan_int();
             n = cur_val;
-            if *INTPAR(IntPar::tracing_commands) > 1i32 {
+            if *INTPAR(IntPar::tracing_commands) > 1 {
                 begin_diagnostic();
                 print_cstr(b"{case ");
                 print_int(n);
@@ -9553,18 +9556,18 @@ pub(crate) unsafe fn conditional() {
                 end_diagnostic(false);
             }
             loop {
-                if !(n != 0i32) {
+                if !(n != 0) {
                     current_block = 8672804474533504599;
                     break;
                 }
                 pass_text();
                 if cond_ptr == save_cond_ptr {
-                    if !(cur_chr == 4i32) {
+                    if !(cur_chr == OR_CODE as i32) {
                         current_block = 17018179191097466409;
                         break;
                     }
                     n -= 1
-                } else if cur_chr == 2i32 {
+                } else if cur_chr == FI_CODE as i32 {
                     /*515:*/
                     if IF_STACK[IN_OPEN] == cond_ptr {
                         if_warning();
@@ -9574,29 +9577,29 @@ pub(crate) unsafe fn conditional() {
                     cur_if = MEM[p as usize].b16.s0 as small_number;
                     if_limit = MEM[p as usize].b16.s1 as u8;
                     cond_ptr = MEM[p as usize].b32.s1;
-                    free_node(p, 2i32);
+                    free_node(p, IF_NODE_SIZE);
                 }
             }
             match current_block {
                 17018179191097466409 => {}
                 _ => {
-                    change_if_limit(4i32 as small_number, save_cond_ptr);
+                    change_if_limit(OR_CODE, save_cond_ptr);
                     return;
                 }
             }
         }
-        21 => {
+        IF_PRIMITIVE_CODE => {
             save_scanner_status = scanner_status as small_number;
-            scanner_status = 0_u8;
+            scanner_status = NORMAL as u8;
             get_next();
             scanner_status = save_scanner_status as u8;
-            if cur_cs < 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32 {
-                m = prim_lookup(cur_cs - (1i32 + (0x10ffffi32 + 1i32)))
+            if cur_cs < HASH_BASE as i32 {
+                m = prim_lookup(cur_cs - SINGLE_BASE)
             } else {
                 m = prim_lookup((*hash.offset(cur_cs as isize)).s1)
             }
-            b = cur_cmd as i32 != 103i32
-                && m != 0i32
+            b = cur_cmd != UNDEFINED_CS as u8
+                && m != UNDEFINED_PRIMITIVE
                 && cur_cmd as i32 == prim_eqtb[m as usize].b16.s1 as i32
                 && cur_chr == prim_eqtb[m as usize].b32.s1;
             current_block = 16915215315900843183;
@@ -9608,7 +9611,7 @@ pub(crate) unsafe fn conditional() {
             if is_unless {
                 b = !b
             }
-            if *INTPAR(IntPar::tracing_commands) > 1i32 {
+            if *INTPAR(IntPar::tracing_commands) > 1 {
                 /*521:*/
                 begin_diagnostic();
                 if b {
@@ -9619,13 +9622,13 @@ pub(crate) unsafe fn conditional() {
                 end_diagnostic(false);
             }
             if b {
-                change_if_limit(3i32 as small_number, save_cond_ptr);
+                change_if_limit(ELSE_CODE, save_cond_ptr);
                 return;
             }
             loop {
                 pass_text();
                 if cond_ptr == save_cond_ptr {
-                    if cur_chr != 4i32 {
+                    if cur_chr != OR_CODE as i32 {
                         break;
                     }
                     if file_line_error_style_p != 0 {
@@ -9635,10 +9638,10 @@ pub(crate) unsafe fn conditional() {
                     }
                     print_cstr(b"Extra ");
                     print_esc_cstr(b"or");
-                    help_ptr = 1_u8;
+                    help_ptr = 1;
                     help_line[0] = b"I\'m ignoring this; it doesn\'t match any \\if.";
                     error();
-                } else if cur_chr == 2i32 {
+                } else if cur_chr == FI_CODE as i32 {
                     /*515:*/
                     if IF_STACK[IN_OPEN] == cond_ptr {
                         if_warning();
@@ -9648,13 +9651,13 @@ pub(crate) unsafe fn conditional() {
                     cur_if = MEM[p as usize].b16.s0 as small_number;
                     if_limit = MEM[p as usize].b16.s1 as u8;
                     cond_ptr = MEM[p as usize].b32.s1;
-                    free_node(p, 2i32);
+                    free_node(p, IF_NODE_SIZE);
                 }
             }
         }
         _ => {}
     }
-    if cur_chr == 2i32 {
+    if cur_chr == FI_CODE as i32 {
         /*515:*/
         if IF_STACK[IN_OPEN] == cond_ptr {
             if_warning();
@@ -9664,30 +9667,27 @@ pub(crate) unsafe fn conditional() {
         cur_if = MEM[p as usize].b16.s0 as small_number;
         if_limit = MEM[p as usize].b16.s1 as u8;
         cond_ptr = MEM[p as usize].b32.s1;
-        free_node(p, 2i32);
+        free_node(p, IF_NODE_SIZE);
     } else {
-        if_limit = 2_u8
+        if_limit = FI_CODE;
     };
 }
 pub(crate) unsafe fn begin_name() {
-    area_delimiter = 0i32;
-    ext_delimiter = 0i32;
+    area_delimiter = 0;
+    ext_delimiter = 0;
     quoted_filename = false;
-    file_name_quote_char = 0i32 as UTF16_code;
+    file_name_quote_char = 0 as UTF16_code;
 }
 pub(crate) unsafe fn more_name(mut c: UTF16_code) -> bool {
-    if stop_at_space as i32 != 0 && file_name_quote_char as i32 == 0i32 && c as i32 == ' ' as i32 {
+    if stop_at_space && file_name_quote_char == 0 && c as i32 == ' ' as i32 {
         return false;
     }
-    if stop_at_space as i32 != 0
-        && file_name_quote_char as i32 != 0i32
-        && c as i32 == file_name_quote_char as i32
-    {
-        file_name_quote_char = 0i32 as UTF16_code;
+    if stop_at_space && file_name_quote_char != 0 && c as i32 == file_name_quote_char as i32 {
+        file_name_quote_char = 0 as UTF16_code;
         return true;
     }
-    if stop_at_space as i32 != 0
-        && file_name_quote_char as i32 == 0i32
+    if stop_at_space
+        && file_name_quote_char == 0
         && (c as i32 == '\"' as i32 || c as i32 == '\'' as i32)
     {
         file_name_quote_char = c;
@@ -9701,8 +9701,9 @@ pub(crate) unsafe fn more_name(mut c: UTF16_code) -> bool {
     pool_ptr = pool_ptr + 1;
     str_pool[fresh37 as usize] = c;
     if c as i32 == '/' as i32 {
+        // IS_DIR_SEP
         area_delimiter = cur_length();
-        ext_delimiter = 0i32
+        ext_delimiter = 0;
     } else if c as i32 == '.' as i32 {
         ext_delimiter = cur_length()
     }
@@ -9719,7 +9720,7 @@ pub(crate) unsafe fn end_name() {
      * string `cur_area`. If there was already a string in the stringpool for
      * the area, reuse it. */
     if area_delimiter == 0 {
-        cur_area = (65536 + 1 as i64) as str_number
+        cur_area = EMPTY_STRING as str_number
     } else {
         cur_area = str_ptr;
         str_start[((str_ptr + 1) as i64 - 65536) as usize] =
@@ -9751,13 +9752,12 @@ pub(crate) unsafe fn end_name() {
         cur_ext = make_string();
         str_ptr -= 1;
         temp_str = search_string(cur_name);
-        if temp_str > 0i32 {
+        if temp_str > 0 {
             cur_name = temp_str;
             str_ptr -= 1;
             j = str_start[((str_ptr + 1) as i64 - 65536) as usize];
-            while j <= pool_ptr - 1i32 {
-                str_pool[(j - ext_delimiter + area_delimiter + 1i32) as usize] =
-                    str_pool[j as usize];
+            while j <= pool_ptr - 1 {
+                str_pool[(j - ext_delimiter + area_delimiter + 1) as usize] = str_pool[j as usize];
                 j += 1
             }
             pool_ptr = pool_ptr - ext_delimiter + area_delimiter + 1i32
@@ -9796,7 +9796,7 @@ pub(crate) unsafe fn make_name_string() -> str_number {
         return '?' as i32;
     }
     make_utf16_name();
-    k = 0i32;
+    k = 0;
     while k < name_length16 {
         let fresh38 = pool_ptr;
         pool_ptr = pool_ptr + 1;
@@ -9811,7 +9811,7 @@ pub(crate) unsafe fn make_name_string() -> str_number {
     name_in_progress = true;
     begin_name();
     stop_at_space = false;
-    k = 0i32;
+    k = 0;
     while k < name_length16 && more_name(*name_of_file16.offset(k as isize)) as i32 != 0 {
         k += 1
     }
@@ -9827,12 +9827,12 @@ pub(crate) unsafe fn scan_file_name() {
     begin_name();
     loop {
         get_x_token();
-        if !(cur_cmd as i32 == 10i32) {
+        if !(cur_cmd == SPACER as u8) {
             break;
         }
     }
     loop {
-        if cur_cmd as i32 > 12i32 || cur_chr > 0xffffi32 {
+        if cur_cmd > OTHER_CHAR as u8 || cur_chr > BIGGEST_CHAR {
             back_input();
             break;
         } else {
@@ -9846,7 +9846,7 @@ pub(crate) unsafe fn scan_file_name() {
     name_in_progress = false;
 }
 pub(crate) unsafe fn pack_job_name(s: &[u8]) {
-    cur_area = (65536 + 1i32 as i64) as str_number;
+    cur_area = EMPTY_STRING as str_number;
     cur_ext = maketexstring(s);
     cur_name = job_name;
     pack_file_name(cur_name, cur_area, cur_ext);
@@ -9855,11 +9855,11 @@ pub(crate) unsafe fn open_log_file() {
     let mut k: i32 = 0;
     let mut l: i32 = 0;
     let old_setting_0 = selector;
-    if job_name == 0i32 {
+    if job_name == 0 {
         job_name = maketexstring(b"texput")
     }
     pack_job_name(b".log");
-    log_file = ttstub_output_open(name_of_file, 0i32);
+    log_file = ttstub_output_open(name_of_file, 0);
     if log_file.is_none() {
         abort!(
             "cannot open log file output \"{}\"",
@@ -9877,10 +9877,10 @@ pub(crate) unsafe fn open_log_file() {
     if BUFFER[l as usize] == *INTPAR(IntPar::end_line_char) {
         l -= 1
     }
-    k = 1i32;
+    k = 1;
     while k <= l {
         print(BUFFER[k as usize]);
-        k += 1
+        k += 1;
     }
     print_ln();
     selector = (u8::from(old_setting_0) + 2).into();
@@ -9997,7 +9997,7 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
             }
             if rval == '/' as i32 as u32 {
                 area_delimiter = cur_length();
-                ext_delimiter = 0i32
+                ext_delimiter = 0;
             } else if rval == '.' as i32 as u32 {
                 ext_delimiter = cur_length()
             }
@@ -10018,7 +10018,7 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     if u_open_in(
         &mut INPUT_FILE[cur_input.index as usize],
         format,
-        b"rb\x00" as *const u8 as *const i8,
+        b"rb",
         *INTPAR(IntPar::xetex_default_input_mode),
         *INTPAR(IntPar::xetex_default_input_encoding),
     ) == 0
@@ -10052,37 +10052,37 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
         maketexstring(CStr::from_ptr(name_of_input_file).to_bytes());
     if cur_input.name == str_ptr - 1 {
         temp_str = search_string(cur_input.name);
-        if temp_str > 0i32 {
+        if temp_str > 0 {
             cur_input.name = temp_str;
             str_ptr -= 1;
-            pool_ptr = str_start[(str_ptr - 65536) as usize]
+            pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
         }
     }
     /* Finally we start really doing stuff with the newly-opened file. */
-    if job_name == 0i32 {
+    if job_name == 0 {
         job_name = cur_name; /* this is the "flush_string" macro which discards the most recent string */
         open_log_file(); /* "really a CFDictionaryRef or XeTeXLayoutEngine" */
     } /* = first_math_fontdimen (=10) + lastMathConstant (= radicalDegreeBottomRaisePercent = 55) */
-    if term_offset + length(FULL_SOURCE_FILENAME_STACK[IN_OPEN]) > max_print_line - 2i32 {
+    if term_offset + length(FULL_SOURCE_FILENAME_STACK[IN_OPEN]) > max_print_line - 2 {
         print_ln();
-    } else if term_offset > 0i32 || file_offset > 0i32 {
+    } else if term_offset > 0 || file_offset > 0 {
         print_char(' ' as i32);
     }
     print_char('(' as i32);
     open_parens += 1;
     print(FULL_SOURCE_FILENAME_STACK[IN_OPEN]);
     rust_stdout.as_mut().unwrap().flush().unwrap();
-    cur_input.state = 33_u16;
+    cur_input.state = NEW_LINE;
     synctex_start_input();
-    line = 1i32;
+    line = 1;
     input_line(INPUT_FILE[cur_input.index as usize]);
     cur_input.limit = last;
-    if *INTPAR(IntPar::end_line_char) < 0i32 || *INTPAR(IntPar::end_line_char) > 255i32 {
+    if *INTPAR(IntPar::end_line_char) < 0 || *INTPAR(IntPar::end_line_char) > 255 {
         cur_input.limit -= 1
     } else {
         BUFFER[cur_input.limit as usize] = *INTPAR(IntPar::end_line_char)
     }
-    first = cur_input.limit + 1i32;
+    first = cur_input.limit + 1;
     cur_input.loc = cur_input.start;
 }
 pub(crate) unsafe fn effective_char_info(mut f: internal_font_number, mut c: u16) -> b16x4 {

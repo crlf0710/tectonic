@@ -308,7 +308,7 @@ pub(crate) unsafe fn set_input_file_encoding(
 pub(crate) unsafe fn u_open_in(
     mut f: *mut *mut UFILE,
     mut filefmt: TTInputFormat,
-    mut _fopen_mode: *const i8,
+    mut _fopen_mode: &[u8],
     mut mode: i32,
     mut encodingData: i32,
 ) -> i32 {
@@ -774,7 +774,7 @@ pub(crate) unsafe fn open_or_close_in() {
         if u_open_in(
             &mut *read_file.as_mut_ptr().offset(n as isize),
             TTInputFormat::TEX,
-            b"rb\x00" as *const u8 as *const i8,
+            b"rb",
             *INTPAR(IntPar::xetex_default_input_mode),
             *INTPAR(IntPar::xetex_default_input_encoding),
         ) != 0

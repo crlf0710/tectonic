@@ -16,6 +16,8 @@ use crate::xetex_ini::{
     BUFFER,
 };
 
+pub(crate) const EMPTY_STRING: i32 = 65536 + 1;
+
 pub(crate) type UnicodeScalar = i32;
 pub(crate) type pool_pointer = i32;
 pub(crate) type str_number = i32;
