@@ -7214,56 +7214,52 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
             MEM[(cur_val + 2) as usize].b32.s1 = -MEM[(cur_val + 2) as usize].b32.s1;
             MEM[(cur_val + 3) as usize].b32.s1 = -MEM[(cur_val + 3) as usize].b32.s1
         } else {
-            cur_val = -cur_val
+            cur_val = -cur_val;
         }
     } else if cur_val_level >= GLUE_VAL && cur_val_level <= MU_VAL {
         MEM[cur_val as usize].b32.s1 += 1;
     };
 }
 pub(crate) unsafe fn scan_int() {
-    let mut negative: bool = false;
-    let mut m: i32 = 0;
     let mut d: small_number = 0;
-    let mut vacuous: bool = false;
-    let mut OK_so_far: bool = false;
-    radix = 0i32 as small_number;
-    OK_so_far = true;
-    negative = false;
+    radix = 0;
+    let mut OK_so_far = true;
+    let mut negative = false;
     loop {
         loop
         /*424:*/
         {
             get_x_token();
-            if !(cur_cmd as i32 == 10i32) {
+            if !(cur_cmd == SPACER as u8) {
                 break;
             }
         }
-        if cur_tok == 0x1800000i32 + '-' as i32 {
+        if cur_tok == OTHER_TOKEN + '-' as i32 {
             negative = !negative;
-            cur_tok = 0x1800000i32 + '+' as i32
+            cur_tok = OTHER_TOKEN + '+' as i32
         }
-        if !(cur_tok == 0x1800000i32 + '+' as i32) {
+        if !(cur_tok == OTHER_TOKEN + '+' as i32) {
             break;
         }
     }
-    if cur_tok == 0x1800000i32 + '`' as i32 {
+    if cur_tok == ALPHA_TOKEN as i32 {
         /*460:*/
         get_token(); /*461:*/
-        if cur_tok < 0x1ffffffi32 {
+        if cur_tok < CS_TOKEN_FLAG {
             cur_val = cur_chr; /*462:*/
-            if cur_cmd as i32 <= 2i32 {
-                if cur_cmd as i32 == 2i32 {
-                    align_state += 1
+            if cur_cmd <= RIGHT_BRACE as u8 {
+                if cur_cmd == RIGHT_BRACE as u8 {
+                    align_state += 1;
                 } else {
-                    align_state -= 1
+                    align_state -= 1;
                 }
             }
-        } else if cur_tok < 0x1ffffffi32 + (1i32 + (0x10ffffi32 + 1i32)) {
-            cur_val = cur_tok - (0x1ffffffi32 + 1i32)
+        } else if cur_tok < CS_TOKEN_FLAG + SINGLE_BASE {
+            cur_val = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE)
         } else {
-            cur_val = cur_tok - (0x1ffffffi32 + (1i32 + (0x10ffffi32 + 1i32)))
+            cur_val = cur_tok - (CS_TOKEN_FLAG + SINGLE_BASE)
         } /*:463*/
-        if cur_val > 0x10ffffi32 {
+        if cur_val > BIGGEST_USV as i32 {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
@@ -7277,51 +7273,47 @@ pub(crate) unsafe fn scan_int() {
             back_error();
         } else {
             get_x_token();
-            if cur_cmd as i32 != 10i32 {
+            if cur_cmd != SPACER as u8 {
                 back_input();
             }
         }
-    } else if cur_cmd as i32 >= 68i32 && cur_cmd as i32 <= 91i32 {
-        scan_something_internal(0i32 as small_number, false);
+    } else if cur_cmd >= MIN_INTERNAL && cur_cmd <= MAX_INTERNAL {
+        scan_something_internal(INT_VAL as small_number, false);
     } else {
-        radix = 10i32 as small_number;
-        m = 0xccccccci32;
-        if cur_tok == 0x1800000i32 + '\'' as i32 {
-            radix = 8i32 as small_number;
-            m = 0x10000000i32;
+        radix = 10;
+        let mut m = 0xccccccc;
+        if cur_tok == OCTAL_TOKEN {
+            radix = 8;
+            m = 0x10000000;
             get_x_token();
-        } else if cur_tok == 0x1800000i32 + '\"' as i32 {
-            radix = 16i32 as small_number;
-            m = 0x8000000i32;
+        } else if cur_tok == HEX_TOKEN {
+            radix = 16;
+            m = 0x8000000;
             get_x_token();
         }
-        vacuous = true;
-        cur_val = 0i32;
+        let mut vacuous = true;
+        cur_val = 0;
         loop {
-            if cur_tok < 0x1800000i32 + '0' as i32 + radix as i32
-                && cur_tok >= 0x1800000i32 + '0' as i32
-                && cur_tok <= 0x1800000i32 + '0' as i32 + 9i32
+            if cur_tok < ZERO_TOKEN + radix as i32
+                && cur_tok >= ZERO_TOKEN
+                && cur_tok <= ZERO_TOKEN + 9
             {
-                d = (cur_tok - (0x1800000i32 + '0' as i32)) as small_number
+                d = (cur_tok - ZERO_TOKEN) as small_number
             } else {
-                if !(radix as i32 == 16i32) {
+                if !(radix as i32 == 16) {
                     break;
                 }
-                if cur_tok <= 0x1600000i32 + 'A' as i32 + 5i32
-                    && cur_tok >= 0x1600000i32 + 'A' as i32
-                {
-                    d = (cur_tok - (0x1600000i32 + 'A' as i32) + 10i32) as small_number
+                if cur_tok <= A_TOKEN + 5 && cur_tok >= A_TOKEN {
+                    d = (cur_tok - A_TOKEN + 10) as small_number
                 } else {
-                    if !(cur_tok <= 0x1800000i32 + 'A' as i32 + 5i32
-                        && cur_tok >= 0x1800000i32 + 'A' as i32)
-                    {
+                    if !(cur_tok <= OTHER_A_TOKEN + 5 && cur_tok >= OTHER_A_TOKEN) {
                         break;
                     }
-                    d = (cur_tok - (0x1800000i32 + 'A' as i32) + 10i32) as small_number
+                    d = (cur_tok - OTHER_A_TOKEN + 10) as small_number
                 }
             }
             vacuous = false;
-            if cur_val >= m && (cur_val > m || d as i32 > 7i32 || radix as i32 != 10i32) {
+            if cur_val >= m && (cur_val > m || d as i32 > 7 || radix as i32 != 10) {
                 if OK_so_far {
                     if file_line_error_style_p != 0 {
                         print_file_line();
@@ -7333,7 +7325,7 @@ pub(crate) unsafe fn scan_int() {
                     help_line[1] = b"I can only go up to 2147483647=\'17777777777=\"7FFFFFFF,";
                     help_line[0] = b"so I\'m using that number instead of yours.";
                     error();
-                    cur_val = 0x7fffffffi32;
+                    cur_val = TEX_INFINITY;
                     OK_so_far = false
                 }
             } else {
@@ -7354,21 +7346,21 @@ pub(crate) unsafe fn scan_int() {
             help_line[1] = b"(If you can\'t figure out why I needed to see a number,";
             help_line[0] = b"look up `weird error\' in the index to The TeXbook.)";
             back_error();
-        } else if cur_cmd as i32 != 10i32 {
+        } else if cur_cmd != SPACER as u8 {
             back_input();
         }
     }
     if negative {
-        cur_val = -cur_val
+        cur_val = -cur_val;
     };
 }
 unsafe fn round_decimals(mut k: small_number) -> scaled_t {
-    let mut a: i32 = 0i32;
-    while k as i32 > 0i32 {
+    let mut a: i32 = 0;
+    while k as i32 > 0 {
         k -= 1;
-        a = (a + dig[k as usize] as i32 * 0x20000i32) / 10i32
+        a = (a + dig[k as usize] as i32 * 0x20000) / 10
     }
-    (a + 1i32) / 2i32
+    (a + 1) / 2
 }
 pub(crate) unsafe fn xetex_scan_dimen(
     mut mu: bool,
@@ -7387,47 +7379,48 @@ pub(crate) unsafe fn xetex_scan_dimen(
     let mut q: i32 = 0;
     let mut v: scaled_t = 0;
     let mut save_cur_val: i32 = 0;
-    f = 0i32;
+
+    f = 0;
     arith_error = false;
-    cur_order = 0i32 as glue_ord;
+    cur_order = NORMAL as glue_ord;
     negative = false;
     if !shortcut {
         negative = false;
         loop {
             loop {
                 get_x_token();
-                if !(cur_cmd as i32 == 10i32) {
+                if !(cur_cmd == SPACER as u8) {
                     break;
                 }
             }
-            if cur_tok == 0x1800000i32 + '-' as i32 {
+            if cur_tok == OTHER_TOKEN + '-' as i32 {
                 negative = !negative;
-                cur_tok = 0x1800000i32 + '+' as i32
+                cur_tok = OTHER_TOKEN + '+' as i32
             }
-            if !(cur_tok == 0x1800000i32 + '+' as i32) {
+            if !(cur_tok == OTHER_TOKEN + '+' as i32) {
                 break;
             }
         }
-        if cur_cmd as i32 >= 68i32 && cur_cmd as i32 <= 91i32 {
+        if cur_cmd >= MIN_INTERNAL && cur_cmd <= MAX_INTERNAL {
             /*468:*/
             if mu {
-                scan_something_internal(3i32 as small_number, false);
-                if cur_val_level as i32 >= 2i32 {
+                scan_something_internal(MU_VAL as small_number, false);
+                if cur_val_level >= GLUE_VAL {
                     v = MEM[(cur_val + 1) as usize].b32.s1;
                     delete_glue_ref(cur_val);
-                    cur_val = v
+                    cur_val = v;
                 }
-                if cur_val_level as i32 == 3i32 {
+                if cur_val_level == MU_VAL {
                     current_block = 16246449912548656671;
                 } else {
-                    if cur_val_level as i32 != 0i32 {
+                    if cur_val_level != INT_VAL {
                         mu_error();
                     }
                     current_block = 5028470053297453708;
                 }
             } else {
-                scan_something_internal(1i32 as small_number, false);
-                if cur_val_level as i32 == 1i32 {
+                scan_something_internal(DIMEN_VAL as small_number, false);
+                if cur_val_level == DIMEN_VAL {
                     current_block = 16246449912548656671;
                 } else {
                     current_block = 5028470053297453708;
@@ -7435,41 +7428,39 @@ pub(crate) unsafe fn xetex_scan_dimen(
             }
         } else {
             back_input();
-            if cur_tok == 0x1800000i32 + ',' as i32 {
-                cur_tok = 0x1800000i32 + '.' as i32
+            if cur_tok == CONTINENTAL_POINT_TOKEN {
+                cur_tok = POINT_TOKEN;
             }
-            if cur_tok != 0x1800000i32 + '.' as i32 {
+            if cur_tok != POINT_TOKEN {
                 scan_int();
             } else {
-                radix = 10i32 as small_number;
-                cur_val = 0i32
+                radix = 10;
+                cur_val = 0;
             }
-            if cur_tok == 0x1800000i32 + ',' as i32 {
-                cur_tok = 0x1800000i32 + '.' as i32
+            if cur_tok == CONTINENTAL_POINT_TOKEN {
+                cur_tok = POINT_TOKEN;
             }
-            if radix as i32 == 10i32 && cur_tok == 0x1800000i32 + '.' as i32 {
+            if radix as i32 == 10 && cur_tok == POINT_TOKEN {
                 /*471:*/
-                k = 0i32 as small_number; /* if(requires_units) */
+                k = 0; /* if(requires_units) */
                 p = TEX_NULL;
                 get_token();
                 loop {
                     get_x_token();
-                    if cur_tok > 0x1800000i32 + '0' as i32 + 9i32
-                        || cur_tok < 0x1800000i32 + '0' as i32
-                    {
+                    if cur_tok > ZERO_TOKEN + 9 || cur_tok < ZERO_TOKEN {
                         break;
                     }
-                    if (k as i32) < 17i32 {
+                    if (k as i32) < 17 {
                         q = get_avail();
                         MEM[q as usize].b32.s1 = p;
-                        MEM[q as usize].b32.s0 = cur_tok - (0x1800000 + '0' as i32);
+                        MEM[q as usize].b32.s0 = cur_tok - ZERO_TOKEN;
                         p = q;
                         k += 1
                     }
                 }
                 kk = k;
-                while kk as i32 >= 1i32 {
-                    dig[(kk as i32 - 1i32) as usize] = MEM[p as usize].b32.s0 as u8;
+                while kk as i32 >= 1 {
+                    dig[(kk as i32 - 1) as usize] = MEM[p as usize].b32.s0 as u8;
                     q = p;
                     p = *LLIST_link(p as isize);
                     MEM[q as usize].b32.s1 = avail;
@@ -7477,7 +7468,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                     kk -= 1
                 }
                 f = round_decimals(k);
-                if cur_cmd as i32 != 10i32 {
+                if cur_cmd != SPACER as u8 {
                     back_input();
                 }
             }
@@ -7488,7 +7479,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
     }
     match current_block {
         5028470053297453708 => {
-            if cur_val < 0i32 {
+            if cur_val < 0 {
                 negative = !negative;
                 cur_val = -cur_val
             }
@@ -7496,9 +7487,9 @@ pub(crate) unsafe fn xetex_scan_dimen(
                 if inf {
                     /*473:*/
                     if scan_keyword(b"fil") {
-                        cur_order = 1i32 as glue_ord;
+                        cur_order = FIL as glue_ord;
                         while scan_keyword(b"l") {
-                            if cur_order as i32 == 3i32 {
+                            if cur_order as i32 == FILLL {
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
                                 } else {
@@ -7506,11 +7497,11 @@ pub(crate) unsafe fn xetex_scan_dimen(
                                 }
                                 print_cstr(b"Illegal unit of measure (");
                                 print_cstr(b"replaced by filll)");
-                                help_ptr = 1_u8;
+                                help_ptr = 1;
                                 help_line[0] = b"I dddon\'t go any higher than filll.";
                                 error();
                             } else {
-                                cur_order = cur_order.wrapping_add(1)
+                                cur_order += 1;
                             }
                         }
                         current_block = 6063453238281986051;
@@ -7525,25 +7516,25 @@ pub(crate) unsafe fn xetex_scan_dimen(
                         save_cur_val = cur_val;
                         loop {
                             get_x_token();
-                            if !(cur_cmd as i32 == 10i32) {
+                            if !(cur_cmd == SPACER as u8) {
                                 break;
                             }
                         }
-                        if (cur_cmd as i32) < 68i32 || cur_cmd as i32 > 91i32 {
+                        if cur_cmd < MIN_INTERNAL || cur_cmd > MAX_INTERNAL {
                             back_input();
                             if mu {
                                 current_block = 17751730340908002208;
                             } else {
                                 if scan_keyword(b"em") {
-                                    v = FONT_INFO[(6 + PARAM_BASE
-                                        [EQTB[CUR_FONT_LOC].b32.s1 as usize])
+                                    v = FONT_INFO[(QUAD_CODE
+                                        + PARAM_BASE[EQTB[CUR_FONT_LOC].b32.s1 as usize])
                                         as usize]
                                         .b32
                                         .s1;
                                     current_block = 5195798230510548452;
                                 } else if scan_keyword(b"ex") {
-                                    v = FONT_INFO[(5 + PARAM_BASE
-                                        [EQTB[CUR_FONT_LOC].b32.s1 as usize])
+                                    v = FONT_INFO[(X_HEIGHT_CODE
+                                        + PARAM_BASE[EQTB[CUR_FONT_LOC].b32.s1 as usize])
                                         as usize]
                                         .b32
                                         .s1;
@@ -7555,7 +7546,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                                     17751730340908002208 => {}
                                     _ => {
                                         get_x_token();
-                                        if cur_cmd as i32 != 10i32 {
+                                        if cur_cmd != SPACER as u8 {
                                             back_input();
                                         }
                                         current_block = 7531702508219610202;
@@ -7577,7 +7568,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                                             }
                                             print_cstr(b"Illegal unit of measure (");
                                             print_cstr(b"mu inserted)");
-                                            help_ptr = 4_u8;
+                                            help_ptr = 4;
                                             help_line[3] =
                                                 b"The unit of measurement in math glue must be mu.";
                                             help_line[2] =
@@ -7593,13 +7584,10 @@ pub(crate) unsafe fn xetex_scan_dimen(
                                         if scan_keyword(b"true") {
                                             /*476:*/
                                             prepare_mag(); /* magic ratio consant */
-                                            if *INTPAR(IntPar::mag) != 1000i32 {
-                                                cur_val = xn_over_d(
-                                                    cur_val,
-                                                    1000i32,
-                                                    *INTPAR(IntPar::mag),
-                                                ); /* magic ratio consant */
-                                                f = (((1000i32 * f) as i64
+                                            if *INTPAR(IntPar::mag) != 1000 {
+                                                cur_val =
+                                                    xn_over_d(cur_val, 1000, *INTPAR(IntPar::mag)); /* magic ratio consant */
+                                                f = (((1000 * f) as i64
                                                     + 65536 * tex_remainder as i64)
                                                     / *INTPAR(IntPar::mag) as i64)
                                                     as i32;
@@ -7612,42 +7600,33 @@ pub(crate) unsafe fn xetex_scan_dimen(
                                             current_block = 6063453238281986051;
                                         } else {
                                             if scan_keyword(b"in") {
-                                                num = 7227i32;
-                                                denom = 100i32;
+                                                num = 7227;
+                                                denom = 100;
                                                 current_block = 15908231092227701503;
                                             } else if scan_keyword(b"pc") {
-                                                num = 12i32;
-                                                denom = 1i32;
+                                                num = 12;
+                                                denom = 1;
                                                 current_block = 15908231092227701503;
                                             } else if scan_keyword(b"cm") {
-                                                num = 7227i32;
-                                                denom = 254i32;
+                                                num = 7227; // magic ratio consant
+                                                denom = 254; // magic ratio consant
                                                 current_block = 15908231092227701503;
-                                            /* magic ratio consant */
                                             } else if scan_keyword(b"mm") {
-                                                num = 7227i32;
-                                                denom = 2540i32;
+                                                num = 7227; // magic ratio consant
+                                                denom = 2540; // magic ratio consant
                                                 current_block = 15908231092227701503;
-                                            /* magic ratio consant */
-                                            /* magic ratio consant */
                                             } else if scan_keyword(b"bp") {
-                                                num = 7227i32;
-                                                denom = 7200i32;
+                                                num = 7227; // magic ratio consant
+                                                denom = 7200; // magic ratio consant
                                                 current_block = 15908231092227701503;
-                                            /* magic ratio consant */
-                                            /* magic ratio consant */
                                             } else if scan_keyword(b"dd") {
-                                                num = 1238i32;
-                                                denom = 1157i32;
+                                                num = 1238; // magic ratio consant
+                                                denom = 1157; // magic ratio consant
                                                 current_block = 15908231092227701503;
-                                            /* magic ratio consant */
-                                            /* magic ratio consant */
                                             } else if scan_keyword(b"cc") {
-                                                num = 14856i32;
-                                                denom = 1157i32;
+                                                num = 14856; // magic ratio consant
+                                                denom = 1157; // magic ratio consant
                                                 current_block = 15908231092227701503;
-                                            /* magic ratio consant */
-                                            /* magic ratio consant */
                                             } else if scan_keyword(b"sp") {
                                                 current_block = 8982780081639585757;
                                             /*478:*/
@@ -7659,7 +7638,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                                                 }
                                                 print_cstr(b"Illegal unit of measure (");
                                                 print_cstr(b"pt inserted)");
-                                                help_ptr = 6_u8;
+                                                help_ptr = 6;
                                                 help_line[5] =
                                                     b"Dimensions can be in units of em, ex, in, pt, pc,";
                                                 help_line[4] =
@@ -7696,17 +7675,17 @@ pub(crate) unsafe fn xetex_scan_dimen(
                             }
                         } else {
                             if mu {
-                                scan_something_internal(3i32 as small_number, false);
-                                if cur_val_level as i32 >= 2i32 {
+                                scan_something_internal(MU_VAL as i16, false);
+                                if cur_val_level >= GLUE_VAL {
                                     v = MEM[(cur_val + 1) as usize].b32.s1;
                                     delete_glue_ref(cur_val);
                                     cur_val = v
                                 }
-                                if cur_val_level as i32 != 3i32 {
+                                if cur_val_level != MU_VAL {
                                     mu_error();
                                 }
                             } else {
-                                scan_something_internal(1i32 as small_number, false);
+                                scan_something_internal(DIMEN_VAL as small_number, false);
                             }
                             v = cur_val;
                             current_block = 7531702508219610202;
@@ -7719,7 +7698,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                                     save_cur_val,
                                     v,
                                     xn_over_d(v, f, 65536 as i32),
-                                    0x3fffffffi32,
+                                    0x3fffffff,
                                 );
                                 current_block = 16246449912548656671;
                             }
@@ -7732,7 +7711,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                     _ => {
                         match current_block {
                             6063453238281986051 => {
-                                if cur_val >= 16384i32 {
+                                if cur_val >= 16384 {
                                     arith_error = true
                                 } else {
                                     cur_val = (cur_val as i64 * 65536 + f as i64) as i32
@@ -7741,12 +7720,12 @@ pub(crate) unsafe fn xetex_scan_dimen(
                             _ => {}
                         }
                         get_x_token();
-                        if cur_cmd as i32 != 10i32 {
+                        if cur_cmd != SPACER as u8 {
                             back_input();
                         }
                     }
                 }
-            } else if cur_val >= 16384i32 {
+            } else if cur_val >= 16384 {
                 arith_error = true
             } else {
                 cur_val = (cur_val as i64 * 65536 + f as i64) as i32
@@ -7754,7 +7733,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
         }
         _ => {}
     }
-    if arith_error as i32 != 0 || cur_val.wrapping_abs() >= 0x40000000i32 { // TODO: check
+    if arith_error as i32 != 0 || cur_val.wrapping_abs() >= 0x40000000 { // TODO: check
         /*479:*/
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -7762,11 +7741,11 @@ pub(crate) unsafe fn xetex_scan_dimen(
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Dimension too large");
-        help_ptr = 2_u8;
+        help_ptr = 2;
         help_line[1] = b"I can\'t work with sizes bigger than about 19 feet.";
         help_line[0] = b"Continue and I\'ll use the largest value I can.";
         error();
-        cur_val = 0x3fffffffi32;
+        cur_val = MAX_HALFWORD;
         arith_error = false
     }
     if negative {
@@ -7783,47 +7762,47 @@ pub(crate) unsafe fn scan_glue(mut level: small_number) {
     let mut negative: bool = false;
     let mut q: i32 = 0;
     let mut mu: bool = false;
-    mu = level as i32 == 3i32;
+    mu = level == MU_VAL as i16;
     negative = false;
     loop {
         loop {
             get_x_token();
-            if !(cur_cmd as i32 == 10i32) {
+            if !(cur_cmd == SPACER as u8) {
                 break;
             }
         }
-        if cur_tok == 0x1800000i32 + 45i32 {
+        if cur_tok == OTHER_TOKEN + 45 {
             /*"-"*/
             negative = !negative;
-            cur_tok = 0x1800000i32 + 43i32
+            cur_tok = OTHER_TOKEN + 43
             /*"+"*/
         }
-        if !(cur_tok == 0x1800000i32 + 43i32) {
+        if !(cur_tok == OTHER_TOKEN + 43) {
             break;
         }
         /*"+"*/
     }
-    if cur_cmd as i32 >= 68i32 && cur_cmd as i32 <= 91i32 {
+    if cur_cmd >= MIN_INTERNAL && cur_cmd <= MAX_INTERNAL {
         scan_something_internal(level, negative);
-        if cur_val_level as i32 >= 2i32 {
-            if cur_val_level as i32 != level as i32 {
+        if cur_val_level >= GLUE_VAL {
+            if cur_val_level as i16 != level {
                 mu_error();
             }
             return;
         }
-        if cur_val_level as i32 == 0i32 {
+        if cur_val_level == INT_VAL {
             scan_dimen(mu, false, true);
-        } else if level as i32 == 3i32 {
+        } else if level == MU_VAL as i16 {
             mu_error();
         }
     } else {
         back_input();
         scan_dimen(mu, false, false);
         if negative {
-            cur_val = -cur_val
+            cur_val = -cur_val;
         }
     }
-    q = new_spec(0i32);
+    q = new_spec(0);
     MEM[(q + 1) as usize].b32.s1 = cur_val;
     if scan_keyword(b"plus") {
         scan_dimen(mu, true, false);
@@ -7848,169 +7827,151 @@ pub(crate) unsafe fn add_or_sub(
     if negative {
         y = -y
     }
-    if x >= 0i32 {
+    if x >= 0 {
         if y <= max_answer - x {
-            a = x + y
+            a = x + y;
         } else {
             arith_error = true;
-            a = 0i32
+            a = 0;
         }
     } else if y >= -max_answer - x {
-        a = x + y
+        a = x + y;
     } else {
         arith_error = true;
-        a = 0i32
+        a = 0;
     }
     a
 }
 pub(crate) unsafe fn quotient(mut n: i32, mut d: i32) -> i32 {
     let mut negative: bool = false;
     let mut a: i32 = 0;
-    if d == 0i32 {
+    if d == 0 {
         arith_error = true;
-        a = 0i32
+        a = 0
     } else {
-        if d > 0i32 {
+        if d > 0 {
             negative = false
         } else {
             d = -d;
             negative = true
         }
-        if n < 0i32 {
+        if n < 0 {
             n = -n;
             negative = !negative
         }
         a = n / d;
         n = n - a * d;
         d = n - d;
-        if d + n >= 0i32 {
-            a += 1
+        if d + n >= 0 {
+            a += 1;
         }
         if negative {
-            a = -a
+            a = -a;
         }
     }
     a
 }
 pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, mut max_answer: i32) -> i32 {
-    let mut current_block: u64;
-    let mut negative: bool = false;
+    fn too_big() -> i32 {
+        unsafe {
+            arith_error = true;
+        }
+        0
+    }
+    fn found(a: i32, negative: bool) -> i32 {
+        if negative {
+            -a
+        } else {
+            a
+        }
+    }
+
     let mut a: i32 = 0;
     let mut f: i32 = 0;
     let mut h: i32 = 0;
     let mut r: i32 = 0;
     let mut t: i32 = 0;
-    if d == 0i32 {
-        current_block = 17166748944382662577;
+    if d == 0 {
+        return too_big();
+    }
+    a = 0;
+    let mut negative = if d > 0 {
+        false
     } else {
-        a = 0i32;
-        if d > 0i32 {
-            negative = false
-        } else {
-            d = -d;
-            negative = true
-        }
-        if x < 0i32 {
-            x = -x;
-            negative = !negative;
-            current_block = 12349973810996921269;
-        } else if x == 0i32 {
-            current_block = 8704816881991807296;
-        } else {
-            current_block = 12349973810996921269;
-        }
-        match current_block {
-            8704816881991807296 => {}
-            _ => {
-                if n < 0i32 {
-                    n = -n;
-                    negative = !negative
-                }
-                t = n / d;
-                if t > max_answer / x {
-                    current_block = 17166748944382662577;
-                } else {
-                    a = t * x;
-                    n = n - t * d;
-                    if n == 0i32 {
-                        current_block = 8791566675823797574;
-                    } else {
-                        t = x / d;
-                        if t > (max_answer - a) / n {
-                            current_block = 17166748944382662577;
-                        } else {
-                            a = a + t * n;
-                            x = x - t * d;
-                            if x == 0i32 {
-                                current_block = 8791566675823797574;
-                            } else {
-                                if x < n {
-                                    t = x;
-                                    x = n;
-                                    n = t
-                                }
-                                f = 0i32;
-                                r = d / 2i32 - d;
-                                h = -r;
-                                loop {
-                                    if n & 1i32 != 0 {
-                                        r = r + x;
-                                        if r >= 0i32 {
-                                            r = r - d;
-                                            f += 1
-                                        }
-                                    }
-                                    n = n / 2i32;
-                                    if n == 0i32 {
-                                        break;
-                                    }
-                                    if x < h {
-                                        x = x + x
-                                    } else {
-                                        t = x - d;
-                                        x = t + x;
-                                        f = f + n;
-                                        if !(x < n) {
-                                            continue;
-                                        }
-                                        if x == 0i32 {
-                                            break;
-                                        }
-                                        t = x;
-                                        x = n;
-                                        n = t
-                                    }
-                                }
-                                if f > max_answer - a {
-                                    current_block = 17166748944382662577;
-                                } else {
-                                    a = a + f;
-                                    current_block = 8791566675823797574;
-                                }
-                            }
-                        }
-                    }
-                    match current_block {
-                        17166748944382662577 => {}
-                        _ => {
-                            if negative {
-                                a = -a
-                            }
-                            current_block = 8704816881991807296;
-                        }
-                    }
-                }
+        d = -d;
+        true
+    };
+    if x < 0 {
+        x = -x;
+        negative = !negative;
+    } else if x == 0 {
+        return a;
+    }
+    if n < 0 {
+        n = -n;
+        negative = !negative
+    }
+    t = n / d;
+    if t > max_answer / x {
+        return too_big();
+    }
+    a = t * x;
+    n = n - t * d;
+    if n == 0 {
+        return found(a, negative);
+    }
+    t = x / d;
+    if t > (max_answer - a) / n {
+        return too_big();
+    }
+    a = a + t * n;
+    x = x - t * d;
+    if x == 0 {
+        return found(a, negative);
+    }
+    if x < n {
+        t = x;
+        x = n;
+        n = t
+    }
+    f = 0;
+    r = d / 2 - d;
+    h = -r;
+    loop {
+        if n & 1 != 0 {
+            r = r + x;
+            if r >= 0 {
+                r = r - d;
+                f += 1
             }
         }
-    }
-    match current_block {
-        17166748944382662577 => {
-            arith_error = true;
-            a = 0i32
+        n = n / 2;
+        if n == 0 {
+            break;
         }
-        _ => {}
+        if x < h {
+            x = x + x
+        } else {
+            t = x - d;
+            x = t + x;
+            f = f + n;
+            if !(x < n) {
+                continue;
+            }
+            if x == 0 {
+                break;
+            }
+            t = x;
+            x = n;
+            n = t
+        }
     }
-    a
+    if f > max_answer - a {
+        too_big()
+    } else {
+        a = a + f;
+        found(a, negative)
+    }
 }
 pub(crate) unsafe fn scan_expr() {
     let mut a: bool = false;
