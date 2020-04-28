@@ -542,12 +542,12 @@ pub(crate) const END_M_CODE: u16 = 3;
 pub(crate) const L_CODE: u16 = 4;
 pub(crate) const R_CODE: u16 = 8;
 
-pub(crate) const EXPR_NONE: placeholdertype = 0;
-pub(crate) const EXPR_ADD: placeholdertype = 1;
-pub(crate) const EXPR_SUB: placeholdertype = 2;
-pub(crate) const EXPR_MULT: placeholdertype = 3;
-pub(crate) const EXPR_DIV: placeholdertype = 4;
-pub(crate) const EXPR_SCALE: placeholdertype = 5;
+pub(crate) const EXPR_NONE: i16 = 0;
+pub(crate) const EXPR_ADD: i16 = 1;
+pub(crate) const EXPR_SUB: i16 = 2;
+pub(crate) const EXPR_MULT: i16 = 3;
+pub(crate) const EXPR_DIV: i16 = 4;
+pub(crate) const EXPR_SCALE: i16 = 5;
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq)]

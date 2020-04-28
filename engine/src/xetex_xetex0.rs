@@ -620,7 +620,7 @@ pub(crate) unsafe fn print_rule_dimen(mut d: scaled_t) {
         print_scaled(d);
     };
 }
-pub(crate) unsafe fn print_glue(mut d: scaled_t, mut order: i32, mut s: *const i8) {
+pub(crate) unsafe fn print_glue(mut d: scaled_t, mut order: i32, s: &[u8]) {
     print_scaled(d);
     if order < NORMAL as i32 || order > FILLL {
         print_cstr(b"foul");
@@ -630,17 +630,17 @@ pub(crate) unsafe fn print_glue(mut d: scaled_t, mut order: i32, mut s: *const i
             print_char('l' as i32);
             order -= 1
         }
-    } else if !s.is_null() {
-        print_cstr(CStr::from_ptr(s).to_bytes());
+    } else if !s.is_empty() {
+        print_cstr(s);
     };
 }
-pub(crate) unsafe fn print_spec(mut p: i32, mut s: *const i8) {
+pub(crate) unsafe fn print_spec(mut p: i32, s: &[u8]) {
     if p < 0 || p >= lo_mem_max {
         print_char('*' as i32);
     } else {
         print_scaled(MEM[(p + 1) as usize].b32.s1);
-        if !s.is_null() {
-            print_cstr(CStr::from_ptr(s).to_bytes());
+        if !s.is_empty() {
+            print_cstr(s);
         }
         if MEM[(p + 2) as usize].b32.s1 != 0 {
             print_cstr(b" plus ");
@@ -806,7 +806,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                             print_glue(
                                 MEM[(p + 6) as usize].b32.s1,
                                 MEM[(p + 5) as usize].b16.s0 as i32,
-                                ptr::null(),
+                                b"",
                             );
                         }
                         if MEM[(p + 4) as usize].b32.s1 != 0 {
@@ -814,7 +814,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                             print_glue(
                                 MEM[(p + 4) as usize].b32.s1,
                                 MEM[(p + 5) as usize].b16.s1 as i32,
-                                ptr::null(),
+                                b"",
                             );
                         }
                     } else {
@@ -833,13 +833,13 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                                 print_glue(
                                     (20000_i64 * 65536) as scaled_t,
                                     MEM[(p + 5) as usize].b16.s0 as i32,
-                                    ptr::null(),
+                                    b"",
                                 );
                             } else {
                                 print_glue(
                                     tex_round(65536 as f64 * g),
                                     MEM[(p + 5) as usize].b16.s0 as i32,
-                                    ptr::null(),
+                                    b"",
                                 );
                             }
                         }
@@ -871,7 +871,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                     print_cstr(b", natural size ");
                     print_scaled(MEM[(p + 3) as usize].b32.s1);
                     print_cstr(b"; split(");
-                    print_spec(MEM[(p + 4) as usize].b32.s1, ptr::null());
+                    print_spec(MEM[(p + 4) as usize].b32.s1, b"");
                     print_char(',' as i32);
                     print_scaled(MEM[(p + 2) as usize].b32.s1);
                     print_cstr(b"); float cost ");
@@ -959,7 +959,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                             print_char('x' as i32);
                         }
                         print_cstr(b"leaders ");
-                        print_spec(MEM[(p + 1) as usize].b32.s0, ptr::null());
+                        print_spec(MEM[(p + 1) as usize].b32.s0, b"");
                         str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
                         show_node_list(MEM[(p + 1) as usize].b32.s1);
@@ -983,12 +983,9 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                         if MEM[p as usize].b16.s0 != COND_MATH_GLUE {
                             print_char(' ' as i32);
                             if MEM[p as usize].b16.s0 < COND_MATH_GLUE {
-                                print_spec(MEM[(p + 1) as usize].b32.s0, ptr::null());
+                                print_spec(MEM[(p + 1) as usize].b32.s0, b"");
                             } else {
-                                print_spec(
-                                    MEM[(p + 1) as usize].b32.s0,
-                                    b"mu\x00" as *const u8 as *const i8,
-                                );
+                                print_spec(MEM[(p + 1) as usize].b32.s0, b"mu");
                             }
                         }
                     }
@@ -7974,9 +7971,6 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, mut max_answer: i
     }
 }
 pub(crate) unsafe fn scan_expr() {
-    let mut a: bool = false;
-    let mut b: bool = false;
-    let mut l: small_number = 0;
     let mut r: small_number = 0;
     let mut s: small_number = 0;
     let mut o: small_number = 0;
@@ -7984,39 +7978,38 @@ pub(crate) unsafe fn scan_expr() {
     let mut t: i32 = 0;
     let mut f: i32 = 0;
     let mut n: i32 = 0;
-    let mut p: i32 = 0;
     let mut q: i32 = 0;
-    l = cur_val_level as small_number;
-    a = arith_error;
-    b = false;
-    p = TEX_NULL;
+    let mut l = cur_val_level as small_number;
+    let mut a = arith_error;
+    let mut b = false;
+    let mut p = TEX_NULL;
     'c_78022: loop {
-        r = 0i32 as small_number;
-        e = 0i32;
-        s = 0i32 as small_number;
-        t = 0i32;
-        n = 0i32;
+        r = EXPR_NONE as small_number;
+        e = 0;
+        s = EXPR_NONE as small_number;
+        t = 0;
+        n = 0;
         loop {
-            if s as i32 == 0i32 {
+            if s == EXPR_NONE {
                 o = l
             } else {
-                o = 0i32 as small_number
+                o = INT_VAL as small_number
             }
             loop {
                 get_x_token();
-                if !(cur_cmd as i32 == 10i32) {
+                if !(cur_cmd == SPACER as u8) {
                     break;
                 }
             }
-            if cur_tok == 0x1800000i32 + 40i32 {
+            if cur_tok == OTHER_TOKEN + 40 {
                 break;
             }
             back_input();
-            if o as i32 == 0i32 {
+            if o == INT_VAL as i16 {
                 scan_int();
-            } else if o as i32 == 1i32 {
+            } else if o == DIMEN_VAL as i16 {
                 scan_dimen(false, false, false);
-            } else if o as i32 == 2i32 {
+            } else if o == GLUE_VAL as i16 {
                 scan_normal_glue();
             } else {
                 scan_mu_glue();
@@ -8027,80 +8020,80 @@ pub(crate) unsafe fn scan_expr() {
                 /*1572:*//*424:*/
                 {
                     get_x_token();
-                    if !(cur_cmd as i32 == 10i32) {
+                    if !(cur_cmd == SPACER as u8) {
                         break;
                     }
                 }
-                if cur_tok == 0x1800000i32 + 43i32 {
-                    o = 1i32 as small_number
-                } else if cur_tok == 0x1800000i32 + 45i32 {
-                    o = 2i32 as small_number
-                } else if cur_tok == 0x1800000i32 + 42i32 {
-                    o = 3i32 as small_number
-                } else if cur_tok == 0x1800000i32 + 47i32 {
-                    o = 4i32 as small_number
+                if cur_tok == OTHER_TOKEN + 43 {
+                    o = EXPR_ADD as small_number
+                } else if cur_tok == OTHER_TOKEN + 45 {
+                    o = EXPR_SUB as small_number
+                } else if cur_tok == OTHER_TOKEN + 42 {
+                    o = EXPR_MULT as small_number
+                } else if cur_tok == OTHER_TOKEN + 47 {
+                    o = EXPR_DIV as small_number
                 } else {
-                    o = 0i32 as small_number;
+                    o = EXPR_NONE as small_number;
                     if p.is_texnull() {
-                        if cur_cmd as i32 != 0i32 {
+                        if cur_cmd != RELAX as u8 {
                             back_input();
                         }
-                    } else if cur_tok != 0x1800000i32 + 41i32 {
+                    } else if cur_tok != OTHER_TOKEN + 41 {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
                             print_nl_cstr(b"! ");
                         }
                         print_cstr(b"Missing ) inserted for expression");
-                        help_ptr = 1_u8;
+                        help_ptr = 1;
                         help_line[0] =
                             b"I was expecting to see `+\', `-\', `*\', `/\', or `)\'. Didn\'t.";
                         back_error();
                     }
                 }
                 arith_error = b;
-                if l as i32 == 0i32 || s as i32 > 2i32 {
-                    if f > 0x7fffffffi32 || f < -0x7fffffffi32 {
+                if l == INT_VAL as i16 || s > EXPR_SUB {
+                    if f > TEX_INFINITY || f < -TEX_INFINITY {
                         arith_error = true;
-                        f = 0i32
+                        f = 0;
                     }
-                } else if l as i32 == 1i32 {
-                    if f.abs() > 0x3fffffffi32 {
+                } else if l == DIMEN_VAL as i16 {
+                    if f.abs() > MAX_HALFWORD {
                         arith_error = true;
-                        f = 0i32
+                        f = 0;
                     }
-                } else if (MEM[(f + 1) as usize].b32.s1).abs() > 0x3fffffff
-                    || (MEM[(f + 2) as usize].b32.s1).abs() > 0x3fffffff
-                    || (MEM[(f + 3) as usize].b32.s1).abs() > 0x3fffffff
+                } else if (MEM[(f + 1) as usize].b32.s1).abs() > MAX_HALFWORD
+                    || (MEM[(f + 2) as usize].b32.s1).abs() > MAX_HALFWORD
+                    || (MEM[(f + 3) as usize].b32.s1).abs() > MAX_HALFWORD
                 {
                     arith_error = true;
                     delete_glue_ref(f);
-                    f = new_spec(0i32)
+                    f = new_spec(0)
                 }
                 match s as i32 {
                     0 => {
                         /*1579: */
-                        if l as i32 >= 2i32 && o as i32 != 0i32 {
+                        if l >= GLUE_VAL as i16 && o != EXPR_NONE {
                             t = new_spec(f);
                             delete_glue_ref(f);
                             if MEM[(t + 2) as usize].b32.s1 == 0 {
-                                MEM[t as usize].b16.s1 = 0_u16
+                                MEM[t as usize].b16.s1 = NORMAL;
                             }
                             if MEM[(t + 3) as usize].b32.s1 == 0 {
-                                MEM[t as usize].b16.s0 = 0_u16
+                                MEM[t as usize].b16.s0 = NORMAL;
                             }
                         } else {
                             t = f
                         }
                     }
                     3 => {
-                        if o as i32 == 4i32 {
+                        if o == EXPR_DIV {
                             n = f;
-                            o = 5i32 as small_number
-                        } else if l as i32 == 0i32 {
-                            t = mult_and_add(t, f, 0, 0x7fffffff)
-                        } else if l as i32 == 1i32 {
-                            t = mult_and_add(t, f, 0, 0x3fffffff)
+                            o = EXPR_SCALE as small_number
+                        } else if l == INT_VAL as i16 {
+                            t = mult_and_add(t, f, 0, TEX_INFINITY)
+                        } else if l == DIMEN_VAL as i16 {
+                            t = mult_and_add(t, f, 0, MAX_HALFWORD)
                         } else {
                             MEM[(t + 1) as usize].b32.s1 =
                                 mult_and_add(MEM[(t + 1) as usize].b32.s1, f, 0, 0x3fffffff);
@@ -8111,7 +8104,7 @@ pub(crate) unsafe fn scan_expr() {
                         }
                     }
                     4 => {
-                        if (l as i32) < 2i32 {
+                        if l < GLUE_VAL as i16 {
                             t = quotient(t, f)
                         } else {
                             MEM[(t + 1) as usize].b32.s1 =
@@ -8122,10 +8115,10 @@ pub(crate) unsafe fn scan_expr() {
                         }
                     }
                     5 => {
-                        if l as i32 == 0i32 {
-                            t = fract(t, n, f, 0x7fffffffi32)
-                        } else if l as i32 == 1i32 {
-                            t = fract(t, n, f, 0x3fffffffi32)
+                        if l == INT_VAL as i16 {
+                            t = fract(t, n, f, TEX_INFINITY)
+                        } else if l == DIMEN_VAL as i16 {
+                            t = fract(t, n, f, MAX_HALFWORD)
                         } else {
                             MEM[(t + 1) as usize].b32.s1 =
                                 fract(MEM[(t + 1) as usize].b32.s1, n, f, 0x3fffffff);
@@ -8137,31 +8130,31 @@ pub(crate) unsafe fn scan_expr() {
                     }
                     _ => {}
                 }
-                if o as i32 > 2i32 {
-                    s = o
+                if o > EXPR_SUB {
+                    s = o;
                 } else {
                     /*1580: */
-                    s = 0i32 as small_number;
-                    if r as i32 == 0i32 {
+                    s = EXPR_NONE as small_number;
+                    if r == EXPR_NONE {
                         e = t
-                    } else if l as i32 == 0i32 {
-                        e = add_or_sub(e, t, 0x7fffffffi32, r as i32 == 2i32)
-                    } else if l as i32 == 1i32 {
-                        e = add_or_sub(e, t, 0x3fffffffi32, r as i32 == 2i32)
+                    } else if l == INT_VAL as i16 {
+                        e = add_or_sub(e, t, TEX_INFINITY, r == EXPR_SUB)
+                    } else if l == DIMEN_VAL as i16 {
+                        e = add_or_sub(e, t, MAX_HALFWORD, r == EXPR_SUB)
                     } else {
                         /*1582: */
                         MEM[(e + 1) as usize].b32.s1 = add_or_sub(
                             MEM[(e + 1) as usize].b32.s1,
                             MEM[(t + 1) as usize].b32.s1,
-                            0x3fffffffi32,
-                            r as i32 == 2i32,
+                            MAX_HALFWORD,
+                            r == EXPR_SUB,
                         );
                         if MEM[e as usize].b16.s1 as i32 == MEM[t as usize].b16.s1 as i32 {
                             MEM[(e + 2) as usize].b32.s1 = add_or_sub(
                                 MEM[(e + 2) as usize].b32.s1,
                                 MEM[(t + 2) as usize].b32.s1,
-                                0x3fffffffi32,
-                                r as i32 == 2i32,
+                                MAX_HALFWORD,
+                                r == EXPR_SUB,
                             )
                         } else if (MEM[e as usize].b16.s1 as i32) < MEM[t as usize].b16.s1 as i32
                             && MEM[(t + 2) as usize].b32.s1 != 0
@@ -8173,8 +8166,8 @@ pub(crate) unsafe fn scan_expr() {
                             MEM[(e + 3) as usize].b32.s1 = add_or_sub(
                                 MEM[(e + 3) as usize].b32.s1,
                                 MEM[(t + 3) as usize].b32.s1,
-                                0x3fffffffi32,
-                                r as i32 == 2i32,
+                                MAX_HALFWORD,
+                                r == EXPR_SUB,
                             )
                         } else if (MEM[e as usize].b16.s0 as i32) < MEM[t as usize].b16.s0 as i32
                             && MEM[(t + 3) as usize].b32.s1 != 0
@@ -8184,16 +8177,16 @@ pub(crate) unsafe fn scan_expr() {
                         }
                         delete_glue_ref(t);
                         if MEM[(e + 2) as usize].b32.s1 == 0 {
-                            MEM[e as usize].b16.s1 = 0_u16
+                            MEM[e as usize].b16.s1 = NORMAL;
                         }
                         if MEM[(e + 3) as usize].b32.s1 == 0 {
-                            MEM[e as usize].b16.s0 = 0_u16
+                            MEM[e as usize].b16.s0 = NORMAL;
                         }
                     }
-                    r = o
+                    r = o;
                 }
                 b = arith_error;
-                if o as i32 != 0i32 {
+                if o != EXPR_NONE as i16 {
                     break;
                 }
                 if p.is_texnull() {
@@ -8209,11 +8202,11 @@ pub(crate) unsafe fn scan_expr() {
                 r = (MEM[q as usize].b16.s0 as i32 % 4) as small_number;
                 l = MEM[q as usize].b16.s1 as small_number;
                 p = MEM[q as usize].b32.s1;
-                free_node(q, 4i32);
+                free_node(q, EXPR_NODE_SIZE);
             }
         }
         /*1576: */
-        q = get_node(4i32);
+        q = get_node(EXPR_NODE_SIZE);
         MEM[q as usize].b32.s1 = p;
         MEM[q as usize].b16.s1 = l as u16;
         MEM[q as usize].b16.s0 = (4 * s as i32 + r as i32) as u16;
@@ -8230,16 +8223,16 @@ pub(crate) unsafe fn scan_expr() {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Arithmetic overflow");
-        help_ptr = 2_u8;
+        help_ptr = 2;
         help_line[1] = b"I can\'t evaluate this expression,";
         help_line[0] = b"since the result is out of range.";
         error();
-        if l as i32 >= 2i32 {
+        if l >= GLUE_VAL as i16 {
             delete_glue_ref(e);
-            e = 0i32;
-            MEM[e as usize].b32.s1 += 1
+            e = 0;
+            MEM[e as usize].b32.s1 += 1;
         } else {
-            e = 0i32
+            e = 0;
         }
     }
     arith_error = a;
@@ -8247,18 +8240,18 @@ pub(crate) unsafe fn scan_expr() {
     cur_val_level = l as u8;
 }
 pub(crate) unsafe fn scan_normal_glue() {
-    scan_glue(2i32 as small_number);
+    scan_glue(GLUE_VAL as small_number);
 }
 pub(crate) unsafe fn scan_mu_glue() {
-    scan_glue(3i32 as small_number);
+    scan_glue(MU_VAL as small_number);
 }
 pub(crate) unsafe fn scan_rule_spec() -> i32 {
     let mut q: i32 = 0;
     q = new_rule();
-    if cur_cmd as i32 == 35i32 {
-        MEM[(q + 1) as usize].b32.s1 = 26214
+    if cur_cmd == VRULE as u8 {
+        MEM[(q + 1) as usize].b32.s1 = DEFAULT_RULE
     } else {
-        MEM[(q + 3) as usize].b32.s1 = 26214;
+        MEM[(q + 3) as usize].b32.s1 = DEFAULT_RULE;
         MEM[(q + 2) as usize].b32.s1 = 0
     }
     loop {
@@ -8279,30 +8272,26 @@ pub(crate) unsafe fn scan_rule_spec() -> i32 {
     q
 }
 pub(crate) unsafe fn scan_general_text() {
-    let mut s: u8 = 0;
-    let mut w: i32 = 0;
-    let mut d: i32 = 0;
-    let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut unbalance: i32 = 0;
-    s = scanner_status;
-    w = warning_index;
-    d = def_ref;
-    scanner_status = 5_u8;
+    let mut s = scanner_status;
+    let mut w = warning_index;
+    let mut d = def_ref;
+    scanner_status = ABSORBING as u8;
     warning_index = cur_cs;
     def_ref = get_avail();
     MEM[def_ref as usize].b32.s0 = TEX_NULL;
-    p = def_ref;
+    let mut p = def_ref;
     scan_left_brace();
-    unbalance = 1i32;
+    unbalance = 1;
     loop {
         get_token();
-        if cur_tok < 0x600000i32 {
-            if (cur_cmd as i32) < 2i32 {
+        if cur_tok < RIGHT_BRACE_LIMIT {
+            if cur_cmd < RIGHT_BRACE as u8 {
                 unbalance += 1
             } else {
                 unbalance -= 1;
-                if unbalance == 0i32 {
+                if unbalance == 0 {
                     break;
                 }
             }
@@ -8326,20 +8315,12 @@ pub(crate) unsafe fn scan_general_text() {
     def_ref = d;
 }
 pub(crate) unsafe fn pseudo_start() {
-    let mut s: str_number = 0;
-    let mut l: pool_pointer = 0;
-    let mut m: pool_pointer = 0;
-    let mut p: i32 = 0;
-    let mut q: i32 = 0;
-    let mut r: i32 = 0;
     let mut w: b16x4 = b16x4 {
         s0: 0,
         s1: 0,
         s2: 0,
         s3: 0,
     };
-    let mut nl: i32 = 0;
-    let mut sz: i32 = 0;
     scan_general_text();
     let old_setting_0 = selector;
     selector = Selector::NEW_STRING;
@@ -8349,22 +8330,22 @@ pub(crate) unsafe fn pseudo_start() {
     if pool_ptr + 1 > pool_size {
         overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
     }
-    s = make_string();
+    let mut s = make_string();
     str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
-    l = str_start[(s as i64 - 65536) as usize];
-    nl = *INTPAR(IntPar::new_line_char);
-    p = get_avail();
-    q = p;
+    let mut l = str_start[(s as i64 - 65536) as usize];
+    let mut nl = *INTPAR(IntPar::new_line_char);
+    let mut p = get_avail();
+    let mut q = p;
     while l < pool_ptr {
-        m = l;
+        let mut m = l;
         while l < pool_ptr && str_pool[l as usize] as i32 != nl {
             l += 1
         }
-        sz = (l - m + 7) / 4;
+        let mut sz = (l - m + 7) / 4;
         if sz == 1 {
             sz = 2
         }
-        r = get_node(sz);
+        let mut r = get_node(sz);
         MEM[q as usize].b32.s1 = r;
         q = r;
         MEM[q as usize].b32.s0 = sz;
@@ -8424,38 +8405,35 @@ pub(crate) unsafe fn pseudo_start() {
     };
 }
 pub(crate) unsafe fn str_toks_cat(mut b: pool_pointer, mut cat: small_number) -> i32 {
-    let mut q: i32 = 0;
-    let mut t: i32 = 0;
-    let mut k: pool_pointer = 0;
-    if pool_ptr + 1i32 > pool_size {
+    if pool_ptr + 1 > pool_size {
         overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
     }
     let mut p = TEMP_HEAD;
     MEM[p].b32.s1 = TEX_NULL;
-    k = b;
+    let mut k = b;
     while k < pool_ptr {
-        t = str_pool[k as usize] as i32;
-        if t == ' ' as i32 && cat as i32 == 0i32 {
-            t = 0x1400020i32
+        let mut t = str_pool[k as usize] as i32;
+        if t == ' ' as i32 && cat == 0 {
+            t = SPACE_TOKEN
         } else {
-            if t >= 0xd800i32
-                && t < 0xdc00i32
-                && k + 1i32 < pool_ptr
-                && str_pool[(k + 1i32) as usize] as i32 >= 0xdc00i32
-                && (str_pool[(k + 1i32) as usize] as i32) < 0xe000i32
+            if t >= 0xd800
+                && t < 0xdc00
+                && k + 1 < pool_ptr
+                && str_pool[(k + 1) as usize] as i32 >= 0xdc00
+                && (str_pool[(k + 1) as usize] as i32) < 0xe000
             {
                 k += 1;
                 t = (65536
-                    + ((t - 0xd800i32) * 1024i32) as i64
-                    + (str_pool[k as usize] as i32 - 0xdc00i32) as i64) as i32
+                    + ((t - 0xd800) * 1024) as i64
+                    + (str_pool[k as usize] as i32 - 0xdc00) as i64) as i32
             }
-            if cat as i32 == 0i32 {
-                t = 0x1800000i32 + t
+            if cat as i32 == 0 {
+                t = OTHER_TOKEN + t
             } else {
-                t = 0x200000i32 * cat as i32 + t
+                t = MAX_CHAR_VAL * cat as i32 + t
             }
         }
-        q = avail;
+        let mut q = avail;
         if q.is_texnull() {
             q = get_avail()
         } else {
@@ -8465,27 +8443,24 @@ pub(crate) unsafe fn str_toks_cat(mut b: pool_pointer, mut cat: small_number) ->
         MEM[p].b32.s1 = q;
         MEM[q as usize].b32.s0 = t;
         p = q as usize;
-        k += 1
+        k += 1;
     }
     pool_ptr = b;
     p as i32
 }
 pub(crate) unsafe fn str_toks(mut b: pool_pointer) -> i32 {
-    str_toks_cat(b, 0i32 as small_number)
+    str_toks_cat(b, 0)
 }
 pub(crate) unsafe fn the_toks() -> i32 {
-    let mut r: i32 = 0;
-    let mut b: pool_pointer = 0;
-    let mut c: small_number = 0;
-    if cur_chr & 1i32 != 0 {
-        c = cur_chr as small_number;
+    if cur_chr & 1 != 0 {
+        let c = cur_chr as small_number;
         scan_general_text();
-        if c as i32 == 1i32 {
+        if c == 1 {
             return cur_val;
         } else {
             let old_setting_0 = selector;
             selector = Selector::NEW_STRING;
-            b = pool_ptr;
+            let b = pool_ptr;
             let p = get_avail();
             MEM[p as usize].b32.s1 = MEM[TEMP_HEAD].b32.s1;
             token_show(p);
@@ -8495,18 +8470,18 @@ pub(crate) unsafe fn the_toks() -> i32 {
         }
     }
     get_x_token();
-    scan_something_internal(5i32 as small_number, false);
-    if cur_val_level as i32 >= 4i32 {
+    scan_something_internal(TOK_VAL as small_number, false);
+    if cur_val_level >= IDENT_VAL {
         /*485: */
         let mut p = TEMP_HEAD;
         MEM[p].b32.s1 = TEX_NULL;
-        if cur_val_level as i32 == 4i32 {
+        if cur_val_level == IDENT_VAL {
             let mut q = get_avail();
             MEM[p].b32.s1 = q;
-            MEM[q as usize].b32.s0 = 0x1ffffff + cur_val;
+            MEM[q as usize].b32.s0 = CS_TOKEN_FLAG + cur_val;
             p = q as usize;
         } else if !cur_val.is_texnull() {
-            r = MEM[cur_val as usize].b32.s1;
+            let mut r = MEM[cur_val as usize].b32.s1;
             while !r.is_texnull() {
                 let mut q = avail;
                 if q.is_texnull() {
@@ -8525,7 +8500,7 @@ pub(crate) unsafe fn the_toks() -> i32 {
     } else {
         let old_setting_0 = selector;
         selector = Selector::NEW_STRING;
-        b = pool_ptr;
+        let b = pool_ptr;
         match cur_val_level as i32 {
             0 => print_int(cur_val),
             1 => {
@@ -8533,11 +8508,11 @@ pub(crate) unsafe fn the_toks() -> i32 {
                 print_cstr(b"pt");
             }
             2 => {
-                print_spec(cur_val, b"pt\x00" as *const u8 as *const i8);
+                print_spec(cur_val, b"pt");
                 delete_glue_ref(cur_val);
             }
             3 => {
-                print_spec(cur_val, b"mu\x00" as *const u8 as *const i8);
+                print_spec(cur_val, b"mu");
                 delete_glue_ref(cur_val);
             }
             _ => {}
@@ -8547,8 +8522,8 @@ pub(crate) unsafe fn the_toks() -> i32 {
     };
 }
 pub(crate) unsafe fn ins_the_toks() {
-    MEM[(4999999 - 12) as usize].b32.s1 = the_toks();
-    begin_token_list(MEM[TEMP_HEAD].b32.s1, 5_u16);
+    MEM[GARBAGE as usize].b32.s1 = the_toks();
+    begin_token_list(MEM[TEMP_HEAD].b32.s1, INSERTED);
 }
 pub(crate) unsafe fn conv_toks() {
     let mut save_warning_index: i32 = 0;
@@ -8556,36 +8531,37 @@ pub(crate) unsafe fn conv_toks() {
     let mut boolvar: bool = false;
     let mut s: str_number = 0;
     let mut u: str_number = 0;
-    let mut c: small_number = 0;
     let mut save_scanner_status: small_number = 0;
     let mut b: pool_pointer = 0;
     let mut fnt: usize = 0;
     let mut arg1: i32 = 0i32;
     let mut arg2: i32 = 0i32;
     let mut font_name_str: str_number = 0;
-    let mut i: small_number = 0;
     let mut quote_char: UTF16_code = 0;
-    let mut cat: small_number = 0;
     let mut saved_chr: UnicodeScalar = 0;
     let mut p: i32 = TEX_NULL;
     let mut q: i32 = 0;
-    cat = 0i32 as small_number;
-    c = cur_chr as small_number;
+    let mut cat = 0i32 as small_number;
+    let mut c = cur_chr as small_number;
     match c as i32 {
-        0 | 1 => scan_int(),
-        2 | 3 => {
+        NUMBER_CODE | ROMAN_NUMERAL_CODE => scan_int(),
+        STRING_CODE | MEANING_CODE => {
             save_scanner_status = scanner_status as small_number;
-            scanner_status = 0_u8;
+            scanner_status = NORMAL as u8;
             get_token();
             scanner_status = save_scanner_status as u8
         }
-        4 => scan_font_ident(),
-        13 => scan_usv_num(),
-        14 => {
+        FONT_NAME_CODE => scan_font_ident(),
+        XETEX_UCHAR_CODE => scan_usv_num(),
+        XETEX_UCHARCAT_CODE => {
             scan_usv_num();
             saved_chr = cur_val;
             scan_int();
-            if cur_val < 1i32 || cur_val > 12i32 || cur_val == 5i32 || cur_val == 9i32 {
+            if cur_val < LEFT_BRACE as i32
+                || cur_val > OTHER_CHAR as i32
+                || cur_val == OUT_PARAM as i32
+                || cur_val == IGNORE as i32
+            {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -8597,37 +8573,37 @@ pub(crate) unsafe fn conv_toks() {
                 help_ptr = 1_u8;
                 help_line[0] = b"I\'m going to use 12 instead of that illegal code value.";
                 error();
-                cat = 12i32 as small_number
+                cat = 12;
             } else {
                 cat = cur_val as small_number
             }
             cur_val = saved_chr
         }
-        43 => {
+        PDF_STRCMP_CODE => {
             save_scanner_status = scanner_status as small_number;
             save_warning_index = warning_index;
             save_def_ref = def_ref;
-            if str_start[(str_ptr - 65536) as usize] < pool_ptr {
+            if str_start[(str_ptr - TOO_BIG_CHAR) as usize] < pool_ptr {
                 u = make_string()
             } else {
-                u = 0i32
+                u = 0;
             }
             compare_strings();
             def_ref = save_def_ref;
             warning_index = save_warning_index;
             scanner_status = save_scanner_status as u8;
-            if u != 0i32 {
-                str_ptr -= 1
+            if u != 0 {
+                str_ptr -= 1;
             }
         }
-        44 => {
+        PDF_MDFIVE_SUM_CODE => {
             save_scanner_status = scanner_status as small_number;
             save_warning_index = warning_index;
             save_def_ref = def_ref;
-            if str_start[(str_ptr - 65536) as usize] < pool_ptr {
+            if str_start[(str_ptr - TOO_BIG_CHAR) as usize] < pool_ptr {
                 u = make_string()
             } else {
-                u = 0i32
+                u = 0;
             }
             boolvar = scan_keyword(b"file");
             scan_pdf_ext_toks();
@@ -8648,48 +8624,48 @@ pub(crate) unsafe fn conv_toks() {
             scanner_status = save_scanner_status as u8;
             b = pool_ptr;
             getmd5sum(s, boolvar);
-            MEM[(4999999 - 12) as usize].b32.s1 = str_toks(b);
+            MEM[GARBAGE as usize].b32.s1 = str_toks(b);
             if s == str_ptr - 1 {
                 str_ptr -= 1;
-                pool_ptr = str_start[(str_ptr - 65536) as usize]
+                pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
             }
-            begin_token_list(MEM[TEMP_HEAD].b32.s1, 5_u16);
+            begin_token_list(MEM[TEMP_HEAD].b32.s1, INSERTED);
             if u != 0 {
-                str_ptr -= 1
+                str_ptr -= 1;
             }
             return;
         }
-        7 => {
+        XETEX_VARIATION_NAME_CODE => {
             scan_font_ident();
             fnt = cur_val as usize;
-            if FONT_AREA[fnt as usize] as u32 == 0xffffu32 {
+            if FONT_AREA[fnt as usize] as u32 == AAT_FONT_FLAG {
                 scan_int();
                 arg1 = cur_val;
-                arg2 = 0
+                arg2 = 0;
             } else {
-                not_aat_font_error(110, c as i32, fnt);
+                not_aat_font_error(CONVERT, c as i32, fnt);
             }
         }
-        8 => {
+        XETEX_FEATURE_NAME_CODE => {
             scan_font_ident();
             fnt = cur_val as usize;
-            if FONT_AREA[fnt as usize] as u32 == 0xffffu32
-                || FONT_AREA[fnt as usize] as u32 == 0xfffeu32
+            if FONT_AREA[fnt as usize] as u32 == AAT_FONT_FLAG
+                || FONT_AREA[fnt as usize] as u32 == OTGR_FONT_FLAG
                     && usingGraphite(FONT_LAYOUT_ENGINE[fnt as usize] as XeTeXLayoutEngine) as i32
                         != 0
             {
                 scan_int();
                 arg1 = cur_val;
-                arg2 = 0i32
+                arg2 = 0;
             } else {
-                not_aat_gr_font_error(110, c as i32, fnt);
+                not_aat_gr_font_error(CONVERT, c as i32, fnt);
             }
         }
-        9 => {
+        XETEX_SELECTOR_NAME_CODE => {
             scan_font_ident();
             fnt = cur_val as usize;
-            if FONT_AREA[fnt as usize] as u32 == 0xffffu32
-                || FONT_AREA[fnt as usize] as u32 == 0xfffeu32
+            if FONT_AREA[fnt as usize] as u32 == AAT_FONT_FLAG
+                || FONT_AREA[fnt as usize] as u32 == OTGR_FONT_FLAG
                     && usingGraphite(FONT_LAYOUT_ENGINE[fnt as usize] as XeTeXLayoutEngine) as i32
                         != 0
             {
@@ -8698,72 +8674,70 @@ pub(crate) unsafe fn conv_toks() {
                 scan_int();
                 arg2 = cur_val
             } else {
-                not_aat_gr_font_error(110, c as i32, fnt);
+                not_aat_gr_font_error(CONVERT, c as i32, fnt);
             }
         }
-        10 => {
+        XETEX_GLYPH_NAME_CODE => {
             scan_font_ident();
             fnt = cur_val as usize;
-            if FONT_AREA[fnt as usize] as u32 == 0xffffu32
-                || FONT_AREA[fnt as usize] as u32 == 0xfffeu32
+            if FONT_AREA[fnt as usize] as u32 == AAT_FONT_FLAG
+                || FONT_AREA[fnt as usize] as u32 == OTGR_FONT_FLAG
             {
                 scan_int();
                 arg1 = cur_val
             } else {
-                not_native_font_error(110, c as i32, fnt);
+                not_native_font_error(CONVERT, c as i32, fnt);
             }
         }
-        11 | 12 => {
+        LEFT_MARGIN_KERN_CODE | RIGHT_MARGIN_KERN_CODE => {
             scan_register_num();
             if cur_val < 256 {
                 p = *BOX_REG(cur_val as usize)
             } else {
-                find_sa_element(4i32 as small_number, cur_val, false);
+                find_sa_element(4, cur_val, false);
                 if cur_ptr.is_texnull() {
                     p = TEX_NULL
                 } else {
                     p = MEM[(cur_ptr + 1) as usize].b32.s1
                 }
             }
-            if p.is_texnull() || MEM[p as usize].b16.s1 as i32 != 0 {
+            if p.is_texnull() || *NODE_type(p as isize) != HLIST_NODE {
                 pdf_error(b"marginkern", b"a non-empty hbox expected");
             }
         }
-        15 => {
-            if job_name == 0i32 {
+        JOB_NAME_CODE => {
+            if job_name == 0 {
                 open_log_file();
             }
         }
-        5 | 6 | _ => {}
+        ETEX_REVISION_CODE | XETEX_REVISION_CODE | _ => {}
     }
     let old_setting_0 = selector;
     selector = Selector::NEW_STRING;
     b = pool_ptr;
     match c as i32 {
-        0 => print_int(cur_val),
-        1 => print_roman_int(cur_val),
-        2 => {
-            if cur_cs != 0i32 {
+        NUMBER_CODE => print_int(cur_val),
+        ROMAN_NUMERAL_CODE => print_roman_int(cur_val),
+        STRING_CODE => {
+            if cur_cs != 0 {
                 sprint_cs(cur_cs);
             } else {
                 print_char(cur_chr);
             }
         }
-        3 => print_meaning(),
-        4 => {
+        MEANING_CODE => print_meaning(),
+        FONT_NAME_CODE => {
             font_name_str = FONT_NAME[cur_val as usize];
             match FONT_AREA[cur_val as usize] as u32 {
-                0xffffu32 | 0xfffeu32 => {
+                AAT_FONT_FLAG | OTGR_FONT_FLAG => {
                     quote_char = '\"' as i32 as UTF16_code;
-                    i = 0i32 as small_number;
-                    while i as i32 <= length(font_name_str) - 1i32 {
+                    for i in 0..=(length(font_name_str) - 1) {
                         if str_pool[(str_start[(font_name_str as i64 - 65536) as usize] + i as i32)
                             as usize] as i32
                             == '\"' as i32
                         {
                             quote_char = '\'' as i32 as UTF16_code
                         }
-                        i += 1
                     }
                     print_char(quote_char as i32);
                     print(font_name_str);
@@ -8777,14 +8751,14 @@ pub(crate) unsafe fn conv_toks() {
                 print_cstr(b"pt");
             }
         }
-        13 | 14 => print_char(cur_val),
-        5 => print_cstr(b".6"),
-        43 => print_int(cur_val),
-        6 => print_cstr(b".99998"),
-        7 => {
+        XETEX_UCHAR_CODE | XETEX_UCHARCAT_CODE => print_char(cur_val),
+        ETEX_REVISION_CODE => print_cstr(b".6"),
+        PDF_STRCMP_CODE => print_int(cur_val),
+        XETEX_REVISION_CODE => print_cstr(b".99998"),
+        XETEX_VARIATION_NAME_CODE => {
             match FONT_AREA[fnt as usize] as u32 {
                 #[cfg(target_os = "macos")]
-                0xffffu32 => {
+                AAT_FONT_FLAG => {
                     aat::aat_print_font_name(
                         c as i32,
                         (FONT_LAYOUT_ENGINE[fnt as usize]) as _,
@@ -8793,7 +8767,7 @@ pub(crate) unsafe fn conv_toks() {
                     );
                 }
                 #[cfg(not(target_os = "macos"))]
-                0xffffu32 => {
+                AAT_FONT_FLAG => {
                     // do nothing
                 }
                 _ => {
@@ -8801,10 +8775,10 @@ pub(crate) unsafe fn conv_toks() {
                 }
             }
         }
-        8 | 9 => {
+        XETEX_FEATURE_NAME_CODE | XETEX_SELECTOR_NAME_CODE => {
             match FONT_AREA[fnt as usize] as u32 {
                 #[cfg(target_os = "macos")]
-                0xffffu32 => {
+                AAT_FONT_FLAG => {
                     aat::aat_print_font_name(
                         c as i32,
                         (FONT_LAYOUT_ENGINE[fnt as usize]) as _,
@@ -8813,10 +8787,10 @@ pub(crate) unsafe fn conv_toks() {
                     );
                 }
                 #[cfg(not(target_os = "macos"))]
-                0xffffu32 => {
+                AAT_FONT_FLAG => {
                     // do nothing
                 }
-                0xfffeu32 => {
+                OTGR_FONT_FLAG => {
                     if usingGraphite(FONT_LAYOUT_ENGINE[fnt as usize] as XeTeXLayoutEngine) as i32
                         != 0
                     {
@@ -8826,42 +8800,43 @@ pub(crate) unsafe fn conv_toks() {
                 _ => {}
             }
         }
-        10 => match FONT_AREA[fnt as usize] as u32 {
-            0xffffu32 | 0xfffeu32 => print_glyph_name(fnt, arg1),
+        XETEX_GLYPH_NAME_CODE => match FONT_AREA[fnt as usize] as u32 {
+            AAT_FONT_FLAG | OTGR_FONT_FLAG => print_glyph_name(fnt, arg1),
             _ => {}
         },
-        11 => {
+        LEFT_MARGIN_KERN_CODE => {
             p = MEM[(p + 5) as usize].b32.s1;
             while !p.is_texnull()
                 && (p < hi_mem_min
-                    && (MEM[p as usize].b16.s1 as i32 == 3
-                        || MEM[p as usize].b16.s1 as i32 == 4
-                        || MEM[p as usize].b16.s1 as i32 == 5
-                        || MEM[p as usize].b16.s1 as i32 == 12
-                        || MEM[p as usize].b16.s1 as i32 == 7
+                    && (*NODE_type(p as isize) == INS_NODE
+                        || *NODE_type(p as isize) == MARK_NODE
+                        || *NODE_type(p as isize) == ADJUST_NODE
+                        || *NODE_type(p as isize) == PENALTY_NODE
+                        || *NODE_type(p as isize) == DISC_NODE
                             && MEM[(p + 1) as usize].b32.s0.is_texnull()
                             && MEM[(p + 1) as usize].b32.s1.is_texnull()
-                            && MEM[p as usize].b16.s0 as i32 == 0
-                        || MEM[p as usize].b16.s1 as i32 == 9 && MEM[(p + 1) as usize].b32.s1 == 0
-                        || MEM[p as usize].b16.s1 as i32 == 11
+                            && MEM[p as usize].b16.s0 == 0
+                        || *NODE_type(p as isize) == MATH_NODE
+                            && MEM[(p + 1) as usize].b32.s1 == 0
+                        || *NODE_type(p as isize) == KERN_NODE
                             && (MEM[(p + 1) as usize].b32.s1 == 0
-                                || MEM[p as usize].b16.s0 as i32 == 0)
-                        || MEM[p as usize].b16.s1 as i32 == 10
+                                || MEM[p as usize].b16.s0 == NORMAL)
+                        || *NODE_type(p as isize) == GLUE_NODE
                             && MEM[(p + 1) as usize].b32.s0 == 0
-                        || MEM[p as usize].b16.s1 as i32 == 0
+                        || *NODE_type(p as isize) == HLIST_NODE
                             && MEM[(p + 1) as usize].b32.s1 == 0
                             && MEM[(p + 3) as usize].b32.s1 == 0
                             && MEM[(p + 2) as usize].b32.s1 == 0
                             && MEM[(p + 5) as usize].b32.s1.is_texnull())
                     || p < hi_mem_min
-                        && MEM[p as usize].b16.s1 as i32 == 10
-                        && MEM[p as usize].b16.s0 as i32 == 7 + 1)
+                        && *NODE_type(p as isize) == GLUE_NODE
+                        && MEM[p as usize].b16.s0 == (GluePar::left_skip as u16) + 1)
             {
                 p = *LLIST_link(p as isize)
             }
             if !p.is_texnull()
                 && p < hi_mem_min
-                && MEM[p as usize].b16.s1 as i32 == 40
+                && *NODE_type(p as isize) == MARGIN_KERN_NODE
                 && MEM[p as usize].b16.s0 as i32 == 0
             {
                 print_scaled(MEM[(p + 1) as usize].b32.s1);
@@ -8870,40 +8845,41 @@ pub(crate) unsafe fn conv_toks() {
             }
             print_cstr(b"pt");
         }
-        12 => {
+        RIGHT_MARGIN_KERN_CODE => {
             q = MEM[(p + 5) as usize].b32.s1;
             p = prev_rightmost(q, TEX_NULL);
             while !p.is_texnull()
                 && (p < hi_mem_min
-                    && (MEM[p as usize].b16.s1 as i32 == 3
-                        || MEM[p as usize].b16.s1 as i32 == 4
-                        || MEM[p as usize].b16.s1 as i32 == 5
-                        || MEM[p as usize].b16.s1 as i32 == 12
-                        || MEM[p as usize].b16.s1 as i32 == 7
+                    && (*NODE_type(p as isize) == INS_NODE
+                        || *NODE_type(p as isize) == MARK_NODE
+                        || *NODE_type(p as isize) == ADJUST_NODE
+                        || *NODE_type(p as isize) == PENALTY_NODE
+                        || *NODE_type(p as isize) == DISC_NODE
                             && MEM[(p + 1) as usize].b32.s0.is_texnull()
                             && MEM[(p + 1) as usize].b32.s1.is_texnull()
                             && MEM[p as usize].b16.s0 as i32 == 0
-                        || MEM[p as usize].b16.s1 as i32 == 9 && MEM[(p + 1) as usize].b32.s1 == 0
-                        || MEM[p as usize].b16.s1 as i32 == 11
+                        || *NODE_type(p as isize) == MATH_NODE
+                            && MEM[(p + 1) as usize].b32.s1 == 0
+                        || *NODE_type(p as isize) == KERN_NODE
                             && (MEM[(p + 1) as usize].b32.s1 == 0
-                                || MEM[p as usize].b16.s0 as i32 == 0)
-                        || MEM[p as usize].b16.s1 as i32 == 10
+                                || MEM[p as usize].b16.s0 == NORMAL)
+                        || *NODE_type(p as isize) == GLUE_NODE
                             && MEM[(p + 1) as usize].b32.s0 == 0
-                        || MEM[p as usize].b16.s1 as i32 == 0
+                        || *NODE_type(p as isize) == HLIST_NODE
                             && MEM[(p + 1) as usize].b32.s1 == 0
                             && MEM[(p + 3) as usize].b32.s1 == 0
                             && MEM[(p + 2) as usize].b32.s1 == 0
                             && MEM[(p + 5) as usize].b32.s1.is_texnull())
                     || p < hi_mem_min
-                        && MEM[p as usize].b16.s1 as i32 == 10
-                        && MEM[p as usize].b16.s0 as i32 == 8 + 1)
+                        && *NODE_type(p as isize) == GLUE_NODE
+                        && MEM[p as usize].b16.s0 == (GluePar::right_skip as u16) + 1)
             {
                 p = prev_rightmost(q, p)
             }
             if !p.is_texnull()
                 && p < hi_mem_min
-                && MEM[p as usize].b16.s1 as i32 == 40
-                && MEM[p as usize].b16.s0 as i32 == 1
+                && *NODE_type(p as isize) == MARGIN_KERN_NODE
+                && MEM[p as usize].b16.s0 == 1
             {
                 print_scaled(MEM[(p + 1) as usize].b32.s1);
             } else {
@@ -8911,46 +8887,43 @@ pub(crate) unsafe fn conv_toks() {
             }
             print_cstr(b"pt");
         }
-        15 => print_file_name(job_name, 0i32, 0i32),
+        JOB_NAME_CODE => print_file_name(job_name, 0, 0),
         _ => {}
     }
     selector = old_setting_0;
-    MEM[(4999999 - 12) as usize].b32.s1 = str_toks_cat(b, cat);
-    begin_token_list(MEM[TEMP_HEAD].b32.s1, 5_u16);
+    MEM[GARBAGE].b32.s1 = str_toks_cat(b, cat);
+    begin_token_list(MEM[TEMP_HEAD].b32.s1, INSERTED);
 }
 pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
     let mut current_block: u64;
-    let mut t: i32 = 0;
     let mut s: i32 = 0;
-    let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut unbalance: i32 = 0;
-    let mut hash_brace: i32 = 0;
-    if macro_def {
-        scanner_status = 2_u8
+    scanner_status = if macro_def {
+        DEFINING as u8
     } else {
-        scanner_status = 5_u8
-    }
+        ABSORBING as u8
+    };
     warning_index = cur_cs;
     def_ref = get_avail();
     MEM[def_ref as usize].b32.s0 = TEX_NULL;
-    p = def_ref;
-    hash_brace = 0i32;
-    t = 0x1800000i32 + '0' as i32;
+    let mut p = def_ref;
+    let mut hash_brace = 0;
+    let mut t = ZERO_TOKEN;
     if macro_def {
         loop
         /*493: */
         {
             get_token();
-            if cur_tok < 0x600000i32 {
+            if cur_tok < RIGHT_BRACE_LIMIT {
                 current_block = 7086859973843054082;
                 break;
             }
-            if cur_cmd as i32 == 6i32 {
+            if cur_cmd == MAC_PARAM as u8 {
                 /*495: */
-                s = 0x1a00000i32 + cur_chr;
+                s = MATCH_TOKEN + cur_chr;
                 get_token();
-                if cur_cmd as i32 == 1i32 {
+                if cur_cmd == LEFT_BRACE as u8 {
                     hash_brace = cur_tok;
                     q = get_avail();
                     MEM[p as usize].b32.s1 = q;
@@ -8958,18 +8931,18 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
                     p = q;
                     q = get_avail();
                     MEM[p as usize].b32.s1 = q;
-                    MEM[q as usize].b32.s0 = 0x1c00000;
+                    MEM[q as usize].b32.s0 = END_MATCH_TOKEN;
                     p = q;
                     current_block = 2723324002591448311;
                     break;
-                } else if t == 0x1800000i32 + '0' as i32 + 9i32 {
+                } else if t == ZERO_TOKEN + 9 {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
                         print_nl_cstr(b"! ");
                     }
                     print_cstr(b"You already have nine parameters");
-                    help_ptr = 1_u8;
+                    help_ptr = 1;
                     help_line[0] = b"I\'m going to ignore the # sign you just used.";
                     error();
                 } else {
@@ -8981,7 +8954,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
                             print_nl_cstr(b"! ");
                         }
                         print_cstr(b"Parameters must be numbered consecutively");
-                        help_ptr = 2_u8;
+                        help_ptr = 2;
                         help_line[1] =
                             b"I\'ve inserted the digit you should have used after the #.";
                         help_line[0] = b"Type `1\' to delete what you did use.";
@@ -9000,9 +8973,9 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
             _ => {
                 q = get_avail();
                 MEM[p as usize].b32.s1 = q;
-                MEM[q as usize].b32.s0 = 0x1c00000;
+                MEM[q as usize].b32.s0 = END_MATCH_TOKEN;
                 p = q;
-                if cur_cmd as i32 == 2i32 {
+                if cur_cmd == RIGHT_BRACE as u8 {
                     /*494: */
                     if file_line_error_style_p != 0 {
                         print_file_line();
@@ -9011,7 +8984,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
                     }
                     print_cstr(b"Missing { inserted");
                     align_state += 1;
-                    help_ptr = 2_u8;
+                    help_ptr = 2;
                     help_line[1] =
                         b"Where was the left brace? You said something like `\\def\\a}\',";
                     help_line[0] = b"which I\'m going to interpret as `\\def\\a{}\'.";
@@ -9028,25 +9001,24 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
     }
     match current_block {
         2723324002591448311 => {
-            unbalance = 1i32;
+            unbalance = 1;
             loop {
                 if xpand {
                     loop
                     /*497: */
                     {
                         get_next();
-                        if cur_cmd as i32 >= 113i32 {
-                            if MEM[MEM[cur_chr as usize].b32.s1 as usize].b32.s0
-                                == 0x1c00000i32 + 1i32
+                        if cur_cmd >= CALL as u8 {
+                            if MEM[MEM[cur_chr as usize].b32.s1 as usize].b32.s0 == PROTECTED_TOKEN
                             {
-                                cur_cmd = 0i32 as eight_bits;
-                                cur_chr = 0x10ffffi32 + 2i32
+                                cur_cmd = RELAX as u8;
+                                cur_chr = NO_EXPAND_FLAG;
                             }
                         }
-                        if cur_cmd as i32 <= 102i32 {
+                        if cur_cmd as i32 <= MAX_COMMAND {
                             break;
                         }
-                        if cur_cmd as i32 != 111i32 {
+                        if cur_cmd != THE as u8 {
                             expand();
                         } else {
                             q = the_toks();
@@ -9060,16 +9032,16 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
                 } else {
                     get_token();
                 }
-                if cur_tok < 0x600000i32 {
-                    if (cur_cmd as i32) < 2i32 {
-                        unbalance += 1
+                if cur_tok < RIGHT_BRACE_LIMIT {
+                    if cur_cmd < RIGHT_BRACE as u8 {
+                        unbalance += 1;
                     } else {
                         unbalance -= 1;
-                        if unbalance == 0i32 {
+                        if unbalance == 0 {
                             break;
                         }
                     }
-                } else if cur_cmd as i32 == 6i32 {
+                } else if cur_cmd == MAC_PARAM as u8 {
                     if macro_def {
                         /*498: */
                         s = cur_tok;
@@ -9078,8 +9050,8 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
                         } else {
                             get_token();
                         }
-                        if cur_cmd as i32 != 6i32 {
-                            if cur_tok <= 0x1800000i32 + '0' as i32 || cur_tok > t {
+                        if cur_cmd != MAC_PARAM as u8 {
+                            if cur_tok <= ZERO_TOKEN || cur_tok > t {
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
                                 } else {
@@ -9087,7 +9059,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
                                 }
                                 print_cstr(b"Illegal parameter number in definition of ");
                                 sprint_cs(warning_index);
-                                help_ptr = 3_u8;
+                                help_ptr = 3;
                                 help_line[2] = b"You meant to type ## instead of #, right?";
                                 help_line[1] =
                                     b"Or maybe a } was forgotten somewhere earlier, and things";
@@ -9096,7 +9068,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
                                 back_error();
                                 cur_tok = s
                             } else {
-                                cur_tok = 0xa00000i32 - 48i32 + cur_chr
+                                cur_tok = OUT_PARAM_TOKEN - 48 + cur_chr
                             }
                         }
                     }
@@ -9109,8 +9081,8 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
         }
         _ => {}
     }
-    scanner_status = 0_u8;
-    if hash_brace != 0i32 {
+    scanner_status = NORMAL as u8;
+    if hash_brace != 0 {
         q = get_avail();
         MEM[p as usize].b32.s1 = q;
         MEM[q as usize].b32.s0 = hash_brace;
